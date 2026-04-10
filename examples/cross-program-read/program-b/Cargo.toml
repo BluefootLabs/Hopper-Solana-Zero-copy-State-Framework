@@ -1,0 +1,23 @@
+[package]
+name = "hopper-xp-program-b"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+description = "Cross-program read example - Program B (vault reader via hopper_interface!)"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+hopper = { path = "../../..", default-features = false }
+five8_const = { workspace = true }
+
+[features]
+default = ["hopper-native-backend"]
+hopper-native-backend = ["hopper/hopper-native-backend"]
+pinocchio-backend = ["hopper/pinocchio-backend"]
+solana-program-backend = ["hopper/solana-program-backend"]
+
+[lints.rust]
+unexpected_cfgs = { level = "allow", check-cfg = ['cfg(target_os, values("solana"))'] }

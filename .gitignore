@@ -1,0 +1,27 @@
+/target
+
+# IDE / editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local-only notes (research, planning, internal docs not part of the project)
+docs/Where Hopper stands now.txt
+docs/FRAMEWORK_RESEARCH_2026_03.md
+docs/JIMINY_FRAMEWORK_ANALYSIS.md
+docs/COMPETITIVE_FRAMEWORK_ANALYSIS.md
+docs/Untitled-*.md
+docs/fmwk*.md
+
+# Catch-all: ignore planning docs
+examples/*.md
+docs/*.txt
+
+# Memory / session files
+memories/

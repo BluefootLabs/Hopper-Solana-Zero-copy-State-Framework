@@ -1,0 +1,91 @@
+[workspace]
+members = [
+    ".",
+    "crates/hopper-native",
+    "crates/hopper-runtime",
+    "crates/hopper-core",
+    "crates/hopper-macros",
+    "crates/hopper-schema",
+    "crates/hopper-solana",
+    "crates/hopper-finance",
+    "crates/hopper-lending",
+    "crates/hopper-staking",
+    "crates/hopper-vesting",
+    "crates/hopper-distribute",
+    "crates/hopper-multisig",
+    "crates/hopper-anchor",
+    "examples/hopper-vault",
+    "examples/hopper-escrow",
+    "examples/hopper-showcase",
+    "examples/hopper-treasury",
+    "examples/hopper-registry",
+    "examples/hopper-migration",
+    "examples/hopper-virtual-state",
+    "examples/cross-program-read/program-a",
+    "examples/cross-program-read/program-b",
+    "bench/hopper-bench",
+    "tools/hopper-cli",
+]
+resolver = "2"
+
+[workspace.lints.rust]
+unexpected_cfgs = { level = "allow", check-cfg = [
+    'cfg(target_os, values("solana"))',
+    'cfg(target_arch, values("bpf"))',
+] }
+
+[workspace.dependencies]
+pinocchio = { version = "0.10", features = ["cpi", "copy"] }
+pinocchio-system = "0.5"
+pinocchio-token = "0.5"
+five8_const = "0.1"
+sha2-const-stable = "0.1"
+hopper-native = { path = "crates/hopper-native", version = "0.1.0", default-features = false }
+hopper-runtime = { path = "crates/hopper-runtime", version = "0.1.0", default-features = false }
+hopper = { path = ".", version = "0.1.0" }
+hopper-core = { path = "crates/hopper-core", version = "0.1.0" }
+hopper-macros = { path = "crates/hopper-macros", version = "0.1.0" }
+hopper-schema = { path = "crates/hopper-schema", version = "0.1.0" }
+hopper-solana = { path = "crates/hopper-solana", version = "0.1.0" }
+hopper-finance = { path = "crates/hopper-finance", version = "0.1.0" }
+hopper-lending = { path = "crates/hopper-lending", version = "0.1.0" }
+hopper-staking = { path = "crates/hopper-staking", version = "0.1.0" }
+hopper-vesting = { path = "crates/hopper-vesting", version = "0.1.0" }
+hopper-distribute = { path = "crates/hopper-distribute", version = "0.1.0" }
+hopper-multisig = { path = "crates/hopper-multisig", version = "0.1.0" }
+hopper-anchor = { path = "crates/hopper-anchor", version = "0.1.0" }
+
+[package]
+name = "hopper"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+authors = ["BluefootLabs"]
+description = "Zero-copy state framework for Solana. Typed account architecture, phased execution, validation graphs, zero-copy collections, layout evolution, and cross-program interfaces. Built on Hopper Native. no_std, no_alloc, no proc macros required."
+repository = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework"
+homepage = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework"
+documentation = "https://docs.rs/hopper"
+readme = "README.md"
+keywords = ["solana", "zero-copy", "framework", "state", "no-std"]
+categories = ["no-std", "embedded"]
+
+[lib]
+name = "hopper"
+
+[dependencies]
+hopper-runtime = { workspace = true }
+sha2-const-stable = { workspace = true }
+hopper-core = { workspace = true }
+hopper-macros = { workspace = true }
+hopper-schema = { workspace = true }
+hopper-solana = { workspace = true }
+
+[features]
+default = ["hopper-native-backend"]
+hopper-native-backend = ["hopper-runtime/hopper-native-backend"]
+pinocchio-backend = ["hopper-runtime/pinocchio-backend"]
+solana-program-backend = ["hopper-runtime/solana-program-backend"]
+cu-trace = ["hopper-runtime/cu-trace"]
+
+[lints.rust]
+unexpected_cfgs = { level = "allow", check-cfg = ['cfg(target_os, values("solana"))'] }

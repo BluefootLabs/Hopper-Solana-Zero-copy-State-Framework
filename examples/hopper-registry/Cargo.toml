@@ -1,0 +1,21 @@
+[package]
+name = "hopper-registry"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+hopper = { path = "../..", default-features = false }
+
+[features]
+default = ["hopper-native-backend"]
+hopper-native-backend = ["hopper/hopper-native-backend"]
+pinocchio-backend = ["hopper/pinocchio-backend"]
+solana-program-backend = ["hopper/solana-program-backend"]
+
+[lints.rust]
+unexpected_cfgs = { level = "allow", check-cfg = ['cfg(target_os, values("solana"))'] }

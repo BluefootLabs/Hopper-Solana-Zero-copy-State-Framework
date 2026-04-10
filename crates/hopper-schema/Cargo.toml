@@ -1,0 +1,20 @@
+[package]
+name = "hopper-schema"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+authors = ["BluefootLabs"]
+description = "Schema export and ABI fingerprinting for Hopper zero-copy state framework. Layout manifests, schema diff, migration checks."
+repository = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework"
+homepage = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework"
+documentation = "https://docs.rs/hopper-schema"
+readme = "README.md"
+keywords = ["solana", "zero-copy", "schema", "idl", "abi"]
+categories = ["no-std"]
+
+[lib]
+name = "hopper_schema"
+
+[dependencies]
+hopper-core = { workspace = true }
+hopper-runtime = { workspace = true }

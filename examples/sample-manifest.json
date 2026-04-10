@@ -1,0 +1,113 @@
+{
+  "name": "hopper_vault",
+  "version": "0.1.0",
+  "description": "A sample vault program demonstrating Hopper Manager",
+  "layouts": [
+    {
+      "name": "VaultState",
+      "disc": 1,
+      "version": 1,
+      "layout_id": [171, 205, 239, 1, 35, 69, 103, 137],
+      "total_size": 57,
+      "fields": [
+        {"name": "authority", "type": "[u8;32]", "size": 32, "offset": 16},
+        {"name": "balance",   "type": "WireU64", "size": 8,  "offset": 48},
+        {"name": "bump",      "type": "u8",      "size": 1,  "offset": 56}
+      ]
+    },
+    {
+      "name": "VaultConfig",
+      "disc": 2,
+      "version": 1,
+      "layout_id": [99, 100, 101, 102, 103, 104, 105, 106],
+      "total_size": 49,
+      "fields": [
+        {"name": "admin",       "type": "[u8;32]", "size": 32, "offset": 16},
+        {"name": "frozen",      "type": "WireBool", "size": 1, "offset": 48}
+      ]
+    }
+  ],
+  "instructions": [
+    {
+      "name": "initialize",
+      "tag": 0,
+      "args": [],
+      "accounts": [
+        {"name": "vault",     "writable": true,  "signer": false, "layout_ref": "VaultState"},
+        {"name": "authority", "writable": false, "signer": true,  "layout_ref": ""},
+        {"name": "system",    "writable": false, "signer": false, "layout_ref": ""}
+      ],
+      "capabilities": ["CreatesAccount", "MutatesState"],
+      "policy_pack": "",
+      "receipt_expected": true
+    },
+    {
+      "name": "deposit",
+      "tag": 1,
+      "args": [
+        {"name": "amount", "type": "WireU64", "size": 8}
+      ],
+      "accounts": [
+        {"name": "vault",     "writable": true,  "signer": false, "layout_ref": "VaultState"},
+        {"name": "authority", "writable": false, "signer": true,  "layout_ref": ""},
+        {"name": "token_src", "writable": true,  "signer": false, "layout_ref": ""},
+        {"name": "token_dst", "writable": true,  "signer": false, "layout_ref": ""},
+        {"name": "token_prog","writable": false, "signer": false, "layout_ref": ""}
+      ],
+      "capabilities": ["MutatesState", "MutatesTreasury", "TransfersTokens"],
+      "policy_pack": "TREASURY_WRITE",
+      "receipt_expected": true
+    },
+    {
+      "name": "withdraw",
+      "tag": 2,
+      "args": [
+        {"name": "amount", "type": "WireU64", "size": 8}
+      ],
+      "accounts": [
+        {"name": "vault",      "writable": true,  "signer": false, "layout_ref": "VaultState"},
+        {"name": "authority",  "writable": false, "signer": true,  "layout_ref": ""},
+        {"name": "token_src",  "writable": true,  "signer": false, "layout_ref": ""},
+        {"name": "token_dst",  "writable": true,  "signer": false, "layout_ref": ""},
+        {"name": "token_prog", "writable": false, "signer": false, "layout_ref": ""}
+      ],
+      "capabilities": ["MutatesState", "MutatesTreasury", "TransfersTokens"],
+      "policy_pack": "TREASURY_WRITE",
+      "receipt_expected": true
+    },
+    {
+      "name": "freeze",
+      "tag": 3,
+      "args": [],
+      "accounts": [
+        {"name": "config",    "writable": true,  "signer": false, "layout_ref": "VaultConfig"},
+        {"name": "admin",     "writable": false, "signer": true,  "layout_ref": ""}
+      ],
+      "capabilities": ["MutatesState", "ModifiesAuthority"],
+      "policy_pack": "AUTHORITY_CHANGE",
+      "receipt_expected": false
+    }
+  ],
+  "events": [
+    {
+      "name": "DepositEvent",
+      "tag": 1,
+      "fields": [
+        {"name": "amount", "type": "WireU64", "size": 8, "offset": 0},
+        {"name": "new_balance", "type": "WireU64", "size": 8, "offset": 8}
+      ]
+    }
+  ],
+  "policies": [
+    {
+      "name": "TREASURY_WRITE",
+      "capabilities": ["MutatesState", "MutatesTreasury"],
+      "requirements": ["SignerAuthority", "SnapshotCommit", "ConservationCheck"]
+    },
+    {
+      "name": "AUTHORITY_CHANGE",
+      "capabilities": ["MutatesState", "ModifiesAuthority"],
+      "requirements": ["SignerAuthority", "CpiGuard", "InvariantCheck"]
+    }
+  ]
+}

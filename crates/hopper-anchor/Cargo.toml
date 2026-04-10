@@ -1,0 +1,20 @@
+[package]
+name = "hopper-anchor"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+authors = ["BluefootLabs"]
+description = "Anchor framework interoperability for Hopper. Read Anchor-created accounts, verify discriminators, overlay zero-copy types on Anchor account bodies."
+repository = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework"
+homepage = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework"
+documentation = "https://docs.rs/hopper-anchor"
+readme = "../../README.md"
+keywords = ["solana", "zero-copy", "anchor", "interop", "hopper-native"]
+categories = ["no-std"]
+
+[lib]
+name = "hopper_anchor"
+
+[dependencies]
+hopper-runtime = { workspace = true }
+sha2-const-stable = { workspace = true }
