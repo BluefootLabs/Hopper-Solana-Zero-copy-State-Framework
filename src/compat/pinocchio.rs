@@ -9,6 +9,8 @@ pub type BackendAddress = pinocchio::Address;
 pub type BackendProgramResult = pinocchio::ProgramResult;
 pub type BackendRef<'a, T> = pinocchio::account::Ref<'a, T>;
 pub type BackendRefMut<'a, T> = pinocchio::account::RefMut<'a, T>;
+pub const BACKEND_MAX_TX_ACCOUNTS: usize = pinocchio::MAX_TX_ACCOUNTS;
+pub const BACKEND_SUCCESS: u64 = pinocchio::SUCCESS;
 
 #[inline(always)]
 pub unsafe fn wrap_account_slice(accounts: &[BackendAccountView]) -> &[AccountView] {

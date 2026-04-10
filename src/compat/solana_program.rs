@@ -11,6 +11,8 @@ pub type BackendAddress = ::solana_program::pubkey::Pubkey;
 pub type BackendProgramResult = ::solana_program::entrypoint::ProgramResult;
 pub type BackendRef<'a, T> = Ref<'a, T>;
 pub type BackendRefMut<'a, T> = RefMut<'a, T>;
+pub const BACKEND_MAX_TX_ACCOUNTS: usize = 254;
+pub const BACKEND_SUCCESS: u64 = ::solana_program::entrypoint::SUCCESS;
 
 #[repr(transparent)]
 #[derive(Clone)]
