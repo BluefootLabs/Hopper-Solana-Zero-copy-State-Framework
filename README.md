@@ -49,6 +49,14 @@ Compatibility
   hopper compat --why <old> <new>    Compatibility report with explanation
   hopper plan <old> <new>            Migration plan with steps
 
+Lifecycle
+  hopper init <path>                 Create a Hopper-native project scaffold
+  hopper build [--host|--sbf]        Build the current project (default: SBF)
+  hopper test                        Run host-side tests for the current project
+
+Profiling
+  hopper profile bench               Run the primitive benchmark lab and emit JSON/CSV artifacts
+
 Direct aliases
   hopper decode <hex>                Alias for inspect
   hopper segments <hex>              Alias for inspect segments

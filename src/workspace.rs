@@ -1,0 +1,107 @@
+use std::env;
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::process::{Command, ExitStatus, Output};
+
+pub fn current_dir() -> Result<PathBuf, String> {
+    env::current_dir().map_err(|err| format!("Failed to determine current directory: {err}"))
+}
+
+pub fn find_project_root(start: &Path) -> Result<PathBuf, String> {
+    for dir in start.ancestors() {
+        if dir.join("Cargo.toml").exists() {
+            return Ok(dir.to_path_buf());
+        }
+    }
+    Err(format!(
+        "No Cargo.toml found while searching upward from {}",
+        start.display()
+    ))
+}
+
+pub fn find_workspace_root(start: &Path) -> Result<PathBuf, String> {
+    let mut workspace = None;
+    for dir in start.ancestors() {
+        let cargo_toml = dir.join("Cargo.toml");
+        if !cargo_toml.exists() {
+            continue;
+        }
+
+        let content = fs::read_to_string(&cargo_toml).unwrap_or_default();
+        if content.contains("[workspace]") {
+            workspace = Some(dir.to_path_buf());
+        }
+    }
+
+    workspace.or_else(|| find_project_root(start).ok()).ok_or_else(|| {
+        format!(
+            "No Cargo workspace root found while searching upward from {}",
+            start.display()
+        )
+    })
+}
+
+pub fn run_status(program: &str, args: &[String], cwd: &Path) -> Result<ExitStatus, String> {
+    Command::new(program)
+        .args(args)
+        .current_dir(cwd)
+        .status()
+        .map_err(|err| format!("Failed to run {}: {err}", display_command(program, args)))
+}
+
+pub fn run_output(program: &str, args: &[String], cwd: &Path) -> Result<Output, String> {
+    Command::new(program)
+        .args(args)
+        .current_dir(cwd)
+        .output()
+        .map_err(|err| format!("Failed to run {}: {err}", display_command(program, args)))
+}
+
+pub fn display_command(program: &str, args: &[String]) -> String {
+    let mut rendered = String::from(program);
+    for arg in args {
+        rendered.push(' ');
+        if arg.contains(' ') {
+            rendered.push('"');
+            rendered.push_str(arg);
+            rendered.push('"');
+        } else {
+            rendered.push_str(arg);
+        }
+    }
+    rendered
+}
+
+pub fn default_solana_keypair_path() -> Option<PathBuf> {
+    if let Ok(explicit) = env::var("SOLANA_KEYPAIR") {
+        if !explicit.trim().is_empty() {
+            return Some(PathBuf::from(explicit));
+        }
+    }
+
+    home_dir().map(|home| home.join(".config").join("solana").join("id.json"))
+}
+
+pub fn home_dir() -> Option<PathBuf> {
+    env::var_os("USERPROFILE")
+        .map(PathBuf::from)
+        .or_else(|| env::var_os("HOME").map(PathBuf::from))
+}
+
+pub fn write_text_file(path: &Path, contents: &str, force: bool) -> Result<(), String> {
+    if path.exists() && !force {
+        return Err(format!(
+            "Refusing to overwrite existing file {} without --force",
+            path.display()
+        ));
+    }
+
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|err| {
+            format!("Failed to create directory {}: {err}", parent.display())
+        })?;
+    }
+
+    fs::write(path, contents)
+        .map_err(|err| format!("Failed to write {}: {err}", path.display()))
+}
