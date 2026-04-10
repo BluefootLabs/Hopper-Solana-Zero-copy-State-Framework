@@ -1,0 +1,40 @@
+[package]
+name = "hopper-runtime"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+authors = ["BluefootLabs"]
+description = "Canonical low-level runtime surface for Hopper. Hopper Native is the primary backend; Pinocchio and solana-program are compatibility backends."
+repository = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework"
+homepage = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework"
+documentation = "https://docs.rs/hopper-runtime"
+readme = "../../README.md"
+keywords = ["solana", "zero-copy", "runtime", "no-std", "framework"]
+categories = ["no-std", "embedded"]
+
+[lib]
+name = "hopper_runtime"
+
+[features]
+default = ["hopper-native-backend"]
+
+hopper-native-backend = ["hopper-native", "hopper-native/cpi"]
+pinocchio-backend = ["pinocchio", "pinocchio-system", "pinocchio-token"]
+solana-program-backend = ["solana-program"]
+
+cu-trace = ["hopper-native/cu-trace"]
+cpi = []
+copy = []
+
+[dependencies]
+hopper-native = { workspace = true, optional = true, default-features = false }
+five8_const = "0.1"
+
+pinocchio = { workspace = true, optional = true }
+pinocchio-system = { workspace = true, optional = true }
+pinocchio-token = { workspace = true, optional = true }
+
+solana-program = { version = "2", optional = true, default-features = false }
+
+[lints]
+workspace = true
