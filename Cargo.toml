@@ -1,0 +1,31 @@
+[package]
+name = "hopper-cli"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+description = "Command-line tooling for Hopper account inspection, schema export, and migration planning"
+
+[[bin]]
+name = "hopper"
+path = "src/main.rs"
+
+[dependencies]
+hopper-schema = { path = "../../crates/hopper-schema" }
+
+# On-chain RPC + PDA derivation
+ureq = "2"
+bs58 = "0.5"
+base64 = "0.22"
+sha2 = "0.10"
+curve25519-dalek = { version = "4", default-features = false }
+flate2 = { version = "1", default-features = false, features = ["zlib"] }
+
+# Interactive TUI
+crossterm = "0.28"
+
+[lints.rust]
+unexpected_cfgs = { level = "allow", check-cfg = [
+    'cfg(target_os, values("solana"))',
+    'cfg(target_arch, values("bpf"))',
+] }
