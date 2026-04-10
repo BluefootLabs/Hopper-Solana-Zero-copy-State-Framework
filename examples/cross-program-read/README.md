@@ -62,3 +62,34 @@ let (verified, owner_idx) = Vault::load_foreign_multi(account, &[&OWNER_A, &OWNE
 // Pin to a known fingerprint -- fails at compile time if layout changes
 hopper_assert_fingerprint!(Vault, [0x1a, 0x2b, 0x3c, 0x4d, 0x5e, 0x6f, 0x70, 0x81]);
 ```
+
+## Verify
+
+```bash
+cargo check -p hopper-xp-program-a
+cargo check -p hopper-xp-program-b
+hopper build --host -p hopper-xp-program-a
+hopper build --host -p hopper-xp-program-b
+```
+
+## Manifest Path
+
+This example is interface-first and does not ship a checked-in
+`ProgramManifest` JSON for either program yet.
+
+Canonical generation path:
+
+1. publish Program A and Program B with on-chain Hopper manifests
+2. fetch them with `hopper fetch <program-id>`
+3. inspect Program A's layout and Program B's interface assumptions with
+   `hopper manager` and `hopper explain`
+
+## CLI Walkthrough
+
+```bash
+hopper build --host -p hopper-xp-program-a
+hopper build --host -p hopper-xp-program-b
+hopper test -p hopper-xp-program-a
+hopper test -p hopper-xp-program-b
+```
+

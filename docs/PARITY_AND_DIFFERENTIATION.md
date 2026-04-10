@@ -1,44 +1,33 @@
 # Parity and Differentiation
 
-Where Hopper stands relative to every other Solana state framework.
+Where Hopper stands relative to other Solana zero-copy frameworks and
+substrates.
 
 This document covers concrete feature-level comparison, not marketing. Each row
 is backed by code that exists today.
 
+Important scope note:
+
+- Anchor comparisons refer to Anchor's actual zero-copy path (`AccountLoader`),
+	not just its default Borsh flow.
+- Quasar comparisons count its public CLI, profiler, IDL, and generated client
+	tooling.
+- `solana-zero-copy` is a substrate crate, not a full peer framework.
+
 ## Feature Matrix
 
-| Feature | **Hopper** | **Anchor** | **Steel / Pinocchio** | **Quasar** | **Star Frame** | **Jiminy** |
-|---------|-----------|-----------|----------------------|-----------|---------------|-----------|
-| Zero-copy overlays | repr(C) + 16B header | Borsh deser | bytemuck Pod | bytemuck Pod | bytemuck Pod | repr(C) + 16B header |
-| ABI versioning | version byte + fingerprint | None | None | None | None | version + layout_id |
-| no_std / no_alloc | Yes | No | Yes | Yes | No | Yes |
-| Proc macro weight | Light (layout + dispatch) | Heavy (accounts, derive) | None (decl macros) | Heavy | Heavy | Light (layout) |
-| Collections (zero-copy) | 8 types | None | None | None | 3 types | 8 types |
-| State receipts | 64-byte wire proof | None | None | None | None | Yes |
-| Schema diffing + migration | CLI + planner | None | None | None | None | CLI + planner |
-| Bump caching | BUMP_OFFSET | None | None | BUMP_OFFSET | None | BUMP_OFFSET |
-| Trust profiles | 5-tier loading | None | None | None | 4-phase lifecycle | 5-tier |
-| CPI safety | Typed CPI + flash loan detect | CPI context | Heap alloc CPI | RawEncoded | Typed CPI | Typed CPI + guard |
-| Policy system | Capability + PolicyRequirement | None | None | None | None | None |
-| Phased execution (typestate) | Resolve-Validate-Execute | None | None | None | Yes | None |
-| Cross-program interfaces | hopper_interface! | None | None | None | None | jiminy_interface! |
-| CLI tooling | 20+ commands | anchor verify | None | None | None | CLI |
-| Program Manager | Yes | None | None | None | None | None |
-| Client SDK gen (TS + Kotlin) | Yes | TS only | None | None | TS (Codama) | None |
-| DeFi math | 16 checked ops + bps | External crate | None | None | Fixed-point | Same |
-| AMM / slippage | hopper-finance | None | None | None | None | jiminy-finance |
-| Lending formulas | hopper-lending | None | None | None | None | jiminy-lending |
-| Staking formulas | hopper-staking | None | None | None | None | jiminy-staking |
-| Segment roles | 7 typed roles | None | None | None | None | No |
-| Instruction dispatch | 1-byte + 2-byte | IDL-derived | Manual | Proc macro | Proc macro | 1-byte |
-| Memory access tiers | 3 (safe/pod/raw) | 1 (Borsh) | 1 (raw) | 1 (pod) | 1 (raw) | 3 |
-| Safety model | Documented unsafe inventory | Hidden by proc macros | Unsound (Steel) | Documented | Miri-validated | Documented |
-| Error system | hopper_error! (sequential codes) | anchor_lang errors | ProgramError only | Custom | Custom | Custom |
-| Virtual state | hopper_virtual! multi-account | None | None | None | None | None |
-| Semantic lint engine | lint_layout + lint_policy (7 rules) | None | None | None | None | None |
-| Receipt narratives | Human-readable explain | None | None | None | None | None |
-| Layout stability grades | Computed heuristic | None | None | None | None | None |
-| Role-aware compatibility | refine_with_roles | None | None | None | None | None |
+| Dimension | **Hopper** | **Anchor zero-copy** | **Pinocchio** | **Quasar** | **Jiminy** |
+|---------|-----------|----------------------|---------------|-----------|-----------|
+| Raw boundary ownership | Yes | No | Yes | Yes | Via Hopper Runtime |
+| Zero-copy account access | Yes | `AccountLoader` | Yes | Yes | Yes |
+| Layout/version/schema contract | **Full runtime contract** | Partial | Minimal | Partial | Strong |
+| Foreign/versioned typed loads | **Yes** | No | No | No | Yes |
+| Field maps + manager metadata | **Yes** | IDL only | No | IDL only | Partial |
+| Segment roles / segmented state | **Yes** | No | No | No | Partial |
+| Receipts / mutation proof | **Yes** | No | No | No | Yes |
+| Policy / semantic linting | **Yes** | No | No | No | No |
+| Public tooling / IDL / clients | Strong | **Very strong** | Minimal | **Strong** | Moderate |
+| Backend portability | **3 backends** | solana-program | pinocchio | pinocchio | Hopper Runtime backends |
 
 ## What Hopper Does That Nobody Else Does
 
@@ -85,9 +74,8 @@ ResolvedFrame            --.validate()-->  ValidatedFrame
 ValidatedFrame           --.execute()-->   Result<R>
 ```
 
-You cannot call `.execute()` without first calling `.validate()`. This is not a
-runtime check -- the compiler rejects it. Star Frame has a similar concept but
-ties it to proc macros.
+You cannot call `.execute()` without first calling `.validate()`. The compiler
+rejects it. Star Frame has a similar concept but ties it to proc macros.
 
 ### Segment Roles with Semantic Behavior
 
@@ -163,18 +151,12 @@ distribution, multisig, Token-2022 screening, and Anchor bridge crates.
 
 ### vs. Anchor
 
-Anchor is the dominant framework in the Solana ecosystem. Hopper matches or
-exceeds it in every technical dimension:
-
-- **Serialization**: Hopper uses zero-copy overlays (0 CU), Anchor uses Borsh (500-2000 CU per deser)
-- **Proc macros**: Hopper uses `macro_rules!` (compile in seconds), Anchor requires proc macros (slow builds)
-- **std**: Hopper is `no_std` + `no_alloc`, Anchor requires `std`
-- **Tooling**: Hopper's CLI has 20+ commands, Anchor has `anchor verify` and `anchor idl`
-- **Receipts**: Hopper generates structured mutation proofs, Anchor has nothing comparable
-- **Migration**: Hopper has schema diffing + migration planning, Anchor has manual migration
-
-Where Anchor wins: ecosystem adoption, documentation volume, tutorial count,
-third-party tooling integration, and the "everyone uses it" network effect.
+Anchor is the dominant public framework and still leads on ecosystem maturity,
+generated workflows, and broad tooling. Hopper's lead over Anchor is narrower
+but real: Hopper is stronger on layout/version/schema semantics, no_std/no_alloc
+execution, segmented state, receipts, and manager-oriented metadata. Anchor's
+actual zero-copy path is `AccountLoader<T>`, so comparisons against Anchor need
+to distinguish that from the default Borsh account path.
 
 ### vs. Steel / Pinocchio (raw)
 
@@ -193,10 +175,12 @@ provides companion tests for each boundary.
 
 ### vs. Quasar
 
-Quasar uses bytemuck Pod overlays with BUMP_OFFSET caching. It is
-pre-release (v0.0.0). Hopper matches its bump caching and exceeds it in
-every other dimension: headers, fingerprints, policies, receipts, schema,
-CLI, collections, segment roles.
+Quasar is stronger than earlier Hopper comparisons gave it credit for. It has a
+real raw-boundary story, generated validation, public docs, CLI support,
+profiling, IDL, and generated clients. Hopper leads on layout/runtime/schema
+contract semantics, receipts, policies, segment roles, and backend portability.
+Quasar still has advantages in public tooling polish, inline dynamic account
+ergonomics, and fast PDA-finding helpers.
 
 ### vs. Star Frame
 
@@ -211,13 +195,18 @@ with a documented unsafe inventory and companion boundary tests.
 Hopper does not yet have:
 
 1. **Project scaffolding / build / deploy workflows** in the CLI
-2. **CU profiling and disassembly tooling** comparable to `quasar profile` / `quasar dump`
+2. **CU profiling and disassembly tooling** comparable to Quasar's public profiler workflow
 3. **Program-address-first Manager workflows** beyond manifest fetch + manifest-driven inspection
 4. **Inline dynamic field ergonomics** for string/vec-style tails
-5. **Vec-like segment collection APIs** on top of Hopper's raw segment accessors
-6. **CI/CD pipeline and public packaging rollout**
+5. **Faster PDA find-path helpers** comparable to Quasar's specialized search path
+6. **Independent benchmark and audit proof** for any blanket "faster / safer than everyone" claim
+7. **Vec-like segment collection APIs** on top of Hopper's raw segment accessors
+8. **CI/CD pipeline and public packaging rollout**
 
 These are workflow and ecosystem gaps, not missing core runtime primitives.
+
+The execution plan for closing them lives in
+[BENCHMARK_AND_TOOLING_PARITY_PLAN.md](BENCHMARK_AND_TOOLING_PARITY_PLAN.md).
 
 ## CU Performance
 

@@ -23,9 +23,10 @@ bench/
 2. **Golden baselines** (`cu_baselines.toml`) define per-operation CU budgets.
    CI jobs fail if any measurement exceeds its budget by more than 5%.
 
-3. **Measurement script** (`measure.sh`) deploys the bench program to a local
-   validator, sends benchmark transactions, parses logs, and compares against
-   baselines.
+3. **Measurement entrypoints** (`measure.sh`, `measure.ps1`, and
+   `hopper profile bench`) deploy the bench program to a local validator, run
+   every implemented primitive benchmark, parse the bounded CU deltas from
+   logs, and compare against baselines.
 
 ## Measured Primitives
 
@@ -50,28 +51,62 @@ bench/
 
 ## Running Locally
 
-```bash
-# Start a local validator
-solana-test-validator --reset &
+### Option A: Docker Desktop (recommended for Windows, no manual validator setup)
 
-# Build the bench program
-cd bench/hopper-bench
-cargo build-sbf
+```powershell
+# Windows: starts the validator container, runs all 19 benchmarks, stops container
+.\bench\run-bench-docker.ps1
 
-# Deploy and measure
-cd ..
-./measure.sh
+# Pass extra flags directly to `hopper profile bench`
+.\bench\run-bench-docker.ps1 --no-build --out-dir bench\results
 ```
+
+```bash
+# Linux / macOS / WSL
+./bench/run-bench-docker.sh
+./bench/run-bench-docker.sh --no-build --out-dir bench/results
+```
+
+The Docker scripts:
+- Pull `solanalabs/solana:v2.1.21` on first run (override with `SOLANA_IMAGE=...`)
+- Generate a dedicated `bench/fixtures/bench-keypair.json` if it doesn't exist
+- Wait up to 60 s for the validator to report healthy
+- Forward any extra arguments to `hopper profile bench`
+- Stop the container in a `finally`/`trap` block regardless of outcome
+
+To switch Solana versions:
+```powershell
+$env:SOLANA_IMAGE = "solanalabs/solana:v2.2.0"
+.\bench\run-bench-docker.ps1
+```
+
+### Option B: Manual validator
+
+```bash
+# Start a local validator in a separate terminal
+solana-test-validator --reset
+
+# Run the primitive benchmark lab from the workspace root
+hopper profile bench
+```
+
+The thin wrappers `bench/measure.sh` and `bench/measure.ps1` also delegate to
+`hopper profile bench` and are suitable when the validator is already running.
 
 ## CI Integration
 
 ```yaml
 # .github/workflows/bench.yml
+- name: Start validator
+  run: docker compose -f bench/docker/docker-compose.yml up -d
+
 - name: CU Regression Gate
-  run: |
-    cd bench
-    ./measure.sh --ci --fail-on-regression=5
+  run: ./bench/run-bench-docker.sh --fail-on-regression 5
+
+- name: Stop validator
+  if: always()
+  run: docker compose -f bench/docker/docker-compose.yml down
 ```
 
-The `--fail-on-regression=5` flag causes the script to exit with status 1 if
+The `--fail-on-regression 5` flag causes the runner to exit with status 1 if
 any measurement exceeds its baseline by more than 5%.

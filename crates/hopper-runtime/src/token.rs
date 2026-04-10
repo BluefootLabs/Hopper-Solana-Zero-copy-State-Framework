@@ -1,4 +1,9 @@
-//! SPL Token program CPI instructions using Hopper-owned types.
+//! TEMPORARY: backend facade for SPL Token CPI builders.
+//!
+//! This module keeps Hopper-owned instruction semantics while execution still
+//! flows through the active backend substrate. It will be replaced by
+//! Hopper-native instruction builders once the substrate-facing builders are
+//! finalized.
 //!
 //! Semantic CPI facades: the API is Hopper-owned (builder pattern over
 //! `AccountView` / `Signer`), while execution is delegated through Hopper's

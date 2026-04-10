@@ -18,3 +18,9 @@ name = "hopper_schema"
 [dependencies]
 hopper-core = { workspace = true }
 hopper-runtime = { workspace = true }
+
+[features]
+default = ["hopper-native-backend"]
+hopper-native-backend = ["hopper-runtime/hopper-native-backend"]
+pinocchio-backend = ["hopper-runtime/pinocchio-backend"]
+solana-program-backend = ["hopper-runtime/solana-program-backend"]

@@ -15,6 +15,14 @@ delta = first_remaining - second_remaining
 The bench program lives in `bench/hopper-bench/`. Deploy it to a local
 validator and send transactions with the appropriate discriminator byte.
 
+## Automation Status
+
+The benchmark program defines instruction discriminators `0..=18`. All 19
+primitives are covered by the Docker-based runner (`bench/run-bench-docker.ps1`
+/ `bench/run-bench-docker.sh`) which runs `hopper profile bench` against a
+containerized test validator. The `bench/measure.sh` wrapper gates instructions
+`0..=10` in the legacy CI path; the Docker runner covers the full set.
+
 ## CU Results
 
 Measured on solana-test-validator 2.1 (April 2026).
@@ -127,20 +135,21 @@ A complete audit trail of every state mutation costs less than a single
 ## Running Benchmarks
 
 ```bash
-# Build bench program
-cargo build-sbf -p hopper-bench
-
 # Start local validator
 solana-test-validator
 
-# Deploy and run (see bench/runner/ for helper scripts)
-solana program deploy target/deploy/hopper_bench.so
+# Run the primitive benchmark lab
+hopper profile bench
 ```
 
-Each instruction discriminator (0-18) runs one benchmark. Parse the
-transaction logs for `Program log: <remaining CU>` pairs to compute deltas.
+The benchmark lab builds and deploys `hopper-bench`, provisions deterministic
+fixture accounts, simulates each implemented primitive benchmark, parses the
+bounded `sol_log_compute_units()` deltas, and emits JSON/CSV artifacts under
+`bench/results/` by default.
 
 See `bench/cu_baselines.toml` for golden baselines and CI gate thresholds.
+See `docs/BENCHMARK_AND_TOOLING_PARITY_PLAN.md` for the remaining benchmark
+automation and public-proof work.
 
 ## Competitor-Shaped Baselines
 

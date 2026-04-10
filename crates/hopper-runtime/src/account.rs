@@ -522,36 +522,15 @@ impl AccountView {
     /// Raw pointer to the first byte of account data.
     #[cfg(feature = "hopper-native-backend")]
     #[inline(always)]
-    pub fn data_ptr(&self) -> *mut u8 {
+    pub(crate) fn data_ptr(&self) -> *mut u8 {
         self.inner.data_ptr()
     }
 
     /// Raw pointer to the RuntimeAccount header.
     #[cfg(feature = "hopper-native-backend")]
     #[inline(always)]
-    pub fn account_ptr(&self) -> *const hopper_native::RuntimeAccount {
+    pub(crate) fn account_ptr(&self) -> *const hopper_native::RuntimeAccount {
         self.inner.account_ptr()
-    }
-
-    /// Resize delta (hopper-native only).
-    #[cfg(feature = "hopper-native-backend")]
-    #[inline(always)]
-    pub fn resize_delta(&self) -> i32 {
-        self.inner.resize_delta()
-    }
-
-    /// Whether the account data is currently borrowed.
-    #[cfg(feature = "hopper-native-backend")]
-    #[inline(always)]
-    pub fn is_borrowed(&self) -> bool {
-        self.inner.is_borrowed()
-    }
-
-    /// Whether the account data is exclusively borrowed.
-    #[cfg(feature = "hopper-native-backend")]
-    #[inline(always)]
-    pub fn is_borrowed_mut(&self) -> bool {
-        self.inner.is_borrowed_mut()
     }
 
     /// Check that the account can be shared-borrowed.
@@ -616,14 +595,6 @@ impl AccountView {
         &self.inner
     }
 
-    /// Access the underlying backend AccountView.
-    ///
-    /// Escape hatch for code that needs backend-specific functionality.
-    #[cfg(feature = "hopper-native-backend")]
-    #[inline(always)]
-    pub fn as_native(&self) -> &hopper_native::AccountView {
-        &self.inner
-    }
 }
 
 impl core::fmt::Debug for AccountView {

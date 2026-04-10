@@ -21,6 +21,11 @@ Hopper also supports compatibility backends including Pinocchio and standard
 Solana runtime surfaces where needed, but Hopper Runtime is the canonical
 API surface all Hopper crates target.
 
+Hopper Native owns the raw execution boundary: loader parsing, duplicate-account
+resolution, eager and lazy entrypoints, syscall wrappers, and substrate account
+views. Hopper Runtime sits one layer up and owns typed loading, layout
+contracts, CPI semantics, context, and Hopper-facing PDA ergonomics.
+
 `no_std`, `no_alloc`. No proc macros required for correctness. Proc macros
 are optional DX accelerators only, never required for framework correctness.
 
@@ -188,6 +193,21 @@ hopper (root facade, re-exports everything)
 +-- hopper-cli         CLI: explain, inspect, compat, diff, plan, receipt, manager
 ```
 
+## Sovereign Boundary
+
+Hopper is split on purpose:
+
+- **Hopper Native** owns raw loader parsing, duplicate-account handling,
+  `hopper_program_entrypoint!`, `hopper_lazy_entrypoint!`, syscall wrappers,
+  and the substrate `AccountView`.
+- **Hopper Runtime** owns Hopper semantics: typed `AccountView` validation,
+  `LayoutContract`, `Context`, checked CPI, and Hopper-facing PDA helpers.
+- **compat/** owns every backend bridge. Pinocchio and solana-program support
+  exist for interoperability, not as Hopper's identity.
+
+That split is what lets Hopper stay raw-pointer fast without collapsing into a
+thin wrapper around another framework.
+
 ## Examples
 
 Start with `hopper-showcase`. It is the canonical Hopper program that uses
@@ -321,24 +341,33 @@ compile error.
 
 ## Comparison
 
-| | Hopper | Anchor | Pinocchio | Star Frame |
+Hopper's strongest differentiator is not "pointer casts exist". Pinocchio,
+Quasar, and Anchor's `AccountLoader` already cover raw zero-copy access in
+different ways. Hopper's lead is that it treats layouts as runtime contracts:
+versioned headers, deterministic layout fingerprints, foreign/versioned loads,
+field maps, schema export, segment roles, and manager-ready metadata all come
+from the same state model.
+
+| | Hopper | Anchor zero-copy | Pinocchio | Quasar |
 |---|---|---|---|---|
-| Zero-copy overlays | Yes | No (Borsh) | Yes | Yes |
+| Raw entrypoint ownership | Yes | No | Yes | Yes |
+| Zero-copy account access | Yes | `AccountLoader` | Yes | Yes |
 | no_std / no_alloc | Yes | No | Yes | Yes |
-| No proc macros required for correctness | Yes | No | Yes | No |
-| Deterministic fingerprints | Yes | No | No | Partial |
-| 5-tier loading | Yes | No | No | Partial |
-| Typestate execution | Yes | No | No | Yes |
-| Schema diffing | Yes | No | No | Partial |
-| Migration planner | Yes | No | No | No |
-| 8 zero-copy collections | Yes | No | No | Partial |
-| Segment roles | Yes | No | No | No |
+| Deterministic layout fingerprints | Yes | No | No | No |
+| Versioned + foreign typed loads | Yes | No | No | No |
+| Segment roles and registries | Yes | No | No | No |
+| Field maps + schema export | Yes | IDL only | No | IDL only |
 | State receipts | Yes | No | No | No |
-| Named policy packs | Yes | No | No | No |
-| Cross-program interfaces | Yes | No | No | Partial |
-| CLI tooling | Yes | Partial | No | No |
-| Program Manager | Yes | No | No | No |
-| Memory access tiers | 3 (safe/pod/raw) | 1 (Borsh) | 1 (raw) | 1 (raw) |
+| Policy system | Yes | No | No | No |
+| CLI / profiling / client tooling | Strong | Strong | Minimal | Strong |
+| Backend portability | 3 backends | solana-program | pinocchio | pinocchio |
+| Memory access tiers | 3 (safe/pod/raw) | 1 (`AccountLoader`) | 1 (raw) | 1 (raw) |
+
+Anchor still leads on ecosystem reach and polished public tooling. Quasar is
+stronger than older comparisons often gave it credit for in CLI, profiling,
+IDL, and generated clients. Hopper's claim is different: it is the only one of
+these frameworks that makes the layout contract itself the center of runtime,
+schema, migration, and tooling.
 
 ## Trust Posture
 
@@ -414,10 +443,9 @@ The Codama projection is what ecosystem tools (Kinobi, Umi) consume.
 | [Schema Architecture](docs/SCHEMA_ARCHITECTURE.md) | Schema model, manifest format, IDL spec, Codama compatibility |
 | [Proc Macro Policy](docs/PROC_MACRO_POLICY.md) | Proc macro governance: what's allowed and what's not |
 | [Hopper Manager](docs/HOPPER_MANAGER.md) | Manager vision: CLI, web dashboard, embedded admin |
-| [Benchmarks](BENCHMARKS.md) | CU measurements for every primitive |
+| [Benchmarks](BENCHMARKS.md) | Benchmark lab, current CU baselines, and automation coverage |
 | [Unsafe Invariants](docs/UNSAFE_INVARIANTS.md) | Every unsafe block cataloged with justifications |
 | [Architecture](docs/ARCHITECTURE.md) | Crate structure and module map |
-| [Publish Readiness](docs/PUBLISH_READINESS.md) | Current release checklist and staged packaging status |
 | [Getting Started](docs/GETTING_STARTED_SERIOUS.md) | Build a complete program from scratch |
 | [Parity and Differentiation](docs/PARITY_AND_DIFFERENTIATION.md) | Feature-level comparison with every competitor |
 | [Bad Evolution](docs/BAD_EVOLUTION.md) | Layout evolution anti-patterns and how Hopper catches them |

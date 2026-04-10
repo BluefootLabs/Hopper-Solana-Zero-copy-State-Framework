@@ -51,6 +51,8 @@
 pub mod address;
 pub mod error;
 pub mod account_view;
+pub mod raw_account;
+pub mod raw_input;
 pub mod borrow;
 pub mod syscalls;
 pub mod log;
@@ -94,8 +96,9 @@ pub mod token;
 
 pub use address::Address;
 pub use error::ProgramError;
-pub use account_view::{AccountView, RuntimeAccount};
+pub use account_view::AccountView;
 pub use borrow::{Ref, RefMut};
+pub use raw_account::RuntimeAccount;
 
 // Innovation re-exports.
 pub use lazy::LazyContext;

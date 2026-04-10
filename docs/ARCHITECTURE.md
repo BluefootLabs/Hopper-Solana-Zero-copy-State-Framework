@@ -24,7 +24,7 @@ programs can skip steps 5 and 6. Complex protocols use all seven.
 
 ## Tiered Learning
 
-Hopper is deep, but you do not need to learn everything at once.
+The framework has depth. You do not need all of it at once.
 
 **Tier 1 (Standard Hopper):** Versioned layouts, phased execution, validation
 bundles, receipts, invariants, CLI inspect. This covers most programs.
@@ -34,10 +34,9 @@ multi-account state, migration planning, trust profiles, validation graphs,
 capability-policy binding.
 
 **Tier 3 (Escape Hatch):** Raw overlay access, `load_unchecked`, manual wire
-formats, custom collections, `segment_data_mut_unchecked`. The framework gets
-out of your way when you need it to. If you need to go even lower, Hopper is
-out of your way when you need it to. If you need to go even lower, Hopper Native
-provides direct syscall access and you can drop down to raw operations at any point.
+formats, custom collections, `segment_data_mut_unchecked`. The framework steps
+aside when you need it to. Hopper Native provides direct syscall access for
+anything below the framework layer.
 
 ## Overview
 
@@ -68,6 +67,22 @@ hopper (umbrella, re-exports macros + prelude)
  +-- hopper-solana       <- hopper-core, hopper-runtime, five8_const
  +-- hopper-cli (std)    <- hopper-schema
 ```
+
+## Sovereign Boundary Ownership
+
+Hopper's architecture depends on a hard split between substrate and semantics.
+
+- `hopper-native` owns raw execution: loader parsing, duplicate-account
+   resolution, `raw_input`, `raw_account`, entrypoint macros, syscall wrappers,
+   lazy parsing, and the substrate `AccountView`.
+- `hopper-runtime` owns Hopper semantics: typed state access, `LayoutContract`,
+   `Context`, checked CPI rules, and Hopper-facing PDA ergonomics.
+- `hopper-runtime::compat/*` owns every backend bridge. If a file outside
+   `compat/` needs to name Pinocchio or solana-program identity directly, that is
+   an architectural regression.
+
+This keeps Hopper Native sovereign at the execution boundary while letting
+Hopper Runtime stay framework-owned instead of adapter-shaped.
 
 ---
 

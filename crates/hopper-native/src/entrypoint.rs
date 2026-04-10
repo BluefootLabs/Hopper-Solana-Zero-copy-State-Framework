@@ -1,110 +1,18 @@
-//! Program entrypoint and BPF input deserialization.
+//! Program entrypoint ownership for Hopper Native.
 //!
-//! The `program_entrypoint!` macro declares the `entrypoint` function that
-//! the Solana runtime calls. It deserializes the raw input buffer into
-//! `AccountView` slices and delegates to the user's process function.
+//! This file is the only raw program-entry boundary owner in Hopper Native.
+//! Loader input parsing lives in [`crate::raw_input`], while the public macros
+//! below own the raw `entrypoint(input: *mut u8)` boundary and delegate into
+//! Hopper callbacks.
 
 use core::mem::MaybeUninit;
+
+use crate::account_view::AccountView;
 use crate::address::Address;
-use crate::account_view::{AccountView, RuntimeAccount};
-
-/// Deserialize the raw BPF input buffer into AccountViews, instruction data,
-/// and program ID.
-///
-/// # Safety
-///
-/// `input` must point to a valid Solana BPF input buffer.
-///
-/// # Returns
-///
-/// `(program_id, account_count, instruction_data)`
-///
-/// The accounts are written into `accounts[0..account_count]`.
-#[inline]
-pub unsafe fn deserialize<const MAX: usize>(
-    input: *mut u8,
-    accounts: &mut [MaybeUninit<AccountView>; MAX],
-) -> (Address, usize, &'static [u8]) {
-    unsafe {
-        let mut offset = 0usize;
-
-        // Number of accounts (u64 LE).
-        let num_accounts = *(input.add(offset) as *const u64) as usize;
-        offset += 8;
-
-        let count = num_accounts.min(MAX);
-
-        let mut i = 0;
-        while i < count {
-            let dup_marker = *input.add(offset);
-
-            if dup_marker == u8::MAX {
-                // Non-duplicate account: the RuntimeAccount header starts
-                // at this position in the input buffer.
-                let raw = input.add(offset) as *mut RuntimeAccount;
-                accounts[i] = MaybeUninit::new(AccountView::new_unchecked(raw));
-
-                // Skip past the RuntimeAccount header + data + padding + rent_epoch.
-                let data_len = (*raw).data_len as usize;
-                offset += core::mem::size_of::<RuntimeAccount>();
-                offset += data_len;
-                // Align to 8 bytes (BPF input buffer alignment).
-                offset = (offset + 7) & !7;
-                // rent_epoch (u64).
-                offset += 8;
-            } else {
-                // Duplicate account: points to the same account as accounts[dup_marker].
-                let original_idx = dup_marker as usize;
-                // Skip the 8 bytes of padding after the duplicate marker.
-                offset += 8;
-                if original_idx < i {
-                    accounts[i] = MaybeUninit::new(
-                        accounts[original_idx].assume_init_read()
-                    );
-                } else {
-                    // Invalid duplicate index: should not happen with valid input.
-                    // Point to the first account as a safe fallback.
-                    let first = accounts[0].as_ptr().read();
-                    accounts[i] = MaybeUninit::new(first);
-                }
-            }
-
-            i += 1;
-        }
-
-        // Skip any accounts beyond MAX.
-        while i < num_accounts {
-            let dup_marker = *input.add(offset);
-            if dup_marker == u8::MAX {
-                let raw = input.add(offset) as *const RuntimeAccount;
-                let data_len = (*raw).data_len as usize;
-                offset += core::mem::size_of::<RuntimeAccount>();
-                offset += data_len;
-                offset = (offset + 7) & !7;
-                offset += 8;
-            } else {
-                offset += 8;
-            }
-            i += 1;
-        }
-
-        // Instruction data.
-        let data_len = *(input.add(offset) as *const u64) as usize;
-        offset += 8;
-        let instruction_data = core::slice::from_raw_parts(input.add(offset), data_len);
-        offset += data_len;
-
-        // Program ID.
-        let program_id_ptr = input.add(offset) as *const [u8; 32];
-        let program_id = Address::new_from_array(*program_id_ptr);
-
-        (program_id, count, instruction_data)
-    }
-}
 
 /// Process the BPF entrypoint input.
 ///
-/// This is the function called by the `program_entrypoint!` macro's
+/// This is the function called by the canonical Hopper Native entrypoint macro's
 /// generated entrypoint.
 ///
 /// # Safety
@@ -124,9 +32,8 @@ pub unsafe fn process_entrypoint<const MAX: usize>(
 
     // We need to reinterpret as the right size. For simplicity, always
     // deserialize into the 254-element array.
-    let (program_id, count, instruction_data) = unsafe {
-        deserialize::<254>(input, accounts_ref)
-    };
+    let (program_id, count, instruction_data) =
+        unsafe { crate::raw_input::deserialize_accounts::<254>(input, accounts_ref) };
 
     let account_slice = unsafe {
         core::slice::from_raw_parts(accounts_ref.as_ptr() as *const AccountView, count)
@@ -138,16 +45,17 @@ pub unsafe fn process_entrypoint<const MAX: usize>(
     }
 }
 
-/// Declare the program entrypoint.
+/// Declare the canonical Hopper Native program entrypoint.
 ///
 /// Generates the `extern "C" fn entrypoint` that the Solana runtime calls.
+/// `program_entrypoint!` remains available as a backward-compatible alias.
 ///
 /// # Usage
 ///
 /// ```ignore
-/// use hopper_native::program_entrypoint;
+/// use hopper_native::hopper_program_entrypoint;
 ///
-/// program_entrypoint!(process_instruction);
+/// hopper_program_entrypoint!(process_instruction);
 ///
 /// pub fn process_instruction(
 ///     program_id: &Address,
@@ -158,9 +66,9 @@ pub unsafe fn process_entrypoint<const MAX: usize>(
 /// }
 /// ```
 #[macro_export]
-macro_rules! program_entrypoint {
+macro_rules! hopper_program_entrypoint {
     ( $process_instruction:expr ) => {
-        $crate::program_entrypoint!($process_instruction, { $crate::MAX_TX_ACCOUNTS });
+        $crate::hopper_program_entrypoint!($process_instruction, { $crate::MAX_TX_ACCOUNTS });
     };
     ( $process_instruction:expr, $maximum:expr ) => {
         /// # Safety
@@ -173,7 +81,7 @@ macro_rules! program_entrypoint {
             let mut accounts = [UNINIT; $maximum];
 
             let (program_id, count, instruction_data) = unsafe {
-                $crate::entrypoint::deserialize::<$maximum>(input, &mut accounts)
+                $crate::raw_input::deserialize_accounts::<$maximum>(input, &mut accounts)
             };
 
             match $process_instruction(
@@ -185,6 +93,43 @@ macro_rules! program_entrypoint {
                 Err(error) => error.into(),
             }
         }
+    };
+}
+
+/// Backward-compatible alias for `hopper_program_entrypoint!`.
+#[macro_export]
+macro_rules! program_entrypoint {
+    ( $process_instruction:expr ) => {
+        $crate::hopper_program_entrypoint!($process_instruction);
+    };
+    ( $process_instruction:expr, $maximum:expr ) => {
+        $crate::hopper_program_entrypoint!($process_instruction, $maximum);
+    };
+}
+
+/// Declare the canonical lazy program entrypoint that defers account parsing.
+#[macro_export]
+macro_rules! hopper_lazy_entrypoint {
+    ( $process:expr ) => {
+        /// # Safety
+        ///
+        /// Called by the Solana runtime; `input` is a valid BPF input buffer.
+        #[no_mangle]
+        pub unsafe extern "C" fn entrypoint(input: *mut u8) -> u64 {
+            let mut ctx = unsafe { $crate::lazy::lazy_deserialize(input) };
+            match $process(&mut ctx) {
+                Ok(()) => $crate::SUCCESS,
+                Err(error) => error.into(),
+            }
+        }
+    };
+}
+
+/// Backward-compatible alias for `hopper_lazy_entrypoint!`.
+#[macro_export]
+macro_rules! lazy_entrypoint {
+    ( $process:expr ) => {
+        $crate::hopper_lazy_entrypoint!($process);
     };
 }
 

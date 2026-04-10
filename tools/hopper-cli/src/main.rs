@@ -33,6 +33,11 @@
 //!
 //! hopper fetch <program-id>                          Fetch on-chain manifest
 //!
+//! hopper init <path>                                 Create a Hopper-native project scaffold
+//! hopper build [--host|--sbf]                        Build the current project
+//! hopper test                                        Run host-side tests for the current project
+//! hopper profile bench                               Run the primitive benchmark lab
+//!
 //! hopper interactive <manifest>                      Interactive terminal explorer
 //!
 //! hopper client gen --ts <manifest>                 Generate TypeScript client
@@ -60,8 +65,11 @@ use hopper_schema::clientgen::{TsClientGen, KtClientGen};
 use std::env;
 use std::process;
 
+mod bench;
+mod cmd;
 mod rpc;
 mod interactive;
+mod workspace;
 
 /// Decode a Hopper header or exit with a diagnostic message.
 fn require_header(data: &[u8]) -> DecodedHeader {
@@ -88,9 +96,15 @@ fn main() {
         "inspect" => cmd_inspect_family(&args[2..]),
         "explain" => cmd_explain_family(&args[2..]),
         "client" => cmd_client_family(&args[2..]),
+        "profile" => cmd::profile::cmd_profile(&args[2..]),
 
         // On-chain fetch
         "fetch" => cmd_fetch(&args[2..]),
+
+        // Lifecycle
+        "init" => cmd::lifecycle::cmd_init(&args[2..]),
+        "build" => cmd::lifecycle::cmd_build(&args[2..]),
+        "test" => cmd::lifecycle::cmd_test(&args[2..]),
 
         // Direct commands (backward compatible)
         "decode" => cmd_inspect(&args[2..]),
@@ -322,7 +336,7 @@ fn cmd_explain_receipt(args: &[String]) {
     println!("=== Receipt Explanation ===");
     println!();
     if !committed {
-        println!("  This receipt was NOT committed — the mutation was started but not finalized.");
+        println!("  This receipt was NOT committed. The mutation was started but not finalized.");
         return;
     }
     println!("  This receipt records a state {} operation.", phase_name);
@@ -553,10 +567,10 @@ fn cmd_explain_layout(args: &[String]) {
             }
             println!();
             if monetary_count > 0 {
-                println!("    {} monetary field(s) — lamport conservation checks recommended.", monetary_count);
+                println!("    {} monetary field(s): lamport conservation checks recommended.", monetary_count);
             }
             if identity_count > 0 {
-                println!("    {} identity field(s) — authority validation required.", identity_count);
+                println!("    {} identity field(s): authority validation required.", identity_count);
             }
         }
         println!();
@@ -585,20 +599,20 @@ fn cmd_explain_program(args: &[String]) {
     if policy_count > 0 {
         println!("    3. Validate   {} policy pack(s) enforced", policy_count);
     } else {
-        println!("    3. Validate   (no named policies — consider adding policy packs)");
+        println!("    3. Validate   (no named policies; consider adding policy packs)");
     }
     println!("    4. Execute    Mutations guarded by capabilities");
     let receipt_count = prog.instructions.iter().filter(|ix| ix.receipt_expected).count();
     if receipt_count > 0 {
         println!("    5. Record     {} instruction(s) emit receipts", receipt_count);
     } else {
-        println!("    5. Record     (no receipt expectations — consider adding receipt tracking)");
+        println!("    5. Record     (no receipt expectations; consider adding receipt tracking)");
     }
     let compat_count = prog.compatibility_pairs.len();
     if compat_count > 0 {
         println!("    6. Verify     {} compatibility rule(s)", compat_count);
     } else {
-        println!("    6. Verify     (no compat rules — safe for single-version programs)");
+        println!("    6. Verify     (no compat rules; safe for single-version programs)");
     }
     let event_count = prog.events.len();
     println!("    7. Inspect    {} event(s) for off-chain observability", event_count);
@@ -863,6 +877,14 @@ fn print_usage() {
     println!("    hopper fetch <program-id> [--rpc <url>]          Fetch on-chain manifest");
     println!("    hopper fetch <program-id> --json [--rpc <url>]   Fetch manifest as raw JSON");
     println!("    hopper manager fetch <program-id> [--rpc <url>]  Fetch + show program summary");
+    println!();
+    println!("  Lifecycle:");
+    println!("    hopper init <path>                 Create a Hopper-native project scaffold");
+    println!("    hopper build [--host|--sbf]        Build the current project (default: SBF)");
+    println!("    hopper test                        Run the current project's host-side tests");
+    println!();
+    println!("  Profiling:");
+    println!("    hopper profile bench               Run the primitive benchmark lab");
     println!();
     println!("  Interactive:");
     println!("    hopper interactive <manifest>        Launch interactive explorer");
@@ -2891,12 +2913,12 @@ fn cmd_manager_compat(args: &[String]) {
     println!();
 
     if old_header.disc != new_header.disc {
-        println!("  RESULT: Different discriminators — these are different account types.");
+        println!("  RESULT: Different discriminators. These are different account types.");
         return;
     }
 
     if old_header.layout_id == new_header.layout_id {
-        println!("  RESULT: Same layout ID — same schema version (no compat issue).");
+        println!("  RESULT: Same layout ID. Same schema version, no compat issue.");
         return;
     }
 
@@ -2928,19 +2950,19 @@ fn cmd_manager_compat(args: &[String]) {
             println!("  Verdict: {}", verdict.name());
             match verdict {
                 CompatibilityVerdict::Identical => {
-                    println!("  RESULT: Identical layout — no changes.");
+                    println!("  RESULT: Identical layout. No changes.");
                 }
                 CompatibilityVerdict::WireCompatible => {
-                    println!("  RESULT: Wire-compatible — byte layout identical, semantic metadata differs.");
+                    println!("  RESULT: Wire-compatible. Byte layout identical, semantic metadata differs.");
                 }
                 CompatibilityVerdict::AppendSafe => {
-                    println!("  RESULT: Append-safe — old field prefix preserved, no migration needed.");
+                    println!("  RESULT: Append-safe. Old field prefix preserved, no migration needed.");
                 }
                 CompatibilityVerdict::MigrationRequired => {
-                    println!("  RESULT: Migration required — data not directly backward-readable.");
+                    println!("  RESULT: Migration required. Data is not directly backward-readable.");
                 }
                 CompatibilityVerdict::Incompatible => {
-                    println!("  RESULT: Incompatible — breaking change detected.");
+                    println!("  RESULT: Incompatible. Breaking change detected.");
                 }
             }
         }
@@ -3181,17 +3203,17 @@ fn cmd_manager_diff(args: &[String]) {
         (Some(bl), None) => {
             println!("  Before : {} v{}", bl.name, bl.version);
             println!("  After  : UNKNOWN LAYOUT (id={})", hex_encode(&after_header.layout_id));
-            println!("  Cannot compute semantic diff — after layout not in manifest.");
+            println!("  Cannot compute semantic diff: after layout not in manifest.");
         }
         (None, Some(al)) => {
             println!("  Before : UNKNOWN LAYOUT (id={})", hex_encode(&before_header.layout_id));
             println!("  After  : {} v{}", al.name, al.version);
-            println!("  Cannot compute semantic diff — before layout not in manifest.");
+            println!("  Cannot compute semantic diff: before layout not in manifest.");
         }
         (None, None) => {
             println!("  Before : UNKNOWN LAYOUT (id={})", hex_encode(&before_header.layout_id));
             println!("  After  : UNKNOWN LAYOUT (id={})", hex_encode(&after_header.layout_id));
-            println!("  Cannot compute semantic diff — neither layout in manifest.");
+            println!("  Cannot compute semantic diff: neither layout is in the manifest.");
         }
     }
 }
@@ -3287,7 +3309,7 @@ fn cmd_manager_simulate(args: &[String]) {
 
     // Receipt preview
     if ix.receipt_expected {
-        println!("  Receipt: YES — this instruction emits a state receipt.");
+        println!("  Receipt: YES. This instruction emits a state receipt.");
         println!("    The receipt captures:");
         println!("      - Phase (Init/Update/Close/Migrate)");
         println!("      - Changed field bitmask");
@@ -3296,7 +3318,7 @@ fn cmd_manager_simulate(args: &[String]) {
         println!("      - Compatibility impact");
         println!("      - CPI invocation flag");
     } else {
-        println!("  Receipt: NO — this instruction does not emit a receipt.");
+        println!("  Receipt: NO. This instruction does not emit a receipt.");
     }
 
     // Capability summary

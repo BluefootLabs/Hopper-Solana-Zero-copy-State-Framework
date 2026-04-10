@@ -113,6 +113,11 @@ budget_cu = 8
 category = "overlay"
 path = "pod_from_bytes_mut::<Vault> (57-byte layout)"
 
+[pod_from_bytes_57b]
+budget_cu = 6
+category = "overlay"
+path = "pod_from_bytes::<Vault> body-only view (57-byte layout)"
+
 # -- Header operations -------------------------------------------------
 
 [write_header]
@@ -251,6 +256,21 @@ note = "Zero-cost competitor baseline: size check + pointer cast only. No header
 budget_cu = 80
 category = "receipt"
 path = "receipt::StateReceipt::begin + set_phase + set_compat_impact + set_validation_bundle_id + commit"
+
+[receipt_begin_commit]
+budget_cu = 50
+category = "receipt"
+path = "receipt::StateReceipt::begin + commit"
+
+[fingerprint_check]
+budget_cu = 15
+category = "receipt"
+path = "layout::read_layout_id + compare"
+
+[state_diff]
+budget_cu = 30
+category = "receipt"
+path = "receipt::StateSnapshot::capture + diff"
 
 [receipt_emit]
 budget_cu = 150

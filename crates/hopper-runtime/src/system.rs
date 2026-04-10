@@ -1,4 +1,8 @@
-//! System program CPI instructions using Hopper-owned types.
+//! TEMPORARY: backend facade for System Program CPI builders.
+//!
+//! This module keeps Hopper-owned instruction semantics while execution still
+//! flows through the active backend substrate. It will be replaced by
+//! Hopper-native builders once the system-instruction surface is fully owned.
 //!
 //! Semantic CPI facades: the API is Hopper-owned (builder pattern over
 //! `AccountView` / `Address` / `Signer`), while execution is delegated to the

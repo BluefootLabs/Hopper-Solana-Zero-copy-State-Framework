@@ -10,13 +10,14 @@ something simpler, then explore the advanced patterns as you need them.
 1. **[hopper-showcase](hopper-showcase/src/lib.rs)** - The canonical Hopper
    program. Uses every layer of the pipeline: layout, dispatch, phased frame,
    policy, receipts, invariants, segment roles, state diffs. Read this first.
+   Companion guide: [hopper-showcase/README.md](hopper-showcase/README.md)
 
 2. **[hopper-vault](hopper-vault/src/lib.rs)** - A simple SOL vault. Three
    instructions (init, deposit, withdraw). Good for seeing the basics without
-   the advanced stuff.
+   the advanced stuff. Companion guide: [hopper-vault/README.md](hopper-vault/README.md)
 
 3. **[hopper-escrow](hopper-escrow/src/lib.rs)** - Token escrow with authority
-   checks and SPL Token integration.
+   checks and SPL Token integration. Companion guide: [hopper-escrow/README.md](hopper-escrow/README.md)
 
 ### Tier 2: Advanced Patterns
 
@@ -28,7 +29,7 @@ something simpler, then explore the advanced patterns as you need them.
 
 6. **[hopper-migration](hopper-migration/src/lib.rs)** - V1 to V2 layout
    evolution. Shows how append-only versioning and the migration planner work
-   together.
+   together. Companion guide: [hopper-migration/README.md](hopper-migration/README.md)
 
 7. **[hopper-virtual-state](hopper-virtual-state/src/lib.rs)** - Multi-account
    entities with VirtualState and ShardedAccess. For when your state is too big
@@ -36,6 +37,7 @@ something simpler, then explore the advanced patterns as you need them.
 
 8. **[cross-program-read](cross-program-read/)** - Two separate programs reading
    each other's accounts via `hopper_interface!`. No shared crate dependency.
+   Companion guide: [cross-program-read/README.md](cross-program-read/README.md)
 
 ### Tier 3: Escape Hatch
 

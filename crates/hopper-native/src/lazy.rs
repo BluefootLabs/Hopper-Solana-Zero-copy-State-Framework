@@ -5,10 +5,11 @@
 //! instruction data and program ID immediately, then hands back an
 //! iterator that parses accounts one at a time ON DEMAND.
 //!
-//! This design is original to Hopper: unlike pinocchio's single-pass
-//! or lazy_program_entrypoint (which still resolves accounts eagerly in
-//! the generated entrypoint), Hopper's `LazyContext` truly defers account
-//! parsing until the caller explicitly advances the cursor.
+//! Hopper's lazy path is distinct not because Pinocchio lacks lazy parsing,
+//! but because Hopper Native pre-scans the instruction tail, preserves
+//! canonical duplicate-account handling in `raw_input`, and then exposes a
+//! `LazyContext` that already knows `instruction_data` and `program_id`
+//! before the first account is materialized.
 //!
 //! # CU Savings
 //!
@@ -20,9 +21,10 @@
 //! # Usage
 //!
 //! ```ignore
-//! use hopper_native::lazy::{LazyContext, lazy_entrypoint};
+//! use hopper_native::lazy::LazyContext;
+//! use hopper_native::hopper_lazy_entrypoint;
 //!
-//! lazy_entrypoint!(process);
+//! hopper_lazy_entrypoint!(process);
 //!
 //! fn process(ctx: LazyContext) -> ProgramResult {
 //!     let disc = ctx.instruction_data().first().copied().unwrap_or(0);
@@ -39,8 +41,9 @@
 //! ```
 
 use crate::address::Address;
-use crate::account_view::{AccountView, RuntimeAccount};
+use crate::account_view::AccountView;
 use crate::error::ProgramError;
+use crate::raw_account::RuntimeAccount;
 
 /// Pre-parsed header from the BPF input buffer: instruction data +
 /// program ID, plus a cursor positioned at the first account.
@@ -251,93 +254,16 @@ impl LazyContext {
 /// `input` must point to a valid Solana BPF input buffer.
 #[inline]
 pub unsafe fn lazy_deserialize(input: *mut u8) -> LazyContext {
-    unsafe {
-        let mut scan = input;
+    let frame = unsafe { crate::raw_input::scan_instruction_frame(input) };
+    let resolved: [AccountView; 254] = unsafe { core::mem::zeroed() };
 
-        // Account count.
-        let num_accounts = *(scan as *const u64) as usize;
-        scan = scan.add(8);
-
-        // Save the position of the first account for the lazy cursor.
-        let accounts_start = scan;
-
-        // We need to scan forward through all accounts to find instruction
-        // data and program ID at the end. This is the unavoidable cost --
-        // but we DON'T construct AccountView objects during this scan.
-        let mut i = 0;
-        while i < num_accounts {
-            let dup_marker = *scan;
-            if dup_marker == u8::MAX {
-                let raw = scan as *const RuntimeAccount;
-                let data_len = (*raw).data_len as usize;
-                let header_size = core::mem::size_of::<RuntimeAccount>();
-                let mut offset = header_size + data_len;
-                offset = (offset + 7) & !7;
-                offset += 8; // rent_epoch
-                scan = scan.add(offset);
-            } else {
-                scan = scan.add(8);
-            }
-            i += 1;
-        }
-
-        // Instruction data.
-        let data_len = *(scan as *const u64) as usize;
-        scan = scan.add(8);
-        let instruction_data = scan as *const u8;
-        scan = scan.add(data_len);
-
-        // Program ID.
-        let program_id_ptr = scan as *const [u8; 32];
-        let program_id = Address::new_from_array(*program_id_ptr);
-
-        // Build a default-initialized resolved array. We use zeroed memory
-        // since AccountView is a pointer wrapper and will be overwritten
-        // before being read.
-        let resolved: [AccountView; 254] = core::mem::zeroed();
-
-        LazyContext {
-            cursor: accounts_start,
-            total_accounts: num_accounts.min(254),
-            parsed_count: 0,
-            instruction_data,
-            instruction_data_len: data_len,
-            program_id,
-            resolved,
-        }
+    LazyContext {
+        cursor: frame.accounts_start,
+        total_accounts: frame.account_count,
+        parsed_count: 0,
+        instruction_data: frame.instruction_data.as_ptr(),
+        instruction_data_len: frame.instruction_data.len(),
+        program_id: frame.program_id,
+        resolved,
     }
-}
-
-/// Declare a lazy program entrypoint.
-///
-/// Unlike `program_entrypoint!`, this does NOT parse accounts upfront.
-/// Your process function receives a `LazyContext` and pulls accounts
-/// on demand.
-///
-/// # Usage
-///
-/// ```ignore
-/// hopper_native::lazy_entrypoint!(process);
-///
-/// fn process(ctx: &mut LazyContext) -> ProgramResult {
-///     let payer = ctx.next_signer()?;
-///     // ...
-///     Ok(())
-/// }
-/// ```
-#[macro_export]
-macro_rules! lazy_entrypoint {
-    ( $process:expr ) => {
-        /// # Safety
-        ///
-        /// Called by the Solana runtime; `input` is a valid BPF input buffer.
-        #[no_mangle]
-        pub unsafe extern "C" fn entrypoint(input: *mut u8) -> u64 {
-            let mut ctx = unsafe { $crate::lazy::lazy_deserialize(input) };
-            match $process(&mut ctx) {
-                Ok(()) => $crate::SUCCESS,
-                Err(error) => error.into(),
-            }
-        }
-    };
 }

@@ -2,10 +2,13 @@
 
 Hopper Lang is not a new programming language.
 
-It is the canonical way to write Hopper programs -- a set of conventions,
-patterns, and library primitives that together produce programs that are
-safer, faster, and easier to audit than anything Anchor, Pinocchio, or
-Quasar can produce today.
+It is the canonical way to write Hopper programs: the conventions, patterns,
+and library primitives that make Hopper's state model coherent across a codebase.
+
+Pointer-casting account bytes is not what separates Hopper from Pinocchio or
+Quasar. They can do that too. What Hopper adds is runtime layout contracts,
+versioned headers, typed foreign and compatible loads, segment-aware state,
+receipts, and schema-exported metadata.
 
 ---
 
@@ -216,16 +219,31 @@ On macro-generated layout types, the migration-friendly helper is
 
 | Feature | Anchor | Pinocchio | Quasar | Hopper |
 |---------|--------|-----------|--------|--------|
-| Validation style | Derive macros | Manual | Manual | Guards + Chainable + Graph |
+| Validation style | Derive macros | Manual | Derive + generated checks | Guards + Chainable + Graph |
 | Execution phases | None | None | None | PhasedFrame (type-enforced) |
-| Layout evolution | None | None | None | Versioned headers + fingerprints |
-| CU cost of state access | ~200 CU (deser) | ~10 CU (cast) | ~10 CU (cast) | ~10 CU (cast) + optional validation |
+| Layout evolution | Discriminator only | None | None | Versioned headers + fingerprints + schema export |
+| Raw boundary ownership | Framework-owned | Yes | Yes | Yes |
 | Receipts | None | None | None | 64-byte StateReceipt |
 | Collections | None | None | None | FixedVec, RingBuffer, PackedMap, Journal, Slab |
 | Cross-program reads | IDL sharing | Raw casts | Interfaces | hopper_interface! with ABI proof |
-| PDA optimization | find_program_address | Manual | BUMP_OFFSET | verify_pda_cached (~200 CU) |
-| CLI tooling | anchor cli | None | None | explain, inspect, diff, plan, receipt, manager, fetch, client gen |
+| PDA optimization | seeds + bump + IDL | Manual | BUMP_OFFSET + fast find | verify_pda_cached + runtime PDA helpers |
+| CLI tooling | anchor cli + IDL | None | CLI + profiler + clients | explain, inspect, diff, plan, receipt, manager, fetch, client gen |
 | Backend portability | solana-program only | pinocchio only | pinocchio only | 3 backends, Hopper Native default |
+
+---
+
+## Where Hopper Leads
+
+Hopper's strongest lead is layout semantics. A Hopper program can treat a
+layout as runtime truth and then project that same truth into schema, receipts,
+compatibility planning, manager metadata, and foreign-program reads. That is
+the part current competitors do not combine into one model.
+
+Hopper should not claim blanket superiority in every dimension. Anchor still
+leads on ecosystem maturity and generated workflow. Quasar is strong on public
+tooling, generated clients, and raw-account DSL ergonomics. Pinocchio remains a
+top substrate. Hopper Lang's claim is that it unifies raw-capable execution and
+state-native semantics into one system.
 
 ---
 

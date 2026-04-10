@@ -6,50 +6,10 @@
 //! for address, owner, flags, lamports, and data.
 
 use crate::address::{Address, address_eq};
-use crate::error::ProgramError;
-use crate::{ProgramResult, NOT_BORROWED, MAX_PERMITTED_DATA_INCREASE};
 use crate::borrow::{Ref, RefMut};
-
-// ── RuntimeAccount (raw BPF input layout) ────────────────────────────
-
-/// Raw C-layout struct matching the Solana BPF account input format.
-///
-/// Each account in the entrypoint input buffer begins with this header,
-/// immediately followed by `data_len` bytes of account data.
-///
-/// The `borrow_state` field occupies the byte that the runtime writes as
-/// the duplicate marker (0xFF for non-duplicate accounts). Since 0xFF
-/// equals `NOT_BORROWED`, the field is ready for borrow tracking without
-/// any initialization.
-#[repr(C)]
-#[cfg_attr(feature = "copy", derive(Copy))]
-#[derive(Clone, Default)]
-pub struct RuntimeAccount {
-    /// Borrow tracking state (repurposed from BPF duplicate marker).
-    /// - `NOT_BORROWED` (0xFF): not borrowed
-    /// - 0: exclusively borrowed (mutable)
-    /// - 1..=254: shared borrow count
-    pub borrow_state: u8,
-    /// 1 if transaction signer, 0 otherwise.
-    pub is_signer: u8,
-    /// 1 if writable, 0 otherwise.
-    pub is_writable: u8,
-    /// 1 if executable, 0 otherwise.
-    pub executable: u8,
-    /// Delta between original and current data length (realloc tracking).
-    pub resize_delta: i32,
-    /// Account public key (32 bytes).
-    pub address: Address,
-    /// Owning program (32 bytes).
-    pub owner: Address,
-    /// Lamport balance.
-    pub lamports: u64,
-    /// Length of account data following this struct.
-    pub data_len: u64,
-    // Account data bytes follow immediately in memory.
-}
-
-const _: () = assert!(core::mem::size_of::<RuntimeAccount>() == 88);
+use crate::error::ProgramError;
+use crate::raw_account::RuntimeAccount;
+use crate::{MAX_PERMITTED_DATA_INCREASE, NOT_BORROWED, ProgramResult};
 
 // ── AccountView ──────────────────────────────────────────────────────
 

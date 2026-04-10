@@ -8,6 +8,8 @@ pub type BackendAddress = hopper_native::Address;
 pub type BackendProgramResult = hopper_native::ProgramResult;
 pub type BackendRef<'a, T> = hopper_native::borrow::Ref<'a, T>;
 pub type BackendRefMut<'a, T> = hopper_native::borrow::RefMut<'a, T>;
+pub const BACKEND_MAX_TX_ACCOUNTS: usize = hopper_native::MAX_TX_ACCOUNTS;
+pub const BACKEND_SUCCESS: u64 = hopper_native::SUCCESS;
 
 #[inline(always)]
 pub unsafe fn wrap_account_slice(accounts: &[BackendAccountView]) -> &[AccountView] {
