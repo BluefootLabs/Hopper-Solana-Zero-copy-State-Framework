@@ -35,7 +35,6 @@
 
 use hopper::prelude::*;
 use hopper::hopper_core::receipt::{Phase, CompatImpact};
-use hopper::{hopper_context, hopper_program, hopper_state};
 
 // --- Benchmark Layout ------------------------------------------------
 
@@ -48,19 +47,21 @@ hopper_layout! {
     }
 }
 
-#[hopper_state]
+#[derive(Clone, Copy)]
+#[repr(C)]
+#[hopper::state(disc = 19, version = 1)]
 pub struct ProcBenchVault {
     pub balance: WireU64,
     pub pending_rewards: WireU64,
 }
 
-#[hopper_context]
+#[hopper::context]
 pub struct ProcBenchDeposit {
     #[account(mut(balance))]
     pub vault: ProcBenchVault,
 }
 
-#[hopper_program]
+#[hopper::program]
 mod proc_macro_bench_program {
     use super::*;
 

@@ -17,7 +17,7 @@
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use syn::{
-    parse2, Attribute, FnArg, GenericArgument, Ident, Item, ItemFn, ItemMod, Lit, Pat,
+    parse2, Attribute, Expr, FnArg, GenericArgument, Ident, Item, ItemFn, ItemMod, Lit, Pat,
     Path, PathArguments, Result, Type, TypePath,
 };
 
@@ -27,6 +27,13 @@ struct Handler {
     fn_name: Ident,
     binding: ContextBinding,
     arg_types: Vec<Type>,
+}
+
+#[derive(Default)]
+struct HandlerModifiers {
+    pipeline: bool,
+    receipt: bool,
+    invariants: Vec<Expr>,
 }
 
 enum ContextBinding {
@@ -123,10 +130,12 @@ fn prepare_handler(function: &mut ItemFn) -> Result<Option<Handler>> {
     if !function
         .attrs
         .iter()
-        .any(|attr| attr.path().is_ident("instruction"))
+        .any(|attr| attr_has_name(attr, "instruction"))
     {
         return Ok(None);
     }
+
+    let modifiers = extract_handler_modifiers(&mut function.attrs)?;
 
     let discriminator = extract_instruction_discriminator(&function.attrs)?.ok_or_else(|| {
         syn::Error::new_spanned(
@@ -158,6 +167,7 @@ fn prepare_handler(function: &mut ItemFn) -> Result<Option<Handler>> {
             }
         }
     }
+    apply_handler_modifiers(function, &binding, &modifiers)?;
 
     Ok(Some(Handler {
         discriminator,
@@ -226,6 +236,165 @@ fn classify_context_binding(arg: &mut FnArg) -> Result<ContextBinding> {
         &pat_type.ty,
         "hopper_program handlers must start with either `ctx: &mut Context<'_>` or `ctx: Context<MyAccounts>`",
     ))
+}
+
+fn extract_handler_modifiers(attrs: &mut Vec<Attribute>) -> Result<HandlerModifiers> {
+    let mut modifiers = HandlerModifiers::default();
+    let mut retained = Vec::with_capacity(attrs.len());
+
+    for attr in attrs.drain(..) {
+        if attr_has_name(&attr, "pipeline") {
+            modifiers.pipeline = true;
+            continue;
+        }
+        if attr_has_name(&attr, "receipt") {
+            if !matches!(attr.meta, syn::Meta::Path(_)) {
+                return Err(syn::Error::new_spanned(
+                    attr,
+                    "receipt does not take arguments yet; use bare #[receipt]",
+                ));
+            }
+            modifiers.receipt = true;
+            continue;
+        }
+        if attr_has_name(&attr, "invariant") {
+            modifiers.invariants.push(attr.parse_args::<Expr>()?);
+            continue;
+        }
+        retained.push(attr);
+    }
+
+    *attrs = retained;
+    Ok(modifiers)
+}
+
+fn apply_handler_modifiers(
+    function: &mut ItemFn,
+    binding: &ContextBinding,
+    modifiers: &HandlerModifiers,
+) -> Result<()> {
+    if !modifiers.pipeline && !modifiers.receipt && modifiers.invariants.is_empty() {
+        return Ok(());
+    }
+
+    let ctx_ident = context_ident(function)?;
+    let raw_ctx = raw_context_expr(&ctx_ident, binding);
+    let original_block = function.block.clone();
+
+    if modifiers.receipt && matches!(binding, ContextBinding::Raw) {
+        return Err(syn::Error::new_spanned(
+            &function.sig,
+            "#[receipt] currently requires a typed Hopper context so receipt segments can be derived from #[hopper_context]",
+        ));
+    }
+
+    let pipeline_checks = if modifiers.pipeline {
+        quote! {
+            #raw_ctx.require_unique_writable_accounts()?;
+            #raw_ctx.require_unique_signer_accounts()?;
+        }
+    } else {
+        TokenStream::new()
+    };
+
+    let receipt_begin = if modifiers.receipt {
+        match binding {
+            ContextBinding::Typed { spec } => quote! {
+                let __hopper_receipt_scope = #spec::begin_receipt_scope::<256>(#raw_ctx)?;
+            },
+            ContextBinding::Raw => TokenStream::new(),
+        }
+    } else {
+        TokenStream::new()
+    };
+
+    let receipt_finish = if modifiers.receipt {
+        quote! {
+            __hopper_receipt_scope.finish(#raw_ctx, __hopper_invariants_passed, __hopper_invariants_checked)?;
+        }
+    } else {
+        TokenStream::new()
+    };
+
+    let invariant_checks: Vec<_> = modifiers
+        .invariants
+        .iter()
+        .map(|expr| {
+            quote! {
+                if __hopper_modifier_error.is_none() {
+                    let __hopper_invariant_value = (|| -> ::core::result::Result<bool, ::hopper::__runtime::ProgramError> {
+                        Ok(#expr)
+                    })()?;
+                    __hopper_invariants_checked = __hopper_invariants_checked.saturating_add(1);
+                    if !__hopper_invariant_value {
+                        __hopper_invariants_passed = false;
+                        __hopper_modifier_error = Some(::hopper::__runtime::ProgramError::InvalidAccountData);
+                    }
+                }
+            }
+        })
+        .collect();
+
+    function.block = Box::new(syn::parse_quote!({
+        #pipeline_checks
+        #receipt_begin
+        let mut __hopper_invariants_passed = true;
+        let mut __hopper_invariants_checked: u16 = 0;
+        let __hopper_result = (|| #original_block)();
+
+        match __hopper_result {
+            Ok(__hopper_value) => {
+                let mut __hopper_modifier_error: ::core::option::Option<::hopper::__runtime::ProgramError> = None;
+                #(#invariant_checks)*
+                #receipt_finish
+                if let ::core::option::Option::Some(__hopper_error) = __hopper_modifier_error {
+                    Err(__hopper_error)
+                } else {
+                    Ok(__hopper_value)
+                }
+            }
+            Err(__hopper_error) => Err(__hopper_error),
+        }
+    }));
+
+    Ok(())
+}
+
+fn context_ident(function: &ItemFn) -> Result<Ident> {
+    let Some(first) = function.sig.inputs.first() else {
+        return Err(syn::Error::new_spanned(
+            &function.sig,
+            "hopper_program handlers require a leading context parameter",
+        ));
+    };
+    let FnArg::Typed(pat_type) = first else {
+        return Err(syn::Error::new_spanned(
+            first,
+            "hopper_program handlers must use a simple context identifier when execution modifiers are present",
+        ));
+    };
+    let Pat::Ident(ident) = pat_type.pat.as_ref() else {
+        return Err(syn::Error::new_spanned(
+            pat_type.pat.as_ref(),
+            "execution modifiers require a simple identifier like `ctx` for the first parameter",
+        ));
+    };
+    Ok(ident.ident.clone())
+}
+
+fn raw_context_expr(ctx_ident: &Ident, binding: &ContextBinding) -> TokenStream {
+    match binding {
+        ContextBinding::Raw => quote! { #ctx_ident },
+        ContextBinding::Typed { .. } => quote! { #ctx_ident.raw() },
+    }
+}
+
+fn attr_has_name(attr: &Attribute, name: &str) -> bool {
+    attr.path()
+        .segments
+        .last()
+        .map(|segment| segment.ident == name)
+        .unwrap_or(false)
 }
 
 fn is_raw_context_ref(ty: &Type) -> bool {
@@ -317,7 +486,7 @@ fn mark_pattern_mutable(pattern: &mut Box<Pat>) -> Result<()> {
 /// Extract the discriminator from `#[instruction(N)]`.
 fn extract_instruction_discriminator(attrs: &[Attribute]) -> Result<Option<u8>> {
     for attr in attrs {
-        if !attr.path().is_ident("instruction") {
+        if !attr_has_name(attr, "instruction") {
             continue;
         }
         let disc: Lit = attr.parse_args()?;

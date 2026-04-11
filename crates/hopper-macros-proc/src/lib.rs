@@ -1,8 +1,9 @@
 //! Optional proc macro DX layer for Hopper.
 //!
-//! Provides `#[hopper_state]`, `#[hopper_context]`, and `#[hopper_program]`
-//! attribute macros that generate zero-cost code targeting Hopper's runtime
-//! primitives.
+//! Provides both the canonical `#[hopper::state]`, `#[hopper::context]`,
+//! `#[hopper::program]` surface and the legacy `#[hopper_state]`,
+//! `#[hopper_context]`, `#[hopper_program]` aliases. All entry points generate
+//! zero-cost code targeting Hopper's runtime primitives.
 //!
 //! **Not required.** Every feature these macros provide is achievable through
 //! Hopper's declarative `macro_rules!` macros or hand-written code. These
@@ -51,6 +52,11 @@ pub fn hopper_state(attr: TokenStream, item: TokenStream) -> TokenStream {
         .into()
 }
 
+#[proc_macro_attribute]
+pub fn state(attr: TokenStream, item: TokenStream) -> TokenStream {
+    hopper_state(attr, item)
+}
+
 /// Generate typed context accessors with segment-level borrow tracking.
 ///
 /// Each field annotated with `#[account(mut(field1, field2))]` gets accessor
@@ -83,6 +89,11 @@ pub fn hopper_context(attr: TokenStream, item: TokenStream) -> TokenStream {
         .into()
 }
 
+#[proc_macro_attribute]
+pub fn context(attr: TokenStream, item: TokenStream) -> TokenStream {
+    hopper_context(attr, item)
+}
+
 /// Generate a dispatch table for a Hopper program module.
 ///
 /// Maps instruction discriminator bytes to handler functions, generating
@@ -105,4 +116,9 @@ pub fn hopper_program(attr: TokenStream, item: TokenStream) -> TokenStream {
     program::expand(attr.into(), item.into())
         .unwrap_or_else(|e| e.to_compile_error())
         .into()
+}
+
+#[proc_macro_attribute]
+pub fn program(attr: TokenStream, item: TokenStream) -> TokenStream {
+    hopper_program(attr, item)
 }

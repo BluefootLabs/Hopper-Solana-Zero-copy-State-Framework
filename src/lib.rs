@@ -79,7 +79,14 @@ pub use hopper_core::hopper_dispatch;
 
 // Optional proc macro re-exports (enabled with `proc-macros` feature)
 #[cfg(feature = "proc-macros")]
-pub use hopper_macros_proc::{hopper_state, hopper_context, hopper_program};
+pub use hopper_macros_proc::{
+    context,
+    hopper_context,
+    hopper_program,
+    hopper_state,
+    program,
+    state,
+};
 
 // Private re-export for generated code to reference runtime types
 #[doc(hidden)]

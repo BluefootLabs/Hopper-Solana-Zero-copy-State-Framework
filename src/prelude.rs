@@ -30,7 +30,7 @@ pub use crate::{
 };
 
 #[cfg(feature = "proc-macros")]
-pub use crate::{hopper_context, hopper_program, hopper_state};
+pub use crate::{context, hopper_context, hopper_program, hopper_state, program, state};
 
 // New systems
 pub use hopper_core::virtual_state::{VirtualState, VirtualSlot, ShardedAccess};
@@ -76,6 +76,9 @@ pub use hopper_runtime::cpi::{
 
 // Field maps
 pub use hopper_core::field_map::{FieldInfo, FieldMap};
+pub use hopper_core::account::HEADER_LEN;
+pub use hopper_core::segment_map::{SegmentMap, StaticSegment};
+pub use hopper_core::invariant::InvariantSet;
 
 #[cfg(target_os = "solana")]
 pub use crate::pda::{

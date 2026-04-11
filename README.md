@@ -47,7 +47,7 @@ call `ctx.segment_mut::<T>(index, offset)`, wire dispatch manually. You own
 every instruction. This is what ships in `hopper-core` and `hopper-macros`.
 
 **Path B — Proc macros (optional DX layer):** Annotate structs with
-`#[hopper_state]`, `#[hopper_context]`, `#[hopper_program]`. The macros
+`#[hopper::state]`, `#[hopper::context]`, `#[hopper::program]`. The macros
 generate the same SegmentMap impls, typed accessors, and dispatch tables
 you'd write by hand — but with less boilerplate.
 
@@ -62,11 +62,13 @@ hopper = { version = "0.1", features = ["proc-macros"] }
 ```rust
 use hopper::prelude::*;
 
-#[hopper_state]
+#[derive(Clone, Copy)]
+#[repr(C)]
+#[hopper::state(disc = 1, version = 1)]
 pub struct Vault {
-    pub authority: [u8; 32],
-    pub balance: u64,
-    pub bump: u8,
+  pub authority: TypedAddress<Authority>,
+  pub balance: WireU64,
+  pub bump: u8,
 }
 
 // Generates:
@@ -77,6 +79,40 @@ pub struct Vault {
 // - const VAULT_BALANCE_SIZE: u32 = 8;
 // ... etc
 ```
+
+Proc `state` layouts are body-only zero-copy views. Use `#[repr(C)]` and
+alignment-1 Hopper wire types such as `WireU64`, `WireBool`, and
+`TypedAddress<T>` so the generated layout contract can be loaded safely from
+account bytes.
+
+The canonical proc surface also supports compile-time execution modifiers on
+typed handlers:
+
+```rust
+#[hopper::program]
+mod vault {
+  use super::*;
+
+  #[hopper::pipeline]
+  #[hopper::receipt]
+  #[hopper::invariant({
+    let balance = ctx.vault_balance_ref()?.get();
+    let pending_rewards = ctx.vault_pending_rewards_ref()?.get();
+    balance >= pending_rewards
+  })]
+  #[instruction(1)]
+  pub fn deposit(ctx: Context<Deposit>, amount: u64) -> ProgramResult {
+    let mut balance = ctx.vault_balance_mut()?;
+    *balance = WireU64::new(balance.get() + amount);
+    Ok(())
+  }
+}
+```
+
+`pipeline` adds instruction-scope duplicate-account checks, `receipt` emits
+segment-aware state receipts from the mutable accounts declared in the typed
+context, and `invariant(...)` verifies post-mutation conditions after the
+handler body succeeds.
 
 ## The Pipeline
 

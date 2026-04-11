@@ -1,9 +1,10 @@
 //! `#[hopper_context]` — typed context accessor codegen.
 //!
 //! Parses context structs with `#[account(...)]` annotations and generates:
-//! - A `try_from_context()` constructor
+//! - A typed binder over `hopper_runtime::Context`
 //! - Per-field segment accessors (`vault_balance_mut()`, etc.)
-//! - Signer/writable validation in the constructor
+//! - Up-front signer, writable, owner, and layout validation
+//! - Receipt scopes derived from the same mutable segment metadata
 //!
 //! All generated accessors are `#[inline(always)]` with const segment offsets.
 
@@ -51,6 +52,7 @@ pub fn expand(_attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
     let name = &input.ident;
     let vis = &input.vis;
     let bound_name = format_ident!("{}Ctx", name);
+    let receipt_scope_name = format_ident!("{}ReceiptScope", name);
 
     let fields = match &mut input.fields {
         Fields::Named(f) => &mut f.named,
@@ -67,6 +69,14 @@ pub fn expand(_attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
         let field_name = field.ident.as_ref().unwrap().clone();
         let field_ty = field.ty.clone();
         let attr = parse_account_attr(&field.attrs)?;
+        if (!attr.mut_segments.is_empty() || !attr.read_segments.is_empty())
+            && skips_layout_validation(&field_ty)
+        {
+            return Err(syn::Error::new_spanned(
+                &field.ty,
+                "segment accessors require a Hopper layout type, not a raw account view",
+            ));
+        }
         field.attrs.retain(|attr| {
             !attr.path().is_ident("account") && !attr.path().is_ident("signer")
         });
@@ -92,6 +102,13 @@ pub fn expand(_attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
         if cf.attr.is_mut || !cf.attr.mut_segments.is_empty() {
             validation_stmts.push(quote! {
                 ctx.account(#idx)?.check_writable()?;
+            });
+        }
+        if !skips_layout_validation(&cf.ty) {
+            let field_ty = &cf.ty;
+            validation_stmts.push(quote! {
+                ctx.account(#idx)?.check_owned_by(ctx.program_id())?;
+                let _ = ctx.account(#idx)?.load::<#field_ty>()?;
             });
         }
     }
@@ -157,7 +174,80 @@ pub fn expand(_attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
         }
     }
 
+    let mut receipt_scope_fields = Vec::new();
+    let mut receipt_begin_inits = Vec::new();
+    let mut receipt_finish_blocks = Vec::new();
+
+    for cf in &ctx_fields {
+        if skips_layout_validation(&cf.ty) {
+            continue;
+        }
+        if !(cf.attr.is_mut || !cf.attr.mut_segments.is_empty()) {
+            continue;
+        }
+
+        let field_name = &cf.name;
+        let field_ty = &cf.ty;
+        let idx = cf.index;
+        let receipt_field_name = format_ident!("{}_receipt", field_name);
+        let layout_ident = type_ident(field_ty)?;
+
+        receipt_scope_fields.push(quote! {
+            #receipt_field_name: ::hopper::prelude::StateReceipt<SNAP>,
+        });
+
+        receipt_begin_inits.push(quote! {
+            #receipt_field_name: {
+                let account = ctx.account(#idx)?;
+                let data = account.try_borrow()?;
+                ::hopper::prelude::StateReceipt::<SNAP>::begin(
+                    &<#field_ty as ::hopper::hopper_runtime::LayoutContract>::LAYOUT_ID,
+                    &data,
+                )
+            }
+        });
+
+        let segment_pairs: Vec<_> = if cf.attr.mut_segments.is_empty() {
+            vec![quote! {
+                (
+                    ::hopper::hopper_core::account::HEADER_LEN,
+                    <#field_ty as ::hopper::hopper_runtime::LayoutContract>::SIZE
+                        - ::hopper::hopper_core::account::HEADER_LEN,
+                )
+            }]
+        } else {
+            let type_upper = to_screaming_snake(&layout_ident.to_string());
+            cf.attr
+                .mut_segments
+                .iter()
+                .map(|seg_name| {
+                    let seg_upper = to_screaming_snake(seg_name);
+                    let offset_const = format_ident!("{}_{}_OFFSET", type_upper, seg_upper);
+                    let size_const = format_ident!("{}_{}_SIZE", type_upper, seg_upper);
+                    quote! {
+                        (
+                            ::hopper::hopper_core::account::HEADER_LEN + #offset_const as usize,
+                            #size_const as usize,
+                        )
+                    }
+                })
+                .collect()
+        };
+
+        receipt_finish_blocks.push(quote! {
+            {
+                let account = ctx.account(#idx)?;
+                let data = account.try_borrow()?;
+                self.#receipt_field_name.commit_with_segments(&data, &[#(#segment_pairs),*]);
+                self.#receipt_field_name.set_invariants(invariants_passed, invariants_checked);
+                ::hopper::prelude::emit_receipt(&self.#receipt_field_name.to_bytes())?;
+            }
+        });
+    }
+
     let account_count = ctx_fields.len();
+    let receipt_expected = !receipt_scope_fields.is_empty();
+    let mutable_account_count = receipt_scope_fields.len();
 
     let expanded = quote! {
         // Emit the original struct unchanged.
@@ -167,9 +257,15 @@ pub fn expand(_attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
             ctx: &'ctx mut ::hopper::prelude::Context<'a>,
         }
 
+        #vis struct #receipt_scope_name<const SNAP: usize> {
+            #(#receipt_scope_fields)*
+        }
+
         impl #name {
             /// Number of accounts this context requires.
             pub const ACCOUNT_COUNT: usize = #account_count;
+            pub const RECEIPT_EXPECTED: bool = #receipt_expected;
+            pub const MUTABLE_ACCOUNT_COUNT: usize = #mutable_account_count;
 
             /// Validate the account slice against this context spec.
             #[inline]
@@ -186,6 +282,28 @@ pub fn expand(_attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
             ) -> ::core::result::Result<#bound_name<'ctx, 'a>, ::hopper::__runtime::ProgramError> {
                 Self::validate(ctx)?;
                 Ok(#bound_name { ctx })
+            }
+
+            #[inline]
+            pub fn begin_receipt_scope<const SNAP: usize>(
+                ctx: &::hopper::prelude::Context<'_>,
+            ) -> ::core::result::Result<#receipt_scope_name<SNAP>, ::hopper::__runtime::ProgramError> {
+                Ok(#receipt_scope_name {
+                    #(#receipt_begin_inits),*
+                })
+            }
+        }
+
+        impl<const SNAP: usize> #receipt_scope_name<SNAP> {
+            #[inline]
+            #vis fn finish(
+                mut self,
+                ctx: &::hopper::prelude::Context<'_>,
+                invariants_passed: bool,
+                invariants_checked: u16,
+            ) -> ::core::result::Result<(), ::hopper::__runtime::ProgramError> {
+                #(#receipt_finish_blocks)*
+                Ok(())
             }
         }
 
@@ -312,6 +430,17 @@ fn type_ident(ty: &Type) -> Result<Ident> {
             ty,
             "hopper_context segment accessors require path types such as `Vault`",
         )),
+    }
+}
+
+fn skips_layout_validation(ty: &Type) -> bool {
+    match ty {
+        Type::Path(TypePath { path, .. }) => path
+            .segments
+            .last()
+            .map(|segment| matches!(segment.ident.to_string().as_str(), "AccountView" | "Signer" | "UncheckedAccount" | "ProgramRef"))
+            .unwrap_or(false),
+        _ => false,
     }
 }
 

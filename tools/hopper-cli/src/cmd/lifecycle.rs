@@ -97,6 +97,10 @@ pub fn cmd_build(args: &[String]) {
         eprintln!("{err}");
         process::exit(1);
     });
+    let workspace_root = workspace::find_workspace_root(&cwd).unwrap_or_else(|err| {
+        eprintln!("{err}");
+        process::exit(1);
+    });
 
     let mut use_host = false;
     let mut cargo_args = Vec::new();
@@ -110,9 +114,18 @@ pub fn cmd_build(args: &[String]) {
         }
     }
 
-    let mut command_args = vec![if use_host { "build" } else { "build-sbf" }.to_string()];
-    command_args.extend(cargo_args);
-    run_cargo_command(&project_root, &command_args);
+    if use_host {
+        let mut command_args = vec!["build".to_string()];
+        command_args.extend(cargo_args);
+        run_cargo_command(&project_root, &command_args);
+    } else {
+        let command_args = normalize_sbf_build_args(&project_root, &workspace_root, &cargo_args)
+            .unwrap_or_else(|err| {
+                eprintln!("hopper build failed: {err}");
+                process::exit(1);
+            });
+        run_cargo_command(&workspace_root, &command_args);
+    }
 }
 
 pub fn cmd_test(args: &[String]) {
@@ -160,7 +173,7 @@ pub fn cmd_deploy(args: &[String]) {
     });
 
     if !common.no_build {
-        build_sbf(&workspace_root, common.package.as_deref());
+        build_sbf(&project_root, &workspace_root, common.package.as_deref());
     }
 
     let artifact = resolve_sbf_artifact(&project_root, &workspace_root, common.package.as_deref())
@@ -203,7 +216,7 @@ pub fn cmd_dump(args: &[String]) {
     });
 
     if !common.no_build {
-        build_sbf(&workspace_root, common.package.as_deref());
+        build_sbf(&project_root, &workspace_root, common.package.as_deref());
     }
 
     let artifact = resolve_sbf_artifact(&project_root, &workspace_root, common.package.as_deref())
@@ -334,13 +347,82 @@ fn parse_dump_args(args: &[String]) -> Result<(CommonLifecycleOptions, DumpOptio
     Ok((common, dump))
 }
 
-fn build_sbf(workspace_root: &Path, package: Option<&str>) {
-    let mut command_args = vec!["build-sbf".to_string()];
-    if let Some(package) = package {
-        command_args.push("-p".to_string());
-        command_args.push(package.to_string());
-    }
+fn build_sbf(project_root: &Path, workspace_root: &Path, package: Option<&str>) {
+    let package_args: Vec<String> = package
+        .map(|package| vec!["--package".to_string(), package.to_string()])
+        .unwrap_or_default();
+    let command_args = normalize_sbf_build_args(project_root, workspace_root, &package_args)
+        .unwrap_or_else(|err| {
+            eprintln!("hopper build failed: {err}");
+            process::exit(1);
+        });
     run_cargo_command(workspace_root, &command_args);
+}
+
+fn normalize_sbf_build_args(
+    project_root: &Path,
+    workspace_root: &Path,
+    cargo_args: &[String],
+) -> Result<Vec<String>, String> {
+    let mut command_args = vec!["build-sbf".to_string()];
+    let mut passthrough = Vec::new();
+    let mut manifest_path: Option<PathBuf> = None;
+    let mut i = 0;
+
+    while i < cargo_args.len() {
+        match cargo_args[i].as_str() {
+            "-p" | "--package" => {
+                if i + 1 >= cargo_args.len() {
+                    return Err(format!("{} requires a package name", cargo_args[i]));
+                }
+                manifest_path = Some(workspace::resolve_workspace_member_manifest(
+                    workspace_root,
+                    &cargo_args[i + 1],
+                )?);
+                i += 2;
+            }
+            "--manifest-path" => {
+                if i + 1 >= cargo_args.len() {
+                    return Err("--manifest-path requires a path".to_string());
+                }
+                manifest_path = Some(PathBuf::from(&cargo_args[i + 1]));
+                passthrough.push(cargo_args[i].clone());
+                passthrough.push(cargo_args[i + 1].clone());
+                i += 2;
+            }
+            other if other.starts_with("--manifest-path=") => {
+                let value = other
+                    .split_once('=')
+                    .map(|(_, value)| value)
+                    .unwrap_or_default();
+                manifest_path = Some(PathBuf::from(value));
+                passthrough.push(other.to_string());
+                i += 1;
+            }
+            other => {
+                passthrough.push(other.to_string());
+                i += 1;
+            }
+        }
+    }
+
+    if manifest_path.is_none() {
+        manifest_path = Some(project_root.join("Cargo.toml"));
+    }
+
+    if !passthrough.iter().any(|arg| arg == "--manifest-path" || arg.starts_with("--manifest-path=")) {
+        command_args.push("--manifest-path".to_string());
+        command_args.push(
+            manifest_path
+                .as_ref()
+                .expect("manifest path was populated above")
+                .display()
+                .to_string(),
+        );
+    }
+
+    command_args.extend(passthrough);
+    Ok(command_args)
 }
 
 fn resolve_sbf_artifact(
@@ -476,8 +558,11 @@ fn normalize_crate_name(input: &str) -> String {
 
 fn render_hopper_dependency(local_path: Option<&str>) -> String {
     match local_path {
-        Some(path) => format!("hopper = {{ path = \"{}\", default-features = false }}", path.replace('\\', "/")),
-        None => "hopper = { version = \"0.1.0\", default-features = false }".to_string(),
+        Some(path) => format!(
+            "hopper = {{ path = \"{}\", default-features = false, features = [\"hopper-native-backend\", \"proc-macros\"] }}",
+            path.replace('\\', "/")
+        ),
+        None => "hopper = { version = \"0.1.0\", default-features = false, features = [\"hopper-native-backend\", \"proc-macros\"] }".to_string(),
     }
 }
 
@@ -493,39 +578,47 @@ fn render_lib_rs() -> String {
 
 use hopper::prelude::*;
 
-hopper_layout! {
-    /// Minimal configuration account for a fresh Hopper program.
-    pub struct Config, disc = 1, version = 1 {
-        authority: TypedAddress<Authority> = 32,
-        bump:      u8                     = 1,
-    }
+#[derive(Clone, Copy)]
+#[repr(C)]
+#[hopper::state(disc = 1, version = 1)]
+pub struct Config {
+    pub authority: TypedAddress<Authority>,
+    pub bump: u8,
 }
 
-hopper_error! {
-    base = 7000;
-    UnsupportedInstruction,
+#[hopper::context]
+pub struct Initialize {
+    #[account(mut(authority, bump))]
+    pub config: Config,
+
+    #[signer]
+    pub authority: AccountView,
 }
 
 #[cfg(target_os = "solana")]
 program_entrypoint!(process_instruction);
 
 fn process_instruction(
-    _program_id: &Address,
+    program_id: &Address,
     accounts: &[AccountView],
     instruction_data: &[u8],
 ) -> ProgramResult {
-    match instruction_data.first().copied() {
-        Some(0) => process_init(accounts),
-        _ => Err(ProgramError::InvalidInstructionData),
-    }
+    let mut ctx = Context::new(program_id, accounts, instruction_data);
+    app::process_instruction(&mut ctx)
 }
 
-fn process_init(accounts: &[AccountView]) -> ProgramResult {
-    let authority = accounts
-        .first()
-        .ok_or(ProgramError::NotEnoughAccountKeys)?;
-    authority.check_signer()?;
-    Ok(())
+#[hopper::program]
+mod app {
+    use super::*;
+
+    #[hopper::pipeline]
+    #[instruction(0)]
+    pub fn initialize(ctx: Context<Initialize>) -> ProgramResult {
+        let authority = TypedAddress::from_account(ctx.account(1)?);
+        *ctx.config_authority_mut()? = authority;
+        *ctx.config_bump_mut()? = 0;
+        Ok(())
+    }
 }
 
 #[cfg(test)]
