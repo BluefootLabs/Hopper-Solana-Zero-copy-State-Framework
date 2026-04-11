@@ -1489,6 +1489,7 @@ version = "0.1.0"
 dependencies = [
  "hopper-core",
  "hopper-macros",
+ "hopper-macros-proc",
  "hopper-runtime",
  "hopper-schema",
  "hopper-solana",
@@ -1579,6 +1580,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "hopper-macros-proc"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.117",
+]
+
+[[package]]
 name = "hopper-migration"
 version = "0.1.0"
 dependencies = [
@@ -1598,6 +1608,13 @@ name = "hopper-native"
 version = "0.1.0"
 dependencies = [
  "five8_const 0.1.4",
+]
+
+[[package]]
+name = "hopper-proc-vault"
+version = "0.1.0"
+dependencies = [
+ "hopper",
 ]
 
 [[package]]

@@ -21,10 +21,12 @@ members = [
     "examples/hopper-registry",
     "examples/hopper-migration",
     "examples/hopper-virtual-state",
+    "examples/hopper-proc-vault",
     "examples/cross-program-read/program-a",
     "examples/cross-program-read/program-b",
     "bench/hopper-bench",
     "tools/hopper-cli",
+    "crates/hopper-macros-proc",
 ]
 resolver = "2"
 
@@ -54,6 +56,7 @@ hopper-vesting = { path = "crates/hopper-vesting", version = "0.1.0" }
 hopper-distribute = { path = "crates/hopper-distribute", version = "0.1.0" }
 hopper-multisig = { path = "crates/hopper-multisig", version = "0.1.0" }
 hopper-anchor = { path = "crates/hopper-anchor", version = "0.1.0" }
+hopper-macros-proc = { path = "crates/hopper-macros-proc", version = "0.1.0" }
 
 [package]
 name = "hopper"
@@ -79,9 +82,11 @@ hopper-core = { workspace = true }
 hopper-macros = { workspace = true }
 hopper-schema = { workspace = true }
 hopper-solana = { workspace = true }
+hopper-macros-proc = { workspace = true, optional = true }
 
 [features]
 default = ["hopper-native-backend"]
+proc-macros = ["hopper-macros-proc"]
 hopper-native-backend = ["hopper-runtime/hopper-native-backend"]
 pinocchio-backend = ["hopper-runtime/pinocchio-backend"]
 solana-program-backend = ["hopper-runtime/solana-program-backend"]

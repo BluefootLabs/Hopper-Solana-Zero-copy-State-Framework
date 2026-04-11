@@ -46,6 +46,7 @@ bench/
 | `zero_init` (57 bytes) | 15 | memset zero |
 | `emit_event` (32 bytes) | 100 | sol_log_data syscall |
 | `TrustProfile::load` (Strict) | 130 | owner + layout_id + size + sentinel |
+| `proc_macro_typed_dispatch` | 80 | generated `Context<...>` binding + `u64` decode + segment mutation |
 | `create_account` CPI | 5000 | System program CreateAccount |
 | `token_transfer` CPI | 4000 | SPL Token Transfer |
 
@@ -54,7 +55,7 @@ bench/
 ### Option A: Docker Desktop (recommended for Windows, no manual validator setup)
 
 ```powershell
-# Windows: starts the validator container, runs all 19 benchmarks, stops container
+# Windows: starts the validator container, runs all 20 benchmarks, stops container
 .\bench\run-bench-docker.ps1
 
 # Pass extra flags directly to `hopper profile bench`

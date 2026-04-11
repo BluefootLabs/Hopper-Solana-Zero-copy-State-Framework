@@ -28,12 +28,14 @@
 //! | 16 | raw_cast_baseline (unsafe ptr) | ~4 |
 //! | 17 | receipt_full (enriched fields) | ~80 |
 //! | 18 | receipt_emit (64B log) | ~150 |
+//! | 19 | proc_macro_typed_dispatch | ~80 |
 
 #![cfg_attr(target_os = "solana", no_std)]
 #![allow(dead_code, unused_variables)]
 
 use hopper::prelude::*;
 use hopper::hopper_core::receipt::{Phase, CompatImpact};
+use hopper::{hopper_context, hopper_program, hopper_state};
 
 // --- Benchmark Layout ------------------------------------------------
 
@@ -43,6 +45,34 @@ hopper_layout! {
         authority: TypedAddress<Authority> = 32,
         balance:   WireU64                = 8,
         bump:      u8                     = 1,
+    }
+}
+
+#[hopper_state]
+pub struct ProcBenchVault {
+    pub balance: WireU64,
+    pub pending_rewards: WireU64,
+}
+
+#[hopper_context]
+pub struct ProcBenchDeposit {
+    #[account(mut(balance))]
+    pub vault: ProcBenchVault,
+}
+
+#[hopper_program]
+mod proc_macro_bench_program {
+    use super::*;
+
+    #[instruction(19)]
+    pub fn typed_deposit(ctx: Context<ProcBenchDeposit>, amount: u64) -> ProgramResult {
+        let mut balance = ctx.vault_balance_mut()?;
+        let next = balance
+            .get()
+            .checked_add(amount)
+            .ok_or(ProgramError::ArithmeticOverflow)?;
+        *balance = WireU64::new(next);
+        Ok(())
     }
 }
 
@@ -80,6 +110,7 @@ fn process_instruction(
         16 => bench_raw_cast_baseline(accounts, program_id),
         17 => bench_receipt_full(accounts, program_id),
         18 => bench_receipt_emit(accounts, program_id),
+        19 => bench_proc_macro_typed_dispatch(accounts, program_id, instruction_data),
         _ => Err(ProgramError::InvalidInstructionData),
     }
 }
@@ -591,6 +622,29 @@ fn bench_receipt_emit(accounts: &[AccountView], program_id: &Address) -> Program
     hopper_runtime::syscall::sol_log_compute_units();
     #[cfg(target_os = "solana")]
     hopper_runtime::msg!("END receipt_emit");
+
+    Ok(())
+}
+
+/// Benchmark: proc-macro typed dispatch + binding + u64 decode (~80 CU).
+fn bench_proc_macro_typed_dispatch(
+    accounts: &[AccountView],
+    program_id: &Address,
+    instruction_data: &[u8],
+) -> ProgramResult {
+    let mut ctx = Context::new(program_id, accounts, instruction_data);
+
+    #[cfg(target_os = "solana")]
+    hopper_runtime::msg!("BEGIN proc_macro_typed_dispatch");
+    #[cfg(target_os = "solana")]
+    hopper_runtime::syscall::sol_log_compute_units();
+
+    proc_macro_bench_program::process_instruction(&mut ctx)?;
+
+    #[cfg(target_os = "solana")]
+    hopper_runtime::syscall::sol_log_compute_units();
+    #[cfg(target_os = "solana")]
+    hopper_runtime::msg!("END proc_macro_typed_dispatch");
 
     Ok(())
 }

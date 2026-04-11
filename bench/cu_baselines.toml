@@ -277,6 +277,11 @@ budget_cu = 150
 category = "receipt"
 path = "receipt::StateReceipt cycle + emit_slices (64B)"
 
+[proc_macro_typed_dispatch]
+budget_cu = 80
+category = "proc_macros"
+path = "proc-macros::typed dispatch + bind + u64 decode + segment_mut"
+
 # -- Overlay vs Pod parity proof ---------------------------------------
 
 # The overlay (disc=5) and pod_from_bytes (disc=11) benchmarks already

@@ -39,10 +39,12 @@ pub mod error;
 pub mod result;
 pub mod address;
 pub mod account;
+pub mod audit;
 pub mod borrow;
 pub(crate) mod borrow_registry;
 pub mod cpi;
 pub mod field_map;
+pub mod segment_borrow;
 pub mod instruction;
 pub mod layout;
 pub mod context;
@@ -52,6 +54,7 @@ pub mod token;
 
 pub use account::{AccountView, RemainingAccounts};
 pub use address::Address;
+pub use audit::{AccountAudit, DuplicateAccount};
 pub use borrow::{Ref, RefMut};
 pub use context::Context;
 pub use cpi::{invoke, invoke_signed};
@@ -62,6 +65,7 @@ pub use instruction::CpiAccount;
 pub use instruction::{InstructionAccount, InstructionView, Seed, Signer};
 pub use layout::{HopperHeader, LayoutContract, LayoutInfo};
 pub use result::ProgramResult;
+pub use segment_borrow::{AccessKind, SegmentBorrow, SegmentBorrowRegistry};
 
 pub const MAX_TX_ACCOUNTS: usize = compat::BACKEND_MAX_TX_ACCOUNTS;
 pub const SUCCESS: u64 = compat::BACKEND_SUCCESS;

@@ -46,6 +46,8 @@ pub mod guards;
 pub mod prelude;
 pub mod receipts;
 pub mod pda;
+#[doc(hidden)]
+pub mod __macro_support;
 
 // Re-export crates
 pub use hopper_core;
@@ -74,4 +76,14 @@ pub use hopper_macros::{
     hopper_accounts,
 };
 pub use hopper_core::hopper_dispatch;
+
+// Optional proc macro re-exports (enabled with `proc-macros` feature)
+#[cfg(feature = "proc-macros")]
+pub use hopper_macros_proc::{hopper_state, hopper_context, hopper_program};
+
+// Private re-export for generated code to reference runtime types
+#[doc(hidden)]
+pub mod __runtime {
+    pub use hopper_runtime::{Context, ProgramError, Ref, RefMut};
+}
 

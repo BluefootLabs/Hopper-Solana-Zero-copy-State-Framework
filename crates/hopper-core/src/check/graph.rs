@@ -77,6 +77,24 @@ impl<'a> ValidationContext<'a> {
     pub fn account(&self, index: usize) -> Result<&'a AccountView, ProgramError> {
         self.accounts.get(index).ok_or(ProgramError::NotEnoughAccountKeys)
     }
+
+    /// Require all account addresses to be unique.
+    #[inline(always)]
+    pub fn require_all_unique_accounts(&self) -> ProgramResult {
+        crate::check::guards::require_all_unique(self.accounts)
+    }
+
+    /// Require that duplicated addresses are never writable aliases.
+    #[inline(always)]
+    pub fn require_unique_writable_accounts(&self) -> ProgramResult {
+        crate::check::guards::require_unique_writable(self.accounts)
+    }
+
+    /// Require that duplicated addresses are never used as signer aliases.
+    #[inline(always)]
+    pub fn require_unique_signer_accounts(&self) -> ProgramResult {
+        crate::check::guards::require_unique_signers(self.accounts)
+    }
 }
 
 // -- Validation Pipeline (const-generic, stack-only) --
@@ -220,6 +238,24 @@ pub fn require_unique(a: usize, b: usize) -> impl Fn(&ValidationContext) -> Prog
     }
 }
 
+/// Validate that all account addresses are unique.
+#[inline(always)]
+pub fn require_all_unique_accounts() -> impl Fn(&ValidationContext) -> ProgramResult {
+    move |ctx| ctx.require_all_unique_accounts()
+}
+
+/// Validate that no duplicated account is writable.
+#[inline(always)]
+pub fn require_unique_writable_accounts() -> impl Fn(&ValidationContext) -> ProgramResult {
+    move |ctx| ctx.require_unique_writable_accounts()
+}
+
+/// Validate that no duplicated account is used as a signer.
+#[inline(always)]
+pub fn require_unique_signer_accounts() -> impl Fn(&ValidationContext) -> ProgramResult {
+    move |ctx| ctx.require_unique_signer_accounts()
+}
+
 /// Validate that an account has at least `min` lamports.
 #[inline(always)]
 pub fn require_lamports_gte(index: usize, min: u64) -> impl Fn(&ValidationContext) -> ProgramResult {
@@ -317,6 +353,9 @@ impl AccountConstraint {
 pub struct TransactionConstraint {
     min_accounts: usize,
     min_data_len: usize,
+    require_all_unique: bool,
+    require_unique_writable: bool,
+    require_unique_signers: bool,
 }
 
 impl TransactionConstraint {
@@ -326,6 +365,9 @@ impl TransactionConstraint {
         Self {
             min_accounts: 0,
             min_data_len: 0,
+            require_all_unique: false,
+            require_unique_writable: false,
+            require_unique_signers: false,
         }
     }
 
@@ -343,6 +385,27 @@ impl TransactionConstraint {
         self
     }
 
+    /// Require that all account addresses are distinct.
+    #[inline(always)]
+    pub const fn all_unique(mut self) -> Self {
+        self.require_all_unique = true;
+        self
+    }
+
+    /// Require that duplicated addresses are never writable aliases.
+    #[inline(always)]
+    pub const fn unique_writable(mut self) -> Self {
+        self.require_unique_writable = true;
+        self
+    }
+
+    /// Require that duplicated addresses are never signer aliases.
+    #[inline(always)]
+    pub const fn unique_signers(mut self) -> Self {
+        self.require_unique_signers = true;
+        self
+    }
+
     /// Validate against a context.
     #[inline]
     pub fn validate(&self, ctx: &ValidationContext) -> ProgramResult {
@@ -351,6 +414,15 @@ impl TransactionConstraint {
         }
         if ctx.data.len() < self.min_data_len {
             return Err(ProgramError::InvalidInstructionData);
+        }
+        if self.require_all_unique {
+            ctx.require_all_unique_accounts()?;
+        }
+        if self.require_unique_writable {
+            ctx.require_unique_writable_accounts()?;
+        }
+        if self.require_unique_signers {
+            ctx.require_unique_signer_accounts()?;
         }
         Ok(())
     }

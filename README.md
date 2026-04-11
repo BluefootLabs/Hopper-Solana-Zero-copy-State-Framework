@@ -9,12 +9,21 @@
 **The typed state pipeline framework for Solana.**
 
 Pointer-cast speed. Protocol-grade safety. First-class state evolution.
+Segment-level borrow enforcement.
 
 Hopper maps fixed-layout zero-copy views directly onto account bytes with no
 heap allocation and no serialization cycle. Unlike naive pointer-cast
 approaches, Hopper layers this on top of ABI-safe overlays, versioned headers,
-deterministic layout fingerprints, segmented state, state receipts, and CLI
-tooling that can explain any account from raw hex.
+deterministic layout fingerprints, segmented state, **segment-level borrow
+enforcement**, state receipts, and CLI tooling that can explain any account
+from raw hex.
+
+**What makes Hopper different from every other Solana framework:** segment-level
+memory access. When you mutate a vault's `balance` field, Hopper locks exactly
+those 8 bytes. A parallel read of `authority` on the same account? Fine — no
+conflict. Every other framework locks the entire account. That's not a minor
+ergonomic win — it's the difference between catching aliasing bugs at the byte
+level versus trusting developers to get it right manually.
 
 Built on Hopper Native, Hopper's sovereign low-level runtime substrate for Solana.
 Hopper also supports compatibility backends including Pinocchio and standard
@@ -28,6 +37,46 @@ contracts, CPI semantics, context, and Hopper-facing PDA ergonomics.
 
 `no_std`, `no_alloc`. No proc macros required for correctness. Proc macros
 are optional DX accelerators only, never required for framework correctness.
+
+## Dual-Layer Architecture
+
+Hopper gives you two paths to the same execution shape:
+
+**Path A — Core (no macros required):** Write `hopper_layout!` structs,
+call `ctx.segment_mut::<T>(index, offset)`, wire dispatch manually. You own
+every instruction. This is what ships in `hopper-core` and `hopper-macros`.
+
+**Path B — Proc macros (optional DX layer):** Annotate structs with
+`#[hopper_state]`, `#[hopper_context]`, `#[hopper_program]`. The macros
+generate the same SegmentMap impls, typed accessors, and dispatch tables
+you'd write by hand — but with less boilerplate.
+
+Both paths compile to identical code: `ptr + const_offset → cast → &mut T`.
+The proc macros are sugar, not structure. Enable them with:
+
+```toml
+[dependencies]
+hopper = { version = "0.1", features = ["proc-macros"] }
+```
+
+```rust
+use hopper::prelude::*;
+
+#[hopper_state]
+pub struct Vault {
+    pub authority: [u8; 32],
+    pub balance: u64,
+    pub bump: u8,
+}
+
+// Generates:
+// - impl SegmentMap for Vault { const SEGMENTS = &[...] }
+// - const VAULT_AUTHORITY_OFFSET: u32 = 0;
+// - const VAULT_AUTHORITY_SIZE: u32 = 32;
+// - const VAULT_BALANCE_OFFSET: u32 = 32;
+// - const VAULT_BALANCE_SIZE: u32 = 8;
+// ... etc
+```
 
 ## The Pipeline
 
@@ -160,6 +209,8 @@ cage.
 |------|-------------|
 | **Typed overlays** | `#[repr(C)]` structs mapped directly onto account bytes, zero serialization cost |
 | **16-byte header** | Every account is self-describing: disc, version, flags, layout fingerprint |
+| **Segment-level borrows** | Fine-grained conflict detection at the byte range level. Read `authority` while writing `balance` on the same account. 32-entry registry, no heap, inline checks |
+| **SegmentMap** | Compile-time field→offset mapping via const trait. `segment("balance")` resolves to `StaticSegment { offset: 32, size: 8 }` at compile time |
 | **Deterministic fingerprints** | SHA-256 of field names/types/sizes, computed at compile time |
 | **5-tier loading** | Full, foreign, compatible, unchecked, unverified |
 | **3 memory access tiers** | Safe overlay, explicit pod, unsafe raw. Same access model, different validation overhead |
@@ -183,14 +234,16 @@ cage.
 ```
 hopper (root facade, re-exports everything)
 |
-+-- hopper-core        Ring 0: ABI types, account header, overlay, checks,
-|                      collections, frame, lifecycle, fingerprints, migration,
-|                      policy, receipts, segment roles, virtual state
-+-- hopper-macros      17 declarative macros (proc macros optional, not required)
-+-- hopper-solana      SPL Token/Mint readers, CPI guards, typed CPI kits
-+-- hopper-schema      Layout manifests, field diffs, migration planning,
-|                      program manifests, IDL, Codama projection, field-level decoding
-+-- hopper-cli         CLI: explain, inspect, compat, diff, plan, receipt, manager
++-- hopper-core          Ring 0: ABI types, account header, overlay, checks,
+|                        collections, frame, lifecycle, fingerprints, migration,
+|                        policy, receipts, segment roles, SegmentMap, virtual state
++-- hopper-macros        17 declarative macros (no proc macros, always available)
++-- hopper-macros-proc   Optional proc macros: #[hopper_state], #[hopper_context],
+|                        #[hopper_program]. DX layer, never required.
++-- hopper-solana        SPL Token/Mint readers, CPI guards, typed CPI kits
++-- hopper-schema        Layout manifests, field diffs, migration planning,
+|                        program manifests, IDL, Codama projection, field-level decoding
++-- hopper-cli           CLI: explain, inspect, compat, diff, plan, receipt, manager
 ```
 
 ## Sovereign Boundary
@@ -353,12 +406,15 @@ from the same state model.
 | Raw entrypoint ownership | Yes | No | Yes | Yes |
 | Zero-copy account access | Yes | `AccountLoader` | Yes | Yes |
 | no_std / no_alloc | Yes | No | Yes | Yes |
+| Segment-level borrow enforcement | Yes | No | No | No |
+| Compile-time SegmentMap | Yes | No | No | No |
 | Deterministic layout fingerprints | Yes | No | No | No |
 | Versioned + foreign typed loads | Yes | No | No | No |
 | Segment roles and registries | Yes | No | No | No |
 | Field maps + schema export | Yes | IDL only | No | IDL only |
 | State receipts | Yes | No | No | No |
 | Policy system | Yes | No | No | No |
+| Optional proc macros (not required) | Yes | N/A (required) | No | Yes |
 | CLI / profiling / client tooling | Strong | Strong | Minimal | Strong |
 | Backend portability | 3 backends | solana-program | pinocchio | pinocchio |
 | Memory access tiers | 3 (safe/pod/raw) | 1 (`AccountLoader`) | 1 (raw) | 1 (raw) |
@@ -407,11 +463,13 @@ The full unsafe inventory with line-level justifications is in
 
 1. **Bytes first.** Think in offsets and wire formats, not abstractions.
 2. **Pipeline model.** Define, Resolve, Validate, Execute, Record, Verify, Inspect.
-3. **Compile-time safety.** Typestate, const generics, and deterministic hashing over runtime checks.
-4. **Zero hidden cost.** No allocations, no trait objects, no dynamic dispatch on-chain.
-5. **Self-describing accounts.** The 16-byte header makes every account inspectable.
-6. **Append-only evolution.** New fields extend layouts. Old data stays valid.
-7. **Rigid where safety matters, flexible where architecture matters.**
+3. **Segment-level precision.** Lock bytes, not accounts. The smallest unit of mutation is a field, not a buffer.
+4. **Compile-time safety.** Typestate, const generics, and deterministic hashing over runtime checks.
+5. **Zero hidden cost.** No allocations, no trait objects, no dynamic dispatch on-chain.
+6. **Self-describing accounts.** The 16-byte header makes every account inspectable.
+7. **Append-only evolution.** New fields extend layouts. Old data stays valid.
+8. **Control-first, DX-optional.** The core is always hand-writeable. Macros accelerate, never gate.
+9. **Rigid where safety matters, flexible where architecture matters.**
 
 ## Schema Layering
 

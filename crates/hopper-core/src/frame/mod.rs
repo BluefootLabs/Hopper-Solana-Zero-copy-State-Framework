@@ -22,7 +22,9 @@ pub mod phase;
 pub mod args;
 
 use hopper_runtime::{error::ProgramError, AccountView, Address, ProgramResult, Ref, RefMut};
+use hopper_runtime::segment_borrow::SegmentBorrowRegistry;
 use crate::account::SliceCursor;
+use crate::account::{Pod, FixedLayout, HEADER_LEN};
 
 /// Maximum accounts in a single frame. Matches Solana's transaction limit.
 pub const MAX_FRAME_ACCOUNTS: usize = 64;
@@ -43,6 +45,10 @@ pub struct Frame<'a> {
     /// This is a runtime check -- not as strong as the borrow checker, but
     /// catches the most dangerous pattern (double-mutable-borrow).
     mutable_borrows: u64,
+    /// Segment-level borrow tracking for fine-grained conflict detection.
+    /// Allows concurrent mutable access to non-overlapping regions of the
+    /// same account — the key safety innovation over raw Pinocchio.
+    segment_borrows: SegmentBorrowRegistry,
 }
 
 impl<'a> Frame<'a> {
@@ -61,6 +67,7 @@ impl<'a> Frame<'a> {
             accounts,
             ix_data: SliceCursor::new(instruction_data),
             mutable_borrows: 0,
+            segment_borrows: SegmentBorrowRegistry::new(),
         })
     }
 
@@ -132,6 +139,152 @@ impl<'a> Frame<'a> {
             borrow_mask: &mut self.mutable_borrows,
             bit,
         })
+    }
+
+    // --- Segment-Level Access (fine-grained borrow tracking) --------
+
+    /// Get the segment borrow registry for direct manipulation.
+    #[inline(always)]
+    pub fn segment_borrows(&self) -> &SegmentBorrowRegistry {
+        &self.segment_borrows
+    }
+
+    /// Get the mutable segment borrow registry.
+    #[inline(always)]
+    pub fn segment_borrows_mut(&mut self) -> &mut SegmentBorrowRegistry {
+        &mut self.segment_borrows
+    }
+
+    /// Read a typed value from a segment of an account's data region.
+    ///
+    /// Registers a **read** borrow for the given byte range, then casts
+    /// the pointer to `&T`. Returns an error if the range conflicts with
+    /// an existing write borrow on the same account.
+    ///
+    /// `offset` is relative to the layout body (after the 16-byte header).
+    ///
+    /// # Safety Contract
+    ///
+    /// - T must be `Pod` (safe to interpret from any bit pattern)
+    /// - Bounds are checked at runtime
+    /// - Borrow conflicts are checked at runtime
+    #[inline]
+    pub fn segment_ref<T: Pod + FixedLayout>(
+        &mut self,
+        index: usize,
+        offset: u32,
+    ) -> Result<&T, ProgramError> {
+        let view = self.accounts.get(index).ok_or(ProgramError::NotEnoughAccountKeys)?;
+        let data = view.try_borrow()?;
+        let bytes: &[u8] = &*data;
+
+        let abs_offset = HEADER_LEN as u32 + offset;
+        let end = abs_offset + T::SIZE as u32;
+        if end as usize > bytes.len() {
+            return Err(ProgramError::AccountDataTooSmall);
+        }
+
+        self.segment_borrows.register_read(
+            *view.address(),
+            abs_offset,
+            T::SIZE as u32,
+        )?;
+
+        // SAFETY: T is Pod (all bit patterns valid, align-1). Bounds checked.
+        // The data reference is valid for the lifetime of the AccountView's
+        // borrow. We hold a shared borrow through the Frame.
+        let ptr = bytes.as_ptr();
+        Ok(unsafe { &*(ptr.add(abs_offset as usize) as *const T) })
+    }
+
+    /// Get a mutable typed reference to a segment of an account's data.
+    ///
+    /// Registers a **write** borrow for the given byte range, then casts
+    /// the pointer to `&mut T`. Returns an error if the range overlaps
+    /// any existing borrow (read or write) on the same account.
+    ///
+    /// This is the core primitive that makes Hopper strictly better than
+    /// raw Pinocchio: you get the same pointer arithmetic, but with
+    /// segment-level conflict detection that prevents aliasing bugs.
+    ///
+    /// `offset` is relative to the layout body (after the 16-byte header).
+    ///
+    /// # Safety Contract
+    ///
+    /// - T must be `Pod` (safe to interpret from any bit pattern)
+    /// - Bounds are checked at runtime
+    /// - Borrow conflicts are checked at runtime
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// // Only borrows the "balance" region [32..40), not the entire account.
+    /// let balance: &mut WireU64 = frame.segment_mut::<WireU64>(0, 32)?;
+    /// balance.set(balance.get() + amount);
+    ///
+    /// // Can still write "metadata" [40..72) — no conflict!
+    /// let metadata: &mut VaultMetadata = frame.segment_mut::<VaultMetadata>(0, 40)?;
+    /// ```
+    #[inline]
+    pub fn segment_mut<T: Pod + FixedLayout>(
+        &mut self,
+        index: usize,
+        offset: u32,
+    ) -> Result<&mut T, ProgramError> {
+        let view = self.accounts.get(index).ok_or(ProgramError::NotEnoughAccountKeys)?;
+
+        // Check writable before doing anything else.
+        if !view.is_writable() {
+            return Err(ProgramError::InvalidAccountData);
+        }
+
+        let mut data = view.try_borrow_mut()?;
+        let abs_offset = HEADER_LEN as u32 + offset;
+        let end = abs_offset + T::SIZE as u32;
+        if end as usize > data.len() {
+            return Err(ProgramError::AccountDataTooSmall);
+        }
+
+        self.segment_borrows.register_write(
+            *view.address(),
+            abs_offset,
+            T::SIZE as u32,
+        )?;
+
+        // SAFETY: T is Pod (all bit patterns valid, align-1). Bounds checked.
+        // Write borrow registered — no conflicting borrows can exist.
+        // Account is writable (Solana runtime guarantee for data access).
+        let ptr = data.as_bytes_mut_ptr();
+        Ok(unsafe { &mut *(ptr.add(abs_offset as usize) as *mut T) })
+    }
+
+    /// Unsafe escape hatch for performance-critical paths.
+    ///
+    /// Skips borrow tracking entirely. The caller takes full responsibility
+    /// for aliasing safety. This exists because sometimes you know statically
+    /// that no conflicts are possible and want to avoid the borrow scan.
+    ///
+    /// # Safety
+    ///
+    /// The caller must guarantee no other mutable reference to the same
+    /// byte range exists for the duration of the returned reference.
+    #[inline(always)]
+    pub unsafe fn segment_mut_unchecked<T: Pod + FixedLayout>(
+        &self,
+        index: usize,
+        offset: u32,
+    ) -> Result<&mut T, ProgramError> {
+        let view = self.accounts.get(index).ok_or(ProgramError::NotEnoughAccountKeys)?;
+        let mut data = view.try_borrow_mut()?;
+
+        let abs_offset = HEADER_LEN as u32 + offset;
+        let end = abs_offset + T::SIZE as u32;
+        if end as usize > data.len() {
+            return Err(ProgramError::AccountDataTooSmall);
+        }
+
+        let ptr = data.as_bytes_mut_ptr();
+        Ok(unsafe { &mut *(ptr.add(abs_offset as usize) as *mut T) })
     }
 
     // --- Validation Helpers -----------------------------------------

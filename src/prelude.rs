@@ -29,6 +29,9 @@ pub use crate::{
     hopper_accounts,
 };
 
+#[cfg(feature = "proc-macros")]
+pub use crate::{hopper_context, hopper_program, hopper_state};
+
 // New systems
 pub use hopper_core::virtual_state::{VirtualState, VirtualSlot, ShardedAccess};
 pub use hopper_core::diff::{StateSnapshot, StateDiff};

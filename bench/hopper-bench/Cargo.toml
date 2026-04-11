@@ -10,7 +10,7 @@ description = "CU benchmark program for Hopper framework primitives"
 crate-type = ["cdylib", "lib"]
 
 [dependencies]
-hopper = { path = "../..", default-features = false }
+hopper = { path = "../..", default-features = false, features = ["proc-macros"] }
 
 [features]
 default = ["hopper-native-backend"]

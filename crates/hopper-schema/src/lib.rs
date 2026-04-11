@@ -23,6 +23,7 @@ pub mod codama;
 
 use hopper_core::account::HEADER_LEN;
 use hopper_core::field_map::FieldInfo;
+use hopper_runtime::{AccountView, LayoutContract};
 use hopper_runtime::layout::LayoutInfo;
 use core::fmt;
 
@@ -391,7 +392,7 @@ impl fmt::Display for LayoutStabilityGrade {
 }
 
 /// A field descriptor in a layout manifest.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct FieldDescriptor {
     /// Field name (static str).
     pub name: &'static str,
@@ -406,7 +407,7 @@ pub struct FieldDescriptor {
 }
 
 /// A layout manifest describing an account type.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct LayoutManifest {
     /// Layout name.
     pub name: &'static str,
@@ -3337,6 +3338,13 @@ pub struct ManagerMetadata {
     pub fields: &'static [FieldInfo],
 }
 
+/// Unified schema payload tying runtime identity to rich manifest metadata.
+#[derive(Clone, Copy, Debug)]
+pub struct SchemaBundle {
+    pub manager: ManagerMetadata,
+    pub manifest: LayoutManifest,
+}
+
 /// Trait for layout types that can export their full schema information.
 ///
 /// This creates a single source of truth linking runtime layout contracts
@@ -3350,12 +3358,18 @@ pub struct ManagerMetadata {
 ///
 /// Implementors provide both a runtime-facing view (`layout_info`, `field_map`)
 /// and a higher-level schema manifest for richer tooling.
-pub trait SchemaExport {
+pub trait SchemaExport: LayoutContract {
     /// Runtime header/layout identity.
-    fn layout_info() -> LayoutInfo;
+    #[inline(always)]
+    fn layout_info() -> LayoutInfo {
+        <Self as LayoutContract>::layout_info_static()
+    }
 
     /// Field-level wire map used by manager and client tooling.
-    fn field_map() -> &'static [FieldInfo];
+    #[inline(always)]
+    fn field_map() -> &'static [FieldInfo] {
+        <Self as LayoutContract>::fields()
+    }
 
     /// Combined runtime metadata payload for manager-facing inspection.
     #[inline(always)]
@@ -3366,8 +3380,48 @@ pub trait SchemaExport {
         }
     }
 
+    /// Combined runtime and manifest metadata payload.
+    #[inline(always)]
+    fn schema_bundle() -> SchemaBundle {
+        SchemaBundle {
+            manager: Self::manager_metadata(),
+            manifest: Self::layout_manifest(),
+        }
+    }
+
     /// Rich schema manifest for diffing, linting, and client generation.
     fn layout_manifest() -> LayoutManifest;
+}
+
+/// Bridge from a live `AccountView` to the schema bundle of a concrete layout type.
+pub trait AccountSchemaExt {
+    /// Return manager metadata if the account header matches `T`.
+    fn manager_metadata_for<T: SchemaExport>(&self) -> Option<ManagerMetadata>;
+
+    /// Return the full schema bundle if the account header matches `T`.
+    fn schema_bundle_for<T: SchemaExport>(&self) -> Option<SchemaBundle>;
+}
+
+impl AccountSchemaExt for AccountView {
+    #[inline]
+    fn manager_metadata_for<T: SchemaExport>(&self) -> Option<ManagerMetadata> {
+        let info = self.inspect()?;
+        if info.matches::<T>() {
+            Some(T::manager_metadata())
+        } else {
+            None
+        }
+    }
+
+    #[inline]
+    fn schema_bundle_for<T: SchemaExport>(&self) -> Option<SchemaBundle> {
+        let info = self.inspect()?;
+        if info.matches::<T>() {
+            Some(T::schema_bundle())
+        } else {
+            None
+        }
+    }
 }
 
 // -- Migration Plan Tests --
