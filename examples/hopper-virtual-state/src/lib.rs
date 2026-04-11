@@ -164,9 +164,7 @@ fn process_init_market(
 
     // Initialize config
     {
-        // SAFETY: Just created -- exclusive access.
-        let d = unsafe { config_acc.borrow_unchecked_mut() };
-        let cfg = MarketConfig::overlay_mut(d)?;
+        let mut cfg = config_acc.overlay_mut::<MarketConfig>()?;
         cfg.admin = TypedAddress::from_account(payer);
         cfg.fee_bps = WireU16::new(if data.len() >= 2 {
             u16::from_le_bytes([data[0], data[1]])
@@ -179,9 +177,7 @@ fn process_init_market(
 
     // Initialize vault
     {
-        // SAFETY: Just created -- exclusive access.
-        let d = unsafe { vault_acc.borrow_unchecked_mut() };
-        let vault = MarketVault::overlay_mut(d)?;
+        let mut vault = vault_acc.overlay_mut::<MarketVault>()?;
         vault.authority = TypedAddress::from_account(payer);
         vault.total_fees = WireU64::new(0);
         vault.total_volume = WireU64::new(0);
@@ -284,10 +280,7 @@ fn process_place_order(
 
     // Update vault volume
     {
-        // SAFETY: Validated as writable above.
-        let vault_acc = market.account(accounts, SLOT_VAULT)?;
-        let vault_data = unsafe { vault_acc.borrow_unchecked_mut() };
-        let vault = MarketVault::overlay_mut(vault_data)?;
+        let mut vault = market.overlay_mut::<MarketVault>(accounts, SLOT_VAULT)?;
         let vol = vault.total_volume.get();
         vault.total_volume = WireU64::new(
             vol.saturating_add(price.saturating_mul(amount)),
@@ -296,10 +289,7 @@ fn process_place_order(
 
     // Update stats
     {
-        // SAFETY: Validated as writable above.
-        let stats_acc = market.account(accounts, SLOT_STATS)?;
-        let stats_data = unsafe { stats_acc.borrow_unchecked_mut() };
-        let stats = MarketStats::overlay_mut(stats_data)?;
+        let mut stats = market.overlay_mut::<MarketStats>(accounts, SLOT_STATS)?;
         let orders = stats.total_orders.get();
         stats.total_orders = WireU64::new(orders.saturating_add(1));
     }

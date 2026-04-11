@@ -53,12 +53,12 @@ pub fn migrate_append(
     check_owner(account, program_id)?;
     check_writable(account)?;
 
-    let data = unsafe { account.borrow_unchecked() };
-    let current_layout = read_layout_id(data)?;
+    let data = account.try_borrow()?;
+    let current_layout = read_layout_id(&data)?;
     if &current_layout != old_layout_id {
         return Err(ProgramError::InvalidAccountData);
     }
-    let current_version = read_version(data)?;
+    let current_version = read_version(&data)?;
     if new_version <= current_version {
         return Err(ProgramError::InvalidAccountData);
     }
@@ -72,8 +72,8 @@ pub fn migrate_append(
     crate::account::safe_realloc(account, new_size, payer)?;
 
     // Write updated header
-    let data = unsafe { account.borrow_unchecked_mut() };
-    write_header(data, new_disc, new_version, new_layout_id)?;
+    let mut data = account.try_borrow_mut()?;
+    write_header(&mut data, new_disc, new_version, new_layout_id)?;
 
     // Zero the appended region
     for byte in &mut data[old_size..new_size] {

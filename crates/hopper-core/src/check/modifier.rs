@@ -155,12 +155,10 @@ impl<'a, T: Pod + FixedLayout + HopperLayout> FromAccount<'a> for Account<'a, T>
         program_id: &Address,
     ) -> Result<Self, ProgramError> {
         check::check_owner(account, program_id)?;
-        // SAFETY: Owner check passed; frame-level borrow tracking prevents
-        // conflicting mutable borrows on this account.
-        let data = unsafe { account.borrow_unchecked() };
-        crate::account::check_header(data, T::DISC, T::VERSION, &T::LAYOUT_ID)?;
-        check::check_size(data, T::LEN_WITH_HEADER)?;
-        let verified = VerifiedAccount::new(data)?;
+        let data = account.try_borrow()?;
+        crate::account::check_header(&data, T::DISC, T::VERSION, &T::LAYOUT_ID)?;
+        check::check_size(&data, T::LEN_WITH_HEADER)?;
+        let verified = VerifiedAccount::from_ref(data)?;
         Ok(Self { view: account, verified })
     }
 }
@@ -174,12 +172,10 @@ impl<'a, T: Pod + FixedLayout + HopperLayout> FromAccount<'a> for AccountMut<'a,
     ) -> Result<Self, ProgramError> {
         check::check_owner(account, program_id)?;
         check::check_writable(account)?;
-        // SAFETY: Owner + writable checks passed; caller must ensure
-        // exclusive access at the frame level.
-        let data = unsafe { account.borrow_unchecked_mut() };
-        crate::account::check_header(data, T::DISC, T::VERSION, &T::LAYOUT_ID)?;
-        check::check_size(data, T::LEN_WITH_HEADER)?;
-        let verified = VerifiedAccountMut::new(data)?;
+        let data = account.try_borrow_mut()?;
+        crate::account::check_header(&data, T::DISC, T::VERSION, &T::LAYOUT_ID)?;
+        check::check_size(&data, T::LEN_WITH_HEADER)?;
+        let verified = VerifiedAccountMut::from_ref_mut(data)?;
         Ok(Self { view: account, verified })
     }
 }

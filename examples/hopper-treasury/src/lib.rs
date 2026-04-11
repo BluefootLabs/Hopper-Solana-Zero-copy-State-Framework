@@ -167,11 +167,10 @@ fn process_init_treasury(
     }
     .invoke()?;
 
-    // SAFETY: Just created, exclusive access guaranteed.
-    let buf = unsafe { treasury.borrow_unchecked_mut() };
+    let mut buf = treasury.try_borrow_mut()?;
 
     // Zero-init entire buffer
-    zero_init(buf);
+    zero_init(&mut buf);
 
     // Write core segment header + fields
     let core_slice = &mut buf[CORE_OFFSET..CORE_OFFSET + TreasuryCore::LEN];
@@ -244,7 +243,7 @@ fn process_deposit(
     );
 
     // Update core balance
-    let buf = unsafe { treasury.borrow_unchecked_mut() };
+    let mut buf = treasury.try_borrow_mut()?;
     let core = TreasuryCore::overlay_mut(&mut buf[CORE_OFFSET..CORE_OFFSET + TreasuryCore::LEN])?;
     let new_total = core.total_deposited.get()
         .checked_add(amount)
@@ -286,7 +285,7 @@ fn process_withdraw(
     ]);
     hopper_require!(amount > 0, ZeroAmount);
 
-    let buf = unsafe { treasury.borrow_unchecked_mut() };
+    let mut buf = treasury.try_borrow_mut()?;
 
     // -- Phase 1: Resolve segments -----------------------------------
 
@@ -378,7 +377,7 @@ fn process_update_permissions(
     check_writable(treasury)?;
     check_owner(treasury, program_id)?;
 
-    let buf = unsafe { treasury.borrow_unchecked_mut() };
+    let mut buf = treasury.try_borrow_mut()?;
 
     // Verify admin
     let perm = PermissionSegment::overlay(&buf[PERM_OFFSET..PERM_OFFSET + PermissionSegment::LEN])?;
@@ -444,7 +443,7 @@ fn process_rotate_epoch(
     check_writable(treasury)?;
     check_owner(treasury, program_id)?;
 
-    let buf = unsafe { treasury.borrow_unchecked_mut() };
+    let mut buf = treasury.try_borrow_mut()?;
 
     // Verify admin
     let perm = PermissionSegment::overlay(&buf[PERM_OFFSET..PERM_OFFSET + PermissionSegment::LEN])?;

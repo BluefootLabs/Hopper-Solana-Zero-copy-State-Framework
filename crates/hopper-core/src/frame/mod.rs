@@ -21,7 +21,7 @@
 pub mod phase;
 pub mod args;
 
-use hopper_runtime::{error::ProgramError, AccountView, Address, ProgramResult};
+use hopper_runtime::{error::ProgramError, AccountView, Address, ProgramResult, Ref, RefMut};
 use crate::account::SliceCursor;
 
 /// Maximum accounts in a single frame. Matches Solana's transaction limit.
@@ -196,11 +196,10 @@ impl<'a> FrameAccount<'a> {
         self.view.address()
     }
 
-    /// Borrow account data (read-only, unsafe, no borrow tracking).
+    /// Borrow account data (read-only).
     #[inline(always)]
-    pub fn data(&self) -> &[u8] {
-        // SAFETY: Frame enforces single-mutable-borrow discipline at the account level.
-        unsafe { self.view.borrow_unchecked() }
+    pub fn data(&self) -> Result<Ref<'a, [u8]>, ProgramError> {
+        self.view.try_borrow()
     }
 
     /// Lamports balance.
@@ -247,24 +246,14 @@ impl<'a> FrameAccountMut<'a> {
 
     /// Borrow account data (read-only).
     #[inline(always)]
-    pub fn data(&self) -> &[u8] {
-        // SAFETY: Frame mutable borrow tracking ensures exclusive access.
-        unsafe { self.view.borrow_unchecked() }
+    pub fn data(&self) -> Result<Ref<'a, [u8]>, ProgramError> {
+        self.view.try_borrow()
     }
 
     /// Borrow account data (mutable).
-    ///
-    /// # Safety guarantee
-    /// Frame's mutable borrow tracking ensures exclusive access to this account.
-    /// The `&self` receiver is sound because hopper-native's `AccountView` uses
-    /// Solana runtime interior mutability (pointer-based access to account data).
-    /// Frame's bitmask-based borrow tracking (set on creation, cleared on Drop)
-    /// prevents aliased mutable access at runtime.
     #[inline(always)]
-    #[allow(clippy::mut_from_ref)]
-    pub fn data_mut(&self) -> &mut [u8] {
-        // SAFETY: Frame mutable borrow tracking ensures exclusive access.
-        unsafe { self.view.borrow_unchecked_mut() }
+    pub fn data_mut(&self) -> Result<RefMut<'a, [u8]>, ProgramError> {
+        self.view.try_borrow_mut()
     }
 
     /// Lamports balance.

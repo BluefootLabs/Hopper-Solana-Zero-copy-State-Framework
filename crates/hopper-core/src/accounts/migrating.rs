@@ -41,9 +41,9 @@ where
     ) -> Result<Self, ProgramError> {
         check::check_owner(account, program_id)?;
         check::check_writable(account)?;
-        let data = unsafe { account.borrow_unchecked() };
-        crate::account::check_header(data, From::DISC, From::VERSION, &From::LAYOUT_ID)?;
-        check::check_size(data, From::LEN_WITH_HEADER)?;
+        let data = account.try_borrow()?;
+        crate::account::check_header(&data, From::DISC, From::VERSION, &From::LAYOUT_ID)?;
+        check::check_size(&data, From::LEN_WITH_HEADER)?;
         Ok(Self {
             view: account,
             program_id,
@@ -55,15 +55,15 @@ where
     /// Read the old layout (immutable).
     #[inline]
     pub fn old(&self) -> Result<VerifiedAccount<'a, From>, ProgramError> {
-        let data = unsafe { self.view.borrow_unchecked() };
-        VerifiedAccount::new(data)
+        let data = self.view.try_borrow()?;
+        VerifiedAccount::from_ref(data)
     }
 
     /// Read the old layout (mutable) for in-place transformation.
     #[inline]
     pub fn old_mut(&self) -> Result<VerifiedAccountMut<'a, From>, ProgramError> {
-        let data = unsafe { self.view.borrow_unchecked_mut() };
-        VerifiedAccountMut::new(data)
+        let data = self.view.try_borrow_mut()?;
+        VerifiedAccountMut::from_ref_mut(data)
     }
 
     /// Access the new layout after migration has been applied.
@@ -72,10 +72,10 @@ where
     /// update) before calling this. The header is re-validated against `To`.
     #[inline]
     pub fn into_latest(&self) -> Result<VerifiedAccountMut<'a, To>, ProgramError> {
-        let data = unsafe { self.view.borrow_unchecked_mut() };
-        crate::account::check_header(data, To::DISC, To::VERSION, &To::LAYOUT_ID)?;
-        check::check_size(data, To::LEN_WITH_HEADER)?;
-        VerifiedAccountMut::new(data)
+        let data = self.view.try_borrow_mut()?;
+        crate::account::check_header(&data, To::DISC, To::VERSION, &To::LAYOUT_ID)?;
+        check::check_size(&data, To::LEN_WITH_HEADER)?;
+        VerifiedAccountMut::from_ref_mut(data)
     }
 
     /// Perform an append migration in-place using the existing migration helper.

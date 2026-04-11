@@ -64,9 +64,8 @@ fn process_init(
 
     hopper_init!(payer, vault_account, system_program, program_id, Vault)?;
 
-    // SAFETY: Just created -- exclusive access guaranteed.
-    let data = unsafe { vault_account.borrow_unchecked_mut() };
-    let vault = Vault::overlay_mut(data)?;
+    let mut data = vault_account.try_borrow_mut()?;
+    let vault = Vault::overlay_mut(&mut data)?;
     vault.authority = TypedAddress::from_account(payer);
     vault.balance = WireU64::new(0);
 

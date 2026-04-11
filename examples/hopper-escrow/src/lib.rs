@@ -95,9 +95,8 @@ fn process_make(
     hopper_init!(maker, escrow_account, system_program, program_id, Escrow)?;
 
     // Write state
-    // SAFETY: Just created -- exclusive access guaranteed.
-    let escrow_data = unsafe { escrow_account.borrow_unchecked_mut() };
-    let escrow = Escrow::overlay_mut(escrow_data)?;
+    let mut escrow_data = escrow_account.try_borrow_mut()?;
+    let escrow = Escrow::overlay_mut(&mut escrow_data)?;
     escrow.maker = TypedAddress::from_account(maker);
     escrow.maker_ta = TypedAddress::zeroed(); // Simplified: would be maker's token account
     escrow.mint_a = TypedAddress::from_slice(mint_a.try_into().map_err(|_| ProgramError::InvalidInstructionData)?);

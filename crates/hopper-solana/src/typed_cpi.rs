@@ -294,12 +294,11 @@ pub fn checked_token_transfer<'a>(
     authority: &'a AccountView,
     amount: u64,
 ) -> ProgramResult {
-    // SAFETY: Read-only borrows for mint comparison before CPI.
-    let source_data = unsafe { source.borrow_unchecked() };
-    let dest_data = unsafe { destination.borrow_unchecked() };
+    let source_data = source.try_borrow()?;
+    let dest_data = destination.try_borrow()?;
 
-    let source_mint = crate::token::token_account_mint(source_data)?;
-    let dest_mint = crate::token::token_account_mint(dest_data)?;
+    let source_mint = crate::token::token_account_mint(&source_data)?;
+    let dest_mint = crate::token::token_account_mint(&dest_data)?;
     if source_mint != dest_mint {
         return Err(ProgramError::InvalidAccountData);
     }

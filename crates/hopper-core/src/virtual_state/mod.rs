@@ -40,11 +40,11 @@
 //!     .map(2, POOL_IDX);    // slot 2 -> account POOL_IDX
 //!
 //! // Read from any slot through the virtual view
-//! let core: &MarketCore = vstate.overlay::<MarketCore>(accounts, 0)?;
-//! let book: &OrderBook = vstate.overlay::<OrderBook>(accounts, 1)?;
+//! let core = vstate.overlay::<MarketCore>(accounts, 0)?;
+//! let book = vstate.overlay::<OrderBook>(accounts, 1)?;
 //! ```
 
-use hopper_runtime::{error::ProgramError, AccountView, Address};
+use hopper_runtime::{error::ProgramError, AccountView, Address, Ref, RefMut};
 use crate::account::{Pod, FixedLayout};
 
 // -- Virtual Slot --
@@ -199,7 +199,7 @@ impl<const N: usize> VirtualState<N> {
         &self,
         accounts: &'a [AccountView],
         slot: usize,
-    ) -> Result<&'a T, ProgramError> {
+    ) -> Result<Ref<'a, T>, ProgramError> {
         if slot >= self.count {
             return Err(ProgramError::InvalidArgument);
         }
@@ -208,13 +208,7 @@ impl<const N: usize> VirtualState<N> {
             return Err(ProgramError::NotEnoughAccountKeys);
         }
         let acc = &accounts[idx];
-        // SAFETY: Frame/caller ensures no conflicting mutable borrows.
-        let data = unsafe { acc.borrow_unchecked() };
-        if data.len() < T::SIZE {
-            return Err(ProgramError::AccountDataTooSmall);
-        }
-        // SAFETY: T: Pod, alignment-1, size checked.
-        Ok(unsafe { &*(data.as_ptr() as *const T) })
+        acc.overlay::<T>()
     }
 
     /// Get a typed mutable overlay from a virtual slot.
@@ -230,7 +224,7 @@ impl<const N: usize> VirtualState<N> {
         &self,
         accounts: &'a [AccountView],
         slot: usize,
-    ) -> Result<&'a mut T, ProgramError> {
+    ) -> Result<RefMut<'a, T>, ProgramError> {
         if slot >= self.count {
             return Err(ProgramError::InvalidArgument);
         }
@@ -243,13 +237,7 @@ impl<const N: usize> VirtualState<N> {
             return Err(ProgramError::NotEnoughAccountKeys);
         }
         let acc = &accounts[idx];
-        // SAFETY: Caller ensures exclusive access. Slot validated as writable.
-        let data = unsafe { acc.borrow_unchecked_mut() };
-        if data.len() < T::SIZE {
-            return Err(ProgramError::AccountDataTooSmall);
-        }
-        // SAFETY: T: Pod, alignment-1, size checked. Exclusive access.
-        Ok(unsafe { &mut *(data.as_mut_ptr() as *mut T) })
+        acc.overlay_mut::<T>()
     }
 
     /// Get raw immutable data from a virtual slot.
@@ -258,7 +246,7 @@ impl<const N: usize> VirtualState<N> {
         &self,
         accounts: &'a [AccountView],
         slot: usize,
-    ) -> Result<&'a [u8], ProgramError> {
+    ) -> Result<Ref<'a, [u8]>, ProgramError> {
         if slot >= self.count {
             return Err(ProgramError::InvalidArgument);
         }
@@ -266,8 +254,7 @@ impl<const N: usize> VirtualState<N> {
         if idx >= accounts.len() {
             return Err(ProgramError::NotEnoughAccountKeys);
         }
-        // SAFETY: Frame ensures no conflicting borrows.
-        Ok(unsafe { accounts[idx].borrow_unchecked() })
+        accounts[idx].try_borrow()
     }
 
     /// Get the AccountView for a virtual slot.
@@ -357,11 +344,10 @@ impl<'a, const SHARDS: usize> ShardedAccess<'a, SHARDS> {
 
     /// Get the account data for the shard that owns a given key.
     #[inline]
-    pub fn data_for_key(&self, key: &[u8]) -> Result<&'a [u8], ProgramError> {
+    pub fn data_for_key(&self, key: &[u8]) -> Result<Ref<'a, [u8]>, ProgramError> {
         let shard = self.shard_for_key(key);
         let acc = self.shard_account(shard)?;
-        // SAFETY: Frame ensures no conflicting borrows.
-        Ok(unsafe { acc.borrow_unchecked() })
+        acc.try_borrow()
     }
 
     /// Number of shards.

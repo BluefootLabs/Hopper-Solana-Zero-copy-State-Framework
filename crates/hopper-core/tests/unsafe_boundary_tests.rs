@@ -191,8 +191,10 @@ fn verified_account_mut_undersized_rejects() {
 #[test]
 fn verified_account_mut_write_reflects() {
     let mut data = [0u8; 32];
-    let mut va = VerifiedAccountMut::<MockLayout>::new(&mut data).unwrap();
-    va.get_mut().balance = [0xFF; 8];
+    {
+        let mut va = VerifiedAccountMut::<MockLayout>::new(&mut data).unwrap();
+        va.get_mut().balance = [0xFF; 8];
+    }
     assert_eq!(data[16..24], [0xFF; 8]);
 }
 
@@ -246,10 +248,12 @@ fn overlay_at_mut_out_of_bounds_rejects() {
 #[test]
 fn overlay_at_mut_valid_writes_through() {
     let mut data = [0u8; 64];
-    let mut va = VerifiedAccountMut::<MockLayout>::new(&mut data).unwrap();
-    let tiny = va.overlay_at_mut::<TinyPod>(60).unwrap();
-    tiny.a = 0xAA;
-    tiny.b = 0xBB;
+    {
+        let mut va = VerifiedAccountMut::<MockLayout>::new(&mut data).unwrap();
+        let tiny = va.overlay_at_mut::<TinyPod>(60).unwrap();
+        tiny.a = 0xAA;
+        tiny.b = 0xBB;
+    }
     assert_eq!(data[60], 0xAA);
     assert_eq!(data[61], 0xBB);
 }

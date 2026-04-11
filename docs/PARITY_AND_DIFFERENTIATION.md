@@ -47,6 +47,21 @@ This is compile-time policy resolution. The 9 named packs (treasury write,
 journal touch, external call, authority change, account init/close, etc.)
 cover standard patterns without user configuration.
 
+### Borrow-Carried Typed Loads
+
+Hopper's safe runtime load path now keeps the borrow alive all the way through
+the typed projection. `AccountView::load`, `load_mut`, `overlay`, and
+`overlay_mut` return Hopper-owned borrow guards instead of naked references.
+
+That matters for two reasons:
+
+- typed zero-copy refs cannot outlive the borrow that authorized them
+- duplicate account handles with the same address now hit an address-keyed
+	alias registry before Hopper hands out a mutable view
+
+This is the exact middle ground Pinocchio does not try to provide: raw-speed
+zero-copy with explicit runtime alias enforcement.
+
 ### State Receipts
 
 A 64-byte structured mutation proof that captures:
@@ -179,34 +194,41 @@ Quasar is stronger than earlier Hopper comparisons gave it credit for. It has a
 real raw-boundary story, generated validation, public docs, CLI support,
 profiling, IDL, and generated clients. Hopper leads on layout/runtime/schema
 contract semantics, receipts, policies, segment roles, and backend portability.
-Quasar still has advantages in public tooling polish, inline dynamic account
-ergonomics, and fast PDA-finding helpers.
+The specific gaps Hopper used to have against Quasar are materially narrower
+now:
+
+- `hopper deploy` and `hopper dump` close the old build-only CLI hole
+- manager commands and the interactive shell can now start from
+	`--program-id` instead of a local manifest file
+- cached PDA verification already exists through `verify_pda_cached`,
+	`find_and_verify_pda`, and generated `BUMP_OFFSET` helpers
+- `AccountView::extension_bytes(_mut)` and named segment collection adapters
+	close the old raw-tail and vec-like access gaps
+
+Quasar still has the more polished public profiler workflow and stronger
+one-command packaging around that tooling.
 
 ### vs. Star Frame
 
 Star Frame uses bytemuck Pod with a 4-phase lifecycle and typed CPI.
 Hopper matches its typestate execution, exceeds it with 7 segment roles
 (vs. none), 8 collections (vs. 3), receipts, policies, and CLI tooling.
-Star Frame's Miri validation is a genuine advantage; Hopper compensates
-with a documented unsafe inventory and companion boundary tests.
+Star Frame's published Miri story is still a real advantage. Hopper's answer is
+stronger than it was before: documented unsafe inventory, header/layout smoke
+tests, duplicate-writable CPI rejection tests, and a borrow-carried runtime
+load path with address-keyed alias checks. The remaining gap is public proof
+packaging, not a missing runtime model.
 
 ## Known Gaps
 
 Hopper does not yet have:
 
-1. **Project scaffolding / build / deploy workflows** in the CLI
-2. **CU profiling and disassembly tooling** comparable to Quasar's public profiler workflow
-3. **Program-address-first Manager workflows** beyond manifest fetch + manifest-driven inspection
-4. **Inline dynamic field ergonomics** for string/vec-style tails
-5. **Faster PDA find-path helpers** comparable to Quasar's specialized search path
-6. **Independent benchmark and audit proof** for any blanket "faster / safer than everyone" claim
-7. **Vec-like segment collection APIs** on top of Hopper's raw segment accessors
-8. **CI/CD pipeline and public packaging rollout**
+1. **Public profiler UX** on par with Quasar's most polished profiling flow
+2. **Higher-level typed tail adapters** for string/vec-style tails beyond the new raw extension byte API
+3. **Independent benchmark replication and audit proof** for any blanket performance or safety claim
+4. **Public CI/CD, release, and proof lanes** for packaging, benchmark publication, and Miri-style validation visibility
 
 These are workflow and ecosystem gaps, not missing core runtime primitives.
-
-The execution plan for closing them lives in
-[BENCHMARK_AND_TOOLING_PARITY_PLAN.md](BENCHMARK_AND_TOOLING_PARITY_PLAN.md).
 
 ## CU Performance
 

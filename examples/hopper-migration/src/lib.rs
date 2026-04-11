@@ -140,9 +140,8 @@ fn process_init_v1(
 
     hopper_init!(payer, vault_account, system_program, program_id, VaultV1)?;
 
-    // SAFETY: Just created -- exclusive access guaranteed.
-    let data = unsafe { vault_account.borrow_unchecked_mut() };
-    let vault = VaultV1::overlay_mut(data)?;
+    let mut data = vault_account.try_borrow_mut()?;
+    let vault = VaultV1::overlay_mut(&mut data)?;
     vault.authority = TypedAddress::from_account(payer);
     vault.balance = WireU64::new(0);
 
@@ -188,9 +187,8 @@ fn process_migrate_v1_to_v2(
 
     // Check the vault is still V1 (not already migrated)
     {
-        // SAFETY: We are just reading, will validate below.
-        let account_data = unsafe { vault_account.borrow_unchecked() };
-        let current_layout = read_layout_id(account_data)?;
+        let account_data = vault_account.try_borrow()?;
+        let current_layout = read_layout_id(&account_data)?;
         if current_layout == VaultV2::LAYOUT_ID {
             return Err(AlreadyMigrated.into());
         }
@@ -223,9 +221,8 @@ fn process_migrate_v1_to_v2(
 
     // Fill in new fields.
     // After migrate_append, the header is V2 but new fields are zeroed.
-    // SAFETY: We just migrated and updated the header.
-    let account_data = unsafe { vault_account.borrow_unchecked_mut() };
-    let vault = VaultV2::overlay_mut(account_data)?;
+    let mut account_data = vault_account.try_borrow_mut()?;
+    let vault = VaultV2::overlay_mut(&mut account_data)?;
 
     // Parse bump from instruction data if provided (byte 0)
     if !data.is_empty() {
@@ -309,19 +306,18 @@ fn process_read_either(
     let vault_account = &accounts[0];
     check_owner(vault_account, program_id)?;
 
-    // SAFETY: Owner checked above.
-    let account_data = unsafe { vault_account.borrow_unchecked() };
-    let layout_id = read_layout_id(account_data)?;
+    let account_data = vault_account.try_borrow()?;
+    let layout_id = read_layout_id(&account_data)?;
 
     if layout_id == VaultV2::LAYOUT_ID {
         // V2 path
-        let vault = VaultV2::overlay(account_data)?;
+        let vault = VaultV2::overlay(&account_data)?;
         let _balance = vault.balance.get();
         let _last = vault.last_deposit.get();
         emit_slices(&[b"read_v2"]);
     } else if layout_id == VaultV1::LAYOUT_ID {
         // V1 path -- still works, just no new fields
-        let vault = VaultV1::overlay(account_data)?;
+        let vault = VaultV1::overlay(&account_data)?;
         let _balance = vault.balance.get();
         emit_slices(&[b"read_v1"]);
     } else {

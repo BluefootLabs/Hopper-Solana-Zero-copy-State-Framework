@@ -181,8 +181,8 @@ fn process_init_pool(
     }
     .invoke()?;
 
-    let buf = unsafe { pool.borrow_unchecked_mut() };
-    zero_init(buf);
+    let mut buf = pool.try_borrow_mut()?;
+    zero_init(&mut buf);
 
     // Init PoolState segment
     let state_slice = &mut buf[STATE_OFFSET..STATE_OFFSET + PoolState::LEN];
@@ -252,7 +252,7 @@ fn process_deposit(
     check_owner(pool, program_id)?;
     check_writable(pool)?;
 
-    let buf = unsafe { pool.borrow_unchecked_mut() };
+    let mut buf = pool.try_borrow_mut()?;
 
     // Read config to check frozen status and max deposit
     let config = PoolConfig::overlay(&buf[CONFIG_OFFSET..CONFIG_OFFSET + PoolConfig::LEN])?;
@@ -267,7 +267,7 @@ fn process_deposit(
     }
 
     // -- Snapshot state (for receipt) --
-    let mut receipt = StateReceipt::<256>::begin(&PoolState::LAYOUT_ID, buf);
+    let mut receipt = StateReceipt::<256>::begin(&PoolState::LAYOUT_ID, &buf);
 
     // -- Mutate --
     let state = PoolState::overlay_mut(&mut buf[STATE_OFFSET..STATE_OFFSET + PoolState::LEN])?;
@@ -291,7 +291,7 @@ fn process_deposit(
         (STATE_OFFSET, PoolState::LEN),
         (CONFIG_OFFSET, PoolConfig::LEN),
     ];
-    receipt.commit_with_segments(buf, segments);
+    receipt.commit_with_segments(&buf, segments);
     receipt.set_invariants(inv_passed, inv_count);
     receipt.set_policy_flags(DEPOSIT_CAPS.bits());
 
@@ -336,7 +336,7 @@ fn process_withdraw(
     check_owner(pool, program_id)?;
     check_writable(pool)?;
 
-    let buf = unsafe { pool.borrow_unchecked_mut() };
+    let mut buf = pool.try_borrow_mut()?;
     let state_ref = PoolState::overlay(&buf[STATE_OFFSET..STATE_OFFSET + PoolState::LEN])?;
 
     // Authority check (required by policy)
@@ -359,7 +359,7 @@ fn process_withdraw(
     }
 
     // -- Snapshot + Mutate --
-    let mut receipt = StateReceipt::<256>::begin(&PoolState::LAYOUT_ID, buf);
+    let mut receipt = StateReceipt::<256>::begin(&PoolState::LAYOUT_ID, &buf);
 
     let state = PoolState::overlay_mut(&mut buf[STATE_OFFSET..STATE_OFFSET + PoolState::LEN])?;
     let new_withdrawn = checked_add(state.total_withdrawn.get(), amount)?;
@@ -380,7 +380,7 @@ fn process_withdraw(
         (STATE_OFFSET, PoolState::LEN),
         (CONFIG_OFFSET, PoolConfig::LEN),
     ];
-    receipt.commit_with_segments(buf, segments);
+    receipt.commit_with_segments(&buf, segments);
     receipt.set_invariants(inv_passed, inv_count);
     receipt.set_policy_flags(WITHDRAW_CAPS.bits());
     let receipt_bytes = receipt.to_bytes();
@@ -415,7 +415,7 @@ fn process_update_config(
     check_owner(pool, program_id)?;
     check_writable(pool)?;
 
-    let buf = unsafe { pool.borrow_unchecked_mut() };
+    let mut buf = pool.try_borrow_mut()?;
 
     // Verify admin authority
     let config_ref = PoolConfig::overlay(&buf[CONFIG_OFFSET..CONFIG_OFFSET + PoolConfig::LEN])?;
@@ -430,7 +430,7 @@ fn process_update_config(
     let frozen = data[10] != 0;
 
     // -- Snapshot config (for receipt) --
-    let mut receipt = StateReceipt::<256>::begin(&PoolConfig::LAYOUT_ID, buf);
+    let mut receipt = StateReceipt::<256>::begin(&PoolConfig::LAYOUT_ID, &buf);
 
     // Mutate config
     let config = PoolConfig::overlay_mut(&mut buf[CONFIG_OFFSET..CONFIG_OFFSET + PoolConfig::LEN])?;
@@ -443,7 +443,7 @@ fn process_update_config(
         (STATE_OFFSET, PoolState::LEN),
         (CONFIG_OFFSET, PoolConfig::LEN),
     ];
-    receipt.commit_with_segments(buf, segments);
+    receipt.commit_with_segments(&buf, segments);
     receipt.set_policy_flags(CONFIG_CAPS.bits());
     let receipt_bytes = receipt.to_bytes();
     emit_slices(&[&receipt_bytes]);

@@ -38,10 +38,9 @@ impl<'a, T: Pod + FixedLayout + HopperLayout> HopperAccount<'a, T> {
         program_id: &'a Address,
     ) -> Result<Self, ProgramError> {
         check::check_owner(account, program_id)?;
-        // Validate header fields without borrowing data long-term.
-        let data = unsafe { account.borrow_unchecked() };
-        crate::account::check_header(data, T::DISC, T::VERSION, &T::LAYOUT_ID)?;
-        check::check_size(data, T::LEN_WITH_HEADER)?;
+        let data = account.try_borrow()?;
+        crate::account::check_header(&data, T::DISC, T::VERSION, &T::LAYOUT_ID)?;
+        check::check_size(&data, T::LEN_WITH_HEADER)?;
         Ok(Self {
             view: account,
             program_id,
@@ -69,8 +68,8 @@ impl<'a, T: Pod + FixedLayout + HopperLayout> HopperAccount<'a, T> {
     /// account's data. Frame-level borrow tracking handles this in normal usage.
     #[inline]
     pub fn read(&self) -> Result<VerifiedAccount<'a, T>, ProgramError> {
-        let data = unsafe { self.view.borrow_unchecked() };
-        VerifiedAccount::new(data)
+        let data = self.view.try_borrow()?;
+        VerifiedAccount::from_ref(data)
     }
 
     /// Write to the typed layout overlay (mutable).
@@ -84,8 +83,8 @@ impl<'a, T: Pod + FixedLayout + HopperLayout> HopperAccount<'a, T> {
     /// The caller must ensure exclusive access to this account's data.
     #[inline]
     pub fn write(&self) -> Result<VerifiedAccountMut<'a, T>, ProgramError> {
-        let data = unsafe { self.view.borrow_unchecked_mut() };
-        VerifiedAccountMut::new(data)
+        let data = self.view.try_borrow_mut()?;
+        VerifiedAccountMut::from_ref_mut(data)
     }
 
     /// The account's address.

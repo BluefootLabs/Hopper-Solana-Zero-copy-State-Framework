@@ -64,15 +64,14 @@ pub fn assert_no_cpi(
         return Err(ProgramError::InvalidArgument);
     }
 
-    // SAFETY: We just verified the account identity. Read-only access.
-    let data = unsafe { instructions_sysvar.borrow_unchecked() };
+    let data = instructions_sysvar.try_borrow()?;
     if data.len() < 4 {
         return Err(ProgramError::InvalidAccountData);
     }
 
     // Read current instruction index from last 2 bytes
-    let current_idx = current_instruction_index(data)?;
-    let num_instructions = instruction_count(data)?;
+    let current_idx = current_instruction_index(&data)?;
+    let num_instructions = instruction_count(&data)?;
 
     // Sanity: current_idx must be within bounds
     if current_idx >= num_instructions {

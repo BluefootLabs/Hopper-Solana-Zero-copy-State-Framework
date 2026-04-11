@@ -17,7 +17,7 @@
 //! ```
 
 use hopper_runtime::error::ProgramError;
-use hopper_runtime::{AccountView, Address};
+use hopper_runtime::{AccountView, Address, Ref};
 
 /// Trust level for foreign account validation.
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -160,9 +160,9 @@ impl<'a> TrustProfile<'a> {
 
     /// Validate an account against this profile and return its data.
     ///
-    /// On success, returns a byte slice suitable for overlay.
+    /// On success, returns a borrow-carrying byte view suitable for overlay.
     #[inline]
-    pub fn load(&self, account: &'a AccountView) -> Result<&'a [u8], ProgramError> {
+    pub fn load(&self, account: &'a AccountView) -> Result<Ref<'a, [u8]>, ProgramError> {
         // Immutability check (if required).
         if self.flags.require_immutable && account.is_writable() {
             return Err(ProgramError::InvalidAccountData);
@@ -176,59 +176,56 @@ impl<'a> TrustProfile<'a> {
     }
 
     #[inline]
-    fn load_strict(&self, account: &'a AccountView) -> Result<&'a [u8], ProgramError> {
+    fn load_strict(&self, account: &'a AccountView) -> Result<Ref<'a, [u8]>, ProgramError> {
         // Owner check.
         if !account.owned_by(self.owner) {
             return Err(ProgramError::IncorrectProgramId);
         }
-        // SAFETY: Read-only borrow for validation. No conflicting mutable borrows.
-        let data = unsafe { account.borrow_unchecked() };
+        let data = account.try_borrow()?;
         // Exact size check.
         if data.len() != self.size {
             return Err(ProgramError::AccountDataTooSmall);
         }
         // Layout ID check.
-        self.check_layout_id(data)?;
+        self.check_layout_id(&data)?;
         // Close sentinel check.
         if self.flags.reject_closed {
-            self.check_not_closed(data)?;
+            self.check_not_closed(&data)?;
         }
         // Version floor check.
         if self.flags.min_version > 0 {
-            self.check_min_version(data)?;
+            self.check_min_version(&data)?;
         }
         Ok(data)
     }
 
     #[inline]
-    fn load_compatible(&self, account: &'a AccountView) -> Result<&'a [u8], ProgramError> {
+    fn load_compatible(&self, account: &'a AccountView) -> Result<Ref<'a, [u8]>, ProgramError> {
         if !account.owned_by(self.owner) {
             return Err(ProgramError::IncorrectProgramId);
         }
-        // SAFETY: Read-only borrow for validation.
-        let data = unsafe { account.borrow_unchecked() };
+        let data = account.try_borrow()?;
         // Minimum size check (account may be larger than expected).
         if data.len() < self.size {
             return Err(ProgramError::AccountDataTooSmall);
         }
-        self.check_layout_id(data)?;
+        self.check_layout_id(&data)?;
         if self.flags.reject_closed {
-            self.check_not_closed(data)?;
+            self.check_not_closed(&data)?;
         }
         if self.flags.min_version > 0 {
-            self.check_min_version(data)?;
+            self.check_min_version(&data)?;
         }
         Ok(data)
     }
 
     #[inline]
-    fn load_observational(&self, account: &'a AccountView) -> Result<&'a [u8], ProgramError> {
-        // SAFETY: Read-only borrow. No owner check for observational mode.
-        let data = unsafe { account.borrow_unchecked() };
+    fn load_observational(&self, account: &'a AccountView) -> Result<Ref<'a, [u8]>, ProgramError> {
+        let data = account.try_borrow()?;
         if data.len() < crate::account::HEADER_LEN {
             return Err(ProgramError::AccountDataTooSmall);
         }
-        self.check_layout_id(data)?;
+        self.check_layout_id(&data)?;
         Ok(data)
     }
 
@@ -275,5 +272,5 @@ pub fn load_foreign_with_profile<'a, T: crate::account::Pod + crate::account::Fi
     profile: &TrustProfile<'a>,
 ) -> Result<crate::account::VerifiedAccount<'a, T>, ProgramError> {
     let data = profile.load(account)?;
-    crate::account::VerifiedAccount::new(data)
+    crate::account::VerifiedAccount::from_ref(data)
 }

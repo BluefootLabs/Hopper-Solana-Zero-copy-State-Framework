@@ -4,13 +4,29 @@
 //! through validated loading paths (tiered loading). Holding one is proof
 //! that the account passed the required checks.
 
+use hopper_runtime::{Ref, RefMut};
 use hopper_runtime::error::ProgramError;
 use super::pod::{Pod, FixedLayout};
 use super::header::HEADER_LEN;
 
+enum VerifiedBytes<'a> {
+    Borrowed(Ref<'a, [u8]>),
+    Raw(&'a [u8]),
+}
+
+impl<'a> VerifiedBytes<'a> {
+    #[inline(always)]
+    fn as_slice(&self) -> &[u8] {
+        match self {
+            Self::Borrowed(bytes) => bytes,
+            Self::Raw(bytes) => bytes,
+        }
+    }
+}
+
 /// Immutable verified account -- proof that validation passed.
 pub struct VerifiedAccount<'a, T: Pod + FixedLayout> {
-    data: &'a [u8],
+    data: VerifiedBytes<'a>,
     _phantom: core::marker::PhantomData<T>,
 }
 
@@ -24,7 +40,19 @@ impl<'a, T: Pod + FixedLayout> VerifiedAccount<'a, T> {
             return Err(ProgramError::AccountDataTooSmall);
         }
         Ok(Self {
-            data,
+            data: VerifiedBytes::Raw(data),
+            _phantom: core::marker::PhantomData,
+        })
+    }
+
+    /// Construct from a Hopper borrow guard.
+    #[inline(always)]
+    pub fn from_ref(data: Ref<'a, [u8]>) -> Result<Self, ProgramError> {
+        if data.len() < T::SIZE {
+            return Err(ProgramError::AccountDataTooSmall);
+        }
+        Ok(Self {
+            data: VerifiedBytes::Borrowed(data),
             _phantom: core::marker::PhantomData,
         })
     }
@@ -33,20 +61,21 @@ impl<'a, T: Pod + FixedLayout> VerifiedAccount<'a, T> {
     #[inline(always)]
     pub fn get(&self) -> &T {
         // SAFETY: Size validated at construction. T: Pod, alignment-1 guaranteed.
-        unsafe { &*(self.data.as_ptr() as *const T) }
+        unsafe { &*(self.data().as_ptr() as *const T) }
     }
 
     /// Raw data.
     #[inline(always)]
     pub fn data(&self) -> &[u8] {
-        self.data
+        self.data.as_slice()
     }
 
     /// Body data after header.
     #[inline(always)]
     pub fn body(&self) -> &[u8] {
-        if self.data.len() > HEADER_LEN {
-            &self.data[HEADER_LEN..]
+        let data = self.data();
+        if data.len() > HEADER_LEN {
+            &data[HEADER_LEN..]
         } else {
             &[]
         }
@@ -79,10 +108,10 @@ impl<'a, T: Pod + FixedLayout> VerifiedAccount<'a, T> {
     #[inline]
     pub fn slice(&self, offset: usize, len: usize) -> Result<&[u8], ProgramError> {
         let end = offset.checked_add(len).ok_or(ProgramError::ArithmeticOverflow)?;
-        if end > self.data.len() {
+        if end > self.data().len() {
             return Err(ProgramError::AccountDataTooSmall);
         }
-        Ok(&self.data[offset..end])
+        Ok(&self.data()[offset..end])
     }
 
     /// Overlay a second Pod type at a given offset within verified data.
@@ -92,17 +121,40 @@ impl<'a, T: Pod + FixedLayout> VerifiedAccount<'a, T> {
     #[inline]
     pub fn overlay_at<U: Pod + FixedLayout>(&self, offset: usize) -> Result<&U, ProgramError> {
         let end = offset.checked_add(U::SIZE).ok_or(ProgramError::ArithmeticOverflow)?;
-        if end > self.data.len() {
+        if end > self.data().len() {
             return Err(ProgramError::AccountDataTooSmall);
         }
         // SAFETY: Bounds checked. U: Pod + FixedLayout guarantees align 1.
-        Ok(unsafe { &*(self.data.as_ptr().add(offset) as *const U) })
+        Ok(unsafe { &*(self.data().as_ptr().add(offset) as *const U) })
+    }
+}
+
+enum VerifiedBytesMut<'a> {
+    Borrowed(RefMut<'a, [u8]>),
+    Raw(&'a mut [u8]),
+}
+
+impl VerifiedBytesMut<'_> {
+    #[inline(always)]
+    fn as_slice(&self) -> &[u8] {
+        match self {
+            Self::Borrowed(bytes) => bytes,
+            Self::Raw(bytes) => bytes,
+        }
+    }
+
+    #[inline(always)]
+    fn as_mut_slice(&mut self) -> &mut [u8] {
+        match self {
+            Self::Borrowed(bytes) => bytes,
+            Self::Raw(bytes) => bytes,
+        }
     }
 }
 
 /// Mutable verified account -- proof that validation passed, with write access.
 pub struct VerifiedAccountMut<'a, T: Pod + FixedLayout> {
-    data: &'a mut [u8],
+    data: VerifiedBytesMut<'a>,
     _phantom: core::marker::PhantomData<T>,
 }
 
@@ -114,7 +166,19 @@ impl<'a, T: Pod + FixedLayout> VerifiedAccountMut<'a, T> {
             return Err(ProgramError::AccountDataTooSmall);
         }
         Ok(Self {
-            data,
+            data: VerifiedBytesMut::Raw(data),
+            _phantom: core::marker::PhantomData,
+        })
+    }
+
+    /// Construct from a Hopper mutable borrow guard.
+    #[inline(always)]
+    pub fn from_ref_mut(data: RefMut<'a, [u8]>) -> Result<Self, ProgramError> {
+        if data.len() < T::SIZE {
+            return Err(ProgramError::AccountDataTooSmall);
+        }
+        Ok(Self {
+            data: VerifiedBytesMut::Borrowed(data),
             _phantom: core::marker::PhantomData,
         })
     }
@@ -123,26 +187,26 @@ impl<'a, T: Pod + FixedLayout> VerifiedAccountMut<'a, T> {
     #[inline(always)]
     pub fn get(&self) -> &T {
         // SAFETY: Size validated at construction.
-        unsafe { &*(self.data.as_ptr() as *const T) }
+        unsafe { &*(self.data().as_ptr() as *const T) }
     }
 
     /// Get a mutable reference to the overlay.
     #[inline(always)]
     pub fn get_mut(&mut self) -> &mut T {
         // SAFETY: Size validated at construction. We have exclusive access.
-        unsafe { &mut *(self.data.as_mut_ptr() as *mut T) }
+        unsafe { &mut *(self.data_mut().as_mut_ptr() as *mut T) }
     }
 
     /// Raw data (immutable).
     #[inline(always)]
     pub fn data(&self) -> &[u8] {
-        self.data
+        self.data.as_slice()
     }
 
     /// Raw data (mutable).
     #[inline(always)]
     pub fn data_mut(&mut self) -> &mut [u8] {
-        self.data
+        self.data.as_mut_slice()
     }
 
     /// Project a field from the verified overlay (immutable).
@@ -174,19 +238,19 @@ impl<'a, T: Pod + FixedLayout> VerifiedAccountMut<'a, T> {
     #[inline]
     pub fn overlay_at<U: Pod + FixedLayout>(&self, offset: usize) -> Result<&U, ProgramError> {
         let end = offset.checked_add(U::SIZE).ok_or(ProgramError::ArithmeticOverflow)?;
-        if end > self.data.len() {
+        if end > self.data().len() {
             return Err(ProgramError::AccountDataTooSmall);
         }
-        Ok(unsafe { &*(self.data.as_ptr().add(offset) as *const U) })
+        Ok(unsafe { &*(self.data().as_ptr().add(offset) as *const U) })
     }
 
     /// Overlay a second Pod type at a given offset (mutable).
     #[inline]
     pub fn overlay_at_mut<U: Pod + FixedLayout>(&mut self, offset: usize) -> Result<&mut U, ProgramError> {
         let end = offset.checked_add(U::SIZE).ok_or(ProgramError::ArithmeticOverflow)?;
-        if end > self.data.len() {
+        if end > self.data().len() {
             return Err(ProgramError::AccountDataTooSmall);
         }
-        Ok(unsafe { &mut *(self.data.as_mut_ptr().add(offset) as *mut U) })
+        Ok(unsafe { &mut *(self.data_mut().as_mut_ptr().add(offset) as *mut U) })
     }
 }

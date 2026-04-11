@@ -178,12 +178,11 @@ fn process_init_registry(
     }
     .invoke()?;
 
-    // SAFETY: We just created this account and have exclusive access.
-    let account_data = unsafe { registry_account.borrow_unchecked_mut() };
+    let mut account_data = registry_account.try_borrow_mut()?;
 
     // Zero-init + write header
-    zero_init(account_data);
-    write_header(account_data, 10, 1, &RegistryCore::LAYOUT_ID)?;
+    zero_init(&mut account_data);
+    write_header(&mut account_data, 10, 1, &RegistryCore::LAYOUT_ID)?;
 
     // Initialize segments
     let specs: &[(SegmentId, u32, u8)] = &[
@@ -191,10 +190,10 @@ fn process_init_registry(
         (ENTRIES_SEG, ENTRIES_SIZE, 1),
         (AUDIT_SEG, AUDIT_SIZE, 1),
     ];
-    SegmentRegistryMut::init(account_data, specs)?;
+    SegmentRegistryMut::init(&mut account_data, specs)?;
 
     // Write core segment
-    let mut reg_mut = SegmentRegistryMut::from_account_mut(account_data)?;
+    let mut reg_mut = SegmentRegistryMut::from_account_mut(&mut account_data)?;
     let core_data_mut = reg_mut.segment_data_mut(&CORE_SEG)?;
 
     // Core data is already zeroed from account zero_init
@@ -255,13 +254,12 @@ fn process_add_entry(
         return Err(ProgramError::InvalidInstructionData);
     }
 
-    // SAFETY: Owner checked above. We need exclusive mutable access.
-    let account_data = unsafe { registry_account.borrow_unchecked_mut() };
+    let mut account_data = registry_account.try_borrow_mut()?;
 
     // Capture snapshot before mutation for audit diff
-    let snapshot = StateSnapshot::<864>::capture(account_data);
+    let snapshot = StateSnapshot::<864>::capture(&account_data);
 
-    let mut reg = SegmentRegistryMut::from_account_mut(account_data)?;
+    let mut reg = SegmentRegistryMut::from_account_mut(&mut account_data)?;
     let core_data = reg.segment_data_mut(&CORE_SEG)?;
 
     if core_data.len() < RegistryCore::LEN {
@@ -324,7 +322,7 @@ fn process_add_entry(
     // Compute diff in a scoped block so the immutable borrow is released
     // before we take a fresh mutable borrow for the journal write.
     let changed_bytes = {
-        let diff = snapshot.diff(account_data);
+        let diff = snapshot.diff(&account_data);
         if diff.has_changes() {
             diff.changed_byte_count() as u64
         } else {
@@ -334,7 +332,7 @@ fn process_add_entry(
 
     // Write audit record to the journal segment
     {
-        let mut reg2 = SegmentRegistryMut::from_account_mut(account_data)?;
+        let mut reg2 = SegmentRegistryMut::from_account_mut(&mut account_data)?;
         let audit_data = reg2.segment_data_mut(&AUDIT_SEG)?;
         let mut journal = Journal::<AuditRecord>::from_bytes_mut(audit_data)?;
 
