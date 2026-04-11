@@ -11,6 +11,7 @@
 //! No competitor (Pinocchio, Steel, Quasar) has anything equivalent.
 
 use crate::error::ProgramError;
+use crate::field_map::{FieldInfo, FieldMap};
 use crate::ProgramResult;
 
 // ══════════════════════════════════════════════════════════════════════
@@ -145,7 +146,7 @@ impl LayoutInfo {
 ///     const SIZE: usize = 16 + 32 + 8; // header + fields
 /// }
 /// ```
-pub trait LayoutContract: Sized + Copy {
+pub trait LayoutContract: Sized + Copy + FieldMap {
     /// Account type discriminator (byte 0 of data).
     const DISC: u8;
 
@@ -173,7 +174,7 @@ pub trait LayoutContract: Sized + Copy {
     ///
     /// Returns `Ok(())` if the discriminator, version, and layout_id all match.
     /// This is the canonical "is this account what I think it is?" check.
-    #[inline]
+    #[inline(always)]
     fn validate_header(data: &[u8]) -> ProgramResult {
         if data.len() < Self::SIZE {
             return Err(ProgramError::AccountDataTooSmall);
@@ -250,6 +251,12 @@ pub trait LayoutContract: Sized + Copy {
             layout_id: Self::LAYOUT_ID,
             data_len: Self::SIZE,
         }
+    }
+
+    /// Compile-time field metadata for this layout.
+    #[inline(always)]
+    fn fields() -> &'static [FieldInfo] {
+        Self::FIELDS
     }
 }
 

@@ -13,9 +13,11 @@
 //! - Remaining accounts iterator
 
 use crate::address::{Address, address_eq};
-use crate::compat::{self, BackendAccountView};
 use crate::error::ProgramError;
 use crate::borrow::{Ref, RefMut};
+use crate::borrow_registry::{self, BorrowToken};
+use crate::compat::{self, BackendAccountView};
+use crate::field_map::FieldInfo;
 use crate::layout::{HopperHeader, LayoutContract};
 use crate::ProgramResult;
 
@@ -44,6 +46,12 @@ unsafe impl Send for AccountView {}
 unsafe impl Sync for AccountView {}
 
 impl AccountView {
+    #[cfg(test)]
+    #[inline(always)]
+    pub(crate) fn from_backend(inner: BackendAccountView) -> Self {
+        Self { inner }
+    }
+
     // ── Getters ──────────────────────────────────────────────────────
 
     /// The account's public key.
@@ -120,19 +128,29 @@ impl AccountView {
     // ── Borrow tracking ─────────────────────────────────────────────
 
     /// Try to obtain a shared borrow of the account data.
-    #[inline]
+    #[inline(always)]
     pub fn try_borrow(&self) -> Result<Ref<'_, [u8]>, ProgramError> {
-        self.inner.try_borrow()
-            .map(Ref::from_backend)
-            .map_err(ProgramError::from)
+        let token = BorrowToken::shared(self.address())?;
+        match self.inner.try_borrow() {
+            Ok(data) => Ok(Ref::from_backend(data, token)),
+            Err(error) => {
+                drop(token);
+                Err(ProgramError::from(error))
+            }
+        }
     }
 
     /// Try to obtain an exclusive (mutable) borrow of the account data.
-    #[inline]
+    #[inline(always)]
     pub fn try_borrow_mut(&self) -> Result<RefMut<'_, [u8]>, ProgramError> {
-        self.inner.try_borrow_mut()
-            .map(RefMut::from_backend)
-            .map_err(ProgramError::from)
+        let token = BorrowToken::mutable(self.address())?;
+        match self.inner.try_borrow_mut() {
+            Ok(data) => Ok(RefMut::from_backend(data, token)),
+            Err(error) => {
+                drop(token);
+                Err(ProgramError::from(error))
+            }
+        }
     }
 
     // ── Zero-copy overlay access ─────────────────────────────────────
@@ -151,17 +169,17 @@ impl AccountView {
     /// # Example
     ///
     /// ```ignore
-    /// let state: &MyState = account.overlay::<MyState>()?;
+    /// let state = account.overlay::<MyState>()?;
     /// ```
     #[inline(always)]
-    pub fn overlay<T: Copy>(&self) -> Result<&T, ProgramError> {
+    pub fn overlay<T: Copy>(&self) -> Result<Ref<'_, T>, ProgramError> {
         let data = self.try_borrow()?;
         if data.len() < core::mem::size_of::<T>() {
             return Err(ProgramError::AccountDataTooSmall);
         }
-        // SAFETY: T: Copy implies no drop glue. Caller guarantees Pod semantics.
-        // Borrow guard keeps the data alive for the returned reference lifetime.
-        Ok(unsafe { &*(data.as_ptr() as *const T) })
+        let ptr = data.as_ptr() as *const T;
+        // SAFETY: Bounds checked above. `ptr` points into the bytes protected by `data`.
+        Ok(unsafe { data.project(ptr) })
     }
 
     /// Interpret account data as a typed overlay (mutable).
@@ -169,27 +187,30 @@ impl AccountView {
     /// Same as `overlay()` but provides a mutable reference.
     /// Changes are written directly to the account's data buffer.
     #[inline(always)]
-    pub fn overlay_mut<T: Copy>(&self) -> Result<&mut T, ProgramError> {
+    pub fn overlay_mut<T: Copy>(&self) -> Result<RefMut<'_, T>, ProgramError> {
         let mut data = self.try_borrow_mut()?;
         if data.len() < core::mem::size_of::<T>() {
             return Err(ProgramError::AccountDataTooSmall);
         }
-        // SAFETY: Exclusive borrow guard guarantees no aliasing.
-        Ok(unsafe { &mut *(data.as_mut_ptr() as *mut T) })
+        let ptr = data.as_mut_ptr() as *mut T;
+        // SAFETY: Bounds checked above. `ptr` points into the bytes protected by `data`.
+        Ok(unsafe { data.project(ptr) })
     }
 
     /// Interpret account data at a specific offset as a typed overlay.
     ///
     /// Useful for reading past a header or into a specific region.
     #[inline(always)]
-    pub fn overlay_at<T: Copy>(&self, offset: usize) -> Result<&T, ProgramError> {
+    pub fn overlay_at<T: Copy>(&self, offset: usize) -> Result<Ref<'_, T>, ProgramError> {
         let data = self.try_borrow()?;
         let end = offset.checked_add(core::mem::size_of::<T>())
             .ok_or(ProgramError::ArithmeticOverflow)?;
         if data.len() < end {
             return Err(ProgramError::AccountDataTooSmall);
         }
-        Ok(unsafe { &*(data.as_ptr().add(offset) as *const T) })
+        let ptr = unsafe { data.as_bytes_ptr().add(offset) as *const T };
+        // SAFETY: Bounds checked above. `ptr` points into the bytes protected by `data`.
+        Ok(unsafe { data.project(ptr) })
     }
 
     // ── Typed load (LayoutContract-aware) ────────────────────────────
@@ -207,17 +228,18 @@ impl AccountView {
     /// # Example
     ///
     /// ```ignore
-    /// let vault: &Vault = account.load::<Vault>()?;
+    /// let vault = account.load::<Vault>()?;
     /// ```
     #[inline(always)]
-    pub fn load<T: LayoutContract>(&self) -> Result<&T, ProgramError> {
+    pub fn load<T: LayoutContract>(&self) -> Result<Ref<'_, T>, ProgramError> {
         let data = self.try_borrow()?;
         T::validate_header(&data)?;
-        let body = &data[HopperHeader::SIZE..];
-        if body.len() < core::mem::size_of::<T>() {
+        if data.len() < HopperHeader::SIZE + core::mem::size_of::<T>() {
             return Err(ProgramError::AccountDataTooSmall);
         }
-        Ok(unsafe { &*(body.as_ptr() as *const T) })
+        let ptr = unsafe { data.as_bytes_ptr().add(HopperHeader::SIZE) as *const T };
+        // SAFETY: Header and length validated above. `ptr` points into the borrowed bytes.
+        Ok(unsafe { data.project(ptr) })
     }
 
     /// Load a mutable typed layout after validating the account header.
@@ -228,18 +250,19 @@ impl AccountView {
     /// # Example
     ///
     /// ```ignore
-    /// let vault: &mut Vault = account.load_mut::<Vault>()?;
+    /// let mut vault = account.load_mut::<Vault>()?;
     /// vault.balance = vault.balance.checked_add(amount)?;
     /// ```
     #[inline(always)]
-    pub fn load_mut<T: LayoutContract>(&self) -> Result<&mut T, ProgramError> {
+    pub fn load_mut<T: LayoutContract>(&self) -> Result<RefMut<'_, T>, ProgramError> {
         let mut data = self.try_borrow_mut()?;
         T::validate_header(&data)?;
-        let body = &mut data[HopperHeader::SIZE..];
-        if body.len() < core::mem::size_of::<T>() {
+        if data.len() < HopperHeader::SIZE + core::mem::size_of::<T>() {
             return Err(ProgramError::AccountDataTooSmall);
         }
-        Ok(unsafe { &mut *(body.as_mut_ptr() as *mut T) })
+        let ptr = unsafe { data.as_bytes_mut_ptr().add(HopperHeader::SIZE) as *mut T };
+        // SAFETY: Header and length validated above. `ptr` points into the borrowed bytes.
+        Ok(unsafe { data.project(ptr) })
     }
 
     /// Load a typed layout checking only the discriminator (fast path).
@@ -247,14 +270,15 @@ impl AccountView {
     /// Skips version and layout_id checks. Use when you trust the account
     /// source and only need type dispatch.
     #[inline(always)]
-    pub fn load_unchecked<T: LayoutContract>(&self) -> Result<&T, ProgramError> {
+    pub fn load_unchecked<T: LayoutContract>(&self) -> Result<Ref<'_, T>, ProgramError> {
         let data = self.try_borrow()?;
         T::check_disc(&data)?;
         if data.len() < T::SIZE {
             return Err(ProgramError::AccountDataTooSmall);
         }
-        let body = &data[HopperHeader::SIZE..];
-        Ok(unsafe { &*(body.as_ptr() as *const T) })
+        let ptr = unsafe { data.as_bytes_ptr().add(HopperHeader::SIZE) as *const T };
+        // SAFETY: Discriminator and size validated above.
+        Ok(unsafe { data.project(ptr) })
     }
 
     /// Load a layout with version compatibility checking.
@@ -264,7 +288,7 @@ impl AccountView {
     /// current layout version still understands (e.g. forward-compatible
     /// append-only migrations).
     #[inline(always)]
-    pub fn load_versioned<T: LayoutContract>(&self) -> Result<&T, ProgramError> {
+    pub fn load_versioned<T: LayoutContract>(&self) -> Result<Ref<'_, T>, ProgramError> {
         let data = self.try_borrow()?;
         T::check_disc(&data)?;
         let version = crate::layout::read_version(&data)
@@ -275,8 +299,9 @@ impl AccountView {
         if data.len() < T::SIZE {
             return Err(ProgramError::AccountDataTooSmall);
         }
-        let body = &data[HopperHeader::SIZE..];
-        Ok(unsafe { &*(body.as_ptr() as *const T) })
+        let ptr = unsafe { data.as_bytes_ptr().add(HopperHeader::SIZE) as *const T };
+        // SAFETY: Discriminator, compatibility, and size validated above.
+        Ok(unsafe { data.project(ptr) })
     }
 
     /// Load a foreign layout without ownership or authorization checks.
@@ -285,7 +310,7 @@ impl AccountView {
     /// this for cross-program reads where the account is owned by
     /// another program and you just need a typed view of its data.
     #[inline(always)]
-    pub fn load_foreign<T: LayoutContract>(&self) -> Result<&T, ProgramError> {
+    pub fn load_foreign<T: LayoutContract>(&self) -> Result<Ref<'_, T>, ProgramError> {
         let data = self.try_borrow()?;
         if data.len() < T::SIZE {
             return Err(ProgramError::AccountDataTooSmall);
@@ -299,8 +324,9 @@ impl AccountView {
         } else {
             return Err(ProgramError::AccountDataTooSmall);
         }
-        let body = &data[HopperHeader::SIZE..];
-        Ok(unsafe { &*(body.as_ptr() as *const T) })
+        let ptr = unsafe { data.as_bytes_ptr().add(HopperHeader::SIZE) as *const T };
+        // SAFETY: Wire identity and size validated above.
+        Ok(unsafe { data.project(ptr) })
     }
 
     /// Read runtime layout metadata from this account's header.
@@ -312,6 +338,18 @@ impl AccountView {
     pub fn layout_info(&self) -> Option<crate::layout::LayoutInfo> {
         let data = self.try_borrow().ok()?;
         crate::layout::LayoutInfo::from_data(&data)
+    }
+
+    /// Alias for runtime layout inspection.
+    #[inline(always)]
+    pub fn inspect(&self) -> Option<crate::layout::LayoutInfo> {
+        self.layout_info()
+    }
+
+    /// Compile-time field metadata for a layout contract.
+    #[inline(always)]
+    pub fn fields<T: LayoutContract>() -> &'static [FieldInfo] {
+        T::fields()
     }
 
     /// Return the extension-region byte range for a layout that declares one.
@@ -326,6 +364,28 @@ impl AccountView {
             return Err(ProgramError::AccountDataTooSmall);
         }
         Ok(offset..data_len)
+    }
+
+    /// Borrow the extension/tail region declared by a layout contract.
+    #[inline(always)]
+    pub fn extension_bytes<T: LayoutContract>(&self) -> Result<Ref<'_, [u8]>, ProgramError> {
+        let offset = T::EXTENSION_OFFSET.ok_or(ProgramError::InvalidArgument)?;
+        let data = self.try_borrow()?;
+        if data.len() < offset {
+            return Err(ProgramError::AccountDataTooSmall);
+        }
+        Ok(data.slice_from(offset))
+    }
+
+    /// Mutably borrow the extension/tail region declared by a layout contract.
+    #[inline(always)]
+    pub fn extension_bytes_mut<T: LayoutContract>(&self) -> Result<RefMut<'_, [u8]>, ProgramError> {
+        let offset = T::EXTENSION_OFFSET.ok_or(ProgramError::InvalidArgument)?;
+        let data = self.try_borrow_mut()?;
+        if data.len() < offset {
+            return Err(ProgramError::AccountDataTooSmall);
+        }
+        Ok(data.slice_from(offset))
     }
 
     /// Initialize an account with the given layout contract header.
@@ -536,12 +596,14 @@ impl AccountView {
     /// Check that the account can be shared-borrowed.
     #[inline(always)]
     pub fn check_borrow(&self) -> Result<(), ProgramError> {
+        borrow_registry::check_shared(self.address())?;
         self.inner.check_borrow().map_err(ProgramError::from)
     }
 
     /// Check that the account can be exclusively borrowed.
     #[inline(always)]
     pub fn check_borrow_mut(&self) -> Result<(), ProgramError> {
+        borrow_registry::check_mutable(self.address())?;
         self.inner.check_borrow_mut().map_err(ProgramError::from)
     }
 
@@ -663,5 +725,155 @@ impl<'a> RemainingAccounts<'a> {
         let account = self.next()?;
         account.require_owned_by(program)?;
         Ok(account)
+    }
+}
+
+#[cfg(all(test, feature = "hopper-native-backend"))]
+mod tests {
+    use super::*;
+
+    use hopper_native::{AccountView as NativeAccountView, Address as NativeAddress, RuntimeAccount, NOT_BORROWED};
+
+    #[repr(C)]
+    #[derive(Clone, Copy, Debug, Default)]
+    struct TestLayout {
+        a: u64,
+        b: u64,
+    }
+
+    impl crate::field_map::FieldMap for TestLayout {
+        const FIELDS: &'static [crate::field_map::FieldInfo] = &[
+            crate::field_map::FieldInfo::new("a", HopperHeader::SIZE, 8),
+            crate::field_map::FieldInfo::new("b", HopperHeader::SIZE + 8, 8),
+        ];
+    }
+
+    impl LayoutContract for TestLayout {
+        const DISC: u8 = 7;
+        const VERSION: u8 = 1;
+        const LAYOUT_ID: [u8; 8] = [0xAB; 8];
+        const SIZE: usize = HopperHeader::SIZE + core::mem::size_of::<Self>();
+        const EXTENSION_OFFSET: Option<usize> = Some(Self::SIZE);
+    }
+
+    fn make_account(total_data_len: usize, address_byte: u8) -> (std::vec::Vec<u8>, AccountView) {
+        let mut backing = std::vec![0u8; RuntimeAccount::SIZE + total_data_len];
+        let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
+        unsafe {
+            raw.write(RuntimeAccount {
+                borrow_state: NOT_BORROWED,
+                is_signer: 1,
+                is_writable: 1,
+                executable: 0,
+                resize_delta: 0,
+                address: NativeAddress::new_from_array([address_byte; 32]),
+                owner: NativeAddress::new_from_array([2; 32]),
+                lamports: 42,
+                data_len: total_data_len as u64,
+            });
+        }
+        let backend = unsafe { NativeAccountView::new_unchecked(raw) };
+        let account = AccountView::from_backend(backend);
+        (backing, account)
+    }
+
+    #[test]
+    fn load_mut_is_zero_copy_and_pointer_stable() {
+        let (_backing, account) = make_account(TestLayout::SIZE + 8, 1);
+
+        {
+            let mut data = account.try_borrow_mut().unwrap();
+            crate::layout::init_header::<TestLayout>(&mut data).unwrap();
+            data[HopperHeader::SIZE..HopperHeader::SIZE + 8].copy_from_slice(&10u64.to_le_bytes());
+            data[HopperHeader::SIZE + 8..HopperHeader::SIZE + 16].copy_from_slice(&20u64.to_le_bytes());
+            data[TestLayout::SIZE..TestLayout::SIZE + 8].copy_from_slice(b"tailpass");
+        }
+
+        let first_ptr = {
+            let first = account.load::<TestLayout>().unwrap();
+            assert_eq!(first.a, 10);
+            assert_eq!(first.b, 20);
+            first.as_ptr() as usize
+        };
+
+        {
+            let tail = account.extension_bytes::<TestLayout>().unwrap();
+            assert_eq!(&tail[..8], b"tailpass");
+        }
+
+        let mut second = account.load_mut::<TestLayout>().unwrap();
+        let second_ptr = second.as_mut_ptr() as usize;
+        second.b = 99;
+        assert_eq!(first_ptr, second_ptr);
+        drop(second);
+
+        let reread = account.load::<TestLayout>().unwrap();
+        assert_eq!(reread.a, 10);
+        assert_eq!(reread.b, 99);
+    }
+
+    #[test]
+    fn typed_load_holds_borrow_until_drop() {
+        let (_backing, account) = make_account(TestLayout::SIZE, 3);
+
+        {
+            let mut data = account.try_borrow_mut().unwrap();
+            crate::layout::init_header::<TestLayout>(&mut data).unwrap();
+        }
+
+        let shared = account.load::<TestLayout>().unwrap();
+        assert_eq!(account.load_mut::<TestLayout>().unwrap_err(), ProgramError::AccountBorrowFailed);
+        drop(shared);
+        assert!(account.load_mut::<TestLayout>().is_ok());
+    }
+
+    #[test]
+    fn duplicate_address_aliases_are_rejected_across_views() {
+        let (_first_backing, first) = make_account(TestLayout::SIZE, 9);
+        let (_second_backing, second) = make_account(TestLayout::SIZE, 9);
+
+        let first_shared = first.try_borrow().unwrap();
+        let second_shared = second.try_borrow().unwrap();
+        assert_eq!(second.try_borrow_mut().unwrap_err(), ProgramError::AccountBorrowFailed);
+        drop(first_shared);
+        drop(second_shared);
+        assert!(second.try_borrow_mut().is_ok());
+    }
+
+    #[test]
+    fn load_rejects_wrong_disc_and_wrong_version() {
+        let (_backing, account) = make_account(TestLayout::SIZE, 4);
+
+        {
+            let mut data = account.try_borrow_mut().unwrap();
+            crate::layout::init_header::<TestLayout>(&mut data).unwrap();
+        }
+
+        {
+            let mut data = account.try_borrow_mut().unwrap();
+            data[0] = TestLayout::DISC.wrapping_add(1);
+        }
+        assert_eq!(account.load::<TestLayout>().unwrap_err(), ProgramError::InvalidAccountData);
+
+        {
+            let mut data = account.try_borrow_mut().unwrap();
+            crate::layout::init_header::<TestLayout>(&mut data).unwrap();
+            data[1] = TestLayout::VERSION.wrapping_add(1);
+        }
+        assert_eq!(account.load::<TestLayout>().unwrap_err(), ProgramError::InvalidAccountData);
+    }
+
+    #[test]
+    fn load_rejects_undersized_layout_body() {
+        let (_backing, account) = make_account(TestLayout::SIZE - 1, 5);
+
+        {
+            let mut data = account.try_borrow_mut().unwrap();
+            data[0] = TestLayout::DISC;
+            data[1] = TestLayout::VERSION;
+            data[4..12].copy_from_slice(&TestLayout::LAYOUT_ID);
+        }
+
+        assert_eq!(account.load::<TestLayout>().unwrap_err(), ProgramError::AccountDataTooSmall);
     }
 }

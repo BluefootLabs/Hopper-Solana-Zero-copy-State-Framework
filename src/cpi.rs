@@ -323,3 +323,51 @@ pub fn invoke_signed<const ACCOUNTS: usize>(
 pub fn set_return_data(data: &[u8]) {
     crate::compat::set_return_data(data)
 }
+
+#[cfg(all(test, feature = "hopper-native-backend"))]
+mod tests {
+    use super::*;
+
+    use crate::InstructionAccount;
+    use hopper_native::{AccountView as NativeAccountView, Address as NativeAddress, RuntimeAccount, NOT_BORROWED};
+
+    fn make_account(address: [u8; 32]) -> (std::vec::Vec<u8>, AccountView) {
+        let mut backing = std::vec![0u8; RuntimeAccount::SIZE + 16];
+        let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
+        unsafe {
+            raw.write(RuntimeAccount {
+                borrow_state: NOT_BORROWED,
+                is_signer: 0,
+                is_writable: 1,
+                executable: 0,
+                resize_delta: 0,
+                address: NativeAddress::new_from_array(address),
+                owner: NativeAddress::new_from_array([9; 32]),
+                lamports: 1,
+                data_len: 16,
+            });
+        }
+        let backend = unsafe { NativeAccountView::new_unchecked(raw) };
+        (backing, AccountView::from_backend(backend))
+    }
+
+    #[test]
+    fn duplicate_writable_accounts_are_rejected_before_cpi() {
+        let (_first_backing, first) = make_account([3; 32]);
+        let (_second_backing, second) = make_account([3; 32]);
+
+        let instruction_accounts = [
+            InstructionAccount::writable(first.address()),
+            InstructionAccount::writable(second.address()),
+        ];
+        let program_id = Address::new_from_array([7; 32]);
+        let instruction = InstructionView {
+            program_id: &program_id,
+            data: &[0u8],
+            accounts: &instruction_accounts,
+        };
+
+        let err = validate_no_duplicate_writable(&instruction, &[&first, &second]).unwrap_err();
+        assert_eq!(err, ProgramError::AccountBorrowFailed);
+    }
+}

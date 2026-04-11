@@ -8,6 +8,9 @@
 #![no_std]
 #![deny(unsafe_op_in_unsafe_fn)]
 
+#[cfg(test)]
+extern crate std;
+
 #[cfg(feature = "solana-program-backend")]
 extern crate alloc;
 
@@ -37,7 +40,9 @@ pub mod result;
 pub mod address;
 pub mod account;
 pub mod borrow;
+pub(crate) mod borrow_registry;
 pub mod cpi;
+pub mod field_map;
 pub mod instruction;
 pub mod layout;
 pub mod context;
@@ -51,6 +56,7 @@ pub use borrow::{Ref, RefMut};
 pub use context::Context;
 pub use cpi::{invoke, invoke_signed};
 pub use error::ProgramError;
+pub use field_map::{FieldInfo, FieldMap};
 #[cfg(feature = "hopper-native-backend")]
 pub use instruction::CpiAccount;
 pub use instruction::{InstructionAccount, InstructionView, Seed, Signer};
