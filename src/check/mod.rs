@@ -238,9 +238,9 @@ pub fn check_account(
     min_size: usize,
 ) -> ProgramResult {
     check_owner(account, program_id)?;
-    let data = unsafe { account.borrow_unchecked() };
-    check_size(data, min_size)?;
-    check_discriminator(data, disc)?;
+    let data = account.try_borrow()?;
+    check_size(&data, min_size)?;
+    check_discriminator(&data, disc)?;
     Ok(())
 }
 
@@ -352,7 +352,7 @@ pub fn verify_pda_cached(
 ) -> ProgramResult {
     #[cfg(target_os = "solana")]
     {
-        let data = unsafe { account.borrow_unchecked() };
+        let data = account.try_borrow()?;
         if bump_offset >= data.len() {
             return Err(ProgramError::AccountDataTooSmall);
         }

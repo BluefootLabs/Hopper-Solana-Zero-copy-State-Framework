@@ -27,8 +27,8 @@ impl<'a, T: Pod + FixedLayout> ProgramAccount<'a, T> {
         expected_owner: &Address,
     ) -> Result<Self, ProgramError> {
         check::check_owner(account, expected_owner)?;
-        let data = unsafe { account.borrow_unchecked() };
-        check::check_size(data, core::mem::size_of::<T>())?;
+        let data = account.try_borrow()?;
+        check::check_size(&data, core::mem::size_of::<T>())?;
         Ok(Self {
             view: account,
             _marker: core::marker::PhantomData,
@@ -51,8 +51,8 @@ impl<'a, T: Pod + FixedLayout> ProgramAccount<'a, T> {
     /// Caller must ensure no conflicting mutable borrows.
     #[inline]
     pub fn read(&self) -> Result<VerifiedAccount<'a, T>, ProgramError> {
-        let data = unsafe { self.view.borrow_unchecked() };
-        VerifiedAccount::new(data)
+        let data = self.view.try_borrow()?;
+        VerifiedAccount::from_ref(data)
     }
 
     /// The account's address.

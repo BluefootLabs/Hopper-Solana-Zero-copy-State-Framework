@@ -41,6 +41,7 @@
 
 use hopper_runtime::error::ProgramError;
 use super::segment_role::SegmentRole;
+use crate::collections::{FixedVec, Journal, RingBuffer, Slab, SlotMap, SortedVec};
 
 // -- Segment ID --
 
@@ -521,6 +522,60 @@ impl<'a> SegmentRegistryMut<'a> {
         Ok(unsafe { &mut *(data.as_mut_ptr() as *mut T) })
     }
 
+    /// Overlay a named segment as a bounded `FixedVec`.
+    #[inline]
+    pub fn segment_fixed_vec<T: super::Pod + super::FixedLayout>(
+        &mut self,
+        id: &SegmentId,
+    ) -> Result<FixedVec<'_, T>, ProgramError> {
+        FixedVec::from_bytes(self.segment_data_mut(id)?)
+    }
+
+    /// Overlay a named segment as a `SortedVec`.
+    #[inline]
+    pub fn segment_sorted_vec<T: super::Pod + super::FixedLayout + Ord>(
+        &mut self,
+        id: &SegmentId,
+    ) -> Result<SortedVec<'_, T>, ProgramError> {
+        SortedVec::from_bytes(self.segment_data_mut(id)?)
+    }
+
+    /// Overlay a named segment as a `RingBuffer`.
+    #[inline]
+    pub fn segment_ring_buffer<T: super::Pod + super::FixedLayout>(
+        &mut self,
+        id: &SegmentId,
+    ) -> Result<RingBuffer<'_, T>, ProgramError> {
+        RingBuffer::from_bytes(self.segment_data_mut(id)?)
+    }
+
+    /// Overlay a named segment as a `SlotMap`.
+    #[inline]
+    pub fn segment_slot_map<T: super::Pod + super::FixedLayout>(
+        &mut self,
+        id: &SegmentId,
+    ) -> Result<SlotMap<'_, T>, ProgramError> {
+        SlotMap::from_bytes(self.segment_data_mut(id)?)
+    }
+
+    /// Overlay a named segment as a `Journal`.
+    #[inline]
+    pub fn segment_journal<T: super::Pod + super::FixedLayout>(
+        &mut self,
+        id: &SegmentId,
+    ) -> Result<Journal<'_, T>, ProgramError> {
+        Journal::from_bytes_mut(self.segment_data_mut(id)?)
+    }
+
+    /// Overlay a named segment as a `Slab`.
+    #[inline]
+    pub fn segment_slab<T: super::Pod + super::FixedLayout>(
+        &mut self,
+        id: &SegmentId,
+    ) -> Result<Slab<'_, T>, ProgramError> {
+        Slab::from_bytes_mut(self.segment_data_mut(id)?)
+    }
+
     /// Freeze a segment (set frozen flag).
     #[inline]
     pub fn freeze_segment(&mut self, id: &SegmentId) -> Result<(), ProgramError> {
@@ -546,5 +601,65 @@ impl<'a> SegmentRegistryMut<'a> {
         let new_flags = entry.flags() | SEG_FLAG_LOCKED;
         entry.set_flags(new_flags);
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[repr(C)]
+    #[derive(Clone, Copy, Default, Eq, Ord, PartialEq, PartialOrd)]
+    struct Entry8 {
+        value: u8,
+    }
+
+    unsafe impl crate::account::Pod for Entry8 {}
+
+    impl crate::account::FixedLayout for Entry8 {
+        const SIZE: usize = 1;
+    }
+
+    #[test]
+    fn segment_fixed_vec_adapter_exposes_vec_api() {
+        const CORE: SegmentId = segment_id("core");
+        let total = REGISTRY_OFFSET + REGISTRY_HEADER_SIZE + SEGMENT_ENTRY_SIZE + 8;
+        let mut account = std::vec![0u8; total];
+
+        SegmentRegistryMut::init(&mut account, &[(CORE, 8, 1)]).unwrap();
+
+        let mut registry = SegmentRegistryMut::from_account_mut(&mut account).unwrap();
+        let mut values = registry.segment_fixed_vec::<Entry8>(&CORE).unwrap();
+        values.push(Entry8 { value: 7 }).unwrap();
+        values.push(Entry8 { value: 9 }).unwrap();
+
+        assert_eq!(values.len(), 2);
+        assert_eq!(values.get(0).unwrap().value, 7);
+        assert_eq!(values.get(1).unwrap().value, 9);
+    }
+
+    #[test]
+    fn segment_journal_adapter_exposes_journal_api() {
+        const AUDIT: SegmentId = segment_id("audit");
+        let segment_bytes = crate::collections::JOURNAL_HEADER_SIZE + 4;
+        let total = REGISTRY_OFFSET + REGISTRY_HEADER_SIZE + SEGMENT_ENTRY_SIZE + segment_bytes;
+        let mut account = std::vec![0u8; total];
+
+        SegmentRegistryMut::init(&mut account, &[(AUDIT, segment_bytes as u32, 1)]).unwrap();
+
+        {
+            let mut registry = SegmentRegistryMut::from_account_mut(&mut account).unwrap();
+            let mut journal = registry.segment_journal::<Entry8>(&AUDIT).unwrap();
+            journal.init(false);
+            journal.append(Entry8 { value: 3 }).unwrap();
+            journal.append(Entry8 { value: 4 }).unwrap();
+        }
+
+        let registry = SegmentRegistry::from_account(&account).unwrap();
+        let bytes = registry.segment_data(&AUDIT).unwrap();
+        let reader = crate::collections::Journal::<Entry8>::from_bytes(bytes).unwrap();
+        assert_eq!(reader.entry_count(), 2);
+        assert_eq!(reader.read(0).unwrap().value, 3);
+        assert_eq!(reader.read(1).unwrap().value, 4);
     }
 }

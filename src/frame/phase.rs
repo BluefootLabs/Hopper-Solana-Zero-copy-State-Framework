@@ -20,7 +20,7 @@
 //! Unresolved -> Resolved -> Validated -> Executed
 //! ```
 
-use hopper_runtime::{error::ProgramError, AccountView, Address, ProgramResult};
+use hopper_runtime::{error::ProgramError, AccountView, Address, ProgramResult, Ref, RefMut};
 
 // -- Phase Marker Types (zero-sized, compile-time only) --------------
 
@@ -244,7 +244,7 @@ impl<'a, 'f, T> ExecutionContext<'a, 'f, T> {
 
     /// Borrow account data mutably with runtime aliasing protection.
     #[inline]
-    pub fn borrow_mut(&mut self, index: usize) -> Result<&'a mut [u8], ProgramError> {
+    pub fn borrow_mut(&mut self, index: usize) -> Result<RefMut<'a, [u8]>, ProgramError> {
         if index >= self.accounts.len() {
             return Err(ProgramError::NotEnoughAccountKeys);
         }
@@ -254,17 +254,23 @@ impl<'a, 'f, T> ExecutionContext<'a, 'f, T> {
         }
         *self.mutable_borrows |= bit;
         // SAFETY: Borrow tracking prevents aliasing. Caller proved validation.
-        Ok(unsafe { self.accounts[index].borrow_unchecked_mut() })
+        match self.accounts[index].try_borrow_mut() {
+            Ok(data) => Ok(data),
+            Err(error) => {
+                *self.mutable_borrows &= !bit;
+                Err(error)
+            }
+        }
     }
 
     /// Borrow account data immutably.
     #[inline(always)]
-    pub fn borrow(&self, index: usize) -> Result<&'a [u8], ProgramError> {
+    pub fn borrow(&self, index: usize) -> Result<Ref<'a, [u8]>, ProgramError> {
         if index >= self.accounts.len() {
             return Err(ProgramError::NotEnoughAccountKeys);
         }
         // SAFETY: Immutable borrow does not conflict.
-        Ok(unsafe { self.accounts[index].borrow_unchecked() })
+        self.accounts[index].try_borrow()
     }
 
     /// Get raw AccountView by index.
