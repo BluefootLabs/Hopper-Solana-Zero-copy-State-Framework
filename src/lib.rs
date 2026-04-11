@@ -136,16 +136,15 @@ macro_rules! hopper_layout {
                 $crate::hopper_runtime::error::ProgramError,
             > {
                 $crate::hopper_core::check::check_owner(account, program_id)?;
-                // SAFETY: Frame/caller ensures no conflicting mutable borrows.
-                let data = unsafe { account.borrow_unchecked() };
+                let data = account.try_borrow()?;
                 $crate::hopper_core::account::check_header(
-                    data,
+                    &data,
                     Self::DISC,
                     Self::VERSION,
                     &Self::LAYOUT_ID,
                 )?;
-                $crate::hopper_core::check::check_size(data, Self::LEN)?;
-                $crate::hopper_core::account::VerifiedAccount::new(data)
+                $crate::hopper_core::check::check_size(&data, Self::LEN)?;
+                $crate::hopper_core::account::VerifiedAccount::from_ref(data)
             }
 
             /// Tier 1m: Full validation load (mutable).
@@ -159,16 +158,15 @@ macro_rules! hopper_layout {
             > {
                 $crate::hopper_core::check::check_owner(account, program_id)?;
                 $crate::hopper_core::check::check_writable(account)?;
-                // SAFETY: Caller ensures exclusive access to account data.
-                let data = unsafe { account.borrow_unchecked_mut() };
+                let data = account.try_borrow_mut()?;
                 $crate::hopper_core::account::check_header(
-                    data,
+                    &data,
                     Self::DISC,
                     Self::VERSION,
                     &Self::LAYOUT_ID,
                 )?;
-                $crate::hopper_core::check::check_size(data, Self::LEN)?;
-                $crate::hopper_core::account::VerifiedAccountMut::new(data)
+                $crate::hopper_core::check::check_size(&data, Self::LEN)?;
+                $crate::hopper_core::account::VerifiedAccountMut::from_ref_mut(data)
             }
 
             /// Tier 2: Foreign account load (cross-program reads).
@@ -183,13 +181,13 @@ macro_rules! hopper_layout {
                 $crate::hopper_runtime::error::ProgramError,
             > {
                 $crate::hopper_core::check::check_owner(account, expected_owner)?;
-                let data = unsafe { account.borrow_unchecked() };
-                let layout_id = $crate::hopper_core::account::read_layout_id(data)?;
+                let data = account.try_borrow()?;
+                let layout_id = $crate::hopper_core::account::read_layout_id(&data)?;
                 if layout_id != Self::LAYOUT_ID {
                     return Err($crate::hopper_runtime::error::ProgramError::InvalidAccountData);
                 }
-                $crate::hopper_core::check::check_size(data, Self::LEN)?;
-                $crate::hopper_core::account::VerifiedAccount::new(data)
+                $crate::hopper_core::check::check_size(&data, Self::LEN)?;
+                $crate::hopper_core::account::VerifiedAccount::from_ref(data)
             }
 
             /// Tier 3: Version-compatible load for migration scenarios.
@@ -215,8 +213,7 @@ macro_rules! hopper_layout {
                 $crate::hopper_runtime::error::ProgramError,
             > {
                 $crate::hopper_core::check::check_owner(account, program_id)?;
-                // SAFETY: Owner verified. No conflicting mutable borrows.
-                let data = unsafe { account.borrow_unchecked() };
+                let data = account.try_borrow()?;
                 if data.len() < $crate::hopper_core::account::HEADER_LEN {
                     return Err($crate::hopper_runtime::error::ProgramError::AccountDataTooSmall);
                 }
@@ -232,7 +229,7 @@ macro_rules! hopper_layout {
                 if data.len() < Self::LEN {
                     return Err($crate::hopper_runtime::error::ProgramError::AccountDataTooSmall);
                 }
-                $crate::hopper_core::account::VerifiedAccount::new(data)
+                $crate::hopper_core::account::VerifiedAccount::from_ref(data)
             }
 
             /// Tier 3m: Version-compatible load (mutable).
@@ -249,8 +246,7 @@ macro_rules! hopper_layout {
             > {
                 $crate::hopper_core::check::check_owner(account, program_id)?;
                 $crate::hopper_core::check::check_writable(account)?;
-                // SAFETY: Owner + writable verified. Caller ensures exclusive access.
-                let data = unsafe { account.borrow_unchecked_mut() };
+                let data = account.try_borrow_mut()?;
                 if data.len() < $crate::hopper_core::account::HEADER_LEN {
                     return Err($crate::hopper_runtime::error::ProgramError::AccountDataTooSmall);
                 }
@@ -263,7 +259,7 @@ macro_rules! hopper_layout {
                 if data.len() < Self::LEN {
                     return Err($crate::hopper_runtime::error::ProgramError::AccountDataTooSmall);
                 }
-                $crate::hopper_core::account::VerifiedAccountMut::new(data)
+                $crate::hopper_core::account::VerifiedAccountMut::from_ref_mut(data)
             }
 
             /// Tier 4: Unchecked load (caller assumes all risk).
@@ -360,13 +356,13 @@ macro_rules! hopper_layout {
                 $crate::hopper_runtime::error::ProgramError,
             > {
                 let owner_idx = $crate::hopper_core::check::check_owner_multi(account, owners)?;
-                let data = unsafe { account.borrow_unchecked() };
-                let layout_id = $crate::hopper_core::account::read_layout_id(data)?;
+                let data = account.try_borrow()?;
+                let layout_id = $crate::hopper_core::account::read_layout_id(&data)?;
                 if layout_id != Self::LAYOUT_ID {
                     return Err($crate::hopper_runtime::error::ProgramError::InvalidAccountData);
                 }
-                $crate::hopper_core::check::check_size(data, Self::LEN)?;
-                let verified = $crate::hopper_core::account::VerifiedAccount::new(data)?;
+                $crate::hopper_core::check::check_size(&data, Self::LEN)?;
+                let verified = $crate::hopper_core::account::VerifiedAccount::from_ref(data)?;
                 Ok((verified, owner_idx))
             }
         }
@@ -420,14 +416,14 @@ macro_rules! _hopper_check_inner {
     }};
     // disc = $d
     ($account:expr, disc = $d:expr $(, $($rest:tt)+ )?) => {{
-        let data = unsafe { $account.borrow_unchecked() };
-        $crate::hopper_core::check::check_discriminator(data, $d)?;
+        let data = $account.try_borrow()?;
+        $crate::hopper_core::check::check_discriminator(&*data, $d)?;
         $( $crate::_hopper_check_inner!($account, $($rest)+); )?
     }};
     // size >= $n
     ($account:expr, size >= $n:expr $(, $($rest:tt)+ )?) => {{
-        let data = unsafe { $account.borrow_unchecked() };
-        $crate::hopper_core::check::check_size(data, $n)?;
+        let data = $account.try_borrow()?;
+        $crate::hopper_core::check::check_size(&*data, $n)?;
         $( $crate::_hopper_check_inner!($account, $($rest)+); )?
     }};
     // Base case
@@ -513,10 +509,9 @@ macro_rules! hopper_init {
         .invoke()?;
 
         // Zero-init and write header
-        // SAFETY: We just created the account, exclusive access is guaranteed.
-        let data = unsafe { $account.borrow_unchecked_mut() };
-        $crate::hopper_core::account::zero_init(data);
-        <$layout>::write_init_header(data)
+        let mut data = $account.try_borrow_mut()?;
+        $crate::hopper_core::account::zero_init(&mut *data);
+        <$layout>::write_init_header(&mut *data)
     }};
 }
 
@@ -1192,13 +1187,13 @@ macro_rules! hopper_interface {
                 $crate::hopper_runtime::error::ProgramError,
             > {
                 $crate::hopper_core::check::check_owner(account, expected_owner)?;
-                let data = unsafe { account.borrow_unchecked() };
-                let layout_id = $crate::hopper_core::account::read_layout_id(data)?;
+                let data = account.try_borrow()?;
+                let layout_id = $crate::hopper_core::account::read_layout_id(&data)?;
                 if layout_id != Self::LAYOUT_ID {
                     return Err($crate::hopper_runtime::error::ProgramError::InvalidAccountData);
                 }
-                $crate::hopper_core::check::check_size(data, Self::LEN)?;
-                $crate::hopper_core::account::VerifiedAccount::new(data)
+                $crate::hopper_core::check::check_size(&data, Self::LEN)?;
+                $crate::hopper_core::account::VerifiedAccount::from_ref(data)
             }
 
             /// Tier 2m: Foreign load with multiple possible owners.
@@ -1214,13 +1209,13 @@ macro_rules! hopper_interface {
                 $crate::hopper_runtime::error::ProgramError,
             > {
                 let owner_idx = $crate::hopper_core::check::check_owner_multi(account, owners)?;
-                let data = unsafe { account.borrow_unchecked() };
-                let layout_id = $crate::hopper_core::account::read_layout_id(data)?;
+                let data = account.try_borrow()?;
+                let layout_id = $crate::hopper_core::account::read_layout_id(&data)?;
                 if layout_id != Self::LAYOUT_ID {
                     return Err($crate::hopper_runtime::error::ProgramError::InvalidAccountData);
                 }
-                $crate::hopper_core::check::check_size(data, Self::LEN)?;
-                let verified = $crate::hopper_core::account::VerifiedAccount::new(data)?;
+                $crate::hopper_core::check::check_size(&data, Self::LEN)?;
+                let verified = $crate::hopper_core::account::VerifiedAccount::from_ref(data)?;
                 Ok((verified, owner_idx))
             }
 
@@ -1236,7 +1231,7 @@ macro_rules! hopper_interface {
                 $crate::hopper_runtime::error::ProgramError,
             > {
                 let data = profile.load(account)?;
-                $crate::hopper_core::account::VerifiedAccount::new(data)
+                $crate::hopper_core::account::VerifiedAccount::from_ref(data)
             }
 
             /// Tier 5: Unverified overlay for indexers/tooling.
