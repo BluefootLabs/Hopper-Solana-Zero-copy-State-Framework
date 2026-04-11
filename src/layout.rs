@@ -100,7 +100,7 @@ impl LayoutInfo {
         self.disc == T::DISC
             && self.version == T::VERSION
             && self.layout_id == T::LAYOUT_ID
-            && self.data_len >= T::SIZE
+            && self.data_len >= T::required_len()
     }
 
     /// Length of the account body after the Hopper header.
@@ -160,6 +160,13 @@ pub trait LayoutContract: Sized + Copy + FieldMap {
     /// Total wire size in bytes (including the 16-byte header).
     const SIZE: usize;
 
+    /// Byte offset where the typed projection begins.
+    ///
+    /// Body-only runtime layouts keep the default `HopperHeader::SIZE`, while
+    /// header-inclusive layouts set this to `0` so `AccountView::load()`
+    /// projects the full account struct.
+    const TYPE_OFFSET: usize = HopperHeader::SIZE;
+
     /// Number of reserved bytes at the end of the layout. Reserved bytes
     /// provide forward-compatible padding that future versions can claim
     /// without a realloc.
@@ -176,7 +183,7 @@ pub trait LayoutContract: Sized + Copy + FieldMap {
     /// This is the canonical "is this account what I think it is?" check.
     #[inline(always)]
     fn validate_header(data: &[u8]) -> ProgramResult {
-        if data.len() < Self::SIZE {
+        if data.len() < Self::required_len() {
             return Err(ProgramError::AccountDataTooSmall);
         }
         let disc = read_disc(data);
@@ -195,6 +202,22 @@ pub trait LayoutContract: Sized + Copy + FieldMap {
             return Err(ProgramError::AccountDataTooSmall);
         }
         Ok(())
+    }
+
+    /// Byte length required to project this typed view safely.
+    #[inline(always)]
+    fn projected_len() -> usize {
+        Self::TYPE_OFFSET + core::mem::size_of::<Self>()
+    }
+
+    /// Minimum account data length required by both the wire contract and projection shape.
+    #[inline(always)]
+    fn required_len() -> usize {
+        if Self::SIZE > Self::projected_len() {
+            Self::SIZE
+        } else {
+            Self::projected_len()
+        }
     }
 
     /// Lightweight boolean validation helper for foreign readers and tools.
@@ -249,7 +272,7 @@ pub trait LayoutContract: Sized + Copy + FieldMap {
             version: Self::VERSION,
             flags: 0,
             layout_id: Self::LAYOUT_ID,
-            data_len: Self::SIZE,
+            data_len: Self::required_len(),
         }
     }
 

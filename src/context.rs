@@ -8,8 +8,10 @@
 //! instead of raw pointer manipulation.
 
 use crate::account::AccountView;
+use crate::audit::AccountAudit;
 use crate::address::Address;
 use crate::error::ProgramError;
+use crate::segment_borrow::SegmentBorrowRegistry;
 use crate::ProgramResult;
 
 /// Execution context for a Hopper instruction handler.
@@ -40,6 +42,12 @@ pub struct Context<'a> {
     accounts: &'a [AccountView],
     /// Raw instruction data (past the discriminator byte, if applicable).
     pub instruction_data: &'a [u8],
+    /// Segment-level borrow tracking for fine-grained access control.
+    ///
+    /// Enables safe concurrent mutable access to non-overlapping regions
+    /// of the same account. This is what makes Hopper strictly safer than
+    /// raw Pinocchio without adding meaningful CU overhead.
+    pub segment_borrows: SegmentBorrowRegistry,
 }
 
 impl<'a> Context<'a> {
@@ -54,7 +62,20 @@ impl<'a> Context<'a> {
             program_id,
             accounts,
             instruction_data,
+            segment_borrows: SegmentBorrowRegistry::new(),
         }
+    }
+
+    /// Program ID.
+    #[inline(always)]
+    pub fn program_id(&self) -> &Address {
+        self.program_id
+    }
+
+    /// Raw instruction data.
+    #[inline(always)]
+    pub fn instruction_data(&self) -> &'a [u8] {
+        self.instruction_data
     }
 
     /// Get an account by index.
@@ -86,6 +107,12 @@ impl<'a> Context<'a> {
         self.accounts
     }
 
+    /// Inspect the instruction account slice for duplicate aliases.
+    #[inline(always)]
+    pub fn audit_accounts(&self) -> AccountAudit<'a> {
+        AccountAudit::new(self.accounts)
+    }
+
     /// Get the remaining accounts starting at `from`.
     #[inline(always)]
     pub fn remaining_accounts(&self, from: usize) -> &[AccountView] {
@@ -106,6 +133,24 @@ impl<'a> Context<'a> {
         }
     }
 
+    /// Require all account addresses to be unique.
+    #[inline(always)]
+    pub fn require_unique_accounts(&self) -> ProgramResult {
+        self.audit_accounts().require_all_unique()
+    }
+
+    /// Require that no duplicated account is writable in this instruction.
+    #[inline(always)]
+    pub fn require_unique_writable_accounts(&self) -> ProgramResult {
+        self.audit_accounts().require_unique_writable()
+    }
+
+    /// Require that no duplicated account is used as a signer role.
+    #[inline(always)]
+    pub fn require_unique_signer_accounts(&self) -> ProgramResult {
+        self.audit_accounts().require_unique_signers()
+    }
+
     /// Require at least `n` bytes of instruction data.
     #[inline(always)]
     pub fn require_data_len(&self, n: usize) -> ProgramResult {
@@ -114,6 +159,104 @@ impl<'a> Context<'a> {
         } else {
             Err(ProgramError::InvalidInstructionData)
         }
+    }
+
+    // --- Segment-Level Access (fine-grained borrow tracking) --------
+
+    /// Register a read borrow for a segment of an account.
+    ///
+    /// Validates bounds and registers the borrow in the segment registry,
+    /// then returns a shared `Ref<T>` that keeps the borrow guard alive.
+    ///
+    /// `index` is the account index. `abs_offset` is the absolute byte
+    /// offset within the account data (including header bytes).
+    ///
+    /// # Type Safety
+    ///
+    /// T must be `Copy`. The returned reference is valid for the lifetime
+    /// of the borrow guard. Segment borrow tracking prevents conflicting
+    /// write access to the same byte range.
+    #[inline]
+    pub fn segment_ref<T: Copy>(
+        &mut self,
+        index: usize,
+        abs_offset: u32,
+    ) -> Result<crate::Ref<'_, T>, ProgramError> {
+        let view = self.accounts.get(index)
+            .ok_or(ProgramError::NotEnoughAccountKeys)?;
+        let data = view.try_borrow()?;
+        let size = core::mem::size_of::<T>() as u32;
+        let end = abs_offset + size;
+        if end as usize > data.len() {
+            return Err(ProgramError::AccountDataTooSmall);
+        }
+
+        self.segment_borrows.register_read(
+            *view.address(), abs_offset, size,
+        )?;
+
+        // SAFETY: Bounds checked. T: Copy. Borrow tracked. Pointer valid
+        // through Ref guard.
+        let ptr = unsafe { data.as_bytes_ptr().add(abs_offset as usize) as *const T };
+        Ok(unsafe { data.project(ptr) })
+    }
+
+    /// Register a write borrow for a segment of an account.
+    ///
+    /// Validates bounds, checks writable, and registers an exclusive
+    /// borrow, then returns a mutable `RefMut<T>` that keeps the guard alive.
+    ///
+    /// This is the primitive that enables safe concurrent mutation of
+    /// non-overlapping account regions — the core Hopper innovation.
+    #[inline]
+    pub fn segment_mut<T: Copy>(
+        &mut self,
+        index: usize,
+        abs_offset: u32,
+    ) -> Result<crate::RefMut<'_, T>, ProgramError> {
+        let view = self.accounts.get(index)
+            .ok_or(ProgramError::NotEnoughAccountKeys)?;
+        if !view.is_writable() {
+            return Err(ProgramError::InvalidAccountData);
+        }
+        let mut data = view.try_borrow_mut()?;
+        let size = core::mem::size_of::<T>() as u32;
+        let end = abs_offset + size;
+        if end as usize > data.len() {
+            return Err(ProgramError::AccountDataTooSmall);
+        }
+
+        self.segment_borrows.register_write(
+            *view.address(), abs_offset, size,
+        )?;
+
+        // SAFETY: Bounds checked. T: Copy. Account writable. Exclusive borrow
+        // tracked — no conflicting access. Pointer valid through RefMut guard.
+        let ptr = unsafe { data.as_bytes_mut_ptr().add(abs_offset as usize) as *mut T };
+        Ok(unsafe { data.project(ptr) })
+    }
+
+    /// Explicit unsafe escape hatch for whole-account typed projection.
+    ///
+    /// This bypasses segment borrow tracking. The caller is responsible for
+    /// alias safety and for using a type that matches the account bytes.
+    #[inline(always)]
+    pub unsafe fn raw_unchecked<T: Copy>(
+        &mut self,
+        index: usize,
+    ) -> Result<crate::RefMut<'_, T>, ProgramError> {
+        let view = self.accounts.get(index)
+            .ok_or(ProgramError::NotEnoughAccountKeys)?;
+        if !view.is_writable() {
+            return Err(ProgramError::InvalidAccountData);
+        }
+        let mut data = view.try_borrow_mut()?;
+        if core::mem::size_of::<T>() > data.len() {
+            return Err(ProgramError::AccountDataTooSmall);
+        }
+
+        let ptr = data.as_bytes_mut_ptr() as *mut T;
+        Ok(unsafe { data.project(ptr) })
     }
 
     /// Read instruction data as a typed value (unaligned, little-endian safe).
