@@ -12,8 +12,8 @@ use solana_sdk::instruction::{AccountMeta, Instruction};
 use solana_sdk::native_token::LAMPORTS_PER_SOL;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signature::{read_keypair_file, Keypair, Signer};
-use solana_sdk::system_instruction;
 use solana_sdk::transaction::Transaction;
+use solana_system_interface::instruction as system_instruction;
 use toml::Value as TomlValue;
 
 use crate::workspace;

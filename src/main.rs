@@ -36,6 +36,8 @@
 //! hopper init <path>                                 Create a Hopper-native project scaffold
 //! hopper build [--host|--sbf]                        Build the current project
 //! hopper test                                        Run host-side tests for the current project
+//! hopper deploy                                      Build and deploy the current SBF program
+//! hopper dump                                        Disassemble the current SBF artifact
 //! hopper profile bench                               Run the primitive benchmark lab
 //!
 //! hopper interactive <manifest>                      Interactive terminal explorer
@@ -105,6 +107,8 @@ fn main() {
         "init" => cmd::lifecycle::cmd_init(&args[2..]),
         "build" => cmd::lifecycle::cmd_build(&args[2..]),
         "test" => cmd::lifecycle::cmd_test(&args[2..]),
+        "deploy" => cmd::lifecycle::cmd_deploy(&args[2..]),
+        "dump" => cmd::lifecycle::cmd_dump(&args[2..]),
 
         // Direct commands (backward compatible)
         "decode" => cmd_inspect(&args[2..]),
@@ -859,19 +863,19 @@ fn print_usage() {
     println!("    hopper receipt <hex-data>           Decode and display receipt");
     println!();
     println!("  Manager:");
-    println!("    hopper manager summary <manifest>                      Program overview");
-    println!("    hopper manager identify <manifest> <hex>               Identify account type");
-    println!("    hopper manager decode <manifest> <hex>                 Decode all fields");
-    println!("    hopper manager instruction <manifest> <tag|name>       Instruction details");
-    println!("    hopper manager layouts <manifest>                      List all layouts");
-    println!("    hopper manager policies <manifest>                     List policy packs");
-    println!("    hopper manager events <manifest>                       List events with fields");
-    println!("    hopper manager fingerprints <manifest>                 Show all fingerprints");
-    println!("    hopper manager compat <manifest> <hex-old> <hex-new>   Compare two accounts");
+    println!("    hopper manager summary <manifest|--program-id ...>     Program overview");
+    println!("    hopper manager identify <manifest|--program-id ...> <hex>  Identify account type");
+    println!("    hopper manager decode <manifest|--program-id ...> <hex>    Decode all fields");
+    println!("    hopper manager instruction <manifest|--program-id ...> <tag|name>  Instruction details");
+    println!("    hopper manager layouts <manifest|--program-id ...>     List all layouts");
+    println!("    hopper manager policies <manifest|--program-id ...>    List policy packs");
+    println!("    hopper manager events <manifest|--program-id ...>      List events with fields");
+    println!("    hopper manager fingerprints <manifest|--program-id ...>  Show all fingerprints");
+    println!("    hopper manager compat <manifest|--program-id ...> <hex-old> <hex-new>  Compare two accounts");
     println!("    hopper manager receipt <hex-64-bytes>                  Decode a state receipt");
-    println!("    hopper manager explain <manifest>                      Aggregated summary");
-    println!("    hopper manager diff <manifest> <hex-old> <hex-new>    Semantic field diff");
-    println!("    hopper manager simulate <manifest> <instruction>      Preview requirements");
+    println!("    hopper manager explain <manifest|--program-id ...>     Aggregated summary");
+    println!("    hopper manager diff <manifest|--program-id ...> <hex-old> <hex-new>  Semantic field diff");
+    println!("    hopper manager simulate <manifest|--program-id ...> <instruction>  Preview requirements");
     println!();
     println!("  Fetch (on-chain):");
     println!("    hopper fetch <program-id> [--rpc <url>]          Fetch on-chain manifest");
@@ -882,14 +886,16 @@ fn print_usage() {
     println!("    hopper init <path>                 Create a Hopper-native project scaffold");
     println!("    hopper build [--host|--sbf]        Build the current project (default: SBF)");
     println!("    hopper test                        Run the current project's host-side tests");
+    println!("    hopper deploy [--no-build]         Build and deploy the current SBF program");
+    println!("    hopper dump [--no-build]           Disassemble the current SBF artifact");
     println!();
     println!("  Profiling:");
     println!("    hopper profile bench               Run the primitive benchmark lab");
     println!();
     println!("  Interactive:");
-    println!("    hopper interactive <manifest>        Launch interactive explorer");
-    println!("    hopper ui <manifest>                 Alias for interactive");
-    println!("    hopper manager interactive <manifest> Interactive from manager context");
+    println!("    hopper interactive <manifest|--program-id ...>  Launch interactive explorer");
+    println!("    hopper ui <manifest|--program-id ...>           Alias for interactive");
+    println!("    hopper manager interactive <manifest|--program-id ...>  Interactive from manager context");
     println!();
     println!("  Client:");
     println!("    hopper client gen --ts <manifest>  Generate TypeScript client SDK");
@@ -2287,21 +2293,21 @@ fn cmd_manager(args: &[String]) {
         eprintln!("Usage: hopper manager <subcommand> [args]");
         eprintln!();
         eprintln!("Subcommands:");
-        eprintln!("  summary <manifest>                      Program overview");
-        eprintln!("  identify <manifest> <hex>               Identify account type");
-        eprintln!("  decode <manifest> <hex>                 Decode all fields with values");
-        eprintln!("  instruction <manifest> <tag|name>       Instruction details and policies");
-        eprintln!("  layouts <manifest>                      List all layouts with fields");
-        eprintln!("  policies <manifest>                     List policy packs with mappings");
-        eprintln!("  events <manifest>                       List events with fields");
-        eprintln!("  fingerprints <manifest>                 Show all layout fingerprints");
-        eprintln!("  compat <manifest> <hex-old> <hex-new>   Compare two account versions");
+        eprintln!("  summary <manifest|--program-id ...>     Program overview");
+        eprintln!("  identify <manifest|--program-id ...> <hex>  Identify account type");
+        eprintln!("  decode <manifest|--program-id ...> <hex>    Decode all fields with values");
+        eprintln!("  instruction <manifest|--program-id ...> <tag|name>  Instruction details and policies");
+        eprintln!("  layouts <manifest|--program-id ...>     List all layouts with fields");
+        eprintln!("  policies <manifest|--program-id ...>    List policy packs with mappings");
+        eprintln!("  events <manifest|--program-id ...>      List events with fields");
+        eprintln!("  fingerprints <manifest|--program-id ...>  Show all layout fingerprints");
+        eprintln!("  compat <manifest|--program-id ...> <hex-old> <hex-new>  Compare two account versions");
         eprintln!("  receipt <hex-64-bytes>                  Decode a receipt from wire bytes");
-        eprintln!("  explain <manifest>                      Aggregated human-readable summary");
-        eprintln!("  diff <manifest> <hex-before> <hex-after>  Semantic field-level diff");
-        eprintln!("  simulate <manifest> <instruction>        Preview instruction requirements");
+        eprintln!("  explain <manifest|--program-id ...>     Aggregated human-readable summary");
+        eprintln!("  diff <manifest|--program-id ...> <hex-before> <hex-after>  Semantic field-level diff");
+        eprintln!("  simulate <manifest|--program-id ...> <instruction>  Preview instruction requirements");
         eprintln!("  fetch <program-id> [--rpc <url>]        Fetch manifest from on-chain");
-        eprintln!("  interactive <manifest>                   Interactive terminal explorer");
+        eprintln!("  interactive <manifest|--program-id ...>  Interactive terminal explorer");
         process::exit(1);
     }
 
@@ -2472,15 +2478,20 @@ fn cmd_manager_fetch(args: &[String]) {
 fn cmd_interactive(args: &[String]) {
     if args.is_empty() {
         eprintln!("Usage: hopper interactive <manifest>");
+        eprintln!("       hopper interactive --program-id <program-id> [--rpc <url>]");
         eprintln!("       hopper manager interactive <manifest>");
+        eprintln!("       hopper manager interactive --program-id <program-id> [--rpc <url>]");
         eprintln!("       hopper ui <manifest>");
         eprintln!();
         eprintln!("Launch an interactive terminal UI for exploring a program manifest.");
-        eprintln!("Manifest can be inline JSON or @path/to/file.json.");
+        eprintln!("Manifest can be inline JSON, @path/to/file.json, or fetched from a program ID.");
         process::exit(1);
     }
 
-    let prog = load_program_manifest(&args[0]);
+    let (prog, _) = load_program_manifest_source(
+        args,
+        "hopper interactive <manifest> | --program-id <program-id> [--rpc <url>]",
+    );
     let mut session = interactive::Session::new(&prog);
     if let Err(e) = session.run() {
         eprintln!("Interactive session error: {}", e);
@@ -2503,22 +2514,61 @@ fn load_program_manifest_from_json(json: &str) -> ProgramManifest {
     }
 }
 
-fn cmd_manager_summary(args: &[String]) {
+fn load_program_manifest_source(args: &[String], usage: &str) -> (ProgramManifest, usize) {
     if args.is_empty() {
-        eprintln!("Usage: hopper manager summary <manifest>");
+        eprintln!("Usage: {usage}");
         process::exit(1);
     }
-    let prog = load_program_manifest(&args[0]);
+
+    if args[0] != "--program-id" {
+        return (load_program_manifest(&args[0]), 1);
+    }
+
+    if args.len() < 2 {
+        eprintln!("Usage: {usage}");
+        eprintln!();
+        eprintln!("--program-id requires a base58 program address.");
+        process::exit(1);
+    }
+
+    let mut rpc_override = None;
+    let mut consumed = 2;
+    while consumed < args.len() {
+        match args[consumed].as_str() {
+            "--rpc" => {
+                if consumed + 1 >= args.len() {
+                    eprintln!("Usage: {usage}");
+                    eprintln!();
+                    eprintln!("--rpc requires a URL argument.");
+                    process::exit(1);
+                }
+                rpc_override = Some(args[consumed + 1].clone());
+                consumed += 2;
+            }
+            _ => break,
+        }
+    }
+
+    let json = fetch_manifest_json(&args[1], rpc_override.as_deref());
+    (load_program_manifest_from_json(&json), consumed)
+}
+
+fn cmd_manager_summary(args: &[String]) {
+    let (prog, _) = load_program_manifest_source(
+        args,
+        "hopper manager summary <manifest> | --program-id <program-id> [--rpc <url>]",
+    );
     println!("{}", prog);
 }
 
 fn cmd_manager_identify(args: &[String]) {
-    if args.len() < 2 {
-        eprintln!("Usage: hopper manager identify <manifest> <hex-data>");
+    let usage = "hopper manager identify <manifest> <hex-data> | --program-id <program-id> [--rpc <url>] <hex-data>";
+    let (prog, consumed) = load_program_manifest_source(args, usage);
+    if args.len() <= consumed {
+        eprintln!("Usage: {usage}");
         process::exit(1);
     }
-    let prog = load_program_manifest(&args[0]);
-    let data = match hex_decode(&args[1]) {
+    let data = match hex_decode(&args[consumed]) {
         Ok(d) => d,
         Err(e) => {
             eprintln!("Hex decode error: {}", e);
@@ -2564,12 +2614,13 @@ fn cmd_manager_identify(args: &[String]) {
 }
 
 fn cmd_manager_decode(args: &[String]) {
-    if args.len() < 2 {
-        eprintln!("Usage: hopper manager decode <manifest> <hex-data>");
+    let usage = "hopper manager decode <manifest> <hex-data> | --program-id <program-id> [--rpc <url>] <hex-data>";
+    let (prog, consumed) = load_program_manifest_source(args, usage);
+    if args.len() <= consumed {
+        eprintln!("Usage: {usage}");
         process::exit(1);
     }
-    let prog = load_program_manifest(&args[0]);
-    let data = match hex_decode(&args[1]) {
+    let data = match hex_decode(&args[consumed]) {
         Ok(d) => d,
         Err(e) => {
             eprintln!("Hex decode error: {}", e);
@@ -2628,16 +2679,17 @@ fn cmd_manager_decode(args: &[String]) {
 }
 
 fn cmd_manager_instruction(args: &[String]) {
-    if args.len() < 2 {
-        eprintln!("Usage: hopper manager instruction <manifest> <tag>");
+    let usage = "hopper manager instruction <manifest> <tag|name> | --program-id <program-id> [--rpc <url>] <tag|name>";
+    let (prog, consumed) = load_program_manifest_source(args, usage);
+    if args.len() <= consumed {
+        eprintln!("Usage: {usage}");
         process::exit(1);
     }
-    let prog = load_program_manifest(&args[0]);
-    let tag: u8 = match args[1].parse() {
+    let tag: u8 = match args[consumed].parse() {
         Ok(t) => t,
         Err(_) => {
             // Try matching by name
-            let name = &args[1];
+            let name = &args[consumed];
             let mut found = None;
             for ix in prog.instructions.iter() {
                 if ix.name == name.as_str() {
@@ -2717,11 +2769,10 @@ fn cmd_manager_instruction(args: &[String]) {
 }
 
 fn cmd_manager_layouts(args: &[String]) {
-    if args.is_empty() {
-        eprintln!("Usage: hopper manager layouts <manifest>");
-        process::exit(1);
-    }
-    let prog = load_program_manifest(&args[0]);
+    let (prog, _) = load_program_manifest_source(
+        args,
+        "hopper manager layouts <manifest> | --program-id <program-id> [--rpc <url>]",
+    );
 
     println!("=== Layouts ({}) ===", prog.layout_count());
     println!();
@@ -2748,11 +2799,10 @@ fn cmd_manager_layouts(args: &[String]) {
 }
 
 fn cmd_manager_policies(args: &[String]) {
-    if args.is_empty() {
-        eprintln!("Usage: hopper manager policies <manifest>");
-        process::exit(1);
-    }
-    let prog = load_program_manifest(&args[0]);
+    let (prog, _) = load_program_manifest_source(
+        args,
+        "hopper manager policies <manifest> | --program-id <program-id> [--rpc <url>]",
+    );
 
     if prog.policies.is_empty() {
         println!("No policies defined in manifest.");
@@ -2789,11 +2839,10 @@ fn cmd_manager_policies(args: &[String]) {
 }
 
 fn cmd_manager_events(args: &[String]) {
-    if args.is_empty() {
-        eprintln!("Usage: hopper manager events <manifest>");
-        process::exit(1);
-    }
-    let prog = load_program_manifest(&args[0]);
+    let (prog, _) = load_program_manifest_source(
+        args,
+        "hopper manager events <manifest> | --program-id <program-id> [--rpc <url>]",
+    );
 
     if prog.events.is_empty() {
         println!("No events defined in manifest.");
@@ -2836,11 +2885,10 @@ fn cmd_manager_events(args: &[String]) {
 }
 
 fn cmd_manager_fingerprints(args: &[String]) {
-    if args.is_empty() {
-        eprintln!("Usage: hopper manager fingerprints <manifest>");
-        process::exit(1);
-    }
-    let prog = load_program_manifest(&args[0]);
+    let (prog, _) = load_program_manifest_source(
+        args,
+        "hopper manager fingerprints <manifest> | --program-id <program-id> [--rpc <url>]",
+    );
 
     println!("=== Layout Fingerprints ===");
     println!();
@@ -2879,17 +2927,18 @@ fn cmd_manager_fingerprints(args: &[String]) {
 }
 
 fn cmd_manager_compat(args: &[String]) {
-    if args.len() < 3 {
-        eprintln!("Usage: hopper manager compat <manifest> <hex-old> <hex-new>");
+    let usage = "hopper manager compat <manifest> <hex-old> <hex-new> | --program-id <program-id> [--rpc <url>] <hex-old> <hex-new>";
+    let (prog, consumed) = load_program_manifest_source(args, usage);
+    if args.len() < consumed + 2 {
+        eprintln!("Usage: {usage}");
         eprintln!("  Compares two account data blobs and reports compatibility.");
         process::exit(1);
     }
-    let prog = load_program_manifest(&args[0]);
-    let old_data = match hex_decode(&args[1]) {
+    let old_data = match hex_decode(&args[consumed]) {
         Ok(d) => d,
         Err(e) => { eprintln!("Hex decode error (old): {}", e); process::exit(1); }
     };
-    let new_data = match hex_decode(&args[2]) {
+    let new_data = match hex_decode(&args[consumed + 1]) {
         Ok(d) => d,
         Err(e) => { eprintln!("Hex decode error (new): {}", e); process::exit(1); }
     };
@@ -3039,11 +3088,14 @@ fn cmd_manager_receipt(args: &[String]) {
 
 fn cmd_manager_explain(args: &[String]) {
     if args.is_empty() {
-        eprintln!("Usage: hopper manager explain <manifest>");
+        eprintln!("Usage: hopper manager explain <manifest> | --program-id <program-id> [--rpc <url>]");
         eprintln!("  Aggregated human-readable summary of the program manifest.");
         process::exit(1);
     }
-    let prog = load_program_manifest(&args[0]);
+    let (prog, _) = load_program_manifest_source(
+        args,
+        "hopper manager explain <manifest> | --program-id <program-id> [--rpc <url>]",
+    );
 
     println!("=== Program Explanation ===");
     println!();
@@ -3114,17 +3166,18 @@ fn cmd_manager_explain(args: &[String]) {
 }
 
 fn cmd_manager_diff(args: &[String]) {
-    if args.len() < 3 {
-        eprintln!("Usage: hopper manager diff <manifest> <hex-before> <hex-after>");
+    let usage = "hopper manager diff <manifest> <hex-before> <hex-after> | --program-id <program-id> [--rpc <url>] <hex-before> <hex-after>";
+    let (prog, consumed) = load_program_manifest_source(args, usage);
+    if args.len() < consumed + 2 {
+        eprintln!("Usage: {usage}");
         eprintln!("  Semantic field-level diff between two account states.");
         process::exit(1);
     }
-    let prog = load_program_manifest(&args[0]);
-    let before = match hex_decode(&args[1]) {
+    let before = match hex_decode(&args[consumed]) {
         Ok(d) => d,
         Err(e) => { eprintln!("Hex decode error (before): {}", e); process::exit(1); }
     };
-    let after = match hex_decode(&args[2]) {
+    let after = match hex_decode(&args[consumed + 1]) {
         Ok(d) => d,
         Err(e) => { eprintln!("Hex decode error (after): {}", e); process::exit(1); }
     };
@@ -3219,13 +3272,14 @@ fn cmd_manager_diff(args: &[String]) {
 }
 
 fn cmd_manager_simulate(args: &[String]) {
-    if args.len() < 2 {
-        eprintln!("Usage: hopper manager simulate <manifest> <instruction-name|tag>");
+    let usage = "hopper manager simulate <manifest> <instruction-name|tag> | --program-id <program-id> [--rpc <url>] <instruction-name|tag>";
+    let (prog, consumed) = load_program_manifest_source(args, usage);
+    if args.len() <= consumed {
+        eprintln!("Usage: {usage}");
         eprintln!("  Preview what an instruction requires: accounts, args, policies, receipt.");
         process::exit(1);
     }
-    let prog = load_program_manifest(&args[0]);
-    let query = &args[1];
+    let query = &args[consumed];
 
     // Find instruction by name or tag
     let ix = prog.instructions.iter().find(|ix| {

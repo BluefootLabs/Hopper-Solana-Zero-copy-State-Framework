@@ -1,8 +1,10 @@
 use std::ffi::OsStr;
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::process;
 
 use crate::workspace;
+use toml::Value;
 
 pub fn cmd_init(args: &[String]) {
     if args.is_empty() || args.iter().any(|arg| arg == "--help" || arg == "-h") {
@@ -133,6 +135,100 @@ pub fn cmd_test(args: &[String]) {
     run_cargo_command(&project_root, &command_args);
 }
 
+pub fn cmd_deploy(args: &[String]) {
+    if args.iter().any(|arg| arg == "--help" || arg == "-h") {
+        print_deploy_usage();
+        return;
+    }
+
+    let cwd = workspace::current_dir().unwrap_or_else(|err| {
+        eprintln!("{err}");
+        process::exit(1);
+    });
+    let project_root = workspace::find_project_root(&cwd).unwrap_or_else(|err| {
+        eprintln!("{err}");
+        process::exit(1);
+    });
+    let workspace_root = workspace::find_workspace_root(&cwd).unwrap_or_else(|err| {
+        eprintln!("{err}");
+        process::exit(1);
+    });
+
+    let (common, solana_args) = parse_lifecycle_args(args).unwrap_or_else(|err| {
+        eprintln!("hopper deploy failed: {err}");
+        process::exit(1);
+    });
+
+    if !common.no_build {
+        build_sbf(&workspace_root, common.package.as_deref());
+    }
+
+    let artifact = resolve_sbf_artifact(&project_root, &workspace_root, common.package.as_deref())
+        .unwrap_or_else(|err| {
+            eprintln!("hopper deploy failed: {err}");
+            process::exit(1);
+        });
+
+    let mut command_args = vec![
+        "program".to_string(),
+        "deploy".to_string(),
+        artifact.display().to_string(),
+    ];
+    command_args.extend(solana_args);
+    run_external_command("solana", &workspace_root, &command_args);
+}
+
+pub fn cmd_dump(args: &[String]) {
+    if args.iter().any(|arg| arg == "--help" || arg == "-h") {
+        print_dump_usage();
+        return;
+    }
+
+    let cwd = workspace::current_dir().unwrap_or_else(|err| {
+        eprintln!("{err}");
+        process::exit(1);
+    });
+    let project_root = workspace::find_project_root(&cwd).unwrap_or_else(|err| {
+        eprintln!("{err}");
+        process::exit(1);
+    });
+    let workspace_root = workspace::find_workspace_root(&cwd).unwrap_or_else(|err| {
+        eprintln!("{err}");
+        process::exit(1);
+    });
+
+    let (common, dump_options) = parse_dump_args(args).unwrap_or_else(|err| {
+        eprintln!("hopper dump failed: {err}");
+        process::exit(1);
+    });
+
+    if !common.no_build {
+        build_sbf(&workspace_root, common.package.as_deref());
+    }
+
+    let artifact = resolve_sbf_artifact(&project_root, &workspace_root, common.package.as_deref())
+        .unwrap_or_else(|err| {
+            eprintln!("hopper dump failed: {err}");
+            process::exit(1);
+        });
+
+    let output = run_objdump(&workspace_root, &artifact, dump_options.tool.as_deref())
+        .unwrap_or_else(|err| {
+            eprintln!("hopper dump failed: {err}");
+            process::exit(1);
+        });
+
+    if let Some(out_path) = dump_options.out {
+        workspace::write_text_file(&out_path, &output, true).unwrap_or_else(|err| {
+            eprintln!("hopper dump failed: {err}");
+            process::exit(1);
+        });
+        println!("Wrote disassembly to {}", out_path.display());
+    } else {
+        print!("{output}");
+    }
+}
+
 fn run_cargo_command(project_root: &Path, args: &[String]) {
     let display = workspace::display_command("cargo", args);
     let status = workspace::run_status("cargo", args, project_root).unwrap_or_else(|err| {
@@ -144,6 +240,193 @@ fn run_cargo_command(project_root: &Path, args: &[String]) {
         eprintln!("Command failed: {display}");
         process::exit(code);
     }
+}
+
+fn run_external_command(program: &str, cwd: &Path, args: &[String]) {
+    let display = workspace::display_command(program, args);
+    let status = workspace::run_status(program, args, cwd).unwrap_or_else(|err| {
+        eprintln!("{err}");
+        process::exit(1);
+    });
+    if !status.success() {
+        let code = status.code().unwrap_or(1);
+        eprintln!("Command failed: {display}");
+        process::exit(code);
+    }
+}
+
+#[derive(Default)]
+struct CommonLifecycleOptions {
+    no_build: bool,
+    package: Option<String>,
+}
+
+#[derive(Default)]
+struct DumpOptions {
+    out: Option<PathBuf>,
+    tool: Option<String>,
+}
+
+fn parse_lifecycle_args(args: &[String]) -> Result<(CommonLifecycleOptions, Vec<String>), String> {
+    let mut common = CommonLifecycleOptions::default();
+    let mut passthrough = Vec::new();
+    let mut i = 0;
+
+    while i < args.len() {
+        match args[i].as_str() {
+            "--no-build" => {
+                common.no_build = true;
+                i += 1;
+            }
+            "-p" | "--package" => {
+                if i + 1 >= args.len() {
+                    return Err(format!("{} requires a package name", args[i]));
+                }
+                common.package = Some(args[i + 1].clone());
+                i += 2;
+            }
+            other => {
+                passthrough.push(other.to_string());
+                i += 1;
+            }
+        }
+    }
+
+    Ok((common, passthrough))
+}
+
+fn parse_dump_args(args: &[String]) -> Result<(CommonLifecycleOptions, DumpOptions), String> {
+    let mut common = CommonLifecycleOptions::default();
+    let mut dump = DumpOptions::default();
+    let mut i = 0;
+
+    while i < args.len() {
+        match args[i].as_str() {
+            "--no-build" => {
+                common.no_build = true;
+                i += 1;
+            }
+            "-p" | "--package" => {
+                if i + 1 >= args.len() {
+                    return Err(format!("{} requires a package name", args[i]));
+                }
+                common.package = Some(args[i + 1].clone());
+                i += 2;
+            }
+            "--out" => {
+                if i + 1 >= args.len() {
+                    return Err("--out requires a path".to_string());
+                }
+                dump.out = Some(PathBuf::from(&args[i + 1]));
+                i += 2;
+            }
+            "--tool" => {
+                if i + 1 >= args.len() {
+                    return Err("--tool requires an executable name".to_string());
+                }
+                dump.tool = Some(args[i + 1].clone());
+                i += 2;
+            }
+            other => return Err(format!("Unknown dump argument: {other}")),
+        }
+    }
+
+    Ok((common, dump))
+}
+
+fn build_sbf(workspace_root: &Path, package: Option<&str>) {
+    let mut command_args = vec!["build-sbf".to_string()];
+    if let Some(package) = package {
+        command_args.push("-p".to_string());
+        command_args.push(package.to_string());
+    }
+    run_cargo_command(workspace_root, &command_args);
+}
+
+fn resolve_sbf_artifact(
+    project_root: &Path,
+    workspace_root: &Path,
+    package_hint: Option<&str>,
+) -> Result<PathBuf, String> {
+    let crate_name = resolve_package_name(project_root, package_hint)?;
+    let artifact_name = crate_name.replace('-', "_") + ".so";
+    let candidates = [
+        workspace_root.join("target").join("deploy").join(&artifact_name),
+        project_root.join("target").join("deploy").join(&artifact_name),
+    ];
+
+    for candidate in candidates {
+        if candidate.exists() {
+            return Ok(candidate);
+        }
+    }
+
+    Err(format!(
+        "Could not find {} under target/deploy. Run `hopper build` first or pass -p/--package when running from a workspace root.",
+        artifact_name
+    ))
+}
+
+fn resolve_package_name(project_root: &Path, package_hint: Option<&str>) -> Result<String, String> {
+    if let Some(package) = package_hint {
+        return Ok(package.to_string());
+    }
+
+    let cargo_toml_path = project_root.join("Cargo.toml");
+    let cargo_toml = fs::read_to_string(&cargo_toml_path)
+        .map_err(|err| format!("Failed to read {}: {err}", cargo_toml_path.display()))?;
+    let value: Value = cargo_toml.parse()
+        .map_err(|err| format!("Failed to parse {}: {err}", cargo_toml_path.display()))?;
+    value
+        .get("package")
+        .and_then(|pkg| pkg.get("name"))
+        .and_then(Value::as_str)
+        .map(str::to_string)
+        .ok_or_else(|| {
+            format!(
+                "{} does not declare [package].name; rerun with -p/--package <crate>",
+                cargo_toml_path.display()
+            )
+        })
+}
+
+fn run_objdump(workspace_root: &Path, artifact: &Path, explicit_tool: Option<&str>) -> Result<String, String> {
+    let mut candidates: Vec<String> = Vec::new();
+    if let Some(tool) = explicit_tool {
+        candidates.push(tool.to_string());
+    } else if let Ok(tool) = std::env::var("HOPPER_OBJDUMP") {
+        if !tool.trim().is_empty() {
+            candidates.push(tool);
+        }
+    }
+    candidates.extend([
+        "llvm-objdump".to_string(),
+        "solana-llvm-objdump".to_string(),
+        "rust-objdump".to_string(),
+    ]);
+
+    let args = vec!["-d".to_string(), artifact.display().to_string()];
+    let mut last_error = None;
+
+    for tool in candidates {
+        match workspace::run_output(&tool, &args, workspace_root) {
+            Ok(output) if output.status.success() => {
+                return String::from_utf8(output.stdout)
+                    .map_err(|err| format!("objdump output was not valid UTF-8: {err}"));
+            }
+            Ok(output) => {
+                let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+                last_error = Some(format!("{} failed: {}", tool, stderr));
+            }
+            Err(err) => {
+                last_error = Some(err);
+            }
+        }
+    }
+
+    Err(last_error.unwrap_or_else(|| {
+        "No usable objdump tool found. Set HOPPER_OBJDUMP or pass --tool <executable>.".to_string()
+    }))
 }
 
 fn scaffold_project(
@@ -288,6 +571,18 @@ fn print_test_usage() {
     eprintln!("Run the current Hopper project's host-side test suite (`cargo test`).");
 }
 
+fn print_deploy_usage() {
+    eprintln!("Usage: hopper deploy [--no-build] [-p|--package <crate>] [solana program deploy args]");
+    eprintln!();
+    eprintln!("Build the current Hopper SBF program if needed, then run `solana program deploy`." );
+}
+
+fn print_dump_usage() {
+    eprintln!("Usage: hopper dump [--no-build] [-p|--package <crate>] [--tool <objdump>] [--out <path>]");
+    eprintln!();
+    eprintln!("Disassemble the built SBF `.so` using llvm-objdump, solana-llvm-objdump, or rust-objdump.");
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -303,5 +598,19 @@ mod tests {
         let dep = render_hopper_dependency(Some("../hopper"));
         assert!(dep.contains("path"));
         assert!(dep.contains("default-features = false"));
+    }
+
+    #[test]
+    fn package_name_normalization_prefers_cli_hint() {
+        let parsed = parse_lifecycle_args(&[
+            "--no-build".to_string(),
+            "-p".to_string(),
+            "hopper-vault".to_string(),
+            "--url".to_string(),
+            "http://localhost:8899".to_string(),
+        ]).unwrap();
+        assert!(parsed.0.no_build);
+        assert_eq!(parsed.0.package.as_deref(), Some("hopper-vault"));
+        assert_eq!(parsed.1, vec!["--url", "http://localhost:8899"]);
     }
 }
