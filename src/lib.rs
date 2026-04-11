@@ -83,6 +83,76 @@ macro_rules! hopper_layout {
             const SIZE: usize = $crate::hopper_core::account::HEADER_LEN $( + $fsize )+;
         }
 
+        impl $crate::hopper_core::field_map::FieldMap for $name {
+            const FIELDS: &'static [$crate::hopper_core::field_map::FieldInfo] = {
+                const FIELD_COUNT: usize = 0 $( + { let _ = stringify!($field); 1 } )+;
+                const NAMES: [&str; FIELD_COUNT] = [ $( stringify!($field) ),+ ];
+                const SIZES: [usize; FIELD_COUNT] = [ $( $fsize ),+ ];
+                const FIELDS: [$crate::hopper_core::field_map::FieldInfo; FIELD_COUNT] = {
+                    let mut result = [$crate::hopper_core::field_map::FieldInfo::new("", 0, 0); FIELD_COUNT];
+                    let mut offset = $crate::hopper_core::account::HEADER_LEN;
+                    let mut index = 0;
+                    while index < FIELD_COUNT {
+                        result[index] = $crate::hopper_core::field_map::FieldInfo::new(
+                            NAMES[index],
+                            offset,
+                            SIZES[index],
+                        );
+                        offset += SIZES[index];
+                        index += 1;
+                    }
+                    result
+                };
+                &FIELDS
+            };
+        }
+
+        impl $crate::hopper_runtime::LayoutContract for $name {
+            const DISC: u8 = $disc;
+            const VERSION: u8 = $ver;
+            const LAYOUT_ID: [u8; 8] = $name::LAYOUT_ID;
+            const SIZE: usize = $name::LEN;
+            const TYPE_OFFSET: usize = 0;
+        }
+
+        impl $crate::hopper_schema::SchemaExport for $name {
+            fn layout_manifest() -> $crate::hopper_schema::LayoutManifest {
+                const FIELD_COUNT: usize = 0 $( + { let _ = stringify!($field); 1 } )+;
+                const SIZES: [u16; FIELD_COUNT] = [ $( $fsize ),+ ];
+                const NAMES: [&str; FIELD_COUNT] = [ $( stringify!($field) ),+ ];
+                const TYPES: [&str; FIELD_COUNT] = [ $( stringify!($fty) ),+ ];
+                const FIELDS: [$crate::hopper_schema::FieldDescriptor; FIELD_COUNT] = {
+                    let mut result = [$crate::hopper_schema::FieldDescriptor {
+                        name: "", canonical_type: "", size: 0, offset: 0,
+                        intent: $crate::hopper_schema::FieldIntent::Custom,
+                    }; FIELD_COUNT];
+                    let mut offset = $crate::hopper_core::account::HEADER_LEN as u16;
+                    let mut index = 0;
+                    while index < FIELD_COUNT {
+                        result[index] = $crate::hopper_schema::FieldDescriptor {
+                            name: NAMES[index],
+                            canonical_type: TYPES[index],
+                            size: SIZES[index],
+                            offset,
+                            intent: $crate::hopper_schema::FieldIntent::Custom,
+                        };
+                        offset += SIZES[index];
+                        index += 1;
+                    }
+                    result
+                };
+                $crate::hopper_schema::LayoutManifest {
+                    name: stringify!($name),
+                    version: <$name>::VERSION,
+                    disc: <$name>::DISC,
+                    layout_id: <$name>::LAYOUT_ID,
+                    total_size: <$name>::LEN,
+                    field_count: FIELD_COUNT,
+                    fields: &FIELDS,
+                }
+            }
+        }
+
         impl $name {
             /// Total byte size of this layout.
             pub const LEN: usize = $crate::hopper_core::account::HEADER_LEN $( + $fsize )+;
@@ -138,12 +208,12 @@ macro_rules! hopper_layout {
                 $crate::hopper_core::check::check_owner(account, program_id)?;
                 let data = account.try_borrow()?;
                 $crate::hopper_core::account::check_header(
-                    &data,
+                    &*data,
                     Self::DISC,
                     Self::VERSION,
                     &Self::LAYOUT_ID,
                 )?;
-                $crate::hopper_core::check::check_size(&data, Self::LEN)?;
+                $crate::hopper_core::check::check_size(&*data, Self::LEN)?;
                 $crate::hopper_core::account::VerifiedAccount::from_ref(data)
             }
 
@@ -160,12 +230,12 @@ macro_rules! hopper_layout {
                 $crate::hopper_core::check::check_writable(account)?;
                 let data = account.try_borrow_mut()?;
                 $crate::hopper_core::account::check_header(
-                    &data,
+                    &*data,
                     Self::DISC,
                     Self::VERSION,
                     &Self::LAYOUT_ID,
                 )?;
-                $crate::hopper_core::check::check_size(&data, Self::LEN)?;
+                $crate::hopper_core::check::check_size(&*data, Self::LEN)?;
                 $crate::hopper_core::account::VerifiedAccountMut::from_ref_mut(data)
             }
 
@@ -182,11 +252,11 @@ macro_rules! hopper_layout {
             > {
                 $crate::hopper_core::check::check_owner(account, expected_owner)?;
                 let data = account.try_borrow()?;
-                let layout_id = $crate::hopper_core::account::read_layout_id(&data)?;
+                let layout_id = $crate::hopper_core::account::read_layout_id(&*data)?;
                 if layout_id != Self::LAYOUT_ID {
                     return Err($crate::hopper_runtime::error::ProgramError::InvalidAccountData);
                 }
-                $crate::hopper_core::check::check_size(&data, Self::LEN)?;
+                $crate::hopper_core::check::check_size(&*data, Self::LEN)?;
                 $crate::hopper_core::account::VerifiedAccount::from_ref(data)
             }
 
@@ -357,11 +427,11 @@ macro_rules! hopper_layout {
             > {
                 let owner_idx = $crate::hopper_core::check::check_owner_multi(account, owners)?;
                 let data = account.try_borrow()?;
-                let layout_id = $crate::hopper_core::account::read_layout_id(&data)?;
+                let layout_id = $crate::hopper_core::account::read_layout_id(&*data)?;
                 if layout_id != Self::LAYOUT_ID {
                     return Err($crate::hopper_runtime::error::ProgramError::InvalidAccountData);
                 }
-                $crate::hopper_core::check::check_size(&data, Self::LEN)?;
+                $crate::hopper_core::check::check_size(&*data, Self::LEN)?;
                 let verified = $crate::hopper_core::account::VerifiedAccount::from_ref(data)?;
                 Ok((verified, owner_idx))
             }
@@ -836,7 +906,8 @@ macro_rules! _hopper_segment_count {
 /// Build a validation pipeline declaratively.
 ///
 /// Each rule is a combinator that returns `impl Fn(&ValidationContext) -> ProgramResult`.
-/// The macro creates a context and invokes each rule in order (fail-fast).
+/// The macro creates a context, enforces unique writable accounts by default,
+/// and then invokes each rule in order (fail-fast).
 #[macro_export]
 macro_rules! hopper_validate {
     (
@@ -852,6 +923,7 @@ macro_rules! hopper_validate {
             $accounts,
             $data,
         );
+        $crate::hopper_core::check::graph::require_unique_writable_accounts()(&_vctx)?;
         $( ($rule)(&_vctx)?; )+
         Ok::<(), $crate::hopper_runtime::error::ProgramError>(())
     }};
@@ -1140,6 +1212,76 @@ macro_rules! hopper_interface {
             const SIZE: usize = $crate::hopper_core::account::HEADER_LEN $( + $fsize )+;
         }
 
+        impl $crate::hopper_core::field_map::FieldMap for $name {
+            const FIELDS: &'static [$crate::hopper_core::field_map::FieldInfo] = {
+                const FIELD_COUNT: usize = 0 $( + { let _ = stringify!($field); 1 } )+;
+                const NAMES: [&str; FIELD_COUNT] = [ $( stringify!($field) ),+ ];
+                const SIZES: [usize; FIELD_COUNT] = [ $( $fsize ),+ ];
+                const FIELDS: [$crate::hopper_core::field_map::FieldInfo; FIELD_COUNT] = {
+                    let mut result = [$crate::hopper_core::field_map::FieldInfo::new("", 0, 0); FIELD_COUNT];
+                    let mut offset = $crate::hopper_core::account::HEADER_LEN;
+                    let mut index = 0;
+                    while index < FIELD_COUNT {
+                        result[index] = $crate::hopper_core::field_map::FieldInfo::new(
+                            NAMES[index],
+                            offset,
+                            SIZES[index],
+                        );
+                        offset += SIZES[index];
+                        index += 1;
+                    }
+                    result
+                };
+                &FIELDS
+            };
+        }
+
+        impl $crate::hopper_runtime::LayoutContract for $name {
+            const DISC: u8 = $disc;
+            const VERSION: u8 = $ver;
+            const LAYOUT_ID: [u8; 8] = $name::LAYOUT_ID;
+            const SIZE: usize = $name::LEN;
+            const TYPE_OFFSET: usize = 0;
+        }
+
+        impl $crate::hopper_schema::SchemaExport for $name {
+            fn layout_manifest() -> $crate::hopper_schema::LayoutManifest {
+                const FIELD_COUNT: usize = 0 $( + { let _ = stringify!($field); 1 } )+;
+                const SIZES: [u16; FIELD_COUNT] = [ $( $fsize ),+ ];
+                const NAMES: [&str; FIELD_COUNT] = [ $( stringify!($field) ),+ ];
+                const TYPES: [&str; FIELD_COUNT] = [ $( stringify!($fty) ),+ ];
+                const FIELDS: [$crate::hopper_schema::FieldDescriptor; FIELD_COUNT] = {
+                    let mut result = [$crate::hopper_schema::FieldDescriptor {
+                        name: "", canonical_type: "", size: 0, offset: 0,
+                        intent: $crate::hopper_schema::FieldIntent::Custom,
+                    }; FIELD_COUNT];
+                    let mut offset = $crate::hopper_core::account::HEADER_LEN as u16;
+                    let mut index = 0;
+                    while index < FIELD_COUNT {
+                        result[index] = $crate::hopper_schema::FieldDescriptor {
+                            name: NAMES[index],
+                            canonical_type: TYPES[index],
+                            size: SIZES[index],
+                            offset,
+                            intent: $crate::hopper_schema::FieldIntent::Custom,
+                        };
+                        offset += SIZES[index];
+                        index += 1;
+                    }
+                    result
+                };
+                $crate::hopper_schema::LayoutManifest {
+                    name: stringify!($name),
+                    version: <$name>::VERSION,
+                    disc: <$name>::DISC,
+                    layout_id: <$name>::LAYOUT_ID,
+                    total_size: <$name>::LEN,
+                    field_count: FIELD_COUNT,
+                    fields: &FIELDS,
+                }
+            }
+        }
+
         impl $name {
             /// Total byte size of this interface view.
             pub const LEN: usize = $crate::hopper_core::account::HEADER_LEN $( + $fsize )+;
@@ -1188,11 +1330,11 @@ macro_rules! hopper_interface {
             > {
                 $crate::hopper_core::check::check_owner(account, expected_owner)?;
                 let data = account.try_borrow()?;
-                let layout_id = $crate::hopper_core::account::read_layout_id(&data)?;
+                let layout_id = $crate::hopper_core::account::read_layout_id(&*data)?;
                 if layout_id != Self::LAYOUT_ID {
                     return Err($crate::hopper_runtime::error::ProgramError::InvalidAccountData);
                 }
-                $crate::hopper_core::check::check_size(&data, Self::LEN)?;
+                $crate::hopper_core::check::check_size(&*data, Self::LEN)?;
                 $crate::hopper_core::account::VerifiedAccount::from_ref(data)
             }
 
@@ -1210,11 +1352,11 @@ macro_rules! hopper_interface {
             > {
                 let owner_idx = $crate::hopper_core::check::check_owner_multi(account, owners)?;
                 let data = account.try_borrow()?;
-                let layout_id = $crate::hopper_core::account::read_layout_id(&data)?;
+                let layout_id = $crate::hopper_core::account::read_layout_id(&*data)?;
                 if layout_id != Self::LAYOUT_ID {
                     return Err($crate::hopper_runtime::error::ProgramError::InvalidAccountData);
                 }
-                $crate::hopper_core::check::check_size(&data, Self::LEN)?;
+                $crate::hopper_core::check::check_size(&*data, Self::LEN)?;
                 let verified = $crate::hopper_core::account::VerifiedAccount::from_ref(data)?;
                 Ok((verified, owner_idx))
             }
