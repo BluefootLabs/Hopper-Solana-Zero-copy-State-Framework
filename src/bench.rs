@@ -20,6 +20,7 @@ use crate::workspace;
 
 const BENCH_ACCOUNT_LEN: usize = 57;
 const WRITE_HEADER_DISC: u8 = 6;
+const PROC_MACRO_TYPED_DISPATCH_PAYLOAD: [u8; 8] = 7u64.to_le_bytes();
 
 #[derive(Clone, Copy)]
 enum FixtureMode {
@@ -58,28 +59,30 @@ struct BenchmarkCase {
     name: &'static str,
     baseline_key: &'static str,
     fixture: FixtureMode,
+    payload: &'static [u8],
 }
 
 const BENCHMARK_CASES: &[BenchmarkCase] = &[
-    BenchmarkCase { disc: 0, name: "check_signer", baseline_key: "check_signer", fixture: FixtureMode::BlankAccount },
-    BenchmarkCase { disc: 1, name: "check_writable", baseline_key: "check_writable", fixture: FixtureMode::BlankAccount },
-    BenchmarkCase { disc: 2, name: "check_owner", baseline_key: "check_owner", fixture: FixtureMode::BlankAccount },
-    BenchmarkCase { disc: 3, name: "check_account_tier1", baseline_key: "check_account_tier1", fixture: FixtureMode::InitializedAccount },
-    BenchmarkCase { disc: 4, name: "check_keys_eq", baseline_key: "check_keys_eq", fixture: FixtureMode::DuplicateBlankAccount },
-    BenchmarkCase { disc: 5, name: "overlay", baseline_key: "overlay_57b", fixture: FixtureMode::InitializedAccount },
-    BenchmarkCase { disc: 6, name: "write_header", baseline_key: "write_header", fixture: FixtureMode::BlankAccount },
-    BenchmarkCase { disc: 7, name: "zero_init", baseline_key: "zero_init_57b", fixture: FixtureMode::BlankAccount },
-    BenchmarkCase { disc: 8, name: "check_account_fast", baseline_key: "check_account_fast", fixture: FixtureMode::BlankAccount },
-    BenchmarkCase { disc: 9, name: "emit_event", baseline_key: "emit_event_32b", fixture: FixtureMode::None },
-    BenchmarkCase { disc: 10, name: "trust_strict_load", baseline_key: "trust_strict_load", fixture: FixtureMode::InitializedAccount },
-    BenchmarkCase { disc: 11, name: "pod_from_bytes", baseline_key: "pod_from_bytes_57b", fixture: FixtureMode::InitializedAccount },
-    BenchmarkCase { disc: 12, name: "receipt_begin_commit", baseline_key: "receipt_begin_commit", fixture: FixtureMode::InitializedAccount },
-    BenchmarkCase { disc: 13, name: "fingerprint_check", baseline_key: "fingerprint_check", fixture: FixtureMode::InitializedAccount },
-    BenchmarkCase { disc: 14, name: "state_diff", baseline_key: "state_diff", fixture: FixtureMode::InitializedAccount },
-    BenchmarkCase { disc: 15, name: "overlay_mut_field_set", baseline_key: "overlay_mut_57b", fixture: FixtureMode::InitializedAccount },
-    BenchmarkCase { disc: 16, name: "raw_cast_baseline", baseline_key: "raw_cast_baseline", fixture: FixtureMode::InitializedAccount },
-    BenchmarkCase { disc: 17, name: "receipt_full", baseline_key: "receipt_full_enriched", fixture: FixtureMode::InitializedAccount },
-    BenchmarkCase { disc: 18, name: "receipt_emit", baseline_key: "receipt_emit", fixture: FixtureMode::InitializedAccount },
+    BenchmarkCase { disc: 0, name: "check_signer", baseline_key: "check_signer", fixture: FixtureMode::BlankAccount, payload: &[] },
+    BenchmarkCase { disc: 1, name: "check_writable", baseline_key: "check_writable", fixture: FixtureMode::BlankAccount, payload: &[] },
+    BenchmarkCase { disc: 2, name: "check_owner", baseline_key: "check_owner", fixture: FixtureMode::BlankAccount, payload: &[] },
+    BenchmarkCase { disc: 3, name: "check_account_tier1", baseline_key: "check_account_tier1", fixture: FixtureMode::InitializedAccount, payload: &[] },
+    BenchmarkCase { disc: 4, name: "check_keys_eq", baseline_key: "check_keys_eq", fixture: FixtureMode::DuplicateBlankAccount, payload: &[] },
+    BenchmarkCase { disc: 5, name: "overlay", baseline_key: "overlay_57b", fixture: FixtureMode::InitializedAccount, payload: &[] },
+    BenchmarkCase { disc: 6, name: "write_header", baseline_key: "write_header", fixture: FixtureMode::BlankAccount, payload: &[] },
+    BenchmarkCase { disc: 7, name: "zero_init", baseline_key: "zero_init_57b", fixture: FixtureMode::BlankAccount, payload: &[] },
+    BenchmarkCase { disc: 8, name: "check_account_fast", baseline_key: "check_account_fast", fixture: FixtureMode::BlankAccount, payload: &[] },
+    BenchmarkCase { disc: 9, name: "emit_event", baseline_key: "emit_event_32b", fixture: FixtureMode::None, payload: &[] },
+    BenchmarkCase { disc: 10, name: "trust_strict_load", baseline_key: "trust_strict_load", fixture: FixtureMode::InitializedAccount, payload: &[] },
+    BenchmarkCase { disc: 11, name: "pod_from_bytes", baseline_key: "pod_from_bytes_57b", fixture: FixtureMode::InitializedAccount, payload: &[] },
+    BenchmarkCase { disc: 12, name: "receipt_begin_commit", baseline_key: "receipt_begin_commit", fixture: FixtureMode::InitializedAccount, payload: &[] },
+    BenchmarkCase { disc: 13, name: "fingerprint_check", baseline_key: "fingerprint_check", fixture: FixtureMode::InitializedAccount, payload: &[] },
+    BenchmarkCase { disc: 14, name: "state_diff", baseline_key: "state_diff", fixture: FixtureMode::InitializedAccount, payload: &[] },
+    BenchmarkCase { disc: 15, name: "overlay_mut_field_set", baseline_key: "overlay_mut_57b", fixture: FixtureMode::InitializedAccount, payload: &[] },
+    BenchmarkCase { disc: 16, name: "raw_cast_baseline", baseline_key: "raw_cast_baseline", fixture: FixtureMode::InitializedAccount, payload: &[] },
+    BenchmarkCase { disc: 17, name: "receipt_full", baseline_key: "receipt_full_enriched", fixture: FixtureMode::InitializedAccount, payload: &[] },
+    BenchmarkCase { disc: 18, name: "receipt_emit", baseline_key: "receipt_emit", fixture: FixtureMode::InitializedAccount, payload: &[] },
+    BenchmarkCase { disc: 19, name: "proc_macro_typed_dispatch", baseline_key: "proc_macro_typed_dispatch", fixture: FixtureMode::InitializedAccount, payload: &PROC_MACRO_TYPED_DISPATCH_PAYLOAD },
 ];
 
 #[derive(Default)]
@@ -522,7 +525,10 @@ fn run_case(
         None => Vec::new(),
     };
 
-    let instruction = Instruction::new_with_bytes(*program_id, &[case.disc], accounts);
+    let mut instruction_data = Vec::with_capacity(1 + case.payload.len());
+    instruction_data.push(case.disc);
+    instruction_data.extend_from_slice(case.payload);
+    let instruction = Instruction::new_with_bytes(*program_id, &instruction_data, accounts);
     let signers: Vec<&Keypair> = fixture.as_ref().into_iter().collect();
     let simulation = simulate_instruction(client, payer, &[instruction], &signers)?;
 
