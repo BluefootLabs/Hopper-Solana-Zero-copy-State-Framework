@@ -50,6 +50,7 @@ pub mod math;
 pub mod migrate;
 pub mod policy;
 pub mod receipt;
+pub mod segment_map;
 pub mod state;
 pub mod sysvar;
 pub mod time;
@@ -140,6 +141,10 @@ pub mod prelude {
     pub use crate::event::{emit_event, emit_event_tagged, emit_slices};
     pub use crate::field_map::{FieldInfo, FieldMap};
     pub use crate::frame::{Frame, FrameAccount, FrameAccountMut};
+    pub use crate::segment_map::{SegmentMap, StaticSegment};
+    pub use hopper_runtime::segment_borrow::{
+        AccessKind, SegmentBorrow, SegmentBorrowRegistry,
+    };
     pub use crate::frame::phase::{
         PhasedFrame, ResolvedFrame, ValidatedFrame, ExecutionContext,
     };
@@ -166,11 +171,14 @@ pub mod prelude {
         ValidationGroup, ValidationBundle, Validatable,
         PostMutationValidator, TransitionRulePack,
         require_signer_at, require_writable_at, require_owned_at, require_data_min,
-        require_keys_equal, require_unique, require_lamports_gte,
+        require_keys_equal, require_unique, require_all_unique_accounts,
+        require_unique_writable_accounts, require_unique_signer_accounts,
+        require_lamports_gte,
     };
     pub use crate::check::guards::{
         require_payer, require_authority, require_owned_writable,
-        require_all_unique, check_lamport_conservation, snapshot_lamports,
+        require_all_unique, require_unique_writable, require_unique_signers,
+        check_lamport_conservation, snapshot_lamports,
         check_writable_coherence,
     };
     pub use crate::check::trust::{

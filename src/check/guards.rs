@@ -7,7 +7,7 @@
 //! - Instruction introspection guards (flash loan, re-entrancy)
 
 use hopper_runtime::error::ProgramError;
-use hopper_runtime::{AccountView, Address, ProgramResult};
+use hopper_runtime::{AccountAudit, AccountView, Address, ProgramResult};
 
 // -- Account Role Guards ----------------------------------------------
 
@@ -65,19 +65,19 @@ pub fn require_owned_writable(
 /// confused-deputy attacks from duplicate account passing.
 #[inline]
 pub fn require_all_unique(accounts: &[AccountView]) -> ProgramResult {
-    let n = accounts.len();
-    let mut i = 0;
-    while i < n {
-        let mut j = i + 1;
-        while j < n {
-            if accounts[i].address() == accounts[j].address() {
-                return Err(ProgramError::InvalidArgument);
-            }
-            j += 1;
-        }
-        i += 1;
-    }
-    Ok(())
+    AccountAudit::new(accounts).require_all_unique()
+}
+
+/// Verify that no duplicated account is writable.
+#[inline]
+pub fn require_unique_writable(accounts: &[AccountView]) -> ProgramResult {
+    AccountAudit::new(accounts).require_unique_writable()
+}
+
+/// Verify that no duplicated account is used as a signer.
+#[inline]
+pub fn require_unique_signers(accounts: &[AccountView]) -> ProgramResult {
+    AccountAudit::new(accounts).require_unique_signers()
 }
 
 // -- Post-Mutation Conservation ---------------------------------------
