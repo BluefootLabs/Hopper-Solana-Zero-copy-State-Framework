@@ -156,10 +156,19 @@ pub fn run_primitive_bench(args: &[String]) -> Result<(), String> {
 
     if !options.no_build {
         println!("Building hopper-bench with cargo build-sbf...");
-        let build_args = vec!["build-sbf".to_string(), "-p".to_string(), "hopper-bench".to_string()];
+        let build_args = vec![
+            "build-sbf".to_string(),
+            "--manifest-path".to_string(),
+            workspace_root
+                .join("bench")
+                .join("hopper-bench")
+                .join("Cargo.toml")
+                .display()
+                .to_string(),
+        ];
         let status = workspace::run_status("cargo", &build_args, &workspace_root)?;
         if !status.success() {
-            return Err("cargo build-sbf -p hopper-bench failed".to_string());
+            return Err("cargo build-sbf --manifest-path bench/hopper-bench/Cargo.toml failed".to_string());
         }
     }
 

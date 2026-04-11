@@ -2,6 +2,7 @@ use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitStatus, Output};
+use toml::Value;
 
 pub fn current_dir() -> Result<PathBuf, String> {
     env::current_dir().map_err(|err| format!("Failed to determine current directory: {err}"))
@@ -86,6 +87,66 @@ pub fn home_dir() -> Option<PathBuf> {
     env::var_os("USERPROFILE")
         .map(PathBuf::from)
         .or_else(|| env::var_os("HOME").map(PathBuf::from))
+}
+
+pub fn resolve_workspace_member_manifest(workspace_root: &Path, package: &str) -> Result<PathBuf, String> {
+    let workspace_manifest_path = workspace_root.join("Cargo.toml");
+    let workspace_manifest = fs::read_to_string(&workspace_manifest_path).map_err(|err| {
+        format!(
+            "Failed to read {}: {err}",
+            workspace_manifest_path.display()
+        )
+    })?;
+    let workspace_value: Value = workspace_manifest.parse().map_err(|err| {
+        format!(
+            "Failed to parse {}: {err}",
+            workspace_manifest_path.display()
+        )
+    })?;
+
+    let members = workspace_value
+        .get("workspace")
+        .and_then(Value::as_table)
+        .and_then(|workspace| workspace.get("members"))
+        .and_then(Value::as_array)
+        .ok_or_else(|| {
+            format!(
+                "{} does not declare workspace members",
+                workspace_manifest_path.display()
+            )
+        })?;
+
+    for member in members {
+        let Some(member_path) = member.as_str() else {
+            continue;
+        };
+        let manifest_path = workspace_root.join(member_path).join("Cargo.toml");
+        if !manifest_path.exists() {
+            continue;
+        }
+
+        let manifest = fs::read_to_string(&manifest_path)
+            .map_err(|err| format!("Failed to read {}: {err}", manifest_path.display()))?;
+        let manifest_value: Value = manifest
+            .parse()
+            .map_err(|err| format!("Failed to parse {}: {err}", manifest_path.display()))?;
+
+        let package_name = manifest_value
+            .get("package")
+            .and_then(Value::as_table)
+            .and_then(|package_table| package_table.get("name"))
+            .and_then(Value::as_str);
+
+        if package_name == Some(package) {
+            return Ok(manifest_path);
+        }
+    }
+
+    Err(format!(
+        "Could not find a workspace member named {} under {}",
+        package,
+        workspace_root.display()
+    ))
 }
 
 pub fn write_text_file(path: &Path, contents: &str, force: bool) -> Result<(), String> {
