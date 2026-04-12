@@ -3,6 +3,17 @@
 
 use hopper::prelude::*;
 
+#[cfg(target_os = "solana")]
+mod __hopper_sbf {
+    use super::*;
+
+    #[cfg(not(feature = "solana-program-backend"))]
+    no_allocator!();
+
+    #[cfg(not(feature = "solana-program-backend"))]
+    nostd_panic_handler!();
+}
+
 #[derive(Clone, Copy)]
 #[repr(C)]
 #[hopper::state(disc = 1, version = 1)]

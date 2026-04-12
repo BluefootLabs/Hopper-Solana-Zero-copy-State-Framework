@@ -35,6 +35,17 @@
 
 use hopper::prelude::*;
 
+#[cfg(target_os = "solana")]
+mod __hopper_sbf {
+    use super::*;
+
+    #[cfg(not(feature = "solana-program-backend"))]
+    no_allocator!();
+
+    #[cfg(not(feature = "solana-program-backend"))]
+    nostd_panic_handler!();
+}
+
 // --- Interface View -------------------------------------------------
 //
 // This struct is declared independently -- no import from Program A.

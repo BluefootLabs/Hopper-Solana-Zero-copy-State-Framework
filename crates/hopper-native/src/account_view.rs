@@ -42,6 +42,11 @@ impl AccountView {
         Self { raw }
     }
 
+    #[inline(always)]
+    pub(crate) const fn raw_ptr(&self) -> *mut RuntimeAccount {
+        self.raw
+    }
+
     // ── Getters ──────────────────────────────────────────────────────
 
     /// The account's public key.

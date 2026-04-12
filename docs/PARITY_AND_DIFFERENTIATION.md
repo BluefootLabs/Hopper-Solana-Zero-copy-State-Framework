@@ -14,6 +14,36 @@ Important scope note:
 	tooling.
 - `solana-zero-copy` is a substrate crate, not a full peer framework.
 
+## Current Audit Verdict
+
+As of this pass, Hopper closes the two biggest internal consistency gaps that
+used to weaken its parity claims:
+
+1. instruction-scope duplicate writable aliases are now a first-class runtime
+	audit surface and are enforced by `hopper_validate!` by default
+2. macro-generated layouts now participate in the same
+	`AccountView -> LayoutContract -> FieldMap -> SchemaExport` chain as the
+	runtime's manual layout contracts
+
+That materially improves Hopper's claim to being a coherent zero-copy runtime
+rather than a loose collection of good ideas.
+
+It still would be technically dishonest to say Hopper has surpassed Anchor,
+Pinocchio, and Quasar in all areas.
+
+- Hopper is ahead on versioned state contracts, schema evolution, runtime
+	inspection, receipts, policy/lint semantics, and segmented state
+- Quasar still has the stronger public profiler workflow, packaging polish,
+	and more obvious day-to-day zero-copy DX in some paths
+- Anchor still leads on ecosystem maturity, public adoption, and end-to-end
+	client/IDL expectations
+- Pinocchio remains the leanest raw substrate and still sets the baseline for
+	minimal SDK surface
+
+The correct claim today is: Hopper is differentiated and now internally more
+consistent, with clear leadership in state-contract semantics, but not yet the
+category winner in every workflow dimension.
+
 ## Feature Matrix
 
 | Dimension | **Hopper** | **Anchor zero-copy** | **Pinocchio** | **Quasar** | **Jiminy** |
@@ -59,8 +89,27 @@ That matters for two reasons:
 - duplicate account handles with the same address now hit an address-keyed
 	alias registry before Hopper hands out a mutable view
 
+That runtime protection is now backed by an instruction-scope audit layer as
+well. `AccountAudit`, `Context::require_unique_writable_accounts()`,
+`TransactionConstraint::unique_writable()`, and the default
+`hopper_validate!` path all reject duplicated writable aliases before handler
+logic runs.
+
 This is the exact middle ground Pinocchio does not try to provide: raw-speed
 zero-copy with explicit runtime alias enforcement.
+
+### Unified Runtime-to-Schema Bridge
+
+Hopper's macro-generated layouts now implement the same runtime and schema
+traits as hand-written runtime contracts:
+
+- `FieldMap` for wire offsets and field inspection
+- `LayoutContract` for discriminator, version, fingerprint, and typed loads
+- `SchemaExport` for manager metadata and rich manifests
+
+That means `AccountView::load::<T>()`, field inspection, manager metadata, and
+schema export now all describe the same layout object instead of parallel,
+partially disconnected systems.
 
 ### State Receipts
 

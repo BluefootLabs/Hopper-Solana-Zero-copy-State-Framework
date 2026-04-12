@@ -12,7 +12,7 @@
 #
 # Environment overrides:
 #   SOLANA_IMAGE   : Docker image for the test validator
-#                    (default: solanalabs/solana:v2.1.21)
+#                    (default: anzaxyz/agave:v2.3.13)
 #   SOLANA_RPC_URL : Override RPC endpoint entirely (validator still started)
 set -euo pipefail
 

@@ -76,20 +76,38 @@ categories = ["no-std", "embedded"]
 name = "hopper"
 
 [dependencies]
-hopper-runtime = { workspace = true }
+hopper-runtime = { path = "crates/hopper-runtime", version = "0.1.0", default-features = false }
 sha2-const-stable = { workspace = true }
-hopper-core = { workspace = true }
-hopper-macros = { workspace = true }
-hopper-schema = { workspace = true }
-hopper-solana = { workspace = true }
+hopper-core = { path = "crates/hopper-core", version = "0.1.0", default-features = false }
+hopper-macros = { path = "crates/hopper-macros", version = "0.1.0", default-features = false }
+hopper-schema = { path = "crates/hopper-schema", version = "0.1.0", default-features = false }
+hopper-solana = { path = "crates/hopper-solana", version = "0.1.0", default-features = false }
 hopper-macros-proc = { workspace = true, optional = true }
 
 [features]
 default = ["hopper-native-backend"]
 proc-macros = ["hopper-macros-proc"]
-hopper-native-backend = ["hopper-runtime/hopper-native-backend"]
-pinocchio-backend = ["hopper-runtime/pinocchio-backend"]
-solana-program-backend = ["hopper-runtime/solana-program-backend"]
+hopper-native-backend = [
+    "hopper-runtime/hopper-native-backend",
+    "hopper-core/hopper-native-backend",
+    "hopper-macros/hopper-native-backend",
+    "hopper-schema/hopper-native-backend",
+    "hopper-solana/hopper-native-backend",
+]
+pinocchio-backend = [
+    "hopper-runtime/pinocchio-backend",
+    "hopper-core/pinocchio-backend",
+    "hopper-macros/pinocchio-backend",
+    "hopper-schema/pinocchio-backend",
+    "hopper-solana/pinocchio-backend",
+]
+solana-program-backend = [
+    "hopper-runtime/solana-program-backend",
+    "hopper-core/solana-program-backend",
+    "hopper-macros/solana-program-backend",
+    "hopper-schema/solana-program-backend",
+    "hopper-solana/solana-program-backend",
+]
 cu-trace = ["hopper-runtime/cu-trace"]
 
 [lints.rust]

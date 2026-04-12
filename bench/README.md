@@ -69,7 +69,7 @@ bench/
 ```
 
 The Docker scripts:
-- Pull `solanalabs/solana:v2.1.21` on first run (override with `SOLANA_IMAGE=...`)
+- Pull `anzaxyz/agave:v2.3.13` on first run (override with `SOLANA_IMAGE=...`)
 - Generate a dedicated `bench/fixtures/bench-keypair.json` if it doesn't exist
 - Wait up to 60 s for the validator to report healthy
 - Forward any extra arguments to `hopper profile bench`
@@ -77,7 +77,7 @@ The Docker scripts:
 
 To switch Solana versions:
 ```powershell
-$env:SOLANA_IMAGE = "solanalabs/solana:v2.2.0"
+$env:SOLANA_IMAGE = "anzaxyz/agave:v2.3.13"
 .\bench\run-bench-docker.ps1
 ```
 

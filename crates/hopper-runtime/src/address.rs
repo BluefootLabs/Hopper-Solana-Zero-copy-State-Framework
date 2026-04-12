@@ -70,6 +70,17 @@ impl Address {
     pub fn find_program_address(seeds: &[&[u8]], program_id: &Address) -> (Address, u8) {
         crate::compat::find_program_address(seeds, program_id)
     }
+
+    /// Create a program-derived address from seeds.
+    ///
+    /// This is the cheaper PDA path when the bump is already known.
+    #[cfg(target_os = "solana")]
+    pub fn create_program_address(
+        seeds: &[&[u8]],
+        program_id: &Address,
+    ) -> Result<Address, crate::ProgramError> {
+        crate::compat::create_program_address(seeds, program_id)
+    }
 }
 
 // ── Trait implementations ────────────────────────────────────────────

@@ -35,6 +35,20 @@
 
 use hopper::prelude::*;
 use hopper::hopper_core::receipt::{Phase, CompatImpact};
+#[allow(unused_imports)]
+#[cfg(target_os = "solana")]
+use hopper::hopper_runtime;
+
+#[cfg(target_os = "solana")]
+mod __hopper_sbf {
+    use super::*;
+
+    #[cfg(not(feature = "solana-program-backend"))]
+    no_allocator!();
+
+    #[cfg(not(feature = "solana-program-backend"))]
+    nostd_panic_handler!();
+}
 
 // --- Benchmark Layout ------------------------------------------------
 
@@ -112,6 +126,8 @@ fn process_instruction(
         17 => bench_receipt_full(accounts, program_id),
         18 => bench_receipt_emit(accounts, program_id),
         19 => bench_proc_macro_typed_dispatch(accounts, program_id, instruction_data),
+        20 => bench_write_proc_header(accounts, program_id),
+        21 => bench_measurement_overhead(),
         _ => Err(ProgramError::InvalidInstructionData),
     }
 }
@@ -312,6 +328,17 @@ fn bench_zero_init(accounts: &[AccountView], program_id: &Address) -> ProgramRes
     Ok(())
 }
 
+fn bench_write_proc_header(accounts: &[AccountView], program_id: &Address) -> ProgramResult {
+    let account = accounts
+        .first()
+        .ok_or(ProgramError::NotEnoughAccountKeys)?;
+    check_owner(account, program_id)?;
+    check_writable(account)?;
+
+    let data = unsafe { account.borrow_unchecked_mut() };
+    hopper::hopper_runtime::layout::init_header::<ProcBenchVault>(data)
+}
+
 /// Benchmark: check_account_fast (~12 CU).
 fn bench_check_account_fast(accounts: &[AccountView]) -> ProgramResult {
     let account = accounts
@@ -348,6 +375,19 @@ fn bench_emit_event() -> ProgramResult {
     hopper_runtime::syscall::sol_log_compute_units();
     #[cfg(target_os = "solana")]
     hopper_runtime::msg!("END emit_event");
+
+    Ok(())
+}
+
+fn bench_measurement_overhead() -> ProgramResult {
+    #[cfg(target_os = "solana")]
+    hopper_runtime::msg!("BEGIN measurement_overhead");
+    #[cfg(target_os = "solana")]
+    hopper_runtime::syscall::sol_log_compute_units();
+    #[cfg(target_os = "solana")]
+    hopper_runtime::syscall::sol_log_compute_units();
+    #[cfg(target_os = "solana")]
+    hopper_runtime::msg!("END measurement_overhead");
 
     Ok(())
 }
@@ -393,11 +433,7 @@ fn bench_pod_from_bytes(accounts: &[AccountView], program_id: &Address) -> Progr
     #[cfg(target_os = "solana")]
     hopper_runtime::syscall::sol_log_compute_units();
 
-    if data.len() < BenchVault::LEN + HEADER_LEN {
-        return Err(ProgramError::AccountDataTooSmall);
-    }
-    let body = &data[HEADER_LEN..];
-    let _vault = pod_from_bytes::<BenchVault>(body)
+    let _vault = pod_from_bytes::<BenchVault>(data)
         .map_err(|_| ProgramError::InvalidAccountData)?;
 
     #[cfg(target_os = "solana")]
@@ -514,7 +550,7 @@ fn bench_overlay_mut_field_set(accounts: &[AccountView], program_id: &Address) -
     #[cfg(target_os = "solana")]
     hopper_runtime::syscall::sol_log_compute_units();
 
-    let vault = BenchVault::overlay_mut(&mut data[HEADER_LEN..])?;
+    let vault = BenchVault::overlay_mut(data)?;
     vault.balance.set(vault.balance.get() + 1);
 
     #[cfg(target_os = "solana")]
@@ -547,13 +583,12 @@ fn bench_raw_cast_baseline(accounts: &[AccountView], program_id: &Address) -> Pr
     hopper_runtime::syscall::sol_log_compute_units();
 
     // Raw cast: only a size check + pointer cast. No header, no fingerprint.
-    let body = &data[HEADER_LEN..];
-    if body.len() < core::mem::size_of::<BenchVault>() {
+    if data.len() < core::mem::size_of::<BenchVault>() {
         return Err(ProgramError::AccountDataTooSmall);
     }
     // SAFETY: BenchVault is repr(C), alignment 1 (all wire types are u8-aligned).
     // This is the minimal cost path — what competitors pay.
-    let _vault = unsafe { &*(body.as_ptr() as *const BenchVault) };
+    let _vault = unsafe { &*(data.as_ptr() as *const BenchVault) };
 
     #[cfg(target_os = "solana")]
     hopper_runtime::syscall::sol_log_compute_units();

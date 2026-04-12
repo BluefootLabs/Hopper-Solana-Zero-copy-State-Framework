@@ -31,9 +31,9 @@ use hopper_runtime::ProgramResult;
 pub struct HopperCpi<'a, const ACCTS: usize, const DATA: usize> {
     /// The program to invoke.
     #[allow(dead_code)]
-    program_id: &'a [u8; 32],
+    program_id: &'a hopper_runtime::Address,
     /// Account metadata: (pubkey, is_writable, is_signer).
-    account_keys: [&'a [u8; 32]; ACCTS],
+    account_keys: [&'a hopper_runtime::Address; ACCTS],
     account_flags: [(bool, bool); ACCTS], // (is_writable, is_signer)
     /// Source AccountViews for the CPI (needed by the runtime).
     /// Uses MaybeUninit to avoid UB from null/zeroed references.
@@ -48,7 +48,7 @@ pub struct HopperCpi<'a, const ACCTS: usize, const DATA: usize> {
 impl<'a, const ACCTS: usize, const DATA: usize> HopperCpi<'a, ACCTS, DATA> {
     /// Begin building a CPI call to `program_id`.
     #[inline(always)]
-    pub fn new(program_id: &'a [u8; 32]) -> Self {
+    pub fn new(program_id: &'a hopper_runtime::Address) -> Self {
         Self {
             program_id,
             account_keys: [program_id; ACCTS], // init value; overwritten by add_account()
@@ -73,10 +73,7 @@ impl<'a, const ACCTS: usize, const DATA: usize> HopperCpi<'a, ACCTS, DATA> {
     ) -> Self {
         let idx = self.acct_cursor;
         debug_assert!(idx < ACCTS, "Too many accounts added to CPI");
-        self.account_keys[idx] = unsafe {
-            // AccountView.address() returns &Address which is &[u8; 32]
-            &*(view.address() as *const hopper_runtime::Address as *const [u8; 32])
-        };
+        self.account_keys[idx] = view.address();
         self.account_flags[idx] = (is_writable, is_signer);
         self.account_views[idx] = MaybeUninit::new(view);
         self.acct_cursor += 1;
@@ -142,16 +139,13 @@ impl<'a, const ACCTS: usize, const DATA: usize> HopperCpi<'a, ACCTS, DATA> {
                 data: &self.data,
             };
 
-            // Build signer seeds
             if seeds.is_empty() {
-                ix.invoke_unchecked(views.as_slice())
+                hopper_runtime::cpi::invoke(&ix, views)
             } else {
-                // Convert seed slices to Signer/Seed format
                 let mut signers_buf: [Signer; 4] = unsafe { core::mem::zeroed() };
                 let signer_count = seeds.len().min(4);
-                // We need to build Seed arrays per signer
-                // This is stack-allocated with a reasonable max of 16 seeds per signer
                 let mut seed_bufs: [[Seed; 16]; 4] = unsafe { core::mem::zeroed() };
+                let mut seed_lens = [0usize; 4];
 
                 let mut s = 0;
                 while s < signer_count {
@@ -162,14 +156,17 @@ impl<'a, const ACCTS: usize, const DATA: usize> HopperCpi<'a, ACCTS, DATA> {
                         seed_bufs[s][sd] = Seed::from(signer_seeds[sd]);
                         sd += 1;
                     }
-                    signers_buf[s] = Signer::from(&seed_bufs[s][..num_seeds]);
+                    seed_lens[s] = num_seeds;
                     s += 1;
                 }
 
-                ix.invoke_signed_unchecked(
-                    views.as_slice(),
-                    &signers_buf[..signer_count],
-                )
+                let mut s = 0;
+                while s < signer_count {
+                    signers_buf[s] = Signer::from(&seed_bufs[s][..seed_lens[s]]);
+                    s += 1;
+                }
+
+                hopper_runtime::cpi::invoke_signed(&ix, views, &signers_buf[..signer_count])
             }
         }
         #[cfg(not(target_os = "solana"))]
@@ -186,8 +183,8 @@ impl<'a, const ACCTS: usize, const DATA: usize> HopperCpi<'a, ACCTS, DATA> {
 /// (e.g., Borsh-serialized arguments), but bounded by `MAX`.
 pub struct HopperCpiBuf<'a, const ACCTS: usize, const MAX: usize> {
     #[allow(dead_code)]
-    program_id: &'a [u8; 32],
-    account_keys: [&'a [u8; 32]; ACCTS],
+    program_id: &'a hopper_runtime::Address,
+    account_keys: [&'a hopper_runtime::Address; ACCTS],
     account_flags: [(bool, bool); ACCTS],
     account_views: [MaybeUninit<&'a hopper_runtime::AccountView>; ACCTS],
     data: [u8; MAX],
@@ -198,7 +195,7 @@ pub struct HopperCpiBuf<'a, const ACCTS: usize, const MAX: usize> {
 impl<'a, const ACCTS: usize, const MAX: usize> HopperCpiBuf<'a, ACCTS, MAX> {
     /// Begin building a variable-data CPI call.
     #[inline(always)]
-    pub fn new(program_id: &'a [u8; 32]) -> Self {
+    pub fn new(program_id: &'a hopper_runtime::Address) -> Self {
         Self {
             program_id,
             account_keys: [program_id; ACCTS],
@@ -221,9 +218,7 @@ impl<'a, const ACCTS: usize, const MAX: usize> HopperCpiBuf<'a, ACCTS, MAX> {
     ) -> Self {
         let idx = self.acct_cursor;
         debug_assert!(idx < ACCTS);
-        self.account_keys[idx] = unsafe {
-            &*(view.address() as *const hopper_runtime::Address as *const [u8; 32])
-        };
+        self.account_keys[idx] = view.address();
         self.account_flags[idx] = (is_writable, is_signer);
         self.account_views[idx] = MaybeUninit::new(view);
         self.acct_cursor += 1;
@@ -280,11 +275,12 @@ impl<'a, const ACCTS: usize, const MAX: usize> HopperCpiBuf<'a, ACCTS, MAX> {
             };
 
             if seeds.is_empty() {
-                ix.invoke_unchecked(views.as_slice())
+                hopper_runtime::cpi::invoke(&ix, views)
             } else {
                 let mut signers_buf: [Signer; 4] = unsafe { core::mem::zeroed() };
                 let signer_count = seeds.len().min(4);
                 let mut seed_bufs: [[Seed; 16]; 4] = unsafe { core::mem::zeroed() };
+                let mut seed_lens = [0usize; 4];
 
                 let mut s = 0;
                 while s < signer_count {
@@ -295,14 +291,17 @@ impl<'a, const ACCTS: usize, const MAX: usize> HopperCpiBuf<'a, ACCTS, MAX> {
                         seed_bufs[s][sd] = Seed::from(signer_seeds[sd]);
                         sd += 1;
                     }
-                    signers_buf[s] = Signer::from(&seed_bufs[s][..num_seeds]);
+                    seed_lens[s] = num_seeds;
                     s += 1;
                 }
 
-                ix.invoke_signed_unchecked(
-                    views.as_slice(),
-                    &signers_buf[..signer_count],
-                )
+                let mut s = 0;
+                while s < signer_count {
+                    signers_buf[s] = Signer::from(&seed_bufs[s][..seed_lens[s]]);
+                    s += 1;
+                }
+
+                hopper_runtime::cpi::invoke_signed(&ix, views, &signers_buf[..signer_count])
             }
         }
         #[cfg(not(target_os = "solana"))]
@@ -312,3 +311,4 @@ impl<'a, const ACCTS: usize, const MAX: usize> HopperCpiBuf<'a, ACCTS, MAX> {
         }
     }
 }
+

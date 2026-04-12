@@ -9,6 +9,9 @@ use core::mem::MaybeUninit;
 use crate::account_view::AccountView;
 use crate::address::Address;
 use crate::raw_account::RuntimeAccount;
+use crate::MAX_PERMITTED_DATA_INCREASE;
+
+const BPF_ALIGN_OF_U128: usize = 8;
 
 /// Metadata for one parsed account slot in the loader input.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -52,7 +55,6 @@ pub unsafe fn deserialize_accounts<const MAX: usize>(
     let frame = unsafe { scan_instruction_frame(input) };
 
     let mut offset = 8usize;
-    let mut canonical: [*mut RuntimeAccount; MAX] = [core::ptr::null_mut(); MAX];
     let count = frame.account_count.min(MAX);
 
     let mut slot = 0usize;
@@ -60,20 +62,19 @@ pub unsafe fn deserialize_accounts<const MAX: usize>(
         let marker = unsafe { *input.add(offset) };
         if marker == u8::MAX {
             let raw = unsafe { input.add(offset) as *mut RuntimeAccount };
-            canonical[slot] = raw;
             accounts[slot] = MaybeUninit::new(unsafe { AccountView::new_unchecked(raw) });
 
             let data_len = unsafe { (*raw).data_len as usize };
             offset += RuntimeAccount::SIZE;
-            offset += data_len;
-            offset = (offset + 7) & !7;
+            offset += data_len + MAX_PERMITTED_DATA_INCREASE;
+            offset += unsafe { input.add(offset).align_offset(BPF_ALIGN_OF_U128) };
             offset += 8;
         } else {
             let duplicate_of = marker as usize;
             let raw = if duplicate_of < slot {
-                canonical[duplicate_of]
+                unsafe { accounts[duplicate_of].assume_init_ref().raw_ptr() }
             } else if slot > 0 {
-                canonical[0]
+                unsafe { accounts[0].assume_init_ref().raw_ptr() }
             } else {
                 core::ptr::null_mut()
             };
@@ -91,8 +92,8 @@ pub unsafe fn deserialize_accounts<const MAX: usize>(
             let raw = unsafe { input.add(offset) as *const RuntimeAccount };
             let data_len = unsafe { (*raw).data_len as usize };
             offset += RuntimeAccount::SIZE;
-            offset += data_len;
-            offset = (offset + 7) & !7;
+            offset += data_len + MAX_PERMITTED_DATA_INCREASE;
+            offset += unsafe { input.add(offset).align_offset(BPF_ALIGN_OF_U128) };
             offset += 8;
         } else {
             offset += 8;
@@ -125,8 +126,8 @@ pub unsafe fn scan_instruction_frame(input: *mut u8) -> RawInstructionFrame {
         if marker == u8::MAX {
             let raw = scan as *const RuntimeAccount;
             let data_len = unsafe { (*raw).data_len as usize };
-            let mut step = RuntimeAccount::SIZE + data_len;
-            step = (step + 7) & !7;
+            let mut step = RuntimeAccount::SIZE + data_len + MAX_PERMITTED_DATA_INCREASE;
+            step += unsafe { scan.add(step).align_offset(BPF_ALIGN_OF_U128) };
             step += 8;
             scan = unsafe { scan.add(step) };
         } else {

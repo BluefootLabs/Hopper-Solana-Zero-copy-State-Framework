@@ -60,6 +60,7 @@ pub use hopper_runtime::program_entrypoint;
 pub use hopper_runtime::hopper_entrypoint;
 pub use hopper_runtime::hopper_lazy_entrypoint;
 pub use hopper_runtime::lazy_entrypoint;
+pub use hopper_runtime::{no_allocator, nostd_panic_handler};
 pub use hopper_runtime::{
     AccountView, Address, ProgramResult, Context, LayoutContract,
     InstructionAccount, InstructionView, Seed, Signer,

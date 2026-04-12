@@ -13,13 +13,13 @@
 #
 # To change the Solana version, override the image tag below or
 # set SOLANA_IMAGE in your environment:
-#   SOLANA_IMAGE=solanalabs/solana:v2.2.0 docker compose ... up -d
+#   SOLANA_IMAGE=anzaxyz/agave:v2.3.13 docker compose ... up -d
 
 name: hopper-bench
 
 services:
   validator:
-    image: ${SOLANA_IMAGE:-solanalabs/solana:v2.1.21}
+    image: ${SOLANA_IMAGE:-anzaxyz/agave:v2.3.13}
     command: >
       solana-test-validator
         --reset

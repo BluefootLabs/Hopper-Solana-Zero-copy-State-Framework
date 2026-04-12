@@ -22,7 +22,7 @@
     .\run-bench-docker.ps1 --no-build --out-dir C:\bench-output
 
     # Override Solana validator version via environment
-    $env:SOLANA_IMAGE = "solanalabs/solana:v2.2.0"
+    $env:SOLANA_IMAGE = "anzaxyz/agave:v2.3.13"
     .\run-bench-docker.ps1
 #>
 [CmdletBinding()]

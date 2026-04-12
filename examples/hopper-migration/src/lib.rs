@@ -34,6 +34,17 @@ use hopper::prelude::*;
 use hopper::hopper_assert_compatible;
 use hopper::hopper_core::account::read_layout_id;
 
+#[cfg(target_os = "solana")]
+mod __hopper_sbf {
+    use super::*;
+
+    #[cfg(not(feature = "solana-program-backend"))]
+    no_allocator!();
+
+    #[cfg(not(feature = "solana-program-backend"))]
+    nostd_panic_handler!();
+}
+
 // =====================================================================
 // Step 1: Define Both Layout Versions
 // =====================================================================

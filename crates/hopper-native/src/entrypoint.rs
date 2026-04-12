@@ -163,7 +163,10 @@ macro_rules! nostd_panic_handler {
         #[cfg(target_os = "solana")]
         #[panic_handler]
         fn panic(_info: &core::panic::PanicInfo) -> ! {
-            unsafe { core::arch::asm!("unimp", options(noreturn)) }
+            let _ = _info;
+            loop {
+                core::hint::spin_loop();
+            }
         }
     };
 }

@@ -16,7 +16,7 @@ categories = ["no-std", "embedded"]
 name = "hopper_core"
 
 [dependencies]
-hopper-runtime = { workspace = true }
+hopper-runtime = { path = "../hopper-runtime", version = "0.1.0", default-features = false }
 sha2-const-stable = { workspace = true }
 
 [dev-dependencies]
@@ -24,9 +24,12 @@ sha2-const-stable = { workspace = true }
 hopper-schema = { workspace = true }
 
 [features]
-default = ["programs"]
+default = ["programs", "hopper-native-backend"]
 programs = []
 log = []
+hopper-native-backend = ["hopper-runtime/hopper-native-backend"]
+pinocchio-backend = ["hopper-runtime/pinocchio-backend"]
+solana-program-backend = ["hopper-runtime/solana-program-backend"]
 
 [lints.rust]
 unexpected_cfgs = { level = "allow", check-cfg = ['cfg(target_os, values("solana"))'] }
