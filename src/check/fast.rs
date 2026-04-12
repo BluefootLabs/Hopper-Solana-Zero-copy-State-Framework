@@ -66,7 +66,7 @@ pub const HEADER_AUTHORITY: u32 = HEADER_SIGNER_WRITABLE;
 /// layout would require updating this function. The `target_os = "solana"` gate
 /// ensures this is only compiled for the SBF target where the SVM guarantees
 /// this layout.
-#[cfg(target_os = "solana")]
+#[cfg(all(target_os = "solana", feature = "hopper-native-backend"))]
 #[inline(always)]
 unsafe fn read_account_header(account: &AccountView) -> u32 {
     // SAFETY: AccountView is repr(C) with a pointer to the raw RuntimeAccount
@@ -98,16 +98,16 @@ pub fn check_account_fast(
     expected_header: u32,
 ) -> ProgramResult {
     // Fast path: one compare for all flags
-    #[cfg(target_os = "solana")]
+    #[cfg(all(target_os = "solana", feature = "hopper-native-backend"))]
     {
         let actual = unsafe { read_account_header(account) };
-        if actual == expected_header {
+        if (actual & expected_header) == expected_header {
             return Ok(());
         }
         // Cold path: decompose error
         decompose_header_error(actual, expected_header)
     }
-    #[cfg(not(target_os = "solana"))]
+    #[cfg(not(all(target_os = "solana", feature = "hopper-native-backend")))]
     {
         // Off-chain fallback: individual checks
         check_account_flags_fallback(account, expected_header)
@@ -143,7 +143,7 @@ fn decompose_header_error(actual: u32, expected: u32) -> ProgramResult {
 }
 
 /// Off-chain fallback using individual AccountView methods.
-#[cfg(not(target_os = "solana"))]
+#[cfg(not(all(target_os = "solana", feature = "hopper-native-backend")))]
 fn check_account_flags_fallback(
     account: &AccountView,
     expected: u32,

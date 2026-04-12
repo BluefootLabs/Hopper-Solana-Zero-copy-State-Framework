@@ -40,17 +40,49 @@ use crate::diff::StateSnapshot;
 /// Maximum fields tracked in a receipt's changed-field bitmask.
 pub const MAX_RECEIPT_FIELDS: usize = 64;
 
-/// FNV-1a 64-bit fingerprint of a byte slice.
+/// Fast non-cryptographic 64-bit fingerprint of a byte slice.
 ///
-/// Not cryptographic. Used for fast before/after change detection.
+/// Hopper receipts only need deterministic change detection, not a strong hash.
+/// On SBF, a per-byte multiply-heavy hash is disproportionately expensive, so
+/// receipts use a chunked mixer built from rotates, xor, and adds instead.
 #[inline]
-fn fnv1a_fingerprint(data: &[u8]) -> [u8; 8] {
-    let mut hash: u64 = 0xcbf29ce484222325;
-    for &b in data {
-        hash ^= b as u64;
-        hash = hash.wrapping_mul(0x100000001b3);
+fn fast_fingerprint(data: &[u8]) -> [u8; 8] {
+    let len = data.len() as u32;
+    let mut lo = 0x243f_6a88_u32 ^ len;
+    let mut hi = 0x85a3_08d3_u32 ^ len.rotate_left(16);
+
+    let mut i = 0usize;
+    while i + 8 <= data.len() {
+        let a = u32::from_le_bytes([data[i], data[i + 1], data[i + 2], data[i + 3]]);
+        let b = u32::from_le_bytes([data[i + 4], data[i + 5], data[i + 6], data[i + 7]]);
+        lo = (lo.rotate_left(5) ^ a).wrapping_add(0x9e37_79b9);
+        hi = (hi.rotate_left(7) ^ b).wrapping_add(0x7f4a_7c15);
+        i += 8;
     }
-    hash.to_le_bytes()
+
+    if i < data.len() {
+        let mut tail = [0u8; 8];
+        let mut tail_i = 0usize;
+        while i < data.len() {
+            tail[tail_i] = data[i];
+            tail_i += 1;
+            i += 1;
+        }
+        let a = u32::from_le_bytes([tail[0], tail[1], tail[2], tail[3]]);
+        let b = u32::from_le_bytes([tail[4], tail[5], tail[6], tail[7]]);
+        lo = lo.rotate_left(5) ^ a;
+        hi = hi.rotate_left(7) ^ b;
+    }
+
+    let mixed_lo = lo ^ hi.rotate_left(13);
+    let mixed_hi = hi ^ lo.rotate_left(11) ^ len;
+    let mut out = [0u8; 8];
+    out[0..4].copy_from_slice(&mixed_lo.to_le_bytes());
+    out[4..8].copy_from_slice(&mixed_hi.to_le_bytes());
+    if out == [0u8; 8] {
+        out[0] = 1;
+    }
+    out
 }
 
 /// A structured record of a state mutation.
@@ -202,7 +234,7 @@ impl<const SNAP_SIZE: usize> StateReceipt<SNAP_SIZE> {
             invariants_checked: 0,
             cpi_invoked: false,
             committed: false,
-            before_fingerprint: fnv1a_fingerprint(data),
+            before_fingerprint: fast_fingerprint(data),
             after_fingerprint: [0; 8],
             segment_changed_mask: 0,
             policy_flags: 0,
@@ -228,7 +260,7 @@ impl<const SNAP_SIZE: usize> StateReceipt<SNAP_SIZE> {
         let regions = diff.changed_regions::<16>();
         self.changed_regions = regions.len();
 
-        self.after_fingerprint = fnv1a_fingerprint(current_data);
+        self.after_fingerprint = fast_fingerprint(current_data);
         self.committed = true;
     }
 
