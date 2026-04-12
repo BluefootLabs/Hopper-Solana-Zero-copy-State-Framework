@@ -16,6 +16,24 @@ categories = ["no-std"]
 name = "hopper_macros"
 
 [dependencies]
-hopper-core = { workspace = true }
-hopper-schema = { workspace = true }
-hopper-runtime = { workspace = true }
+hopper-core = { path = "../hopper-core", version = "0.1.0", default-features = false }
+hopper-schema = { path = "../hopper-schema", version = "0.1.0", default-features = false }
+hopper-runtime = { path = "../hopper-runtime", version = "0.1.0", default-features = false }
+
+[features]
+default = ["hopper-native-backend"]
+hopper-native-backend = [
+	"hopper-core/hopper-native-backend",
+	"hopper-schema/hopper-native-backend",
+	"hopper-runtime/hopper-native-backend",
+]
+pinocchio-backend = [
+	"hopper-core/pinocchio-backend",
+	"hopper-schema/pinocchio-backend",
+	"hopper-runtime/pinocchio-backend",
+]
+solana-program-backend = [
+	"hopper-core/solana-program-backend",
+	"hopper-schema/solana-program-backend",
+	"hopper-runtime/solana-program-backend",
+]
