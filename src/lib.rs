@@ -44,11 +44,14 @@ pub mod borrow;
 pub(crate) mod borrow_registry;
 pub mod cpi;
 pub mod field_map;
+pub mod log;
 pub mod segment_borrow;
 pub mod instruction;
 pub mod layout;
 pub mod context;
 pub mod pda;
+pub mod syscall;
+pub mod syscalls;
 pub mod system;
 pub mod token;
 
@@ -73,6 +76,10 @@ pub const SUCCESS: u64 = compat::BACKEND_SUCCESS;
 #[cfg(feature = "hopper-native-backend")]
 #[doc(hidden)]
 pub use hopper_native as __hopper_native;
+
+#[cfg(feature = "solana-program-backend")]
+#[doc(hidden)]
+pub use ::solana_program as __solana_program;
 
 #[doc(hidden)]
 pub use five8_const as __five8_const;
@@ -107,6 +114,31 @@ macro_rules! require_eq {
     };
 }
 
+/// Backend-neutral logging macro.
+#[macro_export]
+macro_rules! msg {
+    ( $literal:expr ) => {{
+        $crate::log::log($literal);
+    }};
+    ( $fmt:expr, $($arg:tt)* ) => {{
+        #[cfg(target_os = "solana")]
+        {
+            use core::fmt::Write;
+            let mut buf = [0u8; 256];
+            let mut wrapper = $crate::log::StackWriter::new(&mut buf);
+            let _ = write!(wrapper, $fmt, $($arg)*);
+            let len = wrapper.pos();
+            $crate::log::log(
+                unsafe { core::str::from_utf8_unchecked(&buf[..len]) }
+            );
+        }
+        #[cfg(not(target_os = "solana"))]
+        {
+            let _ = ($fmt, $($arg)*);
+        }
+    }};
+}
+
 /// Declare the explicit Hopper runtime entrypoint bridge.
 ///
 /// With `hopper-native-backend`, this is a thin alias to Hopper Native's raw
@@ -118,7 +150,32 @@ macro_rules! hopper_entrypoint {
     };
     ( $process_instruction:expr, $maximum:expr ) => {
         #[cfg(feature = "hopper-native-backend")]
-        $crate::__hopper_native::hopper_program_entrypoint!($process_instruction, $maximum);
+        /// # Safety
+        ///
+        /// Called by the Solana runtime; `input` is a valid BPF input buffer.
+        #[no_mangle]
+        pub unsafe extern "C" fn entrypoint(input: *mut u8) -> u64 {
+            #[inline(always)]
+            fn __hopper_bridge(
+                program_id: &$crate::__hopper_native::Address,
+                accounts: &[$crate::__hopper_native::AccountView],
+                data: &[u8],
+            ) -> $crate::__hopper_native::ProgramResult {
+                let hopper_program_id = unsafe {
+                    &*(program_id as *const $crate::__hopper_native::Address as *const $crate::Address)
+                };
+                let hopper_accounts = unsafe {
+                    core::slice::from_raw_parts(accounts.as_ptr() as *const $crate::AccountView, accounts.len())
+                };
+
+                match $process_instruction(hopper_program_id, hopper_accounts, data) {
+                    Ok(()) => Ok(()),
+                    Err(error) => Err(error.into()),
+                }
+            }
+
+            unsafe { $crate::__hopper_native::entrypoint::process_entrypoint::<$maximum>(input, __hopper_bridge) }
+        }
 
         #[cfg(any(feature = "pinocchio-backend", feature = "solana-program-backend"))]
         $crate::__hopper_compat_entrypoint!($process_instruction, $maximum);
@@ -183,7 +240,10 @@ macro_rules! nostd_panic_handler {
         #[cfg(target_os = "solana")]
         #[panic_handler]
         fn panic(_info: &core::panic::PanicInfo) -> ! {
-            unsafe { core::arch::asm!("unimp", options(noreturn)) }
+            let _ = _info;
+            loop {
+                core::hint::spin_loop();
+            }
         }
     };
 }

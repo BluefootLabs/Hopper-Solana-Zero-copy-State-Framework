@@ -141,6 +141,15 @@ pub unsafe fn wrap_account_slice(accounts: &[BackendAccountView]) -> &[AccountVi
 }
 
 #[inline(always)]
+unsafe fn wrap_deserialized_accounts<'a>(
+    accounts: &'a [::solana_program::account_info::AccountInfo<'a>],
+) -> &'a [BackendAccountView] {
+    unsafe {
+        core::slice::from_raw_parts(accounts.as_ptr() as *const BackendAccountView, accounts.len())
+    }
+}
+
+#[inline(always)]
 pub fn account_address(view: &BackendAccountView) -> &Address {
     unsafe { &*(view.inner.key as *const BackendAddress as *const Address) }
 }
@@ -239,20 +248,11 @@ pub unsafe fn process_entrypoint<const MAX: usize>(
     let (program_id, accounts, data) = unsafe { ::solana_program::entrypoint::deserialize(input) };
 
     let count = accounts.len().min(MAX);
-    let mut wrapped = Vec::with_capacity(count);
-    for account in accounts.into_iter().take(count) {
-        let account = unsafe {
-            core::mem::transmute::<
-                ::solana_program::account_info::AccountInfo<'_>,
-                ::solana_program::account_info::AccountInfo<'static>,
-            >(account)
-        };
-        wrapped.push(BackendAccountView::new(account));
-    }
+    let wrapped = unsafe { wrap_deserialized_accounts(&accounts[..count]) };
 
     let program_id: &'static BackendAddress = unsafe { core::mem::transmute(program_id) };
 
-    match process_instruction(program_id, &wrapped, data) {
+    match process_instruction(program_id, wrapped, data) {
         Ok(()) => ::solana_program::entrypoint::SUCCESS,
         Err(error) => error.into(),
     }

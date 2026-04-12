@@ -68,5 +68,17 @@ macro_rules! __hopper_compat_entrypoint {
 
             unsafe { $crate::compat::process_entrypoint::<$maximum>(input, __hopper_bridge) }
         }
+
+        #[cfg(all(target_os = "solana", feature = "solana-program-backend"))]
+        $crate::__solana_program::custom_heap_default!();
+
+        #[cfg(all(target_os = "solana", feature = "solana-program-backend", not(feature = "custom-panic")))]
+        #[no_mangle]
+        fn custom_panic(_info: &core::panic::PanicInfo<'_>) {
+            let _ = _info;
+            loop {
+                core::hint::spin_loop();
+            }
+        }
     };
 }

@@ -41,14 +41,21 @@ pub enum ProgramError {
 // ── u64 conversion (Solana runtime ABI) ──────────────────────────────
 
 /// Map a builtin error index to its runtime u64 code.
+const BUILTIN_BIT_SHIFT: usize = 32;
+const CUSTOM_ZERO: u64 = 1_u64 << BUILTIN_BIT_SHIFT;
+
+/// Hopper builtin errors follow Solana's ABI:
+/// - `Custom(0)` occupies `1 << 32`
+/// - builtin errors start at `2 << 32`
 #[inline(always)]
 const fn to_builtin(index: u64) -> u64 {
-    0x1_0000_0000_u64 + index
+    (index + 2) << BUILTIN_BIT_SHIFT
 }
 
 impl From<ProgramError> for u64 {
     fn from(err: ProgramError) -> u64 {
         match err {
+            ProgramError::Custom(0) => CUSTOM_ZERO,
             ProgramError::Custom(code) => code as u64,
             ProgramError::InvalidArgument => to_builtin(0),
             ProgramError::InvalidInstructionData => to_builtin(1),
@@ -82,6 +89,7 @@ impl From<ProgramError> for u64 {
 impl From<u64> for ProgramError {
     fn from(code: u64) -> Self {
         match code {
+            CUSTOM_ZERO => ProgramError::Custom(0),
             c if c == to_builtin(0) => ProgramError::InvalidArgument,
             c if c == to_builtin(1) => ProgramError::InvalidInstructionData,
             c if c == to_builtin(2) => ProgramError::InvalidAccountData,
