@@ -187,6 +187,9 @@ pub fn cmd_deploy(args: &[String]) {
         "deploy".to_string(),
         artifact.display().to_string(),
     ];
+    if !solana_args.iter().any(|arg| arg == "--use-rpc") {
+        command_args.push("--use-rpc".to_string());
+    }
     command_args.extend(solana_args);
     run_external_command("solana", &workspace_root, &command_args);
 }
@@ -577,6 +580,17 @@ fn render_lib_rs() -> String {
 #![allow(dead_code, unused_variables)]
 
 use hopper::prelude::*;
+
+#[cfg(target_os = "solana")]
+mod __hopper_sbf {
+    use super::*;
+
+    #[cfg(not(feature = "solana-program-backend"))]
+    no_allocator!();
+
+    #[cfg(not(feature = "solana-program-backend"))]
+    nostd_panic_handler!();
+}
 
 #[derive(Clone, Copy)]
 #[repr(C)]

@@ -1,17 +1,19 @@
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::thread;
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use serde::Serialize;
 use serde_json::Value as JsonValue;
 use solana_client::rpc_client::RpcClient;
 use solana_client::rpc_config::RpcSimulateTransactionConfig;
 use solana_sdk::commitment_config::CommitmentConfig;
-use solana_sdk::instruction::{AccountMeta, Instruction};
+use solana_sdk::instruction::{AccountMeta, Instruction, InstructionError};
 use solana_sdk::native_token::LAMPORTS_PER_SOL;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signature::{read_keypair_file, Keypair, Signer};
+use solana_sdk::transaction::TransactionError;
 use solana_sdk::transaction::Transaction;
 use solana_system_interface::instruction as system_instruction;
 use toml::Value as TomlValue;
@@ -20,6 +22,8 @@ use crate::workspace;
 
 const BENCH_ACCOUNT_LEN: usize = 57;
 const WRITE_HEADER_DISC: u8 = 6;
+const WRITE_PROC_HEADER_DISC: u8 = 20;
+const MEASURE_OVERHEAD_DISC: u8 = 21;
 const PROC_MACRO_TYPED_DISPATCH_PAYLOAD: [u8; 8] = 7u64.to_le_bytes();
 
 #[derive(Clone, Copy)]
@@ -27,6 +31,7 @@ enum FixtureMode {
     None,
     BlankAccount,
     InitializedAccount,
+    ProcInitializedAccount,
     DuplicateBlankAccount,
 }
 
@@ -35,8 +40,12 @@ impl FixtureMode {
         !matches!(self, Self::None)
     }
 
-    fn needs_header_init(self) -> bool {
-        matches!(self, Self::InitializedAccount)
+    fn header_init_disc(self) -> Option<u8> {
+        match self {
+            Self::InitializedAccount => Some(WRITE_HEADER_DISC),
+            Self::ProcInitializedAccount => Some(WRITE_PROC_HEADER_DISC),
+            _ => None,
+        }
     }
 
     fn duplicate_accounts(self) -> bool {
@@ -48,6 +57,7 @@ impl FixtureMode {
             Self::None => "no-accounts",
             Self::BlankAccount => "fresh-program-owned-account",
             Self::InitializedAccount => "header-initialized-program-owned-account",
+            Self::ProcInitializedAccount => "proc-header-initialized-program-owned-account",
             Self::DuplicateBlankAccount => "duplicate-program-owned-account",
         }
     }
@@ -82,7 +92,7 @@ const BENCHMARK_CASES: &[BenchmarkCase] = &[
     BenchmarkCase { disc: 16, name: "raw_cast_baseline", baseline_key: "raw_cast_baseline", fixture: FixtureMode::InitializedAccount, payload: &[] },
     BenchmarkCase { disc: 17, name: "receipt_full", baseline_key: "receipt_full_enriched", fixture: FixtureMode::InitializedAccount, payload: &[] },
     BenchmarkCase { disc: 18, name: "receipt_emit", baseline_key: "receipt_emit", fixture: FixtureMode::InitializedAccount, payload: &[] },
-    BenchmarkCase { disc: 19, name: "proc_macro_typed_dispatch", baseline_key: "proc_macro_typed_dispatch", fixture: FixtureMode::InitializedAccount, payload: &PROC_MACRO_TYPED_DISPATCH_PAYLOAD },
+    BenchmarkCase { disc: 19, name: "proc_macro_typed_dispatch", baseline_key: "proc_macro_typed_dispatch", fixture: FixtureMode::ProcInitializedAccount, payload: &PROC_MACRO_TYPED_DISPATCH_PAYLOAD },
 ];
 
 #[derive(Default)]
@@ -118,6 +128,7 @@ struct BenchMetadata {
     git_commit: String,
     keypair_path: String,
     baseline_tolerance_percent: u64,
+    measurement_overhead_cu: Option<u64>,
     benchmark_count: usize,
 }
 
@@ -165,10 +176,12 @@ pub fn run_primitive_bench(args: &[String]) -> Result<(), String> {
                 .join("Cargo.toml")
                 .display()
                 .to_string(),
+            "--".to_string(),
+            "--ignore-rust-version".to_string(),
         ];
         let status = workspace::run_status("cargo", &build_args, &workspace_root)?;
         if !status.success() {
-            return Err("cargo build-sbf --manifest-path bench/hopper-bench/Cargo.toml failed".to_string());
+            return Err("cargo build-sbf --manifest-path bench/hopper-bench/Cargo.toml -- --ignore-rust-version failed".to_string());
         }
     }
 
@@ -202,6 +215,9 @@ pub fn run_primitive_bench(args: &[String]) -> Result<(), String> {
         }
         deploy_bench_program(&workspace_root, &rpc_url, &keypair_path)?
     };
+    wait_for_program_visibility(&client, &program_id)?;
+    let measurement_overhead_cu = measure_compute_log_overhead(&client, &payer, &program_id)?;
+    println!("Calibrated compute-log overhead: {} CU", measurement_overhead_cu);
 
     let mut results = Vec::with_capacity(BENCHMARK_CASES.len());
     let mut failures = 0usize;
@@ -212,7 +228,8 @@ pub fn run_primitive_bench(args: &[String]) -> Result<(), String> {
         let allowed_cu = baseline.map(|entry| allowed_budget(entry.budget_cu, fail_on_regression_percent));
 
         let benchmark_result = match run_case(&client, &payer, &program_id, case) {
-            Ok((measured_cu, total_units_consumed, logs)) => {
+            Ok((raw_measured_cu, total_units_consumed, logs)) => {
+                let measured_cu = raw_measured_cu.saturating_sub(measurement_overhead_cu);
                 let baseline_cu = baseline.map(|entry| entry.budget_cu);
                 let delta_pct = baseline_cu.map(|budget| percentage_delta(measured_cu, budget));
                 let regression = allowed_cu.map(|allowed| measured_cu > allowed).unwrap_or(false);
@@ -286,6 +303,7 @@ pub fn run_primitive_bench(args: &[String]) -> Result<(), String> {
         git_commit: read_tool_version(&workspace_root, "git", &["rev-parse".to_string(), "HEAD".to_string()]),
         keypair_path: keypair_path.display().to_string(),
         baseline_tolerance_percent: fail_on_regression_percent,
+        measurement_overhead_cu: Some(measurement_overhead_cu),
         benchmark_count: BENCHMARK_CASES.len(),
     };
 
@@ -454,12 +472,28 @@ fn ensure_payer_balance(client: &RpcClient, payer: &Keypair, rpc_url: &str) -> R
     ))
 }
 
+fn wait_for_program_visibility(client: &RpcClient, program_id: &Pubkey) -> Result<(), String> {
+    let deadline = Instant::now() + Duration::from_secs(20);
+    while Instant::now() < deadline {
+        match client.get_account(program_id) {
+            Ok(account) if account.executable => return Ok(()),
+            Ok(_) | Err(_) => thread::sleep(Duration::from_millis(250)),
+        }
+    }
+
+    Err(format!(
+        "Program {} was not visible as executable over RPC within 20 seconds",
+        program_id
+    ))
+}
+
 fn deploy_bench_program(workspace_root: &Path, rpc_url: &str, keypair_path: &Path) -> Result<Pubkey, String> {
     let so_path = resolve_bench_program_path(workspace_root)?;
     let args = vec![
         "program".to_string(),
         "deploy".to_string(),
         so_path.display().to_string(),
+        "--use-rpc".to_string(),
         "--output".to_string(),
         "json".to_string(),
         "--url".to_string(),
@@ -518,7 +552,7 @@ fn run_case(
     case: &BenchmarkCase,
 ) -> Result<(u64, Option<u64>, Vec<String>), String> {
     let fixture = if case.fixture.needs_fixture() {
-        Some(create_fixture(client, payer, program_id, case.fixture.needs_header_init())?)
+        Some(create_fixture(client, payer, program_id, case.fixture.header_init_disc())?)
     } else {
         None
     };
@@ -553,11 +587,28 @@ fn run_case(
     Ok((measured, simulation.units_consumed, logs))
 }
 
+fn measure_compute_log_overhead(
+    client: &RpcClient,
+    payer: &Keypair,
+    program_id: &Pubkey,
+) -> Result<u64, String> {
+    let instruction = Instruction::new_with_bytes(*program_id, &[MEASURE_OVERHEAD_DISC], Vec::new());
+    let simulation = simulate_instruction(client, payer, &[instruction], &[])?;
+    let logs = simulation.logs.unwrap_or_default();
+    if let Some(err) = simulation.err {
+        return Err(format!("Simulation error while measuring compute-log overhead: {err:?}"));
+    }
+
+    parse_bounded_delta("measurement_overhead", &logs)
+        .or_else(|| parse_fallback_delta(&logs))
+        .ok_or_else(|| "Could not parse compute-log overhead from calibration logs".to_string())
+}
+
 fn create_fixture(
     client: &RpcClient,
     payer: &Keypair,
     program_id: &Pubkey,
-    initialize_header: bool,
+    header_init_disc: Option<u8>,
 ) -> Result<Keypair, String> {
     let fixture = Keypair::new();
     let rent = client
@@ -572,10 +623,10 @@ fn create_fixture(
     );
     send_instruction(client, payer, &[create_ix], &[&fixture])?;
 
-    if initialize_header {
+    if let Some(header_init_disc) = header_init_disc {
         let init_ix = Instruction::new_with_bytes(
             *program_id,
-            &[WRITE_HEADER_DISC],
+            &[header_init_disc],
             vec![AccountMeta::new(fixture.pubkey(), true)],
         );
         send_instruction(client, payer, &[init_ix], &[&fixture])?;
@@ -616,32 +667,50 @@ fn simulate_instruction(
     instructions: &[Instruction],
     extra_signers: &[&Keypair],
 ) -> Result<solana_client::rpc_response::RpcSimulateTransactionResult, String> {
-    let recent_blockhash = client
-        .get_latest_blockhash()
-        .map_err(|err| format!("Failed to fetch recent blockhash: {err}"))?;
-    let mut signers: Vec<&dyn Signer> = Vec::with_capacity(extra_signers.len() + 1);
-    signers.push(payer);
-    for signer in extra_signers {
-        signers.push(*signer);
-    }
+    let deadline = Instant::now() + Duration::from_secs(20);
 
-    let tx = Transaction::new_signed_with_payer(
-        instructions,
-        Some(&payer.pubkey()),
-        &signers,
-        recent_blockhash,
-    );
-    let response = client
-        .simulate_transaction_with_config(
-            &tx,
-            RpcSimulateTransactionConfig {
-                sig_verify: false,
-                replace_recent_blockhash: true,
-                ..RpcSimulateTransactionConfig::default()
-            },
-        )
-        .map_err(|err| format!("Failed to simulate transaction: {err}"))?;
-    Ok(response.value)
+    loop {
+        let recent_blockhash = client
+            .get_latest_blockhash()
+            .map_err(|err| format!("Failed to fetch recent blockhash: {err}"))?;
+        let mut signers: Vec<&dyn Signer> = Vec::with_capacity(extra_signers.len() + 1);
+        signers.push(payer);
+        for signer in extra_signers {
+            signers.push(*signer);
+        }
+
+        let tx = Transaction::new_signed_with_payer(
+            instructions,
+            Some(&payer.pubkey()),
+            &signers,
+            recent_blockhash,
+        );
+        let response = client
+            .simulate_transaction_with_config(
+                &tx,
+                RpcSimulateTransactionConfig {
+                    commitment: Some(CommitmentConfig::confirmed()),
+                    sig_verify: false,
+                    replace_recent_blockhash: true,
+                    ..RpcSimulateTransactionConfig::default()
+                },
+            )
+            .map_err(|err| format!("Failed to simulate transaction: {err}"))?;
+
+        if is_transient_simulation_error(response.value.err.as_ref()) && Instant::now() < deadline {
+            thread::sleep(Duration::from_millis(250));
+            continue;
+        }
+
+        return Ok(response.value);
+    }
+}
+
+fn is_transient_simulation_error(error: Option<&TransactionError>) -> bool {
+    matches!(
+        error,
+        Some(TransactionError::InstructionError(_, InstructionError::UnsupportedProgramId))
+    )
 }
 
 fn parse_bounded_delta(case_name: &str, logs: &[String]) -> Option<u64> {
@@ -659,7 +728,7 @@ fn parse_bounded_delta(case_name: &str, logs: &[String]) -> Option<u64> {
             break;
         }
         if inside {
-            if let Some(value) = extract_first_number(line) {
+            if let Some(value) = extract_consumption_units(line) {
                 values.push(value);
             }
         }
@@ -673,7 +742,7 @@ fn parse_bounded_delta(case_name: &str, logs: &[String]) -> Option<u64> {
 }
 
 fn parse_fallback_delta(logs: &[String]) -> Option<u64> {
-    let values: Vec<u64> = logs.iter().filter_map(|line| extract_first_number(line)).collect();
+    let values: Vec<u64> = logs.iter().filter_map(|line| extract_consumption_units(line)).collect();
     if values.len() >= 2 && values[0] >= values[1] {
         Some(values[0] - values[1])
     } else {
@@ -681,17 +750,10 @@ fn parse_fallback_delta(logs: &[String]) -> Option<u64> {
     }
 }
 
-fn extract_first_number(line: &str) -> Option<u64> {
-    let mut digits = String::new();
-    let mut capturing = false;
-    for ch in line.chars() {
-        if ch.is_ascii_digit() {
-            digits.push(ch);
-            capturing = true;
-        } else if capturing {
-            break;
-        }
-    }
+fn extract_consumption_units(line: &str) -> Option<u64> {
+    const PREFIX: &str = "Program consumption: ";
+    let rest = line.strip_prefix(PREFIX)?;
+    let digits: String = rest.chars().take_while(|ch| ch.is_ascii_digit()).collect();
     if digits.is_empty() {
         None
     } else {
@@ -776,6 +838,18 @@ mod tests {
             "Program log: END overlay".to_string(),
         ];
         assert_eq!(parse_bounded_delta("overlay", &logs), Some(8));
+    }
+
+    #[test]
+    fn bounded_delta_ignores_program_data_lines() {
+        let logs = vec![
+            "Program log: BEGIN receipt_emit".to_string(),
+            "Program consumption: 199679 units remaining".to_string(),
+            "Program data: avPCx3ke3pAAAAAAAAAAAAAAAAAAADkAAAA5AAAAAAAIfoWrqtZJYhl+hauq1kliGQAAAAAAAAAAAAAAAAAAAA==".to_string(),
+            "Program consumption: 196981 units remaining".to_string(),
+            "Program log: END receipt_emit".to_string(),
+        ];
+        assert_eq!(parse_bounded_delta("receipt_emit", &logs), Some(2698));
     }
 
     #[test]
