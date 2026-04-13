@@ -7,7 +7,9 @@
 //!
 //! Key capabilities:
 //! - Chainable validation (`check_signer()?.check_writable()?`)
-//! - Zero-copy overlay access (`overlay::<T>()`, `overlay_mut::<T>()`)
+//! - Whole-layout typed access (`load::<T>()`, `load_mut::<T>()`)
+//! - Segment-aware typed access (`segment_ref`, `segment_mut`)
+//! - Explicit raw escape hatches (`raw_ref`, `raw_mut`)
 //! - Hopper header reading (disc, version, layout_id)
 //! - Packed flags for batch validation
 //! - Remaining accounts iterator
@@ -19,6 +21,7 @@ use crate::borrow_registry::{self, BorrowToken};
 use crate::compat::{self, BackendAccountView};
 use crate::field_map::FieldInfo;
 use crate::layout::LayoutContract;
+use crate::segment_borrow::SegmentBorrowRegistry;
 use crate::ProgramResult;
 
 // ══════════════════════════════════════════════════════════════════════
@@ -153,12 +156,126 @@ impl AccountView {
         }
     }
 
+    // ── Segment-aware access ───────────────────────────────────────
+
+    /// Project a typed segment from this account with segment-level borrow tracking.
+    ///
+    /// This is Hopper's fine-grained typed access primitive: the runtime
+    /// validates the requested byte range, registers the read borrow in the
+    /// provided instruction-scoped registry, and returns a typed reference
+    /// directly into account bytes.
+    ///
+    /// On the native backend (Solana), this uses direct segment access
+    /// bypassing the intermediate whole-buffer borrow for lower CU cost.
+    #[inline(always)]
+    pub fn segment_ref<T: Copy>(
+        &self,
+        borrows: &mut SegmentBorrowRegistry,
+        abs_offset: u32,
+        size: u32,
+    ) -> Result<Ref<'_, T>, ProgramError> {
+        let expected_size = core::mem::size_of::<T>() as u32;
+        if size != expected_size {
+            return Err(ProgramError::InvalidArgument);
+        }
+
+        let end = abs_offset
+            .checked_add(size)
+            .ok_or(ProgramError::ArithmeticOverflow)?;
+        if end as usize > self.data_len() {
+            return Err(ProgramError::AccountDataTooSmall);
+        }
+
+        borrows.register_read(self.address(), abs_offset, size)?;
+
+        // On native backend: use direct segment access to skip the
+        // intermediate Ref<[u8]> + project() overhead.
+        #[cfg(target_os = "solana")]
+        {
+            // SAFETY: size, overflow, and bounds already validated above.
+            let native_ref = unsafe {
+                self.inner.segment_ref_unchecked::<T>(abs_offset)
+            }.map_err(ProgramError::from)?;
+            let (_value, state_ptr) = native_ref.into_raw_parts();
+            // Create a dummy guard that manages the same borrow state.
+            // The runtime Ref's Deref uses self.ptr, never the guard's data.
+            let guard = unsafe {
+                compat::BackendRef::from_raw_parts(b"" as &[u8], state_ptr)
+            };
+            Ok(Ref::from_segment(_value as *const T, guard))
+        }
+        #[cfg(not(target_os = "solana"))]
+        {
+            let data = self.try_borrow()?;
+            let ptr = unsafe { data.as_bytes_ptr().add(abs_offset as usize) as *const T };
+            Ok(unsafe { data.project(ptr) })
+        }
+    }
+
+    /// Project a mutable typed segment from this account with segment-level borrow tracking.
+    ///
+    /// The caller supplies the instruction-scoped borrow registry. Hopper checks
+    /// that the account is writable, validates the requested byte range, records
+    /// the write borrow, and returns a direct mutable reference into the buffer.
+    ///
+    /// On the native backend (Solana), this uses direct segment access
+    /// bypassing the intermediate whole-buffer borrow for lower CU cost.
+    #[inline(always)]
+    pub fn segment_mut<T: Copy>(
+        &self,
+        borrows: &mut SegmentBorrowRegistry,
+        abs_offset: u32,
+        size: u32,
+    ) -> Result<RefMut<'_, T>, ProgramError> {
+        self.check_writable()?;
+
+        let expected_size = core::mem::size_of::<T>() as u32;
+        if size != expected_size {
+            return Err(ProgramError::InvalidArgument);
+        }
+
+        let end = abs_offset
+            .checked_add(size)
+            .ok_or(ProgramError::ArithmeticOverflow)?;
+        if end as usize > self.data_len() {
+            return Err(ProgramError::AccountDataTooSmall);
+        }
+
+        borrows.register_write(self.address(), abs_offset, size)?;
+
+        // On native backend: use direct segment access to skip the
+        // intermediate RefMut<[u8]> + project() overhead.
+        #[cfg(target_os = "solana")]
+        {
+            // SAFETY: writable, size, overflow, and bounds already validated above.
+            let native_ref = unsafe {
+                self.inner.segment_mut_unchecked::<T>(abs_offset)
+            }.map_err(ProgramError::from)?;
+            let (_value, state_ptr) = native_ref.into_raw_parts();
+            let dummy = unsafe {
+                core::slice::from_raw_parts_mut(core::ptr::NonNull::dangling().as_ptr(), 0)
+            };
+            let guard = unsafe {
+                compat::BackendRefMut::from_raw_parts(dummy, state_ptr)
+            };
+            Ok(RefMut::from_segment(_value as *const T as *mut T, guard))
+        }
+        #[cfg(not(target_os = "solana"))]
+        {
+            let mut data = self.try_borrow_mut()?;
+            let ptr = unsafe { data.as_bytes_mut_ptr().add(abs_offset as usize) as *mut T };
+            Ok(unsafe { data.project(ptr) })
+        }
+    }
+
     // ── Zero-copy overlay access ─────────────────────────────────────
 
-    /// Interpret account data as a typed overlay (immutable).
+    /// Low-level whole-buffer overlay helper.
     ///
-    /// Performs a length check and returns a zero-cost pointer cast
-    /// into the account's data buffer. No copies, no deserialization.
+    /// Prefer `load()` / `load_mut()` for Hopper-owned layouts and
+    /// `segment_ref()` / `segment_mut()` when you want precise byte-range
+    /// borrowing. `overlay()` is the direct slice-to-type escape hatch for
+    /// fixed-layout expert paths.
     ///
     /// # Safety model
     ///
@@ -171,6 +288,10 @@ impl AccountView {
     /// ```ignore
     /// let state = account.overlay::<MyState>()?;
     /// ```
+    ///
+    /// **Deprecated:** Use `load()` for Hopper layouts or `raw_ref()` for
+    /// explicit unvalidated access.
+    #[deprecated(since = "0.2.0", note = "use load() for Hopper layouts or raw_ref() for explicit bypass")]
     #[inline(always)]
     pub fn overlay<T: Copy>(&self) -> Result<Ref<'_, T>, ProgramError> {
         let data = self.try_borrow()?;
@@ -182,10 +303,15 @@ impl AccountView {
         Ok(unsafe { data.project(ptr) })
     }
 
-    /// Interpret account data as a typed overlay (mutable).
+    /// Low-level mutable whole-buffer overlay helper.
     ///
-    /// Same as `overlay()` but provides a mutable reference.
-    /// Changes are written directly to the account's data buffer.
+    /// Prefer `load_mut()` for Hopper-authored whole-layout access and
+    /// `segment_mut()` for precise segment writes. `overlay_mut()` exists for
+    /// explicit fixed-layout slice projection when you intentionally want the
+    /// raw buffer shape.
+    ///
+    /// **Deprecated:** Use `load_mut()` or `raw_mut()` instead.
+    #[deprecated(since = "0.2.0", note = "use load_mut() or raw_mut() instead")]
     #[inline(always)]
     pub fn overlay_mut<T: Copy>(&self) -> Result<RefMut<'_, T>, ProgramError> {
         let mut data = self.try_borrow_mut()?;
@@ -200,6 +326,10 @@ impl AccountView {
     /// Interpret account data at a specific offset as a typed overlay.
     ///
     /// Useful for reading past a header or into a specific region.
+    ///
+    /// **Deprecated:** Use `segment_ref()` with a typed segment offset for
+    /// tracked reads, or `load()` for full-layout projection.
+    #[deprecated(since = "0.2.0", note = "use segment_ref() or load() instead")]
     #[inline(always)]
     pub fn overlay_at<T: Copy>(&self, offset: usize) -> Result<Ref<'_, T>, ProgramError> {
         let data = self.try_borrow()?;
@@ -266,10 +396,44 @@ impl AccountView {
         Ok(unsafe { data.project(ptr) })
     }
 
+    /// Explicit raw typed read of the account buffer.
+    ///
+    /// This bypasses Hopper layout validation and segment tracking, but it still
+    /// respects the account-level borrow rules enforced by `try_borrow()`.
+    #[inline(always)]
+    pub unsafe fn raw_ref<T: Copy>(&self) -> Result<Ref<'_, T>, ProgramError> {
+        let data = self.try_borrow()?;
+        if core::mem::size_of::<T>() > data.len() {
+            return Err(ProgramError::AccountDataTooSmall);
+        }
+        let ptr = data.as_ptr() as *const T;
+        Ok(unsafe { data.project(ptr) })
+    }
+
+    /// Explicit raw typed write of the account buffer.
+    ///
+    /// This bypasses Hopper layout validation and segment tracking, but it still
+    /// enforces writability and the account-level exclusive borrow rules.
+    #[inline(always)]
+    pub unsafe fn raw_mut<T: Copy>(&self) -> Result<RefMut<'_, T>, ProgramError> {
+        self.check_writable()?;
+        let mut data = self.try_borrow_mut()?;
+        if core::mem::size_of::<T>() > data.len() {
+            return Err(ProgramError::AccountDataTooSmall);
+        }
+        let ptr = data.as_bytes_mut_ptr() as *mut T;
+        Ok(unsafe { data.project(ptr) })
+    }
+
     /// Load a typed layout checking only the discriminator (fast path).
     ///
     /// Skips version and layout_id checks. Use when you trust the account
     /// source and only need type dispatch.
+    ///
+    /// **Deprecated:** Use `load()` (validates disc + version + layout_id) or
+    /// `raw_ref()` (skips all checks) instead. Partial validation is a
+    /// foot-gun: either validate fully or take explicit responsibility.
+    #[deprecated(since = "0.2.0", note = "use load() for safe access or raw_ref() for explicit bypass")]
     #[inline(always)]
     pub fn load_unchecked<T: LayoutContract>(&self) -> Result<Ref<'_, T>, ProgramError> {
         let data = self.try_borrow()?;
@@ -288,6 +452,10 @@ impl AccountView {
     /// version match. This allows loading older account versions that the
     /// current layout version still understands (e.g. forward-compatible
     /// append-only migrations).
+    ///
+    /// **Deprecated:** Use `load()` with the upcoming migration framework,
+    /// or implement version-aware loading in your instruction handler.
+    #[deprecated(since = "0.2.0", note = "use load() or implement version-aware loading in your handler")]
     #[inline(always)]
     pub fn load_versioned<T: LayoutContract>(&self) -> Result<Ref<'_, T>, ProgramError> {
         let data = self.try_borrow()?;
@@ -310,6 +478,10 @@ impl AccountView {
     /// Only validates the wire format (disc + layout_id + size). Use
     /// this for cross-program reads where the account is owned by
     /// another program and you just need a typed view of its data.
+    ///
+    /// **Deprecated:** Use `load_cross_program()` which replaces this with
+    /// the same semantics but a clearer name.
+    #[deprecated(since = "0.2.0", note = "renamed to load_cross_program()")]
     #[inline(always)]
     pub fn load_foreign<T: LayoutContract>(&self) -> Result<Ref<'_, T>, ProgramError> {
         let data = self.try_borrow()?;
@@ -318,6 +490,40 @@ impl AccountView {
         }
         T::check_disc(&data)?;
         // Verify layout_id to confirm the wire format matches.
+        if let Some(id) = crate::layout::read_layout_id(&data) {
+            if *id != T::LAYOUT_ID {
+                return Err(ProgramError::InvalidAccountData);
+            }
+        } else {
+            return Err(ProgramError::AccountDataTooSmall);
+        }
+        let ptr = unsafe { data.as_bytes_ptr().add(T::TYPE_OFFSET) as *const T };
+        // SAFETY: Wire identity and size validated above.
+        Ok(unsafe { data.project(ptr) })
+    }
+
+    /// Load a cross-program layout without ownership checks.
+    ///
+    /// Validates wire format (disc + layout_id + size) but does not check
+    /// that the account is owned by this program. Use for cross-program
+    /// reads where the account is owned by another program and you need
+    /// a typed, zero-copy view of its data.
+    ///
+    /// The layout_id check ensures ABI compatibility: if the other program
+    /// changes its layout, this will fail rather than silently misinterpret.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let other_vault = foreign_account.load_cross_program::<OtherVault>()?;
+    /// ```
+    #[inline(always)]
+    pub fn load_cross_program<T: LayoutContract>(&self) -> Result<Ref<'_, T>, ProgramError> {
+        let data = self.try_borrow()?;
+        if data.len() < T::required_len() {
+            return Err(ProgramError::AccountDataTooSmall);
+        }
+        T::check_disc(&data)?;
         if let Some(id) = crate::layout::read_layout_id(&data) {
             if *id != T::LAYOUT_ID {
                 return Err(ProgramError::InvalidAccountData);
@@ -342,6 +548,7 @@ impl AccountView {
     }
 
     /// Alias for runtime layout inspection.
+    #[deprecated(since = "0.2.0", note = "use layout_info() directly")]
     #[inline(always)]
     pub fn inspect(&self) -> Option<crate::layout::LayoutInfo> {
         self.layout_info()
@@ -652,7 +859,7 @@ impl AccountView {
     // ── Backend access ───────────────────────────────────────────────
 
     /// Access the active backend account view inside the runtime crate.
-    #[cfg(feature = "solana-program-backend")]
+    #[cfg(target_os = "solana")]
     #[inline(always)]
     pub(crate) fn as_backend(&self) -> &BackendAccountView {
         &self.inner
@@ -910,6 +1117,7 @@ mod tests {
         }
 
         {
+            #[allow(deprecated)]
             let mut layout = account.overlay_mut::<HeaderLayout>().unwrap();
             layout.amount = 55;
         }

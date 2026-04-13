@@ -44,6 +44,7 @@ pub mod borrow;
 pub(crate) mod borrow_registry;
 pub mod cpi;
 pub mod field_map;
+pub mod interop;
 pub mod log;
 pub mod segment_borrow;
 pub mod instruction;
@@ -63,12 +64,13 @@ pub use context::Context;
 pub use cpi::{invoke, invoke_signed};
 pub use error::ProgramError;
 pub use field_map::{FieldInfo, FieldMap};
+pub use interop::TransparentAddress;
 #[cfg(feature = "hopper-native-backend")]
 pub use instruction::CpiAccount;
 pub use instruction::{InstructionAccount, InstructionView, Seed, Signer};
 pub use layout::{HopperHeader, LayoutContract, LayoutInfo};
 pub use result::ProgramResult;
-pub use segment_borrow::{AccessKind, SegmentBorrow, SegmentBorrowRegistry};
+pub use segment_borrow::{AccessKind, SegmentBorrow, SegmentBorrowGuard, SegmentBorrowRegistry};
 
 pub const MAX_TX_ACCOUNTS: usize = compat::BACKEND_MAX_TX_ACCOUNTS;
 pub const SUCCESS: u64 = compat::BACKEND_SUCCESS;
@@ -155,26 +157,31 @@ macro_rules! hopper_entrypoint {
         /// Called by the Solana runtime; `input` is a valid BPF input buffer.
         #[no_mangle]
         pub unsafe extern "C" fn entrypoint(input: *mut u8) -> u64 {
-            #[inline(always)]
-            fn __hopper_bridge(
-                program_id: &$crate::__hopper_native::Address,
-                accounts: &[$crate::__hopper_native::AccountView],
-                data: &[u8],
-            ) -> $crate::__hopper_native::ProgramResult {
-                let hopper_program_id = unsafe {
-                    &*(program_id as *const $crate::__hopper_native::Address as *const $crate::Address)
-                };
-                let hopper_accounts = unsafe {
-                    core::slice::from_raw_parts(accounts.as_ptr() as *const $crate::AccountView, accounts.len())
-                };
+            const UNINIT: core::mem::MaybeUninit<$crate::__hopper_native::AccountView> =
+                core::mem::MaybeUninit::<$crate::__hopper_native::AccountView>::uninit();
+            let mut accounts = [UNINIT; $maximum];
 
-                match $process_instruction(hopper_program_id, hopper_accounts, data) {
-                    Ok(()) => Ok(()),
-                    Err(error) => Err(error.into()),
-                }
+            let (program_id, count, instruction_data) = unsafe {
+                $crate::__hopper_native::raw_input::deserialize_accounts::<$maximum>(
+                    input,
+                    &mut accounts,
+                )
+            };
+
+            let hopper_program_id = unsafe {
+                &*(
+                    &program_id as *const $crate::__hopper_native::Address
+                        as *const $crate::Address
+                )
+            };
+            let hopper_accounts = unsafe {
+                core::slice::from_raw_parts(accounts.as_ptr() as *const $crate::AccountView, count)
+            };
+
+            match $process_instruction(hopper_program_id, hopper_accounts, instruction_data) {
+                Ok(()) => $crate::__hopper_native::SUCCESS,
+                Err(error) => error.into(),
             }
-
-            unsafe { $crate::__hopper_native::entrypoint::process_entrypoint::<$maximum>(input, __hopper_bridge) }
         }
 
         #[cfg(any(feature = "pinocchio-backend", feature = "solana-program-backend"))]
@@ -190,6 +197,77 @@ macro_rules! program_entrypoint {
     };
     ( $process_instruction:expr, $maximum:expr ) => {
         $crate::hopper_entrypoint!($process_instruction, $maximum);
+    };
+}
+
+/// Declare the fast two-argument Hopper entrypoint.
+///
+/// Uses the SVM's second register to receive instruction data directly,
+/// eliminating the full account-scanning pass. Saves ~30-40 CU per
+/// instruction. Requires SVM runtime ≥1.17.
+#[macro_export]
+macro_rules! hopper_fast_entrypoint {
+    ( $process_instruction:expr ) => {
+        $crate::hopper_fast_entrypoint!($process_instruction, { $crate::MAX_TX_ACCOUNTS });
+    };
+    ( $process_instruction:expr, $maximum:expr ) => {
+        #[cfg(feature = "hopper-native-backend")]
+        /// # Safety
+        ///
+        /// Called by the Solana runtime; `input` is a valid BPF input buffer
+        /// and `ix_data` points to the instruction data with its u64 length
+        /// stored at offset -8.
+        #[no_mangle]
+        pub unsafe extern "C" fn entrypoint(input: *mut u8, ix_data: *const u8) -> u64 {
+            const UNINIT: core::mem::MaybeUninit<$crate::__hopper_native::AccountView> =
+                core::mem::MaybeUninit::<$crate::__hopper_native::AccountView>::uninit();
+            let mut accounts = [UNINIT; $maximum];
+
+            let ix_len = unsafe { *(ix_data.sub(8) as *const u64) as usize };
+            let instruction_data: &'static [u8] =
+                unsafe { core::slice::from_raw_parts(ix_data, ix_len) };
+            let program_id = unsafe {
+                core::ptr::read(ix_data.add(ix_len) as *const $crate::__hopper_native::Address)
+            };
+
+            let (program_id, count, instruction_data) = unsafe {
+                $crate::__hopper_native::raw_input::deserialize_accounts_fast::<$maximum>(
+                    input,
+                    &mut accounts,
+                    instruction_data,
+                    program_id,
+                )
+            };
+
+            let hopper_program_id = unsafe {
+                &*(
+                    &program_id as *const $crate::__hopper_native::Address
+                        as *const $crate::Address
+                )
+            };
+            let hopper_accounts = unsafe {
+                core::slice::from_raw_parts(accounts.as_ptr() as *const $crate::AccountView, count)
+            };
+
+            match $process_instruction(hopper_program_id, hopper_accounts, instruction_data) {
+                Ok(()) => $crate::__hopper_native::SUCCESS,
+                Err(error) => error.into(),
+            }
+        }
+
+        #[cfg(any(feature = "pinocchio-backend", feature = "solana-program-backend"))]
+        compile_error!("hopper_fast_entrypoint! requires hopper-native-backend");
+    };
+}
+
+/// Backward-compatible alias for the fast Hopper entrypoint macro.
+#[macro_export]
+macro_rules! fast_entrypoint {
+    ( $process_instruction:expr ) => {
+        $crate::hopper_fast_entrypoint!($process_instruction);
+    };
+    ( $process_instruction:expr, $maximum:expr ) => {
+        $crate::hopper_fast_entrypoint!($process_instruction, $maximum);
     };
 }
 

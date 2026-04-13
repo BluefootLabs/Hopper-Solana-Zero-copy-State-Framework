@@ -99,6 +99,22 @@ impl<T: ?Sized> Ref<'_, T> {
     }
 }
 
+impl<'a, T> Ref<'a, T> {
+    /// Construct a lean Ref from a direct segment pointer and a dummy guard
+    /// that owns the borrow state. Used by the native segment access path
+    /// to skip the intermediate Ref<[u8]> + project() overhead.
+    #[cfg(target_os = "solana")]
+    #[inline(always)]
+    pub(crate) fn from_segment(ptr: *const T, guard: BackendRef<'a, [u8]>) -> Self {
+        Self {
+            ptr,
+            guard,
+            token: BorrowToken,
+            _marker: PhantomData,
+        }
+    }
+}
+
 impl<T: ?Sized> core::ops::Deref for Ref<'_, T> {
     type Target = T;
 
@@ -187,6 +203,21 @@ impl<'a> RefMut<'a, [u8]> {
     pub fn as_bytes_mut_ptr(&mut self) -> *mut u8 {
         let bytes: &mut [u8] = self;
         bytes.as_mut_ptr()
+    }
+}
+
+impl<'a, T> RefMut<'a, T> {
+    /// Construct a lean RefMut from a direct segment pointer and a dummy guard
+    /// that owns the borrow state. Used by the native segment access path.
+    #[cfg(target_os = "solana")]
+    #[inline(always)]
+    pub(crate) fn from_segment(ptr: *mut T, guard: BackendRefMut<'a, [u8]>) -> Self {
+        Self {
+            ptr,
+            guard,
+            token: BorrowToken,
+            _marker: PhantomData,
+        }
     }
 }
 
