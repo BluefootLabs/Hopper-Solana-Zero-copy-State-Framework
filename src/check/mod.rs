@@ -17,7 +17,7 @@ pub mod guards;
 pub mod modifier;
 pub mod trust;
 
-use hopper_runtime::{error::ProgramError, AccountView, Address, ProgramResult};
+use hopper_runtime::{address::address_eq, error::ProgramError, AccountView, Address, ProgramResult};
 
 // --- Tier 1: Account-Local -------------------------------------------
 
@@ -126,7 +126,7 @@ pub fn check_lamports_gte(account: &AccountView, min: u64) -> ProgramResult {
 /// Check that two account addresses are equal.
 #[inline(always)]
 pub fn check_keys_eq(a: &AccountView, b: &AccountView) -> ProgramResult {
-    if a.address() != b.address() {
+    if !address_eq(a.address(), b.address()) {
         return Err(ProgramError::InvalidAccountData);
     }
     Ok(())
@@ -188,7 +188,7 @@ pub fn check_has_one(
 /// Check that two accounts are unique (different addresses).
 #[inline(always)]
 pub fn check_accounts_unique(a: &AccountView, b: &AccountView) -> ProgramResult {
-    if a.address() == b.address() {
+    if address_eq(a.address(), b.address()) {
         return Err(ProgramError::InvalidArgument);
     }
     Ok(())
@@ -201,7 +201,10 @@ pub fn check_accounts_unique_3(
     b: &AccountView,
     c: &AccountView,
 ) -> ProgramResult {
-    if a.address() == b.address() || a.address() == c.address() || b.address() == c.address() {
+    if address_eq(a.address(), b.address())
+        || address_eq(a.address(), c.address())
+        || address_eq(b.address(), c.address())
+    {
         return Err(ProgramError::InvalidArgument);
     }
     Ok(())
@@ -210,7 +213,7 @@ pub fn check_accounts_unique_3(
 /// Check an account's address matches an expected value.
 #[inline(always)]
 pub fn check_address(account: &AccountView, expected: &Address) -> ProgramResult {
-    if account.address() != expected {
+    if !address_eq(account.address(), expected) {
         return Err(ProgramError::InvalidAccountData);
     }
     Ok(())
@@ -268,60 +271,21 @@ pub fn verify_pda(
     bump: u8,
     program_id: &Address,
 ) -> ProgramResult {
-    #[cfg(target_os = "solana")]
-    {
-        // Build seeds with bump appended
-        // Stack-allocated: max 16 seeds + 1 bump
-        let bump_seed = [bump];
-        let mut all_seeds: [&[u8]; 17] = [&[]; 17];
-        let seed_count = seeds.len();
-        if seed_count > 16 {
-            return Err(ProgramError::InvalidSeeds);
-        }
-        for (i, s) in seeds.iter().enumerate() {
-            all_seeds[i] = s;
-        }
-        all_seeds[seed_count] = &bump_seed;
-
-        let derived = Address::create_program_address(
-            &all_seeds[..seed_count + 1],
-            program_id,
-        )?;
-
-        if *account.address() != derived {
-            return Err(ProgramError::InvalidSeeds);
-        }
-        Ok(())
-    }
-    #[cfg(not(target_os = "solana"))]
-    {
-        let _ = (account, seeds, bump, program_id);
-        Err(ProgramError::InvalidSeeds)
-    }
+    hopper_runtime::pda::verify_pda_with_bump(account, seeds, bump, program_id)
 }
 
 /// Find a PDA and verify it matches the account, returning the bump.
 ///
-/// Costs ~1500 CU. Prefer `verify_pda` when bump is stored.
+/// On Hopper Native this uses the fast PDA path (`sol_sha256` +
+/// `sol_curve_validate_point`), which is roughly ~544 CU for a first-try bump.
+/// Prefer `verify_pda` when bump is stored.
 #[inline(always)]
 pub fn find_and_verify_pda(
     account: &AccountView,
     seeds: &[&[u8]],
     program_id: &Address,
 ) -> Result<u8, ProgramError> {
-    #[cfg(target_os = "solana")]
-    {
-        let (derived, bump) = Address::find_program_address(seeds, program_id);
-        if *account.address() != derived {
-            return Err(ProgramError::InvalidSeeds);
-        }
-        Ok(bump)
-    }
-    #[cfg(not(target_os = "solana"))]
-    {
-        let _ = (account, seeds, program_id);
-        Err(ProgramError::InvalidSeeds)
-    }
+    hopper_runtime::pda::find_and_verify_pda(account, seeds, program_id)
 }
 
 // --- BUMP_OFFSET PDA Optimization ----------------------------------
@@ -375,7 +339,7 @@ pub fn verify_pda_cached(
             program_id,
         )?;
 
-        if *account.address() != derived {
+        if !address_eq(account.address(), &derived) {
             return Err(ProgramError::InvalidSeeds);
         }
         Ok(())
