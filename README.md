@@ -24,6 +24,9 @@ cargo run -p hopper-cli -- help
 ## Commands
 
 ```
+Compile
+  hopper compile --emit rust [<manifest>]  Emit lowered runtime Rust: accessors, offsets, pointer path
+
 Schema
   hopper schema export [--manifest|--idl|--codama]  Schema format reference
   hopper schema validate <manifest>  Validate a program manifest
@@ -31,6 +34,7 @@ Schema
 
 Inspect
   hopper inspect <hex>               Raw header decode
+  hopper inspect layout <manifest> <hex>  Decode fields using a program manifest
   hopper inspect segments <hex>      Segment registry map
   hopper inspect receipt <hex>       Decode a state receipt
 
@@ -42,7 +46,7 @@ Explain
   hopper explain policy <pack>       Explain a named policy pack
   hopper explain layout <manifest>   Explain layout fields, intents, fingerprint
   hopper explain program <manifest>  Explain entire program pipeline
-  hopper explain context <manifest> [--type <ContextName>]  Explain instruction contexts
+  hopper explain context <manifest> [--type <ContextName>]  Explain instruction contexts and generated accessors
 
 Compatibility
   hopper compat <old> <new>          Compatibility report
@@ -53,6 +57,8 @@ Lifecycle
   hopper init <path>                 Create a Hopper-native project scaffold
   hopper build [--host|--sbf]        Build the current project (default: SBF)
   hopper test                        Run host-side tests for the current project
+  hopper deploy [--no-build]         Build and deploy the current SBF program
+  hopper dump [--no-build]           Disassemble the built SBF binary
 
 Profiling
   hopper profile bench               Run the primitive benchmark lab and emit JSON/CSV artifacts
@@ -92,6 +98,11 @@ Manager
   hopper manager fetch <program-id> [--rpc <url>]  Fetch manifest and show summary
   hopper manager interactive <manifest>  Interactive terminal explorer
 ```
+
+When run inside a Hopper package that already contains `hopper.manifest.json`,
+`hopper compile --emit rust` can infer that local manifest automatically. Use
+`--package <name>` to target another workspace member and `--out <path>` to
+write the lowered preview instead of printing it.
 
 ## License
 

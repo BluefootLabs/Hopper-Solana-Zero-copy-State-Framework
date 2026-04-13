@@ -149,6 +149,64 @@ pub fn resolve_workspace_member_manifest(workspace_root: &Path, package: &str) -
     ))
 }
 
+pub fn infer_program_manifest_for_project(start: &Path) -> Result<PathBuf, String> {
+    let project_root = find_project_root(start)?;
+    infer_program_manifest_in_dir(&project_root)
+}
+
+pub fn infer_program_manifest_for_package(workspace_root: &Path, package: &str) -> Result<PathBuf, String> {
+    let manifest_path = resolve_workspace_member_manifest(workspace_root, package)?;
+    let project_root = manifest_path.parent().ok_or_else(|| {
+        format!(
+            "Resolved manifest {} has no parent directory",
+            manifest_path.display()
+        )
+    })?;
+    infer_program_manifest_in_dir(project_root)
+}
+
+fn infer_program_manifest_in_dir(project_root: &Path) -> Result<PathBuf, String> {
+    let cargo_manifest = project_root.join("Cargo.toml");
+    let package_name = if cargo_manifest.exists() {
+        read_package_name(&cargo_manifest).ok()
+    } else {
+        None
+    };
+
+    let mut candidates = vec![project_root.join("hopper.manifest.json")];
+    if let Some(name) = package_name {
+        candidates.push(project_root.join(format!("{name}.manifest.json")));
+    }
+    candidates.push(project_root.join("manifest.json"));
+
+    for candidate in candidates {
+        if candidate.exists() {
+            return Ok(candidate);
+        }
+    }
+
+    Err(format!(
+        "Could not find a generated Hopper program manifest under {}. Looked for hopper.manifest.json, <package>.manifest.json, and manifest.json.",
+        project_root.display()
+    ))
+}
+
+fn read_package_name(manifest_path: &Path) -> Result<String, String> {
+    let manifest = fs::read_to_string(manifest_path)
+        .map_err(|err| format!("Failed to read {}: {err}", manifest_path.display()))?;
+    let manifest_value: Value = manifest
+        .parse()
+        .map_err(|err| format!("Failed to parse {}: {err}", manifest_path.display()))?;
+
+    manifest_value
+        .get("package")
+        .and_then(Value::as_table)
+        .and_then(|package_table| package_table.get("name"))
+        .and_then(Value::as_str)
+        .map(ToOwned::to_owned)
+        .ok_or_else(|| format!("{} does not declare package.name", manifest_path.display()))
+}
+
 pub fn write_text_file(path: &Path, contents: &str, force: bool) -> Result<(), String> {
     if path.exists() && !force {
         return Err(format!(
