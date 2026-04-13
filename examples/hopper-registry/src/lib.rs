@@ -180,7 +180,7 @@ fn process_init_registry(
     let lamports = rent_exempt_min(REGISTRY_ACCOUNT_SIZE);
     let space = REGISTRY_ACCOUNT_SIZE as u64;
 
-    hopper::hopper_runtime::system::CreateAccount {
+    hopper::hopper_system::CreateAccount {
         from: payer,
         to: registry_account,
         lamports,

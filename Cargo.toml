@@ -4,6 +4,10 @@ members = [
     "crates/hopper-native",
     "crates/hopper-runtime",
     "crates/hopper-core",
+    "crates/hopper-system",
+    "crates/hopper-token",
+    "crates/hopper-token-2022",
+    "crates/hopper-associated-token",
     "crates/hopper-macros",
     "crates/hopper-schema",
     "crates/hopper-solana",
@@ -15,16 +19,20 @@ members = [
     "crates/hopper-multisig",
     "crates/hopper-anchor",
     "examples/hopper-vault",
+    "examples/hopper-parity-vault",
     "examples/hopper-escrow",
     "examples/hopper-showcase",
     "examples/hopper-treasury",
     "examples/hopper-registry",
     "examples/hopper-migration",
     "examples/hopper-virtual-state",
+    "examples/hopper-token-2022-ata",
+    "examples/hopper-token-2022-vault",
     "examples/hopper-proc-vault",
     "examples/cross-program-read/program-a",
     "examples/cross-program-read/program-b",
     "bench/hopper-bench",
+    "bench/framework-vault-bench",
     "tools/hopper-cli",
     "crates/hopper-macros-proc",
 ]
@@ -46,6 +54,10 @@ hopper-native = { path = "crates/hopper-native", version = "0.1.0", default-feat
 hopper-runtime = { path = "crates/hopper-runtime", version = "0.1.0", default-features = false }
 hopper = { path = ".", version = "0.1.0" }
 hopper-core = { path = "crates/hopper-core", version = "0.1.0" }
+hopper-system = { path = "crates/hopper-system", version = "0.1.0" }
+hopper-token = { path = "crates/hopper-token", version = "0.1.0" }
+hopper-token-2022 = { path = "crates/hopper-token-2022", version = "0.1.0" }
+hopper-associated-token = { path = "crates/hopper-associated-token", version = "0.1.0" }
 hopper-macros = { path = "crates/hopper-macros", version = "0.1.0" }
 hopper-schema = { path = "crates/hopper-schema", version = "0.1.0" }
 hopper-solana = { path = "crates/hopper-solana", version = "0.1.0" }
@@ -79,6 +91,10 @@ name = "hopper"
 hopper-runtime = { path = "crates/hopper-runtime", version = "0.1.0", default-features = false }
 sha2-const-stable = { workspace = true }
 hopper-core = { path = "crates/hopper-core", version = "0.1.0", default-features = false }
+hopper-system = { path = "crates/hopper-system", version = "0.1.0", default-features = false }
+hopper-token = { path = "crates/hopper-token", version = "0.1.0", default-features = false }
+hopper-token-2022 = { path = "crates/hopper-token-2022", version = "0.1.0", default-features = false }
+hopper-associated-token = { path = "crates/hopper-associated-token", version = "0.1.0", default-features = false }
 hopper-macros = { path = "crates/hopper-macros", version = "0.1.0", default-features = false }
 hopper-schema = { path = "crates/hopper-schema", version = "0.1.0", default-features = false }
 hopper-solana = { path = "crates/hopper-solana", version = "0.1.0", default-features = false }
@@ -90,6 +106,10 @@ proc-macros = ["hopper-macros-proc"]
 hopper-native-backend = [
     "hopper-runtime/hopper-native-backend",
     "hopper-core/hopper-native-backend",
+    "hopper-system/hopper-native-backend",
+    "hopper-token/hopper-native-backend",
+    "hopper-token-2022/hopper-native-backend",
+    "hopper-associated-token/hopper-native-backend",
     "hopper-macros/hopper-native-backend",
     "hopper-schema/hopper-native-backend",
     "hopper-solana/hopper-native-backend",
@@ -97,6 +117,10 @@ hopper-native-backend = [
 pinocchio-backend = [
     "hopper-runtime/pinocchio-backend",
     "hopper-core/pinocchio-backend",
+    "hopper-system/pinocchio-backend",
+    "hopper-token/pinocchio-backend",
+    "hopper-token-2022/pinocchio-backend",
+    "hopper-associated-token/pinocchio-backend",
     "hopper-macros/pinocchio-backend",
     "hopper-schema/pinocchio-backend",
     "hopper-solana/pinocchio-backend",
@@ -104,6 +128,10 @@ pinocchio-backend = [
 solana-program-backend = [
     "hopper-runtime/solana-program-backend",
     "hopper-core/solana-program-backend",
+    "hopper-system/solana-program-backend",
+    "hopper-token/solana-program-backend",
+    "hopper-token-2022/solana-program-backend",
+    "hopper-associated-token/solana-program-backend",
     "hopper-macros/solana-program-backend",
     "hopper-schema/solana-program-backend",
     "hopper-solana/solana-program-backend",

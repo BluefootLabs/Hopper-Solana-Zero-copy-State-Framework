@@ -175,7 +175,8 @@ fn process_init_market(
 
     // Initialize config
     {
-        let mut cfg = config_acc.overlay_mut::<MarketConfig>()?;
+        let mut cfg = MarketConfig::load_mut(config_acc, program_id)?;
+        let cfg = cfg.get_mut();
         cfg.admin = TypedAddress::from_account(payer);
         cfg.fee_bps = WireU16::new(if data.len() >= 2 {
             u16::from_le_bytes([data[0], data[1]])
@@ -188,7 +189,8 @@ fn process_init_market(
 
     // Initialize vault
     {
-        let mut vault = vault_acc.overlay_mut::<MarketVault>()?;
+        let mut vault = MarketVault::load_mut(vault_acc, program_id)?;
+        let vault = vault.get_mut();
         vault.authority = TypedAddress::from_account(payer);
         vault.total_fees = WireU64::new(0);
         vault.total_volume = WireU64::new(0);

@@ -173,7 +173,19 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
             }
 
             #[inline(always)]
+            #[deprecated(since = "0.2.0", note = "renamed to load_cross_program()")]
             pub fn load_foreign<'a>(
+                account: &'a ::hopper::prelude::AccountView,
+                expected_owner: &::hopper::prelude::Address,
+            ) -> ::core::result::Result<
+                ::hopper::__runtime::Ref<'a, Self>,
+                ::hopper::__runtime::ProgramError,
+            > {
+                Self::load_cross_program(account, expected_owner)
+            }
+
+            #[inline(always)]
+            pub fn load_cross_program<'a>(
                 account: &'a ::hopper::prelude::AccountView,
                 expected_owner: &::hopper::prelude::Address,
             ) -> ::core::result::Result<

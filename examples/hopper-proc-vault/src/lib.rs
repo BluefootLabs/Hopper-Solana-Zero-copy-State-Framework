@@ -31,6 +31,15 @@ pub struct Deposit {
     pub authority: AccountView,
 }
 
+#[hopper::context]
+pub struct AdminSweep {
+    #[account(mut)]
+    pub vault: Vault,
+
+    #[signer]
+    pub authority: AccountView,
+}
+
 #[cfg(target_os = "solana")]
 program_entrypoint!(process_instruction);
 
@@ -50,9 +59,8 @@ mod vault_program {
     #[hopper::pipeline]
     #[hopper::receipt]
     #[hopper::invariant({
-        let balance = ctx.vault_balance_ref()?.get();
-        let pending_rewards = ctx.vault_pending_rewards_ref()?.get();
-        balance >= pending_rewards
+        let vault = ctx.vault_load()?;
+        vault.balance.get() >= vault.pending_rewards.get()
     })]
     #[instruction(0)]
     pub fn deposit(ctx: Context<Deposit>, amount: u64) -> ProgramResult {
@@ -62,6 +70,21 @@ mod vault_program {
             .checked_add(amount)
             .ok_or(ProgramError::ArithmeticOverflow)?;
         *balance = WireU64::new(next);
+        Ok(())
+    }
+
+    #[instruction(1)]
+    pub fn admin_sweep(ctx: Context<AdminSweep>) -> ProgramResult {
+        let account = ctx.vault_account()?;
+        let _vault_address = account.address();
+
+        {
+            let mut vault = ctx.vault_load_mut()?;
+            vault.pending_rewards = WireU64::new(0);
+        }
+
+        let raw = ctx.vault_raw_ref()?;
+        let _cleared_rewards = raw.pending_rewards.get();
         Ok(())
     }
 }

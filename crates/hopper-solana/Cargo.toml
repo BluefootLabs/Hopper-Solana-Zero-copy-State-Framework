@@ -21,6 +21,8 @@ workspace = true
 [dependencies]
 hopper-core = { path = "../hopper-core", version = "0.1.0", default-features = false }
 hopper-runtime = { path = "../hopper-runtime", version = "0.1.0", default-features = false }
+hopper-system = { path = "../hopper-system", version = "0.1.0", default-features = false }
+hopper-token = { path = "../hopper-token", version = "0.1.0", default-features = false }
 five8_const = { workspace = true }
 
 [features]
@@ -28,12 +30,18 @@ default = ["hopper-native-backend"]
 hopper-native-backend = [
 	"hopper-core/hopper-native-backend",
 	"hopper-runtime/hopper-native-backend",
+	"hopper-system/hopper-native-backend",
+	"hopper-token/hopper-native-backend",
 ]
 pinocchio-backend = [
 	"hopper-core/pinocchio-backend",
 	"hopper-runtime/pinocchio-backend",
+	"hopper-system/pinocchio-backend",
+	"hopper-token/pinocchio-backend",
 ]
 solana-program-backend = [
 	"hopper-core/solana-program-backend",
 	"hopper-runtime/solana-program-backend",
+	"hopper-system/solana-program-backend",
+	"hopper-token/solana-program-backend",
 ]

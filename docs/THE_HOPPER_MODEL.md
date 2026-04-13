@@ -39,8 +39,9 @@ This generates:
 
 - A `#[repr(C)]` struct with alignment-1 wire types (no padding, no platform variance)
 - A deterministic 8-byte `LAYOUT_ID` (SHA-256 fingerprint of type + fields)
-- Tiered load functions: `load()`, `load_foreign()`, `load_unchecked()`
-- `overlay()` / `overlay_mut()` for zero-copy field access
+- Canonical whole-layout accessors: `load()` / `load_mut()`
+- Specialized validation helpers such as `load_foreign()` and `load_versioned()`
+- Low-level `overlay()` / `overlay_mut()` helpers for explicit slice-driven access
 - `SIZE`, `LEN`, `DISC`, `VERSION` constants
 - `BUMP_OFFSET` for PDA verification
 
@@ -63,56 +64,57 @@ The header makes every account self-describing. Any tool can decode the
 type, version, and fingerprint without knowing the layout definition.
 This is what powers `hopper explain` and `hopper inspect`.
 
-## Memory Access Tiers
+## One Access System
 
-Hopper supports three levels of memory access:
+Hopper is easiest to reason about when access is treated as one system with
+different guarantees, not multiple frameworks.
 
-**Tier A -- Safe Overlay (default).** Full pipeline: validation,
+**Validated whole-layout access (default).** Full pipeline: validation,
 fingerprints, receipts, tooling.
 
 ```rust
 let vault = Vault::load(account, program_id)?;
 ```
 
-**Tier B -- Explicit Pod.** Direct typed view, no header validation.
+**Direct typed slice access.** Direct typed view, no header validation.
 For hot paths where you need the cast without the checks.
 
 ```rust
 let vault = pod_from_bytes::<Vault>(data)?;
 ```
 
-**Tier C -- Unsafe Raw.** Raw cast, caller owns all risk.
+**Explicit raw escape hatch.** Raw cast, caller owns all risk.
 
 ```rust
 let vault = unsafe { Vault::load_unchecked(data) };
 ```
 
-The cast itself costs ~8 CU at every tier. The difference is in what
-validation runs before and what tracking runs after. Most programs use
-Tier A. Tier B is for serious builders who know their data is already
-validated. Tier C is an escape hatch.
+The cast itself costs ~8 CU in each case. The difference is what validation
+runs before the cast and what tracking runs after it. Most programs use the
+validated path. Direct typed slices are for already-proven data. Raw access is
+the explicit unsafe escape hatch.
 
 See [MEMORY_ACCESS.md](MEMORY_ACCESS.md) for the full doctrine.
 
-## Account Loading Tiers
+## Specialized Validation Helpers
 
-Hopper has five loading tiers for different trust levels:
+Hopper keeps one whole-layout loading path and exposes specialized helpers when
+the guarantee changes:
 
-| Tier | Function | Validates | Use case |
-|------|----------|-----------|----------|
-| T1 | `load()` / `load_mut()` | owner + disc + version + layout_id + exact size | Own program accounts |
-| T2 | `load_foreign()` / `load_foreign_multi()` | owner + layout_id + exact size | Cross-program reads |
-| T3 | `load_compatible()` / `load_compatible_mut()` | owner + disc + min version + min size | Migration (accept V(N)+ ) |
-| T4 | `load_unchecked()` | nothing (unsafe) | Benchmarks, init-time writes |
-| T5 | `load_unverified()` | size only, returns (ref, validated) | Indexers, tooling |
+| Helper | What changes | Use case |
+|--------|--------------|----------|
+| `load()` / `load_mut()` | default full Hopper validation | Own program accounts |
+| `load_foreign()` / `load_foreign_multi()` | foreign ownership and ABI proof | Cross-program reads |
+| `load_compatible()` / `load_versioned()` | version compatibility instead of exact identity | Migration windows |
+| `load_unchecked()` | caller owns validation | Benchmarks, init-time writes |
+| `load_unverified()` | best-effort tooling read | Indexers, tooling |
 
-T1 is the default. T2 enables cross-program account reading without crate
-dependencies via `hopper_interface!`. T3 is for migration rollouts where a
-single instruction must accept both old and new versions of an account. It
-checks the discriminator and minimum version but skips layout_id, matching
-Jiminy's `validate_version_compatible` semantics.
-Trust profiles (`TrustProfile::strict`, `compatible`, `read_only`,
-`observational`) provide additional configurability for foreign loads.
+`load()` is the default. `load_foreign()` enables cross-program reads without
+crate dependencies via `hopper_interface!`. `load_compatible()` and
+`load_versioned()` are for migration rollouts where a single instruction must
+accept more than one layout version. Trust profiles (`strict`, `compatible`,
+`read_only`, `observational`) remain additional configuration over the same
+underlying loading story.
 
 At the raw runtime layer, the equivalent Hopper-first helpers are
 `account.load_versioned::<T>()`, `account.load_foreign::<T>()`, and

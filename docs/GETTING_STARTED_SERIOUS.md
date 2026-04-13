@@ -67,9 +67,10 @@ What this does:
 - Generates a `#[repr(C)]` struct with exact byte-level layout
 - Computes a deterministic `LAYOUT_ID` (SHA-256 of field names, types, and sizes)
 - Provides `Vault::LEN` (total size including the 16-byte header)
-- Creates tiered loading methods (`load`, `load_mut`, `load_foreign`,
-  `load_foreign_multi`, `load_with_profile`, `load_compatible`,
-  `load_unchecked`, `load_unverified`)
+- Creates the canonical whole-layout accessors (`load`, `load_mut`) plus
+    specialized variants for foreign reads, compatibility windows, and explicit
+    escape hatches (`load_foreign`, `load_compatible`, `load_unchecked`,
+    `load_unverified`)
 - Asserts correct size and alignment at compile time
 
 On the runtime `AccountView` API, the migration-friendly equivalent is
@@ -182,8 +183,10 @@ fn process_init(
 3. Zero-initializes the buffer and writes the 16-byte Hopper header
    (disc, version, flags, layout_id)
 
-After init, `overlay_mut` gives you a mutable typed reference into the raw
-account bytes. No serialization, no allocation.
+After init, `overlay_mut` is the intentional low-level write path because you
+just created the account and own the whole buffer. For normal authored program
+flow after initialization, prefer `load_mut()` for whole-layout access or
+segment access through the runtime context.
 
 ## Step 5: Phased Execution
 

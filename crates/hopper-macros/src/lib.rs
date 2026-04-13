@@ -28,7 +28,7 @@
 /// - 16-byte Hopper header
 /// - Alignment-1 fields
 /// - Deterministic `LAYOUT_ID` via SHA-256
-/// - Tiered loading: `load`, `load_mut`, `load_foreign`, `load_compatible`, `load_unchecked`, `load_unverified`
+/// - Tiered loading: `load`, `load_mut`, `load_cross_program`, `load_compatible`, `load_unverified`
 /// - Compile-time size and alignment assertions
 ///
 /// # Example
@@ -183,12 +183,14 @@ macro_rules! hopper_layout {
             };
 
             /// Zero-copy overlay (immutable).
+            #[deprecated(since = "0.2.0", note = "use load() for Hopper layouts or raw_ref() for explicit bypass")]
             #[inline(always)]
             pub fn overlay(data: &[u8]) -> Result<&Self, $crate::hopper_runtime::error::ProgramError> {
                 $crate::hopper_core::account::pod_from_bytes::<Self>(data)
             }
 
             /// Zero-copy overlay (mutable).
+            #[deprecated(since = "0.2.0", note = "use load_mut() or raw_mut() instead")]
             #[inline(always)]
             pub fn overlay_mut(data: &mut [u8]) -> Result<&mut Self, $crate::hopper_runtime::error::ProgramError> {
                 $crate::hopper_core::account::pod_from_bytes_mut::<Self>(data)
@@ -242,8 +244,33 @@ macro_rules! hopper_layout {
             /// Tier 2: Foreign account load (cross-program reads).
             ///
             /// Validates: owner + layout_id + exact size (no disc/version check).
+            ///
+            /// **Deprecated:** Renamed to `load_cross_program()` for clarity.
+            #[deprecated(since = "0.2.0", note = "renamed to load_cross_program()")]
             #[inline]
             pub fn load_foreign<'a>(
+                account: &'a $crate::hopper_runtime::AccountView,
+                expected_owner: &$crate::hopper_runtime::Address,
+            ) -> Result<
+                $crate::hopper_core::account::VerifiedAccount<'a, Self>,
+                $crate::hopper_runtime::error::ProgramError,
+            > {
+                $crate::hopper_core::check::check_owner(account, expected_owner)?;
+                let data = account.try_borrow()?;
+                let layout_id = $crate::hopper_core::account::read_layout_id(&*data)?;
+                if layout_id != Self::LAYOUT_ID {
+                    return Err($crate::hopper_runtime::error::ProgramError::InvalidAccountData);
+                }
+                $crate::hopper_core::check::check_size(&*data, Self::LEN)?;
+                $crate::hopper_core::account::VerifiedAccount::from_ref(data)
+            }
+
+            /// Cross-program account load (reads accounts owned by other programs).
+            ///
+            /// Validates: owner + layout_id + exact size (no disc/version check).
+            /// This is the successor to `load_foreign()` with a clearer name.
+            #[inline]
+            pub fn load_cross_program<'a>(
                 account: &'a $crate::hopper_runtime::AccountView,
                 expected_owner: &$crate::hopper_runtime::Address,
             ) -> Result<
@@ -336,6 +363,10 @@ macro_rules! hopper_layout {
             ///
             /// # Safety
             /// Caller must guarantee the data is valid for this layout.
+            ///
+            /// **Deprecated:** Use `load()` for safe access. For explicit
+            /// unsafe access, use the raw byte pointer directly.
+            #[deprecated(since = "0.2.0", note = "use load() for safe access")]
             #[inline(always)]
             pub unsafe fn load_unchecked(data: &[u8]) -> &Self {
                 &*(data.as_ptr() as *const Self)
@@ -569,7 +600,7 @@ macro_rules! hopper_init {
         let space = <$layout>::LEN as u64;
 
         // CPI CreateAccount
-        $crate::hopper_runtime::system::CreateAccount {
+        $crate::hopper_system::CreateAccount {
             from: $payer,
             to: $account,
             lamports,
@@ -1087,6 +1118,7 @@ macro_rules! hopper_assert_fingerprint {
 pub use hopper_core;
 pub use hopper_schema;
 pub use hopper_runtime;
+pub use hopper_system;
 
 /// Compile-time assertion for safe manual `Pod` implementations.
 ///
@@ -1320,8 +1352,26 @@ macro_rules! hopper_interface {
             ///
             /// Validates: owner + layout_id + exact size.
             /// No discriminator or version check -- the layout_id is the ABI proof.
+            ///
+            /// **Deprecated:** Renamed to `load_cross_program()` for clarity.
+            #[deprecated(since = "0.2.0", note = "renamed to load_cross_program()")]
             #[inline]
             pub fn load_foreign<'a>(
+                account: &'a $crate::hopper_runtime::AccountView,
+                expected_owner: &$crate::hopper_runtime::Address,
+            ) -> Result<
+                $crate::hopper_core::account::VerifiedAccount<'a, Self>,
+                $crate::hopper_runtime::error::ProgramError,
+            > {
+                Self::load_cross_program(account, expected_owner)
+            }
+
+            /// Tier 2: Cross-program load (read-only).
+            ///
+            /// Validates: owner + layout_id + exact size.
+            /// The layout_id is the ABI proof — no discriminator or version check needed.
+            #[inline]
+            pub fn load_cross_program<'a>(
                 account: &'a $crate::hopper_runtime::AccountView,
                 expected_owner: &$crate::hopper_runtime::Address,
             ) -> Result<

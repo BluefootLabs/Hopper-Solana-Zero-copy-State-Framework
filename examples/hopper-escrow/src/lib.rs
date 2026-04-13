@@ -106,8 +106,8 @@ fn process_make(
     hopper_init!(maker, escrow_account, system_program, program_id, Escrow)?;
 
     // Write state
-    let mut escrow_data = escrow_account.try_borrow_mut()?;
-    let escrow = Escrow::overlay_mut(&mut escrow_data)?;
+    let mut escrow = Escrow::load_mut(escrow_account, program_id)?;
+    let escrow = escrow.get_mut();
     escrow.maker = TypedAddress::from_account(maker);
     escrow.maker_ta = TypedAddress::zeroed(); // Simplified: would be maker's token account
     escrow.mint_a = TypedAddress::from_slice(mint_a.try_into().map_err(|_| ProgramError::InvalidInstructionData)?);

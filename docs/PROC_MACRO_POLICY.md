@@ -13,13 +13,22 @@ tooling without relying on proc macros for soundness.
 Proc macros are allowed for optional ergonomic and schema-generation
 tasks:
 
+- `#[hopper::state]` -- emit layout contracts and segment metadata
+- `#[hopper::context]` -- emit typed account accessors over Hopper runtime
+- `#[hopper::program]` -- emit dispatch glue over ordinary Hopper handlers
 - `#[derive(HopperSchema)]` -- emit LayoutManifest const from struct
 - `#[derive(HopperInstruction)]` -- emit instruction metadata
 - `#[derive(HopperEvent)]` -- emit event metadata
 - `#[derive(HopperManifest)]` -- assemble full program manifest
 
-These generate **metadata**, not runtime semantics. The program works
-identically with or without them.
+These generate **code around existing Hopper runtime semantics**, not new
+runtime behavior. The program works identically with or without them.
+
+For typed account contexts, this means proc macros may emit narrow wrappers
+such as `vault_account()`, `vault_load()`, `vault_raw_ref()`,
+`vault_balance_mut()`, and, for fully mutable accounts only,
+`vault_load_mut()` / `vault_raw_mut()`. Those methods must remain direct,
+inspectable calls into `AccountView` and `Context`, not hidden logic.
 
 ## What proc macros must not do
 

@@ -25,6 +25,31 @@ impl<'a, T: ?Sized> Ref<'a, T> {
     pub(crate) fn new(value: &'a T, state: *mut u8) -> Self {
         Self { value, state }
     }
+
+    /// Create a shared borrow guard from raw parts.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure:
+    /// - The borrow state at `state` was already incremented
+    /// - `value` is valid for lifetime `'a`
+    /// - `state` points to a valid `RuntimeAccount.borrow_state`
+    #[inline(always)]
+    pub unsafe fn from_raw_parts(value: &'a T, state: *mut u8) -> Self {
+        Self { value, state }
+    }
+
+    /// Decompose into raw parts without running the destructor.
+    ///
+    /// The caller takes responsibility for eventually releasing the
+    /// borrow (decrementing `*state`).
+    #[inline(always)]
+    pub fn into_raw_parts(self) -> (&'a T, *mut u8) {
+        let value = self.value;
+        let state = self.state;
+        core::mem::forget(self);
+        (value, state)
+    }
 }
 
 impl<T: ?Sized> core::ops::Deref for Ref<'_, T> {
@@ -68,6 +93,31 @@ impl<'a, T: ?Sized> RefMut<'a, T> {
     #[inline(always)]
     pub(crate) fn new(value: &'a mut T, state: *mut u8) -> Self {
         Self { value, state }
+    }
+
+    /// Create an exclusive borrow guard from raw parts.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure:
+    /// - The borrow state at `state` was set to 0 (exclusive)
+    /// - `value` is valid and unique for lifetime `'a`
+    /// - `state` points to a valid `RuntimeAccount.borrow_state`
+    #[inline(always)]
+    pub unsafe fn from_raw_parts(value: &'a mut T, state: *mut u8) -> Self {
+        Self { value, state }
+    }
+
+    /// Decompose into raw parts without running the destructor.
+    ///
+    /// The caller takes responsibility for eventually releasing the
+    /// borrow (restoring `*state` to `NOT_BORROWED`).
+    #[inline(always)]
+    pub fn into_raw_parts(self) -> (&'a mut T, *mut u8) {
+        let manual = core::mem::ManuallyDrop::new(self);
+        let value = unsafe { core::ptr::read(&manual.value) };
+        let state = manual.state;
+        (value, state)
     }
 }
 

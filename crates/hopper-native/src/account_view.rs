@@ -234,6 +234,113 @@ impl AccountView {
         Ok(RefMut::new(data, state_ptr))
     }
 
+    // ── Typed segment and raw access ───────────────────────────────
+
+    /// Project a typed segment from account data with native borrow tracking.
+    #[inline]
+    pub fn segment_ref<T: Copy>(&self, offset: u32, size: u32) -> Result<Ref<'_, T>, ProgramError> {
+        let expected_size = core::mem::size_of::<T>() as u32;
+        if size != expected_size {
+            return Err(ProgramError::InvalidArgument);
+        }
+
+        let end = offset
+            .checked_add(size)
+            .ok_or(ProgramError::ArithmeticOverflow)?;
+        if end as usize > self.data_len() {
+            return Err(ProgramError::AccountDataTooSmall);
+        }
+
+        self.check_borrow()?;
+        let state_ptr = unsafe { &mut (*self.raw).borrow_state as *mut u8 };
+        let state = unsafe { *state_ptr };
+        let new_state = if state == NOT_BORROWED { 1 } else { state + 1 };
+        if new_state == 0 {
+            return Err(ProgramError::AccountBorrowFailed);
+        }
+        unsafe { *state_ptr = new_state; }
+
+        let ptr = unsafe { self.data_ptr().add(offset as usize) as *const T };
+        Ok(Ref::new(unsafe { &*ptr }, state_ptr))
+    }
+
+    /// Acquire a shared segment borrow without size/bounds validation.
+    ///
+    /// # Safety
+    ///
+    /// The caller must have already verified:
+    /// - `offset + size_of::<T>()` does not overflow
+    /// - `offset + size_of::<T>() <= data_len()`
+    #[inline(always)]
+    pub unsafe fn segment_ref_unchecked<T: Copy>(&self, offset: u32) -> Result<Ref<'_, T>, ProgramError> {
+        self.check_borrow()?;
+        let state_ptr = unsafe { &mut (*self.raw).borrow_state as *mut u8 };
+        let state = unsafe { *state_ptr };
+        let new_state = if state == NOT_BORROWED { 1 } else { state + 1 };
+        if new_state == 0 {
+            return Err(ProgramError::AccountBorrowFailed);
+        }
+        unsafe { *state_ptr = new_state; }
+
+        let ptr = unsafe { self.data_ptr().add(offset as usize) as *const T };
+        Ok(Ref::new(unsafe { &*ptr }, state_ptr))
+    }
+
+    /// Project a mutable typed segment from account data with native borrow tracking.
+    #[inline]
+    pub fn segment_mut<T: Copy>(&self, offset: u32, size: u32) -> Result<RefMut<'_, T>, ProgramError> {
+        self.require_writable()?;
+
+        let expected_size = core::mem::size_of::<T>() as u32;
+        if size != expected_size {
+            return Err(ProgramError::InvalidArgument);
+        }
+
+        let end = offset
+            .checked_add(size)
+            .ok_or(ProgramError::ArithmeticOverflow)?;
+        if end as usize > self.data_len() {
+            return Err(ProgramError::AccountDataTooSmall);
+        }
+
+        self.check_borrow_mut()?;
+        let state_ptr = unsafe { &mut (*self.raw).borrow_state as *mut u8 };
+        unsafe { *state_ptr = 0; }
+
+        let ptr = unsafe { self.data_ptr().add(offset as usize) as *mut T };
+        Ok(RefMut::new(unsafe { &mut *ptr }, state_ptr))
+    }
+
+    /// Acquire an exclusive segment borrow without size/bounds/writable validation.
+    ///
+    /// # Safety
+    ///
+    /// The caller must have already verified:
+    /// - The account is writable
+    /// - `offset + size_of::<T>()` does not overflow
+    /// - `offset + size_of::<T>() <= data_len()`
+    #[inline(always)]
+    pub unsafe fn segment_mut_unchecked<T: Copy>(&self, offset: u32) -> Result<RefMut<'_, T>, ProgramError> {
+        self.check_borrow_mut()?;
+        let state_ptr = unsafe { &mut (*self.raw).borrow_state as *mut u8 };
+        unsafe { *state_ptr = 0; }
+
+        let ptr = unsafe { self.data_ptr().add(offset as usize) as *mut T };
+        Ok(RefMut::new(unsafe { &mut *ptr }, state_ptr))
+    }
+
+    /// Explicit raw typed read of the account buffer.
+    #[inline]
+    pub unsafe fn raw_ref<T: Copy>(&self) -> Result<Ref<'_, T>, ProgramError> {
+        self.segment_ref::<T>(0, core::mem::size_of::<T>() as u32)
+    }
+
+    /// Explicit raw typed write of the account buffer.
+    #[inline]
+    pub unsafe fn raw_mut<T: Copy>(&self) -> Result<RefMut<'_, T>, ProgramError> {
+        self.segment_mut::<T>(0, core::mem::size_of::<T>() as u32)
+    }
+
     // ── Resize ───────────────────────────────────────────────────────
 
     /// Resize the account data to `new_len` bytes.

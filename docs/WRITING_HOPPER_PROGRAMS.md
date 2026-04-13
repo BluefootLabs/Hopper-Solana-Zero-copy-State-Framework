@@ -13,16 +13,18 @@ This guide shows the canonical way to write Hopper programs.
 
 # Hopper Model
 
-A Hopper program has 4 layers:
+Hopper should read like one coherent system, not a menu of competing modes:
 
 1. **Instruction surface**
-   - Define the instruction enum / dispatch.
-2. **Account validation**
-   - Validate signer, writable, ownership, and discriminator/layout.
-3. **Typed state access**
-   - Load typed overlays directly from account bytes.
+    - Define dispatch and arguments.
+2. **Validation**
+    - Prove signer, writable, ownership, and layout expectations.
+3. **Access**
+    - Use `load()` / `load_mut()` for whole layouts, `segment_ref()` /
+      `segment_mut()` for precise regions, and raw access only as an explicit
+      unsafe escape hatch.
 4. **Mutation + receipts**
-   - Mutate state and emit a structured receipt of what changed.
+    - Mutate state and emit a structured receipt of what changed.
 
 ---
 
@@ -89,11 +91,26 @@ let balance = vault.map(|v| v.balance.get());
 
 Prefer:
 
-* `load()` for your own program's accounts
-* `load_foreign()` for ABI-pinned foreign accounts
-* `load_compatible()` for migration-compatible reads
+* `load()` / `load_mut()` for Hopper-owned whole-layout access
+* `load_foreign()` when the guarantee changes because the account is foreign
+* `load_versioned()` / `load_compatible()` when the guarantee changes because you are in a migration window
 
-Avoid `_unchecked` unless you are inside a proven safe initialization path.
+Avoid raw or unchecked access unless you are inside a proven safe initialization
+path or a deliberately audited hot path.
+
+# Canonical Segment Pattern
+
+When you want byte-range precision instead of whole-layout projection, keep the
+same access story and change only the guarantee level:
+
+```rust
+let core = ctx.account(0)?;
+let balance = core.segment_mut::<WireU64>(ctx.borrows_mut(), 32, 8)?;
+balance.set(balance.get() + amount);
+```
+
+Generated proc-macro accessors such as `ctx.vault_balance_mut()?` are just a
+typed front-end over that same runtime call.
 
 ---
 

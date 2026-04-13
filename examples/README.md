@@ -35,7 +35,12 @@ something simpler, then explore the advanced patterns as you need them.
    entities with VirtualState and ShardedAccess. For when your state is too big
    for one account.
 
-8. **[cross-program-read](cross-program-read/)** - Two separate programs reading
+8. **[hopper-token-2022-vault](hopper-token-2022-vault/src/lib.rs)** - Hopper-owned
+   Token-2022 vault flow with a local `hopper.manifest.json`, so the CLI can
+   infer the package manifest and emit lowered accessors directly from the
+   example directory.
+
+9. **[cross-program-read](cross-program-read/)** - Two separate programs reading
    each other's accounts via `hopper_interface!`. No shared crate dependency.
    Companion guide: [cross-program-read/README.md](cross-program-read/README.md)
 

@@ -104,6 +104,61 @@ pub unsafe fn deserialize_accounts<const MAX: usize>(
     (frame.program_id, count, frame.instruction_data)
 }
 
+/// Fast two-argument deserialize: instruction data and program id are provided
+/// directly by the caller (from the SVM's second entrypoint register), so the
+/// full account-scan pass is skipped entirely.
+///
+/// # Safety
+///
+/// * `input` must point to a valid Solana BPF input buffer.
+/// * `ix_data` must point to the instruction data with its length stored as
+///   `u64` at offset `-8`.
+/// * `program_id` must be the correct program id for this invocation.
+pub unsafe fn deserialize_accounts_fast<const MAX: usize>(
+    input: *mut u8,
+    accounts: &mut [MaybeUninit<AccountView>; MAX],
+    instruction_data: &'static [u8],
+    program_id: Address,
+) -> (Address, usize, &'static [u8]) {
+    let num_accounts = unsafe { *(input as *const u64) as usize };
+    let count = num_accounts.min(MAX);
+    let mut offset = 8usize;
+
+    let mut slot = 0usize;
+    while slot < count {
+        let marker = unsafe { *input.add(offset) };
+        if marker == u8::MAX {
+            let raw = unsafe { input.add(offset) as *mut RuntimeAccount };
+            accounts[slot] = MaybeUninit::new(unsafe { AccountView::new_unchecked(raw) });
+
+            let data_len = unsafe { (*raw).data_len as usize };
+            offset += RuntimeAccount::SIZE;
+            offset += data_len + MAX_PERMITTED_DATA_INCREASE;
+            offset += unsafe { input.add(offset).align_offset(BPF_ALIGN_OF_U128) };
+            offset += 8;
+        } else {
+            let duplicate_of = marker as usize;
+            let raw = if duplicate_of < slot {
+                unsafe { accounts[duplicate_of].assume_init_ref().raw_ptr() }
+            } else if slot > 0 {
+                unsafe { accounts[0].assume_init_ref().raw_ptr() }
+            } else {
+                core::ptr::null_mut()
+            };
+
+            accounts[slot] = MaybeUninit::new(unsafe { AccountView::new_unchecked(raw) });
+            offset += 8;
+        }
+
+        slot += 1;
+    }
+
+    // Skip remaining accounts — not needed, but slot tracking isn't required
+    // since we don't need to find the instruction tail.
+
+    (program_id, count, instruction_data)
+}
+
 /// Parse just the instruction tail and account span from the loader input.
 ///
 /// This supports both eager entrypoint parsing and lazy account iteration.

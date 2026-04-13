@@ -58,12 +58,15 @@ pub use hopper_core::collections::slab::Slab;
 pub use hopper_runtime::error::ProgramError;
 pub use hopper_runtime::program_entrypoint;
 pub use hopper_runtime::hopper_entrypoint;
+pub use hopper_runtime::hopper_fast_entrypoint;
+pub use hopper_runtime::fast_entrypoint;
 pub use hopper_runtime::hopper_lazy_entrypoint;
 pub use hopper_runtime::lazy_entrypoint;
 pub use hopper_runtime::{no_allocator, nostd_panic_handler};
 pub use hopper_runtime::{
     AccountView, Address, ProgramResult, Context, LayoutContract,
     InstructionAccount, InstructionView, Seed, Signer,
+    TransparentAddress,
 };
 pub use hopper_runtime::layout::{
     read_disc, read_version, read_layout_id, write_header, init_header,
@@ -74,6 +77,18 @@ pub use hopper_runtime::cpi::{
     invoke_signed as cpi_invoke_signed,
     set_return_data as cpi_set_return_data,
 };
+pub use hopper_system;
+pub use hopper_system::instructions as system_instructions;
+pub use hopper_system::SYSTEM_PROGRAM_ID;
+pub use hopper_token;
+pub use hopper_token::instructions as token_instructions;
+pub use hopper_token::TOKEN_PROGRAM_ID;
+pub use hopper_token_2022;
+pub use hopper_token_2022::instructions as token_2022_instructions;
+pub use hopper_token_2022::TOKEN_2022_PROGRAM_ID;
+pub use hopper_associated_token;
+pub use hopper_associated_token::instructions as associated_token_instructions;
+pub use hopper_associated_token::ATA_PROGRAM_ID;
 
 // Field maps
 pub use hopper_core::field_map::{FieldInfo, FieldMap};

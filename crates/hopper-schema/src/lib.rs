@@ -3405,7 +3405,7 @@ pub trait AccountSchemaExt {
 impl AccountSchemaExt for AccountView {
     #[inline]
     fn manager_metadata_for<T: SchemaExport>(&self) -> Option<ManagerMetadata> {
-        let info = self.inspect()?;
+        let info = self.layout_info()?;
         if info.matches::<T>() {
             Some(T::manager_metadata())
         } else {
@@ -3415,7 +3415,7 @@ impl AccountSchemaExt for AccountView {
 
     #[inline]
     fn schema_bundle_for<T: SchemaExport>(&self) -> Option<SchemaBundle> {
-        let info = self.inspect()?;
+        let info = self.layout_info()?;
         if info.matches::<T>() {
             Some(T::schema_bundle())
         } else {

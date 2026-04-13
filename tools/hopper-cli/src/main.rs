@@ -10,7 +10,10 @@
 //! hopper schema validate <manifest-json>            Validate a manifest
 //! hopper schema diff <old> <new>                    Field-level diff
 //!
+//! hopper compile --emit rust [<manifest>]           Emit lowered Hopper runtime Rust preview
+//!
 //! hopper inspect <hex-data>                         Decode account header
+//! hopper inspect layout <manifest> <hex-data>       Decode fields using a program manifest
 //! hopper inspect segments <hex-data>                Decode segment map
 //! hopper inspect receipt <hex-data>                 Decode a state receipt
 //!
@@ -64,7 +67,9 @@ use hopper_schema::{
     CompatImpact, DecodedReceipt, Phase,
 };
 use hopper_schema::clientgen::{TsClientGen, KtClientGen};
+use hopper_schema::accounts::{ContextAccountDescriptor, ContextDescriptor};
 use std::env;
+use std::path::PathBuf;
 use std::process;
 
 mod bench;
@@ -95,6 +100,7 @@ fn main() {
     match args[1].as_str() {
         // Command families
         "schema" => cmd_schema_family(&args[2..]),
+        "compile" => cmd_compile(&args[2..]),
         "inspect" => cmd_inspect_family(&args[2..]),
         "explain" => cmd_explain_family(&args[2..]),
         "client" => cmd_client_family(&args[2..]),
@@ -159,11 +165,13 @@ fn cmd_inspect_family(args: &[String]) {
         eprintln!("Usage: hopper inspect <hex-data|subcommand>");
         eprintln!();
         eprintln!("  hopper inspect <hex-data>            Decode account header");
+        eprintln!("  hopper inspect layout <manifest> <hex-data>  Decode fields using a manifest");
         eprintln!("  hopper inspect segments <hex-data>   Decode segment map");
         eprintln!("  hopper inspect receipt <hex-data>    Decode a state receipt");
         process::exit(1);
     }
     match args[0].as_str() {
+        "layout" => cmd_inspect_layout(&args[1..]),
         "segments" => cmd_segments(&args[1..]),
         "receipt" => cmd_receipt(&args[1..]),
         _ => cmd_inspect(args), // treat first arg as hex data
@@ -212,6 +220,228 @@ fn cmd_client_family(args: &[String]) {
             process::exit(1);
         }
     }
+}
+
+#[derive(Default)]
+struct RustEmitFilters {
+    layout: Option<String>,
+    instruction: Option<String>,
+    context: Option<String>,
+}
+
+enum CompileManifestSource {
+    Explicit(String),
+    CurrentPackage,
+    Package(String),
+    ProgramId {
+        program_id: String,
+        rpc_override: Option<String>,
+    },
+}
+
+struct CompileOptions {
+    source: CompileManifestSource,
+    filters: RustEmitFilters,
+    out: Option<PathBuf>,
+    force: bool,
+}
+
+fn cmd_compile(args: &[String]) {
+    if args.iter().any(|arg| arg == "--help" || arg == "-h") {
+        print_compile_usage();
+        return;
+    }
+
+    if args.len() < 2 || args[0] != "--emit" {
+        eprintln!("Usage: hopper compile --emit rust [<manifest> | --package <name> | --program-id <program-id>] [--rpc <url>] [--layout <Layout>] [--instruction <Instruction>] [--context <Context>] [--out <path>] [--force]");
+        eprintln!();
+        eprintln!("Only `--emit rust` is supported right now.");
+        process::exit(1);
+    }
+
+    if args[1] != "rust" {
+        eprintln!("Unsupported emit target: {}", args[1]);
+        eprintln!("Only `hopper compile --emit rust ...` is currently supported.");
+        process::exit(1);
+    }
+
+    let cwd = workspace::current_dir().unwrap_or_else(|err| {
+        eprintln!("{err}");
+        process::exit(1);
+    });
+    let options = parse_compile_options(&args[2..]).unwrap_or_else(|err| {
+        eprintln!("hopper compile failed: {err}");
+        process::exit(1);
+    });
+    let prog = load_compile_manifest(&options.source, &cwd).unwrap_or_else(|err| {
+        eprintln!("hopper compile failed: {err}");
+        process::exit(1);
+    });
+
+    match render_program_rust_preview(&prog, &options.filters) {
+        Ok(preview) => {
+            if let Some(path) = options.out {
+                let output_path = if path.is_absolute() {
+                    path
+                } else {
+                    cwd.join(path)
+                };
+                workspace::write_text_file(&output_path, &preview, options.force)
+                    .unwrap_or_else(|err| {
+                        eprintln!("hopper compile failed: {err}");
+                        process::exit(1);
+                    });
+                println!("Wrote lowered Rust preview to {}", output_path.display());
+            } else {
+                print!("{preview}");
+            }
+        }
+        Err(err) => {
+            eprintln!("hopper compile failed: {err}");
+            process::exit(1);
+        }
+    }
+}
+
+fn parse_compile_options(args: &[String]) -> Result<CompileOptions, String> {
+    let mut explicit_manifest = None;
+    let mut package = None;
+    let mut program_id = None;
+    let mut rpc_override = None;
+    let mut filters = RustEmitFilters::default();
+    let mut out = None;
+    let mut force = false;
+    let mut i = 0;
+
+    while i < args.len() {
+        match args[i].as_str() {
+            "--program-id" => {
+                if i + 1 >= args.len() {
+                    return Err("--program-id requires a base58 program address".to_string());
+                }
+                program_id = Some(args[i + 1].clone());
+                i += 2;
+            }
+            "--rpc" => {
+                if i + 1 >= args.len() {
+                    return Err("--rpc requires a URL argument".to_string());
+                }
+                rpc_override = Some(args[i + 1].clone());
+                i += 2;
+            }
+            "--package" => {
+                if i + 1 >= args.len() {
+                    return Err("--package requires a workspace member name".to_string());
+                }
+                package = Some(args[i + 1].clone());
+                i += 2;
+            }
+            "--layout" => {
+                if i + 1 >= args.len() {
+                    return Err("--layout requires a layout name".to_string());
+                }
+                filters.layout = Some(args[i + 1].clone());
+                i += 2;
+            }
+            "--instruction" => {
+                if i + 1 >= args.len() {
+                    return Err("--instruction requires an instruction name".to_string());
+                }
+                filters.instruction = Some(args[i + 1].clone());
+                i += 2;
+            }
+            "--context" => {
+                if i + 1 >= args.len() {
+                    return Err("--context requires a context name".to_string());
+                }
+                filters.context = Some(args[i + 1].clone());
+                i += 2;
+            }
+            "--out" => {
+                if i + 1 >= args.len() {
+                    return Err("--out requires a file path".to_string());
+                }
+                out = Some(PathBuf::from(&args[i + 1]));
+                i += 2;
+            }
+            "--force" => {
+                force = true;
+                i += 1;
+            }
+            other if other.starts_with('-') => {
+                return Err(format!("Unknown compile argument: {other}"));
+            }
+            other => {
+                if explicit_manifest.is_some() {
+                    return Err(format!("Unexpected extra manifest argument: {other}"));
+                }
+                explicit_manifest = Some(other.to_string());
+                i += 1;
+            }
+        }
+    }
+
+    if rpc_override.is_some() && program_id.is_none() {
+        return Err("--rpc is only valid together with --program-id".to_string());
+    }
+
+    let source_count = explicit_manifest.is_some() as u8
+        + package.is_some() as u8
+        + program_id.is_some() as u8;
+    if source_count > 1 {
+        return Err(
+            "Choose only one manifest source: an explicit manifest, --package, or --program-id"
+                .to_string(),
+        );
+    }
+
+    let source = if let Some(program_id) = program_id {
+        CompileManifestSource::ProgramId {
+            program_id,
+            rpc_override,
+        }
+    } else if let Some(package) = package {
+        CompileManifestSource::Package(package)
+    } else if let Some(arg) = explicit_manifest {
+        CompileManifestSource::Explicit(arg)
+    } else {
+        CompileManifestSource::CurrentPackage
+    };
+
+    Ok(CompileOptions {
+        source,
+        filters,
+        out,
+        force,
+    })
+}
+
+fn load_compile_manifest(source: &CompileManifestSource, cwd: &std::path::Path) -> Result<ProgramManifest, String> {
+    match source {
+        CompileManifestSource::Explicit(arg) => Ok(load_program_manifest(arg)),
+        CompileManifestSource::CurrentPackage => {
+            let manifest_path = workspace::infer_program_manifest_for_project(cwd)?;
+            load_program_manifest_from_path(&manifest_path)
+        }
+        CompileManifestSource::Package(package) => {
+            let workspace_root = workspace::find_workspace_root(cwd)?;
+            let manifest_path = workspace::infer_program_manifest_for_package(&workspace_root, package)?;
+            load_program_manifest_from_path(&manifest_path)
+        }
+        CompileManifestSource::ProgramId {
+            program_id,
+            rpc_override,
+        } => {
+            let json = fetch_manifest_json(program_id, rpc_override.as_deref());
+            Ok(load_program_manifest_from_json(&json))
+        }
+    }
+}
+
+fn load_program_manifest_from_path(path: &std::path::Path) -> Result<ProgramManifest, String> {
+    let json = std::fs::read_to_string(path)
+        .map_err(|err| format!("Failed to read {}: {err}", path.display()))?;
+    Ok(load_program_manifest_from_json(&json))
 }
 
 fn cmd_client_gen(args: &[String]) {
@@ -649,11 +879,26 @@ fn cmd_explain_program(args: &[String]) {
     // Instructions
     println!("  Instructions:");
     for ix in prog.instructions.iter() {
+        let read_accounts: Vec<&str> = ix.accounts.iter()
+            .filter(|account| !account.writable)
+            .map(|account| account.name)
+            .collect();
+        let write_accounts: Vec<&str> = ix.accounts.iter()
+            .filter(|account| account.writable)
+            .map(|account| account.name)
+            .collect();
+        let signer_accounts: Vec<&str> = ix.accounts.iter()
+            .filter(|account| account.signer)
+            .map(|account| account.name)
+            .collect();
         print!("    [{}] {} | {} args | {} accounts",
             ix.tag, ix.name, ix.args.len(), ix.accounts.len());
         if ix.receipt_expected { print!(" | receipt"); }
         if !ix.policy_pack.is_empty() { print!(" | policy={}", ix.policy_pack); }
         println!();
+        println!("      reads : {}", format_name_list(&read_accounts));
+        println!("      writes: {}", format_name_list(&write_accounts));
+        println!("      signers: {}", format_name_list(&signer_accounts));
     }
     println!();
 
@@ -694,6 +939,12 @@ fn cmd_explain_program(args: &[String]) {
             println!();
         }
         println!();
+    } else {
+        println!("  Contexts:");
+        println!("    No typed contexts embedded in this manifest.");
+        println!("    Use `hopper compile --emit rust [<manifest>]` to inspect the lowered");
+        println!("    runtime accessors Hopper derives from the instruction account lists.");
+        println!();
     }
 
     // Assessment
@@ -718,7 +969,7 @@ fn cmd_explain_context(args: &[String]) {
     if args.is_empty() {
         eprintln!("Usage: hopper explain context <manifest> [--type <ContextName>]");
         eprintln!("  Show instruction contexts with account roles, mutability, signer status,");
-        eprintln!("  layout bindings, policy bindings, seeds, and optionality.");
+        eprintln!("  layout bindings, policy bindings, seeds, optionality, and generated accessors.");
         eprintln!();
         eprintln!("  Without --type, shows all contexts in the manifest.");
         eprintln!("  With --type, filters to a single named context.");
@@ -760,6 +1011,8 @@ fn cmd_explain_context(args: &[String]) {
         println!();
         println!("  No contexts defined in this manifest.");
         println!("  Use hopper_accounts! or #[derive(HopperAccounts)] to add typed contexts.");
+        println!("  For instruction-level lowered accessors, run:");
+        println!("    hopper compile --emit rust {}", manifest_path);
         return;
     }
 
@@ -784,12 +1037,28 @@ fn cmd_explain_context(args: &[String]) {
     println!();
 
     for ctx in &contexts {
+        let read_accounts: Vec<&str> = ctx.accounts.iter()
+            .filter(|account| !account.writable)
+            .map(|account| account.name)
+            .collect();
+        let write_accounts: Vec<&str> = ctx.accounts.iter()
+            .filter(|account| account.writable)
+            .map(|account| account.name)
+            .collect();
+        let signer_accounts: Vec<&str> = ctx.accounts.iter()
+            .filter(|account| account.signer)
+            .map(|account| account.name)
+            .collect();
+
         println!("  Context: {}", ctx.name);
         println!("    Accounts: {} total, {} signer(s), {} writable",
             ctx.accounts.len(),
             ctx.accounts.iter().filter(|a| a.signer).count(),
             ctx.accounts.iter().filter(|a| a.writable).count(),
         );
+        println!("    Reads: {}", format_name_list(&read_accounts));
+        println!("    Writes: {}", format_name_list(&write_accounts));
+        println!("    Signers: {}", format_name_list(&signer_accounts));
         println!();
 
         for acct in ctx.accounts.iter() {
@@ -812,7 +1081,20 @@ fn cmd_explain_context(args: &[String]) {
             if !acct.seeds.is_empty() {
                 println!("      seeds  = [{}]", acct.seeds.join(", "));
             }
+            println!(
+                "      access = {}",
+                render_context_accessor_summary(ctx.name, acct)
+            );
         }
+        println!();
+
+        println!("    Borrow path:");
+        println!("      Shared reads lower to Context::account(index) -> AccountView::load()/raw_ref().");
+        println!("      Writable access lowers to Context::account_mut(index) -> AccountView::load_mut()/raw_mut().");
+        println!("      Segment-safe mutations stay explicit in handlers via Context::segment_mut(...).");
+        println!("    Conflict model:");
+        println!("      Static duplicate-name conflicts are not visible in the manifest.");
+        println!("      Runtime duplicate-account and segment conflicts are enforced by Hopper's audit and borrow registry.");
         println!();
 
         if !ctx.policies.is_empty() {
@@ -830,10 +1112,597 @@ fn cmd_explain_context(args: &[String]) {
     }
 }
 
+fn cmd_inspect_layout(args: &[String]) {
+    decode_layout_from_source(
+        args,
+        "hopper inspect layout <manifest> <hex-data> | --program-id <program-id> [--rpc <url>] <hex-data>",
+        "Layout Inspect",
+    );
+}
+
+fn render_program_rust_preview(
+    prog: &ProgramManifest,
+    filters: &RustEmitFilters,
+) -> Result<String, String> {
+    if let Some(layout_name) = filters.layout.as_deref() {
+        if !prog.layouts.iter().any(|layout| layout.name == layout_name) {
+            return Err(format!(
+                "unknown layout '{}' (available: {})",
+                layout_name,
+                prog.layouts.iter().map(|layout| layout.name).collect::<Vec<_>>().join(", ")
+            ));
+        }
+    }
+
+    if let Some(instruction_name) = filters.instruction.as_deref() {
+        if !prog.instructions.iter().any(|instruction| instruction.name == instruction_name) {
+            return Err(format!(
+                "unknown instruction '{}' (available: {})",
+                instruction_name,
+                prog.instructions.iter().map(|instruction| instruction.name).collect::<Vec<_>>().join(", ")
+            ));
+        }
+    }
+
+    if let Some(context_name) = filters.context.as_deref() {
+        if !prog.contexts.iter().any(|context| context.name == context_name) {
+            return Err(format!(
+                "unknown context '{}' (available: {})",
+                context_name,
+                prog.contexts.iter().map(|context| context.name).collect::<Vec<_>>().join(", ")
+            ));
+        }
+    }
+
+    let selected_instructions: Vec<&InstructionDescriptor> = prog.instructions.iter()
+        .filter(|instruction| match filters.instruction.as_deref() {
+            Some(name) => instruction.name == name,
+            None => true,
+        })
+        .collect();
+
+    let selected_contexts: Vec<&ContextDescriptor> = prog.contexts.iter()
+        .filter(|context| match filters.context.as_deref() {
+            Some(name) => context.name == name,
+            None => true,
+        })
+        .collect();
+
+    let referenced_layouts: Vec<&str> = if filters.layout.is_none()
+        && (filters.instruction.is_some() || filters.context.is_some())
+    {
+        let mut names = Vec::new();
+        for instruction in selected_instructions.iter() {
+            for account in instruction.accounts.iter() {
+                if !account.layout_ref.is_empty() && !names.contains(&account.layout_ref) {
+                    names.push(account.layout_ref);
+                }
+            }
+        }
+        for context in selected_contexts.iter() {
+            for account in context.accounts.iter() {
+                if !account.layout_ref.is_empty() && !names.contains(&account.layout_ref) {
+                    names.push(account.layout_ref);
+                }
+            }
+        }
+        names
+    } else {
+        Vec::new()
+    };
+
+    let selected_layouts: Vec<&LayoutManifest> = prog.layouts.iter()
+        .filter(|layout| {
+            if let Some(name) = filters.layout.as_deref() {
+                return layout.name == name;
+            }
+            if referenced_layouts.is_empty() {
+                return true;
+            }
+            referenced_layouts.contains(&layout.name)
+        })
+        .collect();
+
+    let mut out = String::new();
+    out.push_str("// Hopper lowered Rust preview.\n");
+    out.push_str("// Generated from ProgramManifest metadata to make the runtime path explicit.\n");
+    out.push_str("// This is the code shape Hopper wants you to reason about: indexes, offsets, borrows, and accessors.\n\n");
+    out.push_str("use hopper::prelude::*;\n");
+    out.push_str("use hopper::__runtime::{Ref, RefMut};\n\n");
+
+    let module_name = sanitize_ident(&format!("{}_generated", &snake_case(prog.name)));
+    push_line(&mut out, 0, &format!("pub mod {} {{", module_name));
+    push_line(&mut out, 4, &format!("pub const PROGRAM_NAME: &str = \"{}\";", escape_rust_string(prog.name)));
+    push_line(&mut out, 4, &format!("pub const PROGRAM_VERSION: &str = \"{}\";", escape_rust_string(prog.version)));
+    push_line(&mut out, 4, &format!("pub const PROGRAM_DESCRIPTION: &str = \"{}\";", escape_rust_string(prog.description)));
+    push_line(&mut out, 4, "pub const HEADER_LEN: usize = 16;");
+    out.push('\n');
+
+    if !selected_layouts.is_empty() {
+        push_line(&mut out, 4, "pub mod layouts {");
+        for layout in selected_layouts.iter() {
+            render_layout_rust_preview(&mut out, layout);
+        }
+        push_line(&mut out, 4, "}");
+        out.push('\n');
+    }
+
+    if !selected_instructions.is_empty() {
+        push_line(&mut out, 4, "pub mod instructions {");
+        for instruction in selected_instructions.iter() {
+            render_instruction_rust_preview(&mut out, instruction);
+        }
+        push_line(&mut out, 4, "}");
+        out.push('\n');
+    }
+
+    if !selected_contexts.is_empty() {
+        push_line(&mut out, 4, "pub mod contexts {");
+        for context in selected_contexts.iter() {
+            render_context_rust_preview(&mut out, context);
+        }
+        push_line(&mut out, 4, "}");
+        out.push('\n');
+    }
+
+    if selected_instructions.is_empty() && selected_contexts.is_empty() {
+        push_line(&mut out, 4, "// No instruction or context metadata was selected.");
+        push_line(&mut out, 4, "// Add --instruction/--context filters only when those descriptors exist in the manifest.");
+        out.push('\n');
+    }
+
+    push_line(&mut out, 0, "}");
+    Ok(out)
+}
+
+fn render_layout_rust_preview(out: &mut String, layout: &LayoutManifest) {
+    let module_name = sanitize_ident(&snake_case(layout.name));
+    push_line(out, 8, &format!("pub mod {} {{", module_name));
+    push_line(out, 12, &format!("pub const NAME: &str = \"{}\";", escape_rust_string(layout.name)));
+    push_line(out, 12, &format!("pub const DISC: u8 = {};", layout.disc));
+    push_line(out, 12, &format!("pub const VERSION: u8 = {};", layout.version));
+    push_line(out, 12, &format!("pub const TOTAL_SIZE: usize = {};", layout.total_size));
+    push_line(out, 12, &format!("pub const LAYOUT_ID: [u8; 8] = {};", render_u8_array(&layout.layout_id)));
+    push_line(out, 12, "pub const TYPE_OFFSET: usize = HEADER_LEN;");
+    push_line(out, 12, "");
+    for field in layout.fields.iter() {
+        let field_name = upper_snake_case(field.name);
+        let field_end = field.offset as usize + field.size as usize;
+        push_line(
+            out,
+            12,
+            &format!(
+                "// {}: {} @ bytes {}..{}",
+                field.name,
+                field.canonical_type,
+                field.offset,
+                field_end
+            ),
+        );
+        push_line(
+            out,
+            12,
+            &format!(
+                "// pointer path: account.try_borrow()? -> base_ptr.add({}) as *const {}",
+                field.offset,
+                field.canonical_type
+            ),
+        );
+        push_line(out, 12, &format!("pub const {}_OFFSET: usize = {};", field_name, field.offset));
+        push_line(out, 12, &format!("pub const {}_SIZE: usize = {};", field_name, field.size));
+        push_line(out, 12, "");
+    }
+    push_line(out, 8, "}");
+    out.push('\n');
+}
+
+fn render_instruction_rust_preview(out: &mut String, instruction: &InstructionDescriptor) {
+    let module_name = sanitize_ident(&snake_case(instruction.name));
+    let reads: Vec<&str> = instruction.accounts.iter()
+        .filter(|account| !account.writable)
+        .map(|account| account.name)
+        .collect();
+    let writes: Vec<&str> = instruction.accounts.iter()
+        .filter(|account| account.writable)
+        .map(|account| account.name)
+        .collect();
+    let signers: Vec<&str> = instruction.accounts.iter()
+        .filter(|account| account.signer)
+        .map(|account| account.name)
+        .collect();
+
+    push_line(out, 8, &format!("pub mod {} {{", module_name));
+    push_line(out, 12, &format!("pub const NAME: &str = \"{}\";", escape_rust_string(instruction.name)));
+    push_line(out, 12, &format!("pub const TAG: u8 = {};", instruction.tag));
+    push_line(out, 12, &format!("pub const READS: &[&str] = &{};", render_str_slice(&reads)));
+    push_line(out, 12, &format!("pub const WRITES: &[&str] = &{};", render_str_slice(&writes)));
+    push_line(out, 12, &format!("pub const SIGNERS: &[&str] = &{};", render_str_slice(&signers)));
+    if !instruction.policy_pack.is_empty() {
+        push_line(out, 12, &format!("pub const POLICY_PACK: &str = \"{}\";", escape_rust_string(instruction.policy_pack)));
+    }
+    push_line(out, 12, &format!("pub const RECEIPT_EXPECTED: bool = {};", instruction.receipt_expected));
+    push_line(out, 12, "");
+
+    if !instruction.args.is_empty() {
+        push_line(out, 12, "// Instruction arguments:");
+        for argument in instruction.args.iter() {
+            push_line(
+                out,
+                12,
+                &format!(
+                    "//   {}: {} ({} bytes)",
+                    argument.name,
+                    argument.canonical_type,
+                    argument.size
+                ),
+            );
+        }
+        push_line(out, 12, "");
+    }
+
+    render_account_accessor_block(
+        out,
+        12,
+        &format!("{}Accounts", pascal_case(instruction.name)),
+        instruction
+            .accounts
+            .iter()
+            .map(|account| DerivedAccountDescriptor {
+                name: account.name,
+                kind: "AccountView",
+                writable: account.writable,
+                signer: account.signer,
+                layout_ref: account.layout_ref,
+                policy_ref: "",
+                seeds: &[],
+                optional: false,
+            })
+            .collect::<Vec<_>>()
+            .as_slice(),
+        Some("Generated from InstructionDescriptor account order."),
+    );
+
+    push_line(out, 8, "}");
+    out.push('\n');
+}
+
+fn render_context_rust_preview(out: &mut String, context: &ContextDescriptor) {
+    let module_name = sanitize_ident(&snake_case(context.name));
+    push_line(out, 8, &format!("pub mod {} {{", module_name));
+    push_line(out, 12, &format!("pub const NAME: &str = \"{}\";", escape_rust_string(context.name)));
+    push_line(out, 12, &format!("pub const POLICIES: &[&str] = &{};", render_str_slice(context.policies)));
+    push_line(out, 12, &format!("pub const MUTATION_CLASSES: &[&str] = &{};", render_str_slice(context.mutation_classes)));
+    push_line(out, 12, &format!("pub const RECEIPTS_EXPECTED: bool = {};", context.receipts_expected));
+    push_line(out, 12, "");
+
+    let accounts: Vec<DerivedAccountDescriptor<'_>> = context.accounts.iter()
+        .map(|account| DerivedAccountDescriptor {
+            name: account.name,
+            kind: account.kind,
+            writable: account.writable,
+            signer: account.signer,
+            layout_ref: account.layout_ref,
+            policy_ref: account.policy_ref,
+            seeds: account.seeds,
+            optional: account.optional,
+        })
+        .collect();
+    render_account_accessor_block(
+        out,
+        12,
+        &format!("{}Context", pascal_case(context.name)),
+        accounts.as_slice(),
+        Some("Generated from ContextDescriptor account order."),
+    );
+
+    push_line(out, 8, "}");
+    out.push('\n');
+}
+
+#[derive(Clone, Copy)]
+struct DerivedAccountDescriptor<'a> {
+    name: &'a str,
+    kind: &'a str,
+    writable: bool,
+    signer: bool,
+    layout_ref: &'a str,
+    policy_ref: &'a str,
+    seeds: &'a [&'a str],
+    optional: bool,
+}
+
+fn render_account_accessor_block(
+    out: &mut String,
+    indent: usize,
+    struct_name: &str,
+    accounts: &[DerivedAccountDescriptor<'_>],
+    header_note: Option<&str>,
+) {
+    if let Some(note) = header_note {
+        push_line(out, indent, &format!("// {}", note));
+    }
+    push_line(out, indent, &format!("pub struct {};", sanitize_ident(struct_name)));
+    push_line(out, indent, &format!("impl {} {{", sanitize_ident(struct_name)));
+    push_line(out, indent + 4, &format!("pub const ACCOUNT_LEN: usize = {};", accounts.len()));
+    push_line(out, indent + 4, "");
+
+    for (index, account) in accounts.iter().enumerate() {
+        let const_name = format!("{}_INDEX", upper_snake_case(account.name));
+        push_line(out, indent + 4, &format!("pub const {}: usize = {};", const_name, index));
+    }
+    push_line(out, indent + 4, "");
+
+    for account in accounts.iter() {
+        let account_fn = sanitize_ident(&format!("{}_account", snake_case(account.name)));
+        let index_const = format!("{}_INDEX", upper_snake_case(account.name));
+        let account_getter = if account.writable { "account_mut" } else { "account" };
+
+        push_line(
+            out,
+            indent + 4,
+            &format!(
+                "// {}: {}{}{}{}",
+                account.name,
+                account.kind,
+                if account.writable { " [mut]" } else { "" },
+                if account.signer { " [signer]" } else { "" },
+                if account.optional { " [optional]" } else { "" },
+            ),
+        );
+        if !account.layout_ref.is_empty() {
+            push_line(out, indent + 4, &format!("// layout = {}", account.layout_ref));
+        }
+        if !account.policy_ref.is_empty() {
+            push_line(out, indent + 4, &format!("// policy = {}", account.policy_ref));
+        }
+        if !account.seeds.is_empty() {
+            push_line(out, indent + 4, &format!("// seeds = [{}]", account.seeds.join(", ")));
+        }
+        push_line(
+            out,
+            indent + 4,
+            &format!(
+                "pub fn {}(ctx: &Context<'_>) -> Result<&AccountView, ProgramError> {{",
+                account_fn
+            ),
+        );
+        push_line(
+            out,
+            indent + 8,
+            &format!("ctx.{}(Self::{})", account_getter, index_const),
+        );
+        push_line(out, indent + 4, "}");
+
+        if !account.layout_ref.is_empty() {
+            let load_fn = sanitize_ident(&format!("{}_load", snake_case(account.name)));
+            let raw_ref_fn = sanitize_ident(&format!("{}_raw_ref", snake_case(account.name)));
+            push_line(
+                out,
+                indent + 4,
+                &format!(
+                    "pub fn {}(ctx: &Context<'_>) -> Result<Ref<'_, {}>, ProgramError> {{",
+                    load_fn,
+                    account.layout_ref,
+                ),
+            );
+            push_line(
+                out,
+                indent + 8,
+                &format!("Self::{}(ctx)?.load::<{}>()", account_fn, account.layout_ref),
+            );
+            push_line(out, indent + 4, "}");
+            push_line(
+                out,
+                indent + 4,
+                &format!(
+                    "pub unsafe fn {}(ctx: &Context<'_>) -> Result<Ref<'_, {}>, ProgramError> {{",
+                    raw_ref_fn,
+                    account.layout_ref,
+                ),
+            );
+            push_line(
+                out,
+                indent + 8,
+                &format!("unsafe {{ Self::{}(ctx)?.raw_ref::<{}>() }}", account_fn, account.layout_ref),
+            );
+            push_line(out, indent + 4, "}");
+
+            if account.writable {
+                let load_mut_fn = sanitize_ident(&format!("{}_load_mut", snake_case(account.name)));
+                let raw_mut_fn = sanitize_ident(&format!("{}_raw_mut", snake_case(account.name)));
+                push_line(
+                    out,
+                    indent + 4,
+                    "// Whole-account mutable path. Use Context::segment_mut(...) when you only need a narrower region.",
+                );
+                push_line(
+                    out,
+                    indent + 4,
+                    &format!(
+                        "pub fn {}(ctx: &Context<'_>) -> Result<RefMut<'_, {}>, ProgramError> {{",
+                        load_mut_fn,
+                        account.layout_ref,
+                    ),
+                );
+                push_line(
+                    out,
+                    indent + 8,
+                    &format!("Self::{}(ctx)?.load_mut::<{}>()", account_fn, account.layout_ref),
+                );
+                push_line(out, indent + 4, "}");
+                push_line(
+                    out,
+                    indent + 4,
+                    &format!(
+                        "pub unsafe fn {}(ctx: &Context<'_>) -> Result<RefMut<'_, {}>, ProgramError> {{",
+                        raw_mut_fn,
+                        account.layout_ref,
+                    ),
+                );
+                push_line(
+                    out,
+                    indent + 8,
+                    &format!("unsafe {{ Self::{}(ctx)?.raw_mut::<{}>() }}", account_fn, account.layout_ref),
+                );
+                push_line(out, indent + 4, "}");
+            }
+        }
+
+        push_line(out, indent + 4, "");
+    }
+
+    push_line(out, indent, "}");
+}
+
+fn render_context_accessor_summary(context_name: &str, account: &ContextAccountDescriptor) -> String {
+    let mut accessors = vec![format!("{}_account()", snake_case(account.name))];
+    if !account.layout_ref.is_empty() {
+        accessors.push(format!("{}_load()", snake_case(account.name)));
+        accessors.push(format!("{}_raw_ref()", snake_case(account.name)));
+        if account.writable {
+            accessors.push(format!("{}_load_mut()", snake_case(account.name)));
+            accessors.push(format!("{}_raw_mut()", snake_case(account.name)));
+        }
+    }
+
+    format!(
+        "{} on {}",
+        accessors.join(", "),
+        context_name,
+    )
+}
+
+fn format_name_list(names: &[&str]) -> String {
+    if names.is_empty() {
+        "(none)".to_string()
+    } else {
+        names.join(", ")
+    }
+}
+
+fn push_line(out: &mut String, indent: usize, line: &str) {
+    for _ in 0..indent {
+        out.push(' ');
+    }
+    out.push_str(line);
+    out.push('\n');
+}
+
+fn render_u8_array(bytes: &[u8]) -> String {
+    let rendered = bytes.iter()
+        .map(|byte| byte.to_string())
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!("[{rendered}]")
+}
+
+fn render_str_slice(values: &[&str]) -> String {
+    if values.is_empty() {
+        return "[]".to_string();
+    }
+
+    let rendered = values.iter()
+        .map(|value| format!("\"{}\"", escape_rust_string(value)))
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!("[{rendered}]")
+}
+
+fn escape_rust_string(value: &str) -> String {
+    value
+        .replace('\\', "\\\\")
+        .replace('"', "\\\"")
+        .replace('\n', "\\n")
+}
+
+fn sanitize_ident(value: &str) -> String {
+    let mut ident = String::new();
+    for ch in value.chars() {
+        if ch.is_ascii_alphanumeric() || ch == '_' {
+            ident.push(ch);
+        } else {
+            ident.push('_');
+        }
+    }
+
+    if ident.is_empty() {
+        ident.push('_');
+    }
+    if ident.chars().next().map(|ch| ch.is_ascii_digit()).unwrap_or(false) {
+        ident.insert(0, '_');
+    }
+    ident
+}
+
+fn snake_case(value: &str) -> String {
+    let mut out = String::new();
+    let mut prev_was_lower_or_digit = false;
+    for ch in value.chars() {
+        if ch.is_ascii_alphanumeric() {
+            if ch.is_ascii_uppercase() {
+                if prev_was_lower_or_digit && !out.ends_with('_') {
+                    out.push('_');
+                }
+                out.push(ch.to_ascii_lowercase());
+                prev_was_lower_or_digit = false;
+            } else {
+                out.push(ch.to_ascii_lowercase());
+                prev_was_lower_or_digit = ch.is_ascii_lowercase() || ch.is_ascii_digit();
+            }
+        } else if !out.ends_with('_') {
+            out.push('_');
+            prev_was_lower_or_digit = false;
+        }
+    }
+
+    sanitize_ident(out.trim_matches('_'))
+}
+
+fn upper_snake_case(value: &str) -> String {
+    snake_case(value).to_ascii_uppercase()
+}
+
+fn pascal_case(value: &str) -> String {
+    let mut out = String::new();
+    let mut capitalize = true;
+    for ch in value.chars() {
+        if ch.is_ascii_alphanumeric() {
+            if capitalize {
+                out.push(ch.to_ascii_uppercase());
+                capitalize = false;
+            } else {
+                out.push(ch);
+            }
+        } else {
+            capitalize = true;
+        }
+    }
+
+    sanitize_ident(&out)
+}
+
+fn print_compile_usage() {
+    eprintln!("Usage: hopper compile --emit rust [<manifest> | --package <name> | --program-id <program-id>] [--rpc <url>] [--layout <Layout>] [--instruction <Instruction>] [--context <Context>] [--out <path>] [--force]");
+    eprintln!();
+    eprintln!("Emit Hopper-authored runtime Rust from a program manifest.");
+    eprintln!("This preview makes the accessors, constant offsets, and pointer path explicit.");
+    eprintln!("Without a manifest source, Hopper infers hopper.manifest.json from the current package.");
+    eprintln!();
+    eprintln!("Examples:");
+    eprintln!("  hopper compile --emit rust");
+    eprintln!("  hopper compile --emit rust @examples/sample-manifest.json");
+    eprintln!("  hopper compile --emit rust --package hopper-token-2022-vault --out lowered.rs --force");
+    eprintln!("  hopper compile --emit rust @hopper.manifest.json --instruction deposit");
+    eprintln!("  hopper compile --emit rust --program-id <program-id> --rpc <url>");
+}
+
 fn print_usage() {
     println!("hopper-cli: Hopper account inspection, schema tooling, and program management");
     println!();
     println!("COMMAND FAMILIES:");
+    println!();
+    println!("  Compile:");
+    println!("    hopper compile --emit rust [<manifest>|--package <name>|--program-id ...]  Emit lowered Hopper runtime Rust");
     println!();
     println!("  Schema:");
     println!("    hopper schema export               Schema format reference");
@@ -842,6 +1711,7 @@ fn print_usage() {
     println!();
     println!("  Inspect:");
     println!("    hopper inspect <hex-data>           Decode account header");
+    println!("    hopper inspect layout <manifest|--program-id ...> <hex>  Decode fields using a manifest");
     println!("    hopper inspect segments <hex-data>  Decode segment map");
     println!("    hopper inspect receipt <hex-data>   Decode a state receipt");
     println!();
@@ -1901,6 +2771,7 @@ struct OwnedProgramManifest {
     instructions: Vec<OwnedInstruction>,
     events: Vec<OwnedEvent>,
     policies: Vec<OwnedPolicy>,
+    contexts: Vec<OwnedContext>,
 }
 
 struct OwnedInstruction {
@@ -1938,6 +2809,25 @@ struct OwnedPolicy {
     requirements: Vec<String>,
     invariants: Vec<String>,
     receipt_profile: String,
+}
+
+struct OwnedContext {
+    name: String,
+    accounts: Vec<OwnedContextAccount>,
+    policies: Vec<String>,
+    receipts_expected: bool,
+    mutation_classes: Vec<String>,
+}
+
+struct OwnedContextAccount {
+    name: String,
+    kind: String,
+    writable: bool,
+    signer: bool,
+    layout_ref: String,
+    policy_ref: String,
+    seeds: Vec<String>,
+    optional: bool,
 }
 
 /// Find the matching closing bracket, handling nesting.
@@ -2158,6 +3048,34 @@ fn parse_program_manifest_json(json: &str) -> Result<OwnedProgramManifest, Strin
         });
     }
 
+    // Parse contexts
+    let context_objects = extract_object_array(json, "contexts")?;
+    let mut contexts = Vec::with_capacity(context_objects.len());
+    for obj in &context_objects {
+        let account_objects = extract_object_array(obj, "accounts")?;
+        let mut accounts = Vec::with_capacity(account_objects.len());
+        for aobj in &account_objects {
+            accounts.push(OwnedContextAccount {
+                name: extract_string(aobj, "name")?,
+                kind: extract_string(aobj, "kind").unwrap_or_else(|_| "AccountView".to_string()),
+                writable: extract_bool(aobj, "writable")?,
+                signer: extract_bool(aobj, "signer")?,
+                layout_ref: extract_string(aobj, "layout_ref").unwrap_or_default(),
+                policy_ref: extract_string(aobj, "policy_ref").unwrap_or_default(),
+                seeds: extract_string_array(aobj, "seeds").unwrap_or_default(),
+                optional: extract_bool(aobj, "optional")?,
+            });
+        }
+
+        contexts.push(OwnedContext {
+            name: extract_string(obj, "name")?,
+            accounts,
+            policies: extract_string_array(obj, "policies")?,
+            receipts_expected: extract_bool(obj, "receipts_expected")?,
+            mutation_classes: extract_string_array(obj, "mutation_classes")?,
+        });
+    }
+
     Ok(OwnedProgramManifest {
         name,
         version,
@@ -2166,6 +3084,7 @@ fn parse_program_manifest_json(json: &str) -> Result<OwnedProgramManifest, Strin
         instructions,
         events,
         policies,
+        contexts,
     })
 }
 
@@ -2269,6 +3188,52 @@ fn to_program_manifest(m: &OwnedProgramManifest) -> ProgramManifest {
         })
         .collect();
 
+    let contexts: Vec<ContextDescriptor> = m
+        .contexts
+        .iter()
+        .map(|ctx| {
+            let accounts: Vec<ContextAccountDescriptor> = ctx
+                .accounts
+                .iter()
+                .map(|account| {
+                    let seeds: Vec<&'static str> = account
+                        .seeds
+                        .iter()
+                        .map(|seed| leak_str(seed))
+                        .collect();
+                    ContextAccountDescriptor {
+                        name: leak_str(&account.name),
+                        kind: leak_str(&account.kind),
+                        writable: account.writable,
+                        signer: account.signer,
+                        layout_ref: leak_str(&account.layout_ref),
+                        policy_ref: leak_str(&account.policy_ref),
+                        seeds: Box::leak(seeds.into_boxed_slice()),
+                        optional: account.optional,
+                    }
+                })
+                .collect();
+            let policies: Vec<&'static str> = ctx
+                .policies
+                .iter()
+                .map(|policy| leak_str(policy))
+                .collect();
+            let mutation_classes: Vec<&'static str> = ctx
+                .mutation_classes
+                .iter()
+                .map(|class_name| leak_str(class_name))
+                .collect();
+
+            ContextDescriptor {
+                name: leak_str(&ctx.name),
+                accounts: Box::leak(accounts.into_boxed_slice()),
+                policies: Box::leak(policies.into_boxed_slice()),
+                receipts_expected: ctx.receipts_expected,
+                mutation_classes: Box::leak(mutation_classes.into_boxed_slice()),
+            }
+        })
+        .collect();
+
     ProgramManifest {
         name: leak_str(&m.name),
         version: leak_str(&m.version),
@@ -2280,7 +3245,7 @@ fn to_program_manifest(m: &OwnedProgramManifest) -> ProgramManifest {
         layout_metadata: &[],
         compatibility_pairs: &[],
         tooling_hints: &[],
-        contexts: &[],
+        contexts: Box::leak(contexts.into_boxed_slice()),
     }
 }
 
@@ -2614,7 +3579,14 @@ fn cmd_manager_identify(args: &[String]) {
 }
 
 fn cmd_manager_decode(args: &[String]) {
-    let usage = "hopper manager decode <manifest> <hex-data> | --program-id <program-id> [--rpc <url>] <hex-data>";
+    decode_layout_from_source(
+        args,
+        "hopper manager decode <manifest> <hex-data> | --program-id <program-id> [--rpc <url>] <hex-data>",
+        "Account Decode",
+    );
+}
+
+fn decode_layout_from_source(args: &[String], usage: &str, heading: &str) {
     let (prog, consumed) = load_program_manifest_source(args, usage);
     if args.len() <= consumed {
         eprintln!("Usage: {usage}");
@@ -2636,18 +3608,23 @@ fn cmd_manager_decode(args: &[String]) {
     let header = require_header(&data);
 
     let layout = match prog.identify_from_data(&data) {
-        Some(l) => l,
+        Some(layout) => layout,
         None => {
-            eprintln!("Cannot identify account type (disc={}, layout_id={})",
-                header.disc, hex_encode(&header.layout_id));
+            eprintln!(
+                "Cannot identify account type (disc={}, layout_id={})",
+                header.disc,
+                hex_encode(&header.layout_id)
+            );
             eprintln!("Use 'hopper manager identify' for diagnostics.");
             process::exit(1);
         }
     };
 
-    println!("=== Account Decode: {} v{} ===", layout.name, layout.version);
+    println!("=== {}: {} v{} ===", heading, layout.name, layout.version);
     println!("  Size: {} bytes (expected {})", data.len(), layout.total_size);
     println!("  Flags: {} (0x{:04x})", format_flags(header.flags), header.flags);
+    println!("  Disc : {}", header.disc);
+    println!("  Wire : {}", hex_encode(&layout.layout_id));
     println!();
 
     if layout.field_count == 0 {
@@ -2673,7 +3650,6 @@ fn cmd_manager_decode(args: &[String]) {
         }
     }
 
-    // Summary
     println!();
     println!("  Decoded {}/{} fields.", count, layout.field_count);
 }

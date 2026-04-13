@@ -30,6 +30,11 @@ Hopper also supports compatibility backends including Pinocchio and standard
 Solana runtime surfaces where needed, but Hopper Runtime is the canonical
 API surface all Hopper crates target.
 
+Hopper also ships Hopper-owned companion program surfaces so authored programs
+do not need to reach through external system/token helper crates: use
+`hopper_system`, `hopper_token`, `hopper_token_2022`, and
+`hopper_associated_token` directly, or via the root `hopper` crate re-exports.
+
 Hopper Native owns the raw execution boundary: loader parsing, duplicate-account
 resolution, eager and lazy entrypoints, syscall wrappers, and substrate account
 views. Hopper Runtime sits one layer up and owns typed loading, layout
@@ -38,18 +43,28 @@ contracts, CPI semantics, context, and Hopper-facing PDA ergonomics.
 `no_std`, `no_alloc`. No proc macros required for correctness. Proc macros
 are optional DX accelerators only, never required for framework correctness.
 
-## Dual-Layer Architecture
+## One Access Model
 
-Hopper gives you two paths to the same execution shape:
+Hopper is not supposed to feel like a pile of parallel modes. There is one
+runtime path and one access model, with different guarantees layered on top:
 
-**Path A — Core (no macros required):** Write `hopper_layout!` structs,
-call `ctx.segment_mut::<T>(index, offset)`, wire dispatch manually. You own
-every instruction. This is what ships in `hopper-core` and `hopper-macros`.
+- whole-layout typed access via `account.load::<T>()` and `account.load_mut::<T>()`
+- segment-aware typed access via `account.segment_ref(...)` and `account.segment_mut(...)`
+- explicit raw escape hatches via `unsafe account.raw_ref::<T>()` and `unsafe account.raw_mut::<T>()`
 
-**Path B — Proc macros (optional DX layer):** Annotate structs with
-`#[hopper::state]`, `#[hopper::context]`, `#[hopper::program]`. The macros
-generate the same SegmentMap impls, typed accessors, and dispatch tables
-you'd write by hand — but with less boilerplate.
+Specialized helpers such as `load_foreign()` and `load_versioned()` are not
+separate frameworks. They are the same Hopper runtime path with a different
+validation contract.
+
+Hopper supports two authoring styles over that same access model:
+
+**Core authored style (no proc macros required):** Write `hopper_layout!`
+layouts, manage dispatch yourself, and call Hopper runtime accessors directly.
+
+**Proc authored style (optional DX layer):** Annotate structs with
+`#[hopper::state]`, `#[hopper::context]`, and `#[hopper::program]`. The macros
+generate the same constants, typed accessors, and dispatch glue you would write
+by hand.
 
 Both paths compile to identical code: `ptr + const_offset → cast → &mut T`.
 The proc macros are sugar, not structure. Enable them with:
@@ -96,9 +111,8 @@ mod vault {
   #[hopper::pipeline]
   #[hopper::receipt]
   #[hopper::invariant({
-    let balance = ctx.vault_balance_ref()?.get();
-    let pending_rewards = ctx.vault_pending_rewards_ref()?.get();
-    balance >= pending_rewards
+    let vault = ctx.vault_load()?;
+    vault.balance.get() >= vault.pending_rewards.get()
   })]
   #[instruction(1)]
   pub fn deposit(ctx: Context<Deposit>, amount: u64) -> ProgramResult {
@@ -108,6 +122,13 @@ mod vault {
   }
 }
 ```
+
+Typed contexts always generate per-account accessors such as
+`ctx.vault_account()?`, `ctx.vault_load()?`, and `ctx.vault_raw_ref()?`.
+When an account is declared fully mutable with `#[account(mut)]`, the proc
+surface also emits whole-layout mutation accessors such as
+`ctx.vault_load_mut()?` and `ctx.vault_raw_mut()?`. Segment-scoped mutability
+continues to expose only the narrower generated segment accessors.
 
 `pipeline` adds instruction-scope duplicate-account checks, `receipt` emits
 segment-aware state receipts from the mutable accounts declared in the typed
@@ -131,9 +152,10 @@ Every Hopper program follows the same seven-step model:
 This is the canonical path. You can use less of it for simple programs and more
 of it for complex protocols, but the pipeline is always the mental model.
 
-## Memory Access Tiers
+## Access Guarantees
 
-Hopper supports three levels of memory access. Most programs use Tier A.
+Hopper exposes one access system with three guarantee levels. Most programs use
+validated whole-layout access first.
 
 | Tier | Path | What you get |
 |------|------|-------------|
@@ -141,17 +163,18 @@ Hopper supports three levels of memory access. Most programs use Tier A.
 | **B** | `pod_from_bytes::<Vault>(data)?` | Direct typed view, no header validation |
 | **C** | `unsafe { Vault::load_unchecked(data) }` | Raw cast, caller owns all risk |
 
-The cast overhead is intentionally minimal across all tiers. The difference is in
-what validation runs before and what tracking runs after. Tier A adds header
-checks and fingerprint verification, Tier B skips those, and Tier C is a raw
-pointer cast with no framework code on the path. See
+The cast overhead is intentionally minimal across all three. The difference is
+what validation runs before the cast and what tracking runs after it. The safe
+path adds header checks and fingerprint verification, the Pod path skips those,
+and the raw path is an explicit caller-owned escape hatch. See
 [MEMORY_ACCESS.md](docs/MEMORY_ACCESS.md) for measured CU numbers.
 
 ## Getting Started
 
-There are three tiers of Hopper usage. Most programs only need Tier 1.
+There are three progressively deeper ways to use Hopper. Most programs only need
+the standard path.
 
-### Tier 1: Standard Hopper
+### Standard Hopper
 
 The default path. Versioned layouts, phased execution, validation, and receipts.
 This is what you reach for on day one.
@@ -169,15 +192,19 @@ hopper_layout! {
 }
 ```
 
-Load and validate with tiered trust:
+Load and validate with the default path first, then reach for specialized
+guarantees only when the use case changes:
 
 ```rust
 // T1: Full validation (your own program's accounts)
 let vault = Vault::load(account, program_id)?;
 let balance = vault.map(|v| v.balance.get());
 
-// T2: Cross-program (read someone else's account by ABI proof)
+// Cross-program read with ABI proof
 let vault = Vault::load_foreign(account, &other_program_id)?;
+
+// Migration-compatible read on the same runtime path
+let vault = account.load_versioned::<Vault>()?;
 
 // T3: Version-compatible (accept V1+ during migration, skip layout_id)
 let vault = VaultV1::load_compatible(account, program_id, 1)?;
@@ -217,7 +244,7 @@ artifact.
 See [`examples/hopper-showcase`](examples/hopper-showcase/src/lib.rs) for the
 complete reference implementation that uses every layer.
 
-### Tier 2: Advanced Hopper
+### Advanced Hopper
 
 For bigger protocols that need segmented accounts, virtual multi-account state,
 migration planning, trust profiles, and custom validation graphs.
@@ -231,7 +258,7 @@ migration planning, trust profiles, and custom validation graphs.
 See [`examples/hopper-registry`](examples/hopper-registry/src/lib.rs) and
 [`examples/hopper-virtual-state`](examples/hopper-virtual-state/src/lib.rs).
 
-### Tier 3: Escape Hatch
+### Escape Hatch
 
 When you need to go lower than the framework, Hopper gets out of your way.
 Every macro has an `_unchecked` or manual alternative. You can drop down to raw
@@ -245,7 +272,7 @@ cage.
 |------|-------------|
 | **Typed overlays** | `#[repr(C)]` structs mapped directly onto account bytes, zero serialization cost |
 | **16-byte header** | Every account is self-describing: disc, version, flags, layout fingerprint |
-| **Segment-level borrows** | Fine-grained conflict detection at the byte range level. Read `authority` while writing `balance` on the same account. 32-entry registry, no heap, inline checks |
+| **Segment-level borrows** | Fine-grained conflict detection at the byte range level. Read `authority` while writing `balance` on the same account. 16-entry compact registry (u64 fingerprint keys, ~280 bytes stack), no heap, inline checks |
 | **SegmentMap** | Compile-time field→offset mapping via const trait. `segment("balance")` resolves to `StaticSegment { offset: 32, size: 8 }` at compile time |
 | **Deterministic fingerprints** | SHA-256 of field names/types/sizes, computed at compile time |
 | **5-tier loading** | Full, foreign, compatible, unchecked, unverified |
@@ -276,6 +303,10 @@ hopper (root facade, re-exports everything)
 +-- hopper-macros        17 declarative macros (no proc macros, always available)
 +-- hopper-macros-proc   Optional proc macros: #[hopper_state], #[hopper_context],
 |                        #[hopper_program]. DX layer, never required.
++-- hopper-system        Hopper-owned System Program instruction builders
++-- hopper-token         Hopper-owned SPL Token instruction builders
++-- hopper-token-2022    Hopper-owned Token-2022 instruction builders + screening
++-- hopper-associated-token Hopper-owned ATA helpers + ATA instruction builders
 +-- hopper-solana        SPL Token/Mint readers, CPI guards, typed CPI kits
 +-- hopper-schema        Layout manifests, field diffs, migration planning,
 |                        program manifests, IDL, Codama projection, field-level decoding
@@ -313,6 +344,7 @@ specific patterns.
 | [`hopper-registry`](examples/hopper-registry/src/lib.rs) | Segmented registry with journal and virtual state | 2 |
 | [`hopper-migration`](examples/hopper-migration/src/lib.rs) | V1 to V2 layout evolution with migration planner | 2 |
 | [`hopper-virtual-state`](examples/hopper-virtual-state/src/lib.rs) | Multi-account entities with VirtualState | 2 |
+| [`hopper-token-2022-vault`](examples/hopper-token-2022-vault/src/lib.rs) | Hopper-owned Token-2022 vault flow with local manifest-backed CLI preview | 2 |
 | [`cross-program-read`](examples/cross-program-read/) | Interface pinning across two programs | 2 |
 
 ## CLI
@@ -323,9 +355,17 @@ segments, version compatibility, and mutation receipts. It is offline-first:
 most commands operate on local manifests and raw bytes, while `hopper fetch`
 and `hopper manager fetch` optionally use RPC to pull on-chain manifests.
 
+When a package already contains `hopper.manifest.json`,
+`hopper compile --emit rust` can infer it from the current project root. Use
+`--package <name>` to target another workspace member and `--out <path>` to
+write the lowered preview to disk.
+
 Commands are organized into families:
 
 ```
+Compile:
+  hopper compile --emit rust [<manifest>]  Emit lowered runtime Rust: accessors, offsets, pointer path
+
 Schema:
   hopper schema export [--manifest|--idl|--codama]  Schema format reference
   hopper schema validate <manifest>  Validate a program manifest
@@ -333,6 +373,7 @@ Schema:
 
 Inspect:
   hopper inspect <hex>               Raw header decode
+  hopper inspect layout <manifest> <hex>  Decode fields using a program manifest
   hopper inspect segments <hex>      Segment registry map
   hopper inspect receipt <hex>       Decode a state receipt
 
@@ -344,7 +385,7 @@ Explain:
   hopper explain policy <pack>       Explain a named policy pack
   hopper explain layout <manifest>   Explain layout fields, intents, fingerprint
   hopper explain program <manifest>  Explain entire program pipeline
-  hopper explain context <manifest> [--type <ContextName>]  Explain instruction contexts
+  hopper explain context <manifest> [--type <ContextName>]  Explain instruction contexts and generated accessors
 
 Compatibility:
   hopper compat <old> <new>          Compatibility report
@@ -436,6 +477,24 @@ different ways. Hopper's lead is that it treats layouts as runtime contracts:
 versioned headers, deterministic layout fingerprints, foreign/versioned loads,
 field maps, schema export, segment roles, and manager-ready metadata all come
 from the same state model.
+
+### Benchmark (Parity Vault, 8-seed average)
+
+| Scenario | Hopper | Quasar | Pinocchio-style |
+|----------|--------|--------|-----------------|
+| Authorize | **432 CU** | 585 CU | 2543 CU |
+| Auth-fail | **70 CU** | 66 CU | 74 CU |
+| Counter (segment-safe) | **539 CU** | 607 CU | 2575 CU |
+| Deposit | **1651 CU** | 1768 CU | 3763 CU |
+| Withdraw | **455 CU** | 605 CU | 2567 CU |
+| **Binary size** | **7.62 KiB** | 8.36 KiB | 10.13 KiB |
+
+**Hopper beats Quasar on 4 of 5 instructions** while providing 47+ safety
+mechanisms vs Quasar's ~10. Hopper's counter-access uses `segment_ref` and
+`segment_mut` with segment-level borrow tracking — Quasar and Pinocchio use
+raw byte slicing with no conflict detection. The novel verify-only PDA
+approach (sha256 only, no curve_validate) saves ~350 CU per PDA-bearing
+instruction. Hopper produces the **smallest binary** of all three frameworks.
 
 | | Hopper | Anchor zero-copy | Pinocchio | Quasar |
 |---|---|---|---|---|

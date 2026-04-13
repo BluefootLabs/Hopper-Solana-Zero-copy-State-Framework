@@ -5,7 +5,7 @@
 //! **This crate has NO dependency on Program A.** It declares its own
 //! `VaultView` struct with the same fields, types, sizes, and version as
 //! Program A's `Vault`. Because `hopper_interface!` produces a deterministic
-//! `LAYOUT_ID` from the field descriptors (SHA-256 based), `load_foreign()`
+//! `LAYOUT_ID` from the field descriptors (SHA-256 based), `load_cross_program()`
 //! can verify ABI compatibility at runtime without any compile-time coupling.
 //!
 //! ## How It Works
@@ -14,10 +14,10 @@
 //! 2. Program B defines `VaultView` with `hopper_interface!` using the same
 //!    field spec → produces `LAYOUT_ID_B`.
 //! 3. Same fields + same ordering + same types + same sizes → `LAYOUT_ID_A == LAYOUT_ID_B`.
-//! 4. `VaultView::load_foreign()` checks `owner == PROGRAM_A_ID` and
+//! 4. `Vault::load_cross_program()` checks `owner == PROGRAM_A_ID` and
 //!    `layout_id == LAYOUT_ID_B`. Both pass. Read succeeds.
 //! 5. If Program A changes its `Vault` layout, `LAYOUT_ID_A` changes,
-//!    and `load_foreign()` rejects the account → no silent schema drift.
+//!    and `load_cross_program()` rejects the account → no silent schema drift.
 //!
 //! ## Important
 //!
@@ -112,7 +112,7 @@ fn process_read_vault(
 
     // Tier 2: Cross-program read.
     // Validates: owner == PROGRAM_A_ID, layout_id matches, exact size.
-    let verified = Vault::load_foreign(vault_account, &PROGRAM_A_ID)?;
+    let verified = Vault::load_cross_program(vault_account, &PROGRAM_A_ID)?;
     let vault = verified.get();
 
     // Access Program A's vault data -- zero copies, zero deserialization.

@@ -26,6 +26,9 @@ mod __hopper_sbf {
 /// Account DSL alternative -- same vault logic using hopper_accounts! macro.
 mod dsl;
 
+#[cfg(test)]
+mod tests;
+
 // --- Layout ---------------------------------------------------------
 
 hopper_layout! {
@@ -85,8 +88,8 @@ fn process_init(
     hopper_init!(payer, vault_account, system_program, program_id, Vault)?;
 
     // Write initial state
-    let mut data = vault_account.try_borrow_mut()?;
-    let vault = Vault::overlay_mut(&mut data)?;
+    let mut vault = Vault::load_mut(vault_account, program_id)?;
+    let vault = vault.get_mut();
     vault.authority = TypedAddress::from_account(payer);
     vault.balance = WireU64::new(0);
 

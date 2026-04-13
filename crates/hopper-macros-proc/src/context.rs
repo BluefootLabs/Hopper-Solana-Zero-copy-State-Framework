@@ -2,6 +2,7 @@
 //!
 //! Parses context structs with `#[account(...)]` annotations and generates:
 //! - A typed binder over `hopper_runtime::Context`
+//! - Per-field account accessors (`vault_account()`, `vault_load()`, etc.)
 //! - Per-field segment accessors (`vault_balance_mut()`, etc.)
 //! - Up-front signer, writable, owner, and layout validation
 //! - Receipt scopes derived from the same mutable segment metadata
@@ -88,30 +89,71 @@ pub fn expand(_attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
         });
     }
 
-    // Generate validation calls.
+    // Generate per-field validation functions and collect check descriptions.
     let mut validation_stmts = Vec::new();
+    let mut per_field_validators = Vec::new();
+    let mut check_descriptions: Vec<String> = Vec::new();
 
     for cf in &ctx_fields {
         let idx = cf.index;
+        let field_name = &cf.name;
+        let validate_fn = format_ident!("validate_{}", field_name);
+        let mut field_checks = Vec::new();
 
         if cf.attr.is_signer {
-            validation_stmts.push(quote! {
+            field_checks.push(quote! {
                 ctx.account(#idx)?.check_signer()?;
             });
+            check_descriptions.push(format!(
+                "accounts[{}] ({}) must be a signer",
+                idx, field_name
+            ));
         }
         if cf.attr.is_mut || !cf.attr.mut_segments.is_empty() {
-            validation_stmts.push(quote! {
+            field_checks.push(quote! {
                 ctx.account(#idx)?.check_writable()?;
             });
+            check_descriptions.push(format!(
+                "accounts[{}] ({}) must be writable",
+                idx, field_name
+            ));
         }
         if !skips_layout_validation(&cf.ty) {
             let field_ty = &cf.ty;
-            validation_stmts.push(quote! {
+            field_checks.push(quote! {
                 ctx.account(#idx)?.check_owned_by(ctx.program_id())?;
                 let _ = ctx.account(#idx)?.load::<#field_ty>()?;
             });
+            check_descriptions.push(format!(
+                "accounts[{}] ({}) owned by program, valid {} header",
+                idx,
+                field_name,
+                type_ident(&cf.ty).map(|i| i.to_string()).unwrap_or_default()
+            ));
+        }
+
+        if !field_checks.is_empty() {
+            per_field_validators.push(quote! {
+                /// Validate the `#field_name` account (index #idx).
+                #[inline(always)]
+                #vis fn #validate_fn(ctx: &::hopper::prelude::Context<'_>) -> ::core::result::Result<(), ::hopper::__runtime::ProgramError> {
+                    #(#field_checks)*
+                    Ok(())
+                }
+            });
+
+            // Collect into monolithic validate() for backward compat
+            validation_stmts.push(quote! {
+                Self::#validate_fn(ctx)?;
+            });
         }
     }
+
+    let check_desc_literals: Vec<_> = check_descriptions
+        .iter()
+        .map(|s| quote! { #s })
+        .collect();
+    let check_count = check_descriptions.len();
 
     // Generate segment accessor methods with const segment bindings.
     let mut accessors = Vec::new();
@@ -122,6 +164,82 @@ pub fn expand(_attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
         let idx = cf.index;
         let type_ident = type_ident(field_ty)?;
         let type_upper = to_screaming_snake(&type_ident.to_string());
+
+        let account_fn = format_ident!("{}_account", field_name);
+        accessors.push(quote! {
+            /// Return the underlying Hopper account view for `#field_name`.
+            #[inline(always)]
+            #vis fn #account_fn(
+                &self,
+            ) -> ::core::result::Result<
+                &::hopper::prelude::AccountView,
+                ::hopper::__runtime::ProgramError,
+            > {
+                self.ctx.account(#idx)
+            }
+        });
+
+        if !skips_layout_validation(field_ty) {
+            let load_fn = format_ident!("{}_load", field_name);
+            let raw_ref_fn = format_ident!("{}_raw_ref", field_name);
+
+            accessors.push(quote! {
+                /// Validate and load the full typed layout for `#field_name`.
+                #[inline(always)]
+                #vis fn #load_fn(
+                    &self,
+                ) -> ::core::result::Result<
+                    ::hopper::__runtime::Ref<'_, #field_ty>,
+                    ::hopper::__runtime::ProgramError,
+                > {
+                    self.ctx.account(#idx)?.load::<#field_ty>()
+                }
+            });
+
+            accessors.push(quote! {
+                /// Explicit raw typed read of the full buffer for `#field_name`.
+                #[inline(always)]
+                #vis fn #raw_ref_fn(
+                    &self,
+                ) -> ::core::result::Result<
+                    ::hopper::__runtime::Ref<'_, #field_ty>,
+                    ::hopper::__runtime::ProgramError,
+                > {
+                    unsafe { self.ctx.account(#idx)?.raw_ref::<#field_ty>() }
+                }
+            });
+
+            if cf.attr.is_mut {
+                let load_mut_fn = format_ident!("{}_load_mut", field_name);
+                let raw_mut_fn = format_ident!("{}_raw_mut", field_name);
+
+                accessors.push(quote! {
+                    /// Validate and mutably load the full typed layout for `#field_name`.
+                    #[inline(always)]
+                    #vis fn #load_mut_fn(
+                        &self,
+                    ) -> ::core::result::Result<
+                        ::hopper::__runtime::RefMut<'_, #field_ty>,
+                        ::hopper::__runtime::ProgramError,
+                    > {
+                        self.ctx.account(#idx)?.load_mut::<#field_ty>()
+                    }
+                });
+
+                accessors.push(quote! {
+                    /// Explicit raw typed write of the full buffer for `#field_name`.
+                    #[inline(always)]
+                    #vis fn #raw_mut_fn(
+                        &self,
+                    ) -> ::core::result::Result<
+                        ::hopper::__runtime::RefMut<'_, #field_ty>,
+                        ::hopper::__runtime::ProgramError,
+                    > {
+                        unsafe { self.ctx.account(#idx)?.raw_mut::<#field_ty>() }
+                    }
+                });
+            }
+        }
 
         // Generate mutable segment accessors.
         for seg_name in &cf.attr.mut_segments {
@@ -267,7 +385,29 @@ pub fn expand(_attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
             pub const RECEIPT_EXPECTED: bool = #receipt_expected;
             pub const MUTABLE_ACCOUNT_COUNT: usize = #mutable_account_count;
 
+            /// Number of individual validation checks performed.
+            pub const VALIDATION_CHECK_COUNT: usize = #check_count;
+
+            /// Human-readable descriptions of every validation check.
+            ///
+            /// Inspect this constant (or use `hopper compile --emit rust`) to
+            /// see exactly what `validate()` enforces — nothing is hidden.
+            pub const VALIDATION_CHECKS: &'static [&'static str] = &[
+                #(#check_desc_literals),*
+            ];
+
+            // ── Per-field validators ─────────────────────────────────
+            //
+            // Each field gets its own `validate_{name}()` so the checks
+            // are individually callable, testable, and visible in
+            // `hopper compile --emit rust` output.
+            #(#per_field_validators)*
+
             /// Validate the account slice against this context spec.
+            ///
+            /// This calls each per-field validator in order. Every check
+            /// is also available as a standalone `validate_{field}()` method
+            /// for fine-grained control and testing.
             #[inline]
             pub fn validate(ctx: &::hopper::prelude::Context<'_>) -> ::core::result::Result<(), ::hopper::__runtime::ProgramError> {
                 ctx.require_accounts(Self::ACCOUNT_COUNT)?;

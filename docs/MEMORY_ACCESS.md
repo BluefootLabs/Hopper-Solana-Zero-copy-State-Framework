@@ -2,10 +2,11 @@
 
 Hopper does not reject pointer casting. It civilizes it.
 
-This document describes the three memory access tiers Hopper supports, what
-each one guarantees, and when to use them.
+This document describes Hopper's single access system and the three guarantee
+levels it exposes. These are not separate Hopper modes. They are the same
+runtime path with different validation and tracking around the cast.
 
-## Tier A: Safe Overlay Path (default)
+## Validated Whole-Layout Access (default)
 
 The default path for most programs. You define a layout with `hopper_layout!`,
 load it through tiered validation, and access fields through typed overlays.
@@ -31,7 +32,7 @@ v.balance.set(v.balance.get() + amount);
 Always, unless you have a measured reason not to. This path gives you the full
 Hopper pipeline: define, resolve, validate, execute, record, verify, inspect.
 
-## Tier B: Explicit Pod Path
+## Direct Typed Slice Access
 
 For hot paths, fixed-layout inner loops, or when you need a direct typed view
 without the full pipeline overhead.
@@ -64,7 +65,7 @@ When you have already validated the account through Tier A and need to re-access
 specific fields in a tight loop. Or when reading a known fixed-format region
 (like a Token account through `hopper-solana` readers).
 
-## Tier C: Unsafe Raw Path
+## Explicit Raw Escape Hatch
 
 Full control. Hopper gets out of your way.
 
@@ -107,7 +108,7 @@ prove correctness through other means.
 
 ## Performance Reality
 
-The cost difference between tiers:
+The cost difference between guarantee levels:
 
 | Operation | Approx CU | Notes |
 |-----------|-----------|-------|
@@ -118,7 +119,7 @@ The cost difference between tiers:
 | Header write | ~30 | One-time per init |
 | Receipt begin + commit | ~40-60 | Depends on snapshot size |
 
-The cast itself is the same cost at every tier. The difference is in what
+The cast itself is the same cost in every case. The difference is what
 validation you run before the cast and what tracking you run after mutation.
 For most programs, the ~120 CU per account load is noise compared to CPI
 costs (thousands of CU).
@@ -143,8 +144,8 @@ path is what you should reach for first.
 
 ## Trust Hierarchy
 
-Every tier carries an implicit level of trust. Know which one you are using
-and why.
+Every guarantee level carries an implicit level of trust. Know which one you
+are using and why.
 
 | Tier | Trust Level | Who Owns Correctness |
 |------|-------------|---------------------|

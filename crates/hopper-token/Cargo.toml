@@ -1,0 +1,28 @@
+[package]
+name = "hopper-token"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+authors = ["BluefootLabs"]
+description = "Hopper-owned SPL Token builder surface. Thin, no_std instruction builders over Hopper Runtime."
+repository = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework"
+homepage = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework"
+documentation = "https://docs.rs/hopper-token"
+readme = "../../README.md"
+keywords = ["solana", "spl-token", "cpi", "zero-copy", "hopper"]
+categories = ["no-std"]
+
+[lib]
+name = "hopper_token"
+
+[dependencies]
+hopper-runtime = { path = "../hopper-runtime", version = "0.1.0", default-features = false }
+
+[features]
+default = ["hopper-native-backend"]
+hopper-native-backend = ["hopper-runtime/hopper-native-backend"]
+pinocchio-backend = ["hopper-runtime/pinocchio-backend"]
+solana-program-backend = ["hopper-runtime/solana-program-backend"]
+
+[lints]
+workspace = true

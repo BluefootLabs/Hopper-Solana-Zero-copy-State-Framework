@@ -23,6 +23,7 @@ want a small program that still uses the real Hopper language surface.
 cargo check -p hopper-vault
 hopper build --host -p hopper-vault
 hopper build -p hopper-vault
+cargo test -p hopper-vault -- --nocapture
 ```
 
 ## Manifest Path
@@ -41,3 +42,27 @@ hopper explain program @examples/sample-manifest.json
 hopper manager summary @examples/sample-manifest.json
 hopper client gen --ts @examples/sample-manifest.json
 ```
+
+## Scenario CU And Safety Tests
+
+The host-side tests in `src/tests.rs` load the compiled `hopper_vault` SBF
+binary through Mollusk and cover:
+
+- deposit CU
+- withdraw CU
+- unsigned withdraw rejection
+
+Build first, then run:
+
+```bash
+hopper build -p hopper-vault
+cargo test -p hopper-vault -- --nocapture
+```
+
+That output is also what `bench/compare-framework-vaults.ps1` parses when it
+used to compare Hopper against Quasar's `vault` and `pinocchio-vault`
+examples.
+
+The fair cross-framework benchmark now uses `examples/hopper-parity-vault` plus
+the shared runner in `bench/framework-vault-bench` so the comparison does not
+inherit this example's extra init and zero-copy state semantics.

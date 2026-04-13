@@ -164,6 +164,43 @@ Hopper's safe path is closer to raw-cast frameworks than to Anchor.
 The 4 CU premium over raw buys header validation, fingerprint
 verification, and a clean typed API.
 
+## Framework Parity Benchmark (Vault, 8-seed average)
+
+All three frameworks execute identical logic: `['vault', user]` PDA derivation,
+signer/writable checks, token operations. Measured on Mollusk with Solana 2.1.
+
+| Scenario | Hopper | Quasar | Pinocchio-style |
+|----------|--------|--------|-----------------|
+| Authorize | **432 CU** | 585 CU | 2543 CU |
+| Auth-fail (missing sig) | **70 CU** | 66 CU | 74 CU |
+| Counter (segment-safe) | **539 CU** | 607 CU | 2575 CU |
+| Deposit | **1651 CU** | 1768 CU | 3763 CU |
+| Withdraw | **455 CU** | 605 CU | 2567 CU |
+| **Binary size** | **7.62 KiB** | 8.36 KiB | 10.13 KiB |
+
+**Key observations:**
+
+- **Hopper beats Quasar on 4 of 5 instructions** while providing 47+ safety
+  mechanisms vs Quasar's ~10. The only gap is auth-fail (+4 CU, negligible).
+- **Smallest binary**: Hopper at 7.62 KiB is 8.8% smaller than Quasar (8.36 KiB)
+  and 24.8% smaller than Pinocchio-style (10.13 KiB).
+- **Verify-only PDA**: Hopper's novel sha256-only PDA verification eliminates
+  `sol_curve_validate_point` (~159 CU/attempt) by comparing hashes directly
+  against the known PDA address. ~350 CU savings per PDA-bearing instruction
+  over the standard `find_program_address` approach.
+- **Fast entrypoint**: Two-argument SVM entrypoint receives instruction data via
+  the second register, eliminating full-buffer account scanning.
+- **Safety at no cost**: The counter-access instruction (539 vs 607 CU) now beats
+  Quasar despite using segment-level borrow tracking. Quasar's counter uses
+  `borrow_unchecked_mut()` with raw byte slicing and no conflict detection.
+- **Pinocchio-style pays more**: Raw pinocchio without Quasar's abstractions is
+  consistently the most expensive due to `create_program_address` syscall overhead.
+
+The parity vault source is at
+[`examples/hopper-parity-vault`](examples/hopper-parity-vault/src/lib.rs).
+Benchmark runner is `bench/runner/` (`framework-vault-bench`).
+
+
 ## CU Budget Reference
 
 | Scenario | Typical CU | Hopper Overhead |

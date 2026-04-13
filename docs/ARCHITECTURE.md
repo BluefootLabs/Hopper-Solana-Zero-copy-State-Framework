@@ -195,19 +195,21 @@ all bit patterns are valid. `FixedLayout` adds a `SIZE` const.
 - `read_version(data)`, `read_layout_id(data)`, `read_header_flags(data)`
 - `AccountHeader` -- `#[repr(C)]` struct matching the wire layout
 
-### Tiered Loading
+### Whole-Layout Loading
 
-Five trust tiers, each validating a different subset of header properties:
+Hopper keeps one canonical whole-layout loading path and exposes specialized
+helpers when the guarantee changes:
 
-| Tier | Function | Checks |
-|------|----------|--------|
-| T1 | `load()` | owner + disc + version + layout_id + exact size |
-| T2 | `load_foreign()` | owner + layout_id + exact size |
-| T3 | version compat | owner + disc + version range + min size |
-| T4 | `load_unchecked()` | `unsafe`, no validation |
-| T5 | `load_unverified()` | best-effort for indexers/tooling |
+| Helper | Checks |
+|--------|--------|
+| `load()` | owner + disc + version + layout_id + exact size |
+| `load_foreign()` | expected foreign owner + layout_id + exact size |
+| `load_compatible()` / `load_versioned()` | owner + disc + compatible version + min size |
+| `load_unchecked()` | caller-owned validation |
+| `load_unverified()` | best-effort tooling read |
 
-These are generated per layout by the `hopper_layout!` macro.
+These are generated per layout by the `hopper_layout!` macro, but they all map
+back to the same Hopper account access model.
 
 ### Verified Accounts (`account/verified.rs`)
 

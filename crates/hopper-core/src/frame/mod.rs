@@ -185,7 +185,7 @@ impl<'a> Frame<'a> {
         }
 
         self.segment_borrows.register_read(
-            *view.address(),
+            view.address(),
             abs_offset,
             T::SIZE as u32,
         )?;
@@ -246,7 +246,7 @@ impl<'a> Frame<'a> {
         }
 
         self.segment_borrows.register_write(
-            *view.address(),
+            view.address(),
             abs_offset,
             T::SIZE as u32,
         )?;

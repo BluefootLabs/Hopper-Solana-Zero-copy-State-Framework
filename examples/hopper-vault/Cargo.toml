@@ -17,5 +17,12 @@ hopper-native-backend = ["hopper/hopper-native-backend"]
 pinocchio-backend = ["hopper/pinocchio-backend"]
 solana-program-backend = ["hopper/solana-program-backend"]
 
+[dev-dependencies]
+mollusk-svm = "0.10.3"
+openssl = { version = "0.10", features = ["vendored"] }
+solana-account = "3.4.0"
+solana-address = { version = "2.2.0", features = ["decode"] }
+solana-instruction = { version = "3.1.0", features = ["bincode"] }
+
 [lints.rust]
 unexpected_cfgs = { level = "allow", check-cfg = ['cfg(target_os, values("solana"))'] }

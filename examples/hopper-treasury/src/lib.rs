@@ -169,7 +169,7 @@ fn process_init_treasury(
 
     // Create the account with full treasury size
     let rent = rent_exempt_min(TREASURY_ACCOUNT_SIZE);
-    hopper::hopper_runtime::system::CreateAccount {
+    hopper::hopper_system::CreateAccount {
         from: payer,
         to: treasury,
         lamports: rent,

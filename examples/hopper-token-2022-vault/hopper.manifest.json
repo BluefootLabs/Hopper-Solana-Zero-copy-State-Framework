@@ -1,0 +1,179 @@
+{
+  "name": "hopper_token_2022_vault",
+  "version": "0.1.0",
+  "description": "A Hopper-authored Token-2022 vault with local manifest-backed CLI preview.",
+  "layouts": [
+    {
+      "name": "RewardVault",
+      "disc": 41,
+      "version": 1,
+      "layout_id": [84, 50, 86, 65, 85, 76, 84, 1],
+      "total_size": 129,
+      "fields": [
+        {"name": "authority", "type": "[u8;32]", "size": 32, "offset": 16},
+        {"name": "mint", "type": "[u8;32]", "size": 32, "offset": 48},
+        {"name": "vault_ata", "type": "[u8;32]", "size": 32, "offset": 80},
+        {"name": "minted_total", "type": "WireU64", "size": 8, "offset": 112},
+        {"name": "swept_total", "type": "WireU64", "size": 8, "offset": 120},
+        {"name": "bump", "type": "u8", "size": 1, "offset": 128}
+      ]
+    }
+  ],
+  "instructions": [
+    {
+      "name": "init_vault",
+      "tag": 0,
+      "args": [],
+      "accounts": [
+        {"name": "payer", "writable": true, "signer": true, "layout_ref": ""},
+        {"name": "vault_state", "writable": true, "signer": false, "layout_ref": "RewardVault"},
+        {"name": "authority", "writable": false, "signer": true, "layout_ref": ""},
+        {"name": "system_program", "writable": false, "signer": false, "layout_ref": ""}
+      ],
+      "capabilities": ["CreatesAccount", "MutatesState"],
+      "policy_pack": "TOKEN_2022_VAULT_WRITE",
+      "receipt_expected": true
+    },
+    {
+      "name": "prepare_vault_ata",
+      "tag": 1,
+      "args": [],
+      "accounts": [
+        {"name": "payer", "writable": true, "signer": true, "layout_ref": ""},
+        {"name": "authority", "writable": false, "signer": true, "layout_ref": ""},
+        {"name": "vault_state", "writable": true, "signer": false, "layout_ref": "RewardVault"},
+        {"name": "vault_ata", "writable": true, "signer": false, "layout_ref": ""},
+        {"name": "mint", "writable": false, "signer": false, "layout_ref": ""},
+        {"name": "system_program", "writable": false, "signer": false, "layout_ref": ""},
+        {"name": "token_program_2022", "writable": false, "signer": false, "layout_ref": ""}
+      ],
+      "capabilities": ["CreatesAccount", "MutatesState"],
+      "policy_pack": "TOKEN_2022_VAULT_WRITE",
+      "receipt_expected": true
+    },
+    {
+      "name": "mint_rewards",
+      "tag": 2,
+      "args": [
+        {"name": "amount", "type": "WireU64", "size": 8}
+      ],
+      "accounts": [
+        {"name": "authority", "writable": false, "signer": true, "layout_ref": ""},
+        {"name": "vault_state", "writable": true, "signer": false, "layout_ref": "RewardVault"},
+        {"name": "vault_ata", "writable": true, "signer": false, "layout_ref": ""},
+        {"name": "mint", "writable": true, "signer": false, "layout_ref": ""},
+        {"name": "token_program_2022", "writable": false, "signer": false, "layout_ref": ""}
+      ],
+      "capabilities": ["MutatesState", "MutatesTreasury"],
+      "policy_pack": "TOKEN_2022_MINT",
+      "receipt_expected": true
+    },
+    {
+      "name": "sweep_rewards",
+      "tag": 3,
+      "args": [
+        {"name": "amount", "type": "WireU64", "size": 8}
+      ],
+      "accounts": [
+        {"name": "authority", "writable": false, "signer": true, "layout_ref": ""},
+        {"name": "vault_state", "writable": true, "signer": false, "layout_ref": "RewardVault"},
+        {"name": "vault_ata", "writable": true, "signer": false, "layout_ref": ""},
+        {"name": "destination_ata", "writable": true, "signer": false, "layout_ref": ""},
+        {"name": "token_program_2022", "writable": false, "signer": false, "layout_ref": ""}
+      ],
+      "capabilities": ["MutatesState", "MutatesTreasury"],
+      "policy_pack": "TOKEN_2022_SWEEP",
+      "receipt_expected": true
+    }
+  ],
+  "contexts": [
+    {
+      "name": "InitVault",
+      "accounts": [
+        {"name": "payer", "kind": "Signer", "writable": true, "signer": true, "layout_ref": "", "policy_ref": "", "seeds": [], "optional": false},
+        {"name": "vault_state", "kind": "HopperAccount", "writable": true, "signer": false, "layout_ref": "RewardVault", "policy_ref": "TOKEN_2022_VAULT_WRITE", "seeds": [], "optional": false},
+        {"name": "authority", "kind": "Signer", "writable": false, "signer": true, "layout_ref": "", "policy_ref": "", "seeds": [], "optional": false},
+        {"name": "system_program", "kind": "ProgramRef", "writable": false, "signer": false, "layout_ref": "", "policy_ref": "", "seeds": [], "optional": false}
+      ],
+      "policies": ["TOKEN_2022_VAULT_WRITE"],
+      "receipts_expected": true,
+      "mutation_classes": ["StateTransition"]
+    },
+    {
+      "name": "PrepareVaultAta",
+      "accounts": [
+        {"name": "payer", "kind": "Signer", "writable": true, "signer": true, "layout_ref": "", "policy_ref": "", "seeds": [], "optional": false},
+        {"name": "authority", "kind": "Signer", "writable": false, "signer": true, "layout_ref": "", "policy_ref": "", "seeds": [], "optional": false},
+        {"name": "vault_state", "kind": "HopperAccount", "writable": true, "signer": false, "layout_ref": "RewardVault", "policy_ref": "TOKEN_2022_VAULT_WRITE", "seeds": [], "optional": false},
+        {"name": "vault_ata", "kind": "TokenAccount", "writable": true, "signer": false, "layout_ref": "", "policy_ref": "", "seeds": [], "optional": false},
+        {"name": "mint", "kind": "MintAccount", "writable": false, "signer": false, "layout_ref": "", "policy_ref": "", "seeds": [], "optional": false},
+        {"name": "system_program", "kind": "ProgramRef", "writable": false, "signer": false, "layout_ref": "", "policy_ref": "", "seeds": [], "optional": false},
+        {"name": "token_program_2022", "kind": "ProgramRef", "writable": false, "signer": false, "layout_ref": "", "policy_ref": "", "seeds": [], "optional": false}
+      ],
+      "policies": ["TOKEN_2022_VAULT_WRITE"],
+      "receipts_expected": true,
+      "mutation_classes": ["StateTransition", "InPlace"]
+    },
+    {
+      "name": "MintRewards",
+      "accounts": [
+        {"name": "authority", "kind": "Signer", "writable": false, "signer": true, "layout_ref": "", "policy_ref": "", "seeds": [], "optional": false},
+        {"name": "vault_state", "kind": "HopperAccount", "writable": true, "signer": false, "layout_ref": "RewardVault", "policy_ref": "TOKEN_2022_MINT", "seeds": [], "optional": false},
+        {"name": "vault_ata", "kind": "TokenAccount", "writable": true, "signer": false, "layout_ref": "", "policy_ref": "", "seeds": [], "optional": false},
+        {"name": "mint", "kind": "MintAccount", "writable": true, "signer": false, "layout_ref": "", "policy_ref": "", "seeds": [], "optional": false},
+        {"name": "token_program_2022", "kind": "ProgramRef", "writable": false, "signer": false, "layout_ref": "", "policy_ref": "", "seeds": [], "optional": false}
+      ],
+      "policies": ["TOKEN_2022_MINT"],
+      "receipts_expected": true,
+      "mutation_classes": ["Financial", "InPlace"]
+    },
+    {
+      "name": "SweepRewards",
+      "accounts": [
+        {"name": "authority", "kind": "Signer", "writable": false, "signer": true, "layout_ref": "", "policy_ref": "", "seeds": [], "optional": false},
+        {"name": "vault_state", "kind": "HopperAccount", "writable": true, "signer": false, "layout_ref": "RewardVault", "policy_ref": "TOKEN_2022_SWEEP", "seeds": [], "optional": false},
+        {"name": "vault_ata", "kind": "TokenAccount", "writable": true, "signer": false, "layout_ref": "", "policy_ref": "", "seeds": [], "optional": false},
+        {"name": "destination_ata", "kind": "TokenAccount", "writable": true, "signer": false, "layout_ref": "", "policy_ref": "", "seeds": [], "optional": false},
+        {"name": "token_program_2022", "kind": "ProgramRef", "writable": false, "signer": false, "layout_ref": "", "policy_ref": "", "seeds": [], "optional": false}
+      ],
+      "policies": ["TOKEN_2022_SWEEP"],
+      "receipts_expected": true,
+      "mutation_classes": ["Financial", "InPlace"]
+    }
+  ],
+  "events": [
+    {
+      "name": "RewardsMinted",
+      "tag": 1,
+      "fields": [
+        {"name": "amount", "type": "WireU64", "size": 8, "offset": 0},
+        {"name": "next_total", "type": "WireU64", "size": 8, "offset": 8}
+      ]
+    },
+    {
+      "name": "RewardsSwept",
+      "tag": 2,
+      "fields": [
+        {"name": "amount", "type": "WireU64", "size": 8, "offset": 0},
+        {"name": "next_total", "type": "WireU64", "size": 8, "offset": 8}
+      ]
+    }
+  ],
+  "policies": [
+    {
+      "name": "TOKEN_2022_VAULT_WRITE",
+      "capabilities": ["CreatesAccount", "MutatesState"],
+      "requirements": ["SignerAuthority", "SnapshotCommit"]
+    },
+    {
+      "name": "TOKEN_2022_MINT",
+      "capabilities": ["MutatesState", "MutatesTreasury"],
+      "requirements": ["SignerAuthority", "SnapshotCommit", "CpiGuard"]
+    },
+    {
+      "name": "TOKEN_2022_SWEEP",
+      "capabilities": ["MutatesState", "MutatesTreasury"],
+      "requirements": ["SignerAuthority", "SnapshotCommit", "LamportConservation"]
+    }
+  ]
+}

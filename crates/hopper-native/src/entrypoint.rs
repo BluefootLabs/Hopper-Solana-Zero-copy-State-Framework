@@ -107,6 +107,89 @@ macro_rules! program_entrypoint {
     };
 }
 
+/// Declare a fast two-argument Hopper Native program entrypoint.
+///
+/// Leverages the SVM's second entrypoint register, which provides a direct
+/// pointer to instruction data — eliminating the full account-scanning pass
+/// that the single-argument entrypoint requires. Saves ~30-40 CU per
+/// instruction invocation.
+///
+/// The SVM has provided the second argument since runtime ~1.17.
+///
+/// # Usage
+///
+/// ```ignore
+/// use hopper_native::hopper_fast_entrypoint;
+///
+/// hopper_fast_entrypoint!(process_instruction, 3);
+///
+/// pub fn process_instruction(
+///     program_id: &Address,
+///     accounts: &[AccountView],
+///     instruction_data: &[u8],
+/// ) -> ProgramResult {
+///     Ok(())
+/// }
+/// ```
+#[macro_export]
+macro_rules! hopper_fast_entrypoint {
+    ( $process_instruction:expr ) => {
+        $crate::hopper_fast_entrypoint!($process_instruction, { $crate::MAX_TX_ACCOUNTS });
+    };
+    ( $process_instruction:expr, $maximum:expr ) => {
+        /// # Safety
+        ///
+        /// Called by the Solana runtime; `input` is a valid BPF input buffer
+        /// and `ix_data` points to the instruction data with its u64 length
+        /// stored at offset -8.
+        #[no_mangle]
+        pub unsafe extern "C" fn entrypoint(input: *mut u8, ix_data: *const u8) -> u64 {
+            const UNINIT: core::mem::MaybeUninit<$crate::AccountView> =
+                core::mem::MaybeUninit::<$crate::AccountView>::uninit();
+            let mut accounts = [UNINIT; $maximum];
+
+            // Instruction data length is the u64 immediately before the data pointer.
+            let ix_len = unsafe { *(ix_data.sub(8) as *const u64) as usize };
+            let instruction_data: &'static [u8] =
+                unsafe { core::slice::from_raw_parts(ix_data, ix_len) };
+
+            // Program ID immediately follows instruction data in the SVM buffer.
+            let program_id = unsafe {
+                core::ptr::read(ix_data.add(ix_len) as *const $crate::Address)
+            };
+
+            let (program_id, count, instruction_data) = unsafe {
+                $crate::raw_input::deserialize_accounts_fast::<$maximum>(
+                    input,
+                    &mut accounts,
+                    instruction_data,
+                    program_id,
+                )
+            };
+
+            match $process_instruction(
+                &program_id,
+                unsafe { core::slice::from_raw_parts(accounts.as_ptr() as _, count) },
+                instruction_data,
+            ) {
+                Ok(()) => $crate::SUCCESS,
+                Err(error) => error.into(),
+            }
+        }
+    };
+}
+
+/// Backward-compatible alias for `hopper_fast_entrypoint!`.
+#[macro_export]
+macro_rules! fast_entrypoint {
+    ( $process_instruction:expr ) => {
+        $crate::hopper_fast_entrypoint!($process_instruction);
+    };
+    ( $process_instruction:expr, $maximum:expr ) => {
+        $crate::hopper_fast_entrypoint!($process_instruction, $maximum);
+    };
+}
+
 /// Declare the canonical lazy program entrypoint that defers account parsing.
 #[macro_export]
 macro_rules! hopper_lazy_entrypoint {

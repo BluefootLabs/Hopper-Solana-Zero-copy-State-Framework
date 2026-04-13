@@ -18,6 +18,10 @@
 //!   `hopper_assert_fingerprint!`
 //! - `hopper_solana`: SPL Token/Mint readers, Token-2022 checks, CPI guards,
 //!   Pyth oracle, TWAP, Ed25519/Merkle crypto, authority rotation
+//! - `hopper_system`: Hopper-owned System Program instruction builders
+//! - `hopper_token`: Hopper-owned SPL Token instruction builders
+//! - `hopper_token_2022`: Hopper-owned Token-2022 instruction builders and screening helpers
+//! - `hopper_associated_token`: Hopper-owned ATA derivation helpers and ATA instruction builders
 //! - `hopper_schema`: Layout manifests, field-level schema diffing,
 //!   compatibility checks, Codama/IDL projections, client generation
 //!
@@ -53,6 +57,10 @@ pub mod __macro_support;
 pub use hopper_core;
 pub use hopper_solana;
 pub use hopper_schema;
+pub use hopper_system;
+pub use hopper_token;
+pub use hopper_token_2022;
+pub use hopper_associated_token;
 pub use hopper_runtime;
 
 // Re-export macros at the crate root

@@ -88,6 +88,55 @@
       "receipt_expected": false
     }
   ],
+  "contexts": [
+    {
+      "name": "Initialize",
+      "accounts": [
+        {"name": "vault", "kind": "HopperAccount", "writable": true, "signer": false, "layout_ref": "VaultState", "policy_ref": "", "seeds": [], "optional": false},
+        {"name": "authority", "kind": "Signer", "writable": false, "signer": true, "layout_ref": "", "policy_ref": "", "seeds": [], "optional": false},
+        {"name": "system", "kind": "ProgramRef", "writable": false, "signer": false, "layout_ref": "", "policy_ref": "", "seeds": [], "optional": false}
+      ],
+      "policies": [],
+      "receipts_expected": true,
+      "mutation_classes": ["StateTransition"]
+    },
+    {
+      "name": "Deposit",
+      "accounts": [
+        {"name": "vault", "kind": "HopperAccount", "writable": true, "signer": false, "layout_ref": "VaultState", "policy_ref": "TREASURY_WRITE", "seeds": [], "optional": false},
+        {"name": "authority", "kind": "Signer", "writable": false, "signer": true, "layout_ref": "", "policy_ref": "", "seeds": [], "optional": false},
+        {"name": "token_src", "kind": "TokenAccount", "writable": true, "signer": false, "layout_ref": "", "policy_ref": "", "seeds": [], "optional": false},
+        {"name": "token_dst", "kind": "TokenAccount", "writable": true, "signer": false, "layout_ref": "", "policy_ref": "", "seeds": [], "optional": false},
+        {"name": "token_prog", "kind": "ProgramRef", "writable": false, "signer": false, "layout_ref": "", "policy_ref": "", "seeds": [], "optional": false}
+      ],
+      "policies": ["TREASURY_WRITE"],
+      "receipts_expected": true,
+      "mutation_classes": ["Financial", "InPlace"]
+    },
+    {
+      "name": "Withdraw",
+      "accounts": [
+        {"name": "vault", "kind": "HopperAccount", "writable": true, "signer": false, "layout_ref": "VaultState", "policy_ref": "TREASURY_WRITE", "seeds": [], "optional": false},
+        {"name": "authority", "kind": "Signer", "writable": false, "signer": true, "layout_ref": "", "policy_ref": "", "seeds": [], "optional": false},
+        {"name": "token_src", "kind": "TokenAccount", "writable": true, "signer": false, "layout_ref": "", "policy_ref": "", "seeds": [], "optional": false},
+        {"name": "token_dst", "kind": "TokenAccount", "writable": true, "signer": false, "layout_ref": "", "policy_ref": "", "seeds": [], "optional": false},
+        {"name": "token_prog", "kind": "ProgramRef", "writable": false, "signer": false, "layout_ref": "", "policy_ref": "", "seeds": [], "optional": false}
+      ],
+      "policies": ["TREASURY_WRITE"],
+      "receipts_expected": true,
+      "mutation_classes": ["Financial", "InPlace"]
+    },
+    {
+      "name": "Freeze",
+      "accounts": [
+        {"name": "config", "kind": "HopperAccount", "writable": true, "signer": false, "layout_ref": "VaultConfig", "policy_ref": "AUTHORITY_CHANGE", "seeds": [], "optional": false},
+        {"name": "admin", "kind": "Signer", "writable": false, "signer": true, "layout_ref": "", "policy_ref": "", "seeds": [], "optional": false}
+      ],
+      "policies": ["AUTHORITY_CHANGE"],
+      "receipts_expected": false,
+      "mutation_classes": ["AuthoritySensitive"]
+    }
+  ],
   "events": [
     {
       "name": "DepositEvent",

@@ -208,6 +208,7 @@ impl<const N: usize> VirtualState<N> {
             return Err(ProgramError::NotEnoughAccountKeys);
         }
         let acc = &accounts[idx];
+        #[allow(deprecated)]
         acc.overlay::<T>()
     }
 
@@ -237,6 +238,7 @@ impl<const N: usize> VirtualState<N> {
             return Err(ProgramError::NotEnoughAccountKeys);
         }
         let acc = &accounts[idx];
+        #[allow(deprecated)]
         acc.overlay_mut::<T>()
     }
 

@@ -44,6 +44,9 @@ use crate::address::Address;
 use crate::account_view::AccountView;
 use crate::error::ProgramError;
 use crate::raw_account::RuntimeAccount;
+use crate::MAX_PERMITTED_DATA_INCREASE;
+
+const BPF_ALIGN_OF_U128: usize = 8;
 
 /// Pre-parsed header from the BPF input buffer: instruction data +
 /// program ID, plus a cursor positioned at the first account.
@@ -212,12 +215,9 @@ impl LazyContext {
                 let raw = self.cursor as *mut RuntimeAccount;
                 let view = AccountView::new_unchecked(raw);
                 let data_len = (*raw).data_len as usize;
-                let header_size = core::mem::size_of::<RuntimeAccount>();
-
-                // Advance past header + data + alignment padding + rent_epoch.
-                let mut offset = header_size + data_len;
-                offset = (offset + 7) & !7; // align to 8
-                offset += 8; // rent_epoch
+                let mut offset = RuntimeAccount::SIZE + data_len + MAX_PERMITTED_DATA_INCREASE;
+                offset += self.cursor.add(offset).align_offset(BPF_ALIGN_OF_U128);
+                offset += 8;
 
                 self.cursor = self.cursor.add(offset);
                 view

@@ -10,6 +10,9 @@ use crate::ProgramResult;
 use crate::instruction::InstructionView;
 use crate::account::AccountView;
 
+#[cfg(all(feature = "hopper-native-backend", target_os = "solana"))]
+use crate::instruction::InstructionAccount;
+
 // Re-export Signer and Seed so callers can use `cpi::Signer` / `cpi::Seed`.
 pub use crate::instruction::{Signer, Seed};
 
@@ -31,6 +34,16 @@ use crate::instruction::CpiAccount;
 #[cfg(feature = "hopper-native-backend")]
 use core::mem::MaybeUninit;
 
+#[cfg(all(feature = "hopper-native-backend", target_os = "solana"))]
+#[repr(C)]
+struct CInstruction<'a> {
+    program_id: *const Address,
+    accounts: *const InstructionAccount<'a>,
+    accounts_len: u64,
+    data: *const u8,
+    data_len: u64,
+}
+
 // ── Unchecked invoke ─────────────────────────────────────────────────
 
 /// Invoke a CPI without borrow validation (lowest CU cost).
@@ -46,9 +59,17 @@ pub unsafe fn invoke_unchecked(
 ) -> ProgramResult {
     #[cfg(target_os = "solana")]
     {
+        let c_instruction = CInstruction {
+            program_id: instruction.program_id as *const Address,
+            accounts: instruction.accounts.as_ptr(),
+            accounts_len: instruction.accounts.len() as u64,
+            data: instruction.data.as_ptr(),
+            data_len: instruction.data.len() as u64,
+        };
+
         let result = unsafe {
             hopper_native::syscalls::sol_invoke_signed_c(
-                instruction as *const _ as *const u8,
+                &c_instruction as *const _ as *const u8,
                 accounts.as_ptr() as *const u8,
                 accounts.len() as u64,
                 core::ptr::null(),
@@ -78,9 +99,17 @@ pub unsafe fn invoke_signed_unchecked(
 ) -> ProgramResult {
     #[cfg(target_os = "solana")]
     {
+        let c_instruction = CInstruction {
+            program_id: instruction.program_id as *const Address,
+            accounts: instruction.accounts.as_ptr(),
+            accounts_len: instruction.accounts.len() as u64,
+            data: instruction.data.as_ptr(),
+            data_len: instruction.data.len() as u64,
+        };
+
         let result = unsafe {
             hopper_native::syscalls::sol_invoke_signed_c(
-                instruction as *const _ as *const u8,
+                &c_instruction as *const _ as *const u8,
                 accounts.as_ptr() as *const u8,
                 accounts.len() as u64,
                 signers_seeds.as_ptr() as *const u8,

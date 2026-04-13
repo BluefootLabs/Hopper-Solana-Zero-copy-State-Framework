@@ -58,9 +58,9 @@ mod __hopper_sbf {
 // `hopper_layout!` generates:
 //   - #[repr(C)] struct with alignment-1 wire types
 //   - Compile-time LAYOUT_ID (SHA-256 fingerprint)
-//   - Tiered load functions: load(), load_foreign(), load_unchecked()
+//   - Tiered load functions: load(), load_cross_program(), load_unverified()
 //   - SIZE, LEN, DISC, VERSION constants
-//   - overlay() / overlay_mut() for zero-copy access
+//   - load()/load_mut() for canonical whole-layout access; overlay() for raw projection
 //   - BUMP_OFFSET for PDA verification
 
 hopper_layout! {
@@ -183,7 +183,7 @@ fn process_init_pool(
 
     // Create account
     let rent = rent_exempt_min(POOL_SIZE);
-    hopper::hopper_runtime::system::CreateAccount {
+    hopper::hopper_system::CreateAccount {
         from: payer,
         to: pool,
         lamports: rent,

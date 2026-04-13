@@ -50,6 +50,13 @@ extern "C" {
         hash_result: *mut u8,
     ) -> u64;
 
+    /// Validate whether a point lies on the selected curve.
+    pub fn sol_curve_validate_point(
+        curve_id: u64,
+        point_addr: *const u8,
+        result_point_addr: *mut u8,
+    ) -> u64;
+
     /// Keccak-256 hash.
     pub fn sol_keccak256(
         vals: *const u8,

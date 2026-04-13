@@ -151,8 +151,8 @@ fn process_init_v1(
 
     hopper_init!(payer, vault_account, system_program, program_id, VaultV1)?;
 
-    let mut data = vault_account.try_borrow_mut()?;
-    let vault = VaultV1::overlay_mut(&mut data)?;
+    let mut vault = VaultV1::load_mut(vault_account, program_id)?;
+    let vault = vault.get_mut();
     vault.authority = TypedAddress::from_account(payer);
     vault.balance = WireU64::new(0);
 
@@ -232,8 +232,8 @@ fn process_migrate_v1_to_v2(
 
     // Fill in new fields.
     // After migrate_append, the header is V2 but new fields are zeroed.
-    let mut account_data = vault_account.try_borrow_mut()?;
-    let vault = VaultV2::overlay_mut(&mut account_data)?;
+    let mut vault = VaultV2::load_mut(vault_account, program_id)?;
+    let vault = vault.get_mut();
 
     // Parse bump from instruction data if provided (byte 0)
     if !data.is_empty() {

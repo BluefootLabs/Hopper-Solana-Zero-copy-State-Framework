@@ -113,11 +113,11 @@ impl<'a> From<&'a AccountView> for CpiAccount<'a> {
         // account struct. The address and owner fields have the same binary
         // layout as hopper_runtime::Address (#[repr(transparent)] over [u8; 32]).
         Self {
-            address: unsafe { &(*raw).address as *const _ as *const Address },
-            lamports: unsafe { &(*raw).lamports as *const u64 },
+            address: unsafe { core::ptr::addr_of!((*raw).address) as *const Address },
+            lamports: unsafe { core::ptr::addr_of!((*raw).lamports) },
             data_len: view.data_len() as u64,
             data: view.data_ptr(),
-            owner: unsafe { &(*raw).owner as *const _ as *const Address },
+            owner: unsafe { core::ptr::addr_of!((*raw).owner) as *const Address },
             rent_epoch: 0,
             is_signer: view.is_signer(),
             is_writable: view.is_writable(),
