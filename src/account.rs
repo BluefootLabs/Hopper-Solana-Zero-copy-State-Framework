@@ -176,14 +176,14 @@ impl AccountView {
     ) -> Result<Ref<'_, T>, ProgramError> {
         let expected_size = core::mem::size_of::<T>() as u32;
         if size != expected_size {
-            return Err(ProgramError::InvalidArgument);
+            return ProgramError::err_invalid_argument();
         }
 
         let end = abs_offset
             .checked_add(size)
             .ok_or(ProgramError::ArithmeticOverflow)?;
         if end as usize > self.data_len() {
-            return Err(ProgramError::AccountDataTooSmall);
+            return ProgramError::err_data_too_small();
         }
 
         borrows.register_read(self.address(), abs_offset, size)?;
@@ -231,14 +231,14 @@ impl AccountView {
 
         let expected_size = core::mem::size_of::<T>() as u32;
         if size != expected_size {
-            return Err(ProgramError::InvalidArgument);
+            return ProgramError::err_invalid_argument();
         }
 
         let end = abs_offset
             .checked_add(size)
             .ok_or(ProgramError::ArithmeticOverflow)?;
         if end as usize > self.data_len() {
-            return Err(ProgramError::AccountDataTooSmall);
+            return ProgramError::err_data_too_small();
         }
 
         borrows.register_write(self.address(), abs_offset, size)?;
@@ -273,78 +273,7 @@ impl AccountView {
 
     // ── Zero-copy overlay access ─────────────────────────────────────
 
-    /// Low-level whole-buffer overlay helper.
-    ///
-    /// Prefer `load()` / `load_mut()` for Hopper-owned layouts and
-    /// `segment_ref()` / `segment_mut()` when you want precise byte-range
-    /// borrowing. `overlay()` is the direct slice-to-type escape hatch for
-    /// fixed-layout expert paths.
-    ///
-    /// # Safety model
-    ///
-    /// The caller must ensure `T` is a plain-old-data type where all
-    /// bit patterns are valid (i.e. a `Pod` type). Alignment must be 1
-    /// or the type must be `#[repr(C)]` over alignment-1 fields.
-    ///
-    /// # Example
-    ///
-    /// ```ignore
-    /// let state = account.overlay::<MyState>()?;
-    /// ```
-    ///
-    /// **Deprecated:** Use `load()` for Hopper layouts or `raw_ref()` for
-    /// explicit unvalidated access.
-    #[deprecated(since = "0.2.0", note = "use load() for Hopper layouts or raw_ref() for explicit bypass")]
-    #[inline(always)]
-    pub fn overlay<T: Copy>(&self) -> Result<Ref<'_, T>, ProgramError> {
-        let data = self.try_borrow()?;
-        if data.len() < core::mem::size_of::<T>() {
-            return Err(ProgramError::AccountDataTooSmall);
-        }
-        let ptr = data.as_ptr() as *const T;
-        // SAFETY: Bounds checked above. `ptr` points into the bytes protected by `data`.
-        Ok(unsafe { data.project(ptr) })
-    }
 
-    /// Low-level mutable whole-buffer overlay helper.
-    ///
-    /// Prefer `load_mut()` for Hopper-authored whole-layout access and
-    /// `segment_mut()` for precise segment writes. `overlay_mut()` exists for
-    /// explicit fixed-layout slice projection when you intentionally want the
-    /// raw buffer shape.
-    ///
-    /// **Deprecated:** Use `load_mut()` or `raw_mut()` instead.
-    #[deprecated(since = "0.2.0", note = "use load_mut() or raw_mut() instead")]
-    #[inline(always)]
-    pub fn overlay_mut<T: Copy>(&self) -> Result<RefMut<'_, T>, ProgramError> {
-        let mut data = self.try_borrow_mut()?;
-        if data.len() < core::mem::size_of::<T>() {
-            return Err(ProgramError::AccountDataTooSmall);
-        }
-        let ptr = data.as_mut_ptr() as *mut T;
-        // SAFETY: Bounds checked above. `ptr` points into the bytes protected by `data`.
-        Ok(unsafe { data.project(ptr) })
-    }
-
-    /// Interpret account data at a specific offset as a typed overlay.
-    ///
-    /// Useful for reading past a header or into a specific region.
-    ///
-    /// **Deprecated:** Use `segment_ref()` with a typed segment offset for
-    /// tracked reads, or `load()` for full-layout projection.
-    #[deprecated(since = "0.2.0", note = "use segment_ref() or load() instead")]
-    #[inline(always)]
-    pub fn overlay_at<T: Copy>(&self, offset: usize) -> Result<Ref<'_, T>, ProgramError> {
-        let data = self.try_borrow()?;
-        let end = offset.checked_add(core::mem::size_of::<T>())
-            .ok_or(ProgramError::ArithmeticOverflow)?;
-        if data.len() < end {
-            return Err(ProgramError::AccountDataTooSmall);
-        }
-        let ptr = unsafe { data.as_bytes_ptr().add(offset) as *const T };
-        // SAFETY: Bounds checked above. `ptr` points into the bytes protected by `data`.
-        Ok(unsafe { data.project(ptr) })
-    }
 
     // ── Typed load (LayoutContract-aware) ────────────────────────────
 
@@ -369,7 +298,7 @@ impl AccountView {
         let data = self.try_borrow()?;
         T::validate_header(&data)?;
         if data.len() < T::required_len() {
-            return Err(ProgramError::AccountDataTooSmall);
+            return ProgramError::err_data_too_small();
         }
         let ptr = unsafe { data.as_bytes_ptr().add(T::TYPE_OFFSET) as *const T };
         // SAFETY: Header and length validated above. `ptr` points into the borrowed bytes.
@@ -392,7 +321,7 @@ impl AccountView {
         let mut data = self.try_borrow_mut()?;
         T::validate_header(&data)?;
         if data.len() < T::required_len() {
-            return Err(ProgramError::AccountDataTooSmall);
+            return ProgramError::err_data_too_small();
         }
         let ptr = unsafe { data.as_bytes_mut_ptr().add(T::TYPE_OFFSET) as *mut T };
         // SAFETY: Header and length validated above. `ptr` points into the borrowed bytes.
@@ -428,82 +357,7 @@ impl AccountView {
         Ok(unsafe { data.project(ptr) })
     }
 
-    /// Load a typed layout checking only the discriminator (fast path).
-    ///
-    /// Skips version and layout_id checks. Use when you trust the account
-    /// source and only need type dispatch.
-    ///
-    /// **Deprecated:** Use `load()` (validates disc + version + layout_id) or
-    /// `raw_ref()` (skips all checks) instead. Partial validation is a
-    /// foot-gun: either validate fully or take explicit responsibility.
-    #[deprecated(since = "0.2.0", note = "use load() for safe access or raw_ref() for explicit bypass")]
-    #[inline(always)]
-    pub fn load_unchecked<T: LayoutContract>(&self) -> Result<Ref<'_, T>, ProgramError> {
-        let data = self.try_borrow()?;
-        T::check_disc(&data)?;
-        if data.len() < T::required_len() {
-            return Err(ProgramError::AccountDataTooSmall);
-        }
-        let ptr = unsafe { data.as_bytes_ptr().add(T::TYPE_OFFSET) as *const T };
-        // SAFETY: Discriminator and size validated above.
-        Ok(unsafe { data.project(ptr) })
-    }
 
-    /// Load a layout with version compatibility checking.
-    ///
-    /// Like `load()` but uses `T::compatible(version)` instead of an exact
-    /// version match. This allows loading older account versions that the
-    /// current layout version still understands (e.g. forward-compatible
-    /// append-only migrations).
-    ///
-    /// **Deprecated:** Use `load()` with the upcoming migration framework,
-    /// or implement version-aware loading in your instruction handler.
-    #[deprecated(since = "0.2.0", note = "use load() or implement version-aware loading in your handler")]
-    #[inline(always)]
-    pub fn load_versioned<T: LayoutContract>(&self) -> Result<Ref<'_, T>, ProgramError> {
-        let data = self.try_borrow()?;
-        T::check_disc(&data)?;
-        let version = crate::layout::read_version(&data)
-            .ok_or(ProgramError::AccountDataTooSmall)?;
-        if !T::compatible(version) {
-            return Err(ProgramError::InvalidAccountData);
-        }
-        if data.len() < T::required_len() {
-            return Err(ProgramError::AccountDataTooSmall);
-        }
-        let ptr = unsafe { data.as_bytes_ptr().add(T::TYPE_OFFSET) as *const T };
-        // SAFETY: Discriminator, compatibility, and size validated above.
-        Ok(unsafe { data.project(ptr) })
-    }
-
-    /// Load a foreign layout without ownership or authorization checks.
-    ///
-    /// Only validates the wire format (disc + layout_id + size). Use
-    /// this for cross-program reads where the account is owned by
-    /// another program and you just need a typed view of its data.
-    ///
-    /// **Deprecated:** Use `load_cross_program()` which replaces this with
-    /// the same semantics but a clearer name.
-    #[deprecated(since = "0.2.0", note = "renamed to load_cross_program()")]
-    #[inline(always)]
-    pub fn load_foreign<T: LayoutContract>(&self) -> Result<Ref<'_, T>, ProgramError> {
-        let data = self.try_borrow()?;
-        if data.len() < T::required_len() {
-            return Err(ProgramError::AccountDataTooSmall);
-        }
-        T::check_disc(&data)?;
-        // Verify layout_id to confirm the wire format matches.
-        if let Some(id) = crate::layout::read_layout_id(&data) {
-            if *id != T::LAYOUT_ID {
-                return Err(ProgramError::InvalidAccountData);
-            }
-        } else {
-            return Err(ProgramError::AccountDataTooSmall);
-        }
-        let ptr = unsafe { data.as_bytes_ptr().add(T::TYPE_OFFSET) as *const T };
-        // SAFETY: Wire identity and size validated above.
-        Ok(unsafe { data.project(ptr) })
-    }
 
     /// Load a cross-program layout without ownership checks.
     ///
@@ -548,13 +402,6 @@ impl AccountView {
     pub fn layout_info(&self) -> Option<crate::layout::LayoutInfo> {
         let data = self.try_borrow().ok()?;
         crate::layout::LayoutInfo::from_data(&data)
-    }
-
-    /// Alias for runtime layout inspection.
-    #[deprecated(since = "0.2.0", note = "use layout_info() directly")]
-    #[inline(always)]
-    pub fn inspect(&self) -> Option<crate::layout::LayoutInfo> {
-        self.layout_info()
     }
 
     /// Compile-time field metadata for a layout contract.
@@ -614,19 +461,19 @@ impl AccountView {
     /// Validate that this account is a signer.
     #[inline(always)]
     pub fn require_signer(&self) -> ProgramResult {
-        if self.is_signer() { Ok(()) } else { Err(ProgramError::MissingRequiredSignature) }
+        if self.is_signer() { Ok(()) } else { ProgramError::err_missing_signer() }
     }
 
     /// Validate that this account is writable.
     #[inline(always)]
     pub fn require_writable(&self) -> ProgramResult {
-        if self.is_writable() { Ok(()) } else { Err(ProgramError::Immutable) }
+        if self.is_writable() { Ok(()) } else { ProgramError::err_immutable() }
     }
 
     /// Validate that this account is owned by the given program.
     #[inline(always)]
     pub fn require_owned_by(&self, program: &Address) -> ProgramResult {
-        if self.owned_by(program) { Ok(()) } else { Err(ProgramError::IncorrectProgramId) }
+        if self.owned_by(program) { Ok(()) } else { ProgramError::err_incorrect_program() }
     }
 
     /// Validate signer + writable (common "payer" pattern).
@@ -641,19 +488,19 @@ impl AccountView {
     /// Chainable signer check.
     #[inline(always)]
     pub fn check_signer(&self) -> Result<&Self, ProgramError> {
-        if self.is_signer() { Ok(self) } else { Err(ProgramError::MissingRequiredSignature) }
+        if self.is_signer() { Ok(self) } else { ProgramError::err_missing_signer() }
     }
 
     /// Chainable writable check.
     #[inline(always)]
     pub fn check_writable(&self) -> Result<&Self, ProgramError> {
-        if self.is_writable() { Ok(self) } else { Err(ProgramError::Immutable) }
+        if self.is_writable() { Ok(self) } else { ProgramError::err_immutable() }
     }
 
     /// Chainable ownership check.
     #[inline(always)]
     pub fn check_owned_by(&self, program: &Address) -> Result<&Self, ProgramError> {
-        if self.owned_by(program) { Ok(self) } else { Err(ProgramError::IncorrectProgramId) }
+        if self.owned_by(program) { Ok(self) } else { ProgramError::err_incorrect_program() }
     }
 
     /// Chainable discriminator check.
@@ -1120,8 +967,7 @@ mod tests {
         }
 
         {
-            #[allow(deprecated)]
-            let mut layout = account.overlay_mut::<HeaderLayout>().unwrap();
+            let mut layout = account.load_mut::<HeaderLayout>().unwrap();
             layout.amount = 55;
         }
 

@@ -17,23 +17,23 @@ mod imp {
     pub(crate) struct BorrowToken;
 
     impl BorrowToken {
-        #[inline]
+        #[inline(always)]
         pub(crate) fn shared(_address: &Address) -> Result<Self, ProgramError> {
             Ok(Self)
         }
 
-        #[inline]
+        #[inline(always)]
         pub(crate) fn mutable(_address: &Address) -> Result<Self, ProgramError> {
             Ok(Self)
         }
     }
 
-    #[inline]
+    #[inline(always)]
     pub(crate) fn check_shared(_address: &Address) -> Result<(), ProgramError> {
         Ok(())
     }
 
-    #[inline]
+    #[inline(always)]
     pub(crate) fn check_mutable(_address: &Address) -> Result<(), ProgramError> {
         Ok(())
     }

@@ -31,7 +31,7 @@ use crate::ProgramResult;
 ///     vault.require_writable()?;
 ///     vault.check_disc(1)?;
 ///
-///     let state = vault.overlay_mut::<VaultState>()?;
+///     let mut state = vault.load_mut::<VaultState>()?;
 ///     state.balance = state.balance.checked_add(amount).ok_or(ProgramError::ArithmeticOverflow)?;
 ///     Ok(())
 /// }

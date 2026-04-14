@@ -134,7 +134,7 @@ impl SegmentBorrowRegistry {
     ///
     /// Returns `Err(AccountBorrowFailed)` if the new borrow overlaps an
     /// existing borrow with incompatible access (read+write or write+write).
-    #[inline]
+    #[inline(always)]
     pub fn register(&mut self, new: SegmentBorrow) -> Result<(), ProgramError> {
         let len = self.len as usize;
         if len >= MAX_SEGMENT_BORROWS {
@@ -198,7 +198,7 @@ impl SegmentBorrowRegistry {
     /// Release a previously registered borrow.
     ///
     /// Finds the first matching entry and removes it, compacting the array.
-    #[inline]
+    #[inline(always)]
     pub fn release(&mut self, borrow: &SegmentBorrow) -> bool {
         let len = self.len as usize;
         let mut i = 0;
@@ -229,7 +229,7 @@ impl SegmentBorrowRegistry {
     }
 
     /// Check if a proposed borrow would conflict, without registering it.
-    #[inline]
+    #[inline(always)]
     pub fn would_conflict(&self, proposed: &SegmentBorrow) -> bool {
         let len = self.len as usize;
         let mut i = 0;
@@ -262,7 +262,7 @@ impl SegmentBorrowRegistry {
     ///     // ... write to segment ...
     /// } // guard dropped → borrow released
     /// ```
-    #[inline]
+    #[inline(always)]
     pub fn register_guard(
         &mut self,
         borrow: SegmentBorrow,
