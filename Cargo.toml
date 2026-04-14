@@ -24,12 +24,13 @@ sha2-const-stable = { workspace = true }
 hopper-schema = { workspace = true }
 
 [features]
-default = ["programs", "hopper-native-backend", "advanced"]
+default = ["programs", "hopper-native-backend", "advanced", "cpi"]
 programs = []
 log = []
 hopper-native-backend = ["hopper-runtime/hopper-native-backend"]
 pinocchio-backend = ["hopper-runtime/pinocchio-backend"]
 solana-program-backend = ["hopper-runtime/solana-program-backend"]
+cpi = ["hopper-runtime/cpi"]
 
 # ── Advanced subsystems (opt-in, not hot-path) ────────────────────
 # These modules are valuable but sit outside the core access model.
@@ -48,5 +49,5 @@ explain = []
 [lints.rust]
 unexpected_cfgs = { level = "allow", check-cfg = [
     'cfg(target_os, values("solana"))',
-    'cfg(feature, values("frame", "receipt", "policy", "graph", "migrate", "virtual-state", "diff", "explain", "advanced"))',
+    'cfg(feature, values("frame", "receipt", "policy", "graph", "migrate", "virtual-state", "diff", "explain", "advanced", "cpi"))',
 ] }
