@@ -619,6 +619,21 @@ impl AccountView {
 
     // -- Packed flags --------------------------------------------------
 
+    /// Read the first 4 bytes of the account header as a single u32.
+    ///
+    /// Layout (little-endian): `[borrow_state, is_signer, is_writable, executable]`
+    ///
+    /// This is the fastest way to extract multiple account properties at once
+    /// — a single aligned u32 read instead of 3-4 separate byte loads.
+    #[inline(always)]
+    fn header_u32(&self) -> u32 {
+        // SAFETY: RuntimeAccount is #[repr(C)] with first 4 fields as u8,
+        // totalling 4 bytes at the start. Reading as u32 is safe because
+        // the struct is at least 88 bytes and the BPF input buffer is
+        // sufficiently aligned.
+        unsafe { *(self.raw as *const u32) }
+    }
+
     /// Pack the account's boolean flags into a single byte for fast
     /// comparison.
     ///
@@ -636,10 +651,13 @@ impl AccountView {
     /// ```
     #[inline(always)]
     pub fn flags(&self) -> u8 {
+        // Single u32 read extracts [borrow_state, is_signer, is_writable, executable].
+        // On little-endian: is_signer = bits 8-15, is_writable = bits 16-23, executable = bits 24-31.
+        let h = self.header_u32();
         let mut f: u8 = 0;
-        if self.is_signer() { f |= 0b0001; }
-        if self.is_writable() { f |= 0b0010; }
-        if self.executable() { f |= 0b0100; }
+        if h & 0x0000_FF00 != 0 { f |= 0b0001; } // is_signer
+        if h & 0x00FF_0000 != 0 { f |= 0b0010; } // is_writable
+        if h & 0xFF00_0000 != 0 { f |= 0b0100; } // executable
         if !self.is_data_empty() { f |= 0b1000; }
         f
     }

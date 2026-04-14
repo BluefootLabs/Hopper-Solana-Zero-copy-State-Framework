@@ -223,7 +223,9 @@ pub fn verify_pda(
 
 /// Verify a PDA with an explicit bump seed appended to the seeds.
 ///
-/// Appends `&[bump]` to the end of the seed list before deriving.
+/// Appends `&[bump]` to the end of the seed list before verifying via
+/// SHA-256 (~200 CU). This is substantially cheaper than the syscall-based
+/// `create_program_address` approach (~1500 CU).
 #[inline]
 pub fn verify_pda_with_bump(
     account: &AccountView,
@@ -243,12 +245,7 @@ pub fn verify_pda_with_bump(
     let bump_bytes = [bump];
     full_seeds[num] = &bump_bytes;
 
-    let expected = create_program_address(&full_seeds[..num + 1], program_id)?;
-    if account.address() == &expected {
-        Ok(())
-    } else {
-        Err(ProgramError::InvalidSeeds)
-    }
+    verify_program_address(&full_seeds[..num + 1], program_id, account.address())
 }
 
 /// Verify that an address matches a PDA derived from the given seeds.
@@ -256,6 +253,10 @@ pub fn verify_pda_with_bump(
 /// Unlike `verify_pda` which takes an `AccountView`, this accepts a raw
 /// `Address` reference directly. Useful when validating addresses outside
 /// of the account parsing flow (e.g. instruction data, cross-program reads).
+///
+/// The seeds slice must already include the bump byte (like
+/// `verify_program_address`). Uses SHA-256 verify-only path (~200 CU)
+/// instead of the full `find_program_address` (~1500 CU).
 ///
 /// Returns `Ok(())` if the address matches the derived PDA,
 /// or `Err(InvalidSeeds)` if it does not.
@@ -265,10 +266,132 @@ pub fn verify_pda_strict(
     seeds: &[&[u8]],
     program_id: &Address,
 ) -> Result<(), ProgramError> {
-    let (derived, _) = find_program_address(seeds, program_id);
-    if &derived == expected {
-        Ok(())
-    } else {
+    verify_program_address(seeds, program_id, expected)
+}
+
+/// Find the bump seed for a known PDA address — skipping curve validation.
+///
+/// When you already know the expected address (e.g. from a transaction
+/// account), there is no need to validate the derived hash is off-curve.
+/// If the hash matches `expected` and the account exists on-chain, it
+/// must be a valid PDA. This saves ~90 CU per attempt compared to
+/// `based_try_find_program_address` which calls `sol_curve_validate_point`.
+///
+/// Returns the bump seed, or `Err(InvalidSeeds)` if no bump produces a match.
+#[inline(always)]
+pub fn find_bump_for_address(
+    seeds: &[&[u8]],
+    program_id: &Address,
+    expected: &Address,
+) -> Result<u8, ProgramError> {
+    if seeds.len() > MAX_SEEDS {
+        return Err(ProgramError::InvalidSeeds);
+    }
+
+    #[cfg(target_os = "solana")]
+    {
+        let n = seeds.len();
+        let mut slices = core::mem::MaybeUninit::<[&[u8]; MAX_SEEDS + 3]>::uninit();
+        let slice_ptr = slices.as_mut_ptr() as *mut &[u8];
+
+        let mut i = 0;
+        while i < n {
+            unsafe { slice_ptr.add(i).write(seeds[i]) };
+            i += 1;
+        }
+        unsafe {
+            slice_ptr.add(n + 1).write(program_id.as_ref());
+            slice_ptr.add(n + 2).write(PDA_MARKER_BYTES.as_slice());
+        }
+
+        let mut bump_seed = [u8::MAX];
+        let bump_ptr = bump_seed.as_mut_ptr();
+        unsafe { slice_ptr.add(n).write(core::slice::from_raw_parts(bump_ptr, 1)) };
+
+        let input = unsafe { core::slice::from_raw_parts(slice_ptr, n + 3) };
+        let mut hash = core::mem::MaybeUninit::<[u8; 32]>::uninit();
+        let mut bump: u64 = u8::MAX as u64;
+
+        loop {
+            unsafe { bump_ptr.write(bump as u8) };
+
+            unsafe {
+                crate::syscalls::sol_sha256(
+                    input as *const _ as *const u8,
+                    input.len() as u64,
+                    hash.as_mut_ptr() as *mut u8,
+                );
+            }
+
+            // Address-match shortcut: skip curve check entirely.
+            // If the hash matches the expected address and that address
+            // exists on-chain, it is guaranteed to be a valid PDA.
+            let derived = unsafe { &*(hash.as_ptr() as *const Address) };
+            if derived == expected {
+                return Ok(bump as u8);
+            }
+
+            if bump == 0 {
+                break;
+            }
+            bump -= 1;
+        }
+
         Err(ProgramError::InvalidSeeds)
     }
+    #[cfg(not(target_os = "solana"))]
+    {
+        let _ = (seeds, program_id, expected);
+        Err(ProgramError::InvalidSeeds)
+    }
+}
+
+/// Read the bump byte directly from account data at a known offset.
+///
+/// Used with `BUMP_OFFSET` from `hopper_layout!` types to read the stored
+/// bump without any derivation. Combined with `verify_program_address`,
+/// the total PDA verification cost is ~200 CU vs ~1500 CU for
+/// `find_program_address`.
+///
+/// Returns `Err(AccountDataTooSmall)` if the account data is shorter than
+/// `bump_offset + 1`.
+#[inline(always)]
+pub fn read_bump_from_account(
+    account: &AccountView,
+    bump_offset: usize,
+) -> Result<u8, ProgramError> {
+    let data = account.try_borrow()?;
+    if data.len() <= bump_offset {
+        return Err(ProgramError::AccountDataTooSmall);
+    }
+    Ok(data[bump_offset])
+}
+
+/// Verify a PDA using the bump stored in account data (cheapest path).
+///
+/// Reads the bump at `bump_offset`, appends it to seeds, then uses
+/// SHA-256 verify-only. Total cost: ~200 CU vs ~1500 CU.
+///
+/// This is the optimal PDA verification path and should be the default
+/// for Hopper programs that store bumps in their account layout.
+#[inline]
+pub fn verify_pda_from_stored_bump(
+    account: &AccountView,
+    seeds: &[&[u8]],
+    bump_offset: usize,
+    program_id: &Address,
+) -> Result<(), ProgramError> {
+    let bump = read_bump_from_account(account, bump_offset)?;
+
+    let mut full_seeds: [&[u8]; 17] = [&[]; 17];
+    let num = seeds.len().min(15);
+    let mut i = 0;
+    while i < num {
+        full_seeds[i] = seeds[i];
+        i += 1;
+    }
+    let bump_bytes = [bump];
+    full_seeds[num] = &bump_bytes;
+
+    verify_program_address(&full_seeds[..num + 1], program_id, account.address())
 }

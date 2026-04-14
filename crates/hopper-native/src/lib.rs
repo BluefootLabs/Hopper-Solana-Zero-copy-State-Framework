@@ -109,6 +109,7 @@ pub use return_data::ReturnData;
 pub use verify::{LamportSnapshot, BalanceSnapshot, DataFingerprint};
 pub use wire::{LeU64, LeU32, LeU16, LeI64, LeI32, LeI16, LeBool, LeU128};
 pub use pda::verify_pda_strict;
+pub use pda::{find_bump_for_address, read_bump_from_account, verify_pda_from_stored_bump};
 
 /// Result type for Solana program instructions.
 pub type ProgramResult = core::result::Result<(), ProgramError>;

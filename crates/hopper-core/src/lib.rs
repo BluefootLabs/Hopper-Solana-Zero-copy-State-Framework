@@ -107,6 +107,40 @@ pub const fn const_str_eq(a: &str, b: &str) -> bool {
     __str_eq(a, b)
 }
 
+/// Compute an Anchor-compatible 8-byte discriminator at compile time.
+///
+/// Anchor discriminators are `sha256("global:{instruction_name}")[0..8]`.
+/// This function enables Hopper programs to interoperate with Anchor IDLs
+/// and Quasar programs that use the same discriminator scheme.
+///
+/// ```ignore
+/// const INIT_DISC: [u8; 8] = hopper_core::anchor_discriminator("initialize");
+/// ```
+pub const fn anchor_discriminator(instruction_name: &str) -> [u8; 8] {
+    let hash = sha2_const_stable::Sha256::new()
+        .update(b"global:")
+        .update(instruction_name.as_bytes())
+        .finalize();
+    [
+        hash[0], hash[1], hash[2], hash[3],
+        hash[4], hash[5], hash[6], hash[7],
+    ]
+}
+
+/// Compute an Anchor-compatible 8-byte account discriminator at compile time.
+///
+/// Account discriminators are `sha256("account:{TypeName}")[0..8]`.
+pub const fn anchor_account_discriminator(type_name: &str) -> [u8; 8] {
+    let hash = sha2_const_stable::Sha256::new()
+        .update(b"account:")
+        .update(type_name.as_bytes())
+        .finalize();
+    [
+        hash[0], hash[1], hash[2], hash[3],
+        hash[4], hash[5], hash[6], hash[7],
+    ]
+}
+
 /// Prelude re-exports for ergonomic usage.
 pub mod prelude {
     pub use crate::abi::*;
@@ -153,9 +187,13 @@ pub mod prelude {
     pub use crate::cpi::{HopperCpi, HopperCpiBuf};
     #[cfg(feature = "diff")]
     pub use crate::diff::{StateSnapshot, StateDiff};
-    pub use crate::dispatch::dispatch_instruction;
+    pub use crate::dispatch::{dispatch_instruction, dispatch_instruction_u16, dispatch_instruction_8, EVENT_CPI_PREFIX};
     pub use crate::event::{emit_event, emit_event_tagged, emit_slices};
+    #[cfg(feature = "cpi")]
+    pub use crate::event::emit_event_cpi;
     pub use crate::field_map::{FieldInfo, FieldMap};
+    pub use crate::anchor_discriminator;
+    pub use crate::anchor_account_discriminator;
     #[cfg(feature = "frame")]
     pub use crate::frame::{Frame, FrameAccount, FrameAccountMut};
     pub use crate::segment_map::{SegmentMap, StaticSegment, assert_segment_field_alignment};

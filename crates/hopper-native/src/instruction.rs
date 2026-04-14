@@ -101,9 +101,12 @@ pub struct CpiAccount<'a> {
 }
 
 impl<'a> From<&'a AccountView> for CpiAccount<'a> {
-    #[inline]
+    #[inline(always)]
     fn from(view: &'a AccountView) -> Self {
         let raw = view.account_ptr();
+        // Single u32 read extracts [borrow_state, is_signer, is_writable, executable].
+        // On little-endian BPF: byte 1 = is_signer, byte 2 = is_writable, byte 3 = executable.
+        let header = unsafe { *(raw as *const u32) };
         Self {
             address: unsafe { &(*raw).address as *const Address },
             lamports: unsafe { &(*raw).lamports as *const u64 },
@@ -111,9 +114,9 @@ impl<'a> From<&'a AccountView> for CpiAccount<'a> {
             data: view.data_ptr(),
             owner: unsafe { &(*raw).owner as *const Address },
             rent_epoch: 0,
-            is_signer: view.is_signer(),
-            is_writable: view.is_writable(),
-            executable: view.executable(),
+            is_signer: header & 0x0000_FF00 != 0,
+            is_writable: header & 0x00FF_0000 != 0,
+            executable: header & 0xFF00_0000 != 0,
             _account_view: PhantomData,
         }
     }
