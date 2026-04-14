@@ -40,20 +40,31 @@ pub mod accounts;
 pub mod check;
 pub mod collections;
 pub mod cpi;
-pub mod diff;
 pub mod dispatch;
 pub mod event;
 pub mod field_map;
-pub mod frame;
 pub mod invariant;
 pub mod math;
-pub mod migrate;
-pub mod policy;
-pub mod receipt;
 pub mod segment_map;
 pub mod state;
 pub mod sysvar;
 pub mod time;
+
+// ── Advanced subsystems (feature-gated) ──────────────────────────
+// These modules are real differentiators but sit outside the hot-path
+// access model. Gating them lets lean programs compile only what they
+// use, and communicates one clear core identity.
+#[cfg(feature = "diff")]
+pub mod diff;
+#[cfg(feature = "frame")]
+pub mod frame;
+#[cfg(feature = "migrate")]
+pub mod migrate;
+#[cfg(feature = "policy")]
+pub mod policy;
+#[cfg(feature = "receipt")]
+pub mod receipt;
+#[cfg(feature = "virtual-state")]
 pub mod virtual_state;
 
 pub use field_map::*;
@@ -114,11 +125,15 @@ pub mod prelude {
     pub use crate::accounts::{
         HopperCtx, HopperAccounts, HopperAccount,
         ProgramAccount, SignerAccount, UncheckedAccount,
-        MigratingAccount, SegmentedAccount, ProgramRef,
+        SegmentedAccount, ProgramRef,
         HopperIx, hopper_entry,
-        ValidateAccount, ExplainAccount,
+        ValidateAccount,
         AccountMetaProvider,
     };
+    #[cfg(feature = "migrate")]
+    pub use crate::accounts::MigratingAccount;
+    #[cfg(feature = "explain")]
+    pub use crate::accounts::{ExplainAccount, ContextExplain, AccountExplain};
     pub use crate::check::{
         check_account, check_discriminator, check_has_one, check_keys_eq,
         check_owner, check_owner_multi,
@@ -136,18 +151,22 @@ pub mod prelude {
     pub use crate::collections::journal::{Journal, JournalReader};
     pub use crate::collections::slab::Slab;
     pub use crate::cpi::{HopperCpi, HopperCpiBuf};
+    #[cfg(feature = "diff")]
     pub use crate::diff::{StateSnapshot, StateDiff};
     pub use crate::dispatch::dispatch_instruction;
     pub use crate::event::{emit_event, emit_event_tagged, emit_slices};
     pub use crate::field_map::{FieldInfo, FieldMap};
+    #[cfg(feature = "frame")]
     pub use crate::frame::{Frame, FrameAccount, FrameAccountMut};
-    pub use crate::segment_map::{SegmentMap, StaticSegment};
+    pub use crate::segment_map::{SegmentMap, StaticSegment, assert_segment_field_alignment};
     pub use hopper_runtime::segment_borrow::{
         AccessKind, SegmentBorrow, SegmentBorrowRegistry,
     };
+    #[cfg(feature = "frame")]
     pub use crate::frame::phase::{
         PhasedFrame, ResolvedFrame, ValidatedFrame, ExecutionContext,
     };
+    #[cfg(feature = "frame")]
     pub use crate::frame::args::{InstructionArgs, ValidateArgs};
     pub use crate::invariant::{check_invariant, check_invariant_fn, InvariantSet};
     pub use crate::math::{
@@ -157,15 +176,18 @@ pub mod prelude {
         scale_amount, scale_amount_ceil,
         checked_pow, to_u64, div_ceil,
     };
+    #[cfg(feature = "migrate")]
     pub use crate::migrate::{migrate_append, MigrationKind};
     pub use crate::state::check_state_transition;
     pub use crate::time::{check_cooldown_elapsed, check_deadline_not_passed, check_staleness};
     pub use crate::sysvar::{CachedClock, CachedRent, SysvarContext};
+    #[cfg(feature = "virtual-state")]
     pub use crate::virtual_state::{VirtualState, VirtualSlot, ShardedAccess};
     pub use crate::check::modifier::{
         Account, AccountMut, Signer, Mut,
         FromAccount, HasView, HopperLayout,
     };
+    #[cfg(feature = "graph")]
     pub use crate::check::graph::{
         ValidationGraph, ValidationContext, AccountConstraint, TransactionConstraint,
         ValidationGroup, ValidationBundle, Validatable,
@@ -192,10 +214,12 @@ pub mod prelude {
         SEG_ROLE_CORE, SEG_ROLE_EXTENSION, SEG_ROLE_JOURNAL,
         SEG_ROLE_INDEX, SEG_ROLE_CACHE, SEG_ROLE_AUDIT, SEG_ROLE_SHARD,
     };
+    #[cfg(feature = "receipt")]
     pub use crate::receipt::{
         StateReceipt, DecodedReceipt, ReceiptExplain, RECEIPT_SIZE,
         Phase, CompatImpact,
     };
+    #[cfg(feature = "policy")]
     pub use crate::policy::{
         Capability, CapabilitySet, PolicyRequirement, RequirementSet,
         InstructionPolicy,

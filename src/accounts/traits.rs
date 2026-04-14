@@ -1,7 +1,6 @@
 //! Account validation and explain traits.
 
 use hopper_runtime::error::ProgramError;
-use super::explain::AccountExplain;
 
 /// Trait for accounts that can self-validate.
 ///
@@ -14,7 +13,8 @@ pub trait ValidateAccount {
 }
 
 /// Trait for accounts that can produce a structured explanation.
+#[cfg(feature = "explain")]
 pub trait ExplainAccount {
     /// Generate a human-readable explanation of this account.
-    fn explain(&self) -> AccountExplain;
+    fn explain(&self) -> super::explain::AccountExplain;
 }

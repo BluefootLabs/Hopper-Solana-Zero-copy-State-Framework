@@ -12,6 +12,7 @@
 //! rule packs (`TransitionRulePack`), and multi-group bundles (`ValidationBundle`).
 
 pub mod fast;
+#[cfg(feature = "graph")]
 pub mod graph;
 pub mod guards;
 pub mod modifier;
