@@ -2,15 +2,14 @@
 //!
 //! Zero-copy state framework for Solana.
 //!
-//! Typed account architecture, phased execution, composable validation,
-//! zero-copy collections, deterministic layout fingerprints, and cross-program
-//! interfaces. Built on Hopper Native. `no_std`, `no_alloc`, no proc macros required.
+//! One access model. Explicit unsafe escape hatches. Optional advanced
+//! guarantees. Compile-time generated ergonomics. Inspectable output.
 //!
 //! ## Crates
 //!
-//! - `hopper_core`: ABI types, account header, overlay, tiered loading,
-//!   checks, collections, Frame, lifecycle, fingerprints, policy, receipts,
-//!   segments, virtual state
+//! - `hopper_core`: ABI types, account header, segment maps, validation,
+//!   collections, and optional advanced subsystems (frame, receipt, policy,
+//!   diff, migration) behind feature gates
 //! - `hopper_macros`: `hopper_layout!`, `hopper_check!`, `hopper_error!`,
 //!   `hopper_init!`, `hopper_close!`, `hopper_require!`, `hopper_manifest!`,
 //!   `hopper_segment!`, `hopper_validate!`, `hopper_virtual!`,
@@ -24,6 +23,15 @@
 //! - `hopper_associated_token`: Hopper-owned ATA derivation helpers and ATA instruction builders
 //! - `hopper_schema`: Layout manifests, field-level schema diffing,
 //!   compatibility checks, Codama/IDL projections, client generation
+//!
+//! ## Access Model
+//!
+//! ```text
+//! Safe full:    account.load::<T>()        / account.load_mut::<T>()
+//! Safe segment: ctx.segment_ref::<T>(i,o)  / ctx.segment_mut::<T>(i,o)
+//! Explicit raw: unsafe { account.raw_ref() / account.raw_mut() }
+//! Cross-prog:   account.load_cross_program::<T>()
+//! ```
 //!
 //! ## Quick Start
 //!

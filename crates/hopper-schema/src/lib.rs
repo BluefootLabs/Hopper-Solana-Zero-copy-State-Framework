@@ -28,8 +28,10 @@ use hopper_runtime::layout::LayoutInfo;
 use core::fmt;
 
 // Re-export receipt types for CLI consumers
+#[cfg(feature = "receipt")]
 pub use hopper_core::receipt::{CompatImpact, DecodedReceipt, ReceiptExplain, Phase, ReceiptNarrative, NarrativeRisk};
 // Re-export policy types for CLI consumers
+#[cfg(feature = "policy")]
 pub use hopper_core::policy::PolicyClass;
 
 // ---------------------------------------------------------------------------
@@ -2922,9 +2924,10 @@ pub fn lint_layout<const N: usize>(
 /// Complements `lint_layout` with cross-cutting checks between layout
 /// behavior and policy classification. Call after `lint_layout` and merge
 /// the results.
+#[cfg(feature = "policy")]
 pub fn lint_policy<const N: usize>(
     behavior: &LayoutBehavior,
-    policy: PolicyClass,
+    policy: hopper_core::policy::PolicyClass,
 ) -> (usize, [SemanticLint; N]) {
     let mut lints = [SemanticLint {
         severity: LintSeverity::Info,
@@ -2936,7 +2939,7 @@ pub fn lint_policy<const N: usize>(
 
     // Financial mutation class without financial policy class
     if matches!(behavior.mutation_class, MutationClass::Financial)
-        && !matches!(policy, PolicyClass::Financial)
+        && !matches!(policy, hopper_core::policy::PolicyClass::Financial)
     {
         if count < N {
             lints[count] = SemanticLint {
@@ -2950,7 +2953,7 @@ pub fn lint_policy<const N: usize>(
     }
 
     // Financial policy class without financial mutation class
-    if matches!(policy, PolicyClass::Financial)
+    if matches!(policy, hopper_core::policy::PolicyClass::Financial)
         && !matches!(behavior.mutation_class, MutationClass::Financial)
     {
         if count < N {
@@ -4327,6 +4330,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "policy")]
     fn lint_policy_financial_mismatch() {
         let behavior = LayoutBehavior {
             requires_signer: true,
@@ -4334,12 +4338,13 @@ mod tests {
             affects_authority: false,
             mutation_class: MutationClass::Financial,
         };
-        let (n, lints) = lint_policy::<8>(&behavior, PolicyClass::Write);
+        let (n, lints) = lint_policy::<8>(&behavior, hopper_core::policy::PolicyClass::Write);
         assert!(n >= 1);
         assert_eq!(lints[0].code, "W005");
     }
 
     #[test]
+    #[cfg(feature = "policy")]
     fn lint_policy_reverse_mismatch() {
         let behavior = LayoutBehavior {
             requires_signer: true,
@@ -4347,12 +4352,13 @@ mod tests {
             affects_authority: false,
             mutation_class: MutationClass::InPlace,
         };
-        let (n, lints) = lint_policy::<8>(&behavior, PolicyClass::Financial);
+        let (n, lints) = lint_policy::<8>(&behavior, hopper_core::policy::PolicyClass::Financial);
         assert!(n >= 1);
         assert_eq!(lints[0].code, "W006");
     }
 
     #[test]
+    #[cfg(feature = "policy")]
     fn lint_policy_clean_when_aligned() {
         let behavior = LayoutBehavior {
             requires_signer: true,
@@ -4360,7 +4366,7 @@ mod tests {
             affects_authority: false,
             mutation_class: MutationClass::Financial,
         };
-        let (n, _) = lint_policy::<8>(&behavior, PolicyClass::Financial);
+        let (n, _) = lint_policy::<8>(&behavior, hopper_core::policy::PolicyClass::Financial);
         assert_eq!(n, 0);
     }
 

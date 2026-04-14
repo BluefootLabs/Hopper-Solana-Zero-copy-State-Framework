@@ -25,11 +25,13 @@ pub mod hopper_account;
 pub mod program_account;
 pub mod signer;
 pub mod unchecked;
+#[cfg(feature = "migrate")]
 pub mod migrating;
 pub mod segmented;
 pub mod program;
 pub mod traits;
 pub mod validate;
+#[cfg(feature = "explain")]
 pub mod explain;
 pub mod meta;
 pub mod entry;
@@ -39,11 +41,15 @@ pub use hopper_account::HopperAccount;
 pub use program_account::ProgramAccount;
 pub use signer::SignerAccount;
 pub use unchecked::UncheckedAccount;
+#[cfg(feature = "migrate")]
 pub use migrating::MigratingAccount;
 pub use segmented::SegmentedAccount;
 pub use program::ProgramRef;
-pub use traits::{ValidateAccount, ExplainAccount};
+pub use traits::ValidateAccount;
+#[cfg(feature = "explain")]
+pub use traits::ExplainAccount;
 pub use validate::{require_signer, require_writable, require_owner, require_executable};
+#[cfg(feature = "explain")]
 pub use explain::{ContextExplain, AccountExplain};
 pub use meta::AccountMetaProvider;
 pub use entry::{HopperIx, hopper_entry};

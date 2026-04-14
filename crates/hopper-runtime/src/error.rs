@@ -176,3 +176,67 @@ impl From<ProgramError> for hopper_native::error::ProgramError {
     }
 }
 
+// ══════════════════════════════════════════════════════════════════════
+//  Cold error constructors
+// ══════════════════════════════════════════════════════════════════════
+//
+// Following Pinocchio's pattern: `#[cold]` + `#[inline(never)]` on error
+// return helpers keeps the error path out of the hot-path instruction cache.
+// Call sites become a single branch + call, keeping the inlined fast path tiny.
+
+impl ProgramError {
+    #[cold]
+    #[inline(never)]
+    pub fn err_data_too_small<T>() -> Result<T, Self> {
+        Err(ProgramError::AccountDataTooSmall)
+    }
+
+    #[cold]
+    #[inline(never)]
+    pub fn err_invalid_data<T>() -> Result<T, Self> {
+        Err(ProgramError::InvalidAccountData)
+    }
+
+    #[cold]
+    #[inline(never)]
+    pub fn err_missing_signer<T>() -> Result<T, Self> {
+        Err(ProgramError::MissingRequiredSignature)
+    }
+
+    #[cold]
+    #[inline(never)]
+    pub fn err_immutable<T>() -> Result<T, Self> {
+        Err(ProgramError::Immutable)
+    }
+
+    #[cold]
+    #[inline(never)]
+    pub fn err_not_enough_keys<T>() -> Result<T, Self> {
+        Err(ProgramError::NotEnoughAccountKeys)
+    }
+
+    #[cold]
+    #[inline(never)]
+    pub fn err_borrow_failed<T>() -> Result<T, Self> {
+        Err(ProgramError::AccountBorrowFailed)
+    }
+
+    #[cold]
+    #[inline(never)]
+    pub fn err_overflow<T>() -> Result<T, Self> {
+        Err(ProgramError::ArithmeticOverflow)
+    }
+
+    #[cold]
+    #[inline(never)]
+    pub fn err_invalid_argument<T>() -> Result<T, Self> {
+        Err(ProgramError::InvalidArgument)
+    }
+
+    #[cold]
+    #[inline(never)]
+    pub fn err_incorrect_program<T>() -> Result<T, Self> {
+        Err(ProgramError::IncorrectProgramId)
+    }
+}
+

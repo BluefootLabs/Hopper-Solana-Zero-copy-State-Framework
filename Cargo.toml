@@ -101,8 +101,20 @@ hopper-solana = { path = "crates/hopper-solana", version = "0.1.0", default-feat
 hopper-macros-proc = { workspace = true, optional = true }
 
 [features]
-default = ["hopper-native-backend"]
+default = ["hopper-native-backend", "advanced"]
 proc-macros = ["hopper-macros-proc"]
+
+# ── Advanced subsystems (forwarded to hopper-core) ────────────────
+advanced = ["hopper-core/advanced"]
+frame = ["hopper-core/frame"]
+receipt = ["hopper-core/receipt"]
+policy = ["hopper-core/policy"]
+graph = ["hopper-core/graph"]
+migrate = ["hopper-core/migrate"]
+virtual-state = ["hopper-core/virtual-state"]
+diff = ["hopper-core/diff"]
+explain = ["hopper-core/explain"]
+
 hopper-native-backend = [
     "hopper-runtime/hopper-native-backend",
     "hopper-core/hopper-native-backend",
@@ -139,4 +151,7 @@ solana-program-backend = [
 cu-trace = ["hopper-runtime/cu-trace"]
 
 [lints.rust]
-unexpected_cfgs = { level = "allow", check-cfg = ['cfg(target_os, values("solana"))'] }
+unexpected_cfgs = { level = "allow", check-cfg = [
+    'cfg(target_os, values("solana"))',
+    'cfg(feature, values("frame", "receipt", "policy", "graph", "migrate", "virtual-state", "diff", "explain", "advanced"))',
+] }

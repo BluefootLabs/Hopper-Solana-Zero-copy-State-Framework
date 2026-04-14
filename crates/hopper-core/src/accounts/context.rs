@@ -3,6 +3,7 @@
 use hopper_runtime::{AccountView, Address};
 use hopper_runtime::error::ProgramError;
 
+#[cfg(feature = "explain")]
 use super::explain::ContextExplain;
 
 /// Trait implemented by account structs (manually or via derive).
@@ -29,6 +30,7 @@ pub trait HopperAccounts<'a>: Sized {
     ) -> Result<(Self, Self::Bumps), ProgramError>;
 
     /// Optional static schema for introspection and explain.
+    #[cfg(feature = "explain")]
     fn context_schema() -> Option<&'static crate::accounts::explain::ContextSchema> {
         None
     }
@@ -71,12 +73,14 @@ where
     }
 
     /// Generate a human-readable explanation of this context and its accounts.
+    #[cfg(feature = "explain")]
     #[inline]
     pub fn explain(&self) -> ContextExplain {
         ContextExplain::from_schema(T::context_schema())
     }
 
     /// Access the static context schema, if available.
+    #[cfg(feature = "explain")]
     #[inline]
     pub fn schema(&self) -> Option<&'static crate::accounts::explain::ContextSchema> {
         T::context_schema()

@@ -20,7 +20,9 @@ hopper-core = { path = "../hopper-core", version = "0.1.0", default-features = f
 hopper-runtime = { path = "../hopper-runtime", version = "0.1.0", default-features = false }
 
 [features]
-default = ["hopper-native-backend"]
+default = ["hopper-native-backend", "receipt", "policy"]
+receipt = ["hopper-core/receipt"]
+policy = ["hopper-core/policy"]
 hopper-native-backend = [
 	"hopper-core/hopper-native-backend",
 	"hopper-runtime/hopper-native-backend",
@@ -33,3 +35,9 @@ solana-program-backend = [
 	"hopper-core/solana-program-backend",
 	"hopper-runtime/solana-program-backend",
 ]
+
+[lints.rust]
+unexpected_cfgs = { level = "allow", check-cfg = [
+    'cfg(target_os, values("solana"))',
+    'cfg(feature, values("receipt", "policy"))',
+] }

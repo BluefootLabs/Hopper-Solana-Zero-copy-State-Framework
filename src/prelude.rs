@@ -33,8 +33,11 @@ pub use crate::{
 pub use crate::{context, hopper_context, hopper_program, hopper_state, program, state};
 
 // New systems
+#[cfg(feature = "virtual-state")]
 pub use hopper_core::virtual_state::{VirtualState, VirtualSlot, ShardedAccess};
+#[cfg(feature = "diff")]
 pub use hopper_core::diff::{StateSnapshot, StateDiff};
+#[cfg(feature = "graph")]
 pub use hopper_core::check::graph::{
     ValidationGraph, ValidationContext, AccountConstraint, TransactionConstraint,
 };
@@ -46,7 +49,9 @@ pub use hopper_core::account::segment_role::{
     SEG_ROLE_CORE, SEG_ROLE_EXTENSION, SEG_ROLE_JOURNAL,
     SEG_ROLE_INDEX, SEG_ROLE_CACHE, SEG_ROLE_AUDIT, SEG_ROLE_SHARD,
 };
+#[cfg(feature = "receipt")]
 pub use hopper_core::receipt::{StateReceipt, RECEIPT_SIZE};
+#[cfg(feature = "policy")]
 pub use hopper_core::policy::{
     Capability, CapabilitySet, PolicyRequirement, RequirementSet,
     InstructionPolicy,

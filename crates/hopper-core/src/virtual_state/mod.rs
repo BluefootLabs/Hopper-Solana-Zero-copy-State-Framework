@@ -208,8 +208,9 @@ impl<const N: usize> VirtualState<N> {
             return Err(ProgramError::NotEnoughAccountKeys);
         }
         let acc = &accounts[idx];
-        #[allow(deprecated)]
-        acc.overlay::<T>()
+        // SAFETY: Pod + FixedLayout types have valid bit patterns;
+        // the backend borrow guard still enforces per-account aliasing.
+        unsafe { acc.raw_ref::<T>() }
     }
 
     /// Get a typed mutable overlay from a virtual slot.
@@ -238,8 +239,9 @@ impl<const N: usize> VirtualState<N> {
             return Err(ProgramError::NotEnoughAccountKeys);
         }
         let acc = &accounts[idx];
-        #[allow(deprecated)]
-        acc.overlay_mut::<T>()
+        // SAFETY: Pod + FixedLayout types have valid bit patterns;
+        // writable check is done above; backend borrow guard enforces aliasing.
+        unsafe { acc.raw_mut::<T>() }
     }
 
     /// Get raw immutable data from a virtual slot.

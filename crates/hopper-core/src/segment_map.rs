@@ -110,6 +110,16 @@ pub trait SegmentMap {
     fn segment_count() -> usize {
         Self::SEGMENTS.len()
     }
+
+    /// Look up a segment by index (zero-overhead const access).
+    ///
+    /// Prefer this over `segment()` in generated accessor code where the
+    /// index is a compile-time constant. The compiler will resolve this to
+    /// an immediate constant load — no branching, no string comparison.
+    #[inline(always)]
+    fn segment_by_index(index: usize) -> StaticSegment {
+        Self::SEGMENTS[index]
+    }
 }
 
 /// Constant string equality for segment name matching.
@@ -130,6 +140,55 @@ const fn const_str_eq(a: &str, b: &str) -> bool {
         i += 1;
     }
     true
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  FieldMap ↔ SegmentMap alignment assertion
+// ══════════════════════════════════════════════════════════════════════
+
+/// Compile-time assertion that a type's `SegmentMap` and `FieldMap` are
+/// isomorphic: same count, same names, same offsets, same sizes.
+///
+/// Generated macros should produce both from a single source; this
+/// catches any accidental divergence.
+///
+/// Usage:
+/// ```ignore
+/// const _: () = assert_segment_field_alignment::<MyLayout>(HEADER_LEN);
+/// ```
+///
+/// `header_offset` is subtracted from `FieldInfo.offset` before comparing
+/// with `StaticSegment.offset`, since `FieldInfo` offsets are absolute
+/// (including the Hopper header) while `StaticSegment` offsets are relative
+/// to the body start.
+pub const fn assert_segment_field_alignment<T: SegmentMap + hopper_runtime::field_map::FieldMap>(
+    header_offset: usize,
+) {
+    let segments = T::SEGMENTS;
+    let fields = T::FIELDS;
+    assert!(
+        segments.len() == fields.len(),
+        "SegmentMap and FieldMap have different field counts"
+    );
+    let mut i = 0;
+    while i < segments.len() {
+        let seg = &segments[i];
+        let field = &fields[i];
+        assert!(
+            seg.offset as usize == field.offset.wrapping_sub(header_offset),
+            "SegmentMap/FieldMap offset mismatch"
+        );
+        assert!(
+            seg.size as usize == field.size,
+            "SegmentMap/FieldMap size mismatch"
+        );
+        // Name equality
+        assert!(
+            const_str_eq(seg.name, field.name),
+            "SegmentMap/FieldMap name mismatch"
+        );
+        i += 1;
+    }
 }
 
 #[cfg(test)]
@@ -173,4 +232,24 @@ mod tests {
         let seg = TestLayout::segment("authority").unwrap();
         assert_eq!(seg.end(), 32);
     }
+
+    #[test]
+    fn segment_by_index_constant_access() {
+        let seg = TestLayout::segment_by_index(1);
+        assert_eq!(seg.name, "balance");
+        assert_eq!(seg.offset, 32);
+        assert_eq!(seg.size, 8);
+    }
+
+    // Verify alignment assertion compiles for matching SegmentMap + FieldMap.
+    impl hopper_runtime::field_map::FieldMap for TestLayout {
+        const FIELDS: &'static [hopper_runtime::field_map::FieldInfo] = &[
+            hopper_runtime::field_map::FieldInfo::new("authority", 16, 32),
+            hopper_runtime::field_map::FieldInfo::new("balance", 48, 8),
+            hopper_runtime::field_map::FieldInfo::new("bump", 56, 1),
+        ];
+    }
+
+    // Compiles = SegmentMap and FieldMap are isomorphic.
+    const _: () = assert_segment_field_alignment::<TestLayout>(16);
 }

@@ -184,22 +184,22 @@ pub trait LayoutContract: Sized + Copy + FieldMap {
     #[inline(always)]
     fn validate_header(data: &[u8]) -> ProgramResult {
         if data.len() < Self::required_len() {
-            return Err(ProgramError::AccountDataTooSmall);
+            return ProgramError::err_data_too_small();
         }
         let disc = read_disc(data);
         if disc != Some(Self::DISC) {
-            return Err(ProgramError::InvalidAccountData);
+            return ProgramError::err_invalid_data();
         }
         let version = read_version(data);
         if version != Some(Self::VERSION) {
-            return Err(ProgramError::InvalidAccountData);
+            return ProgramError::err_invalid_data();
         }
         if let Some(id) = read_layout_id(data) {
             if *id != Self::LAYOUT_ID {
-                return Err(ProgramError::InvalidAccountData);
+                return ProgramError::err_invalid_data();
             }
         } else {
-            return Err(ProgramError::AccountDataTooSmall);
+            return ProgramError::err_data_too_small();
         }
         Ok(())
     }
@@ -231,7 +231,7 @@ pub trait LayoutContract: Sized + Copy + FieldMap {
     fn check_disc(data: &[u8]) -> ProgramResult {
         match read_disc(data) {
             Some(d) if d == Self::DISC => Ok(()),
-            _ => Err(ProgramError::InvalidAccountData),
+            _ => ProgramError::err_invalid_data(),
         }
     }
 
@@ -240,7 +240,7 @@ pub trait LayoutContract: Sized + Copy + FieldMap {
     fn check_version(data: &[u8]) -> ProgramResult {
         match read_version(data) {
             Some(v) if v == Self::VERSION => Ok(()),
-            _ => Err(ProgramError::InvalidAccountData),
+            _ => ProgramError::err_invalid_data(),
         }
     }
 

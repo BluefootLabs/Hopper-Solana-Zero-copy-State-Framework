@@ -24,12 +24,29 @@ sha2-const-stable = { workspace = true }
 hopper-schema = { workspace = true }
 
 [features]
-default = ["programs", "hopper-native-backend"]
+default = ["programs", "hopper-native-backend", "advanced"]
 programs = []
 log = []
 hopper-native-backend = ["hopper-runtime/hopper-native-backend"]
 pinocchio-backend = ["hopper-runtime/pinocchio-backend"]
 solana-program-backend = ["hopper-runtime/solana-program-backend"]
 
+# ── Advanced subsystems (opt-in, not hot-path) ────────────────────
+# These modules are valuable but sit outside the core access model.
+# Programs that only need load/load_mut/segment_ref/segment_mut can
+# disable `advanced` for a leaner compile.
+advanced = ["frame", "receipt", "policy", "graph", "migrate", "virtual-state", "diff", "explain"]
+frame = []
+receipt = ["diff"]
+policy = []
+graph = []
+migrate = []
+virtual-state = []
+diff = []
+explain = []
+
 [lints.rust]
-unexpected_cfgs = { level = "allow", check-cfg = ['cfg(target_os, values("solana"))'] }
+unexpected_cfgs = { level = "allow", check-cfg = [
+    'cfg(target_os, values("solana"))',
+    'cfg(feature, values("frame", "receipt", "policy", "graph", "migrate", "virtual-state", "diff", "explain", "advanced"))',
+] }
