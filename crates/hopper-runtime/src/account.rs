@@ -196,13 +196,13 @@ impl AccountView {
             let native_ref = unsafe {
                 self.inner.segment_ref_unchecked::<T>(abs_offset)
             }.map_err(ProgramError::from)?;
-            let (_value, state_ptr) = native_ref.into_raw_parts();
+            let (typed_ptr, state_ptr) = native_ref.into_raw_parts();
             // Create a dummy guard that manages the same borrow state.
             // The runtime Ref's Deref uses self.ptr, never the guard's data.
             let guard = unsafe {
                 compat::BackendRef::from_raw_parts(b"" as &[u8], state_ptr)
             };
-            Ok(Ref::from_segment(_value as *const T, guard))
+            Ok(Ref::from_segment(typed_ptr as *const T, guard))
         }
         #[cfg(not(target_os = "solana"))]
         {
@@ -251,14 +251,17 @@ impl AccountView {
             let native_ref = unsafe {
                 self.inner.segment_mut_unchecked::<T>(abs_offset)
             }.map_err(ProgramError::from)?;
-            let (_value, state_ptr) = native_ref.into_raw_parts();
+            let (typed_ptr, state_ptr) = native_ref.into_raw_parts();
+            // SAFETY: dangling pointer for a zero-length slice. The RefMut
+            // guard only manages the borrow state byte — it never reads
+            // through this pointer.
             let dummy = unsafe {
                 core::slice::from_raw_parts_mut(core::ptr::NonNull::dangling().as_ptr(), 0)
             };
             let guard = unsafe {
                 compat::BackendRefMut::from_raw_parts(dummy, state_ptr)
             };
-            Ok(RefMut::from_segment(_value as *const T as *mut T, guard))
+            Ok(RefMut::from_segment(typed_ptr as *const T as *mut T, guard))
         }
         #[cfg(not(target_os = "solana"))]
         {

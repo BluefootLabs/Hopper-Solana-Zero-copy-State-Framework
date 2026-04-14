@@ -207,7 +207,7 @@ impl AccountView {
     /// Try to obtain a shared borrow of the account data.
     ///
     /// Returns `Err(AccountBorrowFailed)` if the data is exclusively borrowed.
-    #[inline]
+    #[inline(always)]
     pub fn try_borrow(&self) -> Result<Ref<'_, [u8]>, ProgramError> {
         self.check_borrow()?;
         let state_ptr = unsafe { &mut (*self.raw).borrow_state as *mut u8 };
@@ -225,7 +225,7 @@ impl AccountView {
     /// Try to obtain an exclusive (mutable) borrow of the account data.
     ///
     /// Returns `Err(AccountBorrowFailed)` if the data is already borrowed.
-    #[inline]
+    #[inline(always)]
     pub fn try_borrow_mut(&self) -> Result<RefMut<'_, [u8]>, ProgramError> {
         self.check_borrow_mut()?;
         let state_ptr = unsafe { &mut (*self.raw).borrow_state as *mut u8 };
@@ -237,7 +237,7 @@ impl AccountView {
     // ── Typed segment and raw access ───────────────────────────────
 
     /// Project a typed segment from account data with native borrow tracking.
-    #[inline]
+    #[inline(always)]
     pub fn segment_ref<T: Copy>(&self, offset: u32, size: u32) -> Result<Ref<'_, T>, ProgramError> {
         let expected_size = core::mem::size_of::<T>() as u32;
         if size != expected_size {
@@ -287,7 +287,7 @@ impl AccountView {
     }
 
     /// Project a mutable typed segment from account data with native borrow tracking.
-    #[inline]
+    #[inline(always)]
     pub fn segment_mut<T: Copy>(&self, offset: u32, size: u32) -> Result<RefMut<'_, T>, ProgramError> {
         self.require_writable()?;
 
@@ -330,13 +330,13 @@ impl AccountView {
     }
 
     /// Explicit raw typed read of the account buffer.
-    #[inline]
+    #[inline(always)]
     pub unsafe fn raw_ref<T: Copy>(&self) -> Result<Ref<'_, T>, ProgramError> {
         self.segment_ref::<T>(0, core::mem::size_of::<T>() as u32)
     }
 
     /// Explicit raw typed write of the account buffer.
-    #[inline]
+    #[inline(always)]
     pub unsafe fn raw_mut<T: Copy>(&self) -> Result<RefMut<'_, T>, ProgramError> {
         self.segment_mut::<T>(0, core::mem::size_of::<T>() as u32)
     }
@@ -347,7 +347,7 @@ impl AccountView {
     ///
     /// Returns `Err(InvalidRealloc)` if the new length exceeds the
     /// permitted increase from the original allocation.
-    #[inline]
+    #[inline(always)]
     pub fn resize(&self, new_len: usize) -> Result<(), ProgramError> {
         let original_len = (self.data_len() as i64 - self.resize_delta() as i64) as usize;
         if new_len > original_len + MAX_PERMITTED_DATA_INCREASE {
@@ -379,16 +379,14 @@ impl AccountView {
     // ── Close ────────────────────────────────────────────────────────
 
     /// Close the account: zero lamports and data, set owner to system program.
-    #[inline]
+    #[inline(always)]
     pub fn close(&self) -> ProgramResult {
         self.set_lamports(0);
         unsafe {
-            let data = self.borrow_unchecked_mut();
-            // Zero account data.
-            let mut i = 0;
-            while i < data.len() {
-                data[i] = 0;
-                i += 1;
+            let len = self.data_len();
+            if len > 0 {
+                // Use the SVM's JIT-compiled memset for optimal CU cost.
+                crate::mem::memset(self.data_ptr(), 0, len);
             }
             (*self.raw).data_len = 0;
             (*self.raw).owner = Address::default();

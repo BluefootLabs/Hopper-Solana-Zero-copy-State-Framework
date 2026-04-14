@@ -18,7 +18,7 @@ use crate::address::Address;
 /// # Safety
 ///
 /// `input` must be the raw pointer provided by the Solana runtime.
-#[inline]
+#[inline(always)]
 pub unsafe fn process_entrypoint<const MAX: usize>(
     input: *mut u8,
     process_instruction: fn(&Address, &[AccountView], &[u8]) -> crate::ProgramResult,
@@ -26,17 +26,13 @@ pub unsafe fn process_entrypoint<const MAX: usize>(
     const UNINIT: MaybeUninit<AccountView> = MaybeUninit::uninit();
     let mut accounts = [UNINIT; 254]; // MAX_TX_ACCOUNTS
 
-    // SAFETY: This is only used when MAX == MAX_TX_ACCOUNTS (254) in practice.
-    // We use a fixed 254-element array to avoid const-generic array limitations.
-    let accounts_ref: &mut [MaybeUninit<AccountView>; 254] = &mut accounts;
-
-    // We need to reinterpret as the right size. For simplicity, always
-    // deserialize into the 254-element array.
     let (program_id, count, instruction_data) =
-        unsafe { crate::raw_input::deserialize_accounts::<254>(input, accounts_ref) };
+        unsafe { crate::raw_input::deserialize_accounts::<254>(input, &mut accounts) };
 
+    // Respect MAX: only pass up to MAX accounts to the callback.
+    let effective_count = count.min(MAX);
     let account_slice = unsafe {
-        core::slice::from_raw_parts(accounts_ref.as_ptr() as *const AccountView, count)
+        core::slice::from_raw_parts(accounts.as_ptr() as *const AccountView, effective_count)
     };
 
     match process_instruction(&program_id, account_slice, instruction_data) {
@@ -216,9 +212,11 @@ macro_rules! lazy_entrypoint {
     };
 }
 
-/// Set up a no-op global allocator that panics on allocation.
+/// Set up a no-op global allocator that aborts on allocation.
 ///
-/// Useful for `no_std` programs that must not allocate.
+/// Useful for `no_std` programs that must not allocate. Any attempt to
+/// allocate will immediately abort the program rather than returning a
+/// null pointer (which violates the `GlobalAlloc` contract).
 #[macro_export]
 macro_rules! no_allocator {
     () => {
@@ -228,7 +226,10 @@ macro_rules! no_allocator {
 
             unsafe impl core::alloc::GlobalAlloc for NoAlloc {
                 unsafe fn alloc(&self, _layout: core::alloc::Layout) -> *mut u8 {
-                    core::ptr::null_mut()
+                    // Abort: returning null_mut violates the GlobalAlloc
+                    // contract and causes UB. Abort is the correct response
+                    // for a no-alloc program.
+                    core::arch::asm!("mov r0, 1", "exit", options(noreturn));
                 }
                 unsafe fn dealloc(&self, _ptr: *mut u8, _layout: core::alloc::Layout) {}
             }
@@ -239,17 +240,19 @@ macro_rules! no_allocator {
     };
 }
 
-/// Default no_std panic handler that aborts.
+/// Default no_std panic handler that aborts immediately.
+///
+/// On BPF, uses inline assembly to return error code 1 (aborts the
+/// program). This is cheaper than `spin_loop()` which would burn CU
+/// until the runtime kills the program.
 #[macro_export]
 macro_rules! nostd_panic_handler {
     () => {
         #[cfg(target_os = "solana")]
         #[panic_handler]
         fn panic(_info: &core::panic::PanicInfo) -> ! {
-            let _ = _info;
-            loop {
-                core::hint::spin_loop();
-            }
+            // Abort immediately — spin_loop() would burn CU indefinitely.
+            unsafe { core::arch::asm!("mov r0, 1", "exit", options(noreturn)) };
         }
     };
 }

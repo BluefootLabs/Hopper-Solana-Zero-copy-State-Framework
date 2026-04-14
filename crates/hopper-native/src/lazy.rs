@@ -157,16 +157,17 @@ impl LazyContext {
 
     /// Skip `n` accounts without returning them.
     ///
-    /// This is cheaper than parsing and discarding because we only
-    /// advance the cursor through the raw buffer.
+    /// Advances the cursor through the raw buffer without constructing
+    /// full AccountView values, only doing enough work to find account
+    /// boundaries.
     #[inline]
     pub fn skip(&mut self, n: usize) -> Result<(), ProgramError> {
         for _ in 0..n {
             if self.parsed_count >= self.total_accounts {
                 return Err(ProgramError::NotEnoughAccountKeys);
             }
-            let view = unsafe { self.parse_one_account() };
-            self.resolved[self.parsed_count] = view;
+            // Advance cursor past this account without storing it.
+            unsafe { self.advance_cursor() };
             self.parsed_count += 1;
         }
         Ok(())
@@ -205,7 +206,7 @@ impl LazyContext {
     ///
     /// Caller must ensure `parsed_count < total_accounts` and that `cursor`
     /// points to valid BPF input buffer data.
-    #[inline]
+    #[inline(always)]
     unsafe fn parse_one_account(&mut self) -> AccountView {
         unsafe {
             let dup_marker = *self.cursor;
@@ -214,12 +215,7 @@ impl LazyContext {
                 // Non-duplicate: RuntimeAccount header starts here.
                 let raw = self.cursor as *mut RuntimeAccount;
                 let view = AccountView::new_unchecked(raw);
-                let data_len = (*raw).data_len as usize;
-                let mut offset = RuntimeAccount::SIZE + data_len + MAX_PERMITTED_DATA_INCREASE;
-                offset += self.cursor.add(offset).align_offset(BPF_ALIGN_OF_U128);
-                offset += 8;
-
-                self.cursor = self.cursor.add(offset);
+                self.advance_non_dup_cursor(raw);
                 view
             } else {
                 // Duplicate: references an earlier account.
@@ -241,6 +237,36 @@ impl LazyContext {
             }
         }
     }
+
+    /// Advance the cursor past one account slot without constructing a view.
+    ///
+    /// # Safety
+    ///
+    /// Caller must ensure `parsed_count < total_accounts` and cursor is valid.
+    #[inline(always)]
+    unsafe fn advance_cursor(&mut self) {
+        unsafe {
+            let dup_marker = *self.cursor;
+            if dup_marker == u8::MAX {
+                let raw = self.cursor as *mut RuntimeAccount;
+                self.advance_non_dup_cursor(raw);
+            } else {
+                self.cursor = self.cursor.add(8);
+            }
+        }
+    }
+
+    /// Advance cursor past a non-duplicate account (shared by parse + skip).
+    #[inline(always)]
+    unsafe fn advance_non_dup_cursor(&mut self, raw: *mut RuntimeAccount) {
+        unsafe {
+            let data_len = (*raw).data_len as usize;
+            let mut offset = RuntimeAccount::SIZE + data_len + MAX_PERMITTED_DATA_INCREASE;
+            offset += self.cursor.add(offset).align_offset(BPF_ALIGN_OF_U128);
+            offset += 8;
+            self.cursor = self.cursor.add(offset);
+        }
+    }
 }
 
 /// Deserialize a BPF input buffer into a `LazyContext`.
@@ -252,9 +278,12 @@ impl LazyContext {
 /// # Safety
 ///
 /// `input` must point to a valid Solana BPF input buffer.
-#[inline]
+#[inline(always)]
 pub unsafe fn lazy_deserialize(input: *mut u8) -> LazyContext {
     let frame = unsafe { crate::raw_input::scan_instruction_frame(input) };
+    // SAFETY: AccountView is a single raw pointer — zeroed is a valid
+    // sentinel (null). These slots are only read after `next_account()`
+    // initializes them via `parse_one_account()`.
     let resolved: [AccountView; 254] = unsafe { core::mem::zeroed() };
 
     LazyContext {

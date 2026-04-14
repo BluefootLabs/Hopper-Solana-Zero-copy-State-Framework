@@ -48,6 +48,7 @@ pub struct RawInstructionFrame {
 /// # Safety
 ///
 /// `input` must point to a valid Solana BPF input buffer.
+#[inline(always)]
 pub unsafe fn deserialize_accounts<const MAX: usize>(
     input: *mut u8,
     accounts: &mut [MaybeUninit<AccountView>; MAX],
@@ -114,6 +115,7 @@ pub unsafe fn deserialize_accounts<const MAX: usize>(
 /// * `ix_data` must point to the instruction data with its length stored as
 ///   `u64` at offset `-8`.
 /// * `program_id` must be the correct program id for this invocation.
+#[inline(always)]
 pub unsafe fn deserialize_accounts_fast<const MAX: usize>(
     input: *mut u8,
     accounts: &mut [MaybeUninit<AccountView>; MAX],
@@ -168,6 +170,7 @@ pub unsafe fn deserialize_accounts_fast<const MAX: usize>(
 /// # Safety
 ///
 /// `input` must point to a valid Solana BPF input buffer.
+#[inline(always)]
 pub unsafe fn scan_instruction_frame(input: *mut u8) -> RawInstructionFrame {
     let mut scan = input;
 

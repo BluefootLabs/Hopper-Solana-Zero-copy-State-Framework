@@ -15,7 +15,7 @@ const PDA_MARKER_BYTES: &[u8; 21] = crate::address::PDA_MARKER;
 ///
 /// Returns `Err(InvalidSeeds)` if the derived address falls on the
 /// ed25519 curve (not a valid PDA).
-#[inline]
+#[inline(always)]
 pub fn create_program_address(
     seeds: &[&[u8]],
     program_id: &Address,
@@ -58,7 +58,7 @@ pub fn create_program_address(
 /// Find a program-derived address and its bump seed.
 ///
 /// Iterates bump seeds 255..=0 until a valid PDA is found.
-#[inline]
+#[inline(always)]
 pub fn find_program_address(
     seeds: &[&[u8]],
     program_id: &Address,
@@ -77,7 +77,7 @@ pub fn find_program_address(
 /// Verify that an expected address matches the PDA hash for the provided seeds.
 ///
 /// The seeds slice must already include the bump byte.
-#[inline]
+#[inline(always)]
 pub fn verify_program_address(
     seeds: &[&[u8]],
     program_id: &Address,
@@ -132,7 +132,7 @@ pub fn verify_program_address(
 ///
 /// This avoids the `sol_try_find_program_address` syscall and substantially
 /// reduces the per-attempt CU cost on SBF.
-#[inline]
+#[inline(always)]
 pub fn based_try_find_program_address(
     seeds: &[&[u8]],
     program_id: &Address,
@@ -207,7 +207,7 @@ pub fn based_try_find_program_address(
 ///
 /// Returns `Ok(())` if the account address matches the derived PDA,
 /// or `Err(InvalidSeeds)` if it does not.
-#[inline]
+#[inline(always)]
 pub fn verify_pda(
     account: &AccountView,
     seeds: &[&[u8]],
