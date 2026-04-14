@@ -410,6 +410,28 @@ macro_rules! hopper_layout {
                 Self::BUMP_OFFSET != usize::MAX
             }
 
+            /// Verify a PDA using the bump stored in account data (~200 CU).
+            ///
+            /// Reads the bump from `BUMP_OFFSET`, appends it to seeds, then
+            /// uses SHA-256 verify-only. Saves ~1300 CU vs `find_program_address`.
+            ///
+            /// Only available on layouts with a `bump` field. Panics at compile
+            /// time otherwise (asserts `BUMP_OFFSET != usize::MAX`).
+            #[inline]
+            pub fn verify_pda_cached(
+                account: &$crate::hopper_runtime::AccountView,
+                seeds: &[&[u8]],
+                program_id: &$crate::hopper_runtime::Address,
+            ) -> Result<(), $crate::hopper_runtime::error::ProgramError> {
+                // BUMP_OFFSET is a const — this comparison is optimized away.
+                if Self::BUMP_OFFSET == usize::MAX {
+                    return Err($crate::hopper_runtime::error::ProgramError::InvalidArgument);
+                }
+                $crate::hopper_runtime::pda::verify_pda_from_stored_bump(
+                    account, seeds, Self::BUMP_OFFSET, program_id,
+                )
+            }
+
             // -- Tier 5: Unverified Overlay ------
             //
             // Best-effort loading for indexers and off-chain tooling.
