@@ -223,3 +223,52 @@ fn verify_pda_sha256_loop(
 
     Err(ProgramError::InvalidSeeds)
 }
+
+/// Verify a PDA using the bump stored in account data (cheapest path).
+///
+/// Reads the bump byte at `bump_offset` in account data, appends it to seeds,
+/// then hashes with SHA-256 and compares to the account address. ~200 CU total.
+#[inline]
+pub fn verify_pda_from_stored_bump(
+    account: &AccountView,
+    seeds: &[&[u8]],
+    bump_offset: usize,
+    program_id: &Address,
+) -> Result<(), ProgramError> {
+    #[cfg(all(target_os = "solana", feature = "hopper-native-backend"))]
+    {
+        hopper_native::verify_pda_from_stored_bump(
+            account.as_backend(),
+            seeds,
+            bump_offset,
+            crate::compat::as_backend_address(program_id),
+        )
+        .map_err(ProgramError::from)
+    }
+
+    #[cfg(not(all(target_os = "solana", feature = "hopper-native-backend")))]
+    {
+        // Off-chain fallback: read bump, append to seeds, derive + compare.
+        let data = account.try_borrow()?;
+        if bump_offset >= data.len() {
+            return Err(ProgramError::AccountDataTooSmall);
+        }
+        let bump = data[bump_offset];
+        let mut full_seeds: [&[u8]; 17] = [&[]; 17];
+        let num = seeds.len().min(15);
+        let mut i = 0;
+        while i < num {
+            full_seeds[i] = seeds[i];
+            i += 1;
+        }
+        let bump_bytes = [bump];
+        full_seeds[num] = &bump_bytes;
+
+        let expected = create_program_address(&full_seeds[..num + 1], program_id)?;
+        if crate::address::address_eq(account.address(), &expected) {
+            Ok(())
+        } else {
+            Err(ProgramError::InvalidSeeds)
+        }
+    }
+}
