@@ -128,52 +128,10 @@ pub fn find_and_verify_pda(
 ) -> Result<u8, ProgramError> {
     #[cfg(all(target_os = "solana", feature = "hopper-native-backend"))]
     {
-        let backend_pid = crate::compat::as_backend_address(program_id);
         let expected_addr = account.as_backend().address();
-
-        // Build the sha256 input slice array once.
-        // Layout: [seed_0, seed_1, ..., seed_n, bump_byte, program_id, PDA_MARKER]
-        let n = seeds.len().min(16);
-        let mut slices = core::mem::MaybeUninit::<[&[u8]; 19]>::uninit();
-        let sptr = slices.as_mut_ptr() as *mut &[u8];
-        let mut i = 0;
-        while i < n {
-            unsafe { sptr.add(i).write(seeds[i]) };
-            i += 1;
-        }
-        // Bump byte slot — the fat pointer is written once; we mutate the
-        // backing byte in-place each iteration so sha256 reads the updated
-        // value through the same pointer.
-        let mut bump_byte = [255u8];
-        unsafe {
-            sptr.add(n).write(&bump_byte as &[u8]);
-            sptr.add(n + 1).write(backend_pid.as_ref());
-            sptr.add(n + 2).write(hopper_native::address::PDA_MARKER.as_slice());
-        }
-        let input = unsafe { core::slice::from_raw_parts(sptr as *const &[u8], n + 3) };
-
-        // Verify-only loop: sha256 per attempt, no curve_validate.
-        let mut bump: u16 = 256;
-        while bump > 0 {
-            bump -= 1;
-            bump_byte[0] = bump as u8;
-
-            let mut hash = core::mem::MaybeUninit::<[u8; 32]>::uninit();
-            unsafe {
-                hopper_native::syscalls::sol_sha256(
-                    input as *const _ as *const u8,
-                    input.len() as u64,
-                    hash.as_mut_ptr() as *mut u8,
-                );
-            }
-            let derived =
-                unsafe { &*(hash.as_ptr() as *const hopper_native::address::Address) };
-            if hopper_native::address::address_eq(derived, expected_addr) {
-                return Ok(bump as u8);
-            }
-        }
-
-        return Err(ProgramError::InvalidSeeds);
+        let backend_expected =
+            unsafe { &*(expected_addr as *const hopper_native::address::Address) };
+        verify_pda_sha256_loop(backend_expected, seeds, program_id)
     }
 
     #[cfg(not(all(target_os = "solana", feature = "hopper-native-backend")))]
@@ -198,47 +156,9 @@ pub fn verify_pda_strict(
 ) -> Result<(), ProgramError> {
     #[cfg(all(target_os = "solana", feature = "hopper-native-backend"))]
     {
-        let backend_pid = crate::compat::as_backend_address(program_id);
         let backend_expected =
             unsafe { &*(expected as *const Address as *const hopper_native::address::Address) };
-
-        let n = seeds.len().min(16);
-        let mut slices = core::mem::MaybeUninit::<[&[u8]; 19]>::uninit();
-        let sptr = slices.as_mut_ptr() as *mut &[u8];
-        let mut i = 0;
-        while i < n {
-            unsafe { sptr.add(i).write(seeds[i]) };
-            i += 1;
-        }
-        let mut bump_byte = [255u8];
-        unsafe {
-            sptr.add(n).write(&bump_byte as &[u8]);
-            sptr.add(n + 1).write(backend_pid.as_ref());
-            sptr.add(n + 2).write(hopper_native::address::PDA_MARKER.as_slice());
-        }
-        let input = unsafe { core::slice::from_raw_parts(sptr as *const &[u8], n + 3) };
-
-        let mut bump: u16 = 256;
-        while bump > 0 {
-            bump -= 1;
-            bump_byte[0] = bump as u8;
-
-            let mut hash = core::mem::MaybeUninit::<[u8; 32]>::uninit();
-            unsafe {
-                hopper_native::syscalls::sol_sha256(
-                    input as *const _ as *const u8,
-                    input.len() as u64,
-                    hash.as_mut_ptr() as *mut u8,
-                );
-            }
-            let derived =
-                unsafe { &*(hash.as_ptr() as *const hopper_native::address::Address) };
-            if hopper_native::address::address_eq(derived, backend_expected) {
-                return Ok(());
-            }
-        }
-
-        return Err(ProgramError::InvalidSeeds);
+        verify_pda_sha256_loop(backend_expected, seeds, program_id).map(|_| ())
     }
 
     #[cfg(not(all(target_os = "solana", feature = "hopper-native-backend")))]
@@ -250,4 +170,56 @@ pub fn verify_pda_strict(
             Err(ProgramError::InvalidSeeds)
         }
     }
+}
+
+/// Shared sha256-only PDA verify loop used by both `find_and_verify_pda`
+/// and `verify_pda_strict`.
+///
+/// Iterates bumps 255→0, hashing seeds + bump + program_id + PDA_MARKER.
+/// Returns the matching bump on success.
+#[cfg(all(target_os = "solana", feature = "hopper-native-backend"))]
+#[inline(always)]
+fn verify_pda_sha256_loop(
+    expected: &hopper_native::address::Address,
+    seeds: &[&[u8]],
+    program_id: &Address,
+) -> Result<u8, ProgramError> {
+    let backend_pid = crate::compat::as_backend_address(program_id);
+    let n = seeds.len().min(16);
+    let mut slices = core::mem::MaybeUninit::<[&[u8]; 19]>::uninit();
+    let sptr = slices.as_mut_ptr() as *mut &[u8];
+    let mut i = 0;
+    while i < n {
+        unsafe { sptr.add(i).write(seeds[i]) };
+        i += 1;
+    }
+    let mut bump_byte = [255u8];
+    unsafe {
+        sptr.add(n).write(&bump_byte as &[u8]);
+        sptr.add(n + 1).write(backend_pid.as_ref());
+        sptr.add(n + 2).write(hopper_native::address::PDA_MARKER.as_slice());
+    }
+    let input = unsafe { core::slice::from_raw_parts(sptr as *const &[u8], n + 3) };
+
+    let mut bump: u16 = 256;
+    while bump > 0 {
+        bump -= 1;
+        bump_byte[0] = bump as u8;
+
+        let mut hash = core::mem::MaybeUninit::<[u8; 32]>::uninit();
+        unsafe {
+            hopper_native::syscalls::sol_sha256(
+                input as *const _ as *const u8,
+                input.len() as u64,
+                hash.as_mut_ptr() as *mut u8,
+            );
+        }
+        let derived =
+            unsafe { &*(hash.as_ptr() as *const hopper_native::address::Address) };
+        if hopper_native::address::address_eq(derived, expected) {
+            return Ok(bump as u8);
+        }
+    }
+
+    Err(ProgramError::InvalidSeeds)
 }

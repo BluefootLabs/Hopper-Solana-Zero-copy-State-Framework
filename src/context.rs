@@ -49,7 +49,7 @@ pub struct Context<'a> {
     /// of the same account. This is what makes Hopper strictly safer than
     /// raw Pinocchio without adding meaningful CU overhead.
     /// Prefer the `borrows()` / `borrows_mut()` accessors in new code.
-    pub segment_borrows: SegmentBorrowRegistry,
+    pub(crate) segment_borrows: SegmentBorrowRegistry,
 }
 
 impl<'a> Context<'a> {
