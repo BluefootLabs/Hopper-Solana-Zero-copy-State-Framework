@@ -24,7 +24,7 @@ sha2-const-stable = { workspace = true }
 hopper-schema = { workspace = true }
 
 [features]
-default = ["programs", "hopper-native-backend", "advanced", "cpi"]
+default = ["programs", "hopper-native-backend", "advanced", "cpi", "collections"]
 programs = []
 log = []
 hopper-native-backend = ["hopper-runtime/hopper-native-backend"]
@@ -32,10 +32,10 @@ pinocchio-backend = ["hopper-runtime/pinocchio-backend"]
 solana-program-backend = ["hopper-runtime/solana-program-backend"]
 cpi = ["hopper-runtime/cpi"]
 
-# ── Advanced subsystems (opt-in, not hot-path) ────────────────────
+# Advanced subsystems (opt-in, not hot-path).
 # These modules are valuable but sit outside the core access model.
 # Programs that only need load/load_mut/segment_ref/segment_mut can
-# disable `advanced` for a leaner compile.
+# disable `advanced` for a leaner compile surface.
 advanced = ["frame", "receipt", "policy", "graph", "migrate", "virtual-state", "diff", "explain"]
 frame = []
 receipt = ["diff"]
@@ -46,8 +46,15 @@ virtual-state = []
 diff = []
 explain = []
 
+# Zero-copy collections (FixedVec, RingBuffer, SlotMap, BitSet, Journal,
+# Slab, PackedMap, SortedVec). Default on. Turn off for programs that
+# only touch raw fields and segments, to drop ~800 lines of compile-time
+# surface. Not part of `advanced` because collections are useful in
+# hot-path code while advanced subsystems are not.
+collections = []
+
 [lints.rust]
 unexpected_cfgs = { level = "allow", check-cfg = [
     'cfg(target_os, values("solana"))',
-    'cfg(feature, values("frame", "receipt", "policy", "graph", "migrate", "virtual-state", "diff", "explain", "advanced", "cpi"))',
+    'cfg(feature, values("frame", "receipt", "policy", "graph", "migrate", "virtual-state", "diff", "explain", "advanced", "cpi", "collections"))',
 ] }

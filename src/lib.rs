@@ -27,6 +27,25 @@
 //! - **Interfaces**: Cross-program read-only views with ABI proof
 //!
 //! Built on hopper-native. Compatible with jiminy account layouts.
+//!
+//! ## Feature flags
+//!
+//! `hopper-core` ships one hot-path core plus opt-in advanced subsystems.
+//! The default feature set is `programs`, `hopper-native-backend`, `cpi`,
+//! `collections`, and the `advanced` umbrella (`frame`, `receipt`, `policy`,
+//! `graph`, `migrate`, `virtual-state`, `diff`, `explain`). Programs that
+//! only touch raw fields and segments can disable every optional surface:
+//!
+//! ```toml
+//! hopper-core = { version = "0.1", default-features = false,
+//!                 features = ["programs", "hopper-native-backend", "cpi"] }
+//! ```
+//!
+//! That lean configuration drops `frame`, `receipt`, `policy`, `graph`,
+//! `migrate`, `virtual-state`, `diff`, `explain`, and `collections` from the
+//! compile surface and leaves only the hot-path access model, validation
+//! primitives, ABI, layout metadata, and CPI. Re-enable features individually
+//! as the program grows.
 
 #![no_std]
 #![deny(unsafe_op_in_unsafe_fn)]
@@ -38,6 +57,7 @@ pub mod abi;
 pub mod account;
 pub mod accounts;
 pub mod check;
+#[cfg(feature = "collections")]
 pub mod collections;
 pub mod cpi;
 pub mod dispatch;
@@ -181,8 +201,11 @@ pub mod prelude {
         check_authority_fast, check_executable_fast,
         HEADER_SIGNER, HEADER_WRITABLE, HEADER_SIGNER_WRITABLE, HEADER_EXECUTABLE,
     };
+    #[cfg(feature = "collections")]
     pub use crate::collections::{BitSet, FixedVec, PackedMap, RingBuffer, SlotMap, SortedVec};
+    #[cfg(feature = "collections")]
     pub use crate::collections::journal::{Journal, JournalReader};
+    #[cfg(feature = "collections")]
     pub use crate::collections::slab::Slab;
     pub use crate::cpi::{HopperCpi, HopperCpiBuf};
     #[cfg(feature = "diff")]
