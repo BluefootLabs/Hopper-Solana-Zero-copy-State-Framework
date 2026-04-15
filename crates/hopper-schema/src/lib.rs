@@ -53,12 +53,12 @@ pub const MANIFEST_MAGIC: [u8; 8] = *b"HOPRMNFT";
 /// On-chain manifest account header size (bytes).
 ///
 /// Layout:
-///   [0..8]   magic       — `MANIFEST_MAGIC` discriminator
-///   [8..12]  version     — u32 LE wire format version (currently 1)
-///   [12..16] data_len    — u32 LE byte count of the JSON payload
-///   [16..17] compression — u8 (0 = raw JSON, 1 = zlib-deflate)
-///   [17..20] reserved    — 3 padding bytes
-///   [20..]   payload     — JSON data (raw or compressed)
+///   [0..8]   magic      : `MANIFEST_MAGIC` discriminator
+///   [8..12]  version    : u32 LE wire format version (currently 1)
+///   [12..16] data_len   : u32 LE byte count of the JSON payload
+///   [16..17] compression: u8 (0 = raw JSON, 1 = zlib-deflate)
+///   [17..20] reserved   : 3 padding bytes
+///   [20..]   payload    : JSON data (raw or compressed)
 pub const MANIFEST_HEADER_LEN: usize = 20;
 
 /// Current manifest wire format version.
@@ -621,8 +621,8 @@ pub enum CompatibilityVerdict {
     /// Layouts are byte-identical (same layout_id).
     Identical,
     /// Same wire layout (field count, sizes, offsets, types all match)
-    /// but `layout_id` differs — semantic metadata changed (e.g. field
-    /// intent, layout name). Safe to read; no migration needed.
+    /// but `layout_id` differs. Semantic metadata changed (e.g. field
+    /// intent, layout name). Safe to read, no migration needed.
     WireCompatible,
     /// Same discriminator, old field prefix intact in new layout.
     /// Old readers can still parse new accounts (they ignore the tail).
@@ -632,7 +632,7 @@ pub enum CompatibilityVerdict {
     /// Breaking change: field types changed, fields removed, or prefix
     /// altered. Full migration required before deploying new code.
     MigrationRequired,
-    /// Different discriminators — these are fundamentally different types.
+    /// Different discriminators. These are fundamentally different types.
     Incompatible,
 }
 
@@ -1583,7 +1583,7 @@ impl SegmentRoleHint {
     /// Whether this segment's data must be copied during migration.
     ///
     /// Core and Audit segments contain irreplaceable state that cannot
-    /// be rebuilt or cleared — their bytes must survive migration intact.
+    /// be rebuilt or cleared. Their bytes must survive migration intact.
     #[inline(always)]
     pub fn requires_migration_copy(self) -> bool {
         matches!(self, Self::Core | Self::Audit)

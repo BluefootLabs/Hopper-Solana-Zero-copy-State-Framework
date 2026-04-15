@@ -1,7 +1,7 @@
 //! # Hopper Macros
 //!
 //! Declarative `macro_rules!` macros for Hopper. No proc macros required for
-//! correctness — proc macros are available as optional DX accelerators for
+//! correctness. Proc macros are available as optional DX accelerators for
 //! schema generation, IDL export, and boilerplate reduction.
 //!
 //! ## Macros
@@ -298,7 +298,7 @@ macro_rules! hopper_layout {
             /// must accept both old and new versions of an account.
             ///
             /// # Arguments
-            /// * `min_version` — lowest acceptable version byte (header byte 1).
+            /// * `min_version`: lowest acceptable version byte (header byte 1).
             ///   Pass `1` to accept V1+, `2` to accept V2+ only, etc.
             #[inline]
             pub fn load_compatible<'a>(
@@ -423,7 +423,7 @@ macro_rules! hopper_layout {
                 seeds: &[&[u8]],
                 program_id: &$crate::hopper_runtime::Address,
             ) -> Result<(), $crate::hopper_runtime::error::ProgramError> {
-                // BUMP_OFFSET is a const — this comparison is optimized away.
+                // BUMP_OFFSET is a const, so this comparison is optimized away.
                 if Self::BUMP_OFFSET == usize::MAX {
                     return Err($crate::hopper_runtime::error::ProgramError::InvalidArgument);
                 }
@@ -1391,7 +1391,7 @@ macro_rules! hopper_interface {
             /// Tier 2: Cross-program load (read-only).
             ///
             /// Validates: owner + layout_id + exact size.
-            /// The layout_id is the ABI proof — no discriminator or version check needed.
+            /// The layout_id is the ABI proof, so no discriminator or version check is needed.
             #[inline]
             pub fn load_cross_program<'a>(
                 account: &'a $crate::hopper_runtime::AccountView,

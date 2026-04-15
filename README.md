@@ -20,10 +20,10 @@ from raw hex.
 
 **What makes Hopper different from every other Solana framework:** segment-level
 memory access. When you mutate a vault's `balance` field, Hopper locks exactly
-those 8 bytes. A parallel read of `authority` on the same account? Fine — no
-conflict. Every other framework locks the entire account. That's not a minor
-ergonomic win — it's the difference between catching aliasing bugs at the byte
-level versus trusting developers to get it right manually.
+those 8 bytes. A parallel read of `authority` on the same account? Fine, no
+conflict. Every other framework locks the entire account. That is not a minor
+ergonomic win. It is the difference between catching aliasing bugs at the byte
+level and trusting developers to get it right manually.
 
 Built on Hopper Native, Hopper's sovereign low-level runtime substrate for Solana.
 Hopper also supports compatibility backends including Pinocchio and standard
@@ -491,10 +491,10 @@ from the same state model.
 
 **Hopper beats Quasar on 4 of 5 instructions** while providing 47+ safety
 mechanisms vs Quasar's ~10. Hopper's counter-access uses `segment_ref` and
-`segment_mut` with segment-level borrow tracking — Quasar and Pinocchio use
-raw byte slicing with no conflict detection. The novel verify-only PDA
-approach (sha256 only, no curve_validate) saves ~350 CU per PDA-bearing
-instruction. Hopper produces the **smallest binary** of all three frameworks.
+`segment_mut` with segment-level borrow tracking. Quasar and Pinocchio use
+raw byte slicing with no conflict detection. The verify-only PDA path (sha256
+only, no `curve_validate` syscall) saves ~350 CU per PDA-bearing instruction.
+Hopper produces the **smallest binary** of all three frameworks.
 
 | | Hopper | Anchor zero-copy | Pinocchio | Quasar |
 |---|---|---|---|---|

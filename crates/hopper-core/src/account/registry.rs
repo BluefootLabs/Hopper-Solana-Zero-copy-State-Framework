@@ -41,6 +41,7 @@
 
 use hopper_runtime::error::ProgramError;
 use super::segment_role::SegmentRole;
+#[cfg(feature = "collections")]
 use crate::collections::{FixedVec, Journal, RingBuffer, Slab, SlotMap, SortedVec};
 
 // -- Segment ID --
@@ -523,6 +524,7 @@ impl<'a> SegmentRegistryMut<'a> {
     }
 
     /// Overlay a named segment as a bounded `FixedVec`.
+    #[cfg(feature = "collections")]
     #[inline]
     pub fn segment_fixed_vec<T: super::Pod + super::FixedLayout>(
         &mut self,
@@ -532,6 +534,7 @@ impl<'a> SegmentRegistryMut<'a> {
     }
 
     /// Overlay a named segment as a `SortedVec`.
+    #[cfg(feature = "collections")]
     #[inline]
     pub fn segment_sorted_vec<T: super::Pod + super::FixedLayout + Ord>(
         &mut self,
@@ -541,6 +544,7 @@ impl<'a> SegmentRegistryMut<'a> {
     }
 
     /// Overlay a named segment as a `RingBuffer`.
+    #[cfg(feature = "collections")]
     #[inline]
     pub fn segment_ring_buffer<T: super::Pod + super::FixedLayout>(
         &mut self,
@@ -550,6 +554,7 @@ impl<'a> SegmentRegistryMut<'a> {
     }
 
     /// Overlay a named segment as a `SlotMap`.
+    #[cfg(feature = "collections")]
     #[inline]
     pub fn segment_slot_map<T: super::Pod + super::FixedLayout>(
         &mut self,
@@ -559,6 +564,7 @@ impl<'a> SegmentRegistryMut<'a> {
     }
 
     /// Overlay a named segment as a `Journal`.
+    #[cfg(feature = "collections")]
     #[inline]
     pub fn segment_journal<T: super::Pod + super::FixedLayout>(
         &mut self,
@@ -568,6 +574,7 @@ impl<'a> SegmentRegistryMut<'a> {
     }
 
     /// Overlay a named segment as a `Slab`.
+    #[cfg(feature = "collections")]
     #[inline]
     pub fn segment_slab<T: super::Pod + super::FixedLayout>(
         &mut self,
@@ -620,6 +627,7 @@ mod tests {
         const SIZE: usize = 1;
     }
 
+    #[cfg(feature = "collections")]
     #[test]
     fn segment_fixed_vec_adapter_exposes_vec_api() {
         const CORE: SegmentId = segment_id("core");
@@ -638,6 +646,7 @@ mod tests {
         assert_eq!(values.get(1).unwrap().value, 9);
     }
 
+    #[cfg(feature = "collections")]
     #[test]
     fn segment_journal_adapter_exposes_journal_api() {
         const AUDIT: SegmentId = segment_id("audit");
