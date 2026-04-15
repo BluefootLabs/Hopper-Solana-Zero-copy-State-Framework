@@ -79,7 +79,7 @@ pub unsafe trait TransparentAddress: Sized {}
 unsafe impl TransparentAddress for Address {}
 
 #[cfg(feature = "pinocchio-backend")]
-unsafe impl TransparentAddress for pinocchio::pubkey::Pubkey {}
+unsafe impl TransparentAddress for pinocchio::address::Address {}
 
 #[cfg(feature = "solana-program-backend")]
 unsafe impl TransparentAddress for ::solana_program::pubkey::Pubkey {}
