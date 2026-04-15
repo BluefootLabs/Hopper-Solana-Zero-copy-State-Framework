@@ -7,7 +7,7 @@
 //!
 //! **Not required.** Every feature these macros provide is achievable through
 //! Hopper's declarative `macro_rules!` macros or hand-written code. These
-//! exist purely for developer velocity — the generated code compiles to the
+//! exist purely for developer velocity. The generated code compiles to the
 //! exact same pointer arithmetic as raw Pinocchio.
 //!
 //! # Design Philosophy
@@ -28,7 +28,7 @@ use proc_macro::TokenStream;
 /// Generate a `SegmentMap` implementation for a zero-copy layout struct.
 ///
 /// Computes field offsets at compile time and emits a const segment table.
-/// The generated code is zero-cost — segment lookups resolve to const loads.
+/// The generated code is zero-cost. Segment lookups resolve to const loads.
 ///
 /// # Example
 ///
