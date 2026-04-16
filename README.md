@@ -49,10 +49,12 @@ Hopper is not supposed to feel like a pile of parallel modes. There is one
 runtime path and one access model, with different guarantees layered on top:
 
 - whole-layout typed access via `account.load::<T>()` and `account.load_mut::<T>()`
+  (or the indexed shortcut: `ctx.load::<T>(idx)` / `ctx.load_mut::<T>(idx)`)
 - segment-aware typed access via `account.segment_ref(...)` and `account.segment_mut(...)`
+  (or `ctx.segment_ref::<T>(idx, offset)` / `ctx.segment_mut::<T>(idx, offset)`)
 - explicit raw escape hatches via `unsafe account.raw_ref::<T>()` and `unsafe account.raw_mut::<T>()`
 
-Specialized helpers such as `load_foreign()` and `load_versioned()` are not
+Specialized helpers such as `load_cross_program()` and `load_versioned()` are not
 separate frameworks. They are the same Hopper runtime path with a different
 validation contract.
 

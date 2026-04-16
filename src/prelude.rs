@@ -56,7 +56,9 @@ pub use hopper_core::policy::{
     Capability, CapabilitySet, PolicyRequirement, RequirementSet,
     InstructionPolicy,
 };
+#[cfg(feature = "collections")]
 pub use hopper_core::collections::journal::{Journal, JournalReader};
+#[cfg(feature = "collections")]
 pub use hopper_core::collections::slab::Slab;
 
 // Runtime essentials

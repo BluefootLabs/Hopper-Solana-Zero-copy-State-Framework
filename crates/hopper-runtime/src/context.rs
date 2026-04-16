@@ -12,6 +12,7 @@ use crate::account::AccountView;
 use crate::audit::AccountAudit;
 use crate::address::Address;
 use crate::error::ProgramError;
+use crate::layout::LayoutContract;
 use crate::segment_borrow::SegmentBorrowRegistry;
 use crate::ProgramResult;
 
@@ -173,6 +174,47 @@ impl<'a> Context<'a> {
         } else {
             Err(ProgramError::InvalidInstructionData)
         }
+    }
+
+    // --- Whole-Layout Typed Access ----------------------------------
+
+    /// Validate-and-load the full typed layout for an account.
+    ///
+    /// This is the indexed shortcut for `ctx.account(idx)?.load::<T>()`.
+    /// It's the canonical "Tier A" access path: the runtime checks the
+    /// Hopper header, validates the data length, and projects the typed
+    /// view in one inlined call — no extra cost over the spelled-out form.
+    #[inline(always)]
+    pub fn load<T: LayoutContract>(
+        &self,
+        index: usize,
+    ) -> Result<crate::Ref<'_, T>, ProgramError> {
+        self.account(index)?.load::<T>()
+    }
+
+    /// Validate-and-load a mutable typed layout for an account.
+    ///
+    /// Indexed shortcut for `ctx.account(idx)?.load_mut::<T>()`. The
+    /// returned guard holds the account-level exclusive borrow until
+    /// it drops.
+    #[inline(always)]
+    pub fn load_mut<T: LayoutContract>(
+        &self,
+        index: usize,
+    ) -> Result<crate::RefMut<'_, T>, ProgramError> {
+        self.account(index)?.load_mut::<T>()
+    }
+
+    /// Cross-program load: validate ABI fingerprint without ownership check.
+    ///
+    /// Use this when reading an account whose owner is another program but
+    /// whose layout is published as a Hopper layout contract.
+    #[inline(always)]
+    pub fn load_cross_program<T: LayoutContract>(
+        &self,
+        index: usize,
+    ) -> Result<crate::Ref<'_, T>, ProgramError> {
+        self.account(index)?.load_cross_program::<T>()
     }
 
     // --- Segment-Level Access (fine-grained borrow tracking) --------

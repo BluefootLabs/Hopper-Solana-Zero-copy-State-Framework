@@ -1204,9 +1204,19 @@ fn render_program_rust_preview(
         .collect();
 
     let mut out = String::new();
-    out.push_str("// Hopper lowered Rust preview.\n");
-    out.push_str("// Generated from ProgramManifest metadata to make the runtime path explicit.\n");
-    out.push_str("// This is the code shape Hopper wants you to reason about: indexes, offsets, borrows, and accessors.\n\n");
+    out.push_str("// ───────────────────────────────────────────────────────────────\n");
+    out.push_str("//  Hopper lowered Rust preview\n");
+    out.push_str("// ───────────────────────────────────────────────────────────────\n");
+    out.push_str("// Generated from ProgramManifest metadata — NOT your source file.\n");
+    out.push_str("// This is what Hopper's one access model lowers to: indexed accounts,\n");
+    out.push_str("// const segment offsets, and typed projections. No hidden runtime,\n");
+    out.push_str("// no reflection, no string lookups in the hot path.\n");
+    out.push_str("//\n");
+    out.push_str("// Access model (all three paths share the same pointer arithmetic):\n");
+    out.push_str("//   Tier A  ctx.load::<T>(idx)?            // validate header + project\n");
+    out.push_str("//   Tier B  ctx.segment_mut::<T>(idx, off) // fine-grained segment borrow\n");
+    out.push_str("//   Tier C  unsafe ctx.raw_mut::<T>(idx)?  // caller owns all validation\n");
+    out.push_str("// ───────────────────────────────────────────────────────────────\n\n");
     out.push_str("use hopper::prelude::*;\n");
     out.push_str("use hopper::__runtime::{Ref, RefMut};\n\n");
 

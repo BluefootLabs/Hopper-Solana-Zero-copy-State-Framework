@@ -101,7 +101,7 @@ hopper-solana = { path = "crates/hopper-solana", version = "0.1.0", default-feat
 hopper-macros-proc = { workspace = true, optional = true }
 
 [features]
-default = ["hopper-native-backend", "advanced"]
+default = ["hopper-native-backend", "advanced", "collections"]
 proc-macros = ["hopper-macros-proc"]
 
 # ── Advanced subsystems (forwarded to hopper-core) ────────────────
@@ -114,6 +114,7 @@ migrate = ["hopper-core/migrate"]
 virtual-state = ["hopper-core/virtual-state"]
 diff = ["hopper-core/diff"]
 explain = ["hopper-core/explain"]
+collections = ["hopper-core/collections"]
 
 hopper-native-backend = [
     "hopper-runtime/hopper-native-backend",

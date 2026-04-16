@@ -212,6 +212,8 @@ pub fn expand(_attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
             if cf.attr.is_mut {
                 let load_mut_fn = format_ident!("{}_load_mut", field_name);
                 let raw_mut_fn = format_ident!("{}_raw_mut", field_name);
+                let segment_mut_fn = format_ident!("{}_segment_mut", field_name);
+                let segment_ref_fn = format_ident!("{}_segment_ref", field_name);
 
                 accessors.push(quote! {
                     /// Validate and mutably load the full typed layout for `#field_name`.
@@ -238,15 +240,56 @@ pub fn expand(_attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
                         unsafe { self.ctx.account(#idx)?.raw_mut::<#field_ty>() }
                     }
                 });
+
+                // General-purpose typed segment escape for full-mut fields.
+                // Lets callers project any segment of `#field_name` without
+                // pre-declaring it via `mut(field1, field2)`. The `abs_offset`
+                // argument is intended to be a const segment offset (e.g.
+                // `HEADER_LEN as u32 + VAULT_BALANCE_OFFSET`) so the call
+                // collapses to the same const arithmetic as the named accessors.
+                accessors.push(quote! {
+                    /// Mutable segment escape: project an arbitrary typed sub-slice
+                    /// of `#field_name`. Borrow tracking is registered against the
+                    /// instruction-scoped segment registry.
+                    #[inline(always)]
+                    #vis fn #segment_mut_fn<__SegT: ::core::marker::Copy>(
+                        &mut self,
+                        abs_offset: u32,
+                    ) -> ::core::result::Result<
+                        ::hopper::__runtime::RefMut<'_, __SegT>,
+                        ::hopper::__runtime::ProgramError,
+                    > {
+                        self.ctx.segment_mut::<__SegT>(#idx, abs_offset)
+                    }
+                });
+
+                accessors.push(quote! {
+                    /// Read-only segment escape for `#field_name`.
+                    #[inline(always)]
+                    #vis fn #segment_ref_fn<__SegT: ::core::marker::Copy>(
+                        &mut self,
+                        abs_offset: u32,
+                    ) -> ::core::result::Result<
+                        ::hopper::__runtime::Ref<'_, __SegT>,
+                        ::hopper::__runtime::ProgramError,
+                    > {
+                        self.ctx.segment_ref::<__SegT>(#idx, abs_offset)
+                    }
+                });
             }
         }
 
         // Generate mutable segment accessors.
+        //
+        // We reference both the module-level constants (`VAULT_BALANCE_OFFSET`,
+        // `VAULT_BALANCE_TYPE`) emitted by `#[hopper::state]` and the inherent
+        // associated constants (`Vault::BALANCE_OFFSET`) it also emits. Using
+        // the inherent constant for the offset means contexts compile cleanly
+        // even when the layout type is imported from another module.
         for seg_name in &cf.attr.mut_segments {
             let fn_name = format_ident!("{}_{}_mut", field_name, seg_name);
             let seg_upper = to_screaming_snake(seg_name);
-            let offset_const = format_ident!("{}_{}_OFFSET", type_upper, seg_upper);
-            let size_const = format_ident!("{}_{}_SIZE", type_upper, seg_upper);
+            let assoc_offset = format_ident!("{}_OFFSET", seg_upper);
             let type_alias = format_ident!("{}_{}_TYPE", type_upper, seg_upper);
 
             accessors.push(quote! {
@@ -258,10 +301,11 @@ pub fn expand(_attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
                     ::hopper::__runtime::RefMut<'_, #type_alias>,
                     ::hopper::__runtime::ProgramError,
                 > {
-                    const SEG: ::hopper::prelude::StaticSegment =
-                        ::hopper::prelude::StaticSegment::new(#seg_name, #offset_const, #size_const);
-                    let abs_offset = ::hopper::prelude::HEADER_LEN as u32 + SEG.offset;
-                    self.ctx.segment_mut::<#type_alias>(#idx, abs_offset)
+                    // const offset folded at the call site; this lowers to a
+                    // single immediate add over `data_ptr` on Solana SBF.
+                    const ABS_OFFSET: u32 =
+                        ::hopper::prelude::HEADER_LEN as u32 + <#field_ty>::#assoc_offset;
+                    self.ctx.segment_mut::<#type_alias>(#idx, ABS_OFFSET)
                 }
             });
         }
@@ -270,8 +314,7 @@ pub fn expand(_attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
         for seg_name in &cf.attr.read_segments {
             let fn_name = format_ident!("{}_{}_ref", field_name, seg_name);
             let seg_upper = to_screaming_snake(seg_name);
-            let offset_const = format_ident!("{}_{}_OFFSET", type_upper, seg_upper);
-            let size_const = format_ident!("{}_{}_SIZE", type_upper, seg_upper);
+            let assoc_offset = format_ident!("{}_OFFSET", seg_upper);
             let type_alias = format_ident!("{}_{}_TYPE", type_upper, seg_upper);
 
             accessors.push(quote! {
@@ -283,10 +326,9 @@ pub fn expand(_attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
                     ::hopper::__runtime::Ref<'_, #type_alias>,
                     ::hopper::__runtime::ProgramError,
                 > {
-                    const SEG: ::hopper::prelude::StaticSegment =
-                        ::hopper::prelude::StaticSegment::new(#seg_name, #offset_const, #size_const);
-                    let abs_offset = ::hopper::prelude::HEADER_LEN as u32 + SEG.offset;
-                    self.ctx.segment_ref::<#type_alias>(#idx, abs_offset)
+                    const ABS_OFFSET: u32 =
+                        ::hopper::prelude::HEADER_LEN as u32 + <#field_ty>::#assoc_offset;
+                    self.ctx.segment_ref::<#type_alias>(#idx, ABS_OFFSET)
                 }
             });
         }
