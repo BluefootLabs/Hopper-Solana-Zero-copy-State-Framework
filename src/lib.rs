@@ -1,26 +1,44 @@
-//! # Hopper Macros
+//! # Hopper Macros (Declarative)
 //!
-//! Declarative `macro_rules!` macros for Hopper. No proc macros required for
-//! correctness. Proc macros are available as optional DX accelerators for
-//! schema generation, IDL export, and boilerplate reduction.
+//! **Support infrastructure, not the main public entry.** These
+//! `macro_rules!` macros generate layout structure, field metadata, and
+//! validation primitives at compile time. They are deliberately limited
+//! to *structure* generation: no hidden runtime logic, no surprise
+//! control flow, no validation engines.
 //!
-//! ## Macros
+//! Programs that want richer DX should enable the `proc-macros` feature
+//! and reach for `#[hopper::state]`, `#[hopper::context]`, and
+//! `#[hopper::program]` in `hopper-macros-proc`. Programs that prefer a
+//! zero-tool-chain authoring path can use these declarative macros
+//! directly — both paths lower to the same runtime.
 //!
-//! - `hopper_layout!`: zero-copy account layout with header, layout_id, tiered loading
-//! - `hopper_check!`: composable account constraint checking
-//! - `hopper_error!`: sequential error code generation
-//! - `hopper_init!`: account creation + header initialization
-//! - `hopper_close!`: safe account closure with sentinel
-//! - `hopper_require!`: assert with specific error code
-//! - `hopper_dispatch!`: instruction dispatch (re-exported from core)
-//! - `hopper_segment!`: segmented account declaration
-//! - `hopper_validate!`: inline validation pipeline from combinators
-//! - `hopper_virtual!`: multi-account virtual state mapping
-//! - `hopper_assert_compatible!`: compile-time layout version compatibility check
-//! - `hopper_assert_fingerprint!`: compile-time fingerprint pinning
-//! - `hopper_interface!`: cross-program read-only interface view
+//! ## Topical index
+//!
+//! | Section            | Macros |
+//! |--------------------|--------|
+//! | Layout             | `hopper_layout!` |
+//! | Validation         | `hopper_check!`, `hopper_error!`, `hopper_require!` |
+//! | Lifecycle          | `hopper_init!`, `hopper_close!` |
+//! | Dispatch           | `hopper_register_discs!` |
+//! | PDA                | `hopper_verify_pda!` |
+//! | Invariants         | `hopper_invariant!` |
+//! | Manifest           | `hopper_manifest!` |
+//! | Segments           | `hopper_segment!` |
+//! | Pipelines          | `hopper_validate!` |
+//! | Virtual state      | `hopper_virtual!` |
+//! | Compat / ABI       | `hopper_assert_compatible!`, `hopper_assert_fingerprint!`, `const_assert_pod!` |
+//! | Cross-program      | `hopper_interface!` |
+//! | Account structs    | `hopper_accounts!` |
+//!
+//! Every macro below is `#[macro_export]`ed and usable from the root of
+//! the `hopper-macros` crate regardless of the section banner it lives
+//! under. The banners exist only to help readers navigate the file.
 
 #![no_std]
+
+// ═════════════════════════════════════════════════════════════════════
+//  Section: Layout
+// ═════════════════════════════════════════════════════════════════════
 
 /// Define a zero-copy account layout.
 ///
@@ -500,6 +518,10 @@ macro_rules! hopper_layout {
     };
 }
 
+// ═════════════════════════════════════════════════════════════════════
+//  Section: Validation (check / error / require)
+// ═════════════════════════════════════════════════════════════════════
+
 /// Composable account constraint checking.
 ///
 /// ```ignore
@@ -609,6 +631,10 @@ macro_rules! hopper_require {
     };
 }
 
+// ═════════════════════════════════════════════════════════════════════
+//  Section: Lifecycle (init / close)
+// ═════════════════════════════════════════════════════════════════════
+
 /// Initialize an account: create via CPI, zero-init, write header.
 ///
 /// ```ignore
@@ -650,6 +676,10 @@ macro_rules! hopper_close {
     };
 }
 
+// ═════════════════════════════════════════════════════════════════════
+//  Section: Dispatch (discriminator registry)
+// ═════════════════════════════════════════════════════════════════════
+
 /// Discriminator registry -- compile-time uniqueness enforcement.
 ///
 /// Lists all account types for a program and asserts that no two share
@@ -690,6 +720,10 @@ macro_rules! hopper_register_discs {
     };
 }
 
+// ═════════════════════════════════════════════════════════════════════
+//  Section: PDA
+// ═════════════════════════════════════════════════════════════════════
+
 /// PDA verification with BUMP_OFFSET optimization.
 ///
 /// If the layout has a bump field, reads bump from account data and uses
@@ -723,6 +757,10 @@ macro_rules! hopper_verify_pda {
     }};
 }
 
+// ═════════════════════════════════════════════════════════════════════
+//  Section: Invariants
+// ═════════════════════════════════════════════════════════════════════
+
 /// Invariant checking macro.
 ///
 /// Defines a set of invariants for an instruction that run after mutation.
@@ -755,6 +793,10 @@ macro_rules! hopper_invariant {
         _result
     }};
 }
+
+// ═════════════════════════════════════════════════════════════════════
+//  Section: Manifest (schema export)
+// ═════════════════════════════════════════════════════════════════════
 
 /// Generate a layout manifest for schema tooling.
 ///
@@ -820,7 +862,9 @@ macro_rules! hopper_manifest {
     };
 }
 
-// -- Segmented Account Declaration --
+// ═════════════════════════════════════════════════════════════════════
+//  Section: Segmented accounts
+// ═════════════════════════════════════════════════════════════════════
 
 /// Declare a segmented account with typed segments.
 ///
@@ -954,7 +998,9 @@ macro_rules! _hopper_segment_count {
     };
 }
 
-// -- Validation Pipeline Builder --
+// ═════════════════════════════════════════════════════════════════════
+//  Section: Validation pipeline builder
+// ═════════════════════════════════════════════════════════════════════
 
 /// Build a validation pipeline declaratively.
 ///
@@ -982,7 +1028,9 @@ macro_rules! hopper_validate {
     }};
 }
 
-// -- Virtual State Builder --
+// ═════════════════════════════════════════════════════════════════════
+//  Section: Virtual state (multi-account mapping)
+// ═════════════════════════════════════════════════════════════════════
 
 /// Declare a multi-account virtual state mapping.
 ///
@@ -1047,7 +1095,9 @@ macro_rules! _hopper_virtual_slot {
     };
 }
 
-// -- Layout Compatibility Assertions --
+// ═════════════════════════════════════════════════════════════════════
+//  Section: Compile-time compatibility & ABI assertions
+// ═════════════════════════════════════════════════════════════════════
 
 /// Assert that two layout versions have compatible fingerprints.
 ///
@@ -1180,6 +1230,10 @@ macro_rules! const_assert_pod {
         );
     };
 }
+
+// ═════════════════════════════════════════════════════════════════════
+//  Section: Cross-program interface
+// ═════════════════════════════════════════════════════════════════════
 
 /// Declare a cross-program interface view.
 ///
@@ -1469,9 +1523,9 @@ macro_rules! hopper_interface {
     };
 }
 
-// ---------------------------------------------------------------------------
-// hopper_accounts! -- typed context generation
-// ---------------------------------------------------------------------------
+// ═════════════════════════════════════════════════════════════════════
+//  Section: Typed account-struct context generation
+// ═════════════════════════════════════════════════════════════════════
 
 /// Generate a typed instruction context struct with validated account parsing.
 ///
