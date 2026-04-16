@@ -410,6 +410,18 @@ impl AccountView {
         T::fields()
     }
 
+    /// Find a compile-time field descriptor by name.
+    ///
+    /// This is a tooling/inspection helper that delegates to
+    /// `FieldMap::field_by_name`. It performs a const-driven linear
+    /// scan over `T::FIELDS` and is not intended for hot-path use —
+    /// programs should reach for the const offsets emitted by
+    /// `#[hopper::state]` instead.
+    #[inline]
+    pub fn field<T: LayoutContract>(name: &str) -> Option<&'static FieldInfo> {
+        <T as crate::field_map::FieldMap>::field_by_name(name)
+    }
+
     /// Return the extension-region byte range for a layout that declares one.
     ///
     /// Callers can apply the returned range to a borrowed data slice when they

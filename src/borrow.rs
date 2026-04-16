@@ -120,7 +120,9 @@ impl<T: ?Sized> core::ops::Deref for Ref<'_, T> {
 
     #[inline(always)]
     fn deref(&self) -> &T {
-        let _ = &self.guard;
+        // SAFETY: `self.ptr` was projected from data borrowed by `self.guard`,
+        // which is held as a field of `Self` and dropped only when `Self`
+        // is dropped, keeping the borrow live for the entire `&self` lifetime.
         unsafe { &*self.ptr }
     }
 }
@@ -238,7 +240,9 @@ impl<T: ?Sized> core::ops::Deref for RefMut<'_, T> {
 
     #[inline(always)]
     fn deref(&self) -> &T {
-        let _ = &self.guard;
+        // SAFETY: `self.ptr` was projected from data borrowed by `self.guard`,
+        // which is held as a field of `Self`. Field drop order keeps the
+        // backend guard alive for the entire `&self` lifetime.
         unsafe { &*self.ptr }
     }
 }
@@ -246,7 +250,8 @@ impl<T: ?Sized> core::ops::Deref for RefMut<'_, T> {
 impl<T: ?Sized> core::ops::DerefMut for RefMut<'_, T> {
     #[inline(always)]
     fn deref_mut(&mut self) -> &mut T {
-        let _ = &mut self.guard;
+        // SAFETY: as above; the backend guard owns the exclusive borrow
+        // that produced `self.ptr` and is released only when `Self` drops.
         unsafe { &mut *self.ptr }
     }
 }
