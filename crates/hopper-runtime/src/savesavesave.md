@@ -1,546 +1,648 @@
-Below is a **single master audit-and-patch doc** you can save as `docs/HOPPER_MASTER_AUDIT_AND_PATCH_PLAN.md`.
+Perfect. Here is the **strict file-by-file change matrix** version.
 
-It combines:
+This is the most actionable form of the audit so far. It is meant to answer:
 
-* Hopper vs Pinocchio vs Quasar
-* what Solana actually wants from zero-copy
-* where Hopper is ahead
-* where Hopper is still behind
-* exact repo-level refactor order
-* the ethos checks to keep Hopper on the right path
+* what stays
+* what changes
+* what is performance-risky
+* what is DX-risky
+* what is truly innovative
+* what order to patch in
 
-````markdown id="bp1o0m"
-# Hopper Master Audit and Patch Plan
-
-## Purpose
-
-This document answers one question:
-
-# How does Hopper become the de facto zero-copy solution for Solana?
-
-Not just “good.”
-Not just “interesting.”
-Not just “more features.”
-
-The target is:
-
-- Pinocchio-level runtime shape
-- Quasar-level DX
-- stronger safety than both
-- stronger introspection than both
-- one unified zero-copy memory contract model
-- ecosystem completeness
+This is based on the latest Hopper repo shape you shared, compared against the structures and lessons of Pinocchio and Quasar.
 
 ---
 
-# 1. Strategic conclusion
+# How to read this
 
-Hopper can become the de facto zero-copy solution **if and only if** it becomes the first system that owns all of these at once:
+Each item has:
 
-- substrate-level zero-copy execution
-- compile-time-generated ergonomics
-- real runtime safety guarantees
-- memory precision beyond account-level abstraction
-- unified layout/runtime/schema/tooling truth
-- full flow ownership through companion crates and CLI
+* **Path**
+* **Role**
+* **Keep**
+* **Change / simplify / move**
+* **Performance risk**
+* **DX risk**
+* **Innovation value**
+* **Priority**
 
-That is the real opportunity.
+Priority meaning:
 
-The risk is not lack of invention anymore.
-
-The risk is:
-
-- too much richness too close to the hot path
-- too much “core” that is really advanced platform behavior
-- too many partially-correct public surfaces
-- too much conceptual spread between runtime, macros, CLI, manager, and advanced systems
-
-So the goal is:
-
-# Keep the edge
-# Remove the drift
-# Flatten the hot path
-# Split core from advanced
-# Unify the public story
+* **P0** = fix now
+* **P1** = next
+* **P2** = after core alignment
+* **P3** = later / parity completion
 
 ---
 
-# 2. What Solana actually wants from zero-copy in 2026
+# 1. HOT PATH / SUBSTRATE / RUNTIME
 
-Zero-copy in the ecosystem is not just “cast bytes faster.”
-
-Solana needs zero-copy systems that improve:
-
-## 2.1 Predictability
-Teams want to know:
-- what memory is touched
-- what mutates
-- what conflicts
-- what migration/versioning risk exists
-
-## 2.2 Safety
-The ecosystem still suffers from:
-- manual validation bugs
-- duplicate mutable aliasing mistakes
-- bad ownership assumptions
-- layout/version drift
-
-## 2.3 Toolability
-Foundation-level and infra-level value increasingly comes from:
-- explainable programs
-- inspectable layouts
-- analyzable mutation patterns
-- visible access contracts
-
-## 2.4 Parallelism-friendly behavior
-Solana is built on non-conflicting access.
-A zero-copy system that helps developers express more precise access patterns is genuinely useful.
-
-## 2.5 Real DX without hidden cost
-People want:
-- quick authoring
-- fewer footguns
-- but not at the cost of hidden runtime work
-
-Hopper’s opportunity is to solve all five.
+These files determine whether Hopper can actually compete with careful Pinocchio code on performance and trust.
 
 ---
 
-# 3. Competitor audit
+## Path
 
-## 3.1 Pinocchio
+`crates/hopper-native/src/account_view.rs`
 
-### What Pinocchio gets right
-- substrate ownership
-- direct pointer path
-- no hidden machinery
-- small conceptual core
-- companion crates for common program surfaces
-- repo shape that communicates sharpness
+### Role
 
-### What Pinocchio gets wrong / leaves to developers
-- manual safety remains developer burden
-- manual validation burden
-- little/no deep introspection story
-- no richer memory model beyond account-level raw access
-- no unified layout/runtime/schema/tooling truth
+Substrate truth for all memory access.
 
-### Lesson for Hopper
-Do not try to out-minimalism Pinocchio.
+### Keep
 
-Do:
-- keep the same execution honesty
-- keep the same substrate directness
-- add safety, segments, and introspection **without moving cost into the hot path**
+* raw key/data ownership
+* direct pointer-based access
+* low-level account memory view identity
 
----
+### Change / simplify / move
 
-## 3.2 Quasar
+* normalize on exactly four primitives:
 
-### What Quasar gets right
-- compile-time codegen
-- cleaner authoring surface
-- good first-use ergonomics
-- enough performance parity to be taken seriously
-- repo shape that separates derive/CLI/examples/framework pieces
+  * `segment_ref<T>(offset, size)`
+  * `segment_mut<T>(offset, size)`
+  * `unsafe raw_ref<T>()`
+  * `unsafe raw_mut<T>()`
+* add `#[inline(always)]` to hot-path methods
+* remove any runtime naming, string lookup, schema, manager, or policy concerns
+* ensure safe and raw both share the same pointer math base
 
-### What Quasar gets wrong / does not fully own
-- still fundamentally account-level
-- macro/codegen ergonomics are the main story, not a deeper runtime model
-- limited introspection compared to what Hopper can become
-- safety is mostly authoring convenience, not a richer runtime discipline
-- lower innovation ceiling because it is mostly “nicer generated low-level code”
+### Performance risk
 
-### Lesson for Hopper
-Do not try to out-syntax Quasar.
+Very high if wrong.
+This is one of the top two files that can silently kill Hopper’s Pinocchio parity.
 
-Do:
-- match or exceed its convenience
-- exceed it in runtime guarantees
-- exceed it in memory precision
-- exceed it in tooling truth
+### DX risk
+
+Low directly, but huge indirectly because every generated accessor depends on it.
+
+### Innovation value
+
+Medium-high. Not because it is flashy, but because it is the substrate trust anchor.
+
+### Priority
+
+**P0**
 
 ---
 
-# 4. Hopper’s intended winning position
+## Path
 
-Hopper should become:
+`crates/hopper-native/src/entrypoint.rs`
 
-# the first full zero-copy memory contract system for Solana
+### Role
 
-Not just:
-- faster structs
-- safer wrappers
-- nicer macros
+Single raw execution boundary.
 
-But:
+### Keep
 
-- one access model
-- one runtime path
-- compile-time generated accessors
-- explicit raw escape hatch
-- segment-aware runtime safety
-- layout/runtime/schema/tooling fed by one truth
-- companion crate completeness
+* one ownership point for raw program input
+* raw loader/entry boundary logic
 
-That is how Hopper becomes default.
+### Change / simplify / move
 
----
+* ensure runtime/macros do not duplicate entrypoint semantics
+* keep this tiny and explicit
+* keep comments around invariants and ownership very clear
 
-# 5. Hopper’s correct public model
+### Performance risk
 
-Do not describe Hopper as:
-- raw mode
-- segmented mode
-- pipeline mode
-- macro mode
+Medium. Mostly architectural rather than micro-CU.
 
-Those are implementation layers, not the public mental model.
+### DX risk
 
-## Public model
+Low.
 
-# Access + Guarantees
+### Innovation value
 
-### Primary safe access
-```rust
-let balance = ctx.vault.balance_mut()?;
-````
+Medium. This is where Hopper proves it owns the substrate.
 
-### Explicit raw access
+### Priority
 
-```rust id="8cmyi0"
-let vault = unsafe { ctx.vault.raw_mut::<Vault>() };
-```
-
-### Optional advanced guarantees
-
-```rust id="0ebmm9"
-#[pipeline]
-#[receipt]
-#[invariant(balance >= 0)]
-```
-
-Same system.
-Different guarantees.
-Same runtime path underneath.
+**P1**
 
 ---
 
-# 6. Repo-wide refactor principles
+## Path
 
-## 6.1 One runtime path
+`crates/hopper-native/src/cpi.rs`
 
-Everything must lower to:
+### Role
 
-* account view
-* offset/size
-* pointer arithmetic
-* typed cast
-* optional tiny borrow registration
+Raw invoke substrate.
 
-If safe access does not visibly lower to roughly the same shape as handwritten Pinocchio-style code, Hopper loses.
+### Keep
 
-## 6.2 One source of truth
+* direct invoke / invoke_signed substrate
+* explicit account/instruction handling
 
-Runtime/layout define truth.
-Schema mirrors it.
-CLI and manager consume it.
+### Change / simplify / move
 
-Not the other way around.
+* keep runtime safety wrappers out of here
+* make runtime call into this, not around it
+* no DSL growth here
 
-## 6.3 Macros generate structure, not behavior
+### Performance risk
 
-Macros should generate:
+Medium-high if duplicated or abstracted twice.
 
-* segment constants
-* field metadata
-* context accessors
-* layout impls
-* thin dispatch glue
+### DX risk
 
-Macros should not own:
+Low.
 
-* runtime logic
-* hidden validation engines
-* surprise control flow
+### Innovation value
 
-## 6.4 Hot path stays tiny
+Low-medium. This is about honesty, not novelty.
 
-* no heap
-* no runtime strings
-* no dynamic map lookups
-* no graph engines
-* no heavy wrapper richness
+### Priority
+
+**P1**
 
 ---
 
-# 7. File-by-file patch plan
+## Path
 
-## P0 — Hot path / execution model
+`crates/hopper-native/src/pda.rs`
 
-### 7.1 `crates/hopper-native/src/account_view.rs`
+### Role
 
-#### Goal
+Low-level PDA derivation substrate.
 
-Make this the single substrate truth for memory access.
+### Keep
 
-#### Keep
+* derivation helpers
+* signer seed primitives
 
-* raw account key
-* raw mutable data slice
-* direct pointer operations
+### Change / simplify / move
 
-#### Normalize around
+* keep DX helpers out
+* keep validation/policy logic out
 
-* `segment_ref<T>(offset, size)`
-* `segment_mut<T>(offset, size)`
-* `unsafe raw_ref<T>()`
-* `unsafe raw_mut<T>()`
+### Performance risk
 
-#### Must do
+Low.
 
-* `#[inline(always)]` on hot methods
-* safe and raw access share the same pointer path
-* no names/strings/maps here
-* no schema/tooling/policy logic here
+### DX risk
 
-#### Done when
+Low.
 
-All higher-level Hopper access lowers here.
+### Innovation value
+
+Low. Mostly parity/ownership.
+
+### Priority
+
+**P2**
 
 ---
 
-### 7.2 `crates/hopper-runtime/src/account.rs`
+## Path
 
-#### Goal
+`crates/hopper-native/src/raw_input.rs`
 
-Define the one public access story.
+## Path
 
-#### Public API to converge on
+`crates/hopper-native/src/raw_account.rs`
 
-##### Safe full account
+### Role
+
+Loader/input/account substrate truth.
+
+### Keep
+
+* duplicate account semantics
+* original index tracking
+* alias/duplicate understanding
+
+### Change / simplify / move
+
+* document duplicate/alias behavior clearly
+* ensure these remain the source of truth for loader/account parsing semantics
+
+### Performance risk
+
+Low-medium.
+
+### DX risk
+
+Low.
+
+### Innovation value
+
+Medium. Hopper can be better than Pinocchio here by being clearer about substrate invariants.
+
+### Priority
+
+**P1**
+
+---
+
+## Path
+
+`crates/hopper-runtime/src/account.rs`
+
+### Role
+
+Public access model.
+
+### Keep
+
+* typed full-account loads
+* segment access wrappers
+* explicit raw access
+
+### Change / simplify / move
+
+Converge this file on one access model:
 
 * `load<T>()`
 * `load_mut<T>()`
-
-##### Safe segment
-
 * `segment_ref<T>(SEG)`
 * `segment_mut<T>(SEG)`
-
-##### Explicit raw
-
 * `unsafe raw_ref<T>()`
 * `unsafe raw_mut<T>()`
 
-#### Remove / refactor away
+Remove/refactor:
 
+* overlapping alternate APIs
 * backend-first identity feel
-* overlapping access APIs that feel like separate frameworks
-* dynamic segment lookup
-* philosophical split between safe/raw/segmented
+* any dynamic or name-based segment access
+* anything that makes access feel like multiple “modes”
 
-#### Done when
+### Performance risk
 
-A developer can learn Hopper access by reading this file alone.
+Very high if wrong.
+
+### DX risk
+
+Very high if wrong.
+
+### Innovation value
+
+Very high. This file is where Hopper becomes unified.
+
+### Priority
+
+**P0**
 
 ---
 
-### 7.3 `crates/hopper-runtime/src/borrow_registry.rs`
+## Path
 
-#### Goal
+`crates/hopper-runtime/src/borrow_registry.rs`
 
-Runtime borrow safety that is real and cheap.
+### Role
 
-#### Required structure
+Runtime borrow/alias safety engine.
 
-* fixed-size array
+### Keep
+
+* account-key overlap checks
+* segment-aware conflict logic
+
+### Change / simplify / move
+
+* fixed-size array only
 * no heap
 * no `Vec`
-* small entries: `{ key, offset, size, access_kind }`
+* small entry shape:
 
-#### Conflict rules
+  * key
+  * offset
+  * size
+  * access kind
+* keep rules simple:
 
-* read/read = okay
-* any overlapping write = reject
-* overlap only for same key
+  * read/read okay
+  * overlapping write rejects
+  * only same-key overlaps matter
 
-#### Avoid
+Avoid:
 
 * graph-engine complexity
-* host-side richness leaking into on-chain expectations
+* rich host-only semantics affecting on-chain story
+* dynamic structures
 
-#### Done when
+### Performance risk
 
-Borrow safety is:
+Very high if wrong.
 
-* real enough to matter
-* cheap enough not to break performance
-* obvious enough to trust
+### DX risk
+
+Medium. If too weak, trust drops. If too rich, simplicity drops.
+
+### Innovation value
+
+Very high. This is a genuine Hopper edge if kept tiny.
+
+### Priority
+
+**P0**
 
 ---
 
-### 7.4 `crates/hopper-runtime/src/borrow.rs`
+## Path
 
-#### Goal
+`crates/hopper-runtime/src/borrow.rs`
 
-Keep wrappers only where they genuinely help.
+### Role
 
-#### Do
+Borrow support wrappers.
 
-* keep wrappers minimal
-* inline hot pieces
+### Keep
+
+* only wrappers that genuinely reduce friction
+
+### Change / simplify / move
+
+* trim richness in hot path
+* inline key wrappers
 * ensure projections lower directly into segment/native access
+* reduce wrapper gymnastics
 
-#### Avoid
+### Performance risk
 
-* elegant but costly wrapper stacks
-* turning borrow support into a second abstraction system
+High if too rich.
 
-#### Done when
+### DX risk
 
-Borrow support feels invisible in normal access.
+Medium. Too little = clunky; too much = hidden cost.
+
+### Innovation value
+
+Medium-high. Important, but only if kept lean.
+
+### Priority
+
+**P0**
 
 ---
 
-### 7.5 `crates/hopper-runtime/src/context.rs`
+## Path
 
-#### Goal
+`crates/hopper-runtime/src/context.rs`
 
-Make context boring and stable.
+### Role
 
-#### Keep
+Thin typed carrier for accounts + borrows.
+
+### Keep
 
 * accounts
 * borrow registry
-* thin indexed access
+* indexed access
 
-#### Avoid
+### Change / simplify / move
 
-* pipeline engine logic
-* manager logic
-* schema logic
-* alternate execution models
+* make this boring
+* make macro-generated accessors target this cleanly
+* remove any schema/pipeline/policy/manager creep
 
-#### Done when
+### Performance risk
 
-Context is a thin carrier, not a framework.
+Medium.
 
----
+### DX risk
 
-## P1 — Segments / layout / static access
+Medium. If this gets too rich, Hopper feels fragmented.
 
-### 7.6 `crates/hopper-core/src/account/segment.rs`
+### Innovation value
 
-#### Goal
+Medium. This is about structure quality more than novelty.
 
-Canonical segment primitive.
+### Priority
 
-#### Keep
-
-* `offset`
-* `size`
-
-#### Do
-
-* keep it tiny
-* keep it memory-oriented
-* keep it compile-time friendly
-
-#### Done when
-
-It looks like a raw memory contract.
+**P0**
 
 ---
 
-### 7.7 `crates/hopper-core/src/segment_map.rs`
+## Path
 
-#### Goal
+`crates/hopper-runtime/src/layout.rs`
 
-Runtime segment access must be constant-driven.
+### Role
 
-#### Do
+Authoritative runtime memory contract layer.
 
-* associated constants or static tables
-* deterministic ordering
-* generation from same source as field metadata
-
-#### Avoid
-
-* runtime string lookup in hot path
-* reflective runtime access
-
-#### Done when
-
-Hot path uses constants.
-Tooling uses names.
-
----
-
-### 7.8 `crates/hopper-core/src/field_map.rs`
-
-#### Goal
-
-Keep field metadata aligned with segment metadata.
-
-#### Do
-
-* generate field info and segment info from same codegen source
-* use field maps primarily for schema/CLI/manager/inspection
-
-#### Done when
-
-Field and segment metadata cannot drift.
-
----
-
-### 7.9 `crates/hopper-runtime/src/layout.rs`
-
-#### Goal
-
-Layout/runtime remain authoritative.
-
-#### Keep
+### Keep
 
 * `LayoutContract`
 * version/discriminator/layout id rules
 * compatibility helpers
 
-#### Do
+### Change / simplify / move
 
-* drive layout/segment facts from compile-time constants
-* keep runtime semantics here
+* ensure segment/layout facts are compile-time driven
+* keep runtime truth here, not in schema/manager
+* keep compatibility helpers lean
 
-#### Avoid
+### Performance risk
 
-* schema or manager owning runtime truth
-* turning layout into a tooling dump
+Medium-high if layout access becomes dynamic or drift-prone.
 
-#### Done when
+### DX risk
 
-Runtime truth clearly lives here.
+Medium. If this drifts from codegen/schema, trust collapses.
+
+### Innovation value
+
+High. Unified layout/runtime truth is a real Hopper advantage.
+
+### Priority
+
+**P1**
 
 ---
 
-## P1 — Narrow core
+## Path
 
-### 7.10 `crates/hopper-core/Cargo.toml`
+`crates/hopper-runtime/src/cpi.rs`
 
-### 7.11 `crates/hopper-core/src/lib.rs`
+### Role
 
-#### Goal
+Safe invoke semantics.
 
-Make `hopper-core` mean only the hot-path-adjacent shared foundation.
+### Keep
 
-#### Keep in true core
+* duplicate writable checks
+* runtime-safe wrapper around native invoke
+
+### Change / simplify / move
+
+* keep thin
+* avoid creating a second instruction DSL
+* avoid duplicating substrate logic
+
+### Performance risk
+
+Medium.
+
+### DX risk
+
+Low-medium.
+
+### Innovation value
+
+Medium. Important for safety parity story.
+
+### Priority
+
+**P1**
+
+---
+
+# 2. SEGMENTS / FIELD MAPS / MEMORY CONTRACTS
+
+This is Hopper’s strongest true innovation lane.
+
+---
+
+## Path
+
+`crates/hopper-core/src/account/segment.rs`
+
+### Role
+
+Canonical segment primitive.
+
+### Keep
+
+* offset
+* size
+
+### Change / simplify / move
+
+* keep tiny
+* keep memory-oriented
+* avoid framework-ish richness
+
+### Performance risk
+
+Low directly, but high if this gets abstracted too far.
+
+### DX risk
+
+Low.
+
+### Innovation value
+
+Very high because this is the base of Hopper’s precision story.
+
+### Priority
+
+**P1**
+
+---
+
+## Path
+
+`crates/hopper-core/src/segment_map.rs`
+
+### Role
+
+Static segment metadata contract.
+
+### Keep
+
+* segment metadata concepts
+
+### Change / simplify / move
+
+* use constants/static tables
+* deterministic ordering
+* runtime uses constants only
+* tooling uses names only
+
+Avoid:
+
+* runtime string lookups
+* reflective hot-path logic
+
+### Performance risk
+
+High if wrong.
+
+### DX risk
+
+Low-medium.
+
+### Innovation value
+
+Very high. This is where Hopper turns memory precision into actual structure.
+
+### Priority
+
+**P1**
+
+---
+
+## Path
+
+`crates/hopper-core/src/field_map.rs`
+
+### Role
+
+Field metadata for schema/tooling.
+
+### Keep
+
+* `FieldInfo`
+* static field metadata
+
+### Change / simplify / move
+
+* ensure generated from same source as segment metadata
+* keep out of hot path
+
+### Performance risk
+
+Low if used correctly.
+
+### DX risk
+
+Low.
+
+### Innovation value
+
+High because this feeds inspection/schema/manager cleanly.
+
+### Priority
+
+**P1**
+
+---
+
+# 3. CORE WIDTH / ADVANCED SYSTEMS
+
+This is where Hopper is currently over-center-weighted.
+
+---
+
+## Path
+
+`crates/hopper-core/Cargo.toml`
+
+## Path
+
+`crates/hopper-core/src/lib.rs`
+
+### Role
+
+Defines what “core” means.
+
+### Keep
+
+Only true hot-path-adjacent shared foundation:
 
 * ABI primitives
-* minimal account/header/pod/segment/overlay if truly central
+* minimal account/header/pod/segment helpers
 * field/segment maps
-* maybe tiny state helpers
-* maybe tiny fast-check / invariant primitives
+* tiny state helpers
+* tiny fast-check/invariant helpers if truly universal
 
-#### Reclassify out of core identity
+### Change / simplify / move
+
+Reclassify out of launch-core identity:
 
 * `frame/*`
 * `receipt.rs`
@@ -549,114 +651,372 @@ Make `hopper-core` mean only the hot-path-adjacent shared foundation.
 * `migrate/*`
 * `accounts/explain.rs`
 * `accounts/migrating.rs`
-* richer collections not needed in launch story
-* virtual/lifecycle/platform-ish systems
+* rich collections not needed in basic story
+* virtual/lifecycle/platform-ish support
 
-#### Done when
+### Performance risk
 
-“Core” means hot-path shared foundation, not the whole Hopper platform.
+Medium indirectly, high structurally.
 
----
+### DX risk
 
-### 7.12 `crates/hopper-core/src/frame/*`
+High because this is a major reason Hopper feels broader than Quasar.
 
-### 7.13 `crates/hopper-core/src/receipt.rs`
+### Innovation value
 
-### 7.14 `crates/hopper-core/src/policy.rs`
+High if split correctly. This is the difference between “powerful repo” and “default stack.”
 
-### 7.15 `crates/hopper-core/src/check/graph.rs`
+### Priority
 
-### 7.16 `crates/hopper-core/src/migrate/*`
-
-### 7.17 `crates/hopper-core/src/accounts/explain.rs`
-
-### 7.18 `crates/hopper-core/src/accounts/migrating.rs`
-
-#### Goal
-
-Reclassify as advanced/optional systems.
-
-#### Do
-
-* feature-gate if needed
-* document as optional guarantees / lifecycle / observability / explainability
-* stop letting them define launch identity
-
-#### Done when
-
-A normal Hopper user can ignore them and still build great programs.
+**P1**
 
 ---
 
-## P1 — Macro / codegen story
+## Path
 
-### 7.19 `crates/hopper-macros/src/lib.rs`
+`crates/hopper-core/src/frame/*`
 
-#### Goal
+### Role
 
-Low-level declarative support only.
+Advanced execution features.
 
-#### Keep
+### Keep
 
-* low-level helpers
+The work and ideas.
+
+### Change / simplify / move
+
+* reclassify as advanced/optional
+* feature-gate if necessary
+* do not let it define first-use Hopper
+
+### Performance risk
+
+Medium if it remains too central.
+
+### DX risk
+
+High if beginners think Hopper requires frame/phase concepts.
+
+### Innovation value
+
+Medium-high. Useful, but not launch-core.
+
+### Priority
+
+**P1**
+
+---
+
+## Path
+
+`crates/hopper-core/src/receipt.rs`
+
+### Role
+
+Observability/advanced runtime output.
+
+### Keep
+
+The concept.
+
+### Change / simplify / move
+
+* make clearly opt-in
+* move out of central launch identity
+
+### Performance risk
+
+Medium if always-on; low if opt-in.
+
+### DX risk
+
+Medium if it becomes required mental load.
+
+### Innovation value
+
+High. This can become a major Hopper moat later.
+
+### Priority
+
+**P1**
+
+---
+
+## Path
+
+`crates/hopper-core/src/policy.rs`
+
+### Role
+
+Optional safety/policy layer.
+
+### Keep
+
+The concept.
+
+### Change / simplify / move
+
+* keep optional
+* do not let it define basic access model
+
+### Performance risk
+
+Medium if too central.
+
+### DX risk
+
+Medium-high if exposed too early.
+
+### Innovation value
+
+Medium-high.
+
+### Priority
+
+**P1**
+
+---
+
+## Path
+
+`crates/hopper-core/src/check/graph.rs`
+
+### Role
+
+Advanced validation modeling.
+
+### Keep
+
+The work.
+
+### Change / simplify / move
+
+* reclassify as advanced validation
+* keep out of basic mental model
+
+### Performance risk
+
+Low if isolated; high if central.
+
+### DX risk
+
+High if it makes Hopper feel academic.
+
+### Innovation value
+
+Medium. Valuable, but not your first headline.
+
+### Priority
+
+**P1**
+
+---
+
+## Path
+
+`crates/hopper-core/src/migrate/*`
+
+### Role
+
+Lifecycle tooling.
+
+### Keep
+
+The work.
+
+### Change / simplify / move
+
+* reclassify as lifecycle / advanced
+* not part of the basic execution model story
+
+### Performance risk
+
+Low directly.
+
+### DX risk
+
+Medium if too central.
+
+### Innovation value
+
+Medium.
+
+### Priority
+
+**P1**
+
+---
+
+## Path
+
+`crates/hopper-core/src/accounts/explain.rs`
+
+### Role
+
+Explainability helper.
+
+### Keep
+
+The idea.
+
+### Change / simplify / move
+
+* decide if it belongs in core or in tooling consumption
+* keep only if very light and reusable
+
+### Performance risk
+
+Low directly.
+
+### DX risk
+
+Medium if it muddies core semantics.
+
+### Innovation value
+
+High if surfaced through CLI/manager well.
+
+### Priority
+
+**P1**
+
+---
+
+## Path
+
+`crates/hopper-core/src/accounts/migrating.rs`
+
+### Role
+
+Advanced lifecycle support.
+
+### Keep
+
+The work.
+
+### Change / simplify / move
+
+* move mentally and structurally out of launch center
+
+### Performance risk
+
+Low.
+
+### DX risk
+
+Low-medium.
+
+### Innovation value
+
+Low-medium in the launch phase.
+
+### Priority
+
+**P1**
+
+---
+
+# 4. MACRO / CODEGEN STORY
+
+This is where Hopper catches Quasar.
+
+---
+
+## Path
+
+`crates/hopper-macros/src/lib.rs`
+
+### Role
+
+Low-level macro support.
+
+### Keep
+
+* low-level declarative helpers
 * compile-time assertions
-* useful low-level layout support
+* old support macros that genuinely help low-level users
 
-#### Do
+### Change / simplify / move
 
-* stop making this the full authoring story
-* separate old declarative Hopper from new top-level DX Hopper
+* stop letting this be the whole authoring story
+* separate old declarative Hopper from new public DX Hopper
 
-#### Done when
+### Performance risk
 
-This crate feels like support infrastructure, not the main public entry.
+Low directly.
+
+### DX risk
+
+High if this remains the main entry point.
+
+### Innovation value
+
+Medium. Important for compatibility, not for winning adoption.
+
+### Priority
+
+**P1**
 
 ---
 
-### 7.20 Add `crates/hopper-macros-proc`
+## Path
 
-#### Add
+`crates/hopper-macros-proc` (must exist / be prioritized)
+
+### Role
+
+Top-level DX layer.
+
+### Keep / add
 
 * `#[hopper::state]`
 * `#[hopper::context]`
 * maybe `#[hopper::program]`
 
-#### `#[hopper::state]` generates
+### Generate
 
 * segment constants
 * static segment tables
 * field maps
 * layout impls
 * schema hooks
+* accessor methods
+* thin dispatch glue
 
-#### `#[hopper::context]` generates
+### Avoid
 
-* account index bindings
-* accessors like `vault_balance_mut()`
-* direct static segment constant usage
-
-#### `#[hopper::program]` generates
-
-* thin dispatch glue only
-
-#### Avoid
-
-* runtime behavior generation
+* runtime logic ownership
 * hidden validation engines
 * surprise control flow
-* owning execution semantics
+* extra runtime layers
 
-#### Done when
+### Performance risk
 
-Generated Rust is reviewable and direct.
+Low if done right.
+Very high trust risk if done wrong.
+
+### DX risk
+
+Very high if missing or clumsy.
+
+### Innovation value
+
+High. This is how Hopper stops feeling harder than Quasar.
+
+### Priority
+
+**P1**
 
 ---
 
-### 7.21 Generated accessor shape
+## Generated accessor shape
 
-#### Required emitted shape
+### Required emitted form
 
-```rust id="7vtd8g"
+A generated safe accessor should look approximately like:
+
+```rust id="v1nipu"
 #[inline(always)]
 pub fn vault_balance_mut(&mut self) -> Result<&mut u64, ProgramError> {
     const SEG: Segment = Segment { offset: 0, size: 8 };
@@ -664,120 +1024,168 @@ pub fn vault_balance_mut(&mut self) -> Result<&mut u64, ProgramError> {
 }
 ```
 
-#### Avoid
+### Performance risk
 
-* names
-* strings
-* dynamic lookup
-* extra dispatch layers
+High if you drift from this.
 
-#### Done when
+### DX risk
 
-Pinocchio-style developers trust the emitted code instantly.
+Low if you hit this.
+
+### Innovation value
+
+Very high because this is where Hopper’s convenience and honesty meet.
+
+### Priority
+
+**P1**
 
 ---
 
-## P2 — CLI / Manager alignment
+# 5. CLI / TOOLING / MANAGER
 
-### 7.22 `tools/hopper-cli/*`
+This is how Hopper proves itself.
 
-#### Goal
+---
 
-CLI becomes a trust engine.
+## Path
 
-#### Keep and polish first
+`tools/hopper-cli/*`
+
+### Role
+
+Trust engine.
+
+### Keep / prioritize
 
 * `hopper build`
 * `hopper compile --emit rust`
 * `hopper inspect`
 * `hopper explain`
 
-#### `hopper compile --emit rust`
+### Change / simplify / move
 
-Must prove:
+* hide orchestration-heavy or unstable commands
+* make emitted Rust a first-class artifact
+* make `inspect` show:
 
-* no hidden cost
-* no hidden runtime
-* codegen honesty
+  * fields
+  * segments
+  * offsets
+  * sizes
+  * layout/version if useful
+* make `explain` show:
 
-#### `hopper inspect`
+  * reads
+  * writes
+  * segment touches
+  * conflicts / guarantees
 
-Show:
+### Performance risk
 
-* fields
-* segments
-* offsets
-* sizes
-* version/layout info if useful
+Low directly.
 
-#### `hopper explain`
+### DX risk
 
-Show:
+High if CLI feels sprawling or non-trustworthy.
 
-* reads
-* writes
-* segment touches
-* borrow conflicts / guarantees
+### Innovation value
 
-#### Hide/postpone
+Very high. This is one of Hopper’s best ways to exceed both Pinocchio and Quasar.
 
-* orchestration-heavy commands
-* unstable manager-style flows
-* anything whose semantics outpace runtime truth
+### Priority
 
-#### Done when
-
-CLI makes Hopper:
-
-* more transparent than Pinocchio
-* more explainable than Quasar
+**P2**
 
 ---
 
-### 7.23 `hopper-manager/*`
+## Path
 
-#### Goal
+`hopper-manager/*`
 
-Manager becomes inspector, not engine.
+### Role
 
-#### Keep
+Inspector / visualizer.
+
+### Keep
 
 * account visualization
 * segment visualization
-* borrow/access graphs
+* borrow/access graph
 * schema-driven inspection
 
-#### Avoid
+### Change / simplify / move
 
-* defining runtime semantics
-* becoming a second framework model
+* keep manager as consumer of runtime/layout truth
+* do not let it define semantics
+* do not let it become second framework
 
-#### Done when
+### Performance risk
 
-Manager clearly consumes truth instead of defining it.
+Low directly.
+
+### DX risk
+
+Medium if it becomes an alternate semantic layer.
+
+### Innovation value
+
+High. This is a serious Hopper differentiator if kept clean.
+
+### Priority
+
+**P2**
 
 ---
 
-## P3 — Companion crates / parity completion
+# 6. COMPANION CRATES / PARITY COMPLETION
 
-### 7.24 Add `crates/hopper-system`
+This is how Hopper stops feeling incomplete.
 
-#### Start thin
+---
+
+## Path
+
+`crates/hopper-system` (add)
+
+### Role
+
+Hopper-owned system helpers/builders.
+
+### Start thin
 
 * transfer
 * create account
 * assign
-* maybe close/realloc later
+* close/realloc later
 
-#### Rule
+### Performance risk
 
-Explicit builder/helper surface only.
+Low.
+
+### DX risk
+
+Medium if absent too long.
+
+### Innovation value
+
+Medium. Important for full-flow ownership.
+
+### Priority
+
+**P3**
 
 ---
 
-### 7.25 Add `crates/hopper-token`
+## Path
 
-#### Start thin
+`crates/hopper-token` (add)
+
+### Role
+
+Hopper-owned token helpers/builders.
+
+### Start thin
 
 * transfer
 * mint_to
@@ -785,189 +1193,175 @@ Explicit builder/helper surface only.
 * approve
 * close account
 
-#### Rule
+### Performance risk
 
-Use Hopper-owned types and runtime surfaces.
+Low.
+
+### DX risk
+
+Medium-high if absent too long.
+
+### Innovation value
+
+Medium. Important for parity and completeness.
+
+### Priority
+
+**P3**
 
 ---
 
-### 7.26 Later crates
+## Later
 
 * `hopper-token-2022`
 * `hopper-associated-token`
 * maybe `hopper-memo`
 * maybe `hopper-sysvar`
 
-Only after the core is aligned.
+### Priority
+
+**P3**
 
 ---
 
-# 8. Ethos checks
+# 7. PUBLIC STORY / DOCS
 
-Every major Hopper change should pass these checks.
+This matters more than people admit.
 
-## 8.1 Pinocchio honesty check
+---
 
-Can a low-level dev inspect the emitted Rust and still trust the runtime path?
+## Stop saying publicly
 
-If not, Hopper is drifting.
+* raw mode
+* segmented mode
+* pipeline mode
+* macro mode
 
-## 8.2 Quasar DX check
+## Start saying
 
-Can a normal developer write the obvious instruction without learning five Hopper concepts first?
-
-If not, Hopper is drifting.
-
-## 8.3 Solana fit check
-
-Does the feature preserve:
-
-* `no_std`
-* SBF compatibility
-* zero-copy pointer path
-* predictable compute
-* low hot-path complexity
-
-If not, Hopper is drifting.
-
-## 8.4 One access model check
-
-Does this feature strengthen:
-
-* safe access
+* one access model
 * explicit unsafe raw access
-* optional guarantees
+* optional advanced guarantees
+* compile-time generated ergonomics
+* inspectable compiled output
 
-Or does it create another “mode”?
+## Phrase to standardize
 
-If it creates another mode, it is drifting.
+# **Access + Guarantees**
 
-## 8.5 Tooling truth check
+### Performance risk
 
-Does CLI/manager/schema consume runtime/layout truth?
-Or invent their own semantics?
+None directly.
 
-If they invent their own semantics, Hopper is drifting.
+### DX risk
 
----
+Very high if not fixed.
 
-# 9. Benchmark plan
+### Innovation value
 
-Hopper must prove itself against real alternatives.
+High because it changes how Hopper is understood.
 
-## Benchmark targets
+### Priority
 
-1. Handwritten Pinocchio-equivalent
-2. Quasar equivalent
-3. Hopper generated equivalent
-
-## Compare
-
-* CU
-* code size
-* safety surface
-* developer complexity
-* visibility/explainability
-
-## Example benchmark program
-
-Use one killer example only:
-
-* vault / staking-style state
-* safe segment access
-* explicit raw path
-* borrow safety
-* layout visibility
-
-## Success condition
-
-Hopper should show:
-
-* close enough runtime shape to Pinocchio to be trusted
-* clearly easier authoring than manual Pinocchio
-* clearly deeper safety/introspection than Quasar
+**P1**
 
 ---
 
-# 10. Publish criteria
+# 8. HOPPER TODAY — SCORECARD
 
-Do not publish as “the standard” until these are true:
+## Runtime honesty vs Pinocchio
 
-## Runtime
+Not there yet, but within reach.
 
-* one access model is obvious
-* hot path is flattened
-* borrow registry is cheap and explicit
-* runtime string lookups are gone from hot path
+## DX vs Quasar
 
-## Codegen
+Not there yet at first-use level, but can catch up quickly with proc-macro DX and a narrower story.
 
-* proc-macro DX exists
-* generated code is thin and trustworthy
-* `emit rust` proves it
+## Safety
 
-## Core width
+Potentially ahead of both, but needs the hot path and borrow model kept tiny.
 
-* advanced systems are no longer defining the launch identity
-* “core” actually means core
+## Introspection/tooling
 
-## Tooling
+Potentially ahead of both already in ceiling.
 
-* CLI trust commands are clean
-* manager is clearly an inspector
+## Innovation
 
-## Parity
-
-* plan or initial implementation exists for `hopper-system` and `hopper-token`
+Ahead in ceiling, not yet in final execution quality.
 
 ---
 
-# 11. Start-now order
+# 9. FINAL PATCH ORDER
 
-Do these in this order:
+Do this exact order.
+
+## P0
 
 1. `crates/hopper-native/src/account_view.rs`
 2. `crates/hopper-runtime/src/account.rs`
 3. `crates/hopper-runtime/src/borrow_registry.rs`
 4. `crates/hopper-runtime/src/borrow.rs`
 5. `crates/hopper-runtime/src/context.rs`
+
+## P1
+
 6. `crates/hopper-core/src/account/segment.rs`
 7. `crates/hopper-core/src/segment_map.rs`
 8. `crates/hopper-core/src/field_map.rs`
 9. `crates/hopper-runtime/src/layout.rs`
 10. `crates/hopper-core/Cargo.toml`
 11. `crates/hopper-core/src/lib.rs`
-12. `crates/hopper-macros/src/lib.rs`
-13. add `crates/hopper-macros-proc`
-14. generate accessor/constants-only DX path
-15. `crates/hopper-core/src/frame/*`
-16. `crates/hopper-core/src/receipt.rs`
-17. `crates/hopper-core/src/policy.rs`
-18. `crates/hopper-core/src/check/graph.rs`
-19. `crates/hopper-core/src/migrate/*`
-20. `crates/hopper-core/src/accounts/explain.rs`
-21. `crates/hopper-core/src/accounts/migrating.rs`
-22. `tools/hopper-cli/*`
-23. `hopper-manager/*`
-24. `crates/hopper-system`
-25. `crates/hopper-token`
+12. `crates/hopper-core/src/frame/*`
+13. `crates/hopper-core/src/receipt.rs`
+14. `crates/hopper-core/src/policy.rs`
+15. `crates/hopper-core/src/check/graph.rs`
+16. `crates/hopper-core/src/migrate/*`
+17. `crates/hopper-core/src/accounts/explain.rs`
+18. `crates/hopper-core/src/accounts/migrating.rs`
+19. `crates/hopper-macros/src/lib.rs`
+20. add `crates/hopper-macros-proc`
+
+## P2
+
+21. `tools/hopper-cli/*`
+22. `hopper-manager/*`
+
+## P3
+
+23. add `crates/hopper-system`
+24. add `crates/hopper-token`
 
 ---
 
-# 12. Final reminder
+# 10. Bottom line
 
-Do not gut Hopper.
+Hopper is not yet better than the competition end-to-end.
 
-Do not flatten it into Quasar-with-safety.
+But Hopper is already:
 
-Do:
+* more ambitious than both
+* more innovative than both in direction
+* and much closer than most projects ever get
 
-* preserve the edge
-* reduce the drift
-* make one access model obvious
-* push advanced systems into optional guarantees and tooling
-* prove the runtime path is still honest
+The remaining work is not “invent more.”
 
-That is the path to making Hopper the de facto zero-copy solution.
+It is:
 
-`
+# **flatten**
+
+# **separate**
+
+# **prove**
+
+# **complete**
+
+That is how Hopper becomes the de facto zero-copy solution instead of a powerful ambitious repo.
+
+```
+
+If you want, next I can take this one step further and turn it into a **spreadsheet-style table** format in markdown, with columns exactly like:
+
+`Path | Keep | Simplify | Move/Reclassify | Perf Risk | DX Risk | Innovation Value | Priority`
+
+so you can track it like a real audit board.
+```

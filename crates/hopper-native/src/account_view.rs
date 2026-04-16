@@ -709,7 +709,7 @@ impl<'a> RemainingAccounts<'a> {
     }
 
     /// Take the next account, or return `NotEnoughAccountKeys`.
-    #[inline]
+    #[inline(always)]
     pub fn next(&mut self) -> Result<&'a AccountView, ProgramError> {
         if self.cursor >= self.accounts.len() {
             return Err(ProgramError::NotEnoughAccountKeys);
@@ -720,7 +720,7 @@ impl<'a> RemainingAccounts<'a> {
     }
 
     /// Take the next account that is a signer.
-    #[inline]
+    #[inline(always)]
     pub fn next_signer(&mut self) -> Result<&'a AccountView, ProgramError> {
         let account = self.next()?;
         account.require_signer()?;
@@ -728,7 +728,7 @@ impl<'a> RemainingAccounts<'a> {
     }
 
     /// Take the next account that is writable.
-    #[inline]
+    #[inline(always)]
     pub fn next_writable(&mut self) -> Result<&'a AccountView, ProgramError> {
         let account = self.next()?;
         account.require_writable()?;
@@ -736,7 +736,7 @@ impl<'a> RemainingAccounts<'a> {
     }
 
     /// Take the next account owned by the given program.
-    #[inline]
+    #[inline(always)]
     pub fn next_owned_by(&mut self, program: &Address) -> Result<&'a AccountView, ProgramError> {
         let account = self.next()?;
         account.require_owned_by(program)?;

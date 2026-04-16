@@ -763,7 +763,7 @@ impl<'a> RemainingAccounts<'a> {
     }
 
     /// Take the next account, or return `NotEnoughAccountKeys`.
-    #[inline]
+    #[inline(always)]
     pub fn next(&mut self) -> Result<&'a AccountView, ProgramError> {
         if self.cursor >= self.accounts.len() {
             return Err(ProgramError::NotEnoughAccountKeys);
@@ -774,7 +774,7 @@ impl<'a> RemainingAccounts<'a> {
     }
 
     /// Take the next account that is a signer.
-    #[inline]
+    #[inline(always)]
     pub fn next_signer(&mut self) -> Result<&'a AccountView, ProgramError> {
         let account = self.next()?;
         account.require_signer()?;
@@ -782,7 +782,7 @@ impl<'a> RemainingAccounts<'a> {
     }
 
     /// Take the next account that is writable.
-    #[inline]
+    #[inline(always)]
     pub fn next_writable(&mut self) -> Result<&'a AccountView, ProgramError> {
         let account = self.next()?;
         account.require_writable()?;
@@ -790,7 +790,7 @@ impl<'a> RemainingAccounts<'a> {
     }
 
     /// Take the next account owned by the given program.
-    #[inline]
+    #[inline(always)]
     pub fn next_owned_by(&mut self, program: &Address) -> Result<&'a AccountView, ProgramError> {
         let account = self.next()?;
         account.require_owned_by(program)?;
@@ -987,5 +987,83 @@ mod tests {
         assert_eq!(layout.header.disc, HeaderLayout::DISC);
         assert_eq!(layout.header.version, HeaderLayout::VERSION);
         assert_eq!(layout.amount, 55);
+    }
+
+    // ── Cross-path access coordination ──────────────────────────────
+    //
+    // Hopper exposes load()/load_mut() as account-level borrows and
+    // segment_ref()/segment_mut() as fine-grained typed access. The
+    // two paths must never race: a live account-level borrow has to
+    // block segment-level writes (and vice versa) even though they go
+    // through different public APIs. These tests lock in that contract
+    // so future refactors cannot silently drop the coordination.
+
+    #[test]
+    fn live_load_blocks_segment_mut() {
+        let (_backing, account) = make_account(TestLayout::SIZE, 10);
+        {
+            let mut data = account.try_borrow_mut().unwrap();
+            crate::layout::init_header::<TestLayout>(&mut data).unwrap();
+        }
+
+        let mut borrows = crate::segment_borrow::SegmentBorrowRegistry::new();
+        let _read_view = account.load::<TestLayout>().unwrap();
+
+        // Account-level shared borrow is live — a segment write MUST fail.
+        let err = account
+            .segment_mut::<u64>(
+                &mut borrows,
+                crate::layout::HopperHeader::SIZE as u32,
+                8,
+            )
+            .unwrap_err();
+        assert_eq!(err, ProgramError::AccountBorrowFailed);
+    }
+
+    #[test]
+    fn live_load_mut_blocks_segment_ref() {
+        let (_backing, account) = make_account(TestLayout::SIZE, 11);
+        {
+            let mut data = account.try_borrow_mut().unwrap();
+            crate::layout::init_header::<TestLayout>(&mut data).unwrap();
+        }
+
+        let mut borrows = crate::segment_borrow::SegmentBorrowRegistry::new();
+        let _write_view = account.load_mut::<TestLayout>().unwrap();
+
+        // Exclusive account-level borrow is live — even a segment read
+        // must be rejected because the bytes are mutably aliased.
+        let err = account
+            .segment_ref::<u64>(
+                &mut borrows,
+                crate::layout::HopperHeader::SIZE as u32,
+                8,
+            )
+            .unwrap_err();
+        assert_eq!(err, ProgramError::AccountBorrowFailed);
+    }
+
+    #[test]
+    fn load_after_segment_drop_succeeds() {
+        let (_backing, account) = make_account(TestLayout::SIZE, 12);
+        {
+            let mut data = account.try_borrow_mut().unwrap();
+            crate::layout::init_header::<TestLayout>(&mut data).unwrap();
+        }
+
+        let mut borrows = crate::segment_borrow::SegmentBorrowRegistry::new();
+        {
+            let mut seg = account
+                .segment_mut::<u64>(
+                    &mut borrows,
+                    crate::layout::HopperHeader::SIZE as u32,
+                    8,
+                )
+                .unwrap();
+            *seg = 42;
+        }
+        // Segment borrow released — load_mut should now succeed.
+        let view = account.load::<TestLayout>().unwrap();
+        assert_eq!(view.a, 42);
     }
 }

@@ -56,11 +56,11 @@ fn build_ix_sysvar(instructions: &[&[u8; 32]], current_idx: u16) -> Vec<u8> {
     // Header: num instructions
     buf.extend_from_slice(&num_ix.to_le_bytes());
 
-    // We'll fill in the offsets after we know them.
-    // Reserve space for the offset table.
+    // Reserve a u16 slot per instruction for the offset table; the real
+    // offsets are back-patched after we know where each instruction lands.
     let offset_table_start = buf.len();
     for _ in 0..num_ix {
-        buf.extend_from_slice(&0u16.to_le_bytes()); // placeholder
+        buf.extend_from_slice(&0u16.to_le_bytes());
     }
 
     // Now serialize each instruction and record its offset.

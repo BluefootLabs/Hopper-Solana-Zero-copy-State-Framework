@@ -1,0 +1,21 @@
+[package]
+name = "hopper-manager"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+authors = ["BluefootLabs"]
+description = "Schema-driven inspector for Hopper programs. Consumes the canonical runtime/layout/schema truth and returns human-readable reports — never invents its own semantics."
+repository = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework"
+homepage = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework"
+documentation = "https://docs.rs/hopper-manager"
+keywords = ["solana", "hopper", "inspector", "schema", "zero-copy"]
+categories = ["command-line-utilities"]
+
+[lib]
+name = "hopper_manager"
+
+[dependencies]
+hopper-schema = { workspace = true }
+
+[lints]
+workspace = true

@@ -6,7 +6,7 @@
 ![no_std](https://img.shields.io/badge/no__std-yes-green.svg)
 ![Tests](https://img.shields.io/badge/tests-workspace%20verified-brightgreen.svg)
 
-**The typed state pipeline framework for Solana.**
+**The zero-copy state framework for Solana.**
 
 Pointer-cast speed. Protocol-grade safety. First-class state evolution.
 Segment-level borrow enforcement.
@@ -102,20 +102,13 @@ alignment-1 Hopper wire types such as `WireU64`, `WireBool`, and
 `TypedAddress<T>` so the generated layout contract can be loaded safely from
 account bytes.
 
-The canonical proc surface also supports compile-time execution modifiers on
-typed handlers:
+A typical handler just accesses the context and mutates the segment:
 
 ```rust
 #[hopper::program]
 mod vault {
   use super::*;
 
-  #[hopper::pipeline]
-  #[hopper::receipt]
-  #[hopper::invariant({
-    let vault = ctx.vault_load()?;
-    vault.balance.get() >= vault.pending_rewards.get()
-  })]
   #[instruction(1)]
   pub fn deposit(ctx: Context<Deposit>, amount: u64) -> ProgramResult {
     let mut balance = ctx.vault_balance_mut()?;
@@ -129,17 +122,20 @@ Typed contexts always generate per-account accessors such as
 `ctx.vault_account()?`, `ctx.vault_load()?`, and `ctx.vault_raw_ref()?`.
 When an account is declared fully mutable with `#[account(mut)]`, the proc
 surface also emits whole-layout mutation accessors such as
-`ctx.vault_load_mut()?` and `ctx.vault_raw_mut()?`. Segment-scoped mutability
-continues to expose only the narrower generated segment accessors.
+`ctx.vault_load_mut()?` and `ctx.vault_raw_mut()?`, plus general typed
+segment escapes like `ctx.vault_segment_mut::<WireU64>(abs_offset)` that
+share the same const-offset lowering as the named accessors.
 
-`pipeline` adds instruction-scope duplicate-account checks, `receipt` emits
-segment-aware state receipts from the mutable accounts declared in the typed
-context, and `invariant(...)` verifies post-mutation conditions after the
-handler body succeeds.
+Opt-in handler attributes — `#[hopper::receipt]`, `#[hopper::invariant(..)]`,
+and the duplicate-check `#[hopper::pipeline]` — layer additional guarantees
+on top of the same access model. They are sugar, not structure; see
+[docs/HOPPER_LANG.md](docs/HOPPER_LANG.md) for the full list.
 
-## The Pipeline
+## Program Lifecycle (advanced)
 
-Every Hopper program follows the same seven-step model:
+Beyond the one access model, Hopper surfaces an optional lifecycle for
+protocols that want post-mutation invariants, structured receipts, and
+migration tooling. This is **opt-in** — the access model stands alone.
 
 ```
 1. Define     Layout your state with hopper_layout!
@@ -148,11 +144,14 @@ Every Hopper program follows the same seven-step model:
 4. Execute    Mutate state in a controlled phase
 5. Record     Capture a StateReceipt of what changed
 6. Verify     Assert invariants and compatibility
-7. Inspect    Use the CLI to explain, diff, and plan migrations
+7. Inspect    Use the CLI (and the hopper-manager library) to explain,
+              diff, and plan migrations
 ```
 
-This is the canonical path. You can use less of it for simple programs and more
-of it for complex protocols, but the pipeline is always the mental model.
+Simple programs use steps 1, 3, and 4 and skip the rest. Complex protocols
+layer in `#[hopper::receipt]`, `#[hopper::invariant]`, and the manager
+tooling as needed. None of these steps are separate frameworks — they are
+opt-in guarantees on top of the same access model.
 
 ## Access Guarantees
 

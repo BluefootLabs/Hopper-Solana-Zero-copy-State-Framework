@@ -3759,29 +3759,10 @@ fn cmd_manager_layouts(args: &[String]) {
         args,
         "hopper manager layouts <manifest> | --program-id <program-id> [--rpc <url>]",
     );
-
-    println!("=== Layouts ({}) ===", prog.layout_count());
-    println!();
-
-    for layout in prog.layouts.iter() {
-        println!("  {} v{} (disc={}, {} bytes)", layout.name, layout.version, layout.disc, layout.total_size);
-        println!("    Layout ID: {}", hex_encode(&layout.layout_id));
-        if layout.field_count > 0 {
-            println!("    Fields ({}):", layout.field_count);
-            for i in 0..layout.field_count {
-                let f = &layout.fields[i];
-                println!(
-                    "      [{:>3}..{:>3}] {:20} : {} ({} bytes)",
-                    f.offset,
-                    f.offset + f.size,
-                    f.name,
-                    f.canonical_type,
-                    f.size,
-                );
-            }
-        }
-        println!();
-    }
+    // Rendering lives in the hopper-manager library so other tooling
+    // (custom UIs, editor plugins, web explorers) can reuse the exact
+    // same output without depending on the CLI binary.
+    print!("{}", hopper_manager::summary::layouts_report(&prog));
 }
 
 fn cmd_manager_policies(args: &[String]) {

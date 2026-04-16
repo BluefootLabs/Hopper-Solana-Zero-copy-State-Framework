@@ -114,6 +114,12 @@ Mollusk harness:
 .\bench\compare-framework-vaults.ps1 -QuasarRoot d:\tmp\framework-sources\quasar-master\quasar-master
 ```
 
+The `-QuasarRoot` argument points to an extracted Quasar repository checkout
+(for example, a local mirror of the upstream Quasar repo). Hopper deliberately
+does **not** vendor Quasar sources — the wrapper builds the Quasar and
+Pinocchio-style vault examples from a user-supplied checkout so the
+comparison stays honest.
+
 This flow:
 
 - builds `hopper-parity-vault`

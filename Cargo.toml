@@ -35,6 +35,7 @@ members = [
     "bench/framework-vault-bench",
     "tools/hopper-cli",
     "crates/hopper-macros-proc",
+    "crates/hopper-manager",
 ]
 resolver = "2"
 
@@ -69,6 +70,7 @@ hopper-distribute = { path = "crates/hopper-distribute", version = "0.1.0" }
 hopper-multisig = { path = "crates/hopper-multisig", version = "0.1.0" }
 hopper-anchor = { path = "crates/hopper-anchor", version = "0.1.0" }
 hopper-macros-proc = { path = "crates/hopper-macros-proc", version = "0.1.0" }
+hopper-manager = { path = "crates/hopper-manager", version = "0.1.0" }
 
 [package]
 name = "hopper"
