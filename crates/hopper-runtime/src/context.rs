@@ -261,6 +261,34 @@ impl<'a> Context<'a> {
         view.segment_mut::<T>(&mut self.segment_borrows, abs_offset, core::mem::size_of::<T>() as u32)
     }
 
+    /// Const-driven segment read: pass a compile-time [`Segment`] and the
+    /// account index. Lowers to the same pointer-plus-const-offset shape
+    /// as `segment_ref` but without the caller hand-rolling the offset +
+    /// size arguments.
+    #[inline(always)]
+    pub fn segment_ref_const<T: Copy>(
+        &mut self,
+        index: usize,
+        segment: crate::Segment,
+    ) -> Result<crate::Ref<'_, T>, ProgramError> {
+        let view = self.accounts.get(index)
+            .ok_or(ProgramError::NotEnoughAccountKeys)?;
+        view.segment_ref_const::<T>(&mut self.segment_borrows, segment)
+    }
+
+    /// Const-driven exclusive segment access. Pair with
+    /// `#[hopper::state]` constants for zero-overhead field writes.
+    #[inline(always)]
+    pub fn segment_mut_const<T: Copy>(
+        &mut self,
+        index: usize,
+        segment: crate::Segment,
+    ) -> Result<crate::RefMut<'_, T>, ProgramError> {
+        let view = self.accounts.get(index)
+            .ok_or(ProgramError::NotEnoughAccountKeys)?;
+        view.segment_mut_const::<T>(&mut self.segment_borrows, segment)
+    }
+
     /// Explicit unsafe whole-account typed read.
     #[inline(always)]
     pub unsafe fn raw_ref<T: Copy>(

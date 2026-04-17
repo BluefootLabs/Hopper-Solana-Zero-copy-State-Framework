@@ -161,7 +161,187 @@ pub const fn anchor_account_discriminator(type_name: &str) -> [u8; 8] {
     ]
 }
 
+/// Narrow, hot-path-only prelude.
+///
+/// The finish-line audit demanded that Hopper's "core identity" stay
+/// tight: **memory + access + layout**. Everything else — frame-based
+/// execution, receipts, policies, validation graphs, migrations, virtual
+/// state, diffing, explain — is opt-in power, not launch identity.
+///
+/// This prelude ships only the types and helpers a Hopper program needs
+/// to declare state, bind accounts, check invariants, and make CPIs.
+/// For the full surface (historical compatibility), use
+/// [`prelude`](crate::prelude) which glob-imports this and then adds the
+/// advanced subsystems on top.
+pub mod prelude_core {
+    // ── ABI primitives: typed addresses, role tags ──────────────────
+    pub use crate::abi::{
+        Authority, LayoutFingerprint, Mint, Program, Token, TokenAccount,
+        TypedAddress, UntypedAddress,
+    };
+
+    // ── Account memory: headers, overlays, pod casts ────────────────
+    pub use crate::account::{
+        cast_unchecked, cast_unchecked_mut, pod_from_bytes, pod_from_bytes_mut, pod_read,
+        pod_write, read_layout_id, write_header, zero_init, AccountHeader, AccountReader,
+        FixedLayout, Pod, ReallocGuard, VerifiedAccount, VerifiedAccountMut, CLOSE_SENTINEL,
+        HEADER_LEN,
+    };
+
+    // ── Account wrappers: typed instruction parameters ──────────────
+    pub use crate::accounts::{
+        hopper_entry, HopperAccount, HopperAccounts, HopperCtx, HopperIx, ProgramAccount,
+        ProgramRef, SegmentedAccount, SignerAccount, UncheckedAccount, ValidateAccount,
+        AccountMetaProvider,
+    };
+
+    // ── Checks: signer, owner, PDA, discriminator ───────────────────
+    pub use crate::check::{
+        check_account, check_discriminator, check_has_one, check_keys_eq, check_owner,
+        check_owner_multi, check_rent_exempt, check_signer, check_size, check_writable,
+        find_and_verify_pda, is_zero_address, keys_eq_fast, rent_exempt_min, verify_pda,
+        verify_pda_cached,
+    };
+    pub use crate::check::fast::{
+        check_account_fast, check_authority_fast, check_executable_fast, check_signer_fast,
+        check_writable_fast, HEADER_EXECUTABLE, HEADER_SIGNER, HEADER_SIGNER_WRITABLE,
+        HEADER_WRITABLE,
+    };
+    pub use crate::check::modifier::{
+        Account, AccountMut, FromAccount, HasView, HopperLayout, Mut, Signer,
+    };
+
+    // ── Dispatch and events: program plumbing ───────────────────────
+    pub use crate::dispatch::{
+        dispatch_instruction, dispatch_instruction_8, dispatch_instruction_u16,
+        EVENT_CPI_PREFIX,
+    };
+    pub use crate::event::{emit_event, emit_event_tagged, emit_slices};
+    #[cfg(feature = "cpi")]
+    pub use crate::event::emit_event_cpi;
+
+    // ── Field + segment metadata (compile-time layout truth) ────────
+    pub use crate::field_map::{FieldInfo, FieldMap};
+    pub use crate::segment_map::{assert_segment_field_alignment, SegmentMap, StaticSegment};
+    pub use hopper_runtime::Segment;
+    pub use hopper_runtime::segment_borrow::{
+        AccessKind, SegmentBorrow, SegmentBorrowRegistry,
+    };
+
+    // ── CPI plumbing ────────────────────────────────────────────────
+    pub use crate::cpi::{HopperCpi, HopperCpiBuf};
+
+    // ── Math + time + sysvar: everyday program helpers ──────────────
+    pub use crate::math::{
+        bps_of, bps_of_ceil, checked_add, checked_div, checked_div_ceil, checked_mul,
+        checked_mul_div, checked_mul_div_ceil, checked_pow, checked_sub, div_ceil,
+        scale_amount, scale_amount_ceil, scale_bps, scale_fraction, to_u64,
+    };
+    pub use crate::sysvar::{CachedClock, CachedRent, SysvarContext};
+    pub use crate::time::{check_cooldown_elapsed, check_deadline_not_passed, check_staleness};
+    pub use crate::state::check_state_transition;
+    pub use crate::invariant::{check_invariant, check_invariant_fn, InvariantSet};
+
+    // ── On-chain segment metadata (for segmented accounts) ──────────
+    pub use crate::account::{
+        segment_id, SegmentEntry, SegmentId, SegmentRegistry, SegmentRegistryMut,
+    };
+    pub use crate::account::segment_role::{
+        SegmentRole, SEG_ROLE_AUDIT, SEG_ROLE_CACHE, SEG_ROLE_CORE, SEG_ROLE_EXTENSION,
+        SEG_ROLE_INDEX, SEG_ROLE_JOURNAL, SEG_ROLE_SHARD,
+    };
+
+    // ── Anchor-compatible discriminators ────────────────────────────
+    pub use crate::{anchor_account_discriminator, anchor_discriminator};
+
+    // ── Collections: zero-copy containers (default-on feature) ──────
+    #[cfg(feature = "collections")]
+    pub use crate::collections::{BitSet, FixedVec, PackedMap, RingBuffer, SlotMap, SortedVec};
+    #[cfg(feature = "collections")]
+    pub use crate::collections::journal::{Journal, JournalReader};
+    #[cfg(feature = "collections")]
+    pub use crate::collections::slab::Slab;
+}
+
+/// Advanced subsystem prelude: everything outside the core identity.
+///
+/// Re-exports the feature-gated surfaces — frame, receipts, policies,
+/// validation graphs, migrations, virtual state, diffs, explain,
+/// additional check helpers, trust profiles. Each item respects the
+/// feature flag that controls its module; disable the feature and the
+/// item silently disappears from this prelude, keeping lean programs
+/// compiling against [`prelude_core`] alone.
+pub mod prelude_advanced {
+    // Composite check guards (payer, authority, lamport conservation, …)
+    pub use crate::check::guards::{
+        check_lamport_conservation, check_writable_coherence, require_all_unique,
+        require_authority, require_owned_writable, require_payer, require_unique_signers,
+        require_unique_writable, snapshot_lamports,
+    };
+    pub use crate::check::trust::{
+        load_foreign_with_profile, TrustFlags, TrustLevel, TrustProfile,
+    };
+    pub use crate::check::{
+        check_no_subsequent_invocation, detect_flash_loan_bracket, require_top_level,
+    };
+
+    #[cfg(feature = "diff")]
+    pub use crate::diff::{StateDiff, StateSnapshot};
+
+    #[cfg(feature = "explain")]
+    pub use crate::accounts::{AccountExplain, ContextExplain, ExplainAccount};
+
+    #[cfg(feature = "migrate")]
+    pub use crate::accounts::MigratingAccount;
+
+    #[cfg(feature = "frame")]
+    pub use crate::frame::{Frame, FrameAccount, FrameAccountMut};
+    #[cfg(feature = "frame")]
+    pub use crate::frame::args::{InstructionArgs, ValidateArgs};
+    #[cfg(feature = "frame")]
+    pub use crate::frame::phase::{
+        ExecutionContext, PhasedFrame, ResolvedFrame, ValidatedFrame,
+    };
+
+    #[cfg(feature = "graph")]
+    pub use crate::check::graph::{
+        require_all_unique_accounts, require_data_min, require_keys_equal, require_lamports_gte,
+        require_owned_at, require_signer_at, require_unique, require_unique_signer_accounts,
+        require_unique_writable_accounts, require_writable_at, AccountConstraint,
+        PostMutationValidator, TransactionConstraint, TransitionRulePack, Validatable,
+        ValidationBundle, ValidationContext, ValidationGraph, ValidationGroup,
+    };
+
+    #[cfg(feature = "migrate")]
+    pub use crate::migrate::{migrate_append, MigrationKind};
+
+    #[cfg(feature = "policy")]
+    pub use crate::policy::{
+        ACCOUNT_CLOSE_CAPS, ACCOUNT_CLOSE_POLICY, ACCOUNT_INIT_CAPS, ACCOUNT_INIT_POLICY,
+        AUTHORITY_CHANGE_CAPS, AUTHORITY_CHANGE_POLICY, Capability, CapabilitySet,
+        EXTERNAL_CALL_CAPS, EXTERNAL_CALL_POLICY, InstructionPolicy, JOURNAL_TOUCH_CAPS,
+        JOURNAL_TOUCH_POLICY, MIGRATION_SENSITIVE_CAPS, MIGRATION_SENSITIVE_POLICY,
+        NAMED_POLICY_PACKS, PolicyPackDescriptor, PolicyRequirement, READ_ONLY_AUDIT_CAPS,
+        READ_ONLY_AUDIT_POLICY, RequirementSet, SHARD_MUTATION_CAPS, SHARD_MUTATION_POLICY,
+        TREASURY_WRITE_CAPS, TREASURY_WRITE_POLICY,
+    };
+
+    #[cfg(feature = "receipt")]
+    pub use crate::receipt::{
+        CompatImpact, DecodedReceipt, Phase, ReceiptExplain, StateReceipt, RECEIPT_SIZE,
+    };
+
+    #[cfg(feature = "virtual-state")]
+    pub use crate::virtual_state::{ShardedAccess, VirtualSlot, VirtualState};
+}
+
 /// Prelude re-exports for ergonomic usage.
+///
+/// Backwards-compatible: re-exports both [`prelude_core`] and
+/// [`prelude_advanced`] so existing `use hopper::prelude::*;` code keeps
+/// compiling. New code that wants the lean surface should reach for
+/// [`prelude_core`] directly; feature-gated builds can rely on it
+/// alone once the advanced subsystems are turned off.
 pub mod prelude {
     pub use crate::abi::*;
     pub use crate::abi::{LayoutFingerprint, FingerprintTransition};
