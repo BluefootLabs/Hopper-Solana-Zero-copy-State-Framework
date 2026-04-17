@@ -307,6 +307,51 @@ impl SegmentBorrowRegistry {
         };
         self.register_guard(borrow)
     }
+
+    /// Visit each active borrow in registration order.
+    ///
+    /// Intended for diagnostics and for the `hopper explain`
+    /// introspection path — never for hot-path decisions.
+    #[inline]
+    pub fn for_each<F: FnMut(&SegmentBorrow)>(&self, mut f: F) {
+        let len = self.len as usize;
+        let mut i = 0;
+        while i < len {
+            f(&self.entries[i]);
+            i += 1;
+        }
+    }
+
+    /// Look up an active borrow by exact `(key_fp, offset, size, kind)`.
+    #[inline]
+    pub fn find_exact(
+        &self,
+        key: &Address,
+        offset: u32,
+        size: u32,
+        kind: AccessKind,
+    ) -> Option<&SegmentBorrow> {
+        let needle = SegmentBorrow {
+            key_fp: address_fingerprint(key),
+            offset,
+            size,
+            kind,
+        };
+        let len = self.len as usize;
+        let mut i = 0;
+        while i < len {
+            let e = &self.entries[i];
+            if e.key_fp == needle.key_fp
+                && e.offset == needle.offset
+                && e.size == needle.size
+                && e.kind as u8 == needle.kind as u8
+            {
+                return Some(e);
+            }
+            i += 1;
+        }
+        None
+    }
 }
 
 /// RAII guard that releases a segment borrow when dropped.
