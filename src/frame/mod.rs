@@ -164,6 +164,15 @@ impl<'a> Frame<'a> {
     ///
     /// `offset` is relative to the layout body (after the 16-byte header).
     ///
+    /// # Preferred path
+    ///
+    /// Most programs don't need to construct a `Frame` at all — the
+    /// `hopper_runtime::Context` handler signature gives you
+    /// `ctx.segment_ref::<T>(index, abs_offset)` with the same tightened
+    /// Pod contract, the same RAII guard, and none of the phased
+    /// execution bookkeeping. Reach for `Frame::segment_ref` only when
+    /// you're inside the advanced `frame`-gated execution model.
+    ///
     /// # Safety Contract
     ///
     /// - T must be `Pod + FixedLayout` (safe to interpret from any bit pattern,
