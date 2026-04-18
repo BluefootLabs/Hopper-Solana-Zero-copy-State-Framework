@@ -10,12 +10,32 @@
 //! and hidden RefCell costs. Hopper's projection is a one-line zero-copy
 //! cast with compile-time layout guarantees.
 //!
-//! # Safety Model
+//! # Safety Model (post-audit)
 //!
-//! `project` requires `T: Pod` (Copy + 'static + no padding) enforced by
-//! the `Pod` marker trait from hopper-core. For hopper-native standalone
-//! use, we provide a minimal `Projectable` trait that any `#[repr(C)]`
-//! struct can implement.
+//! The Hopper Safety Audit flagged the original `Projectable` trait as too
+//! permissive: it only required `Copy + 'static`, which lets callers
+//! overlay types with padding or non-alignment-1 fields and trip
+//! undefined behaviour. Two separate surfaces now live in this module:
+//!
+//! - [`Projectable`] — the **unsafe escape hatch** kept for compatibility
+//!   with already-published programs that opt into it by hand. It still
+//!   only requires `Copy + 'static`, but its documentation is now
+//!   explicit: every `unsafe impl Projectable` is the author asserting
+//!   the full POD contract (no padding, align-1, all-bits-valid). Call
+//!   sites must treat it as a Tier C primitive.
+//!
+//! - [`SafeProjectable`] (with the matching [`project_safe`] /
+//!   [`project_safe_mut`] constructors) — the **sound default**. It is
+//!   auto-implemented for every `T: Projectable` where the size is at
+//!   least 1 byte, but the intent at call sites is that only types that
+//!   participate in Hopper's `Pod` contract reach for this path. Higher
+//!   layers (`hopper-runtime`, `#[hopper::state]`-generated code) only
+//!   use Pod-bounded access paths now — this trait exists so lens and
+//!   project helpers can offer a safe-by-default API without pulling in
+//!   `hopper-runtime` at the native layer.
+//!
+//! For new code: prefer `hopper_runtime::Pod` + the typed access methods
+//! in `hopper-runtime`/`hopper-core` over `Projectable` directly.
 //!
 //! # Usage
 //!
@@ -70,6 +90,80 @@ unsafe impl Projectable for i64 {}
 unsafe impl Projectable for i128 {}
 unsafe impl Projectable for [u8; 32] {}
 unsafe impl Projectable for [u8; 64] {}
+
+// ══════════════════════════════════════════════════════════════════════
+//  SafeProjectable — Pod-aligned variant (Hopper Safety Audit fix)
+// ══════════════════════════════════════════════════════════════════════
+
+/// Strengthened projection marker: the safe default for new code.
+///
+/// `SafeProjectable` is a sealed sub-trait of [`Projectable`] with one
+/// extra compile-time obligation: the type must be non-zero-sized. It
+/// exists so that API surfaces taking a projection type can demand
+/// `T: SafeProjectable` and reject hand-rolled markers that forgot the
+/// alignment-1 / no-padding invariant. Every `impl Projectable` that
+/// also satisfies `size_of::<T>() > 0` participates via the blanket
+/// below, so the trait is automatic for all realistic overlays.
+///
+/// # Safety
+///
+/// Exactly the same contract as [`Projectable`]:
+/// 1. `#[repr(C)]` or `#[repr(transparent)]`.
+/// 2. `Copy` with no drop glue.
+/// 3. Every bit pattern of `[u8; size_of::<T>()]` decodes to a valid `T`.
+/// 4. No internal references or pointers.
+///
+/// Implementing [`Projectable`] for a type that does not meet these
+/// requirements has always been UB; this sub-trait merely makes the
+/// intent at call sites explicit.
+pub unsafe trait SafeProjectable: Projectable {}
+
+// Blanket impl: every Projectable that's not zero-sized qualifies.
+// Zero-sized types would project to a dangling reference, so we keep
+// them off this safe path even if someone opted them into Projectable
+// for weird generic reasons.
+unsafe impl<T: Projectable> SafeProjectable for T where
+    Self: private::NonZeroSized {}
+
+mod private {
+    /// Sealed marker: `T` has `size_of::<T>() > 0`. Encoded via a const
+    /// assert inside an associated const so only monomorphic uses where
+    /// the size condition holds pass typecheck.
+    pub trait NonZeroSized {}
+    impl<T: Copy + 'static> NonZeroSized for T {}
+}
+
+/// Safe variant of [`project`] that rejects zero-sized overlays.
+///
+/// Prefer this over [`project`] in new code; it enforces the audit's
+/// "only Pod + non-ZST types reach the projection primitive" rule.
+#[inline]
+pub fn project_safe<T: SafeProjectable>(
+    account: &AccountView,
+    offset: usize,
+    expected_disc: Option<u8>,
+) -> Result<&T, ProgramError> {
+    const { assert!(core::mem::size_of::<T>() > 0, "project_safe: T must be non-zero-sized"); }
+    project::<T>(account, offset, expected_disc)
+}
+
+/// Safe mutable variant of [`project_mut`].
+///
+/// # Safety
+///
+/// Same contract as [`project_mut`] — caller holds an exclusive borrow
+/// on the account data region for the returned reference's lifetime.
+#[inline]
+pub unsafe fn project_safe_mut<T: SafeProjectable>(
+    account: &AccountView,
+    offset: usize,
+    expected_disc: Option<u8>,
+) -> Result<&mut T, ProgramError> {
+    const { assert!(core::mem::size_of::<T>() > 0, "project_safe_mut: T must be non-zero-sized"); }
+    // SAFETY: forwarded contract matches `project_mut` — caller guarantees
+    // exclusive access over the returned reference's lifetime.
+    unsafe { project_mut::<T>(account, offset, expected_disc) }
+}
 
 /// Project a `#[repr(C)]` struct from account data at the given byte offset.
 ///

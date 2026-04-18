@@ -87,9 +87,21 @@ impl<'a> Ref<'a, [u8]> {
     }
 
     /// Project a byte borrow into another typed view over the same
-    /// underlying bytes. The new guard owns the same release mechanics.
+    /// underlying bytes. The new guard owns the same release mechanics
+    /// — when the returned `Ref<U>` drops, the underlying account
+    /// borrow is released exactly as if the original byte borrow had
+    /// dropped.
+    ///
+    /// # Safety
+    ///
+    /// `ptr` must point inside the byte slice that this `Ref<[u8]>`
+    /// guards (offset bounds checked by the caller), the pointee must
+    /// be valid `U` for any bit pattern (`U: Pod`-style), and no
+    /// alignment beyond the source slice's may be assumed for `U`. The
+    /// returned `Ref<U>` inherits the source guard's lifetime, so the
+    /// account stays read-borrowed for as long as the typed view lives.
     #[inline(always)]
-    pub(crate) unsafe fn project<U: ?Sized>(self, ptr: *const U) -> Ref<'a, U> {
+    pub unsafe fn project<U: ?Sized>(self, ptr: *const U) -> Ref<'a, U> {
         #[cfg(target_os = "solana")]
         {
             let state = self.state;
@@ -249,9 +261,20 @@ impl<'a> RefMut<'a, [u8]> {
         }
     }
 
-    /// Project a mutable byte borrow into another mutable view.
+    /// Project a mutable byte borrow into another mutable view over the
+    /// same underlying bytes. The new guard owns the same release
+    /// mechanics — the exclusive borrow stays held until the returned
+    /// `RefMut<U>` drops.
+    ///
+    /// # Safety
+    ///
+    /// Same contract as [`Ref::project`]: `ptr` must point inside the
+    /// byte slice this guard owns, and the pointee must be valid `U`
+    /// for any bit pattern (`U: Pod`-style). The returned `RefMut<U>`
+    /// inherits the source guard's lifetime so the account stays
+    /// exclusively borrowed for as long as the typed view lives.
     #[inline(always)]
-    pub(crate) unsafe fn project<U: ?Sized>(self, ptr: *mut U) -> RefMut<'a, U> {
+    pub unsafe fn project<U: ?Sized>(self, ptr: *mut U) -> RefMut<'a, U> {
         #[cfg(target_os = "solana")]
         {
             let state = self.state;

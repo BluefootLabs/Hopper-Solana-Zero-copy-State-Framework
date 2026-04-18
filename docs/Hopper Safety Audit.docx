@@ -1,0 +1,170 @@
+Expanded Audit of Hopper Compared to
+Pinocchio/Quasar and Revised Action Plan
+This round of analysis examined portions of the Hopper zero‑copy state framework that
+weren’t covered previously. In addition to the core crates (hopper‑core, hopper‑runtime,
+hopper‑native), the inspection looked at supporting crates (hopper‑macros,
+hopper‑macros‑proc), subsystem helpers (lazy, lens, project), domain‑specific examples
+(finance, multisig, staking, vesting), and the program derivation and layout infrastructure.
+We cross‑referenced Hopper’s design and unsoundness issues with Pinocchio and Quasar
+and consulted Anchor’s official documentation to understand industry best practices for
+zero‑copy types[1].
+What’s new from this pass
+VerifiedAccount and VerifiedAccountMut
+ In the previous pass we suspected that VerifiedAccount::get and
+VerifiedAccountMut::get/get_mut might be unsound because they return &T/&mut
+T references. On closer inspection, these methods wrap the underlying byte slice in
+either Ref/RefMut (borrow guard) or a raw slice at construction, and the guard is
+held in the VerifiedBytes::Borrowed enum. Therefore the returned references
+remain valid for the lifetime of the VerifiedAccount and the borrow guard is not
+dropped prematurely. The design is safe so long as T: Pod + FixedLayout .
+Projectable traits and lens API
+ Hopper provides hopper_native::project and hopper_native::lens helpers to
+read foreign program data. These rely on a custom Projectable marker trait that
+only requires Copy + 'static. The project functions perform bounds and alignment
+checks and optionally verify the account discriminator, then cast to &T/&mut T .
+Because Projectable does not require bytemuck::Pod, the caller is responsible for
+ensuring no padding bytes or invariants exist in the struct—otherwise undefined
+behaviour is possible. The lens API is intentionally an escape hatch; it is safe for
+reading simple primitives (u64, Pubkey), but for complex types the recommended
+approach should be to require Pod + FixedLayout or supply a safe wrapper.
+Anchoring the trait to Pod would align Hopper with Quasar and Anchor’s
+#[account(zero_copy)] which automatically derives Copy, Zeroable, Pod and uses
+#[repr(C)][1].
+Header and layout infrastructure
+ hopper‑runtime::layout defines a 16‑byte header (disc, version, flags, layout_id)
+and the LayoutContract trait. This contract binds a type to its wire format and
+includes compile‑time constants for discriminator, version, layout fingerprint and
+
+wire size. Runtime checks call validate_header to confirm that accounts match
+the expected discriminator and layout fingerprint.
+ Tiered loading uses these contracts to produce
+VerifiedAccount<T>/VerifiedAccountMut<T> wrappers that guarantee size and
+layout correctness. This design is unique among frameworks; Pinocchio provides
+only raw zero‑copy pointers, and Quasar uses layout‐free Account<T> objects.
+Other crates and examples
+ hopper‑finance, hopper‑lending, hopper‑staking, hopper‑multisig and
+hopper‑vesting contain domain‑specific logic implemented on top of Hopper. They
+rely on macros and the safe Ref/RefMut wrappers and do not introduce additional
+unsound pointer casts.
+ The lens module defines functions like read_address, read_le_u64 and
+read_field::<T> which perform bounds checks and then cast to &T via
+Projectable. This is safe when reading simple primitives but should be clearly
+documented as unsafe for complex types.
+Confirmation of previous findings
+ The core unsoundness in hopper‑core::frame::segment_ref and segment_mut
+remains: they take a Ref<[u8]>/RefMut<[u8]>, immediately drop the guard and
+return a naked reference to T. This violates the borrow‑tracking discipline. The fix is
+to return Ref<T>/RefMut<T> instead.
+ Several APIs accept T: Copy rather than T: Pod + FixedLayout . This allows
+misaligned or non‑plain‑old‑data types to be interpreted directly from bytes, risking
+undefined behaviour. Restricting these to Pod + FixedLayout is necessary.
+ The CLI still only supports hopper compile --emit rust and does not generate a
+deployable program or IDL; this must be expanded to full build/test/deploy
+functionality.
+Revised and expanded recommendations
+Building on the original recommendations, here is an updated action plan. Items prefaced
+with (New) are newly identified or clarified from this round.
+1. Return Ref<'_,T>/RefMut<'_,T> for all typed segment APIs
+Fix: In hopper‑core::frame::segment_ref/segment_mut return Ref<'_,T> instead
+of &T/&mut T . Propagate this change through any wrappers. This ties the lifetime of
+the returned reference to the borrow guard and restores Hopper’s promised aliasing
+safety. All typed reads and writes should therefore go through RAII guards like Ref
+and RefMut. This pattern is already used in hopper‑runtime and is similar to
+Quasar’s design.
+2. Constrain safe overlays to Pod + FixedLayout
+Fix: Where Hopper currently requires only T: Copy (e.g.,
+
+hopper‑native::account_view::segment_ref, segment_mut, raw_ref, raw_mut,
+and in hopper‑runtime::context), tighten the bounds to T: Pod + FixedLayout .
+This ensures that only 1‑byte aligned, plain‑old‑data types can be overlaid on raw
+bytes. In Anchor, zero‑copy accounts annotated with #[account(zero_copy)]
+automatically derive Copy, Zeroable and Pod and use #[repr(C)][1]; Hopper should
+provide the same guarantees.
+3. Provide derive macros for Pod and layout
+Fix: Extend hopper_layout! or add a #[hopper::pod] attribute so that user‑defined
+structs automatically derive Pod, FixedLayout and a 1‑byte alignment. This can
+mimic Anchor’s #[account(zero_copy)] which derives Copy, Zeroable, Pod and
+uses #[repr(C)][2]. A macro like #[hopper::state] could also derive these traits
+automatically. This reduces user error and ensures the safe traits are in place at
+compile time.
+4. Harmonize the API surface
+Fix: Deprecate the legacy Frame API or make it call into the runtime’s safer
+functions. There should be exactly one way to obtain typed segments: using
+Ref/RefMut returned from the runtime. Remove any functions that return naked
+references to T without a guard. Align project, lens and Projectable with Pod +
+FixedLayout or clearly document them as unsafe escape hatches.
+5. Expand compile‑fail and runtime test suites
+Expand tests: Add compile‑fail tests to ensure: (a) overlapping segment borrows are
+rejected, (b) non‑Pod types cannot be passed to typed segment APIs, (c) macros
+reject missing #[repr(C)], wrong discriminators or duplicate account definitions,
+(d) account‑owner mismatches throw errors, and (e) lens methods require explicit
+acknowledgement of unsafety for custom structs. Quasar’s
+lang/tests/compile_fail and Anchor’s macro tests provide examples of this.
+6. Complete CLI and IDL generation
+Fix: Finish the hopper-cli pipeline so that hopper build , hopper test , hopper
+deploy work end‑to‑end. Build a .so program, run integration tests in a local
+validator, and deploy to the network. Generate a JSON IDL similar to Anchor’s or
+Quasar’s to describe account layouts, instruction metadata and segment
+definitions. This will enable client code generation and integration in
+TypeScript/Python.
+7. Document unsafe surfaces thoroughly
+Fix: Update docs/UNSAFE_INVARIANTS.md to enumerate every unsafe function, what
+invariants it relies on, and the safe alternatives. Include examples of using
+cast_unchecked and Projectable only in truly performance‑sensitive contexts.
+Clarify that Projectable is essentially a Tier C escape hatch and that safe code
+should rely on Pod + FixedLayout wherever possible.
+
+8. Benchmark only after safety fixes are applied
+Recommendation: Once the safe API is in place, re‑benchmark Hopper’s
+compute‑unit consumption against Pinocchio and Quasar. Use realistic instruction
+patterns (multiple segment borrows, CPIs) and document results. Anchor’s docs
+highlight that zero‑copy can reduce deserialization cost by up to ~90% for large
+accounts[3]; Hopper should only claim comparable or better performance when
+using the corrected API.
+9. Innovative directions and enhancements
+10.Const‑generic segments & compile‑time offsets – Use const generics to define
+segments as Segment::<OFFSET, SIZE> ; this would allow the compiler to fold
+pointer arithmetic into constants, further reducing overhead.
+11.Client code generation – Build a tool that reads Hopper’s layout manifest and
+emits client code in Rust/TypeScript. Anchor’s IDL and Quasar’s manifest provide
+guidance here; a Hopper client generator would significantly improve DX.
+12.Dynamic borrow stack – Explore a borrow stack rather than a single byte counter in
+each account. A small stack could model nested immutable/mutable borrows and
+allow more flexible patterns without violating aliasing. This would support
+non‑lexical borrows (e.g. temporarily releasing a borrow and reacquiring it) while
+retaining deterministic CU cost.
+13. Hybrid zero‑copy/serialization – Provide macros that allow certain fields to be
+lazily deserialized (e.g. Vec<T>, String), while keeping adjacent fields zero‑copy.
+Anchor warns that zero copy is not ideal for dynamic data[3]; a hybrid approach
+would let developers trade performance for flexibility.
+14.On‑chain schema versioning & migrations – Extend LayoutContract with version
+negotiation and migration helpers. Allow safe reading of older versions and
+upgrades to new versions. Provide macros to handle reserved bytes and extension
+regions gracefully.
+15.Integrated PDAs & bump optimizations – Provide macros similar to Anchor’s
+seeds & bump constraints to allocate PDAs with the correct bump. Hopper already
+exposes a BUMP_OFFSET optimization in macros; unify it with account creation
+functions and test coverage.
+16.Cross‑program lens improvements – Clarify the safety model of Projectable and
+lens functions. Add a #[unsafe_projectable] attribute for cases where callers
+want to accept the risks, and create safe lens functions that require Pod +
+FixedLayout to encourage correct usage. Document that cross‑program reading of
+unknown layouts should stick to simple types (Pubkey, u64) or use a manifest/IDL.
+17. Education & examples
+Expand docs: Add step‑by‑step tutorials (Vault, AMM, staking) demonstrating safe
+segment access, cross‑program lens usage, and migrations. Provide narrative
+examples comparing Hopper, Pinocchio and Quasar. Anchor’s docs include
+
+guidelines on when to use zero‑copy (large accounts, order books) and when to
+avoid it (small dynamic data structures)[3]; Hopper’s documentation should offer
+similar advice.
+Conclusion
+This pass confirms that Hopper’s architecture has the potential to be a “best of all”
+zero‑copy framework combining Pinocchio’s raw speed and Quasar’s lifetime discipline,
+but only if the current unsound APIs are corrected and the developer experience is
+expanded. By returning Ref/RefMut everywhere, constraining types to Pod + FixedLayout ,
+harmonizing the API surface, adding compile‑time validation, finishing the CLI and IDL,
+documenting unsafety and exploring innovative borrow‑stack and hybrid patterns, Hopper
+can truly deliver safe, high‑performance, easy‑to‑use zero‑copy programming on Solana.
+[1] [2] [3] Zero Copy
+https://www.anchor-lang.com/docs/features/zero-copy

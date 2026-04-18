@@ -107,6 +107,6 @@ pub use hopper_macros_proc::{
 // Private re-export for generated code to reference runtime types
 #[doc(hidden)]
 pub mod __runtime {
-    pub use hopper_runtime::{Context, ProgramError, Ref, RefMut};
+    pub use hopper_runtime::{Context, Pod, ProgramError, Ref, RefMut};
 }
 

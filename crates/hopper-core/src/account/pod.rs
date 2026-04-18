@@ -1,20 +1,20 @@
 //! Pod and FixedLayout traits for zero-copy account access.
+//!
+//! `Pod` is the canonical "safe to overlay on raw bytes" marker trait.
+//! It lives in [`hopper_runtime::pod`] so every Hopper access path — the
+//! native substrate, runtime accessors, frame, and core helpers — can
+//! agree on one contract. Hopper-core re-exports it unchanged so
+//! existing `use hopper_core::account::Pod` call sites keep compiling.
+//!
+//! The safety contract (enforced by `unsafe impl`): every
+//! `[u8; size_of::<T>()]` bit pattern decodes to a valid `T`, alignment
+//! is 1, no padding, no internal pointers. `#[hopper::state]` emits the
+//! derived `unsafe impl Pod` for every generated layout; hand-authored
+//! layouts must opt in explicitly.
 
 use hopper_runtime::error::ProgramError;
 
-/// Marker trait for plain-old-data types safe for zero-copy overlay.
-///
-/// # Safety
-///
-/// Implementors must guarantee:
-/// - All bit patterns of `Self` are valid.
-/// - `Self` is `Copy` and has no drop glue.
-/// - `Self` has no internal padding that carries invariants.
-pub unsafe trait Pod: Copy + Sized {}
-
-// SAFETY: Primitive byte types -- all bit patterns trivially valid.
-unsafe impl Pod for u8 {}
-unsafe impl Pod for [u8; 32] {}
+pub use hopper_runtime::pod::Pod;
 
 /// Trait for types with a compile-time known wire size.
 pub trait FixedLayout {

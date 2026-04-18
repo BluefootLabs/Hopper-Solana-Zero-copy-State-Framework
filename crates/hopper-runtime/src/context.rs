@@ -233,7 +233,7 @@ impl<'a> Context<'a> {
     /// of the borrow guard. Segment borrow tracking prevents conflicting
     /// write access to the same byte range.
     #[inline(always)]
-    pub fn segment_ref<T: Copy>(
+    pub fn segment_ref<T: crate::Pod>(
         &mut self,
         index: usize,
         abs_offset: u32,
@@ -251,7 +251,7 @@ impl<'a> Context<'a> {
     /// This is the primitive that enables safe concurrent mutation of
     /// non-overlapping account regions — the core Hopper innovation.
     #[inline(always)]
-    pub fn segment_mut<T: Copy>(
+    pub fn segment_mut<T: crate::Pod>(
         &mut self,
         index: usize,
         abs_offset: u32,
@@ -266,7 +266,7 @@ impl<'a> Context<'a> {
     /// as `segment_ref` but without the caller hand-rolling the offset +
     /// size arguments.
     #[inline(always)]
-    pub fn segment_ref_const<T: Copy>(
+    pub fn segment_ref_const<T: crate::Pod>(
         &mut self,
         index: usize,
         segment: crate::Segment,
@@ -279,7 +279,7 @@ impl<'a> Context<'a> {
     /// Const-driven exclusive segment access. Pair with
     /// `#[hopper::state]` constants for zero-overhead field writes.
     #[inline(always)]
-    pub fn segment_mut_const<T: Copy>(
+    pub fn segment_mut_const<T: crate::Pod>(
         &mut self,
         index: usize,
         segment: crate::Segment,
@@ -289,9 +289,35 @@ impl<'a> Context<'a> {
         view.segment_mut_const::<T>(&mut self.segment_borrows, segment)
     }
 
+    /// Typed-segment read: the type and offset are both compile-time
+    /// constants, baked into a [`TypedSegment`] zero-sized marker.
+    #[inline(always)]
+    pub fn segment_ref_typed<T: crate::Pod, const OFFSET: u32>(
+        &mut self,
+        index: usize,
+        segment: crate::TypedSegment<T, OFFSET>,
+    ) -> Result<crate::Ref<'_, T>, ProgramError> {
+        let view = self.accounts.get(index)
+            .ok_or(ProgramError::NotEnoughAccountKeys)?;
+        view.segment_ref_typed::<T, OFFSET>(&mut self.segment_borrows, segment)
+    }
+
+    /// Typed-segment write. Mirrors [`segment_ref_typed`] for the
+    /// exclusive path.
+    #[inline(always)]
+    pub fn segment_mut_typed<T: crate::Pod, const OFFSET: u32>(
+        &mut self,
+        index: usize,
+        segment: crate::TypedSegment<T, OFFSET>,
+    ) -> Result<crate::RefMut<'_, T>, ProgramError> {
+        let view = self.accounts.get(index)
+            .ok_or(ProgramError::NotEnoughAccountKeys)?;
+        view.segment_mut_typed::<T, OFFSET>(&mut self.segment_borrows, segment)
+    }
+
     /// Explicit unsafe whole-account typed read.
     #[inline(always)]
-    pub unsafe fn raw_ref<T: Copy>(
+    pub unsafe fn raw_ref<T: crate::Pod>(
         &self,
         index: usize,
     ) -> Result<crate::Ref<'_, T>, ProgramError> {
@@ -302,7 +328,7 @@ impl<'a> Context<'a> {
 
     /// Explicit unsafe whole-account typed write.
     #[inline(always)]
-    pub unsafe fn raw_mut<T: Copy>(
+    pub unsafe fn raw_mut<T: crate::Pod>(
         &self,
         index: usize,
     ) -> Result<crate::RefMut<'_, T>, ProgramError> {
@@ -316,7 +342,7 @@ impl<'a> Context<'a> {
     /// This bypasses segment borrow tracking. The caller is responsible for
     /// alias safety and for using a type that matches the account bytes.
     #[inline(always)]
-    pub unsafe fn raw_unchecked<T: Copy>(
+    pub unsafe fn raw_unchecked<T: crate::Pod>(
         &self,
         index: usize,
     ) -> Result<crate::RefMut<'_, T>, ProgramError> {
@@ -329,7 +355,7 @@ impl<'a> Context<'a> {
     /// Caller must ensure `T` is a plain-old-data type where all bit patterns
     /// are valid.
     #[inline(always)]
-    pub fn read_data<T: Copy>(&self, offset: usize) -> Result<T, ProgramError> {
+    pub fn read_data<T: crate::Pod>(&self, offset: usize) -> Result<T, ProgramError> {
         let end = offset.checked_add(core::mem::size_of::<T>())
             .ok_or(ProgramError::ArithmeticOverflow)?;
         if self.instruction_data.len() < end {

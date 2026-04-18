@@ -81,9 +81,106 @@ impl Segment {
     }
 }
 
+// ══════════════════════════════════════════════════════════════════════
+//  TypedSegment<T, const OFFSET: u32>
+// ══════════════════════════════════════════════════════════════════════
+//
+// Where `Segment` carries `(offset, size)` at runtime, `TypedSegment`
+// folds **both** values into the type system: `T` determines the size
+// via `size_of::<T>()`, and `OFFSET` is a const generic. The struct
+// itself is a ZST — no memory at all. This is the finish-line audit's
+// "const-generic segments & compile-time offsets" innovation: at every
+// call site the compiler substitutes the literal offset and literal
+// size into the bounds check + pointer add, leaving pure
+// `ptr + constant` arithmetic in the emitted BPF.
+//
+// Use `TypedSegment` when you know the layout at compile time (i.e.
+// every `#[hopper::state]` field). Fall back to `Segment` when the
+// offset is data-dependent (e.g. a user-provided index into a fixed
+// array).
+
+/// Compile-time typed segment descriptor: `T` is the overlay type,
+/// `OFFSET` is the absolute byte offset from the start of account
+/// data. Zero-sized.
+///
+/// ```ignore
+/// // Matches Vault.balance at body offset 0, past the 16-byte header:
+/// const VAULT_BALANCE: TypedSegment<WireU64, { HopperHeader::SIZE as u32 }>
+///     = TypedSegment::new();
+///
+/// let bal = account.segment_ref_typed(&mut borrows, VAULT_BALANCE)?;
+/// ```
+#[derive(Copy, Clone, Debug, Default)]
+pub struct TypedSegment<T: crate::Pod, const OFFSET: u32> {
+    _marker: core::marker::PhantomData<fn() -> T>,
+}
+
+impl<T: crate::Pod, const OFFSET: u32> TypedSegment<T, OFFSET> {
+    /// Construct the marker. Runs entirely at compile time.
+    #[inline(always)]
+    pub const fn new() -> Self {
+        Self { _marker: core::marker::PhantomData }
+    }
+
+    /// The absolute byte offset of this segment (`OFFSET` const-generic).
+    #[inline(always)]
+    pub const fn offset() -> u32 {
+        OFFSET
+    }
+
+    /// The byte size of this segment (`size_of::<T>()`, folded at compile time).
+    #[inline(always)]
+    pub const fn size() -> u32 {
+        core::mem::size_of::<T>() as u32
+    }
+
+    /// One-past-the-end byte offset.
+    #[inline(always)]
+    pub const fn end() -> u32 {
+        OFFSET + core::mem::size_of::<T>() as u32
+    }
+
+    /// Lower to a runtime [`Segment`] when a heterogeneous collection
+    /// of segments is needed (e.g. a validation pass that iterates).
+    #[inline(always)]
+    pub const fn as_segment() -> Segment {
+        Segment::new(OFFSET, core::mem::size_of::<T>() as u32)
+    }
+}
+
+// SAFETY: Proof that `TypedSegment` really is zero-sized.
+const _: () = {
+    assert!(
+        core::mem::size_of::<TypedSegment<u64, 0>>() == 0,
+        "TypedSegment must be zero-sized so it costs nothing to pass around",
+    );
+};
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn typed_segment_is_zero_sized() {
+        assert_eq!(core::mem::size_of::<TypedSegment<u64, 16>>(), 0);
+    }
+
+    #[test]
+    fn typed_segment_offset_and_size_fold() {
+        const S: TypedSegment<u64, 16> = TypedSegment::new();
+        // The values come from the type system directly.
+        assert_eq!(TypedSegment::<u64, 16>::offset(), 16);
+        assert_eq!(TypedSegment::<u64, 16>::size(), 8);
+        assert_eq!(TypedSegment::<u64, 16>::end(), 24);
+        let _ = S; // ensure const ctor works
+    }
+
+    #[test]
+    fn typed_segment_lowers_to_runtime_segment() {
+        const S: Segment = TypedSegment::<u64, 16>::as_segment();
+        assert_eq!(S.offset, 16);
+        assert_eq!(S.size, 8);
+    }
 
     #[test]
     fn body_adds_header() {
