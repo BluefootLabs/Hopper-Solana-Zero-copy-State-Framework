@@ -105,13 +105,33 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
     let body_size = running_offset.clone();
     let version = options.version;
     let layout_id = layout_id_bytes(name, version, fields);
-    let disc = options.disc.unwrap_or(layout_id[0]);
+    // Default discriminator: first byte of the layout_id fingerprint.
+    // If that byte is zero (1-in-256 chance given SHA-256 uniformity)
+    // we fall through to the first non-zero byte so the compile-time
+    // "disc != 0" fence never fires spuriously. This mirrors Quasar's
+    // `validate_discriminator_not_zero()` but in a forgiving form:
+    // the user never needs to set `disc = ...` explicitly unless they
+    // want a specific wire value.
+    let disc = options.disc.unwrap_or_else(|| {
+        for byte in layout_id.iter() {
+            if *byte != 0 {
+                return *byte;
+            }
+        }
+        // All-zero SHA-256 first 8 bytes is astronomically improbable;
+        // if we ever hit it the 1-byte fallback is still non-zero.
+        1u8
+    });
     let layout_id_tokens = byte_array_literal(&layout_id);
     let field_count = field_name_literals.len();
 
     let expanded = quote! {
         #input
 
+        // ── Compile-time safety fence ──────────────────────────────────
+        // Mirrors Quasar's alignment/padding/zero-discriminator asserts
+        // plus Hopper's own size invariant. All four checks fire at
+        // type-check time, so malformed layouts never reach link time.
         const _: () = {
             assert!(
                 core::mem::align_of::<#name>() == 1,
@@ -120,6 +140,14 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
             assert!(
                 core::mem::size_of::<#name>() == ((#body_size) as usize),
                 "hopper_state layouts must be #[repr(C)] with no implicit padding",
+            );
+            assert!(
+                core::mem::size_of::<#name>() > 0,
+                "hopper_state layouts must have at least one field; zero-sized overlays project to dangling pointers",
+            );
+            assert!(
+                #disc != 0,
+                "hopper_state discriminator must be non-zero: a zero discriminator cannot be distinguished from an uninitialized account",
             );
         };
 

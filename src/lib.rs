@@ -19,6 +19,7 @@
 
 extern crate proc_macro;
 
+mod pod;
 mod state;
 mod context;
 mod program;
@@ -121,4 +122,46 @@ pub fn hopper_program(attr: TokenStream, item: TokenStream) -> TokenStream {
 #[proc_macro_attribute]
 pub fn program(attr: TokenStream, item: TokenStream) -> TokenStream {
     hopper_program(attr, item)
+}
+
+/// Derive the Hopper zero-copy marker contract for a user-defined struct.
+///
+/// Unlike `#[hopper::state]` (which emits the full Hopper layout: 16-byte
+/// header, layout_id, schema export, typed load helpers), `#[hopper::pod]`
+/// is the minimal opt-in: it asserts that the struct satisfies the
+/// Pod + FixedLayout + alignment-1 + non-padded + non-zero-sized contract
+/// at compile time, and emits the matching `unsafe impl Pod` and
+/// `impl FixedLayout` so it can participate in every Hopper segment /
+/// raw access API.
+///
+/// This is the Hopper Safety Audit's "derive macros for Pod and layout"
+/// recommendation delivered standalone: use it on sub-structs, wire
+/// helpers, or any `#[repr(C)]` overlay that isn't a full top-level
+/// account layout.
+///
+/// # Example
+///
+/// ```ignore
+/// #[hopper::pod]
+/// #[repr(C)]
+/// pub struct Cursor {
+///     pub head: WireU64,
+///     pub tail: WireU64,
+///     pub capacity: WireU64,
+/// }
+///
+/// // Now usable as:
+/// let c: Ref<'_, Cursor> = account.segment_ref::<Cursor>(&mut borrows, 0, 24)?;
+/// ```
+#[proc_macro_attribute]
+pub fn hopper_pod(attr: TokenStream, item: TokenStream) -> TokenStream {
+    pod::expand(attr.into(), item.into())
+        .unwrap_or_else(|e| e.to_compile_error())
+        .into()
+}
+
+/// Short alias: `#[hopper::pod]`. Functionally identical to `#[hopper_pod]`.
+#[proc_macro_attribute]
+pub fn pod(attr: TokenStream, item: TokenStream) -> TokenStream {
+    hopper_pod(attr, item)
 }
