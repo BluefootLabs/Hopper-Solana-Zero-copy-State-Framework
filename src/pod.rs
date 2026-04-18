@@ -1,20 +1,19 @@
-//! `Pod` — the substrate-level "safe to interpret from raw bytes" marker.
+//! `Pod` — the canonical runtime-layer "safe to interpret from raw bytes" marker.
 //!
 //! Hopper's typed access primitives (`segment_ref`, `segment_mut`,
-//! `raw_ref`, `raw_mut` and friends) all overlay a `T` on a slice of
+//! `raw_ref`, `raw_mut`, `read_data`) all overlay a `T` on a slice of
 //! account bytes. That overlay is only sound if **every bit pattern of
 //! the right size** decodes to a valid `T` and the type has alignment 1
 //! (so the offset within the BPF input buffer is always valid for `T`).
 //!
-//! The Solana safety audit flagged that requiring only `T: Copy` is too
+//! The Hopper Safety Audit flagged that requiring only `T: Copy` is too
 //! loose: `bool`, `char`, references, and structs with padding are all
 //! `Copy + Sized` but **not** safe to overlay on raw bytes. This module
-//! introduces an `unsafe trait Pod: Copy + Sized` that captures the real
-//! contract:
+//! carries the tightened marker.
 //!
 //! ## Contract
 //!
-//! Implementing `Pod` for a type `T` is asserting all of:
+//! Implementing `Pod` for a type `T` asserts all of:
 //!
 //! 1. Every `[u8; size_of::<T>()]` byte pattern represents a valid `T`.
 //!    No "niches", no enum-discriminant invariants, no `bool`-style
@@ -26,48 +25,90 @@
 //! 4. `T` contains no internal pointers / references — overlay always
 //!    yields data that's safe to `Copy`.
 //!
-//! Hopper's higher-layer macros (`#[hopper::state]`, `hopper_layout!`)
-//! enforce these conditions at compile time and emit a derived
-//! `unsafe impl Pod`. Programs that hand-author layouts can opt in via
-//! `unsafe impl hopper_native::Pod for MyLayout {}`.
+//! Hopper's higher-layer macros (`#[hopper::state]`, `#[hopper::pod]`,
+//! `hopper_layout!`) enforce these conditions at compile time and emit
+//! the derived `unsafe impl Pod`. Hand-authored layouts opt in via
+//! `unsafe impl Pod for MyLayout {}`.
+//!
+//! ## Compile-fail demonstration
+//!
+//! A non-Pod type is rejected at the call site:
+//!
+//! ```compile_fail
+//! # use hopper_runtime::{AccountView, segment_borrow::SegmentBorrowRegistry};
+//! # fn example(account: &AccountView, borrows: &mut SegmentBorrowRegistry) {
+//! // `bool` is Copy but has forbidden bit patterns — rejected by Pod.
+//! let _ = account.segment_ref::<bool>(borrows, 16, 1);
+//! # }
+//! ```
+//!
+//! ```compile_fail
+//! # use hopper_runtime::{AccountView, segment_borrow::SegmentBorrowRegistry};
+//! # fn example(account: &AccountView, borrows: &mut SegmentBorrowRegistry) {
+//! #[derive(Copy, Clone)]
+//! #[repr(C)]
+//! struct Padded {
+//!     a: u8,
+//!     b: u64, // align=8 forces 7 bytes of padding after `a`
+//! }
+//! // Not marked `unsafe impl Pod` — the segment API rejects it.
+//! let _ = account.segment_ref::<Padded>(borrows, 16, 16);
+//! # }
+//! ```
+//!
+//! A primitive or an `unsafe impl`-opted-in type compiles fine:
+//!
+//! ```ignore
+//! # use hopper_runtime::{AccountView, segment_borrow::SegmentBorrowRegistry};
+//! # fn example(account: &AccountView, borrows: &mut SegmentBorrowRegistry) {
+//! let _: Result<hopper_runtime::Ref<'_, u64>, _> =
+//!     account.segment_ref::<u64>(borrows, 16, 8);
+//! # }
+//! ```
+//!
+//! ## Trait identity across layers
+//!
+//! When `hopper-native-backend` is active (the default), this trait is
+//! a direct re-export of [`hopper_native::Pod`]. That keeps the entire
+//! Hopper stack — substrate, runtime, core, macros — on a single Pod
+//! trait: one `unsafe impl Pod for MyStruct {}` unlocks every Hopper
+//! access API from the lowest-level `AccountView::raw_mut` up to
+//! `#[hopper::state]`-generated accessors, across all crates, with no
+//! orphan-rule gymnastics. When a non-native backend is selected
+//! (`pinocchio-backend`, `solana-program-backend`), the trait is
+//! defined locally with the same contract so user code compiles
+//! unchanged.
 
-/// Marker for types that can be safely overlaid on raw account bytes.
-///
-/// See module docs for the full safety contract. Implementing this trait
-/// requires `unsafe impl` because the runtime cannot mechanically verify
-/// any of the four obligations.
+// ── Trait identity: native backend path ──────────────────────────────
+//
+// Re-export `hopper_native::Pod` directly so the "one canonical Pod"
+// invariant holds end-to-end.
+#[cfg(feature = "hopper-native-backend")]
+pub use hopper_native::Pod;
+
+// ── Trait identity: non-native backend path ─────────────────────────
+//
+// Define the trait locally for test harnesses and alternate backends
+// that don't pull in `hopper-native`. The contract is identical.
+#[cfg(not(feature = "hopper-native-backend"))]
 pub unsafe trait Pod: Copy + Sized {}
 
-// ── Primitive implementations ────────────────────────────────────────
-//
-// All multi-byte integer types satisfy alignment-1 only when wrapped in
-// a Hopper `WireU16`/`WireU64`/etc. (declared in `hopper-native::wire`),
-// but the raw integer types are still `Pod` for the purposes of the
-// runtime API: they just require the caller to ensure offset alignment
-// matches their natural alignment, which in practice the BPF runtime
-// guarantees for header-aligned reads.
-
-unsafe impl Pod for u8 {}
-unsafe impl Pod for u16 {}
-unsafe impl Pod for u32 {}
-unsafe impl Pod for u64 {}
-unsafe impl Pod for u128 {}
-unsafe impl Pod for i8 {}
-unsafe impl Pod for i16 {}
-unsafe impl Pod for i32 {}
-unsafe impl Pod for i64 {}
-unsafe impl Pod for i128 {}
-
-// `usize` and `isize` are *not* `Pod`: their size is target-dependent so
-// overlays would silently change layout between host and BPF builds.
-
-// Fixed-size byte arrays are the workhorse of Hopper layouts: addresses,
-// layout IDs, segment fingerprints, etc.
-unsafe impl<const N: usize> Pod for [u8; N] {}
-
-// `()` is sometimes used as a phantom payload; allowing it lets generic
-// helpers fall back to a no-op overlay.
-unsafe impl Pod for () {}
+#[cfg(not(feature = "hopper-native-backend"))]
+mod local_impls {
+    use super::Pod;
+    unsafe impl Pod for u8 {}
+    unsafe impl Pod for u16 {}
+    unsafe impl Pod for u32 {}
+    unsafe impl Pod for u64 {}
+    unsafe impl Pod for u128 {}
+    unsafe impl Pod for i8 {}
+    unsafe impl Pod for i16 {}
+    unsafe impl Pod for i32 {}
+    unsafe impl Pod for i64 {}
+    unsafe impl Pod for i128 {}
+    unsafe impl<const N: usize> Pod for [u8; N] {}
+    unsafe impl Pod for () {}
+}
 
 #[cfg(test)]
 mod tests {
@@ -88,5 +129,14 @@ mod tests {
         assert_pod::<i64>();
         assert_pod::<i128>();
         assert_pod::<[u8; 32]>();
+    }
+
+    #[test]
+    fn address_satisfies_pod() {
+        // `Address` is declared `#[repr(transparent)] [u8; 32]` with a
+        // hand-rolled `unsafe impl Pod`. Under the native backend that
+        // impl is on `hopper_native::Pod`; here we're just checking the
+        // re-export plumbing lands.
+        assert_pod::<crate::address::Address>();
     }
 }
