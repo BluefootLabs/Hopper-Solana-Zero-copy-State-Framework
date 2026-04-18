@@ -39,18 +39,58 @@ use crate::project::Projectable;
 
 /// Read a `Projectable` field from account data at the given byte offset.
 ///
-/// Performs bounds checking and alignment validation. No discriminator
-/// or owner checks -- the caller is responsible for verifying the
-/// account belongs to the expected program.
-///
-/// This is the generic lens. Use the typed convenience functions below
-/// for common field types.
+/// **Unsafe escape hatch.** `Projectable` only requires `Copy + 'static`,
+/// which is too permissive to protect against padding/alignment bugs in
+/// user structs. The Hopper Safety Audit marks this path as Tier C: the
+/// caller asserts the full POD contract (no padding, align-1, all-bits-
+/// valid, no interior pointers) by implementing `Projectable`. New code
+/// should prefer [`read_field_pod`] which enforces the stronger
+/// [`crate::Pod`] bound at the type level, and the generic convenience
+/// helpers `read_address` / `read_le_u64` / `read_le_u32` below which
+/// don't take a type parameter at all.
 #[inline]
 pub fn read_field<T: Projectable>(
     account: &AccountView,
     offset: usize,
 ) -> Result<&T, ProgramError> {
     crate::project::project::<T>(account, offset, None)
+}
+
+/// Read a `Pod` field from account data at the given byte offset.
+///
+/// This is the Safety-Audit-compliant lens: requires the substrate
+/// [`crate::Pod`] bound, so the compiler rejects types with padding,
+/// non-alignment-1 fields, or forbidden bit patterns at the call site.
+/// Bounds and alignment are still checked at runtime, just as in the
+/// generic [`read_field`] escape hatch.
+///
+/// Use this in cross-program readers that want the audit-grade
+/// guarantee without dropping down to hand-written pointer arithmetic.
+///
+/// # Example
+///
+/// ```ignore
+/// use hopper_native::{lens, wire::LeU64};
+/// let counter: &LeU64 = lens::read_field_pod(foreign_account, 16)?;
+/// ```
+#[inline]
+pub fn read_field_pod<T: crate::Pod>(
+    account: &AccountView,
+    offset: usize,
+) -> Result<&T, ProgramError> {
+    let data_len = account.data_len();
+    let size = core::mem::size_of::<T>();
+    let end = offset
+        .checked_add(size)
+        .ok_or(ProgramError::ArithmeticOverflow)?;
+    if end > data_len {
+        return Err(ProgramError::AccountDataTooSmall);
+    }
+    let ptr = unsafe { account.data_ptr().add(offset) };
+    // SAFETY: T: Pod ⇒ align 1, every bit pattern valid, no padding.
+    // Bounds and arithmetic overflow checked above. No alignment check
+    // needed (Pod's align-1 obligation subsumes it).
+    Ok(unsafe { &*(ptr as *const T) })
 }
 
 /// Read a 32-byte address from account data.

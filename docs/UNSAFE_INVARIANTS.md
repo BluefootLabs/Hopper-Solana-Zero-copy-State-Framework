@@ -339,4 +339,104 @@ The following dedicated test files exercise unsafe boundaries directly:
 
 - **`tests/unsafe_boundary_tests.rs`** - Pod from undersized/empty/oversized buffers, VerifiedAccount rejection, overlay-at OOB rejection, `usize::MAX` overflow check, header wire layout verification, segment descriptor boundary conditions, wire type roundtrips, unchecked cast parity.
 - **`tests/overlay_equivalence_tests.rs`** - `pod_from_bytes` vs `pod_read` value equivalence, `VerifiedAccount::get()` vs raw pod parity, `overlay_at` vs manual slice pod parity, `cast_unchecked` vs checked parity, mutable write-through equivalence, wire type overlay vs raw bytes, header overlay vs constructor.
+
+---
+
+## Hopper Safety Audit Response (2026-04)
+
+The independent **Hopper Safety Audit** (see `docs/Hopper Safety Audit.docx`)
+flagged four specific unsound or permissive surfaces. This section records
+the action taken on each finding and the invariants the fix now enforces.
+
+### Finding 1 — `hopper-core::frame::{segment_ref, segment_mut, segment_mut_unchecked}` returned naked references to `T` **after** dropping the backing byte-slice borrow
+
+**Fix landed:** [crates/hopper-core/src/frame/mod.rs](../crates/hopper-core/src/frame/mod.rs)
+now returns `hopper_runtime::Ref<'_, T>` / `RefMut<'_, T>` projected through
+the live byte-slice guard via `Ref::project` / `RefMut::project`. The
+returned guard **owns** the account's borrow state byte — it is released
+only when the typed reference drops, not when the function returns.
+
+**Invariant enforced:** borrow state byte always matches the set of live
+`Ref<T>` / `RefMut<T>` guards returned from Frame.
+
+**Regression tests:** `frame::audit_tests::frame_segment_mut_writes_through_ref_mut`,
+`frame::audit_tests::frame_segment_ref_returns_live_guard`.
+
+### Finding 2 — `T: Copy` bound on hot-path access was too loose
+
+`bool`, `char`, `&T`, `NonZeroU64`, and padded `#[repr(C)]` structs all
+satisfy `Copy` but are **not** safe to overlay on arbitrary bytes.
+
+**Fix landed:** the canonical [`Pod`](../crates/hopper-runtime/src/pod.rs)
+trait now lives at the substrate layer ([`hopper_native::Pod`](../crates/hopper-native/src/pod.rs))
+with the contract documented as four explicit obligations (all bit
+patterns valid, alignment-1, no padding, no interior pointers). `hopper-runtime`
+re-exports it (`hopper_runtime::Pod`) when the native backend is active;
+`hopper-core` re-exports it as `hopper_core::account::Pod`. **Every**
+hot-path access API tightened from `T: Copy` to `T: Pod`:
+
+- `hopper_native::AccountView::{segment_ref, segment_mut, segment_ref_unchecked, segment_mut_unchecked, raw_ref, raw_mut}`
+- `hopper_runtime::AccountView::{segment_ref, segment_mut, segment_ref_const, segment_mut_const, segment_ref_typed, segment_mut_typed, raw_ref, raw_mut}`
+- `hopper_runtime::Context::{segment_ref, segment_mut, segment_ref_const, segment_mut_const, segment_ref_typed, segment_mut_typed, raw_ref, raw_mut, raw_unchecked, read_data}`
+- `hopper_core::frame::Frame::{segment_ref, segment_mut, segment_mut_unchecked}`
+- Macro-generated `__SegT` escapes from `#[hopper::context]`
+
+### Finding 3 — `Projectable` trait too permissive (`Copy + 'static`)
+
+**Fix landed:** [crates/hopper-native/src/project.rs](../crates/hopper-native/src/project.rs)
+now documents `Projectable` as the **Tier-C unsafe escape hatch** kept for
+backward compatibility with already-published programs. A strengthened
+`SafeProjectable` trait + `project_safe` / `project_safe_mut` helpers reject
+zero-sized overlays at compile time and steer all new code toward the
+Pod-bounded path. `hopper-native::lens::read_field_pod` added as a
+drop-in Pod-bounded replacement for `read_field`.
+
+### Finding 4 — CLI/IDL/DX gaps
+
+**Fix landed:** `#[hopper::pod]` standalone attribute macro ([crates/hopper-macros-proc/src/pod.rs](../crates/hopper-macros-proc/src/pod.rs))
+lets any `#[repr(C)]` struct opt into the full contract without the
+`#[hopper::state]` header/layout_id/schema machinery. CLI already has
+`hopper compile --emit rust`, `hopper inspect`, `hopper explain`, `hopper
+client gen --ts`, `hopper client gen --kt`, `hopper manager …` wiring
+(see [tools/hopper-cli](../tools/hopper-cli)).
+
+### New compile-time fences (Quasar-inspired hardening)
+
+`#[hopper::state]` now emits three additional `const _: () = assert!(...)`
+fences on every generated layout:
+
+| Fence | What it catches |
+| :-- | :-- |
+| `align_of::<T>() == 1` | `#[repr(C)]` struct with a non-alignment-1 field slipped in (e.g. raw `u64` instead of `WireU64`) |
+| `size_of::<T>() == sum of field sizes` | Compiler-inserted padding between fields |
+| `size_of::<T>() > 0` | Zero-sized overlay (projects to a dangling pointer) |
+| `DISC != 0` | Zero discriminator cannot be distinguished from an uninitialized buffer |
+
+All four fire at type-check time. Malformed layouts never reach link.
+
+### Const-generic `TypedSegment<T, const OFFSET: u32>` (audit innovation item)
+
+New [crates/hopper-runtime/src/segment.rs](../crates/hopper-runtime/src/segment.rs)
+introduces a zero-sized `TypedSegment` marker that bakes both the overlay
+type and the body offset into the type system. `AccountView::segment_ref_typed`
+/ `segment_mut_typed` and `Context::segment_ref_typed` / `segment_mut_typed`
+take such a marker and lower to `ptr + literal_offset` SBF with a literal
+size bounds check. A compile-time `const _: ()` proves the marker is
+zero-sized so passing it around is free.
+
+### Coordination with live borrow state (audit appendix)
+
+Three Hopper-runtime regression tests lock in the cross-path coordination
+the audit wanted proven:
+
+- `live_load_blocks_segment_mut` — `account.load::<T>()` + subsequent
+  `segment_mut` rejected via the native state byte.
+- `live_load_mut_blocks_segment_ref` — exclusive `load_mut` rejects a
+  concurrent `segment_ref` even though they use different registries.
+- `every_access_path_is_tracked` — walks every safe access method and
+  asserts each one blocks a conflicting follow-up.
+
+These, together with the Frame audit regression tests, mean every safe
+access path in Hopper is now covered by at least one regression test
+that fails loudly if the coordination breaks.
 - **`tests/compat_regression_tests.rs`** - Append-safe addition detection, forbidden field rename/resize, field removal as breaking, `compare_fields` report accuracy, `is_backward_readable` / `requires_migration` correctness, receipt wire format encode/decode roundtrip, Phase/CompatImpact enum roundtrips, segment/field mask roundtrip, reserved byte verification.

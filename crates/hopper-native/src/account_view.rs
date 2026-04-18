@@ -238,7 +238,7 @@ impl AccountView {
 
     /// Project a typed segment from account data with native borrow tracking.
     #[inline(always)]
-    pub fn segment_ref<T: Copy>(&self, offset: u32, size: u32) -> Result<Ref<'_, T>, ProgramError> {
+    pub fn segment_ref<T: crate::pod::Pod>(&self, offset: u32, size: u32) -> Result<Ref<'_, T>, ProgramError> {
         let expected_size = core::mem::size_of::<T>() as u32;
         if size != expected_size {
             return Err(ProgramError::InvalidArgument);
@@ -272,7 +272,7 @@ impl AccountView {
     /// - `offset + size_of::<T>()` does not overflow
     /// - `offset + size_of::<T>() <= data_len()`
     #[inline(always)]
-    pub unsafe fn segment_ref_unchecked<T: Copy>(&self, offset: u32) -> Result<Ref<'_, T>, ProgramError> {
+    pub unsafe fn segment_ref_unchecked<T: crate::pod::Pod>(&self, offset: u32) -> Result<Ref<'_, T>, ProgramError> {
         self.check_borrow()?;
         let state_ptr = unsafe { &mut (*self.raw).borrow_state as *mut u8 };
         let state = unsafe { *state_ptr };
@@ -288,7 +288,7 @@ impl AccountView {
 
     /// Project a mutable typed segment from account data with native borrow tracking.
     #[inline(always)]
-    pub fn segment_mut<T: Copy>(&self, offset: u32, size: u32) -> Result<RefMut<'_, T>, ProgramError> {
+    pub fn segment_mut<T: crate::pod::Pod>(&self, offset: u32, size: u32) -> Result<RefMut<'_, T>, ProgramError> {
         self.require_writable()?;
 
         let expected_size = core::mem::size_of::<T>() as u32;
@@ -320,7 +320,7 @@ impl AccountView {
     /// - `offset + size_of::<T>()` does not overflow
     /// - `offset + size_of::<T>() <= data_len()`
     #[inline(always)]
-    pub unsafe fn segment_mut_unchecked<T: Copy>(&self, offset: u32) -> Result<RefMut<'_, T>, ProgramError> {
+    pub unsafe fn segment_mut_unchecked<T: crate::pod::Pod>(&self, offset: u32) -> Result<RefMut<'_, T>, ProgramError> {
         self.check_borrow_mut()?;
         let state_ptr = unsafe { &mut (*self.raw).borrow_state as *mut u8 };
         unsafe { *state_ptr = 0; }
@@ -331,13 +331,13 @@ impl AccountView {
 
     /// Explicit raw typed read of the account buffer.
     #[inline(always)]
-    pub unsafe fn raw_ref<T: Copy>(&self) -> Result<Ref<'_, T>, ProgramError> {
+    pub unsafe fn raw_ref<T: crate::pod::Pod>(&self) -> Result<Ref<'_, T>, ProgramError> {
         self.segment_ref::<T>(0, core::mem::size_of::<T>() as u32)
     }
 
     /// Explicit raw typed write of the account buffer.
     #[inline(always)]
-    pub unsafe fn raw_mut<T: Copy>(&self) -> Result<RefMut<'_, T>, ProgramError> {
+    pub unsafe fn raw_mut<T: crate::pod::Pod>(&self) -> Result<RefMut<'_, T>, ProgramError> {
         self.segment_mut::<T>(0, core::mem::size_of::<T>() as u32)
     }
 

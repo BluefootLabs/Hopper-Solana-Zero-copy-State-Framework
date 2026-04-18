@@ -48,6 +48,7 @@
 
 // ── Core modules (always available) ──────────────────────────────────
 
+pub mod pod;
 pub mod address;
 pub mod error;
 pub mod account_view;
@@ -98,6 +99,7 @@ pub use address::Address;
 pub use error::ProgramError;
 pub use account_view::AccountView;
 pub use borrow::{Ref, RefMut};
+pub use pod::Pod;
 pub use raw_account::RuntimeAccount;
 
 // Innovation re-exports.
