@@ -252,7 +252,7 @@ pub fn expand(_attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
                     /// of `#field_name`. Borrow tracking is registered against the
                     /// instruction-scoped segment registry.
                     #[inline(always)]
-                    #vis fn #segment_mut_fn<__SegT: ::core::marker::Copy>(
+                    #vis fn #segment_mut_fn<__SegT: ::hopper::__runtime::Pod>(
                         &mut self,
                         abs_offset: u32,
                     ) -> ::core::result::Result<
@@ -266,7 +266,7 @@ pub fn expand(_attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
                 accessors.push(quote! {
                     /// Read-only segment escape for `#field_name`.
                     #[inline(always)]
-                    #vis fn #segment_ref_fn<__SegT: ::core::marker::Copy>(
+                    #vis fn #segment_ref_fn<__SegT: ::hopper::__runtime::Pod>(
                         &mut self,
                         abs_offset: u32,
                     ) -> ::core::result::Result<
