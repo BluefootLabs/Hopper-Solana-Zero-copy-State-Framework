@@ -168,7 +168,7 @@ impl AccountView {
     /// On the native backend (Solana), this uses direct segment access
     /// bypassing the intermediate whole-buffer borrow for lower CU cost.
     #[inline(always)]
-    pub fn segment_ref<T: Copy>(
+    pub fn segment_ref<T: crate::Pod>(
         &self,
         borrows: &mut SegmentBorrowRegistry,
         abs_offset: u32,
@@ -216,7 +216,7 @@ impl AccountView {
     /// On the native backend (Solana), this uses direct segment access
     /// bypassing the intermediate whole-buffer borrow for lower CU cost.
     #[inline(always)]
-    pub fn segment_mut<T: Copy>(
+    pub fn segment_mut<T: crate::Pod>(
         &self,
         borrows: &mut SegmentBorrowRegistry,
         abs_offset: u32,
@@ -277,7 +277,7 @@ impl AccountView {
     /// let mut balance = vault.segment_ref_const::<u64>(&mut borrows, BALANCE)?;
     /// ```
     #[inline(always)]
-    pub fn segment_ref_const<T: Copy>(
+    pub fn segment_ref_const<T: crate::Pod>(
         &self,
         borrows: &mut SegmentBorrowRegistry,
         segment: crate::segment::Segment,
@@ -288,12 +288,46 @@ impl AccountView {
     /// Mutable const-Segment access. See [`segment_ref_const`] for the
     /// contract — this is the exclusive variant.
     #[inline(always)]
-    pub fn segment_mut_const<T: Copy>(
+    pub fn segment_mut_const<T: crate::Pod>(
         &self,
         borrows: &mut SegmentBorrowRegistry,
         segment: crate::segment::Segment,
     ) -> Result<RefMut<'_, T>, ProgramError> {
         self.segment_mut::<T>(borrows, segment.offset, segment.size)
+    }
+
+    /// Project a typed segment described by a [`TypedSegment`].
+    ///
+    /// This is the tightest form of segment access Hopper exposes: both
+    /// the type `T` and the offset are compile-time constants baked
+    /// into the [`TypedSegment`] marker, so the call collapses to a
+    /// single `ptr + literal_offset` add with a literal size in the
+    /// bounds check. The marker argument is a zero-sized token, free
+    /// to pass around.
+    ///
+    /// ```ignore
+    /// const BALANCE: TypedSegment<WireU64, { HopperHeader::SIZE as u32 }>
+    ///     = TypedSegment::new();
+    /// let bal = vault.segment_ref_typed(&mut borrows, BALANCE)?;
+    /// ```
+    #[inline(always)]
+    pub fn segment_ref_typed<T: crate::Pod, const OFFSET: u32>(
+        &self,
+        borrows: &mut SegmentBorrowRegistry,
+        _segment: crate::segment::TypedSegment<T, OFFSET>,
+    ) -> Result<Ref<'_, T>, ProgramError> {
+        self.segment_ref::<T>(borrows, OFFSET, core::mem::size_of::<T>() as u32)
+    }
+
+    /// Mutable typed-segment access. See [`segment_ref_typed`] for the
+    /// contract — this is the exclusive variant.
+    #[inline(always)]
+    pub fn segment_mut_typed<T: crate::Pod, const OFFSET: u32>(
+        &self,
+        borrows: &mut SegmentBorrowRegistry,
+        _segment: crate::segment::TypedSegment<T, OFFSET>,
+    ) -> Result<RefMut<'_, T>, ProgramError> {
+        self.segment_mut::<T>(borrows, OFFSET, core::mem::size_of::<T>() as u32)
     }
 
     // ── Zero-copy overlay access ─────────────────────────────────────
@@ -358,7 +392,7 @@ impl AccountView {
     /// This bypasses Hopper layout validation and segment tracking, but it still
     /// respects the account-level borrow rules enforced by `try_borrow()`.
     #[inline(always)]
-    pub unsafe fn raw_ref<T: Copy>(&self) -> Result<Ref<'_, T>, ProgramError> {
+    pub unsafe fn raw_ref<T: crate::Pod>(&self) -> Result<Ref<'_, T>, ProgramError> {
         let data = self.try_borrow()?;
         if core::mem::size_of::<T>() > data.len() {
             return Err(ProgramError::AccountDataTooSmall);
@@ -372,7 +406,7 @@ impl AccountView {
     /// This bypasses Hopper layout validation and segment tracking, but it still
     /// enforces writability and the account-level exclusive borrow rules.
     #[inline(always)]
-    pub unsafe fn raw_mut<T: Copy>(&self) -> Result<RefMut<'_, T>, ProgramError> {
+    pub unsafe fn raw_mut<T: crate::Pod>(&self) -> Result<RefMut<'_, T>, ProgramError> {
         self.check_writable()?;
         let mut data = self.try_borrow_mut()?;
         if core::mem::size_of::<T>() > data.len() {
@@ -1141,6 +1175,44 @@ mod tests {
             )
             .unwrap_err();
         assert_eq!(err, ProgramError::AccountBorrowFailed);
+    }
+
+    #[test]
+    fn typed_segment_api_round_trips() {
+        use crate::segment::TypedSegment;
+
+        let (_backing, account) = make_account(TestLayout::SIZE, 22);
+        {
+            let mut data = account.try_borrow_mut().unwrap();
+            crate::layout::init_header::<TestLayout>(&mut data).unwrap();
+        }
+
+        const A_TYPED: TypedSegment<u64, { crate::layout::HopperHeader::SIZE as u32 }> =
+            TypedSegment::new();
+
+        // Write via the typed-segment mut path (first instruction scope).
+        let mut borrows = crate::segment_borrow::SegmentBorrowRegistry::new();
+        {
+            let mut a = account
+                .segment_mut_typed::<u64, { crate::layout::HopperHeader::SIZE as u32 }>(
+                    &mut borrows,
+                    A_TYPED,
+                )
+                .unwrap();
+            *a = 1337;
+        }
+
+        // Read-back in a fresh instruction scope (new registry = new
+        // `Context` drop equivalent), so the earlier write entry isn't
+        // carried over.
+        let mut borrows2 = crate::segment_borrow::SegmentBorrowRegistry::new();
+        let read = account
+            .segment_ref_typed::<u64, { crate::layout::HopperHeader::SIZE as u32 }>(
+                &mut borrows2,
+                A_TYPED,
+            )
+            .unwrap();
+        assert_eq!(*read, 1337);
     }
 
     #[test]

@@ -31,6 +31,16 @@ pub const PDA_MARKER: &[u8; 21] = b"ProgramDerivedAddress";
 #[derive(Clone, Copy, PartialEq, Eq, Default, PartialOrd, Ord)]
 pub struct Address(pub(crate) [u8; 32]);
 
+// SAFETY: `Address` is `#[repr(transparent)]` over `[u8; 32]`, so it
+// inherits the POD contract of its inner type exactly:
+// - Every byte pattern is valid (no niches).
+// - Alignment is 1.
+// - No padding, no drop glue, no interior pointers.
+// This makes `Address` a first-class overlay type for zero-copy access —
+// a common pattern for authority / mint / program-id fields — without
+// requiring callers to spell out the raw `[u8; 32]` form.
+unsafe impl crate::pod::Pod for Address {}
+
 impl Address {
     /// Construct from a raw byte array.
     #[inline(always)]

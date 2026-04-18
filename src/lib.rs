@@ -46,6 +46,7 @@ pub mod cpi;
 pub mod field_map;
 pub mod interop;
 pub mod log;
+pub mod pod;
 pub mod segment;
 pub mod segment_borrow;
 pub mod instruction;
@@ -71,7 +72,8 @@ pub use instruction::CpiAccount;
 pub use instruction::{InstructionAccount, InstructionView, Seed, Signer};
 pub use layout::{HopperHeader, LayoutContract, LayoutInfo};
 pub use result::ProgramResult;
-pub use segment::Segment;
+pub use pod::Pod;
+pub use segment::{Segment, TypedSegment};
 pub use segment_borrow::{AccessKind, SegmentBorrow, SegmentBorrowGuard, SegmentBorrowRegistry};
 
 pub const MAX_TX_ACCOUNTS: usize = compat::BACKEND_MAX_TX_ACCOUNTS;
