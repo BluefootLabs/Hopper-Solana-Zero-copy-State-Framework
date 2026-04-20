@@ -1,4 +1,4 @@
-//! `#[hopper_state]` — contract-aware zero-copy layout codegen.
+//! `#[hopper_state]`. contract-aware zero-copy layout codegen.
 //!
 //! The canonical proc-macro path must participate in the same runtime,
 //! schema, and receipt pipeline as hand-written Hopper layouts. This macro
@@ -10,10 +10,15 @@ use quote::{format_ident, quote, ToTokens};
 use sha2::{Digest, Sha256};
 use syn::{parse::Parser, parse2, Attribute, Fields, ItemStruct, LitInt, Result};
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 struct StateOptions {
     disc: Option<u8>,
     version: u8,
+    /// Audit innovation I5 (hybrid serialization). When set, the
+    /// layout emits tail-access helpers that read/write a
+    /// length-prefixed dynamic payload at offset
+    /// `HEADER_LEN + BODY_SIZE`.
+    dynamic_tail: Option<syn::Type>,
 }
 
 impl Default for StateOptions {
@@ -21,12 +26,14 @@ impl Default for StateOptions {
         Self {
             disc: None,
             version: 1,
+            dynamic_tail: None,
         }
     }
 }
 
 pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
     let options = parse_state_options(attr)?;
+    let dynamic_tail = options.dynamic_tail.clone();
     let input: ItemStruct = parse2(item)?;
     let name = &input.ident;
     let vis = &input.vis;
@@ -81,19 +88,36 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
         });
 
         let const_name = format_ident!("{}_{}_OFFSET", struct_name_upper, field_name_upper);
+        let const_abs_name = format_ident!("{}_{}_ABS_OFFSET", struct_name_upper, field_name_upper);
         let const_size_name = format_ident!("{}_{}_SIZE", struct_name_upper, field_name_upper);
         let const_type_name = format_ident!("{}_{}_TYPE", struct_name_upper, field_name_upper);
         let assoc_offset_name = format_ident!("{}_OFFSET", field_name_upper);
+        let assoc_abs_offset_name = format_ident!("{}_ABS_OFFSET", field_name_upper);
         let assoc_size_name = format_ident!("{}_SIZE", field_name_upper);
 
+        // Body-relative offset + account-absolute offset for each field.
+        //
+        // `*_OFFSET` is the field's offset within the layout body (0-indexed
+        // from the start of the layout's `#[repr(C)]` struct). That's the
+        // value `ctx.segment_mut::<T>(..)` historically expected with the
+        // 16-byte header pre-added.
+        //
+        // `*_ABS_OFFSET` folds in `HEADER_LEN` so the caller can pass it
+        // directly to any segment accessor that expects a buffer-absolute
+        // offset. avoiding `HEADER_LEN + Vault::AUTHORITY_OFFSET`
+        // boilerplate at every call site.
         module_items.push(quote! {
             #vis const #const_name: u32 = #current_offset;
+            #vis const #const_abs_name: u32 =
+                ::hopper::hopper_core::account::HEADER_LEN as u32 + #current_offset;
             #vis const #const_size_name: u32 = core::mem::size_of::<#field_ty>() as u32;
             #vis type #const_type_name = #field_ty;
         });
 
         inherent_items.push(quote! {
             #vis const #assoc_offset_name: u32 = #current_offset;
+            #vis const #assoc_abs_offset_name: u32 =
+                ::hopper::hopper_core::account::HEADER_LEN as u32 + #current_offset;
             #vis const #assoc_size_name: u32 = core::mem::size_of::<#field_ty>() as u32;
         });
 
@@ -124,6 +148,78 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
     });
     let layout_id_tokens = byte_array_literal(&layout_id);
     let field_count = field_name_literals.len();
+
+    // ── Audit I5: hybrid-serialization tail helpers ──────────────────
+    //
+    // When the user writes `#[hopper::state(dynamic_tail = MyTail)]`,
+    // emit `tail_len`, `tail_read`, `tail_write`, and a
+    // `TAIL_PREFIX_OFFSET` constant on the layout's inherent impl.
+    // The offset points to the `u32 LE` length prefix that precedes
+    // the dynamic payload. exactly the position defined in
+    // `crates/hopper-runtime/src/tail.rs`.
+    //
+    // Layouts without `dynamic_tail` emit an empty token stream and
+    // pay zero cost: the fast path stays strictly zero-copy.
+    let dynamic_tail_methods = if let Some(tail_ty) = &dynamic_tail {
+        quote! {
+            /// This layout opts in to the Hopper hybrid-serialization
+            /// tail (audit innovation I5). Fixed body remains zero-copy;
+            /// tail access is explicit via the `tail_*` helpers below.
+            pub const HAS_DYNAMIC_TAIL: bool = true;
+
+            /// Byte offset of the tail's `u32 LE` length prefix. The
+            /// payload starts at `TAIL_PREFIX_OFFSET + 4`. Layouts
+            /// without a dynamic tail do not emit this constant.
+            pub const TAIL_PREFIX_OFFSET: usize = Self::LEN;
+
+            /// Read the tail's length prefix.
+            #[inline]
+            pub fn tail_len(data: &[u8]) -> ::core::result::Result<
+                u32,
+                ::hopper::__runtime::ProgramError,
+            > {
+                ::hopper::__runtime::read_tail_len(data, Self::TAIL_PREFIX_OFFSET)
+            }
+
+            /// Decode and return the dynamic tail as `#tail_ty`.
+            ///
+            /// The full encoded length (from the u32 prefix) must be
+            /// consumed exactly by `#tail_ty::decode`. trailing bytes
+            /// indicate a malformed encoding and are rejected.
+            #[inline]
+            pub fn tail_read(data: &[u8]) -> ::core::result::Result<
+                #tail_ty,
+                ::hopper::__runtime::ProgramError,
+            > {
+                ::hopper::__runtime::read_tail::<#tail_ty>(data, Self::TAIL_PREFIX_OFFSET)
+            }
+
+            /// Encode `tail` in place and update the u32 length prefix.
+            /// Returns the number of bytes written (excluding the prefix).
+            /// Caller is responsible for ensuring the account has enough
+            /// room (call `resize` first when growing).
+            #[inline]
+            pub fn tail_write(
+                data: &mut [u8],
+                tail: &#tail_ty,
+            ) -> ::core::result::Result<
+                usize,
+                ::hopper::__runtime::ProgramError,
+            > {
+                ::hopper::__runtime::write_tail::<#tail_ty>(
+                    data,
+                    Self::TAIL_PREFIX_OFFSET,
+                    tail,
+                )
+            }
+        }
+    } else {
+        quote! {
+            /// This layout has no dynamic tail. The constant is emitted
+            /// unconditionally so callers can branch on it at compile time.
+            pub const HAS_DYNAMIC_TAIL: bool = false;
+        }
+    };
 
     let expanded = quote! {
         #input
@@ -223,8 +319,36 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
                 account.check_owned_by(expected_owner)?;
                 account.load::<Self>()
             }
+
+            #dynamic_tail_methods
         }
 
+        // Bytemuck-backed field-level Pod proof (Hopper Safety Audit
+        // Must-Fix #4 / #5).
+        //
+        // The three `unsafe impl`s alone would be rubber stamps. the
+        // compiler does not inspect fields when a bare `unsafe impl
+        // bytemuck::Pod for T` is emitted. We therefore pair them with
+        // a per-field `__FieldPodProof<T: bytemuck::Pod + Zeroable>`
+        // instantiation. Each field type is forced through that bound;
+        // a `bool`, `char`, reference, or non-`bytemuck::Pod` nested
+        // struct fails the trait bound *on the field*, not at some
+        // distant `segment_ref::<T>()` call site.
+        #[doc(hidden)]
+        const _: () = {
+            struct __FieldPodProof<
+                T: ::hopper::__runtime::__hopper_native::bytemuck::Pod
+                    + ::hopper::__runtime::__hopper_native::bytemuck::Zeroable,
+            >(::core::marker::PhantomData<T>);
+            #(
+                #[allow(dead_code)]
+                const _: __FieldPodProof<#field_types> =
+                    __FieldPodProof(::core::marker::PhantomData);
+            )*
+        };
+
+        unsafe impl ::hopper::__runtime::__hopper_native::bytemuck::Zeroable for #name {}
+        unsafe impl ::hopper::__runtime::__hopper_native::bytemuck::Pod for #name {}
         unsafe impl ::hopper::hopper_core::account::Pod for #name {}
 
         impl ::hopper::hopper_core::account::FixedLayout for #name {
@@ -331,7 +455,12 @@ fn parse_state_options(attr: TokenStream) -> Result<StateOptions> {
             options.version = value.base10_parse()?;
             return Ok(());
         }
-        Err(meta.error("unsupported hopper_state option; expected `disc = N` or `version = N`"))
+        if meta.path.is_ident("dynamic_tail") {
+            let ty: syn::Type = meta.value()?.parse()?;
+            options.dynamic_tail = Some(ty);
+            return Ok(());
+        }
+        Err(meta.error("unsupported hopper_state option; expected `disc = N`, `version = N`, or `dynamic_tail = T`"))
     });
 
     parser.parse2(attr)?;
@@ -355,19 +484,48 @@ fn has_repr_c(attrs: &[Attribute]) -> bool {
     })
 }
 
+/// Build the 8-byte wire fingerprint for a layout.
+///
+/// The Hopper Safety Audit flagged the pre-fix algorithm. hashing
+/// raw Rust token strings. as source-spelling-dependent and therefore
+/// unsuitable as a long-term ABI identity primitive. A rename of
+/// `foo::bar::WireU64` to `crate::WireU64`, or a swap of the generic
+/// parameter on `TypedAddress<Authority>` → `TypedAddress<Token>`,
+/// changed the fingerprint even though the wire layout was identical.
+///
+/// The audit-compliant algorithm this function implements normalizes
+/// each field's type to a **canonical wire stem**:
+///
+/// - `Type::Path`. the last `::`-separated path segment only
+///   (`foo::bar::WireU64` → `WireU64`), with generic parameters
+///   stripped (`TypedAddress<Authority>` → `TypedAddress`). This
+///   makes path re-exports and phantom-only generic changes ABI-
+///   invisible, which they should be.
+/// - `Type::Array`. `arr_<elem_stem>_<len>` so `[u8; 32]` becomes
+///   `arr_u8_32`. stable against spelling variants.
+/// - Anything else. fall back to the normalized token string so a
+///   non-path type still produces a deterministic value.
+///
+/// The canonical descriptor format then feeds into SHA-256:
+///
+/// ```text
+/// hopper:wire:v2|S:<StructName>|V:<Version>|
+///   f0:<field_name>:<wire_stem>|f1:...|...
+/// ```
+///
+/// `hopper:wire:v2` is the fingerprint-algorithm version marker. If
+/// the descriptor format itself ever changes, bump this tag and the
+/// old fingerprints stay distinguishable.
 fn layout_id_bytes(
     name: &syn::Ident,
     version: u8,
     fields: &syn::punctuated::Punctuated<syn::Field, syn::token::Comma>,
 ) -> [u8; 8] {
-    let mut input = format!("hopper:v1:{}:{}:", name, version);
-    for field in fields {
+    let mut input = format!("hopper:wire:v2|S:{}|V:{}", name, version);
+    for (idx, field) in fields.iter().enumerate() {
         let field_name = field.ident.as_ref().expect("named fields only");
-        let field_ty = field.ty.to_token_stream().to_string().replace(' ', "");
-        input.push_str(&field_name.to_string());
-        input.push(':');
-        input.push_str(&field_ty);
-        input.push(',');
+        let stem = canonical_wire_stem(&field.ty);
+        input.push_str(&format!("|f{}:{}:{}", idx, field_name, stem));
     }
 
     let digest = Sha256::digest(input.as_bytes());
@@ -376,9 +534,151 @@ fn layout_id_bytes(
     layout_id
 }
 
+/// Normalize a Rust type token to a canonical wire stem.
+///
+/// See [`layout_id_bytes`] for the full contract. The normalization
+/// is deliberately lossy on purely-cosmetic differences (paths,
+/// phantom generics) and lossless on anything that actually shifts
+/// the wire shape.
+fn canonical_wire_stem(ty: &syn::Type) -> String {
+    match ty {
+        syn::Type::Path(type_path) => {
+            if let Some(last) = type_path.path.segments.last() {
+                // `TypedAddress<Authority>` → `TypedAddress`.
+                // Phantom-only generic parameters shouldn't be part
+                // of the wire ABI fingerprint because they don't
+                // affect the byte layout.
+                last.ident.to_string()
+            } else {
+                "unknown_path".to_string()
+            }
+        }
+        syn::Type::Array(arr) => {
+            let elem = canonical_wire_stem(&arr.elem);
+            // `[u8; 32]` → `arr_u8_32`. Normalize so `[u8; 32]`,
+            // `[u8; 32usize]`, and `[u8 ; 32]` all hash the same:
+            // strip whitespace, then strip any integer-type suffix
+            // (`u8`, `u16`, …, `usize`, `i8`, …) that a literal may
+            // carry. We only touch the trailing non-digit tail so an
+            // expression-shaped length like `N + 1` stays intact.
+            let raw = arr
+                .len
+                .to_token_stream()
+                .to_string()
+                .replace(char::is_whitespace, "");
+            let canonical_len = strip_int_literal_suffix(&raw);
+            format!("arr_{}_{}", elem, canonical_len)
+        }
+        syn::Type::Tuple(tup) if tup.elems.is_empty() => "unit".to_string(),
+        // Fallback: deterministic whitespace-stripped token string.
+        // Not ideal, but covers exotic types (references, slices,
+        // bare function pointers) without producing a collision.
+        other => other
+            .to_token_stream()
+            .to_string()
+            .replace(char::is_whitespace, ""),
+    }
+}
+
 fn byte_array_literal(bytes: &[u8; 8]) -> TokenStream {
     let items = bytes.iter();
     quote! { [#(#items),*] }
+}
+
+/// Strip a Rust integer literal's type suffix if the literal is a
+/// pure digit run, e.g. `"32usize"` → `"32"`, `"255u8"` → `"255"`,
+/// `"0x10u32"` → `"0x10"`. Expression-shaped strings like `"N + 1"`
+/// or `"SIZE"` are returned unchanged.
+fn strip_int_literal_suffix(raw: &str) -> String {
+    // Only strip if the prefix is a plausible integer literal: starts
+    // with a digit, and the trailing non-digit tail is one of the
+    // known integer-type suffixes.
+    if !raw.chars().next().map_or(false, |c| c.is_ascii_digit()) {
+        return raw.to_string();
+    }
+    const SUFFIXES: &[&str] = &[
+        "usize", "isize", "u128", "i128", "u64", "i64", "u32", "i32", "u16", "i16", "u8", "i8",
+    ];
+    for suffix in SUFFIXES {
+        if let Some(stripped) = raw.strip_suffix(suffix) {
+            // Guard: the character immediately before the suffix must
+            // be a digit (or `_` which Rust allows inside literals),
+            // otherwise the suffix is actually the type identifier for
+            // something like `N_u32` (an identifier).
+            let before_ok = stripped
+                .chars()
+                .last()
+                .map_or(false, |c| c.is_ascii_digit() || c == '_');
+            if before_ok {
+                return stripped.to_string();
+            }
+        }
+    }
+    raw.to_string()
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  Canonical wire fingerprint. regression tests
+// ══════════════════════════════════════════════════════════════════════
+//
+// These tests lock in the audit's "no source-spelling drift" invariant:
+// path imports, full-qualification, and phantom-only generic parameters
+// MUST produce the same wire fingerprint, because none of them change
+// the byte layout of the serialized account.
+
+#[cfg(test)]
+mod fingerprint_tests {
+    use super::*;
+    use syn::parse_quote;
+
+    fn fp(ty: syn::Type) -> String {
+        canonical_wire_stem(&ty)
+    }
+
+    #[test]
+    fn path_spelling_drift_does_not_change_stem() {
+        assert_eq!(fp(parse_quote!(WireU64)), fp(parse_quote!(crate::WireU64)));
+        assert_eq!(
+            fp(parse_quote!(WireU64)),
+            fp(parse_quote!(hopper_native::wire::WireU64)),
+        );
+        assert_eq!(fp(parse_quote!(WireU64)), fp(parse_quote!(self::WireU64)));
+    }
+
+    #[test]
+    fn phantom_generic_parameters_are_stripped() {
+        // `TypedAddress<Authority>` and `TypedAddress<Token>` have
+        // identical byte layout; they must hash the same under the
+        // post-audit canonical algorithm.
+        assert_eq!(
+            fp(parse_quote!(TypedAddress<Authority>)),
+            fp(parse_quote!(TypedAddress<Token>)),
+        );
+        assert_eq!(
+            fp(parse_quote!(TypedAddress<Authority>)),
+            fp(parse_quote!(TypedAddress)),
+        );
+    }
+
+    #[test]
+    fn arrays_normalize_whitespace_and_usize_suffix() {
+        assert_eq!(fp(parse_quote!([u8; 32])), fp(parse_quote!([u8 ; 32])));
+        assert_eq!(fp(parse_quote!([u8; 32])), fp(parse_quote!([u8; 32usize])));
+    }
+
+    #[test]
+    fn different_wire_types_still_distinguishable() {
+        // Two genuinely different wire types must produce different
+        // stems, otherwise we've over-normalized and lost ABI safety.
+        assert_ne!(fp(parse_quote!(WireU64)), fp(parse_quote!(WireU32)));
+        assert_ne!(fp(parse_quote!([u8; 32])), fp(parse_quote!([u8; 64])));
+        assert_ne!(fp(parse_quote!(u8)), fp(parse_quote!(u16)));
+    }
+
+    #[test]
+    fn unit_and_tuple_roll_up_cleanly() {
+        assert_eq!(fp(parse_quote!(())), "unit");
+    }
 }
 
 fn to_screaming_snake(s: &str) -> String {

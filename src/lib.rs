@@ -19,6 +19,7 @@
 
 extern crate proc_macro;
 
+mod migrate;
 mod pod;
 mod state;
 mod context;
@@ -164,4 +165,41 @@ pub fn hopper_pod(attr: TokenStream, item: TokenStream) -> TokenStream {
 #[proc_macro_attribute]
 pub fn pod(attr: TokenStream, item: TokenStream) -> TokenStream {
     hopper_pod(attr, item)
+}
+
+/// Declare a schema-epoch migration edge.
+///
+/// Decorates a function of signature
+/// `fn(&mut [u8]) -> Result<(), ProgramError>` that mutates an
+/// account body in-place from schema epoch `from` to epoch `to`.
+/// The macro emits the fn unchanged plus a paired
+/// `<FN_NAME>_EDGE: hopper_runtime::MigrationEdge` constant so the
+/// layout author can compose edges via `hopper::layout_migrations!`.
+///
+/// Closes Hopper Safety Audit innovation I4 ("Schema epoch with
+/// in-place migration helpers"). Runtime chain application and
+/// atomic-per-edge `schema_epoch` bump live in
+/// `hopper_runtime::migrate`.
+///
+/// # Example
+///
+/// ```ignore
+/// #[hopper::migrate(from = 1, to = 2)]
+/// pub fn vault_v1_to_v2(body: &mut [u8]) -> ProgramResult {
+///     // Reinterpret bytes to match the epoch-2 shape.
+///     Ok(())
+/// }
+/// ```
+#[proc_macro_attribute]
+pub fn hopper_migrate(attr: TokenStream, item: TokenStream) -> TokenStream {
+    migrate::expand(attr.into(), item.into())
+        .unwrap_or_else(|e| e.to_compile_error())
+        .into()
+}
+
+/// Short alias: `#[hopper::migrate]`. Functionally identical to
+/// `#[hopper_migrate]`.
+#[proc_macro_attribute]
+pub fn migrate(attr: TokenStream, item: TokenStream) -> TokenStream {
+    hopper_migrate(attr, item)
 }
