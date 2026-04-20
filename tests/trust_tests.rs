@@ -218,6 +218,8 @@ fn cpi_guard_empty_sysvar_rejects() {
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
 struct Entry8([u8; 8]);
 
+unsafe impl ::hopper_runtime::__hopper_native::bytemuck::Zeroable for Entry8 {}
+unsafe impl ::hopper_runtime::__hopper_native::bytemuck::Pod for Entry8 {}
 unsafe impl Pod for Entry8 {}
 impl FixedLayout for Entry8 {
     const SIZE: usize = 8;
@@ -462,6 +464,8 @@ fn slab_too_small_buffer_rejects() {
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 struct Key4([u8; 4]);
 
+unsafe impl ::hopper_runtime::__hopper_native::bytemuck::Zeroable for Key4 {}
+unsafe impl ::hopper_runtime::__hopper_native::bytemuck::Pod for Key4 {}
 unsafe impl Pod for Key4 {}
 impl FixedLayout for Key4 {
     const SIZE: usize = 4;
@@ -475,6 +479,8 @@ impl Key4 {
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 struct Val8([u8; 8]);
 
+unsafe impl ::hopper_runtime::__hopper_native::bytemuck::Zeroable for Val8 {}
+unsafe impl ::hopper_runtime::__hopper_native::bytemuck::Pod for Val8 {}
 unsafe impl Pod for Val8 {}
 impl FixedLayout for Val8 {
     const SIZE: usize = 8;

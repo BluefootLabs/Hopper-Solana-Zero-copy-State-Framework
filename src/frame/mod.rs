@@ -21,7 +21,10 @@
 pub mod phase;
 pub mod args;
 
-use hopper_runtime::{error::ProgramError, AccountView, Address, ProgramResult, Ref, RefMut};
+use hopper_runtime::{
+    error::ProgramError, AccountView, Address, ProgramResult, Ref, RefMut, SegRef, SegRefMut,
+    SegmentLease,
+};
 use hopper_runtime::segment_borrow::SegmentBorrowRegistry;
 use crate::account::SliceCursor;
 use crate::account::{Pod, FixedLayout, HEADER_LEN};
@@ -179,17 +182,15 @@ impl<'a> Frame<'a> {
     ///   alignment-1, no padding).
     /// - Bounds are checked at runtime.
     /// - Borrow conflicts are checked at runtime.
-    /// - The returned guard owns the underlying borrow; dropping it
-    ///   releases the read borrow on the account state byte. **Earlier
-    ///   versions of this method dropped the byte-slice guard before
-    ///   returning the typed reference, leaving a dangling pointer
-    ///   tracked by stale borrow state — this version fixes that.**
+    /// - The returned [`SegRef<T>`] owns both the byte-slice borrow and
+    ///   a RAII lease on the segment registry entry. Dropping it
+    ///   releases **both** — no sticky-ledger residue from post-audit.
     #[inline]
-    pub fn segment_ref<T: Pod + FixedLayout>(
-        &mut self,
+    pub fn segment_ref<'f, T: Pod + FixedLayout>(
+        &'f mut self,
         index: usize,
         offset: u32,
-    ) -> Result<Ref<'_, T>, ProgramError> {
+    ) -> Result<SegRef<'f, T>, ProgramError> {
         let view = self.accounts.get(index).ok_or(ProgramError::NotEnoughAccountKeys)?;
         let data = view.try_borrow()?;
 
@@ -203,19 +204,24 @@ impl<'a> Frame<'a> {
             return Err(ProgramError::AccountDataTooSmall);
         }
 
-        self.segment_borrows.register_read(
+        let borrow = self.segment_borrows.register_leased_read(
             view.address(),
             abs_offset,
             T::SIZE as u32,
         )?;
 
         // SAFETY: T is Pod + FixedLayout (all bit patterns valid, align-1).
-        // Bounds checked above. The pointer lives inside the byte slice
-        // owned by `data`; `Ref::project` consumes `data` and produces a
-        // `Ref<T>` that keeps the underlying account borrow alive for the
-        // returned reference's lifetime.
+        // Bounds checked above. `Ref::project` consumes the byte-slice
+        // guard and yields a `Ref<T>` whose lifetime is tied to the
+        // account borrow; the `SegmentLease` we build immediately after
+        // releases the registry entry on drop.
         let ptr = unsafe { data.as_bytes_ptr().add(abs_offset as usize) as *const T };
-        Ok(unsafe { data.project(ptr) })
+        let inner: Ref<'f, T> = unsafe { data.project(ptr) };
+        // SAFETY: `borrow` was just registered in `self.segment_borrows`;
+        // the lease is the sole releaser for that entry.
+        let lease: SegmentLease<'f> =
+            unsafe { SegmentLease::new(&mut self.segment_borrows, borrow) };
+        Ok(SegRef::new(inner, lease))
     }
 
     /// Get a mutable typed reference to a segment of an account's data.
@@ -236,8 +242,10 @@ impl<'a> Frame<'a> {
     /// - T must be `Pod + FixedLayout`.
     /// - Bounds are checked at runtime.
     /// - Borrow conflicts are checked at runtime.
-    /// - The returned `RefMut<T>` keeps the exclusive borrow alive for
-    ///   its full lifetime — no naked `&mut T` over a released guard.
+    /// - The returned [`SegRefMut<T>`] carries both the account-level
+    ///   exclusive byte guard and a RAII registry lease — dropping it
+    ///   releases the full borrow cleanly, so sequential patterns on
+    ///   the same segment compose like ordinary Rust borrows.
     ///
     /// # Example
     ///
@@ -246,17 +254,17 @@ impl<'a> Frame<'a> {
     /// {
     ///     let mut balance = frame.segment_mut::<WireU64>(0, 32)?;
     ///     balance.set(balance.get() + amount);
-    /// } // RefMut drops here, releasing the borrow.
+    /// } // SegRefMut drops here, releasing both guards.
     ///
-    /// // Now we can re-borrow another segment safely.
-    /// let mut metadata = frame.segment_mut::<VaultMetadata>(0, 40)?;
+    /// // Now we can re-borrow the same (or a different) segment safely.
+    /// let mut balance_again = frame.segment_mut::<WireU64>(0, 32)?;
     /// ```
     #[inline]
-    pub fn segment_mut<T: Pod + FixedLayout>(
-        &mut self,
+    pub fn segment_mut<'f, T: Pod + FixedLayout>(
+        &'f mut self,
         index: usize,
         offset: u32,
-    ) -> Result<RefMut<'_, T>, ProgramError> {
+    ) -> Result<SegRefMut<'f, T>, ProgramError> {
         let view = self.accounts.get(index).ok_or(ProgramError::NotEnoughAccountKeys)?;
 
         // Check writable before doing anything else.
@@ -275,18 +283,21 @@ impl<'a> Frame<'a> {
             return Err(ProgramError::AccountDataTooSmall);
         }
 
-        self.segment_borrows.register_write(
+        let borrow = self.segment_borrows.register_leased_write(
             view.address(),
             abs_offset,
             T::SIZE as u32,
         )?;
 
-        // SAFETY: as above; `RefMut::project` consumes the byte-slice
-        // RefMut and produces a `RefMut<T>` that holds the exclusive
-        // account borrow for its lifetime.
+        // SAFETY: as above; the projected `RefMut<T>` inherits the
+        // byte-slice exclusive borrow, and the lease ensures the
+        // registry entry is swap-removed on drop.
         let bytes_ptr = (&*data) as *const [u8] as *mut [u8] as *mut u8;
         let ptr = unsafe { bytes_ptr.add(abs_offset as usize) as *mut T };
-        Ok(unsafe { data.project(ptr) })
+        let inner: RefMut<'f, T> = unsafe { data.project(ptr) };
+        let lease: SegmentLease<'f> =
+            unsafe { SegmentLease::new(&mut self.segment_borrows, borrow) };
+        Ok(SegRefMut::new(inner, lease))
     }
 
     /// Unsafe escape hatch for performance-critical paths.
@@ -485,6 +496,8 @@ mod audit_tests {
         value: u64,
     }
 
+    unsafe impl hopper_runtime::__hopper_native::bytemuck::Zeroable for Counter {}
+    unsafe impl hopper_runtime::__hopper_native::bytemuck::Pod for Counter {}
     unsafe impl hopper_runtime::Pod for Counter {}
 
     impl crate::account::FixedLayout for Counter {
@@ -540,10 +553,11 @@ mod audit_tests {
         let mut frame = new_frame(&hopper_program_id, &accounts);
 
         {
-            let mut counter: RefMut<'_, Counter> =
+            let mut counter: SegRefMut<'_, Counter> =
                 frame.segment_mut::<Counter>(0, 0).unwrap();
             counter.value = 7;
-            // counter (and its held byte-slice RefMut) drops here.
+            // counter (SegRefMut with byte-slice guard AND registry
+            // lease) drops here, releasing both.
         }
 
         // Reopen the account through the account-view path; the
@@ -579,7 +593,43 @@ mod audit_tests {
         let accounts = [account];
         let mut frame = new_frame(&hopper_program_id, &accounts);
 
-        let reader: Ref<'_, Counter> = frame.segment_ref::<Counter>(0, 0).unwrap();
+        let reader: SegRef<'_, Counter> = frame.segment_ref::<Counter>(0, 0).unwrap();
         assert_eq!(reader.value, 99);
+    }
+
+    /// Audit regression: post-fix, dropping a `SegRefMut` from
+    /// `Frame::segment_mut` must release the segment-registry lease so
+    /// a sequential re-acquire on the same region succeeds. Pre-audit
+    /// the sticky ledger blocked this for the rest of the instruction.
+    #[test]
+    fn frame_segment_lease_releases_on_drop() {
+        let (_backing, account) = make_account(HEADER_LEN + 8, 3);
+        let program_id = NativeAddress::new_from_array([9; 32]);
+        let hopper_program_id =
+            unsafe { core::mem::transmute::<NativeAddress, Address>(program_id) };
+        let accounts = [account];
+        let mut frame = new_frame(&hopper_program_id, &accounts);
+
+        // First write.
+        {
+            let mut w: SegRefMut<'_, Counter> =
+                frame.segment_mut::<Counter>(0, 0).unwrap();
+            w.value = 50;
+        }
+        assert_eq!(frame.segment_borrows().len(), 0);
+
+        // Second write on the same region — pre-audit this returned
+        // `AccountBorrowFailed`; now it succeeds because the prior
+        // lease has been released.
+        {
+            let mut w: SegRefMut<'_, Counter> =
+                frame.segment_mut::<Counter>(0, 0).unwrap();
+            assert_eq!(w.value, 50);
+            w.value = 77;
+        }
+        assert_eq!(frame.segment_borrows().len(), 0);
+
+        let r: SegRef<'_, Counter> = frame.segment_ref::<Counter>(0, 0).unwrap();
+        assert_eq!(r.value, 77);
     }
 }

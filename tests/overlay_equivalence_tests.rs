@@ -34,6 +34,8 @@ struct SmallPod {
 const _: () = assert!(core::mem::size_of::<SmallPod>() == 4);
 const _: () = assert!(core::mem::align_of::<SmallPod>() == 1);
 
+unsafe impl ::hopper_runtime::__hopper_native::bytemuck::Zeroable for SmallPod {}
+unsafe impl ::hopper_runtime::__hopper_native::bytemuck::Pod for SmallPod {}
 unsafe impl Pod for SmallPod {}
 impl FixedLayout for SmallPod {
     const SIZE: usize = 4;
@@ -52,6 +54,8 @@ struct TestLayout {
 const _: () = assert!(core::mem::size_of::<TestLayout>() == 24);
 const _: () = assert!(core::mem::align_of::<TestLayout>() == 1);
 
+unsafe impl ::hopper_runtime::__hopper_native::bytemuck::Zeroable for TestLayout {}
+unsafe impl ::hopper_runtime::__hopper_native::bytemuck::Pod for TestLayout {}
 unsafe impl Pod for TestLayout {}
 impl FixedLayout for TestLayout {
     const SIZE: usize = 24;
