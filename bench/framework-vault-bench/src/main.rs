@@ -20,6 +20,15 @@ const PINOCCHIO_PROGRAM_ID: Address = Address::new_from_array([
     0xdc, 0x33, 0x25, 0x75, 0xd1, 0x5f, 0xa3, 0x9a, 0x0f, 0x1d, 0xf1, 0x5e, 0xe0, 0x8f, 0xb8,
     0x23, 0xee,
 ]);
+// Deterministic Anchor-framework program ID for the cross-framework
+// comparison matrix. Distinct from the other slots so Mollusk can
+// distinguish calls. See `bench/METHODOLOGY.md` for the shared
+// contract the anchor vault must implement.
+const ANCHOR_PROGRAM_ID: Address = Address::new_from_array([
+    0xa7, 0xcb, 0x04, 0x12, 0xe8, 0x55, 0x6f, 0x91, 0x3b, 0x0c, 0xaa, 0xfe, 0x22, 0x40, 0x44,
+    0x56, 0x8d, 0x1e, 0x63, 0x7a, 0x04, 0xcd, 0x15, 0x87, 0xbe, 0xef, 0x00, 0x00, 0xfa, 0xde,
+    0xd1, 0xee,
+]);
 const SYSTEM_PROGRAM_ID: Address = Address::new_from_array([0; 32]);
 
 const USER_LAMPORTS: u64 = 10_000_000_000;
@@ -84,6 +93,10 @@ struct ProgramSpec {
 
 struct Args {
     quasar_root: PathBuf,
+    /// Optional anchor-vault build root. When provided, an
+    /// `anchor` framework entry is appended to the measurement
+    /// matrix. See `bench/METHODOLOGY.md` for the shared contract.
+    anchor_root: Option<PathBuf>,
     out_dir: PathBuf,
 }
 
@@ -98,7 +111,14 @@ fn run() -> Result<(), String> {
     let args = parse_args()?;
     let workspace_root = workspace_root()?;
 
-    let specs = [
+    // Audit D4 closure: Hopper is the baseline. Quasar + pinocchio-style
+    // are required by the legacy bench contract (quasar_root supplies
+    // both). Anchor is optional — pass `--anchor-root <path>` and the
+    // anchor_vault.so there is included in the matrix. Frameworks whose
+    // binaries are missing are skipped and logged rather than erroring
+    // out; partial runs are valid during development. CI builds require
+    // every framework to be present (see `bench/METHODOLOGY.md`).
+    let mut specs: Vec<ProgramSpec> = vec![
         ProgramSpec {
             framework: "hopper",
             program_id: HOPPER_PROGRAM_ID,
@@ -115,10 +135,29 @@ fn run() -> Result<(), String> {
             binary_path: args.quasar_root.join("target/deploy/pinocchio_vault.so"),
         },
     ];
-
-    for spec in &specs {
-        ensure_file(&spec.binary_path)?;
+    if let Some(anchor_root) = &args.anchor_root {
+        specs.push(ProgramSpec {
+            framework: "anchor",
+            program_id: ANCHOR_PROGRAM_ID,
+            binary_path: anchor_root.join("target/deploy/anchor_vault.so"),
+        });
     }
+
+    // Hopper baseline is required. Other frameworks are skipped with
+    // a log line if their artifact is missing.
+    specs.retain(|spec| match ensure_file(&spec.binary_path) {
+        Ok(()) => true,
+        Err(msg) => {
+            if spec.framework == "hopper" {
+                // Keep the spec so the later baseline-lookup fails loudly.
+                eprintln!("error: {msg}");
+                true
+            } else {
+                eprintln!("skipping framework `{}`: {msg}", spec.framework);
+                false
+            }
+        }
+    });
 
     fs::create_dir_all(&args.out_dir).map_err(|err| {
         format!("failed to create output directory {}: {err}", args.out_dir.display())
@@ -213,6 +252,7 @@ fn run() -> Result<(), String> {
 
 fn parse_args() -> Result<Args, String> {
     let mut quasar_root = None;
+    let mut anchor_root: Option<PathBuf> = None;
     let mut out_dir = None;
     let mut args = env::args().skip(1);
 
@@ -224,6 +264,12 @@ fn parse_args() -> Result<Args, String> {
                     .ok_or_else(|| "missing value for --quasar-root".to_string())?;
                 quasar_root = Some(PathBuf::from(value));
             }
+            "--anchor-root" => {
+                let value = args
+                    .next()
+                    .ok_or_else(|| "missing value for --anchor-root".to_string())?;
+                anchor_root = Some(PathBuf::from(value));
+            }
             "--out-dir" => {
                 let value = args
                     .next()
@@ -232,7 +278,7 @@ fn parse_args() -> Result<Args, String> {
             }
             _ => {
                 return Err(format!(
-                    "unknown argument '{arg}'; expected --quasar-root <path> [--out-dir <path>]"
+                    "unknown argument '{arg}'; expected --quasar-root <path> [--anchor-root <path>] [--out-dir <path>]"
                 ));
             }
         }
@@ -241,6 +287,9 @@ fn parse_args() -> Result<Args, String> {
     let workspace_root = workspace_root()?;
     let quasar_root = quasar_root.ok_or_else(|| "missing required --quasar-root <path>".to_string())?;
     let quasar_root = canonicalize_existing(&quasar_root)?;
+    let anchor_root = anchor_root
+        .map(|p| canonicalize_existing(&p))
+        .transpose()?;
     let out_dir = match out_dir {
         Some(path) if path.is_absolute() => path,
         Some(path) => workspace_root.join(path),
@@ -249,6 +298,7 @@ fn parse_args() -> Result<Args, String> {
 
     Ok(Args {
         quasar_root,
+        anchor_root,
         out_dir,
     })
 }

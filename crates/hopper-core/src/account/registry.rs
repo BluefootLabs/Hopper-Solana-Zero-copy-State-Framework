@@ -621,6 +621,10 @@ mod tests {
         value: u8,
     }
 
+    #[cfg(feature = "hopper-native-backend")]
+    unsafe impl ::hopper_runtime::__hopper_native::bytemuck::Zeroable for Entry8 {}
+    #[cfg(feature = "hopper-native-backend")]
+    unsafe impl ::hopper_runtime::__hopper_native::bytemuck::Pod for Entry8 {}
     unsafe impl crate::account::Pod for Entry8 {}
 
     impl crate::account::FixedLayout for Entry8 {

@@ -1,0 +1,5 @@
+error: #[account(seeds = ...)] requires `bump` (or `bump = <stored_byte>`)
+  --> tests/compile_fail/state_seeds_no_bump.rs:21:9
+   |
+21 |     pub vault: Vault,
+   |         ^^^^^

@@ -413,11 +413,11 @@ const _: () = {
     assert!(
         core::mem::size_of::<Ref<'static, u64>>()
             == core::mem::size_of::<usize>() * 2,
-        "Ref<T: Sized> on Solana must be exactly {ptr, state} = 2 words",
+        "Ref<T: Sized> on Solana must be exactly (ptr, state) = 2 words",
     );
     assert!(
         core::mem::size_of::<RefMut<'static, u64>>()
             == core::mem::size_of::<usize>() * 2,
-        "RefMut<T: Sized> on Solana must be exactly {ptr, state} = 2 words",
+        "RefMut<T: Sized> on Solana must be exactly (ptr, state) = 2 words",
     );
 };

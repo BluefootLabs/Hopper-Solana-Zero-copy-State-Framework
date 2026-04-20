@@ -21,13 +21,25 @@ use crate::ProgramResult;
 
 /// The canonical 16-byte header at the start of every Hopper account.
 ///
+/// The Hopper Safety Audit's "header epoching" recommendation asked
+/// the reserved tail to carry a `schema_epoch: u32` so the runtime
+/// can distinguish schema-compatible minor versions from wire-
+/// incompatible revisions without bumping the single `version` byte.
+///
 /// ```text
-/// byte 0     : discriminator (u8)
+/// byte 0     : disc (u8)
 /// byte 1     : version (u8)
 /// bytes 2-3  : flags (u16 LE)
-/// bytes 4-11 : layout_id (first 8 bytes of SHA-256 fingerprint)
-/// bytes 12-15: reserved
+/// bytes 4-11 : layout_id (first 8 bytes of canonical wire fingerprint)
+/// bytes 12-15: schema_epoch (u32 LE) — audit-added
 /// ```
+///
+/// `schema_epoch` defaults to `1` at account initialisation via
+/// [`init_header`]. Programs that publish a migration bump this
+/// field to advertise the new shape while retaining the same
+/// `disc`/`version`; on-chain manifests (future work) pin the
+/// `(disc, version, schema_epoch, layout_id)` tuple so clients can
+/// verify they're reading the expected wire format.
 #[repr(C, packed)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct HopperHeader {
@@ -35,7 +47,9 @@ pub struct HopperHeader {
     pub version: u8,
     pub flags: u16,
     pub layout_id: [u8; 8],
-    pub reserved: [u8; 4],
+    /// Schema-evolution epoch. Little-endian u32. `1` for freshly
+    /// initialised headers; bumped by migration helpers.
+    pub schema_epoch: u32,
 }
 
 impl HopperHeader {
@@ -77,6 +91,11 @@ pub struct LayoutInfo {
     pub version: u8,
     pub flags: u16,
     pub layout_id: [u8; 8],
+    /// Schema-evolution epoch read from the header's bytes 12..16.
+    /// A value of `0` means "legacy" (pre-audit accounts) and is
+    /// treated as equivalent to `DEFAULT_SCHEMA_EPOCH` when comparing
+    /// against `AccountLayout::SCHEMA_EPOCH`.
+    pub schema_epoch: u32,
     pub data_len: usize,
 }
 
@@ -85,11 +104,16 @@ impl LayoutInfo {
     #[inline(always)]
     pub fn from_data(data: &[u8]) -> Option<Self> {
         let hdr = HopperHeader::from_bytes(data)?;
+        // Packed-struct field reads must go through a copy — reading
+        // an unaligned `u32` reference directly is undefined behaviour.
+        let schema_epoch = hdr.schema_epoch;
+        let layout_id = hdr.layout_id;
         Some(Self {
             disc: hdr.disc,
             version: hdr.version,
             flags: hdr.flags,
-            layout_id: hdr.layout_id,
+            layout_id,
+            schema_epoch,
             data_len: data.len(),
         })
     }
@@ -272,6 +296,7 @@ pub trait LayoutContract: Sized + Copy + FieldMap {
             version: Self::VERSION,
             flags: 0,
             layout_id: Self::LAYOUT_ID,
+            schema_epoch: DEFAULT_SCHEMA_EPOCH,
             data_len: Self::required_len(),
         }
     }
@@ -317,9 +342,19 @@ pub fn read_flags(data: &[u8]) -> Option<u16> {
     }
 }
 
+/// Default schema-evolution epoch written by `init_header`.
+///
+/// Accounts initialised by pre-audit Hopper had the epoch region
+/// zeroed, so `0` is treated as "legacy, equivalent to 1" by the
+/// runtime checks that compare against an `AccountLayout::SCHEMA_EPOCH`.
+/// Freshly-initialised accounts now carry `1` so migrations can bump
+/// monotonically without any lookback.
+pub const DEFAULT_SCHEMA_EPOCH: u32 = 1;
+
 /// Write a complete Hopper header to the beginning of `data`.
 ///
-/// Writes discriminator, version, flags (zeroed), layout_id, and reserved (zeroed).
+/// Writes disc, version, flags (zeroed), layout_id, and the
+/// audit-added `schema_epoch = 1` (bytes 12..16).
 /// Returns `Err` if `data` is shorter than 16 bytes.
 #[inline(always)]
 pub fn write_header(
@@ -327,6 +362,23 @@ pub fn write_header(
     disc: u8,
     version: u8,
     layout_id: &[u8; 8],
+) -> ProgramResult {
+    write_header_with_epoch(data, disc, version, layout_id, DEFAULT_SCHEMA_EPOCH)
+}
+
+/// Write a Hopper header with a caller-specified schema epoch.
+///
+/// Used by migration helpers that need to stamp a new epoch while
+/// preserving `disc`/`version`/`layout_id`. Regular account creation
+/// should go through [`write_header`] (which defaults the epoch to
+/// `1`) or [`init_header`].
+#[inline(always)]
+pub fn write_header_with_epoch(
+    data: &mut [u8],
+    disc: u8,
+    version: u8,
+    layout_id: &[u8; 8],
+    schema_epoch: u32,
 ) -> ProgramResult {
     if data.len() < 16 {
         return Err(ProgramError::AccountDataTooSmall);
@@ -336,13 +388,32 @@ pub fn write_header(
     data[2] = 0;
     data[3] = 0;
     data[4..12].copy_from_slice(layout_id);
-    data[12..16].copy_from_slice(&[0u8; 4]);
+    data[12..16].copy_from_slice(&schema_epoch.to_le_bytes());
     Ok(())
+}
+
+/// Read the `schema_epoch` field from an already-written header.
+///
+/// Returns `None` if `data` is too short. Returns the stored value
+/// verbatim — callers that want the "0 means legacy" compatibility
+/// rule should apply it themselves:
+///
+/// ```ignore
+/// let stored = read_schema_epoch(data)?;
+/// let effective = if stored == 0 { DEFAULT_SCHEMA_EPOCH } else { stored };
+/// ```
+#[inline(always)]
+pub fn read_schema_epoch(data: &[u8]) -> Option<u32> {
+    if data.len() < 16 {
+        return None;
+    }
+    Some(u32::from_le_bytes([data[12], data[13], data[14], data[15]]))
 }
 
 /// Initialize an account's header from a layout contract type.
 ///
-/// Convenience wrapper that pulls disc, version, and layout_id from the type.
+/// Convenience wrapper that pulls disc, version, and layout_id from
+/// the type and stamps `schema_epoch = DEFAULT_SCHEMA_EPOCH`.
 #[inline(always)]
 pub fn init_header<T: LayoutContract>(data: &mut [u8]) -> ProgramResult {
     write_header(data, T::DISC, T::VERSION, &T::LAYOUT_ID)

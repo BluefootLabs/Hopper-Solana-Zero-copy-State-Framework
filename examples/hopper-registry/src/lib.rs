@@ -91,6 +91,10 @@ struct AuditRecord {
 const _: () = assert!(core::mem::size_of::<AuditRecord>() == 52);
 const _: () = assert!(core::mem::align_of::<AuditRecord>() == 1);
 
+// Hopper's Pod supertrait requires bytemuck; both impls are safe
+// because `#[repr(C)]` of byte-array fields is bytemuck-safe.
+unsafe impl hopper::hopper_runtime::__hopper_native::bytemuck::Zeroable for AuditRecord {}
+unsafe impl hopper::hopper_runtime::__hopper_native::bytemuck::Pod for AuditRecord {}
 // SAFETY: #[repr(C)] of byte arrays, all bit patterns valid, align == 1.
 unsafe impl Pod for AuditRecord {}
 impl FixedLayout for AuditRecord {

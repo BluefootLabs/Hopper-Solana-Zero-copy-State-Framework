@@ -39,15 +39,11 @@ use crate::project::Projectable;
 
 /// Read a `Projectable` field from account data at the given byte offset.
 ///
-/// **Unsafe escape hatch.** `Projectable` only requires `Copy + 'static`,
-/// which is too permissive to protect against padding/alignment bugs in
-/// user structs. The Hopper Safety Audit marks this path as Tier C: the
-/// caller asserts the full POD contract (no padding, align-1, all-bits-
-/// valid, no interior pointers) by implementing `Projectable`. New code
-/// should prefer [`read_field_pod`] which enforces the stronger
-/// [`crate::Pod`] bound at the type level, and the generic convenience
-/// helpers `read_address` / `read_le_u64` / `read_le_u32` below which
-/// don't take a type parameter at all.
+/// **Tier-C escape hatch** per the Hopper Safety Audit. `Projectable`
+/// only requires `Copy + 'static`, which is too permissive to protect
+/// against padding/alignment bugs. New code should prefer
+/// [`read_field_pod`] which enforces the stronger [`crate::Pod`]
+/// bound at the type level.
 #[inline]
 pub fn read_field<T: Projectable>(
     account: &AccountView,

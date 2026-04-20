@@ -69,6 +69,16 @@ pub mod introspect;
 pub mod mem;
 pub mod lazy;
 pub mod capability;
+/// Cross-program projection lens traits (`Projectable`, `SafeProjectable`).
+///
+/// **Tier-C escape hatch** per the Hopper Safety Audit. The module
+/// stays compiled because other low-level helpers (wire overlays,
+/// typed return-data, the `expert` tier) use `Projectable` internally,
+/// but its public re-export is gated behind the default-on
+/// `legacy-projectable` feature. New code should prefer `Pod`-bounded
+/// helpers (`lens::read_field_pod`, the `ZeroCopy` trait family in
+/// `hopper-runtime`, `AccountView::segment_ref`/`segment_mut`).
+#[doc(hidden)]
 pub mod project;
 pub mod budget;
 pub mod hash;
@@ -100,11 +110,21 @@ pub use error::ProgramError;
 pub use account_view::AccountView;
 pub use borrow::{Ref, RefMut};
 pub use pod::Pod;
+
+// Re-export bytemuck so downstream macros can reference it through
+// the hopper dependency chain without every user adding bytemuck to
+// their own Cargo.toml. `#[hopper::state]` / `#[hopper::pod]` emit
+// `#[derive(::hopper::__runtime::__hopper_native::bytemuck::Pod, ...)]`
+// which resolves here.
+#[cfg(feature = "bytemuck")]
+#[doc(hidden)]
+pub use bytemuck;
 pub use raw_account::RuntimeAccount;
 
 // Innovation re-exports.
 pub use lazy::LazyContext;
 pub use capability::{SignerView, WritableView, MutableView, OwnedView, ReadonlyView, ExecutableView};
+#[cfg(feature = "legacy-projectable")]
 pub use project::Projectable;
 pub use budget::CuBudget;
 pub use return_data::ReturnData;

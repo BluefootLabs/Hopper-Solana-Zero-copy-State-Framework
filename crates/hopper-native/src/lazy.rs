@@ -221,19 +221,17 @@ impl LazyContext {
                 // Duplicate: references an earlier account.
                 let original_idx = dup_marker as usize;
                 self.cursor = self.cursor.add(8); // skip 8-byte padding
-                if original_idx < self.parsed_count {
-                    self.resolved[original_idx].clone()
-                } else {
-                    // Invalid duplicate index: references an account that
-                    // has not been parsed yet. This indicates a malformed
-                    // transaction input buffer.
-                    //
-                    // Return the first account as a safe fallback rather than
-                    // reading uninitialized memory. The runtime will reject
-                    // such transactions anyway, but we must not panic or
-                    // read garbage here.
-                    self.resolved[0].clone()
+                // The loader guarantees duplicate markers refer to
+                // **previously parsed** slots. A marker that points at
+                // ourselves or forward is malformed loader input —
+                // pre-audit we returned `self.resolved[0]` which is a
+                // zeroed `AccountView` until a real account has been
+                // parsed, silently handing out a null-pointer view. The
+                // Hopper Safety Audit flagged this; we now trap.
+                if original_idx >= self.parsed_count {
+                    crate::raw_input::malformed_duplicate_marker(dup_marker, self.parsed_count);
                 }
+                self.resolved[original_idx].clone()
             }
         }
     }

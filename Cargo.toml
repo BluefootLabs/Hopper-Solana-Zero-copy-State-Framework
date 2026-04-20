@@ -102,6 +102,9 @@ hopper-schema = { path = "crates/hopper-schema", version = "0.1.0", default-feat
 hopper-solana = { path = "crates/hopper-solana", version = "0.1.0", default-features = false }
 hopper-macros-proc = { workspace = true, optional = true }
 
+[dev-dependencies]
+trybuild = "1"
+
 [features]
 default = ["hopper-native-backend", "advanced", "collections"]
 proc-macros = ["hopper-macros-proc"]

@@ -18,7 +18,7 @@ name = "hopper_runtime"
 [features]
 default = ["hopper-native-backend"]
 
-hopper-native-backend = ["hopper-native", "hopper-native/cpi"]
+hopper-native-backend = ["hopper-native", "hopper-native/cpi", "hopper-native/bytemuck", "dep:bytemuck"]
 pinocchio-backend = ["pinocchio", "pinocchio-system", "pinocchio-token"]
 solana-program-backend = ["solana-program"]
 
@@ -29,6 +29,11 @@ copy = []
 [dependencies]
 hopper-native = { workspace = true, optional = true, default-features = false }
 five8_const = "0.1"
+# bytemuck is brought in transitively via hopper-native when the
+# native backend is active, but we also need direct access here to
+# emit `unsafe impl bytemuck::Pod` on runtime-owned types like
+# `Address`. `default-features = false` keeps this no_std-friendly.
+bytemuck = { version = "1", default-features = false, optional = true }
 
 pinocchio = { workspace = true, optional = true }
 pinocchio-system = { workspace = true, optional = true }

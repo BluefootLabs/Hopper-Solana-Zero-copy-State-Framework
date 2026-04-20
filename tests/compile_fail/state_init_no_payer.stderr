@@ -1,0 +1,5 @@
+error: #[account(init)] requires `payer = <field>`
+  --> tests/compile_fail/state_init_no_payer.rs:18:9
+   |
+18 |     pub vault: Vault,
+   |         ^^^^^

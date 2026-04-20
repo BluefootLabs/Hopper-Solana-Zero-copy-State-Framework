@@ -1,0 +1,5 @@
+error[E0080]: evaluation panicked: #[hopper::pod] struct `Padded` must be alignment-1 (use Hopper wire types such as WireU64, WireI32, or TypedAddress<T> instead of raw u64/i32/Pubkey).
+  --> tests/compile_fail/pod_padded_u64.rs:10:1
+   |
+10 | #[pod]
+   | ^^^^^^ evaluation of `_` failed here

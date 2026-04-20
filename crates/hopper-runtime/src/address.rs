@@ -34,11 +34,16 @@ pub struct Address(pub(crate) [u8; 32]);
 // SAFETY: `Address` is `#[repr(transparent)]` over `[u8; 32]`, so it
 // inherits the POD contract of its inner type exactly:
 // - Every byte pattern is valid (no niches).
-// - Alignment is 1.
+// - Alignment is 1 (inherits `[u8; 32]`'s alignment).
 // - No padding, no drop glue, no interior pointers.
-// This makes `Address` a first-class overlay type for zero-copy access —
-// a common pattern for authority / mint / program-id fields — without
-// requiring callers to spell out the raw `[u8; 32]` form.
+// Under `feature = "hopper-native-backend"` (default) `hopper_native::Pod`
+// is a sub-trait of `bytemuck::Pod + bytemuck::Zeroable`, so we
+// satisfy those two as well with the same justification.
+#[cfg(feature = "hopper-native-backend")]
+unsafe impl bytemuck::Zeroable for Address {}
+#[cfg(feature = "hopper-native-backend")]
+unsafe impl bytemuck::Pod for Address {}
+
 unsafe impl crate::pod::Pod for Address {}
 
 impl Address {

@@ -1,0 +1,8 @@
+error: #[hopper::pod] requires #[repr(C)] or #[repr(transparent)] so the zero-copy overlay has a stable layout
+  --> tests/compile_fail/pod_missing_repr.rs:8:1
+   |
+8  | / #[derive(Copy, Clone)]
+9  | | pub struct NoRepr {
+10 | |     pub value: u32,
+11 | | }
+   | |_^

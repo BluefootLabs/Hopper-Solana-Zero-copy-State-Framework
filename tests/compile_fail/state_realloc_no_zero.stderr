@@ -1,0 +1,5 @@
+error: #[account(realloc = ...)] requires an explicit `realloc_zero` policy (use `realloc_zero = true` to zero the newly-allocated bytes)
+  --> tests/compile_fail/state_realloc_no_zero.rs:23:9
+   |
+23 |     pub vault: Vault,
+   |         ^^^^^

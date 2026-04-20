@@ -94,7 +94,7 @@ pub struct Vault {
 // - const VAULT_AUTHORITY_SIZE: u32 = 32;
 // - const VAULT_BALANCE_OFFSET: u32 = 32;
 // - const VAULT_BALANCE_SIZE: u32 = 8;
-// ... etc
+// .. etc
 ```
 
 Proc `state` layouts are body-only zero-copy views. Use `#[repr(C)]` and
@@ -126,16 +126,16 @@ surface also emits whole-layout mutation accessors such as
 segment escapes like `ctx.vault_segment_mut::<WireU64>(abs_offset)` that
 share the same const-offset lowering as the named accessors.
 
-Opt-in handler attributes — `#[hopper::receipt]`, `#[hopper::invariant(..)]`,
-and the duplicate-check `#[hopper::pipeline]` — layer additional guarantees
-on top of the same access model. They are sugar, not structure; see
+Opt-in handler attributes (`#[hopper::receipt]`, `#[hopper::invariant(..)]`,
+and the duplicate-check `#[hopper::pipeline]`) layer additional guarantees
+on top of the same access model. They are sugar, not structure. See
 [docs/HOPPER_LANG.md](docs/HOPPER_LANG.md) for the full list.
 
 ## Program Lifecycle (advanced)
 
 Beyond the one access model, Hopper surfaces an optional lifecycle for
 protocols that want post-mutation invariants, structured receipts, and
-migration tooling. This is **opt-in** — the access model stands alone.
+migration tooling. This is **opt-in**. The access model stands alone.
 
 ```
 1. Define     Layout your state with hopper_layout!
@@ -150,7 +150,7 @@ migration tooling. This is **opt-in** — the access model stands alone.
 
 Simple programs use steps 1, 3, and 4 and skip the rest. Complex protocols
 layer in `#[hopper::receipt]`, `#[hopper::invariant]`, and the manager
-tooling as needed. None of these steps are separate frameworks — they are
+tooling as needed. None of these steps are separate frameworks. They are
 opt-in guarantees on top of the same access model.
 
 ## Access Guarantees
@@ -231,7 +231,7 @@ Record what happened:
 
 ```rust
 let mut receipt = StateReceipt::<256>::begin(&Vault::LAYOUT_ID, data);
-// ... mutations ...
+// .. mutations ...
 receipt.commit_with_segments(data, &[(offset, size)]);
 receipt.set_policy_flags(DEPOSIT_CAPS.bits());
 receipt.set_invariants(true, 1);
@@ -490,12 +490,14 @@ from the same state model.
 | Withdraw | **455 CU** | 605 CU | 2567 CU |
 | **Binary size** | **7.62 KiB** | 8.36 KiB | 10.13 KiB |
 
-**Hopper beats Quasar on 4 of 5 instructions** while providing 47+ safety
-mechanisms vs Quasar's ~10. Hopper's counter-access uses `segment_ref` and
-`segment_mut` with segment-level borrow tracking. Quasar and Pinocchio use
-raw byte slicing with no conflict detection. The verify-only PDA path (sha256
-only, no `curve_validate` syscall) saves ~350 CU per PDA-bearing instruction.
-Hopper produces the **smallest binary** of all three frameworks.
+**Hopper beats Quasar on 4 of 5 instructions** on the parity-vault bench.
+Hopper's counter-access uses `segment_ref` and `segment_mut` with
+segment-level borrow tracking. Quasar and Pinocchio use raw byte slicing
+with no conflict detection. The verify-only PDA path (sha256 only, no
+`curve_validate` syscall) saves ~350 CU per PDA-bearing instruction.
+Hopper produces the **smallest binary** of all three frameworks. Source
+numbers in `bench/results/` and methodology in
+[bench/METHODOLOGY.md](bench/METHODOLOGY.md).
 
 | | Hopper | Anchor zero-copy | Pinocchio | Quasar |
 |---|---|---|---|---|
@@ -587,6 +589,29 @@ CodamaProjection     Ecosystem interop: Codama-shaped instructions,
 The manifest is what the CLI, Manager, and migration planner consume.
 The IDL is what documentation and client SDKs consume.
 The Codama projection is what ecosystem tools (Kinobi, Umi) consume.
+
+## Safety Audit Closure
+
+The Hopper Safety Audit drove a full pass through the framework. Every
+must-fix, should-fix, and structural item is closed in-tree with
+file-and-line evidence in [UNSAFE_INVARIANTS.md](docs/UNSAFE_INVARIANTS.md).
+A summary of the shipping closures:
+
+| Audit item | Where it closes |
+|---|---|
+| Malformed duplicate-account rejection | `crates/hopper-native/src/raw_input.rs` + safe `parse_instruction_frame_checked` |
+| RAII segment leases | `crates/hopper-runtime/src/segment_lease.rs` |
+| Canonical wire fingerprint | `crates/hopper-macros-proc/src/state.rs` canonical_wire_stem |
+| Field-level Pod proof | `__FieldPodProof<T: bytemuck::Pod + Zeroable>` in `pod.rs` + `state.rs` |
+| Compile-fail harness | 10 trybuild fixtures in `tests/compile_fail/` |
+| Fuzzing | `fuzz/` crate with 4 libfuzzer targets |
+| Anchor-grade constraints | `#[hopper::context]` parses init/payer/space/seeds/bump/close/realloc/has_one/owner/address/constraint |
+| Typed wrappers | `Signer<'info>`, `Account<'info, T>`, `InitAccount<'info, T>`, `Program<'info, P>` in `hopper-runtime::account_wrappers` |
+| Schema-epoch migrations | `#[hopper::migrate]` + `hopper::layout_migrations!` + `apply_pending_migrations` |
+| Hybrid serialization | `#[hopper::state(dynamic_tail = T)]` + `TailCodec` |
+| Foreign-account lenses | `ForeignLens<T>` + `ForeignManifest` in `hopper-runtime::foreign` |
+| Multi-target compile | `hopper compile --emit <target>` for rust, ts, kt, idl, codama, schema |
+| Cross-framework bench | `bench/METHODOLOGY.md` + anchor slot in `framework-vault-bench` |
 
 ## Documentation
 

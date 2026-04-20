@@ -1,0 +1,5 @@
+error: #[account(init)] requires `space = <expr>`
+  --> tests/compile_fail/state_init_no_space.rs:19:9
+   |
+19 |     pub vault: Vault,
+   |         ^^^^^

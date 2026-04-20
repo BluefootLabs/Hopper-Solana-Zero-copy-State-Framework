@@ -16,13 +16,34 @@ categories = ["no-std", "embedded"]
 name = "hopper_native"
 
 [features]
-default = ["cpi"]
+# `bytemuck` feature turns on the field-level Pod/Zeroable proof used
+# by `#[hopper::state]` and `#[hopper::pod]` to mechanically verify
+# that every field of a layout is itself zero-copy-safe. This is the
+# Hopper Safety Audit's Must-Fix #5 ("enforce field-level Pod proof
+# at macro expansion time"). Default-on because the safety story is
+# Hopper's headline promise; programs wanting zero dependencies can
+# disable it and fall back to the unsafe-impl-yourself path.
+default = ["cpi", "bytemuck", "legacy-projectable"]
 cpi = []
 copy = []
 cu-trace = []
+bytemuck = ["dep:bytemuck"]
+# `legacy-projectable` exposes the `Projectable` / `SafeProjectable`
+# cross-program lens traits. The Hopper Safety Audit asked these be
+# gated behind a feature and marked Tier-C so new code reaches for
+# `Pod`-bounded helpers (`lens::read_field_pod`, `ZeroCopy`). Default
+# on for backward compatibility; programs that never use the legacy
+# cross-program projection path can disable it for a leaner surface.
+legacy-projectable = []
 
 [dependencies]
 five8_const = { workspace = true }
+# `bytemuck` is no_std, no_alloc, zero-dep at the leaf. It gives
+# Hopper the field-level Pod proof the audit asked for: its derive
+# emits a `const _: fn() = || { ... check every field ... };` that
+# rejects padding, non-Pod fields, and non-aligned primitives at
+# compile time.
+bytemuck = { version = "1", default-features = false, features = ["derive", "min_const_generics"], optional = true }
 
 [lints]
 workspace = true

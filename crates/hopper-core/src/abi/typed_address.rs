@@ -57,8 +57,17 @@ impl<T> core::fmt::Debug for TypedAddress<T> {
 const _: () = assert!(core::mem::size_of::<TypedAddress<()>>() == 32);
 const _: () = assert!(core::mem::align_of::<TypedAddress<()>>() == 1);
 
+// Bytemuck proof (Hopper Safety Audit Must-Fix #5). Blanket over `T`
+// is fine because `TypedAddress<T>` is `#[repr(transparent)]` over
+// `[u8; 32]` and `T` only participates as `PhantomData` — the wire
+// payload doesn't depend on `T` at all.
+#[cfg(feature = "hopper-native-backend")]
+unsafe impl<T: 'static> ::hopper_runtime::__hopper_native::bytemuck::Zeroable for TypedAddress<T> {}
+#[cfg(feature = "hopper-native-backend")]
+unsafe impl<T: Copy + 'static> ::hopper_runtime::__hopper_native::bytemuck::Pod for TypedAddress<T> {}
+
 // SAFETY: #[repr(transparent)] over [u8; 32], all bit patterns valid, align 1.
-unsafe impl<T> crate::account::Pod for TypedAddress<T> {}
+unsafe impl<T: Copy + 'static> crate::account::Pod for TypedAddress<T> {}
 
 impl<T> crate::account::FixedLayout for TypedAddress<T> {
     const SIZE: usize = 32;
@@ -209,6 +218,12 @@ pub struct UntypedAddress(pub [u8; 32]);
 
 const _: () = assert!(core::mem::size_of::<UntypedAddress>() == 32);
 const _: () = assert!(core::mem::align_of::<UntypedAddress>() == 1);
+
+// Bytemuck proof (Hopper Safety Audit Must-Fix #5).
+#[cfg(feature = "hopper-native-backend")]
+unsafe impl ::hopper_runtime::__hopper_native::bytemuck::Zeroable for UntypedAddress {}
+#[cfg(feature = "hopper-native-backend")]
+unsafe impl ::hopper_runtime::__hopper_native::bytemuck::Pod for UntypedAddress {}
 
 // SAFETY: Transparent over [u8; 32], align 1, all bits valid.
 unsafe impl crate::account::Pod for UntypedAddress {}

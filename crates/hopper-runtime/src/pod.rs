@@ -30,17 +30,36 @@
 //! the derived `unsafe impl Pod`. Hand-authored layouts opt in via
 //! `unsafe impl Pod for MyLayout {}`.
 //!
-//! ## Compile-fail demonstration
+//! ## Compile-fail demonstration (Hopper Safety Audit regression)
 //!
-//! A non-Pod type is rejected at the call site:
+//! With the `bytemuck` feature on (default), the following mis-use
+//! patterns are all rejected at compile time. The audit's Must-Fix #5
+//! — "enforce field-level Pod proof at macro expansion time" — is
+//! now mechanically enforced by bytemuck's own `Pod + Zeroable`
+//! bounds, so every zero-copy access path rejects them automatically.
+//!
+//! `bool` is not Pod (the bit patterns `0x02..=0xFF` don't decode to
+//! a valid `bool`):
 //!
 //! ```compile_fail
 //! # use hopper_runtime::{AccountView, segment_borrow::SegmentBorrowRegistry};
 //! # fn example(account: &AccountView, borrows: &mut SegmentBorrowRegistry) {
-//! // `bool` is Copy but has forbidden bit patterns — rejected by Pod.
 //! let _ = account.segment_ref::<bool>(borrows, 16, 1);
 //! # }
 //! ```
+//!
+//! `char` is not Pod (valid Unicode scalar values form a sparse set):
+//!
+//! ```compile_fail
+//! # use hopper_runtime::{AccountView, segment_borrow::SegmentBorrowRegistry};
+//! # fn example(account: &AccountView, borrows: &mut SegmentBorrowRegistry) {
+//! let _ = account.segment_ref::<char>(borrows, 16, 4);
+//! # }
+//! ```
+//!
+//! A `#[repr(C)]` struct with implicit padding is not bytemuck-Pod
+//! — bytemuck's derive / Pod bound rejects the padding bytes because
+//! they'd leak uninitialised data through `bytes_of`:
 //!
 //! ```compile_fail
 //! # use hopper_runtime::{AccountView, segment_borrow::SegmentBorrowRegistry};
@@ -49,19 +68,25 @@
 //! #[repr(C)]
 //! struct Padded {
 //!     a: u8,
-//!     b: u64, // align=8 forces 7 bytes of padding after `a`
+//!     // implicit 7 bytes of padding to align b
+//!     b: u64,
 //! }
-//! // Not marked `unsafe impl Pod` — the segment API rejects it.
 //! let _ = account.segment_ref::<Padded>(borrows, 16, 16);
 //! # }
 //! ```
 //!
-//! A primitive or an `unsafe impl`-opted-in type compiles fine:
+//! A type-level user mis-spelling `unsafe impl Pod for Padded {}`
+//! without also satisfying `bytemuck::Pod + Zeroable` would fail at
+//! the `Pod` supertrait bound. The compile-fail block above exercises
+//! that path: no explicit `impl Pod` exists, and the access-path
+//! generic requires it.
+//!
+//! A well-formed primitive or wire type is accepted:
 //!
 //! ```ignore
 //! # use hopper_runtime::{AccountView, segment_borrow::SegmentBorrowRegistry};
 //! # fn example(account: &AccountView, borrows: &mut SegmentBorrowRegistry) {
-//! let _: Result<hopper_runtime::Ref<'_, u64>, _> =
+//! let _: Result<hopper_runtime::SegRef<'_, u64>, _> =
 //!     account.segment_ref::<u64>(borrows, 16, 8);
 //! # }
 //! ```

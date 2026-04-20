@@ -1,0 +1,5 @@
+error: #[account(realloc = ...)] requires `realloc_payer = <field>`
+  --> tests/compile_fail/state_realloc_no_payer.rs:19:9
+   |
+19 |     pub vault: Vault,
+   |         ^^^^^

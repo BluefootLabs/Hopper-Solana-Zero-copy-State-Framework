@@ -1,0 +1,52 @@
+[package]
+name = "hopper-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+# Keep out of the parent workspace; `cargo-fuzz` drives this crate
+# independently with its own Cargo.lock. Listed as `[workspace]` below
+# so `cargo check` from within `fuzz/` doesn't accidentally escalate
+# up to the main workspace.
+[workspace]
+
+[dependencies]
+libfuzzer-sys = "0.4"
+hopper-native = { path = "../crates/hopper-native" }
+hopper-core = { path = "../crates/hopper-core" }
+hopper-runtime = { path = "../crates/hopper-runtime" }
+hopper-schema = { path = "../crates/hopper-schema" }
+
+[[bin]]
+name = "fuzz_instruction_frame"
+path = "fuzz_targets/fuzz_instruction_frame.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_decode_header"
+path = "fuzz_targets/fuzz_decode_header.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_decode_segments"
+path = "fuzz_targets/fuzz_decode_segments.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_pod_overlay"
+path = "fuzz_targets/fuzz_pod_overlay.rs"
+test = false
+doc = false
+bench = false
+
+[profile.release]
+debug = 1

@@ -1,0 +1,19 @@
+error[E0277]: the trait bound `&'static u8: hopper::hopper_runtime::hopper_native::bytemuck::Pod` is not satisfied
+ --> tests/compile_fail/pod_reference_field.rs:6:1
+  |
+6 | #[pod]
+  | ^^^^^^ the trait `hopper::hopper_runtime::hopper_native::bytemuck::Pod` is not implemented for `&'static u8`
+  |
+  = help: the trait `hopper::hopper_runtime::hopper_native::bytemuck::Pod` is implemented for `u8`
+note: required by a bound in `__FieldPodProof`
+ --> tests/compile_fail/pod_reference_field.rs:6:1
+  |
+6 | #[pod]
+  | ^^^^^^ required by this bound in `__FieldPodProof`
+  = note: this error originates in the attribute macro `pod` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0080]: evaluation panicked: #[hopper::pod] struct `BadRef` must be alignment-1 (use Hopper wire types such as WireU64, WireI32, or TypedAddress<T> instead of raw u64/i32/Pubkey).
+ --> tests/compile_fail/pod_reference_field.rs:6:1
+  |
+6 | #[pod]
+  | ^^^^^^ evaluation of `_` failed here

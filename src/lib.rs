@@ -93,13 +93,23 @@ pub use hopper_macros::{
 };
 pub use hopper_core::hopper_dispatch;
 
+// Audit I4: schema-epoch migration chain composition. `#[macro_export]`
+// macros are always anchored at the defining crate's root, so the
+// user-facing path `hopper::layout_migrations!` requires an explicit
+// re-export here.
+pub use hopper_runtime::layout_migrations;
+
 // Optional proc macro re-exports (enabled with `proc-macros` feature)
 #[cfg(feature = "proc-macros")]
 pub use hopper_macros_proc::{
     context,
     hopper_context,
+    hopper_migrate,
+    hopper_pod,
     hopper_program,
     hopper_state,
+    migrate,
+    pod,
     program,
     state,
 };
@@ -107,6 +117,18 @@ pub use hopper_macros_proc::{
 // Private re-export for generated code to reference runtime types
 #[doc(hidden)]
 pub mod __runtime {
-    pub use hopper_runtime::{Context, Pod, ProgramError, Ref, RefMut};
+    pub use hopper_runtime::{
+        apply_pending_migrations, read_tail, read_tail_len, tail_payload, write_tail,
+        Account, AccountLayout, AccountView, Address, Context, HopperSigner, InitAccount,
+        LayoutMigration, MigrationEdge, Pod, Program, ProgramError, ProgramId, Ref, RefMut,
+        SegRef, SegRefMut, SegmentLease, SystemId, TailCodec,
+    };
+
+    // `#[hopper::state]` and `#[hopper::pod]` emit bytemuck derives
+    // through this path so user code never needs a direct bytemuck
+    // dependency. Gated on the native backend because that's where
+    // the bytemuck re-export lives.
+    #[cfg(feature = "hopper-native-backend")]
+    pub use hopper_runtime::__hopper_native;
 }
 

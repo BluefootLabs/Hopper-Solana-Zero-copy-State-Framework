@@ -378,7 +378,27 @@ impl AccountView {
 
     // ── Close ────────────────────────────────────────────────────────
 
-    /// Close the account: zero lamports and data, set owner to system program.
+    /// Solana System Program address (all-zero pubkey).
+    ///
+    /// Closing an account transfers ownership back to the System
+    /// Program, which is the canonical "no-owner" state on Solana.
+    /// The byte value `[0u8; 32]` and `Address::default()` are
+    /// equivalent, but using this named constant makes the intent
+    /// explicit — per the Hopper Safety Audit which flagged the
+    /// `Address::default()` spelling as documentation drift.
+    pub const SYSTEM_PROGRAM_ID: Address = Address::new_from_array([0u8; 32]);
+
+    /// Close the account: zero lamports and data, reassign owner to
+    /// the System Program.
+    ///
+    /// # Caveat
+    ///
+    /// This low-level routine does **not** verify the caller has
+    /// authority to close the account — Solana's runtime enforces
+    /// owner/writable rules at transaction commit time regardless, but
+    /// higher-level APIs (e.g. `hopper_runtime::AccountView::close_to`)
+    /// should pre-check those rules. See `account.rs::close_to` for
+    /// the safe wrapper.
     #[inline(always)]
     pub fn close(&self) -> ProgramResult {
         self.set_lamports(0);
@@ -389,7 +409,7 @@ impl AccountView {
                 crate::mem::memset(self.data_ptr(), 0, len);
             }
             (*self.raw).data_len = 0;
-            (*self.raw).owner = Address::default();
+            (*self.raw).owner = Self::SYSTEM_PROGRAM_ID;
         }
         Ok(())
     }
@@ -404,7 +424,7 @@ impl AccountView {
         unsafe {
             (*self.raw).lamports = 0;
             (*self.raw).data_len = 0;
-            (*self.raw).owner = Address::default();
+            (*self.raw).owner = Self::SYSTEM_PROGRAM_ID;
         }
     }
 

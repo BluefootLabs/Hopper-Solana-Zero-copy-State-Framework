@@ -1,4 +1,4 @@
-//! `#[hopper::pod]` — derive the Hopper zero-copy marker contract.
+//! `#[hopper::pod]`. derive the Hopper zero-copy marker contract.
 //!
 //! The Hopper Safety Audit asked for a standalone attribute that any
 //! user-defined struct can opt into to pick up the full Pod +
@@ -21,18 +21,18 @@
 //! ```
 //!
 //! The macro emits:
-//! - `unsafe impl ::hopper::__runtime::Pod for SmallHeader {}` — the
+//! - `unsafe impl ::hopper::__runtime::Pod for SmallHeader {}`. the
 //!   canonical runtime Pod impl that unlocks every `segment_ref`,
 //!   `segment_mut`, `raw_ref`, `raw_mut`, `read_data` API.
 //! - `impl ::hopper::hopper_core::account::FixedLayout for SmallHeader
-//!   { const SIZE: usize = size_of::<Self>(); }` — for any downstream
+//!   { const SIZE: usize = size_of::<Self>(); }`. for any downstream
 //!   code that needs `T::SIZE` without duplicating the integer literal.
 //! - A trio of `const _: () = assert!(...)` guards:
-//!     - `align_of::<T>() == 1` — catches `#[repr(C)]` with padded
+//!     - `align_of::<T>() == 1`. catches `#[repr(C)]` with padded
 //!       fields at compile time.
-//!     - `size_of::<T>() == <sum of field sizes>` — catches implicit
+//!     - `size_of::<T>() == <sum of field sizes>`. catches implicit
 //!       compiler-added padding between fields.
-//!     - `size_of::<T>() > 0` — zero-sized overlays project to dangling
+//!     - `size_of::<T>() > 0`. zero-sized overlays project to dangling
 //!       pointers; audit-aligned we forbid them.
 //!
 //! Nothing else. If you want the Hopper 16-byte header, segment map,
@@ -57,7 +57,7 @@ pub fn expand(_attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
     }
 
     // Sum every field's size so the compile-time assertion fires if the
-    // struct has hidden padding — e.g. a `#[repr(C)]` with a `u32`
+    // struct has hidden padding. e.g. a `#[repr(C)]` with a `u32`
     // followed by a `u64` on a target where the runtime would insert
     // align-4 padding.
     let field_types: Vec<_> = match &input.fields {
@@ -95,17 +95,54 @@ pub fn expand(_attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
     );
 
     // Forward the original item unchanged plus the derived impls.
+    //
+    // Two layers of safety proof fire at compile time:
+    //
+    // 1. A per-field `__FieldPodProof<T: bytemuck::Pod + bytemuck::Zeroable>`
+    //    marker forces every field type to already satisfy bytemuck's
+    //    all-bits-valid / no-pointers / no-padding contract. A `bool`,
+    //    `char`, reference, or non-`bytemuck::Pod` struct field fails
+    //    *this* bound, not some later use-site bound. so the compile
+    //    error points at the field, not at a distant `segment_ref::<T>()`.
+    //
+    // 2. Rubber-stamp `unsafe impl bytemuck::{Pod, Zeroable} for #name`
+    //    lifts those per-field proofs to the whole struct. They're
+    //    `unsafe` because bytemuck's own marker contract is `unsafe`;
+    //    the field-level proofs above are the evidence that satisfies
+    //    the safety obligation.
     let expanded = quote! {
         #input
 
-        // SAFETY: the `#[repr(C)]`/`#[repr(transparent)]` guard above plus
-        // the three compile-time asserts below pin the four obligations
-        // of `hopper_runtime::pod::Pod` (all bit patterns valid, align-1,
-        // no padding, no interior pointers). The "all bit patterns valid"
-        // / "no interior pointers" halves are enforced by the caller's
-        // decision to list only already-Pod field types; the macro does
-        // not try to prove them mechanically, which is why this is still
-        // an `unsafe impl`.
+        // Field-level proof: every field must itself implement both
+        // `bytemuck::Pod` and `bytemuck::Zeroable`. This closes the
+        // Hopper Safety Audit Must-Fix #5 / #4 gap. rubber-stamp
+        // `unsafe impl` alone cannot catch `bool` / `char` /
+        // reference / padded nested fields. The `__FieldPodProof`
+        // marker instantiation forces a trait-bound check per field.
+        #[doc(hidden)]
+        const _: () = {
+            struct __FieldPodProof<
+                T: ::hopper::__runtime::__hopper_native::bytemuck::Pod
+                    + ::hopper::__runtime::__hopper_native::bytemuck::Zeroable,
+            >(::core::marker::PhantomData<T>);
+            #(
+                #[allow(dead_code)]
+                const _: __FieldPodProof<#field_types> =
+                    __FieldPodProof(::core::marker::PhantomData);
+            )*
+        };
+
+        // Rubber-stamp bytemuck impls so `#[hopper::pod]` types
+        // participate in bytemuck-gated APIs without a separate derive.
+        // Safety: upheld by the per-field proof above, the `#[repr(C)]`
+        // / `#[repr(transparent)]` check, and the alignment + padding
+        // asserts below.
+        unsafe impl #impl_generics ::hopper::__runtime::__hopper_native::bytemuck::Zeroable
+            for #name #ty_generics #where_clause {}
+        unsafe impl #impl_generics ::hopper::__runtime::__hopper_native::bytemuck::Pod
+            for #name #ty_generics #where_clause {}
+
+        // Hopper runtime Pod marker + FixedLayout.
         unsafe impl #impl_generics ::hopper::__runtime::Pod for #name #ty_generics #where_clause {}
 
         impl #impl_generics ::hopper::hopper_core::account::FixedLayout

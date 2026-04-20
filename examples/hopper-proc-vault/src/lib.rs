@@ -88,3 +88,78 @@ mod vault_program {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod abs_offset_tests {
+    //! Regression tests for the `{FIELD}_ABS_OFFSET` inherent constants
+    //! emitted by `#[hopper::state]`. These close the Hopper Safety
+    //! Audit's DX2 ergonomic gap: segment callers should not have to
+    //! hand-assemble `HEADER_LEN + Vault::BALANCE_OFFSET` at every
+    //! call site.
+    use super::Vault;
+    use hopper::hopper_core::account::HEADER_LEN;
+
+    #[test]
+    fn balance_abs_offset_is_header_plus_offset() {
+        assert_eq!(
+            Vault::BALANCE_ABS_OFFSET,
+            HEADER_LEN as u32 + Vault::BALANCE_OFFSET
+        );
+    }
+
+    #[test]
+    fn pending_rewards_abs_offset_is_header_plus_offset() {
+        assert_eq!(
+            Vault::PENDING_REWARDS_ABS_OFFSET,
+            HEADER_LEN as u32 + Vault::PENDING_REWARDS_OFFSET
+        );
+    }
+
+    #[test]
+    fn abs_offsets_are_strictly_increasing() {
+        assert!(Vault::BALANCE_ABS_OFFSET < Vault::PENDING_REWARDS_ABS_OFFSET);
+    }
+}
+
+#[cfg(test)]
+mod schema_metadata_tests {
+    //! Stage 2.5 regression tests. `#[hopper::context]` must emit a
+    //! `SCHEMA_METADATA` const carrying every Anchor-grade constraint
+    //! field so downstream IDL/client tooling can consume it without
+    //! re-parsing source.
+    use super::{AdminSweep, Deposit};
+    use hopper::hopper_schema::accounts::AccountLifecycle;
+
+    #[test]
+    fn deposit_metadata_names_context_and_accounts() {
+        assert_eq!(Deposit::SCHEMA_METADATA.name, "Deposit");
+        assert_eq!(Deposit::SCHEMA_METADATA.accounts.len(), 2);
+        assert_eq!(Deposit::SCHEMA_METADATA.accounts[0].name, "vault");
+        assert_eq!(Deposit::SCHEMA_METADATA.accounts[1].name, "authority");
+    }
+
+    #[test]
+    fn deposit_vault_is_existing_not_init() {
+        let vault = &Deposit::SCHEMA_METADATA.accounts[0];
+        assert_eq!(vault.lifecycle, AccountLifecycle::Existing);
+        assert!(vault.writable);
+        assert_eq!(vault.layout_ref, "Vault");
+        assert_eq!(vault.init_space, 0);
+    }
+
+    #[test]
+    fn deposit_authority_is_signer_only() {
+        let authority = &Deposit::SCHEMA_METADATA.accounts[1];
+        assert!(authority.signer);
+        // `#[signer]` is a segment marker, not full `mut`; writable
+        // defaults false for pure-signer fields.
+        assert_eq!(authority.layout_ref, "");
+        assert_eq!(authority.lifecycle, AccountLifecycle::Existing);
+    }
+
+    #[test]
+    fn admin_sweep_metadata_roundtrips() {
+        assert_eq!(AdminSweep::SCHEMA_METADATA.name, "AdminSweep");
+        assert_eq!(AdminSweep::SCHEMA_METADATA.accounts.len(), 2);
+    }
+}

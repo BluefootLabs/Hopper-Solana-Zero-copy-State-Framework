@@ -10,7 +10,10 @@ use core::fmt;
 /// Schema descriptor for a single account field within a context.
 ///
 /// Richer than the basic `AccountEntry` -- captures the full Account DSL
-/// surface including kind, layout, policy, seeds, and optionality.
+/// surface including kind, layout, policy, seeds, optionality, and the
+/// Anchor-grade lifecycle flags (`init`/`close`/`realloc`/`has_one`) that
+/// the Hopper Safety Audit's ST2 closure requires client generators to
+/// consume.
 #[derive(Clone, Copy)]
 pub struct ContextAccountDescriptor {
     /// Field name in the struct (e.g. "vault", "authority").
@@ -29,6 +32,54 @@ pub struct ContextAccountDescriptor {
     pub seeds: &'static [&'static str],
     /// Whether the account is optional (may be omitted by the caller).
     pub optional: bool,
+    /// Lifecycle role the account plays in this instruction. Clients
+    /// use this to synthesize appropriate builder helpers (`findPda`,
+    /// `initAccount`, `closeTo`, etc.).
+    pub lifecycle: AccountLifecycle,
+    /// Name of the field whose key pays CPI fees / rent top-up for
+    /// `init` or `realloc`. Empty if not applicable.
+    pub payer: &'static str,
+    /// Byte count required for `init`. `None` (represented as 0) if
+    /// not applicable.
+    pub init_space: u32,
+    /// Fields listed in `has_one = ...` — required to equal the
+    /// corresponding layout field by public key.
+    pub has_one: &'static [&'static str],
+    /// Address the caller must provide, if pinned via `address = EXPR`
+    /// (base58 form for pubkey literals; empty string if not pinned).
+    pub expected_address: &'static str,
+    /// Program owner the account must be owned by, if pinned via
+    /// `owner = EXPR`. Empty string means "owned by the current program".
+    pub expected_owner: &'static str,
+}
+
+/// Lifecycle role an account plays in one instruction.
+///
+/// Closes the audit's ST2 schema-metadata gap: clients consuming the
+/// manifest need to know which accounts are created/closed/resized so
+/// they can synthesize correct builder UX (prompt for payer, compute
+/// required rent, wire a close-recipient, etc.).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AccountLifecycle {
+    /// Account exists before the instruction and is only read/mutated.
+    Existing,
+    /// Account is created fresh this instruction (`#[account(init, ...)]`).
+    Init,
+    /// Account data is resized this instruction.
+    Realloc,
+    /// Account is drained and reassigned to the System Program.
+    Close,
+}
+
+impl AccountLifecycle {
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            AccountLifecycle::Existing => "existing",
+            AccountLifecycle::Init => "init",
+            AccountLifecycle::Realloc => "realloc",
+            AccountLifecycle::Close => "close",
+        }
+    }
 }
 
 impl fmt::Display for ContextAccountDescriptor {
@@ -180,6 +231,12 @@ mod tests {
             policy_ref: "",
             seeds: &[],
             optional: false,
+            lifecycle: AccountLifecycle::Existing,
+            payer: "",
+            init_space: 0,
+            has_one: &[],
+            expected_address: "",
+            expected_owner: "",
         },
         ContextAccountDescriptor {
             name: "vault",
@@ -190,6 +247,12 @@ mod tests {
             policy_ref: "TREASURY_WRITE",
             seeds: &["b\"vault\"", "authority"],
             optional: false,
+            lifecycle: AccountLifecycle::Existing,
+            payer: "",
+            init_space: 0,
+            has_one: &["authority"],
+            expected_address: "",
+            expected_owner: "",
         },
         ContextAccountDescriptor {
             name: "system_program",
@@ -200,6 +263,12 @@ mod tests {
             policy_ref: "",
             seeds: &[],
             optional: false,
+            lifecycle: AccountLifecycle::Existing,
+            payer: "",
+            init_space: 0,
+            has_one: &[],
+            expected_address: "",
+            expected_owner: "",
         },
     ];
 
@@ -265,8 +334,67 @@ mod tests {
             policy_ref: "",
             seeds: &[],
             optional: true,
+            lifecycle: AccountLifecycle::Existing,
+            payer: "",
+            init_space: 0,
+            has_one: &[],
+            expected_address: "",
+            expected_owner: "",
         };
         let s = format!("{}", opt);
         assert!(s.contains("[optional]"));
+    }
+
+    #[test]
+    fn lifecycle_as_str_roundtrips_all_variants() {
+        assert_eq!(AccountLifecycle::Existing.as_str(), "existing");
+        assert_eq!(AccountLifecycle::Init.as_str(), "init");
+        assert_eq!(AccountLifecycle::Realloc.as_str(), "realloc");
+        assert_eq!(AccountLifecycle::Close.as_str(), "close");
+    }
+
+    #[test]
+    fn init_account_descriptor_carries_lifecycle_metadata() {
+        let init_acc = ContextAccountDescriptor {
+            name: "position",
+            kind: "InitAccount",
+            writable: true,
+            signer: false,
+            layout_ref: "Position",
+            policy_ref: "",
+            seeds: &["b\"position\"", "authority.key()"],
+            optional: false,
+            lifecycle: AccountLifecycle::Init,
+            payer: "authority",
+            init_space: 128,
+            has_one: &[],
+            expected_address: "",
+            expected_owner: "",
+        };
+        assert_eq!(init_acc.lifecycle, AccountLifecycle::Init);
+        assert_eq!(init_acc.payer, "authority");
+        assert_eq!(init_acc.init_space, 128);
+        assert_eq!(init_acc.seeds.len(), 2);
+    }
+
+    #[test]
+    fn close_account_descriptor_roundtrips() {
+        let close_acc = ContextAccountDescriptor {
+            name: "vault",
+            kind: "HopperAccount",
+            writable: true,
+            signer: false,
+            layout_ref: "Vault",
+            policy_ref: "",
+            seeds: &[],
+            optional: false,
+            lifecycle: AccountLifecycle::Close,
+            payer: "",
+            init_space: 0,
+            has_one: &[],
+            expected_address: "",
+            expected_owner: "",
+        };
+        assert_eq!(close_acc.lifecycle.as_str(), "close");
     }
 }
