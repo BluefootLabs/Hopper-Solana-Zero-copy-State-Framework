@@ -67,7 +67,7 @@ use hopper_schema::{
     CompatImpact, DecodedReceipt, Phase,
 };
 use hopper_schema::clientgen::{TsClientGen, KtClientGen};
-use hopper_schema::accounts::{ContextAccountDescriptor, ContextDescriptor};
+use hopper_schema::accounts::{AccountLifecycle, ContextAccountDescriptor, ContextDescriptor};
 use std::env;
 use std::path::PathBuf;
 use std::process;
@@ -246,6 +246,14 @@ struct CompileOptions {
     force: bool,
 }
 
+/// Audit ST4 closure — multi-target emit dispatch.
+///
+/// `hopper compile --emit <target> ...` routes through a single
+/// trait-like dispatch table rather than a hard-coded `== "rust"`
+/// check. Each target shares the common argument parsing
+/// (`parse_compile_options`) and output handling (stdout vs
+/// `--out` + `--force`). Adding a new target is one entry here
+/// and one renderer fn.
 fn cmd_compile(args: &[String]) {
     if args.iter().any(|arg| arg == "--help" || arg == "-h") {
         print_compile_usage();
@@ -253,18 +261,21 @@ fn cmd_compile(args: &[String]) {
     }
 
     if args.len() < 2 || args[0] != "--emit" {
-        eprintln!("Usage: hopper compile --emit rust [<manifest> | --package <name> | --program-id <program-id>] [--rpc <url>] [--layout <Layout>] [--instruction <Instruction>] [--context <Context>] [--out <path>] [--force]");
+        eprintln!("Usage: hopper compile --emit <target> [options]");
         eprintln!();
-        eprintln!("Only `--emit rust` is supported right now.");
+        eprintln!("Supported targets:");
+        eprintln!("  rust    Lowered Rust preview (what the macros expand to)");
+        eprintln!("  ts      TypeScript client SDK");
+        eprintln!("  kt      Kotlin client SDK");
+        eprintln!("  idl     Anchor-style IDL JSON");
+        eprintln!("  codama  Codama-flavored JSON");
+        eprintln!("  schema  Hopper program manifest JSON");
+        eprintln!();
+        eprintln!("See `hopper compile --help` for the full option set.");
         process::exit(1);
     }
 
-    if args[1] != "rust" {
-        eprintln!("Unsupported emit target: {}", args[1]);
-        eprintln!("Only `hopper compile --emit rust ...` is currently supported.");
-        process::exit(1);
-    }
-
+    let target = args[1].as_str();
     let cwd = workspace::current_dir().unwrap_or_else(|err| {
         eprintln!("{err}");
         process::exit(1);
@@ -278,28 +289,51 @@ fn cmd_compile(args: &[String]) {
         process::exit(1);
     });
 
-    match render_program_rust_preview(&prog, &options.filters) {
-        Ok(preview) => {
-            if let Some(path) = options.out {
-                let output_path = if path.is_absolute() {
-                    path
-                } else {
-                    cwd.join(path)
-                };
-                workspace::write_text_file(&output_path, &preview, options.force)
-                    .unwrap_or_else(|err| {
-                        eprintln!("hopper compile failed: {err}");
-                        process::exit(1);
-                    });
-                println!("Wrote lowered Rust preview to {}", output_path.display());
-            } else {
-                print!("{preview}");
+    let (artifact, label): (String, &'static str) = match target {
+        "rust" => {
+            match render_program_rust_preview(&prog, &options.filters) {
+                Ok(text) => (text, "lowered Rust preview"),
+                Err(err) => {
+                    eprintln!("hopper compile failed: {err}");
+                    process::exit(1);
+                }
             }
         }
-        Err(err) => {
-            eprintln!("hopper compile failed: {err}");
+        "ts" => (format!("{}", TsClientGen(&prog)), "TypeScript client SDK"),
+        "kt" => (format!("{}", KtClientGen(&prog)), "Kotlin client SDK"),
+        "idl" => (
+            format!("{}", hopper_schema::codama::IdlJsonFromManifest(&prog)),
+            "Anchor-style IDL JSON",
+        ),
+        "codama" => (
+            format!("{}", hopper_schema::codama::CodamaJsonFromManifest(&prog)),
+            "Codama JSON",
+        ),
+        "schema" => (
+            format!("{}", hopper_schema::codama::ManifestJson(&prog)),
+            "Hopper manifest JSON",
+        ),
+        other => {
+            eprintln!("Unsupported emit target: {}", other);
+            eprintln!("Supported: rust | ts | kt | idl | codama | schema");
             process::exit(1);
         }
+    };
+
+    if let Some(path) = options.out {
+        let output_path = if path.is_absolute() {
+            path
+        } else {
+            cwd.join(path)
+        };
+        workspace::write_text_file(&output_path, &artifact, options.force)
+            .unwrap_or_else(|err| {
+                eprintln!("hopper compile failed: {err}");
+                process::exit(1);
+            });
+        println!("Wrote {} to {}", label, output_path.display());
+    } else {
+        print!("{artifact}");
     }
 }
 
@@ -1692,18 +1726,25 @@ fn pascal_case(value: &str) -> String {
 }
 
 fn print_compile_usage() {
-    eprintln!("Usage: hopper compile --emit rust [<manifest> | --package <name> | --program-id <program-id>] [--rpc <url>] [--layout <Layout>] [--instruction <Instruction>] [--context <Context>] [--out <path>] [--force]");
+    eprintln!("Usage: hopper compile --emit <target> [<manifest> | --package <name> | --program-id <id>] [--rpc <url>] [--layout <L>] [--instruction <I>] [--context <C>] [--out <path>] [--force]");
     eprintln!();
-    eprintln!("Emit Hopper-authored runtime Rust from a program manifest.");
-    eprintln!("This preview makes the accessors, constant offsets, and pointer path explicit.");
+    eprintln!("Supported targets:");
+    eprintln!("  rust    Lowered Rust preview (accessors, offsets, pointer path)");
+    eprintln!("  ts      TypeScript client SDK");
+    eprintln!("  kt      Kotlin client SDK");
+    eprintln!("  idl     Anchor-style IDL JSON");
+    eprintln!("  codama  Codama-flavored JSON");
+    eprintln!("  schema  Hopper program manifest JSON");
+    eprintln!();
     eprintln!("Without a manifest source, Hopper infers hopper.manifest.json from the current package.");
     eprintln!();
     eprintln!("Examples:");
     eprintln!("  hopper compile --emit rust");
-    eprintln!("  hopper compile --emit rust @examples/sample-manifest.json");
-    eprintln!("  hopper compile --emit rust --package hopper-token-2022-vault --out lowered.rs --force");
-    eprintln!("  hopper compile --emit rust @hopper.manifest.json --instruction deposit");
-    eprintln!("  hopper compile --emit rust --program-id <program-id> --rpc <url>");
+    eprintln!("  hopper compile --emit ts --package hopper-token-2022-vault --out vault.ts --force");
+    eprintln!("  hopper compile --emit idl @hopper.manifest.json --out idl.json");
+    eprintln!("  hopper compile --emit codama --program-id <program-id> --rpc <url>");
+    eprintln!("  hopper compile --emit kt --package vault");
+    eprintln!("  hopper compile --emit schema --package vault --out manifest.json --force");
 }
 
 fn print_usage() {
@@ -1712,7 +1753,8 @@ fn print_usage() {
     println!("COMMAND FAMILIES:");
     println!();
     println!("  Compile:");
-    println!("    hopper compile --emit rust [<manifest>|--package <name>|--program-id ...]  Emit lowered Hopper runtime Rust");
+    println!("    hopper compile --emit <rust|ts|kt|idl|codama|schema> [<manifest>|--package <name>|--program-id ...]");
+    println!("                                           Emit lowered Rust, TS/KT clients, IDL JSON, Codama, or manifest</const>");
     println!();
     println!("  Schema:");
     println!("    hopper schema export               Schema format reference");
@@ -2838,6 +2880,13 @@ struct OwnedContextAccount {
     policy_ref: String,
     seeds: Vec<String>,
     optional: bool,
+    // ── Stage 2.5 audit closure: Anchor-grade lifecycle metadata ─────
+    lifecycle: String,
+    payer: String,
+    init_space: u32,
+    has_one: Vec<String>,
+    expected_address: String,
+    expected_owner: String,
 }
 
 /// Find the matching closing bracket, handling nesting.
@@ -3074,6 +3123,17 @@ fn parse_program_manifest_json(json: &str) -> Result<OwnedProgramManifest, Strin
                 policy_ref: extract_string(aobj, "policy_ref").unwrap_or_default(),
                 seeds: extract_string_array(aobj, "seeds").unwrap_or_default(),
                 optional: extract_bool(aobj, "optional")?,
+                // Stage 2.5 constraint-metadata fields. Absent from
+                // legacy manifests — defaults mean "existing account,
+                // no Anchor-grade lifecycle declared". A manifest
+                // emitted by an updated `#[hopper::context]` carries
+                // the real values.
+                lifecycle: extract_string(aobj, "lifecycle").unwrap_or_else(|_| "existing".to_string()),
+                payer: extract_string(aobj, "payer").unwrap_or_default(),
+                init_space: extract_number(aobj, "init_space").unwrap_or(0) as u32,
+                has_one: extract_string_array(aobj, "has_one").unwrap_or_default(),
+                expected_address: extract_string(aobj, "expected_address").unwrap_or_default(),
+                expected_owner: extract_string(aobj, "expected_owner").unwrap_or_default(),
             });
         }
 
@@ -3211,6 +3271,17 @@ fn to_program_manifest(m: &OwnedProgramManifest) -> ProgramManifest {
                         .iter()
                         .map(|seed| leak_str(seed))
                         .collect();
+                    let has_one: Vec<&'static str> = account
+                        .has_one
+                        .iter()
+                        .map(|h| leak_str(h))
+                        .collect();
+                    let lifecycle = match account.lifecycle.as_str() {
+                        "init" => AccountLifecycle::Init,
+                        "realloc" => AccountLifecycle::Realloc,
+                        "close" => AccountLifecycle::Close,
+                        _ => AccountLifecycle::Existing,
+                    };
                     ContextAccountDescriptor {
                         name: leak_str(&account.name),
                         kind: leak_str(&account.kind),
@@ -3220,6 +3291,12 @@ fn to_program_manifest(m: &OwnedProgramManifest) -> ProgramManifest {
                         policy_ref: leak_str(&account.policy_ref),
                         seeds: Box::leak(seeds.into_boxed_slice()),
                         optional: account.optional,
+                        lifecycle,
+                        payer: leak_str(&account.payer),
+                        init_space: account.init_space,
+                        has_one: Box::leak(has_one.into_boxed_slice()),
+                        expected_address: leak_str(&account.expected_address),
+                        expected_owner: leak_str(&account.expected_owner),
                     }
                 })
                 .collect();
