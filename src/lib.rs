@@ -39,16 +39,22 @@ pub mod error;
 pub mod result;
 pub mod address;
 pub mod account;
+pub mod account_wrappers;
 pub mod audit;
 pub mod borrow;
 pub(crate) mod borrow_registry;
 pub mod cpi;
 pub mod field_map;
+pub mod foreign;
+pub mod migrate;
+pub mod tail;
 pub mod interop;
 pub mod log;
 pub mod pod;
 pub mod segment;
+pub mod zerocopy;
 pub mod segment_borrow;
+pub mod segment_lease;
 pub mod instruction;
 pub mod layout;
 pub mod context;
@@ -59,6 +65,7 @@ pub mod system;
 pub mod token;
 
 pub use account::{AccountView, RemainingAccounts};
+pub use account_wrappers::{Account, InitAccount, Program, ProgramId, Signer as HopperSigner, SystemId};
 pub use address::Address;
 pub use audit::{AccountAudit, DuplicateAccount};
 pub use borrow::{Ref, RefMut};
@@ -66,15 +73,51 @@ pub use context::Context;
 pub use cpi::{invoke, invoke_signed};
 pub use error::ProgramError;
 pub use field_map::{FieldInfo, FieldMap};
+pub use foreign::{ForeignLens, ForeignManifest};
 pub use interop::TransparentAddress;
+pub use migrate::{apply_pending_migrations, LayoutMigration, MigrationEdge};
+pub use tail::{read_tail, read_tail_len, tail_payload, write_tail, TailCodec};
+
+/// Compose a layout's `LayoutMigration::MIGRATIONS` chain from a list
+/// of `#[hopper::migrate]`-emitted edge constants.
+///
+/// ```ignore
+/// #[hopper::migrate(from = 1, to = 2)]
+/// pub fn vault_v1_to_v2(body: &mut [u8]) -> ProgramResult { Ok(()) }
+///
+/// hopper::layout_migrations! {
+///     Vault = [VAULT_V1_TO_V2_EDGE, VAULT_V2_TO_V3_EDGE],
+/// }
+/// ```
+///
+/// Emits `impl LayoutMigration for Vault { const MIGRATIONS = ... }`.
+/// Each list entry must evaluate to a
+/// [`MigrationEdge`](crate::migrate::MigrationEdge) — typically the
+/// `<UPPER_SNAKE_FN_NAME>_EDGE` constant that
+/// `#[hopper::migrate]` emits alongside each migration function.
+/// Chain continuity (every adjacent pair must satisfy
+/// `a.to_epoch == b.from_epoch`) is enforced at runtime by
+/// [`apply_pending_migrations`].
+#[macro_export]
+macro_rules! layout_migrations {
+    ( $layout:ty = [ $( $edge:expr ),+ $(,)? ] $(,)? ) => {
+        impl $crate::migrate::LayoutMigration for $layout {
+            const MIGRATIONS: &'static [$crate::migrate::MigrationEdge] = &[
+                $( $edge ),+
+            ];
+        }
+    };
+}
 #[cfg(feature = "hopper-native-backend")]
 pub use instruction::CpiAccount;
 pub use instruction::{InstructionAccount, InstructionView, Seed, Signer};
 pub use layout::{HopperHeader, LayoutContract, LayoutInfo};
 pub use result::ProgramResult;
 pub use pod::Pod;
+pub use zerocopy::{AccountLayout, WireLayout, ZeroCopy};
 pub use segment::{Segment, TypedSegment};
 pub use segment_borrow::{AccessKind, SegmentBorrow, SegmentBorrowGuard, SegmentBorrowRegistry};
+pub use segment_lease::{SegRef, SegRefMut, SegmentLease};
 
 pub const MAX_TX_ACCOUNTS: usize = compat::BACKEND_MAX_TX_ACCOUNTS;
 pub const SUCCESS: u64 = compat::BACKEND_SUCCESS;

@@ -42,10 +42,15 @@ pub enum AccessKind {
     Write = 1,
 }
 
-/// Compact fingerprint extracted from an account address.
+/// First-8-byte prefix of an account address, used as a fast-path
+/// comparator in the conflict scan.
 ///
-/// Using the first 8 bytes is collision-free for any realistic
-/// instruction (2–10 distinct accounts).
+/// The **audit-correct** model is fingerprint-then-verify: a hot-path
+/// `u64` compare rejects unrelated accounts immediately; the slow-path
+/// 32-byte compare fires only when the prefixes match. Because a
+/// full-address compare always follows, fingerprint collisions produce
+/// **no** false conflicts — they only cost one extra 32-byte compare
+/// for the extremely rare collision pair.
 #[inline(always)]
 fn address_fingerprint(address: &Address) -> u64 {
     let bytes = address.as_array();
@@ -55,14 +60,27 @@ fn address_fingerprint(address: &Address) -> u64 {
     ])
 }
 
+/// Full-identity equality check on the slow path.
+#[inline(always)]
+fn address_eq(a: &Address, b: &Address) -> bool {
+    a.as_array() == b.as_array()
+}
+
 /// A single active segment borrow.
 ///
-/// Uses a compact 8-byte fingerprint instead of the full 32-byte
-/// address to minimize stack footprint and speed up conflict scans.
+/// Carries both a fast `u64` fingerprint and the full 32-byte account
+/// address. The fingerprint is the hot-path comparator; the full
+/// address resolves collisions so conflict detection is never
+/// probabilistic.
 #[derive(Clone, Copy, Debug)]
 pub struct SegmentBorrow {
-    /// Compact fingerprint of the account address.
+    /// Fast-path prefix of the account address.
     pub key_fp: u64,
+    /// Full account address — authoritative identity, checked whenever
+    /// the fast-path fingerprint matches. Pre-audit we relied on the
+    /// fingerprint alone and claimed it was "collision-free for any
+    /// realistic instruction"; that was probabilistic, not a guarantee.
+    pub key: Address,
     /// Byte offset within the account data.
     pub offset: u32,
     /// Byte size of the borrowed segment.
@@ -108,6 +126,7 @@ impl SegmentBorrowRegistry {
     pub const fn new() -> Self {
         const EMPTY: SegmentBorrow = SegmentBorrow {
             key_fp: 0,
+            key: Address::new([0u8; 32]),
             offset: 0,
             size: 0,
             kind: AccessKind::Read,
@@ -130,10 +149,52 @@ impl SegmentBorrowRegistry {
         self.len == 0
     }
 
+    /// Register a new read borrow and return the `SegmentBorrow`
+    /// record the caller can hand to `SegmentLease::new` for RAII
+    /// release. This is the plumbing that makes
+    /// [`crate::segment_lease::SegRef`] possible.
+    #[inline(always)]
+    pub fn register_leased_read(
+        &mut self,
+        key: &Address,
+        offset: u32,
+        size: u32,
+    ) -> Result<SegmentBorrow, ProgramError> {
+        let borrow = SegmentBorrow {
+            key_fp: address_fingerprint(key),
+            key: *key,
+            offset,
+            size,
+            kind: AccessKind::Read,
+        };
+        self.register(borrow)?;
+        Ok(borrow)
+    }
+
+    /// Mutable counterpart of [`register_leased_read`].
+    #[inline(always)]
+    pub fn register_leased_write(
+        &mut self,
+        key: &Address,
+        offset: u32,
+        size: u32,
+    ) -> Result<SegmentBorrow, ProgramError> {
+        let borrow = SegmentBorrow {
+            key_fp: address_fingerprint(key),
+            key: *key,
+            offset,
+            size,
+            kind: AccessKind::Write,
+        };
+        self.register(borrow)?;
+        Ok(borrow)
+    }
+
     /// Register a new segment borrow, checking for conflicts.
     ///
     /// Returns `Err(AccountBorrowFailed)` if the new borrow overlaps an
-    /// existing borrow with incompatible access (read+write or write+write).
+    /// existing borrow with incompatible access (read+write or write+write)
+    /// on the **same** account (full-address identity, not fingerprint).
     #[inline(always)]
     pub fn register(&mut self, new: SegmentBorrow) -> Result<(), ProgramError> {
         let len = self.len as usize;
@@ -141,15 +202,17 @@ impl SegmentBorrowRegistry {
             return Err(ProgramError::AccountBorrowFailed);
         }
 
-        // Check conflicts against all active borrows.
+        // Check conflicts against all active borrows. Fast path on the
+        // 8-byte fingerprint; slow path confirms with the full 32-byte
+        // address so fingerprint collisions cannot manufacture false
+        // conflicts between unrelated accounts.
         let mut i = 0;
         while i < len {
             let existing = &self.entries[i];
-            // Only check borrows targeting the same account (fingerprint match).
             if existing.key_fp == new.key_fp
+                && address_eq(&existing.key, &new.key)
                 && ranges_overlap(existing.offset, existing.size, new.offset, new.size)
             {
-                // Overlapping ranges — only read+read is allowed.
                 match (existing.kind, new.kind) {
                     (AccessKind::Read, AccessKind::Read) => {}
                     _ => return Err(ProgramError::AccountBorrowFailed),
@@ -173,6 +236,7 @@ impl SegmentBorrowRegistry {
     ) -> Result<(), ProgramError> {
         self.register(SegmentBorrow {
             key_fp: address_fingerprint(key),
+            key: *key,
             offset,
             size,
             kind: AccessKind::Read,
@@ -189,6 +253,7 @@ impl SegmentBorrowRegistry {
     ) -> Result<(), ProgramError> {
         self.register(SegmentBorrow {
             key_fp: address_fingerprint(key),
+            key: *key,
             offset,
             size,
             kind: AccessKind::Write,
@@ -198,6 +263,7 @@ impl SegmentBorrowRegistry {
     /// Release a previously registered borrow.
     ///
     /// Finds the first matching entry and removes it, compacting the array.
+    /// Identity is full-address (not fingerprint) to stay collision-safe.
     #[inline(always)]
     pub fn release(&mut self, borrow: &SegmentBorrow) -> bool {
         let len = self.len as usize;
@@ -205,6 +271,7 @@ impl SegmentBorrowRegistry {
         while i < len {
             let existing = &self.entries[i];
             if existing.key_fp == borrow.key_fp
+                && address_eq(&existing.key, &borrow.key)
                 && existing.offset == borrow.offset
                 && existing.size == borrow.size
                 && existing.kind == borrow.kind
@@ -229,6 +296,9 @@ impl SegmentBorrowRegistry {
     }
 
     /// Check if a proposed borrow would conflict, without registering it.
+    ///
+    /// Uses full-address identity — fingerprint collisions do not
+    /// produce false positives.
     #[inline(always)]
     pub fn would_conflict(&self, proposed: &SegmentBorrow) -> bool {
         let len = self.len as usize;
@@ -236,6 +306,7 @@ impl SegmentBorrowRegistry {
         while i < len {
             let existing = &self.entries[i];
             if existing.key_fp == proposed.key_fp
+                && address_eq(&existing.key, &proposed.key)
                 && ranges_overlap(existing.offset, existing.size, proposed.offset, proposed.size)
             {
                 match (existing.kind, proposed.kind) {
@@ -284,6 +355,7 @@ impl SegmentBorrowRegistry {
     ) -> Result<SegmentBorrowGuard<'_>, ProgramError> {
         let borrow = SegmentBorrow {
             key_fp: address_fingerprint(key),
+            key: *key,
             offset,
             size,
             kind: AccessKind::Read,
@@ -301,6 +373,7 @@ impl SegmentBorrowRegistry {
     ) -> Result<SegmentBorrowGuard<'_>, ProgramError> {
         let borrow = SegmentBorrow {
             key_fp: address_fingerprint(key),
+            key: *key,
             offset,
             size,
             kind: AccessKind::Write,
@@ -322,7 +395,7 @@ impl SegmentBorrowRegistry {
         }
     }
 
-    /// Look up an active borrow by exact `(key_fp, offset, size, kind)`.
+    /// Look up an active borrow by exact `(key, offset, size, kind)`.
     #[inline]
     pub fn find_exact(
         &self,
@@ -331,20 +404,16 @@ impl SegmentBorrowRegistry {
         size: u32,
         kind: AccessKind,
     ) -> Option<&SegmentBorrow> {
-        let needle = SegmentBorrow {
-            key_fp: address_fingerprint(key),
-            offset,
-            size,
-            kind,
-        };
+        let fp = address_fingerprint(key);
         let len = self.len as usize;
         let mut i = 0;
         while i < len {
             let e = &self.entries[i];
-            if e.key_fp == needle.key_fp
-                && e.offset == needle.offset
-                && e.size == needle.size
-                && e.kind as u8 == needle.kind as u8
+            if e.key_fp == fp
+                && address_eq(&e.key, key)
+                && e.offset == offset
+                && e.size == size
+                && e.kind as u8 == kind as u8
             {
                 return Some(e);
             }
@@ -465,6 +534,7 @@ mod tests {
         let key = test_addr(1);
         let borrow = SegmentBorrow {
             key_fp: address_fingerprint(&key),
+            key,
             offset: 0,
             size: 8,
             kind: AccessKind::Write,
@@ -492,6 +562,7 @@ mod tests {
         assert!(reg.register_write(&key, 0, 8).is_ok());
         let proposed = SegmentBorrow {
             key_fp: address_fingerprint(&key),
+            key,
             offset: 0,
             size: 8,
             kind: AccessKind::Write,

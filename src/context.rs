@@ -219,25 +219,26 @@ impl<'a> Context<'a> {
 
     // --- Segment-Level Access (fine-grained borrow tracking) --------
 
-    /// Register a read borrow for a segment of an account.
-    ///
-    /// Validates bounds and registers the borrow in the segment registry,
-    /// then returns a shared `Ref<T>` that keeps the borrow guard alive.
+    /// Register a read borrow for a segment of an account and return a
+    /// [`SegRef<T>`](crate::SegRef) that releases both the account-level
+    /// byte guard **and** the segment registry lease on drop.
     ///
     /// `index` is the account index. `abs_offset` is the absolute byte
     /// offset within the account data (including header bytes).
     ///
     /// # Type Safety
     ///
-    /// T must be `Copy`. The returned reference is valid for the lifetime
-    /// of the borrow guard. Segment borrow tracking prevents conflicting
-    /// write access to the same byte range.
+    /// `T` must implement `Pod` (substrate-level "safe to overlay on
+    /// raw bytes" contract: every bit pattern valid, align-1, no
+    /// padding, no interior pointers). Segment borrow tracking
+    /// prevents conflicting write access to the same byte range for
+    /// the guard's lifetime.
     #[inline(always)]
-    pub fn segment_ref<T: crate::Pod>(
-        &mut self,
+    pub fn segment_ref<'b, T: crate::Pod>(
+        &'b mut self,
         index: usize,
         abs_offset: u32,
-    ) -> Result<crate::Ref<'_, T>, ProgramError> {
+    ) -> Result<crate::SegRef<'b, T>, ProgramError> {
         let view = self.accounts.get(index)
             .ok_or(ProgramError::NotEnoughAccountKeys)?;
         view.segment_ref::<T>(&mut self.segment_borrows, abs_offset, core::mem::size_of::<T>() as u32)
@@ -245,17 +246,20 @@ impl<'a> Context<'a> {
 
     /// Register a write borrow for a segment of an account.
     ///
-    /// Validates bounds, checks writable, and registers an exclusive
-    /// borrow, then returns a mutable `RefMut<T>` that keeps the guard alive.
+    /// Validates bounds, checks writable, and registers a leased
+    /// exclusive borrow, then returns a [`SegRefMut<T>`](crate::SegRefMut)
+    /// that releases on drop.
     ///
     /// This is the primitive that enables safe concurrent mutation of
-    /// non-overlapping account regions — the core Hopper innovation.
+    /// non-overlapping account regions — Hopper's core innovation —
+    /// and the lease model (added post-audit) makes sequential
+    /// same-region borrows inside one instruction work correctly.
     #[inline(always)]
-    pub fn segment_mut<T: crate::Pod>(
-        &mut self,
+    pub fn segment_mut<'b, T: crate::Pod>(
+        &'b mut self,
         index: usize,
         abs_offset: u32,
-    ) -> Result<crate::RefMut<'_, T>, ProgramError> {
+    ) -> Result<crate::SegRefMut<'b, T>, ProgramError> {
         let view = self.accounts.get(index)
             .ok_or(ProgramError::NotEnoughAccountKeys)?;
         view.segment_mut::<T>(&mut self.segment_borrows, abs_offset, core::mem::size_of::<T>() as u32)
@@ -266,11 +270,11 @@ impl<'a> Context<'a> {
     /// as `segment_ref` but without the caller hand-rolling the offset +
     /// size arguments.
     #[inline(always)]
-    pub fn segment_ref_const<T: crate::Pod>(
-        &mut self,
+    pub fn segment_ref_const<'b, T: crate::Pod>(
+        &'b mut self,
         index: usize,
         segment: crate::Segment,
-    ) -> Result<crate::Ref<'_, T>, ProgramError> {
+    ) -> Result<crate::SegRef<'b, T>, ProgramError> {
         let view = self.accounts.get(index)
             .ok_or(ProgramError::NotEnoughAccountKeys)?;
         view.segment_ref_const::<T>(&mut self.segment_borrows, segment)
@@ -279,11 +283,11 @@ impl<'a> Context<'a> {
     /// Const-driven exclusive segment access. Pair with
     /// `#[hopper::state]` constants for zero-overhead field writes.
     #[inline(always)]
-    pub fn segment_mut_const<T: crate::Pod>(
-        &mut self,
+    pub fn segment_mut_const<'b, T: crate::Pod>(
+        &'b mut self,
         index: usize,
         segment: crate::Segment,
-    ) -> Result<crate::RefMut<'_, T>, ProgramError> {
+    ) -> Result<crate::SegRefMut<'b, T>, ProgramError> {
         let view = self.accounts.get(index)
             .ok_or(ProgramError::NotEnoughAccountKeys)?;
         view.segment_mut_const::<T>(&mut self.segment_borrows, segment)
@@ -292,11 +296,11 @@ impl<'a> Context<'a> {
     /// Typed-segment read: the type and offset are both compile-time
     /// constants, baked into a [`TypedSegment`] zero-sized marker.
     #[inline(always)]
-    pub fn segment_ref_typed<T: crate::Pod, const OFFSET: u32>(
-        &mut self,
+    pub fn segment_ref_typed<'b, T: crate::Pod, const OFFSET: u32>(
+        &'b mut self,
         index: usize,
         segment: crate::TypedSegment<T, OFFSET>,
-    ) -> Result<crate::Ref<'_, T>, ProgramError> {
+    ) -> Result<crate::SegRef<'b, T>, ProgramError> {
         let view = self.accounts.get(index)
             .ok_or(ProgramError::NotEnoughAccountKeys)?;
         view.segment_ref_typed::<T, OFFSET>(&mut self.segment_borrows, segment)
@@ -305,11 +309,11 @@ impl<'a> Context<'a> {
     /// Typed-segment write. Mirrors [`segment_ref_typed`] for the
     /// exclusive path.
     #[inline(always)]
-    pub fn segment_mut_typed<T: crate::Pod, const OFFSET: u32>(
-        &mut self,
+    pub fn segment_mut_typed<'b, T: crate::Pod, const OFFSET: u32>(
+        &'b mut self,
         index: usize,
         segment: crate::TypedSegment<T, OFFSET>,
-    ) -> Result<crate::RefMut<'_, T>, ProgramError> {
+    ) -> Result<crate::SegRefMut<'b, T>, ProgramError> {
         let view = self.accounts.get(index)
             .ok_or(ProgramError::NotEnoughAccountKeys)?;
         view.segment_mut_typed::<T, OFFSET>(&mut self.segment_borrows, segment)
@@ -361,7 +365,9 @@ impl<'a> Context<'a> {
         if self.instruction_data.len() < end {
             return Err(ProgramError::InvalidInstructionData);
         }
-        // SAFETY: bounds checked, T: Copy (no drop glue), read_unaligned handles alignment.
+        // SAFETY: bounds checked; `T: Pod` guarantees every bit
+        // pattern is valid and the type has no drop glue, so
+        // `read_unaligned` into instruction data is sound.
         Ok(unsafe {
             core::ptr::read_unaligned(self.instruction_data.as_ptr().add(offset) as *const T)
         })
