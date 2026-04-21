@@ -7,14 +7,19 @@
 #![no_std]
 #![deny(unsafe_op_in_unsafe_fn)]
 
+#[allow(deprecated)]
 pub use hopper_runtime::token::{
     instructions,
     Approve,
+    ApproveChecked,
     Burn,
+    BurnChecked,
     CloseAccount,
     InitializeAccount,
     MintTo,
+    MintToChecked,
     Revoke,
     Transfer,
+    TransferChecked,
     TOKEN_PROGRAM_ID,
 };
