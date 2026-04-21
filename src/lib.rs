@@ -140,5 +140,11 @@ pub mod __runtime {
     // the bytemuck re-export lives.
     #[cfg(feature = "hopper-native-backend")]
     pub use hopper_runtime::__hopper_native;
+
+    // Audit final-API Step 5 seal. Doc-hidden re-export of the
+    // sealed-trait module so macros can emit
+    // `unsafe impl ::hopper::__runtime::__sealed::HopperZeroCopySealed for Foo {}`
+    // without the user ever naming the private module.
+    pub use hopper_runtime::__sealed;
 }
 

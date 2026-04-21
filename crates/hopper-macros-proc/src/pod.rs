@@ -145,6 +145,14 @@ pub fn expand(_attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
         // Hopper runtime Pod marker + FixedLayout.
         unsafe impl #impl_generics ::hopper::__runtime::Pod for #name #ty_generics #where_clause {}
 
+        // Audit final-API Step 5 seal. `#[hopper::pod]` types stamp
+        // themselves with the Hopper-authored marker so the
+        // `ZeroCopy` blanket picks them up. Bare `unsafe impl Pod`
+        // outside the macro path does not get this seal, so it also
+        // does not automatically satisfy `ZeroCopy`.
+        unsafe impl #impl_generics ::hopper::__runtime::__sealed::HopperZeroCopySealed
+            for #name #ty_generics #where_clause {}
+
         impl #impl_generics ::hopper::hopper_core::account::FixedLayout
             for #name #ty_generics #where_clause
         {

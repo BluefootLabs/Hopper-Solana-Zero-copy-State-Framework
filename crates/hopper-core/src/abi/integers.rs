@@ -121,6 +121,12 @@ macro_rules! wire_int {
         // SAFETY: #[repr(transparent)] over [u8; N], all bit patterns valid.
         unsafe impl crate::account::Pod for $name {}
 
+        // Audit Step 5 seal: stamp the Hopper-authored marker so the
+        // blanket `ZeroCopy` impl picks this primitive up. A user
+        // bypassing the wire_int! path with their own bare
+        // `unsafe impl Pod` does not get the seal.
+        unsafe impl ::hopper_runtime::__sealed::HopperZeroCopySealed for $name {}
+
         impl crate::account::FixedLayout for $name {
             const SIZE: usize = $size;
         }
