@@ -105,7 +105,7 @@ macro_rules! program_entrypoint {
 
 /// Declare a fast two-argument Hopper Native program entrypoint.
 ///
-/// Leverages the SVM's second entrypoint register, which provides a direct
+/// Uses the SVM's second entrypoint register, which provides a direct
 /// pointer to instruction data, eliminating the full account-scanning pass
 /// that the single-argument entrypoint requires. Saves ~30-40 CU per
 /// instruction invocation.

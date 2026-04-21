@@ -298,20 +298,32 @@ cage.
 ```
 hopper (root facade, re-exports everything)
 |
++-- hopper-native        Sovereign raw backend: loader parsing, syscall wrappers,
+|                        entrypoint glue, substrate AccountView, duplicate-account resolution
++-- hopper-runtime       Typed runtime: LayoutContract, Context, checked CPI, PDA helpers,
+|                        segment leases, guard macros (require!, require_eq!, ...)
 +-- hopper-core          Ring 0: ABI types, account header, overlay, checks,
 |                        collections, frame, lifecycle, fingerprints, migration,
 |                        policy, receipts, segment roles, SegmentMap, virtual state
-+-- hopper-macros        17 declarative macros (no proc macros, always available)
-+-- hopper-macros-proc   Optional proc macros: #[hopper_state], #[hopper_context],
-|                        #[hopper_program]. DX layer, never required.
++-- hopper-macros        18 declarative macros (no proc macros, always available)
++-- hopper-macros-proc   Optional proc macros: #[hopper::state], #[hopper::context],
+|                        #[hopper::program], #[hopper::migrate]. DX layer, never required.
 +-- hopper-system        Hopper-owned System Program instruction builders
 +-- hopper-token         Hopper-owned SPL Token instruction builders
 +-- hopper-token-2022    Hopper-owned Token-2022 instruction builders + screening
-+-- hopper-associated-token Hopper-owned ATA helpers + ATA instruction builders
++-- hopper-associated-token Hopper-owned ATA helpers and ATA instruction builders
 +-- hopper-solana        SPL Token/Mint readers, CPI guards, typed CPI kits
++-- hopper-anchor        Anchor interoperability: read Anchor-created accounts
 +-- hopper-schema        Layout manifests, field diffs, migration planning,
 |                        program manifests, IDL, Codama projection, field-level decoding
-+-- hopper-cli           CLI: explain, inspect, compat, diff, plan, receipt, manager
++-- hopper-manager       Schema-driven program inspector library
++-- hopper-finance       DeFi math primitives: AMM constant-product, slippage guards
++-- hopper-lending       Lending primitives: collateralization, health checks, liquidation math
++-- hopper-staking       MasterChef-style reward-per-token accumulators
++-- hopper-vesting       Token vesting schedule math (linear/cliff/stepped unlocks)
++-- hopper-distribute    Dust-safe proportional distribution and fee extraction
++-- hopper-multisig      M-of-N signer threshold checks
++-- hopper-cli           CLI: compile, explain, inspect, compat, diff, plan, receipt, manager
 ```
 
 ## Sovereign Boundary
