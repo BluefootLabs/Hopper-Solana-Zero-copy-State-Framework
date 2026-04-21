@@ -45,6 +45,8 @@ unsafe impl bytemuck::Zeroable for Address {}
 unsafe impl bytemuck::Pod for Address {}
 
 unsafe impl crate::pod::Pod for Address {}
+// Audit Step 5 seal: Hopper-authored primitive.
+unsafe impl crate::zerocopy::__sealed::HopperZeroCopySealed for Address {}
 
 impl Address {
     /// Construct from a raw byte array.

@@ -47,6 +47,53 @@ use crate::layout::LayoutContract;
 use crate::pod::Pod;
 
 // ══════════════════════════════════════════════════════════════════════
+//  Seal (audit final-API Step 5)
+// ══════════════════════════════════════════════════════════════════════
+
+/// Internal marker every Hopper-authored zero-copy type stamps itself
+/// with. Sealed by convention: it lives in a doc-hidden module so
+/// downstream code cannot name it except through the canonical
+/// Hopper entry points (`#[hopper::pod]`, `#[hopper::state]`,
+/// `hopper_layout!`, and the framework's own primitive wire types).
+///
+/// This closes the Hopper Safety Audit's final-API-design Step 5:
+/// a user bypassing the macro system with a hand-rolled
+/// `unsafe impl Pod for Foo {}` cannot accidentally pick up
+/// [`ZeroCopy`] for free. The `ZeroCopy` blanket below additionally
+/// requires `HopperZeroCopySealed`, which only Hopper-authored
+/// surfaces implement.
+///
+/// Users who legitimately need to extend `ZeroCopy` for a custom
+/// primitive can declare `unsafe impl ::hopper_runtime::__sealed::HopperZeroCopySealed for MyType {}`
+/// manually, but the path-through-doc-hidden-module signals clearly
+/// that they are opting out of the macro's field-level proof.
+#[doc(hidden)]
+pub mod __sealed {
+    /// See the module-level documentation. Do not implement directly
+    /// unless you understand the full `Pod` + `bytemuck::Pod` +
+    /// alignment-1 + no-padding + no-interior-pointers contract.
+    pub unsafe trait HopperZeroCopySealed {}
+
+    // Framework-provided primitives. Every Rust-level `Pod` integer
+    // and `[u8; N]` is Hopper-owned by virtue of being in the
+    // substrate, so stamp the seal here. Users reading/writing these
+    // via `ForeignLens::field::<T, OFFSET>` or equivalent paths get
+    // `ZeroCopy` for free.
+    unsafe impl HopperZeroCopySealed for u8 {}
+    unsafe impl HopperZeroCopySealed for u16 {}
+    unsafe impl HopperZeroCopySealed for u32 {}
+    unsafe impl HopperZeroCopySealed for u64 {}
+    unsafe impl HopperZeroCopySealed for u128 {}
+    unsafe impl HopperZeroCopySealed for i8 {}
+    unsafe impl HopperZeroCopySealed for i16 {}
+    unsafe impl HopperZeroCopySealed for i32 {}
+    unsafe impl HopperZeroCopySealed for i64 {}
+    unsafe impl HopperZeroCopySealed for i128 {}
+    unsafe impl<const N: usize> HopperZeroCopySealed for [u8; N] {}
+    unsafe impl HopperZeroCopySealed for () {}
+}
+
+// ══════════════════════════════════════════════════════════════════════
 //  ZeroCopy
 // ══════════════════════════════════════════════════════════════════════
 
@@ -61,14 +108,24 @@ use crate::pod::Pod;
 /// 3. `T` contains no padding.
 /// 4. `T` contains no internal pointers or references.
 ///
-/// Since this trait is a blanket re-export of [`Pod`], every `Pod`
-/// type automatically satisfies it — which means **every existing
-/// `#[hopper::state]`-derived layout participates for free**.
-pub unsafe trait ZeroCopy: Pod + 'static {}
+/// # Sealing
+///
+/// `ZeroCopy` is gated behind the doc-hidden
+/// [`__sealed::HopperZeroCopySealed`] marker. Types authored through
+/// `#[hopper::pod]`, `#[hopper::state]`, `hopper_layout!`, or one of
+/// the framework's own primitive wire types (`WireU64`, `WireBool`,
+/// `TypedAddress<T>`, etc.) stamp themselves with the seal
+/// automatically. A user bypassing the macros with a bare
+/// `unsafe impl Pod` does **not** get `ZeroCopy` for free, which
+/// closes the Hopper Safety Audit's Step 5 ("you cannot implement
+/// `ZeroCopy` manually, only via macro").
+pub unsafe trait ZeroCopy: Pod + 'static + __sealed::HopperZeroCopySealed {}
 
-// Blanket: every Pod + 'static type is ZeroCopy. Existing layouts
-// opt in automatically with no source changes.
-unsafe impl<T> ZeroCopy for T where T: Pod + 'static {}
+// Blanket: any `Pod + 'static` type that also carries the seal gets
+// `ZeroCopy`. Every Hopper-authored surface carries the seal; the
+// blanket plus the seal together mean the trait is free for
+// framework users and opaque to bypassing code.
+unsafe impl<T> ZeroCopy for T where T: Pod + 'static + __sealed::HopperZeroCopySealed {}
 
 // ══════════════════════════════════════════════════════════════════════
 //  WireLayout

@@ -53,6 +53,12 @@ pub mod log;
 pub mod pod;
 pub mod segment;
 pub mod zerocopy;
+// Re-export the sealed marker module at the crate root so macro
+// codegen can address it as `::hopper_runtime::__sealed::...`. It's
+// doc-hidden because it's the audit's Step 5 enforcement surface,
+// not a normal-user-facing API.
+#[doc(hidden)]
+pub use zerocopy::__sealed;
 pub mod segment_borrow;
 pub mod segment_lease;
 pub mod instruction;
