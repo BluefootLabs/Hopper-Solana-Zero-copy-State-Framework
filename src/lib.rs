@@ -108,6 +108,12 @@ macro_rules! hopper_layout {
         // for the constituent Pod types (header, wire integers, byte arrays).
         unsafe impl $crate::hopper_core::account::Pod for $name {}
 
+        // Audit final-API Step 5 seal. `hopper_layout!` stamps the
+        // Hopper-authored marker so the `ZeroCopy` blanket picks up
+        // declarative layouts the same way it picks up `#[hopper::state]`
+        // ones.
+        unsafe impl $crate::hopper_runtime::__sealed::HopperZeroCopySealed for $name {}
+
         impl $crate::hopper_core::account::FixedLayout for $name {
             const SIZE: usize = $crate::hopper_core::account::HEADER_LEN $( + $fsize )+;
         }
@@ -1334,6 +1340,9 @@ macro_rules! hopper_interface {
 
         // SAFETY: #[repr(C)] over alignment-1 fields, all bit patterns valid.
         unsafe impl $crate::hopper_core::account::Pod for $name {}
+
+        // Audit final-API Step 5 seal (second declarative-macro form).
+        unsafe impl $crate::hopper_runtime::__sealed::HopperZeroCopySealed for $name {}
 
         impl $crate::hopper_core::account::FixedLayout for $name {
             const SIZE: usize = $crate::hopper_core::account::HEADER_LEN $( + $fsize )+;
