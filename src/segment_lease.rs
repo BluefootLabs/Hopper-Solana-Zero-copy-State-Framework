@@ -27,7 +27,7 @@
 //! `PhantomData<&'a mut SegmentBorrowRegistry>`. Raw is necessary
 //! because the returned `SegRef<T>` otherwise exclusively borrows the
 //! whole `Context`, which would prevent even reading *another* account
-//! — a regression far worse than the sticky behavior we are fixing.
+//!, a regression far worse than the sticky behavior we are fixing.
 //! The `PhantomData` ties the lease's lifetime to the registry's, so
 //! use-after-free is impossible at the type level. Drop performs a
 //! single swap-remove; no allocation, no heap touch.
@@ -35,7 +35,7 @@
 //! ## Why a wrapper, not a field on `Ref`/`RefMut`
 //!
 //! The canonical `hopper_runtime::Ref` / `RefMut` are kept flat on
-//! Solana (`{ptr, state_ptr}` = 2 words — see `borrow.rs`). Adding a
+//! Solana (`{ptr, state_ptr}` = 2 words, see `borrow.rs`). Adding a
 //! registry pointer to them would re-inflate the flat representation
 //! for every access path, even the whole-account `load()` path that
 //! doesn't touch the segment registry. Keeping the lease as a separate
@@ -112,7 +112,7 @@ impl<'a> Drop for SegmentLease<'a> {
     fn drop(&mut self) {
         // SAFETY: `_lt` pins `'a` to the registry's borrow; the pointer
         // is valid for the full lifetime of `self`. `release` is a
-        // bounded-array swap-remove — no allocation, no panic path.
+        // bounded-array swap-remove, no allocation, no panic path.
         unsafe {
             (*self.registry).release(&self.borrow);
         }
@@ -205,7 +205,7 @@ pub struct SegRefMut<'a, T: ?Sized> {
 impl<'a, T: ?Sized> SegRefMut<'a, T> {
     /// Assemble a `SegRefMut` from a pre-built inner guard and lease.
     ///
-    /// Doc-hidden public constructor — see [`SegRef::new`].
+    /// Doc-hidden public constructor, see [`SegRef::new`].
     #[doc(hidden)]
     #[inline(always)]
     pub fn new(inner: RefMut<'a, T>, lease: SegmentLease<'a>) -> Self {

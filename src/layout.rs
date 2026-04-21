@@ -31,7 +31,7 @@ use crate::ProgramResult;
 /// byte 1     : version (u8)
 /// bytes 2-3  : flags (u16 LE)
 /// bytes 4-11 : layout_id (first 8 bytes of canonical wire fingerprint)
-/// bytes 12-15: schema_epoch (u32 LE) — audit-added
+/// bytes 12-15: schema_epoch (u32 LE), audit-added
 /// ```
 ///
 /// `schema_epoch` defaults to `1` at account initialisation via
@@ -104,7 +104,7 @@ impl LayoutInfo {
     #[inline(always)]
     pub fn from_data(data: &[u8]) -> Option<Self> {
         let hdr = HopperHeader::from_bytes(data)?;
-        // Packed-struct field reads must go through a copy — reading
+        // Packed-struct field reads must go through a copy, reading
         // an unaligned `u32` reference directly is undefined behaviour.
         let schema_epoch = hdr.schema_epoch;
         let layout_id = hdr.layout_id;
@@ -395,7 +395,7 @@ pub fn write_header_with_epoch(
 /// Read the `schema_epoch` field from an already-written header.
 ///
 /// Returns `None` if `data` is too short. Returns the stored value
-/// verbatim — callers that want the "0 means legacy" compatibility
+/// verbatim, callers that want the "0 means legacy" compatibility
 /// rule should apply it themselves:
 ///
 /// ```ignore

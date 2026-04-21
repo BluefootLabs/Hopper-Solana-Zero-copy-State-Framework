@@ -606,7 +606,7 @@ mod tests {
         // but we can read the constant directly from the source by
         // looking at the first byte the `invoke_signed_unchecked`
         // writes. Expressing that here as a documentation-level
-        // contract — the wire-format tests below build a real data
+        // contract, the wire-format tests below build a real data
         // buffer and lock the discriminator there.
         //
         // Keep these tests if the SPL Token program adds new

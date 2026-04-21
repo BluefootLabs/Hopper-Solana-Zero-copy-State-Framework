@@ -5,20 +5,20 @@
 //! `LayoutContract`, header metadata, and schema export into one
 //! coherent trait stack. This module delivers the foundation:
 //!
-//! - [`ZeroCopy`] — the canonical "safe to overlay on raw bytes"
+//! - [`ZeroCopy`], the canonical "safe to overlay on raw bytes"
 //!   marker. Equivalent-in-contract to [`Pod`](crate::pod::Pod), which
 //!   (under the default `hopper-native-backend` + `bytemuck` features)
 //!   is a sub-trait of `bytemuck::Pod + bytemuck::Zeroable`.
 //!   `ZeroCopy` is implemented for every `Pod` type via a blanket
 //!   impl, so existing layouts participate automatically.
 //!
-//! - [`WireLayout`] — a `ZeroCopy` type with a fixed wire size.
+//! - [`WireLayout`], a `ZeroCopy` type with a fixed wire size.
 //!   Declared once via `const WIRE_SIZE = size_of::<Self>()` by
 //!   default; macros may override if the in-memory and on-wire sizes
 //!   diverge (none do today, but the hook is there for future
 //!   compressed / tagged encodings).
 //!
-//! - [`AccountLayout`] — a `WireLayout` that also carries Hopper's
+//! - [`AccountLayout`], a `WireLayout` that also carries Hopper's
 //!   account header identity (disc, version, wire fingerprint, schema
 //!   epoch, type offset). This is the audit's proposed top-level
 //!   trait, matching its exact member list so the contract is
@@ -150,7 +150,7 @@ impl<T: ZeroCopy> WireLayout for T {}
 //  AccountLayout
 // ══════════════════════════════════════════════════════════════════════
 
-/// Hopper account layout identity — the top of the unified trait stack.
+/// Hopper account layout identity, the top of the unified trait stack.
 ///
 /// This is the audit-blessed trait: its member list matches the PDF's
 /// "proposed trait model" section exactly, so Hopper's long-term ABI
@@ -184,7 +184,7 @@ pub trait AccountLayout: WireLayout {
 }
 
 // Blanket: every `LayoutContract` type automatically is an
-// `AccountLayout`. This makes the transition source-compatible —
+// `AccountLayout`. This makes the transition source-compatible -
 // `#[hopper::state]` emits `LayoutContract` today; downstream can
 // reach for either trait interchangeably.
 //
