@@ -68,6 +68,8 @@ unsafe impl<T: Copy + 'static> ::hopper_runtime::__hopper_native::bytemuck::Pod 
 
 // SAFETY: #[repr(transparent)] over [u8; 32], all bit patterns valid, align 1.
 unsafe impl<T: Copy + 'static> crate::account::Pod for TypedAddress<T> {}
+// Audit Step 5 seal: Hopper-authored primitive.
+unsafe impl<T: Copy + 'static> ::hopper_runtime::__sealed::HopperZeroCopySealed for TypedAddress<T> {}
 
 impl<T> crate::account::FixedLayout for TypedAddress<T> {
     const SIZE: usize = 32;
@@ -227,6 +229,8 @@ unsafe impl ::hopper_runtime::__hopper_native::bytemuck::Pod for UntypedAddress 
 
 // SAFETY: Transparent over [u8; 32], align 1, all bits valid.
 unsafe impl crate::account::Pod for UntypedAddress {}
+// Audit Step 5 seal: Hopper-authored primitive.
+unsafe impl ::hopper_runtime::__sealed::HopperZeroCopySealed for UntypedAddress {}
 
 impl crate::account::FixedLayout for UntypedAddress {
     const SIZE: usize = 32;

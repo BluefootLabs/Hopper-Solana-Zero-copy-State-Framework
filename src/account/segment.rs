@@ -41,6 +41,8 @@ unsafe impl ::hopper_runtime::__hopper_native::bytemuck::Pod for SegmentDescript
 
 // SAFETY: All fields are [u8; N], all bit patterns valid.
 unsafe impl Pod for SegmentDescriptor {}
+// Audit Step 5 seal: Hopper-authored primitive.
+unsafe impl ::hopper_runtime::__sealed::HopperZeroCopySealed for SegmentDescriptor {}
 
 impl FixedLayout for SegmentDescriptor {
     const SIZE: usize = SEGMENT_DESC_SIZE;

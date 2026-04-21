@@ -75,6 +75,8 @@ unsafe impl ::hopper_runtime::__hopper_native::bytemuck::Pod for WireBool {}
 
 // SAFETY: #[repr(transparent)] over [u8; 1], all bit patterns valid.
 unsafe impl crate::account::Pod for WireBool {}
+// Audit Step 5 seal: Hopper-authored primitive.
+unsafe impl ::hopper_runtime::__sealed::HopperZeroCopySealed for WireBool {}
 
 impl crate::account::FixedLayout for WireBool {
     const SIZE: usize = 1;

@@ -55,6 +55,8 @@ unsafe impl ::hopper_runtime::__hopper_native::bytemuck::Pod for AccountHeader {
 
 // SAFETY: #[repr(C)] of all-byte fields, all bit patterns valid.
 unsafe impl super::Pod for AccountHeader {}
+// Audit Step 5 seal: Hopper-authored primitive.
+unsafe impl ::hopper_runtime::__sealed::HopperZeroCopySealed for AccountHeader {}
 
 impl super::FixedLayout for AccountHeader {
     const SIZE: usize = HEADER_LEN;
