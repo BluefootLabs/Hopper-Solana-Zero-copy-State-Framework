@@ -197,10 +197,10 @@ pub mod prelude_core {
 
     // ── Checks: signer, owner, PDA, discriminator ───────────────────
     pub use crate::check::{
-        check_account, check_discriminator, check_has_one, check_keys_eq, check_owner,
-        check_owner_multi, check_rent_exempt, check_signer, check_size, check_writable,
-        find_and_verify_pda, is_zero_address, keys_eq_fast, rent_exempt_min, verify_pda,
-        verify_pda_cached,
+        check_account, check_discriminator, check_executable, check_has_one, check_keys_eq,
+        check_owner, check_owner_multi, check_program, check_rent_exempt, check_signer,
+        check_size, check_writable, find_and_verify_pda, is_zero_address, keys_eq_fast,
+        rent_exempt_min, verify_pda, verify_pda_cached,
     };
     pub use crate::check::fast::{
         check_account_fast, check_authority_fast, check_executable_fast, check_signer_fast,
