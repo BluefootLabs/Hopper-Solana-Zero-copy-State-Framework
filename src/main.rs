@@ -265,12 +265,13 @@ fn cmd_compile(args: &[String]) {
         eprintln!("Usage: hopper compile --emit <target> [options]");
         eprintln!();
         eprintln!("Supported targets:");
-        eprintln!("  rust    Lowered Rust preview (what the macros expand to)");
-        eprintln!("  ts      TypeScript client SDK");
-        eprintln!("  kt      Kotlin client SDK");
-        eprintln!("  idl     Anchor-style IDL JSON");
-        eprintln!("  codama  Codama-flavored JSON");
-        eprintln!("  schema  Hopper program manifest JSON");
+        eprintln!("  rust          Lowered Rust preview (what the macros expand to)");
+        eprintln!("  ts            TypeScript client SDK");
+        eprintln!("  kt            Kotlin client SDK");
+        eprintln!("  rust-client   Off-chain Rust client (solana-sdk types)");
+        eprintln!("  idl           Anchor-style IDL JSON");
+        eprintln!("  codama        Codama-flavored JSON");
+        eprintln!("  schema        Hopper program manifest JSON");
         eprintln!();
         eprintln!("See `hopper compile --help` for the full option set.");
         process::exit(1);
@@ -302,6 +303,10 @@ fn cmd_compile(args: &[String]) {
         }
         "ts" => (format!("{}", TsClientGen(&prog)), "TypeScript client SDK"),
         "kt" => (format!("{}", KtClientGen(&prog)), "Kotlin client SDK"),
+        "rust-client" => (
+            format!("{}", hopper_schema::rust_client::RsClientGen(&prog)),
+            "Rust off-chain client",
+        ),
         "idl" => (
             format!("{}", hopper_schema::codama::IdlJsonFromManifest(&prog)),
             "Anchor-style IDL JSON",
@@ -316,7 +321,7 @@ fn cmd_compile(args: &[String]) {
         ),
         other => {
             eprintln!("Unsupported emit target: {}", other);
-            eprintln!("Supported: rust | ts | kt | idl | codama | schema");
+            eprintln!("Supported: rust | ts | kt | rust-client | idl | codama | schema");
             process::exit(1);
         }
     };
