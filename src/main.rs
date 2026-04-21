@@ -32,7 +32,7 @@
 //!
 //! hopper receipt <hex-data>                         Decode and display receipt
 //!
-//! hopper manager <subcommand> ...                   Program management
+//! hopper manager <subcommand> ..                   Program management
 //!
 //! hopper fetch <program-id>                          Fetch on-chain manifest
 //!
@@ -115,6 +115,7 @@ fn main() {
         "test" => cmd::lifecycle::cmd_test(&args[2..]),
         "deploy" => cmd::lifecycle::cmd_deploy(&args[2..]),
         "dump" => cmd::lifecycle::cmd_dump(&args[2..]),
+        "verify" => cmd::verify::cmd_verify(&args[2..]),
 
         // Direct commands (backward compatible)
         "decode" => cmd_inspect(&args[2..]),
@@ -246,7 +247,7 @@ struct CompileOptions {
     force: bool,
 }
 
-/// Audit ST4 closure — multi-target emit dispatch.
+/// Audit ST4 closure. multi-target emit dispatch.
 ///
 /// `hopper compile --emit <target> ...` routes through a single
 /// trait-like dispatch table rather than a hard-coded `== "rust"`
@@ -1241,7 +1242,7 @@ fn render_program_rust_preview(
     out.push_str("// ───────────────────────────────────────────────────────────────\n");
     out.push_str("//  Hopper lowered Rust preview\n");
     out.push_str("// ───────────────────────────────────────────────────────────────\n");
-    out.push_str("// Generated from ProgramManifest metadata — NOT your source file.\n");
+    out.push_str("// Generated from ProgramManifest metadata. NOT your source file.\n");
     out.push_str("// This is what Hopper's one access model lowers to: indexed accounts,\n");
     out.push_str("// const segment offsets, and typed projections. No hidden runtime,\n");
     out.push_str("// no reflection, no string lookups in the hot path.\n");
@@ -1754,7 +1755,12 @@ fn print_usage() {
     println!();
     println!("  Compile:");
     println!("    hopper compile --emit <rust|ts|kt|idl|codama|schema> [<manifest>|--package <name>|--program-id ...]");
-    println!("                                           Emit lowered Rust, TS/KT clients, IDL JSON, Codama, or manifest</const>");
+    println!("                                           Emit lowered Rust, TS/KT clients, IDL JSON, Codama, or manifest");
+    println!();
+    println!("  Verify (ABI integrity):");
+    println!("    hopper verify [<manifest>] [<.so>]     Confirm every layout in the manifest");
+    println!("                                           appears in the compiled binary by LAYOUT_ID");
+    println!("    hopper verify --package <name>         Infer manifest + .so from a workspace package");
     println!();
     println!("  Schema:");
     println!("    hopper schema export               Schema format reference");
@@ -3124,7 +3130,7 @@ fn parse_program_manifest_json(json: &str) -> Result<OwnedProgramManifest, Strin
                 seeds: extract_string_array(aobj, "seeds").unwrap_or_default(),
                 optional: extract_bool(aobj, "optional")?,
                 // Stage 2.5 constraint-metadata fields. Absent from
-                // legacy manifests — defaults mean "existing account,
+                // legacy manifests. defaults mean "existing account,
                 // no Anchor-grade lifecycle declared". A manifest
                 // emitted by an updated `#[hopper::context]` carries
                 // the real values.
