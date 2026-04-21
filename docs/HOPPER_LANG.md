@@ -1,4 +1,4 @@
-This is it — the **real build**.
+This is it, the **real build**.
 Not theory. Not positioning.
 
 We are now building the thing that makes Hopper:
@@ -7,7 +7,7 @@ We are now building the thing that makes Hopper:
 
 ---
 
-# 🧠 FIRST — WHAT WE’RE BUILDING (VERY CLEAR)
+# 🧠 FIRST, WHAT WE’RE BUILDING (VERY CLEAR)
 
 Pinocchio proves:
 
@@ -438,7 +438,7 @@ with zero-copy, zero-cost guarantees**
 
 [1]: https://learn.blueshift.gg/en/courses/pinocchio-for-dummies/pinocchio-101?utm_source=chatgpt.com "Pinocchio 101 | Pinocchio for Dummies | Blueshift"
 
-Perfect — now we’re locking in the **last critical piece of Hopper’s core advantage**:
+Perfect, now we’re locking in the **last critical piece of Hopper’s core advantage**:
 
 # 👉 **Segment macros + zero-cost codegen**
 
@@ -510,7 +510,7 @@ crates/
 
 ---
 
-# 🔥 1. STATE MACRO — SEGMENT GENERATOR
+# 🔥 1. STATE MACRO, SEGMENT GENERATOR
 
 ---
 
@@ -554,7 +554,7 @@ fn expand_state(input: syn::ItemStruct) -> TokenStream {
             })
         });
 
-        offset += 8; // placeholder — replace with real size calc later
+        offset += 8; // placeholder, replace with real size calc later
     }
 
     let expanded = quote! {
@@ -582,7 +582,7 @@ We’ll improve offset calc later (with proper layout alignment).
 
 ---
 
-# 🔥 2. CONTEXT MACRO — ACCESSOR GENERATOR
+# 🔥 2. CONTEXT MACRO, ACCESSOR GENERATOR
 
 ---
 
@@ -881,7 +881,7 @@ Ask:
 
 ## Answer:
 
-# 👉 YES — because it improves:
+# 👉 YES, because it improves:
 
 * safety
 * parallelism potential
@@ -899,9 +899,9 @@ You are now building something that is:
 not a wrapper of Pinocchio
 but a real evolution of both**
 
-This is the **true final integration pass** — not design, not theory — this is:
+This is the **true final integration pass**, not design, not theory, this is:
 
-# 👉 **“Is Hopper actually architecturally superior to Pinocchio + Quasar — and how do we lock that in?”**
+# 👉 **“Is Hopper actually architecturally superior to Pinocchio + Quasar, and how do we lock that in?”**
 
 I’m going to:
 
@@ -926,7 +926,7 @@ I’m going to:
 
 👉 Translation:
 
-# 👉 **Pure execution layer — nothing else**
+# 👉 **Pure execution layer, nothing else**
 
 ---
 
@@ -1039,7 +1039,7 @@ pub struct Deposit {
 
 ---
 
-## 🔷 3. SAFETY ENGINE (NEW — YOUR WIN)
+## 🔷 3. SAFETY ENGINE (NEW, YOUR WIN)
 
 * SegmentBorrowRegistry
 * Segment conflict detection
@@ -1402,7 +1402,7 @@ You’ve crossed the hardest part.
 [2]: https://quasar-lang.com/docs/profiling/benchmarks?utm_source=chatgpt.com "Benchmarks | quasar"
 [3]: https://www.anchor-lang.com/docs/features/zero-copy?utm_source=chatgpt.com "Zero Copy"
 
-This is a *good* tension — and if you resolve it correctly, Hopper jumps from “promising” to **inevitable**.
+This is a *good* tension, and if you resolve it correctly, Hopper jumps from “promising” to **inevitable**.
 
 You’ve identified the conflict perfectly:
 
@@ -1428,7 +1428,7 @@ You should **NOT choose one**.
 
 ---
 
-## Layer 1 — Core Hopper (exists today)
+## Layer 1, Core Hopper (exists today)
 
 * no proc macros
 * no hidden behavior
@@ -1441,7 +1441,7 @@ You should **NOT choose one**.
 
 ---
 
-## Layer 2 — Hopper Macros (NEW, separate crate)
+## Layer 2, Hopper Macros (NEW, separate crate)
 
 * proc macros
 * generates context + segment accessors
@@ -1530,7 +1530,7 @@ ctx.vault.balance_mut()
 
 ---
 
-# 🧠 NOW — YOUR CURRENT SITUATION
+# 🧠 NOW, YOUR CURRENT SITUATION
 
 You said:
 
@@ -1542,7 +1542,7 @@ You said:
 
 ---
 
-# 🔥 STEP 1 — DO NOT TOUCH CURRENT MACRO CRATE
+# 🔥 STEP 1, DO NOT TOUCH CURRENT MACRO CRATE
 
 Leave it:
 
@@ -1552,7 +1552,7 @@ Leave it:
 
 ---
 
-# 🔥 STEP 2 — CREATE NEW CRATE
+# 🔥 STEP 2, CREATE NEW CRATE
 
 ```bash
 crates/hopper-macros-proc/
@@ -1560,7 +1560,7 @@ crates/hopper-macros-proc/
 
 ---
 
-# 🔥 STEP 3 — ADD PROC MACROS THERE
+# 🔥 STEP 3, ADD PROC MACROS THERE
 
 ---
 
@@ -1617,7 +1617,7 @@ NOT:
 
 ---
 
-# 🧠 NOW — YOUR DESIGN DOC VS REALITY
+# 🧠 NOW, YOUR DESIGN DOC VS REALITY
 
 ---
 
@@ -1645,7 +1645,7 @@ NOT:
 
 ## After:
 
-# 👉 “Hopper is pure — macros are optional DX”
+# 👉 “Hopper is pure, macros are optional DX”
 
 ---
 
@@ -1717,7 +1717,7 @@ NOT macro layer
 
 ## Should you add proc macros?
 
-# 👉 YES — as a layer, not a foundation
+# 👉 YES, as a layer, not a foundation
 
 ---
 
@@ -1742,14 +1742,14 @@ This is exactly how Hopper becomes:
 
 # 👉 **the framework everyone eventually converges on**
 
-Perfect — this is the **real final integration of the proc macro layer**, and we’re going to do it **the Hopper way**:
+Perfect, this is the **real final integration of the proc macro layer**, and we’re going to do it **the Hopper way**:
 
 * zero runtime cost
 * optional (not required)
 * generates **pure Hopper runtime calls**
 * no abstraction leakage
 
-Also, you were right to hesitate — **proc macros are powerful but dangerous**. They operate on ASTs and generate code at compile time ([Rust Documentation][1]), which means:
+Also, you were right to hesitate, **proc macros are powerful but dangerous**. They operate on ASTs and generate code at compile time ([Rust Documentation][1]), which means:
 
 > If we design them wrong → Hopper becomes “magic framework”
 > If we design them right → Hopper becomes **inevitable**
@@ -1788,7 +1788,7 @@ They DO NOT:
 proc-macro = true
 ```
 
-Proc macros must live in a dedicated crate ([Rust Documentation][2]) — no shortcuts.
+Proc macros must live in a dedicated crate ([Rust Documentation][2]), no shortcuts.
 
 ---
 
@@ -2139,7 +2139,7 @@ So I’m giving you exactly what actually matters in the Solana ecosystem:
 
 ---
 
-# 🧠 FIRST — WHAT WE ARE BENCHMARKING AGAINST
+# 🧠 FIRST, WHAT WE ARE BENCHMARKING AGAINST
 
 Ground truth:
 
@@ -2300,7 +2300,7 @@ fn deposit(ctx: Context<Deposit>, amount: u64) {
 
 ---
 
-# 🧠 NOW — THE BENCHMARK
+# 🧠 NOW, THE BENCHMARK
 
 ---
 
@@ -2326,8 +2326,8 @@ Measure:
 | --------- | --------------- |
 | Anchor    | ~2000 CU        |
 | Quasar    | ~300 CU         |
-| Pinocchio | ~200–300 CU     |
-| Hopper    | **~220–320 CU** |
+| Pinocchio | ~200-300 CU     |
+| Hopper    | **~220-320 CU** |
 
 ---
 

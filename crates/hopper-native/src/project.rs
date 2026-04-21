@@ -17,7 +17,7 @@
 //! overlay types with padding or non-alignment-1 fields and trip
 //! undefined behaviour. Two separate surfaces now live in this module:
 //!
-//! - [`Projectable`] — the **unsafe escape hatch** kept for compatibility
+//! - [`Projectable`], the **unsafe escape hatch** kept for compatibility
 //!   with already-published programs that opt into it by hand. It still
 //!   only requires `Copy + 'static`, but its documentation is now
 //!   explicit: every `unsafe impl Projectable` is the author asserting
@@ -25,12 +25,12 @@
 //!   sites must treat it as a Tier C primitive.
 //!
 //! - [`SafeProjectable`] (with the matching [`project_safe`] /
-//!   [`project_safe_mut`] constructors) — the **sound default**. It is
+//!   [`project_safe_mut`] constructors), the **sound default**. It is
 //!   auto-implemented for every `T: Projectable` where the size is at
 //!   least 1 byte, but the intent at call sites is that only types that
 //!   participate in Hopper's `Pod` contract reach for this path. Higher
 //!   layers (`hopper-runtime`, `#[hopper::state]`-generated code) only
-//!   use Pod-bounded access paths now — this trait exists so lens and
+//!   use Pod-bounded access paths now, this trait exists so lens and
 //!   project helpers can offer a safe-by-default API without pulling in
 //!   `hopper-runtime` at the native layer.
 //!
@@ -92,7 +92,7 @@ unsafe impl Projectable for [u8; 32] {}
 unsafe impl Projectable for [u8; 64] {}
 
 // ══════════════════════════════════════════════════════════════════════
-//  SafeProjectable — Pod-aligned variant (Hopper Safety Audit fix)
+//  SafeProjectable, Pod-aligned variant (Hopper Safety Audit fix)
 // ══════════════════════════════════════════════════════════════════════
 
 /// Strengthened projection marker: the safe default for new code.
@@ -151,7 +151,7 @@ pub fn project_safe<T: SafeProjectable>(
 ///
 /// # Safety
 ///
-/// Same contract as [`project_mut`] — caller holds an exclusive borrow
+/// Same contract as [`project_mut`], caller holds an exclusive borrow
 /// on the account data region for the returned reference's lifetime.
 #[inline]
 pub unsafe fn project_safe_mut<T: SafeProjectable>(
@@ -160,7 +160,7 @@ pub unsafe fn project_safe_mut<T: SafeProjectable>(
     expected_disc: Option<u8>,
 ) -> Result<&mut T, ProgramError> {
     const { assert!(core::mem::size_of::<T>() > 0, "project_safe_mut: T must be non-zero-sized"); }
-    // SAFETY: forwarded contract matches `project_mut` — caller guarantees
+    // SAFETY: forwarded contract matches `project_mut`, caller guarantees
     // exclusive access over the returned reference's lifetime.
     unsafe { project_mut::<T>(account, offset, expected_disc) }
 }

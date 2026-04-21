@@ -1,4 +1,4 @@
-//! `#[hopper_program]` — instruction dispatch codegen.
+//! `#[hopper_program]`, instruction dispatch codegen.
 //!
 //! Annotate a module to generate a `process_instruction` entry point that
 //! dispatches based on the first byte of instruction data (discriminator).

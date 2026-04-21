@@ -26,7 +26,7 @@ use crate::error::ProgramError;
 
 /// Maximum simultaneous segment borrows per instruction.
 ///
-/// 16 covers any realistic instruction — most use 2–6 segments.
+/// 16 covers any realistic instruction, most use 2-6 segments.
 /// Keeping it fixed avoids heap allocation while staying well within
 /// Solana's CU budget.  The compact entry representation keeps the
 /// total stack footprint under 200 bytes.
@@ -49,7 +49,7 @@ pub enum AccessKind {
 /// `u64` compare rejects unrelated accounts immediately; the slow-path
 /// 32-byte compare fires only when the prefixes match. Because a
 /// full-address compare always follows, fingerprint collisions produce
-/// **no** false conflicts — they only cost one extra 32-byte compare
+/// **no** false conflicts, they only cost one extra 32-byte compare
 /// for the extremely rare collision pair.
 #[inline(always)]
 fn address_fingerprint(address: &Address) -> u64 {
@@ -76,7 +76,7 @@ fn address_eq(a: &Address, b: &Address) -> bool {
 pub struct SegmentBorrow {
     /// Fast-path prefix of the account address.
     pub key_fp: u64,
-    /// Full account address — authoritative identity, checked whenever
+    /// Full account address, authoritative identity, checked whenever
     /// the fast-path fingerprint matches. Pre-audit we relied on the
     /// fingerprint alone and claimed it was "collision-free for any
     /// realistic instruction"; that was probabilistic, not a guarantee.
@@ -101,7 +101,7 @@ const fn ranges_overlap(a_off: u32, a_size: u32, b_off: u32, b_size: u32) -> boo
 /// Instruction-scoped segment borrow registry.
 ///
 /// Tracks active segment borrows and enforces conflict rules. Designed
-/// for inline use in an execution context — no heap, no dynamic dispatch.
+/// for inline use in an execution context, no heap, no dynamic dispatch.
 ///
 /// Uses compact 8-byte address fingerprints and a flat array of
 /// fixed-size entries.  Total stack footprint: ~280 bytes (vs ~1.3 KB
@@ -112,8 +112,8 @@ const fn ranges_overlap(a_off: u32, a_size: u32, b_off: u32, b_size: u32) -> boo
 /// ```ignore
 /// let mut borrows = SegmentBorrowRegistry::new();
 /// borrows.register_read(&vault_key, 0, 8)?;   // read balance
-/// borrows.register_write(&vault_key, 8, 32)?;  // write metadata — OK, non-overlapping
-/// borrows.register_write(&vault_key, 0, 8)?;   // REJECTED — overlaps read
+/// borrows.register_write(&vault_key, 8, 32)?;  // write metadata, OK, non-overlapping
+/// borrows.register_write(&vault_key, 0, 8)?;   // REJECTED, overlaps read
 /// ```
 pub struct SegmentBorrowRegistry {
     entries: [SegmentBorrow; MAX_SEGMENT_BORROWS],
@@ -297,7 +297,7 @@ impl SegmentBorrowRegistry {
 
     /// Check if a proposed borrow would conflict, without registering it.
     ///
-    /// Uses full-address identity — fingerprint collisions do not
+    /// Uses full-address identity, fingerprint collisions do not
     /// produce false positives.
     #[inline(always)]
     pub fn would_conflict(&self, proposed: &SegmentBorrow) -> bool {
@@ -321,7 +321,7 @@ impl SegmentBorrowRegistry {
 
     /// Register a borrow and return an RAII guard that auto-releases it on drop.
     ///
-    /// This is the preferred way to acquire segment borrows — the guard
+    /// This is the preferred way to acquire segment borrows, the guard
     /// ensures the borrow is released even if the caller returns early
     /// via `?` or encounters an error.
     ///
@@ -384,7 +384,7 @@ impl SegmentBorrowRegistry {
     /// Visit each active borrow in registration order.
     ///
     /// Intended for diagnostics and for the `hopper explain`
-    /// introspection path — never for hot-path decisions.
+    /// introspection path, never for hot-path decisions.
     #[inline]
     pub fn for_each<F: FnMut(&SegmentBorrow)>(&self, mut f: F) {
         let len = self.len as usize;
@@ -594,11 +594,11 @@ mod tests {
         let key = test_addr(1);
         {
             let _guard = reg.register_guard_write(&key, 0, 8).unwrap();
-            // guard alive — registry exclusively borrowed at compile time
+            // guard alive, registry exclusively borrowed at compile time
         }
         // After drop: slot freed, len back to 0.
         assert_eq!(reg.len(), 0);
-        // Re-acquire the same range — proves release happened.
+        // Re-acquire the same range, proves release happened.
         assert!(reg.register_write(&key, 0, 8).is_ok());
     }
 
@@ -610,7 +610,7 @@ mod tests {
             let _guard = reg.register_guard_read(&key, 0, 8).unwrap();
         }
         assert_eq!(reg.len(), 0);
-        // Write now succeeds — the read borrow was released.
+        // Write now succeeds, the read borrow was released.
         assert!(reg.register_write(&key, 0, 8).is_ok());
     }
 
@@ -642,7 +642,7 @@ mod tests {
         {
             let _guard = reg.register_guard_write(&key, 0, 8).unwrap();
         }
-        // Guard released — manual register on overlapping range works.
+        // Guard released, manual register on overlapping range works.
         assert!(reg.register_read(&key, 0, 8).is_ok());
         assert_eq!(reg.len(), 1);
     }

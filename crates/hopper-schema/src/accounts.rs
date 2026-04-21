@@ -42,7 +42,7 @@ pub struct ContextAccountDescriptor {
     /// Byte count required for `init`. `None` (represented as 0) if
     /// not applicable.
     pub init_space: u32,
-    /// Fields listed in `has_one = ...` — required to equal the
+    /// Fields listed in `has_one = ...`, required to equal the
     /// corresponding layout field by public key.
     pub has_one: &'static [&'static str],
     /// Address the caller must provide, if pinned via `address = EXPR`

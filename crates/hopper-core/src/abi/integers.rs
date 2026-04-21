@@ -110,7 +110,7 @@ macro_rules! wire_int {
 
         // Bytemuck proof (Hopper Safety Audit Must-Fix #5): the Pod
         // supertrait bound requires these impls. `#[repr(transparent)]`
-        // over `[u8; N]` satisfies every bytemuck obligation — all
+        // over `[u8; N]` satisfies every bytemuck obligation, all
         // bit patterns valid, no padding, align-1 inherited from the
         // inner array.
         #[cfg(feature = "hopper-native-backend")]

@@ -183,7 +183,7 @@ impl Phase {
 pub enum CompatImpact {
     /// No compatibility impact.
     None = 0,
-    /// Append-only growth — backward readable.
+    /// Append-only growth, backward readable.
     Append = 1,
     /// Full migration required.
     Migration = 2,
@@ -603,7 +603,7 @@ impl DecodedReceipt {
 
     /// Return a structured human-readable explanation of this receipt.
     ///
-    /// This is the "operator UX" layer—every numeric field gets a semantic
+    /// This is the "operator UX" layer-every numeric field gets a semantic
     /// label so tools, dashboards, and CLI output can show meaningful text
     /// instead of raw bytes.
     pub fn explain(&self) -> ReceiptExplain {
@@ -653,7 +653,7 @@ impl DecodedReceipt {
 /// Human-readable explanation of a decoded receipt.
 ///
 /// Produced by [`DecodedReceipt::explain()`]. Every field is a semantic
-/// label, not a raw number—designed for operator dashboards, CLI output,
+/// label, not a raw number-designed for operator dashboards, CLI output,
 /// and audit logs.
 pub struct ReceiptExplain {
     /// Phase name ("Update", "Init", "Close", "Migrate", "ReadOnly").
@@ -684,7 +684,7 @@ pub struct ReceiptExplain {
 impl ReceiptExplain {
     /// Return a copy with the given policy name injected.
     ///
-    /// The receipt wire format does not carry the policy pack name—only a
+    /// The receipt wire format does not carry the policy pack name-only a
     /// bitmask of flags. Call this after constructing an explain from the
     /// decoded receipt when you know which policy pack governed the
     /// instruction (e.g. from the program manifest).
@@ -736,7 +736,7 @@ impl ReceiptExplain {
             }
             return "Migration applied";
         }
-        // Update phase — provide more detail based on what changed
+        // Update phase, provide more detail based on what changed
         if !self.fingerprint_changed && self.changed_field_count == 0 {
             return "Update executed with no observable state changes";
         }

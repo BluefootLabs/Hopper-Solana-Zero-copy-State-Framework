@@ -73,7 +73,7 @@ pub fn emit_slices(segments: &[&[u8]]) {
 /// Event CPI data layout: `[0xFF, 0xFE][event_disc: u8][event_data: T::SIZE bytes]`
 ///
 /// The `0xFF 0xFE` prefix is an invalid instruction discriminator reserved
-/// for event CPI — the program's dispatch will never match it.
+/// for event CPI, the program's dispatch will never match it.
 #[cfg(feature = "cpi")]
 #[inline]
 pub fn emit_event_cpi<T: Pod + FixedLayout>(

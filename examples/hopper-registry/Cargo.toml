@@ -13,8 +13,8 @@ hopper = { path = "../..", default-features = false }
 
 [features]
 # Uses `check::graph` constraint helpers (`require_signer_at`,
-# `require_writable_at`, …), so the `advanced` umbrella — which
-# gates the `graph` feature — must be on.
+# `require_writable_at`, etc), so the `advanced` umbrella, which
+# gates the `graph` feature, must be on.
 default = ["hopper-native-backend", "advanced"]
 hopper-native-backend = ["hopper/hopper-native-backend"]
 advanced = ["hopper/advanced"]

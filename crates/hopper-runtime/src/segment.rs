@@ -4,7 +4,7 @@
 //! access routes through: `{offset, size}`, 8 bytes on 32-bit accounts,
 //! `Copy`, `const`-constructable, no strings, no extra fields. It is the
 //! runtime counterpart to `hopper_core::segment_map::StaticSegment`
-//! (which carries a human-readable name for tooling) — the runtime
+//! (which carries a human-readable name for tooling), the runtime
 //! never needs the name, so this primitive stays bare.
 //!
 //! # Design
@@ -19,7 +19,7 @@
 //! - the compiler substitutes the constant, collapses the call chain,
 //!   and on Solana SBF you see one register-add over `data_ptr`.
 //!
-//! `Segment` never appears in an on-chain layout — it is a compile-time
+//! `Segment` never appears in an on-chain layout, it is a compile-time
 //! description only. Use `hopper_core::account::SegmentDescriptor` for
 //! bytes that travel on the wire.
 
@@ -88,7 +88,7 @@ impl Segment {
 // Where `Segment` carries `(offset, size)` at runtime, `TypedSegment`
 // folds **both** values into the type system: `T` determines the size
 // via `size_of::<T>()`, and `OFFSET` is a const generic. The struct
-// itself is a ZST — no memory at all. This is the finish-line audit's
+// itself is a ZST, no memory at all. This is the finish-line audit's
 // "const-generic segments & compile-time offsets" innovation: at every
 // call site the compiler substitutes the literal offset and literal
 // size into the bounds check + pointer add, leaving pure

@@ -1,6 +1,6 @@
 //! Lightweight Solana JSON-RPC client and PDA derivation for the Hopper CLI.
 //!
-//! No heavy SDK dependency — just `ureq` for HTTP, `sha2` + `curve25519-dalek`
+//! No heavy SDK dependency, just `ureq` for HTTP, `sha2` + `curve25519-dalek`
 //! for PDA derivation, and `bs58`/`base64` for encoding.
 
 use sha2::{Sha256, Digest};
@@ -183,7 +183,7 @@ fn extract_rpc_error(json: &str) -> Option<String> {
 
 /// Check if "value" is null in the RPC response.
 fn is_value_null(json: &str) -> bool {
-    // Find "value" key — be careful not to match nested value keys
+    // Find "value" key, be careful not to match nested value keys
     if let Some(pos) = json.find("\"value\"") {
         let after = &json[pos + 7..]; // len of "value"
         let after = after.trim_start();

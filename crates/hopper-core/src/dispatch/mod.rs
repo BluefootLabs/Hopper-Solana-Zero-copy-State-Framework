@@ -6,9 +6,9 @@
 //!
 //! ## Dispatch variants
 //!
-//! - `hopper_dispatch!` — Standard: receives `(program_id, accounts, data)`
-//! - `hopper_dispatch_lazy!` — Lazy: receives `LazyContext`, parses accounts on-demand
-//! - `hopper_dispatch_8!` — 8-byte discriminator (Anchor/Quasar compatible)
+//! - `hopper_dispatch!`, Standard: receives `(program_id, accounts, data)`
+//! - `hopper_dispatch_lazy!`, Lazy: receives `LazyContext`, parses accounts on-demand
+//! - `hopper_dispatch_8!`, 8-byte discriminator (Anchor/Quasar compatible)
 
 use hopper_runtime::error::ProgramError;
 

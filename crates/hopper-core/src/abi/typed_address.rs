@@ -59,7 +59,7 @@ const _: () = assert!(core::mem::align_of::<TypedAddress<()>>() == 1);
 
 // Bytemuck proof (Hopper Safety Audit Must-Fix #5). Blanket over `T`
 // is fine because `TypedAddress<T>` is `#[repr(transparent)]` over
-// `[u8; 32]` and `T` only participates as `PhantomData` — the wire
+// `[u8; 32]` and `T` only participates as `PhantomData`, the wire
 // payload doesn't depend on `T` at all.
 #[cfg(feature = "hopper-native-backend")]
 unsafe impl<T: 'static> ::hopper_runtime::__hopper_native::bytemuck::Zeroable for TypedAddress<T> {}

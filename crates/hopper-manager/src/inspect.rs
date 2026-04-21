@@ -1,7 +1,7 @@
 //! Header, segment, and field-level inspection of Hopper account bytes.
 //!
 //! Every function here is a pure `&ProgramManifest + &[u8] -> String` (or
-//! `Option<String>`) — no I/O, no panics. Consumes the schema truth.
+//! `Option<String>`), no I/O, no panics. Consumes the schema truth.
 
 use core::fmt::Write;
 

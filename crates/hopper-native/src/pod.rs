@@ -1,7 +1,7 @@
 //! Substrate-level `Pod` marker.
 //!
-//! The Hopper Safety Audit asked for every zero-copy access path —
-//! all the way down to the native substrate — to require a real Pod
+//! The Hopper Safety Audit asked for every zero-copy access path -
+//! all the way down to the native substrate, to require a real Pod
 //! bound rather than the loose `T: Copy`. This module is that marker.
 //!
 //! ## Bytemuck-backed safety (default)
@@ -15,8 +15,8 @@
 //! Bytemuck's derive emits a compile-time proof that **every field**
 //! of `T` is itself `Pod`, which mechanically rejects:
 //!
-//! - `bool`, `char`, references — not all bit patterns valid
-//! - padded `#[repr(C)]` structs — padding bytes aren't accounted for
+//! - `bool`, `char`, references, not all bit patterns valid
+//! - padded `#[repr(C)]` structs, padding bytes aren't accounted for
 //! - non-alignment-1 primitives when alignment-1 was claimed
 //! - enums with niches and non-zero variants
 //!
@@ -96,8 +96,8 @@ mod tests {
         require::<[u8; 32]>();
     }
 
-    /// Demonstrates that `bool` — `Copy + Sized` but not all bit
-    /// patterns valid — is **not** `Pod` under Hopper's contract.
+    /// Demonstrates that `bool`, `Copy + Sized` but not all bit
+    /// patterns valid, is **not** `Pod` under Hopper's contract.
     /// With the `bytemuck` feature on this is enforced mechanically
     /// because `bool` isn't `bytemuck::Pod`. Without the feature the
     /// trait is a plain marker and the rejection relies on the user
@@ -108,7 +108,7 @@ mod tests {
         impl<T> NotPod for T {}
         trait IsPod {}
         impl<T: Pod> IsPod for T {}
-        // Compiles — bool has `NotPod` blanket impl.
+        // Compiles, bool has `NotPod` blanket impl.
         fn _f<T: NotPod>() {}
         _f::<bool>();
     }

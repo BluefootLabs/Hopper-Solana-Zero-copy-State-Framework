@@ -50,7 +50,7 @@ pub struct Frame<'a> {
     mutable_borrows: u64,
     /// Segment-level borrow tracking for fine-grained conflict detection.
     /// Allows concurrent mutable access to non-overlapping regions of the
-    /// same account — the key safety innovation over raw Pinocchio.
+    /// same account, the key safety innovation over raw Pinocchio.
     segment_borrows: SegmentBorrowRegistry,
 }
 
@@ -169,7 +169,7 @@ impl<'a> Frame<'a> {
     ///
     /// # Preferred path
     ///
-    /// Most programs don't need to construct a `Frame` at all — the
+    /// Most programs don't need to construct a `Frame` at all, the
     /// `hopper_runtime::Context` handler signature gives you
     /// `ctx.segment_ref::<T>(index, abs_offset)` with the same tightened
     /// Pod contract, the same RAII guard, and none of the phased
@@ -184,7 +184,7 @@ impl<'a> Frame<'a> {
     /// - Borrow conflicts are checked at runtime.
     /// - The returned [`SegRef<T>`] owns both the byte-slice borrow and
     ///   a RAII lease on the segment registry entry. Dropping it
-    ///   releases **both** — no sticky-ledger residue from post-audit.
+    ///   releases **both**, no sticky-ledger residue from post-audit.
     #[inline]
     pub fn segment_ref<'f, T: Pod + FixedLayout>(
         &'f mut self,
@@ -243,7 +243,7 @@ impl<'a> Frame<'a> {
     /// - Bounds are checked at runtime.
     /// - Borrow conflicts are checked at runtime.
     /// - The returned [`SegRefMut<T>`] carries both the account-level
-    ///   exclusive byte guard and a RAII registry lease — dropping it
+    ///   exclusive byte guard and a RAII registry lease, dropping it
     ///   releases the full borrow cleanly, so sequential patterns on
     ///   the same segment compose like ordinary Rust borrows.
     ///
@@ -304,7 +304,7 @@ impl<'a> Frame<'a> {
     ///
     /// Skips borrow tracking entirely. The caller takes full responsibility
     /// for aliasing safety. Returns a `RefMut<T>` so the borrow guard is
-    /// still tied to the returned value's lifetime — the "unchecked" part
+    /// still tied to the returned value's lifetime, the "unchecked" part
     /// is only the conflict-detection skip, not the lifetime tying.
     ///
     /// # Safety
@@ -543,7 +543,7 @@ mod audit_tests {
         // `Frame::segment_mut` and see the write persist proves the
         // projection and guard release are now correctly tied together.
         // Pre-audit this same code compiled but the byte-slice guard
-        // had already been dropped when `segment_mut` returned — any
+        // had already been dropped when `segment_mut` returned, any
         // overlapping borrow tracking was racing against stale state.
         let (_backing, account) = make_account(HEADER_LEN + 8, 1);
         let program_id = NativeAddress::new_from_array([9; 32]);
@@ -618,7 +618,7 @@ mod audit_tests {
         }
         assert_eq!(frame.segment_borrows().len(), 0);
 
-        // Second write on the same region — pre-audit this returned
+        // Second write on the same region, pre-audit this returned
         // `AccountBorrowFailed`; now it succeeds because the prior
         // lease has been released.
         {

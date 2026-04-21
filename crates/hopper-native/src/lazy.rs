@@ -223,7 +223,7 @@ impl LazyContext {
                 self.cursor = self.cursor.add(8); // skip 8-byte padding
                 // The loader guarantees duplicate markers refer to
                 // **previously parsed** slots. A marker that points at
-                // ourselves or forward is malformed loader input —
+                // ourselves or forward is malformed loader input -
                 // pre-audit we returned `self.resolved[0]` which is a
                 // zeroed `AccountView` until a real account has been
                 // parsed, silently handing out a null-pointer view. The
@@ -279,7 +279,7 @@ impl LazyContext {
 #[inline(always)]
 pub unsafe fn lazy_deserialize(input: *mut u8) -> LazyContext {
     let frame = unsafe { crate::raw_input::scan_instruction_frame(input) };
-    // SAFETY: AccountView is a single raw pointer — zeroed is a valid
+    // SAFETY: AccountView is a single raw pointer, zeroed is a valid
     // sentinel (null). These slots are only read after `next_account()`
     // initializes them via `parse_one_account()`.
     let resolved: [AccountView; 254] = unsafe { core::mem::zeroed() };

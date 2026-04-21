@@ -111,7 +111,7 @@ pub fn verify_pda_with_bump(
 
 /// Verify that an account matches a PDA derived from the given seeds.
 ///
-/// **Verify-only approach**: iterates bumps 255→0 using `sol_sha256` only —
+/// **Verify-only approach**: iterates bumps 255→0 using `sol_sha256` only -
 /// no `sol_curve_validate_point` needed because we compare each hash directly
 /// against the known PDA address. This saves ~159 CU per attempt compared to
 /// the standard `find_program_address` approach (sha256+curve_validate).

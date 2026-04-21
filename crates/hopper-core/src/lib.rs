@@ -164,9 +164,9 @@ pub const fn anchor_account_discriminator(type_name: &str) -> [u8; 8] {
 /// Narrow, hot-path-only prelude.
 ///
 /// The finish-line audit demanded that Hopper's "core identity" stay
-/// tight: **memory + access + layout**. Everything else — frame-based
+/// tight: **memory + access + layout**. Everything else, frame-based
 /// execution, receipts, policies, validation graphs, migrations, virtual
-/// state, diffing, explain — is opt-in power, not launch identity.
+/// state, diffing, explain, is opt-in power, not launch identity.
 ///
 /// This prelude ships only the types and helpers a Hopper program needs
 /// to declare state, bind accounts, check invariants, and make CPIs.
@@ -265,7 +265,7 @@ pub mod prelude_core {
 
 /// Advanced subsystem prelude: everything outside the core identity.
 ///
-/// Re-exports the feature-gated surfaces — frame, receipts, policies,
+/// Re-exports the feature-gated surfaces, frame, receipts, policies,
 /// validation graphs, migrations, virtual state, diffs, explain,
 /// additional check helpers, trust profiles. Each item respects the
 /// feature flag that controls its module; disable the feature and the

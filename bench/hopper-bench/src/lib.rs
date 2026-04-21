@@ -587,7 +587,7 @@ fn bench_raw_cast_baseline(accounts: &[AccountView], program_id: &Address) -> Pr
         return Err(ProgramError::AccountDataTooSmall);
     }
     // SAFETY: BenchVault is repr(C), alignment 1 (all wire types are u8-aligned).
-    // This is the minimal cost path — what competitors pay.
+    // This is the minimal cost path, what competitors pay.
     let _vault = unsafe { &*(data.as_ptr() as *const BenchVault) };
 
     #[cfg(target_os = "solana")]

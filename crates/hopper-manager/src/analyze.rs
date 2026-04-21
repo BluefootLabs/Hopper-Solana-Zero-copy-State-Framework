@@ -2,7 +2,7 @@
 //!
 //! These routines ingest two `LayoutManifest`s (or two versions of the same
 //! account's bytes) and explain whether upgrades are safe, what fields
-//! moved, and what downstream migration steps are implied — all from the
+//! moved, and what downstream migration steps are implied, all from the
 //! schema truth, never re-derived.
 
 use core::fmt::Write;
@@ -141,7 +141,7 @@ pub fn field_diff_report(
     if older.name != newer.name {
         let _ = writeln!(
             out,
-            "  layouts have different names — treating as full replacement"
+            "  layouts have different names, treating as full replacement"
         );
         return Ok(out);
     }

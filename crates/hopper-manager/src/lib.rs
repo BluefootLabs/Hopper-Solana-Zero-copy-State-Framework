@@ -4,7 +4,7 @@
 //!
 //! The manager is an **inspector, not an engine**. It consumes the canonical
 //! runtime/layout/schema truth published by Hopper programs and returns
-//! human-readable reports. It never invents its own semantics — every byte,
+//! human-readable reports. It never invents its own semantics, every byte,
 //! offset, and label comes from `hopper_schema::ProgramManifest` or the raw
 //! account bytes themselves.
 //!
@@ -17,9 +17,9 @@
 //!
 //! ## Modules
 //!
-//! - [`inspect`] — identify accounts, decode headers and fields
-//! - [`summary`] — render layouts, policies, events, fingerprint tables
-//! - [`analyze`] — compatibility verdicts, semantic diffs, migration plans
+//! - [`inspect`], identify accounts, decode headers and fields
+//! - [`summary`], render layouts, policies, events, fingerprint tables
+//! - [`analyze`], compatibility verdicts, semantic diffs, migration plans
 //!
 //! ## Example
 //!
@@ -43,7 +43,7 @@ pub use summary::{
 
 /// One-stop human-readable overview of a program manifest.
 ///
-/// Equivalent to the CLI's `hopper manager summary` — the default
+/// Equivalent to the CLI's `hopper manager summary`, the default
 /// `Display` impl on `ProgramManifest`. Exposed here so downstream tools
 /// can get the same formatting without reaching into schema internals.
 #[inline]

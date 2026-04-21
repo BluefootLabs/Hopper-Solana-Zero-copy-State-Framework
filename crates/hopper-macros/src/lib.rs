@@ -10,7 +10,7 @@
 //! and reach for `#[hopper::state]`, `#[hopper::context]`, and
 //! `#[hopper::program]` in `hopper-macros-proc`. Programs that prefer a
 //! zero-tool-chain authoring path can use these declarative macros
-//! directly — both paths lower to the same runtime.
+//! directly, both paths lower to the same runtime.
 //!
 //! ## Topical index
 //!
@@ -1330,7 +1330,7 @@ macro_rules! hopper_interface {
             );
         };
 
-        // Bytemuck proof (Hopper Safety Audit Must-Fix #5) — same
+        // Bytemuck proof (Hopper Safety Audit Must-Fix #5), same
         // justification as `hopper_layout!`: `#[repr(C)]` over Hopper
         // wire types is bytemuck-safe by construction.
         #[cfg(feature = "hopper-native-backend")]

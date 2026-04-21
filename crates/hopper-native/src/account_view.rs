@@ -384,7 +384,7 @@ impl AccountView {
     /// Program, which is the canonical "no-owner" state on Solana.
     /// The byte value `[0u8; 32]` and `Address::default()` are
     /// equivalent, but using this named constant makes the intent
-    /// explicit — per the Hopper Safety Audit which flagged the
+    /// explicit, per the Hopper Safety Audit which flagged the
     /// `Address::default()` spelling as documentation drift.
     pub const SYSTEM_PROGRAM_ID: Address = Address::new_from_array([0u8; 32]);
 
@@ -394,7 +394,7 @@ impl AccountView {
     /// # Caveat
     ///
     /// This low-level routine does **not** verify the caller has
-    /// authority to close the account — Solana's runtime enforces
+    /// authority to close the account, Solana's runtime enforces
     /// owner/writable rules at transaction commit time regardless, but
     /// higher-level APIs (e.g. `hopper_runtime::AccountView::close_to`)
     /// should pre-check those rules. See `account.rs::close_to` for
@@ -644,7 +644,7 @@ impl AccountView {
     /// Layout (little-endian): `[borrow_state, is_signer, is_writable, executable]`
     ///
     /// This is the fastest way to extract multiple account properties at once
-    /// — a single aligned u32 read instead of 3-4 separate byte loads.
+    ///, a single aligned u32 read instead of 3-4 separate byte loads.
     #[inline(always)]
     fn header_u32(&self) -> u32 {
         // SAFETY: RuntimeAccount is #[repr(C)] with first 4 fields as u8,

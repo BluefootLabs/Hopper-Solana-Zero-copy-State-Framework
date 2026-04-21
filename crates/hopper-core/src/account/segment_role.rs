@@ -107,7 +107,7 @@ impl SegmentRole {
     /// Whether this segment's data must be copied during migration.
     ///
     /// Core and Audit segments contain irreplaceable state that cannot
-    /// be rebuilt or cleared — their bytes must survive migration intact.
+    /// be rebuilt or cleared, their bytes must survive migration intact.
     #[inline(always)]
     pub const fn requires_migration_copy(&self) -> bool {
         matches!(*self, Self::Core | Self::Audit)

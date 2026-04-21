@@ -1,4 +1,4 @@
-//! `Pod` — the canonical runtime-layer "safe to interpret from raw bytes" marker.
+//! `Pod`, the canonical runtime-layer "safe to interpret from raw bytes" marker.
 //!
 //! Hopper's typed access primitives (`segment_ref`, `segment_mut`,
 //! `raw_ref`, `raw_mut`, `read_data`) all overlay a `T` on a slice of
@@ -18,11 +18,11 @@
 //! 1. Every `[u8; size_of::<T>()]` byte pattern represents a valid `T`.
 //!    No "niches", no enum-discriminant invariants, no `bool`-style
 //!    forbidden bit patterns.
-//! 2. `align_of::<T>() == 1` — the type can be read from any byte
+//! 2. `align_of::<T>() == 1`, the type can be read from any byte
 //!    offset of an account buffer without alignment fault.
 //! 3. `T` contains no padding (`#[repr(C)]` with alignment-1 fields, or
 //!    `#[repr(transparent)]` over a `Pod` type).
-//! 4. `T` contains no internal pointers / references — overlay always
+//! 4. `T` contains no internal pointers / references, overlay always
 //!    yields data that's safe to `Copy`.
 //!
 //! Hopper's higher-layer macros (`#[hopper::state]`, `#[hopper::pod]`,
@@ -34,7 +34,7 @@
 //!
 //! With the `bytemuck` feature on (default), the following mis-use
 //! patterns are all rejected at compile time. The audit's Must-Fix #5
-//! — "enforce field-level Pod proof at macro expansion time" — is
+//!, "enforce field-level Pod proof at macro expansion time", is
 //! now mechanically enforced by bytemuck's own `Pod + Zeroable`
 //! bounds, so every zero-copy access path rejects them automatically.
 //!
@@ -58,7 +58,7 @@
 //! ```
 //!
 //! A `#[repr(C)]` struct with implicit padding is not bytemuck-Pod
-//! — bytemuck's derive / Pod bound rejects the padding bytes because
+//!, bytemuck's derive / Pod bound rejects the padding bytes because
 //! they'd leak uninitialised data through `bytes_of`:
 //!
 //! ```compile_fail
@@ -95,7 +95,7 @@
 //!
 //! When `hopper-native-backend` is active (the default), this trait is
 //! a direct re-export of [`hopper_native::Pod`]. That keeps the entire
-//! Hopper stack — substrate, runtime, core, macros — on a single Pod
+//! Hopper stack, substrate, runtime, core, macros, on a single Pod
 //! trait: one `unsafe impl Pod for MyStruct {}` unlocks every Hopper
 //! access API from the lowest-level `AccountView::raw_mut` up to
 //! `#[hopper::state]`-generated accessors, across all crates, with no

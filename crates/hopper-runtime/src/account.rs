@@ -171,7 +171,7 @@ impl AccountView {
     /// exactly the way Rust callers expect.
     ///
     /// On the native backend (Solana), the inner `Ref<T>` uses the
-    /// flat `{ptr, state}` representation — no dummy slice guard,
+    /// flat `{ptr, state}` representation, no dummy slice guard,
     /// no intermediate `Ref<[u8]>`.
     ///
     /// The explicit `'a` lifetime binds the returned `SegRef<'a, T>`
@@ -241,7 +241,7 @@ impl AccountView {
     /// Project a mutable typed segment. Mirror of [`segment_ref`]; the
     /// returned [`SegRefMut<T>`](crate::SegRefMut) carries both the
     /// account-level exclusive borrow guard and the segment-registry
-    /// lease, so dropping it is a full release — no lingering entries.
+    /// lease, so dropping it is a full release, no lingering entries.
     #[inline(always)]
     pub fn segment_mut<'a, T: crate::Pod>(
         &'a self,
@@ -310,7 +310,7 @@ impl AccountView {
     /// `segment.offset` is the **absolute** offset from the start of
     /// account data (i.e. past the Hopper header already folded in).
     /// Construct it via `Segment::new(offset, size)` or
-    /// `Segment::body(body_offset, size)` — the latter adds
+    /// `Segment::body(body_offset, size)`, the latter adds
     /// `HopperHeader::SIZE` for you.
     ///
     /// ```ignore
@@ -327,7 +327,7 @@ impl AccountView {
     }
 
     /// Mutable const-Segment access. See [`segment_ref_const`] for the
-    /// contract — this is the exclusive variant.
+    /// contract, this is the exclusive variant.
     #[inline(always)]
     pub fn segment_mut_const<'a, T: crate::Pod>(
         &'a self,
@@ -361,7 +361,7 @@ impl AccountView {
     }
 
     /// Mutable typed-segment access. See [`segment_ref_typed`] for the
-    /// contract — this is the exclusive variant.
+    /// contract, this is the exclusive variant.
     #[inline(always)]
     pub fn segment_mut_typed<'a, T: crate::Pod, const OFFSET: u32>(
         &'a self,
@@ -514,7 +514,7 @@ impl AccountView {
     ///
     /// This is a tooling/inspection helper that delegates to
     /// `FieldMap::field_by_name`. It performs a const-driven linear
-    /// scan over `T::FIELDS` and is not intended for hot-path use —
+    /// scan over `T::FIELDS` and is not intended for hot-path use -
     /// programs should reach for the const offsets emitted by
     /// `#[hopper::state]` instead.
     #[inline]
@@ -744,21 +744,21 @@ impl AccountView {
     /// can debit lamports or mutate data on a writable account), this
     /// method requires:
     ///
-    /// - `self` must be **writable** — otherwise the runtime will
+    /// - `self` must be **writable**, otherwise the runtime will
     ///   reject the commit anyway, but we fail fast here rather than
     ///   let the transaction progress through an invalid state.
-    /// - `self` must be **owned by `program_id`** — the program that
+    /// - `self` must be **owned by `program_id`**, the program that
     ///   is executing this instruction. Without this check the safe
     ///   API would silently encourage patterns that only Solana's
     ///   post-instruction verifier catches.
-    /// - `destination` must be **writable** — receiving lamports
+    /// - `destination` must be **writable**, receiving lamports
     ///   requires write permission on the credit side.
     ///
     /// This is the Hopper Safety Audit's recommended tightening: the
     /// pre-audit version mutated lamports and zeroed data without
     /// checking either side, relying on the runtime to reject the
     /// transaction later. The audit flagged that as "encouraging
-    /// patterns that will only be rejected later" — the safe API
+    /// patterns that will only be rejected later", the safe API
     /// should surface the violation at call time.
     #[inline]
     pub fn close_to(
@@ -1164,7 +1164,7 @@ mod tests {
         let mut borrows = crate::segment_borrow::SegmentBorrowRegistry::new();
         let _read_view = account.load::<TestLayout>().unwrap();
 
-        // Account-level shared borrow is live — a segment write MUST fail.
+        // Account-level shared borrow is live, a segment write MUST fail.
         let err = account
             .segment_mut::<u64>(
                 &mut borrows,
@@ -1186,7 +1186,7 @@ mod tests {
         let mut borrows = crate::segment_borrow::SegmentBorrowRegistry::new();
         let _write_view = account.load_mut::<TestLayout>().unwrap();
 
-        // Exclusive account-level borrow is live — even a segment read
+        // Exclusive account-level borrow is live, even a segment read
         // must be rejected because the bytes are mutably aliased.
         let err = account
             .segment_ref::<u64>(
@@ -1201,7 +1201,7 @@ mod tests {
     #[test]
     fn every_access_path_is_tracked() {
         // The finish-line audit demanded every access path register with
-        // the borrow machinery — no silent bypasses. This test walks the
+        // the borrow machinery, no silent bypasses. This test walks the
         // public surface and confirms that each method either (a) holds
         // the account state byte so a conflicting follow-up access is
         // rejected, or (b) registers with the instruction-scoped segment
@@ -1308,7 +1308,7 @@ mod tests {
     }
 
     /// Two overlapping writes that are simultaneously alive must still
-    /// be rejected — the audit fix is scoped to sequential, not
+    /// be rejected, the audit fix is scoped to sequential, not
     /// aliasing, patterns. This test locks in that guarantee.
     #[test]
     fn seg_lease_still_rejects_simultaneous_overlap() {
@@ -1418,7 +1418,7 @@ mod tests {
                 .unwrap();
             *seg = 42;
         }
-        // Segment borrow released — load_mut should now succeed.
+        // Segment borrow released, load_mut should now succeed.
         let view = account.load::<TestLayout>().unwrap();
         assert_eq!(view.a, 42);
     }

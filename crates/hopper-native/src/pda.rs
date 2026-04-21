@@ -269,7 +269,7 @@ pub fn verify_pda_strict(
     verify_program_address(seeds, program_id, expected)
 }
 
-/// Find the bump seed for a known PDA address — skipping curve validation.
+/// Find the bump seed for a known PDA address, skipping curve validation.
 ///
 /// When you already know the expected address (e.g. from a transaction
 /// account), there is no need to validate the derived hash is off-curve.

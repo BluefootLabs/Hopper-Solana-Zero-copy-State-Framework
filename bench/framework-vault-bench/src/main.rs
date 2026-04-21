@@ -113,7 +113,7 @@ fn run() -> Result<(), String> {
 
     // Audit D4 closure: Hopper is the baseline. Quasar + pinocchio-style
     // are required by the legacy bench contract (quasar_root supplies
-    // both). Anchor is optional — pass `--anchor-root <path>` and the
+    // both). Anchor is optional, pass `--anchor-root <path>` and the
     // anchor_vault.so there is included in the matrix. Frameworks whose
     // binaries are missing are skipped and logged rather than erroring
     // out; partial runs are valid during development. CI builds require

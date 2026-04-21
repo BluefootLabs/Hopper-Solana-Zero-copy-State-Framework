@@ -77,7 +77,7 @@ Default `samples = 128`.
 | Cross-program foreign-field read | Lens / ABI verification cost |
 
 The first four map directly to the `authorize` / `counter_access` /
-`deposit` / `withdraw` instructions. Workloads 5–7 live in the
+`deposit` / `withdraw` instructions. Workloads 5-7 live in the
 `bench/hopper-bench` on-chain program (they don't need cross-framework
 equivalents because every framework reduces to raw byte reads for
 them).
