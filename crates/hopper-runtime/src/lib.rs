@@ -90,9 +90,9 @@ pub use tail::{read_tail, read_tail_len, tail_payload, write_tail, TailCodec};
 /// }
 /// ```
 ///
-/// Emits `impl LayoutMigration for Vault { const MIGRATIONS = ... }`.
+/// Emits `impl LayoutMigration for Vault { const MIGRATIONS = .. }`.
 /// Each list entry must evaluate to a
-/// [`MigrationEdge`](crate::migrate::MigrationEdge) — typically the
+/// [`MigrationEdge`](crate::migrate::MigrationEdge). typically the
 /// `<UPPER_SNAKE_FN_NAME>_EDGE` constant that
 /// `#[hopper::migrate]` emits alongside each migration function.
 /// Chain continuity (every adjacent pair must satisfy
@@ -160,6 +160,93 @@ macro_rules! require_eq {
     };
     ( $left:expr, $right:expr ) => {
         if ($left) != ($right) { return Err($crate::ProgramError::InvalidArgument); }
+    };
+}
+
+/// Assert two values are not equal. Early-returns with the supplied
+/// error on match (or `ProgramError::InvalidArgument` in the short
+/// form). Symmetric with [`require_eq!`].
+#[macro_export]
+macro_rules! require_neq {
+    ( $left:expr, $right:expr, $err:expr ) => {
+        if ($left) == ($right) { return Err($err); }
+    };
+    ( $left:expr, $right:expr ) => {
+        if ($left) == ($right) { return Err($crate::ProgramError::InvalidArgument); }
+    };
+}
+
+/// Assert two public keys (or any byte slices convertible via
+/// [`AsRef<[u8; 32]>`]) are equal. Narrower than [`require_eq!`] but
+/// matches the ergonomic spelling ecosystem migrators coming from
+/// Anchor / Jiminy are familiar with.
+///
+/// ```ignore
+/// hopper::require_keys_eq!(
+///     vault.authority,
+///     ctx.signer.address(),
+///     ProgramError::InvalidAccountData,
+/// );
+/// ```
+#[macro_export]
+macro_rules! require_keys_eq {
+    ( $left:expr, $right:expr, $err:expr ) => {
+        if ::core::convert::AsRef::<[u8; 32]>::as_ref(&$left)
+            != ::core::convert::AsRef::<[u8; 32]>::as_ref(&$right)
+        {
+            return Err($err);
+        }
+    };
+    ( $left:expr, $right:expr ) => {
+        if ::core::convert::AsRef::<[u8; 32]>::as_ref(&$left)
+            != ::core::convert::AsRef::<[u8; 32]>::as_ref(&$right)
+        {
+            return Err($crate::ProgramError::InvalidAccountData);
+        }
+    };
+}
+
+/// Assert two public keys are *not* equal. Used for pinning distinct
+/// accounts (authority != user, source != destination). Same coercion
+/// and error semantics as [`require_keys_eq!`].
+#[macro_export]
+macro_rules! require_keys_neq {
+    ( $left:expr, $right:expr, $err:expr ) => {
+        if ::core::convert::AsRef::<[u8; 32]>::as_ref(&$left)
+            == ::core::convert::AsRef::<[u8; 32]>::as_ref(&$right)
+        {
+            return Err($err);
+        }
+    };
+    ( $left:expr, $right:expr ) => {
+        if ::core::convert::AsRef::<[u8; 32]>::as_ref(&$left)
+            == ::core::convert::AsRef::<[u8; 32]>::as_ref(&$right)
+        {
+            return Err($crate::ProgramError::InvalidAccountData);
+        }
+    };
+}
+
+/// Assert `left >= right`, returning the supplied error on underrun.
+/// Useful for lamport / balance checks.
+#[macro_export]
+macro_rules! require_gte {
+    ( $left:expr, $right:expr, $err:expr ) => {
+        if !($left >= $right) { return Err($err); }
+    };
+    ( $left:expr, $right:expr ) => {
+        if !($left >= $right) { return Err($crate::ProgramError::InsufficientFunds); }
+    };
+}
+
+/// Assert `left > right` strictly.
+#[macro_export]
+macro_rules! require_gt {
+    ( $left:expr, $right:expr, $err:expr ) => {
+        if !($left > $right) { return Err($err); }
+    };
+    ( $left:expr, $right:expr ) => {
+        if !($left > $right) { return Err($crate::ProgramError::InvalidArgument); }
     };
 }
 

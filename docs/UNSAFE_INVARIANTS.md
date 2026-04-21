@@ -497,31 +497,48 @@ the ground truth the audit will be compared against on re-review.
 | D3 | Fuzzing low-level loaders/parsers | **DONE**. `fuzz/` crate with 4 targets (`fuzz_instruction_frame`, `fuzz_decode_header`, `fuzz_decode_segments`, `fuzz_pod_overlay`) + new safe bounds-checked parser `parse_instruction_frame_checked` in `raw_input.rs` with 7 regression tests |
 | D4 | Benchmark suite across frameworks | **PARTIAL (infra exists)**. `bench/hopper-bench` + `bench/framework-vault-bench` already measure 13 primitives; full Pinocchio/Quasar/Anchor sibling vault crates deferred (substantial external-crate work) |
 
-## Innovations (3 of 5 DONE; 2 deferred)
+## Innovations (5 of 5 DONE)
 
 | # | Audit innovation | Status |
 |---|---|---|
-| I1 | Borrow stack with typed leases | **DONE**. `SegmentLease` / `SegRef` / `SegRefMut` RAII stack |
-| I2 | Generated typed-segment tokens everywhere | **DONE via DX2**. `{FIELD}_ABS_OFFSET` + `{FIELD}_TYPE` const emission from `#[hopper::state]`; context macro consumes both |
-| I3 | Manifest-backed foreign account lenses | **DONE**. `crates/hopper-runtime/src/foreign.rs`. `ForeignManifest` + `ForeignLens<T>` with four-step verification (owner / disc / wire_fp / schema_epoch range). Two regression tests for the manifest-range semantics |
-| I4 | Schema epoch with in-place migration helpers | **DEFERRED**. epoch header field exists (ST3); a `#[hopper::migrate]` proc macro + runtime migration-edge registry is follow-up work |
-| I5 | Hybrid serialization (fixed body + typed dynamic tail) | **DEFERRED**. would extend `#[hopper::state]` with `dynamic_tail = T`; orthogonal to the safety audit |
+| I1 | Borrow stack with typed leases | **DONE**. `SegmentLease` / `SegRef` / `SegRefMut` RAII stack in `crates/hopper-runtime/src/segment_lease.rs` |
+| I2 | Generated typed-segment tokens everywhere | **DONE**. `{FIELD}_OFFSET`, `{FIELD}_ABS_OFFSET`, `{FIELD}_SIZE`, `{FIELD}_TYPE` const emission from `#[hopper::state]`; `#[hopper::context]` consumes both |
+| I3 | Manifest-backed foreign account lenses | **DONE**. `crates/hopper-runtime/src/foreign.rs`. `ForeignManifest` + `ForeignLens<T>` with four-step verification (owner / disc / wire_fp / schema_epoch range) |
+| I4 | Schema epoch with in-place migration helpers | **DONE**. `#[hopper::migrate(from, to)]` proc macro in `crates/hopper-macros-proc/src/migrate.rs` + `hopper::layout_migrations!` composition macro + `apply_pending_migrations` runtime in `crates/hopper-runtime/src/migrate.rs`. 8 integration tests in `tests/migrate_integration.rs` |
+| I5 | Hybrid serialization (fixed body + typed dynamic tail) | **DONE**. `#[hopper::state(dynamic_tail = T)]` + `TailCodec` trait (Borsh-subset) in `crates/hopper-runtime/src/tail.rs`. 12 codec + 8 integration tests |
 
-## Deferred-work rationale
+## Winning-architecture design closure
 
-Four items from the original 3-stage plan are deferred:
+On top of the original audit, a follow-up design pass
+(`we're designing the winning architecture.rs`, 3000+ line doc) called for the
+Jiminy-replacement safety surface, the `hopper verify` ABI-integrity command,
+and client-side layout verification. All three are now in-tree:
 
-- **Typed wrappers `Signer<'info>`/`Account<T>`/`InitAccount<T>`/`Program<P>`**. the attribute-directed lowering already emits every check these wrappers would auto-derive. Wrapper types are an ergonomic reshuffle, not a safety improvement.
-- **`hopper compile --emit ts|kt|idl|codama`**. exists today via `hopper client gen` and `hopper schema publish` on separate paths. Unification into one `--emit` dispatch is a CLI refactor that belongs with ST4.
-- **`#[hopper::migrate]`**. the header slot (`schema_epoch`) is in place; the proc macro + runtime edge registry are a dedicated follow-up.
-- **Hybrid serialization**. the fixed-layout hot path is the safety audit's focus; dynamic tails add a separate surface with its own client-codegen story.
-- **Cross-framework vault benches**. the Hopper-internal bench lab is mature; authoring Pinocchio / Quasar / Anchor sibling crates is external-ecosystem work.
+| Design item | Closure |
+|---|---|
+| `require!` / `require_eq!` | `crates/hopper-runtime/src/lib.rs` |
+| `require_neq!` | `crates/hopper-runtime/src/lib.rs` |
+| `require_keys_eq!` / `require_keys_neq!` (Jiminy-familiar) | `crates/hopper-runtime/src/lib.rs` |
+| `require_gte!` / `require_gt!` | `crates/hopper-runtime/src/lib.rs` |
+| `check_signer` / `check_owner` / `check_writable` free fns | `crates/hopper-core/src/check/mod.rs` (pre-existing) |
+| `checked_mul_div` / `checked_mul_div_ceil` safe math | `crates/hopper-core/src/math/mod.rs` (pre-existing) |
+| `hopper verify` CLI | `tools/hopper-cli/src/cmd/verify.rs` (manifest integrity + binary scan) |
+| `#[used]` `LAYOUT_ID` anchor | `crates/hopper-macros-proc/src/state.rs` emits per-layout static |
+| Client-side `assertLayoutId(data, hex)` | `crates/hopper-schema/src/clientgen.rs` TS generator |
+| Per-layout `assert{Name}Layout(data)` helpers | Same generator, paired with `{NAME}_LAYOUT_ID` const |
+| `hopper init` scaffold | `tools/hopper-cli/src/cmd/lifecycle.rs::cmd_init` (pre-existing) |
 
 ## Verification
 
 ```bash
 cargo check --workspace --all-targets    # green (pre-existing deprecation warnings only)
-cargo test  --workspace --no-fail-fast   # 647 passed, 0 failed
-cargo test  --test ui --features proc-macros  # 2 top-level trybuild tests, 10 fixtures, all pass
-cd fuzz && cargo check                   # fuzz crate structure compiles
+cargo test  --workspace --no-fail-fast   # 724 passed, 0 failed, 133 ignored
+cargo test  --test ui --features proc-macros  # 2 trybuild tests, 10 fixtures, all pass
+cargo test  --test require_macros        # 16 guard-macro tests pass
+cargo test  --test migrate_integration --features proc-macros  # 8 migration-chain tests pass
+cargo test  --test hybrid_tail_integration --features proc-macros  # 8 dynamic-tail tests pass
+cd fuzz && cargo check                    # fuzz crate structure compiles
+cargo build-sbf --manifest-path examples/hopper-token-2022-vault/Cargo.toml  # 20 KiB .so
+cargo build-sbf --manifest-path examples/hopper-parity-vault/Cargo.toml      # 15 KiB .so
+cargo run -p hopper-cli -- verify @examples/sample-manifest.json              # manifest integrity + binary scan
 ```

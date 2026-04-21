@@ -590,6 +590,69 @@ The manifest is what the CLI, Manager, and migration planner consume.
 The IDL is what documentation and client SDKs consume.
 The Codama projection is what ecosystem tools (Kinobi, Umi) consume.
 
+## Guard macros
+
+Early-return guard macros in the Jiminy-replacement tradition. Zero
+overhead, zero dependencies, available at `hopper::*`:
+
+```rust
+hopper::require!(amount > 0, ProgramError::InvalidArgument);
+hopper::require_eq!(vault.version, 1, ProgramError::InvalidAccountData);
+hopper::require_neq!(source, destination, ProgramError::InvalidAccountData);
+hopper::require_keys_eq!(vault.authority, signer.address(), ProgramError::InvalidAccountData);
+hopper::require_keys_neq!(authority_a, authority_b, ProgramError::InvalidAccountData);
+hopper::require_gte!(account.lamports(), required, ProgramError::InsufficientFunds);
+hopper::require_gt!(fresh_slot, last_slot, ProgramError::InvalidArgument);
+```
+
+Every macro has a short form that defaults to a sensible error
+(`InvalidArgument`, `InvalidAccountData`, or `InsufficientFunds`).
+Regression suite lives in [tests/require_macros.rs](tests/require_macros.rs).
+
+## `hopper verify`
+
+ABI-integrity command. Catches the silent refactor where a developer
+changes a layout, rebuilds the program, and forgets to re-export the
+manifest. Two phases, first fatal, second informational by default:
+
+```bash
+# Manifest-only integrity: unique disc, unique LAYOUT_ID, non-zero bytes
+hopper verify @my-program.manifest.json
+
+# Plus binary scan for each LAYOUT_ID fingerprint in the compiled .so
+hopper verify @my-program.manifest.json --so target/deploy/my_program.so
+
+# Infer both from a workspace package
+hopper verify --package my-program
+
+# Treat missing anchors as fatal
+hopper verify --package my-program --strict
+```
+
+`#[hopper::state]` emits a `#[used]` static per layout so the
+`LAYOUT_ID` bytes survive SBF link-time optimization. Declarative
+`hopper_layout!` does not yet emit the anchor, so `--strict` is the
+right gate for programs built exclusively with the proc-macro path.
+
+## Client-side ABI verification
+
+Generated TypeScript clients now include a per-layout
+`assertVaultLayout(data)` helper that reads the 8-byte `LAYOUT_ID`
+fingerprint from the 16-byte Hopper header and rejects mismatches:
+
+```ts
+import { assertVaultLayout, decodeVault, VAULT_LAYOUT_ID } from "./accounts";
+
+const data = await connection.getAccountInfo(vaultPubkey).then(a => a!.data);
+assertVaultLayout(data); // throws if the on-chain ABI drifted
+const vault = decodeVault(data);
+```
+
+No framework currently ships this. The client and program agree on
+the layout fingerprint byte-for-byte, so an upgrade that silently
+changes field order fails at the SDK boundary instead of corrupting
+state.
+
 ## Safety Audit Closure
 
 The Hopper Safety Audit drove a full pass through the framework. Every

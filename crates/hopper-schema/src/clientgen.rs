@@ -110,6 +110,41 @@ impl<'a> fmt::Display for TsAccounts<'a> {
         writeln!(f, "/** Hopper account header size in bytes. */")?;
         writeln!(f, "export const HEADER_SIZE = 16;")?;
         writeln!(f)?;
+        // Offset of the 8-byte LAYOUT_ID fingerprint within the
+        // Hopper header. Clients read bytes [4, 12) to assert the
+        // account matches the expected layout. See audit ST2 + the
+        // "winning architecture" design's client-side ABI guard.
+        writeln!(f, "/** Byte offset of the 8-byte layout fingerprint in a Hopper account header. */")?;
+        writeln!(f, "export const LAYOUT_ID_OFFSET = 4;")?;
+        writeln!(f, "/** Byte length of the layout fingerprint. */")?;
+        writeln!(f, "export const LAYOUT_ID_LENGTH = 8;")?;
+        writeln!(f)?;
+        // Generic layout-fingerprint verifier. Used by every
+        // per-layout `assertXxxLayout(data)` generated below.
+        writeln!(f, "/**")?;
+        writeln!(f, " * Raise if `data` is not a Hopper account encoding the expected layout.")?;
+        writeln!(f, " *")?;
+        writeln!(f, " * Reads the 8-byte LAYOUT_ID fingerprint from the 16-byte Hopper header")?;
+        writeln!(f, " * (bytes 4..12) and compares it against `expectedHex` (16 lowercase hex chars).")?;
+        writeln!(f, " * This is the client-side complement to the runtime check `load::<T>()` runs")?;
+        writeln!(f, " * before handing out a typed Ref. Mismatch means the on-chain program was")?;
+        writeln!(f, " * upgraded with a different ABI than the client was generated against.")?;
+        writeln!(f, " */")?;
+        writeln!(f, "export function assertLayoutId(data: Uint8Array, expectedHex: string): void {{")?;
+        writeln!(f, "  if (data.length < HEADER_SIZE) {{")?;
+        writeln!(f, "    throw new Error(`Hopper account too short: ${{data.length}} < ${{HEADER_SIZE}}`);")?;
+        writeln!(f, "  }}")?;
+        writeln!(f, "  let actualHex = \"\";")?;
+        writeln!(f, "  for (let i = 0; i < LAYOUT_ID_LENGTH; i++) {{")?;
+        writeln!(f, "    actualHex += data[LAYOUT_ID_OFFSET + i].toString(16).padStart(2, \"0\");")?;
+        writeln!(f, "  }}")?;
+        writeln!(f, "  if (actualHex !== expectedHex.toLowerCase()) {{")?;
+        writeln!(f, "    throw new Error(")?;
+        writeln!(f, "      `Hopper layout mismatch: account header reports ${{actualHex}}, expected ${{expectedHex}}`,")?;
+        writeln!(f, "    );")?;
+        writeln!(f, "  }}")?;
+        writeln!(f, "}}")?;
+        writeln!(f)?;
 
         for layout in prog.layouts.iter() {
             // Interface
@@ -121,6 +156,30 @@ impl<'a> fmt::Display for TsAccounts<'a> {
                 write_camel(f, field.name)?;
                 writeln!(f, ": {};", ts_type(field.canonical_type))?;
             }
+            writeln!(f, "}}")?;
+            writeln!(f)?;
+
+            // Layout fingerprint constant (hex). Pairs with the
+            // runtime's `T::LAYOUT_ID` so the client and the program
+            // agree on the ABI byte-for-byte.
+            write!(f, "export const ")?;
+            write_upper_snake(f, layout.name)?;
+            write!(f, "_LAYOUT_ID = \"")?;
+            for b in layout.layout_id.iter() {
+                write!(f, "{:02x}", b)?;
+            }
+            writeln!(f, "\";")?;
+            writeln!(f)?;
+
+            // Per-layout assertion helper. Thin wrapper over
+            // `assertLayoutId` that fills in the expected hex for
+            // convenience at call sites.
+            write!(f, "export function assert")?;
+            write_pascal(f, layout.name)?;
+            writeln!(f, "Layout(data: Uint8Array): void {{")?;
+            write!(f, "  assertLayoutId(data, ")?;
+            write_upper_snake(f, layout.name)?;
+            writeln!(f, "_LAYOUT_ID);")?;
             writeln!(f, "}}")?;
             writeln!(f)?;
 
@@ -1256,6 +1315,31 @@ mod tests {
         assert!(output.contains("=== instructions.ts ==="));
         assert!(output.contains("=== events.ts ==="));
         assert!(output.contains("=== index.ts ==="));
+    }
+
+    #[test]
+    fn ts_accounts_emits_layout_id_constants_and_assertion_helpers() {
+        let m = test_manifest();
+        let output = TsAccounts(&m).to_string();
+        // Generic helper and offset constants are always present.
+        assert!(output.contains("export const LAYOUT_ID_OFFSET = 4;"));
+        assert!(output.contains("export const LAYOUT_ID_LENGTH = 8;"));
+        assert!(output.contains("export function assertLayoutId(data: Uint8Array, expectedHex: string): void"));
+        // Per-layout const + assertion with the real 16-hex-char id.
+        assert!(output.contains("export const VAULT_LAYOUT_ID = \"aabbccdd11223344\";"));
+        assert!(output.contains("export function assertVaultLayout(data: Uint8Array): void"));
+        assert!(output.contains("assertLayoutId(data, VAULT_LAYOUT_ID);"));
+    }
+
+    #[test]
+    fn ts_assert_layout_id_handles_short_buffer_check() {
+        let m = test_manifest();
+        let output = TsAccounts(&m).to_string();
+        // The guard explicitly rejects buffers shorter than the
+        // header so callers cannot accidentally trust a truncated
+        // slice.
+        assert!(output.contains("if (data.length < HEADER_SIZE)"));
+        assert!(output.contains("throw new Error"));
     }
 
     #[test]

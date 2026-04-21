@@ -149,6 +149,14 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
     let layout_id_tokens = byte_array_literal(&layout_id);
     let field_count = field_name_literals.len();
 
+    // Unique per-layout static that pins LAYOUT_ID bytes into
+    // `.rodata`. `hopper verify` searches the compiled binary for
+    // this exact 8-byte sequence to prove manifest/binary agreement.
+    let layout_id_anchor_ident = format_ident!(
+        "__HOPPER_LAYOUT_ID_ANCHOR_{}",
+        struct_name_upper
+    );
+
     // ── Audit I5: hybrid-serialization tail helpers ──────────────────
     //
     // When the user writes `#[hopper::state(dynamic_tail = MyTail)]`,
@@ -350,6 +358,17 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
         unsafe impl ::hopper::__runtime::__hopper_native::bytemuck::Zeroable for #name {}
         unsafe impl ::hopper::__runtime::__hopper_native::bytemuck::Pod for #name {}
         unsafe impl ::hopper::hopper_core::account::Pod for #name {}
+
+        // Anchor the layout fingerprint in `.rodata` so it survives
+        // dead-code elimination on SBF / LTO builds. `hopper verify`
+        // scans the compiled `.so` for this exact byte sequence to
+        // prove the binary matches the emitted manifest. Without
+        // `#[used]` the SBF linker aggressively strips const bytes
+        // that only appear inside inlined comparisons.
+        #[used]
+        #[doc(hidden)]
+        #[no_mangle]
+        pub static #layout_id_anchor_ident: [u8; 8] = #name::LAYOUT_ID;
 
         impl ::hopper::hopper_core::account::FixedLayout for #name {
             const SIZE: usize = core::mem::size_of::<Self>();

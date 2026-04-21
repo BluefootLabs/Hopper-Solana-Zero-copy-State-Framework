@@ -5,13 +5,13 @@
 //! mutable variants. The representation is backend-sensitive so the hot
 //! path stays tight:
 //!
-//! - **Solana (on-chain)** — `{ ptr, state_ptr }`. Two pointer words, no
+//! - **Solana (on-chain)**. `{ ptr, state_ptr }`. Two pointer words, no
 //!   extra guards, no slice fat-pointer, no ZSTs. Drop decrements or
 //!   restores the single `borrow_state` byte on the `RuntimeAccount`
 //!   directly. This matches Pinocchio's pointer shape while adding the
 //!   deterministic RAII release that Pinocchio pushes onto the caller.
 //!
-//! - **non-Solana (host tests, pinocchio-backend, solana-program)** —
+//! - **non-Solana (host tests, pinocchio-backend, solana-program)** . 
 //!   `{ ptr, guard, token, _marker }`. Richer because host tests rely on
 //!   the active backend's borrow machinery (RefCell, etc.) plus Hopper's
 //!   own cross-handle alias registry (`BorrowToken`). Both are real RAII
@@ -21,7 +21,7 @@
 //! `as_ptr` / `as_mut_ptr`, byte-slice narrowing (`slice`, `slice_from`),
 //! and byte-level pointer projection (`project`). Whoever reads a
 //! generated accessor like `ctx.vault_balance_mut()` cannot tell which
-//! repr is in use — and on Solana the compiler collapses every hop to
+//! repr is in use. and on Solana the compiler collapses every hop to
 //! `ptr + offset -> cast`, exactly the shape the finish-line audit
 //! demanded.
 
@@ -38,7 +38,7 @@ use crate::error::ProgramError;
 /// Shared (immutable) borrow guard for account data.
 ///
 /// Derefs to the borrowed data. On drop, the shared borrow is released
-/// — on Solana by decrementing the single `RuntimeAccount.borrow_state`
+///. on Solana by decrementing the single `RuntimeAccount.borrow_state`
 /// byte, on host targets by dropping the backend guard and the
 /// cross-handle alias token.
 #[cfg(target_os = "solana")]
@@ -60,7 +60,7 @@ impl<'a> Ref<'a, [u8]> {
     /// Wrap an active-backend byte borrow into a Hopper Ref.
     ///
     /// On Solana this extracts the shared-borrow state pointer from the
-    /// native guard without any further wrapping — the resulting `Ref`
+    /// native guard without any further wrapping. the resulting `Ref`
     /// is `{ ptr, state }` only.
     #[inline(always)]
     pub(crate) fn from_backend(inner: BackendRef<'a, [u8]>, token: BorrowToken) -> Self {
@@ -88,7 +88,7 @@ impl<'a> Ref<'a, [u8]> {
 
     /// Project a byte borrow into another typed view over the same
     /// underlying bytes. The new guard owns the same release mechanics
-    /// — when the returned `Ref<U>` drops, the underlying account
+    ///. when the returned `Ref<U>` drops, the underlying account
     /// borrow is released exactly as if the original byte borrow had
     /// dropped.
     ///
@@ -263,7 +263,7 @@ impl<'a> RefMut<'a, [u8]> {
 
     /// Project a mutable byte borrow into another mutable view over the
     /// same underlying bytes. The new guard owns the same release
-    /// mechanics — the exclusive borrow stays held until the returned
+    /// mechanics. the exclusive borrow stays held until the returned
     /// `RefMut<U>` drops.
     ///
     /// # Safety
@@ -374,7 +374,7 @@ impl<T: ?Sized> core::ops::DerefMut for RefMut<'_, T> {
 impl<T: ?Sized> Drop for RefMut<'_, T> {
     #[inline(always)]
     fn drop(&mut self) {
-        // Exclusive borrow — restore NOT_BORROWED.
+        // Exclusive borrow. restore NOT_BORROWED.
         unsafe {
             *self.state = hopper_native::NOT_BORROWED;
         }

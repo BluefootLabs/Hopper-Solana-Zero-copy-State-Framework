@@ -99,6 +99,16 @@ pub use hopper_core::hopper_dispatch;
 // re-export here.
 pub use hopper_runtime::layout_migrations;
 
+// Ergonomic guard macros (the "winning architecture" design's
+// Jiminy-replacement safety layer). All are `#[macro_export]` from
+// hopper_runtime and are re-exported here so programs see them at
+// the top-level `hopper::*` path without needing to reach through
+// `hopper_runtime::`.
+pub use hopper_runtime::{
+    address, require, require_eq, require_gt, require_gte, require_keys_eq,
+    require_keys_neq, require_neq,
+};
+
 // Optional proc macro re-exports (enabled with `proc-macros` feature)
 #[cfg(feature = "proc-macros")]
 pub use hopper_macros_proc::{

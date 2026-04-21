@@ -58,6 +58,26 @@ pub fn check_executable(account: &AccountView) -> ProgramResult {
     Ok(())
 }
 
+/// Check that an account is a specific program: its key matches
+/// `expected_program_id` and it is flagged executable.
+///
+/// Matches the Jiminy-style free-function surface the winning-
+/// architecture design calls for. Equivalent to constructing a
+/// `Program<'info, P>` wrapper without requiring a generic
+/// [`ProgramId`](hopper_runtime::ProgramId) impl - useful for
+/// ad-hoc program pinning where the program ID is only known at
+/// runtime (for instance, a caller-supplied cross-program id).
+#[inline(always)]
+pub fn check_program(account: &AccountView, expected_program_id: &Address) -> ProgramResult {
+    if !address_eq(account.address(), expected_program_id) {
+        return Err(ProgramError::IncorrectProgramId);
+    }
+    if !account.executable() {
+        return Err(ProgramError::InvalidAccountData);
+    }
+    Ok(())
+}
+
 /// Check minimum data size.
 #[inline(always)]
 pub fn check_size(data: &[u8], min_len: usize) -> ProgramResult {
