@@ -358,6 +358,11 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
         unsafe impl ::hopper::__runtime::__hopper_native::bytemuck::Zeroable for #name {}
         unsafe impl ::hopper::__runtime::__hopper_native::bytemuck::Pod for #name {}
         unsafe impl ::hopper::hopper_core::account::Pod for #name {}
+        // Audit final-API Step 5 seal. `#[hopper::state]` stamps
+        // the Hopper-authored marker so the `ZeroCopy` blanket
+        // picks up the type. Bare `unsafe impl Pod` outside this
+        // macro path is not automatically `ZeroCopy`.
+        unsafe impl ::hopper::__runtime::__sealed::HopperZeroCopySealed for #name {}
 
         // Anchor the layout fingerprint in `.rodata` so it survives
         // dead-code elimination on SBF / LTO builds. `hopper verify`
