@@ -144,7 +144,7 @@ fn field_rename_not_append_compatible() {
     let v2 = make_manifest("Test", 1, 2, [0xBB; 8], 32, &V2_FIELDS_RENAMED);
     // Even though disc matches and version bumped, name change = not safe
     // (is_append_compatible checks size >= old, version >, different layout_id, same disc)
-    // It doesn't check fields — it's structural. But field report says not safe.
+    // It doesn't check fields, it's structural. But field report says not safe.
     let report = compare_fields::<8>(&v1, &v2);
     assert!(!report.is_append_safe());
 }

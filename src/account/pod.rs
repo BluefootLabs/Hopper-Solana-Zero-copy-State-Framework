@@ -1,8 +1,8 @@
 //! Pod and FixedLayout traits for zero-copy account access.
 //!
 //! `Pod` is the canonical "safe to overlay on raw bytes" marker trait.
-//! It lives in [`hopper_runtime::pod`] so every Hopper access path — the
-//! native substrate, runtime accessors, frame, and core helpers — can
+//! It lives in [`hopper_runtime::pod`] so every Hopper access path, the
+//! native substrate, runtime accessors, frame, and core helpers, can
 //! agree on one contract. Hopper-core re-exports it unchanged so
 //! existing `use hopper_core::account::Pod` call sites keep compiling.
 //!

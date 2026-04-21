@@ -8,7 +8,7 @@
 //! ## Design Philosophy
 //!
 //! Segment offsets are evaluated at compile time and stored as constants.
-//! This means segment lookups compile down to a const load — no string
+//! This means segment lookups compile down to a const load, no string
 //! matching, no branching, no heap. The generated code is the same shape
 //! as raw Pinocchio pointer arithmetic.
 //!
@@ -62,7 +62,7 @@ impl StaticSegment {
 ///
 /// Types implementing this trait declare their byte-level field map
 /// as a constant array. This enables segment-level access with
-/// zero runtime overhead — the compiler can resolve segment offsets
+/// zero runtime overhead, the compiler can resolve segment offsets
 /// to immediate constants in the generated code.
 ///
 /// ## Runtime vs Compile-Time
@@ -115,7 +115,7 @@ pub trait SegmentMap {
     ///
     /// Prefer this over `segment()` in generated accessor code where the
     /// index is a compile-time constant. The compiler will resolve this to
-    /// an immediate constant load — no branching, no string comparison.
+    /// an immediate constant load, no branching, no string comparison.
     #[inline(always)]
     fn segment_by_index(index: usize) -> StaticSegment {
         Self::SEGMENTS[index]
