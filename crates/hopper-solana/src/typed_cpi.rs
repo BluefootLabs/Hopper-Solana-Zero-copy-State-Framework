@@ -115,6 +115,15 @@ pub fn allocate(
 // ────────────────────────────────────────────────────────────────────
 
 /// Transfer SPL tokens between token accounts.
+///
+/// Prefer [`token_transfer_checked`] for the Token-2022-safe path
+/// (adds mint + decimals validation at CPI time). This unchecked
+/// variant remains available for pre-Token-2022 deployments.
+#[deprecated(
+    since = "0.2.0",
+    note = "use token_transfer_checked for Token-2022 safety (mint + decimals validation)"
+)]
+#[allow(deprecated)]
 #[inline]
 pub fn token_transfer<'a>(
     source: &'a AccountView,
@@ -131,7 +140,63 @@ pub fn token_transfer<'a>(
     .invoke()
 }
 
+/// Transfer SPL tokens between token accounts with mint + decimals
+/// validation (Token-2022-safe).
+///
+/// The SPL token program rejects the CPI if the mint's stored
+/// decimals disagree with the supplied value, which defends against
+/// wrong-mint attacks where the caller passed a different mint than
+/// the account expects.
+#[inline]
+pub fn token_transfer_checked<'a>(
+    source: &'a AccountView,
+    mint: &'a AccountView,
+    destination: &'a AccountView,
+    authority: &'a AccountView,
+    amount: u64,
+    decimals: u8,
+) -> ProgramResult {
+    hopper_token::TransferChecked {
+        from: source,
+        mint,
+        to: destination,
+        authority,
+        amount,
+        decimals,
+    }
+    .invoke()
+}
+
+/// `token_transfer_checked` with explicit PDA signer seeds.
+#[inline]
+pub fn token_transfer_checked_signed<'a>(
+    source: &'a AccountView,
+    mint: &'a AccountView,
+    destination: &'a AccountView,
+    authority: &'a AccountView,
+    amount: u64,
+    decimals: u8,
+    signers: &[Signer],
+) -> ProgramResult {
+    hopper_token::TransferChecked {
+        from: source,
+        mint,
+        to: destination,
+        authority,
+        amount,
+        decimals,
+    }
+    .invoke_signed(signers)
+}
+
 /// Transfer SPL tokens with PDA signer seeds.
+///
+/// Prefer [`token_transfer_checked_signed`] for Token-2022 safety.
+#[deprecated(
+    since = "0.2.0",
+    note = "use token_transfer_checked_signed for Token-2022 safety"
+)]
+#[allow(deprecated)]
 #[inline]
 pub fn token_transfer_signed<'a>(
     source: &'a AccountView,
@@ -150,6 +215,13 @@ pub fn token_transfer_signed<'a>(
 }
 
 /// Mint tokens to a destination token account.
+///
+/// Prefer [`token_mint_to_checked`] for Token-2022 safety.
+#[deprecated(
+    since = "0.2.0",
+    note = "use token_mint_to_checked for Token-2022 safety (mint + decimals validation)"
+)]
+#[allow(deprecated)]
 #[inline]
 pub fn token_mint_to<'a>(
     mint: &'a AccountView,
@@ -167,6 +239,13 @@ pub fn token_mint_to<'a>(
 }
 
 /// Mint tokens with PDA signer seeds.
+///
+/// Prefer [`token_mint_to_checked_signed`] for Token-2022 safety.
+#[deprecated(
+    since = "0.2.0",
+    note = "use token_mint_to_checked_signed for Token-2022 safety"
+)]
+#[allow(deprecated)]
 #[inline]
 pub fn token_mint_to_signed<'a>(
     mint: &'a AccountView,
@@ -184,7 +263,53 @@ pub fn token_mint_to_signed<'a>(
     .invoke_signed(signers)
 }
 
+/// Mint tokens with mint + decimals validation (Token-2022-safe).
+#[inline]
+pub fn token_mint_to_checked<'a>(
+    mint: &'a AccountView,
+    destination: &'a AccountView,
+    authority: &'a AccountView,
+    amount: u64,
+    decimals: u8,
+) -> ProgramResult {
+    hopper_token::MintToChecked {
+        mint,
+        account: destination,
+        mint_authority: authority,
+        amount,
+        decimals,
+    }
+    .invoke()
+}
+
+/// `token_mint_to_checked` with explicit PDA signer seeds.
+#[inline]
+pub fn token_mint_to_checked_signed<'a>(
+    mint: &'a AccountView,
+    destination: &'a AccountView,
+    authority: &'a AccountView,
+    amount: u64,
+    decimals: u8,
+    signers: &[Signer],
+) -> ProgramResult {
+    hopper_token::MintToChecked {
+        mint,
+        account: destination,
+        mint_authority: authority,
+        amount,
+        decimals,
+    }
+    .invoke_signed(signers)
+}
+
 /// Burn tokens from a token account.
+///
+/// Prefer [`token_burn_checked`] for Token-2022 safety.
+#[deprecated(
+    since = "0.2.0",
+    note = "use token_burn_checked for Token-2022 safety (mint + decimals validation)"
+)]
+#[allow(deprecated)]
 #[inline]
 pub fn token_burn<'a>(
     token_account: &'a AccountView,
@@ -202,6 +327,13 @@ pub fn token_burn<'a>(
 }
 
 /// Burn tokens with PDA signer seeds.
+///
+/// Prefer [`token_burn_checked_signed`] for Token-2022 safety.
+#[deprecated(
+    since = "0.2.0",
+    note = "use token_burn_checked_signed for Token-2022 safety"
+)]
+#[allow(deprecated)]
 #[inline]
 pub fn token_burn_signed<'a>(
     token_account: &'a AccountView,
@@ -215,6 +347,45 @@ pub fn token_burn_signed<'a>(
         mint,
         authority,
         amount,
+    }
+    .invoke_signed(signers)
+}
+
+/// Burn tokens with mint + decimals validation (Token-2022-safe).
+#[inline]
+pub fn token_burn_checked<'a>(
+    token_account: &'a AccountView,
+    mint: &'a AccountView,
+    authority: &'a AccountView,
+    amount: u64,
+    decimals: u8,
+) -> ProgramResult {
+    hopper_token::BurnChecked {
+        account: token_account,
+        mint,
+        authority,
+        amount,
+        decimals,
+    }
+    .invoke()
+}
+
+/// `token_burn_checked` with explicit PDA signer seeds.
+#[inline]
+pub fn token_burn_checked_signed<'a>(
+    token_account: &'a AccountView,
+    mint: &'a AccountView,
+    authority: &'a AccountView,
+    amount: u64,
+    decimals: u8,
+    signers: &[Signer],
+) -> ProgramResult {
+    hopper_token::BurnChecked {
+        account: token_account,
+        mint,
+        authority,
+        amount,
+        decimals,
     }
     .invoke_signed(signers)
 }
@@ -251,6 +422,13 @@ pub fn token_close_account_signed<'a>(
 }
 
 /// Approve a delegate for a token account.
+///
+/// Prefer [`token_approve_checked`] for Token-2022 safety.
+#[deprecated(
+    since = "0.2.0",
+    note = "use token_approve_checked for Token-2022 safety (mint + decimals validation)"
+)]
+#[allow(deprecated)]
 #[inline]
 pub fn token_approve<'a>(
     token_account: &'a AccountView,
@@ -263,6 +441,27 @@ pub fn token_approve<'a>(
         delegate,
         authority,
         amount,
+    }
+    .invoke()
+}
+
+/// Approve a delegate with mint + decimals validation (Token-2022-safe).
+#[inline]
+pub fn token_approve_checked<'a>(
+    token_account: &'a AccountView,
+    mint: &'a AccountView,
+    delegate: &'a AccountView,
+    authority: &'a AccountView,
+    amount: u64,
+    decimals: u8,
+) -> ProgramResult {
+    hopper_token::ApproveChecked {
+        source: token_account,
+        mint,
+        delegate,
+        authority,
+        amount,
+        decimals,
     }
     .invoke()
 }
@@ -289,6 +488,16 @@ pub fn token_revoke<'a>(
 /// Reads both token accounts' mint fields and verifies they match
 /// before performing the transfer. Catches mint mismatch bugs at
 /// the CPI boundary.
+///
+/// Prefer [`token_transfer_checked`] (SPL's `TransferChecked` at CPI
+/// level) over this host-side mint-match check. This function
+/// remains for pre-Token-2022 deployments; new code should route
+/// through the runtime-level checked variant.
+#[deprecated(
+    since = "0.2.0",
+    note = "use token_transfer_checked (SPL TransferChecked CPI) for Token-2022 safety"
+)]
+#[allow(deprecated)]
 #[inline]
 pub fn checked_token_transfer<'a>(
     source: &'a AccountView,

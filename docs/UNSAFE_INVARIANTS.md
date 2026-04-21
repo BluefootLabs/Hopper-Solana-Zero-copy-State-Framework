@@ -521,24 +521,33 @@ and client-side layout verification. All three are now in-tree:
 | `require_keys_eq!` / `require_keys_neq!` (Jiminy-familiar) | `crates/hopper-runtime/src/lib.rs` |
 | `require_gte!` / `require_gt!` | `crates/hopper-runtime/src/lib.rs` |
 | `check_signer` / `check_owner` / `check_writable` free fns | `crates/hopper-core/src/check/mod.rs` (pre-existing) |
+| `check_program(account, program_id)` free fn | `crates/hopper-core/src/check/mod.rs` (added post-audit) |
 | `checked_mul_div` / `checked_mul_div_ceil` safe math | `crates/hopper-core/src/math/mod.rs` (pre-existing) |
 | `hopper verify` CLI | `tools/hopper-cli/src/cmd/verify.rs` (manifest integrity + binary scan) |
 | `#[used]` `LAYOUT_ID` anchor | `crates/hopper-macros-proc/src/state.rs` emits per-layout static |
 | Client-side `assertLayoutId(data, hex)` | `crates/hopper-schema/src/clientgen.rs` TS generator |
 | Per-layout `assert{Name}Layout(data)` helpers | Same generator, paired with `{NAME}_LAYOUT_ID` const |
 | `hopper init` scaffold | `tools/hopper-cli/src/cmd/lifecycle.rs::cmd_init` (pre-existing) |
+| Rust off-chain client generator | `crates/hopper-schema/src/rust_client.rs` - `RsClientGen` emits `ClientError`, `assert_{name}_layout`, `decode_{name}`, `{Ix}_ix` builders; wired as `hopper compile --emit rust-client`; 9 regression tests |
+| Token CPI signer-pre-check default | `crates/hopper-runtime/src/token.rs` - `Transfer`/`MintTo`/`Burn`/`CloseAccount`/`Approve`/`Revoke` `invoke()` runs `require_authority_signed_direct` before the CPI so a missing signer surfaces `MissingRequiredSignature` instead of an opaque CPI error |
+| SPL `*Checked` builders (Token-2022 extension safety) | `crates/hopper-runtime/src/token.rs` - `TransferChecked` (idx 12), `ApproveChecked` (idx 13), `MintToChecked` (idx 14), `BurnChecked` (idx 15) carry a `decimals: u8` byte the SPL token program validates against the mint's stored decimals. Every `invoke()` applies the same signer pre-check. 7 wire-format regression tests lock the byte layout |
+| Deprecation of unchecked token builders | `crates/hopper-runtime/src/token.rs` + `crates/hopper-solana/src/typed_cpi.rs` - `Transfer`, `MintTo`, `Burn`, `Approve` structs and their `token_*` wrapper functions marked `#[deprecated(note = "use *Checked for Token-2022 safety")]`. New `token_transfer_checked`, `token_transfer_checked_signed`, `token_mint_to_checked`, `token_mint_to_checked_signed`, `token_burn_checked`, `token_burn_checked_signed`, `token_approve_checked` free functions expose the safe path in `hopper-solana` |
+| Validation auto-injection (audit final-API Step 7) | `crates/hopper-macros-proc/src/program.rs:184` - every `#[hopper::program]` dispatcher emits `<ContextSpec>::bind(ctx)?`, which runs the context's `validate(ctx)?` before handing the bound context to the user's handler body. Users cannot reach the handler without the full signer/mut/owner/address/PDA/layout/has_one/constraint gauntlet passing first |
+| Canonical segment-access path documented | `crates/hopper-runtime/src/context.rs` - rustdoc table on `Context::segment_ref` points callers to `segment_ref_typed` as the compile-time-offset canonical; runtime-offset variant stays available for dynamic iteration |
 
 ## Verification
 
 ```bash
 cargo check --workspace --all-targets    # green (pre-existing deprecation warnings only)
-cargo test  --workspace --no-fail-fast   # 724 passed, 0 failed, 133 ignored
+cargo test  --workspace --no-fail-fast   # 740 passed, 0 failed, 133 ignored
 cargo test  --test ui --features proc-macros  # 2 trybuild tests, 10 fixtures, all pass
 cargo test  --test require_macros        # 16 guard-macro tests pass
 cargo test  --test migrate_integration --features proc-macros  # 8 migration-chain tests pass
 cargo test  --test hybrid_tail_integration --features proc-macros  # 8 dynamic-tail tests pass
+cargo test  -p hopper-schema rust_client # 9 Rust-client-gen tests pass
 cd fuzz && cargo check                    # fuzz crate structure compiles
-cargo build-sbf --manifest-path examples/hopper-token-2022-vault/Cargo.toml  # 20 KiB .so
-cargo build-sbf --manifest-path examples/hopper-parity-vault/Cargo.toml      # 15 KiB .so
+cargo build-sbf --manifest-path examples/hopper-parity-vault/Cargo.toml       # 15 KiB .so
+cargo build-sbf --manifest-path examples/hopper-token-2022-vault/Cargo.toml   # 20 KiB .so
 cargo run -p hopper-cli -- verify @examples/sample-manifest.json              # manifest integrity + binary scan
+cargo run -p hopper-cli -- compile --emit rust-client @examples/sample-manifest.json  # Rust client emits
 ```

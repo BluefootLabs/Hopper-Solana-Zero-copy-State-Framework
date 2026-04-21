@@ -20,6 +20,7 @@
 pub mod accounts;
 pub mod clientgen;
 pub mod codama;
+pub mod rust_client;
 
 use hopper_core::account::HEADER_LEN;
 use hopper_core::field_map::FieldInfo;

@@ -94,7 +94,7 @@ pub struct Vault {
 // - const VAULT_AUTHORITY_SIZE: u32 = 32;
 // - const VAULT_BALANCE_OFFSET: u32 = 32;
 // - const VAULT_BALANCE_SIZE: u32 = 8;
-// .. etc
+// . etc
 ```
 
 Proc `state` layouts are body-only zero-copy views. Use `#[repr(C)]` and
@@ -231,7 +231,7 @@ Record what happened:
 
 ```rust
 let mut receipt = StateReceipt::<256>::begin(&Vault::LAYOUT_ID, data);
-// .. mutations ...
+// . mutations ...
 receipt.commit_with_segments(data, &[(offset, size)]);
 receipt.set_policy_flags(DEPOSIT_CAPS.bits());
 receipt.set_invariants(true, 1);
@@ -636,8 +636,8 @@ right gate for programs built exclusively with the proc-macro path.
 
 ## Client-side ABI verification
 
-Generated TypeScript clients now include a per-layout
-`assertVaultLayout(data)` helper that reads the 8-byte `LAYOUT_ID`
+Generated clients (TypeScript, Kotlin, and Rust) include a per-layout
+`assert_{name}_layout` helper that reads the 8-byte `LAYOUT_ID`
 fingerprint from the 16-byte Hopper header and rejects mismatches:
 
 ```ts
@@ -648,10 +648,43 @@ assertVaultLayout(data); // throws if the on-chain ABI drifted
 const vault = decodeVault(data);
 ```
 
-No framework currently ships this. The client and program agree on
-the layout fingerprint byte-for-byte, so an upgrade that silently
-changes field order fails at the SDK boundary instead of corrupting
-state.
+```rust
+use hopper_vault_client::{assert_vault_layout, decode_vault, deposit_ix, DepositArgs};
+
+let account = rpc.get_account(&vault_pubkey).await?;
+let vault = decode_vault(&account.data)?; // LayoutMismatch if the ABI drifted
+let ix = deposit_ix(&program_id, &accounts, &DepositArgs { amount: 1_000_000 });
+```
+
+Three target languages, one fingerprint contract. The client and program
+agree on the layout fingerprint byte-for-byte, so an upgrade that
+silently changes field order fails at the SDK boundary instead of
+corrupting state. Produce any of them with:
+
+```bash
+hopper compile --emit ts          @program.manifest.json --out client.ts
+hopper compile --emit kt          @program.manifest.json --out Client.kt
+hopper compile --emit rust-client @program.manifest.json --out client.rs
+```
+
+## Token-CPI safety default
+
+`hopper_token::{Transfer, MintTo, Burn, CloseAccount, Approve, Revoke}`
+builders enforce the authority-signer invariant on the no-signer
+`invoke()` path before reaching the CPI:
+
+```rust
+// Raises MissingRequiredSignature if authority is not a transaction signer.
+hopper_token::Transfer { from, to, authority, amount: 1_000 }.invoke()?;
+
+// PDA-signed path (no pre-check; the signer seeds are the authorization).
+hopper_token::Transfer { from, to, authority: &vault_pda, amount: 1_000 }
+    .invoke_signed(&[vault_signer])?;
+```
+
+The SPL Token program enforces the same rule at CPI time, but the
+pre-check surfaces a Hopper-branded error identifying exactly which
+field is wrong instead of an opaque CPI failure.
 
 ## Safety Audit Closure
 
