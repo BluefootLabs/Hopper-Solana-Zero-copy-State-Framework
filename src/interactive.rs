@@ -1,7 +1,7 @@
 //! Interactive terminal UI for the Hopper Manager.
 //!
 //! Provides a menu-driven interface for exploring program manifests,
-//! inspecting layouts, decoding accounts, and running diagnostics —
+//! inspecting layouts, decoding accounts, and running diagnostics -
 //! all within a single terminal session.
 
 use crossterm::{
@@ -18,7 +18,7 @@ use hopper_schema::{
 };
 
 // ---------------------------------------------------------------------------
-// View enum — what the user is looking at
+// View enum, what the user is looking at
 // ---------------------------------------------------------------------------
 
 #[derive(Clone)]
@@ -96,7 +96,7 @@ impl<'a> Session<'a> {
         let width = cols as usize;
 
         // Title bar
-        let title = format!(" HOPPER MANAGER — {} {} ", self.prog.name, self.prog.version);
+        let title = format!(" HOPPER MANAGER, {} {} ", self.prog.name, self.prog.version);
         let pad = width.saturating_sub(title.len());
         write!(w, "\x1b[7m{}{}\x1b[0m\r\n", title, " ".repeat(pad))?;
         write!(w, "\r\n")?;
@@ -172,7 +172,7 @@ impl<'a> Session<'a> {
             write!(w, "  \x1b[1;33mLayouts:\x1b[0m\r\n")?;
             for l in p.layouts.iter() {
                 let fp = LayoutFingerprint::from_manifest(l);
-                write!(w, "    {} v{} — {} bytes, {} fields  [wire:{} sem:{}]\r\n",
+                write!(w, "    {} v{}, {} bytes, {} fields  [wire:{} sem:{}]\r\n",
                     l.name, l.version, l.total_size, l.field_count,
                     hex_short(&fp.wire_hash), hex_short(&fp.semantic_hash))?;
             }
@@ -183,7 +183,7 @@ impl<'a> Session<'a> {
         if !p.instructions.is_empty() {
             write!(w, "  \x1b[1;33mInstructions:\x1b[0m\r\n")?;
             for ix in p.instructions.iter() {
-                write!(w, "    [{}] {} — {} args, {} accounts\r\n",
+                write!(w, "    [{}] {}, {} args, {} accounts\r\n",
                     ix.tag, ix.name, ix.args.len(), ix.accounts.len())?;
             }
         }
@@ -199,7 +199,7 @@ impl<'a> Session<'a> {
         for (i, l) in self.prog.layouts.iter().enumerate() {
             let marker = if i == self.cursor { "▸ " } else { "  " };
             let highlight = if i == self.cursor { "\x1b[1;36m" } else { "" };
-            write!(w, "{}{}{} v{}  \x1b[0m— {} bytes, {} fields\r\n",
+            write!(w, "{}{}{} v{}  \x1b[0m- {} bytes, {} fields\r\n",
                 marker, highlight, l.name, l.version, l.total_size, l.field_count)?;
         }
         Ok(())
@@ -247,7 +247,7 @@ impl<'a> Session<'a> {
         for (i, ix) in self.prog.instructions.iter().enumerate() {
             let marker = if i == self.cursor { "▸ " } else { "  " };
             let highlight = if i == self.cursor { "\x1b[1;36m" } else { "" };
-            write!(w, "{}{}[{}] {}\x1b[0m — {} args, {} accounts\r\n",
+            write!(w, "{}{}[{}] {}\x1b[0m, {} args, {} accounts\r\n",
                 marker, highlight, ix.tag, ix.name, ix.args.len(), ix.accounts.len())?;
         }
         Ok(())
@@ -290,7 +290,7 @@ impl<'a> Session<'a> {
         for (i, pol) in self.prog.policies.iter().enumerate() {
             let marker = if i == self.cursor { "▸ " } else { "  " };
             let highlight = if i == self.cursor { "\x1b[1;36m" } else { "" };
-            write!(w, "{}{}{}\x1b[0m — {} caps, {} reqs\r\n",
+            write!(w, "{}{}{}\x1b[0m, {} caps, {} reqs\r\n",
                 marker, highlight, pol.name,
                 pol.capabilities.len(), pol.requirements.len())?;
         }
@@ -334,7 +334,7 @@ impl<'a> Session<'a> {
         for (i, ev) in self.prog.events.iter().enumerate() {
             let marker = if i == self.cursor { "▸ " } else { "  " };
             let highlight = if i == self.cursor { "\x1b[1;36m" } else { "" };
-            write!(w, "{}{}[{}] {}\x1b[0m — {} fields\r\n",
+            write!(w, "{}{}[{}] {}\x1b[0m, {} fields\r\n",
                 marker, highlight, ev.tag, ev.name, ev.fields.len())?;
         }
         Ok(())
@@ -373,7 +373,7 @@ impl<'a> Session<'a> {
     }
 
     fn draw_help(&self, w: &mut impl Write) -> io::Result<()> {
-        write!(w, "  \x1b[1mHopper Interactive Manager — Help\x1b[0m\r\n")?;
+        write!(w, "  \x1b[1mHopper Interactive Manager, Help\x1b[0m\r\n")?;
         write!(w, "\r\n")?;
         write!(w, "  \x1b[1;33mNavigation:\x1b[0m\r\n")?;
         write!(w, "    ↑/k       Move up\r\n")?;
