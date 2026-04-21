@@ -183,7 +183,7 @@ impl<'a> Context<'a> {
     /// This is the indexed shortcut for `ctx.account(idx)?.load::<T>()`.
     /// It's the canonical "Tier A" access path: the runtime checks the
     /// Hopper header, validates the data length, and projects the typed
-    /// view in one inlined call — no extra cost over the spelled-out form.
+    /// view in one inlined call. no extra cost over the spelled-out form.
     #[inline(always)]
     pub fn load<T: LayoutContract>(
         &self,
@@ -233,6 +233,20 @@ impl<'a> Context<'a> {
     /// padding, no interior pointers). Segment borrow tracking
     /// prevents conflicting write access to the same byte range for
     /// the guard's lifetime.
+    ///
+    /// # Canonical path (audit ST1 / winning-architecture spec)
+    ///
+    /// Three variants exist for different offset sources:
+    ///
+    /// | Variant | Use when |
+    /// |---|---|
+    /// | [`segment_ref_typed`](Self::segment_ref_typed) (canonical) | Offset is a compile-time constant (the common case). The `const OFFSET: u32` generic becomes an immediate in the pointer arithmetic. |
+    /// | [`segment_ref_const`](Self::segment_ref_const) | Offset comes from a runtime [`Segment`] value (dispatching dynamically between named fields). |
+    /// | `segment_ref` (this method) | Offset is fully dynamic (iterating segments in a loop, for example). |
+    ///
+    /// `#[hopper::context]`-generated accessors default to the canonical
+    /// typed path; reach for the others only when the use case
+    /// genuinely needs a runtime offset.
     #[inline(always)]
     pub fn segment_ref<'b, T: crate::Pod>(
         &'b mut self,
@@ -251,7 +265,7 @@ impl<'a> Context<'a> {
     /// that releases on drop.
     ///
     /// This is the primitive that enables safe concurrent mutation of
-    /// non-overlapping account regions — Hopper's core innovation —
+    /// non-overlapping account regions. Hopper's core innovation . 
     /// and the lease model (added post-audit) makes sequential
     /// same-region borrows inside one instruction work correctly.
     #[inline(always)]
