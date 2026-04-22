@@ -794,6 +794,47 @@ impl<'a> fmt::Display for KtAccounts<'a> {
         writeln!(f, "import java.nio.ByteOrder")?;
         writeln!(f)?;
 
+        // Hopper header layout constants. The 16-byte header carries the
+        // 8-byte LAYOUT_ID at bytes [4, 12). Clients compare this against
+        // the compiled-in per-layout constant before decoding, which is
+        // the client-side complement to the runtime's `load::<T>()`
+        // fingerprint check.
+        writeln!(f, "/** Hopper account header size in bytes. */")?;
+        writeln!(f, "const val HEADER_SIZE: Int = 16")?;
+        writeln!(f, "/** Byte offset of the 8-byte layout fingerprint in a Hopper header. */")?;
+        writeln!(f, "const val LAYOUT_ID_OFFSET: Int = 4")?;
+        writeln!(f, "/** Byte length of the layout fingerprint. */")?;
+        writeln!(f, "const val LAYOUT_ID_LENGTH: Int = 8")?;
+        writeln!(f)?;
+
+        writeln!(f, "class LayoutMismatchException(expected: String, actual: String) :")?;
+        writeln!(f, "    RuntimeException(\"Hopper layout mismatch: account header reports $actual, expected $expected\")")?;
+        writeln!(f)?;
+
+        writeln!(f, "/**")?;
+        writeln!(f, " * Raise if `data` is not a Hopper account encoding the expected layout.")?;
+        writeln!(f, " *")?;
+        writeln!(f, " * Reads the 8-byte LAYOUT_ID fingerprint from the 16-byte Hopper header")?;
+        writeln!(f, " * (bytes 4..12) and compares it against `expectedHex` (16 lowercase hex chars).")?;
+        writeln!(f, " * Mismatch means the on-chain program was upgraded with a different ABI")?;
+        writeln!(f, " * than the client was generated against.")?;
+        writeln!(f, " */")?;
+        writeln!(f, "fun assertLayoutId(data: ByteArray, expectedHex: String) {{")?;
+        writeln!(f, "    if (data.size < HEADER_SIZE) {{")?;
+        writeln!(f, "        throw RuntimeException(\"Hopper account too short: ${{data.size}} < $HEADER_SIZE\")")?;
+        writeln!(f, "    }}")?;
+        writeln!(f, "    val sb = StringBuilder(LAYOUT_ID_LENGTH * 2)")?;
+        writeln!(f, "    for (i in 0 until LAYOUT_ID_LENGTH) {{")?;
+        writeln!(f, "        val byte = data[LAYOUT_ID_OFFSET + i].toInt() and 0xFF")?;
+        writeln!(f, "        sb.append(String.format(\"%02x\", byte))")?;
+        writeln!(f, "    }}")?;
+        writeln!(f, "    val actualHex = sb.toString()")?;
+        writeln!(f, "    if (actualHex != expectedHex.lowercase()) {{")?;
+        writeln!(f, "        throw LayoutMismatchException(expectedHex, actualHex)")?;
+        writeln!(f, "    }}")?;
+        writeln!(f, "}}")?;
+        writeln!(f)?;
+
         for layout in prog.layouts.iter() {
             // Data class
             write!(f, "data class ")?;
@@ -812,6 +853,29 @@ impl<'a> fmt::Display for KtAccounts<'a> {
             writeln!(f, ")")?;
             writeln!(f)?;
 
+            // Layout fingerprint constant (hex). Pairs with the
+            // runtime's `T::LAYOUT_ID` so the client and the program
+            // agree on the ABI byte-for-byte.
+            write!(f, "const val ")?;
+            write_kt_const(f, layout.name)?;
+            write!(f, "_LAYOUT_ID: String = \"")?;
+            for b in layout.layout_id.iter() {
+                write!(f, "{:02x}", b)?;
+            }
+            writeln!(f, "\"")?;
+            writeln!(f)?;
+
+            // Per-layout assertion helper. Thin wrapper over
+            // `assertLayoutId` that fills in the expected hex.
+            write!(f, "fun assert")?;
+            write_kt_pascal(f, layout.name)?;
+            writeln!(f, "Layout(data: ByteArray) {{")?;
+            write!(f, "    assertLayoutId(data, ")?;
+            write_kt_const(f, layout.name)?;
+            writeln!(f, "_LAYOUT_ID)")?;
+            writeln!(f, "}}")?;
+            writeln!(f)?;
+
             // Discriminator constant
             write!(f, "const val ")?;
             write_kt_const(f, layout.name)?;
@@ -824,6 +888,9 @@ impl<'a> fmt::Display for KtAccounts<'a> {
             write!(f, "(data: ByteArray): ")?;
             write_kt_pascal(f, layout.name)?;
             writeln!(f, " {{")?;
+            write!(f, "    assert")?;
+            write_kt_pascal(f, layout.name)?;
+            writeln!(f, "Layout(data)")?;
             writeln!(f, "    require(data.size >= {}) {{ \"Data too small for {}\" }}", layout.total_size, layout.name)?;
 
             for field in layout.fields.iter() {
@@ -1388,6 +1455,24 @@ mod tests {
         let m = test_manifest();
         let output = KtAccounts(&m).to_string();
         assert!(output.contains("const val VAULT_DISC: Byte = 1"));
+    }
+
+    #[test]
+    fn kt_accounts_emits_layout_id_constants_and_assertion_helpers() {
+        let m = test_manifest();
+        let output = KtAccounts(&m).to_string();
+        // Generic helper and offset constants are always present.
+        assert!(output.contains("const val HEADER_SIZE: Int = 16"));
+        assert!(output.contains("const val LAYOUT_ID_OFFSET: Int = 4"));
+        assert!(output.contains("const val LAYOUT_ID_LENGTH: Int = 8"));
+        assert!(output.contains("fun assertLayoutId(data: ByteArray, expectedHex: String) {"));
+        // Per-layout const + assertion with the real 16-hex-char id.
+        assert!(output.contains("const val VAULT_LAYOUT_ID: String = \"aabbccdd11223344\""));
+        assert!(output.contains("fun assertVaultLayout(data: ByteArray) {"));
+        assert!(output.contains("assertLayoutId(data, VAULT_LAYOUT_ID)"));
+        // Decoder calls the assertion first so a mismatched account
+        // fails with LayoutMismatchException instead of decoding garbage.
+        assert!(output.contains("fun decodeVault(data: ByteArray): Vault {\n    assertVaultLayout(data)"));
     }
 
     #[test]
