@@ -2156,6 +2156,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "hopper-policy-vault"
+version = "0.1.0"
+dependencies = [
+ "hopper",
+]
+
+[[package]]
 name = "hopper-proc-vault"
 version = "0.1.0"
 dependencies = [

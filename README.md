@@ -358,6 +358,7 @@ specific patterns.
 | [`hopper-migration`](examples/hopper-migration/src/lib.rs) | V1 to V2 layout evolution with migration planner | 2 |
 | [`hopper-virtual-state`](examples/hopper-virtual-state/src/lib.rs) | Multi-account entities with VirtualState | 2 |
 | [`hopper-token-2022-vault`](examples/hopper-token-2022-vault/src/lib.rs) | Hopper-owned Token-2022 vault flow with local manifest-backed CLI preview | 2 |
+| [`hopper-policy-vault`](examples/hopper-policy-vault/src/lib.rs) | Three sibling programs: `strict`, `sealed`, `raw`, showing the policy-driven runtime and per-instruction `unsafe_memory` override | 2 |
 | [`cross-program-read`](examples/cross-program-read/) | Interface pinning across two programs | 2 |
 
 ## CLI
@@ -720,6 +721,8 @@ A summary of the shipping closures:
 | Foreign-account lenses | `ForeignLens<T>` + `ForeignManifest` in `hopper-runtime::foreign` |
 | Multi-target compile | `hopper compile --emit <target>` for rust, ts, kt, idl, codama, schema |
 | Cross-framework bench | `bench/METHODOLOGY.md` + anchor slot in `framework-vault-bench` |
+| Compile-proven borrow safety | `HopperRefOnly` sealed trait in `crates/hopper-runtime/src/ref_only.rs` + compile-fail fixture |
+| Policy-driven runtime (`strict` / `sealed` / `raw`) | `HopperProgramPolicy` + `#[hopper::program(sealed)]` emits `#[deny(unsafe_code)]` per handler; `#[instruction(N, unsafe_memory)]` restores raw access for one handler at a time |
 
 ## Documentation
 

@@ -29,6 +29,7 @@ members = [
     "examples/hopper-token-2022-ata",
     "examples/hopper-token-2022-vault",
     "examples/hopper-proc-vault",
+    "examples/hopper-policy-vault",
     "examples/cross-program-read/program-a",
     "examples/cross-program-read/program-b",
     "bench/hopper-bench",

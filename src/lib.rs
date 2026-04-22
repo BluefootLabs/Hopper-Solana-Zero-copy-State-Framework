@@ -129,9 +129,10 @@ pub use hopper_macros_proc::{
 pub mod __runtime {
     pub use hopper_runtime::{
         apply_pending_migrations, read_tail, read_tail_len, tail_payload, write_tail,
-        Account, AccountLayout, AccountView, Address, Context, HopperSigner, InitAccount,
-        LayoutMigration, MigrationEdge, Pod, Program, ProgramError, ProgramId, Ref, RefMut,
-        SegRef, SegRefMut, SegmentLease, SystemId, TailCodec,
+        Account, AccountLayout, AccountView, Address, Context, HopperInstructionPolicy,
+        HopperProgramPolicy, HopperSigner, InitAccount, LayoutMigration, MigrationEdge, Pod,
+        Program, ProgramError, ProgramId, Ref, RefMut, SegRef, SegRefMut, SegmentLease,
+        SystemId, TailCodec,
     };
 
     // `#[hopper::state]` and `#[hopper::pod]` emit bytemuck derives

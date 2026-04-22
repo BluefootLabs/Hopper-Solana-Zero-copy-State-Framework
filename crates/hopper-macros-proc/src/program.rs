@@ -17,8 +17,9 @@
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use syn::{
-    parse2, Attribute, Expr, FnArg, GenericArgument, Ident, Item, ItemFn, ItemMod, Lit, Pat,
-    Path, PathArguments, Result, Type, TypePath,
+    parse2, punctuated::Punctuated, spanned::Spanned, Attribute, Expr, ExprLit, FnArg,
+    GenericArgument, Ident, Item, ItemFn, ItemMod, Lit, Meta, Pat, Path, PathArguments, Result,
+    Token, Type, TypePath,
 };
 
 /// A discovered instruction handler.
@@ -27,6 +28,7 @@ struct Handler {
     fn_name: Ident,
     binding: ContextBinding,
     arg_types: Vec<Type>,
+    instruction_policy: InstructionPolicyArgs,
 }
 
 #[derive(Default)]
@@ -41,7 +43,45 @@ enum ContextBinding {
     Typed { spec: Path },
 }
 
-pub fn expand(_attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
+/// Parsed `#[hopper::program(...)]` attribute arguments. Stored as
+/// explicit per-field `Option<bool>` so a caller can supply partial
+/// overrides (`#[hopper::program(strict = false)]` still implies the
+/// other defaults from `HopperProgramPolicy::default_policy()`).
+///
+/// Named shorthand (`strict`, `raw`, `sealed`) pre-fills every field
+/// to the matching `HopperProgramPolicy::*` constant; an explicit
+/// `name = value` after the shorthand overrides individual levers.
+#[derive(Default)]
+struct ProgramPolicyArgs {
+    strict: Option<bool>,
+    enforce_token_checks: Option<bool>,
+    allow_unsafe: Option<bool>,
+}
+
+impl ProgramPolicyArgs {
+    /// Resolve unset levers from `HopperProgramPolicy::STRICT`.
+    fn strict(&self) -> bool {
+        self.strict.unwrap_or(true)
+    }
+    fn enforce_token_checks(&self) -> bool {
+        self.enforce_token_checks.unwrap_or(true)
+    }
+    fn allow_unsafe(&self) -> bool {
+        self.allow_unsafe.unwrap_or(true)
+    }
+}
+
+/// Parsed per-handler `#[instruction(N, unsafe_memory, skip_token_checks)]`
+/// flags. Bare flag form only: `unsafe_memory` equivalent to
+/// `unsafe_memory = true`.
+#[derive(Default, Clone, Copy)]
+struct InstructionPolicyArgs {
+    unsafe_memory: bool,
+    skip_token_checks: bool,
+}
+
+pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
+    let policy = parse_program_policy(attr)?;
     let mut input: ItemMod = parse2(item.clone()).map_err(|_| {
         syn::Error::new_spanned(
             &item,
@@ -105,6 +145,61 @@ pub fn expand(_attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
         })
         .collect();
 
+    // Apply per-handler policy: when the program disallows unsafe and
+    // the handler does not opt back in via `unsafe_memory`, emit
+    // `#[deny(unsafe_code)]` on the handler. Surfacing it as an
+    // attribute (rather than wrapping the function body) keeps the
+    // policy visible in `cargo expand` output.
+    if !policy.allow_unsafe() {
+        for module_item in items.iter_mut() {
+            let Item::Fn(method) = module_item else {
+                continue;
+            };
+            let Some(handler) = handlers
+                .iter()
+                .find(|h| h.fn_name == method.sig.ident)
+            else {
+                continue;
+            };
+            if handler.instruction_policy.unsafe_memory {
+                continue;
+            }
+            method.attrs.push(syn::parse_quote!(#[deny(unsafe_code)]));
+        }
+    }
+
+    // Emit per-handler `<HANDLER>_POLICY: HopperInstructionPolicy`
+    // constants so downstream code can branch on them at compile time
+    // the same way it branches on `HOPPER_PROGRAM_POLICY`.
+    for handler in handlers.iter() {
+        let const_name = format_ident!("{}_POLICY", handler.fn_name.to_string().to_uppercase());
+        let unsafe_memory = handler.instruction_policy.unsafe_memory;
+        let skip_token_checks = handler.instruction_policy.skip_token_checks;
+        items.push(syn::parse_quote! {
+            #[allow(non_upper_case_globals, dead_code)]
+            pub const #const_name: ::hopper::__runtime::HopperInstructionPolicy =
+                ::hopper::__runtime::HopperInstructionPolicy {
+                    unsafe_memory: #unsafe_memory,
+                    skip_token_checks: #skip_token_checks,
+                };
+        });
+    }
+
+    // Emit the program-level policy const at module scope so handlers
+    // can consult it via `super::HOPPER_PROGRAM_POLICY.<lever>`.
+    let strict = policy.strict();
+    let enforce_token_checks = policy.enforce_token_checks();
+    let allow_unsafe = policy.allow_unsafe();
+    items.push(syn::parse_quote! {
+        #[allow(dead_code)]
+        pub const HOPPER_PROGRAM_POLICY: ::hopper::__runtime::HopperProgramPolicy =
+            ::hopper::__runtime::HopperProgramPolicy {
+                strict: #strict,
+                enforce_token_checks: #enforce_token_checks,
+                allow_unsafe: #allow_unsafe,
+            };
+    });
+
     items.push(syn::parse_quote! {
         #[inline]
         pub fn process_instruction(
@@ -126,6 +221,98 @@ pub fn expand(_attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
     Ok(expanded)
 }
 
+/// Parse `#[hopper::program(...)]` attribute args.
+///
+/// Accepts:
+/// - empty args: defaults to `HopperProgramPolicy::STRICT`
+/// - bare shorthand: `strict` | `raw` | `sealed`
+/// - explicit levers: `strict = bool`, `enforce_token_checks = bool`, `allow_unsafe = bool`
+/// - any combination (shorthand sets defaults; explicit levers override)
+fn parse_program_policy(attr: TokenStream) -> Result<ProgramPolicyArgs> {
+    let mut policy = ProgramPolicyArgs::default();
+    if attr.is_empty() {
+        return Ok(policy);
+    }
+
+    let metas: Punctuated<Meta, Token![,]> =
+        syn::parse::Parser::parse2(Punctuated::<Meta, Token![,]>::parse_terminated, attr)?;
+
+    for meta in metas {
+        match meta {
+            Meta::Path(path) => match path_ident(&path)?.as_str() {
+                "strict" => {
+                    policy.strict.get_or_insert(true);
+                    policy.enforce_token_checks.get_or_insert(true);
+                    policy.allow_unsafe.get_or_insert(true);
+                }
+                "sealed" => {
+                    policy.strict.get_or_insert(true);
+                    policy.enforce_token_checks.get_or_insert(true);
+                    policy.allow_unsafe.get_or_insert(false);
+                    // Explicit `sealed` locks allow_unsafe off even if
+                    // defaulting left it unset as true.
+                    policy.allow_unsafe = Some(false);
+                }
+                "raw" => {
+                    policy.strict = Some(false);
+                    policy.enforce_token_checks = Some(false);
+                    policy.allow_unsafe.get_or_insert(true);
+                }
+                other => {
+                    return Err(syn::Error::new(
+                        path.span(),
+                        format!(
+                            "unknown program policy shorthand `{other}`; expected `strict`, `sealed`, or `raw`",
+                        ),
+                    ));
+                }
+            },
+            Meta::NameValue(nv) => {
+                let name = path_ident(&nv.path)?;
+                let value = expect_bool_lit(&nv.value)?;
+                match name.as_str() {
+                    "strict" => policy.strict = Some(value),
+                    "enforce_token_checks" => policy.enforce_token_checks = Some(value),
+                    "allow_unsafe" => policy.allow_unsafe = Some(value),
+                    other => {
+                        return Err(syn::Error::new(
+                            nv.path.span(),
+                            format!(
+                                "unknown program policy lever `{other}`; expected `strict`, `enforce_token_checks`, or `allow_unsafe`",
+                            ),
+                        ));
+                    }
+                }
+            }
+            Meta::List(list) => {
+                return Err(syn::Error::new(
+                    list.span(),
+                    "hopper::program policy expects bare flags or `name = bool` pairs",
+                ));
+            }
+        }
+    }
+
+    Ok(policy)
+}
+
+fn path_ident(path: &Path) -> Result<String> {
+    path.get_ident()
+        .map(|ident| ident.to_string())
+        .ok_or_else(|| syn::Error::new(path.span(), "expected a bare identifier"))
+}
+
+fn expect_bool_lit(expr: &Expr) -> Result<bool> {
+    if let Expr::Lit(ExprLit { lit: Lit::Bool(b), .. }) = expr {
+        Ok(b.value)
+    } else {
+        Err(syn::Error::new(
+            expr.span(),
+            "expected a boolean literal (`true` or `false`)",
+        ))
+    }
+}
+
 fn prepare_handler(function: &mut ItemFn) -> Result<Option<Handler>> {
     if !function
         .attrs
@@ -137,12 +324,13 @@ fn prepare_handler(function: &mut ItemFn) -> Result<Option<Handler>> {
 
     let modifiers = extract_handler_modifiers(&mut function.attrs)?;
 
-    let discriminator = extract_instruction_discriminator(&function.attrs)?.ok_or_else(|| {
-        syn::Error::new_spanned(
-            &function.sig,
-            "hopper_program requires #[instruction(N)] on each generated handler",
-        )
-    })?;
+    let (discriminator, instruction_policy) =
+        extract_instruction_attribute(&function.attrs)?.ok_or_else(|| {
+            syn::Error::new_spanned(
+                &function.sig,
+                "hopper_program requires #[instruction(N)] on each generated handler",
+            )
+        })?;
 
     if function.sig.inputs.is_empty() {
         return Err(syn::Error::new_spanned(
@@ -174,6 +362,7 @@ fn prepare_handler(function: &mut ItemFn) -> Result<Option<Handler>> {
         fn_name: function.sig.ident.clone(),
         binding,
         arg_types,
+        instruction_policy,
     }))
 }
 
@@ -483,25 +672,104 @@ fn mark_pattern_mutable(pattern: &mut Box<Pat>) -> Result<()> {
     Ok(())
 }
 
-/// Extract the discriminator from `#[instruction(N)]`.
-fn extract_instruction_discriminator(attrs: &[Attribute]) -> Result<Option<u8>> {
+/// Extract the discriminator plus any per-handler policy flags from
+/// `#[instruction(N)]` or `#[instruction(N, unsafe_memory, skip_token_checks)]`.
+///
+/// The first positional argument is always the discriminator literal.
+/// Trailing bare identifiers (`unsafe_memory`, `skip_token_checks`)
+/// set the matching bit on `HopperInstructionPolicy`. `name = bool`
+/// pairs are also accepted for symmetry with `#[hopper::program(...)]`.
+fn extract_instruction_attribute(
+    attrs: &[Attribute],
+) -> Result<Option<(u8, InstructionPolicyArgs)>> {
     for attr in attrs {
         if !attr_has_name(attr, "instruction") {
             continue;
         }
-        let disc: Lit = attr.parse_args()?;
-        match disc {
-            Lit::Int(lit_int) => {
-                let val: u8 = lit_int.base10_parse()?;
-                return Ok(Some(val));
-            }
+
+        // Parse the attribute argument list as a comma-separated
+        // sequence of `Meta` items so we get a single idiomatic
+        // representation for both the shorthand `#[instruction(1)]`
+        // and the extended `#[instruction(1, unsafe_memory)]` forms.
+        // An `Expr::Lit` is wrapped in `Meta::Path` when bare (`1`
+        // parses as a path in syn's grammar only after custom lexing),
+        // so we fall back to a manual token walk that accepts either
+        // a leading literal or a leading meta.
+        let tokens = match &attr.meta {
+            syn::Meta::List(list) => list.tokens.clone(),
             _ => {
                 return Err(syn::Error::new_spanned(
-                    disc,
-                    "instruction discriminator must be an integer literal",
+                    attr,
+                    "hopper_program requires #[instruction(N, ...flags)]",
                 ));
             }
-        }
+        };
+
+        // First token must be an integer literal (the discriminator).
+        // We parse it directly, then parse the rest as `Meta` items.
+        use syn::parse::{ParseStream, Parser};
+
+        let parser = |input: ParseStream| -> Result<(u8, InstructionPolicyArgs)> {
+            let disc_lit: Lit = input.parse()?;
+            let disc = match disc_lit {
+                Lit::Int(lit_int) => lit_int.base10_parse::<u8>()?,
+                other => {
+                    return Err(syn::Error::new(
+                        other.span(),
+                        "instruction discriminator must be an integer literal",
+                    ));
+                }
+            };
+
+            let mut policy = InstructionPolicyArgs::default();
+            while input.peek(Token![,]) {
+                input.parse::<Token![,]>()?;
+                if input.is_empty() {
+                    break;
+                }
+                let meta: Meta = input.parse()?;
+                match meta {
+                    Meta::Path(path) => match path_ident(&path)?.as_str() {
+                        "unsafe_memory" => policy.unsafe_memory = true,
+                        "skip_token_checks" => policy.skip_token_checks = true,
+                        other => {
+                            return Err(syn::Error::new(
+                                path.span(),
+                                format!(
+                                    "unknown instruction policy flag `{other}`; expected `unsafe_memory` or `skip_token_checks`",
+                                ),
+                            ));
+                        }
+                    },
+                    Meta::NameValue(nv) => {
+                        let name = path_ident(&nv.path)?;
+                        let value = expect_bool_lit(&nv.value)?;
+                        match name.as_str() {
+                            "unsafe_memory" => policy.unsafe_memory = value,
+                            "skip_token_checks" => policy.skip_token_checks = value,
+                            other => {
+                                return Err(syn::Error::new(
+                                    nv.path.span(),
+                                    format!(
+                                        "unknown instruction policy lever `{other}`",
+                                    ),
+                                ));
+                            }
+                        }
+                    }
+                    Meta::List(list) => {
+                        return Err(syn::Error::new(
+                            list.span(),
+                            "instruction policy expects bare flags or `name = bool` pairs",
+                        ));
+                    }
+                }
+            }
+            Ok((disc, policy))
+        };
+
+        let (disc, policy) = parser.parse2(tokens)?;
+        return Ok(Some((disc, policy)));
     }
     Ok(None)
 }
