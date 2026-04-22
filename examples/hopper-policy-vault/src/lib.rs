@@ -211,6 +211,42 @@ pub mod raw_vault {
         }
         Ok(())
     }
+
+    /// The "MIXED" pattern from the audit's Section 2: safe segment
+    /// write, drop to raw pointer for a fast-path memset, then back
+    /// to safe code for an invariant check. All three regions live
+    /// in the same handler without a policy change.
+    ///
+    /// Demonstrates that Hopper's raw escape hatch composes with the
+    /// typed API — the unsafe block is surgical, not contagious.
+    #[instruction(3, unsafe_memory)]
+    pub fn hybrid_bump(ctx: &mut Context<'_>, amount: u64) -> ProgramResult {
+        // Safe region: add to balance through the typed accessor.
+        {
+            let mut vault = ctx.load_mut::<Vault>(0)?;
+            let next = vault
+                .balance
+                .get()
+                .checked_add(amount)
+                .ok_or(ProgramError::ArithmeticOverflow)?;
+            vault.balance = WireU64::new(next);
+        }
+
+        // Unsafe region: zero the pending_rewards field in place
+        // without re-borrowing the whole vault. The typed API above
+        // dropped before we get here, so there's no alias.
+        // SAFETY: `pending_rewards` is at body offset 8, absolute 24.
+        unsafe {
+            let ptr = ctx.as_mut_ptr(0)?;
+            (ptr.add(24) as *mut u64).write_unaligned(0);
+        }
+
+        // Safe region again: read the result through the typed API
+        // and assert the invariant.
+        let vault = ctx.load::<Vault>(0)?;
+        hopper::require!(vault.pending_rewards.get() == 0);
+        Ok(())
+    }
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -248,6 +284,16 @@ const _SEALED_FAST_SWEEP_OPTS_INTO_UNSAFE: () = {
 const _RAW_RAW_SWEEP_SKIPS_TOKEN_CHECKS: () = {
     assert!(raw_vault::RAW_SWEEP_POLICY.skip_token_checks);
     assert!(!raw_vault::RAW_SWEEP_POLICY.unsafe_memory);
+};
+
+const _RAW_POINTER_RESET_OPTS_INTO_UNSAFE: () = {
+    assert!(raw_vault::RAW_POINTER_RESET_POLICY.unsafe_memory);
+    assert!(!raw_vault::RAW_POINTER_RESET_POLICY.skip_token_checks);
+};
+
+const _RAW_HYBRID_BUMP_OPTS_INTO_UNSAFE: () = {
+    assert!(raw_vault::HYBRID_BUMP_POLICY.unsafe_memory);
+    assert!(!raw_vault::HYBRID_BUMP_POLICY.skip_token_checks);
 };
 
 #[cfg(test)]

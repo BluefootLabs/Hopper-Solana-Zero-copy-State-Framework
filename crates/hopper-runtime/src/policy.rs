@@ -52,12 +52,23 @@
 /// compile time.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct HopperProgramPolicy {
-    /// Layout header validation, segment-borrow tracking, and
-    /// auto-injected `validate(ctx)?` before the handler body.
+    /// Program-level intent marker: handlers in this program run
+    /// under Hopper's full enforcement envelope.
     ///
-    /// When false, the program macro skips `ContextSpec::bind(ctx)?`
-    /// and the handler receives a raw `&mut Context<'_>`. Authors
-    /// must call `validate()` themselves or accept the risk.
+    /// The actual per-handler behaviour is controlled by the
+    /// handler's context parameter type. A handler typed as
+    /// `Context<MyAccounts>` always runs `MyAccounts::bind(ctx)?`
+    /// (which chains into `validate(ctx)?`) regardless of policy. A
+    /// handler typed as `&mut Context<'_>` always receives the
+    /// context raw. `strict = true` is the documentation contract
+    /// that every handler in the module opts into the typed form;
+    /// `strict = false` signals the author intends to use raw
+    /// contexts and accepts the responsibility of calling
+    /// `validate()` manually where needed.
+    ///
+    /// The flag is read back by callers at compile time
+    /// (`HOPPER_PROGRAM_POLICY.strict`) to specialize code paths that
+    /// depend on whether the enforcement envelope is active.
     pub strict: bool,
 
     /// Token CPI authors must pair every raw invocation with the
