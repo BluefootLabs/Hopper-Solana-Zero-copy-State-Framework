@@ -44,6 +44,12 @@ something simpler, then explore the advanced patterns as you need them.
    each other's accounts via `hopper_interface!`. No shared crate dependency.
    Companion guide: [cross-program-read/README.md](cross-program-read/README.md)
 
+10. **[hopper-policy-vault](hopper-policy-vault/src/lib.rs)** - Three sibling
+    programs (`strict`, `sealed`, `raw`) demonstrating the policy-driven runtime
+    plus the `#[instruction(N, unsafe_memory, skip_token_checks)]` per-handler
+    overrides. Companion guide:
+    [hopper-policy-vault/README.md](hopper-policy-vault/README.md)
+
 ### Tier 3: Escape Hatch
 
 Every example uses the standard Hopper path. When you need to go lower, the

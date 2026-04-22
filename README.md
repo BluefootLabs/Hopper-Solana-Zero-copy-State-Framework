@@ -54,7 +54,7 @@ runtime path and one access model, with different guarantees layered on top:
   (or `ctx.segment_ref::<T>(idx, offset)` / `ctx.segment_mut::<T>(idx, offset)`)
 - explicit raw escape hatches via `unsafe account.raw_ref::<T>()` and `unsafe account.raw_mut::<T>()`
 
-Specialized helpers such as `load_cross_program()` and `load_versioned()` are not
+Specialized helpers such as `load_cross_program()` and `load_compatible()` are not
 separate frameworks. They are the same Hopper runtime path with a different
 validation contract.
 
@@ -197,22 +197,22 @@ Load and validate with the default path first, then reach for specialized
 guarantees only when the use case changes:
 
 ```rust
-// T1: Full validation (your own program's accounts)
+// Full validation (your own program's accounts)
 let vault = Vault::load(account, program_id)?;
 let balance = vault.map(|v| v.balance.get());
 
 // Cross-program read with ABI proof
 let vault = Vault::load_foreign(account, &other_program_id)?;
 
-// Migration-compatible read on the same runtime path
-let vault = account.load_versioned::<Vault>()?;
-
-// T3: Version-compatible (accept V1+ during migration, skip layout_id)
+// Version-compatible read: accept V1+ during migration, skip layout_id match
 let vault = VaultV1::load_compatible(account, program_id, 1)?;
-```
 
-On raw `AccountView` values, the runtime-first equivalent of the migration tier
-is `account.load_versioned::<VaultV1>()`.
+// Unverified: returns (ref, valid_flag) for callers that want to inspect
+// a possibly-stale account without short-circuiting
+if let Some((vault, valid)) = VaultV1::load_unverified(data) {
+    // ...
+}
+```
 
 Define what each instruction is allowed to do:
 
@@ -359,6 +359,9 @@ specific patterns.
 | [`hopper-virtual-state`](examples/hopper-virtual-state/src/lib.rs) | Multi-account entities with VirtualState | 2 |
 | [`hopper-token-2022-vault`](examples/hopper-token-2022-vault/src/lib.rs) | Hopper-owned Token-2022 vault flow with local manifest-backed CLI preview | 2 |
 | [`hopper-policy-vault`](examples/hopper-policy-vault/src/lib.rs) | Three sibling programs: `strict`, `sealed`, `raw`, showing the policy-driven runtime and per-instruction `unsafe_memory` override | 2 |
+| [`hopper-proc-vault`](examples/hopper-proc-vault/src/lib.rs) | `#[hopper::state]` + `#[hopper::context]` + `#[hopper::program]` proc-macro surface in one file | 1 |
+| [`hopper-parity-vault`](examples/hopper-parity-vault/src/lib.rs) | Cross-framework fair-comparison baseline used by `bench/framework-vault-bench` | 1 |
+| [`hopper-token-2022-ata`](examples/hopper-token-2022-ata/src/lib.rs) | Hopper-owned `hopper_associated_token::CreateIdempotent` + Token-2022 flow | 1 |
 | [`cross-program-read`](examples/cross-program-read/) | Interface pinning across two programs | 2 |
 
 ## CLI

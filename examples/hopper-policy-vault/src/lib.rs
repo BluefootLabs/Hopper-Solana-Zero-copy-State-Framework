@@ -204,11 +204,11 @@ pub mod raw_vault {
         // Hopper header. The `pending_rewards` field lives at offset
         // `8` inside the body, so its absolute offset is `16 + 8 = 24`.
         // We hold no other borrow on account 0 across this write.
-        unsafe {
+        hopper::hopper_unsafe_region!("zero pending_rewards via raw ptr", {
             let ptr = ctx.as_mut_ptr(0)?;
             let field = ptr.add(24) as *mut u64;
             field.write_unaligned(0);
-        }
+        });
         Ok(())
     }
 
@@ -236,10 +236,10 @@ pub mod raw_vault {
         // without re-borrowing the whole vault. The typed API above
         // dropped before we get here, so there's no alias.
         // SAFETY: `pending_rewards` is at body offset 8, absolute 24.
-        unsafe {
+        hopper::hopper_unsafe_region!("zero pending_rewards after balance bump", {
             let ptr = ctx.as_mut_ptr(0)?;
             (ptr.add(24) as *mut u64).write_unaligned(0);
-        }
+        });
 
         // Safe region again: read the result through the typed API
         // and assert the invariant.

@@ -105,8 +105,8 @@ pub use hopper_runtime::layout_migrations;
 // the top-level `hopper::*` path without needing to reach through
 // `hopper_runtime::`.
 pub use hopper_runtime::{
-    address, require, require_eq, require_gt, require_gte, require_keys_eq,
-    require_keys_neq, require_neq,
+    address, hopper_unsafe_region, require, require_eq, require_gt, require_gte,
+    require_keys_eq, require_keys_neq, require_neq,
 };
 
 // Optional proc macro re-exports (enabled with `proc-macros` feature)
