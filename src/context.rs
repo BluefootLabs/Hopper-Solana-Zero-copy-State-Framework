@@ -367,6 +367,62 @@ impl<'a> Context<'a> {
         unsafe { self.raw_mut::<T>(index) }
     }
 
+    /// Canonical raw-pointer escape hatch to an account's data buffer.
+    ///
+    /// Returns a pointer to the first byte of `accounts[index]`'s data
+    /// region (after the runtime account header, before any Hopper
+    /// 16-byte layout header). The pointer is valid for reads and
+    /// writes for the lifetime of the account view and carries no
+    /// borrow-tracking obligations. Dereferencing it is `unsafe`
+    /// because the caller takes over alias-safety responsibility
+    /// that the segment registry normally upholds.
+    ///
+    /// This is the explicit power-user primitive the audit asks for:
+    /// safe code reaches for `segment_ref_typed` / `segment_mut_typed`
+    /// / the generated `ctx.<field>_segment_mut(...)` accessors; raw
+    /// code drops to `unsafe { ctx.as_mut_ptr(0)?.add(offset) as *mut T }`.
+    ///
+    /// # Safety
+    ///
+    /// The caller must guarantee no aliasing mutable borrow is held
+    /// on the same account for the duration of any write through the
+    /// returned pointer. The returned pointer must be dereferenced
+    /// within the `'info` lifetime of the account view; reading past
+    /// `AccountView::data_len()` is undefined behaviour.
+    #[cfg(feature = "hopper-native-backend")]
+    #[inline(always)]
+    pub unsafe fn as_mut_ptr(&self, index: usize) -> Result<*mut u8, ProgramError> {
+        let view = self
+            .accounts
+            .get(index)
+            .ok_or(ProgramError::NotEnoughAccountKeys)?;
+        view.require_writable()?;
+        // SAFETY: the account view is live for `'info` and
+        // `data_ptr` yields a pointer inside the loader-provided
+        // per-account buffer. Returning the untyped pointer transfers
+        // alias-safety to the caller as documented above.
+        Ok(view.data_ptr())
+    }
+
+    /// Immutable sibling of [`as_mut_ptr`]. Returns a `*const u8`.
+    ///
+    /// Shared-borrow checking still runs, so calling this while an
+    /// exclusive borrow is live on the same account fails with
+    /// `AccountBorrowFailed`. The return value is safe to obtain; the
+    /// caller only needs `unsafe` to dereference it.
+    ///
+    /// [`as_mut_ptr`]: Self::as_mut_ptr
+    #[cfg(feature = "hopper-native-backend")]
+    #[inline(always)]
+    pub fn as_ptr(&self, index: usize) -> Result<*const u8, ProgramError> {
+        let view = self
+            .accounts
+            .get(index)
+            .ok_or(ProgramError::NotEnoughAccountKeys)?;
+        view.check_borrow()?;
+        Ok(view.data_ptr() as *const u8)
+    }
+
     /// Read instruction data as a typed value (unaligned, little-endian safe).
     ///
     /// Reads `size_of::<T>()` bytes starting at `offset` via `read_unaligned`.

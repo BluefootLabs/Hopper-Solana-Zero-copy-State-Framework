@@ -53,6 +53,7 @@ pub mod log;
 pub mod pod;
 pub mod segment;
 pub mod zerocopy;
+pub mod policy;
 pub mod ref_only;
 // Re-export the sealed marker module at the crate root so macro
 // codegen can address it as `::hopper_runtime::__sealed::...`. It's
@@ -76,6 +77,7 @@ pub use account_wrappers::{Account, InitAccount, Program, ProgramId, Signer as H
 pub use address::Address;
 pub use audit::{AccountAudit, DuplicateAccount};
 pub use borrow::{Ref, RefMut};
+pub use policy::{HopperInstructionPolicy, HopperProgramPolicy};
 pub use ref_only::HopperRefOnly;
 pub use context::Context;
 pub use cpi::{invoke, invoke_signed};

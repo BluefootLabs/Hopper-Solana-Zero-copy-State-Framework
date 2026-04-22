@@ -42,6 +42,49 @@ fn require_authority_signed_direct(authority: &AccountView) -> ProgramResult {
     }
 }
 
+/// Verify an SPL Token account's `owner` field matches `authority.key()`.
+///
+/// SPL TokenAccount layout: bytes `[32..64]` are the `owner` pubkey
+/// (the authority allowed to move tokens out of this account). The
+/// SPL Token program checks this on every transfer/approve/burn, but
+/// Hopper's pre-check surfaces a Hopper-branded error before the CPI
+/// so a misconfigured invocation fails with `IncorrectAuthority`
+/// instead of an opaque CPI failure.
+///
+/// This is the load-bearing helper behind the
+/// `#[hopper::program(enforce_token_checks = true)]` contract: the
+/// macro emits `HOPPER_PROGRAM_POLICY.enforce_token_checks = true`,
+/// and handlers opt into the strict invoke paths
+/// ([`TransferChecked::invoke_strict`] etc.) to get this check
+/// auto-injected. Handlers can also call it directly when they reach
+/// outside the typed-context envelope.
+///
+/// Returns `Err(ProgramError::AccountDataTooSmall)` if the token
+/// account's data buffer is too short (not a valid SPL TokenAccount).
+#[inline]
+pub fn require_token_authority(
+    token_account: &AccountView,
+    authority: &AccountView,
+) -> ProgramResult {
+    // SPL TokenAccount.owner lives at bytes 32..64. The buffer must
+    // be at least 64 bytes; a valid TokenAccount is exactly 165 on
+    // legacy Token, variable on Token-2022 but always >= 165.
+    let data = token_account
+        .try_borrow()
+        .map_err(|_| ProgramError::AccountBorrowFailed)?;
+    if data.len() < 64 {
+        return Err(ProgramError::AccountDataTooSmall);
+    }
+    let mut owner_bytes = [0u8; 32];
+    owner_bytes.copy_from_slice(&data[32..64]);
+    let authority_bytes: [u8; 32] = *authority.address().as_array();
+    if owner_bytes == authority_bytes {
+        Ok(())
+    } else {
+        Err(ProgramError::IncorrectAuthority)
+    }
+}
+
 // ── Transfer ─────────────────────────────────────────────────────────
 
 /// Builder for SPL Token Transfer (instruction index 3).
@@ -350,10 +393,37 @@ impl TransferChecked<'_> {
         self.invoke_signed_unchecked(&[])
     }
 
+    /// Strict invoke: signer pre-check **plus** token-account
+    /// ownership verification. Auto-injects the check that
+    /// `#[hopper::program(enforce_token_checks = true)]` promises so
+    /// a handler inside such a program can write
+    /// `TransferChecked { ... }.invoke_strict()?` and know that the
+    /// attacker-passes-correct-pubkey-but-wrong-signer exploit class
+    /// is closed before the CPI.
+    ///
+    /// Verifies `self.from`'s `owner` field (SPL TokenAccount bytes
+    /// `[32..64]`) matches `self.authority.address()`. Returns
+    /// `ProgramError::IncorrectAuthority` on mismatch.
+    #[inline]
+    pub fn invoke_strict(&self) -> ProgramResult {
+        require_authority_signed_direct(self.authority)?;
+        require_token_authority(self.from, self.authority)?;
+        self.invoke_signed_unchecked(&[])
+    }
+
     /// Invoke with explicit PDA signer seeds. The SPL token program
     /// validates mint + decimals regardless of the signer source.
     #[inline]
     pub fn invoke_signed(&self, signers: &[Signer]) -> ProgramResult {
+        self.invoke_signed_unchecked(signers)
+    }
+
+    /// Strict PDA-signed invoke: ownership pre-check (the SPL token
+    /// program revalidates, but Hopper surfaces a branded error
+    /// first) then CPI with the supplied signer seeds.
+    #[inline]
+    pub fn invoke_signed_strict(&self, signers: &[Signer]) -> ProgramResult {
+        require_token_authority(self.from, self.authority)?;
         self.invoke_signed_unchecked(signers)
     }
 
@@ -452,8 +522,27 @@ impl BurnChecked<'_> {
         self.invoke_signed_unchecked(&[])
     }
 
+    /// Strict invoke: signer pre-check plus token-account ownership
+    /// verification. See [`TransferChecked::invoke_strict`] for the
+    /// full rationale.
+    #[inline]
+    pub fn invoke_strict(&self) -> ProgramResult {
+        require_authority_signed_direct(self.authority)?;
+        require_token_authority(self.account, self.authority)?;
+        self.invoke_signed_unchecked(&[])
+    }
+
     #[inline]
     pub fn invoke_signed(&self, signers: &[Signer]) -> ProgramResult {
+        self.invoke_signed_unchecked(signers)
+    }
+
+    /// Strict PDA-signed invoke. Pre-check the burn-source owner
+    /// before the CPI so a misrouted signer surfaces a Hopper-branded
+    /// error instead of an opaque SPL failure.
+    #[inline]
+    pub fn invoke_signed_strict(&self, signers: &[Signer]) -> ProgramResult {
+        require_token_authority(self.account, self.authority)?;
         self.invoke_signed_unchecked(signers)
     }
 
@@ -502,8 +591,27 @@ impl ApproveChecked<'_> {
         self.invoke_signed_unchecked(&[])
     }
 
+    /// Strict invoke: signer pre-check plus source-account ownership
+    /// verification. Ensures the authority granting the approval is
+    /// actually allowed to do so. See [`TransferChecked::invoke_strict`]
+    /// for the full rationale.
+    #[inline]
+    pub fn invoke_strict(&self) -> ProgramResult {
+        require_authority_signed_direct(self.authority)?;
+        require_token_authority(self.source, self.authority)?;
+        self.invoke_signed_unchecked(&[])
+    }
+
     #[inline]
     pub fn invoke_signed(&self, signers: &[Signer]) -> ProgramResult {
+        self.invoke_signed_unchecked(signers)
+    }
+
+    /// Strict PDA-signed invoke. Pre-check the source-account owner
+    /// before the CPI.
+    #[inline]
+    pub fn invoke_signed_strict(&self, signers: &[Signer]) -> ProgramResult {
+        require_token_authority(self.source, self.authority)?;
         self.invoke_signed_unchecked(signers)
     }
 
@@ -682,5 +790,122 @@ mod tests {
             let decoded = u64::from_le_bytes(out[1..9].try_into().unwrap());
             assert_eq!(decoded, amount);
         }
+    }
+
+    // ── require_token_authority regression tests ─────────────────────
+
+    /// Build a minimal valid SPL TokenAccount data buffer + an
+    /// AccountView wrapping it, plus a matching authority view. The
+    /// token account's `owner` field (bytes [32..64]) is set to the
+    /// requested authority so the ownership check passes by default;
+    /// individual tests can mutate the buffer to exercise mismatch.
+    fn make_token_and_authority(
+        authority_bytes: [u8; 32],
+        token_owner_bytes: [u8; 32],
+    ) -> (
+        std::vec::Vec<u8>,
+        std::vec::Vec<u8>,
+        crate::account::AccountView,
+        crate::account::AccountView,
+    ) {
+        use hopper_native::{AccountView as NativeAccountView, Address as NativeAddress, RuntimeAccount, NOT_BORROWED};
+
+        // TokenAccount: SPL layout is 165 bytes; first 32 bytes are
+        // `mint`, next 32 are `owner`. We only care about the owner
+        // slot for `require_token_authority`, but size the buffer at
+        // 165 so it looks like a real TokenAccount.
+        let token_data_len = 165;
+        let mut token_backing = std::vec![0u8; RuntimeAccount::SIZE + token_data_len];
+        let token_raw = token_backing.as_mut_ptr() as *mut RuntimeAccount;
+        unsafe {
+            token_raw.write(RuntimeAccount {
+                borrow_state: NOT_BORROWED,
+                is_signer: 0,
+                is_writable: 1,
+                executable: 0,
+                resize_delta: 0,
+                address: NativeAddress::new_from_array([0xAA; 32]),
+                owner: NativeAddress::new_from_array([3; 32]),
+                lamports: 2_039_280,
+                data_len: token_data_len as u64,
+            });
+            // Write the SPL TokenAccount.owner field at data[32..64].
+            let data_ptr = (token_raw as *mut u8).add(RuntimeAccount::SIZE);
+            core::ptr::copy_nonoverlapping(
+                token_owner_bytes.as_ptr(),
+                data_ptr.add(32),
+                32,
+            );
+        }
+        let token_backend = unsafe { NativeAccountView::new_unchecked(token_raw) };
+        let token_view = crate::account::AccountView::from_backend(token_backend);
+
+        // Authority: no data needed, just an address field.
+        let mut auth_backing = std::vec![0u8; RuntimeAccount::SIZE];
+        let auth_raw = auth_backing.as_mut_ptr() as *mut RuntimeAccount;
+        unsafe {
+            auth_raw.write(RuntimeAccount {
+                borrow_state: NOT_BORROWED,
+                is_signer: 1,
+                is_writable: 0,
+                executable: 0,
+                resize_delta: 0,
+                address: NativeAddress::new_from_array(authority_bytes),
+                owner: NativeAddress::new_from_array([0; 32]),
+                lamports: 0,
+                data_len: 0,
+            });
+        }
+        let auth_backend = unsafe { NativeAccountView::new_unchecked(auth_raw) };
+        let auth_view = crate::account::AccountView::from_backend(auth_backend);
+
+        (token_backing, auth_backing, token_view, auth_view)
+    }
+
+    #[test]
+    fn require_token_authority_accepts_matching_owner() {
+        let authority = [0x42u8; 32];
+        let (_tb, _ab, token, auth) = make_token_and_authority(authority, authority);
+        require_token_authority(&token, &auth).unwrap();
+    }
+
+    #[test]
+    fn require_token_authority_rejects_mismatched_owner() {
+        let authority = [0x42u8; 32];
+        let wrong_owner = [0x77u8; 32];
+        let (_tb, _ab, token, auth) = make_token_and_authority(authority, wrong_owner);
+        let err = require_token_authority(&token, &auth).unwrap_err();
+        assert!(matches!(err, ProgramError::IncorrectAuthority));
+    }
+
+    #[test]
+    fn require_token_authority_rejects_short_buffer() {
+        use hopper_native::{AccountView as NativeAccountView, Address as NativeAddress, RuntimeAccount, NOT_BORROWED};
+
+        // Token account with only 50 bytes of data is not a valid
+        // SPL TokenAccount (owner field starts at byte 32 and runs
+        // through byte 63, so a 50-byte buffer is short).
+        let data_len = 50;
+        let mut backing = std::vec![0u8; RuntimeAccount::SIZE + data_len];
+        let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
+        unsafe {
+            raw.write(RuntimeAccount {
+                borrow_state: NOT_BORROWED,
+                is_signer: 0,
+                is_writable: 1,
+                executable: 0,
+                resize_delta: 0,
+                address: NativeAddress::new_from_array([0xAA; 32]),
+                owner: NativeAddress::new_from_array([3; 32]),
+                lamports: 0,
+                data_len: data_len as u64,
+            });
+        }
+        let backend = unsafe { NativeAccountView::new_unchecked(raw) };
+        let token = crate::account::AccountView::from_backend(backend);
+
+        let (_ab, _, _, auth) = make_token_and_authority([0x11; 32], [0x11; 32]);
+        let err = require_token_authority(&token, &auth).unwrap_err();
+        assert!(matches!(err, ProgramError::AccountDataTooSmall));
     }
 }
