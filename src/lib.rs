@@ -260,6 +260,39 @@ macro_rules! require_gt {
     };
 }
 
+/// Auditable raw-pointer boundary.
+///
+/// Wraps a block that needs `unsafe` in a named Hopper macro so an
+/// auditor can grep `hopper_unsafe_region!` and find every raw
+/// reinterpretation in the tree with one command. The macro expands
+/// to a plain `unsafe { ... }` block: zero runtime cost, identical
+/// codegen, but the invocation site is nameable and documented.
+///
+/// Usage:
+///
+/// ```ignore
+/// let cleared = hopper::hopper_unsafe_region!("clear rewards via raw ptr", {
+///     let ptr = ctx.as_mut_ptr(0)?;
+///     (ptr.add(24) as *mut u64).write_unaligned(0);
+///     0u64
+/// });
+/// ```
+///
+/// The label is a compile-time string literal. It is discarded by
+/// the expansion but serves as inline documentation an auditor
+/// reads alongside the `unsafe` body.
+#[macro_export]
+macro_rules! hopper_unsafe_region {
+    ( $label:literal, $body:block ) => {{
+        // The label is a compile-time string literal, captured so it
+        // surfaces in `cargo expand` output and can be grep'd out of
+        // the expanded tree the same way as the macro name.
+        const _HOPPER_UNSAFE_REGION_LABEL: &str = $label;
+        #[allow(unused_unsafe)]
+        unsafe { $body }
+    }};
+}
+
 /// Backend-neutral logging macro.
 #[macro_export]
 macro_rules! msg {
