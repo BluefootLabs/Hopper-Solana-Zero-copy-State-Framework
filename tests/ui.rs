@@ -20,6 +20,7 @@
 //! | `pod_padded_u64.rs` | implicit padding between `u8` and `u64` |
 //! | `pod_vec_field.rs` | heap `Vec<u8>` field in a Pod layout |
 //! | `zerocopy_seal_required.rs` | bypass `#[hopper::pod]` and hand-roll `Pod`: cannot earn `ZeroCopy` |
+//! | `ref_only_rejects_raw_ref.rs` | naked `&mut T` cannot satisfy `HopperRefOnly` (audit Finding 2) |
 //!
 //! Additional `state_*` fixtures are added in Stage 2 as each
 //! `#[account(...)]` constraint attribute lands.
@@ -36,6 +37,7 @@ fn compile_fail_pod() {
     t.compile_fail("tests/compile_fail/pod_padded_u64.rs");
     t.compile_fail("tests/compile_fail/pod_vec_field.rs");
     t.compile_fail("tests/compile_fail/zerocopy_seal_required.rs");
+    t.compile_fail("tests/compile_fail/ref_only_rejects_raw_ref.rs");
 }
 
 #[test]

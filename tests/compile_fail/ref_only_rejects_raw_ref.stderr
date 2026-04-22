@@ -1,0 +1,18 @@
+error[E0277]: the trait bound `&mut u64: HopperRefOnly` is not satisfied
+  --> tests/compile_fail/ref_only_rejects_raw_ref.rs:21:19
+   |
+21 |     require_guard(raw_mut);
+   |     ------------- ^^^^^^^ the trait `HopperRefOnly` is not implemented for `&mut u64`
+   |     |
+   |     required by a bound introduced by this call
+   |
+   = help: the following other types implement trait `HopperRefOnly`:
+             SegRef<'_, T>
+             SegRefMut<'_, T>
+             hopper::hopper_runtime::Ref<'_, T>
+             hopper::hopper_runtime::RefMut<'_, T>
+note: required by a bound in `require_guard`
+  --> tests/compile_fail/ref_only_rejects_raw_ref.rs:14:21
+   |
+14 | fn require_guard<G: HopperRefOnly>(_: G) {}
+   |                     ^^^^^^^^^^^^^ required by this bound in `require_guard`
