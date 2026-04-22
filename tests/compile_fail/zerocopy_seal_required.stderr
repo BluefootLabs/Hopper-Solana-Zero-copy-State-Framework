@@ -1,0 +1,45 @@
+error[E0277]: the trait bound `SneakyBypass: ZeroCopy` is not satisfied
+  --> tests/compile_fail/zerocopy_seal_required.rs:23:25
+   |
+23 |     require_zero_copy::<SneakyBypass>();
+   |                         ^^^^^^^^^^^^ the trait `hopper::prelude::Pod` is not implemented for `SneakyBypass`
+   |
+   = help: the following other types implement trait `hopper::prelude::Pod`:
+             ()
+             AccountHeader
+             SegmentDescriptor
+             TypedAddress<T>
+             UntypedAddress
+             WireBool
+             WireI128
+             WireI16
+           and $N others
+   = note: required for `SneakyBypass` to implement `ZeroCopy`
+note: required by a bound in `require_zero_copy`
+  --> tests/compile_fail/zerocopy_seal_required.rs:18:25
+   |
+18 | fn require_zero_copy<T: ZeroCopy>() {}
+   |                         ^^^^^^^^ required by this bound in `require_zero_copy`
+
+error[E0277]: the trait bound `SneakyBypass: ZeroCopy` is not satisfied
+  --> tests/compile_fail/zerocopy_seal_required.rs:23:25
+   |
+23 |     require_zero_copy::<SneakyBypass>();
+   |                         ^^^^^^^^^^^^ the trait `HopperZeroCopySealed` is not implemented for `SneakyBypass`
+   |
+   = help: the following other types implement trait `HopperZeroCopySealed`:
+             ()
+             AccountHeader
+             SegmentDescriptor
+             TypedAddress<T>
+             UntypedAddress
+             WireBool
+             WireI128
+             WireI16
+           and $N others
+   = note: required for `SneakyBypass` to implement `ZeroCopy`
+note: required by a bound in `require_zero_copy`
+  --> tests/compile_fail/zerocopy_seal_required.rs:18:25
+   |
+18 | fn require_zero_copy<T: ZeroCopy>() {}
+   |                         ^^^^^^^^ required by this bound in `require_zero_copy`

@@ -493,7 +493,7 @@ the ground truth the audit will be compared against on re-review.
 | # | Audit item | Status |
 |---|---|---|
 | D1 | Canonical unsafe-invariants document | **DONE**. this file |
-| D2 | Compile-fail coverage | **DONE**. 10 trybuild fixtures in `tests/compile_fail/`: 5 Pod cases (bool/char/reference/missing-repr/padded) + 5 state-constraint cases (init_no_payer/init_no_space/seeds_no_bump/realloc_no_payer/realloc_no_zero). Wired via `tests/ui.rs` |
+| D2 | Compile-fail coverage | **DONE**. 12 trybuild fixtures in `tests/compile_fail/`: 5 Pod cases (bool/char/reference/missing-repr/padded), 5 state-constraint cases (init_no_payer/init_no_space/seeds_no_bump/realloc_no_payer/realloc_no_zero), `pod_vec_field` (heap types rejected), `zerocopy_seal_required` (proof that bypassing `#[hopper::pod]` cannot earn `ZeroCopy`). Wired via `tests/ui.rs` |
 | D3 | Fuzzing low-level loaders/parsers | **DONE**. `fuzz/` crate with 4 targets (`fuzz_instruction_frame`, `fuzz_decode_header`, `fuzz_decode_segments`, `fuzz_pod_overlay`) + new safe bounds-checked parser `parse_instruction_frame_checked` in `raw_input.rs` with 7 regression tests |
 | D4 | Benchmark suite across frameworks | **PARTIAL (infra exists)**. `bench/hopper-bench` + `bench/framework-vault-bench` already measure 13 primitives; full Pinocchio/Quasar/Anchor sibling vault crates deferred (substantial external-crate work) |
 
