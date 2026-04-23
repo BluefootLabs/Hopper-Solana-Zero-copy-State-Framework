@@ -159,6 +159,17 @@ pub fn expand(_attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
             const SIZE: usize = ::core::mem::size_of::<Self>();
         }
 
+        // Anchor-parity `INIT_SPACE` const. Pod structs are fixed
+        // layout by construction, so the value is just `size_of`.
+        // Exposed inherently (not through a trait) so call sites can
+        // write `MyPod::INIT_SPACE` without importing a trait.
+        impl #impl_generics #name #ty_generics #where_clause {
+            /// Bytes a System Program allocation needs to hold this
+            /// layout. Matches Anchor's `#[derive(InitSpace)]` contract
+            /// for fixed-size structs.
+            pub const INIT_SPACE: usize = ::core::mem::size_of::<Self>();
+        }
+
         const _: () = {
             assert!(
                 ::core::mem::align_of::<#name #ty_generics>() == 1,
