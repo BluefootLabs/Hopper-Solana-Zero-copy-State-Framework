@@ -117,6 +117,16 @@ fn main() {
         "dump" => cmd::lifecycle::cmd_dump(&args[2..]),
         "verify" => cmd::verify::cmd_verify(&args[2..]),
 
+        // DX and tooling
+        "keys" => cmd::keys::cmd_keys(&args[2..]),
+        "config" => cmd::config::cmd_config(&args[2..]),
+        "lint" => cmd::lint::cmd_lint(&args[2..]),
+        "expand" => cmd::expand::cmd_expand(&args[2..]),
+        "tx" => cmd_tx_family(&args[2..]),
+        "doctor" => cmd::doctor::cmd_doctor(&args[2..]),
+        "completions" => cmd::meta::cmd_completions(&args[2..]),
+        "version" | "--version" | "-V" => cmd::meta::cmd_version(&args[2..]),
+
         // Direct commands (backward compatible)
         "decode" => cmd_inspect(&args[2..]),
         "segments" => cmd_segments(&args[2..]),
@@ -3351,6 +3361,28 @@ fn to_program_manifest(m: &OwnedProgramManifest) -> ProgramManifest {
 // Manager Command
 // ---------------------------------------------------------------------------
 
+fn cmd_tx_family(args: &[String]) {
+    if args.is_empty() || matches!(args[0].as_str(), "--help" | "-h" | "help") {
+        eprintln!("Usage: hopper tx <subcommand>");
+        eprintln!();
+        eprintln!("Subcommands:");
+        eprintln!("  explain <signature>        Decode a confirmed transaction against");
+        eprintln!("                             every touched Hopper program's manifest");
+        eprintln!("  simulate <tx-base64>       Simulate a pre-built transaction");
+        eprintln!("  submit <tx-base64>         Submit a pre-built transaction");
+        return;
+    }
+    match args[0].as_str() {
+        "explain" => cmd::tx_explain::cmd_tx_explain(&args[1..]),
+        "simulate" => cmd::meta::cmd_tx_simulate(&args[1..]),
+        "submit" => cmd::meta::cmd_tx_submit(&args[1..]),
+        other => {
+            eprintln!("Unknown tx subcommand: {other}");
+            process::exit(1);
+        }
+    }
+}
+
 fn cmd_manager(args: &[String]) {
     if args.is_empty() {
         eprintln!("Usage: hopper manager <subcommand> [args]");
@@ -3389,6 +3421,17 @@ fn cmd_manager(args: &[String]) {
         "diff" => cmd_manager_diff(&args[1..]),
         "fetch" => cmd_manager_fetch(&args[1..]),
         "simulate" => cmd_manager_simulate(&args[1..]),
+        "invoke" => cmd::manager_invoke::cmd_manager_invoke(&args[1..]),
+        "crank" => cmd::manager_invoke::cmd_manager_crank(&args[1..]),
+        "accounts" => {
+            // Route `accounts read <pk>` to meta.rs, everything else
+            // (list, future subs) to the full accounts-command tree.
+            if matches!(args.get(1).map(String::as_str), Some("read")) {
+                cmd::meta::cmd_manager_accounts_read(&args[2..]);
+            } else {
+                cmd::manager_accounts::cmd_manager_accounts(&args[1..]);
+            }
+        }
         "interactive" | "ui" => cmd_interactive(&args[1..]),
         other => {
             eprintln!("Unknown manager subcommand: {}", other);

@@ -19,6 +19,8 @@ toml = "0.8"
 solana-client = "2.1"
 solana-sdk = "2.1"
 solana-system-interface = { version = "1.0.0", features = ["bincode"] }
+solana-transaction-status = "2.1"
+bincode = "1.3"
 openssl = { version = "0.10", features = ["vendored"] }
 
 # On-chain RPC + PDA derivation
@@ -31,6 +33,20 @@ flate2 = { version = "1", default-features = false, features = ["zlib"] }
 
 # Interactive TUI
 crossterm = "0.28"
+
+# ELF + DWARF for `hopper profile elf`
+object = { version = "0.36", default-features = false, features = ["read", "elf", "std"] }
+gimli = { version = "0.31", default-features = false, features = ["read", "std"] }
+rustc-demangle = "0.1"
+
+# Source walking for `hopper lint` and `hopper expand`
+syn = { version = "2", features = ["full", "extra-traits", "parsing", "visit"] }
+quote = "1"
+proc-macro2 = "1"
+walkdir = "2"
+
+# Cross-platform host RNG for `hopper keys new`
+getrandom = "0.2"
 
 [lints.rust]
 unexpected_cfgs = { level = "allow", check-cfg = [
