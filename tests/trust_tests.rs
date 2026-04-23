@@ -22,7 +22,7 @@ use hopper_core::check::{
     require_top_level, detect_flash_loan_bracket, check_no_subsequent_invocation,
 };
 use hopper_core::check::graph::{ValidationContext, ValidationGraph};
-use hopper_core::receipt::StateReceipt;
+use hopper_core::receipt::{StateReceipt, RECEIPT_SIZE};
 use hopper_core::account::segment_role::{SegmentRole, SEG_ROLE_CORE, SEG_ROLE_EXTENSION, SEG_ROLE_JOURNAL, SEG_ROLE_INDEX, SEG_ROLE_CACHE, SEG_ROLE_AUDIT, SEG_ROLE_SHARD};
 use hopper_schema::{
     FieldDescriptor, FieldIntent, LayoutManifest, FieldCompat,
@@ -855,7 +855,7 @@ fn receipt_wire_format_roundtrip() {
     receipt.set_cpi_invoked(true);
 
     let bytes = receipt.to_bytes();
-    assert_eq!(bytes.len(), 64);
+    assert_eq!(bytes.len(), RECEIPT_SIZE);
 
     // Verify layout_id at offset 0..8
     assert_eq!(&bytes[0..8], &layout_id);

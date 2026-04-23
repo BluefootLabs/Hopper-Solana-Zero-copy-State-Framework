@@ -17,7 +17,11 @@ name = "hopper_core"
 
 [dependencies]
 hopper-runtime = { path = "../hopper-runtime", version = "0.1.0", default-features = false }
-sha2-const-stable = { workspace = true }
+# Optional: const-SHA256 is used for the canonical layout_id fingerprint and
+# for Anchor-compat discriminators. Under the `spartan` profile the crate
+# compiles without pulling sha2, substituting a pure-core FNV-1a fallback for
+# layout_id generation (Anchor-compat helpers are compiled out entirely).
+sha2-const-stable = { workspace = true, optional = true }
 
 [dev-dependencies]
 sha2-const-stable = { workspace = true }
@@ -29,13 +33,27 @@ hopper-schema = { workspace = true }
 hopper-native = { workspace = true }
 
 [features]
-default = ["programs", "hopper-native-backend", "advanced", "cpi", "collections"]
+default = ["programs", "hopper-native-backend", "advanced", "cpi", "collections", "sha2-layout-id", "anchor-compat"]
 programs = []
 log = []
 hopper-native-backend = ["hopper-runtime/hopper-native-backend"]
 pinocchio-backend = ["hopper-runtime/pinocchio-backend"]
 solana-program-backend = ["hopper-runtime/solana-program-backend"]
 cpi = ["hopper-runtime/cpi"]
+
+# SHA-256 backed layout_id generation. ON by default. Pulls `sha2-const-stable`
+# as a hard build dep. Spartan programs turn this off; `hopper_layout!` then
+# hashes via a const FNV-1a-64 implementation that lives entirely in
+# `hopper-core`. The fingerprint space is still 8 bytes and collision-resistant
+# for realistic program sizes, but it is NOT byte-equal to an SHA-256-derived
+# layout_id, so off-chain tooling must be rebuilt with the same feature set.
+sha2-layout-id = ["dep:sha2-const-stable"]
+
+# Anchor discriminator compat helpers (`anchor_discriminator`,
+# `anchor_account_discriminator`). These require SHA-256 by definition (the
+# Anchor ABI specifies SHA-256), so they implicitly enable `sha2-layout-id`.
+# Drop them to shave the last bit of Anchor-adjacent surface.
+anchor-compat = ["sha2-layout-id"]
 
 # Advanced subsystems (opt-in, not hot-path).
 # These modules are valuable but sit outside the core access model.
@@ -58,8 +76,16 @@ explain = []
 # hot-path code while advanced subsystems are not.
 collections = []
 
+# Spartan profile: the "Pinocchio-parity" build. Turning this on via
+# `default-features = false, features = ["spartan"]` leaves only the raw
+# access primitives (load / load_mut / segment_ref / segment_mut), the
+# runtime backend the caller picked, and nothing else; no advanced
+# subsystems, no collections, no Anchor compat, no third-party deps.
+# The build target is "zero deps outside of hopper-runtime itself".
+spartan = ["programs"]
+
 [lints.rust]
 unexpected_cfgs = { level = "allow", check-cfg = [
     'cfg(target_os, values("solana"))',
-    'cfg(feature, values("frame", "receipt", "policy", "graph", "migrate", "virtual-state", "diff", "explain", "advanced", "cpi", "collections"))',
+    'cfg(feature, values("frame", "receipt", "policy", "graph", "migrate", "virtual-state", "diff", "explain", "advanced", "cpi", "collections", "sha2-layout-id", "anchor-compat", "spartan"))',
 ] }

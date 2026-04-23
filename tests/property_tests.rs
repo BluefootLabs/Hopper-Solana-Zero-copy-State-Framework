@@ -862,7 +862,7 @@ fn prop_segment_role_names_valid() {
 // State Receipt Properties
 // =====================================================================
 
-use hopper_core::receipt::StateReceipt;
+use hopper_core::receipt::{StateReceipt, RECEIPT_SIZE};
 
 /// Receipt begin captures initial state.
 #[test]
@@ -992,7 +992,7 @@ fn prop_receipt_wire_format() {
     receipt.set_cpi_invoked(true);
 
     let wire = receipt.to_bytes();
-    assert_eq!(wire.len(), 64);
+    assert_eq!(wire.len(), RECEIPT_SIZE);
 
     // layout_id at offset 0
     assert_eq!(&wire[0..8], &layout_id);

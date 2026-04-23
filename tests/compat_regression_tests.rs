@@ -452,8 +452,10 @@ fn receipt_wire_format_reserved_byte_is_zero() {
 
     let wire = receipt.to_bytes();
 
-    // Byte 63 is reserved and must be zero
-    assert_eq!(wire[63], 0, "reserved byte 63 should be zero");
+    // Bytes 69..72 are the reserved tail of the 72-byte receipt format.
+    // Byte 63 is now `failed_invariant_idx` (defaults to FAILED_INVARIANT_NONE
+    // = 0xFF when no invariant failed).
+    assert_eq!(&wire[69..72], &[0u8; 3], "reserved trailing bytes must be zero");
 
     // Known non-computed fields at specific offsets must be non-zero
     assert_ne!(&wire[0..8], &[0u8; 8], "layout_id should be non-zero");
