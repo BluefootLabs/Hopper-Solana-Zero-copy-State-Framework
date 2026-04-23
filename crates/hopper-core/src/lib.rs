@@ -98,9 +98,52 @@ pub use field_map::*;
 pub use hopper_runtime as __runtime;
 
 /// Const SHA-256 helper for `hopper_layout!` layout ID generation.
+///
+/// When the `sha2-layout-id` feature is off (i.e. under `spartan`), this
+/// falls back to a 32-byte buffer whose first 8 bytes are an FNV-1a-64
+/// digest of the input. The remaining 24 bytes are derived by repeatedly
+/// re-folding the same seed so macro sites that read beyond index 7 still
+/// see a well-defined, deterministic value. This keeps the `hopper_layout!`
+/// call site type-stable across feature flags.
 #[doc(hidden)]
 pub const fn __sha256_const(data: &[u8]) -> [u8; 32] {
-    sha2_const_stable::Sha256::new().update(data).finalize()
+    #[cfg(feature = "sha2-layout-id")]
+    {
+        sha2_const_stable::Sha256::new().update(data).finalize()
+    }
+    #[cfg(not(feature = "sha2-layout-id"))]
+    {
+        __fnv_expand_const(data)
+    }
+}
+
+/// FNV-1a-64 const implementation used under `spartan`. Returns 32 bytes so
+/// the macro surface is unchanged: bytes[0..8] carry the primary digest,
+/// bytes[8..32] carry re-folded digests of the same input with a
+/// differentiating byte mixed in per block. This preserves "32 bytes of
+/// output" invariance without pretending the hash function is SHA-256.
+#[doc(hidden)]
+#[cfg(not(feature = "sha2-layout-id"))]
+pub const fn __fnv_expand_const(data: &[u8]) -> [u8; 32] {
+    const FNV_OFFSET: u64 = 0xcbf2_9ce4_8422_2325;
+    const FNV_PRIME: u64 = 0x0000_0100_0000_01b3;
+    let mut out = [0u8; 32];
+    let mut block: u8 = 0;
+    while block < 4 {
+        let mut h: u64 = FNV_OFFSET ^ (block as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15);
+        let mut i = 0;
+        while i < data.len() {
+            h ^= data[i] as u64;
+            h = h.wrapping_mul(FNV_PRIME);
+            i += 1;
+        }
+        let le = h.to_le_bytes();
+        let base = (block as usize) * 8;
+        out[base] = le[0]; out[base+1] = le[1]; out[base+2] = le[2]; out[base+3] = le[3];
+        out[base+4] = le[4]; out[base+5] = le[5]; out[base+6] = le[6]; out[base+7] = le[7];
+        block += 1;
+    }
+    out
 }
 
 /// Const string equality helper for BUMP_OFFSET field scanning.
@@ -133,9 +176,15 @@ pub const fn const_str_eq(a: &str, b: &str) -> bool {
 /// This function enables Hopper programs to interoperate with Anchor IDLs
 /// and Quasar programs that use the same discriminator scheme.
 ///
+/// Gated on the `anchor-compat` feature (default ON). The Anchor
+/// discriminator is defined in terms of SHA-256, so this function is
+/// compiled out under the `spartan` profile rather than silently
+/// substituting a non-compatible hash.
+///
 /// ```ignore
 /// const INIT_DISC: [u8; 8] = hopper_core::anchor_discriminator("initialize");
 /// ```
+#[cfg(feature = "anchor-compat")]
 pub const fn anchor_discriminator(instruction_name: &str) -> [u8; 8] {
     let hash = sha2_const_stable::Sha256::new()
         .update(b"global:")
@@ -150,6 +199,8 @@ pub const fn anchor_discriminator(instruction_name: &str) -> [u8; 8] {
 /// Compute an Anchor-compatible 8-byte account discriminator at compile time.
 ///
 /// Account discriminators are `sha256("account:{TypeName}")[0..8]`.
+/// Gated on `anchor-compat`; see [`anchor_discriminator`] for rationale.
+#[cfg(feature = "anchor-compat")]
 pub const fn anchor_account_discriminator(type_name: &str) -> [u8; 8] {
     let hash = sha2_const_stable::Sha256::new()
         .update(b"account:")
@@ -252,6 +303,7 @@ pub mod prelude_core {
     };
 
     // ── Anchor-compatible discriminators ────────────────────────────
+    #[cfg(feature = "anchor-compat")]
     pub use crate::{anchor_account_discriminator, anchor_discriminator};
 
     // ── Collections: zero-copy containers (default-on feature) ──────
@@ -328,7 +380,8 @@ pub mod prelude_advanced {
 
     #[cfg(feature = "receipt")]
     pub use crate::receipt::{
-        CompatImpact, DecodedReceipt, Phase, ReceiptExplain, StateReceipt, RECEIPT_SIZE,
+        CompatImpact, DecodedReceipt, FailureStage, Phase, ReceiptExplain,
+        StateReceipt, FAILED_INVARIANT_NONE, RECEIPT_SIZE, RECEIPT_SIZE_LEGACY,
     };
 
     #[cfg(feature = "virtual-state")]
@@ -395,7 +448,9 @@ pub mod prelude {
     #[cfg(feature = "cpi")]
     pub use crate::event::emit_event_cpi;
     pub use crate::field_map::{FieldInfo, FieldMap};
+    #[cfg(feature = "anchor-compat")]
     pub use crate::anchor_discriminator;
+    #[cfg(feature = "anchor-compat")]
     pub use crate::anchor_account_discriminator;
     #[cfg(feature = "frame")]
     pub use crate::frame::{Frame, FrameAccount, FrameAccountMut};
@@ -458,6 +513,7 @@ pub mod prelude {
     #[cfg(feature = "receipt")]
     pub use crate::receipt::{
         StateReceipt, DecodedReceipt, ReceiptExplain, RECEIPT_SIZE,
+        RECEIPT_SIZE_LEGACY, FAILED_INVARIANT_NONE, FailureStage,
         Phase, CompatImpact,
     };
     #[cfg(feature = "policy")]

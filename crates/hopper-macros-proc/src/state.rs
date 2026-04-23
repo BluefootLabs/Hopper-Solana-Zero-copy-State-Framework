@@ -8,7 +8,7 @@
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote, ToTokens};
 use sha2::{Digest, Sha256};
-use syn::{parse::Parser, parse2, Attribute, Fields, ItemStruct, LitInt, Result};
+use syn::{parse::Parser, parse2, Attribute, Fields, Field, ItemStruct, LitInt, LitStr, Result};
 
 #[derive(Clone)]
 struct StateOptions {
@@ -31,12 +31,40 @@ impl Default for StateOptions {
     }
 }
 
+/// Per-field metadata extracted from Hopper-specific attributes.
+///
+/// These attributes (`#[role = "..."]` and `#[invariant = "..."]`) are
+/// consumed by `#[hopper::state]` itself. they are stripped from the
+/// re-emitted struct so the compiler never sees them. This is how the
+/// layout ties individual fields to schema intents and to the named
+/// invariants declared on an associated `#[hopper::error]` enum.
+///
+/// ## Innovation over Anchor / Quasar / Pinocchio
+///
+/// Anchor has no field-level intent. Quasar's field macros only touch
+/// offsets. Pinocchio deliberately stays out of the schema business.
+/// Hopper is the first of the four to give authored layouts a way to
+/// say "this field is a balance" or "this field is guarded by
+/// `balance_nonzero`" at declaration time. information that then
+/// flows directly into the manifest, the receipt narrative, and the
+/// Codama/Python client generators.
+#[derive(Default, Clone)]
+struct FieldMeta {
+    /// Semantic role string (e.g. `"balance"`, `"authority"`). Empty
+    /// string means no role was declared. the field falls back to
+    /// `FieldIntent::Custom`.
+    role: String,
+    /// Invariant name this field is guarded by (e.g. `"balance_nonzero"`).
+    /// Empty when the field has no declared invariant.
+    invariant: String,
+}
+
 pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
     let options = parse_state_options(attr)?;
     let dynamic_tail = options.dynamic_tail.clone();
-    let input: ItemStruct = parse2(item)?;
-    let name = &input.ident;
-    let vis = &input.vis;
+    let mut input: ItemStruct = parse2(item)?;
+    let name = input.ident.clone();
+    let vis = input.vis.clone();
 
     if !has_repr_c(&input.attrs) {
         return Err(syn::Error::new_spanned(
@@ -45,15 +73,17 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
         ));
     }
 
-    let fields = match &input.fields {
-        Fields::Named(f) => &f.named,
-        _ => {
-            return Err(syn::Error::new_spanned(
-                &input,
-                "hopper_state requires a struct with named fields",
-            ))
-        }
-    };
+    // Verify we have named fields before we start mutating. We can't
+    // iterate `&input.fields` here because we'll need `&mut` access
+    // below to strip the hopper-internal attributes from the struct
+    // we re-emit. Do a bare shape-check first; actual iteration
+    // happens against `input.fields` directly.
+    if !matches!(input.fields, Fields::Named(_)) {
+        return Err(syn::Error::new_spanned(
+            &input,
+            "hopper_state requires a struct with named fields",
+        ));
+    }
 
     let mut segment_entries = Vec::new();
     let mut module_items = Vec::new();
@@ -61,11 +91,38 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
     let mut field_name_literals = Vec::new();
     let mut field_type_literals = Vec::new();
     let mut field_types = Vec::new();
+    let mut field_intent_tokens: Vec<TokenStream> = Vec::new();
+    let mut field_role_literals: Vec<LitStr> = Vec::new();
+    let mut field_invariant_literals: Vec<LitStr> = Vec::new();
     let mut running_offset = quote! { 0u32 };
 
     let struct_name_upper = to_screaming_snake(&name.to_string());
 
-    for field in fields.iter() {
+    // First pass: extract hopper-internal attributes from each field
+    // and strip them from the re-emitted struct. The consumed attrs
+    // (`#[role = "..."]`, `#[invariant = "..."]`) are bare identifiers
+    // without a `::` path prefix, so leaving them in place would cause
+    // rustc to reject the re-emitted struct with "unknown attribute".
+    let field_metas: Vec<FieldMeta> = match &mut input.fields {
+        Fields::Named(named) => {
+            let mut out = Vec::with_capacity(named.named.len());
+            for field in named.named.iter_mut() {
+                let meta = parse_field_meta(field)?;
+                strip_hopper_field_attrs(field);
+                out.push(meta);
+            }
+            out
+        }
+        _ => unreachable!("checked above"),
+    };
+
+    // Borrow the (now-cleaned) named fields for the main codegen walk.
+    let fields = match &input.fields {
+        Fields::Named(f) => &f.named,
+        _ => unreachable!("checked above"),
+    };
+
+    for (field, meta) in fields.iter().zip(field_metas.iter()) {
         let field_name = field.ident.as_ref().unwrap();
         let field_name_str = field_name.to_string();
         let field_ty = &field.ty;
@@ -78,6 +135,9 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
             field_name.span(),
         ));
         field_types.push(field_ty.clone());
+        field_intent_tokens.push(role_to_intent_tokens(&meta.role, field_name.span())?);
+        field_role_literals.push(LitStr::new(&meta.role, field_name.span()));
+        field_invariant_literals.push(LitStr::new(&meta.invariant, field_name.span()));
 
         segment_entries.push(quote! {
             ::hopper::hopper_core::segment_map::StaticSegment::new(
@@ -128,7 +188,7 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
 
     let body_size = running_offset.clone();
     let version = options.version;
-    let layout_id = layout_id_bytes(name, version, fields);
+    let layout_id = layout_id_bytes(&name, version, fields);
     // Default discriminator: first byte of the layout_id fingerprint.
     // If that byte is zero (1-in-256 chance given SHA-256 uniformity)
     // we fall through to the first non-zero byte so the compile-time
@@ -266,6 +326,15 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
             pub const VERSION: u8 = #version;
             pub const LAYOUT_ID: [u8; 8] = #layout_id_tokens;
 
+            /// Bytes to allocate for a fresh account of this layout.
+            ///
+            /// Equal to [`Self::LEN`] (header + body) and spelled
+            /// `INIT_SPACE` so Anchor-style `#[account(init, space = T::INIT_SPACE)]`
+            /// ports over unchanged. Zero-copy layouts are always
+            /// fixed-size, so this is a const the compiler can fold
+            /// into the System Program allocate CPI at the call site.
+            pub const INIT_SPACE: usize = Self::LEN;
+
             #[inline(always)]
             pub fn overlay(
                 data: &[u8],
@@ -329,6 +398,43 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
             }
 
             #dynamic_tail_methods
+
+            // ── Field-level metadata registries ──────────────────────────
+            //
+            // These two tables are the structural twin of the `CODE_TABLE`
+            // / `INVARIANT_TABLE` pair produced by `#[hopper::error]`.
+            // Together they let off-chain tooling (SDK narrator, Codama
+            // client generator, IDL exporter) answer three questions at
+            // declaration time, without ever running the program:
+            //
+            //   1. "What does field `X` mean?". `FIELD_ROLES`
+            //   2. "Which invariant guards field `X`?". `FIELD_INVARIANTS`
+            //   3. "Which FieldIntent enum value does the runtime use?". //      the manifest's FieldDescriptor.intent column.
+            //
+            // No other Solana framework ships this. Anchor has no field
+            // intent at all. Quasar tracks offsets but not semantics.
+            // Pinocchio deliberately stays schema-free. Hopper's edge is
+            // that the *same source declaration* flows into the manifest,
+            // the Python client, the receipt narrative, and any future
+            // lint pass that wants to say "this field was declared as a
+            // balance but a non-financial invariant is guarding it."
+
+            /// Declared semantic role per field, in struct declaration
+            /// order. Empty string means no `#[role = "..."]` was given
+            /// and the field falls back to `FieldIntent::Custom`.
+            pub const FIELD_ROLES: &'static [(&'static str, &'static str)] = &[
+                #( (#field_name_literals, #field_role_literals) ),*
+            ];
+
+            /// Declared invariant name per field, in struct declaration
+            /// order. Empty string means no `#[invariant = "..."]` was
+            /// given. Pair this with
+            /// `<ErrorEnum>::INVARIANT_TABLE` to resolve the invariant
+            /// name back to the error variant it raises. completing
+            /// the field → invariant → error → receipt chain.
+            pub const FIELD_INVARIANTS: &'static [(&'static str, &'static str)] = &[
+                #( (#field_name_literals, #field_invariant_literals) ),*
+            ];
         }
 
         // Bytemuck-backed field-level Pod proof (Hopper Safety Audit
@@ -422,6 +528,15 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
                 const NAMES: [&str; FIELD_COUNT] = [#(#field_name_literals),*];
                 const TYPES: [&str; FIELD_COUNT] = [#(#field_type_literals),*];
                 const SIZES: [u16; FIELD_COUNT] = [#(core::mem::size_of::<#field_types>() as u16),*];
+                // Per-field declared intents, parsed from `#[role = "..."]`
+                // field attributes at proc-macro expansion time. Fields
+                // without a role attribute default to `Custom`. their
+                // position in this table still keeps the slice
+                // `FIELD_COUNT`-sized so downstream code never needs a
+                // branch on presence.
+                const INTENTS: [::hopper::hopper_schema::FieldIntent; FIELD_COUNT] = [
+                    #(#field_intent_tokens),*
+                ];
                 const FIELDS: [::hopper::hopper_schema::FieldDescriptor; FIELD_COUNT] = {
                     let mut result = [::hopper::hopper_schema::FieldDescriptor {
                         name: "",
@@ -438,7 +553,7 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
                             canonical_type: TYPES[index],
                             size: SIZES[index],
                             offset,
-                            intent: ::hopper::hopper_schema::FieldIntent::Custom,
+                            intent: INTENTS[index],
                         };
                         offset += SIZES[index];
                         index += 1;
@@ -460,6 +575,139 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
     };
 
     Ok(expanded)
+}
+
+/// Consume hopper-internal attributes (`#[role = "..."]`,
+/// `#[invariant = "..."]`) from a single field and return the
+/// extracted metadata. Attributes that fail to parse raise a
+/// compile error pointing at the offending span.
+///
+/// Accepted forms:
+///
+/// ```ignore
+/// #[role = "balance"]
+/// #[role(balance)]          // path form, also accepted
+/// #[invariant = "balance_nonzero"]
+/// ```
+fn parse_field_meta(field: &Field) -> Result<FieldMeta> {
+    let mut meta = FieldMeta::default();
+    for attr in &field.attrs {
+        if attr.path().is_ident("role") {
+            // Accept either `#[role = "balance"]` or `#[role(balance)]`.
+            // The former uses `NameValue` meta; the latter uses `List`.
+            // Both are equivalent at the attribute level. we just want
+            // the string value.
+            if let Ok(nv) = attr.meta.require_name_value() {
+                if let syn::Expr::Lit(syn::ExprLit {
+                    lit: syn::Lit::Str(s),
+                    ..
+                }) = &nv.value
+                {
+                    meta.role = s.value();
+                    continue;
+                }
+                return Err(syn::Error::new_spanned(
+                    &nv.value,
+                    "#[role = \"...\"] expects a string literal (e.g. \"balance\", \"authority\")",
+                ));
+            }
+            if let Ok(list) = attr.meta.require_list() {
+                // Parse `#[role(balance)]` by pulling the single path ident.
+                let tokens: TokenStream = list.tokens.clone();
+                let parsed: syn::Ident = parse2(tokens).map_err(|_| {
+                    syn::Error::new_spanned(
+                        &list.tokens,
+                        "#[role(...)] expects a single identifier (e.g. balance, authority)",
+                    )
+                })?;
+                meta.role = parsed.to_string();
+                continue;
+            }
+            return Err(syn::Error::new_spanned(
+                attr,
+                "unsupported #[role] form; use #[role = \"balance\"] or #[role(balance)]",
+            ));
+        }
+        if attr.path().is_ident("invariant") {
+            let nv = attr.meta.require_name_value().map_err(|_| {
+                syn::Error::new_spanned(
+                    attr,
+                    "#[invariant] on a field expects name-value form: #[invariant = \"balance_nonzero\"]",
+                )
+            })?;
+            if let syn::Expr::Lit(syn::ExprLit {
+                lit: syn::Lit::Str(s),
+                ..
+            }) = &nv.value
+            {
+                meta.invariant = s.value();
+                continue;
+            }
+            return Err(syn::Error::new_spanned(
+                &nv.value,
+                "#[invariant = \"...\"] expects a string literal (the invariant name)",
+            ));
+        }
+    }
+    Ok(meta)
+}
+
+/// Remove hopper-internal attributes from a field before the struct is
+/// re-emitted. Leaving bare `#[role = "..."]` / `#[invariant = "..."]`
+/// in place would cause rustc to reject the struct because those
+/// attribute names are not registered with the compiler.
+fn strip_hopper_field_attrs(field: &mut Field) {
+    field
+        .attrs
+        .retain(|a| !a.path().is_ident("role") && !a.path().is_ident("invariant"));
+}
+
+/// Map a role string to a `FieldIntent` variant path token stream.
+///
+/// The role string is matched case-insensitively. An empty string
+/// resolves to `FieldIntent::Custom` so fields without a declared
+/// role still emit a well-formed descriptor. An unknown role raises
+/// a compile error listing the full accepted vocabulary. this is
+/// the cheapest place to catch typos (`"authorty"`, `"ballance"`)
+/// that would otherwise silently degrade to `Custom`.
+fn role_to_intent_tokens(role: &str, span: proc_macro2::Span) -> Result<TokenStream> {
+    let normalized = role.to_ascii_lowercase();
+    let variant = match normalized.as_str() {
+        "" => "Custom",
+        "balance" => "Balance",
+        "authority" => "Authority",
+        "timestamp" => "Timestamp",
+        "counter" => "Counter",
+        "index" => "Index",
+        "basis_points" | "basispoints" | "bps" => "BasisPoints",
+        "flag" | "bool" => "Flag",
+        "address" | "pubkey" => "Address",
+        "hash" | "fingerprint" => "Hash",
+        "pda_seed" | "pdaseed" | "seed" => "PDASeed",
+        "version" => "Version",
+        "bump" => "Bump",
+        "nonce" => "Nonce",
+        "supply" | "total_supply" => "Supply",
+        "limit" | "cap" | "ceiling" => "Limit",
+        "threshold" => "Threshold",
+        "owner" => "Owner",
+        "delegate" => "Delegate",
+        "status" | "state" | "lifecycle" => "Status",
+        "custom" => "Custom",
+        other => {
+            return Err(syn::Error::new(
+                span,
+                format!(
+                    "unknown #[role = \"{}\"]. accepted: balance, authority, timestamp, \
+                     counter, index, basis_points, flag, address, hash, pda_seed, version, \
+                     bump, nonce, supply, limit, threshold, owner, delegate, status, custom",
+                    other
+                ),
+            ));
+        }
+    };
+    let ident = syn::Ident::new(variant, span);
+    Ok(quote! { ::hopper::hopper_schema::FieldIntent::#ident })
 }
 
 fn parse_state_options(attr: TokenStream) -> Result<StateOptions> {
@@ -702,6 +950,176 @@ mod fingerprint_tests {
     #[test]
     fn unit_and_tuple_roll_up_cleanly() {
         assert_eq!(fp(parse_quote!(())), "unit");
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  Field-attribute parsing. regression tests (Task 18)
+// ══════════════════════════════════════════════════════════════════════
+//
+// These tests lock in the per-field declarative surface introduced to
+// close the "Anchor has no field intent" gap. Three properties matter:
+//
+//   1. Both `#[role = "..."]` and `#[role(...)]` work and agree.
+//   2. Role strings map to the correct `FieldIntent` variant path, and
+//      unknown roles produce a readable compile error rather than
+//      silently degrading to `Custom`.
+//   3. Stripping the hopper-internal attrs leaves the struct re-emit
+//      valid. no `#[role]` leaks through to rustc.
+
+#[cfg(test)]
+mod field_attr_tests {
+    use super::*;
+    use syn::parse_quote;
+
+    fn parse_first_field(f: syn::Field) -> FieldMeta {
+        parse_field_meta(&f).expect("valid field meta")
+    }
+
+    #[test]
+    fn name_value_role_parses() {
+        let f: syn::Field = parse_quote!(
+            #[role = "balance"]
+            pub amount: WireU64
+        );
+        let m = parse_first_field(f);
+        assert_eq!(m.role, "balance");
+        assert_eq!(m.invariant, "");
+    }
+
+    #[test]
+    fn path_form_role_parses() {
+        let f: syn::Field = parse_quote!(
+            #[role(authority)]
+            pub owner: TypedAddress<Authority>
+        );
+        let m = parse_first_field(f);
+        assert_eq!(m.role, "authority");
+    }
+
+    #[test]
+    fn invariant_attr_parses() {
+        let f: syn::Field = parse_quote!(
+            #[invariant = "balance_nonzero"]
+            pub amount: WireU64
+        );
+        let m = parse_first_field(f);
+        assert_eq!(m.invariant, "balance_nonzero");
+        assert_eq!(m.role, "");
+    }
+
+    #[test]
+    fn both_attrs_parse_together() {
+        let f: syn::Field = parse_quote!(
+            #[role = "balance"]
+            #[invariant = "balance_nonzero"]
+            pub amount: WireU64
+        );
+        let m = parse_first_field(f);
+        assert_eq!(m.role, "balance");
+        assert_eq!(m.invariant, "balance_nonzero");
+    }
+
+    #[test]
+    fn unknown_role_is_rejected() {
+        // Typo in role name must produce a compile error, not a silent
+        // downgrade to `Custom`. That's the whole point of making this
+        // a closed vocabulary instead of a free-form string.
+        let span = proc_macro2::Span::call_site();
+        let err = role_to_intent_tokens("authorty", span).unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("unknown #[role = \"authorty\"]"),
+            "expected helpful error, got: {msg}",
+        );
+        assert!(msg.contains("authority"), "error message should suggest valid vocabulary");
+    }
+
+    #[test]
+    fn empty_role_maps_to_custom() {
+        // Fields without `#[role = ...]` must still emit a well-formed
+        // FieldIntent (Custom) rather than a compile error. The parallel
+        // arrays inside `SchemaExport::layout_manifest` rely on every
+        // field slot being populated.
+        let span = proc_macro2::Span::call_site();
+        let tokens = role_to_intent_tokens("", span).expect("empty role is valid");
+        let rendered = tokens.to_string().replace(' ', "");
+        assert!(
+            rendered.ends_with("FieldIntent::Custom"),
+            "empty role should render FieldIntent::Custom, got: {rendered}",
+        );
+    }
+
+    #[test]
+    fn role_mapping_covers_full_vocabulary() {
+        // Every FieldIntent variant (except the `Custom` fallback) must
+        // be reachable through at least one accepted role spelling.
+        // If this list drifts from `FieldIntent`, the test fails loudly
+        // rather than letting partial coverage rot silently.
+        let expected = [
+            ("balance", "Balance"),
+            ("authority", "Authority"),
+            ("timestamp", "Timestamp"),
+            ("counter", "Counter"),
+            ("index", "Index"),
+            ("basis_points", "BasisPoints"),
+            ("flag", "Flag"),
+            ("address", "Address"),
+            ("hash", "Hash"),
+            ("pda_seed", "PDASeed"),
+            ("version", "Version"),
+            ("bump", "Bump"),
+            ("nonce", "Nonce"),
+            ("supply", "Supply"),
+            ("limit", "Limit"),
+            ("threshold", "Threshold"),
+            ("owner", "Owner"),
+            ("delegate", "Delegate"),
+            ("status", "Status"),
+        ];
+        let span = proc_macro2::Span::call_site();
+        for (role, variant) in expected {
+            let tokens = role_to_intent_tokens(role, span).unwrap_or_else(|e| {
+                panic!("role `{role}` should map to FieldIntent::{variant}: {e}")
+            });
+            let rendered = tokens.to_string().replace(' ', "");
+            assert!(
+                rendered.ends_with(&format!("FieldIntent::{variant}")),
+                "role `{role}` should map to FieldIntent::{variant}, got: {rendered}",
+            );
+        }
+    }
+
+    #[test]
+    fn case_variants_and_aliases_resolve() {
+        let span = proc_macro2::Span::call_site();
+        // Case insensitivity: users should not be punished for
+        // `#[role = "Balance"]` vs `#[role = "balance"]`.
+        let a = role_to_intent_tokens("Balance", span).unwrap().to_string();
+        let b = role_to_intent_tokens("balance", span).unwrap().to_string();
+        assert_eq!(a, b);
+        // Aliases: `bps` ≡ `basis_points`, `seed` ≡ `pda_seed`, etc.
+        let c = role_to_intent_tokens("bps", span).unwrap().to_string();
+        let d = role_to_intent_tokens("basis_points", span).unwrap().to_string();
+        assert_eq!(c, d);
+        let e = role_to_intent_tokens("seed", span).unwrap().to_string();
+        let f = role_to_intent_tokens("pda_seed", span).unwrap().to_string();
+        assert_eq!(e, f);
+    }
+
+    #[test]
+    fn strip_removes_hopper_attrs_but_preserves_others() {
+        let mut f: syn::Field = parse_quote!(
+            #[role = "balance"]
+            #[invariant = "balance_nonzero"]
+            #[serde(skip)]
+            pub amount: WireU64
+        );
+        strip_hopper_field_attrs(&mut f);
+        // `#[serde(skip)]` must survive. anything else the user
+        // stacked alongside our attrs is not ours to consume.
+        assert_eq!(f.attrs.len(), 1);
+        assert!(f.attrs[0].path().is_ident("serde"));
     }
 }
 

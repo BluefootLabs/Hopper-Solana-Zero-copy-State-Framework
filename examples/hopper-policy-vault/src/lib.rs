@@ -4,12 +4,12 @@
 //! the `#[hopper::program(...)]` attribute. They exercise the three
 //! shipping modes Hopper offers:
 //!
-//! - `strict_vault` — [`HopperProgramPolicy::STRICT`]: every lever on.
+//! - `strict_vault`: [`HopperProgramPolicy::STRICT`]: every lever on.
 //!   Recommended for production protocols. Segment-borrow tracking,
 //!   layout-header validation, auto-injected `validate(ctx)?`, and
 //!   `unsafe` allowed-but-isolated.
 //!
-//! - `sealed_vault` — [`HopperProgramPolicy::SEALED`]: strict + token
+//! - `sealed_vault`: [`HopperProgramPolicy::SEALED`]: strict + token
 //!   checks + **no** `unsafe` anywhere inside handlers. The program
 //!   macro emits `#[deny(unsafe_code)]` on each handler so a stray
 //!   `unsafe { ... }` block is a compile error. Demonstrates the
@@ -17,7 +17,7 @@
 //!   re-enables raw pointer access for exactly one "fast path" while
 //!   leaving every other handler sealed.
 //!
-//! - `raw_vault` — [`HopperProgramPolicy::RAW`]: Pinocchio-parity.
+//! - `raw_vault`: [`HopperProgramPolicy::RAW`]: Pinocchio-parity.
 //!   Every lever off. Used when the protocol author wants full
 //!   control and documented responsibility for the invariants Hopper
 //!   would otherwise enforce.
@@ -218,7 +218,7 @@ pub mod raw_vault {
     /// in the same handler without a policy change.
     ///
     /// Demonstrates that Hopper's raw escape hatch composes with the
-    /// typed API — the unsafe block is surgical, not contagious.
+    /// typed API. the unsafe block is surgical, not contagious.
     #[instruction(3, unsafe_memory)]
     pub fn hybrid_bump(ctx: &mut Context<'_>, amount: u64) -> ProgramResult {
         // Safe region: add to balance through the typed accessor.

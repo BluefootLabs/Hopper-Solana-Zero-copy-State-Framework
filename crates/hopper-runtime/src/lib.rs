@@ -44,6 +44,10 @@ pub mod audit;
 pub mod borrow;
 pub(crate) mod borrow_registry;
 pub mod cpi;
+pub mod cpi_event;
+pub mod crank;
+pub mod dyn_cpi;
+pub mod utils;
 pub mod field_map;
 pub mod foreign;
 pub mod migrate;
@@ -70,7 +74,10 @@ pub mod pda;
 pub mod syscall;
 pub mod syscalls;
 pub mod system;
+pub mod option_byte;
+pub mod remaining;
 pub mod token;
+pub mod token_2022_ext;
 
 pub use account::{AccountView, RemainingAccounts};
 pub use account_wrappers::{Account, InitAccount, Program, ProgramId, Signer as HopperSigner, SystemId};
@@ -260,6 +267,58 @@ macro_rules! require_gt {
     };
 }
 
+/// Assert `left < right` strictly. Anchor-parity sibling of
+/// [`require_gt!`]. Default error is `ProgramError::InvalidArgument`
+/// because a failed ordering check most often flags a bad user input.
+#[macro_export]
+macro_rules! require_lt {
+    ( $left:expr, $right:expr, $err:expr ) => {
+        if !($left < $right) { return Err($err); }
+    };
+    ( $left:expr, $right:expr ) => {
+        if !($left < $right) { return Err($crate::ProgramError::InvalidArgument); }
+    };
+}
+
+/// Assert `left <= right`. Anchor-parity sibling of [`require_gte!`].
+#[macro_export]
+macro_rules! require_lte {
+    ( $left:expr, $right:expr, $err:expr ) => {
+        if !($left <= $right) { return Err($err); }
+    };
+    ( $left:expr, $right:expr ) => {
+        if !($left <= $right) { return Err($crate::ProgramError::InvalidArgument); }
+    };
+}
+
+/// Return an error immediately. Parallel to Anchor's `err!`.
+///
+/// The macro expands to a bare `return Err(...)`, so the call site
+/// reads like a control-flow keyword rather than an expression. The
+/// argument is evaluated as an expression so either a Hopper-generated
+/// error code or a raw `ProgramError` works.
+///
+/// ```ignore
+/// if amount == 0 {
+///     return err!(VaultError::ZeroDeposit);
+/// }
+/// ```
+#[macro_export]
+macro_rules! err {
+    ( $e:expr ) => {
+        return ::core::result::Result::Err($crate::ProgramError::from($e))
+    };
+}
+
+/// Alias for [`err!`]. Anchor compatibility shim so ported code needs
+/// no rename. Functionally identical.
+#[macro_export]
+macro_rules! error {
+    ( $e:expr ) => {
+        return ::core::result::Result::Err($crate::ProgramError::from($e))
+    };
+}
+
 /// Auditable raw-pointer boundary.
 ///
 /// Wraps a block that needs `unsafe` in a named Hopper macro so an
@@ -315,6 +374,122 @@ macro_rules! msg {
         {
             let _ = ($fmt, $($arg)*);
         }
+    }};
+}
+
+/// Emit a Hopper event via self-CPI for reliable indexing.
+///
+/// Wraps [`cpi_event::encode_event_cpi`] and a call into the active
+/// backend's `invoke_signed` so indexers see the event as an inner
+/// instruction in the transaction metadata. Logs truncate; inner
+/// instructions do not. Anchor's `emit_cpi!` solves the same problem
+/// with the same trick; Hopper's lives in pure Rust so it works under
+/// `no_std` and any of the three backends.
+///
+/// ## Required program plumbing
+///
+/// The caller must declare a sentinel handler so the runtime routes
+/// the self-CPI somewhere:
+///
+/// ```ignore
+/// #[instruction(discriminator = [0xE0, 0x1E])]
+/// fn __hopper_event_sink(_ctx: &mut Context<'_>) -> ProgramResult {
+///     Ok(())
+/// }
+/// ```
+///
+/// And a PDA named `event_authority` seeded with
+/// `[b"__hopper_event_authority"]` so the CPI has a signer.
+///
+/// ## Usage
+///
+/// ```ignore
+/// hopper_emit_cpi!(
+///     ctx.program_id(),
+///     event_authority: &AccountView,
+///     event_authority_bump: u8,
+///     Deposited { amount, depositor }
+/// );
+/// ```
+///
+/// Expands to: build instruction bytes, invoke_signed with the
+/// event_authority PDA as the signer. One CPI, bounded stack
+/// allocation, zero heap.
+#[macro_export]
+macro_rules! hopper_emit_cpi {
+    ( $program_id:expr, $event_authority:expr, $bump:expr, $event:expr ) => {{
+        // Build the wire format into a stack buffer. 512 payload bytes
+        // fits every sensibly-sized event; callers with larger events
+        // should grow the buffer at the call site or use `emit!` with
+        // the log-based path.
+        let __ev = $event;
+        let __tag: u8 = ::core::convert::Into::<u8>::into(__ev.tag());
+        let __payload: &[u8] = __ev.as_bytes();
+        let mut __buf = [0u8; 2 + 1 + 512];
+        let __n = $crate::cpi_event::encode_event_cpi(__tag, __payload, &mut __buf[..])
+            .ok_or($crate::ProgramError::InvalidInstructionData)?;
+        // Signer seeds for the event-authority PDA. The caller
+        // derived and cached `$bump` so this is a stored-bump CPI.
+        let __bump_byte: [u8; 1] = [$bump];
+        let __seed_slices: [&[u8]; 2] = [b"__hopper_event_authority", &__bump_byte[..]];
+        $crate::cpi_event::invoke_event_cpi(
+            $program_id,
+            $event_authority,
+            &__buf[..__n],
+            &__seed_slices[..],
+        )?;
+    }};
+}
+
+/// Cheap structured logging for hot handlers.
+///
+/// `hopper_log!` is the compute-unit-aware sibling of [`msg!`]. It
+/// dispatches to the backend's native log syscall with no format
+/// machinery, no stack buffer, and no UTF-8 formatting pass. The
+/// tradeoff: fewer ergonomics, predictable CU.
+///
+/// Forms:
+///
+/// - `hopper_log!("static message")` - one `sol_log_` syscall.
+/// - `hopper_log!(my_str_slice)` - same, but for runtime `&str` values.
+/// - `hopper_log!("label:", u64_value)` - one `sol_log_` plus one
+///   `sol_log_64_`. Five `u64` slots (the `sol_log_64_` ABI) are
+///   populated left-to-right and the rest zero.
+/// - `hopper_log!("label:", a, b)` through `hopper_log!("label:", a, b, c, d, e)` -
+///   same pattern; up to five integer values per call.
+///
+/// Reach for `msg!` when you need `{}`-style formatting. Reach for
+/// `hopper_log!` when you are paying for every CU and you already
+/// know the shape of the data.
+#[macro_export]
+macro_rules! hopper_log {
+    // One label + 1..=5 integer values. Each integer is cast to `u64`
+    // at the call site so callers do not need to sprinkle `as u64`.
+    ($label:expr, $a:expr) => {{
+        $crate::log::log($label);
+        $crate::log::log_64($a as u64, 0, 0, 0, 0);
+    }};
+    ($label:expr, $a:expr, $b:expr) => {{
+        $crate::log::log($label);
+        $crate::log::log_64($a as u64, $b as u64, 0, 0, 0);
+    }};
+    ($label:expr, $a:expr, $b:expr, $c:expr) => {{
+        $crate::log::log($label);
+        $crate::log::log_64($a as u64, $b as u64, $c as u64, 0, 0);
+    }};
+    ($label:expr, $a:expr, $b:expr, $c:expr, $d:expr) => {{
+        $crate::log::log($label);
+        $crate::log::log_64($a as u64, $b as u64, $c as u64, $d as u64, 0);
+    }};
+    ($label:expr, $a:expr, $b:expr, $c:expr, $d:expr, $e:expr) => {{
+        $crate::log::log($label);
+        $crate::log::log_64(
+            $a as u64, $b as u64, $c as u64, $d as u64, $e as u64,
+        );
+    }};
+    // Bare message. Uses the one-argument `log::log` syscall.
+    ($msg:expr) => {{
+        $crate::log::log($msg);
     }};
 }
 

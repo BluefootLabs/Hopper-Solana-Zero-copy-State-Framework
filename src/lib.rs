@@ -1,30 +1,59 @@
 ﻿//! # Hopper
 //!
-//! Zero-copy state framework for Solana.
+//! A zero-copy Solana program framework. One access model, one dispatch
+//! path, one set of safety rules. Unsafe is available when you need it,
+//! and it is spelled `unsafe` so you can find it again.
 //!
-//! One access model. Explicit unsafe escape hatches. Optional advanced
-//! guarantees. Compile-time generated ergonomics. Inspectable output.
+//! The goals, in priority order:
 //!
-//! ## Crates
+//! 1. **Safety by default.** Every account byte you touch has been
+//!    owner-checked, signer-checked, layout-checked, and borrow-checked
+//!    before you see it. Unsafe is an opt-in escape hatch, never a
+//!    default.
+//! 2. **Pinocchio-class performance.** Account data points directly at
+//!    the runtime input region. No deserialization pass, no heap
+//!    allocation, no hidden format machinery. If it costs compute, it
+//!    is because you asked for it.
+//! 3. **Anchor-grade ergonomics.** `#[hopper::state]`, `#[hopper::context]`,
+//!    `#[hopper::program]`, and the `#[account(...)]` constraint vocabulary
+//!    read the same way an Anchor program reads. Porting is a rename,
+//!    not a rewrite.
+//! 4. **Schema that travels.** Every layout, instruction, event, and
+//!    error is emitted as inspectable compile-time metadata. Off-chain
+//!    SDKs, IDLs, client generators, and diff tools consume it without
+//!    parsing source.
 //!
-//! - `hopper_core`: ABI types, account header, segment maps, validation,
-//!   collections, and optional advanced subsystems (frame, receipt, policy,
-//!   diff, migration) behind feature gates
-//! - `hopper_macros`: `hopper_layout!`, `hopper_check!`, `hopper_error!`,
-//!   `hopper_init!`, `hopper_close!`, `hopper_require!`, `hopper_manifest!`,
-//!   `hopper_segment!`, `hopper_validate!`, `hopper_virtual!`,
-//!   `hopper_interface!`, `hopper_assert_compatible!`,
-//!   `hopper_assert_fingerprint!`
-//! - `hopper_solana`: SPL Token/Mint readers, Token-2022 checks, CPI guards,
-//!   Pyth oracle, TWAP, Ed25519/Merkle crypto, authority rotation
-//! - `hopper_system`: Hopper-owned System Program instruction builders
-//! - `hopper_token`: Hopper-owned SPL Token instruction builders
-//! - `hopper_token_2022`: Hopper-owned Token-2022 instruction builders and screening helpers
-//! - `hopper_associated_token`: Hopper-owned ATA derivation helpers and ATA instruction builders
-//! - `hopper_schema`: Layout manifests, field-level schema diffing,
-//!   compatibility checks, Codama/IDL projections, client generation
+//! ## Crate map
 //!
-//! ## Access Model
+//! - `hopper_core`: wire types, account header, segment maps, validation,
+//!   collections, and opt-in advanced subsystems (frame, receipt, policy,
+//!   diff, migration) behind feature gates.
+//! - `hopper_runtime`: the runtime surface a program actually calls.
+//!   Context, Account, Pod, guards, CPI, migrations, log macros,
+//!   entrypoint bridges.
+//! - `hopper_macros`: declarative macros. `hopper_layout!`, `hopper_check!`,
+//!   `hopper_error!`, `hopper_init!`, `hopper_close!`, `hopper_require!`,
+//!   `hopper_manifest!`, `hopper_segment!`, `hopper_validate!`,
+//!   `hopper_virtual!`, `hopper_interface!`, `hopper_assert_compatible!`,
+//!   `hopper_assert_fingerprint!`.
+//! - `hopper_macros_proc`: proc-macro DX layer. `#[hopper::state]`,
+//!   `#[hopper::pod]`, `#[hopper::context]`, `#[hopper::program]`,
+//!   `#[hopper::migrate]`, `#[hopper::args]`, `#[hopper::error]`,
+//!   `#[hopper::event]`, `#[hopper::dynamic]`.
+//! - `hopper_solana`: SPL Token/Mint readers, Token-2022 checks, CPI
+//!   guards, Pyth oracle, TWAP, Ed25519/Merkle crypto, authority rotation.
+//! - `hopper_system`: System Program instruction builders.
+//! - `hopper_token`: SPL Token instruction builders.
+//! - `hopper_token_2022`: Token-2022 instruction builders plus extension
+//!   screening helpers.
+//! - `hopper_associated_token`: ATA derivation and instruction builders.
+//! - `hopper_schema`: layout manifests, fingerprinting, field-level
+//!   diffing, compatibility verdicts, Codama/IDL projections, client
+//!   generation.
+//!
+//! ## Access model
+//!
+//! Four reads, one rule: safety first, unsafe by name.
 //!
 //! ```text
 //! Safe full:    account.load::<T>()        / account.load_mut::<T>()
@@ -33,7 +62,14 @@
 //! Cross-prog:   account.load_cross_program::<T>()
 //! ```
 //!
-//! ## Quick Start
+//! `load` and `segment_ref` are the defaults. `raw_ref` is the escape
+//! hatch. `load_cross_program` is the Hopper-specific verb for reading
+//! an account owned by another program (foreign-ownership checked at
+//! the type level).
+//!
+//! ## Quick start
+//!
+//! Declare a layout, declare a context, ship a handler.
 //!
 //! ```ignore
 //! use hopper::prelude::*;
@@ -41,13 +77,18 @@
 //!
 //! hopper_layout! {
 //!     pub struct Vault, disc = 1, version = 1 {
-//!         authority: [u8; 32]  = 32,
-//!         mint:      [u8; 32]  = 32,
-//!         balance:   WireU64   = 8,
-//!         bump:      u8        = 1,
+//!         authority: [u8; 32] = 32,
+//!         mint:      [u8; 32] = 32,
+//!         balance:   WireU64  = 8,
+//!         bump:      u8       = 1,
 //!     }
 //! }
 //! ```
+//!
+//! That is it. `Vault` is now a zero-copy layout with a 16-byte Hopper
+//! header, a segment map, a schema export for the manifest, and a
+//! `load::<Vault>()` accessor on every `AccountView`. No derives, no
+//! Borsh, no writeback pass.
 
 #![no_std]
 #![deny(unsafe_op_in_unsafe_fn)]
@@ -70,6 +111,10 @@ pub use hopper_token;
 pub use hopper_token_2022;
 pub use hopper_associated_token;
 pub use hopper_runtime;
+
+/// Small utilities. Re-exported at the crate root so `use hopper::utils::hint::likely;`
+/// just works.
+pub use hopper_runtime::utils;
 
 // Re-export macros at the crate root
 pub use hopper_macros::{
@@ -105,15 +150,21 @@ pub use hopper_runtime::layout_migrations;
 // the top-level `hopper::*` path without needing to reach through
 // `hopper_runtime::`.
 pub use hopper_runtime::{
-    address, hopper_unsafe_region, require, require_eq, require_gt, require_gte,
-    require_keys_eq, require_keys_neq, require_neq,
+    address, err, error, hopper_emit_cpi, hopper_log, hopper_unsafe_region, msg, require,
+    require_eq, require_gt, require_gte, require_keys_eq, require_keys_neq, require_lt,
+    require_lte, require_neq,
 };
 
 // Optional proc macro re-exports (enabled with `proc-macros` feature)
 #[cfg(feature = "proc-macros")]
 pub use hopper_macros_proc::{
+    account,
+    accounts,
     context,
+    crank,
+    declare_program,
     hopper_context,
+    hopper_crank,
     hopper_migrate,
     hopper_pod,
     hopper_program,
@@ -135,6 +186,14 @@ pub mod __runtime {
         SystemId, TailCodec,
     };
 
+    // Crank marker type plus dynamic-CPI builder, emitted by
+    // `#[hopper::crank]` and by hand-written programs that need
+    // variable-length CPIs respectively. Exposed through this
+    // doc-hidden module so user code never reaches into
+    // `hopper_runtime::*` directly.
+    pub use hopper_runtime::crank::CrankMarker;
+    pub use hopper_runtime::dyn_cpi::DynCpi;
+
     // `#[hopper::state]` and `#[hopper::pod]` emit bytemuck derives
     // through this path so user code never needs a direct bytemuck
     // dependency. Gated on the native backend because that's where
@@ -147,5 +206,14 @@ pub mod __runtime {
     // `unsafe impl ::hopper::__runtime::__sealed::HopperZeroCopySealed for Foo {}`
     // without the user ever naming the private module.
     pub use hopper_runtime::__sealed;
+
+    // Re-export `hopper_runtime::token` so `#[hopper::context]` can
+    // emit `::hopper::__runtime::token::require_token_mint(...)`
+    // without dragging the user into a direct `hopper_runtime`
+    // dependency. The helpers (require_token_mint / require_mint_*
+    // / require_token_authority) are read-only account-byte
+    // preconditions used to lower Anchor's `token::mint`,
+    // `mint::authority`, etc. constraints to a single inline check.
+    pub use hopper_runtime::token;
 }
 

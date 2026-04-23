@@ -20,6 +20,7 @@
 pub mod accounts;
 pub mod clientgen;
 pub mod codama;
+pub mod python_client;
 pub mod rust_client;
 
 use hopper_core::account::HEADER_LEN;
@@ -1934,7 +1935,7 @@ fn write_hex(f: &mut fmt::Formatter<'_>, bytes: &[u8]) -> fmt::Result {
 // ---------------------------------------------------------------------------
 
 /// An account entry in an instruction's account list.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct AccountEntry {
     /// Account name.
     pub name: &'static str,
@@ -1947,7 +1948,7 @@ pub struct AccountEntry {
 }
 
 /// An argument descriptor for an instruction.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct ArgDescriptor {
     /// Argument name.
     pub name: &'static str,
@@ -1957,8 +1958,93 @@ pub struct ArgDescriptor {
     pub size: u16,
 }
 
+/// Failure reason for `#[hopper::args] T::parse`.
+///
+/// Exposed here (rather than in `hopper-core`) because programs that use
+/// the args derive will already depend on `hopper-schema` for `SchemaExport`.
+/// Keeping the error type in schema avoids an extra dependency edge.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ArgParseError {
+    /// Not enough bytes to cover the packed struct size.
+    TooShort {
+        /// Bytes required.
+        required: u16,
+        /// Bytes available.
+        got: u16,
+    },
+}
+
+impl fmt::Display for ArgParseError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ArgParseError::TooShort { required, got } => {
+                write!(f, "args: too short (required {}, got {})", required, got)
+            }
+        }
+    }
+}
+
+/// Descriptor for one variant of a `#[hopper::error]` enum.
+///
+/// Carried in the program manifest so off-chain SDKs can map numeric error
+/// codes back to names and. via `invariant`. to the safety check that
+/// produced them.
+///
+/// ## Innovation over Quasar / Anchor
+///
+/// Anchor errors and Quasar errors are "code + message" tuples. Hopper
+/// errors additionally carry the **invariant name** a variant corresponds
+/// to, so a client that sees error `0x1001` can surface "Invariant
+/// `balance_nonzero` failed" without needing to keep a separate lookup
+/// table in sync with the on-chain code.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ErrorDescriptor {
+    /// Variant name (exactly as declared).
+    pub name: &'static str,
+    /// Stable numeric code emitted on failure.
+    pub code: u32,
+    /// Invariant this error corresponds to, or empty string if none.
+    pub invariant: &'static str,
+    /// Short documentation string (often copied from variant doc comments).
+    pub doc: &'static str,
+}
+
+/// A convenience wrapper holding an enum's full error table.
+///
+/// Programs expose their error tables to the schema via the `SchemaExport`
+/// path; the manifest gains an `errors[]` field that aggregates across all
+/// such registries declared in the crate.
+#[derive(Clone, Copy, Debug)]
+pub struct ErrorRegistry {
+    /// Enum ident, e.g. `"VaultError"`.
+    pub enum_name: &'static str,
+    /// Ordered error descriptors.
+    pub errors: &'static [ErrorDescriptor],
+}
+
+impl ErrorRegistry {
+    /// Look up an error descriptor by numeric code.
+    pub fn find_by_code(&self, code: u32) -> Option<&ErrorDescriptor> {
+        let mut i = 0;
+        while i < self.errors.len() {
+            if self.errors[i].code == code {
+                return Some(&self.errors[i]);
+            }
+            i += 1;
+        }
+        None
+    }
+
+    /// Look up the invariant name associated with a code, if any.
+    pub fn invariant_for(&self, code: u32) -> Option<&'static str> {
+        self.find_by_code(code).and_then(|d| {
+            if d.invariant.is_empty() { None } else { Some(d.invariant) }
+        })
+    }
+}
+
 /// An instruction descriptor in a program manifest.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct InstructionDescriptor {
     /// Instruction name.
     pub name: &'static str,

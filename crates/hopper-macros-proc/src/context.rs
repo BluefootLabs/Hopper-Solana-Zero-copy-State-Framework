@@ -12,7 +12,7 @@
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use syn::{
-    parse::Parse,
+    parse::{Parse, ParseStream},
     parse2, punctuated::Punctuated, token::Comma, Attribute, Expr, Fields,
     Ident, ItemStruct, Result, Token, Type, TypePath,
 };
@@ -63,6 +63,14 @@ struct AccountAttr {
     space: Option<Expr>,
     /// `seeds = [expr1, expr2, ...]`. PDA derivation input.
     seeds: Option<Vec<Expr>>,
+    /// `seeds_fn = Type::seeds(&arg1, &arg2)`. Typed-seeds sugar. The
+    /// provided expression must evaluate to a value that implements
+    /// `AsRef<[Seed]>` or equivalently yields `&[&[u8]]`. Hopper uses
+    /// it in place of the inline `seeds = [...]` array. Inspired by
+    /// Quasar's `Type::seeds(...)` pattern; the point is that each
+    /// type can centralize its PDA seed layout in one place and
+    /// every context just calls the helper.
+    seeds_fn: Option<Expr>,
     /// `bump` (inferred each call) or `bump = stored_byte`.
     bump: Option<BumpSpec>,
     /// `has_one = other_field`. require `self.field == other.key()`
@@ -76,6 +84,95 @@ struct AccountAttr {
     /// `constraint = expr`. arbitrary boolean guard, evaluated as the
     /// last step of validation.
     constraint: Vec<Expr>,
+
+    // ── Anchor SPL parity (audit ST2: "make Hopper the best of three") ──
+    //
+    // These constraints bring Hopper's declarative account layer to
+    // strict parity with Anchor's `#[account(token::mint = X, ...)]`
+    // family. Each attribute is parsed in the nested-meta pass below
+    // and lowered into a call to the matching `require_*` helper in
+    // `hopper_runtime::token`. Those helpers read exactly the bytes
+    // that matter from an already-borrowed account buffer. no
+    // full-struct deserialize, no new crate dependencies, no ABI
+    // coupling to an external spl-token version.
+    //
+    /// `token::mint = expr`. require this SPL TokenAccount's bytes
+    /// `[0..32]` equal the pubkey produced by `expr`.
+    token_mint: Option<Expr>,
+    /// `token::authority = expr`. require this SPL TokenAccount's
+    /// bytes `[32..64]` equal the pubkey produced by `expr`.
+    token_authority: Option<Expr>,
+    /// `token::token_program = expr`. require this account's Solana
+    /// owner-program equals `expr`. The usual case is pointing at
+    /// Token-2022 instead of the default SPL Token program, so the
+    /// program can validate a Token-2022 token account the same way
+    /// it validates a legacy SPL one. Defaults to SPL Token when
+    /// `token::mint` or `token::authority` are set without an
+    /// explicit `token_program`.
+    token_token_program: Option<Expr>,
+    /// `mint::authority = expr`. require this SPL Mint's
+    /// `mint_authority` COption equals `Some(expr)`.
+    mint_authority: Option<Expr>,
+    /// `mint::decimals = expr`. require this SPL Mint's byte 44 equal
+    /// `expr as u8`.
+    mint_decimals: Option<Expr>,
+    /// `mint::freeze_authority = expr`. require this SPL Mint's
+    /// `freeze_authority` COption equals `Some(expr)`.
+    mint_freeze_authority: Option<Expr>,
+    /// `mint::token_program = expr`. require this account's Solana
+    /// owner-program equals `expr`. Defaults to SPL Token when any
+    /// `mint::*` constraint is set without an explicit `token_program`.
+    /// The Token-2022 parity lever for the mint axis.
+    mint_token_program: Option<Expr>,
+    /// `associated_token::mint = expr`. ATA derivation input.
+    associated_token_mint: Option<Expr>,
+    /// `associated_token::authority = expr`. ATA derivation input.
+    associated_token_authority: Option<Expr>,
+    /// `associated_token::token_program = expr`. optional token-program
+    /// override. defaults to the legacy SPL Token program ID when
+    /// the user omits it. Accepting this value is what lets Hopper
+    /// support ATAs over Token-2022 mints without a second attribute.
+    associated_token_token_program: Option<Expr>,
+    /// `seeds::program = expr`. when present, PDA derivation for this
+    /// field uses the given program ID instead of
+    /// `ctx.program_id()`. Anchor emits this as the third positional
+    /// argument to `Pubkey::find_program_address(..., program_id)`.
+    seeds_program: Option<Expr>,
+
+    // ── Token-2022 extension constraints (zero-copy TLV readers) ──
+    //
+    // Each lever lowers to a single call into
+    // `hopper_runtime::token_2022_ext::require_*`. The readers scan
+    // the mint or token-account TLV region in place, no heap, no full
+    // decode. This is the surface Anchor routes through
+    // `InterfaceAccount<Mint>` with a Borsh deserialize; Hopper keeps
+    // it on the zero-copy path end to end.
+    ext_non_transferable: bool,
+    ext_immutable_owner: bool,
+    ext_mint_close_authority: Option<Expr>,
+    ext_permanent_delegate: Option<Expr>,
+    ext_transfer_hook_authority: Option<Expr>,
+    ext_transfer_hook_program: Option<Expr>,
+    ext_metadata_pointer_authority: Option<Expr>,
+    ext_metadata_pointer_address: Option<Expr>,
+    ext_default_account_state: Option<Expr>,
+    ext_interest_bearing_authority: Option<Expr>,
+    ext_transfer_fee_config_authority: Option<Expr>,
+    ext_transfer_fee_withdraw_authority: Option<Expr>,
+
+    /// `dup = other_field`. Quasar-style. This slot is allowed to
+    /// alias `other_field` (the caller intentionally passed the same
+    /// account in two roles). Skips the "no duplicate writables" and
+    /// "no duplicate signers" pipeline checks for this pair. Does
+    /// NOT imply `mut`.
+    dup: Option<Ident>,
+
+    /// `sweep = target_field`. After the handler returns Ok, move
+    /// any remaining lamports from this account to `target_field`'s
+    /// address. Runs as a post-handler epilogue emitted by `bind`.
+    /// Used for pool fee sweeps, keeper cleanup, and rent-reclaim
+    /// patterns. Implies `mut` on both the source and target.
+    sweep: Option<Ident>,
 }
 
 /// How the bump for a PDA-derived account is supplied.
@@ -100,8 +197,157 @@ struct ContextField {
     index: usize,
 }
 
+/// A single `name: Type` binding inside a struct-level
+/// `#[instruction(...)]` attribute.
+///
+/// ## Innovation over Anchor
+///
+/// Anchor's `#[instruction(...)]` is a **parse-only** hint. its argument
+/// names never appear in generated `impl` bodies beyond the accounts
+/// constraint expressions themselves, so there's no way to cross-check
+/// the declared arg list against the actual instruction decoder. a
+/// mismatch is only caught when the seed expression fails to typecheck.
+///
+/// Hopper threads the declared args through both:
+/// - every per-field `validate_<field>` function, so that each constraint
+///   gets the same Rust parameters (and the compiler surfaces a
+///   helpful error if the type doesn't match), and
+/// - the emitted `SCHEMA_METADATA` (`context_args`), so off-chain tooling
+///   (hopper-sdk, Codama, IDL) can see the declared args without
+///   re-parsing source.
+///
+/// The args also drive a dedicated `*_with_args` pair of `validate` /
+/// `bind` entry points. the args-less `validate` / `bind` are **not**
+/// emitted in that case, because a seed/constraint expression referring
+/// to an arg cannot compile without the binding in scope. forcing the
+/// user to call `bind_with_args` keeps the contract honest.
+#[derive(Debug)]
+struct InstructionArgDecl {
+    name: Ident,
+    ty: Type,
+}
+
+impl Parse for InstructionArgDecl {
+    fn parse(input: ParseStream) -> Result<Self> {
+        let name: Ident = input.parse()?;
+        let _: Token![:] = input.parse()?;
+        let ty: Type = input.parse()?;
+        Ok(Self { name, ty })
+    }
+}
+
+/// Scan a struct's outer attribute list for `#[instruction(...)]`,
+/// returning the parsed `(name, type)` bindings and stripping the
+/// attribute from the struct so it doesn't leak through the emitted
+/// code path.
+///
+/// Accepts exactly one `#[instruction(...)]` attribute per struct.
+/// Multiple attributes or duplicate arg names are rejected with a
+/// span-attached compile error so the failure points at the offending
+/// token rather than bubbling up as an opaque runtime symbol clash.
+fn parse_instruction_attr(attrs: &mut Vec<Attribute>) -> Result<Vec<InstructionArgDecl>> {
+    let mut out: Vec<InstructionArgDecl> = Vec::new();
+    let mut seen = 0usize;
+
+    for attr in attrs.iter() {
+        if !attr.path().is_ident("instruction") {
+            continue;
+        }
+        if seen > 0 {
+            return Err(syn::Error::new_spanned(
+                attr,
+                "#[hopper::context] accepts at most one #[instruction(...)] attribute; \
+                 put every arg in a single list, comma-separated",
+            ));
+        }
+        seen += 1;
+
+        let parsed: Punctuated<InstructionArgDecl, Comma> = attr
+            .parse_args_with(Punctuated::<InstructionArgDecl, Comma>::parse_terminated)?;
+        for arg in parsed {
+            if out.iter().any(|a| a.name == arg.name) {
+                return Err(syn::Error::new_spanned(
+                    &arg.name,
+                    format!(
+                        "duplicate instruction argument `{}`: each binding must be uniquely named",
+                        arg.name
+                    ),
+                ));
+            }
+            out.push(arg);
+        }
+    }
+
+    attrs.retain(|a| !a.path().is_ident("instruction"));
+    Ok(out)
+}
+
 pub fn expand(_attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
     let mut input: ItemStruct = parse2(item)?;
+
+    // ── Instruction-arg typing (audit Stage 2.6) ──────────────────────
+    //
+    // Parse the struct-level `#[instruction(name: Type, ...)]` attribute
+    // before anything else touches `input.attrs`. we strip it in place
+    // so the emitted struct doesn't re-export an attribute with no
+    // attached proc-macro (Rust would emit `unknown attribute` otherwise).
+    //
+    // When non-empty, the declared args are threaded as ordinary Rust
+    // parameters into every per-field validator and into the top-level
+    // entry points. seed / constraint / owner / address expressions
+    // that reference these names compile the same way any other local
+    // binding compiles. no magic, no hidden thread-local, no runtime
+    // lookup. this is the piece that lets declarative seeds say
+    // `seeds = [b"vault", nonce.to_le_bytes().as_ref()]` and have
+    // `nonce` resolve to the typed instruction argument.
+    let instruction_args = parse_instruction_attr(&mut input.attrs)?;
+    let has_instruction_args = !instruction_args.is_empty();
+
+    // Anchor-parity `#[validate]` opt-in. When the author adds
+    // `#[validate]` at the struct level, `bind()` calls a
+    // user-provided inherent method
+    // `fn validate(&self) -> Result<(), ProgramError>` on the bound
+    // context struct after every built-in constraint has passed.
+    //
+    // Why a marker instead of auto-detect: Rust trait dispatch cannot
+    // tell "user implemented validate" apart from "user didn't touch
+    // it" without specialization. An explicit opt-in keeps the call
+    // path honest, and an unset `#[validate]` on a struct that
+    // happens to have its own `validate(&self)` is a dead method the
+    // compiler warns about, which is the correct failure mode.
+    let user_validate = input.attrs.iter().any(|a| a.path().is_ident("validate"));
+    input.attrs.retain(|a| !a.path().is_ident("validate"));
+
+    // Prebuilt fragments for the declared instruction args. each one
+    // is used in several places in the emitted output (per-field
+    // validator signatures, top-level validate/bind signatures, call
+    // sites that forward args down), so we compute them once.
+    let arg_params: Vec<TokenStream> = instruction_args
+        .iter()
+        .map(|a| {
+            let n = &a.name;
+            let t = &a.ty;
+            quote! { #n: #t }
+        })
+        .collect();
+    let arg_names: Vec<Ident> = instruction_args.iter().map(|a| a.name.clone()).collect();
+    // `_with_args` suffix on the top-level entry points when the user
+    // has declared any typed args. this gives callers a distinct symbol
+    // and lets us *omit* the args-less `validate`/`bind` entirely when
+    // they'd be incomplete (a seed expression that references an arg
+    // can't compile without the binding in scope, so silently emitting
+    // a half-validated `validate` would be a footgun).
+    let top_validate_ident = if has_instruction_args {
+        format_ident!("validate_with_args")
+    } else {
+        format_ident!("validate")
+    };
+    let top_bind_ident = if has_instruction_args {
+        format_ident!("bind_with_args")
+    } else {
+        format_ident!("bind")
+    };
+
     let name = &input.ident;
     let vis = &input.vis;
     let bound_name = format_ident!("{}Ctx", name);
@@ -146,6 +392,20 @@ pub fn expand(_attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
     let mut validation_stmts = Vec::new();
     let mut per_field_validators = Vec::new();
     let mut check_descriptions: Vec<String> = Vec::new();
+
+    // Bumps captured during the PDA-derivation pass. Each entry is
+    // `(field_ident, derive_expr)` where `derive_expr` evaluates to a
+    // `::core::result::Result<u8, ProgramError>` inside `bind(...)`.
+    // Inferred bumps re-run `find_program_address` in a dedicated
+    // helper on the bound-context path (accept the extra derivation
+    // cost for the ergonomic win; stored bumps are free). Stored bumps
+    // read the user-supplied byte directly. Fields without `seeds = ...`
+    // never appear here and never show up on the `Bumps` struct,
+    // matching Anchor's shape exactly. That asymmetry is deliberate:
+    // a `Bumps` struct with a `u8` slot for every account would invite
+    // readers to assume every slot had a meaning, and writing `0` for
+    // non-PDAs is worse than omitting them.
+    let mut bump_entries: Vec<(Ident, TokenStream)> = Vec::new();
 
     for cf in &ctx_fields {
         let idx = cf.index;
@@ -309,15 +569,85 @@ pub fn expand(_attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
             }
         }
 
+        // -- Stage 4a: typed-seeds sugar (`seeds_fn = Type::seeds(...)`) --
+        //
+        // Quasar-style sugar: the user centralizes their PDA seed
+        // layout on the account type via a `seeds(...) -> ...` helper,
+        // and every context references it by name. We lower to
+        // `find_program_address(expr(), program_id)` and verify the
+        // resulting pubkey matches the account at `#idx`. Bumps come
+        // back on the returned value from `find_program_address` so
+        // no separate `bump` attribute is needed with this form.
+        if let Some(seeds_fn_expr) = &cf.attr.seeds_fn {
+            // Reject a combination that would be ambiguous: the user
+            // supplied both a seeds array AND a seeds_fn. Which
+            // derivation wins is a coin flip the author should not
+            // depend on.
+            if cf.attr.seeds.is_some() {
+                return Err(syn::Error::new_spanned(
+                    seeds_fn_expr,
+                    "`seeds_fn = ...` cannot be combined with `seeds = [...]`. Pick one.",
+                ));
+            }
+            let pda_program_expr = if let Some(prog) = &cf.attr.seeds_program {
+                quote! { &(#prog) }
+            } else {
+                quote! { ctx.program_id() }
+            };
+            field_checks.push(quote! {
+                {
+                    let __seed_slices: &[&[u8]] = (#seeds_fn_expr).as_ref();
+                    let (expected, _bump) = ::hopper::prelude::find_program_address(
+                        __seed_slices,
+                        #pda_program_expr,
+                    );
+                    if ctx.account(#idx)?.address() != &expected {
+                        return ::core::result::Result::Err(
+                            ::hopper::__runtime::ProgramError::InvalidSeeds
+                        );
+                    }
+                }
+            });
+            check_descriptions.push(format!(
+                "accounts[{}] ({}) matches PDA derived from typed seeds helper",
+                idx, field_name
+            ));
+            bump_entries.push((
+                field_name.clone(),
+                quote! {
+                    {
+                        let __seed_slices: &[&[u8]] = (#seeds_fn_expr).as_ref();
+                        let (_, __b) = ::hopper::prelude::find_program_address(
+                            __seed_slices,
+                            #pda_program_expr,
+                        );
+                        __b
+                    }
+                },
+            ));
+        }
+
         // -- Stage 4: PDA derivation (seeds + bump) ----------------------
         if let (Some(seeds), Some(bump)) = (&cf.attr.seeds, &cf.attr.bump) {
             let seed_exprs: Vec<_> = seeds.iter().collect();
+            // `seeds::program = X` (Anchor-compat) redirects PDA
+            // derivation to a program ID other than the currently
+            // executing one. This is how a program verifies that an
+            // account is a PDA of *another* program. a common pattern
+            // when interoperating with governance or registry programs.
+            // When omitted, we keep the existing behavior of using
+            // `ctx.program_id()`.
+            let pda_program_expr = if let Some(prog) = &cf.attr.seeds_program {
+                quote! { &(#prog) }
+            } else {
+                quote! { ctx.program_id() }
+            };
             let verify_call = match bump {
                 BumpSpec::Inferred => quote! {
                     {
                         let (expected, _bump) = ::hopper::prelude::find_program_address(
                             &[ #( AsRef::<[u8]>::as_ref(&(#seed_exprs)) ),* ],
-                            ctx.program_id(),
+                            #pda_program_expr,
                         );
                         if ctx.account(#idx)?.address() != &expected {
                             return ::core::result::Result::Err(
@@ -335,7 +665,7 @@ pub fn expand(_attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
                         ];
                         let expected = ::hopper::prelude::create_program_address(
                             seeds_with_bump,
-                            ctx.program_id(),
+                            #pda_program_expr,
                         )?;
                         if ctx.account(#idx)?.address() != &expected {
                             return ::core::result::Result::Err(
@@ -347,9 +677,40 @@ pub fn expand(_attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
             };
             field_checks.push(verify_call);
             check_descriptions.push(format!(
-                "accounts[{}] ({}) matches PDA derived from declared seeds",
-                idx, field_name
+                "accounts[{}] ({}) matches PDA derived from declared seeds{}",
+                idx,
+                field_name,
+                if cf.attr.seeds_program.is_some() {
+                    " (under custom program ID)"
+                } else {
+                    ""
+                }
             ));
+
+            // Build the derive expression used by the generated Bumps
+            // struct gatherer. Stored bumps read the user-supplied byte
+            // straight from scope; Inferred bumps re-run
+            // `find_program_address` on the bound-context path. The
+            // extra derivation for Inferred is the cost of the
+            // ergonomic win: the whole point of surfacing
+            // `ctx.bumps().field` is to save the caller from redoing
+            // the work in a CPI signer-seeds block one line later.
+            // Stored bumps cost zero CU.
+            let bump_gather_expr: TokenStream = match bump {
+                BumpSpec::Stored(bump_expr) => quote! {
+                    { let __b: u8 = #bump_expr; __b }
+                },
+                BumpSpec::Inferred => quote! {
+                    {
+                        let (_, __b) = ::hopper::prelude::find_program_address(
+                            &[ #( AsRef::<[u8]>::as_ref(&(#seed_exprs)) ),* ],
+                            #pda_program_expr,
+                        );
+                        __b
+                    }
+                },
+            };
+            bump_entries.push((field_name.clone(), bump_gather_expr));
         }
 
         // -- Stage 5: init / realloc / close preconditions ----------------
@@ -446,19 +807,411 @@ pub fn expand(_attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
             ));
         }
 
+        // -- Stage 7: Anchor SPL parity -----------------------------------
+        //
+        // token::mint / token::authority / mint::authority / mint::decimals /
+        // mint::freeze_authority / associated_token::{mint,authority,token_program}.
+        //
+        // Each of these lowers to a single call to a `hopper_runtime::token`
+        // precondition helper, each of which reads only the exact bytes
+        // it needs from the already-borrowed account buffer. no
+        // full-struct deserialize, no new crate dependencies.
+        //
+        // The helpers live in `hopper_runtime::token` (for Token + Mint
+        // shape checks) and in `hopper_solana::ata` (for ATA
+        // derivation. only on-chain via `#[cfg(target_os = "solana")]`).
+        // Owner-program override for the `token::*` family. Emitted
+        // exactly once when any `token::mint` / `token::authority` /
+        // `token::token_program` is present, so the owner check runs
+        // before the byte-level shape checks and rejects a wrong-program
+        // account without reading its payload.
+        //
+        // Default: SPL Token. Explicit `token::token_program = X`
+        // routes to X instead (the Token-2022 pattern). A standalone
+        // `token::token_program` with no shape check is valid and
+        // still enforces owner alone, matching Anchor's behavior.
+        let has_token_shape =
+            cf.attr.token_mint.is_some() || cf.attr.token_authority.is_some();
+        if has_token_shape || cf.attr.token_token_program.is_some() {
+            let prog_expr = if let Some(tp) = &cf.attr.token_token_program {
+                quote! { &(#tp) }
+            } else {
+                quote! { &::hopper::__runtime::token::TOKEN_PROGRAM_ID }
+            };
+            field_checks.push(quote! {
+                ctx.account(#idx)?.check_owned_by(#prog_expr)?;
+            });
+            check_descriptions.push(format!(
+                "accounts[{}] ({}) is owned by the declared token program{}",
+                idx,
+                field_name,
+                if cf.attr.token_token_program.is_some() {
+                    " (explicit token_program override)"
+                } else {
+                    " (SPL Token default)"
+                }
+            ));
+        }
+
+        if let Some(expected_mint) = &cf.attr.token_mint {
+            field_checks.push(quote! {
+                ::hopper::__runtime::token::require_token_mint(
+                    ctx.account(#idx)?,
+                    &(#expected_mint),
+                )?;
+            });
+            check_descriptions.push(format!(
+                "accounts[{}] ({}) is a token account for the declared mint",
+                idx, field_name
+            ));
+        }
+        if let Some(expected_authority) = &cf.attr.token_authority {
+            field_checks.push(quote! {
+                ::hopper::__runtime::token::require_token_owner_eq(
+                    ctx.account(#idx)?,
+                    &(#expected_authority),
+                )?;
+            });
+            check_descriptions.push(format!(
+                "accounts[{}] ({}) token account authority matches declared authority",
+                idx, field_name
+            ));
+        }
+        // Owner-program override for the `mint::*` family. Same
+        // pattern as the token-axis check: emit once whenever any
+        // `mint::authority` / `mint::decimals` / `mint::freeze_authority` /
+        // `mint::token_program` appears, so the owner is pinned before
+        // any layout-byte check runs.
+        let has_mint_shape = cf.attr.mint_authority.is_some()
+            || cf.attr.mint_decimals.is_some()
+            || cf.attr.mint_freeze_authority.is_some();
+        if has_mint_shape || cf.attr.mint_token_program.is_some() {
+            let prog_expr = if let Some(tp) = &cf.attr.mint_token_program {
+                quote! { &(#tp) }
+            } else {
+                quote! { &::hopper::__runtime::token::TOKEN_PROGRAM_ID }
+            };
+            field_checks.push(quote! {
+                ctx.account(#idx)?.check_owned_by(#prog_expr)?;
+            });
+            check_descriptions.push(format!(
+                "accounts[{}] ({}) is a mint owned by the declared token program{}",
+                idx,
+                field_name,
+                if cf.attr.mint_token_program.is_some() {
+                    " (explicit token_program override)"
+                } else {
+                    " (SPL Token default)"
+                }
+            ));
+        }
+
+        if let Some(expected_mint_authority) = &cf.attr.mint_authority {
+            field_checks.push(quote! {
+                ::hopper::__runtime::token::require_mint_authority(
+                    ctx.account(#idx)?,
+                    &(#expected_mint_authority),
+                )?;
+            });
+            check_descriptions.push(format!(
+                "accounts[{}] ({}) mint_authority matches declared authority",
+                idx, field_name
+            ));
+        }
+        if let Some(decimals_expr) = &cf.attr.mint_decimals {
+            field_checks.push(quote! {
+                ::hopper::__runtime::token::require_mint_decimals(
+                    ctx.account(#idx)?,
+                    (#decimals_expr) as u8,
+                )?;
+            });
+            check_descriptions.push(format!(
+                "accounts[{}] ({}) mint decimals equals declared value",
+                idx, field_name
+            ));
+        }
+        if let Some(expected_freeze) = &cf.attr.mint_freeze_authority {
+            field_checks.push(quote! {
+                ::hopper::__runtime::token::require_mint_freeze_authority(
+                    ctx.account(#idx)?,
+                    &(#expected_freeze),
+                )?;
+            });
+            check_descriptions.push(format!(
+                "accounts[{}] ({}) mint freeze_authority matches declared authority",
+                idx, field_name
+            ));
+        }
+
+        // Token-2022 extension constraints. Each lowers to a single
+        // TLV-scan call on the Token-2022 account bytes. Extensions
+        // are only valid on Token-2022 accounts, so the usual
+        // `token::token_program = TOKEN_2022_ID` or
+        // `mint::token_program = TOKEN_2022_ID` constraint should
+        // precede them in source; the emitted owner check has
+        // already run before any of this lowers.
+        if cf.attr.ext_non_transferable {
+            field_checks.push(quote! {
+                ::hopper::__runtime::token_2022_ext::require_non_transferable(
+                    ctx.account(#idx)?,
+                )?;
+            });
+            check_descriptions.push(format!(
+                "accounts[{}] ({}) carries NonTransferable extension",
+                idx, field_name
+            ));
+        }
+        if cf.attr.ext_immutable_owner {
+            field_checks.push(quote! {
+                ::hopper::__runtime::token_2022_ext::require_immutable_owner(
+                    ctx.account(#idx)?,
+                )?;
+            });
+            check_descriptions.push(format!(
+                "accounts[{}] ({}) carries ImmutableOwner extension",
+                idx, field_name
+            ));
+        }
+        if let Some(expected) = &cf.attr.ext_mint_close_authority {
+            field_checks.push(quote! {
+                ::hopper::__runtime::token_2022_ext::require_mint_close_authority(
+                    ctx.account(#idx)?,
+                    &(#expected),
+                )?;
+            });
+            check_descriptions.push(format!(
+                "accounts[{}] ({}) MintCloseAuthority matches",
+                idx, field_name
+            ));
+        }
+        if let Some(expected) = &cf.attr.ext_permanent_delegate {
+            field_checks.push(quote! {
+                ::hopper::__runtime::token_2022_ext::require_permanent_delegate(
+                    ctx.account(#idx)?,
+                    &(#expected),
+                )?;
+            });
+            check_descriptions.push(format!(
+                "accounts[{}] ({}) PermanentDelegate matches",
+                idx, field_name
+            ));
+        }
+        if let Some(expected) = &cf.attr.ext_transfer_hook_authority {
+            field_checks.push(quote! {
+                ::hopper::__runtime::token_2022_ext::require_transfer_hook_authority(
+                    ctx.account(#idx)?,
+                    &(#expected),
+                )?;
+            });
+            check_descriptions.push(format!(
+                "accounts[{}] ({}) TransferHook authority matches",
+                idx, field_name
+            ));
+        }
+        if let Some(expected) = &cf.attr.ext_transfer_hook_program {
+            field_checks.push(quote! {
+                ::hopper::__runtime::token_2022_ext::require_transfer_hook_program(
+                    ctx.account(#idx)?,
+                    &(#expected),
+                )?;
+            });
+            check_descriptions.push(format!(
+                "accounts[{}] ({}) TransferHook program_id matches",
+                idx, field_name
+            ));
+        }
+        if let Some(expected) = &cf.attr.ext_metadata_pointer_authority {
+            field_checks.push(quote! {
+                ::hopper::__runtime::token_2022_ext::require_metadata_pointer_authority(
+                    ctx.account(#idx)?,
+                    &(#expected),
+                )?;
+            });
+            check_descriptions.push(format!(
+                "accounts[{}] ({}) MetadataPointer authority matches",
+                idx, field_name
+            ));
+        }
+        if let Some(expected) = &cf.attr.ext_metadata_pointer_address {
+            field_checks.push(quote! {
+                ::hopper::__runtime::token_2022_ext::require_metadata_pointer_address(
+                    ctx.account(#idx)?,
+                    &(#expected),
+                )?;
+            });
+            check_descriptions.push(format!(
+                "accounts[{}] ({}) MetadataPointer metadata_address matches",
+                idx, field_name
+            ));
+        }
+        if let Some(expected) = &cf.attr.ext_default_account_state {
+            field_checks.push(quote! {
+                ::hopper::__runtime::token_2022_ext::require_default_account_state(
+                    ctx.account(#idx)?,
+                    (#expected) as u8,
+                )?;
+            });
+            check_descriptions.push(format!(
+                "accounts[{}] ({}) DefaultAccountState matches",
+                idx, field_name
+            ));
+        }
+        if let Some(expected) = &cf.attr.ext_interest_bearing_authority {
+            field_checks.push(quote! {
+                ::hopper::__runtime::token_2022_ext::require_interest_bearing_authority(
+                    ctx.account(#idx)?,
+                    &(#expected),
+                )?;
+            });
+            check_descriptions.push(format!(
+                "accounts[{}] ({}) InterestBearing rate_authority matches",
+                idx, field_name
+            ));
+        }
+        if let Some(expected) = &cf.attr.ext_transfer_fee_config_authority {
+            field_checks.push(quote! {
+                ::hopper::__runtime::token_2022_ext::require_transfer_fee_config_authority(
+                    ctx.account(#idx)?,
+                    &(#expected),
+                )?;
+            });
+            check_descriptions.push(format!(
+                "accounts[{}] ({}) TransferFeeConfig authority matches",
+                idx, field_name
+            ));
+        }
+        if let Some(expected) = &cf.attr.ext_transfer_fee_withdraw_authority {
+            field_checks.push(quote! {
+                ::hopper::__runtime::token_2022_ext::require_transfer_fee_withdraw_authority(
+                    ctx.account(#idx)?,
+                    &(#expected),
+                )?;
+            });
+            check_descriptions.push(format!(
+                "accounts[{}] ({}) TransferFeeConfig withdraw_authority matches",
+                idx, field_name
+            ));
+        }
+
+        // `dup = other_field`. Require this slot to alias the named
+        // other slot. The caller explicitly opted into aliasing by
+        // declaring it, which is the safe pattern. If the caller
+        // actually passes different accounts, we reject rather than
+        // silently accept, matching Quasar's dup semantic.
+        if let Some(other) = &cf.attr.dup {
+            let other_idx = ctx_fields
+                .iter()
+                .position(|f| &f.name == other)
+                .ok_or_else(|| {
+                    syn::Error::new_spanned(
+                        other,
+                        format!("`dup = {}` must name a sibling field on the same context", other),
+                    )
+                })?;
+            field_checks.push(quote! {
+                if ctx.account(#idx)?.address() != ctx.account(#other_idx)?.address() {
+                    return ::core::result::Result::Err(
+                        ::hopper::__runtime::ProgramError::InvalidAccountData
+                    );
+                }
+            });
+            check_descriptions.push(format!(
+                "accounts[{}] ({}) aliases accounts[{}] ({})",
+                idx, field_name, other_idx, other
+            ));
+        }
+        // ATA derivation: both mint and authority must be declared to
+        // be verifiable. Validation enforces that in
+        // `validate_account_attr`. Here we can assume the pair is
+        // coherent.
+        if let (Some(ata_mint), Some(ata_auth)) = (
+            &cf.attr.associated_token_mint,
+            &cf.attr.associated_token_authority,
+        ) {
+            // Optional token-program override. when omitted we fall
+            // back to the canonical SPL Token program ID re-exported
+            // from `hopper_runtime::token`.
+            let token_program_expr = if let Some(tp) = &cf.attr.associated_token_token_program {
+                quote! { &(#tp) }
+            } else {
+                quote! { &::hopper::__runtime::token::TOKEN_PROGRAM_ID }
+            };
+            field_checks.push(quote! {
+                {
+                    // On-chain PDA derivation is only available when
+                    // targeting the Solana runtime. Off-chain tooling
+                    // (IDL dumps, hopper-sdk) does not build these
+                    // checks into the same binary, so we gate the
+                    // call under the Solana target triple.
+                    //
+                    // `derive_ata_for_program` returns `(Address, u8)`.
+                    // We only need the address; the bump byte is
+                    // meaningful only if the caller wants to cache it
+                    // in account data.
+                    #[cfg(target_os = "solana")]
+                    {
+                        let (expected, _bump) =
+                            ::hopper::hopper_associated_token::derive_ata_for_program(
+                                &(#ata_auth),
+                                &(#ata_mint),
+                                #token_program_expr,
+                            );
+                        if ctx.account(#idx)?.address() != &expected {
+                            return ::core::result::Result::Err(
+                                ::hopper::__runtime::ProgramError::InvalidSeeds
+                            );
+                        }
+                    }
+                }
+            });
+            check_descriptions.push(format!(
+                "accounts[{}] ({}) is the ATA for (authority, mint, token_program)",
+                idx, field_name
+            ));
+        }
+
         if !field_checks.is_empty() {
+            // When the user declared `#[instruction(...)]` at the struct
+            // level, every per-field validator threads the declared
+            // args through its signature. The fragment
+            // `#(#arg_params),*` expands to an empty token span when
+            // `has_instruction_args` is false, so the args-less case
+            // is still `fn validate_<field>(ctx: &Context<'_>)` exactly
+            // as before. The leading comma is guarded the same way,
+            // giving us a single unified emission path.
+            // Quote's repetition `#(#v)*` consumes `v` via `IntoIterator`,
+            // so we clone the arg token streams per call site. this matches
+            // the pattern used in `error.rs` (`idents_for_from`,
+            // `idents_for_code`, etc.) and keeps the outer loop safe.
+            let arg_param_fragment = if has_instruction_args {
+                let aps = arg_params.clone();
+                quote! { , #(#aps),* }
+            } else {
+                TokenStream::new()
+            };
+            let arg_name_fragment = if has_instruction_args {
+                let ans = arg_names.clone();
+                quote! { , #(#ans),* }
+            } else {
+                TokenStream::new()
+            };
             per_field_validators.push(quote! {
                 /// Validate the `#field_name` account (index #idx).
                 #[inline(always)]
-                #vis fn #validate_fn(ctx: &::hopper::prelude::Context<'_>) -> ::core::result::Result<(), ::hopper::__runtime::ProgramError> {
+                #vis fn #validate_fn(
+                    ctx: &::hopper::prelude::Context<'_>
+                    #arg_param_fragment
+                ) -> ::core::result::Result<(), ::hopper::__runtime::ProgramError> {
                     #(#field_checks)*
                     Ok(())
                 }
             });
 
-            // Collect into monolithic validate() for backward compat
+            // Monolithic `validate` / `validate_with_args` composition.
+            // Forwards whatever args were declared at the struct level
+            // so each per-field validator sees the same typed bindings.
             validation_stmts.push(quote! {
-                Self::#validate_fn(ctx)?;
+                Self::#validate_fn(ctx #arg_name_fragment)?;
             });
         }
     }
@@ -478,6 +1231,51 @@ pub fn expand(_attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
         let idx = cf.index;
         let type_ident = type_ident(field_ty)?;
         let type_upper = to_screaming_snake(&type_ident.to_string());
+
+        // `sweep = target` emits an inherent method `sweep_<field>()`
+        // on the bound context. The method moves every remaining
+        // lamport from this slot into the target slot. Calling it is
+        // up to the user: bind() does not auto-run sweeps because
+        // handler semantics (short-circuit on error, skip cleanup on
+        // failure) vary per program. Typically called in the happy
+        // path right before the handler returns Ok.
+        if let Some(target) = &cf.attr.sweep {
+            let target_idx = ctx_fields
+                .iter()
+                .position(|f| &f.name == target)
+                .ok_or_else(|| {
+                    syn::Error::new_spanned(
+                        target,
+                        format!("`sweep = {}` must name a sibling field on the same context", target),
+                    )
+                })?;
+            let sweep_fn = format_ident!("sweep_{}", field_name);
+            accessors.push(quote! {
+                /// Drain every lamport from this slot into the declared
+                /// sweep target. Call in the happy path just before
+                /// returning. Returns the drained amount.
+                #[inline]
+                #vis fn #sweep_fn(&mut self)
+                    -> ::core::result::Result<u64, ::hopper::__runtime::ProgramError>
+                {
+                    let src = self.ctx.account(#idx)?;
+                    let dst = self.ctx.account(#target_idx)?;
+                    let amount = src.lamports();
+                    if amount == 0 {
+                        return Ok(0);
+                    }
+                    src.try_borrow_mut_lamports()?
+                        .checked_sub(amount)
+                        .map(|v| *src.try_borrow_mut_lamports().unwrap() = v)
+                        .ok_or(::hopper::__runtime::ProgramError::ArithmeticOverflow)?;
+                    let dst_lam = dst.try_borrow_mut_lamports()?;
+                    *dst_lam = dst_lam
+                        .checked_add(amount)
+                        .ok_or(::hopper::__runtime::ProgramError::ArithmeticOverflow)?;
+                    Ok(amount)
+                }
+            });
+        }
 
         let account_fn = format_ident!("{}_account", field_name);
         accessors.push(quote! {
@@ -871,6 +1669,12 @@ pub fn expand(_attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
                 let data = account.try_borrow()?;
                 self.#receipt_field_name.commit_with_segments(&data, &[#(#segment_pairs),*]);
                 self.#receipt_field_name.set_invariants(invariants_passed, invariants_checked);
+                // If a failure was recorded for this instruction, stamp the
+                // receipt *before* emission so off-chain consumers can map the
+                // code → invariant name via the program's ErrorRegistry.
+                if let ::core::option::Option::Some((__hp_code, __hp_idx, __hp_stage)) = failure {
+                    self.#receipt_field_name.set_failure(__hp_code, __hp_idx, __hp_stage);
+                }
                 ::hopper::prelude::emit_receipt(&self.#receipt_field_name.to_bytes())?;
             }
         });
@@ -971,12 +1775,125 @@ pub fn expand(_attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
 
     let ctx_name_lit = name.to_string();
 
+    // Precomputed signature / call-site fragments for the top-level
+    // `validate` / `bind` entry points. Kept as one-shot `TokenStream`s
+    // so the `quote! { ... }` block below stays readable. The leading
+    // comma is only emitted when there are actually args to declare. // which is how we keep the args-less case byte-for-byte identical
+    // to pre-instruction-args output.
+    let top_arg_param_fragment = if has_instruction_args {
+        let aps = arg_params.clone();
+        quote! { , #(#aps),* }
+    } else {
+        TokenStream::new()
+    };
+    let top_arg_name_fragment = if has_instruction_args {
+        let names = arg_names.clone();
+        quote! { , #(#names),* }
+    } else {
+        TokenStream::new()
+    };
+
+    // ── Tooling surface for declared instruction args ─────────────────
+    //
+    // Expose the declared arg list as `(name, canonical_type)` pairs
+    // so tooling (hopper-sdk, Codama, IDL generators) can see the
+    // context's instruction-arg contract without re-parsing source.
+    // The canonical-type rendering is best-effort: we stringify the
+    // Rust type via `quote`, matching the same vocabulary the
+    // `#[hopper::args]` derive already uses ("u64", "[u8; 32]", etc.).
+    //
+    // Emitted as a `pub const CONTEXT_ARGS: &[(&str, &str)]` on the
+    // impl block (see the `quote!` block below). We keep this off
+    // `ContextDescriptor` for now so this change remains purely
+    // additive. the schema crate can grow a dedicated field in a
+    // future pass without breaking the runtime ABI here.
+    let context_arg_entries: Vec<TokenStream> = instruction_args
+        .iter()
+        .map(|a| {
+            let n = a.name.to_string();
+            let ty = &a.ty;
+            let t = quote!(#ty).to_string();
+            quote! { (#n, #t) }
+        })
+        .collect();
+
+    // ── Bumps struct (Anchor-parity ergonomic) ─────────────────────
+    //
+    // For every field with a `seeds = ...` constraint, emit a `u8`
+    // slot on `<Name>Bumps` and populate it during `bind()`. The
+    // resulting struct is reachable as `ctx.bumps()` on the bound
+    // context, which is exactly what a CPI signer-seeds block wants:
+    //
+    //   let bumps = vault_ctx.bumps();
+    //   let seeds: &[&[u8]] = &[b"vault", authority.as_ref(), &[bumps.vault]];
+    //
+    // Contexts with zero PDAs still get a unit-ish `struct <Name>Bumps {}`
+    // so downstream code can spell the type unconditionally. `#[derive]`
+    // is split: `Default` is always on (so construction is trivial),
+    // `Copy / Clone / Debug` only when at least one field exists (an
+    // empty-fields struct still derives them cleanly, so emit both
+    // paths identically for simplicity).
+    let bumps_name = format_ident!("{}Bumps", name);
+    let bumps_field_defs: Vec<TokenStream> = bump_entries
+        .iter()
+        .map(|(ident, _)| quote! { pub #ident: u8, })
+        .collect();
+    let bumps_gather_stmts: Vec<TokenStream> = bump_entries
+        .iter()
+        .map(|(ident, expr)| quote! { __hopper_bumps.#ident = #expr; })
+        .collect();
+    let bumps_registry_entries: Vec<TokenStream> = bump_entries
+        .iter()
+        .map(|(ident, _)| {
+            let s = ident.to_string();
+            quote! { #s }
+        })
+        .collect();
+
+    // Emit the user-validate call only when the author opted in.
+    // The call is spelled `<Bound>::validate(&bound)` so a user who
+    // forgets to define the method sees a clean "no method named
+    // `validate`" error pointing at their own impl block, not at
+    // macro-generated code.
+    let user_validate_call: TokenStream = if user_validate {
+        quote! {
+            #bound_name::validate(&__hopper_bound)?;
+        }
+    } else {
+        TokenStream::new()
+    };
+
     let expanded = quote! {
         // Emit the original struct unchanged.
         #input
 
+        /// Captured PDA bumps for every `seeds = ...` field in this
+        /// context. One `u8` slot per PDA, named after the field. Read
+        /// from the bound context as `ctx.bumps().<field>` and hand
+        /// straight to a CPI signer-seeds block.
+        ///
+        /// Anchor's `ctx.bumps.<field>` pattern, spelled out: the field
+        /// set is derived at macro-expansion time from the fields that
+        /// carry `seeds`, so there is zero runtime lookup and zero
+        /// allocation. A context with no PDA fields still gets a valid
+        /// type (empty body) so downstream code can name it uniformly.
+        #[derive(::core::default::Default, ::core::clone::Clone, ::core::marker::Copy, ::core::fmt::Debug)]
+        #vis struct #bumps_name {
+            #( #bumps_field_defs )*
+        }
+
+        impl #bumps_name {
+            /// Field names that carry a PDA bump, in declaration order.
+            /// Lets off-chain tooling iterate the PDA slot set without
+            /// needing reflection or a JSON descriptor.
+            pub const FIELDS: &'static [&'static str] = &[
+                #( #bumps_registry_entries ),*
+            ];
+        }
+
         #vis struct #bound_name<'ctx, 'a> {
             ctx: &'ctx mut ::hopper::prelude::Context<'a>,
+            bumps: #bumps_name,
         }
 
         #vis struct #receipt_scope_name<const SNAP: usize> {
@@ -1015,11 +1932,32 @@ pub fn expand(_attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
                     mutation_classes: &[],
                 };
 
+            /// Declared instruction-arg bindings for this context, as
+            /// `(name, canonical_type)` pairs in the order given to
+            /// `#[instruction(...)]`. Empty when no args were declared.
+            ///
+            /// Tooling (hopper-sdk, IDL / Codama projectors, client
+            /// generators) consumes this slice directly rather than
+            /// re-parsing the source. the same contract Anchor's
+            /// `#[derive(Accounts)] #[instruction(...)]` exposes, but
+            /// backed by real typed Rust bindings so a mismatch is a
+            /// compile error, not a runtime surprise.
+            pub const CONTEXT_ARGS: &'static [(&'static str, &'static str)] = &[
+                #( #context_arg_entries ),*
+            ];
+
             // ── Per-field validators ─────────────────────────────────
             //
             // Each field gets its own `validate_{name}()` so the checks
             // are individually callable, testable, and visible in
             // `hopper compile --emit rust` output.
+            //
+            // When the struct declares `#[instruction(...)]`, each
+            // per-field validator takes the declared args as ordinary
+            // parameters. the same mechanism Anchor users expect,
+            // but threaded through *typed* Rust bindings rather than
+            // free identifiers that happen to resolve to the right
+            // thing.
             #(#per_field_validators)*
 
             /// Validate the account slice against this context spec.
@@ -1027,20 +1965,49 @@ pub fn expand(_attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
             /// This calls each per-field validator in order. Every check
             /// is also available as a standalone `validate_{field}()` method
             /// for fine-grained control and testing.
+            ///
+            /// When the struct declares `#[instruction(...)]`, this
+            /// entry point is renamed to `validate_with_args(...)` and
+            /// carries the declared typed args as additional
+            /// parameters. the args-less `validate(...)` is **not**
+            /// emitted in that case, because any seed / constraint
+            /// expression referencing an instruction arg would not
+            /// compile without the binding in scope.
             #[inline]
-            pub fn validate(ctx: &::hopper::prelude::Context<'_>) -> ::core::result::Result<(), ::hopper::__runtime::ProgramError> {
+            pub fn #top_validate_ident(
+                ctx: &::hopper::prelude::Context<'_>
+                #top_arg_param_fragment
+            ) -> ::core::result::Result<(), ::hopper::__runtime::ProgramError> {
                 ctx.require_accounts(Self::ACCOUNT_COUNT)?;
                 #(#validation_stmts)*
                 Ok(())
             }
 
             /// Bind a raw Hopper context into the typed proc-macro wrapper.
+            ///
+            /// Mirrors `validate`: when `#[instruction(...)]` is
+            /// declared at the struct level, this becomes
+            /// `bind_with_args(ctx, arg0, arg1, ...)` and the args-less
+            /// variant is omitted.
             #[inline]
-            pub fn bind<'ctx, 'a>(
-                ctx: &'ctx mut ::hopper::prelude::Context<'a>,
+            pub fn #top_bind_ident<'ctx, 'a>(
+                ctx: &'ctx mut ::hopper::prelude::Context<'a>
+                #top_arg_param_fragment
             ) -> ::core::result::Result<#bound_name<'ctx, 'a>, ::hopper::__runtime::ProgramError> {
-                Self::validate(ctx)?;
-                Ok(#bound_name { ctx })
+                Self::#top_validate_ident(ctx #top_arg_name_fragment)?;
+                // `validate` already proved every PDA matches its seeds,
+                // so each gather expression can assume the derivation
+                // will produce the same pubkey. For stored bumps this
+                // is a byte read; for inferred bumps it is a second
+                // `find_program_address` call, which is the cost of
+                // handing the caller a ready-to-use bump without
+                // them re-deriving it at the CPI site. Stored bumps
+                // are the recommended path in hot handlers.
+                let mut __hopper_bumps = <#bumps_name as ::core::default::Default>::default();
+                #( #bumps_gather_stmts )*
+                let __hopper_bound = #bound_name { ctx, bumps: __hopper_bumps };
+                #user_validate_call
+                Ok(__hopper_bound)
             }
 
             #[inline]
@@ -1054,12 +2021,25 @@ pub fn expand(_attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
         }
 
         impl<const SNAP: usize> #receipt_scope_name<SNAP> {
+            /// Seal and emit every receipt tracked by this scope.
+            ///
+            /// `failure` carries `(error_code, invariant_idx, stage)` when
+            /// a guard or invariant failed during the handler; it is
+            /// stamped into every mutable account's receipt so the
+            /// off-chain SDK can resolve the failure to a named
+            /// invariant via the program's `ErrorRegistry`. Pass `None`
+            /// on the success path.
             #[inline]
             #vis fn finish(
                 mut self,
                 ctx: &::hopper::prelude::Context<'_>,
                 invariants_passed: bool,
                 invariants_checked: u16,
+                failure: ::core::option::Option<(
+                    u32,
+                    u8,
+                    ::hopper::prelude::FailureStage,
+                )>,
             ) -> ::core::result::Result<(), ::hopper::__runtime::ProgramError> {
                 #(#receipt_finish_blocks)*
                 Ok(())
@@ -1070,6 +2050,25 @@ pub fn expand(_attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
             #[inline(always)]
             #vis fn raw(&mut self) -> &mut ::hopper::prelude::Context<'a> {
                 self.ctx
+            }
+
+            /// Captured PDA bumps for every `seeds = ...` field.
+            ///
+            /// Returns a reference, not a copy, so the type can grow
+            /// fields later without forcing existing call sites to
+            /// update. Hand straight to a CPI signer-seeds block:
+            ///
+            /// ```ignore
+            /// let bumps = ctx.bumps();
+            /// let signer_seeds: &[&[u8]] = &[
+            ///     b"vault",
+            ///     authority_key.as_ref(),
+            ///     ::core::slice::from_ref(&bumps.vault),
+            /// ];
+            /// ```
+            #[inline(always)]
+            #vis fn bumps(&self) -> &#bumps_name {
+                &self.bumps
             }
 
             #[inline(always)]
@@ -1142,6 +2141,170 @@ fn parse_account_attr(attrs: &[Attribute]) -> Result<AccountAttr> {
         }
 
         attr.parse_nested_meta(|meta| {
+            // Handle double-segment paths first (`token::mint`,
+            // `mint::authority`, `associated_token::mint`,
+            // `seeds::program`). These are Anchor's established
+            // vocabulary for SPL-specific constraints; accepting
+            // them by the same spelling makes Anchor programs a
+            // mechanical port to Hopper rather than a rewrite.
+            // Three-segment Token-2022 extension paths:
+            // `extensions::transfer_hook::authority = X`, etc.
+            if meta.path.segments.len() == 3
+                && meta.path.segments[0].ident == "extensions"
+            {
+                let group = meta.path.segments[1].ident.to_string();
+                let field = meta.path.segments[2].ident.to_string();
+                return match (group.as_str(), field.as_str()) {
+                    ("mint_close_authority", "authority") => {
+                        let expr: Expr = meta.value()?.parse()?;
+                        result.ext_mint_close_authority = Some(expr);
+                        Ok(())
+                    }
+                    ("permanent_delegate", "delegate") => {
+                        let expr: Expr = meta.value()?.parse()?;
+                        result.ext_permanent_delegate = Some(expr);
+                        Ok(())
+                    }
+                    ("transfer_hook", "authority") => {
+                        let expr: Expr = meta.value()?.parse()?;
+                        result.ext_transfer_hook_authority = Some(expr);
+                        Ok(())
+                    }
+                    ("transfer_hook", "program_id") => {
+                        let expr: Expr = meta.value()?.parse()?;
+                        result.ext_transfer_hook_program = Some(expr);
+                        Ok(())
+                    }
+                    ("metadata_pointer", "authority") => {
+                        let expr: Expr = meta.value()?.parse()?;
+                        result.ext_metadata_pointer_authority = Some(expr);
+                        Ok(())
+                    }
+                    ("metadata_pointer", "metadata_address") => {
+                        let expr: Expr = meta.value()?.parse()?;
+                        result.ext_metadata_pointer_address = Some(expr);
+                        Ok(())
+                    }
+                    ("default_account_state", "state") => {
+                        let expr: Expr = meta.value()?.parse()?;
+                        result.ext_default_account_state = Some(expr);
+                        Ok(())
+                    }
+                    ("interest_bearing", "rate_authority") => {
+                        let expr: Expr = meta.value()?.parse()?;
+                        result.ext_interest_bearing_authority = Some(expr);
+                        Ok(())
+                    }
+                    ("transfer_fee_config", "authority") => {
+                        let expr: Expr = meta.value()?.parse()?;
+                        result.ext_transfer_fee_config_authority = Some(expr);
+                        Ok(())
+                    }
+                    ("transfer_fee_config", "withdraw_withheld_authority") => {
+                        let expr: Expr = meta.value()?.parse()?;
+                        result.ext_transfer_fee_withdraw_authority = Some(expr);
+                        Ok(())
+                    }
+                    _ => Err(meta.error(format!(
+                        "unrecognized extension constraint `extensions::{group}::{field}`. \
+                         accepted: extensions::{{mint_close_authority,permanent_delegate,transfer_hook,metadata_pointer,default_account_state,interest_bearing,transfer_fee_config}}::*",
+                    ))),
+                };
+            }
+
+            if meta.path.segments.len() == 2 {
+                let ns = meta.path.segments[0].ident.to_string();
+                let key = meta.path.segments[1].ident.to_string();
+                return match (ns.as_str(), key.as_str()) {
+                    ("token", "mint") => {
+                        let expr: Expr = meta.value()?.parse()?;
+                        result.token_mint = Some(expr);
+                        Ok(())
+                    }
+                    ("token", "authority") => {
+                        let expr: Expr = meta.value()?.parse()?;
+                        result.token_authority = Some(expr);
+                        Ok(())
+                    }
+                    ("token", "token_program") => {
+                        // Anchor-parity lever for Token-2022 routing.
+                        // Without this, a `token::mint` / `token::authority`
+                        // check validates the *content* of the token
+                        // account but not which token program owns it.
+                        // Setting `token::token_program = TOKEN_2022_ID`
+                        // binds the account to Token-2022 so a legacy
+                        // Token account pasted into the same slot is
+                        // rejected before any byte-level check runs.
+                        let expr: Expr = meta.value()?.parse()?;
+                        result.token_token_program = Some(expr);
+                        Ok(())
+                    }
+                    ("mint", "authority") => {
+                        let expr: Expr = meta.value()?.parse()?;
+                        result.mint_authority = Some(expr);
+                        Ok(())
+                    }
+                    ("mint", "decimals") => {
+                        let expr: Expr = meta.value()?.parse()?;
+                        result.mint_decimals = Some(expr);
+                        Ok(())
+                    }
+                    ("mint", "freeze_authority") => {
+                        let expr: Expr = meta.value()?.parse()?;
+                        result.mint_freeze_authority = Some(expr);
+                        Ok(())
+                    }
+                    ("mint", "token_program") => {
+                        // Mint-axis twin of `token::token_program`. Lets
+                        // a program assert that a Mint account is owned
+                        // by Token-2022 (or any specific program) before
+                        // trusting its layout bytes.
+                        let expr: Expr = meta.value()?.parse()?;
+                        result.mint_token_program = Some(expr);
+                        Ok(())
+                    }
+                    ("associated_token", "mint") => {
+                        let expr: Expr = meta.value()?.parse()?;
+                        result.associated_token_mint = Some(expr);
+                        Ok(())
+                    }
+                    ("associated_token", "authority") => {
+                        let expr: Expr = meta.value()?.parse()?;
+                        result.associated_token_authority = Some(expr);
+                        Ok(())
+                    }
+                    ("associated_token", "token_program") => {
+                        let expr: Expr = meta.value()?.parse()?;
+                        result.associated_token_token_program = Some(expr);
+                        Ok(())
+                    }
+                    ("seeds", "program") => {
+                        let expr: Expr = meta.value()?.parse()?;
+                        result.seeds_program = Some(expr);
+                        Ok(())
+                    }
+                    // Token-2022 extension constraints. Three-segment
+                    // paths (extensions::foo::bar) are routed via the
+                    // fall-through below; two-segment `extensions::foo`
+                    // flags (non_transferable, immutable_owner) hit here.
+                    ("extensions", "non_transferable") => {
+                        result.ext_non_transferable = true;
+                        Ok(())
+                    }
+                    ("extensions", "immutable_owner") => {
+                        result.ext_immutable_owner = true;
+                        Ok(())
+                    }
+                    _ => Err(meta.error(format!(
+                        "unrecognized nested account attribute `{ns}::{key}`. \
+                         accepted namespaces: token::{{mint,authority,token_program}}, \
+                         mint::{{authority,decimals,freeze_authority,token_program}}, \
+                         associated_token::{{mint,authority,token_program}}, \
+                         seeds::{{program}}",
+                    ))),
+                };
+            }
+
             let ident = meta.path.get_ident().cloned();
             let name = ident.as_ref().map(|i| i.to_string()).unwrap_or_default();
 
@@ -1239,6 +2402,16 @@ fn parse_account_attr(attrs: &[Attribute]) -> Result<AccountAttr> {
                     result.seeds = Some(items.into_iter().collect());
                     Ok(())
                 }
+                "seeds_fn" => {
+                    // `seeds_fn = Type::seeds(&arg1, &arg2)`
+                    // One expression evaluating to a slice-of-byte-slices
+                    // (or anything that coerces to `&[&[u8]]`). The
+                    // type author owns the seed layout; every context
+                    // reuses it.
+                    let expr: Expr = meta.value()?.parse()?;
+                    result.seeds_fn = Some(expr);
+                    Ok(())
+                }
                 "bump" => {
                     // `bump` (inferred) or `bump = stored_expr`.
                     if meta.input.peek(Token![=]) {
@@ -1252,6 +2425,22 @@ fn parse_account_attr(attrs: &[Attribute]) -> Result<AccountAttr> {
                 "has_one" => {
                     let ident: Ident = meta.value()?.parse()?;
                     result.has_one.push(ident);
+                    Ok(())
+                }
+                "dup" => {
+                    let ident: Ident = meta.value()?.parse()?;
+                    if result.dup.is_some() {
+                        return Err(meta.error("`dup` may only be set once per field"));
+                    }
+                    result.dup = Some(ident);
+                    Ok(())
+                }
+                "sweep" => {
+                    let ident: Ident = meta.value()?.parse()?;
+                    if result.sweep.is_some() {
+                        return Err(meta.error("`sweep` may only be set once per field"));
+                    }
+                    result.sweep = Some(ident);
                     Ok(())
                 }
                 "owner" => {
@@ -1327,6 +2516,48 @@ fn validate_account_attr(field_name: &Ident, attr: &AccountAttr) -> Result<()> {
         return Err(syn::Error::new_spanned(
             field_name,
             "#[account(seeds = ...)] requires `bump` (or `bump = <stored_byte>`)",
+        ));
+    }
+    // `seeds::program = X` only makes sense when `seeds = [...]` is
+    // declared. otherwise there's no PDA derivation to redirect.
+    if attr.seeds_program.is_some() && attr.seeds.is_none() {
+        return Err(syn::Error::new_spanned(
+            field_name,
+            "#[account(seeds::program = ...)] requires `seeds = [...]`",
+        ));
+    }
+    // Associated-token pair coherence. the mint/authority inputs are
+    // joint input to the ATA PDA derivation and declaring just one
+    // would produce an ATA derivation with a missing dimension.
+    // Rather than silently skip the check, we raise a compile error
+    // pointing at the field with an actionable message.
+    match (
+        attr.associated_token_mint.is_some(),
+        attr.associated_token_authority.is_some(),
+    ) {
+        (true, false) => {
+            return Err(syn::Error::new_spanned(
+                field_name,
+                "#[account(associated_token::mint = ...)] also requires `associated_token::authority = ...`",
+            ));
+        }
+        (false, true) => {
+            return Err(syn::Error::new_spanned(
+                field_name,
+                "#[account(associated_token::authority = ...)] also requires `associated_token::mint = ...`",
+            ));
+        }
+        _ => {}
+    }
+    // `associated_token::token_program` only has meaning alongside
+    // the derivation pair. on its own it configures nothing.
+    if attr.associated_token_token_program.is_some()
+        && attr.associated_token_mint.is_none()
+        && attr.associated_token_authority.is_none()
+    {
+        return Err(syn::Error::new_spanned(
+            field_name,
+            "#[account(associated_token::token_program = ...)] requires `associated_token::mint = ...` and `associated_token::authority = ...`",
         ));
     }
     Ok(())
@@ -1442,4 +2673,135 @@ fn to_screaming_snake(s: &str) -> String {
         result.push(c.to_ascii_uppercase());
     }
     result
+}
+
+// -----------------------------------------------------------------------------
+// Regression tests
+// -----------------------------------------------------------------------------
+//
+// The proc-macro expansion path itself is best exercised through a
+// downstream trybuild suite (see `tests/context/ui/*.rs`). These unit
+// tests target the pure-function helpers that don't require spawning
+// a fresh `rustc` invocation. `parse_instruction_attr` is one of the
+// more fragile pieces because it combines attribute-walking with a
+// hand-rolled `Parse` impl for `name: Type` pairs, so it gets the
+// lion's share of coverage here.
+#[cfg(test)]
+mod instruction_arg_tests {
+    use super::*;
+    use quote::ToTokens;
+    use syn::{parse_quote, ItemStruct};
+
+    fn args_of(mut s: ItemStruct) -> Vec<(String, String)> {
+        let decls = parse_instruction_attr(&mut s.attrs).expect("parse ok");
+        decls
+            .into_iter()
+            .map(|a| (a.name.to_string(), a.ty.to_token_stream().to_string()))
+            .collect()
+    }
+
+    #[test]
+    fn parses_single_primitive_arg() {
+        let input: ItemStruct = parse_quote! {
+            #[instruction(amount: u64)]
+            pub struct Swap {}
+        };
+        let out = args_of(input);
+        assert_eq!(out, vec![("amount".into(), "u64".into())]);
+    }
+
+    #[test]
+    fn parses_multiple_args_including_array() {
+        let input: ItemStruct = parse_quote! {
+            #[instruction(nonce: u64, memo: [u8; 32], kind: u8)]
+            pub struct Swap {}
+        };
+        let out = args_of(input);
+        // We verify count + names + scalar types exactly. the array
+        // type's stringified form is quote-spacing-dependent, so for
+        // that one we just check that both `u8` and `32` appear in
+        // the rendered token stream.
+        assert_eq!(out.len(), 3);
+        assert_eq!(out[0].0, "nonce");
+        assert_eq!(out[1].0, "memo");
+        assert_eq!(out[2].0, "kind");
+        assert_eq!(out[0].1, "u64");
+        assert!(out[1].1.contains("u8"));
+        assert!(out[1].1.contains("32"));
+        assert_eq!(out[2].1, "u8");
+    }
+
+    #[test]
+    fn rejects_duplicate_arg_names() {
+        let mut input: ItemStruct = parse_quote! {
+            #[instruction(amount: u64, amount: u128)]
+            pub struct Swap {}
+        };
+        let err = parse_instruction_attr(&mut input.attrs).expect_err("expected error");
+        let msg = err.to_string();
+        assert!(msg.contains("duplicate"), "got: {msg}");
+        assert!(msg.contains("amount"), "got: {msg}");
+    }
+
+    #[test]
+    fn rejects_multiple_instruction_attributes() {
+        let mut input: ItemStruct = parse_quote! {
+            #[instruction(amount: u64)]
+            #[instruction(extra: u8)]
+            pub struct Swap {}
+        };
+        let err = parse_instruction_attr(&mut input.attrs).expect_err("expected error");
+        let msg = err.to_string();
+        assert!(msg.contains("at most one"), "got: {msg}");
+    }
+
+    #[test]
+    fn empty_on_struct_without_instruction_attr() {
+        let input: ItemStruct = parse_quote! {
+            pub struct NoArgs {}
+        };
+        let out = args_of(input);
+        assert!(out.is_empty());
+    }
+
+    #[test]
+    fn strips_attribute_in_place() {
+        let mut input: ItemStruct = parse_quote! {
+            #[instruction(nonce: u64)]
+            #[derive(Clone)]
+            pub struct Keep {}
+        };
+        let _ = parse_instruction_attr(&mut input.attrs).expect("parse ok");
+        // After parsing, the #[instruction(...)] attr is removed but
+        // other outer attributes (#[derive(Clone)], etc.) are kept. // the emitted struct therefore retains whatever derives the
+        // user declared.
+        assert!(
+            input
+                .attrs
+                .iter()
+                .all(|a| !a.path().is_ident("instruction")),
+            "instruction attr was not stripped"
+        );
+        assert!(
+            input.attrs.iter().any(|a| a.path().is_ident("derive")),
+            "non-instruction attrs must be preserved"
+        );
+    }
+
+    #[test]
+    fn rejects_positional_form() {
+        // `#[instruction(u64)]` (positional, no name) is rejected because
+        // seed / constraint expressions need a named binding to refer
+        // to. Anchor accepts the positional form but the generated
+        // code is harder to read and impossible to regenerate
+        // consistently for client tooling.
+        let mut input: ItemStruct = parse_quote! {
+            #[instruction(u64)]
+            pub struct Bad {}
+        };
+        let err = parse_instruction_attr(&mut input.attrs).expect_err("expected error");
+        // The underlying syn error comes from the `:` parser failing
+        // once it consumes the type without finding a colon.
+        let _ = err;
+    }
 }

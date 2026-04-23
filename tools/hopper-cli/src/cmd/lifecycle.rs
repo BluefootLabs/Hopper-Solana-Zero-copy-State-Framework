@@ -103,7 +103,7 @@ pub fn cmd_build(args: &[String]) {
     });
 
     let mut use_host = false;
-    let mut cargo_args = Vec::new();
+    let mut cargo_args: Vec<String> = Vec::new();
     for arg in args {
         if arg == "--host" {
             use_host = true;
@@ -113,18 +113,30 @@ pub fn cmd_build(args: &[String]) {
             cargo_args.push(arg.clone());
         }
     }
+    let watch_mode = crate::cmd::watch::extract_watch_flag(&mut cargo_args);
 
-    if use_host {
-        let mut command_args = vec!["build".to_string()];
-        command_args.extend(cargo_args);
-        run_cargo_command(&project_root, &command_args);
+    let run_once = {
+        let project_root = project_root.clone();
+        let workspace_root = workspace_root.clone();
+        let cargo_args = cargo_args.clone();
+        move || {
+            if use_host {
+                let mut command_args = vec!["build".to_string()];
+                command_args.extend(cargo_args.iter().cloned());
+                run_cargo_command(&project_root, &command_args);
+            } else {
+                match normalize_sbf_build_args(&project_root, &workspace_root, &cargo_args) {
+                    Ok(command_args) => run_cargo_command(&workspace_root, &command_args),
+                    Err(err) => eprintln!("hopper build failed: {err}"),
+                }
+            }
+        }
+    };
+
+    if watch_mode {
+        crate::cmd::watch::watch(&project_root, run_once);
     } else {
-        let command_args = normalize_sbf_build_args(&project_root, &workspace_root, &cargo_args)
-            .unwrap_or_else(|err| {
-                eprintln!("hopper build failed: {err}");
-                process::exit(1);
-            });
-        run_cargo_command(&workspace_root, &command_args);
+        run_once();
     }
 }
 
@@ -143,9 +155,24 @@ pub fn cmd_test(args: &[String]) {
         process::exit(1);
     });
 
-    let mut command_args = vec!["test".to_string()];
-    command_args.extend(args.iter().cloned());
-    run_cargo_command(&project_root, &command_args);
+    let mut passthrough: Vec<String> = args.iter().cloned().collect();
+    let watch_mode = crate::cmd::watch::extract_watch_flag(&mut passthrough);
+
+    let run_once = {
+        let project_root = project_root.clone();
+        let passthrough = passthrough.clone();
+        move || {
+            let mut command_args = vec!["test".to_string()];
+            command_args.extend(passthrough.iter().cloned());
+            run_cargo_command(&project_root, &command_args);
+        }
+    };
+
+    if watch_mode {
+        crate::cmd::watch::watch(&project_root, run_once);
+    } else {
+        run_once();
+    }
 }
 
 pub fn cmd_deploy(args: &[String]) {
