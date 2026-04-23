@@ -128,10 +128,10 @@ impl Default for HopperProgramPolicy {
 
 /// Per-instruction policy override.
 ///
-/// The `#[instruction(N, unsafe_memory, skip_token_checks)]`
+/// The `#[instruction(N, unsafe_memory, skip_token_checks, ctx_args = K)]`
 /// attribute emits `pub const <HANDLER>_POLICY: HopperInstructionPolicy = ...;`
-/// alongside the handler. Both fields default to the inherit-from-program
-/// behaviour (`false`) so handlers without overrides get the program
+/// alongside the handler. All fields default to the inherit-from-program
+/// behaviour (`false` / `0`) so handlers without overrides get the program
 /// policy unchanged.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct HopperInstructionPolicy {
@@ -144,6 +144,17 @@ pub struct HopperInstructionPolicy {
     /// The handler still compiles, but authors must document why the
     /// token invariants are upheld through some other mechanism.
     pub skip_token_checks: bool,
+
+    /// Count of leading instruction args the dispatcher threads to the
+    /// typed context's `bind_with_args(...)`. `0` means the context
+    /// (if any) is bound via `bind(ctx)?` and no args participate in
+    /// constraint evaluation. which is the legacy shape and matches
+    /// Anchor's non-`#[instruction]` accounts struct. When a context
+    /// was declared with `#[instruction(name: Type, ...)]`, the handler
+    /// must set `ctx_args` ≥ the number of declared args so that every
+    /// arg referenced by a seed / constraint resolves to a real typed
+    /// binding inside `bind_with_args`.
+    pub ctx_args: u8,
 }
 
 impl HopperInstructionPolicy {
@@ -151,6 +162,7 @@ impl HopperInstructionPolicy {
     pub const INHERIT: Self = Self {
         unsafe_memory: false,
         skip_token_checks: false,
+        ctx_args: 0,
     };
 }
 
@@ -189,6 +201,18 @@ mod tests {
     fn instruction_inherit_zeroes_every_lever() {
         assert!(!HopperInstructionPolicy::INHERIT.unsafe_memory);
         assert!(!HopperInstructionPolicy::INHERIT.skip_token_checks);
+        assert_eq!(HopperInstructionPolicy::INHERIT.ctx_args, 0);
         assert_eq!(HopperInstructionPolicy::default(), HopperInstructionPolicy::INHERIT);
+    }
+
+    #[test]
+    fn instruction_ctx_args_round_trips() {
+        let p = HopperInstructionPolicy {
+            unsafe_memory: false,
+            skip_token_checks: false,
+            ctx_args: 3,
+        };
+        assert_eq!(p.ctx_args, 3);
+        assert_ne!(p, HopperInstructionPolicy::INHERIT);
     }
 }

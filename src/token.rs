@@ -85,6 +85,175 @@ pub fn require_token_authority(
     }
 }
 
+/// Verify an SPL Token account's `owner` field matches a pubkey
+/// supplied directly (i.e. not wrapped in an `AccountView`).
+///
+/// This is the sibling of [`require_token_authority`], differing only
+/// in its argument shape: it takes `&Address` rather than
+/// `&AccountView` for the expected authority. The declarative
+/// `#[account(token::authority = X)]` attribute lowers to this form
+/// because the user's expression might resolve to a constant address,
+/// a cached field, or another account's key. all of which are
+/// `&Address` by the time the check runs, none of them necessarily
+/// wrapped in an `AccountView`.
+#[inline]
+pub fn require_token_owner_eq(
+    token_account: &AccountView,
+    expected_owner: &Address,
+) -> ProgramResult {
+    let data = token_account
+        .try_borrow()
+        .map_err(|_| ProgramError::AccountBorrowFailed)?;
+    if data.len() < 64 {
+        return Err(ProgramError::AccountDataTooSmall);
+    }
+    let mut actual = [0u8; 32];
+    actual.copy_from_slice(&data[32..64]);
+    if actual == *expected_owner.as_array() {
+        Ok(())
+    } else {
+        Err(ProgramError::IncorrectAuthority)
+    }
+}
+
+/// Verify an SPL Token account's `mint` field matches `expected_mint`.
+///
+/// SPL TokenAccount layout: bytes `[0..32]` are the `mint` pubkey.
+/// Token-2022 extensions never shift the base-layout prefix. the
+/// TLV extensions live past byte 165 behind the account-type
+/// discriminator, so reading bytes 0..32 is valid for both Token
+/// and Token-2022 accounts.
+///
+/// This is the precondition behind Hopper's `#[account(token::mint = X)]`
+/// attribute. It surfaces a Hopper-branded `InvalidAccountData` error
+/// before any downstream CPI runs, so a user-visible failure clearly
+/// points at "wrong mint" rather than an opaque SPL token error.
+///
+/// ## Innovation over Anchor
+///
+/// Anchor's `token::mint = X` is checked by deserializing the full
+/// `TokenAccount` struct via `anchor_spl`, which pulls in the anchor-spl
+/// crate and costs compute on every check. Hopper's version reads the
+/// exact 32 bytes of interest directly from the already-borrowed data
+/// buffer. zero extra crate dependencies, no full-struct deserialize,
+/// and the check is trivially inlinable.
+#[inline]
+pub fn require_token_mint(
+    token_account: &AccountView,
+    expected_mint: &Address,
+) -> ProgramResult {
+    let data = token_account
+        .try_borrow()
+        .map_err(|_| ProgramError::AccountBorrowFailed)?;
+    if data.len() < 32 {
+        return Err(ProgramError::AccountDataTooSmall);
+    }
+    let actual: [u8; 32] = {
+        let mut out = [0u8; 32];
+        out.copy_from_slice(&data[0..32]);
+        out
+    };
+    if actual == *expected_mint.as_array() {
+        Ok(())
+    } else {
+        Err(ProgramError::InvalidAccountData)
+    }
+}
+
+/// Verify an SPL Mint account's `mint_authority` COption field
+/// matches `expected_authority`.
+///
+/// SPL Mint layout (82 bytes total):
+/// - [0..4]   COption tag for mint_authority (u32 LE; 0 = None, 1 = Some)
+/// - [4..36]  mint_authority pubkey (only meaningful when tag == 1)
+/// - [36..44] supply (u64 LE)
+/// - [44]     decimals
+/// - [45]     is_initialized
+/// - [46..50] COption tag for freeze_authority
+/// - [50..82] freeze_authority pubkey
+///
+/// Behavior: if the tag says `None`, the check fails with
+/// `InvalidAccountData` (the caller asked for a specific authority
+/// but the mint has none). If the tag says `Some` and the stored
+/// pubkey does not match, the check fails with `IncorrectAuthority`.
+/// Separating the two error codes lets callers tell "no authority at
+/// all" apart from "wrong authority".
+#[inline]
+pub fn require_mint_authority(
+    mint_account: &AccountView,
+    expected_authority: &Address,
+) -> ProgramResult {
+    let data = mint_account
+        .try_borrow()
+        .map_err(|_| ProgramError::AccountBorrowFailed)?;
+    if data.len() < 46 {
+        return Err(ProgramError::AccountDataTooSmall);
+    }
+    let tag = u32::from_le_bytes([data[0], data[1], data[2], data[3]]);
+    if tag != 1 {
+        // Tag value 0 = None; any other non-one value is malformed.
+        return Err(ProgramError::InvalidAccountData);
+    }
+    let mut actual = [0u8; 32];
+    actual.copy_from_slice(&data[4..36]);
+    if actual == *expected_authority.as_array() {
+        Ok(())
+    } else {
+        Err(ProgramError::IncorrectAuthority)
+    }
+}
+
+/// Verify an SPL Mint account's `decimals` byte matches `expected`.
+///
+/// Reads byte 44 of the Mint layout. Pairs with `require_mint_authority`
+/// to express the full `#[account(mint::authority = X, mint::decimals = N)]`
+/// Anchor-compat syntax with zero additional crate dependencies.
+#[inline]
+pub fn require_mint_decimals(mint_account: &AccountView, expected: u8) -> ProgramResult {
+    let data = mint_account
+        .try_borrow()
+        .map_err(|_| ProgramError::AccountBorrowFailed)?;
+    if data.len() < 45 {
+        return Err(ProgramError::AccountDataTooSmall);
+    }
+    if data[44] == expected {
+        Ok(())
+    } else {
+        Err(ProgramError::InvalidAccountData)
+    }
+}
+
+/// Verify an SPL Mint account's `freeze_authority` COption field
+/// matches `expected_freeze`.
+///
+/// Same shape as [`require_mint_authority`] but reads the second
+/// COption (bytes 46..50 for tag, 50..82 for pubkey). Exposed so the
+/// macro surface can support a future `mint::freeze_authority = X`
+/// constraint without another runtime change.
+#[inline]
+pub fn require_mint_freeze_authority(
+    mint_account: &AccountView,
+    expected_freeze: &Address,
+) -> ProgramResult {
+    let data = mint_account
+        .try_borrow()
+        .map_err(|_| ProgramError::AccountBorrowFailed)?;
+    if data.len() < 82 {
+        return Err(ProgramError::AccountDataTooSmall);
+    }
+    let tag = u32::from_le_bytes([data[46], data[47], data[48], data[49]]);
+    if tag != 1 {
+        return Err(ProgramError::InvalidAccountData);
+    }
+    let mut actual = [0u8; 32];
+    actual.copy_from_slice(&data[50..82]);
+    if actual == *expected_freeze.as_array() {
+        Ok(())
+    } else {
+        Err(ProgramError::IncorrectAuthority)
+    }
+}
+
 // ── Transfer ─────────────────────────────────────────────────────────
 
 /// Builder for SPL Token Transfer (instruction index 3).
@@ -907,5 +1076,164 @@ mod tests {
         let (_ab, _, _, auth) = make_token_and_authority([0x11; 32], [0x11; 32]);
         let err = require_token_authority(&token, &auth).unwrap_err();
         assert!(matches!(err, ProgramError::AccountDataTooSmall));
+    }
+
+    // ── New Anchor-parity helpers (require_token_mint / require_mint_*) ──
+    //
+    // These lock in the behavior that `#[account(token::mint = X)]`,
+    // `#[account(mint::authority = Y)]`, and friends lower to. They
+    // share the same harness as require_token_authority above, but
+    // exercise different byte ranges of the account buffer.
+
+    /// Construct a valid SPL TokenAccount-shaped buffer (165 bytes)
+    /// with both `mint` (bytes 0..32) and `owner` (bytes 32..64)
+    /// populated to the caller's choice. Used by the token_mint /
+    /// token_owner_eq regression tests.
+    fn make_token_with_mint_and_owner(
+        mint_bytes: [u8; 32],
+        owner_bytes: [u8; 32],
+    ) -> (std::vec::Vec<u8>, crate::account::AccountView) {
+        use hopper_native::{AccountView as NativeAccountView, Address as NativeAddress, RuntimeAccount, NOT_BORROWED};
+
+        let token_data_len = 165;
+        let mut backing = std::vec![0u8; RuntimeAccount::SIZE + token_data_len];
+        let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
+        unsafe {
+            raw.write(RuntimeAccount {
+                borrow_state: NOT_BORROWED,
+                is_signer: 0,
+                is_writable: 1,
+                executable: 0,
+                resize_delta: 0,
+                address: NativeAddress::new_from_array([0xAA; 32]),
+                owner: NativeAddress::new_from_array([3; 32]),
+                lamports: 2_039_280,
+                data_len: token_data_len as u64,
+            });
+            let data_ptr = (raw as *mut u8).add(RuntimeAccount::SIZE);
+            core::ptr::copy_nonoverlapping(mint_bytes.as_ptr(), data_ptr, 32);
+            core::ptr::copy_nonoverlapping(owner_bytes.as_ptr(), data_ptr.add(32), 32);
+        }
+        let backend = unsafe { NativeAccountView::new_unchecked(raw) };
+        let view = crate::account::AccountView::from_backend(backend);
+        (backing, view)
+    }
+
+    /// Construct a valid SPL Mint-shaped buffer (82 bytes), with the
+    /// mint_authority COption set to Some(auth), decimals populated,
+    /// and the freeze_authority COption left empty (None).
+    fn make_mint_with_authority_decimals(
+        mint_authority: [u8; 32],
+        decimals: u8,
+    ) -> (std::vec::Vec<u8>, crate::account::AccountView) {
+        use hopper_native::{AccountView as NativeAccountView, Address as NativeAddress, RuntimeAccount, NOT_BORROWED};
+
+        let mint_data_len = 82;
+        let mut backing = std::vec![0u8; RuntimeAccount::SIZE + mint_data_len];
+        let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
+        unsafe {
+            raw.write(RuntimeAccount {
+                borrow_state: NOT_BORROWED,
+                is_signer: 0,
+                is_writable: 0,
+                executable: 0,
+                resize_delta: 0,
+                address: NativeAddress::new_from_array([0xBB; 32]),
+                owner: NativeAddress::new_from_array([3; 32]),
+                lamports: 1_461_600,
+                data_len: mint_data_len as u64,
+            });
+            let data_ptr = (raw as *mut u8).add(RuntimeAccount::SIZE);
+            // mint_authority COption tag = Some (u32 LE = 1).
+            let some_tag: [u8; 4] = 1u32.to_le_bytes();
+            core::ptr::copy_nonoverlapping(some_tag.as_ptr(), data_ptr, 4);
+            core::ptr::copy_nonoverlapping(mint_authority.as_ptr(), data_ptr.add(4), 32);
+            // Supply bytes [36..44] stay zero.
+            // Decimals at byte 44.
+            *data_ptr.add(44) = decimals;
+            // is_initialized byte 45 = 1.
+            *data_ptr.add(45) = 1;
+            // freeze_authority COption tag = None (bytes 46..50 stay zero).
+        }
+        let backend = unsafe { NativeAccountView::new_unchecked(raw) };
+        let view = crate::account::AccountView::from_backend(backend);
+        (backing, view)
+    }
+
+    #[test]
+    fn require_token_mint_accepts_matching_mint() {
+        let mint = [0xABu8; 32];
+        let (_b, view) = make_token_with_mint_and_owner(mint, [0; 32]);
+        let expected = crate::address::Address::new_from_array(mint);
+        require_token_mint(&view, &expected).unwrap();
+    }
+
+    #[test]
+    fn require_token_mint_rejects_mismatched_mint() {
+        let mint = [0xABu8; 32];
+        let (_b, view) = make_token_with_mint_and_owner(mint, [0; 32]);
+        let wrong = crate::address::Address::new_from_array([0xCDu8; 32]);
+        let err = require_token_mint(&view, &wrong).unwrap_err();
+        assert!(matches!(err, ProgramError::InvalidAccountData));
+    }
+
+    #[test]
+    fn require_token_owner_eq_matches() {
+        let owner = [0x77u8; 32];
+        let (_b, view) = make_token_with_mint_and_owner([0; 32], owner);
+        let expected = crate::address::Address::new_from_array(owner);
+        require_token_owner_eq(&view, &expected).unwrap();
+    }
+
+    #[test]
+    fn require_token_owner_eq_rejects_mismatch() {
+        let owner = [0x77u8; 32];
+        let (_b, view) = make_token_with_mint_and_owner([0; 32], owner);
+        let wrong = crate::address::Address::new_from_array([0x88u8; 32]);
+        let err = require_token_owner_eq(&view, &wrong).unwrap_err();
+        assert!(matches!(err, ProgramError::IncorrectAuthority));
+    }
+
+    #[test]
+    fn require_mint_authority_accepts_matching() {
+        let auth = [0x99u8; 32];
+        let (_b, view) = make_mint_with_authority_decimals(auth, 6);
+        let expected = crate::address::Address::new_from_array(auth);
+        require_mint_authority(&view, &expected).unwrap();
+    }
+
+    #[test]
+    fn require_mint_authority_rejects_mismatched() {
+        let auth = [0x99u8; 32];
+        let (_b, view) = make_mint_with_authority_decimals(auth, 6);
+        let wrong = crate::address::Address::new_from_array([0x00u8; 32]);
+        let err = require_mint_authority(&view, &wrong).unwrap_err();
+        assert!(matches!(err, ProgramError::IncorrectAuthority));
+    }
+
+    #[test]
+    fn require_mint_decimals_matches() {
+        let (_b, view) = make_mint_with_authority_decimals([1u8; 32], 9);
+        require_mint_decimals(&view, 9).unwrap();
+    }
+
+    #[test]
+    fn require_mint_decimals_rejects_mismatch() {
+        let (_b, view) = make_mint_with_authority_decimals([1u8; 32], 9);
+        let err = require_mint_decimals(&view, 6).unwrap_err();
+        assert!(matches!(err, ProgramError::InvalidAccountData));
+    }
+
+    #[test]
+    fn require_mint_freeze_authority_rejects_none_tag() {
+        // `make_mint_with_authority_decimals` deliberately leaves
+        // freeze_authority as None. asking for a specific freeze
+        // authority on such a mint must fail with InvalidAccountData
+        // (not IncorrectAuthority, because the tag is the problem
+        // rather than the pubkey bytes).
+        let (_b, view) = make_mint_with_authority_decimals([1u8; 32], 9);
+        let expected = crate::address::Address::new_from_array([2u8; 32]);
+        let err = require_mint_freeze_authority(&view, &expected).unwrap_err();
+        assert!(matches!(err, ProgramError::InvalidAccountData));
     }
 }
