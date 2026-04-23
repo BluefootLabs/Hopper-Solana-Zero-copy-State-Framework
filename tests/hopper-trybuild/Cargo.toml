@@ -1,0 +1,13 @@
+[package]
+name = "hopper-trybuild"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[[test]]
+name = "trybuild"
+path = "tests/trybuild.rs"
+
+[dev-dependencies]
+trybuild = "1.0"
+hopper = { path = "../.." }

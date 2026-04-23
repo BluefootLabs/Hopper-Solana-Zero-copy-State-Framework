@@ -50,7 +50,10 @@ pub use hopper_core::account::segment_role::{
     SEG_ROLE_INDEX, SEG_ROLE_CACHE, SEG_ROLE_AUDIT, SEG_ROLE_SHARD,
 };
 #[cfg(feature = "receipt")]
-pub use hopper_core::receipt::{StateReceipt, RECEIPT_SIZE};
+pub use hopper_core::receipt::{
+    StateReceipt, FailureStage, FAILED_INVARIANT_NONE, RECEIPT_SIZE,
+    RECEIPT_SIZE_LEGACY,
+};
 #[cfg(feature = "policy")]
 pub use hopper_core::policy::{
     Capability, CapabilitySet, PolicyRequirement, RequirementSet,

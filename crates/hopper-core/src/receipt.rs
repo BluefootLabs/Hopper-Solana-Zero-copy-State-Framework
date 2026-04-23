@@ -113,6 +113,25 @@ pub struct StateReceipt<const SNAP_SIZE: usize> {
     pub cpi_invoked: bool,
     /// Whether the receipt has been committed (post-mutation data provided).
     committed: bool,
+    /// Whether execution hit a failure path.
+    ///
+    /// When `true`, `failed_error_code`, `failed_invariant_idx`, and
+    /// `failure_stage` identify the failing check. This closes the
+    /// provable-safety chain: a receipt that escapes the program
+    /// carries enough information for the off-chain SDK to render
+    /// "Invariant `balance_nonzero` failed" instead of an opaque hex code.
+    pub had_failure: bool,
+    /// User error code that aborted execution (e.g. `VaultError::InsufficientBalance as u32`).
+    ///
+    /// `0` when `had_failure` is `false`.
+    pub failed_error_code: u32,
+    /// Index into the program's `INVARIANT_TABLE` for the failing invariant.
+    ///
+    /// `0xFF` means "no invariant was the cause". the failure happened
+    /// outside an invariant check (e.g. a constraint guard).
+    pub failed_invariant_idx: u8,
+    /// Stage at which the failure occurred. See [`FailureStage`].
+    pub failure_stage: u8,
     /// FNV-1a fingerprint of the data before mutation.
     pub before_fingerprint: [u8; 8],
     /// FNV-1a fingerprint of the data after mutation (set on commit).
@@ -134,6 +153,60 @@ pub struct StateReceipt<const SNAP_SIZE: usize> {
     /// Migration flags (bit 0 = triggered, bit 1 = realloc, bit 2 = schema bump).
     pub migration_flags: u8,
 }
+
+/// Stage of instruction execution at which a failure was recorded.
+///
+/// Surfaced in `StateReceipt::failure_stage` so operators can tell
+/// whether an error fired before any mutation, during a mutation's
+/// invariant check, after a successful mutation, or during teardown.
+/// Combined with `failed_error_code` this lets the SDK pinpoint
+/// exactly where in the instruction lifecycle the failure happened.
+#[repr(u8)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FailureStage {
+    /// No failure (receipt committed cleanly).
+    None = 0,
+    /// Failed during account/context validation (pre-handler).
+    Validation = 1,
+    /// Failed inside the instruction handler before any invariant.
+    Handler = 2,
+    /// Failed inside an invariant check.
+    Invariant = 3,
+    /// Failed during the post-handler receipt commit/emit path.
+    Post = 4,
+    /// Failed inside a close guard / teardown routine.
+    Teardown = 5,
+}
+
+impl FailureStage {
+    #[inline(always)]
+    pub fn from_tag(tag: u8) -> Self {
+        match tag {
+            1 => Self::Validation,
+            2 => Self::Handler,
+            3 => Self::Invariant,
+            4 => Self::Post,
+            5 => Self::Teardown,
+            _ => Self::None,
+        }
+    }
+
+    #[inline(always)]
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::None => "none",
+            Self::Validation => "validation",
+            Self::Handler => "handler",
+            Self::Invariant => "invariant",
+            Self::Post => "post",
+            Self::Teardown => "teardown",
+        }
+    }
+}
+
+/// Sentinel value for `failed_invariant_idx` meaning "no invariant
+/// was associated with the failure".
+pub const FAILED_INVARIANT_NONE: u8 = 0xFF;
 
 /// Instruction execution phase encoded in a receipt.
 #[repr(u8)]
@@ -234,6 +307,10 @@ impl<const SNAP_SIZE: usize> StateReceipt<SNAP_SIZE> {
             invariants_checked: 0,
             cpi_invoked: false,
             committed: false,
+            had_failure: false,
+            failed_error_code: 0,
+            failed_invariant_idx: FAILED_INVARIANT_NONE,
+            failure_stage: FailureStage::None as u8,
             before_fingerprint: fast_fingerprint(data),
             after_fingerprint: [0; 8],
             segment_changed_mask: 0,
@@ -384,6 +461,37 @@ impl<const SNAP_SIZE: usize> StateReceipt<SNAP_SIZE> {
         self.migration_flags = flags;
     }
 
+    /// Record a failing error code, its associated invariant index (if any),
+    /// and the stage at which the failure occurred.
+    ///
+    /// This is the hook that closes the invariant-error chain: when an
+    /// instruction aborts, the program writes the *actual* user error
+    /// code (from the `#[hopper::error]`-derived enum) and the invariant
+    /// index (from `INVARIANT_TABLE`) into the receipt before emitting
+    /// it. The off-chain SDK can then map the code back to a variant name
+    /// and the idx to an invariant label without ever guessing.
+    ///
+    /// Pass `FAILED_INVARIANT_NONE` for `invariant_idx` when the failure
+    /// did not come from an invariant check (for example a constraint
+    /// guard or an account validation failure).
+    #[inline]
+    pub fn set_failure(&mut self, code: u32, invariant_idx: u8, stage: FailureStage) {
+        self.had_failure = true;
+        self.failed_error_code = code;
+        self.failed_invariant_idx = invariant_idx;
+        self.failure_stage = stage as u8;
+        // A recorded failure implies invariants did not all pass, but we
+        // don't touch `invariants_checked`. the caller still gets to
+        // report how many were evaluated before the abort.
+        self.invariants_passed = false;
+    }
+
+    /// Convenience: record a failure caused by a specific invariant index.
+    #[inline]
+    pub fn set_invariant_failure(&mut self, code: u32, invariant_idx: u8) {
+        self.set_failure(code, invariant_idx, FailureStage::Invariant);
+    }
+
     /// Whether the receipt has been committed.
     #[inline(always)]
     pub fn is_committed(&self) -> bool {
@@ -404,7 +512,7 @@ impl<const SNAP_SIZE: usize> StateReceipt<SNAP_SIZE> {
 
     /// Serialize the receipt summary into a fixed-size byte array.
     ///
-    /// Wire format (64 bytes):
+    /// Wire format (72 bytes, 8-byte aligned):
     /// ```text
     /// [layout_id: 8 bytes]                  //  0.. 8
     /// [changed_fields: 8 bytes (u64 LE)]    //  8..16
@@ -418,6 +526,7 @@ impl<const SNAP_SIZE: usize> StateReceipt<SNAP_SIZE> {
     ///   bit 1: invariants_passed
     ///   bit 2: cpi_invoked
     ///   bit 3: committed
+    ///   bit 4: had_failure
     /// [before_fingerprint: 8 bytes]         // 33..41
     /// [after_fingerprint: 8 bytes]          // 41..49
     /// [segment_changed_mask: 2 bytes (u16)] // 49..51
@@ -428,8 +537,16 @@ impl<const SNAP_SIZE: usize> StateReceipt<SNAP_SIZE> {
     /// [validation_bundle_id: 2 bytes (u16)]   // 59..61
     /// [compat_impact: 1 byte]                 // 61
     /// [migration_flags: 1 byte]               // 62
-    /// [_reserved: 1 byte]                     // 63
+    /// [failed_invariant_idx: 1 byte]          // 63   (0xFF = none)
+    /// [failed_error_code: 4 bytes (u32 LE)]   // 64..68 (0 = none)
+    /// [failure_stage: 1 byte]                 // 68   (see FailureStage)
+    /// [_reserved: 3 bytes]                    // 69..72 (future)
     /// ```
+    ///
+    /// Pre-0.2 decoders that stopped at byte 64 still read correctly:
+    /// the first 64 bytes carry exactly the same fields they always
+    /// did, plus one new flag bit and one new idx byte that old
+    /// parsers can safely ignore.
     #[inline]
     pub fn to_bytes(&self) -> [u8; RECEIPT_SIZE] {
         let mut out = [0u8; RECEIPT_SIZE];
@@ -453,6 +570,7 @@ impl<const SNAP_SIZE: usize> StateReceipt<SNAP_SIZE> {
         if self.invariants_passed { flags |= 1 << 1; }
         if self.cpi_invoked { flags |= 1 << 2; }
         if self.committed { flags |= 1 << 3; }
+        if self.had_failure { flags |= 1 << 4; }
         out[32] = flags;
         // before_fingerprint
         out[33..41].copy_from_slice(&self.before_fingerprint);
@@ -474,12 +592,24 @@ impl<const SNAP_SIZE: usize> StateReceipt<SNAP_SIZE> {
         out[61] = self.compat_impact;
         // migration_flags
         out[62] = self.migration_flags;
+        // failed_invariant_idx
+        out[63] = self.failed_invariant_idx;
+        // failed_error_code
+        out[64..68].copy_from_slice(&self.failed_error_code.to_le_bytes());
+        // failure_stage
+        out[68] = self.failure_stage;
+        // out[69..72] intentionally left zero (reserved)
         out
     }
 }
 
 /// Receipt summary size in bytes.
-pub const RECEIPT_SIZE: usize = 64;
+pub const RECEIPT_SIZE: usize = 72;
+
+/// Legacy receipt size, kept as a named constant for readers that want to
+/// quickly check if they received the shorter pre-0.2 receipt and ignore
+/// the failure-payload suffix.
+pub const RECEIPT_SIZE_LEGACY: usize = 64;
 
 /// Decoded receipt from wire bytes. Useful for CLI and off-chain tooling.
 pub struct DecodedReceipt {
@@ -504,14 +634,27 @@ pub struct DecodedReceipt {
     pub validation_bundle_id: u16,
     pub compat_impact: u8,
     pub migration_flags: u8,
+    /// `true` when the receipt records a failure (flags bit 4).
+    pub had_failure: bool,
+    /// User error code for the failing check, or `0` when no failure.
+    pub failed_error_code: u32,
+    /// Invariant index for the failure, `FAILED_INVARIANT_NONE` (0xFF) when none.
+    pub failed_invariant_idx: u8,
+    /// Stage of execution at which the failure happened. See [`FailureStage`].
+    pub failure_stage: u8,
 }
 
 impl DecodedReceipt {
-    /// Decode a receipt from its 64-byte wire representation.
+    /// Decode a receipt from its 72-byte wire representation.
     ///
-    /// Returns `None` if the slice is too short.
+    /// Accepts legacy 64-byte receipts for backwards compatibility:
+    /// when given exactly `RECEIPT_SIZE_LEGACY` bytes, the failure
+    /// payload fields are populated from the legacy flag bits and
+    /// otherwise left zeroed.
+    ///
+    /// Returns `None` if the slice is shorter than the legacy size.
     pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
-        if bytes.len() < RECEIPT_SIZE {
+        if bytes.len() < RECEIPT_SIZE_LEGACY {
             return None;
         }
         let mut layout_id = [0u8; 8];
@@ -536,6 +679,7 @@ impl DecodedReceipt {
         let invariants_passed = flags & (1 << 1) != 0;
         let cpi_invoked = flags & (1 << 2) != 0;
         let committed = flags & (1 << 3) != 0;
+        let had_failure = flags & (1 << 4) != 0;
 
         let mut before_fingerprint = [0u8; 8];
         before_fingerprint.copy_from_slice(&bytes[33..41]);
@@ -551,6 +695,19 @@ impl DecodedReceipt {
         let validation_bundle_id = u16::from_le_bytes([bytes[59], bytes[60]]);
         let compat_impact = bytes[61];
         let migration_flags = bytes[62];
+
+        // Failure payload. In a legacy 64-byte receipt the upper bytes do
+        // not exist; we fall back to sensible defaults rather than fail
+        // the parse so callers that only have the shortened format still
+        // get the remaining fields.
+        let (failed_invariant_idx, failed_error_code, failure_stage) = if bytes.len() >= RECEIPT_SIZE {
+            let idx = bytes[63];
+            let code = u32::from_le_bytes([bytes[64], bytes[65], bytes[66], bytes[67]]);
+            let stage = bytes[68];
+            (idx, code, stage)
+        } else {
+            (FAILED_INVARIANT_NONE, 0u32, FailureStage::None as u8)
+        };
 
         Some(Self {
             layout_id,
@@ -574,7 +731,17 @@ impl DecodedReceipt {
             validation_bundle_id,
             compat_impact,
             migration_flags,
+            had_failure,
+            failed_error_code,
+            failed_invariant_idx,
+            failure_stage,
         })
+    }
+
+    /// Resolve the `failure_stage` byte to a [`FailureStage`] enum.
+    #[inline(always)]
+    pub fn failure_stage_enum(&self) -> FailureStage {
+        FailureStage::from_tag(self.failure_stage)
     }
 
     /// Whether data actually changed according to this receipt.
@@ -618,7 +785,19 @@ impl DecodedReceipt {
             "Account data modified in-place"
         };
 
-        let integrity_desc = if !self.committed {
+        let integrity_desc = if self.had_failure {
+            // Failure payload dominates every other integrity signal.
+            // Operators and the SDK need to know *this run aborted*
+            // before they consume any other field.
+            match self.failure_stage_enum() {
+                FailureStage::Invariant => "INVARIANT FAILED. execution aborted",
+                FailureStage::Validation => "Account validation failed. execution aborted",
+                FailureStage::Handler => "Handler aborted before invariant evaluation",
+                FailureStage::Post => "Failure during receipt commit path",
+                FailureStage::Teardown => "Failure during close/teardown",
+                FailureStage::None => "FAILURE flagged without stage (malformed receipt)",
+            }
+        } else if !self.committed {
             "Receipt was NOT committed (incomplete)"
         } else if self.invariants_passed && self.invariants_checked > 0 {
             "All invariants passed"
