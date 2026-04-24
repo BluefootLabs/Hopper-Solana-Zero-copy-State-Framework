@@ -21,6 +21,7 @@ extern crate proc_macro;
 
 mod crank;
 mod declare_program;
+mod init_space;
 mod migrate;
 mod pod;
 mod state;
@@ -63,6 +64,39 @@ pub fn hopper_state(attr: TokenStream, item: TokenStream) -> TokenStream {
 #[proc_macro_attribute]
 pub fn state(attr: TokenStream, item: TokenStream) -> TokenStream {
     hopper_state(attr, item)
+}
+
+/// Derive `const INIT_SPACE: usize = size_of::<Self>()` on a struct.
+///
+/// Anchor-parity derive: programs that have an Anchor-shaped
+/// `#[account(init, payer = X, space = 8 + Foo::INIT_SPACE)]`
+/// expression can port to Hopper without reshaping the size
+/// computation. For types already declared with `#[hopper::state]`
+/// the same constant is emitted automatically; this derive exists
+/// for hand-authored `#[repr(C)]` Pod structs that want to
+/// participate in the pattern without adopting the full state
+/// attribute.
+///
+/// # Example
+///
+/// ```ignore
+/// #[derive(HopperInitSpace)]
+/// #[repr(C)]
+/// pub struct Profile {
+///     pub bump: u8,
+///     pub authority: [u8; 32],
+/// }
+///
+/// // Generated:
+/// // impl Profile {
+/// //     pub const INIT_SPACE: usize = core::mem::size_of::<Self>();
+/// // }
+/// ```
+#[proc_macro_derive(HopperInitSpace)]
+pub fn derive_hopper_init_space(input: TokenStream) -> TokenStream {
+    init_space::expand(input.into())
+        .unwrap_or_else(|e| e.to_compile_error())
+        .into()
 }
 
 /// Anchor / Quasar naming alias for [`state`].
