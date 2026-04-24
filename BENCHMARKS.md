@@ -166,35 +166,47 @@ verification, and a clean typed API.
 
 ## Framework Parity Benchmark (Vault, 8-seed average)
 
-All three frameworks execute identical logic: `['vault', user]` PDA derivation,
+All frameworks execute identical logic: `['vault', user]` PDA derivation,
 signer/writable checks, token operations. Measured on Mollusk with Solana 2.1.
 
-| Scenario | Hopper | Quasar | Pinocchio-style |
-|----------|--------|--------|-----------------|
-| Authorize | **432 CU** | 585 CU | 2543 CU |
-| Auth-fail (missing sig) | **70 CU** | 66 CU | 74 CU |
-| Counter (segment-safe) | **539 CU** | 607 CU | 2575 CU |
-| Deposit | **1651 CU** | 1768 CU | 3763 CU |
-| Withdraw | **455 CU** | 605 CU | 2567 CU |
-| **Binary size** | **7.62 KiB** | 8.36 KiB | 10.13 KiB |
+| Scenario | Hopper | Pinocchio | Quasar |
+|----------|--------|-----------|--------|
+| Authorize | **432 CU** | _re-run pending_ | 585 CU |
+| Auth-fail (missing sig) | **70 CU** | _re-run pending_ | 66 CU |
+| Counter (segment-safe) | **539 CU** | _re-run pending_ | 607 CU |
+| Deposit | **1651 CU** | _re-run pending_ | 1768 CU |
+| Withdraw | **455 CU** | _re-run pending_ | 605 CU |
+| **Binary size** | **7.62 KiB** | _re-run pending_ | 8.36 KiB |
+
+The **Pinocchio** column is now built in-tree from
+[`bench/pinocchio-vault`](bench/pinocchio-vault/src/lib.rs) using Anza's own
+`pinocchio = "0.10"` and `pinocchio-system = "0.5"` crates. It replaces the
+earlier "Pinocchio-style" column, which loaded a third-party reference vault
+from Quasar's tree; that indirection was easy to misread as benchmarking the
+Pinocchio framework itself (it was not — Pinocchio is a substrate, not a
+framework, and the old 2543 CU authorize was against a non-optimised
+reference sample). Pinocchio numbers here are marked _re-run pending_; the
+next `framework-vault-bench` run will populate them. Expected Hopper lead
+over idiomatic Pinocchio on PDA-bearing instructions is a few hundred CU,
+attributable to Hopper's verify-only PDA path (see below).
 
 **Key observations:**
 
 - **Hopper beats Quasar on 4 of 5 instructions** while providing 47+ safety
   mechanisms vs Quasar's ~10. The only gap is auth-fail (+4 CU, negligible).
-- **Smallest binary**: Hopper at 7.62 KiB is 8.8% smaller than Quasar (8.36 KiB)
-  and 24.8% smaller than Pinocchio-style (10.13 KiB).
+- **Smallest binary** (pre-R2 re-run): Hopper at 7.62 KiB is 8.8% smaller than
+  Quasar (8.36 KiB). Binary-size comparison to Anza Pinocchio will be updated
+  with the next bench run.
 - **Verify-only PDA**: Hopper's novel sha256-only PDA verification eliminates
   `sol_curve_validate_point` (~159 CU/attempt) by comparing hashes directly
   against the known PDA address. ~350 CU savings per PDA-bearing instruction
-  over the standard `find_program_address` approach.
+  over the standard `find_program_address` approach (which is what idiomatic
+  Pinocchio uses, and therefore where Hopper's lead over Pinocchio comes from).
 - **Fast entrypoint**: Two-argument SVM entrypoint receives instruction data via
   the second register, eliminating full-buffer account scanning.
 - **Safety at no cost**: The counter-access instruction (539 vs 607 CU) now beats
   Quasar despite using segment-level borrow tracking. Quasar's counter uses
   `borrow_unchecked_mut()` with raw byte slicing and no conflict detection.
-- **Pinocchio-style pays more**: Raw pinocchio without Quasar's abstractions is
-  consistently the most expensive due to `create_program_address` syscall overhead.
 
 The parity vault source is at
 [`examples/hopper-parity-vault`](examples/hopper-parity-vault/src/lib.rs).

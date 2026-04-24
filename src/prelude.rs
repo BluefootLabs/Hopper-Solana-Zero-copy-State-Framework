@@ -114,7 +114,7 @@ pub use crate::pda::{
     verify_pda_with_bump,
 };
 
-// Hopper Lang guards
+// Hopper Lang guards (function form — pass bool, call with `?`)
 pub use crate::guards::{
     require, require_eq, require_neq, require_gte, require_gt,
     require_signer, require_writable, require_payer, require_owner,
@@ -122,6 +122,34 @@ pub use crate::guards::{
     require_disc, require_version, require_layout, require_has_data, require_data_len,
     require_unique_2, require_unique_3,
 };
+
+// Anchor-parity guard macros (declarative form — pass condition as
+// expression, bails via `return Err(...)`). Function forms above and
+// macro forms coexist because Rust places macros and values in
+// separate namespaces. At a call site, `require!(cond, err)` resolves
+// to the macro (trailing `!`) and `require(cond, err)?` resolves to
+// the function. The two macros without function siblings (`require_lt`,
+// `require_lte`) are unambiguous.
+//
+// Note: `require`, `require_eq`, `require_neq`, `require_keys_eq`,
+// `require_keys_neq`, `require_gt`, `require_gte` already come in via
+// their hopper_runtime `#[macro_export]` declarations and are in scope
+// under `hopper::require!` etc. via the `pub use hopper_runtime::*` at
+// the root crate level where needed. We explicitly pull in the two
+// that don't have function siblings so they're unambiguous here.
+pub use hopper_runtime::{require_lt, require_lte};
+
+// Anchor-parity short-form error macros. Functionally identical to
+// `hopper_error!` but match Anchor's `err!` / `error!` spelling so
+// ported code needs no rename.
+pub use hopper_runtime::{err, error};
+
+// Handy destructuring sugar for the raw-dispatch authoring path.
+// Replaces `let [user, vault, ..] = accounts else { return Err(...); };`
+// with `hopper_load!(accounts => [user, vault]);`. Only useful when you
+// are NOT going through `#[hopper::context]`; the proc-macro path already
+// destructures for you.
+pub use crate::hopper_load;
 
 // Receipts
 pub use crate::receipts::{

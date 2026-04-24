@@ -173,6 +173,37 @@ struct AccountAttr {
     /// Used for pool fee sweeps, keeper cleanup, and rent-reclaim
     /// patterns. Implies `mut` on both the source and target.
     sweep: Option<Ident>,
+
+    /// `executable`. Anchor-parity keyword. Requires the account's
+    /// `executable` flag to be true — i.e. it must be a deployed BPF
+    /// program. Hopper's `Program<P>` wrapper type already implies
+    /// this, but the bare keyword exists for ports of Anchor code and
+    /// for cases where the field type is `AccountView` instead of a
+    /// typed wrapper.
+    executable: bool,
+
+    /// `rent_exempt = enforce | skip`. Anchor-parity keyword. When set
+    /// to `enforce` the context binder checks that the account's
+    /// lamport balance is at or above the rent-exemption minimum for
+    /// its data length. When set to `skip` the check is explicitly
+    /// omitted (useful when the caller has asserted rent-exemption
+    /// through a different pathway and wants the intent recorded).
+    /// When unset (the default), no check is emitted and the caller
+    /// is responsible for rent safety.
+    rent_exempt: Option<RentExemptPolicy>,
+}
+
+/// Policy for the `rent_exempt` field keyword.
+#[derive(Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)]
+enum RentExemptPolicy {
+    /// `rent_exempt = enforce`. Runtime check that
+    /// `account.lamports() >= Rent::minimum_balance(data_len)`.
+    Enforce,
+    /// `rent_exempt = skip`. Explicitly opts out; emits no check but
+    /// records the intent in the generated code (and in the schema
+    /// manifest) so an auditor can see the acknowledgment.
+    Skip,
 }
 
 /// How the bump for a PDA-derived account is supplied.
@@ -497,6 +528,49 @@ pub fn expand(_attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
                 "accounts[{}] ({}) must be writable",
                 idx, field_name
             ));
+        }
+        if cf.attr.executable {
+            // Anchor-parity `executable` keyword. Routes through
+            // AccountView::check_executable which returns an error
+            // when the `executable` flag on the loader-provided
+            // account header is unset.
+            field_checks.push(quote! {
+                ctx.account(#idx)?.check_executable()?;
+            });
+            check_descriptions.push(format!(
+                "accounts[{}] ({}) must be executable (deployed BPF program)",
+                idx, field_name
+            ));
+        }
+        if let Some(policy) = cf.attr.rent_exempt {
+            match policy {
+                RentExemptPolicy::Enforce => {
+                    // Anchor-parity `rent_exempt = enforce`. Requires
+                    // `lamports() >= Rent::minimum_balance(data_len)`.
+                    // Uses the runtime helper that reads the Rent
+                    // sysvar lazily — the check is explicit, not a
+                    // heuristic.
+                    field_checks.push(quote! {
+                        ::hopper::hopper_runtime::rent::check_rent_exempt(
+                            ctx.account(#idx)?,
+                        )?;
+                    });
+                    check_descriptions.push(format!(
+                        "accounts[{}] ({}) must be rent-exempt (lamports >= Rent::minimum_balance(data_len))",
+                        idx, field_name
+                    ));
+                }
+                RentExemptPolicy::Skip => {
+                    // `rent_exempt = skip` is an explicit acknowledgment
+                    // that the caller is handling rent-exemption through
+                    // a different pathway. Emits no check; only records
+                    // the intent in the schema so auditors can see it.
+                    check_descriptions.push(format!(
+                        "accounts[{}] ({}) rent-exemption intentionally skipped (rent_exempt = skip)",
+                        idx, field_name
+                    ));
+                }
+            }
         }
         if let Some(addr_expr) = &cf.attr.address {
             field_checks.push(quote! {
@@ -2456,6 +2530,28 @@ fn parse_account_attr(attrs: &[Attribute]) -> Result<AccountAttr> {
                 "constraint" => {
                     let expr: Expr = meta.value()?.parse()?;
                     result.constraint.push(expr);
+                    Ok(())
+                }
+                "executable" => {
+                    result.executable = true;
+                    Ok(())
+                }
+                "rent_exempt" => {
+                    // `rent_exempt = enforce` or `rent_exempt = skip`.
+                    // Accept both as plain idents (the canonical Anchor
+                    // spelling). Anything else is rejected so typos
+                    // don't silently degrade to a no-op.
+                    let policy: Ident = meta.value()?.parse()?;
+                    match policy.to_string().as_str() {
+                        "enforce" => result.rent_exempt = Some(RentExemptPolicy::Enforce),
+                        "skip" => result.rent_exempt = Some(RentExemptPolicy::Skip),
+                        other => {
+                            return Err(meta.error(format!(
+                                "rent_exempt must be `enforce` or `skip`, got `{}`",
+                                other
+                            )));
+                        }
+                    }
                     Ok(())
                 }
                 _ => Err(meta.error(format!("unrecognized account attribute `{}`", name))),

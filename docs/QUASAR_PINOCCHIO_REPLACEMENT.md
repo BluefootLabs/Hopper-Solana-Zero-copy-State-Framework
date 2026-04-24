@@ -1,5 +1,15 @@
 # Hopper Replacement Surface: Pinocchio + Quasar
 
+> **Historical note.** This document describes the pre-R2 state when the
+> cross-framework bench loaded its Pinocchio baseline from Quasar's
+> `examples/pinocchio-vault`. After audit recommendation R2 (see
+> [`../AUDIT.md`](../AUDIT.md)) the Pinocchio baseline is built in-tree from
+> [`../bench/pinocchio-vault`](../bench/pinocchio-vault/src/lib.rs) using
+> Anza's own `pinocchio = "0.10"`. The rationale captured below is retained
+> for historical context; specific CU numbers cited in this file refer to
+> the deprecated Quasar-authored reference vault, not the current Anza
+> Pinocchio baseline.
+
 This note records what the extracted upstream sources actually contain and how
 Hopper maps those surfaces into one unified system.
 

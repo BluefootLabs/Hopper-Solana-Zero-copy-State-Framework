@@ -1,4 +1,9 @@
 [workspace]
+# `bench/anchor-vault` is a standalone package (its own tiny
+# workspace) so anchor-lang's dependency tree stays isolated from
+# Hopper's core crates. Build it via its own manifest:
+#   cargo build-sbf --manifest-path bench/anchor-vault/Cargo.toml
+exclude = ["bench/anchor-vault"]
 members = [
     ".",
     "crates/hopper-native",
@@ -28,12 +33,15 @@ members = [
     "examples/hopper-virtual-state",
     "examples/hopper-token-2022-ata",
     "examples/hopper-token-2022-vault",
+    "examples/hopper-token-2022-transfer-hook",
     "examples/hopper-proc-vault",
     "examples/hopper-policy-vault",
     "examples/cross-program-read/program-a",
     "examples/cross-program-read/program-b",
     "bench/hopper-bench",
     "bench/framework-vault-bench",
+    "bench/pinocchio-vault",
+    "bench/lazy-dispatch-vault",
     "tools/hopper-cli",
     "crates/hopper-macros-proc",
     "crates/hopper-manager",

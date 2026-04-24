@@ -25,6 +25,14 @@ conflict. Every other framework locks the entire account. That is not a minor
 ergonomic win. It is the difference between catching aliasing bugs at the byte
 level and trusting developers to get it right manually.
 
+The registry that enforces this lives in
+[`hopper_runtime::segment_borrow`](crates/hopper-runtime/src/segment_borrow.rs).
+`hopper-core` owns typed overlays, layout contracts, collections, and the
+account header; `hopper-runtime` owns the byte-range borrow registry, the
+account-level borrow bitfield, context plumbing, and CPI semantics. Both are
+re-exported through the root `hopper` crate, so callers do not need to know
+the boundary — but the audit trail does.
+
 Built on Hopper Native, Hopper's sovereign low-level runtime substrate for Solana.
 Hopper also supports compatibility backends including Pinocchio and standard
 Solana runtime surfaces where needed, but Hopper Runtime is the canonical
@@ -172,29 +180,53 @@ and the raw path is an explicit caller-owned escape hatch. See
 
 ## Getting Started
 
-There are three progressively deeper ways to use Hopper. Most programs only need
-the standard path.
+Hopper offers two authoring paths that compile to identical code. New users
+should reach for the proc-macro path first — it is the shortest distance to a
+working program. The declarative path is available for anyone who wants to
+avoid proc macros, ship a fully `no_std` build without a macro dependency, or
+work closer to the metal.
 
-### Standard Hopper
+### Day One: Proc Macros (recommended)
 
-The default path. Versioned layouts, phased execution, validation, and receipts.
-This is what you reach for on day one.
+Enable the `proc-macros` feature and describe your layout with
+`#[hopper::state]`. Accessors, trait impls, constants, and dispatch glue are
+generated for you. This is the default Anchor-refugee path and the fastest
+way onto Hopper.
+
+```toml
+# Cargo.toml
+[dependencies]
+hopper = { version = "0.1", features = ["proc-macros"] }
+```
 
 ```rust
 use hopper::prelude::*;
 
-hopper_layout! {
-    pub struct Vault, disc = 1, version = 1 {
-        authority: TypedAddress<Authority>  = 32,
-        mint:      TypedAddress<Mint>       = 32,
-        balance:   WireU64                  = 8,
-        bump:      u8                       = 1,
+#[derive(Clone, Copy)]
+#[repr(C)]
+#[hopper::state(disc = 1, version = 1)]
+pub struct Vault {
+    pub authority: TypedAddress<Authority>,
+    pub mint:      TypedAddress<Mint>,
+    pub balance:   WireU64,
+    pub bump:      u8,
+}
+
+#[hopper::program]
+mod vault {
+    use super::*;
+
+    #[instruction(1)]
+    pub fn deposit(ctx: Context<Deposit>, amount: u64) -> ProgramResult {
+        let mut balance = ctx.vault_balance_mut()?;
+        *balance = WireU64::new(balance.get() + amount);
+        Ok(())
     }
 }
 ```
 
-Load and validate with the default path first, then reach for specialized
-guarantees only when the use case changes:
+Load, validate, and evolve the typed view with the same helpers whichever
+authoring path you pick:
 
 ```rust
 // Full validation (your own program's accounts)
@@ -214,7 +246,7 @@ if let Some((vault, valid)) = VaultV1::load_unverified(data) {
 }
 ```
 
-Define what each instruction is allowed to do:
+Declare what each instruction is allowed to do:
 
 ```rust
 const DEPOSIT_CAPS: CapabilitySet = CapabilitySet::new()
@@ -242,8 +274,35 @@ Receipts capture before/after fingerprints, changed fields, byte-level diffs,
 segment tracking, and policy flags. They are Hopper's primary auditability
 artifact.
 
-See [`examples/hopper-showcase`](examples/hopper-showcase/src/lib.rs) for the
+See [`examples/hopper-proc-vault`](examples/hopper-proc-vault/src/lib.rs) for a
+single-file proc-macro program and
+[`examples/hopper-showcase`](examples/hopper-showcase/src/lib.rs) for the
 complete reference implementation that uses every layer.
+
+### Day Two: Declarative Macros (no proc macros)
+
+The same program written without proc macros. `hopper_layout!` computes offsets
+and the layout fingerprint at compile time, emits the same trait impls, and
+lowers to the same `ptr + const_offset → cast → &mut T`. This path is useful
+when you want to drop the `proc-macros` feature entirely, skim closer to the
+substrate, or audit every generated token yourself.
+
+```rust
+use hopper::prelude::*;
+
+hopper_layout! {
+    pub struct Vault, disc = 1, version = 1 {
+        authority: TypedAddress<Authority>  = 32,
+        mint:      TypedAddress<Mint>       = 32,
+        balance:   WireU64                  = 8,
+        bump:      u8                       = 1,
+    }
+}
+```
+
+The declarative path requires explicit field sizes (the right edge of each
+line). Hopper emits a compile-time assertion so `size_of::<Vault>()` must
+match the sum you declared plus the 16-byte header.
 
 ### Advanced Hopper
 
@@ -273,7 +332,7 @@ cage.
 |------|-------------|
 | **Typed overlays** | `#[repr(C)]` structs mapped directly onto account bytes, zero serialization cost |
 | **16-byte header** | Every account is self-describing: disc, version, flags, layout fingerprint |
-| **Segment-level borrows** | Fine-grained conflict detection at the byte range level. Read `authority` while writing `balance` on the same account. 16-entry compact registry (u64 fingerprint keys, ~280 bytes stack), no heap, inline checks |
+| **Segment-level borrows** | Fine-grained conflict detection at the byte range level. Read `authority` while writing `balance` on the same account. 16-entry compact registry (u64 fingerprint + full-address fallback, ~280 bytes stack), no heap, inline checks. Implemented in [`hopper_runtime::segment_borrow::SegmentBorrowRegistry`](crates/hopper-runtime/src/segment_borrow.rs) |
 | **SegmentMap** | Compile-time field→offset mapping via const trait. `segment("balance")` resolves to `StaticSegment { offset: 32, size: 8 }` at compile time |
 | **Deterministic fingerprints** | SHA-256 of field names/types/sizes, computed at compile time |
 | **5-tier loading** | Full, foreign, compatible, unchecked, unverified |
@@ -497,22 +556,35 @@ from the same state model.
 
 ### Benchmark (Parity Vault, 8-seed average)
 
-| Scenario | Hopper | Quasar | Pinocchio-style |
-|----------|--------|--------|-----------------|
-| Authorize | **432 CU** | 585 CU | 2543 CU |
-| Auth-fail | **70 CU** | 66 CU | 74 CU |
-| Counter (segment-safe) | **539 CU** | 607 CU | 2575 CU |
-| Deposit | **1651 CU** | 1768 CU | 3763 CU |
-| Withdraw | **455 CU** | 605 CU | 2567 CU |
-| **Binary size** | **7.62 KiB** | 8.36 KiB | 10.13 KiB |
+| Scenario | Hopper | Pinocchio | Quasar |
+|----------|--------|-----------|--------|
+| Authorize | **432 CU** | _re-run pending_ | 585 CU |
+| Auth-fail | **70 CU** | _re-run pending_ | 66 CU |
+| Counter (segment-safe) | **539 CU** | _re-run pending_ | 607 CU |
+| Deposit | **1651 CU** | _re-run pending_ | 1768 CU |
+| Withdraw | **455 CU** | _re-run pending_ | 605 CU |
+| **Binary size** | **7.62 KiB** | _re-run pending_ | 8.36 KiB |
+
+The Pinocchio column is **Anza's own `pinocchio = "0.10"` + `pinocchio-system = "0.5"`**,
+built in-tree from [`bench/pinocchio-vault`](bench/pinocchio-vault/src/lib.rs).
+The audit (see [AUDIT.md](AUDIT.md) R2) replaced the previous "Pinocchio-style"
+column, which loaded a third-party reference vault from Quasar's tree and was
+easy to misread as the Pinocchio framework itself. The Pinocchio numbers here
+are marked _re-run pending_ because swapping in the real baseline invalidates
+the pre-R2 figures; they will be populated after the next `framework-vault-bench`
+run. Hopper's expected lead over idiomatic Pinocchio is a few hundred CU on
+PDA-bearing instructions — not the ~2000 CU gap the old "Pinocchio-style"
+number implied, because the old comparison was against a non-optimised reference
+sample rather than against Pinocchio's actual shape.
 
 **Hopper beats Quasar on 4 of 5 instructions** on the parity-vault bench.
 Hopper's counter-access uses `segment_ref` and `segment_mut` with
-segment-level borrow tracking. Quasar and Pinocchio use raw byte slicing
-with no conflict detection. The verify-only PDA path (sha256 only, no
-`curve_validate` syscall) saves ~350 CU per PDA-bearing instruction.
-Hopper produces the **smallest binary** of all three frameworks. Source
-numbers in `bench/results/` and methodology in
+segment-level borrow tracking (backed by `hopper_runtime::segment_borrow`,
+see below). Quasar and Pinocchio use raw byte slicing with no conflict
+detection. The verify-only PDA path (sha256 only, no `curve_validate`
+syscall) saves ~350 CU per PDA-bearing instruction. Hopper produces the
+**smallest binary** of the frameworks measured. Source numbers in
+`bench/results/` and methodology in
 [bench/METHODOLOGY.md](bench/METHODOLOGY.md).
 
 | | Hopper | Anchor zero-copy | Pinocchio | Quasar |

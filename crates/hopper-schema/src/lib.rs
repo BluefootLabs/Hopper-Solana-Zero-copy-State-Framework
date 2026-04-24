@@ -18,6 +18,7 @@
 #![no_std]
 
 pub mod accounts;
+pub mod anchor_idl;
 pub mod clientgen;
 pub mod codama;
 pub mod python_client;

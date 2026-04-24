@@ -1,0 +1,26 @@
+[package]
+name = "lazy-dispatch-vault"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+description = "R3 bench target. Eight-instruction dispatch vault that builds twice — once with the standard eager fast_entrypoint! and once with hopper_lazy_entrypoint! — so the bench harness can directly measure the CU win from lazy account parsing on dispatch-heavy programs."
+
+[lib]
+name = "lazy_dispatch_vault"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+hopper = { path = "../..", default-features = false, features = ["hopper-native-backend"] }
+
+[features]
+# Exactly one of `eager` or `lazy` must be enabled. The workspace-level
+# bench wrapper builds the crate twice (`--features eager` and
+# `--features lazy`) and renames the resulting .so files so both
+# artefacts coexist under target/deploy/.
+default = []
+eager = []
+lazy = []
+
+[lints.rust]
+unexpected_cfgs = { level = "allow", check-cfg = ['cfg(target_os, values("solana"))'] }
