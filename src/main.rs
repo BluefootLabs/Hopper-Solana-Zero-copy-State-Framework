@@ -6,7 +6,7 @@
 //! ## Command Families
 //!
 //! ```text
-//! hopper schema export [--manifest|--idl|--codama]  Export schema in various formats
+//! hopper schema export [--manifest|--idl|--codama|--anchor-idl]  Export schema in various formats
 //! hopper schema validate <manifest-json>            Validate a manifest
 //! hopper schema diff <old> <new>                    Field-level diff
 //!
@@ -155,7 +155,7 @@ fn cmd_schema_family(args: &[String]) {
         eprintln!("Usage: hopper schema <subcommand>");
         eprintln!();
         eprintln!("Subcommands:");
-        eprintln!("  export [--manifest|--idl|--codama]  Export schema format reference");
+        eprintln!("  export [--manifest|--idl|--codama|--anchor-idl]  Export schema format reference");
         eprintln!("  validate <manifest-json>            Validate a program manifest");
         eprintln!("  diff <old-json> <new-json>          Field-level diff between versions");
         process::exit(1);
@@ -2678,6 +2678,19 @@ fn cmd_schema_export_family(args: &[String]) {
             }
             let prog = load_program_manifest(&args[1]);
             println!("{}", hopper_schema::codama::CodamaJsonFromManifest(&prog));
+        }
+        "--anchor-idl" => {
+            // R8: emit an Anchor 0.30-shaped IDL so explorers and
+            // wallets that only speak Anchor IDL today can consume a
+            // Hopper program. Codama remains the preferred interop
+            // path (--codama); this exists because the long tail of
+            // tooling has not migrated yet.
+            if args.len() < 2 {
+                eprintln!("Usage: hopper schema export --anchor-idl <manifest-json>");
+                process::exit(1);
+            }
+            let prog = load_program_manifest(&args[1]);
+            println!("{}", hopper_schema::anchor_idl::AnchorIdlFromManifest(&prog));
         }
         _ => cmd_schema_export(),
     }
