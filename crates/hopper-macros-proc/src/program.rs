@@ -51,6 +51,14 @@ struct HandlerModifiers {
     pipeline: bool,
     receipt: bool,
     invariants: Vec<InvariantSpec>,
+    /// `#[access_control(expr)]` pre-handler gates. Each expression is
+    /// evaluated in handler scope (so it can reference `ctx`, any args,
+    /// and any typed accessors) and must evaluate to `bool`. A false
+    /// result bails with `ProgramError::MissingRequiredSignature` —
+    /// the canonical Anchor default for access-control failures —
+    /// unless the user wraps the call in a manual `require!(expr, err)`.
+    /// Multiple attributes are ANDed in declaration order.
+    access_control: Vec<Expr>,
 }
 
 /// A single `#[invariant(...)]` attribute on a handler.
@@ -691,6 +699,20 @@ fn extract_handler_modifiers(attrs: &mut Vec<Attribute>) -> Result<HandlerModifi
             modifiers.invariants.push(parse_invariant_attr(&attr)?);
             continue;
         }
+        if attr_has_name(&attr, "access_control") {
+            // `#[access_control(expr)]` — parse the expression inside
+            // the parens. Anchor's spelling. Multiple attributes are
+            // allowed and each gate is evaluated in declaration order;
+            // the first false bails the handler.
+            let expr: Expr = attr.parse_args().map_err(|e| {
+                syn::Error::new(
+                    e.span(),
+                    "#[access_control(expr)] requires a boolean expression inside the parens",
+                )
+            })?;
+            modifiers.access_control.push(expr);
+            continue;
+        }
         retained.push(attr);
     }
 
@@ -703,7 +725,11 @@ fn apply_handler_modifiers(
     binding: &ContextBinding,
     modifiers: &HandlerModifiers,
 ) -> Result<()> {
-    if !modifiers.pipeline && !modifiers.receipt && modifiers.invariants.is_empty() {
+    if !modifiers.pipeline
+        && !modifiers.receipt
+        && modifiers.invariants.is_empty()
+        && modifiers.access_control.is_empty()
+    {
         return Ok(());
     }
 
@@ -835,7 +861,31 @@ fn apply_handler_modifiers(
         TokenStream::new()
     };
 
+    // Pre-handler access-control gates. Emitted before the pipeline
+    // checks so a denied caller never even reaches the deduplication
+    // pass. Each gate is an expression that evaluates in the handler's
+    // scope (so it can reference `ctx`, any typed accessors, and all
+    // handler arguments). A false result returns
+    // `ProgramError::MissingRequiredSignature` — the canonical default
+    // Anchor uses. Users who want a specific error can wrap the gate
+    // in `require!(expr, MyError::NotAllowed)` inside the body
+    // instead.
+    let access_control_gates: Vec<_> = modifiers
+        .access_control
+        .iter()
+        .map(|expr| {
+            quote! {
+                if !(#expr) {
+                    return ::core::result::Result::Err(
+                        ::hopper::__runtime::ProgramError::MissingRequiredSignature,
+                    );
+                }
+            }
+        })
+        .collect();
+
     function.block = Box::new(syn::parse_quote!({
+        #(#access_control_gates)*
         #pipeline_checks
         #receipt_begin
         let mut __hopper_invariants_passed = true;

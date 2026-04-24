@@ -237,6 +237,7 @@ pub use hopper_macros_proc::{
     pod,
     program,
     state,
+    HopperInitSpace,
 };
 
 // Private re-export for generated code to reference runtime types

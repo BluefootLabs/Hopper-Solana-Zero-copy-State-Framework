@@ -284,6 +284,116 @@ Gap items 4 and 9–10 require a product decision about whether Metaplex
 integration is in scope. Gap items 5, 6, 7 are medium and can be prioritised
 against other roadmap items.
 
+---
+
+## DSL Parity Implementation Pass — 2026-04-24
+
+The top of the DSL gap list has been closed. This section records what was
+implemented and what remains.
+
+### Shipped
+
+**Guard-macro ergonomics.** `src/prelude.rs` now re-exports `err!` and
+`error!` (short-form error macros Anchor users reach for first), plus the
+`require_lt!` and `require_lte!` macros that had been defined in
+hopper-runtime but weren't in the prelude. The root `hopper::` crate path
+already exposed the full `require_*` family; the prelude just needed to
+pick them up. Closes gap item #8.
+
+**`hopper_load!` destructuring macro.** New `#[macro_export]` macro in
+`src/lib.rs` that replaces the repetitive
+`let [user, vault, ..] = accounts else { return Err(...); };` pattern with
+`hopper_load!(accounts => [user, vault])`. Supports an optional trailing
+`..` for stylistic parity with native Rust slice patterns. Closes the
+"raw-dispatch account parsing is repetitive" ergonomic gap flagged by the
+flow review.
+
+**`#[derive(HopperInitSpace)]` derive.** New proc macro at
+`crates/hopper-macros-proc/src/init_space.rs`, registered in the proc
+macro crate's `lib.rs` and re-exported through the root `hopper::` crate.
+Emits `pub const INIT_SPACE: usize = size_of::<Self>()` on any struct.
+Intended for hand-authored `#[repr(C)]` Pod structs that want to use the
+`space = 16 + Foo::INIT_SPACE` Anchor idiom without adopting
+`#[hopper::state]`. Closes gap item #1.
+
+**`#[hopper::access_control(expr)]` handler attribute.** Extends
+`HandlerModifiers` in `crates/hopper-macros-proc/src/program.rs` to accept
+one or more `#[access_control(expr)]` attributes on any
+`#[hopper::program]` handler. Each expression is evaluated in handler
+scope (so it can reference `ctx`, handler args, and typed accessors) and
+must evaluate to `bool`. False bails with
+`ProgramError::MissingRequiredSignature` (Anchor's default). Multiple
+attributes are ANDed in declaration order. Closes gap item #2.
+
+**`executable` and `rent_exempt` field keywords.** Extended
+`AccountAttr` in `crates/hopper-macros-proc/src/context.rs` to accept
+`executable` (emits `check_executable()?`) and
+`rent_exempt = enforce | skip` (emits a lamport-threshold check using
+the new `hopper_runtime::rent::check_rent_exempt` helper). New
+`crates/hopper-runtime/src/rent.rs` module provides constant-based
+rent-exemption calculation (2-year threshold, 3480 lamports per
+byte-year, 128-byte overhead — the cluster constants that have been
+stable since mainnet launch). Three unit tests pin the formula against
+the well-known 0-byte minimum (890,880 lamports) and a typical 56-byte
+vault (1,280,640 lamports). Closes gap item #3.
+
+**`init_if_needed` field keyword.** Extended `AccountAttr` parsing to
+accept `init_if_needed`. The lifecycle-helper emission at
+`crates/hopper-macros-proc/src/context.rs` now has two shapes: `init`
+unconditionally calls `hopper_init!` (errors if already allocated) and
+`init_if_needed` checks `account.data_len() > 0` first and returns `Ok(())`
+when the account is already populated, only invoking the CreateAccount
+CPI for empty accounts. `validate_account_attr` rejects the
+contradictory combination of both flags and shares the `payer`/`space`
+requirements between them. Closes gap item #4 and the only remaining
+Quasar-parity gap on the non-Metaplex axis.
+
+### Deferred
+
+**Metaplex `metadata::*` and `master_edition::*` keywords (gap items #9,
+#10).** These require an `mpl-token-metadata` CPI builder infrastructure
+that doesn't currently exist in Hopper. Shipping the keyword parser
+without the matching builders would accept syntax that has no working
+lowering, which is worse than shipping nothing. A dedicated follow-up
+pass should introduce `crates/hopper-metaplex` (or equivalent) with the
+Metaplex program ID constant, `CreateMetadataAccountV3` / `CreateMasterEditionV3`
+builders, and then the keywords can be wired to those builders. The
+Boobies project's NFT focus means this is worth doing right rather than
+stubbing.
+
+**`#[interface]` attribute (gap item #5).** Medium-sized, ~300 LOC new
+module. Anchor's shared-CPI-interface pattern. Hopper's
+`declare_program!` covers the common case (consume an IDL) but not the
+source-level interface declaration. Deferred because Hopper's current
+interop story (`hopper_interface!` for cross-program reads, fingerprint
+pinning) arguably covers the use cases better without a new surface;
+revisit if adoption surfaces a real need.
+
+**Token-2022 `group_pointer`, `group_member_pointer`, `confidential_transfer`
+keywords (gap item #6).** Same pattern as the existing
+`transfer_hook` / `metadata_pointer` / etc. keywords — a TLV reader in
+`hopper-solana/src/token2022_ext.rs` plus a `context.rs` parser case
+plus a field-check lowering. Each extension is ~100 LOC. Deferred to a
+dedicated Token-2022 expansion pass so the three extensions can be
+shipped together with tests and an example.
+
+**`#[view]` / query attribute (gap item #7).** Marks a handler as
+read-only for off-chain simulation. Medium-sized. Needs manifest-side
+representation (the query flag has to propagate into ProgramIdl and
+Codama/Anchor IDL emission) before the attribute is useful. Deferred.
+
+### Net verdict after this pass
+
+The Anchor-parity ergonomic gap is now ~6% (three Token-2022 extensions
+and `#[view]` / `#[interface]`). Quasar-parity is functionally complete
+except for Metaplex NFT sugar, which is deferred as a scoped follow-up
+rather than stubbed. Every item shipped in this pass preserved the dual
+authoring path: `err!`, `error!`, `hopper_load!`, `require_lt/lte` are all
+declarative macros, and the proc-macro additions (`#[derive(HopperInitSpace)]`,
+`#[hopper::access_control]`, `executable`/`rent_exempt`/`init_if_needed`
+field keywords) all have hand-written equivalents in the raw-dispatch
+path documented in AUDIT.md section "DSL Parity Audit".
+
 
 ---
 

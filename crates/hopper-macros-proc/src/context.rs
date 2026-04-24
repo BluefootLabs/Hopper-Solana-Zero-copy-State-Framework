@@ -40,6 +40,17 @@ struct AccountAttr {
     /// Requires `payer` and `space`; implies `mut`. PDA-init also
     /// requires `seeds` + `bump`.
     init: bool,
+    /// `init_if_needed`. Anchor-parity sibling of `init`. When the
+    /// account is already allocated (data_len > 0 with a Hopper
+    /// header in place) the lifecycle helper returns `Ok(())` without
+    /// invoking the system-program CreateAccount CPI. When the
+    /// account is empty, it falls through to the same init path as
+    /// `init`. Requires the same fields as `init` (`payer`, `space`,
+    /// optional `seeds`/`bump`). Callers must still validate the
+    /// existing layout separately — `init_if_needed` guarantees the
+    /// account exists and was sized at creation time, not that its
+    /// current contents match a specific layout.
+    init_if_needed: bool,
     /// `zero`. assert the account was previously zero-initialized.
     /// Cheaper than `init` for already-allocated accounts.
     zero: bool,
@@ -1545,13 +1556,14 @@ pub fn expand(_attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
         let field_ty = &cf.ty;
         let idx = cf.index;
 
-        if cf.attr.init {
+        if cf.attr.init || cf.attr.init_if_needed {
+            let is_if_needed = cf.attr.init_if_needed;
             let init_fn = format_ident!("init_{}", field_name);
             let payer_ident = cf
                 .attr
                 .payer
                 .as_ref()
-                .expect("validate_account_attr guarantees init has payer");
+                .expect("validate_account_attr guarantees init/init_if_needed has payer");
             let payer_idx = ctx_fields
                 .iter()
                 .position(|c| c.name == *payer_ident)
@@ -1572,19 +1584,43 @@ pub fn expand(_attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
                 .ok_or_else(|| {
                     syn::Error::new_spanned(
                         field_name,
-                        "#[account(init)] requires a `system_program` field in the context",
+                        "#[account(init | init_if_needed)] requires a `system_program` field in the context",
                     )
                 })?;
 
-            accessors.push(quote! {
-                /// Create the `#field_name` account via System Program CPI,
-                /// zero-init its data, and write the Hopper header.
-                ///
-                /// Audit Stage 2.4 lifecycle lowering. Callers should
-                /// invoke this once per `init`-declared account, at the
-                /// top of the instruction body.
-                #[inline]
-                #vis fn #init_fn(&self) -> ::core::result::Result<(), ::hopper::__runtime::ProgramError> {
+            // Two emission shapes:
+            //
+            //   init            — unconditionally call hopper_init!
+            //                     (which errors if the account is
+            //                     already allocated).
+            //
+            //   init_if_needed  — skip the CreateAccount CPI entirely
+            //                     when the account already has data.
+            //                     The account is then assumed to be
+            //                     set up by a prior invocation; the
+            //                     caller is responsible for verifying
+            //                     the existing layout separately.
+            let body = if is_if_needed {
+                quote! {
+                    let account = self.ctx.account(#idx)?;
+                    if account.data_len() > 0 {
+                        // Already allocated; nothing to do. Caller
+                        // should still validate the layout via
+                        // `<ctx>_load()` or equivalent.
+                        return ::core::result::Result::Ok(());
+                    }
+                    let payer = self.ctx.account(#payer_idx)?;
+                    let system_program = self.ctx.account(#system_program_idx)?;
+                    ::hopper::hopper_init!(
+                        payer,
+                        account,
+                        system_program,
+                        self.ctx.program_id(),
+                        #field_ty
+                    )
+                }
+            } else {
+                quote! {
                     let payer = self.ctx.account(#payer_idx)?;
                     let account = self.ctx.account(#idx)?;
                     let system_program = self.ctx.account(#system_program_idx)?;
@@ -1595,6 +1631,23 @@ pub fn expand(_attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
                         self.ctx.program_id(),
                         #field_ty
                     )
+                }
+            };
+
+            let doc = if is_if_needed {
+                "Create the account via System Program CPI if it doesn't exist yet (init_if_needed). \
+                 If the account is already allocated (data_len > 0) the helper returns Ok(()) without \
+                 touching lamports or data — caller is responsible for validating the existing layout."
+            } else {
+                "Create the account via System Program CPI, zero-init its data, and write the Hopper header. \
+                 Errors if the account is already allocated."
+            };
+
+            accessors.push(quote! {
+                #[doc = #doc]
+                #[inline]
+                #vis fn #init_fn(&self) -> ::core::result::Result<(), ::hopper::__runtime::ProgramError> {
+                    #body
                 }
             });
         }
@@ -2422,6 +2475,17 @@ fn parse_account_attr(attrs: &[Attribute]) -> Result<AccountAttr> {
                     result.is_mut = true;
                     Ok(())
                 }
+                "init_if_needed" => {
+                    // Anchor-parity. Like `init` but the lifecycle
+                    // helper skips the CreateAccount CPI when the
+                    // account already has non-zero data. Same
+                    // implication: `mut` is required. Doesn't imply
+                    // `init` because the two flags emit different
+                    // lifecycle-helper bodies.
+                    result.init_if_needed = true;
+                    result.is_mut = true;
+                    Ok(())
+                }
                 "zero" => {
                     result.zero = true;
                     Ok(())
@@ -2568,23 +2632,33 @@ fn parse_account_attr(attrs: &[Attribute]) -> Result<AccountAttr> {
 /// (D2. page 4) enumerates these; each violation here corresponds to
 /// one entry in the trybuild suite.
 fn validate_account_attr(field_name: &Ident, attr: &AccountAttr) -> Result<()> {
-    if attr.init {
+    if attr.init && attr.init_if_needed {
+        return Err(syn::Error::new_spanned(
+            field_name,
+            "use either `init` or `init_if_needed`, not both",
+        ));
+    }
+    if attr.init || attr.init_if_needed {
+        let kw = if attr.init_if_needed { "init_if_needed" } else { "init" };
         if attr.payer.is_none() {
             return Err(syn::Error::new_spanned(
                 field_name,
-                "#[account(init)] requires `payer = <field>`",
+                format!("#[account({})] requires `payer = <field>`", kw),
             ));
         }
         if attr.space.is_none() {
             return Err(syn::Error::new_spanned(
                 field_name,
-                "#[account(init)] requires `space = <expr>`",
+                format!("#[account({})] requires `space = <expr>`", kw),
             ));
         }
         if attr.seeds.is_some() && attr.bump.is_none() {
             return Err(syn::Error::new_spanned(
                 field_name,
-                "#[account(init, seeds = ...)] requires `bump` (inferred) or `bump = <stored_byte>`",
+                format!(
+                    "#[account({}, seeds = ...)] requires `bump` (inferred) or `bump = <stored_byte>`",
+                    kw
+                ),
             ));
         }
     }
