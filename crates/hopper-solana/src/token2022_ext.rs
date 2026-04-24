@@ -1,21 +1,33 @@
 //! Token-2022 extension screening.
 //!
-//! Parse the TLV (Type-Length-Value) extension area that follows the base
-//! 165-byte mint or 82-byte token account layout. Provides both individual
-//! extension readers and blanket safety checks.
+//! Parse the TLV (Type-Length-Value) extension area on Token-2022 mints
+//! and token accounts. Provides both individual extension readers and
+//! blanket safety checks aimed at DeFi programs (AMMs, lending, staking,
+//! escrow) that need to reject exotic extensions that violate their
+//! assumptions.
 //!
-//! ## Token-2022 TLV Format
+//! ## Token-2022 on-chain layout (authoritative)
 //!
-//! After the base account data (82 bytes for token, 165 bytes for mint),
-//! there is an optional padding byte, then a discriminator byte (`0x01` for
-//! account extensions, `0x02` for mint extensions), followed by TLV entries:
+//! The base `Mint` struct is 82 bytes; the base `Account` struct is 165
+//! bytes. An extended mint is padded up to 165 bytes so that it matches
+//! the length of an extended token account and the `AccountType`
+//! discriminator falls at the same offset on both shapes:
+//!
+//! ```text
+//! Extended mint         : [0..82] Mint base | [82..165] padding | [165] AccountType = 1 | [166..] TLV
+//! Extended token account: [0..165] Account base                 | [165] AccountType = 2 | [166..] TLV
+//! ```
+//!
+//! TLV data always begins at byte 166 for both shapes. Each TLV entry is:
 //!
 //! ```text
 //!   [u16 LE type] [u16 LE length] [length bytes value]
 //! ```
 //!
 //! Extensions are concatenated. The type determines which extension the
-//! TLV entry represents.
+//! TLV entry represents. This matches `spl-token-2022` and the pinocchio
+//! reference implementation (`validate_account_type` keys on
+//! `bytes[BASE_ACCOUNT_LENGTH]` with `BASE_ACCOUNT_LENGTH = 165`).
 
 use hopper_runtime::error::ProgramError;
 
@@ -59,33 +71,75 @@ pub const EXT_GROUP_MEMBER_POINTER: u16 = 22;
 /// Base mint account data size (before extensions).
 pub const MINT_BASE_SIZE: usize = 82;
 
-/// Base token account data size (before extensions).
+/// Base token account data size (before extensions). Also equal to
+/// [`ACCOUNT_TYPE_OFFSET`]: an extended mint is padded up to this
+/// length so its AccountType discriminator lives at the same offset
+/// as on an extended token account.
 pub const TOKEN_ACCOUNT_BASE_SIZE: usize = 165;
 
-/// Account type discriminator byte for mint accounts.
-#[cfg(test)]
-const ACCOUNT_TYPE_MINT: u8 = 2;
+/// Offset of the `AccountType` discriminator on any extended
+/// Token-2022 account (mint or token account).
+pub const ACCOUNT_TYPE_OFFSET: usize = TOKEN_ACCOUNT_BASE_SIZE;
+
+/// Offset at which the TLV extension region begins on any extended
+/// Token-2022 account (mint or token account).
+pub const TLV_OFFSET: usize = ACCOUNT_TYPE_OFFSET + 1;
+
+/// Account-type discriminator byte: Mint.
+pub const ACCOUNT_TYPE_MINT: u8 = 1;
+/// Account-type discriminator byte: Token Account.
+pub const ACCOUNT_TYPE_TOKEN: u8 = 2;
 
 // ── TLV Parsing ──────────────────────────────────────────────────────────────
 
 /// Find the first TLV entry of `ext_type` in a Token-2022 account's data.
 ///
 /// Returns the byte slice of the extension value, or `None` if not found.
-/// Works for both mint (base 82 bytes) and token (base 165 bytes) accounts.
+/// Works for both mint and token accounts: the TLV region begins at a
+/// fixed offset (166) on both shapes because extended mints carry 83
+/// bytes of padding that equalize them to the token-account length.
+///
+/// The `base_size` parameter is kept for API compatibility; callers
+/// typically pass [`MINT_BASE_SIZE`] or [`TOKEN_ACCOUNT_BASE_SIZE`].
+/// It is used to verify the expected `AccountType` discriminator: a
+/// mint-shaped base is only allowed when the byte at offset 165 is
+/// [`ACCOUNT_TYPE_MINT`] or `0`, and likewise for token accounts.
+/// This rejects mint extensions read out of a token-account buffer
+/// (and vice versa) instead of returning silently wrong answers.
+///
+/// Returns `None` on any of:
+/// - account shorter than [`TLV_OFFSET`] + 1 (plain non-extended account)
+/// - `AccountType` byte does not match `base_size`'s expected shape
+/// - malformed TLV (declared length runs past the end of the buffer)
 #[inline(always)]
 pub fn find_extension_data(data: &[u8], base_size: usize, ext_type: u16) -> Option<&[u8]> {
-    // After base data: 1 padding byte + 1 account type byte = +2 bytes overhead
-    let tlv_start = base_size + 1 + 1;
-    if data.len() < tlv_start {
+    // Must be long enough to hold at least the AccountType byte and
+    // the start of the TLV region.
+    if data.len() <= TLV_OFFSET {
         return None;
     }
 
-    let mut offset = tlv_start;
+    // Validate the AccountType discriminator against the caller's
+    // declared shape. `0` is permissive for mid-init accounts.
+    let expected = match base_size {
+        MINT_BASE_SIZE => ACCOUNT_TYPE_MINT,
+        TOKEN_ACCOUNT_BASE_SIZE => ACCOUNT_TYPE_TOKEN,
+        // Unknown base_size: refuse to guess. Historically this
+        // function happily walked any pointer arithmetic the caller
+        // supplied, which is how the offset bug went undetected.
+        _ => return None,
+    };
+    let kind = data[ACCOUNT_TYPE_OFFSET];
+    if kind != expected && kind != 0 {
+        return None;
+    }
+
+    let mut offset = TLV_OFFSET;
     while offset + 4 <= data.len() {
         let ty = u16::from_le_bytes([data[offset], data[offset + 1]]);
         let len = u16::from_le_bytes([data[offset + 2], data[offset + 3]]) as usize;
         let value_start = offset + 4;
-        let value_end = value_start + len;
+        let value_end = value_start.checked_add(len)?;
 
         if value_end > data.len() {
             return None; // Truncated TLV
@@ -93,6 +147,14 @@ pub fn find_extension_data(data: &[u8], base_size: usize, ext_type: u16) -> Opti
 
         if ty == ext_type {
             return Some(&data[value_start..value_end]);
+        }
+
+        // `Uninitialized` (type 0) with zero length is a valid stop
+        // marker on the Token-2022 wire; treating stray zero padding
+        // as an endless sequence of empty TLVs masks real bugs in
+        // producer code.
+        if ty == 0 && len == 0 {
+            return None;
         }
 
         offset = value_end;
@@ -247,33 +309,63 @@ mod tests {
     use alloc::vec::Vec;
     use super::*;
 
-    /// Build sample mint data with one TLV extension.
-    fn sample_mint_with_extension(ext_type: u16, ext_value: &[u8]) -> Vec<u8> {
-        let mut data = vec![0u8; MINT_BASE_SIZE]; // base mint data
-        data.push(0); // padding
-        data.push(ACCOUNT_TYPE_MINT); // account type
-        // TLV: type (2) + length (2) + value
-        data.extend_from_slice(&ext_type.to_le_bytes());
-        data.extend_from_slice(&(ext_value.len() as u16).to_le_bytes());
-        data.extend_from_slice(ext_value);
-        data
-    }
-
-    /// Build sample mint data with multiple TLV extensions.
+    /// Build a mint buffer in the **real** Token-2022 on-chain layout:
+    /// 82 bytes of `Mint` base, 83 bytes of zero padding equalizing it
+    /// to the token-account length, one `AccountType` byte, then TLV
+    /// entries. An earlier iteration of this helper elided the 83-byte
+    /// padding region, and the parser was wrong in exactly the
+    /// complementary way, so tests agreed with buggy code. This helper
+    /// now matches `spl-token-2022` and pinocchio's
+    /// `validate_account_type` (AccountType at offset 165, TLV at 166).
     fn sample_mint_with_extensions(exts: &[(u16, &[u8])]) -> Vec<u8> {
-        let mut data = vec![0u8; MINT_BASE_SIZE];
-        data.push(0);
+        let mut data = vec![0u8; ACCOUNT_TYPE_OFFSET]; // 82 base + 83 padding
         data.push(ACCOUNT_TYPE_MINT);
         for (ext_type, ext_value) in exts {
             data.extend_from_slice(&ext_type.to_le_bytes());
             data.extend_from_slice(&(ext_value.len() as u16).to_le_bytes());
             data.extend_from_slice(ext_value);
         }
+        debug_assert!(data.len() > TLV_OFFSET);
         data
     }
 
+    /// Single-extension convenience wrapper.
+    fn sample_mint_with_extension(ext_type: u16, ext_value: &[u8]) -> Vec<u8> {
+        sample_mint_with_extensions(&[(ext_type, ext_value)])
+    }
+
+    // ── Layout invariants (regression for the offset bug) ────────────────
+
+    #[test]
+    fn offset_constants_match_authoritative_spec() {
+        assert_eq!(MINT_BASE_SIZE, 82);
+        assert_eq!(TOKEN_ACCOUNT_BASE_SIZE, 165);
+        assert_eq!(ACCOUNT_TYPE_OFFSET, 165);
+        assert_eq!(TLV_OFFSET, 166);
+        assert_eq!(ACCOUNT_TYPE_MINT, 1);
+        assert_eq!(ACCOUNT_TYPE_TOKEN, 2);
+    }
+
+    #[test]
+    fn tlv_payload_lives_at_byte_166() {
+        // Construct a real-layout mint with a single NonTransferable
+        // extension. The first byte of the TLV header must sit at
+        // offset 166, not offset 84 (the prior buggy offset).
+        let data = sample_mint_with_extension(EXT_NON_TRANSFERABLE, &[]);
+        assert_eq!(
+            u16::from_le_bytes([data[TLV_OFFSET], data[TLV_OFFSET + 1]]),
+            EXT_NON_TRANSFERABLE,
+        );
+        // And the previously-expected offset is pure zero padding.
+        assert_eq!(data[84], 0);
+        assert_eq!(data[85], 0);
+    }
+
+    // ── Screening checks ─────────────────────────────────────────────────
+
     #[test]
     fn no_extensions_passes_all_checks() {
+        // Plain, non-extended mint (exactly 82 bytes).
         let data = vec![0u8; MINT_BASE_SIZE];
         assert!(check_safe_token_2022_mint(&data).is_ok());
     }
@@ -354,15 +446,41 @@ mod tests {
 
     #[test]
     fn truncated_tlv_returns_none() {
-        let mut data = vec![0u8; MINT_BASE_SIZE];
-        data.push(0);
+        let mut data = vec![0u8; ACCOUNT_TYPE_OFFSET];
         data.push(ACCOUNT_TYPE_MINT);
-        // Write type but length points past end
+        // Write type but length points past end.
         data.extend_from_slice(&EXT_TRANSFER_FEE_CONFIG.to_le_bytes());
         data.extend_from_slice(&200u16.to_le_bytes()); // claims 200 bytes
-        // But only add 10 bytes
-        data.extend_from_slice(&[0u8; 10]);
-
+        data.extend_from_slice(&[0u8; 10]);            // only add 10
         assert!(!mint_has_extension(&data, EXT_TRANSFER_FEE_CONFIG));
+    }
+
+    #[test]
+    fn rejects_reading_mint_extension_out_of_token_account() {
+        // A real extended token account should not be treated as a
+        // mint just because the caller passed the wrong base_size.
+        // Historically this was silently wrong; now find_extension_data
+        // must refuse the AccountType mismatch.
+        let mut data = vec![0u8; ACCOUNT_TYPE_OFFSET];
+        data.push(ACCOUNT_TYPE_TOKEN);
+        data.extend_from_slice(&EXT_TRANSFER_FEE_AMOUNT.to_le_bytes());
+        data.extend_from_slice(&0u16.to_le_bytes());
+        // Calling with MINT_BASE_SIZE must fail regardless of contents.
+        assert!(find_extension_data(&data, MINT_BASE_SIZE, EXT_TRANSFER_FEE_AMOUNT).is_none());
+        // And the token-account path must find it.
+        assert!(
+            find_extension_data(&data, TOKEN_ACCOUNT_BASE_SIZE, EXT_TRANSFER_FEE_AMOUNT).is_some()
+        );
+    }
+
+    #[test]
+    fn unknown_base_size_is_rejected() {
+        // The old implementation accepted arbitrary base_size values
+        // and walked attacker-controlled pointer arithmetic. The new
+        // implementation refuses anything that is not one of the two
+        // canonical shapes.
+        let data = sample_mint_with_extension(EXT_NON_TRANSFERABLE, &[]);
+        assert!(find_extension_data(&data, 42, EXT_NON_TRANSFERABLE).is_none());
+        assert!(find_extension_data(&data, 0, EXT_NON_TRANSFERABLE).is_none());
     }
 }
