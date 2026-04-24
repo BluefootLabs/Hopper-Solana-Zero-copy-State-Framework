@@ -1,0 +1,17 @@
+[package]
+name = "pinocchio-vault"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+description = "Idiomatic Anza Pinocchio parity vault used as the raw-substrate baseline in the framework-vault benchmark. Implements the shared 4-instruction contract defined in bench/METHODOLOGY.md."
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+pinocchio = { workspace = true }
+pinocchio-system = { workspace = true }
+
+[lints.rust]
+unexpected_cfgs = { level = "allow", check-cfg = ['cfg(target_os, values("solana"))'] }

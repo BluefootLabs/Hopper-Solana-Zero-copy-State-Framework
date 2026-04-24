@@ -22,9 +22,47 @@ pub const MAX_RETURN_DATA: usize = 1024;
 
 /// Invoke a CPI without borrow validation (lowest CU cost).
 ///
+/// This is Tier C of the CPI surface. The checked variant
+/// ([`invoke`](crate::cpi::invoke)) enforces the full contract below
+/// before calling this function; prefer that unless you have measured
+/// a reason to bypass the validation pass.
+///
 /// # Safety
 ///
-/// The caller must ensure no account data borrows conflict with the CPI.
+/// The caller must uphold every one of the following invariants. A
+/// violation of any of them is undefined behaviour, because the Solana
+/// runtime's `sol_invoke_signed_c` syscall assumes they already hold.
+///
+/// 1. **No aliasing borrows.** No `&` or `&mut` references into any
+///    account data region referenced by `accounts` may be live for
+///    the duration of the call. The CPI can (and will) mutate those
+///    regions via the callee, and Rust's aliasing rules do not permit
+///    the caller to hold outstanding references to memory that is
+///    about to change under it.
+/// 2. **Account list consistency.** Every `CpiAccount` in `accounts`
+///    must correspond to a real account previously passed to the
+///    program's entrypoint (same address, same `is_signer` /
+///    `is_writable` flags the runtime already knows about). The
+///    runtime will not re-derive account permissions; invalid flags
+///    propagate into the callee.
+/// 3. **Writability coverage.** Every account that the `instruction`
+///    marks writable must have `is_writable = true` in `accounts`,
+///    and every account the instruction marks as signer must have
+///    `is_signer = true`. Mismatches are rejected by the runtime but
+///    the rejection path is not cheap and the caller is expected to
+///    get this right.
+/// 4. **No shared mutable slices across CPIs.** If the same account
+///    appears more than once in `accounts` (duplicate accounts), the
+///    caller is responsible for ensuring that any subsequent borrow
+///    of that account's data respects the CPI's writes.
+/// 5. **Valid instruction encoding.** `instruction.program_id`,
+///    `instruction.accounts`, and `instruction.data` must all point
+///    to valid memory for the duration of the call. An
+///    `InstructionView` built from a local `InstructionAccount` slice
+///    is fine; one built from a dropped stack slot is not.
+///
+/// The runtime does not enforce any of these from the caller side —
+/// it assumes a well-formed CPI. That is the cost of the Tier C path.
 #[inline]
 pub unsafe fn invoke_unchecked(
     instruction: &InstructionView,
@@ -60,9 +98,30 @@ pub unsafe fn invoke_unchecked(
 
 /// Invoke a signed CPI without borrow validation.
 ///
+/// Same as [`invoke_unchecked`] but also passes PDA signer seeds so
+/// the callee can accept writes that would otherwise require a
+/// signature.
+///
 /// # Safety
 ///
-/// The caller must ensure no account data borrows conflict with the CPI.
+/// All of [`invoke_unchecked`]'s invariants apply, plus two more for
+/// the signer-seeds path:
+///
+/// 6. **Signer seeds must derive the claimed PDA.** For every
+///    `Signer` in `signers_seeds`, the derived address
+///    (sha256 of `seeds || program_id || PDA_MARKER`) must equal an
+///    address in `accounts` that is marked as signer. A mismatch will
+///    cause the runtime to reject the CPI, but the caller is expected
+///    to have verified this before reaching the Tier C path.
+/// 7. **Seed lifetime.** `signers_seeds` (and every `&[u8]` it points
+///    at) must outlive the call. Temporary seed slices built inside a
+///    function frame are fine; seeds referencing dropped storage are
+///    not.
+///
+/// For the happy path the caller should hold a `CpiValidator` or
+/// equivalent proof-object constructed by the checked path and let
+/// that drive both this function's inputs and the aliasing discipline
+/// required above.
 #[inline]
 pub unsafe fn invoke_signed_unchecked(
     instruction: &InstructionView,

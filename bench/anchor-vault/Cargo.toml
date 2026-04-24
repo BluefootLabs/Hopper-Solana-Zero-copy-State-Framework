@@ -1,0 +1,52 @@
+# Standalone package outside the Hopper workspace.
+#
+# Anchor pulls in a large dependency tree (anchor-lang, anchor-spl,
+# solana-program, bytemuck, borsh, proc-macro2, quote, syn, etc.). We
+# keep it out of Hopper's workspace resolver so version mismatches or
+# transitive conflicts can't leak into the core crates. Build this
+# package with its own manifest:
+#
+#     cargo build-sbf --manifest-path bench/anchor-vault/Cargo.toml
+#
+# The resulting `anchor_vault.so` lands at
+# `bench/anchor-vault/target/deploy/anchor_vault.so` (its own
+# per-package target/), which the workspace-level
+# `framework-vault-bench` harness will pick up automatically.
+[package]
+name = "anchor-vault"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+description = "R9 bench target: Anchor parity vault. Implements the same four-instruction contract as hopper-parity-vault so the cross-framework bench can include real Anchor zero-copy numbers (AccountLoader path) alongside Hopper, Pinocchio, and Quasar."
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+name = "anchor_vault"
+
+[features]
+# Anchor's standard `no-entrypoint` feature (used when the crate is
+# consumed as an IDL/types dependency from client code without
+# emitting the BPF entrypoint).
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+cpi = ["no-entrypoint"]
+default = []
+
+[dependencies]
+anchor-lang = "0.31"
+
+[profile.release]
+overflow-checks = true
+lto = "fat"
+codegen-units = 1
+[profile.release.build-override]
+opt-level = 3
+incremental = false
+codegen-units = 1
+
+# This standalone package is its own tiny workspace. Keeping this stanza
+# here prevents Cargo from auto-attaching it to the parent workspace
+# even if the parent Cargo.toml's `exclude` list drifts.
+[workspace]

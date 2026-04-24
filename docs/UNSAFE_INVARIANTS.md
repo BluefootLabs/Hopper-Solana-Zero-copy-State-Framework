@@ -550,6 +550,82 @@ The three audit findings that remained open after the enforcement pass asked for
 | F2: compile-proven borrow safety | `HopperRefOnly` | Eight impls total (four sealed-trait impls, four marker-trait impls), all visible in `crates/hopper-runtime/src/ref_only.rs`. No macro expansion, no derive. The compile-fail fixture `tests/compile_fail/ref_only_rejects_raw_ref.rs` is the end-to-end proof | Raw reference at the call site: `error[E0277]: the trait bound '&mut u64: HopperRefOnly' is not satisfied` |
 | F3: entrypoint minimal | `bench/results/framework-vaults/vault-framework-comparison.csv` | Hopper `authorize = 432 CU` vs Quasar `585 CU` vs Pinocchio-style `2543 CU`; `deposit = 1651 CU` vs `1768` vs `3763`; `binary_size = 7.62 KiB` vs `8.36` vs `10.13`. Methodology: `bench/METHODOLOGY.md` (pinned toolchain, equivalent-logic rule, shared Vault contract) | Any regression is caught by `bench/framework-vault-bench` which records a `cu_delta` vs the Hopper baseline; the safety-correctness gate (`unsigned_withdraw_rejected`) excludes any framework that trades safety for speed |
 
+## hopper-native Unsafe Surface (post-audit supplement, R10)
+
+The original audit scope centred on `hopper-core`, `hopper-runtime`, and
+`hopper-solana`. The `hopper-native` crate (raw substrate, loader parsing,
+syscall wrappers) was reviewed during the audit closure pass but its unsafe
+surface was not enumerated in this document at the same level of rigour. This
+section closes that gap and lists every `unsafe` entry point in `hopper-native`
+with its invariants and test coverage pointer. Paired with the existing table
+above, this makes UNSAFE_INVARIANTS.md the complete ground-truth inventory for
+auditors.
+
+### `hopper-native/src/account_view.rs`
+
+| Entry point | Kind | Invariant | Test coverage |
+|---|---|---|---|
+| `AccountView::new_unchecked(ptr)` | `pub unsafe fn` | `ptr` must point at a valid `RuntimeAccount` inside the loader-provided BPF input buffer and must remain dereferenceable for the lifetime of the returned view. Only constructed by `raw_input::deserialize_accounts` and `lazy::parse_one_account`, both of which consume a bounds-checked cursor | `tests/parse_harness.rs` exercises the construction via `deserialize_accounts` end-to-end with deterministic fixtures |
+| `AccountView::owner(&self)` | `pub unsafe fn` | Returns `&Address` into the BPF input buffer. Caller must not construct a mutable borrow of the same account's header concurrently. Hopper's safe helpers (`read_owner`, `owned_by`, `check_owner`) copy the bytes and drop the reference before returning | `account_view::tests::owner_readback` (same-crate) |
+| `AccountView::assign(&self, new_owner)` | `pub unsafe fn` | Account must be writable AND the program must own the account. Writes 32 bytes into the header owner slot | `close_flow_tests::owner_zeroed_on_close` |
+| `AccountView::borrow_unchecked(&self)` / `borrow_unchecked_mut(&self)` | `pub unsafe fn` | Caller must ensure no conflicting borrow via the safe API is live. Bypasses the 1-byte `borrow_state` field | `account_view::tests::unchecked_borrow_roundtrip`, `unsafe_boundary_tests.rs::unchecked_mut_conflicts` (compile-fail check) |
+| `AccountView::segment_ref_unchecked(offset, size)` / `segment_mut_unchecked(offset, size)` | `pub unsafe fn` | `offset + size` must be `<= data_len`. Caller owns alignment and aliasing for the returned slice. Safe variants (`segment_ref`, `segment_mut`) bounds-check and route through `SegmentBorrowRegistry` | `segment_bounds_tests.rs` covers undersized, oversized, and overlapping borrows |
+| `AccountView::raw_ref::<T>()` / `raw_mut::<T>()` | `pub unsafe fn` | `T: Pod`, `size_of::<T>() <= data_len`, no concurrent borrow. These are the Tier C hot-path accessors | `pod_tier_tests.rs::raw_ref_matches_safe_overlay` (equivalence) |
+| `AccountView::resize_unchecked(new_len)` | `pub unsafe fn` | `new_len <= MAX_PERMITTED_DATA_INCREASE + original_len`; caller has no live borrows into the data slice | `realloc_tests.rs::resize_growth_and_shrink` |
+| `AccountView::close_unchecked(dest)` | `pub unsafe fn` | Caller holds no live borrows into the closing account; writes `CLOSE_SENTINEL` into discriminator slot after transferring lamports | `close_flow_tests::close_sentinel_present` |
+
+### `hopper-native/src/raw_input.rs`
+
+| Entry point | Kind | Invariant | Test coverage |
+|---|---|---|---|
+| `deserialize_accounts::<MAX>()` | `pub unsafe fn` | `input` must be the pointer the Solana loader passes to the BPF entrypoint. Walks marker bytes and canonical `RuntimeAccount` frames with strict alignment | `parse_instruction_frame_checked` tests (lines 475–543 in `raw_input.rs`) mirror the same parser and cover malformed, forward-reference, self-reference, and EOF inputs |
+| `deserialize_accounts_fast::<MAX>()` | `pub unsafe fn` | Same as above, plus the caller must be running on SVM ≥ 1.17 with the two-register entrypoint convention. Hopper's `fast_entrypoint!` macro is the only well-typed caller | Same harness as eager variant |
+| `scan_instruction_frame()` | `pub unsafe fn` | Input must be a valid BPF buffer. Returns the (program_id, data) pair without claiming any account slots; caller responsible for the subsequent scan | `parse_instruction_frame_checked` tests |
+| `malformed_duplicate_marker(marker, slot)` | `fn(..) -> !` | Never returns. On-chain: calls `sol_panic_`. Off-chain: panics. Exists to close the pre-audit "Must-Fix #1" where an attacker-supplied forward duplicate reference fell through to account zero | Covered by the forward-reference and self-reference fixtures in the checked-parser tests |
+
+### `hopper-native/src/lazy.rs`
+
+| Entry point | Kind | Invariant | Test coverage |
+|---|---|---|---|
+| `lazy_deserialize(input)` | `pub unsafe fn` | Same input contract as `deserialize_accounts`. Returns a `LazyContext` whose cursor points at the next unparsed account frame; no accounts are materialised yet | `lazy_tests.rs` exercises single-account, multi-account, and duplicate-account partial scans |
+| `LazyContext::parse_one_account()` | `unsafe fn` (crate-private) | Cursor must point at a valid marker or canonical frame boundary. Precondition checked by `advance_cursor` in the caller | Covered transitively by `lazy_tests.rs` |
+| `LazyContext::advance_cursor()` / `advance_non_dup_cursor()` | `unsafe fn` (crate-private) | Cursor must be inside the BPF buffer; advances by the account frame's declared size | Same |
+
+### `hopper-native/src/pda.rs`
+
+| Entry point | Kind | Invariant | Test coverage |
+|---|---|---|---|
+| Inline `unsafe` in `verify_program_address` | Bounded seed array construction from `MaybeUninit` | All `MaybeUninit` slots are written before the slice is exposed to `sol_sha256`; `assume_init_ref` is called only after every slot is initialized | `pda_tests.rs::verify_program_address_sha256_only` |
+| Inline `unsafe` in `based_try_find_program_address` (3 blocks) | Bump iteration with per-iteration seed mutation | Each iteration writes a fresh bump byte into the last seed slot before the sha256 call. Safety comment at the top of the loop documents that the slot is always overwritten | `pda_tests.rs::bump_iteration_exhaustive` |
+| Inline `unsafe` in `find_bump_for_address` (3 blocks) | Same pattern as `based_try_find_program_address` but skips `sol_curve_validate_point`. Safe because PDAs are off-curve by construction and the check compares the resulting address to a known-on-chain PDA | `pda_tests.rs::find_bump_skips_curve_validate` |
+
+### `hopper-native/src/mem.rs`
+
+| Entry point | Kind | Invariant | Test coverage |
+|---|---|---|---|
+| `memcpy(dst, src, n)` | `pub unsafe fn` | `dst` and `src` must be valid for `n` bytes; regions must not overlap. Dispatches to `sol_memcpy_` on-chain and `core::ptr::copy_nonoverlapping` off-chain | `mem_tests.rs::memcpy_roundtrip` |
+| `memmove(dst, src, n)` | `pub unsafe fn` | Regions may overlap | `mem_tests.rs::memmove_overlapping_slices` |
+| `memset(dst, byte, n)` | `pub unsafe fn` | `dst` valid for `n` bytes | `mem_tests.rs::memset_zero` |
+| `memcmp(a, b, n, result)` | `pub unsafe fn` | Both pointers valid for `n` bytes; `result` writable for one `i32` | `mem_tests.rs::memcmp_equal_and_nonequal` |
+
+### `hopper-native/src/cpi.rs` (borrow-conflict invariant, expanded)
+
+As of R7, `cpi::invoke_unchecked` and `cpi::invoke_signed_unchecked` now carry
+an explicit seven-item invariant list in their `# Safety` doc blocks. The
+inventory is:
+
+1. No aliasing borrows into any account in `accounts` for the call's duration.
+2. `accounts` corresponds to real accounts from the program entrypoint (address + signer/writable flags).
+3. Writability and signer flags match the `instruction`'s declared requirements.
+4. Duplicate accounts impose caller responsibility for post-CPI re-borrow discipline.
+5. `instruction.program_id` / `accounts` / `data` pointers are valid for the call's lifetime.
+6. (signed variant) Every `Signer` seed derivation hashes to a signer address in `accounts`.
+7. (signed variant) Seed slice lifetimes exceed the call duration.
+
+Checked variants (`invoke`, `invoke_signed`) enforce 2–4 and 6 before routing
+to the unchecked path; the typical caller should reach for those unless a CU
+measurement justifies bypassing validation.
+
 ## Verification
 
 ```bash

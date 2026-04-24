@@ -1,6 +1,15 @@
 param(
-    [Parameter(Mandatory = $true)]
+    # Optional path to an extracted Quasar checkout. When supplied,
+    # the `quasar` framework is added to the comparison. Pre-R2 this
+    # was mandatory because the Pinocchio baseline was loaded from
+    # Quasar's examples/pinocchio-vault; after R2 the Pinocchio
+    # baseline is built in-tree from bench/pinocchio-vault so
+    # -QuasarRoot is optional.
     [string]$QuasarRoot,
+
+    # Optional path to an Anchor framework checkout. When supplied,
+    # the `anchor` framework is added to the comparison matrix.
+    [string]$AnchorRoot,
 
     [string]$OutDir = "bench\results\framework-vaults",
 
@@ -10,19 +19,23 @@ param(
 $ErrorActionPreference = "Stop"
 
 $hopperRoot = Split-Path -Parent $PSScriptRoot
-$resolvedQuasarRoot = (Resolve-Path -LiteralPath $QuasarRoot).Path
 $resolvedOutDir = if ([System.IO.Path]::IsPathRooted($OutDir)) {
     $OutDir
 } else {
     Join-Path $hopperRoot $OutDir
 }
 
-if (-not (Test-Path -LiteralPath (Join-Path $resolvedQuasarRoot "examples\vault\Cargo.toml"))) {
-    throw "Quasar root does not look valid: missing examples\vault\Cargo.toml"
+$resolvedQuasarRoot = $null
+if ($QuasarRoot) {
+    $resolvedQuasarRoot = (Resolve-Path -LiteralPath $QuasarRoot).Path
+    if (-not (Test-Path -LiteralPath (Join-Path $resolvedQuasarRoot "examples\vault\Cargo.toml"))) {
+        throw "Quasar root does not look valid: missing examples\vault\Cargo.toml"
+    }
 }
 
-if (-not (Test-Path -LiteralPath (Join-Path $resolvedQuasarRoot "examples\pinocchio-vault\Cargo.toml"))) {
-    throw "Quasar root does not include examples\pinocchio-vault; cannot benchmark the Pinocchio-style vault target"
+$resolvedAnchorRoot = $null
+if ($AnchorRoot) {
+    $resolvedAnchorRoot = (Resolve-Path -LiteralPath $AnchorRoot).Path
 }
 
 New-Item -ItemType Directory -Force -Path $resolvedOutDir | Out-Null
@@ -78,21 +91,32 @@ function Invoke-CargoCapture {
 }
 
 if (-not $NoBuild) {
+    # In-tree baselines: always built.
     Invoke-CargoCapture -WorkingDirectory $hopperRoot -Arguments @("build-sbf", "--manifest-path", "examples/hopper-parity-vault/Cargo.toml") | Out-Null
-    Invoke-CargoCapture -WorkingDirectory $resolvedQuasarRoot -Arguments @("build-sbf", "--manifest-path", "examples/vault/Cargo.toml") | Out-Null
-    Invoke-CargoCapture -WorkingDirectory $resolvedQuasarRoot -Arguments @("build-sbf", "--manifest-path", "examples/pinocchio-vault/Cargo.toml") | Out-Null
+    Invoke-CargoCapture -WorkingDirectory $hopperRoot -Arguments @("build-sbf", "--manifest-path", "bench/pinocchio-vault/Cargo.toml") | Out-Null
+
+    # Optional external comparators.
+    if ($resolvedQuasarRoot) {
+        Invoke-CargoCapture -WorkingDirectory $resolvedQuasarRoot -Arguments @("build-sbf", "--manifest-path", "examples/vault/Cargo.toml") | Out-Null
+    }
 }
 
-$output = Invoke-CargoCapture -WorkingDirectory $hopperRoot -Arguments @(
+$runnerArgs = @(
     "run",
     "-p",
     "framework-vault-bench",
     "--",
-    "--quasar-root",
-    $resolvedQuasarRoot,
     "--out-dir",
     $resolvedOutDir
 )
+if ($resolvedQuasarRoot) {
+    $runnerArgs += @("--quasar-root", $resolvedQuasarRoot)
+}
+if ($resolvedAnchorRoot) {
+    $runnerArgs += @("--anchor-root", $resolvedAnchorRoot)
+}
+
+$output = Invoke-CargoCapture -WorkingDirectory $hopperRoot -Arguments $runnerArgs
 
 Write-Host ""
 Write-Host $output

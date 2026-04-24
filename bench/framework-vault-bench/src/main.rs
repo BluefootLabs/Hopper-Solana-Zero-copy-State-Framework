@@ -80,7 +80,7 @@ struct FrameworkMetric {
 #[derive(Serialize)]
 struct Report {
     hopper_root: String,
-    quasar_root: String,
+    quasar_root: Option<String>,
     methodology: Methodology,
     benchmarks: Vec<FrameworkMetric>,
 }
@@ -92,7 +92,12 @@ struct ProgramSpec {
 }
 
 struct Args {
-    quasar_root: PathBuf,
+    /// Optional quasar-vault build root. When provided, a `quasar`
+    /// framework entry is appended to the matrix. Quasar is an
+    /// external project (blueshift-gg/quasar); pass `--quasar-root
+    /// <path>` to include it. Pre-R2 this was required; it is now
+    /// optional because the pinocchio baseline is built in-tree.
+    quasar_root: Option<PathBuf>,
     /// Optional anchor-vault build root. When provided, an
     /// `anchor` framework entry is appended to the measurement
     /// matrix. See `bench/METHODOLOGY.md` for the shared contract.
@@ -111,13 +116,17 @@ fn run() -> Result<(), String> {
     let args = parse_args()?;
     let workspace_root = workspace_root()?;
 
-    // Audit D4 closure: Hopper is the baseline. Quasar + pinocchio-style
-    // are required by the legacy bench contract (quasar_root supplies
-    // both). Anchor is optional, pass `--anchor-root <path>` and the
-    // anchor_vault.so there is included in the matrix. Frameworks whose
-    // binaries are missing are skipped and logged rather than erroring
-    // out; partial runs are valid during development. CI builds require
-    // every framework to be present (see `bench/METHODOLOGY.md`).
+    // Audit D4 closure: Hopper is the baseline. Pinocchio is the
+    // raw-substrate baseline, built in-tree from `bench/pinocchio-vault`
+    // so the artefact is unambiguously Anza Pinocchio and not a
+    // third-party reference. Quasar is the framework-tier comparator,
+    // loaded from `$quasar_root/target/deploy/quasar_vault.so`. Anchor
+    // is optional; pass `--anchor-root <path>` and the anchor_vault.so
+    // there is appended to the matrix. Frameworks whose binaries are
+    // missing are skipped and logged rather than erroring out; partial
+    // runs are valid during development. CI builds require every
+    // framework to be present (see `bench/METHODOLOGY.md`). See
+    // `AUDIT.md` R2 for the rationale behind the column rename.
     let mut specs: Vec<ProgramSpec> = vec![
         ProgramSpec {
             framework: "hopper",
@@ -125,17 +134,29 @@ fn run() -> Result<(), String> {
             binary_path: workspace_root.join("target/deploy/hopper_parity_vault.so"),
         },
         ProgramSpec {
-            framework: "quasar",
-            program_id: QUASAR_PROGRAM_ID,
-            binary_path: args.quasar_root.join("target/deploy/quasar_vault.so"),
-        },
-        ProgramSpec {
-            framework: "pinocchio-style",
+            framework: "pinocchio",
             program_id: PINOCCHIO_PROGRAM_ID,
-            binary_path: args.quasar_root.join("target/deploy/pinocchio_vault.so"),
+            binary_path: workspace_root.join("target/deploy/pinocchio_vault.so"),
         },
     ];
-    if let Some(anchor_root) = &args.anchor_root {
+    if let Some(quasar_root) = &args.quasar_root {
+        specs.push(ProgramSpec {
+            framework: "quasar",
+            program_id: QUASAR_PROGRAM_ID,
+            binary_path: quasar_root.join("target/deploy/quasar_vault.so"),
+        });
+    }
+    // Anchor: prefer the in-tree `bench/anchor-vault` binary if it's
+    // been built (R9 closure). Fall back to `--anchor-root` for users
+    // who still point at an external Anchor checkout.
+    let anchor_in_tree = workspace_root.join("bench/anchor-vault/target/deploy/anchor_vault.so");
+    if anchor_in_tree.is_file() {
+        specs.push(ProgramSpec {
+            framework: "anchor",
+            program_id: ANCHOR_PROGRAM_ID,
+            binary_path: anchor_in_tree,
+        });
+    } else if let Some(anchor_root) = &args.anchor_root {
         specs.push(ProgramSpec {
             framework: "anchor",
             program_id: ANCHOR_PROGRAM_ID,
@@ -186,9 +207,12 @@ fn run() -> Result<(), String> {
 
     let report = Report {
         hopper_root: workspace_root.display().to_string(),
-        quasar_root: args.quasar_root.display().to_string(),
+        quasar_root: args
+            .quasar_root
+            .as_ref()
+            .map(|p| p.display().to_string()),
         methodology: Methodology {
-            runner: "mollusk-svm shared host runner loading all three compiled SBF binaries",
+            runner: "mollusk-svm shared host runner loading every present framework's compiled SBF binary",
             samples: SHARED_USER_CASES.len(),
             authorize: "average across shared deterministic user seed cases; signer + writable + PDA validation only on the same ['vault', user] PDA shape with no CPI or lamport mutation",
             authorize_failure: "missing-signature variant of the authorize path; must fail without mutating balances and exposes the early validation cost",
@@ -278,15 +302,16 @@ fn parse_args() -> Result<Args, String> {
             }
             _ => {
                 return Err(format!(
-                    "unknown argument '{arg}'; expected --quasar-root <path> [--anchor-root <path>] [--out-dir <path>]"
+                    "unknown argument '{arg}'; expected [--quasar-root <path>] [--anchor-root <path>] [--out-dir <path>]"
                 ));
             }
         }
     }
 
     let workspace_root = workspace_root()?;
-    let quasar_root = quasar_root.ok_or_else(|| "missing required --quasar-root <path>".to_string())?;
-    let quasar_root = canonicalize_existing(&quasar_root)?;
+    let quasar_root = quasar_root
+        .map(|p| canonicalize_existing(&p))
+        .transpose()?;
     let anchor_root = anchor_root
         .map(|p| canonicalize_existing(&p))
         .transpose()?;

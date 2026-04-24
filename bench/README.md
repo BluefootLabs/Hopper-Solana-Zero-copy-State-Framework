@@ -9,7 +9,8 @@ bench/
 ├── README.md                 ← This file
 ├── cu_baselines.toml         ← Golden CU baselines (CI gate thresholds)
 ├── compare-framework-vaults.ps1 ← Build wrapper for the fair vault comparison
-├── framework-vault-bench/    ← Shared Mollusk runner for Hopper/Quasar/Pinocchio-style vaults
+├── framework-vault-bench/    ← Shared Mollusk runner for Hopper/Pinocchio/Quasar vaults
+├── pinocchio-vault/          ← In-tree Anza Pinocchio raw-substrate baseline (R2)
 │   ├── Cargo.toml
 │   └── src/main.rs           ← Shared scenario runner and report writer
 ├── hopper-bench/             ← On-chain benchmark program
@@ -102,37 +103,43 @@ The thin wrappers `bench/measure.sh` and `bench/measure.ps1` also delegate to
 
 ### Option C: Cross-framework vault comparison
 
-Use the extracted Quasar workspace as the comparison target. The comparison
-builds three minimal vault programs and then runs them through one shared
-Mollusk harness:
+Builds the minimal in-tree vault programs (Hopper + Pinocchio) and runs them
+through one shared Mollusk harness. Quasar and Anchor are optional and only
+included when you pass a local checkout root.
 
-- Hopper `examples/hopper-parity-vault`
-- Quasar `examples/vault`
-- Quasar `examples/pinocchio-vault`
+- Hopper `examples/hopper-parity-vault` (always built in-tree)
+- Pinocchio `bench/pinocchio-vault` (always built in-tree; Anza `pinocchio = "0.10"`)
+- Quasar `examples/vault` (optional; requires `-QuasarRoot`)
+- Anchor `programs/anchor-vault` (optional; requires `-AnchorRoot`)
 
 ```powershell
+# Minimal: Hopper vs Pinocchio only.
+.\bench\compare-framework-vaults.ps1
+
+# Include Quasar:
 .\bench\compare-framework-vaults.ps1 -QuasarRoot d:\tmp\framework-sources\quasar-master\quasar-master
 ```
 
-The `-QuasarRoot` argument points to an extracted Quasar repository checkout
-(for example, a local mirror of the upstream Quasar repo). Hopper deliberately
-does **not** vendor Quasar sources. the wrapper builds the Quasar and
-Pinocchio-style vault examples from a user-supplied checkout so the
-comparison stays honest.
+The `-QuasarRoot` argument is optional and points to an extracted Quasar
+repository checkout (for example, a local mirror of the upstream Quasar
+repo). Hopper deliberately does **not** vendor Quasar sources. Pre-R2 this
+argument was mandatory because the Pinocchio baseline was loaded from
+Quasar's `examples/pinocchio-vault`. That third-party indirection is gone;
+the Pinocchio baseline is now built in-tree (see R2 in [AUDIT.md](../AUDIT.md)).
 
 This flow:
 
 - builds `hopper-parity-vault`
-- builds Quasar `examples/vault`
-- builds Quasar `examples/pinocchio-vault`
-- runs all three binaries under one shared `mollusk-svm` runner
-- averages 8 shared deterministic user seed cases across all three frameworks
+- builds the in-tree `pinocchio-vault`
+- builds Quasar `examples/vault` (only if `-QuasarRoot` was supplied)
+- runs every built binary under one shared `mollusk-svm` runner
+- averages 8 shared deterministic user seed cases across every framework present
 - uses one authorize scenario: signer + writable + PDA validation on the same `['vault', user]` PDA shape with no CPI or lamport mutation
 - uses one counter-access scenario: the same `['vault', user]` PDA plus a raw `[authority:32][counter:8]` data region that is validated and incremented without CPI or lamport mutation
 - uses one deposit scenario: system CPI transfer into the same `['vault', user]` PDA shape
 - uses one withdraw scenario: direct lamport mutation from the same program-owned PDA shape
-- checks unsigned withdraw rejection for all three binaries
-- measures the missing-signature failure cost on the authorize path for all three binaries
+- checks unsigned withdraw rejection for every binary
+- measures the missing-signature failure cost on the authorize path for every binary
 - writes JSON and CSV metrics under `bench/results/framework-vaults`
 
 The comparison is scenario-level rather than primitive-level, so it complements
@@ -140,26 +147,34 @@ The comparison is scenario-level rather than primitive-level, so it complements
 intentional: `examples/hopper-vault` remains the richer Hopper feature demo,
 while `examples/hopper-parity-vault` is the fair benchmark target.
 
-Latest verified averaged result on the extracted archives:
+Latest verified averaged result (pre-R2 — Quasar-authored Pinocchio reference):
 
 - Hopper parity: authorize `823` CU, auth-fail `122` CU, counter `993` CU, deposit `2050` CU, withdraw `851` CU, binary `8.30` KiB
 - Quasar: authorize `585` CU, auth-fail `66` CU, counter `607` CU, deposit `1768` CU, withdraw `605` CU, binary `8.36` KiB
-- Pinocchio-style: authorize `2543` CU, auth-fail `74` CU, counter `2575` CU, deposit `3763` CU, withdraw `2567` CU, binary `10.13` KiB
+- Pinocchio-style (deprecated column): authorize `2543` CU, auth-fail `74` CU, counter `2575` CU, deposit `3763` CU, withdraw `2567` CU, binary `10.13` KiB
+
+The "Pinocchio-style" row above is historical. After R2 the Pinocchio column
+is built in-tree from `bench/pinocchio-vault` using Anza's own crates, and
+numbers will be refreshed on the next bench run. Expect Hopper's lead over
+idiomatic Pinocchio to be a few hundred CU on PDA-bearing instructions
+(the verify-only sha256 PDA path), not the ~2000 CU shown above — the old
+gap was against a non-optimised reference sample, not against Pinocchio in
+the shape Pinocchio users actually ship.
 
 The main Hopper win in this pass is framework-owned: Hopper Native now uses a
 direct native PDA verification/search path and Hopper Runtime routes those
 checks without paying avoidable runtime-address conversion overhead. That cuts
 the parity vault materially versus the previous baseline and lands the current
-authorize gap at `238` CU (`823` vs `585`) with the missing-signature gap at
-`56` CU (`122` vs `66`).
+authorize gap at `238` CU (`823` vs `585` against Quasar) with the missing-signature gap at
+`56` CU (`122` vs `66` against Quasar).
 
-The new counter-access scenario is the honest safety-model benchmark: all three
-frameworks mutate the same raw `[authority:32][counter:8]` state region on the
-same vault PDA shape, but Hopper does it through `segment_ref` + `segment_mut`
-while Quasar and the Pinocchio-style target slice raw bytes directly. That puts
-the current Hopper segment-safe path `386` CU behind Quasar (`993` vs `607`),
-which is now the clearest remaining performance target on Hopper's unique state
-model rather than on CPI-heavy flows.
+The counter-access scenario is the honest safety-model benchmark: every
+framework mutates the same raw `[authority:32][counter:8]` state region on
+the same vault PDA shape, but Hopper does it through `segment_ref` +
+`segment_mut` while Quasar and the Pinocchio baseline slice raw bytes
+directly. That puts the current Hopper segment-safe path `386` CU behind
+Quasar (`993` vs `607`), which is the clearest remaining performance target
+on Hopper's unique state model rather than on CPI-heavy flows.
 
 ## CI Integration
 

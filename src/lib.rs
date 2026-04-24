@@ -144,6 +144,70 @@ pub use hopper_core::hopper_dispatch;
 // re-export here.
 pub use hopper_runtime::layout_migrations;
 
+/// Destructuring sugar for raw-dispatch handlers.
+///
+/// Replaces the common pattern:
+///
+/// ```ignore
+/// let [user, vault, system_program, ..] = accounts else {
+///     return Err(ProgramError::NotEnoughAccountKeys);
+/// };
+/// ```
+///
+/// with the tighter form:
+///
+/// ```ignore
+/// hopper_load!(accounts => [user, vault, system_program]);
+/// ```
+///
+/// The bindings are plain `&AccountView` references (not owned values),
+/// matching the destructuring pattern. A trailing `..` is accepted and
+/// discards any extra accounts. The macro bails with
+/// `ProgramError::NotEnoughAccountKeys` when the slice is too short,
+/// mirroring Hopper's existing idiom.
+///
+/// Use this in the raw-dispatch authoring style (no `#[hopper::context]`).
+/// The proc-macro context already binds accounts by name, so this is only
+/// useful when you are working with `&[AccountView]` directly — typically
+/// inside `fn process_instruction(_, accounts: &[AccountView], _)` before
+/// routing to per-variant handlers.
+///
+/// ## Examples
+///
+/// ```ignore
+/// fn process_deposit(
+///     program_id: &Address,
+///     accounts: &[AccountView],
+///     data: &[u8],
+/// ) -> ProgramResult {
+///     hopper_load!(accounts => [user, vault, system_program]);
+///     user.require_signer()?;
+///     vault.require_writable()?;
+///     // ... rest of handler ...
+///     Ok(())
+/// }
+/// ```
+///
+/// With a trailing rest pattern (accept more accounts, ignore them):
+///
+/// ```ignore
+/// hopper_load!(accounts => [user, vault, ..]);
+/// ```
+///
+/// The trailing `..` is redundant with the default behaviour (the macro
+/// always accepts more accounts than declared) but is supported for
+/// stylistic parity with the native Rust slice pattern.
+#[macro_export]
+macro_rules! hopper_load {
+    ( $slice:expr => [ $($binding:ident),+ $(, ..)? $(,)? ] ) => {
+        let [ $($binding,)+ .. ] = $slice else {
+            return ::core::result::Result::Err(
+                $crate::hopper_runtime::error::ProgramError::NotEnoughAccountKeys,
+            );
+        };
+    };
+}
+
 // Ergonomic guard macros (the "winning architecture" design's
 // Jiminy-replacement safety layer). All are `#[macro_export]` from
 // hopper_runtime and are re-exported here so programs see them at

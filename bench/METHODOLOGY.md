@@ -25,13 +25,18 @@ The audit's methodology requirements (page 15) are:
 | Framework | Binary source | Required |
 |---|---|---|
 | **Hopper** | `target/deploy/hopper_parity_vault.so` (this repo) | Yes. baseline |
-| **Quasar** | `$quasar_root/target/deploy/quasar_vault.so` | Optional, skipped if missing |
-| **Pinocchio-style** | `$quasar_root/target/deploy/pinocchio_vault.so` | Optional, skipped if missing |
-| **Anchor** | `$anchor_root/target/deploy/anchor_vault.so` | Optional, skipped if missing |
+| **Pinocchio** | `target/deploy/pinocchio_vault.so` (this repo, `bench/pinocchio-vault`) | Yes. raw-substrate baseline |
+| **Quasar** | `$quasar_root/target/deploy/quasar_vault.so` | Optional, skipped if `--quasar-root` is not passed or the binary is missing |
+| **Anchor** | `bench/anchor-vault/target/deploy/anchor_vault.so` (in-tree, R9) or `$anchor_root/target/deploy/anchor_vault.so` | Optional. Built in-tree via `cargo build-sbf --manifest-path bench/anchor-vault/Cargo.toml`; if that binary is missing, harness falls back to `--anchor-root` |
 
-A framework without a built `.so` is silently skipped in the emitted
-report so partial runs are valid during development. CI requires all
-four to be present for a release cut.
+The Pinocchio baseline is now built in-tree against Anza's own
+`pinocchio = "0.10"` and `pinocchio-system = "0.5"` crates
+(see `bench/pinocchio-vault/src/lib.rs`). Pre-R2 the Pinocchio column
+was labelled "Pinocchio-style" and loaded from Quasar's third-party
+reference vault; that indirection made the comparison ambiguous and is
+removed. A framework without a built `.so` is silently skipped in the
+emitted report so partial runs are valid during development. CI
+requires every framework slot to be present for a release cut.
 
 ## Shared vault contract
 
@@ -119,13 +124,17 @@ publishing any cross-framework numbers.
 ## Running the cross-framework bench
 
 ```bash
-# Build all four vaults.
+# Build the in-tree baselines. Hopper and Pinocchio are both local;
+# Quasar and Anchor are external and optional.
 cargo build-sbf -p hopper-parity-vault
-(cd $QUASAR_ROOT && cargo build-sbf -p quasar-vault)
-(cd $QUASAR_ROOT && cargo build-sbf -p pinocchio-vault)
-(cd $ANCHOR_ROOT && anchor build -p anchor-vault)
+cargo build-sbf -p pinocchio-vault
+(cd $QUASAR_ROOT && cargo build-sbf -p quasar-vault)       # optional
+cargo build-sbf --manifest-path bench/anchor-vault/Cargo.toml  # in-tree Anchor (R9)
+(cd $ANCHOR_ROOT && anchor build -p anchor-vault)          # optional external
 
-# Run the shared harness.
+# Run the shared harness. `--quasar-root` and `--anchor-root` are
+# both optional; pass either flag to include that framework in the
+# matrix.
 cargo run -p framework-vault-bench --release -- \
     --quasar-root $QUASAR_ROOT \
     --anchor-root $ANCHOR_ROOT \
@@ -160,7 +169,7 @@ comparison. the report flags this explicitly so readers know.
 Small deltas (under 50 CU) are within run-to-run noise on mollusk.
 Differences under 100 CU are uninteresting for most protocol decisions.
 Differences at the 500+ CU level reflect genuine framework-level
-overhead. The audit's explicit expectation is that Hopper lands
-within ~10% of Pinocchio-style raw-substrate implementations while
-offering the safety and DX Anchor provides. the cross-framework
-report is how that claim is validated.
+overhead. The audit's explicit expectation is that Hopper lands a
+few hundred CU above idiomatic Anza Pinocchio on PDA-bearing
+instructions while offering the safety and DX Anchor provides. The
+cross-framework report is how that claim is validated.

@@ -1,0 +1,22 @@
+[package]
+name = "hopper-token-2022-transfer-hook"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+description = "R6 audit closure. Hopper-authored Token-2022 example that reads the TransferHook mint extension, asserts it binds a specific hook program, and rejects mints with unsafe extensions. Demonstrates the extension-aware validation pattern Hopper's hopper-token-2022 + hopper-solana token2022_ext surface enables."
+
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+hopper = { path = "../..", default-features = false }
+
+[features]
+default = ["hopper-native-backend"]
+hopper-native-backend = ["hopper/hopper-native-backend"]
+pinocchio-backend = ["hopper/pinocchio-backend"]
+solana-program-backend = ["hopper/solana-program-backend"]
+
+[lints.rust]
+unexpected_cfgs = { level = "allow", check-cfg = ['cfg(target_os, values("solana"))'] }

@@ -300,6 +300,73 @@ pub fn read_transfer_fee_config(mint_data: &[u8]) -> Result<TransferFeeConfig, P
     })
 }
 
+// ── Transfer Hook Reader ─────────────────────────────────────────────────────
+
+/// Transfer-hook binding extracted from a Token-2022 mint.
+///
+/// Layout of the TransferHook extension value (64 bytes):
+///
+/// ```text
+///   0..32   authority  (Pubkey — may be rotated via SetTransferHook)
+///  32..64   program_id (Pubkey — the hook program invoked on transfer)
+/// ```
+///
+/// References are borrowed from the mint buffer, so the caller
+/// typically clones `.to_bytes()` into an owned `Address` before
+/// further use. This is R6 audit closure; see
+/// [`examples/hopper-token-2022-transfer-hook`] for the end-to-end
+/// reference program.
+pub struct TransferHook<'a> {
+    /// Authority allowed to update the hook program binding.
+    pub authority: &'a [u8; 32],
+    /// Program ID of the hook that Token-2022 invokes on every transfer.
+    pub program_id: &'a [u8; 32],
+}
+
+/// Read the Transfer Hook binding from a Token-2022 mint, or return
+/// `None` if the mint has no transfer-hook extension.
+///
+/// Returns `Some(TransferHook { authority, program_id })` when the
+/// mint has a `TransferHook` extension with a well-formed 64-byte
+/// value, `None` when the extension is absent, and
+/// `Err(InvalidAccountData)` when the extension is present but
+/// malformed (length < 64, or the underlying TLV is truncated).
+#[inline(always)]
+pub fn read_transfer_hook(
+    mint_data: &[u8],
+) -> Result<Option<TransferHook<'_>>, ProgramError> {
+    let Some(ext) = find_extension_data(mint_data, MINT_BASE_SIZE, EXT_TRANSFER_HOOK) else {
+        return Ok(None);
+    };
+    if ext.len() < 64 {
+        return Err(ProgramError::InvalidAccountData);
+    }
+
+    // SAFETY: we just bounds-checked ext.len() >= 64; the two 32-byte
+    // subregions are disjoint (0..32, 32..64) and fall inside `ext`.
+    let authority: &[u8; 32] = ext[0..32].try_into().unwrap();
+    let program_id: &[u8; 32] = ext[32..64].try_into().unwrap();
+
+    Ok(Some(TransferHook { authority, program_id }))
+}
+
+/// Assert that the mint has a transfer-hook extension and that it
+/// invokes the expected program. Pairs with `read_transfer_hook` when
+/// the program's business logic depends on a specific hook binding.
+///
+/// Returns `Err(InvalidAccountData)` if the extension is missing,
+/// malformed, or binds a different program than `expected_program_id`.
+#[inline(always)]
+pub fn check_transfer_hook_program(
+    mint_data: &[u8],
+    expected_program_id: &[u8; 32],
+) -> Result<(), ProgramError> {
+    match read_transfer_hook(mint_data)? {
+        Some(hook) if hook.program_id == expected_program_id => Ok(()),
+        Some(_) | None => Err(ProgramError::InvalidAccountData),
+    }
+}
+
 // ── Tests ────────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
@@ -482,5 +549,61 @@ mod tests {
         let data = sample_mint_with_extension(EXT_NON_TRANSFERABLE, &[]);
         assert!(find_extension_data(&data, 42, EXT_NON_TRANSFERABLE).is_none());
         assert!(find_extension_data(&data, 0, EXT_NON_TRANSFERABLE).is_none());
+    }
+
+    // ── Transfer Hook reader (R6) ────────────────────────────────────────
+
+    #[test]
+    fn read_transfer_hook_parses_authority_and_program_id() {
+        let mut ext_value = vec![0u8; 64];
+        // authority = 0xAA... (32 bytes)
+        for i in 0..32 {
+            ext_value[i] = 0xAA;
+        }
+        // program_id = 0xBB... (32 bytes)
+        for i in 32..64 {
+            ext_value[i] = 0xBB;
+        }
+        let data = sample_mint_with_extension(EXT_TRANSFER_HOOK, &ext_value);
+        let hook = read_transfer_hook(&data).unwrap().unwrap();
+        assert_eq!(hook.authority, &[0xAA; 32]);
+        assert_eq!(hook.program_id, &[0xBB; 32]);
+    }
+
+    #[test]
+    fn read_transfer_hook_returns_none_when_absent() {
+        // Plain mint with no extensions.
+        let data = vec![0u8; MINT_BASE_SIZE];
+        assert!(matches!(read_transfer_hook(&data), Ok(None)));
+    }
+
+    #[test]
+    fn read_transfer_hook_rejects_truncated_extension() {
+        // Hook extension with only 32 bytes of payload — enough for
+        // authority but not program_id. Must be rejected.
+        let data = sample_mint_with_extension(EXT_TRANSFER_HOOK, &[0u8; 32]);
+        assert!(read_transfer_hook(&data).is_err());
+    }
+
+    #[test]
+    fn check_transfer_hook_program_accepts_match() {
+        let mut ext_value = vec![0u8; 64];
+        ext_value[32..64].copy_from_slice(&[0xCC; 32]);
+        let data = sample_mint_with_extension(EXT_TRANSFER_HOOK, &ext_value);
+        assert!(check_transfer_hook_program(&data, &[0xCC; 32]).is_ok());
+    }
+
+    #[test]
+    fn check_transfer_hook_program_rejects_mismatch() {
+        let mut ext_value = vec![0u8; 64];
+        ext_value[32..64].copy_from_slice(&[0xCC; 32]);
+        let data = sample_mint_with_extension(EXT_TRANSFER_HOOK, &ext_value);
+        assert!(check_transfer_hook_program(&data, &[0xDD; 32]).is_err());
+    }
+
+    #[test]
+    fn check_transfer_hook_program_rejects_missing_extension() {
+        let data = vec![0u8; MINT_BASE_SIZE];
+        assert!(check_transfer_hook_program(&data, &[0; 32]).is_err());
     }
 }
