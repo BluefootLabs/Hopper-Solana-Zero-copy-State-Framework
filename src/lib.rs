@@ -71,6 +71,7 @@ pub mod instruction;
 pub mod layout;
 pub mod context;
 pub mod pda;
+pub mod rent;
 pub mod syscall;
 pub mod syscalls;
 pub mod system;
