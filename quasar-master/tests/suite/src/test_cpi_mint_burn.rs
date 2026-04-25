@@ -1,0 +1,285 @@
+use {
+    crate::helpers::*,
+    quasar_svm::{Instruction, Pubkey},
+    quasar_test_token_cpi::cpi::*,
+};
+
+// ===========================================================================
+// MintTo (discriminator 3) — Program<Token>
+// ===========================================================================
+
+#[test]
+fn mint_to_spl() {
+    let mut svm = svm_cpi();
+    let authority = Pubkey::new_unique();
+    let mint_key = Pubkey::new_unique();
+    let to_key = Pubkey::new_unique();
+    let token_program = spl_token_program_id();
+
+    let instruction: Instruction = MintToInstruction {
+        authority,
+        mint: mint_key,
+        to: to_key,
+        token_program,
+        amount: 5000,
+    }
+    .into();
+
+    let result = svm.process_instruction(
+        &instruction,
+        &[
+            signer_account(authority),
+            mint_account(mint_key, authority, 9, token_program),
+            token_account(to_key, mint_key, authority, 0, token_program),
+        ],
+    );
+    assert!(
+        result.is_ok(),
+        "mint_to SPL should succeed: {:?}",
+        result.raw_result
+    );
+}
+
+// ===========================================================================
+// MintToT22 (discriminator 26) — Program<Token2022>
+// ===========================================================================
+
+#[test]
+fn mint_to_t22() {
+    let mut svm = svm_cpi();
+    let authority = Pubkey::new_unique();
+    let mint_key = Pubkey::new_unique();
+    let to_key = Pubkey::new_unique();
+    let token_program = token_2022_program_id();
+
+    let instruction: Instruction = MintToT22Instruction {
+        authority,
+        mint: mint_key,
+        to: to_key,
+        token_program,
+        amount: 5000,
+    }
+    .into();
+
+    let result = svm.process_instruction(
+        &instruction,
+        &[
+            signer_account(authority),
+            mint_account(mint_key, authority, 9, token_program),
+            token_account(to_key, mint_key, authority, 0, token_program),
+        ],
+    );
+    assert!(
+        result.is_ok(),
+        "mint_to T22 should succeed: {:?}",
+        result.raw_result
+    );
+}
+
+// ===========================================================================
+// MintToInterface (discriminator 27) — Interface<TokenInterface>
+// ===========================================================================
+
+#[test]
+fn mint_to_interface_spl() {
+    let mut svm = svm_cpi();
+    let authority = Pubkey::new_unique();
+    let mint_key = Pubkey::new_unique();
+    let to_key = Pubkey::new_unique();
+    let token_program = spl_token_program_id();
+
+    let instruction: Instruction = MintToInterfaceInstruction {
+        authority,
+        mint: mint_key,
+        to: to_key,
+        token_program,
+        amount: 5000,
+    }
+    .into();
+
+    let result = svm.process_instruction(
+        &instruction,
+        &[
+            signer_account(authority),
+            mint_account(mint_key, authority, 9, token_program),
+            token_account(to_key, mint_key, authority, 0, token_program),
+        ],
+    );
+    assert!(
+        result.is_ok(),
+        "mint_to interface SPL should succeed: {:?}",
+        result.raw_result
+    );
+}
+
+#[test]
+fn mint_to_interface_t22() {
+    let mut svm = svm_cpi();
+    let authority = Pubkey::new_unique();
+    let mint_key = Pubkey::new_unique();
+    let to_key = Pubkey::new_unique();
+    let token_program = token_2022_program_id();
+
+    let instruction: Instruction = MintToInterfaceInstruction {
+        authority,
+        mint: mint_key,
+        to: to_key,
+        token_program,
+        amount: 5000,
+    }
+    .into();
+
+    let result = svm.process_instruction(
+        &instruction,
+        &[
+            signer_account(authority),
+            mint_account(mint_key, authority, 9, token_program),
+            token_account(to_key, mint_key, authority, 0, token_program),
+        ],
+    );
+    assert!(
+        result.is_ok(),
+        "mint_to interface T22 should succeed: {:?}",
+        result.raw_result
+    );
+}
+
+// ===========================================================================
+// Burn (discriminator 4) — Program<Token>
+// ===========================================================================
+
+#[test]
+fn burn_spl() {
+    let mut svm = svm_cpi();
+    let authority = Pubkey::new_unique();
+    let mint_key = Pubkey::new_unique();
+    let from_key = Pubkey::new_unique();
+    let token_program = spl_token_program_id();
+
+    let instruction: Instruction = BurnInstruction {
+        authority,
+        from: from_key,
+        mint: mint_key,
+        token_program,
+        amount: 500,
+    }
+    .into();
+
+    let result = svm.process_instruction(
+        &instruction,
+        &[
+            signer_account(authority),
+            token_account(from_key, mint_key, authority, 1000, token_program),
+            mint_account(mint_key, authority, 9, token_program),
+        ],
+    );
+    assert!(
+        result.is_ok(),
+        "burn SPL should succeed: {:?}",
+        result.raw_result
+    );
+}
+
+// ===========================================================================
+// BurnT22 (discriminator 28) — Program<Token2022>
+// ===========================================================================
+
+#[test]
+fn burn_t22() {
+    let mut svm = svm_cpi();
+    let authority = Pubkey::new_unique();
+    let mint_key = Pubkey::new_unique();
+    let from_key = Pubkey::new_unique();
+    let token_program = token_2022_program_id();
+
+    let instruction: Instruction = BurnT22Instruction {
+        authority,
+        from: from_key,
+        mint: mint_key,
+        token_program,
+        amount: 500,
+    }
+    .into();
+
+    let result = svm.process_instruction(
+        &instruction,
+        &[
+            signer_account(authority),
+            token_account(from_key, mint_key, authority, 1000, token_program),
+            mint_account(mint_key, authority, 9, token_program),
+        ],
+    );
+    assert!(
+        result.is_ok(),
+        "burn T22 should succeed: {:?}",
+        result.raw_result
+    );
+}
+
+// ===========================================================================
+// BurnInterface (discriminator 29) — Interface<TokenInterface>
+// ===========================================================================
+
+#[test]
+fn burn_interface_spl() {
+    let mut svm = svm_cpi();
+    let authority = Pubkey::new_unique();
+    let mint_key = Pubkey::new_unique();
+    let from_key = Pubkey::new_unique();
+    let token_program = spl_token_program_id();
+
+    let instruction: Instruction = BurnInterfaceInstruction {
+        authority,
+        from: from_key,
+        mint: mint_key,
+        token_program,
+        amount: 500,
+    }
+    .into();
+
+    let result = svm.process_instruction(
+        &instruction,
+        &[
+            signer_account(authority),
+            token_account(from_key, mint_key, authority, 1000, token_program),
+            mint_account(mint_key, authority, 9, token_program),
+        ],
+    );
+    assert!(
+        result.is_ok(),
+        "burn interface SPL should succeed: {:?}",
+        result.raw_result
+    );
+}
+
+#[test]
+fn burn_interface_t22() {
+    let mut svm = svm_cpi();
+    let authority = Pubkey::new_unique();
+    let mint_key = Pubkey::new_unique();
+    let from_key = Pubkey::new_unique();
+    let token_program = token_2022_program_id();
+
+    let instruction: Instruction = BurnInterfaceInstruction {
+        authority,
+        from: from_key,
+        mint: mint_key,
+        token_program,
+        amount: 500,
+    }
+    .into();
+
+    let result = svm.process_instruction(
+        &instruction,
+        &[
+            signer_account(authority),
+            token_account(from_key, mint_key, authority, 1000, token_program),
+            mint_account(mint_key, authority, 9, token_program),
+        ],
+    );
+    assert!(
+        result.is_ok(),
+        "burn interface T22 should succeed: {:?}",
+        result.raw_result
+    );
+}

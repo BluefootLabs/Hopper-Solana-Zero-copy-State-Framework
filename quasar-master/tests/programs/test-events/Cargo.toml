@@ -1,0 +1,21 @@
+[package]
+name = "quasar-test-events"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[lints]
+workspace = true
+
+[dependencies]
+quasar-lang = { path = "../../../lang" }
+
+[dev-dependencies]
+
+[features]
+default = ["alloc", "cpi"]
+cpi = []
+alloc = []
+debug = []

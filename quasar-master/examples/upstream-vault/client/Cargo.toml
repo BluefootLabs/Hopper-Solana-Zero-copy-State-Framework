@@ -1,0 +1,13 @@
+[package]
+name = "upstream-vault-client"
+version = "0.1.0"
+edition = "2021"
+
+[lints]
+workspace = true
+
+[dependencies]
+quasar-lang = { path = "../../../lang" }
+wincode = { version = "0.4", features = ["derive"] }
+solana-address = "2.2"
+solana-instruction = "3"

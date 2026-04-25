@@ -324,7 +324,30 @@ fn parse_instruction_attr(attrs: &mut Vec<Attribute>) -> Result<Vec<InstructionA
     Ok(out)
 }
 
+/// Public entry point for the `#[hopper::context]` attribute.
+///
+/// Backward-compatible wrapper around [`expand_inner`]; emits the original
+/// struct definition, since attribute macros are responsible for the
+/// passthrough.
 pub fn expand(_attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
+    expand_inner(item, /* emit_struct */ true)
+}
+
+/// Public entry point for the `#[derive(Accounts)]` proc-macro derive.
+///
+/// Functionally identical to [`expand`], except the original input struct
+/// is **not** re-emitted (the user already declared it themselves). Helper
+/// attributes — `#[account(...)]`, `#[signer]`, `#[instruction(...)]`,
+/// `#[validate]` — are still parsed off the input but cannot be stripped
+/// in place because the struct is not under our attribute. We rely on the
+/// `attributes(...)` declaration on the derive macro to silence the
+/// compiler's "unknown attribute" check; the helpers are dropped from the
+/// final compilation unit by `rustc` once all derives have run.
+pub fn expand_for_derive(item: TokenStream) -> Result<TokenStream> {
+    expand_inner(item, /* emit_struct */ false)
+}
+
+fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
     let mut input: ItemStruct = parse2(item)?;
 
     // ── Instruction-arg typing (audit Stage 2.6) ──────────────────────
@@ -1990,9 +2013,20 @@ pub fn expand(_attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
         TokenStream::new()
     };
 
+    // When called from `#[derive(Accounts)]` the struct already exists in
+    // the user's source. Skip re-emitting it — emitting twice would be a
+    // duplicate-definition error. When called from `#[hopper::context]`
+    // we keep the original passthrough since attribute macros own the
+    // item they decorate.
+    let original_struct: TokenStream = if emit_struct {
+        quote! { #input }
+    } else {
+        TokenStream::new()
+    };
+
     let expanded = quote! {
-        // Emit the original struct unchanged.
-        #input
+        // Emit the original struct unchanged (attribute macro path only).
+        #original_struct
 
         /// Captured PDA bumps for every `seeds = ...` field in this
         /// context. One `u8` slot per PDA, named after the field. Read
@@ -2932,6 +2966,60 @@ mod instruction_arg_tests {
         };
         let out = args_of(input);
         assert!(out.is_empty());
+    }
+
+    /// `#[derive(Accounts)]` mirrors `#[hopper::context]` exactly except
+    /// it does NOT re-emit the user's input struct (the user already
+    /// declared it). This pins the flag plumbing: we lower the same
+    /// constraint surface to a binder type but skip the struct
+    /// passthrough. If this test starts asserting `pub struct Deposit`
+    /// in the derive output, the duplicate-definition guard regressed.
+    #[test]
+    fn derive_does_not_reemit_struct_definition() {
+        let item: TokenStream = quote! {
+            #[derive(Accounts)]
+            pub struct Deposit {
+                #[signer]
+                pub authority: AccountView,
+            }
+        };
+        let derived = expand_for_derive(item).expect("derive expand ok");
+        let s = derived.to_string();
+        // Generated items still include the binder.
+        assert!(
+            s.contains("DepositCtx"),
+            "derive output missing the bound context type: {s}"
+        );
+        // But the input struct itself is NOT in the emitted token stream
+        // — that would be a duplicate definition once the user's
+        // declaration compiles.
+        assert!(
+            !s.contains("pub struct Deposit "),
+            "derive must not re-emit the user's struct: {s}"
+        );
+    }
+
+    /// And the attribute form keeps emitting the struct, since it owns
+    /// the item it decorates. This is the existing contract the rest
+    /// of the codebase depends on.
+    #[test]
+    fn attr_does_reemit_struct_definition() {
+        let item: TokenStream = quote! {
+            pub struct Deposit {
+                #[signer]
+                pub authority: AccountView,
+            }
+        };
+        let attr = expand(TokenStream::new(), item).expect("attr expand ok");
+        let s = attr.to_string();
+        assert!(
+            s.contains("pub struct Deposit"),
+            "attribute form must re-emit the input struct: {s}"
+        );
+        assert!(
+            s.contains("DepositCtx"),
+            "attribute form missing the bound context type: {s}"
+        );
     }
 
     #[test]

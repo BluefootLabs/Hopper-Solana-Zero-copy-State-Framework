@@ -1,0 +1,340 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_call:
+
+env:
+  SOLANA_VERSION: stable
+  CARGO_TERM_COLOR: always
+
+jobs:
+  rust_fmt:
+    name: Rustfmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Get nightly toolchain version
+        id: nightly
+        run: echo "version=$(make nightly-version)" >> $GITHUB_OUTPUT
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ steps.nightly.outputs.version }}
+          components: rustfmt
+      - name: Run format
+        run: make format
+
+  rust_clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: ${{ runner.os }}-cargo-clippy-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-clippy-
+      - name: Get nightly toolchain version
+        id: nightly
+        run: echo "version=$(make nightly-version)" >> $GITHUB_OUTPUT
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ steps.nightly.outputs.version }}
+          components: clippy
+      - name: Run clippy
+        run: make clippy
+
+  check_features:
+    name: Check Features
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: ${{ runner.os }}-cargo-hack-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-hack-
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-hack
+      - name: Check all feature combinations
+        run: make check-features
+
+  workspace_policy:
+    name: Workspace Policy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Verify workspace lint opt-in
+        run: make check-workspace-lints
+      - name: Verify workspace invariants
+        run: make check-workspace-invariants
+      - name: Verify runtime panic policy
+        run: make check-runtime-panics
+
+  cargo_test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Cache Solana tools
+        uses: actions/cache@v5
+        with:
+          path: ~/.local/share/solana
+          key: ${{ runner.os }}-solana-${{ env.SOLANA_VERSION }}
+      - name: Install Solana tools (cargo-build-sbf)
+        run: |
+          if [ ! -f "$HOME/.local/share/solana/install/active_release/bin/cargo-build-sbf" ]; then
+            sh -c "$(curl -sSfL https://release.anza.xyz/${{ env.SOLANA_VERSION }}/install)"
+          fi
+          echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+      - uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-test-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-test-
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build SBF programs
+        run: make build-sbf
+      - name: Test
+        run: make test
+
+  miri:
+    name: Miri (Tree Borrows)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: ${{ runner.os }}-cargo-miri-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-miri-
+      - name: Get nightly toolchain version
+        id: nightly
+        run: echo "version=$(make nightly-version)" >> $GITHUB_OUTPUT
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ steps.nightly.outputs.version }}
+          components: miri
+      - name: Run Miri tests
+        run: make test-miri
+
+  cu_benchmark_pr:
+    name: CU Benchmark Guard (PR)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Cache Solana tools
+        uses: actions/cache@v5
+        with:
+          path: ~/.local/share/solana
+          key: ${{ runner.os }}-solana-${{ env.SOLANA_VERSION }}
+      - name: Install Solana tools
+        run: |
+          if [ ! -f "$HOME/.local/share/solana/install/active_release/bin/cargo-build-sbf" ]; then
+            sh -c "$(curl -sSfL https://release.anza.xyz/${{ env.SOLANA_VERSION }}/install)"
+          fi
+          echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+      - uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: ${{ runner.os }}-cargo-bench-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-bench-
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Capture base metrics
+        run: |
+          git checkout -f ${{ github.event.pull_request.base.sha }}
+          if [ -f scripts/bench-tracked-programs.sh ]; then
+            bash scripts/bench-tracked-programs.sh capture /tmp/base_metrics.env
+          else
+            git show ${{ github.event.pull_request.head.sha }}:scripts/perf-baselines.env >/tmp/base_metrics.env
+          fi
+
+      - name: Capture PR metrics
+        run: |
+          git checkout -f ${{ github.event.pull_request.head.sha }}
+          bash scripts/bench-tracked-programs.sh capture /tmp/pr_metrics.env
+
+      - name: Fail on CU regression
+        id: perf_guard
+        run: |
+          bash scripts/bench-tracked-programs.sh compare /tmp/base_metrics.env /tmp/pr_metrics.env
+
+      - name: Post benchmark comment
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+
+            function readEnv(path) {
+              const env = {};
+              for (const line of fs.readFileSync(path, 'utf8').split('\n')) {
+                if (!line || line.startsWith('#')) continue;
+                const idx = line.indexOf('=');
+                if (idx === -1) continue;
+                env[line.slice(0, idx)] = line.slice(idx + 1);
+              }
+              return env;
+            }
+
+            const base = readEnv('/tmp/base_metrics.env');
+            const pr = readEnv('/tmp/pr_metrics.env');
+            function delta(base, pr) {
+              const d = pr - base;
+              if (d === 0) return '0 ⚪';
+              return d > 0 ? `+${d} 🔴` : `${d} 🟢`;
+            }
+
+            function fmtNum(n) {
+              return n.toLocaleString('en-US');
+            }
+
+            function metric(key, source) {
+              return parseInt(source[key] || '0', 10);
+            }
+
+            const body = `## Benchmark
+
+            ### Vault
+
+            | Instruction | Base | PR | Delta |
+            |-------------|------|-----|-------|
+            | Deposit | ${fmtNum(metric('VAULT_DEPOSIT_CU', base))} | ${fmtNum(metric('VAULT_DEPOSIT_CU', pr))} | ${delta(metric('VAULT_DEPOSIT_CU', base), metric('VAULT_DEPOSIT_CU', pr))} |
+            | Withdraw | ${fmtNum(metric('VAULT_WITHDRAW_CU', base))} | ${fmtNum(metric('VAULT_WITHDRAW_CU', pr))} | ${delta(metric('VAULT_WITHDRAW_CU', base), metric('VAULT_WITHDRAW_CU', pr))} |
+            | Binary size | ${fmtNum(metric('VAULT_SIZE', base))} | ${fmtNum(metric('VAULT_SIZE', pr))} | ${delta(metric('VAULT_SIZE', base), metric('VAULT_SIZE', pr))} bytes |
+
+            ### Escrow
+
+            | Instruction | Base | PR | Delta |
+            |-------------|------|-----|-------|
+            | Make | ${fmtNum(metric('ESCROW_MAKE_CU', base))} | ${fmtNum(metric('ESCROW_MAKE_CU', pr))} | ${delta(metric('ESCROW_MAKE_CU', base), metric('ESCROW_MAKE_CU', pr))} |
+            | Take | ${fmtNum(metric('ESCROW_TAKE_CU', base))} | ${fmtNum(metric('ESCROW_TAKE_CU', pr))} | ${delta(metric('ESCROW_TAKE_CU', base), metric('ESCROW_TAKE_CU', pr))} |
+            | Refund | ${fmtNum(metric('ESCROW_REFUND_CU', base))} | ${fmtNum(metric('ESCROW_REFUND_CU', pr))} | ${delta(metric('ESCROW_REFUND_CU', base), metric('ESCROW_REFUND_CU', pr))} |
+            | Binary size | ${fmtNum(metric('ESCROW_SIZE', base))} | ${fmtNum(metric('ESCROW_SIZE', pr))} | ${delta(metric('ESCROW_SIZE', base), metric('ESCROW_SIZE', pr))} bytes`.replace(/^            /gm, '');
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find(c => c.body.includes('## Benchmark'));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
+
+  check_if_pr_commit:
+    name: Detect merged PR push
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      skip_bench: ${{ steps.check_pr_commit.outputs.skip_bench }}
+    steps:
+      - name: Detect PR-associated push commit
+        id: check_pr_commit
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: prs } = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: context.sha,
+            });
+
+            const mergedPrs = prs.filter(pr => pr.merged_at);
+            const skipBench = mergedPrs.length > 0;
+            core.setOutput('skip_bench', skipBench ? 'true' : 'false');
+
+  cu_benchmark_push:
+    name: CU Benchmark Guard (Push)
+    needs: [check_if_pr_commit]
+    if: github.event_name == 'push' && needs.check_if_pr_commit.outputs.skip_bench != 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Cache Solana tools
+        uses: actions/cache@v5
+        with:
+          path: ~/.local/share/solana
+          key: ${{ runner.os }}-solana-${{ env.SOLANA_VERSION }}
+      - name: Install Solana tools
+        run: |
+          if [ ! -f "$HOME/.local/share/solana/install/active_release/bin/cargo-build-sbf" ]; then
+            sh -c "$(curl -sSfL https://release.anza.xyz/${{ env.SOLANA_VERSION }}/install)"
+          fi
+          echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+      - uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: ${{ runner.os }}-cargo-bench-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-bench-
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Capture baseline metrics
+        run: |
+          cp scripts/perf-baselines.env /tmp/push_base_metrics.env
+
+      - name: Capture push head metrics
+        run: |
+          git checkout -f ${{ github.sha }}
+          bash scripts/bench-tracked-programs.sh capture /tmp/push_head_metrics.env
+
+      - name: Fail on CU regression
+        run: |
+          bash scripts/bench-tracked-programs.sh compare /tmp/push_base_metrics.env /tmp/push_head_metrics.env

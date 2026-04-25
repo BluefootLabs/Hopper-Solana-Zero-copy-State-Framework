@@ -1,24 +1,114 @@
 use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process;
+use std::process::{self, Command};
 
+use crate::config::{GlobalConfig, HopperToml};
 use crate::workspace;
 use toml::Value;
 
-pub fn cmd_init(args: &[String]) {
-    if args.is_empty() || args.iter().any(|arg| arg == "--help" || arg == "-h") {
-        print_init_usage();
-        if args.is_empty() {
-            process::exit(1);
+/// Project template. Picked interactively or via `--template <name>`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Template {
+    Minimal,
+    NftMint,
+    Token2022Vault,
+    DefiVault,
+}
+
+impl Template {
+    fn name(&self) -> &'static str {
+        match self {
+            Template::Minimal => "minimal",
+            Template::NftMint => "nft-mint",
+            Template::Token2022Vault => "token-2022-vault",
+            Template::DefiVault => "defi-vault",
         }
+    }
+
+    fn label(&self) -> &'static str {
+        match self {
+            Template::Minimal => "Minimal — single Config layout, one initialize handler",
+            Template::NftMint => "NFT mint — Metaplex CreateMetadataAccountV3 + CreateMasterEditionV3 (1-of-1)",
+            Template::Token2022Vault => "Token-2022 vault — extension-aware mint validation + vault state",
+            Template::DefiVault => "DeFi vault — segment-safe authority + balance pattern with PDA verification",
+        }
+    }
+
+    fn from_name(s: &str) -> Option<Self> {
+        match s {
+            "minimal" => Some(Template::Minimal),
+            "nft-mint" | "nft" => Some(Template::NftMint),
+            "token-2022-vault" | "t22-vault" | "t22" => Some(Template::Token2022Vault),
+            "defi-vault" | "vault" => Some(Template::DefiVault),
+            _ => None,
+        }
+    }
+
+    /// Cargo features to enable on the `hopper` dependency for this template.
+    fn cargo_features(&self) -> &'static str {
+        match self {
+            Template::NftMint => "\"hopper-native-backend\", \"proc-macros\", \"metaplex\"",
+            _ => "\"hopper-native-backend\", \"proc-macros\"",
+        }
+    }
+}
+
+/// Git policy after scaffolding. Mirrors Quasar's `init / commit / skip`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GitPolicy {
+    Commit,
+    Init,
+    Skip,
+}
+
+impl GitPolicy {
+    fn from_name(s: &str) -> Self {
+        match s {
+            "commit" => GitPolicy::Commit,
+            "init" => GitPolicy::Init,
+            "skip" => GitPolicy::Skip,
+            _ => GitPolicy::Commit,
+        }
+    }
+    fn name(&self) -> &'static str {
+        match self {
+            GitPolicy::Commit => "commit",
+            GitPolicy::Init => "init",
+            GitPolicy::Skip => "skip",
+        }
+    }
+}
+
+/// Plan resolved from CLI flags, the wizard, or a mix of both.
+#[derive(Debug, Clone)]
+struct ScaffoldPlan {
+    destination: PathBuf,
+    crate_name: String,
+    template: Template,
+    toolchain: String,
+    testing: String,
+    backend: String,
+    local_path: Option<String>,
+    git: GitPolicy,
+    force: bool,
+}
+
+pub fn cmd_init(args: &[String]) {
+    if args.iter().any(|arg| arg == "--help" || arg == "-h") {
+        print_init_usage();
         return;
     }
 
     let mut destination = None;
     let mut crate_name = None;
     let mut local_path = None;
+    let mut template_flag: Option<Template> = None;
     let mut force = false;
+    let mut yes = false;
+    let mut interactive_flag = false;
+    let mut no_git = false;
+
     let mut i = 0;
     while i < args.len() {
         match args[i].as_str() {
@@ -38,8 +128,32 @@ pub fn cmd_init(args: &[String]) {
                 local_path = Some(args[i + 1].clone());
                 i += 2;
             }
+            "--template" | "-t" => {
+                if i + 1 >= args.len() {
+                    eprintln!("--template requires a value (minimal | nft-mint | token-2022-vault | defi-vault)");
+                    process::exit(1);
+                }
+                let value = &args[i + 1];
+                template_flag = Some(Template::from_name(value).unwrap_or_else(|| {
+                    eprintln!("Unknown template `{value}`. Try: minimal, nft-mint, token-2022-vault, defi-vault");
+                    process::exit(1);
+                }));
+                i += 2;
+            }
             "--force" => {
                 force = true;
+                i += 1;
+            }
+            "--yes" | "-y" => {
+                yes = true;
+                i += 1;
+            }
+            "--interactive" => {
+                interactive_flag = true;
+                i += 1;
+            }
+            "--no-git" => {
+                no_git = true;
                 i += 1;
             }
             other if other.starts_with('-') => {
@@ -57,30 +171,291 @@ pub fn cmd_init(args: &[String]) {
         }
     }
 
-    let destination = destination.unwrap_or_else(|| {
-        eprintln!("Missing required <path> for hopper init");
-        process::exit(1);
-    });
+    // Decide whether to run the wizard. Match Quasar's contract: bare
+    // `hopper init` (no path, no -y) drops into prompts. `hopper init
+    // <path>` skips them and uses saved defaults. `--interactive`
+    // forces the wizard even when a path is supplied.
+    let wizard_mode = interactive_flag || (destination.is_none() && !yes);
 
-    let inferred_name = crate_name.unwrap_or_else(|| infer_crate_name(&destination));
-    let crate_name = normalize_crate_name(&inferred_name);
+    let plan = if wizard_mode {
+        match run_init_wizard(destination.clone(), crate_name.clone(), template_flag, no_git) {
+            Ok(plan) => plan,
+            Err(err) => {
+                eprintln!("hopper init wizard cancelled: {err}");
+                process::exit(1);
+            }
+        }
+    } else {
+        let destination = destination.unwrap_or_else(|| {
+            eprintln!("Missing required <path> for `hopper init <path>`. Run `hopper init` (no path) for the interactive wizard.");
+            process::exit(1);
+        });
+        let inferred_name = crate_name.unwrap_or_else(|| infer_crate_name(&destination));
+        let crate_name = normalize_crate_name(&inferred_name);
+        if crate_name.is_empty() {
+            eprintln!("Could not infer a valid Rust crate name from {}", destination.display());
+            process::exit(1);
+        }
+        let global = GlobalConfig::load();
+        let template = template_flag
+            .or_else(|| Template::from_name(&global.defaults.template))
+            .unwrap_or(Template::Minimal);
+        ScaffoldPlan {
+            destination,
+            crate_name,
+            template,
+            toolchain: global.defaults.toolchain.clone(),
+            testing: global.defaults.testing.clone(),
+            backend: global.defaults.backend.clone(),
+            local_path,
+            git: if no_git {
+                GitPolicy::Skip
+            } else {
+                GitPolicy::from_name(&global.defaults.git)
+            },
+            force,
+        }
+    };
 
-    if crate_name.is_empty() {
-        eprintln!("Could not infer a valid Rust crate name from {}", destination.display());
-        process::exit(1);
-    }
-
-    if let Err(err) = scaffold_project(&destination, &crate_name, local_path.as_deref(), force) {
+    if let Err(err) = execute_scaffold(&plan) {
         eprintln!("hopper init failed: {err}");
         process::exit(1);
     }
 
-    println!("Initialized Hopper project at {}", destination.display());
-    println!("Next steps:");
-    println!("  cd {}", destination.display());
-    println!("  hopper build --host");
-    println!("  hopper test");
-    println!("  hopper build");
+    // Persist the wizard's choices as the next-run default. Disable
+    // the opening animation on the saved defaults so the second run
+    // is silent — power users running `hopper init` repeatedly during
+    // plugin development don't get the bounce every time. They can
+    // re-enable with `hopper config set ui.animation true` (or by
+    // editing `~/.hopper/wizard.toml`).
+    if wizard_mode {
+        let mut global = GlobalConfig::load();
+        global.defaults.template = plan.template.name().to_string();
+        global.defaults.toolchain = plan.toolchain.clone();
+        global.defaults.testing = plan.testing.clone();
+        global.defaults.backend = plan.backend.clone();
+        global.defaults.git = plan.git.name().to_string();
+        global.ui.animation = false;
+        if let Err(err) = global.save() {
+            eprintln!("warning: could not save wizard defaults: {err}");
+        }
+    }
+
+    println!();
+    println!(
+        "{}  {} {}",
+        crate::style::success("Initialized"),
+        crate::style::bold(&plan.crate_name),
+        crate::style::dim(&format!("at {}", plan.destination.display()))
+    );
+    println!();
+    println!("  {} {}", crate::style::dim("Template:"), plan.template.label());
+    println!("  {} {}", crate::style::dim("Backend: "), plan.backend);
+    println!("  {} {}", crate::style::dim("Testing: "), plan.testing);
+    println!();
+    println!("  {}", crate::style::dim("Next steps:"));
+    if plan.destination != Path::new(".") {
+        println!(
+            "    {} {}",
+            crate::style::step(""),
+            crate::style::bold(&format!("cd {}", plan.destination.display()))
+        );
+    }
+    println!(
+        "    {} {}  {}",
+        crate::style::step(""),
+        crate::style::bold("hopper build --host"),
+        crate::style::dim("# host typecheck")
+    );
+    println!(
+        "    {} {}",
+        crate::style::step(""),
+        crate::style::bold("hopper test")
+    );
+    println!(
+        "    {} {}  {}",
+        crate::style::step(""),
+        crate::style::bold("hopper build"),
+        crate::style::dim("# SBF build")
+    );
+    println!();
+}
+
+fn run_init_wizard(
+    destination_hint: Option<PathBuf>,
+    name_hint: Option<String>,
+    template_hint: Option<Template>,
+    no_git_flag: bool,
+) -> Result<ScaffoldPlan, String> {
+    use dialoguer::{Confirm, Input, Select};
+
+    let theme = dialoguer::theme::ColorfulTheme::default();
+    let global = GlobalConfig::load();
+
+    // Animated leap-reveal opens the wizard on the first interactive
+    // run; falls through to a plain header on subsequent runs (the
+    // wizard flips `ui.animation` to false in the saved defaults
+    // after a successful init) or when stdout isn't a TTY. Both
+    // behaviours are owned inside `cmd::banner::print_banner`.
+    crate::cmd::banner::print_banner(global.ui.animation);
+
+    println!(
+        "  {} {}",
+        crate::style::dim("Run with"),
+        crate::style::bold("--yes")
+    );
+    println!(
+        "  {} {}",
+        crate::style::dim("next time to skip these prompts. Saved at"),
+        crate::style::dim(&GlobalConfig::path().display().to_string()),
+    );
+    println!();
+
+    // 1. Project name + destination.
+    let default_name = name_hint
+        .clone()
+        .or_else(|| {
+            destination_hint
+                .as_ref()
+                .map(|p| infer_crate_name(p))
+                .filter(|s| !s.is_empty())
+        })
+        .unwrap_or_else(|| "my-program".to_string());
+
+    let project_name: String = Input::with_theme(&theme)
+        .with_prompt("Project name")
+        .default(default_name.clone())
+        .interact_text()
+        .map_err(|e| e.to_string())?;
+
+    let crate_name = normalize_crate_name(&project_name);
+    if crate_name.is_empty() {
+        return Err("project name does not produce a valid Rust crate name".into());
+    }
+
+    let destination = destination_hint.unwrap_or_else(|| PathBuf::from(&project_name));
+
+    // 2. Template.
+    let templates = [
+        Template::Minimal,
+        Template::NftMint,
+        Template::Token2022Vault,
+        Template::DefiVault,
+    ];
+    let labels: Vec<&str> = templates.iter().map(|t| t.label()).collect();
+    let default_template_idx = template_hint
+        .or_else(|| Template::from_name(&global.defaults.template))
+        .and_then(|t| templates.iter().position(|x| x == &t))
+        .unwrap_or(0);
+    let template_idx = Select::with_theme(&theme)
+        .with_prompt("Template")
+        .items(&labels)
+        .default(default_template_idx)
+        .interact()
+        .map_err(|e| e.to_string())?;
+    let template = templates[template_idx];
+
+    // 3. Testing framework.
+    let testing_options = ["mollusk", "quasarsvm", "solana-test-validator", "none"];
+    let default_testing_idx = testing_options
+        .iter()
+        .position(|x| *x == global.defaults.testing.as_str())
+        .unwrap_or(0);
+    let testing_idx = Select::with_theme(&theme)
+        .with_prompt("Testing framework")
+        .items(&testing_options)
+        .default(default_testing_idx)
+        .interact()
+        .map_err(|e| e.to_string())?;
+    let testing = testing_options[testing_idx].to_string();
+
+    // 4. Git policy.
+    let git_options = [
+        "commit — git init + initial commit",
+        "init — git init only, no commit",
+        "skip — no git",
+    ];
+    let default_git_idx = match global.defaults.git.as_str() {
+        "init" => 1,
+        "skip" => 2,
+        _ => 0,
+    };
+    let git = if no_git_flag {
+        GitPolicy::Skip
+    } else {
+        let git_idx = Select::with_theme(&theme)
+            .with_prompt("Git setup")
+            .items(&git_options)
+            .default(default_git_idx)
+            .interact()
+            .map_err(|e| e.to_string())?;
+        match git_idx {
+            0 => GitPolicy::Commit,
+            1 => GitPolicy::Init,
+            _ => GitPolicy::Skip,
+        }
+    };
+
+    // 5. Confirm.
+    println!();
+    println!(" Path:     {}", destination.display());
+    println!(" Crate:    {crate_name}");
+    println!(" Template: {}", template.label());
+    println!(" Testing:  {testing}");
+    println!(" Git:      {}", git.name());
+    println!();
+    let confirmed = Confirm::with_theme(&theme)
+        .with_prompt("Scaffold?")
+        .default(true)
+        .interact()
+        .map_err(|e| e.to_string())?;
+    if !confirmed {
+        return Err("user declined".into());
+    }
+
+    Ok(ScaffoldPlan {
+        destination,
+        crate_name,
+        template,
+        toolchain: global.defaults.toolchain.clone(),
+        testing,
+        backend: global.defaults.backend.clone(),
+        local_path: None,
+        git,
+        force: false,
+    })
+}
+
+fn execute_scaffold(plan: &ScaffoldPlan) -> Result<(), String> {
+    scaffold_project(plan)?;
+    if !matches!(plan.git, GitPolicy::Skip) {
+        if let Err(err) = run_git_init(&plan.destination, plan.git) {
+            eprintln!("warning: git setup skipped: {err}");
+        }
+    }
+    Ok(())
+}
+
+fn run_git_init(destination: &Path, policy: GitPolicy) -> Result<(), String> {
+    let init_status = Command::new("git")
+        .args(["init", "-q"])
+        .current_dir(destination)
+        .status()
+        .map_err(|err| format!("failed to launch `git init`: {err}"))?;
+    if !init_status.success() {
+        return Err("`git init` exited with a non-zero status".into());
+    }
+    if matches!(policy, GitPolicy::Commit) {
+        let _ = Command::new("git")
+            .args(["add", "."])
+            .current_dir(destination)
+            .status();
+        let _ = Command::new("git")
+            .args(["commit", "-q", "-m", "Initial Hopper scaffold"])
+            .current_dir(destination)
+            .status();
+    }
+    Ok(())
 }
 
 pub fn cmd_build(args: &[String]) {
@@ -125,10 +500,22 @@ pub fn cmd_build(args: &[String]) {
                 command_args.extend(cargo_args.iter().cloned());
                 run_cargo_command(&project_root, &command_args);
             } else {
+                // Snapshot pre-build artefact sizes so we can report a
+                // delta on the SBF path. Quasar prints something like
+                // "✔ Build complete in 1.2s (56.6 KB, -1.2 KB)";
+                // Hopper does the same (size only, since we don't
+                // reach inside cargo's wall-clock yet).
+                let deploy_dir = workspace_root.join("target").join("deploy");
+                let before = snapshot_so_sizes(&deploy_dir);
                 match normalize_sbf_build_args(&project_root, &workspace_root, &cargo_args) {
                     Ok(command_args) => run_cargo_command(&workspace_root, &command_args),
-                    Err(err) => eprintln!("hopper build failed: {err}"),
+                    Err(err) => {
+                        eprintln!("hopper build failed: {err}");
+                        return;
+                    }
                 }
+                let after = snapshot_so_sizes(&deploy_dir);
+                report_size_delta(&before, &after);
             }
         }
     };
@@ -541,24 +928,42 @@ fn run_objdump(workspace_root: &Path, artifact: &Path, explicit_tool: Option<&st
     }))
 }
 
-fn scaffold_project(
-    destination: &Path,
-    crate_name: &str,
-    local_path: Option<&str>,
-    force: bool,
-) -> Result<(), String> {
-    let dependency = render_hopper_dependency(local_path);
-    let cargo_toml = render_cargo_toml(crate_name, &dependency);
-    let source = render_lib_rs();
-    let readme = render_readme(crate_name);
+fn scaffold_project(plan: &ScaffoldPlan) -> Result<(), String> {
+    let dependency = render_hopper_dependency(plan.local_path.as_deref(), plan.template);
+    let cargo_toml = render_cargo_toml(&plan.crate_name, &dependency);
+    let source = render_template_lib_rs(plan.template);
+    let readme = render_readme(&plan.crate_name, plan.template);
     let bench_readme = render_bench_readme();
     let gitignore = "/target\n";
 
-    workspace::write_text_file(&destination.join("Cargo.toml"), &cargo_toml, force)?;
-    workspace::write_text_file(&destination.join("src").join("lib.rs"), &source, force)?;
-    workspace::write_text_file(&destination.join("README.md"), &readme, force)?;
-    workspace::write_text_file(&destination.join("bench").join("README.md"), &bench_readme, force)?;
-    workspace::write_text_file(&destination.join(".gitignore"), gitignore, force)?;
+    workspace::write_text_file(&plan.destination.join("Cargo.toml"), &cargo_toml, plan.force)?;
+    workspace::write_text_file(&plan.destination.join("src").join("lib.rs"), &source, plan.force)?;
+    workspace::write_text_file(&plan.destination.join("README.md"), &readme, plan.force)?;
+    workspace::write_text_file(
+        &plan.destination.join("bench").join("README.md"),
+        &bench_readme,
+        plan.force,
+    )?;
+    workspace::write_text_file(&plan.destination.join(".gitignore"), gitignore, plan.force)?;
+
+    // Hopper.toml — declarative project config the rest of the CLI
+    // (build, test, deploy, doctor) reads to know toolchain choice,
+    // testing framework, and backend.
+    let project_config =
+        HopperToml::new(plan.crate_name.clone(), plan.template.name().to_string());
+    let project_config = HopperToml {
+        toolchain: crate::config::ToolchainSection {
+            kind: plan.toolchain.clone(),
+        },
+        testing: crate::config::TestingSection {
+            framework: plan.testing.clone(),
+        },
+        backend: crate::config::BackendSection {
+            default: plan.backend.clone(),
+        },
+        ..project_config
+    };
+    project_config.save(&plan.destination)?;
 
     Ok(())
 }
@@ -586,13 +991,25 @@ fn normalize_crate_name(input: &str) -> String {
     output.trim_matches('_').to_string()
 }
 
-fn render_hopper_dependency(local_path: Option<&str>) -> String {
+fn render_hopper_dependency(local_path: Option<&str>, template: Template) -> String {
+    let features = template.cargo_features();
     match local_path {
         Some(path) => format!(
-            "hopper = {{ path = \"{}\", default-features = false, features = [\"hopper-native-backend\", \"proc-macros\"] }}",
+            "hopper = {{ path = \"{}\", default-features = false, features = [{features}] }}",
             path.replace('\\', "/")
         ),
-        None => "hopper = { version = \"0.1.0\", default-features = false, features = [\"hopper-native-backend\", \"proc-macros\"] }".to_string(),
+        None => format!(
+            "hopper = {{ version = \"0.1.0\", default-features = false, features = [{features}] }}"
+        ),
+    }
+}
+
+fn render_template_lib_rs(template: Template) -> String {
+    match template {
+        Template::Minimal => render_lib_rs(),
+        Template::NftMint => render_lib_rs_nft_mint(),
+        Template::Token2022Vault => render_lib_rs_token_2022_vault(),
+        Template::DefiVault => render_lib_rs_defi_vault(),
     }
 }
 
@@ -677,9 +1094,10 @@ mod tests {
             .to_string()
 }
 
-fn render_readme(crate_name: &str) -> String {
+fn render_readme(crate_name: &str, template: Template) -> String {
     format!(
-        "# {crate_name}\n\nGenerated with `hopper init`. This scaffold defaults to Hopper Native and the Hopper language surface via `hopper::prelude::*`.\n\n## Verify\n\n```bash\nhopper build --host\nhopper test\nhopper build\n```\n\n## Benchmark Stub\n\nUse `hopper profile bench` from a Hopper workspace to run the framework primitive benchmark lab.\n"
+        "# {crate_name}\n\nGenerated with `hopper init` (template: `{}`). Hopper-native by default, proc-macro authoring path enabled.\n\nDocs: <https://hopperzero.dev>\n\n## Verify\n\n```bash\nhopper build --host    # host typecheck\nhopper test\nhopper build           # SBF build\n```\n\n## Project config\n\nSee `Hopper.toml` for the declarative project configuration\n(toolchain, testing framework, default backend).\n\n## Benchmark stub\n\n`hopper profile bench` runs the framework primitive lab. Add scenario-specific benchmarks under `bench/`.\n",
+        template.name()
     )
 }
 
@@ -687,10 +1105,342 @@ fn render_bench_readme() -> String {
     "# Benchmark Stub\n\nThis directory is reserved for scenario-specific benchmarks once the program has real instruction flows worth profiling. Hopper's framework-wide primitive lab is available through `hopper profile bench`.\n".to_string()
 }
 
+fn render_lib_rs_nft_mint() -> String {
+    r##"//! Hopper NFT mint scaffold. Uses the `hopper-metaplex` crate to
+//! create an NFT metadata + master-edition pair (1-of-1) on top of an
+//! existing SPL mint that the caller has already initialised and minted
+//! one token to. Two instructions: `create_metadata` and
+//! `create_master_edition`.
+
+#![cfg_attr(target_os = "solana", no_std)]
+#![allow(dead_code)]
+
+use hopper::prelude::*;
+
+#[cfg(target_os = "solana")]
+mod __hopper_sbf {
+    use super::*;
+    #[cfg(not(feature = "solana-program-backend"))]
+    no_allocator!();
+    #[cfg(not(feature = "solana-program-backend"))]
+    nostd_panic_handler!();
+}
+
+#[cfg(target_os = "solana")]
+fast_entrypoint!(process_instruction, 8);
+
+fn process_instruction(
+    _program_id: &Address,
+    accounts: &[AccountView],
+    data: &[u8],
+) -> ProgramResult {
+    let (disc, rest) = data.split_first().ok_or(ProgramError::InvalidInstructionData)?;
+    match *disc {
+        0 => create_metadata(accounts, rest),
+        1 => create_master_edition(accounts, rest),
+        _ => Err(ProgramError::InvalidInstructionData),
+    }
+}
+
+fn create_metadata(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
+    hopper_load!(accounts => [authority, mint, metadata, system_program, mpl]);
+    authority.require_signer()?;
+    metadata.require_writable()?;
+    if mpl.address().as_array() != MPL_TOKEN_METADATA_PROGRAM_ID.as_array() {
+        return Err(ProgramError::IncorrectProgramId);
+    }
+    // Wire format: [name_len:u8][name][sym_len:u8][sym][uri_len:u8][uri][sfbp:u16][is_mutable:u8]
+    let (name, rest) = read_short_string(data)?;
+    let (symbol, rest) = read_short_string(rest)?;
+    let (uri, rest) = read_short_string(rest)?;
+    if rest.len() < 3 { return Err(ProgramError::InvalidInstructionData); }
+    let sfbp = u16::from_le_bytes([rest[0], rest[1]]);
+    let is_mutable = rest[2] != 0;
+    CreateMetadataAccountV3 {
+        metadata, mint,
+        mint_authority: authority, payer: authority, update_authority: authority,
+        system_program, rent: None,
+        data: DataV2::simple(name, symbol, uri, sfbp),
+        is_mutable,
+    }.invoke()
+}
+
+fn create_master_edition(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
+    hopper_load!(accounts => [authority, mint, metadata, master_edition, token_program, system_program, mpl]);
+    authority.require_signer()?;
+    if mpl.address().as_array() != MPL_TOKEN_METADATA_PROGRAM_ID.as_array() {
+        return Err(ProgramError::IncorrectProgramId);
+    }
+    if data.len() < 8 { return Err(ProgramError::InvalidInstructionData); }
+    let max_supply = u64::from_le_bytes([data[0],data[1],data[2],data[3],data[4],data[5],data[6],data[7]]);
+    CreateMasterEditionV3 {
+        edition: master_edition, mint, update_authority: authority, mint_authority: authority,
+        payer: authority, metadata, token_program, system_program, rent: None,
+        max_supply: Some(max_supply),
+    }.invoke()
+}
+
+fn read_short_string(data: &[u8]) -> Result<(&str, &[u8]), ProgramError> {
+    let (&n, rest) = data.split_first().ok_or(ProgramError::InvalidInstructionData)?;
+    if rest.len() < n as usize { return Err(ProgramError::InvalidInstructionData); }
+    let (s, tail) = rest.split_at(n as usize);
+    let s = core::str::from_utf8(s).map_err(|_| ProgramError::InvalidInstructionData)?;
+    Ok((s, tail))
+}
+"##
+        .to_string()
+}
+
+fn render_lib_rs_token_2022_vault() -> String {
+    r##"//! Hopper Token-2022 vault scaffold. Validates that an incoming
+//! Token-2022 mint has none of the unsafe extensions (transfer fee,
+//! permanent delegate, confidential transfer, non-transferable,
+//! transfer hook) before accepting deposits. Pattern: extension
+//! screening as a first-class gate.
+
+#![cfg_attr(target_os = "solana", no_std)]
+#![allow(dead_code)]
+
+use hopper::prelude::*;
+use hopper::hopper_token_2022::check_safe_token_2022_mint;
+
+#[cfg(target_os = "solana")]
+mod __hopper_sbf {
+    use super::*;
+    #[cfg(not(feature = "solana-program-backend"))]
+    no_allocator!();
+    #[cfg(not(feature = "solana-program-backend"))]
+    nostd_panic_handler!();
+}
+
+#[derive(Clone, Copy)]
+pub struct Authority;
+#[derive(Clone, Copy)]
+pub struct Mint;
+
+#[derive(Clone, Copy)]
+#[repr(C)]
+#[hopper::state(disc = 1, version = 1)]
+pub struct Vault {
+    pub authority: TypedAddress<Authority>,
+    pub mint: TypedAddress<Mint>,
+    pub bump: u8,
+}
+
+#[cfg(target_os = "solana")]
+fast_entrypoint!(process_instruction, 4);
+
+fn process_instruction(
+    _program_id: &Address,
+    accounts: &[AccountView],
+    data: &[u8],
+) -> ProgramResult {
+    let (disc, _) = data.split_first().ok_or(ProgramError::InvalidInstructionData)?;
+    match *disc {
+        0 => screen_mint(accounts),
+        _ => Err(ProgramError::InvalidInstructionData),
+    }
+}
+
+fn screen_mint(accounts: &[AccountView]) -> ProgramResult {
+    hopper_load!(accounts => [mint]);
+    let mint_data = mint.try_borrow()?;
+    check_safe_token_2022_mint(&mint_data)?;
+    Ok(())
+}
+"##
+        .to_string()
+}
+
+// ---------------------------------------------------------------------------
+// Build-time helpers
+// ---------------------------------------------------------------------------
+
+/// Snapshot the size in bytes of every `.so` file inside a `target/deploy/`
+/// directory. Returns an empty map if the directory does not exist
+/// (first build of a fresh project).
+fn snapshot_so_sizes(deploy_dir: &Path) -> std::collections::HashMap<PathBuf, u64> {
+    let mut map = std::collections::HashMap::new();
+    let entries = match fs::read_dir(deploy_dir) {
+        Ok(it) => it,
+        Err(_) => return map,
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.extension().and_then(OsStr::to_str) != Some("so") {
+            continue;
+        }
+        if let Ok(meta) = fs::metadata(&path) {
+            map.insert(path, meta.len());
+        }
+    }
+    map
+}
+
+/// Compare a before/after snapshot of deploy artefact sizes and print
+/// a human-readable line per binary that changed. Format:
+///
+/// ```text
+///   ✔ my_program.so   56.6 KiB (-1.2 KiB)
+/// ```
+///
+/// New binaries (present in `after` but not `before`) print with `(new)`.
+/// Removed binaries are silent — `cargo build-sbf` doesn't usually
+/// remove artefacts and we'd rather not draw attention if it does.
+fn report_size_delta(
+    before: &std::collections::HashMap<PathBuf, u64>,
+    after: &std::collections::HashMap<PathBuf, u64>,
+) {
+    let mut printed_any = false;
+    let mut paths: Vec<&PathBuf> = after.keys().collect();
+    paths.sort();
+    for path in paths {
+        let new = after[path];
+        let prev = before.get(path).copied();
+        let name = path
+            .file_name()
+            .and_then(OsStr::to_str)
+            .unwrap_or("<unknown>");
+        let new_size = crate::style::human_size(new);
+        let line = match prev {
+            None => format!(
+                "  {} {}  {}  {}",
+                crate::style::success(""),
+                crate::style::bold(name),
+                crate::style::dim(&new_size),
+                crate::style::dim("(new)")
+            ),
+            Some(p) if p == new => continue,
+            Some(p) => {
+                let delta = new as i64 - p as i64;
+                let sign = if delta >= 0 { "+" } else { "" };
+                let delta_kib = delta as f64 / 1024.0;
+                let delta_str = format!("({sign}{delta_kib:.2} KiB)");
+                // Colour-cue: green when shrinking, yellow when
+                // growing, dim for an unchanged-size rebuild (which
+                // we already filter out above).
+                let coloured_delta = if delta < 0 {
+                    crate::style::color(83, &delta_str)
+                } else if delta > 0 {
+                    crate::style::color(208, &delta_str)
+                } else {
+                    crate::style::dim(&delta_str)
+                };
+                format!(
+                    "  {} {}  {}  {}",
+                    crate::style::success(""),
+                    crate::style::bold(name),
+                    crate::style::dim(&new_size),
+                    coloured_delta
+                )
+            }
+        };
+        if !printed_any {
+            println!();
+        }
+        println!("{line}");
+        printed_any = true;
+    }
+}
+
+fn render_lib_rs_defi_vault() -> String {
+    r##"//! Hopper DeFi vault scaffold. Authority + balance state with
+//! segment-level borrow tracking, PDA-bound vault, and the canonical
+//! verify-only PDA path that saves ~350 CU per instruction over
+//! `find_program_address`.
+
+#![cfg_attr(target_os = "solana", no_std)]
+#![allow(dead_code)]
+
+use hopper::prelude::*;
+
+#[cfg(target_os = "solana")]
+mod __hopper_sbf {
+    use super::*;
+    #[cfg(not(feature = "solana-program-backend"))]
+    no_allocator!();
+    #[cfg(not(feature = "solana-program-backend"))]
+    nostd_panic_handler!();
+}
+
+#[derive(Clone, Copy)]
+pub struct Authority;
+
+#[derive(Clone, Copy)]
+#[repr(C)]
+#[hopper::state(disc = 1, version = 1)]
+pub struct Vault {
+    pub authority: TypedAddress<Authority>,
+    pub balance: WireU64,
+    pub bump: u8,
+}
+
+#[cfg(target_os = "solana")]
+fast_entrypoint!(process_instruction, 3);
+
+fn process_instruction(
+    program_id: &Address,
+    accounts: &[AccountView],
+    data: &[u8],
+) -> ProgramResult {
+    let (disc, rest) = data.split_first().ok_or(ProgramError::InvalidInstructionData)?;
+    match *disc {
+        0 => deposit(program_id, accounts, rest),
+        1 => withdraw(program_id, accounts, rest),
+        _ => Err(ProgramError::InvalidInstructionData),
+    }
+}
+
+fn deposit(program_id: &Address, accounts: &[AccountView], data: &[u8]) -> ProgramResult {
+    hopper_load!(accounts => [user, vault]);
+    user.require_signer()?;
+    vault.require_writable()?;
+    find_and_verify_pda(vault, &[b"vault", user.address().as_ref()], program_id)?;
+
+    if data.len() < 8 { return Err(ProgramError::InvalidInstructionData); }
+    let amount = u64::from_le_bytes([data[0],data[1],data[2],data[3],data[4],data[5],data[6],data[7]]);
+
+    // Segment-safe balance bump: locks just the 8 bytes of `balance`.
+    let mut borrows = SegmentBorrowRegistry::new();
+    let mut balance = vault.segment_mut::<WireU64>(&mut borrows, Vault::BALANCE_ABS_OFFSET, 8)?;
+    let next = balance.get().checked_add(amount).ok_or(ProgramError::ArithmeticOverflow)?;
+    *balance = WireU64::new(next);
+    Ok(())
+}
+
+fn withdraw(program_id: &Address, accounts: &[AccountView], data: &[u8]) -> ProgramResult {
+    hopper_load!(accounts => [user, vault]);
+    user.require_signer()?;
+    vault.require_writable()?;
+    find_and_verify_pda(vault, &[b"vault", user.address().as_ref()], program_id)?;
+
+    if data.len() < 8 { return Err(ProgramError::InvalidInstructionData); }
+    let amount = u64::from_le_bytes([data[0],data[1],data[2],data[3],data[4],data[5],data[6],data[7]]);
+
+    let mut borrows = SegmentBorrowRegistry::new();
+    let mut balance = vault.segment_mut::<WireU64>(&mut borrows, Vault::BALANCE_ABS_OFFSET, 8)?;
+    let current = balance.get();
+    if amount > current { return Err(ProgramError::InsufficientFunds); }
+    *balance = WireU64::new(current - amount);
+    Ok(())
+}
+"##
+        .to_string()
+}
+
 fn print_init_usage() {
-    eprintln!("Usage: hopper init <path> [--name <crate-name>] [--local-path <hopper-path>] [--force]");
+    eprintln!("Usage:");
+    eprintln!("  hopper init                                  Interactive wizard");
+    eprintln!("  hopper init <path> [flags]                   Use saved defaults");
     eprintln!();
-    eprintln!("Create a new Hopper-native program scaffold.");
+    eprintln!("Flags:");
+    eprintln!("  --template, -t <name>     minimal | nft-mint | token-2022-vault | defi-vault");
+    eprintln!("  --name <crate-name>       Override the inferred crate name");
+    eprintln!("  --local-path <path>       Path-dep on a local Hopper checkout (development)");
+    eprintln!("  --yes, -y                 Skip prompts (use saved defaults from ~/.hopper/wizard.toml)");
+    eprintln!("  --interactive             Force the wizard even when <path> is supplied");
+    eprintln!("  --no-git                  Skip git init / initial commit");
+    eprintln!("  --force                   Overwrite existing files at <path>");
 }
 
 fn print_build_usage() {
@@ -729,9 +1479,17 @@ mod tests {
 
     #[test]
     fn local_path_dependency_is_rendered() {
-        let dep = render_hopper_dependency(Some("../hopper"));
+        // Function signature is `(local_path, template)` now —
+        // template determines which feature flags get stamped onto
+        // the dependency line.
+        let dep = render_hopper_dependency(Some("../hopper"), Template::Minimal);
         assert!(dep.contains("path"));
         assert!(dep.contains("default-features = false"));
+        assert!(dep.contains("hopper-native-backend"));
+
+        // The NFT template adds the `metaplex` feature.
+        let dep_nft = render_hopper_dependency(Some("../hopper"), Template::NftMint);
+        assert!(dep_nft.contains("metaplex"));
     }
 
     #[test]

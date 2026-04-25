@@ -30,7 +30,10 @@ pub use crate::{
 };
 
 #[cfg(feature = "proc-macros")]
-pub use crate::{context, hopper_context, hopper_program, hopper_state, program, state};
+pub use crate::{
+    account, accounts, context, hopper_context, hopper_program, hopper_state,
+    program, state, Accounts,
+};
 
 // New systems
 #[cfg(feature = "virtual-state")]

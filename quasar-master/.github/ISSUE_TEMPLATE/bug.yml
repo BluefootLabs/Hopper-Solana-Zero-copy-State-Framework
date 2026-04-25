@@ -1,0 +1,34 @@
+name: Bug Report
+description: Something isn't working as expected.
+labels: ["bug"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe the bug. What did you expect vs what actually happened?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: The smallest code or steps to reproduce the issue.
+      render: rust
+    validations:
+      required: true
+  - type: textarea
+    id: error-output
+    attributes:
+      label: Error output
+      description: Paste the full error message, panic, or unexpected output.
+      render: text
+    validations:
+      required: false
+  - type: input
+    id: version
+    attributes:
+      label: Quasar version
+      description: Output of `quasar --version` or the git commit hash.
+    validations:
+      required: true

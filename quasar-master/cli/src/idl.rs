@@ -1,0 +1,84 @@
+use {
+    crate::{
+        error::{CliError, CliResult},
+        IdlCommand,
+    },
+    quasar_idl::{
+        codegen,
+        parser::{self, ParsedProgram},
+        types::Idl,
+    },
+    std::path::{Path, PathBuf},
+};
+
+/// Parse program source, write IDL JSON and Rust client.
+/// Returns the IDL for optional downstream client generation.
+fn generate_idl(crate_path: &Path) -> Result<(Idl, ParsedProgram), anyhow::Error> {
+    let parsed = parser::parse_program(crate_path);
+
+    // Rust client needs the parsed AST (not just IDL), generate before build_idl
+    // consumes it.
+    let pdas = codegen::rust::has_pdas(&parsed);
+    let client_code = codegen::rust::generate_client(&parsed);
+    let client_cargo_toml =
+        codegen::rust::generate_cargo_toml(&parsed.crate_name, &parsed.version, pdas);
+
+    let idl = parser::build_idl(parsed);
+
+    // Write IDL JSON
+    let idl_dir = PathBuf::from("target").join("idl");
+    std::fs::create_dir_all(&idl_dir)?;
+    let idl_path = idl_dir.join(format!("{}.json", idl.metadata.name));
+    let json = serde_json::to_string_pretty(&idl)
+        .map_err(|e| anyhow::anyhow!("failed to serialize IDL: {e}"))?;
+    std::fs::write(&idl_path, &json)?;
+
+    // Write Rust client
+    let client_dir = PathBuf::from("target")
+        .join("client")
+        .join("rust")
+        .join(format!("{}-client", idl.metadata.crate_name));
+    std::fs::create_dir_all(&client_dir)?;
+    std::fs::write(client_dir.join("Cargo.toml"), &client_cargo_toml)?;
+
+    let src_dir = client_dir.join("src");
+    if src_dir.exists() {
+        std::fs::remove_dir_all(&src_dir)?;
+    }
+    for (path, content) in &client_code {
+        let file_path = src_dir.join(path);
+        if let Some(parent) = file_path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        std::fs::write(&file_path, content)?;
+    }
+
+    // Re-parse for downstream consumers (lint). build_idl consumed the first
+    // parse, but re-parsing is cheap and avoids Clone on syn types.
+    let parsed_for_lint = parser::parse_program(crate_path);
+
+    Ok((idl, parsed_for_lint))
+}
+
+/// Called by `quasar idl <path>` — generates IDL JSON + Rust client only.
+pub fn run(command: IdlCommand) -> CliResult {
+    let crate_path = &command.crate_path;
+    if !crate_path.exists() {
+        return Err(CliError::message(format!(
+            "path does not exist: {}",
+            crate_path.display()
+        )));
+    }
+
+    generate_idl(crate_path)?;
+    println!("  {}", crate::style::success("IDL generated"));
+    Ok(())
+}
+
+/// Called by `quasar build` — generates IDL + Rust client + configured language
+/// clients. Returns the ParsedProgram for downstream lint use.
+pub fn generate(crate_path: &Path, languages: &[&str]) -> Result<ParsedProgram, CliError> {
+    let (idl, parsed) = generate_idl(crate_path)?;
+    crate::client::generate_clients(&idl, languages)?;
+    Ok(parsed)
+}

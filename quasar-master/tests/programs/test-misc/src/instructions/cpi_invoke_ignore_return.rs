@@ -1,0 +1,21 @@
+use {crate::state::TestMiscProgram, quasar_lang::prelude::*};
+
+#[derive(Accounts)]
+pub struct CpiInvokeIgnoreReturn<'info> {
+    pub program: &'info Program<TestMiscProgram>,
+}
+
+impl<'info> CpiInvokeIgnoreReturn<'info> {
+    #[inline(always)]
+    pub fn handler(&self) -> Result<(), ProgramError> {
+        quasar_lang::cpi::CpiCall::<1, 1>::new(
+            &crate::ID,
+            [quasar_lang::cpi::InstructionAccount::readonly(
+                self.program.address(),
+            )],
+            [self.program.to_account_view()],
+            [45],
+        )
+        .invoke()
+    }
+}

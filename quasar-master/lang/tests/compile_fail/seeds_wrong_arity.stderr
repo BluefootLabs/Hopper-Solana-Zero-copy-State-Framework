@@ -1,0 +1,5 @@
+error[E0080]: evaluation panicked: Vault::seeds() argument count mismatch (check #[seeds] definition on Vault)
+  --> tests/compile_fail/seeds_wrong_arity.rs:14:10
+   |
+14 | #[derive(Accounts)]
+   |          ^^^^^^^^ evaluation of `<Bad<'info> as quasar_lang::traits::ParseAccountsUnchecked<'info>>::parse_unchecked::_` failed here

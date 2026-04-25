@@ -1,5 +1,9 @@
 # Hopper
 
+**[hopperzero.dev](https://hopperzero.dev)** &nbsp;·&nbsp; [Docs](https://docs.rs/hopper) &nbsp;·&nbsp; [Crate](https://crates.io/crates/hopper) &nbsp;·&nbsp; [Audit](AUDIT.md)
+
+[![Crates.io](https://img.shields.io/crates/v/hopper.svg)](https://crates.io/crates/hopper)
+[![Docs.rs](https://img.shields.io/docsrs/hopper)](https://docs.rs/hopper)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/Rust-stable-orange.svg)](https://www.rust-lang.org/)
 [![Solana](https://img.shields.io/badge/Solana-mainnet-9945FF.svg)](https://solana.com/)
@@ -351,6 +355,12 @@ cage.
 | **CLI tooling** | explain, inspect, decode, segments, compat, diff, plan, receipt, schema-export, client gen |
 | **Program Manager** | Identify accounts, decode fields, inspect instructions, list policies from manifest |
 | **Client SDK generation** | TypeScript and Kotlin (org.sol4k) client generators from program manifests |
+| **Anchor IDL emit** | `hopper schema export --anchor-idl` projects the manifest into Anchor 0.30-shaped IDL JSON for wallets and explorers that haven't migrated to Codama yet |
+| **Metaplex builders** | Optional `hopper-metaplex` crate (behind `--features metaplex`): `CreateMetadataAccountV3`, `CreateMasterEditionV3`, `UpdateMetadataAccountV2`, plus `metadata_pda` / `master_edition_pda` derivation. Stack-buffer Borsh encoder; no heap, no `Vec` |
+| **Anchor-parity guard family** | `require!`, `require_eq!`, `require_neq!`, `require_keys_eq!`, `require_keys_neq!`, `require_gt!`, `require_gte!`, `require_lt!`, `require_lte!`, plus `err!` / `error!` short forms — all eight from Anchor's vocabulary, none of Anchor's runtime cost |
+| **Constraint vocabulary** | `#[hopper::context]` accepts the full Anchor keyword set: `init`, `init_if_needed`, `zero`, `close`, `realloc`, `payer`, `space`, `seeds`, `bump`, `has_one`, `owner`, `address`, `constraint`, `executable`, `rent_exempt`, the `token::*` / `mint::*` / `associated_token::*` triples, plus Hopper-unique `mut(seg1, seg2)` / `read(seg1, seg2)` segment-level borrows |
+| **Token-2022 extensions** | First-class field keywords: `extensions::transfer_hook::{authority,program_id}`, `metadata_pointer::{authority,metadata_address}`, `non_transferable`, `immutable_owner`, `mint_close_authority`, `permanent_delegate`, `default_account_state`, `interest_bearing::rate_authority`, `transfer_fee::{authority,withdraw_authority}` |
+| **Handler attributes** | `#[hopper::access_control(expr)]` for pre-handler gates, `#[hopper::receipt]` for structured mutation proofs, `#[hopper::invariant(cond[, err = ...])]` for post-mutation checks, `#[hopper::pipeline]` for typestate-enforced phased execution |
 
 ## Crate Architecture
 
@@ -373,8 +383,12 @@ hopper (root facade, re-exports everything)
 +-- hopper-associated-token Hopper-owned ATA helpers and ATA instruction builders
 +-- hopper-solana        SPL Token/Mint readers, CPI guards, typed CPI kits
 +-- hopper-anchor        Anchor interoperability: read Anchor-created accounts
++-- hopper-metaplex      Optional (--features metaplex). Metaplex Token Metadata
+|                        builders: CreateMetadataAccountV3, CreateMasterEditionV3,
+|                        UpdateMetadataAccountV2, plus PDA helpers
 +-- hopper-schema        Layout manifests, field diffs, migration planning,
-|                        program manifests, IDL, Codama projection, field-level decoding
+|                        program manifests, IDL, Codama projection, field-level decoding,
+|                        Anchor IDL emit
 +-- hopper-manager       Schema-driven program inspector library
 +-- hopper-finance       DeFi math primitives: AMM constant-product, slippage guards
 +-- hopper-lending       Lending primitives: collateralization, health checks, liquidation math
@@ -421,7 +435,17 @@ specific patterns.
 | [`hopper-proc-vault`](examples/hopper-proc-vault/src/lib.rs) | `#[hopper::state]` + `#[hopper::context]` + `#[hopper::program]` proc-macro surface in one file | 1 |
 | [`hopper-parity-vault`](examples/hopper-parity-vault/src/lib.rs) | Cross-framework fair-comparison baseline used by `bench/framework-vault-bench` | 1 |
 | [`hopper-token-2022-ata`](examples/hopper-token-2022-ata/src/lib.rs) | Hopper-owned `hopper_associated_token::CreateIdempotent` + Token-2022 flow | 1 |
+| [`hopper-token-2022-transfer-hook`](examples/hopper-token-2022-transfer-hook/src/lib.rs) | Token-2022 transfer-hook extension reader: validates the bound hook program, gates safe-mint screening, authority-rotates the expected binding | 2 |
+| [`hopper-nft-mint`](examples/hopper-nft-mint/src/lib.rs) | NFT mint reference: Metaplex `CreateMetadataAccountV3` + `CreateMasterEditionV3` end-to-end (1-of-1 lock). Uses `hopper-metaplex` builders | 1 |
 | [`cross-program-read`](examples/cross-program-read/) | Interface pinning across two programs | 2 |
+
+Plus benchmark targets that double as reference programs:
+
+| Bench target | What it shows |
+|--------------|---------------|
+| [`bench/pinocchio-vault`](bench/pinocchio-vault/src/lib.rs) | In-tree Anza Pinocchio parity vault (raw-substrate baseline) |
+| [`bench/anchor-vault`](bench/anchor-vault/src/lib.rs) | In-tree Anchor parity vault using `AccountLoader` (zero-copy comparator) |
+| [`bench/lazy-dispatch-vault`](bench/lazy-dispatch-vault/src/lib.rs) | Eight-instruction dispatch vault built twice (eager + lazy) so the lazy-entrypoint CU win is directly measurable |
 
 ## CLI
 
@@ -681,7 +705,9 @@ The Codama projection is what ecosystem tools (Kinobi, Umi) consume.
 ## Guard macros
 
 Early-return guard macros in the Jiminy-replacement tradition. Zero
-overhead, zero dependencies, available at `hopper::*`:
+overhead, zero dependencies, available at `hopper::*` and through
+`use hopper::prelude::*`. Hopper ships the full Anchor-parity family
+(eight comparison variants plus error-return shorthands):
 
 ```rust
 hopper::require!(amount > 0, ProgramError::InvalidArgument);
@@ -691,10 +717,24 @@ hopper::require_keys_eq!(vault.authority, signer.address(), ProgramError::Invali
 hopper::require_keys_neq!(authority_a, authority_b, ProgramError::InvalidAccountData);
 hopper::require_gte!(account.lamports(), required, ProgramError::InsufficientFunds);
 hopper::require_gt!(fresh_slot, last_slot, ProgramError::InvalidArgument);
+hopper::require_lt!(slot, deadline, ProgramError::InvalidArgument);
+hopper::require_lte!(amount, MAX_DEPOSIT, ProgramError::InvalidArgument);
+
+// Anchor-style short-form error returns
+return hopper::err!(VaultError::ZeroDeposit);
+// `error!(...)` is an alias for `err!(...)` for ported Anchor code.
 ```
 
 Every macro has a short form that defaults to a sensible error
 (`InvalidArgument`, `InvalidAccountData`, or `InsufficientFunds`).
+For the raw-dispatch authoring path there's also `hopper_load!`
+destructuring sugar:
+
+```rust
+// Replaces `let [user, vault, ..] = accounts else { return Err(...) };`
+hopper_load!(accounts => [user, vault, system_program]);
+```
+
 Regression suite lives in [tests/require_macros.rs](tests/require_macros.rs).
 
 ## `hopper verify`
@@ -821,6 +861,9 @@ Apache-2.0. See [LICENSE](LICENSE) for details.
 
 ## Links
 
+- **Website**: [hopperzero.dev](https://hopperzero.dev)
+- **Crate**: [`hopper` on crates.io](https://crates.io/crates/hopper)
+- **Docs**: [`hopper` on docs.rs](https://docs.rs/hopper)
 - **Author**: [@moonmanquark](https://x.com/moonmanquark)
-- **Organization**: [BluefootLabs](https://github.com/BluefootLabs)
+- **Organization**: [BluefootLabs](https://github.com/BluefootLabs) — also building [Boobies](https://bluefoot.xyz), an NFT project funding Galápagos blue-footed booby conservation.
 - **Repository**: [GitHub](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework)

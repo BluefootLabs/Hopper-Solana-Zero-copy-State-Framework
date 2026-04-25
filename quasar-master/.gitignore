@@ -1,0 +1,17 @@
+/target
+
+# AI
+.apex
+.claude
+.codex
+.factory
+docs/
+
+AGENTS.md
+CLAUDE.md
+
+.DS_Store
+
+# Profiler
+*.profile.json
+

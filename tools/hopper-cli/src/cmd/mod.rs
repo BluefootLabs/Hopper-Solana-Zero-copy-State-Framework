@@ -1,3 +1,6 @@
+pub mod add;
+pub mod banner;
+pub mod clean;
 pub mod config;
 pub mod doctor;
 pub mod expand;
