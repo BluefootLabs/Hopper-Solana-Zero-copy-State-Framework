@@ -76,24 +76,32 @@ fast_entrypoint!(process_instruction, 3);
 // State
 // ---------------------------------------------------------------------------
 
-hopper_layout! {
-    pub struct HookedVault, disc = 1, version = 1 {
-        /// Authority permitted to rotate the expected hook program.
-        authority:             TypedAddress<Authority> = 32,
-        /// Mint this vault is bound to.
-        mint:                  TypedAddress<Mint>      = 32,
-        /// The hook program ID the authority expects to see bound to
-        /// `mint`'s TransferHook extension. Verified on every
-        /// `verify_hook_binding` instruction.
-        expected_hook_program: TypedAddress<Program>   = 32,
-        /// Bump byte for the vault PDA.
-        bump:                  u8                      = 1,
-    }
-}
-
+#[derive(Clone, Copy)]
 pub struct Authority;
+#[derive(Clone, Copy)]
 pub struct Mint;
+#[derive(Clone, Copy)]
 pub struct Program;
+
+/// Vault state record. Pinned to a Token-2022 mint, declares the
+/// expected transfer-hook program ID, and gates updates on a stored
+/// authority. The proc-macro form is used here because the example
+/// relies on the per-field `*_ABS_OFFSET` constants the macro emits.
+#[derive(Clone, Copy)]
+#[repr(C)]
+#[hopper::state(disc = 1, version = 1)]
+pub struct HookedVault {
+    /// Authority permitted to rotate the expected hook program.
+    pub authority: TypedAddress<Authority>,
+    /// Mint this vault is bound to.
+    pub mint: TypedAddress<Mint>,
+    /// The hook program ID the authority expects to see bound to
+    /// `mint`'s TransferHook extension. Verified on every
+    /// `verify_hook_binding` instruction.
+    pub expected_hook_program: TypedAddress<Program>,
+    /// Bump byte for the vault PDA.
+    pub bump: u8,
+}
 
 // ---------------------------------------------------------------------------
 // Dispatch
@@ -134,8 +142,11 @@ fn process_init(program_id: &Address, accounts: &[AccountView]) -> ProgramResult
     vault.require_writable()?;
     vault.require_owned_by(program_id)?;
 
-    // Write the header.
-    HookedVault::write_header(vault)?;
+    // Write the 16-byte Hopper header.
+    {
+        let mut data = vault.try_borrow_mut()?;
+        hopper::hopper_runtime::layout::init_header::<HookedVault>(&mut data)?;
+    }
 
     // Populate the body. Segment-level borrows keep this crisp: one
     // registry, three non-overlapping writes, no whole-struct lock.
@@ -143,7 +154,7 @@ fn process_init(program_id: &Address, accounts: &[AccountView]) -> ProgramResult
     {
         let mut authority_seg = vault.segment_mut::<[u8; 32]>(
             &mut borrows,
-            HookedVault::AUTHORITY_OFFSET,
+            HookedVault::AUTHORITY_ABS_OFFSET,
             32,
         )?;
         authority_seg.copy_from_slice(authority.address().as_array());
@@ -151,7 +162,7 @@ fn process_init(program_id: &Address, accounts: &[AccountView]) -> ProgramResult
     {
         let mut mint_seg = vault.segment_mut::<[u8; 32]>(
             &mut borrows,
-            HookedVault::MINT_OFFSET,
+            HookedVault::MINT_ABS_OFFSET,
             32,
         )?;
         mint_seg.copy_from_slice(mint.address().as_array());
@@ -182,7 +193,7 @@ fn process_verify_hook_binding(
     // Borrow the vault's stored binding and mint reference, validate
     // the supplied mint matches what the vault is pinned to.
     let vault_view = HookedVault::load(vault, program_id)?;
-    if vault_view.mint.as_array() != mint.address().as_array() {
+    if vault_view.mint.as_bytes() != mint.address().as_array() {
         return Err(ProgramError::InvalidAccountData);
     }
 
@@ -190,7 +201,7 @@ fn process_verify_hook_binding(
     let mint_data = mint.try_borrow()?;
     check_transfer_hook_program(
         &mint_data,
-        vault_view.expected_hook_program.as_array(),
+        vault_view.expected_hook_program.as_bytes(),
     )?;
 
     Ok(())
@@ -239,10 +250,10 @@ fn process_rotate_expected_hook(
     // and the mint matches the one the vault is bound to.
     {
         let vault_view = HookedVault::load(vault, program_id)?;
-        if vault_view.authority.as_array() != authority.address().as_array() {
+        if vault_view.authority.as_bytes() != authority.address().as_array() {
             return Err(ProgramError::MissingRequiredSignature);
         }
-        if vault_view.mint.as_array() != mint.address().as_array() {
+        if vault_view.mint.as_bytes() != mint.address().as_array() {
             return Err(ProgramError::InvalidAccountData);
         }
     }
@@ -261,7 +272,7 @@ fn process_rotate_expected_hook(
     let mut borrows = SegmentBorrowRegistry::new();
     let mut slot = vault.segment_mut::<[u8; 32]>(
         &mut borrows,
-        HookedVault::EXPECTED_HOOK_PROGRAM_OFFSET,
+        HookedVault::EXPECTED_HOOK_PROGRAM_ABS_OFFSET,
         32,
     )?;
     slot.copy_from_slice(&new_hook_program);

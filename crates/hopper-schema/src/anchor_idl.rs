@@ -79,7 +79,7 @@ use core::fmt;
 
 use crate::{
     ArgDescriptor, EventDescriptor, FieldDescriptor, IdlAccountEntry,
-    InstructionDescriptor, LayoutManifest, ProgramIdl, ProgramManifest,
+    IdlInstructionDescriptor, InstructionDescriptor, LayoutManifest, ProgramIdl, ProgramManifest,
 };
 
 // ---------------------------------------------------------------------------
@@ -279,7 +279,7 @@ fn write_instruction_args(
 
 fn write_instruction(
     f: &mut fmt::Formatter<'_>,
-    ix: &InstructionDescriptor,
+    ix: &IdlInstructionDescriptor,
     indent: usize,
 ) -> fmt::Result {
     write_indent(f, indent)?;
@@ -421,7 +421,7 @@ fn write_preamble(
 
 fn write_instruction_array(
     f: &mut fmt::Formatter<'_>,
-    instructions: &[InstructionDescriptor],
+    instructions: &[IdlInstructionDescriptor],
 ) -> fmt::Result {
     if instructions.is_empty() {
         return writeln!(f, "  \"instructions\": [],");
@@ -436,6 +436,86 @@ fn write_instruction_array(
         }
     }
     writeln!(f, "  ],")
+}
+
+/// Manifest-flavored instruction emitter. The full `InstructionDescriptor`
+/// carries `AccountEntry` (no PDA seed metadata) where the IDL-projection
+/// path carries `IdlAccountEntry`. The IDL JSON shape stays identical
+/// because Anchor IDLs only encode `name` / `isMut` / `isSigner` per
+/// account; PDA seeds are advisory and Anchor consumers ignore them.
+fn write_instruction_array_from_manifest(
+    f: &mut fmt::Formatter<'_>,
+    instructions: &[InstructionDescriptor],
+) -> fmt::Result {
+    if instructions.is_empty() {
+        return writeln!(f, "  \"instructions\": [],");
+    }
+    writeln!(f, "  \"instructions\": [")?;
+    for (i, ix) in instructions.iter().enumerate() {
+        write_instruction_from_manifest(f, ix, 2)?;
+        if i + 1 < instructions.len() {
+            writeln!(f, ",")?;
+        } else {
+            writeln!(f)?;
+        }
+    }
+    writeln!(f, "  ],")
+}
+
+fn write_instruction_from_manifest(
+    f: &mut fmt::Formatter<'_>,
+    ix: &InstructionDescriptor,
+    indent: usize,
+) -> fmt::Result {
+    write_indent(f, indent)?;
+    writeln!(f, "{{")?;
+    write_indent(f, indent + 1)?;
+    write!(f, "\"name\": ")?;
+    write_json_str(f, ix.name)?;
+    writeln!(f, ",")?;
+    write_indent(f, indent + 1)?;
+    write!(f, "\"discriminator\": ")?;
+    write_byte_discriminator(f, ix.tag)?;
+    writeln!(f, ",")?;
+    write_indent(f, indent + 1)?;
+    write!(f, "\"accounts\": ")?;
+    write_instruction_accounts_from_manifest(f, ix.accounts, indent + 1)?;
+    writeln!(f, ",")?;
+    write_indent(f, indent + 1)?;
+    write!(f, "\"args\": ")?;
+    write_instruction_args(f, ix.args, indent + 1)?;
+    writeln!(f)?;
+    write_indent(f, indent)?;
+    write!(f, "}}")
+}
+
+fn write_instruction_accounts_from_manifest(
+    f: &mut fmt::Formatter<'_>,
+    accounts: &[crate::AccountEntry],
+    indent: usize,
+) -> fmt::Result {
+    if accounts.is_empty() {
+        return write!(f, "[]");
+    }
+    writeln!(f, "[")?;
+    for (i, a) in accounts.iter().enumerate() {
+        write_indent(f, indent + 1)?;
+        write!(f, "{{ \"name\": ")?;
+        write_json_str(f, a.name)?;
+        write!(
+            f,
+            ", \"isMut\": {}, \"isSigner\": {}",
+            a.writable, a.signer
+        )?;
+        write!(f, " }}")?;
+        if i + 1 < accounts.len() {
+            writeln!(f, ",")?;
+        } else {
+            writeln!(f)?;
+        }
+    }
+    write_indent(f, indent)?;
+    write!(f, "]")
 }
 
 fn write_account_array(
@@ -507,7 +587,7 @@ impl<'a> fmt::Display for AnchorIdlFromManifest<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let m = self.0;
         write_preamble(f, m.name, m.version, m.description)?;
-        write_instruction_array(f, m.instructions)?;
+        write_instruction_array_from_manifest(f, m.instructions)?;
         write_account_array(f, m.layouts)?;
         write_event_array(f, m.events)?;
         writeln!(f, "  \"errors\": [],")?;

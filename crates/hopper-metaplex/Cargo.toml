@@ -1,0 +1,29 @@
+[package]
+name = "hopper-metaplex"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+authors = ["BluefootLabs <contact@bluefootlabs.com>", "MoonManQuark"]
+description = "Hopper-owned Metaplex Token Metadata program builders, PDA helpers, and account read helpers. Closes the Metaplex parity gap from AUDIT.md and powers the metadata::* / master_edition::* field keywords on #[hopper::context]."
+repository = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework"
+homepage = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework"
+documentation = "https://docs.rs/hopper-metaplex"
+readme = "../../README.md"
+keywords = ["solana", "metaplex", "nft", "zero-copy", "no-std"]
+categories = ["no-std", "embedded"]
+
+[lib]
+name = "hopper_metaplex"
+
+[features]
+default = ["hopper-native-backend"]
+hopper-native-backend = ["hopper-runtime/hopper-native-backend"]
+pinocchio-backend = ["hopper-runtime/pinocchio-backend"]
+solana-program-backend = ["hopper-runtime/solana-program-backend"]
+
+[dependencies]
+hopper-runtime = { path = "../hopper-runtime", version = "0.1.0", default-features = false }
+five8_const = { workspace = true }
+
+[lints]
+workspace = true

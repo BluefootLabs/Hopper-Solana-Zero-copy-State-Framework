@@ -2097,6 +2097,7 @@ dependencies = [
  "hopper-core",
  "hopper-macros",
  "hopper-macros-proc",
+ "hopper-metaplex",
  "hopper-runtime",
  "hopper-schema",
  "hopper-solana",
@@ -2230,6 +2231,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "hopper-metaplex"
+version = "0.1.0"
+dependencies = [
+ "five8_const 0.1.4",
+ "hopper-runtime",
+]
+
+[[package]]
 name = "hopper-migration"
 version = "0.1.0"
 dependencies = [
@@ -2250,6 +2259,13 @@ version = "0.1.0"
 dependencies = [
  "bytemuck",
  "five8_const 0.1.4",
+]
+
+[[package]]
+name = "hopper-nft-mint"
+version = "0.1.0"
+dependencies = [
+ "hopper",
 ]
 
 [[package]]

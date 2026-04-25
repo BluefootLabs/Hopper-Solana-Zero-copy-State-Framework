@@ -15,10 +15,12 @@ hopper = { path = "../..", default-features = false, features = ["hopper-native-
 
 [features]
 # Exactly one of `eager` or `lazy` must be enabled. The workspace-level
-# bench wrapper builds the crate twice (`--features eager` and
-# `--features lazy`) and renames the resulting .so files so both
-# artefacts coexist under target/deploy/.
-default = []
+# bench wrapper builds the crate twice (`cargo build-sbf --no-default-features
+# --features eager` and `--no-default-features --features lazy`) and renames
+# the resulting .so files so both artefacts coexist under target/deploy/.
+# `eager` is the default so `cargo check --workspace` and IDE tooling pick
+# a valid configuration without requiring an explicit feature flag.
+default = ["eager"]
 eager = []
 lazy = []
 

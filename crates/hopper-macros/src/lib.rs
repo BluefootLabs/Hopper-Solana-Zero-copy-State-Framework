@@ -67,7 +67,10 @@ macro_rules! hopper_layout {
         $(#[$attr:meta])*
         pub struct $name:ident, disc = $disc:literal, version = $ver:literal
         {
-            $( $field:ident : $fty:ty = $fsize:literal ),+ $(,)?
+            $(
+                $(#[$field_attr:meta])*
+                $field:ident : $fty:ty = $fsize:literal
+            ),+ $(,)?
         }
     ) => {
         $(#[$attr])*
@@ -75,7 +78,10 @@ macro_rules! hopper_layout {
         #[repr(C)]
         pub struct $name {
             pub header: $crate::hopper_core::account::AccountHeader,
-            $( pub $field: $fty, )+
+            $(
+                $(#[$field_attr])*
+                pub $field: $fty,
+            )+
         }
 
         // Compile-time assertions
@@ -1306,7 +1312,10 @@ macro_rules! hopper_interface {
         $(#[$attr:meta])*
         pub struct $name:ident, disc = $disc:literal, version = $ver:literal
         {
-            $( $field:ident : $fty:ty = $fsize:literal ),+ $(,)?
+            $(
+                $(#[$field_attr:meta])*
+                $field:ident : $fty:ty = $fsize:literal
+            ),+ $(,)?
         }
     ) => {
         $(#[$attr])*
@@ -1314,7 +1323,10 @@ macro_rules! hopper_interface {
         #[repr(C)]
         pub struct $name {
             pub header: $crate::hopper_core::account::AccountHeader,
-            $( pub $field: $fty, )+
+            $(
+                $(#[$field_attr])*
+                pub $field: $fty,
+            )+
         }
 
         // Compile-time assertions
