@@ -36,11 +36,13 @@
 //!
 //! hopper fetch <program-id>                          Fetch on-chain manifest
 //!
-//! hopper init <path>                                 Create a Hopper-native project scaffold
+//! hopper init [path]                                 Create a Hopper project (wizard if path omitted)
+//! hopper add [-i|-s|-e <name>]                       Scaffold an instruction, state, or error
 //! hopper build [--host|--sbf]                        Build the current project
 //! hopper test                                        Run host-side tests for the current project
 //! hopper deploy                                      Build and deploy the current SBF program
 //! hopper dump                                        Disassemble the current SBF artifact
+//! hopper clean [-a|--all]                            Remove build artefacts (preserves keypairs)
 //! hopper profile bench                               Run the primitive benchmark lab
 //!
 //! hopper interactive <manifest>                      Interactive terminal explorer
@@ -74,8 +76,10 @@ use std::process;
 
 mod bench;
 mod cmd;
+mod config;
 mod rpc;
 mod interactive;
+mod style;
 mod workspace;
 
 /// Decode a Hopper header or exit with a diagnostic message.
@@ -97,6 +101,16 @@ fn main() {
         process::exit(1);
     }
 
+    // Resolve the colour preference once, ahead of any command output.
+    // Order: `ui.color = false` in the global config wins over the
+    // auto-detect in `style::*`. The `NO_COLOR` env var and the TTY
+    // probe are handled inside `style::auto_detect`, so we only have
+    // to override here when the user has explicitly opted out via
+    // their saved preferences.
+    if !config::GlobalConfig::load().ui.color {
+        style::init(false);
+    }
+
     match args[1].as_str() {
         // Command families
         "schema" => cmd_schema_family(&args[2..]),
@@ -111,10 +125,12 @@ fn main() {
 
         // Lifecycle
         "init" => cmd::lifecycle::cmd_init(&args[2..]),
+        "add" => cmd::add::cmd_add(&args[2..]),
         "build" => cmd::lifecycle::cmd_build(&args[2..]),
         "test" => cmd::lifecycle::cmd_test(&args[2..]),
         "deploy" => cmd::lifecycle::cmd_deploy(&args[2..]),
         "dump" => cmd::lifecycle::cmd_dump(&args[2..]),
+        "clean" => cmd::clean::cmd_clean(&args[2..]),
         "verify" => cmd::verify::cmd_verify(&args[2..]),
 
         // DX and tooling
@@ -1826,11 +1842,13 @@ fn print_usage() {
     println!("    hopper manager fetch <program-id> [--rpc <url>]  Fetch + show program summary");
     println!();
     println!("  Lifecycle:");
-    println!("    hopper init <path>                 Create a Hopper-native project scaffold");
+    println!("    hopper init [path]                 Create a Hopper project (wizard if no path)");
+    println!("    hopper add [-i|-s|-e <name>]       Scaffold an instruction, state, or error into the current project");
     println!("    hopper build [--host|--sbf]        Build the current project (default: SBF)");
     println!("    hopper test                        Run the current project's host-side tests");
     println!("    hopper deploy [--no-build]         Build and deploy the current SBF program");
     println!("    hopper dump [--no-build]           Disassemble the current SBF artifact");
+    println!("    hopper clean [-a|--all]            Remove target/{{deploy,idl,client,profile,hopper}} (preserves keypairs)");
     println!();
     println!("  Profiling:");
     println!("    hopper profile bench               Run the primitive benchmark lab");
