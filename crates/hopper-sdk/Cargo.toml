@@ -15,8 +15,9 @@ segment roles, receipt wire format, and policy graph on both sides of the
 program boundary.
 """
 repository = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework"
-homepage = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework"
-readme = "../../README.md"
+homepage = "https://hopperzero.dev"
+documentation = "https://docs.rs/hopper-sdk"
+readme = "README.md"
 keywords = ["solana", "zero-copy", "sdk", "client", "hopper"]
 categories = ["api-bindings", "development-tools"]
 

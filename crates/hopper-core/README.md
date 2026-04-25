@@ -1,6 +1,11 @@
 # hopper-core
 
+[![Crates.io](https://img.shields.io/crates/v/hopper-core.svg)](https://crates.io/crates/hopper-core)
+[![Docs.rs](https://img.shields.io/docsrs/hopper-core)](https://docs.rs/hopper-core)
+
 Core engine for the Hopper zero-copy state framework on Solana.
+
+Part of the **[Hopper](https://hopperzero.dev)** framework.
 
 This is the foundation everything else sits on. Account headers, ABI types,
 typed overlays, phased execution, zero-copy collections, policy enforcement,

@@ -6,9 +6,9 @@ license = "Apache-2.0"
 authors = ["BluefootLabs <contact@bluefootlabs.com>", "MoonManQuark"]
 description = "Lending protocol primitives for Hopper: collateralization ratios, health checks, liquidation math, interest calculations. Zero-copy, no_std, no_alloc, BPF-safe."
 repository = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework"
-homepage = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework"
+homepage = "https://hopperzero.dev"
 documentation = "https://docs.rs/hopper-lending"
-readme = "../../README.md"
+readme = "README.md"
 keywords = ["solana", "zero-copy", "lending", "defi", "liquidation"]
 categories = ["no-std"]
 

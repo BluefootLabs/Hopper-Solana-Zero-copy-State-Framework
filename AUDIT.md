@@ -30,7 +30,7 @@ This audit was followed by two in-tree change passes, landing all ten recommenda
 
 Side quest from the R-pass: should Hopper follow Quasar's lead and rebrand as "Hopper-Lang" with a `hopper-lang.com`-style domain?
 
-**Short answer: no.**
+**Short answer: no.** *(Update 2026-04-24: the team chose `hopperzero.dev` as the canonical domain. The reasoning below stands — Hopper is a framework, not a language — and the new domain leans into the technical category ("zero-copy") rather than the language framing.)*
 
 **What Quasar's "-Lang" actually is.** Quasar lives at `quasar-lang.com` for docs and at `blueshift-gg/quasar` on GitHub. The project's own README calls itself "A blazing fast Solana program framework" — not a language. Its docs-site tagline is "Zero-Copy Solana Framework" and a slightly fluffier "quasar 💫 — Build blazing fast Solana programs". The product name is Quasar; the `-lang` in the URL is a domain-disambiguator, not a rebrand. The reason it exists is almost certainly pragmatic rather than philosophical:
 

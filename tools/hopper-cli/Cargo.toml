@@ -48,6 +48,11 @@ walkdir = "2"
 # Cross-platform host RNG for `hopper keys new`
 getrandom = "0.2"
 
+# Interactive `hopper init` wizard
+dialoguer = "0.11"
+# Global config file location (`~/.hopper/config.toml`)
+dirs = "6"
+
 [lints.rust]
 unexpected_cfgs = { level = "allow", check-cfg = [
     'cfg(target_os, values("solana"))',

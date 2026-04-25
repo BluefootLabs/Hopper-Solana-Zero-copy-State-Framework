@@ -160,6 +160,60 @@ pub fn accounts(attr: TokenStream, item: TokenStream) -> TokenStream {
     hopper_context(attr, item)
 }
 
+/// `#[derive(Accounts)]` — Anchor-spelled drop-in for `#[hopper::context]`.
+///
+/// Functionally identical to the attribute form: every constraint Hopper
+/// recognises (`init`, `init_if_needed`, `mut`, `signer`, `seeds`, `bump`,
+/// `payer`, `space`, `has_one`, `owner`, `address`, `constraint`,
+/// `token::*`, `mint::*`, `associated_token::*`, the Token-2022 extension
+/// gates, `dup`, `sweep`, `executable`, `rent_exempt`, `realloc`, `zero`,
+/// `close`) all work in the derive form. Hopper-specific authoring sugar
+/// — segment-tagged `mut(field, …)`, `read(field, …)`, the inline
+/// `#[hopper::pipeline]` / `#[hopper::receipt]` / `#[hopper::invariant]`
+/// stack — also works untouched.
+///
+/// The derive registers `account`, `signer`, `instruction`, and `validate`
+/// as helper attributes so the existing `#[account(...)]`, `#[signer]`,
+/// `#[instruction(...)]`, and `#[validate]` field/struct annotations
+/// compile without an extra `use` line. Helper attributes are silently
+/// consumed by `rustc` once the derive runs, just like Anchor's setup.
+///
+/// # When to use which spelling
+///
+/// - **`#[hopper::context]`** when you want Hopper-native vocabulary and
+///   are starting from scratch.
+/// - **`#[derive(Accounts)]`** when you're porting from Anchor or want a
+///   spelling that matches the broader Solana-Rust convention. The
+///   `Accounts` symbol comes from `hopper::prelude::*`.
+///
+/// # Example
+///
+/// ```ignore
+/// use hopper::prelude::*;
+///
+/// #[derive(Accounts)]
+/// #[instruction(amount: u64)]
+/// pub struct Deposit {
+///     #[account(mut)]
+///     pub vault: Vault,
+///
+///     #[signer]
+///     pub authority: AccountView,
+///
+///     pub system_program: AccountView,
+/// }
+/// ```
+///
+/// The generated code is identical to `#[hopper::context]` on the same
+/// struct — same binder type, same accessors, same constraint validation
+/// pipeline. No runtime difference between the two spellings.
+#[proc_macro_derive(Accounts, attributes(account, signer, instruction, validate))]
+pub fn derive_accounts(input: TokenStream) -> TokenStream {
+    context::expand_for_derive(input.into())
+        .unwrap_or_else(|e| e.to_compile_error())
+        .into()
+}
+
 /// Generate a dispatch table for a Hopper program module.
 ///
 /// Maps instruction discriminator bytes to handler functions, generating

@@ -244,6 +244,7 @@ pub use hopper_macros_proc::{
     pod,
     program,
     state,
+    Accounts,
     HopperInitSpace,
 };
 
