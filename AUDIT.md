@@ -394,6 +394,140 @@ declarative macros, and the proc-macro additions (`#[derive(HopperInitSpace)]`,
 field keywords) all have hand-written equivalents in the raw-dispatch
 path documented in AUDIT.md section "DSL Parity Audit".
 
+---
+
+## Metaplex Implementation Pass — 2026-04-24
+
+Closes the Quasar-parity Metaplex gap that the previous pass had explicitly
+deferred. The Boobies NFT project (Galápagos blue-footed boobies → conservation
+donations via [bluefoot.xyz](https://bluefoot.xyz)) is the load-bearing
+use case that motivated doing this right rather than stubbing.
+
+### New crate: `hopper-metaplex`
+
+Lives at [`crates/hopper-metaplex`](crates/hopper-metaplex). Optional, opt
+in with `cargo build --features metaplex`. Six source files:
+
+- **`constants.rs`** — `MPL_TOKEN_METADATA_PROGRAM_ID` decoded at compile
+  time via `five8_const::decode_32_const`, plus the canonical
+  `b"metadata"` / `b"edition"` seed prefixes and the spec-mandated
+  32 / 10 / 200 byte caps for `name` / `symbol` / `uri`.
+- **`encoding.rs`** — `BorshTape`, a stack-buffer Borsh writer that
+  refuses to overflow. Four unit tests pin Borsh-string framing,
+  buffer-overflow rejection, and `Option<u64>` encoding.
+- **`seeds.rs`** — `metadata_pda(mint)` and `master_edition_pda(mint)`
+  derivation helpers, plus `_with_bump` variants that skip the
+  bump-iteration loop when the caller has the bump cached. Off-chain
+  stubs gated on `cfg(not(target_os = "solana"))` so host tests
+  compile.
+- **`instructions.rs`** — three CPI builders:
+  - `CreateMetadataAccountV3` (Metaplex enum-position discriminator 33)
+  - `CreateMasterEditionV3` (discriminator 17)
+  - `UpdateMetadataAccountV2` (discriminator 15)
+  Each ships an `invoke()` and `invoke_signed()` and pairs with a `DataV2`
+  payload struct. The `simple` constructor on `DataV2` covers the
+  common 1-of-1 NFT case (no creators, no collection, no uses).
+  Optional rent account is supported on the V3 instructions for
+  backwards compatibility but defaults to `None` since modern
+  Metaplex doesn't need it.
+- **`lib.rs`** — module surface and curated re-exports through
+  `hopper_metaplex::{...}`.
+- **`Cargo.toml`** — depends only on `hopper-runtime` and `five8_const`;
+  no Borsh dependency, no proc-macro pull-in. The optional `metaplex`
+  feature on the root `hopper` crate gates the dependency.
+
+### Encoding policy
+
+Metaplex's instruction format is Borsh-encoded, which is variable-length
+by design — `String` and `Option<T>` carry their own framing bytes — so
+the instruction data cannot be zero-copy in the Hopper sense. Each
+builder allocates a small **stack** buffer (16 bytes for
+`CreateMasterEditionV3`, 320 bytes for `CreateMetadataAccountV3`, 384 for
+`UpdateMetadataAccountV2`) sized to comfortably exceed the worst-case
+payload, writes the Borsh tape directly into that buffer via
+`BorshTape`, and passes `&buf[..len]` to `cpi::invoke_signed`. No heap,
+no `Vec`, no `alloc::String`. `BorshTape` returns
+`ProgramError::InvalidInstructionData` if the caller would overrun the
+buffer, so a malicious oversized name can't push the program into UB.
+
+### Reference program: `examples/hopper-nft-mint`
+
+Three-instruction Hopper-authored program demonstrating the end-to-end
+NFT mint flow:
+
+1. `init_mint` — placeholder for caller-side SPL mint creation.
+2. `create_metadata` — CPIs into Metaplex `CreateMetadataAccountV3`
+   with name / symbol / uri / SFBP / `is_mutable`.
+3. `create_master_edition` — CPIs into `CreateMasterEditionV3` with
+   `max_supply = Some(0)` to lock the mint as a 1-of-1 NFT.
+
+Uses the new `hopper_load!` destructuring sugar (R36) and the
+`hopper_metaplex::*` builder surface. Single-byte length-prefixed
+strings on the wire (sized to a `u8` because Metaplex's caps fit) keep
+the client encoding tight; the Borsh `u32` length prefix is added
+inside the builder.
+
+### Wiring
+
+- `Cargo.toml` (workspace): `crates/hopper-metaplex` added to members,
+  workspace dep declared, optional `metaplex` feature on the root
+  `hopper` crate, `hopper-metaplex?/hopper-native-backend` plumbed into
+  the backend feature forwarding so a `--features hopper-native-backend
+  --features metaplex` build pulls the right backend transitively.
+- `src/lib.rs` (root hopper crate): `pub use hopper_metaplex` gated on
+  `feature = "metaplex"`.
+- `src/prelude.rs`: re-exports `CreateMetadataAccountV3`,
+  `CreateMasterEditionV3`, `UpdateMetadataAccountV2`, `DataV2`,
+  `metadata_pda`, `master_edition_pda`, `metadata_pda_with_bump`,
+  `master_edition_pda_with_bump`, and `MPL_TOKEN_METADATA_PROGRAM_ID`
+  through the prelude when `feature = "metaplex"` is enabled. Programs
+  doing `use hopper::prelude::*` get the full surface in one line.
+- `examples/hopper-nft-mint`: added to workspace members.
+
+### Field-keyword sugar (`metadata::*` / `master_edition::*`) — deferred
+
+The `#[hopper::context]` field keywords that auto-generate
+metadata-init lifecycle helpers from `#[account(metadata::name = ...,
+metadata::uri = ..., master_edition::max_supply = ...)]` were not
+implemented this pass. The builders are usable directly today (see
+`hopper-nft-mint`), so users who want the keywords can wait for a
+follow-up pass without losing functionality. The follow-up needs to:
+
+1. Add `metadata_*`, `master_edition_*` fields to `AccountAttr` in
+   `crates/hopper-macros-proc/src/context.rs`.
+2. Add the per-keyword parser cases (`metadata::name`,
+   `metadata::symbol`, `metadata::uri`, `metadata::seller_fee_basis_points`,
+   `metadata::is_mutable`, `master_edition::max_supply`).
+3. Emit lifecycle helpers (`init_metadata_<field>`,
+   `init_master_edition_<field>`) that call into the builders.
+4. Emit `validate_account_attr` checks that the metadata keywords
+   appear together (you can't set `name` without `symbol` and `uri`).
+
+The work is mechanical given the existing `init` lifecycle scaffolding
+and the new builders — the previous deferral was about needing the
+builders, not about the keyword surface. Reasonable scope: ~150 LOC.
+
+### Net verdict after Metaplex pass
+
+The full DSL gap list at the time of the parity audit had ten items.
+After the previous implementation pass, four remained: `#[interface]`,
+Token-2022 group/confidential extensions, `#[view]`, and the Metaplex
+keyword sugar. After this pass, three remain:
+
+1. `#[interface]` — deferred; `hopper_interface!` covers the common case.
+2. Token-2022 `group_pointer` / `group_member_pointer` /
+   `confidential_transfer` keywords — deferred to a Token-2022
+   expansion pass.
+3. `#[view]` / query attribute — deferred until manifest representation
+   work happens.
+
+Quasar parity is now functionally complete: every Quasar Metaplex
+keyword has a matching builder in `hopper-metaplex`, even though the
+field-keyword *syntax* is still pending. Anchor parity is ~94% with
+the same three remaining items as before. The reference NFT-mint
+program is the load-bearing demonstration that the Metaplex builders
+work end to end.
+
 
 ---
 

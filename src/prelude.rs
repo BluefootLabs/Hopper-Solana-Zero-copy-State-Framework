@@ -100,6 +100,21 @@ pub use hopper_associated_token;
 pub use hopper_associated_token::instructions as associated_token_instructions;
 pub use hopper_associated_token::ATA_PROGRAM_ID;
 
+// Metaplex (NFT) builders — opt-in via `--features metaplex`. Emits
+// `CreateMetadataAccountV3`, `CreateMasterEditionV3`,
+// `UpdateMetadataAccountV2`, plus PDA helpers (`metadata_pda`,
+// `master_edition_pda`). The crate adds compile time and an
+// instruction-data Borsh encoder, so it stays optional.
+#[cfg(feature = "metaplex")]
+pub use hopper_metaplex;
+#[cfg(feature = "metaplex")]
+pub use hopper_metaplex::{
+    CreateMasterEditionV3, CreateMetadataAccountV3, UpdateMetadataAccountV2, DataV2,
+    metadata_pda, master_edition_pda,
+    metadata_pda_with_bump, master_edition_pda_with_bump,
+    MPL_TOKEN_METADATA_PROGRAM_ID,
+};
+
 // Field maps
 pub use hopper_core::field_map::{FieldInfo, FieldMap};
 pub use hopper_core::account::HEADER_LEN;

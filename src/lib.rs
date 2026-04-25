@@ -112,6 +112,13 @@ pub use hopper_token_2022;
 pub use hopper_associated_token;
 pub use hopper_runtime;
 
+/// Optional Metaplex Token Metadata builders. Behind `--features metaplex`.
+/// Reach for this via `hopper::hopper_metaplex::CreateMetadataAccountV3`,
+/// `CreateMasterEditionV3`, `UpdateMetadataAccountV2`, plus the
+/// `metadata_pda` / `master_edition_pda` PDA helpers.
+#[cfg(feature = "metaplex")]
+pub use hopper_metaplex;
+
 /// Small utilities. Re-exported at the crate root so `use hopper::utils::hint::likely;`
 /// just works.
 pub use hopper_runtime::utils;

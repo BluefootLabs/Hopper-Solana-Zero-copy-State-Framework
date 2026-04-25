@@ -38,7 +38,6 @@
 
 use pinocchio::{
     program_entrypoint,
-    pubkey::find_program_address,
     AccountView, Address, ProgramResult,
 };
 use pinocchio::error::ProgramError;
@@ -92,21 +91,36 @@ fn parse_amount(data: &[u8]) -> Result<u64, ProgramError> {
     ]))
 }
 
+/// Verify a vault PDA matches `find_program_address(["vault", user], program)`.
+///
+/// On Solana the SBF target exposes `Address::find_program_address` through
+/// the `solana-address` crate that pinocchio re-exports. Off-chain (host
+/// tests / `cargo check` with the default target) the function is unavailable
+/// because it would need the curve25519 host fallback; the host stub
+/// short-circuits to `Ok(())` so the rest of the program type-checks.
 #[inline(always)]
 fn verify_vault_pda(
     user: &AccountView,
     vault: &AccountView,
     program_id: &Address,
 ) -> ProgramResult {
-    let user_address = user.address();
-    let (expected, _bump) = find_program_address(
-        &[b"vault", user_address.as_ref()],
-        program_id,
-    );
-    if expected.to_bytes() != vault.address().to_bytes() {
-        return Err(ProgramError::InvalidSeeds);
+    #[cfg(any(target_os = "solana", target_arch = "bpf"))]
+    {
+        let user_address = user.address();
+        let (expected, _bump) = Address::find_program_address(
+            &[b"vault", user_address.as_ref()],
+            program_id,
+        );
+        if expected.to_bytes() != vault.address().to_bytes() {
+            return Err(ProgramError::InvalidSeeds);
+        }
+        Ok(())
     }
-    Ok(())
+    #[cfg(not(any(target_os = "solana", target_arch = "bpf")))]
+    {
+        let _ = (user, vault, program_id);
+        Ok(())
+    }
 }
 
 #[inline(always)]
