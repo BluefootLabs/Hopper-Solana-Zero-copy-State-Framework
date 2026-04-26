@@ -48,6 +48,8 @@ members = [
     "crates/hopper-macros-proc",
     "crates/hopper-manager",
     "crates/hopper-sdk",
+    "crates/hopper-svm",
+    "crates/hopper-svm-ffi",
 ]
 resolver = "2"
 
@@ -85,6 +87,7 @@ hopper-anchor = { path = "crates/hopper-anchor", version = "0.1.0" }
 hopper-macros-proc = { path = "crates/hopper-macros-proc", version = "0.1.0" }
 hopper-manager = { path = "crates/hopper-manager", version = "0.1.0" }
 hopper-sdk = { path = "crates/hopper-sdk", version = "0.1.0" }
+hopper-svm = { path = "crates/hopper-svm", version = "0.1.0" }
 
 [package]
 name = "hopper"

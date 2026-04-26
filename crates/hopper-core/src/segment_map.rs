@@ -1,9 +1,25 @@
 //! Compile-time segment mapping for zero-copy account layouts.
 //!
 //! `SegmentMap` provides a static description of the byte regions within a
-//! struct layout. This is separate from `SegmentRegistry` (which manages
-//! on-chain dynamic segment metadata). `SegmentMap` is compile-time knowledge
-//! that proc macros (or hand-written impls) generate from struct definitions.
+//! struct layout. This is separate from
+//! [`SegmentRegistry`](crate::account::SegmentRegistry) (which manages
+//! on-chain *dynamic* segment metadata, written into the account body
+//! at runtime). `SegmentMap` is compile-time knowledge that proc macros
+//! (or hand-written impls) generate from struct definitions.
+//!
+//! ## When to use which
+//!
+//! - **`SegmentMap` + [`StaticSegment`]** — fixed-layout structs annotated
+//!   with `#[hopper::state]`. The segment list is known at compile time;
+//!   lookups fold to const loads.
+//! - **[`SegmentRegistry`](crate::account::SegmentRegistry) +
+//!   [`SegmentDescriptor`](crate::account::SegmentDescriptor)** — accounts
+//!   whose segment count grows on-chain (extension-heavy patterns,
+//!   Token-2022-style mints, dynamic plug-ins). The segment table lives
+//!   inside the account body and is walked at runtime.
+//!
+//! Most Hopper programs use the compile-time path. The runtime registry
+//! exists for genuinely dynamic layouts.
 //!
 //! ## Design Philosophy
 //!
