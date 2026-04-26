@@ -1487,7 +1487,15 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
                 });
 
                 accessors.push(quote! {
-                    /// Read-only segment escape for `#field_name`.
+                    /// Read-only segment escape: project an arbitrary
+                    /// typed sub-slice of `#field_name`. The returned
+                    /// [`SegRef`] is a RAII-leased guard that releases
+                    /// the shared byte borrow on drop, so the same
+                    /// account can be accessed in non-overlapping
+                    /// segments sequentially within one instruction.
+                    /// For pre-declared `read(...)` segments, prefer
+                    /// the field-specific `<field>_<seg>_ref()`
+                    /// accessor for type safety and clarity.
                     #[inline(always)]
                     #vis fn #segment_ref_fn<__SegT: ::hopper::__runtime::Pod>(
                         &mut self,
@@ -1546,6 +1554,11 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
 
             accessors.push(quote! {
                 /// Read-only access to the `#seg_name` segment of `#field_name`.
+                ///
+                /// Returns a [`SegRef`](::hopper::__runtime::SegRef) — a
+                /// RAII-leased guard that releases the shared byte borrow
+                /// on drop, allowing sequential non-overlapping reads
+                /// from the same account within one instruction.
                 #[inline(always)]
                 #vis fn #fn_name(
                     &mut self,
