@@ -1,3 +1,20 @@
+[workspace]
+members = ["."]
+resolver = "2"
+
+[workspace.dependencies]
+hopper-native = { path = "../Hopper-Solana-Zero-copy-State-Framework/crates/hopper-native", default-features = false }
+hopper-runtime = { path = "../hopper-runtime", default-features = false }
+hopper-core = { path = "../hopper-core", default-features = false }
+hopper-schema = { path = "../Hopper-Solana-Zero-copy-State-Framework/crates/hopper-schema", default-features = false }
+hopper-system = { path = "../Hopper-Solana-Zero-copy-State-Framework/crates/hopper-system", default-features = false }
+
+[workspace.lints.rust]
+unexpected_cfgs = { level = "allow", check-cfg = [
+    'cfg(target_os, values("solana"))',
+    'cfg(target_arch, values("bpf"))',
+] }
+
 [package]
 name = "hopper-macros"
 version = "0.1.0"
@@ -16,10 +33,10 @@ categories = ["no-std"]
 name = "hopper_macros"
 
 [dependencies]
-hopper-core = { path = "../hopper-core", version = "0.1.0", default-features = false }
-hopper-schema = { path = "../hopper-schema", version = "0.1.0", default-features = false }
-hopper-runtime = { path = "../hopper-runtime", version = "0.1.0", default-features = false }
-hopper-system = { path = "../hopper-system", version = "0.1.0", default-features = false }
+hopper-core = { workspace = true }
+hopper-schema = { workspace = true }
+hopper-runtime = { workspace = true }
+hopper-system = { workspace = true }
 
 [features]
 default = ["hopper-native-backend"]
