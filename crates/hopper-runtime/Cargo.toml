@@ -1,21 +1,3 @@
-[workspace]
-members = ["."]
-resolver = "2"
-
-[workspace.dependencies]
-hopper-native = { path = "../Hopper-Solana-Zero-copy-State-Framework/crates/hopper-native", default-features = false }
-five8_const = "0.1"
-sha2-const-stable = "0.1"
-pinocchio = { version = "0.10", features = ["cpi", "copy"] }
-pinocchio-system = "0.5"
-pinocchio-token = "0.5"
-
-[workspace.lints.rust]
-unexpected_cfgs = { level = "allow", check-cfg = [
-    'cfg(target_os, values("solana"))',
-    'cfg(target_arch, values("bpf"))',
-] }
-
 [package]
 name = "hopper-runtime"
 version = "0.1.0"
@@ -46,7 +28,7 @@ copy = []
 
 [dependencies]
 hopper-native = { workspace = true, optional = true, default-features = false }
-five8_const = "0.1"
+five8_const = { workspace = true }
 # bytemuck is brought in transitively via hopper-native when the
 # native backend is active, but we also need direct access here to
 # emit `unsafe impl bytemuck::Pod` on runtime-owned types like

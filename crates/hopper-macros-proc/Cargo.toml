@@ -1,13 +1,3 @@
-[workspace]
-members = ["."]
-resolver = "2"
-
-[workspace.lints.rust]
-unexpected_cfgs = { level = "allow", check-cfg = [
-    'cfg(target_os, values("solana"))',
-    'cfg(target_arch, values("bpf"))',
-] }
-
 [package]
 name = "hopper-macros-proc"
 version = "0.1.0"
