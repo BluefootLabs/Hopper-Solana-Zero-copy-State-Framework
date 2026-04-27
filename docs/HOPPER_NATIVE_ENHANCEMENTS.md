@@ -18,6 +18,24 @@ Hopper Native is the canonical substrate. `pinocchio-backend` and
 dep trees, not peer targets. Enhancement effort goes into Hopper Native.
 The `pinocchio-backend` feature surface is frozen.
 
+## Sister repositories
+
+The canonical repo is split into focused sister repos under
+`github.com/BluefootLabs`. Full git history is preserved in each.
+
+| Repo | Source path(s) | Purpose |
+|------|----------------|---------|
+| [hopper-runtime](https://github.com/BluefootLabs/hopper-runtime) | `crates/hopper-runtime` | Sovereign zero-copy substrate |
+| [hopper-core](https://github.com/BluefootLabs/hopper-core) | `crates/hopper-core` | State model, segment borrows, fingerprints |
+| [hopper-macros](https://github.com/BluefootLabs/hopper-macros) | `crates/hopper-macros` | Declarative macro DX layer |
+| [hopper-derive](https://github.com/BluefootLabs/hopper-derive) | `crates/hopper-macros-proc` | Optional procedural-macro derive helpers |
+| [hopper-spl](https://github.com/BluefootLabs/hopper-spl) | `crates/hopper-{token,token-2022,associated-token,metaplex}` | SPL/Token-2022/ATA/Metaplex bindings |
+| [hopper-cli](https://github.com/BluefootLabs/hopper-cli) | `tools/hopper-cli` | Command-line interface |
+| [hopper-bench](https://github.com/BluefootLabs/hopper-bench) | `bench/` | Cross-framework benchmarks |
+
+Re-run extraction with [scripts/extract-sister-repos.sh](../scripts/extract-sister-repos.sh)
+(`--list`, `--only <name>`, `--push`).
+
 ## Status
 
 | # | Item | Status |
