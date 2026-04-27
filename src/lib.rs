@@ -20,6 +20,7 @@
 extern crate proc_macro;
 
 mod crank;
+mod constant;
 mod declare_program;
 mod init_space;
 mod migrate;
@@ -486,4 +487,39 @@ pub fn hopper_dynamic(attr: TokenStream, item: TokenStream) -> TokenStream {
 #[proc_macro_attribute]
 pub fn dynamic(attr: TokenStream, item: TokenStream) -> TokenStream {
     hopper_dynamic(attr, item)
+}
+
+/// Mark a `pub const` so it is surfaced in the Anchor IDL `"constants"`
+/// array.
+///
+/// Anchor-compatible surface for `#[constant]`. The original constant is
+/// preserved unchanged; alongside it a hidden
+/// `__HOPPER_CONST_<NAME>: hopper_schema::ConstantDescriptor` sibling
+/// is emitted, capturing the stringified type and initializer
+/// expression. Collect the descriptors into a slice and hand it to
+/// `hopper_schema::AnchorIdlWithConstants` (or
+/// `AnchorIdlFromManifestWithConstants`) when emitting the IDL.
+///
+/// # Example
+///
+/// ```ignore
+/// #[hopper::constant]
+/// pub const MAX_DEPOSIT: u64 = 1_000_000;
+///
+/// // A hidden sibling const is emitted:
+/// // pub const __HOPPER_CONST_MAX_DEPOSIT: ConstantDescriptor = ...;
+///
+/// pub const PROGRAM_CONSTANTS: &[ConstantDescriptor] = &[__HOPPER_CONST_MAX_DEPOSIT];
+/// ```
+#[proc_macro_attribute]
+pub fn hopper_constant(attr: TokenStream, item: TokenStream) -> TokenStream {
+    constant::expand(attr.into(), item.into())
+        .unwrap_or_else(|e| e.to_compile_error())
+        .into()
+}
+
+/// Short alias: `#[hopper::constant]`.
+#[proc_macro_attribute]
+pub fn constant(attr: TokenStream, item: TokenStream) -> TokenStream {
+    hopper_constant(attr, item)
 }

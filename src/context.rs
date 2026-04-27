@@ -171,6 +171,49 @@ struct AccountAttr {
     ext_transfer_fee_config_authority: Option<Expr>,
     ext_transfer_fee_withdraw_authority: Option<Expr>,
 
+    // ── Metaplex Token Metadata constraints / CPI helpers ─────────────
+    /// `metadata::name = expr`. Name for `CreateMetadataAccountV3`.
+    metadata_name: Option<Expr>,
+    /// `metadata::symbol = expr`. Symbol for `CreateMetadataAccountV3`.
+    metadata_symbol: Option<Expr>,
+    /// `metadata::uri = expr`. URI for `CreateMetadataAccountV3`.
+    metadata_uri: Option<Expr>,
+    /// `metadata::seller_fee_basis_points = expr`. Royalty basis points.
+    metadata_seller_fee_basis_points: Option<Expr>,
+    /// `metadata::is_mutable = expr`. Defaults to true when omitted.
+    metadata_is_mutable: Option<Expr>,
+    /// `metadata::mint = field`. Mint account used by the CPI helper.
+    metadata_mint: Option<Ident>,
+    /// `metadata::mint_authority = field`. Mint-authority signer.
+    metadata_mint_authority: Option<Ident>,
+    /// `metadata::payer = field`. Payer signer+writable account.
+    metadata_payer: Option<Ident>,
+    /// `metadata::update_authority = field`. Update-authority signer.
+    metadata_update_authority: Option<Ident>,
+    /// `metadata::system_program = field`. System Program account.
+    metadata_system_program: Option<Ident>,
+    /// `metadata::rent = field`. Optional rent sysvar account.
+    metadata_rent: Option<Ident>,
+
+    /// `master_edition::max_supply = expr`. Accepts u64 or Option<u64>.
+    master_edition_max_supply: Option<Expr>,
+    /// `master_edition::mint = field`. Mint account used by the CPI helper.
+    master_edition_mint: Option<Ident>,
+    /// `master_edition::metadata = field`. Metadata account sibling.
+    master_edition_metadata: Option<Ident>,
+    /// `master_edition::update_authority = field`. Update-authority signer.
+    master_edition_update_authority: Option<Ident>,
+    /// `master_edition::mint_authority = field`. Mint-authority signer.
+    master_edition_mint_authority: Option<Ident>,
+    /// `master_edition::payer = field`. Payer signer+writable account.
+    master_edition_payer: Option<Ident>,
+    /// `master_edition::token_program = field`. SPL Token program account.
+    master_edition_token_program: Option<Ident>,
+    /// `master_edition::system_program = field`. System Program account.
+    master_edition_system_program: Option<Ident>,
+    /// `master_edition::rent = field`. Optional rent sysvar account.
+    master_edition_rent: Option<Ident>,
+
     /// `dup = other_field`. Quasar-style. This slot is allowed to
     /// alias `other_field` (the caller intentionally passed the same
     /// account in two roles). Skips the "no duplicate writables" and
@@ -1201,6 +1244,48 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
             ));
         }
 
+        // Metaplex Token Metadata constraints. These are primarily
+        // CPI-helper inputs, but validation still performs the cheap
+        // data-shape checks up front so an oversized name/symbol/uri
+        // fails in Hopper before issuing a Metaplex CPI.
+        if let (
+            Some(name_expr),
+            Some(symbol_expr),
+            Some(uri_expr),
+            Some(sfbp_expr),
+        ) = (
+            &cf.attr.metadata_name,
+            &cf.attr.metadata_symbol,
+            &cf.attr.metadata_uri,
+            &cf.attr.metadata_seller_fee_basis_points,
+        ) {
+            field_checks.push(quote! {
+                ::hopper::hopper_metaplex::DataV2::simple(
+                    #name_expr,
+                    #symbol_expr,
+                    #uri_expr,
+                    (#sfbp_expr) as u16,
+                ).validate_for_context()?;
+            });
+            check_descriptions.push(format!(
+                "accounts[{}] ({}) metadata data fits Metaplex name/symbol/uri limits",
+                idx, field_name
+            ));
+        }
+
+        if let Some(max_supply_expr) = &cf.attr.master_edition_max_supply {
+            field_checks.push(quote! {
+                let _max_supply: ::core::option::Option<u64> =
+                    ::hopper::hopper_metaplex::IntoMasterEditionMaxSupply::into_master_edition_max_supply(
+                        #max_supply_expr
+                    );
+            });
+            check_descriptions.push(format!(
+                "accounts[{}] ({}) master-edition max_supply is a valid u64/Option<u64> value",
+                idx, field_name
+            ));
+        }
+
         // `dup = other_field`. Require this slot to alias the named
         // other slot. The caller explicitly opted into aliasing by
         // declaring it, which is the safe pattern. If the caller
@@ -1684,6 +1769,176 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
                 #[inline]
                 #vis fn #init_fn(&self) -> ::core::result::Result<(), ::hopper::__runtime::ProgramError> {
                     #body
+                }
+            });
+        }
+
+        if let (
+            Some(name_expr),
+            Some(symbol_expr),
+            Some(uri_expr),
+            Some(sfbp_expr),
+            Some(mint_ident),
+            Some(mint_authority_ident),
+            Some(payer_ident),
+            Some(update_authority_ident),
+            Some(system_program_ident),
+        ) = (
+            &cf.attr.metadata_name,
+            &cf.attr.metadata_symbol,
+            &cf.attr.metadata_uri,
+            &cf.attr.metadata_seller_fee_basis_points,
+            &cf.attr.metadata_mint,
+            &cf.attr.metadata_mint_authority,
+            &cf.attr.metadata_payer,
+            &cf.attr.metadata_update_authority,
+            &cf.attr.metadata_system_program,
+        ) {
+            let create_fn = format_ident!("create_{}", field_name);
+            let mint_idx = sibling_index(&ctx_fields, mint_ident, "metadata::mint")?;
+            let mint_authority_idx = sibling_index(
+                &ctx_fields,
+                mint_authority_ident,
+                "metadata::mint_authority",
+            )?;
+            let payer_idx = sibling_index(&ctx_fields, payer_ident, "metadata::payer")?;
+            let update_authority_idx = sibling_index(
+                &ctx_fields,
+                update_authority_ident,
+                "metadata::update_authority",
+            )?;
+            let system_program_idx = sibling_index(
+                &ctx_fields,
+                system_program_ident,
+                "metadata::system_program",
+            )?;
+            let rent_expr = if let Some(rent_ident) = &cf.attr.metadata_rent {
+                let rent_idx = sibling_index(&ctx_fields, rent_ident, "metadata::rent")?;
+                quote! { ::core::option::Option::Some(self.ctx.account(#rent_idx)?) }
+            } else {
+                quote! { ::core::option::Option::None }
+            };
+            let is_mutable_expr = if let Some(expr) = &cf.attr.metadata_is_mutable {
+                quote! { (#expr) }
+            } else {
+                quote! { true }
+            };
+            let method_arg_fragment = if has_instruction_args {
+                let aps = arg_params.clone();
+                quote! { , #(#aps),* }
+            } else {
+                TokenStream::new()
+            };
+
+            accessors.push(quote! {
+                /// Invoke Metaplex `CreateMetadataAccountV3` using the
+                /// `metadata::*` accounts and data declared on this field.
+                #[inline]
+                #vis fn #create_fn(
+                    &self
+                    #method_arg_fragment
+                ) -> ::core::result::Result<(), ::hopper::__runtime::ProgramError> {
+                    ::hopper::hopper_metaplex::CreateMetadataAccountV3 {
+                        metadata: self.ctx.account(#idx)?,
+                        mint: self.ctx.account(#mint_idx)?,
+                        mint_authority: self.ctx.account(#mint_authority_idx)?,
+                        payer: self.ctx.account(#payer_idx)?,
+                        update_authority: self.ctx.account(#update_authority_idx)?,
+                        system_program: self.ctx.account(#system_program_idx)?,
+                        rent: #rent_expr,
+                        data: ::hopper::hopper_metaplex::DataV2::simple(
+                            #name_expr,
+                            #symbol_expr,
+                            #uri_expr,
+                            (#sfbp_expr) as u16,
+                        ),
+                        is_mutable: #is_mutable_expr,
+                    }.invoke()
+                }
+            });
+        }
+
+        if let (
+            Some(max_supply_expr),
+            Some(mint_ident),
+            Some(metadata_ident),
+            Some(update_authority_ident),
+            Some(mint_authority_ident),
+            Some(payer_ident),
+            Some(token_program_ident),
+            Some(system_program_ident),
+        ) = (
+            &cf.attr.master_edition_max_supply,
+            &cf.attr.master_edition_mint,
+            &cf.attr.master_edition_metadata,
+            &cf.attr.master_edition_update_authority,
+            &cf.attr.master_edition_mint_authority,
+            &cf.attr.master_edition_payer,
+            &cf.attr.master_edition_token_program,
+            &cf.attr.master_edition_system_program,
+        ) {
+            let create_fn = format_ident!("create_{}", field_name);
+            let mint_idx = sibling_index(&ctx_fields, mint_ident, "master_edition::mint")?;
+            let metadata_idx = sibling_index(&ctx_fields, metadata_ident, "master_edition::metadata")?;
+            let update_authority_idx = sibling_index(
+                &ctx_fields,
+                update_authority_ident,
+                "master_edition::update_authority",
+            )?;
+            let mint_authority_idx = sibling_index(
+                &ctx_fields,
+                mint_authority_ident,
+                "master_edition::mint_authority",
+            )?;
+            let payer_idx = sibling_index(&ctx_fields, payer_ident, "master_edition::payer")?;
+            let token_program_idx = sibling_index(
+                &ctx_fields,
+                token_program_ident,
+                "master_edition::token_program",
+            )?;
+            let system_program_idx = sibling_index(
+                &ctx_fields,
+                system_program_ident,
+                "master_edition::system_program",
+            )?;
+            let rent_expr = if let Some(rent_ident) = &cf.attr.master_edition_rent {
+                let rent_idx = sibling_index(&ctx_fields, rent_ident, "master_edition::rent")?;
+                quote! { ::core::option::Option::Some(self.ctx.account(#rent_idx)?) }
+            } else {
+                quote! { ::core::option::Option::None }
+            };
+            let method_arg_fragment = if has_instruction_args {
+                let aps = arg_params.clone();
+                quote! { , #(#aps),* }
+            } else {
+                TokenStream::new()
+            };
+
+            accessors.push(quote! {
+                /// Invoke Metaplex `CreateMasterEditionV3` using the
+                /// `master_edition::*` accounts and max_supply declared
+                /// on this field.
+                #[inline]
+                #vis fn #create_fn(
+                    &self
+                    #method_arg_fragment
+                ) -> ::core::result::Result<(), ::hopper::__runtime::ProgramError> {
+                    let __max_supply: ::core::option::Option<u64> =
+                        ::hopper::hopper_metaplex::IntoMasterEditionMaxSupply::into_master_edition_max_supply(
+                            #max_supply_expr
+                        );
+                    ::hopper::hopper_metaplex::CreateMasterEditionV3 {
+                        edition: self.ctx.account(#idx)?,
+                        mint: self.ctx.account(#mint_idx)?,
+                        update_authority: self.ctx.account(#update_authority_idx)?,
+                        mint_authority: self.ctx.account(#mint_authority_idx)?,
+                        payer: self.ctx.account(#payer_idx)?,
+                        metadata: self.ctx.account(#metadata_idx)?,
+                        token_program: self.ctx.account(#token_program_idx)?,
+                        system_program: self.ctx.account(#system_program_idx)?,
+                        rent: #rent_expr,
+                        max_supply: __max_supply,
+                    }.invoke()
                 }
             });
         }
@@ -2452,6 +2707,126 @@ fn parse_account_attr(attrs: &[Attribute]) -> Result<AccountAttr> {
                         result.associated_token_token_program = Some(expr);
                         Ok(())
                     }
+                    ("metadata", "name") => {
+                        let expr: Expr = meta.value()?.parse()?;
+                        result.metadata_name = Some(expr);
+                        result.is_mut = true;
+                        Ok(())
+                    }
+                    ("metadata", "symbol") => {
+                        let expr: Expr = meta.value()?.parse()?;
+                        result.metadata_symbol = Some(expr);
+                        result.is_mut = true;
+                        Ok(())
+                    }
+                    ("metadata", "uri") => {
+                        let expr: Expr = meta.value()?.parse()?;
+                        result.metadata_uri = Some(expr);
+                        result.is_mut = true;
+                        Ok(())
+                    }
+                    ("metadata", "seller_fee_basis_points") => {
+                        let expr: Expr = meta.value()?.parse()?;
+                        result.metadata_seller_fee_basis_points = Some(expr);
+                        result.is_mut = true;
+                        Ok(())
+                    }
+                    ("metadata", "is_mutable") => {
+                        let expr: Expr = meta.value()?.parse()?;
+                        result.metadata_is_mutable = Some(expr);
+                        result.is_mut = true;
+                        Ok(())
+                    }
+                    ("metadata", "mint") => {
+                        let ident: Ident = meta.value()?.parse()?;
+                        result.metadata_mint = Some(ident);
+                        result.is_mut = true;
+                        Ok(())
+                    }
+                    ("metadata", "mint_authority") => {
+                        let ident: Ident = meta.value()?.parse()?;
+                        result.metadata_mint_authority = Some(ident);
+                        result.is_mut = true;
+                        Ok(())
+                    }
+                    ("metadata", "payer") => {
+                        let ident: Ident = meta.value()?.parse()?;
+                        result.metadata_payer = Some(ident);
+                        result.is_mut = true;
+                        Ok(())
+                    }
+                    ("metadata", "update_authority") => {
+                        let ident: Ident = meta.value()?.parse()?;
+                        result.metadata_update_authority = Some(ident);
+                        result.is_mut = true;
+                        Ok(())
+                    }
+                    ("metadata", "system_program") => {
+                        let ident: Ident = meta.value()?.parse()?;
+                        result.metadata_system_program = Some(ident);
+                        result.is_mut = true;
+                        Ok(())
+                    }
+                    ("metadata", "rent") => {
+                        let ident: Ident = meta.value()?.parse()?;
+                        result.metadata_rent = Some(ident);
+                        result.is_mut = true;
+                        Ok(())
+                    }
+                    ("master_edition", "max_supply") => {
+                        let expr: Expr = meta.value()?.parse()?;
+                        result.master_edition_max_supply = Some(expr);
+                        result.is_mut = true;
+                        Ok(())
+                    }
+                    ("master_edition", "mint") => {
+                        let ident: Ident = meta.value()?.parse()?;
+                        result.master_edition_mint = Some(ident);
+                        result.is_mut = true;
+                        Ok(())
+                    }
+                    ("master_edition", "metadata") => {
+                        let ident: Ident = meta.value()?.parse()?;
+                        result.master_edition_metadata = Some(ident);
+                        result.is_mut = true;
+                        Ok(())
+                    }
+                    ("master_edition", "update_authority") => {
+                        let ident: Ident = meta.value()?.parse()?;
+                        result.master_edition_update_authority = Some(ident);
+                        result.is_mut = true;
+                        Ok(())
+                    }
+                    ("master_edition", "mint_authority") => {
+                        let ident: Ident = meta.value()?.parse()?;
+                        result.master_edition_mint_authority = Some(ident);
+                        result.is_mut = true;
+                        Ok(())
+                    }
+                    ("master_edition", "payer") => {
+                        let ident: Ident = meta.value()?.parse()?;
+                        result.master_edition_payer = Some(ident);
+                        result.is_mut = true;
+                        Ok(())
+                    }
+                    ("master_edition", "token_program") => {
+                        let ident: Ident = meta.value()?.parse()?;
+                        result.master_edition_token_program = Some(ident);
+                        result.is_mut = true;
+                        Ok(())
+                    }
+                    ("master_edition", "system_program") => {
+                        let ident: Ident = meta.value()?.parse()?;
+                        result.master_edition_system_program = Some(ident);
+                        result.is_mut = true;
+                        Ok(())
+                    }
+                    ("master_edition", "rent") => {
+                        let ident: Ident = meta.value()?.parse()?;
+                        result.master_edition_rent = Some(ident);
+                        result.is_mut = true;
+                        Ok(())
+                    }
                     ("seeds", "program") => {
                         let expr: Expr = meta.value()?.parse()?;
                         result.seeds_program = Some(expr);
@@ -2474,6 +2849,8 @@ fn parse_account_attr(attrs: &[Attribute]) -> Result<AccountAttr> {
                          accepted namespaces: token::{{mint,authority,token_program}}, \
                          mint::{{authority,decimals,freeze_authority,token_program}}, \
                          associated_token::{{mint,authority,token_program}}, \
+                         metadata::{{name,symbol,uri,seller_fee_basis_points,is_mutable,mint,mint_authority,payer,update_authority,system_program,rent}}, \
+                         master_edition::{{max_supply,mint,metadata,update_authority,mint_authority,payer,token_program,system_program,rent}}, \
                          seeds::{{program}}",
                     ))),
                 };
@@ -2777,7 +3154,86 @@ fn validate_account_attr(field_name: &Ident, attr: &AccountAttr) -> Result<()> {
             "#[account(associated_token::token_program = ...)] requires `associated_token::mint = ...` and `associated_token::authority = ...`",
         ));
     }
+
+    let metadata_data_any = attr.metadata_name.is_some()
+        || attr.metadata_symbol.is_some()
+        || attr.metadata_uri.is_some()
+        || attr.metadata_seller_fee_basis_points.is_some()
+        || attr.metadata_is_mutable.is_some();
+    let metadata_data_complete = attr.metadata_name.is_some()
+        && attr.metadata_symbol.is_some()
+        && attr.metadata_uri.is_some()
+        && attr.metadata_seller_fee_basis_points.is_some();
+    if metadata_data_any && !metadata_data_complete {
+        return Err(syn::Error::new_spanned(
+            field_name,
+            "metadata constraints require `metadata::name`, `metadata::symbol`, `metadata::uri`, and `metadata::seller_fee_basis_points` together",
+        ));
+    }
+    let metadata_cpi_any = attr.metadata_mint.is_some()
+        || attr.metadata_mint_authority.is_some()
+        || attr.metadata_payer.is_some()
+        || attr.metadata_update_authority.is_some()
+        || attr.metadata_system_program.is_some()
+        || attr.metadata_rent.is_some();
+    if metadata_cpi_any {
+        if !metadata_data_complete
+            || attr.metadata_mint.is_none()
+            || attr.metadata_mint_authority.is_none()
+            || attr.metadata_payer.is_none()
+            || attr.metadata_update_authority.is_none()
+            || attr.metadata_system_program.is_none()
+        {
+            return Err(syn::Error::new_spanned(
+                field_name,
+                "metadata CPI helpers require metadata::{mint,mint_authority,payer,update_authority,system_program,name,symbol,uri,seller_fee_basis_points}; `metadata::rent` is optional",
+            ));
+        }
+    }
+
+    let master_edition_any = attr.master_edition_max_supply.is_some()
+        || attr.master_edition_mint.is_some()
+        || attr.master_edition_metadata.is_some()
+        || attr.master_edition_update_authority.is_some()
+        || attr.master_edition_mint_authority.is_some()
+        || attr.master_edition_payer.is_some()
+        || attr.master_edition_token_program.is_some()
+        || attr.master_edition_system_program.is_some()
+        || attr.master_edition_rent.is_some();
+    if (metadata_data_any || metadata_cpi_any) && master_edition_any {
+        return Err(syn::Error::new_spanned(
+            field_name,
+            "declare `metadata::*` and `master_edition::*` on separate account fields",
+        ));
+    }
+    if master_edition_any
+        && (attr.master_edition_max_supply.is_none()
+            || attr.master_edition_mint.is_none()
+            || attr.master_edition_metadata.is_none()
+            || attr.master_edition_update_authority.is_none()
+            || attr.master_edition_mint_authority.is_none()
+            || attr.master_edition_payer.is_none()
+            || attr.master_edition_token_program.is_none()
+            || attr.master_edition_system_program.is_none())
+    {
+        return Err(syn::Error::new_spanned(
+            field_name,
+            "master_edition helpers require master_edition::{max_supply,mint,metadata,update_authority,mint_authority,payer,token_program,system_program}; `master_edition::rent` is optional",
+        ));
+    }
     Ok(())
+}
+
+fn sibling_index(ctx_fields: &[ContextField], ident: &Ident, role: &str) -> Result<usize> {
+    ctx_fields
+        .iter()
+        .position(|field| field.name == *ident)
+        .ok_or_else(|| {
+            syn::Error::new_spanned(
+                ident,
+                format!("{} references `{}`, but no sibling context field has that name", role, ident),
+            )
+        })
 }
 
 fn type_ident(ty: &Type) -> Result<Ident> {
