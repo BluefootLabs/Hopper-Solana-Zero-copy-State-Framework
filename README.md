@@ -98,13 +98,17 @@ mod vault {
 | `crates/hopper-spl` | SPL Token, Token-2022, ATA, and Metaplex helper crates. |
 | `crates/hopper-manager` | Manifest-driven account inspection library. |
 | `crates/hopper-sdk` | Client-side SDK surface. |
-| `crates/hopper-svm` | In-process execution and testing harness. |
 | `tools/hopper-cli` | `hopper` CLI for linting, schema export, account inspection, and profiling. |
 | `examples` | Example Hopper programs. |
 | `docs` | Design notes, unsafe invariants, and audit/recovery notes. |
 
 The obsolete split repositories were folded back into this workspace with
 subtree history preserved and then archived/private on GitHub.
+
+Sibling product repos:
+
+- [hopper-bench](https://github.com/BluefootLabs/hopper-bench): benchmark harness and CU regression lab.
+- [hopper-svm](https://github.com/BluefootLabs/hopper-svm): in-process Solana execution harness for Hopper test authors.
 
 ## Backend features
 

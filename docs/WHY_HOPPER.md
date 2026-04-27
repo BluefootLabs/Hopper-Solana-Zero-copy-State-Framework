@@ -112,10 +112,12 @@ Anza's own `pinocchio = "0.10"`; pre-R2 numbers (2543 authorize etc.) were
 against a Quasar-authored reference vault and are deprecated. See
 [AUDIT.md](../AUDIT.md) R2.
 
-Methodology pinned in [bench/METHODOLOGY.md](../bench/METHODOLOGY.md). Re-run:
+Methodology lives in the sibling
+[hopper-bench](https://github.com/BluefootLabs/hopper-bench) product repo. Re-run
+from that checkout:
 
 ```sh
-bash bench/measure.sh all
+./measure.sh all
 ```
 
 ## In-process testing — `hopper-svm`
@@ -134,7 +136,7 @@ result.assert_success();
 assert!(result.compute_units_consumed() >= 150);
 ```
 
-The `hopper-svm` crate is the harness layer; it ships standalone so any Solana program (Hopper or otherwise) can pull it in as a dev-dependency. See [crates/hopper-svm/README.md](../crates/hopper-svm/README.md) for the full surface and [crates/hopper-svm/programs/README.md](../crates/hopper-svm/programs/README.md) for sourcing SPL Token / Token-2022 / ATA `.so` bytes when you need real CPI tests.
+The `hopper-svm` crate is the harness layer; it ships standalone so any Solana program (Hopper or otherwise) can pull it in as a dev-dependency. See the sibling [hopper-svm](https://github.com/BluefootLabs/hopper-svm) repo for the full surface and its `programs/README.md` for sourcing SPL Token / Token-2022 / ATA `.so` bytes when you need real CPI tests.
 
 ## Where to start
 
@@ -142,7 +144,7 @@ The `hopper-svm` crate is the harness layer; it ships standalone so any Solana p
 2. Read [POLICY_GUARANTEES.md](POLICY_GUARANTEES.md) for what each lever guarantees and drops.
 3. Read `examples/hopper-policy-vault/src/lib.rs` for the three modes side by side.
 4. Run `cargo run -p hopper-cli -- verify --package hopper-policy-vault` to see the LAYOUT_ID fingerprint scan on a shipping `.so`.
-5. Run `cargo test -p hopper-svm --features agave-runtime` to see the harness execute a system transfer through Agave's real runtime (test `process_instruction_routes_through_agave_runtime`).
+5. In the `hopper-svm` repo, run `cargo test --features agave-runtime process_instruction_routes_through_agave_runtime` to see the harness execute a system transfer through Agave's real runtime.
 
 ## What Hopper doesn't promise
 

@@ -13,7 +13,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   Closes the SVM roadmap by exposing the harness to non-Rust
   test code. Three pieces:
 
-  **`crates/hopper-svm-ffi`** — new C-ABI wrapper crate. Single
+  **`hopper-svm-ffi`** — new C-ABI wrapper crate. Single
   `lib.rs` (~700 lines) exposes the `HopperSvm` surface as
   `extern "C"` functions through opaque handle types
   (`HopperSvmHandle`, `ExecutionResultHandle`). Builds three
@@ -76,14 +76,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 
   Both bindings drive the *same* shared library — one source
   of truth in Rust, two host-language ergonomic shapes. Adding
-  a new FFI export means: edit `crates/hopper-svm-ffi/src/lib.rs`,
+  a new FFI export means: edit `hopper-svm-ffi/src/lib.rs`,
   add the koffi `lib.func` line in TS, add the cffi `cdef`
   line in Python. The pattern is mechanical enough that future
   surface growth doesn't drift between the bindings.
 
 - **`hopper-svm` Tier 3 — Niche syscalls (introspection,
   obsolete sysvars, curve25519, heavy-crypto stubs).** New
-  module `crates/hopper-svm/src/bpf/tier3_syscalls.rs` plus the
+  module `hopper-svm/src/bpf/tier3_syscalls.rs` plus the
   matching adapter shims in `bpf/adapters.rs` and the
   registrations in `bpf/engine.rs`. Closes the syscall surface
   gap — programs that link these names now load and dispatch
@@ -174,7 +174,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   selectable via `with_config_program()` / `with_stake_program()`
   / `with_vote_program()`.
 
-  - **`crates/hopper-svm/src/spl/config_program.rs`** —
+  - **`hopper-svm/src/spl/config_program.rs`** —
     `ConfigProgramSimulator` for `Config1111111111111111111111111111111111111`.
     Single-instruction shape: parses
     `keys_len(u64) + n × (Pubkey + bool) + user_data`, validates
@@ -185,7 +185,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
     rejects unsigned signer-flagged key, rejects oversized
     payload. CU pinned at 450 (mainnet baseline).
 
-  - **`crates/hopper-svm/src/spl/stake_program.rs`** —
+  - **`hopper-svm/src/spl/stake_program.rs`** —
     `StakeProgramSimulator` for `Stake11111111111111111111111111111111111111`.
     Lifecycle slice: `Initialize` (0), `Authorize` (1),
     `DelegateStake` (2), `Withdraw` (4), `Deactivate` (5).
@@ -209,7 +209,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
     Authorize swaps staker, Withdraw respects locked floor,
     unsupported variant errors. CU pinned at 750.
 
-  - **`crates/hopper-svm/src/spl/vote_program.rs`** —
+  - **`hopper-svm/src/spl/vote_program.rs`** —
     `VoteProgramSimulator` for `Vote111111111111111111111111111111111111111`.
     Administrative slice: `InitializeAccount` (0), `Authorize`
     (1), `Withdraw` (3), `UpdateValidatorIdentity` (4),
@@ -239,7 +239,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 
 - **`hopper-svm` Tier 2 (d) — Address Lookup Tables.** Two new
   modules close the v0-transaction support gap:
-  - **`crates/hopper-svm/src/alt.rs`** — byte-layout helpers
+  - **`hopper-svm/src/alt.rs`** — byte-layout helpers
     + the `LookupTableMeta` struct + `read_meta` / `write_meta` /
     `address_count` / `read_address` / `append_addresses` /
     `resolve_lookup`. Wire format matches mainnet exactly:
@@ -255,7 +255,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
     the authority slot, append-and-read, append rejects
     overflow, resolve writable-then-readonly, resolve rejects
     out-of-bounds, closeable-after-cooldown.
-  - **`crates/hopper-svm/src/spl/alt_program.rs`** —
+  - **`hopper-svm/src/spl/alt_program.rs`** —
     `AltProgramSimulator`, the BuiltinProgram impl for
     `AddressLookupTab1e1111111111111111111111111111`. Five
     instruction tags:
@@ -308,7 +308,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 
 - **`hopper-svm` Tier 2 (c) — fee-payer accounting +
   transaction-level CU budget.** New
-  `crates/hopper-svm/src/fees.rs` ships `FeeCalculator`
+  `hopper-svm/src/fees.rs` ships `FeeCalculator`
   (default 5000 lamports/signature, configurable via
   `set_fee_calculator`), `count_unique_signers` for dedupe
   across the chain, `priority_fee` and `total_fee` formulas.
@@ -457,7 +457,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   Tier 4).
 
 - **`hopper-svm` Tier 1 — pre/post account validation.** New
-  `crates/hopper-svm/src/validation.rs` ships
+  `hopper-svm/src/validation.rs` ships
   `validate_post_state(program_id, metas, pre, post, policy)`
   that enforces six structural invariants between an
   instruction's pre- and post-state, mirroring what
@@ -513,7 +513,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   mainnet.
 
 - **`hopper-svm` Tier 1 — Compute Budget program builtin.**
-  New `crates/hopper-svm/src/compute_budget_program.rs` ships
+  New `hopper-svm/src/compute_budget_program.rs` ships
   `ComputeBudgetProgramSimulator` registered via
   `HopperSvm::with_compute_budget_program()`. Handles the five
   compute-budget instructions: `RequestUnits` (deprecated, tag
@@ -554,7 +554,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   correct stack-height assignment.
 
 - **`hopper-svm` Tier 1 — Token-2022 simulator.** New
-  `crates/hopper-svm/src/spl/token_2022.rs` ships
+  `hopper-svm/src/spl/token_2022.rs` ships
   `SplToken2022Simulator` registered via
   `HopperSvm::with_spl_token_2022_simulator()`. The legacy 9
   tags (0/1/3/4/5/7/8/9) delegate to the SPL Token
@@ -570,7 +570,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   Token-2022 owner.
 
 - **`hopper-svm` Tier 1 — ATA simulator.** New
-  `crates/hopper-svm/src/spl/ata.rs` ships `SplAtaSimulator`
+  `hopper-svm/src/spl/ata.rs` ships `SplAtaSimulator`
   registered via `HopperSvm::with_spl_associated_token_simulator()`.
   Handles `Create` (tag 0) and `CreateIdempotent` (tag 1).
   Validates the derived ATA address via
@@ -590,7 +590,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   builder that registers all three SPL simulators in one call.
 
 - **`hopper-svm` Tier 1 — bundled SPL Token simulator.** New
-  `crates/hopper-svm/src/spl/token.rs` ships `SplTokenSimulator`,
+  `hopper-svm/src/spl/token.rs` ships `SplTokenSimulator`,
   a pure-Rust `BuiltinProgram` impl of the 8 most-used SPL
   Token instructions: `InitializeMint` (0), `InitializeAccount`
   (1), `Transfer` (3), `Approve` (4), `Revoke` (5), `MintTo`
@@ -929,7 +929,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   subsequent `process_instruction` calls dispatch real Hopper BPF
   programs through Anza's canonical `solana-sbpf 0.20`
   interpreter.
-  - **Five-module split** under `crates/hopper-svm/src/bpf/`:
+  - **Five-module split** under `hopper-svm/src/bpf/`:
     `parameter` (canonical Solana parameter-buffer serialiser /
     deserialiser, sbpf-independent, fully tested), `context`
     (`BpfContext` impls `solana_sbpf::vm::ContextObject`),

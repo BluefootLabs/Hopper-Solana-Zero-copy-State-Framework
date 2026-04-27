@@ -42,8 +42,6 @@ members = [
     "examples/cross-program-read/program-b",
     "crates/hopper-manager",
     "crates/hopper-sdk",
-    "crates/hopper-svm",
-    "crates/hopper-svm-ffi",
     "tools/hopper-cli",
 ]
 resolver = "2"
@@ -83,7 +81,6 @@ hopper-memo = { path = "crates/hopper-memo", version = "0.1.0", default-features
 hopper-anchor = { path = "crates/hopper-anchor", version = "0.1.0" }
 hopper-manager = { path = "crates/hopper-manager", version = "0.1.0" }
 hopper-sdk = { path = "crates/hopper-sdk", version = "0.1.0" }
-hopper-svm = { path = "crates/hopper-svm", version = "0.1.0" }
 
 [package]
 name = "hopper"
