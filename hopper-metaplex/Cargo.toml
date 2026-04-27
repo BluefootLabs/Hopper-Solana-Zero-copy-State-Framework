@@ -22,7 +22,7 @@ pinocchio-backend = ["hopper-runtime/pinocchio-backend"]
 solana-program-backend = ["hopper-runtime/solana-program-backend"]
 
 [dependencies]
-hopper-runtime = { path = "../hopper-runtime", version = "0.1.0", default-features = false }
+hopper-runtime = { workspace = true }
 five8_const = { workspace = true }
 
 [lints]

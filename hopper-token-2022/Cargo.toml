@@ -16,8 +16,8 @@ categories = ["no-std"]
 name = "hopper_token_2022"
 
 [dependencies]
-hopper-runtime = { path = "../hopper-runtime", version = "0.1.0", default-features = false }
-hopper-solana = { path = "../hopper-solana", version = "0.1.0", default-features = false }
+hopper-runtime = { workspace = true }
+hopper-solana = { workspace = true }
 
 [features]
 default = ["hopper-native-backend"]
