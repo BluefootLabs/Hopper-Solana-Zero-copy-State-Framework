@@ -1,3 +1,19 @@
+[workspace]
+members = ["."]
+resolver = "2"
+
+[workspace.dependencies]
+hopper-native = { path = "../Hopper-Solana-Zero-copy-State-Framework/crates/hopper-native", default-features = false }
+hopper-schema = { path = "../Hopper-Solana-Zero-copy-State-Framework/crates/hopper-schema", default-features = false }
+five8_const = "0.1"
+sha2-const-stable = "0.1"
+
+[workspace.lints.rust]
+unexpected_cfgs = { level = "allow", check-cfg = [
+    'cfg(target_os, values("solana"))',
+    'cfg(target_arch, values("bpf"))',
+] }
+
 [package]
 name = "hopper-core"
 version = "0.1.0"
