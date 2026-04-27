@@ -1734,6 +1734,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "hopper-memo"
+version = "0.1.0"
+dependencies = [
+ "hopper-runtime",
+]
+
+[[package]]
 name = "hopper-metaplex"
 version = "0.1.0"
 dependencies = [

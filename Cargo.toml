@@ -18,6 +18,7 @@ members = [
     "crates/hopper-vesting",
     "crates/hopper-distribute",
     "crates/hopper-multisig",
+    "crates/hopper-memo",
     "crates/hopper-anchor",
     "examples/hopper-vault",
     "examples/hopper-parity-vault",
@@ -65,6 +66,7 @@ hopper-staking = { path = "crates/hopper-staking", version = "0.1.0" }
 hopper-vesting = { path = "crates/hopper-vesting", version = "0.1.0" }
 hopper-distribute = { path = "crates/hopper-distribute", version = "0.1.0" }
 hopper-multisig = { path = "crates/hopper-multisig", version = "0.1.0" }
+hopper-memo = { path = "crates/hopper-memo", version = "0.1.0" }
 hopper-anchor = { path = "crates/hopper-anchor", version = "0.1.0" }
 hopper-manager = { path = "crates/hopper-manager", version = "0.1.0" }
 hopper-sdk = { path = "crates/hopper-sdk", version = "0.1.0" }

@@ -13,6 +13,7 @@
 pub mod constants;
 pub mod token;
 pub mod mint;
+pub mod interface;
 pub mod cpi_guard;
 pub mod typed_cpi;
 pub mod introspect;

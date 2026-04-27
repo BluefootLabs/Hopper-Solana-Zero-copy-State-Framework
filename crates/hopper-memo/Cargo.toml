@@ -1,0 +1,28 @@
+[package]
+name = "hopper-memo"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+authors = ["BluefootLabs <contact@bluefootlabs.com>", "MoonManQuark"]
+description = "Hopper-owned SPL Memo program builder. Thin, no_std CPI helper for the SPL Memo (and legacy v1 Memo) programs."
+repository = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework"
+homepage = "https://hopperzero.dev"
+documentation = "https://docs.rs/hopper-memo"
+readme = "README.md"
+keywords = ["solana", "memo", "spl", "cpi", "hopper"]
+categories = ["no-std"]
+
+[lib]
+name = "hopper_memo"
+
+[dependencies]
+hopper-runtime = { workspace = true }
+
+[features]
+default = ["hopper-native-backend"]
+hopper-native-backend = ["hopper-runtime/hopper-native-backend"]
+pinocchio-backend = ["hopper-runtime/pinocchio-backend"]
+solana-program-backend = ["hopper-runtime/solana-program-backend"]
+
+[lints]
+workspace = true
