@@ -1,20 +1,15 @@
 [workspace]
-# `bench/anchor-vault` is a standalone package (its own tiny
-# workspace) so anchor-lang's dependency tree stays isolated from
-# Hopper's core crates. Build it via its own manifest:
-#   cargo build-sbf --manifest-path bench/anchor-vault/Cargo.toml
-exclude = ["bench/anchor-vault"]
+# Crates extracted to sister repositories under `BluefootLabs/`:
+#   hopper-runtime, hopper-core, hopper-macros, hopper-derive
+#   (formerly hopper-macros-proc), hopper-spl (token, token-2022,
+#   associated-token, metaplex), hopper-cli, hopper-bench.
+# The umbrella `hopper` crate now consumes them as published deps;
+# the workspace below holds only the umbrella plus higher-level
+# domain crates and examples that still ship from this repo.
 members = [
     ".",
     "crates/hopper-native",
-    "crates/hopper-runtime",
-    "crates/hopper-core",
     "crates/hopper-system",
-    "crates/hopper-token",
-    "crates/hopper-token-2022",
-    "crates/hopper-associated-token",
-    "crates/hopper-metaplex",
-    "crates/hopper-macros",
     "crates/hopper-schema",
     "crates/hopper-solana",
     "crates/hopper-finance",
@@ -40,12 +35,6 @@ members = [
     "examples/hopper-policy-vault",
     "examples/cross-program-read/program-a",
     "examples/cross-program-read/program-b",
-    "bench/hopper-bench",
-    "bench/framework-vault-bench",
-    "bench/pinocchio-vault",
-    "bench/lazy-dispatch-vault",
-    "tools/hopper-cli",
-    "crates/hopper-macros-proc",
     "crates/hopper-manager",
     "crates/hopper-sdk",
     "crates/hopper-svm",
@@ -66,15 +55,8 @@ pinocchio-token = "0.5"
 five8_const = "0.1"
 sha2-const-stable = "0.1"
 hopper-native = { path = "crates/hopper-native", version = "0.1.0", default-features = false }
-hopper-runtime = { path = "crates/hopper-runtime", version = "0.1.0", default-features = false }
 hopper = { path = ".", version = "0.1.0" }
-hopper-core = { path = "crates/hopper-core", version = "0.1.0" }
 hopper-system = { path = "crates/hopper-system", version = "0.1.0" }
-hopper-token = { path = "crates/hopper-token", version = "0.1.0" }
-hopper-token-2022 = { path = "crates/hopper-token-2022", version = "0.1.0" }
-hopper-associated-token = { path = "crates/hopper-associated-token", version = "0.1.0" }
-hopper-metaplex = { path = "crates/hopper-metaplex", version = "0.1.0" }
-hopper-macros = { path = "crates/hopper-macros", version = "0.1.0" }
 hopper-schema = { path = "crates/hopper-schema", version = "0.1.0" }
 hopper-solana = { path = "crates/hopper-solana", version = "0.1.0" }
 hopper-finance = { path = "crates/hopper-finance", version = "0.1.0" }
@@ -84,10 +66,15 @@ hopper-vesting = { path = "crates/hopper-vesting", version = "0.1.0" }
 hopper-distribute = { path = "crates/hopper-distribute", version = "0.1.0" }
 hopper-multisig = { path = "crates/hopper-multisig", version = "0.1.0" }
 hopper-anchor = { path = "crates/hopper-anchor", version = "0.1.0" }
-hopper-macros-proc = { path = "crates/hopper-macros-proc", version = "0.1.0" }
 hopper-manager = { path = "crates/hopper-manager", version = "0.1.0" }
 hopper-sdk = { path = "crates/hopper-sdk", version = "0.1.0" }
 hopper-svm = { path = "crates/hopper-svm", version = "0.1.0" }
+
+# Sister repos (extracted to github.com/BluefootLabs).
+hopper-runtime = { git = "https://github.com/BluefootLabs/hopper-runtime", branch = "main", default-features = false }
+hopper-core = { git = "https://github.com/BluefootLabs/hopper-core", branch = "main", default-features = false }
+hopper-macros = { git = "https://github.com/BluefootLabs/hopper-macros", branch = "main", default-features = false }
+hopper-macros-proc = { git = "https://github.com/BluefootLabs/hopper-derive", branch = "main" }
 
 [package]
 name = "hopper"
@@ -107,15 +94,15 @@ categories = ["no-std", "embedded"]
 name = "hopper"
 
 [dependencies]
-hopper-runtime = { path = "crates/hopper-runtime", version = "0.1.0", default-features = false }
+hopper-runtime = { workspace = true }
 sha2-const-stable = { workspace = true }
-hopper-core = { path = "crates/hopper-core", version = "0.1.0", default-features = false }
-hopper-system = { path = "crates/hopper-system", version = "0.1.0", default-features = false }
-hopper-token = { path = "crates/hopper-token", version = "0.1.0", default-features = false }
-hopper-token-2022 = { path = "crates/hopper-token-2022", version = "0.1.0", default-features = false }
-hopper-associated-token = { path = "crates/hopper-associated-token", version = "0.1.0", default-features = false }
-hopper-metaplex = { path = "crates/hopper-metaplex", version = "0.1.0", default-features = false, optional = true }
-hopper-macros = { path = "crates/hopper-macros", version = "0.1.0", default-features = false }
+hopper-core = { workspace = true }
+hopper-system = { workspace = true }
+hopper-token = { git = "https://github.com/BluefootLabs/hopper-spl", branch = "main", default-features = false }
+hopper-token-2022 = { git = "https://github.com/BluefootLabs/hopper-spl", branch = "main", default-features = false }
+hopper-associated-token = { git = "https://github.com/BluefootLabs/hopper-spl", branch = "main", default-features = false }
+hopper-metaplex = { git = "https://github.com/BluefootLabs/hopper-spl", branch = "main", default-features = false, optional = true }
+hopper-macros = { workspace = true }
 hopper-schema = { path = "crates/hopper-schema", version = "0.1.0", default-features = false }
 hopper-solana = { path = "crates/hopper-solana", version = "0.1.0", default-features = false }
 hopper-macros-proc = { workspace = true, optional = true }
