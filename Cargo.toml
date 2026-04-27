@@ -11,8 +11,8 @@ name = "hopper"
 path = "src/main.rs"
 
 [dependencies]
-hopper-schema = { path = "../../crates/hopper-schema" }
-hopper-manager = { path = "../../crates/hopper-manager" }
+hopper-schema = { path = "../Hopper-Solana-Zero-copy-State-Framework/crates/hopper-schema" }
+hopper-manager = { path = "../Hopper-Solana-Zero-copy-State-Framework/crates/hopper-manager" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 toml = "0.8"
