@@ -1,0 +1,63 @@
+[workspace]
+members = ["."]
+resolver = "2"
+
+[workspace.dependencies]
+hopper-native = { path = "../Hopper-Solana-Zero-copy-State-Framework/crates/hopper-native", default-features = false }
+five8_const = "0.1"
+sha2-const-stable = "0.1"
+pinocchio = { version = "0.10", features = ["cpi", "copy"] }
+pinocchio-system = "0.5"
+pinocchio-token = "0.5"
+
+[workspace.lints.rust]
+unexpected_cfgs = { level = "allow", check-cfg = [
+    'cfg(target_os, values("solana"))',
+    'cfg(target_arch, values("bpf"))',
+] }
+
+[package]
+name = "hopper-runtime"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+authors = ["BluefootLabs <contact@bluefootlabs.com>", "MoonManQuark"]
+description = "Canonical low-level runtime surface for Hopper. Hopper Native is the primary backend; Pinocchio and solana-program are compatibility backends."
+repository = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework"
+homepage = "https://hopperzero.dev"
+documentation = "https://docs.rs/hopper-runtime"
+readme = "README.md"
+keywords = ["solana", "zero-copy", "runtime", "no-std", "framework"]
+categories = ["no-std", "embedded"]
+
+[lib]
+name = "hopper_runtime"
+
+[features]
+default = ["hopper-native-backend"]
+
+hopper-native-backend = ["hopper-native", "hopper-native/cpi", "hopper-native/bytemuck", "dep:bytemuck"]
+pinocchio-backend = ["pinocchio", "pinocchio-system", "pinocchio-token"]
+solana-program-backend = ["solana-program"]
+
+cu-trace = ["hopper-native/cu-trace"]
+cpi = []
+copy = []
+
+[dependencies]
+hopper-native = { workspace = true, optional = true, default-features = false }
+five8_const = "0.1"
+# bytemuck is brought in transitively via hopper-native when the
+# native backend is active, but we also need direct access here to
+# emit `unsafe impl bytemuck::Pod` on runtime-owned types like
+# `Address`. `default-features = false` keeps this no_std-friendly.
+bytemuck = { version = "1", default-features = false, optional = true }
+
+pinocchio = { workspace = true, optional = true }
+pinocchio-system = { workspace = true, optional = true }
+pinocchio-token = { workspace = true, optional = true }
+
+solana-program = { version = "2", optional = true, default-features = false }
+
+[lints]
+workspace = true
