@@ -16,8 +16,8 @@ categories = ["no-std"]
 name = "hopper_schema"
 
 [dependencies]
-hopper-core = { path = "../hopper-core", version = "0.1.0", default-features = false }
-hopper-runtime = { path = "../hopper-runtime", version = "0.1.0", default-features = false }
+hopper-core = { workspace = true }
+hopper-runtime = { workspace = true }
 
 [features]
 default = ["hopper-native-backend", "receipt", "policy"]

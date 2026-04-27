@@ -75,6 +75,10 @@ hopper-runtime = { git = "https://github.com/BluefootLabs/hopper-runtime", branc
 hopper-core = { git = "https://github.com/BluefootLabs/hopper-core", branch = "main", default-features = false }
 hopper-macros = { git = "https://github.com/BluefootLabs/hopper-macros", branch = "main", default-features = false }
 hopper-macros-proc = { git = "https://github.com/BluefootLabs/hopper-derive", branch = "main" }
+hopper-token = { git = "https://github.com/BluefootLabs/hopper-spl", branch = "main", default-features = false }
+hopper-token-2022 = { git = "https://github.com/BluefootLabs/hopper-spl", branch = "main", default-features = false }
+hopper-associated-token = { git = "https://github.com/BluefootLabs/hopper-spl", branch = "main", default-features = false }
+hopper-metaplex = { git = "https://github.com/BluefootLabs/hopper-spl", branch = "main", default-features = false }
 
 [package]
 name = "hopper"
@@ -172,3 +176,26 @@ unexpected_cfgs = { level = "allow", check-cfg = [
     'cfg(target_os, values("solana"))',
     'cfg(feature, values("frame", "receipt", "policy", "graph", "migrate", "virtual-state", "diff", "explain", "advanced"))',
 ] }
+
+# ── Local development overrides ─────────────────────────────────────
+# Point the BluefootLabs sister-repo git deps at the sibling clones in
+# `..` so multi-root workspace edits resolve without round-tripping
+# through GitHub. Safe to leave in place: it only kicks in when the
+# `..` path actually exists and the URL matches the canonical remote.
+[patch."https://github.com/BluefootLabs/hopper-runtime"]
+hopper-runtime = { path = "../hopper-runtime" }
+
+[patch."https://github.com/BluefootLabs/hopper-core"]
+hopper-core = { path = "../hopper-core" }
+
+[patch."https://github.com/BluefootLabs/hopper-macros"]
+hopper-macros = { path = "../hopper-macros" }
+
+[patch."https://github.com/BluefootLabs/hopper-derive"]
+hopper-macros-proc = { path = "../hopper-derive" }
+
+[patch."https://github.com/BluefootLabs/hopper-spl"]
+hopper-token = { path = "../hopper-spl/hopper-token" }
+hopper-token-2022 = { path = "../hopper-spl/hopper-token-2022" }
+hopper-associated-token = { path = "../hopper-spl/hopper-associated-token" }
+hopper-metaplex = { path = "../hopper-spl/hopper-metaplex" }

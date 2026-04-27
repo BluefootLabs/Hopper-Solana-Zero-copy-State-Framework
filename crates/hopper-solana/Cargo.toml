@@ -19,10 +19,10 @@ name = "hopper_solana"
 workspace = true
 
 [dependencies]
-hopper-core = { path = "../hopper-core", version = "0.1.0", default-features = false }
-hopper-runtime = { path = "../hopper-runtime", version = "0.1.0", default-features = false }
+hopper-core = { workspace = true }
+hopper-runtime = { workspace = true }
 hopper-system = { path = "../hopper-system", version = "0.1.0", default-features = false }
-hopper-token = { path = "../hopper-token", version = "0.1.0", default-features = false }
+hopper-token = { workspace = true, default-features = false }
 five8_const = { workspace = true }
 
 [features]
