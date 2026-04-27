@@ -88,6 +88,18 @@ impl<'a> DataV2<'a> {
         Ok(())
     }
 
+    /// Validate the Metaplex string length limits without building or
+    /// invoking a CPI.
+    ///
+    /// `#[hopper::context]` uses this in generated validators for
+    /// `metadata::{name,symbol,uri,seller_fee_basis_points}` so the
+    /// caller gets a Hopper-side `InvalidInstructionData` error before
+    /// the instruction attempts a Metaplex CPI.
+    #[inline]
+    pub fn validate_for_context(&self) -> ProgramResult {
+        self.validate_lengths()
+    }
+
     fn write_borsh(&self, tape: &mut BorshTape<'_>) -> ProgramResult {
         // Borsh layout of DataV2:
         //   string name | string symbol | string uri |
@@ -107,6 +119,31 @@ impl<'a> DataV2<'a> {
         tape.write_option_none()?; // collection
         tape.write_option_none()?; // uses
         Ok(())
+    }
+}
+
+/// Convert context-level `master_edition::max_supply = ...` values
+/// into the `Option<u64>` expected by `CreateMasterEditionV3`.
+///
+/// Accepting both `u64` and `Option<u64>` keeps the field keyword
+/// ergonomic for the common 1-of-1 case (`0`) while preserving the
+/// Metaplex-native unlimited-prints representation (`None`).
+pub trait IntoMasterEditionMaxSupply {
+    /// Convert to Metaplex's `Option<u64>` max-supply wire shape.
+    fn into_master_edition_max_supply(self) -> Option<u64>;
+}
+
+impl IntoMasterEditionMaxSupply for u64 {
+    #[inline]
+    fn into_master_edition_max_supply(self) -> Option<u64> {
+        Some(self)
+    }
+}
+
+impl IntoMasterEditionMaxSupply for Option<u64> {
+    #[inline]
+    fn into_master_edition_max_supply(self) -> Option<u64> {
+        self
     }
 }
 

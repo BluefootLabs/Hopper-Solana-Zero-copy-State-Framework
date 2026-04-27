@@ -64,6 +64,7 @@ pub use constants::{
 pub use instructions::{
     CreateMasterEditionV3,
     CreateMetadataAccountV3,
+    IntoMasterEditionMaxSupply,
     UpdateMetadataAccountV2,
     DataV2,
 };

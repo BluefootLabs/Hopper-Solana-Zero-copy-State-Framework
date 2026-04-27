@@ -11,6 +11,7 @@
 //! `program_id` argument too. The helpers below construct both seed
 //! slices and call into Hopper's PDA derivation path.
 
+#[cfg(target_os = "solana")]
 use crate::constants::{EDITION_SEED_PREFIX, METADATA_SEED_PREFIX, MPL_TOKEN_METADATA_PROGRAM_ID};
 use hopper_runtime::address::Address;
 
