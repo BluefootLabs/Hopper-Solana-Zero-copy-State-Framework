@@ -88,3 +88,9 @@ Untitled-*.md
 TODO.md
 NOTES.md
 SCRATCH.md
+
+# Third-party framework source drops (must never be committed)
+quasar-master/
+quasar-master.zip
+pinocchio-main.zip
+Hopper-Solana-Zero-copy-State-Framework-main*.zip
