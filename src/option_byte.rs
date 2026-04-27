@@ -103,6 +103,16 @@ impl<T: Copy> OptionByte<T> {
 mod tests {
     use super::*;
 
+    /// 8-byte-aligned scratch buffer for the pointer-cast tests below.
+    /// `[u8; 9]` on the stack has alignment 1, which means a raw
+    /// reinterpret to `&OptionByte<u64>` (alignment 8) trips the
+    /// rustc 1.78+ debug-build "misaligned pointer dereference"
+    /// check on whichever fraction of stack frames don't happen to
+    /// land on an 8-aligned address. Wrapping the bytes in a
+    /// repr(align(8)) struct removes the alignment lottery.
+    #[repr(C, align(8))]
+    struct AlignedNine([u8; 9]);
+
     #[test]
     fn none_reads_as_none() {
         let o: OptionByte<u64> = OptionByte::none(0);
@@ -119,9 +129,9 @@ mod tests {
     fn malformed_tag_rejects() {
         // Simulate a pointer-cast from hostile bytes: a 0xFF tag is
         // neither 0 nor 1.
-        let mut buf = [0u8; 9];
-        buf[0] = 0xFF;
-        let o: &OptionByte<u64> = unsafe { &*(buf.as_ptr() as *const OptionByte<u64>) };
+        let mut buf = AlignedNine([0u8; 9]);
+        buf.0[0] = 0xFF;
+        let o: &OptionByte<u64> = unsafe { &*(buf.0.as_ptr() as *const OptionByte<u64>) };
         assert_eq!(o.get().unwrap_err(), ProgramError::InvalidInstructionData);
         assert_eq!(o.validate_tag().unwrap_err(), ProgramError::InvalidInstructionData);
     }
@@ -129,9 +139,9 @@ mod tests {
     #[test]
     fn zero_tag_ignores_value_payload() {
         // A None with garbage value bytes still decodes cleanly.
-        let mut buf = [0u8; 9];
-        buf[1..9].copy_from_slice(&0x1234_5678_9ABC_DEF0u64.to_le_bytes());
-        let o: &OptionByte<u64> = unsafe { &*(buf.as_ptr() as *const OptionByte<u64>) };
+        let mut buf = AlignedNine([0u8; 9]);
+        buf.0[1..9].copy_from_slice(&0x1234_5678_9ABC_DEF0u64.to_le_bytes());
+        let o: &OptionByte<u64> = unsafe { &*(buf.0.as_ptr() as *const OptionByte<u64>) };
         assert!(o.get().unwrap().is_none());
     }
 }
