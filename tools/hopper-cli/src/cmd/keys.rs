@@ -35,6 +35,7 @@ pub fn cmd_keys(args: &[String]) {
         "list" | "ls" => cmd_list(&args[1..]),
         "print" | "show" => cmd_print(&args[1..]),
         "pda" => cmd_pda(&args[1..]),
+        "sync" => cmd_sync(&args[1..]),
         other => {
             eprintln!("Unknown keys subcommand: {other}");
             print_usage();
@@ -51,12 +52,179 @@ fn print_usage() {
     eprintln!("  list [<path>...]                  List pubkey + path for each keypair");
     eprintln!("  print <path>                      Print just the base58 pubkey");
     eprintln!("  pda <seed>... [--program <id>]    Derive a PDA from seeds");
+    eprintln!("  sync <path> [--src <file.rs>]     Rewrite hopper::declare_id! / declare_id! to match keypair");
     eprintln!();
     eprintln!("Seed formats:");
     eprintln!("  b\"text\"       UTF-8 bytes of `text`");
     eprintln!("  hex:0a1b2c     Hex bytes");
     eprintln!("  base58:...     Base58 bytes (for pubkey seeds)");
     eprintln!("  raw            Otherwise treated as raw UTF-8");
+}
+
+/// Rewrite the in-source `declare_id!("...")` (or `hopper::declare_id!("...")`)
+/// invocation to match the keypair at `path`. Mirrors the
+/// `quasar keys sync` verb so a freshly-minted keypair (`hopper keys new
+/// target/deploy/my_program-keypair.json`) immediately propagates into
+/// the program's source without manual paste. Searches `src/lib.rs` by
+/// default; pass `--src <file.rs>` to point at a different file.
+fn cmd_sync(args: &[String]) {
+    let mut keypair_path: Option<PathBuf> = None;
+    let mut src_path: Option<PathBuf> = None;
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--src" => {
+                if i + 1 >= args.len() {
+                    eprintln!("--src requires a path argument");
+                    process::exit(1);
+                }
+                src_path = Some(PathBuf::from(&args[i + 1]));
+                i += 2;
+            }
+            "--help" | "-h" => {
+                eprintln!(
+                    "Usage: hopper keys sync <keypair-path> [--src <file.rs>]\n\
+                     Default --src is `src/lib.rs` relative to the working directory."
+                );
+                return;
+            }
+            other if !other.starts_with("--") && keypair_path.is_none() => {
+                keypair_path = Some(PathBuf::from(other));
+                i += 1;
+            }
+            other => {
+                eprintln!("Unknown argument: {other}");
+                process::exit(1);
+            }
+        }
+    }
+    let kp_path = match keypair_path {
+        Some(p) => p,
+        None => {
+            eprintln!("Usage: hopper keys sync <keypair-path> [--src <file.rs>]");
+            process::exit(1);
+        }
+    };
+    let src_path = src_path.unwrap_or_else(|| PathBuf::from("src/lib.rs"));
+
+    // Read the keypair, derive pubkey.
+    let bytes = match read_keypair_json(&kp_path) {
+        Ok(b) => b,
+        Err(e) => {
+            eprintln!("failed to read keypair {}: {e}", kp_path.display());
+            process::exit(1);
+        }
+    };
+    if bytes.len() != 64 {
+        eprintln!(
+            "expected 64-byte keypair JSON array, got {} bytes",
+            bytes.len()
+        );
+        process::exit(1);
+    }
+    let pubkey_b58 = bs58::encode(&bytes[32..]).into_string();
+
+    // Read source, replace the first `declare_id!("...")` argument.
+    let src = match fs::read_to_string(&src_path) {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("failed to read {}: {e}", src_path.display());
+            process::exit(1);
+        }
+    };
+    let (rewritten, replaced) = replace_declare_id(&src, &pubkey_b58);
+    if !replaced {
+        eprintln!(
+            "no `declare_id!(\"...\")` invocation found in {}",
+            src_path.display()
+        );
+        process::exit(1);
+    }
+    if rewritten == src {
+        println!(
+            "{} already matches keypair {} ({})",
+            src_path.display(),
+            kp_path.display(),
+            pubkey_b58
+        );
+        return;
+    }
+    if let Err(e) = fs::write(&src_path, &rewritten) {
+        eprintln!("failed to write {}: {e}", src_path.display());
+        process::exit(1);
+    }
+    println!(
+        "synced declare_id! in {} to {} (from {})",
+        src_path.display(),
+        pubkey_b58,
+        kp_path.display()
+    );
+}
+
+/// Read a Solana-CLI-style keypair JSON file `[u8, u8, ...]` and
+/// return the 64 raw bytes.
+fn read_keypair_json(path: &Path) -> Result<Vec<u8>, String> {
+    let raw = fs::read_to_string(path).map_err(|e| e.to_string())?;
+    let trimmed = raw.trim().trim_start_matches('[').trim_end_matches(']');
+    let mut out = Vec::with_capacity(64);
+    for tok in trimmed.split(',') {
+        let n = tok.trim();
+        if n.is_empty() {
+            continue;
+        }
+        let v: u8 = n
+            .parse()
+            .map_err(|e: std::num::ParseIntError| format!("byte {n}: {e}"))?;
+        out.push(v);
+    }
+    Ok(out)
+}
+
+/// Replace the first `declare_id!("...")` (also matches
+/// `hopper::declare_id!`, `crate::declare_id!`, etc.) string literal
+/// with `new_id`. Returns `(rewritten_source, was_replaced)`.
+fn replace_declare_id(src: &str, new_id: &str) -> (String, bool) {
+    // Find a `declare_id!` token followed by `(` then the first
+    // string literal up to the matching close-quote. The macro
+    // path may carry a `crate::`, `hopper::`, etc. prefix, so we
+    // anchor on the literal `declare_id!` token.
+    let needle = "declare_id!";
+    let Some(start) = src.find(needle) else {
+        return (src.to_string(), false);
+    };
+    let after = start + needle.len();
+    let rest = &src[after..];
+    // Skip optional whitespace, then `(`.
+    let open = rest.bytes().position(|b| !b.is_ascii_whitespace());
+    let Some(open_off) = open else {
+        return (src.to_string(), false);
+    };
+    if rest.as_bytes()[open_off] != b'(' {
+        return (src.to_string(), false);
+    }
+    // Skip whitespace inside the parens; require an opening `"`.
+    let after_open = open_off + 1;
+    let mut q = after_open;
+    while q < rest.len() && rest.as_bytes()[q].is_ascii_whitespace() {
+        q += 1;
+    }
+    if q >= rest.len() || rest.as_bytes()[q] != b'"' {
+        return (src.to_string(), false);
+    }
+    let lit_start = q + 1;
+    // Find the closing quote (no escape handling needed for a base58
+    // string literal).
+    let lit_end_rel = match rest[lit_start..].find('"') {
+        Some(p) => p,
+        None => return (src.to_string(), false),
+    };
+    let abs_lit_start = after + lit_start;
+    let abs_lit_end = after + lit_start + lit_end_rel;
+    let mut out = String::with_capacity(src.len());
+    out.push_str(&src[..abs_lit_start]);
+    out.push_str(new_id);
+    out.push_str(&src[abs_lit_end..]);
+    (out, true)
 }
 
 fn cmd_new(args: &[String]) {
@@ -351,5 +519,57 @@ impl Sha256Hasher {
         let mut out = [0u8; 32];
         out.copy_from_slice(&result);
         out
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn replace_declare_id_handles_bare_form() {
+        let src = "use hopper::declare_id;\n\
+                   declare_id!(\"OLDIDOLDIDOLDIDOLDIDOLDIDOLDIDOLDIDOLDIDOLDID\");\n";
+        let (out, replaced) =
+            replace_declare_id(src, "NEWIDNEWIDNEWIDNEWIDNEWIDNEWIDNEWIDNEWIDNEW1");
+        assert!(replaced);
+        assert!(out.contains("declare_id!(\"NEWIDNEWIDNEWIDNEWIDNEWIDNEWIDNEWIDNEWIDNEW1\")"));
+        assert!(!out.contains("OLDID"));
+    }
+
+    #[test]
+    fn replace_declare_id_handles_qualified_form() {
+        // The path-qualified form `hopper::declare_id!(...)` is
+        // anchored on the `declare_id!` token regardless of prefix.
+        let src = "hopper::declare_id!( \"OLDOLDOLDOLDOLDOLDOLDOLDOLDOLDOLDOLDOLDOLD11\" );\n";
+        let (out, replaced) =
+            replace_declare_id(src, "NEWID11111111111111111111111111111111111112");
+        assert!(replaced);
+        assert!(
+            out.contains("declare_id!( \"NEWID11111111111111111111111111111111111112\" )"),
+            "rewrite preserved spacing inside parens: {out:?}"
+        );
+    }
+
+    #[test]
+    fn replace_declare_id_returns_unchanged_when_absent() {
+        let src = "fn main() { println!(\"hi\"); }\n";
+        let (out, replaced) = replace_declare_id(src, "ANY");
+        assert!(!replaced);
+        assert_eq!(out, src);
+    }
+
+    #[test]
+    fn replace_declare_id_only_touches_first_macro() {
+        // If for some reason a file has multiple, we rewrite only
+        // the first. Solana convention is one declare_id! per
+        // program crate, so this matches expectation.
+        let src = "declare_id!(\"AAA111111111111111111111111111111111111111A\");\n\
+                   declare_id!(\"BBB111111111111111111111111111111111111111B\");\n";
+        let (out, replaced) =
+            replace_declare_id(src, "ZZZ111111111111111111111111111111111111111Z");
+        assert!(replaced);
+        assert!(out.contains("declare_id!(\"ZZZ111111111111111111111111111111111111111Z\")"));
+        assert!(out.contains("declare_id!(\"BBB111111111111111111111111111111111111111B\")"));
     }
 }

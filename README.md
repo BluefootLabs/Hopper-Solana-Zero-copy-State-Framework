@@ -397,7 +397,24 @@ hopper (root facade, re-exports everything)
 +-- hopper-distribute    Dust-safe proportional distribution and fee extraction
 +-- hopper-multisig      M-of-N signer threshold checks
 +-- hopper-cli           CLI: compile, explain, inspect, compat, diff, plan, receipt, manager
++-- hopper-svm           In-process Solana harness: inline simulators (default),
+|                        `solana-sbpf` interpreter (`bpf-execution`), full Agave
+|                        validator stack (`agave-runtime`)
 ```
+
+### `hopper-svm` execution modes
+
+`hopper-svm` is Hopper's in-process program harness. Three layered modes ship in one crate:
+
+| Feature flag | What runs | Use case |
+|---|---|---|
+| (default) | inline Rust simulators for the system program + user-registered builtins | Fast unit tests, no validator dep |
+| `bpf-execution` | direct `solana-sbpf` interpretation of `.so` bytes | Real BPF execution without the full Agave dep tree |
+| `agave-runtime` | the actual `solana-program-runtime` + `solana-bpf-loader-program` + Agave's real `system_processor` | Mainnet-fidelity integration tests |
+
+`agave-runtime` is the Quasar-parity / mainnet-fidelity path. After `HopperSvm::new().with_agave_runtime()`, every `process_instruction` call routes through `InvokeContext::process_instruction` against Agave's program cache. The system program runs through `solana_system_program::system_processor::Entrypoint`. Custom builtins register via `add_builtin_function(id, account_size, BuiltinFunctionWithContext)`. SPL ELFs load through `load_bpf_program(id, kind, loader_key, elf, account_size)` which wraps Agave's real `load_program_from_bytes`.
+
+End-to-end tests in [`crates/hopper-svm/src/agave/engine.rs`](crates/hopper-svm/src/agave/engine.rs) and [`crates/hopper-svm/src/lib.rs`](crates/hopper-svm/src/lib.rs) prove the round trip: a `system_instruction::transfer` between two accounts dispatches through Agave, balances flow back via `AccountSharedData`, the harness reports `>= 150 CU` consumed (Agave's system program declares that as its baseline).
 
 ## Sovereign Boundary
 

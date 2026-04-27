@@ -174,6 +174,36 @@ use std::sync::{Arc, Mutex};
 /// instruction execution against the same harness is *serialised*
 /// (a real Solana validator runs instructions one at a time per
 /// transaction, so this matches semantics).
+/// Error surfaced by the Agave-backed BPF loader verbs
+/// ([`HopperSvm::load_bpf_program_through_agave`],
+/// [`HopperSvm::with_real_spl_token`], etc.).
+#[cfg(feature = "agave-runtime")]
+#[derive(Debug)]
+pub enum HopperSvmAgaveLoadError {
+    /// `with_agave_runtime()` was not called before attempting to
+    /// load a BPF program.
+    NoAgaveEngine,
+    /// The Agave loader rejected the bytes (parse / verify failure)
+    /// or the runtime environment construction failed.
+    Engine(crate::agave::AgaveEngineError),
+}
+
+#[cfg(feature = "agave-runtime")]
+impl core::fmt::Display for HopperSvmAgaveLoadError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::NoAgaveEngine => write!(
+                f,
+                "hopper-svm: Agave runtime not installed; call with_agave_runtime() first"
+            ),
+            Self::Engine(err) => write!(f, "hopper-svm: {err}"),
+        }
+    }
+}
+
+#[cfg(feature = "agave-runtime")]
+impl std::error::Error for HopperSvmAgaveLoadError {}
+
 #[derive(Clone)]
 pub struct HopperSvm {
     /// Map from program ID → registered built-in program. Phase 1
@@ -224,6 +254,14 @@ pub struct HopperSvm {
     /// it, `process_instruction_with_store` reads from and writes
     /// back to it. The two paths can coexist in one test.
     pub(crate) account_store: Arc<Mutex<HashMap<Pubkey, KeyedAccount>>>,
+    /// Optional Agave-runtime engine. When present, instructions
+    /// whose `program_id` is registered in the engine's program
+    /// cache route through real `solana-program-runtime` /
+    /// `solana-bpf-loader-program` invocation instead of Hopper's
+    /// inline built-in registry. Enabled with the `agave-runtime`
+    /// feature and [`with_agave_runtime`] / [`set_agave_engine`].
+    #[cfg(feature = "agave-runtime")]
+    pub(crate) agave_engine: Arc<Mutex<Option<agave::AgaveEngine>>>,
 }
 
 impl HopperSvm {
@@ -247,7 +285,129 @@ impl HopperSvm {
             fee_calculator: Arc::new(Mutex::new(FeeCalculator::default())),
             priority_fee_micro_lamports_per_cu: Arc::new(Mutex::new(0)),
             account_store: Arc::new(Mutex::new(HashMap::new())),
+            #[cfg(feature = "agave-runtime")]
+            agave_engine: Arc::new(Mutex::new(None)),
         }
+    }
+
+    /// Enable the Agave-runtime execution path. Constructs an
+    /// [`agave::AgaveEngine`] with the system program pre-registered
+    /// (so `system_instruction::transfer` etc. dispatch through
+    /// `solana_system_program::system_processor::Entrypoint`, not
+    /// the inline Hopper system program), and stashes it on the
+    /// harness. Subsequent `process_instruction` calls route
+    /// through real Agave when the program is present in the engine,
+    /// fall through to the inline registry otherwise.
+    ///
+    /// This is the headline Tier 3 verb: behaviour now matches
+    /// mainnet exactly because it IS the validator's code.
+    #[cfg(feature = "agave-runtime")]
+    pub fn with_agave_runtime(self) -> Self {
+        let engine = agave::AgaveEngine::new();
+        engine.install_system_program();
+        *self.agave_engine.lock().expect("agave_engine") = Some(engine);
+        self
+    }
+
+    /// Replace the harness's Agave engine with a pre-built one.
+    /// Useful when the test needs to register custom builtins
+    /// (e.g. a stake program, a vote program) before installing.
+    #[cfg(feature = "agave-runtime")]
+    pub fn set_agave_engine(&self, engine: agave::AgaveEngine) {
+        *self.agave_engine.lock().expect("agave_engine") = Some(engine);
+    }
+
+    /// Borrow the active Agave engine, if any.
+    #[cfg(feature = "agave-runtime")]
+    pub fn agave_engine(&self) -> Option<agave::AgaveEngine> {
+        self.agave_engine.lock().expect("agave_engine").clone()
+    }
+
+    /// Load a BPF `.so` program through the Agave engine (if
+    /// installed). Returns `Err(NoAgaveEngine)` if `with_agave_runtime`
+    /// has not been called. Wraps
+    /// [`agave::AgaveEngine::load_bpf_program`] so callers don't
+    /// have to pull the engine out by hand.
+    #[cfg(feature = "agave-runtime")]
+    pub fn load_bpf_program_through_agave(
+        &self,
+        id: Pubkey,
+        loader_kind: agave::AgaveProgramKind,
+        loader_key: &Pubkey,
+        elf: &[u8],
+        account_size: usize,
+    ) -> Result<(), HopperSvmAgaveLoadError> {
+        let engine = self
+            .agave_engine
+            .lock()
+            .expect("agave_engine")
+            .clone()
+            .ok_or(HopperSvmAgaveLoadError::NoAgaveEngine)?;
+        engine
+            .load_bpf_program(id, loader_kind, loader_key, elf, account_size)
+            .map_err(HopperSvmAgaveLoadError::Engine)
+    }
+
+    /// Convenience: load the SPL Token program ELF supplied by the
+    /// caller into the Agave engine under Loader v2 (matches mainnet
+    /// deployment). After this call, `process_instruction` calls
+    /// targeting `SPL_TOKEN_PROGRAM_ID` route through the real Token
+    /// program rather than the inline simulator.
+    ///
+    /// Hopper-svm does not check in SPL `.so` binaries (200-300 KB
+    /// each, license / release-cadence concerns). The user passes
+    /// the bytes via `include_bytes!`:
+    ///
+    /// ```ignore
+    /// let svm = HopperSvm::new()
+    ///     .with_agave_runtime()
+    ///     .with_real_spl_token(include_bytes!("path/to/spl_token.so"))?;
+    /// ```
+    #[cfg(feature = "agave-runtime")]
+    pub fn with_real_spl_token(self, elf: &[u8]) -> Result<Self, HopperSvmAgaveLoadError> {
+        self.load_bpf_program_through_agave(
+            SPL_TOKEN_PROGRAM_ID,
+            agave::AgaveProgramKind::BpfV2,
+            &solana_sdk::bpf_loader::id(),
+            elf,
+            elf.len(),
+        )?;
+        Ok(self)
+    }
+
+    /// SPL Token-2022 sibling of [`with_real_spl_token`]. Same
+    /// pattern — Loader v2, registered under
+    /// [`SPL_TOKEN_2022_PROGRAM_ID`].
+    #[cfg(feature = "agave-runtime")]
+    pub fn with_real_spl_token_2022(
+        self,
+        elf: &[u8],
+    ) -> Result<Self, HopperSvmAgaveLoadError> {
+        self.load_bpf_program_through_agave(
+            SPL_TOKEN_2022_PROGRAM_ID,
+            agave::AgaveProgramKind::BpfV2,
+            &solana_sdk::bpf_loader::id(),
+            elf,
+            elf.len(),
+        )?;
+        Ok(self)
+    }
+
+    /// SPL Associated Token Account sibling. Loader v2, registered
+    /// under [`ASSOCIATED_TOKEN_PROGRAM_ID`].
+    #[cfg(feature = "agave-runtime")]
+    pub fn with_real_spl_associated_token(
+        self,
+        elf: &[u8],
+    ) -> Result<Self, HopperSvmAgaveLoadError> {
+        self.load_bpf_program_through_agave(
+            ASSOCIATED_TOKEN_PROGRAM_ID,
+            agave::AgaveProgramKind::BpfV2,
+            &solana_sdk::bpf_loader::id(),
+            elf,
+            elf.len(),
+        )?;
+        Ok(self)
     }
 
     /// Override the harness's fee calculator. Mainnet default is
@@ -1299,6 +1459,122 @@ impl HopperSvm {
         outcome
     }
 
+    /// Tier 3 dispatch: route the instruction through Agave's
+    /// real runtime via the harness's installed [`agave::AgaveEngine`].
+    /// Translates Hopper's [`KeyedAccount`] slice into Agave's
+    /// `(Pubkey, AccountSharedData)` shape, runs the instruction,
+    /// and translates the post-state back into [`KeyedAccount`]s.
+    ///
+    /// On success the returned [`ExecutionOutcome`] carries the
+    /// post-state, return data, and consumed CU as if it had run
+    /// through the inline engine — callers can't tell the difference
+    /// at the API boundary, which is the whole point.
+    #[cfg(feature = "agave-runtime")]
+    fn dispatch_through_agave(
+        &self,
+        engine: &agave::AgaveEngine,
+        ix: &Instruction,
+        accounts: &[KeyedAccount],
+        logs: &mut LogCapture,
+    ) -> ExecutionOutcome {
+        use solana_program_runtime::execution_budget::{
+            SVMTransactionExecutionBudget, SVMTransactionExecutionCost,
+        };
+        use solana_sdk::account::{Account as SolanaAccount, ReadableAccount};
+
+        // Translate KeyedAccount → (Pubkey, AccountSharedData). The
+        // program account is appended at the end if not already in
+        // the slice; Agave's runtime needs an account at
+        // `program_indices[0]` whose owner is `native_loader::id`.
+        let mut tx_accounts: Vec<(solana_sdk::pubkey::Pubkey, solana_sdk::account::AccountSharedData)> =
+            Vec::with_capacity(accounts.len() + 1);
+        for ka in accounts {
+            let acct = SolanaAccount {
+                lamports: ka.lamports,
+                data: ka.data.clone(),
+                owner: ka.owner,
+                executable: ka.executable,
+                rent_epoch: ka.rent_epoch,
+            };
+            tx_accounts.push((ka.address, acct.into()));
+        }
+
+        // Find the program account index, or synthesise a stub.
+        let program_index = match tx_accounts.iter().position(|(k, _)| k == &ix.program_id) {
+            Some(i) => i as u16,
+            None => {
+                let mut stub = SolanaAccount::default();
+                stub.executable = true;
+                stub.owner = solana_sdk::native_loader::id();
+                tx_accounts.push((ix.program_id, stub.into()));
+                (tx_accounts.len() - 1) as u16
+            }
+        };
+
+        let svm_sysvars = self.sysvars.lock().expect("sysvars lock").clone();
+        let sysvar_cache = agave::AgaveEngine::build_sysvar_cache(&svm_sysvars);
+
+        // Translate Hopper's CU budget into Agave's execution-budget
+        // shape: only `compute_unit_limit` differs from the default.
+        let mut exec_budget = SVMTransactionExecutionBudget::default();
+        let cu_limit = self.budget.lock().expect("budget").limit();
+        exec_budget.compute_unit_limit = cu_limit;
+
+        let pre_addresses: Vec<solana_sdk::pubkey::Pubkey> =
+            tx_accounts.iter().map(|(k, _)| *k).collect();
+
+        match engine.process_instruction_raw(
+            ix,
+            tx_accounts,
+            vec![program_index],
+            &sysvar_cache,
+            exec_budget,
+            SVMTransactionExecutionCost::default(),
+            solana_sdk::rent::Rent::default(),
+        ) {
+            Ok((cu, post)) => {
+                logs.line(format!(
+                    "Program {} consumed {cu} compute units (agave-runtime)",
+                    ix.program_id
+                ));
+                let resulting_accounts = post
+                    .into_iter()
+                    .filter(|(k, _)| pre_addresses.contains(k))
+                    .map(|(k, a)| KeyedAccount {
+                        address: k,
+                        lamports: a.lamports(),
+                        data: a.data().to_vec(),
+                        owner: *a.owner(),
+                        executable: a.executable(),
+                        rent_epoch: a.rent_epoch(),
+                    })
+                    .collect();
+                ExecutionOutcome {
+                    resulting_accounts,
+                    compute_units_consumed: cu,
+                    return_data: Vec::new(),
+                    inner_instructions: Vec::new(),
+                    execution_time_us: 0,
+                    error: None,
+                }
+            }
+            Err(err) => {
+                logs.line(format!("agave-runtime: {err}"));
+                ExecutionOutcome {
+                    resulting_accounts: accounts.to_vec(),
+                    compute_units_consumed: 0,
+                    return_data: Vec::new(),
+                    inner_instructions: Vec::new(),
+                    execution_time_us: 0,
+                    error: Some(crate::error::HopperSvmError::BuiltinError {
+                        program_id: ix.program_id,
+                        message: format!("{err}"),
+                    }),
+                }
+            }
+        }
+    }
+
     /// Internal worker — same signature as the public dispatcher
     /// but without timing. Always returns an `ExecutionOutcome`
     /// with `execution_time_us = 0`; the wrapper stamps the real
@@ -1309,6 +1585,22 @@ impl HopperSvm {
         accounts: &[KeyedAccount],
         logs: &mut LogCapture,
     ) -> ExecutionOutcome {
+        // Tier 3: when an Agave engine is installed and the program
+        // is registered there, route through real `solana-program-runtime`
+        // dispatch instead of the inline registry. The Agave path
+        // matches mainnet semantics byte-for-byte; the inline registry
+        // remains the fast path for built-in simulators that don't
+        // need full validator fidelity.
+        #[cfg(feature = "agave-runtime")]
+        {
+            let agave_clone = self.agave_engine.lock().expect("agave_engine").clone();
+            if let Some(engine) = agave_clone {
+                if engine.is_registered(&ix.program_id) {
+                    return self.dispatch_through_agave(&engine, ix, accounts, logs);
+                }
+            }
+        }
+
         // Try the built-in registry first. The system program and
         // any user-registered simulators live here.
         let registry = self.registry.lock().expect("registry lock");
@@ -1585,6 +1877,37 @@ mod tests {
 
         assert_eq!(svm.get_account(&alice).unwrap().lamports, 750_000);
         assert_eq!(svm.get_account(&bob).unwrap().lamports, 250_000);
+    }
+
+    /// **Tier 3 end-to-end**: a harness configured with
+    /// `with_agave_runtime()` dispatches a system transfer through
+    /// Agave's real `solana-program-runtime` rather than Hopper's
+    /// inline system program. Same pre/post balances as the inline
+    /// path so the verb is API-compatible.
+    #[cfg(feature = "agave-runtime")]
+    #[test]
+    fn process_instruction_routes_through_agave_runtime() {
+        let alice = Pubkey::new_unique();
+        let bob = Pubkey::new_unique();
+        let svm = HopperSvm::new().with_agave_runtime();
+        let accounts = vec![
+            token::create_keyed_system_account(&alice, 1_000_000),
+            token::create_keyed_system_account(&bob, 0),
+        ];
+        let ix = system_instruction::transfer(&alice, &bob, 250_000);
+
+        let result = svm.process_instruction(&ix, &accounts);
+        assert!(result.is_success(), "logs: {}", result.all_logs());
+        assert_eq!(result.account(&alice).unwrap().lamports, 750_000);
+        assert_eq!(result.account(&bob).unwrap().lamports, 250_000);
+        // Agave's system program declares a 150 CU baseline, distinct
+        // from Hopper's inline simulator default.
+        assert!(result.compute_units_consumed() >= 150);
+        assert!(
+            result.all_logs().contains("agave-runtime"),
+            "expected agave-runtime tag in logs, got: {}",
+            result.all_logs()
+        );
     }
 
     /// `simulate_instruction_with_store` rolls back the overlay

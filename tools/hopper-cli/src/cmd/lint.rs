@@ -119,6 +119,40 @@ fn print_usage() {
     eprintln!("non-zero when an error-level diagnostic is surfaced.");
 }
 
+/// Result of an inline lint pass: the count of error- and warn-level
+/// diagnostics, plus the formatted lines themselves so callers can
+/// print them in their own output stream.
+pub struct LintSummary {
+    pub errors: usize,
+    pub warnings: usize,
+    pub lines: Vec<String>,
+}
+
+/// Programmatic entry point for `hopper compile --lint`. Runs the
+/// account-relationship checker over `project_root` (no graph output,
+/// just diagnostics) and returns a structured summary the caller can
+/// print and act on. Mirrors the diagnostic surface of `cmd_lint`
+/// without printing or process-exiting from inside this function.
+pub fn run_lint_diagnostics(project_root: &Path) -> Result<LintSummary, String> {
+    let report = lint_project(project_root)?;
+    let mut errors = 0usize;
+    let mut warnings = 0usize;
+    let mut lines = Vec::with_capacity(report.diagnostics.len());
+    for d in &report.diagnostics {
+        match d.level {
+            Level::Error => errors += 1,
+            Level::Warn => warnings += 1,
+            Level::Info => {}
+        }
+        lines.push(d.format());
+    }
+    Ok(LintSummary {
+        errors,
+        warnings,
+        lines,
+    })
+}
+
 enum OutputFormat {
     Ascii,
     Mermaid,

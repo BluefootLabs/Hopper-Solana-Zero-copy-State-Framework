@@ -26,31 +26,68 @@ pub fn cmd_profile(args: &[String]) {
         return;
     }
 
-    if args.is_empty() || args[0] == "bench" {
-        let bench_args = if args.first().map(String::as_str) == Some("bench") {
-            &args[1..]
+    // Pull `-w` / `--watch` out of the arg list before sub-dispatch so
+    // the inner runners never see it. The watcher then wraps the
+    // sub-command's normal entry point and re-fires on source changes.
+    let mut filtered: Vec<String> = args.to_vec();
+    let watch_mode = crate::cmd::watch::extract_watch_flag(&mut filtered);
+
+    if filtered.is_empty() || filtered.first().map(String::as_str) == Some("bench") {
+        let bench_args: Vec<String> = if filtered.first().map(String::as_str) == Some("bench") {
+            filtered[1..].to_vec()
         } else {
-            args
+            filtered.clone()
         };
 
-        if let Err(err) = bench::run_primitive_bench(bench_args) {
-            eprintln!("hopper profile bench failed: {err}");
-            process::exit(1);
+        let run_once = move || {
+            if let Err(err) = bench::run_primitive_bench(&bench_args) {
+                eprintln!("hopper profile bench failed: {err}");
+            }
+        };
+        if watch_mode {
+            run_under_watch(run_once);
+        } else {
+            run_once();
         }
         return;
     }
 
-    if args[0] == "elf" {
-        if let Err(err) = cmd_profile_elf(&args[1..]) {
-            eprintln!("hopper profile elf failed: {err}");
-            process::exit(1);
+    if filtered[0] == "elf" {
+        let elf_args: Vec<String> = filtered[1..].to_vec();
+        let run_once = move || {
+            if let Err(err) = cmd_profile_elf(&elf_args) {
+                eprintln!("hopper profile elf failed: {err}");
+            }
+        };
+        if watch_mode {
+            run_under_watch(run_once);
+        } else {
+            run_once();
         }
         return;
     }
 
-    eprintln!("Unknown profile subcommand: {}", args[0]);
+    eprintln!("Unknown profile subcommand: {}", filtered[0]);
     print_profile_usage();
     process::exit(1);
+}
+
+fn run_under_watch<F>(mut run_once: F)
+where
+    F: FnMut(),
+{
+    let cwd = match crate::workspace::current_dir() {
+        Ok(c) => c,
+        Err(err) => {
+            eprintln!("{err}");
+            process::exit(1);
+        }
+    };
+    let project_root = match crate::workspace::find_project_root(&cwd) {
+        Ok(r) => r,
+        Err(_) => cwd.clone(),
+    };
+    crate::cmd::watch::watch(&project_root, move || run_once());
 }
 
 fn print_profile_usage() {
@@ -60,6 +97,9 @@ fn print_profile_usage() {
     eprintln!("  bench                         Primitive benchmark lab with JSON/CSV artifacts");
     eprintln!("  elf <path/to/program.so>      Static SBF ELF analysis: symbol sizes, DWARF");
     eprintln!("                                names, flamegraph-compatible folded output");
+    eprintln!();
+    eprintln!("Global options:");
+    eprintln!("  -w, --watch                   Re-run on source change (Ctrl-C to exit)");
     eprintln!();
     eprintln!("`profile bench` options:");
     eprintln!("  --rpc <url>                   RPC endpoint (default: SOLANA_RPC_URL or localhost)");

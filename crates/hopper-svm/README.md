@@ -1,20 +1,57 @@
 # hopper-svm
 
-Hopper-native in-process Solana execution harness. **No `mollusk-svm` dependency, no `quasar-svm` dependency, no copy of any other framework's design.**
+Hopper-native in-process Solana execution harness with three layered execution modes. Phase 1 ships inline Rust simulators; Phase 2 is `solana-sbpf` direct interpretation; Phase 3 is the real Agave validator stack.
 
-Every layer above the eBPF interpreter — built-in program registry, syscall surface (Phase 2), CPI dispatch (Phase 2), compute metering, log buffer, sysvar state, account input/output serialization, and Hopper-aware result decoding — is implemented here from scratch. The harness is shaped around how Hopper programs actually want to be tested, with first-class hooks for Hopper headers, layout fingerprints, segment maps, and receipts.
+The harness is shaped around how Hopper programs actually want to be tested, with first-class hooks for Hopper headers, layout fingerprints, segment maps, and receipts. Hopper-aware decoders sit on every result type so layout-bearing accounts surface their identity directly.
 
-## Phase 1 (this release)
+## Phase 1 (default features) — inline simulators
 
-Ships a complete, working **built-in program** execution path. Drop-in for tests that exercise:
+A complete built-in program execution path with zero external runtime dep:
 
-- System program flows (transfers, account creation, allocation, reassignment of ownership) end-to-end.
-- Custom built-in programs registered for unit testing — useful when a Hopper program's business core is small enough that a hand-written Rust simulator gives the same coverage as the compiled `.so`.
-- Anything that needs Hopper-aware decoding of post-state account bytes.
+- System program flows (transfers, account creation, allocation, owner reassignment) end-to-end via Hopper's own `system_program::SystemProgram` simulator.
+- User-registered simulators for any Hopper program whose business core is small enough to hand-mirror in Rust.
+- Hopper-aware decoding of post-state account bytes.
 
-## Phase 2 (planned)
+Plus the full Quasar-parity verb surface:
 
-Wires [`solana-sbpf`](https://crates.io/crates/solana-sbpf) — Anza's canonical eBPF interpreter, the foundation Mollusk and Agave both build on — as the execution engine for real `.so` files. Adds the full Solana syscall surface (`sol_log_*`, `sol_panic_`, `sol_mem*`, `sol_get_*_sysvar`, `sol_create_program_address`, `sol_invoke_signed`, …), CPI dispatch back into the harness, account input-buffer serialization, and the realloc + return-data conventions. The seam is already in place — `engine::Engine` — so Phase 2 lands as one new file plus one extra fall-through line in `HopperSvm::dispatch_one`.
+- `simulate_instruction` / `simulate_instruction_chain` for non-mutating dry runs.
+- `process_instruction_chain` for atomic multi-instruction transactions.
+- `process_transaction(ixs, accounts, fee_payer)` with mainnet-style fee deduction.
+- `warp_to_slot(n)` / `warp_to_timestamp(t)` clock control.
+- Stateful overlay: `set_account` / `get_account` / `airdrop` / `create_account` / `set_token_balance` / `set_mint_supply` / `snapshot_accounts` / `restore_accounts` plus the `*_with_store` dispatch pair.
+- Result enrichment: `assert_success` / `assert_error` / `assert_inner_instruction_count` / `compute_units_consumed` / `execution_time_us` / `inner_instructions` / `decode_header` / `hopper_accounts` / `decoded_logs`.
+
+## Phase 2 (`bpf-execution` feature) — direct `solana-sbpf`
+
+Real `.so` execution via [`solana-sbpf`](https://crates.io/crates/solana-sbpf), Anza's canonical eBPF interpreter. Lower-fidelity than Phase 3 because syscall semantics and CPI dispatch are reimplemented here rather than delegated to the validator stack.
+
+API surface:
+
+- `add_program(id, name)` / `add_program_from_bytes(id, elf)` for default V3 loader registration.
+- `add_program_with_loader(id, LoaderKind::{V2, V3}, elf)` for explicit loader pinning.
+- `with_program(id, elf)` / `with_program_loader(id, loader, elf)` builder verbs.
+- `with_bundled_spl_token(elf)` / `with_bundled_spl_token_2022(elf)` / `with_bundled_spl_associated_token(elf)` for caller-supplied SPL ELFs (registered under V2, the mainnet-deployment loader).
+
+## Phase 3 (`agave-runtime` feature) — real Agave validator stack
+
+Mainnet-fidelity path. Replaces inline simulators with the same crates the validator runs:
+
+- `solana-program-runtime` for the invoke stack
+- `solana-bpf-loader-program` for ELF loading (Loader v2 + Loader-v3-Upgradeable)
+- `solana-compute-budget` for `SVMTransactionExecutionBudget` / `SVMTransactionExecutionCost`
+- `solana-sysvar-cache` for sysvar surfacing
+- `solana-system-program` for Agave's real `system_processor::Entrypoint`
+
+Enable with `cargo test --features agave-runtime`. Wire it into the harness:
+
+```rust
+let svm = HopperSvm::new().with_agave_runtime();
+let result = svm.process_instruction(&ix, &accounts);
+```
+
+After `with_agave_runtime`, every `process_instruction` whose program ID is registered in the engine's program cache routes through `InvokeContext::process_instruction` instead of the inline registry. Behaviour matches mainnet because it IS the validator's code. The system program is installed automatically; custom builtins register through `agave::AgaveEngine::add_builtin_function(id, account_size, BuiltinFunctionWithContext)`.
+
+End-to-end coverage in `crates/hopper-svm/src/agave/engine.rs::tests::system_transfer_through_agave_runtime` and `crates/hopper-svm/src/lib.rs::tests::process_instruction_routes_through_agave_runtime`: alice 1_000_000 → bob 250_000 transfer dispatches through Agave, balances flow back via `AccountSharedData`, the harness reports `>= 150 CU` consumed (Agave's system program declares that as its baseline).
 
 ## Usage
 

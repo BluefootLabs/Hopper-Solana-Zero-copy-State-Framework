@@ -43,4 +43,4 @@
 
 mod engine;
 
-pub use engine::{AgaveEngine, AgaveProgramKind};
+pub use engine::{AgaveEngine, AgaveEngineError, AgaveProgramKind};
