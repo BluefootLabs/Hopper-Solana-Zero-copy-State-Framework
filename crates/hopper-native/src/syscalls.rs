@@ -44,11 +44,7 @@ extern "C" {
     ) -> u64;
 
     /// SHA-256 hash.
-    pub fn sol_sha256(
-        vals: *const u8,
-        val_len: u64,
-        hash_result: *mut u8,
-    ) -> u64;
+    pub fn sol_sha256(vals: *const u8, val_len: u64, hash_result: *mut u8) -> u64;
 
     /// Validate whether a point lies on the selected curve.
     pub fn sol_curve_validate_point(
@@ -58,21 +54,13 @@ extern "C" {
     ) -> u64;
 
     /// Keccak-256 hash.
-    pub fn sol_keccak256(
-        vals: *const u8,
-        val_len: u64,
-        hash_result: *mut u8,
-    ) -> u64;
+    pub fn sol_keccak256(vals: *const u8, val_len: u64, hash_result: *mut u8) -> u64;
 
     /// Set return data for the current instruction.
     pub fn sol_set_return_data(data: *const u8, length: u64);
 
     /// Get return data from the previous CPI.
-    pub fn sol_get_return_data(
-        data: *mut u8,
-        length: u64,
-        program_id: *mut u8,
-    ) -> u64;
+    pub fn sol_get_return_data(data: *mut u8, length: u64, program_id: *mut u8) -> u64;
 
     /// Get the current clock sysvar.
     pub fn sol_get_clock_sysvar(addr: *mut u8) -> u64;

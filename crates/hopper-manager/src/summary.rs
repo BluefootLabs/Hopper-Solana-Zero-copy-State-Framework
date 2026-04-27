@@ -56,7 +56,11 @@ pub fn layouts_report(manifest: &ProgramManifest) -> String {
 /// for every layout in the manifest.
 pub fn fingerprints_report(manifest: &ProgramManifest) -> String {
     let mut out = String::new();
-    let _ = writeln!(out, "=== Layout Fingerprints ({}) ===", manifest.layouts.len());
+    let _ = writeln!(
+        out,
+        "=== Layout Fingerprints ({}) ===",
+        manifest.layouts.len()
+    );
     let _ = writeln!(out);
     for layout in manifest.layouts.iter() {
         let _ = writeln!(out, "{} v{}", layout.name, layout.version);
@@ -71,11 +75,7 @@ pub fn fingerprints_report(manifest: &ProgramManifest) -> String {
 /// Render the `manager policies` report.
 pub fn policies_report(manifest: &ProgramManifest) -> String {
     let mut out = String::new();
-    let _ = writeln!(
-        out,
-        "=== Policy Packs ({}) ===",
-        manifest.policies.len()
-    );
+    let _ = writeln!(out, "=== Policy Packs ({}) ===", manifest.policies.len());
     let _ = writeln!(out);
     if manifest.policies.is_empty() {
         let _ = writeln!(out, "(no policy packs declared)");
@@ -84,25 +84,13 @@ pub fn policies_report(manifest: &ProgramManifest) -> String {
     for policy in manifest.policies.iter() {
         let _ = writeln!(out, "- {}", policy.name);
         if !policy.capabilities.is_empty() {
-            let _ = writeln!(
-                out,
-                "    capabilities : {}",
-                policy.capabilities.join(", ")
-            );
+            let _ = writeln!(out, "    capabilities : {}", policy.capabilities.join(", "));
         }
         if !policy.requirements.is_empty() {
-            let _ = writeln!(
-                out,
-                "    requirements : {}",
-                policy.requirements.join(", ")
-            );
+            let _ = writeln!(out, "    requirements : {}", policy.requirements.join(", "));
         }
         if !policy.invariants.is_empty() {
-            let _ = writeln!(
-                out,
-                "    invariants   : {}",
-                policy.invariants.join(", ")
-            );
+            let _ = writeln!(out, "    invariants   : {}", policy.invariants.join(", "));
         }
         if !policy.receipt_profile.is_empty() {
             let _ = writeln!(out, "    receipt      : {}", policy.receipt_profile);
@@ -144,10 +132,7 @@ pub fn events_report(manifest: &ProgramManifest) -> String {
 ///
 /// Accepts either the instruction tag (as a decimal string) or the name.
 /// Returns `Err(String)` if the instruction isn't in the manifest.
-pub fn instruction_report(
-    manifest: &ProgramManifest,
-    selector: &str,
-) -> Result<String, String> {
+pub fn instruction_report(manifest: &ProgramManifest, selector: &str) -> Result<String, String> {
     let instr = resolve_instruction(manifest, selector).ok_or_else(|| {
         format!(
             "no instruction matches '{}' (known: {})",
@@ -157,7 +142,11 @@ pub fn instruction_report(
     })?;
 
     let mut out = String::new();
-    let _ = writeln!(out, "=== Instruction: {} (tag {}) ===", instr.name, instr.tag);
+    let _ = writeln!(
+        out,
+        "=== Instruction: {} (tag {}) ===",
+        instr.name, instr.tag
+    );
     if instr.receipt_expected {
         let _ = writeln!(out, "  receipt: expected");
     }
@@ -220,10 +209,7 @@ fn resolve_instruction<'a>(
             return Some(ix);
         }
     }
-    manifest
-        .instructions
-        .iter()
-        .find(|ix| ix.name == selector)
+    manifest.instructions.iter().find(|ix| ix.name == selector)
 }
 
 fn known_instruction_names(manifest: &ProgramManifest) -> String {

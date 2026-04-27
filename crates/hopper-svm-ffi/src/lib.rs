@@ -205,10 +205,7 @@ pub unsafe extern "C" fn hopper_svm_with_solana_runtime(handle: HopperSvmHandle)
 /// SAFETY: `handle` must be a non-null handle produced by
 /// [`hopper_svm_new`].
 #[no_mangle]
-pub unsafe extern "C" fn hopper_svm_set_compute_budget(
-    handle: HopperSvmHandle,
-    units: u64,
-) {
+pub unsafe extern "C" fn hopper_svm_set_compute_budget(handle: HopperSvmHandle, units: u64) {
     if handle.is_null() {
         return;
     }
@@ -430,9 +427,7 @@ pub unsafe extern "C" fn hopper_svm_dispatch(
 /// SAFETY: `handle` must be a non-null handle from
 /// [`hopper_svm_dispatch`].
 #[no_mangle]
-pub unsafe extern "C" fn hopper_svm_outcome_is_error(
-    handle: ExecutionResultHandle,
-) -> bool {
+pub unsafe extern "C" fn hopper_svm_outcome_is_error(handle: ExecutionResultHandle) -> bool {
     if handle.is_null() {
         return false;
     }
@@ -466,9 +461,7 @@ pub unsafe extern "C" fn hopper_svm_outcome_error_message(
 /// SAFETY: `handle` must be a non-null handle from
 /// [`hopper_svm_dispatch`].
 #[no_mangle]
-pub unsafe extern "C" fn hopper_svm_outcome_consumed_units(
-    handle: ExecutionResultHandle,
-) -> u64 {
+pub unsafe extern "C" fn hopper_svm_outcome_consumed_units(handle: ExecutionResultHandle) -> u64 {
     if handle.is_null() {
         return 0;
     }
@@ -499,9 +492,7 @@ pub unsafe extern "C" fn hopper_svm_outcome_transaction_fee_paid(
 /// SAFETY: `handle` must be a non-null handle from
 /// [`hopper_svm_dispatch`].
 #[no_mangle]
-pub unsafe extern "C" fn hopper_svm_outcome_log_count(
-    handle: ExecutionResultHandle,
-) -> usize {
+pub unsafe extern "C" fn hopper_svm_outcome_log_count(handle: ExecutionResultHandle) -> usize {
     if handle.is_null() {
         return 0;
     }
@@ -536,9 +527,7 @@ pub unsafe extern "C" fn hopper_svm_outcome_log_at(
 /// SAFETY: `handle` must be a non-null handle from
 /// [`hopper_svm_dispatch`].
 #[no_mangle]
-pub unsafe extern "C" fn hopper_svm_outcome_account_count(
-    handle: ExecutionResultHandle,
-) -> usize {
+pub unsafe extern "C" fn hopper_svm_outcome_account_count(handle: ExecutionResultHandle) -> usize {
     if handle.is_null() {
         return 0;
     }
@@ -751,12 +740,7 @@ mod tests {
             let l = hopper_svm_get_lamports(h, addr.as_ptr());
             assert_eq!(l, 12_345);
             let mut buf = [0u8; 32];
-            let n = hopper_svm_get_account_data(
-                h,
-                addr.as_ptr(),
-                buf.as_mut_ptr(),
-                buf.len(),
-            );
+            let n = hopper_svm_get_account_data(h, addr.as_ptr(), buf.as_mut_ptr(), buf.len());
             assert_eq!(n, data.len());
             assert_eq!(&buf[..n], data);
             hopper_svm_free(h);
@@ -771,8 +755,24 @@ mod tests {
         let addr = [7u8; 32];
         let owner = [9u8; 32];
         unsafe {
-            hopper_svm_set_account(h, addr.as_ptr(), 100, owner.as_ptr(), std::ptr::null(), 0, false);
-            hopper_svm_set_account(h, addr.as_ptr(), 200, owner.as_ptr(), std::ptr::null(), 0, false);
+            hopper_svm_set_account(
+                h,
+                addr.as_ptr(),
+                100,
+                owner.as_ptr(),
+                std::ptr::null(),
+                0,
+                false,
+            );
+            hopper_svm_set_account(
+                h,
+                addr.as_ptr(),
+                200,
+                owner.as_ptr(),
+                std::ptr::null(),
+                0,
+                false,
+            );
             assert_eq!(hopper_svm_get_lamports(h, addr.as_ptr()), 200);
             hopper_svm_free(h);
         }

@@ -75,10 +75,7 @@ pub fn check_liquidatable(
 /// let max_repay = max_liquidation_amount(debt, 5_000)?;
 /// ```
 #[inline(always)]
-pub fn max_liquidation_amount(
-    debt_value: u64,
-    close_factor_bps: u64,
-) -> Result<u64, ProgramError> {
+pub fn max_liquidation_amount(debt_value: u64, close_factor_bps: u64) -> Result<u64, ProgramError> {
     let max = (debt_value as u128)
         .checked_mul(close_factor_bps as u128)
         .ok_or(ProgramError::ArithmeticOverflow)?
@@ -96,10 +93,7 @@ pub fn max_liquidation_amount(
 /// let seized = liquidation_seize_amount(repay, 500)?;
 /// ```
 #[inline(always)]
-pub fn liquidation_seize_amount(
-    repay_amount: u64,
-    bonus_bps: u64,
-) -> Result<u64, ProgramError> {
+pub fn liquidation_seize_amount(repay_amount: u64, bonus_bps: u64) -> Result<u64, ProgramError> {
     let seized = (repay_amount as u128)
         .checked_mul((10_000u64 + bonus_bps) as u128)
         .ok_or(ProgramError::ArithmeticOverflow)?

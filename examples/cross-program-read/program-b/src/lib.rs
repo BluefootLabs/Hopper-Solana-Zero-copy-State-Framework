@@ -1,4 +1,4 @@
-﻿//! # Program B -- Cross-Program Vault Reader
+//! # Program B -- Cross-Program Vault Reader
 //!
 //! Reads Program A's `Vault` account using `hopper_interface!`.
 //!
@@ -70,7 +70,7 @@ hopper_interface! {
 // constant or an instruction-selected target.
 
 const PROGRAM_A_ID: Address = Address::new_from_array(five8_const::decode_32_const(
-    "11111111111111111111111111111112"
+    "11111111111111111111111111111112",
 ));
 
 // --- Errors ---------------------------------------------------------
@@ -139,17 +139,12 @@ fn process_check_vault_min_balance(
         return Err(ProgramError::InvalidInstructionData);
     }
     let min_balance = u64::from_le_bytes([
-        data[0], data[1], data[2], data[3],
-        data[4], data[5], data[6], data[7],
+        data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7],
     ]);
 
     // Use a TrustProfile for configurable validation.
     // Strict: owner + layout_id + exact size + reject closed.
-    let profile = TrustProfile::strict(
-        &PROGRAM_A_ID,
-        &Vault::LAYOUT_ID,
-        Vault::LEN,
-    );
+    let profile = TrustProfile::strict(&PROGRAM_A_ID, &Vault::LAYOUT_ID, Vault::LEN);
     let verified = Vault::load_with_profile(vault_account, &profile)?;
     let vault = verified.get();
 

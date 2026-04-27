@@ -85,9 +85,7 @@ pub fn check_balance_delta(
 
     let diff = actual_delta.abs_diff(expected_delta);
 
-    let max_allowed = (expected_delta as u128)
-        .saturating_mul(tolerance_bps as u128)
-        / 10_000;
+    let max_allowed = (expected_delta as u128).saturating_mul(tolerance_bps as u128) / 10_000;
 
     if diff as u128 > max_allowed {
         return Err(ProgramError::InvalidAccountData);

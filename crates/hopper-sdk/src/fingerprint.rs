@@ -82,10 +82,7 @@ pub fn check_in_idl(
 
 /// Identify which layout in a `ProgramIdl` a blob belongs to by fingerprint.
 /// Returns `None` if no layout matches.
-pub fn identify_in_idl<'a>(
-    bytes: &[u8],
-    idl: &'a ProgramIdl,
-) -> Option<&'a LayoutManifest> {
+pub fn identify_in_idl<'a>(bytes: &[u8], idl: &'a ProgramIdl) -> Option<&'a LayoutManifest> {
     let actual = read_layout_id(bytes).ok()?;
     let mut i = 0;
     while i < idl.accounts.len() {

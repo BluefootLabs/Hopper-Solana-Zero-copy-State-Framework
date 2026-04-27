@@ -1,4 +1,4 @@
-﻿//! # Hopper Vault Example
+//! # Hopper Vault Example
 //!
 //! Demonstrates the Hopper framework with a simple SOL vault program.
 //!
@@ -69,11 +69,7 @@ fn process_instruction(
 
 // --- Init -----------------------------------------------------------
 
-fn process_init(
-    program_id: &Address,
-    accounts: &[AccountView],
-    _data: &[u8],
-) -> ProgramResult {
+fn process_init(program_id: &Address, accounts: &[AccountView], _data: &[u8]) -> ProgramResult {
     if accounts.len() < 3 {
         return Err(ProgramError::NotEnoughAccountKeys);
     }
@@ -109,8 +105,7 @@ impl<'a> InstructionArgs<'a> for DepositArgs {
         }
         Ok(Self {
             amount: u64::from_le_bytes([
-                data[0], data[1], data[2], data[3],
-                data[4], data[5], data[6], data[7],
+                data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7],
             ]),
         })
     }
@@ -128,11 +123,7 @@ struct DepositAccounts<'a> {
     vault: &'a AccountView,
 }
 
-fn process_deposit(
-    program_id: &Address,
-    accounts: &[AccountView],
-    data: &[u8],
-) -> ProgramResult {
+fn process_deposit(program_id: &Address, accounts: &[AccountView], data: &[u8]) -> ProgramResult {
     let args = DepositArgs::parse(data)?;
     args.validate()?;
 
@@ -155,18 +146,22 @@ fn process_deposit(
             // Transfer SOL: depositor -> vault
             let dep_lamports = ctx.resolved().depositor.lamports();
             ctx.resolved().depositor.set_lamports(
-                dep_lamports.checked_sub(args.amount)
+                dep_lamports
+                    .checked_sub(args.amount)
                     .ok_or(ProgramError::InsufficientFunds)?,
             );
             let vault_lamports = ctx.resolved().vault.lamports();
             ctx.resolved().vault.set_lamports(
-                vault_lamports.checked_add(args.amount)
+                vault_lamports
+                    .checked_add(args.amount)
                     .ok_or(ProgramError::ArithmeticOverflow)?,
             );
 
             // Update balance
             let v = vault.get_mut();
-            let new_balance = v.balance.get()
+            let new_balance = v
+                .balance
+                .get()
                 .checked_add(args.amount)
                 .ok_or(ProgramError::ArithmeticOverflow)?;
             v.balance = WireU64::new(new_balance);
@@ -177,11 +172,7 @@ fn process_deposit(
 
 // --- Withdraw (phased) ----------------------------------------------
 
-fn process_withdraw(
-    program_id: &Address,
-    accounts: &[AccountView],
-    data: &[u8],
-) -> ProgramResult {
+fn process_withdraw(program_id: &Address, accounts: &[AccountView], data: &[u8]) -> ProgramResult {
     let args = DepositArgs::parse(data)?; // Same format: 8-byte LE amount
     args.validate()?;
 
@@ -214,12 +205,14 @@ fn process_withdraw(
             // Transfer SOL: vault -> authority
             let vault_lamports = ctx.resolved().vault.lamports();
             ctx.resolved().vault.set_lamports(
-                vault_lamports.checked_sub(args.amount)
+                vault_lamports
+                    .checked_sub(args.amount)
                     .ok_or(ProgramError::InsufficientFunds)?,
             );
             let auth_lamports = ctx.resolved().depositor.lamports();
             ctx.resolved().depositor.set_lamports(
-                auth_lamports.checked_add(args.amount)
+                auth_lamports
+                    .checked_add(args.amount)
                     .ok_or(ProgramError::ArithmeticOverflow)?,
             );
 

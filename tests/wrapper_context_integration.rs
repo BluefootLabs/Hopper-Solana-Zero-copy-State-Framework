@@ -8,9 +8,7 @@
 
 #![cfg(feature = "proc-macros")]
 
-use hopper::__runtime::{
-    Account, HopperSigner, InitAccount, Program, ProgramId, SystemId,
-};
+use hopper::__runtime::{Account, HopperSigner, InitAccount, Program, ProgramId, SystemId};
 
 #[test]
 fn signer_wrapper_is_repr_transparent_pointer_sized() {

@@ -114,11 +114,11 @@ pub use builtin::BuiltinProgram;
 pub use compute::ComputeBudget;
 pub use engine::{Engine, ExecutionOutcome};
 pub use error::HopperSvmError;
+pub use fees::FeeCalculator;
 pub use log::LogCapture;
 pub use result::HopperExecutionResult;
-pub use fees::FeeCalculator;
-pub use sysvar::{Clock, Rent, Sysvars};
 pub use system_program::SystemProgram;
+pub use sysvar::{Clock, Rent, Sysvars};
 pub use validation::ValidationPolicy;
 
 pub use solana_sdk::account::Account;
@@ -145,10 +145,8 @@ pub const SPL_TOKEN_2022_PROGRAM_ID: Pubkey = spl_token_2022::ID;
 /// the rest of this crate uses. The bytes are identical; the
 /// re-typing is what changed.
 pub const ASSOCIATED_TOKEN_PROGRAM_ID: Pubkey = Pubkey::new_from_array([
-    0x8c, 0x97, 0x25, 0x8f, 0x4e, 0x24, 0x89, 0xf1,
-    0xbb, 0x3d, 0x10, 0x29, 0x14, 0x8e, 0x0d, 0x83,
-    0x0b, 0x5a, 0x13, 0x99, 0xda, 0xff, 0x10, 0x84,
-    0x04, 0x8e, 0x7b, 0xd8, 0xdb, 0xe9, 0xf8, 0x59,
+    0x8c, 0x97, 0x25, 0x8f, 0x4e, 0x24, 0x89, 0xf1, 0xbb, 0x3d, 0x10, 0x29, 0x14, 0x8e, 0x0d, 0x83,
+    0x0b, 0x5a, 0x13, 0x99, 0xda, 0xff, 0x10, 0x84, 0x04, 0x8e, 0x7b, 0xd8, 0xdb, 0xe9, 0xf8, 0x59,
 ]);
 
 use std::collections::HashMap;
@@ -270,10 +268,7 @@ impl HopperSvm {
     /// epoch 0, default rent rate.
     pub fn new() -> Self {
         let mut registry: HashMap<Pubkey, Arc<dyn BuiltinProgram>> = HashMap::new();
-        registry.insert(
-            solana_sdk::system_program::id(),
-            Arc::new(SystemProgram),
-        );
+        registry.insert(solana_sdk::system_program::id(), Arc::new(SystemProgram));
         Self {
             registry: Arc::new(Mutex::new(registry)),
             sysvars: Arc::new(Mutex::new(Sysvars::default())),
@@ -379,10 +374,7 @@ impl HopperSvm {
     /// pattern — Loader v2, registered under
     /// [`SPL_TOKEN_2022_PROGRAM_ID`].
     #[cfg(feature = "agave-runtime")]
-    pub fn with_real_spl_token_2022(
-        self,
-        elf: &[u8],
-    ) -> Result<Self, HopperSvmAgaveLoadError> {
+    pub fn with_real_spl_token_2022(self, elf: &[u8]) -> Result<Self, HopperSvmAgaveLoadError> {
         self.load_bpf_program_through_agave(
             SPL_TOKEN_2022_PROGRAM_ID,
             agave::AgaveProgramKind::BpfV2,
@@ -575,8 +567,11 @@ impl HopperSvm {
     /// default feature set.
     #[cfg(feature = "bpf-execution")]
     pub fn with_bundled_spl_token(self, elf: Vec<u8>) -> Self {
-        self.bpf_engine
-            .add_elf_with_loader(&SPL_TOKEN_PROGRAM_ID, elf, bpf::engine::LoaderKind::V2);
+        self.bpf_engine.add_elf_with_loader(
+            &SPL_TOKEN_PROGRAM_ID,
+            elf,
+            bpf::engine::LoaderKind::V2,
+        );
         self
     }
 
@@ -663,10 +658,7 @@ impl HopperSvm {
     /// needed — the create + initialise flow is deterministic
     /// and expressible in terms of direct account-state mutation.
     pub fn with_spl_associated_token_simulator(self) -> Self {
-        self.with_builtin(
-            ASSOCIATED_TOKEN_PROGRAM_ID,
-            spl::ata::SplAtaSimulator,
-        )
+        self.with_builtin(ASSOCIATED_TOKEN_PROGRAM_ID, spl::ata::SplAtaSimulator)
     }
 
     /// Convenience: register all three SPL simulators in one
@@ -689,7 +681,10 @@ impl HopperSvm {
     /// fed into [`resolve_address_table_lookup`] without
     /// translation.
     pub fn with_alt_program(self) -> Self {
-        self.with_builtin(spl::alt_program::ALT_PROGRAM_ID, spl::alt_program::AltProgramSimulator)
+        self.with_builtin(
+            spl::alt_program::ALT_PROGRAM_ID,
+            spl::alt_program::AltProgramSimulator,
+        )
     }
 
     /// Register the Config program simulator at
@@ -1366,9 +1361,7 @@ impl HopperSvm {
             log_capture.section(&format!("ix[{i}] @ {}", ix.program_id));
             let outcome = self.dispatch_one(ix, &state, &mut log_capture);
             for upd in &outcome.resulting_accounts {
-                if let Some(existing) =
-                    state.iter_mut().find(|a| a.address == upd.address)
-                {
+                if let Some(existing) = state.iter_mut().find(|a| a.address == upd.address) {
                     *existing = upd.clone();
                 } else {
                     state.push(upd.clone());
@@ -1416,9 +1409,7 @@ impl HopperSvm {
             // accounts so the next step sees the writes. Accounts the
             // step didn't touch carry through unchanged.
             for upd in &outcome.resulting_accounts {
-                if let Some(existing) =
-                    state.iter_mut().find(|a| a.address == upd.address)
-                {
+                if let Some(existing) = state.iter_mut().find(|a| a.address == upd.address) {
                     *existing = upd.clone();
                 } else {
                     state.push(upd.clone());
@@ -1486,8 +1477,10 @@ impl HopperSvm {
         // program account is appended at the end if not already in
         // the slice; Agave's runtime needs an account at
         // `program_indices[0]` whose owner is `native_loader::id`.
-        let mut tx_accounts: Vec<(solana_sdk::pubkey::Pubkey, solana_sdk::account::AccountSharedData)> =
-            Vec::with_capacity(accounts.len() + 1);
+        let mut tx_accounts: Vec<(
+            solana_sdk::pubkey::Pubkey,
+            solana_sdk::account::AccountSharedData,
+        )> = Vec::with_capacity(accounts.len() + 1);
         for ka in accounts {
             let acct = SolanaAccount {
                 lamports: ka.lamports,
@@ -1717,10 +1710,7 @@ impl HopperSvm {
                 // outer transcript so a snapshot test sees the
                 // exact rule that fired, then roll back the
                 // mutations and surface the structured error.
-                logs.line(format!(
-                    "Validation failed: {}",
-                    err.describe()
-                ));
+                logs.line(format!("Validation failed: {}", err.describe()));
                 outcome.resulting_accounts = pre.to_vec();
                 outcome.return_data = Vec::new();
                 outcome.error = Some(err);

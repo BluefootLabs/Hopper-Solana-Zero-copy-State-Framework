@@ -1,4 +1,4 @@
-﻿//! # Hopper Registry Example
+//! # Hopper Registry Example
 //!
 //! Demonstrates Hopper's advanced features in a single program:
 //!
@@ -27,8 +27,8 @@
 #![cfg_attr(target_os = "solana", no_std)]
 #![allow(dead_code, unused_variables)]
 
-use hopper::prelude::*;
 use hopper::hopper_core::account;
+use hopper::prelude::*;
 
 #[cfg(target_os = "solana")]
 mod __hopper_sbf {
@@ -82,8 +82,8 @@ hopper_layout! {
 #[derive(Clone, Copy)]
 #[repr(C)]
 struct AuditRecord {
-    actor:     [u8; 32],
-    action:    [u8; 4],
+    actor: [u8; 32],
+    action: [u8; 4],
     timestamp: [u8; 8],
     data_hash: [u8; 8],
 }
@@ -214,7 +214,12 @@ fn process_init_registry(
     // Core data is already zeroed from account zero_init
     if core_data_mut.len() >= RegistryCore::LEN {
         // Write a mini header for the segment overlay
-        write_header(core_data_mut, RegistryCore::DISC, RegistryCore::VERSION, &RegistryCore::LAYOUT_ID)?;
+        write_header(
+            core_data_mut,
+            RegistryCore::DISC,
+            RegistryCore::VERSION,
+            &RegistryCore::LAYOUT_ID,
+        )?;
         let core = RegistryCore::overlay_mut(core_data_mut)?;
         core.authority = TypedAddress::from_account(payer);
         // Copy name from instruction data if provided
@@ -240,11 +245,7 @@ fn process_init_registry(
 
 // --- Add Entry ---
 
-fn process_add_entry(
-    program_id: &Address,
-    accounts: &[AccountView],
-    data: &[u8],
-) -> ProgramResult {
+fn process_add_entry(program_id: &Address, accounts: &[AccountView], data: &[u8]) -> ProgramResult {
     if accounts.len() < 2 {
         return Err(ProgramError::NotEnoughAccountKeys);
     }
@@ -322,7 +323,12 @@ fn process_add_entry(
     }
 
     let entry_slice = &mut entries_data_ro[entry_offset..entry_end];
-    write_header(entry_slice, RegistryEntry::DISC, RegistryEntry::VERSION, &RegistryEntry::LAYOUT_ID)?;
+    write_header(
+        entry_slice,
+        RegistryEntry::DISC,
+        RegistryEntry::VERSION,
+        &RegistryEntry::LAYOUT_ID,
+    )?;
     let entry = RegistryEntry::overlay_mut(entry_slice)?;
     entry.key.copy_from_slice(new_key);
     entry.value.copy_from_slice(&data[32..48]);
@@ -367,10 +373,7 @@ fn process_add_entry(
         journal.append(record)?;
     }
 
-    emit_slices(&[
-        b"entry_added",
-        new_key,
-    ]);
+    emit_slices(&[b"entry_added", new_key]);
 
     Ok(())
 }
@@ -390,9 +393,9 @@ fn process_read_virtual(
 
     // Virtual state: map 3 accounts into a logical view
     let vstate = VirtualState::<3>::new()
-        .map(0, 0)   // Slot 0 -> Account 0 (owned, read-only)
-        .map(1, 1)   // Slot 1 -> Account 1 (owned, read-only)
-        .map_foreign(2, 2);  // Slot 2 -> Account 2 (foreign read)
+        .map(0, 0) // Slot 0 -> Account 0 (owned, read-only)
+        .map(1, 1) // Slot 1 -> Account 1 (owned, read-only)
+        .map_foreign(2, 2); // Slot 2 -> Account 2 (foreign read)
 
     // Validate all slot constraints
     vstate.validate(accounts, program_id)?;

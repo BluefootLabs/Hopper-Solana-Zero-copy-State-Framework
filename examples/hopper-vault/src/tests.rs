@@ -37,7 +37,12 @@ fn seeded_user_account(program_id: &Address, lamports: u64) -> Account {
     Account::new(lamports, 0, program_id)
 }
 
-fn seeded_vault_account(program_id: &Address, authority: Address, lamports: u64, balance: u64) -> Account {
+fn seeded_vault_account(
+    program_id: &Address,
+    authority: Address,
+    lamports: u64,
+    balance: u64,
+) -> Account {
     let mut account = Account::new(lamports, crate::Vault::LEN, program_id);
     crate::Vault::write_init_header(&mut account.data).unwrap();
     let vault = crate::Vault::overlay_mut(&mut account.data).unwrap();
@@ -183,13 +188,11 @@ fn test_withdraw_rejects_unsigned_user() {
         "withdraw without signer unexpectedly succeeded"
     );
     assert_eq!(
-        withdraw_result.resulting_accounts[0].1.lamports,
-        user_after_deposit.lamports,
+        withdraw_result.resulting_accounts[0].1.lamports, user_after_deposit.lamports,
         "unsigned withdraw mutated the authority account"
     );
     assert_eq!(
-        withdraw_result.resulting_accounts[1].1.lamports,
-        vault_after_deposit.lamports,
+        withdraw_result.resulting_accounts[1].1.lamports, vault_after_deposit.lamports,
         "unsigned withdraw mutated the vault account"
     );
 }

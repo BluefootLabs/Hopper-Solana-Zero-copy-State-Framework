@@ -5,11 +5,11 @@
 //! pointer to a `RuntimeAccount` in that buffer, providing safe accessors
 //! for address, owner, flags, lamports, and data.
 
-use crate::address::{Address, address_eq};
+use crate::address::{address_eq, Address};
 use crate::borrow::{Ref, RefMut};
 use crate::error::ProgramError;
 use crate::raw_account::RuntimeAccount;
-use crate::{MAX_PERMITTED_DATA_INCREASE, NOT_BORROWED, ProgramResult};
+use crate::{ProgramResult, MAX_PERMITTED_DATA_INCREASE, NOT_BORROWED};
 
 // ── AccountView ──────────────────────────────────────────────────────
 
@@ -115,7 +115,9 @@ impl AccountView {
     /// Set the lamport balance.
     #[inline(always)]
     pub fn set_lamports(&self, lamports: u64) {
-        unsafe { (*self.raw).lamports = lamports; }
+        unsafe {
+            (*self.raw).lamports = lamports;
+        }
     }
 
     // ── Ownership ────────────────────────────────────────────────────
@@ -135,7 +137,9 @@ impl AccountView {
     /// transfer is authorized by the current owner program.
     #[inline(always)]
     pub unsafe fn assign(&self, new_owner: &Address) {
-        unsafe { (*self.raw).owner = new_owner.clone(); }
+        unsafe {
+            (*self.raw).owner = new_owner.clone();
+        }
     }
 
     // ── Borrow tracking ─────────────────────────────────────────────
@@ -217,7 +221,9 @@ impl AccountView {
             // Overflow into exclusive-borrow sentinel.
             return Err(ProgramError::AccountBorrowFailed);
         }
-        unsafe { *state_ptr = new_state; }
+        unsafe {
+            *state_ptr = new_state;
+        }
         let data = unsafe { self.borrow_unchecked() };
         Ok(Ref::new(data, state_ptr))
     }
@@ -229,7 +235,9 @@ impl AccountView {
     pub fn try_borrow_mut(&self) -> Result<RefMut<'_, [u8]>, ProgramError> {
         self.check_borrow_mut()?;
         let state_ptr = unsafe { &mut (*self.raw).borrow_state as *mut u8 };
-        unsafe { *state_ptr = 0; } // Mark exclusive.
+        unsafe {
+            *state_ptr = 0;
+        } // Mark exclusive.
         let data = unsafe { self.borrow_unchecked_mut() };
         Ok(RefMut::new(data, state_ptr))
     }
@@ -238,7 +246,11 @@ impl AccountView {
 
     /// Project a typed segment from account data with native borrow tracking.
     #[inline(always)]
-    pub fn segment_ref<T: crate::pod::Pod>(&self, offset: u32, size: u32) -> Result<Ref<'_, T>, ProgramError> {
+    pub fn segment_ref<T: crate::pod::Pod>(
+        &self,
+        offset: u32,
+        size: u32,
+    ) -> Result<Ref<'_, T>, ProgramError> {
         let expected_size = core::mem::size_of::<T>() as u32;
         if size != expected_size {
             return Err(ProgramError::InvalidArgument);
@@ -258,7 +270,9 @@ impl AccountView {
         if new_state == 0 {
             return Err(ProgramError::AccountBorrowFailed);
         }
-        unsafe { *state_ptr = new_state; }
+        unsafe {
+            *state_ptr = new_state;
+        }
 
         let ptr = unsafe { self.data_ptr().add(offset as usize) as *const T };
         Ok(Ref::new(unsafe { &*ptr }, state_ptr))
@@ -272,7 +286,10 @@ impl AccountView {
     /// - `offset + size_of::<T>()` does not overflow
     /// - `offset + size_of::<T>() <= data_len()`
     #[inline(always)]
-    pub unsafe fn segment_ref_unchecked<T: crate::pod::Pod>(&self, offset: u32) -> Result<Ref<'_, T>, ProgramError> {
+    pub unsafe fn segment_ref_unchecked<T: crate::pod::Pod>(
+        &self,
+        offset: u32,
+    ) -> Result<Ref<'_, T>, ProgramError> {
         self.check_borrow()?;
         let state_ptr = unsafe { &mut (*self.raw).borrow_state as *mut u8 };
         let state = unsafe { *state_ptr };
@@ -280,7 +297,9 @@ impl AccountView {
         if new_state == 0 {
             return Err(ProgramError::AccountBorrowFailed);
         }
-        unsafe { *state_ptr = new_state; }
+        unsafe {
+            *state_ptr = new_state;
+        }
 
         let ptr = unsafe { self.data_ptr().add(offset as usize) as *const T };
         Ok(Ref::new(unsafe { &*ptr }, state_ptr))
@@ -288,7 +307,11 @@ impl AccountView {
 
     /// Project a mutable typed segment from account data with native borrow tracking.
     #[inline(always)]
-    pub fn segment_mut<T: crate::pod::Pod>(&self, offset: u32, size: u32) -> Result<RefMut<'_, T>, ProgramError> {
+    pub fn segment_mut<T: crate::pod::Pod>(
+        &self,
+        offset: u32,
+        size: u32,
+    ) -> Result<RefMut<'_, T>, ProgramError> {
         self.require_writable()?;
 
         let expected_size = core::mem::size_of::<T>() as u32;
@@ -305,7 +328,9 @@ impl AccountView {
 
         self.check_borrow_mut()?;
         let state_ptr = unsafe { &mut (*self.raw).borrow_state as *mut u8 };
-        unsafe { *state_ptr = 0; }
+        unsafe {
+            *state_ptr = 0;
+        }
 
         let ptr = unsafe { self.data_ptr().add(offset as usize) as *mut T };
         Ok(RefMut::new(unsafe { &mut *ptr }, state_ptr))
@@ -320,10 +345,15 @@ impl AccountView {
     /// - `offset + size_of::<T>()` does not overflow
     /// - `offset + size_of::<T>() <= data_len()`
     #[inline(always)]
-    pub unsafe fn segment_mut_unchecked<T: crate::pod::Pod>(&self, offset: u32) -> Result<RefMut<'_, T>, ProgramError> {
+    pub unsafe fn segment_mut_unchecked<T: crate::pod::Pod>(
+        &self,
+        offset: u32,
+    ) -> Result<RefMut<'_, T>, ProgramError> {
         self.check_borrow_mut()?;
         let state_ptr = unsafe { &mut (*self.raw).borrow_state as *mut u8 };
-        unsafe { *state_ptr = 0; }
+        unsafe {
+            *state_ptr = 0;
+        }
 
         let ptr = unsafe { self.data_ptr().add(offset as usize) as *mut T };
         Ok(RefMut::new(unsafe { &mut *ptr }, state_ptr))
@@ -443,9 +473,7 @@ impl AccountView {
     pub fn data_ptr(&self) -> *mut u8 {
         // SAFETY: Adding the struct size to the base pointer yields the
         // first data byte. The runtime guarantees this memory is valid.
-        unsafe {
-            (self.raw as *mut u8).add(core::mem::size_of::<RuntimeAccount>())
-        }
+        unsafe { (self.raw as *mut u8).add(core::mem::size_of::<RuntimeAccount>()) }
     }
 
     // ── Hopper Innovations ───────────────────────────────────────────
@@ -518,9 +546,7 @@ impl AccountView {
         if self.data_len() < 12 {
             return None;
         }
-        unsafe {
-            Some(&*(self.data_ptr().add(4) as *const [u8; 8]))
-        }
+        unsafe { Some(&*(self.data_ptr().add(4) as *const [u8; 8])) }
     }
 
     /// Verify that this account has the given discriminator.
@@ -675,10 +701,18 @@ impl AccountView {
         // On little-endian: is_signer = bits 8-15, is_writable = bits 16-23, executable = bits 24-31.
         let h = self.header_u32();
         let mut f: u8 = 0;
-        if h & 0x0000_FF00 != 0 { f |= 0b0001; } // is_signer
-        if h & 0x00FF_0000 != 0 { f |= 0b0010; } // is_writable
-        if h & 0xFF00_0000 != 0 { f |= 0b0100; } // executable
-        if !self.is_data_empty() { f |= 0b1000; }
+        if h & 0x0000_FF00 != 0 {
+            f |= 0b0001;
+        } // is_signer
+        if h & 0x00FF_0000 != 0 {
+            f |= 0b0010;
+        } // is_writable
+        if h & 0xFF00_0000 != 0 {
+            f |= 0b0100;
+        } // executable
+        if !self.is_data_empty() {
+            f |= 0b1000;
+        }
         f
     }
 
@@ -719,7 +753,10 @@ impl<'a> RemainingAccounts<'a> {
     /// Create from a slice of the remaining accounts.
     #[inline(always)]
     pub fn new(accounts: &'a [AccountView]) -> Self {
-        Self { accounts, cursor: 0 }
+        Self {
+            accounts,
+            cursor: 0,
+        }
     }
 
     /// Number of accounts remaining.

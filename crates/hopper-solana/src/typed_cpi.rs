@@ -4,9 +4,9 @@
 //! semantically named arguments. Complement the low-level
 //! `HopperCpi`/`HopperCpiBuf` builders for standard operations.
 
-use hopper_runtime::{AccountView, Address, ProgramResult};
 use hopper_runtime::error::ProgramError;
 use hopper_runtime::instruction::{InstructionAccount, InstructionView, Signer};
+use hopper_runtime::{AccountView, Address, ProgramResult};
 
 use crate::constants::{ATA_PROGRAM_ID, TOKEN_2022_PROGRAM_ID};
 
@@ -60,12 +60,7 @@ pub fn transfer_sol<'a>(
     to: &'a AccountView,
     lamports: u64,
 ) -> ProgramResult {
-    hopper_system::Transfer {
-        from,
-        to,
-        lamports,
-    }
-    .invoke()
+    hopper_system::Transfer { from, to, lamports }.invoke()
 }
 
 /// Transfer lamports with PDA signer seeds.
@@ -76,38 +71,19 @@ pub fn transfer_sol_signed<'a>(
     lamports: u64,
     signers: &[Signer],
 ) -> ProgramResult {
-    hopper_system::Transfer {
-        from,
-        to,
-        lamports,
-    }
-    .invoke_signed(signers)
+    hopper_system::Transfer { from, to, lamports }.invoke_signed(signers)
 }
 
 /// Assign account ownership to a new program.
 #[inline]
-pub fn assign<'a>(
-    account: &'a AccountView,
-    owner: &'a Address,
-) -> ProgramResult {
-    hopper_system::Assign {
-        account,
-        owner,
-    }
-    .invoke()
+pub fn assign<'a>(account: &'a AccountView, owner: &'a Address) -> ProgramResult {
+    hopper_system::Assign { account, owner }.invoke()
 }
 
 /// Allocate space in an account (without changing owner).
 #[inline]
-pub fn allocate(
-    account: &AccountView,
-    space: u64,
-) -> ProgramResult {
-    hopper_system::Allocate {
-        account,
-        space,
-    }
-    .invoke()
+pub fn allocate(account: &AccountView, space: u64) -> ProgramResult {
+    hopper_system::Allocate { account, space }.invoke()
 }
 
 // ────────────────────────────────────────────────────────────────────
@@ -651,7 +627,14 @@ pub fn ata_create<'a>(
         InstructionAccount::readonly(system_program.address()),
         InstructionAccount::readonly(token_program.address()),
     ];
-    let views = [payer, associated_account, wallet, mint, system_program, token_program];
+    let views = [
+        payer,
+        associated_account,
+        wallet,
+        mint,
+        system_program,
+        token_program,
+    ];
     let instruction = InstructionView {
         program_id: &ATA_PROGRAM_ID,
         data: &data,
@@ -680,7 +663,14 @@ pub fn ata_create_idempotent<'a>(
         InstructionAccount::readonly(system_program.address()),
         InstructionAccount::readonly(token_program.address()),
     ];
-    let views = [payer, associated_account, wallet, mint, system_program, token_program];
+    let views = [
+        payer,
+        associated_account,
+        wallet,
+        mint,
+        system_program,
+        token_program,
+    ];
     let instruction = InstructionView {
         program_id: &ATA_PROGRAM_ID,
         data: &data,

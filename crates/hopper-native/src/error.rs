@@ -139,10 +139,16 @@ impl core::fmt::Display for ProgramError {
             ProgramError::AccountNotRentExempt => write!(f, "AccountNotRentExempt"),
             ProgramError::UnsupportedSysvar => write!(f, "UnsupportedSysvar"),
             ProgramError::IllegalOwner => write!(f, "IllegalOwner"),
-            ProgramError::MaxAccountsDataAllocationsExceeded => write!(f, "MaxAccountsDataAllocationsExceeded"),
+            ProgramError::MaxAccountsDataAllocationsExceeded => {
+                write!(f, "MaxAccountsDataAllocationsExceeded")
+            }
             ProgramError::InvalidRealloc => write!(f, "InvalidRealloc"),
-            ProgramError::MaxInstructionTraceLengthExceeded => write!(f, "MaxInstructionTraceLengthExceeded"),
-            ProgramError::BuiltinProgramsMustConsumeComputeUnits => write!(f, "BuiltinProgramsMustConsumeComputeUnits"),
+            ProgramError::MaxInstructionTraceLengthExceeded => {
+                write!(f, "MaxInstructionTraceLengthExceeded")
+            }
+            ProgramError::BuiltinProgramsMustConsumeComputeUnits => {
+                write!(f, "BuiltinProgramsMustConsumeComputeUnits")
+            }
             ProgramError::InvalidAccountOwner => write!(f, "InvalidAccountOwner"),
             ProgramError::ArithmeticOverflow => write!(f, "ArithmeticOverflow"),
             ProgramError::Immutable => write!(f, "Immutable"),

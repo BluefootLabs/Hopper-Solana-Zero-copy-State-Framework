@@ -76,20 +76,14 @@ pub fn anchor_body_mut(data: &mut [u8]) -> Result<&mut [u8], ProgramError> {
 
 /// Validate the discriminator and return the body in one call.
 #[inline(always)]
-pub fn check_and_body<'a>(
-    data: &'a [u8],
-    expected: &[u8; 8],
-) -> Result<&'a [u8], ProgramError> {
+pub fn check_and_body<'a>(data: &'a [u8], expected: &[u8; 8]) -> Result<&'a [u8], ProgramError> {
     check_anchor_disc(data, expected)?;
     Ok(&data[8..])
 }
 
 /// Validate an instruction discriminator and return the body.
 #[inline(always)]
-pub fn check_ix_and_body<'a>(
-    data: &'a [u8],
-    expected: &[u8; 8],
-) -> Result<&'a [u8], ProgramError> {
+pub fn check_ix_and_body<'a>(data: &'a [u8], expected: &[u8; 8]) -> Result<&'a [u8], ProgramError> {
     check_anchor_disc(data, expected)?;
     Ok(&data[8..])
 }
@@ -117,8 +111,8 @@ const fn sha256_prefix(prefix: &[u8], suffix: &[u8]) -> [u8; 8] {
 #[cfg(test)]
 mod tests {
     extern crate alloc;
-    use alloc::vec;
     use super::*;
+    use alloc::vec;
 
     #[test]
     fn disc_is_deterministic() {

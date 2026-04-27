@@ -109,10 +109,7 @@ impl<'a> InterfaceTokenAccount<'a> {
     /// Caller is responsible for confirming `kind` matches the
     /// account's actual owner — usually by calling
     /// [`TokenProgramKind::for_account`] beforehand.
-    pub fn from_data(
-        data: &'a [u8],
-        kind: TokenProgramKind,
-    ) -> Result<Self, ProgramError> {
+    pub fn from_data(data: &'a [u8], kind: TokenProgramKind) -> Result<Self, ProgramError> {
         if data.len() < crate::token::TOKEN_ACCOUNT_LEN {
             return Err(ProgramError::InvalidAccountData);
         }
@@ -186,10 +183,7 @@ pub struct InterfaceMint<'a> {
 impl<'a> InterfaceMint<'a> {
     /// Wrap a previously-borrowed mint body. Caller verifies `kind`
     /// using [`TokenProgramKind::for_account`].
-    pub fn from_data(
-        data: &'a [u8],
-        kind: TokenProgramKind,
-    ) -> Result<Self, ProgramError> {
+    pub fn from_data(data: &'a [u8], kind: TokenProgramKind) -> Result<Self, ProgramError> {
         if data.len() < crate::mint::MINT_LEN {
             return Err(ProgramError::InvalidAccountData);
         }
@@ -252,15 +246,7 @@ pub fn interface_transfer_checked<'a>(
     amount: u64,
     decimals: u8,
 ) -> ProgramResult {
-    interface_transfer_checked_signed(
-        source,
-        mint,
-        destination,
-        authority,
-        amount,
-        decimals,
-        &[],
-    )
+    interface_transfer_checked_signed(source, mint, destination, authority, amount, decimals, &[])
 }
 
 /// PDA-signing variant of [`interface_transfer_checked`].
@@ -324,10 +310,7 @@ mod tests {
 
     #[test]
     fn token_program_kind_program_id_is_stable() {
-        assert_eq!(
-            TokenProgramKind::Spl.program_id(),
-            &TOKEN_PROGRAM_ID,
-        );
+        assert_eq!(TokenProgramKind::Spl.program_id(), &TOKEN_PROGRAM_ID,);
         assert_eq!(
             TokenProgramKind::Token2022.program_id(),
             &TOKEN_2022_PROGRAM_ID,

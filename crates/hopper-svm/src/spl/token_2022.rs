@@ -69,12 +69,12 @@ impl BuiltinProgram for SplToken2022Simulator {
         accounts: &mut [KeyedAccount],
         ctx: &mut InvokeContext<'_>,
     ) -> Result<(), HopperSvmError> {
-        let (tag, _) = data.split_first().ok_or_else(|| {
-            HopperSvmError::BuiltinError {
+        let (tag, _) = data
+            .split_first()
+            .ok_or_else(|| HopperSvmError::BuiltinError {
                 program_id: *ctx.program_id,
                 message: "spl-token-2022: empty instruction data".to_string(),
-            }
-        })?;
+            })?;
 
         match *tag {
             // Legacy / common tags — wire-compatible with Token,
@@ -139,10 +139,10 @@ mod tests {
     use super::*;
     use crate::log::LogCapture;
     use crate::sysvar::Sysvars;
+    use solana_program_pack::Pack;
     use solana_sdk::instruction::AccountMeta;
     use solana_sdk::pubkey::Pubkey;
     use spl_token::state::{Account as TokenAccount, AccountState, Mint};
-    use solana_program_pack::Pack;
 
     fn metas(addrs: &[(Pubkey, bool, bool)]) -> Vec<AccountMeta> {
         addrs
@@ -209,7 +209,13 @@ mod tests {
         let mut accounts = vec![
             KeyedAccount::new(acct1, 1_000_000, pid, buf1, false),
             KeyedAccount::new(acct2, 1_000_000, pid, buf2, false),
-            KeyedAccount::new(owner, 1_000_000, solana_sdk::system_program::id(), vec![], false),
+            KeyedAccount::new(
+                owner,
+                1_000_000,
+                solana_sdk::system_program::id(),
+                vec![],
+                false,
+            ),
         ];
         let metas_list = metas(&[
             (acct1, false, true),
@@ -252,8 +258,7 @@ mod tests {
     #[test]
     fn unimplemented_legacy_tag_returns_structured_error() {
         let mut accounts = vec![];
-        let err = invoke(&SplToken2022Simulator, vec![6u8], &mut accounts, vec![])
-            .unwrap_err();
+        let err = invoke(&SplToken2022Simulator, vec![6u8], &mut accounts, vec![]).unwrap_err();
         match err {
             HopperSvmError::BuiltinError { message, .. } => {
                 assert!(message.contains("supported tags"), "{message}");
@@ -282,8 +287,7 @@ mod tests {
         data.extend_from_slice(mint_authority.as_ref());
         data.push(0); // freeze_authority flag = none
         let metas_list = metas(&[(mint, true, true)]);
-        invoke(&SplToken2022Simulator, data, &mut accounts, metas_list)
-            .expect("InitializeMint");
+        invoke(&SplToken2022Simulator, data, &mut accounts, metas_list).expect("InitializeMint");
 
         let m = Mint::unpack(&accounts[0].data).unwrap();
         assert_eq!(m.decimals, 6);

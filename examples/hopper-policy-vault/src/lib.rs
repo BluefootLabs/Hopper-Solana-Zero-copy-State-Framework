@@ -319,9 +319,6 @@ mod tests {
 
     #[test]
     fn raw_matches_named_constant() {
-        assert_eq!(
-            raw_vault::HOPPER_PROGRAM_POLICY,
-            HopperProgramPolicy::RAW
-        );
+        assert_eq!(raw_vault::HOPPER_PROGRAM_POLICY, HopperProgramPolicy::RAW);
     }
 }

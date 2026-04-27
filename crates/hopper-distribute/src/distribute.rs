@@ -15,11 +15,7 @@ use hopper_runtime::error::ProgramError;
 ///
 /// `shares` and `out` must have the same length.
 #[inline(always)]
-pub fn proportional_split(
-    total: u64,
-    shares: &[u64],
-    out: &mut [u64],
-) -> Result<(), ProgramError> {
+pub fn proportional_split(total: u64, shares: &[u64], out: &mut [u64]) -> Result<(), ProgramError> {
     if shares.len() != out.len() || shares.is_empty() {
         return Err(ProgramError::InvalidArgument);
     }
@@ -73,11 +69,7 @@ pub fn proportional_split(
 ///
 /// Ceiling rounds in favor of the protocol. Guarantees `net + fee == amount`.
 #[inline(always)]
-pub fn extract_fee(
-    amount: u64,
-    fee_bps: u64,
-    flat_fee: u64,
-) -> Result<(u64, u64), ProgramError> {
+pub fn extract_fee(amount: u64, fee_bps: u64, flat_fee: u64) -> Result<(u64, u64), ProgramError> {
     #[allow(clippy::manual_div_ceil)]
     let bps_fee = ((amount as u128) * (fee_bps as u128) + 9_999) / 10_000;
     let total_fee_128 = bps_fee + flat_fee as u128;

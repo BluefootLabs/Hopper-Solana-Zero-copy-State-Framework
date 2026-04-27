@@ -35,7 +35,7 @@ pub mod inspect;
 pub mod summary;
 
 pub use analyze::{compatibility_report, field_diff_report};
-pub use inspect::{decode_account, identify_account, header_report, segment_map_report};
+pub use inspect::{decode_account, header_report, identify_account, segment_map_report};
 pub use summary::{
     events_report, fingerprints_report, instruction_report, layouts_report, policies_report,
     program_summary,

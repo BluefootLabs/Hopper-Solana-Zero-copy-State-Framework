@@ -30,9 +30,9 @@
 #![cfg_attr(target_os = "solana", no_std)]
 #![allow(dead_code, unused_variables)]
 
-use hopper::prelude::*;
 use hopper::hopper_assert_compatible;
 use hopper::hopper_core::account::read_layout_id;
+use hopper::prelude::*;
 
 #[cfg(target_os = "solana")]
 mod __hopper_sbf {
@@ -134,11 +134,7 @@ fn process_instruction(
 // Instruction 0: Initialize a V1 Vault
 // =====================================================================
 
-fn process_init_v1(
-    program_id: &Address,
-    accounts: &[AccountView],
-    _data: &[u8],
-) -> ProgramResult {
+fn process_init_v1(program_id: &Address, accounts: &[AccountView], _data: &[u8]) -> ProgramResult {
     if accounts.len() < 3 {
         return Err(ProgramError::NotEnoughAccountKeys);
     }
@@ -186,10 +182,7 @@ fn process_migrate_v1_to_v2(
 
     // Use the schema planner to verify the migration is valid.
     // This is a compile-time computed plan but we verify at runtime.
-    let plan = hopper_schema::MigrationPlan::<16>::generate(
-        &VAULT_V1_MANIFEST,
-        &VAULT_V2_MANIFEST,
-    );
+    let plan = hopper_schema::MigrationPlan::<16>::generate(&VAULT_V1_MANIFEST, &VAULT_V2_MANIFEST);
 
     // The plan should be AppendOnly for this version pair
     if plan.policy == hopper_schema::MigrationPolicy::Incompatible {
@@ -221,7 +214,7 @@ fn process_migrate_v1_to_v2(
     // then reallocs, updates header, and zeroes the new region.
     migrate_append(
         vault_account,
-        authority,       // payer for realloc rent
+        authority, // payer for realloc rent
         program_id,
         &VaultV1::LAYOUT_ID,
         VaultV2::VERSION,
@@ -262,8 +255,7 @@ fn process_deposit_v2(
     let vault_account = &accounts[1];
 
     let amount = u64::from_le_bytes([
-        data[0], data[1], data[2], data[3],
-        data[4], data[5], data[6], data[7],
+        data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7],
     ]);
     hopper_require!(amount > 0, ZeroAmount);
 
@@ -278,17 +270,21 @@ fn process_deposit_v2(
     // Transfer SOL: depositor -> vault
     let dep_lamports = depositor.lamports();
     depositor.set_lamports(
-        dep_lamports.checked_sub(amount)
+        dep_lamports
+            .checked_sub(amount)
             .ok_or(ProgramError::InsufficientFunds)?,
     );
     let vault_lamports = vault_account.lamports();
     vault_account.set_lamports(
-        vault_lamports.checked_add(amount)
+        vault_lamports
+            .checked_add(amount)
             .ok_or(ProgramError::ArithmeticOverflow)?,
     );
 
     // Update balance and last_deposit
-    let new_balance = v.balance.get()
+    let new_balance = v
+        .balance
+        .get()
         .checked_add(amount)
         .ok_or(ProgramError::ArithmeticOverflow)?;
     v.balance = WireU64::new(new_balance);
@@ -345,7 +341,7 @@ fn process_read_either(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use hopper_schema::{MigrationPlan, MigrationPolicy, MigrationAction};
+    use hopper_schema::{MigrationAction, MigrationPlan, MigrationPolicy};
 
     #[test]
     fn v1_layout_constants() {
@@ -386,8 +382,8 @@ mod tests {
         assert!(plan.copy_bytes > 0);
 
         // Should have a Realloc step
-        let has_realloc = (0..plan.step_count)
-            .any(|i| plan.steps[i].action == MigrationAction::Realloc);
+        let has_realloc =
+            (0..plan.step_count).any(|i| plan.steps[i].action == MigrationAction::Realloc);
         assert!(has_realloc);
 
         // Should have ZeroInit for new fields
@@ -397,7 +393,10 @@ mod tests {
         assert!(zero_count >= 1); // bump and/or last_deposit
 
         // Last step: UpdateHeader
-        assert_eq!(plan.steps[plan.step_count - 1].action, MigrationAction::UpdateHeader);
+        assert_eq!(
+            plan.steps[plan.step_count - 1].action,
+            MigrationAction::UpdateHeader
+        );
     }
 
     #[test]
@@ -409,7 +408,10 @@ mod tests {
 
     #[test]
     fn append_compatible_check() {
-        assert!(hopper_schema::is_append_compatible(&VAULT_V1_MANIFEST, &VAULT_V2_MANIFEST));
+        assert!(hopper_schema::is_append_compatible(
+            &VAULT_V1_MANIFEST,
+            &VAULT_V2_MANIFEST
+        ));
     }
 
     #[test]

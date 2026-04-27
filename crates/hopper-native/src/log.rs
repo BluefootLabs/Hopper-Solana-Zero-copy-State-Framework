@@ -41,10 +41,7 @@ pub fn log_compute_units() {
 pub fn log_data(segments: &[&[u8]]) {
     #[cfg(target_os = "solana")]
     unsafe {
-        crate::syscalls::sol_log_data(
-            segments.as_ptr() as *const u8,
-            segments.len() as u64,
-        );
+        crate::syscalls::sol_log_data(segments.as_ptr() as *const u8, segments.len() as u64);
     }
     #[cfg(not(target_os = "solana"))]
     {

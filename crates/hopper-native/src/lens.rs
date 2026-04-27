@@ -94,10 +94,7 @@ pub fn read_field_pod<T: crate::Pod>(
 /// The most common cross-program read: check the authority, mint, owner,
 /// or any other public key stored in a foreign account.
 #[inline]
-pub fn read_address(
-    account: &AccountView,
-    offset: usize,
-) -> Result<&Address, ProgramError> {
+pub fn read_address(account: &AccountView, offset: usize) -> Result<&Address, ProgramError> {
     let data_len = account.data_len();
     if offset.checked_add(32).map_or(true, |end| end > data_len) {
         return Err(ProgramError::AccountDataTooSmall);
@@ -114,10 +111,7 @@ pub fn read_address(
 /// safest way to read a u64 from potentially unaligned account data --
 /// no pointer cast, just a byte copy.
 #[inline]
-pub fn read_le_u64(
-    account: &AccountView,
-    offset: usize,
-) -> Result<u64, ProgramError> {
+pub fn read_le_u64(account: &AccountView, offset: usize) -> Result<u64, ProgramError> {
     let data_len = account.data_len();
     if offset.checked_add(8).map_or(true, |end| end > data_len) {
         return Err(ProgramError::AccountDataTooSmall);
@@ -132,10 +126,7 @@ pub fn read_le_u64(
 
 /// Read a little-endian u32 from account data.
 #[inline]
-pub fn read_le_u32(
-    account: &AccountView,
-    offset: usize,
-) -> Result<u32, ProgramError> {
+pub fn read_le_u32(account: &AccountView, offset: usize) -> Result<u32, ProgramError> {
     let data_len = account.data_len();
     if offset.checked_add(4).map_or(true, |end| end > data_len) {
         return Err(ProgramError::AccountDataTooSmall);
@@ -150,10 +141,7 @@ pub fn read_le_u32(
 
 /// Read a little-endian u16 from account data.
 #[inline]
-pub fn read_le_u16(
-    account: &AccountView,
-    offset: usize,
-) -> Result<u16, ProgramError> {
+pub fn read_le_u16(account: &AccountView, offset: usize) -> Result<u16, ProgramError> {
     let data_len = account.data_len();
     if offset.checked_add(2).map_or(true, |end| end > data_len) {
         return Err(ProgramError::AccountDataTooSmall);
@@ -168,10 +156,7 @@ pub fn read_le_u16(
 
 /// Read a single byte from account data.
 #[inline]
-pub fn read_u8(
-    account: &AccountView,
-    offset: usize,
-) -> Result<u8, ProgramError> {
+pub fn read_u8(account: &AccountView, offset: usize) -> Result<u8, ProgramError> {
     if offset >= account.data_len() {
         return Err(ProgramError::AccountDataTooSmall);
     }
@@ -180,10 +165,7 @@ pub fn read_u8(
 
 /// Read a boolean from account data (0 = false, nonzero = true).
 #[inline]
-pub fn read_bool(
-    account: &AccountView,
-    offset: usize,
-) -> Result<bool, ProgramError> {
+pub fn read_bool(account: &AccountView, offset: usize) -> Result<bool, ProgramError> {
     read_u8(account, offset).map(|b| b != 0)
 }
 
@@ -192,11 +174,7 @@ pub fn read_bool(
 /// Returns a reference to `len` bytes starting at `offset`.
 /// Useful for reading variable-length fields when you know the layout.
 #[inline]
-pub fn read_bytes(
-    account: &AccountView,
-    offset: usize,
-    len: usize,
-) -> Result<&[u8], ProgramError> {
+pub fn read_bytes(account: &AccountView, offset: usize, len: usize) -> Result<&[u8], ProgramError> {
     let data_len = account.data_len();
     if offset.checked_add(len).map_or(true, |end| end > data_len) {
         return Err(ProgramError::AccountDataTooSmall);

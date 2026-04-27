@@ -85,19 +85,27 @@ impl AccountLifecycle {
 impl fmt::Display for ContextAccountDescriptor {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}: {}", self.name, self.kind)?;
-        if self.writable { write!(f, " [mut]")?; }
-        if self.signer { write!(f, " [signer]")?; }
+        if self.writable {
+            write!(f, " [mut]")?;
+        }
+        if self.signer {
+            write!(f, " [signer]")?;
+        }
         if !self.layout_ref.is_empty() {
             write!(f, " layout={}", self.layout_ref)?;
         }
         if !self.policy_ref.is_empty() {
             write!(f, " policy={}", self.policy_ref)?;
         }
-        if self.optional { write!(f, " [optional]")?; }
+        if self.optional {
+            write!(f, " [optional]")?;
+        }
         if !self.seeds.is_empty() {
             write!(f, " seeds=[")?;
             for (i, s) in self.seeds.iter().enumerate() {
-                if i > 0 { write!(f, ", ")?; }
+                if i > 0 {
+                    write!(f, ", ")?;
+                }
                 write!(f, "{}", s)?;
             }
             write!(f, "]")?;
@@ -218,8 +226,8 @@ fn str_eq(a: &str, b: &str) -> bool {
 #[cfg(test)]
 mod tests {
     extern crate alloc;
-    use alloc::format;
     use super::*;
+    use alloc::format;
 
     static TEST_ACCOUNTS: &[ContextAccountDescriptor] = &[
         ContextAccountDescriptor {

@@ -6,8 +6,8 @@
 use core::fmt::Write;
 
 use hopper_schema::{
-    decode_account_fields, decode_header, decode_segments, DecodedHeader,
-    DecodedSegment, LayoutManifest, ProgramManifest,
+    decode_account_fields, decode_header, decode_segments, DecodedHeader, DecodedSegment,
+    LayoutManifest, ProgramManifest,
 };
 
 const MAX_FIELDS: usize = 64;
@@ -39,12 +39,11 @@ pub enum IdentifyOutcome<'a> {
 /// This is the same matching rule used at runtime: `(disc, layout_id)` must
 /// agree with a layout in the manifest. No guessing, no fuzzy matching.
 #[inline]
-pub fn identify_account<'a>(
-    manifest: &'a ProgramManifest,
-    data: &[u8],
-) -> IdentifyOutcome<'a> {
+pub fn identify_account<'a>(manifest: &'a ProgramManifest, data: &[u8]) -> IdentifyOutcome<'a> {
     let Some(header) = decode_header(data) else {
-        return IdentifyOutcome::HeaderTooShort { data_len: data.len() };
+        return IdentifyOutcome::HeaderTooShort {
+            data_len: data.len(),
+        };
     };
     match manifest.identify_from_data(data) {
         Some(layout) => IdentifyOutcome::Match {
@@ -150,7 +149,11 @@ pub fn decode_account(
     })?;
 
     let mut out = String::new();
-    let _ = writeln!(out, "=== {}: {} v{} ===", heading, layout.name, layout.version);
+    let _ = writeln!(
+        out,
+        "=== {}: {} v{} ===",
+        heading, layout.name, layout.version
+    );
     let _ = writeln!(
         out,
         "  Size: {} bytes (expected {})",

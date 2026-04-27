@@ -51,12 +51,10 @@
 #![cfg_attr(target_os = "solana", no_std)]
 #![allow(dead_code)]
 
-use hopper::prelude::*;
 use hopper::hopper_token_2022::{
-    check_safe_token_2022_mint,
-    check_transfer_hook_program,
-    read_transfer_hook,
+    check_safe_token_2022_mint, check_transfer_hook_program, read_transfer_hook,
 };
+use hopper::prelude::*;
 
 #[cfg(target_os = "solana")]
 mod __sbf {
@@ -152,19 +150,13 @@ fn process_init(program_id: &Address, accounts: &[AccountView]) -> ProgramResult
     // registry, three non-overlapping writes, no whole-struct lock.
     let mut borrows = SegmentBorrowRegistry::new();
     {
-        let mut authority_seg = vault.segment_mut::<[u8; 32]>(
-            &mut borrows,
-            HookedVault::AUTHORITY_ABS_OFFSET,
-            32,
-        )?;
+        let mut authority_seg =
+            vault.segment_mut::<[u8; 32]>(&mut borrows, HookedVault::AUTHORITY_ABS_OFFSET, 32)?;
         authority_seg.copy_from_slice(authority.address().as_array());
     }
     {
-        let mut mint_seg = vault.segment_mut::<[u8; 32]>(
-            &mut borrows,
-            HookedVault::MINT_ABS_OFFSET,
-            32,
-        )?;
+        let mut mint_seg =
+            vault.segment_mut::<[u8; 32]>(&mut borrows, HookedVault::MINT_ABS_OFFSET, 32)?;
         mint_seg.copy_from_slice(mint.address().as_array());
     }
     // expected_hook_program defaults to all zeros; the authority sets
@@ -180,10 +172,7 @@ fn process_init(program_id: &Address, accounts: &[AccountView]) -> ProgramResult
 // The headline instruction. Reads the mint's TransferHook extension,
 // compares it against the binding declared in the vault state, and
 // fails the call on any divergence.
-fn process_verify_hook_binding(
-    program_id: &Address,
-    accounts: &[AccountView],
-) -> ProgramResult {
+fn process_verify_hook_binding(program_id: &Address, accounts: &[AccountView]) -> ProgramResult {
     let [vault, mint, ..] = accounts else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };
@@ -199,10 +188,7 @@ fn process_verify_hook_binding(
 
     // Read the mint's actual TransferHook extension and compare.
     let mint_data = mint.try_borrow()?;
-    check_transfer_hook_program(
-        &mint_data,
-        vault_view.expected_hook_program.as_bytes(),
-    )?;
+    check_transfer_hook_program(&mint_data, vault_view.expected_hook_program.as_bytes())?;
 
     Ok(())
 }
@@ -234,10 +220,7 @@ fn process_require_safe_mint(accounts: &[AccountView]) -> ProgramResult {
 // expectation. A UI might prompt the human authority to review and
 // re-sign when the mint's hook authority migrates; this instruction
 // is the on-chain apply step.
-fn process_rotate_expected_hook(
-    program_id: &Address,
-    accounts: &[AccountView],
-) -> ProgramResult {
+fn process_rotate_expected_hook(program_id: &Address, accounts: &[AccountView]) -> ProgramResult {
     let [authority, vault, mint, ..] = accounts else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };
@@ -263,8 +246,7 @@ fn process_rotate_expected_hook(
     // require_safe_mint to enforce absence instead).
     let new_hook_program: [u8; 32] = {
         let mint_data = mint.try_borrow()?;
-        let hook = read_transfer_hook(&mint_data)?
-            .ok_or(ProgramError::InvalidAccountData)?;
+        let hook = read_transfer_hook(&mint_data)?.ok_or(ProgramError::InvalidAccountData)?;
         *hook.program_id
     };
 

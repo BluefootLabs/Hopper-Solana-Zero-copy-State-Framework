@@ -1,4 +1,4 @@
-﻿//! # Hopper Segmented Treasury
+//! # Hopper Segmented Treasury
 //!
 //! Demonstrates Hopper's advanced features with a multi-segment treasury:
 //!
@@ -84,7 +84,8 @@ hopper_layout! {
 
 // The full treasury account size: we pack all segments contiguously.
 // Core (89) + Permissions (89) + Budget (56) = 234 bytes
-const TREASURY_ACCOUNT_SIZE: usize = TreasuryCore::LEN + PermissionSegment::LEN + BudgetSegment::LEN;
+const TREASURY_ACCOUNT_SIZE: usize =
+    TreasuryCore::LEN + PermissionSegment::LEN + BudgetSegment::LEN;
 
 // Segment offsets
 const CORE_OFFSET: usize = 0;
@@ -159,12 +160,10 @@ fn process_init_treasury(
     }
     let vault_mint = &data[0..32];
     let epoch_budget = u64::from_le_bytes([
-        data[32], data[33], data[34], data[35],
-        data[36], data[37], data[38], data[39],
+        data[32], data[33], data[34], data[35], data[36], data[37], data[38], data[39],
     ]);
     let max_withdrawal = u64::from_le_bytes([
-        data[40], data[41], data[42], data[43],
-        data[44], data[45], data[46], data[47],
+        data[40], data[41], data[42], data[43], data[44], data[45], data[46], data[47],
     ]);
 
     // Create the account with full treasury size
@@ -188,7 +187,11 @@ fn process_init_treasury(
     TreasuryCore::write_init_header(core_slice)?;
     let core = TreasuryCore::overlay_mut(core_slice)?;
     core.authority = TypedAddress::from_account(payer);
-    core.vault_mint = TypedAddress::from_slice(vault_mint.try_into().map_err(|_| ProgramError::InvalidInstructionData)?);
+    core.vault_mint = TypedAddress::from_slice(
+        vault_mint
+            .try_into()
+            .map_err(|_| ProgramError::InvalidInstructionData)?,
+    );
     core.total_deposited = WireU64::new(0);
     core.bump = 0; // Set by caller if PDA
 
@@ -218,11 +221,7 @@ fn process_init_treasury(
 //
 // Accounts: [0] depositor (signer, writable), [1] treasury (writable)
 
-fn process_deposit(
-    program_id: &Address,
-    accounts: &[AccountView],
-    data: &[u8],
-) -> ProgramResult {
+fn process_deposit(program_id: &Address, accounts: &[AccountView], data: &[u8]) -> ProgramResult {
     if accounts.len() < 2 {
         return Err(ProgramError::NotEnoughAccountKeys);
     }
@@ -238,25 +237,30 @@ fn process_deposit(
         return Err(ProgramError::InvalidInstructionData);
     }
     let amount = u64::from_le_bytes([
-        data[0], data[1], data[2], data[3],
-        data[4], data[5], data[6], data[7],
+        data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7],
     ]);
     hopper_require!(amount > 0, ZeroAmount);
 
     // Transfer SOL
     let dep_lamports = depositor.lamports();
     depositor.set_lamports(
-        dep_lamports.checked_sub(amount).ok_or(ProgramError::InsufficientFunds)?,
+        dep_lamports
+            .checked_sub(amount)
+            .ok_or(ProgramError::InsufficientFunds)?,
     );
     let t_lamports = treasury.lamports();
     treasury.set_lamports(
-        t_lamports.checked_add(amount).ok_or(ProgramError::ArithmeticOverflow)?,
+        t_lamports
+            .checked_add(amount)
+            .ok_or(ProgramError::ArithmeticOverflow)?,
     );
 
     // Update core balance
     let mut buf = treasury.try_borrow_mut()?;
     let core = TreasuryCore::overlay_mut(&mut buf[CORE_OFFSET..CORE_OFFSET + TreasuryCore::LEN])?;
-    let new_total = core.total_deposited.get()
+    let new_total = core
+        .total_deposited
+        .get()
         .checked_add(amount)
         .ok_or(ProgramError::ArithmeticOverflow)?;
     core.total_deposited = WireU64::new(new_total);
@@ -269,11 +273,7 @@ fn process_deposit(
 // Multi-segment validation: permissions + budget + balance.
 // Accounts: [0] operator (signer), [1] treasury (writable), [2] destination (writable)
 
-fn process_withdraw(
-    program_id: &Address,
-    accounts: &[AccountView],
-    data: &[u8],
-) -> ProgramResult {
+fn process_withdraw(program_id: &Address, accounts: &[AccountView], data: &[u8]) -> ProgramResult {
     if accounts.len() < 3 {
         return Err(ProgramError::NotEnoughAccountKeys);
     }
@@ -291,8 +291,7 @@ fn process_withdraw(
         return Err(ProgramError::InvalidInstructionData);
     }
     let amount = u64::from_le_bytes([
-        data[0], data[1], data[2], data[3],
-        data[4], data[5], data[6], data[7],
+        data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7],
     ]);
     hopper_require!(amount > 0, ZeroAmount);
 
@@ -322,7 +321,9 @@ fn process_withdraw(
 
     // Budget check (read budget segment)
     let budget = BudgetSegment::overlay(&buf[BUDGET_OFFSET..BUDGET_OFFSET + BudgetSegment::LEN])?;
-    let new_spent = budget.epoch_spent.get()
+    let new_spent = budget
+        .epoch_spent
+        .get()
         .checked_add(amount)
         .ok_or(ProgramError::ArithmeticOverflow)?;
     if new_spent > budget.epoch_budget.get() {
@@ -340,9 +341,8 @@ fn process_withdraw(
     // -- Phase 3: Execute (mutate) -----------------------------------
 
     // Update budget
-    let budget_mut = BudgetSegment::overlay_mut(
-        &mut buf[BUDGET_OFFSET..BUDGET_OFFSET + BudgetSegment::LEN],
-    )?;
+    let budget_mut =
+        BudgetSegment::overlay_mut(&mut buf[BUDGET_OFFSET..BUDGET_OFFSET + BudgetSegment::LEN])?;
     budget_mut.epoch_spent = WireU64::new(new_spent);
 
     // Transfer SOL
@@ -350,7 +350,9 @@ fn process_withdraw(
     treasury.set_lamports(t_lamports - amount);
     let d_lamports = destination.lamports();
     destination.set_lamports(
-        d_lamports.checked_add(amount).ok_or(ProgramError::ArithmeticOverflow)?,
+        d_lamports
+            .checked_add(amount)
+            .ok_or(ProgramError::ArithmeticOverflow)?,
     );
 
     // -- Phase 4: Post-mutation invariant ----------------------------
@@ -411,7 +413,11 @@ fn process_update_permissions(
             if data.len() < 33 {
                 return Err(ProgramError::InvalidInstructionData);
             }
-            perm_mut.operator = TypedAddress::from_slice(data[1..33].try_into().map_err(|_| ProgramError::InvalidInstructionData)?);
+            perm_mut.operator = TypedAddress::from_slice(
+                data[1..33]
+                    .try_into()
+                    .map_err(|_| ProgramError::InvalidInstructionData)?,
+            );
         }
         // Toggle freeze
         1 => {
@@ -423,8 +429,7 @@ fn process_update_permissions(
                 return Err(ProgramError::InvalidInstructionData);
             }
             let max = u64::from_le_bytes([
-                data[1], data[2], data[3], data[4],
-                data[5], data[6], data[7], data[8],
+                data[1], data[2], data[3], data[4], data[5], data[6], data[7], data[8],
             ]);
             perm_mut.max_single_withdrawal = WireU64::new(max);
         }
@@ -467,13 +472,11 @@ fn process_rotate_epoch(
         return Err(ProgramError::InvalidInstructionData);
     }
     let new_epoch = u64::from_le_bytes([
-        data[0], data[1], data[2], data[3],
-        data[4], data[5], data[6], data[7],
+        data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7],
     ]);
 
-    let budget_mut = BudgetSegment::overlay_mut(
-        &mut buf[BUDGET_OFFSET..BUDGET_OFFSET + BudgetSegment::LEN],
-    )?;
+    let budget_mut =
+        BudgetSegment::overlay_mut(&mut buf[BUDGET_OFFSET..BUDGET_OFFSET + BudgetSegment::LEN])?;
 
     // Epoch must advance
     if new_epoch <= budget_mut.epoch_number.get() {
@@ -486,8 +489,7 @@ fn process_rotate_epoch(
     // Optional: update budget
     if data.len() >= 16 {
         let new_budget = u64::from_le_bytes([
-            data[8], data[9], data[10], data[11],
-            data[12], data[13], data[14], data[15],
+            data[8], data[9], data[10], data[11], data[12], data[13], data[14], data[15],
         ]);
         budget_mut.epoch_budget = WireU64::new(new_budget);
     }

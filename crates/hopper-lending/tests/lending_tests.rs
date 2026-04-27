@@ -5,9 +5,15 @@ use hopper_lending::*;
 #[test]
 fn test_collateralization_ratio_basic() {
     // 150k collateral / 100k debt = 15_000 bps = 150%
-    assert_eq!(collateralization_ratio_bps(150_000, 100_000).unwrap(), 15_000);
+    assert_eq!(
+        collateralization_ratio_bps(150_000, 100_000).unwrap(),
+        15_000
+    );
     // 100k / 100k = 10_000 bps = 100%
-    assert_eq!(collateralization_ratio_bps(100_000, 100_000).unwrap(), 10_000);
+    assert_eq!(
+        collateralization_ratio_bps(100_000, 100_000).unwrap(),
+        10_000
+    );
 }
 
 #[test]

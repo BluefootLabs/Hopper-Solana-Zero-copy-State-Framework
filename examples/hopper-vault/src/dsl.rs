@@ -3,8 +3,8 @@
 //! Demonstrates hopper_accounts! macro for typed context generation.
 //! The deposit instruction is reimplemented using the Account DSL pattern.
 
-use hopper::prelude::*;
 use super::Vault;
+use hopper::prelude::*;
 
 // --- Typed contexts via hopper_accounts! macro ----------------------
 
@@ -35,8 +35,7 @@ impl<'a> HopperIx<'a> for DslDepositIx {
             return Err(ProgramError::InvalidInstructionData);
         }
         Ok(u64::from_le_bytes([
-            data[0], data[1], data[2], data[3],
-            data[4], data[5], data[6], data[7],
+            data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7],
         ]))
     }
 }
@@ -60,19 +59,23 @@ fn process_deposit_dsl(
         let vault_view = ctx.accounts.vault.to_account_view();
         let dep_lamports = dep_view.lamports();
         dep_view.set_lamports(
-            dep_lamports.checked_sub(amount)
+            dep_lamports
+                .checked_sub(amount)
                 .ok_or(ProgramError::InsufficientFunds)?,
         );
         let vault_lamports = vault_view.lamports();
         vault_view.set_lamports(
-            vault_lamports.checked_add(amount)
+            vault_lamports
+                .checked_add(amount)
                 .ok_or(ProgramError::ArithmeticOverflow)?,
         );
 
         // Update balance in layout
         let mut vault = ctx.accounts.vault.write()?;
         let v = vault.get_mut();
-        let new_balance = v.balance.get()
+        let new_balance = v
+            .balance
+            .get()
             .checked_add(amount)
             .ok_or(ProgramError::ArithmeticOverflow)?;
         v.balance = WireU64::new(new_balance);
@@ -94,8 +97,7 @@ impl<'a> HopperIx<'a> for DslWithdrawIx {
             return Err(ProgramError::InvalidInstructionData);
         }
         Ok(u64::from_le_bytes([
-            data[0], data[1], data[2], data[3],
-            data[4], data[5], data[6], data[7],
+            data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7],
         ]))
     }
 }
@@ -113,9 +115,8 @@ fn process_withdraw_dsl(
         // Check authority
         let vault = ctx.accounts.vault.read()?;
         let v = vault.get();
-        v.authority.require_eq_account(
-            ctx.accounts.authority.to_account_view(),
-        )?;
+        v.authority
+            .require_eq_account(ctx.accounts.authority.to_account_view())?;
 
         // Check balance
         let balance = v.balance.get();
@@ -133,12 +134,14 @@ fn process_withdraw_dsl(
         let auth_view = ctx.accounts.authority.to_account_view();
         let vault_lamports = vault_view.lamports();
         vault_view.set_lamports(
-            vault_lamports.checked_sub(amount)
+            vault_lamports
+                .checked_sub(amount)
                 .ok_or(ProgramError::InsufficientFunds)?,
         );
         let auth_lamports = auth_view.lamports();
         auth_view.set_lamports(
-            auth_lamports.checked_add(amount)
+            auth_lamports
+                .checked_add(amount)
                 .ok_or(ProgramError::ArithmeticOverflow)?,
         );
 

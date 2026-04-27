@@ -105,8 +105,7 @@ impl LookupTableMeta {
     /// deactivation and can therefore be `Close`d.
     pub fn is_closeable(&self, current_slot: u64) -> bool {
         self.is_deactivated()
-            && current_slot.saturating_sub(self.deactivation_slot)
-                > DEACTIVATION_COOLDOWN_SLOTS
+            && current_slot.saturating_sub(self.deactivation_slot) > DEACTIVATION_COOLDOWN_SLOTS
     }
 }
 
@@ -201,10 +200,7 @@ pub fn read_address(data: &[u8], index: usize) -> Option<Pubkey> {
 /// Append a slice of addresses to the table's data region.
 /// Returns the new total address count, or an error string if
 /// the append would exceed the per-table cap.
-pub fn append_addresses(
-    data: &mut Vec<u8>,
-    new_addresses: &[Pubkey],
-) -> Result<usize, String> {
+pub fn append_addresses(data: &mut Vec<u8>, new_addresses: &[Pubkey]) -> Result<usize, String> {
     let current = address_count(data);
     let total = current + new_addresses.len();
     if total > LOOKUP_TABLE_MAX_ADDRESSES {
@@ -322,8 +318,7 @@ mod tests {
         write_meta(&mut buf, &LookupTableMeta::new(Pubkey::new_unique()));
         let addrs: Vec<Pubkey> = (0..5).map(|_| Pubkey::new_unique()).collect();
         append_addresses(&mut buf, &addrs).unwrap();
-        let (writable, readonly) =
-            resolve_lookup(&buf, &[0, 2], &[1, 3, 4]).unwrap();
+        let (writable, readonly) = resolve_lookup(&buf, &[0, 2], &[1, 3, 4]).unwrap();
         assert_eq!(writable, vec![addrs[0], addrs[2]]);
         assert_eq!(readonly, vec![addrs[1], addrs[3], addrs[4]]);
     }

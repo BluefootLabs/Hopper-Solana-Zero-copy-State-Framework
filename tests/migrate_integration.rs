@@ -67,8 +67,7 @@ fn edge_constants_are_forward_migrations() {
 
 #[test]
 fn layout_migrations_macro_registers_chain() {
-    let chain: &[MigrationEdge] =
-        <CounterMigChain as LayoutMigration>::MIGRATIONS;
+    let chain: &[MigrationEdge] = <CounterMigChain as LayoutMigration>::MIGRATIONS;
     assert_eq!(chain.len(), 2);
     assert_eq!(chain[0].from_epoch, 1);
     assert_eq!(chain[0].to_epoch, 2);
@@ -81,8 +80,7 @@ fn migration_chain_has_continuity() {
     // The most important invariant for in-place migration: each
     // edge's to_epoch must equal the next edge's from_epoch, and the
     // sequence must be strictly monotonic.
-    let chain: &[MigrationEdge] =
-        <CounterMigChain as LayoutMigration>::MIGRATIONS;
+    let chain: &[MigrationEdge] = <CounterMigChain as LayoutMigration>::MIGRATIONS;
     for pair in chain.windows(2) {
         assert_eq!(pair[0].to_epoch, pair[1].from_epoch);
         assert!(pair[0].from_epoch < pair[1].from_epoch);

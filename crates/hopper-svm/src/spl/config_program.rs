@@ -60,10 +60,7 @@ impl BuiltinProgram for ConfigProgramSimulator {
         // signer-flagged key against the account-meta signers,
         // then write the user data into account 0.
         if accounts.is_empty() {
-            return Err(HopperSvmError::AccountIndexOutOfBounds {
-                index: 0,
-                len: 0,
-            });
+            return Err(HopperSvmError::AccountIndexOutOfBounds { index: 0, len: 0 });
         }
         let target_addr = accounts[0].address;
         ctx.require_writable(&target_addr)?;
@@ -169,7 +166,13 @@ mod tests {
         let signer = Pubkey::new_unique();
         let mut accounts = vec![
             KeyedAccount::new(target, 1_000_000, CONFIG_PROGRAM_ID, vec![0u8; 64], false),
-            KeyedAccount::new(signer, 1_000_000, solana_sdk::system_program::id(), vec![], false),
+            KeyedAccount::new(
+                signer,
+                1_000_000,
+                solana_sdk::system_program::id(),
+                vec![],
+                false,
+            ),
         ];
         let user_data = b"hello config";
         // 1 signer-flagged key, then user data.
@@ -196,9 +199,13 @@ mod tests {
     fn config_store_rejects_unsigned_signer_key() {
         let target = Pubkey::new_unique();
         let listed_signer = Pubkey::new_unique();
-        let mut accounts = vec![
-            KeyedAccount::new(target, 1_000_000, CONFIG_PROGRAM_ID, vec![0u8; 64], false),
-        ];
+        let mut accounts = vec![KeyedAccount::new(
+            target,
+            1_000_000,
+            CONFIG_PROGRAM_ID,
+            vec![0u8; 64],
+            false,
+        )];
         let mut data = vec![];
         data.extend_from_slice(&1u64.to_le_bytes());
         data.extend_from_slice(listed_signer.as_ref());
@@ -212,9 +219,13 @@ mod tests {
     #[test]
     fn config_store_rejects_oversized_data() {
         let target = Pubkey::new_unique();
-        let mut accounts = vec![
-            KeyedAccount::new(target, 1_000_000, CONFIG_PROGRAM_ID, vec![0u8; 8], false),
-        ];
+        let mut accounts = vec![KeyedAccount::new(
+            target,
+            1_000_000,
+            CONFIG_PROGRAM_ID,
+            vec![0u8; 8],
+            false,
+        )];
         let mut data = vec![];
         data.extend_from_slice(&0u64.to_le_bytes()); // no signer keys
         data.extend_from_slice(&[0u8; 100]); // 100 bytes user data > 8 byte account

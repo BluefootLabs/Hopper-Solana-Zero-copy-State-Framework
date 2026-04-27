@@ -196,8 +196,8 @@ pub fn validate_post_state(
         if p.owner != n.owner {
             let is_creation =
                 p.lamports == 0 && p.data.is_empty() && p.owner == system_program::id();
-            let owner_change_allowed = p.owner == *program_id
-                || (is_creation && *program_id == system_program::id());
+            let owner_change_allowed =
+                p.owner == *program_id || (is_creation && *program_id == system_program::id());
             if !owner_change_allowed {
                 return Err(HopperSvmError::AccountValidationFailed {
                     account: meta.pubkey,
@@ -220,8 +220,7 @@ pub fn validate_post_state(
         if p.data != n.data {
             let was_empty_system_owned =
                 p.lamports == 0 && p.data.is_empty() && p.owner == system_program::id();
-            let data_change_allowed = p.owner == *program_id
-                || was_empty_system_owned;
+            let data_change_allowed = p.owner == *program_id || was_empty_system_owned;
             if !data_change_allowed {
                 return Err(HopperSvmError::AccountValidationFailed {
                     account: meta.pubkey,
@@ -313,8 +312,8 @@ mod tests {
         let pre = vec![ka(alice, 100, prog, vec![])];
         let post = vec![ka(alice, 200, prog, vec![])]; // different
         let metas = vec![meta(alice, false, false)]; // read-only
-        let err = validate_post_state(&prog, &metas, &pre, &post, ValidationPolicy::Strict)
-            .unwrap_err();
+        let err =
+            validate_post_state(&prog, &metas, &pre, &post, ValidationPolicy::Strict).unwrap_err();
         match err {
             HopperSvmError::AccountValidationFailed { reason, account } => {
                 assert_eq!(account, alice);
@@ -334,8 +333,8 @@ mod tests {
         // Lamports created out of thin air.
         let post = vec![ka(alice, 100, prog, vec![]), ka(bob, 100, prog, vec![])];
         let metas = vec![meta(alice, false, true), meta(bob, false, true)];
-        let err = validate_post_state(&prog, &metas, &pre, &post, ValidationPolicy::Strict)
-            .unwrap_err();
+        let err =
+            validate_post_state(&prog, &metas, &pre, &post, ValidationPolicy::Strict).unwrap_err();
         match err {
             HopperSvmError::AccountValidationFailed { reason, .. } => {
                 assert!(reason.contains("conservation"), "{reason}");
@@ -368,8 +367,8 @@ mod tests {
         let pre = vec![ka(alice, 100, other_owner, vec![1, 2, 3])];
         let post = vec![ka(alice, 100, other_owner, vec![1, 2, 9])]; // last byte changed
         let metas = vec![meta(alice, false, true)];
-        let err = validate_post_state(&prog, &metas, &pre, &post, ValidationPolicy::Strict)
-            .unwrap_err();
+        let err =
+            validate_post_state(&prog, &metas, &pre, &post, ValidationPolicy::Strict).unwrap_err();
         match err {
             HopperSvmError::AccountValidationFailed { reason, .. } => {
                 assert!(reason.contains("data mutated by non-owner"), "{reason}");
@@ -403,8 +402,8 @@ mod tests {
         let pre = vec![ka(alice, 100, other_owner, vec![1])];
         let post = vec![ka(alice, 100, new_owner, vec![1])];
         let metas = vec![meta(alice, false, true)];
-        let err = validate_post_state(&prog, &metas, &pre, &post, ValidationPolicy::Strict)
-            .unwrap_err();
+        let err =
+            validate_post_state(&prog, &metas, &pre, &post, ValidationPolicy::Strict).unwrap_err();
         match err {
             HopperSvmError::AccountValidationFailed { reason, .. } => {
                 assert!(reason.contains("owner reassigned"), "{reason}");
@@ -436,14 +435,8 @@ mod tests {
         let mut post_a = pre_a.clone();
         post_a.executable = !pre_a.executable; // toggle
         let metas = vec![meta(alice, false, true)];
-        let err = validate_post_state(
-            &prog,
-            &metas,
-            &[pre_a],
-            &[post_a],
-            ValidationPolicy::Strict,
-        )
-        .unwrap_err();
+        let err = validate_post_state(&prog, &metas, &[pre_a], &[post_a], ValidationPolicy::Strict)
+            .unwrap_err();
         match err {
             HopperSvmError::AccountValidationFailed { reason, .. } => {
                 assert!(reason.contains("executable"), "{reason}");
@@ -474,8 +467,8 @@ mod tests {
             ka(recipient, 40, prog, vec![]),
         ];
         let metas = vec![meta(alice, false, true), meta(recipient, false, true)];
-        let err = validate_post_state(&prog, &metas, &pre, &post, ValidationPolicy::Strict)
-            .unwrap_err();
+        let err =
+            validate_post_state(&prog, &metas, &pre, &post, ValidationPolicy::Strict).unwrap_err();
         match err {
             HopperSvmError::AccountValidationFailed { account, reason } => {
                 assert_eq!(account, alice);

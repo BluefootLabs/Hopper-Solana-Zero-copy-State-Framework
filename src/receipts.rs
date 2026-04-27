@@ -42,7 +42,10 @@ extern "C" {
 pub fn emit_receipt(data: &[u8]) -> ProgramResult {
     #[cfg(target_os = "solana")]
     {
-        let field = SolBytes { ptr: data.as_ptr(), len: data.len() as u64 };
+        let field = SolBytes {
+            ptr: data.as_ptr(),
+            len: data.len() as u64,
+        };
         unsafe {
             sol_log_data(&field as *const SolBytes, 1);
         }
@@ -64,8 +67,14 @@ pub fn emit_tagged_receipt(tag: u8, data: &[u8]) -> ProgramResult {
     {
         let tag_byte: [u8; 1] = [tag];
         let fields: [SolBytes; 2] = [
-            SolBytes { ptr: tag_byte.as_ptr(), len: 1 },
-            SolBytes { ptr: data.as_ptr(), len: data.len() as u64 },
+            SolBytes {
+                ptr: tag_byte.as_ptr(),
+                len: 1,
+            },
+            SolBytes {
+                ptr: data.as_ptr(),
+                len: data.len() as u64,
+            },
         ];
         unsafe {
             sol_log_data(fields.as_ptr(), 2);

@@ -1,4 +1,4 @@
-﻿//! # Hopper Showcase -- The Canonical Architecture Path
+//! # Hopper Showcase -- The Canonical Architecture Path
 //!
 //! This example demonstrates **the default Hopper way** -- a complete program
 //! showing every layer of the framework working together as one coherent system.
@@ -161,11 +161,7 @@ fn process_instruction(
 // Accounts: [0] payer (signer, writable), [1] pool (writable), [2] system
 // Data: mint(32B)
 
-fn process_init_pool(
-    program_id: &Address,
-    accounts: &[AccountView],
-    data: &[u8],
-) -> ProgramResult {
+fn process_init_pool(program_id: &Address, accounts: &[AccountView], data: &[u8]) -> ProgramResult {
     if accounts.len() < 3 {
         return Err(ProgramError::NotEnoughAccountKeys);
     }
@@ -179,7 +175,9 @@ fn process_init_pool(
     if data.len() < 32 {
         return Err(ProgramError::InvalidInstructionData);
     }
-    let mint_bytes: &[u8; 32] = data[0..32].try_into().map_err(|_| ProgramError::InvalidInstructionData)?;
+    let mint_bytes: &[u8; 32] = data[0..32]
+        .try_into()
+        .map_err(|_| ProgramError::InvalidInstructionData)?;
 
     // Create account
     let rent = rent_exempt_min(POOL_SIZE);
@@ -232,11 +230,7 @@ fn process_init_pool(
 //   5. Run invariants
 //   6. Emit receipt
 
-fn process_deposit(
-    program_id: &Address,
-    accounts: &[AccountView],
-    data: &[u8],
-) -> ProgramResult {
+fn process_deposit(program_id: &Address, accounts: &[AccountView], data: &[u8]) -> ProgramResult {
     if accounts.len() < 2 {
         return Err(ProgramError::NotEnoughAccountKeys);
     }
@@ -247,8 +241,7 @@ fn process_deposit(
         return Err(ProgramError::InvalidInstructionData);
     }
     let amount = u64::from_le_bytes([
-        data[0], data[1], data[2], data[3],
-        data[4], data[5], data[6], data[7],
+        data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7],
     ]);
 
     // -- Resolve policy requirements from the named pack --
@@ -320,11 +313,7 @@ fn process_deposit(
 // Accounts: [0] authority (signer), [1] pool (writable)
 // Data: amount(8B)
 
-fn process_withdraw(
-    program_id: &Address,
-    accounts: &[AccountView],
-    data: &[u8],
-) -> ProgramResult {
+fn process_withdraw(program_id: &Address, accounts: &[AccountView], data: &[u8]) -> ProgramResult {
     if accounts.len() < 2 {
         return Err(ProgramError::NotEnoughAccountKeys);
     }
@@ -335,8 +324,7 @@ fn process_withdraw(
         return Err(ProgramError::InvalidInstructionData);
     }
     let amount = u64::from_le_bytes([
-        data[0], data[1], data[2], data[3],
-        data[4], data[5], data[6], data[7],
+        data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7],
     ]);
 
     // -- Resolve policy from the named pack --
@@ -361,7 +349,9 @@ fn process_withdraw(
         return Err(ZeroAmount.into());
     }
 
-    let current_balance = state_ref.total_deposit.get()
+    let current_balance = state_ref
+        .total_deposit
+        .get()
         .checked_sub(state_ref.total_withdrawn.get())
         .ok_or(ProgramError::from(InsufficientPoolBalance))?;
 
@@ -435,8 +425,7 @@ fn process_update_config(
     // Parse params
     let new_fee_bps = u16::from_le_bytes([data[0], data[1]]);
     let new_max_deposit = u64::from_le_bytes([
-        data[2], data[3], data[4], data[5],
-        data[6], data[7], data[8], data[9],
+        data[2], data[3], data[4], data[5], data[6], data[7], data[8], data[9],
     ]);
     let frozen = data[10] != 0;
 

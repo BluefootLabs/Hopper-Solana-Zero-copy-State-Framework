@@ -12,11 +12,9 @@
 use core::fmt;
 
 use crate::{
-    ArgDescriptor, CodamaProjection, CompatibilityPair,
-    EventDescriptor, FieldDescriptor, IdlAccountEntry,
-    InstructionDescriptor, LayoutFingerprint, LayoutManifest, MigrationPolicy,
-    PdaSeedHint,
-    PolicyDescriptor, ProgramIdl, ProgramManifest,
+    ArgDescriptor, CodamaProjection, CompatibilityPair, EventDescriptor, FieldDescriptor,
+    IdlAccountEntry, InstructionDescriptor, LayoutFingerprint, LayoutManifest, MigrationPolicy,
+    PdaSeedHint, PolicyDescriptor, ProgramIdl, ProgramManifest,
 };
 
 // ---------------------------------------------------------------------------
@@ -53,11 +51,7 @@ fn write_indent(f: &mut fmt::Formatter<'_>, level: usize) -> fmt::Result {
     Ok(())
 }
 
-fn write_str_array(
-    f: &mut fmt::Formatter<'_>,
-    items: &[&str],
-    indent: usize,
-) -> fmt::Result {
+fn write_str_array(f: &mut fmt::Formatter<'_>, items: &[&str], indent: usize) -> fmt::Result {
     if items.is_empty() {
         return write!(f, "[]");
     }
@@ -89,7 +83,11 @@ fn write_field_json(
     write_json_str(f, field.name)?;
     write!(f, ", \"type\": ")?;
     write_json_str(f, field.canonical_type)?;
-    write!(f, ", \"size\": {}, \"offset\": {}", field.size, field.offset)?;
+    write!(
+        f,
+        ", \"size\": {}, \"offset\": {}",
+        field.size, field.offset
+    )?;
     write!(f, ", \"intent\": ")?;
     write_json_str(f, field.intent.name())?;
     write!(f, " }}")
@@ -556,10 +554,7 @@ impl<'a> fmt::Display for ManifestJson<'a> {
     }
 }
 
-fn write_layout_array(
-    f: &mut fmt::Formatter<'_>,
-    layouts: &[LayoutManifest],
-) -> fmt::Result {
+fn write_layout_array(f: &mut fmt::Formatter<'_>, layouts: &[LayoutManifest]) -> fmt::Result {
     if layouts.is_empty() {
         return write!(f, "[]");
     }
@@ -665,7 +660,11 @@ fn write_account_entry_array(
         write_indent(f, indent + 1)?;
         write!(f, "{{ \"name\": ")?;
         write_json_str(f, a.name)?;
-        write!(f, ", \"writable\": {}, \"signer\": {}", a.writable, a.signer)?;
+        write!(
+            f,
+            ", \"writable\": {}, \"signer\": {}",
+            a.writable, a.signer
+        )?;
         if !a.layout_ref.is_empty() {
             write!(f, ", \"layoutRef\": ")?;
             write_json_str(f, a.layout_ref)?;
@@ -681,10 +680,7 @@ fn write_account_entry_array(
     write!(f, "]")
 }
 
-fn write_event_array(
-    f: &mut fmt::Formatter<'_>,
-    events: &[EventDescriptor],
-) -> fmt::Result {
+fn write_event_array(f: &mut fmt::Formatter<'_>, events: &[EventDescriptor]) -> fmt::Result {
     if events.is_empty() {
         return write!(f, "[]");
     }
@@ -714,10 +710,7 @@ fn write_event_array(
     write!(f, "]")
 }
 
-fn write_policy_array(
-    f: &mut fmt::Formatter<'_>,
-    policies: &[PolicyDescriptor],
-) -> fmt::Result {
+fn write_policy_array(f: &mut fmt::Formatter<'_>, policies: &[PolicyDescriptor]) -> fmt::Result {
     if policies.is_empty() {
         return write!(f, "[]");
     }
@@ -757,10 +750,7 @@ fn write_policy_array(
     write!(f, "]")
 }
 
-fn write_compat_pair_array(
-    f: &mut fmt::Formatter<'_>,
-    pairs: &[CompatibilityPair],
-) -> fmt::Result {
+fn write_compat_pair_array(f: &mut fmt::Formatter<'_>, pairs: &[CompatibilityPair]) -> fmt::Result {
     if pairs.is_empty() {
         return write!(f, "[]");
     }
@@ -1079,8 +1069,8 @@ mod tests {
 
     use super::*;
     use crate::{
-        CodamaAccount, CodamaInstruction, CodamaProjection,
-        FieldIntent, ProgramIdl, ProgramManifest,
+        CodamaAccount, CodamaInstruction, CodamaProjection, FieldIntent, ProgramIdl,
+        ProgramManifest,
     };
 
     #[test]
@@ -1117,26 +1107,24 @@ mod tests {
 
     #[test]
     fn codama_json_with_instruction() {
-        static ARGS: &[ArgDescriptor] = &[
-            ArgDescriptor { name: "amount", canonical_type: "WireU64", size: 8 },
-        ];
-        static ACCOUNTS: &[IdlAccountEntry] = &[
-            IdlAccountEntry {
-                name: "vault",
-                writable: true,
-                signer: false,
-                layout_ref: "VaultState",
-                pda_seeds: &[],
-            },
-        ];
-        static IX: &[CodamaInstruction] = &[
-            CodamaInstruction {
-                name: "deposit",
-                discriminator: 1,
-                args: ARGS,
-                accounts: ACCOUNTS,
-            },
-        ];
+        static ARGS: &[ArgDescriptor] = &[ArgDescriptor {
+            name: "amount",
+            canonical_type: "WireU64",
+            size: 8,
+        }];
+        static ACCOUNTS: &[IdlAccountEntry] = &[IdlAccountEntry {
+            name: "vault",
+            writable: true,
+            signer: false,
+            layout_ref: "VaultState",
+            pda_seeds: &[],
+        }];
+        static IX: &[CodamaInstruction] = &[CodamaInstruction {
+            name: "deposit",
+            discriminator: 1,
+            args: ARGS,
+            accounts: ACCOUNTS,
+        }];
         let c = CodamaProjection {
             name: "test_program",
             version: "0.1.0",
@@ -1156,17 +1144,19 @@ mod tests {
 
     #[test]
     fn codama_json_with_account() {
-        static FIELDS: &[FieldDescriptor] = &[
-            FieldDescriptor { name: "balance", canonical_type: "WireU64", size: 8, offset: 16, intent: FieldIntent::Custom },
-        ];
-        static ACCTS: &[CodamaAccount] = &[
-            CodamaAccount {
-                name: "VaultState",
-                discriminator: 1,
-                size: 24,
-                fields: FIELDS,
-            },
-        ];
+        static FIELDS: &[FieldDescriptor] = &[FieldDescriptor {
+            name: "balance",
+            canonical_type: "WireU64",
+            size: 8,
+            offset: 16,
+            intent: FieldIntent::Custom,
+        }];
+        static ACCTS: &[CodamaAccount] = &[CodamaAccount {
+            name: "VaultState",
+            discriminator: 1,
+            size: 24,
+            fields: FIELDS,
+        }];
         let c = CodamaProjection {
             name: "test",
             version: "0.1.0",
@@ -1183,15 +1173,13 @@ mod tests {
 
     #[test]
     fn manifest_json_with_policy() {
-        static POLICIES: &[PolicyDescriptor] = &[
-            PolicyDescriptor {
-                name: "TREASURY_WRITE",
-                capabilities: &["MutatesState", "MutatesTreasury"],
-                requirements: &["SignerAuthority"],
-                invariants: &[],
-                receipt_profile: "full",
-            },
-        ];
+        static POLICIES: &[PolicyDescriptor] = &[PolicyDescriptor {
+            name: "TREASURY_WRITE",
+            capabilities: &["MutatesState", "MutatesTreasury"],
+            requirements: &["SignerAuthority"],
+            invariants: &[],
+            receipt_profile: "full",
+        }];
         let m = ProgramManifest {
             name: "test",
             version: "0.1.0",
@@ -1216,14 +1204,12 @@ mod tests {
     #[test]
     fn json_str_escapes_special_chars() {
         static FIELDS: &[FieldDescriptor] = &[];
-        static ACCTS: &[CodamaAccount] = &[
-            CodamaAccount {
-                name: "has\"quotes",
-                discriminator: 1,
-                size: 16,
-                fields: FIELDS,
-            },
-        ];
+        static ACCTS: &[CodamaAccount] = &[CodamaAccount {
+            name: "has\"quotes",
+            discriminator: 1,
+            size: 16,
+            fields: FIELDS,
+        }];
         let c = CodamaProjection {
             name: "test\\prog",
             version: "1.0",
@@ -1238,42 +1224,42 @@ mod tests {
 
     #[test]
     fn idl_from_manifest_projection() {
-        static FIELDS: &[FieldDescriptor] = &[
-            FieldDescriptor { name: "balance", canonical_type: "WireU64", size: 8, offset: 16, intent: FieldIntent::Custom },
-        ];
-        static LAYOUTS: &[LayoutManifest] = &[
-            LayoutManifest {
-                name: "Vault",
-                disc: 1,
-                version: 1,
-                layout_id: [1, 2, 3, 4, 5, 6, 7, 8],
-                total_size: 24,
-                field_count: 1,
-                fields: FIELDS,
-            },
-        ];
-        static ARGS: &[ArgDescriptor] = &[
-            ArgDescriptor { name: "amount", canonical_type: "WireU64", size: 8 },
-        ];
-        static ACCTS: &[crate::AccountEntry] = &[
-            crate::AccountEntry {
-                name: "vault",
-                writable: true,
-                signer: false,
-                layout_ref: "Vault",
-            },
-        ];
-        static IX: &[InstructionDescriptor] = &[
-            InstructionDescriptor {
-                name: "deposit",
-                tag: 1,
-                args: ARGS,
-                accounts: ACCTS,
-                capabilities: &["MutatesState"],
-                policy_pack: "TREASURY_WRITE",
-                receipt_expected: true,
-            },
-        ];
+        static FIELDS: &[FieldDescriptor] = &[FieldDescriptor {
+            name: "balance",
+            canonical_type: "WireU64",
+            size: 8,
+            offset: 16,
+            intent: FieldIntent::Custom,
+        }];
+        static LAYOUTS: &[LayoutManifest] = &[LayoutManifest {
+            name: "Vault",
+            disc: 1,
+            version: 1,
+            layout_id: [1, 2, 3, 4, 5, 6, 7, 8],
+            total_size: 24,
+            field_count: 1,
+            fields: FIELDS,
+        }];
+        static ARGS: &[ArgDescriptor] = &[ArgDescriptor {
+            name: "amount",
+            canonical_type: "WireU64",
+            size: 8,
+        }];
+        static ACCTS: &[crate::AccountEntry] = &[crate::AccountEntry {
+            name: "vault",
+            writable: true,
+            signer: false,
+            layout_ref: "Vault",
+        }];
+        static IX: &[InstructionDescriptor] = &[InstructionDescriptor {
+            name: "deposit",
+            tag: 1,
+            args: ARGS,
+            accounts: ACCTS,
+            capabilities: &["MutatesState"],
+            policy_pack: "TREASURY_WRITE",
+            receipt_expected: true,
+        }];
         let m = ProgramManifest {
             name: "vault_prog",
             version: "1.0.0",
@@ -1303,42 +1289,42 @@ mod tests {
 
     #[test]
     fn codama_from_manifest_projection() {
-        static ARGS: &[ArgDescriptor] = &[
-            ArgDescriptor { name: "amount", canonical_type: "WireU64", size: 8 },
-        ];
-        static ACCTS: &[crate::AccountEntry] = &[
-            crate::AccountEntry {
-                name: "vault",
-                writable: true,
-                signer: false,
-                layout_ref: "Vault",
-            },
-        ];
-        static IX: &[InstructionDescriptor] = &[
-            InstructionDescriptor {
-                name: "deposit",
-                tag: 1,
-                args: ARGS,
-                accounts: ACCTS,
-                capabilities: &["MutatesState"],
-                policy_pack: "TREASURY_WRITE",
-                receipt_expected: true,
-            },
-        ];
-        static FIELDS: &[FieldDescriptor] = &[
-            FieldDescriptor { name: "balance", canonical_type: "WireU64", size: 8, offset: 16, intent: FieldIntent::Custom },
-        ];
-        static LAYOUTS: &[LayoutManifest] = &[
-            LayoutManifest {
-                name: "Vault",
-                disc: 1,
-                version: 1,
-                layout_id: [1, 2, 3, 4, 5, 6, 7, 8],
-                total_size: 24,
-                field_count: 1,
-                fields: FIELDS,
-            },
-        ];
+        static ARGS: &[ArgDescriptor] = &[ArgDescriptor {
+            name: "amount",
+            canonical_type: "WireU64",
+            size: 8,
+        }];
+        static ACCTS: &[crate::AccountEntry] = &[crate::AccountEntry {
+            name: "vault",
+            writable: true,
+            signer: false,
+            layout_ref: "Vault",
+        }];
+        static IX: &[InstructionDescriptor] = &[InstructionDescriptor {
+            name: "deposit",
+            tag: 1,
+            args: ARGS,
+            accounts: ACCTS,
+            capabilities: &["MutatesState"],
+            policy_pack: "TREASURY_WRITE",
+            receipt_expected: true,
+        }];
+        static FIELDS: &[FieldDescriptor] = &[FieldDescriptor {
+            name: "balance",
+            canonical_type: "WireU64",
+            size: 8,
+            offset: 16,
+            intent: FieldIntent::Custom,
+        }];
+        static LAYOUTS: &[LayoutManifest] = &[LayoutManifest {
+            name: "Vault",
+            disc: 1,
+            version: 1,
+            layout_id: [1, 2, 3, 4, 5, 6, 7, 8],
+            total_size: 24,
+            field_count: 1,
+            fields: FIELDS,
+        }];
         let m = ProgramManifest {
             name: "vault_prog",
             version: "1.0.0",

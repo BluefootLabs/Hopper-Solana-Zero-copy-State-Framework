@@ -2,8 +2,8 @@ use core::convert::TryInto;
 use core::mem::size_of;
 
 use hopper_core::abi::{
-    TypedAddress, UntypedAddress, WireBool, WireI16, WireI32, WireI64, WireI128, WireU16,
-    WireU32, WireU64, WireU128,
+    TypedAddress, UntypedAddress, WireBool, WireI128, WireI16, WireI32, WireI64, WireU128, WireU16,
+    WireU32, WireU64,
 };
 use hopper_runtime::{Address, ProgramError};
 

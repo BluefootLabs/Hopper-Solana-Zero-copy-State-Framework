@@ -72,14 +72,17 @@ impl LamportSnapshot {
         let dest_after = destination.lamports();
 
         // Source must have decreased by exactly `amount`.
-        let source_delta = self.source_before.checked_sub(source_after)
+        let source_delta = self
+            .source_before
+            .checked_sub(source_after)
             .ok_or(ProgramError::ArithmeticOverflow)?;
         if source_delta != amount {
             return Err(ProgramError::InvalidAccountData);
         }
 
         // Destination must have increased by exactly `amount`.
-        let dest_delta = dest_after.checked_sub(self.destination_before)
+        let dest_delta = dest_after
+            .checked_sub(self.destination_before)
             .ok_or(ProgramError::ArithmeticOverflow)?;
         if dest_delta != amount {
             return Err(ProgramError::InvalidAccountData);
@@ -93,12 +96,10 @@ impl LamportSnapshot {
     /// Use this when the destination is a program-controlled escrow or
     /// fee account where you only care about the deduction.
     #[inline]
-    pub fn verify_deduction(
-        &self,
-        source: &AccountView,
-        amount: u64,
-    ) -> ProgramResult {
-        let delta = self.source_before.checked_sub(source.lamports())
+    pub fn verify_deduction(&self, source: &AccountView, amount: u64) -> ProgramResult {
+        let delta = self
+            .source_before
+            .checked_sub(source.lamports())
             .ok_or(ProgramError::ArithmeticOverflow)?;
         if delta != amount {
             return Err(ProgramError::InvalidAccountData);
@@ -146,18 +147,17 @@ impl BalanceSnapshot {
     /// Capture a single account's lamport balance.
     #[inline(always)]
     pub fn capture(account: &AccountView) -> Self {
-        Self { before: account.lamports() }
+        Self {
+            before: account.lamports(),
+        }
     }
 
     /// Verify the balance increased by at least `min_increase`.
     #[inline]
-    pub fn verify_increased_by(
-        &self,
-        account: &AccountView,
-        min_increase: u64,
-    ) -> ProgramResult {
+    pub fn verify_increased_by(&self, account: &AccountView, min_increase: u64) -> ProgramResult {
         let current = account.lamports();
-        let delta = current.checked_sub(self.before)
+        let delta = current
+            .checked_sub(self.before)
             .ok_or(ProgramError::ArithmeticOverflow)?;
         if delta < min_increase {
             return Err(ProgramError::InsufficientFunds);
@@ -173,7 +173,9 @@ impl BalanceSnapshot {
         max_decrease: u64,
     ) -> ProgramResult {
         let current = account.lamports();
-        let delta = self.before.checked_sub(current)
+        let delta = self
+            .before
+            .checked_sub(current)
             .ok_or(ProgramError::ArithmeticOverflow)?;
         if delta > max_decrease {
             return Err(ProgramError::InsufficientFunds);

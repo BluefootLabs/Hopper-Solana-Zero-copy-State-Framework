@@ -320,7 +320,10 @@ impl core::fmt::Display for FrameError {
                 )
             }
             Self::DataLenOutOfRange { slot, data_len } => {
-                write!(f, "slot {slot}: data_len {data_len} exceeds remaining buffer")
+                write!(
+                    f,
+                    "slot {slot}: data_len {data_len} exceeds remaining buffer"
+                )
             }
             Self::OffsetOverflow { slot } => {
                 write!(f, "slot {slot}: offset arithmetic overflow")
@@ -344,7 +347,9 @@ pub fn parse_instruction_frame_checked(buf: &[u8]) -> Result<FrameInfo, FrameErr
     // Helper: read a u64 LE at `pos`, bumping the cursor. Returns
     // `UnexpectedEof` if the 8 bytes aren't in range.
     fn read_u64_le(buf: &[u8], pos: &mut usize) -> Result<u64, FrameError> {
-        let end = pos.checked_add(8).ok_or(FrameError::OffsetOverflow { slot: 0 })?;
+        let end = pos
+            .checked_add(8)
+            .ok_or(FrameError::OffsetOverflow { slot: 0 })?;
         let slice = buf.get(*pos..end).ok_or(FrameError::UnexpectedEof {
             needed: 8,
             at: *pos,
@@ -356,17 +361,23 @@ pub fn parse_instruction_frame_checked(buf: &[u8]) -> Result<FrameInfo, FrameErr
     }
 
     fn read_u8(buf: &[u8], pos: &mut usize) -> Result<u8, FrameError> {
-        let byte = *buf
-            .get(*pos)
-            .ok_or(FrameError::UnexpectedEof { needed: 1, at: *pos })?;
+        let byte = *buf.get(*pos).ok_or(FrameError::UnexpectedEof {
+            needed: 1,
+            at: *pos,
+        })?;
         *pos += 1;
         Ok(byte)
     }
 
     fn advance(buf: &[u8], pos: &mut usize, n: usize) -> Result<(), FrameError> {
-        let end = pos.checked_add(n).ok_or(FrameError::OffsetOverflow { slot: 0 })?;
+        let end = pos
+            .checked_add(n)
+            .ok_or(FrameError::OffsetOverflow { slot: 0 })?;
         if end > buf.len() {
-            return Err(FrameError::UnexpectedEof { needed: n, at: *pos });
+            return Err(FrameError::UnexpectedEof {
+                needed: n,
+                at: *pos,
+            });
         }
         *pos = end;
         Ok(())
@@ -389,8 +400,12 @@ pub fn parse_instruction_frame_checked(buf: &[u8]) -> Result<FrameInfo, FrameErr
         if marker == u8::MAX {
             // Canonical account: the remaining 87 bytes of RuntimeAccount
             // follow (we already consumed the marker byte).
-            advance(buf, &mut pos, RuntimeAccount::SIZE - 1)
-                .map_err(|_| FrameError::UnexpectedEof { needed: RuntimeAccount::SIZE - 1, at: pos })?;
+            advance(buf, &mut pos, RuntimeAccount::SIZE - 1).map_err(|_| {
+                FrameError::UnexpectedEof {
+                    needed: RuntimeAccount::SIZE - 1,
+                    at: pos,
+                }
+            })?;
             // data_len lives at offset 80 in RuntimeAccount; we read it
             // directly from the slot header. Offset within this slot:
             // borrow_state(1) + flags(3) + resize_delta(4) + address(32) +
@@ -399,9 +414,12 @@ pub fn parse_instruction_frame_checked(buf: &[u8]) -> Result<FrameInfo, FrameErr
                 .checked_add(80)
                 .ok_or(FrameError::OffsetOverflow { slot })?;
             let mut dl_bytes = [0u8; 8];
-            let dl_slice = buf
-                .get(data_len_pos..data_len_pos + 8)
-                .ok_or(FrameError::UnexpectedEof { needed: 8, at: data_len_pos })?;
+            let dl_slice =
+                buf.get(data_len_pos..data_len_pos + 8)
+                    .ok_or(FrameError::UnexpectedEof {
+                        needed: 8,
+                        at: data_len_pos,
+                    })?;
             dl_bytes.copy_from_slice(dl_slice);
             let data_len = u64::from_le_bytes(dl_bytes);
 
@@ -412,8 +430,10 @@ pub fn parse_instruction_frame_checked(buf: &[u8]) -> Result<FrameInfo, FrameErr
             advance(buf, &mut pos, data_sz)
                 .map_err(|_| FrameError::DataLenOutOfRange { slot, data_len })?;
             let pad = pos.wrapping_neg() & (BPF_ALIGN_OF_U128 - 1);
-            advance(buf, &mut pos, pad)
-                .map_err(|_| FrameError::UnexpectedEof { needed: pad, at: pos })?;
+            advance(buf, &mut pos, pad).map_err(|_| FrameError::UnexpectedEof {
+                needed: pad,
+                at: pos,
+            })?;
             advance(buf, &mut pos, 8)
                 .map_err(|_| FrameError::UnexpectedEof { needed: 8, at: pos })?;
         } else {
@@ -432,14 +452,18 @@ pub fn parse_instruction_frame_checked(buf: &[u8]) -> Result<FrameInfo, FrameErr
     // Instruction data: u64 LE length prefix + bytes.
     let ix_data_len = read_u64_le(buf, &mut pos)? as usize;
     let ix_start = pos;
-    advance(buf, &mut pos, ix_data_len)
-        .map_err(|_| FrameError::UnexpectedEof { needed: ix_data_len, at: pos })?;
+    advance(buf, &mut pos, ix_data_len).map_err(|_| FrameError::UnexpectedEof {
+        needed: ix_data_len,
+        at: pos,
+    })?;
     let instruction_data_range = ix_start..pos;
 
     // 32-byte program id trailer.
     let program_id_offset = pos;
-    advance(buf, &mut pos, 32)
-        .map_err(|_| FrameError::UnexpectedEof { needed: 32, at: pos })?;
+    advance(buf, &mut pos, 32).map_err(|_| FrameError::UnexpectedEof {
+        needed: 32,
+        at: pos,
+    })?;
 
     Ok(FrameInfo {
         account_count,
@@ -464,11 +488,11 @@ mod checked_parser_tests {
         let mut buf = [0u8; MINIMAL_FRAME_LEN];
         buf[0..8].copy_from_slice(&1u64.to_le_bytes()); // account_count = 1
         buf[8] = 0xFF; // marker = canonical
-        // remaining bytes of RuntimeAccount stay zero
-        // realloc reserve stays zero
-        // rent_epoch zero
-        // ix_data_len = 0 (already zero)
-        // program_id stays zero
+                       // remaining bytes of RuntimeAccount stay zero
+                       // realloc reserve stays zero
+                       // rent_epoch zero
+                       // ix_data_len = 0 (already zero)
+                       // program_id stays zero
         buf
     }
 

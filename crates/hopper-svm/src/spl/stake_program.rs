@@ -292,10 +292,7 @@ fn authorize(
     if body.len() < 32 + 4 {
         return Err(HopperSvmError::BuiltinError {
             program_id: *ctx.program_id,
-            message: format!(
-                "stake::Authorize: body has {} bytes, need 36",
-                body.len()
-            ),
+            message: format!("stake::Authorize: body has {} bytes, need 36", body.len()),
         });
     }
     let new_auth = read_pubkey(body, 0);
@@ -585,8 +582,7 @@ pub fn read_state(
             let stake = u64::from_le_bytes(data[156..164].try_into().unwrap());
             let activation_epoch = u64::from_le_bytes(data[164..172].try_into().unwrap());
             let deactivation_epoch = u64::from_le_bytes(data[172..180].try_into().unwrap());
-            let warmup_cooldown_rate =
-                f64::from_le_bytes(data[180..188].try_into().unwrap());
+            let warmup_cooldown_rate = f64::from_le_bytes(data[180..188].try_into().unwrap());
             let credits = u64::from_le_bytes(data[188..196].try_into().unwrap());
             Ok(StakeAccountState::Stake(
                 meta,
@@ -709,11 +705,7 @@ mod tests {
         invoke_with_sysvars(data, accounts, metas, Sysvars::default())
     }
 
-    fn build_initialize(
-        staker: Pubkey,
-        withdrawer: Pubkey,
-        custodian: Pubkey,
-    ) -> Vec<u8> {
+    fn build_initialize(staker: Pubkey, withdrawer: Pubkey, custodian: Pubkey) -> Vec<u8> {
         let mut buf = vec![];
         buf.extend_from_slice(&0u32.to_le_bytes()); // tag
         buf.extend_from_slice(staker.as_ref());
@@ -775,8 +767,7 @@ mod tests {
             KeyedAccount::new(vote_addr, 1_000_000, Pubkey::default(), vec![], false),
         ];
         let init = build_initialize(staker, withdrawer, Pubkey::default());
-        invoke(init, &mut accounts, metas(&[(stake_addr, false, true)]))
-            .expect("Initialize");
+        invoke(init, &mut accounts, metas(&[(stake_addr, false, true)])).expect("Initialize");
         // Delegate
         let mut delegate = vec![];
         delegate.extend_from_slice(&2u32.to_le_bytes());
@@ -928,8 +919,7 @@ mod tests {
         )];
         let mut data = vec![];
         data.extend_from_slice(&3u32.to_le_bytes()); // Split — not supported
-        let err =
-            invoke(data, &mut accounts, metas(&[(stake_addr, false, true)])).unwrap_err();
+        let err = invoke(data, &mut accounts, metas(&[(stake_addr, false, true)])).unwrap_err();
         match err {
             HopperSvmError::BuiltinError { message, .. } => {
                 assert!(message.contains("not supported"), "{message}");

@@ -107,6 +107,7 @@ hopper-system = { workspace = true }
 hopper-token = { git = "https://github.com/BluefootLabs/hopper-spl", branch = "main", default-features = false }
 hopper-token-2022 = { git = "https://github.com/BluefootLabs/hopper-spl", branch = "main", default-features = false }
 hopper-associated-token = { git = "https://github.com/BluefootLabs/hopper-spl", branch = "main", default-features = false }
+hopper-memo = { workspace = true, default-features = false }
 hopper-metaplex = { git = "https://github.com/BluefootLabs/hopper-spl", branch = "main", default-features = false, optional = true }
 hopper-macros = { workspace = true }
 hopper-schema = { path = "crates/hopper-schema", version = "0.1.0", default-features = false }
@@ -144,7 +145,8 @@ hopper-native-backend = [
     "hopper-token/hopper-native-backend",
     "hopper-token-2022/hopper-native-backend",
     "hopper-associated-token/hopper-native-backend",
-    "hopper-metaplex?/hopper-native-backend",
+    "hopper-memo/hopper-native-backend",
+    "hopper-metaplex?/hopper-native-backend",  
     "hopper-macros/hopper-native-backend",
     "hopper-schema/hopper-native-backend",
     "hopper-solana/hopper-native-backend",
@@ -156,6 +158,8 @@ pinocchio-backend = [
     "hopper-token/pinocchio-backend",
     "hopper-token-2022/pinocchio-backend",
     "hopper-associated-token/pinocchio-backend",
+    "hopper-memo/pinocchio-backend",
+    "hopper-metaplex?/pinocchio-backend",
     "hopper-macros/pinocchio-backend",
     "hopper-schema/pinocchio-backend",
     "hopper-solana/pinocchio-backend",
@@ -167,6 +171,8 @@ solana-program-backend = [
     "hopper-token/solana-program-backend",
     "hopper-token-2022/solana-program-backend",
     "hopper-associated-token/solana-program-backend",
+    "hopper-memo/solana-program-backend",
+    "hopper-metaplex?/solana-program-backend",
     "hopper-macros/solana-program-backend",
     "hopper-schema/solana-program-backend",
     "hopper-solana/solana-program-backend",

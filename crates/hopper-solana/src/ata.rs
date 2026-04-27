@@ -45,11 +45,7 @@ pub fn derive_ata_for_program(
     mint: &Address,
     token_program_id: &Address,
 ) -> (Address, u8) {
-    let seeds: &[&[u8]] = &[
-        wallet.as_ref(),
-        token_program_id.as_ref(),
-        mint.as_ref(),
-    ];
+    let seeds: &[&[u8]] = &[wallet.as_ref(), token_program_id.as_ref(), mint.as_ref()];
     Address::find_program_address(seeds, &ATA_PROGRAM_ID)
 }
 
@@ -59,11 +55,7 @@ pub fn derive_ata_for_program(
 /// Returns `InvalidSeeds` if the address doesn't match.
 #[cfg(target_os = "solana")]
 #[inline(always)]
-pub fn verify_ata(
-    account_key: &Address,
-    wallet: &Address,
-    mint: &Address,
-) -> ProgramResult {
+pub fn verify_ata(account_key: &Address, wallet: &Address, mint: &Address) -> ProgramResult {
     let (expected, _) = derive_ata(wallet, mint);
     if *account_key != expected {
         return Err(ProgramError::InvalidSeeds);
@@ -74,11 +66,7 @@ pub fn verify_ata(
 /// Verify that `account_key` is the canonical ATA under Token-2022.
 #[cfg(target_os = "solana")]
 #[inline(always)]
-pub fn verify_ata_2022(
-    account_key: &Address,
-    wallet: &Address,
-    mint: &Address,
-) -> ProgramResult {
+pub fn verify_ata_2022(account_key: &Address, wallet: &Address, mint: &Address) -> ProgramResult {
     let (expected, _) = derive_ata_2022(wallet, mint);
     if *account_key != expected {
         return Err(ProgramError::InvalidSeeds);
@@ -93,11 +81,7 @@ pub fn verify_ata_2022(
 /// neither matches.
 #[cfg(target_os = "solana")]
 #[inline(always)]
-pub fn verify_ata_any(
-    account_key: &Address,
-    wallet: &Address,
-    mint: &Address,
-) -> ProgramResult {
+pub fn verify_ata_any(account_key: &Address, wallet: &Address, mint: &Address) -> ProgramResult {
     if verify_ata(account_key, wallet, mint).is_ok() {
         return Ok(());
     }

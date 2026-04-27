@@ -84,12 +84,12 @@ impl BuiltinProgram for SplTokenSimulator {
         accounts: &mut [KeyedAccount],
         ctx: &mut InvokeContext<'_>,
     ) -> Result<(), HopperSvmError> {
-        let (tag, body) = data.split_first().ok_or_else(|| {
-            HopperSvmError::BuiltinError {
+        let (tag, body) = data
+            .split_first()
+            .ok_or_else(|| HopperSvmError::BuiltinError {
                 program_id: *ctx.program_id,
                 message: "spl-token: empty instruction data".to_string(),
-            }
-        })?;
+            })?;
         match *tag {
             0 => initialize_mint(body, accounts, ctx),
             1 => initialize_account(body, accounts, ctx),
@@ -257,9 +257,7 @@ fn initialize_mint(
         if existing.is_initialized {
             return Err(HopperSvmError::BuiltinError {
                 program_id: *ctx.program_id,
-                message: format!(
-                    "spl-token::InitializeMint: {mint_addr} already initialised"
-                ),
+                message: format!("spl-token::InitializeMint: {mint_addr} already initialised"),
             });
         }
     }
@@ -327,9 +325,7 @@ fn initialize_account(
         if matches!(existing.state, AccountState::Initialized) {
             return Err(HopperSvmError::BuiltinError {
                 program_id: *ctx.program_id,
-                message: format!(
-                    "spl-token::InitializeAccount: {acct_addr} already initialised"
-                ),
+                message: format!("spl-token::InitializeAccount: {acct_addr} already initialised"),
             });
         }
     }
@@ -461,12 +457,13 @@ fn transfer(
         });
     }
     src.amount -= amount;
-    dst.amount = dst.amount.checked_add(amount).ok_or_else(|| {
-        HopperSvmError::BuiltinError {
+    dst.amount = dst
+        .amount
+        .checked_add(amount)
+        .ok_or_else(|| HopperSvmError::BuiltinError {
             program_id: *ctx.program_id,
             message: "spl-token::Transfer: destination amount overflow".to_string(),
-        }
-    })?;
+        })?;
     write_token_account(&mut accounts[0], &src);
     write_token_account(&mut accounts[1], &dst);
     ctx.log(format!(
@@ -625,18 +622,20 @@ fn mint_to(
             ),
         });
     }
-    mint.supply = mint.supply.checked_add(amount).ok_or_else(|| {
-        HopperSvmError::BuiltinError {
+    mint.supply = mint
+        .supply
+        .checked_add(amount)
+        .ok_or_else(|| HopperSvmError::BuiltinError {
             program_id: *ctx.program_id,
             message: "spl-token::MintTo: supply overflow".to_string(),
-        }
-    })?;
-    dst.amount = dst.amount.checked_add(amount).ok_or_else(|| {
-        HopperSvmError::BuiltinError {
+        })?;
+    dst.amount = dst
+        .amount
+        .checked_add(amount)
+        .ok_or_else(|| HopperSvmError::BuiltinError {
             program_id: *ctx.program_id,
             message: "spl-token::MintTo: destination amount overflow".to_string(),
-        }
-    })?;
+        })?;
     write_mint(&mut accounts[0], &mint);
     write_token_account(&mut accounts[1], &dst);
     ctx.log(format!(
@@ -847,11 +846,41 @@ mod tests {
 
         let mut accounts = vec![
             KeyedAccount::new(mint_addr, 1_000_000, pid, vec![0u8; Mint::LEN], false),
-            KeyedAccount::new(alice_acct, 1_000_000, pid, vec![0u8; TokenAccount::LEN], false),
-            KeyedAccount::new(bob_acct, 1_000_000, pid, vec![0u8; TokenAccount::LEN], false),
-            KeyedAccount::new(mint_authority, 1_000_000, solana_sdk::system_program::id(), vec![], false),
-            KeyedAccount::new(alice, 1_000_000, solana_sdk::system_program::id(), vec![], false),
-            KeyedAccount::new(bob, 1_000_000, solana_sdk::system_program::id(), vec![], false),
+            KeyedAccount::new(
+                alice_acct,
+                1_000_000,
+                pid,
+                vec![0u8; TokenAccount::LEN],
+                false,
+            ),
+            KeyedAccount::new(
+                bob_acct,
+                1_000_000,
+                pid,
+                vec![0u8; TokenAccount::LEN],
+                false,
+            ),
+            KeyedAccount::new(
+                mint_authority,
+                1_000_000,
+                solana_sdk::system_program::id(),
+                vec![],
+                false,
+            ),
+            KeyedAccount::new(
+                alice,
+                1_000_000,
+                solana_sdk::system_program::id(),
+                vec![],
+                false,
+            ),
+            KeyedAccount::new(
+                bob,
+                1_000_000,
+                solana_sdk::system_program::id(),
+                vec![],
+                false,
+            ),
         ];
 
         let sim = SplTokenSimulator;
@@ -870,7 +899,7 @@ mod tests {
             let mut data = vec![1u8]; // tag=1
             let mut subset = vec![
                 accounts[token_acct].clone(),
-                accounts[0].clone(),     // mint
+                accounts[0].clone(),              // mint
                 accounts[3 + token_acct].clone(), // owner (alice or bob)
             ];
             let init_metas = metas(&[
@@ -886,9 +915,9 @@ mod tests {
         let mut data = vec![7u8];
         data.extend_from_slice(&100u64.to_le_bytes());
         let mut subset = vec![
-            accounts[0].clone(),  // mint
-            accounts[1].clone(),  // alice token account
-            accounts[3].clone(),  // mint authority
+            accounts[0].clone(), // mint
+            accounts[1].clone(), // alice token account
+            accounts[3].clone(), // mint authority
         ];
         let mint_to_metas = metas(&[
             (subset[0].address, false, true),
@@ -903,9 +932,9 @@ mod tests {
         let mut data = vec![3u8];
         data.extend_from_slice(&30u64.to_le_bytes());
         let mut subset = vec![
-            accounts[1].clone(),  // alice token account
-            accounts[2].clone(),  // bob token account
-            accounts[4].clone(),  // alice (signer)
+            accounts[1].clone(), // alice token account
+            accounts[2].clone(), // bob token account
+            accounts[4].clone(), // alice (signer)
         ];
         let xfer_metas = metas(&[
             (subset[0].address, false, true),
@@ -920,9 +949,9 @@ mod tests {
         let mut data = vec![8u8];
         data.extend_from_slice(&10u64.to_le_bytes());
         let mut subset = vec![
-            accounts[2].clone(),  // bob token account
-            accounts[0].clone(),  // mint
-            accounts[5].clone(),  // bob (signer)
+            accounts[2].clone(), // bob token account
+            accounts[0].clone(), // mint
+            accounts[5].clone(), // bob (signer)
         ];
         let burn_metas = metas(&[
             (subset[0].address, false, true),
@@ -974,14 +1003,27 @@ mod tests {
         let mut accounts = vec![
             KeyedAccount::new(acct1, 1_000_000, pid, buf1, false),
             KeyedAccount::new(acct2, 1_000_000, pid, buf2, false),
-            KeyedAccount::new(owner, 1_000_000, solana_sdk::system_program::id(), vec![], false),
+            KeyedAccount::new(
+                owner,
+                1_000_000,
+                solana_sdk::system_program::id(),
+                vec![],
+                false,
+            ),
         ];
-        let metas_list = metas(&[(acct1, false, true), (acct2, false, true), (owner, true, false)]);
+        let metas_list = metas(&[
+            (acct1, false, true),
+            (acct2, false, true),
+            (owner, true, false),
+        ]);
 
         let mut data = vec![3u8];
         data.extend_from_slice(&50u64.to_le_bytes());
         let err = invoke(&SplTokenSimulator, data, &mut accounts, metas_list).unwrap_err();
-        assert!(matches!(err, HopperSvmError::BuiltinError { ref message, .. } if message.contains("mint mismatch")), "{err:?}");
+        assert!(
+            matches!(err, HopperSvmError::BuiltinError { ref message, .. } if message.contains("mint mismatch")),
+            "{err:?}"
+        );
     }
 
     /// CloseAccount rejects a non-empty token account.
@@ -1005,11 +1047,24 @@ mod tests {
         let mut accounts = vec![
             KeyedAccount::new(acct, 1_000_000, pid, buf, false),
             KeyedAccount::new(dst, 0, solana_sdk::system_program::id(), vec![], false),
-            KeyedAccount::new(owner, 1_000_000, solana_sdk::system_program::id(), vec![], false),
+            KeyedAccount::new(
+                owner,
+                1_000_000,
+                solana_sdk::system_program::id(),
+                vec![],
+                false,
+            ),
         ];
-        let metas_list = metas(&[(acct, false, true), (dst, false, true), (owner, true, false)]);
+        let metas_list = metas(&[
+            (acct, false, true),
+            (dst, false, true),
+            (owner, true, false),
+        ]);
         let err = invoke(&SplTokenSimulator, vec![9u8], &mut accounts, metas_list).unwrap_err();
-        assert!(matches!(err, HopperSvmError::BuiltinError { ref message, .. } if message.contains("non-empty")), "{err:?}");
+        assert!(
+            matches!(err, HopperSvmError::BuiltinError { ref message, .. } if message.contains("non-empty")),
+            "{err:?}"
+        );
     }
 
     /// Unsupported tag returns a structured error with a clear

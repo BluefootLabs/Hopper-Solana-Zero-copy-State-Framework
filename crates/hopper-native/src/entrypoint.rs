@@ -150,9 +150,8 @@ macro_rules! hopper_fast_entrypoint {
                 unsafe { core::slice::from_raw_parts(ix_data, ix_len) };
 
             // Program ID immediately follows instruction data in the SVM buffer.
-            let program_id = unsafe {
-                core::ptr::read(ix_data.add(ix_len) as *const $crate::Address)
-            };
+            let program_id =
+                unsafe { core::ptr::read(ix_data.add(ix_len) as *const $crate::Address) };
 
             let (program_id, count, instruction_data) = unsafe {
                 $crate::raw_input::deserialize_accounts_fast::<$maximum>(

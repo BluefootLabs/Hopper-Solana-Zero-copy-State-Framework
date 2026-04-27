@@ -178,10 +178,7 @@ fn assign(
     }
     let new_owner = Pubkey::new_from_array(body[0..32].try_into().unwrap());
     if accounts.is_empty() {
-        return Err(HopperSvmError::AccountIndexOutOfBounds {
-            index: 0,
-            len: 0,
-        });
+        return Err(HopperSvmError::AccountIndexOutOfBounds { index: 0, len: 0 });
     }
     let addr = accounts[0].address;
     ctx.require_signer(&addr)?;
@@ -264,10 +261,7 @@ fn allocate(
     }
     let space = u64::from_le_bytes(body[0..8].try_into().unwrap()) as usize;
     if accounts.is_empty() {
-        return Err(HopperSvmError::AccountIndexOutOfBounds {
-            index: 0,
-            len: 0,
-        });
+        return Err(HopperSvmError::AccountIndexOutOfBounds { index: 0, len: 0 });
     }
     let addr = accounts[0].address;
     ctx.require_signer(&addr)?;
@@ -328,9 +322,7 @@ fn create_account_with_seed(
         Err(err) => {
             return Err(HopperSvmError::BuiltinError {
                 program_id: *ctx.program_id,
-                message: format!(
-                    "system::CreateAccountWithSeed: seed not valid UTF-8: {err}"
-                ),
+                message: format!("system::CreateAccountWithSeed: seed not valid UTF-8: {err}"),
             });
         }
     };
@@ -431,8 +423,7 @@ fn assign_with_seed(
         program_id: *ctx.program_id,
         message: format!("system::AssignWithSeed: seed not UTF-8: {err}"),
     })?;
-    let owner =
-        Pubkey::new_from_array(body[40 + seed_len..40 + seed_len + 32].try_into().unwrap());
+    let owner = Pubkey::new_from_array(body[40 + seed_len..40 + seed_len + 32].try_into().unwrap());
 
     if accounts.len() < 2 {
         return Err(HopperSvmError::AccountIndexOutOfBounds {
@@ -513,12 +504,12 @@ fn transfer_with_seed(
     ctx.require_writable(&src_addr)?;
     ctx.require_writable(&dst_addr)?;
     ctx.require_signer(&from_base)?;
-    let derived = Pubkey::create_with_seed(&from_base, seed_str, &from_owner).map_err(
-        |err| HopperSvmError::BuiltinError {
+    let derived = Pubkey::create_with_seed(&from_base, seed_str, &from_owner).map_err(|err| {
+        HopperSvmError::BuiltinError {
             program_id: *ctx.program_id,
             message: format!("system::TransferWithSeed: derive failed: {err:?}"),
-        },
-    )?;
+        }
+    })?;
     if derived != src_addr {
         return Err(HopperSvmError::BuiltinError {
             program_id: *ctx.program_id,
@@ -664,10 +655,7 @@ fn initialize_nonce_account(
     }
     let authority = Pubkey::new_from_array(body[0..32].try_into().unwrap());
     if accounts.is_empty() {
-        return Err(HopperSvmError::AccountIndexOutOfBounds {
-            index: 0,
-            len: 0,
-        });
+        return Err(HopperSvmError::AccountIndexOutOfBounds { index: 0, len: 0 });
     }
     let nonce_addr = accounts[0].address;
     ctx.require_writable(&nonce_addr)?;
@@ -684,9 +672,7 @@ fn initialize_nonce_account(
     if already_init {
         return Err(HopperSvmError::BuiltinError {
             program_id: *ctx.program_id,
-            message: format!(
-                "system::InitializeNonceAccount: {nonce_addr} already initialised"
-            ),
+            message: format!("system::InitializeNonceAccount: {nonce_addr} already initialised"),
         });
     }
     let nonce = synthesise_nonce_from_slot(ctx.sysvars.clock.slot);
@@ -729,14 +715,11 @@ fn advance_nonce_account(
     let auth_addr = accounts[2].address;
     ctx.require_writable(&nonce_addr)?;
     ctx.require_signer(&auth_addr)?;
-    let (init, stored_authority, _, fee) =
-        read_nonce_state(&accounts[0].data, ctx.program_id)?;
+    let (init, stored_authority, _, fee) = read_nonce_state(&accounts[0].data, ctx.program_id)?;
     if !init {
         return Err(HopperSvmError::BuiltinError {
             program_id: *ctx.program_id,
-            message: format!(
-                "system::AdvanceNonceAccount: {nonce_addr} not initialised"
-            ),
+            message: format!("system::AdvanceNonceAccount: {nonce_addr} not initialised"),
         });
     }
     if stored_authority != auth_addr {
@@ -802,8 +785,7 @@ fn withdraw_nonce_account(
     ctx.require_writable(&nonce_addr)?;
     ctx.require_writable(&dst_addr)?;
     ctx.require_signer(&auth_addr)?;
-    let (init, stored_authority, _, _) =
-        read_nonce_state(&accounts[0].data, ctx.program_id)?;
+    let (init, stored_authority, _, _) = read_nonce_state(&accounts[0].data, ctx.program_id)?;
     // For an initialised nonce account the authority must sign
     // and equal the stored one. For an uninitialised account
     // the authority is whoever is the rent-payer; we accept any
@@ -867,9 +849,7 @@ fn authorize_nonce_account(
     if !init {
         return Err(HopperSvmError::BuiltinError {
             program_id: *ctx.program_id,
-            message: format!(
-                "system::AuthorizeNonceAccount: {nonce_addr} not initialised"
-            ),
+            message: format!("system::AuthorizeNonceAccount: {nonce_addr} not initialised"),
         });
     }
     if stored_authority != auth_addr {
@@ -911,10 +891,7 @@ fn upgrade_nonce_account(
     ctx: &mut InvokeContext<'_>,
 ) -> Result<(), HopperSvmError> {
     if accounts.is_empty() {
-        return Err(HopperSvmError::AccountIndexOutOfBounds {
-            index: 0,
-            len: 0,
-        });
+        return Err(HopperSvmError::AccountIndexOutOfBounds { index: 0, len: 0 });
     }
     let nonce_addr = accounts[0].address;
     ctx.require_writable(&nonce_addr)?;
@@ -972,7 +949,9 @@ mod tests {
         };
         let mut data = vec![2, 0, 0, 0];
         data.extend_from_slice(&250u64.to_le_bytes());
-        SystemProgram.invoke(&data, &mut accounts, &mut ctx).unwrap();
+        SystemProgram
+            .invoke(&data, &mut accounts, &mut ctx)
+            .unwrap();
         assert_eq!(accounts[0].lamports, 750);
         assert_eq!(accounts[1].lamports, 300);
     }
@@ -1075,11 +1054,16 @@ mod tests {
         let base = funder; // base = funder, no separate signer
         let owner = Pubkey::new_unique();
         let seed = "vault";
-        let target =
-            Pubkey::create_with_seed(&base, seed, &owner).expect("derive ok");
+        let target = Pubkey::create_with_seed(&base, seed, &owner).expect("derive ok");
 
         let mut accounts = vec![
-            KeyedAccount::new(funder, 5_000_000, solana_sdk::system_program::id(), vec![], false),
+            KeyedAccount::new(
+                funder,
+                5_000_000,
+                solana_sdk::system_program::id(),
+                vec![],
+                false,
+            ),
             KeyedAccount::new(target, 0, solana_sdk::system_program::id(), vec![], false),
         ];
         let mut data = vec![3u8, 0, 0, 0]; // tag = 3
@@ -1114,8 +1098,20 @@ mod tests {
         let bogus_target = Pubkey::new_unique(); // not derived
 
         let mut accounts = vec![
-            KeyedAccount::new(funder, 5_000_000, solana_sdk::system_program::id(), vec![], false),
-            KeyedAccount::new(bogus_target, 0, solana_sdk::system_program::id(), vec![], false),
+            KeyedAccount::new(
+                funder,
+                5_000_000,
+                solana_sdk::system_program::id(),
+                vec![],
+                false,
+            ),
+            KeyedAccount::new(
+                bogus_target,
+                0,
+                solana_sdk::system_program::id(),
+                vec![],
+                false,
+            ),
         ];
         let mut data = vec![3u8, 0, 0, 0];
         data.extend_from_slice(base.as_ref());
@@ -1160,7 +1156,13 @@ mod tests {
                 vec![0u8; 8],
                 false,
             ),
-            KeyedAccount::new(base, 1_000_000, solana_sdk::system_program::id(), vec![], false),
+            KeyedAccount::new(
+                base,
+                1_000_000,
+                solana_sdk::system_program::id(),
+                vec![],
+                false,
+            ),
         ];
         let mut data = vec![9u8, 0, 0, 0]; // tag = 9
         data.extend_from_slice(base.as_ref());
@@ -1188,7 +1190,13 @@ mod tests {
 
         let mut accounts = vec![
             KeyedAccount::new(src, 1_000_000, from_owner, vec![], false),
-            KeyedAccount::new(base, 1_000_000, solana_sdk::system_program::id(), vec![], false),
+            KeyedAccount::new(
+                base,
+                1_000_000,
+                solana_sdk::system_program::id(),
+                vec![],
+                false,
+            ),
             KeyedAccount::new(dst, 50, solana_sdk::system_program::id(), vec![], false),
         ];
         let mut data = vec![10u8, 0, 0, 0]; // tag = 10
@@ -1225,7 +1233,13 @@ mod tests {
                 vec![0u8; NONCE_STATE_BYTES],
                 false,
             ),
-            KeyedAccount::new(recent_blockhashes, 0, solana_sdk::system_program::id(), vec![], false),
+            KeyedAccount::new(
+                recent_blockhashes,
+                0,
+                solana_sdk::system_program::id(),
+                vec![],
+                false,
+            ),
             KeyedAccount::new(rent, 0, solana_sdk::system_program::id(), vec![], false),
         ];
         let mut data = vec![6u8, 0, 0, 0]; // tag = 6
@@ -1243,8 +1257,7 @@ mod tests {
         .expect("InitializeNonceAccount");
 
         let (init, stored_auth, durable, fee) =
-            read_nonce_state(&accounts[0].data, &solana_sdk::system_program::id())
-                .expect("read");
+            read_nonce_state(&accounts[0].data, &solana_sdk::system_program::id()).expect("read");
         assert!(init);
         assert_eq!(stored_auth, authority);
         assert_eq!(fee, NONCE_DEFAULT_FEE);
@@ -1273,9 +1286,27 @@ mod tests {
 
         let recent_blockhashes = Pubkey::new_unique();
         let mut accounts = vec![
-            KeyedAccount::new(nonce_addr, 2_000_000, solana_sdk::system_program::id(), data, false),
-            KeyedAccount::new(recent_blockhashes, 0, solana_sdk::system_program::id(), vec![], false),
-            KeyedAccount::new(authority, 1_000_000, solana_sdk::system_program::id(), vec![], false),
+            KeyedAccount::new(
+                nonce_addr,
+                2_000_000,
+                solana_sdk::system_program::id(),
+                data,
+                false,
+            ),
+            KeyedAccount::new(
+                recent_blockhashes,
+                0,
+                solana_sdk::system_program::id(),
+                vec![],
+                false,
+            ),
+            KeyedAccount::new(
+                authority,
+                1_000_000,
+                solana_sdk::system_program::id(),
+                vec![],
+                false,
+            ),
         ];
         let metas = metas_for(&[
             (nonce_addr, false, true),
@@ -1307,7 +1338,10 @@ mod tests {
             .expect("Advance @ 1000");
         let (_, _, n1, _) =
             read_nonce_state(&accounts[0].data, &solana_sdk::system_program::id()).unwrap();
-        assert_ne!(n1, initial_nonce, "different slot should produce different nonce");
+        assert_ne!(
+            n1, initial_nonce,
+            "different slot should produce different nonce"
+        );
     }
 
     /// AuthorizeNonceAccount with the wrong signer is rejected.
@@ -1327,8 +1361,20 @@ mod tests {
             NONCE_DEFAULT_FEE,
         );
         let mut accounts = vec![
-            KeyedAccount::new(nonce_addr, 2_000_000, solana_sdk::system_program::id(), data, false),
-            KeyedAccount::new(bogus, 1_000_000, solana_sdk::system_program::id(), vec![], false),
+            KeyedAccount::new(
+                nonce_addr,
+                2_000_000,
+                solana_sdk::system_program::id(),
+                data,
+                false,
+            ),
+            KeyedAccount::new(
+                bogus,
+                1_000_000,
+                solana_sdk::system_program::id(),
+                vec![],
+                false,
+            ),
         ];
         let mut ix_data = vec![7u8, 0, 0, 0]; // tag = 7
         ix_data.extend_from_slice(new_authority.as_ref());
@@ -1341,10 +1387,7 @@ mod tests {
         .unwrap_err();
         match err {
             HopperSvmError::BuiltinError { message, .. } => {
-                assert!(
-                    message.contains("stored authority"),
-                    "{message}"
-                );
+                assert!(message.contains("stored authority"), "{message}");
             }
             other => panic!("wrong err: {other:?}"),
         }
@@ -1361,19 +1404,31 @@ mod tests {
         let rent = Pubkey::new_unique();
 
         let mut data = vec![0u8; NONCE_STATE_BYTES];
-        write_nonce_state(
-            &mut data,
-            true,
-            &authority,
-            &[0u8; 32],
-            NONCE_DEFAULT_FEE,
-        );
+        write_nonce_state(&mut data, true, &authority, &[0u8; 32], NONCE_DEFAULT_FEE);
         let mut accounts = vec![
-            KeyedAccount::new(nonce_addr, 5_000_000, solana_sdk::system_program::id(), data, false),
+            KeyedAccount::new(
+                nonce_addr,
+                5_000_000,
+                solana_sdk::system_program::id(),
+                data,
+                false,
+            ),
             KeyedAccount::new(dst, 0, solana_sdk::system_program::id(), vec![], false),
-            KeyedAccount::new(recent_blockhashes, 0, solana_sdk::system_program::id(), vec![], false),
+            KeyedAccount::new(
+                recent_blockhashes,
+                0,
+                solana_sdk::system_program::id(),
+                vec![],
+                false,
+            ),
             KeyedAccount::new(rent, 0, solana_sdk::system_program::id(), vec![], false),
-            KeyedAccount::new(authority, 1_000_000, solana_sdk::system_program::id(), vec![], false),
+            KeyedAccount::new(
+                authority,
+                1_000_000,
+                solana_sdk::system_program::id(),
+                vec![],
+                false,
+            ),
         ];
         let mut ix_data = vec![5u8, 0, 0, 0]; // tag = 5
         ix_data.extend_from_slice(&1_000_000u64.to_le_bytes());
@@ -1402,8 +1457,7 @@ mod tests {
         let nonce: [u8; 32] = [0x42; 32];
         let fee = 12_345;
         write_nonce_state(&mut buf, true, &auth, &nonce, fee);
-        let (init, ra, rn, rfee) =
-            read_nonce_state(&buf, &Pubkey::default()).unwrap();
+        let (init, ra, rn, rfee) = read_nonce_state(&buf, &Pubkey::default()).unwrap();
         assert!(init);
         assert_eq!(ra, auth);
         assert_eq!(rn, nonce);

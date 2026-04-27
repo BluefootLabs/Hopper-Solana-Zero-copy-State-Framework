@@ -8,10 +8,5 @@
 #![deny(unsafe_op_in_unsafe_fn)]
 
 pub use hopper_runtime::system::{
-    instructions,
-    Allocate,
-    Assign,
-    CreateAccount,
-    Transfer,
-    SYSTEM_PROGRAM_ID,
+    instructions, Allocate, Assign, CreateAccount, Transfer, SYSTEM_PROGRAM_ID,
 };

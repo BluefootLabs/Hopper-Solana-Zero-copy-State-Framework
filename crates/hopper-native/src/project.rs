@@ -122,8 +122,7 @@ pub unsafe trait SafeProjectable: Projectable {}
 // Zero-sized types would project to a dangling reference, so we keep
 // them off this safe path even if someone opted them into Projectable
 // for weird generic reasons.
-unsafe impl<T: Projectable> SafeProjectable for T where
-    Self: private::NonZeroSized {}
+unsafe impl<T: Projectable> SafeProjectable for T where Self: private::NonZeroSized {}
 
 mod private {
     /// Sealed marker: `T` has `size_of::<T>() > 0`. Encoded via a const
@@ -143,7 +142,12 @@ pub fn project_safe<T: SafeProjectable>(
     offset: usize,
     expected_disc: Option<u8>,
 ) -> Result<&T, ProgramError> {
-    const { assert!(core::mem::size_of::<T>() > 0, "project_safe: T must be non-zero-sized"); }
+    const {
+        assert!(
+            core::mem::size_of::<T>() > 0,
+            "project_safe: T must be non-zero-sized"
+        );
+    }
     project::<T>(account, offset, expected_disc)
 }
 
@@ -159,7 +163,12 @@ pub unsafe fn project_safe_mut<T: SafeProjectable>(
     offset: usize,
     expected_disc: Option<u8>,
 ) -> Result<&mut T, ProgramError> {
-    const { assert!(core::mem::size_of::<T>() > 0, "project_safe_mut: T must be non-zero-sized"); }
+    const {
+        assert!(
+            core::mem::size_of::<T>() > 0,
+            "project_safe_mut: T must be non-zero-sized"
+        );
+    }
     // SAFETY: forwarded contract matches `project_mut`, caller guarantees
     // exclusive access over the returned reference's lifetime.
     unsafe { project_mut::<T>(account, offset, expected_disc) }
@@ -193,7 +202,10 @@ pub fn project<T: Projectable>(
     let type_size = core::mem::size_of::<T>();
 
     // Bounds check.
-    if offset.checked_add(type_size).map_or(true, |end| end > data_len) {
+    if offset
+        .checked_add(type_size)
+        .map_or(true, |end| end > data_len)
+    {
         return Err(ProgramError::AccountDataTooSmall);
     }
 
@@ -240,7 +252,10 @@ pub unsafe fn project_mut<T: Projectable>(
     let type_size = core::mem::size_of::<T>();
 
     // Bounds check.
-    if offset.checked_add(type_size).map_or(true, |end| end > data_len) {
+    if offset
+        .checked_add(type_size)
+        .map_or(true, |end| end > data_len)
+    {
         return Err(ProgramError::AccountDataTooSmall);
     }
 
@@ -276,7 +291,9 @@ pub fn project_slice<T: Projectable>(
 ) -> Result<&[T], ProgramError> {
     let data_len = account.data_len();
     let type_size = core::mem::size_of::<T>();
-    let total = count.checked_mul(type_size).ok_or(ProgramError::ArithmeticOverflow)?;
+    let total = count
+        .checked_mul(type_size)
+        .ok_or(ProgramError::ArithmeticOverflow)?;
 
     if offset.checked_add(total).map_or(true, |end| end > data_len) {
         return Err(ProgramError::AccountDataTooSmall);

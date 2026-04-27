@@ -109,12 +109,7 @@ impl AgaveEngine {
     /// add them via [`add_builtin`] / [`add_bpf_program`] before
     /// dispatching.
     pub fn new() -> Self {
-        let cache = ProgramCacheForTxBatch::new(
-            0,
-            ProgramRuntimeEnvironments::default(),
-            None,
-            0,
-        );
+        let cache = ProgramCacheForTxBatch::new(0, ProgramRuntimeEnvironments::default(), None, 0);
         Self {
             feature_set: Arc::new(SVMFeatureSet::all_enabled()),
             program_cache: Arc::new(RwLock::new(cache)),
@@ -159,8 +154,7 @@ impl AgaveEngine {
         account_size: usize,
         function: BuiltinFunctionWithContext,
     ) {
-        let entry =
-            Arc::new(ProgramCacheEntry::new_builtin(0, account_size, function));
+        let entry = Arc::new(ProgramCacheEntry::new_builtin(0, account_size, function));
         self.add_builtin(id, entry);
     }
 
@@ -191,10 +185,7 @@ impl AgaveEngine {
             .write()
             .expect("program_cache write")
             .replenish(id, entry);
-        self.kinds
-            .write()
-            .expect("kinds write")
-            .insert(id, kind);
+        self.kinds.write().expect("kinds write").insert(id, kind);
     }
 
     /// Load a BPF `.so` program from raw bytes through Agave's
@@ -236,10 +227,12 @@ impl AgaveEngine {
                 /* debugging_features */ false,
             )
             .map_err(|err| {
-                AgaveEngineError::Instruction(
-                    solana_sdk::instruction::InstructionError::Custom(0xE000),
-                )
-                .with_context(format!("create_program_runtime_environment_v1 failed: {err}"))
+                AgaveEngineError::Instruction(solana_sdk::instruction::InstructionError::Custom(
+                    0xE000,
+                ))
+                .with_context(format!(
+                    "create_program_runtime_environment_v1 failed: {err}"
+                ))
             })?;
 
         let mut metrics = solana_program_runtime::loaded_programs::LoadProgramMetrics::default();
@@ -293,9 +286,7 @@ impl AgaveEngine {
 
         let epoch_schedule = solana_sdk::epoch_schedule::EpochSchedule {
             slots_per_epoch: svm_sysvars.epoch_schedule.slots_per_epoch,
-            leader_schedule_slot_offset: svm_sysvars
-                .epoch_schedule
-                .leader_schedule_slot_offset,
+            leader_schedule_slot_offset: svm_sysvars.epoch_schedule.leader_schedule_slot_offset,
             warmup: svm_sysvars.epoch_schedule.warmup,
             first_normal_epoch: svm_sysvars.epoch_schedule.first_normal_epoch,
             first_normal_slot: svm_sysvars.epoch_schedule.first_normal_slot,
@@ -406,8 +397,7 @@ impl AgaveEngine {
             .clone();
 
         let callback = NoOpCallback;
-        let env_cfg =
-            self.make_environment_config(sysvar_cache, Hash::default(), &callback);
+        let env_cfg = self.make_environment_config(sysvar_cache, Hash::default(), &callback);
         let mut ctx = InvokeContext::new(
             &mut tx_context,
             &mut program_cache,
@@ -484,7 +474,9 @@ impl AgaveEngineError {
     /// `InstructionError::Custom` alone would lose.
     pub fn with_context(self, ctx: impl Into<String>) -> Self {
         match self {
-            Self::Context(existing) => Self::Context(format!("{ctx}: {existing}", ctx = ctx.into())),
+            Self::Context(existing) => {
+                Self::Context(format!("{ctx}: {existing}", ctx = ctx.into()))
+            }
             other => Self::Context(format!("{}: {other}", ctx.into())),
         }
     }

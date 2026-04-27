@@ -114,7 +114,10 @@ impl<'a> fmt::Display for TsAccounts<'a> {
         // Hopper header. Clients read bytes [4, 12) to assert the
         // account matches the expected layout. See audit ST2 + the
         // "winning architecture" design's client-side ABI guard.
-        writeln!(f, "/** Byte offset of the 8-byte layout fingerprint in a Hopper account header. */")?;
+        writeln!(
+            f,
+            "/** Byte offset of the 8-byte layout fingerprint in a Hopper account header. */"
+        )?;
         writeln!(f, "export const LAYOUT_ID_OFFSET = 4;")?;
         writeln!(f, "/** Byte length of the layout fingerprint. */")?;
         writeln!(f, "export const LAYOUT_ID_LENGTH = 8;")?;
@@ -122,21 +125,48 @@ impl<'a> fmt::Display for TsAccounts<'a> {
         // Generic layout-fingerprint verifier. Used by every
         // per-layout `assertXxxLayout(data)` generated below.
         writeln!(f, "/**")?;
-        writeln!(f, " * Raise if `data` is not a Hopper account encoding the expected layout.")?;
+        writeln!(
+            f,
+            " * Raise if `data` is not a Hopper account encoding the expected layout."
+        )?;
         writeln!(f, " *")?;
-        writeln!(f, " * Reads the 8-byte LAYOUT_ID fingerprint from the 16-byte Hopper header")?;
-        writeln!(f, " * (bytes 4..12) and compares it against `expectedHex` (16 lowercase hex chars).")?;
-        writeln!(f, " * This is the client-side complement to the runtime check `load::<T>()` runs")?;
-        writeln!(f, " * before handing out a typed Ref. Mismatch means the on-chain program was")?;
-        writeln!(f, " * upgraded with a different ABI than the client was generated against.")?;
+        writeln!(
+            f,
+            " * Reads the 8-byte LAYOUT_ID fingerprint from the 16-byte Hopper header"
+        )?;
+        writeln!(
+            f,
+            " * (bytes 4..12) and compares it against `expectedHex` (16 lowercase hex chars)."
+        )?;
+        writeln!(
+            f,
+            " * This is the client-side complement to the runtime check `load::<T>()` runs"
+        )?;
+        writeln!(
+            f,
+            " * before handing out a typed Ref. Mismatch means the on-chain program was"
+        )?;
+        writeln!(
+            f,
+            " * upgraded with a different ABI than the client was generated against."
+        )?;
         writeln!(f, " */")?;
-        writeln!(f, "export function assertLayoutId(data: Uint8Array, expectedHex: string): void {{")?;
+        writeln!(
+            f,
+            "export function assertLayoutId(data: Uint8Array, expectedHex: string): void {{"
+        )?;
         writeln!(f, "  if (data.length < HEADER_SIZE) {{")?;
-        writeln!(f, "    throw new Error(`Hopper account too short: ${{data.length}} < ${{HEADER_SIZE}}`);")?;
+        writeln!(
+            f,
+            "    throw new Error(`Hopper account too short: ${{data.length}} < ${{HEADER_SIZE}}`);"
+        )?;
         writeln!(f, "  }}")?;
         writeln!(f, "  let actualHex = \"\";")?;
         writeln!(f, "  for (let i = 0; i < LAYOUT_ID_LENGTH; i++) {{")?;
-        writeln!(f, "    actualHex += data[LAYOUT_ID_OFFSET + i].toString(16).padStart(2, \"0\");")?;
+        writeln!(
+            f,
+            "    actualHex += data[LAYOUT_ID_OFFSET + i].toString(16).padStart(2, \"0\");"
+        )?;
         writeln!(f, "  }}")?;
         writeln!(f, "  if (actualHex !== expectedHex.toLowerCase()) {{")?;
         writeln!(f, "    throw new Error(")?;
@@ -196,7 +226,10 @@ impl<'a> fmt::Display for TsAccounts<'a> {
             write!(f, "  ")?;
             write_pascal(f, layout.name)?;
             writeln!(f, " {{")?;
-            writeln!(f, "  const view = new DataView(data.buffer, data.byteOffset, data.byteLength);")?;
+            writeln!(
+                f,
+                "  const view = new DataView(data.buffer, data.byteOffset, data.byteLength);"
+            )?;
 
             for field in layout.fields.iter() {
                 let offset = field.offset as usize;
@@ -238,7 +271,10 @@ impl<'a> fmt::Display for TsInstructions<'a> {
         writeln!(f, "// Program: {} v{}", prog.name, prog.version)?;
         writeln!(f, "// DO NOT EDIT")?;
         writeln!(f)?;
-        writeln!(f, "import {{ PublicKey, TransactionInstruction }} from \"@solana/web3.js\";")?;
+        writeln!(
+            f,
+            "import {{ PublicKey, TransactionInstruction }} from \"@solana/web3.js\";"
+        )?;
         writeln!(f)?;
 
         for ix in prog.instructions.iter() {
@@ -302,12 +338,18 @@ impl<'a> fmt::Display for TsInstructions<'a> {
             for acc in ix.accounts.iter() {
                 write!(f, "    {{ pubkey: accounts.")?;
                 write_camel(f, acc.name)?;
-                writeln!(f, ", isSigner: {}, isWritable: {} }},",
-                    acc.signer, acc.writable)?;
+                writeln!(
+                    f,
+                    ", isSigner: {}, isWritable: {} }},",
+                    acc.signer, acc.writable
+                )?;
             }
             writeln!(f, "  ];")?;
             writeln!(f)?;
-            writeln!(f, "  return new TransactionInstruction({{ keys, programId, data }});")?;
+            writeln!(
+                f,
+                "  return new TransactionInstruction({{ keys, programId, data }});"
+            )?;
             writeln!(f, "}}")?;
             writeln!(f)?;
         }
@@ -365,7 +407,10 @@ impl<'a> fmt::Display for TsEvents<'a> {
             write!(f, "  ")?;
             write_pascal(f, event.name)?;
             writeln!(f, "Event {{")?;
-            writeln!(f, "  const view = new DataView(data.buffer, data.byteOffset, data.byteLength);")?;
+            writeln!(
+                f,
+                "  const view = new DataView(data.buffer, data.byteOffset, data.byteLength);"
+            )?;
 
             for field in event.fields.iter() {
                 let offset = field.offset as usize;
@@ -419,7 +464,10 @@ impl<'a> fmt::Display for TsTypes<'a> {
         writeln!(f, "}}")?;
         writeln!(f)?;
         writeln!(f, "/** Decode the Hopper 16-byte account header. */")?;
-        writeln!(f, "export function decodeHeader(data: Uint8Array): HopperHeader {{")?;
+        writeln!(
+            f,
+            "export function decodeHeader(data: Uint8Array): HopperHeader {{"
+        )?;
         writeln!(f, "  return {{")?;
         writeln!(f, "    disc: data[0],")?;
         writeln!(f, "    version: data[1],")?;
@@ -429,7 +477,11 @@ impl<'a> fmt::Display for TsTypes<'a> {
         writeln!(f, "  }};")?;
         writeln!(f, "}}")?;
         writeln!(f)?;
-        writeln!(f, "/** All account discriminators for {} v{}. */", prog.name, prog.version)?;
+        writeln!(
+            f,
+            "/** All account discriminators for {} v{}. */",
+            prog.name, prog.version
+        )?;
         writeln!(f, "export const Discriminators = {{")?;
         for layout in prog.layouts.iter() {
             write!(f, "  ")?;
@@ -548,12 +600,20 @@ fn write_decode_expr(
         "u64" => write!(f, "view.getBigUint64({}, true)", offset),
         "i64" => write!(f, "view.getBigInt64({}, true)", offset),
         "u128" => {
-            write!(f, "view.getBigUint64({}, true) | (view.getBigUint64({}, true) << 64n)",
-                offset, offset + 8)
+            write!(
+                f,
+                "view.getBigUint64({}, true) | (view.getBigUint64({}, true) << 64n)",
+                offset,
+                offset + 8
+            )
         }
         "i128" => {
-            write!(f, "view.getBigInt64({}, true) | (view.getBigUint64({}, true) << 64n)",
-                offset + 8, offset)
+            write!(
+                f,
+                "view.getBigInt64({}, true) | (view.getBigUint64({}, true) << 64n)",
+                offset + 8,
+                offset
+            )
         }
         "bool" => write!(f, "data[{}] !== 0", offset),
         "Pubkey" => write!(f, "new PublicKey(data.slice({}, {}))", offset, end),
@@ -694,12 +754,36 @@ fn write_kt_decode_expr(
     match canonical {
         "u8" => write!(f, "data[{}].toUByte()", offset),
         "i8" => write!(f, "data[{}]", offset),
-        "u16" => write!(f, "ByteBuffer.wrap(data, {}, 2).order(ByteOrder.LITTLE_ENDIAN).short.toUShort()", offset),
-        "i16" => write!(f, "ByteBuffer.wrap(data, {}, 2).order(ByteOrder.LITTLE_ENDIAN).short", offset),
-        "u32" => write!(f, "ByteBuffer.wrap(data, {}, 4).order(ByteOrder.LITTLE_ENDIAN).int.toUInt()", offset),
-        "i32" => write!(f, "ByteBuffer.wrap(data, {}, 4).order(ByteOrder.LITTLE_ENDIAN).int", offset),
-        "u64" => write!(f, "ByteBuffer.wrap(data, {}, 8).order(ByteOrder.LITTLE_ENDIAN).long.toULong()", offset),
-        "i64" => write!(f, "ByteBuffer.wrap(data, {}, 8).order(ByteOrder.LITTLE_ENDIAN).long", offset),
+        "u16" => write!(
+            f,
+            "ByteBuffer.wrap(data, {}, 2).order(ByteOrder.LITTLE_ENDIAN).short.toUShort()",
+            offset
+        ),
+        "i16" => write!(
+            f,
+            "ByteBuffer.wrap(data, {}, 2).order(ByteOrder.LITTLE_ENDIAN).short",
+            offset
+        ),
+        "u32" => write!(
+            f,
+            "ByteBuffer.wrap(data, {}, 4).order(ByteOrder.LITTLE_ENDIAN).int.toUInt()",
+            offset
+        ),
+        "i32" => write!(
+            f,
+            "ByteBuffer.wrap(data, {}, 4).order(ByteOrder.LITTLE_ENDIAN).int",
+            offset
+        ),
+        "u64" => write!(
+            f,
+            "ByteBuffer.wrap(data, {}, 8).order(ByteOrder.LITTLE_ENDIAN).long.toULong()",
+            offset
+        ),
+        "i64" => write!(
+            f,
+            "ByteBuffer.wrap(data, {}, 8).order(ByteOrder.LITTLE_ENDIAN).long",
+            offset
+        ),
         "u128" | "i128" => write!(f, "data.copyOfRange({}, {})", offset, end),
         "bool" => write!(f, "data[{}] != 0.toByte()", offset),
         "Pubkey" => write!(f, "PublicKey(data.copyOfRange({}, {}))", offset, end),
@@ -725,32 +809,56 @@ fn write_kt_encode_expr(
             writeln!(f, "")
         }
         "u16" => {
-            write!(f, "    ByteBuffer.wrap(data, {}, 2).order(ByteOrder.LITTLE_ENDIAN).putShort(args.", offset)?;
+            write!(
+                f,
+                "    ByteBuffer.wrap(data, {}, 2).order(ByteOrder.LITTLE_ENDIAN).putShort(args.",
+                offset
+            )?;
             write_kt_camel(f, name)?;
             writeln!(f, ".toShort())")
         }
         "i16" => {
-            write!(f, "    ByteBuffer.wrap(data, {}, 2).order(ByteOrder.LITTLE_ENDIAN).putShort(args.", offset)?;
+            write!(
+                f,
+                "    ByteBuffer.wrap(data, {}, 2).order(ByteOrder.LITTLE_ENDIAN).putShort(args.",
+                offset
+            )?;
             write_kt_camel(f, name)?;
             writeln!(f, ")")
         }
         "u32" => {
-            write!(f, "    ByteBuffer.wrap(data, {}, 4).order(ByteOrder.LITTLE_ENDIAN).putInt(args.", offset)?;
+            write!(
+                f,
+                "    ByteBuffer.wrap(data, {}, 4).order(ByteOrder.LITTLE_ENDIAN).putInt(args.",
+                offset
+            )?;
             write_kt_camel(f, name)?;
             writeln!(f, ".toInt())")
         }
         "i32" => {
-            write!(f, "    ByteBuffer.wrap(data, {}, 4).order(ByteOrder.LITTLE_ENDIAN).putInt(args.", offset)?;
+            write!(
+                f,
+                "    ByteBuffer.wrap(data, {}, 4).order(ByteOrder.LITTLE_ENDIAN).putInt(args.",
+                offset
+            )?;
             write_kt_camel(f, name)?;
             writeln!(f, ")")
         }
         "u64" => {
-            write!(f, "    ByteBuffer.wrap(data, {}, 8).order(ByteOrder.LITTLE_ENDIAN).putLong(args.", offset)?;
+            write!(
+                f,
+                "    ByteBuffer.wrap(data, {}, 8).order(ByteOrder.LITTLE_ENDIAN).putLong(args.",
+                offset
+            )?;
             write_kt_camel(f, name)?;
             writeln!(f, ".toLong())")
         }
         "i64" => {
-            write!(f, "    ByteBuffer.wrap(data, {}, 8).order(ByteOrder.LITTLE_ENDIAN).putLong(args.", offset)?;
+            write!(
+                f,
+                "    ByteBuffer.wrap(data, {}, 8).order(ByteOrder.LITTLE_ENDIAN).putLong(args.",
+                offset
+            )?;
             write_kt_camel(f, name)?;
             writeln!(f, ")")
         }
@@ -787,7 +895,11 @@ impl<'a> fmt::Display for KtAccounts<'a> {
         writeln!(f, "// Program: {} v{}", prog.name, prog.version)?;
         writeln!(f, "// DO NOT EDIT")?;
         writeln!(f)?;
-        writeln!(f, "package hopper.generated.{}", prog.name.replace('-', "_"))?;
+        writeln!(
+            f,
+            "package hopper.generated.{}",
+            prog.name.replace('-', "_")
+        )?;
         writeln!(f)?;
         writeln!(f, "import org.sol4k.PublicKey")?;
         writeln!(f, "import java.nio.ByteBuffer")?;
@@ -801,36 +913,63 @@ impl<'a> fmt::Display for KtAccounts<'a> {
         // fingerprint check.
         writeln!(f, "/** Hopper account header size in bytes. */")?;
         writeln!(f, "const val HEADER_SIZE: Int = 16")?;
-        writeln!(f, "/** Byte offset of the 8-byte layout fingerprint in a Hopper header. */")?;
+        writeln!(
+            f,
+            "/** Byte offset of the 8-byte layout fingerprint in a Hopper header. */"
+        )?;
         writeln!(f, "const val LAYOUT_ID_OFFSET: Int = 4")?;
         writeln!(f, "/** Byte length of the layout fingerprint. */")?;
         writeln!(f, "const val LAYOUT_ID_LENGTH: Int = 8")?;
         writeln!(f)?;
 
-        writeln!(f, "class LayoutMismatchException(expected: String, actual: String) :")?;
+        writeln!(
+            f,
+            "class LayoutMismatchException(expected: String, actual: String) :"
+        )?;
         writeln!(f, "    RuntimeException(\"Hopper layout mismatch: account header reports $actual, expected $expected\")")?;
         writeln!(f)?;
 
         writeln!(f, "/**")?;
-        writeln!(f, " * Raise if `data` is not a Hopper account encoding the expected layout.")?;
+        writeln!(
+            f,
+            " * Raise if `data` is not a Hopper account encoding the expected layout."
+        )?;
         writeln!(f, " *")?;
-        writeln!(f, " * Reads the 8-byte LAYOUT_ID fingerprint from the 16-byte Hopper header")?;
-        writeln!(f, " * (bytes 4..12) and compares it against `expectedHex` (16 lowercase hex chars).")?;
-        writeln!(f, " * Mismatch means the on-chain program was upgraded with a different ABI")?;
+        writeln!(
+            f,
+            " * Reads the 8-byte LAYOUT_ID fingerprint from the 16-byte Hopper header"
+        )?;
+        writeln!(
+            f,
+            " * (bytes 4..12) and compares it against `expectedHex` (16 lowercase hex chars)."
+        )?;
+        writeln!(
+            f,
+            " * Mismatch means the on-chain program was upgraded with a different ABI"
+        )?;
         writeln!(f, " * than the client was generated against.")?;
         writeln!(f, " */")?;
-        writeln!(f, "fun assertLayoutId(data: ByteArray, expectedHex: String) {{")?;
+        writeln!(
+            f,
+            "fun assertLayoutId(data: ByteArray, expectedHex: String) {{"
+        )?;
         writeln!(f, "    if (data.size < HEADER_SIZE) {{")?;
         writeln!(f, "        throw RuntimeException(\"Hopper account too short: ${{data.size}} < $HEADER_SIZE\")")?;
         writeln!(f, "    }}")?;
         writeln!(f, "    val sb = StringBuilder(LAYOUT_ID_LENGTH * 2)")?;
         writeln!(f, "    for (i in 0 until LAYOUT_ID_LENGTH) {{")?;
-        writeln!(f, "        val byte = data[LAYOUT_ID_OFFSET + i].toInt() and 0xFF")?;
+        writeln!(
+            f,
+            "        val byte = data[LAYOUT_ID_OFFSET + i].toInt() and 0xFF"
+        )?;
         writeln!(f, "        sb.append(String.format(\"%02x\", byte))")?;
         writeln!(f, "    }}")?;
         writeln!(f, "    val actualHex = sb.toString()")?;
         writeln!(f, "    if (actualHex != expectedHex.lowercase()) {{")?;
-        writeln!(f, "        throw LayoutMismatchException(expectedHex, actualHex)")?;
+        writeln!(
+            f,
+            "        throw LayoutMismatchException(expectedHex, actualHex)"
+        )?;
         writeln!(f, "    }}")?;
         writeln!(f, "}}")?;
         writeln!(f)?;
@@ -891,7 +1030,11 @@ impl<'a> fmt::Display for KtAccounts<'a> {
             write!(f, "    assert")?;
             write_kt_pascal(f, layout.name)?;
             writeln!(f, "Layout(data)")?;
-            writeln!(f, "    require(data.size >= {}) {{ \"Data too small for {}\" }}", layout.total_size, layout.name)?;
+            writeln!(
+                f,
+                "    require(data.size >= {}) {{ \"Data too small for {}\" }}",
+                layout.total_size, layout.name
+            )?;
 
             for field in layout.fields.iter() {
                 let offset = field.offset as usize;
@@ -941,7 +1084,11 @@ impl<'a> fmt::Display for KtInstructions<'a> {
         writeln!(f, "// Program: {} v{}", prog.name, prog.version)?;
         writeln!(f, "// DO NOT EDIT")?;
         writeln!(f)?;
-        writeln!(f, "package hopper.generated.{}", prog.name.replace('-', "_"))?;
+        writeln!(
+            f,
+            "package hopper.generated.{}",
+            prog.name.replace('-', "_")
+        )?;
         writeln!(f)?;
         writeln!(f, "import org.sol4k.PublicKey")?;
         writeln!(f, "import org.sol4k.instruction.AccountMeta")?;
@@ -1004,7 +1151,11 @@ impl<'a> fmt::Display for KtInstructions<'a> {
 
             let data_size = instruction_data_size(ix);
             writeln!(f, "    val data = ByteArray({})", data_size)?;
-            writeln!(f, "    data[0] = {}.toByte() // instruction discriminator", ix.tag)?;
+            writeln!(
+                f,
+                "    data[0] = {}.toByte() // instruction discriminator",
+                ix.tag
+            )?;
 
             let mut offset = 1usize;
             for arg in ix.args.iter() {
@@ -1017,7 +1168,11 @@ impl<'a> fmt::Display for KtInstructions<'a> {
             for acc in ix.accounts.iter() {
                 write!(f, "        AccountMeta(accounts.")?;
                 write_kt_camel(f, acc.name)?;
-                writeln!(f, ", isSigner = {}, isWritable = {}),", acc.signer, acc.writable)?;
+                writeln!(
+                    f,
+                    ", isSigner = {}, isWritable = {}),",
+                    acc.signer, acc.writable
+                )?;
             }
             writeln!(f, "    )")?;
             writeln!(f)?;
@@ -1045,7 +1200,11 @@ impl<'a> fmt::Display for KtEvents<'a> {
         writeln!(f, "// Program: {} v{}", prog.name, prog.version)?;
         writeln!(f, "// DO NOT EDIT")?;
         writeln!(f)?;
-        writeln!(f, "package hopper.generated.{}", prog.name.replace('-', "_"))?;
+        writeln!(
+            f,
+            "package hopper.generated.{}",
+            prog.name.replace('-', "_")
+        )?;
         writeln!(f)?;
         writeln!(f, "import org.sol4k.PublicKey")?;
         writeln!(f, "import java.nio.ByteBuffer")?;
@@ -1133,7 +1292,11 @@ impl<'a> fmt::Display for KtTypes<'a> {
         writeln!(f, "// Program: {} v{}", prog.name, prog.version)?;
         writeln!(f, "// DO NOT EDIT")?;
         writeln!(f)?;
-        writeln!(f, "package hopper.generated.{}", prog.name.replace('-', "_"))?;
+        writeln!(
+            f,
+            "package hopper.generated.{}",
+            prog.name.replace('-', "_")
+        )?;
         writeln!(f)?;
         writeln!(f, "import java.nio.ByteBuffer")?;
         writeln!(f, "import java.nio.ByteOrder")?;
@@ -1152,7 +1315,10 @@ impl<'a> fmt::Display for KtTypes<'a> {
         writeln!(f)?;
         writeln!(f, "/** Decode the Hopper 16-byte account header. */")?;
         writeln!(f, "fun decodeHeader(data: ByteArray): HopperHeader {{")?;
-        writeln!(f, "    require(data.size >= 16) {{ \"Data too small for header\" }}")?;
+        writeln!(
+            f,
+            "    require(data.size >= 16) {{ \"Data too small for header\" }}"
+        )?;
         writeln!(f, "    return HopperHeader(")?;
         writeln!(f, "        disc = data[0].toUByte(),")?;
         writeln!(f, "        version = data[1].toUByte(),")?;
@@ -1162,7 +1328,11 @@ impl<'a> fmt::Display for KtTypes<'a> {
         writeln!(f, "    )")?;
         writeln!(f, "}}")?;
         writeln!(f)?;
-        writeln!(f, "/** All account discriminators for {} v{}. */", prog.name, prog.version)?;
+        writeln!(
+            f,
+            "/** All account discriminators for {} v{}. */",
+            prog.name, prog.version
+        )?;
         writeln!(f, "object Discriminators {{")?;
         for layout in prog.layouts.iter() {
             write!(f, "    const val ")?;
@@ -1224,65 +1394,100 @@ impl<'a> fmt::Display for KtClientGen<'a> {
 #[cfg(test)]
 mod tests {
     extern crate alloc;
-    use alloc::string::ToString;
     use super::*;
     use crate::{
-        AccountEntry, ArgDescriptor, EventDescriptor, FieldDescriptor,
-        FieldIntent, LayoutManifest,
+        AccountEntry, ArgDescriptor, EventDescriptor, FieldDescriptor, FieldIntent, LayoutManifest,
     };
+    use alloc::string::ToString;
 
     fn test_manifest() -> ProgramManifest {
         static FIELDS: &[FieldDescriptor] = &[
-            FieldDescriptor { name: "authority", canonical_type: "Pubkey", size: 32, offset: 16, intent: FieldIntent::Custom },
-            FieldDescriptor { name: "amount", canonical_type: "u64", size: 8, offset: 48, intent: FieldIntent::Custom },
-            FieldDescriptor { name: "is_active", canonical_type: "bool", size: 1, offset: 56, intent: FieldIntent::Custom },
-        ];
-
-        static LAYOUTS: &[LayoutManifest] = &[
-            LayoutManifest {
-                name: "vault",
-                disc: 1,
-                version: 1,
-                layout_id: [0xAA, 0xBB, 0xCC, 0xDD, 0x11, 0x22, 0x33, 0x44],
-                total_size: 64,
-                field_count: 3,
-                fields: FIELDS,
+            FieldDescriptor {
+                name: "authority",
+                canonical_type: "Pubkey",
+                size: 32,
+                offset: 16,
+                intent: FieldIntent::Custom,
+            },
+            FieldDescriptor {
+                name: "amount",
+                canonical_type: "u64",
+                size: 8,
+                offset: 48,
+                intent: FieldIntent::Custom,
+            },
+            FieldDescriptor {
+                name: "is_active",
+                canonical_type: "bool",
+                size: 1,
+                offset: 56,
+                intent: FieldIntent::Custom,
             },
         ];
 
-        static ARGS: &[ArgDescriptor] = &[
-            ArgDescriptor { name: "amount", canonical_type: "u64", size: 8 },
-        ];
+        static LAYOUTS: &[LayoutManifest] = &[LayoutManifest {
+            name: "vault",
+            disc: 1,
+            version: 1,
+            layout_id: [0xAA, 0xBB, 0xCC, 0xDD, 0x11, 0x22, 0x33, 0x44],
+            total_size: 64,
+            field_count: 3,
+            fields: FIELDS,
+        }];
+
+        static ARGS: &[ArgDescriptor] = &[ArgDescriptor {
+            name: "amount",
+            canonical_type: "u64",
+            size: 8,
+        }];
 
         static ACCOUNTS: &[AccountEntry] = &[
-            AccountEntry { name: "authority", writable: false, signer: true, layout_ref: "" },
-            AccountEntry { name: "vault", writable: true, signer: false, layout_ref: "vault" },
-        ];
-
-        static INSTRUCTIONS: &[InstructionDescriptor] = &[
-            InstructionDescriptor {
-                name: "deposit",
-                tag: 0,
-                args: ARGS,
-                accounts: ACCOUNTS,
-                capabilities: &["write"],
-                policy_pack: "standard",
-                receipt_expected: true,
+            AccountEntry {
+                name: "authority",
+                writable: false,
+                signer: true,
+                layout_ref: "",
+            },
+            AccountEntry {
+                name: "vault",
+                writable: true,
+                signer: false,
+                layout_ref: "vault",
             },
         ];
+
+        static INSTRUCTIONS: &[InstructionDescriptor] = &[InstructionDescriptor {
+            name: "deposit",
+            tag: 0,
+            args: ARGS,
+            accounts: ACCOUNTS,
+            capabilities: &["write"],
+            policy_pack: "standard",
+            receipt_expected: true,
+        }];
 
         static EVENT_FIELDS: &[FieldDescriptor] = &[
-            FieldDescriptor { name: "depositor", canonical_type: "Pubkey", size: 32, offset: 0, intent: FieldIntent::Custom },
-            FieldDescriptor { name: "amount", canonical_type: "u64", size: 8, offset: 32, intent: FieldIntent::Custom },
-        ];
-
-        static EVENTS: &[EventDescriptor] = &[
-            EventDescriptor {
-                name: "deposit_event",
-                tag: 0,
-                fields: EVENT_FIELDS,
+            FieldDescriptor {
+                name: "depositor",
+                canonical_type: "Pubkey",
+                size: 32,
+                offset: 0,
+                intent: FieldIntent::Custom,
+            },
+            FieldDescriptor {
+                name: "amount",
+                canonical_type: "u64",
+                size: 8,
+                offset: 32,
+                intent: FieldIntent::Custom,
             },
         ];
+
+        static EVENTS: &[EventDescriptor] = &[EventDescriptor {
+            name: "deposit_event",
+            tag: 0,
+            fields: EVENT_FIELDS,
+        }];
 
         ProgramManifest {
             name: "test_vault",
@@ -1391,7 +1596,9 @@ mod tests {
         // Generic helper and offset constants are always present.
         assert!(output.contains("export const LAYOUT_ID_OFFSET = 4;"));
         assert!(output.contains("export const LAYOUT_ID_LENGTH = 8;"));
-        assert!(output.contains("export function assertLayoutId(data: Uint8Array, expectedHex: string): void"));
+        assert!(output.contains(
+            "export function assertLayoutId(data: Uint8Array, expectedHex: string): void"
+        ));
         // Per-layout const + assertion with the real 16-hex-char id.
         assert!(output.contains("export const VAULT_LAYOUT_ID = \"aabbccdd11223344\";"));
         assert!(output.contains("export function assertVaultLayout(data: Uint8Array): void"));
@@ -1412,8 +1619,16 @@ mod tests {
     #[test]
     fn ts_data_size_calculation() {
         static ARGS: &[ArgDescriptor] = &[
-            ArgDescriptor { name: "amount", canonical_type: "u64", size: 8 },
-            ArgDescriptor { name: "bump", canonical_type: "u8", size: 1 },
+            ArgDescriptor {
+                name: "amount",
+                canonical_type: "u64",
+                size: 8,
+            },
+            ArgDescriptor {
+                name: "bump",
+                canonical_type: "u8",
+                size: 1,
+            },
         ];
         let ix = InstructionDescriptor {
             name: "test",
@@ -1472,7 +1687,8 @@ mod tests {
         assert!(output.contains("assertLayoutId(data, VAULT_LAYOUT_ID)"));
         // Decoder calls the assertion first so a mismatched account
         // fails with LayoutMismatchException instead of decoding garbage.
-        assert!(output.contains("fun decodeVault(data: ByteArray): Vault {\n    assertVaultLayout(data)"));
+        assert!(output
+            .contains("fun decodeVault(data: ByteArray): Vault {\n    assertVaultLayout(data)"));
     }
 
     #[test]

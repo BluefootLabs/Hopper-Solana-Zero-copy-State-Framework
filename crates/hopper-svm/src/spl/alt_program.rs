@@ -112,7 +112,8 @@ fn create_lookup_table(
     if body.len() < 9 {
         return Err(HopperSvmError::BuiltinError {
             program_id: *ctx.program_id,
-            message: "alt::Create: body < 9 bytes (need recent_slot u64 + bump_seed u8)".to_string(),
+            message: "alt::Create: body < 9 bytes (need recent_slot u64 + bump_seed u8)"
+                .to_string(),
         });
     }
     let _recent_slot = u64::from_le_bytes(body[0..8].try_into().unwrap());
@@ -147,9 +148,7 @@ fn create_lookup_table(
     if derived != table_addr {
         return Err(HopperSvmError::BuiltinError {
             program_id: *ctx.program_id,
-            message: format!(
-                "alt::Create: address mismatch (got {table_addr}, derived {derived})"
-            ),
+            message: format!("alt::Create: address mismatch (got {table_addr}, derived {derived})"),
         });
     }
 
@@ -209,20 +208,17 @@ fn freeze_lookup_table(
     let auth_addr = accounts[1].address;
     ctx.require_writable(&table_addr)?;
     ctx.require_signer(&auth_addr)?;
-    let mut meta = alt::read_meta(&accounts[0].data).ok_or_else(|| {
-        HopperSvmError::BuiltinError {
+    let mut meta =
+        alt::read_meta(&accounts[0].data).ok_or_else(|| HopperSvmError::BuiltinError {
             program_id: *ctx.program_id,
             message: format!("alt::Freeze: {table_addr} not a valid lookup table"),
-        }
-    })?;
+        })?;
     match meta.authority {
         Some(stored) if stored == auth_addr => {}
         Some(stored) => {
             return Err(HopperSvmError::BuiltinError {
                 program_id: *ctx.program_id,
-                message: format!(
-                    "alt::Freeze: signer {auth_addr} != stored authority {stored}"
-                ),
+                message: format!("alt::Freeze: signer {auth_addr} != stored authority {stored}"),
             });
         }
         None => {
@@ -290,20 +286,17 @@ fn extend_lookup_table(
     ctx.require_writable(&table_addr)?;
     ctx.require_signer(&auth_addr)?;
 
-    let mut meta = alt::read_meta(&accounts[0].data).ok_or_else(|| {
-        HopperSvmError::BuiltinError {
+    let mut meta =
+        alt::read_meta(&accounts[0].data).ok_or_else(|| HopperSvmError::BuiltinError {
             program_id: *ctx.program_id,
             message: format!("alt::Extend: {table_addr} not a valid lookup table"),
-        }
-    })?;
+        })?;
     match meta.authority {
         Some(stored) if stored == auth_addr => {}
         Some(stored) => {
             return Err(HopperSvmError::BuiltinError {
                 program_id: *ctx.program_id,
-                message: format!(
-                    "alt::Extend: signer {auth_addr} != stored authority {stored}"
-                ),
+                message: format!("alt::Extend: signer {auth_addr} != stored authority {stored}"),
             });
         }
         None => {
@@ -359,12 +352,11 @@ fn deactivate_lookup_table(
     ctx.require_writable(&table_addr)?;
     ctx.require_signer(&auth_addr)?;
 
-    let mut meta = alt::read_meta(&accounts[0].data).ok_or_else(|| {
-        HopperSvmError::BuiltinError {
+    let mut meta =
+        alt::read_meta(&accounts[0].data).ok_or_else(|| HopperSvmError::BuiltinError {
             program_id: *ctx.program_id,
             message: format!("alt::Deactivate: {table_addr} not a valid lookup table"),
-        }
-    })?;
+        })?;
     match meta.authority {
         Some(stored) if stored == auth_addr => {}
         Some(stored) => {
@@ -422,20 +414,16 @@ fn close_lookup_table(
     ctx.require_signer(&auth_addr)?;
     ctx.require_writable(&recipient_addr)?;
 
-    let meta = alt::read_meta(&accounts[0].data).ok_or_else(|| {
-        HopperSvmError::BuiltinError {
-            program_id: *ctx.program_id,
-            message: format!("alt::Close: {table_addr} not a valid lookup table"),
-        }
+    let meta = alt::read_meta(&accounts[0].data).ok_or_else(|| HopperSvmError::BuiltinError {
+        program_id: *ctx.program_id,
+        message: format!("alt::Close: {table_addr} not a valid lookup table"),
     })?;
     match meta.authority {
         Some(stored) if stored == auth_addr => {}
         Some(stored) => {
             return Err(HopperSvmError::BuiltinError {
                 program_id: *ctx.program_id,
-                message: format!(
-                    "alt::Close: signer {auth_addr} != stored authority {stored}"
-                ),
+                message: format!("alt::Close: signer {auth_addr} != stored authority {stored}"),
             });
         }
         None => {
@@ -525,10 +513,34 @@ mod tests {
         );
 
         let mut accounts = vec![
-            KeyedAccount::new(table_addr, 0, solana_sdk::system_program::id(), vec![], false),
-            KeyedAccount::new(authority, 1_000_000, solana_sdk::system_program::id(), vec![], false),
-            KeyedAccount::new(payer, 5_000_000, solana_sdk::system_program::id(), vec![], false),
-            KeyedAccount::new(solana_sdk::system_program::id(), 0, solana_sdk::system_program::id(), vec![], true),
+            KeyedAccount::new(
+                table_addr,
+                0,
+                solana_sdk::system_program::id(),
+                vec![],
+                false,
+            ),
+            KeyedAccount::new(
+                authority,
+                1_000_000,
+                solana_sdk::system_program::id(),
+                vec![],
+                false,
+            ),
+            KeyedAccount::new(
+                payer,
+                5_000_000,
+                solana_sdk::system_program::id(),
+                vec![],
+                false,
+            ),
+            KeyedAccount::new(
+                solana_sdk::system_program::id(),
+                0,
+                solana_sdk::system_program::id(),
+                vec![],
+                true,
+            ),
         ];
 
         // Create.
@@ -648,10 +660,34 @@ mod tests {
             &ALT_PROGRAM_ID,
         );
         let mut accounts = vec![
-            KeyedAccount::new(table_addr, 0, solana_sdk::system_program::id(), vec![], false),
-            KeyedAccount::new(authority, 1_000_000, solana_sdk::system_program::id(), vec![], false),
-            KeyedAccount::new(payer, 5_000_000, solana_sdk::system_program::id(), vec![], false),
-            KeyedAccount::new(solana_sdk::system_program::id(), 0, solana_sdk::system_program::id(), vec![], true),
+            KeyedAccount::new(
+                table_addr,
+                0,
+                solana_sdk::system_program::id(),
+                vec![],
+                false,
+            ),
+            KeyedAccount::new(
+                authority,
+                1_000_000,
+                solana_sdk::system_program::id(),
+                vec![],
+                false,
+            ),
+            KeyedAccount::new(
+                payer,
+                5_000_000,
+                solana_sdk::system_program::id(),
+                vec![],
+                false,
+            ),
+            KeyedAccount::new(
+                solana_sdk::system_program::id(),
+                0,
+                solana_sdk::system_program::id(),
+                vec![],
+                true,
+            ),
         ];
         let mut data = vec![0u8, 0, 0, 0];
         data.extend_from_slice(&recent_slot.to_le_bytes());

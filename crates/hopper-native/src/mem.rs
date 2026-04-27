@@ -110,7 +110,9 @@ pub fn zero_fill(buf: &mut [u8]) {
     if buf.is_empty() {
         return;
     }
-    unsafe { memset(buf.as_mut_ptr(), 0, buf.len()); }
+    unsafe {
+        memset(buf.as_mut_ptr(), 0, buf.len());
+    }
 }
 
 /// Copy bytes from one slice to another (no overlap).
@@ -121,7 +123,9 @@ pub fn copy_bytes(dst: &mut [u8], src: &[u8]) -> Result<(), ProgramError> {
     if dst.len() < src.len() {
         return Err(ProgramError::InvalidArgument);
     }
-    unsafe { memcpy(dst.as_mut_ptr(), src.as_ptr(), src.len()); }
+    unsafe {
+        memcpy(dst.as_mut_ptr(), src.as_ptr(), src.len());
+    }
     Ok(())
 }
 
@@ -147,5 +151,7 @@ pub fn zero_account_data(account: &crate::account_view::AccountView) {
     if len == 0 {
         return;
     }
-    unsafe { memset(account.data_ptr(), 0, len); }
+    unsafe {
+        memset(account.data_ptr(), 0, len);
+    }
 }

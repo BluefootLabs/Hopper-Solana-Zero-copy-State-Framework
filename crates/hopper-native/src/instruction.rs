@@ -3,9 +3,9 @@
 //! These types match the Solana runtime's C ABI for cross-program invocation.
 //! Wire-compatible with pinocchio/solana-instruction-view types.
 
-use core::marker::PhantomData;
-use crate::address::Address;
 use crate::account_view::AccountView;
+use crate::address::Address;
+use core::marker::PhantomData;
 
 // ── InstructionAccount ───────────────────────────────────────────────
 
@@ -25,31 +25,51 @@ impl<'a> InstructionAccount<'a> {
     /// Construct with explicit flags.
     #[inline(always)]
     pub const fn new(address: &'a Address, is_writable: bool, is_signer: bool) -> Self {
-        Self { address, is_writable, is_signer }
+        Self {
+            address,
+            is_writable,
+            is_signer,
+        }
     }
 
     /// Read-only, non-signer.
     #[inline(always)]
     pub const fn readonly(address: &'a Address) -> Self {
-        Self { address, is_writable: false, is_signer: false }
+        Self {
+            address,
+            is_writable: false,
+            is_signer: false,
+        }
     }
 
     /// Writable, non-signer.
     #[inline(always)]
     pub const fn writable(address: &'a Address) -> Self {
-        Self { address, is_writable: true, is_signer: false }
+        Self {
+            address,
+            is_writable: true,
+            is_signer: false,
+        }
     }
 
     /// Read-only signer.
     #[inline(always)]
     pub const fn readonly_signer(address: &'a Address) -> Self {
-        Self { address, is_writable: false, is_signer: true }
+        Self {
+            address,
+            is_writable: false,
+            is_signer: true,
+        }
     }
 
     /// Writable signer.
     #[inline(always)]
     pub const fn writable_signer(address: &'a Address) -> Self {
-        Self { address, is_writable: true, is_signer: true }
+        Self {
+            address,
+            is_writable: true,
+            is_signer: true,
+        }
     }
 }
 

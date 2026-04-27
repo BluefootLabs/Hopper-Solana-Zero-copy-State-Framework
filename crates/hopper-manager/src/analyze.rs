@@ -23,18 +23,10 @@ pub fn compatibility_report(
     from_version: u8,
     to_version: u8,
 ) -> Result<String, String> {
-    let older = find_layout_version(manifest, layout_name, from_version).ok_or_else(|| {
-        format!(
-            "layout {} v{} not in manifest",
-            layout_name, from_version
-        )
-    })?;
-    let newer = find_layout_version(manifest, layout_name, to_version).ok_or_else(|| {
-        format!(
-            "layout {} v{} not in manifest",
-            layout_name, to_version
-        )
-    })?;
+    let older = find_layout_version(manifest, layout_name, from_version)
+        .ok_or_else(|| format!("layout {} v{} not in manifest", layout_name, from_version))?;
+    let newer = find_layout_version(manifest, layout_name, to_version)
+        .ok_or_else(|| format!("layout {} v{} not in manifest", layout_name, to_version))?;
 
     let verdict = CompatibilityVerdict::between(older, newer);
 
@@ -160,12 +152,7 @@ pub fn field_diff_report(
     Ok(out)
 }
 
-fn diff_same_version(
-    out: &mut String,
-    layout: &LayoutManifest,
-    before: &[u8],
-    after: &[u8],
-) {
+fn diff_same_version(out: &mut String, layout: &LayoutManifest, before: &[u8], after: &[u8]) {
     let _ = writeln!(out, "  (same version, showing per-field byte deltas)");
     for field in layout.fields.iter().take(layout.field_count) {
         let end = field.offset as usize + field.size as usize;
@@ -183,11 +170,7 @@ fn diff_same_version(
             }
             (Some(_), Some(_)) => {}
             _ => {
-                let _ = writeln!(
-                    out,
-                    "    {:<20}  SKIPPED (out of bounds)",
-                    field.name
-                );
+                let _ = writeln!(out, "    {:<20}  SKIPPED (out of bounds)", field.name);
             }
         }
     }
@@ -235,11 +218,7 @@ fn diff_cross_version(
                 );
             }
             _ => {
-                let _ = writeln!(
-                    out,
-                    "    {:<20}  SKIPPED (out of bounds)",
-                    older_field.name
-                );
+                let _ = writeln!(out, "    {:<20}  SKIPPED (out of bounds)", older_field.name);
             }
         }
     }
@@ -261,21 +240,13 @@ fn diff_cross_version(
 
 fn describe_verdict(v: CompatibilityVerdict) -> &'static str {
     match v {
-        CompatibilityVerdict::Identical => {
-            "byte-identical layouts, no transition required"
-        }
-        CompatibilityVerdict::WireCompatible => {
-            "wire-compatible; only semantic metadata differs"
-        }
-        CompatibilityVerdict::AppendSafe => {
-            "append-safe; old readers can still decode new data"
-        }
+        CompatibilityVerdict::Identical => "byte-identical layouts, no transition required",
+        CompatibilityVerdict::WireCompatible => "wire-compatible; only semantic metadata differs",
+        CompatibilityVerdict::AppendSafe => "append-safe; old readers can still decode new data",
         CompatibilityVerdict::MigrationRequired => {
             "migration required; existing bytes must be rewritten"
         }
-        CompatibilityVerdict::Incompatible => {
-            "incompatible; discriminators diverge"
-        }
+        CompatibilityVerdict::Incompatible => "incompatible; discriminators diverge",
     }
 }
 

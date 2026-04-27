@@ -342,96 +342,138 @@ macro_rules! __wire_arith_ops {
         impl core::ops::Add for $name {
             type Output = Self;
             #[inline(always)]
-            fn add(self, rhs: Self) -> Self { Self::new(self.get() + rhs.get()) }
+            fn add(self, rhs: Self) -> Self {
+                Self::new(self.get() + rhs.get())
+            }
         }
         impl core::ops::Sub for $name {
             type Output = Self;
             #[inline(always)]
-            fn sub(self, rhs: Self) -> Self { Self::new(self.get() - rhs.get()) }
+            fn sub(self, rhs: Self) -> Self {
+                Self::new(self.get() - rhs.get())
+            }
         }
         impl core::ops::Mul for $name {
             type Output = Self;
             #[inline(always)]
-            fn mul(self, rhs: Self) -> Self { Self::new(self.get() * rhs.get()) }
+            fn mul(self, rhs: Self) -> Self {
+                Self::new(self.get() * rhs.get())
+            }
         }
         impl core::ops::Div for $name {
             type Output = Self;
             #[inline(always)]
-            fn div(self, rhs: Self) -> Self { Self::new(self.get() / rhs.get()) }
+            fn div(self, rhs: Self) -> Self {
+                Self::new(self.get() / rhs.get())
+            }
         }
         impl core::ops::Rem for $name {
             type Output = Self;
             #[inline(always)]
-            fn rem(self, rhs: Self) -> Self { Self::new(self.get() % rhs.get()) }
+            fn rem(self, rhs: Self) -> Self {
+                Self::new(self.get() % rhs.get())
+            }
         }
         impl core::ops::Add<$native> for $name {
             type Output = Self;
             #[inline(always)]
-            fn add(self, rhs: $native) -> Self { Self::new(self.get() + rhs) }
+            fn add(self, rhs: $native) -> Self {
+                Self::new(self.get() + rhs)
+            }
         }
         impl core::ops::Sub<$native> for $name {
             type Output = Self;
             #[inline(always)]
-            fn sub(self, rhs: $native) -> Self { Self::new(self.get() - rhs) }
+            fn sub(self, rhs: $native) -> Self {
+                Self::new(self.get() - rhs)
+            }
         }
         impl core::ops::Mul<$native> for $name {
             type Output = Self;
             #[inline(always)]
-            fn mul(self, rhs: $native) -> Self { Self::new(self.get() * rhs) }
+            fn mul(self, rhs: $native) -> Self {
+                Self::new(self.get() * rhs)
+            }
         }
         impl core::ops::Div<$native> for $name {
             type Output = Self;
             #[inline(always)]
-            fn div(self, rhs: $native) -> Self { Self::new(self.get() / rhs) }
+            fn div(self, rhs: $native) -> Self {
+                Self::new(self.get() / rhs)
+            }
         }
         impl core::ops::Rem<$native> for $name {
             type Output = Self;
             #[inline(always)]
-            fn rem(self, rhs: $native) -> Self { Self::new(self.get() % rhs) }
+            fn rem(self, rhs: $native) -> Self {
+                Self::new(self.get() % rhs)
+            }
         }
         impl core::ops::AddAssign for $name {
             #[inline(always)]
-            fn add_assign(&mut self, rhs: Self) { *self = *self + rhs; }
+            fn add_assign(&mut self, rhs: Self) {
+                *self = *self + rhs;
+            }
         }
         impl core::ops::SubAssign for $name {
             #[inline(always)]
-            fn sub_assign(&mut self, rhs: Self) { *self = *self - rhs; }
+            fn sub_assign(&mut self, rhs: Self) {
+                *self = *self - rhs;
+            }
         }
         impl core::ops::MulAssign for $name {
             #[inline(always)]
-            fn mul_assign(&mut self, rhs: Self) { *self = *self * rhs; }
+            fn mul_assign(&mut self, rhs: Self) {
+                *self = *self * rhs;
+            }
         }
         impl core::ops::DivAssign for $name {
             #[inline(always)]
-            fn div_assign(&mut self, rhs: Self) { *self = *self / rhs; }
+            fn div_assign(&mut self, rhs: Self) {
+                *self = *self / rhs;
+            }
         }
         impl core::ops::RemAssign for $name {
             #[inline(always)]
-            fn rem_assign(&mut self, rhs: Self) { *self = *self % rhs; }
+            fn rem_assign(&mut self, rhs: Self) {
+                *self = *self % rhs;
+            }
         }
         impl core::ops::AddAssign<$native> for $name {
             #[inline(always)]
-            fn add_assign(&mut self, rhs: $native) { *self = *self + rhs; }
+            fn add_assign(&mut self, rhs: $native) {
+                *self = *self + rhs;
+            }
         }
         impl core::ops::SubAssign<$native> for $name {
             #[inline(always)]
-            fn sub_assign(&mut self, rhs: $native) { *self = *self - rhs; }
+            fn sub_assign(&mut self, rhs: $native) {
+                *self = *self - rhs;
+            }
         }
         impl core::ops::MulAssign<$native> for $name {
             #[inline(always)]
-            fn mul_assign(&mut self, rhs: $native) { *self = *self * rhs; }
+            fn mul_assign(&mut self, rhs: $native) {
+                *self = *self * rhs;
+            }
         }
         impl core::ops::DivAssign<$native> for $name {
             #[inline(always)]
-            fn div_assign(&mut self, rhs: $native) { *self = *self / rhs; }
+            fn div_assign(&mut self, rhs: $native) {
+                *self = *self / rhs;
+            }
         }
         impl core::ops::RemAssign<$native> for $name {
             #[inline(always)]
-            fn rem_assign(&mut self, rhs: $native) { *self = *self % rhs; }
+            fn rem_assign(&mut self, rhs: $native) {
+                *self = *self % rhs;
+            }
         }
         impl PartialEq<$native> for $name {
             #[inline(always)]
-            fn eq(&self, other: &$native) -> bool { self.get() == *other }
+            fn eq(&self, other: &$native) -> bool {
+                self.get() == *other
+            }
         }
         impl PartialOrd<$native> for $name {
             #[inline(always)]
@@ -531,12 +573,16 @@ impl LeBool {
 
 impl From<bool> for LeBool {
     #[inline(always)]
-    fn from(v: bool) -> Self { Self::new(v) }
+    fn from(v: bool) -> Self {
+        Self::new(v)
+    }
 }
 
 impl From<LeBool> for bool {
     #[inline(always)]
-    fn from(v: LeBool) -> Self { v.get() }
+    fn from(v: LeBool) -> Self {
+        v.get()
+    }
 }
 
 impl core::fmt::Debug for LeBool {
@@ -625,12 +671,16 @@ impl LeU128 {
 
 impl From<u128> for LeU128 {
     #[inline(always)]
-    fn from(v: u128) -> Self { Self::new(v) }
+    fn from(v: u128) -> Self {
+        Self::new(v)
+    }
 }
 
 impl From<LeU128> for u128 {
     #[inline(always)]
-    fn from(v: LeU128) -> Self { v.get() }
+    fn from(v: LeU128) -> Self {
+        v.get()
+    }
 }
 
 impl PartialOrd for LeU128 {

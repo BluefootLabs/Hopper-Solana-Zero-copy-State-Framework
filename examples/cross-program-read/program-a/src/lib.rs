@@ -1,4 +1,4 @@
-﻿//! # Program A -- Vault Owner
+//! # Program A -- Vault Owner
 //!
 //! Defines a `Vault` account with `hopper_layout!`. This is the canonical
 //! layout definition. Program B reads it using `hopper_interface!` without
@@ -58,11 +58,7 @@ fn process_instruction(
 
 // --- Init -----------------------------------------------------------
 
-fn process_init(
-    program_id: &Address,
-    accounts: &[AccountView],
-    _data: &[u8],
-) -> ProgramResult {
+fn process_init(program_id: &Address, accounts: &[AccountView], _data: &[u8]) -> ProgramResult {
     if accounts.len() < 3 {
         return Err(ProgramError::NotEnoughAccountKeys);
     }
@@ -85,11 +81,7 @@ fn process_init(
 
 // --- Deposit --------------------------------------------------------
 
-fn process_deposit(
-    program_id: &Address,
-    accounts: &[AccountView],
-    data: &[u8],
-) -> ProgramResult {
+fn process_deposit(program_id: &Address, accounts: &[AccountView], data: &[u8]) -> ProgramResult {
     if accounts.len() < 2 {
         return Err(ProgramError::NotEnoughAccountKeys);
     }
@@ -106,8 +98,7 @@ fn process_deposit(
         return Err(ProgramError::InvalidInstructionData);
     }
     let amount = u64::from_le_bytes([
-        data[0], data[1], data[2], data[3],
-        data[4], data[5], data[6], data[7],
+        data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7],
     ]);
     let new_balance = vault
         .balance

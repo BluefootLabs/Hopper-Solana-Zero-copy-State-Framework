@@ -25,9 +25,12 @@ pub fn close_and_transfer(source: &AccountView, destination: &AccountView) -> Pr
     }
 
     // Move lamports.
-    destination.set_lamports(destination.lamports().checked_add(lamports).ok_or(
-        ProgramError::ArithmeticOverflow,
-    )?);
+    destination.set_lamports(
+        destination
+            .lamports()
+            .checked_add(lamports)
+            .ok_or(ProgramError::ArithmeticOverflow)?,
+    );
 
     // Close source (zeros data, sets owner to system program).
     source.close()
@@ -39,17 +42,15 @@ pub fn close_and_transfer(source: &AccountView, destination: &AccountView) -> Pr
 /// manipulation is cheaper than a system program CPI transfer.
 /// This method checks for sufficient balance and overflow.
 #[inline]
-pub fn transfer_lamports(
-    from: &AccountView,
-    to: &AccountView,
-    amount: u64,
-) -> ProgramResult {
+pub fn transfer_lamports(from: &AccountView, to: &AccountView, amount: u64) -> ProgramResult {
     let from_lamports = from.lamports();
     if from_lamports < amount {
         return Err(ProgramError::InsufficientFunds);
     }
     let to_lamports = to.lamports();
-    let new_to = to_lamports.checked_add(amount).ok_or(ProgramError::ArithmeticOverflow)?;
+    let new_to = to_lamports
+        .checked_add(amount)
+        .ok_or(ProgramError::ArithmeticOverflow)?;
 
     from.set_lamports(from_lamports - amount);
     to.set_lamports(new_to);

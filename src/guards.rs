@@ -32,31 +32,51 @@ use hopper_runtime::{AccountView, Address, LayoutContract, ProgramError, Program
 /// Require a boolean condition, returning `err` if false.
 #[inline(always)]
 pub fn require(cond: bool, err: ProgramError) -> ProgramResult {
-    if cond { Ok(()) } else { Err(err) }
+    if cond {
+        Ok(())
+    } else {
+        Err(err)
+    }
 }
 
 /// Require two values to be equal.
 #[inline(always)]
 pub fn require_eq<T: PartialEq>(a: T, b: T, err: ProgramError) -> ProgramResult {
-    if a == b { Ok(()) } else { Err(err) }
+    if a == b {
+        Ok(())
+    } else {
+        Err(err)
+    }
 }
 
 /// Require two values to be different.
 #[inline(always)]
 pub fn require_neq<T: PartialEq>(a: T, b: T, err: ProgramError) -> ProgramResult {
-    if a != b { Ok(()) } else { Err(err) }
+    if a != b {
+        Ok(())
+    } else {
+        Err(err)
+    }
 }
 
 /// Require a >= b.
 #[inline(always)]
 pub fn require_gte<T: PartialOrd>(a: T, b: T, err: ProgramError) -> ProgramResult {
-    if a >= b { Ok(()) } else { Err(err) }
+    if a >= b {
+        Ok(())
+    } else {
+        Err(err)
+    }
 }
 
 /// Require a > b.
 #[inline(always)]
 pub fn require_gt<T: PartialOrd>(a: T, b: T, err: ProgramError) -> ProgramResult {
-    if a > b { Ok(()) } else { Err(err) }
+    if a > b {
+        Ok(())
+    } else {
+        Err(err)
+    }
 }
 
 /// Require that the account signed the transaction.
@@ -96,13 +116,21 @@ pub fn require_address(account: &AccountView, expected: &Address) -> ProgramResu
 /// Require two addresses to be equal.
 #[inline(always)]
 pub fn require_keys_eq(a: &Address, b: &Address, err: ProgramError) -> ProgramResult {
-    if hopper_runtime::address::address_eq(a, b) { Ok(()) } else { Err(err) }
+    if hopper_runtime::address::address_eq(a, b) {
+        Ok(())
+    } else {
+        Err(err)
+    }
 }
 
 /// Require two addresses to be different.
 #[inline(always)]
 pub fn require_keys_neq(a: &Address, b: &Address, err: ProgramError) -> ProgramResult {
-    if !hopper_runtime::address::address_eq(a, b) { Ok(()) } else { Err(err) }
+    if !hopper_runtime::address::address_eq(a, b) {
+        Ok(())
+    } else {
+        Err(err)
+    }
 }
 
 /// Require the account has the given discriminator byte.
@@ -120,13 +148,21 @@ pub fn require_layout<T: LayoutContract>(account: &AccountView) -> ProgramResult
 /// Require the account has non-empty data.
 #[inline(always)]
 pub fn require_has_data(account: &AccountView) -> ProgramResult {
-    if !account.is_data_empty() { Ok(()) } else { Err(ProgramError::AccountDataTooSmall) }
+    if !account.is_data_empty() {
+        Ok(())
+    } else {
+        Err(ProgramError::AccountDataTooSmall)
+    }
 }
 
 /// Require the account has at least `min_len` bytes of data.
 #[inline(always)]
 pub fn require_data_len(account: &AccountView, min_len: usize) -> ProgramResult {
-    if account.data_len() >= min_len { Ok(()) } else { Err(ProgramError::AccountDataTooSmall) }
+    if account.data_len() >= min_len {
+        Ok(())
+    } else {
+        Err(ProgramError::AccountDataTooSmall)
+    }
 }
 
 /// Require that `n` accounts are different (pairwise uniqueness, up to 6).

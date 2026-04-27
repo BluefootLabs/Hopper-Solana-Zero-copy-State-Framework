@@ -57,10 +57,7 @@ pub fn program_id_at(data: &[u8], index: u16) -> Result<Address, ProgramError> {
 
 /// Read the instruction data range (offset, length) for instruction at `index`.
 #[inline(always)]
-pub fn instruction_data_range(
-    data: &[u8],
-    index: u16,
-) -> Result<(usize, usize), ProgramError> {
+pub fn instruction_data_range(data: &[u8], index: u16) -> Result<(usize, usize), ProgramError> {
     let (offset, num_accounts) = instruction_meta(data, index)?;
     let num_accounts = num_accounts as usize;
     let after_program_id = offset + 2 + num_accounts * 33 + 32;
@@ -101,10 +98,7 @@ pub fn instruction_account_key(
 /// Returns `Some(address)` if the current instruction's program_id differs
 /// from `our_program`, indicating CPI. Returns `None` if top-level.
 #[inline(always)]
-pub fn caller_program(
-    data: &[u8],
-    our_program: &Address,
-) -> Result<Option<Address>, ProgramError> {
+pub fn caller_program(data: &[u8], our_program: &Address) -> Result<Option<Address>, ProgramError> {
     let idx = current_index(data)?;
     let pid = program_id_at(data, idx)?;
     if pid == *our_program {
@@ -127,10 +121,7 @@ pub fn require_top_level(data: &[u8], our_program: &Address) -> ProgramResult {
 
 /// Require that the CPI caller is a specific trusted program.
 #[inline(always)]
-pub fn require_cpi_from(
-    data: &[u8],
-    expected_caller: &Address,
-) -> ProgramResult {
+pub fn require_cpi_from(data: &[u8], expected_caller: &Address) -> ProgramResult {
     let idx = current_index(data)?;
     let pid = program_id_at(data, idx)?;
     if pid != *expected_caller {
@@ -141,10 +132,7 @@ pub fn require_cpi_from(
 
 /// Count how many instructions in the transaction invoke `program_id`.
 #[inline(always)]
-pub fn count_program_invocations(
-    data: &[u8],
-    program_id: &Address,
-) -> Result<u16, ProgramError> {
+pub fn count_program_invocations(data: &[u8], program_id: &Address) -> Result<u16, ProgramError> {
     let count = instruction_count(data)?;
     let mut n = 0u16;
     let mut i = 0u16;
@@ -249,12 +237,10 @@ fn instruction_meta(data: &[u8], index: u16) -> Result<(usize, u16), ProgramErro
     if offset_pos + 2 > data.len() {
         return Err(ProgramError::AccountDataTooSmall);
     }
-    let instr_offset =
-        u16::from_le_bytes([data[offset_pos], data[offset_pos + 1]]) as usize;
+    let instr_offset = u16::from_le_bytes([data[offset_pos], data[offset_pos + 1]]) as usize;
     if instr_offset + 2 > data.len() {
         return Err(ProgramError::AccountDataTooSmall);
     }
-    let num_accounts =
-        u16::from_le_bytes([data[instr_offset], data[instr_offset + 1]]);
+    let num_accounts = u16::from_le_bytes([data[instr_offset], data[instr_offset + 1]]);
     Ok((instr_offset, num_accounts))
 }

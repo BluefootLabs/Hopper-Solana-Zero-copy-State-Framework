@@ -47,8 +47,7 @@ fn parse_amount(data: &[u8]) -> Result<u64, ProgramError> {
     }
 
     Ok(u64::from_le_bytes([
-        data[0], data[1], data[2], data[3],
-        data[4], data[5], data[6], data[7],
+        data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7],
     ]))
 }
 
@@ -104,11 +103,7 @@ fn transfer_unchecked(from: &AccountView, to: &AccountView, lamports: u64) -> Pr
     unsafe { hopper::hopper_runtime::cpi::invoke_unchecked(&instruction, &cpi_accounts) }
 }
 
-fn process_deposit(
-    program_id: &Address,
-    accounts: &[AccountView],
-    data: &[u8],
-) -> ProgramResult {
+fn process_deposit(program_id: &Address, accounts: &[AccountView], data: &[u8]) -> ProgramResult {
     let [user, vault, system_program, ..] = accounts else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };
@@ -135,11 +130,7 @@ fn process_deposit_accounts(
     transfer_unchecked(user, vault, amount)
 }
 
-fn process_withdraw(
-    program_id: &Address,
-    accounts: &[AccountView],
-    data: &[u8],
-) -> ProgramResult {
+fn process_withdraw(program_id: &Address, accounts: &[AccountView], data: &[u8]) -> ProgramResult {
     let [user, vault, ..] = accounts else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };

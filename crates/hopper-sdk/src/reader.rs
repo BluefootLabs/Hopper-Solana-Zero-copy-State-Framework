@@ -17,7 +17,9 @@
 
 use hopper_schema::{FieldDescriptor, LayoutManifest};
 
-use crate::fingerprint::{check_against_layout, FingerprintCheck, FingerprintError, LAYOUT_ID_OFFSET};
+use crate::fingerprint::{
+    check_against_layout, FingerprintCheck, FingerprintError, LAYOUT_ID_OFFSET,
+};
 
 /// Errors produced by the segment-aware reader.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -50,7 +52,9 @@ pub enum ReaderError {
 }
 
 impl From<FingerprintError> for ReaderError {
-    fn from(e: FingerprintError) -> Self { ReaderError::Fingerprint(e) }
+    fn from(e: FingerprintError) -> Self {
+        ReaderError::Fingerprint(e)
+    }
 }
 
 /// Zero-copy segment-aware partial account reader.
@@ -90,10 +94,14 @@ impl<'a> SegmentReader<'a> {
     }
 
     /// Access the raw account buffer.
-    pub const fn bytes(&self) -> &'a [u8] { self.bytes }
+    pub const fn bytes(&self) -> &'a [u8] {
+        self.bytes
+    }
 
     /// Layout manifest this reader was constructed against.
-    pub const fn layout(&self) -> &'a LayoutManifest { self.layout }
+    pub const fn layout(&self) -> &'a LayoutManifest {
+        self.layout
+    }
 
     /// Look up a field descriptor by name.
     pub fn field(&self, name: &str) -> Option<&'a FieldDescriptor> {
@@ -203,10 +211,14 @@ fn bytes_eq(a: &str, b: &str) -> bool {
     // pulling in str::eq internals.
     let a = a.as_bytes();
     let b = b.as_bytes();
-    if a.len() != b.len() { return false; }
+    if a.len() != b.len() {
+        return false;
+    }
     let mut i = 0;
     while i < a.len() {
-        if a[i] != b[i] { return false; }
+        if a[i] != b[i] {
+            return false;
+        }
         i += 1;
     }
     true
@@ -221,26 +233,52 @@ mod tests {
 
     fn fields() -> &'static [FieldDescriptor] {
         static F: [FieldDescriptor; 3] = [
-            FieldDescriptor { name: "authority", canonical_type: "Pubkey", size: 32, offset: 16, intent: FieldIntent::Authority },
-            FieldDescriptor { name: "balance",   canonical_type: "u64",    size: 8,  offset: 48, intent: FieldIntent::Balance   },
-            FieldDescriptor { name: "bump",      canonical_type: "u8",     size: 1,  offset: 56, intent: FieldIntent::Bump      },
+            FieldDescriptor {
+                name: "authority",
+                canonical_type: "Pubkey",
+                size: 32,
+                offset: 16,
+                intent: FieldIntent::Authority,
+            },
+            FieldDescriptor {
+                name: "balance",
+                canonical_type: "u64",
+                size: 8,
+                offset: 48,
+                intent: FieldIntent::Balance,
+            },
+            FieldDescriptor {
+                name: "bump",
+                canonical_type: "u8",
+                size: 1,
+                offset: 56,
+                intent: FieldIntent::Bump,
+            },
         ];
         &F
     }
 
     fn manifest() -> LayoutManifest {
         LayoutManifest {
-            name: "Vault", disc: 5, version: 1, layout_id: LAYOUT_ID,
-            total_size: 80, field_count: 3, fields: fields(),
+            name: "Vault",
+            disc: 5,
+            version: 1,
+            layout_id: LAYOUT_ID,
+            total_size: 80,
+            field_count: 3,
+            fields: fields(),
         }
     }
 
     fn blob() -> [u8; 80] {
         let mut b = [0u8; 80];
-        b[0] = 5; b[1] = 1;
+        b[0] = 5;
+        b[1] = 1;
         b[LAYOUT_ID_OFFSET..LAYOUT_ID_OFFSET + 8].copy_from_slice(&LAYOUT_ID);
         // authority
-        for i in 0..32 { b[16 + i] = i as u8; }
+        for i in 0..32 {
+            b[16 + i] = i as u8;
+        }
         // balance = 1_000_000
         b[48..56].copy_from_slice(&1_000_000u64.to_le_bytes());
         // bump
@@ -274,7 +312,13 @@ mod tests {
         let m = manifest();
         let b = [0u8; 40];
         let err = SegmentReader::new(&b, &m).unwrap_err();
-        assert!(matches!(err, ReaderError::BufferTooShort { required: 80, got: 40 }));
+        assert!(matches!(
+            err,
+            ReaderError::BufferTooShort {
+                required: 80,
+                got: 40
+            }
+        ));
     }
 
     #[test]
@@ -284,7 +328,10 @@ mod tests {
         let r = SegmentReader::new(&b, &m).unwrap();
         assert!(matches!(
             r.read_u32("balance"),
-            Err(ReaderError::SizeMismatch { wire: 8, requested: 4 })
+            Err(ReaderError::SizeMismatch {
+                wire: 8,
+                requested: 4
+            })
         ));
     }
 }

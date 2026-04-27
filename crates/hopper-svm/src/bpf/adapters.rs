@@ -46,11 +46,11 @@ use crate::bpf::parameter::MAX_PERMITTED_DATA_INCREASE;
 use crate::bpf::syscalls::{self, SyscallResult};
 use crate::bpf::sysvar_syscalls;
 use crate::bpf::tier3_syscalls;
-use solana_sdk::instruction::AccountMeta;
-use solana_sdk::pubkey::Pubkey;
 use solana_sbpf::declare_builtin_function;
 use solana_sbpf::error::EbpfError;
 use solana_sbpf::memory_region::{AccessType, MemoryMapping};
+use solana_sdk::instruction::AccountMeta;
+use solana_sdk::pubkey::Pubkey;
 
 /// Map `SyscallResult` onto sbpf's `Result<u64, EbpfError>`. The
 /// VM sees `Ok(0)` for success, an `EbpfError::SyscallError` with

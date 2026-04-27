@@ -228,9 +228,9 @@ fn process_place_order(
 
     // Build virtual state for the core market entity (3 slots)
     let market = VirtualState::<3>::new()
-        .map(SLOT_CONFIG, 1)        // config: owned, read-only
-        .map_mut(SLOT_VAULT, 2)     // vault: owned, writable
-        .map_mut(SLOT_STATS, 3);    // stats: owned, writable
+        .map(SLOT_CONFIG, 1) // config: owned, read-only
+        .map_mut(SLOT_VAULT, 2) // vault: owned, writable
+        .map_mut(SLOT_STATS, 3); // stats: owned, writable
 
     // Validate all virtual slot constraints
     market.validate(accounts, program_id)?;
@@ -244,12 +244,10 @@ fn process_place_order(
 
     // Parse order data
     let price = u64::from_le_bytes([
-        data[0], data[1], data[2], data[3],
-        data[4], data[5], data[6], data[7],
+        data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7],
     ]);
     let amount = u64::from_le_bytes([
-        data[8], data[9], data[10], data[11],
-        data[12], data[13], data[14], data[15],
+        data[8], data[9], data[10], data[11], data[12], data[13], data[14], data[15],
     ]);
     let side = data[16];
     let order_key = &data[17..49]; // 32-byte key for shard routing
@@ -271,10 +269,8 @@ fn process_place_order(
             i += 1;
         }
 
-        let shards = ShardedAccess::<SHARD_COUNT>::new(
-            accounts,
-            &shard_indices[..available_shards],
-        )?;
+        let shards =
+            ShardedAccess::<SHARD_COUNT>::new(accounts, &shard_indices[..available_shards])?;
 
         // Determine which shard owns this order
         let target_shard = shards.shard_for_key(order_key);
@@ -285,19 +281,14 @@ fn process_place_order(
         check_owner(shard_account, program_id)?;
         check_writable(shard_account)?;
 
-        emit_slices(&[
-            b"order_routed_to_shard",
-            &[target_shard as u8],
-        ]);
+        emit_slices(&[b"order_routed_to_shard", &[target_shard as u8]]);
     }
 
     // Update vault volume
     {
         let mut vault = market.overlay_mut::<MarketVault>(accounts, SLOT_VAULT)?;
         let vol = vault.total_volume.get();
-        vault.total_volume = WireU64::new(
-            vol.saturating_add(price.saturating_mul(amount)),
-        );
+        vault.total_volume = WireU64::new(vol.saturating_add(price.saturating_mul(amount)));
     }
 
     // Update stats
@@ -379,19 +370,13 @@ fn process_read_shard(
         i += 1;
     }
 
-    let shards = ShardedAccess::<SHARD_COUNT>::new(
-        accounts,
-        &shard_indices[..available_shards],
-    )?;
+    let shards = ShardedAccess::<SHARD_COUNT>::new(accounts, &shard_indices[..available_shards])?;
 
     // Route key to shard
     let target = shards.shard_for_key(lookup_key);
     let _shard_data = shards.data_for_key(lookup_key)?;
 
-    emit_slices(&[
-        b"shard_lookup",
-        &[target as u8],
-    ]);
+    emit_slices(&[b"shard_lookup", &[target as u8]]);
 
     Ok(())
 }
@@ -407,8 +392,8 @@ mod tests {
     #[test]
     fn layout_sizes() {
         assert_eq!(MarketConfig::LEN, 16 + 32 + 2 + 4 + 1); // 55
-        assert_eq!(MarketVault::LEN, 16 + 32 + 8 + 8 + 1);  // 65
-        assert_eq!(MarketStats::LEN, 16 + 8 + 8 + 8 + 8);   // 48
+        assert_eq!(MarketVault::LEN, 16 + 32 + 8 + 8 + 1); // 65
+        assert_eq!(MarketStats::LEN, 16 + 8 + 8 + 8 + 8); // 48
         assert_eq!(OrderRecord::LEN, 16 + 32 + 8 + 8 + 1 + 1); // 66
     }
 
@@ -434,7 +419,10 @@ mod tests {
             .map_mut(1, 1)
             .map_foreign(2, 2);
         // Can't test validate without real accounts, but verify it builds
-        assert_eq!(core::mem::size_of::<VirtualState<3>>(), core::mem::size_of::<VirtualState<3>>());
+        assert_eq!(
+            core::mem::size_of::<VirtualState<3>>(),
+            core::mem::size_of::<VirtualState<3>>()
+        );
     }
 
     #[test]

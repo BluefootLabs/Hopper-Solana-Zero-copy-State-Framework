@@ -64,16 +64,28 @@ fn read_i32(data: &[u8], off: usize) -> i32 {
 #[inline(always)]
 fn read_u64(data: &[u8], off: usize) -> u64 {
     u64::from_le_bytes([
-        data[off], data[off + 1], data[off + 2], data[off + 3],
-        data[off + 4], data[off + 5], data[off + 6], data[off + 7],
+        data[off],
+        data[off + 1],
+        data[off + 2],
+        data[off + 3],
+        data[off + 4],
+        data[off + 5],
+        data[off + 6],
+        data[off + 7],
     ])
 }
 
 #[inline(always)]
 fn read_i64(data: &[u8], off: usize) -> i64 {
     i64::from_le_bytes([
-        data[off], data[off + 1], data[off + 2], data[off + 3],
-        data[off + 4], data[off + 5], data[off + 6], data[off + 7],
+        data[off],
+        data[off + 1],
+        data[off + 2],
+        data[off + 3],
+        data[off + 4],
+        data[off + 5],
+        data[off + 6],
+        data[off + 7],
     ])
 }
 
@@ -175,11 +187,7 @@ pub fn check_pyth_price_fresh(
 ///
 /// Returns `InvalidAccountData` if `conf * 100 / price.abs() > max_conf_pct`.
 #[inline(always)]
-pub fn check_pyth_confidence(
-    price: i64,
-    conf: u64,
-    max_conf_pct: u64,
-) -> Result<(), ProgramError> {
+pub fn check_pyth_confidence(price: i64, conf: u64, max_conf_pct: u64) -> Result<(), ProgramError> {
     let abs_price = (price as i128).unsigned_abs();
     if abs_price == 0 {
         return Err(ProgramError::InvalidAccountData);
@@ -212,9 +220,9 @@ fn check_pyth_header(data: &[u8]) -> Result<(), ProgramError> {
 #[cfg(test)]
 mod tests {
     extern crate alloc;
+    use super::*;
     use alloc::vec;
     use alloc::vec::Vec;
-    use super::*;
 
     fn write_u32(data: &mut [u8], off: usize, val: u32) {
         data[off..off + 4].copy_from_slice(&val.to_le_bytes());
@@ -232,7 +240,13 @@ mod tests {
         data[off..off + 8].copy_from_slice(&val.to_le_bytes());
     }
 
-    fn sample_pyth_price_account(price: i64, conf: u64, expo: i32, ts: i64, status: u32) -> Vec<u8> {
+    fn sample_pyth_price_account(
+        price: i64,
+        conf: u64,
+        expo: i32,
+        ts: i64,
+        status: u32,
+    ) -> Vec<u8> {
         let mut data = vec![0u8; PYTH_HEADER_LEN];
         write_u32(&mut data, OFF_MAGIC, PYTH_MAGIC);
         write_u32(&mut data, OFF_VERSION, PYTH_VERSION);

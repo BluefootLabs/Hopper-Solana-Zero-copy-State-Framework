@@ -178,9 +178,8 @@ pub fn do_sol_log_64(
     if let Err(err) = charge(ctx, cu::SOL_LOG_64) {
         return err;
     }
-    ctx.logs.program_log(format!(
-        "{a:#x}, {b:#x}, {c:#x}, {d:#x}, {e:#x}"
-    ));
+    ctx.logs
+        .program_log(format!("{a:#x}, {b:#x}, {c:#x}, {d:#x}, {e:#x}"));
     SyscallResult::Ok
 }
 
@@ -254,11 +253,7 @@ pub fn do_sol_panic(
 /// returns a `Custom` error to mirror the runtime's
 /// `MemoryOverlap` rejection (programs must use `memmove` for
 /// overlapping regions).
-pub fn do_sol_memcpy(
-    ctx: &mut BpfContext,
-    dst: &mut [u8],
-    src: &[u8],
-) -> SyscallResult {
+pub fn do_sol_memcpy(ctx: &mut BpfContext, dst: &mut [u8], src: &[u8]) -> SyscallResult {
     if let Err(err) = charge(ctx, cu::SOL_MEMCPY) {
         return err;
     }
@@ -279,11 +274,7 @@ pub fn do_sol_memcpy(
 }
 
 /// `sol_memset_` — fill `dst` with the byte `value`.
-pub fn do_sol_memset(
-    ctx: &mut BpfContext,
-    dst: &mut [u8],
-    value: u8,
-) -> SyscallResult {
+pub fn do_sol_memset(ctx: &mut BpfContext, dst: &mut [u8], value: u8) -> SyscallResult {
     if let Err(err) = charge(ctx, cu::SOL_MEMSET) {
         return err;
     }
@@ -295,12 +286,7 @@ pub fn do_sol_memset(
 /// caller-provided `out` slot (i32 LE) in the canonical signum
 /// encoding (-1 if a<b, 0 if equal, 1 if a>b). The runtime returns
 /// the value via an out parameter rather than the syscall return.
-pub fn do_sol_memcmp(
-    ctx: &mut BpfContext,
-    a: &[u8],
-    b: &[u8],
-    out: &mut [u8; 4],
-) -> SyscallResult {
+pub fn do_sol_memcmp(ctx: &mut BpfContext, a: &[u8], b: &[u8], out: &mut [u8; 4]) -> SyscallResult {
     if let Err(err) = charge(ctx, cu::SOL_MEMCMP) {
         return err;
     }
@@ -325,11 +311,7 @@ pub fn do_sol_memcmp(
 /// otherwise) so overlapping regions don't corrupt each other.
 /// The pure-Rust signature receives separate slices because the
 /// adapter handles the overlap-aware translation.
-pub fn do_sol_memmove(
-    ctx: &mut BpfContext,
-    dst: &mut [u8],
-    src: &[u8],
-) -> SyscallResult {
+pub fn do_sol_memmove(ctx: &mut BpfContext, dst: &mut [u8], src: &[u8]) -> SyscallResult {
     if let Err(err) = charge(ctx, cu::SOL_MEMMOVE) {
         return err;
     }
@@ -602,11 +584,7 @@ pub const HEAP_VM_START: u64 = 0x300000000;
 /// across syscall calls within one VM run. Each fresh
 /// instruction gets a fresh context with the cursor reset to 0,
 /// matching upstream's per-instruction allocator lifetime.
-pub fn do_sol_alloc_free(
-    ctx: &mut BpfContext,
-    size: u64,
-    free_addr: u64,
-) -> u64 {
+pub fn do_sol_alloc_free(ctx: &mut BpfContext, size: u64, free_addr: u64) -> u64 {
     if charge(ctx, cu::SOL_ALLOC_FREE).is_err() {
         // Out of meter — return null. The engine catches the
         // budget exhaustion at unwind via the per-instruction
@@ -642,8 +620,7 @@ pub fn do_sol_alloc_free(
     vm_addr
 }
 
-const B64: &[u8; 64] =
-    b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+const B64: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 /// Encode `bytes` as base64. Used by `sol_log_data` to mirror the
 /// runtime's "Program data: <b64> <b64> …" wire format.
@@ -725,10 +702,7 @@ mod tests {
         let mut ctx = ctx_with_units(1_000);
         let key = Pubkey::new_unique();
         do_sol_log_pubkey(&mut ctx, key.as_ref().try_into().unwrap());
-        assert_eq!(
-            ctx.logs.lines(),
-            &[format!("Program log: {key}")]
-        );
+        assert_eq!(ctx.logs.lines(), &[format!("Program log: {key}")]);
     }
 
     #[test]
@@ -741,7 +715,12 @@ mod tests {
         // After the syscall: 100 already burned + 100 charged for
         // the syscall itself = 200 total consumed.
         let line = &ctx.logs.lines()[0];
-        assert!(line.contains(&format!("Program {pid} consumed 200 of 200000 compute units")), "got {line:?}");
+        assert!(
+            line.contains(&format!(
+                "Program {pid} consumed 200 of 200000 compute units"
+            )),
+            "got {line:?}"
+        );
     }
 
     #[test]
@@ -816,8 +795,7 @@ mod tests {
         do_sol_set_return_data(&mut ctx, b"hello world");
         let mut out = [0u8; 5];
         let mut pid_out = [0u8; 32];
-        let n = do_sol_get_return_data(&mut ctx, &mut out, &mut pid_out)
-            .expect("ok");
+        let n = do_sol_get_return_data(&mut ctx, &mut out, &mut pid_out).expect("ok");
         assert_eq!(n, 11);
         assert_eq!(&out, b"hello");
         assert_eq!(&pid_out[..], ctx.program_id.as_ref());
@@ -850,10 +828,7 @@ mod tests {
     fn sol_log_data_emits_base64_chunks() {
         let mut ctx = ctx_with_units(1_000);
         do_sol_log_data(&mut ctx, &[b"foo", b"bar"]);
-        assert_eq!(
-            ctx.logs.lines(),
-            &["Program data: Zm9v YmFy".to_string()]
-        );
+        assert_eq!(ctx.logs.lines(), &["Program data: Zm9v YmFy".to_string()]);
     }
 
     // ── PDA derivation tests ─────────────────────────────────────
@@ -893,8 +868,7 @@ mod tests {
         let mut ctx = ctx_with_units(10_000);
         let program_id = [0u8; 32];
         let long = vec![0u8; MAX_SEED_LEN + 1];
-        let r =
-            do_sol_create_program_address(&mut ctx, &[&long[..]], &program_id);
+        let r = do_sol_create_program_address(&mut ctx, &[&long[..]], &program_id);
         assert_eq!(r, Err(PdaError::SeedTooLong));
     }
 
@@ -921,14 +895,12 @@ mod tests {
         let program_id = [7u8; 32];
         let seeds: &[&[u8]] = &[b"vault", b"alice"];
         let (pda, bump) =
-            do_sol_try_find_program_address(&mut ctx, seeds, &program_id)
-                .expect("PDA found");
+            do_sol_try_find_program_address(&mut ctx, seeds, &program_id).expect("PDA found");
         // Determinism: same seeds + program_id always produces the
         // same (pda, bump).
         let mut ctx2 = ctx_with_units(5_000_000);
-        let (pda2, bump2) =
-            do_sol_try_find_program_address(&mut ctx2, seeds, &program_id)
-                .expect("PDA found again");
+        let (pda2, bump2) = do_sol_try_find_program_address(&mut ctx2, seeds, &program_id)
+            .expect("PDA found again");
         assert_eq!(pda, pda2);
         assert_eq!(bump, bump2);
     }

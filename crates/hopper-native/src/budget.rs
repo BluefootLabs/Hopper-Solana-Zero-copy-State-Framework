@@ -81,7 +81,9 @@ impl CuBudget {
             // For actual CU reading, we use the Solana runtime's
             // get_processed_sibling_instruction or just track relative
             // consumption patterns.
-            unsafe { crate::syscalls::sol_log_compute_units_(); }
+            unsafe {
+                crate::syscalls::sol_log_compute_units_();
+            }
             Self { snapshot: 0 }
         }
         #[cfg(not(target_os = "solana"))]

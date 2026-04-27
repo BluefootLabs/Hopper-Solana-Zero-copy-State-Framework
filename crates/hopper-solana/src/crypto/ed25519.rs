@@ -30,14 +30,13 @@
 //! check_ed25519_signature(&sysvar_data, 0, expected_signer.as_ref(), expected_message)?;
 //! ```
 
-use hopper_runtime::{error::ProgramError, Address};
 use hopper_runtime::address;
+use hopper_runtime::{error::ProgramError, Address};
 
 use crate::introspect::{instruction_data_range, program_id_at};
 
 /// Ed25519 precompile program address.
-pub const ED25519_PROGRAM: Address =
-    address!("Ed25519SigVerify111111111111111111111111111");
+pub const ED25519_PROGRAM: Address = address!("Ed25519SigVerify111111111111111111111111111");
 
 /// Size of one Ed25519 signature parameter block (14 bytes).
 const SIG_PARAM_SIZE: usize = 14;
@@ -70,8 +69,7 @@ pub fn check_ed25519_signature(
     }
 
     // 2. Read the Ed25519 instruction data.
-    let (ix_data_offset, ix_data_len) =
-        instruction_data_range(sysvar_data, ed25519_ix_index)?;
+    let (ix_data_offset, ix_data_len) = instruction_data_range(sysvar_data, ed25519_ix_index)?;
     let ix_data = &sysvar_data[ix_data_offset..ix_data_offset + ix_data_len];
 
     // Minimum: 2 bytes header + at least 1 signature param block (14 bytes)
@@ -135,8 +133,7 @@ pub fn check_ed25519_signer(
         return Err(ProgramError::InvalidArgument);
     }
 
-    let (ix_data_offset, ix_data_len) =
-        instruction_data_range(sysvar_data, ed25519_ix_index)?;
+    let (ix_data_offset, ix_data_len) = instruction_data_range(sysvar_data, ed25519_ix_index)?;
     let ix_data = &sysvar_data[ix_data_offset..ix_data_offset + ix_data_len];
 
     if ix_data_len < 2 + SIG_PARAM_SIZE {

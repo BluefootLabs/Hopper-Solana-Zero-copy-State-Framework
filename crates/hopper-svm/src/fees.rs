@@ -154,10 +154,7 @@ mod tests {
         let alice = Pubkey::new_unique();
         let bob = Pubkey::new_unique();
         let carol = Pubkey::new_unique();
-        let metas_a = vec![
-            AccountMeta::new(alice, true),
-            AccountMeta::new(bob, true),
-        ];
+        let metas_a = vec![AccountMeta::new(alice, true), AccountMeta::new(bob, true)];
         let metas_b = vec![
             AccountMeta::new(alice, true), // signs again — no double-count
             AccountMeta::new(carol, true),

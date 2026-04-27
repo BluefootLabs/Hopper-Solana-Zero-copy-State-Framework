@@ -67,8 +67,7 @@ impl LogCapture {
         self.lines.push(format!(
             "Program {program_id} consumed {consumed} of {budget} compute units"
         ));
-        self.lines
-            .push(format!("Program {program_id} success"));
+        self.lines.push(format!("Program {program_id} success"));
         self.depth = self.depth.saturating_sub(1);
     }
 

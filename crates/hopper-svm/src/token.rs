@@ -14,7 +14,9 @@ use crate::{ASSOCIATED_TOKEN_PROGRAM_ID, SPL_TOKEN_PROGRAM_ID};
 use solana_program_pack::Pack;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::system_program;
-use spl_token::state::{Account as SplTokenAccount, AccountState as SplAccountState, Mint as SplMint};
+use spl_token::state::{
+    Account as SplTokenAccount, AccountState as SplAccountState, Mint as SplMint,
+};
 
 /// Inline ATA derivation. Re-implements
 /// `spl_associated_token_account::get_associated_token_address_with_program_id`
@@ -29,11 +31,7 @@ fn get_associated_token_address_with_program_id(
     token_program: &Pubkey,
 ) -> Pubkey {
     let (ata, _bump) = Pubkey::find_program_address(
-        &[
-            wallet.as_ref(),
-            token_program.as_ref(),
-            mint.as_ref(),
-        ],
+        &[wallet.as_ref(), token_program.as_ref(), mint.as_ref()],
         &ASSOCIATED_TOKEN_PROGRAM_ID,
     );
     ata
@@ -113,12 +111,7 @@ pub fn create_keyed_associated_token_account(
     mint: &Pubkey,
     amount: u64,
 ) -> KeyedAccount {
-    create_keyed_associated_token_account_with_program(
-        wallet,
-        mint,
-        amount,
-        &SPL_TOKEN_PROGRAM_ID,
-    )
+    create_keyed_associated_token_account_with_program(wallet, mint, amount, &SPL_TOKEN_PROGRAM_ID)
 }
 
 /// Token-2022 (or any token-program) ATA variant. The ATA derivation
@@ -194,11 +187,8 @@ mod tests {
         let wallet = Pubkey::new_unique();
         let mint = Pubkey::new_unique();
         let legacy = create_keyed_associated_token_account(&wallet, &mint, 0);
-        let expected = get_associated_token_address_with_program_id(
-            &wallet,
-            &mint,
-            &SPL_TOKEN_PROGRAM_ID,
-        );
+        let expected =
+            get_associated_token_address_with_program_id(&wallet, &mint, &SPL_TOKEN_PROGRAM_ID);
         assert_eq!(legacy.address, expected);
 
         let t22 = create_keyed_associated_token_account_with_program(

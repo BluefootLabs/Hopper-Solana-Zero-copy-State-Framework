@@ -213,10 +213,7 @@ pub fn do_sol_get_sysvar_copy(
 /// any buffer ≥ 8 bytes.
 pub const SLOTHASHES_EMPTY_LEN: usize = 8;
 
-pub fn do_sol_get_slothashes_sysvar(
-    ctx: &mut BpfContext,
-    out: &mut [u8],
-) -> SyscallResult {
+pub fn do_sol_get_slothashes_sysvar(ctx: &mut BpfContext, out: &mut [u8]) -> SyscallResult {
     if let Err(err) = charge(ctx, cu::SOL_GET_SLOTHASHES_SYSVAR) {
         return err;
     }
@@ -239,10 +236,7 @@ pub fn do_sol_get_slothashes_sysvar(
 /// matching a fresh validator with no observed slots.
 pub const SLOTHISTORY_EMPTY_LEN: usize = 16_392; // 16,384 bitvec + 8 next_slot
 
-pub fn do_sol_get_slothistory_sysvar(
-    ctx: &mut BpfContext,
-    out: &mut [u8],
-) -> SyscallResult {
+pub fn do_sol_get_slothistory_sysvar(ctx: &mut BpfContext, out: &mut [u8]) -> SyscallResult {
     if let Err(err) = charge(ctx, cu::SOL_GET_SLOTHISTORY_SYSVAR) {
         return err;
     }
@@ -265,10 +259,7 @@ pub fn do_sol_get_slothistory_sysvar(
 /// 512 epochs. Hopper's stub writes the empty-vec encoding.
 pub const STAKEHISTORY_EMPTY_LEN: usize = 8;
 
-pub fn do_sol_get_stakehistory_sysvar(
-    ctx: &mut BpfContext,
-    out: &mut [u8],
-) -> SyscallResult {
+pub fn do_sol_get_stakehistory_sysvar(ctx: &mut BpfContext, out: &mut [u8]) -> SyscallResult {
     if let Err(err) = charge(ctx, cu::SOL_GET_STAKEHISTORY_SYSVAR) {
         return err;
     }
@@ -571,8 +562,7 @@ mod tests {
     fn curve_validate_off_curve_returns_one() {
         let mut ctx = ctx_with_units(1_000);
         // 0xFF…FF is not a valid Edwards Y coordinate.
-        let r = do_sol_curve_validate_point(&mut ctx, CURVE25519_EDWARDS, &[0xFFu8; 32])
-            .unwrap();
+        let r = do_sol_curve_validate_point(&mut ctx, CURVE25519_EDWARDS, &[0xFFu8; 32]).unwrap();
         assert_eq!(r, 1); // 1 = invalid
     }
 
@@ -583,8 +573,7 @@ mod tests {
         // Curve25519 generator).
         use curve25519_dalek::constants::ED25519_BASEPOINT_POINT;
         let basepoint = ED25519_BASEPOINT_POINT.compress().to_bytes();
-        let r =
-            do_sol_curve_validate_point(&mut ctx, CURVE25519_EDWARDS, &basepoint).unwrap();
+        let r = do_sol_curve_validate_point(&mut ctx, CURVE25519_EDWARDS, &basepoint).unwrap();
         assert_eq!(r, 0); // 0 = valid
     }
 

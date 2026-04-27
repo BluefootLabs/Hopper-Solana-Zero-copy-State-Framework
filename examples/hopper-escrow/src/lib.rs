@@ -1,4 +1,4 @@
-﻿//! # Hopper Escrow Example
+//! # Hopper Escrow Example
 //!
 //! Demonstrates a token escrow using the Hopper framework.
 //!
@@ -69,11 +69,7 @@ fn process_instruction(
 
 // --- Make -----------------------------------------------------------
 
-fn process_make(
-    program_id: &Address,
-    accounts: &[AccountView],
-    data: &[u8],
-) -> ProgramResult {
+fn process_make(program_id: &Address, accounts: &[AccountView], data: &[u8]) -> ProgramResult {
     if accounts.len() < 3 {
         return Err(ProgramError::NotEnoughAccountKeys);
     }
@@ -91,12 +87,10 @@ fn process_make(
     let mint_a = &data[0..32];
     let mint_b = &data[32..64];
     let amount_offered = u64::from_le_bytes([
-        data[64], data[65], data[66], data[67],
-        data[68], data[69], data[70], data[71],
+        data[64], data[65], data[66], data[67], data[68], data[69], data[70], data[71],
     ]);
     let amount_wanted = u64::from_le_bytes([
-        data[72], data[73], data[74], data[75],
-        data[76], data[77], data[78], data[79],
+        data[72], data[73], data[74], data[75], data[76], data[77], data[78], data[79],
     ]);
 
     hopper_require!(amount_offered > 0, ZeroEscrowAmount);
@@ -110,8 +104,16 @@ fn process_make(
     let escrow = escrow.get_mut();
     escrow.maker = TypedAddress::from_account(maker);
     escrow.maker_ta = TypedAddress::zeroed(); // Simplified: would be maker's token account
-    escrow.mint_a = TypedAddress::from_slice(mint_a.try_into().map_err(|_| ProgramError::InvalidInstructionData)?);
-    escrow.mint_b = TypedAddress::from_slice(mint_b.try_into().map_err(|_| ProgramError::InvalidInstructionData)?);
+    escrow.mint_a = TypedAddress::from_slice(
+        mint_a
+            .try_into()
+            .map_err(|_| ProgramError::InvalidInstructionData)?,
+    );
+    escrow.mint_b = TypedAddress::from_slice(
+        mint_b
+            .try_into()
+            .map_err(|_| ProgramError::InvalidInstructionData)?,
+    );
     escrow.amount_offered = WireU64::new(amount_offered);
     escrow.amount_wanted = WireU64::new(amount_wanted);
 
@@ -120,11 +122,7 @@ fn process_make(
 
 // --- Take -----------------------------------------------------------
 
-fn process_take(
-    program_id: &Address,
-    accounts: &[AccountView],
-    _data: &[u8],
-) -> ProgramResult {
+fn process_take(program_id: &Address, accounts: &[AccountView], _data: &[u8]) -> ProgramResult {
     if accounts.len() < 3 {
         return Err(ProgramError::NotEnoughAccountKeys);
     }
@@ -157,11 +155,7 @@ fn process_take(
 
 // --- Cancel ---------------------------------------------------------
 
-fn process_cancel(
-    program_id: &Address,
-    accounts: &[AccountView],
-    _data: &[u8],
-) -> ProgramResult {
+fn process_cancel(program_id: &Address, accounts: &[AccountView], _data: &[u8]) -> ProgramResult {
     if accounts.len() < 2 {
         return Err(ProgramError::NotEnoughAccountKeys);
     }

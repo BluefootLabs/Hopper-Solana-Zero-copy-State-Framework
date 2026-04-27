@@ -65,7 +65,9 @@ pub fn fixed_size_diff<'a>(
         let f = &manifest.fields[i];
         let start = f.offset as usize;
         let end = start + f.size as usize;
-        if end > before.len() { break; }
+        if end > before.len() {
+            break;
+        }
         if before[start..end] != after[start..end] {
             out.push(FieldDelta {
                 field: f,
@@ -81,11 +83,7 @@ pub fn fixed_size_diff<'a>(
 /// Bitmask version. same scan but returns a `u64` whose `i`th bit is set
 /// when the `i`th field differs. Useful when comparing to the `changed_fields`
 /// mask from a receipt.
-pub fn field_change_mask(
-    before: &[u8],
-    after: &[u8],
-    manifest: &LayoutManifest,
-) -> u64 {
+pub fn field_change_mask(before: &[u8], after: &[u8], manifest: &LayoutManifest) -> u64 {
     let mut mask = 0u64;
     let common = core::cmp::min(before.len(), after.len());
     let mut i = 0;
@@ -93,7 +91,9 @@ pub fn field_change_mask(
         let f = &manifest.fields[i];
         let start = f.offset as usize;
         let end = start + f.size as usize;
-        if end > common { break; }
+        if end > common {
+            break;
+        }
         if before[start..end] != after[start..end] {
             mask |= 1u64 << i;
         }
@@ -109,23 +109,40 @@ mod tests {
 
     fn fields() -> &'static [FieldDescriptor] {
         static F: [FieldDescriptor; 2] = [
-            FieldDescriptor { name: "a", canonical_type: "u64", size: 8, offset: 0,  intent: FieldIntent::Counter },
-            FieldDescriptor { name: "b", canonical_type: "u64", size: 8, offset: 8,  intent: FieldIntent::Balance },
+            FieldDescriptor {
+                name: "a",
+                canonical_type: "u64",
+                size: 8,
+                offset: 0,
+                intent: FieldIntent::Counter,
+            },
+            FieldDescriptor {
+                name: "b",
+                canonical_type: "u64",
+                size: 8,
+                offset: 8,
+                intent: FieldIntent::Balance,
+            },
         ];
         &F
     }
 
     fn manifest() -> LayoutManifest {
         LayoutManifest {
-            name: "Pair", disc: 1, version: 1, layout_id: [0; 8],
-            total_size: 16, field_count: 2, fields: fields(),
+            name: "Pair",
+            disc: 1,
+            version: 1,
+            layout_id: [0; 8],
+            total_size: 16,
+            field_count: 2,
+            fields: fields(),
         }
     }
 
     #[test]
     fn mask_detects_changed_field() {
         let mut before = [0u8; 16];
-        let mut after  = [0u8; 16];
+        let mut after = [0u8; 16];
         before[8..16].copy_from_slice(&1u64.to_le_bytes());
         after[8..16].copy_from_slice(&2u64.to_le_bytes());
         let m = manifest();
@@ -136,7 +153,7 @@ mod tests {
     #[test]
     fn fixed_size_diff_returns_deltas() {
         let mut before = [0u8; 16];
-        let mut after  = [0u8; 16];
+        let mut after = [0u8; 16];
         after[0..8].copy_from_slice(&5u64.to_le_bytes());
         let m = manifest();
         let d = fixed_size_diff(&before, &after, &m).unwrap();

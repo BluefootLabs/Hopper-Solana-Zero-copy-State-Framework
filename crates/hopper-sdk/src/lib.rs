@@ -52,10 +52,10 @@
 // `no_std + alloc` targets (the default deployment shape for indexers).
 extern crate alloc;
 
-pub mod receipt;
-pub mod reader;
-pub mod fingerprint;
 pub mod diff;
+pub mod fingerprint;
+pub mod reader;
+pub mod receipt;
 
 #[cfg(feature = "builder")]
 pub mod builder;
@@ -94,11 +94,17 @@ impl core::fmt::Display for SdkError {
 impl std::error::Error for SdkError {}
 
 impl From<ReceiptError> for SdkError {
-    fn from(e: ReceiptError) -> Self { SdkError::Receipt(e) }
+    fn from(e: ReceiptError) -> Self {
+        SdkError::Receipt(e)
+    }
 }
 impl From<ReaderError> for SdkError {
-    fn from(e: ReaderError) -> Self { SdkError::Reader(e) }
+    fn from(e: ReaderError) -> Self {
+        SdkError::Reader(e)
+    }
 }
 impl From<FingerprintError> for SdkError {
-    fn from(e: FingerprintError) -> Self { SdkError::Fingerprint(e) }
+    fn from(e: FingerprintError) -> Self {
+        SdkError::Fingerprint(e)
+    }
 }

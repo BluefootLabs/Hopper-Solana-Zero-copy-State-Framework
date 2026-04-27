@@ -138,10 +138,7 @@ pub fn do_sol_get_rent_sysvar(ctx: &mut BpfContext, out: &mut [u8]) -> SyscallRe
 
 /// `sol_get_epoch_schedule_sysvar` — write the current
 /// EpochSchedule state.
-pub fn do_sol_get_epoch_schedule_sysvar(
-    ctx: &mut BpfContext,
-    out: &mut [u8],
-) -> SyscallResult {
+pub fn do_sol_get_epoch_schedule_sysvar(ctx: &mut BpfContext, out: &mut [u8]) -> SyscallResult {
     if let Err(err) = charge(ctx, cu::SOL_GET_EPOCH_SCHEDULE_SYSVAR) {
         return err;
     }
@@ -165,10 +162,7 @@ pub fn do_sol_get_epoch_schedule_sysvar(
 
 /// `sol_get_last_restart_slot_sysvar` — write the LastRestartSlot
 /// state. The smallest sysvar (single u64).
-pub fn do_sol_get_last_restart_slot_sysvar(
-    ctx: &mut BpfContext,
-    out: &mut [u8],
-) -> SyscallResult {
+pub fn do_sol_get_last_restart_slot_sysvar(ctx: &mut BpfContext, out: &mut [u8]) -> SyscallResult {
     if let Err(err) = charge(ctx, cu::SOL_GET_LAST_RESTART_SLOT_SYSVAR) {
         return err;
     }
@@ -178,17 +172,19 @@ pub fn do_sol_get_last_restart_slot_sysvar(
             out.len()
         ));
     }
-    out[0..8].copy_from_slice(&ctx.sysvars.last_restart_slot.last_restart_slot.to_le_bytes());
+    out[0..8].copy_from_slice(
+        &ctx.sysvars
+            .last_restart_slot
+            .last_restart_slot
+            .to_le_bytes(),
+    );
     SyscallResult::Ok
 }
 
 /// `sol_get_epoch_rewards_sysvar` — write the EpochRewards state.
 /// Wire format: 96 bytes per the upstream `#[repr(C)]` layout
 /// (u64 + u64 + [u8;32] + u128 + u64 + u64 + bool + 15-byte pad).
-pub fn do_sol_get_epoch_rewards_sysvar(
-    ctx: &mut BpfContext,
-    out: &mut [u8],
-) -> SyscallResult {
+pub fn do_sol_get_epoch_rewards_sysvar(ctx: &mut BpfContext, out: &mut [u8]) -> SyscallResult {
     if let Err(err) = charge(ctx, cu::SOL_GET_EPOCH_REWARDS_SYSVAR) {
         return err;
     }
@@ -304,10 +300,7 @@ mod tests {
         assert_eq!(buf[16], 1); // warmup = true
         assert_eq!(&buf[17..24], &[0u8; 7]);
         assert_eq!(u64::from_le_bytes(buf[24..32].try_into().unwrap()), 14);
-        assert_eq!(
-            u64::from_le_bytes(buf[32..40].try_into().unwrap()),
-            32 * 14
-        );
+        assert_eq!(u64::from_le_bytes(buf[32..40].try_into().unwrap()), 32 * 14);
     }
 
     /// LastRestartSlot is a single u64.
@@ -347,7 +340,7 @@ mod tests {
         let r = do_sol_get_clock_sysvar(&mut ctx, &mut buf);
         assert_eq!(r, SyscallResult::OutOfMeter);
         assert_eq!(ctx.remaining_units, 50); // not partially debited
-        // Buffer untouched.
+                                             // Buffer untouched.
         assert!(buf.iter().all(|&b| b == 0));
     }
 

@@ -175,10 +175,7 @@ fn initialize_account(
     // The node identity must sign — mirrors mainnet.
     ctx.require_signer(&node)?;
 
-    let rent_exempt = ctx
-        .sysvars
-        .rent
-        .minimum_balance(accounts[0].data.len());
+    let rent_exempt = ctx.sysvars.rent.minimum_balance(accounts[0].data.len());
     if accounts[0].lamports < rent_exempt {
         return Err(HopperSvmError::BuiltinError {
             program_id: *ctx.program_id,
@@ -225,10 +222,7 @@ fn authorize(
     if body.len() < 32 + 4 {
         return Err(HopperSvmError::BuiltinError {
             program_id: *ctx.program_id,
-            message: format!(
-                "vote::Authorize: body has {} bytes, need 36",
-                body.len()
-            ),
+            message: format!("vote::Authorize: body has {} bytes, need 36", body.len()),
         });
     }
     let new_auth = read_pubkey(body, 0);
@@ -284,10 +278,7 @@ fn withdraw(
     ctx.require_writable(&recipient_addr)?;
     let withdrawer = read_pubkey(&accounts[0].data, 36);
     ctx.require_signer(&withdrawer)?;
-    let rent_exempt = ctx
-        .sysvars
-        .rent
-        .minimum_balance(accounts[0].data.len());
+    let rent_exempt = ctx.sysvars.rent.minimum_balance(accounts[0].data.len());
     let available = accounts[0].lamports.saturating_sub(rent_exempt);
     if lamports > available {
         return Err(HopperSvmError::BuiltinError {
@@ -358,9 +349,7 @@ fn update_commission(
     if new_commission > 100 {
         return Err(HopperSvmError::BuiltinError {
             program_id: *ctx.program_id,
-            message: format!(
-                "vote::UpdateCommission: commission {new_commission} > 100"
-            ),
+            message: format!("vote::UpdateCommission: commission {new_commission} > 100"),
         });
     }
     let withdrawer = read_pubkey(&accounts[0].data, 36);
@@ -403,10 +392,7 @@ fn write_version(data: &mut [u8], version: u32) {
     data[0..4].copy_from_slice(&version.to_le_bytes());
 }
 
-fn require_initialized(
-    data: &[u8],
-    ctx: &mut InvokeContext<'_>,
-) -> Result<(), HopperSvmError> {
+fn require_initialized(data: &[u8], ctx: &mut InvokeContext<'_>) -> Result<(), HopperSvmError> {
     if read_version(data) == 0 {
         return Err(HopperSvmError::BuiltinError {
             program_id: *ctx.program_id,
@@ -453,12 +439,7 @@ mod tests {
         VoteProgramSimulator.invoke(&data, accounts, &mut ctx)
     }
 
-    fn initialize_data(
-        node: Pubkey,
-        voter: Pubkey,
-        withdrawer: Pubkey,
-        commission: u8,
-    ) -> Vec<u8> {
+    fn initialize_data(node: Pubkey, voter: Pubkey, withdrawer: Pubkey, commission: u8) -> Vec<u8> {
         let mut buf = vec![];
         buf.extend_from_slice(&0u32.to_le_bytes()); // tag
         buf.extend_from_slice(node.as_ref());
@@ -625,8 +606,7 @@ mod tests {
         )];
         let mut data = vec![];
         data.extend_from_slice(&2u32.to_le_bytes()); // Vote — not supported
-        let err =
-            invoke(data, &mut accounts, metas(&[(vote_addr, false, true)])).unwrap_err();
+        let err = invoke(data, &mut accounts, metas(&[(vote_addr, false, true)])).unwrap_err();
         match err {
             HopperSvmError::BuiltinError { message, .. } => {
                 assert!(message.contains("not supported"), "{message}");

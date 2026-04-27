@@ -2,11 +2,11 @@
 //!
 //! Provides both checked (borrow-validating) and unchecked invoke paths.
 
-use crate::ProgramResult;
-use crate::error::ProgramError;
-use crate::instruction::{InstructionView, CpiAccount, Signer};
 use crate::account_view::AccountView;
 use crate::address::address_eq;
+use crate::error::ProgramError;
+use crate::instruction::{CpiAccount, InstructionView, Signer};
+use crate::ProgramResult;
 use core::mem::MaybeUninit;
 
 /// Maximum number of accounts in a static CPI call.
@@ -240,9 +240,8 @@ pub fn invoke_signed<const ACCOUNTS: usize>(
     }
 
     // SAFETY: All ACCOUNTS slots are now initialized.
-    let accounts: &[CpiAccount; ACCOUNTS] = unsafe {
-        &*(cpi_accounts.as_ptr() as *const [CpiAccount; ACCOUNTS])
-    };
+    let accounts: &[CpiAccount; ACCOUNTS] =
+        unsafe { &*(cpi_accounts.as_ptr() as *const [CpiAccount; ACCOUNTS]) };
 
     unsafe {
         if signers_seeds.is_empty() {
@@ -289,9 +288,8 @@ pub fn invoke_signed_with_bounds<const MAX_ACCOUNTS: usize>(
     }
 
     // SAFETY: first `count` slots are initialized.
-    let accounts = unsafe {
-        core::slice::from_raw_parts(cpi_accounts.as_ptr() as *const CpiAccount, count)
-    };
+    let accounts =
+        unsafe { core::slice::from_raw_parts(cpi_accounts.as_ptr() as *const CpiAccount, count) };
 
     unsafe {
         if signers_seeds.is_empty() {

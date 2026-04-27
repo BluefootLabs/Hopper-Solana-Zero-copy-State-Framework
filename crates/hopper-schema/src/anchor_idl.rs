@@ -78,7 +78,7 @@
 use core::fmt;
 
 use crate::{
-    ArgDescriptor, EventDescriptor, FieldDescriptor, IdlAccountEntry,
+    ArgDescriptor, ConstantDescriptor, EventDescriptor, FieldDescriptor, IdlAccountEntry,
     IdlInstructionDescriptor, InstructionDescriptor, LayoutManifest, ProgramIdl, ProgramManifest,
 };
 
@@ -129,9 +129,8 @@ fn write_anchor_type(f: &mut fmt::Formatter<'_>, canonical: &str) -> fmt::Result
 
     // Passthrough primitives.
     match c {
-        "u8" | "u16" | "u32" | "u64" | "u128"
-        | "i8" | "i16" | "i32" | "i64" | "i128"
-        | "f32" | "f64" | "bool" | "bytes" | "string" => {
+        "u8" | "u16" | "u32" | "u64" | "u128" | "i8" | "i16" | "i32" | "i64" | "i128" | "f32"
+        | "f64" | "bool" | "bytes" | "string" => {
             return write_json_str(f, c);
         }
         _ => {}
@@ -140,15 +139,15 @@ fn write_anchor_type(f: &mut fmt::Formatter<'_>, canonical: &str) -> fmt::Result
     // Wire-typed primitives strip the `Wire` prefix.
     if let Some(stripped) = c.strip_prefix("Wire") {
         let lowered = match stripped {
-            "U8"   => Some("u8"),
-            "U16"  => Some("u16"),
-            "U32"  => Some("u32"),
-            "U64"  => Some("u64"),
+            "U8" => Some("u8"),
+            "U16" => Some("u16"),
+            "U32" => Some("u32"),
+            "U64" => Some("u64"),
             "U128" => Some("u128"),
-            "I8"   => Some("i8"),
-            "I16"  => Some("i16"),
-            "I32"  => Some("i32"),
-            "I64"  => Some("i64"),
+            "I8" => Some("i8"),
+            "I16" => Some("i16"),
+            "I32" => Some("i32"),
+            "I64" => Some("i64"),
             "Bool" => Some("bool"),
             _ => None,
         };
@@ -197,11 +196,7 @@ fn write_anchor_type(f: &mut fmt::Formatter<'_>, canonical: &str) -> fmt::Result
 /// Write an 8-byte Anchor discriminator array given a `u8` tag.
 /// `tag` is left-padded with zeros: `3` becomes `[3, 0, 0, 0, 0, 0, 0, 0]`.
 fn write_byte_discriminator(f: &mut fmt::Formatter<'_>, tag: u8) -> fmt::Result {
-    write!(
-        f,
-        "[{}, 0, 0, 0, 0, 0, 0, 0]",
-        tag
-    )
+    write!(f, "[{}, 0, 0, 0, 0, 0, 0, 0]", tag)
 }
 
 /// Write an 8-byte discriminator array from the first 8 bytes of a
@@ -235,11 +230,7 @@ fn write_instruction_accounts(
         write_indent(f, indent + 1)?;
         write!(f, "{{ \"name\": ")?;
         write_json_str(f, a.name)?;
-        write!(
-            f,
-            ", \"isMut\": {}, \"isSigner\": {}",
-            a.writable, a.signer
-        )?;
+        write!(f, ", \"isMut\": {}, \"isSigner\": {}", a.writable, a.signer)?;
         write!(f, " }}")?;
         if i + 1 < accounts.len() {
             writeln!(f, ",")?;
@@ -367,11 +358,7 @@ fn write_account_layout(
 // Event emitter
 // ---------------------------------------------------------------------------
 
-fn write_event(
-    f: &mut fmt::Formatter<'_>,
-    event: &EventDescriptor,
-    indent: usize,
-) -> fmt::Result {
+fn write_event(f: &mut fmt::Formatter<'_>, event: &EventDescriptor, indent: usize) -> fmt::Result {
     write_indent(f, indent)?;
     writeln!(f, "{{")?;
     write_indent(f, indent + 1)?;
@@ -502,11 +489,7 @@ fn write_instruction_accounts_from_manifest(
         write_indent(f, indent + 1)?;
         write!(f, "{{ \"name\": ")?;
         write_json_str(f, a.name)?;
-        write!(
-            f,
-            ", \"isMut\": {}, \"isSigner\": {}",
-            a.writable, a.signer
-        )?;
+        write!(f, ", \"isMut\": {}, \"isSigner\": {}", a.writable, a.signer)?;
         write!(f, " }}")?;
         if i + 1 < accounts.len() {
             writeln!(f, ",")?;
@@ -518,10 +501,7 @@ fn write_instruction_accounts_from_manifest(
     write!(f, "]")
 }
 
-fn write_account_array(
-    f: &mut fmt::Formatter<'_>,
-    layouts: &[LayoutManifest],
-) -> fmt::Result {
+fn write_account_array(f: &mut fmt::Formatter<'_>, layouts: &[LayoutManifest]) -> fmt::Result {
     if layouts.is_empty() {
         return writeln!(f, "  \"accounts\": [],");
     }
@@ -537,10 +517,7 @@ fn write_account_array(
     writeln!(f, "  ],")
 }
 
-fn write_event_array(
-    f: &mut fmt::Formatter<'_>,
-    events: &[EventDescriptor],
-) -> fmt::Result {
+fn write_event_array(f: &mut fmt::Formatter<'_>, events: &[EventDescriptor]) -> fmt::Result {
     if events.is_empty() {
         return writeln!(f, "  \"events\": [],");
     }
@@ -560,6 +537,31 @@ fn write_event_array(
 // Public wrapper types
 // ---------------------------------------------------------------------------
 
+fn write_constants_array(
+    f: &mut fmt::Formatter<'_>,
+    constants: &[ConstantDescriptor],
+) -> fmt::Result {
+    if constants.is_empty() {
+        return writeln!(f, "  \"constants\": [],");
+    }
+    writeln!(f, "  \"constants\": [")?;
+    for (i, c) in constants.iter().enumerate() {
+        write!(f, "    {{ \"name\": ")?;
+        write_json_str(f, c.name)?;
+        write!(f, ", \"type\": ")?;
+        write_json_str(f, c.ty)?;
+        write!(f, ", \"value\": ")?;
+        write_json_str(f, c.value)?;
+        write!(f, " }}")?;
+        if i + 1 < constants.len() {
+            writeln!(f, ",")?;
+        } else {
+            writeln!(f)?;
+        }
+    }
+    writeln!(f, "  ],")
+}
+
 /// Emit an Anchor-style IDL JSON directly from a `ProgramIdl`
 /// (the public-schema projection).
 pub struct AnchorIdlJson<'a>(pub &'a ProgramIdl);
@@ -578,6 +580,34 @@ impl<'a> fmt::Display for AnchorIdlJson<'a> {
     }
 }
 
+/// Emit an Anchor-style IDL JSON from a `ProgramIdl` plus an explicit
+/// `&[ConstantDescriptor]` slice.
+///
+/// Use this when the program declares public constants via
+/// `#[hopper::constant]` and wants them surfaced in the Anchor IDL
+/// `"constants"` array. The slice is supplied separately so adding
+/// constants does not break existing `ProgramIdl` constructors.
+pub struct AnchorIdlWithConstants<'a> {
+    /// The base IDL projection.
+    pub idl: &'a ProgramIdl,
+    /// Constants to surface alongside the IDL.
+    pub constants: &'a [ConstantDescriptor],
+}
+
+impl<'a> fmt::Display for AnchorIdlWithConstants<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let idl = self.idl;
+        write_preamble(f, idl.name, idl.version, idl.description)?;
+        write_instruction_array(f, idl.instructions)?;
+        write_account_array(f, idl.accounts)?;
+        write_event_array(f, idl.events)?;
+        write_constants_array(f, self.constants)?;
+        writeln!(f, "  \"errors\": [],")?;
+        writeln!(f, "  \"types\": []")?;
+        write!(f, "}}")
+    }
+}
+
 /// Project a full `ProgramManifest` into an Anchor-style IDL JSON.
 /// Strips policy, receipts, capabilities, trust metadata, and
 /// migration hints — keeps only what Anchor's IDL consumers expect.
@@ -590,6 +620,30 @@ impl<'a> fmt::Display for AnchorIdlFromManifest<'a> {
         write_instruction_array_from_manifest(f, m.instructions)?;
         write_account_array(f, m.layouts)?;
         write_event_array(f, m.events)?;
+        writeln!(f, "  \"errors\": [],")?;
+        writeln!(f, "  \"types\": []")?;
+        write!(f, "}}")
+    }
+}
+
+/// Project a `ProgramManifest` into an Anchor-style IDL JSON together
+/// with an explicit constants slice. Mirrors [`AnchorIdlWithConstants`]
+/// for the manifest-shaped input path.
+pub struct AnchorIdlFromManifestWithConstants<'a> {
+    /// The full program manifest.
+    pub manifest: &'a ProgramManifest,
+    /// Constants to surface alongside the IDL.
+    pub constants: &'a [ConstantDescriptor],
+}
+
+impl<'a> fmt::Display for AnchorIdlFromManifestWithConstants<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let m = self.manifest;
+        write_preamble(f, m.name, m.version, m.description)?;
+        write_instruction_array_from_manifest(f, m.instructions)?;
+        write_account_array(f, m.layouts)?;
+        write_event_array(f, m.events)?;
+        write_constants_array(f, self.constants)?;
         writeln!(f, "  \"errors\": [],")?;
         writeln!(f, "  \"types\": []")?;
         write!(f, "}}")

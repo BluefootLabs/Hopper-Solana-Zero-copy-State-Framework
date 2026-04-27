@@ -102,7 +102,10 @@ impl HopperSvmError {
     pub fn describe(&self) -> String {
         match self {
             Self::UnknownProgram(id) => format!("UnknownProgram({id})"),
-            Self::BuiltinError { program_id, message } => {
+            Self::BuiltinError {
+                program_id,
+                message,
+            } => {
                 format!("BuiltinError({program_id}): {message}")
             }
             Self::OutOfComputeUnits { consumed, limit } => {

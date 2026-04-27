@@ -114,7 +114,10 @@ pub struct ProcessedInstruction {
 pub fn get_processed_instruction(index: u64) -> Option<ProcessedInstruction> {
     #[cfg(target_os = "solana")]
     {
-        let mut meta = ProcessedInstructionMeta { data_len: 0, accounts_len: 0 };
+        let mut meta = ProcessedInstructionMeta {
+            data_len: 0,
+            accounts_len: 0,
+        };
         let mut program_id = Address::default();
         let mut data = [0u8; 1232];
         // SolAccountMeta is 34 bytes each (32-byte pubkey + 2 bools).
@@ -173,8 +176,7 @@ pub const SECP256K1_PROGRAM_ID: Address =
 pub fn require_ed25519_instruction(
     sibling_index: u64,
 ) -> Result<ProcessedInstruction, ProgramError> {
-    let ix = get_processed_instruction(sibling_index)
-        .ok_or(ProgramError::InvalidArgument)?;
+    let ix = get_processed_instruction(sibling_index).ok_or(ProgramError::InvalidArgument)?;
 
     if !crate::address::address_eq(&ix.program_id, &ED25519_PROGRAM_ID) {
         return Err(ProgramError::IncorrectProgramId);
@@ -188,8 +190,7 @@ pub fn require_ed25519_instruction(
 pub fn require_secp256k1_instruction(
     sibling_index: u64,
 ) -> Result<ProcessedInstruction, ProgramError> {
-    let ix = get_processed_instruction(sibling_index)
-        .ok_or(ProgramError::InvalidArgument)?;
+    let ix = get_processed_instruction(sibling_index).ok_or(ProgramError::InvalidArgument)?;
 
     if !crate::address::address_eq(&ix.program_id, &SECP256K1_PROGRAM_ID) {
         return Err(ProgramError::IncorrectProgramId);

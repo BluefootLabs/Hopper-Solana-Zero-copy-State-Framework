@@ -28,11 +28,8 @@ pub fn get_clock() -> Result<Clock, ProgramError> {
 
     #[cfg(target_os = "solana")]
     {
-        let rc = unsafe {
-            crate::syscalls::sol_get_clock_sysvar(
-                &mut clock as *mut Clock as *mut u8,
-            )
-        };
+        let rc =
+            unsafe { crate::syscalls::sol_get_clock_sysvar(&mut clock as *mut Clock as *mut u8) };
         if rc != 0 {
             return Err(ProgramError::UnsupportedSysvar);
         }
@@ -60,11 +57,7 @@ pub fn get_rent() -> Result<Rent, ProgramError> {
 
     #[cfg(target_os = "solana")]
     {
-        let rc = unsafe {
-            crate::syscalls::sol_get_rent_sysvar(
-                &mut rent as *mut Rent as *mut u8,
-            )
-        };
+        let rc = unsafe { crate::syscalls::sol_get_rent_sysvar(&mut rent as *mut Rent as *mut u8) };
         if rc != 0 {
             return Err(ProgramError::UnsupportedSysvar);
         }
@@ -79,9 +72,8 @@ impl Rent {
     pub fn minimum_balance(&self, data_len: usize) -> u64 {
         // Total account size = data + 128 bytes of account metadata overhead.
         let total_size = (data_len as u64).saturating_add(128);
-        let lamports = (total_size as f64)
-            * self.lamports_per_byte_year as f64
-            * self.exemption_threshold;
+        let lamports =
+            (total_size as f64) * self.lamports_per_byte_year as f64 * self.exemption_threshold;
         lamports as u64
     }
 }
@@ -177,4 +169,5 @@ pub const CLOCK_ID: Address = crate::address!("SysvarC1ock1111111111111111111111
 pub const RENT_ID: Address = crate::address!("SysvarRent111111111111111111111111111111111");
 
 /// Epoch schedule sysvar address.
-pub const EPOCH_SCHEDULE_ID: Address = crate::address!("SysvarEpochSchedu1e111111111111111111111111");
+pub const EPOCH_SCHEDULE_ID: Address =
+    crate::address!("SysvarEpochSchedu1e111111111111111111111111");

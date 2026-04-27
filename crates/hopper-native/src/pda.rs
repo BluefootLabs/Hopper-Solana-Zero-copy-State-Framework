@@ -59,10 +59,7 @@ pub fn create_program_address(
 ///
 /// Iterates bump seeds 255..=0 until a valid PDA is found.
 #[inline(always)]
-pub fn find_program_address(
-    seeds: &[&[u8]],
-    program_id: &Address,
-) -> (Address, u8) {
+pub fn find_program_address(seeds: &[&[u8]], program_id: &Address) -> (Address, u8) {
     #[cfg(target_os = "solana")]
     {
         based_try_find_program_address(seeds, program_id).unwrap_or((Address::default(), 0))
@@ -159,7 +156,11 @@ pub fn based_try_find_program_address(
 
         let mut bump_seed = [u8::MAX];
         let bump_ptr = bump_seed.as_mut_ptr();
-        unsafe { slice_ptr.add(n).write(core::slice::from_raw_parts(bump_ptr, 1)) };
+        unsafe {
+            slice_ptr
+                .add(n)
+                .write(core::slice::from_raw_parts(bump_ptr, 1))
+        };
 
         let input = unsafe { core::slice::from_raw_parts(slice_ptr, n + 3) };
         let mut hash = core::mem::MaybeUninit::<[u8; 32]>::uninit();
@@ -185,7 +186,10 @@ pub fn based_try_find_program_address(
             };
 
             if on_curve != 0 {
-                return Ok((Address::new_from_array(unsafe { hash.assume_init() }), bump as u8));
+                return Ok((
+                    Address::new_from_array(unsafe { hash.assume_init() }),
+                    bump as u8,
+                ));
             }
 
             if bump == 0 {
@@ -306,7 +310,11 @@ pub fn find_bump_for_address(
 
         let mut bump_seed = [u8::MAX];
         let bump_ptr = bump_seed.as_mut_ptr();
-        unsafe { slice_ptr.add(n).write(core::slice::from_raw_parts(bump_ptr, 1)) };
+        unsafe {
+            slice_ptr
+                .add(n)
+                .write(core::slice::from_raw_parts(bump_ptr, 1))
+        };
 
         let input = unsafe { core::slice::from_raw_parts(slice_ptr, n + 3) };
         let mut hash = core::mem::MaybeUninit::<[u8; 32]>::uninit();

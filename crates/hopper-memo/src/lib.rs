@@ -125,10 +125,7 @@ impl Memo<'_, '_, '_> {
         // SAFETY: the first `n` slots have been initialised in the
         // loop above; we hand only that prefix to InstructionView.
         let accounts_slice: &[InstructionAccount] = unsafe {
-            core::slice::from_raw_parts(
-                accounts.as_ptr() as *const InstructionAccount,
-                n,
-            )
+            core::slice::from_raw_parts(accounts.as_ptr() as *const InstructionAccount, n)
         };
 
         let pid = self.program_id.unwrap_or(&MEMO_PROGRAM_ID);

@@ -156,12 +156,7 @@ impl BpfEngine {
 
     /// Register a `.so` against a program ID under a specific loader.
     /// Mirrors Quasar's `add_program(id, loader, elf)`.
-    pub fn add_elf_with_loader(
-        &self,
-        program_id: &Pubkey,
-        elf: Vec<u8>,
-        loader: LoaderKind,
-    ) {
+    pub fn add_elf_with_loader(&self, program_id: &Pubkey, elf: Vec<u8>, loader: LoaderKind) {
         self.elfs
             .lock()
             .expect("elfs lock")
@@ -238,31 +233,23 @@ impl BpfEngine {
         // Serialize parameter buffer up front — if any meta
         // references an unknown account we fail fast without
         // touching the VM.
-        let mut params = match parameter::serialize_parameters(
-            &ix.accounts,
-            accounts,
-            &ix.data,
-            &ix.program_id,
-        ) {
-            Ok(p) => p,
-            Err(missing) => {
-                let err = HopperSvmError::UnknownAccount(missing);
-                logs.failure(
-                    &ix.program_id,
-                    budget.consumed(),
-                    budget.limit(),
-                    &err,
-                );
-                return ExecutionOutcome {
-                    resulting_accounts: accounts.to_vec(),
-                    compute_units_consumed: 0,
-                    return_data: Vec::new(),
-                    inner_instructions: Vec::new(),
-                    execution_time_us: 0,
-                    error: Some(err),
-                };
-            }
-        };
+        let mut params =
+            match parameter::serialize_parameters(&ix.accounts, accounts, &ix.data, &ix.program_id)
+            {
+                Ok(p) => p,
+                Err(missing) => {
+                    let err = HopperSvmError::UnknownAccount(missing);
+                    logs.failure(&ix.program_id, budget.consumed(), budget.limit(), &err);
+                    return ExecutionOutcome {
+                        resulting_accounts: accounts.to_vec(),
+                        compute_units_consumed: 0,
+                        return_data: Vec::new(),
+                        inner_instructions: Vec::new(),
+                        execution_time_us: 0,
+                        error: Some(err),
+                    };
+                }
+            };
 
         // Set up the syscall registry. Each adapter is registered
         // by name so the program's `extern "C" sol_log_(...)`
@@ -294,10 +281,7 @@ impl BpfEngine {
             executable.get_ro_region(),
             MemoryRegion::new_writable(&mut stack, solana_sbpf::ebpf::MM_STACK_START),
             MemoryRegion::new_writable(&mut heap, solana_sbpf::ebpf::MM_HEAP_START),
-            MemoryRegion::new_writable(
-                &mut params.buffer,
-                solana_sbpf::ebpf::MM_INPUT_START,
-            ),
+            MemoryRegion::new_writable(&mut params.buffer, solana_sbpf::ebpf::MM_INPUT_START),
         ];
 
         let memory_mapping = match MemoryMapping::new(
@@ -353,12 +337,7 @@ impl BpfEngine {
             for line in core::mem::take(&mut context.logs).into_lines() {
                 logs.line(line);
             }
-            logs.failure(
-                &ix.program_id,
-                budget.consumed(),
-                budget.limit(),
-                &err,
-            );
+            logs.failure(&ix.program_id, budget.consumed(), budget.limit(), &err);
             return ExecutionOutcome {
                 resulting_accounts: accounts.to_vec(),
                 compute_units_consumed: budget.consumed(),
@@ -378,8 +357,7 @@ impl BpfEngine {
         match result {
             Ok(_return_value) => {
                 logs.success(&ix.program_id, budget.consumed(), budget.limit());
-                let post_state =
-                    parameter::deserialize_parameters(&params, &ix.accounts, accounts);
+                let post_state = parameter::deserialize_parameters(&params, &ix.accounts, accounts);
                 let return_data = context
                     .return_data
                     .map(|(_, data)| data)
@@ -388,9 +366,7 @@ impl BpfEngine {
                     resulting_accounts: merge_accounts(accounts, &post_state),
                     compute_units_consumed: budget.consumed(),
                     return_data,
-                    inner_instructions: core::mem::take(
-                        &mut context.inner_instructions,
-                    ),
+                    inner_instructions: core::mem::take(&mut context.inner_instructions),
                     execution_time_us: 0,
                     error: None,
                 }
@@ -407,21 +383,14 @@ impl BpfEngine {
                         message: format!("VM error: {vm_err}"),
                     }
                 };
-                logs.failure(
-                    &ix.program_id,
-                    budget.consumed(),
-                    budget.limit(),
-                    &err,
-                );
+                logs.failure(&ix.program_id, budget.consumed(), budget.limit(), &err);
                 ExecutionOutcome {
                     // Roll back partial mutations on failure —
                     // matches Phase 1 / on-chain semantics.
                     resulting_accounts: accounts.to_vec(),
                     compute_units_consumed: budget.consumed(),
                     return_data: Vec::new(),
-                    inner_instructions: core::mem::take(
-                        &mut context.inner_instructions,
-                    ),
+                    inner_instructions: core::mem::take(&mut context.inner_instructions),
                     execution_time_us: 0,
                     error: Some(err),
                 }
@@ -461,10 +430,7 @@ fn engine_error(
 /// full account list. Mirrors `engine::merge_accounts` but is
 /// re-implemented locally because the engine module is
 /// feature-independent.
-fn merge_accounts(
-    original: &[KeyedAccount],
-    working: &[KeyedAccount],
-) -> Vec<KeyedAccount> {
+fn merge_accounts(original: &[KeyedAccount], working: &[KeyedAccount]) -> Vec<KeyedAccount> {
     let mut out: Vec<KeyedAccount> = original.to_vec();
     for w in working {
         match out.iter_mut().find(|a| a.address == w.address) {
@@ -480,9 +446,7 @@ fn merge_accounts(
 /// `sol_invoke_signed_*` and the `sol_get_*_sysvar` family;
 /// missing-syscall errors at runtime are the cleanest way to
 /// surface "you need Phase 2.1" until that work lands.
-fn build_loader(
-    sbpf_version: SBPFVersion,
-) -> Result<Arc<BuiltinProgram<BpfContext>>, String> {
+fn build_loader(sbpf_version: SBPFVersion) -> Result<Arc<BuiltinProgram<BpfContext>>, String> {
     let mut function_registry = FunctionRegistry::<BuiltinFunctionPointer>::default();
     let mut register = |name: &str, f: BuiltinFunctionPointer| -> Result<(), String> {
         function_registry
@@ -561,10 +525,7 @@ fn build_loader(
         SyscallSolGetStakeHistorySysvar::vm,
     )?;
     // ── Tier 3: curve25519 ────────────────────────────────────────
-    register(
-        "sol_curve_validate_point",
-        SyscallSolCurveValidatePoint::vm,
-    )?;
+    register("sol_curve_validate_point", SyscallSolCurveValidatePoint::vm)?;
     register("sol_curve_group_op", SyscallSolCurveGroupOp::vm)?;
     // ── Tier 3: heavy-crypto stubs (Tier 4 work) ─────────────────
     register("sol_poseidon", SyscallSolPoseidon::vm)?;
@@ -595,7 +556,10 @@ fn build_loader(
         enable_sbpf_v3: matches!(sbpf_version, SBPFVersion::V3),
         ..Config::default()
     };
-    Ok(Arc::new(BuiltinProgram::new_loader(config, function_registry)))
+    Ok(Arc::new(BuiltinProgram::new_loader(
+        config,
+        function_registry,
+    )))
 }
 
 /// Function-pointer alias matching what `declare_builtin_function!`
@@ -611,31 +575,13 @@ mod tests {
     /// the rest of the engine relies on.
     #[test]
     fn merge_accounts_replaces_and_appends() {
-        let a1 = KeyedAccount::new(
-            Pubkey::new_unique(),
-            10,
-            Pubkey::default(),
-            vec![1],
-            false,
-        );
-        let a2 = KeyedAccount::new(
-            Pubkey::new_unique(),
-            20,
-            Pubkey::default(),
-            vec![2],
-            false,
-        );
+        let a1 = KeyedAccount::new(Pubkey::new_unique(), 10, Pubkey::default(), vec![1], false);
+        let a2 = KeyedAccount::new(Pubkey::new_unique(), 20, Pubkey::default(), vec![2], false);
         let original = vec![a1.clone(), a2.clone()];
         // Modified: a1's lamports change. New: a3 didn't exist before.
         let mut a1_mut = a1.clone();
         a1_mut.lamports = 99;
-        let a3 = KeyedAccount::new(
-            Pubkey::new_unique(),
-            30,
-            Pubkey::default(),
-            vec![3],
-            false,
-        );
+        let a3 = KeyedAccount::new(Pubkey::new_unique(), 30, Pubkey::default(), vec![3], false);
         let working = vec![a1_mut.clone(), a3.clone()];
         let merged = merge_accounts(&original, &working);
         assert_eq!(merged.len(), 3);
@@ -659,15 +605,7 @@ mod tests {
             accounts: vec![],
             data: vec![],
         };
-        let result = engine.try_execute(
-            &ix,
-            &[],
-            &mut budget,
-            &sysvars,
-            &mut logs,
-            None,
-            1,
-        );
+        let result = engine.try_execute(&ix, &[], &mut budget, &sysvars, &mut logs, None, 1);
         assert!(result.is_none());
     }
 }

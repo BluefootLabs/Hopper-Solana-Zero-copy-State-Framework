@@ -67,10 +67,8 @@ use spl_token::state::{Account as TokenAccount, AccountState};
 ///
 /// Bytes match the canonical address `ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL`.
 const ATA_PROGRAM_ID: Pubkey = Pubkey::new_from_array([
-    0x8c, 0x97, 0x25, 0x8f, 0x4e, 0x24, 0x89, 0xf1,
-    0xbb, 0x3d, 0x10, 0x29, 0x14, 0x8e, 0x0d, 0x83,
-    0x0b, 0x5a, 0x13, 0x99, 0xda, 0xff, 0x10, 0x84,
-    0x04, 0x8e, 0x7b, 0xd8, 0xdb, 0xe9, 0xf8, 0x59,
+    0x8c, 0x97, 0x25, 0x8f, 0x4e, 0x24, 0x89, 0xf1, 0xbb, 0x3d, 0x10, 0x29, 0x14, 0x8e, 0x0d, 0x83,
+    0x0b, 0x5a, 0x13, 0x99, 0xda, 0xff, 0x10, 0x84, 0x04, 0x8e, 0x7b, 0xd8, 0xdb, 0xe9, 0xf8, 0x59,
 ]);
 
 /// Inline ATA derivation. Re-implements
@@ -86,11 +84,7 @@ fn get_associated_token_address_with_program_id(
     token_program: &Pubkey,
 ) -> Pubkey {
     let (ata, _bump) = Pubkey::find_program_address(
-        &[
-            wallet.as_ref(),
-            token_program.as_ref(),
-            mint.as_ref(),
-        ],
+        &[wallet.as_ref(), token_program.as_ref(), mint.as_ref()],
         &ATA_PROGRAM_ID,
     );
     ata
@@ -173,9 +167,7 @@ impl BuiltinProgram for SplAtaSimulator {
 
         // Validate the token program address — must be one of
         // the supported token programs.
-        if token_program_addr != spl_token::id()
-            && token_program_addr != spl_token_2022::id()
-        {
+        if token_program_addr != spl_token::id() && token_program_addr != spl_token_2022::id() {
             return Err(HopperSvmError::BuiltinError {
                 program_id: *ctx.program_id,
                 message: format!(
@@ -359,11 +351,7 @@ mod tests {
         let funding = Pubkey::new_unique();
         let wallet = Pubkey::new_unique();
         let mint = Pubkey::new_unique();
-        let ata = get_associated_token_address_with_program_id(
-            &wallet,
-            &mint,
-            &spl_token::id(),
-        );
+        let ata = get_associated_token_address_with_program_id(&wallet, &mint, &spl_token::id());
 
         let mut accounts = vec![
             KeyedAccount::new(funding, 5_000_000, system_program::id(), vec![], false),
@@ -402,11 +390,8 @@ mod tests {
         let funding = Pubkey::new_unique();
         let wallet = Pubkey::new_unique();
         let mint = Pubkey::new_unique();
-        let ata = get_associated_token_address_with_program_id(
-            &wallet,
-            &mint,
-            &spl_token_2022::id(),
-        );
+        let ata =
+            get_associated_token_address_with_program_id(&wallet, &mint, &spl_token_2022::id());
 
         let mut accounts = vec![
             KeyedAccount::new(funding, 5_000_000, system_program::id(), vec![], false),
@@ -457,8 +442,7 @@ mod tests {
             (spl_token::id(), false, false),
             (accounts[6].address, false, false),
         ]);
-        let err = invoke(&SplAtaSimulator, vec![0u8], &mut accounts, metas_list)
-            .unwrap_err();
+        let err = invoke(&SplAtaSimulator, vec![0u8], &mut accounts, metas_list).unwrap_err();
         match err {
             HopperSvmError::BuiltinError { message, .. } => {
                 assert!(message.contains("address mismatch"), "{message}");
@@ -474,11 +458,7 @@ mod tests {
         let funding = Pubkey::new_unique();
         let wallet = Pubkey::new_unique();
         let mint = Pubkey::new_unique();
-        let ata = get_associated_token_address_with_program_id(
-            &wallet,
-            &mint,
-            &spl_token::id(),
-        );
+        let ata = get_associated_token_address_with_program_id(&wallet, &mint, &spl_token::id());
 
         // Pre-build an existing, correctly-formed ATA.
         let mut buf = vec![0u8; TokenAccount::LEN];
@@ -526,11 +506,7 @@ mod tests {
         let wallet = Pubkey::new_unique();
         let mint = Pubkey::new_unique();
         let other_mint = Pubkey::new_unique();
-        let ata = get_associated_token_address_with_program_id(
-            &wallet,
-            &mint,
-            &spl_token::id(),
-        );
+        let ata = get_associated_token_address_with_program_id(&wallet, &mint, &spl_token::id());
 
         // Existing ATA, but with the wrong mint.
         let mut buf = vec![0u8; TokenAccount::LEN];
@@ -561,8 +537,7 @@ mod tests {
             (spl_token::id(), false, false),
             (accounts[6].address, false, false),
         ]);
-        let err = invoke(&SplAtaSimulator, vec![1u8], &mut accounts, metas_list)
-            .unwrap_err();
+        let err = invoke(&SplAtaSimulator, vec![1u8], &mut accounts, metas_list).unwrap_err();
         match err {
             HopperSvmError::BuiltinError { message, .. } => {
                 assert!(message.contains("mismatch"), "{message}");

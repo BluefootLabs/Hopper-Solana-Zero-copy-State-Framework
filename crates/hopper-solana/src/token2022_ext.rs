@@ -289,8 +289,7 @@ pub fn read_transfer_fee_config(mint_data: &[u8]) -> Result<TransferFeeConfig, P
     }
 
     let newer_max_fee = u64::from_le_bytes([
-        ext[86], ext[87], ext[88], ext[89],
-        ext[90], ext[91], ext[92], ext[93],
+        ext[86], ext[87], ext[88], ext[89], ext[90], ext[91], ext[92], ext[93],
     ]);
     let newer_fee_bps = u16::from_le_bytes([ext[94], ext[95]]);
 
@@ -332,9 +331,7 @@ pub struct TransferHook<'a> {
 /// `Err(InvalidAccountData)` when the extension is present but
 /// malformed (length < 64, or the underlying TLV is truncated).
 #[inline(always)]
-pub fn read_transfer_hook(
-    mint_data: &[u8],
-) -> Result<Option<TransferHook<'_>>, ProgramError> {
+pub fn read_transfer_hook(mint_data: &[u8]) -> Result<Option<TransferHook<'_>>, ProgramError> {
     let Some(ext) = find_extension_data(mint_data, MINT_BASE_SIZE, EXT_TRANSFER_HOOK) else {
         return Ok(None);
     };
@@ -347,7 +344,10 @@ pub fn read_transfer_hook(
     let authority: &[u8; 32] = ext[0..32].try_into().unwrap();
     let program_id: &[u8; 32] = ext[32..64].try_into().unwrap();
 
-    Ok(Some(TransferHook { authority, program_id }))
+    Ok(Some(TransferHook {
+        authority,
+        program_id,
+    }))
 }
 
 /// Assert that the mint has a transfer-hook extension and that it
@@ -372,9 +372,9 @@ pub fn check_transfer_hook_program(
 #[cfg(test)]
 mod tests {
     extern crate alloc;
+    use super::*;
     use alloc::vec;
     use alloc::vec::Vec;
-    use super::*;
 
     /// Build a mint buffer in the **real** Token-2022 on-chain layout:
     /// 82 bytes of `Mint` base, 83 bytes of zero padding equalizing it
@@ -518,7 +518,7 @@ mod tests {
         // Write type but length points past end.
         data.extend_from_slice(&EXT_TRANSFER_FEE_CONFIG.to_le_bytes());
         data.extend_from_slice(&200u16.to_le_bytes()); // claims 200 bytes
-        data.extend_from_slice(&[0u8; 10]);            // only add 10
+        data.extend_from_slice(&[0u8; 10]); // only add 10
         assert!(!mint_has_extension(&data, EXT_TRANSFER_FEE_CONFIG));
     }
 

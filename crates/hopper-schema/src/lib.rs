@@ -1,4 +1,4 @@
-﻿//! # Hopper Schema
+//! # Hopper Schema
 //!
 //! Schema export, ABI fingerprinting, decode tooling, and program management
 //! primitives for the Hopper framework.
@@ -24,15 +24,17 @@ pub mod codama;
 pub mod python_client;
 pub mod rust_client;
 
+use core::fmt;
 use hopper_core::account::HEADER_LEN;
 use hopper_core::field_map::FieldInfo;
-use hopper_runtime::{AccountView, LayoutContract};
 use hopper_runtime::layout::LayoutInfo;
-use core::fmt;
+use hopper_runtime::{AccountView, LayoutContract};
 
 // Re-export receipt types for CLI consumers
 #[cfg(feature = "receipt")]
-pub use hopper_core::receipt::{CompatImpact, DecodedReceipt, ReceiptExplain, Phase, ReceiptNarrative, NarrativeRisk};
+pub use hopper_core::receipt::{
+    CompatImpact, DecodedReceipt, NarrativeRisk, Phase, ReceiptExplain, ReceiptNarrative,
+};
 // Re-export policy types for CLI consumers
 #[cfg(feature = "policy")]
 pub use hopper_core::policy::PolicyClass;
@@ -156,7 +158,10 @@ impl FieldIntent {
 
     /// Whether this field is an identity reference (authority, owner, delegate, or address).
     pub fn is_identity(self) -> bool {
-        matches!(self, Self::Authority | Self::Address | Self::Owner | Self::Delegate)
+        matches!(
+            self,
+            Self::Authority | Self::Address | Self::Owner | Self::Delegate
+        )
     }
 
     /// Whether this field is authority-sensitive (mutations require signer verification).
@@ -234,7 +239,10 @@ impl MutationClass {
 
     /// Whether this class typically needs authority verification.
     pub const fn requires_authority(self) -> bool {
-        matches!(self, Self::AuthoritySensitive | Self::Financial | Self::Resizing | Self::StateTransition)
+        matches!(
+            self,
+            Self::AuthoritySensitive | Self::Financial | Self::Resizing | Self::StateTransition
+        )
     }
 }
 
@@ -302,9 +310,15 @@ impl LayoutBehavior {
 impl fmt::Display for LayoutBehavior {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "mutation={}", self.mutation_class)?;
-        if self.requires_signer { write!(f, " signer")?; }
-        if self.affects_balance { write!(f, " balance")?; }
-        if self.affects_authority { write!(f, " authority")?; }
+        if self.requires_signer {
+            write!(f, " signer")?;
+        }
+        if self.affects_balance {
+            write!(f, " balance")?;
+        }
+        if self.affects_authority {
+            write!(f, " authority")?;
+        }
         Ok(())
     }
 }
@@ -465,8 +479,12 @@ impl LayoutFingerprint {
     pub const fn is_identical(&self, other: &Self) -> bool {
         let mut i = 0;
         while i < 8 {
-            if self.wire_hash[i] != other.wire_hash[i] { return false; }
-            if self.semantic_hash[i] != other.semantic_hash[i] { return false; }
+            if self.wire_hash[i] != other.wire_hash[i] {
+                return false;
+            }
+            if self.semantic_hash[i] != other.semantic_hash[i] {
+                return false;
+            }
             i += 1;
         }
         true
@@ -480,8 +498,12 @@ impl LayoutFingerprint {
         let mut sem_eq = true;
         let mut i = 0;
         while i < 8 {
-            if self.wire_hash[i] != other.wire_hash[i] { wire_eq = false; }
-            if self.semantic_hash[i] != other.semantic_hash[i] { sem_eq = false; }
+            if self.wire_hash[i] != other.wire_hash[i] {
+                wire_eq = false;
+            }
+            if self.semantic_hash[i] != other.semantic_hash[i] {
+                sem_eq = false;
+            }
             i += 1;
         }
         wire_eq && !sem_eq
@@ -680,13 +702,19 @@ impl CompatibilityVerdict {
     /// Whether the transition is safe without any migration.
     #[inline]
     pub const fn is_safe(self) -> bool {
-        matches!(self, Self::Identical | Self::WireCompatible | Self::AppendSafe)
+        matches!(
+            self,
+            Self::Identical | Self::WireCompatible | Self::AppendSafe
+        )
     }
 
     /// Whether old readers can still parse accounts written by the new layout.
     #[inline]
     pub const fn is_backward_readable(self) -> bool {
-        matches!(self, Self::Identical | Self::WireCompatible | Self::AppendSafe)
+        matches!(
+            self,
+            Self::Identical | Self::WireCompatible | Self::AppendSafe
+        )
     }
 
     /// Whether a migration instruction is required.
@@ -706,10 +734,7 @@ impl CompatibilityVerdict {
     ///
     /// * An `AppendSafe` verdict is escalated to `MigrationRequired` when
     ///   **any** modified segment is immutable-after-init (Audit).
-    pub fn refine_with_roles<const N: usize>(
-        self,
-        report: &SegmentMigrationReport<N>,
-    ) -> Self {
+    pub fn refine_with_roles<const N: usize>(self, report: &SegmentMigrationReport<N>) -> Self {
         match self {
             Self::MigrationRequired => {
                 // If every segment that must change is clearable or
@@ -725,7 +750,11 @@ impl CompatibilityVerdict {
                     }
                     i += 1;
                 }
-                if all_soft && report.count > 0 { Self::AppendSafe } else { self }
+                if all_soft && report.count > 0 {
+                    Self::AppendSafe
+                } else {
+                    self
+                }
             }
             Self::AppendSafe => {
                 // Escalate if any immutable (Audit) segment was touched.
@@ -843,9 +872,15 @@ impl CompatibilityExplain {
                     "Wire layout matches with metadata-only changes. Safe to deploy."
                 }
             }
-            CompatibilityVerdict::AppendSafe => "New fields appended at the end. Old readers still work.",
-            CompatibilityVerdict::MigrationRequired => "Breaking field changes. Migration instruction required before deploy.",
-            CompatibilityVerdict::Incompatible => "Different discriminators. These are unrelated account types.",
+            CompatibilityVerdict::AppendSafe => {
+                "New fields appended at the end. Old readers still work."
+            }
+            CompatibilityVerdict::MigrationRequired => {
+                "Breaking field changes. Migration instruction required before deploy."
+            }
+            CompatibilityVerdict::Incompatible => {
+                "Different discriminators. These are unrelated account types."
+            }
         };
 
         Self {
@@ -893,7 +928,10 @@ impl fmt::Display for CompatibilityExplain {
             writeln!(f)?;
         }
         if self.semantic_drift {
-            writeln!(f, "  Warning: semantic drift detected (wire matches but meaning changed)")?;
+            writeln!(
+                f,
+                "  Warning: semantic drift detected (wire matches but meaning changed)"
+            )?;
         }
         Ok(())
     }
@@ -923,7 +961,10 @@ pub fn compare_fields<'a, const N: usize>(
     newer: &'a LayoutManifest,
 ) -> FieldCompatReport<'a, N> {
     let mut report = FieldCompatReport {
-        entries: [FieldCompatEntry { name: "", status: FieldCompat::Identical }; N],
+        entries: [FieldCompatEntry {
+            name: "",
+            status: FieldCompat::Identical,
+        }; N],
         count: 0,
         is_append_safe: true,
     };
@@ -1015,7 +1056,11 @@ impl<'a, const N: usize> FieldCompatReport<'a, N> {
     /// Get entry by index.
     #[inline(always)]
     pub fn get(&self, i: usize) -> Option<&FieldCompatEntry<'a>> {
-        if i < self.count { Some(&self.entries[i]) } else { None }
+        if i < self.count {
+            Some(&self.entries[i])
+        } else {
+            None
+        }
     }
 
     /// Whether the schema change is append-safe (no breaking changes).
@@ -1064,7 +1109,9 @@ pub fn decode_header(data: &[u8]) -> Option<DecodedHeader> {
         disc: data[0],
         version: data[1],
         flags: u16::from_le_bytes([data[2], data[3]]),
-        layout_id: [data[4], data[5], data[6], data[7], data[8], data[9], data[10], data[11]],
+        layout_id: [
+            data[4], data[5], data[6], data[7], data[8], data[9], data[10], data[11],
+        ],
         reserved: [data[12], data[13], data[14], data[15]],
     })
 }
@@ -1120,7 +1167,11 @@ pub fn decode_segments<const N: usize>(data: &[u8]) -> Option<(usize, [DecodedSe
 
     let entries_start = registry_start + 4;
     let mut segments = [DecodedSegment {
-        id: [0; 4], offset: 0, size: 0, flags: 0, version: 0,
+        id: [0; 4],
+        offset: 0,
+        size: 0,
+        flags: 0,
+        version: 0,
     }; N];
 
     let mut i = 0;
@@ -1131,8 +1182,18 @@ pub fn decode_segments<const N: usize>(data: &[u8]) -> Option<(usize, [DecodedSe
         }
         segments[i] = DecodedSegment {
             id: [data[off], data[off + 1], data[off + 2], data[off + 3]],
-            offset: u32::from_le_bytes([data[off + 4], data[off + 5], data[off + 6], data[off + 7]]),
-            size: u32::from_le_bytes([data[off + 8], data[off + 9], data[off + 10], data[off + 11]]),
+            offset: u32::from_le_bytes([
+                data[off + 4],
+                data[off + 5],
+                data[off + 6],
+                data[off + 7],
+            ]),
+            size: u32::from_le_bytes([
+                data[off + 8],
+                data[off + 9],
+                data[off + 10],
+                data[off + 11],
+            ]),
             flags: u16::from_le_bytes([data[off + 12], data[off + 13]]),
             version: data[off + 14],
         };
@@ -1345,10 +1406,7 @@ impl<'a, const N: usize> MigrationPlan<'a, N> {
     ///
     /// Analyzes the field-level diff and produces an ordered list of
     /// concrete steps (copy prefix, zero-init new fields, update header).
-    pub fn generate(
-        older: &'a LayoutManifest,
-        newer: &'a LayoutManifest,
-    ) -> Self {
+    pub fn generate(older: &'a LayoutManifest, newer: &'a LayoutManifest) -> Self {
         let mut plan = Self {
             policy: MigrationPolicy::NoOp,
             steps: [MigrationStep {
@@ -1489,7 +1547,11 @@ impl<'a, const N: usize> MigrationPlan<'a, N> {
     /// Get step by index.
     #[inline(always)]
     pub fn step(&self, i: usize) -> Option<&MigrationStep<'a>> {
-        if i < self.step_count { Some(&self.steps[i]) } else { None }
+        if i < self.step_count {
+            Some(&self.steps[i])
+        } else {
+            None
+        }
     }
 
     /// Iterator-style: iterate steps with index.
@@ -1556,7 +1618,10 @@ impl SegmentRoleHint {
     /// Whether data in this segment must survive migration unchanged.
     #[inline(always)]
     pub fn must_preserve(self) -> bool {
-        matches!(self, Self::Core | Self::Extension | Self::Audit | Self::Shard)
+        matches!(
+            self,
+            Self::Core | Self::Extension | Self::Audit | Self::Shard
+        )
     }
 
     /// Whether the segment can be zeroed and rebuilt from other on-chain state.
@@ -1697,7 +1762,9 @@ impl<const N: usize> SegmentMigrationReport<N> {
         let mut n = 0;
         let mut i = 0;
         while i < self.count {
-            if self.advice[i].must_preserve { n += 1; }
+            if self.advice[i].must_preserve {
+                n += 1;
+            }
             i += 1;
         }
         n
@@ -1708,7 +1775,9 @@ impl<const N: usize> SegmentMigrationReport<N> {
         let mut n = 0;
         let mut i = 0;
         while i < self.count {
-            if self.advice[i].clearable { n += 1; }
+            if self.advice[i].clearable {
+                n += 1;
+            }
             i += 1;
         }
         n
@@ -1740,8 +1809,11 @@ impl<const N: usize> fmt::Display for SegmentMigrationReport<N> {
             writeln!(f)?;
             i += 1;
         }
-        writeln!(f, "  preserve={} bytes, clearable={} bytes, rebuildable={} bytes",
-            self.preserve_bytes, self.clearable_bytes, self.rebuildable_bytes)?;
+        writeln!(
+            f,
+            "  preserve={} bytes, clearable={} bytes, rebuildable={} bytes",
+            self.preserve_bytes, self.clearable_bytes, self.rebuildable_bytes
+        )?;
         Ok(())
     }
 }
@@ -1837,7 +1909,11 @@ impl fmt::Display for MigrationAction {
 
 impl<'a> fmt::Display for MigrationStep<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{} @ offset={}, size={}", self.action, self.offset, self.size)?;
+        write!(
+            f,
+            "{} @ offset={}, size={}",
+            self.action, self.offset, self.size
+        )?;
         if !self.field.is_empty() {
             write!(f, " (field: {})", self.field)?;
         }
@@ -1848,8 +1924,16 @@ impl<'a> fmt::Display for MigrationStep<'a> {
 impl<'a, const N: usize> fmt::Display for MigrationPlan<'a, N> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "MigrationPlan ({}):", self.policy)?;
-        writeln!(f, "  old_size={}, new_size={}", self.old_size, self.new_size)?;
-        writeln!(f, "  copy={} bytes, zero={} bytes", self.copy_bytes, self.zero_bytes)?;
+        writeln!(
+            f,
+            "  old_size={}, new_size={}",
+            self.old_size, self.new_size
+        )?;
+        writeln!(
+            f,
+            "  copy={} bytes, zero={} bytes",
+            self.copy_bytes, self.zero_bytes
+        )?;
         let mut i = 0;
         while i < self.step_count {
             writeln!(f, "  step {}: {}", i, self.steps[i])?;
@@ -1861,7 +1945,11 @@ impl<'a, const N: usize> fmt::Display for MigrationPlan<'a, N> {
 
 impl fmt::Display for LayoutManifest {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "{} v{} (disc={}, size={})", self.name, self.version, self.disc, self.total_size)?;
+        writeln!(
+            f,
+            "{} v{} (disc={}, size={})",
+            self.name, self.version, self.disc, self.total_size
+        )?;
         write!(f, "  layout_id: ")?;
         write_hex(f, &self.layout_id)?;
         writeln!(f)?;
@@ -2010,6 +2098,29 @@ pub struct ErrorDescriptor {
     pub doc: &'static str,
 }
 
+/// Public-facing program constant.
+///
+/// Mirrors Anchor's `#[constant]` IDL surface. Carries the source-level
+/// name, the stringified Rust type, and the stringified initializer
+/// expression, so off-chain consumers can reconstruct the value
+/// without the program crate as a build-time dependency.
+///
+/// Emitted by `#[hopper::constant]` as a sibling `pub const` next to
+/// the original declaration; collected into a `&'static [ConstantDescriptor]`
+/// slice by the program author (or by the `hopper::program!` macro) and
+/// passed to an IDL emitter via `AnchorIdlWithConstants`.
+#[derive(Clone, Copy, Debug)]
+pub struct ConstantDescriptor {
+    /// Constant name, e.g. `"MAX_DEPOSIT"`.
+    pub name: &'static str,
+    /// Stringified Rust type, e.g. `"u64"` or `"[u8; 32]"`.
+    pub ty: &'static str,
+    /// Stringified initializer expression, e.g. `"1_000_000"`.
+    pub value: &'static str,
+    /// Optional doc-comment text.
+    pub docs: &'static str,
+}
+
 /// A convenience wrapper holding an enum's full error table.
 ///
 /// Programs expose their error tables to the schema via the `SchemaExport`
@@ -2039,7 +2150,11 @@ impl ErrorRegistry {
     /// Look up the invariant name associated with a code, if any.
     pub fn invariant_for(&self, code: u32) -> Option<&'static str> {
         self.find_by_code(code).and_then(|d| {
-            if d.invariant.is_empty() { None } else { Some(d.invariant) }
+            if d.invariant.is_empty() {
+                None
+            } else {
+                Some(d.invariant)
+            }
         })
     }
 }
@@ -2300,15 +2415,24 @@ impl fmt::Display for ProgramIdl {
         writeln!(f)?;
         writeln!(f, "Instructions ({}):", self.instructions.len())?;
         for ix in self.instructions.iter() {
-            write!(f, "  {:>2}  {:16} args={} accounts={}",
-                ix.tag, ix.name, ix.args.len(), ix.accounts.len())?;
+            write!(
+                f,
+                "  {:>2}  {:16} args={} accounts={}",
+                ix.tag,
+                ix.name,
+                ix.args.len(),
+                ix.accounts.len()
+            )?;
             writeln!(f)?;
         }
         writeln!(f)?;
         writeln!(f, "Accounts ({}):", self.accounts.len())?;
         for a in self.accounts.iter() {
-            write!(f, "  {:16} disc={} v{} {} bytes  id=",
-                a.name, a.disc, a.version, a.total_size)?;
+            write!(
+                f,
+                "  {:16} disc={} v{} {} bytes  id=",
+                a.name, a.disc, a.version, a.total_size
+            )?;
             write_hex(f, &a.layout_id)?;
             writeln!(f)?;
         }
@@ -2403,20 +2527,38 @@ impl fmt::Display for CodamaProjection {
         writeln!(f)?;
         writeln!(f, "Instructions ({}):", self.instructions.len())?;
         for ix in self.instructions.iter() {
-            writeln!(f, "  {:>2}  {:16} args={} accounts={}",
-                ix.discriminator, ix.name, ix.args.len(), ix.accounts.len())?;
+            writeln!(
+                f,
+                "  {:>2}  {:16} args={} accounts={}",
+                ix.discriminator,
+                ix.name,
+                ix.args.len(),
+                ix.accounts.len()
+            )?;
         }
         writeln!(f)?;
         writeln!(f, "Accounts ({}):", self.accounts.len())?;
         for a in self.accounts.iter() {
-            writeln!(f, "  {:16} disc={} {} bytes fields={}",
-                a.name, a.discriminator, a.size, a.fields.len())?;
+            writeln!(
+                f,
+                "  {:16} disc={} {} bytes fields={}",
+                a.name,
+                a.discriminator,
+                a.size,
+                a.fields.len()
+            )?;
         }
         if !self.events.is_empty() {
             writeln!(f)?;
             writeln!(f, "Events ({}):", self.events.len())?;
             for e in self.events.iter() {
-                writeln!(f, "  {:>2}  {:16} fields={}", e.discriminator, e.name, e.fields.len())?;
+                writeln!(
+                    f,
+                    "  {:>2}  {:16} fields={}",
+                    e.discriminator,
+                    e.name,
+                    e.fields.len()
+                )?;
             }
         }
         Ok(())
@@ -2556,8 +2698,11 @@ impl fmt::Display for ProgramManifest {
 
         writeln!(f, "Layouts ({}):", self.layouts.len())?;
         for m in self.layouts.iter() {
-            write!(f, "  {:16} v{}  disc={}  {} bytes  fingerprint=",
-                m.name, m.version, m.disc, m.total_size)?;
+            write!(
+                f,
+                "  {:16} v{}  disc={}  {} bytes  fingerprint=",
+                m.name, m.version, m.disc, m.total_size
+            )?;
             write_hex(f, &m.layout_id)?;
             // Show extended metadata if available
             if let Some(meta) = self.find_layout_metadata(m.name) {
@@ -2577,12 +2722,19 @@ impl fmt::Display for ProgramManifest {
 
         writeln!(f, "Instructions ({}):", self.instructions.len())?;
         for ix in self.instructions.iter() {
-            write!(f, "  {:>2}  {:16} accounts={}",
-                ix.tag, ix.name, ix.accounts.len())?;
+            write!(
+                f,
+                "  {:>2}  {:16} accounts={}",
+                ix.tag,
+                ix.name,
+                ix.accounts.len()
+            )?;
             if !ix.capabilities.is_empty() {
                 write!(f, "  caps=")?;
                 for (j, c) in ix.capabilities.iter().enumerate() {
-                    if j > 0 { write!(f, ",")?; }
+                    if j > 0 {
+                        write!(f, ",")?;
+                    }
                     write!(f, "{}", c)?;
                 }
             }
@@ -2598,7 +2750,9 @@ impl fmt::Display for ProgramManifest {
             for p in self.policies.iter() {
                 write!(f, "  {:24}", p.name)?;
                 for (j, r) in p.requirements.iter().enumerate() {
-                    if j > 0 { write!(f, " + ")?; }
+                    if j > 0 {
+                        write!(f, " + ")?;
+                    }
                     write!(f, "{}", r)?;
                 }
                 if !p.receipt_profile.is_empty() {
@@ -2612,8 +2766,7 @@ impl fmt::Display for ProgramManifest {
         if !self.events.is_empty() {
             writeln!(f, "Events ({}):", self.events.len())?;
             for e in self.events.iter() {
-                writeln!(f, "  {:>2}  {:16} fields={}",
-                    e.tag, e.name, e.fields.len())?;
+                writeln!(f, "  {:>2}  {:16} fields={}", e.tag, e.name, e.fields.len())?;
             }
             writeln!(f)?;
         }
@@ -2621,11 +2774,19 @@ impl fmt::Display for ProgramManifest {
         if !self.compatibility_pairs.is_empty() {
             writeln!(f, "Compatibility ({}):", self.compatibility_pairs.len())?;
             for cp in self.compatibility_pairs.iter() {
-                writeln!(f, "  {} v{} -> {} v{}  {}{}",
-                    cp.from_layout, cp.from_version,
-                    cp.to_layout, cp.to_version,
+                writeln!(
+                    f,
+                    "  {} v{} -> {} v{}  {}{}",
+                    cp.from_layout,
+                    cp.from_version,
+                    cp.to_layout,
+                    cp.to_version,
                     cp.policy,
-                    if cp.backward_readable { "  backward-readable" } else { "" },
+                    if cp.backward_readable {
+                        "  backward-readable"
+                    } else {
+                        ""
+                    },
                 )?;
             }
         }
@@ -2660,15 +2821,20 @@ impl<'a> DecodedField<'a> {
         match self.canonical_type {
             "WireU64" | "LeU64" if self.raw.len() >= 8 => {
                 let v = u64::from_le_bytes([
-                    self.raw[0], self.raw[1], self.raw[2], self.raw[3],
-                    self.raw[4], self.raw[5], self.raw[6], self.raw[7],
+                    self.raw[0],
+                    self.raw[1],
+                    self.raw[2],
+                    self.raw[3],
+                    self.raw[4],
+                    self.raw[5],
+                    self.raw[6],
+                    self.raw[7],
                 ]);
                 format_u64(v, buf)
             }
             "WireU32" | "LeU32" if self.raw.len() >= 4 => {
-                let v = u32::from_le_bytes([
-                    self.raw[0], self.raw[1], self.raw[2], self.raw[3],
-                ]) as u64;
+                let v =
+                    u32::from_le_bytes([self.raw[0], self.raw[1], self.raw[2], self.raw[3]]) as u64;
                 format_u64(v, buf)
             }
             "WireU16" | "LeU16" if self.raw.len() >= 2 => {
@@ -2686,16 +2852,12 @@ impl<'a> DecodedField<'a> {
                     len
                 }
             }
-            "u8" if self.raw.len() == 1 => {
-                format_u64(self.raw[0] as u64, buf)
-            }
+            "u8" if self.raw.len() == 1 => format_u64(self.raw[0] as u64, buf),
             _ if self.size == 32 => {
                 // Likely an address/pubkey -- show as hex
                 format_hex_truncated(self.raw, buf)
             }
-            _ => {
-                format_hex_truncated(self.raw, buf)
-            }
+            _ => format_hex_truncated(self.raw, buf),
         }
     }
 }
@@ -2926,7 +3088,8 @@ pub fn lint_layout<const N: usize>(
                 lints[count] = SemanticLint {
                     severity: LintSeverity::Error,
                     code: "E001",
-                    message: "Authority-sensitive field in mutable layout without signer requirement",
+                    message:
+                        "Authority-sensitive field in mutable layout without signer requirement",
                     field: field.name,
                 };
                 count += 1;
@@ -3060,7 +3223,13 @@ pub fn lint_policy<const N: usize>(
 
 impl fmt::Display for SemanticLint {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "[{}] {}: {}", self.severity.name(), self.code, self.message)?;
+        write!(
+            f,
+            "[{}] {}: {}",
+            self.severity.name(),
+            self.code,
+            self.message
+        )?;
         if !self.field.is_empty() {
             write!(f, " (field: {})", self.field)?;
         }
@@ -3094,7 +3263,7 @@ pub struct OperatingProfile {
     /// Number of valid migration-sensitive entries.
     pub migration_sensitive_count: u8,
     /// Layout stability grades per layout.
-    pub stability_grades: [(& 'static str, LayoutStabilityGrade); 8],
+    pub stability_grades: [(&'static str, LayoutStabilityGrade); 8],
     /// Number of valid stability grade entries.
     pub stability_count: u8,
     /// Whether the program has any financial operations.
@@ -3146,7 +3315,8 @@ impl OperatingProfile {
                     profile.financial_fields[profile.financial_count as usize] = field.name;
                     profile.financial_count += 1;
                 }
-                if field.intent.is_authority_sensitive() && (profile.authority_count as usize) < 16 {
+                if field.intent.is_authority_sensitive() && (profile.authority_count as usize) < 16
+                {
                     profile.authority_surfaces[profile.authority_count as usize] = field.name;
                     profile.authority_count += 1;
                 }
@@ -3171,7 +3341,8 @@ impl OperatingProfile {
                 if const_str_eq(role_name, "Core")
                     && (profile.migration_sensitive_count as usize) < 8
                 {
-                    profile.migration_sensitive[profile.migration_sensitive_count as usize] = meta.name;
+                    profile.migration_sensitive[profile.migration_sensitive_count as usize] =
+                        meta.name;
                     profile.migration_sensitive_count += 1;
                 }
                 si += 1;
@@ -3248,10 +3419,18 @@ impl fmt::Display for OperatingProfile {
         }
 
         write!(f, "  Features:")?;
-        if self.has_financial_ops { write!(f, " financial")?; }
-        if self.has_cpi_ops { write!(f, " cpi")?; }
-        if self.has_migration_paths { write!(f, " migration")?; }
-        if self.has_receipts { write!(f, " receipts")?; }
+        if self.has_financial_ops {
+            write!(f, " financial")?;
+        }
+        if self.has_cpi_ops {
+            write!(f, " cpi")?;
+        }
+        if self.has_migration_paths {
+            write!(f, " migration")?;
+        }
+        if self.has_receipts {
+            write!(f, " receipts")?;
+        }
         writeln!(f)?;
 
         Ok(())
@@ -3302,9 +3481,15 @@ pub struct ReceiptProfile {
 impl fmt::Display for ReceiptProfile {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}(phase={}", self.name, self.expected_phase)?;
-        if self.expects_balance_change { write!(f, " balance")?; }
-        if self.expects_authority_change { write!(f, " authority")?; }
-        if self.expects_journal_append { write!(f, " journal")?; }
+        if self.expects_balance_change {
+            write!(f, " balance")?;
+        }
+        if self.expects_authority_change {
+            write!(f, " authority")?;
+        }
+        if self.expects_journal_append {
+            write!(f, " journal")?;
+        }
         if self.min_changed_fields > 0 {
             write!(f, " min_fields={}", self.min_changed_fields)?;
         }
@@ -3330,9 +3515,15 @@ pub struct IdlSegmentDescriptor {
 impl fmt::Display for IdlSegmentDescriptor {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}(role={}", self.name, self.role)?;
-        if self.append_only { write!(f, " append-only")?; }
-        if self.rebuildable { write!(f, " rebuildable")?; }
-        if self.must_preserve { write!(f, " must-preserve")?; }
+        if self.append_only {
+            write!(f, " append-only")?;
+        }
+        if self.rebuildable {
+            write!(f, " rebuildable")?;
+        }
+        if self.must_preserve {
+            write!(f, " must-preserve")?;
+        }
         write!(f, ")")
     }
 }
@@ -3361,7 +3552,9 @@ impl fmt::Display for HopperIdl {
             for p in self.policies.iter() {
                 write!(f, "  {:24}", p.name)?;
                 for (j, r) in p.requirements.iter().enumerate() {
-                    if j > 0 { write!(f, " + ")?; }
+                    if j > 0 {
+                        write!(f, " + ")?;
+                    }
                     write!(f, "{}", r)?;
                 }
                 writeln!(f)?;
@@ -3372,10 +3565,10 @@ impl fmt::Display for HopperIdl {
             writeln!(f)?;
             writeln!(f, "Compatibility ({}):", self.compatibility.len())?;
             for cp in self.compatibility.iter() {
-                writeln!(f, "  {} v{} -> {} v{}  {}",
-                    cp.from_layout, cp.from_version,
-                    cp.to_layout, cp.to_version,
-                    cp.policy,
+                writeln!(
+                    f,
+                    "  {} v{} -> {} v{}  {}",
+                    cp.from_layout, cp.from_version, cp.to_layout, cp.to_version, cp.policy,
                 )?;
             }
         }
@@ -3384,9 +3577,13 @@ impl fmt::Display for HopperIdl {
             writeln!(f)?;
             writeln!(f, "Receipt Profiles ({}):", self.receipt_profiles.len())?;
             for rp in self.receipt_profiles.iter() {
-                writeln!(f, "  {:24} phase={} balance={} authority={} journal={}",
-                    rp.name, rp.expected_phase,
-                    rp.expects_balance_change, rp.expects_authority_change,
+                writeln!(
+                    f,
+                    "  {:24} phase={} balance={} authority={} journal={}",
+                    rp.name,
+                    rp.expected_phase,
+                    rp.expects_balance_change,
+                    rp.expects_authority_change,
                     rp.expects_journal_append,
                 )?;
             }
@@ -3397,9 +3594,15 @@ impl fmt::Display for HopperIdl {
             writeln!(f, "Segments ({}):", self.segment_metadata.len())?;
             for s in self.segment_metadata.iter() {
                 write!(f, "  {:16} role={}", s.name, s.role)?;
-                if s.append_only { write!(f, " append-only")?; }
-                if s.rebuildable { write!(f, " rebuildable")?; }
-                if s.must_preserve { write!(f, " must-preserve")?; }
+                if s.append_only {
+                    write!(f, " append-only")?;
+                }
+                if s.rebuildable {
+                    write!(f, " rebuildable")?;
+                }
+                if s.must_preserve {
+                    write!(f, " must-preserve")?;
+                }
                 writeln!(f)?;
             }
         }
@@ -3522,14 +3725,44 @@ mod tests {
     use super::*;
 
     const V1_FIELDS: &[FieldDescriptor] = &[
-        FieldDescriptor { name: "authority", canonical_type: "[u8;32]", size: 32, offset: 16, intent: FieldIntent::Custom },
-        FieldDescriptor { name: "balance", canonical_type: "WireU64", size: 8, offset: 48, intent: FieldIntent::Custom },
+        FieldDescriptor {
+            name: "authority",
+            canonical_type: "[u8;32]",
+            size: 32,
+            offset: 16,
+            intent: FieldIntent::Custom,
+        },
+        FieldDescriptor {
+            name: "balance",
+            canonical_type: "WireU64",
+            size: 8,
+            offset: 48,
+            intent: FieldIntent::Custom,
+        },
     ];
 
     const V2_FIELDS: &[FieldDescriptor] = &[
-        FieldDescriptor { name: "authority", canonical_type: "[u8;32]", size: 32, offset: 16, intent: FieldIntent::Custom },
-        FieldDescriptor { name: "balance", canonical_type: "WireU64", size: 8, offset: 48, intent: FieldIntent::Custom },
-        FieldDescriptor { name: "bump", canonical_type: "u8", size: 1, offset: 56, intent: FieldIntent::Custom },
+        FieldDescriptor {
+            name: "authority",
+            canonical_type: "[u8;32]",
+            size: 32,
+            offset: 16,
+            intent: FieldIntent::Custom,
+        },
+        FieldDescriptor {
+            name: "balance",
+            canonical_type: "WireU64",
+            size: 8,
+            offset: 48,
+            intent: FieldIntent::Custom,
+        },
+        FieldDescriptor {
+            name: "bump",
+            canonical_type: "u8",
+            size: 1,
+            offset: 56,
+            intent: FieldIntent::Custom,
+        },
     ];
 
     const V1_MANIFEST: LayoutManifest = LayoutManifest {
@@ -3598,8 +3831,20 @@ mod tests {
     #[test]
     fn breaking_change_detected() {
         let changed_fields: &[FieldDescriptor] = &[
-            FieldDescriptor { name: "authority", canonical_type: "WireU64", size: 8, offset: 16, intent: FieldIntent::Custom },
-            FieldDescriptor { name: "balance", canonical_type: "WireU64", size: 8, offset: 24, intent: FieldIntent::Custom },
+            FieldDescriptor {
+                name: "authority",
+                canonical_type: "WireU64",
+                size: 8,
+                offset: 16,
+                intent: FieldIntent::Custom,
+            },
+            FieldDescriptor {
+                name: "balance",
+                canonical_type: "WireU64",
+                size: 8,
+                offset: 24,
+                intent: FieldIntent::Custom,
+            },
         ];
         let breaking = LayoutManifest {
             name: "Vault",
@@ -3639,8 +3884,20 @@ mod tests {
     #[test]
     fn verdict_migration_required() {
         let changed_fields: &[FieldDescriptor] = &[
-            FieldDescriptor { name: "authority", canonical_type: "WireU64", size: 8, offset: 16, intent: FieldIntent::Custom },
-            FieldDescriptor { name: "balance", canonical_type: "WireU64", size: 8, offset: 24, intent: FieldIntent::Custom },
+            FieldDescriptor {
+                name: "authority",
+                canonical_type: "WireU64",
+                size: 8,
+                offset: 16,
+                intent: FieldIntent::Custom,
+            },
+            FieldDescriptor {
+                name: "balance",
+                canonical_type: "WireU64",
+                size: 8,
+                offset: 24,
+                intent: FieldIntent::Custom,
+            },
         ];
         let breaking = LayoutManifest {
             name: "Vault",
@@ -3663,7 +3920,7 @@ mod tests {
         // Same disc, same fields (count + prefix), same total_size, but different layout_id.
         let semantic_variant = LayoutManifest {
             layout_id: [77; 8], // different layout_id
-            ..V1_MANIFEST        // same disc, fields, total_size
+            ..V1_MANIFEST       // same disc, fields, total_size
         };
         let v = CompatibilityVerdict::between(&V1_MANIFEST, &semantic_variant);
         assert_eq!(v, CompatibilityVerdict::WireCompatible);
@@ -3674,7 +3931,10 @@ mod tests {
 
     #[test]
     fn verdict_incompatible() {
-        let other = LayoutManifest { disc: 99, ..V2_MANIFEST };
+        let other = LayoutManifest {
+            disc: 99,
+            ..V2_MANIFEST
+        };
         let v = CompatibilityVerdict::between(&V1_MANIFEST, &other);
         assert_eq!(v, CompatibilityVerdict::Incompatible);
         assert!(!v.is_safe());
@@ -3683,9 +3943,15 @@ mod tests {
     #[test]
     fn verdict_names() {
         assert_eq!(CompatibilityVerdict::Identical.name(), "identical");
-        assert_eq!(CompatibilityVerdict::WireCompatible.name(), "wire-compatible");
+        assert_eq!(
+            CompatibilityVerdict::WireCompatible.name(),
+            "wire-compatible"
+        );
         assert_eq!(CompatibilityVerdict::AppendSafe.name(), "append-safe");
-        assert_eq!(CompatibilityVerdict::MigrationRequired.name(), "migration-required");
+        assert_eq!(
+            CompatibilityVerdict::MigrationRequired.name(),
+            "migration-required"
+        );
         assert_eq!(CompatibilityVerdict::Incompatible.name(), "incompatible");
     }
 
@@ -3758,9 +4024,27 @@ mod tests {
     #[test]
     fn segment_advice_mixed_report() {
         let segs = [
-            DecodedSegment { id: [1, 0, 0, 0], offset: 36, size: 100, flags: 0x0000, version: 1 },
-            DecodedSegment { id: [2, 0, 0, 0], offset: 136, size: 200, flags: 0x2000, version: 1 },
-            DecodedSegment { id: [3, 0, 0, 0], offset: 336, size: 64, flags: 0x4000, version: 1 },
+            DecodedSegment {
+                id: [1, 0, 0, 0],
+                offset: 36,
+                size: 100,
+                flags: 0x0000,
+                version: 1,
+            },
+            DecodedSegment {
+                id: [2, 0, 0, 0],
+                offset: 136,
+                size: 200,
+                flags: 0x2000,
+                version: 1,
+            },
+            DecodedSegment {
+                id: [3, 0, 0, 0],
+                offset: 336,
+                size: 64,
+                flags: 0x4000,
+                version: 1,
+            },
         ];
         let report = SegmentMigrationReport::<8>::analyze(&segs, 3);
         assert_eq!(report.count, 3);
@@ -3839,15 +4123,13 @@ mod tests {
         },
     ];
 
-    static PM_POLICIES: &[PolicyDescriptor] = &[
-        PolicyDescriptor {
-            name: "TREASURY_WRITE",
-            capabilities: &["MutatesState"],
-            requirements: &["SignerAuthority"],
-            invariants: &[],
-            receipt_profile: "default-mutation",
-        },
-    ];
+    static PM_POLICIES: &[PolicyDescriptor] = &[PolicyDescriptor {
+        name: "TREASURY_WRITE",
+        capabilities: &["MutatesState"],
+        requirements: &["SignerAuthority"],
+        invariants: &[],
+        receipt_profile: "default-mutation",
+    }];
 
     #[test]
     fn program_manifest_find_layout_by_disc() {
@@ -3894,17 +4176,15 @@ mod tests {
 
     #[test]
     fn program_manifest_identify_from_data() {
-        static ID_LAYOUTS: &[LayoutManifest] = &[
-            LayoutManifest {
-                name: "Vault",
-                disc: 1,
-                version: 1,
-                layout_id: [0x10, 0x20, 0x30, 0x40, 0x50, 0x60, 0x70, 0x80],
-                total_size: 57,
-                field_count: 0,
-                fields: &[],
-            },
-        ];
+        static ID_LAYOUTS: &[LayoutManifest] = &[LayoutManifest {
+            name: "Vault",
+            disc: 1,
+            version: 1,
+            layout_id: [0x10, 0x20, 0x30, 0x40, 0x50, 0x60, 0x70, 0x80],
+            total_size: 57,
+            field_count: 0,
+            fields: &[],
+        }];
         let prog = ProgramManifest {
             name: "test",
             version: "0.1.0",
@@ -3971,8 +4251,20 @@ mod tests {
     #[test]
     fn decode_account_fields_basic() {
         static DECODE_FIELDS: &[FieldDescriptor] = &[
-            FieldDescriptor { name: "balance", canonical_type: "WireU64", size: 8, offset: 16, intent: FieldIntent::Custom },
-            FieldDescriptor { name: "bump", canonical_type: "u8", size: 1, offset: 24, intent: FieldIntent::Custom },
+            FieldDescriptor {
+                name: "balance",
+                canonical_type: "WireU64",
+                size: 8,
+                offset: 16,
+                intent: FieldIntent::Custom,
+            },
+            FieldDescriptor {
+                name: "bump",
+                canonical_type: "u8",
+                size: 1,
+                offset: 24,
+                intent: FieldIntent::Custom,
+            },
         ];
         static DECODE_MANIFEST: LayoutManifest = LayoutManifest {
             name: "Test",
@@ -4194,37 +4486,97 @@ mod tests {
 
     #[test]
     fn compare_fields_identical_empty() {
-        let a = LayoutManifest { name: "A", disc: 1, version: 1, layout_id: [0; 8], total_size: 16, field_count: 0, fields: &[] };
-        let b = LayoutManifest { name: "B", disc: 1, version: 1, layout_id: [0; 8], total_size: 16, field_count: 0, fields: &[] };
+        let a = LayoutManifest {
+            name: "A",
+            disc: 1,
+            version: 1,
+            layout_id: [0; 8],
+            total_size: 16,
+            field_count: 0,
+            fields: &[],
+        };
+        let b = LayoutManifest {
+            name: "B",
+            disc: 1,
+            version: 1,
+            layout_id: [0; 8],
+            total_size: 16,
+            field_count: 0,
+            fields: &[],
+        };
         let report = compare_fields::<8>(&a, &b);
         assert_eq!(report.count, 0);
         assert!(report.is_append_safe);
     }
 
-    static SINGLE_FIELD: &[FieldDescriptor] = &[
-        FieldDescriptor { name: "x", canonical_type: "u8", size: 1, offset: 16, intent: FieldIntent::Custom },
-    ];
+    static SINGLE_FIELD: &[FieldDescriptor] = &[FieldDescriptor {
+        name: "x",
+        canonical_type: "u8",
+        size: 1,
+        offset: 16,
+        intent: FieldIntent::Custom,
+    }];
 
     #[test]
     fn compare_fields_all_removed() {
-        let a = LayoutManifest { name: "A", disc: 1, version: 1, layout_id: [1; 8], total_size: 17, field_count: 1, fields: SINGLE_FIELD };
-        let b = LayoutManifest { name: "B", disc: 1, version: 2, layout_id: [2; 8], total_size: 16, field_count: 0, fields: &[] };
+        let a = LayoutManifest {
+            name: "A",
+            disc: 1,
+            version: 1,
+            layout_id: [1; 8],
+            total_size: 17,
+            field_count: 1,
+            fields: SINGLE_FIELD,
+        };
+        let b = LayoutManifest {
+            name: "B",
+            disc: 1,
+            version: 2,
+            layout_id: [2; 8],
+            total_size: 16,
+            field_count: 0,
+            fields: &[],
+        };
         let report = compare_fields::<8>(&a, &b);
         assert_eq!(report.count, 1);
         assert!(!report.is_append_safe);
     }
 
-    static OLD_TYPE_FIELD: &[FieldDescriptor] = &[
-        FieldDescriptor { name: "x", canonical_type: "u8", size: 1, offset: 16, intent: FieldIntent::Custom },
-    ];
-    static NEW_TYPE_FIELD: &[FieldDescriptor] = &[
-        FieldDescriptor { name: "x", canonical_type: "u16", size: 2, offset: 16, intent: FieldIntent::Custom },
-    ];
+    static OLD_TYPE_FIELD: &[FieldDescriptor] = &[FieldDescriptor {
+        name: "x",
+        canonical_type: "u8",
+        size: 1,
+        offset: 16,
+        intent: FieldIntent::Custom,
+    }];
+    static NEW_TYPE_FIELD: &[FieldDescriptor] = &[FieldDescriptor {
+        name: "x",
+        canonical_type: "u16",
+        size: 2,
+        offset: 16,
+        intent: FieldIntent::Custom,
+    }];
 
     #[test]
     fn compare_fields_type_change_detected() {
-        let a = LayoutManifest { name: "A", disc: 1, version: 1, layout_id: [1; 8], total_size: 17, field_count: 1, fields: OLD_TYPE_FIELD };
-        let b = LayoutManifest { name: "B", disc: 1, version: 2, layout_id: [2; 8], total_size: 18, field_count: 1, fields: NEW_TYPE_FIELD };
+        let a = LayoutManifest {
+            name: "A",
+            disc: 1,
+            version: 1,
+            layout_id: [1; 8],
+            total_size: 17,
+            field_count: 1,
+            fields: OLD_TYPE_FIELD,
+        };
+        let b = LayoutManifest {
+            name: "B",
+            disc: 1,
+            version: 2,
+            layout_id: [2; 8],
+            total_size: 18,
+            field_count: 1,
+            fields: NEW_TYPE_FIELD,
+        };
         let report = compare_fields::<8>(&a, &b);
         assert_eq!(report.entries[0].status, FieldCompat::Changed);
         assert!(!report.is_append_safe);
@@ -4232,20 +4584,58 @@ mod tests {
 
     #[test]
     fn verdict_different_disc_is_incompatible() {
-        let a = LayoutManifest { name: "A", disc: 1, version: 1, layout_id: [1; 8], total_size: 16, field_count: 0, fields: &[] };
-        let b = LayoutManifest { name: "B", disc: 2, version: 1, layout_id: [2; 8], total_size: 16, field_count: 0, fields: &[] };
-        assert_eq!(CompatibilityVerdict::between(&a, &b), CompatibilityVerdict::Incompatible);
+        let a = LayoutManifest {
+            name: "A",
+            disc: 1,
+            version: 1,
+            layout_id: [1; 8],
+            total_size: 16,
+            field_count: 0,
+            fields: &[],
+        };
+        let b = LayoutManifest {
+            name: "B",
+            disc: 2,
+            version: 1,
+            layout_id: [2; 8],
+            total_size: 16,
+            field_count: 0,
+            fields: &[],
+        };
+        assert_eq!(
+            CompatibilityVerdict::between(&a, &b),
+            CompatibilityVerdict::Incompatible
+        );
     }
 
     #[test]
     fn verdict_same_id_is_identical() {
-        let a = LayoutManifest { name: "A", disc: 1, version: 1, layout_id: [9; 8], total_size: 16, field_count: 0, fields: &[] };
-        assert_eq!(CompatibilityVerdict::between(&a, &a), CompatibilityVerdict::Identical);
+        let a = LayoutManifest {
+            name: "A",
+            disc: 1,
+            version: 1,
+            layout_id: [9; 8],
+            total_size: 16,
+            field_count: 0,
+            fields: &[],
+        };
+        assert_eq!(
+            CompatibilityVerdict::between(&a, &a),
+            CompatibilityVerdict::Identical
+        );
     }
 
     #[test]
     fn compatibility_explain_between_identical() {
-        let a = LayoutManifest { name: "A", disc: 1, version: 1, layout_id: [9; 8], total_size: 16, field_count: 0, fields: &[] };
+        let a = LayoutManifest {
+            name: "A",
+            disc: 1,
+            version: 1,
+            layout_id: [9; 8],
+            total_size: 16,
+            field_count: 0,
+            fields: &[],
+        };
         let exp = CompatibilityExplain::between(&a, &a);
         assert_eq!(exp.verdict, CompatibilityVerdict::Identical);
         assert_eq!(exp.added_count, 0);
@@ -4253,18 +4643,50 @@ mod tests {
         assert!(!exp.semantic_drift);
     }
 
-    static APPEND_OLD: &[FieldDescriptor] = &[
-        FieldDescriptor { name: "a", canonical_type: "u8", size: 1, offset: 16, intent: FieldIntent::Custom },
-    ];
+    static APPEND_OLD: &[FieldDescriptor] = &[FieldDescriptor {
+        name: "a",
+        canonical_type: "u8",
+        size: 1,
+        offset: 16,
+        intent: FieldIntent::Custom,
+    }];
     static APPEND_NEW: &[FieldDescriptor] = &[
-        FieldDescriptor { name: "a", canonical_type: "u8", size: 1, offset: 16, intent: FieldIntent::Custom },
-        FieldDescriptor { name: "b", canonical_type: "u8", size: 1, offset: 17, intent: FieldIntent::Custom },
+        FieldDescriptor {
+            name: "a",
+            canonical_type: "u8",
+            size: 1,
+            offset: 16,
+            intent: FieldIntent::Custom,
+        },
+        FieldDescriptor {
+            name: "b",
+            canonical_type: "u8",
+            size: 1,
+            offset: 17,
+            intent: FieldIntent::Custom,
+        },
     ];
 
     #[test]
     fn compatibility_explain_append_counts_fields() {
-        let older = LayoutManifest { name: "T", disc: 1, version: 1, layout_id: [1; 8], total_size: 17, field_count: 1, fields: APPEND_OLD };
-        let newer = LayoutManifest { name: "T", disc: 1, version: 2, layout_id: [2; 8], total_size: 18, field_count: 2, fields: APPEND_NEW };
+        let older = LayoutManifest {
+            name: "T",
+            disc: 1,
+            version: 1,
+            layout_id: [1; 8],
+            total_size: 17,
+            field_count: 1,
+            fields: APPEND_OLD,
+        };
+        let newer = LayoutManifest {
+            name: "T",
+            disc: 1,
+            version: 2,
+            layout_id: [2; 8],
+            total_size: 18,
+            field_count: 2,
+            fields: APPEND_NEW,
+        };
         let exp = CompatibilityExplain::between(&older, &newer);
         assert_eq!(exp.verdict, CompatibilityVerdict::AppendSafe);
         assert_eq!(exp.added_count, 1);
@@ -4273,39 +4695,88 @@ mod tests {
 
     #[test]
     fn layout_fingerprint_deterministic() {
-        let m = LayoutManifest { name: "X", disc: 1, version: 1, layout_id: [5; 8], total_size: 16, field_count: 0, fields: &[] };
+        let m = LayoutManifest {
+            name: "X",
+            disc: 1,
+            version: 1,
+            layout_id: [5; 8],
+            total_size: 16,
+            field_count: 0,
+            fields: &[],
+        };
         let fp1 = LayoutFingerprint::from_manifest(&m);
         let fp2 = LayoutFingerprint::from_manifest(&m);
         assert_eq!(fp1.wire_hash, fp2.wire_hash);
         assert_eq!(fp1.semantic_hash, fp2.semantic_hash);
     }
 
-    static FP_CUSTOM: &[FieldDescriptor] = &[
-        FieldDescriptor { name: "x", canonical_type: "u8", size: 1, offset: 16, intent: FieldIntent::Custom },
-    ];
-    static FP_BALANCE: &[FieldDescriptor] = &[
-        FieldDescriptor { name: "x", canonical_type: "u8", size: 1, offset: 16, intent: FieldIntent::Balance },
-    ];
+    static FP_CUSTOM: &[FieldDescriptor] = &[FieldDescriptor {
+        name: "x",
+        canonical_type: "u8",
+        size: 1,
+        offset: 16,
+        intent: FieldIntent::Custom,
+    }];
+    static FP_BALANCE: &[FieldDescriptor] = &[FieldDescriptor {
+        name: "x",
+        canonical_type: "u8",
+        size: 1,
+        offset: 16,
+        intent: FieldIntent::Balance,
+    }];
 
     #[test]
     fn layout_fingerprint_differs_on_intent_change() {
-        let m1 = LayoutManifest { name: "T", disc: 1, version: 1, layout_id: [1; 8], total_size: 17, field_count: 1, fields: FP_CUSTOM };
-        let m2 = LayoutManifest { name: "T", disc: 1, version: 1, layout_id: [1; 8], total_size: 17, field_count: 1, fields: FP_BALANCE };
+        let m1 = LayoutManifest {
+            name: "T",
+            disc: 1,
+            version: 1,
+            layout_id: [1; 8],
+            total_size: 17,
+            field_count: 1,
+            fields: FP_CUSTOM,
+        };
+        let m2 = LayoutManifest {
+            name: "T",
+            disc: 1,
+            version: 1,
+            layout_id: [1; 8],
+            total_size: 17,
+            field_count: 1,
+            fields: FP_BALANCE,
+        };
         let fp1 = LayoutFingerprint::from_manifest(&m1);
         let fp2 = LayoutFingerprint::from_manifest(&m2);
         assert_eq!(fp1.wire_hash, fp2.wire_hash);
         assert_ne!(fp1.semantic_hash, fp2.semantic_hash);
     }
 
-    static LINT_AUTH_FIELD: &[FieldDescriptor] = &[
-        FieldDescriptor { name: "auth", canonical_type: "[u8;32]", size: 32, offset: 16, intent: FieldIntent::Authority },
-    ];
+    static LINT_AUTH_FIELD: &[FieldDescriptor] = &[FieldDescriptor {
+        name: "auth",
+        canonical_type: "[u8;32]",
+        size: 32,
+        offset: 16,
+        intent: FieldIntent::Authority,
+    }];
 
     #[test]
     fn lint_layout_authority_without_signer() {
-        let m = LayoutManifest { name: "T", disc: 1, version: 1, layout_id: [0; 8], total_size: 48, field_count: 1, fields: LINT_AUTH_FIELD };
+        let m = LayoutManifest {
+            name: "T",
+            disc: 1,
+            version: 1,
+            layout_id: [0; 8],
+            total_size: 48,
+            field_count: 1,
+            fields: LINT_AUTH_FIELD,
+        };
         // Use a mutating behavior WITHOUT signer to trigger E001
-        let behavior = LayoutBehavior { requires_signer: false, affects_balance: false, affects_authority: true, mutation_class: MutationClass::InPlace };
+        let behavior = LayoutBehavior {
+            requires_signer: false,
+            affects_balance: false,
+            affects_authority: true,
+            mutation_class: MutationClass::InPlace,
+        };
         let (n, lints) = lint_layout::<8>(&m, &behavior);
         assert!(n >= 1);
         assert_eq!(lints[0].code, "E001");
@@ -4313,8 +4784,21 @@ mod tests {
 
     #[test]
     fn lint_layout_clean_passes() {
-        let m = LayoutManifest { name: "T", disc: 1, version: 1, layout_id: [0; 8], total_size: 48, field_count: 1, fields: LINT_AUTH_FIELD };
-        let behavior = LayoutBehavior { requires_signer: true, affects_balance: false, affects_authority: true, mutation_class: MutationClass::AuthoritySensitive };
+        let m = LayoutManifest {
+            name: "T",
+            disc: 1,
+            version: 1,
+            layout_id: [0; 8],
+            total_size: 48,
+            field_count: 1,
+            fields: LINT_AUTH_FIELD,
+        };
+        let behavior = LayoutBehavior {
+            requires_signer: true,
+            affects_balance: false,
+            affects_authority: true,
+            mutation_class: MutationClass::AuthoritySensitive,
+        };
         let (n, _) = lint_layout::<8>(&m, &behavior);
         assert_eq!(n, 0);
     }
@@ -4328,34 +4812,104 @@ mod tests {
         assert!(!MutationClass::AppendOnly.requires_authority());
     }
 
-    static SEED_FIELD: &[FieldDescriptor] = &[
-        FieldDescriptor { name: "seed", canonical_type: "[u8;32]", size: 32, offset: 16, intent: FieldIntent::PDASeed },
-    ];
+    static SEED_FIELD: &[FieldDescriptor] = &[FieldDescriptor {
+        name: "seed",
+        canonical_type: "[u8;32]",
+        size: 32,
+        offset: 16,
+        intent: FieldIntent::PDASeed,
+    }];
 
     #[test]
     fn layout_stability_grade_stable_with_init_only() {
-        let m = LayoutManifest { name: "T", disc: 1, version: 1, layout_id: [0; 8], total_size: 48, field_count: 1, fields: SEED_FIELD };
-        assert_eq!(LayoutStabilityGrade::compute(&m), LayoutStabilityGrade::Stable);
+        let m = LayoutManifest {
+            name: "T",
+            disc: 1,
+            version: 1,
+            layout_id: [0; 8],
+            total_size: 48,
+            field_count: 1,
+            fields: SEED_FIELD,
+        };
+        assert_eq!(
+            LayoutStabilityGrade::compute(&m),
+            LayoutStabilityGrade::Stable
+        );
     }
 
     #[test]
     fn layout_stability_grade_evolving_with_custom() {
-        let m = LayoutManifest { name: "T", disc: 1, version: 1, layout_id: [0; 8], total_size: 17, field_count: 1, fields: SINGLE_FIELD };
-        assert_eq!(LayoutStabilityGrade::compute(&m), LayoutStabilityGrade::Evolving);
+        let m = LayoutManifest {
+            name: "T",
+            disc: 1,
+            version: 1,
+            layout_id: [0; 8],
+            total_size: 17,
+            field_count: 1,
+            fields: SINGLE_FIELD,
+        };
+        assert_eq!(
+            LayoutStabilityGrade::compute(&m),
+            LayoutStabilityGrade::Evolving
+        );
     }
 
     static GRADE_HEAVY: &[FieldDescriptor] = &[
-        FieldDescriptor { name: "auth1", canonical_type: "[u8;32]", size: 32, offset: 16, intent: FieldIntent::Authority },
-        FieldDescriptor { name: "auth2", canonical_type: "[u8;32]", size: 32, offset: 48, intent: FieldIntent::Owner },
-        FieldDescriptor { name: "auth3", canonical_type: "[u8;32]", size: 32, offset: 80, intent: FieldIntent::Delegate },
-        FieldDescriptor { name: "bal1", canonical_type: "WireU64", size: 8, offset: 112, intent: FieldIntent::Balance },
-        FieldDescriptor { name: "bal2", canonical_type: "WireU64", size: 8, offset: 120, intent: FieldIntent::Supply },
-        FieldDescriptor { name: "bal3", canonical_type: "WireU64", size: 8, offset: 128, intent: FieldIntent::Balance },
+        FieldDescriptor {
+            name: "auth1",
+            canonical_type: "[u8;32]",
+            size: 32,
+            offset: 16,
+            intent: FieldIntent::Authority,
+        },
+        FieldDescriptor {
+            name: "auth2",
+            canonical_type: "[u8;32]",
+            size: 32,
+            offset: 48,
+            intent: FieldIntent::Owner,
+        },
+        FieldDescriptor {
+            name: "auth3",
+            canonical_type: "[u8;32]",
+            size: 32,
+            offset: 80,
+            intent: FieldIntent::Delegate,
+        },
+        FieldDescriptor {
+            name: "bal1",
+            canonical_type: "WireU64",
+            size: 8,
+            offset: 112,
+            intent: FieldIntent::Balance,
+        },
+        FieldDescriptor {
+            name: "bal2",
+            canonical_type: "WireU64",
+            size: 8,
+            offset: 120,
+            intent: FieldIntent::Supply,
+        },
+        FieldDescriptor {
+            name: "bal3",
+            canonical_type: "WireU64",
+            size: 8,
+            offset: 128,
+            intent: FieldIntent::Balance,
+        },
     ];
 
     #[test]
     fn layout_stability_grade_unsafe_to_evolve_heavy() {
-        let m = LayoutManifest { name: "T", disc: 1, version: 1, layout_id: [0; 8], total_size: 136, field_count: 6, fields: GRADE_HEAVY };
+        let m = LayoutManifest {
+            name: "T",
+            disc: 1,
+            version: 1,
+            layout_id: [0; 8],
+            total_size: 136,
+            field_count: 6,
+            fields: GRADE_HEAVY,
+        };
         let grade = LayoutStabilityGrade::compute(&m);
         assert_eq!(grade, LayoutStabilityGrade::UnsafeToEvolve);
     }
@@ -4378,14 +4932,24 @@ mod tests {
     fn refine_verdict_softens_with_rebuildable_segments() {
         let advice = [
             SegmentAdvice {
-                id: [0; 4], size: 100, role: SegmentRoleHint::Cache,
-                must_preserve: false, clearable: true, rebuildable: true,
-                append_only: false, immutable: false,
+                id: [0; 4],
+                size: 100,
+                role: SegmentRoleHint::Cache,
+                must_preserve: false,
+                clearable: true,
+                rebuildable: true,
+                append_only: false,
+                immutable: false,
             },
             SegmentAdvice {
-                id: [0; 4], size: 0, role: SegmentRoleHint::Unclassified,
-                must_preserve: false, clearable: false, rebuildable: false,
-                append_only: false, immutable: false,
+                id: [0; 4],
+                size: 0,
+                role: SegmentRoleHint::Unclassified,
+                must_preserve: false,
+                clearable: false,
+                rebuildable: false,
+                append_only: false,
+                immutable: false,
             },
         ];
         let report = SegmentMigrationReport {
@@ -4402,9 +4966,14 @@ mod tests {
     #[test]
     fn refine_verdict_escalates_with_immutable_segment() {
         let advice = [SegmentAdvice {
-            id: [0; 4], size: 50, role: SegmentRoleHint::Audit,
-            must_preserve: true, clearable: false, rebuildable: false,
-            append_only: true, immutable: true,
+            id: [0; 4],
+            size: 50,
+            role: SegmentRoleHint::Audit,
+            must_preserve: true,
+            clearable: false,
+            rebuildable: false,
+            append_only: true,
+            immutable: true,
         }];
         let report = SegmentMigrationReport {
             advice,
@@ -4479,7 +5048,10 @@ mod tests {
         extern crate alloc;
         use alloc::format;
         assert_eq!(format!("{}", LayoutStabilityGrade::Stable), "stable");
-        assert_eq!(format!("{}", LayoutStabilityGrade::UnsafeToEvolve), "unsafe-to-evolve");
+        assert_eq!(
+            format!("{}", LayoutStabilityGrade::UnsafeToEvolve),
+            "unsafe-to-evolve"
+        );
     }
 
     #[test]
@@ -4487,14 +5059,20 @@ mod tests {
         extern crate alloc;
         use alloc::format;
         assert_eq!(format!("{}", CompatibilityVerdict::Identical), "identical");
-        assert_eq!(format!("{}", CompatibilityVerdict::MigrationRequired), "migration-required");
+        assert_eq!(
+            format!("{}", CompatibilityVerdict::MigrationRequired),
+            "migration-required"
+        );
     }
 
     #[test]
     fn display_layout_fingerprint() {
         extern crate alloc;
         use alloc::format;
-        let fp = LayoutFingerprint { wire_hash: [0xAB, 0xCD, 0, 0, 0, 0, 0, 0], semantic_hash: [0, 0, 0, 0, 0, 0, 0xFF, 0x01] };
+        let fp = LayoutFingerprint {
+            wire_hash: [0xAB, 0xCD, 0, 0, 0, 0, 0, 0],
+            semantic_hash: [0, 0, 0, 0, 0, 0, 0xFF, 0x01],
+        };
         let s = format!("{}", fp);
         assert!(s.starts_with("wire=abcd"));
         assert!(s.contains("sem="));

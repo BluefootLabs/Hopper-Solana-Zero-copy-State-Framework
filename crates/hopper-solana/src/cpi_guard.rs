@@ -15,7 +15,7 @@
 
 use hopper_runtime::{error::ProgramError, AccountView, Address, ProgramResult};
 
-use crate::constants::{SYSVAR_INSTRUCTIONS_ID, TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID};
+use crate::constants::{SYSVAR_INSTRUCTIONS_ID, TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID};
 
 /// Read the current instruction index from the Instructions sysvar.
 ///
@@ -55,10 +55,7 @@ pub fn instruction_count(sysvar_data: &[u8]) -> Result<u16, ProgramError> {
 /// # CU Cost
 /// Minimal -- sysvar data reads + one 32-byte comparison. No syscall.
 #[inline(always)]
-pub fn assert_no_cpi(
-    instructions_sysvar: &AccountView,
-    our_program_id: &Address,
-) -> ProgramResult {
+pub fn assert_no_cpi(instructions_sysvar: &AccountView, our_program_id: &Address) -> ProgramResult {
     // Verify the account is actually the Instructions sysvar
     if *instructions_sysvar.address() != SYSVAR_INSTRUCTIONS_ID {
         return Err(ProgramError::InvalidArgument);
@@ -85,19 +82,13 @@ pub fn assert_no_cpi(
     if offset_entry + 2 > data.len() {
         return Err(ProgramError::InvalidAccountData);
     }
-    let ix_offset = u16::from_le_bytes([
-        data[offset_entry],
-        data[offset_entry + 1],
-    ]) as usize;
+    let ix_offset = u16::from_le_bytes([data[offset_entry], data[offset_entry + 1]]) as usize;
 
     // Per-instruction format: [u16 num_accounts][33 bytes * N accounts][32 bytes program_id]...
     if ix_offset + 2 > data.len() {
         return Err(ProgramError::InvalidAccountData);
     }
-    let num_accounts = u16::from_le_bytes([
-        data[ix_offset],
-        data[ix_offset + 1],
-    ]) as usize;
+    let num_accounts = u16::from_le_bytes([data[ix_offset], data[ix_offset + 1]]) as usize;
     let program_id_offset = ix_offset + 2 + num_accounts * 33;
     if program_id_offset + 32 > data.len() {
         return Err(ProgramError::InvalidAccountData);
@@ -133,8 +124,7 @@ pub fn check_token_2022_program_owner(account: &AccountView) -> ProgramResult {
 /// Check that an account is owned by either SPL Token or Token-2022.
 #[inline(always)]
 pub fn check_any_token_program_owner(account: &AccountView) -> ProgramResult {
-    if check_token_program_owner(account).is_ok()
-        || check_token_2022_program_owner(account).is_ok()
+    if check_token_program_owner(account).is_ok() || check_token_2022_program_owner(account).is_ok()
     {
         return Ok(());
     }

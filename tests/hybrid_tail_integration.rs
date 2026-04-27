@@ -34,10 +34,9 @@ pub struct VaultMetadata {
 }
 
 impl TailCodec for VaultMetadata {
-    const MAX_ENCODED_LEN: usize =
-        <u32 as TailCodec>::MAX_ENCODED_LEN
-            + <bool as TailCodec>::MAX_ENCODED_LEN
-            + <[u8; 8] as TailCodec>::MAX_ENCODED_LEN;
+    const MAX_ENCODED_LEN: usize = <u32 as TailCodec>::MAX_ENCODED_LEN
+        + <bool as TailCodec>::MAX_ENCODED_LEN
+        + <[u8; 8] as TailCodec>::MAX_ENCODED_LEN;
 
     fn encode(&self, out: &mut [u8]) -> Result<usize, ProgramError> {
         let mut cursor = 0usize;
@@ -71,10 +70,7 @@ fn layout_reports_has_dynamic_tail_true() {
 fn tail_prefix_offset_sits_after_fixed_body() {
     // Layout body is 32 + 8 = 40 bytes; add the 16-byte header = 56.
     // That's where the u32 length prefix lives.
-    assert_eq!(
-        MetadataVault::TAIL_PREFIX_OFFSET,
-        MetadataVault::LEN
-    );
+    assert_eq!(MetadataVault::TAIL_PREFIX_OFFSET, MetadataVault::LEN);
     assert_eq!(MetadataVault::TAIL_PREFIX_OFFSET, 16 + 32 + 8);
 }
 

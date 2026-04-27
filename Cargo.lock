@@ -1642,6 +1642,7 @@ dependencies = [
  "hopper-core",
  "hopper-macros",
  "hopper-macros-proc",
+ "hopper-memo",
  "hopper-metaplex",
  "hopper-runtime",
  "hopper-schema",

@@ -9,7 +9,8 @@ use crate::instruction::{CpiAccount, Signer};
 use crate::ProgramResult;
 
 /// SPL Token program address.
-pub const TOKEN_PROGRAM_ID: Address = crate::address!("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+pub const TOKEN_PROGRAM_ID: Address =
+    crate::address!("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
 
 // ── Transfer ─────────────────────────────────────────────────────────
 
@@ -198,11 +199,7 @@ impl Revoke<'_> {
 // ── Internal helper ──────────────────────────────────────────────────
 
 #[inline]
-fn invoke_token(
-    data: &[u8],
-    accounts: &[CpiAccount],
-    signers: &[Signer],
-) -> ProgramResult {
+fn invoke_token(data: &[u8], accounts: &[CpiAccount], signers: &[Signer]) -> ProgramResult {
     #[cfg(target_os = "solana")]
     {
         let ix = crate::instruction::InstructionView {
@@ -234,5 +231,5 @@ fn invoke_token(
 
 /// Compatibility re-exports matching `pinocchio_token::instructions::*`.
 pub mod instructions {
-    pub use super::{Transfer, MintTo, Burn, CloseAccount, Approve, Revoke};
+    pub use super::{Approve, Burn, CloseAccount, MintTo, Revoke, Transfer};
 }

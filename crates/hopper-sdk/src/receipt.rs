@@ -314,39 +314,38 @@ impl DecodedReceipt {
         after_fingerprint.copy_from_slice(&buf[41..49]);
 
         let segment_changed_mask = u16::from_le_bytes([buf[49], buf[50]]);
-        let policy_flags =
-            u32::from_le_bytes([buf[51], buf[52], buf[53], buf[54]]);
+        let policy_flags = u32::from_le_bytes([buf[51], buf[52], buf[53], buf[54]]);
         let journal_appends = u16::from_le_bytes([buf[55], buf[56]]);
         let cpi_count = buf[57];
         let phase = Phase::from_u8(buf[58]).ok_or(ReceiptError::InvalidPhase(buf[58]))?;
         let validation_bundle_id = u16::from_le_bytes([buf[59], buf[60]]);
-        let compat_impact = CompatImpact::from_u8(buf[61])
-            .ok_or(ReceiptError::InvalidCompatImpact(buf[61]))?;
+        let compat_impact =
+            CompatImpact::from_u8(buf[61]).ok_or(ReceiptError::InvalidCompatImpact(buf[61]))?;
         let migration_flags = buf[62];
 
         // Failure payload. When the caller only has a legacy 64-byte
         // receipt, default everything to "no failure" rather than fail
         // the parse. old producers never emitted this slot.
-        let (failed_invariant_idx, failed_error_code, failure_stage) =
-            if buf.len() >= RECEIPT_SIZE {
-                // Reserved bytes (69..72) must be zero; producers always
-                // zero-pad. A non-zero byte here signals wire drift and
-                // should surface to the caller.
-                let mut i = 69usize;
-                while i < RECEIPT_SIZE {
-                    if buf[i] != 0 {
-                        return Err(ReceiptError::ReservedNonZero);
-                    }
-                    i += 1;
+        let (failed_invariant_idx, failed_error_code, failure_stage) = if buf.len() >= RECEIPT_SIZE
+        {
+            // Reserved bytes (69..72) must be zero; producers always
+            // zero-pad. A non-zero byte here signals wire drift and
+            // should surface to the caller.
+            let mut i = 69usize;
+            while i < RECEIPT_SIZE {
+                if buf[i] != 0 {
+                    return Err(ReceiptError::ReservedNonZero);
                 }
-                let idx = buf[63];
-                let code = u32::from_le_bytes([buf[64], buf[65], buf[66], buf[67]]);
-                let stage = FailureStage::from_u8(buf[68])
-                    .ok_or(ReceiptError::InvalidFailureStage(buf[68]))?;
-                (idx, code, stage)
-            } else {
-                (FAILED_INVARIANT_NONE, 0u32, FailureStage::None)
-            };
+                i += 1;
+            }
+            let idx = buf[63];
+            let code = u32::from_le_bytes([buf[64], buf[65], buf[66], buf[67]]);
+            let stage =
+                FailureStage::from_u8(buf[68]).ok_or(ReceiptError::InvalidFailureStage(buf[68]))?;
+            (idx, code, stage)
+        } else {
+            (FAILED_INVARIANT_NONE, 0u32, FailureStage::None)
+        };
 
         Ok(Self {
             layout_id,
@@ -379,12 +378,18 @@ impl DecodedReceipt {
 
     /// Iterate the indices of fields that changed.
     pub fn changed_field_indices(&self) -> ChangedFieldIter {
-        ChangedFieldIter { mask: self.changed_fields, idx: 0 }
+        ChangedFieldIter {
+            mask: self.changed_fields,
+            idx: 0,
+        }
     }
 
     /// Iterate the indices of segments that were touched.
     pub fn changed_segment_indices(&self) -> ChangedSegmentIter {
-        ChangedSegmentIter { mask: self.segment_changed_mask, idx: 0 }
+        ChangedSegmentIter {
+            mask: self.segment_changed_mask,
+            idx: 0,
+        }
     }
 
     /// Whether any state was actually modified.
@@ -502,15 +507,18 @@ pub mod narrative {
     impl<'a> Narrator<'a> {
         /// Build a narrator with only a layout manifest.
         pub const fn with_layout(layout: &'a LayoutManifest) -> Self {
-            Self { layout: Some(layout), errors: None }
+            Self {
+                layout: Some(layout),
+                errors: None,
+            }
         }
 
         /// Build a narrator with both a layout and error registry.
-        pub const fn with_all(
-            layout: &'a LayoutManifest,
-            errors: &'a ErrorRegistry,
-        ) -> Self {
-            Self { layout: Some(layout), errors: Some(errors) }
+        pub const fn with_all(layout: &'a LayoutManifest, errors: &'a ErrorRegistry) -> Self {
+            Self {
+                layout: Some(layout),
+                errors: Some(errors),
+            }
         }
 
         /// Build a `ReceiptNarrative` from a decoded receipt.
@@ -553,7 +561,13 @@ pub mod narrative {
 
             let (summary, severity) = summarize(r, &field_changes, failure_line.as_deref());
 
-            ReceiptNarrative { summary, field_changes, flags, severity, failure_line }
+            ReceiptNarrative {
+                summary,
+                field_changes,
+                flags,
+                severity,
+                failure_line,
+            }
         }
     }
 
@@ -570,11 +584,7 @@ pub mod narrative {
                     return format!(
                         "Execution aborted at {} stage: invariant `{}` failed \
                          ({}::{} = 0x{:x}).",
-                        stage_label,
-                        desc.invariant,
-                        reg.enum_name,
-                        desc.name,
-                        desc.code,
+                        stage_label, desc.invariant, reg.enum_name, desc.name, desc.code,
                     );
                 }
                 return format!(
@@ -612,7 +622,11 @@ pub mod narrative {
                 format!(
                     "Frame rolled back in phase '{}' (invariants {}/{}).",
                     r.phase.name(),
-                    if r.invariants_passed { "passed" } else { "failed" },
+                    if r.invariants_passed {
+                        "passed"
+                    } else {
+                        "failed"
+                    },
                     r.invariants_checked
                 ),
                 "warn",
@@ -655,7 +669,6 @@ pub mod narrative {
             severity,
         )
     }
-
 }
 
 #[cfg(test)]
@@ -671,7 +684,7 @@ mod tests {
         b[22..26].copy_from_slice(&128u32.to_le_bytes()); // old_size
         b[26..30].copy_from_slice(&128u32.to_le_bytes()); // new_size
         b[30..32].copy_from_slice(&3u16.to_le_bytes()); // invariants_checked
-        // flags: invariants_passed | committed
+                                                        // flags: invariants_passed | committed
         b[32] = (1 << 1) | (1 << 3);
         b[33..41].copy_from_slice(&[0xAA, 0xBB, 0xCC, 0xDD, 0x00, 0x00, 0x00, 0x00]);
         b[41..49].copy_from_slice(&[0x11, 0x22, 0x33, 0x44, 0x00, 0x00, 0x00, 0x00]);
@@ -686,7 +699,7 @@ mod tests {
         b[63] = FAILED_INVARIANT_NONE; // no invariant failure
         b[64..68].copy_from_slice(&0u32.to_le_bytes()); // failed_error_code
         b[68] = 0; // failure_stage = None
-        // 69..72 reserved (zero)
+                   // 69..72 reserved (zero)
         b
     }
 

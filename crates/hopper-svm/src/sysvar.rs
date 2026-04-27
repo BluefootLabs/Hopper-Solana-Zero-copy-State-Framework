@@ -80,8 +80,7 @@ impl Rent {
     /// account holders are billed for.
     pub fn minimum_balance(&self, data_size: usize) -> u64 {
         let billable_bytes = (data_size as u64).saturating_add(128);
-        let lamports_per_year = billable_bytes
-            .saturating_mul(self.lamports_per_byte_year);
+        let lamports_per_year = billable_bytes.saturating_mul(self.lamports_per_byte_year);
         ((lamports_per_year as f64) * self.exemption_threshold) as u64
     }
 }

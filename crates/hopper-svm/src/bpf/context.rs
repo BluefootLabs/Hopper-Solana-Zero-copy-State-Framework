@@ -58,11 +58,8 @@ pub const MAX_CPI_DEPTH: u32 = 4;
 /// boundary. `LogCapture::invoke` and `success` already track
 /// depth; sharing the buffer is what makes the depth tracking
 /// useful.
-pub type CpiDispatcher = Arc<
-    dyn Fn(&Instruction, Vec<KeyedAccount>, &mut LogCapture) -> ExecutionOutcome
-        + Send
-        + Sync,
->;
+pub type CpiDispatcher =
+    Arc<dyn Fn(&Instruction, Vec<KeyedAccount>, &mut LogCapture) -> ExecutionOutcome + Send + Sync>;
 
 /// Per-execution context for the BPF VM.
 ///
@@ -132,11 +129,7 @@ impl BpfContext {
     /// Build a fresh context with explicit sysvar state — used by
     /// the engine so each VM run sees the harness's configured
     /// `Sysvars` snapshot.
-    pub fn new_with_sysvars(
-        program_id: Pubkey,
-        remaining_units: u64,
-        sysvars: Sysvars,
-    ) -> Self {
+    pub fn new_with_sysvars(program_id: Pubkey, remaining_units: u64, sysvars: Sysvars) -> Self {
         Self {
             remaining_units,
             logs: LogCapture::default(),

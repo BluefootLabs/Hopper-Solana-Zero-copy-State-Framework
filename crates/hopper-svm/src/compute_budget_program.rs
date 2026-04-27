@@ -107,12 +107,12 @@ impl BuiltinProgram for ComputeBudgetProgramSimulator {
         _accounts: &mut [KeyedAccount],
         ctx: &mut InvokeContext<'_>,
     ) -> Result<(), HopperSvmError> {
-        let (tag, body) = data.split_first().ok_or_else(|| {
-            HopperSvmError::BuiltinError {
+        let (tag, body) = data
+            .split_first()
+            .ok_or_else(|| HopperSvmError::BuiltinError {
                 program_id: *ctx.program_id,
                 message: "compute-budget: empty instruction data".to_string(),
-            }
-        })?;
+            })?;
         match *tag {
             0 => {
                 // Deprecated `RequestUnits { units: u32, additional_fee: u32 }`.
@@ -152,8 +152,7 @@ impl BuiltinProgram for ComputeBudgetProgramSimulator {
                 if body.len() < 4 {
                     return Err(HopperSvmError::BuiltinError {
                         program_id: *ctx.program_id,
-                        message: "compute-budget::SetComputeUnitLimit: body < 4 bytes"
-                            .to_string(),
+                        message: "compute-budget::SetComputeUnitLimit: body < 4 bytes".to_string(),
                     });
                 }
                 let units = u32::from_le_bytes(body[0..4].try_into().unwrap());
@@ -174,8 +173,7 @@ impl BuiltinProgram for ComputeBudgetProgramSimulator {
                 if body.len() < 8 {
                     return Err(HopperSvmError::BuiltinError {
                         program_id: *ctx.program_id,
-                        message: "compute-budget::SetComputeUnitPrice: body < 8 bytes"
-                            .to_string(),
+                        message: "compute-budget::SetComputeUnitPrice: body < 8 bytes".to_string(),
                     });
                 }
                 let micro_lamports = u64::from_le_bytes(body[0..8].try_into().unwrap());
@@ -218,10 +216,7 @@ mod tests {
     use solana_sdk::instruction::AccountMeta;
     use std::sync::{Arc, Mutex};
 
-    fn invoke(
-        sim: &ComputeBudgetProgramSimulator,
-        data: Vec<u8>,
-    ) -> Result<(), HopperSvmError> {
+    fn invoke(sim: &ComputeBudgetProgramSimulator, data: Vec<u8>) -> Result<(), HopperSvmError> {
         let mut accounts: Vec<KeyedAccount> = vec![];
         let metas: Vec<AccountMeta> = vec![];
         let mut budget = ComputeBudget::default();

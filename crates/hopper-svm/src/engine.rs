@@ -140,12 +140,7 @@ impl Engine for BuiltinEngine {
         let mut working: Vec<KeyedAccount> = match resolve_accounts(ix, accounts) {
             Ok(v) => v,
             Err(err) => {
-                logs.failure(
-                    &ix.program_id,
-                    budget.consumed(),
-                    budget.limit(),
-                    &err,
-                );
+                logs.failure(&ix.program_id, budget.consumed(), budget.limit(), &err);
                 return ExecutionOutcome {
                     resulting_accounts: accounts.to_vec(),
                     compute_units_consumed: budget.consumed(),
@@ -228,10 +223,7 @@ fn resolve_accounts(
 /// Merge a built-in's mutated account view back into the harness's
 /// full account list. Built-ins see only the accounts named in the
 /// instruction; the rest carry through unchanged.
-fn merge_accounts(
-    original: &[KeyedAccount],
-    working: &[KeyedAccount],
-) -> Vec<KeyedAccount> {
+fn merge_accounts(original: &[KeyedAccount], working: &[KeyedAccount]) -> Vec<KeyedAccount> {
     // Start from the originals so any account the built-in didn't
     // touch carries through.
     let mut out: Vec<KeyedAccount> = original.to_vec();

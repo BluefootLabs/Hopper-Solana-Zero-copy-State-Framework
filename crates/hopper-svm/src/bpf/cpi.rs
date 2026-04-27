@@ -174,11 +174,8 @@ pub fn verify_signer_seeds(
         let caller_id_bytes = caller_program_id.to_bytes();
         let mut authorised = false;
         for seed_set in &parsed.signer_seeds {
-            let seed_refs: Vec<&[u8]> =
-                seed_set.iter().map(|s| s.as_slice()).collect();
-            if let Ok(pda) =
-                do_sol_create_program_address(ctx, &seed_refs, &caller_id_bytes)
-            {
+            let seed_refs: Vec<&[u8]> = seed_set.iter().map(|s| s.as_slice()).collect();
+            if let Ok(pda) = do_sol_create_program_address(ctx, &seed_refs, &caller_id_bytes) {
                 if pda == meta.pubkey.to_bytes() {
                     authorised = true;
                     break;
@@ -200,10 +197,7 @@ pub fn verify_signer_seeds(
 /// directly to the outer context's transcript so the test sees
 /// one coherent log buffer across the call boundary), surfaces
 /// depth-exceeded as a structured wire error.
-pub fn dispatch_cpi(
-    ctx: &mut BpfContext,
-    parsed: ParsedCpi,
-) -> Result<ExecutionOutcome, u64> {
+pub fn dispatch_cpi(ctx: &mut BpfContext, parsed: ParsedCpi) -> Result<ExecutionOutcome, u64> {
     if ctx.remaining_units < SOL_INVOKE_SIGNED_CU {
         return Err(cpi_err::FAILED);
     }
@@ -302,8 +296,7 @@ mod tests {
         };
         let caller = Pubkey::new_unique();
         let mut ctx = ctx_with_units(100_000);
-        let err =
-            verify_signer_seeds(&mut ctx, &parsed, &caller, &[]).unwrap_err();
+        let err = verify_signer_seeds(&mut ctx, &parsed, &caller, &[]).unwrap_err();
         assert_eq!(err, cpi_err::SIGNER_SEEDS_INVALID);
     }
 
@@ -323,8 +316,7 @@ mod tests {
         };
         let caller = Pubkey::new_unique();
         let mut ctx = ctx_with_units(100_000);
-        let err =
-            verify_signer_seeds(&mut ctx, &parsed, &caller, &[]).unwrap_err();
+        let err = verify_signer_seeds(&mut ctx, &parsed, &caller, &[]).unwrap_err();
         assert_eq!(err, cpi_err::TOO_MANY_SIGNERS);
     }
 
@@ -335,20 +327,14 @@ mod tests {
     fn verify_accepts_pda_signer() {
         let caller = Pubkey::new_unique();
         let mut ctx = ctx_with_units(100_000);
-        let seeds: Vec<Vec<u8>> =
-            vec![b"vault".to_vec(), vec![1, 2, 3]];
+        let seeds: Vec<Vec<u8>> = vec![b"vault".to_vec(), vec![1, 2, 3]];
         // Find a bump that produces a valid (off-curve) PDA.
         let mut pda = None;
         for bump in (0u8..=255).rev() {
-            let mut seed_refs: Vec<&[u8]> =
-                seeds.iter().map(|s| s.as_slice()).collect();
+            let mut seed_refs: Vec<&[u8]> = seeds.iter().map(|s| s.as_slice()).collect();
             let bump_arr = [bump];
             seed_refs.push(&bump_arr);
-            if let Ok(p) = do_sol_create_program_address(
-                &mut ctx,
-                &seed_refs,
-                &caller.to_bytes(),
-            ) {
+            if let Ok(p) = do_sol_create_program_address(&mut ctx, &seed_refs, &caller.to_bytes()) {
                 let mut full_seeds = seeds.clone();
                 full_seeds.push(vec![bump]);
                 pda = Some((Pubkey::new_from_array(p), full_seeds));
@@ -412,16 +398,15 @@ mod tests {
         let mut ctx = ctx_with_units(100_000);
         let inner_pid = Pubkey::new_unique();
         let signer = Pubkey::new_unique();
-        let dispatcher: super::super::context::CpiDispatcher = std::sync::Arc::new(
-            move |_ix, _accounts, _logs| ExecutionOutcome {
+        let dispatcher: super::super::context::CpiDispatcher =
+            std::sync::Arc::new(move |_ix, _accounts, _logs| ExecutionOutcome {
                 resulting_accounts: vec![],
                 compute_units_consumed: 0,
                 return_data: vec![],
                 inner_instructions: vec![],
                 execution_time_us: 0,
                 error: None,
-            },
-        );
+            });
         ctx.cpi_dispatcher = Some(dispatcher);
         let parsed = ParsedCpi {
             program_id: inner_pid,
@@ -457,8 +442,8 @@ mod tests {
         // already contains a "grandchild" record (simulating that
         // the parent program made its own CPI which we tracked at
         // depth 3).
-        let dispatcher: super::super::context::CpiDispatcher = std::sync::Arc::new(
-            move |_ix, _accounts, _logs| ExecutionOutcome {
+        let dispatcher: super::super::context::CpiDispatcher =
+            std::sync::Arc::new(move |_ix, _accounts, _logs| ExecutionOutcome {
                 resulting_accounts: vec![],
                 compute_units_consumed: 0,
                 return_data: vec![],
@@ -470,8 +455,7 @@ mod tests {
                 }],
                 execution_time_us: 0,
                 error: None,
-            },
-        );
+            });
         ctx.cpi_dispatcher = Some(dispatcher);
         let parsed = ParsedCpi {
             program_id: parent_pid,
@@ -503,8 +487,8 @@ mod tests {
         ctx.logs.program_log("outer line");
         // Stub dispatcher: writes a marker line to whatever
         // `logs` it's handed.
-        let dispatcher: super::super::context::CpiDispatcher = std::sync::Arc::new(
-            |_ix, _accounts, logs: &mut crate::log::LogCapture| {
+        let dispatcher: super::super::context::CpiDispatcher =
+            std::sync::Arc::new(|_ix, _accounts, logs: &mut crate::log::LogCapture| {
                 logs.program_log("inner line");
                 ExecutionOutcome {
                     resulting_accounts: vec![],
@@ -514,8 +498,7 @@ mod tests {
                     execution_time_us: 0,
                     error: None,
                 }
-            },
-        );
+            });
         ctx.cpi_dispatcher = Some(dispatcher);
         let parsed = ParsedCpi {
             program_id: Pubkey::new_unique(),

@@ -201,8 +201,8 @@ pub fn follow_rc_refcell_u64(
     memory_mapping: &MemoryMapping,
     rc_ptr: u64,
 ) -> Result<u64, EbpfError> {
-    let inner_addr = rc_ptr + layout::RC_INNER_VALUE_OFFSET as u64
-        + layout::REFCELL_VALUE_OFFSET as u64;
+    let inner_addr =
+        rc_ptr + layout::RC_INNER_VALUE_OFFSET as u64 + layout::REFCELL_VALUE_OFFSET as u64;
     // The 8 bytes at inner_addr are the `&mut u64` reference,
     // i.e. another VM address pointing to the actual u64.
     read_u64(memory_mapping, inner_addr)
@@ -217,8 +217,8 @@ pub fn follow_rc_refcell_slice(
     memory_mapping: &MemoryMapping,
     rc_ptr: u64,
 ) -> Result<(u64, u64), EbpfError> {
-    let inner_addr = rc_ptr + layout::RC_INNER_VALUE_OFFSET as u64
-        + layout::REFCELL_VALUE_OFFSET as u64;
+    let inner_addr =
+        rc_ptr + layout::RC_INNER_VALUE_OFFSET as u64 + layout::REFCELL_VALUE_OFFSET as u64;
     let addr = read_u64(memory_mapping, inner_addr)?;
     let len = read_u64(memory_mapping, inner_addr + 8)?;
     Ok((addr, len))
@@ -271,11 +271,11 @@ pub fn parse_account_infos(
     addr: u64,
     len: u64,
 ) -> Result<Vec<RustAccountInfo>, EbpfError> {
-    let total = len.checked_mul(layout::ACCOUNT_INFO_SIZE as u64).ok_or(
-        EbpfError::SyscallError(Box::new(crate::bpf::cpi_rust::CpiRustError(
-            "account_info count overflow".to_string(),
-        ))),
-    )?;
+    let total =
+        len.checked_mul(layout::ACCOUNT_INFO_SIZE as u64)
+            .ok_or(EbpfError::SyscallError(Box::new(
+                crate::bpf::cpi_rust::CpiRustError("account_info count overflow".to_string()),
+            )))?;
     let bytes = translate_slice(memory_mapping, addr, total)?;
     let mut out: Vec<RustAccountInfo> = Vec::with_capacity(len as usize);
     for i in 0..len as usize {
@@ -357,8 +357,10 @@ pub fn parse_instruction(
 ) -> Result<(Pubkey, Vec<AccountMeta>, Vec<u8>), EbpfError> {
     // Read the program_id (32 bytes inline at the start of
     // Instruction).
-    let program_id =
-        Pubkey::new_from_array(*translate_array::<32>(memory_mapping, addr + layout::IX_PROGRAM_ID as u64)?);
+    let program_id = Pubkey::new_from_array(*translate_array::<32>(
+        memory_mapping,
+        addr + layout::IX_PROGRAM_ID as u64,
+    )?);
 
     // Read the Vec<AccountMeta> header — (ptr, cap, len) at
     // offset IX_ACCOUNTS_VEC. We only need ptr + len.
@@ -416,20 +418,21 @@ pub fn parse_signer_seeds(
     }
     // Outer slice: `len` × 16-byte fat pointers. Each points at
     // an inner `&[&[u8]]`.
-    let outer_total = len
-        .checked_mul(layout::FAT_POINTER_SIZE as u64)
-        .ok_or(EbpfError::SyscallError(Box::new(CpiRustError(
-            "signer_seeds outer count overflow".to_string(),
-        ))))?;
+    let outer_total =
+        len.checked_mul(layout::FAT_POINTER_SIZE as u64)
+            .ok_or(EbpfError::SyscallError(Box::new(CpiRustError(
+                "signer_seeds outer count overflow".to_string(),
+            ))))?;
     let outer_bytes = translate_slice(memory_mapping, addr, outer_total)?;
     let mut sets: Vec<Vec<Vec<u8>>> = Vec::with_capacity(len as usize);
     for i in 0..len as usize {
         let off = i * layout::FAT_POINTER_SIZE;
-        let inner_addr = u64::from_le_bytes(
-            outer_bytes[off..off + 8].try_into().expect("inner_addr"),
-        );
+        let inner_addr =
+            u64::from_le_bytes(outer_bytes[off..off + 8].try_into().expect("inner_addr"));
         let inner_len = u64::from_le_bytes(
-            outer_bytes[off + 8..off + 16].try_into().expect("inner_len"),
+            outer_bytes[off + 8..off + 16]
+                .try_into()
+                .expect("inner_len"),
         );
         // Inner: `inner_len` × 16-byte fat pointers, each points
         // at the actual seed bytes.
@@ -442,12 +445,10 @@ pub fn parse_signer_seeds(
         let mut seeds: Vec<Vec<u8>> = Vec::with_capacity(inner_len as usize);
         for j in 0..inner_len as usize {
             let so = j * layout::FAT_POINTER_SIZE;
-            let seed_addr = u64::from_le_bytes(
-                inner_bytes[so..so + 8].try_into().expect("seed_addr"),
-            );
-            let seed_len = u64::from_le_bytes(
-                inner_bytes[so + 8..so + 16].try_into().expect("seed_len"),
-            );
+            let seed_addr =
+                u64::from_le_bytes(inner_bytes[so..so + 8].try_into().expect("seed_addr"));
+            let seed_len =
+                u64::from_le_bytes(inner_bytes[so + 8..so + 16].try_into().expect("seed_len"));
             seeds.push(translate_slice(memory_mapping, seed_addr, seed_len)?.to_vec());
         }
         sets.push(seeds);
@@ -469,8 +470,7 @@ pub fn build_parsed_cpi(
 ) -> Result<(ParsedCpi, Vec<RustAccountInfo>), EbpfError> {
     let (program_id, metas, data) = parse_instruction(memory_mapping, instruction_addr)?;
     let infos = parse_account_infos(memory_mapping, account_infos_addr, account_infos_len)?;
-    let signer_seeds =
-        parse_signer_seeds(memory_mapping, signers_seeds_addr, signers_seeds_len)?;
+    let signer_seeds = parse_signer_seeds(memory_mapping, signers_seeds_addr, signers_seeds_len)?;
 
     // Snapshot account state from the parsed AccountInfos. We
     // read each account's lamports + data via the resolved

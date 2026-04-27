@@ -98,8 +98,7 @@ impl<'a> InstructionBuilder<'a> {
         program_id: [u8; 32],
         ix_name: &str,
     ) -> Result<Self, BuildError> {
-        let ix = find_instruction(manifest, ix_name)
-            .ok_or(BuildError::UnknownInstruction)?;
+        let ix = find_instruction(manifest, ix_name).ok_or(BuildError::UnknownInstruction)?;
         Ok(Self {
             program_id,
             ix,
@@ -153,7 +152,9 @@ impl<'a> InstructionBuilder<'a> {
 
         let mut data = Vec::with_capacity(data_len);
         data.push(self.ix.tag);
-        for a in &self.args { data.extend_from_slice(a); }
+        for a in &self.args {
+            data.extend_from_slice(a);
+        }
 
         let mut metas = Vec::with_capacity(self.accounts.len());
         let mut i = 0;
@@ -175,10 +176,7 @@ impl<'a> InstructionBuilder<'a> {
     }
 }
 
-fn find_instruction<'a>(
-    m: &'a ProgramManifest,
-    name: &str,
-) -> Option<&'a InstructionDescriptor> {
+fn find_instruction<'a>(m: &'a ProgramManifest, name: &str) -> Option<&'a InstructionDescriptor> {
     let mut i = 0;
     while i < m.instructions.len() {
         if m.instructions[i].name == name {
@@ -196,23 +194,51 @@ mod tests {
 
     fn sample_manifest() -> ProgramManifest {
         static ARGS: [ArgDescriptor; 2] = [
-            ArgDescriptor { name: "amount", canonical_type: "u64", size: 8 },
-            ArgDescriptor { name: "bump",   canonical_type: "u8",  size: 1 },
+            ArgDescriptor {
+                name: "amount",
+                canonical_type: "u64",
+                size: 8,
+            },
+            ArgDescriptor {
+                name: "bump",
+                canonical_type: "u8",
+                size: 1,
+            },
         ];
         static ACCTS: [AccountEntry; 2] = [
-            AccountEntry { name: "vault",     writable: true,  signer: false, layout_ref: "Vault" },
-            AccountEntry { name: "authority", writable: false, signer: true,  layout_ref: "" },
+            AccountEntry {
+                name: "vault",
+                writable: true,
+                signer: false,
+                layout_ref: "Vault",
+            },
+            AccountEntry {
+                name: "authority",
+                writable: false,
+                signer: true,
+                layout_ref: "",
+            },
         ];
         static IX: [InstructionDescriptor; 1] = [InstructionDescriptor {
-            name: "deposit", tag: 3, args: &ARGS, accounts: &ACCTS,
-            capabilities: &[], policy_pack: "", receipt_expected: true,
+            name: "deposit",
+            tag: 3,
+            args: &ARGS,
+            accounts: &ACCTS,
+            capabilities: &[],
+            policy_pack: "",
+            receipt_expected: true,
         }];
         ProgramManifest {
-            name: "test", version: "0", description: "",
-            layouts: &[], layout_metadata: &[],
+            name: "test",
+            version: "0",
+            description: "",
+            layouts: &[],
+            layout_metadata: &[],
             instructions: &IX,
-            events: &[], policies: &[],
-            compatibility_pairs: &[], tooling_hints: &[],
+            events: &[],
+            policies: &[],
+            compatibility_pairs: &[],
+            tooling_hints: &[],
             contexts: &[],
         }
     }
@@ -253,7 +279,14 @@ mod tests {
             .account([0u8; 32])
             .build()
             .unwrap_err();
-        assert!(matches!(err, BuildError::ArgSizeMismatch { index: 0, expected: 8, got: 4 }));
+        assert!(matches!(
+            err,
+            BuildError::ArgSizeMismatch {
+                index: 0,
+                expected: 8,
+                got: 4
+            }
+        ));
     }
 
     #[test]

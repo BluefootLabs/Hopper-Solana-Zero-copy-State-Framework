@@ -10,8 +10,7 @@ use crate::ProgramResult;
 
 /// System program address: 11111111111111111111111111111111
 pub const SYSTEM_PROGRAM_ID: Address = Address::new_from_array([
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 ]);
 
 // ── CreateAccount ────────────────────────────────────────────────────
@@ -42,10 +41,7 @@ impl CreateAccount<'_, '_> {
         data[12..20].copy_from_slice(&self.space.to_le_bytes());
         data[20..52].copy_from_slice(self.owner.as_array());
 
-        let accounts = [
-            CpiAccount::from(self.from),
-            CpiAccount::from(self.to),
-        ];
+        let accounts = [CpiAccount::from(self.from), CpiAccount::from(self.to)];
 
         invoke_system(&data, &accounts, signers)
     }
@@ -75,10 +71,7 @@ impl Transfer<'_> {
         data[0] = 2;
         data[4..12].copy_from_slice(&self.lamports.to_le_bytes());
 
-        let accounts = [
-            CpiAccount::from(self.from),
-            CpiAccount::from(self.to),
-        ];
+        let accounts = [CpiAccount::from(self.from), CpiAccount::from(self.to)];
 
         invoke_system(&data, &accounts, signers)
     }
@@ -107,9 +100,7 @@ impl Assign<'_, '_> {
         data[0] = 1;
         data[4..36].copy_from_slice(self.owner.as_array());
 
-        let accounts = [
-            CpiAccount::from(self.account),
-        ];
+        let accounts = [CpiAccount::from(self.account)];
 
         invoke_system(&data, &accounts, signers)
     }
@@ -138,9 +129,7 @@ impl Allocate<'_> {
         data[0] = 8;
         data[4..12].copy_from_slice(&self.space.to_le_bytes());
 
-        let accounts = [
-            CpiAccount::from(self.account),
-        ];
+        let accounts = [CpiAccount::from(self.account)];
 
         invoke_system(&data, &accounts, signers)
     }
@@ -150,11 +139,7 @@ impl Allocate<'_> {
 
 /// Build an InstructionView to the system program and invoke.
 #[inline]
-fn invoke_system(
-    data: &[u8],
-    accounts: &[CpiAccount],
-    signers: &[Signer],
-) -> ProgramResult {
+fn invoke_system(data: &[u8], accounts: &[CpiAccount], signers: &[Signer]) -> ProgramResult {
     // Build an InstructionView to the system program and invoke via C ABI.
     #[cfg(target_os = "solana")]
     {
@@ -187,5 +172,5 @@ fn invoke_system(
 
 /// Compatibility re-exports matching `pinocchio_system::instructions::*`.
 pub mod instructions {
-    pub use super::{CreateAccount, Transfer, Assign, Allocate};
+    pub use super::{Allocate, Assign, CreateAccount, Transfer};
 }

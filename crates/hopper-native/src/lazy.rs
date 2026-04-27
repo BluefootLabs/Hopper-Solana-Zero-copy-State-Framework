@@ -40,8 +40,8 @@
 //! }
 //! ```
 
-use crate::address::Address;
 use crate::account_view::AccountView;
+use crate::address::Address;
 use crate::error::ProgramError;
 use crate::raw_account::RuntimeAccount;
 use crate::MAX_PERMITTED_DATA_INCREASE;
@@ -221,13 +221,13 @@ impl LazyContext {
                 // Duplicate: references an earlier account.
                 let original_idx = dup_marker as usize;
                 self.cursor = self.cursor.add(8); // skip 8-byte padding
-                // The loader guarantees duplicate markers refer to
-                // **previously parsed** slots. A marker that points at
-                // ourselves or forward is malformed loader input -
-                // pre-audit we returned `self.resolved[0]` which is a
-                // zeroed `AccountView` until a real account has been
-                // parsed, silently handing out a null-pointer view. The
-                // Hopper Safety Audit flagged this; we now trap.
+                                                  // The loader guarantees duplicate markers refer to
+                                                  // **previously parsed** slots. A marker that points at
+                                                  // ourselves or forward is malformed loader input -
+                                                  // pre-audit we returned `self.resolved[0]` which is a
+                                                  // zeroed `AccountView` until a real account has been
+                                                  // parsed, silently handing out a null-pointer view. The
+                                                  // Hopper Safety Audit flagged this; we now trap.
                 if original_idx >= self.parsed_count {
                     crate::raw_input::malformed_duplicate_marker(dup_marker, self.parsed_count);
                 }

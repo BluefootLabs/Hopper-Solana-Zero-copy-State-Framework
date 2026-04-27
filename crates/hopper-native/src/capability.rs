@@ -164,14 +164,18 @@ impl MutableView {
     #[inline(always)]
     pub fn as_signer(&self) -> SignerView {
         // SAFETY: MutableView guarantees is_signer.
-        SignerView { inner: self.inner.clone() }
+        SignerView {
+            inner: self.inner.clone(),
+        }
     }
 
     /// Upcast to `WritableView` (free -- MutableView implies writable).
     #[inline(always)]
     pub fn as_writable(&self) -> WritableView {
         // SAFETY: MutableView guarantees is_writable.
-        WritableView { inner: self.inner.clone() }
+        WritableView {
+            inner: self.inner.clone(),
+        }
     }
 }
 

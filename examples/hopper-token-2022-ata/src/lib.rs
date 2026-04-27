@@ -118,8 +118,7 @@ fn process_prepare_ata_and_mint(
     }
 
     let amount = u64::from_le_bytes([
-        data[0], data[1], data[2], data[3],
-        data[4], data[5], data[6], data[7],
+        data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7],
     ]);
     hopper_require!(amount > 0, ZeroAmount);
 

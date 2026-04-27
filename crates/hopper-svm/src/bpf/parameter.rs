@@ -254,8 +254,7 @@ pub fn serialize_parameters(
         cursor += 1;
         // 4 bytes original_data_len u32 LE
         let original_data_len = acct.data.len();
-        buf[cursor..cursor + 4]
-            .copy_from_slice(&(original_data_len as u32).to_le_bytes());
+        buf[cursor..cursor + 4].copy_from_slice(&(original_data_len as u32).to_le_bytes());
         cursor += 4;
         // 32 bytes pubkey
         buf[cursor..cursor + 32].copy_from_slice(meta.pubkey.as_ref());
@@ -270,8 +269,7 @@ pub fn serialize_parameters(
         cursor += 8;
         // 8 bytes data_len
         let data_len_offset = cursor;
-        buf[cursor..cursor + 8]
-            .copy_from_slice(&(original_data_len as u64).to_le_bytes());
+        buf[cursor..cursor + 8].copy_from_slice(&(original_data_len as u64).to_le_bytes());
         cursor += 8;
         // data
         let data_offset = cursor;
@@ -313,7 +311,10 @@ pub fn serialize_parameters(
         "serialize_parameters: cursor {cursor} != computed total {total_len}"
     );
 
-    Ok(Parameters { buffer: buf, offsets })
+    Ok(Parameters {
+        buffer: buf,
+        offsets,
+    })
 }
 
 /// Read account post-state out of the (potentially-mutated)
@@ -440,8 +441,7 @@ mod tests {
         let acct = KeyedAccount::new(alice, 1_000, owner, vec![1, 2, 3, 4], false);
         let metas = vec![meta_for(alice, true, true)];
         let ix_data = vec![0xAA, 0xBB, 0xCC];
-        let expected =
-            serialized_length(&metas, &[&acct], ix_data.len());
+        let expected = serialized_length(&metas, &[&acct], ix_data.len());
         let params = serialize_parameters(&metas, &[acct], &ix_data, &pid).unwrap();
         assert_eq!(params.buffer.len(), expected);
     }
@@ -462,8 +462,7 @@ mod tests {
         ];
         let metas = vec![meta_for(alice, true, true), meta_for(bob, false, false)];
         let ix_data = vec![0x01, 0x02];
-        let params =
-            serialize_parameters(&metas, &originals, &ix_data, &pid).unwrap();
+        let params = serialize_parameters(&metas, &originals, &ix_data, &pid).unwrap();
         let back = deserialize_parameters(&params, &metas, &originals);
         assert_eq!(back.len(), 2);
         // Find each account by address and compare relevant fields.
@@ -491,8 +490,7 @@ mod tests {
             KeyedAccount::new(bob, 100, owner, vec![], false),
         ];
         let metas = vec![meta_for(alice, true, true), meta_for(bob, false, true)];
-        let mut params =
-            serialize_parameters(&metas, &originals, &[], &pid).unwrap();
+        let mut params = serialize_parameters(&metas, &originals, &[], &pid).unwrap();
         // Rewrite alice's lamports through the offset table —
         // simulating a program that called `lamports.borrow_mut()`
         // and assigned a new balance.
@@ -501,8 +499,7 @@ mod tests {
             .copy_from_slice(&123u64.to_le_bytes());
         // Same for owner (simulating `assign`).
         let new_owner = Pubkey::new_unique();
-        params.buffer[off.owner_offset..off.owner_offset + 32]
-            .copy_from_slice(new_owner.as_ref());
+        params.buffer[off.owner_offset..off.owner_offset + 32].copy_from_slice(new_owner.as_ref());
 
         let back = deserialize_parameters(&params, &metas, &originals);
         let a = back.iter().find(|a| a.address == alice).unwrap();
@@ -527,8 +524,7 @@ mod tests {
             false,
         )];
         let metas = vec![meta_for(alice, true, true)];
-        let mut params =
-            serialize_parameters(&metas, &originals, &[], &pid).unwrap();
+        let mut params = serialize_parameters(&metas, &originals, &[], &pid).unwrap();
         let off = &params.offsets[0];
         // Grow by 2 bytes.
         params.buffer[off.data_len_offset..off.data_len_offset + 8]
@@ -557,8 +553,7 @@ mod tests {
             // Same pubkey as slot 0 — should serialize as duplicate.
             meta_for(alice, false, false),
         ];
-        let params =
-            serialize_parameters(&metas, &originals, &[], &pid).unwrap();
+        let params = serialize_parameters(&metas, &originals, &[], &pid).unwrap();
         assert!(params.offsets[0].duplicate_of.is_none());
         assert_eq!(params.offsets[1].duplicate_of, Some(0));
         // The duplicate slot's record_start should be right after
@@ -590,8 +585,7 @@ mod tests {
             false,
         )];
         let metas = vec![meta_for(alice, false, false), meta_for(bob, false, false)];
-        let err =
-            serialize_parameters(&metas, &originals, &[], &pid).unwrap_err();
+        let err = serialize_parameters(&metas, &originals, &[], &pid).unwrap_err();
         assert_eq!(err, bob);
     }
 }
