@@ -173,6 +173,8 @@ macro_rules! le_integer {
         // SAFETY: $name is #[repr(transparent)] over [u8; N].
         // All bit patterns are valid (no padding, no alignment requirement).
         unsafe impl Projectable for $name {}
+
+        $crate::__wire_arith_ops!($name, $native);
     };
 
     // Signed variant -- same API but with signed native type.
@@ -323,6 +325,120 @@ macro_rules! le_integer {
         }
 
         unsafe impl Projectable for $name {}
+
+        $crate::__wire_arith_ops!($name, $native);
+    };
+}
+
+/// Internal: emit arithmetic operator impls for a wire integer type.
+///
+/// Mirrors Rust's native integer behavior: panic on overflow in debug,
+/// wrap in release. Programs that need explicit semantics should use the
+/// `checked_*`, `saturating_*`, or `wrapping_*` inherent methods.
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __wire_arith_ops {
+    ($name:ident, $native:ty) => {
+        impl core::ops::Add for $name {
+            type Output = Self;
+            #[inline(always)]
+            fn add(self, rhs: Self) -> Self { Self::new(self.get() + rhs.get()) }
+        }
+        impl core::ops::Sub for $name {
+            type Output = Self;
+            #[inline(always)]
+            fn sub(self, rhs: Self) -> Self { Self::new(self.get() - rhs.get()) }
+        }
+        impl core::ops::Mul for $name {
+            type Output = Self;
+            #[inline(always)]
+            fn mul(self, rhs: Self) -> Self { Self::new(self.get() * rhs.get()) }
+        }
+        impl core::ops::Div for $name {
+            type Output = Self;
+            #[inline(always)]
+            fn div(self, rhs: Self) -> Self { Self::new(self.get() / rhs.get()) }
+        }
+        impl core::ops::Rem for $name {
+            type Output = Self;
+            #[inline(always)]
+            fn rem(self, rhs: Self) -> Self { Self::new(self.get() % rhs.get()) }
+        }
+        impl core::ops::Add<$native> for $name {
+            type Output = Self;
+            #[inline(always)]
+            fn add(self, rhs: $native) -> Self { Self::new(self.get() + rhs) }
+        }
+        impl core::ops::Sub<$native> for $name {
+            type Output = Self;
+            #[inline(always)]
+            fn sub(self, rhs: $native) -> Self { Self::new(self.get() - rhs) }
+        }
+        impl core::ops::Mul<$native> for $name {
+            type Output = Self;
+            #[inline(always)]
+            fn mul(self, rhs: $native) -> Self { Self::new(self.get() * rhs) }
+        }
+        impl core::ops::Div<$native> for $name {
+            type Output = Self;
+            #[inline(always)]
+            fn div(self, rhs: $native) -> Self { Self::new(self.get() / rhs) }
+        }
+        impl core::ops::Rem<$native> for $name {
+            type Output = Self;
+            #[inline(always)]
+            fn rem(self, rhs: $native) -> Self { Self::new(self.get() % rhs) }
+        }
+        impl core::ops::AddAssign for $name {
+            #[inline(always)]
+            fn add_assign(&mut self, rhs: Self) { *self = *self + rhs; }
+        }
+        impl core::ops::SubAssign for $name {
+            #[inline(always)]
+            fn sub_assign(&mut self, rhs: Self) { *self = *self - rhs; }
+        }
+        impl core::ops::MulAssign for $name {
+            #[inline(always)]
+            fn mul_assign(&mut self, rhs: Self) { *self = *self * rhs; }
+        }
+        impl core::ops::DivAssign for $name {
+            #[inline(always)]
+            fn div_assign(&mut self, rhs: Self) { *self = *self / rhs; }
+        }
+        impl core::ops::RemAssign for $name {
+            #[inline(always)]
+            fn rem_assign(&mut self, rhs: Self) { *self = *self % rhs; }
+        }
+        impl core::ops::AddAssign<$native> for $name {
+            #[inline(always)]
+            fn add_assign(&mut self, rhs: $native) { *self = *self + rhs; }
+        }
+        impl core::ops::SubAssign<$native> for $name {
+            #[inline(always)]
+            fn sub_assign(&mut self, rhs: $native) { *self = *self - rhs; }
+        }
+        impl core::ops::MulAssign<$native> for $name {
+            #[inline(always)]
+            fn mul_assign(&mut self, rhs: $native) { *self = *self * rhs; }
+        }
+        impl core::ops::DivAssign<$native> for $name {
+            #[inline(always)]
+            fn div_assign(&mut self, rhs: $native) { *self = *self / rhs; }
+        }
+        impl core::ops::RemAssign<$native> for $name {
+            #[inline(always)]
+            fn rem_assign(&mut self, rhs: $native) { *self = *self % rhs; }
+        }
+        impl PartialEq<$native> for $name {
+            #[inline(always)]
+            fn eq(&self, other: &$native) -> bool { self.get() == *other }
+        }
+        impl PartialOrd<$native> for $name {
+            #[inline(always)]
+            fn partial_cmp(&self, other: &$native) -> Option<core::cmp::Ordering> {
+                Some(self.get().cmp(other))
+            }
+        }
     };
 }
 
@@ -544,3 +660,5 @@ impl core::fmt::Display for LeU128 {
 }
 
 unsafe impl Projectable for LeU128 {}
+
+__wire_arith_ops!(LeU128, u128);

@@ -1,14 +1,12 @@
 # Hopper
 
-**[hopperzero.dev](https://hopperzero.dev)** &nbsp;·&nbsp; [Docs](https://docs.rs/hopper) &nbsp;·&nbsp; [Crate](https://crates.io/crates/hopper) &nbsp;·&nbsp; [Audit](AUDIT.md)
-
-[![Crates.io](https://img.shields.io/crates/v/hopper.svg)](https://crates.io/crates/hopper)
-[![Docs.rs](https://img.shields.io/docsrs/hopper)](https://docs.rs/hopper)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![Rust](https://img.shields.io/badge/Rust-stable-orange.svg)](https://www.rust-lang.org/)
-[![Solana](https://img.shields.io/badge/Solana-mainnet-9945FF.svg)](https://solana.com/)
 ![no_std](https://img.shields.io/badge/no__std-yes-green.svg)
-![Tests](https://img.shields.io/badge/tests-workspace%20verified-brightgreen.svg)
+![Tests](https://img.shields.io/badge/tests-workspace%20green-brightgreen.svg)
+
+> **Status: pre-release.** Not yet on crates.io. Build from source while we
+> finish the public release: `git clone` and use a path dependency. The
+> crates.io / docs.rs links will land at `v0.1.0`. Apache-2.0.
 
 **The zero-copy state framework for Solana.**
 
@@ -878,9 +876,9 @@ Apache-2.0. See [LICENSE](LICENSE) for details.
 
 ## Links
 
-- **Website**: [hopperzero.dev](https://hopperzero.dev)
-- **Crate**: [`hopper` on crates.io](https://crates.io/crates/hopper)
-- **Docs**: [`hopper` on docs.rs](https://docs.rs/hopper)
-- **Author**: [@moonmanquark](https://x.com/moonmanquark)
-- **Organization**: [BluefootLabs](https://github.com/BluefootLabs) — also building [Boobies](https://bluefoot.xyz), an NFT project funding Galápagos blue-footed booby conservation.
 - **Repository**: [GitHub](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework)
+- **Author**: [@moonmanquark](https://x.com/moonmanquark)
+- **Organization**: [BluefootLabs](https://github.com/BluefootLabs)
+
+`hopper` is not yet published to crates.io or docs.rs; both links will be
+added at `v0.1.0`. Build from source in the meantime.
