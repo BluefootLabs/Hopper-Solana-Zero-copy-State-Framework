@@ -58,3 +58,9 @@ unexpected_cfgs = { level = "allow", check-cfg = [
     'cfg(target_os, values("solana"))',
     'cfg(target_arch, values("bpf"))',
 ] }
+
+[patch."https://github.com/BluefootLabs/hopper-core"]
+hopper-core = { path = "../hopper-core" }
+
+[patch."https://github.com/BluefootLabs/hopper-runtime"]
+hopper-runtime = { path = "../hopper-runtime" }

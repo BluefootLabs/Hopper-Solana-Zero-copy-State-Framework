@@ -20,6 +20,10 @@
 //! - Token-2022 `extensions::*` constraints without a matching
 //!   `token::token_program` or `mint::token_program` override pinning
 //!   the account to Token-2022.
+//! - Metaplex `metadata::*` / `master_edition::*` account keywords that
+//!   are only partially declared.
+//! - Program-like crates that do not opt into Hopper's on-chain
+//!   `no_allocator!()` / `nostd_panic_handler!()` markers.
 //!
 //! The graph models relationships between contexts. An edge
 //! `Deposit -> vault` means the `Deposit` context declares a field
@@ -33,7 +37,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process;
 
-use syn::{spanned::Spanned, Attribute, File, Item, ItemStruct, Meta, Type};
+use syn::{Attribute, File, Item, ItemStruct, Type};
 
 pub fn cmd_lint(args: &[String]) {
     if args.iter().any(|a| matches!(a.as_str(), "--help" | "-h")) {
@@ -115,8 +119,9 @@ fn print_usage() {
     eprintln!("  --fail-on-warn         Exit 1 on warnings in addition to errors");
     eprintln!();
     eprintln!("Lints the cross-context account relationship graph in a Hopper");
-    eprintln!("project. Prints the graph and every diagnostic found. Exits");
-    eprintln!("non-zero when an error-level diagnostic is surfaced.");
+    eprintln!("project, including Metaplex context keywords and on-chain");
+    eprintln!("zero-allocation markers. Prints the graph and every diagnostic");
+    eprintln!("found. Exits non-zero when an error-level diagnostic is surfaced.");
 }
 
 /// Result of an inline lint pass: the count of error- and warn-level
@@ -166,6 +171,9 @@ struct Report {
     contexts: Vec<ContextInfo>,
     states: Vec<String>,
     diagnostics: Vec<Diagnostic>,
+    has_program_entrypoint: bool,
+    has_no_allocator: bool,
+    has_panic_handler: bool,
 }
 
 struct ContextInfo {
@@ -191,6 +199,8 @@ struct FieldInfo {
     dup_target: Option<String>,
     has_extension_constraint: bool,
     pins_token_2022: bool,
+    metadata_keys: Vec<String>,
+    master_edition_keys: Vec<String>,
 }
 
 struct Diagnostic {
@@ -231,10 +241,7 @@ impl Diagnostic {
 // ---- driver ----------------------------------------------------------------
 
 fn lint_project(root: &Path) -> Result<Report, String> {
-    let src_dirs = [
-        root.join("src"),
-        root.join("programs"),
-    ];
+    let src_dirs = [root.join("src"), root.join("programs")];
     let mut files: Vec<PathBuf> = Vec::new();
     for dir in &src_dirs {
         collect_rs_files(dir, &mut files);
@@ -250,10 +257,17 @@ fn lint_project(root: &Path) -> Result<Report, String> {
     let mut contexts: Vec<ContextInfo> = Vec::new();
     let mut states: Vec<String> = Vec::new();
     let mut diagnostics: Vec<Diagnostic> = Vec::new();
+    let mut has_program_entrypoint = false;
+    let mut has_no_allocator = false;
+    let mut has_panic_handler = false;
 
     for file_path in &files {
         let text = fs::read_to_string(file_path)
             .map_err(|e| format!("read {}: {e}", file_path.display()))?;
+        has_program_entrypoint |= looks_like_program_entrypoint(&text);
+        has_no_allocator |= text.contains("no_allocator!()") || text.contains("no_allocator ! ()");
+        has_panic_handler |=
+            text.contains("nostd_panic_handler!()") || text.contains("nostd_panic_handler ! ()");
         let parsed: File = match syn::parse_file(&text) {
             Ok(f) => f,
             Err(e) => {
@@ -287,7 +301,44 @@ fn lint_project(root: &Path) -> Result<Report, String> {
         run_diagnostics(ctx, &mut diagnostics);
     }
 
-    Ok(Report { contexts, states, diagnostics })
+    if has_program_entrypoint && !has_no_allocator {
+        diagnostics.push(Diagnostic {
+            level: Level::Warn,
+            context: "crate".into(),
+            field: None,
+            message: "program entrypoint detected but no `no_allocator!()` marker found; add it near the crate root for on-chain zero-heap enforcement".into(),
+            source_file: root.to_path_buf(),
+        });
+    }
+    if has_program_entrypoint && !has_panic_handler {
+        diagnostics.push(Diagnostic {
+            level: Level::Warn,
+            context: "crate".into(),
+            field: None,
+            message: "program entrypoint detected but no `nostd_panic_handler!()` marker found; add it near the crate root for deterministic on-chain panic behavior".into(),
+            source_file: root.to_path_buf(),
+        });
+    }
+
+    Ok(Report {
+        contexts,
+        states,
+        diagnostics,
+        has_program_entrypoint,
+        has_no_allocator,
+        has_panic_handler,
+    })
+}
+
+fn looks_like_program_entrypoint(text: &str) -> bool {
+    text.contains("hopper_entrypoint!")
+        || text.contains("hopper_fast_entrypoint!")
+        || text.contains("hopper_lazy_entrypoint!")
+        || text.contains("program_entrypoint!")
+        || text.contains("fast_entrypoint!")
+        || text.contains("lazy_entrypoint!")
+        || text.contains("#[hopper::program]")
+        || text.contains("#[program]")
 }
 
 fn collect_rs_files(dir: &Path, out: &mut Vec<PathBuf>) {
@@ -318,7 +369,9 @@ enum Classify {
 fn classify(s: &ItemStruct) -> Classify {
     for attr in &s.attrs {
         let path = attr.path();
-        let Some(last) = path.segments.last() else { continue };
+        let Some(last) = path.segments.last() else {
+            continue;
+        };
         match last.ident.to_string().as_str() {
             "context" | "accounts" | "hopper_context" => return Classify::Context,
             "state" | "account" | "hopper_state" => return Classify::State,
@@ -353,6 +406,8 @@ fn extract_context(s: &ItemStruct, source_file: &Path) -> ContextInfo {
                 dup_target: None,
                 has_extension_constraint: false,
                 pins_token_2022: false,
+                metadata_keys: Vec::new(),
+                master_edition_keys: Vec::new(),
             };
             for attr in &f.attrs {
                 if attr.path().is_ident("signer") {
@@ -384,6 +439,14 @@ fn scrape_account_attr(attr: &Attribute, info: &mut FieldInfo) {
             let key = meta.path.segments[1].ident.to_string();
             let joined = format!("{ns}::{key}");
             info.constraints.push(joined.clone());
+            if ns == "metadata" {
+                info.metadata_keys.push(key.clone());
+                info.is_mut = true;
+            }
+            if ns == "master_edition" {
+                info.master_edition_keys.push(key.clone());
+                info.is_mut = true;
+            }
             if ns == "token" && key == "token_program" {
                 let _ = meta.value().and_then(|v| v.parse::<syn::Expr>()).map(|e| {
                     let s = quote_to_string(&e);
@@ -408,14 +471,11 @@ fn scrape_account_attr(attr: &Attribute, info: &mut FieldInfo) {
             return Ok(());
         }
         // Three-segment extension paths: extensions::transfer_hook::authority.
-        if meta.path.segments.len() == 3
-            && meta.path.segments[0].ident == "extensions"
-        {
+        if meta.path.segments.len() == 3 && meta.path.segments[0].ident == "extensions" {
             info.has_extension_constraint = true;
             let joined = format!(
                 "extensions::{}::{}",
-                meta.path.segments[1].ident,
-                meta.path.segments[2].ident
+                meta.path.segments[1].ident, meta.path.segments[2].ident
             );
             info.constraints.push(joined);
             let _ = meta.value().and_then(|v| v.parse::<syn::Expr>());
@@ -584,6 +644,100 @@ fn run_diagnostics(ctx: &ContextInfo, out: &mut Vec<Diagnostic>) {
                 source_file: ctx.source_file.clone(),
             });
         }
+        // Metaplex metadata keywords must be complete before the
+        // generated context helper can build a CreateMetadataAccountV3
+        // call. Keep this in the lint pass so users see a direct
+        // project-level diagnostic instead of only a proc-macro error.
+        let metadata_data_any = has_any(
+            &f.metadata_keys,
+            &[
+                "name",
+                "symbol",
+                "uri",
+                "seller_fee_basis_points",
+                "is_mutable",
+            ],
+        );
+        let metadata_data_complete = has_all(
+            &f.metadata_keys,
+            &["name", "symbol", "uri", "seller_fee_basis_points"],
+        );
+        let metadata_cpi_any = has_any(
+            &f.metadata_keys,
+            &[
+                "mint",
+                "mint_authority",
+                "payer",
+                "update_authority",
+                "system_program",
+                "rent",
+            ],
+        );
+        if metadata_data_any && !metadata_data_complete {
+            out.push(Diagnostic {
+                level: Level::Error,
+                context: ctx.name.clone(),
+                field: Some(f.name.clone()),
+                message: "metadata fields require `metadata::{name,symbol,uri,seller_fee_basis_points}` together".into(),
+                source_file: ctx.source_file.clone(),
+            });
+        }
+        if metadata_cpi_any
+            && (!metadata_data_complete
+                || !has_all(
+                    &f.metadata_keys,
+                    &[
+                        "mint",
+                        "mint_authority",
+                        "payer",
+                        "update_authority",
+                        "system_program",
+                    ],
+                ))
+        {
+            out.push(Diagnostic {
+                level: Level::Error,
+                context: ctx.name.clone(),
+                field: Some(f.name.clone()),
+                message: "metadata CPI helper requires metadata::{mint,mint_authority,payer,update_authority,system_program,name,symbol,uri,seller_fee_basis_points}; `metadata::rent` is optional".into(),
+                source_file: ctx.source_file.clone(),
+            });
+        }
+
+        let master_edition_any = !f.master_edition_keys.is_empty();
+        if (metadata_data_any || metadata_cpi_any) && master_edition_any {
+            out.push(Diagnostic {
+                level: Level::Error,
+                context: ctx.name.clone(),
+                field: Some(f.name.clone()),
+                message: "declare `metadata::*` and `master_edition::*` on separate account fields"
+                    .into(),
+                source_file: ctx.source_file.clone(),
+            });
+        }
+        if master_edition_any
+            && !has_all(
+                &f.master_edition_keys,
+                &[
+                    "max_supply",
+                    "mint",
+                    "metadata",
+                    "update_authority",
+                    "mint_authority",
+                    "payer",
+                    "token_program",
+                    "system_program",
+                ],
+            )
+        {
+            out.push(Diagnostic {
+                level: Level::Error,
+                context: ctx.name.clone(),
+                field: Some(f.name.clone()),
+                message: "master_edition helper requires master_edition::{max_supply,mint,metadata,update_authority,mint_authority,payer,token_program,system_program}; `master_edition::rent` is optional".into(),
+                source_file: ctx.source_file.clone(),
+            });
+        }
         // Writable without context-level invariant or validate hook.
         if f.is_mut && !ctx.has_invariant_attr && !ctx.has_validate_hook {
             out.push(Diagnostic {
@@ -597,11 +751,27 @@ fn run_diagnostics(ctx: &ContextInfo, out: &mut Vec<Diagnostic>) {
     }
 }
 
+fn has_all(keys: &[String], required: &[&str]) -> bool {
+    required
+        .iter()
+        .all(|needle| keys.iter().any(|key| key == needle))
+}
+
+fn has_any(keys: &[String], needles: &[&str]) -> bool {
+    needles
+        .iter()
+        .any(|needle| keys.iter().any(|key| key == needle))
+}
+
 // ---- renderers -------------------------------------------------------------
 
 fn render_ascii(r: &Report) {
     println!("Hopper account-relationship graph");
     println!("=================================");
+    println!(
+        "[crate] entrypoint={} no_allocator={} panic_handler={}",
+        r.has_program_entrypoint, r.has_no_allocator, r.has_panic_handler
+    );
     if r.contexts.is_empty() {
         println!("(no #[hopper::context] / #[accounts] structs found)");
         return;
@@ -647,13 +817,22 @@ fn render_mermaid(r: &Report) {
             } else {
                 "ro"
             };
-            println!("  {field_id}([\"{}<br/>{}<br/>{}\"])", f.name, f.type_name, role);
+            println!(
+                "  {field_id}([\"{}<br/>{}<br/>{}\"])",
+                f.name, f.type_name, role
+            );
             let label = f.constraints.join(" ");
             println!("  {ctx_id} -->|\"{}\"| {field_id}", label);
             // Edge to the state type if we recognize it.
-            if r.states.iter().any(|s| s == strip_generic(&f.type_name).as_str()) {
+            if r.states
+                .iter()
+                .any(|s| s == strip_generic(&f.type_name).as_str())
+            {
                 let state_id = node_id("st", &strip_generic(&f.type_name));
-                println!("  {state_id}[/\"{}\"/]:::state", strip_generic(&f.type_name));
+                println!(
+                    "  {state_id}[/\"{}\"/]:::state",
+                    strip_generic(&f.type_name)
+                );
                 println!("  {field_id} -.-> {state_id}");
             }
         }
@@ -688,7 +867,10 @@ fn render_dot(r: &Report) {
             );
             let label = f.constraints.join(" ");
             println!("  {ctx_id} -> {field_id} [label=\"{label}\"];");
-            if r.states.iter().any(|s| s == strip_generic(&f.type_name).as_str()) {
+            if r.states
+                .iter()
+                .any(|s| s == strip_generic(&f.type_name).as_str())
+            {
                 let state_id = node_id("st", &strip_generic(&f.type_name));
                 println!(
                     "  {state_id} [label=\"{}\" shape=folder fillcolor=\"#9FE1CB\" style=filled];",
@@ -718,6 +900,8 @@ fn render_json(r: &Report) {
                 "dup": f.dup_target,
                 "has_extension_constraint": f.has_extension_constraint,
                 "pins_token_2022": f.pins_token_2022,
+                "metadata_keys": f.metadata_keys,
+                "master_edition_keys": f.master_edition_keys,
                 "constraints": f.constraints,
             }));
         }
@@ -747,6 +931,11 @@ fn render_json(r: &Report) {
         })
         .collect();
     let out = serde_json::json!({
+        "crate": {
+            "has_program_entrypoint": r.has_program_entrypoint,
+            "has_no_allocator": r.has_no_allocator,
+            "has_panic_handler": r.has_panic_handler,
+        },
         "contexts": contexts_json,
         "states": r.states,
         "diagnostics": diagnostics_json,
@@ -778,6 +967,105 @@ fn strip_generic(ty: &str) -> String {
         .next()
         .unwrap_or(ty)
         .to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn empty_field(name: &str) -> FieldInfo {
+        FieldInfo {
+            name: name.into(),
+            type_name: "AccountView".into(),
+            constraints: Vec::new(),
+            is_mut: false,
+            is_signer: false,
+            is_init: false,
+            has_space: false,
+            has_payer: false,
+            has_seeds: false,
+            has_bump: false,
+            has_one_targets: Vec::new(),
+            dup_target: None,
+            has_extension_constraint: false,
+            pins_token_2022: false,
+            metadata_keys: Vec::new(),
+            master_edition_keys: Vec::new(),
+        }
+    }
+
+    fn context_with(field: FieldInfo) -> ContextInfo {
+        ContextInfo {
+            name: "MintNft".into(),
+            fields: vec![field],
+            source_file: PathBuf::from("src/lib.rs"),
+            has_validate_hook: true,
+            has_invariant_attr: false,
+        }
+    }
+
+    #[test]
+    fn detects_program_entrypoints_and_allocator_markers() {
+        assert!(looks_like_program_entrypoint(
+            "hopper_entrypoint!(process);"
+        ));
+        assert!(looks_like_program_entrypoint(
+            "#[hopper::program]\nmod app {}"
+        ));
+        assert!(!looks_like_program_entrypoint("pub fn helper() {}"));
+    }
+
+    #[test]
+    fn metadata_scrape_tracks_keys_and_marks_writable() {
+        let item: ItemStruct = syn::parse_str(
+            r#"
+            pub struct MintNft {
+                #[account(metadata::mint = mint, metadata::name = name)]
+                pub metadata: AccountView,
+            }
+            "#,
+        )
+        .unwrap();
+        let ctx = extract_context(&item, Path::new("src/lib.rs"));
+        let field = &ctx.fields[0];
+        assert!(field.is_mut);
+        assert!(field.metadata_keys.iter().any(|k| k == "mint"));
+        assert!(field.metadata_keys.iter().any(|k| k == "name"));
+    }
+
+    #[test]
+    fn partial_metadata_constraints_are_errors() {
+        let mut field = empty_field("metadata");
+        field.metadata_keys = vec!["name".into(), "symbol".into()];
+        let ctx = context_with(field);
+        let mut diagnostics = Vec::new();
+        run_diagnostics(&ctx, &mut diagnostics);
+        assert!(diagnostics
+            .iter()
+            .any(|d| { d.level == Level::Error && d.message.contains("metadata fields require") }));
+    }
+
+    #[test]
+    fn complete_master_edition_constraints_are_valid() {
+        let mut field = empty_field("master_edition");
+        field.master_edition_keys = [
+            "max_supply",
+            "mint",
+            "metadata",
+            "update_authority",
+            "mint_authority",
+            "payer",
+            "token_program",
+            "system_program",
+        ]
+        .iter()
+        .map(|s| (*s).to_string())
+        .collect();
+        let ctx = context_with(field);
+        let mut diagnostics = Vec::new();
+        run_diagnostics(&ctx, &mut diagnostics);
+        assert!(!diagnostics.iter().any(|d| d.level == Level::Error));
+    }
 }
 
 // Prevent BTreeMap from being dropped as an unused import on stripped
