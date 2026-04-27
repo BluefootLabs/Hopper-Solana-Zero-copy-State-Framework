@@ -4,9 +4,6 @@ Optional proc macro DX layer for [Hopper](https://hopperzero.dev). Generates
 the parsing, validation, and dispatch code for the `#[hopper::state]`,
 `#[hopper::context]`, `#[hopper::program]` authoring path.
 
-[![Crates.io](https://img.shields.io/crates/v/hopper-macros-proc.svg)](https://crates.io/crates/hopper-macros-proc)
-[![Docs.rs](https://img.shields.io/docsrs/hopper-macros-proc)](https://docs.rs/hopper-macros-proc)
-
 ## Not required
 
 Every feature these macros provide is achievable through Hopper's

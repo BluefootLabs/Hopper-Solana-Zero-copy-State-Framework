@@ -1,8 +1,5 @@
 # hopper-schema
 
-[![Crates.io](https://img.shields.io/crates/v/hopper-schema.svg)](https://crates.io/crates/hopper-schema)
-[![Docs.rs](https://img.shields.io/docsrs/hopper-schema)](https://docs.rs/hopper-schema)
-
 Schema export, ABI fingerprinting, and migration tooling for Hopper.
 
 Part of the **[Hopper](https://hopperzero.dev)** framework.

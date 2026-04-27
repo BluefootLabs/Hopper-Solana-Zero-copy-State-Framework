@@ -1,8 +1,5 @@
 # hopper-solana
 
-[![Crates.io](https://img.shields.io/crates/v/hopper-solana.svg)](https://crates.io/crates/hopper-solana)
-[![Docs.rs](https://img.shields.io/docsrs/hopper-solana)](https://docs.rs/hopper-solana)
-
 Solana integration layer for the Hopper zero-copy state framework.
 
 Part of the **[Hopper](https://hopperzero.dev)** framework.

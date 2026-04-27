@@ -4,9 +4,6 @@ Off-chain companion crate for [Hopper](https://hopperzero.dev). Indexers,
 explorers, wallets, and back-ends use this to consume Hopper programs without
 running on-chain.
 
-[![Crates.io](https://img.shields.io/crates/v/hopper-sdk.svg)](https://crates.io/crates/hopper-sdk)
-[![Docs.rs](https://img.shields.io/docsrs/hopper-sdk)](https://docs.rs/hopper-sdk)
-
 ## What's here
 
 - **Receipt decoder** — parse Hopper's 64-byte `StateReceipt` wire format

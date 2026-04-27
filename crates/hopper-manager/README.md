@@ -3,9 +3,6 @@
 Schema-driven program inspector library for [Hopper](https://hopperzero.dev).
 Backs the `hopper manager` CLI command family.
 
-[![Crates.io](https://img.shields.io/crates/v/hopper-manager.svg)](https://crates.io/crates/hopper-manager)
-[![Docs.rs](https://img.shields.io/docsrs/hopper-manager)](https://docs.rs/hopper-manager)
-
 ## What it does
 
 Given a `ProgramManifest` and raw account bytes, this crate identifies the

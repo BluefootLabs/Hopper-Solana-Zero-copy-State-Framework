@@ -1,11 +1,6 @@
 # hopper-macros
 
-[![Crates.io](https://img.shields.io/crates/v/hopper-macros.svg)](https://crates.io/crates/hopper-macros)
-[![Docs.rs](https://img.shields.io/docsrs/hopper-macros)](https://docs.rs/hopper-macros)
-
 Declarative macros for the Hopper zero-copy state framework.
-
-Part of the **[Hopper](https://hopperzero.dev)** framework.
 
 All `macro_rules!`. No proc macros. You can build a full Hopper program without
 ever touching a derive or attribute macro. These are here to cut boilerplate,

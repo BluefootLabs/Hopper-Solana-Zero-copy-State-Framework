@@ -3,9 +3,6 @@
 DeFi math primitives for Hopper: AMM constant-product math, slippage
 guards, economic bounds. Zero-copy, no_std, no_alloc, BPF-safe.
 
-[![Crates.io](https://img.shields.io/crates/v/hopper-finance.svg)](https://crates.io/crates/hopper-finance)
-[![Docs.rs](https://img.shields.io/docsrs/hopper-finance)](https://docs.rs/hopper-finance)
-
 Part of the **[Hopper](https://hopperzero.dev)** framework.
 
 Pure functions over `u64` / `u128` with checked arithmetic and explicit

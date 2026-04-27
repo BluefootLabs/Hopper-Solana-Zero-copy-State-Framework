@@ -3,9 +3,6 @@
 Token vesting schedule calculations for Hopper. Linear with cliff,
 stepped/periodic unlocks, safe claimable amounts.
 
-[![Crates.io](https://img.shields.io/crates/v/hopper-vesting.svg)](https://crates.io/crates/hopper-vesting)
-[![Docs.rs](https://img.shields.io/docsrs/hopper-vesting)](https://docs.rs/hopper-vesting)
-
 Part of the **[Hopper](https://hopperzero.dev)** framework.
 
 Pure functions that take a vesting schedule and a wall-clock timestamp

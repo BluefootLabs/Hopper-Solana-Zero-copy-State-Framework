@@ -4,9 +4,6 @@ Staking reward accumulators for Hopper: MasterChef-style
 reward-per-token, emission rates, reward debt tracking. Zero-copy,
 no_std, no_alloc, BPF-safe.
 
-[![Crates.io](https://img.shields.io/crates/v/hopper-staking.svg)](https://crates.io/crates/hopper-staking)
-[![Docs.rs](https://img.shields.io/docsrs/hopper-staking)](https://docs.rs/hopper-staking)
-
 Part of the **[Hopper](https://hopperzero.dev)** framework.
 
 The classic reward-per-share accumulator pattern, expressed in checked

@@ -3,9 +3,6 @@
 Dust-safe proportional distribution and fee extraction for Hopper.
 Largest-remainder splitting, basis-point and flat fees, no leftover lamports.
 
-[![Crates.io](https://img.shields.io/crates/v/hopper-distribute.svg)](https://crates.io/crates/hopper-distribute)
-[![Docs.rs](https://img.shields.io/docsrs/hopper-distribute)](https://docs.rs/hopper-distribute)
-
 Part of the **[Hopper](https://hopperzero.dev)** framework.
 
 The math is integer-only and conservation-preserving: the sum of the parts

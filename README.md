@@ -1,205 +1,62 @@
 # Hopper
 
-[![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+[![License: MIT OR Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](LICENSE-MIT)
 ![no_std](https://img.shields.io/badge/no__std-yes-green.svg)
-![Tests](https://img.shields.io/badge/tests-workspace%20green-brightgreen.svg)
 
-> **Status: pre-release.** Not yet on crates.io. Build from source while we
-> finish the public release: `git clone` and use a path dependency. The
-> crates.io / docs.rs links will land at `v0.1.0`. Apache-2.0.
+> **Beta / pre-release.** Hopper is under active development and has not
+> received an external security audit. APIs may change. Use at your own risk.
+> Hopper is not published to crates.io or docs.rs yet; use a git or path
+> dependency until the first public release is cut.
 
-**The zero-copy state framework for Solana.**
+Hopper is a zero-copy state framework for Solana programs. It maps typed,
+fixed-layout views onto account bytes without a serialization round trip, while
+keeping the byte layout inspectable through headers, layout fingerprints,
+schema manifests, and CLI tooling.
 
-Pointer-cast speed. Protocol-grade safety. First-class state evolution.
-Segment-level borrow enforcement.
+The repository now follows the Quasar-style product layout: framework-internal
+crates live together in this main repo, while independent products such as the
+benchmark suite live separately.
 
-Hopper maps fixed-layout zero-copy views directly onto account bytes with no
-heap allocation and no serialization cycle. Unlike naive pointer-cast
-approaches, Hopper layers this on top of ABI-safe overlays, versioned headers,
-deterministic layout fingerprints, segmented state, **segment-level borrow
-enforcement**, state receipts, and CLI tooling that can explain any account
-from raw hex.
+## What Hopper provides
 
-**What makes Hopper different from every other Solana framework:** segment-level
-memory access. When you mutate a vault's `balance` field, Hopper locks exactly
-those 8 bytes. A parallel read of `authority` on the same account? Fine, no
-conflict. Every other framework locks the entire account. That is not a minor
-ergonomic win. It is the difference between catching aliasing bugs at the byte
-level and trusting developers to get it right manually.
+- `no_std` / `no_alloc` framework crates for on-chain programs.
+- Zero-copy typed account access over fixed-layout account bytes.
+- Layout fingerprints and versioned headers for account compatibility checks.
+- Segment-aware access helpers for field-level borrow tracking.
+- Optional proc macros for faster authoring; the core framework remains usable
+  without proc macros.
+- Multiple backend feature sets: Hopper Native by default, plus Pinocchio and
+  `solana-program` compatibility backends.
+- Schema, IDL, manager, and CLI tooling for inspecting and explaining account
+  layouts.
 
-The registry that enforces this lives in
-[`hopper_runtime::segment_borrow`](crates/hopper-runtime/src/segment_borrow.rs).
-`hopper-core` owns typed overlays, layout contracts, collections, and the
-account header; `hopper-runtime` owns the byte-range borrow registry, the
-account-level borrow bitfield, context plumbing, and CPI semantics. Both are
-re-exported through the root `hopper` crate, so callers do not need to know
-the boundary — but the audit trail does.
+## Status
 
-Built on Hopper Native, Hopper's sovereign low-level runtime substrate for Solana.
-Hopper also supports compatibility backends including Pinocchio and standard
-Solana runtime surfaces where needed, but Hopper Runtime is the canonical
-API surface all Hopper crates target.
+Hopper is not release-stable yet.
 
-Hopper also ships Hopper-owned companion program surfaces so authored programs
-do not need to reach through external system/token helper crates: use
-`hopper_system`, `hopper_token`, `hopper_token_2022`, and
-`hopper_associated_token` directly, or via the root `hopper` crate re-exports.
+- Use from source via a git or path dependency.
+- Do not rely on public API stability until the first tagged release.
+- Benchmark numbers should be regenerated from the separate
+  [hopper-bench](https://github.com/BluefootLabs/hopper-bench) repo before any
+  launch or comparison claim.
+- Security-sensitive users should treat Hopper as unaudited until an external
+  audit is complete.
 
-Hopper Native owns the raw execution boundary: loader parsing, duplicate-account
-resolution, eager and lazy entrypoints, syscall wrappers, and substrate account
-views. Hopper Runtime sits one layer up and owns typed loading, layout
-contracts, CPI semantics, context, and Hopper-facing PDA ergonomics.
-
-`no_std`, `no_alloc`. No proc macros required for correctness. Proc macros
-are optional DX accelerators only, never required for framework correctness.
-
-## One Access Model
-
-Hopper is not supposed to feel like a pile of parallel modes. There is one
-runtime path and one access model, with different guarantees layered on top:
-
-- whole-layout typed access via `account.load::<T>()` and `account.load_mut::<T>()`
-  (or the indexed shortcut: `ctx.load::<T>(idx)` / `ctx.load_mut::<T>(idx)`)
-- segment-aware typed access via `account.segment_ref(...)` and `account.segment_mut(...)`
-  (or `ctx.segment_ref::<T>(idx, offset)` / `ctx.segment_mut::<T>(idx, offset)`)
-- explicit raw escape hatches via `unsafe account.raw_ref::<T>()` and `unsafe account.raw_mut::<T>()`
-
-Specialized helpers such as `load_cross_program()` and `load_compatible()` are not
-separate frameworks. They are the same Hopper runtime path with a different
-validation contract.
-
-Hopper supports two authoring styles over that same access model:
-
-**Core authored style (no proc macros required):** Write `hopper_layout!`
-layouts, manage dispatch yourself, and call Hopper runtime accessors directly.
-
-**Proc authored style (optional DX layer):** Annotate structs with
-`#[hopper::state]`, `#[hopper::context]`, and `#[hopper::program]`. The macros
-generate the same constants, typed accessors, and dispatch glue you would write
-by hand.
-
-Both paths compile to identical code: `ptr + const_offset → cast → &mut T`.
-The proc macros are sugar, not structure. Enable them with:
+## Quick start from source
 
 ```toml
 [dependencies]
-hopper = { version = "0.1", features = ["proc-macros"] }
+hopper = { git = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework", features = ["proc-macros"] }
 ```
 
-```rust
-use hopper::prelude::*;
-
-#[derive(Clone, Copy)]
-#[repr(C)]
-#[hopper::state(disc = 1, version = 1)]
-pub struct Vault {
-  pub authority: TypedAddress<Authority>,
-  pub balance: WireU64,
-  pub bump: u8,
-}
-
-// Generates:
-// - impl SegmentMap for Vault { const SEGMENTS = &[...] }
-// - const VAULT_AUTHORITY_OFFSET: u32 = 0;
-// - const VAULT_AUTHORITY_SIZE: u32 = 32;
-// - const VAULT_BALANCE_OFFSET: u32 = 32;
-// - const VAULT_BALANCE_SIZE: u32 = 8;
-// . etc
-```
-
-Proc `state` layouts are body-only zero-copy views. Use `#[repr(C)]` and
-alignment-1 Hopper wire types such as `WireU64`, `WireBool`, and
-`TypedAddress<T>` so the generated layout contract can be loaded safely from
-account bytes.
-
-A typical handler just accesses the context and mutates the segment:
-
-```rust
-#[hopper::program]
-mod vault {
-  use super::*;
-
-  #[instruction(1)]
-  pub fn deposit(ctx: Context<Deposit>, amount: u64) -> ProgramResult {
-    let mut balance = ctx.vault_balance_mut()?;
-    *balance = WireU64::new(balance.get() + amount);
-    Ok(())
-  }
-}
-```
-
-Typed contexts always generate per-account accessors such as
-`ctx.vault_account()?`, `ctx.vault_load()?`, and `ctx.vault_raw_ref()?`.
-When an account is declared fully mutable with `#[account(mut)]`, the proc
-surface also emits whole-layout mutation accessors such as
-`ctx.vault_load_mut()?` and `ctx.vault_raw_mut()?`, plus general typed
-segment escapes like `ctx.vault_segment_mut::<WireU64>(abs_offset)` that
-share the same const-offset lowering as the named accessors.
-
-Opt-in handler attributes (`#[hopper::receipt]`, `#[hopper::invariant(..)]`,
-and the duplicate-check `#[hopper::pipeline]`) layer additional guarantees
-on top of the same access model. They are sugar, not structure. See
-[docs/HOPPER_LANG.md](docs/HOPPER_LANG.md) for the full list.
-
-## Program Lifecycle (advanced)
-
-Beyond the one access model, Hopper surfaces an optional lifecycle for
-protocols that want post-mutation invariants, structured receipts, and
-migration tooling. This is **opt-in**. The access model stands alone.
-
-```
-1. Define     Layout your state with hopper_layout!
-2. Resolve    Parse accounts from the instruction via Frame
-3. Validate   Run checks, verify signatures, enforce policy
-4. Execute    Mutate state in a controlled phase
-5. Record     Capture a StateReceipt of what changed
-6. Verify     Assert invariants and compatibility
-7. Inspect    Use the CLI (and the hopper-manager library) to explain,
-              diff, and plan migrations
-```
-
-Simple programs use steps 1, 3, and 4 and skip the rest. Complex protocols
-layer in `#[hopper::receipt]`, `#[hopper::invariant]`, and the manager
-tooling as needed. None of these steps are separate frameworks. They are
-opt-in guarantees on top of the same access model.
-
-## Access Guarantees
-
-Hopper exposes one access system with three guarantee levels. Most programs use
-validated whole-layout access first.
-
-| Tier | Path | What you get |
-|------|------|-------------|
-| **A** | `Vault::load(account, program_id)?` | Full pipeline: validation, fingerprints, receipts, tooling |
-| **B** | `pod_from_bytes::<Vault>(data)?` | Direct typed view, no header validation |
-| **C** | `unsafe { Vault::load_unchecked(data) }` | Raw cast, caller owns all risk |
-
-The cast overhead is intentionally minimal across all three. The difference is
-what validation runs before the cast and what tracking runs after it. The safe
-path adds header checks and fingerprint verification, the Pod path skips those,
-and the raw path is an explicit caller-owned escape hatch. See
-[MEMORY_ACCESS.md](docs/MEMORY_ACCESS.md) for measured CU numbers.
-
-## Getting Started
-
-Hopper offers two authoring paths that compile to identical code. New users
-should reach for the proc-macro path first — it is the shortest distance to a
-working program. The declarative path is available for anyone who wants to
-avoid proc macros, ship a fully `no_std` build without a macro dependency, or
-work closer to the metal.
-
-### Day One: Proc Macros (recommended)
-
-Enable the `proc-macros` feature and describe your layout with
-`#[hopper::state]`. Accessors, trait impls, constants, and dispatch glue are
-generated for you. This is the default Anchor-refugee path and the fastest
-way onto Hopper.
+For local development inside this repository:
 
 ```toml
-# Cargo.toml
 [dependencies]
-hopper = { version = "0.1", features = ["proc-macros"] }
+hopper = { path = "../Hopper-Solana-Zero-copy-State-Framework", features = ["proc-macros"] }
 ```
+
+Minimal layout example:
 
 ```rust
 use hopper::prelude::*;
@@ -209,9 +66,8 @@ use hopper::prelude::*;
 #[hopper::state(disc = 1, version = 1)]
 pub struct Vault {
     pub authority: TypedAddress<Authority>,
-    pub mint:      TypedAddress<Mint>,
-    pub balance:   WireU64,
-    pub bump:      u8,
+    pub balance: WireU64,
+    pub bump: u8,
 }
 
 #[hopper::program]
@@ -227,658 +83,87 @@ mod vault {
 }
 ```
 
-Load, validate, and evolve the typed view with the same helpers whichever
-authoring path you pick:
+## Repository layout
 
-```rust
-// Full validation (your own program's accounts)
-let vault = Vault::load(account, program_id)?;
-let balance = vault.map(|v| v.balance.get());
+| Path | Purpose |
+|---|---|
+| `crates/hopper-runtime` | Runtime account views, borrow tracking, CPI helpers, backend compatibility. |
+| `crates/hopper-core` | ABI types, account headers, layout contracts, checks, collections, receipts. |
+| `crates/hopper-macros` | Declarative macro surface. |
+| `crates/hopper-macros-proc` | Optional proc-macro authoring layer. |
+| `crates/hopper-native` | Native low-level backend used by Hopper by default. |
+| `crates/hopper-schema` | Schema, IDL, Codama projection, and layout manifest support. |
+| `crates/hopper-system` | Hopper-owned system-program helpers. |
+| `crates/hopper-solana` | Solana interop helpers. |
+| `crates/hopper-spl` | SPL Token, Token-2022, ATA, and Metaplex helper crates. |
+| `crates/hopper-manager` | Manifest-driven account inspection library. |
+| `crates/hopper-sdk` | Client-side SDK surface. |
+| `crates/hopper-svm` | In-process execution and testing harness. |
+| `tools/hopper-cli` | `hopper` CLI for linting, schema export, account inspection, and profiling. |
+| `examples` | Example Hopper programs. |
+| `docs` | Design notes, unsafe invariants, and audit/recovery notes. |
 
-// Cross-program read with ABI proof
-let vault = Vault::load_foreign(account, &other_program_id)?;
+The obsolete split repositories were folded back into this workspace with
+subtree history preserved and then archived/private on GitHub.
 
-// Version-compatible read: accept V1+ during migration, skip layout_id match
-let vault = VaultV1::load_compatible(account, program_id, 1)?;
+## Backend features
 
-// Unverified: returns (ref, valid_flag) for callers that want to inspect
-// a possibly-stale account without short-circuiting
-if let Some((vault, valid)) = VaultV1::load_unverified(data) {
-    // ...
-}
-```
-
-Declare what each instruction is allowed to do:
-
-```rust
-const DEPOSIT_CAPS: CapabilitySet = CapabilitySet::new()
-    .with(Capability::MutatesState)
-    .with(Capability::MutatesTreasury);
-
-const POLICY: InstructionPolicy<3> = InstructionPolicy::new()
-    .when(Capability::MutatesState, PolicyRequirement::Authority)
-    .when(Capability::MutatesState, PolicyRequirement::InvariantCheck)
-    .when(Capability::MutatesTreasury, PolicyRequirement::LamportConservation);
-```
-
-Record what happened:
-
-```rust
-let mut receipt = StateReceipt::<256>::begin(&Vault::LAYOUT_ID, data);
-// . mutations ...
-receipt.commit_with_segments(data, &[(offset, size)]);
-receipt.set_policy_flags(DEPOSIT_CAPS.bits());
-receipt.set_invariants(true, 1);
-emit_slices(&[&receipt.to_bytes()]);
-```
-
-Receipts capture before/after fingerprints, changed fields, byte-level diffs,
-segment tracking, and policy flags. They are Hopper's primary auditability
-artifact.
-
-See [`examples/hopper-proc-vault`](examples/hopper-proc-vault/src/lib.rs) for a
-single-file proc-macro program and
-[`examples/hopper-showcase`](examples/hopper-showcase/src/lib.rs) for the
-complete reference implementation that uses every layer.
-
-### Day Two: Declarative Macros (no proc macros)
-
-The same program written without proc macros. `hopper_layout!` computes offsets
-and the layout fingerprint at compile time, emits the same trait impls, and
-lowers to the same `ptr + const_offset → cast → &mut T`. This path is useful
-when you want to drop the `proc-macros` feature entirely, skim closer to the
-substrate, or audit every generated token yourself.
-
-```rust
-use hopper::prelude::*;
-
-hopper_layout! {
-    pub struct Vault, disc = 1, version = 1 {
-        authority: TypedAddress<Authority>  = 32,
-        mint:      TypedAddress<Mint>       = 32,
-        balance:   WireU64                  = 8,
-        bump:      u8                       = 1,
-    }
-}
-```
-
-The declarative path requires explicit field sizes (the right edge of each
-line). Hopper emits a compile-time assertion so `size_of::<Vault>()` must
-match the sum you declared plus the 16-byte header.
-
-### Advanced Hopper
-
-For bigger protocols that need segmented accounts, virtual multi-account state,
-migration planning, trust profiles, and custom validation graphs.
-
-- Segmented accounts with typed segment roles (Core, Extension, Journal, Index, Cache, Audit, Shard)
-- Virtual state mapping across multiple accounts via `hopper_virtual!`
-- Schema diffing and migration planning between layout versions
-- Trust profiles for cross-program reads at different confidence levels
-- Validation graphs with combinators, transition rule packs, and post-mutation hooks
-
-See [`examples/hopper-registry`](examples/hopper-registry/src/lib.rs) and
-[`examples/hopper-virtual-state`](examples/hopper-virtual-state/src/lib.rs).
-
-### Escape Hatch
-
-When you need to go lower than the framework, Hopper gets out of your way.
-Every macro has an `_unchecked` or manual alternative. You can drop down to raw
-overlay access, write custom wire formats, build your own collections, or
-bypass validation for init-time writes. The framework is a set of tools, not a
-cage.
-
-## What You Get
-
-| Area | What it does |
-|------|-------------|
-| **Typed overlays** | `#[repr(C)]` structs mapped directly onto account bytes, zero serialization cost |
-| **16-byte header** | Every account is self-describing: disc, version, flags, layout fingerprint |
-| **Segment-level borrows** | Fine-grained conflict detection at the byte range level. Read `authority` while writing `balance` on the same account. 16-entry compact registry (u64 fingerprint + full-address fallback, ~280 bytes stack), no heap, inline checks. Implemented in [`hopper_runtime::segment_borrow::SegmentBorrowRegistry`](crates/hopper-runtime/src/segment_borrow.rs) |
-| **SegmentMap** | Compile-time field→offset mapping via const trait. `segment("balance")` resolves to `StaticSegment { offset: 32, size: 8 }` at compile time |
-| **Deterministic fingerprints** | SHA-256 of field names/types/sizes, computed at compile time |
-| **5-tier loading** | Full, foreign, compatible, unchecked, unverified |
-| **3 memory access tiers** | Safe overlay, explicit pod, unsafe raw. Same access model, different validation overhead |
-| **Phased execution** | Resolve, Validate, Execute enforced at compile time via typestate |
-| **Modifier wrappers** | `Signer<Mut<Account<'a, T>>>` composable constraint types |
-| **8 zero-copy collections** | FixedVec, RingBuffer, SlotMap, BitSet, Journal, Slab, PackedMap, SortedVec |
-| **Segment roles** | Core, Extension, Journal, Index, Cache, Audit, Shard with typed semantics |
-| **State receipts** | Structured mutation proof: before/after fingerprints, changed fields, byte counts, segment tracking, policy flags, phase metadata, compat impact, migration flags |
-| **Policy system** | Declare capabilities, auto-trigger validation requirements. Named packs for common patterns |
-| **Schema spine** | ProgramManifest > ProgramIdl > CodamaProjection - three projection layers from one source of truth |
-| **Migration planner** | Generate step-by-step plans between layout versions, segment-role-aware |
-| **Cross-program reads** | `hopper_interface!` reads foreign accounts by fingerprint, no crate dependency |
-| **CPI guards** | Detect CPI invocation, flash loan brackets, subsequent calls |
-| **Trust profiles** | Strict, Compatible, ReadOnly, and Observational loading for foreign accounts |
-| **CLI tooling** | explain, inspect, decode, segments, compat, diff, plan, receipt, schema-export, client gen |
-| **Program Manager** | Identify accounts, decode fields, inspect instructions, list policies from manifest |
-| **Client SDK generation** | TypeScript and Kotlin (org.sol4k) client generators from program manifests |
-| **Anchor IDL emit** | `hopper schema export --anchor-idl` projects the manifest into Anchor 0.30-shaped IDL JSON for wallets and explorers that haven't migrated to Codama yet |
-| **Metaplex builders** | Optional `hopper-metaplex` crate (behind `--features metaplex`): `CreateMetadataAccountV3`, `CreateMasterEditionV3`, `UpdateMetadataAccountV2`, plus `metadata_pda` / `master_edition_pda` derivation. Stack-buffer Borsh encoder; no heap, no `Vec` |
-| **Anchor-parity guard family** | `require!`, `require_eq!`, `require_neq!`, `require_keys_eq!`, `require_keys_neq!`, `require_gt!`, `require_gte!`, `require_lt!`, `require_lte!`, plus `err!` / `error!` short forms — all eight from Anchor's vocabulary, none of Anchor's runtime cost |
-| **Constraint vocabulary** | `#[hopper::context]` accepts the full Anchor keyword set: `init`, `init_if_needed`, `zero`, `close`, `realloc`, `payer`, `space`, `seeds`, `bump`, `has_one`, `owner`, `address`, `constraint`, `executable`, `rent_exempt`, the `token::*` / `mint::*` / `associated_token::*` triples, plus Hopper-unique `mut(seg1, seg2)` / `read(seg1, seg2)` segment-level borrows |
-| **Token-2022 extensions** | First-class field keywords: `extensions::transfer_hook::{authority,program_id}`, `metadata_pointer::{authority,metadata_address}`, `non_transferable`, `immutable_owner`, `mint_close_authority`, `permanent_delegate`, `default_account_state`, `interest_bearing::rate_authority`, `transfer_fee::{authority,withdraw_authority}` |
-| **Handler attributes** | `#[hopper::access_control(expr)]` for pre-handler gates, `#[hopper::receipt]` for structured mutation proofs, `#[hopper::invariant(cond[, err = ...])]` for post-mutation checks, `#[hopper::pipeline]` for typestate-enforced phased execution |
-
-## Crate Architecture
-
-```
-hopper (root facade, re-exports everything)
-|
-+-- hopper-native        Sovereign raw backend: loader parsing, syscall wrappers,
-|                        entrypoint glue, substrate AccountView, duplicate-account resolution
-+-- hopper-runtime       Typed runtime: LayoutContract, Context, checked CPI, PDA helpers,
-|                        segment leases, guard macros (require!, require_eq!, ...)
-+-- hopper-core          Ring 0: ABI types, account header, overlay, checks,
-|                        collections, frame, lifecycle, fingerprints, migration,
-|                        policy, receipts, segment roles, SegmentMap, virtual state
-+-- hopper-macros        18 declarative macros (no proc macros, always available)
-+-- hopper-macros-proc   Optional proc macros: #[hopper::state], #[hopper::context],
-|                        #[hopper::program], #[hopper::migrate]. DX layer, never required.
-+-- hopper-system        Hopper-owned System Program instruction builders
-+-- hopper-token         Hopper-owned SPL Token instruction builders
-+-- hopper-token-2022    Hopper-owned Token-2022 instruction builders + screening
-+-- hopper-associated-token Hopper-owned ATA helpers and ATA instruction builders
-+-- hopper-solana        SPL Token/Mint readers, CPI guards, typed CPI kits
-+-- hopper-anchor        Anchor interoperability: read Anchor-created accounts
-+-- hopper-metaplex      Optional (--features metaplex). Metaplex Token Metadata
-|                        builders: CreateMetadataAccountV3, CreateMasterEditionV3,
-|                        UpdateMetadataAccountV2, plus PDA helpers
-+-- hopper-schema        Layout manifests, field diffs, migration planning,
-|                        program manifests, IDL, Codama projection, field-level decoding,
-|                        Anchor IDL emit
-+-- hopper-manager       Schema-driven program inspector library
-+-- hopper-finance       DeFi math primitives: AMM constant-product, slippage guards
-+-- hopper-lending       Lending primitives: collateralization, health checks, liquidation math
-+-- hopper-staking       MasterChef-style reward-per-token accumulators
-+-- hopper-vesting       Token vesting schedule math (linear/cliff/stepped unlocks)
-+-- hopper-distribute    Dust-safe proportional distribution and fee extraction
-+-- hopper-multisig      M-of-N signer threshold checks
-+-- hopper-cli           CLI: compile, explain, inspect, compat, diff, plan, receipt, manager
-+-- hopper-svm           In-process Solana harness: inline simulators (default),
-|                        `solana-sbpf` interpreter (`bpf-execution`), full Agave
-|                        validator stack (`agave-runtime`)
-```
-
-### `hopper-svm` execution modes
-
-`hopper-svm` is Hopper's in-process program harness. Three layered modes ship in one crate:
-
-| Feature flag | What runs | Use case |
-|---|---|---|
-| (default) | inline Rust simulators for the system program + user-registered builtins | Fast unit tests, no validator dep |
-| `bpf-execution` | direct `solana-sbpf` interpretation of `.so` bytes | Real BPF execution without the full Agave dep tree |
-| `agave-runtime` | the actual `solana-program-runtime` + `solana-bpf-loader-program` + Agave's real `system_processor` | Mainnet-fidelity integration tests |
-
-`agave-runtime` is the Quasar-parity / mainnet-fidelity path. After `HopperSvm::new().with_agave_runtime()`, every `process_instruction` call routes through `InvokeContext::process_instruction` against Agave's program cache. The system program runs through `solana_system_program::system_processor::Entrypoint`. Custom builtins register via `add_builtin_function(id, account_size, BuiltinFunctionWithContext)`. SPL ELFs load through `load_bpf_program(id, kind, loader_key, elf, account_size)` which wraps Agave's real `load_program_from_bytes`.
-
-End-to-end tests in [`crates/hopper-svm/src/agave/engine.rs`](crates/hopper-svm/src/agave/engine.rs) and [`crates/hopper-svm/src/lib.rs`](crates/hopper-svm/src/lib.rs) prove the round trip: a `system_instruction::transfer` between two accounts dispatches through Agave, balances flow back via `AccountSharedData`, the harness reports `>= 150 CU` consumed (Agave's system program declares that as its baseline).
-
-## Sovereign Boundary
-
-Hopper is split on purpose:
-
-- **Hopper Native** owns raw loader parsing, duplicate-account handling,
-  `hopper_program_entrypoint!`, `hopper_lazy_entrypoint!`, syscall wrappers,
-  and the substrate `AccountView`.
-- **Hopper Runtime** owns Hopper semantics: typed `AccountView` validation,
-  `LayoutContract`, `Context`, checked CPI, and Hopper-facing PDA helpers.
-- **compat/** owns every backend bridge. Pinocchio and solana-program support
-  exist for interoperability, not as Hopper's identity.
-
-That split is what lets Hopper stay raw-pointer fast without collapsing into a
-thin wrapper around another framework.
-
-## Examples
-
-Start with `hopper-showcase`. It is the canonical Hopper program that uses
-every layer of the pipeline: layout, dispatch, phased frame, policy, receipts,
-invariants, segment roles, and state diffs. The other examples focus on
-specific patterns.
-
-| Example | What it shows | Tier |
-|---------|-------------|------|
-| [`hopper-showcase`](examples/hopper-showcase/src/lib.rs) | **Full pipeline reference** (start here) | 1+2 |
-| [`hopper-vault`](examples/hopper-vault/src/lib.rs) | Simple SOL vault: layout, dispatch, phased frame | 1 |
-| [`hopper-escrow`](examples/hopper-escrow/src/lib.rs) | Token escrow with authority checks | 1 |
-| [`hopper-treasury`](examples/hopper-treasury/src/lib.rs) | Multi-segment treasury with permissions | 2 |
-| [`hopper-registry`](examples/hopper-registry/src/lib.rs) | Segmented registry with journal and virtual state | 2 |
-| [`hopper-migration`](examples/hopper-migration/src/lib.rs) | V1 to V2 layout evolution with migration planner | 2 |
-| [`hopper-virtual-state`](examples/hopper-virtual-state/src/lib.rs) | Multi-account entities with VirtualState | 2 |
-| [`hopper-token-2022-vault`](examples/hopper-token-2022-vault/src/lib.rs) | Hopper-owned Token-2022 vault flow with local manifest-backed CLI preview | 2 |
-| [`hopper-policy-vault`](examples/hopper-policy-vault/src/lib.rs) | Three sibling programs: `strict`, `sealed`, `raw`, showing the policy-driven runtime and per-instruction `unsafe_memory` override | 2 |
-| [`hopper-proc-vault`](examples/hopper-proc-vault/src/lib.rs) | `#[hopper::state]` + `#[hopper::context]` + `#[hopper::program]` proc-macro surface in one file | 1 |
-| [`hopper-parity-vault`](examples/hopper-parity-vault/src/lib.rs) | Cross-framework fair-comparison baseline used by `bench/framework-vault-bench` | 1 |
-| [`hopper-token-2022-ata`](examples/hopper-token-2022-ata/src/lib.rs) | Hopper-owned `hopper_associated_token::CreateIdempotent` + Token-2022 flow | 1 |
-| [`hopper-token-2022-transfer-hook`](examples/hopper-token-2022-transfer-hook/src/lib.rs) | Token-2022 transfer-hook extension reader: validates the bound hook program, gates safe-mint screening, authority-rotates the expected binding | 2 |
-| [`hopper-nft-mint`](examples/hopper-nft-mint/src/lib.rs) | NFT mint reference: Metaplex `CreateMetadataAccountV3` + `CreateMasterEditionV3` end-to-end (1-of-1 lock). Uses `hopper-metaplex` builders | 1 |
-| [`cross-program-read`](examples/cross-program-read/) | Interface pinning across two programs | 2 |
-
-Plus benchmark targets that double as reference programs:
-
-| Bench target | What it shows |
-|--------------|---------------|
-| [`bench/pinocchio-vault`](bench/pinocchio-vault/src/lib.rs) | In-tree Anza Pinocchio parity vault (raw-substrate baseline) |
-| [`bench/anchor-vault`](bench/anchor-vault/src/lib.rs) | In-tree Anchor parity vault using `AccountLoader` (zero-copy comparator) |
-| [`bench/lazy-dispatch-vault`](bench/lazy-dispatch-vault/src/lib.rs) | Eight-instruction dispatch vault built twice (eager + lazy) so the lazy-entrypoint CU win is directly measurable |
-
-## CLI
-
-The CLI is Hopper's host-side inspection and generation tool. It reads
-hex-encoded account data and schema manifests to help you verify layouts,
-segments, version compatibility, and mutation receipts. It is offline-first:
-most commands operate on local manifests and raw bytes, while `hopper fetch`
-and `hopper manager fetch` optionally use RPC to pull on-chain manifests.
-
-When a package already contains `hopper.manifest.json`,
-`hopper compile --emit rust` can infer it from the current project root. Use
-`--package <name>` to target another workspace member and `--out <path>` to
-write the lowered preview to disk.
-
-Commands are organized into families:
-
-```
-Compile:
-  hopper compile --emit rust [<manifest>]  Emit lowered runtime Rust: accessors, offsets, pointer path
-
-Schema:
-  hopper schema export [--manifest|--idl|--codama]  Schema format reference
-  hopper schema validate <manifest>  Validate a program manifest
-  hopper schema diff <old> <new>     Field-level diff between versions
-
-Inspect:
-  hopper inspect <hex>               Raw header decode
-  hopper inspect layout <manifest> <hex>  Decode fields using a program manifest
-  hopper inspect segments <hex>      Segment registry map
-  hopper inspect receipt <hex>       Decode a state receipt
-
-Explain:
-  hopper explain <hex>               Human-readable account explanation
-  hopper explain account <hex>       Explicit account explanation
-  hopper explain receipt <hex>       Explain a receipt in plain English
-  hopper explain compat <old> <new>  Explain compatibility report
-  hopper explain policy <pack>       Explain a named policy pack
-  hopper explain layout <manifest>   Explain layout fields, intents, fingerprint
-  hopper explain program <manifest>  Explain entire program pipeline
-  hopper explain context <manifest> [--type <ContextName>]  Explain instruction contexts and generated accessors
-
-Compatibility:
-  hopper compat <old> <new>          Compatibility report
-  hopper plan <old> <new>            Migration plan with steps
-
-Receipt:
-  hopper receipt <hex>               Decode and display a 64-byte state receipt
-
-Fetch:
-  hopper fetch <program-id> [--rpc <url>]  Fetch manifest from on-chain
-
-Interactive:
-  hopper interactive <manifest>      Interactive terminal explorer
-
-Client SDK:
-  hopper client gen --ts <manifest>  Generate TypeScript client SDK
-  hopper client gen --kt <manifest>  Generate Kotlin client SDK (org.sol4k)
-```
-
-### Manager
-
-The Manager is Hopper's program-level management and inspection interface.
-Given a program manifest today, or an on-chain manifest fetched via
-`hopper fetch` / `hopper manager fetch`, it provides a complete view of your
-program: every layout, every instruction, every policy, and every account type,
-decoded, explained, and cross-referenced.
-
-```
-hopper manager summary <manifest>                      Program overview
-hopper manager identify <manifest> <hex>               Identify account type
-hopper manager decode <manifest> <hex>                 Decode all fields with values
-hopper manager instruction <manifest> <tag|name>       Instruction details and policies
-hopper manager layouts <manifest>                      List all layouts with fields
-hopper manager policies <manifest>                     List policy packs with mappings
-hopper manager fingerprints <manifest>                 Show all layout fingerprints
-hopper manager events <manifest>                       List events with fields
-hopper manager compat <manifest> <hex-old> <hex-new>   Compare two account versions
-hopper manager receipt <hex-64-bytes>                  Decode a state receipt
-hopper manager explain <manifest>                      Aggregated human-readable summary
-hopper manager diff <manifest> <hex-old> <hex-new>     Semantic field-level diff
-hopper manager fetch <program-id> [--rpc <url>]        Fetch manifest from on-chain
-hopper manager simulate <manifest> <instruction>       Preview instruction requirements
-hopper manager interactive <manifest>                  Interactive terminal explorer
-```
-
-Manifest arguments accept `@path/to/file.json` to load from disk.
-See [`examples/sample-manifest.json`](examples/sample-manifest.json) for the format.
-
-**Roadmap**: live account discovery and program-address-first workflows can
-build on the existing on-chain manifest path. Today, the concrete entry points
-are `hopper fetch`, `hopper manager fetch`, and the manifest-driven manager
-subcommands above.
-
-## Backend Selection
-
-Hopper Native is the default backend. All examples, docs, and the CLI target it.
-Pinocchio and solana-program are supported as compatibility backends for
-projects that need to interoperate with existing codebases.
+Hopper Native is the default backend.
 
 ```toml
-# Default: Hopper Native (no configuration needed)
-[dependencies]
-hopper = "0.1"
+# Default backend
+hopper = { git = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework" }
 
-# Pinocchio backend
-[dependencies]
-hopper = { version = "0.1", default-features = false, features = ["pinocchio-backend"] }
+# Pinocchio compatibility backend
+hopper = { git = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework", default-features = false, features = ["pinocchio-backend"] }
 
-# solana-program backend
-[dependencies]
-hopper = { version = "0.1", default-features = false, features = ["solana-program-backend"] }
+# solana-program compatibility backend
+hopper = { git = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework", default-features = false, features = ["solana-program-backend"] }
 ```
 
-All examples include backend feature flags. Build any example with an
-alternate backend:
+Only one backend should be enabled for a program build.
+
+## Tooling
+
+Useful development commands:
 
 ```sh
-cargo build -p hopper-vault --no-default-features --features pinocchio-backend
+cargo metadata --no-deps --format-version 1
+cargo test -p hopper-cli cmd::lint::tests -- --nocapture
+cargo test -p hopper --features proc-macros,metaplex --test constant_integration -- --nocapture
+cargo test -p hopper --features proc-macros,metaplex --test metaplex_context_integration -- --nocapture
 ```
 
-Only one backend may be active at a time. Enabling multiple backends produces a
-compile error.
+The CLI source lives in `tools/hopper-cli`. It supports linting, schema export,
+manifest inspection, account decoding, and profile helpers.
 
-## Comparison
+## Benchmarks
 
-Hopper's strongest differentiator is not "pointer casts exist". Pinocchio,
-Quasar, and Anchor's `AccountLoader` already cover raw zero-copy access in
-different ways. Hopper's lead is that it treats layouts as runtime contracts:
-versioned headers, deterministic layout fingerprints, foreign/versioned loads,
-field maps, schema export, segment roles, and manager-ready metadata all come
-from the same state model.
+The benchmark suite is maintained as a separate product repo:
 
-### Benchmark (Parity Vault, 8-seed average)
+https://github.com/BluefootLabs/hopper-bench
 
-| Scenario | Hopper | Pinocchio | Quasar |
-|----------|--------|-----------|--------|
-| Authorize | **432 CU** | _re-run pending_ | 585 CU |
-| Auth-fail | **70 CU** | _re-run pending_ | 66 CU |
-| Counter (segment-safe) | **539 CU** | _re-run pending_ | 607 CU |
-| Deposit | **1651 CU** | _re-run pending_ | 1768 CU |
-| Withdraw | **455 CU** | _re-run pending_ | 605 CU |
-| **Binary size** | **7.62 KiB** | _re-run pending_ | 8.36 KiB |
+Do not copy old benchmark numbers from this README. Regenerate numbers from the
+benchmark repo before publishing performance claims.
 
-The Pinocchio column is **Anza's own `pinocchio = "0.10"` + `pinocchio-system = "0.5"`**,
-built in-tree from [`bench/pinocchio-vault`](bench/pinocchio-vault/src/lib.rs).
-The audit (see [AUDIT.md](AUDIT.md) R2) replaced the previous "Pinocchio-style"
-column, which loaded a third-party reference vault from Quasar's tree and was
-easy to misread as the Pinocchio framework itself. The Pinocchio numbers here
-are marked _re-run pending_ because swapping in the real baseline invalidates
-the pre-R2 figures; they will be populated after the next `framework-vault-bench`
-run. Hopper's expected lead over idiomatic Pinocchio is a few hundred CU on
-PDA-bearing instructions — not the ~2000 CU gap the old "Pinocchio-style"
-number implied, because the old comparison was against a non-optimised reference
-sample rather than against Pinocchio's actual shape.
+## Safety posture
 
-**Hopper beats Quasar on 4 of 5 instructions** on the parity-vault bench.
-Hopper's counter-access uses `segment_ref` and `segment_mut` with
-segment-level borrow tracking (backed by `hopper_runtime::segment_borrow`,
-see below). Quasar and Pinocchio use raw byte slicing with no conflict
-detection. The verify-only PDA path (sha256 only, no `curve_validate`
-syscall) saves ~350 CU per PDA-bearing instruction. Hopper produces the
-**smallest binary** of the frameworks measured. Source numbers in
-`bench/results/` and methodology in
-[bench/METHODOLOGY.md](bench/METHODOLOGY.md).
+Hopper uses `unsafe` at the boundary where account bytes become typed views.
+The framework keeps those boundaries small and documented, but this is still a
+zero-copy framework and should be reviewed like one.
 
-| | Hopper | Anchor zero-copy | Pinocchio | Quasar |
-|---|---|---|---|---|
-| Raw entrypoint ownership | Yes | No | Yes | Yes |
-| Zero-copy account access | Yes | `AccountLoader` | Yes | Yes |
-| no_std / no_alloc | Yes | No | Yes | Yes |
-| Segment-level borrow enforcement | Yes | No | No | No |
-| Compile-time SegmentMap | Yes | No | No | No |
-| Deterministic layout fingerprints | Yes | No | No | No |
-| Versioned + foreign typed loads | Yes | No | No | No |
-| Segment roles and registries | Yes | No | No | No |
-| Field maps + schema export | Yes | IDL only | No | IDL only |
-| State receipts | Yes | No | No | No |
-| Policy system | Yes | No | No | No |
-| Optional proc macros (not required) | Yes | N/A (required) | No | Yes |
-| CLI / profiling / client tooling | Strong | Strong | Minimal | Strong |
-| Backend portability | 3 backends | solana-program | pinocchio | pinocchio |
-| Memory access tiers | 3 (safe/pod/raw) | 1 (`AccountLoader`) | 1 (raw) | 1 (raw) |
+See:
 
-Anchor still leads on ecosystem reach and polished public tooling. Quasar is
-stronger than older comparisons often gave it credit for in CLI, profiling,
-IDL, and generated clients. Hopper's claim is different: it is the only one of
-these frameworks that makes the layout contract itself the center of runtime,
-schema, migration, and tooling.
-
-## Trust Posture
-
-Hopper is a zero-copy framework, which means it casts raw byte slices into
-typed references using `unsafe`. Every other zero-copy framework on Solana does
-the same thing. What matters is how those boundaries are managed.
-
-**What is unsafe and why:**
-
-| Boundary | Justification | Mitigation |
-|----------|--------------|------------|
-| `pod_from_bytes` / `pod_from_bytes_mut` | Core pointer cast from `&[u8]` to `&T` | Size and alignment checked before cast. `T: Pod` trait requires `repr(C)`, no padding, byte-safe fields. |
-| `load_unchecked` (Tier C) | Opt-in raw cast for hot paths | Only exposed as `unsafe fn`. Caller accepts all risk. Never used by default pipeline. |
-| Segment table reads | Decode offset/size from account bytes | Bounds-checked against buffer length before every access. |
-| VerifiedAccount header access | Read disc/version/layout_id from first 16 bytes | Length check (>= HEADER_LEN) runs before any field read. |
-
-**What is *not* unsafe:**
-
-- Layout declaration (`hopper_layout!`) is pure const construction.
-- Policy checks, capability sets, and receipts are safe Rust.
-- Schema diffing, fingerprinting, and migration planning are pure functions.
-- CLI tooling never uses unsafe. All decoding goes through `decode_header`
-  which returns `Option`.
-
-**Testing unsafe boundaries:**
-
-Every unsafe entry point has a companion test in
-[unsafe_boundary_tests.rs](crates/hopper-core/tests/unsafe_boundary_tests.rs)
-that exercises undersized, oversized, empty, and misaligned inputs.
-[overlay_equivalence_tests.rs](crates/hopper-core/tests/overlay_equivalence_tests.rs)
-proves that overlay casts produce the same values as manual byte decoding.
-
-The full unsafe inventory with line-level justifications is in
-[UNSAFE_INVARIANTS.md](docs/UNSAFE_INVARIANTS.md).
-
-## Design Principles
-
-1. **Bytes first.** Think in offsets and wire formats, not abstractions.
-2. **Pipeline model.** Define, Resolve, Validate, Execute, Record, Verify, Inspect.
-3. **Segment-level precision.** Lock bytes, not accounts. The smallest unit of mutation is a field, not a buffer.
-4. **Compile-time safety.** Typestate, const generics, and deterministic hashing over runtime checks.
-5. **Zero hidden cost.** No allocations, no trait objects, no dynamic dispatch on-chain.
-6. **Self-describing accounts.** The 16-byte header makes every account inspectable.
-7. **Append-only evolution.** New fields extend layouts. Old data stays valid.
-8. **Control-first, DX-optional.** The core is always hand-writeable. Macros accelerate, never gate.
-9. **Rigid where safety matters, flexible where architecture matters.**
-
-## Schema Layering
-
-Hopper produces three progressively narrower schema projections from one source
-of truth. Each layer strips internal details while preserving what its audience
-needs:
-
-```
-ProgramManifest      Full truth: layouts, instructions, events, policies,
-   |                 layout metadata, compatibility pairs, tooling hints
-   v
-ProgramIdl           Public-facing: instructions (with PDA seed hints),
-   |                 accounts, events, fingerprints
-   v
-CodamaProjection     Ecosystem interop: Codama-shaped instructions,
-                     accounts, events for client generators
-```
-
-The manifest is what the CLI, Manager, and migration planner consume.
-The IDL is what documentation and client SDKs consume.
-The Codama projection is what ecosystem tools (Kinobi, Umi) consume.
-
-## Guard macros
-
-Early-return guard macros in the Jiminy-replacement tradition. Zero
-overhead, zero dependencies, available at `hopper::*` and through
-`use hopper::prelude::*`. Hopper ships the full Anchor-parity family
-(eight comparison variants plus error-return shorthands):
-
-```rust
-hopper::require!(amount > 0, ProgramError::InvalidArgument);
-hopper::require_eq!(vault.version, 1, ProgramError::InvalidAccountData);
-hopper::require_neq!(source, destination, ProgramError::InvalidAccountData);
-hopper::require_keys_eq!(vault.authority, signer.address(), ProgramError::InvalidAccountData);
-hopper::require_keys_neq!(authority_a, authority_b, ProgramError::InvalidAccountData);
-hopper::require_gte!(account.lamports(), required, ProgramError::InsufficientFunds);
-hopper::require_gt!(fresh_slot, last_slot, ProgramError::InvalidArgument);
-hopper::require_lt!(slot, deadline, ProgramError::InvalidArgument);
-hopper::require_lte!(amount, MAX_DEPOSIT, ProgramError::InvalidArgument);
-
-// Anchor-style short-form error returns
-return hopper::err!(VaultError::ZeroDeposit);
-// `error!(...)` is an alias for `err!(...)` for ported Anchor code.
-```
-
-Every macro has a short form that defaults to a sensible error
-(`InvalidArgument`, `InvalidAccountData`, or `InsufficientFunds`).
-For the raw-dispatch authoring path there's also `hopper_load!`
-destructuring sugar:
-
-```rust
-// Replaces `let [user, vault, ..] = accounts else { return Err(...) };`
-hopper_load!(accounts => [user, vault, system_program]);
-```
-
-Regression suite lives in [tests/require_macros.rs](tests/require_macros.rs).
-
-## `hopper verify`
-
-ABI-integrity command. Catches the silent refactor where a developer
-changes a layout, rebuilds the program, and forgets to re-export the
-manifest. Two phases, first fatal, second informational by default:
-
-```bash
-# Manifest-only integrity: unique disc, unique LAYOUT_ID, non-zero bytes
-hopper verify @my-program.manifest.json
-
-# Plus binary scan for each LAYOUT_ID fingerprint in the compiled .so
-hopper verify @my-program.manifest.json --so target/deploy/my_program.so
-
-# Infer both from a workspace package
-hopper verify --package my-program
-
-# Treat missing anchors as fatal
-hopper verify --package my-program --strict
-```
-
-`#[hopper::state]` emits a `#[used]` static per layout so the
-`LAYOUT_ID` bytes survive SBF link-time optimization. Declarative
-`hopper_layout!` does not yet emit the anchor, so `--strict` is the
-right gate for programs built exclusively with the proc-macro path.
-
-## Client-side ABI verification
-
-Generated clients (TypeScript, Kotlin, and Rust) include a per-layout
-`assert_{name}_layout` helper that reads the 8-byte `LAYOUT_ID`
-fingerprint from the 16-byte Hopper header and rejects mismatches:
-
-```ts
-import { assertVaultLayout, decodeVault, VAULT_LAYOUT_ID } from "./accounts";
-
-const data = await connection.getAccountInfo(vaultPubkey).then(a => a!.data);
-assertVaultLayout(data); // throws if the on-chain ABI drifted
-const vault = decodeVault(data);
-```
-
-```rust
-use hopper_vault_client::{assert_vault_layout, decode_vault, deposit_ix, DepositArgs};
-
-let account = rpc.get_account(&vault_pubkey).await?;
-let vault = decode_vault(&account.data)?; // LayoutMismatch if the ABI drifted
-let ix = deposit_ix(&program_id, &accounts, &DepositArgs { amount: 1_000_000 });
-```
-
-Three target languages, one fingerprint contract. The client and program
-agree on the layout fingerprint byte-for-byte, so an upgrade that
-silently changes field order fails at the SDK boundary instead of
-corrupting state. Produce any of them with:
-
-```bash
-hopper compile --emit ts          @program.manifest.json --out client.ts
-hopper compile --emit kt          @program.manifest.json --out Client.kt
-hopper compile --emit rust-client @program.manifest.json --out client.rs
-```
-
-## Token-CPI safety default
-
-`hopper_token::{Transfer, MintTo, Burn, CloseAccount, Approve, Revoke}`
-builders enforce the authority-signer invariant on the no-signer
-`invoke()` path before reaching the CPI:
-
-```rust
-// Raises MissingRequiredSignature if authority is not a transaction signer.
-hopper_token::Transfer { from, to, authority, amount: 1_000 }.invoke()?;
-
-// PDA-signed path (no pre-check; the signer seeds are the authorization).
-hopper_token::Transfer { from, to, authority: &vault_pda, amount: 1_000 }
-    .invoke_signed(&[vault_signer])?;
-```
-
-The SPL Token program enforces the same rule at CPI time, but the
-pre-check surfaces a Hopper-branded error identifying exactly which
-field is wrong instead of an opaque CPI failure.
-
-## Safety Audit Closure
-
-The Hopper Safety Audit drove a full pass through the framework. Every
-must-fix, should-fix, and structural item is closed in-tree with
-file-and-line evidence in [UNSAFE_INVARIANTS.md](docs/UNSAFE_INVARIANTS.md).
-A summary of the shipping closures:
-
-| Audit item | Where it closes |
-|---|---|
-| Malformed duplicate-account rejection | `crates/hopper-native/src/raw_input.rs` + safe `parse_instruction_frame_checked` |
-| RAII segment leases | `crates/hopper-runtime/src/segment_lease.rs` |
-| Canonical wire fingerprint | `crates/hopper-macros-proc/src/state.rs` canonical_wire_stem |
-| Field-level Pod proof | `__FieldPodProof<T: bytemuck::Pod + Zeroable>` in `pod.rs` + `state.rs` |
-| Compile-fail harness | 10 trybuild fixtures in `tests/compile_fail/` |
-| Fuzzing | `fuzz/` crate with 4 libfuzzer targets |
-| Anchor-grade constraints | `#[hopper::context]` parses init/payer/space/seeds/bump/close/realloc/has_one/owner/address/constraint |
-| Typed wrappers | `Signer<'info>`, `Account<'info, T>`, `InitAccount<'info, T>`, `Program<'info, P>` in `hopper-runtime::account_wrappers` |
-| Schema-epoch migrations | `#[hopper::migrate]` + `hopper::layout_migrations!` + `apply_pending_migrations` |
-| Hybrid serialization | `#[hopper::state(dynamic_tail = T)]` + `TailCodec` |
-| Foreign-account lenses | `ForeignLens<T>` + `ForeignManifest` in `hopper-runtime::foreign` |
-| Multi-target compile | `hopper compile --emit <target>` for rust, ts, kt, idl, codama, schema |
-| Cross-framework bench | `bench/METHODOLOGY.md` + anchor slot in `framework-vault-bench` |
-| Compile-proven borrow safety | `HopperRefOnly` sealed trait in `crates/hopper-runtime/src/ref_only.rs` + compile-fail fixture |
-| Policy-driven runtime (`strict` / `sealed` / `raw`) | `HopperProgramPolicy` + `#[hopper::program(sealed)]` emits `#[deny(unsafe_code)]` per handler; `#[instruction(N, unsafe_memory)]` restores raw access for one handler at a time |
-
-## Documentation
-
-| Doc | What it covers |
-|-----|---------------|
-| [The Hopper Model](docs/THE_HOPPER_MODEL.md) | Complete framework reference in one page |
-| [Memory Access Doctrine](docs/MEMORY_ACCESS.md) | Three-tier memory access with performance data |
-| [Schema Architecture](docs/SCHEMA_ARCHITECTURE.md) | Schema model, manifest format, IDL spec, Codama compatibility |
-| [Proc Macro Policy](docs/PROC_MACRO_POLICY.md) | Proc macro governance: what's allowed and what's not |
-| [Hopper Manager](docs/HOPPER_MANAGER.md) | Manager vision: CLI, web dashboard, embedded admin |
-| [Benchmarks](BENCHMARKS.md) | Benchmark lab, current CU baselines, and automation coverage |
-| [Unsafe Invariants](docs/UNSAFE_INVARIANTS.md) | Every unsafe block cataloged with justifications |
-| [Architecture](docs/ARCHITECTURE.md) | Crate structure and module map |
-| [Getting Started](docs/GETTING_STARTED_SERIOUS.md) | Build a complete program from scratch |
-| [Parity and Differentiation](docs/PARITY_AND_DIFFERENTIATION.md) | Feature-level comparison with every competitor |
-| [Bad Evolution](docs/BAD_EVOLUTION.md) | Layout evolution anti-patterns and how Hopper catches them |
+- `docs/UNSAFE_INVARIANTS.md`
+- `AUDIT.md`
+- `crates/hopper-core/tests/unsafe_boundary_tests.rs`
+- `crates/hopper-core/tests/overlay_equivalence_tests.rs`
 
 ## License
 
-Apache-2.0. See [LICENSE](LICENSE) for details.
+Licensed under either of:
 
-## Links
+- MIT license (`LICENSE-MIT`)
+- Apache License, Version 2.0 (`LICENSE-APACHE`)
 
-- **Repository**: [GitHub](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework)
-- **Author**: [@moonmanquark](https://x.com/moonmanquark)
-- **Organization**: [BluefootLabs](https://github.com/BluefootLabs)
-
-`hopper` is not yet published to crates.io or docs.rs; both links will be
-added at `v0.1.0`. Build from source in the meantime.
+at your option.

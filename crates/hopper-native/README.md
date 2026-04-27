@@ -1,11 +1,8 @@
 # hopper-native
 
-Hopper's sovereign low-level runtime substrate for Solana. Owns raw loader
-parsing, syscall wrappers, entrypoint glue, substrate `AccountView`, and
+Hopper's low-level runtime backend for Solana. Owns raw loader parsing,
+syscall wrappers, entrypoint glue, substrate `AccountView`, and
 duplicate-account resolution.
-
-[![Crates.io](https://img.shields.io/crates/v/hopper-native.svg)](https://crates.io/crates/hopper-native)
-[![Docs.rs](https://img.shields.io/docsrs/hopper-native)](https://docs.rs/hopper-native)
 
 Part of the **[Hopper](https://hopperzero.dev)** framework.
 

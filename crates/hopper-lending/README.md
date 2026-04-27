@@ -4,9 +4,6 @@ Lending protocol primitives for Hopper: collateralization ratios, health
 checks, liquidation math, interest calculations. Zero-copy, no_std,
 no_alloc, BPF-safe.
 
-[![Crates.io](https://img.shields.io/crates/v/hopper-lending.svg)](https://crates.io/crates/hopper-lending)
-[![Docs.rs](https://img.shields.io/docsrs/hopper-lending)](https://docs.rs/hopper-lending)
-
 Part of the **[Hopper](https://hopperzero.dev)** framework.
 
 Designed to drop in beside a Hopper account layout: hand it the

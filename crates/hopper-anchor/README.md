@@ -4,9 +4,6 @@ Anchor interoperability for Hopper programs. Read accounts created by
 Anchor programs, decode their 8-byte SHA-256 discriminators, and validate
 the layouts without pulling in the Anchor framework itself.
 
-[![Crates.io](https://img.shields.io/crates/v/hopper-anchor.svg)](https://crates.io/crates/hopper-anchor)
-[![Docs.rs](https://img.shields.io/docsrs/hopper-anchor)](https://docs.rs/hopper-anchor)
-
 Part of the **[Hopper](https://hopperzero.dev)** framework.
 
 ## When to reach for this

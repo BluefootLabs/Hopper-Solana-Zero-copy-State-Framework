@@ -4,9 +4,6 @@ Canonical low-level runtime surface for [Hopper](https://hopperzero.dev).
 Hopper Native is the primary backend; Pinocchio and solana-program are
 compatibility backends.
 
-[![Crates.io](https://img.shields.io/crates/v/hopper-runtime.svg)](https://crates.io/crates/hopper-runtime)
-[![Docs.rs](https://img.shields.io/docsrs/hopper-runtime)](https://docs.rs/hopper-runtime)
-
 ## What this crate owns
 
 - **Typed AccountView** with checked + unchecked borrow paths.
