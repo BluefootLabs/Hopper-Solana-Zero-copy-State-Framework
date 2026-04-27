@@ -1,0 +1,1100 @@
+//! State Receipts -- structured mutation summaries.
+//!
+//! A `StateReceipt` captures a complete record of what happened during
+//! an instruction's execution: which fields changed, what the before/after
+//! fingerprints were, which invariants ran, which capabilities were active,
+//! and how many CPI calls or journal appends occurred.
+//!
+//! ## Use Cases
+//!
+//! - **Audit trails**: Emit receipts as events for off-chain indexing
+//! - **Test assertions**: Verify exact mutation footprint in tests
+//! - **Post-mutation validation**: Feed receipt to invariant checks
+//! - **Debugging**: Log receipts during development
+//! - **CLI inspection**: Decode receipt bytes with `hopper receipt`
+//!
+//! ## Usage
+//!
+//! ```ignore
+//! // Before mutation
+//! let mut receipt = StateReceipt::<8>::begin(
+//!     &layout_id,
+//!     account_data,
+//! );
+//!
+//! // ... mutations happen ...
+//!
+//! // After mutation
+//! receipt.commit(account_data);
+//! receipt.set_invariants(true, 3);
+//! receipt.set_policy_flags(DEPOSIT_CAPS.bits());
+//! receipt.set_cpi_count(1);
+//! receipt.set_journal_appends(2);
+//!
+//! // Emit as event
+//! emit_slices(&[&receipt.to_bytes()]);
+//! ```
+
+use crate::diff::StateSnapshot;
+
+/// Maximum fields tracked in a receipt's changed-field bitmask.
+pub const MAX_RECEIPT_FIELDS: usize = 64;
+
+/// Fast non-cryptographic 64-bit fingerprint of a byte slice.
+///
+/// Hopper receipts only need deterministic change detection, not a strong hash.
+/// On SBF, a per-byte multiply-heavy hash is disproportionately expensive, so
+/// receipts use a chunked mixer built from rotates, xor, and adds instead.
+#[inline]
+fn fast_fingerprint(data: &[u8]) -> [u8; 8] {
+    let len = data.len() as u32;
+    let mut lo = 0x243f_6a88_u32 ^ len;
+    let mut hi = 0x85a3_08d3_u32 ^ len.rotate_left(16);
+
+    let mut i = 0usize;
+    while i + 8 <= data.len() {
+        let a = u32::from_le_bytes([data[i], data[i + 1], data[i + 2], data[i + 3]]);
+        let b = u32::from_le_bytes([data[i + 4], data[i + 5], data[i + 6], data[i + 7]]);
+        lo = (lo.rotate_left(5) ^ a).wrapping_add(0x9e37_79b9);
+        hi = (hi.rotate_left(7) ^ b).wrapping_add(0x7f4a_7c15);
+        i += 8;
+    }
+
+    if i < data.len() {
+        let mut tail = [0u8; 8];
+        let mut tail_i = 0usize;
+        while i < data.len() {
+            tail[tail_i] = data[i];
+            tail_i += 1;
+            i += 1;
+        }
+        let a = u32::from_le_bytes([tail[0], tail[1], tail[2], tail[3]]);
+        let b = u32::from_le_bytes([tail[4], tail[5], tail[6], tail[7]]);
+        lo = lo.rotate_left(5) ^ a;
+        hi = hi.rotate_left(7) ^ b;
+    }
+
+    let mixed_lo = lo ^ hi.rotate_left(13);
+    let mixed_hi = hi ^ lo.rotate_left(11) ^ len;
+    let mut out = [0u8; 8];
+    out[0..4].copy_from_slice(&mixed_lo.to_le_bytes());
+    out[4..8].copy_from_slice(&mixed_hi.to_le_bytes());
+    if out == [0u8; 8] {
+        out[0] = 1;
+    }
+    out
+}
+
+/// A structured record of a state mutation.
+///
+/// `SNAP_SIZE` is the maximum snapshot size (stack-allocated).
+pub struct StateReceipt<const SNAP_SIZE: usize> {
+    /// Layout ID of the account being mutated.
+    pub layout_id: [u8; 8],
+    /// Before-snapshot.
+    snapshot: StateSnapshot<SNAP_SIZE>,
+    /// Field-level change bitmask (bit N = field N changed).
+    pub changed_fields: u64,
+    /// Number of bytes that changed.
+    pub changed_bytes: usize,
+    /// Number of changed regions (contiguous runs).
+    pub changed_regions: usize,
+    /// Whether the account was resized.
+    pub was_resized: bool,
+    /// Old account data length.
+    pub old_size: usize,
+    /// New account data length.
+    pub new_size: usize,
+    /// Whether all invariants passed after mutation.
+    pub invariants_passed: bool,
+    /// Number of invariants checked.
+    pub invariants_checked: u16,
+    /// Whether CPI was invoked during the instruction.
+    pub cpi_invoked: bool,
+    /// Whether the receipt has been committed (post-mutation data provided).
+    committed: bool,
+    /// Whether execution hit a failure path.
+    ///
+    /// When `true`, `failed_error_code`, `failed_invariant_idx`, and
+    /// `failure_stage` identify the failing check. This closes the
+    /// provable-safety chain: a receipt that escapes the program
+    /// carries enough information for the off-chain SDK to render
+    /// "Invariant `balance_nonzero` failed" instead of an opaque hex code.
+    pub had_failure: bool,
+    /// User error code that aborted execution (e.g. `VaultError::InsufficientBalance as u32`).
+    ///
+    /// `0` when `had_failure` is `false`.
+    pub failed_error_code: u32,
+    /// Index into the program's `INVARIANT_TABLE` for the failing invariant.
+    ///
+    /// `0xFF` means "no invariant was the cause". the failure happened
+    /// outside an invariant check (e.g. a constraint guard).
+    pub failed_invariant_idx: u8,
+    /// Stage at which the failure occurred. See [`FailureStage`].
+    pub failure_stage: u8,
+    /// FNV-1a fingerprint of the data before mutation.
+    pub before_fingerprint: [u8; 8],
+    /// FNV-1a fingerprint of the data after mutation (set on commit).
+    pub after_fingerprint: [u8; 8],
+    /// Bitmask of which segments were touched (bit N = segment N changed).
+    pub segment_changed_mask: u16,
+    /// CapabilitySet bits describing what this instruction does.
+    pub policy_flags: u32,
+    /// Number of journal entries appended during this instruction.
+    pub journal_appends: u16,
+    /// Number of CPI calls made during this instruction.
+    pub cpi_count: u8,
+    /// Instruction phase tag (see [`Phase`]).
+    pub phase: u8,
+    /// Validation bundle identifier (program-defined).
+    pub validation_bundle_id: u16,
+    /// Compatibility impact of this mutation (see [`CompatImpact`]).
+    pub compat_impact: u8,
+    /// Migration flags (bit 0 = triggered, bit 1 = realloc, bit 2 = schema bump).
+    pub migration_flags: u8,
+}
+
+/// Stage of instruction execution at which a failure was recorded.
+///
+/// Surfaced in `StateReceipt::failure_stage` so operators can tell
+/// whether an error fired before any mutation, during a mutation's
+/// invariant check, after a successful mutation, or during teardown.
+/// Combined with `failed_error_code` this lets the SDK pinpoint
+/// exactly where in the instruction lifecycle the failure happened.
+#[repr(u8)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FailureStage {
+    /// No failure (receipt committed cleanly).
+    None = 0,
+    /// Failed during account/context validation (pre-handler).
+    Validation = 1,
+    /// Failed inside the instruction handler before any invariant.
+    Handler = 2,
+    /// Failed inside an invariant check.
+    Invariant = 3,
+    /// Failed during the post-handler receipt commit/emit path.
+    Post = 4,
+    /// Failed inside a close guard / teardown routine.
+    Teardown = 5,
+}
+
+impl FailureStage {
+    #[inline(always)]
+    pub fn from_tag(tag: u8) -> Self {
+        match tag {
+            1 => Self::Validation,
+            2 => Self::Handler,
+            3 => Self::Invariant,
+            4 => Self::Post,
+            5 => Self::Teardown,
+            _ => Self::None,
+        }
+    }
+
+    #[inline(always)]
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::None => "none",
+            Self::Validation => "validation",
+            Self::Handler => "handler",
+            Self::Invariant => "invariant",
+            Self::Post => "post",
+            Self::Teardown => "teardown",
+        }
+    }
+}
+
+/// Sentinel value for `failed_invariant_idx` meaning "no invariant
+/// was associated with the failure".
+pub const FAILED_INVARIANT_NONE: u8 = 0xFF;
+
+/// Instruction execution phase encoded in a receipt.
+#[repr(u8)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Phase {
+    /// Normal update / mutation.
+    Update = 0,
+    /// Account initialization.
+    Init = 1,
+    /// Account close / deletion.
+    Close = 2,
+    /// Migration to a new layout version.
+    Migrate = 3,
+    /// Read-only / view (no mutation expected).
+    ReadOnly = 4,
+}
+
+impl Phase {
+    /// Convert from raw tag.
+    #[inline(always)]
+    pub fn from_tag(tag: u8) -> Self {
+        match tag {
+            1 => Self::Init,
+            2 => Self::Close,
+            3 => Self::Migrate,
+            4 => Self::ReadOnly,
+            _ => Self::Update,
+        }
+    }
+
+    /// Human-readable name.
+    #[inline(always)]
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Update => "Update",
+            Self::Init => "Init",
+            Self::Close => "Close",
+            Self::Migrate => "Migrate",
+            Self::ReadOnly => "ReadOnly",
+        }
+    }
+}
+
+/// Compatibility impact level encoded in a receipt.
+#[repr(u8)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CompatImpact {
+    /// No compatibility impact.
+    None = 0,
+    /// Append-only growth, backward readable.
+    Append = 1,
+    /// Full migration required.
+    Migration = 2,
+    /// Breaking change.
+    Breaking = 3,
+}
+
+impl CompatImpact {
+    /// Convert from raw tag.
+    #[inline(always)]
+    pub fn from_tag(tag: u8) -> Self {
+        match tag {
+            1 => Self::Append,
+            2 => Self::Migration,
+            3 => Self::Breaking,
+            _ => Self::None,
+        }
+    }
+
+    /// Human-readable name.
+    #[inline(always)]
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::None => "none",
+            Self::Append => "append",
+            Self::Migration => "migration",
+            Self::Breaking => "breaking",
+        }
+    }
+}
+
+impl<const SNAP_SIZE: usize> StateReceipt<SNAP_SIZE> {
+    /// Begin recording a state receipt.
+    ///
+    /// Captures a before-snapshot and fingerprint of the account data.
+    #[inline]
+    pub fn begin(layout_id: &[u8; 8], data: &[u8]) -> Self {
+        Self {
+            layout_id: *layout_id,
+            snapshot: StateSnapshot::capture(data),
+            changed_fields: 0,
+            changed_bytes: 0,
+            changed_regions: 0,
+            was_resized: false,
+            old_size: data.len(),
+            new_size: data.len(),
+            invariants_passed: false,
+            invariants_checked: 0,
+            cpi_invoked: false,
+            committed: false,
+            had_failure: false,
+            failed_error_code: 0,
+            failed_invariant_idx: FAILED_INVARIANT_NONE,
+            failure_stage: FailureStage::None as u8,
+            before_fingerprint: fast_fingerprint(data),
+            after_fingerprint: [0; 8],
+            segment_changed_mask: 0,
+            policy_flags: 0,
+            journal_appends: 0,
+            cpi_count: 0,
+            phase: Phase::Update as u8,
+            validation_bundle_id: 0,
+            compat_impact: CompatImpact::None as u8,
+            migration_flags: 0,
+        }
+    }
+
+    /// Commit the receipt by providing post-mutation data.
+    ///
+    /// Computes the diff and after-fingerprint.
+    #[inline]
+    pub fn commit(&mut self, current_data: &[u8]) {
+        let diff = self.snapshot.diff(current_data);
+        self.changed_bytes = diff.changed_byte_count();
+        self.was_resized = diff.was_resized();
+        self.new_size = current_data.len();
+
+        let regions = diff.changed_regions::<16>();
+        self.changed_regions = regions.len();
+
+        self.after_fingerprint = fast_fingerprint(current_data);
+        self.committed = true;
+    }
+
+    /// Commit with field-level tracking.
+    ///
+    /// `fields` is `(name, offset, size)` per layout field.
+    /// Sets the `changed_fields` bitmask based on which fields actually changed.
+    #[inline]
+    pub fn commit_with_fields(
+        &mut self,
+        current_data: &[u8],
+        fields: &[(&str, usize, usize)],
+    ) {
+        self.commit(current_data);
+        self.changed_fields = crate::diff::field_diff_mask(
+            self.snapshot.data(),
+            current_data,
+            fields,
+        );
+    }
+
+    /// Commit with segment-level tracking.
+    ///
+    /// `segments` is `(offset, size)` per segment in the account.
+    /// Sets `segment_changed_mask` based on which segments have byte changes.
+    #[inline]
+    pub fn commit_with_segments(
+        &mut self,
+        current_data: &[u8],
+        segments: &[(usize, usize)],
+    ) {
+        self.commit(current_data);
+        let snap_data = self.snapshot.data();
+        let mut mask: u16 = 0;
+        let compare_len = if snap_data.len() < current_data.len() {
+            snap_data.len()
+        } else {
+            current_data.len()
+        };
+        for (i, &(offset, size)) in segments.iter().enumerate() {
+            if i >= 16 {
+                break;
+            }
+            let end = offset + size;
+            if end <= compare_len {
+                if snap_data[offset..end] != current_data[offset..end] {
+                    mask |= 1 << i;
+                }
+            } else if offset < compare_len {
+                // Partial overlap: segment extends beyond one of the buffers
+                mask |= 1 << i;
+            } else if self.was_resized {
+                // Segment entirely in new region
+                mask |= 1 << i;
+            }
+        }
+        self.segment_changed_mask = mask;
+    }
+
+    /// Set invariant results.
+    #[inline(always)]
+    pub fn set_invariants(&mut self, passed: bool, checked: u16) {
+        self.invariants_passed = passed;
+        self.invariants_checked = checked;
+    }
+
+    /// Set invariant pass status (convenience).
+    #[inline(always)]
+    pub fn set_invariants_passed(&mut self, passed: bool) {
+        self.invariants_passed = passed;
+    }
+
+    /// Mark that CPI was invoked during this instruction.
+    #[inline(always)]
+    pub fn set_cpi_invoked(&mut self, invoked: bool) {
+        self.cpi_invoked = invoked;
+    }
+
+    /// Set the number of CPI calls made. Also sets `cpi_invoked` if count > 0.
+    #[inline(always)]
+    pub fn set_cpi_count(&mut self, count: u8) {
+        self.cpi_count = count;
+        self.cpi_invoked = count > 0;
+    }
+
+    /// Set the policy/capability flags for this instruction.
+    ///
+    /// Pass `CapabilitySet::bits()` to record which capabilities were active.
+    #[inline(always)]
+    pub fn set_policy_flags(&mut self, flags: u32) {
+        self.policy_flags = flags;
+    }
+
+    /// Set the number of journal entries appended during this instruction.
+    #[inline(always)]
+    pub fn set_journal_appends(&mut self, count: u16) {
+        self.journal_appends = count;
+    }
+
+    /// Set the instruction phase.
+    #[inline(always)]
+    pub fn set_phase(&mut self, phase: Phase) {
+        self.phase = phase as u8;
+    }
+
+    /// Set the validation bundle identifier.
+    #[inline(always)]
+    pub fn set_validation_bundle_id(&mut self, id: u16) {
+        self.validation_bundle_id = id;
+    }
+
+    /// Set the compatibility impact level.
+    #[inline(always)]
+    pub fn set_compat_impact(&mut self, impact: CompatImpact) {
+        self.compat_impact = impact as u8;
+    }
+
+    /// Set migration flags (bit 0 = triggered, bit 1 = realloc, bit 2 = schema bump).
+    #[inline(always)]
+    pub fn set_migration_flags(&mut self, flags: u8) {
+        self.migration_flags = flags;
+    }
+
+    /// Record a failing error code, its associated invariant index (if any),
+    /// and the stage at which the failure occurred.
+    ///
+    /// This is the hook that closes the invariant-error chain: when an
+    /// instruction aborts, the program writes the *actual* user error
+    /// code (from the `#[hopper::error]`-derived enum) and the invariant
+    /// index (from `INVARIANT_TABLE`) into the receipt before emitting
+    /// it. The off-chain SDK can then map the code back to a variant name
+    /// and the idx to an invariant label without ever guessing.
+    ///
+    /// Pass `FAILED_INVARIANT_NONE` for `invariant_idx` when the failure
+    /// did not come from an invariant check (for example a constraint
+    /// guard or an account validation failure).
+    #[inline]
+    pub fn set_failure(&mut self, code: u32, invariant_idx: u8, stage: FailureStage) {
+        self.had_failure = true;
+        self.failed_error_code = code;
+        self.failed_invariant_idx = invariant_idx;
+        self.failure_stage = stage as u8;
+        // A recorded failure implies invariants did not all pass, but we
+        // don't touch `invariants_checked`. the caller still gets to
+        // report how many were evaluated before the abort.
+        self.invariants_passed = false;
+    }
+
+    /// Convenience: record a failure caused by a specific invariant index.
+    #[inline]
+    pub fn set_invariant_failure(&mut self, code: u32, invariant_idx: u8) {
+        self.set_failure(code, invariant_idx, FailureStage::Invariant);
+    }
+
+    /// Whether the receipt has been committed.
+    #[inline(always)]
+    pub fn is_committed(&self) -> bool {
+        self.committed
+    }
+
+    /// Whether any data actually changed.
+    #[inline(always)]
+    pub fn has_changes(&self) -> bool {
+        self.changed_bytes > 0 || self.was_resized
+    }
+
+    /// Whether the before and after fingerprints differ.
+    #[inline(always)]
+    pub fn fingerprint_changed(&self) -> bool {
+        self.before_fingerprint != self.after_fingerprint
+    }
+
+    /// Serialize the receipt summary into a fixed-size byte array.
+    ///
+    /// Wire format (72 bytes, 8-byte aligned):
+    /// ```text
+    /// [layout_id: 8 bytes]                  //  0.. 8
+    /// [changed_fields: 8 bytes (u64 LE)]    //  8..16
+    /// [changed_bytes: 4 bytes (u32 LE)]     // 16..20
+    /// [changed_regions: 2 bytes (u16 LE)]   // 20..22
+    /// [old_size: 4 bytes (u32 LE)]          // 22..26
+    /// [new_size: 4 bytes (u32 LE)]          // 26..30
+    /// [invariants_checked: 2 bytes (u16 LE)]// 30..32
+    /// [flags: 1 byte]                       // 32
+    ///   bit 0: was_resized
+    ///   bit 1: invariants_passed
+    ///   bit 2: cpi_invoked
+    ///   bit 3: committed
+    ///   bit 4: had_failure
+    /// [before_fingerprint: 8 bytes]         // 33..41
+    /// [after_fingerprint: 8 bytes]          // 41..49
+    /// [segment_changed_mask: 2 bytes (u16)] // 49..51
+    /// [policy_flags: 4 bytes (u32 LE)]      // 51..55
+    /// [journal_appends: 2 bytes (u16 LE)]   // 55..57
+    /// [cpi_count: 1 byte]                   // 57
+    /// [phase: 1 byte]                         // 58
+    /// [validation_bundle_id: 2 bytes (u16)]   // 59..61
+    /// [compat_impact: 1 byte]                 // 61
+    /// [migration_flags: 1 byte]               // 62
+    /// [failed_invariant_idx: 1 byte]          // 63   (0xFF = none)
+    /// [failed_error_code: 4 bytes (u32 LE)]   // 64..68 (0 = none)
+    /// [failure_stage: 1 byte]                 // 68   (see FailureStage)
+    /// [_reserved: 3 bytes]                    // 69..72 (future)
+    /// ```
+    ///
+    /// Pre-0.2 decoders that stopped at byte 64 still read correctly:
+    /// the first 64 bytes carry exactly the same fields they always
+    /// did, plus one new flag bit and one new idx byte that old
+    /// parsers can safely ignore.
+    #[inline]
+    pub fn to_bytes(&self) -> [u8; RECEIPT_SIZE] {
+        let mut out = [0u8; RECEIPT_SIZE];
+        // layout_id
+        out[0..8].copy_from_slice(&self.layout_id);
+        // changed_fields
+        out[8..16].copy_from_slice(&self.changed_fields.to_le_bytes());
+        // changed_bytes
+        out[16..20].copy_from_slice(&(self.changed_bytes as u32).to_le_bytes());
+        // changed_regions
+        out[20..22].copy_from_slice(&(self.changed_regions as u16).to_le_bytes());
+        // old_size
+        out[22..26].copy_from_slice(&(self.old_size as u32).to_le_bytes());
+        // new_size
+        out[26..30].copy_from_slice(&(self.new_size as u32).to_le_bytes());
+        // invariants_checked
+        out[30..32].copy_from_slice(&self.invariants_checked.to_le_bytes());
+        // flags
+        let mut flags: u8 = 0;
+        if self.was_resized { flags |= 1 << 0; }
+        if self.invariants_passed { flags |= 1 << 1; }
+        if self.cpi_invoked { flags |= 1 << 2; }
+        if self.committed { flags |= 1 << 3; }
+        if self.had_failure { flags |= 1 << 4; }
+        out[32] = flags;
+        // before_fingerprint
+        out[33..41].copy_from_slice(&self.before_fingerprint);
+        // after_fingerprint
+        out[41..49].copy_from_slice(&self.after_fingerprint);
+        // segment_changed_mask
+        out[49..51].copy_from_slice(&self.segment_changed_mask.to_le_bytes());
+        // policy_flags
+        out[51..55].copy_from_slice(&self.policy_flags.to_le_bytes());
+        // journal_appends
+        out[55..57].copy_from_slice(&self.journal_appends.to_le_bytes());
+        // cpi_count
+        out[57] = self.cpi_count;
+        // phase
+        out[58] = self.phase;
+        // validation_bundle_id
+        out[59..61].copy_from_slice(&self.validation_bundle_id.to_le_bytes());
+        // compat_impact
+        out[61] = self.compat_impact;
+        // migration_flags
+        out[62] = self.migration_flags;
+        // failed_invariant_idx
+        out[63] = self.failed_invariant_idx;
+        // failed_error_code
+        out[64..68].copy_from_slice(&self.failed_error_code.to_le_bytes());
+        // failure_stage
+        out[68] = self.failure_stage;
+        // out[69..72] intentionally left zero (reserved)
+        out
+    }
+}
+
+/// Receipt summary size in bytes.
+pub const RECEIPT_SIZE: usize = 72;
+
+/// Legacy receipt size, kept as a named constant for readers that want to
+/// quickly check if they received the shorter pre-0.2 receipt and ignore
+/// the failure-payload suffix.
+pub const RECEIPT_SIZE_LEGACY: usize = 64;
+
+/// Decoded receipt from wire bytes. Useful for CLI and off-chain tooling.
+pub struct DecodedReceipt {
+    pub layout_id: [u8; 8],
+    pub changed_fields: u64,
+    pub changed_bytes: u32,
+    pub changed_regions: u16,
+    pub old_size: u32,
+    pub new_size: u32,
+    pub invariants_checked: u16,
+    pub was_resized: bool,
+    pub invariants_passed: bool,
+    pub cpi_invoked: bool,
+    pub committed: bool,
+    pub before_fingerprint: [u8; 8],
+    pub after_fingerprint: [u8; 8],
+    pub segment_changed_mask: u16,
+    pub policy_flags: u32,
+    pub journal_appends: u16,
+    pub cpi_count: u8,
+    pub phase: u8,
+    pub validation_bundle_id: u16,
+    pub compat_impact: u8,
+    pub migration_flags: u8,
+    /// `true` when the receipt records a failure (flags bit 4).
+    pub had_failure: bool,
+    /// User error code for the failing check, or `0` when no failure.
+    pub failed_error_code: u32,
+    /// Invariant index for the failure, `FAILED_INVARIANT_NONE` (0xFF) when none.
+    pub failed_invariant_idx: u8,
+    /// Stage of execution at which the failure happened. See [`FailureStage`].
+    pub failure_stage: u8,
+}
+
+impl DecodedReceipt {
+    /// Decode a receipt from its 72-byte wire representation.
+    ///
+    /// Accepts legacy 64-byte receipts for backwards compatibility:
+    /// when given exactly `RECEIPT_SIZE_LEGACY` bytes, the failure
+    /// payload fields are populated from the legacy flag bits and
+    /// otherwise left zeroed.
+    ///
+    /// Returns `None` if the slice is shorter than the legacy size.
+    pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
+        if bytes.len() < RECEIPT_SIZE_LEGACY {
+            return None;
+        }
+        let mut layout_id = [0u8; 8];
+        layout_id.copy_from_slice(&bytes[0..8]);
+        let changed_fields = u64::from_le_bytes([
+            bytes[8], bytes[9], bytes[10], bytes[11],
+            bytes[12], bytes[13], bytes[14], bytes[15],
+        ]);
+        let changed_bytes = u32::from_le_bytes([
+            bytes[16], bytes[17], bytes[18], bytes[19],
+        ]);
+        let changed_regions = u16::from_le_bytes([bytes[20], bytes[21]]);
+        let old_size = u32::from_le_bytes([
+            bytes[22], bytes[23], bytes[24], bytes[25],
+        ]);
+        let new_size = u32::from_le_bytes([
+            bytes[26], bytes[27], bytes[28], bytes[29],
+        ]);
+        let invariants_checked = u16::from_le_bytes([bytes[30], bytes[31]]);
+        let flags = bytes[32];
+        let was_resized = flags & (1 << 0) != 0;
+        let invariants_passed = flags & (1 << 1) != 0;
+        let cpi_invoked = flags & (1 << 2) != 0;
+        let committed = flags & (1 << 3) != 0;
+        let had_failure = flags & (1 << 4) != 0;
+
+        let mut before_fingerprint = [0u8; 8];
+        before_fingerprint.copy_from_slice(&bytes[33..41]);
+        let mut after_fingerprint = [0u8; 8];
+        after_fingerprint.copy_from_slice(&bytes[41..49]);
+        let segment_changed_mask = u16::from_le_bytes([bytes[49], bytes[50]]);
+        let policy_flags = u32::from_le_bytes([
+            bytes[51], bytes[52], bytes[53], bytes[54],
+        ]);
+        let journal_appends = u16::from_le_bytes([bytes[55], bytes[56]]);
+        let cpi_count = bytes[57];
+        let phase = bytes[58];
+        let validation_bundle_id = u16::from_le_bytes([bytes[59], bytes[60]]);
+        let compat_impact = bytes[61];
+        let migration_flags = bytes[62];
+
+        // Failure payload. In a legacy 64-byte receipt the upper bytes do
+        // not exist; we fall back to sensible defaults rather than fail
+        // the parse so callers that only have the shortened format still
+        // get the remaining fields.
+        let (failed_invariant_idx, failed_error_code, failure_stage) = if bytes.len() >= RECEIPT_SIZE {
+            let idx = bytes[63];
+            let code = u32::from_le_bytes([bytes[64], bytes[65], bytes[66], bytes[67]]);
+            let stage = bytes[68];
+            (idx, code, stage)
+        } else {
+            (FAILED_INVARIANT_NONE, 0u32, FailureStage::None as u8)
+        };
+
+        Some(Self {
+            layout_id,
+            changed_fields,
+            changed_bytes,
+            changed_regions,
+            old_size,
+            new_size,
+            invariants_checked,
+            was_resized,
+            invariants_passed,
+            cpi_invoked,
+            committed,
+            before_fingerprint,
+            after_fingerprint,
+            segment_changed_mask,
+            policy_flags,
+            journal_appends,
+            cpi_count,
+            phase,
+            validation_bundle_id,
+            compat_impact,
+            migration_flags,
+            had_failure,
+            failed_error_code,
+            failed_invariant_idx,
+            failure_stage,
+        })
+    }
+
+    /// Resolve the `failure_stage` byte to a [`FailureStage`] enum.
+    #[inline(always)]
+    pub fn failure_stage_enum(&self) -> FailureStage {
+        FailureStage::from_tag(self.failure_stage)
+    }
+
+    /// Whether data actually changed according to this receipt.
+    #[inline(always)]
+    pub fn has_changes(&self) -> bool {
+        self.changed_bytes > 0 || self.was_resized
+    }
+
+    /// Whether before/after fingerprints differ.
+    #[inline(always)]
+    pub fn fingerprint_changed(&self) -> bool {
+        self.before_fingerprint != self.after_fingerprint
+    }
+
+    /// Resolve the `phase` byte to a [`Phase`] enum.
+    #[inline(always)]
+    pub fn phase_enum(&self) -> Phase {
+        Phase::from_tag(self.phase)
+    }
+
+    /// Resolve the `compat_impact` byte to a [`CompatImpact`] enum.
+    #[inline(always)]
+    pub fn compat_impact_enum(&self) -> CompatImpact {
+        CompatImpact::from_tag(self.compat_impact)
+    }
+
+    /// Return a structured human-readable explanation of this receipt.
+    ///
+    /// This is the "operator UX" layer-every numeric field gets a semantic
+    /// label so tools, dashboards, and CLI output can show meaningful text
+    /// instead of raw bytes.
+    pub fn explain(&self) -> ReceiptExplain {
+        let phase = self.phase_enum();
+        let compat = self.compat_impact_enum();
+
+        let mutation_desc = if !self.has_changes() {
+            "No mutations detected"
+        } else if self.was_resized {
+            "Account was resized"
+        } else {
+            "Account data modified in-place"
+        };
+
+        let integrity_desc = if self.had_failure {
+            // Failure payload dominates every other integrity signal.
+            // Operators and the SDK need to know *this run aborted*
+            // before they consume any other field.
+            match self.failure_stage_enum() {
+                FailureStage::Invariant => "INVARIANT FAILED. execution aborted",
+                FailureStage::Validation => "Account validation failed. execution aborted",
+                FailureStage::Handler => "Handler aborted before invariant evaluation",
+                FailureStage::Post => "Failure during receipt commit path",
+                FailureStage::Teardown => "Failure during close/teardown",
+                FailureStage::None => "FAILURE flagged without stage (malformed receipt)",
+            }
+        } else if !self.committed {
+            "Receipt was NOT committed (incomplete)"
+        } else if self.invariants_passed && self.invariants_checked > 0 {
+            "All invariants passed"
+        } else if self.invariants_checked > 0 {
+            "INVARIANT VIOLATION detected"
+        } else {
+            "No invariants checked"
+        };
+
+        let cpi_desc = if self.cpi_invoked {
+            "CPI was invoked during execution"
+        } else {
+            "No CPI calls"
+        };
+
+        ReceiptExplain {
+            phase_name: phase.name(),
+            compat_label: compat.name(),
+            policy_name: "unknown",
+            mutation_summary: mutation_desc,
+            integrity_summary: integrity_desc,
+            cpi_summary: cpi_desc,
+            changed_field_count: self.changed_fields.count_ones() as u16,
+            segment_count: self.segment_changed_mask.count_ones() as u8,
+            fingerprint_changed: self.fingerprint_changed(),
+            segment_role_names: [""; 8],
+            segment_role_count: 0,
+        }
+    }
+}
+
+/// Human-readable explanation of a decoded receipt.
+///
+/// Produced by [`DecodedReceipt::explain()`]. Every field is a semantic
+/// label, not a raw number-designed for operator dashboards, CLI output,
+/// and audit logs.
+pub struct ReceiptExplain {
+    /// Phase name ("Update", "Init", "Close", "Migrate", "ReadOnly").
+    pub phase_name: &'static str,
+    /// Compatibility impact label ("None", "Append", "Migration", "Breaking").
+    pub compat_label: &'static str,
+    /// Policy pack name that governed this instruction ("unknown" when not embedded).
+    pub policy_name: &'static str,
+    /// One-sentence description of what mutation occurred.
+    pub mutation_summary: &'static str,
+    /// One-sentence description of invariant check result.
+    pub integrity_summary: &'static str,
+    /// One-sentence CPI summary.
+    pub cpi_summary: &'static str,
+    /// Number of individual fields changed (popcount of changed_fields mask).
+    pub changed_field_count: u16,
+    /// Number of segments that were modified.
+    pub segment_count: u8,
+    /// Whether the before/after fingerprints differ.
+    pub fingerprint_changed: bool,
+    /// Role names for modified segments (up to 8). Use `segment_role_count`
+    /// to know how many entries are valid.
+    pub segment_role_names: [&'static str; 8],
+    /// Number of valid entries in `segment_role_names`.
+    pub segment_role_count: u8,
+}
+
+impl ReceiptExplain {
+    /// Return a copy with the given policy name injected.
+    ///
+    /// The receipt wire format does not carry the policy pack name-only a
+    /// bitmask of flags. Call this after constructing an explain from the
+    /// decoded receipt when you know which policy pack governed the
+    /// instruction (e.g. from the program manifest).
+    #[inline]
+    pub const fn with_policy_name(mut self, name: &'static str) -> Self {
+        self.policy_name = name;
+        self
+    }
+
+    /// Inject a segment role name at the given index.
+    ///
+    /// Call once per modified segment, using the `SegmentRole::name()`
+    /// output for each bit set in `segment_changed_mask`. This enriches
+    /// the explain with human-readable role labels.
+    #[inline]
+    pub const fn with_segment_role(mut self, idx: u8, name: &'static str) -> Self {
+        if (idx as usize) < 8 {
+            self.segment_role_names[idx as usize] = name;
+            if idx >= self.segment_role_count {
+                self.segment_role_count = idx + 1;
+            }
+        }
+        self
+    }
+
+    /// One-line human-readable summary combining phase, mutation,
+    /// and integrity status.
+    #[inline]
+    pub const fn summary(&self) -> &'static str {
+        // Phase + mutation + integrity condensed into a single static label.
+        // Because we're no_std we return the most descriptive static string
+        // based on the phase and mutation state.
+        if !crate::const_str_eq(self.phase_name, "Update")
+            && !crate::const_str_eq(self.phase_name, "Init")
+            && !crate::const_str_eq(self.phase_name, "Close")
+            && !crate::const_str_eq(self.phase_name, "Migrate")
+        {
+            return "Read-only operation, no state changes";
+        }
+        if crate::const_str_eq(self.phase_name, "Init") {
+            return "Account initialized";
+        }
+        if crate::const_str_eq(self.phase_name, "Close") {
+            return "Account closed";
+        }
+        if crate::const_str_eq(self.phase_name, "Migrate") {
+            if self.fingerprint_changed {
+                return "Migration applied, layout fingerprint updated";
+            }
+            return "Migration applied";
+        }
+        // Update phase, provide more detail based on what changed
+        if !self.fingerprint_changed && self.changed_field_count == 0 {
+            return "Update executed with no observable state changes";
+        }
+        if self.fingerprint_changed && self.changed_field_count > 0 && self.segment_count > 1 {
+            return "State mutated across multiple segments with fingerprint change";
+        }
+        if self.fingerprint_changed && self.changed_field_count > 0 {
+            return "State mutated with fingerprint change";
+        }
+        if self.fingerprint_changed {
+            return "Fingerprint changed without field-level mutations";
+        }
+        if self.changed_field_count > 0 && self.segment_count > 1 {
+            return "State mutated across multiple segments";
+        }
+        if self.changed_field_count > 0 {
+            return "State mutated";
+        }
+        "Update completed"
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Receipt Narrative -- auto-generated human explanations
+// ---------------------------------------------------------------------------
+
+/// An auto-generated human-readable narrative describing a mutation.
+///
+/// Built from the receipt explain plus optional field intents, policy class,
+/// and segment roles. This is the "operator artifact" layer that turns
+/// binary receipt data into sentences an operator can actually read.
+pub struct ReceiptNarrative {
+    /// Sentence fragments describing what happened. Up to 8 fragments.
+    pub fragments: [&'static str; 8],
+    /// Number of valid fragments.
+    pub count: u8,
+    /// Overall risk level of this mutation.
+    pub risk_level: NarrativeRisk,
+}
+
+/// Risk level for a receipt narrative.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[repr(u8)]
+pub enum NarrativeRisk {
+    /// No observable state changes.
+    None = 0,
+    /// Standard mutation, nothing unusual.
+    Low = 1,
+    /// Mutation touches authority or financial fields.
+    Medium = 2,
+    /// Migration, resize, or integrity violation detected.
+    High = 3,
+    /// Invariant failure or uncommitted receipt.
+    Critical = 4,
+}
+
+impl NarrativeRisk {
+    /// Human-readable label.
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::None => "none",
+            Self::Low => "low",
+            Self::Medium => "medium",
+            Self::High => "high",
+            Self::Critical => "critical",
+        }
+    }
+}
+
+impl core::fmt::Display for NarrativeRisk {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_str(self.name())
+    }
+}
+
+impl ReceiptNarrative {
+    /// Generate a narrative from a receipt explanation.
+    ///
+    /// Produces a sequence of human-readable fragments describing the
+    /// mutation, along with a risk assessment.
+    pub fn from_explain(explain: &ReceiptExplain) -> Self {
+        let mut frags: [&'static str; 8] = [""; 8];
+        let mut n = 0u8;
+        let mut risk = NarrativeRisk::None;
+
+        // Phase description
+        let phase_frag = match explain.phase_name {
+            "Init" => "Account was initialized.",
+            "Close" => "Account was closed.",
+            "Migrate" => "Migration was applied to the account.",
+            "ReadOnly" => "Read-only operation executed.",
+            _ => "State mutation executed.",
+        };
+        if n < 8 { frags[n as usize] = phase_frag; n += 1; }
+
+        // Mutation details
+        if explain.changed_field_count > 0 {
+            risk = NarrativeRisk::Low;
+            if explain.segment_count > 1 {
+                if n < 8 { frags[n as usize] = "Changes span multiple segments."; n += 1; }
+            }
+        }
+
+        // Fingerprint change
+        if explain.fingerprint_changed {
+            if n < 8 { frags[n as usize] = "Layout fingerprint changed."; n += 1; }
+            if risk as u8 == NarrativeRisk::Low as u8 {
+                risk = NarrativeRisk::Medium;
+            }
+        }
+
+        // Compatibility impact
+        match explain.compat_label {
+            "Append" => {
+                if n < 8 { frags[n as usize] = "Append-safe extension applied."; n += 1; }
+            }
+            "Migration" => {
+                if n < 8 { frags[n as usize] = "Migration-level change detected."; n += 1; }
+                risk = NarrativeRisk::High;
+            }
+            "Breaking" => {
+                if n < 8 { frags[n as usize] = "Breaking compatibility change."; n += 1; }
+                risk = NarrativeRisk::High;
+            }
+            _ => {}
+        }
+
+        // CPI
+        if !crate::const_str_eq(explain.cpi_summary, "No CPI calls") {
+            if n < 8 { frags[n as usize] = "Cross-program invocation occurred."; n += 1; }
+        }
+
+        // Integrity
+        if crate::const_str_eq(explain.integrity_summary, "INVARIANT VIOLATION detected") {
+            if n < 8 { frags[n as usize] = "INVARIANT VIOLATION: post-mutation checks failed."; n += 1; }
+            risk = NarrativeRisk::Critical;
+        }
+        if crate::const_str_eq(explain.integrity_summary, "Receipt was NOT committed (incomplete)") {
+            if n < 8 { frags[n as usize] = "Receipt was not committed. Mutation may be incomplete."; n += 1; }
+            risk = NarrativeRisk::Critical;
+        }
+
+        // Segment roles
+        if explain.segment_role_count > 0 {
+            let mut i = 0u8;
+            while i < explain.segment_role_count && i < 8 {
+                let role = explain.segment_role_names[i as usize];
+                if crate::const_str_eq(role, "audit") || crate::const_str_eq(role, "Audit") {
+                    if n < 8 { frags[n as usize] = "Audit segment was touched."; n += 1; }
+                }
+                i += 1;
+            }
+        }
+
+        // Phase-level risk escalation
+        if crate::const_str_eq(explain.phase_name, "Migrate") {
+            if (risk as u8) < NarrativeRisk::High as u8 {
+                risk = NarrativeRisk::High;
+            }
+        }
+
+        Self {
+            fragments: frags,
+            count: n,
+            risk_level: risk,
+        }
+    }
+}
+
+impl core::fmt::Display for ReceiptNarrative {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let mut i = 0u8;
+        while i < self.count {
+            if i > 0 {
+                write!(f, " ")?;
+            }
+            write!(f, "{}", self.fragments[i as usize])?;
+            i += 1;
+        }
+        write!(f, " [risk: {}]", self.risk_level.name())
+    }
+}

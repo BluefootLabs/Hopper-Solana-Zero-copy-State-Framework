@@ -1,17 +1,21 @@
 [workspace]
-# Crates extracted to sister repositories under `BluefootLabs/`:
-#   hopper-runtime, hopper-core, hopper-macros, hopper-derive
-#   (formerly hopper-macros-proc), hopper-spl (token, token-2022,
-#   associated-token, metaplex), hopper-cli, hopper-bench.
-# The umbrella `hopper` crate now consumes them as published deps;
-# the workspace below holds only the umbrella plus higher-level
-# domain crates and examples that still ship from this repo.
+# Framework-internal crates live in this workspace, matching the
+# Quasar-style "one repo per coherent product" model. The former
+# sister repos were folded back with subtree history preserved.
 members = [
     ".",
     "crates/hopper-native",
+    "crates/hopper-runtime",
+    "crates/hopper-core",
+    "crates/hopper-macros",
+    "crates/hopper-macros-proc",
     "crates/hopper-system",
     "crates/hopper-schema",
     "crates/hopper-solana",
+    "crates/hopper-spl/hopper-token",
+    "crates/hopper-spl/hopper-token-2022",
+    "crates/hopper-spl/hopper-associated-token",
+    "crates/hopper-spl/hopper-metaplex",
     "crates/hopper-finance",
     "crates/hopper-lending",
     "crates/hopper-staking",
@@ -40,6 +44,7 @@ members = [
     "crates/hopper-sdk",
     "crates/hopper-svm",
     "crates/hopper-svm-ffi",
+    "tools/hopper-cli",
 ]
 resolver = "2"
 
@@ -56,31 +61,29 @@ pinocchio-token = "0.5"
 five8_const = "0.1"
 sha2-const-stable = "0.1"
 hopper-native = { path = "crates/hopper-native", version = "0.1.0", default-features = false }
+hopper-runtime = { path = "crates/hopper-runtime", version = "0.1.0", default-features = false }
+hopper-core = { path = "crates/hopper-core", version = "0.1.0", default-features = false }
+hopper-macros = { path = "crates/hopper-macros", version = "0.1.0", default-features = false }
+hopper-macros-proc = { path = "crates/hopper-macros-proc", version = "0.1.0" }
 hopper = { path = ".", version = "0.1.0" }
 hopper-system = { path = "crates/hopper-system", version = "0.1.0" }
-hopper-schema = { path = "crates/hopper-schema", version = "0.1.0" }
+hopper-schema = { path = "crates/hopper-schema", version = "0.1.0", default-features = false }
 hopper-solana = { path = "crates/hopper-solana", version = "0.1.0" }
+hopper-token = { path = "crates/hopper-spl/hopper-token", version = "0.1.0", default-features = false }
+hopper-token-2022 = { path = "crates/hopper-spl/hopper-token-2022", version = "0.1.0", default-features = false }
+hopper-associated-token = { path = "crates/hopper-spl/hopper-associated-token", version = "0.1.0", default-features = false }
+hopper-metaplex = { path = "crates/hopper-spl/hopper-metaplex", version = "0.1.0", default-features = false }
 hopper-finance = { path = "crates/hopper-finance", version = "0.1.0" }
 hopper-lending = { path = "crates/hopper-lending", version = "0.1.0" }
 hopper-staking = { path = "crates/hopper-staking", version = "0.1.0" }
 hopper-vesting = { path = "crates/hopper-vesting", version = "0.1.0" }
 hopper-distribute = { path = "crates/hopper-distribute", version = "0.1.0" }
 hopper-multisig = { path = "crates/hopper-multisig", version = "0.1.0" }
-hopper-memo = { path = "crates/hopper-memo", version = "0.1.0" }
+hopper-memo = { path = "crates/hopper-memo", version = "0.1.0", default-features = false }
 hopper-anchor = { path = "crates/hopper-anchor", version = "0.1.0" }
 hopper-manager = { path = "crates/hopper-manager", version = "0.1.0" }
 hopper-sdk = { path = "crates/hopper-sdk", version = "0.1.0" }
 hopper-svm = { path = "crates/hopper-svm", version = "0.1.0" }
-
-# Sister repos (extracted to github.com/BluefootLabs).
-hopper-runtime = { git = "https://github.com/BluefootLabs/hopper-runtime", branch = "main", default-features = false }
-hopper-core = { git = "https://github.com/BluefootLabs/hopper-core", branch = "main", default-features = false }
-hopper-macros = { git = "https://github.com/BluefootLabs/hopper-macros", branch = "main", default-features = false }
-hopper-macros-proc = { git = "https://github.com/BluefootLabs/hopper-derive", branch = "main" }
-hopper-token = { git = "https://github.com/BluefootLabs/hopper-spl", branch = "main", default-features = false }
-hopper-token-2022 = { git = "https://github.com/BluefootLabs/hopper-spl", branch = "main", default-features = false }
-hopper-associated-token = { git = "https://github.com/BluefootLabs/hopper-spl", branch = "main", default-features = false }
-hopper-metaplex = { git = "https://github.com/BluefootLabs/hopper-spl", branch = "main", default-features = false }
 
 [package]
 name = "hopper"
@@ -104,11 +107,11 @@ hopper-runtime = { workspace = true }
 sha2-const-stable = { workspace = true }
 hopper-core = { workspace = true }
 hopper-system = { workspace = true }
-hopper-token = { git = "https://github.com/BluefootLabs/hopper-spl", branch = "main", default-features = false }
-hopper-token-2022 = { git = "https://github.com/BluefootLabs/hopper-spl", branch = "main", default-features = false }
-hopper-associated-token = { git = "https://github.com/BluefootLabs/hopper-spl", branch = "main", default-features = false }
+hopper-token = { workspace = true }
+hopper-token-2022 = { workspace = true }
+hopper-associated-token = { workspace = true }
 hopper-memo = { workspace = true, default-features = false }
-hopper-metaplex = { git = "https://github.com/BluefootLabs/hopper-spl", branch = "main", default-features = false, optional = true }
+hopper-metaplex = { workspace = true, optional = true }
 hopper-macros = { workspace = true }
 hopper-schema = { path = "crates/hopper-schema", version = "0.1.0", default-features = false }
 hopper-solana = { path = "crates/hopper-solana", version = "0.1.0", default-features = false }
@@ -185,25 +188,3 @@ unexpected_cfgs = { level = "allow", check-cfg = [
     'cfg(feature, values("frame", "receipt", "policy", "graph", "migrate", "virtual-state", "diff", "explain", "advanced"))',
 ] }
 
-# ── Local development overrides ─────────────────────────────────────
-# Point the BluefootLabs sister-repo git deps at the sibling clones in
-# `..` so multi-root workspace edits resolve without round-tripping
-# through GitHub. Safe to leave in place: it only kicks in when the
-# `..` path actually exists and the URL matches the canonical remote.
-[patch."https://github.com/BluefootLabs/hopper-runtime"]
-hopper-runtime = { path = "../hopper-runtime" }
-
-[patch."https://github.com/BluefootLabs/hopper-core"]
-hopper-core = { path = "../hopper-core" }
-
-[patch."https://github.com/BluefootLabs/hopper-macros"]
-hopper-macros = { path = "../hopper-macros" }
-
-[patch."https://github.com/BluefootLabs/hopper-derive"]
-hopper-macros-proc = { path = "../hopper-derive" }
-
-[patch."https://github.com/BluefootLabs/hopper-spl"]
-hopper-token = { path = "../hopper-spl/hopper-token" }
-hopper-token-2022 = { path = "../hopper-spl/hopper-token-2022" }
-hopper-associated-token = { path = "../hopper-spl/hopper-associated-token" }
-hopper-metaplex = { path = "../hopper-spl/hopper-metaplex" }
