@@ -109,12 +109,13 @@ fn mtime(path: &Path) -> Option<SystemTime> {
     std::fs::metadata(path).ok()?.modified().ok()
 }
 
-/// Strip `--watch` out of a cargo arg list and report whether it was
-/// present. Used by `hopper build` / `hopper test` so the watcher
-/// wraps a vanilla cargo invocation without passing the flag through.
+/// Strip `--watch` (or `-w`) out of a cargo arg list and report whether
+/// the flag was present. Used by `hopper build` / `hopper test` /
+/// `hopper profile` so the watcher wraps a vanilla cargo / profiler
+/// invocation without passing the flag through.
 pub fn extract_watch_flag(args: &mut Vec<String>) -> bool {
     let before = args.len();
-    args.retain(|a| a != "--watch");
+    args.retain(|a| a != "--watch" && a != "-w");
     args.len() != before
 }
 
@@ -124,4 +125,48 @@ pub fn extract_watch_flag(args: &mut Vec<String>) -> bool {
 /// touching every call site.
 pub fn project_watch_root(root: &Path) -> PathBuf {
     root.to_path_buf()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn extracts_long_form() {
+        let mut args = vec![
+            "--release".to_string(),
+            "--watch".to_string(),
+            "--features".to_string(),
+            "foo".to_string(),
+        ];
+        assert!(extract_watch_flag(&mut args));
+        assert_eq!(args, vec!["--release", "--features", "foo"]);
+    }
+
+    #[test]
+    fn extracts_short_form() {
+        let mut args = vec!["-w".to_string(), "--release".to_string()];
+        assert!(extract_watch_flag(&mut args));
+        assert_eq!(args, vec!["--release"]);
+    }
+
+    #[test]
+    fn extracts_both_forms_in_one_call() {
+        // A user can repeat or mix the forms; the flag still extracts
+        // and the rest of the cargo args round-trip cleanly.
+        let mut args = vec![
+            "-w".to_string(),
+            "--release".to_string(),
+            "--watch".to_string(),
+        ];
+        assert!(extract_watch_flag(&mut args));
+        assert_eq!(args, vec!["--release"]);
+    }
+
+    #[test]
+    fn returns_false_when_absent() {
+        let mut args = vec!["--release".to_string()];
+        assert!(!extract_watch_flag(&mut args));
+        assert_eq!(args, vec!["--release"]);
+    }
 }

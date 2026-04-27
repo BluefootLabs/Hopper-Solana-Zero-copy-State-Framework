@@ -271,6 +271,11 @@ struct CompileOptions {
     filters: RustEmitFilters,
     out: Option<PathBuf>,
     force: bool,
+    /// Inline `hopper lint` after the artifact emit. Errors fail the
+    /// command; warnings are printed but pass.
+    lint: bool,
+    /// Treat warnings as errors when `--lint` is on.
+    lint_fail_on_warn: bool,
 }
 
 /// Audit ST4 closure. multi-target emit dispatch.
@@ -367,6 +372,37 @@ fn cmd_compile(args: &[String]) {
     } else {
         print!("{artifact}");
     }
+
+    // Optional inline lint pass. Mirrors `hopper lint` over the same
+    // project tree so authors don't need a second invocation in
+    // tight build/iterate loops. Errors fail the command; warnings
+    // print but pass unless `--lint-fail-on-warn` is set.
+    if options.lint {
+        let project_root = workspace::find_project_root(&cwd).unwrap_or_else(|err| {
+            eprintln!("hopper compile --lint failed: {err}");
+            process::exit(1);
+        });
+        match cmd::lint::run_lint_diagnostics(&project_root) {
+            Ok(summary) => {
+                for line in &summary.lines {
+                    println!("{line}");
+                }
+                eprintln!(
+                    "[hopper compile --lint] {} error(s), {} warning(s)",
+                    summary.errors, summary.warnings,
+                );
+                let fail = summary.errors > 0
+                    || (options.lint_fail_on_warn && summary.warnings > 0);
+                if fail {
+                    process::exit(1);
+                }
+            }
+            Err(err) => {
+                eprintln!("hopper compile --lint failed: {err}");
+                process::exit(1);
+            }
+        }
+    }
 }
 
 fn parse_compile_options(args: &[String]) -> Result<CompileOptions, String> {
@@ -377,6 +413,8 @@ fn parse_compile_options(args: &[String]) -> Result<CompileOptions, String> {
     let mut filters = RustEmitFilters::default();
     let mut out = None;
     let mut force = false;
+    let mut lint = false;
+    let mut lint_fail_on_warn = false;
     let mut i = 0;
 
     while i < args.len() {
@@ -434,6 +472,15 @@ fn parse_compile_options(args: &[String]) -> Result<CompileOptions, String> {
                 force = true;
                 i += 1;
             }
+            "--lint" => {
+                lint = true;
+                i += 1;
+            }
+            "--lint-fail-on-warn" => {
+                lint = true;
+                lint_fail_on_warn = true;
+                i += 1;
+            }
             other if other.starts_with('-') => {
                 return Err(format!("Unknown compile argument: {other}"));
             }
@@ -479,6 +526,8 @@ fn parse_compile_options(args: &[String]) -> Result<CompileOptions, String> {
         filters,
         out,
         force,
+        lint,
+        lint_fail_on_warn,
     })
 }
 
@@ -1758,7 +1807,7 @@ fn pascal_case(value: &str) -> String {
 }
 
 fn print_compile_usage() {
-    eprintln!("Usage: hopper compile --emit <target> [<manifest> | --package <name> | --program-id <id>] [--rpc <url>] [--layout <L>] [--instruction <I>] [--context <C>] [--out <path>] [--force]");
+    eprintln!("Usage: hopper compile --emit <target> [<manifest> | --package <name> | --program-id <id>] [--rpc <url>] [--layout <L>] [--instruction <I>] [--context <C>] [--out <path>] [--force] [--lint] [--lint-fail-on-warn]");
     eprintln!();
     eprintln!("Supported targets:");
     eprintln!("  rust    Lowered Rust preview (accessors, offsets, pointer path)");
@@ -1767,6 +1816,11 @@ fn print_compile_usage() {
     eprintln!("  idl     Anchor-style IDL JSON");
     eprintln!("  codama  Codama-flavored JSON");
     eprintln!("  schema  Hopper program manifest JSON");
+    eprintln!();
+    eprintln!("Inline lint:");
+    eprintln!("  --lint                  Run `hopper lint` against the project after emitting");
+    eprintln!("                          the artifact. Errors fail the command; warnings pass.");
+    eprintln!("  --lint-fail-on-warn     Treat lint warnings as errors (implies --lint)");
     eprintln!();
     eprintln!("Without a manifest source, Hopper infers hopper.manifest.json from the current package.");
     eprintln!();
@@ -1777,6 +1831,7 @@ fn print_compile_usage() {
     eprintln!("  hopper compile --emit codama --program-id <program-id> --rpc <url>");
     eprintln!("  hopper compile --emit kt --package vault");
     eprintln!("  hopper compile --emit schema --package vault --out manifest.json --force");
+    eprintln!("  hopper compile --emit rust --package vault --lint    # one-shot build + lint");
 }
 
 fn print_usage() {

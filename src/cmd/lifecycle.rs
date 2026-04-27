@@ -642,11 +642,16 @@ pub fn cmd_dump(args: &[String]) {
             process::exit(1);
         });
 
-    let output = run_objdump(&workspace_root, &artifact, dump_options.tool.as_deref())
-        .unwrap_or_else(|err| {
-            eprintln!("hopper dump failed: {err}");
-            process::exit(1);
-        });
+    let output = run_objdump(
+        &workspace_root,
+        &artifact,
+        dump_options.tool.as_deref(),
+        dump_options.source_interleave,
+    )
+    .unwrap_or_else(|err| {
+        eprintln!("hopper dump failed: {err}");
+        process::exit(1);
+    });
 
     if let Some(out_path) = dump_options.out {
         workspace::write_text_file(&out_path, &output, true).unwrap_or_else(|err| {
@@ -695,6 +700,11 @@ struct CommonLifecycleOptions {
 struct DumpOptions {
     out: Option<PathBuf>,
     tool: Option<String>,
+    /// Pass `-S` to llvm-objdump so DWARF source lines are interleaved
+    /// with disassembly. Requires the `.so` to have been built with
+    /// debug info (`cargo build-sbf` keeps it; `--release --strip` does
+    /// not). Quasar parity flag.
+    source_interleave: bool,
 }
 
 fn parse_lifecycle_args(args: &[String]) -> Result<(CommonLifecycleOptions, Vec<String>), String> {
@@ -756,6 +766,10 @@ fn parse_dump_args(args: &[String]) -> Result<(CommonLifecycleOptions, DumpOptio
                 }
                 dump.tool = Some(args[i + 1].clone());
                 i += 2;
+            }
+            "-S" | "--source" => {
+                dump.source_interleave = true;
+                i += 1;
             }
             other => return Err(format!("Unknown dump argument: {other}")),
         }
@@ -889,7 +903,12 @@ fn resolve_package_name(project_root: &Path, package_hint: Option<&str>) -> Resu
         })
 }
 
-fn run_objdump(workspace_root: &Path, artifact: &Path, explicit_tool: Option<&str>) -> Result<String, String> {
+fn run_objdump(
+    workspace_root: &Path,
+    artifact: &Path,
+    explicit_tool: Option<&str>,
+    source_interleave: bool,
+) -> Result<String, String> {
     let mut candidates: Vec<String> = Vec::new();
     if let Some(tool) = explicit_tool {
         candidates.push(tool.to_string());
@@ -904,7 +923,16 @@ fn run_objdump(workspace_root: &Path, artifact: &Path, explicit_tool: Option<&st
         "rust-objdump".to_string(),
     ]);
 
-    let args = vec!["-d".to_string(), artifact.display().to_string()];
+    // `-d` disassembles, `-S` interleaves source lines from the
+    // embedded DWARF info (matches `objdump -S` / Quasar `dump -S`).
+    // `-l` adds line-number prefixes per instruction; we leave that
+    // off because it doubles the noise without adding info that
+    // `-S` doesn't already give.
+    let mut args = vec!["-d".to_string()];
+    if source_interleave {
+        args.push("-S".to_string());
+    }
+    args.push(artifact.display().to_string());
     let mut last_error = None;
 
     for tool in candidates {
@@ -1444,15 +1472,39 @@ fn print_init_usage() {
 }
 
 fn print_build_usage() {
-    eprintln!("Usage: hopper build [--host|--sbf] [cargo build args]");
+    eprintln!("Usage: hopper build [--host|--sbf] [-w|--watch] [cargo args...]");
     eprintln!();
     eprintln!("Build the current Hopper project. Default mode is SBF (`cargo build-sbf`).");
+    eprintln!();
+    eprintln!("Common cargo args that pass through:");
+    eprintln!("  --features <NAME[,NAME]>   enable cargo features");
+    eprintln!("  --no-default-features      disable the package's default features");
+    eprintln!("  --release                  build with optimisations (host mode only)");
+    eprintln!("  -p, --package <NAME>       build a specific workspace member");
+    eprintln!();
+    eprintln!("Examples:");
+    eprintln!("  hopper build                              # SBF build of the current package");
+    eprintln!("  hopper build --features cu-trace          # SBF build with cu-trace on");
+    eprintln!("  hopper build --host --features metaplex   # host build for unit tests");
+    eprintln!("  hopper build -w                           # watch + rebuild on file change");
 }
 
 fn print_test_usage() {
-    eprintln!("Usage: hopper test [cargo test args]");
+    eprintln!("Usage: hopper test [-w|--watch] [cargo test args...]");
     eprintln!();
     eprintln!("Run the current Hopper project's host-side test suite (`cargo test`).");
+    eprintln!();
+    eprintln!("Common cargo args that pass through:");
+    eprintln!("  --features <NAME[,NAME]>   enable cargo features");
+    eprintln!("  --no-default-features      disable the package's default features");
+    eprintln!("  --no-fail-fast             keep running after a test failure");
+    eprintln!("  --test <NAME>              run a single integration test target");
+    eprintln!("  -- --nocapture             show stdout from passing tests");
+    eprintln!();
+    eprintln!("Examples:");
+    eprintln!("  hopper test                                       # default suite");
+    eprintln!("  hopper test --features agave-runtime              # incl. Agave-runtime tests");
+    eprintln!("  hopper test --test agave_spl_token_cpi -- --ignored   # run a gated integration test");
 }
 
 fn print_deploy_usage() {
@@ -1462,9 +1514,17 @@ fn print_deploy_usage() {
 }
 
 fn print_dump_usage() {
-    eprintln!("Usage: hopper dump [--no-build] [-p|--package <crate>] [--tool <objdump>] [--out <path>]");
+    eprintln!("Usage: hopper dump [--no-build] [-p|--package <crate>] [--tool <objdump>] [--out <path>] [-S|--source]");
     eprintln!();
     eprintln!("Disassemble the built SBF `.so` using llvm-objdump, solana-llvm-objdump, or rust-objdump.");
+    eprintln!();
+    eprintln!("Options:");
+    eprintln!("  --no-build         Skip the rebuild and dump the existing .so.");
+    eprintln!("  -p, --package      Workspace member to build/dump (default: current crate).");
+    eprintln!("  --tool <name>      Override the objdump executable.");
+    eprintln!("  --out <path>       Write the disassembly to a file instead of stdout.");
+    eprintln!("  -S, --source       Interleave source lines from DWARF (passes `-S` to llvm-objdump).");
+    eprintln!("                     Requires the .so to retain debug info.");
 }
 
 #[cfg(test)]
@@ -1504,5 +1564,30 @@ mod tests {
         assert!(parsed.0.no_build);
         assert_eq!(parsed.0.package.as_deref(), Some("hopper-vault"));
         assert_eq!(parsed.1, vec!["--url", "http://localhost:8899"]);
+    }
+
+    #[test]
+    fn dump_args_capture_source_interleave_short_and_long() {
+        // `-S` short form sets the flag.
+        let (_, dump_short) = parse_dump_args(&["-S".to_string()]).unwrap();
+        assert!(dump_short.source_interleave);
+
+        // `--source` long form sets the same flag.
+        let (_, dump_long) = parse_dump_args(&["--source".to_string()]).unwrap();
+        assert!(dump_long.source_interleave);
+
+        // Default leaves it off, and other flags still parse.
+        let (common, dump_default) = parse_dump_args(&[
+            "--no-build".to_string(),
+            "-p".to_string(),
+            "vault".to_string(),
+            "--out".to_string(),
+            "x.txt".to_string(),
+        ])
+        .unwrap();
+        assert!(common.no_build);
+        assert_eq!(common.package.as_deref(), Some("vault"));
+        assert!(!dump_default.source_interleave);
+        assert_eq!(dump_default.out.as_deref(), Some(Path::new("x.txt")));
     }
 }
