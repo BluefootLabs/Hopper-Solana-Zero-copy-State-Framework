@@ -18,7 +18,7 @@ pub fn log(message: &str) {
         hopper_native::syscalls::sol_log_(message.as_ptr(), message.len() as u64);
     }
 
-    #[cfg(all(target_os = "solana", feature = "pinocchio-backend"))]
+    #[cfg(all(target_os = "solana", feature = "legacy-pinocchio-compat"))]
     unsafe {
         pinocchio::syscalls::sol_log_(message.as_ptr(), message.len() as u64);
     }
@@ -52,7 +52,7 @@ pub fn log_64(a: u64, b: u64, c: u64, d: u64, e: u64) {
         hopper_native::syscalls::sol_log_64_(a, b, c, d, e);
     }
 
-    #[cfg(all(target_os = "solana", feature = "pinocchio-backend"))]
+    #[cfg(all(target_os = "solana", feature = "legacy-pinocchio-compat"))]
     unsafe {
         pinocchio::syscalls::sol_log_64_(a, b, c, d, e);
     }

@@ -4,6 +4,7 @@
 //! semantically named arguments. Complement the low-level
 //! `HopperCpi`/`HopperCpiBuf` builders for standard operations.
 
+#[cfg(feature = "legacy-token-instructions")]
 use hopper_runtime::error::ProgramError;
 use hopper_runtime::instruction::{InstructionAccount, InstructionView, Signer};
 use hopper_runtime::{AccountView, Address, ProgramResult};
@@ -95,6 +96,7 @@ pub fn allocate(account: &AccountView, space: u64) -> ProgramResult {
 /// Prefer [`token_transfer_checked`] for the Token-2022-safe path
 /// (adds mint + decimals validation at CPI time). This unchecked
 /// variant remains available for pre-Token-2022 deployments.
+#[cfg(feature = "legacy-token-instructions")]
 #[deprecated(
     since = "0.2.0",
     note = "use token_transfer_checked for Token-2022 safety (mint + decimals validation)"
@@ -168,6 +170,7 @@ pub fn token_transfer_checked_signed<'a>(
 /// Transfer SPL tokens with PDA signer seeds.
 ///
 /// Prefer [`token_transfer_checked_signed`] for Token-2022 safety.
+#[cfg(feature = "legacy-token-instructions")]
 #[deprecated(
     since = "0.2.0",
     note = "use token_transfer_checked_signed for Token-2022 safety"
@@ -193,6 +196,7 @@ pub fn token_transfer_signed<'a>(
 /// Mint tokens to a destination token account.
 ///
 /// Prefer [`token_mint_to_checked`] for Token-2022 safety.
+#[cfg(feature = "legacy-token-instructions")]
 #[deprecated(
     since = "0.2.0",
     note = "use token_mint_to_checked for Token-2022 safety (mint + decimals validation)"
@@ -217,6 +221,7 @@ pub fn token_mint_to<'a>(
 /// Mint tokens with PDA signer seeds.
 ///
 /// Prefer [`token_mint_to_checked_signed`] for Token-2022 safety.
+#[cfg(feature = "legacy-token-instructions")]
 #[deprecated(
     since = "0.2.0",
     note = "use token_mint_to_checked_signed for Token-2022 safety"
@@ -281,6 +286,7 @@ pub fn token_mint_to_checked_signed<'a>(
 /// Burn tokens from a token account.
 ///
 /// Prefer [`token_burn_checked`] for Token-2022 safety.
+#[cfg(feature = "legacy-token-instructions")]
 #[deprecated(
     since = "0.2.0",
     note = "use token_burn_checked for Token-2022 safety (mint + decimals validation)"
@@ -305,6 +311,7 @@ pub fn token_burn<'a>(
 /// Burn tokens with PDA signer seeds.
 ///
 /// Prefer [`token_burn_checked_signed`] for Token-2022 safety.
+#[cfg(feature = "legacy-token-instructions")]
 #[deprecated(
     since = "0.2.0",
     note = "use token_burn_checked_signed for Token-2022 safety"
@@ -400,6 +407,7 @@ pub fn token_close_account_signed<'a>(
 /// Approve a delegate for a token account.
 ///
 /// Prefer [`token_approve_checked`] for Token-2022 safety.
+#[cfg(feature = "legacy-token-instructions")]
 #[deprecated(
     since = "0.2.0",
     note = "use token_approve_checked for Token-2022 safety (mint + decimals validation)"
@@ -469,6 +477,7 @@ pub fn token_revoke<'a>(
 /// level) over this host-side mint-match check. This function
 /// remains for pre-Token-2022 deployments; new code should route
 /// through the runtime-level checked variant.
+#[cfg(feature = "legacy-token-instructions")]
 #[deprecated(
     since = "0.2.0",
     note = "use token_transfer_checked (SPL TransferChecked CPI) for Token-2022 safety"

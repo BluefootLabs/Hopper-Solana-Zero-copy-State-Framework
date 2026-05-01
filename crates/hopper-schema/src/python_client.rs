@@ -35,9 +35,7 @@ use core::fmt;
 extern crate alloc;
 use alloc::string::{String, ToString};
 
-use crate::{
-    EventDescriptor, FieldDescriptor, InstructionDescriptor, LayoutManifest, ProgramManifest,
-};
+use crate::{EventDescriptor, InstructionDescriptor, LayoutManifest, ProgramManifest};
 
 fn py_type(canonical: &str) -> &'static str {
     match canonical {
@@ -410,8 +408,10 @@ impl<'a> fmt::Display for PyTypes<'a> {
         writeln!(f)?;
         writeln!(
             f,
-            "HEADER_LEN = 12  # disc(1) + version(1) + flags(1) + reserved(1) + layout_id(8)"
+            "HEADER_LEN = 16  # disc(1) + version(1) + flags(2) + layout_id(8) + reserved(4)"
         )?;
+        writeln!(f, "LAYOUT_ID_OFFSET = 4")?;
+        writeln!(f, "LAYOUT_ID_LENGTH = 8")?;
         writeln!(f)?;
         writeln!(f, "@dataclass(frozen=True, slots=True)")?;
         writeln!(f, "class HopperHeader:")?;
@@ -419,6 +419,7 @@ impl<'a> fmt::Display for PyTypes<'a> {
         writeln!(f, "    version: int")?;
         writeln!(f, "    flags: int")?;
         writeln!(f, "    layout_id: bytes")?;
+        writeln!(f, "    reserved: bytes")?;
         writeln!(f)?;
         writeln!(f, "    @classmethod")?;
         writeln!(f, "    def decode(cls, buf: bytes) -> \"HopperHeader\":")?;
@@ -427,7 +428,13 @@ impl<'a> fmt::Display for PyTypes<'a> {
             f,
             "            raise ValueError(\"account too short for Hopper header\")"
         )?;
-        writeln!(f, "        return cls(disc=buf[0], version=buf[1], flags=buf[2], layout_id=bytes(buf[4:12]))")?;
+        writeln!(f, "        return cls(")?;
+        writeln!(f, "            disc=buf[0],")?;
+        writeln!(f, "            version=buf[1],")?;
+        writeln!(f, "            flags=int.from_bytes(buf[2:4], \"little\"),")?;
+        writeln!(f, "            layout_id=bytes(buf[LAYOUT_ID_OFFSET:LAYOUT_ID_OFFSET + LAYOUT_ID_LENGTH]),")?;
+        writeln!(f, "            reserved=bytes(buf[12:16]),")?;
+        writeln!(f, "        )")?;
         writeln!(f)?;
         writeln!(
             f,
@@ -496,37 +503,9 @@ impl<'a> fmt::Display for PyClientGen<'a> {
 mod tests {
     use super::*;
     use crate::{
-        AccountEntry, ArgDescriptor, EventDescriptor, FieldIntent, InstructionDescriptor,
-        LayoutManifest,
+        AccountEntry, ArgDescriptor, EventDescriptor, FieldDescriptor, FieldIntent,
+        InstructionDescriptor, LayoutManifest,
     };
-
-    fn sample_layout() -> LayoutManifest {
-        static F: [FieldDescriptor; 2] = [
-            FieldDescriptor {
-                name: "authority",
-                canonical_type: "Pubkey",
-                size: 32,
-                offset: 16,
-                intent: FieldIntent::Authority,
-            },
-            FieldDescriptor {
-                name: "balance",
-                canonical_type: "u64",
-                size: 8,
-                offset: 48,
-                intent: FieldIntent::Balance,
-            },
-        ];
-        LayoutManifest {
-            name: "vault",
-            disc: 5,
-            version: 1,
-            layout_id: [1, 2, 3, 4, 5, 6, 7, 8],
-            total_size: 64,
-            field_count: 2,
-            fields: &F,
-        }
-    }
 
     fn sample_manifest() -> ProgramManifest {
         static LAYOUTS: [LayoutManifest; 1] = [sample_layout_static()];
@@ -633,5 +612,19 @@ mod tests {
         assert!(out.contains("class Deposited"));
         assert!(out.contains("EVENT_DECODERS"));
         assert!(out.contains("1: Deposited"));
+    }
+
+    #[test]
+    fn types_header_matches_runtime_offsets() {
+        let m = sample_manifest();
+        let out = alloc::format!("{}", PyTypes(&m));
+        assert!(out.contains("HEADER_LEN = 16"));
+        assert!(out.contains("LAYOUT_ID_OFFSET = 4"));
+        assert!(out.contains("LAYOUT_ID_LENGTH = 8"));
+        assert!(out.contains("flags=int.from_bytes(buf[2:4], \"little\")"));
+        assert!(out.contains("layout_id=bytes(buf[LAYOUT_ID_OFFSET:LAYOUT_ID_OFFSET + LAYOUT_ID_LENGTH])"));
+        assert!(out.contains("reserved=bytes(buf[12:16])"));
+        assert!(!out.contains("HEADER_LEN = 12"));
+        assert!(!out.contains("layout_id=bytes(buf[4:12])"));
     }
 }

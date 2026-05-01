@@ -15,21 +15,21 @@ extern crate std;
 extern crate alloc;
 
 #[cfg(any(
-    all(feature = "hopper-native-backend", feature = "pinocchio-backend"),
+    all(feature = "hopper-native-backend", feature = "legacy-pinocchio-compat"),
     all(feature = "hopper-native-backend", feature = "solana-program-backend"),
-    all(feature = "pinocchio-backend", feature = "solana-program-backend"),
+    all(feature = "legacy-pinocchio-compat", feature = "solana-program-backend"),
 ))]
 compile_error!(
-    "Only one backend feature may be enabled at a time: hopper-native-backend, pinocchio-backend, or solana-program-backend"
+    "Only one backend feature may be enabled at a time: hopper-native-backend, legacy-pinocchio-compat, or solana-program-backend"
 );
 
 #[cfg(not(any(
     feature = "hopper-native-backend",
-    feature = "pinocchio-backend",
+    feature = "legacy-pinocchio-compat",
     feature = "solana-program-backend",
 )))]
 compile_error!(
-    "At least one backend feature must be enabled: hopper-native-backend, pinocchio-backend, or solana-program-backend"
+    "At least one backend feature must be enabled: hopper-native-backend, legacy-pinocchio-compat, or solana-program-backend"
 );
 
 #[doc(hidden)]
@@ -537,7 +537,7 @@ macro_rules! hopper_entrypoint {
             }
         }
 
-        #[cfg(any(feature = "pinocchio-backend", feature = "solana-program-backend"))]
+        #[cfg(any(feature = "legacy-pinocchio-compat", feature = "solana-program-backend"))]
         $crate::__hopper_compat_entrypoint!($process_instruction, $maximum);
     };
 }
@@ -608,7 +608,7 @@ macro_rules! hopper_fast_entrypoint {
             }
         }
 
-        #[cfg(any(feature = "pinocchio-backend", feature = "solana-program-backend"))]
+        #[cfg(any(feature = "legacy-pinocchio-compat", feature = "solana-program-backend"))]
         compile_error!("hopper_fast_entrypoint! requires hopper-native-backend");
     };
 }
@@ -631,7 +631,7 @@ macro_rules! hopper_lazy_entrypoint {
         #[cfg(feature = "hopper-native-backend")]
         $crate::__hopper_native::hopper_lazy_entrypoint!($process);
 
-        #[cfg(any(feature = "pinocchio-backend", feature = "solana-program-backend"))]
+        #[cfg(any(feature = "legacy-pinocchio-compat", feature = "solana-program-backend"))]
         compile_error!("hopper_lazy_entrypoint! requires hopper-native-backend");
     };
 }

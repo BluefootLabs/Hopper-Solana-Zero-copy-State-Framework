@@ -682,7 +682,7 @@ Pinocchio ships an eager entrypoint only. Quasar ships an eager entrypoint. Anch
 Three backends, selected by feature flag, compile-time exclusive (`compile_error!` on zero or multiple enabled):
 
 - `hopper-native-backend` — the primary path, zero-copy `AccountView`.
-- `pinocchio-backend` — copies metadata at parse time (Pinocchio's model).
+- `legacy-pinocchio-compat` — copies metadata at parse time (Pinocchio's model).
 - `solana-program-backend` — full `AccountInfo` with alloc.
 
 The abstraction is implicit via feature-gated `pub use`, not a trait object, so monomorphization keeps dispatch zero-cost. Switching backends has measurable CU cost (~50–100 CU on pinocchio, ~100–150 CU on solana-program, both vs native), which is the expected shape — you trade CU for interop.

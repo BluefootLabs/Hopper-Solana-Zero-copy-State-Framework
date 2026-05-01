@@ -100,7 +100,7 @@
 //! access API from the lowest-level `AccountView::raw_mut` up to
 //! `#[hopper::state]`-generated accessors, across all crates, with no
 //! orphan-rule gymnastics. When a non-native backend is selected
-//! (`pinocchio-backend`, `solana-program-backend`), the trait is
+//! (`legacy-pinocchio-compat`, `solana-program-backend`), the trait is
 //! defined locally with the same contract so user code compiles
 //! unchanged.
 

@@ -17,8 +17,9 @@
 //! compiled binary establishes ABI continuity without needing debug
 //! symbols.
 //!
-//! Exit code is zero iff every layout declared in the manifest is
-//! found verbatim in the `.so`.
+//! Manifest integrity is always fatal on failure. Binary anchor presence is
+//! informational by default, fatal with `--strict`, and required/fatal with
+//! `--release`.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -157,7 +158,8 @@ pub fn cmd_verify(args: &[String]) {
         if opts.strict {
             eprintln!();
             eprintln!(
-                "FAIL (--strict): {} of {} layouts not anchored in {}",
+                "FAIL ({}): {} of {} layouts not anchored in {}",
+                if opts.release { "--release" } else { "--strict" },
                 missing_count,
                 layouts.len(),
                 so_input.display()
@@ -181,7 +183,11 @@ pub fn cmd_verify(args: &[String]) {
     }
 
     println!();
-    println!("OK: manifest integrity passed; binary presence reported above.");
+    if opts.release {
+        println!("OK: release verification passed; manifest and binary anchors agree.");
+    } else {
+        println!("OK: manifest integrity passed; binary presence reported above.");
+    }
 }
 
 fn run_manifest_integrity(layouts: &[ManifestLayout]) -> u32 {
@@ -229,6 +235,9 @@ struct VerifyOptions {
     /// informational-only because `hopper_layout!` layouts and
     /// post-link-stripped binaries may legitimately omit the bytes.
     strict: bool,
+    /// Release profile: requires a binary and treats missing layout anchors as
+    /// fatal. This is the public-launch/publish gate.
+    release: bool,
 }
 
 impl VerifyOptions {
@@ -237,6 +246,9 @@ impl VerifyOptions {
     /// makes the binary-scan phase skip gracefully.
     fn so_input(&self, cwd: &Path) -> Result<Option<PathBuf>, String> {
         if self.so.is_none() && self.package.is_none() {
+            if self.release {
+                return Err("--release requires a .so via --so <path> or --package <name>".to_string());
+            }
             return Ok(None);
         }
         resolve_so_path(self, cwd).map(Some)
@@ -248,6 +260,7 @@ fn parse_verify_options(args: &[String]) -> Result<VerifyOptions, String> {
     let mut package = None;
     let mut so = None;
     let mut strict = false;
+    let mut release = false;
     let mut positional_taken = false;
     let mut i = 0;
     while i < args.len() {
@@ -281,6 +294,11 @@ fn parse_verify_options(args: &[String]) -> Result<VerifyOptions, String> {
                 strict = true;
                 i += 1;
             }
+            "--release" => {
+                release = true;
+                strict = true;
+                i += 1;
+            }
             other if other.starts_with('@') => {
                 manifest = Some(other[1..].to_string());
                 i += 1;
@@ -306,6 +324,7 @@ fn parse_verify_options(args: &[String]) -> Result<VerifyOptions, String> {
         package,
         so,
         strict,
+        release,
     })
 }
 
@@ -378,6 +397,8 @@ fn print_verify_usage() {
     eprintln!("  -p <name>           Short form of --package");
     eprintln!("  --so <path>         Explicit path to the .so binary");
     eprintln!("  --binary <path>     Alias for --so");
+    eprintln!("  --strict            Fail when a manifest layout is not anchored in the binary");
+    eprintln!("  --release           Require a binary and run strict release verification");
     eprintln!();
     eprintln!("Examples:");
     eprintln!("  hopper verify examples/hopper-token-2022-vault/hopper.manifest.json \\");
@@ -616,6 +637,15 @@ mod tests {
             layouts[0].layout_id,
             [0xab, 0xcd, 0xef, 0x01, 0x23, 0x45, 0x67, 0x89]
         );
+    }
+
+    #[test]
+    fn release_option_implies_strict_and_requires_binary() {
+        let args = vec!["--release".to_string(), "hopper.manifest.json".to_string()];
+        let opts = parse_verify_options(&args).unwrap();
+        assert!(opts.release);
+        assert!(opts.strict);
+        assert!(opts.so_input(Path::new(".")).is_err());
     }
 
     #[test]

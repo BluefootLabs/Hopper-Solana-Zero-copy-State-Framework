@@ -29,11 +29,11 @@ hopper-native-backend = [
 	"hopper-runtime/hopper-native-backend",
 	"hopper-system/hopper-native-backend",
 ]
-pinocchio-backend = [
-	"hopper-core/pinocchio-backend",
-	"hopper-schema/pinocchio-backend",
-	"hopper-runtime/pinocchio-backend",
-	"hopper-system/pinocchio-backend",
+legacy-pinocchio-compat = [
+	"hopper-core/legacy-pinocchio-compat",
+	"hopper-schema/legacy-pinocchio-compat",
+	"hopper-runtime/legacy-pinocchio-compat",
+	"hopper-system/legacy-pinocchio-compat",
 ]
 solana-program-backend = [
 	"hopper-core/solana-program-backend",

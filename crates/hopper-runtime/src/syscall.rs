@@ -9,7 +9,7 @@ pub fn sol_log_compute_units() {
         hopper_native::syscalls::sol_log_compute_units_();
     }
 
-    #[cfg(all(target_os = "solana", feature = "pinocchio-backend"))]
+    #[cfg(all(target_os = "solana", feature = "legacy-pinocchio-compat"))]
     unsafe {
         pinocchio::syscalls::sol_log_compute_units_();
     }

@@ -30,9 +30,12 @@ Build, upload, and register the program on a cluster. Reads cluster URL and defa
 
 Disassemble the compiled `.so` artifact into a human-readable listing.
 
-### `hopper verify --manifest <path>`
+### `hopper verify --manifest <path> [--so <program.so>] [--strict | --release]`
 
-Compare a deployed program's ABI fingerprint against the manifest's `LAYOUT_ID` values. Exits non-zero on mismatch.
+Compare a compiled program's ABI fingerprint against the manifest's `LAYOUT_ID`
+values. Manifest integrity is always fatal on mismatch. Binary anchor scanning is
+informational by default, fatal with `--strict`, and required + fatal with
+`--release`.
 
 ## Keys and identity
 

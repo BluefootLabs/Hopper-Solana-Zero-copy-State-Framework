@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 license = "Apache-2.0"
 authors = ["BluefootLabs <contact@bluefootlabs.com>", "MoonManQuark"]
-description = "Canonical low-level runtime surface for Hopper. Hopper Native is the primary backend; Pinocchio and solana-program are compatibility backends."
+description = "Canonical low-level runtime surface for Hopper. Hopper Native is the primary backend; legacy Pinocchio and solana-program compatibility are explicit opt-ins."
 repository = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework"
 homepage = "https://hopperzero.dev"
 documentation = "https://docs.rs/hopper-runtime"
@@ -19,12 +19,13 @@ name = "hopper_runtime"
 default = ["hopper-native-backend"]
 
 hopper-native-backend = ["hopper-native", "hopper-native/cpi", "hopper-native/bytemuck", "dep:bytemuck"]
-pinocchio-backend = ["pinocchio", "pinocchio-system", "pinocchio-token"]
+legacy-pinocchio-compat = ["pinocchio", "pinocchio-system", "pinocchio-token"]
 solana-program-backend = ["solana-program"]
 
 cu-trace = ["hopper-native/cu-trace"]
 cpi = []
 copy = []
+legacy-token-instructions = []
 
 [dependencies]
 hopper-native = { workspace = true, optional = true, default-features = false }

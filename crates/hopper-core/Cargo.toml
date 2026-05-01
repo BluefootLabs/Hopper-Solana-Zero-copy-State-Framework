@@ -37,7 +37,7 @@ default = ["programs", "hopper-native-backend", "advanced", "cpi", "collections"
 programs = []
 log = []
 hopper-native-backend = ["hopper-runtime/hopper-native-backend"]
-pinocchio-backend = ["hopper-runtime/pinocchio-backend"]
+legacy-pinocchio-compat = ["hopper-runtime/legacy-pinocchio-compat"]
 solana-program-backend = ["hopper-runtime/solana-program-backend"]
 cpi = ["hopper-runtime/cpi"]
 

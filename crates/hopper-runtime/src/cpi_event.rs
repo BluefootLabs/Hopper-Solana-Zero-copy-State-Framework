@@ -89,7 +89,7 @@ pub fn encode_event_cpi(
 ///
 /// Builds the one-account instruction (event-authority as signer) and
 /// hands it to the active backend's `invoke_signed`. The native
-/// backend path is the load-bearing one; a pinocchio-backend or
+/// backend path is the load-bearing one; a legacy-pinocchio-compat or
 /// solana-program-backend build routes through their respective
 /// compat shims.
 ///
@@ -125,7 +125,7 @@ pub fn invoke_event_cpi(
 
     #[cfg(any(
         not(target_os = "solana"),
-        feature = "pinocchio-backend",
+        feature = "legacy-pinocchio-compat",
         feature = "solana-program-backend",
     ))]
     {

@@ -64,9 +64,9 @@ hopper-core = { path = "crates/hopper-core", version = "0.1.0", default-features
 hopper-macros = { path = "crates/hopper-macros", version = "0.1.0", default-features = false }
 hopper-macros-proc = { path = "crates/hopper-macros-proc", version = "0.1.0" }
 hopper = { path = ".", version = "0.1.0" }
-hopper-system = { path = "crates/hopper-system", version = "0.1.0" }
+hopper-system = { path = "crates/hopper-system", version = "0.1.0", default-features = false }
 hopper-schema = { path = "crates/hopper-schema", version = "0.1.0", default-features = false }
-hopper-solana = { path = "crates/hopper-solana", version = "0.1.0" }
+hopper-solana = { path = "crates/hopper-solana", version = "0.1.0", default-features = false }
 hopper-token = { path = "crates/hopper-spl/hopper-token", version = "0.1.0", default-features = false }
 hopper-token-2022 = { path = "crates/hopper-spl/hopper-token-2022", version = "0.1.0", default-features = false }
 hopper-associated-token = { path = "crates/hopper-spl/hopper-associated-token", version = "0.1.0", default-features = false }
@@ -125,6 +125,10 @@ proc-macros = ["hopper-macros-proc"]
 # update). Optional because not every Hopper program touches Metaplex
 # and the crate adds compile time; opt in with `--features metaplex`.
 metaplex = ["dep:hopper-metaplex"]
+legacy-token-instructions = [
+    "hopper-token/legacy-token-instructions",
+    "hopper-solana/legacy-token-instructions",
+]
 
 # ── Advanced subsystems (forwarded to hopper-core) ────────────────
 advanced = ["hopper-core/advanced"]
@@ -151,18 +155,18 @@ hopper-native-backend = [
     "hopper-schema/hopper-native-backend",
     "hopper-solana/hopper-native-backend",
 ]
-pinocchio-backend = [
-    "hopper-runtime/pinocchio-backend",
-    "hopper-core/pinocchio-backend",
-    "hopper-system/pinocchio-backend",
-    "hopper-token/pinocchio-backend",
-    "hopper-token-2022/pinocchio-backend",
-    "hopper-associated-token/pinocchio-backend",
-    "hopper-memo/pinocchio-backend",
-    "hopper-metaplex?/pinocchio-backend",
-    "hopper-macros/pinocchio-backend",
-    "hopper-schema/pinocchio-backend",
-    "hopper-solana/pinocchio-backend",
+legacy-pinocchio-compat = [
+    "hopper-runtime/legacy-pinocchio-compat",
+    "hopper-core/legacy-pinocchio-compat",
+    "hopper-system/legacy-pinocchio-compat",
+    "hopper-token/legacy-pinocchio-compat",
+    "hopper-token-2022/legacy-pinocchio-compat",
+    "hopper-associated-token/legacy-pinocchio-compat",
+    "hopper-memo/legacy-pinocchio-compat",
+    "hopper-metaplex?/legacy-pinocchio-compat",
+    "hopper-macros/legacy-pinocchio-compat",
+    "hopper-schema/legacy-pinocchio-compat",
+    "hopper-solana/legacy-pinocchio-compat",
 ]
 solana-program-backend = [
     "hopper-runtime/solana-program-backend",

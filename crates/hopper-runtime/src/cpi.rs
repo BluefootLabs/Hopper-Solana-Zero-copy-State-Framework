@@ -324,7 +324,7 @@ pub fn invoke_signed_with_bounds<const MAX_ACCOUNTS: usize>(
 // ══════════════════════════════════════════════════════════════════════
 
 /// Invoke a CPI through the active compatibility backend.
-#[cfg(any(feature = "pinocchio-backend", feature = "solana-program-backend"))]
+#[cfg(any(feature = "legacy-pinocchio-compat", feature = "solana-program-backend"))]
 #[inline]
 pub fn invoke<const ACCOUNTS: usize>(
     instruction: &InstructionView,
@@ -334,7 +334,7 @@ pub fn invoke<const ACCOUNTS: usize>(
 }
 
 /// Invoke a signed CPI through the active compatibility backend.
-#[cfg(any(feature = "pinocchio-backend", feature = "solana-program-backend"))]
+#[cfg(any(feature = "legacy-pinocchio-compat", feature = "solana-program-backend"))]
 #[inline]
 pub fn invoke_signed<const ACCOUNTS: usize>(
     instruction: &InstructionView,

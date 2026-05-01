@@ -36,7 +36,7 @@
 //! that, it falls back to a linear scan of the declared slice plus
 //! the yielded-view cursor.
 
-use crate::{account::AccountView, error::ProgramError, result::ProgramResult};
+use crate::{account::AccountView, error::ProgramError};
 
 /// Upper bound on remaining-account iterator length. Matches Quasar's
 /// `MAX_REMAINING_ACCOUNTS` so programs porting from one framework to

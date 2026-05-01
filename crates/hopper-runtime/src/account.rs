@@ -876,7 +876,7 @@ impl AccountView {
     // ── Backend access ───────────────────────────────────────────────
 
     /// Access the active backend account view inside the runtime crate.
-    #[cfg(target_os = "solana")]
+    #[cfg(feature = "solana-program-backend")]
     #[inline(always)]
     pub(crate) fn as_backend(&self) -> &BackendAccountView {
         &self.inner

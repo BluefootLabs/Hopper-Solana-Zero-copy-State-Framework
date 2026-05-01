@@ -20,7 +20,7 @@
 //! # By-value conversions
 //!
 //! `From`/`Into` impls are provided automatically via the active backend.
-//! When `pinocchio-backend` is enabled, `From<pinocchio::Address>` and
+//! When `legacy-pinocchio-compat` is enabled, `From<pinocchio::Address>` and
 //! `From<Address> for pinocchio::Address` are available. When
 //! `solana-program-backend` is enabled, the same exists for `Pubkey`.
 //!
@@ -78,7 +78,7 @@ pub unsafe trait TransparentAddress: Sized {}
 // Hopper's own Address is trivially transparent.
 unsafe impl TransparentAddress for Address {}
 
-#[cfg(feature = "pinocchio-backend")]
+#[cfg(feature = "legacy-pinocchio-compat")]
 unsafe impl TransparentAddress for pinocchio::address::Address {}
 
 #[cfg(feature = "solana-program-backend")]
@@ -92,7 +92,7 @@ unsafe impl TransparentAddress for ::solana_program::pubkey::Pubkey {}
 //
 // Available conversions by backend:
 //
-// pinocchio-backend:
+// legacy-pinocchio-compat:
 //   From<pinocchio::Address>     for Address
 //   From<Address>                for pinocchio::Address
 //

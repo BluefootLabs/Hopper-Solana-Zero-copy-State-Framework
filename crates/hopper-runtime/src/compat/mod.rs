@@ -1,6 +1,6 @@
 #[cfg(feature = "hopper-native-backend")]
 mod native;
-#[cfg(feature = "pinocchio-backend")]
+#[cfg(feature = "legacy-pinocchio-compat")]
 mod pinocchio;
 #[cfg(feature = "solana-program-backend")]
 mod solana_program;
@@ -17,7 +17,7 @@ pub use native::{
     process_entrypoint,
 };
 
-#[cfg(feature = "pinocchio-backend")]
+#[cfg(feature = "legacy-pinocchio-compat")]
 #[doc(hidden)]
 pub use pinocchio::{
     BACKEND_MAX_TX_ACCOUNTS,
@@ -43,7 +43,7 @@ pub use solana_program::{
 
 #[cfg(feature = "hopper-native-backend")]
 pub(crate) use native::*;
-#[cfg(feature = "pinocchio-backend")]
+#[cfg(feature = "legacy-pinocchio-compat")]
 pub(crate) use pinocchio::*;
 #[cfg(feature = "solana-program-backend")]
 pub(crate) use solana_program::*;

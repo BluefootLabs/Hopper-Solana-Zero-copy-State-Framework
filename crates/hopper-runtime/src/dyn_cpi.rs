@@ -142,6 +142,12 @@ impl<'a, const MAX_ACCTS: usize, const MAX_DATA: usize> DynCpi<'a, MAX_ACCTS, MA
         self.account_count
     }
 
+    /// Program id this dynamic CPI targets.
+    #[inline(always)]
+    pub const fn program_id(&self) -> &Address {
+        self.program_id
+    }
+
     /// Current data length.
     #[inline(always)]
     pub const fn data_len(&self) -> usize {

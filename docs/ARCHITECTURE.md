@@ -234,6 +234,17 @@ Inline variable-length fields with length prefix. Alternative to segments for
 - `write_dynamic_u8/u16/u32(data, offset, value)` -- write length + bytes
 - `DynamicView` / `DynamicViewMut` -- typed access
 
+Quasar's public `String` / `Vec` dynamic-field UX maps to two Hopper tools:
+
+- use inline dynamic fields for a small bounded string/blob where the offset is
+   part of the fixed layout; and
+- use named extension segments for larger or repeated variable regions that need
+   independent borrow tracking, migration role metadata, or collection helpers.
+
+Both paths stay `no_alloc` on-chain. Inline dynamic fields optimize for simple
+bounded payloads; segments optimize for schema evolution and field-level borrow
+leasing.
+
 ### Realloc Guard (`account/realloc_guard.rs`)
 
 `ReallocGuard<const N>` enforces a per-instruction cumulative growth budget.

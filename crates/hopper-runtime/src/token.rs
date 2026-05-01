@@ -9,8 +9,10 @@
 //! `AccountView` / `Signer`), while execution is delegated through Hopper's
 //! checked CPI semantics.
 //!
-//! Provides Transfer, MintTo, Burn, CloseAccount, Approve, Revoke, and
-//! InitializeAccount builders.
+//! Provides checked-by-default TransferChecked, MintToChecked, BurnChecked,
+//! ApproveChecked, CloseAccount, Revoke, and InitializeAccount builders.
+//! Deprecated plain Transfer/MintTo/Burn/Approve builders are compiled only
+//! when `legacy-token-instructions` is explicitly enabled.
 
 use crate::account::AccountView;
 use crate::address::Address;
@@ -274,6 +276,7 @@ pub fn require_mint_freeze_authority(
     since = "0.2.0",
     note = "use TransferChecked for Token-2022 safety (mint + decimals validation)"
 )]
+#[cfg(feature = "legacy-token-instructions")]
 pub struct Transfer<'a> {
     pub from: &'a AccountView,
     pub to: &'a AccountView,
@@ -282,6 +285,7 @@ pub struct Transfer<'a> {
 }
 
 #[allow(deprecated)]
+#[cfg(feature = "legacy-token-instructions")]
 impl Transfer<'_> {
     /// Invoke with the authority already transaction-signed. Fails
     /// fast with `MissingRequiredSignature` if the authority is not
@@ -330,6 +334,7 @@ impl Transfer<'_> {
     since = "0.2.0",
     note = "use MintToChecked for Token-2022 safety (mint + decimals validation)"
 )]
+#[cfg(feature = "legacy-token-instructions")]
 pub struct MintTo<'a> {
     pub mint: &'a AccountView,
     pub account: &'a AccountView,
@@ -338,6 +343,7 @@ pub struct MintTo<'a> {
 }
 
 #[allow(deprecated)]
+#[cfg(feature = "legacy-token-instructions")]
 impl MintTo<'_> {
     #[inline]
     pub fn invoke(&self) -> ProgramResult {
@@ -376,6 +382,7 @@ impl MintTo<'_> {
     since = "0.2.0",
     note = "use BurnChecked for Token-2022 safety (mint + decimals validation)"
 )]
+#[cfg(feature = "legacy-token-instructions")]
 pub struct Burn<'a> {
     pub account: &'a AccountView,
     pub mint: &'a AccountView,
@@ -384,6 +391,7 @@ pub struct Burn<'a> {
 }
 
 #[allow(deprecated)]
+#[cfg(feature = "legacy-token-instructions")]
 impl Burn<'_> {
     #[inline]
     pub fn invoke(&self) -> ProgramResult {
@@ -457,6 +465,7 @@ impl CloseAccount<'_> {
     since = "0.2.0",
     note = "use ApproveChecked for Token-2022 safety (mint + decimals validation)"
 )]
+#[cfg(feature = "legacy-token-instructions")]
 pub struct Approve<'a> {
     pub source: &'a AccountView,
     pub delegate: &'a AccountView,
@@ -465,6 +474,7 @@ pub struct Approve<'a> {
 }
 
 #[allow(deprecated)]
+#[cfg(feature = "legacy-token-instructions")]
 impl Approve<'_> {
     #[inline]
     pub fn invoke(&self) -> ProgramResult {
@@ -845,12 +855,15 @@ pub const TOKEN_PROGRAM_ID: Address = Address::new_from_array(
 );
 
 /// Compatibility re-exports.
-#[allow(deprecated)]
 pub mod instructions {
     pub use super::{
-        Approve, ApproveChecked, Burn, BurnChecked, CloseAccount, InitializeAccount, MintTo,
-        MintToChecked, Revoke, Transfer, TransferChecked,
+        ApproveChecked, BurnChecked, CloseAccount, InitializeAccount, MintToChecked, Revoke,
+        TransferChecked,
     };
+
+    #[cfg(feature = "legacy-token-instructions")]
+    #[allow(deprecated)]
+    pub use super::{Approve, Burn, MintTo, Transfer};
 }
 
 #[cfg(test)]

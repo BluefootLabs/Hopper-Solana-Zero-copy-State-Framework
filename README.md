@@ -15,7 +15,7 @@ schema manifests, and CLI tooling.
 
 The repository now follows the Quasar-style product layout: framework-internal
 crates live together in this main repo, while independent products such as the
-benchmark suite live separately.
+benchmark suite and SVM harness live separately.
 
 ## What Hopper provides
 
@@ -25,8 +25,8 @@ benchmark suite live separately.
 - Segment-aware access helpers for field-level borrow tracking.
 - Optional proc macros for faster authoring; the core framework remains usable
   without proc macros.
-- Multiple backend feature sets: Hopper Native by default, plus Pinocchio and
-  `solana-program` compatibility backends.
+- Hopper Native by default, with explicit legacy Pinocchio and
+  `solana-program` compatibility modes quarantined behind opt-in features.
 - Schema, IDL, manager, and CLI tooling for inspecting and explaining account
   layouts.
 
@@ -83,6 +83,22 @@ mod vault {
 }
 ```
 
+## Access model
+
+Use Hopper's access tiers deliberately:
+
+1. `segment_ref_typed` / generated field accessors — default hot path for
+  field-level borrow leasing.
+2. `load` / `load_mut` — validated whole-layout access.
+3. `segment_ref_const` / dynamic `segment_ref` — advanced runtime-selected
+  segment access.
+4. `raw_ref` / `raw_mut` — unsafe typed escape hatch.
+5. `as_mut_ptr` — full raw pointer escape for policy-controlled raw mode.
+
+For variable-length account data, use inline dynamic fields for small bounded
+payloads and named extension segments for larger/repeated regions that need
+independent borrow tracking or migration metadata.
+
 ## Repository layout
 
 | Path | Purpose |
@@ -118,14 +134,18 @@ Hopper Native is the default backend.
 # Default backend
 hopper = { git = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework" }
 
-# Pinocchio compatibility backend
-hopper = { git = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework", default-features = false, features = ["pinocchio-backend"] }
+# Legacy Pinocchio migration/benchmark compatibility only
+hopper = { git = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework", default-features = false, features = ["legacy-pinocchio-compat"] }
 
 # solana-program compatibility backend
 hopper = { git = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework", default-features = false, features = ["solana-program-backend"] }
 ```
 
 Only one backend should be enabled for a program build.
+
+`legacy-pinocchio-compat` is not Hopper's native execution story. It exists for
+migration tests and compatibility benchmarking. New programs should use the
+default Hopper Native backend.
 
 ## Tooling
 
@@ -141,6 +161,11 @@ cargo test -p hopper --features proc-macros,metaplex --test metaplex_context_int
 The CLI source lives in `tools/hopper-cli`. It supports linting, schema export,
 manifest inspection, account decoding, and profile helpers.
 
+Start with `examples/hopper-policy-vault` to see strict, sealed, raw, and
+hybrid handlers side by side. For in-process tests, use the sibling
+[hopper-svm](https://github.com/BluefootLabs/hopper-svm) repo as a
+dev-dependency.
+
 ## Benchmarks
 
 The benchmark suite is maintained as a separate product repo:
@@ -149,6 +174,9 @@ https://github.com/BluefootLabs/hopper-bench
 
 Do not copy old benchmark numbers from this README. Regenerate numbers from the
 benchmark repo before publishing performance claims.
+
+Do not claim Pinocchio performance parity or wins until the R2 Pinocchio column
+has been regenerated from the standalone benchmark repo.
 
 ## Safety posture
 

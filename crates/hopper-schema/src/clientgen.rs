@@ -226,6 +226,16 @@ impl<'a> fmt::Display for TsAccounts<'a> {
             write!(f, "  ")?;
             write_pascal(f, layout.name)?;
             writeln!(f, " {{")?;
+            write!(f, "  assert")?;
+            write_pascal(f, layout.name)?;
+            writeln!(f, "Layout(data);")?;
+            writeln!(f, "  if (data.length < {}) {{", layout.total_size)?;
+            writeln!(
+                f,
+                "    throw new Error(`Data too small for {}: ${{data.length}} < {}`);",
+                layout.name, layout.total_size
+            )?;
+            writeln!(f, "  }}")?;
             writeln!(
                 f,
                 "  const view = new DataView(data.buffer, data.byteOffset, data.byteLength);"
@@ -458,22 +468,39 @@ impl<'a> fmt::Display for TsTypes<'a> {
         writeln!(f, "export interface HopperHeader {{")?;
         writeln!(f, "  disc: number;")?;
         writeln!(f, "  version: number;")?;
-        writeln!(f, "  layoutId: Uint8Array;")?;
-        writeln!(f, "  bump: number;")?;
         writeln!(f, "  flags: number;")?;
+        writeln!(f, "  layoutId: Uint8Array;")?;
+        writeln!(f, "  reserved: Uint8Array;")?;
         writeln!(f, "}}")?;
+        writeln!(f)?;
+        writeln!(f, "const HEADER_SIZE = 16;")?;
+        writeln!(f, "const LAYOUT_ID_OFFSET = 4;")?;
+        writeln!(f, "const LAYOUT_ID_LENGTH = 8;")?;
         writeln!(f)?;
         writeln!(f, "/** Decode the Hopper 16-byte account header. */")?;
         writeln!(
             f,
             "export function decodeHeader(data: Uint8Array): HopperHeader {{"
         )?;
+        writeln!(f, "  if (data.length < HEADER_SIZE) {{")?;
+        writeln!(
+            f,
+            "    throw new Error(`Hopper account too short: ${{data.length}} < ${{HEADER_SIZE}}`);"
+        )?;
+        writeln!(f, "  }}")?;
+        writeln!(
+            f,
+            "  const view = new DataView(data.buffer, data.byteOffset, data.byteLength);"
+        )?;
         writeln!(f, "  return {{")?;
         writeln!(f, "    disc: data[0],")?;
         writeln!(f, "    version: data[1],")?;
-        writeln!(f, "    layoutId: data.slice(2, 10),")?;
-        writeln!(f, "    bump: data[10],")?;
-        writeln!(f, "    flags: data[11],")?;
+        writeln!(f, "    flags: view.getUint16(2, true),")?;
+        writeln!(
+            f,
+            "    layoutId: data.slice(LAYOUT_ID_OFFSET, LAYOUT_ID_OFFSET + LAYOUT_ID_LENGTH),"
+        )?;
+        writeln!(f, "    reserved: data.slice(12, 16),")?;
         writeln!(f, "  }};")?;
         writeln!(f, "}}")?;
         writeln!(f)?;
@@ -1305,26 +1332,33 @@ impl<'a> fmt::Display for KtTypes<'a> {
         writeln!(f, "data class HopperHeader(")?;
         writeln!(f, "    val disc: UByte,")?;
         writeln!(f, "    val version: UByte,")?;
+        writeln!(f, "    val flags: UShort,")?;
         writeln!(f, "    val layoutId: ByteArray,")?;
-        writeln!(f, "    val bump: UByte,")?;
-        writeln!(f, "    val flags: UByte")?;
+        writeln!(f, "    val reserved: ByteArray")?;
         writeln!(f, ")")?;
         writeln!(f)?;
-        writeln!(f, "/** Hopper account header size in bytes. */")?;
-        writeln!(f, "const val HEADER_SIZE: Int = 16")?;
+        writeln!(f, "private const val TYPES_HEADER_SIZE: Int = 16")?;
+        writeln!(f, "private const val TYPES_LAYOUT_ID_OFFSET: Int = 4")?;
+        writeln!(f, "private const val TYPES_LAYOUT_ID_LENGTH: Int = 8")?;
         writeln!(f)?;
         writeln!(f, "/** Decode the Hopper 16-byte account header. */")?;
         writeln!(f, "fun decodeHeader(data: ByteArray): HopperHeader {{")?;
         writeln!(
             f,
-            "    require(data.size >= 16) {{ \"Data too small for header\" }}"
+            "    require(data.size >= TYPES_HEADER_SIZE) {{ \"Data too small for header\" }}"
         )?;
         writeln!(f, "    return HopperHeader(")?;
         writeln!(f, "        disc = data[0].toUByte(),")?;
         writeln!(f, "        version = data[1].toUByte(),")?;
-        writeln!(f, "        layoutId = data.copyOfRange(2, 10),")?;
-        writeln!(f, "        bump = data[10].toUByte(),")?;
-        writeln!(f, "        flags = data[11].toUByte()")?;
+        writeln!(
+            f,
+            "        flags = ByteBuffer.wrap(data, 2, 2).order(ByteOrder.LITTLE_ENDIAN).short.toUShort(),"
+        )?;
+        writeln!(
+            f,
+            "        layoutId = data.copyOfRange(TYPES_LAYOUT_ID_OFFSET, TYPES_LAYOUT_ID_OFFSET + TYPES_LAYOUT_ID_LENGTH),"
+        )?;
+        writeln!(f, "        reserved = data.copyOfRange(12, 16)")?;
         writeln!(f, "    )")?;
         writeln!(f, "}}")?;
         writeln!(f)?;
@@ -1519,6 +1553,8 @@ mod tests {
         let m = test_manifest();
         let output = TsAccounts(&m).to_string();
         assert!(output.contains("export function decodeVault(data: Uint8Array)"));
+        assert!(output.contains("export function decodeVault(data: Uint8Array): \n  Vault {\n  assertVaultLayout(data);"));
+        assert!(output.contains("throw new Error(`Data too small for vault: ${data.length} < 64`);"));
         assert!(output.contains("new PublicKey(data.slice(16, 48))"));
         assert!(output.contains("view.getBigUint64(48, true)"));
         assert!(output.contains("data[56] !== 0"));
@@ -1565,7 +1601,22 @@ mod tests {
         let output = TsTypes(&m).to_string();
         assert!(output.contains("export interface HopperHeader {"));
         assert!(output.contains("export function decodeHeader(data: Uint8Array)"));
+        assert!(output.contains("flags: view.getUint16(2, true),"));
+        assert!(output.contains("layoutId: data.slice(LAYOUT_ID_OFFSET, LAYOUT_ID_OFFSET + LAYOUT_ID_LENGTH),"));
+        assert!(output.contains("reserved: data.slice(12, 16),"));
         assert!(output.contains("Vault: 1,"));
+    }
+
+    #[test]
+    fn ts_decode_header_and_assert_layout_id_share_offset() {
+        let m = test_manifest();
+        let accounts = TsAccounts(&m).to_string();
+        let types = TsTypes(&m).to_string();
+        assert!(accounts.contains("export const LAYOUT_ID_OFFSET = 4;"));
+        assert!(accounts.contains("data[LAYOUT_ID_OFFSET + i]"));
+        assert!(types.contains("const LAYOUT_ID_OFFSET = 4;"));
+        assert!(types.contains("data.slice(LAYOUT_ID_OFFSET, LAYOUT_ID_OFFSET + LAYOUT_ID_LENGTH)"));
+        assert!(!types.contains("data.slice(2, 10)"));
     }
 
     #[test]
@@ -1724,6 +1775,10 @@ mod tests {
         let output = KtTypes(&m).to_string();
         assert!(output.contains("data class HopperHeader("));
         assert!(output.contains("fun decodeHeader(data: ByteArray): HopperHeader {"));
+        assert!(output.contains("flags = ByteBuffer.wrap(data, 2, 2).order(ByteOrder.LITTLE_ENDIAN).short.toUShort(),"));
+        assert!(output.contains("layoutId = data.copyOfRange(TYPES_LAYOUT_ID_OFFSET, TYPES_LAYOUT_ID_OFFSET + TYPES_LAYOUT_ID_LENGTH),"));
+        assert!(output.contains("reserved = data.copyOfRange(12, 16)"));
+        assert!(!output.contains("data.copyOfRange(2, 10)"));
         assert!(output.contains("VAULT: Byte = 1"));
     }
 

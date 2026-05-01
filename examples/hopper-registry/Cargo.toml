@@ -18,7 +18,7 @@ hopper = { path = "../..", default-features = false }
 default = ["hopper-native-backend", "advanced"]
 hopper-native-backend = ["hopper/hopper-native-backend"]
 advanced = ["hopper/advanced"]
-pinocchio-backend = ["hopper/pinocchio-backend"]
+legacy-pinocchio-compat = ["hopper/legacy-pinocchio-compat"]
 solana-program-backend = ["hopper/solana-program-backend"]
 
 [lints.rust]

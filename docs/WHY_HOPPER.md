@@ -5,7 +5,7 @@
 Hopper is a policy-driven zero-copy runtime for Solana. Three things set it apart:
 
 1. **Segment-level borrow tracking.** When one instruction mutates a vault's `balance` field, Hopper locks exactly those 8 bytes. A parallel read of `authority` on the same account? No conflict. Every other framework locks the whole account.
-2. **One access model, three safety tiers.** `load::<T>()` for validated whole-layout access, `segment_ref`/`segment_mut` for field-level access, `unsafe { as_mut_ptr() }` for Pinocchio-parity raw access. Same pipeline, different guarantees.
+2. **One access model, five explicit tiers.** Generated field accessors / `segment_ref_typed` are the default hot path; `load::<T>()` is validated whole-layout access; const/dynamic segment APIs are advanced; `raw_ref` / `raw_mut` are typed escape hatches; `unsafe { as_mut_ptr() }` is full raw access. Same pipeline, different guarantees.
 3. **Policy-driven enforcement.** `#[hopper::program(strict)]`, `(sealed)`, or `(raw)` at the module level; `#[instruction(N, unsafe_memory, skip_token_checks)]` per handler. Every safety lever is a compile-time const the user toggles in one line.
 
 ## Where Hopper sits

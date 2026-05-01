@@ -15,7 +15,7 @@ hopper-schema = { path = "../../crates/hopper-schema" }
 [features]
 default = ["hopper-native-backend"]
 hopper-native-backend = ["hopper/hopper-native-backend"]
-pinocchio-backend = ["hopper/pinocchio-backend"]
+legacy-pinocchio-compat = ["hopper/legacy-pinocchio-compat"]
 solana-program-backend = ["hopper/solana-program-backend"]
 
 [lints.rust]

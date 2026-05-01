@@ -1,8 +1,9 @@
 # hopper-runtime
 
 Canonical low-level runtime surface for [Hopper](https://hopperzero.dev).
-Hopper Native is the primary backend; Pinocchio and solana-program are
-compatibility backends.
+Hopper Native is the primary backend. Pinocchio is available only through the
+explicit `legacy-pinocchio-compat` migration/benchmark feature; solana-program
+compatibility is a separate opt-in backend.
 
 ## What this crate owns
 
@@ -20,7 +21,7 @@ compatibility backends.
   `require_gte!`, `require_lt!`, `require_lte!`), plus `err!` / `error!`
   short-form aliases.
 - **Backend bridge** — feature-gated routing to `hopper-native` (primary),
-  `pinocchio`, or `solana-program` substrates.
+  `legacy-pinocchio-compat` migration shims, or `solana-program` substrates.
 - **System Program builders** — `Transfer`, `CreateAccount`, `Allocate`,
   `Assign`.
 - **Rent-exemption helper** — `rent::check_rent_exempt(account)` backing the

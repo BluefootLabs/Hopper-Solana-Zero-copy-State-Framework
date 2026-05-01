@@ -16,7 +16,7 @@ pub unsafe fn sol_log_data(segments: *const u8, segments_len: u64) {
         hopper_native::syscalls::sol_log_data(segments, segments_len);
     }
 
-    #[cfg(all(target_os = "solana", feature = "pinocchio-backend"))]
+    #[cfg(all(target_os = "solana", feature = "legacy-pinocchio-compat"))]
     unsafe {
         pinocchio::syscalls::sol_log_data(segments, segments_len);
     }
@@ -48,7 +48,7 @@ pub unsafe fn sol_sha256(vals: *const u8, vals_len: u64, result: *mut u8) {
         hopper_native::syscalls::sol_sha256(vals, vals_len, result);
     }
 
-    #[cfg(all(target_os = "solana", feature = "pinocchio-backend"))]
+    #[cfg(all(target_os = "solana", feature = "legacy-pinocchio-compat"))]
     unsafe {
         pinocchio::syscalls::sol_sha256(vals, vals_len, result);
     }

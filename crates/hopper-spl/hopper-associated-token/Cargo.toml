@@ -22,7 +22,7 @@ hopper-solana = { workspace = true }
 [features]
 default = ["hopper-native-backend"]
 hopper-native-backend = ["hopper-runtime/hopper-native-backend", "hopper-solana/hopper-native-backend"]
-pinocchio-backend = ["hopper-runtime/pinocchio-backend", "hopper-solana/pinocchio-backend"]
+legacy-pinocchio-compat = ["hopper-runtime/legacy-pinocchio-compat", "hopper-solana/legacy-pinocchio-compat"]
 solana-program-backend = ["hopper-runtime/solana-program-backend", "hopper-solana/solana-program-backend"]
 
 [lints]

@@ -21,8 +21,9 @@ hopper-runtime = { workspace = true }
 [features]
 default = ["hopper-native-backend"]
 hopper-native-backend = ["hopper-runtime/hopper-native-backend"]
-pinocchio-backend = ["hopper-runtime/pinocchio-backend"]
+legacy-pinocchio-compat = ["hopper-runtime/legacy-pinocchio-compat"]
 solana-program-backend = ["hopper-runtime/solana-program-backend"]
+legacy-token-instructions = ["hopper-runtime/legacy-token-instructions"]
 
 [lints]
 workspace = true
