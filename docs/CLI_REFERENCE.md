@@ -78,9 +78,10 @@ CLI flags always override config values.
 
 ## Schema and IDL
 
-### `hopper schema export [--manifest | --idl | --codama]`
+### `hopper schema export [--manifest | --idl | --codama | --anchor-idl]`
 
-Print the schema for the current program in one of three formats.
+Print the schema for the current program as a Hopper manifest, Hopper IDL,
+Codama-shaped JSON, or Anchor-shaped IDL JSON.
 
 ### `hopper schema validate <manifest.json>`
 
@@ -90,11 +91,33 @@ Static validation of a manifest file.
 
 Field-level diff between two manifest versions. Emits a compatibility verdict: `compatible`, `warning`, or `incompatible`, with per-field reasons.
 
+## Compile and emit
+
+### `hopper compile --emit <target> [<manifest> | --package <name> | --program-id <id>]`
+
+Emit artifacts from a local, package-inferred, or fetched manifest. Targets:
+
+- `rust` - lowered Hopper runtime preview for auditing accessors and offsets
+- `ts` - TypeScript client SDK
+- `kt` - Kotlin client SDK
+- `py` - Python client SDK
+- `rust-client` - off-chain Rust client SDK
+- `idl` - Anchor-shaped IDL JSON
+- `codama` - Codama-shaped JSON
+- `schema` - Hopper program manifest JSON
+
+Use `--out <path> --force` to write a file and `--lint` to run `hopper lint`
+after emitting.
+
 ## Client generation
 
-### `hopper client gen --ts <manifest>` / `--kt <manifest>`
+### `hopper client gen --ts <manifest>` / `--kt <manifest>` / `--py <manifest>`
 
-Emit a typed TypeScript or Kotlin client from the manifest. Supported shapes: instruction builders, account readers, PDA helpers, event decoders.
+Emit a typed TypeScript, Kotlin, or Python client from the manifest. Supported
+shapes: instruction builders, account readers, PDA helpers, event decoders. Use
+`hopper compile --emit rust-client <manifest>` for the off-chain Rust client
+target and `hopper compile --emit <ts|kt|py|rust-client|idl|codama|schema>` for
+one-shot manifest-source inference via `--package` or `--program-id`.
 
 ## Inspection
 

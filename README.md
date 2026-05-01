@@ -83,6 +83,16 @@ mod vault {
 }
 ```
 
+## Documentation map
+
+- [docs/GETTING_STARTED_SERIOUS.md](docs/GETTING_STARTED_SERIOUS.md): source-first setup and first serious program flow.
+- [docs/WRITING_HOPPER_PROGRAMS.md](docs/WRITING_HOPPER_PROGRAMS.md): Hopper authoring patterns and program structure.
+- [docs/POLICY_GUARANTEES.md](docs/POLICY_GUARANTEES.md): capability policy, sealed/raw/hybrid access, and the policy-vault example.
+- [docs/MIGRATION_FROM_ANCHOR.md](docs/MIGRATION_FROM_ANCHOR.md): Anchor-to-Hopper migration notes.
+- [docs/MIGRATION_FROM_QUASAR.md](docs/MIGRATION_FROM_QUASAR.md): Quasar-to-Hopper migration notes.
+- [docs/QUASAR_PINOCCHIO_REPLACEMENT.md](docs/QUASAR_PINOCCHIO_REPLACEMENT.md): why Hopper Native replaces a backend-first Pinocchio story.
+- [docs/CLI_REFERENCE.md](docs/CLI_REFERENCE.md): lifecycle, schema, client, profiling, and manager command reference.
+
 ## Access model
 
 Use Hopper's access tiers deliberately:
@@ -158,8 +168,9 @@ cargo test -p hopper --features proc-macros,metaplex --test constant_integration
 cargo test -p hopper --features proc-macros,metaplex --test metaplex_context_integration -- --nocapture
 ```
 
-The CLI source lives in `tools/hopper-cli`. It supports linting, schema export,
-manifest inspection, account decoding, and profile helpers.
+The CLI source lives in `tools/hopper-cli`. It supports lifecycle commands,
+linting, schema/IDL export, manifest inspection, account decoding, client
+generation, manager workflows, and profile helpers.
 
 Start with `examples/hopper-policy-vault` to see strict, sealed, raw, and
 hybrid handlers side by side. For in-process tests, use the sibling

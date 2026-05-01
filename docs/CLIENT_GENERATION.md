@@ -1,16 +1,20 @@
 # Client Generation
 
-> `hopper client gen --ts <manifest.json>` → TypeScript SDK  
-> `hopper client gen --kt <manifest.json>` → Kotlin SDK (`org.sol4k`)
+> - `hopper client gen --ts <manifest.json>` → TypeScript SDK
+> - `hopper client gen --kt <manifest.json>` → Kotlin SDK (`org.sol4k`)
+> - `hopper client gen --py <manifest.json>` → Python SDK (stdlib-only)
+> - `hopper compile --emit rust-client <manifest.json>` → Rust off-chain SDK
 
 ## Motivation
 
 Anchor wins social adoption because people know how to get from
 "program" to "client." Hopper needs a clean answer.
 
-The client generator reads a Hopper `ProgramManifest` (or its
-IDL/Codama projections) and emits a typed SDK that any frontend
-developer can drop into their project.
+The client generator reads a Hopper `ProgramManifest` and emits typed SDKs that
+frontends, bots, scripts, and tests can drop into their project. All generated
+account decoders assert the 8-byte `LAYOUT_ID` fingerprint before reading
+fields, so stale clients fail closed instead of silently mis-decoding account
+bytes.
 
 ## TypeScript Generation
 
@@ -78,6 +82,26 @@ bundle targeting `org.sol4k` primitives:
 Encoding and decoding use explicit little-endian `ByteBuffer` operations, so
 the generated Kotlin stays close to Hopper's wire model.
 
+## Python Generation
+
+Python generation emits a single stdlib-only module:
+
+- dataclasses for account layouts and events
+- `decode` classmethods that verify layout identity first
+- segment-aware field readers for partial account inspection
+- `build_<instruction>` helpers that return raw instruction-data bytes
+
+The generated module intentionally does not pick a Solana transport library.
+Callers can pass the emitted bytes to `solders`, `solana-py`, or their own RPC
+stack.
+
+## Rust Client Generation
+
+`hopper compile --emit rust-client` emits an off-chain Rust client using
+Solana SDK types. It is separate from `hopper compile --emit rust`, which emits
+the lowered Hopper runtime preview for auditing macro expansion, accessors, and
+offset paths.
+
 ## Usage
 
 ```bash
@@ -86,6 +110,12 @@ hopper client gen --ts @my-program.manifest.json
 
 # Generate Kotlin client bundle
 hopper client gen --kt @my-program.manifest.json
+
+# Generate Python client module
+hopper client gen --py @my-program.manifest.json
+
+# Generate off-chain Rust client
+hopper compile --emit rust-client @my-program.manifest.json
 
 # Generate from piped manifest
 hopper schema export --manifest | hopper client gen --ts -
@@ -101,13 +131,17 @@ ProgramManifest
   │    ├─ instructions.ts
   │    ├─ events.ts
   │    └─ index.ts
-  └─ hopper-schema::clientgen::KtClientGen
-       ├─ Types.kt
-       ├─ Accounts.kt
-       ├─ Instructions.kt
-       └─ Events.kt
+  ├─ hopper-schema::clientgen::KtClientGen
+  │    ├─ Types.kt
+  │    ├─ Accounts.kt
+  │    ├─ Instructions.kt
+  │    └─ Events.kt
+  ├─ hopper-schema::python_client::PyClientGen
+  │    └─ <program>_client.py
+  └─ hopper-schema::rust_client::RsClientGen
+       └─ client.rs
 ```
 
 The generator operates on `ProgramManifest` directly. It does NOT
 parse JSON. The CLI is responsible for loading the manifest; the
-generator formats TypeScript and Kotlin output bundles.
+generator formats TypeScript, Kotlin, Python, and Rust output bundles.

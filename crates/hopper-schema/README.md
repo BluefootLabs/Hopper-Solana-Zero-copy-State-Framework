@@ -21,7 +21,7 @@ and migration planning between layout versions.
 - **Schema diff** - Field-level diffing between layout versions (added, removed, resized, retyped)
 - **Compatibility classification** - Identical, WireCompatible, AppendSafe, MigrationRequired, or Incompatible
 - **Migration planner** - Step-by-step migration plans between layout versions, segment-role-aware
-- **Client generation** - TypeScript, Kotlin (`org.sol4k`), and Rust off-chain SDK generators from program manifests. All three enforce the 8-byte `LAYOUT_ID` fingerprint on every account decode
+- **Client generation** - TypeScript, Kotlin (`org.sol4k`), Python, and Rust off-chain SDK generators from program manifests. All generated account decoders enforce the 8-byte `LAYOUT_ID` fingerprint before reading fields
 - **Field intents** - Semantic annotations (Balance, Authority, Timestamp, Counter, etc.) for smarter tooling
 - **Account decoding** - Header and field-level decode from raw bytes using manifest metadata
 

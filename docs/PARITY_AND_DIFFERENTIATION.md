@@ -207,7 +207,8 @@ use:
 
 Hopper adds: policy system, phased typestate execution, segment roles,
 semantic lint engine, layout stability grades, virtual state, program
-manager, client SDK generation (TS + Kotlin), Codama projection.
+manager, client SDK generation (TS + Kotlin + Python + Rust), Codama
+projection.
 
 Jiminy remains a close sibling with parallel domain crates and Anchor
 interop, but Hopper now ships its own oracle/TWAP, vesting,

@@ -26,9 +26,11 @@ cargo run -p hopper-cli -- help
 ```
 Compile
   hopper compile --emit rust [<manifest>]  Emit lowered runtime Rust: accessors, offsets, pointer path
+  hopper compile --emit rust-client <manifest>  Emit off-chain Rust client SDK
+  hopper compile --emit py <manifest>      Emit Python client SDK
 
 Schema
-  hopper schema export [--manifest|--idl|--codama]  Schema format reference
+  hopper schema export [--manifest|--idl|--codama|--anchor-idl]  Schema format reference
   hopper schema validate <manifest>  Validate a program manifest
   hopper schema diff <old> <new>     Field-level diff between versions
 
@@ -73,6 +75,7 @@ Direct aliases
 Client SDK
   hopper client gen --ts <manifest>  Generate TypeScript client SDK
   hopper client gen --kt <manifest>  Generate Kotlin client SDK (org.sol4k)
+  hopper client gen --py <manifest>  Generate Python client SDK
 
 Fetch
   hopper fetch <program-id> [--rpc <url>] [--json]  Fetch manifest from on-chain

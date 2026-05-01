@@ -158,7 +158,7 @@ For segmented accounts, each segment entry includes:
 The IDL is the public-facing schema for:
 
 - TypeScript client generation
-- Kotlin/Swift client generation
+- Kotlin, Python, and Rust client generation
 - Block explorers
 - External integrations
 - Codama-compatible tooling

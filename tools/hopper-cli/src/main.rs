@@ -11,6 +11,8 @@
 //! hopper schema diff <old> <new>                    Field-level diff
 //!
 //! hopper compile --emit rust [<manifest>]           Emit lowered Hopper runtime Rust preview
+//! hopper compile --emit py [<manifest>]             Emit Python client
+//! hopper compile --emit rust-client [<manifest>]    Emit Rust off-chain client
 //!
 //! hopper inspect <hex-data>                         Decode account header
 //! hopper inspect layout <manifest> <hex-data>       Decode fields using a program manifest
@@ -49,6 +51,7 @@
 //!
 //! hopper client gen --ts <manifest>                 Generate TypeScript client
 //! hopper client gen --kt <manifest>                 Generate Kotlin client
+//! hopper client gen --py <manifest>                 Generate Python client
 //! ```
 //!
 //! Hex data is passed as a hex string (no 0x prefix).
@@ -69,6 +72,7 @@ use hopper_schema::{
     CompatImpact, DecodedReceipt, Phase,
 };
 use hopper_schema::clientgen::{TsClientGen, KtClientGen};
+use hopper_schema::python_client::PyClientGen;
 use hopper_schema::accounts::{AccountLifecycle, ContextAccountDescriptor, ContextDescriptor};
 use std::env;
 use std::path::PathBuf;
@@ -233,11 +237,12 @@ fn cmd_explain_family(args: &[String]) {
 
 fn cmd_client_family(args: &[String]) {
     if args.is_empty() {
-        eprintln!("Usage: hopper client gen [--ts|--kt] <manifest-json>");
+        eprintln!("Usage: hopper client gen [--ts|--kt|--py] <manifest-json>");
         eprintln!();
         eprintln!("Subcommands:");
         eprintln!("  gen --ts <manifest>   Generate TypeScript client SDK");
         eprintln!("  gen --kt <manifest>   Generate Kotlin client SDK");
+        eprintln!("  gen --py <manifest>   Generate Python client SDK");
         process::exit(1);
     }
     match args[0].as_str() {
@@ -299,6 +304,7 @@ fn cmd_compile(args: &[String]) {
         eprintln!("  rust          Lowered Rust preview (what the macros expand to)");
         eprintln!("  ts            TypeScript client SDK");
         eprintln!("  kt            Kotlin client SDK");
+        eprintln!("  py            Python client SDK");
         eprintln!("  rust-client   Off-chain Rust client (solana-sdk types)");
         eprintln!("  idl           Anchor-style IDL JSON");
         eprintln!("  codama        Codama-flavored JSON");
@@ -334,6 +340,7 @@ fn cmd_compile(args: &[String]) {
         }
         "ts" => (format!("{}", TsClientGen(&prog)), "TypeScript client SDK"),
         "kt" => (format!("{}", KtClientGen(&prog)), "Kotlin client SDK"),
+        "py" => (format!("{}", PyClientGen(&prog)), "Python client SDK"),
         "rust-client" => (
             format!("{}", hopper_schema::rust_client::RsClientGen(&prog)),
             "Rust off-chain client",
@@ -352,7 +359,7 @@ fn cmd_compile(args: &[String]) {
         ),
         other => {
             eprintln!("Unsupported emit target: {}", other);
-            eprintln!("Supported: rust | ts | kt | rust-client | idl | codama | schema");
+            eprintln!("Supported: rust | ts | kt | py | rust-client | idl | codama | schema");
             process::exit(1);
         }
     };
@@ -561,13 +568,13 @@ fn load_program_manifest_from_path(path: &std::path::Path) -> Result<ProgramMani
 
 fn cmd_client_gen(args: &[String]) {
     if args.is_empty() {
-        eprintln!("Usage: hopper client gen [--ts|--kt] <manifest-json>");
+        eprintln!("Usage: hopper client gen [--ts|--kt|--py] <manifest-json>");
         process::exit(1);
     }
 
     let (lang, manifest_arg) = if args[0].starts_with("--") {
         if args.len() < 2 {
-            eprintln!("Usage: hopper client gen [--ts|--kt] <manifest-json>");
+            eprintln!("Usage: hopper client gen [--ts|--kt|--py] <manifest-json>");
             process::exit(1);
         }
         (args[0].as_str(), &args[1])
@@ -585,8 +592,11 @@ fn cmd_client_gen(args: &[String]) {
         "--kt" => {
             println!("{}", KtClientGen(&manifest));
         }
+        "--py" => {
+            println!("{}", PyClientGen(&manifest));
+        }
         other => {
-            eprintln!("Unknown language flag: {}. Use --ts or --kt.", other);
+            eprintln!("Unknown language flag: {}. Use --ts, --kt, or --py.", other);
             process::exit(1);
         }
     }
@@ -1813,6 +1823,8 @@ fn print_compile_usage() {
     eprintln!("  rust    Lowered Rust preview (accessors, offsets, pointer path)");
     eprintln!("  ts      TypeScript client SDK");
     eprintln!("  kt      Kotlin client SDK");
+    eprintln!("  py      Python client SDK");
+    eprintln!("  rust-client  Off-chain Rust client SDK");
     eprintln!("  idl     Anchor-style IDL JSON");
     eprintln!("  codama  Codama-flavored JSON");
     eprintln!("  schema  Hopper program manifest JSON");
@@ -1830,6 +1842,7 @@ fn print_compile_usage() {
     eprintln!("  hopper compile --emit idl @hopper.manifest.json --out idl.json");
     eprintln!("  hopper compile --emit codama --program-id <program-id> --rpc <url>");
     eprintln!("  hopper compile --emit kt --package vault");
+    eprintln!("  hopper compile --emit py --package vault --out vault_client.py --force");
     eprintln!("  hopper compile --emit schema --package vault --out manifest.json --force");
     eprintln!("  hopper compile --emit rust --package vault --lint    # one-shot build + lint");
 }
@@ -1840,8 +1853,8 @@ fn print_usage() {
     println!("COMMAND FAMILIES:");
     println!();
     println!("  Compile:");
-    println!("    hopper compile --emit <rust|ts|kt|idl|codama|schema> [<manifest>|--package <name>|--program-id ...]");
-    println!("                                           Emit lowered Rust, TS/KT clients, IDL JSON, Codama, or manifest");
+    println!("    hopper compile --emit <rust|ts|kt|py|rust-client|idl|codama|schema> [<manifest>|--package <name>|--program-id ...]");
+    println!("                                           Emit lowered Rust, client SDKs, IDL JSON, Codama, or manifest");
     println!();
     println!("  Verify (ABI integrity):");
     println!("    hopper verify [<manifest>] [<.so>]     Confirm every layout in the manifest");
@@ -1916,6 +1929,7 @@ fn print_usage() {
     println!("  Client:");
     println!("    hopper client gen --ts <manifest>  Generate TypeScript client SDK");
     println!("    hopper client gen --kt <manifest>  Generate Kotlin client SDK");
+    println!("    hopper client gen --py <manifest>  Generate Python client SDK");
     println!();
     println!("Hex data: hex-encoded account bytes (no 0x prefix).");
     println!("Manifest arguments accept inline JSON or @path/to/file.json.");

@@ -557,9 +557,9 @@ Where Hopper falls short is not in the core invariants but in boundary clarity a
 | **Policy system** | Yes (capabilities + requirements, const-composable) | No | No | No |
 | **Schema export** | Three-layer (ProgramManifest → ProgramIdl → CodamaProjection) | No | IDL | IDL |
 | **Optional proc macros (not required)** | Yes (true equivalence between declarative and proc paths) | N/A | No (proc required) | No (proc required) |
-| **Backend portability** | 3 backends (native / pinocchio / solana-program), compile-time exclusive | 1 | 1 (pinocchio-style) | 1 (solana-program) |
-| **Memory access tiers** | 3 (safe validated / pod / unsafe raw) | 1 (raw) | 1 (raw) | 1 (`AccountLoader`) |
-| **CLI surface** | ~33 commands, interactive TUI, client-gen (TS + Kotlin) | Minimal | Strong | Strong (`anchor` CLI) |
+| **Backend portability** | Native default + quarantined legacy Pinocchio and `solana-program` compatibility modes, compile-time exclusive | 1 | 1 (pinocchio-style) | 1 (solana-program) |
+| **Memory access tiers** | 5 explicit tiers from generated field accessors through full raw pointer escape | 1 (raw) | 1 (raw) | 1 (`AccountLoader`) |
+| **CLI surface** | Lifecycle + schema + manager + profiling + interactive TUI + client-gen (TS/Kotlin/Python/Rust) | Minimal | Strong | Strong (`anchor` CLI) |
 | **Ecosystem reach** | Nascent | Core-team-blessed, growing | Active | Dominant |
 
 The four-framework comparison collapses into a three-way choice in practice. Anchor zero-copy is the ubiquitous default but is strictly less capable per unit of Hopper; Pinocchio is the lean substrate everyone builds on top of; Quasar is Hopper's closest philosophical peer. The interesting comparison is **Hopper vs Quasar** — both aim at "Anchor ergonomics, pinocchio performance, zero-copy by default" — and in that fight Hopper wins on borrow safety, state lifecycle tooling, and schema discipline; Quasar wins on ecosystem adoption and macro polish.
