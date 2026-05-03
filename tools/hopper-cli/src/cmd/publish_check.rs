@@ -5,7 +5,8 @@
 //! source-tree gates called out by the safety audit: no stale benchmark
 //! placeholders in release-facing docs, no Pinocchio in the default feature
 //! tree, legacy SPL Token builders still feature-gated, client generators still
-//! asserting layout IDs, and fuzz targets still present.
+//! asserting layout IDs, fuzz targets still present, and build outputs not
+//! tracked in git.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -55,6 +56,7 @@ pub fn cmd_publish_check(args: &[String]) {
     failures += run_stage("legacy token instruction gate", || check_legacy_token_gate(&root)) as u32;
     failures += run_stage("client layout-id assertions", || check_client_layout_tests(&root)) as u32;
     failures += run_stage("fuzz target inventory", || check_fuzz_inventory(&root)) as u32;
+    failures += run_stage("tracked build artifact gate", || check_tracked_build_artifacts(&root)) as u32;
 
     if opts.full {
         failures += run_stage("core test suite", || run_cargo_status(&root, &["test", "-p", "hopper-core"])) as u32;
@@ -361,6 +363,46 @@ fn check_fuzz_inventory(root: &Path) -> Result<(), String> {
     }
 }
 
+fn check_tracked_build_artifacts(root: &Path) -> Result<(), String> {
+    let args = ["ls-files"];
+    let output = workspace::run_output("git", &to_strings(&args), root)?;
+    if !output.status.success() {
+        return Err(format!(
+            "{} failed:\n{}",
+            workspace::display_command("git", &to_strings(&args)),
+            String::from_utf8_lossy(&output.stderr)
+        ));
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let offenders: Vec<&str> = stdout
+        .lines()
+        .filter(|line| {
+            let path = line.replace('\\', "/");
+            path == "target" || path.starts_with("target/") || path.contains("/target/")
+        })
+        .collect();
+
+    if offenders.is_empty() {
+        Ok(())
+    } else {
+        let shown = offenders
+            .iter()
+            .take(20)
+            .copied()
+            .collect::<Vec<_>>()
+            .join("\n");
+        let suffix = if offenders.len() > 20 {
+            format!("\n... and {} more", offenders.len() - 20)
+        } else {
+            String::new()
+        };
+        Err(format!(
+            "build artifacts are tracked in git; remove them from the index and keep target directories ignored:\n{shown}{suffix}"
+        ))
+    }
+}
+
 fn run_cargo_status(root: &Path, args: &[&str]) -> Result<(), String> {
     let args_vec = to_strings(args);
     let status = workspace::run_status("cargo", &args_vec, root)?;
@@ -404,6 +446,7 @@ fn print_usage() {
     eprintln!("  4. legacy SPL Token builders remain feature-gated");
     eprintln!("  5. TS/Kotlin/Rust/Python client layout-id tests");
     eprintln!("  6. fuzz target inventory");
+    eprintln!("  7. tracked build artifact gate");
     eprintln!();
     eprintln!("Options:");
     eprintln!("  --package, -p <name>       Infer hopper.manifest.json and target/deploy/<name>.so");
