@@ -37,6 +37,18 @@ values. Manifest integrity is always fatal on mismatch. Binary anchor scanning i
 informational by default, fatal with `--strict`, and required + fatal with
 `--release`.
 
+### `hopper publish-check [--package <name> | --manifest <path> --so <program.so>] [--full]`
+
+Run the public release gate. This wraps `hopper verify --release` with the
+source checks that keep release artifacts honest: release-facing docs have no
+benchmark placeholders or stale in-tree benchmark paths, the default feature
+tree excludes Pinocchio, legacy SPL Token builders stay behind
+`legacy-token-instructions`, client generators still assert layout IDs, and the
+fuzz target inventory is present.
+
+Use `--source-only` before an SBF build to run every non-binary gate. Add
+`--full` to also run the `hopper-core` and `hopper-trybuild` suites.
+
 ## Keys and identity
 
 ### `hopper keys new <path>`

@@ -15,6 +15,7 @@ If you have a Quasar program, the mechanical port is smaller than the Anchor por
 | `Ctx<'info, T>` | `Context<'info>` with bound `TCtx` |
 | `ctx.accounts.field` | `ctx.field_*()` (segment-level accessors) |
 | `Pod` primitives in `quasar-pod` | Wire types in `hopper-runtime` |
+| bounded dynamic fields | fixed body + `#[hopper::state(dynamic_tail = T)]` |
 | `QuasarError::RemainingAccountDuplicate` | `hopper_runtime::remaining::RemainingError::DuplicateAccount` |
 
 ## Account layouts
@@ -44,6 +45,11 @@ pub struct Vault {
 Quasar's `PodU64` is Hopper's `WireU64`. Both are `#[repr(transparent)]` alignment-1 wrappers with identical byte layout. The accessors are `.get()` / `.set()` in both.
 
 Quasar's explicit `discriminator = 1` maps to Hopper's layout header: Hopper stamps a header byte at offset 0 containing the user-chosen `disc` from the macro (defaults to a fingerprint of the type name if not set). To match Quasar's behavior exactly, use `#[account(disc = 1)]` or the macro attribute form `#[account(discriminator = 1)]`.
+
+For Quasar bounded dynamic fields (`String<'a, N>`, `Vec<'a, T, N>`), keep
+the hot fixed fields in the Hopper layout and move variable data into a
+bounded dynamic tail. See [DYNAMIC_TAILS_FROM_QUASAR.md](DYNAMIC_TAILS_FROM_QUASAR.md)
+for side-by-side code and `TailCodec` examples.
 
 ## Accounts struct
 

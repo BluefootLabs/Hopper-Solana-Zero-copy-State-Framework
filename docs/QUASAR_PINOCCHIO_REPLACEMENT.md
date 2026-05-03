@@ -1,14 +1,12 @@
 # Hopper Replacement Surface: Pinocchio + Quasar
 
-> **Historical note.** This document describes the pre-R2 state when the
-> cross-framework bench loaded its Pinocchio baseline from Quasar's
-> `examples/pinocchio-vault`. After audit recommendation R2 (see
-> [`../AUDIT.md`](../AUDIT.md)) the Pinocchio baseline is built in-tree from
-> [`../bench/pinocchio-vault`](../bench/pinocchio-vault/src/lib.rs) using
-> Anza's own `pinocchio = "0.10"`. The rationale captured below is retained
-> for historical context; specific CU numbers cited in this file refer to
-> the deprecated Quasar-authored reference vault, not the current Anza
-> Pinocchio baseline.
+> **Benchmark posture.** Hopper's release-facing benchmark claims compare
+> Hopper and Quasar only. Older "Pinocchio-style" numbers came from a
+> Quasar-authored reference vault and are intentionally excluded from launch
+> claims. The sibling `hopper-bench` product repo owns the Anza Pinocchio
+> target and will publish Pinocchio numbers only when they share the same
+> lockfile, SBF toolchain, Mollusk version, seed set, and command line as the
+> Hopper and Quasar columns.
 
 This note records what the extracted upstream sources actually contain and how
 Hopper maps those surfaces into one unified system.
@@ -25,9 +23,10 @@ The upstream Pinocchio repo is intentionally narrow:
 - `programs/token-2022`
 - `programs/associated-token-account`
 
-It does not ship a larger scenario benchmark like a vault or escrow. For a
-Pinocchio-style scenario target we currently use Quasar's
-`examples/pinocchio-vault`, which is built directly against Pinocchio.
+It does not ship a larger scenario benchmark like a vault or escrow. Hopper's
+Pinocchio comparison target therefore lives in the sibling benchmark repo as a
+small Anza Pinocchio program with explicit provenance, not as a borrowed
+Quasar example.
 
 ### Quasar (`quasar-master.zip`)
 
@@ -53,7 +52,7 @@ The Quasar repo spans both language ergonomics and tooling:
 | Quasar `lang/` + `derive/` | root `hopper`, `crates/hopper-macros`, `crates/hopper-macros-proc` |
 | Quasar `spl/` | Hopper companion crates plus Hopper-owned CPI wrappers |
 | Quasar `cli/` | `tools/hopper-cli` |
-| Quasar `profile/` | `bench/`, `hopper profile bench`, and `bench/compare-framework-vaults.ps1` |
+| Quasar `profile/` | Sibling `hopper-bench` repo plus `hopper profile bench` for primitive Hopper-local measurements |
 
 The key design constraint is public-facing: Hopper should not expose separate
 "Pinocchio mode" and "Quasar mode" products. Hopper exposes one access model,
@@ -62,70 +61,42 @@ needed.
 
 ## Cross-Framework Benchmark Path
 
-The repo now includes `bench/compare-framework-vaults.ps1` plus the shared host
-runner in `bench/framework-vault-bench`.
+Cross-framework measurement is a standalone product surface in the sibling
+`hopper-bench` repo. That checkout builds and compares:
 
-It builds and compares:
+- Hopper parity vault from this framework workspace.
+- Quasar's vault example from a pinned Quasar source checkout.
+- Anza Pinocchio target when the benchmark lockfile includes it.
 
-- `hopper-parity-vault`
-- Quasar `examples/vault`
-- Quasar `examples/pinocchio-vault`
+The output includes deposit CU, withdraw CU, counter CU, delta versus Hopper,
+compiled binary size, and unsigned-withdraw safety parity. The shared runner
+averages deterministic user seed cases across every included framework so the
+comparison does not hinge on one lucky or unlucky PDA bump.
 
-The output includes:
+The runner loads compiled SBF binaries into one shared `mollusk-svm` harness
+and executes the same scenarios for each:
 
-- deposit CU
-- withdraw CU
-- delta versus Hopper
-- compiled binary size
-- unsigned withdraw safety parity
-
-The shared runner averages 8 deterministic user seed cases across all three
-frameworks so the comparison does not hinge on one lucky or unlucky PDA bump.
-
-The runner loads all three compiled SBF binaries into one shared `mollusk-svm`
-harness and executes the same scenarios for each:
-
-- authorize: signer + writable + PDA validation only on the same `['vault', user]` PDA shape
-- deposit: user signer to `['vault', user]` PDA via system-program transfer CPI
-- withdraw: direct lamport mutation from a program-owned `['vault', user]` PDA
+- authorize: signer + writable + PDA validation only on the same
+  `['vault', user]` PDA shape.
+- deposit: user signer to `['vault', user]` PDA via system-program transfer
+  CPI.
+- withdraw: direct lamport mutation from a program-owned `['vault', user]`
+  PDA.
 
 That keeps the benchmark apples-to-apples instead of mixing framework overhead
 with extra example features like Hopper's init path and zero-copy vault state.
 
-Latest verified averaged result on the extracted archives:
-
-- Hopper parity: authorize `823` CU, auth-fail `122` CU, counter `933` CU, deposit `2051` CU, withdraw `851` CU, binary `7.66` KiB
-- Quasar: authorize `585` CU, auth-fail `66` CU, counter `607` CU, deposit `1768` CU, withdraw `605` CU, binary `8.36` KiB
-- Pinocchio-style: authorize `2543` CU, auth-fail `74` CU, counter `2575` CU, deposit `3763` CU, withdraw `2567` CU, binary `10.13` KiB
-
-That result means Hopper still clearly beats the Pinocchio-style vault while
-staying much closer to Quasar, and the latest Hopper-side gain is still
-framework-owned: Hopper Native now exposes a direct native PDA derivation and
-verification path that Hopper Runtime can use without extra conversion churn.
-That pulls the current authorize gap down to `238` CU (`823` vs `585`) and the
-missing-signature gap to `56` CU (`122` vs `66`).
-
-The new counter path is the more important strategic benchmark. All three
-targets validate the same vault PDA and mutate the same raw
-`[authority:32][counter:8]` state layout, but Hopper does the read/write via
-`segment_ref` + `segment_mut` while Quasar and the Pinocchio-style target use
-direct byte access. Hopper's current segment-safe path is `326` CU behind
-Quasar (`933` vs `607`), which is the clearest performance target if Hopper
-is going to claim a stronger state model without conceding too much runtime
-cost.
-
-Example:
-
-```powershell
-.\bench\compare-framework-vaults.ps1 -QuasarRoot d:\tmp\framework-sources\quasar-master\quasar-master
-```
+Current release-facing results are the Hopper/Quasar table in
+[`../BENCHMARKS.md`](../BENCHMARKS.md). Pinocchio results stay out of this doc
+until the sibling benchmark repo publishes a same-provenance Anza Pinocchio
+run.
 
 ## Hopper Safety And Feature Coverage
 
 ### Safety examples
 
-- `bench/framework-vault-bench` now verifies unsigned withdraw rejection for
-  Hopper, Quasar, and the Pinocchio-style target under the same runner.
+- The sibling benchmark runner verifies unsigned withdraw rejection for every
+  framework included in a run.
 - `docs/SAFE_COMPOSITION.md` captures the broader safety model.
 - `docs/UNSAFE_INVENTORY.md` tracks explicit escape hatches.
 

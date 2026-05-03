@@ -2429,6 +2429,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "hopper-trybuild"
+version = "0.1.0"
+dependencies = [
+ "hopper",
+ "trybuild",
+]
+
+[[package]]
 name = "hopper-vault"
 version = "0.1.0"
 dependencies = [

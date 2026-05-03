@@ -152,6 +152,6 @@ pub fn zero_account_data(account: &crate::account_view::AccountView) {
         return;
     }
     unsafe {
-        memset(account.data_ptr(), 0, len);
+        memset(account.data_ptr_unchecked(), 0, len);
     }
 }

@@ -19,6 +19,7 @@
 use hopper::prelude::*;
 
 #[repr(C)]
+#[derive(Clone, Copy)]
 pub struct AlignedEntry {
     // `u64` forces align_of::<AlignedEntry>() == 8, which violates the
     // Pod alignment-1 invariant. Wire types like `WireU64` are the
@@ -32,6 +33,8 @@ pub struct AlignedEntry {
 // alignment 1" message from the const_assert_pod! macro.
 const_assert_pod!(AlignedEntry, 16);
 
+unsafe impl hopper::hopper_runtime::__hopper_native::bytemuck::Zeroable for AlignedEntry {}
+unsafe impl hopper::hopper_runtime::__hopper_native::bytemuck::Pod for AlignedEntry {}
 unsafe impl Pod for AlignedEntry {}
 
 fn main() {}

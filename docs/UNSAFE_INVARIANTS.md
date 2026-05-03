@@ -112,6 +112,20 @@ Hopper's unsafe surface is deliberately narrow and follows three foundational ru
 | 180 | `overlay_at` (mut variant) | Bounds checked. |
 | 190 | `overlay_at_mut` | Bounds checked. Exclusive access via `&mut self`. |
 
+`VerifiedAccount` and `VerifiedAccountMut` are proof wrappers, not ordinary raw
+account accessors. They may return `&T` / `&mut T`, `&[u8]`, `&mut [u8]`, or
+secondary overlays, but every returned reference is tied to `&self` or
+`&mut self`. The wrapper itself owns either the Hopper borrow guard or a
+pre-validated raw slice, so the reference cannot outlive the proof object and
+cannot be held after the guard is dropped. This is intentionally distinct from
+the `HopperRefOnly` field-access path, where naked raw references are rejected
+at the macro boundary.
+
+The compile-fail fixture
+`tests/hopper-trybuild/tests/ui/fail/verified_ref_outlives_wrapper.rs` locks in
+this lifetime boundary: attempting to return a `VerifiedAccount::get()` result
+after the wrapper goes out of scope fails to compile.
+
 ### `reader.rs`
 
 | Line | Construct | Invariant |
@@ -495,7 +509,7 @@ the ground truth the audit will be compared against on re-review.
 | D1 | Canonical unsafe-invariants document | **DONE**. this file |
 | D2 | Compile-fail coverage | **DONE**. 12 trybuild fixtures in `tests/compile_fail/`: 5 Pod cases (bool/char/reference/missing-repr/padded), 5 state-constraint cases (init_no_payer/init_no_space/seeds_no_bump/realloc_no_payer/realloc_no_zero), `pod_vec_field` (heap types rejected), `zerocopy_seal_required` (proof that bypassing `#[hopper::pod]` cannot earn `ZeroCopy`). Wired via `tests/ui.rs` |
 | D3 | Fuzzing low-level loaders/parsers | **DONE**. `fuzz/` crate with 4 targets (`fuzz_instruction_frame`, `fuzz_decode_header`, `fuzz_decode_segments`, `fuzz_pod_overlay`) + new safe bounds-checked parser `parse_instruction_frame_checked` in `raw_input.rs` with 7 regression tests |
-| D4 | Benchmark suite across frameworks | **PARTIAL (infra exists)**. `bench/hopper-bench` + `bench/framework-vault-bench` already measure 13 primitives; full Pinocchio/Quasar/Anchor sibling vault crates deferred (substantial external-crate work) |
+| D4 | Benchmark suite across frameworks | **DONE as a sibling product**. The `hopper-bench` repo owns primitive benchmarks, cross-framework parity vaults, competitor locks, raw logs, and CI thresholds; this framework repo keeps release docs and lightweight result snapshots only. |
 
 ## Innovations (5 of 5 DONE)
 
@@ -546,9 +560,9 @@ The three audit findings that remained open after the enforcement pass asked for
 
 | Audit finding | Grep target | What an auditor sees | Bypass failure mode |
 |---|---|---|---|
-| F1: provable single access path | `AccountView.*data_ptr\|borrow_unchecked` | Every slice-returning accessor on `hopper_native::AccountView` is `pub unsafe fn` (`borrow_unchecked`, `borrow_unchecked_mut`) or explicitly low-level raw pointer (`data_ptr`) consumed only by same-crate internals + a single `pub(crate)` wrapper in hopper-runtime. Safe paths (`try_borrow`, `try_borrow_mut`, `segment_ref`, `segment_mut`) return `Ref` / `RefMut` with native borrow-state tracking | Any call to `borrow_unchecked*` requires an `unsafe` block visible in the caller's source |
+| F1: provable single access path | `AccountView.*data_ptr_unchecked\|borrow_unchecked` | Every slice-returning accessor on `hopper_native::AccountView` is `pub unsafe fn` (`borrow_unchecked`, `borrow_unchecked_mut`) or explicitly low-level raw pointer (`data_ptr_unchecked`) consumed by same-crate internals and the documented raw-pointer escape hatches in `hopper-runtime`. Safe paths (`try_borrow`, `try_borrow_mut`, `segment_ref`, `segment_mut`) return `Ref` / `RefMut` with native borrow-state tracking | Any call to `borrow_unchecked*` requires an `unsafe` block visible in the caller's source; obtaining a raw pointer is spelled `_unchecked` and dereferencing it remains unsafe |
 | F2: compile-proven borrow safety | `HopperRefOnly` | Eight impls total (four sealed-trait impls, four marker-trait impls), all visible in `crates/hopper-runtime/src/ref_only.rs`. No macro expansion, no derive. The compile-fail fixture `tests/compile_fail/ref_only_rejects_raw_ref.rs` is the end-to-end proof | Raw reference at the call site: `error[E0277]: the trait bound '&mut u64: HopperRefOnly' is not satisfied` |
-| F3: entrypoint minimal | `bench/results/framework-vaults/vault-framework-comparison.csv` | Hopper `authorize = 432 CU` vs Quasar `585 CU` vs Pinocchio-style `2543 CU`; `deposit = 1651 CU` vs `1768` vs `3763`; `binary_size = 7.62 KiB` vs `8.36` vs `10.13`. Methodology: `bench/METHODOLOGY.md` (pinned toolchain, equivalent-logic rule, shared Vault contract) | Any regression is caught by `bench/framework-vault-bench` which records a `cu_delta` vs the Hopper baseline; the safety-correctness gate (`unsigned_withdraw_rejected`) excludes any framework that trades safety for speed |
+| F3: entrypoint minimal | sibling `hopper-bench` parity artifacts | Hopper `authorize = 432 CU` vs Quasar `585 CU`; `deposit = 1651 CU` vs `1768`; `binary_size = 7.62 KiB` vs `8.36`. The older Quasar-authored "Pinocchio-style" column is excluded from release claims. Methodology is owned by the benchmark repo: pinned toolchain, equivalent-logic rule, shared vault contract, seed count, and exact command line | Any regression is caught by the sibling parity runner, which records a `cu_delta` vs the Hopper baseline; the safety-correctness gate (`unsigned_withdraw_rejected`) excludes any framework that trades safety for speed |
 
 ## hopper-native Unsafe Surface (post-audit supplement, R10)
 

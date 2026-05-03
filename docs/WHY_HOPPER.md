@@ -97,20 +97,24 @@ Other frameworks rely on the author to remember every check. Hopper makes the ch
 
 ## Benchmark, not claims
 
-Numbers from `bench/results/framework-vaults/vault-framework-comparison.csv`, 8-seed average, Mollusk harness, identical vault contract across frameworks:
+Current release-facing numbers come from the sibling
+[hopper-bench](https://github.com/BluefootLabs/hopper-bench) parity harness:
+8-seed average, Mollusk execution, identical vault contract across Hopper and
+Quasar.
 
-| Instruction | Hopper | Pinocchio | Quasar |
-|---|---|---|---|
-| authorize | **432 CU** | _re-run pending (R2)_ | 585 |
-| counter_access | **539 CU** | _re-run pending (R2)_ | 607 |
-| deposit | **1651 CU** | _re-run pending (R2)_ | 1768 |
-| withdraw | **455 CU** | _re-run pending (R2)_ | 605 |
-| binary size | **7.62 KiB** | _re-run pending (R2)_ | 8.36 |
+| Instruction | Hopper | Quasar |
+|---|---|---|
+| authorize | **432 CU** | 585 |
+| counter_access | **539 CU** | 607 |
+| deposit | **1651 CU** | 1768 |
+| withdraw | **455 CU** | 605 |
+| binary size | **7.62 KiB** | 8.36 |
 
-The Pinocchio column is now built in-tree from `bench/pinocchio-vault` using
-Anza's own `pinocchio = "0.10"`; pre-R2 numbers (2543 authorize etc.) were
-against a Quasar-authored reference vault and are deprecated. See
-[AUDIT.md](../AUDIT.md) R2.
+Anza Pinocchio results are not shown in this release table until the sibling
+benchmark repo records the Pinocchio target with the same lockfile, SBF
+toolchain, Mollusk version, seed set, and command line. The older
+"Pinocchio-style" values were produced from a Quasar-authored reference vault
+and are intentionally excluded from launch claims.
 
 Methodology lives in the sibling
 [hopper-bench](https://github.com/BluefootLabs/hopper-bench) product repo. Re-run

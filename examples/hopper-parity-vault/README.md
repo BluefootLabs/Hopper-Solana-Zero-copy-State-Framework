@@ -1,11 +1,9 @@
 # Hopper Parity Vault
 
-This example is the fair comparison target for Hopper versus the in-tree Anza
-Pinocchio baseline ([`bench/pinocchio-vault`](../../bench/pinocchio-vault/src/lib.rs))
-and Quasar's `vault` example. Pre-R2 it also compared against Quasar's
-`examples/pinocchio-vault`; that indirection was removed (see
-[AUDIT.md](../../AUDIT.md) R2) so the Pinocchio column is unambiguously Anza
-Pinocchio.
+This example is the fair comparison target for Hopper versus Quasar's `vault`
+example. The Anza Pinocchio comparison target lives in the sibling
+`hopper-bench` product repo with its own lockfile and provenance; Hopper does
+not publish Pinocchio numbers from a borrowed Quasar reference vault.
 
 ## What It Demonstrates
 
@@ -40,8 +38,7 @@ hopper build -p hopper-parity-vault
 
 ## Benchmark Path
 
-The fair comparison runner lives in `bench/framework-vault-bench` and is driven
-through `bench/compare-framework-vaults.ps1`.
+The fair comparison runner lives in the sibling `hopper-bench` repo.
 
 The runner averages 8 shared deterministic user seed cases across every
 framework present so the comparison is not dominated by a single PDA bump
@@ -54,22 +51,19 @@ It covers four matched instruction paths:
 - deposit: system-program transfer CPI into the vault PDA
 - withdraw: direct lamport mutation out of the vault PDA
 
-Latest verified averaged result (pre-R2; Pinocchio column was against Quasar's reference vault):
+Current release-facing averaged result:
 
-- Hopper parity: authorize `823` CU, auth-fail `122` CU, counter `993` CU, deposit `2050` CU, withdraw `851` CU, binary `8.30` KiB
+- Hopper parity: authorize `432` CU, auth-fail `70` CU, counter `539` CU, deposit `1651` CU, withdraw `455` CU, binary `7.62` KiB
 - Quasar: authorize `585` CU, auth-fail `66` CU, counter `607` CU, deposit `1768` CU, withdraw `605` CU, binary `8.36` KiB
-- Pinocchio-style (deprecated, Quasar reference): authorize `2543` CU, auth-fail `74` CU, counter `2575` CU, deposit `3763` CU, withdraw `2567` CU, binary `10.13` KiB
 
-Post-R2 numbers against the in-tree Anza Pinocchio baseline will be
-populated on the next bench run. Hopper's expected lead over idiomatic
-Pinocchio is a few hundred CU on PDA-bearing instructions (attributable to
-Hopper's verify-only sha256 PDA path vs Pinocchio's standard
-`find_program_address`), not the ~2000 CU gap shown above.
+Pinocchio results are intentionally omitted until the sibling benchmark repo
+records a same-provenance Anza Pinocchio run: exact target source, dependency
+versions, SBF toolchain, Mollusk version, seed count, and command line.
 
 The Hopper-side gain here is not a benchmark-only trick. The parity target
 uses Hopper Runtime's direct native PDA verification path, which improves
 every existing vault path materially over the previous baseline. The
 counter-access scenario also makes the next optimization target explicit:
-Hopper's segment-safe mutation path is still meaningfully more expensive
-than Quasar's raw byte slicing, even when both mutate the same 40-byte
-state region.
+Hopper's segment-safe mutation path now beats Quasar in the published table
+while preserving byte-range borrow checks that Quasar's raw byte slicing does
+not provide.

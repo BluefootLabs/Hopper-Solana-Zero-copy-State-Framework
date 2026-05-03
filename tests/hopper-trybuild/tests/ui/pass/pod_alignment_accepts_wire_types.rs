@@ -6,6 +6,7 @@
 use hopper::prelude::*;
 
 #[repr(C)]
+#[derive(Clone, Copy)]
 pub struct SafeEntry {
     pub authority: [u8; 32],
     pub counter: WireU64,
@@ -14,6 +15,8 @@ pub struct SafeEntry {
 
 const_assert_pod!(SafeEntry, 41);
 
+unsafe impl hopper::hopper_runtime::__hopper_native::bytemuck::Zeroable for SafeEntry {}
+unsafe impl hopper::hopper_runtime::__hopper_native::bytemuck::Pod for SafeEntry {}
 unsafe impl Pod for SafeEntry {}
 
 fn main() {

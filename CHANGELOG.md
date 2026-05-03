@@ -1157,17 +1157,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 - **`examples/hopper-nft-mint`** — reference NFT-mint program using the
   new Metaplex builders end-to-end (1-of-1 NFT with locked master
   edition).
-- **`bench/anchor-vault`** — in-tree Anchor parity vault using
-  `AccountLoader<CounterState>` for zero-copy counter access. Bench
-  harness now prefers the in-tree binary over `--anchor-root` when
-  present.
-- **`bench/pinocchio-vault`** — in-tree Anza Pinocchio parity vault.
-  Replaces the previous "Pinocchio-style" column that loaded a
-  Quasar-authored reference vault. The bench `--quasar-root` flag is
-  now optional.
-- **`bench/lazy-dispatch-vault`** — eight-instruction dispatch vault
-  built twice (eager + lazy) so the lazy-entrypoint CU win is
-  directly measurable.
+- **Benchmark repo split** — Anchor, Anza Pinocchio, and lazy-dispatch
+  parity targets now live in the sibling `hopper-bench` product repo with
+  competitor locks, raw logs, and runner scripts. Release-facing framework
+  docs only publish same-provenance benchmark columns.
 - **`examples/hopper-token-2022-transfer-hook`** — Token-2022 transfer
   hook validation reference program.
 - **DSL parity additions**: `#[derive(HopperInitSpace)]` standalone

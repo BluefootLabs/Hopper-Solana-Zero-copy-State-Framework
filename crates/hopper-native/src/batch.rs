@@ -120,7 +120,7 @@ pub fn zero_data(account: &AccountView) -> ProgramResult {
     if len == 0 {
         return Ok(());
     }
-    let data_ptr = account.data_ptr();
+    let data_ptr = account.data_ptr_unchecked();
     unsafe {
         core::ptr::write_bytes(data_ptr, 0, len);
     }

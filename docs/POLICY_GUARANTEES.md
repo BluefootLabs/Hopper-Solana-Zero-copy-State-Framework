@@ -12,6 +12,21 @@ Formal reference for what each `HopperProgramPolicy` lever guarantees and what i
 
 `STRICT` is the shipping default returned by `HopperProgramPolicy::default_policy()`.
 
+Naming is intentionally literal:
+
+- `STRICT` means validation and token-policy checks are enforced by default.
+	It still permits explicit `unsafe` blocks because some high-performance
+	programs need a reviewed escape hatch.
+- `SEALED` means `STRICT` plus `allow_unsafe = false`; handler bodies cannot
+	contain unsafe code unless an instruction explicitly opts into
+	`unsafe_memory`.
+- `RAW` means Hopper's automatic validation/token envelope is not promised.
+	The author owns every signer, owner, layout, PDA, token, and aliasing check.
+
+In short: choose `STRICT` for normal audited Hopper programs, `SEALED` when a
+module must be unsafe-free by default, and `RAW` only for hand-validated expert
+paths.
+
 ## What each lever controls
 
 ### `strict`

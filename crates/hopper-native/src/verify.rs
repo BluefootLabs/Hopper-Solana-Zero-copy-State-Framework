@@ -227,7 +227,7 @@ impl DataFingerprint {
     #[inline]
     pub fn capture(account: &AccountView, len: usize) -> Self {
         let data_len = account.data_len().min(len);
-        let data_ptr = account.data_ptr();
+        let data_ptr = account.data_ptr_unchecked();
 
         // FNV-1a hash.
         let mut hash: u64 = 0xcbf29ce484222325;

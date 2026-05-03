@@ -59,10 +59,9 @@ hopper build -p hopper-vault
 cargo test -p hopper-vault -- --nocapture
 ```
 
-That output is also what `bench/compare-framework-vaults.ps1` parses when it
-used to compare Hopper against Quasar's `vault` and `pinocchio-vault`
-examples.
+That output is useful for local smoke testing, but it is no longer the
+cross-framework release benchmark input.
 
 The fair cross-framework benchmark now uses `examples/hopper-parity-vault` plus
-the shared runner in `bench/framework-vault-bench` so the comparison does not
+the shared runner in the sibling `hopper-bench` repo so the comparison does not
 inherit this example's extra init and zero-copy state semantics.

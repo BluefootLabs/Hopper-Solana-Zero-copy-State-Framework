@@ -38,6 +38,12 @@ formats, custom collections, `segment_data_mut_unchecked`. The framework steps
 aside when you need it to. Hopper Native provides direct syscall access for
 anything below the framework layer.
 
+Variable-length account data keeps the same tier model. Hopper keeps the fixed
+body zero-copy and offers `#[hopper::state(dynamic_tail = T)]` for one bounded
+dynamic payload after the fixed body. See
+[DYNAMIC_TAILS_FROM_QUASAR.md](DYNAMIC_TAILS_FROM_QUASAR.md) for the Quasar
+dynamic-field migration pattern.
+
 ## Overview
 
 Hopper is `#![no_std]`, zero-allocation, built on
@@ -215,7 +221,11 @@ back to the same Hopper account access model.
 
 `VerifiedAccount<'a, T>` and `VerifiedAccountMut<'a, T>` are proof-of-validation
 wrappers. If you hold a `VerifiedAccount`, the account has passed load validation.
-Methods: `get()`, `get_mut()`, `map()`, `overlay_at()`.
+They can expose `&T` / `&mut T`, but those references are tied to the wrapper,
+and the wrapper owns the borrow guard or validated slice. Use `with()` /
+`with_mut()` when you want closure-shaped guard access; use generated segment
+accessors for the default hot path. Methods: `get()`, `get_mut()`, `with()`,
+`with_mut()`, `map()`, `overlay_at()`.
 
 ### Lifecycle (`account/lifecycle.rs`)
 

@@ -11,17 +11,17 @@ This audit was followed by two in-tree change passes, landing all ten recommenda
 ### Pass 1 — R1, R2, R4 (2026-04-24)
 
 - **R1 applied.** `README.md` now explicitly names `hopper_runtime::segment_borrow::SegmentBorrowRegistry` as the owner of the byte-range borrow registry and clarifies that `hopper-core` owns overlays + headers + collections while `hopper-runtime` owns the registry + CPI + context. The "What You Get" row for segment borrows now links directly to the source file.
-- **R2 applied.** The bench "Pinocchio-style" column has been replaced with a real, in-tree Anza Pinocchio vault at [`bench/pinocchio-vault`](bench/pinocchio-vault/src/lib.rs), built against `pinocchio = "0.10"` + `pinocchio-system = "0.5"`. The bench harness no longer loads the Pinocchio baseline from `$quasar_root`; `--quasar-root` is now optional and only adds the Quasar column when supplied. All downstream docs (`BENCHMARKS.md`, `bench/README.md`, `examples/hopper-parity-vault/README.md`, `docs/WHY_HOPPER.md`, `bench/METHODOLOGY.md`, `bench/compare-framework-vaults.ps1`) were swept; pre-R2 "Pinocchio-style" numbers are retained with a "deprecated" marker so the historical record is preserved. New Pinocchio CU numbers are marked _re-run pending_ until the next `framework-vault-bench` run.
+- **R2 applied.** The deprecated "Pinocchio-style" benchmark column was removed from release-facing claims because it used a Quasar-authored reference vault, not an Anza Pinocchio target. Cross-framework benchmark orchestration now lives in the sibling `hopper-bench` product repo, where the Anza Pinocchio target, competitor lockfile, raw logs, and provenance live together. Hopper publishes Hopper/Quasar numbers from that harness today; Pinocchio numbers are only published after a same-provenance run records the target, toolchain, Mollusk version, seed set, and command line.
 - **R4 applied.** `README.md` Getting Started section now leads with a Day-One proc-macro example (`#[hopper::state]` + `#[hopper::program]`) and demotes the declarative `hopper_layout!` path to a Day-Two subsection for users who want to skip proc macros entirely. Both paths still documented; order flipped to match the Anchor-refugee onramp.
 
 ### Pass 2 — R3, R5, R6, R7, R8, R9, R10 (2026-04-24)
 
-- **R3 applied.** New crate at [`bench/lazy-dispatch-vault`](bench/lazy-dispatch-vault/src/lib.rs) — eight-instruction dispatch vault that builds twice from the same source, once with `fast_entrypoint!` (eager) and once with `hopper_lazy_entrypoint!` (lazy), so the CU win from lazy account parsing is directly measurable on a realistic dispatch pattern. `compile_error!` guard enforces exactly one of `--features eager` / `--features lazy`. Added to workspace members. A dedicated Mollusk runner is scoped as follow-up work; the existing `framework-vault-bench` intentionally stays focused on the 4-instruction cross-framework contract.
+- **R3 applied.** The lazy-dispatch vault benchmark target moved into the sibling benchmark repo alongside the runner that builds the same source twice, once with `fast_entrypoint!` (eager) and once with `hopper_lazy_entrypoint!` (lazy), so the CU win from lazy account parsing is directly measurable on a realistic dispatch pattern. A `compile_error!` guard enforces exactly one of `--features eager` / `--features lazy`. The parity-vault runner remains focused on the four-instruction cross-framework contract.
 - **R5 applied.** Two new trybuild fixtures under [`tests/hopper-trybuild/tests/ui/`](tests/hopper-trybuild/tests/ui/): `fail/pod_alignment_rejects_aligned_type.rs` pins that `const_assert_pod!` rejects any type whose alignment is greater than 1, and `pass/pod_alignment_accepts_wire_types.rs` pins the happy path so the fail fixture cannot drift into "everything rejected". Closes the hand-rolled-`unsafe impl Pod` hole from the §8 risk register. First run should use `TRYBUILD=overwrite` to seed `.stderr` files, matching the existing `crank_with_args.rs` fixture's convention.
 - **R6 applied.** Two new helpers in [`hopper-solana/src/token2022_ext.rs`](crates/hopper-solana/src/token2022_ext.rs): `read_transfer_hook` returns `Option<TransferHook<'a>>` with borrowed references to the authority and bound program_id; `check_transfer_hook_program` is the one-liner gate protocols actually reach for. Five new tests pin happy path, missing extension, truncated extension, and authority/program-id mismatches. Re-exported through `hopper-token-2022/src/lib.rs`. New example at [`examples/hopper-token-2022-transfer-hook`](examples/hopper-token-2022-transfer-hook/src/lib.rs) — four-instruction program demonstrating the extension-aware validation pattern: init state, verify hook binding, require-safe-mint, authority-gated rotate. Added to workspace members.
 - **R7 applied.** `hopper-native/src/cpi.rs` — both `invoke_unchecked` and `invoke_signed_unchecked` now carry explicit seven-item invariant lists in their `# Safety` doc blocks (no aliasing borrows, account list consistency, writability and signer coverage, duplicate-account discipline, valid instruction encoding; plus seed derivation and seed lifetime for the signed variant). Closes the one `# Safety`-completeness gap flagged in §3.5.
 - **R8 applied.** New emitter at [`hopper-schema/src/anchor_idl.rs`](crates/hopper-schema/src/anchor_idl.rs) — `AnchorIdlJson<'a>(&'a ProgramIdl)` and `AnchorIdlFromManifest<'a>(&'a ProgramManifest)` mirror the Codama emitter's `core::fmt::Write`-based pattern and emit Anchor 0.30-shaped IDL JSON (`{ "version", "name", "metadata", "instructions", "accounts", "events", "errors", "types" }`). Type translation covers primitives, Wire-prefixed types, arrays, Option/Vec wrappers, and falls back to `{ "defined": "Name" }` for user-defined types. Hopper `disc: u8` tags are left-padded to Anchor's 8-byte discriminator shape. Wired into the CLI at `hopper schema export --anchor-idl <manifest>`.
-- **R9 applied.** New standalone package at [`bench/anchor-vault`](bench/anchor-vault/src/lib.rs) — real Anchor `#[program]` implementation of the parity contract using `AccountLoader<CounterState>` for zero-copy counter access and `AccountInfo` for the PDA-gated deposit/withdraw/authorize paths. Kept out of Hopper's workspace via `exclude = ["bench/anchor-vault"]` so anchor-lang's dep tree can't collide with the core crates. Build with `cargo build-sbf --manifest-path bench/anchor-vault/Cargo.toml`. Bench harness (`framework-vault-bench`) now prefers the in-tree binary at `bench/anchor-vault/target/deploy/anchor_vault.so` and falls back to `--anchor-root` only if the in-tree binary is missing.
+- **R9 applied.** The Anchor parity vault target lives in the sibling benchmark repo: a real Anchor `#[program]` implementation of the parity contract using `AccountLoader<CounterState>` for zero-copy counter access and `AccountInfo` for the PDA-gated deposit/withdraw/authorize paths. Keeping it outside Hopper's framework workspace prevents Anchor's dependency tree from colliding with the core crates while still giving the benchmark harness a reproducible Anchor column.
 - **R10 applied.** `docs/UNSAFE_INVARIANTS.md` — appended a "hopper-native Unsafe Surface (post-audit supplement, R10)" section that enumerates every `unsafe` entry point in `hopper-native` that was outside the original audit scope: the 8 `AccountView` unsafe methods (`new_unchecked`, `owner`, `assign`, `borrow_unchecked*`, `segment_*_unchecked`, `raw_ref`/`raw_mut`, `resize_unchecked`, `close_unchecked`); `raw_input.rs` `deserialize_accounts` / `_fast` / `scan_instruction_frame` / `malformed_duplicate_marker`; `lazy.rs` parse functions; `pda.rs` inline unsafe blocks (verify_program_address, based_try_find_program_address, find_bump_for_address); `mem.rs` memcpy/memmove/memset/memcmp; and the expanded `cpi.rs` borrow-conflict invariants from R7. UNSAFE_INVARIANTS.md is now the complete ground-truth inventory for auditors.
 
 ---
@@ -645,27 +645,39 @@ The cost of this is ~70 CU on the segment-counter workload (visible in the bench
 
 ## 4. Performance Posture
 
-### 4.1 Bench setup (`bench/framework-vault-bench/src/main.rs`, `bench/METHODOLOGY.md`)
+### 4.1 Bench setup (sibling `hopper-bench` repo)
 
-The harness uses `mollusk-svm 0.10.3` and loads three real `.so` binaries: `hopper_parity_vault.so`, `quasar_vault.so`, and `pinocchio_vault.so`. **Important:** the "Pinocchio-style" column is loaded from `$quasar_root/target/deploy/pinocchio_vault.so` — it is Quasar's reference pinocchio-style vault, **not the Anza Pinocchio framework itself**. The README's "Pinocchio-style" label is accurate but easy to misread. See recommendation R2 below.
+The parity harness uses Mollusk and loads real SBF binaries for each included
+framework. The old "Pinocchio-style" column came from Quasar's reference
+Pinocchio vault and is no longer used for release-facing claims. The sibling
+benchmark repo now owns competitor locks, raw logs, exact commands, and the
+Anza Pinocchio target.
 
-The methodology pins rustc, SBF toolchain, cargo profile, and competitor commits via `bench/competitors.lock`. Same-toolchain discipline is real. Semantic equivalence (all frameworks implement the same 4 instructions on the same 40-byte payload) is enforced by documented contract.
+The methodology pins rustc, SBF toolchain, cargo profile, and competitor
+commits in the benchmark repo. Same-toolchain discipline is real. Semantic
+equivalence (all frameworks implement the same 4 instructions on the same
+40-byte payload) is enforced by documented contract.
 
 ### 4.2 The numbers
 
-The README reports (8-seed average, parity vault):
+The current release-facing table reports Hopper and Quasar only (8-seed
+average, parity vault):
 
-| Scenario | Hopper | Quasar | Pinocchio-style (Quasar ref) |
-|---|---|---|---|
-| Authorize | 432 CU | 585 CU | 2543 CU |
-| Counter (segment-safe) | 539 CU | 607 CU | 2575 CU |
-| Deposit | 1651 CU | 1768 CU | 3763 CU |
-| Withdraw | 455 CU | 605 CU | 2567 CU |
-| Binary size | 7.62 KiB | 8.36 KiB | 10.13 KiB |
+| Scenario | Hopper | Quasar |
+|---|---|---|
+| Authorize | 432 CU | 585 CU |
+| Counter (segment-safe) | 539 CU | 607 CU |
+| Deposit | 1651 CU | 1768 CU |
+| Withdraw | 455 CU | 605 CU |
+| Binary size | 7.62 KiB | 8.36 KiB |
 
 The Hopper-vs-Quasar deltas (100–150 CU most scenarios) are credible. Hopper's PDA verify path is cheaper than Quasar's full find_program_address, which accounts for the authorize/withdraw gap. Quasar's counter is ~70 CU cheaper than Hopper's precisely because Hopper is tracking the segment borrow and Quasar is not — the trade-off is explicit.
 
-The Hopper-vs-Pinocchio-style deltas (2000+ CU) look dramatic, but they reflect that Quasar's reference pinocchio vault is intentionally stripped-down idiomatic Pinocchio with no framework niceties and no PDA shortcuts. It is a fair reference implementation of "write it by hand in Pinocchio" — what it is **not** is a comparison against Pinocchio as a framework, because Pinocchio is not a framework, it's a substrate. You cannot build Hopper's feature set in 2000 CU using any substrate. The comparison the numbers are making is therefore: "what do you get back in CU if you drop every feature Hopper adds" — and the answer is ~2000 CU, which is the actual cost of the framework. That is a legitimate and useful number. It should just be labeled more clearly.
+Pinocchio comparisons require separate provenance. Pinocchio is a substrate,
+not a framework, and a hand-authored target can omit or include whatever safety
+checks the author chooses. Hopper will only publish Pinocchio numbers when the
+benchmark repo records the exact Anza target, dependency versions, SBF
+toolchain, Mollusk version, seed count, and command line.
 
 ### 4.3 Entrypoint variants (`hopper-native/src/entrypoint.rs`)
 

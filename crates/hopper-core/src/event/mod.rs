@@ -83,7 +83,6 @@ pub fn emit_event_cpi<T: Pod + FixedLayout>(
     accounts: &[&hopper_runtime::AccountView],
 ) -> Result<(), ProgramError> {
     // Build event data: [0xFF, 0xFE, disc, ...value_bytes]
-    const EVENT_CPI_PREFIX: [u8; 2] = [0xFF, 0xFE];
     let value_bytes = unsafe {
         core::slice::from_raw_parts(value as *const T as *const u8, T::SIZE)
     };
@@ -95,6 +94,8 @@ pub fn emit_event_cpi<T: Pod + FixedLayout>(
     // Self-CPI for unforgeable proof.
     #[cfg(target_os = "solana")]
     {
+        const EVENT_CPI_PREFIX: [u8; 2] = [0xFF, 0xFE];
+
         use hopper_runtime::instruction::{InstructionAccount, InstructionView};
 
         // Build instruction data on stack: prefix + disc + value bytes.

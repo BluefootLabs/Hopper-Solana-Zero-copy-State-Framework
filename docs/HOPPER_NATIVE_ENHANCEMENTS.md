@@ -45,9 +45,9 @@ Only coherent standalone products remain public siblings:
 | 1.6 | Anza modular SDK 2.x audit | ⏳ planned |
 | 2.1 | Pod arithmetic operator overloads | ✅ shipped on all `Le*` wire types |
 | 2.2 | Wrapping in release / panic in debug | ✅ matches Rust default via direct `+`/`-` |
-| 2.3 | Compile-time discriminator dispatch | ⏳ audit pending |
+| 2.3 | Compile-time discriminator dispatch | ⏳ planned substrate audit item; not part of current release claims |
 | 2.4 | Self-CPI event emission | ⏳ planned |
-| 2.5 | `init_if_needed`, `realloc`, `close` parity | ⏳ audit pending |
+| 2.5 | `init_if_needed`, `realloc`, `close` parity | ⏳ planned Anchor-keyword parity audit; current release documents only shipped keywords |
 
 ## Tier 3 — explicitly not porting
 

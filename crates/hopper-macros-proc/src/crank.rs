@@ -47,7 +47,7 @@
 
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{parse2, Attribute, Expr, Ident, ItemFn, Meta, Token};
+use syn::{parse2, Expr, Ident, ItemFn, Meta, Token};
 
 pub fn expand(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> {
     let func: ItemFn = parse2(item)?;

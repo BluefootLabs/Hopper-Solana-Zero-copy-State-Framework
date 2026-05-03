@@ -189,7 +189,7 @@ impl AccountView {
     /// The caller must ensure no mutable borrow is active.
     #[inline(always)]
     pub unsafe fn borrow_unchecked(&self) -> &[u8] {
-        let data_ptr = self.data_ptr();
+        let data_ptr = self.data_ptr_unchecked();
         let len = self.data_len();
         unsafe { core::slice::from_raw_parts(data_ptr, len) }
     }
@@ -201,7 +201,7 @@ impl AccountView {
     /// The caller must ensure no other borrows (shared or exclusive) are active.
     #[inline(always)]
     pub unsafe fn borrow_unchecked_mut(&self) -> &mut [u8] {
-        let data_ptr = self.data_ptr();
+        let data_ptr = self.data_ptr_unchecked();
         let len = self.data_len();
         unsafe { core::slice::from_raw_parts_mut(data_ptr, len) }
     }
@@ -274,7 +274,7 @@ impl AccountView {
             *state_ptr = new_state;
         }
 
-        let ptr = unsafe { self.data_ptr().add(offset as usize) as *const T };
+        let ptr = unsafe { self.data_ptr_unchecked().add(offset as usize) as *const T };
         Ok(Ref::new(unsafe { &*ptr }, state_ptr))
     }
 
@@ -301,7 +301,7 @@ impl AccountView {
             *state_ptr = new_state;
         }
 
-        let ptr = unsafe { self.data_ptr().add(offset as usize) as *const T };
+        let ptr = unsafe { self.data_ptr_unchecked().add(offset as usize) as *const T };
         Ok(Ref::new(unsafe { &*ptr }, state_ptr))
     }
 
@@ -332,7 +332,7 @@ impl AccountView {
             *state_ptr = 0;
         }
 
-        let ptr = unsafe { self.data_ptr().add(offset as usize) as *mut T };
+        let ptr = unsafe { self.data_ptr_unchecked().add(offset as usize) as *mut T };
         Ok(RefMut::new(unsafe { &mut *ptr }, state_ptr))
     }
 
@@ -355,7 +355,7 @@ impl AccountView {
             *state_ptr = 0;
         }
 
-        let ptr = unsafe { self.data_ptr().add(offset as usize) as *mut T };
+        let ptr = unsafe { self.data_ptr_unchecked().add(offset as usize) as *mut T };
         Ok(RefMut::new(unsafe { &mut *ptr }, state_ptr))
     }
 
@@ -436,7 +436,7 @@ impl AccountView {
             let len = self.data_len();
             if len > 0 {
                 // Use the SVM's JIT-compiled memset for optimal CU cost.
-                crate::mem::memset(self.data_ptr(), 0, len);
+                crate::mem::memset(self.data_ptr_unchecked(), 0, len);
             }
             (*self.raw).data_len = 0;
             (*self.raw).owner = Self::SYSTEM_PROGRAM_ID;
@@ -469,8 +469,16 @@ impl AccountView {
     /// Raw pointer to the first byte of account data.
     ///
     /// The data starts immediately after the 88-byte `RuntimeAccount` header.
+    /// This is an expert-only substrate escape hatch: constructing the pointer
+    /// is safe, but dereferencing it is unsafe and bypasses Hopper Native's
+    /// borrow-state checks, segment registry, and writable checks. Normal code
+    /// should use `try_borrow`, `try_borrow_mut`, `segment_ref`, or
+    /// `segment_mut`. Framework code should route user-facing raw access
+    /// through the documented unsafe runtime APIs (`Context::as_mut_ptr` /
+    /// `Context::as_ptr`) instead of exposing this method directly.
+    #[doc(hidden)]
     #[inline(always)]
-    pub fn data_ptr(&self) -> *mut u8 {
+    pub fn data_ptr_unchecked(&self) -> *mut u8 {
         // SAFETY: Adding the struct size to the base pointer yields the
         // first data byte. The runtime guarantees this memory is valid.
         unsafe { (self.raw as *mut u8).add(core::mem::size_of::<RuntimeAccount>()) }
@@ -523,7 +531,7 @@ impl AccountView {
         if self.data_len() == 0 {
             return 0;
         }
-        unsafe { *self.data_ptr() }
+        unsafe { *self.data_ptr_unchecked() }
     }
 
     /// Read the Hopper account version (second byte of data).
@@ -534,7 +542,7 @@ impl AccountView {
         if self.data_len() < 2 {
             return 0;
         }
-        unsafe { *self.data_ptr().add(1) }
+        unsafe { *self.data_ptr_unchecked().add(1) }
     }
 
     /// Read the 8-byte layout_id from the Hopper account header
@@ -546,7 +554,7 @@ impl AccountView {
         if self.data_len() < 12 {
             return None;
         }
-        unsafe { Some(&*(self.data_ptr().add(4) as *const [u8; 8])) }
+        unsafe { Some(&*(self.data_ptr_unchecked().add(4) as *const [u8; 8])) }
     }
 
     /// Verify that this account has the given discriminator.

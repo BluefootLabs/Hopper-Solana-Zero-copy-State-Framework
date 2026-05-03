@@ -216,7 +216,7 @@ pub fn project<T: Projectable>(
         }
     }
 
-    let data_ptr = account.data_ptr();
+    let data_ptr = account.data_ptr_unchecked();
     let target_ptr = unsafe { data_ptr.add(offset) };
 
     // Alignment check.
@@ -266,7 +266,7 @@ pub unsafe fn project_mut<T: Projectable>(
         }
     }
 
-    let data_ptr = account.data_ptr();
+    let data_ptr = account.data_ptr_unchecked();
     let target_ptr = unsafe { data_ptr.add(offset) };
 
     // Alignment check.
@@ -299,7 +299,7 @@ pub fn project_slice<T: Projectable>(
         return Err(ProgramError::AccountDataTooSmall);
     }
 
-    let data_ptr = account.data_ptr();
+    let data_ptr = account.data_ptr_unchecked();
     let target_ptr = unsafe { data_ptr.add(offset) };
 
     let align = core::mem::align_of::<T>();

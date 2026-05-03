@@ -3,6 +3,13 @@
 //! `VerifiedAccount<T>` and `VerifiedAccountMut<T>` can only be constructed
 //! through validated loading paths (tiered loading). Holding one is proof
 //! that the account passed the required checks.
+//!
+//! These wrappers intentionally expose whole-layout `&T` / `&mut T` overlays,
+//! but the references are tied to `&self` / `&mut self`: they cannot outlive
+//! the wrapper, and the wrapper owns either a Hopper borrow guard or a
+//! pre-validated raw slice. This is the proof-wrapper exception to Hopper's
+//! usual "no naked raw reference from account access" rule. Field-level hot
+//! paths should still prefer generated accessors or segment leases.
 
 use hopper_runtime::{Ref, RefMut};
 use hopper_runtime::error::ProgramError;
@@ -58,10 +65,26 @@ impl<'a, T: Pod + FixedLayout> VerifiedAccount<'a, T> {
     }
 
     /// Get an immutable reference to the overlay. Infallible after construction.
+    ///
+    /// The returned reference is bounded by `&self`; it cannot outlive this
+    /// `VerifiedAccount`, which owns the borrow guard or validated raw slice
+    /// proving the overlay is safe to read.
     #[inline(always)]
     pub fn get(&self) -> &T {
         // SAFETY: Size validated at construction. T: Pod, alignment-1 guaranteed.
         unsafe { &*(self.data().as_ptr() as *const T) }
+    }
+
+    /// Run a closure with the verified whole-layout overlay.
+    ///
+    /// This is equivalent to `f(self.get())`, but makes the guard-scoped
+    /// lifetime obvious at call sites.
+    #[inline(always)]
+    pub fn with<U, F>(&self, f: F) -> U
+    where
+        F: FnOnce(&T) -> U,
+    {
+        f(self.get())
     }
 
     /// Raw data.
@@ -184,6 +207,10 @@ impl<'a, T: Pod + FixedLayout> VerifiedAccountMut<'a, T> {
     }
 
     /// Get an immutable reference to the overlay.
+    ///
+    /// The returned reference is bounded by `&self`; it cannot outlive this
+    /// `VerifiedAccountMut`, which owns the mutable borrow guard or validated
+    /// raw mutable slice.
     #[inline(always)]
     pub fn get(&self) -> &T {
         // SAFETY: Size validated at construction.
@@ -191,10 +218,32 @@ impl<'a, T: Pod + FixedLayout> VerifiedAccountMut<'a, T> {
     }
 
     /// Get a mutable reference to the overlay.
+    ///
+    /// The returned reference is bounded by `&mut self`, so there can be only
+    /// one mutable overlay at a time and it cannot outlive the wrapper that
+    /// owns the underlying account borrow.
     #[inline(always)]
     pub fn get_mut(&mut self) -> &mut T {
         // SAFETY: Size validated at construction. We have exclusive access.
         unsafe { &mut *(self.data_mut().as_mut_ptr() as *mut T) }
+    }
+
+    /// Run a closure with the verified whole-layout overlay.
+    #[inline(always)]
+    pub fn with<U, F>(&self, f: F) -> U
+    where
+        F: FnOnce(&T) -> U,
+    {
+        f(self.get())
+    }
+
+    /// Run a closure with the verified mutable whole-layout overlay.
+    #[inline(always)]
+    pub fn with_mut<U, F>(&mut self, f: F) -> U
+    where
+        F: FnOnce(&mut T) -> U,
+    {
+        f(self.get_mut())
     }
 
     /// Raw data (immutable).

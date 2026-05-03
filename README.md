@@ -90,6 +90,7 @@ mod vault {
 - [docs/POLICY_GUARANTEES.md](docs/POLICY_GUARANTEES.md): capability policy, sealed/raw/hybrid access, and the policy-vault example.
 - [docs/MIGRATION_FROM_ANCHOR.md](docs/MIGRATION_FROM_ANCHOR.md): Anchor-to-Hopper migration notes.
 - [docs/MIGRATION_FROM_QUASAR.md](docs/MIGRATION_FROM_QUASAR.md): Quasar-to-Hopper migration notes.
+- [docs/DYNAMIC_TAILS_FROM_QUASAR.md](docs/DYNAMIC_TAILS_FROM_QUASAR.md): mapping Quasar bounded dynamic fields to Hopper fixed-body + dynamic-tail layouts.
 - [docs/QUASAR_PINOCCHIO_REPLACEMENT.md](docs/QUASAR_PINOCCHIO_REPLACEMENT.md): why Hopper Native replaces a backend-first Pinocchio story.
 - [docs/CLI_REFERENCE.md](docs/CLI_REFERENCE.md): lifecycle, schema, client, profiling, and manager command reference.
 
@@ -105,9 +106,10 @@ Use Hopper's access tiers deliberately:
 4. `raw_ref` / `raw_mut` — unsafe typed escape hatch.
 5. `as_mut_ptr` — full raw pointer escape for policy-controlled raw mode.
 
-For variable-length account data, use inline dynamic fields for small bounded
-payloads and named extension segments for larger/repeated regions that need
-independent borrow tracking or migration metadata.
+For variable-length account data, use `#[hopper::state(dynamic_tail = T)]` for
+small bounded payloads attached to one fixed layout, and named extension
+segments for larger/repeated regions that need independent borrow tracking or
+migration metadata.
 
 ## Repository layout
 

@@ -82,7 +82,7 @@ pub fn read_field_pod<T: crate::Pod>(
     if end > data_len {
         return Err(ProgramError::AccountDataTooSmall);
     }
-    let ptr = unsafe { account.data_ptr().add(offset) };
+    let ptr = unsafe { account.data_ptr_unchecked().add(offset) };
     // SAFETY: T: Pod ⇒ align 1, every bit pattern valid, no padding.
     // Bounds and arithmetic overflow checked above. No alignment check
     // needed (Pod's align-1 obligation subsumes it).
@@ -99,7 +99,7 @@ pub fn read_address(account: &AccountView, offset: usize) -> Result<&Address, Pr
     if offset.checked_add(32).map_or(true, |end| end > data_len) {
         return Err(ProgramError::AccountDataTooSmall);
     }
-    let ptr = unsafe { account.data_ptr().add(offset) };
+    let ptr = unsafe { account.data_ptr_unchecked().add(offset) };
     // SAFETY: Address is #[repr(transparent)] over [u8; 32].
     // Alignment 1, bounds checked above.
     Ok(unsafe { &*(ptr as *const Address) })
@@ -116,7 +116,7 @@ pub fn read_le_u64(account: &AccountView, offset: usize) -> Result<u64, ProgramE
     if offset.checked_add(8).map_or(true, |end| end > data_len) {
         return Err(ProgramError::AccountDataTooSmall);
     }
-    let ptr = unsafe { account.data_ptr().add(offset) };
+    let ptr = unsafe { account.data_ptr_unchecked().add(offset) };
     let mut bytes = [0u8; 8];
     unsafe {
         core::ptr::copy_nonoverlapping(ptr, bytes.as_mut_ptr(), 8);
@@ -131,7 +131,7 @@ pub fn read_le_u32(account: &AccountView, offset: usize) -> Result<u32, ProgramE
     if offset.checked_add(4).map_or(true, |end| end > data_len) {
         return Err(ProgramError::AccountDataTooSmall);
     }
-    let ptr = unsafe { account.data_ptr().add(offset) };
+    let ptr = unsafe { account.data_ptr_unchecked().add(offset) };
     let mut bytes = [0u8; 4];
     unsafe {
         core::ptr::copy_nonoverlapping(ptr, bytes.as_mut_ptr(), 4);
@@ -146,7 +146,7 @@ pub fn read_le_u16(account: &AccountView, offset: usize) -> Result<u16, ProgramE
     if offset.checked_add(2).map_or(true, |end| end > data_len) {
         return Err(ProgramError::AccountDataTooSmall);
     }
-    let ptr = unsafe { account.data_ptr().add(offset) };
+    let ptr = unsafe { account.data_ptr_unchecked().add(offset) };
     let mut bytes = [0u8; 2];
     unsafe {
         core::ptr::copy_nonoverlapping(ptr, bytes.as_mut_ptr(), 2);
@@ -160,7 +160,7 @@ pub fn read_u8(account: &AccountView, offset: usize) -> Result<u8, ProgramError>
     if offset >= account.data_len() {
         return Err(ProgramError::AccountDataTooSmall);
     }
-    Ok(unsafe { *account.data_ptr().add(offset) })
+    Ok(unsafe { *account.data_ptr_unchecked().add(offset) })
 }
 
 /// Read a boolean from account data (0 = false, nonzero = true).
@@ -179,7 +179,7 @@ pub fn read_bytes(account: &AccountView, offset: usize, len: usize) -> Result<&[
     if offset.checked_add(len).map_or(true, |end| end > data_len) {
         return Err(ProgramError::AccountDataTooSmall);
     }
-    let ptr = unsafe { account.data_ptr().add(offset) };
+    let ptr = unsafe { account.data_ptr_unchecked().add(offset) };
     Ok(unsafe { core::slice::from_raw_parts(ptr, len) })
 }
 

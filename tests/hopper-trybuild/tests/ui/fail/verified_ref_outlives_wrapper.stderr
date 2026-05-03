@@ -1,0 +1,16 @@
+error[E0515]: cannot return value referencing local variable `verified`
+  --> tests/ui/fail/verified_ref_outlives_wrapper.rs:20:5
+   |
+20 |     verified.get()
+   |     --------^^^^^^
+   |     |
+   |     returns a value referencing data owned by the current function
+   |     `verified` is borrowed here
+
+error[E0515]: cannot return value referencing local variable `data`
+  --> tests/ui/fail/verified_ref_outlives_wrapper.rs:20:5
+   |
+19 |     let verified = VerifiedAccount::<Tiny>::new(&data).unwrap();
+   |                                                 ----- `data` is borrowed here
+20 |     verified.get()
+   |     ^^^^^^^^^^^^^^ returns a value referencing data owned by the current function

@@ -401,7 +401,7 @@ impl<'a> Context<'a> {
         // `data_ptr` yields a pointer inside the loader-provided
         // per-account buffer. Returning the untyped pointer transfers
         // alias-safety to the caller as documented above.
-        Ok(view.data_ptr())
+        Ok(view.data_ptr_unchecked())
     }
 
     /// Immutable sibling of [`as_mut_ptr`]. Returns a `*const u8`.
@@ -420,7 +420,7 @@ impl<'a> Context<'a> {
             .get(index)
             .ok_or(ProgramError::NotEnoughAccountKeys)?;
         view.check_borrow()?;
-        Ok(view.data_ptr() as *const u8)
+        Ok(view.data_ptr_unchecked() as *const u8)
     }
 
     /// Read instruction data as a typed value (unaligned, little-endian safe).

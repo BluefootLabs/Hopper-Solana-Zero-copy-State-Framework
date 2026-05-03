@@ -12,16 +12,20 @@ validator transaction logs:
 delta = first_remaining - second_remaining
 ```
 
-The bench program lives in `bench/hopper-bench/`. Deploy it to a local
-validator and send transactions with the appropriate discriminator byte.
+The primitive benchmark program lives in the sibling
+[`hopper-bench`](https://github.com/BluefootLabs/hopper-bench) product repo.
+From this framework workspace, `hopper profile bench` still knows how to run
+the primitive lab; cross-framework orchestration, Docker runners, baselines,
+and raw artifacts are owned by the benchmark repo so release docs never drift
+from the executable harness.
 
 ## Automation Status
 
 The benchmark program defines instruction discriminators `0..=18`. All 19
-primitives are covered by the Docker-based runner (`bench/run-bench-docker.ps1`
-/ `bench/run-bench-docker.sh`) which runs `hopper profile bench` against a
-containerized test validator. The `bench/measure.sh` wrapper gates instructions
-`0..=10` in the legacy CI path; the Docker runner covers the full set.
+primitives are covered by the benchmark repo's Docker runner and by the host
+`hopper profile bench` path. Release gates consume the benchmark repo's
+baselines and artifacts; this framework repo keeps only lightweight fixtures
+and historical result snapshots.
 
 ## CU Results
 
@@ -135,21 +139,23 @@ A complete audit trail of every state mutation costs less than a single
 ## Running Benchmarks
 
 ```bash
-# Start local validator
-solana-test-validator
-
-# Run the primitive benchmark lab
+# Primitive lab from this framework workspace
 hopper profile bench
+
+# Cross-framework parity lab from the sibling benchmark checkout
+cd ../hopper-bench
+./measure.sh all
 ```
 
-The benchmark lab builds and deploys `hopper-bench`, provisions deterministic
-fixture accounts, simulates each implemented primitive benchmark, parses the
-bounded `sol_log_compute_units()` deltas, and emits JSON/CSV artifacts under
-`bench/results/` by default.
+The benchmark lab builds and deploys the Hopper benchmark program, provisions
+deterministic fixture accounts, simulates each implemented primitive
+benchmark, parses bounded `sol_log_compute_units()` deltas, and emits JSON/CSV
+artifacts in the benchmark repo's results directory.
 
-See `bench/cu_baselines.toml` for golden baselines and CI gate thresholds.
-See `docs/BENCHMARK_AND_TOOLING_PARITY_PLAN.md` for the remaining benchmark
-automation and public-proof work.
+Golden baselines, Docker runners, competitor locks, and CI thresholds are in
+the sibling `hopper-bench` repo. See
+[`docs/BENCHMARK_AND_TOOLING_PARITY_PLAN.md`](docs/BENCHMARK_AND_TOOLING_PARITY_PLAN.md)
+for the long-form benchmark roadmap.
 
 ## Competitor-Shaped Baselines
 
@@ -167,41 +173,48 @@ verification, and a clean typed API.
 ## Framework Parity Benchmark (Vault, 8-seed average)
 
 All frameworks execute identical logic: `['vault', user]` PDA derivation,
-signer/writable checks, token operations. Measured on Mollusk with Solana 2.1.
+signer/writable checks, and equivalent lamport movement. Measured on the
+Mollusk parity harness with the same seed set for every framework.
 
-| Scenario | Hopper | Pinocchio | Quasar |
-|----------|--------|-----------|--------|
-| Authorize | **432 CU** | _re-run pending_ | 585 CU |
-| Auth-fail (missing sig) | **70 CU** | _re-run pending_ | 66 CU |
-| Counter (segment-safe) | **539 CU** | _re-run pending_ | 607 CU |
-| Deposit | **1651 CU** | _re-run pending_ | 1768 CU |
-| Withdraw | **455 CU** | _re-run pending_ | 605 CU |
-| **Binary size** | **7.62 KiB** | _re-run pending_ | 8.36 KiB |
+| Scenario | Hopper | Quasar |
+|----------|--------|--------|
+| Authorize | **432 CU** | 585 CU |
+| Auth-fail (missing sig) | 70 CU | **66 CU** |
+| Counter (segment-safe) | **539 CU** | 607 CU |
+| Deposit | **1651 CU** | 1768 CU |
+| Withdraw | **455 CU** | 605 CU |
+| **Binary size** | **7.62 KiB** | 8.36 KiB |
 
-The **Pinocchio** column is now built in-tree from
-[`bench/pinocchio-vault`](bench/pinocchio-vault/src/lib.rs) using Anza's own
-`pinocchio = "0.10"` and `pinocchio-system = "0.5"` crates. It replaces the
-earlier "Pinocchio-style" column, which loaded a third-party reference vault
-from Quasar's tree; that indirection was easy to misread as benchmarking the
-Pinocchio framework itself (it was not — Pinocchio is a substrate, not a
-framework, and the old 2543 CU authorize was against a non-optimised
-reference sample). Pinocchio numbers here are marked _re-run pending_; the
-next `framework-vault-bench` run will populate them. Expected Hopper lead
-over idiomatic Pinocchio on PDA-bearing instructions is a few hundred CU,
-attributable to Hopper's verify-only PDA path (see below).
+The old "Pinocchio-style" column was removed from release-facing tables. It
+used a Quasar-authored reference vault and was too easy to misread as an Anza
+Pinocchio framework measurement. The sibling `hopper-bench` repo now owns the
+Anza Pinocchio target and its provenance; Hopper will only publish Pinocchio
+numbers after that target is measured from the same lockfile, SBF toolchain,
+Mollusk version, seed set, and command line as the Hopper and Quasar columns.
+
+### Benchmark provenance checklist
+
+Every parity result published from `hopper-bench` must record:
+
+- Hopper framework commit and benchmark repo commit.
+- Quasar source commit or release tag.
+- Pinocchio crate versions when the Pinocchio column is included.
+- Rust, Solana/Agave SBF, and Mollusk versions.
+- Exact feature flags and release profile.
+- Exact reproduction command and seed count.
 
 **Key observations:**
 
 - **Hopper beats Quasar on 4 of 5 instructions** while providing 47+ safety
   mechanisms vs Quasar's ~10. The only gap is auth-fail (+4 CU, negligible).
-- **Smallest binary** (pre-R2 re-run): Hopper at 7.62 KiB is 8.8% smaller than
-  Quasar (8.36 KiB). Binary-size comparison to Anza Pinocchio will be updated
-  with the next bench run.
+- **Smallest binary in the published Hopper/Quasar table**: Hopper at 7.62 KiB
+  is 8.8% smaller than Quasar (8.36 KiB).
 - **Verify-only PDA**: Hopper's novel sha256-only PDA verification eliminates
   `sol_curve_validate_point` (~159 CU/attempt) by comparing hashes directly
   against the known PDA address. ~350 CU savings per PDA-bearing instruction
-  over the standard `find_program_address` approach (which is what idiomatic
-  Pinocchio uses, and therefore where Hopper's lead over Pinocchio comes from).
+  over the standard `find_program_address` approach. This is a technical
+  hypothesis to validate separately for the Anza Pinocchio target, not a
+  published Pinocchio performance claim.
 - **Fast entrypoint**: Two-argument SVM entrypoint receives instruction data via
   the second register, eliminating full-buffer account scanning.
 - **Safety at no cost**: The counter-access instruction (539 vs 607 CU) now beats
@@ -210,7 +223,7 @@ attributable to Hopper's verify-only PDA path (see below).
 
 The parity vault source is at
 [`examples/hopper-parity-vault`](examples/hopper-parity-vault/src/lib.rs).
-Benchmark runner is `bench/runner/` (`framework-vault-bench`).
+The cross-framework runner lives in the sibling `hopper-bench` repo.
 
 
 ## CU Budget Reference

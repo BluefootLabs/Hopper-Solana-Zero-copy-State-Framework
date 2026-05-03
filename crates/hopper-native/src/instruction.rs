@@ -131,7 +131,7 @@ impl<'a> From<&'a AccountView> for CpiAccount<'a> {
             address: unsafe { &(*raw).address as *const Address },
             lamports: unsafe { &(*raw).lamports as *const u64 },
             data_len: view.data_len() as u64,
-            data: view.data_ptr(),
+            data: view.data_ptr_unchecked(),
             owner: unsafe { &(*raw).owner as *const Address },
             rent_epoch: 0,
             is_signer: header & 0x0000_FF00 != 0,

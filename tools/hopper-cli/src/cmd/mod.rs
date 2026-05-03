@@ -11,6 +11,7 @@ pub mod manager_accounts;
 pub mod manager_invoke;
 pub mod meta;
 pub mod profile;
+pub mod publish_check;
 pub mod tx_explain;
 pub mod verify;
 pub mod watch;

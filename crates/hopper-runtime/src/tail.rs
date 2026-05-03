@@ -27,12 +27,12 @@
 //!
 //! * integers: native little-endian
 //! * `[u8; N]`: raw bytes, fixed width
-//! * `Vec<u8>` / byte slices: u32 LE length prefix + bytes
-//! * strings: u32 LE length prefix + UTF-8
+//! * bounded byte/string payloads: program-defined length prefix + bytes
 //! * `Option<T>`: 1-byte tag (0 = None, 1 = Some) + inner payload
 //!
-//! Programs that need richer types (custom structs, `Vec<T>`) implement
-//! `TailCodec` themselves; the framework does not force a derive.
+//! Programs that need richer types (bounded strings, bounded vectors,
+//! custom structs) implement `TailCodec` themselves; the framework does not
+//! force a derive or pull `Vec` / `String` into the no-alloc runtime surface.
 
 use crate::error::ProgramError;
 

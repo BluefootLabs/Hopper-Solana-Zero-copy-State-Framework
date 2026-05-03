@@ -8,7 +8,12 @@
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote, ToTokens};
 use sha2::{Digest, Sha256};
-use syn::{parse::Parser, parse2, Attribute, Fields, Field, ItemStruct, LitInt, LitStr, Result};
+use syn::{
+    parse::Parser,
+    parse2, parse_quote,
+    punctuated::Punctuated,
+    Attribute, Fields, Field, ItemStruct, LitInt, LitStr, Path, Result, Token,
+};
 
 #[derive(Clone)]
 struct StateOptions {
@@ -71,6 +76,23 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
             &input,
             "hopper_state requires #[repr(C)] so segment offsets and typed loads stay stable",
         ));
+    }
+
+    // State overlays are plain wire values. The macro emits the Pod and
+    // LayoutContract impls, so make the Copy/Clone obligation equally
+    // macro-owned instead of requiring every user to remember the derive.
+    // If the user already derived either trait, preserve their attr and add
+    // only the missing one to avoid duplicate impls.
+    let mut missing_derives: Vec<Path> = Vec::new();
+    if !has_derive_trait(&input.attrs, "Clone") {
+        missing_derives.push(parse_quote!(Clone));
+    }
+    if !has_derive_trait(&input.attrs, "Copy") {
+        missing_derives.push(parse_quote!(Copy));
+    }
+    if !missing_derives.is_empty() {
+        let derive_attr: Attribute = parse_quote!(#[derive(#(#missing_derives),*)]);
+        input.attrs.push(derive_attr);
     }
 
     // Verify we have named fields before we start mutating. We can't
@@ -753,6 +775,18 @@ fn has_repr_c(attrs: &[Attribute]) -> bool {
             Ok(())
         });
         has_c
+    })
+}
+
+fn has_derive_trait(attrs: &[Attribute], trait_name: &str) -> bool {
+    attrs.iter().any(|attr| {
+        if !attr.path().is_ident("derive") {
+            return false;
+        }
+
+        attr.parse_args_with(Punctuated::<Path, Token![,]>::parse_terminated)
+            .map(|paths| paths.iter().any(|path| path.is_ident(trait_name)))
+            .unwrap_or(false)
     })
 }
 

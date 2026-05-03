@@ -544,9 +544,9 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
         let wrapper = classify_wrapper(&cf.ty);
         let wrapper_is_signer = matches!(wrapper, Some(WrapperKind::Signer));
         let wrapper_is_init = matches!(wrapper, Some(WrapperKind::InitAccount { .. }));
-        // `wrapper.inner_layout()` is consumed by the has_layout /
-        // layout_ty computation below. it resolves `Account<'info, T>`
-        // → `T` so `load::<T>()` targets the right layout.
+        // The has_layout / layout_ty computation below resolves
+        // `Account<'info, T>` → `T` so `load::<T>()` targets the
+        // right layout.
         if let Some(WrapperKind::Program) = &wrapper {
             // Program<'info, P>. require address == P::ID + executable.
             // P is the last type arg of the path.
@@ -3274,6 +3274,7 @@ fn skips_layout_validation(ty: &Type) -> bool {
 /// Audit Stage 2.3: classify wrapper types so the context macro can
 /// auto-derive the appropriate checks from the type name alone.
 #[derive(Clone)]
+#[allow(dead_code)]
 enum WrapperKind {
     /// `Signer<'info>`. emit `check_signer`.
     Signer,
@@ -3281,22 +3282,12 @@ enum WrapperKind {
     /// `check_executable`. Layout validation skipped.
     Program,
     /// `Account<'info, T>`. emit `check_owned_by(program_id)` +
-    /// `load::<T>()` using `T` as the layout. Inner type accessible
-    /// via `.inner_layout()`.
+    /// `load::<T>()` using `T` as the layout.
     Account { inner: Type },
     /// `InitAccount<'info, T>`. skip pre-instruction layout check
     /// (account doesn't exist yet); the `init_{field}` lifecycle
     /// helper will create + initialise it.
     InitAccount { inner: Type },
-}
-
-impl WrapperKind {
-    fn inner_layout(&self) -> Option<&Type> {
-        match self {
-            WrapperKind::Account { inner } | WrapperKind::InitAccount { inner } => Some(inner),
-            _ => None,
-        }
-    }
 }
 
 /// Recognize typed wrapper types (`Signer<'info>`, `Account<'info, T>`,

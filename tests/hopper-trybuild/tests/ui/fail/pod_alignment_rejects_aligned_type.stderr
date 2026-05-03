@@ -1,0 +1,7 @@
+error[E0080]: evaluation panicked: Pod type `AlignedEntry` must have alignment 1 for zero-copy safety. Ensure all fields use alignment-1 wire types ([u8; N], WireU64, etc.).
+  --> tests/ui/fail/pod_alignment_rejects_aligned_type.rs:34:1
+   |
+34 | const_assert_pod!(AlignedEntry, 16);
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ evaluation of `_` failed here
+   |
+   = note: this error originates in the macro `$crate::panic::panic_2021` which comes from the expansion of the macro `const_assert_pod` (in Nightly builds, run with -Z macro-backtrace for more info)

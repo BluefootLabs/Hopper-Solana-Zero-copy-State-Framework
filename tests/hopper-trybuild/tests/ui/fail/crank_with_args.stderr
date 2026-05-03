@@ -1,0 +1,25 @@
+error: #[hopper::crank] requires a zero-arg handler. Cranks are autonomous; if this instruction needs user input, use `hopper manager invoke` instead.
+  --> tests/ui/fail/crank_with_args.rs:11:5
+   |
+11 |     fn settle(_ctx: &mut Context<'_>, amount: u64) -> ProgramResult {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `hopper::prelude::*`
+ --> tests/ui/fail/crank_with_args.rs:1:5
+  |
+1 | use hopper::prelude::*;
+  |     ^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `super::*`
+ --> tests/ui/fail/crank_with_args.rs:5:9
+  |
+5 |     use super::*;
+  |         ^^^^^^^^
+
+error[E0425]: cannot find function `settle` in this scope
+  --> tests/ui/fail/crank_with_args.rs:11:8
+   |
+11 |     fn settle(_ctx: &mut Context<'_>, amount: u64) -> ProgramResult {
+   |        ^^^^^^ not found in this scope

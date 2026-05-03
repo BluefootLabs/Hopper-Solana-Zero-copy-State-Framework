@@ -804,11 +804,11 @@ impl AccountView {
 
     // ── Raw access (hopper-native-backend only) ──────────────────────
 
-    /// Raw pointer to the first byte of account data.
+    /// Unchecked raw pointer to the first byte of account data.
     #[cfg(feature = "hopper-native-backend")]
     #[inline(always)]
-    pub(crate) fn data_ptr(&self) -> *mut u8 {
-        self.inner.data_ptr()
+    pub(crate) fn data_ptr_unchecked(&self) -> *mut u8 {
+        self.inner.data_ptr_unchecked()
     }
 
     /// Raw pointer to the RuntimeAccount header.

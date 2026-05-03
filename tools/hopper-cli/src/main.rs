@@ -46,6 +46,7 @@
 //! hopper dump                                        Disassemble the current SBF artifact
 //! hopper clean [-a|--all]                            Remove build artefacts (preserves keypairs)
 //! hopper profile bench                               Run the primitive benchmark lab
+//! hopper publish-check --package <name>              Run release/source gates before publishing
 //!
 //! hopper interactive <manifest>                      Interactive terminal explorer
 //!
@@ -136,6 +137,7 @@ fn main() {
         "dump" => cmd::lifecycle::cmd_dump(&args[2..]),
         "clean" => cmd::clean::cmd_clean(&args[2..]),
         "verify" => cmd::verify::cmd_verify(&args[2..]),
+        "publish-check" => cmd::publish_check::cmd_publish_check(&args[2..]),
 
         // DX and tooling
         "keys" => cmd::keys::cmd_keys(&args[2..]),
@@ -1860,6 +1862,7 @@ fn print_usage() {
     println!("    hopper verify [<manifest>] [<.so>]     Confirm every layout in the manifest");
     println!("                                           appears in the compiled binary by LAYOUT_ID");
     println!("    hopper verify --package <name>         Infer manifest + .so from a workspace package");
+    println!("    hopper publish-check --package <name>  Run release docs, feature, client, fuzz, and ABI gates");
     println!();
     println!("  Schema:");
     println!("    hopper schema export               Schema format reference");
