@@ -200,6 +200,7 @@ fn parse_flat_toml(text: &str) -> BTreeMap<String, String> {
 
 /// Resolve the cluster URL for a config value. Short aliases map to
 /// canonical endpoints; anything else is returned verbatim.
+#[allow(dead_code)]
 pub fn resolve_cluster(value: &str) -> String {
     match value {
         "mainnet" | "mainnet-beta" => "https://api.mainnet-beta.solana.com".into(),

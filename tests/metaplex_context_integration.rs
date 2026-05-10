@@ -11,11 +11,11 @@ use hopper::prelude::*;
 
 #[hopper::context]
 #[instruction(
-    name: &'static str,
-    symbol: &'static str,
-    uri: &'static str,
-    sfbp: u16,
-    max_supply: u64,
+    _name: &'static str,
+    _symbol: &'static str,
+    _uri: &'static str,
+    _sfbp: u16,
+    _max_supply: u64,
 )]
 pub struct MintNft {
     #[account(signer, mut)]
@@ -30,10 +30,10 @@ pub struct MintNft {
         metadata::payer = authority,
         metadata::update_authority = authority,
         metadata::system_program = system_program,
-        metadata::name = name,
-        metadata::symbol = symbol,
-        metadata::uri = uri,
-        metadata::seller_fee_basis_points = sfbp,
+        metadata::name = _name,
+        metadata::symbol = _symbol,
+        metadata::uri = _uri,
+        metadata::seller_fee_basis_points = _sfbp,
         metadata::is_mutable = true,
     )]
     pub metadata: AccountView,
@@ -46,7 +46,7 @@ pub struct MintNft {
         master_edition::payer = authority,
         master_edition::token_program = token_program,
         master_edition::system_program = system_program,
-        master_edition::max_supply = max_supply,
+        master_edition::max_supply = _max_supply,
     )]
     pub master_edition: AccountView,
 

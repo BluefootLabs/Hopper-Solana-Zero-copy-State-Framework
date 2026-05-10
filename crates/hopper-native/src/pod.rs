@@ -107,8 +107,6 @@ mod tests {
     fn bool_is_not_pod() {
         trait NotPod {}
         impl<T> NotPod for T {}
-        trait IsPod {}
-        impl<T: Pod> IsPod for T {}
         // Compiles, bool has `NotPod` blanket impl.
         fn _f<T: NotPod>() {}
         _f::<bool>();

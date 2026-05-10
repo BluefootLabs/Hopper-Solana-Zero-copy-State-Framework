@@ -721,6 +721,7 @@ fn cmd_crank_run(args: &[String]) {
 }
 
 enum CrankOutcome {
+    #[allow(dead_code)]
     Skipped(String),
     DryRun(Option<u64>),
     Submitted(String),

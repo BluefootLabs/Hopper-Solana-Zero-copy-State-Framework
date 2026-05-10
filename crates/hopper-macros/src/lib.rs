@@ -223,15 +223,23 @@ macro_rules! hopper_layout {
                 ]
             };
 
-            /// Zero-copy overlay (immutable).
-            #[deprecated(since = "0.2.0", note = "use load() for Hopper layouts or raw_ref() for explicit bypass")]
+            /// Zero-copy overlay over an already-borrowed byte slice (immutable).
+            ///
+            /// Prefer [`Self::load`] for account data so owner/header checks and
+            /// Hopper borrow tracking stay in force. Use this helper for tests,
+            /// scratch buffers, and explicitly sliced extension segments whose
+            /// surrounding account was already validated.
             #[inline(always)]
             pub fn overlay(data: &[u8]) -> Result<&Self, $crate::hopper_runtime::error::ProgramError> {
                 $crate::hopper_core::account::pod_from_bytes::<Self>(data)
             }
 
-            /// Zero-copy overlay (mutable).
-            #[deprecated(since = "0.2.0", note = "use load_mut() or raw_mut() instead")]
+            /// Zero-copy overlay over an already-borrowed byte slice (mutable).
+            ///
+            /// Prefer [`Self::load_mut`] for account data so owner/header checks,
+            /// writable checks, and Hopper borrow tracking stay in force. Use this
+            /// helper for tests, scratch buffers, and explicitly sliced extension
+            /// segments whose surrounding account was already validated.
             #[inline(always)]
             pub fn overlay_mut(data: &mut [u8]) -> Result<&mut Self, $crate::hopper_runtime::error::ProgramError> {
                 $crate::hopper_core::account::pod_from_bytes_mut::<Self>(data)
@@ -1674,6 +1682,7 @@ macro_rules! _hopper_accounts_struct {
                 Ok((Self { $( $field, )+ }, ()))
             }
 
+            #[cfg(feature = "explain")]
             fn context_schema() -> Option<
                 &'static $crate::hopper_core::accounts::explain::ContextSchema
             > {

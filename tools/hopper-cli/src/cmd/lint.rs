@@ -215,6 +215,7 @@ struct Diagnostic {
 enum Level {
     Error,
     Warn,
+    #[allow(dead_code)]
     Info,
 }
 

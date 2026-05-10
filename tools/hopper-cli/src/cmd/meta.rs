@@ -53,6 +53,7 @@ fn print_completions_usage() {
     eprintln!("  fish  ->  hopper completions fish > ~/.config/fish/completions/hopper.fish");
 }
 
+#[allow(dead_code)]
 const TOP_LEVEL: &[&str] = &[
     "schema",
     "compile",

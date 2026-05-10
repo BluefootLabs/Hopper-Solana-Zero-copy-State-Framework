@@ -6,11 +6,42 @@ use {
     solana_account::Account,
     solana_address::Address,
     solana_instruction::{AccountMeta, Instruction},
-    std::{println, vec},
+    std::{fs, path::Path, println, time::SystemTime, vec},
 };
 
-fn setup(program_id: &Address) -> Mollusk {
-    Mollusk::new(program_id, "../../target/deploy/hopper_vault")
+const PROGRAM_PATH: &str = "../../target/deploy/hopper_vault";
+const PROGRAM_SO: &str = "../../target/deploy/hopper_vault.so";
+const PROGRAM_SOURCES: &[&str] = &["Cargo.toml", "src/lib.rs", "src/dsl.rs"];
+
+fn setup(program_id: &Address) -> Option<Mollusk> {
+    let program_so = Path::new(PROGRAM_SO);
+    if !program_so.exists() {
+        eprintln!("skipping Mollusk integration test; build the SBF program first: {PROGRAM_SO}");
+        return None;
+    }
+    if artifact_is_stale(program_so) {
+        eprintln!("skipping Mollusk integration test; rebuild the stale SBF program: {PROGRAM_SO}");
+        return None;
+    }
+    Some(Mollusk::new(program_id, PROGRAM_PATH))
+}
+
+fn artifact_is_stale(program_so: &Path) -> bool {
+    let Some(artifact_modified_at) = modified_at(program_so) else {
+        return true;
+    };
+    PROGRAM_SOURCES
+        .iter()
+        .map(Path::new)
+        .any(|source| modified_after(source, artifact_modified_at))
+}
+
+fn modified_after(path: &Path, cutoff: SystemTime) -> bool {
+    modified_at(path).is_some_and(|modified_at| modified_at > cutoff)
+}
+
+fn modified_at(path: &Path) -> Option<SystemTime> {
+    fs::metadata(path).ok()?.modified().ok()
 }
 
 fn amount_instruction(
@@ -56,7 +87,9 @@ fn seeded_vault_account(
 #[test]
 fn test_deposit() {
     let program_id = Address::new_unique();
-    let mollusk = setup(&program_id);
+    let Some(mollusk) = setup(&program_id) else {
+        return;
+    };
     let user = Address::new_unique();
     let vault = Address::new_unique();
 
@@ -95,7 +128,9 @@ fn test_deposit() {
 #[test]
 fn test_withdraw() {
     let program_id = Address::new_unique();
-    let mollusk = setup(&program_id);
+    let Some(mollusk) = setup(&program_id) else {
+        return;
+    };
     let user = Address::new_unique();
     let vault = Address::new_unique();
 
@@ -152,7 +187,9 @@ fn test_withdraw() {
 #[test]
 fn test_withdraw_rejects_unsigned_user() {
     let program_id = Address::new_unique();
-    let mollusk = setup(&program_id);
+    let Some(mollusk) = setup(&program_id) else {
+        return;
+    };
     let user = Address::new_unique();
     let vault = Address::new_unique();
 

@@ -125,6 +125,7 @@ impl HopperToml {
     /// if the file doesn't exist; that's a soft signal that the project
     /// pre-dates the config-file convention. Callers should fall back to
     /// defaults rather than erroring out.
+    #[allow(dead_code)]
     pub fn load(project_dir: &Path) -> Result<Option<Self>, String> {
         let path = project_dir.join("Hopper.toml");
         if !path.exists() {

@@ -152,7 +152,7 @@ mod tests {
     #[cfg(feature = "std")]
     #[test]
     fn fixed_size_diff_returns_deltas() {
-        let mut before = [0u8; 16];
+        let before = [0u8; 16];
         let mut after = [0u8; 16];
         after[0..8].copy_from_slice(&5u64.to_le_bytes());
         let m = manifest();

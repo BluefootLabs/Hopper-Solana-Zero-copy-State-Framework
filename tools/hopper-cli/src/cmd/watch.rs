@@ -123,6 +123,7 @@ pub fn extract_watch_flag(args: &mut Vec<String>) -> bool {
 /// Right now this is just the directory passed in, but the indirection
 /// gives us a seam to grow workspace-aware logic later without
 /// touching every call site.
+#[allow(dead_code)]
 pub fn project_watch_root(root: &Path) -> PathBuf {
     root.to_path_buf()
 }

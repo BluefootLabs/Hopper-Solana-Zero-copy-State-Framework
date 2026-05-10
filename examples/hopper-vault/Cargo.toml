@@ -12,8 +12,9 @@ crate-type = ["cdylib", "lib"]
 hopper = { path = "../..", default-features = false }
 
 [features]
-default = ["hopper-native-backend"]
+default = ["hopper-native-backend", "frame"]
 hopper-native-backend = ["hopper/hopper-native-backend"]
+frame = ["hopper/frame"]
 legacy-pinocchio-compat = ["hopper/legacy-pinocchio-compat"]
 solana-program-backend = ["hopper/solana-program-backend"]
 
