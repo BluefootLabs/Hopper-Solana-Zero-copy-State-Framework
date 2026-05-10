@@ -9,11 +9,11 @@
 //!
 //! ## When to use which
 //!
-//! - **`SegmentMap` + [`StaticSegment`]** — fixed-layout structs annotated
+//! - **`SegmentMap` + [`StaticSegment`]** - fixed-layout structs annotated
 //!   with `#[hopper::state]`. The segment list is known at compile time;
 //!   lookups fold to const loads.
 //! - **[`SegmentRegistry`](crate::account::SegmentRegistry) +
-//!   [`SegmentDescriptor`](crate::account::SegmentDescriptor)** — accounts
+//!   [`SegmentDescriptor`](crate::account::SegmentDescriptor)** - accounts
 //!   whose segment count grows on-chain (extension-heavy patterns,
 //!   Token-2022-style mints, dynamic plug-ins). The segment table lives
 //!   inside the account body and is walked at runtime.

@@ -8,15 +8,15 @@
 //!
 //! ## Compile-time vs runtime segments
 //!
-//! Hopper distinguishes two segment shapes — both rooted in this module
+//! Hopper distinguishes two segment shapes - both rooted in this module
 //! and [`crate::segment_map`] respectively:
 //!
-//! - **[`crate::segment_map::StaticSegment`]** — *compile-time* metadata
+//! - **[`crate::segment_map::StaticSegment`]** - *compile-time* metadata
 //!   for fixed-layout structs annotated with `#[hopper::state]`. Each
 //!   field becomes a `StaticSegment { name, offset, size }` const,
 //!   with the offset reported relative to the body (post-header).
 //!   Access is via the `Layout::segment("balance")` static lookup.
-//! - **[`SegmentDescriptor`] (this module)** — *runtime* metadata
+//! - **[`SegmentDescriptor`] (this module)** - *runtime* metadata
 //!   for accounts whose segment table grows on-chain. Each entry
 //!   carries `offset + size + flags + version + count + capacity`,
 //!   stored in the account's segment-registry table. Access is via
@@ -24,7 +24,7 @@
 //!   walk the table at runtime.
 //!
 //! For typical Hopper programs you'll use the compile-time path
-//! through `#[hopper::state]` — the runtime registry is reserved
+//! through `#[hopper::state]` - the runtime registry is reserved
 //! for accounts that genuinely need a dynamic segment count
 //! (extension-heavy patterns, Token-2022-style mints, etc.).
 //!

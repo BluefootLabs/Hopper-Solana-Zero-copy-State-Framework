@@ -1,4 +1,4 @@
-//! `InterfaceAccount` / `InterfaceMint` — Token + Token-2022 polymorphism.
+//! `InterfaceAccount` / `InterfaceMint` - Token + Token-2022 polymorphism.
 //!
 //! Quasar's headline DX win is `InterfaceAccount<Token>`: a single wrapper
 //! that accepts an account owned by either the SPL Token program or the
@@ -7,10 +7,10 @@
 //!
 //! Hopper exposes the equivalent shape here:
 //!
-//! - [`InterfaceTokenAccount`] — token-account-shaped overlay for either
+//! - [`InterfaceTokenAccount`] - token-account-shaped overlay for either
 //!   SPL Token or Token-2022.
-//! - [`InterfaceMint`] — mint-shaped overlay for either program.
-//! - [`TokenProgramKind`] — discriminates which program owns the account.
+//! - [`InterfaceMint`] - mint-shaped overlay for either program.
+//! - [`TokenProgramKind`] - discriminates which program owns the account.
 //!
 //! The first 165 bytes of an SPL Token Account and the first 165 bytes
 //! of a Token-2022 token account share the same on-disk layout (mint,
@@ -107,7 +107,7 @@ impl<'a> InterfaceTokenAccount<'a> {
     /// Wrap a previously-borrowed account body.
     ///
     /// Caller is responsible for confirming `kind` matches the
-    /// account's actual owner — usually by calling
+    /// account's actual owner - usually by calling
     /// [`TokenProgramKind::for_account`] beforehand.
     pub fn from_data(data: &'a [u8], kind: TokenProgramKind) -> Result<Self, ProgramError> {
         if data.len() < crate::token::TOKEN_ACCOUNT_LEN {

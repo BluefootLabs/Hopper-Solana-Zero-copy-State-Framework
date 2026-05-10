@@ -28,15 +28,15 @@ impl Template {
 
     fn label(&self) -> &'static str {
         match self {
-            Template::Minimal => "Minimal — single Config layout, one initialize handler",
+            Template::Minimal => "Minimal - single Config layout, one initialize handler",
             Template::NftMint => {
-                "NFT mint — Metaplex CreateMetadataAccountV3 + CreateMasterEditionV3 (1-of-1)"
+                "NFT mint - Metaplex CreateMetadataAccountV3 + CreateMasterEditionV3 (1-of-1)"
             }
             Template::Token2022Vault => {
-                "Token-2022 vault — extension-aware mint validation + vault state"
+                "Token-2022 vault - extension-aware mint validation + vault state"
             }
             Template::DefiVault => {
-                "DeFi vault — segment-safe authority + balance pattern with PDA verification"
+                "DeFi vault - segment-safe authority + balance pattern with PDA verification"
             }
         }
     }
@@ -238,7 +238,7 @@ pub fn cmd_init(args: &[String]) {
 
     // Persist the wizard's choices as the next-run default. Disable
     // the opening animation on the saved defaults so the second run
-    // is silent — power users running `hopper init` repeatedly during
+    // is silent - power users running `hopper init` repeatedly during
     // plugin development don't get the bounce every time. They can
     // re-enable with `hopper config set ui.animation true` (or by
     // editing `~/.hopper/wizard.toml`).
@@ -389,9 +389,9 @@ fn run_init_wizard(
 
     // 4. Git policy.
     let git_options = [
-        "commit — git init + initial commit",
-        "init — git init only, no commit",
-        "skip — no git",
+        "commit - git init + initial commit",
+        "init - git init only, no commit",
+        "skip - no git",
     ];
     let default_git_idx = match global.defaults.git.as_str() {
         "init" => 1,
@@ -1010,7 +1010,7 @@ fn scaffold_project(plan: &ScaffoldPlan) -> Result<(), String> {
     )?;
     workspace::write_text_file(&plan.destination.join(".gitignore"), gitignore, plan.force)?;
 
-    // Hopper.toml — declarative project config the rest of the CLI
+    // Hopper.toml - declarative project config the rest of the CLI
     // (build, test, deploy, doctor) reads to know toolchain choice,
     // testing framework, and backend.
     let project_config = HopperToml::new(plan.crate_name.clone(), plan.template.name().to_string());
@@ -1099,7 +1099,6 @@ mod __hopper_sbf {
     nostd_panic_handler!();
 }
 
-#[derive(Clone, Copy)]
 #[repr(C)]
 #[hopper::state(disc = 1, version = 1)]
 pub struct Config {
@@ -1281,7 +1280,6 @@ pub struct Authority;
 #[derive(Clone, Copy)]
 pub struct Mint;
 
-#[derive(Clone, Copy)]
 #[repr(C)]
 #[hopper::state(disc = 1, version = 1)]
 pub struct Vault {
@@ -1348,7 +1346,7 @@ fn snapshot_so_sizes(deploy_dir: &Path) -> std::collections::HashMap<PathBuf, u6
 /// ```
 ///
 /// New binaries (present in `after` but not `before`) print with `(new)`.
-/// Removed binaries are silent — `cargo build-sbf` doesn't usually
+/// Removed binaries are silent - `cargo build-sbf` doesn't usually
 /// remove artefacts and we'd rather not draw attention if it does.
 fn report_size_delta(
     before: &std::collections::HashMap<PathBuf, u64>,
@@ -1429,7 +1427,6 @@ mod __hopper_sbf {
 #[derive(Clone, Copy)]
 pub struct Authority;
 
-#[derive(Clone, Copy)]
 #[repr(C)]
 #[hopper::state(disc = 1, version = 1)]
 pub struct Vault {
@@ -1587,7 +1584,7 @@ mod tests {
 
     #[test]
     fn local_path_dependency_is_rendered() {
-        // Function signature is `(local_path, template)` now —
+        // Function signature is `(local_path, template)` now -
         // template determines which feature flags get stamped onto
         // the dependency line.
         let dep = render_hopper_dependency(Some("../hopper"), Template::Minimal);

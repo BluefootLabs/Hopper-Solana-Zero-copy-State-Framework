@@ -9,7 +9,7 @@ from PRs and how to land one cleanly.
 
 - **Website**: [hopperzero.dev](https://hopperzero.dev)
 - **Issues**: [github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/issues](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/issues)
-- **Audit**: [AUDIT.md](AUDIT.md) — full feature audit and parity findings vs Pinocchio, Quasar, Anchor.
+- **Audit**: [AUDIT.md](AUDIT.md) - full feature audit and parity findings vs Pinocchio, Quasar, Anchor.
 - **Architecture**: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - **Unsafe inventory**: [docs/UNSAFE_INVARIANTS.md](docs/UNSAFE_INVARIANTS.md)
 
@@ -27,7 +27,7 @@ We particularly welcome:
 - **`#[hopper::view]`** read-only handler attribute.
 - **Field-keyword sugar** for the existing Metaplex builders
   (`metadata::name`, `master_edition::max_supply`, etc.).
-- **Bench expansions** — particularly anything that exercises lazy
+- **Bench expansions** - particularly anything that exercises lazy
   dispatch under realistic dispatch shapes.
 - **Example programs** demonstrating real protocol patterns: AMM,
   lending, multisig, escrow.
@@ -36,7 +36,7 @@ We particularly welcome:
 
 1. **Open an issue first** for anything bigger than a typo. We move
    fast on small fixes; design discussions belong in issues.
-2. **Branch from `main`** and keep your PR focused — one concern per
+2. **Branch from `main`** and keep your PR focused - one concern per
    PR.
 3. **Match the existing style.** Hopper uses prose comments that
    explain *why* (not what), the `// SAFETY:` convention on every
@@ -65,7 +65,7 @@ expectation:
 ## Audit posture
 
 Hopper aims for protocol-grade safety. Submissions that loosen a
-safety invariant — even by accident — will get pushed back hard. If
+safety invariant - even by accident - will get pushed back hard. If
 you genuinely believe a check is unnecessary, open an issue
 explaining the proof, and we'll discuss it before any code lands.
 
@@ -73,10 +73,10 @@ explaining the proof, and we'll discuss it before any code lands.
 
 Be kind, be specific, and assume good faith. No harassment, no
 personal attacks. The Galápagos blue-footed booby is the project
-mascot — even she gets along with the iguanas.
+mascot - even she gets along with the iguanas.
 
 ## License
 
 By contributing you agree your work is licensed under
-[Apache-2.0](LICENSE) — the same license the rest of the project
+[Apache-2.0](LICENSE) - the same license the rest of the project
 uses.

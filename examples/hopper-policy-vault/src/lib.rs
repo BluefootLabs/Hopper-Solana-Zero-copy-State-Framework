@@ -51,7 +51,6 @@ mod __hopper_sbf {
 //  Shared layout
 // ══════════════════════════════════════════════════════════════════════
 
-#[derive(Clone, Copy)]
 #[repr(C)]
 #[hopper::state(disc = 1, version = 1)]
 pub struct Vault {

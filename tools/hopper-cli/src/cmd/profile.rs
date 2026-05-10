@@ -216,7 +216,7 @@ fn cmd_profile_elf(args: &[String]) -> Result<(), String> {
         let delta = byte_total as i64 - base_total as i64;
         let sign = if delta >= 0 { "+" } else { "" };
         println!(
-            "baseline {} bytes ({} symbols) — total delta {sign}{} bytes",
+            "baseline {} bytes ({} symbols) - total delta {sign}{} bytes",
             base_total,
             base.len(),
             delta,
@@ -342,7 +342,7 @@ fn render_folded(ranked: &[(&str, u64)]) -> String {
 /// Load a previously-saved Brendan-Gregg folded-stack file into a
 /// `symbol -> bytes` map. The format is one symbol per line, with
 /// the symbol name and the count separated by the last space (so
-/// names containing spaces — Rust's `<T as Trait>::method` — still
+/// names containing spaces - Rust's `<T as Trait>::method` - still
 /// parse correctly). Lines starting with `#` are treated as
 /// comments and skipped, and blank lines are ignored. Returns a
 /// helpful error if the file is malformed at any line so the user
@@ -380,7 +380,7 @@ fn load_baseline_folded(path: &str) -> Result<BTreeMap<String, u64>, String> {
 }
 
 /// Render a self-contained interactive HTML flamegraph. No external
-/// resources, no CDN, no JS framework — one file the user can open
+/// resources, no CDN, no JS framework - one file the user can open
 /// straight in a browser.
 ///
 /// The chart degrades gracefully when DWARF call-tree data isn't
@@ -398,7 +398,7 @@ fn render_html_flamegraph(
     baseline: Option<&BTreeMap<String, u64>>,
 ) -> String {
     // Build the per-bar JSON inline. Symbol names can contain
-    // characters that need escaping for both HTML and JSON — we
+    // characters that need escaping for both HTML and JSON - we
     // escape both via a small helper rather than depending on a
     // crate just for this.
     let mut data_json = String::from("[");
@@ -439,7 +439,7 @@ fn render_html_flamegraph(
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>hopper profile elf — {title}</title>
+<title>hopper profile elf - {title}</title>
 <style>
   :root {{
     --bg: #0e1117;
@@ -608,7 +608,7 @@ fn format_human_bytes(b: u64) -> String {
     }
 }
 
-/// Minimal HTML escaper — sufficient for the metadata strings we
+/// Minimal HTML escaper - sufficient for the metadata strings we
 /// embed (program path, symbol names). Avoids pulling in a templating
 /// crate.
 fn html_escape(s: &str) -> String {

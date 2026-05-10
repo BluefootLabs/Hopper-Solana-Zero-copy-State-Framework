@@ -1,4 +1,4 @@
-//! `#[hopper::constant]` — public-facing program constant marker.
+//! `#[hopper::constant]` - public-facing program constant marker.
 //!
 //! Anchor-compatible surface for `#[constant]`. Decorates a `pub const`
 //! declaration to surface its `(name, type, value)` triple in the

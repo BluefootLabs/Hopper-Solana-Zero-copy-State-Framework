@@ -34,6 +34,7 @@ benchmark suite and SVM harness live separately.
 ## Release Status
 
 - Published framework version: `hopper = "0.1.0"`.
+- Version-pinned docs.rs target: <https://docs.rs/crate/hopper/0.1.0>.
 - Published CLI package: `cargo install hopper-cli`.
 - Public companion crates include `hopper-native`, `hopper-runtime`,
   `hopper-core`, `hopper-schema`, `hopper-solana`, `hopper-token`,
@@ -72,7 +73,6 @@ Minimal layout example:
 ```rust
 use hopper::prelude::*;
 
-#[derive(Clone, Copy)]
 #[repr(C)]
 #[hopper::state(disc = 1, version = 1)]
 pub struct Vault {
@@ -109,13 +109,13 @@ mod vault {
 
 Use Hopper's access tiers deliberately:
 
-1. `segment_ref_typed` / generated field accessors — default hot path for
+1. `segment_ref_typed` / generated field accessors - default hot path for
   field-level borrow leasing.
-2. `load` / `load_mut` — validated whole-layout access.
-3. `segment_ref_const` / dynamic `segment_ref` — advanced runtime-selected
+2. `load` / `load_mut` - validated whole-layout access.
+3. `segment_ref_const` / dynamic `segment_ref` - advanced runtime-selected
   segment access.
-4. `raw_ref` / `raw_mut` — unsafe typed escape hatch.
-5. `as_mut_ptr` — full raw pointer escape for policy-controlled raw mode.
+4. `raw_ref` / `raw_mut` - unsafe typed escape hatch.
+5. `as_mut_ptr` - full raw pointer escape for policy-controlled raw mode.
 
 For variable-length account data, use `#[hopper::state(dynamic_tail = T)]` for
 small bounded payloads attached to one fixed layout, and named extension

@@ -5,7 +5,7 @@
 //! Master-edition PDA seeds:        `["metadata", mpl_token_metadata_program_id, mint, "edition"]`.
 //!
 //! The `mpl_token_metadata_program_id` appears as a literal seed inside
-//! the seed list (this is unusual — most programs put their own ID as
+//! the seed list (this is unusual - most programs put their own ID as
 //! the third argument to `find_program_address`, not as a seed). Both
 //! shapes are PDA-derived using the Metaplex program ID as the
 //! `program_id` argument too. The helpers below construct both seed

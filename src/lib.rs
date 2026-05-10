@@ -162,7 +162,7 @@ pub use hopper_runtime::layout_migrations;
 ///
 /// Use this in the raw-dispatch authoring style (no `#[hopper::context]`).
 /// The proc-macro context already binds accounts by name, so this is only
-/// useful when you are working with `&[AccountView]` directly — typically
+/// useful when you are working with `&[AccountView]` directly - typically
 /// inside `fn process_instruction(_, accounts: &[AccountView], _)` before
 /// routing to per-variant handlers.
 ///

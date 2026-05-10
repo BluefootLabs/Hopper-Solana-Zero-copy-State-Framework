@@ -1,7 +1,7 @@
 # hopper-system
 
-Hopper-owned System Program builders. `Transfer`, `CreateAccount`, `Allocate`,
-`Assign`. Stack-allocated instruction data, no heap.
+Hopper-owned System Program builders: `Transfer`, `CreateAccount`, `Allocate`,
+and `Assign`. Stack-allocated instruction data, no heap.
 
 Part of the **[Hopper](https://hopperzero.dev)** framework.
 
@@ -17,4 +17,8 @@ hopper_system::instructions::Transfer {
 ```
 
 Re-exported through `hopper::prelude::*` as `system_instructions::*` and
-`SYSTEM_PROGRAM_ID`. License: Apache-2.0.
+`SYSTEM_PROGRAM_ID`.
+
+Docs: <https://docs.rs/crate/hopper-system/0.1.0>
+
+License: Apache-2.0.

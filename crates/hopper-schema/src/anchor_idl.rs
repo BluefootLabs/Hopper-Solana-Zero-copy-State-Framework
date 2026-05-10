@@ -610,7 +610,7 @@ impl<'a> fmt::Display for AnchorIdlWithConstants<'a> {
 
 /// Project a full `ProgramManifest` into an Anchor-style IDL JSON.
 /// Strips policy, receipts, capabilities, trust metadata, and
-/// migration hints — keeps only what Anchor's IDL consumers expect.
+/// migration hints - keeps only what Anchor's IDL consumers expect.
 pub struct AnchorIdlFromManifest<'a>(pub &'a ProgramManifest);
 
 impl<'a> fmt::Display for AnchorIdlFromManifest<'a> {

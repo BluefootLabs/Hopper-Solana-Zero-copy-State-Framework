@@ -1,20 +1,27 @@
 # hopper-staking
 
-Staking reward accumulators for Hopper: MasterChef-style
-reward-per-token, emission rates, reward debt tracking. Zero-copy,
-no_std, no_alloc, BPF-safe.
+Reward-per-token staking math for Hopper programs. Accumulators, emission
+rates, pending rewards, and reward debt are all expressed as pure `no_std`,
+`no_alloc`, BPF-safe helpers.
 
 Part of the **[Hopper](https://hopperzero.dev)** framework.
 
-The classic reward-per-share accumulator pattern, expressed in checked
-fixed-point math. Pool state and per-user reward debt update in O(1) on
-each stake/unstake/claim, with no iteration over depositors.
+This is the standard accumulator pattern with `u128` precision and checked
+updates. Pool state and per-user debt update in O(1), so stake, unstake, and
+claim handlers never iterate over depositors.
 
 ```rust
-use hopper_staking::{accrue, pending_reward};
+use hopper_staking::{pending_rewards, update_reward_debt, update_reward_per_token};
 
-accrue(&mut pool, now, total_staked)?;
-let pending = pending_reward(&pool, &user)?;
+pool.reward_per_token = update_reward_per_token(
+	pool.reward_per_token,
+	rewards_since_last,
+	pool.total_staked,
+)?;
+let pending = pending_rewards(user.staked, pool.reward_per_token, user.reward_debt)?;
+user.reward_debt = update_reward_debt(user.staked, pool.reward_per_token);
 ```
+
+Docs: <https://docs.rs/crate/hopper-staking/0.1.0>
 
 License: Apache-2.0.

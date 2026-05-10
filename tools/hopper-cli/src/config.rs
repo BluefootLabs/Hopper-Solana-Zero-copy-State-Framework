@@ -2,12 +2,12 @@
 //!
 //! Two files, two scopes:
 //!
-//! - **`Hopper.toml`** (per-project, lives next to `Cargo.toml`) — declares
+//! - **`Hopper.toml`** (per-project, lives next to `Cargo.toml`) - declares
 //!   the toolchain choice, testing framework, default backend, and the
 //!   template the project was scaffolded from. Read by every `hopper`
 //!   subcommand that needs to know "how should I build / test / deploy
 //!   this project".
-//! - **`~/.hopper/config.toml`** (global) — holds the wizard's last-used
+//! - **`~/.hopper/config.toml`** (global) - holds the wizard's last-used
 //!   defaults so that `hopper init my-program` skips the prompts after
 //!   the first interactive run, plus UI preferences (color, animation).
 //!
@@ -22,7 +22,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 // ---------------------------------------------------------------------------
-// Project config — Hopper.toml
+// Project config - Hopper.toml
 // ---------------------------------------------------------------------------
 
 /// Per-project configuration. Lives at `<project>/Hopper.toml`.
@@ -161,7 +161,7 @@ impl HopperToml {
 }
 
 // ---------------------------------------------------------------------------
-// Global config — ~/.hopper/config.toml
+// Global config - ~/.hopper/config.toml
 // ---------------------------------------------------------------------------
 
 /// Cross-project user defaults. The wizard reads these to pre-fill its
@@ -181,7 +181,7 @@ pub struct GlobalDefaults {
     pub testing: String,
     pub backend: String,
     pub template: String,
-    /// `commit` (default) | `init` | `skip` — what to do with git on
+    /// `commit` (default) | `init` | `skip` - what to do with git on
     /// `hopper init`.
     pub git: String,
 }

@@ -61,7 +61,7 @@ pub const MAX_RETURN_DATA: usize = 1024;
 ///    `InstructionView` built from a local `InstructionAccount` slice
 ///    is fine; one built from a dropped stack slot is not.
 ///
-/// The runtime does not enforce any of these from the caller side —
+/// The runtime does not enforce any of these from the caller side -
 /// it assumes a well-formed CPI. That is the cost of the Tier C path.
 #[inline]
 pub unsafe fn invoke_unchecked(

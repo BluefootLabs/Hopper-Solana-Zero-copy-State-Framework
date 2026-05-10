@@ -8,17 +8,17 @@
 //!
 //! This module exposes two things:
 //!
-//! 1. [`minimum_balance`] — a pure function computing the rent-exempt
+//! 1. [`minimum_balance`] - a pure function computing the rent-exempt
 //!    threshold for a given `data_len`, using the cluster constants
 //!    that have been in effect on Solana mainnet since launch
 //!    (`lamports_per_byte_year = 3480`, `exemption_threshold = 2 years`,
 //!    `account_storage_overhead = 128 bytes`). These values are
 //!    governed on-chain but have never been changed. If the cluster
 //!    ever re-governs them, the check will be conservative
-//!    (strictly requiring at least the pre-governance threshold) —
+//!    (strictly requiring at least the pre-governance threshold) -
 //!    still safe, just not tight.
 //!
-//! 2. [`check_rent_exempt`] — the runtime guard backing the
+//! 2. [`check_rent_exempt`] - the runtime guard backing the
 //!    `#[account(rent_exempt = enforce)]` field keyword emitted by
 //!    `#[hopper::context]`. Compares `account.lamports()` to
 //!    `minimum_balance(account.data_len())` and returns
@@ -60,7 +60,7 @@ pub const ACCOUNT_STORAGE_OVERHEAD: u64 = 128;
 /// Minimum lamport balance for an account with `data_len` bytes of
 /// data to be rent-exempt under the current Solana cluster constants.
 ///
-/// `(data_len + 128) * 3480 * 2` — constant-folded at the call site
+/// `(data_len + 128) * 3480 * 2` - constant-folded at the call site
 /// when `data_len` is a `const`.
 #[inline]
 pub const fn minimum_balance(data_len: usize) -> u64 {

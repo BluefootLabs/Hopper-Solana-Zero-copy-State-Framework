@@ -4,7 +4,7 @@
 //! looks consistent: same checkmark, same dim grey for paths, same
 //! cyan accent for arrows. Mirrors Quasar's `style.rs` shape so output
 //! reads similarly to developers porting between the two frameworks,
-//! but the colour palette is Hopper's (cyan + lime — Hopper *jumps*,
+//! but the colour palette is Hopper's (cyan + lime - Hopper *jumps*,
 //! Quasar drifts through a blue nebula).
 //!
 //! Behavior:
@@ -17,7 +17,7 @@
 //!   the global config is loaded so the user's `ui.color = false`
 //!   preference wins over the auto-detect.
 //!
-//! No new dependencies — just `std::io::IsTerminal` (stable since
+//! No new dependencies - just `std::io::IsTerminal` (stable since
 //! 1.70) and a couple of `AtomicBool`s.
 //!
 //! ## Adding new helpers
@@ -107,7 +107,7 @@ pub fn bold(s: &str) -> String {
     }
 }
 
-/// Dim (grey) — for paths, hints, secondary info.
+/// Dim (grey) - for paths, hints, secondary info.
 pub fn dim(s: &str) -> String {
     if enabled() {
         format!("\x1b[2m{s}\x1b[0m")
@@ -155,7 +155,7 @@ mod tests {
 
     #[test]
     fn human_size_chooses_units() {
-        // ordering matters — these run in the same process, so
+        // ordering matters - these run in the same process, so
         // disable colour first to keep tests independent of TTY.
         init(false);
         assert_eq!(human_size(0), "0 B");

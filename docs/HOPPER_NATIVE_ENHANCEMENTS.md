@@ -1,4 +1,4 @@
-# Hopper Native — Enhancement Plan
+# Hopper Native - Enhancement Plan
 
 Hopper Native is the sovereign substrate. It already owns loader parsing,
 syscalls, eager + lazy entrypoints, duplicate-account resolution, and
@@ -9,7 +9,7 @@ and the priority order.
 > **Pinocchio is the Pareto frontier for raw substrate efficiency.
 > Quasar is the Pareto frontier for substrate-plus-DX integration.**
 > Hopper Native should aim to be substrate-competitive with Pinocchio
-> and DX-competitive with Quasar — without becoming a copy of either.
+> and DX-competitive with Quasar - without becoming a copy of either.
 
 ## Substrate-boundary commitment (Option A)
 
@@ -49,7 +49,7 @@ Only coherent standalone products remain public siblings:
 | 2.4 | Self-CPI event emission | ⏳ planned |
 | 2.5 | `init_if_needed`, `realloc`, `close` parity | ⏳ planned Anchor-keyword parity audit; current release documents only shipped keywords |
 
-## Tier 3 — explicitly not porting
+## Tier 3 - explicitly not porting
 
 - Anchor's `Account<'info, T>` / `Signer<'info>` runtime types verbatim.
   Hopper's modifier composition (`Signer<Mut<Account<'a, T>>>`) is the

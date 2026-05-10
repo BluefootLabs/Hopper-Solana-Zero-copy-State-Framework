@@ -39,7 +39,7 @@ For confirmed findings:
 1. We work with the reporter on a fix.
 2. The fix lands behind a private feature flag if disruptive, or
    directly into `main` if not.
-3. We coordinate a public disclosure date with the reporter — usually
+3. We coordinate a public disclosure date with the reporter - usually
    30 days from the patch landing, longer if the finding affects
    downstream protocols that need time to upgrade.
 4. CVE assignment for any finding meaningful enough to warrant one.

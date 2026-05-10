@@ -49,7 +49,7 @@ struct AccountAttr {
     /// account is empty, it falls through to the same init path as
     /// `init`. Requires the same fields as `init` (`payer`, `space`,
     /// optional `seeds`/`bump`). Callers must still validate the
-    /// existing layout separately — `init_if_needed` guarantees the
+    /// existing layout separately - `init_if_needed` guarantees the
     /// account exists and was sized at creation time, not that its
     /// current contents match a specific layout.
     init_if_needed: bool,
@@ -231,7 +231,7 @@ struct AccountAttr {
     sweep: Option<Ident>,
 
     /// `executable`. Anchor-parity keyword. Requires the account's
-    /// `executable` flag to be true — i.e. it must be a deployed BPF
+    /// `executable` flag to be true - i.e. it must be a deployed BPF
     /// program. Hopper's `Program<P>` wrapper type already implies
     /// this, but the bare keyword exists for ports of Anchor code and
     /// for cases where the field type is `AccountView` instead of a
@@ -382,8 +382,8 @@ pub fn expand(_attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
 ///
 /// Functionally identical to [`expand`], except the original input struct
 /// is **not** re-emitted (the user already declared it themselves). Helper
-/// attributes — `#[account(...)]`, `#[signer]`, `#[instruction(...)]`,
-/// `#[validate]` — are still parsed off the input but cannot be stripped
+/// attributes - `#[account(...)]`, `#[signer]`, `#[instruction(...)]`,
+/// `#[validate]` - are still parsed off the input but cannot be stripped
 /// in place because the struct is not under our attribute. We rely on the
 /// `attributes(...)` declaration on the derive macro to silence the
 /// compiler's "unknown attribute" check; the helpers are dropped from the
@@ -625,7 +625,7 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
                     // Anchor-parity `rent_exempt = enforce`. Requires
                     // `lamports() >= Rent::minimum_balance(data_len)`.
                     // Uses the runtime helper that reads the Rent
-                    // sysvar lazily — the check is explicit, not a
+                    // sysvar lazily - the check is explicit, not a
                     // heuristic.
                     field_checks.push(quote! {
                         ::hopper::hopper_runtime::rent::check_rent_exempt(
@@ -1639,7 +1639,7 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
             accessors.push(quote! {
                 /// Read-only access to the `#seg_name` segment of `#field_name`.
                 ///
-                /// Returns a [`SegRef`](::hopper::__runtime::SegRef) — a
+                /// Returns a [`SegRef`](::hopper::__runtime::SegRef) - a
                 /// RAII-leased guard that releases the shared byte borrow
                 /// on drop, allowing sequential non-overlapping reads
                 /// from the same account within one instruction.
@@ -1710,11 +1710,11 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
 
             // Two emission shapes:
             //
-            //   init            — unconditionally call hopper_init!
+            //   init            - unconditionally call hopper_init!
             //                     (which errors if the account is
             //                     already allocated).
             //
-            //   init_if_needed  — skip the CreateAccount CPI entirely
+            //   init_if_needed  - skip the CreateAccount CPI entirely
             //                     when the account already has data.
             //                     The account is then assumed to be
             //                     set up by a prior invocation; the
@@ -1757,7 +1757,7 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
             let doc = if is_if_needed {
                 "Create the account via System Program CPI if it doesn't exist yet (init_if_needed). \
                  If the account is already allocated (data_len > 0) the helper returns Ok(()) without \
-                 touching lamports or data — caller is responsible for validating the existing layout."
+                 touching lamports or data - caller is responsible for validating the existing layout."
             } else {
                 "Create the account via System Program CPI, zero-init its data, and write the Hopper header. \
                  Errors if the account is already allocated."
@@ -2284,7 +2284,7 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
     };
 
     // When called from `#[derive(Accounts)]` the struct already exists in
-    // the user's source. Skip re-emitting it — emitting twice would be a
+    // the user's source. Skip re-emitting it - emitting twice would be a
     // duplicate-definition error. When called from `#[hopper::context]`
     // we keep the original passthrough since attribute macros own the
     // item they decorate.
@@ -3460,7 +3460,7 @@ mod instruction_arg_tests {
             "derive output missing the bound context type: {s}"
         );
         // But the input struct itself is NOT in the emitted token stream
-        // — that would be a duplicate definition once the user's
+        // - that would be a duplicate definition once the user's
         // declaration compiles.
         assert!(
             !s.contains("pub struct Deposit "),

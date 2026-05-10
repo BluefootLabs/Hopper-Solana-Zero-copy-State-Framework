@@ -98,7 +98,7 @@ pub use hopper_solana::interface::{
     InterfaceTokenAccount, TokenProgramKind,
 };
 
-// Metaplex (NFT) builders — opt-in via `--features metaplex`. Emits
+// Metaplex (NFT) builders - opt-in via `--features metaplex`. Emits
 // `CreateMetadataAccountV3`, `CreateMasterEditionV3`,
 // `UpdateMetadataAccountV2`, plus PDA helpers (`metadata_pda`,
 // `master_edition_pda`). The crate adds compile time and an
@@ -123,7 +123,7 @@ pub use crate::pda::{
     create_program_address, find_program_address, verify_pda, verify_pda_with_bump,
 };
 
-// Hopper Lang guards (function form — pass bool, call with `?`)
+// Hopper Lang guards (function form - pass bool, call with `?`)
 pub use crate::guards::{
     require, require_address, require_data_len, require_disc, require_eq, require_gt, require_gte,
     require_has_data, require_keys_eq, require_keys_neq, require_layout, require_neq,
@@ -131,7 +131,7 @@ pub use crate::guards::{
     require_version, require_writable,
 };
 
-// Anchor-parity guard macros (declarative form — pass condition as
+// Anchor-parity guard macros (declarative form - pass condition as
 // expression, bails via `return Err(...)`). Function forms above and
 // macro forms coexist because Rust places macros and values in
 // separate namespaces. At a call site, `require!(cond, err)` resolves

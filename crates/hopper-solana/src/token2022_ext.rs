@@ -306,8 +306,8 @@ pub fn read_transfer_fee_config(mint_data: &[u8]) -> Result<TransferFeeConfig, P
 /// Layout of the TransferHook extension value (64 bytes):
 ///
 /// ```text
-///   0..32   authority  (Pubkey — may be rotated via SetTransferHook)
-///  32..64   program_id (Pubkey — the hook program invoked on transfer)
+///   0..32   authority  (Pubkey - may be rotated via SetTransferHook)
+///  32..64   program_id (Pubkey - the hook program invoked on transfer)
 /// ```
 ///
 /// References are borrowed from the mint buffer, so the caller
@@ -579,7 +579,7 @@ mod tests {
 
     #[test]
     fn read_transfer_hook_rejects_truncated_extension() {
-        // Hook extension with only 32 bytes of payload — enough for
+        // Hook extension with only 32 bytes of payload - enough for
         // authority but not program_id. Must be rejected.
         let data = sample_mint_with_extension(EXT_TRANSFER_HOOK, &[0u8; 32]);
         assert!(read_transfer_hook(&data).is_err());

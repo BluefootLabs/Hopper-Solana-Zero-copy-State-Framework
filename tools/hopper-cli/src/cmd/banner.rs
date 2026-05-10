@@ -2,7 +2,7 @@
 //!
 //! Quasar prints an animated FIGlet "Quasar" reveal under a sweeping
 //! blue nebula. We do something distinct that fits Hopper's identity
-//! — a **leap reveal**: each row of the FIGlet "HOPPER" arrives from
+//! - a **leap reveal**: each row of the FIGlet "HOPPER" arrives from
 //! below with a small bounce, settling in, while the background fills
 //! with a gradient of green dots ("grass") that the H jumped through.
 //!
@@ -16,7 +16,7 @@
 //! wizard still gets a header, just without the choreography.
 //!
 //! No external dependencies. The choreography is twenty-ish frames at
-//! 50 ms each — under one second total — which is fast enough not to
+//! 50 ms each - under one second total - which is fast enough not to
 //! annoy power users running `hopper init` repeatedly during plugin
 //! development. After the banner runs once, `globals.ui.animation` is
 //! flipped to false in the saved defaults so the second run is silent
@@ -45,17 +45,17 @@ pub fn print_banner(animation_enabled: bool) {
 
 fn plain_header() {
     println!();
-    println!("  hopper init — interactive scaffold");
+    println!("  hopper init - interactive scaffold");
     println!("  zero-copy Solana state, in 60 seconds");
     println!();
 }
 
-/// Inner animator — returns `io::Result` so a broken pipe (someone
+/// Inner animator - returns `io::Result` so a broken pipe (someone
 /// piped `hopper init` into `head`) is recoverable, not a panic.
 fn animate(mut out: impl Write) -> io::Result<()> {
     use std::{thread, time::Duration};
 
-    // FIGlet "HOPPER" — block style, 6 lines tall plus a blank.
+    // FIGlet "HOPPER" - block style, 6 lines tall plus a blank.
     #[rustfmt::skip]
     let figlet: [&str; 6] = [
         "██╗  ██╗ ██████╗ ██████╗ ██████╗ ███████╗██████╗ ",
@@ -129,7 +129,7 @@ fn animate(mut out: impl Write) -> io::Result<()> {
                     }
                     for (col, &ch) in row.iter().enumerate() {
                         if col < chars_visible {
-                            // Settled letter — cyan accent for HOPPER.
+                            // Settled letter - cyan accent for HOPPER.
                             if ch != ' ' {
                                 write!(out, "\x1b[38;5;45m{ch}\x1b[0m")?;
                             } else {
@@ -206,7 +206,7 @@ mod tests {
 
     #[test]
     fn ease_out_back_overshoots() {
-        // Curve must overshoot near the end — that's what gives the
+        // Curve must overshoot near the end - that's what gives the
         // bounce its character. Sample around t=0.7.
         let v = ease_out_back(0.7);
         assert!(v > 0.7, "expected overshoot past linear, got {v}");

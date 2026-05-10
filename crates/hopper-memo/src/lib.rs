@@ -8,8 +8,8 @@
 //!
 //! ## Programs
 //!
-//! - `MEMO_PROGRAM_ID` — Memo v2, the default and overwhelming majority case.
-//! - [`v1::MEMO_V1_PROGRAM_ID`] — legacy Memo v1, kept available for
+//! - `MEMO_PROGRAM_ID` - Memo v2, the default and overwhelming majority case.
+//! - [`v1::MEMO_V1_PROGRAM_ID`] - legacy Memo v1, kept available for
 //!   protocols still pinned to the original program. New code should
 //!   prefer Memo v2.
 //!
@@ -73,7 +73,7 @@ pub mod v1 {
 /// `signers` are the accounts the memo program will assert signed the
 /// surrounding transaction; pass an empty slice for unauthenticated
 /// memos (the program then only logs the bytes). `memo` is the raw
-/// payload — UTF-8 framing is the caller's responsibility.
+/// payload - UTF-8 framing is the caller's responsibility.
 ///
 /// `program_id` selects the target program. Default (`None`) uses
 /// [`MEMO_PROGRAM_ID`] (Memo v2). Pass `Some(&v1::MEMO_V1_PROGRAM_ID)`

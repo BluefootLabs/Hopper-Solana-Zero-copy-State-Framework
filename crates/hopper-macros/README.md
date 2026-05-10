@@ -3,8 +3,8 @@
 Declarative macros for the Hopper zero-copy state framework.
 
 All `macro_rules!`. No proc macros. You can build a full Hopper program without
-ever touching a derive or attribute macro. These are here to cut boilerplate,
-not to hide complexity.
+ever touching a derive or attribute macro. These macros cut boilerplate while
+leaving the generated account layout and dispatch model visible.
 
 ## Macros
 
@@ -51,6 +51,8 @@ hopper_dispatch! {
     }
 }
 ```
+
+Docs: <https://docs.rs/crate/hopper-macros/0.1.0>
 
 ## License
 

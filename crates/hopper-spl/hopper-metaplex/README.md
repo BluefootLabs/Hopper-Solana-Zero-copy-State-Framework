@@ -6,7 +6,7 @@ Borsh encoder. Powers the `metadata::*` / `master_edition::*` field keywords on
 reference program.
 
 [![Crates.io](https://img.shields.io/crates/v/hopper-metaplex.svg)](https://crates.io/crates/hopper-metaplex)
-[![Docs.rs](https://img.shields.io/docsrs/hopper-metaplex)](https://docs.rs/hopper-metaplex)
+[![Docs.rs](https://img.shields.io/docsrs/hopper-metaplex)](https://docs.rs/crate/hopper-metaplex/0.1.0)
 
 Part of the **[Hopper](https://hopperzero.dev)** framework.
 
@@ -16,12 +16,12 @@ Anything that mints, updates, or reads NFT metadata on Solana through the
 Metaplex Token Metadata program. The crate ships the three calls every NFT
 program reaches for:
 
-- `CreateMetadataAccountV3` — initialise the metadata PDA for a mint.
-- `CreateMasterEditionV3` — lock a mint as a master edition (set
+- `CreateMetadataAccountV3` - initialise the metadata PDA for a mint.
+- `CreateMasterEditionV3` - lock a mint as a master edition (set
   `max_supply = Some(0)` for a 1-of-1 NFT).
-- `UpdateMetadataAccountV2` — mutate an existing metadata account.
+- `UpdateMetadataAccountV2` - mutate an existing metadata account.
 
-Each builder uses a stack buffer to encode the Borsh payload — no heap, no
+Each builder uses a stack buffer to encode the Borsh payload. No heap, no
 `Vec`, no `alloc::String`. Buffer overflow returns
 `ProgramError::InvalidInstructionData` so a malicious oversized name can't
 push the program into UB.
@@ -30,7 +30,7 @@ push the program into UB.
 
 ```toml
 [dependencies]
-hopper = { version = "0.1", features = ["metaplex"] }
+hopper = { version = "0.1.0", features = ["metaplex"] }
 ```
 
 ```rust
@@ -78,7 +78,7 @@ Programs that don't touch Metaplex get no extra compile time and no extra
 dependencies pulled in. Enable with:
 
 ```toml
-hopper = { version = "0.1", features = ["metaplex"] }
+hopper = { version = "0.1.0", features = ["metaplex"] }
 ```
 
 ## What's not (yet) shipped
@@ -90,6 +90,8 @@ hopper = { version = "0.1", features = ["metaplex"] }
 
 Each of these is mechanical given the existing `BorshTape` encoder. Open an
 issue if you want one prioritised.
+
+Docs: <https://docs.rs/crate/hopper-metaplex/0.1.0>
 
 ## License
 

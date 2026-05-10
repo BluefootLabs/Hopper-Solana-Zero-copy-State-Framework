@@ -161,7 +161,7 @@ pub fn accounts(attr: TokenStream, item: TokenStream) -> TokenStream {
     hopper_context(attr, item)
 }
 
-/// `#[derive(Accounts)]` — Anchor-spelled drop-in for `#[hopper::context]`.
+/// `#[derive(Accounts)]` - Anchor-spelled drop-in for `#[hopper::context]`.
 ///
 /// Functionally identical to the attribute form: every constraint Hopper
 /// recognises (`init`, `init_if_needed`, `mut`, `signer`, `seeds`, `bump`,
@@ -169,9 +169,9 @@ pub fn accounts(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// `token::*`, `mint::*`, `associated_token::*`, the Token-2022 extension
 /// gates, `dup`, `sweep`, `executable`, `rent_exempt`, `realloc`, `zero`,
 /// `close`) all work in the derive form. Hopper-specific authoring sugar
-/// — segment-tagged `mut(field, …)`, `read(field, …)`, the inline
+/// - segment-tagged `mut(field, …)`, `read(field, …)`, the inline
 /// `#[hopper::pipeline]` / `#[hopper::receipt]` / `#[hopper::invariant]`
-/// stack — also works untouched.
+/// stack - also works untouched.
 ///
 /// The derive registers `account`, `signer`, `instruction`, and `validate`
 /// as helper attributes so the existing `#[account(...)]`, `#[signer]`,
@@ -206,7 +206,7 @@ pub fn accounts(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// ```
 ///
 /// The generated code is identical to `#[hopper::context]` on the same
-/// struct — same binder type, same accessors, same constraint validation
+/// struct - same binder type, same accessors, same constraint validation
 /// pipeline. No runtime difference between the two spellings.
 #[proc_macro_derive(Accounts, attributes(account, signer, instruction, validate))]
 pub fn derive_accounts(input: TokenStream) -> TokenStream {

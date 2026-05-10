@@ -157,13 +157,13 @@ impl IntoMasterEditionMaxSupply for Option<u64> {
 ///
 /// # Account ordering
 ///
-/// 1. metadata          — writable, the PDA being created
-/// 2. mint              — read-only, the SPL mint the metadata describes
-/// 3. mint_authority    — signer (mint authority of `mint`)
-/// 4. payer             — signer + writable (funds the new account)
-/// 5. update_authority  — signer (the authority allowed to mutate the metadata later)
-/// 6. system_program    — read-only
-/// 7. rent (optional)   — read-only; modern Metaplex doesn't require it but
+/// 1. metadata          - writable, the PDA being created
+/// 2. mint              - read-only, the SPL mint the metadata describes
+/// 3. mint_authority    - signer (mint authority of `mint`)
+/// 4. payer             - signer + writable (funds the new account)
+/// 5. update_authority  - signer (the authority allowed to mutate the metadata later)
+/// 6. system_program    - read-only
+/// 7. rent (optional)   - read-only; modern Metaplex doesn't require it but
 ///    accepts it for backward compatibility
 pub struct CreateMetadataAccountV3<'a> {
     pub metadata: &'a AccountView,
@@ -270,16 +270,16 @@ impl CreateMetadataAccountV3<'_> {
 ///
 /// # Account ordering
 ///
-/// 1. edition           — writable, the master-edition PDA
-/// 2. mint              — writable, the SPL mint
-/// 3. update_authority  — signer
-/// 4. mint_authority    — signer
-/// 5. payer             — signer + writable
-/// 6. metadata          — read-only, the metadata PDA from
+/// 1. edition           - writable, the master-edition PDA
+/// 2. mint              - writable, the SPL mint
+/// 3. update_authority  - signer
+/// 4. mint_authority    - signer
+/// 5. payer             - signer + writable
+/// 6. metadata          - read-only, the metadata PDA from
 ///    `CreateMetadataAccountV3`
-/// 7. token_program     — read-only (SPL Token program)
-/// 8. system_program    — read-only
-/// 9. rent (optional)   — read-only
+/// 7. token_program     - read-only (SPL Token program)
+/// 8. system_program    - read-only
+/// 9. rent (optional)   - read-only
 pub struct CreateMasterEditionV3<'a> {
     pub edition: &'a AccountView,
     pub mint: &'a AccountView,
@@ -382,8 +382,8 @@ impl CreateMasterEditionV3<'_> {
 ///
 /// # Account ordering
 ///
-/// 1. metadata          — writable
-/// 2. update_authority  — signer
+/// 1. metadata          - writable
+/// 2. update_authority  - signer
 pub struct UpdateMetadataAccountV2<'a> {
     pub metadata: &'a AccountView,
     pub update_authority: &'a AccountView,

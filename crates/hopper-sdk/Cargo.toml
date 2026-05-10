@@ -16,7 +16,7 @@ program boundary.
 """
 repository = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework"
 homepage = "https://hopperzero.dev"
-documentation = "https://docs.rs/hopper-sdk"
+documentation = "https://docs.rs/crate/hopper-sdk/0.1.0"
 readme = "README.md"
 keywords = ["solana", "zero-copy", "sdk", "client", "hopper"]
 categories = ["api-bindings", "development-tools"]

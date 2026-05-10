@@ -12,12 +12,12 @@
 //! ## What this crate ships
 //!
 //! - [`MPL_TOKEN_METADATA_PROGRAM_ID`](constants::MPL_TOKEN_METADATA_PROGRAM_ID)
-//!   — the canonical Metaplex Token Metadata program address as a Hopper
+//!   - the canonical Metaplex Token Metadata program address as a Hopper
 //!   `Address` constant, decoded at compile time.
-//! - [`seeds`] — PDA-seed helpers (`metadata_pda`, `master_edition_pda`).
+//! - [`seeds`] - PDA-seed helpers (`metadata_pda`, `master_edition_pda`).
 //!   Hopper's typed-seeds path uses these so the field-level
 //!   `seeds = ...` constraint composes the right thing.
-//! - [`instructions`] — zero-copy CPI builders for the three Metaplex
+//! - [`instructions`] - zero-copy CPI builders for the three Metaplex
 //!   calls every NFT-mint program reaches for: `CreateMetadataAccountV3`,
 //!   `CreateMasterEditionV3`, `UpdateMetadataAccountV2`.
 //!
@@ -35,9 +35,9 @@
 //!
 //! Metaplex's instruction data is Borsh-encoded with variable-length
 //! `String` fields. Hopper is otherwise a zero-copy framework, but we
-//! cannot make Borsh zero-copy — variable-length strings have no fixed
+//! cannot make Borsh zero-copy - variable-length strings have no fixed
 //! offsets. Each builder therefore allocates a small **stack** buffer
-//! (256–512 bytes depending on instruction) and writes the Borsh tape
+//! (256-512 bytes depending on instruction) and writes the Borsh tape
 //! directly into it. No heap, no `Vec`, no `alloc::String`. The
 //! [`encoding::BorshTape`] writer is the load-bearing piece; it caps the
 //! payload at the buffer size and returns

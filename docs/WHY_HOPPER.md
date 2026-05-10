@@ -124,13 +124,13 @@ from that checkout:
 ./measure.sh all
 ```
 
-## In-process testing — `hopper-svm`
+## In-process testing - `hopper-svm`
 
 Hopper ships its own validator-class harness so tests don't need a live `solana-test-validator`. Three layered execution modes:
 
-- **Default features** — inline Rust simulators for the system program plus user-registered builtins. Fast unit tests, no validator dep, full Quasar-parity verb surface (`simulate_instruction`, `process_instruction_chain`, `warp_to_slot` / `warp_to_timestamp`, stateful overlay with `airdrop` / `set_token_balance` / `snapshot_accounts` / `restore_accounts`).
-- **`bpf-execution`** — direct `solana-sbpf` interpretation of `.so` bytes when you need real BPF execution but want the lean dep tree.
-- **`agave-runtime`** — the mainnet-fidelity path. Replaces inline simulators with the actual Agave validator stack (`solana-program-runtime` + `solana-bpf-loader-program` + `solana-system-program`). After `HopperSvm::new().with_agave_runtime()`, every `process_instruction` routes through `InvokeContext::process_instruction` against Agave's program cache. Behaviour matches mainnet because it IS the validator's code.
+- **Default features** - inline Rust simulators for the system program plus user-registered builtins. Fast unit tests, no validator dep, full Quasar-parity verb surface (`simulate_instruction`, `process_instruction_chain`, `warp_to_slot` / `warp_to_timestamp`, stateful overlay with `airdrop` / `set_token_balance` / `snapshot_accounts` / `restore_accounts`).
+- **`bpf-execution`** - direct `solana-sbpf` interpretation of `.so` bytes when you need real BPF execution but want the lean dep tree.
+- **`agave-runtime`** - the mainnet-fidelity path. Replaces inline simulators with the actual Agave validator stack (`solana-program-runtime` + `solana-bpf-loader-program` + `solana-system-program`). After `HopperSvm::new().with_agave_runtime()`, every `process_instruction` routes through `InvokeContext::process_instruction` against Agave's program cache. Behaviour matches mainnet because it IS the validator's code.
 
 ```rust
 let svm = HopperSvm::new().with_agave_runtime();

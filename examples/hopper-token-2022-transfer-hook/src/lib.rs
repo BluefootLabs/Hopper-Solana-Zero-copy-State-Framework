@@ -85,7 +85,6 @@ pub struct Program;
 /// expected transfer-hook program ID, and gates updates on a stored
 /// authority. The proc-macro form is used here because the example
 /// relies on the per-field `*_ABS_OFFSET` constants the macro emits.
-#[derive(Clone, Copy)]
 #[repr(C)]
 #[hopper::state(disc = 1, version = 1)]
 pub struct HookedVault {
@@ -129,7 +128,7 @@ fn process_instruction(
 //
 // Writes the 16-byte Hopper header + the HookedVault body. Assumes the
 // vault account was already allocated (via system-program CreateAccount
-// or equivalent) by the caller — this example keeps focus on the
+// or equivalent) by the caller - this example keeps focus on the
 // Token-2022 validation path, not on initialization CPI choreography.
 fn process_init(program_id: &Address, accounts: &[AccountView]) -> ProgramResult {
     let [authority, vault, mint, ..] = accounts else {
@@ -241,7 +240,7 @@ fn process_rotate_expected_hook(program_id: &Address, accounts: &[AccountView]) 
         }
     }
 
-    // Read the mint's current hook binding (must exist — rotating
+    // Read the mint's current hook binding (must exist - rotating
     // into "no hook" is intentionally not supported; use
     // require_safe_mint to enforce absence instead).
     let new_hook_program: [u8; 32] = {

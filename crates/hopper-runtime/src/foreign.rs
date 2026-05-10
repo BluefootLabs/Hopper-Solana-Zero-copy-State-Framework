@@ -121,7 +121,7 @@ impl<'a, T: AccountLayout + LayoutContract> ForeignLens<'a, T> {
         // 1. Owner match. `check_owned_by` compares address bytes.
         account.check_owned_by(&manifest.program_id)?;
 
-        // 2–4. Header inspection. must happen behind a byte borrow
+        // 2-4. Header inspection. must happen behind a byte borrow
         //     so the data can't mutate underneath us. We use the same
         //     load path authored accounts use, which verifies the
         //     discriminator too. That closes #2.

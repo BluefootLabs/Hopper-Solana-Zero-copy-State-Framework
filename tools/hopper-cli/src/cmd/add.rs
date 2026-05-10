@@ -1,4 +1,4 @@
-//! `hopper add` — incremental scaffolding for an existing project.
+//! `hopper add` - incremental scaffolding for an existing project.
 //!
 //! Three sub-flags, any combination:
 //!
@@ -23,7 +23,7 @@
 //! follows the same rule.
 //!
 //! Why split this out from `hopper init`? The wizard takes a project
-//! from zero to one — `add` takes it from one to many. A user
+//! from zero to one - `add` takes it from one to many. A user
 //! shouldn't have to leave the CLI to scaffold a second instruction.
 
 use std::fs;
@@ -86,7 +86,7 @@ pub fn cmd_add(args: &[String]) {
     let lib_rs = project_root.join("src").join("lib.rs");
     if !lib_rs.exists() {
         eprintln!(
-            "{}: src/lib.rs not found at {} — are you inside a Hopper project?",
+            "{}: src/lib.rs not found at {} - are you inside a Hopper project?",
             style::fail("error"),
             project_root.display()
         );
@@ -135,7 +135,7 @@ fn run_instruction(project_root: &Path, name: &str) -> Result<(), String> {
     let file_path = instructions_dir.join(format!("{snake}.rs"));
     if file_path.exists() {
         return Err(format!(
-            "src/instructions/{snake}.rs already exists — pick a different name or delete it first"
+            "src/instructions/{snake}.rs already exists - pick a different name or delete it first"
         ));
     }
 
@@ -169,7 +169,7 @@ fn run_instruction(project_root: &Path, name: &str) -> Result<(), String> {
 
     // Ensure src/lib.rs has `mod instructions;`. Insert before the
     // first `#[hopper::program]` line, or at the top of the file if
-    // none — that's the safest spot since module-level macros need
+    // none - that's the safest spot since module-level macros need
     // their imports already in scope.
     let lib_rs = project_root.join("src").join("lib.rs");
     let lib_content =
@@ -201,7 +201,7 @@ fn run_instruction(project_root: &Path, name: &str) -> Result<(), String> {
         }
         DispatchWiring::Manual => {
             println!(
-                "  {} dispatch: project uses a manual `match *disc` block — wire `{snake}` into it by hand",
+                "  {} dispatch: project uses a manual `match *disc` block - wire `{snake}` into it by hand",
                 style::warn("hint")
             );
         }
@@ -259,7 +259,7 @@ fn try_wire_dispatch(lib_rs: &Path, snake: &str, pascal: &str) -> Result<Dispatc
         for line in body_text.lines() {
             let trimmed = line.trim();
             // Match either `#[instruction(N)]` or
-            // `#[instruction(disc = N)]` — both shapes show up in
+            // `#[instruction(disc = N)]` - both shapes show up in
             // Hopper's templates.
             if let Some(rest) = trimmed.strip_prefix("#[instruction(") {
                 if let Some(close) = rest.find(')') {
@@ -488,7 +488,7 @@ fn validate_ident(input: &str, kind: &str) -> Result<String, String> {
         || !snake.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
     {
         return Err(format!(
-            "invalid {kind} name `{input}` — must be a valid Rust identifier (e.g. `transfer`, `create_pool`)"
+            "invalid {kind} name `{input}` - must be a valid Rust identifier (e.g. `transfer`, `create_pool`)"
         ));
     }
     Ok(snake)
@@ -606,19 +606,19 @@ pub struct B { pub y: u8 }
     #[test]
     fn run_state_appends_with_next_disc() {
         let dir = unique_tempdir("state");
-        // First state — creates the file.
+        // First state - creates the file.
         run_state(&dir, "first").unwrap();
         let body = fs::read_to_string(dir.join("src/state.rs")).unwrap();
         assert!(body.contains("pub struct First"));
         assert!(body.contains("disc = 1"));
 
-        // Second state — appends with disc=2.
+        // Second state - appends with disc=2.
         run_state(&dir, "second").unwrap();
         let body = fs::read_to_string(dir.join("src/state.rs")).unwrap();
         assert!(body.contains("pub struct Second"));
         assert!(body.contains("disc = 2"));
 
-        // Third call with the same name — must error, not corrupt the file.
+        // Third call with the same name - must error, not corrupt the file.
         let err = run_state(&dir, "second").unwrap_err();
         assert!(err.contains("already declared"));
 
@@ -701,7 +701,7 @@ fn process_instruction(_p: &Address, _a: &[AccountView], data: &[u8]) -> Program
         )
         .unwrap();
 
-        // No panic, no injection — just creates the instruction file
+        // No panic, no injection - just creates the instruction file
         // and prints a hint. We can verify by reading back the lib.rs:
         // it should still be the manual dispatch.
         run_instruction(&dir, "withdraw").unwrap();

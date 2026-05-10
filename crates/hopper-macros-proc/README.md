@@ -1,15 +1,15 @@
 # hopper-macros-proc
 
-Optional proc macro DX layer for [Hopper](https://hopperzero.dev). Generates
+Optional proc macro DX layer for [Hopper](https://hopperzero.dev). It generates
 the parsing, validation, and dispatch code for the `#[hopper::state]`,
-`#[hopper::context]`, `#[hopper::program]` authoring path.
+`#[hopper::context]`, and `#[hopper::program]` authoring path.
 
 ## Not required
 
-Every feature these macros provide is achievable through Hopper's
-declarative `macro_rules!` macros (in [`hopper-macros`](../hopper-macros)) or
-hand-written code. They exist purely for developer velocity. Generated code
-compiles to the same pointer arithmetic as raw Pinocchio.
+Every feature these macros provide is achievable through Hopper's declarative
+`macro_rules!` macros in [`hopper-macros`](../hopper-macros) or hand-written
+code. They exist for developer velocity. Generated code still lowers to
+Hopper's typed pointer and validation surface.
 
 ## What's emitted
 
@@ -32,7 +32,9 @@ compiles to the same pointer arithmetic as raw Pinocchio.
 
 ```toml
 [dependencies]
-hopper = { version = "0.1", features = ["proc-macros"] }
+hopper = { version = "0.1.0", features = ["proc-macros"] }
 ```
+
+Docs: <https://docs.rs/crate/hopper-macros-proc/0.1.0>
 
 License: Apache-2.0.

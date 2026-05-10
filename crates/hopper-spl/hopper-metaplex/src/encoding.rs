@@ -2,7 +2,7 @@
 //!
 //! Metaplex's instruction format is Borsh-encoded. Borsh's variable-length
 //! `String` and `Option<T>` framings make the encoding non-zero-copy by
-//! definition — there's no fixed-offset layout to point a `&T` at.
+//! definition - there's no fixed-offset layout to point a `&T` at.
 //! Hopper handles that by writing the Borsh tape into a small fixed-size
 //! stack buffer at the call site and passing `&buffer[..len]` as the
 //! instruction data. No heap, no `Vec`, no `alloc::String`.
@@ -41,7 +41,7 @@ impl<'a> BorshTape<'a> {
     }
 
     /// Whether the buffer has any bytes written. Provided so the type
-    /// is clippy-clean — `is_empty` is the conventional companion of
+    /// is clippy-clean - `is_empty` is the conventional companion of
     /// `len`.
     #[inline]
     pub fn is_empty(&self) -> bool {

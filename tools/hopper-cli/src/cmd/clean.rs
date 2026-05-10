@@ -1,9 +1,9 @@
-//! `hopper clean` — delete build artefacts.
+//! `hopper clean` - delete build artefacts.
 //!
 //! Two modes:
 //!
 //! - **Default** (no flags): walk the workspace `target/` and clear
-//!   the directories `hopper` actually produces — `target/deploy`,
+//!   the directories `hopper` actually produces - `target/deploy`,
 //!   `target/idl`, `target/client`, `target/profile`, `target/hopper`.
 //!   Inside `target/deploy/` we **preserve `*-keypair.json`** because
 //!   losing a program keypair means losing the on-chain program
@@ -20,7 +20,7 @@
 //! of the SBF artefacts and keeping host build cache is the right
 //! default.
 //!
-//! Errors during deletion are reported but non-fatal — we report each
+//! Errors during deletion are reported but non-fatal - we report each
 //! removed directory and end with `clean` so users can see the
 //! summary even if one subdirectory was locked by another process.
 
@@ -33,7 +33,7 @@ use crate::style;
 use crate::workspace;
 
 /// Directories under `target/` that Hopper writes to. Must be kept in
-/// sync with the producers — `hopper build`, `hopper compile --emit
+/// sync with the producers - `hopper build`, `hopper compile --emit
 /// idl/codama/ts/kt`, `hopper profile bench`, etc.
 const HOPPER_OUTPUT_DIRS: &[&str] = &[
     "target/deploy",
@@ -75,7 +75,7 @@ pub fn cmd_clean(args: &[String]) {
     });
 
     // Find which directories actually exist before we go touching them
-    // — otherwise `target/idl` not existing in a fresh project would
+    // - otherwise `target/idl` not existing in a fresh project would
     // print as if we tried to delete it. Quasar gates on `.exists()`
     // for the same reason; we copy that behaviour.
     let existing: Vec<&str> = HOPPER_OUTPUT_DIRS
@@ -165,7 +165,7 @@ pub fn cmd_clean(args: &[String]) {
 ///
 /// We can't just `remove_dir_all` because keypairs live alongside the
 /// `.so` files. Walk one level deep and skip anything whose filename
-/// ends with `-keypair.json`. We don't recurse — `cargo build-sbf`
+/// ends with `-keypair.json`. We don't recurse - `cargo build-sbf`
 /// doesn't put nested directories in there, and recursing would
 /// introduce surprising "where did my files go" failure modes.
 fn clean_deploy_dir(dir: &Path) -> std::io::Result<()> {

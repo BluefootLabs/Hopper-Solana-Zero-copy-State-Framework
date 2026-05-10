@@ -5,8 +5,8 @@ Hopper-owned CPI helper for the SPL Memo program.
 The SPL Memo program (`MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr`) records
 arbitrary UTF-8 byte payloads in transaction logs and asserts that a list of
 accounts have signed. It is the canonical primitive for on-chain
-metadata stamping (orderbook IDs, off-chain reference numbers, audit notes,
-arbitrary protocol tags) without spinning up program-owned state.
+metadata stamping, orderbook IDs, off-chain reference numbers, audit notes, and
+arbitrary protocol tags without spinning up program-owned state.
 
 ## Quick start
 
@@ -43,3 +43,7 @@ to invoke v1.
 ## Compatibility
 
 Pinocchio parity: `pinocchio-memo`. Quasar omits a memo helper.
+
+Docs: <https://docs.rs/crate/hopper-memo/0.1.0>
+
+License: Apache-2.0.

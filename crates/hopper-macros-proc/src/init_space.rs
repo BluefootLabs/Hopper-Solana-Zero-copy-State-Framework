@@ -1,4 +1,4 @@
-//! `#[derive(HopperInitSpace)]` — standalone derive that emits
+//! `#[derive(HopperInitSpace)]` - standalone derive that emits
 //! `const INIT_SPACE: usize` equal to `size_of::<Self>()`.
 //!
 //! Mirror of Anchor's `#[derive(InitSpace)]` with the Hopper naming

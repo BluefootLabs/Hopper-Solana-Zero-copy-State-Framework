@@ -684,7 +684,7 @@ auditors.
 
 | Entry point | Kind | Invariant | Test coverage |
 |---|---|---|---|
-| `deserialize_accounts::<MAX>()` | `pub unsafe fn` | `input` must be the pointer the Solana loader passes to the BPF entrypoint. Walks marker bytes and canonical `RuntimeAccount` frames with strict alignment | `parse_instruction_frame_checked` tests (lines 475–543 in `raw_input.rs`) mirror the same parser and cover malformed, forward-reference, self-reference, and EOF inputs |
+| `deserialize_accounts::<MAX>()` | `pub unsafe fn` | `input` must be the pointer the Solana loader passes to the BPF entrypoint. Walks marker bytes and canonical `RuntimeAccount` frames with strict alignment | `parse_instruction_frame_checked` tests (lines 475-543 in `raw_input.rs`) mirror the same parser and cover malformed, forward-reference, self-reference, and EOF inputs |
 | `deserialize_accounts_fast::<MAX>()` | `pub unsafe fn` | Same as above, plus the caller must be running on SVM ≥ 1.17 with the two-register entrypoint convention. Hopper's `fast_entrypoint!` macro is the only well-typed caller | Same harness as eager variant |
 | `scan_instruction_frame()` | `pub unsafe fn` | Input must be a valid BPF buffer. Returns the (program_id, data) pair without claiming any account slots; caller responsible for the subsequent scan | `parse_instruction_frame_checked` tests |
 | `malformed_duplicate_marker(marker, slot)` | `fn(..) -> !` | Never returns. On-chain: calls `sol_panic_`. Off-chain: panics. Exists to close the pre-audit "Must-Fix #1" where an attacker-supplied forward duplicate reference fell through to account zero | Covered by the forward-reference and self-reference fixtures in the checked-parser tests |
@@ -728,7 +728,7 @@ inventory is:
 6. (signed variant) Every `Signer` seed derivation hashes to a signer address in `accounts`.
 7. (signed variant) Seed slice lifetimes exceed the call duration.
 
-Checked variants (`invoke`, `invoke_signed`) enforce 2–4 and 6 before routing
+Checked variants (`invoke`, `invoke_signed`) enforce 2-4 and 6 before routing
 to the unchecked path; the typical caller should reach for those unless a CU
 measurement justifies bypassing validation.
 

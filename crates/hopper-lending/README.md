@@ -1,23 +1,27 @@
 # hopper-lending
 
-Lending protocol primitives for Hopper: collateralization ratios, health
-checks, liquidation math, interest calculations. Zero-copy, no_std,
-no_alloc, BPF-safe.
+Lending protocol math for Hopper programs: collateral ratios, health checks,
+liquidation limits, seize amounts, utilization, and simple interest. Pure
+functions, `no_std`, `no_alloc`, and BPF-safe.
 
 Part of the **[Hopper](https://hopperzero.dev)** framework.
 
-Designed to drop in beside a Hopper account layout: hand it the
-collateral value, debt value, and liquidation threshold and it returns
-the health factor, max-borrow capacity, and the seize amount for a
-liquidation event. All math is checked.
+Pass the current collateral value, debt value, and protocol thresholds. The
+crate returns basis-point ratios or rejects the position with a concrete
+`ProgramError`. There is no hidden state and no heap allocation.
 
 ```rust
-use hopper_lending::{health_factor, max_seize};
+use hopper_lending::{
+    check_healthy,
+    liquidation_seize_amount,
+    max_liquidation_amount,
+};
 
-let hf = health_factor(collateral_value, debt_value, ltv_bps)?;
-if hf < HEALTHY {
-    let seize = max_seize(debt_repay, price_collateral, bonus_bps)?;
-}
+check_healthy(collateral_value, debt_value, liquidation_threshold_bps)?;
+let max_repay = max_liquidation_amount(debt_value, close_factor_bps)?;
+let seized = liquidation_seize_amount(max_repay, bonus_bps)?;
 ```
+
+Docs: <https://docs.rs/crate/hopper-lending/0.1.0>
 
 License: Apache-2.0.

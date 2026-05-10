@@ -1,21 +1,22 @@
 # hopper-vesting
 
-Token vesting schedule calculations for Hopper. Linear with cliff,
-stepped/periodic unlocks, safe claimable amounts.
+Vesting schedule math for Hopper programs: linear schedules with cliffs,
+stepped unlocks, elapsed-step calculation, and safe claimable amounts. Pure
+functions, `no_std`, `no_alloc`, and BPF-safe.
 
 Part of the **[Hopper](https://hopperzero.dev)** framework.
 
-Pure functions that take a vesting schedule and a wall-clock timestamp
-and return the currently-claimable amount. Conservation-preserving: the
-total ever returned over the life of a schedule equals the grant, even
-across rounding boundaries.
+The crate does not own schedule storage. Your account layout stores the terms;
+these helpers compute how much is vested and how much is still claimable at a
+given timestamp.
 
 ```rust
-use hopper_vesting::{Schedule, claimable};
+use hopper_vesting::{claimable, vested_amount};
 
-let s = Schedule::linear_with_cliff(total, start, cliff, duration);
-let unlocked = claimable(&s, now)?;
-let to_send = unlocked.saturating_sub(already_claimed);
+let vested = vested_amount(total, start, cliff, end, now);
+let to_send = claimable(vested, already_claimed);
 ```
+
+Docs: <https://docs.rs/crate/hopper-vesting/0.1.0>
 
 License: Apache-2.0.

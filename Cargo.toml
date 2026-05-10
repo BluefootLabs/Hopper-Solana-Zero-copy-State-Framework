@@ -92,7 +92,7 @@ authors = ["BluefootLabs <contact@bluefootlabs.com>", "MoonManQuark"]
 description = "Zero-copy state framework for Solana. Typed account architecture, phased execution, validation graphs, zero-copy collections, layout evolution, and cross-program interfaces. Built on Hopper Native. no_std, no_alloc, no proc macros required."
 repository = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework"
 homepage = "https://hopperzero.dev"
-documentation = "https://docs.rs/hopper"
+documentation = "https://docs.rs/crate/hopper/0.1.0"
 readme = "README.md"
 keywords = ["solana", "zero-copy", "framework", "state", "no-std"]
 categories = ["no-std", "embedded"]
@@ -131,7 +131,7 @@ legacy-token-instructions = [
     "hopper-solana/legacy-token-instructions",
 ]
 
-# ── Advanced subsystems (forwarded to hopper-core) ────────────────
+# â”€â”€ Advanced subsystems (forwarded to hopper-core) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 advanced = ["hopper-core/advanced"]
 frame = ["hopper-core/frame"]
 receipt = ["hopper-core/receipt"]
