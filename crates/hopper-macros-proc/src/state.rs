@@ -8,10 +8,7 @@
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote, ToTokens};
 use sha2::{Digest, Sha256};
-use syn::{
-    parse::Parser, parse2, parse_quote, punctuated::Punctuated, Attribute, Field, Fields,
-    ItemStruct, LitInt, LitStr, Path, Result, Token,
-};
+use syn::{parse::Parser, parse2, Attribute, Field, Fields, ItemStruct, LitInt, LitStr, Result};
 
 #[derive(Clone)]
 struct StateOptions {
@@ -76,22 +73,13 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
         ));
     }
 
-    // State overlays are plain wire values. The macro emits the Pod and
-    // LayoutContract impls, so make the Copy/Clone obligation equally
-    // macro-owned instead of requiring every user to remember the derive.
-    // If the user already derived either trait, preserve their attr and add
-    // only the missing one to avoid duplicate impls.
-    let mut missing_derives: Vec<Path> = Vec::new();
-    if !has_derive_trait(&input.attrs, "Clone") {
-        missing_derives.push(parse_quote!(Clone));
-    }
-    if !has_derive_trait(&input.attrs, "Copy") {
-        missing_derives.push(parse_quote!(Copy));
-    }
-    if !missing_derives.is_empty() {
-        let derive_attr: Attribute = parse_quote!(#[derive(#(#missing_derives),*)]);
-        input.attrs.push(derive_attr);
-    }
+    // State overlays are plain wire values. The authored struct must be
+    // `Clone + Copy` so the generated Pod impls satisfy Hopper's canonical
+    // Pod contract. Do not inject derives here: rustc may apply an outer
+    // `#[derive(Clone, Copy)]` separately from this attribute macro, and
+    // emitting a second derive produces duplicate trait impls. Instead, keep
+    // the user's derives intact and emit an explicit proof below so missing
+    // derives fail at the layout declaration site.
 
     // Verify we have named fields before we start mutating. We can't
     // iterate `&input.fields` here because we'll need `&mut` access
@@ -454,6 +442,20 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
             ];
         }
 
+        // `#[hopper::state]` emits Pod impls, and Hopper's canonical Pod
+        // contract is `Copy + Sized`. Keep the visible Rust spelling
+        // conventional (`#[derive(Clone, Copy)]`) instead of silently
+        // injecting a derive from inside the attribute macro; this avoids
+        // duplicate trait impls when users follow the README pattern.
+        #[doc(hidden)]
+        const _: () = {
+            struct __StateCopyProof<T: ::core::clone::Clone + ::core::marker::Copy>(
+                ::core::marker::PhantomData<T>,
+            );
+            const _: __StateCopyProof<#name> =
+                __StateCopyProof(::core::marker::PhantomData);
+        };
+
         // Bytemuck-backed field-level Pod proof (Hopper Safety Audit
         // Must-Fix #4 / #5).
         //
@@ -770,18 +772,6 @@ fn has_repr_c(attrs: &[Attribute]) -> bool {
             Ok(())
         });
         has_c
-    })
-}
-
-fn has_derive_trait(attrs: &[Attribute], trait_name: &str) -> bool {
-    attrs.iter().any(|attr| {
-        if !attr.path().is_ident("derive") {
-            return false;
-        }
-
-        attr.parse_args_with(Punctuated::<Path, Token![,]>::parse_terminated)
-            .map(|paths| paths.iter().any(|path| path.is_ident(trait_name)))
-            .unwrap_or(false)
     })
 }
 

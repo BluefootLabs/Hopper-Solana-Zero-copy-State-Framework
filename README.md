@@ -3,10 +3,11 @@
 [![License: MIT OR Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](LICENSE-MIT)
 ![no_std](https://img.shields.io/badge/no__std-yes-green.svg)
 
-> **Release status.** Hopper `0.1.0` is the first public crates.io release of
-> the Hopper framework, CLI, and public companion crates. APIs are still young,
-> but the published surface is documented, benchmark-provenanced, and gated by
-> the release checks in this repository.
+> **Release status.** Hopper `0.1.0` is the first public release line for the
+> Hopper framework, CLI, and companion crates. APIs are still young, and the
+> release surface is documented, benchmark-provenanced, and gated by the checks
+> in this repository. Verify crates.io package ownership before using registry
+> install commands for the root `hopper` package.
 
 Hopper is a zero-copy state framework for Solana programs. It maps typed,
 fixed-layout views onto account bytes without a serialization round trip, while
@@ -33,10 +34,11 @@ benchmark suite and SVM harness live separately.
 
 ## Release Status
 
-- Published framework version: `hopper = "0.1.0"`.
+- Framework version target: `hopper = "0.1.0"`.
 - Version-pinned docs.rs target: <https://docs.rs/crate/hopper/0.1.0>.
-- Published CLI package: `cargo install hopper-cli`.
-- Public companion crates include `hopper-native`, `hopper-runtime`,
+- Source-backed CLI install: `cargo install --path tools/hopper-cli` from this
+  repository.
+- Public companion crate targets include `hopper-native`, `hopper-runtime`,
   `hopper-core`, `hopper-schema`, `hopper-solana`, `hopper-token`,
   `hopper-token-2022`, `hopper-associated-token`, `hopper-system`,
   `hopper-memo`, `hopper-finance`, `hopper-lending`, `hopper-staking`,
@@ -52,13 +54,15 @@ benchmark suite and SVM harness live separately.
 
 ```toml
 [dependencies]
-hopper = { version = "0.1.0", features = ["proc-macros"] }
+hopper = { git = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework", features = ["proc-macros"] }
 ```
 
 Install the CLI:
 
 ```sh
-cargo install hopper-cli
+git clone https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework hopper
+cd hopper
+cargo install --path tools/hopper-cli
 ```
 
 For local development inside this repository:
@@ -73,6 +77,7 @@ Minimal layout example:
 ```rust
 use hopper::prelude::*;
 
+#[derive(Clone, Copy)]
 #[repr(C)]
 #[hopper::state(disc = 1, version = 1)]
 pub struct Vault {
@@ -154,14 +159,14 @@ Sibling product repos:
 Hopper Native is the default backend.
 
 ```toml
-# Default backend
-hopper = "0.1.0"
+# Default backend from source
+hopper = { git = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework" }
 
 # Legacy Pinocchio migration/benchmark compatibility only
-hopper = { version = "0.1.0", default-features = false, features = ["legacy-pinocchio-compat"] }
+hopper = { git = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework", default-features = false, features = ["legacy-pinocchio-compat"] }
 
 # solana-program compatibility backend
-hopper = { version = "0.1.0", default-features = false, features = ["solana-program-backend"] }
+hopper = { git = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework", default-features = false, features = ["solana-program-backend"] }
 ```
 
 Only one backend should be enabled for a program build.

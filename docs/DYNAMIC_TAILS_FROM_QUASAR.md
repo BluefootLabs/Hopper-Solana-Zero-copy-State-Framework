@@ -44,6 +44,7 @@ Hopper shape:
 ```rust
 use hopper::prelude::*;
 
+#[derive(Clone, Copy)]
 #[hopper::state(disc = 7, dynamic_tail = MultisigTail)]
 #[repr(C)]
 pub struct Multisig {

@@ -85,6 +85,7 @@ pub struct Program;
 /// expected transfer-hook program ID, and gates updates on a stored
 /// authority. The proc-macro form is used here because the example
 /// relies on the per-field `*_ABS_OFFSET` constants the macro emits.
+#[derive(Clone, Copy)]
 #[repr(C)]
 #[hopper::state(disc = 1, version = 1)]
 pub struct HookedVault {

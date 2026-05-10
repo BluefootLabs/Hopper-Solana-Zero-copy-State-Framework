@@ -21,9 +21,10 @@
 //! - enums with niches and non-zero variants
 //!
 //! This is the **Must-Fix #5** the audit flagged: "enforce field-level
-//! Pod proof at macro expansion time". Hopper's `#[hopper::pod]` and
-//! `#[hopper::state]` macros now emit the `#[derive(…)]` automatically
-//! so users never see the bytemuck name in their own sources.
+//! Pod proof at macro expansion time". Hopper's `#[hopper::pod]` derive
+//! and `#[hopper::state]` macro emit the machine-checked proof so users
+//! never need to name bytemuck in their own sources. State layouts keep
+//! their `#[derive(Clone, Copy)]` visible, and the macro verifies it.
 //!
 //! ## Disable-able for zero-dep builds
 //!

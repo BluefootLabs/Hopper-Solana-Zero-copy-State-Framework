@@ -16,6 +16,7 @@
 //!
 //! ```ignore
 //! #[hopper::dynamic(field = "entries")]
+//! #[derive(Clone, Copy)]
 //! #[hopper::state]
 //! #[repr(C)]
 //! pub struct Ledger {

@@ -14,8 +14,8 @@ use hopper::prelude::*;
 /// Fixed-body layout: authority + counter, nothing else in the hot
 /// path. The dynamic tail carries optional protocol-specific metadata
 /// encoded via the `TailCodec` Borsh-subset.
-#[hopper::state(disc = 99, version = 1, dynamic_tail = VaultMetadata)]
 #[derive(Copy, Clone)]
+#[hopper::state(disc = 99, version = 1, dynamic_tail = VaultMetadata)]
 #[repr(C)]
 pub struct MetadataVault {
     pub authority: [u8; 32],
@@ -148,8 +148,8 @@ fn tail_rewrite_overwrites_previous_payload() {
 
 /// Confirmation that layouts *without* `dynamic_tail = ...` still
 /// expose a `HAS_DYNAMIC_TAIL = false` const for branching logic.
-#[hopper::state(disc = 100, version = 1)]
 #[derive(Copy, Clone)]
+#[hopper::state(disc = 100, version = 1)]
 #[repr(C)]
 pub struct PlainVault {
     pub counter: WireU64,

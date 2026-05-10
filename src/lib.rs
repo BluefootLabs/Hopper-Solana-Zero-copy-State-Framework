@@ -239,10 +239,10 @@ pub mod __runtime {
     pub use hopper_runtime::crank::CrankMarker;
     pub use hopper_runtime::dyn_cpi::DynCpi;
 
-    // `#[hopper::state]` and `#[hopper::pod]` emit bytemuck derives
-    // through this path so user code never needs a direct bytemuck
-    // dependency. Gated on the native backend because that's where
-    // the bytemuck re-export lives.
+    // `#[hopper::state]` and `#[hopper::pod]` emit bytemuck-backed
+    // proofs through this path so user code never needs a direct
+    // bytemuck dependency. Gated on the native backend because that's
+    // where the bytemuck re-export lives.
     #[cfg(feature = "hopper-native-backend")]
     pub use hopper_runtime::__hopper_native;
 

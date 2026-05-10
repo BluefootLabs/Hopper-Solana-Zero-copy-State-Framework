@@ -594,9 +594,11 @@ mod tests {
     #[test]
     fn state_disc_increment_picks_next_unused() {
         let s = r#"
+#[derive(Clone, Copy)]
 #[hopper::state(disc = 1, version = 1)]
 pub struct A { pub x: u8 }
 
+#[derive(Clone, Copy)]
 #[hopper::state(disc = 7, version = 1)]
 pub struct B { pub y: u8 }
 "#;

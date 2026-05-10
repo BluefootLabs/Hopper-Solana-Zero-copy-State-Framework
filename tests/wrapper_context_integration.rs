@@ -64,8 +64,8 @@ fn custom_program_id_impl_is_addressable_at_const_time() {
 
 // A minimal layout type used to satisfy the `T: LayoutContract`
 // bound on `Account<'info, T>` / `InitAccount<'info, T>`.
-#[hopper::state(disc = 12, version = 1)]
 #[derive(Copy, Clone)]
+#[hopper::state(disc = 12, version = 1)]
 #[repr(C)]
 pub struct TinyLayout {
     pub v: hopper::prelude::WireU64,

@@ -1,5 +1,6 @@
 use hopper::prelude::*;
 
+#[derive(Clone, Copy)]
 #[hopper::state]
 #[repr(C)]
 pub struct Vault {

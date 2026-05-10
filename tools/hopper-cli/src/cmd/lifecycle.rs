@@ -1099,6 +1099,7 @@ mod __hopper_sbf {
     nostd_panic_handler!();
 }
 
+#[derive(Clone, Copy)]
 #[repr(C)]
 #[hopper::state(disc = 1, version = 1)]
 pub struct Config {
@@ -1280,6 +1281,7 @@ pub struct Authority;
 #[derive(Clone, Copy)]
 pub struct Mint;
 
+#[derive(Clone, Copy)]
 #[repr(C)]
 #[hopper::state(disc = 1, version = 1)]
 pub struct Vault {
@@ -1427,6 +1429,7 @@ mod __hopper_sbf {
 #[derive(Clone, Copy)]
 pub struct Authority;
 
+#[derive(Clone, Copy)]
 #[repr(C)]
 #[hopper::state(disc = 1, version = 1)]
 pub struct Vault {

@@ -468,6 +468,7 @@ pub fn args(attr: TokenStream, item: TokenStream) -> TokenStream {
 ///
 /// ```ignore
 /// #[hopper::dynamic(field = "entries")]
+/// #[derive(Clone, Copy)]
 /// #[hopper::state]
 /// #[repr(C)]
 /// pub struct Ledger {
