@@ -13,11 +13,7 @@ pub use hopper_solana::constants::ATA_PROGRAM_ID;
 
 #[cfg(target_os = "solana")]
 pub use hopper_solana::ata::{
-    derive_ata,
-    derive_ata_2022,
-    derive_ata_for_program,
-    verify_ata,
-    verify_ata_2022,
+    derive_ata, derive_ata_2022, derive_ata_for_program, verify_ata, verify_ata_2022,
     verify_ata_any,
 };
 

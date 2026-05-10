@@ -1554,7 +1554,9 @@ mod tests {
         let output = TsAccounts(&m).to_string();
         assert!(output.contains("export function decodeVault(data: Uint8Array)"));
         assert!(output.contains("export function decodeVault(data: Uint8Array): \n  Vault {\n  assertVaultLayout(data);"));
-        assert!(output.contains("throw new Error(`Data too small for vault: ${data.length} < 64`);"));
+        assert!(
+            output.contains("throw new Error(`Data too small for vault: ${data.length} < 64`);")
+        );
         assert!(output.contains("new PublicKey(data.slice(16, 48))"));
         assert!(output.contains("view.getBigUint64(48, true)"));
         assert!(output.contains("data[56] !== 0"));
@@ -1602,7 +1604,9 @@ mod tests {
         assert!(output.contains("export interface HopperHeader {"));
         assert!(output.contains("export function decodeHeader(data: Uint8Array)"));
         assert!(output.contains("flags: view.getUint16(2, true),"));
-        assert!(output.contains("layoutId: data.slice(LAYOUT_ID_OFFSET, LAYOUT_ID_OFFSET + LAYOUT_ID_LENGTH),"));
+        assert!(output.contains(
+            "layoutId: data.slice(LAYOUT_ID_OFFSET, LAYOUT_ID_OFFSET + LAYOUT_ID_LENGTH),"
+        ));
         assert!(output.contains("reserved: data.slice(12, 16),"));
         assert!(output.contains("Vault: 1,"));
     }
@@ -1775,7 +1779,9 @@ mod tests {
         let output = KtTypes(&m).to_string();
         assert!(output.contains("data class HopperHeader("));
         assert!(output.contains("fun decodeHeader(data: ByteArray): HopperHeader {"));
-        assert!(output.contains("flags = ByteBuffer.wrap(data, 2, 2).order(ByteOrder.LITTLE_ENDIAN).short.toUShort(),"));
+        assert!(output.contains(
+            "flags = ByteBuffer.wrap(data, 2, 2).order(ByteOrder.LITTLE_ENDIAN).short.toUShort(),"
+        ));
         assert!(output.contains("layoutId = data.copyOfRange(TYPES_LAYOUT_ID_OFFSET, TYPES_LAYOUT_ID_OFFSET + TYPES_LAYOUT_ID_LENGTH),"));
         assert!(output.contains("reserved = data.copyOfRange(12, 16)"));
         assert!(!output.contains("data.copyOfRange(2, 10)"));

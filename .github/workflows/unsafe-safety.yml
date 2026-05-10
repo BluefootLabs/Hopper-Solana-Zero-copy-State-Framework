@@ -1,0 +1,15 @@
+name: Unsafe safety comments
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  unsafe-safety:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check unsafe safety comments
+        run: python3 scripts/check-unsafe-safety-comments.py
+        

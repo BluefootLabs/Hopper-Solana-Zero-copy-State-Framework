@@ -281,8 +281,14 @@ impl<const N: usize> Default for InstructionPolicy<N> {
 pub const TREASURY_WRITE_POLICY: InstructionPolicy<4> = InstructionPolicy::new()
     .when(Capability::MutatesState, PolicyRequirement::Authority)
     .when(Capability::MutatesState, PolicyRequirement::StateSnapshot)
-    .when(Capability::MutatesTreasury, PolicyRequirement::LamportConservation)
-    .when(Capability::MutatesTreasury, PolicyRequirement::InvariantCheck);
+    .when(
+        Capability::MutatesTreasury,
+        PolicyRequirement::LamportConservation,
+    )
+    .when(
+        Capability::MutatesTreasury,
+        PolicyRequirement::InvariantCheck,
+    );
 
 /// Capabilities for a treasury write instruction.
 pub const TREASURY_WRITE_CAPS: CapabilitySet = CapabilitySet::new()
@@ -294,7 +300,10 @@ pub const TREASURY_WRITE_CAPS: CapabilitySet = CapabilitySet::new()
 /// Triggers: authority check + journal capacity guard + state snapshot.
 pub const JOURNAL_TOUCH_POLICY: InstructionPolicy<3> = InstructionPolicy::new()
     .when(Capability::MutatesState, PolicyRequirement::Authority)
-    .when(Capability::TouchesJournal, PolicyRequirement::JournalCapacity)
+    .when(
+        Capability::TouchesJournal,
+        PolicyRequirement::JournalCapacity,
+    )
     .when(Capability::TouchesJournal, PolicyRequirement::StateSnapshot);
 
 /// Capabilities for a journal-writing instruction.
@@ -307,12 +316,14 @@ pub const JOURNAL_TOUCH_CAPS: CapabilitySet = CapabilitySet::new()
 /// Triggers: CPI guard + post-mutation check + state snapshot.
 pub const EXTERNAL_CALL_POLICY: InstructionPolicy<3> = InstructionPolicy::new()
     .when(Capability::ExternalCall, PolicyRequirement::CpiGuard)
-    .when(Capability::ExternalCall, PolicyRequirement::PostMutationCheck)
+    .when(
+        Capability::ExternalCall,
+        PolicyRequirement::PostMutationCheck,
+    )
     .when(Capability::ExternalCall, PolicyRequirement::StateSnapshot);
 
 /// Capabilities for a CPI-invoking instruction.
-pub const EXTERNAL_CALL_CAPS: CapabilitySet = CapabilitySet::new()
-    .with(Capability::ExternalCall);
+pub const EXTERNAL_CALL_CAPS: CapabilitySet = CapabilitySet::new().with(Capability::ExternalCall);
 
 /// Capabilities for an instruction that modifies shard data in a sharded account.
 ///
@@ -323,17 +334,25 @@ pub const SHARD_MUTATION_POLICY: InstructionPolicy<3> = InstructionPolicy::new()
     .when(Capability::MutatesState, PolicyRequirement::InvariantCheck);
 
 /// Capabilities for a shard-modifying instruction.
-pub const SHARD_MUTATION_CAPS: CapabilitySet = CapabilitySet::new()
-    .with(Capability::MutatesState);
+pub const SHARD_MUTATION_CAPS: CapabilitySet = CapabilitySet::new().with(Capability::MutatesState);
 
 /// Capabilities for an instruction that reallocates an account (migration-sensitive).
 ///
 /// Triggers: authority + rent exemption + state snapshot + invariants.
 pub const MIGRATION_SENSITIVE_POLICY: InstructionPolicy<4> = InstructionPolicy::new()
     .when(Capability::ReallocatesAccount, PolicyRequirement::Authority)
-    .when(Capability::ReallocatesAccount, PolicyRequirement::RentExemption)
-    .when(Capability::ReallocatesAccount, PolicyRequirement::StateSnapshot)
-    .when(Capability::ReallocatesAccount, PolicyRequirement::InvariantCheck);
+    .when(
+        Capability::ReallocatesAccount,
+        PolicyRequirement::RentExemption,
+    )
+    .when(
+        Capability::ReallocatesAccount,
+        PolicyRequirement::StateSnapshot,
+    )
+    .when(
+        Capability::ReallocatesAccount,
+        PolicyRequirement::InvariantCheck,
+    );
 
 /// Capabilities for a migration/realloc instruction.
 pub const MIGRATION_SENSITIVE_CAPS: CapabilitySet = CapabilitySet::new()
@@ -346,8 +365,14 @@ pub const MIGRATION_SENSITIVE_CAPS: CapabilitySet = CapabilitySet::new()
 pub const AUTHORITY_CHANGE_POLICY: InstructionPolicy<4> = InstructionPolicy::new()
     .when(Capability::ModifiesAuthority, PolicyRequirement::Authority)
     .when(Capability::ModifiesAuthority, PolicyRequirement::CpiGuard)
-    .when(Capability::ModifiesAuthority, PolicyRequirement::PostMutationCheck)
-    .when(Capability::ModifiesAuthority, PolicyRequirement::InvariantCheck);
+    .when(
+        Capability::ModifiesAuthority,
+        PolicyRequirement::PostMutationCheck,
+    )
+    .when(
+        Capability::ModifiesAuthority,
+        PolicyRequirement::InvariantCheck,
+    );
 
 /// Capabilities for an authority change instruction.
 pub const AUTHORITY_CHANGE_CAPS: CapabilitySet = CapabilitySet::new()
@@ -357,12 +382,11 @@ pub const AUTHORITY_CHANGE_CAPS: CapabilitySet = CapabilitySet::new()
 /// Capabilities for a read-only audit/inspection instruction.
 ///
 /// Triggers: state snapshot only. No mutating capabilities.
-pub const READ_ONLY_AUDIT_POLICY: InstructionPolicy<1> = InstructionPolicy::new()
-    .when(Capability::ReadsState, PolicyRequirement::StateSnapshot);
+pub const READ_ONLY_AUDIT_POLICY: InstructionPolicy<1> =
+    InstructionPolicy::new().when(Capability::ReadsState, PolicyRequirement::StateSnapshot);
 
 /// Capabilities for a read-only audit instruction.
-pub const READ_ONLY_AUDIT_CAPS: CapabilitySet = CapabilitySet::new()
-    .with(Capability::ReadsState);
+pub const READ_ONLY_AUDIT_CAPS: CapabilitySet = CapabilitySet::new().with(Capability::ReadsState);
 
 /// Capabilities for an account initialization instruction.
 ///
@@ -370,11 +394,13 @@ pub const READ_ONLY_AUDIT_CAPS: CapabilitySet = CapabilitySet::new()
 pub const ACCOUNT_INIT_POLICY: InstructionPolicy<3> = InstructionPolicy::new()
     .when(Capability::CreatesAccount, PolicyRequirement::Authority)
     .when(Capability::CreatesAccount, PolicyRequirement::RentExemption)
-    .when(Capability::CreatesAccount, PolicyRequirement::InvariantCheck);
+    .when(
+        Capability::CreatesAccount,
+        PolicyRequirement::InvariantCheck,
+    );
 
 /// Capabilities for an account init instruction.
-pub const ACCOUNT_INIT_CAPS: CapabilitySet = CapabilitySet::new()
-    .with(Capability::CreatesAccount);
+pub const ACCOUNT_INIT_CAPS: CapabilitySet = CapabilitySet::new().with(Capability::CreatesAccount);
 
 /// Capabilities for an account close instruction.
 ///
@@ -382,11 +408,13 @@ pub const ACCOUNT_INIT_CAPS: CapabilitySet = CapabilitySet::new()
 pub const ACCOUNT_CLOSE_POLICY: InstructionPolicy<3> = InstructionPolicy::new()
     .when(Capability::ClosesAccount, PolicyRequirement::Authority)
     .when(Capability::ClosesAccount, PolicyRequirement::StateSnapshot)
-    .when(Capability::ClosesAccount, PolicyRequirement::LamportConservation);
+    .when(
+        Capability::ClosesAccount,
+        PolicyRequirement::LamportConservation,
+    );
 
 /// Capabilities for an account close instruction.
-pub const ACCOUNT_CLOSE_CAPS: CapabilitySet = CapabilitySet::new()
-    .with(Capability::ClosesAccount);
+pub const ACCOUNT_CLOSE_CAPS: CapabilitySet = CapabilitySet::new().with(Capability::ClosesAccount);
 
 // ---------------------------------------------------------------------------
 // Policy Pack Registry (for schema/manifest export)
@@ -615,7 +643,10 @@ impl PolicyClass {
         if caps.has(Capability::ExternalCall) {
             return Self::CrossProgram;
         }
-        if caps.has(Capability::MutatesState) || caps.has(Capability::TouchesJournal) || caps.has(Capability::TransitionsState) {
+        if caps.has(Capability::MutatesState)
+            || caps.has(Capability::TouchesJournal)
+            || caps.has(Capability::TransitionsState)
+        {
             return Self::Write;
         }
         Self::Read

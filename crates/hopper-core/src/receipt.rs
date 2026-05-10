@@ -346,17 +346,10 @@ impl<const SNAP_SIZE: usize> StateReceipt<SNAP_SIZE> {
     /// `fields` is `(name, offset, size)` per layout field.
     /// Sets the `changed_fields` bitmask based on which fields actually changed.
     #[inline]
-    pub fn commit_with_fields(
-        &mut self,
-        current_data: &[u8],
-        fields: &[(&str, usize, usize)],
-    ) {
+    pub fn commit_with_fields(&mut self, current_data: &[u8], fields: &[(&str, usize, usize)]) {
         self.commit(current_data);
-        self.changed_fields = crate::diff::field_diff_mask(
-            self.snapshot.data(),
-            current_data,
-            fields,
-        );
+        self.changed_fields =
+            crate::diff::field_diff_mask(self.snapshot.data(), current_data, fields);
     }
 
     /// Commit with segment-level tracking.
@@ -364,11 +357,7 @@ impl<const SNAP_SIZE: usize> StateReceipt<SNAP_SIZE> {
     /// `segments` is `(offset, size)` per segment in the account.
     /// Sets `segment_changed_mask` based on which segments have byte changes.
     #[inline]
-    pub fn commit_with_segments(
-        &mut self,
-        current_data: &[u8],
-        segments: &[(usize, usize)],
-    ) {
+    pub fn commit_with_segments(&mut self, current_data: &[u8], segments: &[(usize, usize)]) {
         self.commit(current_data);
         let snap_data = self.snapshot.data();
         let mut mask: u16 = 0;
@@ -566,11 +555,21 @@ impl<const SNAP_SIZE: usize> StateReceipt<SNAP_SIZE> {
         out[30..32].copy_from_slice(&self.invariants_checked.to_le_bytes());
         // flags
         let mut flags: u8 = 0;
-        if self.was_resized { flags |= 1 << 0; }
-        if self.invariants_passed { flags |= 1 << 1; }
-        if self.cpi_invoked { flags |= 1 << 2; }
-        if self.committed { flags |= 1 << 3; }
-        if self.had_failure { flags |= 1 << 4; }
+        if self.was_resized {
+            flags |= 1 << 0;
+        }
+        if self.invariants_passed {
+            flags |= 1 << 1;
+        }
+        if self.cpi_invoked {
+            flags |= 1 << 2;
+        }
+        if self.committed {
+            flags |= 1 << 3;
+        }
+        if self.had_failure {
+            flags |= 1 << 4;
+        }
         out[32] = flags;
         // before_fingerprint
         out[33..41].copy_from_slice(&self.before_fingerprint);
@@ -660,19 +659,12 @@ impl DecodedReceipt {
         let mut layout_id = [0u8; 8];
         layout_id.copy_from_slice(&bytes[0..8]);
         let changed_fields = u64::from_le_bytes([
-            bytes[8], bytes[9], bytes[10], bytes[11],
-            bytes[12], bytes[13], bytes[14], bytes[15],
+            bytes[8], bytes[9], bytes[10], bytes[11], bytes[12], bytes[13], bytes[14], bytes[15],
         ]);
-        let changed_bytes = u32::from_le_bytes([
-            bytes[16], bytes[17], bytes[18], bytes[19],
-        ]);
+        let changed_bytes = u32::from_le_bytes([bytes[16], bytes[17], bytes[18], bytes[19]]);
         let changed_regions = u16::from_le_bytes([bytes[20], bytes[21]]);
-        let old_size = u32::from_le_bytes([
-            bytes[22], bytes[23], bytes[24], bytes[25],
-        ]);
-        let new_size = u32::from_le_bytes([
-            bytes[26], bytes[27], bytes[28], bytes[29],
-        ]);
+        let old_size = u32::from_le_bytes([bytes[22], bytes[23], bytes[24], bytes[25]]);
+        let new_size = u32::from_le_bytes([bytes[26], bytes[27], bytes[28], bytes[29]]);
         let invariants_checked = u16::from_le_bytes([bytes[30], bytes[31]]);
         let flags = bytes[32];
         let was_resized = flags & (1 << 0) != 0;
@@ -686,9 +678,7 @@ impl DecodedReceipt {
         let mut after_fingerprint = [0u8; 8];
         after_fingerprint.copy_from_slice(&bytes[41..49]);
         let segment_changed_mask = u16::from_le_bytes([bytes[49], bytes[50]]);
-        let policy_flags = u32::from_le_bytes([
-            bytes[51], bytes[52], bytes[53], bytes[54],
-        ]);
+        let policy_flags = u32::from_le_bytes([bytes[51], bytes[52], bytes[53], bytes[54]]);
         let journal_appends = u16::from_le_bytes([bytes[55], bytes[56]]);
         let cpi_count = bytes[57];
         let phase = bytes[58];
@@ -700,14 +690,15 @@ impl DecodedReceipt {
         // not exist; we fall back to sensible defaults rather than fail
         // the parse so callers that only have the shortened format still
         // get the remaining fields.
-        let (failed_invariant_idx, failed_error_code, failure_stage) = if bytes.len() >= RECEIPT_SIZE {
-            let idx = bytes[63];
-            let code = u32::from_le_bytes([bytes[64], bytes[65], bytes[66], bytes[67]]);
-            let stage = bytes[68];
-            (idx, code, stage)
-        } else {
-            (FAILED_INVARIANT_NONE, 0u32, FailureStage::None as u8)
-        };
+        let (failed_invariant_idx, failed_error_code, failure_stage) =
+            if bytes.len() >= RECEIPT_SIZE {
+                let idx = bytes[63];
+                let code = u32::from_le_bytes([bytes[64], bytes[65], bytes[66], bytes[67]]);
+                let stage = bytes[68];
+                (idx, code, stage)
+            } else {
+                (FAILED_INVARIANT_NONE, 0u32, FailureStage::None as u8)
+            };
 
         Some(Self {
             layout_id,
@@ -1009,19 +1000,28 @@ impl ReceiptNarrative {
             "ReadOnly" => "Read-only operation executed.",
             _ => "State mutation executed.",
         };
-        if n < 8 { frags[n as usize] = phase_frag; n += 1; }
+        if n < 8 {
+            frags[n as usize] = phase_frag;
+            n += 1;
+        }
 
         // Mutation details
         if explain.changed_field_count > 0 {
             risk = NarrativeRisk::Low;
             if explain.segment_count > 1 {
-                if n < 8 { frags[n as usize] = "Changes span multiple segments."; n += 1; }
+                if n < 8 {
+                    frags[n as usize] = "Changes span multiple segments.";
+                    n += 1;
+                }
             }
         }
 
         // Fingerprint change
         if explain.fingerprint_changed {
-            if n < 8 { frags[n as usize] = "Layout fingerprint changed."; n += 1; }
+            if n < 8 {
+                frags[n as usize] = "Layout fingerprint changed.";
+                n += 1;
+            }
             if risk as u8 == NarrativeRisk::Low as u8 {
                 risk = NarrativeRisk::Medium;
             }
@@ -1030,14 +1030,23 @@ impl ReceiptNarrative {
         // Compatibility impact
         match explain.compat_label {
             "Append" => {
-                if n < 8 { frags[n as usize] = "Append-safe extension applied."; n += 1; }
+                if n < 8 {
+                    frags[n as usize] = "Append-safe extension applied.";
+                    n += 1;
+                }
             }
             "Migration" => {
-                if n < 8 { frags[n as usize] = "Migration-level change detected."; n += 1; }
+                if n < 8 {
+                    frags[n as usize] = "Migration-level change detected.";
+                    n += 1;
+                }
                 risk = NarrativeRisk::High;
             }
             "Breaking" => {
-                if n < 8 { frags[n as usize] = "Breaking compatibility change."; n += 1; }
+                if n < 8 {
+                    frags[n as usize] = "Breaking compatibility change.";
+                    n += 1;
+                }
                 risk = NarrativeRisk::High;
             }
             _ => {}
@@ -1045,16 +1054,28 @@ impl ReceiptNarrative {
 
         // CPI
         if !crate::const_str_eq(explain.cpi_summary, "No CPI calls") {
-            if n < 8 { frags[n as usize] = "Cross-program invocation occurred."; n += 1; }
+            if n < 8 {
+                frags[n as usize] = "Cross-program invocation occurred.";
+                n += 1;
+            }
         }
 
         // Integrity
         if crate::const_str_eq(explain.integrity_summary, "INVARIANT VIOLATION detected") {
-            if n < 8 { frags[n as usize] = "INVARIANT VIOLATION: post-mutation checks failed."; n += 1; }
+            if n < 8 {
+                frags[n as usize] = "INVARIANT VIOLATION: post-mutation checks failed.";
+                n += 1;
+            }
             risk = NarrativeRisk::Critical;
         }
-        if crate::const_str_eq(explain.integrity_summary, "Receipt was NOT committed (incomplete)") {
-            if n < 8 { frags[n as usize] = "Receipt was not committed. Mutation may be incomplete."; n += 1; }
+        if crate::const_str_eq(
+            explain.integrity_summary,
+            "Receipt was NOT committed (incomplete)",
+        ) {
+            if n < 8 {
+                frags[n as usize] = "Receipt was not committed. Mutation may be incomplete.";
+                n += 1;
+            }
             risk = NarrativeRisk::Critical;
         }
 
@@ -1064,7 +1085,10 @@ impl ReceiptNarrative {
             while i < explain.segment_role_count && i < 8 {
                 let role = explain.segment_role_names[i as usize];
                 if crate::const_str_eq(role, "audit") || crate::const_str_eq(role, "Audit") {
-                    if n < 8 { frags[n as usize] = "Audit segment was touched."; n += 1; }
+                    if n < 8 {
+                        frags[n as usize] = "Audit segment was touched.";
+                        n += 1;
+                    }
                 }
                 i += 1;
             }

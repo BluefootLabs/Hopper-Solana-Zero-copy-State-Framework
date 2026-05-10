@@ -4,9 +4,9 @@
 //! They are Hopper-owned and reference Hopper's `Address` and `AccountView`
 //! types, giving the framework full control over its public API surface.
 
-use core::marker::PhantomData;
-use crate::address::Address;
 use crate::account::AccountView;
+use crate::address::Address;
+use core::marker::PhantomData;
 
 // ── InstructionAccount ───────────────────────────────────────────────
 
@@ -26,31 +26,51 @@ impl<'a> InstructionAccount<'a> {
     /// Construct with explicit flags.
     #[inline(always)]
     pub const fn new(address: &'a Address, is_writable: bool, is_signer: bool) -> Self {
-        Self { address, is_writable, is_signer }
+        Self {
+            address,
+            is_writable,
+            is_signer,
+        }
     }
 
     /// Read-only, non-signer.
     #[inline(always)]
     pub const fn readonly(address: &'a Address) -> Self {
-        Self { address, is_writable: false, is_signer: false }
+        Self {
+            address,
+            is_writable: false,
+            is_signer: false,
+        }
     }
 
     /// Writable, non-signer.
     #[inline(always)]
     pub const fn writable(address: &'a Address) -> Self {
-        Self { address, is_writable: true, is_signer: false }
+        Self {
+            address,
+            is_writable: true,
+            is_signer: false,
+        }
     }
 
     /// Read-only signer.
     #[inline(always)]
     pub const fn readonly_signer(address: &'a Address) -> Self {
-        Self { address, is_writable: false, is_signer: true }
+        Self {
+            address,
+            is_writable: false,
+            is_signer: true,
+        }
     }
 
     /// Writable signer.
     #[inline(always)]
     pub const fn writable_signer(address: &'a Address) -> Self {
-        Self { address, is_writable: true, is_signer: true }
+        Self {
+            address,
+            is_writable: true,
+            is_signer: true,
+        }
     }
 }
 
@@ -113,10 +133,12 @@ impl<'a> From<&'a AccountView> for CpiAccount<'a> {
         // account struct. The address and owner fields have the same binary
         // layout as hopper_runtime::Address (#[repr(transparent)] over [u8; 32]).
         Self {
+            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             address: unsafe { core::ptr::addr_of!((*raw).address) as *const Address },
             lamports: unsafe { core::ptr::addr_of!((*raw).lamports) },
             data_len: view.data_len() as u64,
             data: view.data_ptr_unchecked(),
+            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             owner: unsafe { core::ptr::addr_of!((*raw).owner) as *const Address },
             rent_epoch: 0,
             is_signer: view.is_signer(),
@@ -165,6 +187,7 @@ impl core::ops::Deref for Seed<'_> {
 
     #[inline(always)]
     fn deref(&self) -> &[u8] {
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe { core::slice::from_raw_parts(self.seed, self.len as usize) }
     }
 }

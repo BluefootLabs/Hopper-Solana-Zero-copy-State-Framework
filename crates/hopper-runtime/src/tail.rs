@@ -218,7 +218,9 @@ pub fn read_tail_len(data: &[u8], body_end: usize) -> Result<u32, ProgramError> 
 pub fn tail_payload(data: &[u8], body_end: usize) -> Result<&[u8], ProgramError> {
     let len = read_tail_len(data, body_end)? as usize;
     let start = body_end + 4;
-    let end = start.checked_add(len).ok_or(ProgramError::InvalidAccountData)?;
+    let end = start
+        .checked_add(len)
+        .ok_or(ProgramError::InvalidAccountData)?;
     if data.len() < end {
         return Err(ProgramError::InvalidAccountData);
     }
@@ -229,10 +231,7 @@ pub fn tail_payload(data: &[u8], body_end: usize) -> Result<&[u8], ProgramError>
 /// exactly matches the u32 prefix. Extra bytes beyond `T`'s decode
 /// are a malformed-encoding signal.
 #[inline]
-pub fn read_tail<T: TailCodec>(
-    data: &[u8],
-    body_end: usize,
-) -> Result<T, ProgramError> {
+pub fn read_tail<T: TailCodec>(data: &[u8], body_end: usize) -> Result<T, ProgramError> {
     let payload = tail_payload(data, body_end)?;
     let (value, consumed) = T::decode(payload)?;
     if consumed != payload.len() {
@@ -329,7 +328,9 @@ mod tests {
     #[test]
     fn option_some_includes_inner_payload() {
         let mut buf = [0u8; 16];
-        let n = Option::<u64>::Some(0xAAAA_BBBB_CCCC_DDDD).encode(&mut buf).unwrap();
+        let n = Option::<u64>::Some(0xAAAA_BBBB_CCCC_DDDD)
+            .encode(&mut buf)
+            .unwrap();
         assert_eq!(n, 9);
         assert_eq!(buf[0], 1);
         let (back, c) = <Option<u64>>::decode(&buf).unwrap();
@@ -390,7 +391,10 @@ mod tests {
         assert_eq!(0u32.encode(&mut buf).unwrap(), u32::MAX_ENCODED_LEN);
         assert_eq!(0u64.encode(&mut buf).unwrap(), u64::MAX_ENCODED_LEN);
         assert_eq!(true.encode(&mut buf).unwrap(), bool::MAX_ENCODED_LEN);
-        assert_eq!([0u8; 7].encode(&mut buf).unwrap(), <[u8; 7]>::MAX_ENCODED_LEN);
+        assert_eq!(
+            [0u8; 7].encode(&mut buf).unwrap(),
+            <[u8; 7]>::MAX_ENCODED_LEN
+        );
         assert_eq!(Option::<u32>::None.encode(&mut buf).unwrap(), 1);
         assert_eq!(
             Option::<u32>::Some(0).encode(&mut buf).unwrap(),

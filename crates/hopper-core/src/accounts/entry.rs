@@ -4,10 +4,10 @@
 //! for clean instruction dispatch. Bridges the Account DSL to Hopper's
 //! existing dispatch system.
 
-use hopper_runtime::{AccountView, Address};
 use hopper_runtime::error::ProgramError;
+use hopper_runtime::{AccountView, Address};
 
-use super::context::{HopperCtx, HopperAccounts};
+use super::context::{HopperAccounts, HopperCtx};
 
 /// Trait defining a Hopper instruction.
 ///
@@ -45,23 +45,13 @@ where
     F: FnOnce(HopperCtx<'a, I::Accounts>, I::Args) -> Result<(), ProgramError>,
 {
     let args = I::parse_args(instruction_data)?;
-    let (accts, bumps) = I::Accounts::try_from_accounts(
-        program_id,
-        accounts,
-        instruction_data,
-    )?;
+    let (accts, bumps) = I::Accounts::try_from_accounts(program_id, accounts, instruction_data)?;
     let consumed = I::Accounts::ACCOUNT_COUNT;
     let remaining = if consumed < accounts.len() {
         &accounts[consumed..]
     } else {
         &[]
     };
-    let ctx = HopperCtx::new(
-        accts,
-        bumps,
-        program_id,
-        instruction_data,
-        remaining,
-    );
+    let ctx = HopperCtx::new(accts, bumps, program_id, instruction_data, remaining);
     handler(ctx, args)
 }

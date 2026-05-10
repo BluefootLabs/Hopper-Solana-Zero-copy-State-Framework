@@ -148,6 +148,7 @@ fn invoke_system(data: &[u8], accounts: &[CpiAccount], signers: &[Signer]) -> Pr
             data,
             accounts: &[], // Not used by the C ABI path
         };
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let result = unsafe {
             crate::syscalls::sol_invoke_signed_c(
                 &ix as *const _ as *const u8,

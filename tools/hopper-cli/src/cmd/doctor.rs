@@ -109,7 +109,10 @@ fn check_cargo_expand() -> Result<String, String> {
         .arg("expand")
         .arg("--version")
         .output()
-        .map_err(|_| "not installed. run `cargo install cargo-expand` (or `hopper expand --install`)".to_string())?;
+        .map_err(|_| {
+            "not installed. run `cargo install cargo-expand` (or `hopper expand --install`)"
+                .to_string()
+        })?;
     if !out.status.success() {
         return Err("exited non-zero".into());
     }
@@ -178,7 +181,10 @@ fn check_src_lib_rs() -> Result<String, String> {
 
 fn check_program_attr() -> Result<String, String> {
     let text = fs::read_to_string("src/lib.rs").map_err(|e| format!("read: {e}"))?;
-    if text.contains("#[program]") || text.contains("#[hopper_program]") || text.contains("#[hopper::program]") {
+    if text.contains("#[program]")
+        || text.contains("#[hopper_program]")
+        || text.contains("#[hopper::program]")
+    {
         Ok("found".into())
     } else {
         Err("no #[program] module in src/lib.rs".into())

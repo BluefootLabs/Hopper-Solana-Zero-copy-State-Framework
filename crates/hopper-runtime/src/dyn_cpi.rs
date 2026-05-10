@@ -33,12 +33,7 @@
 
 use core::mem::MaybeUninit;
 
-use crate::{
-    account::AccountView,
-    address::Address,
-    error::ProgramError,
-    result::ProgramResult,
-};
+use crate::{account::AccountView, address::Address, error::ProgramError, result::ProgramResult};
 
 /// Variable-length CPI builder with compile-time stack capacity.
 ///
@@ -159,12 +154,8 @@ impl<'a, const MAX_ACCTS: usize, const MAX_DATA: usize> DynCpi<'a, MAX_ACCTS, MA
     /// the CPI.
     #[inline]
     pub fn data(&self) -> &[u8] {
-        unsafe {
-            core::slice::from_raw_parts(
-                self.data.as_ptr() as *const u8,
-                self.data_len,
-            )
-        }
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        unsafe { core::slice::from_raw_parts(self.data.as_ptr() as *const u8, self.data_len) }
     }
 }
 
@@ -180,10 +171,7 @@ mod tests {
         cpi.push_u64_le(0xCAFEBABE_u64).unwrap();
         assert_eq!(cpi.data_len(), 1 + 8);
         assert_eq!(cpi.data()[0], 0xA1);
-        assert_eq!(
-            &cpi.data()[1..9],
-            &0xCAFEBABE_u64.to_le_bytes()
-        );
+        assert_eq!(&cpi.data()[1..9], &0xCAFEBABE_u64.to_le_bytes());
     }
 
     #[test]

@@ -1,0 +1,82 @@
+# Hopper Release Checklist
+
+This checklist is the source of truth for what is published to crates.io and
+what must stay private during a release cut.
+
+## Non-Public Workspace Packages
+
+The following package manifests are intentionally non-public and must keep
+`publish = false` under `[package]`:
+
+- `examples/hopper-vault/Cargo.toml` (`hopper-vault`)
+- `examples/hopper-parity-vault/Cargo.toml` (`hopper-parity-vault`)
+- `examples/hopper-escrow/Cargo.toml` (`hopper-escrow`)
+- `examples/hopper-showcase/Cargo.toml` (`hopper-showcase`)
+- `examples/hopper-treasury/Cargo.toml` (`hopper-treasury`)
+- `examples/hopper-registry/Cargo.toml` (`hopper-registry`)
+- `examples/hopper-migration/Cargo.toml` (`hopper-migration`)
+- `examples/hopper-virtual-state/Cargo.toml` (`hopper-virtual-state`)
+- `examples/hopper-token-2022-ata/Cargo.toml` (`hopper-token-2022-ata`)
+- `examples/hopper-token-2022-vault/Cargo.toml` (`hopper-token-2022-vault`)
+- `examples/hopper-token-2022-transfer-hook/Cargo.toml` (`hopper-token-2022-transfer-hook`)
+- `examples/hopper-nft-mint/Cargo.toml` (`hopper-nft-mint`)
+- `examples/hopper-proc-vault/Cargo.toml` (`hopper-proc-vault`)
+- `examples/hopper-policy-vault/Cargo.toml` (`hopper-policy-vault`)
+- `examples/cross-program-read/program-a/Cargo.toml` (`hopper-xp-program-a`)
+- `examples/cross-program-read/program-b/Cargo.toml` (`hopper-xp-program-b`)
+- `tests/hopper-trybuild/Cargo.toml` (`hopper-trybuild`)
+- `fuzz/Cargo.toml` (`hopper-fuzz`)
+
+Do not publish example crates such as `hopper-vault`, `hopper-parity-vault`, or
+`hopper-policy-vault` unless the release explicitly promotes them as public
+starter templates and their manifests receive complete crates.io metadata first.
+
+## Published Package Metadata Gate
+
+Every package intended for crates.io must have complete crates.io metadata in
+`[package]` before publishing:
+
+- `description`
+- `license`
+- `repository`
+- `homepage`
+- `documentation`
+- `readme`
+- `keywords`
+- `categories` when a crates.io category applies
+
+## crates.io Publication Order
+
+Publish the public Hopper crates in this dependency order. Run
+`cargo publish --dry-run -p <package>` before each real publish and wait for
+crates.io indexing before publishing the next dependent crate.
+
+1. `hopper-native`
+2. `hopper-runtime`
+3. `hopper-core`
+4. `hopper-system`
+5. `hopper-token`
+6. `hopper-memo`
+7. `hopper-metaplex`
+8. `hopper-schema`
+9. `hopper-macros-proc`
+10. `hopper-macros`
+11. `hopper-solana`
+12. `hopper-associated-token`
+13. `hopper-token-2022`
+14. `hopper-finance`
+15. `hopper-lending`
+16. `hopper-staking`
+17. `hopper-vesting`
+18. `hopper-distribute`
+19. `hopper-multisig`
+20. `hopper-anchor`
+21. `hopper-manager`
+22. `hopper-sdk`
+23. `hopper-cli`
+24. `hopper`
+
+`hopper-cli` is intentionally published after `hopper-manager` and
+`hopper-schema` have indexed because it depends on both.
+
+        

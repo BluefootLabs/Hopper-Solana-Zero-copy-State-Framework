@@ -44,8 +44,8 @@
 //! let book = vstate.overlay::<OrderBook>(accounts, 1)?;
 //! ```
 
+use crate::account::{FixedLayout, Pod};
 use hopper_runtime::{error::ProgramError, AccountView, Address, Ref, RefMut};
-use crate::account::{Pod, FixedLayout};
 
 // -- Virtual Slot --
 
@@ -107,7 +107,11 @@ impl<const N: usize> VirtualState<N> {
     #[inline(always)]
     pub const fn new() -> Self {
         Self {
-            slots: [VirtualSlot { account_index: 0, require_owned: false, require_writable: false }; N],
+            slots: [VirtualSlot {
+                account_index: 0,
+                require_owned: false,
+                require_writable: false,
+            }; N],
             count: 0,
         }
     }
@@ -299,10 +303,7 @@ pub struct ShardedAccess<'a, const SHARDS: usize> {
 impl<'a, const SHARDS: usize> ShardedAccess<'a, SHARDS> {
     /// Create a sharded access from account indices.
     #[inline]
-    pub fn new(
-        accounts: &'a [AccountView],
-        shard_indices: &[u8],
-    ) -> Result<Self, ProgramError> {
+    pub fn new(accounts: &'a [AccountView], shard_indices: &[u8]) -> Result<Self, ProgramError> {
         if shard_indices.len() > SHARDS {
             return Err(ProgramError::InvalidArgument);
         }
@@ -343,7 +344,9 @@ impl<'a, const SHARDS: usize> ShardedAccess<'a, SHARDS> {
             return Err(ProgramError::InvalidArgument);
         }
         let idx = self.shard_indices[shard] as usize;
-        self.accounts.get(idx).ok_or(ProgramError::NotEnoughAccountKeys)
+        self.accounts
+            .get(idx)
+            .ok_or(ProgramError::NotEnoughAccountKeys)
     }
 
     /// Get the account data for the shard that owns a given key.

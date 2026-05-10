@@ -3,10 +3,10 @@
 [![License: MIT OR Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](LICENSE-MIT)
 ![no_std](https://img.shields.io/badge/no__std-yes-green.svg)
 
-> **Beta / pre-release.** Hopper is under active development and has not
-> received an external security audit. APIs may change. Use at your own risk.
-> Hopper is not published to crates.io or docs.rs yet; use a git or path
-> dependency until the first public release is cut.
+> **Release status.** Hopper `0.1.0` is the first public crates.io release of
+> the Hopper framework, CLI, and public companion crates. APIs are still young,
+> but the published surface is documented, benchmark-provenanced, and gated by
+> the release checks in this repository.
 
 Hopper is a zero-copy state framework for Solana programs. It maps typed,
 fixed-layout views onto account bytes without a serialization round trip, while
@@ -25,28 +25,39 @@ benchmark suite and SVM harness live separately.
 - Segment-aware access helpers for field-level borrow tracking.
 - Optional proc macros for faster authoring; the core framework remains usable
   without proc macros.
-- Hopper Native by default, with explicit legacy Pinocchio and
-  `solana-program` compatibility modes quarantined behind opt-in features.
+- Hopper Native by default, targeting Pinocchio-class performance with
+  framework safety/DX, with explicit legacy Pinocchio and `solana-program`
+  compatibility modes quarantined behind opt-in features.
 - Schema, IDL, manager, and CLI tooling for inspecting and explaining account
   layouts.
 
-## Status
+## Release Status
 
-Hopper is not release-stable yet.
-
-- Use from source via a git or path dependency.
-- Do not rely on public API stability until the first tagged release.
-- Benchmark numbers should be regenerated from the separate
+- Published framework version: `hopper = "0.1.0"`.
+- Published CLI package: `cargo install hopper-cli`.
+- Public companion crates include `hopper-native`, `hopper-runtime`,
+  `hopper-core`, `hopper-schema`, `hopper-solana`, `hopper-token`,
+  `hopper-token-2022`, `hopper-associated-token`, `hopper-system`,
+  `hopper-memo`, `hopper-finance`, `hopper-lending`, `hopper-staking`,
+  `hopper-vesting`, `hopper-distribute`, `hopper-multisig`, `hopper-anchor`,
+  `hopper-manager`, and `hopper-sdk`, all at `0.1.0`.
+- Benchmark numbers must be regenerated from the separate
   [hopper-bench](https://github.com/BluefootLabs/hopper-bench) repo before any
   launch or comparison claim.
-- Security-sensitive users should treat Hopper as unaudited until an external
-  audit is complete.
+- Security-sensitive users should review [AUDIT.md](AUDIT.md) and
+  [docs/UNSAFE_INVARIANTS.md](docs/UNSAFE_INVARIANTS.md) before deployment.
 
-## Quick start from source
+## Quick Start
 
 ```toml
 [dependencies]
-hopper = { git = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework", features = ["proc-macros"] }
+hopper = { version = "0.1.0", features = ["proc-macros"] }
+```
+
+Install the CLI:
+
+```sh
+cargo install hopper-cli
 ```
 
 For local development inside this repository:
@@ -91,7 +102,7 @@ mod vault {
 - [docs/MIGRATION_FROM_ANCHOR.md](docs/MIGRATION_FROM_ANCHOR.md): Anchor-to-Hopper migration notes.
 - [docs/MIGRATION_FROM_QUASAR.md](docs/MIGRATION_FROM_QUASAR.md): Quasar-to-Hopper migration notes.
 - [docs/DYNAMIC_TAILS_FROM_QUASAR.md](docs/DYNAMIC_TAILS_FROM_QUASAR.md): mapping Quasar bounded dynamic fields to Hopper fixed-body + dynamic-tail layouts.
-- [docs/QUASAR_PINOCCHIO_REPLACEMENT.md](docs/QUASAR_PINOCCHIO_REPLACEMENT.md): why Hopper Native replaces a backend-first Pinocchio story.
+- [docs/QUASAR_PINOCCHIO_REPLACEMENT.md](docs/QUASAR_PINOCCHIO_REPLACEMENT.md): what Hopper replaces from Quasar/Pinocchio and what benchmark claims still require same-provenance proof.
 - [docs/CLI_REFERENCE.md](docs/CLI_REFERENCE.md): lifecycle, schema, client, profiling, and manager command reference.
 
 ## Access model
@@ -144,13 +155,13 @@ Hopper Native is the default backend.
 
 ```toml
 # Default backend
-hopper = { git = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework" }
+hopper = "0.1.0"
 
 # Legacy Pinocchio migration/benchmark compatibility only
-hopper = { git = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework", default-features = false, features = ["legacy-pinocchio-compat"] }
+hopper = { version = "0.1.0", default-features = false, features = ["legacy-pinocchio-compat"] }
 
 # solana-program compatibility backend
-hopper = { git = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework", default-features = false, features = ["solana-program-backend"] }
+hopper = { version = "0.1.0", default-features = false, features = ["solana-program-backend"] }
 ```
 
 Only one backend should be enabled for a program build.
@@ -188,8 +199,29 @@ https://github.com/BluefootLabs/hopper-bench
 Do not copy old benchmark numbers from this README. Regenerate numbers from the
 benchmark repo before publishing performance claims.
 
-Do not claim Pinocchio performance parity or wins until the R2 Pinocchio column
-has been regenerated from the standalone benchmark repo.
+Release-facing performance claims are Hopper-vs-Quasar only until the Anza
+Pinocchio target is measured from the same `hopper-bench` lockfile, SBF
+toolchain, Mollusk version, seed set, feature flags, release profile, and
+command line as the Hopper and Quasar columns.
+
+Current positioning: Hopper targets Pinocchio-class performance and access
+shape while adding framework safety, schema, lifecycle, CPI, and CLI tooling.
+That is an architecture/DX claim until a same-provenance Pinocchio column is
+published.
+
+Canonical reproduction command:
+
+```sh
+cd ../hopper-bench
+./measure.sh all
+```
+
+### Where Pinocchio Is Still The Right Choice
+
+Use raw Pinocchio directly when a program wants the smallest possible substrate,
+manual account validation, and no framework-level schema, lifecycle, or tooling
+surface. Hopper is the framework-layer option for teams that want the same
+low-level access model plus explicit safety and developer ergonomics.
 
 ## Safety posture
 

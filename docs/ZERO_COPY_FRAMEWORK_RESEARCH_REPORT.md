@@ -366,7 +366,7 @@ The zero-copy path goes through `bytemuck::from_bytes` / `bytemuck::from_bytes_m
 
 ### B. Unique Innovations
 
-1. **Chainable validation**: Steel's killer feature. Every validation method returns `Result<&Self, ProgramError>`, enabling fluent method chains:
+1. **Chainable validation**: Steel's most visible ergonomics feature. Every validation method returns `Result<&Self, ProgramError>`, enabling fluent method chains:
 
 ```rust
 // This is actual Steel code: each method returns Result<&Self>
@@ -1431,7 +1431,12 @@ Anchor's `#[program]` with `#[bolt_program]` wrapper for ECS dispatch:
 | **IDL Generation** | No | No | Yes (JSON) | Yes (JSON) | No | Yes (Anchor) |
 | **Event System** | No | `Loggable` trait | `emit!()` | `emit!()` + `emit_cpi!()` (authenticated) | No | Yes (Anchor) |
 | **Binary Size** | ~20-50KB | ~150-200KB | ~200-400KB | ~30-80KB | ~200KB+ | ~300-500KB |
-| **Typical CU Overhead** | Baseline | 2-3x baseline | 3-5x baseline | 1.1-1.5x baseline | N/A (compressed) | 5-10x baseline |
+| **CU posture** | Baseline manual substrate | RefCell and validation overhead | Borsh/RefCell overhead unless using AccountLoader | Near-substrate design; release comparisons require same-provenance measurement | N/A (compressed CPI/proof model) | Anchor overhead inherited |
+
+Do not read this table as a Hopper-vs-Pinocchio benchmark. The release-facing
+Hopper numbers live in `BENCHMARKS.md` and currently compare Hopper and Quasar
+only. A Pinocchio result belongs in public docs only after a same-provenance
+Anza Pinocchio target is measured from the sibling `hopper-bench` repo.
 
 ---
 
@@ -1547,9 +1552,14 @@ SVM Runtime (raw input buffer)
     │       │
     │       └── Light Protocol compressed-accounts SDK
     │
-    └── [Hopper?]: potential position: Pinocchio-level substrate
-                     with unique innovations above
+    └── [Hopper?]: potential position: Pinocchio-level access model
+                     with framework-layer safety, schema, lifecycle,
+                     CPI, and CLI tooling
 ```
+
+Raw Pinocchio remains the right tool when a program wants a minimal manual
+substrate and does not want framework-owned schema, lifecycle, or tooling.
+Hopper is the framework-layer option when those surfaces are worth carrying.
 
 ---
 

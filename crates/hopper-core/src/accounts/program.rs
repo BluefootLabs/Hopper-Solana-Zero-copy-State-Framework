@@ -3,8 +3,8 @@
 //! Wraps an AccountView and validates that it is executable. Used for
 //! program accounts passed to instructions (e.g. token_program, system_program).
 
-use hopper_runtime::{AccountView, Address};
 use hopper_runtime::error::ProgramError;
+use hopper_runtime::{AccountView, Address};
 
 use crate::check;
 

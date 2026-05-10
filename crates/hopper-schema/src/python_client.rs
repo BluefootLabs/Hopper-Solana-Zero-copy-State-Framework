@@ -622,7 +622,9 @@ mod tests {
         assert!(out.contains("LAYOUT_ID_OFFSET = 4"));
         assert!(out.contains("LAYOUT_ID_LENGTH = 8"));
         assert!(out.contains("flags=int.from_bytes(buf[2:4], \"little\")"));
-        assert!(out.contains("layout_id=bytes(buf[LAYOUT_ID_OFFSET:LAYOUT_ID_OFFSET + LAYOUT_ID_LENGTH])"));
+        assert!(out.contains(
+            "layout_id=bytes(buf[LAYOUT_ID_OFFSET:LAYOUT_ID_OFFSET + LAYOUT_ID_LENGTH])"
+        ));
         assert!(out.contains("reserved=bytes(buf[12:16])"));
         assert!(!out.contains("HEADER_LEN = 12"));
         assert!(!out.contains("layout_id=bytes(buf[4:12])"));

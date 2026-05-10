@@ -162,7 +162,9 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
     for module_item in items.iter_mut() {
         if let Item::Fn(method) = module_item {
             if let Some(mut handler) = prepare_handler(method)? {
-                method.attrs.retain(|attr| !attr.path().is_ident("instruction"));
+                method
+                    .attrs
+                    .retain(|attr| !attr.path().is_ident("instruction"));
                 handler.fn_name = method.sig.ident.clone();
                 handlers.push(handler);
             }
@@ -196,9 +198,7 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
                     &input,
                     format!(
                         "duplicate instruction discriminator {:02x?}: `{}` and `{}`",
-                        handlers[i].discriminator,
-                        handlers[i].fn_name,
-                        handlers[j].fn_name,
+                        handlers[i].discriminator, handlers[i].fn_name, handlers[j].fn_name,
                     ),
                 ));
             }
@@ -296,10 +296,7 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
             let Item::Fn(method) = module_item else {
                 continue;
             };
-            let Some(handler) = handlers
-                .iter()
-                .find(|h| h.fn_name == method.sig.ident)
-            else {
+            let Some(handler) = handlers.iter().find(|h| h.fn_name == method.sig.ident) else {
                 continue;
             };
             if handler.instruction_policy.unsafe_memory {
@@ -440,7 +437,10 @@ fn path_ident(path: &Path) -> Result<String> {
 }
 
 fn expect_bool_lit(expr: &Expr) -> Result<bool> {
-    if let Expr::Lit(ExprLit { lit: Lit::Bool(b), .. }) = expr {
+    if let Expr::Lit(ExprLit {
+        lit: Lit::Bool(b), ..
+    }) = expr
+    {
         Ok(b.value)
     } else {
         Err(syn::Error::new(
@@ -455,13 +455,12 @@ fn expect_bool_lit(expr: &Expr) -> Result<bool> {
 /// receipts and SchemaExport positional slots. Anything larger almost
 /// certainly indicates a typo rather than a 256-arg handler.
 fn expect_u8_lit(expr: &Expr) -> Result<u8> {
-    if let Expr::Lit(ExprLit { lit: Lit::Int(int), .. }) = expr {
-        int.base10_parse::<u8>().map_err(|_| {
-            syn::Error::new(
-                expr.span(),
-                "`ctx_args` must fit in a u8 (0..=255)",
-            )
-        })
+    if let Expr::Lit(ExprLit {
+        lit: Lit::Int(int), ..
+    }) = expr
+    {
+        int.base10_parse::<u8>()
+            .map_err(|_| syn::Error::new(expr.span(), "`ctx_args` must fit in a u8 (0..=255)"))
     } else {
         Err(syn::Error::new(
             expr.span(),
@@ -481,8 +480,8 @@ fn prepare_handler(function: &mut ItemFn) -> Result<Option<Handler>> {
 
     let modifiers = extract_handler_modifiers(&mut function.attrs)?;
 
-    let (discriminator, instruction_policy) =
-        extract_instruction_attribute(&function.attrs)?.ok_or_else(|| {
+    let (discriminator, instruction_policy) = extract_instruction_attribute(&function.attrs)?
+        .ok_or_else(|| {
             syn::Error::new_spanned(
                 &function.sig,
                 "hopper_program requires #[instruction(N)] on each generated handler",
@@ -673,7 +672,10 @@ fn parse_invariant_attr(attr: &Attribute) -> Result<InvariantSpec> {
         ));
     }
 
-    Ok(InvariantSpec { condition, error_variant })
+    Ok(InvariantSpec {
+        condition,
+        error_variant,
+    })
 }
 
 fn extract_handler_modifiers(attrs: &mut Vec<Attribute>) -> Result<HandlerModifiers> {
@@ -1008,7 +1010,10 @@ fn extract_typed_context_spec(ty: &Type) -> Result<Option<Path>> {
 fn bind_type_for(spec: &Path) -> Result<Type> {
     let mut bound = spec.clone();
     let Some(last) = bound.segments.last_mut() else {
-        return Err(syn::Error::new_spanned(spec, "expected a concrete context type path"));
+        return Err(syn::Error::new_spanned(
+            spec,
+            "expected a concrete context type path",
+        ));
     };
     if !matches!(last.arguments, PathArguments::None) {
         return Err(syn::Error::new_spanned(
@@ -1080,7 +1085,11 @@ fn extract_instruction_attribute(
             // else (integer literal, bare flag, nothing) falls through to
             // the single-byte / legacy path.
             let disc: Vec<u8> = if input.peek(syn::Ident)
-                && input.fork().parse::<Ident>().map(|i| i == "discriminator").unwrap_or(false)
+                && input
+                    .fork()
+                    .parse::<Ident>()
+                    .map(|i| i == "discriminator")
+                    .unwrap_or(false)
             {
                 let _: Ident = input.parse()?;
                 let _: Token![=] = input.parse()?;
@@ -1100,7 +1109,9 @@ fn extract_instruction_attribute(
                 let mut bytes = Vec::with_capacity(arr.elems.len());
                 for elem in &arr.elems {
                     match elem {
-                        Expr::Lit(ExprLit { lit: Lit::Int(int), .. }) => {
+                        Expr::Lit(ExprLit {
+                            lit: Lit::Int(int), ..
+                        }) => {
                             bytes.push(int.base10_parse::<u8>().map_err(|_| {
                                 syn::Error::new_spanned(
                                     elem,
@@ -1286,9 +1297,8 @@ mod ctx_args_tests {
 
     #[test]
     fn ctx_args_rejects_non_integer_literal() {
-        let result = extract_instruction_attribute(&[
-            parse_quote!(#[instruction(0, ctx_args = "two")]),
-        ]);
+        let result =
+            extract_instruction_attribute(&[parse_quote!(#[instruction(0, ctx_args = "two")])]);
         let err = result.expect_err("should reject string literal");
         let msg = err.to_string();
         assert!(
@@ -1299,9 +1309,8 @@ mod ctx_args_tests {
 
     #[test]
     fn ctx_args_rejects_u8_overflow() {
-        let result = extract_instruction_attribute(&[
-            parse_quote!(#[instruction(0, ctx_args = 256)]),
-        ]);
+        let result =
+            extract_instruction_attribute(&[parse_quote!(#[instruction(0, ctx_args = 256)])]);
         let err = result.expect_err("should reject 256");
         let msg = err.to_string();
         assert!(msg.contains("u8"), "unexpected error message: {msg}");
@@ -1309,9 +1318,8 @@ mod ctx_args_tests {
 
     #[test]
     fn unknown_flag_lists_ctx_args_in_suggestion() {
-        let result = extract_instruction_attribute(&[
-            parse_quote!(#[instruction(0, unknown_flag)]),
-        ]);
+        let result =
+            extract_instruction_attribute(&[parse_quote!(#[instruction(0, unknown_flag)])]);
         let err = result.expect_err("should reject unknown flag");
         let msg = err.to_string();
         assert!(
@@ -1365,7 +1373,9 @@ mod ctx_args_tests {
         let h = Handler {
             discriminator: vec![0u8],
             fn_name: format_ident!("swap"),
-            binding: ContextBinding::Typed { spec: parse_quote!(Swap) },
+            binding: ContextBinding::Typed {
+                spec: parse_quote!(Swap),
+            },
             arg_types: vec![
                 parse_quote!(u64),
                 parse_quote!(u8),
@@ -1419,7 +1429,9 @@ mod ctx_args_tests {
         let h = Handler {
             discriminator: vec![0u8],
             fn_name: format_ident!("deposit"),
-            binding: ContextBinding::Typed { spec: parse_quote!(Deposit) },
+            binding: ContextBinding::Typed {
+                spec: parse_quote!(Deposit),
+            },
             arg_types: vec![parse_quote!(u64)],
             instruction_policy: InstructionPolicyArgs::default(),
         };
@@ -1460,6 +1472,9 @@ mod ctx_args_tests {
             !out.contains("bind"),
             "raw ctx handler must not reference any bind*: {out}",
         );
-        assert!(out.contains("raw (ctx)"), "raw ctx dispatch expected: {out}");
+        assert!(
+            out.contains("raw (ctx)"),
+            "raw ctx dispatch expected: {out}"
+        );
     }
 }

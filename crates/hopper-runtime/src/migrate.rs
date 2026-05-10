@@ -52,7 +52,7 @@ pub struct MigrationEdge {
 }
 
 impl MigrationEdge {
-    /// Reject edges that would decrement or stay at the same epoch . 
+    /// Reject edges that would decrement or stay at the same epoch .
     /// migrations always move forward.
     pub const fn is_forward(&self) -> bool {
         self.to_epoch > self.from_epoch

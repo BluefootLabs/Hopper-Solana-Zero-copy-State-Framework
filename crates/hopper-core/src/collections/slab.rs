@@ -31,8 +31,8 @@
 //! slab.free(idx)?;                  // O(1), fails on double-free
 //! ```
 
+use crate::account::{FixedLayout, Pod};
 use hopper_runtime::error::ProgramError;
-use crate::account::{Pod, FixedLayout};
 
 /// Slab header size in bytes.
 pub const SLAB_HEADER_SIZE: usize = 16;
@@ -71,7 +71,11 @@ impl<'a, T: Pod + FixedLayout> Slab<'a, T> {
         if data.len() < needed {
             return Err(ProgramError::AccountDataTooSmall);
         }
-        Ok(Self { data, capacity, _phantom: core::marker::PhantomData })
+        Ok(Self {
+            data,
+            capacity,
+            _phantom: core::marker::PhantomData,
+        })
     }
 
     /// Initialize a slab with the given capacity.
@@ -108,7 +112,11 @@ impl<'a, T: Pod + FixedLayout> Slab<'a, T> {
         i = 0;
         while i < capacity {
             let slot_offset = slots_start + i * T::SIZE;
-            let next = if i + 1 < capacity { (i + 1) as u32 } else { NO_FREE };
+            let next = if i + 1 < capacity {
+                (i + 1) as u32
+            } else {
+                NO_FREE
+            };
             data[slot_offset..slot_offset + 4].copy_from_slice(&next.to_le_bytes());
             i += 1;
         }

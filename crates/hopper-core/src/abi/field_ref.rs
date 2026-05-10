@@ -28,7 +28,10 @@ impl<'a> FieldRef<'a> {
     /// Read a `u8` from offset 0.
     #[inline(always)]
     pub fn read_u8(&self) -> Result<u8, ProgramError> {
-        self.data.first().copied().ok_or(ProgramError::InvalidAccountData)
+        self.data
+            .first()
+            .copied()
+            .ok_or(ProgramError::InvalidAccountData)
     }
 
     /// Read a little-endian `u16` from offset 0.
@@ -104,7 +107,10 @@ impl<'a> FieldMut<'a> {
     /// Read a `u8` from offset 0.
     #[inline(always)]
     pub fn read_u8(&self) -> Result<u8, ProgramError> {
-        self.data.first().copied().ok_or(ProgramError::InvalidAccountData)
+        self.data
+            .first()
+            .copied()
+            .ok_or(ProgramError::InvalidAccountData)
     }
 
     /// Read a little-endian `u64` from offset 0.

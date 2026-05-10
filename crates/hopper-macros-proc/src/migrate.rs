@@ -95,7 +95,8 @@ fn parse_attr(attr: TokenStream) -> Result<(u32, u32)> {
             to = Some(lit.base10_parse()?);
             return Ok(());
         }
-        Err(meta.error("unrecognized #[hopper::migrate] attribute. only `from` and `to` are accepted"))
+        Err(meta
+            .error("unrecognized #[hopper::migrate] attribute. only `from` and `to` are accepted"))
     });
     syn::parse::Parser::parse2(parser, attr)?;
 

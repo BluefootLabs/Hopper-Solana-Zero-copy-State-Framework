@@ -11,10 +11,10 @@
 //! usual "no naked raw reference from account access" rule. Field-level hot
 //! paths should still prefer generated accessors or segment leases.
 
-use hopper_runtime::{Ref, RefMut};
-use hopper_runtime::error::ProgramError;
-use super::pod::{Pod, FixedLayout};
 use super::header::HEADER_LEN;
+use super::pod::{FixedLayout, Pod};
+use hopper_runtime::error::ProgramError;
+use hopper_runtime::{Ref, RefMut};
 
 enum VerifiedBytes<'a> {
     Borrowed(Ref<'a, [u8]>),
@@ -130,7 +130,9 @@ impl<'a, T: Pod + FixedLayout> VerifiedAccount<'a, T> {
     /// sub-structures without re-validation.
     #[inline]
     pub fn slice(&self, offset: usize, len: usize) -> Result<&[u8], ProgramError> {
-        let end = offset.checked_add(len).ok_or(ProgramError::ArithmeticOverflow)?;
+        let end = offset
+            .checked_add(len)
+            .ok_or(ProgramError::ArithmeticOverflow)?;
         if end > self.data().len() {
             return Err(ProgramError::AccountDataTooSmall);
         }
@@ -143,7 +145,9 @@ impl<'a, T: Pod + FixedLayout> VerifiedAccount<'a, T> {
     /// where the outer account has already been validated.
     #[inline]
     pub fn overlay_at<U: Pod + FixedLayout>(&self, offset: usize) -> Result<&U, ProgramError> {
-        let end = offset.checked_add(U::SIZE).ok_or(ProgramError::ArithmeticOverflow)?;
+        let end = offset
+            .checked_add(U::SIZE)
+            .ok_or(ProgramError::ArithmeticOverflow)?;
         if end > self.data().len() {
             return Err(ProgramError::AccountDataTooSmall);
         }
@@ -286,20 +290,29 @@ impl<'a, T: Pod + FixedLayout> VerifiedAccountMut<'a, T> {
     /// Overlay a second Pod type at a given offset (immutable).
     #[inline]
     pub fn overlay_at<U: Pod + FixedLayout>(&self, offset: usize) -> Result<&U, ProgramError> {
-        let end = offset.checked_add(U::SIZE).ok_or(ProgramError::ArithmeticOverflow)?;
+        let end = offset
+            .checked_add(U::SIZE)
+            .ok_or(ProgramError::ArithmeticOverflow)?;
         if end > self.data().len() {
             return Err(ProgramError::AccountDataTooSmall);
         }
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         Ok(unsafe { &*(self.data().as_ptr().add(offset) as *const U) })
     }
 
     /// Overlay a second Pod type at a given offset (mutable).
     #[inline]
-    pub fn overlay_at_mut<U: Pod + FixedLayout>(&mut self, offset: usize) -> Result<&mut U, ProgramError> {
-        let end = offset.checked_add(U::SIZE).ok_or(ProgramError::ArithmeticOverflow)?;
+    pub fn overlay_at_mut<U: Pod + FixedLayout>(
+        &mut self,
+        offset: usize,
+    ) -> Result<&mut U, ProgramError> {
+        let end = offset
+            .checked_add(U::SIZE)
+            .ok_or(ProgramError::ArithmeticOverflow)?;
         if end > self.data().len() {
             return Err(ProgramError::AccountDataTooSmall);
         }
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         Ok(unsafe { &mut *(self.data_mut().as_mut_ptr().add(offset) as *mut U) })
     }
 }

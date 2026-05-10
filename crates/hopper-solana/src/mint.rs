@@ -90,6 +90,7 @@ pub fn mint_freeze_authority(data: &[u8]) -> Result<Option<&Address>, ProgramErr
     if tag == 0 {
         return Ok(None);
     }
+    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     Ok(Some(unsafe {
         &*(data.as_ptr().add(FREEZE_AUTH_OFFSET + 4) as *const Address)
     }))

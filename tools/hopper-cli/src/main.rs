@@ -58,23 +58,38 @@
 //! Hex data is passed as a hex string (no 0x prefix).
 //! Manifest arguments accept inline JSON or `@path/to/file.json`.
 
-use hopper_schema::{
-    DecodedHeader, FieldCompat, FieldDescriptor, FieldIntent, LayoutFingerprint,
-    LayoutManifest,
-    MigrationAction, MigrationPlan, MigrationPolicy,
-    SegmentMigrationReport, SegmentRoleHint,
-    CompatibilityVerdict,
-    compare_fields, decode_header, decode_segments,
-    // Manager types
-    AccountEntry, ArgDescriptor, EventDescriptor,
-    InstructionDescriptor, PolicyDescriptor, ProgramManifest,
-    decode_account_fields,
-    // Receipt types (re-exported from hopper-core)
-    CompatImpact, DecodedReceipt, Phase,
-};
-use hopper_schema::clientgen::{TsClientGen, KtClientGen};
-use hopper_schema::python_client::PyClientGen;
 use hopper_schema::accounts::{AccountLifecycle, ContextAccountDescriptor, ContextDescriptor};
+use hopper_schema::clientgen::{KtClientGen, TsClientGen};
+use hopper_schema::python_client::PyClientGen;
+use hopper_schema::{
+    compare_fields,
+    decode_account_fields,
+    decode_header,
+    decode_segments,
+    // Manager types
+    AccountEntry,
+    ArgDescriptor,
+    // Receipt types (re-exported from hopper-core)
+    CompatImpact,
+    CompatibilityVerdict,
+    DecodedHeader,
+    DecodedReceipt,
+    EventDescriptor,
+    FieldCompat,
+    FieldDescriptor,
+    FieldIntent,
+    InstructionDescriptor,
+    LayoutFingerprint,
+    LayoutManifest,
+    MigrationAction,
+    MigrationPlan,
+    MigrationPolicy,
+    Phase,
+    PolicyDescriptor,
+    ProgramManifest,
+    SegmentMigrationReport,
+    SegmentRoleHint,
+};
 use std::env;
 use std::path::PathBuf;
 use std::process;
@@ -82,8 +97,8 @@ use std::process;
 mod bench;
 mod cmd;
 mod config;
-mod rpc;
 mod interactive;
+mod rpc;
 mod style;
 mod workspace;
 
@@ -92,7 +107,10 @@ fn require_header(data: &[u8]) -> DecodedHeader {
     match decode_header(data) {
         Some(h) => h,
         None => {
-            eprintln!("Failed to decode Hopper header (data too short: {} bytes).", data.len());
+            eprintln!(
+                "Failed to decode Hopper header (data too short: {} bytes).",
+                data.len()
+            );
             process::exit(1);
         }
     }
@@ -177,7 +195,9 @@ fn cmd_schema_family(args: &[String]) {
         eprintln!("Usage: hopper schema <subcommand>");
         eprintln!();
         eprintln!("Subcommands:");
-        eprintln!("  export [--manifest|--idl|--codama|--anchor-idl]  Export schema format reference");
+        eprintln!(
+            "  export [--manifest|--idl|--codama|--anchor-idl]  Export schema format reference"
+        );
         eprintln!("  validate <manifest-json>            Validate a program manifest");
         eprintln!("  diff <old-json> <new-json>          Field-level diff between versions");
         process::exit(1);
@@ -221,7 +241,9 @@ fn cmd_explain_family(args: &[String]) {
         eprintln!("  hopper explain compat <old> <new>    Explain compatibility report");
         eprintln!("  hopper explain policy <pack-name>    Explain a named policy pack");
         eprintln!("  hopper explain layout <manifest>     Explain layout fields, intents, and fingerprint");
-        eprintln!("  hopper explain program <manifest>    Explain an entire program from its manifest");
+        eprintln!(
+            "  hopper explain program <manifest>    Explain an entire program from its manifest"
+        );
         eprintln!("  hopper explain context <manifest>    Explain instruction contexts (accounts, roles, policies)");
         process::exit(1);
     }
@@ -331,15 +353,13 @@ fn cmd_compile(args: &[String]) {
     });
 
     let (artifact, label): (String, &'static str) = match target {
-        "rust" => {
-            match render_program_rust_preview(&prog, &options.filters) {
-                Ok(text) => (text, "lowered Rust preview"),
-                Err(err) => {
-                    eprintln!("hopper compile failed: {err}");
-                    process::exit(1);
-                }
+        "rust" => match render_program_rust_preview(&prog, &options.filters) {
+            Ok(text) => (text, "lowered Rust preview"),
+            Err(err) => {
+                eprintln!("hopper compile failed: {err}");
+                process::exit(1);
             }
-        }
+        },
         "ts" => (format!("{}", TsClientGen(&prog)), "TypeScript client SDK"),
         "kt" => (format!("{}", KtClientGen(&prog)), "Kotlin client SDK"),
         "py" => (format!("{}", PyClientGen(&prog)), "Python client SDK"),
@@ -372,11 +392,10 @@ fn cmd_compile(args: &[String]) {
         } else {
             cwd.join(path)
         };
-        workspace::write_text_file(&output_path, &artifact, options.force)
-            .unwrap_or_else(|err| {
-                eprintln!("hopper compile failed: {err}");
-                process::exit(1);
-            });
+        workspace::write_text_file(&output_path, &artifact, options.force).unwrap_or_else(|err| {
+            eprintln!("hopper compile failed: {err}");
+            process::exit(1);
+        });
         println!("Wrote {} to {}", label, output_path.display());
     } else {
         print!("{artifact}");
@@ -400,8 +419,8 @@ fn cmd_compile(args: &[String]) {
                     "[hopper compile --lint] {} error(s), {} warning(s)",
                     summary.errors, summary.warnings,
                 );
-                let fail = summary.errors > 0
-                    || (options.lint_fail_on_warn && summary.warnings > 0);
+                let fail =
+                    summary.errors > 0 || (options.lint_fail_on_warn && summary.warnings > 0);
                 if fail {
                     process::exit(1);
                 }
@@ -507,9 +526,8 @@ fn parse_compile_options(args: &[String]) -> Result<CompileOptions, String> {
         return Err("--rpc is only valid together with --program-id".to_string());
     }
 
-    let source_count = explicit_manifest.is_some() as u8
-        + package.is_some() as u8
-        + program_id.is_some() as u8;
+    let source_count =
+        explicit_manifest.is_some() as u8 + package.is_some() as u8 + program_id.is_some() as u8;
     if source_count > 1 {
         return Err(
             "Choose only one manifest source: an explicit manifest, --package, or --program-id"
@@ -540,7 +558,10 @@ fn parse_compile_options(args: &[String]) -> Result<CompileOptions, String> {
     })
 }
 
-fn load_compile_manifest(source: &CompileManifestSource, cwd: &std::path::Path) -> Result<ProgramManifest, String> {
+fn load_compile_manifest(
+    source: &CompileManifestSource,
+    cwd: &std::path::Path,
+) -> Result<ProgramManifest, String> {
     match source {
         CompileManifestSource::Explicit(arg) => Ok(load_program_manifest(arg)),
         CompileManifestSource::CurrentPackage => {
@@ -549,7 +570,8 @@ fn load_compile_manifest(source: &CompileManifestSource, cwd: &std::path::Path) 
         }
         CompileManifestSource::Package(package) => {
             let workspace_root = workspace::find_workspace_root(cwd)?;
-            let manifest_path = workspace::infer_program_manifest_for_package(&workspace_root, package)?;
+            let manifest_path =
+                workspace::infer_program_manifest_for_package(&workspace_root, package)?;
             load_program_manifest_from_path(&manifest_path)
         }
         CompileManifestSource::ProgramId {
@@ -622,27 +644,36 @@ fn cmd_schema_validate(args: &[String]) {
     let mut errors = 0u32;
     // Check layouts have unique discriminators
     for (i, l1) in manifest.layouts.iter().enumerate() {
-        for l2 in manifest.layouts[i+1..].iter() {
+        for l2 in manifest.layouts[i + 1..].iter() {
             if l1.disc == l2.disc {
-                println!("  ERROR: Duplicate discriminator {} for {} and {}", l1.disc, l1.name, l2.name);
+                println!(
+                    "  ERROR: Duplicate discriminator {} for {} and {}",
+                    l1.disc, l1.name, l2.name
+                );
                 errors += 1;
             }
         }
     }
     // Check instructions have unique tags
     for (i, ix1) in manifest.instructions.iter().enumerate() {
-        for ix2 in manifest.instructions[i+1..].iter() {
+        for ix2 in manifest.instructions[i + 1..].iter() {
             if ix1.tag == ix2.tag {
-                println!("  ERROR: Duplicate instruction tag {} for {} and {}", ix1.tag, ix1.name, ix2.name);
+                println!(
+                    "  ERROR: Duplicate instruction tag {} for {} and {}",
+                    ix1.tag, ix1.name, ix2.name
+                );
                 errors += 1;
             }
         }
     }
     // Check events have unique tags
     for (i, e1) in manifest.events.iter().enumerate() {
-        for e2 in manifest.events[i+1..].iter() {
+        for e2 in manifest.events[i + 1..].iter() {
             if e1.tag == e2.tag {
-                println!("  ERROR: Duplicate event tag {} for {} and {}", e1.tag, e1.name, e2.name);
+                println!(
+                    "  ERROR: Duplicate event tag {} for {} and {}",
+                    e1.tag, e1.name, e2.name
+                );
                 errors += 1;
             }
         }
@@ -704,17 +735,24 @@ fn cmd_explain_receipt(args: &[String]) {
     if before_fp == after_fp {
         println!("  The account data was NOT changed (fingerprints match).");
     } else {
-        println!("  The account data WAS changed ({} bytes modified).", changed_bytes);
+        println!(
+            "  The account data WAS changed ({} bytes modified).",
+            changed_bytes
+        );
     }
     if was_resized {
         let old_size = u32::from_le_bytes(data[22..26].try_into().expect("slice length mismatch"));
         let new_size = u32::from_le_bytes(data[26..30].try_into().expect("slice length mismatch"));
-        println!("  The account was RESIZED from {} to {} bytes.", old_size, new_size);
+        println!(
+            "  The account was RESIZED from {} to {} bytes.",
+            old_size, new_size
+        );
     }
     if invariants_passed {
         println!("  All invariants PASSED.");
     } else {
-        let inv_checked = u16::from_le_bytes(data[30..32].try_into().expect("slice length mismatch"));
+        let inv_checked =
+            u16::from_le_bytes(data[30..32].try_into().expect("slice length mismatch"));
         if inv_checked > 0 {
             println!("  WARNING: Invariants were checked but DID NOT PASS.");
         }
@@ -734,9 +772,15 @@ fn cmd_explain_receipt(args: &[String]) {
     }
     if migration_flags != 0 {
         let mut mig = Vec::new();
-        if migration_flags & 1 != 0 { mig.push("triggered"); }
-        if migration_flags & 2 != 0 { mig.push("realloc"); }
-        if migration_flags & 4 != 0 { mig.push("schema bump"); }
+        if migration_flags & 1 != 0 {
+            mig.push("triggered");
+        }
+        if migration_flags & 2 != 0 {
+            mig.push("realloc");
+        }
+        if migration_flags & 4 != 0 {
+            mig.push("schema bump");
+        }
         println!("  Migration: {}.", mig.join(", "));
     }
 }
@@ -755,7 +799,10 @@ fn cmd_explain_compat(args: &[String]) {
 
     println!("=== Compatibility Explanation ===");
     println!();
-    println!("  Comparing '{}' v{} → v{}", m1.name, m1.version, m2.version);
+    println!(
+        "  Comparing '{}' v{} → v{}",
+        m1.name, m1.version, m2.version
+    );
     println!("  Verdict: {}", verdict.name());
     println!();
 
@@ -791,7 +838,7 @@ fn cmd_explain_compat(args: &[String]) {
     for i in 0..report.len() {
         if let Some(entry) = report.get(i) {
             match entry.status {
-                FieldCompat::Identical => {},
+                FieldCompat::Identical => {}
                 FieldCompat::Added => changes.push(format!("  + Added field '{}'", entry.name)),
                 FieldCompat::Removed => changes.push(format!("  - Removed field '{}'", entry.name)),
                 FieldCompat::Changed => changes.push(format!("  ~ Changed field '{}'", entry.name)),
@@ -825,35 +872,75 @@ fn cmd_explain_policy(args: &[String]) {
     }
 
     let policy_info: (&str, &[(&str, &str)], bool, &[&str]) = match args[0].as_str() {
-        "TreasuryWrite" => ("Vault/treasury balance mutations", &[
-            ("MutatesState", "Authority, StateSnapshot"),
-            ("MutatesTreasury", "LamportConservation, InvariantCheck"),
-        ], true, &["lamport_balance_conserved", "no_phantom_credit"]),
-        "JournalTouch" => ("Journal segment writes", &[
-            ("MutatesState", "Authority"),
-            ("TouchesJournal", "JournalCapacity, StateSnapshot"),
-        ], true, &["journal_append_only", "segment_bounds_checked"]),
-        "ExternalCall" => ("CPI-invoking instructions", &[
-            ("ExternalCall", "CpiGuard, PostMutationCheck, StateSnapshot"),
-        ], true, &["cpi_target_allowlisted", "no_reentrant_mutation"]),
-        "ShardMutation" => ("Shard data modifications", &[
-            ("MutatesState", "Authority, StateSnapshot, InvariantCheck"),
-        ], true, &["shard_index_bounds_checked", "discriminator_preserved"]),
-        "MigrationSensitive" => ("Account reallocation/migration", &[
-            ("ReallocatesAccount", "Authority, RentExemption, StateSnapshot, InvariantCheck"),
-        ], true, &["layout_id_updated", "old_data_preserved_or_migrated"]),
-        "AuthorityChange" => ("Authority/permission modifications", &[
-            ("ModifiesAuthority", "Authority, CpiGuard, PostMutationCheck, InvariantCheck"),
-        ], true, &["old_authority_signed", "no_authority_escalation"]),
-        "ReadOnlyAudit" => ("Read-only inspection", &[
-            ("ReadsState", "StateSnapshot"),
-        ], false, &["no_state_mutation"]),
-        "AccountInit" => ("Account creation", &[
-            ("CreatesAccount", "Authority, RentExemption, InvariantCheck"),
-        ], true, &["header_initialized_correctly", "discriminator_set"]),
-        "AccountClose" => ("Account closure", &[
-            ("ClosesAccount", "Authority, StateSnapshot, LamportConservation"),
-        ], true, &["lamports_drained", "data_zeroed"]),
+        "TreasuryWrite" => (
+            "Vault/treasury balance mutations",
+            &[
+                ("MutatesState", "Authority, StateSnapshot"),
+                ("MutatesTreasury", "LamportConservation, InvariantCheck"),
+            ],
+            true,
+            &["lamport_balance_conserved", "no_phantom_credit"],
+        ),
+        "JournalTouch" => (
+            "Journal segment writes",
+            &[
+                ("MutatesState", "Authority"),
+                ("TouchesJournal", "JournalCapacity, StateSnapshot"),
+            ],
+            true,
+            &["journal_append_only", "segment_bounds_checked"],
+        ),
+        "ExternalCall" => (
+            "CPI-invoking instructions",
+            &[("ExternalCall", "CpiGuard, PostMutationCheck, StateSnapshot")],
+            true,
+            &["cpi_target_allowlisted", "no_reentrant_mutation"],
+        ),
+        "ShardMutation" => (
+            "Shard data modifications",
+            &[("MutatesState", "Authority, StateSnapshot, InvariantCheck")],
+            true,
+            &["shard_index_bounds_checked", "discriminator_preserved"],
+        ),
+        "MigrationSensitive" => (
+            "Account reallocation/migration",
+            &[(
+                "ReallocatesAccount",
+                "Authority, RentExemption, StateSnapshot, InvariantCheck",
+            )],
+            true,
+            &["layout_id_updated", "old_data_preserved_or_migrated"],
+        ),
+        "AuthorityChange" => (
+            "Authority/permission modifications",
+            &[(
+                "ModifiesAuthority",
+                "Authority, CpiGuard, PostMutationCheck, InvariantCheck",
+            )],
+            true,
+            &["old_authority_signed", "no_authority_escalation"],
+        ),
+        "ReadOnlyAudit" => (
+            "Read-only inspection",
+            &[("ReadsState", "StateSnapshot")],
+            false,
+            &["no_state_mutation"],
+        ),
+        "AccountInit" => (
+            "Account creation",
+            &[("CreatesAccount", "Authority, RentExemption, InvariantCheck")],
+            true,
+            &["header_initialized_correctly", "discriminator_set"],
+        ),
+        "AccountClose" => (
+            "Account closure",
+            &[(
+                "ClosesAccount",
+                "Authority, StateSnapshot, LamportConservation",
+            )],
+            true,
+            &["lamports_drained", "data_zeroed"],
+        ),
         other => {
             eprintln!("Unknown policy pack: {}", other);
             process::exit(1);
@@ -869,7 +956,10 @@ fn cmd_explain_policy(args: &[String]) {
         println!("    When {}  → require {}", cap, reqs);
     }
     println!();
-    println!("  Receipt expected: {}", if policy_info.2 { "YES" } else { "NO" });
+    println!(
+        "  Receipt expected: {}",
+        if policy_info.2 { "YES" } else { "NO" }
+    );
     println!();
     if !policy_info.3.is_empty() {
         println!("  Invariant hints:");
@@ -899,12 +989,21 @@ fn cmd_explain_layout(args: &[String]) {
     }
 
     for layout in pm.layouts {
-        println!("  Layout: {} (disc={}, version={})", layout.name, layout.disc, layout.version);
+        println!(
+            "  Layout: {} (disc={}, version={})",
+            layout.name, layout.disc, layout.version
+        );
         println!("    Wire layout_id: {}", hex_encode(&layout.layout_id));
 
         let fp = LayoutFingerprint::from_manifest(layout);
-        println!("    Semantic fingerprint: {}", hex_encode(&fp.semantic_hash));
-        println!("    Total size: {} bytes ({} fields)", layout.total_size, layout.field_count);
+        println!(
+            "    Semantic fingerprint: {}",
+            hex_encode(&fp.semantic_hash)
+        );
+        println!(
+            "    Total size: {} bytes ({} fields)",
+            layout.total_size, layout.field_count
+        );
         println!();
 
         if layout.fields.is_empty() {
@@ -923,15 +1022,25 @@ fn cmd_explain_layout(args: &[String]) {
                     "      {:16} {:12} {:>3}B  @{:<4}  intent={}",
                     field.name, field.canonical_type, field.size, field.offset, intent_tag
                 );
-                if field.intent.is_monetary() { monetary_count += 1; }
-                if field.intent.is_identity() { identity_count += 1; }
+                if field.intent.is_monetary() {
+                    monetary_count += 1;
+                }
+                if field.intent.is_identity() {
+                    identity_count += 1;
+                }
             }
             println!();
             if monetary_count > 0 {
-                println!("    {} monetary field(s): lamport conservation checks recommended.", monetary_count);
+                println!(
+                    "    {} monetary field(s): lamport conservation checks recommended.",
+                    monetary_count
+                );
             }
             if identity_count > 0 {
-                println!("    {} identity field(s): authority validation required.", identity_count);
+                println!(
+                    "    {} identity field(s): authority validation required.",
+                    identity_count
+                );
             }
         }
         println!();
@@ -955,7 +1064,10 @@ fn cmd_explain_program(args: &[String]) {
     // Pipeline coverage
     println!("  Pipeline Coverage:");
     println!("    1. Define     {} layout(s) defined", prog.layouts.len());
-    println!("    2. Resolve    {} instruction(s) with account resolution", prog.instructions.len());
+    println!(
+        "    2. Resolve    {} instruction(s) with account resolution",
+        prog.instructions.len()
+    );
     let policy_count = prog.policies.len();
     if policy_count > 0 {
         println!("    3. Validate   {} policy pack(s) enforced", policy_count);
@@ -963,9 +1075,16 @@ fn cmd_explain_program(args: &[String]) {
         println!("    3. Validate   (no named policies; consider adding policy packs)");
     }
     println!("    4. Execute    Mutations guarded by capabilities");
-    let receipt_count = prog.instructions.iter().filter(|ix| ix.receipt_expected).count();
+    let receipt_count = prog
+        .instructions
+        .iter()
+        .filter(|ix| ix.receipt_expected)
+        .count();
     if receipt_count > 0 {
-        println!("    5. Record     {} instruction(s) emit receipts", receipt_count);
+        println!(
+            "    5. Record     {} instruction(s) emit receipts",
+            receipt_count
+        );
     } else {
         println!("    5. Record     (no receipt expectations; consider adding receipt tracking)");
     }
@@ -976,21 +1095,34 @@ fn cmd_explain_program(args: &[String]) {
         println!("    6. Verify     (no compat rules; safe for single-version programs)");
     }
     let event_count = prog.events.len();
-    println!("    7. Inspect    {} event(s) for off-chain observability", event_count);
+    println!(
+        "    7. Inspect    {} event(s) for off-chain observability",
+        event_count
+    );
     println!();
 
     // Layouts
     println!("  Layouts:");
     for l in prog.layouts.iter() {
         let fp = LayoutFingerprint::from_manifest(l);
-        println!("    {} v{} | disc {} | {} bytes | {} fields",
-            l.name, l.version, l.disc, l.total_size, l.field_count);
-        println!("      wire={}  semantic={}", hex_encode(&fp.wire_hash), hex_encode(&fp.semantic_hash));
-        let monetary: Vec<&str> = l.fields.iter()
+        println!(
+            "    {} v{} | disc {} | {} bytes | {} fields",
+            l.name, l.version, l.disc, l.total_size, l.field_count
+        );
+        println!(
+            "      wire={}  semantic={}",
+            hex_encode(&fp.wire_hash),
+            hex_encode(&fp.semantic_hash)
+        );
+        let monetary: Vec<&str> = l
+            .fields
+            .iter()
             .filter(|f| f.intent.is_monetary())
             .map(|f| f.name)
             .collect();
-        let identity: Vec<&str> = l.fields.iter()
+        let identity: Vec<&str> = l
+            .fields
+            .iter()
             .filter(|f| f.intent.is_identity())
             .map(|f| f.name)
             .collect();
@@ -1006,22 +1138,37 @@ fn cmd_explain_program(args: &[String]) {
     // Instructions
     println!("  Instructions:");
     for ix in prog.instructions.iter() {
-        let read_accounts: Vec<&str> = ix.accounts.iter()
+        let read_accounts: Vec<&str> = ix
+            .accounts
+            .iter()
             .filter(|account| !account.writable)
             .map(|account| account.name)
             .collect();
-        let write_accounts: Vec<&str> = ix.accounts.iter()
+        let write_accounts: Vec<&str> = ix
+            .accounts
+            .iter()
             .filter(|account| account.writable)
             .map(|account| account.name)
             .collect();
-        let signer_accounts: Vec<&str> = ix.accounts.iter()
+        let signer_accounts: Vec<&str> = ix
+            .accounts
+            .iter()
             .filter(|account| account.signer)
             .map(|account| account.name)
             .collect();
-        print!("    [{}] {} | {} args | {} accounts",
-            ix.tag, ix.name, ix.args.len(), ix.accounts.len());
-        if ix.receipt_expected { print!(" | receipt"); }
-        if !ix.policy_pack.is_empty() { print!(" | policy={}", ix.policy_pack); }
+        print!(
+            "    [{}] {} | {} args | {} accounts",
+            ix.tag,
+            ix.name,
+            ix.args.len(),
+            ix.accounts.len()
+        );
+        if ix.receipt_expected {
+            print!(" | receipt");
+        }
+        if !ix.policy_pack.is_empty() {
+            print!(" | policy={}", ix.policy_pack);
+        }
         println!();
         println!("      reads : {}", format_name_list(&read_accounts));
         println!("      writes: {}", format_name_list(&write_accounts));
@@ -1033,9 +1180,14 @@ fn cmd_explain_program(args: &[String]) {
     if !prog.policies.is_empty() {
         println!("  Policies:");
         for p in prog.policies.iter() {
-            println!("    {} | {} capabilities, {} requirements, {} invariants | receipt={}",
-                p.name, p.capabilities.len(), p.requirements.len(),
-                p.invariants.len(), p.receipt_profile);
+            println!(
+                "    {} | {} capabilities, {} requirements, {} invariants | receipt={}",
+                p.name,
+                p.capabilities.len(),
+                p.requirements.len(),
+                p.invariants.len(),
+                p.receipt_profile
+            );
         }
         println!();
     }
@@ -1055,8 +1207,13 @@ fn cmd_explain_program(args: &[String]) {
         for ctx in prog.contexts.iter() {
             let signers = ctx.accounts.iter().filter(|a| a.signer).count();
             let writables = ctx.accounts.iter().filter(|a| a.writable).count();
-            print!("    {} | {} accounts ({} signer, {} writable)",
-                ctx.name, ctx.accounts.len(), signers, writables);
+            print!(
+                "    {} | {} accounts ({} signer, {} writable)",
+                ctx.name,
+                ctx.accounts.len(),
+                signers,
+                writables
+            );
             if !ctx.policies.is_empty() {
                 print!(" | policies: {}", ctx.policies.join(", "));
             }
@@ -1082,11 +1239,19 @@ fn cmd_explain_program(args: &[String]) {
         println!("    schema-aware tooling and version evolution.");
     } else {
         let mut missing = Vec::new();
-        if policy_count == 0 { missing.push("named policies"); }
-        if receipt_count == 0 { missing.push("receipt tracking"); }
-        if compat_count == 0 { missing.push("compatibility rules"); }
-        println!("    The program is functional but could benefit from adding: {}.",
-            missing.join(", "));
+        if policy_count == 0 {
+            missing.push("named policies");
+        }
+        if receipt_count == 0 {
+            missing.push("receipt tracking");
+        }
+        if compat_count == 0 {
+            missing.push("compatibility rules");
+        }
+        println!(
+            "    The program is functional but could benefit from adding: {}.",
+            missing.join(", ")
+        );
         println!("    These are optional for simple programs but recommended for");
         println!("    protocols planning version evolution or operator dashboards.");
     }
@@ -1096,7 +1261,9 @@ fn cmd_explain_context(args: &[String]) {
     if args.is_empty() {
         eprintln!("Usage: hopper explain context <manifest> [--type <ContextName>]");
         eprintln!("  Show instruction contexts with account roles, mutability, signer status,");
-        eprintln!("  layout bindings, policy bindings, seeds, optionality, and generated accessors.");
+        eprintln!(
+            "  layout bindings, policy bindings, seeds, optionality, and generated accessors."
+        );
         eprintln!();
         eprintln!("  Without --type, shows all contexts in the manifest.");
         eprintln!("  With --type, filters to a single named context.");
@@ -1144,7 +1311,11 @@ fn cmd_explain_context(args: &[String]) {
     }
 
     let contexts: Vec<_> = if let Some(name) = filter_type {
-        manifest.contexts.iter().filter(|c| c.name == name).collect()
+        manifest
+            .contexts
+            .iter()
+            .filter(|c| c.name == name)
+            .collect()
     } else {
         manifest.contexts.iter().collect()
     };
@@ -1164,21 +1335,28 @@ fn cmd_explain_context(args: &[String]) {
     println!();
 
     for ctx in &contexts {
-        let read_accounts: Vec<&str> = ctx.accounts.iter()
+        let read_accounts: Vec<&str> = ctx
+            .accounts
+            .iter()
             .filter(|account| !account.writable)
             .map(|account| account.name)
             .collect();
-        let write_accounts: Vec<&str> = ctx.accounts.iter()
+        let write_accounts: Vec<&str> = ctx
+            .accounts
+            .iter()
             .filter(|account| account.writable)
             .map(|account| account.name)
             .collect();
-        let signer_accounts: Vec<&str> = ctx.accounts.iter()
+        let signer_accounts: Vec<&str> = ctx
+            .accounts
+            .iter()
             .filter(|account| account.signer)
             .map(|account| account.name)
             .collect();
 
         println!("  Context: {}", ctx.name);
-        println!("    Accounts: {} total, {} signer(s), {} writable",
+        println!(
+            "    Accounts: {} total, {} signer(s), {} writable",
             ctx.accounts.len(),
             ctx.accounts.iter().filter(|a| a.signer).count(),
             ctx.accounts.iter().filter(|a| a.writable).count(),
@@ -1191,9 +1369,15 @@ fn cmd_explain_context(args: &[String]) {
         for acct in ctx.accounts.iter() {
             print!("    {:16} {:16}", acct.name, acct.kind);
             let mut flags = Vec::new();
-            if acct.writable { flags.push("mut"); }
-            if acct.signer { flags.push("signer"); }
-            if acct.optional { flags.push("optional"); }
+            if acct.writable {
+                flags.push("mut");
+            }
+            if acct.signer {
+                flags.push("signer");
+            }
+            if acct.optional {
+                flags.push("optional");
+            }
             if !flags.is_empty() {
                 print!("  [{}]", flags.join(", "));
             }
@@ -1216,9 +1400,13 @@ fn cmd_explain_context(args: &[String]) {
         println!();
 
         println!("    Borrow path:");
-        println!("      Shared reads lower to Context::account(index) -> AccountView::load()/raw_ref().");
+        println!(
+            "      Shared reads lower to Context::account(index) -> AccountView::load()/raw_ref()."
+        );
         println!("      Writable access lowers to Context::account_mut(index) -> AccountView::load_mut()/raw_mut().");
-        println!("      Segment-safe mutations stay explicit in handlers via Context::segment_mut(...).");
+        println!(
+            "      Segment-safe mutations stay explicit in handlers via Context::segment_mut(...)."
+        );
         println!("    Conflict model:");
         println!("      Static duplicate-name conflicts are not visible in the manifest.");
         println!("      Runtime duplicate-account and segment conflicts are enforced by Hopper's audit and borrow registry.");
@@ -1256,39 +1444,63 @@ fn render_program_rust_preview(
             return Err(format!(
                 "unknown layout '{}' (available: {})",
                 layout_name,
-                prog.layouts.iter().map(|layout| layout.name).collect::<Vec<_>>().join(", ")
+                prog.layouts
+                    .iter()
+                    .map(|layout| layout.name)
+                    .collect::<Vec<_>>()
+                    .join(", ")
             ));
         }
     }
 
     if let Some(instruction_name) = filters.instruction.as_deref() {
-        if !prog.instructions.iter().any(|instruction| instruction.name == instruction_name) {
+        if !prog
+            .instructions
+            .iter()
+            .any(|instruction| instruction.name == instruction_name)
+        {
             return Err(format!(
                 "unknown instruction '{}' (available: {})",
                 instruction_name,
-                prog.instructions.iter().map(|instruction| instruction.name).collect::<Vec<_>>().join(", ")
+                prog.instructions
+                    .iter()
+                    .map(|instruction| instruction.name)
+                    .collect::<Vec<_>>()
+                    .join(", ")
             ));
         }
     }
 
     if let Some(context_name) = filters.context.as_deref() {
-        if !prog.contexts.iter().any(|context| context.name == context_name) {
+        if !prog
+            .contexts
+            .iter()
+            .any(|context| context.name == context_name)
+        {
             return Err(format!(
                 "unknown context '{}' (available: {})",
                 context_name,
-                prog.contexts.iter().map(|context| context.name).collect::<Vec<_>>().join(", ")
+                prog.contexts
+                    .iter()
+                    .map(|context| context.name)
+                    .collect::<Vec<_>>()
+                    .join(", ")
             ));
         }
     }
 
-    let selected_instructions: Vec<&InstructionDescriptor> = prog.instructions.iter()
+    let selected_instructions: Vec<&InstructionDescriptor> = prog
+        .instructions
+        .iter()
         .filter(|instruction| match filters.instruction.as_deref() {
             Some(name) => instruction.name == name,
             None => true,
         })
         .collect();
 
-    let selected_contexts: Vec<&ContextDescriptor> = prog.contexts.iter()
+    let selected_contexts: Vec<&ContextDescriptor> = prog
+        .contexts
+        .iter()
         .filter(|context| match filters.context.as_deref() {
             Some(name) => context.name == name,
             None => true,
@@ -1318,7 +1530,9 @@ fn render_program_rust_preview(
         Vec::new()
     };
 
-    let selected_layouts: Vec<&LayoutManifest> = prog.layouts.iter()
+    let selected_layouts: Vec<&LayoutManifest> = prog
+        .layouts
+        .iter()
         .filter(|layout| {
             if let Some(name) = filters.layout.as_deref() {
                 return layout.name == name;
@@ -1349,9 +1563,30 @@ fn render_program_rust_preview(
 
     let module_name = sanitize_ident(&format!("{}_generated", &snake_case(prog.name)));
     push_line(&mut out, 0, &format!("pub mod {} {{", module_name));
-    push_line(&mut out, 4, &format!("pub const PROGRAM_NAME: &str = \"{}\";", escape_rust_string(prog.name)));
-    push_line(&mut out, 4, &format!("pub const PROGRAM_VERSION: &str = \"{}\";", escape_rust_string(prog.version)));
-    push_line(&mut out, 4, &format!("pub const PROGRAM_DESCRIPTION: &str = \"{}\";", escape_rust_string(prog.description)));
+    push_line(
+        &mut out,
+        4,
+        &format!(
+            "pub const PROGRAM_NAME: &str = \"{}\";",
+            escape_rust_string(prog.name)
+        ),
+    );
+    push_line(
+        &mut out,
+        4,
+        &format!(
+            "pub const PROGRAM_VERSION: &str = \"{}\";",
+            escape_rust_string(prog.version)
+        ),
+    );
+    push_line(
+        &mut out,
+        4,
+        &format!(
+            "pub const PROGRAM_DESCRIPTION: &str = \"{}\";",
+            escape_rust_string(prog.description)
+        ),
+    );
     push_line(&mut out, 4, "pub const HEADER_LEN: usize = 16;");
     out.push('\n');
 
@@ -1383,7 +1618,11 @@ fn render_program_rust_preview(
     }
 
     if selected_instructions.is_empty() && selected_contexts.is_empty() {
-        push_line(&mut out, 4, "// No instruction or context metadata was selected.");
+        push_line(
+            &mut out,
+            4,
+            "// No instruction or context metadata was selected.",
+        );
         push_line(&mut out, 4, "// Add --instruction/--context filters only when those descriptors exist in the manifest.");
         out.push('\n');
     }
@@ -1395,11 +1634,33 @@ fn render_program_rust_preview(
 fn render_layout_rust_preview(out: &mut String, layout: &LayoutManifest) {
     let module_name = sanitize_ident(&snake_case(layout.name));
     push_line(out, 8, &format!("pub mod {} {{", module_name));
-    push_line(out, 12, &format!("pub const NAME: &str = \"{}\";", escape_rust_string(layout.name)));
+    push_line(
+        out,
+        12,
+        &format!(
+            "pub const NAME: &str = \"{}\";",
+            escape_rust_string(layout.name)
+        ),
+    );
     push_line(out, 12, &format!("pub const DISC: u8 = {};", layout.disc));
-    push_line(out, 12, &format!("pub const VERSION: u8 = {};", layout.version));
-    push_line(out, 12, &format!("pub const TOTAL_SIZE: usize = {};", layout.total_size));
-    push_line(out, 12, &format!("pub const LAYOUT_ID: [u8; 8] = {};", render_u8_array(&layout.layout_id)));
+    push_line(
+        out,
+        12,
+        &format!("pub const VERSION: u8 = {};", layout.version),
+    );
+    push_line(
+        out,
+        12,
+        &format!("pub const TOTAL_SIZE: usize = {};", layout.total_size),
+    );
+    push_line(
+        out,
+        12,
+        &format!(
+            "pub const LAYOUT_ID: [u8; 8] = {};",
+            render_u8_array(&layout.layout_id)
+        ),
+    );
     push_line(out, 12, "pub const TYPE_OFFSET: usize = HEADER_LEN;");
     push_line(out, 12, "");
     for field in layout.fields.iter() {
@@ -1410,10 +1671,7 @@ fn render_layout_rust_preview(out: &mut String, layout: &LayoutManifest) {
             12,
             &format!(
                 "// {}: {} @ bytes {}..{}",
-                field.name,
-                field.canonical_type,
-                field.offset,
-                field_end
+                field.name, field.canonical_type, field.offset, field_end
             ),
         );
         push_line(
@@ -1421,12 +1679,19 @@ fn render_layout_rust_preview(out: &mut String, layout: &LayoutManifest) {
             12,
             &format!(
                 "// pointer path: account.try_borrow()? -> base_ptr.add({}) as *const {}",
-                field.offset,
-                field.canonical_type
+                field.offset, field.canonical_type
             ),
         );
-        push_line(out, 12, &format!("pub const {}_OFFSET: usize = {};", field_name, field.offset));
-        push_line(out, 12, &format!("pub const {}_SIZE: usize = {};", field_name, field.size));
+        push_line(
+            out,
+            12,
+            &format!("pub const {}_OFFSET: usize = {};", field_name, field.offset),
+        );
+        push_line(
+            out,
+            12,
+            &format!("pub const {}_SIZE: usize = {};", field_name, field.size),
+        );
         push_line(out, 12, "");
     }
     push_line(out, 8, "}");
@@ -1435,29 +1700,78 @@ fn render_layout_rust_preview(out: &mut String, layout: &LayoutManifest) {
 
 fn render_instruction_rust_preview(out: &mut String, instruction: &InstructionDescriptor) {
     let module_name = sanitize_ident(&snake_case(instruction.name));
-    let reads: Vec<&str> = instruction.accounts.iter()
+    let reads: Vec<&str> = instruction
+        .accounts
+        .iter()
         .filter(|account| !account.writable)
         .map(|account| account.name)
         .collect();
-    let writes: Vec<&str> = instruction.accounts.iter()
+    let writes: Vec<&str> = instruction
+        .accounts
+        .iter()
         .filter(|account| account.writable)
         .map(|account| account.name)
         .collect();
-    let signers: Vec<&str> = instruction.accounts.iter()
+    let signers: Vec<&str> = instruction
+        .accounts
+        .iter()
         .filter(|account| account.signer)
         .map(|account| account.name)
         .collect();
 
     push_line(out, 8, &format!("pub mod {} {{", module_name));
-    push_line(out, 12, &format!("pub const NAME: &str = \"{}\";", escape_rust_string(instruction.name)));
-    push_line(out, 12, &format!("pub const TAG: u8 = {};", instruction.tag));
-    push_line(out, 12, &format!("pub const READS: &[&str] = &{};", render_str_slice(&reads)));
-    push_line(out, 12, &format!("pub const WRITES: &[&str] = &{};", render_str_slice(&writes)));
-    push_line(out, 12, &format!("pub const SIGNERS: &[&str] = &{};", render_str_slice(&signers)));
+    push_line(
+        out,
+        12,
+        &format!(
+            "pub const NAME: &str = \"{}\";",
+            escape_rust_string(instruction.name)
+        ),
+    );
+    push_line(
+        out,
+        12,
+        &format!("pub const TAG: u8 = {};", instruction.tag),
+    );
+    push_line(
+        out,
+        12,
+        &format!("pub const READS: &[&str] = &{};", render_str_slice(&reads)),
+    );
+    push_line(
+        out,
+        12,
+        &format!(
+            "pub const WRITES: &[&str] = &{};",
+            render_str_slice(&writes)
+        ),
+    );
+    push_line(
+        out,
+        12,
+        &format!(
+            "pub const SIGNERS: &[&str] = &{};",
+            render_str_slice(&signers)
+        ),
+    );
     if !instruction.policy_pack.is_empty() {
-        push_line(out, 12, &format!("pub const POLICY_PACK: &str = \"{}\";", escape_rust_string(instruction.policy_pack)));
+        push_line(
+            out,
+            12,
+            &format!(
+                "pub const POLICY_PACK: &str = \"{}\";",
+                escape_rust_string(instruction.policy_pack)
+            ),
+        );
     }
-    push_line(out, 12, &format!("pub const RECEIPT_EXPECTED: bool = {};", instruction.receipt_expected));
+    push_line(
+        out,
+        12,
+        &format!(
+            "pub const RECEIPT_EXPECTED: bool = {};",
+            instruction.receipt_expected
+        ),
+    );
     push_line(out, 12, "");
 
     if !instruction.args.is_empty() {
@@ -1468,9 +1782,7 @@ fn render_instruction_rust_preview(out: &mut String, instruction: &InstructionDe
                 12,
                 &format!(
                     "//   {}: {} ({} bytes)",
-                    argument.name,
-                    argument.canonical_type,
-                    argument.size
+                    argument.name, argument.canonical_type, argument.size
                 ),
             );
         }
@@ -1506,13 +1818,43 @@ fn render_instruction_rust_preview(out: &mut String, instruction: &InstructionDe
 fn render_context_rust_preview(out: &mut String, context: &ContextDescriptor) {
     let module_name = sanitize_ident(&snake_case(context.name));
     push_line(out, 8, &format!("pub mod {} {{", module_name));
-    push_line(out, 12, &format!("pub const NAME: &str = \"{}\";", escape_rust_string(context.name)));
-    push_line(out, 12, &format!("pub const POLICIES: &[&str] = &{};", render_str_slice(context.policies)));
-    push_line(out, 12, &format!("pub const MUTATION_CLASSES: &[&str] = &{};", render_str_slice(context.mutation_classes)));
-    push_line(out, 12, &format!("pub const RECEIPTS_EXPECTED: bool = {};", context.receipts_expected));
+    push_line(
+        out,
+        12,
+        &format!(
+            "pub const NAME: &str = \"{}\";",
+            escape_rust_string(context.name)
+        ),
+    );
+    push_line(
+        out,
+        12,
+        &format!(
+            "pub const POLICIES: &[&str] = &{};",
+            render_str_slice(context.policies)
+        ),
+    );
+    push_line(
+        out,
+        12,
+        &format!(
+            "pub const MUTATION_CLASSES: &[&str] = &{};",
+            render_str_slice(context.mutation_classes)
+        ),
+    );
+    push_line(
+        out,
+        12,
+        &format!(
+            "pub const RECEIPTS_EXPECTED: bool = {};",
+            context.receipts_expected
+        ),
+    );
     push_line(out, 12, "");
 
-    let accounts: Vec<DerivedAccountDescriptor<'_>> = context.accounts.iter()
+    let accounts: Vec<DerivedAccountDescriptor<'_>> = context
+        .accounts
+        .iter()
         .map(|account| DerivedAccountDescriptor {
             name: account.name,
             kind: account.kind,
@@ -1558,21 +1900,41 @@ fn render_account_accessor_block(
     if let Some(note) = header_note {
         push_line(out, indent, &format!("// {}", note));
     }
-    push_line(out, indent, &format!("pub struct {};", sanitize_ident(struct_name)));
-    push_line(out, indent, &format!("impl {} {{", sanitize_ident(struct_name)));
-    push_line(out, indent + 4, &format!("pub const ACCOUNT_LEN: usize = {};", accounts.len()));
+    push_line(
+        out,
+        indent,
+        &format!("pub struct {};", sanitize_ident(struct_name)),
+    );
+    push_line(
+        out,
+        indent,
+        &format!("impl {} {{", sanitize_ident(struct_name)),
+    );
+    push_line(
+        out,
+        indent + 4,
+        &format!("pub const ACCOUNT_LEN: usize = {};", accounts.len()),
+    );
     push_line(out, indent + 4, "");
 
     for (index, account) in accounts.iter().enumerate() {
         let const_name = format!("{}_INDEX", upper_snake_case(account.name));
-        push_line(out, indent + 4, &format!("pub const {}: usize = {};", const_name, index));
+        push_line(
+            out,
+            indent + 4,
+            &format!("pub const {}: usize = {};", const_name, index),
+        );
     }
     push_line(out, indent + 4, "");
 
     for account in accounts.iter() {
         let account_fn = sanitize_ident(&format!("{}_account", snake_case(account.name)));
         let index_const = format!("{}_INDEX", upper_snake_case(account.name));
-        let account_getter = if account.writable { "account_mut" } else { "account" };
+        let account_getter = if account.writable {
+            "account_mut"
+        } else {
+            "account"
+        };
 
         push_line(
             out,
@@ -1587,13 +1949,25 @@ fn render_account_accessor_block(
             ),
         );
         if !account.layout_ref.is_empty() {
-            push_line(out, indent + 4, &format!("// layout = {}", account.layout_ref));
+            push_line(
+                out,
+                indent + 4,
+                &format!("// layout = {}", account.layout_ref),
+            );
         }
         if !account.policy_ref.is_empty() {
-            push_line(out, indent + 4, &format!("// policy = {}", account.policy_ref));
+            push_line(
+                out,
+                indent + 4,
+                &format!("// policy = {}", account.policy_ref),
+            );
         }
         if !account.seeds.is_empty() {
-            push_line(out, indent + 4, &format!("// seeds = [{}]", account.seeds.join(", ")));
+            push_line(
+                out,
+                indent + 4,
+                &format!("// seeds = [{}]", account.seeds.join(", ")),
+            );
         }
         push_line(
             out,
@@ -1618,14 +1992,16 @@ fn render_account_accessor_block(
                 indent + 4,
                 &format!(
                     "pub fn {}(ctx: &Context<'_>) -> Result<Ref<'_, {}>, ProgramError> {{",
-                    load_fn,
-                    account.layout_ref,
+                    load_fn, account.layout_ref,
                 ),
             );
             push_line(
                 out,
                 indent + 8,
-                &format!("Self::{}(ctx)?.load::<{}>()", account_fn, account.layout_ref),
+                &format!(
+                    "Self::{}(ctx)?.load::<{}>()",
+                    account_fn, account.layout_ref
+                ),
             );
             push_line(out, indent + 4, "}");
             push_line(
@@ -1633,14 +2009,16 @@ fn render_account_accessor_block(
                 indent + 4,
                 &format!(
                     "pub unsafe fn {}(ctx: &Context<'_>) -> Result<Ref<'_, {}>, ProgramError> {{",
-                    raw_ref_fn,
-                    account.layout_ref,
+                    raw_ref_fn, account.layout_ref,
                 ),
             );
             push_line(
                 out,
                 indent + 8,
-                &format!("unsafe {{ Self::{}(ctx)?.raw_ref::<{}>() }}", account_fn, account.layout_ref),
+                &format!(
+                    "unsafe {{ Self::{}(ctx)?.raw_ref::<{}>() }}",
+                    account_fn, account.layout_ref
+                ),
             );
             push_line(out, indent + 4, "}");
 
@@ -1657,14 +2035,16 @@ fn render_account_accessor_block(
                     indent + 4,
                     &format!(
                         "pub fn {}(ctx: &Context<'_>) -> Result<RefMut<'_, {}>, ProgramError> {{",
-                        load_mut_fn,
-                        account.layout_ref,
+                        load_mut_fn, account.layout_ref,
                     ),
                 );
                 push_line(
                     out,
                     indent + 8,
-                    &format!("Self::{}(ctx)?.load_mut::<{}>()", account_fn, account.layout_ref),
+                    &format!(
+                        "Self::{}(ctx)?.load_mut::<{}>()",
+                        account_fn, account.layout_ref
+                    ),
                 );
                 push_line(out, indent + 4, "}");
                 push_line(
@@ -1679,7 +2059,10 @@ fn render_account_accessor_block(
                 push_line(
                     out,
                     indent + 8,
-                    &format!("unsafe {{ Self::{}(ctx)?.raw_mut::<{}>() }}", account_fn, account.layout_ref),
+                    &format!(
+                        "unsafe {{ Self::{}(ctx)?.raw_mut::<{}>() }}",
+                        account_fn, account.layout_ref
+                    ),
                 );
                 push_line(out, indent + 4, "}");
             }
@@ -1691,7 +2074,10 @@ fn render_account_accessor_block(
     push_line(out, indent, "}");
 }
 
-fn render_context_accessor_summary(context_name: &str, account: &ContextAccountDescriptor) -> String {
+fn render_context_accessor_summary(
+    context_name: &str,
+    account: &ContextAccountDescriptor,
+) -> String {
     let mut accessors = vec![format!("{}_account()", snake_case(account.name))];
     if !account.layout_ref.is_empty() {
         accessors.push(format!("{}_load()", snake_case(account.name)));
@@ -1702,11 +2088,7 @@ fn render_context_accessor_summary(context_name: &str, account: &ContextAccountD
         }
     }
 
-    format!(
-        "{} on {}",
-        accessors.join(", "),
-        context_name,
-    )
+    format!("{} on {}", accessors.join(", "), context_name,)
 }
 
 fn format_name_list(names: &[&str]) -> String {
@@ -1726,7 +2108,8 @@ fn push_line(out: &mut String, indent: usize, line: &str) {
 }
 
 fn render_u8_array(bytes: &[u8]) -> String {
-    let rendered = bytes.iter()
+    let rendered = bytes
+        .iter()
         .map(|byte| byte.to_string())
         .collect::<Vec<_>>()
         .join(", ");
@@ -1738,7 +2121,8 @@ fn render_str_slice(values: &[&str]) -> String {
         return "[]".to_string();
     }
 
-    let rendered = values.iter()
+    let rendered = values
+        .iter()
         .map(|value| format!("\"{}\"", escape_rust_string(value)))
         .collect::<Vec<_>>()
         .join(", ");
@@ -1765,7 +2149,12 @@ fn sanitize_ident(value: &str) -> String {
     if ident.is_empty() {
         ident.push('_');
     }
-    if ident.chars().next().map(|ch| ch.is_ascii_digit()).unwrap_or(false) {
+    if ident
+        .chars()
+        .next()
+        .map(|ch| ch.is_ascii_digit())
+        .unwrap_or(false)
+    {
         ident.insert(0, '_');
     }
     ident
@@ -1836,11 +2225,15 @@ fn print_compile_usage() {
     eprintln!("                          the artifact. Errors fail the command; warnings pass.");
     eprintln!("  --lint-fail-on-warn     Treat lint warnings as errors (implies --lint)");
     eprintln!();
-    eprintln!("Without a manifest source, Hopper infers hopper.manifest.json from the current package.");
+    eprintln!(
+        "Without a manifest source, Hopper infers hopper.manifest.json from the current package."
+    );
     eprintln!();
     eprintln!("Examples:");
     eprintln!("  hopper compile --emit rust");
-    eprintln!("  hopper compile --emit ts --package hopper-token-2022-vault --out vault.ts --force");
+    eprintln!(
+        "  hopper compile --emit ts --package hopper-token-2022-vault --out vault.ts --force"
+    );
     eprintln!("  hopper compile --emit idl @hopper.manifest.json --out idl.json");
     eprintln!("  hopper compile --emit codama --program-id <program-id> --rpc <url>");
     eprintln!("  hopper compile --emit kt --package vault");
@@ -1860,8 +2253,12 @@ fn print_usage() {
     println!();
     println!("  Verify (ABI integrity):");
     println!("    hopper verify [<manifest>] [<.so>]     Confirm every layout in the manifest");
-    println!("                                           appears in the compiled binary by LAYOUT_ID");
-    println!("    hopper verify --package <name>         Infer manifest + .so from a workspace package");
+    println!(
+        "                                           appears in the compiled binary by LAYOUT_ID"
+    );
+    println!(
+        "    hopper verify --package <name>         Infer manifest + .so from a workspace package"
+    );
     println!("    hopper publish-check --package <name>  Run release docs, feature, client, fuzz, and ABI gates");
     println!();
     println!("  Schema:");
@@ -1883,7 +2280,9 @@ fn print_usage() {
     println!("    hopper explain policy <pack-name>   Explain a named policy pack");
     println!("    hopper explain layout <manifest>    Explain layout fields, intents, fingerprint");
     println!("    hopper explain program <manifest>   Explain entire program pipeline");
-    println!("    hopper explain context <manifest>   Explain instruction contexts and account roles");
+    println!(
+        "    hopper explain context <manifest>   Explain instruction contexts and account roles"
+    );
     println!();
     println!("  Compatibility:");
     println!("    hopper compat <v1-json> <v2-json>   Compatibility report");
@@ -1894,7 +2293,9 @@ fn print_usage() {
     println!();
     println!("  Manager:");
     println!("    hopper manager summary <manifest|--program-id ...>     Program overview");
-    println!("    hopper manager identify <manifest|--program-id ...> <hex>  Identify account type");
+    println!(
+        "    hopper manager identify <manifest|--program-id ...> <hex>  Identify account type"
+    );
     println!("    hopper manager decode <manifest|--program-id ...> <hex>    Decode all fields");
     println!("    hopper manager instruction <manifest|--program-id ...> <tag|name>  Instruction details");
     println!("    hopper manager layouts <manifest|--program-id ...>     List all layouts");
@@ -1950,8 +2351,10 @@ fn hex_decode(s: &str) -> Result<Vec<u8>, String> {
     let mut bytes = Vec::with_capacity(s.len() / 2);
     let chars: Vec<u8> = s.bytes().collect();
     for pair in chars.chunks(2) {
-        let hi = hex_nibble(pair[0]).ok_or_else(|| format!("Invalid hex char: {}", pair[0] as char))?;
-        let lo = hex_nibble(pair[1]).ok_or_else(|| format!("Invalid hex char: {}", pair[1] as char))?;
+        let hi =
+            hex_nibble(pair[0]).ok_or_else(|| format!("Invalid hex char: {}", pair[0] as char))?;
+        let lo =
+            hex_nibble(pair[1]).ok_or_else(|| format!("Invalid hex char: {}", pair[1] as char))?;
         bytes.push((hi << 4) | lo);
     }
     Ok(bytes)
@@ -2030,7 +2433,9 @@ fn parse_manifest_json(json: &str) -> Result<ParsedManifest, String> {
 
 fn extract_string(json: &str, key: &str) -> Result<String, String> {
     let pattern = format!("\"{}\"", key);
-    let pos = json.find(&pattern).ok_or_else(|| format!("Missing key: {}", key))?;
+    let pos = json
+        .find(&pattern)
+        .ok_or_else(|| format!("Missing key: {}", key))?;
     let after = &json[pos + pattern.len()..];
     // Skip : and whitespace
     let after = after.trim_start().strip_prefix(':').ok_or("Expected :")?;
@@ -2045,17 +2450,25 @@ fn extract_string(json: &str, key: &str) -> Result<String, String> {
 
 fn extract_number(json: &str, key: &str) -> Result<u64, String> {
     let pattern = format!("\"{}\"", key);
-    let pos = json.find(&pattern).ok_or_else(|| format!("Missing key: {}", key))?;
+    let pos = json
+        .find(&pattern)
+        .ok_or_else(|| format!("Missing key: {}", key))?;
     let after = &json[pos + pattern.len()..];
     let after = after.trim_start().strip_prefix(':').ok_or("Expected :")?;
     let after = after.trim_start();
-    let end = after.find(|c: char| !c.is_ascii_digit()).unwrap_or(after.len());
-    after[..end].parse().map_err(|e| format!("Invalid number for {}: {}", key, e))
+    let end = after
+        .find(|c: char| !c.is_ascii_digit())
+        .unwrap_or(after.len());
+    after[..end]
+        .parse()
+        .map_err(|e| format!("Invalid number for {}: {}", key, e))
 }
 
 fn extract_array_u8(json: &str, key: &str) -> Result<Vec<u8>, String> {
     let pattern = format!("\"{}\"", key);
-    let pos = json.find(&pattern).ok_or_else(|| format!("Missing key: {}", key))?;
+    let pos = json
+        .find(&pattern)
+        .ok_or_else(|| format!("Missing key: {}", key))?;
     let after = &json[pos + pattern.len()..];
     let after = after.trim_start().strip_prefix(':').ok_or("Expected :")?;
     let after = after.trim_start();
@@ -2179,7 +2592,10 @@ fn cmd_explain(args: &[String]) {
     };
 
     if data.len() < 16 {
-        println!("This data is {} bytes, which is too short for a Hopper account.", data.len());
+        println!(
+            "This data is {} bytes, which is too short for a Hopper account.",
+            data.len()
+        );
         println!("Every Hopper account starts with a 16-byte header.");
         process::exit(1);
     }
@@ -2258,7 +2674,10 @@ fn cmd_explain(args: &[String]) {
         }
         _ => {
             let body_size = data.len() - 16;
-            println!("Account structure: fixed layout ({} byte body after header).", body_size);
+            println!(
+                "Account structure: fixed layout ({} byte body after header).",
+                body_size
+            );
         }
     }
 
@@ -2332,7 +2751,10 @@ fn cmd_inspect(args: &[String]) {
     match decode_header(&data) {
         Some(h) => print_header(&h),
         None => {
-            eprintln!("Account data too short for header (need 16 bytes, got {})", data.len());
+            eprintln!(
+                "Account data too short for header (need 16 bytes, got {})",
+                data.len()
+            );
             process::exit(1);
         }
     }
@@ -2342,7 +2764,11 @@ fn print_header(h: &DecodedHeader) {
     println!("=== Account Header (16 bytes) ===");
     println!("  Discriminator : {}", h.disc);
     println!("  Version       : {}", h.version);
-    println!("  Flags         : 0x{:04x} ({})", h.flags, format_flags(h.flags));
+    println!(
+        "  Flags         : 0x{:04x} ({})",
+        h.flags,
+        format_flags(h.flags)
+    );
     println!("  Layout ID     : {}", hex_encode(&h.layout_id));
     println!("  Reserved      : {}", hex_encode(&h.reserved));
 }
@@ -2465,10 +2891,12 @@ fn cmd_receipt(args: &[String]) {
     let layout_id = &data[0..8];
     let changed_fields = u64::from_le_bytes(data[8..16].try_into().expect("slice length mismatch"));
     let changed_bytes = u32::from_le_bytes(data[16..20].try_into().expect("slice length mismatch"));
-    let changed_regions = u16::from_le_bytes(data[20..22].try_into().expect("slice length mismatch"));
+    let changed_regions =
+        u16::from_le_bytes(data[20..22].try_into().expect("slice length mismatch"));
     let old_size = u32::from_le_bytes(data[22..26].try_into().expect("slice length mismatch"));
     let new_size = u32::from_le_bytes(data[26..30].try_into().expect("slice length mismatch"));
-    let invariants_checked = u16::from_le_bytes(data[30..32].try_into().expect("slice length mismatch"));
+    let invariants_checked =
+        u16::from_le_bytes(data[30..32].try_into().expect("slice length mismatch"));
     let flags = data[32];
     let was_resized = flags & (1 << 0) != 0;
     let invariants_passed = flags & (1 << 1) != 0;
@@ -2478,10 +2906,12 @@ fn cmd_receipt(args: &[String]) {
     let after_fp = &data[41..49];
     let segment_mask = u16::from_le_bytes(data[49..51].try_into().expect("slice length mismatch"));
     let policy_flags = u32::from_le_bytes(data[51..55].try_into().expect("slice length mismatch"));
-    let journal_appends = u16::from_le_bytes(data[55..57].try_into().expect("slice length mismatch"));
+    let journal_appends =
+        u16::from_le_bytes(data[55..57].try_into().expect("slice length mismatch"));
     let cpi_count = data[57];
     let phase = data[58];
-    let validation_bundle_id = u16::from_le_bytes(data[59..61].try_into().expect("slice length mismatch"));
+    let validation_bundle_id =
+        u16::from_le_bytes(data[59..61].try_into().expect("slice length mismatch"));
     let compat_impact = data[61];
     let migration_flags = data[62];
 
@@ -2502,7 +2932,10 @@ fn cmd_receipt(args: &[String]) {
     println!("=== State Receipt ({} bytes) ===", data.len());
     println!();
     println!("  Layout ID           : {}", hex_encode(layout_id));
-    println!("  Committed           : {}", if committed { "YES" } else { "NO" });
+    println!(
+        "  Committed           : {}",
+        if committed { "YES" } else { "NO" }
+    );
     println!("  Phase               : {}", phase_name);
     println!();
     println!("  Changed bytes       : {}", changed_bytes);
@@ -2520,23 +2953,39 @@ fn cmd_receipt(args: &[String]) {
     println!();
     println!("  Old size            : {} bytes", old_size);
     println!("  New size            : {} bytes", new_size);
-    println!("  Resized             : {}", if was_resized { "YES" } else { "NO" });
+    println!(
+        "  Resized             : {}",
+        if was_resized { "YES" } else { "NO" }
+    );
     println!();
     println!("  Before fingerprint  : {}", hex_encode(before_fp));
     println!("  After fingerprint   : {}", hex_encode(after_fp));
     let fp_changed = before_fp != after_fp;
-    println!("  Data changed        : {}", if fp_changed { "YES" } else { "NO" });
+    println!(
+        "  Data changed        : {}",
+        if fp_changed { "YES" } else { "NO" }
+    );
     println!();
     println!("  Invariants checked  : {}", invariants_checked);
-    println!("  Invariants passed   : {}", if invariants_passed { "YES" } else { "NO" });
+    println!(
+        "  Invariants passed   : {}",
+        if invariants_passed { "YES" } else { "NO" }
+    );
     println!();
 
     if policy_flags != 0 {
         println!("  Policy flags        : 0x{:08x}", policy_flags);
         let cap_names = [
-            "ReadsState", "MutatesState", "TouchesJournal", "ExternalCall",
-            "MutatesTreasury", "ReallocatesAccount", "CreatesAccount", "ClosesAccount",
-            "ModifiesAuthority", "TransitionsState",
+            "ReadsState",
+            "MutatesState",
+            "TouchesJournal",
+            "ExternalCall",
+            "MutatesTreasury",
+            "ReallocatesAccount",
+            "CreatesAccount",
+            "ClosesAccount",
+            "ModifiesAuthority",
+            "TransitionsState",
         ];
         let mut active = Vec::new();
         for (i, name) in cap_names.iter().enumerate() {
@@ -2577,9 +3026,15 @@ fn cmd_receipt(args: &[String]) {
     }
     if migration_flags != 0 {
         let mut mig = Vec::new();
-        if migration_flags & 1 != 0 { mig.push("triggered"); }
-        if migration_flags & 2 != 0 { mig.push("realloc"); }
-        if migration_flags & 4 != 0 { mig.push("schema-bump"); }
+        if migration_flags & 1 != 0 {
+            mig.push("triggered");
+        }
+        if migration_flags & 2 != 0 {
+            mig.push("realloc");
+        }
+        if migration_flags & 4 != 0 {
+            mig.push("schema-bump");
+        }
         println!("  Migration           : {}", mig.join(", "));
     }
 }
@@ -2598,15 +3053,35 @@ fn cmd_compat(args: &[String]) {
     let verdict = CompatibilityVerdict::between(&m1, &m2);
 
     println!("=== Compatibility Report ===");
-    println!("  {} v{} -> {} v{}", v1.name, v1.version, v2.name, v2.version);
+    println!(
+        "  {} v{} -> {} v{}",
+        v1.name, v1.version, v2.name, v2.version
+    );
     println!("  Layout ID (old) : {}", hex_encode(&v1.layout_id));
     println!("  Layout ID (new) : {}", hex_encode(&v2.layout_id));
     println!("  Size (old)      : {} bytes", v1.total_size);
     println!("  Size (new)      : {} bytes", v2.total_size);
     println!("  Verdict         : {}", verdict.name());
-    println!("  Safe            : {}", if verdict.is_safe() { "YES" } else { "NO" });
-    println!("  Backward-read   : {}", if verdict.is_backward_readable() { "YES" } else { "NO" });
-    println!("  Requires migration: {}", if verdict.requires_migration() { "YES" } else { "NO" });
+    println!(
+        "  Safe            : {}",
+        if verdict.is_safe() { "YES" } else { "NO" }
+    );
+    println!(
+        "  Backward-read   : {}",
+        if verdict.is_backward_readable() {
+            "YES"
+        } else {
+            "NO"
+        }
+    );
+    println!(
+        "  Requires migration: {}",
+        if verdict.requires_migration() {
+            "YES"
+        } else {
+            "NO"
+        }
+    );
 
     println!();
     match verdict {
@@ -2614,7 +3089,9 @@ fn cmd_compat(args: &[String]) {
             println!("  Result: No changes detected.");
         }
         CompatibilityVerdict::WireCompatible => {
-            println!("  Result: Wire-compatible. Byte layout identical, semantic metadata differs.");
+            println!(
+                "  Result: Wire-compatible. Byte layout identical, semantic metadata differs."
+            );
         }
         CompatibilityVerdict::AppendSafe => {
             println!("  Result: Safe upgrade. Old field prefix preserved, no migration needed.");
@@ -2641,11 +3118,11 @@ fn cmd_diff(args: &[String]) {
 
     let report = compare_fields::<32>(&m1, &m2);
 
-    println!("=== Field Diff: {} v{} -> {} v{} ===", v1.name, v1.version, v2.name, v2.version);
     println!(
-        "  {:>20}  {:>12}  {:>8}",
-        "Field", "Status", "Detail"
+        "=== Field Diff: {} v{} -> {} v{} ===",
+        v1.name, v1.version, v2.name, v2.version
     );
+    println!("  {:>20}  {:>12}  {:>8}", "Field", "Status", "Detail");
     println!("  {}", "-".repeat(46));
     for i in 0..report.len() {
         if let Some(entry) = report.get(i) {
@@ -2680,8 +3157,14 @@ fn cmd_diff(args: &[String]) {
     let added = report.count_status(FieldCompat::Added);
     let removed = report.count_status(FieldCompat::Removed);
     let changed = report.count_status(FieldCompat::Changed);
-    println!("  Summary: {} identical, {} added, {} removed, {} changed", identical, added, removed, changed);
-    println!("  Append-safe: {}", if report.is_append_safe { "YES" } else { "NO" });
+    println!(
+        "  Summary: {} identical, {} added, {} removed, {} changed",
+        identical, added, removed, changed
+    );
+    println!(
+        "  Append-safe: {}",
+        if report.is_append_safe { "YES" } else { "NO" }
+    );
 }
 
 fn cmd_plan(args: &[String]) {
@@ -2697,7 +3180,10 @@ fn cmd_plan(args: &[String]) {
 
     let plan = MigrationPlan::<16>::generate(&m1, &m2);
 
-    println!("=== Migration Plan: {} v{} -> {} v{} ===", v1.name, v1.version, v2.name, v2.version);
+    println!(
+        "=== Migration Plan: {} v{} -> {} v{} ===",
+        v1.name, v1.version, v2.name, v2.version
+    );
     println!();
 
     let policy_str = match plan.policy {
@@ -2711,12 +3197,22 @@ fn cmd_plan(args: &[String]) {
     println!("  New size   : {} bytes", plan.new_size);
     println!("  Copy bytes : {}", plan.copy_bytes);
     println!("  Zero bytes : {}", plan.zero_bytes);
-    println!("  Backward   : {}", if plan.backward_readable { "YES (v1 code can read v2 accounts)" } else { "NO" });
+    println!(
+        "  Backward   : {}",
+        if plan.backward_readable {
+            "YES (v1 code can read v2 accounts)"
+        } else {
+            "NO"
+        }
+    );
     println!("  Steps      : {}", plan.len());
 
     if !plan.is_empty() {
         println!();
-        println!("  {:>4}  {:>14}  {:>8}  {:>8}  Field", "#", "Action", "Offset", "Size");
+        println!(
+            "  {:>4}  {:>14}  {:>8}  {:>8}  Field",
+            "#", "Action", "Offset", "Size"
+        );
         println!("  {}", "-".repeat(52));
         plan.for_each_step(|i, step| {
             let action_str = match step.action {
@@ -2780,7 +3276,10 @@ fn cmd_schema_export_family(args: &[String]) {
                 process::exit(1);
             }
             let prog = load_program_manifest(&args[1]);
-            println!("{}", hopper_schema::anchor_idl::AnchorIdlFromManifest(&prog));
+            println!(
+                "{}",
+                hopper_schema::anchor_idl::AnchorIdlFromManifest(&prog)
+            );
         }
         _ => cmd_schema_export(),
     }
@@ -3077,8 +3576,8 @@ fn extract_object_array(json: &str, key: &str) -> Result<Vec<String>, String> {
         if !remaining.starts_with('{') {
             break;
         }
-        let obj_end = find_matching_bracket(remaining, '{', '}')
-            .ok_or("Unterminated object in array")?;
+        let obj_end =
+            find_matching_bracket(remaining, '{', '}').ok_or("Unterminated object in array")?;
         objects.push(remaining[..=obj_end].to_string());
         remaining = &remaining[obj_end + 1..];
     }
@@ -3252,7 +3751,8 @@ fn parse_program_manifest_json(json: &str) -> Result<OwnedProgramManifest, Strin
                 // no Anchor-grade lifecycle declared". A manifest
                 // emitted by an updated `#[hopper::context]` carries
                 // the real values.
-                lifecycle: extract_string(aobj, "lifecycle").unwrap_or_else(|_| "existing".to_string()),
+                lifecycle: extract_string(aobj, "lifecycle")
+                    .unwrap_or_else(|_| "existing".to_string()),
                 payer: extract_string(aobj, "payer").unwrap_or_default(),
                 init_space: extract_number(aobj, "init_space").unwrap_or(0) as u32,
                 has_one: extract_string_array(aobj, "has_one").unwrap_or_default(),
@@ -3284,11 +3784,7 @@ fn parse_program_manifest_json(json: &str) -> Result<OwnedProgramManifest, Strin
 
 /// Convert an OwnedProgramManifest to a ProgramManifest by leaking into static refs.
 fn to_program_manifest(m: &OwnedProgramManifest) -> ProgramManifest {
-    let layouts: Vec<LayoutManifest> = m
-        .layouts
-        .iter()
-        .map(|l| to_manifest(l).0)
-        .collect();
+    let layouts: Vec<LayoutManifest> = m.layouts.iter().map(|l| to_manifest(l).0).collect();
 
     let instructions: Vec<InstructionDescriptor> = m
         .instructions
@@ -3313,11 +3809,8 @@ fn to_program_manifest(m: &OwnedProgramManifest) -> ProgramManifest {
                     layout_ref: leak_str(&a.layout_ref),
                 })
                 .collect();
-            let capabilities: Vec<&'static str> = ix
-                .capabilities
-                .iter()
-                .map(|c| leak_str(c))
-                .collect();
+            let capabilities: Vec<&'static str> =
+                ix.capabilities.iter().map(|c| leak_str(c)).collect();
             InstructionDescriptor {
                 name: leak_str(&ix.name),
                 tag: ix.tag,
@@ -3357,21 +3850,9 @@ fn to_program_manifest(m: &OwnedProgramManifest) -> ProgramManifest {
         .policies
         .iter()
         .map(|p| {
-            let caps: Vec<&'static str> = p
-                .capabilities
-                .iter()
-                .map(|c| leak_str(c))
-                .collect();
-            let reqs: Vec<&'static str> = p
-                .requirements
-                .iter()
-                .map(|r| leak_str(r))
-                .collect();
-            let invs: Vec<&'static str> = p
-                .invariants
-                .iter()
-                .map(|i| leak_str(i))
-                .collect();
+            let caps: Vec<&'static str> = p.capabilities.iter().map(|c| leak_str(c)).collect();
+            let reqs: Vec<&'static str> = p.requirements.iter().map(|r| leak_str(r)).collect();
+            let invs: Vec<&'static str> = p.invariants.iter().map(|i| leak_str(i)).collect();
             PolicyDescriptor {
                 name: leak_str(&p.name),
                 capabilities: Box::leak(caps.into_boxed_slice()),
@@ -3390,16 +3871,10 @@ fn to_program_manifest(m: &OwnedProgramManifest) -> ProgramManifest {
                 .accounts
                 .iter()
                 .map(|account| {
-                    let seeds: Vec<&'static str> = account
-                        .seeds
-                        .iter()
-                        .map(|seed| leak_str(seed))
-                        .collect();
-                    let has_one: Vec<&'static str> = account
-                        .has_one
-                        .iter()
-                        .map(|h| leak_str(h))
-                        .collect();
+                    let seeds: Vec<&'static str> =
+                        account.seeds.iter().map(|seed| leak_str(seed)).collect();
+                    let has_one: Vec<&'static str> =
+                        account.has_one.iter().map(|h| leak_str(h)).collect();
                     let lifecycle = match account.lifecycle.as_str() {
                         "init" => AccountLifecycle::Init,
                         "realloc" => AccountLifecycle::Realloc,
@@ -3424,11 +3899,8 @@ fn to_program_manifest(m: &OwnedProgramManifest) -> ProgramManifest {
                     }
                 })
                 .collect();
-            let policies: Vec<&'static str> = ctx
-                .policies
-                .iter()
-                .map(|policy| leak_str(policy))
-                .collect();
+            let policies: Vec<&'static str> =
+                ctx.policies.iter().map(|policy| leak_str(policy)).collect();
             let mutation_classes: Vec<&'static str> = ctx
                 .mutation_classes
                 .iter()
@@ -3599,10 +4071,8 @@ fn fetch_manifest_json(program_id_str: &str, rpc_override: Option<&str>) -> Stri
         }
     };
 
-    let (pda, bump) = match rpc::find_program_address(
-        &[hopper_schema::MANIFEST_SEED],
-        &program_id,
-    ) {
+    let (pda, bump) = match rpc::find_program_address(&[hopper_schema::MANIFEST_SEED], &program_id)
+    {
         Some(result) => result,
         None => {
             eprintln!("Failed to derive manifest PDA (no valid bump found)");
@@ -3620,7 +4090,10 @@ fn fetch_manifest_json(program_id_str: &str, rpc_override: Option<&str>) -> Stri
         Ok(None) => {
             eprintln!("No manifest account found at PDA {}", pda_b58);
             eprintln!();
-            eprintln!("The program {} does not have an on-chain Hopper manifest.", program_id_str);
+            eprintln!(
+                "The program {} does not have an on-chain Hopper manifest.",
+                program_id_str
+            );
             eprintln!("To publish a manifest, use the hopper_manifest!() macro in your program.");
             process::exit(1);
         }
@@ -3786,7 +4259,10 @@ fn cmd_manager_identify(args: &[String]) {
     };
 
     if data.len() < 16 {
-        eprintln!("Data too short for Hopper header (need 16 bytes, got {})", data.len());
+        eprintln!(
+            "Data too short for Hopper header (need 16 bytes, got {})",
+            data.len()
+        );
         process::exit(1);
     }
 
@@ -3804,8 +4280,11 @@ fn cmd_manager_identify(args: &[String]) {
             println!("  Expected size: {} bytes", layout.total_size);
             println!("  Fields       : {}", layout.field_count);
             if data.len() != layout.total_size {
-                println!("  WARNING: data size ({}) != expected size ({})",
-                    data.len(), layout.total_size);
+                println!(
+                    "  WARNING: data size ({}) != expected size ({})",
+                    data.len(),
+                    layout.total_size
+                );
             }
             println!();
             println!("Use 'hopper manager decode' to see field values.");
@@ -3815,8 +4294,13 @@ fn cmd_manager_identify(args: &[String]) {
             println!();
             println!("Known layouts:");
             for l in prog.layouts.iter() {
-                println!("    {} v{} (disc={}, id={})",
-                    l.name, l.version, l.disc, hex_encode(&l.layout_id));
+                println!(
+                    "    {} v{} (disc={}, id={})",
+                    l.name,
+                    l.version,
+                    l.disc,
+                    hex_encode(&l.layout_id)
+                );
             }
         }
     }
@@ -3865,8 +4349,16 @@ fn decode_layout_from_source(args: &[String], usage: &str, heading: &str) {
     };
 
     println!("=== {}: {} v{} ===", heading, layout.name, layout.version);
-    println!("  Size: {} bytes (expected {})", data.len(), layout.total_size);
-    println!("  Flags: {} (0x{:04x})", format_flags(header.flags), header.flags);
+    println!(
+        "  Size: {} bytes (expected {})",
+        data.len(),
+        layout.total_size
+    );
+    println!(
+        "  Flags: {} (0x{:04x})",
+        format_flags(header.flags),
+        header.flags
+    );
     println!("  Disc : {}", header.disc);
     println!("  Wire : {}", hex_encode(&layout.layout_id));
     println!();
@@ -3945,14 +4437,29 @@ fn cmd_manager_instruction(args: &[String]) {
         println!("  Accounts ({}):", ix.accounts.len());
         for (i, acct) in ix.accounts.iter().enumerate() {
             let mut flags = Vec::new();
-            if acct.writable { flags.push("writable"); }
-            if acct.signer { flags.push("signer"); }
-            let flag_str = if flags.is_empty() { "read-only".to_string() } else { flags.join(", ") };
-            let layout_str = if acct.layout_ref.is_empty() { "" } else { acct.layout_ref };
+            if acct.writable {
+                flags.push("writable");
+            }
+            if acct.signer {
+                flags.push("signer");
+            }
+            let flag_str = if flags.is_empty() {
+                "read-only".to_string()
+            } else {
+                flags.join(", ")
+            };
+            let layout_str = if acct.layout_ref.is_empty() {
+                ""
+            } else {
+                acct.layout_ref
+            };
             if layout_str.is_empty() {
                 println!("    [{}] {:20} ({})", i, acct.name, flag_str);
             } else {
-                println!("    [{}] {:20} ({}) -> {}", i, acct.name, flag_str, layout_str);
+                println!(
+                    "    [{}] {:20} ({}) -> {}",
+                    i, acct.name, flag_str, layout_str
+                );
             }
         }
         println!();
@@ -3961,7 +4468,10 @@ fn cmd_manager_instruction(args: &[String]) {
     if !ix.args.is_empty() {
         println!("  Arguments ({}):", ix.args.len());
         for arg in ix.args.iter() {
-            println!("    {:20} : {} ({} bytes)", arg.name, arg.canonical_type, arg.size);
+            println!(
+                "    {:20} : {} ({} bytes)",
+                arg.name, arg.canonical_type, arg.size
+            );
         }
         println!();
     }
@@ -3985,7 +4495,10 @@ fn cmd_manager_instruction(args: &[String]) {
         println!();
     }
 
-    println!("  Receipt expected: {}", if ix.receipt_expected { "YES" } else { "NO" });
+    println!(
+        "  Receipt expected: {}",
+        if ix.receipt_expected { "YES" } else { "NO" }
+    );
 }
 
 fn cmd_manager_layouts(args: &[String]) {
@@ -4074,7 +4587,9 @@ fn cmd_manager_events(args: &[String]) {
     }
 
     // Show which instructions emit which events
-    let has_receipt_ix: Vec<_> = prog.instructions.iter()
+    let has_receipt_ix: Vec<_> = prog
+        .instructions
+        .iter()
         .filter(|ix| ix.receipt_expected)
         .collect();
     if !has_receipt_ix.is_empty() {
@@ -4093,13 +4608,19 @@ fn cmd_manager_fingerprints(args: &[String]) {
 
     println!("=== Layout Fingerprints ===");
     println!();
-    println!("  {:>20}  {:>3}  {:>3}  {:>6}  Layout ID", "Name", "D", "V", "Size");
+    println!(
+        "  {:>20}  {:>3}  {:>3}  {:>6}  Layout ID",
+        "Name", "D", "V", "Size"
+    );
     println!("  {}", "-".repeat(60));
 
     for layout in prog.layouts.iter() {
         println!(
             "  {:>20}  {:>3}  {:>3}  {:>6}  {}",
-            layout.name, layout.disc, layout.version, layout.total_size,
+            layout.name,
+            layout.disc,
+            layout.version,
+            layout.total_size,
             hex_encode(&layout.layout_id),
         );
     }
@@ -4109,7 +4630,10 @@ fn cmd_manager_fingerprints(args: &[String]) {
     let mut seen_discs = std::collections::HashMap::new();
     for layout in prog.layouts.iter() {
         if let Some(prev) = seen_discs.insert(layout.disc, layout.name) {
-            println!("  WARNING: Disc {} shared by '{}' and '{}'", layout.disc, prev, layout.name);
+            println!(
+                "  WARNING: Disc {} shared by '{}' and '{}'",
+                layout.disc, prev, layout.name
+            );
         }
     }
 
@@ -4118,7 +4642,10 @@ fn cmd_manager_fingerprints(args: &[String]) {
     for layout in prog.layouts.iter() {
         let id_hex = hex_encode(&layout.layout_id);
         if let Some(prev) = seen_ids.insert(id_hex.clone(), layout.name) {
-            println!("  WARNING: Layout ID {} shared by '{}' and '{}'", id_hex, prev, layout.name);
+            println!(
+                "  WARNING: Layout ID {} shared by '{}' and '{}'",
+                id_hex, prev, layout.name
+            );
         }
     }
 
@@ -4137,11 +4664,17 @@ fn cmd_manager_compat(args: &[String]) {
     }
     let old_data = match hex_decode(&args[consumed]) {
         Ok(d) => d,
-        Err(e) => { eprintln!("Hex decode error (old): {}", e); process::exit(1); }
+        Err(e) => {
+            eprintln!("Hex decode error (old): {}", e);
+            process::exit(1);
+        }
     };
     let new_data = match hex_decode(&args[consumed + 1]) {
         Ok(d) => d,
-        Err(e) => { eprintln!("Hex decode error (new): {}", e); process::exit(1); }
+        Err(e) => {
+            eprintln!("Hex decode error (new): {}", e);
+            process::exit(1);
+        }
     };
 
     if old_data.len() < 16 || new_data.len() < 16 {
@@ -4154,12 +4687,20 @@ fn cmd_manager_compat(args: &[String]) {
 
     println!("=== Compatibility Analysis ===");
     println!();
-    println!("  Old: disc={}, ver={}, layout_id={}, size={}",
-        old_header.disc, old_header.version,
-        hex_encode(&old_header.layout_id), old_data.len());
-    println!("  New: disc={}, ver={}, layout_id={}, size={}",
-        new_header.disc, new_header.version,
-        hex_encode(&new_header.layout_id), new_data.len());
+    println!(
+        "  Old: disc={}, ver={}, layout_id={}, size={}",
+        old_header.disc,
+        old_header.version,
+        hex_encode(&old_header.layout_id),
+        old_data.len()
+    );
+    println!(
+        "  New: disc={}, ver={}, layout_id={}, size={}",
+        new_header.disc,
+        new_header.version,
+        hex_encode(&new_header.layout_id),
+        new_data.len()
+    );
     println!();
 
     if old_header.disc != new_header.disc {
@@ -4206,10 +4747,14 @@ fn cmd_manager_compat(args: &[String]) {
                     println!("  RESULT: Wire-compatible. Byte layout identical, semantic metadata differs.");
                 }
                 CompatibilityVerdict::AppendSafe => {
-                    println!("  RESULT: Append-safe. Old field prefix preserved, no migration needed.");
+                    println!(
+                        "  RESULT: Append-safe. Old field prefix preserved, no migration needed."
+                    );
                 }
                 CompatibilityVerdict::MigrationRequired => {
-                    println!("  RESULT: Migration required. Data is not directly backward-readable.");
+                    println!(
+                        "  RESULT: Migration required. Data is not directly backward-readable."
+                    );
                 }
                 CompatibilityVerdict::Incompatible => {
                     println!("  RESULT: Incompatible. Breaking change detected.");
@@ -4240,7 +4785,10 @@ fn cmd_manager_receipt(args: &[String]) {
     }
     let data = match hex_decode(&args[0]) {
         Ok(d) => d,
-        Err(e) => { eprintln!("Hex decode error: {}", e); process::exit(1); }
+        Err(e) => {
+            eprintln!("Hex decode error: {}", e);
+            process::exit(1);
+        }
     };
 
     if data.len() < 64 {
@@ -4250,7 +4798,10 @@ fn cmd_manager_receipt(args: &[String]) {
 
     let r = match DecodedReceipt::from_bytes(&data) {
         Some(r) => r,
-        None => { eprintln!("Failed to decode receipt"); process::exit(1); }
+        None => {
+            eprintln!("Failed to decode receipt");
+            process::exit(1);
+        }
     };
 
     let phase = Phase::from_tag(r.phase);
@@ -4265,31 +4816,55 @@ fn cmd_manager_receipt(args: &[String]) {
     println!("  Changed fields mask : 0x{:016x}", r.changed_fields);
     println!("  Changed bytes       : {}", r.changed_bytes);
     println!("  Changed regions     : {}", r.changed_regions);
-    println!("  Was resized         : {} ({} -> {} bytes)", r.was_resized, r.old_size, r.new_size);
+    println!(
+        "  Was resized         : {} ({} -> {} bytes)",
+        r.was_resized, r.old_size, r.new_size
+    );
     println!();
-    println!("  Before fingerprint  : {}", hex_encode(&r.before_fingerprint));
-    println!("  After fingerprint   : {}", hex_encode(&r.after_fingerprint));
+    println!(
+        "  Before fingerprint  : {}",
+        hex_encode(&r.before_fingerprint)
+    );
+    println!(
+        "  After fingerprint   : {}",
+        hex_encode(&r.after_fingerprint)
+    );
     let fp_changed = r.before_fingerprint != r.after_fingerprint;
     println!("  Fingerprint changed : {}", fp_changed);
     println!();
     println!("  Invariants passed   : {}", r.invariants_passed);
     println!("  Invariants checked  : {}", r.invariants_checked);
-    println!("  CPI invoked         : {} ({} calls)", r.cpi_invoked, r.cpi_count);
+    println!(
+        "  CPI invoked         : {} ({} calls)",
+        r.cpi_invoked, r.cpi_count
+    );
     println!("  Journal appends     : {}", r.journal_appends);
     println!("  Segment mask        : 0x{:04x}", r.segment_changed_mask);
     println!("  Policy flags        : 0x{:08x}", r.policy_flags);
     println!();
-    println!("  Compat impact       : {} ({})", impact.name(), r.compat_impact);
+    println!(
+        "  Compat impact       : {} ({})",
+        impact.name(),
+        r.compat_impact
+    );
     println!("  Validation bundle   : {}", r.validation_bundle_id);
     println!("  Migration flags     : 0b{:08b}", r.migration_flags);
-    if r.migration_flags & 0x01 != 0 { println!("    - Migration triggered"); }
-    if r.migration_flags & 0x02 != 0 { println!("    - Realloc performed"); }
-    if r.migration_flags & 0x04 != 0 { println!("    - Schema version bumped"); }
+    if r.migration_flags & 0x01 != 0 {
+        println!("    - Migration triggered");
+    }
+    if r.migration_flags & 0x02 != 0 {
+        println!("    - Realloc performed");
+    }
+    if r.migration_flags & 0x04 != 0 {
+        println!("    - Schema version bumped");
+    }
 }
 
 fn cmd_manager_explain(args: &[String]) {
     if args.is_empty() {
-        eprintln!("Usage: hopper manager explain <manifest> | --program-id <program-id> [--rpc <url>]");
+        eprintln!(
+            "Usage: hopper manager explain <manifest> | --program-id <program-id> [--rpc <url>]"
+        );
         eprintln!("  Aggregated human-readable summary of the program manifest.");
         process::exit(1);
     }
@@ -4309,26 +4884,43 @@ fn cmd_manager_explain(args: &[String]) {
     println!("  Layouts ({})", prog.layouts.len());
     for l in prog.layouts.iter() {
         let fp = LayoutFingerprint::from_manifest(l);
-        println!("    {} v{} | disc={} | {} fields | {} bytes | wire={} sem={}",
-            l.name, l.version, l.disc, l.field_count, l.total_size,
-            hex_encode(&fp.wire_hash), hex_encode(&fp.semantic_hash));
+        println!(
+            "    {} v{} | disc={} | {} fields | {} bytes | wire={} sem={}",
+            l.name,
+            l.version,
+            l.disc,
+            l.field_count,
+            l.total_size,
+            hex_encode(&fp.wire_hash),
+            hex_encode(&fp.semantic_hash)
+        );
     }
     println!();
 
     // Instructions
     println!("  Instructions ({})", prog.instructions.len());
     for ix in prog.instructions.iter() {
-        println!("    [{}] {} | {} args | {} accounts",
-            ix.tag, ix.name, ix.args.len(), ix.accounts.len());
+        println!(
+            "    [{}] {} | {} args | {} accounts",
+            ix.tag,
+            ix.name,
+            ix.args.len(),
+            ix.accounts.len()
+        );
     }
     println!();
 
     // Policies
     println!("  Policies ({})", prog.policies.len());
     for p in prog.policies.iter() {
-        println!("    {} | {}cap {}req {}inv | receipt={}",
-            p.name, p.capabilities.len(), p.requirements.len(),
-            p.invariants.len(), p.receipt_profile);
+        println!(
+            "    {} | {}cap {}req {}inv | receipt={}",
+            p.name,
+            p.capabilities.len(),
+            p.requirements.len(),
+            p.invariants.len(),
+            p.receipt_profile
+        );
     }
     println!();
 
@@ -4349,10 +4941,15 @@ fn cmd_manager_explain(args: &[String]) {
                 MigrationPolicy::RequiresMigration => "migration",
                 MigrationPolicy::Incompatible => "incompatible",
             };
-            println!("    {} v{} → {} v{} | {} | backward={}",
-                cp.from_layout, cp.from_version,
-                cp.to_layout, cp.to_version,
-                policy, cp.backward_readable);
+            println!(
+                "    {} v{} → {} v{} | {} | backward={}",
+                cp.from_layout,
+                cp.from_version,
+                cp.to_layout,
+                cp.to_version,
+                policy,
+                cp.backward_readable
+            );
         }
         println!();
     }
@@ -4376,11 +4973,17 @@ fn cmd_manager_diff(args: &[String]) {
     }
     let before = match hex_decode(&args[consumed]) {
         Ok(d) => d,
-        Err(e) => { eprintln!("Hex decode error (before): {}", e); process::exit(1); }
+        Err(e) => {
+            eprintln!("Hex decode error (before): {}", e);
+            process::exit(1);
+        }
     };
     let after = match hex_decode(&args[consumed + 1]) {
         Ok(d) => d,
-        Err(e) => { eprintln!("Hex decode error (after): {}", e); process::exit(1); }
+        Err(e) => {
+            eprintln!("Hex decode error (after): {}", e);
+            process::exit(1);
+        }
     };
 
     if before.len() < 16 || after.len() < 16 {
@@ -4423,10 +5026,12 @@ fn cmd_manager_diff(args: &[String]) {
                     let bv = before_fields[i].as_ref().map(|f| f.raw).unwrap_or(&[]);
                     let av = after_fields[i].as_ref().map(|f| f.raw).unwrap_or(&[]);
                     if bv != av || bf.name != af.name || bf.canonical_type != af.canonical_type {
-                        println!("    {:20} : {} → {}",
+                        println!(
+                            "    {:20} : {} → {}",
                             bf.name,
                             hex_encode(bv),
-                            hex_encode(av));
+                            hex_encode(av)
+                        );
                         diffs_found += 1;
                     }
                 } else if i < al.field_count {
@@ -4448,25 +5053,40 @@ fn cmd_manager_diff(args: &[String]) {
             // Size diff
             if before.len() != after.len() {
                 println!();
-                println!("  Size: {} → {} bytes ({}{})",
-                    before.len(), after.len(),
+                println!(
+                    "  Size: {} → {} bytes ({}{})",
+                    before.len(),
+                    after.len(),
                     if after.len() > before.len() { "+" } else { "" },
-                    after.len() as isize - before.len() as isize);
+                    after.len() as isize - before.len() as isize
+                );
             }
         }
         (Some(bl), None) => {
             println!("  Before : {} v{}", bl.name, bl.version);
-            println!("  After  : UNKNOWN LAYOUT (id={})", hex_encode(&after_header.layout_id));
+            println!(
+                "  After  : UNKNOWN LAYOUT (id={})",
+                hex_encode(&after_header.layout_id)
+            );
             println!("  Cannot compute semantic diff: after layout not in manifest.");
         }
         (None, Some(al)) => {
-            println!("  Before : UNKNOWN LAYOUT (id={})", hex_encode(&before_header.layout_id));
+            println!(
+                "  Before : UNKNOWN LAYOUT (id={})",
+                hex_encode(&before_header.layout_id)
+            );
             println!("  After  : {} v{}", al.name, al.version);
             println!("  Cannot compute semantic diff: before layout not in manifest.");
         }
         (None, None) => {
-            println!("  Before : UNKNOWN LAYOUT (id={})", hex_encode(&before_header.layout_id));
-            println!("  After  : UNKNOWN LAYOUT (id={})", hex_encode(&after_header.layout_id));
+            println!(
+                "  Before : UNKNOWN LAYOUT (id={})",
+                hex_encode(&before_header.layout_id)
+            );
+            println!(
+                "  After  : UNKNOWN LAYOUT (id={})",
+                hex_encode(&after_header.layout_id)
+            );
             println!("  Cannot compute semantic diff: neither layout is in the manifest.");
         }
     }
@@ -4483,9 +5103,10 @@ fn cmd_manager_simulate(args: &[String]) {
     let query = &args[consumed];
 
     // Find instruction by name or tag
-    let ix = prog.instructions.iter().find(|ix| {
-        ix.name == query.as_str() || format!("{}", ix.tag) == query.as_str()
-    });
+    let ix = prog
+        .instructions
+        .iter()
+        .find(|ix| ix.name == query.as_str() || format!("{}", ix.tag) == query.as_str());
 
     let ix = match ix {
         Some(ix) => ix,
@@ -4507,12 +5128,22 @@ fn cmd_manager_simulate(args: &[String]) {
     println!("  Accounts required ({}):", ix.accounts.len());
     for (i, acc) in ix.accounts.iter().enumerate() {
         let mut flags = Vec::new();
-        if acc.signer { flags.push("SIGNER"); }
-        if acc.writable { flags.push("WRITABLE"); }
-        let flag_str = if flags.is_empty() { "read-only".to_string() }
-            else { flags.join(" + ") };
-        let layout_note = if acc.layout_ref.is_empty() { String::new() }
-            else { format!(" → layout:{}", acc.layout_ref) };
+        if acc.signer {
+            flags.push("SIGNER");
+        }
+        if acc.writable {
+            flags.push("WRITABLE");
+        }
+        let flag_str = if flags.is_empty() {
+            "read-only".to_string()
+        } else {
+            flags.join(" + ")
+        };
+        let layout_note = if acc.layout_ref.is_empty() {
+            String::new()
+        } else {
+            format!(" → layout:{}", acc.layout_ref)
+        };
         println!("    #{}: {} [{}]{}", i, acc.name, flag_str, layout_note);
     }
     println!();
@@ -4522,11 +5153,17 @@ fn cmd_manager_simulate(args: &[String]) {
         println!("  Arguments: none (tag byte only)");
     } else {
         let total_size: u16 = ix.args.iter().map(|a| a.size).sum();
-        println!("  Arguments ({}, {} bytes after tag):", ix.args.len(), total_size);
+        println!(
+            "  Arguments ({}, {} bytes after tag):",
+            ix.args.len(),
+            total_size
+        );
         let mut offset = 1usize; // tag byte
         for arg in ix.args.iter() {
-            println!("    @{}: {} ({}, {} bytes)",
-                offset, arg.name, arg.canonical_type, arg.size);
+            println!(
+                "    @{}: {} ({}, {} bytes)",
+                offset, arg.name, arg.canonical_type, arg.size
+            );
             offset += arg.size as usize;
         }
         println!("  Total instruction data: {} bytes", offset);

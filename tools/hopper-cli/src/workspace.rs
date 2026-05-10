@@ -34,12 +34,14 @@ pub fn find_workspace_root(start: &Path) -> Result<PathBuf, String> {
         }
     }
 
-    workspace.or_else(|| find_project_root(start).ok()).ok_or_else(|| {
-        format!(
-            "No Cargo workspace root found while searching upward from {}",
-            start.display()
-        )
-    })
+    workspace
+        .or_else(|| find_project_root(start).ok())
+        .ok_or_else(|| {
+            format!(
+                "No Cargo workspace root found while searching upward from {}",
+                start.display()
+            )
+        })
 }
 
 pub fn run_status(program: &str, args: &[String], cwd: &Path) -> Result<ExitStatus, String> {
@@ -89,7 +91,10 @@ pub fn home_dir() -> Option<PathBuf> {
         .or_else(|| env::var_os("HOME").map(PathBuf::from))
 }
 
-pub fn resolve_workspace_member_manifest(workspace_root: &Path, package: &str) -> Result<PathBuf, String> {
+pub fn resolve_workspace_member_manifest(
+    workspace_root: &Path,
+    package: &str,
+) -> Result<PathBuf, String> {
     let workspace_manifest_path = workspace_root.join("Cargo.toml");
     let workspace_manifest = fs::read_to_string(&workspace_manifest_path).map_err(|err| {
         format!(
@@ -154,7 +159,10 @@ pub fn infer_program_manifest_for_project(start: &Path) -> Result<PathBuf, Strin
     infer_program_manifest_in_dir(&project_root)
 }
 
-pub fn infer_program_manifest_for_package(workspace_root: &Path, package: &str) -> Result<PathBuf, String> {
+pub fn infer_program_manifest_for_package(
+    workspace_root: &Path,
+    package: &str,
+) -> Result<PathBuf, String> {
     let manifest_path = resolve_workspace_member_manifest(workspace_root, package)?;
     let project_root = manifest_path.parent().ok_or_else(|| {
         format!(
@@ -216,11 +224,9 @@ pub fn write_text_file(path: &Path, contents: &str, force: bool) -> Result<(), S
     }
 
     if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).map_err(|err| {
-            format!("Failed to create directory {}: {err}", parent.display())
-        })?;
+        fs::create_dir_all(parent)
+            .map_err(|err| format!("Failed to create directory {}: {err}", parent.display()))?;
     }
 
-    fs::write(path, contents)
-        .map_err(|err| format!("Failed to write {}: {err}", path.display()))
+    fs::write(path, contents).map_err(|err| format!("Failed to write {}: {err}", path.display()))
 }

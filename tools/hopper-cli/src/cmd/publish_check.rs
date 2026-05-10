@@ -50,17 +50,29 @@ pub fn cmd_publish_check(args: &[String]) {
     }
 
     let mut failures = 0u32;
-    failures += run_stage("release ABI verification", || run_release_verify(&opts, &root)) as u32;
+    failures += run_stage("release ABI verification", || {
+        run_release_verify(&opts, &root)
+    }) as u32;
     failures += run_stage("release documentation scan", || scan_release_docs(&root)) as u32;
     failures += run_stage("default feature tree", || check_default_feature_tree(&root)) as u32;
-    failures += run_stage("legacy token instruction gate", || check_legacy_token_gate(&root)) as u32;
-    failures += run_stage("client layout-id assertions", || check_client_layout_tests(&root)) as u32;
+    failures += run_stage("legacy token instruction gate", || {
+        check_legacy_token_gate(&root)
+    }) as u32;
+    failures += run_stage("client layout-id assertions", || {
+        check_client_layout_tests(&root)
+    }) as u32;
     failures += run_stage("fuzz target inventory", || check_fuzz_inventory(&root)) as u32;
-    failures += run_stage("tracked build artifact gate", || check_tracked_build_artifacts(&root)) as u32;
+    failures += run_stage("tracked build artifact gate", || {
+        check_tracked_build_artifacts(&root)
+    }) as u32;
 
     if opts.full {
-        failures += run_stage("core test suite", || run_cargo_status(&root, &["test", "-p", "hopper-core"])) as u32;
-        failures += run_stage("trybuild UI suite", || run_cargo_status(&root, &["test", "-p", "hopper-trybuild"])) as u32;
+        failures += run_stage("core test suite", || {
+            run_cargo_status(&root, &["test", "-p", "hopper-core"])
+        }) as u32;
+        failures += run_stage("trybuild UI suite", || {
+            run_cargo_status(&root, &["test", "-p", "hopper-trybuild"])
+        }) as u32;
     }
 
     println!();
@@ -151,8 +163,12 @@ impl PublishCheckOptions {
             }
         }
 
-        if opts.source_only && (opts.manifest.is_some() || opts.so.is_some() || opts.package.is_some()) {
-            return Err("--source-only cannot be combined with manifest, .so, or --package".to_string());
+        if opts.source_only
+            && (opts.manifest.is_some() || opts.so.is_some() || opts.package.is_some())
+        {
+            return Err(
+                "--source-only cannot be combined with manifest, .so, or --package".to_string(),
+            );
         }
         if opts.package.is_some() && (opts.manifest.is_some() || opts.so.is_some()) {
             return Err("use either --package or explicit --manifest/--so, not both".to_string());
@@ -163,9 +179,16 @@ impl PublishCheckOptions {
     fn workspace_root(&self, cwd: &Path) -> Result<PathBuf, String> {
         if let Some(root) = &self.workspace_root {
             let path = PathBuf::from(root);
-            let abs = if path.is_absolute() { path } else { cwd.join(path) };
+            let abs = if path.is_absolute() {
+                path
+            } else {
+                cwd.join(path)
+            };
             if !abs.join("Cargo.toml").is_file() {
-                return Err(format!("workspace root has no Cargo.toml: {}", abs.display()));
+                return Err(format!(
+                    "workspace root has no Cargo.toml: {}",
+                    abs.display()
+                ));
             }
             return Ok(abs);
         }
@@ -181,7 +204,9 @@ fn take_value(args: &[String], index: usize, flag: &str) -> Result<String, Strin
 
 fn run_release_verify(opts: &PublishCheckOptions, root: &Path) -> Result<(), String> {
     if opts.source_only {
-        println!("skipped by --source-only; run with --package or --manifest/--so for release artifacts");
+        println!(
+            "skipped by --source-only; run with --package or --manifest/--so for release artifacts"
+        );
         return Ok(());
     }
 
@@ -191,10 +216,12 @@ fn run_release_verify(opts: &PublishCheckOptions, root: &Path) -> Result<(), Str
         verify_args.push(package.clone());
     } else {
         let manifest = opts.manifest.as_ref().ok_or_else(|| {
-            "release mode requires --package or --manifest <path> plus --so <program.so>".to_string()
+            "release mode requires --package or --manifest <path> plus --so <program.so>"
+                .to_string()
         })?;
         let so = opts.so.as_ref().ok_or_else(|| {
-            "release mode requires --package or --manifest <path> plus --so <program.so>".to_string()
+            "release mode requires --package or --manifest <path> plus --so <program.so>"
+                .to_string()
         })?;
         verify_args.push("--manifest".to_string());
         verify_args.push(manifest.clone());
@@ -202,12 +229,18 @@ fn run_release_verify(opts: &PublishCheckOptions, root: &Path) -> Result<(), Str
         verify_args.push(so.clone());
     }
 
-    let exe = std::env::current_exe().map_err(|err| format!("failed to locate hopper executable: {err}"))?;
+    let exe = std::env::current_exe()
+        .map_err(|err| format!("failed to locate hopper executable: {err}"))?;
     let status = Command::new(&exe)
         .args(&verify_args)
         .current_dir(root)
         .status()
-        .map_err(|err| format!("failed to run {}: {err}", display_command(&exe, &verify_args)))?;
+        .map_err(|err| {
+            format!(
+                "failed to run {}: {err}",
+                display_command(&exe, &verify_args)
+            )
+        })?;
     if status.success() {
         Ok(())
     } else {
@@ -237,8 +270,14 @@ fn scan_release_docs(root: &Path) -> Result<(), String> {
         ("bench/pinocchio-vault", "stale in-tree benchmark path"),
         ("bench/anchor-vault", "stale in-tree benchmark path"),
         ("bench/lazy-dispatch-vault", "stale in-tree benchmark path"),
-        ("bench/framework-vault-bench", "stale in-tree benchmark path"),
-        ("bench/compare-framework-vaults", "stale in-tree benchmark path"),
+        (
+            "bench/framework-vault-bench",
+            "stale in-tree benchmark path",
+        ),
+        (
+            "bench/compare-framework-vaults",
+            "stale in-tree benchmark path",
+        ),
         ("bench/methodology.md", "stale in-tree benchmark path"),
         ("bench/cu_baselines.toml", "stale in-tree benchmark path"),
     ];
@@ -262,7 +301,10 @@ fn scan_release_docs(root: &Path) -> Result<(), String> {
     if hits.is_empty() {
         Ok(())
     } else {
-        Err(format!("release docs contain stale markers:\n{}", hits.join("\n")))
+        Err(format!(
+            "release docs contain stale markers:\n{}",
+            hits.join("\n")
+        ))
     }
 }
 
@@ -344,7 +386,10 @@ fn check_fuzz_inventory(root: &Path) -> Result<(), String> {
         return Err(format!("missing fuzz manifest: {}", manifest.display()));
     }
     if !targets.is_dir() {
-        return Err(format!("missing fuzz targets directory: {}", targets.display()));
+        return Err(format!(
+            "missing fuzz targets directory: {}",
+            targets.display()
+        ));
     }
     let mut count = 0usize;
     for entry in fs::read_dir(&targets)
@@ -356,7 +401,10 @@ fn check_fuzz_inventory(root: &Path) -> Result<(), String> {
         }
     }
     if count == 0 {
-        Err(format!("no fuzz target .rs files under {}", targets.display()))
+        Err(format!(
+            "no fuzz target .rs files under {}",
+            targets.display()
+        ))
     } else {
         println!("found {count} fuzz targets");
         Ok(())
@@ -449,7 +497,9 @@ fn print_usage() {
     eprintln!("  7. tracked build artifact gate");
     eprintln!();
     eprintln!("Options:");
-    eprintln!("  --package, -p <name>       Infer hopper.manifest.json and target/deploy/<name>.so");
+    eprintln!(
+        "  --package, -p <name>       Infer hopper.manifest.json and target/deploy/<name>.so"
+    );
     eprintln!("  --manifest <path>          Explicit Hopper manifest JSON");
     eprintln!("  --so, --binary <path>      Explicit compiled program .so");
     eprintln!("  --workspace-root <path>    Workspace root to check (default: search upward)");

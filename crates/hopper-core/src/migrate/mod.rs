@@ -12,12 +12,9 @@
 //! - The destination version must be strictly greater than the source
 //! - Realloc is rent-safe (payer provides lamports for the delta)
 
-use hopper_runtime::{error::ProgramError, AccountView, Address, ProgramResult};
-use crate::account::{
-    write_header, read_layout_id, read_version,
-    FixedLayout,
-};
+use crate::account::{read_layout_id, read_version, write_header, FixedLayout};
 use crate::check::{check_owner, check_writable};
+use hopper_runtime::{error::ProgramError, AccountView, Address, ProgramResult};
 
 /// Migrate an account in-place by appending new fields.
 ///

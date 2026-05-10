@@ -69,9 +69,7 @@ pub fn cmd_add(args: &[String]) {
     }
 
     if instruction.is_none() && state.is_none() && error.is_none() {
-        eprintln!(
-            "Specify at least one of -i/--instruction, -s/--state, or -e/--error"
-        );
+        eprintln!("Specify at least one of -i/--instruction, -s/--state, or -e/--error");
         print_add_usage();
         process::exit(1);
     }
@@ -142,8 +140,7 @@ fn run_instruction(project_root: &Path, name: &str) -> Result<(), String> {
     }
 
     let body = render_instruction_template(&snake, &pascal);
-    fs::write(&file_path, body)
-        .map_err(|err| format!("write {}: {err}", file_path.display()))?;
+    fs::write(&file_path, body).map_err(|err| format!("write {}: {err}", file_path.display()))?;
     println!(
         "  {} {}",
         style::success("created"),
@@ -160,9 +157,7 @@ fn run_instruction(project_root: &Path, name: &str) -> Result<(), String> {
         } else {
             "\n"
         };
-        let updated = format!(
-            "{existing_mod}{separator}mod {snake};\npub use {snake}::*;\n"
-        );
+        let updated = format!("{existing_mod}{separator}mod {snake};\npub use {snake}::*;\n");
         fs::write(&mod_path, updated)
             .map_err(|err| format!("write {}: {err}", mod_path.display()))?;
         println!(
@@ -177,8 +172,8 @@ fn run_instruction(project_root: &Path, name: &str) -> Result<(), String> {
     // none — that's the safest spot since module-level macros need
     // their imports already in scope.
     let lib_rs = project_root.join("src").join("lib.rs");
-    let lib_content = fs::read_to_string(&lib_rs)
-        .map_err(|err| format!("read {}: {err}", lib_rs.display()))?;
+    let lib_content =
+        fs::read_to_string(&lib_rs).map_err(|err| format!("read {}: {err}", lib_rs.display()))?;
     if !lib_content.contains("mod instructions") {
         let insert = "mod instructions;\nuse instructions::*;\n\n";
         let updated = if let Some(pos) = lib_content.find("#[hopper::program]") {
@@ -188,8 +183,7 @@ fn run_instruction(project_root: &Path, name: &str) -> Result<(), String> {
         } else {
             format!("{insert}{lib_content}")
         };
-        fs::write(&lib_rs, updated)
-            .map_err(|err| format!("write {}: {err}", lib_rs.display()))?;
+        fs::write(&lib_rs, updated).map_err(|err| format!("write {}: {err}", lib_rs.display()))?;
         println!(
             "  {} {} (added `mod instructions;`)",
             style::success("updated"),
@@ -233,13 +227,9 @@ enum DispatchWiring {
 /// ... }` block, picking the next-available `#[instruction(N)]`
 /// discriminator. Returns the chosen discriminator or a hint that the
 /// project uses a manual dispatch we shouldn't touch.
-fn try_wire_dispatch(
-    lib_rs: &Path,
-    snake: &str,
-    pascal: &str,
-) -> Result<DispatchWiring, String> {
-    let content = fs::read_to_string(lib_rs)
-        .map_err(|err| format!("read {}: {err}", lib_rs.display()))?;
+fn try_wire_dispatch(lib_rs: &Path, snake: &str, pascal: &str) -> Result<DispatchWiring, String> {
+    let content =
+        fs::read_to_string(lib_rs).map_err(|err| format!("read {}: {err}", lib_rs.display()))?;
 
     if let Some(program_start) = content.find("#[hopper::program]") {
         // Find the opening `{` of the program mod and its matching
@@ -257,9 +247,7 @@ fn try_wire_dispatch(
         let close_offset = match find_matching_close_brace(&content[body_start..]) {
             Some(n) => n,
             None => {
-                return Err(
-                    "found `#[hopper::program]` but the block is not balanced".to_string(),
-                )
+                return Err("found `#[hopper::program]` but the block is not balanced".to_string())
             }
         };
         let body_end = body_start + close_offset; // position of the `}` itself
@@ -295,8 +283,7 @@ fn try_wire_dispatch(
 
         // Insert just before the closing `}` of the program block.
         let updated = format!("{}{stub}{}", &content[..body_end], &content[body_end..]);
-        fs::write(lib_rs, updated)
-            .map_err(|err| format!("write {}: {err}", lib_rs.display()))?;
+        fs::write(lib_rs, updated).map_err(|err| format!("write {}: {err}", lib_rs.display()))?;
         return Ok(DispatchWiring::HopperProgram {
             discriminator: next_disc,
         });
@@ -423,13 +410,15 @@ fn find_max_state_disc(s: &str) -> Option<i64> {
         let trimmed = line.trim();
         // Match `#[hopper::state(disc = N` and `#[state(disc = N`.
         let prefixes = ["#[hopper::state(", "#[state("];
-        let after = prefixes
-            .iter()
-            .find_map(|p| trimmed.strip_prefix(p));
+        let after = prefixes.iter().find_map(|p| trimmed.strip_prefix(p));
         let Some(after) = after else { continue };
-        let Some(disc_pos) = after.find("disc") else { continue };
+        let Some(disc_pos) = after.find("disc") else {
+            continue;
+        };
         let after_disc = &after[disc_pos..];
-        let Some(eq) = after_disc.find('=') else { continue };
+        let Some(eq) = after_disc.find('=') else {
+            continue;
+        };
         let rest = &after_disc[eq + 1..];
         let mut num = String::new();
         for ch in rest.chars() {
@@ -473,9 +462,7 @@ fn run_error(project_root: &Path, name: &str) -> Result<(), String> {
             }
             format!("{}{}", text.trim_end_matches('\n'), new_enum)
         }
-        None => format!(
-            "//! Program error definitions.\n\nuse hopper::prelude::*;\n{new_enum}"
-        ),
+        None => format!("//! Program error definitions.\n\nuse hopper::prelude::*;\n{new_enum}"),
     };
 
     fs::write(&path, body).map_err(|err| format!("write {}: {err}", path.display()))?;
@@ -498,9 +485,7 @@ fn validate_ident(input: &str, kind: &str) -> Result<String, String> {
     let snake = input.replace('-', "_");
     if snake.is_empty()
         || snake.starts_with(|c: char| c.is_ascii_digit())
-        || !snake
-            .chars()
-            .all(|c| c.is_ascii_alphanumeric() || c == '_')
+        || !snake.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
     {
         return Err(format!(
             "invalid {kind} name `{input}` — must be a valid Rust identifier (e.g. `transfer`, `create_pool`)"

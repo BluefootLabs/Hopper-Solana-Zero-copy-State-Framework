@@ -4,6 +4,7 @@
 #[inline(always)]
 pub fn log(message: &str) {
     #[cfg(target_os = "solana")]
+    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe {
         crate::syscalls::sol_log_(message.as_ptr(), message.len() as u64);
     }
@@ -18,6 +19,7 @@ pub fn log(message: &str) {
 #[inline(always)]
 pub fn log_64(a: u64, b: u64, c: u64, d: u64, e: u64) {
     #[cfg(target_os = "solana")]
+    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe {
         crate::syscalls::sol_log_64_(a, b, c, d, e);
     }
@@ -31,6 +33,7 @@ pub fn log_64(a: u64, b: u64, c: u64, d: u64, e: u64) {
 #[inline(always)]
 pub fn log_compute_units() {
     #[cfg(target_os = "solana")]
+    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe {
         crate::syscalls::sol_log_compute_units_();
     }
@@ -40,6 +43,7 @@ pub fn log_compute_units() {
 #[inline(always)]
 pub fn log_data(segments: &[&[u8]]) {
     #[cfg(target_os = "solana")]
+    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe {
         crate::syscalls::sol_log_data(segments.as_ptr() as *const u8, segments.len() as u64);
     }

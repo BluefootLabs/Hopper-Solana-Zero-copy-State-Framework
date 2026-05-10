@@ -89,10 +89,7 @@ impl<'a> SegmentLease<'a> {
     /// instead, which wrap this constructor safely.
     #[doc(hidden)]
     #[inline(always)]
-    pub unsafe fn new(
-        registry: &'a mut SegmentBorrowRegistry,
-        borrow: SegmentBorrow,
-    ) -> Self {
+    pub unsafe fn new(registry: &'a mut SegmentBorrowRegistry, borrow: SegmentBorrow) -> Self {
         Self {
             registry: registry as *mut _,
             borrow,

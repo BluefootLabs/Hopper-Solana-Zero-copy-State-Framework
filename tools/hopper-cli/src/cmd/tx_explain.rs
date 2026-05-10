@@ -93,11 +93,20 @@ fn run_explain(rpc_url: &str, signature: &str, show_raw_logs: bool) -> Result<()
     println!("-- hopper tx explain --");
     println!("signature : {}", signature);
     println!("slot      : {}", tx.slot);
-    println!("block time: {}", tx.block_time.map(|t| t.to_string()).unwrap_or_else(|| "-".into()));
+    println!(
+        "block time: {}",
+        tx.block_time
+            .map(|t| t.to_string())
+            .unwrap_or_else(|| "-".into())
+    );
 
     // Meta: success flag, CU, fee.
     if let Some(meta) = tx.transaction.meta.as_ref() {
-        let status = if meta.err.is_none() { "success" } else { "failed" };
+        let status = if meta.err.is_none() {
+            "success"
+        } else {
+            "failed"
+        };
         println!("status    : {status}");
         println!("fee       : {} lamports", meta.fee);
         if let solana_transaction_status::option_serializer::OptionSerializer::Some(cu) =
@@ -115,7 +124,9 @@ fn run_explain(rpc_url: &str, signature: &str, show_raw_logs: bool) -> Result<()
     // encoded in different shapes depending on the RPC return; we
     // pattern-match the JsonParsed variant because that is what our
     // config requested.
-    use solana_transaction_status::{EncodedTransaction, UiMessage, UiInstruction, UiParsedInstruction};
+    use solana_transaction_status::{
+        EncodedTransaction, UiInstruction, UiMessage, UiParsedInstruction,
+    };
     let enc_tx = &tx.transaction.transaction;
     let message: &UiMessage = match enc_tx {
         EncodedTransaction::Json(parsed) => &parsed.message,
@@ -186,9 +197,9 @@ fn explain_partial(
     manifest_cache: &mut HashMap<String, Option<String>>,
 ) {
     println!("  program   : {program_id}");
-    let manifest = manifest_cache.entry(program_id.to_string()).or_insert_with(|| {
-        super::manager_invoke::try_fetch_manifest(rpc_url, program_id).ok()
-    });
+    let manifest = manifest_cache
+        .entry(program_id.to_string())
+        .or_insert_with(|| super::manager_invoke::try_fetch_manifest(rpc_url, program_id).ok());
     let data_bytes = match bs58::decode(data_b58).into_vec() {
         Ok(b) => b,
         Err(e) => {
@@ -210,7 +221,10 @@ fn explain_partial(
                 println!("  matched   : {ix_line}");
             }
             None => {
-                println!("  matched   : (no Hopper instruction with disc 0x{:02x})", tag);
+                println!(
+                    "  matched   : (no Hopper instruction with disc 0x{:02x})",
+                    tag
+                );
             }
         }
     } else {

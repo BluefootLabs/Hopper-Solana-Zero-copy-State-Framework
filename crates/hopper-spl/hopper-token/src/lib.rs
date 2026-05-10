@@ -8,14 +8,8 @@
 #![deny(unsafe_op_in_unsafe_fn)]
 
 pub use hopper_runtime::token::{
-    ApproveChecked,
-    BurnChecked,
-    CloseAccount,
-    InitializeAccount,
-    MintToChecked,
-    Revoke,
-    TransferChecked,
-    TOKEN_PROGRAM_ID,
+    ApproveChecked, BurnChecked, CloseAccount, InitializeAccount, MintToChecked, Revoke,
+    TransferChecked, TOKEN_PROGRAM_ID,
 };
 
 #[cfg(feature = "legacy-token-instructions")]
@@ -30,12 +24,7 @@ pub use hopper_runtime::token::{Approve, Burn, MintTo, Transfer};
 /// `Transfer`, `MintTo`, `Burn`, and `Approve` builders for migration tests.
 pub mod instructions {
     pub use hopper_runtime::token::{
-        ApproveChecked,
-        BurnChecked,
-        CloseAccount,
-        InitializeAccount,
-        MintToChecked,
-        Revoke,
+        ApproveChecked, BurnChecked, CloseAccount, InitializeAccount, MintToChecked, Revoke,
         TransferChecked,
     };
 

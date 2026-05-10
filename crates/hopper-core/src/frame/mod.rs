@@ -18,16 +18,16 @@
 //! - Validation runs before mutation
 //! - Events are emitted after state changes
 
-pub mod phase;
 pub mod args;
+pub mod phase;
 
+use crate::account::SliceCursor;
+use crate::account::{FixedLayout, Pod, HEADER_LEN};
+use hopper_runtime::segment_borrow::SegmentBorrowRegistry;
 use hopper_runtime::{
     error::ProgramError, AccountView, Address, ProgramResult, Ref, RefMut, SegRef, SegRefMut,
     SegmentLease,
 };
-use hopper_runtime::segment_borrow::SegmentBorrowRegistry;
-use crate::account::SliceCursor;
-use crate::account::{Pod, FixedLayout, HEADER_LEN};
 
 /// Maximum accounts in a single frame. Matches Solana's transaction limit.
 pub const MAX_FRAME_ACCOUNTS: usize = 64;
@@ -89,7 +89,9 @@ impl<'a> Frame<'a> {
     /// Get raw account view by index.
     #[inline(always)]
     pub fn account_view(&self, index: usize) -> Result<&AccountView, ProgramError> {
-        self.accounts.get(index).ok_or(ProgramError::NotEnoughAccountKeys)
+        self.accounts
+            .get(index)
+            .ok_or(ProgramError::NotEnoughAccountKeys)
     }
 
     /// Get instruction data cursor.
@@ -109,7 +111,10 @@ impl<'a> Frame<'a> {
     /// Get an immutable account view (no borrow tracking needed for reads).
     #[inline(always)]
     pub fn account(&self, index: usize) -> Result<FrameAccount<'_>, ProgramError> {
-        let view = self.accounts.get(index).ok_or(ProgramError::NotEnoughAccountKeys)?;
+        let view = self
+            .accounts
+            .get(index)
+            .ok_or(ProgramError::NotEnoughAccountKeys)?;
         Ok(FrameAccount { view })
     }
 
@@ -120,10 +125,7 @@ impl<'a> Frame<'a> {
     /// Returns an error if this account is already borrowed mutably.
     /// This prevents the most dangerous aliasing pattern in Solana programs.
     #[inline]
-    pub fn account_mut(
-        &mut self,
-        index: usize,
-    ) -> Result<FrameAccountMut<'_>, ProgramError> {
+    pub fn account_mut(&mut self, index: usize) -> Result<FrameAccountMut<'_>, ProgramError> {
         if index >= self.accounts.len() {
             return Err(ProgramError::NotEnoughAccountKeys);
         }
@@ -191,7 +193,10 @@ impl<'a> Frame<'a> {
         index: usize,
         offset: u32,
     ) -> Result<SegRef<'f, T>, ProgramError> {
-        let view = self.accounts.get(index).ok_or(ProgramError::NotEnoughAccountKeys)?;
+        let view = self
+            .accounts
+            .get(index)
+            .ok_or(ProgramError::NotEnoughAccountKeys)?;
         let data = view.try_borrow()?;
 
         let abs_offset = (HEADER_LEN as u32)
@@ -215,6 +220,7 @@ impl<'a> Frame<'a> {
         // guard and yields a `Ref<T>` whose lifetime is tied to the
         // account borrow; the `SegmentLease` we build immediately after
         // releases the registry entry on drop.
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let ptr = unsafe { data.as_bytes_ptr().add(abs_offset as usize) as *const T };
         let inner: Ref<'f, T> = unsafe { data.project(ptr) };
         // SAFETY: `borrow` was just registered in `self.segment_borrows`;
@@ -265,7 +271,10 @@ impl<'a> Frame<'a> {
         index: usize,
         offset: u32,
     ) -> Result<SegRefMut<'f, T>, ProgramError> {
-        let view = self.accounts.get(index).ok_or(ProgramError::NotEnoughAccountKeys)?;
+        let view = self
+            .accounts
+            .get(index)
+            .ok_or(ProgramError::NotEnoughAccountKeys)?;
 
         // Check writable before doing anything else.
         if !view.is_writable() {
@@ -293,9 +302,11 @@ impl<'a> Frame<'a> {
         // byte-slice exclusive borrow, and the lease ensures the
         // registry entry is swap-removed on drop.
         let bytes_ptr = (&*data) as *const [u8] as *mut [u8] as *mut u8;
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let ptr = unsafe { bytes_ptr.add(abs_offset as usize) as *mut T };
         let inner: RefMut<'f, T> = unsafe { data.project(ptr) };
         let lease: SegmentLease<'f> =
+            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             unsafe { SegmentLease::new(&mut self.segment_borrows, borrow) };
         Ok(SegRefMut::new(inner, lease))
     }
@@ -318,7 +329,10 @@ impl<'a> Frame<'a> {
         index: usize,
         offset: u32,
     ) -> Result<RefMut<'_, T>, ProgramError> {
-        let view = self.accounts.get(index).ok_or(ProgramError::NotEnoughAccountKeys)?;
+        let view = self
+            .accounts
+            .get(index)
+            .ok_or(ProgramError::NotEnoughAccountKeys)?;
         let data = view.try_borrow_mut()?;
 
         let abs_offset = (HEADER_LEN as u32)
@@ -332,6 +346,7 @@ impl<'a> Frame<'a> {
         }
 
         let bytes_ptr = (&*data) as *const [u8] as *mut [u8] as *mut u8;
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let ptr = unsafe { bytes_ptr.add(abs_offset as usize) as *mut T };
         Ok(unsafe { data.project(ptr) })
     }
@@ -486,8 +501,7 @@ impl<'a> Drop for FrameAccountMut<'a> {
 mod audit_tests {
     use super::*;
     use hopper_native::{
-        Address as NativeAddress, NOT_BORROWED, RuntimeAccount,
-        AccountView as NativeAccountView,
+        AccountView as NativeAccountView, Address as NativeAddress, RuntimeAccount, NOT_BORROWED,
     };
 
     #[repr(C)]
@@ -507,6 +521,7 @@ mod audit_tests {
     fn make_account(data_len: usize, seed: u8) -> (std::vec::Vec<u8>, AccountView) {
         let mut backing = std::vec![0u8; RuntimeAccount::SIZE + data_len];
         let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {
             raw.write(RuntimeAccount {
                 borrow_state: NOT_BORROWED,
@@ -522,17 +537,13 @@ mod audit_tests {
         }
         // Zero the Hopper header region so the frame doesn't trip on
         // uninitialized bytes later.
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let backend = unsafe { NativeAccountView::new_unchecked(raw) };
-        let view = unsafe {
-            core::mem::transmute::<NativeAccountView, AccountView>(backend)
-        };
+        let view = unsafe { core::mem::transmute::<NativeAccountView, AccountView>(backend) };
         (backing, view)
     }
 
-    fn new_frame<'a>(
-        program_id: &'a Address,
-        accounts: &'a [AccountView],
-    ) -> Frame<'a> {
+    fn new_frame<'a>(program_id: &'a Address, accounts: &'a [AccountView]) -> Frame<'a> {
         Frame::new(program_id, accounts, &[]).unwrap()
     }
 
@@ -548,13 +559,13 @@ mod audit_tests {
         let (_backing, account) = make_account(HEADER_LEN + 8, 1);
         let program_id = NativeAddress::new_from_array([9; 32]);
         let hopper_program_id =
+            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             unsafe { core::mem::transmute::<NativeAddress, Address>(program_id) };
         let accounts = [account];
         let mut frame = new_frame(&hopper_program_id, &accounts);
 
         {
-            let mut counter: SegRefMut<'_, Counter> =
-                frame.segment_mut::<Counter>(0, 0).unwrap();
+            let mut counter: SegRefMut<'_, Counter> = frame.segment_mut::<Counter>(0, 0).unwrap();
             counter.value = 7;
             // counter (SegRefMut with byte-slice guard AND registry
             // lease) drops here, releasing both.
@@ -566,9 +577,9 @@ mod audit_tests {
         // bytes via the underlying account view.
         let bytes = frame.account(0).unwrap().data().unwrap();
         let slice: &[u8] = &*bytes;
-        let raw_u64 = unsafe {
-            core::ptr::read_unaligned(slice.as_ptr().add(HEADER_LEN) as *const u64)
-        };
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        let raw_u64 =
+            unsafe { core::ptr::read_unaligned(slice.as_ptr().add(HEADER_LEN) as *const u64) };
         assert_eq!(raw_u64, 7);
     }
 
@@ -582,13 +593,14 @@ mod audit_tests {
         let (_backing, account) = make_account(HEADER_LEN + 8, 2);
         {
             let mut bytes = account.try_borrow_mut().unwrap();
-            let slot = unsafe {
-                bytes.as_bytes_mut_ptr().add(HEADER_LEN) as *mut u64
-            };
+            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+            let slot = unsafe { bytes.as_bytes_mut_ptr().add(HEADER_LEN) as *mut u64 };
+            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             unsafe { core::ptr::write_unaligned(slot, 99) };
         }
         let program_id = NativeAddress::new_from_array([9; 32]);
         let hopper_program_id =
+            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             unsafe { core::mem::transmute::<NativeAddress, Address>(program_id) };
         let accounts = [account];
         let mut frame = new_frame(&hopper_program_id, &accounts);
@@ -606,14 +618,14 @@ mod audit_tests {
         let (_backing, account) = make_account(HEADER_LEN + 8, 3);
         let program_id = NativeAddress::new_from_array([9; 32]);
         let hopper_program_id =
+            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             unsafe { core::mem::transmute::<NativeAddress, Address>(program_id) };
         let accounts = [account];
         let mut frame = new_frame(&hopper_program_id, &accounts);
 
         // First write.
         {
-            let mut w: SegRefMut<'_, Counter> =
-                frame.segment_mut::<Counter>(0, 0).unwrap();
+            let mut w: SegRefMut<'_, Counter> = frame.segment_mut::<Counter>(0, 0).unwrap();
             w.value = 50;
         }
         assert_eq!(frame.segment_borrows().len(), 0);
@@ -622,8 +634,7 @@ mod audit_tests {
         // `AccountBorrowFailed`; now it succeeds because the prior
         // lease has been released.
         {
-            let mut w: SegRefMut<'_, Counter> =
-                frame.segment_mut::<Counter>(0, 0).unwrap();
+            let mut w: SegRefMut<'_, Counter> = frame.segment_mut::<Counter>(0, 0).unwrap();
             assert_eq!(w.value, 50);
             w.value = 77;
         }

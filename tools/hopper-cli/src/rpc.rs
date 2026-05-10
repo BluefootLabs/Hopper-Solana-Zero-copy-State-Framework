@@ -3,7 +3,7 @@
 //! No heavy SDK dependency, just `ureq` for HTTP, `sha2` + `curve25519-dalek`
 //! for PDA derivation, and `bs58`/`base64` for encoding.
 
-use sha2::{Sha256, Digest};
+use sha2::{Digest, Sha256};
 
 // ---------------------------------------------------------------------------
 // PDA derivation (matches solana_program::pubkey::Pubkey::find_program_address)
@@ -142,11 +142,8 @@ pub fn get_account_info(rpc_url: &str, pubkey: &str) -> Result<Option<AccountInf
     let lamports = extract_account_lamports(&text)?;
     let executable = extract_account_executable(&text)?;
 
-    let data = base64::Engine::decode(
-        &base64::engine::general_purpose::STANDARD,
-        &data_b64,
-    )
-    .map_err(|e| format!("Base64 decode error: {}", e))?;
+    let data = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, &data_b64)
+        .map_err(|e| format!("Base64 decode error: {}", e))?;
 
     Ok(Some(AccountInfo {
         data,
@@ -203,9 +200,7 @@ fn extract_account_data_base64(json: &str) -> Result<String, String> {
     let key = "\"data\"";
     let pos = json.find(key).ok_or("Missing 'data' in response")?;
     let after = &json[pos + key.len()..];
-    let after = after.trim_start()
-        .strip_prefix(':')
-        .ok_or("Expected :")?;
+    let after = after.trim_start().strip_prefix(':').ok_or("Expected :")?;
     let after = after.trim_start();
 
     // data is an array: ["base64string", "base64"]
@@ -230,9 +225,7 @@ fn extract_account_owner(json: &str) -> Result<String, String> {
     let key = "\"owner\"";
     let pos = json.find(key).ok_or("Missing 'owner'")?;
     let after = &json[pos + key.len()..];
-    let after = after.trim_start()
-        .strip_prefix(':')
-        .ok_or("Expected :")?;
+    let after = after.trim_start().strip_prefix(':').ok_or("Expected :")?;
     let after = after.trim_start();
     if !after.starts_with('"') {
         return Err("Expected string for owner".to_string());
@@ -247,12 +240,14 @@ fn extract_account_lamports(json: &str) -> Result<u64, String> {
     let key = "\"lamports\"";
     let pos = json.find(key).ok_or("Missing 'lamports'")?;
     let after = &json[pos + key.len()..];
-    let after = after.trim_start()
-        .strip_prefix(':')
-        .ok_or("Expected :")?;
+    let after = after.trim_start().strip_prefix(':').ok_or("Expected :")?;
     let after = after.trim_start();
-    let end = after.find(|c: char| !c.is_ascii_digit()).unwrap_or(after.len());
-    after[..end].parse().map_err(|e| format!("Invalid lamports: {}", e))
+    let end = after
+        .find(|c: char| !c.is_ascii_digit())
+        .unwrap_or(after.len());
+    after[..end]
+        .parse()
+        .map_err(|e| format!("Invalid lamports: {}", e))
 }
 
 /// Extract executable flag from the response.
@@ -260,9 +255,7 @@ fn extract_account_executable(json: &str) -> Result<bool, String> {
     let key = "\"executable\"";
     let pos = json.find(key).ok_or("Missing 'executable'")?;
     let after = &json[pos + key.len()..];
-    let after = after.trim_start()
-        .strip_prefix(':')
-        .ok_or("Expected :")?;
+    let after = after.trim_start().strip_prefix(':').ok_or("Expected :")?;
     let after = after.trim_start();
     if after.starts_with("true") {
         Ok(true)
@@ -277,7 +270,9 @@ fn extract_account_executable(json: &str) -> Result<bool, String> {
 // Manifest account decoding
 // ---------------------------------------------------------------------------
 
-use hopper_schema::{MANIFEST_MAGIC, MANIFEST_HEADER_LEN, MANIFEST_COMPRESS_NONE, MANIFEST_COMPRESS_ZLIB};
+use hopper_schema::{
+    MANIFEST_COMPRESS_NONE, MANIFEST_COMPRESS_ZLIB, MANIFEST_HEADER_LEN, MANIFEST_MAGIC,
+};
 
 /// Decoded on-chain manifest payload.
 pub struct OnChainManifest {
@@ -315,17 +310,17 @@ pub fn decode_manifest_account(data: &[u8]) -> Result<OnChainManifest, String> {
     if payload_end > data.len() {
         return Err(format!(
             "Manifest payload extends beyond account data ({} + {} > {})",
-            payload_start, data_len, data.len()
+            payload_start,
+            data_len,
+            data.len()
         ));
     }
 
     let payload = &data[payload_start..payload_end];
 
     let json = match compression {
-        MANIFEST_COMPRESS_NONE => {
-            String::from_utf8(payload.to_vec())
-                .map_err(|e| format!("Invalid UTF-8 in manifest: {}", e))?
-        }
+        MANIFEST_COMPRESS_NONE => String::from_utf8(payload.to_vec())
+            .map_err(|e| format!("Invalid UTF-8 in manifest: {}", e))?,
         MANIFEST_COMPRESS_ZLIB => {
             use flate2::read::ZlibDecoder;
             use std::io::Read;
@@ -354,7 +349,9 @@ fn encode_manifest_account(json: &str, compress: bool) -> Vec<u8> {
         use flate2::Compression;
         use std::io::Write;
         let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
-        encoder.write_all(json.as_bytes()).expect("zlib write failed");
+        encoder
+            .write_all(json.as_bytes())
+            .expect("zlib write failed");
         let compressed = encoder.finish().expect("zlib finish failed");
         (MANIFEST_COMPRESS_ZLIB, compressed)
     } else {

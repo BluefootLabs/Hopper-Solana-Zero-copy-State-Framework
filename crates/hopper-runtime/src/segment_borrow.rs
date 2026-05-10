@@ -55,8 +55,7 @@ pub enum AccessKind {
 fn address_fingerprint(address: &Address) -> u64 {
     let bytes = address.as_array();
     u64::from_le_bytes([
-        bytes[0], bytes[1], bytes[2], bytes[3],
-        bytes[4], bytes[5], bytes[6], bytes[7],
+        bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
     ])
 }
 
@@ -307,7 +306,12 @@ impl SegmentBorrowRegistry {
             let existing = &self.entries[i];
             if existing.key_fp == proposed.key_fp
                 && address_eq(&existing.key, &proposed.key)
-                && ranges_overlap(existing.offset, existing.size, proposed.offset, proposed.size)
+                && ranges_overlap(
+                    existing.offset,
+                    existing.size,
+                    proposed.offset,
+                    proposed.size,
+                )
             {
                 match (existing.kind, proposed.kind) {
                     (AccessKind::Read, AccessKind::Read) => {}

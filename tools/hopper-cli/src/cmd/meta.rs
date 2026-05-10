@@ -199,10 +199,7 @@ fn tx_simulate_or_submit(args: &[String], send: bool) {
     }
     let rpc_url = rpc.unwrap_or_else(|| crate::rpc::resolve_rpc_url(None));
 
-    let bytes = match base64::Engine::decode(
-        &base64::engine::general_purpose::STANDARD,
-        tx_b64,
-    ) {
+    let bytes = match base64::Engine::decode(&base64::engine::general_purpose::STANDARD, tx_b64) {
         Ok(b) => b,
         Err(e) => {
             eprintln!("base64 decode: {e}");
@@ -216,8 +213,7 @@ fn tx_simulate_or_submit(args: &[String], send: bool) {
             process::exit(1);
         }
     };
-    let client =
-        RpcClient::new_with_commitment(rpc_url.clone(), CommitmentConfig::confirmed());
+    let client = RpcClient::new_with_commitment(rpc_url.clone(), CommitmentConfig::confirmed());
     if send {
         match client.send_and_confirm_transaction(&tx) {
             Ok(sig) => {
@@ -366,10 +362,7 @@ fn layout_name_by_disc(manifest_json: &str, disc: u8) -> Option<String> {
     for l in layouts {
         let d = l.get("disc").and_then(|x| x.as_u64())? as u8;
         if d == disc {
-            return l
-                .get("name")
-                .and_then(|x| x.as_str())
-                .map(String::from);
+            return l.get("name").and_then(|x| x.as_str()).map(String::from);
         }
     }
     None

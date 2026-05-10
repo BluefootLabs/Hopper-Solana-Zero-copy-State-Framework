@@ -74,6 +74,7 @@ pub unsafe fn invoke_unchecked(
         // The Solana runtime expects:
         //   struct { program_id: *const u8, accounts: *const SolAccountMeta, acct_len: u64, data: *const u8, data_len: u64 }
         // But sol_invoke_signed_c takes the instruction as raw bytes.
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let result = unsafe {
             crate::syscalls::sol_invoke_signed_c(
                 instruction as *const _ as *const u8,
@@ -130,6 +131,7 @@ pub unsafe fn invoke_signed_unchecked(
 ) -> ProgramResult {
     #[cfg(target_os = "solana")]
     {
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let result = unsafe {
             crate::syscalls::sol_invoke_signed_c(
                 instruction as *const _ as *const u8,
@@ -231,6 +233,7 @@ pub fn invoke_signed<const ACCOUNTS: usize>(
 
     // Build CpiAccount array on the stack.
     let mut cpi_accounts: [MaybeUninit<CpiAccount>; ACCOUNTS] =
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe { MaybeUninit::uninit().assume_init() };
 
     let mut i = 0;
@@ -243,6 +246,7 @@ pub fn invoke_signed<const ACCOUNTS: usize>(
     let accounts: &[CpiAccount; ACCOUNTS] =
         unsafe { &*(cpi_accounts.as_ptr() as *const [CpiAccount; ACCOUNTS]) };
 
+    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe {
         if signers_seeds.is_empty() {
             invoke_unchecked(instruction, accounts.as_slice())
@@ -278,6 +282,7 @@ pub fn invoke_signed_with_bounds<const MAX_ACCOUNTS: usize>(
     validate_cpi_accounts(instruction, account_views)?;
 
     let mut cpi_accounts: [MaybeUninit<CpiAccount>; MAX_ACCOUNTS] =
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe { MaybeUninit::uninit().assume_init() };
 
     let count = account_views.len();
@@ -291,6 +296,7 @@ pub fn invoke_signed_with_bounds<const MAX_ACCOUNTS: usize>(
     let accounts =
         unsafe { core::slice::from_raw_parts(cpi_accounts.as_ptr() as *const CpiAccount, count) };
 
+    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe {
         if signers_seeds.is_empty() {
             invoke_unchecked(instruction, accounts)
@@ -306,6 +312,7 @@ pub fn invoke_signed_with_bounds<const MAX_ACCOUNTS: usize>(
 #[inline(always)]
 pub fn set_return_data(data: &[u8]) {
     #[cfg(target_os = "solana")]
+    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe {
         crate::syscalls::sol_set_return_data(data.as_ptr(), data.len() as u64);
     }

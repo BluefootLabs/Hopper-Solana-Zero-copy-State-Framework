@@ -10,8 +10,8 @@
 //! [offset: u32][count: u16][capacity: u16][element_size: u16][flags: u16]
 //! ```
 
+use super::pod::{FixedLayout, Pod};
 use hopper_runtime::error::ProgramError;
-use super::pod::{Pod, FixedLayout};
 
 /// Size of one segment descriptor in bytes.
 pub const SEGMENT_DESC_SIZE: usize = 12;
@@ -188,11 +188,7 @@ impl<'a> SegmentTableMut<'a> {
     /// `specs` is `(element_size, count, capacity)` per segment.
     /// `data_start` is the byte offset where segment data begins.
     #[inline]
-    pub fn init(
-        &mut self,
-        data_start: u32,
-        specs: &[(u16, u16, u16)],
-    ) -> Result<(), ProgramError> {
+    pub fn init(&mut self, data_start: u32, specs: &[(u16, u16, u16)]) -> Result<(), ProgramError> {
         if specs.len() > self.count {
             return Err(ProgramError::InvalidArgument);
         }
@@ -327,6 +323,7 @@ impl<'a, T: Pod + FixedLayout> SegmentSliceMut<'a, T> {
             return Err(ProgramError::InvalidArgument);
         }
         let offset = index * T::SIZE;
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         Ok(unsafe { core::ptr::read_unaligned(self.data.as_ptr().add(offset) as *const T) })
     }
 

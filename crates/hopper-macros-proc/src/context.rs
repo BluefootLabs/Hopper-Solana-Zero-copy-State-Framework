@@ -13,8 +13,10 @@ use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use syn::{
     parse::{Parse, ParseStream},
-    parse2, punctuated::Punctuated, token::Comma, Attribute, Expr, Fields,
-    Ident, ItemStruct, Result, Token, Type, TypePath,
+    parse2,
+    punctuated::Punctuated,
+    token::Comma,
+    Attribute, Expr, Fields, Ident, ItemStruct, Result, Token, Type, TypePath,
 };
 
 /// Parsed `#[account(...)]` attribute. the full Anchor-grade surface.
@@ -347,8 +349,8 @@ fn parse_instruction_attr(attrs: &mut Vec<Attribute>) -> Result<Vec<InstructionA
         }
         seen += 1;
 
-        let parsed: Punctuated<InstructionArgDecl, Comma> = attr
-            .parse_args_with(Punctuated::<InstructionArgDecl, Comma>::parse_terminated)?;
+        let parsed: Punctuated<InstructionArgDecl, Comma> =
+            attr.parse_args_with(Punctuated::<InstructionArgDecl, Comma>::parse_terminated)?;
         for arg in parsed {
             if out.iter().any(|a| a.name == arg.name) {
                 return Err(syn::Error::new_spanned(
@@ -485,9 +487,9 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
                 "segment accessors require a Hopper layout type, not a raw account view",
             ));
         }
-        field.attrs.retain(|attr| {
-            !attr.path().is_ident("account") && !attr.path().is_ident("signer")
-        });
+        field
+            .attrs
+            .retain(|attr| !attr.path().is_ident("account") && !attr.path().is_ident("signer"));
         ctx_fields.push(ContextField {
             name: field_name,
             ty: field_ty,
@@ -553,15 +555,13 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
             if let Type::Path(TypePath { path, .. }) = &cf.ty {
                 if let Some(segment) = path.segments.last() {
                     if let syn::PathArguments::AngleBracketed(args) = &segment.arguments {
-                        if let Some(program_ty) =
-                            args.args.iter().find_map(|arg| {
-                                if let syn::GenericArgument::Type(t) = arg {
-                                    Some(t.clone())
-                                } else {
-                                    None
-                                }
-                            })
-                        {
+                        if let Some(program_ty) = args.args.iter().find_map(|arg| {
+                            if let syn::GenericArgument::Type(t) = arg {
+                                Some(t.clone())
+                            } else {
+                                None
+                            }
+                        }) {
                             field_checks.push(quote! {
                                 if ctx.account(#idx)?.address()
                                     != &<#program_ty as ::hopper::__runtime::ProgramId>::ID
@@ -704,7 +704,9 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
                 "accounts[{}] ({}) owner matches, valid {} header",
                 idx,
                 field_name,
-                type_ident(field_ty).map(|i| i.to_string()).unwrap_or_default()
+                type_ident(field_ty)
+                    .map(|i| i.to_string())
+                    .unwrap_or_default()
             ));
         } else if !has_layout {
             // For raw AccountView fields, still honor an explicit
@@ -981,8 +983,7 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
         // routes to X instead (the Token-2022 pattern). A standalone
         // `token::token_program` with no shape check is valid and
         // still enforces owner alone, matching Anchor's behavior.
-        let has_token_shape =
-            cf.attr.token_mint.is_some() || cf.attr.token_authority.is_some();
+        let has_token_shape = cf.attr.token_mint.is_some() || cf.attr.token_authority.is_some();
         if has_token_shape || cf.attr.token_token_program.is_some() {
             let prog_expr = if let Some(tp) = &cf.attr.token_token_program {
                 quote! { &(#tp) }
@@ -1248,12 +1249,7 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
         // CPI-helper inputs, but validation still performs the cheap
         // data-shape checks up front so an oversized name/symbol/uri
         // fails in Hopper before issuing a Metaplex CPI.
-        if let (
-            Some(name_expr),
-            Some(symbol_expr),
-            Some(uri_expr),
-            Some(sfbp_expr),
-        ) = (
+        if let (Some(name_expr), Some(symbol_expr), Some(uri_expr), Some(sfbp_expr)) = (
             &cf.attr.metadata_name,
             &cf.attr.metadata_symbol,
             &cf.attr.metadata_uri,
@@ -1298,7 +1294,10 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
                 .ok_or_else(|| {
                     syn::Error::new_spanned(
                         other,
-                        format!("`dup = {}` must name a sibling field on the same context", other),
+                        format!(
+                            "`dup = {}` must name a sibling field on the same context",
+                            other
+                        ),
                     )
                 })?;
             field_checks.push(quote! {
@@ -1409,10 +1408,7 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
         }
     }
 
-    let check_desc_literals: Vec<_> = check_descriptions
-        .iter()
-        .map(|s| quote! { #s })
-        .collect();
+    let check_desc_literals: Vec<_> = check_descriptions.iter().map(|s| quote! { #s }).collect();
     let check_count = check_descriptions.len();
 
     // Generate segment accessor methods with const segment bindings.
@@ -1439,7 +1435,10 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
                 .ok_or_else(|| {
                     syn::Error::new_spanned(
                         target,
-                        format!("`sweep = {}` must name a sibling field on the same context", target),
+                        format!(
+                            "`sweep = {}` must name a sibling field on the same context",
+                            target
+                        ),
                     )
                 })?;
             let sweep_fn = format_ident!("sweep_{}", field_name);
@@ -1879,7 +1878,8 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
         ) {
             let create_fn = format_ident!("create_{}", field_name);
             let mint_idx = sibling_index(&ctx_fields, mint_ident, "master_edition::mint")?;
-            let metadata_idx = sibling_index(&ctx_fields, metadata_ident, "master_edition::metadata")?;
+            let metadata_idx =
+                sibling_index(&ctx_fields, metadata_ident, "master_edition::metadata")?;
             let update_authority_idx = sibling_index(
                 &ctx_fields,
                 update_authority_ident,
@@ -1986,7 +1986,10 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
                         .ok_or_else(|| {
                             syn::Error::new_spanned(
                                 p_ident,
-                                format!("realloc_payer `{}`: no field named `{}` in this context", p_ident, p_ident),
+                                format!(
+                                    "realloc_payer `{}`: no field named `{}` in this context",
+                                    p_ident, p_ident
+                                ),
                             )
                         })?;
                     Ok::<_, syn::Error>(quote! { Some(self.ctx.account(#p_idx)?) })
@@ -2119,7 +2122,11 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
                 .map(|i| i.to_string())
                 .unwrap_or_else(|_| "AccountView".to_string());
             let has_layout = !skips_layout_validation(&cf.ty);
-            let layout_lit = if has_layout { kind_lit.clone() } else { String::new() };
+            let layout_lit = if has_layout {
+                kind_lit.clone()
+            } else {
+                String::new()
+            };
             let writable = cf.attr.is_mut || !cf.attr.mut_segments.is_empty();
             let signer = cf.attr.is_signer;
             let optional = false;
@@ -2131,12 +2138,7 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
                 .iter()
                 .map(|e| quote!(#e).to_string())
                 .collect();
-            let has_one_lits: Vec<String> = cf
-                .attr
-                .has_one
-                .iter()
-                .map(|i| i.to_string())
-                .collect();
+            let has_one_lits: Vec<String> = cf.attr.has_one.iter().map(|i| i.to_string()).collect();
             let lifecycle_path = if cf.attr.init {
                 quote! { ::hopper::hopper_schema::accounts::AccountLifecycle::Init }
             } else if cf.attr.realloc.is_some() {
@@ -3063,7 +3065,11 @@ fn validate_account_attr(field_name: &Ident, attr: &AccountAttr) -> Result<()> {
         ));
     }
     if attr.init || attr.init_if_needed {
-        let kw = if attr.init_if_needed { "init_if_needed" } else { "init" };
+        let kw = if attr.init_if_needed {
+            "init_if_needed"
+        } else {
+            "init"
+        };
         if attr.payer.is_none() {
             return Err(syn::Error::new_spanned(
                 field_name,
@@ -3231,7 +3237,10 @@ fn sibling_index(ctx_fields: &[ContextField], ident: &Ident, role: &str) -> Resu
         .ok_or_else(|| {
             syn::Error::new_spanned(
                 ident,
-                format!("{} references `{}`, but no sibling context field has that name", role, ident),
+                format!(
+                    "{} references `{}`, but no sibling context field has that name",
+                    role, ident
+                ),
             )
         })
 }

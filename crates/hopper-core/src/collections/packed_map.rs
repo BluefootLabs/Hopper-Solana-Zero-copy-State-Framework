@@ -16,8 +16,8 @@
 //! let balance = map.get(&key)?;
 //! ```
 
+use crate::account::{FixedLayout, Pod};
 use hopper_runtime::error::ProgramError;
-use crate::account::{Pod, FixedLayout};
 
 const HEADER_SIZE: usize = 4;
 

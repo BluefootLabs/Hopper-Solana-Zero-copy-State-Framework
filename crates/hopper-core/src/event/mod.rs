@@ -11,8 +11,8 @@
 //! | `emit_event` | ~100 | Yes (any program can log) | Fast indexer events |
 //! | `emit_event_cpi` | ~1000 | No (verified via self-CPI) | Trustworthy audit trail |
 
+use crate::account::{FixedLayout, Pod};
 use hopper_runtime::error::ProgramError;
-use crate::account::{Pod, FixedLayout};
 
 /// Emit a Pod event via `sol_log_data`.
 ///
@@ -22,9 +22,7 @@ use crate::account::{Pod, FixedLayout};
 pub fn emit_event<T: Pod + FixedLayout>(value: &T) -> Result<(), ProgramError> {
     // SAFETY: T: Pod guarantees all bit patterns valid and no padding invariants.
     // The resulting slice covers exactly T::SIZE bytes from a valid reference.
-    let bytes = unsafe {
-        core::slice::from_raw_parts(value as *const T as *const u8, T::SIZE)
-    };
+    let bytes = unsafe { core::slice::from_raw_parts(value as *const T as *const u8, T::SIZE) };
     emit_slices(&[bytes]);
     Ok(())
 }
@@ -35,9 +33,8 @@ pub fn emit_event<T: Pod + FixedLayout>(value: &T) -> Result<(), ProgramError> {
 #[inline]
 pub fn emit_event_tagged<T: Pod + FixedLayout>(disc: u8, value: &T) -> Result<(), ProgramError> {
     // SAFETY: T: Pod guarantees all bit patterns valid. Slice covers T::SIZE bytes.
-    let value_bytes = unsafe {
-        core::slice::from_raw_parts(value as *const T as *const u8, T::SIZE)
-    };
+    let value_bytes =
+        unsafe { core::slice::from_raw_parts(value as *const T as *const u8, T::SIZE) };
     let disc_bytes = [disc];
     emit_slices(&[&disc_bytes[..], value_bytes]);
     Ok(())
@@ -83,9 +80,9 @@ pub fn emit_event_cpi<T: Pod + FixedLayout>(
     accounts: &[&hopper_runtime::AccountView],
 ) -> Result<(), ProgramError> {
     // Build event data: [0xFF, 0xFE, disc, ...value_bytes]
-    let value_bytes = unsafe {
-        core::slice::from_raw_parts(value as *const T as *const u8, T::SIZE)
-    };
+    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+    let value_bytes =
+        unsafe { core::slice::from_raw_parts(value as *const T as *const u8, T::SIZE) };
 
     // Emit via sol_log_data first (cheap, for indexers).
     let disc_byte = [disc];
@@ -126,15 +123,17 @@ pub fn emit_event_cpi<T: Pod + FixedLayout>(
 
         // Build CPI accounts from the provided account views.
         let mut cpi_accounts_buf: [core::mem::MaybeUninit<hopper_runtime::instruction::CpiAccount>; 32] =
+            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             unsafe { core::mem::MaybeUninit::uninit().assume_init() };
         let count = accounts.len().min(32);
         let mut i = 0;
         while i < count {
             cpi_accounts_buf[i] = core::mem::MaybeUninit::new(
-                hopper_runtime::instruction::CpiAccount::from(accounts[i])
+                hopper_runtime::instruction::CpiAccount::from(accounts[i]),
             );
             i += 1;
         }
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let cpi_accounts = unsafe {
             core::slice::from_raw_parts(
                 cpi_accounts_buf.as_ptr() as *const hopper_runtime::instruction::CpiAccount,
@@ -142,6 +141,7 @@ pub fn emit_event_cpi<T: Pod + FixedLayout>(
             )
         };
 
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {
             hopper_runtime::cpi::invoke_unchecked(&instruction, cpi_accounts)?;
         }

@@ -264,7 +264,10 @@ impl<'a> StateDiff<'a> {
         };
 
         let mut regions = ChangedRegions {
-            entries: [ChangedRegion { offset: 0, length: 0 }; MAX_REGIONS],
+            entries: [ChangedRegion {
+                offset: 0,
+                length: 0,
+            }; MAX_REGIONS],
             count: 0,
         };
 
@@ -366,11 +369,7 @@ impl<'a> Iterator for ChangedRegionIter<'a> {
 /// `fields` is an array of `(name, offset, size)`.
 /// Returns a bitmask where bit N is set if field N changed.
 #[inline]
-pub fn field_diff_mask(
-    old: &[u8],
-    new: &[u8],
-    fields: &[(&str, usize, usize)],
-) -> u64 {
+pub fn field_diff_mask(old: &[u8], new: &[u8], fields: &[(&str, usize, usize)]) -> u64 {
     let mut mask: u64 = 0;
     let mut i = 0;
     while i < fields.len() && i < 64 {

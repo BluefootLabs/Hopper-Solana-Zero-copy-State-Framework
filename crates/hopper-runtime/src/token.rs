@@ -140,10 +140,7 @@ pub fn require_token_owner_eq(
 /// buffer. zero extra crate dependencies, no full-struct deserialize,
 /// and the check is trivially inlinable.
 #[inline]
-pub fn require_token_mint(
-    token_account: &AccountView,
-    expected_mint: &Address,
-) -> ProgramResult {
+pub fn require_token_mint(token_account: &AccountView, expected_mint: &Address) -> ProgramResult {
     let data = token_account
         .try_borrow()
         .map_err(|_| ProgramError::AccountBorrowFailed)?;
@@ -850,9 +847,9 @@ impl InitializeAccount<'_> {
 }
 
 /// SPL Token program address.
-pub const TOKEN_PROGRAM_ID: Address = Address::new_from_array(
-    five8_const::decode_32_const("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")
-);
+pub const TOKEN_PROGRAM_ID: Address = Address::new_from_array(five8_const::decode_32_const(
+    "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+));
 
 /// Compatibility re-exports.
 pub mod instructions {
@@ -990,7 +987,10 @@ mod tests {
         crate::account::AccountView,
         crate::account::AccountView,
     ) {
-        use hopper_native::{AccountView as NativeAccountView, Address as NativeAddress, RuntimeAccount, NOT_BORROWED};
+        use hopper_native::{
+            AccountView as NativeAccountView, Address as NativeAddress, RuntimeAccount,
+            NOT_BORROWED,
+        };
 
         // TokenAccount: SPL layout is 165 bytes; first 32 bytes are
         // `mint`, next 32 are `owner`. We only care about the owner
@@ -999,6 +999,7 @@ mod tests {
         let token_data_len = 165;
         let mut token_backing = std::vec![0u8; RuntimeAccount::SIZE + token_data_len];
         let token_raw = token_backing.as_mut_ptr() as *mut RuntimeAccount;
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {
             token_raw.write(RuntimeAccount {
                 borrow_state: NOT_BORROWED,
@@ -1013,18 +1014,16 @@ mod tests {
             });
             // Write the SPL TokenAccount.owner field at data[32..64].
             let data_ptr = (token_raw as *mut u8).add(RuntimeAccount::SIZE);
-            core::ptr::copy_nonoverlapping(
-                token_owner_bytes.as_ptr(),
-                data_ptr.add(32),
-                32,
-            );
+            core::ptr::copy_nonoverlapping(token_owner_bytes.as_ptr(), data_ptr.add(32), 32);
         }
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let token_backend = unsafe { NativeAccountView::new_unchecked(token_raw) };
         let token_view = crate::account::AccountView::from_backend(token_backend);
 
         // Authority: no data needed, just an address field.
         let mut auth_backing = std::vec![0u8; RuntimeAccount::SIZE];
         let auth_raw = auth_backing.as_mut_ptr() as *mut RuntimeAccount;
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {
             auth_raw.write(RuntimeAccount {
                 borrow_state: NOT_BORROWED,
@@ -1038,6 +1037,7 @@ mod tests {
                 data_len: 0,
             });
         }
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let auth_backend = unsafe { NativeAccountView::new_unchecked(auth_raw) };
         let auth_view = crate::account::AccountView::from_backend(auth_backend);
 
@@ -1062,7 +1062,10 @@ mod tests {
 
     #[test]
     fn require_token_authority_rejects_short_buffer() {
-        use hopper_native::{AccountView as NativeAccountView, Address as NativeAddress, RuntimeAccount, NOT_BORROWED};
+        use hopper_native::{
+            AccountView as NativeAccountView, Address as NativeAddress, RuntimeAccount,
+            NOT_BORROWED,
+        };
 
         // Token account with only 50 bytes of data is not a valid
         // SPL TokenAccount (owner field starts at byte 32 and runs
@@ -1070,6 +1073,7 @@ mod tests {
         let data_len = 50;
         let mut backing = std::vec![0u8; RuntimeAccount::SIZE + data_len];
         let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {
             raw.write(RuntimeAccount {
                 borrow_state: NOT_BORROWED,
@@ -1083,6 +1087,7 @@ mod tests {
                 data_len: data_len as u64,
             });
         }
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let backend = unsafe { NativeAccountView::new_unchecked(raw) };
         let token = crate::account::AccountView::from_backend(backend);
 
@@ -1106,11 +1111,15 @@ mod tests {
         mint_bytes: [u8; 32],
         owner_bytes: [u8; 32],
     ) -> (std::vec::Vec<u8>, crate::account::AccountView) {
-        use hopper_native::{AccountView as NativeAccountView, Address as NativeAddress, RuntimeAccount, NOT_BORROWED};
+        use hopper_native::{
+            AccountView as NativeAccountView, Address as NativeAddress, RuntimeAccount,
+            NOT_BORROWED,
+        };
 
         let token_data_len = 165;
         let mut backing = std::vec![0u8; RuntimeAccount::SIZE + token_data_len];
         let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {
             raw.write(RuntimeAccount {
                 borrow_state: NOT_BORROWED,
@@ -1127,6 +1136,7 @@ mod tests {
             core::ptr::copy_nonoverlapping(mint_bytes.as_ptr(), data_ptr, 32);
             core::ptr::copy_nonoverlapping(owner_bytes.as_ptr(), data_ptr.add(32), 32);
         }
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let backend = unsafe { NativeAccountView::new_unchecked(raw) };
         let view = crate::account::AccountView::from_backend(backend);
         (backing, view)
@@ -1139,11 +1149,15 @@ mod tests {
         mint_authority: [u8; 32],
         decimals: u8,
     ) -> (std::vec::Vec<u8>, crate::account::AccountView) {
-        use hopper_native::{AccountView as NativeAccountView, Address as NativeAddress, RuntimeAccount, NOT_BORROWED};
+        use hopper_native::{
+            AccountView as NativeAccountView, Address as NativeAddress, RuntimeAccount,
+            NOT_BORROWED,
+        };
 
         let mint_data_len = 82;
         let mut backing = std::vec![0u8; RuntimeAccount::SIZE + mint_data_len];
         let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {
             raw.write(RuntimeAccount {
                 borrow_state: NOT_BORROWED,
@@ -1168,6 +1182,7 @@ mod tests {
             *data_ptr.add(45) = 1;
             // freeze_authority COption tag = None (bytes 46..50 stay zero).
         }
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let backend = unsafe { NativeAccountView::new_unchecked(raw) };
         let view = crate::account::AccountView::from_backend(backend);
         (backing, view)

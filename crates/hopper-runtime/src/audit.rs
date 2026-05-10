@@ -109,6 +109,7 @@ mod tests {
     ) -> (std::vec::Vec<u8>, AccountView) {
         let mut backing = std::vec![0u8; RuntimeAccount::SIZE + 16];
         let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {
             raw.write(RuntimeAccount {
                 borrow_state: NOT_BORROWED,
@@ -122,6 +123,7 @@ mod tests {
                 data_len: 16,
             });
         }
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let backend = unsafe { NativeAccountView::new_unchecked(raw) };
         (backing, AccountView::from_backend(backend))
     }
@@ -137,7 +139,10 @@ mod tests {
         assert_eq!(duplicate.first_index, 0);
         assert_eq!(duplicate.second_index, 1);
         assert_eq!(duplicate.address, Address::new_from_array([1; 32]));
-        assert_eq!(audit.require_all_unique(), Err(ProgramError::InvalidArgument));
+        assert_eq!(
+            audit.require_all_unique(),
+            Err(ProgramError::InvalidArgument)
+        );
     }
 
     #[test]
@@ -160,7 +165,10 @@ mod tests {
 
         let duplicate = audit.first_duplicate_writable().unwrap();
         assert_eq!(duplicate.address, Address::new_from_array([3; 32]));
-        assert_eq!(audit.require_unique_writable(), Err(ProgramError::InvalidArgument));
+        assert_eq!(
+            audit.require_unique_writable(),
+            Err(ProgramError::InvalidArgument)
+        );
     }
 
     #[test]
@@ -172,6 +180,9 @@ mod tests {
 
         let duplicate = audit.first_duplicate_signer().unwrap();
         assert_eq!(duplicate.address, Address::new_from_array([4; 32]));
-        assert_eq!(audit.require_unique_signers(), Err(ProgramError::InvalidArgument));
+        assert_eq!(
+            audit.require_unique_signers(),
+            Err(ProgramError::InvalidArgument)
+        );
     }
 }

@@ -9,13 +9,13 @@ offline by default, with optional RPC connectivity for live account fetching.
 
 ## Install
 
-`hopper-cli` is not published to crates.io yet. Build it from source:
+Install from crates.io:
 
 ```bash
-cargo build --release -p hopper-cli
+cargo install hopper-cli
 ```
 
-Or run it directly from the workspace:
+For local development inside this workspace:
 
 ```bash
 cargo run -p hopper-cli -- help

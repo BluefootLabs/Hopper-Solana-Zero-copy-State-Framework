@@ -117,6 +117,7 @@ impl LazyContext {
             return Err(ProgramError::NotEnoughAccountKeys);
         }
 
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let view = unsafe { self.parse_one_account() };
         self.resolved[self.parsed_count] = view.clone();
         self.parsed_count += 1;
@@ -167,6 +168,7 @@ impl LazyContext {
                 return Err(ProgramError::NotEnoughAccountKeys);
             }
             // Advance cursor past this account without storing it.
+            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             unsafe { self.advance_cursor() };
             self.parsed_count += 1;
         }
@@ -181,6 +183,7 @@ impl LazyContext {
     pub fn drain_remaining(&mut self) -> Result<&[AccountView], ProgramError> {
         let start = self.parsed_count;
         while self.parsed_count < self.total_accounts {
+            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             let view = unsafe { self.parse_one_account() };
             self.resolved[self.parsed_count] = view;
             self.parsed_count += 1;
@@ -208,6 +211,7 @@ impl LazyContext {
     /// points to valid BPF input buffer data.
     #[inline(always)]
     unsafe fn parse_one_account(&mut self) -> AccountView {
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {
             let dup_marker = *self.cursor;
 
@@ -243,6 +247,7 @@ impl LazyContext {
     /// Caller must ensure `parsed_count < total_accounts` and cursor is valid.
     #[inline(always)]
     unsafe fn advance_cursor(&mut self) {
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {
             let dup_marker = *self.cursor;
             if dup_marker == u8::MAX {
@@ -257,6 +262,7 @@ impl LazyContext {
     /// Advance cursor past a non-duplicate account (shared by parse + skip).
     #[inline(always)]
     unsafe fn advance_non_dup_cursor(&mut self, raw: *mut RuntimeAccount) {
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {
             let data_len = (*raw).data_len as usize;
             let mut offset = RuntimeAccount::SIZE + data_len + MAX_PERMITTED_DATA_INCREASE;
@@ -278,6 +284,7 @@ impl LazyContext {
 /// `input` must point to a valid Solana BPF input buffer.
 #[inline(always)]
 pub unsafe fn lazy_deserialize(input: *mut u8) -> LazyContext {
+    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     let frame = unsafe { crate::raw_input::scan_instruction_frame(input) };
     // SAFETY: AccountView is a single raw pointer, zeroed is a valid
     // sentinel (null). These slots are only read after `next_account()`

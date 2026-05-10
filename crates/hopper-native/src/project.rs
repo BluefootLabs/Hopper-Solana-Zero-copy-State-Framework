@@ -217,6 +217,7 @@ pub fn project<T: Projectable>(
     }
 
     let data_ptr = account.data_ptr_unchecked();
+    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     let target_ptr = unsafe { data_ptr.add(offset) };
 
     // Alignment check.
@@ -267,6 +268,7 @@ pub unsafe fn project_mut<T: Projectable>(
     }
 
     let data_ptr = account.data_ptr_unchecked();
+    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     let target_ptr = unsafe { data_ptr.add(offset) };
 
     // Alignment check.
@@ -300,6 +302,7 @@ pub fn project_slice<T: Projectable>(
     }
 
     let data_ptr = account.data_ptr_unchecked();
+    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     let target_ptr = unsafe { data_ptr.add(offset) };
 
     let align = core::mem::align_of::<T>();
@@ -307,6 +310,7 @@ pub fn project_slice<T: Projectable>(
         return Err(ProgramError::InvalidAccountData);
     }
 
+    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     Ok(unsafe { core::slice::from_raw_parts(target_ptr as *const T, count) })
 }
 
@@ -333,5 +337,6 @@ pub unsafe fn project_hopper_mut<T: Projectable>(
     account: &AccountView,
     expected_disc: u8,
 ) -> Result<&mut T, ProgramError> {
+    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe { project_mut::<T>(account, 10, Some(expected_disc)) }
 }

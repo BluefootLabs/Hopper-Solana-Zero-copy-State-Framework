@@ -91,6 +91,20 @@ Current release-facing results are the Hopper/Quasar table in
 until the sibling benchmark repo publishes a same-provenance Anza Pinocchio
 run.
 
+## Immutable Benchmark Provenance
+
+| Field | Value |
+|---|---|
+| Hopper framework commit | `55777a183e304bf43ec9d6e8e70fa6c75d3a8b6c` |
+| Benchmark repository | `https://github.com/BluefootLabs/hopper-bench` |
+| Runner shape | Same Mollusk harness, deterministic 8-seed average |
+| Published release-facing columns | Hopper and Quasar only |
+| Excluded column | Anza Pinocchio until same-provenance measurement is available |
+
+The benchmark claim is intentionally narrow: Hopper has measured advantages in
+the current Hopper/Quasar parity table, while Pinocchio remains an unclaimed
+comparison until the Anza target is measured with identical provenance.
+
 ## Hopper Safety And Feature Coverage
 
 ### Safety examples

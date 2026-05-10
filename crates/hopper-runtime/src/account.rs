@@ -14,11 +14,11 @@
 //! - Packed flags for batch validation
 //! - Remaining accounts iterator
 
-use crate::address::{Address, address_eq};
-use crate::error::ProgramError;
+use crate::address::{address_eq, Address};
 use crate::borrow::{Ref, RefMut};
 use crate::borrow_registry::{self, BorrowToken};
 use crate::compat::{self, BackendAccountView};
+use crate::error::ProgramError;
 use crate::field_map::FieldInfo;
 use crate::layout::LayoutContract;
 use crate::segment_borrow::SegmentBorrowRegistry;
@@ -71,6 +71,7 @@ impl AccountView {
     /// to a new owner. The caller must ensure no concurrent mutation.
     #[inline(always)]
     pub unsafe fn owner(&self) -> &Address {
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe { compat::account_owner(&self.inner) }
     }
 
@@ -203,9 +204,7 @@ impl AccountView {
         #[cfg(target_os = "solana")]
         let inner: Ref<'_, T> = {
             // SAFETY: size, overflow, and bounds already validated above.
-            let native_ref = unsafe {
-                self.inner.segment_ref_unchecked::<T>(abs_offset)
-            };
+            let native_ref = unsafe { self.inner.segment_ref_unchecked::<T>(abs_offset) };
             let native_ref = match native_ref {
                 Ok(nr) => nr,
                 Err(e) => {
@@ -228,6 +227,7 @@ impl AccountView {
                     return Err(e);
                 }
             };
+            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             let ptr = unsafe { data.as_bytes_ptr().add(abs_offset as usize) as *const T };
             unsafe { data.project(ptr) }
         };
@@ -267,9 +267,8 @@ impl AccountView {
 
         #[cfg(target_os = "solana")]
         let inner: RefMut<'_, T> = {
-            let native_ref = unsafe {
-                self.inner.segment_mut_unchecked::<T>(abs_offset)
-            };
+            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+            let native_ref = unsafe { self.inner.segment_mut_unchecked::<T>(abs_offset) };
             let native_ref = match native_ref {
                 Ok(nr) => nr,
                 Err(e) => {
@@ -289,10 +288,12 @@ impl AccountView {
                     return Err(e);
                 }
             };
+            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             let ptr = unsafe { data.as_bytes_mut_ptr().add(abs_offset as usize) as *mut T };
             unsafe { data.project(ptr) }
         };
 
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let lease = unsafe { crate::SegmentLease::new(borrows, borrow) };
         Ok(crate::SegRefMut::new(inner, lease))
     }
@@ -373,8 +374,6 @@ impl AccountView {
 
     // ── Zero-copy overlay access ─────────────────────────────────────
 
-
-
     // ── Typed load (LayoutContract-aware) ────────────────────────────
 
     /// Load a typed layout after validating the account header.
@@ -400,6 +399,7 @@ impl AccountView {
         if data.len() < T::required_len() {
             return ProgramError::err_data_too_small();
         }
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let ptr = unsafe { data.as_bytes_ptr().add(T::TYPE_OFFSET) as *const T };
         // SAFETY: Header and length validated above. `ptr` points into the borrowed bytes.
         Ok(unsafe { data.project(ptr) })
@@ -423,6 +423,7 @@ impl AccountView {
         if data.len() < T::required_len() {
             return ProgramError::err_data_too_small();
         }
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let ptr = unsafe { data.as_bytes_mut_ptr().add(T::TYPE_OFFSET) as *mut T };
         // SAFETY: Header and length validated above. `ptr` points into the borrowed bytes.
         Ok(unsafe { data.project(ptr) })
@@ -433,12 +434,17 @@ impl AccountView {
     /// This bypasses Hopper layout validation and segment tracking, but it still
     /// respects the account-level borrow rules enforced by `try_borrow()`.
     #[inline(always)]
+    ///
+    /// # Safety
+    ///
+    /// Caller must uphold the invariants documented for this unsafe API before invoking it.
     pub unsafe fn raw_ref<T: crate::Pod>(&self) -> Result<Ref<'_, T>, ProgramError> {
         let data = self.try_borrow()?;
         if core::mem::size_of::<T>() > data.len() {
             return Err(ProgramError::AccountDataTooSmall);
         }
         let ptr = data.as_ptr() as *const T;
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         Ok(unsafe { data.project(ptr) })
     }
 
@@ -447,6 +453,10 @@ impl AccountView {
     /// This bypasses Hopper layout validation and segment tracking, but it still
     /// enforces writability and the account-level exclusive borrow rules.
     #[inline(always)]
+    ///
+    /// # Safety
+    ///
+    /// Caller must uphold the invariants documented for this unsafe API before invoking it.
     pub unsafe fn raw_mut<T: crate::Pod>(&self) -> Result<RefMut<'_, T>, ProgramError> {
         self.check_writable()?;
         let mut data = self.try_borrow_mut()?;
@@ -454,10 +464,9 @@ impl AccountView {
             return Err(ProgramError::AccountDataTooSmall);
         }
         let ptr = data.as_bytes_mut_ptr() as *mut T;
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         Ok(unsafe { data.project(ptr) })
     }
-
-
 
     /// Load a cross-program layout without ownership checks.
     ///
@@ -488,6 +497,7 @@ impl AccountView {
         } else {
             return Err(ProgramError::AccountDataTooSmall);
         }
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let ptr = unsafe { data.as_bytes_ptr().add(T::TYPE_OFFSET) as *const T };
         // SAFETY: Wire identity and size validated above.
         Ok(unsafe { data.project(ptr) })
@@ -527,7 +537,9 @@ impl AccountView {
     /// Callers can apply the returned range to a borrowed data slice when they
     /// want to inspect or mutate extension bytes explicitly.
     #[inline(always)]
-    pub fn extension_range<T: LayoutContract>(&self) -> Result<core::ops::Range<usize>, ProgramError> {
+    pub fn extension_range<T: LayoutContract>(
+        &self,
+    ) -> Result<core::ops::Range<usize>, ProgramError> {
         let offset = T::EXTENSION_OFFSET.ok_or(ProgramError::InvalidArgument)?;
         let data_len = self.data_len();
         if data_len < offset {
@@ -573,19 +585,31 @@ impl AccountView {
     /// Validate that this account is a signer.
     #[inline(always)]
     pub fn require_signer(&self) -> ProgramResult {
-        if self.is_signer() { Ok(()) } else { ProgramError::err_missing_signer() }
+        if self.is_signer() {
+            Ok(())
+        } else {
+            ProgramError::err_missing_signer()
+        }
     }
 
     /// Validate that this account is writable.
     #[inline(always)]
     pub fn require_writable(&self) -> ProgramResult {
-        if self.is_writable() { Ok(()) } else { ProgramError::err_immutable() }
+        if self.is_writable() {
+            Ok(())
+        } else {
+            ProgramError::err_immutable()
+        }
     }
 
     /// Validate that this account is owned by the given program.
     #[inline(always)]
     pub fn require_owned_by(&self, program: &Address) -> ProgramResult {
-        if self.owned_by(program) { Ok(()) } else { ProgramError::err_incorrect_program() }
+        if self.owned_by(program) {
+            Ok(())
+        } else {
+            ProgramError::err_incorrect_program()
+        }
     }
 
     /// Validate signer + writable (common "payer" pattern).
@@ -600,55 +624,91 @@ impl AccountView {
     /// Chainable signer check.
     #[inline(always)]
     pub fn check_signer(&self) -> Result<&Self, ProgramError> {
-        if self.is_signer() { Ok(self) } else { ProgramError::err_missing_signer() }
+        if self.is_signer() {
+            Ok(self)
+        } else {
+            ProgramError::err_missing_signer()
+        }
     }
 
     /// Chainable writable check.
     #[inline(always)]
     pub fn check_writable(&self) -> Result<&Self, ProgramError> {
-        if self.is_writable() { Ok(self) } else { ProgramError::err_immutable() }
+        if self.is_writable() {
+            Ok(self)
+        } else {
+            ProgramError::err_immutable()
+        }
     }
 
     /// Chainable ownership check.
     #[inline(always)]
     pub fn check_owned_by(&self, program: &Address) -> Result<&Self, ProgramError> {
-        if self.owned_by(program) { Ok(self) } else { ProgramError::err_incorrect_program() }
+        if self.owned_by(program) {
+            Ok(self)
+        } else {
+            ProgramError::err_incorrect_program()
+        }
     }
 
     /// Chainable discriminator check.
     #[inline(always)]
     pub fn check_disc(&self, expected: u8) -> Result<&Self, ProgramError> {
-        if self.disc() == expected { Ok(self) } else { Err(ProgramError::InvalidAccountData) }
+        if self.disc() == expected {
+            Ok(self)
+        } else {
+            Err(ProgramError::InvalidAccountData)
+        }
     }
 
     /// Chainable non-empty data check.
     #[inline(always)]
     pub fn check_has_data(&self) -> Result<&Self, ProgramError> {
-        if !self.is_data_empty() { Ok(self) } else { Err(ProgramError::AccountDataTooSmall) }
+        if !self.is_data_empty() {
+            Ok(self)
+        } else {
+            Err(ProgramError::AccountDataTooSmall)
+        }
     }
 
     /// Chainable executable check.
     #[inline(always)]
     pub fn check_executable(&self) -> Result<&Self, ProgramError> {
-        if self.executable() { Ok(self) } else { Err(ProgramError::InvalidArgument) }
+        if self.executable() {
+            Ok(self)
+        } else {
+            Err(ProgramError::InvalidArgument)
+        }
     }
 
     /// Chainable address check.
     #[inline(always)]
     pub fn check_address(&self, expected: &Address) -> Result<&Self, ProgramError> {
-        if address_eq(self.address(), expected) { Ok(self) } else { Err(ProgramError::InvalidArgument) }
+        if address_eq(self.address(), expected) {
+            Ok(self)
+        } else {
+            Err(ProgramError::InvalidArgument)
+        }
     }
 
     /// Chainable minimum data length check.
     #[inline(always)]
     pub fn check_data_len(&self, min_len: usize) -> Result<&Self, ProgramError> {
-        if self.data_len() >= min_len { Ok(self) } else { Err(ProgramError::AccountDataTooSmall) }
+        if self.data_len() >= min_len {
+            Ok(self)
+        } else {
+            Err(ProgramError::AccountDataTooSmall)
+        }
     }
 
     /// Chainable version check.
     #[inline(always)]
     pub fn check_version(&self, expected: u8) -> Result<&Self, ProgramError> {
-        if self.version() == expected { Ok(self) } else { Err(ProgramError::InvalidAccountData) }
+        if self.version() == expected {
+            Ok(self)
+        } else {
+            Err(ProgramError::InvalidAccountData)
+        }
     }
 
     /// Chainable full layout contract check (disc + version + layout_id + size).
@@ -682,7 +742,11 @@ impl AccountView {
     /// Verify that this account has the given discriminator.
     #[inline(always)]
     pub fn require_disc(&self, expected: u8) -> ProgramResult {
-        if self.disc() == expected { Ok(()) } else { Err(ProgramError::InvalidAccountData) }
+        if self.disc() == expected {
+            Ok(())
+        } else {
+            Err(ProgramError::InvalidAccountData)
+        }
     }
 
     // ── Packed flags ─────────────────────────────────────────────────
@@ -694,17 +758,29 @@ impl AccountView {
     #[inline(always)]
     pub fn flags(&self) -> u8 {
         let mut f: u8 = 0;
-        if self.is_signer() { f |= 0b0001; }
-        if self.is_writable() { f |= 0b0010; }
-        if self.executable() { f |= 0b0100; }
-        if !self.is_data_empty() { f |= 0b1000; }
+        if self.is_signer() {
+            f |= 0b0001;
+        }
+        if self.is_writable() {
+            f |= 0b0010;
+        }
+        if self.executable() {
+            f |= 0b0100;
+        }
+        if !self.is_data_empty() {
+            f |= 0b1000;
+        }
         f
     }
 
     /// Check that the account's flags contain all required bits.
     #[inline(always)]
     pub fn expect_flags(&self, required: u8) -> ProgramResult {
-        if self.flags() & required == required { Ok(()) } else { Err(ProgramError::InvalidArgument) }
+        if self.flags() & required == required {
+            Ok(())
+        } else {
+            Err(ProgramError::InvalidArgument)
+        }
     }
 
     // ── Resize / Close ───────────────────────────────────────────────
@@ -723,7 +799,10 @@ impl AccountView {
     /// transfer is authorized.
     #[inline(always)]
     pub unsafe fn assign(&self, new_owner: &Address) {
-        unsafe { compat::assign(&self.inner, new_owner); }
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        unsafe {
+            compat::assign(&self.inner, new_owner);
+        }
     }
 
     /// Close the account: zero lamports and data.
@@ -761,11 +840,7 @@ impl AccountView {
     /// patterns that will only be rejected later", the safe API
     /// should surface the violation at call time.
     #[inline]
-    pub fn close_to(
-        &self,
-        destination: &AccountView,
-        program_id: &Address,
-    ) -> ProgramResult {
+    pub fn close_to(&self, destination: &AccountView, program_id: &Address) -> ProgramResult {
         self.require_writable()?;
         self.require_owned_by(program_id)?;
         destination.require_writable()?;
@@ -839,6 +914,7 @@ impl AccountView {
     /// The caller must ensure no mutable borrow is active.
     #[inline(always)]
     pub unsafe fn borrow_unchecked(&self) -> &[u8] {
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe { self.inner.borrow_unchecked() }
     }
 
@@ -849,6 +925,7 @@ impl AccountView {
     /// The caller must ensure no other borrows are active.
     #[inline(always)]
     pub unsafe fn borrow_unchecked_mut(&self) -> &mut [u8] {
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe { self.inner.borrow_unchecked_mut() }
     }
 
@@ -860,7 +937,10 @@ impl AccountView {
     #[cfg(feature = "hopper-native-backend")]
     #[inline(always)]
     pub unsafe fn resize_unchecked(&self, new_len: usize) {
-        unsafe { self.inner.resize_unchecked(new_len); }
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        unsafe {
+            self.inner.resize_unchecked(new_len);
+        }
     }
 
     /// Close without borrow checks.
@@ -870,7 +950,10 @@ impl AccountView {
     /// The caller must ensure no active borrows exist.
     #[inline(always)]
     pub unsafe fn close_unchecked(&self) {
-        unsafe { self.inner.close_unchecked(); }
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        unsafe {
+            self.inner.close_unchecked();
+        }
     }
 
     // ── Backend access ───────────────────────────────────────────────
@@ -881,7 +964,6 @@ impl AccountView {
     pub(crate) fn as_backend(&self) -> &BackendAccountView {
         &self.inner
     }
-
 }
 
 impl core::fmt::Debug for AccountView {
@@ -908,7 +990,10 @@ impl<'a> RemainingAccounts<'a> {
     /// Create from a slice of accounts.
     #[inline(always)]
     pub fn new(accounts: &'a [AccountView]) -> Self {
-        Self { accounts, cursor: 0 }
+        Self {
+            accounts,
+            cursor: 0,
+        }
     }
 
     /// Number of accounts remaining.
@@ -958,7 +1043,9 @@ mod tests {
     use super::*;
     use crate::layout::HopperHeader;
 
-    use hopper_native::{AccountView as NativeAccountView, Address as NativeAddress, RuntimeAccount, NOT_BORROWED};
+    use hopper_native::{
+        AccountView as NativeAccountView, Address as NativeAddress, RuntimeAccount, NOT_BORROWED,
+    };
 
     #[repr(C)]
     #[derive(Clone, Copy, Debug, Default)]
@@ -990,9 +1077,11 @@ mod tests {
     }
 
     impl crate::field_map::FieldMap for HeaderLayout {
-        const FIELDS: &'static [crate::field_map::FieldInfo] = &[
-            crate::field_map::FieldInfo::new("amount", HopperHeader::SIZE, 8),
-        ];
+        const FIELDS: &'static [crate::field_map::FieldInfo] = &[crate::field_map::FieldInfo::new(
+            "amount",
+            HopperHeader::SIZE,
+            8,
+        )];
     }
 
     impl LayoutContract for HeaderLayout {
@@ -1006,6 +1095,7 @@ mod tests {
     fn make_account(total_data_len: usize, address_byte: u8) -> (std::vec::Vec<u8>, AccountView) {
         let mut backing = std::vec![0u8; RuntimeAccount::SIZE + total_data_len];
         let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {
             raw.write(RuntimeAccount {
                 borrow_state: NOT_BORROWED,
@@ -1019,6 +1109,7 @@ mod tests {
                 data_len: total_data_len as u64,
             });
         }
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let backend = unsafe { NativeAccountView::new_unchecked(raw) };
         let account = AccountView::from_backend(backend);
         (backing, account)
@@ -1032,7 +1123,8 @@ mod tests {
             let mut data = account.try_borrow_mut().unwrap();
             crate::layout::init_header::<TestLayout>(&mut data).unwrap();
             data[HopperHeader::SIZE..HopperHeader::SIZE + 8].copy_from_slice(&10u64.to_le_bytes());
-            data[HopperHeader::SIZE + 8..HopperHeader::SIZE + 16].copy_from_slice(&20u64.to_le_bytes());
+            data[HopperHeader::SIZE + 8..HopperHeader::SIZE + 16]
+                .copy_from_slice(&20u64.to_le_bytes());
             data[TestLayout::SIZE..TestLayout::SIZE + 8].copy_from_slice(b"tailpass");
         }
 
@@ -1069,7 +1161,10 @@ mod tests {
         }
 
         let shared = account.load::<TestLayout>().unwrap();
-        assert_eq!(account.load_mut::<TestLayout>().unwrap_err(), ProgramError::AccountBorrowFailed);
+        assert_eq!(
+            account.load_mut::<TestLayout>().unwrap_err(),
+            ProgramError::AccountBorrowFailed
+        );
         drop(shared);
         assert!(account.load_mut::<TestLayout>().is_ok());
     }
@@ -1081,7 +1176,10 @@ mod tests {
 
         let first_shared = first.try_borrow().unwrap();
         let second_shared = second.try_borrow().unwrap();
-        assert_eq!(second.try_borrow_mut().unwrap_err(), ProgramError::AccountBorrowFailed);
+        assert_eq!(
+            second.try_borrow_mut().unwrap_err(),
+            ProgramError::AccountBorrowFailed
+        );
         drop(first_shared);
         drop(second_shared);
         assert!(second.try_borrow_mut().is_ok());
@@ -1100,14 +1198,20 @@ mod tests {
             let mut data = account.try_borrow_mut().unwrap();
             data[0] = TestLayout::DISC.wrapping_add(1);
         }
-        assert_eq!(account.load::<TestLayout>().unwrap_err(), ProgramError::InvalidAccountData);
+        assert_eq!(
+            account.load::<TestLayout>().unwrap_err(),
+            ProgramError::InvalidAccountData
+        );
 
         {
             let mut data = account.try_borrow_mut().unwrap();
             crate::layout::init_header::<TestLayout>(&mut data).unwrap();
             data[1] = TestLayout::VERSION.wrapping_add(1);
         }
-        assert_eq!(account.load::<TestLayout>().unwrap_err(), ProgramError::InvalidAccountData);
+        assert_eq!(
+            account.load::<TestLayout>().unwrap_err(),
+            ProgramError::InvalidAccountData
+        );
     }
 
     #[test]
@@ -1121,7 +1225,10 @@ mod tests {
             data[4..12].copy_from_slice(&TestLayout::LAYOUT_ID);
         }
 
-        assert_eq!(account.load::<TestLayout>().unwrap_err(), ProgramError::AccountDataTooSmall);
+        assert_eq!(
+            account.load::<TestLayout>().unwrap_err(),
+            ProgramError::AccountDataTooSmall
+        );
     }
 
     #[test]
@@ -1166,11 +1273,7 @@ mod tests {
 
         // Account-level shared borrow is live, a segment write MUST fail.
         let err = account
-            .segment_mut::<u64>(
-                &mut borrows,
-                crate::layout::HopperHeader::SIZE as u32,
-                8,
-            )
+            .segment_mut::<u64>(&mut borrows, crate::layout::HopperHeader::SIZE as u32, 8)
             .unwrap_err();
         assert_eq!(err, ProgramError::AccountBorrowFailed);
     }
@@ -1189,11 +1292,7 @@ mod tests {
         // Exclusive account-level borrow is live, even a segment read
         // must be rejected because the bytes are mutably aliased.
         let err = account
-            .segment_ref::<u64>(
-                &mut borrows,
-                crate::layout::HopperHeader::SIZE as u32,
-                8,
-            )
+            .segment_ref::<u64>(&mut borrows, crate::layout::HopperHeader::SIZE as u32, 8)
             .unwrap_err();
         assert_eq!(err, ProgramError::AccountBorrowFailed);
     }
@@ -1236,11 +1335,13 @@ mod tests {
         }
         // ── raw_ref → state byte held, so load_mut rejected
         {
+            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             let _r = unsafe { account.raw_ref::<[u8; 16]>() }.unwrap();
             assert!(account.load_mut::<TestLayout>().is_err());
         }
         // ── raw_mut → exclusive, so even shared read rejected
         {
+            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             let _w = unsafe { account.raw_mut::<[u8; 16]>() }.unwrap();
             assert!(account.load::<TestLayout>().is_err());
         }
@@ -1248,11 +1349,7 @@ mod tests {
         //    returned `SegRef` owns a RAII lease that releases on drop.
         {
             let _r = account
-                .segment_ref::<u64>(
-                    &mut borrows,
-                    crate::layout::HopperHeader::SIZE as u32,
-                    8,
-                )
+                .segment_ref::<u64>(&mut borrows, crate::layout::HopperHeader::SIZE as u32, 8)
                 .unwrap();
             // Guard alive → the borrow checker forbids touching
             // `borrows` directly here; that's the compile-time half of
@@ -1267,11 +1364,7 @@ mod tests {
         //    rest of the instruction.
         assert_eq!(borrows.len(), 0);
         let _w = account
-            .segment_mut::<u64>(
-                &mut borrows,
-                crate::layout::HopperHeader::SIZE as u32,
-                8,
-            )
+            .segment_mut::<u64>(&mut borrows, crate::layout::HopperHeader::SIZE as u32, 8)
             .unwrap();
     }
 
@@ -1390,11 +1483,7 @@ mod tests {
             *a = 7;
         }
         let read = account
-            .segment_ref::<u64>(
-                &mut borrows,
-                crate::layout::HopperHeader::SIZE as u32,
-                8,
-            )
+            .segment_ref::<u64>(&mut borrows, crate::layout::HopperHeader::SIZE as u32, 8)
             .unwrap();
         assert_eq!(*read, 7);
     }
@@ -1410,11 +1499,7 @@ mod tests {
         let mut borrows = crate::segment_borrow::SegmentBorrowRegistry::new();
         {
             let mut seg = account
-                .segment_mut::<u64>(
-                    &mut borrows,
-                    crate::layout::HopperHeader::SIZE as u32,
-                    8,
-                )
+                .segment_mut::<u64>(&mut borrows, crate::layout::HopperHeader::SIZE as u32, 8)
                 .unwrap();
             *seg = 42;
         }

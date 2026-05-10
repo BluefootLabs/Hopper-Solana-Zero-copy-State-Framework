@@ -8,20 +8,16 @@
 //! size), these wire types can be placed at any offset in a `#[repr(C)]` struct
 //! and will never introduce padding bytes.
 
-mod integers;
 mod boolean;
 mod field_ref;
+mod integers;
 mod typed_address;
 
 pub use boolean::WireBool;
 pub use field_ref::{FieldMut, FieldRef};
-pub use integers::{
-    WireI16, WireI32, WireI64, WireI128,
-    WireU16, WireU32, WireU64, WireU128,
-};
+pub use integers::{WireI128, WireI16, WireI32, WireI64, WireU128, WireU16, WireU32, WireU64};
 pub use typed_address::{
-    TypedAddress, UntypedAddress,
-    Authority, Mint, TokenAccount, Token, Program,
+    Authority, Mint, Program, Token, TokenAccount, TypedAddress, UntypedAddress,
 };
 
 /// Marker trait for types safe to use as zero-copy wire fields.
@@ -75,8 +71,14 @@ impl LayoutFingerprint {
     pub const fn matches(&self, other: &LayoutFingerprint) -> bool {
         let a = &self.bytes;
         let b = &other.bytes;
-        a[0] == b[0] && a[1] == b[1] && a[2] == b[2] && a[3] == b[3]
-            && a[4] == b[4] && a[5] == b[5] && a[6] == b[6] && a[7] == b[7]
+        a[0] == b[0]
+            && a[1] == b[1]
+            && a[2] == b[2]
+            && a[3] == b[3]
+            && a[4] == b[4]
+            && a[5] == b[5]
+            && a[6] == b[6]
+            && a[7] == b[7]
     }
 
     /// Check if two fingerprints differ (schema changed between versions).

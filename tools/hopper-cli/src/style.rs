@@ -146,7 +146,10 @@ mod tests {
     fn forced_off_strips_ansi() {
         init(false);
         let s = success("ok");
-        assert!(!s.contains("\x1b["), "expected no ANSI when disabled, got {s:?}");
+        assert!(
+            !s.contains("\x1b["),
+            "expected no ANSI when disabled, got {s:?}"
+        );
         assert!(s.starts_with("[ok]"));
     }
 

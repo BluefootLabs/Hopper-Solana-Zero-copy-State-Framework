@@ -21,35 +21,35 @@
 //! - [`entry()`] -- typed instruction entry point
 
 pub mod context;
-pub mod hopper_account;
-pub mod program_account;
-pub mod signer;
-pub mod unchecked;
-#[cfg(feature = "migrate")]
-pub mod migrating;
-pub mod segmented;
-pub mod program;
-pub mod traits;
-pub mod validate;
+pub mod entry;
 #[cfg(feature = "explain")]
 pub mod explain;
+pub mod hopper_account;
 pub mod meta;
-pub mod entry;
+#[cfg(feature = "migrate")]
+pub mod migrating;
+pub mod program;
+pub mod program_account;
+pub mod segmented;
+pub mod signer;
+pub mod traits;
+pub mod unchecked;
+pub mod validate;
 
-pub use context::{HopperCtx, HopperAccounts};
+pub use context::{HopperAccounts, HopperCtx};
+pub use entry::{hopper_entry, HopperIx};
+#[cfg(feature = "explain")]
+pub use explain::{AccountExplain, ContextExplain};
 pub use hopper_account::HopperAccount;
-pub use program_account::ProgramAccount;
-pub use signer::SignerAccount;
-pub use unchecked::UncheckedAccount;
+pub use meta::AccountMetaProvider;
 #[cfg(feature = "migrate")]
 pub use migrating::MigratingAccount;
-pub use segmented::SegmentedAccount;
 pub use program::ProgramRef;
-pub use traits::ValidateAccount;
+pub use program_account::ProgramAccount;
+pub use segmented::SegmentedAccount;
+pub use signer::SignerAccount;
 #[cfg(feature = "explain")]
 pub use traits::ExplainAccount;
-pub use validate::{require_signer, require_writable, require_owner, require_executable};
-#[cfg(feature = "explain")]
-pub use explain::{ContextExplain, AccountExplain};
-pub use meta::AccountMetaProvider;
-pub use entry::{HopperIx, hopper_entry};
+pub use traits::ValidateAccount;
+pub use unchecked::UncheckedAccount;
+pub use validate::{require_executable, require_owner, require_signer, require_writable};

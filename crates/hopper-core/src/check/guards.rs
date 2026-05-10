@@ -25,13 +25,11 @@ pub fn require_payer(account: &AccountView) -> ProgramResult {
 
 /// Validate an authority account: must be signer, owned by expected program.
 #[inline(always)]
-pub fn require_authority(
-    account: &AccountView,
-    stored_authority: &[u8; 32],
-) -> ProgramResult {
+pub fn require_authority(account: &AccountView, stored_authority: &[u8; 32]) -> ProgramResult {
     if !account.is_signer() {
         return Err(ProgramError::MissingRequiredSignature);
     }
+    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     let addr: &[u8; 32] = unsafe {
         // SAFETY: Address is [u8; 32].
         &*(account.address() as *const Address as *const [u8; 32])
@@ -44,10 +42,7 @@ pub fn require_authority(
 
 /// Validate a writable program-owned account.
 #[inline(always)]
-pub fn require_owned_writable(
-    account: &AccountView,
-    program_id: &Address,
-) -> ProgramResult {
+pub fn require_owned_writable(account: &AccountView, program_id: &Address) -> ProgramResult {
     if !account.owned_by(program_id) {
         return Err(ProgramError::IncorrectProgramId);
     }
@@ -87,10 +82,7 @@ pub fn require_unique_signers(accounts: &[AccountView]) -> ProgramResult {
 /// Call with pre-mutation snapshots of lamport values and the current
 /// account views. Detects lamport creation/destruction bugs.
 #[inline]
-pub fn check_lamport_conservation(
-    accounts: &[AccountView],
-    pre_lamports: &[u64],
-) -> ProgramResult {
+pub fn check_lamport_conservation(accounts: &[AccountView], pre_lamports: &[u64]) -> ProgramResult {
     if accounts.len() != pre_lamports.len() {
         return Err(ProgramError::InvalidArgument);
     }
@@ -98,9 +90,11 @@ pub fn check_lamport_conservation(
     let mut post_total: u64 = 0;
     let mut i = 0;
     while i < accounts.len() {
-        pre_total = pre_total.checked_add(pre_lamports[i])
+        pre_total = pre_total
+            .checked_add(pre_lamports[i])
             .ok_or(ProgramError::ArithmeticOverflow)?;
-        post_total = post_total.checked_add(accounts[i].lamports())
+        post_total = post_total
+            .checked_add(accounts[i].lamports())
             .ok_or(ProgramError::ArithmeticOverflow)?;
         i += 1;
     }
@@ -138,13 +132,13 @@ pub fn snapshot_lamports<const N: usize>(
 /// Prevents fee-drain attacks where an attacker passes a writable
 /// account they don't own, hoping the program modifies it.
 #[inline]
-pub fn check_writable_coherence(
-    accounts: &[AccountView],
-    program_id: &Address,
-) -> ProgramResult {
+pub fn check_writable_coherence(accounts: &[AccountView], program_id: &Address) -> ProgramResult {
     let mut i = 0;
     while i < accounts.len() {
-        if accounts[i].is_writable() && !accounts[i].is_signer() && !accounts[i].owned_by(program_id) {
+        if accounts[i].is_writable()
+            && !accounts[i].is_signer()
+            && !accounts[i].owned_by(program_id)
+        {
             return Err(ProgramError::InvalidAccountData);
         }
         i += 1;

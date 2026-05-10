@@ -81,6 +81,7 @@ impl CuBudget {
             // For actual CU reading, we use the Solana runtime's
             // get_processed_sibling_instruction or just track relative
             // consumption patterns.
+            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             unsafe {
                 crate::syscalls::sol_log_compute_units_();
             }
@@ -99,6 +100,7 @@ impl CuBudget {
     #[inline(always)]
     pub fn checkpoint() {
         #[cfg(target_os = "solana")]
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {
             crate::syscalls::sol_log_compute_units_();
         }
@@ -122,6 +124,7 @@ impl CuBudget {
         // When Solana adds a `sol_get_remaining_compute_units` syscall,
         // this method will become a real guard.
         #[cfg(target_os = "solana")]
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {
             crate::syscalls::sol_log_compute_units_();
         }

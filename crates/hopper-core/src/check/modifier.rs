@@ -17,10 +17,10 @@
 //! - Inner value is accessible via `.inner()` or `Deref`
 //! - All validation happens in `from_account()` -- if you have the type, it's valid
 
+use crate::account::{FixedLayout, Pod, VerifiedAccount, VerifiedAccountMut};
+use crate::check;
 use hopper_runtime::error::ProgramError;
 use hopper_runtime::{AccountView, Address};
-use crate::account::{Pod, FixedLayout, VerifiedAccount, VerifiedAccountMut};
-use crate::check;
 
 /// A typed, owner-validated account (immutable).
 ///
@@ -141,52 +141,46 @@ impl<I> Mut<I> {
 /// Trait for types that can be constructed from an AccountView with validation.
 pub trait FromAccount<'a>: Sized {
     /// Construct this type from an account, performing all required validation.
-    fn from_account(
-        account: &'a AccountView,
-        program_id: &Address,
-    ) -> Result<Self, ProgramError>;
+    fn from_account(account: &'a AccountView, program_id: &Address) -> Result<Self, ProgramError>;
 }
 
 // Account<T>: owner + disc + version + layout_id + size
 impl<'a, T: Pod + FixedLayout + HopperLayout> FromAccount<'a> for Account<'a, T> {
     #[inline]
-    fn from_account(
-        account: &'a AccountView,
-        program_id: &Address,
-    ) -> Result<Self, ProgramError> {
+    fn from_account(account: &'a AccountView, program_id: &Address) -> Result<Self, ProgramError> {
         check::check_owner(account, program_id)?;
         let data = account.try_borrow()?;
         crate::account::check_header(&data, T::DISC, T::VERSION, &T::LAYOUT_ID)?;
         check::check_size(&data, T::LEN_WITH_HEADER)?;
         let verified = VerifiedAccount::from_ref(data)?;
-        Ok(Self { view: account, verified })
+        Ok(Self {
+            view: account,
+            verified,
+        })
     }
 }
 
 // AccountMut<T>: owner + writable + disc + version + layout_id + size
 impl<'a, T: Pod + FixedLayout + HopperLayout> FromAccount<'a> for AccountMut<'a, T> {
     #[inline]
-    fn from_account(
-        account: &'a AccountView,
-        program_id: &Address,
-    ) -> Result<Self, ProgramError> {
+    fn from_account(account: &'a AccountView, program_id: &Address) -> Result<Self, ProgramError> {
         check::check_owner(account, program_id)?;
         check::check_writable(account)?;
         let data = account.try_borrow_mut()?;
         crate::account::check_header(&data, T::DISC, T::VERSION, &T::LAYOUT_ID)?;
         check::check_size(&data, T::LEN_WITH_HEADER)?;
         let verified = VerifiedAccountMut::from_ref_mut(data)?;
-        Ok(Self { view: account, verified })
+        Ok(Self {
+            view: account,
+            verified,
+        })
     }
 }
 
 // Signer<I>: validates signer, then delegates to inner
 impl<'a, I: FromAccount<'a> + HasView<'a>> FromAccount<'a> for Signer<I> {
     #[inline]
-    fn from_account(
-        account: &'a AccountView,
-        program_id: &Address,
-    ) -> Result<Self, ProgramError> {
+    fn from_account(account: &'a AccountView, program_id: &Address) -> Result<Self, ProgramError> {
         check::check_signer(account)?;
         let inner = I::from_account(account, program_id)?;
         Ok(Self { inner })
@@ -196,10 +190,7 @@ impl<'a, I: FromAccount<'a> + HasView<'a>> FromAccount<'a> for Signer<I> {
 // Mut<I>: validates writable, then delegates to inner
 impl<'a, I: FromAccount<'a> + HasView<'a>> FromAccount<'a> for Mut<I> {
     #[inline]
-    fn from_account(
-        account: &'a AccountView,
-        program_id: &Address,
-    ) -> Result<Self, ProgramError> {
+    fn from_account(account: &'a AccountView, program_id: &Address) -> Result<Self, ProgramError> {
         check::check_writable(account)?;
         let inner = I::from_account(account, program_id)?;
         Ok(Self { inner })

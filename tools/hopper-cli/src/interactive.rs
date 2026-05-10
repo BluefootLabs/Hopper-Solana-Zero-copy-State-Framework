@@ -12,10 +12,7 @@ use crossterm::{
 };
 use std::io::{self, Write};
 
-use hopper_schema::{
-    LayoutFingerprint,
-    ProgramManifest, decode_account_fields, decode_header,
-};
+use hopper_schema::{decode_account_fields, decode_header, LayoutFingerprint, ProgramManifest};
 
 // ---------------------------------------------------------------------------
 // View enum, what the user is looking at
@@ -137,8 +134,11 @@ impl<'a> Session<'a> {
         for (i, (label, count)) in items.iter().enumerate() {
             let marker = if i == self.cursor { "▸ " } else { "  " };
             let highlight = if i == self.cursor { "\x1b[1;36m" } else { "" };
-            write!(w, "{}{}{:<30}\x1b[0m{}\r\n",
-                marker, highlight, label, count)?;
+            write!(
+                w,
+                "{}{}{:<30}\x1b[0m{}\r\n",
+                marker, highlight, label, count
+            )?;
         }
         Ok(())
     }
@@ -147,7 +147,10 @@ impl<'a> Session<'a> {
         vec![
             ("Program Summary", String::new()),
             ("Layouts", format!("({})", self.prog.layouts.len())),
-            ("Instructions", format!("({})", self.prog.instructions.len())),
+            (
+                "Instructions",
+                format!("({})", self.prog.instructions.len()),
+            ),
             ("Policies", format!("({})", self.prog.policies.len())),
             ("Events", format!("({})", self.prog.events.len())),
             ("Decode Account (hex)", String::new()),
@@ -172,9 +175,16 @@ impl<'a> Session<'a> {
             write!(w, "  \x1b[1;33mLayouts:\x1b[0m\r\n")?;
             for l in p.layouts.iter() {
                 let fp = LayoutFingerprint::from_manifest(l);
-                write!(w, "    {} v{}, {} bytes, {} fields  [wire:{} sem:{}]\r\n",
-                    l.name, l.version, l.total_size, l.field_count,
-                    hex_short(&fp.wire_hash), hex_short(&fp.semantic_hash))?;
+                write!(
+                    w,
+                    "    {} v{}, {} bytes, {} fields  [wire:{} sem:{}]\r\n",
+                    l.name,
+                    l.version,
+                    l.total_size,
+                    l.field_count,
+                    hex_short(&fp.wire_hash),
+                    hex_short(&fp.semantic_hash)
+                )?;
             }
         }
 
@@ -183,8 +193,14 @@ impl<'a> Session<'a> {
         if !p.instructions.is_empty() {
             write!(w, "  \x1b[1;33mInstructions:\x1b[0m\r\n")?;
             for ix in p.instructions.iter() {
-                write!(w, "    [{}] {}, {} args, {} accounts\r\n",
-                    ix.tag, ix.name, ix.args.len(), ix.accounts.len())?;
+                write!(
+                    w,
+                    "    [{}] {}, {} args, {} accounts\r\n",
+                    ix.tag,
+                    ix.name,
+                    ix.args.len(),
+                    ix.accounts.len()
+                )?;
             }
         }
 
@@ -199,8 +215,11 @@ impl<'a> Session<'a> {
         for (i, l) in self.prog.layouts.iter().enumerate() {
             let marker = if i == self.cursor { "▸ " } else { "  " };
             let highlight = if i == self.cursor { "\x1b[1;36m" } else { "" };
-            write!(w, "{}{}{} v{}  \x1b[0m- {} bytes, {} fields\r\n",
-                marker, highlight, l.name, l.version, l.total_size, l.field_count)?;
+            write!(
+                w,
+                "{}{}{} v{}  \x1b[0m- {} bytes, {} fields\r\n",
+                marker, highlight, l.name, l.version, l.total_size, l.field_count
+            )?;
         }
         Ok(())
     }
@@ -210,24 +229,32 @@ impl<'a> Session<'a> {
         let fp = LayoutFingerprint::from_manifest(l);
 
         write!(w, "  \x1b[1m{} v{}\x1b[0m\r\n", l.name, l.version)?;
-        write!(w, "  Disc: {}  Size: {} bytes  Fields: {}\r\n",
-            l.disc, l.total_size, l.field_count)?;
+        write!(
+            w,
+            "  Disc: {}  Size: {} bytes  Fields: {}\r\n",
+            l.disc, l.total_size, l.field_count
+        )?;
         write!(w, "  Wire hash:     {}\r\n", hex_encode(&fp.wire_hash))?;
         write!(w, "  Semantic hash: {}\r\n", hex_encode(&fp.semantic_hash))?;
         write!(w, "\r\n")?;
         write!(w, "  \x1b[1;33mFields:\x1b[0m\r\n")?;
-        write!(w, "  {:<4} {:<20} {:<14} {:<6} {:<6} {}\r\n",
-            "#", "Name", "Type", "Offset", "Size", "Intent")?;
+        write!(
+            w,
+            "  {:<4} {:<20} {:<14} {:<6} {:<6} {}\r\n",
+            "#", "Name", "Type", "Offset", "Size", "Intent"
+        )?;
         write!(w, "  {}\r\n", "─".repeat(70))?;
         for (i, f) in l.fields.iter().enumerate() {
             let intent_label = f.intent.name();
-            write!(w, "  {:<4} {:<20} {:<14} {:<6} {:<6} {}\r\n",
-                i, f.name, f.canonical_type, f.offset, f.size, intent_label)?;
+            write!(
+                w,
+                "  {:<4} {:<20} {:<14} {:<6} {:<6} {}\r\n",
+                i, f.name, f.canonical_type, f.offset, f.size, intent_label
+            )?;
         }
 
         // Segments - check layout_metadata for segment info
-        let seg_meta = self.prog.layout_metadata.iter()
-            .find(|m| m.name == l.name);
+        let seg_meta = self.prog.layout_metadata.iter().find(|m| m.name == l.name);
         if let Some(meta) = seg_meta {
             if !meta.segment_roles.is_empty() {
                 write!(w, "\r\n  \x1b[1;33mSegment Roles:\x1b[0m\r\n")?;
@@ -247,8 +274,16 @@ impl<'a> Session<'a> {
         for (i, ix) in self.prog.instructions.iter().enumerate() {
             let marker = if i == self.cursor { "▸ " } else { "  " };
             let highlight = if i == self.cursor { "\x1b[1;36m" } else { "" };
-            write!(w, "{}{}[{}] {}\x1b[0m, {} args, {} accounts\r\n",
-                marker, highlight, ix.tag, ix.name, ix.args.len(), ix.accounts.len())?;
+            write!(
+                w,
+                "{}{}[{}] {}\x1b[0m, {} args, {} accounts\r\n",
+                marker,
+                highlight,
+                ix.tag,
+                ix.name,
+                ix.args.len(),
+                ix.accounts.len()
+            )?;
         }
         Ok(())
     }
@@ -257,14 +292,21 @@ impl<'a> Session<'a> {
         let ix = &self.prog.instructions[idx];
         write!(w, "  \x1b[1m[{}] {}\x1b[0m\r\n", ix.tag, ix.name)?;
         write!(w, "  Policy:      {}\r\n", ix.policy_pack)?;
-        write!(w, "  Receipt:     {}\r\n", if ix.receipt_expected { "yes" } else { "no" })?;
+        write!(
+            w,
+            "  Receipt:     {}\r\n",
+            if ix.receipt_expected { "yes" } else { "no" }
+        )?;
         write!(w, "\r\n")?;
 
         if !ix.args.is_empty() {
             write!(w, "  \x1b[1;33mArguments:\x1b[0m\r\n")?;
             for arg in ix.args.iter() {
-                write!(w, "    {}: {} ({} bytes)\r\n",
-                    arg.name, arg.canonical_type, arg.size)?;
+                write!(
+                    w,
+                    "    {}: {} ({} bytes)\r\n",
+                    arg.name, arg.canonical_type, arg.size
+                )?;
             }
         }
 
@@ -272,10 +314,17 @@ impl<'a> Session<'a> {
             write!(w, "\r\n  \x1b[1;33mAccounts:\x1b[0m\r\n")?;
             for acc in ix.accounts.iter() {
                 let mut flags = Vec::new();
-                if acc.signer { flags.push("signer"); }
-                if acc.writable { flags.push("writable"); }
-                let flag_str = if flags.is_empty() { String::new() }
-                    else { format!(" [{}]", flags.join(", ")) };
+                if acc.signer {
+                    flags.push("signer");
+                }
+                if acc.writable {
+                    flags.push("writable");
+                }
+                let flag_str = if flags.is_empty() {
+                    String::new()
+                } else {
+                    format!(" [{}]", flags.join(", "))
+                };
                 write!(w, "    {}{}\r\n", acc.name, flag_str)?;
             }
         }
@@ -290,9 +339,15 @@ impl<'a> Session<'a> {
         for (i, pol) in self.prog.policies.iter().enumerate() {
             let marker = if i == self.cursor { "▸ " } else { "  " };
             let highlight = if i == self.cursor { "\x1b[1;36m" } else { "" };
-            write!(w, "{}{}{}\x1b[0m, {} caps, {} reqs\r\n",
-                marker, highlight, pol.name,
-                pol.capabilities.len(), pol.requirements.len())?;
+            write!(
+                w,
+                "{}{}{}\x1b[0m, {} caps, {} reqs\r\n",
+                marker,
+                highlight,
+                pol.name,
+                pol.capabilities.len(),
+                pol.requirements.len()
+            )?;
         }
         Ok(())
     }
@@ -334,8 +389,15 @@ impl<'a> Session<'a> {
         for (i, ev) in self.prog.events.iter().enumerate() {
             let marker = if i == self.cursor { "▸ " } else { "  " };
             let highlight = if i == self.cursor { "\x1b[1;36m" } else { "" };
-            write!(w, "{}{}[{}] {}\x1b[0m, {} fields\r\n",
-                marker, highlight, ev.tag, ev.name, ev.fields.len())?;
+            write!(
+                w,
+                "{}{}[{}] {}\x1b[0m, {} fields\r\n",
+                marker,
+                highlight,
+                ev.tag,
+                ev.name,
+                ev.fields.len()
+            )?;
         }
         Ok(())
     }
@@ -348,8 +410,11 @@ impl<'a> Session<'a> {
         if !ev.fields.is_empty() {
             write!(w, "  \x1b[1;33mFields:\x1b[0m\r\n")?;
             for fd in ev.fields.iter() {
-                write!(w, "    {}: {} ({} bytes)\r\n",
-                    fd.name, fd.canonical_type, fd.size)?;
+                write!(
+                    w,
+                    "    {}: {} ({} bytes)\r\n",
+                    fd.name, fd.canonical_type, fd.size
+                )?;
             }
         }
         Ok(())
@@ -359,7 +424,10 @@ impl<'a> Session<'a> {
         write!(w, "  \x1b[1mDecode Account from Hex\x1b[0m\r\n")?;
         write!(w, "\r\n")?;
         write!(w, "  Paste hex-encoded account data and press Enter.\r\n")?;
-        write!(w, "  (Must be at least 16 bytes for a valid Hopper header)\r\n")?;
+        write!(
+            w,
+            "  (Must be at least 16 bytes for a valid Hopper header)\r\n"
+        )?;
         write!(w, "\r\n")?;
         write!(w, "  > ")?;
         Ok(())
@@ -385,13 +453,28 @@ impl<'a> Session<'a> {
         write!(w, "\r\n")?;
         write!(w, "  \x1b[1;33mViews:\x1b[0m\r\n")?;
         write!(w, "    Summary        Program overview with all stats\r\n")?;
-        write!(w, "    Layouts        Browse all account layouts and fields\r\n")?;
-        write!(w, "    Instructions   Browse instructions, args, accounts\r\n")?;
-        write!(w, "    Policies       Browse policy packs and capabilities\r\n")?;
+        write!(
+            w,
+            "    Layouts        Browse all account layouts and fields\r\n"
+        )?;
+        write!(
+            w,
+            "    Instructions   Browse instructions, args, accounts\r\n"
+        )?;
+        write!(
+            w,
+            "    Policies       Browse policy packs and capabilities\r\n"
+        )?;
         write!(w, "    Events         Browse event schemas\r\n")?;
-        write!(w, "    Decode         Paste hex data to decode an account\r\n")?;
+        write!(
+            w,
+            "    Decode         Paste hex data to decode an account\r\n"
+        )?;
         write!(w, "\r\n")?;
-        write!(w, "  Each layout detail view shows fields, types, offsets,\r\n")?;
+        write!(
+            w,
+            "  Each layout detail view shows fields, types, offsets,\r\n"
+        )?;
         write!(w, "  intents, segments, and fingerprint hashes.\r\n")?;
         Ok(())
     }
@@ -556,8 +639,10 @@ impl<'a> Session<'a> {
         // Try to identify layout
         match self.prog.identify_from_data(&data) {
             Some(layout) => {
-                out.push_str(&format!("\x1b[1;32mIdentified: {} v{}\x1b[0m\n",
-                    layout.name, layout.version));
+                out.push_str(&format!(
+                    "\x1b[1;32mIdentified: {} v{}\x1b[0m\n",
+                    layout.name, layout.version
+                ));
                 out.push_str(&format!("  Expected size: {} bytes\n", layout.total_size));
                 out.push_str(&format!("  Fields:        {}\n", layout.field_count));
                 out.push_str("\n");
@@ -566,19 +651,26 @@ impl<'a> Session<'a> {
                 let (_count, fields) = decode_account_fields::<64>(&data, layout);
                 out.push_str("\x1b[1;33mField Values:\x1b[0m\n");
                 for (i, f) in layout.fields.iter().enumerate() {
-                    let val = fields[i].as_ref()
+                    let val = fields[i]
+                        .as_ref()
                         .map(|fv| hex_encode(fv.raw))
                         .unwrap_or_else(|| "(unavailable)".to_string());
-                    out.push_str(&format!("  {:<20} {} = {}\n",
-                        f.name, f.canonical_type, val));
+                    out.push_str(&format!(
+                        "  {:<20} {} = {}\n",
+                        f.name, f.canonical_type, val
+                    ));
                 }
             }
             None => {
                 out.push_str("\x1b[1;31mNo matching layout found in manifest\x1b[0m\n");
                 out.push_str("\nKnown layouts:\n");
                 for l in self.prog.layouts.iter() {
-                    out.push_str(&format!("  {} v{} (id={})\n",
-                        l.name, l.version, hex_encode(&l.layout_id)));
+                    out.push_str(&format!(
+                        "  {} v{} (id={})\n",
+                        l.name,
+                        l.version,
+                        hex_encode(&l.layout_id)
+                    ));
                 }
             }
         }
@@ -603,7 +695,11 @@ fn hex_short(bytes: &[u8]) -> String {
     if bytes.len() <= 4 {
         hex_encode(bytes)
     } else {
-        format!("{}..{}", hex_encode(&bytes[..2]), hex_encode(&bytes[bytes.len()-2..]))
+        format!(
+            "{}..{}",
+            hex_encode(&bytes[..2]),
+            hex_encode(&bytes[bytes.len() - 2..])
+        )
     }
 }
 

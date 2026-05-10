@@ -74,12 +74,18 @@ impl syn::parse::Parse for Input {
         let module_name: Ident = input.parse()?;
         let _: Token![,] = input.parse()?;
         let manifest_path: LitStr = input.parse()?;
-        Ok(Self { module_name, manifest_path })
+        Ok(Self {
+            module_name,
+            manifest_path,
+        })
     }
 }
 
 pub fn expand(input: TokenStream) -> syn::Result<TokenStream> {
-    let Input { module_name, manifest_path } = parse2(input)?;
+    let Input {
+        module_name,
+        manifest_path,
+    } = parse2(input)?;
 
     // Resolve relative paths against CARGO_MANIFEST_DIR so users can
     // write `declare_program!(amm, "idl/amm.json")` from anywhere.
@@ -87,8 +93,7 @@ pub fn expand(input: TokenStream) -> syn::Result<TokenStream> {
     let resolved = if candidate.is_absolute() {
         candidate
     } else {
-        let root = std::env::var("CARGO_MANIFEST_DIR")
-            .unwrap_or_else(|_| ".".to_string());
+        let root = std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".to_string());
         PathBuf::from(root).join(candidate)
     };
 
@@ -109,8 +114,8 @@ pub fn expand(input: TokenStream) -> syn::Result<TokenStream> {
     };
     let fingerprint_bytes: Vec<u8> = fingerprint.to_vec();
 
-    let manifest_json: serde_json::Value = serde_json::from_slice(&manifest_bytes)
-        .map_err(|e| {
+    let manifest_json: serde_json::Value =
+        serde_json::from_slice(&manifest_bytes).map_err(|e| {
             syn::Error::new_spanned(
                 &manifest_path,
                 format!("declare_program!: invalid JSON: {e}"),
@@ -178,25 +183,24 @@ pub fn expand(input: TokenStream) -> syn::Result<TokenStream> {
     Ok(expanded)
 }
 
-fn build_instruction(
-    ix: &serde_json::Value,
-    manifest_span: &LitStr,
-) -> syn::Result<TokenStream> {
-    let name = ix.get("name").and_then(|v| v.as_str()).ok_or_else(|| {
-        syn::Error::new_spanned(manifest_span, "instruction missing `name`")
-    })?;
+fn build_instruction(ix: &serde_json::Value, manifest_span: &LitStr) -> syn::Result<TokenStream> {
+    let name = ix
+        .get("name")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| syn::Error::new_spanned(manifest_span, "instruction missing `name`"))?;
     let tag = ix.get("tag").and_then(|v| v.as_u64()).ok_or_else(|| {
-        syn::Error::new_spanned(
-            manifest_span,
-            format!("instruction `{name}` missing `tag`"),
-        )
+        syn::Error::new_spanned(manifest_span, format!("instruction `{name}` missing `tag`"))
     })? as u8;
 
     let name_ident = format_ident!("{}", camel_to_snake(name));
     let args_struct_ident = format_ident!("{}Args", name);
     let accounts_struct_ident = format_ident!("{}Accounts", name);
 
-    let args = ix.get("args").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+    let args = ix
+        .get("args")
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default();
     let accounts = ix
         .get("accounts")
         .and_then(|v| v.as_array())
@@ -223,11 +227,15 @@ fn build_instruction(
         let aname = acct
             .get("name")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| {
-                syn::Error::new_spanned(manifest_span, "account missing `name`")
-            })?;
-        let writable = acct.get("writable").and_then(|v| v.as_bool()).unwrap_or(false);
-        let signer = acct.get("signer").and_then(|v| v.as_bool()).unwrap_or(false);
+            .ok_or_else(|| syn::Error::new_spanned(manifest_span, "account missing `name`"))?;
+        let writable = acct
+            .get("writable")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+        let signer = acct
+            .get("signer")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
         let field = format_ident!("{}", aname);
         account_fields.push(quote! { pub #field: [u8; 32], });
         account_metas.push(quote! {

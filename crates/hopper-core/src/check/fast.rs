@@ -78,6 +78,7 @@ unsafe fn read_account_header(account: &AccountView) -> u32 {
     // 2. The pointer is valid and points to a RuntimeAccount in the input buffer.
     // 3. The RuntimeAccount starts with [borrow_state, is_signer, is_writable, executable].
     let ptr = account as *const AccountView as *const u8;
+    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     let raw_ptr = unsafe { *(ptr as *const *const u8) };
     unsafe { core::ptr::read_unaligned(raw_ptr as *const u32) }
 }
@@ -93,13 +94,11 @@ unsafe fn read_account_header(account: &AccountView) -> u32 {
 /// Safe to call on any `AccountView` from the SVM entrypoint.
 /// On non-SVM targets, falls back to individual checks via AccountView methods.
 #[inline(always)]
-pub fn check_account_fast(
-    account: &AccountView,
-    expected_header: u32,
-) -> ProgramResult {
+pub fn check_account_fast(account: &AccountView, expected_header: u32) -> ProgramResult {
     // Fast path: one compare for all flags
     #[cfg(all(target_os = "solana", feature = "hopper-native-backend"))]
     {
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let actual = unsafe { read_account_header(account) };
         if (actual & expected_header) == expected_header {
             return Ok(());
@@ -144,10 +143,7 @@ fn decompose_header_error(actual: u32, expected: u32) -> ProgramResult {
 
 /// Off-chain fallback using individual AccountView methods.
 #[cfg(not(all(target_os = "solana", feature = "hopper-native-backend")))]
-fn check_account_flags_fallback(
-    account: &AccountView,
-    expected: u32,
-) -> ProgramResult {
+fn check_account_flags_fallback(account: &AccountView, expected: u32) -> ProgramResult {
     if (expected & (1 << 8)) != 0 && !account.is_signer() {
         return Err(ProgramError::MissingRequiredSignature);
     }

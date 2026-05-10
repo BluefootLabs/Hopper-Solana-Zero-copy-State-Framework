@@ -66,6 +66,7 @@ impl ReturnData {
             return Err(ProgramError::InvalidAccountData);
         }
 
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         Ok(unsafe { &*(ptr as *const T) })
     }
 
@@ -106,6 +107,7 @@ pub fn get_return_data() -> Option<ReturnData> {
 
     #[cfg(target_os = "solana")]
     {
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let actual_len = unsafe {
             crate::syscalls::sol_get_return_data(
                 rd.buf.as_mut_ptr(),

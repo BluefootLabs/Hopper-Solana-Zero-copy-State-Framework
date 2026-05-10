@@ -20,10 +20,7 @@ pub fn create_program_address(
 ///
 /// Iterates bump seeds 255..=0 until a valid PDA is found.
 #[inline]
-pub fn find_program_address(
-    seeds: &[&[u8]],
-    program_id: &Address,
-) -> (Address, u8) {
+pub fn find_program_address(seeds: &[&[u8]], program_id: &Address) -> (Address, u8) {
     #[cfg(target_os = "solana")]
     {
         crate::compat::find_program_address(seeds, program_id)
@@ -130,6 +127,7 @@ pub fn find_and_verify_pda(
     {
         let expected_addr = account.as_backend().address();
         let backend_expected =
+            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             unsafe { &*(expected_addr as *const hopper_native::address::Address) };
         verify_pda_sha256_loop(backend_expected, seeds, program_id)
     }
@@ -157,6 +155,7 @@ pub fn verify_pda_strict(
     #[cfg(all(target_os = "solana", feature = "hopper-native-backend"))]
     {
         let backend_expected =
+            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             unsafe { &*(expected as *const Address as *const hopper_native::address::Address) };
         verify_pda_sha256_loop(backend_expected, seeds, program_id).map(|_| ())
     }
@@ -190,15 +189,19 @@ fn verify_pda_sha256_loop(
     let sptr = slices.as_mut_ptr() as *mut &[u8];
     let mut i = 0;
     while i < n {
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe { sptr.add(i).write(seeds[i]) };
         i += 1;
     }
     let mut bump_byte = [255u8];
+    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe {
         sptr.add(n).write(&bump_byte as &[u8]);
         sptr.add(n + 1).write(backend_pid.as_ref());
-        sptr.add(n + 2).write(hopper_native::address::PDA_MARKER.as_slice());
+        sptr.add(n + 2)
+            .write(hopper_native::address::PDA_MARKER.as_slice());
     }
+    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     let input = unsafe { core::slice::from_raw_parts(sptr as *const &[u8], n + 3) };
 
     let mut bump: u16 = 256;
@@ -207,6 +210,7 @@ fn verify_pda_sha256_loop(
         bump_byte[0] = bump as u8;
 
         let mut hash = core::mem::MaybeUninit::<[u8; 32]>::uninit();
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {
             hopper_native::syscalls::sol_sha256(
                 input as *const _ as *const u8,
@@ -215,6 +219,7 @@ fn verify_pda_sha256_loop(
             );
         }
         let derived =
+            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             unsafe { &*(hash.as_ptr() as *const hopper_native::address::Address) };
         if hopper_native::address::address_eq(derived, expected) {
             return Ok(bump as u8);

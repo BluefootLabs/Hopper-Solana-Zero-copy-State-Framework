@@ -346,7 +346,7 @@ hopper plan <v1> <v2>          Migration plan with steps
 hopper schema-export           Schema format reference
 ```
 
-`explain` is the killer command. It tells you what an account is, how
+`explain` is the standout command. It tells you what an account is, how
 it is structured, which segments exist, what roles they play, and whether
 the account is migration-ready. Combined with `receipt`, you can trace
 exactly what happened to an account in any transaction.

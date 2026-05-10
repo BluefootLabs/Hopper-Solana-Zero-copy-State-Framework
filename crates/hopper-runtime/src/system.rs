@@ -17,8 +17,7 @@ use crate::ProgramResult;
 
 /// System program address: 11111111111111111111111111111111
 pub const SYSTEM_PROGRAM_ID: Address = Address::new_from_array([
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 ]);
 
 // ── CreateAccount ────────────────────────────────────────────────────
@@ -163,5 +162,5 @@ impl Allocate<'_> {
 
 /// Compatibility re-exports.
 pub mod instructions {
-    pub use super::{CreateAccount, Transfer, Assign, Allocate};
+    pub use super::{Allocate, Assign, CreateAccount, Transfer};
 }

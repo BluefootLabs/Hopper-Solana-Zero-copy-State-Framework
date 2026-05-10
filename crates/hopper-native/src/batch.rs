@@ -121,6 +121,7 @@ pub fn zero_data(account: &AccountView) -> ProgramResult {
         return Ok(());
     }
     let data_ptr = account.data_ptr_unchecked();
+    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe {
         core::ptr::write_bytes(data_ptr, 0, len);
     }

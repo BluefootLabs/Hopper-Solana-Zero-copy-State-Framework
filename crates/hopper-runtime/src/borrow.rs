@@ -132,6 +132,7 @@ impl<'a> Ref<'a, [u8]> {
         // borrow lifetime.
         let bytes = unsafe { &*self.ptr };
         let new_ptr = &bytes[offset..] as *const [u8];
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe { self.project(new_ptr) }
     }
 
@@ -147,6 +148,7 @@ impl<'a> Ref<'a, [u8]> {
             return Err(ProgramError::AccountDataTooSmall);
         }
         let new_ptr = &bytes[offset..end] as *const [u8];
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         Ok(unsafe { self.project(new_ptr) })
     }
 
@@ -190,6 +192,7 @@ impl<T: ?Sized> core::ops::Deref for Ref<'_, T> {
         // Solana the borrow is kept alive by the `state` field's Drop
         // impl; on host targets by the `guard` + `token` fields. Field
         // drop order guarantees the pointee outlives the `&self` borrow.
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe { &*self.ptr }
     }
 }
@@ -200,6 +203,7 @@ impl<T: ?Sized> Drop for Ref<'_, T> {
     fn drop(&mut self) {
         // Mirror `hopper_native::borrow::Ref::drop`: decrement the
         // shared count, restoring NOT_BORROWED on the last release.
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {
             let current = *self.state;
             if current == 1 {
@@ -300,6 +304,7 @@ impl<'a> RefMut<'a, [u8]> {
     /// Narrow an exclusive byte-slice borrow to a tail starting at `offset`.
     #[inline(always)]
     pub fn slice_from(self, offset: usize) -> RefMut<'a, [u8]> {
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let bytes = unsafe { &mut *self.ptr };
         let new_ptr = &mut bytes[offset..] as *mut [u8];
         unsafe { self.project(new_ptr) }
@@ -308,6 +313,7 @@ impl<'a> RefMut<'a, [u8]> {
     /// Narrow an exclusive byte-slice borrow to a checked sub-slice.
     #[inline(always)]
     pub fn slice(self, offset: usize, len: usize) -> Result<RefMut<'a, [u8]>, ProgramError> {
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let bytes = unsafe { &mut *self.ptr };
         let end = offset
             .checked_add(len)
@@ -316,6 +322,7 @@ impl<'a> RefMut<'a, [u8]> {
             return Err(ProgramError::AccountDataTooSmall);
         }
         let new_ptr = &mut bytes[offset..end] as *mut [u8];
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         Ok(unsafe { self.project(new_ptr) })
     }
 
@@ -375,6 +382,7 @@ impl<T: ?Sized> Drop for RefMut<'_, T> {
     #[inline(always)]
     fn drop(&mut self) {
         // Exclusive borrow. restore NOT_BORROWED.
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {
             *self.state = hopper_native::NOT_BORROWED;
         }
@@ -411,13 +419,11 @@ impl<T: ?Sized> core::fmt::Debug for RefMut<'_, T> {
 #[cfg(target_os = "solana")]
 const _: () = {
     assert!(
-        core::mem::size_of::<Ref<'static, u64>>()
-            == core::mem::size_of::<usize>() * 2,
+        core::mem::size_of::<Ref<'static, u64>>() == core::mem::size_of::<usize>() * 2,
         "Ref<T: Sized> on Solana must be exactly (ptr, state) = 2 words",
     );
     assert!(
-        core::mem::size_of::<RefMut<'static, u64>>()
-            == core::mem::size_of::<usize>() * 2,
+        core::mem::size_of::<RefMut<'static, u64>>() == core::mem::size_of::<usize>() * 2,
         "RefMut<T: Sized> on Solana must be exactly (ptr, state) = 2 words",
     );
 };

@@ -78,11 +78,7 @@ impl<const N: usize> ReallocGuard<N> {
     /// Does NOT commit the growth -- call `commit_growth` after the
     /// actual realloc succeeds.
     #[inline]
-    pub fn check_growth(
-        &self,
-        slot: usize,
-        new_size: usize,
-    ) -> Result<(), ProgramError> {
+    pub fn check_growth(&self, slot: usize, new_size: usize) -> Result<(), ProgramError> {
         if slot >= self.count {
             return Err(ProgramError::InvalidArgument);
         }
@@ -95,7 +91,9 @@ impl<const N: usize> ReallocGuard<N> {
         }
 
         let delta = new_size32 - current;
-        let new_consumed = self.consumed.checked_add(delta)
+        let new_consumed = self
+            .consumed
+            .checked_add(delta)
             .ok_or(ProgramError::ArithmeticOverflow)?;
 
         if new_consumed > self.budget {

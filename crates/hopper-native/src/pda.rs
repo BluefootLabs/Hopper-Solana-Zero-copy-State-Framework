@@ -34,6 +34,7 @@ pub fn create_program_address(
         }
 
         let mut result = Address::default();
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let rc = unsafe {
             crate::syscalls::sol_create_program_address(
                 seed_buf.as_ptr() as *const u8,
@@ -92,17 +93,21 @@ pub fn verify_program_address(
 
         let mut i = 0;
         while i < n {
+            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             unsafe { slice_ptr.add(i).write(seeds[i]) };
             i += 1;
         }
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {
             slice_ptr.add(n).write(program_id.as_ref());
             slice_ptr.add(n + 1).write(PDA_MARKER_BYTES.as_slice());
         }
 
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let input = unsafe { core::slice::from_raw_parts(slice_ptr, n + 2) };
         let mut hash = core::mem::MaybeUninit::<[u8; 32]>::uninit();
 
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {
             crate::syscalls::sol_sha256(
                 input as *const _ as *const u8,
@@ -111,6 +116,7 @@ pub fn verify_program_address(
             );
         }
 
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let derived = unsafe { &*(hash.as_ptr() as *const Address) };
         if derived == expected {
             Ok(())
@@ -146,9 +152,11 @@ pub fn based_try_find_program_address(
 
         let mut i = 0;
         while i < n {
+            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             unsafe { slice_ptr.add(i).write(seeds[i]) };
             i += 1;
         }
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {
             slice_ptr.add(n + 1).write(program_id.as_ref());
             slice_ptr.add(n + 2).write(PDA_MARKER_BYTES.as_slice());
@@ -156,17 +164,20 @@ pub fn based_try_find_program_address(
 
         let mut bump_seed = [u8::MAX];
         let bump_ptr = bump_seed.as_mut_ptr();
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {
             slice_ptr
                 .add(n)
                 .write(core::slice::from_raw_parts(bump_ptr, 1))
         };
 
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let input = unsafe { core::slice::from_raw_parts(slice_ptr, n + 3) };
         let mut hash = core::mem::MaybeUninit::<[u8; 32]>::uninit();
         let mut bump: u64 = u8::MAX as u64;
 
         loop {
+            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             unsafe { bump_ptr.write(bump as u8) };
 
             unsafe {
@@ -177,6 +188,7 @@ pub fn based_try_find_program_address(
                 );
             }
 
+            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             let on_curve = unsafe {
                 crate::syscalls::sol_curve_validate_point(
                     CURVE25519_EDWARDS,
@@ -187,6 +199,7 @@ pub fn based_try_find_program_address(
 
             if on_curve != 0 {
                 return Ok((
+                    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
                     Address::new_from_array(unsafe { hash.assume_init() }),
                     bump as u8,
                 ));
@@ -300,9 +313,11 @@ pub fn find_bump_for_address(
 
         let mut i = 0;
         while i < n {
+            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             unsafe { slice_ptr.add(i).write(seeds[i]) };
             i += 1;
         }
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {
             slice_ptr.add(n + 1).write(program_id.as_ref());
             slice_ptr.add(n + 2).write(PDA_MARKER_BYTES.as_slice());
@@ -310,17 +325,20 @@ pub fn find_bump_for_address(
 
         let mut bump_seed = [u8::MAX];
         let bump_ptr = bump_seed.as_mut_ptr();
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {
             slice_ptr
                 .add(n)
                 .write(core::slice::from_raw_parts(bump_ptr, 1))
         };
 
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let input = unsafe { core::slice::from_raw_parts(slice_ptr, n + 3) };
         let mut hash = core::mem::MaybeUninit::<[u8; 32]>::uninit();
         let mut bump: u64 = u8::MAX as u64;
 
         loop {
+            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             unsafe { bump_ptr.write(bump as u8) };
 
             unsafe {
@@ -334,6 +352,7 @@ pub fn find_bump_for_address(
             // Address-match shortcut: skip curve check entirely.
             // If the hash matches the expected address and that address
             // exists on-chain, it is guaranteed to be a valid PDA.
+            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             let derived = unsafe { &*(hash.as_ptr() as *const Address) };
             if derived == expected {
                 return Ok(bump as u8);

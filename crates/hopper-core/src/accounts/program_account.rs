@@ -3,10 +3,10 @@
 //! Used for accounts owned by external programs (e.g. SPL Token accounts,
 //! Mint accounts). Validates owner and provides raw typed overlay access.
 
-use hopper_runtime::{AccountView, Address};
 use hopper_runtime::error::ProgramError;
+use hopper_runtime::{AccountView, Address};
 
-use crate::account::{Pod, FixedLayout, VerifiedAccount};
+use crate::account::{FixedLayout, Pod, VerifiedAccount};
 use crate::check;
 
 /// A generic program-owned account.

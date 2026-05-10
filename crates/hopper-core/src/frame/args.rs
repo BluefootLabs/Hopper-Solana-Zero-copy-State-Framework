@@ -64,7 +64,7 @@ pub trait ValidateArgs {
 
 // -- Extensions to ResolvedFrame for arg-aware validation/execution --
 
-use super::phase::{ResolvedFrame, ValidatedFrame, ExecutionContext};
+use super::phase::{ExecutionContext, ResolvedFrame, ValidatedFrame};
 use hopper_runtime::{Address, ProgramResult};
 
 impl<'a, T> ResolvedFrame<'a, T> {
@@ -97,11 +97,7 @@ impl<'a, T> ValidatedFrame<'a, T> {
     ///
     /// This is the arg-aware counterpart of `execute()`.
     #[inline]
-    pub fn execute_with_args<A, R, F>(
-        mut self,
-        args: &A,
-        f: F,
-    ) -> Result<R, ProgramError>
+    pub fn execute_with_args<A, R, F>(mut self, args: &A, f: F) -> Result<R, ProgramError>
     where
         F: FnOnce(&mut ExecutionContext<'a, '_, T>, &A) -> Result<R, ProgramError>,
     {

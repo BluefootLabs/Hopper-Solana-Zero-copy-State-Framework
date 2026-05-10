@@ -126,10 +126,10 @@ pub use hopper_runtime::utils;
 // Re-export macros at the crate root
 pub use hopper_core::hopper_dispatch;
 pub use hopper_macros::{
-    const_assert_pod, hopper_accounts, hopper_assert_compatible, hopper_assert_fingerprint, hopper_check,
-    hopper_close, hopper_error, hopper_init, hopper_interface, hopper_invariant, hopper_layout,
-    hopper_manifest, hopper_register_discs, hopper_require, hopper_segment, hopper_validate,
-    hopper_verify_pda, hopper_virtual,
+    const_assert_pod, hopper_accounts, hopper_assert_compatible, hopper_assert_fingerprint,
+    hopper_check, hopper_close, hopper_error, hopper_init, hopper_interface, hopper_invariant,
+    hopper_layout, hopper_manifest, hopper_register_discs, hopper_require, hopper_segment,
+    hopper_validate, hopper_verify_pda, hopper_virtual,
 };
 
 // Audit I4: schema-epoch migration chain composition. `#[macro_export]`

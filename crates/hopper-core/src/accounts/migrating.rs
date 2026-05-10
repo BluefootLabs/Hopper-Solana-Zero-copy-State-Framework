@@ -4,10 +4,10 @@
 //! Provides access to the old layout for reading and the new layout for writing
 //! after migration.
 
-use hopper_runtime::{AccountView, Address};
 use hopper_runtime::error::ProgramError;
+use hopper_runtime::{AccountView, Address};
 
-use crate::account::{Pod, FixedLayout, VerifiedAccount, VerifiedAccountMut};
+use crate::account::{FixedLayout, Pod, VerifiedAccount, VerifiedAccountMut};
 use crate::check;
 use crate::check::modifier::HopperLayout;
 use crate::migrate::MigrationKind;
@@ -101,9 +101,7 @@ where
     /// and shares the same base prefix as the old layout.
     #[inline]
     pub fn migration_kind(&self) -> MigrationKind {
-        if To::LEN_WITH_HEADER > From::LEN_WITH_HEADER
-            && To::DISC == From::DISC
-        {
+        if To::LEN_WITH_HEADER > From::LEN_WITH_HEADER && To::DISC == From::DISC {
             MigrationKind::Append
         } else {
             MigrationKind::Full

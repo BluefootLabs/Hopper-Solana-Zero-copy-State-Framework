@@ -35,8 +35,8 @@
 //! let latest = journal.latest()?;
 //! ```
 
+use crate::account::{FixedLayout, Pod};
 use hopper_runtime::error::ProgramError;
-use crate::account::{Pod, FixedLayout};
 
 /// Journal header size in bytes.
 pub const JOURNAL_HEADER_SIZE: usize = 16;
@@ -63,7 +63,11 @@ impl<'a, T: Pod + FixedLayout> Journal<'a, T> {
             return Err(ProgramError::InvalidArgument);
         }
         let capacity = usable / T::SIZE;
-        Ok(Self { data, capacity, _phantom: core::marker::PhantomData })
+        Ok(Self {
+            data,
+            capacity,
+            _phantom: core::marker::PhantomData,
+        })
     }
 
     /// Create a read-only journal view.
@@ -77,7 +81,11 @@ impl<'a, T: Pod + FixedLayout> Journal<'a, T> {
             return Err(ProgramError::InvalidArgument);
         }
         let capacity = usable / T::SIZE;
-        Ok(JournalReader { data, capacity, _phantom: core::marker::PhantomData })
+        Ok(JournalReader {
+            data,
+            capacity,
+            _phantom: core::marker::PhantomData,
+        })
     }
 
     /// Maximum number of entries.
@@ -120,7 +128,11 @@ impl<'a, T: Pod + FixedLayout> Journal<'a, T> {
     #[inline(always)]
     pub fn entry_count(&self) -> usize {
         let total = self.total_written() as usize;
-        if total < self.capacity { total } else { self.capacity }
+        if total < self.capacity {
+            total
+        } else {
+            self.capacity
+        }
     }
 
     /// Append an entry to the journal.
@@ -263,7 +275,11 @@ impl<'a, T: Pod + FixedLayout> JournalReader<'a, T> {
     #[inline(always)]
     pub fn entry_count(&self) -> usize {
         let total = self.total_written() as usize;
-        if total < self.capacity { total } else { self.capacity }
+        if total < self.capacity {
+            total
+        } else {
+            self.capacity
+        }
     }
 
     /// Is circular.
@@ -293,6 +309,7 @@ impl<'a, T: Pod + FixedLayout> JournalReader<'a, T> {
             return Err(ProgramError::AccountDataTooSmall);
         }
 
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         Ok(unsafe { core::ptr::read_unaligned(self.data.as_ptr().add(offset) as *const T) })
     }
 

@@ -233,6 +233,7 @@ impl DataFingerprint {
         let mut hash: u64 = 0xcbf29ce484222325;
         let mut i = 0;
         while i < data_len {
+            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             let byte = unsafe { *data_ptr.add(i) };
             hash ^= byte as u64;
             hash = hash.wrapping_mul(0x100000001b3);

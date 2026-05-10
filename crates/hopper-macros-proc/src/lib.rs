@@ -19,19 +19,19 @@
 
 extern crate proc_macro;
 
-mod crank;
+mod args;
 mod constant;
+mod context;
+mod crank;
 mod declare_program;
+mod dynamic;
+mod error;
+mod event;
 mod init_space;
 mod migrate;
 mod pod;
-mod state;
-mod context;
 mod program;
-mod event;
-mod error;
-mod args;
-mod dynamic;
+mod state;
 
 use proc_macro::TokenStream;
 

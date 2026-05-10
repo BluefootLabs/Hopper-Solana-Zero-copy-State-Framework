@@ -69,7 +69,12 @@ pub fn read_dynamic_u32(data: &[u8], offset: usize) -> Result<(&[u8], usize), Pr
     if offset + 4 > data.len() {
         return Err(ProgramError::AccountDataTooSmall);
     }
-    let len = u32::from_le_bytes([data[offset], data[offset + 1], data[offset + 2], data[offset + 3]]) as usize;
+    let len = u32::from_le_bytes([
+        data[offset],
+        data[offset + 1],
+        data[offset + 2],
+        data[offset + 3],
+    ]) as usize;
     let data_start = offset + 4;
     let data_end = data_start + len;
     if data_end > data.len() {
@@ -185,17 +190,13 @@ impl<'a, const N: usize> DynamicView<'a, N> {
             }
             let len = match prefix_size {
                 1 => data[cursor] as u32,
-                2 => {
-                    u16::from_le_bytes([data[cursor], data[cursor + 1]]) as u32
-                }
-                4 => {
-                    u32::from_le_bytes([
-                        data[cursor],
-                        data[cursor + 1],
-                        data[cursor + 2],
-                        data[cursor + 3],
-                    ])
-                }
+                2 => u16::from_le_bytes([data[cursor], data[cursor + 1]]) as u32,
+                4 => u32::from_le_bytes([
+                    data[cursor],
+                    data[cursor + 1],
+                    data[cursor + 2],
+                    data[cursor + 3],
+                ]),
                 _ => return Err(ProgramError::InvalidInstructionData),
             };
             let data_start = cursor + prefix_size;

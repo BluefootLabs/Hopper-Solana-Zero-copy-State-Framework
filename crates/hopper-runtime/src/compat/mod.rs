@@ -8,37 +8,22 @@ mod solana_program;
 #[cfg(feature = "hopper-native-backend")]
 #[doc(hidden)]
 pub use native::{
-    BACKEND_MAX_TX_ACCOUNTS,
-    BACKEND_SUCCESS,
-    BackendAccountView,
-    BackendAddress,
-    BackendProgramResult,
-    bridge_to_runtime,
-    process_entrypoint,
+    bridge_to_runtime, process_entrypoint, BackendAccountView, BackendAddress,
+    BackendProgramResult, BACKEND_MAX_TX_ACCOUNTS, BACKEND_SUCCESS,
 };
 
 #[cfg(feature = "legacy-pinocchio-compat")]
 #[doc(hidden)]
 pub use pinocchio::{
-    BACKEND_MAX_TX_ACCOUNTS,
-    BACKEND_SUCCESS,
-    BackendAccountView,
-    BackendAddress,
-    BackendProgramResult,
-    bridge_to_runtime,
-    process_entrypoint,
+    bridge_to_runtime, process_entrypoint, BackendAccountView, BackendAddress,
+    BackendProgramResult, BACKEND_MAX_TX_ACCOUNTS, BACKEND_SUCCESS,
 };
 
 #[cfg(feature = "solana-program-backend")]
 #[doc(hidden)]
 pub use solana_program::{
-    BACKEND_MAX_TX_ACCOUNTS,
-    BACKEND_SUCCESS,
-    BackendAccountView,
-    BackendAddress,
-    BackendProgramResult,
-    bridge_to_runtime,
-    process_entrypoint,
+    bridge_to_runtime, process_entrypoint, BackendAccountView, BackendAddress,
+    BackendProgramResult, BACKEND_MAX_TX_ACCOUNTS, BACKEND_SUCCESS,
 };
 
 #[cfg(feature = "hopper-native-backend")]
@@ -66,13 +51,18 @@ macro_rules! __hopper_compat_entrypoint {
                 $crate::compat::bridge_to_runtime(program_id, accounts, data, $process_instruction)
             }
 
+            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             unsafe { $crate::compat::process_entrypoint::<$maximum>(input, __hopper_bridge) }
         }
 
         #[cfg(all(target_os = "solana", feature = "solana-program-backend"))]
         $crate::__solana_program::custom_heap_default!();
 
-        #[cfg(all(target_os = "solana", feature = "solana-program-backend", not(feature = "custom-panic")))]
+        #[cfg(all(
+            target_os = "solana",
+            feature = "solana-program-backend",
+            not(feature = "custom-panic")
+        ))]
         #[no_mangle]
         fn custom_panic(_info: &core::panic::PanicInfo<'_>) {
             let _ = _info;

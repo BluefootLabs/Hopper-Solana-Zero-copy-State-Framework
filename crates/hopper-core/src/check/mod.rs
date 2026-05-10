@@ -18,7 +18,9 @@ pub mod guards;
 pub mod modifier;
 pub mod trust;
 
-use hopper_runtime::{address::address_eq, error::ProgramError, AccountView, Address, ProgramResult};
+use hopper_runtime::{
+    address::address_eq, error::ProgramError, AccountView, Address, ProgramResult,
+};
 
 // --- Tier 1: Account-Local -------------------------------------------
 
@@ -194,10 +196,7 @@ pub fn is_zero_address(addr: &[u8; 32]) -> bool {
 /// `stored` is the 32-byte address stored in account data at a given offset.
 /// This is the Anchor-style `has_one` equivalent.
 #[inline(always)]
-pub fn check_has_one(
-    stored: &[u8; 32],
-    account: &AccountView,
-) -> ProgramResult {
+pub fn check_has_one(stored: &[u8; 32], account: &AccountView) -> ProgramResult {
     // SAFETY: Address is [u8; 32]. Reinterpret as reference.
     let addr: &[u8; 32] = unsafe { &*(account.address() as *const Address as *const [u8; 32]) };
     if !keys_eq_fast(stored, addr) {
@@ -217,11 +216,7 @@ pub fn check_accounts_unique(a: &AccountView, b: &AccountView) -> ProgramResult 
 
 /// Check that three accounts are all unique.
 #[inline(always)]
-pub fn check_accounts_unique_3(
-    a: &AccountView,
-    b: &AccountView,
-    c: &AccountView,
-) -> ProgramResult {
+pub fn check_accounts_unique_3(a: &AccountView, b: &AccountView, c: &AccountView) -> ProgramResult {
     if address_eq(a.address(), b.address())
         || address_eq(a.address(), c.address())
         || address_eq(b.address(), c.address())
@@ -355,10 +350,7 @@ pub fn verify_pda_cached(
         }
         all_seeds[seed_count] = &bump_seed;
 
-        let derived = Address::create_program_address(
-            &all_seeds[..seed_count + 1],
-            program_id,
-        )?;
+        let derived = Address::create_program_address(&all_seeds[..seed_count + 1], program_id)?;
 
         if !address_eq(account.address(), &derived) {
             return Err(ProgramError::InvalidSeeds);
@@ -466,7 +458,10 @@ pub fn current_instruction_index(sysvar_data: &[u8]) -> Result<u16, ProgramError
     if len < 2 {
         return Err(ProgramError::InvalidAccountData);
     }
-    Ok(u16::from_le_bytes([sysvar_data[len - 2], sysvar_data[len - 1]]))
+    Ok(u16::from_le_bytes([
+        sysvar_data[len - 2],
+        sysvar_data[len - 1],
+    ]))
 }
 
 /// Read the program_id of instruction at the given index.
@@ -490,10 +485,7 @@ pub fn current_instruction_index(sysvar_data: &[u8]) -> Result<u16, ProgramError
 /// [u8; data_len] data
 /// ```
 #[inline]
-pub fn read_program_id_at(
-    sysvar_data: &[u8],
-    index: u16,
-) -> Result<[u8; 32], ProgramError> {
+pub fn read_program_id_at(sysvar_data: &[u8], index: u16) -> Result<[u8; 32], ProgramError> {
     let num_ix = instruction_count(sysvar_data)?;
     if index >= num_ix {
         return Err(ProgramError::InvalidArgument);
@@ -503,10 +495,8 @@ pub fn read_program_id_at(
     if offset_entry + 2 > sysvar_data.len() {
         return Err(ProgramError::InvalidAccountData);
     }
-    let ix_offset = u16::from_le_bytes([
-        sysvar_data[offset_entry],
-        sysvar_data[offset_entry + 1],
-    ]) as usize;
+    let ix_offset =
+        u16::from_le_bytes([sysvar_data[offset_entry], sysvar_data[offset_entry + 1]]) as usize;
 
     // At ix_offset: [num_accounts: u16 LE][accounts...]
     // Each account meta is 33 bytes (1 byte flags + 32 byte pubkey).
@@ -514,10 +504,8 @@ pub fn read_program_id_at(
     if ix_offset + 2 > sysvar_data.len() {
         return Err(ProgramError::InvalidAccountData);
     }
-    let num_accounts = u16::from_le_bytes([
-        sysvar_data[ix_offset],
-        sysvar_data[ix_offset + 1],
-    ]) as usize;
+    let num_accounts =
+        u16::from_le_bytes([sysvar_data[ix_offset], sysvar_data[ix_offset + 1]]) as usize;
     // Skip accounts: each is 1 + 32 = 33 bytes
     let program_id_offset = ix_offset + 2 + num_accounts * 33;
     if program_id_offset + 32 > sysvar_data.len() {
@@ -534,10 +522,7 @@ pub fn read_program_id_at(
 /// If called via CPI, the current instruction would have a different
 /// program_id, so this fails.
 #[inline]
-pub fn require_top_level(
-    sysvar_data: &[u8],
-    our_program: &Address,
-) -> ProgramResult {
+pub fn require_top_level(sysvar_data: &[u8], our_program: &Address) -> ProgramResult {
     let current_idx = current_instruction_index(sysvar_data)?;
     let pid = read_program_id_at(sysvar_data, current_idx)?;
     if pid != *our_program.as_array() {
@@ -551,10 +536,7 @@ pub fn require_top_level(
 /// Returns `Err` if the pattern is detected (the program appears both
 /// before and after the current instruction index).
 #[inline]
-pub fn detect_flash_loan_bracket(
-    sysvar_data: &[u8],
-    our_program: &Address,
-) -> ProgramResult {
+pub fn detect_flash_loan_bracket(sysvar_data: &[u8], our_program: &Address) -> ProgramResult {
     let current_idx = current_instruction_index(sysvar_data)?;
     let num_ix = instruction_count(sysvar_data)?;
 
@@ -589,10 +571,7 @@ pub fn detect_flash_loan_bracket(
 ///
 /// Prevents post-execution re-entrancy patterns.
 #[inline]
-pub fn check_no_subsequent_invocation(
-    sysvar_data: &[u8],
-    our_program: &Address,
-) -> ProgramResult {
+pub fn check_no_subsequent_invocation(sysvar_data: &[u8], our_program: &Address) -> ProgramResult {
     let current_idx = current_instruction_index(sysvar_data)?;
     let num_ix = instruction_count(sysvar_data)?;
 

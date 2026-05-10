@@ -29,9 +29,15 @@ impl Template {
     fn label(&self) -> &'static str {
         match self {
             Template::Minimal => "Minimal — single Config layout, one initialize handler",
-            Template::NftMint => "NFT mint — Metaplex CreateMetadataAccountV3 + CreateMasterEditionV3 (1-of-1)",
-            Template::Token2022Vault => "Token-2022 vault — extension-aware mint validation + vault state",
-            Template::DefiVault => "DeFi vault — segment-safe authority + balance pattern with PDA verification",
+            Template::NftMint => {
+                "NFT mint — Metaplex CreateMetadataAccountV3 + CreateMasterEditionV3 (1-of-1)"
+            }
+            Template::Token2022Vault => {
+                "Token-2022 vault — extension-aware mint validation + vault state"
+            }
+            Template::DefiVault => {
+                "DeFi vault — segment-safe authority + balance pattern with PDA verification"
+            }
         }
     }
 
@@ -178,7 +184,12 @@ pub fn cmd_init(args: &[String]) {
     let wizard_mode = interactive_flag || (destination.is_none() && !yes);
 
     let plan = if wizard_mode {
-        match run_init_wizard(destination.clone(), crate_name.clone(), template_flag, no_git) {
+        match run_init_wizard(
+            destination.clone(),
+            crate_name.clone(),
+            template_flag,
+            no_git,
+        ) {
             Ok(plan) => plan,
             Err(err) => {
                 eprintln!("hopper init wizard cancelled: {err}");
@@ -193,7 +204,10 @@ pub fn cmd_init(args: &[String]) {
         let inferred_name = crate_name.unwrap_or_else(|| infer_crate_name(&destination));
         let crate_name = normalize_crate_name(&inferred_name);
         if crate_name.is_empty() {
-            eprintln!("Could not infer a valid Rust crate name from {}", destination.display());
+            eprintln!(
+                "Could not infer a valid Rust crate name from {}",
+                destination.display()
+            );
             process::exit(1);
         }
         let global = GlobalConfig::load();
@@ -249,7 +263,11 @@ pub fn cmd_init(args: &[String]) {
         crate::style::dim(&format!("at {}", plan.destination.display()))
     );
     println!();
-    println!("  {} {}", crate::style::dim("Template:"), plan.template.label());
+    println!(
+        "  {} {}",
+        crate::style::dim("Template:"),
+        plan.template.label()
+    );
     println!("  {} {}", crate::style::dim("Backend: "), plan.backend);
     println!("  {} {}", crate::style::dim("Testing: "), plan.testing);
     println!();
@@ -841,7 +859,10 @@ fn normalize_sbf_build_args(
         manifest_path = Some(project_root.join("Cargo.toml"));
     }
 
-    if !passthrough.iter().any(|arg| arg == "--manifest-path" || arg.starts_with("--manifest-path=")) {
+    if !passthrough
+        .iter()
+        .any(|arg| arg == "--manifest-path" || arg.starts_with("--manifest-path="))
+    {
         command_args.push("--manifest-path".to_string());
         command_args.push(
             manifest_path
@@ -864,8 +885,14 @@ fn resolve_sbf_artifact(
     let crate_name = resolve_package_name(project_root, package_hint)?;
     let artifact_name = crate_name.replace('-', "_") + ".so";
     let candidates = [
-        workspace_root.join("target").join("deploy").join(&artifact_name),
-        project_root.join("target").join("deploy").join(&artifact_name),
+        workspace_root
+            .join("target")
+            .join("deploy")
+            .join(&artifact_name),
+        project_root
+            .join("target")
+            .join("deploy")
+            .join(&artifact_name),
     ];
 
     for candidate in candidates {
@@ -888,7 +915,8 @@ fn resolve_package_name(project_root: &Path, package_hint: Option<&str>) -> Resu
     let cargo_toml_path = project_root.join("Cargo.toml");
     let cargo_toml = fs::read_to_string(&cargo_toml_path)
         .map_err(|err| format!("Failed to read {}: {err}", cargo_toml_path.display()))?;
-    let value: Value = cargo_toml.parse()
+    let value: Value = cargo_toml
+        .parse()
         .map_err(|err| format!("Failed to parse {}: {err}", cargo_toml_path.display()))?;
     value
         .get("package")
@@ -964,8 +992,16 @@ fn scaffold_project(plan: &ScaffoldPlan) -> Result<(), String> {
     let bench_readme = render_bench_readme();
     let gitignore = "/target\n";
 
-    workspace::write_text_file(&plan.destination.join("Cargo.toml"), &cargo_toml, plan.force)?;
-    workspace::write_text_file(&plan.destination.join("src").join("lib.rs"), &source, plan.force)?;
+    workspace::write_text_file(
+        &plan.destination.join("Cargo.toml"),
+        &cargo_toml,
+        plan.force,
+    )?;
+    workspace::write_text_file(
+        &plan.destination.join("src").join("lib.rs"),
+        &source,
+        plan.force,
+    )?;
     workspace::write_text_file(&plan.destination.join("README.md"), &readme, plan.force)?;
     workspace::write_text_file(
         &plan.destination.join("bench").join("README.md"),
@@ -977,8 +1013,7 @@ fn scaffold_project(plan: &ScaffoldPlan) -> Result<(), String> {
     // Hopper.toml — declarative project config the rest of the CLI
     // (build, test, deploy, doctor) reads to know toolchain choice,
     // testing framework, and backend.
-    let project_config =
-        HopperToml::new(plan.crate_name.clone(), plan.template.name().to_string());
+    let project_config = HopperToml::new(plan.crate_name.clone(), plan.template.name().to_string());
     let project_config = HopperToml {
         toolchain: crate::config::ToolchainSection {
             kind: plan.toolchain.clone(),
@@ -1119,7 +1154,7 @@ mod tests {
     }
 }
 "##
-            .to_string()
+    .to_string()
 }
 
 fn render_readme(crate_name: &str, template: Template) -> String {
@@ -1277,7 +1312,7 @@ fn screen_mint(accounts: &[AccountView]) -> ProgramResult {
     Ok(())
 }
 "##
-        .to_string()
+    .to_string()
 }
 
 // ---------------------------------------------------------------------------
@@ -1465,7 +1500,9 @@ fn print_init_usage() {
     eprintln!("  --template, -t <name>     minimal | nft-mint | token-2022-vault | defi-vault");
     eprintln!("  --name <crate-name>       Override the inferred crate name");
     eprintln!("  --local-path <path>       Path-dep on a local Hopper checkout (development)");
-    eprintln!("  --yes, -y                 Skip prompts (use saved defaults from ~/.hopper/wizard.toml)");
+    eprintln!(
+        "  --yes, -y                 Skip prompts (use saved defaults from ~/.hopper/wizard.toml)"
+    );
     eprintln!("  --interactive             Force the wizard even when <path> is supplied");
     eprintln!("  --no-git                  Skip git init / initial commit");
     eprintln!("  --force                   Overwrite existing files at <path>");
@@ -1504,26 +1541,34 @@ fn print_test_usage() {
     eprintln!("Examples:");
     eprintln!("  hopper test                                       # default suite");
     eprintln!("  hopper test --features agave-runtime              # incl. Agave-runtime tests");
-    eprintln!("  hopper test --test agave_spl_token_cpi -- --ignored   # run a gated integration test");
+    eprintln!(
+        "  hopper test --test agave_spl_token_cpi -- --ignored   # run a gated integration test"
+    );
 }
 
 fn print_deploy_usage() {
-    eprintln!("Usage: hopper deploy [--no-build] [-p|--package <crate>] [solana program deploy args]");
+    eprintln!(
+        "Usage: hopper deploy [--no-build] [-p|--package <crate>] [solana program deploy args]"
+    );
     eprintln!();
-    eprintln!("Build the current Hopper SBF program if needed, then run `solana program deploy`." );
+    eprintln!("Build the current Hopper SBF program if needed, then run `solana program deploy`.");
 }
 
 fn print_dump_usage() {
     eprintln!("Usage: hopper dump [--no-build] [-p|--package <crate>] [--tool <objdump>] [--out <path>] [-S|--source]");
     eprintln!();
-    eprintln!("Disassemble the built SBF `.so` using llvm-objdump, solana-llvm-objdump, or rust-objdump.");
+    eprintln!(
+        "Disassemble the built SBF `.so` using llvm-objdump, solana-llvm-objdump, or rust-objdump."
+    );
     eprintln!();
     eprintln!("Options:");
     eprintln!("  --no-build         Skip the rebuild and dump the existing .so.");
     eprintln!("  -p, --package      Workspace member to build/dump (default: current crate).");
     eprintln!("  --tool <name>      Override the objdump executable.");
     eprintln!("  --out <path>       Write the disassembly to a file instead of stdout.");
-    eprintln!("  -S, --source       Interleave source lines from DWARF (passes `-S` to llvm-objdump).");
+    eprintln!(
+        "  -S, --source       Interleave source lines from DWARF (passes `-S` to llvm-objdump)."
+    );
     eprintln!("                     Requires the .so to retain debug info.");
 }
 
@@ -1533,7 +1578,10 @@ mod tests {
 
     #[test]
     fn crate_name_normalization_is_stable() {
-        assert_eq!(normalize_crate_name("My Hopper Program"), "my_hopper_program");
+        assert_eq!(
+            normalize_crate_name("My Hopper Program"),
+            "my_hopper_program"
+        );
         assert_eq!(normalize_crate_name("hopper-vault"), "hopper_vault");
     }
 
@@ -1560,7 +1608,8 @@ mod tests {
             "hopper-vault".to_string(),
             "--url".to_string(),
             "http://localhost:8899".to_string(),
-        ]).unwrap();
+        ])
+        .unwrap();
         assert!(parsed.0.no_build);
         assert_eq!(parsed.0.package.as_deref(), Some("hopper-vault"));
         assert_eq!(parsed.1, vec!["--url", "http://localhost:8899"]);

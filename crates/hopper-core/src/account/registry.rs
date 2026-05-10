@@ -61,10 +61,10 @@
 //! let core = TreasuryCore::overlay(core_data)?;
 //! ```
 
-use hopper_runtime::error::ProgramError;
 use super::segment_role::SegmentRole;
 #[cfg(feature = "collections")]
 use crate::collections::{FixedVec, Journal, RingBuffer, Slab, SlotMap, SortedVec};
+use hopper_runtime::error::ProgramError;
 
 // -- Segment ID --
 
@@ -91,9 +91,9 @@ pub const fn segment_id(name: &str) -> SegmentId {
 pub const SEGMENT_ENTRY_SIZE: usize = 16;
 
 /// Flags for segment entries.
-pub const SEG_FLAG_LOCKED: u16 = 1 << 0;   // Cannot be modified
-pub const SEG_FLAG_FROZEN: u16 = 1 << 1;   // Temporarily frozen
-pub const SEG_FLAG_DYNAMIC: u16 = 1 << 2;  // Supports realloc
+pub const SEG_FLAG_LOCKED: u16 = 1 << 0; // Cannot be modified
+pub const SEG_FLAG_FROZEN: u16 = 1 << 1; // Temporarily frozen
+pub const SEG_FLAG_DYNAMIC: u16 = 1 << 2; // Supports realloc
 
 /// A segment entry in the registry.
 #[derive(Clone, Copy)]
@@ -212,10 +212,7 @@ impl<'a> SegmentRegistry<'a> {
             return Err(ProgramError::AccountDataTooSmall);
         }
 
-        let count = u16::from_le_bytes([
-            account_data[start],
-            account_data[start + 1],
-        ]) as usize;
+        let count = u16::from_le_bytes([account_data[start], account_data[start + 1]]) as usize;
 
         if count > MAX_REGISTRY_SEGMENTS {
             return Err(ProgramError::InvalidAccountData);
@@ -372,10 +369,7 @@ impl<'a> SegmentRegistryMut<'a> {
             return Err(ProgramError::AccountDataTooSmall);
         }
 
-        let count = u16::from_le_bytes([
-            account_data[start],
-            account_data[start + 1],
-        ]) as usize;
+        let count = u16::from_le_bytes([account_data[start], account_data[start + 1]]) as usize;
 
         if count > MAX_REGISTRY_SEGMENTS {
             return Err(ProgramError::InvalidAccountData);
@@ -405,10 +399,7 @@ impl<'a> SegmentRegistryMut<'a> {
     /// `specs` is `(segment_id, data_size, version)` per segment.
     /// Must be called on a freshly zeroed account.
     #[inline]
-    pub fn init(
-        data: &mut [u8],
-        specs: &[(SegmentId, u32, u8)],
-    ) -> Result<(), ProgramError> {
+    pub fn init(data: &mut [u8], specs: &[(SegmentId, u32, u8)]) -> Result<(), ProgramError> {
         let start = REGISTRY_OFFSET;
         if specs.len() > MAX_REGISTRY_SEGMENTS {
             return Err(ProgramError::InvalidArgument);
@@ -515,7 +506,10 @@ impl<'a> SegmentRegistryMut<'a> {
     /// Use during account initialization when writing to Audit segments
     /// before they become immutable. Still checks locked/frozen flags.
     #[inline]
-    pub fn segment_data_mut_unchecked(&mut self, id: &SegmentId) -> Result<&mut [u8], ProgramError> {
+    pub fn segment_data_mut_unchecked(
+        &mut self,
+        id: &SegmentId,
+    ) -> Result<&mut [u8], ProgramError> {
         let (_, entry) = self.find_mut(id)?;
         if entry.is_locked() || entry.is_frozen() {
             return Err(ProgramError::InvalidAccountData);

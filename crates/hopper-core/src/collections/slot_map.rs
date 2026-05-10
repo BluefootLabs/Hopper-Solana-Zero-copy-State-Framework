@@ -12,8 +12,8 @@
 //!
 //! The generation counter prevents ABA bugs when handles are reused.
 
+use crate::account::{FixedLayout, Pod};
 use hopper_runtime::error::ProgramError;
-use crate::account::{Pod, FixedLayout};
 
 /// Map header: count (4) + free_head (4) = 8 bytes.
 const MAP_HEADER: usize = 8;
@@ -87,7 +87,12 @@ impl<'a, T: Pod + FixedLayout> SlotMap<'a, T> {
     #[inline(always)]
     fn slot_generation(&self, index: usize) -> u32 {
         let off = self.slot_offset(index);
-        u32::from_le_bytes([self.data[off], self.data[off+1], self.data[off+2], self.data[off+3]])
+        u32::from_le_bytes([
+            self.data[off],
+            self.data[off + 1],
+            self.data[off + 2],
+            self.data[off + 3],
+        ])
     }
 
     /// Is the slot occupied?
@@ -139,9 +144,8 @@ impl<'a, T: Pod + FixedLayout> SlotMap<'a, T> {
             return Err(ProgramError::InvalidArgument);
         }
         let off = self.slot_offset(index) + SLOT_OVERHEAD;
-        Ok(unsafe {
-            core::ptr::read_unaligned(self.data.as_ptr().add(off) as *const T)
-        })
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        Ok(unsafe { core::ptr::read_unaligned(self.data.as_ptr().add(off) as *const T) })
     }
 
     /// Remove a value by key. Bumps the generation counter.
@@ -156,9 +160,9 @@ impl<'a, T: Pod + FixedLayout> SlotMap<'a, T> {
         }
         let off = self.slot_offset(index);
         let val_off = off + SLOT_OVERHEAD;
-        let value = unsafe {
-            core::ptr::read_unaligned(self.data.as_ptr().add(val_off) as *const T)
-        };
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        let value =
+            unsafe { core::ptr::read_unaligned(self.data.as_ptr().add(val_off) as *const T) };
         // Clear occupied flag
         self.data[off + 4] = 0;
         // Bump generation

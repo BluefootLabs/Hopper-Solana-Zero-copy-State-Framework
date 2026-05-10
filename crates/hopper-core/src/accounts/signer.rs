@@ -4,11 +4,11 @@
 //! any layout or owner validation -- just the signer flag. Used for
 //! authority/payer accounts in instruction contexts.
 
-use hopper_runtime::{AccountView, Address};
 use hopper_runtime::error::ProgramError;
+use hopper_runtime::{AccountView, Address};
 
-use crate::check;
 use super::traits::ValidateAccount;
+use crate::check;
 
 /// A verified signer account.
 ///

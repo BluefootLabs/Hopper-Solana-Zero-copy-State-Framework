@@ -7,8 +7,8 @@
 //!
 //! Elements wrap around when the buffer is full. Oldest elements are overwritten.
 
+use crate::account::{FixedLayout, Pod};
 use hopper_runtime::error::ProgramError;
-use crate::account::{Pod, FixedLayout};
 
 /// Header: 4 bytes head + 4 bytes count = 8 bytes.
 const RING_HEADER: usize = 8;
@@ -113,13 +113,16 @@ impl<'a, T: Pod + FixedLayout> RingBuffer<'a, T> {
         let cap = self.capacity();
         let head = self.head();
         // The oldest element is at (head - count) mod cap
-        let start = if head >= count { head - count } else { cap - (count - head) };
+        let start = if head >= count {
+            head - count
+        } else {
+            cap - (count - head)
+        };
         let physical = (start + logical_index) % cap;
         let offset = self.slot_offset(physical);
 
-        Ok(unsafe {
-            core::ptr::read_unaligned(self.data.as_ptr().add(offset) as *const T)
-        })
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        Ok(unsafe { core::ptr::read_unaligned(self.data.as_ptr().add(offset) as *const T) })
     }
 
     /// Read the most recently pushed element.

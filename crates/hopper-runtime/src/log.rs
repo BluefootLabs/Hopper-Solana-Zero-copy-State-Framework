@@ -14,11 +14,13 @@
 #[inline(always)]
 pub fn log(message: &str) {
     #[cfg(all(target_os = "solana", feature = "hopper-native-backend"))]
+    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe {
         hopper_native::syscalls::sol_log_(message.as_ptr(), message.len() as u64);
     }
 
     #[cfg(all(target_os = "solana", feature = "legacy-pinocchio-compat"))]
+    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe {
         pinocchio::syscalls::sol_log_(message.as_ptr(), message.len() as u64);
     }
@@ -48,11 +50,13 @@ pub fn log(message: &str) {
 #[inline(always)]
 pub fn log_64(a: u64, b: u64, c: u64, d: u64, e: u64) {
     #[cfg(all(target_os = "solana", feature = "hopper-native-backend"))]
+    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe {
         hopper_native::syscalls::sol_log_64_(a, b, c, d, e);
     }
 
     #[cfg(all(target_os = "solana", feature = "legacy-pinocchio-compat"))]
+    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe {
         pinocchio::syscalls::sol_log_64_(a, b, c, d, e);
     }

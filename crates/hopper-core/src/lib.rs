@@ -139,8 +139,14 @@ pub const fn __fnv_expand_const(data: &[u8]) -> [u8; 32] {
         }
         let le = h.to_le_bytes();
         let base = (block as usize) * 8;
-        out[base] = le[0]; out[base+1] = le[1]; out[base+2] = le[2]; out[base+3] = le[3];
-        out[base+4] = le[4]; out[base+5] = le[5]; out[base+6] = le[6]; out[base+7] = le[7];
+        out[base] = le[0];
+        out[base + 1] = le[1];
+        out[base + 2] = le[2];
+        out[base + 3] = le[3];
+        out[base + 4] = le[4];
+        out[base + 5] = le[5];
+        out[base + 6] = le[6];
+        out[base + 7] = le[7];
         block += 1;
     }
     out
@@ -191,8 +197,7 @@ pub const fn anchor_discriminator(instruction_name: &str) -> [u8; 8] {
         .update(instruction_name.as_bytes())
         .finalize();
     [
-        hash[0], hash[1], hash[2], hash[3],
-        hash[4], hash[5], hash[6], hash[7],
+        hash[0], hash[1], hash[2], hash[3], hash[4], hash[5], hash[6], hash[7],
     ]
 }
 
@@ -207,8 +212,7 @@ pub const fn anchor_account_discriminator(type_name: &str) -> [u8; 8] {
         .update(type_name.as_bytes())
         .finalize();
     [
-        hash[0], hash[1], hash[2], hash[3],
-        hash[4], hash[5], hash[6], hash[7],
+        hash[0], hash[1], hash[2], hash[3], hash[4], hash[5], hash[6], hash[7],
     ]
 }
 
@@ -227,8 +231,8 @@ pub const fn anchor_account_discriminator(type_name: &str) -> [u8; 8] {
 pub mod prelude_core {
     // ── ABI primitives: typed addresses, role tags ──────────────────
     pub use crate::abi::{
-        Authority, LayoutFingerprint, Mint, Program, Token, TokenAccount,
-        TypedAddress, UntypedAddress,
+        Authority, LayoutFingerprint, Mint, Program, Token, TokenAccount, TypedAddress,
+        UntypedAddress,
     };
 
     // ── Account memory: headers, overlays, pod casts ────────────────
@@ -241,18 +245,12 @@ pub mod prelude_core {
 
     // ── Account wrappers: typed instruction parameters ──────────────
     pub use crate::accounts::{
-        hopper_entry, HopperAccount, HopperAccounts, HopperCtx, HopperIx, ProgramAccount,
-        ProgramRef, SegmentedAccount, SignerAccount, UncheckedAccount, ValidateAccount,
-        AccountMetaProvider,
+        hopper_entry, AccountMetaProvider, HopperAccount, HopperAccounts, HopperCtx, HopperIx,
+        ProgramAccount, ProgramRef, SegmentedAccount, SignerAccount, UncheckedAccount,
+        ValidateAccount,
     };
 
     // ── Checks: signer, owner, PDA, discriminator ───────────────────
-    pub use crate::check::{
-        check_account, check_discriminator, check_executable, check_has_one, check_keys_eq,
-        check_owner, check_owner_multi, check_program, check_rent_exempt, check_signer,
-        check_size, check_writable, find_and_verify_pda, is_zero_address, keys_eq_fast,
-        rent_exempt_min, verify_pda, verify_pda_cached,
-    };
     pub use crate::check::fast::{
         check_account_fast, check_authority_fast, check_executable_fast, check_signer_fast,
         check_writable_fast, HEADER_EXECUTABLE, HEADER_SIGNER, HEADER_SIGNER_WRITABLE,
@@ -261,45 +259,48 @@ pub mod prelude_core {
     pub use crate::check::modifier::{
         Account, AccountMut, FromAccount, HasView, HopperLayout, Mut, Signer,
     };
+    pub use crate::check::{
+        check_account, check_discriminator, check_executable, check_has_one, check_keys_eq,
+        check_owner, check_owner_multi, check_program, check_rent_exempt, check_signer, check_size,
+        check_writable, find_and_verify_pda, is_zero_address, keys_eq_fast, rent_exempt_min,
+        verify_pda, verify_pda_cached,
+    };
 
     // ── Dispatch and events: program plumbing ───────────────────────
     pub use crate::dispatch::{
-        dispatch_instruction, dispatch_instruction_8, dispatch_instruction_u16,
-        EVENT_CPI_PREFIX,
+        dispatch_instruction, dispatch_instruction_8, dispatch_instruction_u16, EVENT_CPI_PREFIX,
     };
-    pub use crate::event::{emit_event, emit_event_tagged, emit_slices};
     #[cfg(feature = "cpi")]
     pub use crate::event::emit_event_cpi;
+    pub use crate::event::{emit_event, emit_event_tagged, emit_slices};
 
     // ── Field + segment metadata (compile-time layout truth) ────────
     pub use crate::field_map::{FieldInfo, FieldMap};
     pub use crate::segment_map::{assert_segment_field_alignment, SegmentMap, StaticSegment};
+    pub use hopper_runtime::segment_borrow::{AccessKind, SegmentBorrow, SegmentBorrowRegistry};
     pub use hopper_runtime::Segment;
-    pub use hopper_runtime::segment_borrow::{
-        AccessKind, SegmentBorrow, SegmentBorrowRegistry,
-    };
 
     // ── CPI plumbing ────────────────────────────────────────────────
     pub use crate::cpi::{HopperCpi, HopperCpiBuf};
 
     // ── Math + time + sysvar: everyday program helpers ──────────────
+    pub use crate::invariant::{check_invariant, check_invariant_fn, InvariantSet};
     pub use crate::math::{
         bps_of, bps_of_ceil, checked_add, checked_div, checked_div_ceil, checked_mul,
-        checked_mul_div, checked_mul_div_ceil, checked_pow, checked_sub, div_ceil,
-        scale_amount, scale_amount_ceil, scale_bps, scale_fraction, to_u64,
+        checked_mul_div, checked_mul_div_ceil, checked_pow, checked_sub, div_ceil, scale_amount,
+        scale_amount_ceil, scale_bps, scale_fraction, to_u64,
     };
+    pub use crate::state::check_state_transition;
     pub use crate::sysvar::{CachedClock, CachedRent, SysvarContext};
     pub use crate::time::{check_cooldown_elapsed, check_deadline_not_passed, check_staleness};
-    pub use crate::state::check_state_transition;
-    pub use crate::invariant::{check_invariant, check_invariant_fn, InvariantSet};
 
     // ── On-chain segment metadata (for segmented accounts) ──────────
-    pub use crate::account::{
-        segment_id, SegmentEntry, SegmentId, SegmentRegistry, SegmentRegistryMut,
-    };
     pub use crate::account::segment_role::{
         SegmentRole, SEG_ROLE_AUDIT, SEG_ROLE_CACHE, SEG_ROLE_CORE, SEG_ROLE_EXTENSION,
         SEG_ROLE_INDEX, SEG_ROLE_JOURNAL, SEG_ROLE_SHARD,
+    };
+    pub use crate::account::{
+        segment_id, SegmentEntry, SegmentId, SegmentRegistry, SegmentRegistryMut,
     };
 
     // ── Anchor-compatible discriminators ────────────────────────────
@@ -308,11 +309,11 @@ pub mod prelude_core {
 
     // ── Collections: zero-copy containers (default-on feature) ──────
     #[cfg(feature = "collections")]
-    pub use crate::collections::{BitSet, FixedVec, PackedMap, RingBuffer, SlotMap, SortedVec};
-    #[cfg(feature = "collections")]
     pub use crate::collections::journal::{Journal, JournalReader};
     #[cfg(feature = "collections")]
     pub use crate::collections::slab::Slab;
+    #[cfg(feature = "collections")]
+    pub use crate::collections::{BitSet, FixedVec, PackedMap, RingBuffer, SlotMap, SortedVec};
 }
 
 /// Advanced subsystem prelude: everything outside the core identity.
@@ -347,13 +348,11 @@ pub mod prelude_advanced {
     pub use crate::accounts::MigratingAccount;
 
     #[cfg(feature = "frame")]
-    pub use crate::frame::{Frame, FrameAccount, FrameAccountMut};
-    #[cfg(feature = "frame")]
     pub use crate::frame::args::{InstructionArgs, ValidateArgs};
     #[cfg(feature = "frame")]
-    pub use crate::frame::phase::{
-        ExecutionContext, PhasedFrame, ResolvedFrame, ValidatedFrame,
-    };
+    pub use crate::frame::phase::{ExecutionContext, PhasedFrame, ResolvedFrame, ValidatedFrame};
+    #[cfg(feature = "frame")]
+    pub use crate::frame::{Frame, FrameAccount, FrameAccountMut};
 
     #[cfg(feature = "graph")]
     pub use crate::check::graph::{
@@ -369,19 +368,19 @@ pub mod prelude_advanced {
 
     #[cfg(feature = "policy")]
     pub use crate::policy::{
-        ACCOUNT_CLOSE_CAPS, ACCOUNT_CLOSE_POLICY, ACCOUNT_INIT_CAPS, ACCOUNT_INIT_POLICY,
-        AUTHORITY_CHANGE_CAPS, AUTHORITY_CHANGE_POLICY, Capability, CapabilitySet,
-        EXTERNAL_CALL_CAPS, EXTERNAL_CALL_POLICY, InstructionPolicy, JOURNAL_TOUCH_CAPS,
-        JOURNAL_TOUCH_POLICY, MIGRATION_SENSITIVE_CAPS, MIGRATION_SENSITIVE_POLICY,
-        NAMED_POLICY_PACKS, PolicyPackDescriptor, PolicyRequirement, READ_ONLY_AUDIT_CAPS,
-        READ_ONLY_AUDIT_POLICY, RequirementSet, SHARD_MUTATION_CAPS, SHARD_MUTATION_POLICY,
-        TREASURY_WRITE_CAPS, TREASURY_WRITE_POLICY,
+        Capability, CapabilitySet, InstructionPolicy, PolicyPackDescriptor, PolicyRequirement,
+        RequirementSet, ACCOUNT_CLOSE_CAPS, ACCOUNT_CLOSE_POLICY, ACCOUNT_INIT_CAPS,
+        ACCOUNT_INIT_POLICY, AUTHORITY_CHANGE_CAPS, AUTHORITY_CHANGE_POLICY, EXTERNAL_CALL_CAPS,
+        EXTERNAL_CALL_POLICY, JOURNAL_TOUCH_CAPS, JOURNAL_TOUCH_POLICY, MIGRATION_SENSITIVE_CAPS,
+        MIGRATION_SENSITIVE_POLICY, NAMED_POLICY_PACKS, READ_ONLY_AUDIT_CAPS,
+        READ_ONLY_AUDIT_POLICY, SHARD_MUTATION_CAPS, SHARD_MUTATION_POLICY, TREASURY_WRITE_CAPS,
+        TREASURY_WRITE_POLICY,
     };
 
     #[cfg(feature = "receipt")]
     pub use crate::receipt::{
-        CompatImpact, DecodedReceipt, FailureStage, Phase, ReceiptExplain,
-        StateReceipt, FAILED_INVARIANT_NONE, RECEIPT_SIZE, RECEIPT_SIZE_LEGACY,
+        CompatImpact, DecodedReceipt, FailureStage, Phase, ReceiptExplain, StateReceipt,
+        FAILED_INVARIANT_NONE, RECEIPT_SIZE, RECEIPT_SIZE_LEGACY,
     };
 
     #[cfg(feature = "virtual-state")]
@@ -397,139 +396,136 @@ pub mod prelude_advanced {
 /// alone once the advanced subsystems are turned off.
 pub mod prelude {
     pub use crate::abi::*;
-    pub use crate::abi::{LayoutFingerprint, FingerprintTransition};
     pub use crate::abi::{
-        TypedAddress, UntypedAddress,
-        Authority, Mint, TokenAccount, Token, Program,
+        Authority, Mint, Program, Token, TokenAccount, TypedAddress, UntypedAddress,
+    };
+    pub use crate::abi::{FingerprintTransition, LayoutFingerprint};
+    pub use crate::account::segment_role::{
+        SegmentRole, SEG_ROLE_AUDIT, SEG_ROLE_CACHE, SEG_ROLE_CORE, SEG_ROLE_EXTENSION,
+        SEG_ROLE_INDEX, SEG_ROLE_JOURNAL, SEG_ROLE_SHARD,
     };
     pub use crate::account::{
-        AccountHeader, AccountReader, FixedLayout, Pod, VerifiedAccount, VerifiedAccountMut,
-        ReallocGuard, CLOSE_SENTINEL, HEADER_LEN,
-        zero_init, write_header, read_layout_id,
-        pod_from_bytes, pod_from_bytes_mut, pod_read, pod_write,
-        cast_unchecked, cast_unchecked_mut,
+        cast_unchecked, cast_unchecked_mut, pod_from_bytes, pod_from_bytes_mut, pod_read,
+        pod_write, read_layout_id, write_header, zero_init, AccountHeader, AccountReader,
+        FixedLayout, Pod, ReallocGuard, VerifiedAccount, VerifiedAccountMut, CLOSE_SENTINEL,
+        HEADER_LEN,
     };
-    pub use crate::accounts::{
-        HopperCtx, HopperAccounts, HopperAccount,
-        ProgramAccount, SignerAccount, UncheckedAccount,
-        SegmentedAccount, ProgramRef,
-        HopperIx, hopper_entry,
-        ValidateAccount,
-        AccountMetaProvider,
+    pub use crate::account::{
+        segment_id, SegmentEntry, SegmentId, SegmentRegistry, SegmentRegistryMut,
     };
     #[cfg(feature = "migrate")]
     pub use crate::accounts::MigratingAccount;
+    pub use crate::accounts::{
+        hopper_entry, AccountMetaProvider, HopperAccount, HopperAccounts, HopperCtx, HopperIx,
+        ProgramAccount, ProgramRef, SegmentedAccount, SignerAccount, UncheckedAccount,
+        ValidateAccount,
+    };
     #[cfg(feature = "explain")]
-    pub use crate::accounts::{ExplainAccount, ContextExplain, AccountExplain};
+    pub use crate::accounts::{AccountExplain, ContextExplain, ExplainAccount};
+    #[cfg(feature = "anchor-compat")]
+    pub use crate::anchor_account_discriminator;
+    #[cfg(feature = "anchor-compat")]
+    pub use crate::anchor_discriminator;
+    pub use crate::check::fast::{
+        check_account_fast, check_authority_fast, check_executable_fast, check_signer_fast,
+        check_writable_fast, HEADER_EXECUTABLE, HEADER_SIGNER, HEADER_SIGNER_WRITABLE,
+        HEADER_WRITABLE,
+    };
+    #[cfg(feature = "graph")]
+    pub use crate::check::graph::{
+        require_all_unique_accounts, require_data_min, require_keys_equal, require_lamports_gte,
+        require_owned_at, require_signer_at, require_unique, require_unique_signer_accounts,
+        require_unique_writable_accounts, require_writable_at, AccountConstraint,
+        PostMutationValidator, TransactionConstraint, TransitionRulePack, Validatable,
+        ValidationBundle, ValidationContext, ValidationGraph, ValidationGroup,
+    };
+    pub use crate::check::guards::{
+        check_lamport_conservation, check_writable_coherence, require_all_unique,
+        require_authority, require_owned_writable, require_payer, require_unique_signers,
+        require_unique_writable, snapshot_lamports,
+    };
+    pub use crate::check::modifier::{
+        Account, AccountMut, FromAccount, HasView, HopperLayout, Mut, Signer,
+    };
+    pub use crate::check::trust::{
+        load_foreign_with_profile, TrustFlags, TrustLevel, TrustProfile,
+    };
     pub use crate::check::{
         check_account, check_discriminator, check_has_one, check_keys_eq,
-        check_owner, check_owner_multi,
-        check_rent_exempt, check_signer, check_size, check_writable, rent_exempt_min,
-        verify_pda, verify_pda_cached, find_and_verify_pda,
-        require_top_level, detect_flash_loan_bracket, check_no_subsequent_invocation,
-        keys_eq_fast, is_zero_address,
+        check_no_subsequent_invocation, check_owner, check_owner_multi, check_rent_exempt,
+        check_signer, check_size, check_writable, detect_flash_loan_bracket, find_and_verify_pda,
+        is_zero_address, keys_eq_fast, rent_exempt_min, require_top_level, verify_pda,
+        verify_pda_cached,
     };
-    pub use crate::check::fast::{
-        check_account_fast, check_signer_fast, check_writable_fast,
-        check_authority_fast, check_executable_fast,
-        HEADER_SIGNER, HEADER_WRITABLE, HEADER_SIGNER_WRITABLE, HEADER_EXECUTABLE,
-    };
-    #[cfg(feature = "collections")]
-    pub use crate::collections::{BitSet, FixedVec, PackedMap, RingBuffer, SlotMap, SortedVec};
     #[cfg(feature = "collections")]
     pub use crate::collections::journal::{Journal, JournalReader};
     #[cfg(feature = "collections")]
     pub use crate::collections::slab::Slab;
+    #[cfg(feature = "collections")]
+    pub use crate::collections::{BitSet, FixedVec, PackedMap, RingBuffer, SlotMap, SortedVec};
     pub use crate::cpi::{HopperCpi, HopperCpiBuf};
     #[cfg(feature = "diff")]
-    pub use crate::diff::{StateSnapshot, StateDiff};
-    pub use crate::dispatch::{dispatch_instruction, dispatch_instruction_u16, dispatch_instruction_8, EVENT_CPI_PREFIX};
-    pub use crate::event::{emit_event, emit_event_tagged, emit_slices};
+    pub use crate::diff::{StateDiff, StateSnapshot};
+    pub use crate::dispatch::{
+        dispatch_instruction, dispatch_instruction_8, dispatch_instruction_u16, EVENT_CPI_PREFIX,
+    };
     #[cfg(feature = "cpi")]
     pub use crate::event::emit_event_cpi;
+    pub use crate::event::{emit_event, emit_event_tagged, emit_slices};
     pub use crate::field_map::{FieldInfo, FieldMap};
-    #[cfg(feature = "anchor-compat")]
-    pub use crate::anchor_discriminator;
-    #[cfg(feature = "anchor-compat")]
-    pub use crate::anchor_account_discriminator;
-    #[cfg(feature = "frame")]
-    pub use crate::frame::{Frame, FrameAccount, FrameAccountMut};
-    pub use crate::segment_map::{SegmentMap, StaticSegment, assert_segment_field_alignment};
-    pub use hopper_runtime::segment_borrow::{
-        AccessKind, SegmentBorrow, SegmentBorrowRegistry,
-    };
-    #[cfg(feature = "frame")]
-    pub use crate::frame::phase::{
-        PhasedFrame, ResolvedFrame, ValidatedFrame, ExecutionContext,
-    };
     #[cfg(feature = "frame")]
     pub use crate::frame::args::{InstructionArgs, ValidateArgs};
+    #[cfg(feature = "frame")]
+    pub use crate::frame::phase::{ExecutionContext, PhasedFrame, ResolvedFrame, ValidatedFrame};
+    #[cfg(feature = "frame")]
+    pub use crate::frame::{Frame, FrameAccount, FrameAccountMut};
     pub use crate::invariant::{check_invariant, check_invariant_fn, InvariantSet};
     pub use crate::math::{
-        checked_add, checked_div, checked_mul, checked_sub,
-        checked_mul_div, checked_mul_div_ceil, checked_div_ceil,
-        bps_of, bps_of_ceil, scale_bps, scale_fraction,
-        scale_amount, scale_amount_ceil,
-        checked_pow, to_u64, div_ceil,
+        bps_of, bps_of_ceil, checked_add, checked_div, checked_div_ceil, checked_mul,
+        checked_mul_div, checked_mul_div_ceil, checked_pow, checked_sub, div_ceil, scale_amount,
+        scale_amount_ceil, scale_bps, scale_fraction, to_u64,
     };
     #[cfg(feature = "migrate")]
     pub use crate::migrate::{migrate_append, MigrationKind};
-    pub use crate::state::check_state_transition;
-    pub use crate::time::{check_cooldown_elapsed, check_deadline_not_passed, check_staleness};
-    pub use crate::sysvar::{CachedClock, CachedRent, SysvarContext};
-    #[cfg(feature = "virtual-state")]
-    pub use crate::virtual_state::{VirtualState, VirtualSlot, ShardedAccess};
-    pub use crate::check::modifier::{
-        Account, AccountMut, Signer, Mut,
-        FromAccount, HasView, HopperLayout,
-    };
-    #[cfg(feature = "graph")]
-    pub use crate::check::graph::{
-        ValidationGraph, ValidationContext, AccountConstraint, TransactionConstraint,
-        ValidationGroup, ValidationBundle, Validatable,
-        PostMutationValidator, TransitionRulePack,
-        require_signer_at, require_writable_at, require_owned_at, require_data_min,
-        require_keys_equal, require_unique, require_all_unique_accounts,
-        require_unique_writable_accounts, require_unique_signer_accounts,
-        require_lamports_gte,
-    };
-    pub use crate::check::guards::{
-        require_payer, require_authority, require_owned_writable,
-        require_all_unique, require_unique_writable, require_unique_signers,
-        check_lamport_conservation, snapshot_lamports,
-        check_writable_coherence,
-    };
-    pub use crate::check::trust::{
-        TrustProfile, TrustLevel, TrustFlags, load_foreign_with_profile,
-    };
-    pub use crate::account::{
-        SegmentRegistry, SegmentRegistryMut, SegmentEntry, SegmentId, segment_id,
-    };
-    pub use crate::account::segment_role::{
-        SegmentRole,
-        SEG_ROLE_CORE, SEG_ROLE_EXTENSION, SEG_ROLE_JOURNAL,
-        SEG_ROLE_INDEX, SEG_ROLE_CACHE, SEG_ROLE_AUDIT, SEG_ROLE_SHARD,
+    #[cfg(feature = "policy")]
+    pub use crate::policy::{
+        Capability,
+        CapabilitySet,
+        InstructionPolicy,
+        PolicyPackDescriptor,
+        PolicyRequirement,
+        RequirementSet,
+        ACCOUNT_CLOSE_CAPS,
+        ACCOUNT_CLOSE_POLICY,
+        ACCOUNT_INIT_CAPS,
+        ACCOUNT_INIT_POLICY,
+        AUTHORITY_CHANGE_CAPS,
+        AUTHORITY_CHANGE_POLICY,
+        EXTERNAL_CALL_CAPS,
+        EXTERNAL_CALL_POLICY,
+        JOURNAL_TOUCH_CAPS,
+        JOURNAL_TOUCH_POLICY,
+        MIGRATION_SENSITIVE_CAPS,
+        MIGRATION_SENSITIVE_POLICY,
+        NAMED_POLICY_PACKS,
+        READ_ONLY_AUDIT_CAPS,
+        READ_ONLY_AUDIT_POLICY,
+        SHARD_MUTATION_CAPS,
+        SHARD_MUTATION_POLICY,
+        TREASURY_WRITE_CAPS,
+        // Named policy packs
+        TREASURY_WRITE_POLICY,
     };
     #[cfg(feature = "receipt")]
     pub use crate::receipt::{
-        StateReceipt, DecodedReceipt, ReceiptExplain, RECEIPT_SIZE,
-        RECEIPT_SIZE_LEGACY, FAILED_INVARIANT_NONE, FailureStage,
-        Phase, CompatImpact,
+        CompatImpact, DecodedReceipt, FailureStage, Phase, ReceiptExplain, StateReceipt,
+        FAILED_INVARIANT_NONE, RECEIPT_SIZE, RECEIPT_SIZE_LEGACY,
     };
-    #[cfg(feature = "policy")]
-    pub use crate::policy::{
-        Capability, CapabilitySet, PolicyRequirement, RequirementSet,
-        InstructionPolicy,
-        // Named policy packs
-        TREASURY_WRITE_POLICY, TREASURY_WRITE_CAPS,
-        JOURNAL_TOUCH_POLICY, JOURNAL_TOUCH_CAPS,
-        EXTERNAL_CALL_POLICY, EXTERNAL_CALL_CAPS,
-        SHARD_MUTATION_POLICY, SHARD_MUTATION_CAPS,
-        MIGRATION_SENSITIVE_POLICY, MIGRATION_SENSITIVE_CAPS,
-        AUTHORITY_CHANGE_POLICY, AUTHORITY_CHANGE_CAPS,
-        READ_ONLY_AUDIT_POLICY, READ_ONLY_AUDIT_CAPS,
-        ACCOUNT_INIT_POLICY, ACCOUNT_INIT_CAPS,
-        ACCOUNT_CLOSE_POLICY, ACCOUNT_CLOSE_CAPS,
-        NAMED_POLICY_PACKS, PolicyPackDescriptor,
-    };
+    pub use crate::segment_map::{assert_segment_field_alignment, SegmentMap, StaticSegment};
+    pub use crate::state::check_state_transition;
+    pub use crate::sysvar::{CachedClock, CachedRent, SysvarContext};
+    pub use crate::time::{check_cooldown_elapsed, check_deadline_not_passed, check_staleness};
+    #[cfg(feature = "virtual-state")]
+    pub use crate::virtual_state::{ShardedAccess, VirtualSlot, VirtualState};
+    pub use hopper_runtime::segment_borrow::{AccessKind, SegmentBorrow, SegmentBorrowRegistry};
 }

@@ -102,8 +102,12 @@ fn print_profile_usage() {
     eprintln!("  -w, --watch                   Re-run on source change (Ctrl-C to exit)");
     eprintln!();
     eprintln!("`profile bench` options:");
-    eprintln!("  --rpc <url>                   RPC endpoint (default: SOLANA_RPC_URL or localhost)");
-    eprintln!("  --keypair <path>             Fee payer keypair (default: ~/.config/solana/id.json)");
+    eprintln!(
+        "  --rpc <url>                   RPC endpoint (default: SOLANA_RPC_URL or localhost)"
+    );
+    eprintln!(
+        "  --keypair <path>             Fee payer keypair (default: ~/.config/solana/id.json)"
+    );
     eprintln!("  --out-dir <dir>              Output directory for JSON/CSV artifacts");
     eprintln!("  --program-id <pubkey>        Reuse an existing deployed hopper-bench program");
     eprintln!("  --no-build                   Reuse the current hopper-bench .so");
@@ -112,10 +116,16 @@ fn print_profile_usage() {
     eprintln!();
     eprintln!("`profile elf` options:");
     eprintln!("  --top <N>                    Print the top N symbols by size (default 20)");
-    eprintln!("  --folded <out.txt>           Write Brendan-Gregg folded-stack output for flamegraph");
+    eprintln!(
+        "  --folded <out.txt>           Write Brendan-Gregg folded-stack output for flamegraph"
+    );
     eprintln!("  --html <out.html>            Write self-contained interactive HTML flamegraph");
-    eprintln!("                               (hover for tooltips, click to highlight, search box)");
-    eprintln!("  --baseline <folded.txt>      Compare symbol sizes against a saved baseline folded file");
+    eprintln!(
+        "                               (hover for tooltips, click to highlight, search box)"
+    );
+    eprintln!(
+        "  --baseline <folded.txt>      Compare symbol sizes against a saved baseline folded file"
+    );
     eprintln!("  --open                       Open the HTML flamegraph in the default browser");
     eprintln!("  --no-demangle                Leave mangled symbol names intact");
 }
@@ -148,7 +158,8 @@ fn parse_elf_args<'a>(args: &'a [String]) -> Result<ElfArgs<'a>, String> {
         match args[i].as_str() {
             "--top" => {
                 i += 1;
-                out.top = args.get(i)
+                out.top = args
+                    .get(i)
                     .ok_or("`--top` requires a value")?
                     .parse()
                     .map_err(|e| format!("`--top` must be a usize: {e}"))?;
@@ -179,8 +190,7 @@ fn parse_elf_args<'a>(args: &'a [String]) -> Result<ElfArgs<'a>, String> {
 
 fn cmd_profile_elf(args: &[String]) -> Result<(), String> {
     let opts = parse_elf_args(args)?;
-    let bytes = fs::read(opts.path)
-        .map_err(|e| format!("could not read `{}`: {e}", opts.path))?;
+    let bytes = fs::read(opts.path).map_err(|e| format!("could not read `{}`: {e}", opts.path))?;
 
     let (symbols, byte_total) = parse_symbols(&bytes, opts.demangle)?;
 
@@ -244,8 +254,7 @@ fn cmd_profile_elf(args: &[String]) -> Result<(), String> {
 
     if let Some(out_path) = opts.folded_out {
         let folded = render_folded(&ranked);
-        fs::write(out_path, folded)
-            .map_err(|e| format!("could not write `{}`: {e}", out_path))?;
+        fs::write(out_path, folded).map_err(|e| format!("could not write `{}`: {e}", out_path))?;
         println!();
         println!("wrote folded-stack flamegraph input to {}", out_path);
         println!("pipe it to a flamegraph renderer:");
@@ -254,8 +263,7 @@ fn cmd_profile_elf(args: &[String]) -> Result<(), String> {
 
     if let Some(out_path) = opts.html_out {
         let html = render_html_flamegraph(opts.path, &ranked, byte_total, baseline_map.as_ref());
-        fs::write(out_path, html)
-            .map_err(|e| format!("could not write `{}`: {e}", out_path))?;
+        fs::write(out_path, html).map_err(|e| format!("could not write `{}`: {e}", out_path))?;
         println!();
         println!("wrote interactive HTML flamegraph to {}", out_path);
         if opts.open_html {
@@ -277,10 +285,7 @@ fn cmd_profile_elf(args: &[String]) -> Result<(), String> {
 /// table alone gives a useful first-order map of code footprint,
 /// which is the metric the `quasar profile` output leads with. Names
 /// are demangled via `rustc-demangle` when the flag is set.
-fn parse_symbols(
-    bytes: &[u8],
-    demangle: bool,
-) -> Result<(BTreeMap<String, u64>, u64), String> {
+fn parse_symbols(bytes: &[u8], demangle: bool) -> Result<(BTreeMap<String, u64>, u64), String> {
     use object::{Object, ObjectSymbol};
 
     let file = object::File::parse(bytes).map_err(|e| format!("not a valid ELF: {e}"))?;
@@ -344,8 +349,8 @@ fn render_folded(ranked: &[(&str, u64)]) -> String {
 /// can fix the input rather than getting silent zeros for every
 /// symbol.
 fn load_baseline_folded(path: &str) -> Result<BTreeMap<String, u64>, String> {
-    let raw = fs::read_to_string(path)
-        .map_err(|e| format!("could not read baseline `{path}`: {e}"))?;
+    let raw =
+        fs::read_to_string(path).map_err(|e| format!("could not read baseline `{path}`: {e}"))?;
     let mut map: BTreeMap<String, u64> = BTreeMap::new();
     for (lineno, line) in raw.lines().enumerate() {
         let line = line.trim();
@@ -710,10 +715,7 @@ mod tests {
     #[test]
     fn baseline_folded_parses_names_with_spaces() {
         // Sandbox-friendly: write to a temp path and parse back.
-        let tmp = std::env::temp_dir().join(format!(
-            "hopper-baseline-{}.txt",
-            std::process::id(),
-        ));
+        let tmp = std::env::temp_dir().join(format!("hopper-baseline-{}.txt", std::process::id(),));
         std::fs::write(&tmp, "<T as Trait>::method 1024\nplain 256\n").unwrap();
         let map = load_baseline_folded(tmp.to_str().unwrap()).expect("parse");
         assert_eq!(map.get("<T as Trait>::method"), Some(&1024));

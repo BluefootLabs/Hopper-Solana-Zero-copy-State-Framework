@@ -22,9 +22,7 @@
 //! - `CreateMasterEditionV3`   = 17
 //! - `UpdateMetadataAccountV2` = 15
 
-use crate::constants::{
-    MAX_NAME_LEN, MAX_SYMBOL_LEN, MAX_URI_LEN, MPL_TOKEN_METADATA_PROGRAM_ID,
-};
+use crate::constants::{MAX_NAME_LEN, MAX_SYMBOL_LEN, MAX_URI_LEN, MPL_TOKEN_METADATA_PROGRAM_ID};
 use crate::encoding::BorshTape;
 use hopper_runtime::account::AccountView;
 use hopper_runtime::address::Address;

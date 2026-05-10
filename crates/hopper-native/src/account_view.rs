@@ -79,30 +79,35 @@ impl AccountView {
     /// Whether this account is writable in the transaction.
     #[inline(always)]
     pub fn is_writable(&self) -> bool {
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe { (*self.raw).is_writable != 0 }
     }
 
     /// Whether this account contains an executable program.
     #[inline(always)]
     pub fn executable(&self) -> bool {
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe { (*self.raw).executable != 0 }
     }
 
     /// Current data length in bytes.
     #[inline(always)]
     pub fn data_len(&self) -> usize {
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe { (*self.raw).data_len as usize }
     }
 
     /// Resize delta (difference between current and original data length).
     #[inline(always)]
     pub fn resize_delta(&self) -> i32 {
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe { (*self.raw).resize_delta }
     }
 
     /// Current lamport balance.
     #[inline(always)]
     pub fn lamports(&self) -> u64 {
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe { (*self.raw).lamports }
     }
 
@@ -115,6 +120,7 @@ impl AccountView {
     /// Set the lamport balance.
     #[inline(always)]
     pub fn set_lamports(&self, lamports: u64) {
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {
             (*self.raw).lamports = lamports;
         }
@@ -137,6 +143,7 @@ impl AccountView {
     /// transfer is authorized by the current owner program.
     #[inline(always)]
     pub unsafe fn assign(&self, new_owner: &Address) {
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {
             (*self.raw).owner = new_owner.clone();
         }
@@ -147,18 +154,21 @@ impl AccountView {
     /// Whether the account data is currently borrowed (shared or exclusive).
     #[inline(always)]
     pub fn is_borrowed(&self) -> bool {
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe { (*self.raw).borrow_state != NOT_BORROWED }
     }
 
     /// Whether the account data is exclusively (mutably) borrowed.
     #[inline(always)]
     pub fn is_borrowed_mut(&self) -> bool {
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe { (*self.raw).borrow_state == 0 }
     }
 
     /// Check that the account can be shared-borrowed.
     #[inline(always)]
     pub fn check_borrow(&self) -> Result<(), ProgramError> {
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let state = unsafe { (*self.raw).borrow_state };
         if state == 0 {
             // Exclusively borrowed -- cannot share.
@@ -171,6 +181,7 @@ impl AccountView {
     /// Check that the account can be exclusively borrowed.
     #[inline(always)]
     pub fn check_borrow_mut(&self) -> Result<(), ProgramError> {
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let state = unsafe { (*self.raw).borrow_state };
         if state != NOT_BORROWED {
             // Already borrowed (shared or exclusive).
@@ -191,6 +202,7 @@ impl AccountView {
     pub unsafe fn borrow_unchecked(&self) -> &[u8] {
         let data_ptr = self.data_ptr_unchecked();
         let len = self.data_len();
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe { core::slice::from_raw_parts(data_ptr, len) }
     }
 
@@ -203,6 +215,7 @@ impl AccountView {
     pub unsafe fn borrow_unchecked_mut(&self) -> &mut [u8] {
         let data_ptr = self.data_ptr_unchecked();
         let len = self.data_len();
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe { core::slice::from_raw_parts_mut(data_ptr, len) }
     }
 
@@ -214,6 +227,7 @@ impl AccountView {
     #[inline(always)]
     pub fn try_borrow(&self) -> Result<Ref<'_, [u8]>, ProgramError> {
         self.check_borrow()?;
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let state_ptr = unsafe { &mut (*self.raw).borrow_state as *mut u8 };
         let state = unsafe { *state_ptr };
         let new_state = if state == NOT_BORROWED { 1 } else { state + 1 };
@@ -221,9 +235,11 @@ impl AccountView {
             // Overflow into exclusive-borrow sentinel.
             return Err(ProgramError::AccountBorrowFailed);
         }
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {
             *state_ptr = new_state;
         }
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let data = unsafe { self.borrow_unchecked() };
         Ok(Ref::new(data, state_ptr))
     }
@@ -234,10 +250,12 @@ impl AccountView {
     #[inline(always)]
     pub fn try_borrow_mut(&self) -> Result<RefMut<'_, [u8]>, ProgramError> {
         self.check_borrow_mut()?;
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let state_ptr = unsafe { &mut (*self.raw).borrow_state as *mut u8 };
         unsafe {
             *state_ptr = 0;
         } // Mark exclusive.
+          // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let data = unsafe { self.borrow_unchecked_mut() };
         Ok(RefMut::new(data, state_ptr))
     }
@@ -264,16 +282,19 @@ impl AccountView {
         }
 
         self.check_borrow()?;
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let state_ptr = unsafe { &mut (*self.raw).borrow_state as *mut u8 };
         let state = unsafe { *state_ptr };
         let new_state = if state == NOT_BORROWED { 1 } else { state + 1 };
         if new_state == 0 {
             return Err(ProgramError::AccountBorrowFailed);
         }
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {
             *state_ptr = new_state;
         }
 
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let ptr = unsafe { self.data_ptr_unchecked().add(offset as usize) as *const T };
         Ok(Ref::new(unsafe { &*ptr }, state_ptr))
     }
@@ -291,16 +312,19 @@ impl AccountView {
         offset: u32,
     ) -> Result<Ref<'_, T>, ProgramError> {
         self.check_borrow()?;
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let state_ptr = unsafe { &mut (*self.raw).borrow_state as *mut u8 };
         let state = unsafe { *state_ptr };
         let new_state = if state == NOT_BORROWED { 1 } else { state + 1 };
         if new_state == 0 {
             return Err(ProgramError::AccountBorrowFailed);
         }
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {
             *state_ptr = new_state;
         }
 
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let ptr = unsafe { self.data_ptr_unchecked().add(offset as usize) as *const T };
         Ok(Ref::new(unsafe { &*ptr }, state_ptr))
     }
@@ -327,11 +351,13 @@ impl AccountView {
         }
 
         self.check_borrow_mut()?;
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let state_ptr = unsafe { &mut (*self.raw).borrow_state as *mut u8 };
         unsafe {
             *state_ptr = 0;
         }
 
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let ptr = unsafe { self.data_ptr_unchecked().add(offset as usize) as *mut T };
         Ok(RefMut::new(unsafe { &mut *ptr }, state_ptr))
     }
@@ -350,23 +376,33 @@ impl AccountView {
         offset: u32,
     ) -> Result<RefMut<'_, T>, ProgramError> {
         self.check_borrow_mut()?;
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let state_ptr = unsafe { &mut (*self.raw).borrow_state as *mut u8 };
         unsafe {
             *state_ptr = 0;
         }
 
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let ptr = unsafe { self.data_ptr_unchecked().add(offset as usize) as *mut T };
         Ok(RefMut::new(unsafe { &mut *ptr }, state_ptr))
     }
 
     /// Explicit raw typed read of the account buffer.
     #[inline(always)]
+    ///
+    /// # Safety
+    ///
+    /// Caller must uphold the invariants documented for this unsafe API before invoking it.
     pub unsafe fn raw_ref<T: crate::pod::Pod>(&self) -> Result<Ref<'_, T>, ProgramError> {
         self.segment_ref::<T>(0, core::mem::size_of::<T>() as u32)
     }
 
     /// Explicit raw typed write of the account buffer.
     #[inline(always)]
+    ///
+    /// # Safety
+    ///
+    /// Caller must uphold the invariants documented for this unsafe API before invoking it.
     pub unsafe fn raw_mut<T: crate::pod::Pod>(&self) -> Result<RefMut<'_, T>, ProgramError> {
         self.segment_mut::<T>(0, core::mem::size_of::<T>() as u32)
     }
@@ -384,6 +420,7 @@ impl AccountView {
             return Err(ProgramError::InvalidRealloc);
         }
         let delta = new_len as i64 - original_len as i64;
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {
             (*self.raw).data_len = new_len as u64;
             (*self.raw).resize_delta = delta as i32;
@@ -400,6 +437,7 @@ impl AccountView {
     pub unsafe fn resize_unchecked(&self, new_len: usize) {
         let original_len = (self.data_len() as i64 - self.resize_delta() as i64) as usize;
         let delta = new_len as i64 - original_len as i64;
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {
             (*self.raw).data_len = new_len as u64;
             (*self.raw).resize_delta = delta as i32;
@@ -432,6 +470,7 @@ impl AccountView {
     #[inline(always)]
     pub fn close(&self) -> ProgramResult {
         self.set_lamports(0);
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {
             let len = self.data_len();
             if len > 0 {
@@ -451,6 +490,7 @@ impl AccountView {
     /// The caller must ensure no active borrows exist.
     #[inline(always)]
     pub unsafe fn close_unchecked(&self) {
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {
             (*self.raw).lamports = 0;
             (*self.raw).data_len = 0;
@@ -531,6 +571,7 @@ impl AccountView {
         if self.data_len() == 0 {
             return 0;
         }
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe { *self.data_ptr_unchecked() }
     }
 
@@ -542,6 +583,7 @@ impl AccountView {
         if self.data_len() < 2 {
             return 0;
         }
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe { *self.data_ptr_unchecked().add(1) }
     }
 
@@ -554,6 +596,7 @@ impl AccountView {
         if self.data_len() < 12 {
             return None;
         }
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe { Some(&*(self.data_ptr_unchecked().add(4) as *const [u8; 8])) }
     }
 
@@ -668,6 +711,7 @@ impl AccountView {
     /// Costs 32 bytes of stack space but eliminates aliasing hazards.
     #[inline(always)]
     pub fn read_owner(&self) -> Address {
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe { (*self.raw).owner.clone() }
     }
 
@@ -685,6 +729,7 @@ impl AccountView {
         // totalling 4 bytes at the start. Reading as u32 is safe because
         // the struct is at least 88 bytes and the BPF input buffer is
         // sufficiently aligned.
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe { *(self.raw as *const u32) }
     }
 

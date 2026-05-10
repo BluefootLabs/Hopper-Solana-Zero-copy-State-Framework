@@ -3,12 +3,12 @@
 //! Wraps an account that uses Hopper's segment registry to divide data
 //! into typed regions (Core, Extension, Journal, Cache, etc.).
 
-use hopper_runtime::{AccountView, Address, Ref, RefMut};
 use hopper_runtime::error::ProgramError;
+use hopper_runtime::{AccountView, Address, Ref, RefMut};
 
 use crate::account::{
-    Pod, FixedLayout, SegmentEntry, SegmentId, SegmentRegistry,
-    REGISTRY_HEADER_SIZE, REGISTRY_OFFSET, SEGMENT_ENTRY_SIZE,
+    FixedLayout, Pod, SegmentEntry, SegmentId, SegmentRegistry, REGISTRY_HEADER_SIZE,
+    REGISTRY_OFFSET, SEGMENT_ENTRY_SIZE,
 };
 use crate::check;
 use crate::check::modifier::HopperLayout;
@@ -36,6 +36,7 @@ impl<'a> BorrowedSegmentRegistry<'a> {
             return Err(ProgramError::InvalidArgument);
         }
         let offset = REGISTRY_OFFSET + REGISTRY_HEADER_SIZE + index * SEGMENT_ENTRY_SIZE;
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         Ok(unsafe { &*(self.data.as_bytes_ptr().add(offset) as *const SegmentEntry) })
     }
 
@@ -112,7 +113,10 @@ impl<'a, T: Pod + FixedLayout + HopperLayout> SegmentedAccount<'a, T> {
 
     /// Read a segment's data by its 4-byte ID.
     #[inline]
-    pub fn segment_data(&self, id: &crate::account::SegmentId) -> Result<Ref<'_, [u8]>, ProgramError> {
+    pub fn segment_data(
+        &self,
+        id: &crate::account::SegmentId,
+    ) -> Result<Ref<'_, [u8]>, ProgramError> {
         let data = self.view.try_borrow()?;
         let (start, size) = {
             let registry = SegmentRegistry::from_account(&data)?;

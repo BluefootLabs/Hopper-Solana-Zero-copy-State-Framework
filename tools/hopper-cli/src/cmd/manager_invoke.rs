@@ -147,9 +147,7 @@ fn parse_invoke_args(argv: &[String]) -> Result<InvokeOpts, String> {
         i += 1;
     }
     if positional.len() < 2 {
-        return Err(
-            "expected `<program-id> <instruction-name>` positional arguments".into()
-        );
+        return Err("expected `<program-id> <instruction-name>` positional arguments".into());
     }
     opts.program_id = positional.remove(0);
     opts.instruction = positional.remove(0);
@@ -247,8 +245,8 @@ fn run_invoke(opts: &InvokeOpts) -> Result<(), String> {
         .ok_or_else(|| {
             "no --signer supplied and no default keypair at ~/.config/solana/id.json".to_string()
         })?;
-    let payer =
-        read_keypair_file(&signer_path).map_err(|e| format!("read signer {}: {e}", signer_path.display()))?;
+    let payer = read_keypair_file(&signer_path)
+        .map_err(|e| format!("read signer {}: {e}", signer_path.display()))?;
 
     // Build the transaction. Priority fee goes in as a ComputeBudget
     // prefix instruction when requested.
@@ -262,8 +260,7 @@ fn run_invoke(opts: &InvokeOpts) -> Result<(), String> {
     let recent = rpc
         .get_latest_blockhash()
         .map_err(|e| format!("get_latest_blockhash: {e}"))?;
-    let mut tx =
-        Transaction::new_with_payer(&instructions, Some(&payer.pubkey()));
+    let mut tx = Transaction::new_with_payer(&instructions, Some(&payer.pubkey()));
     tx.sign(&[&payer], recent);
 
     if opts.dry_run {
@@ -341,7 +338,10 @@ pub fn lookup_instruction_by_tag(manifest_json: &str, tag: u8) -> Option<String>
             })
             .unwrap_or_default();
         let policy = ix.get("policy_pack").and_then(|v| v.as_str()).unwrap_or("");
-        let rcpt = ix.get("receipt_expected").and_then(|v| v.as_bool()).unwrap_or(false);
+        let rcpt = ix
+            .get("receipt_expected")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
         return Some(format!(
             "{} (tag {}) args=[{}] policy={} receipt={}",
             name,
@@ -358,11 +358,9 @@ pub fn lookup_instruction_by_tag(manifest_json: &str, tag: u8) -> Option<String>
 /// JSON payload. Same path as `hopper manager fetch`.
 fn fetch_on_chain_manifest(rpc_url: &str, program_id: &str) -> Result<String, String> {
     let program_bytes = crate::rpc::decode_pubkey(program_id)?;
-    let (manifest_pda, _bump) = crate::rpc::find_program_address(
-        &[hopper_schema::MANIFEST_SEED],
-        &program_bytes,
-    )
-    .ok_or("could not derive manifest PDA")?;
+    let (manifest_pda, _bump) =
+        crate::rpc::find_program_address(&[hopper_schema::MANIFEST_SEED], &program_bytes)
+            .ok_or("could not derive manifest PDA")?;
     let manifest_pubkey = crate::rpc::encode_pubkey(&manifest_pda);
     let info = crate::rpc::get_account_info(rpc_url, &manifest_pubkey)
         .map_err(|e| format!("get_account_info: {e}"))?
@@ -380,8 +378,13 @@ fn fetch_on_chain_manifest(rpc_url: &str, program_id: &str) -> Result<String, St
 /// `solana config get` behaviour so users who already set up their
 /// environment do not need to pass `--signer`.
 fn default_signer_path() -> Option<PathBuf> {
-    let home = std::env::var("HOME").ok().or_else(|| std::env::var("USERPROFILE").ok())?;
-    let path = PathBuf::from(home).join(".config").join("solana").join("id.json");
+    let home = std::env::var("HOME")
+        .ok()
+        .or_else(|| std::env::var("USERPROFILE").ok())?;
+    let path = PathBuf::from(home)
+        .join(".config")
+        .join("solana")
+        .join("id.json");
     if path.exists() {
         Some(path)
     } else {
@@ -461,10 +464,7 @@ fn policy_precheck(
     for req in &requirements {
         match req.as_str() {
             "WritableAuthority" => {
-                let has_writable_authority = ix
-                    .accounts
-                    .iter()
-                    .any(|a| a.signer && a.writable);
+                let has_writable_authority = ix.accounts.iter().any(|a| a.signer && a.writable);
                 if !has_writable_authority {
                     return Err(format!(
                         "policy precheck: policy `{}` requires a writable+signer authority; none declared in the instruction's accounts",
@@ -541,7 +541,10 @@ fn cmd_crank_list(args: &[String]) {
     }
     println!("cranks for this program:");
     for c in &cranks {
-        println!("  - {:<28} tag={:<3}  policy={}  receipt={}", c.name, c.tag, c.policy_pack, c.receipt_expected);
+        println!(
+            "  - {:<28} tag={:<3}  policy={}  receipt={}",
+            c.name, c.tag, c.policy_pack, c.receipt_expected
+        );
     }
 }
 
@@ -573,13 +576,10 @@ fn cmd_crank_run(args: &[String]) {
             }
             "--interval" => {
                 i += 1;
-                let s: u64 = args
-                    .get(i)
-                    .and_then(|v| v.parse().ok())
-                    .unwrap_or_else(|| {
-                        eprintln!("`--interval` requires a u64 seconds value");
-                        process::exit(1);
-                    });
+                let s: u64 = args.get(i).and_then(|v| v.parse().ok()).unwrap_or_else(|| {
+                    eprintln!("`--interval` requires a u64 seconds value");
+                    process::exit(1);
+                });
                 interval = Duration::from_secs(s);
             }
             "--once" => once = true,
@@ -624,7 +624,9 @@ fn cmd_crank_run(args: &[String]) {
             process::exit(1);
         }),
         (None, None) => {
-            eprintln!("Usage: hopper manager crank run [<manifest.json> | --program-id <id>] [options]");
+            eprintln!(
+                "Usage: hopper manager crank run [<manifest.json> | --program-id <id>] [options]"
+            );
             process::exit(1);
         }
     };
@@ -652,7 +654,14 @@ fn cmd_crank_run(args: &[String]) {
     println!("-- hopper manager crank run --");
     println!("rpc        : {rpc_url}");
     println!("interval   : {}s", interval.as_secs());
-    println!("cranks     : {}", targets.iter().map(|c| c.name.as_str()).collect::<Vec<_>>().join(", "));
+    println!(
+        "cranks     : {}",
+        targets
+            .iter()
+            .map(|c| c.name.as_str())
+            .collect::<Vec<_>>()
+            .join(", ")
+    );
     println!("max failures per crank: {max_failures}");
     println!("dry-run    : {dry_run}");
     println!();
@@ -745,7 +754,10 @@ fn crank_tick(
     let program_id_str = program_id_cli
         .map(String::from)
         .or_else(|| program_id_from_manifest(manifest_json))
-        .ok_or_else(|| "no program id available: pass --program-id or embed `program_id` in the manifest".to_string())?;
+        .ok_or_else(|| {
+            "no program id available: pass --program-id or embed `program_id` in the manifest"
+                .to_string()
+        })?;
     let program_pubkey: Pubkey = program_id_str
         .parse()
         .map_err(|e| format!("program id parse: {e}"))?;
@@ -855,7 +867,10 @@ fn crank_tick(
 /// a manifest json path alone is a sufficient driver.
 fn program_id_from_manifest(manifest_json: &str) -> Option<String> {
     let value: serde_json::Value = serde_json::from_str(manifest_json).ok()?;
-    value.get("program_id").and_then(|v| v.as_str()).map(String::from)
+    value
+        .get("program_id")
+        .and_then(|v| v.as_str())
+        .map(String::from)
 }
 
 /// Resolve a declared account to an on-chain pubkey for a crank.
@@ -905,10 +920,8 @@ fn resolve_crank_account(
         }
     }
     let seed_slices: Vec<&[u8]> = bytes_list.iter().map(|v| v.as_slice()).collect();
-    let (pda, _bump) = solana_sdk::pubkey::Pubkey::find_program_address(
-        &seed_slices,
-        program_pubkey,
-    );
+    let (pda, _bump) =
+        solana_sdk::pubkey::Pubkey::find_program_address(&seed_slices, program_pubkey);
     Some(pda)
 }
 
@@ -978,10 +991,7 @@ fn find_instruction_in_manifest(
         .and_then(|v| v.as_array())
         .ok_or("manifest has no `instructions` array")?;
     for ix in ixs {
-        let name = ix
-            .get("name")
-            .and_then(|v| v.as_str())
-            .unwrap_or_default();
+        let name = ix.get("name").and_then(|v| v.as_str()).unwrap_or_default();
         if name == instruction_name || tag_matches(ix, instruction_name) {
             return Ok(parse_instruction(ix)?);
         }
@@ -995,14 +1005,15 @@ fn tag_matches(ix: &serde_json::Value, needle: &str) -> bool {
     let Some(tag) = ix.get("tag").and_then(|v| v.as_u64()) else {
         return false;
     };
-    needle
-        .parse::<u64>()
-        .map(|n| n == tag)
-        .unwrap_or(false)
+    needle.parse::<u64>().map(|n| n == tag).unwrap_or(false)
 }
 
 fn parse_instruction(ix: &serde_json::Value) -> Result<InstructionDescriptor, String> {
-    let name = ix.get("name").and_then(|v| v.as_str()).unwrap_or("?").to_string();
+    let name = ix
+        .get("name")
+        .and_then(|v| v.as_str())
+        .unwrap_or("?")
+        .to_string();
     let tag = ix
         .get("tag")
         .and_then(|v| v.as_u64())
@@ -1012,7 +1023,11 @@ fn parse_instruction(ix: &serde_json::Value) -> Result<InstructionDescriptor, St
     if let Some(arr) = ix.get("accounts").and_then(|v| v.as_array()) {
         for a in arr {
             accounts.push(InstrAccountEntry {
-                name: a.get("name").and_then(|v| v.as_str()).unwrap_or("?").to_string(),
+                name: a
+                    .get("name")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("?")
+                    .to_string(),
                 writable: a.get("writable").and_then(|v| v.as_bool()).unwrap_or(false),
                 signer: a.get("signer").and_then(|v| v.as_bool()).unwrap_or(false),
             });
@@ -1022,7 +1037,11 @@ fn parse_instruction(ix: &serde_json::Value) -> Result<InstructionDescriptor, St
     if let Some(arr) = ix.get("args").and_then(|v| v.as_array()) {
         for a in arr {
             args.push(InstrArgEntry {
-                name: a.get("name").and_then(|v| v.as_str()).unwrap_or("?").to_string(),
+                name: a
+                    .get("name")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("?")
+                    .to_string(),
                 size: a.get("size").and_then(|v| v.as_u64()).unwrap_or(0) as u16,
             });
         }
@@ -1058,7 +1077,11 @@ fn find_cranks_in_manifest(manifest_json: &str) -> Result<Vec<CrankEntry>, Strin
         let caps = ix
             .get("capabilities")
             .and_then(|v| v.as_array())
-            .map(|a| a.iter().filter_map(|v| v.as_str().map(String::from)).collect::<Vec<_>>())
+            .map(|a| {
+                a.iter()
+                    .filter_map(|v| v.as_str().map(String::from))
+                    .collect::<Vec<_>>()
+            })
             .unwrap_or_default();
         if !caps.iter().any(|c| c == "Crank") {
             continue;
@@ -1173,13 +1196,25 @@ fn encode_arg_value(raw: &str, size: u16) -> Result<Vec<u8>, String> {
         let b: bool = rest.parse().map_err(|_| format!("not a bool: {rest}"))?;
         return Ok(vec![b as u8]);
     }
-    for (prefix, width) in [("u8:", 1), ("u16:", 2), ("u32:", 4), ("u64:", 8), ("u128:", 16)] {
+    for (prefix, width) in [
+        ("u8:", 1),
+        ("u16:", 2),
+        ("u32:", 4),
+        ("u64:", 8),
+        ("u128:", 16),
+    ] {
         if let Some(rest) = raw.strip_prefix(prefix) {
             let n: u128 = rest.parse().map_err(|e| format!("parse {prefix}: {e}"))?;
             return Ok(n.to_le_bytes()[..width].to_vec());
         }
     }
-    for (prefix, width) in [("i8:", 1), ("i16:", 2), ("i32:", 4), ("i64:", 8), ("i128:", 16)] {
+    for (prefix, width) in [
+        ("i8:", 1),
+        ("i16:", 2),
+        ("i32:", 4),
+        ("i64:", 8),
+        ("i128:", 16),
+    ] {
         if let Some(rest) = raw.strip_prefix(prefix) {
             let n: i128 = rest.parse().map_err(|e| format!("parse {prefix}: {e}"))?;
             return Ok(n.to_le_bytes()[..width].to_vec());

@@ -242,7 +242,11 @@ fn cmd_new(args: &[String]) {
     let keypair_bytes = keypair_from_seed(&seed);
     let json = format!(
         "[{}]",
-        keypair_bytes.iter().map(|b| b.to_string()).collect::<Vec<_>>().join(",")
+        keypair_bytes
+            .iter()
+            .map(|b| b.to_string())
+            .collect::<Vec<_>>()
+            .join(",")
     );
     if let Some(parent) = path.parent() {
         if !parent.as_os_str().is_empty() {
@@ -284,7 +288,11 @@ fn cmd_list(args: &[String]) {
         return;
     }
 
-    let width = paths.iter().map(|p| p.display().to_string().len()).max().unwrap_or(0);
+    let width = paths
+        .iter()
+        .map(|p| p.display().to_string().len())
+        .max()
+        .unwrap_or(0);
     for path in paths {
         match load_pubkey(&path) {
             Ok(pk) => println!("{:<width$}  {}", path.display(), pk, width = width),
@@ -416,7 +424,9 @@ fn parse_seed(s: &str) -> Result<Vec<u8>, String> {
         return hex_decode(rest);
     }
     if let Some(rest) = s.strip_prefix("base58:") {
-        return bs58::decode(rest).into_vec().map_err(|e| format!("bad base58: {e}"));
+        return bs58::decode(rest)
+            .into_vec()
+            .map_err(|e| format!("bad base58: {e}"));
     }
     Ok(s.as_bytes().to_vec())
 }

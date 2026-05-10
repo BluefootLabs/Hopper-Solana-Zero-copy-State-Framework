@@ -1,7 +1,7 @@
 //! Zero-copy overlay utilities.
 
+use super::pod::{FixedLayout, Pod};
 use hopper_runtime::error::ProgramError;
-use super::pod::{Pod, FixedLayout};
 
 /// Overlay immutable reference to a Pod type at the start of a byte slice.
 #[inline(always)]

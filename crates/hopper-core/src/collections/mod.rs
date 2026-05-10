@@ -10,16 +10,16 @@
 //! - [`SlotMap`] -- Fixed-slot map with generation counters for safe handles
 //! - [`BitSet`] -- Compact bit array for flags and bitmask operations
 
+mod bit_set;
 mod fixed_vec;
 mod ring_buffer;
 mod slot_map;
-mod bit_set;
 mod sorted_vec;
 
+pub use bit_set::BitSet;
 pub use fixed_vec::FixedVec;
 pub use ring_buffer::RingBuffer;
 pub use slot_map::SlotMap;
-pub use bit_set::BitSet;
 pub use sorted_vec::SortedVec;
 
 mod packed_map;
@@ -29,4 +29,4 @@ pub mod journal;
 pub use journal::{Journal, JournalReader, JOURNAL_HEADER_SIZE};
 
 pub mod slab;
-pub use slab::{Slab, SLAB_HEADER_SIZE, bitmap_bytes};
+pub use slab::{bitmap_bytes, Slab, SLAB_HEADER_SIZE};

@@ -13,8 +13,8 @@ use solana_sdk::instruction::{AccountMeta, Instruction, InstructionError};
 use solana_sdk::native_token::LAMPORTS_PER_SOL;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signature::{read_keypair_file, Keypair, Signer};
-use solana_sdk::transaction::TransactionError;
 use solana_sdk::transaction::Transaction;
+use solana_sdk::transaction::TransactionError;
 use solana_system_interface::instruction as system_instruction;
 use toml::Value as TomlValue;
 
@@ -73,26 +73,146 @@ struct BenchmarkCase {
 }
 
 const BENCHMARK_CASES: &[BenchmarkCase] = &[
-    BenchmarkCase { disc: 0, name: "check_signer", baseline_key: "check_signer", fixture: FixtureMode::BlankAccount, payload: &[] },
-    BenchmarkCase { disc: 1, name: "check_writable", baseline_key: "check_writable", fixture: FixtureMode::BlankAccount, payload: &[] },
-    BenchmarkCase { disc: 2, name: "check_owner", baseline_key: "check_owner", fixture: FixtureMode::BlankAccount, payload: &[] },
-    BenchmarkCase { disc: 3, name: "check_account_tier1", baseline_key: "check_account_tier1", fixture: FixtureMode::InitializedAccount, payload: &[] },
-    BenchmarkCase { disc: 4, name: "check_keys_eq", baseline_key: "check_keys_eq", fixture: FixtureMode::DuplicateBlankAccount, payload: &[] },
-    BenchmarkCase { disc: 5, name: "overlay", baseline_key: "overlay_57b", fixture: FixtureMode::InitializedAccount, payload: &[] },
-    BenchmarkCase { disc: 6, name: "write_header", baseline_key: "write_header", fixture: FixtureMode::BlankAccount, payload: &[] },
-    BenchmarkCase { disc: 7, name: "zero_init", baseline_key: "zero_init_57b", fixture: FixtureMode::BlankAccount, payload: &[] },
-    BenchmarkCase { disc: 8, name: "check_account_fast", baseline_key: "check_account_fast", fixture: FixtureMode::BlankAccount, payload: &[] },
-    BenchmarkCase { disc: 9, name: "emit_event", baseline_key: "emit_event_32b", fixture: FixtureMode::None, payload: &[] },
-    BenchmarkCase { disc: 10, name: "trust_strict_load", baseline_key: "trust_strict_load", fixture: FixtureMode::InitializedAccount, payload: &[] },
-    BenchmarkCase { disc: 11, name: "pod_from_bytes", baseline_key: "pod_from_bytes_57b", fixture: FixtureMode::InitializedAccount, payload: &[] },
-    BenchmarkCase { disc: 12, name: "receipt_begin_commit", baseline_key: "receipt_begin_commit", fixture: FixtureMode::InitializedAccount, payload: &[] },
-    BenchmarkCase { disc: 13, name: "fingerprint_check", baseline_key: "fingerprint_check", fixture: FixtureMode::InitializedAccount, payload: &[] },
-    BenchmarkCase { disc: 14, name: "state_diff", baseline_key: "state_diff", fixture: FixtureMode::InitializedAccount, payload: &[] },
-    BenchmarkCase { disc: 15, name: "overlay_mut_field_set", baseline_key: "overlay_mut_57b", fixture: FixtureMode::InitializedAccount, payload: &[] },
-    BenchmarkCase { disc: 16, name: "raw_cast_baseline", baseline_key: "raw_cast_baseline", fixture: FixtureMode::InitializedAccount, payload: &[] },
-    BenchmarkCase { disc: 17, name: "receipt_full", baseline_key: "receipt_full_enriched", fixture: FixtureMode::InitializedAccount, payload: &[] },
-    BenchmarkCase { disc: 18, name: "receipt_emit", baseline_key: "receipt_emit", fixture: FixtureMode::InitializedAccount, payload: &[] },
-    BenchmarkCase { disc: 19, name: "proc_macro_typed_dispatch", baseline_key: "proc_macro_typed_dispatch", fixture: FixtureMode::ProcInitializedAccount, payload: &PROC_MACRO_TYPED_DISPATCH_PAYLOAD },
+    BenchmarkCase {
+        disc: 0,
+        name: "check_signer",
+        baseline_key: "check_signer",
+        fixture: FixtureMode::BlankAccount,
+        payload: &[],
+    },
+    BenchmarkCase {
+        disc: 1,
+        name: "check_writable",
+        baseline_key: "check_writable",
+        fixture: FixtureMode::BlankAccount,
+        payload: &[],
+    },
+    BenchmarkCase {
+        disc: 2,
+        name: "check_owner",
+        baseline_key: "check_owner",
+        fixture: FixtureMode::BlankAccount,
+        payload: &[],
+    },
+    BenchmarkCase {
+        disc: 3,
+        name: "check_account_tier1",
+        baseline_key: "check_account_tier1",
+        fixture: FixtureMode::InitializedAccount,
+        payload: &[],
+    },
+    BenchmarkCase {
+        disc: 4,
+        name: "check_keys_eq",
+        baseline_key: "check_keys_eq",
+        fixture: FixtureMode::DuplicateBlankAccount,
+        payload: &[],
+    },
+    BenchmarkCase {
+        disc: 5,
+        name: "overlay",
+        baseline_key: "overlay_57b",
+        fixture: FixtureMode::InitializedAccount,
+        payload: &[],
+    },
+    BenchmarkCase {
+        disc: 6,
+        name: "write_header",
+        baseline_key: "write_header",
+        fixture: FixtureMode::BlankAccount,
+        payload: &[],
+    },
+    BenchmarkCase {
+        disc: 7,
+        name: "zero_init",
+        baseline_key: "zero_init_57b",
+        fixture: FixtureMode::BlankAccount,
+        payload: &[],
+    },
+    BenchmarkCase {
+        disc: 8,
+        name: "check_account_fast",
+        baseline_key: "check_account_fast",
+        fixture: FixtureMode::BlankAccount,
+        payload: &[],
+    },
+    BenchmarkCase {
+        disc: 9,
+        name: "emit_event",
+        baseline_key: "emit_event_32b",
+        fixture: FixtureMode::None,
+        payload: &[],
+    },
+    BenchmarkCase {
+        disc: 10,
+        name: "trust_strict_load",
+        baseline_key: "trust_strict_load",
+        fixture: FixtureMode::InitializedAccount,
+        payload: &[],
+    },
+    BenchmarkCase {
+        disc: 11,
+        name: "pod_from_bytes",
+        baseline_key: "pod_from_bytes_57b",
+        fixture: FixtureMode::InitializedAccount,
+        payload: &[],
+    },
+    BenchmarkCase {
+        disc: 12,
+        name: "receipt_begin_commit",
+        baseline_key: "receipt_begin_commit",
+        fixture: FixtureMode::InitializedAccount,
+        payload: &[],
+    },
+    BenchmarkCase {
+        disc: 13,
+        name: "fingerprint_check",
+        baseline_key: "fingerprint_check",
+        fixture: FixtureMode::InitializedAccount,
+        payload: &[],
+    },
+    BenchmarkCase {
+        disc: 14,
+        name: "state_diff",
+        baseline_key: "state_diff",
+        fixture: FixtureMode::InitializedAccount,
+        payload: &[],
+    },
+    BenchmarkCase {
+        disc: 15,
+        name: "overlay_mut_field_set",
+        baseline_key: "overlay_mut_57b",
+        fixture: FixtureMode::InitializedAccount,
+        payload: &[],
+    },
+    BenchmarkCase {
+        disc: 16,
+        name: "raw_cast_baseline",
+        baseline_key: "raw_cast_baseline",
+        fixture: FixtureMode::InitializedAccount,
+        payload: &[],
+    },
+    BenchmarkCase {
+        disc: 17,
+        name: "receipt_full",
+        baseline_key: "receipt_full_enriched",
+        fixture: FixtureMode::InitializedAccount,
+        payload: &[],
+    },
+    BenchmarkCase {
+        disc: 18,
+        name: "receipt_emit",
+        baseline_key: "receipt_emit",
+        fixture: FixtureMode::InitializedAccount,
+        payload: &[],
+    },
+    BenchmarkCase {
+        disc: 19,
+        name: "proc_macro_typed_dispatch",
+        baseline_key: "proc_macro_typed_dispatch",
+        fixture: FixtureMode::ProcInitializedAccount,
+        payload: &PROC_MACRO_TYPED_DISPATCH_PAYLOAD,
+    },
 ];
 
 #[derive(Default)]
@@ -195,20 +315,21 @@ pub fn run_primitive_bench(args: &[String]) -> Result<(), String> {
         .keypair_path
         .clone()
         .or_else(workspace::default_solana_keypair_path)
-        .ok_or_else(|| "Could not determine a Solana keypair path. Use --keypair or SOLANA_KEYPAIR.".to_string())?;
+        .ok_or_else(|| {
+            "Could not determine a Solana keypair path. Use --keypair or SOLANA_KEYPAIR."
+                .to_string()
+        })?;
 
     let client = RpcClient::new_with_commitment(rpc_url.clone(), CommitmentConfig::confirmed());
-    let payer = read_keypair_file(&keypair_path).map_err(|err| {
-        format!(
-            "Failed to read keypair {}: {err}",
-            keypair_path.display()
-        )
-    })?;
+    let payer = read_keypair_file(&keypair_path)
+        .map_err(|err| format!("Failed to read keypair {}: {err}", keypair_path.display()))?;
 
     ensure_payer_balance(&client, &payer, &rpc_url)?;
 
     let program_id = if let Some(existing) = options.program_id.as_deref() {
-        existing.parse::<Pubkey>().map_err(|err| format!("Invalid --program-id: {err}"))?
+        existing
+            .parse::<Pubkey>()
+            .map_err(|err| format!("Invalid --program-id: {err}"))?
     } else {
         if options.no_deploy {
             return Err("--no-deploy requires --program-id".to_string());
@@ -217,22 +338,32 @@ pub fn run_primitive_bench(args: &[String]) -> Result<(), String> {
     };
     wait_for_program_visibility(&client, &program_id)?;
     let measurement_overhead_cu = measure_compute_log_overhead(&client, &payer, &program_id)?;
-    println!("Calibrated compute-log overhead: {} CU", measurement_overhead_cu);
+    println!(
+        "Calibrated compute-log overhead: {} CU",
+        measurement_overhead_cu
+    );
 
     let mut results = Vec::with_capacity(BENCHMARK_CASES.len());
     let mut failures = 0usize;
 
-    println!("Running {} primitive benchmarks against {}", BENCHMARK_CASES.len(), program_id);
+    println!(
+        "Running {} primitive benchmarks against {}",
+        BENCHMARK_CASES.len(),
+        program_id
+    );
     for case in BENCHMARK_CASES {
         let baseline = baselines.entries.get(case.baseline_key);
-        let allowed_cu = baseline.map(|entry| allowed_budget(entry.budget_cu, fail_on_regression_percent));
+        let allowed_cu =
+            baseline.map(|entry| allowed_budget(entry.budget_cu, fail_on_regression_percent));
 
         let benchmark_result = match run_case(&client, &payer, &program_id, case) {
             Ok((raw_measured_cu, total_units_consumed, logs)) => {
                 let measured_cu = raw_measured_cu.saturating_sub(measurement_overhead_cu);
                 let baseline_cu = baseline.map(|entry| entry.budget_cu);
                 let delta_pct = baseline_cu.map(|budget| percentage_delta(measured_cu, budget));
-                let regression = allowed_cu.map(|allowed| measured_cu > allowed).unwrap_or(false);
+                let regression = allowed_cu
+                    .map(|allowed| measured_cu > allowed)
+                    .unwrap_or(false);
                 if regression {
                     failures += 1;
                 }
@@ -242,7 +373,11 @@ pub fn run_primitive_bench(args: &[String]) -> Result<(), String> {
                     case.name,
                     measured_cu,
                     baseline_cu
-                        .map(|budget| format!(" (baseline {}, allowed {})", budget, allowed_cu.unwrap_or(budget)))
+                        .map(|budget| format!(
+                            " (baseline {}, allowed {})",
+                            budget,
+                            allowed_cu.unwrap_or(budget)
+                        ))
                         .unwrap_or_default()
                 );
                 BenchResult {
@@ -300,7 +435,11 @@ pub fn run_primitive_bench(args: &[String]) -> Result<(), String> {
         program_id: program_id.to_string(),
         solana_core_version: version,
         rustc_version: read_tool_version(&workspace_root, "rustc", &["--version".to_string()]),
-        git_commit: read_tool_version(&workspace_root, "git", &["rev-parse".to_string(), "HEAD".to_string()]),
+        git_commit: read_tool_version(
+            &workspace_root,
+            "git",
+            &["rev-parse".to_string(), "HEAD".to_string()],
+        ),
         keypair_path: keypair_path.display().to_string(),
         baseline_tolerance_percent: fail_on_regression_percent,
         measurement_overhead_cu: Some(measurement_overhead_cu),
@@ -312,8 +451,12 @@ pub fn run_primitive_bench(args: &[String]) -> Result<(), String> {
         .out_dir
         .clone()
         .unwrap_or_else(|| workspace_root.join("bench").join("results"));
-    fs::create_dir_all(&out_dir)
-        .map_err(|err| format!("Failed to create output directory {}: {err}", out_dir.display()))?;
+    fs::create_dir_all(&out_dir).map_err(|err| {
+        format!(
+            "Failed to create output directory {}: {err}",
+            out_dir.display()
+        )
+    })?;
 
     let json_path = out_dir.join("primitive-bench-results.json");
     let csv_path = out_dir.join("primitive-bench-results.csv");
@@ -339,22 +482,30 @@ fn parse_options(args: &[String], workspace_root: &Path) -> Result<PrimitiveBenc
     while i < args.len() {
         match args[i].as_str() {
             "--rpc" => {
-                let value = args.get(i + 1).ok_or_else(|| "--rpc requires a URL".to_string())?;
+                let value = args
+                    .get(i + 1)
+                    .ok_or_else(|| "--rpc requires a URL".to_string())?;
                 options.rpc_url = Some(value.clone());
                 i += 2;
             }
             "--keypair" => {
-                let value = args.get(i + 1).ok_or_else(|| "--keypair requires a path".to_string())?;
+                let value = args
+                    .get(i + 1)
+                    .ok_or_else(|| "--keypair requires a path".to_string())?;
                 options.keypair_path = Some(PathBuf::from(value));
                 i += 2;
             }
             "--out-dir" => {
-                let value = args.get(i + 1).ok_or_else(|| "--out-dir requires a path".to_string())?;
+                let value = args
+                    .get(i + 1)
+                    .ok_or_else(|| "--out-dir requires a path".to_string())?;
                 options.out_dir = Some(resolve_path(workspace_root, value));
                 i += 2;
             }
             "--program-id" => {
-                let value = args.get(i + 1).ok_or_else(|| "--program-id requires a pubkey".to_string())?;
+                let value = args
+                    .get(i + 1)
+                    .ok_or_else(|| "--program-id requires a pubkey".to_string())?;
                 options.program_id = Some(value.clone());
                 i += 2;
             }
@@ -367,13 +518,20 @@ fn parse_options(args: &[String], workspace_root: &Path) -> Result<PrimitiveBenc
                 i += 1;
             }
             "--fail-on-regression" => {
-                let value = args.get(i + 1).ok_or_else(|| "--fail-on-regression requires a percentage".to_string())?;
-                options.fail_on_regression_percent = Some(parse_u64_flag("--fail-on-regression", value)?);
+                let value = args
+                    .get(i + 1)
+                    .ok_or_else(|| "--fail-on-regression requires a percentage".to_string())?;
+                options.fail_on_regression_percent =
+                    Some(parse_u64_flag("--fail-on-regression", value)?);
                 i += 2;
             }
             other if other.starts_with("--fail-on-regression=") => {
-                let value = other.split_once('=').map(|(_, value)| value).unwrap_or_default();
-                options.fail_on_regression_percent = Some(parse_u64_flag("--fail-on-regression", value)?);
+                let value = other
+                    .split_once('=')
+                    .map(|(_, value)| value)
+                    .unwrap_or_default();
+                options.fail_on_regression_percent =
+                    Some(parse_u64_flag("--fail-on-regression", value)?);
                 i += 1;
             }
             other => {
@@ -468,7 +626,8 @@ fn ensure_payer_balance(client: &RpcClient, payer: &Keypair, rpc_url: &str) -> R
 
     Err(format!(
         "Fee payer {} has insufficient balance and {} is not a local validator",
-        payer.pubkey(), rpc_url
+        payer.pubkey(),
+        rpc_url
     ))
 }
 
@@ -487,7 +646,11 @@ fn wait_for_program_visibility(client: &RpcClient, program_id: &Pubkey) -> Resul
     ))
 }
 
-fn deploy_bench_program(workspace_root: &Path, rpc_url: &str, keypair_path: &Path) -> Result<Pubkey, String> {
+fn deploy_bench_program(
+    workspace_root: &Path,
+    rpc_url: &str,
+    keypair_path: &Path,
+) -> Result<Pubkey, String> {
     let so_path = resolve_bench_program_path(workspace_root)?;
     let args = vec![
         "program".to_string(),
@@ -511,9 +674,8 @@ fn deploy_bench_program(workspace_root: &Path, rpc_url: &str, keypair_path: &Pat
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let json: JsonValue = serde_json::from_str(stdout.trim()).map_err(|err| {
-        format!("Failed to parse deploy output as JSON: {err}")
-    })?;
+    let json: JsonValue = serde_json::from_str(stdout.trim())
+        .map_err(|err| format!("Failed to parse deploy output as JSON: {err}"))?;
     let program_id = json
         .get("programId")
         .and_then(JsonValue::as_str)
@@ -525,7 +687,10 @@ fn deploy_bench_program(workspace_root: &Path, rpc_url: &str, keypair_path: &Pat
 
 fn resolve_bench_program_path(workspace_root: &Path) -> Result<PathBuf, String> {
     let candidates = [
-        workspace_root.join("target").join("deploy").join("hopper_bench.so"),
+        workspace_root
+            .join("target")
+            .join("deploy")
+            .join("hopper_bench.so"),
         workspace_root
             .join("bench")
             .join("hopper-bench")
@@ -552,7 +717,12 @@ fn run_case(
     case: &BenchmarkCase,
 ) -> Result<(u64, Option<u64>, Vec<String>), String> {
     let fixture = if case.fixture.needs_fixture() {
-        Some(create_fixture(client, payer, program_id, case.fixture.header_init_disc())?)
+        Some(create_fixture(
+            client,
+            payer,
+            program_id,
+            case.fixture.header_init_disc(),
+        )?)
     } else {
         None
     };
@@ -592,11 +762,14 @@ fn measure_compute_log_overhead(
     payer: &Keypair,
     program_id: &Pubkey,
 ) -> Result<u64, String> {
-    let instruction = Instruction::new_with_bytes(*program_id, &[MEASURE_OVERHEAD_DISC], Vec::new());
+    let instruction =
+        Instruction::new_with_bytes(*program_id, &[MEASURE_OVERHEAD_DISC], Vec::new());
     let simulation = simulate_instruction(client, payer, &[instruction], &[])?;
     let logs = simulation.logs.unwrap_or_default();
     if let Some(err) = simulation.err {
-        return Err(format!("Simulation error while measuring compute-log overhead: {err:?}"));
+        return Err(format!(
+            "Simulation error while measuring compute-log overhead: {err:?}"
+        ));
     }
 
     parse_bounded_delta("measurement_overhead", &logs)
@@ -709,7 +882,10 @@ fn simulate_instruction(
 fn is_transient_simulation_error(error: Option<&TransactionError>) -> bool {
     matches!(
         error,
-        Some(TransactionError::InstructionError(_, InstructionError::UnsupportedProgramId))
+        Some(TransactionError::InstructionError(
+            _,
+            InstructionError::UnsupportedProgramId
+        ))
     )
 }
 
@@ -742,7 +918,10 @@ fn parse_bounded_delta(case_name: &str, logs: &[String]) -> Option<u64> {
 }
 
 fn parse_fallback_delta(logs: &[String]) -> Option<u64> {
-    let values: Vec<u64> = logs.iter().filter_map(|line| extract_consumption_units(line)).collect();
+    let values: Vec<u64> = logs
+        .iter()
+        .filter_map(|line| extract_consumption_units(line))
+        .collect();
     if values.len() >= 2 && values[0] >= values[1] {
         Some(values[0] - values[1])
     } else {

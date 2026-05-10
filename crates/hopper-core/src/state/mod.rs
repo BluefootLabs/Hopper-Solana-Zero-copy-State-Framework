@@ -49,11 +49,7 @@ pub fn check_state_not(data: &[u8], offset: usize, rejected: u8) -> Result<(), P
 
 /// Check that the state byte at `offset` is in the `allowed` set.
 #[inline]
-pub fn check_state_in(
-    data: &[u8],
-    offset: usize,
-    allowed: &[u8],
-) -> Result<(), ProgramError> {
+pub fn check_state_in(data: &[u8], offset: usize, allowed: &[u8]) -> Result<(), ProgramError> {
     if offset >= data.len() {
         return Err(ProgramError::AccountDataTooSmall);
     }

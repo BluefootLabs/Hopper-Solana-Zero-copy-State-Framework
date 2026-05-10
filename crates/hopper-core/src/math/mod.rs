@@ -171,14 +171,16 @@ pub fn scale_amount(amount: u64, from_decimals: u8, to_decimals: u8) -> Result<u
         return Ok(amount);
     }
     if to_decimals > from_decimals {
-        let factor = 10u128.checked_pow((to_decimals - from_decimals) as u32)
+        let factor = 10u128
+            .checked_pow((to_decimals - from_decimals) as u32)
             .ok_or(ProgramError::ArithmeticOverflow)?;
         let result = (amount as u128)
             .checked_mul(factor)
             .ok_or(ProgramError::ArithmeticOverflow)?;
         to_u64(result)
     } else {
-        let factor = 10u64.checked_pow((from_decimals - to_decimals) as u32)
+        let factor = 10u64
+            .checked_pow((from_decimals - to_decimals) as u32)
             .ok_or(ProgramError::ArithmeticOverflow)?;
         checked_div(amount, factor)
     }
@@ -190,19 +192,25 @@ pub fn scale_amount(amount: u64, from_decimals: u8, to_decimals: u8) -> Result<u
 /// Use for protocol-side calculations where truncating would short-change
 /// the protocol (e.g., minimum collateral requirements).
 #[inline(always)]
-pub fn scale_amount_ceil(amount: u64, from_decimals: u8, to_decimals: u8) -> Result<u64, ProgramError> {
+pub fn scale_amount_ceil(
+    amount: u64,
+    from_decimals: u8,
+    to_decimals: u8,
+) -> Result<u64, ProgramError> {
     if from_decimals == to_decimals {
         return Ok(amount);
     }
     if to_decimals > from_decimals {
-        let factor = 10u128.checked_pow((to_decimals - from_decimals) as u32)
+        let factor = 10u128
+            .checked_pow((to_decimals - from_decimals) as u32)
             .ok_or(ProgramError::ArithmeticOverflow)?;
         let result = (amount as u128)
             .checked_mul(factor)
             .ok_or(ProgramError::ArithmeticOverflow)?;
         to_u64(result)
     } else {
-        let factor = 10u64.checked_pow((from_decimals - to_decimals) as u32)
+        let factor = 10u64
+            .checked_pow((from_decimals - to_decimals) as u32)
             .ok_or(ProgramError::ArithmeticOverflow)?;
         checked_div_ceil(amount, factor)
     }
@@ -224,7 +232,9 @@ pub fn checked_pow(base: u64, exp: u32) -> Result<u64, ProgramError> {
     let mut e = exp;
     while e > 0 {
         if e & 1 == 1 {
-            result = result.checked_mul(b).ok_or(ProgramError::ArithmeticOverflow)?;
+            result = result
+                .checked_mul(b)
+                .ok_or(ProgramError::ArithmeticOverflow)?;
         }
         e >>= 1;
         if e > 0 {

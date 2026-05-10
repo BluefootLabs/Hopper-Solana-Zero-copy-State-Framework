@@ -119,11 +119,10 @@ fn parse_seeds_hint(attr: TokenStream) -> syn::Result<Vec<(Ident, Vec<Expr>)>> {
     if attr.is_empty() {
         return Ok(Vec::new());
     }
-    let metas: syn::punctuated::Punctuated<Meta, Token![,]> =
-        syn::parse::Parser::parse2(
-            syn::punctuated::Punctuated::<Meta, Token![,]>::parse_terminated,
-            attr,
-        )?;
+    let metas: syn::punctuated::Punctuated<Meta, Token![,]> = syn::parse::Parser::parse2(
+        syn::punctuated::Punctuated::<Meta, Token![,]>::parse_terminated,
+        attr,
+    )?;
     let mut out: Vec<(Ident, Vec<Expr>)> = Vec::new();
     for meta in metas {
         let Meta::List(list) = meta else {

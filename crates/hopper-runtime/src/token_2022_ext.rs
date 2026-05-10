@@ -43,7 +43,7 @@
 //! values and safe to hard-code. The full set is listed below so
 //! tooling can surface the name for any TLV it encounters.
 
-use crate::{error::ProgramError, result::ProgramResult, address::Address, account::AccountView};
+use crate::{account::AccountView, address::Address, error::ProgramError, result::ProgramResult};
 
 // ── Extension type codes (stable wire values) ────────────────────────
 
@@ -207,7 +207,9 @@ pub fn token_account_tlv_region(data: &[u8]) -> Option<&[u8]> {
 /// Use when a program is designed to only ever mint soulbound tokens.
 #[inline]
 pub fn require_non_transferable(mint: &AccountView) -> ProgramResult {
-    let data = mint.try_borrow().map_err(|_| ProgramError::AccountBorrowFailed)?;
+    let data = mint
+        .try_borrow()
+        .map_err(|_| ProgramError::AccountBorrowFailed)?;
     let tlv = mint_tlv_region(&data).ok_or(ProgramError::InvalidAccountData)?;
     if find_extension(tlv, EXT_NON_TRANSFERABLE).is_some() {
         Ok(())
@@ -218,13 +220,13 @@ pub fn require_non_transferable(mint: &AccountView) -> ProgramResult {
 
 /// Require a mint's `MintCloseAuthority` extension to equal `expected`.
 #[inline]
-pub fn require_mint_close_authority(
-    mint: &AccountView,
-    expected: &Address,
-) -> ProgramResult {
-    let data = mint.try_borrow().map_err(|_| ProgramError::AccountBorrowFailed)?;
+pub fn require_mint_close_authority(mint: &AccountView, expected: &Address) -> ProgramResult {
+    let data = mint
+        .try_borrow()
+        .map_err(|_| ProgramError::AccountBorrowFailed)?;
     let tlv = mint_tlv_region(&data).ok_or(ProgramError::InvalidAccountData)?;
-    let ext = find_extension(tlv, EXT_MINT_CLOSE_AUTHORITY).ok_or(ProgramError::InvalidAccountData)?;
+    let ext =
+        find_extension(tlv, EXT_MINT_CLOSE_AUTHORITY).ok_or(ProgramError::InvalidAccountData)?;
     if ext.len() < 32 {
         return Err(ProgramError::InvalidAccountData);
     }
@@ -237,13 +239,13 @@ pub fn require_mint_close_authority(
 
 /// Require a mint's `PermanentDelegate` extension to equal `expected`.
 #[inline]
-pub fn require_permanent_delegate(
-    mint: &AccountView,
-    expected: &Address,
-) -> ProgramResult {
-    let data = mint.try_borrow().map_err(|_| ProgramError::AccountBorrowFailed)?;
+pub fn require_permanent_delegate(mint: &AccountView, expected: &Address) -> ProgramResult {
+    let data = mint
+        .try_borrow()
+        .map_err(|_| ProgramError::AccountBorrowFailed)?;
     let tlv = mint_tlv_region(&data).ok_or(ProgramError::InvalidAccountData)?;
-    let ext = find_extension(tlv, EXT_PERMANENT_DELEGATE).ok_or(ProgramError::InvalidAccountData)?;
+    let ext =
+        find_extension(tlv, EXT_PERMANENT_DELEGATE).ok_or(ProgramError::InvalidAccountData)?;
     if ext.len() < 32 {
         return Err(ProgramError::InvalidAccountData);
     }
@@ -260,11 +262,10 @@ pub fn require_permanent_delegate(
 /// validates the second field. Use [`require_transfer_hook_authority`]
 /// for the first.
 #[inline]
-pub fn require_transfer_hook_program(
-    mint: &AccountView,
-    expected: &Address,
-) -> ProgramResult {
-    let data = mint.try_borrow().map_err(|_| ProgramError::AccountBorrowFailed)?;
+pub fn require_transfer_hook_program(mint: &AccountView, expected: &Address) -> ProgramResult {
+    let data = mint
+        .try_borrow()
+        .map_err(|_| ProgramError::AccountBorrowFailed)?;
     let tlv = mint_tlv_region(&data).ok_or(ProgramError::InvalidAccountData)?;
     let ext = find_extension(tlv, EXT_TRANSFER_HOOK).ok_or(ProgramError::InvalidAccountData)?;
     if ext.len() < 64 {
@@ -279,11 +280,10 @@ pub fn require_transfer_hook_program(
 
 /// Require a mint's `TransferHook` authority to equal `expected`.
 #[inline]
-pub fn require_transfer_hook_authority(
-    mint: &AccountView,
-    expected: &Address,
-) -> ProgramResult {
-    let data = mint.try_borrow().map_err(|_| ProgramError::AccountBorrowFailed)?;
+pub fn require_transfer_hook_authority(mint: &AccountView, expected: &Address) -> ProgramResult {
+    let data = mint
+        .try_borrow()
+        .map_err(|_| ProgramError::AccountBorrowFailed)?;
     let tlv = mint_tlv_region(&data).ok_or(ProgramError::InvalidAccountData)?;
     let ext = find_extension(tlv, EXT_TRANSFER_HOOK).ok_or(ProgramError::InvalidAccountData)?;
     if ext.len() < 32 {
@@ -300,11 +300,10 @@ pub fn require_transfer_hook_authority(
 ///
 /// `MetadataPointer` layout: `[authority: 32][metadata_address: 32]`.
 #[inline]
-pub fn require_metadata_pointer_address(
-    mint: &AccountView,
-    expected: &Address,
-) -> ProgramResult {
-    let data = mint.try_borrow().map_err(|_| ProgramError::AccountBorrowFailed)?;
+pub fn require_metadata_pointer_address(mint: &AccountView, expected: &Address) -> ProgramResult {
+    let data = mint
+        .try_borrow()
+        .map_err(|_| ProgramError::AccountBorrowFailed)?;
     let tlv = mint_tlv_region(&data).ok_or(ProgramError::InvalidAccountData)?;
     let ext = find_extension(tlv, EXT_METADATA_POINTER).ok_or(ProgramError::InvalidAccountData)?;
     if ext.len() < 64 {
@@ -319,11 +318,10 @@ pub fn require_metadata_pointer_address(
 
 /// Require a mint's `MetadataPointer` authority to equal `expected`.
 #[inline]
-pub fn require_metadata_pointer_authority(
-    mint: &AccountView,
-    expected: &Address,
-) -> ProgramResult {
-    let data = mint.try_borrow().map_err(|_| ProgramError::AccountBorrowFailed)?;
+pub fn require_metadata_pointer_authority(mint: &AccountView, expected: &Address) -> ProgramResult {
+    let data = mint
+        .try_borrow()
+        .map_err(|_| ProgramError::AccountBorrowFailed)?;
     let tlv = mint_tlv_region(&data).ok_or(ProgramError::InvalidAccountData)?;
     let ext = find_extension(tlv, EXT_METADATA_POINTER).ok_or(ProgramError::InvalidAccountData)?;
     if ext.len() < 32 {
@@ -355,10 +353,12 @@ pub fn require_immutable_owner(token_account: &AccountView) -> ProgramResult {
 /// Values: `0` Uninitialized, `1` Initialized, `2` Frozen.
 #[inline]
 pub fn require_default_account_state(mint: &AccountView, expected: u8) -> ProgramResult {
-    let data = mint.try_borrow().map_err(|_| ProgramError::AccountBorrowFailed)?;
+    let data = mint
+        .try_borrow()
+        .map_err(|_| ProgramError::AccountBorrowFailed)?;
     let tlv = mint_tlv_region(&data).ok_or(ProgramError::InvalidAccountData)?;
-    let ext = find_extension(tlv, EXT_DEFAULT_ACCOUNT_STATE)
-        .ok_or(ProgramError::InvalidAccountData)?;
+    let ext =
+        find_extension(tlv, EXT_DEFAULT_ACCOUNT_STATE).ok_or(ProgramError::InvalidAccountData)?;
     if ext.is_empty() {
         return Err(ProgramError::InvalidAccountData);
     }
@@ -373,14 +373,13 @@ pub fn require_default_account_state(mint: &AccountView, expected: u8) -> Progra
 ///
 /// Layout: `[rate_authority: 32][initialization_timestamp: 8][pre_update_average_rate: 2][last_update_timestamp: 8][current_rate: 2]`.
 #[inline]
-pub fn require_interest_bearing_authority(
-    mint: &AccountView,
-    expected: &Address,
-) -> ProgramResult {
-    let data = mint.try_borrow().map_err(|_| ProgramError::AccountBorrowFailed)?;
+pub fn require_interest_bearing_authority(mint: &AccountView, expected: &Address) -> ProgramResult {
+    let data = mint
+        .try_borrow()
+        .map_err(|_| ProgramError::AccountBorrowFailed)?;
     let tlv = mint_tlv_region(&data).ok_or(ProgramError::InvalidAccountData)?;
-    let ext = find_extension(tlv, EXT_INTEREST_BEARING_CONFIG)
-        .ok_or(ProgramError::InvalidAccountData)?;
+    let ext =
+        find_extension(tlv, EXT_INTEREST_BEARING_CONFIG).ok_or(ProgramError::InvalidAccountData)?;
     if ext.len() < 32 {
         return Err(ProgramError::InvalidAccountData);
     }
@@ -399,10 +398,12 @@ pub fn require_transfer_fee_config_authority(
     mint: &AccountView,
     expected: &Address,
 ) -> ProgramResult {
-    let data = mint.try_borrow().map_err(|_| ProgramError::AccountBorrowFailed)?;
+    let data = mint
+        .try_borrow()
+        .map_err(|_| ProgramError::AccountBorrowFailed)?;
     let tlv = mint_tlv_region(&data).ok_or(ProgramError::InvalidAccountData)?;
-    let ext = find_extension(tlv, EXT_TRANSFER_FEE_CONFIG)
-        .ok_or(ProgramError::InvalidAccountData)?;
+    let ext =
+        find_extension(tlv, EXT_TRANSFER_FEE_CONFIG).ok_or(ProgramError::InvalidAccountData)?;
     if ext.len() < 32 {
         return Err(ProgramError::InvalidAccountData);
     }
@@ -419,10 +420,12 @@ pub fn require_transfer_fee_withdraw_authority(
     mint: &AccountView,
     expected: &Address,
 ) -> ProgramResult {
-    let data = mint.try_borrow().map_err(|_| ProgramError::AccountBorrowFailed)?;
+    let data = mint
+        .try_borrow()
+        .map_err(|_| ProgramError::AccountBorrowFailed)?;
     let tlv = mint_tlv_region(&data).ok_or(ProgramError::InvalidAccountData)?;
-    let ext = find_extension(tlv, EXT_TRANSFER_FEE_CONFIG)
-        .ok_or(ProgramError::InvalidAccountData)?;
+    let ext =
+        find_extension(tlv, EXT_TRANSFER_FEE_CONFIG).ok_or(ProgramError::InvalidAccountData)?;
     if ext.len() < 64 {
         return Err(ProgramError::InvalidAccountData);
     }

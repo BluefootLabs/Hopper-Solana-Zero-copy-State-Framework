@@ -1211,7 +1211,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   `documentation = "https://docs.rs/<crate>"`, and a per-crate
   `README.md`.
 
-## [0.1.0] — initial publication target
+## [0.1.0] - 2026-05-10
 
-First public release of the Hopper framework. See
-[`AUDIT.md`](AUDIT.md) for a full feature audit.
+### Added
+
+- First public crates.io release of the Hopper framework, CLI, and public
+  companion crates. See [`AUDIT.md`](AUDIT.md) for a full feature audit.

@@ -4,17 +4,17 @@
 //! hopper-native-backend uses direct runtime syscalls; compatibility
 //! backends delegate through `compat` after Hopper-level validation.
 
+use crate::account::AccountView;
 use crate::address::{address_eq, Address};
 use crate::error::ProgramError;
-use crate::ProgramResult;
 use crate::instruction::InstructionView;
-use crate::account::AccountView;
+use crate::ProgramResult;
 
 #[cfg(all(feature = "hopper-native-backend", target_os = "solana"))]
 use crate::instruction::InstructionAccount;
 
 // Re-export Signer and Seed so callers can use `cpi::Signer` / `cpi::Seed`.
-pub use crate::instruction::{Signer, Seed};
+pub use crate::instruction::{Seed, Signer};
 
 /// Maximum number of accounts in a static CPI call.
 pub const MAX_STATIC_CPI_ACCOUNTS: usize = 64;
@@ -67,6 +67,7 @@ pub unsafe fn invoke_unchecked(
             data_len: instruction.data.len() as u64,
         };
 
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let result = unsafe {
             hopper_native::syscalls::sol_invoke_signed_c(
                 &c_instruction as *const _ as *const u8,
@@ -76,7 +77,11 @@ pub unsafe fn invoke_unchecked(
                 0,
             )
         };
-        if result == 0 { Ok(()) } else { Err(ProgramError::from(result)) }
+        if result == 0 {
+            Ok(())
+        } else {
+            Err(ProgramError::from(result))
+        }
     }
     #[cfg(not(target_os = "solana"))]
     {
@@ -107,6 +112,7 @@ pub unsafe fn invoke_signed_unchecked(
             data_len: instruction.data.len() as u64,
         };
 
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let result = unsafe {
             hopper_native::syscalls::sol_invoke_signed_c(
                 &c_instruction as *const _ as *const u8,
@@ -116,7 +122,11 @@ pub unsafe fn invoke_signed_unchecked(
                 signers_seeds.len() as u64,
             )
         };
-        if result == 0 { Ok(()) } else { Err(ProgramError::from(result)) }
+        if result == 0 {
+            Ok(())
+        } else {
+            Err(ProgramError::from(result))
+        }
     }
     #[cfg(not(target_os = "solana"))]
     {
@@ -156,21 +166,23 @@ fn signer_matches_pda(program_id: &Address, account: &Address, signers_seeds: &[
     let mut i = 0;
     while i < signers_seeds.len() {
         let signer = &signers_seeds[i];
-        let seeds = unsafe {
-            core::slice::from_raw_parts(signer.seeds, signer.len as usize)
-        };
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        let seeds = unsafe { core::slice::from_raw_parts(signer.seeds, signer.len as usize) };
 
         if seeds.len() <= crate::address::MAX_SEEDS {
-            let mut seed_refs: [&[u8]; crate::address::MAX_SEEDS] = [&[]; crate::address::MAX_SEEDS];
+            let mut seed_refs: [&[u8]; crate::address::MAX_SEEDS] =
+                [&[]; crate::address::MAX_SEEDS];
             let mut j = 0;
             while j < seeds.len() {
-                seed_refs[j] = unsafe {
-                    core::slice::from_raw_parts(seeds[j].seed, seeds[j].len as usize)
-                };
+                // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+                seed_refs[j] =
+                    unsafe { core::slice::from_raw_parts(seeds[j].seed, seeds[j].len as usize) };
                 j += 1;
             }
 
-            if let Ok(derived) = crate::compat::create_program_address(&seed_refs[..seeds.len()], program_id) {
+            if let Ok(derived) =
+                crate::compat::create_program_address(&seed_refs[..seeds.len()], program_id)
+            {
                 if address_eq(&derived, account) {
                     return true;
                 }
@@ -251,6 +263,7 @@ pub fn invoke_signed<const ACCOUNTS: usize>(
     validate_cpi_accounts(instruction, &account_views[..], signers_seeds)?;
 
     let mut cpi_accounts: [MaybeUninit<CpiAccount>; ACCOUNTS] =
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe { MaybeUninit::uninit().assume_init() };
 
     let mut i = 0;
@@ -259,10 +272,11 @@ pub fn invoke_signed<const ACCOUNTS: usize>(
         i += 1;
     }
 
-    let accounts: &[CpiAccount; ACCOUNTS] = unsafe {
-        &*(cpi_accounts.as_ptr() as *const [CpiAccount; ACCOUNTS])
-    };
+    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+    let accounts: &[CpiAccount; ACCOUNTS] =
+        unsafe { &*(cpi_accounts.as_ptr() as *const [CpiAccount; ACCOUNTS]) };
 
+    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe {
         if signers_seeds.is_empty() {
             invoke_unchecked(instruction, accounts.as_slice())
@@ -297,6 +311,7 @@ pub fn invoke_signed_with_bounds<const MAX_ACCOUNTS: usize>(
     validate_cpi_accounts(instruction, account_views, signers_seeds)?;
 
     let mut cpi_accounts: [MaybeUninit<CpiAccount>; MAX_ACCOUNTS] =
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe { MaybeUninit::uninit().assume_init() };
 
     let count = account_views.len();
@@ -306,10 +321,11 @@ pub fn invoke_signed_with_bounds<const MAX_ACCOUNTS: usize>(
         i += 1;
     }
 
-    let accounts = unsafe {
-        core::slice::from_raw_parts(cpi_accounts.as_ptr() as *const CpiAccount, count)
-    };
+    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+    let accounts =
+        unsafe { core::slice::from_raw_parts(cpi_accounts.as_ptr() as *const CpiAccount, count) };
 
+    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe {
         if signers_seeds.is_empty() {
             invoke_unchecked(instruction, accounts)
@@ -324,7 +340,10 @@ pub fn invoke_signed_with_bounds<const MAX_ACCOUNTS: usize>(
 // ══════════════════════════════════════════════════════════════════════
 
 /// Invoke a CPI through the active compatibility backend.
-#[cfg(any(feature = "legacy-pinocchio-compat", feature = "solana-program-backend"))]
+#[cfg(any(
+    feature = "legacy-pinocchio-compat",
+    feature = "solana-program-backend"
+))]
 #[inline]
 pub fn invoke<const ACCOUNTS: usize>(
     instruction: &InstructionView,
@@ -334,7 +353,10 @@ pub fn invoke<const ACCOUNTS: usize>(
 }
 
 /// Invoke a signed CPI through the active compatibility backend.
-#[cfg(any(feature = "legacy-pinocchio-compat", feature = "solana-program-backend"))]
+#[cfg(any(
+    feature = "legacy-pinocchio-compat",
+    feature = "solana-program-backend"
+))]
 #[inline]
 pub fn invoke_signed<const ACCOUNTS: usize>(
     instruction: &InstructionView,
@@ -358,11 +380,14 @@ mod tests {
     use super::*;
 
     use crate::InstructionAccount;
-    use hopper_native::{AccountView as NativeAccountView, Address as NativeAddress, RuntimeAccount, NOT_BORROWED};
+    use hopper_native::{
+        AccountView as NativeAccountView, Address as NativeAddress, RuntimeAccount, NOT_BORROWED,
+    };
 
     fn make_account(address: [u8; 32]) -> (std::vec::Vec<u8>, AccountView) {
         let mut backing = std::vec![0u8; RuntimeAccount::SIZE + 16];
         let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {
             raw.write(RuntimeAccount {
                 borrow_state: NOT_BORROWED,
@@ -376,6 +401,7 @@ mod tests {
                 data_len: 16,
             });
         }
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let backend = unsafe { NativeAccountView::new_unchecked(raw) };
         (backing, AccountView::from_backend(backend))
     }

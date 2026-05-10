@@ -64,18 +64,20 @@ pub struct ValidationContext<'a> {
 impl<'a> ValidationContext<'a> {
     /// Create a new validation context.
     #[inline(always)]
-    pub fn new(
-        program_id: &'a Address,
-        accounts: &'a [AccountView],
-        data: &'a [u8],
-    ) -> Self {
-        Self { program_id, accounts, data }
+    pub fn new(program_id: &'a Address, accounts: &'a [AccountView], data: &'a [u8]) -> Self {
+        Self {
+            program_id,
+            accounts,
+            data,
+        }
     }
 
     /// Get an account by index.
     #[inline(always)]
     pub fn account(&self, index: usize) -> Result<&'a AccountView, ProgramError> {
-        self.accounts.get(index).ok_or(ProgramError::NotEnoughAccountKeys)
+        self.accounts
+            .get(index)
+            .ok_or(ProgramError::NotEnoughAccountKeys)
     }
 
     /// Require all account addresses to be unique.
@@ -258,7 +260,10 @@ pub fn require_unique_signer_accounts() -> impl Fn(&ValidationContext) -> Progra
 
 /// Validate that an account has at least `min` lamports.
 #[inline(always)]
-pub fn require_lamports_gte(index: usize, min: u64) -> impl Fn(&ValidationContext) -> ProgramResult {
+pub fn require_lamports_gte(
+    index: usize,
+    min: u64,
+) -> impl Fn(&ValidationContext) -> ProgramResult {
     move |ctx| {
         let acc = ctx.account(index)?;
         crate::check::check_lamports_gte(acc, min)

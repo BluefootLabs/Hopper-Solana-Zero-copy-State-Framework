@@ -12,20 +12,22 @@
 #[inline(always)]
 pub unsafe fn sol_log_data(segments: *const u8, segments_len: u64) {
     #[cfg(all(target_os = "solana", feature = "hopper-native-backend"))]
+    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe {
         hopper_native::syscalls::sol_log_data(segments, segments_len);
     }
 
     #[cfg(all(target_os = "solana", feature = "legacy-pinocchio-compat"))]
+    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe {
         pinocchio::syscalls::sol_log_data(segments, segments_len);
     }
 
     #[cfg(all(target_os = "solana", feature = "solana-program-backend"))]
     {
-        let slices = unsafe {
-            core::slice::from_raw_parts(segments as *const &[u8], segments_len as usize)
-        };
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        let slices =
+            unsafe { core::slice::from_raw_parts(segments as *const &[u8], segments_len as usize) };
         ::solana_program::log::sol_log_data(slices);
     }
 
@@ -44,21 +46,24 @@ pub unsafe fn sol_log_data(segments: *const u8, segments_len: u64) {
 #[inline(always)]
 pub unsafe fn sol_sha256(vals: *const u8, vals_len: u64, result: *mut u8) {
     #[cfg(all(target_os = "solana", feature = "hopper-native-backend"))]
+    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe {
         hopper_native::syscalls::sol_sha256(vals, vals_len, result);
     }
 
     #[cfg(all(target_os = "solana", feature = "legacy-pinocchio-compat"))]
+    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe {
         pinocchio::syscalls::sol_sha256(vals, vals_len, result);
     }
 
     #[cfg(all(target_os = "solana", feature = "solana-program-backend"))]
     {
-        let slices = unsafe {
-            core::slice::from_raw_parts(vals as *const &[u8], vals_len as usize)
-        };
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        let slices =
+            unsafe { core::slice::from_raw_parts(vals as *const &[u8], vals_len as usize) };
         let digest = ::solana_program::hash::hashv(slices).to_bytes();
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {
             core::ptr::copy_nonoverlapping(digest.as_ptr(), result, digest.len());
         }

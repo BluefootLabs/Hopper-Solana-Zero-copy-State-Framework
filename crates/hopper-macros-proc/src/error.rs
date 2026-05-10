@@ -43,7 +43,11 @@ pub fn expand(_attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream>
     let enum_name = input.ident.clone();
     let enum_name_str = enum_name.to_string();
 
-    if input.variants.iter().any(|v| !matches!(v.fields, Fields::Unit)) {
+    if input
+        .variants
+        .iter()
+        .any(|v| !matches!(v.fields, Fields::Unit))
+    {
         return Err(syn::Error::new_spanned(
             &enum_name,
             "#[hopper::error] only supports unit variants",
@@ -60,9 +64,13 @@ pub fn expand(_attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream>
         let vname_str = vname.to_string();
 
         let code = match &v.discriminant {
-            Some((_, syn::Expr::Lit(syn::ExprLit { lit: syn::Lit::Int(li), .. }))) => {
-                li.base10_parse::<u32>()?
-            }
+            Some((
+                _,
+                syn::Expr::Lit(syn::ExprLit {
+                    lit: syn::Lit::Int(li),
+                    ..
+                }),
+            )) => li.base10_parse::<u32>()?,
             Some((_, other)) => {
                 return Err(syn::Error::new_spanned(
                     other,
@@ -76,7 +84,11 @@ pub fn expand(_attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream>
         for a in &v.attrs {
             if a.path().is_ident("invariant") {
                 if let Ok(nv) = a.meta.require_name_value() {
-                    if let syn::Expr::Lit(syn::ExprLit { lit: syn::Lit::Str(s), .. }) = &nv.value {
+                    if let syn::Expr::Lit(syn::ExprLit {
+                        lit: syn::Lit::Str(s),
+                        ..
+                    }) = &nv.value
+                    {
                         invariant_name = s.value();
                     }
                 }
@@ -209,5 +221,9 @@ fn derive_code(enum_name: &str, variant_name: &str) -> u32 {
     let d = h.finalize();
     // Low 31 bits only, to keep space for user-explicit high-bit codes.
     let code = u32::from_le_bytes([d[0], d[1], d[2], d[3]]) & 0x7FFF_FFFF;
-    if code == 0 { 1 } else { code }
+    if code == 0 {
+        1
+    } else {
+        code
+    }
 }

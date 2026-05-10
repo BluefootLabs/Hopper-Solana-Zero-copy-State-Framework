@@ -54,6 +54,10 @@ impl<'info> Signer<'info> {
     /// the `check_signer` first, so by the time the wrapper is
     /// constructed the invariant already holds.
     #[inline(always)]
+    ///
+    /// # Safety
+    ///
+    /// Caller must uphold the invariants documented for this unsafe API before invoking it.
     pub unsafe fn new_unchecked(view: &'info AccountView) -> Self {
         Self { inner: view }
     }
@@ -112,6 +116,10 @@ impl<'info, T: crate::layout::LayoutContract> Account<'info, T> {
     /// Wrap an already-validated `AccountView`. Unsafe because the
     /// caller must have verified owner + layout header.
     #[inline(always)]
+    ///
+    /// # Safety
+    ///
+    /// Caller must uphold the invariants documented for this unsafe API before invoking it.
     pub unsafe fn new_unchecked(view: &'info AccountView) -> Self {
         Self {
             inner: view,
@@ -178,6 +186,10 @@ impl<'info, T: crate::layout::LayoutContract> InitAccount<'info, T> {
     /// by a lifecycle helper later in this instruction. Unsafe
     /// because no state invariants hold for the account at wrap time.
     #[inline(always)]
+    ///
+    /// # Safety
+    ///
+    /// Caller must uphold the invariants documented for this unsafe API before invoking it.
     pub unsafe fn new_unchecked(view: &'info AccountView) -> Self {
         Self {
             inner: view,
@@ -195,7 +207,9 @@ impl<'info, T: crate::layout::LayoutContract> InitAccount<'info, T> {
     /// layout for reads / writes. The caller is responsible for
     /// ordering this after the lifecycle helper.
     #[inline(always)]
-    pub fn load_after_init(&self) -> Result<crate::borrow::RefMut<'_, T>, crate::error::ProgramError> {
+    pub fn load_after_init(
+        &self,
+    ) -> Result<crate::borrow::RefMut<'_, T>, crate::error::ProgramError> {
         self.inner.load_mut::<T>()
     }
 }

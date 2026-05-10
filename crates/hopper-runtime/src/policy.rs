@@ -194,7 +194,10 @@ mod tests {
     #[test]
     fn default_policy_is_strict() {
         assert_eq!(HopperProgramPolicy::default(), HopperProgramPolicy::STRICT);
-        assert_eq!(HopperProgramPolicy::default_policy(), HopperProgramPolicy::STRICT);
+        assert_eq!(
+            HopperProgramPolicy::default_policy(),
+            HopperProgramPolicy::STRICT
+        );
     }
 
     #[test]
@@ -202,7 +205,10 @@ mod tests {
         assert!(!HopperInstructionPolicy::INHERIT.unsafe_memory);
         assert!(!HopperInstructionPolicy::INHERIT.skip_token_checks);
         assert_eq!(HopperInstructionPolicy::INHERIT.ctx_args, 0);
-        assert_eq!(HopperInstructionPolicy::default(), HopperInstructionPolicy::INHERIT);
+        assert_eq!(
+            HopperInstructionPolicy::default(),
+            HopperInstructionPolicy::INHERIT
+        );
     }
 
     #[test]

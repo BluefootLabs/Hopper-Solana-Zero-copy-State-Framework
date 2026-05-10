@@ -64,12 +64,18 @@ const _: () = assert!(core::mem::align_of::<TypedAddress<()>>() == 1);
 #[cfg(feature = "hopper-native-backend")]
 unsafe impl<T: 'static> ::hopper_runtime::__hopper_native::bytemuck::Zeroable for TypedAddress<T> {}
 #[cfg(feature = "hopper-native-backend")]
-unsafe impl<T: Copy + 'static> ::hopper_runtime::__hopper_native::bytemuck::Pod for TypedAddress<T> {}
+unsafe impl<T: Copy + 'static> ::hopper_runtime::__hopper_native::bytemuck::Pod
+    for TypedAddress<T>
+{
+}
 
 // SAFETY: #[repr(transparent)] over [u8; 32], all bit patterns valid, align 1.
 unsafe impl<T: Copy + 'static> crate::account::Pod for TypedAddress<T> {}
 // Audit Step 5 seal: Hopper-authored primitive.
-unsafe impl<T: Copy + 'static> ::hopper_runtime::__sealed::HopperZeroCopySealed for TypedAddress<T> {}
+unsafe impl<T: Copy + 'static> ::hopper_runtime::__sealed::HopperZeroCopySealed
+    for TypedAddress<T>
+{
+}
 
 impl<T> crate::account::FixedLayout for TypedAddress<T> {
     const SIZE: usize = 32;
@@ -95,9 +101,8 @@ impl<T> TypedAddress<T> {
     #[inline(always)]
     pub fn from_account(account: &hopper_runtime::AccountView) -> Self {
         // SAFETY: Address is [u8; 32].
-        let bytes = unsafe {
-            *(account.address() as *const hopper_runtime::Address as *const [u8; 32])
-        };
+        let bytes =
+            unsafe { *(account.address() as *const hopper_runtime::Address as *const [u8; 32]) };
         Self::new(bytes)
     }
 
@@ -123,9 +128,8 @@ impl<T> TypedAddress<T> {
     #[inline(always)]
     pub fn eq_account(&self, account: &hopper_runtime::AccountView) -> bool {
         // SAFETY: Address is [u8; 32], same as our bytes.
-        let addr = unsafe {
-            &*(account.address() as *const hopper_runtime::Address as *const [u8; 32])
-        };
+        let addr =
+            unsafe { &*(account.address() as *const hopper_runtime::Address as *const [u8; 32]) };
         crate::check::keys_eq_fast(&self.bytes, addr)
     }
 

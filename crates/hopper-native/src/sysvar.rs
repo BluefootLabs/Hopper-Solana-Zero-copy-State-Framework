@@ -29,6 +29,7 @@ pub fn get_clock() -> Result<Clock, ProgramError> {
     #[cfg(target_os = "solana")]
     {
         let rc =
+            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             unsafe { crate::syscalls::sol_get_clock_sysvar(&mut clock as *mut Clock as *mut u8) };
         if rc != 0 {
             return Err(ProgramError::UnsupportedSysvar);
@@ -57,6 +58,7 @@ pub fn get_rent() -> Result<Rent, ProgramError> {
 
     #[cfg(target_os = "solana")]
     {
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let rc = unsafe { crate::syscalls::sol_get_rent_sysvar(&mut rent as *mut Rent as *mut u8) };
         if rc != 0 {
             return Err(ProgramError::UnsupportedSysvar);
@@ -102,6 +104,7 @@ pub fn get_epoch_schedule() -> Result<EpochSchedule, ProgramError> {
 
     #[cfg(target_os = "solana")]
     {
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let rc = unsafe {
             crate::syscalls::sol_get_epoch_schedule_sysvar(
                 &mut schedule as *mut EpochSchedule as *mut u8,

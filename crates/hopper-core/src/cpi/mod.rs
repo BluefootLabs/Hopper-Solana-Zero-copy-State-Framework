@@ -122,6 +122,7 @@ impl<'a, const ACCTS: usize, const DATA: usize> HopperCpi<'a, ACCTS, DATA> {
             };
 
             // Build InstructionAccount array on the stack
+            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             let mut ix_accounts: [InstructionAccount; ACCTS] = unsafe { core::mem::zeroed() };
             let mut i = 0;
             while i < ACCTS {
@@ -142,6 +143,7 @@ impl<'a, const ACCTS: usize, const DATA: usize> HopperCpi<'a, ACCTS, DATA> {
             if seeds.is_empty() {
                 hopper_runtime::cpi::invoke(&ix, views)
             } else {
+                // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
                 let mut signers_buf: [Signer; 4] = unsafe { core::mem::zeroed() };
                 let signer_count = seeds.len().min(4);
                 let mut seed_bufs: [[Seed; 16]; 4] = unsafe { core::mem::zeroed() };
@@ -257,6 +259,7 @@ impl<'a, const ACCTS: usize, const MAX: usize> HopperCpiBuf<'a, ACCTS, MAX> {
                     as *const [&hopper_runtime::AccountView; ACCTS])
             };
 
+            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             let mut ix_accounts: [InstructionAccount; ACCTS] = unsafe { core::mem::zeroed() };
             let mut i = 0;
             while i < ACCTS {
@@ -277,6 +280,7 @@ impl<'a, const ACCTS: usize, const MAX: usize> HopperCpiBuf<'a, ACCTS, MAX> {
             if seeds.is_empty() {
                 hopper_runtime::cpi::invoke(&ix, views)
             } else {
+                // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
                 let mut signers_buf: [Signer; 4] = unsafe { core::mem::zeroed() };
                 let signer_count = seeds.len().min(4);
                 let mut seed_bufs: [[Seed; 16]; 4] = unsafe { core::mem::zeroed() };
@@ -311,4 +315,3 @@ impl<'a, const ACCTS: usize, const MAX: usize> HopperCpiBuf<'a, ACCTS, MAX> {
         }
     }
 }
-

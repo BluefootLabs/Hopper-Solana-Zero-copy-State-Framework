@@ -82,7 +82,11 @@ impl<'a> PhasedFrame<'a, Unresolved> {
     /// })?;
     /// ```
     #[inline]
-    pub fn resolve<T, F>(self, min_accounts: usize, f: F) -> Result<ResolvedFrame<'a, T>, ProgramError>
+    pub fn resolve<T, F>(
+        self,
+        min_accounts: usize,
+        f: F,
+    ) -> Result<ResolvedFrame<'a, T>, ProgramError>
     where
         F: FnOnce(&'a [AccountView], &'a Address) -> Result<T, ProgramError>,
     {
@@ -276,6 +280,8 @@ impl<'a, 'f, T> ExecutionContext<'a, 'f, T> {
     /// Get raw AccountView by index.
     #[inline(always)]
     pub fn account(&self, index: usize) -> Result<&'a AccountView, ProgramError> {
-        self.accounts.get(index).ok_or(ProgramError::NotEnoughAccountKeys)
+        self.accounts
+            .get(index)
+            .ok_or(ProgramError::NotEnoughAccountKeys)
     }
 }

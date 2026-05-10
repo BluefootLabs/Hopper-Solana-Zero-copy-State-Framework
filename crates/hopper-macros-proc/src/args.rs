@@ -24,15 +24,16 @@
 
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{parse2, parse::Parser, Fields, ItemStruct, LitInt, LitStr, Meta, Token, punctuated::Punctuated};
+use syn::{
+    parse::Parser, parse2, punctuated::Punctuated, Fields, ItemStruct, LitInt, LitStr, Meta, Token,
+};
 
 pub fn expand(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> {
     let input: ItemStruct = parse2(item)?;
 
-    let metas: Punctuated<Meta, Token![,]> =
-        Punctuated::<Meta, Token![,]>::parse_terminated
-            .parse2(attr.clone())
-            .unwrap_or_default();
+    let metas: Punctuated<Meta, Token![,]> = Punctuated::<Meta, Token![,]>::parse_terminated
+        .parse2(attr.clone())
+        .unwrap_or_default();
 
     let mut cu_hint: u32 = 0;
     let mut allow_tail = false;
@@ -40,7 +41,11 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> 
         match m {
             Meta::NameValue(nv) => {
                 if nv.path.is_ident("cu") {
-                    if let syn::Expr::Lit(syn::ExprLit { lit: syn::Lit::Int(li), .. }) = &nv.value {
+                    if let syn::Expr::Lit(syn::ExprLit {
+                        lit: syn::Lit::Int(li),
+                        ..
+                    }) = &nv.value
+                    {
                         cu_hint = li.base10_parse::<u32>()?;
                     }
                 }
@@ -85,7 +90,10 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> 
             &f.ident.as_ref().unwrap().to_string(),
             f.ident.as_ref().unwrap().span(),
         );
-        let canonical = LitStr::new(&canonical_ty_name(&f.ty), f.ty.clone().into_token_stream_span());
+        let canonical = LitStr::new(
+            &canonical_ty_name(&f.ty),
+            f.ty.clone().into_token_stream_span(),
+        );
         let ty = &f.ty;
         descriptor_entries.push(quote! {
             ::hopper::hopper_schema::ArgDescriptor {
@@ -256,7 +264,11 @@ fn canonical_ty_name(ty: &syn::Type) -> String {
 }
 
 fn describe_array_len(expr: &syn::Expr) -> String {
-    if let syn::Expr::Lit(syn::ExprLit { lit: syn::Lit::Int(li), .. }) = expr {
+    if let syn::Expr::Lit(syn::ExprLit {
+        lit: syn::Lit::Int(li),
+        ..
+    }) = expr
+    {
         li.base10_digits().to_string()
     } else {
         "?".to_string()
@@ -271,7 +283,12 @@ trait IntoTokenStreamSpan {
 impl IntoTokenStreamSpan for syn::Type {
     fn into_token_stream_span(self) -> proc_macro2::Span {
         match &self {
-            syn::Type::Path(p) => p.path.segments.last().map(|s| s.ident.span()).unwrap_or_else(proc_macro2::Span::call_site),
+            syn::Type::Path(p) => p
+                .path
+                .segments
+                .last()
+                .map(|s| s.ident.span())
+                .unwrap_or_else(proc_macro2::Span::call_site),
             _ => proc_macro2::Span::call_site(),
         }
     }
@@ -345,8 +362,7 @@ mod args_tests {
         );
         assert!(expanded.contains("validate_tags"));
         assert!(
-            expanded.contains(". flag . validate_tag")
-                || expanded.contains(".flag.validate_tag")
+            expanded.contains(". flag . validate_tag") || expanded.contains(".flag.validate_tag")
         );
     }
 }

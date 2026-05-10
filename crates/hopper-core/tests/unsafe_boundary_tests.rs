@@ -10,14 +10,12 @@
 
 extern crate alloc;
 
-use hopper_core::account::{
-    pod_from_bytes, pod_from_bytes_mut, pod_read, pod_write,
-    VerifiedAccount, VerifiedAccountMut,
-    AccountHeader, HEADER_LEN,
-    FixedLayout, Pod,
-    SegmentDescriptor, SegmentTable, SEGMENT_DESC_SIZE,
-};
 use hopper_core::abi::*;
+use hopper_core::account::{
+    pod_from_bytes, pod_from_bytes_mut, pod_read, pod_write, AccountHeader, FixedLayout, Pod,
+    SegmentDescriptor, SegmentTable, VerifiedAccount, VerifiedAccountMut, HEADER_LEN,
+    SEGMENT_DESC_SIZE,
+};
 use hopper_runtime::error::ProgramError;
 
 // =====================================================================
@@ -46,7 +44,7 @@ impl FixedLayout for TinyPod {
 #[derive(Clone, Copy, PartialEq, Eq)]
 #[repr(C)]
 struct MockLayout {
-    header: [u8; 16],  // simulated header area
+    header: [u8; 16], // simulated header area
     balance: [u8; 8],
     owner: [u8; 8],
 }
@@ -275,11 +273,19 @@ fn header_from_undersized_buffer_rejects() {
 
 #[test]
 fn header_roundtrip_all_fields() {
-    let hdr = AccountHeader::new(1, 2, 0x0304, [0xA0, 0xA1, 0xA2, 0xA3, 0xA4, 0xA5, 0xA6, 0xA7]);
+    let hdr = AccountHeader::new(
+        1,
+        2,
+        0x0304,
+        [0xA0, 0xA1, 0xA2, 0xA3, 0xA4, 0xA5, 0xA6, 0xA7],
+    );
     assert_eq!(hdr.disc, 1);
     assert_eq!(hdr.version, 2);
     assert_eq!(hdr.flags_u16(), 0x0304);
-    assert_eq!(hdr.layout_id, [0xA0, 0xA1, 0xA2, 0xA3, 0xA4, 0xA5, 0xA6, 0xA7]);
+    assert_eq!(
+        hdr.layout_id,
+        [0xA0, 0xA1, 0xA2, 0xA3, 0xA4, 0xA5, 0xA6, 0xA7]
+    );
     assert_eq!(hdr.reserved, [0; 4]);
 }
 
@@ -311,15 +317,12 @@ fn header_fingerprint_mismatch_detection() {
 fn header_wire_layout_matches_expected() {
     let hdr = AccountHeader::new(0xDD, 0x03, 0x1234, [1, 2, 3, 4, 5, 6, 7, 8]);
     let bytes: &[u8] = unsafe {
-        core::slice::from_raw_parts(
-            &hdr as *const AccountHeader as *const u8,
-            HEADER_LEN,
-        )
+        core::slice::from_raw_parts(&hdr as *const AccountHeader as *const u8, HEADER_LEN)
     };
-    assert_eq!(bytes[0], 0xDD);       // disc
-    assert_eq!(bytes[1], 0x03);       // version
-    assert_eq!(bytes[2], 0x34);       // flags LE low
-    assert_eq!(bytes[3], 0x12);       // flags LE high
+    assert_eq!(bytes[0], 0xDD); // disc
+    assert_eq!(bytes[1], 0x03); // version
+    assert_eq!(bytes[2], 0x34); // flags LE low
+    assert_eq!(bytes[3], 0x12); // flags LE high
     assert_eq!(&bytes[4..12], &[1, 2, 3, 4, 5, 6, 7, 8]); // layout_id
     assert_eq!(&bytes[12..16], &[0, 0, 0, 0]); // reserved
 }
@@ -441,7 +444,10 @@ fn wire_bool_roundtrip() {
 #[test]
 fn wire_u64_is_little_endian_raw() {
     let w = WireU64::new(0x0102030405060708);
-    assert_eq!(*w.as_bytes(), [0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01]);
+    assert_eq!(
+        *w.as_bytes(),
+        [0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01]
+    );
 }
 
 #[test]

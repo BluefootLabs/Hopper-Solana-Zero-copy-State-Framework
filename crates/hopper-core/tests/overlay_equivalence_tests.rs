@@ -10,13 +10,11 @@
 
 extern crate alloc;
 
-use hopper_core::account::{
-    pod_from_bytes, pod_from_bytes_mut, pod_read, pod_write,
-    VerifiedAccount, VerifiedAccountMut,
-    AccountHeader, HEADER_LEN,
-    FixedLayout, Pod,
-};
 use hopper_core::abi::*;
+use hopper_core::account::{
+    pod_from_bytes, pod_from_bytes_mut, pod_read, pod_write, AccountHeader, FixedLayout, Pod,
+    VerifiedAccount, VerifiedAccountMut, HEADER_LEN,
+};
 
 // =====================================================================
 // Test fixtures
@@ -166,7 +164,12 @@ fn overlay_at_mut_write_matches_pod_write() {
 
     // Method 2: pod_write
     {
-        let val = SmallPod { x: 0xAA, y: 0xBB, z: 0xCC, w: 0xDD };
+        let val = SmallPod {
+            x: 0xAA,
+            y: 0xBB,
+            z: 0xCC,
+            w: 0xDD,
+        };
         pod_write(&mut data2[40..], &val).unwrap();
     }
 
@@ -267,9 +270,7 @@ fn header_overlay_matches_constructor() {
     let constructed = AccountHeader::new(5, 3, 0xABCD, [1, 2, 3, 4, 5, 6, 7, 8]);
 
     // Serialize to bytes
-    let bytes: [u8; HEADER_LEN] = unsafe {
-        core::mem::transmute(constructed)
-    };
+    let bytes: [u8; HEADER_LEN] = unsafe { core::mem::transmute(constructed) };
 
     // Overlay back
     let overlaid: &AccountHeader = pod_from_bytes(&bytes).unwrap();

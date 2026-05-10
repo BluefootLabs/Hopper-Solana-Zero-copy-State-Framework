@@ -129,7 +129,10 @@ impl SegmentRole {
     /// Cache and Index rebuilds typically are not.
     #[inline(always)]
     pub const fn should_emit_receipt(&self) -> bool {
-        matches!(*self, Self::Core | Self::Extension | Self::Journal | Self::Audit | Self::Shard)
+        matches!(
+            *self,
+            Self::Core | Self::Extension | Self::Journal | Self::Audit | Self::Shard
+        )
     }
 
     /// Whether this segment is relevant to operator dashboards and Manager output.
@@ -138,7 +141,10 @@ impl SegmentRole {
     /// Cache and Index are derived and typically hidden from operators.
     #[inline(always)]
     pub const fn is_operator_relevant(&self) -> bool {
-        matches!(*self, Self::Core | Self::Extension | Self::Journal | Self::Audit | Self::Shard)
+        matches!(
+            *self,
+            Self::Core | Self::Extension | Self::Journal | Self::Audit | Self::Shard
+        )
     }
 
     /// Whether this segment potentially holds financial state.

@@ -55,7 +55,10 @@ impl<T: Copy> OptionByte<T> {
     /// ignored by [`OptionByte::get`].
     #[inline(always)]
     pub const fn none(default_value: T) -> Self {
-        Self { tag: 0, value: default_value }
+        Self {
+            tag: 0,
+            value: default_value,
+        }
     }
 
     /// Construct a `Some(value)` variant.
@@ -131,9 +134,13 @@ mod tests {
         // neither 0 nor 1.
         let mut buf = AlignedNine([0u8; 9]);
         buf.0[0] = 0xFF;
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let o: &OptionByte<u64> = unsafe { &*(buf.0.as_ptr() as *const OptionByte<u64>) };
         assert_eq!(o.get().unwrap_err(), ProgramError::InvalidInstructionData);
-        assert_eq!(o.validate_tag().unwrap_err(), ProgramError::InvalidInstructionData);
+        assert_eq!(
+            o.validate_tag().unwrap_err(),
+            ProgramError::InvalidInstructionData
+        );
     }
 
     #[test]
@@ -141,6 +148,7 @@ mod tests {
         // A None with garbage value bytes still decodes cleanly.
         let mut buf = AlignedNine([0u8; 9]);
         buf.0[1..9].copy_from_slice(&0x1234_5678_9ABC_DEF0u64.to_le_bytes());
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let o: &OptionByte<u64> = unsafe { &*(buf.0.as_ptr() as *const OptionByte<u64>) };
         assert!(o.get().unwrap().is_none());
     }

@@ -768,11 +768,7 @@ macro_rules! hopper_verify_pda {
             )
         } else {
             // Fallback: no bump field, use regular verify
-            match $crate::hopper_core::check::find_and_verify_pda(
-                $account,
-                $seeds,
-                $program_id,
-            ) {
+            match $crate::hopper_core::check::find_and_verify_pda($account, $seeds, $program_id) {
                 Ok(_bump) => Ok(()),
                 Err(e) => Err(e),
             }
@@ -1106,11 +1102,14 @@ macro_rules! _hopper_virtual_slot {
     };
     // writable only (no owner check)
     ($vs:expr, $slot:literal, $idx:literal, writable) => {
-        $vs.set_slot($slot, $crate::hopper_core::virtual_state::VirtualSlot {
-            account_index: $idx,
-            require_owned: false,
-            require_writable: true,
-        })
+        $vs.set_slot(
+            $slot,
+            $crate::hopper_core::virtual_state::VirtualSlot {
+                account_index: $idx,
+                require_owned: false,
+                require_writable: true,
+            },
+        )
     };
     // bare (no constraints)
     ($vs:expr, $slot:literal, $idx:literal) => {
@@ -1211,8 +1210,8 @@ macro_rules! hopper_assert_fingerprint {
 
 // Re-export dispatch from core
 pub use hopper_core;
-pub use hopper_schema;
 pub use hopper_runtime;
+pub use hopper_schema;
 pub use hopper_system;
 
 /// Compile-time assertion for safe manual `Pod` implementations.
@@ -1240,15 +1239,21 @@ macro_rules! const_assert_pod {
         const _: () = assert!(
             core::mem::align_of::<$ty>() == 1,
             concat!(
-                "Pod type `", stringify!($ty), "` must have alignment 1 for zero-copy safety. ",
+                "Pod type `",
+                stringify!($ty),
+                "` must have alignment 1 for zero-copy safety. ",
                 "Ensure all fields use alignment-1 wire types ([u8; N], WireU64, etc.)."
             )
         );
         const _: () = assert!(
             core::mem::size_of::<$ty>() == $size,
             concat!(
-                "Pod type `", stringify!($ty), "` size mismatch: ",
-                "expected ", stringify!($size), " bytes"
+                "Pod type `",
+                stringify!($ty),
+                "` size mismatch: ",
+                "expected ",
+                stringify!($size),
+                " bytes"
             )
         );
     };
@@ -1728,26 +1733,25 @@ macro_rules! _hopper_field_parse {
     };
     ($account:expr, $program_id:expr, (mut account < $layout:ty >)) => {
         $crate::hopper_core::accounts::HopperAccount::<$layout>::from_account_mut(
-            $account, $program_id,
+            $account,
+            $program_id,
         )
     };
     ($account:expr, $program_id:expr, (account < $layout:ty >)) => {
-        $crate::hopper_core::accounts::HopperAccount::<$layout>::from_account(
-            $account, $program_id,
-        )
+        $crate::hopper_core::accounts::HopperAccount::<$layout>::from_account($account, $program_id)
     };
     ($account:expr, $program_id:expr, (program)) => {
         $crate::hopper_core::accounts::ProgramRef::from_account($account)
     };
     ($account:expr, $program_id:expr, (unchecked)) => {
         Ok::<_, $crate::hopper_runtime::error::ProgramError>(
-            $crate::hopper_core::accounts::UncheckedAccount::new($account)
+            $crate::hopper_core::accounts::UncheckedAccount::new($account),
         )
     };
     ($account:expr, $program_id:expr, (mut unchecked)) => {{
         $crate::hopper_core::check::check_writable($account)?;
         Ok::<_, $crate::hopper_runtime::error::ProgramError>(
-            $crate::hopper_core::accounts::UncheckedAccount::new($account)
+            $crate::hopper_core::accounts::UncheckedAccount::new($account),
         )
     }};
 }
@@ -1757,47 +1761,103 @@ macro_rules! _hopper_field_parse {
 #[doc(hidden)]
 #[macro_export]
 macro_rules! _hopper_field_kind_name {
-    ((mut signer)) => { "Signer" };
-    ((signer)) => { "Signer" };
-    ((mut account < $layout:ty >)) => { "HopperAccount" };
-    ((account < $layout:ty >)) => { "HopperAccount" };
-    ((program)) => { "ProgramRef" };
-    ((unchecked)) => { "Unchecked" };
-    ((mut unchecked)) => { "Unchecked" };
+    ((mut signer)) => {
+        "Signer"
+    };
+    ((signer)) => {
+        "Signer"
+    };
+    ((mut account < $layout:ty >)) => {
+        "HopperAccount"
+    };
+    ((account < $layout:ty >)) => {
+        "HopperAccount"
+    };
+    ((program)) => {
+        "ProgramRef"
+    };
+    ((unchecked)) => {
+        "Unchecked"
+    };
+    ((mut unchecked)) => {
+        "Unchecked"
+    };
 }
 
 #[doc(hidden)]
 #[macro_export]
 macro_rules! _hopper_field_is_mut {
-    ((mut signer)) => { true };
-    ((signer)) => { false };
-    ((mut account < $layout:ty >)) => { true };
-    ((account < $layout:ty >)) => { false };
-    ((program)) => { false };
-    ((unchecked)) => { false };
-    ((mut unchecked)) => { true };
+    ((mut signer)) => {
+        true
+    };
+    ((signer)) => {
+        false
+    };
+    ((mut account < $layout:ty >)) => {
+        true
+    };
+    ((account < $layout:ty >)) => {
+        false
+    };
+    ((program)) => {
+        false
+    };
+    ((unchecked)) => {
+        false
+    };
+    ((mut unchecked)) => {
+        true
+    };
 }
 
 #[doc(hidden)]
 #[macro_export]
 macro_rules! _hopper_field_is_signer {
-    ((mut signer)) => { true };
-    ((signer)) => { true };
-    ((mut account < $layout:ty >)) => { false };
-    ((account < $layout:ty >)) => { false };
-    ((program)) => { false };
-    ((unchecked)) => { false };
-    ((mut unchecked)) => { false };
+    ((mut signer)) => {
+        true
+    };
+    ((signer)) => {
+        true
+    };
+    ((mut account < $layout:ty >)) => {
+        false
+    };
+    ((account < $layout:ty >)) => {
+        false
+    };
+    ((program)) => {
+        false
+    };
+    ((unchecked)) => {
+        false
+    };
+    ((mut unchecked)) => {
+        false
+    };
 }
 
 #[doc(hidden)]
 #[macro_export]
 macro_rules! _hopper_field_layout_name {
-    ((mut signer)) => { None };
-    ((signer)) => { None };
-    ((mut account < $layout:ty >)) => { Some(stringify!($layout)) };
-    ((account < $layout:ty >)) => { Some(stringify!($layout)) };
-    ((program)) => { None };
-    ((unchecked)) => { None };
-    ((mut unchecked)) => { None };
+    ((mut signer)) => {
+        None
+    };
+    ((signer)) => {
+        None
+    };
+    ((mut account < $layout:ty >)) => {
+        Some(stringify!($layout))
+    };
+    ((account < $layout:ty >)) => {
+        Some(stringify!($layout))
+    };
+    ((program)) => {
+        None
+    };
+    ((unchecked)) => {
+        None
+    };
+    ((mut unchecked)) => {
+        None
+    };
 }

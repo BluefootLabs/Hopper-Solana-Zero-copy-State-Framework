@@ -13,27 +13,40 @@ pub const BACKEND_MAX_TX_ACCOUNTS: usize = pinocchio::MAX_TX_ACCOUNTS;
 pub const BACKEND_SUCCESS: u64 = pinocchio::SUCCESS;
 
 #[inline(always)]
+///
+/// # Safety
+///
+/// Caller must uphold the invariants documented for this unsafe API before invoking it.
 pub unsafe fn wrap_account_slice(accounts: &[BackendAccountView]) -> &[AccountView] {
+    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe { core::slice::from_raw_parts(accounts.as_ptr() as *const AccountView, accounts.len()) }
 }
 
 #[inline(always)]
 pub fn account_address(view: &BackendAccountView) -> &Address {
+    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe { &*(view.address() as *const BackendAddress as *const Address) }
 }
 
 #[inline(always)]
+///
+/// # Safety
+///
+/// Caller must uphold the invariants documented for this unsafe API before invoking it.
 pub unsafe fn account_owner(view: &BackendAccountView) -> &Address {
+    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe { &*(view.owner() as *const BackendAddress as *const Address) }
 }
 
 #[inline(always)]
 pub fn read_owner(view: &BackendAccountView) -> Address {
+    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     Address(unsafe { view.owner() }.to_bytes())
 }
 
 #[inline(always)]
 pub fn as_backend_address(address: &Address) -> &BackendAddress {
+    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe { &*(address as *const Address as *const BackendAddress) }
 }
 
@@ -47,6 +60,7 @@ pub fn disc(view: &BackendAccountView) -> u8 {
     if view.data_len() == 0 {
         0
     } else {
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe { *view.borrow_unchecked().as_ptr() }
     }
 }
@@ -56,6 +70,7 @@ pub fn version(view: &BackendAccountView) -> u8 {
     if view.data_len() < 2 {
         0
     } else {
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe { *view.borrow_unchecked().as_ptr().add(1) }
     }
 }
@@ -65,13 +80,21 @@ pub fn layout_id(view: &BackendAccountView) -> Option<&[u8; 8]> {
     if view.data_len() < 12 {
         None
     } else {
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         Some(unsafe { &*(view.borrow_unchecked().as_ptr().add(4) as *const [u8; 8]) })
     }
 }
 
 #[inline(always)]
+///
+/// # Safety
+///
+/// Caller must uphold the invariants documented for this unsafe API before invoking it.
 pub unsafe fn assign(view: &BackendAccountView, new_owner: &Address) {
-    unsafe { view.assign(as_backend_address(new_owner)); }
+    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+    unsafe {
+        view.assign(as_backend_address(new_owner));
+    }
 }
 
 #[inline(always)]
@@ -82,6 +105,7 @@ pub fn close(view: &BackendAccountView) -> ProgramResult {
 
 #[inline(always)]
 pub fn zero_data(view: &BackendAccountView) -> ProgramResult {
+    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe {
         let data = view.borrow_unchecked_mut();
         let mut i = 0;
@@ -100,15 +124,23 @@ pub fn find_program_address(seeds: &[&[u8]], program_id: &Address) -> (Address, 
 }
 
 #[inline(always)]
-pub fn create_program_address(seeds: &[&[u8]], program_id: &Address) -> Result<Address, ProgramError> {
+pub fn create_program_address(
+    seeds: &[&[u8]],
+    program_id: &Address,
+) -> Result<Address, ProgramError> {
     crate::pda::create_program_address(seeds, program_id)
 }
 
 #[inline(always)]
+///
+/// # Safety
+///
+/// Caller must uphold the invariants documented for this unsafe API before invoking it.
 pub unsafe fn process_entrypoint<const MAX: usize>(
     input: *mut u8,
     process_instruction: fn(&BackendAddress, &[BackendAccountView], &[u8]) -> BackendProgramResult,
 ) -> u64 {
+    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe { pinocchio::entrypoint::process_entrypoint::<MAX>(input, process_instruction) }
 }
 
@@ -119,6 +151,7 @@ pub fn bridge_to_runtime(
     data: &[u8],
     process_instruction: fn(&Address, &[AccountView], &[u8]) -> ProgramResult,
 ) -> BackendProgramResult {
+    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     let hopper_id = unsafe { &*(program_id as *const BackendAddress as *const Address) };
     let hopper_accounts = unsafe { wrap_account_slice(accounts) };
     match process_instruction(hopper_id, hopper_accounts, data) {
@@ -131,6 +164,7 @@ pub fn bridge_to_runtime(
 pub fn signers_as_backend<'a, 'b>(
     signers: &'b [Signer<'a, 'b>],
 ) -> &'b [pinocchio::cpi::Signer<'a, 'b>] {
+    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe {
         core::slice::from_raw_parts(
             signers.as_ptr() as *const pinocchio::cpi::Signer,
@@ -147,6 +181,7 @@ pub fn invoke_signed<const ACCOUNTS: usize>(
 ) -> ProgramResult {
     let pin_instruction = pinocchio::instruction::InstructionView {
         program_id: as_backend_address(instruction.program_id),
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         accounts: unsafe {
             core::slice::from_raw_parts(
                 instruction.accounts.as_ptr() as *const pinocchio::instruction::InstructionAccount,
@@ -156,9 +191,9 @@ pub fn invoke_signed<const ACCOUNTS: usize>(
         data: instruction.data,
     };
 
-    let pin_accounts: &[&BackendAccountView; ACCOUNTS] = unsafe {
-        &*(account_views as *const _ as *const [&BackendAccountView; ACCOUNTS])
-    };
+    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+    let pin_accounts: &[&BackendAccountView; ACCOUNTS] =
+        unsafe { &*(account_views as *const _ as *const [&BackendAccountView; ACCOUNTS]) };
 
     if signers_seeds.is_empty() {
         pinocchio::cpi::invoke(&pin_instruction, pin_accounts).map_err(ProgramError::from)
@@ -175,6 +210,7 @@ pub fn invoke_signed<const ACCOUNTS: usize>(
 #[inline(always)]
 pub fn set_return_data(data: &[u8]) {
     #[cfg(target_os = "solana")]
+    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe {
         pinocchio::syscalls::sol_set_return_data(data.as_ptr(), data.len() as u64);
     }

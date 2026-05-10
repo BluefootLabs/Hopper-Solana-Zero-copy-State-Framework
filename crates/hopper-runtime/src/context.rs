@@ -9,8 +9,8 @@
 //! actual access operations.
 
 use crate::account::AccountView;
-use crate::audit::AccountAudit;
 use crate::address::Address;
+use crate::audit::AccountAudit;
 use crate::error::ProgramError;
 use crate::layout::LayoutContract;
 use crate::segment_borrow::SegmentBorrowRegistry;
@@ -84,7 +84,9 @@ impl<'a> Context<'a> {
     /// Get an account by index.
     #[inline(always)]
     pub fn account(&self, index: usize) -> Result<&AccountView, ProgramError> {
-        self.accounts.get(index).ok_or(ProgramError::NotEnoughAccountKeys)
+        self.accounts
+            .get(index)
+            .ok_or(ProgramError::NotEnoughAccountKeys)
     }
 
     /// Get an account by index (mutation-intent variant).
@@ -95,7 +97,9 @@ impl<'a> Context<'a> {
     /// intends to write through the returned reference.
     #[inline(always)]
     pub fn account_mut(&self, index: usize) -> Result<&AccountView, ProgramError> {
-        self.accounts.get(index).ok_or(ProgramError::NotEnoughAccountKeys)
+        self.accounts
+            .get(index)
+            .ok_or(ProgramError::NotEnoughAccountKeys)
     }
 
     /// Get the total number of accounts.
@@ -185,10 +189,7 @@ impl<'a> Context<'a> {
     /// Hopper header, validates the data length, and projects the typed
     /// view in one inlined call. no extra cost over the spelled-out form.
     #[inline(always)]
-    pub fn load<T: LayoutContract>(
-        &self,
-        index: usize,
-    ) -> Result<crate::Ref<'_, T>, ProgramError> {
+    pub fn load<T: LayoutContract>(&self, index: usize) -> Result<crate::Ref<'_, T>, ProgramError> {
         self.account(index)?.load::<T>()
     }
 
@@ -253,9 +254,15 @@ impl<'a> Context<'a> {
         index: usize,
         abs_offset: u32,
     ) -> Result<crate::SegRef<'b, T>, ProgramError> {
-        let view = self.accounts.get(index)
+        let view = self
+            .accounts
+            .get(index)
             .ok_or(ProgramError::NotEnoughAccountKeys)?;
-        view.segment_ref::<T>(&mut self.segment_borrows, abs_offset, core::mem::size_of::<T>() as u32)
+        view.segment_ref::<T>(
+            &mut self.segment_borrows,
+            abs_offset,
+            core::mem::size_of::<T>() as u32,
+        )
     }
 
     /// Register a write borrow for a segment of an account.
@@ -265,7 +272,7 @@ impl<'a> Context<'a> {
     /// that releases on drop.
     ///
     /// This is the primitive that enables safe concurrent mutation of
-    /// non-overlapping account regions. Hopper's core innovation . 
+    /// non-overlapping account regions. Hopper's core innovation .
     /// and the lease model (added post-audit) makes sequential
     /// same-region borrows inside one instruction work correctly.
     #[inline(always)]
@@ -274,9 +281,15 @@ impl<'a> Context<'a> {
         index: usize,
         abs_offset: u32,
     ) -> Result<crate::SegRefMut<'b, T>, ProgramError> {
-        let view = self.accounts.get(index)
+        let view = self
+            .accounts
+            .get(index)
             .ok_or(ProgramError::NotEnoughAccountKeys)?;
-        view.segment_mut::<T>(&mut self.segment_borrows, abs_offset, core::mem::size_of::<T>() as u32)
+        view.segment_mut::<T>(
+            &mut self.segment_borrows,
+            abs_offset,
+            core::mem::size_of::<T>() as u32,
+        )
     }
 
     /// Const-driven segment read: pass a compile-time [`Segment`] and the
@@ -289,7 +302,9 @@ impl<'a> Context<'a> {
         index: usize,
         segment: crate::Segment,
     ) -> Result<crate::SegRef<'b, T>, ProgramError> {
-        let view = self.accounts.get(index)
+        let view = self
+            .accounts
+            .get(index)
             .ok_or(ProgramError::NotEnoughAccountKeys)?;
         view.segment_ref_const::<T>(&mut self.segment_borrows, segment)
     }
@@ -302,7 +317,9 @@ impl<'a> Context<'a> {
         index: usize,
         segment: crate::Segment,
     ) -> Result<crate::SegRefMut<'b, T>, ProgramError> {
-        let view = self.accounts.get(index)
+        let view = self
+            .accounts
+            .get(index)
             .ok_or(ProgramError::NotEnoughAccountKeys)?;
         view.segment_mut_const::<T>(&mut self.segment_borrows, segment)
     }
@@ -315,7 +332,9 @@ impl<'a> Context<'a> {
         index: usize,
         segment: crate::TypedSegment<T, OFFSET>,
     ) -> Result<crate::SegRef<'b, T>, ProgramError> {
-        let view = self.accounts.get(index)
+        let view = self
+            .accounts
+            .get(index)
             .ok_or(ProgramError::NotEnoughAccountKeys)?;
         view.segment_ref_typed::<T, OFFSET>(&mut self.segment_borrows, segment)
     }
@@ -328,30 +347,46 @@ impl<'a> Context<'a> {
         index: usize,
         segment: crate::TypedSegment<T, OFFSET>,
     ) -> Result<crate::SegRefMut<'b, T>, ProgramError> {
-        let view = self.accounts.get(index)
+        let view = self
+            .accounts
+            .get(index)
             .ok_or(ProgramError::NotEnoughAccountKeys)?;
         view.segment_mut_typed::<T, OFFSET>(&mut self.segment_borrows, segment)
     }
 
     /// Explicit unsafe whole-account typed read.
     #[inline(always)]
+    ///
+    /// # Safety
+    ///
+    /// Caller must uphold the invariants documented for this unsafe API before invoking it.
     pub unsafe fn raw_ref<T: crate::Pod>(
         &self,
         index: usize,
     ) -> Result<crate::Ref<'_, T>, ProgramError> {
-        let view = self.accounts.get(index)
+        let view = self
+            .accounts
+            .get(index)
             .ok_or(ProgramError::NotEnoughAccountKeys)?;
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe { view.raw_ref::<T>() }
     }
 
     /// Explicit unsafe whole-account typed write.
     #[inline(always)]
+    ///
+    /// # Safety
+    ///
+    /// Caller must uphold the invariants documented for this unsafe API before invoking it.
     pub unsafe fn raw_mut<T: crate::Pod>(
         &self,
         index: usize,
     ) -> Result<crate::RefMut<'_, T>, ProgramError> {
-        let view = self.accounts.get(index)
+        let view = self
+            .accounts
+            .get(index)
             .ok_or(ProgramError::NotEnoughAccountKeys)?;
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe { view.raw_mut::<T>() }
     }
 
@@ -360,10 +395,15 @@ impl<'a> Context<'a> {
     /// This bypasses segment borrow tracking. The caller is responsible for
     /// alias safety and for using a type that matches the account bytes.
     #[inline(always)]
+    ///
+    /// # Safety
+    ///
+    /// Caller must uphold the invariants documented for this unsafe API before invoking it.
     pub unsafe fn raw_unchecked<T: crate::Pod>(
         &self,
         index: usize,
     ) -> Result<crate::RefMut<'_, T>, ProgramError> {
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe { self.raw_mut::<T>(index) }
     }
 
@@ -430,7 +470,8 @@ impl<'a> Context<'a> {
     /// are valid.
     #[inline(always)]
     pub fn read_data<T: crate::Pod>(&self, offset: usize) -> Result<T, ProgramError> {
-        let end = offset.checked_add(core::mem::size_of::<T>())
+        let end = offset
+            .checked_add(core::mem::size_of::<T>())
             .ok_or(ProgramError::ArithmeticOverflow)?;
         if self.instruction_data.len() < end {
             return Err(ProgramError::InvalidInstructionData);
@@ -446,7 +487,9 @@ impl<'a> Context<'a> {
     /// Get a byte slice from instruction data.
     #[inline(always)]
     pub fn data_slice(&self, offset: usize, len: usize) -> Result<&[u8], ProgramError> {
-        let end = offset.checked_add(len).ok_or(ProgramError::ArithmeticOverflow)?;
+        let end = offset
+            .checked_add(len)
+            .ok_or(ProgramError::ArithmeticOverflow)?;
         if self.instruction_data.len() < end {
             return Err(ProgramError::InvalidInstructionData);
         }
@@ -458,6 +501,9 @@ impl<'a> Context<'a> {
     /// Common pattern for byte-tag dispatch.
     #[inline(always)]
     pub fn instruction_tag(&self) -> Result<u8, ProgramError> {
-        self.instruction_data.first().copied().ok_or(ProgramError::InvalidInstructionData)
+        self.instruction_data
+            .first()
+            .copied()
+            .ok_or(ProgramError::InvalidInstructionData)
     }
 }

@@ -1,9 +1,9 @@
 //! Account reader with header-aware field access.
 
-use hopper_runtime::error::ProgramError;
-use super::header::{AccountHeader, HEADER_LEN};
 use super::cursor::SliceCursor;
+use super::header::{AccountHeader, HEADER_LEN};
 use super::pod::pod_from_bytes;
+use hopper_runtime::error::ProgramError;
 
 /// Header-aware read-only account reader.
 ///

@@ -86,7 +86,13 @@ fn cmd_list(args: &[String]) {
     });
     let rpc_url = rpc.unwrap_or_else(|| crate::rpc::resolve_rpc_url(None));
 
-    if let Err(e) = run_list(&rpc_url, &program_id, max_addresses, only_layout.as_deref(), json_out) {
+    if let Err(e) = run_list(
+        &rpc_url,
+        &program_id,
+        max_addresses,
+        only_layout.as_deref(),
+        json_out,
+    ) {
         eprintln!("hopper manager accounts list failed: {e}");
         process::exit(1);
     }
@@ -100,9 +106,8 @@ fn run_list(
     json_out: bool,
 ) -> Result<(), String> {
     // Fetch the manifest using the same helper invoke/explain use.
-    let manifest_json =
-        super::manager_invoke::try_fetch_manifest(rpc_url, program_id)
-            .map_err(|e| format!("fetch manifest: {e}"))?;
+    let manifest_json = super::manager_invoke::try_fetch_manifest(rpc_url, program_id)
+        .map_err(|e| format!("fetch manifest: {e}"))?;
 
     let layouts = parse_layouts(&manifest_json)?;
     if layouts.is_empty() {
@@ -122,13 +127,8 @@ fn run_list(
 
     let mut results: BTreeMap<String, LayoutResult> = BTreeMap::new();
     for layout in &targets {
-        let hits = get_program_accounts_by_disc(
-            rpc_url,
-            program_id,
-            layout.disc,
-            layout.byte_size,
-        )
-        .map_err(|e| format!("getProgramAccounts({}): {e}", layout.name))?;
+        let hits = get_program_accounts_by_disc(rpc_url, program_id, layout.disc, layout.byte_size)
+            .map_err(|e| format!("getProgramAccounts({}): {e}", layout.name))?;
         results.insert(
             layout.name.clone(),
             LayoutResult {
@@ -158,8 +158,8 @@ struct LayoutEntry {
 }
 
 fn parse_layouts(manifest_json: &str) -> Result<Vec<LayoutEntry>, String> {
-    let value: serde_json::Value = serde_json::from_str(manifest_json)
-        .map_err(|e| format!("parse manifest: {e}"))?;
+    let value: serde_json::Value =
+        serde_json::from_str(manifest_json).map_err(|e| format!("parse manifest: {e}"))?;
     let arr = value
         .get("layouts")
         .and_then(|v| v.as_array())
@@ -178,14 +178,15 @@ fn parse_layouts(manifest_json: &str) -> Result<Vec<LayoutEntry>, String> {
         // Byte size may be reported as `body_size` plus a 16-byte
         // header, or as a direct `len` field, depending on the
         // schema version. Both branches cover the real shape.
-        let byte_size = layout
-            .get("len")
-            .and_then(|v| v.as_u64())
-            .or_else(|| {
-                let body = layout.get("body_size").and_then(|v| v.as_u64())?;
-                Some(body + 16)
-            });
-        out.push(LayoutEntry { name, disc, byte_size });
+        let byte_size = layout.get("len").and_then(|v| v.as_u64()).or_else(|| {
+            let body = layout.get("body_size").and_then(|v| v.as_u64())?;
+            Some(body + 16)
+        });
+        out.push(LayoutEntry {
+            name,
+            disc,
+            byte_size,
+        });
     }
     Ok(out)
 }
@@ -220,12 +221,10 @@ fn get_program_accounts_by_disc(
         .set("Content-Type", "application/json")
         .send_string(&body)
         .map_err(|e| format!("http: {e}"))?;
-    let text = resp
-        .into_string()
-        .map_err(|e| format!("read body: {e}"))?;
+    let text = resp.into_string().map_err(|e| format!("read body: {e}"))?;
 
-    let parsed: serde_json::Value = serde_json::from_str(&text)
-        .map_err(|e| format!("parse RPC response: {e}"))?;
+    let parsed: serde_json::Value =
+        serde_json::from_str(&text).map_err(|e| format!("parse RPC response: {e}"))?;
     if let Some(err) = parsed.get("error") {
         return Err(format!("rpc error: {err}"));
     }
@@ -261,16 +260,26 @@ fn render_table(results: &BTreeMap<String, LayoutResult>, max_addresses: usize) 
         .unwrap_or(8);
     println!(
         "{:<name_w$}  {:>5}  {:>8}  {:>7}  sample addresses",
-        "layout", "disc", "bytes", "count",
+        "layout",
+        "disc",
+        "bytes",
+        "count",
         name_w = name_w
     );
     println!(
         "{:-<name_w$}  {:-<5}  {:-<8}  {:-<7}  {:-<40}",
-        "", "", "", "", "",
+        "",
+        "",
+        "",
+        "",
+        "",
         name_w = name_w
     );
     for (name, r) in results {
-        let size = r.byte_size.map(|n| n.to_string()).unwrap_or_else(|| "?".into());
+        let size = r
+            .byte_size
+            .map(|n| n.to_string())
+            .unwrap_or_else(|| "?".into());
         let count = r.addresses.len();
         let sample: Vec<&str> = r
             .addresses

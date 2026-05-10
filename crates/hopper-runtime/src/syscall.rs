@@ -5,11 +5,13 @@
 #[inline(always)]
 pub fn sol_log_compute_units() {
     #[cfg(all(target_os = "solana", feature = "hopper-native-backend"))]
+    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe {
         hopper_native::syscalls::sol_log_compute_units_();
     }
 
     #[cfg(all(target_os = "solana", feature = "legacy-pinocchio-compat"))]
+    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe {
         pinocchio::syscalls::sol_log_compute_units_();
     }

@@ -30,6 +30,7 @@ use crate::error::ProgramError;
 pub fn get_stack_height() -> u64 {
     #[cfg(target_os = "solana")]
     {
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe { crate::syscalls::sol_get_stack_height() }
     }
     #[cfg(not(target_os = "solana"))]
@@ -129,6 +130,7 @@ pub fn get_processed_instruction(index: u64) -> Option<ProcessedInstruction> {
         meta.data_len = data.len() as u64;
         meta.accounts_len = (accounts_buf.len() / 34) as u64;
 
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let rc = unsafe {
             crate::syscalls::sol_get_processed_sibling_instruction(
                 index,

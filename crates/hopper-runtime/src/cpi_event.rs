@@ -70,11 +70,7 @@ pub const EVENT_AUTHORITY_SEED: &[u8] = b"__hopper_event_authority";
 /// // sentinel handler accepts the CPI and returns Ok(()).
 /// ```
 #[inline]
-pub fn encode_event_cpi(
-    event_tag: u8,
-    event_payload: &[u8],
-    out: &mut [u8],
-) -> Option<usize> {
+pub fn encode_event_cpi(event_tag: u8, event_payload: &[u8], out: &mut [u8]) -> Option<usize> {
     let total = 2 + 1 + event_payload.len();
     if out.len() < total {
         return None;

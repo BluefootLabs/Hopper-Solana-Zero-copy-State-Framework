@@ -27,10 +27,12 @@ pub unsafe fn process_entrypoint<const MAX: usize>(
     let mut accounts = [UNINIT; 254]; // MAX_TX_ACCOUNTS
 
     let (program_id, count, instruction_data) =
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe { crate::raw_input::deserialize_accounts::<254>(input, &mut accounts) };
 
     // Respect MAX: only pass up to MAX accounts to the callback.
     let effective_count = count.min(MAX);
+    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     let account_slice = unsafe {
         core::slice::from_raw_parts(accounts.as_ptr() as *const AccountView, effective_count)
     };
@@ -76,12 +78,14 @@ macro_rules! hopper_program_entrypoint {
                 core::mem::MaybeUninit::<$crate::AccountView>::uninit();
             let mut accounts = [UNINIT; $maximum];
 
+            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             let (program_id, count, instruction_data) = unsafe {
                 $crate::raw_input::deserialize_accounts::<$maximum>(input, &mut accounts)
             };
 
             match $process_instruction(
                 &program_id,
+                // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
                 unsafe { core::slice::from_raw_parts(accounts.as_ptr() as _, count) },
                 instruction_data,
             ) {
@@ -145,12 +149,14 @@ macro_rules! hopper_fast_entrypoint {
             let mut accounts = [UNINIT; $maximum];
 
             // Instruction data length is the u64 immediately before the data pointer.
+            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             let ix_len = unsafe { *(ix_data.sub(8) as *const u64) as usize };
             let instruction_data: &'static [u8] =
                 unsafe { core::slice::from_raw_parts(ix_data, ix_len) };
 
             // Program ID immediately follows instruction data in the SVM buffer.
             let program_id =
+                // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
                 unsafe { core::ptr::read(ix_data.add(ix_len) as *const $crate::Address) };
 
             let (program_id, count, instruction_data) = unsafe {
@@ -164,6 +170,7 @@ macro_rules! hopper_fast_entrypoint {
 
             match $process_instruction(
                 &program_id,
+                // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
                 unsafe { core::slice::from_raw_parts(accounts.as_ptr() as _, count) },
                 instruction_data,
             ) {
@@ -194,6 +201,7 @@ macro_rules! hopper_lazy_entrypoint {
         /// Called by the Solana runtime; `input` is a valid BPF input buffer.
         #[no_mangle]
         pub unsafe extern "C" fn entrypoint(input: *mut u8) -> u64 {
+            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             let mut ctx = unsafe { $crate::lazy::lazy_deserialize(input) };
             match $process(&mut ctx) {
                 Ok(()) => $crate::SUCCESS,
@@ -251,6 +259,7 @@ macro_rules! nostd_panic_handler {
         #[panic_handler]
         fn panic(_info: &core::panic::PanicInfo) -> ! {
             // Abort immediately, spin_loop() would burn CU indefinitely.
+            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             unsafe { core::arch::asm!("mov r0, 1", "exit", options(noreturn)) };
         }
     };

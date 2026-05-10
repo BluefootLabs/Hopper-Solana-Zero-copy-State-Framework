@@ -41,7 +41,7 @@
 
 use proc_macro2::{Span, TokenStream};
 use quote::quote;
-use syn::{parse2, parse::Parser, punctuated::Punctuated, Fields, ItemStruct, LitStr, Meta, Token};
+use syn::{parse::Parser, parse2, punctuated::Punctuated, Fields, ItemStruct, LitStr, Meta, Token};
 
 pub fn expand(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> {
     let input: ItemStruct = parse2(item)?;
@@ -54,7 +54,11 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> 
     for m in &metas {
         if let Meta::NameValue(nv) = m {
             if nv.path.is_ident("field") {
-                if let syn::Expr::Lit(syn::ExprLit { lit: syn::Lit::Str(s), .. }) = &nv.value {
+                if let syn::Expr::Lit(syn::ExprLit {
+                    lit: syn::Lit::Str(s),
+                    ..
+                }) = &nv.value
+                {
                     field_name = Some(s.value());
                 }
             }
@@ -80,7 +84,12 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> 
     };
     let tail_field = fields
         .iter()
-        .find(|f| f.ident.as_ref().map(|i| i.to_string() == tail_name).unwrap_or(false))
+        .find(|f| {
+            f.ident
+                .as_ref()
+                .map(|i| i.to_string() == tail_name)
+                .unwrap_or(false)
+        })
         .ok_or_else(|| {
             syn::Error::new_spanned(
                 &input.ident,

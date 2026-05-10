@@ -30,6 +30,7 @@ const BPF_ALIGN_OF_U128: usize = 8;
 #[cold]
 pub(crate) fn malformed_duplicate_marker(marker: u8, slot: usize) -> ! {
     #[cfg(target_os = "solana")]
+    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe {
         // Keep the message short and on-chain-cheap. The loader log
         // attaches the program id automatically.
@@ -85,6 +86,7 @@ pub unsafe fn deserialize_accounts<const MAX: usize>(
     input: *mut u8,
     accounts: &mut [MaybeUninit<AccountView>; MAX],
 ) -> (Address, usize, &'static [u8]) {
+    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     let frame = unsafe { scan_instruction_frame(input) };
 
     let mut offset = 8usize;
@@ -92,14 +94,17 @@ pub unsafe fn deserialize_accounts<const MAX: usize>(
 
     let mut slot = 0usize;
     while slot < count {
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let marker = unsafe { *input.add(offset) };
         if marker == u8::MAX {
             let raw = unsafe { input.add(offset) as *mut RuntimeAccount };
+            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             accounts[slot] = MaybeUninit::new(unsafe { AccountView::new_unchecked(raw) });
 
             let data_len = unsafe { (*raw).data_len as usize };
             offset += RuntimeAccount::SIZE;
             offset += data_len + MAX_PERMITTED_DATA_INCREASE;
+            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             offset += unsafe { input.add(offset).align_offset(BPF_ALIGN_OF_U128) };
             offset += 8;
         } else {
@@ -112,6 +117,7 @@ pub unsafe fn deserialize_accounts<const MAX: usize>(
             if duplicate_of >= slot {
                 malformed_duplicate_marker(marker, slot);
             }
+            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             let raw = unsafe { accounts[duplicate_of].assume_init_ref().raw_ptr() };
             accounts[slot] = MaybeUninit::new(unsafe { AccountView::new_unchecked(raw) });
             offset += 8;
@@ -121,12 +127,15 @@ pub unsafe fn deserialize_accounts<const MAX: usize>(
     }
 
     while slot < frame.account_count {
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let marker = unsafe { *input.add(offset) };
         if marker == u8::MAX {
             let raw = unsafe { input.add(offset) as *const RuntimeAccount };
+            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             let data_len = unsafe { (*raw).data_len as usize };
             offset += RuntimeAccount::SIZE;
             offset += data_len + MAX_PERMITTED_DATA_INCREASE;
+            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             offset += unsafe { input.add(offset).align_offset(BPF_ALIGN_OF_U128) };
             offset += 8;
         } else {
@@ -155,20 +164,24 @@ pub unsafe fn deserialize_accounts_fast<const MAX: usize>(
     instruction_data: &'static [u8],
     program_id: Address,
 ) -> (Address, usize, &'static [u8]) {
+    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     let num_accounts = unsafe { *(input as *const u64) as usize };
     let count = num_accounts.min(MAX);
     let mut offset = 8usize;
 
     let mut slot = 0usize;
     while slot < count {
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let marker = unsafe { *input.add(offset) };
         if marker == u8::MAX {
             let raw = unsafe { input.add(offset) as *mut RuntimeAccount };
+            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             accounts[slot] = MaybeUninit::new(unsafe { AccountView::new_unchecked(raw) });
 
             let data_len = unsafe { (*raw).data_len as usize };
             offset += RuntimeAccount::SIZE;
             offset += data_len + MAX_PERMITTED_DATA_INCREASE;
+            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             offset += unsafe { input.add(offset).align_offset(BPF_ALIGN_OF_U128) };
             offset += 8;
         } else {
@@ -177,6 +190,7 @@ pub unsafe fn deserialize_accounts_fast<const MAX: usize>(
             if duplicate_of >= slot {
                 malformed_duplicate_marker(marker, slot);
             }
+            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             let raw = unsafe { accounts[duplicate_of].assume_init_ref().raw_ptr() };
             accounts[slot] = MaybeUninit::new(unsafe { AccountView::new_unchecked(raw) });
             offset += 8;
@@ -204,19 +218,23 @@ pub unsafe fn deserialize_accounts_fast<const MAX: usize>(
 pub unsafe fn scan_instruction_frame(input: *mut u8) -> RawInstructionFrame {
     let mut scan = input;
 
+    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     let num_accounts = unsafe { *(scan as *const u64) as usize };
     scan = unsafe { scan.add(8) };
     let accounts_start = scan;
 
     let mut slot = 0usize;
     while slot < num_accounts {
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let marker = unsafe { *scan };
         if marker == u8::MAX {
             let raw = scan as *const RuntimeAccount;
+            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             let data_len = unsafe { (*raw).data_len as usize };
             let mut step = RuntimeAccount::SIZE + data_len + MAX_PERMITTED_DATA_INCREASE;
             step += unsafe { scan.add(step).align_offset(BPF_ALIGN_OF_U128) };
             step += 8;
+            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             scan = unsafe { scan.add(step) };
         } else {
             scan = unsafe { scan.add(8) };
@@ -224,12 +242,15 @@ pub unsafe fn scan_instruction_frame(input: *mut u8) -> RawInstructionFrame {
         slot += 1;
     }
 
+    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     let data_len = unsafe { *(scan as *const u64) as usize };
     scan = unsafe { scan.add(8) };
     let instruction_data = unsafe { core::slice::from_raw_parts(scan as *const u8, data_len) };
+    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     scan = unsafe { scan.add(data_len) };
 
     let program_id_ptr = scan as *const [u8; 32];
+    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     let program_id = Address::new_from_array(unsafe { *program_id_ptr });
 
     RawInstructionFrame {

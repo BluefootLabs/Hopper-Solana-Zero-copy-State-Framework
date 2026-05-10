@@ -3,7 +3,7 @@ Not theory. Not positioning.
 
 We are now building the thing that makes Hopper:
 
-# 👉 **strictly better than Pinocchio in real-world usage**
+# 👉 **a framework-layer alternative to Pinocchio with explicit safety and DX tradeoffs**
 
 ---
 
@@ -23,10 +23,10 @@ But it also forces:
 
 # 👉 Hopper runtime safety layer =
 
-# **Pinocchio execution
+# **Pinocchio-class access model
 
 * enforced safety
-* zero extra cost**
+* measured, documented validation cost**
 
 ---
 
@@ -34,7 +34,7 @@ But it also forces:
 
 Every line of this system must:
 
-# 👉 compile to the same runtime shape as Pinocchio
+# 👉 compile to the same low-level access shape where benchmarks prove it
 
 No:
 
@@ -161,7 +161,7 @@ impl SegmentBorrowRegistry {
 
 # 👉 eliminates aliasing bugs
 
-# 👉 enforces safety Pinocchio doesn’t have
+# 👉 adds framework-level safety Pinocchio leaves to authors
 
 ---
 
@@ -252,7 +252,7 @@ No allocation
 No copy
 Direct pointer
 
-Same as Pinocchio
+Same pointer-access shape
 👉 but now **guarded**
 
 ---
@@ -414,7 +414,7 @@ Ask:
 
 ## If YES:
 
-# 👉 Hopper replaces Pinocchio
+# 👉 Hopper covers framework-layer use cases where safety/schema tooling matter
 
 ---
 
@@ -434,7 +434,7 @@ with zero-copy, zero-cost guarantees**
 
 ---
 
-# 👉 You are building the thing that can actually replace Pinocchio.
+# 👉 You are building the framework layer for teams that want Pinocchio-class access with Hopper safety.
 
 [1]: https://learn.blueshift.gg/en/courses/pinocchio-for-dummies/pinocchio-101?utm_source=chatgpt.com "Pinocchio 101 | Pinocchio for Dummies | Blueshift"
 
@@ -1357,9 +1357,9 @@ pub fn balance_mut(&mut self) -> Result<&mut u64, ProgramError> {
 
 ---
 
-## Does Hopper match Pinocchio?
+## Does Hopper target Pinocchio-class access shape?
 
-# 👉 YES (execution path identical)
+# 👉 YES, where the measured Hopper path uses direct pointer access
 
 ---
 
@@ -1369,9 +1369,9 @@ pub fn balance_mut(&mut self) -> Result<&mut u64, ProgramError> {
 
 ---
 
-## Does Hopper exceed both?
+## What does Hopper add?
 
-# 👉 YES (segment + safety + introspection)
+# 👉 Segment safety, schema tooling, lifecycle helpers, and introspection
 
 ---
 
@@ -1379,7 +1379,7 @@ pub fn balance_mut(&mut self) -> Result<&mut u64, ProgramError> {
 
 You are now building:
 
-# 👉 **Pinocchio execution
+# 👉 **Pinocchio-class access model
 
 * Quasar ergonomics
 * Hopper safety + segmentation**
@@ -1437,7 +1437,7 @@ You should **NOT choose one**.
 * segment system
 * borrow registry
 
-👉 This is your **Pinocchio killer layer**
+👉 This is your **Pinocchio-class core layer**
 
 ---
 
@@ -1448,7 +1448,7 @@ You should **NOT choose one**.
 * optional
 * removable
 
-👉 This is your **Quasar killer layer**
+👉 This is your **Quasar-comparable DX layer**
 
 ---
 
@@ -2131,11 +2131,11 @@ This is where Hopper either **proves itself** or stays theoretical.
 
 You asked for:
 
-> killer example + benchmark
+> representative example + benchmark
 
 So I’m giving you exactly what actually matters in the Solana ecosystem:
 
-# 👉 **A real program + measurable proof Hopper beats Anchor/Quasar and rivals Pinocchio**
+# 👉 **A real program + measurable proof for Hopper's framework-layer tradeoffs**
 
 ---
 
@@ -2143,18 +2143,18 @@ So I’m giving you exactly what actually matters in the Solana ecosystem:
 
 Ground truth:
 
-* Pinocchio = **lowest CU, manual everything**
-* Quasar Lang = **near-Pinocchio CU with macros**
+* Pinocchio = **minimal manual substrate**
+* Quasar Lang = **Pinocchio-style access with macros**
 * Anchor = **high overhead (serialization, abstractions)** ([Helius][1])
 
 And we know:
 
 * Zero-copy + pointer access is the key to CU efficiency ([Quicknode][2])
-* Pinocchio can reduce CU by up to ~90% vs Anchor in real workloads ([Switchboard Documentation][3])
+* Pinocchio can reduce CU materially versus Anchor in real workloads ([Switchboard Documentation][3])
 
 ---
 
-# 🧬 THE KILLER EXAMPLE
+# 🧬 THE REPRESENTATIVE EXAMPLE
 
 We do NOT build something trivial.
 
@@ -2250,7 +2250,7 @@ ptr + offset → &mut u64
 
 ---
 
-# 👉 Same as Pinocchio, but safer
+# 👉 Same pointer-access shape, with checked Hopper invariants
 
 ---
 
@@ -2318,30 +2318,22 @@ Measure:
 
 ---
 
-# 📊 EXPECTED RESULTS
+## Reporting rules
 
----
+Release-facing benchmark tables must come from `hopper-bench` artifacts.
+Publish Hopper-vs-Quasar numbers only until an Anza Pinocchio target is measured
+from the same lockfile, SBF toolchain, Mollusk version, seed set, feature flags,
+release profile, and command line.
 
-| Framework | CU              |
-| --------- | --------------- |
-| Anchor    | ~2000 CU        |
-| Quasar    | ~300 CU         |
-| Pinocchio | ~200-300 CU     |
-| Hopper    | **~220-320 CU** |
+## Why Hopper targets Pinocchio-class access:
 
----
-
-## Why Hopper ≈ Pinocchio:
-
-* same pointer math
-* no serialization
+* direct pointer math
+* no serialization on the hot path
 * no heap
 
----
+## Expected Hopper overhead sources:
 
-## Slight overhead:
-
-* borrow registry loop (tiny)
+* bounded borrow registry loop
 
 ---
 
@@ -2359,7 +2351,7 @@ Even a few CU difference:
 
 ---
 
-# 🔥 SECOND TEST (THIS IS YOUR KILLER)
+# 🔥 SECOND TEST (THIS IS YOUR DIFFERENTIATOR)
 
 ---
 
@@ -2527,7 +2519,7 @@ ComputeBudgetProgram::set_compute_unit_limit(...)
 
 # 👉 Hopper =
 
-* Pinocchio-level execution
+* Pinocchio-class access model
 * Quasar-level DX
 * * safety
 * * segmentation

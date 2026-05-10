@@ -97,16 +97,21 @@ impl<'a> RemainingAccounts<'a> {
     /// Build a strict accessor. Iteration rejects duplicates.
     #[inline(always)]
     pub fn strict(declared: &'a [&'a AccountView], remaining: &'a [&'a AccountView]) -> Self {
-        Self { declared, remaining, mode: RemainingMode::Strict }
+        Self {
+            declared,
+            remaining,
+            mode: RemainingMode::Strict,
+        }
     }
 
     /// Build a passthrough accessor. Iteration preserves duplicates.
     #[inline(always)]
-    pub fn passthrough(
-        declared: &'a [&'a AccountView],
-        remaining: &'a [&'a AccountView],
-    ) -> Self {
-        Self { declared, remaining, mode: RemainingMode::Passthrough }
+    pub fn passthrough(declared: &'a [&'a AccountView], remaining: &'a [&'a AccountView]) -> Self {
+        Self {
+            declared,
+            remaining,
+            mode: RemainingMode::Passthrough,
+        }
     }
 
     /// Length of the remaining slice, irrespective of mode.

@@ -135,7 +135,11 @@ fn print_usage() {
 }
 
 fn is_cargo_expand_installed() -> bool {
-    let Ok(output) = Command::new("cargo").arg("expand").arg("--version").output() else {
+    let Ok(output) = Command::new("cargo")
+        .arg("expand")
+        .arg("--version")
+        .output()
+    else {
         return false;
     };
     output.status.success()

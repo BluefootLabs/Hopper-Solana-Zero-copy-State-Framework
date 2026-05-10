@@ -159,27 +159,23 @@ pub fn cmd_verify(args: &[String]) {
             eprintln!();
             eprintln!(
                 "FAIL ({}): {} of {} layouts not anchored in {}",
-                if opts.release { "--release" } else { "--strict" },
+                if opts.release {
+                    "--release"
+                } else {
+                    "--strict"
+                },
                 missing_count,
                 layouts.len(),
                 so_input.display()
             );
-            eprintln!(
-                "Layouts declared via `hopper_layout!` do not currently emit `#[used]`"
-            );
-            eprintln!(
-                "anchors. Switch to `#[hopper::state]` or skip `--strict` for a"
-            );
+            eprintln!("Layouts declared via `hopper_layout!` do not currently emit `#[used]`");
+            eprintln!("anchors. Switch to `#[hopper::state]` or skip `--strict` for a");
             eprintln!("manifest-only check.");
             process::exit(1);
         }
         println!();
-        println!(
-            "  note: layouts without anchors may be legitimately missing (LTO,"
-        );
-        println!(
-            "  `hopper_layout!` path). Run with --strict to treat missing as fatal."
-        );
+        println!("  note: layouts without anchors may be legitimately missing (LTO,");
+        println!("  `hopper_layout!` path). Run with --strict to treat missing as fatal.");
     }
 
     println!();
@@ -247,7 +243,9 @@ impl VerifyOptions {
     fn so_input(&self, cwd: &Path) -> Result<Option<PathBuf>, String> {
         if self.so.is_none() && self.package.is_none() {
             if self.release {
-                return Err("--release requires a .so via --so <path> or --package <name>".to_string());
+                return Err(
+                    "--release requires a .so via --so <path> or --package <name>".to_string(),
+                );
             }
             return Ok(None);
         }
@@ -379,10 +377,7 @@ fn resolve_so_path(opts: &VerifyOptions, cwd: &Path) -> Result<PathBuf, String> 
             "could not find target/deploy/{snake}.so. Did you run `hopper build`?"
         ));
     }
-    Err(
-        "no .so specified. Pass a path via `--so <path>` or `--package <name>`."
-            .to_string(),
-    )
+    Err("no .so specified. Pass a path via `--so <path>` or `--package <name>`.".to_string())
 }
 
 fn print_verify_usage() {
@@ -448,18 +443,22 @@ fn extract_layouts_from_manifest(json: &str) -> Result<Vec<ManifestLayout>, Stri
         // Scan the window between this `"name"` and the next one for
         // the layout-id field in any supported encoding.
         let after_name_close = &name_body[name_end + 1..];
-        let next_name_idx = after_name_close.find("\"name\"").unwrap_or(after_name_close.len());
+        let next_name_idx = after_name_close
+            .find("\"name\"")
+            .unwrap_or(after_name_close.len());
         let window = &after_name_close[..next_name_idx];
 
         if let Some(id) = find_layout_id_in_window(window) {
-            out.push(ManifestLayout { name, layout_id: id });
+            out.push(ManifestLayout {
+                name,
+                layout_id: id,
+            });
         }
         rest = after_name_close;
     }
     if out.is_empty() {
         return Err(
-            "manifest did not yield any layout_id entries. Is this a Hopper manifest?"
-                .to_string(),
+            "manifest did not yield any layout_id entries. Is this a Hopper manifest?".to_string(),
         );
     }
     Ok(out)
@@ -471,7 +470,9 @@ fn find_layout_id_in_window(window: &str) -> Option<[u8; 8]> {
     for key in ["\"layout_id\"", "\"layoutId\""] {
         let Some(k) = window.find(key) else { continue };
         let after = &window[k + key.len()..];
-        let Some(colon) = after.find(':') else { continue };
+        let Some(colon) = after.find(':') else {
+            continue;
+        };
         let tail = after[colon + 1..].trim_start();
 
         if tail.starts_with('[') {
@@ -523,9 +524,7 @@ fn find_subsequence(haystack: &[u8], needle: &[u8]) -> Option<usize> {
     if needle.is_empty() || haystack.len() < needle.len() {
         return None;
     }
-    haystack
-        .windows(needle.len())
-        .position(|w| w == needle)
+    haystack.windows(needle.len()).position(|w| w == needle)
 }
 
 fn has_elf_magic(buf: &[u8]) -> bool {

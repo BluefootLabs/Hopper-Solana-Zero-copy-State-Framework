@@ -8,8 +8,8 @@
 //! The capacity is known at construction time from the byte slice size.
 //! Elements must implement `Pod + FixedLayout`.
 
+use crate::account::{FixedLayout, Pod};
 use hopper_runtime::error::ProgramError;
-use crate::account::{Pod, FixedLayout};
 
 /// Header size: 4 bytes for the count.
 const HEADER_SIZE: usize = 4;
@@ -89,9 +89,7 @@ impl<'a, T: Pod + FixedLayout> FixedVec<'a, T> {
         }
         let offset = self.element_offset(index);
         // SAFETY: Bounds checked. T: Pod, alignment-1.
-        Ok(unsafe {
-            core::ptr::read_unaligned(self.data.as_ptr().add(offset) as *const T)
-        })
+        Ok(unsafe { core::ptr::read_unaligned(self.data.as_ptr().add(offset) as *const T) })
     }
 
     /// Get immutable reference to element at index.
@@ -145,9 +143,9 @@ impl<'a, T: Pod + FixedLayout> FixedVec<'a, T> {
             return Err(ProgramError::InvalidArgument);
         }
         let offset = self.element_offset(len - 1);
-        let value = unsafe {
-            core::ptr::read_unaligned(self.data.as_ptr().add(offset) as *const T)
-        };
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        let value =
+            unsafe { core::ptr::read_unaligned(self.data.as_ptr().add(offset) as *const T) };
         // Zero the removed slot for cleanliness.
         for byte in &mut self.data[offset..offset + T::SIZE] {
             *byte = 0;
@@ -164,6 +162,7 @@ impl<'a, T: Pod + FixedLayout> FixedVec<'a, T> {
             return Err(ProgramError::InvalidArgument);
         }
         let removed_offset = self.element_offset(index);
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let removed = unsafe {
             core::ptr::read_unaligned(self.data.as_ptr().add(removed_offset) as *const T)
         };

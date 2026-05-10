@@ -14,14 +14,10 @@
 
 extern crate alloc;
 
+use hopper_core::receipt::{CompatImpact, DecodedReceipt, Phase, StateReceipt, RECEIPT_SIZE};
 use hopper_schema::{
-    FieldDescriptor, FieldIntent, LayoutManifest, FieldCompat,
-    compare_fields, is_append_compatible, requires_migration,
-    is_backward_readable,
-};
-use hopper_core::receipt::{
-    StateReceipt, DecodedReceipt, RECEIPT_SIZE,
-    Phase, CompatImpact,
+    compare_fields, is_append_compatible, is_backward_readable, requires_migration, FieldCompat,
+    FieldDescriptor, FieldIntent, LayoutManifest,
 };
 
 // =====================================================================
@@ -455,17 +451,32 @@ fn receipt_wire_format_reserved_byte_is_zero() {
     // Bytes 69..72 are the reserved tail of the 72-byte receipt format.
     // Byte 63 is now `failed_invariant_idx` (defaults to FAILED_INVARIANT_NONE
     // = 0xFF when no invariant failed).
-    assert_eq!(&wire[69..72], &[0u8; 3], "reserved trailing bytes must be zero");
+    assert_eq!(
+        &wire[69..72],
+        &[0u8; 3],
+        "reserved trailing bytes must be zero"
+    );
 
     // Known non-computed fields at specific offsets must be non-zero
     assert_ne!(&wire[0..8], &[0u8; 8], "layout_id should be non-zero");
     assert_ne!(&wire[8..16], &[0u8; 8], "changed_fields should be non-zero");
-    assert_ne!(wire[32], 0, "flags byte should be non-zero (committed + invariants_passed + cpi)");
+    assert_ne!(
+        wire[32], 0,
+        "flags byte should be non-zero (committed + invariants_passed + cpi)"
+    );
     assert_ne!(&wire[51..55], &[0u8; 4], "policy_flags should be non-zero");
-    assert_ne!(&wire[55..57], &[0u8; 2], "journal_appends should be non-zero");
+    assert_ne!(
+        &wire[55..57],
+        &[0u8; 2],
+        "journal_appends should be non-zero"
+    );
     assert_ne!(wire[57], 0, "cpi_count should be non-zero");
     assert_ne!(wire[58], 0, "phase should be non-zero (Migrate=3)");
-    assert_ne!(&wire[59..61], &[0u8; 2], "validation_bundle_id should be non-zero");
+    assert_ne!(
+        &wire[59..61],
+        &[0u8; 2],
+        "validation_bundle_id should be non-zero"
+    );
     assert_ne!(wire[61], 0, "compat_impact should be non-zero (Breaking=3)");
     assert_ne!(wire[62], 0, "migration_flags should be non-zero");
 }
@@ -485,7 +496,8 @@ fn receipt_explain_with_segment_roles() {
     receipt.commit(&mutated);
 
     let decoded = DecodedReceipt::from_bytes(&receipt.to_bytes()).unwrap();
-    let explain = decoded.explain()
+    let explain = decoded
+        .explain()
         .with_policy_name("TreasuryWrite")
         .with_segment_role(0, "core")
         .with_segment_role(1, "journal");

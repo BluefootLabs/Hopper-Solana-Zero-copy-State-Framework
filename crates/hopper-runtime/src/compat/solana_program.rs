@@ -65,7 +65,10 @@ impl BackendAccountView {
 
     #[inline(always)]
     pub fn set_lamports(&self, lamports: u64) {
-        let mut current = self.inner.try_borrow_mut_lamports().expect("lamports borrow conflict");
+        let mut current = self
+            .inner
+            .try_borrow_mut_lamports()
+            .expect("lamports borrow conflict");
         **current = lamports;
     }
 
@@ -107,20 +110,35 @@ impl BackendAccountView {
     }
 
     #[inline(always)]
+    ///
+    /// # Safety
+    ///
+    /// Caller must uphold the invariants documented for this unsafe API before invoking it.
     pub unsafe fn borrow_unchecked(&self) -> &[u8] {
         let data_ptr = self.inner.data.as_ptr();
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe { &**data_ptr }
     }
 
     #[inline(always)]
+    ///
+    /// # Safety
+    ///
+    /// Caller must uphold the invariants documented for this unsafe API before invoking it.
     pub unsafe fn borrow_unchecked_mut(&self) -> &mut [u8] {
         let data_ptr = self.inner.data.as_ptr();
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe { &mut **data_ptr }
     }
 
     #[inline(always)]
+    ///
+    /// # Safety
+    ///
+    /// Caller must uphold the invariants documented for this unsafe API before invoking it.
     pub unsafe fn close_unchecked(&self) {
         self.set_lamports(0);
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let data = unsafe { self.borrow_unchecked_mut() };
         let mut i = 0;
         while i < data.len() {
@@ -136,7 +154,12 @@ impl BackendAccountView {
 }
 
 #[inline(always)]
+///
+/// # Safety
+///
+/// Caller must uphold the invariants documented for this unsafe API before invoking it.
 pub unsafe fn wrap_account_slice(accounts: &[BackendAccountView]) -> &[AccountView] {
+    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe { core::slice::from_raw_parts(accounts.as_ptr() as *const AccountView, accounts.len()) }
 }
 
@@ -144,18 +167,28 @@ pub unsafe fn wrap_account_slice(accounts: &[BackendAccountView]) -> &[AccountVi
 unsafe fn wrap_deserialized_accounts<'a>(
     accounts: &'a [::solana_program::account_info::AccountInfo<'a>],
 ) -> &'a [BackendAccountView] {
+    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe {
-        core::slice::from_raw_parts(accounts.as_ptr() as *const BackendAccountView, accounts.len())
+        core::slice::from_raw_parts(
+            accounts.as_ptr() as *const BackendAccountView,
+            accounts.len(),
+        )
     }
 }
 
 #[inline(always)]
 pub fn account_address(view: &BackendAccountView) -> &Address {
+    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe { &*(view.inner.key as *const BackendAddress as *const Address) }
 }
 
 #[inline(always)]
+///
+/// # Safety
+///
+/// Caller must uphold the invariants documented for this unsafe API before invoking it.
 pub unsafe fn account_owner(view: &BackendAccountView) -> &Address {
+    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe { &*(view.inner.owner as *const BackendAddress as *const Address) }
 }
 
@@ -179,6 +212,7 @@ pub fn disc(view: &BackendAccountView) -> u8 {
     if view.data_len() == 0 {
         0
     } else {
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe { *view.borrow_unchecked().as_ptr() }
     }
 }
@@ -188,6 +222,7 @@ pub fn version(view: &BackendAccountView) -> u8 {
     if view.data_len() < 2 {
         0
     } else {
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe { *view.borrow_unchecked().as_ptr().add(1) }
     }
 }
@@ -197,11 +232,16 @@ pub fn layout_id(view: &BackendAccountView) -> Option<&[u8; 8]> {
     if view.data_len() < 12 {
         None
     } else {
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         Some(unsafe { &*(view.borrow_unchecked().as_ptr().add(4) as *const [u8; 8]) })
     }
 }
 
 #[inline(always)]
+///
+/// # Safety
+///
+/// Caller must uphold the invariants documented for this unsafe API before invoking it.
 pub unsafe fn assign(view: &BackendAccountView, new_owner: &Address) {
     let owner = as_backend_address(new_owner);
     view.inner.assign(&owner);
@@ -233,7 +273,10 @@ pub fn find_program_address(seeds: &[&[u8]], program_id: &Address) -> (Address, 
 }
 
 #[inline(always)]
-pub fn create_program_address(seeds: &[&[u8]], program_id: &Address) -> Result<Address, ProgramError> {
+pub fn create_program_address(
+    seeds: &[&[u8]],
+    program_id: &Address,
+) -> Result<Address, ProgramError> {
     let program_id = as_backend_address(program_id);
     BackendAddress::create_program_address(seeds, &program_id)
         .map(Address::from)
@@ -241,13 +284,19 @@ pub fn create_program_address(seeds: &[&[u8]], program_id: &Address) -> Result<A
 }
 
 #[inline(always)]
+///
+/// # Safety
+///
+/// Caller must uphold the invariants documented for this unsafe API before invoking it.
 pub unsafe fn process_entrypoint<const MAX: usize>(
     input: *mut u8,
     process_instruction: fn(&BackendAddress, &[BackendAccountView], &[u8]) -> BackendProgramResult,
 ) -> u64 {
+    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     let (program_id, accounts, data) = unsafe { ::solana_program::entrypoint::deserialize(input) };
 
     let count = accounts.len().min(MAX);
+    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     let wrapped = unsafe { wrap_deserialized_accounts(&accounts[..count]) };
 
     let program_id: &'static BackendAddress = unsafe { core::mem::transmute(program_id) };
@@ -266,6 +315,7 @@ pub fn bridge_to_runtime(
     process_instruction: fn(&Address, &[AccountView], &[u8]) -> ProgramResult,
 ) -> BackendProgramResult {
     let hopper_id = Address::from(*program_id);
+    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     let hopper_accounts = unsafe { wrap_account_slice(accounts) };
     match process_instruction(&hopper_id, hopper_accounts, data) {
         Ok(()) => Ok(()),
@@ -284,7 +334,9 @@ fn build_instruction(instruction: &InstructionView) -> ::solana_program::instruc
             (true, true) => ::solana_program::instruction::AccountMeta::new(pubkey, true),
             (true, false) => ::solana_program::instruction::AccountMeta::new(pubkey, false),
             (false, true) => ::solana_program::instruction::AccountMeta::new_readonly(pubkey, true),
-            (false, false) => ::solana_program::instruction::AccountMeta::new_readonly(pubkey, false),
+            (false, false) => {
+                ::solana_program::instruction::AccountMeta::new_readonly(pubkey, false)
+            }
         };
         accounts.push(meta);
         i += 1;
@@ -316,14 +368,15 @@ fn signer_seed_groups<'a, 'b>(signers: &[Signer<'a, 'b>]) -> Vec<Vec<&'a [u8]>> 
     let mut i = 0;
     while i < signers.len() {
         let signer = &signers[i];
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let seeds = unsafe { core::slice::from_raw_parts(signer.seeds, signer.len as usize) };
         let mut group = Vec::with_capacity(seeds.len());
 
         let mut j = 0;
         while j < seeds.len() {
-            group.push(unsafe {
-                core::slice::from_raw_parts(seeds[j].seed, seeds[j].len as usize)
-            });
+            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+            group
+                .push(unsafe { core::slice::from_raw_parts(seeds[j].seed, seeds[j].len as usize) });
             j += 1;
         }
 

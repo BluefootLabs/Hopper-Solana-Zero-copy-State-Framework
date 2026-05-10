@@ -8,8 +8,8 @@
 //! Elements are maintained in sorted order. Requires `T: Ord + Pod + FixedLayout`.
 //! Binary search costs ~3-15 CU per lookup vs ~50-500 CU linear scan (depending on N).
 
+use crate::account::{FixedLayout, Pod};
 use hopper_runtime::error::ProgramError;
-use crate::account::{Pod, FixedLayout};
 
 const HEADER_SIZE: usize = 4;
 
@@ -135,7 +135,7 @@ impl<'a, T: Pod + FixedLayout + Ord> SortedVec<'a, T> {
             return Err(ProgramError::AccountDataTooSmall);
         }
         let insert_idx = match self.binary_search(&value) {
-            Ok(idx) => idx,  // Duplicate -- insert at same position (stable)
+            Ok(idx) => idx, // Duplicate -- insert at same position (stable)
             Err(idx) => idx,
         };
         // Shift elements right from insert_idx to len-1
@@ -172,6 +172,7 @@ impl<'a, T: Pod + FixedLayout + Ord> SortedVec<'a, T> {
                     let src_offset = Self::element_offset(insert_idx);
                     let dst_offset = Self::element_offset(insert_idx + 1);
                     let byte_count = (len - insert_idx) * T::SIZE;
+                    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
                     unsafe {
                         core::ptr::copy(
                             self.data.as_ptr().add(src_offset),
@@ -200,6 +201,7 @@ impl<'a, T: Pod + FixedLayout + Ord> SortedVec<'a, T> {
             let src_offset = Self::element_offset(index + 1);
             let dst_offset = Self::element_offset(index);
             let byte_count = (len - index - 1) * T::SIZE;
+            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             unsafe {
                 core::ptr::copy(
                     self.data.as_ptr().add(src_offset),

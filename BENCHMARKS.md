@@ -27,6 +27,19 @@ primitives are covered by the benchmark repo's Docker runner and by the host
 baselines and artifacts; this framework repo keeps only lightweight fixtures
 and historical result snapshots.
 
+## Release-Facing Benchmark Policy
+
+Release-facing tables in this repository compare Hopper and Quasar only. Older
+"Pinocchio-style" measurements used a Quasar-authored reference vault and are
+not published as Anza Pinocchio results. A Pinocchio column may be added only
+after the sibling `hopper-bench` repo measures an Anza Pinocchio target from
+the same lockfile, SBF toolchain, Mollusk version, seed set, feature flags,
+release profile, and command line used for Hopper and Quasar.
+
+Until that same-provenance run exists, Hopper's public positioning is
+Pinocchio-class performance and access shape with framework safety/DX, not a
+published Pinocchio win claim.
+
 ## CU Results
 
 Measured on solana-test-validator 2.1 (April 2026).
@@ -203,23 +216,45 @@ Every parity result published from `hopper-bench` must record:
 - Exact feature flags and release profile.
 - Exact reproduction command and seed count.
 
-**Key observations:**
+### Immutable benchmark provenance
 
-- **Hopper beats Quasar on 4 of 5 instructions** while providing 47+ safety
-  mechanisms vs Quasar's ~10. The only gap is auth-fail (+4 CU, negligible).
-- **Smallest binary in the published Hopper/Quasar table**: Hopper at 7.62 KiB
-  is 8.8% smaller than Quasar (8.36 KiB).
-- **Verify-only PDA**: Hopper's novel sha256-only PDA verification eliminates
-  `sol_curve_validate_point` (~159 CU/attempt) by comparing hashes directly
-  against the known PDA address. ~350 CU savings per PDA-bearing instruction
-  over the standard `find_program_address` approach. This is a technical
-  hypothesis to validate separately for the Anza Pinocchio target, not a
-  published Pinocchio performance claim.
-- **Fast entrypoint**: Two-argument SVM entrypoint receives instruction data via
-  the second register, eliminating full-buffer account scanning.
-- **Safety at no cost**: The counter-access instruction (539 vs 607 CU) now beats
-  Quasar despite using segment-level borrow tracking. Quasar's counter uses
-  `borrow_unchecked_mut()` with raw byte slicing and no conflict detection.
+| Field | Value |
+|---|---|
+| Hopper framework commit | `55777a183e304bf43ec9d6e8e70fa6c75d3a8b6c` |
+| Benchmark repository | `https://github.com/BluefootLabs/hopper-bench` |
+| Runner shape | Same Mollusk harness, deterministic 8-seed average |
+| Published frameworks | Hopper and Quasar only |
+| Excluded framework column | Anza Pinocchio, pending same-provenance target |
+
+### Performance observations
+
+- Hopper is faster than Quasar on 4 of the 5 published instructions in this
+  Hopper/Quasar table. The only slower path is auth-fail (+4 CU), which is not
+  material at instruction scale.
+- Hopper has the smallest binary in the published Hopper/Quasar table: 7.62 KiB
+  versus Quasar at 8.36 KiB.
+- The counter-access instruction (539 vs 607 CU) beats Quasar while using
+  segment-level borrow tracking. Quasar's counter uses unchecked mutable byte
+  slicing with no conflict detection.
+
+### Architecture and DX observations
+
+- Verify-only PDA avoids `sol_curve_validate_point` by comparing hashes directly
+  against the known PDA address. This is a Hopper optimization to keep measuring
+  against same-provenance competitors, not a published Pinocchio performance
+  claim.
+- The fast entrypoint receives instruction data via the second SVM register,
+  avoiding a full-buffer account scan on supported runtimes.
+- Hopper's claim is not "raw Pinocchio is slower." The claim is that Hopper
+  packages a Pinocchio-class access model with framework validation, schema,
+  lifecycle, CPI, and CLI tooling.
+
+### Where Pinocchio is still the right choice
+
+Use raw Pinocchio directly when the target program should remain a minimal
+manual substrate with no framework-owned account lifecycle, schema, CLI, or
+validation layer. Hopper is the framework-layer option when those surfaces are
+worth carrying.
 
 The parity vault source is at
 [`examples/hopper-parity-vault`](examples/hopper-parity-vault/src/lib.rs).

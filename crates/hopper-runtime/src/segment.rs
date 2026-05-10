@@ -119,7 +119,9 @@ impl<T: crate::Pod, const OFFSET: u32> TypedSegment<T, OFFSET> {
     /// Construct the marker. Runs entirely at compile time.
     #[inline(always)]
     pub const fn new() -> Self {
-        Self { _marker: core::marker::PhantomData }
+        Self {
+            _marker: core::marker::PhantomData,
+        }
     }
 
     /// The absolute byte offset of this segment (`OFFSET` const-generic).

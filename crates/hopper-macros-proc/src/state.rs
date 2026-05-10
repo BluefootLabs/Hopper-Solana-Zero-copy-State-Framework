@@ -9,10 +9,8 @@ use proc_macro2::TokenStream;
 use quote::{format_ident, quote, ToTokens};
 use sha2::{Digest, Sha256};
 use syn::{
-    parse::Parser,
-    parse2, parse_quote,
-    punctuated::Punctuated,
-    Attribute, Fields, Field, ItemStruct, LitInt, LitStr, Path, Result, Token,
+    parse::Parser, parse2, parse_quote, punctuated::Punctuated, Attribute, Field, Fields,
+    ItemStruct, LitInt, LitStr, Path, Result, Token,
 };
 
 #[derive(Clone)]
@@ -234,10 +232,7 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
     // Unique per-layout static that pins LAYOUT_ID bytes into
     // `.rodata`. `hopper verify` searches the compiled binary for
     // this exact 8-byte sequence to prove manifest/binary agreement.
-    let layout_id_anchor_ident = format_ident!(
-        "__HOPPER_LAYOUT_ID_ANCHOR_{}",
-        struct_name_upper
-    );
+    let layout_id_anchor_ident = format_ident!("__HOPPER_LAYOUT_ID_ANCHOR_{}", struct_name_upper);
 
     // ── Audit I5: hybrid-serialization tail helpers ──────────────────
     //
@@ -968,7 +963,7 @@ mod fingerprint_tests {
 
     #[test]
     fn arrays_normalize_whitespace_and_usize_suffix() {
-        assert_eq!(fp(parse_quote!([u8; 32])), fp(parse_quote!([u8 ; 32])));
+        assert_eq!(fp(parse_quote!([u8; 32])), fp(parse_quote!([u8; 32])));
         assert_eq!(fp(parse_quote!([u8; 32])), fp(parse_quote!([u8; 32usize])));
     }
 
@@ -1066,7 +1061,10 @@ mod field_attr_tests {
             msg.contains("unknown #[role = \"authorty\"]"),
             "expected helpful error, got: {msg}",
         );
-        assert!(msg.contains("authority"), "error message should suggest valid vocabulary");
+        assert!(
+            msg.contains("authority"),
+            "error message should suggest valid vocabulary"
+        );
     }
 
     #[test]
@@ -1134,7 +1132,9 @@ mod field_attr_tests {
         assert_eq!(a, b);
         // Aliases: `bps` ≡ `basis_points`, `seed` ≡ `pda_seed`, etc.
         let c = role_to_intent_tokens("bps", span).unwrap().to_string();
-        let d = role_to_intent_tokens("basis_points", span).unwrap().to_string();
+        let d = role_to_intent_tokens("basis_points", span)
+            .unwrap()
+            .to_string();
         assert_eq!(c, d);
         let e = role_to_intent_tokens("seed", span).unwrap().to_string();
         let f = role_to_intent_tokens("pda_seed", span).unwrap().to_string();

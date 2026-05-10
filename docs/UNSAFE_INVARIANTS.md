@@ -13,12 +13,104 @@ unsafe core as small and auditable as possible.
 when a safe alternative would require allocation, serialization, or loss of
 the zero-copy property that makes Hopper competitive.
 
-**Audit scope**: the unsafe surface is confined to five modules in
-`hopper-core` (abi, account, check, cpi, collections) and two modules in
-`hopper-solana` (token readers, CPI guards). Everything else is safe Rust.
+**Audit scope**: the unsafe surface audited by this ledger spans the raw source
+directories that own Hopper's zero-copy and backend boundary code:
+`crates/hopper-native/src`, `crates/hopper-runtime/src`,
+`crates/hopper-solana/src`, and `crates/hopper-core/src`. Unsafe in those
+directories is limited to raw Solana/backend ABI crossings, zero-copy overlays,
+Pod reads/writes, CPI assembly, and bounded in-place collection operations.
 
 Every `unsafe` block in Hopper, its justification, and the invariants
 that must hold. Organized by module boundary.
+
+## Current Unsafe Source Inventory
+
+This inventory is generated from the current source tree by scanning for real
+non-rustdoc `unsafe {` blocks and `pub unsafe fn` identifiers in the audited
+source directories. Every listed unsafe block must have a nearby `// SAFETY:`
+comment, and every public unsafe function must carry a rustdoc `# Safety`
+section. The CI helper `scripts/check-unsafe-safety-comments.py` enforces both
+requirements.
+
+| Source file | Unsafe blocks | Public unsafe functions |
+|---|---:|---|
+| `crates/hopper-core/src/abi/field_ref.rs` | 1 | - |
+| `crates/hopper-core/src/abi/typed_address.rs` | 2 | - |
+| `crates/hopper-core/src/account/cursor.rs` | 1 | - |
+| `crates/hopper-core/src/account/pod.rs` | 6 | `cast_unchecked`, `cast_unchecked_mut` |
+| `crates/hopper-core/src/account/reader.rs` | 2 | - |
+| `crates/hopper-core/src/account/registry.rs` | 8 | - |
+| `crates/hopper-core/src/account/segment.rs` | 6 | - |
+| `crates/hopper-core/src/account/verified.rs` | 6 | - |
+| `crates/hopper-core/src/accounts/hopper_account.rs` | 1 | `owner` |
+| `crates/hopper-core/src/accounts/program_account.rs` | 1 | `owner` |
+| `crates/hopper-core/src/accounts/segmented.rs` | 1 | - |
+| `crates/hopper-core/src/accounts/unchecked.rs` | 1 | `owner` |
+| `crates/hopper-core/src/check/fast.rs` | 3 | - |
+| `crates/hopper-core/src/check/guards.rs` | 1 | - |
+| `crates/hopper-core/src/check/mod.rs` | 4 | - |
+| `crates/hopper-core/src/collections/fixed_vec.rs` | 6 | - |
+| `crates/hopper-core/src/collections/journal.rs` | 3 | - |
+| `crates/hopper-core/src/collections/packed_map.rs` | 4 | - |
+| `crates/hopper-core/src/collections/ring_buffer.rs` | 2 | - |
+| `crates/hopper-core/src/collections/slab.rs` | 5 | - |
+| `crates/hopper-core/src/collections/slot_map.rs` | 3 | - |
+| `crates/hopper-core/src/collections/sorted_vec.rs` | 5 | - |
+| `crates/hopper-core/src/cpi/mod.rs` | 10 | - |
+| `crates/hopper-core/src/event/mod.rs` | 8 | - |
+| `crates/hopper-core/src/frame/mod.rs` | 17 | `segment_mut_unchecked` |
+| `crates/hopper-core/src/virtual_state/mod.rs` | 2 | - |
+| `crates/hopper-native/src/account_view.rs` | 52 | `owner`, `assign`, `borrow_unchecked`, `borrow_unchecked_mut`, `segment_ref_unchecked`, `segment_mut_unchecked`, `raw_ref`, `raw_mut`, `resize_unchecked`, `close_unchecked` |
+| `crates/hopper-native/src/address.rs` | 1 | - |
+| `crates/hopper-native/src/batch.rs` | 1 | - |
+| `crates/hopper-native/src/borrow.rs` | 3 | `from_raw_parts`, `from_raw_parts` |
+| `crates/hopper-native/src/budget.rs` | 3 | - |
+| `crates/hopper-native/src/cpi.rs` | 9 | `invoke_unchecked`, `invoke_signed_unchecked` |
+| `crates/hopper-native/src/entrypoint.rs` | 11 | `process_entrypoint` |
+| `crates/hopper-native/src/hash.rs` | 2 | - |
+| `crates/hopper-native/src/instruction.rs` | 5 | - |
+| `crates/hopper-native/src/introspect.rs` | 2 | - |
+| `crates/hopper-native/src/lazy.rs` | 9 | `lazy_deserialize` |
+| `crates/hopper-native/src/lens.rs` | 13 | - |
+| `crates/hopper-native/src/log.rs` | 5 | - |
+| `crates/hopper-native/src/mem.rs` | 13 | `memcpy`, `memmove`, `memset`, `memcmp` |
+| `crates/hopper-native/src/pda.rs` | 21 | - |
+| `crates/hopper-native/src/project.rs` | 8 | `project_safe_mut`, `project_mut`, `project_hopper_mut` |
+| `crates/hopper-native/src/raw_input.rs` | 33 | `deserialize_accounts`, `deserialize_accounts_fast`, `scan_instruction_frame` |
+| `crates/hopper-native/src/return_data.rs` | 2 | - |
+| `crates/hopper-native/src/system.rs` | 1 | - |
+| `crates/hopper-native/src/sysvar.rs` | 3 | - |
+| `crates/hopper-native/src/token.rs` | 1 | - |
+| `crates/hopper-native/src/verify.rs` | 1 | - |
+| `crates/hopper-runtime/src/account.rs` | 26 | `owner`, `raw_ref`, `raw_mut`, `assign`, `borrow_unchecked`, `borrow_unchecked_mut`, `resize_unchecked`, `close_unchecked` |
+| `crates/hopper-runtime/src/account_wrappers.rs` | 0 | `new_unchecked`, `new_unchecked`, `new_unchecked` |
+| `crates/hopper-runtime/src/address.rs` | 1 | - |
+| `crates/hopper-runtime/src/audit.rs` | 2 | - |
+| `crates/hopper-runtime/src/borrow.rs` | 13 | `project`, `project` |
+| `crates/hopper-runtime/src/borrow_registry.rs` | 2 | - |
+| `crates/hopper-runtime/src/compat/mod.rs` | 1 | - |
+| `crates/hopper-runtime/src/compat/native.rs` | 9 | `wrap_account_slice`, `account_owner`, `assign`, `process_entrypoint` |
+| `crates/hopper-runtime/src/compat/pinocchio.rs` | 17 | `wrap_account_slice`, `account_owner`, `assign`, `process_entrypoint` |
+| `crates/hopper-runtime/src/compat/solana_program.rs` | 16 | `borrow_unchecked`, `borrow_unchecked_mut`, `close_unchecked`, `wrap_account_slice`, `account_owner`, `assign`, `process_entrypoint` |
+| `crates/hopper-runtime/src/context.rs` | 4 | `raw_ref`, `raw_mut`, `raw_unchecked`, `as_mut_ptr` |
+| `crates/hopper-runtime/src/cpi.rs` | 12 | `invoke_unchecked`, `invoke_signed_unchecked` |
+| `crates/hopper-runtime/src/dyn_cpi.rs` | 1 | - |
+| `crates/hopper-runtime/src/foreign.rs` | 1 | - |
+| `crates/hopper-runtime/src/instruction.rs` | 4 | - |
+| `crates/hopper-runtime/src/interop.rs` | 2 | - |
+| `crates/hopper-runtime/src/layout.rs` | 3 | - |
+| `crates/hopper-runtime/src/lib.rs` | 11 | - |
+| `crates/hopper-runtime/src/log.rs` | 4 | - |
+| `crates/hopper-runtime/src/option_byte.rs` | 2 | - |
+| `crates/hopper-runtime/src/pda.rs` | 7 | - |
+| `crates/hopper-runtime/src/segment_lease.rs` | 1 | `new` |
+| `crates/hopper-runtime/src/syscall.rs` | 2 | - |
+| `crates/hopper-runtime/src/syscalls.rs` | 7 | `sol_log_data`, `sol_sha256` |
+| `crates/hopper-runtime/src/token.rs` | 10 | - |
+| `crates/hopper-solana/src/compute.rs` | 1 | - |
+| `crates/hopper-solana/src/crypto/merkle.rs` | 2 | - |
+| `crates/hopper-solana/src/mint.rs` | 2 | - |
+| `crates/hopper-solana/src/token.rs` | 2 | - |
 
 ## Trust Summary
 

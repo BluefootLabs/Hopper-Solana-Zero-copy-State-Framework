@@ -107,12 +107,7 @@ pub fn cmd_clean(args: &[String]) {
                 removed_count += 1;
             }
             Err(err) => {
-                eprintln!(
-                    "  {} {} {}",
-                    style::fail("failed"),
-                    style::dim(rel),
-                    err
-                );
+                eprintln!("  {} {} {}", style::fail("failed"), style::dim(rel), err);
                 error_count += 1;
             }
         }
@@ -126,7 +121,11 @@ pub fn cmd_clean(args: &[String]) {
             .status();
         match status {
             Ok(s) if s.success() => {
-                println!("  {} {}", style::success("cleared"), style::dim("target/ (cargo clean)"));
+                println!(
+                    "  {} {}",
+                    style::success("cleared"),
+                    style::dim("target/ (cargo clean)")
+                );
                 removed_count += 1;
             }
             Ok(s) => {

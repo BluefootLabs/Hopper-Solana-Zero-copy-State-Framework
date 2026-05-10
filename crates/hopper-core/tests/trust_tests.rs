@@ -11,24 +11,23 @@
 //! - **Validation pipeline**: ValidationGraph, ValidationBundle, TransitionRulePack
 //! - **Segment roles**: encoding/decoding, semantic methods
 
+use hopper_core::account::segment_role::{
+    SegmentRole, SEG_ROLE_AUDIT, SEG_ROLE_CACHE, SEG_ROLE_CORE, SEG_ROLE_EXTENSION, SEG_ROLE_INDEX,
+    SEG_ROLE_JOURNAL, SEG_ROLE_SHARD,
+};
 use hopper_core::account::*;
-use hopper_core::collections::{
-    SortedVec, PackedMap,
-    Journal, JOURNAL_HEADER_SIZE,
-    Slab, SLAB_HEADER_SIZE, bitmap_bytes,
-};
-use hopper_core::check::{
-    instruction_count, current_instruction_index, read_program_id_at,
-    require_top_level, detect_flash_loan_bracket, check_no_subsequent_invocation,
-};
 use hopper_core::check::graph::{ValidationContext, ValidationGraph};
+use hopper_core::check::{
+    check_no_subsequent_invocation, current_instruction_index, detect_flash_loan_bracket,
+    instruction_count, read_program_id_at, require_top_level,
+};
+use hopper_core::collections::{
+    bitmap_bytes, Journal, PackedMap, Slab, SortedVec, JOURNAL_HEADER_SIZE, SLAB_HEADER_SIZE,
+};
 use hopper_core::receipt::{StateReceipt, RECEIPT_SIZE};
-use hopper_core::account::segment_role::{SegmentRole, SEG_ROLE_CORE, SEG_ROLE_EXTENSION, SEG_ROLE_JOURNAL, SEG_ROLE_INDEX, SEG_ROLE_CACHE, SEG_ROLE_AUDIT, SEG_ROLE_SHARD};
 use hopper_schema::{
-    FieldDescriptor, FieldIntent, LayoutManifest, FieldCompat,
-    compare_fields, is_append_compatible, requires_migration,
-    is_backward_readable,
-    MigrationPlan, MigrationPolicy,
+    compare_fields, is_append_compatible, is_backward_readable, requires_migration, FieldCompat,
+    FieldDescriptor, FieldIntent, LayoutManifest, MigrationPlan, MigrationPolicy,
 };
 
 // =============================================================================
@@ -98,7 +97,10 @@ fn build_ix_sysvar(instructions: &[&[u8; 32]], current_idx: u16) -> Vec<u8> {
 fn cpi_guard_require_top_level_passes_when_current_matches() {
     let our_program = [1u8; 32];
     let sysvar = build_ix_sysvar(&[&our_program], 0);
-    assert!(require_top_level(&sysvar, unsafe { &*(&our_program as *const [u8; 32] as *const hopper_runtime::Address) }).is_ok());
+    assert!(require_top_level(&sysvar, unsafe {
+        &*(&our_program as *const [u8; 32] as *const hopper_runtime::Address)
+    })
+    .is_ok());
 }
 
 #[test]
@@ -107,7 +109,10 @@ fn cpi_guard_require_top_level_fails_when_current_is_different() {
     let other_program = [2u8; 32];
     // Current instruction (index 0) is `other_program`
     let sysvar = build_ix_sysvar(&[&other_program], 0);
-    assert!(require_top_level(&sysvar, unsafe { &*(&our_program as *const [u8; 32] as *const hopper_runtime::Address) }).is_err());
+    assert!(require_top_level(&sysvar, unsafe {
+        &*(&our_program as *const [u8; 32] as *const hopper_runtime::Address)
+    })
+    .is_err());
 }
 
 #[test]
@@ -116,7 +121,10 @@ fn cpi_guard_require_top_level_multi_instruction() {
     let other = [2u8; 32];
     // 3 instructions: other, ours, other. Current = 1 (ours).
     let sysvar = build_ix_sysvar(&[&other, &our_program, &other], 1);
-    assert!(require_top_level(&sysvar, unsafe { &*(&our_program as *const [u8; 32] as *const hopper_runtime::Address) }).is_ok());
+    assert!(require_top_level(&sysvar, unsafe {
+        &*(&our_program as *const [u8; 32] as *const hopper_runtime::Address)
+    })
+    .is_ok());
 }
 
 #[test]
@@ -130,9 +138,15 @@ fn cpi_guard_flash_loan_bracket_detected() {
     // From the perspective of index 1 (other), our_program IS before and after.
     // Wait -- it checks if our_program appears before AND after current_idx.
     // At index 1, our_program is at 0 (before) and 2 (after). So YES, it should err.
-    assert!(detect_flash_loan_bracket(&sysvar, unsafe { &*(&other as *const [u8; 32] as *const hopper_runtime::Address) }).is_ok());
+    assert!(detect_flash_loan_bracket(&sysvar, unsafe {
+        &*(&other as *const [u8; 32] as *const hopper_runtime::Address)
+    })
+    .is_ok());
     // But if we check from our_program's perspective at index 1:
-    assert!(detect_flash_loan_bracket(&sysvar, unsafe { &*(&our_program as *const [u8; 32] as *const hopper_runtime::Address) }).is_err());
+    assert!(detect_flash_loan_bracket(&sysvar, unsafe {
+        &*(&our_program as *const [u8; 32] as *const hopper_runtime::Address)
+    })
+    .is_err());
 }
 
 #[test]
@@ -141,7 +155,10 @@ fn cpi_guard_flash_loan_no_bracket() {
     let other = [2u8; 32];
     // Pattern: ours, other (no bracket)
     let sysvar = build_ix_sysvar(&[&our_program, &other], 1);
-    assert!(detect_flash_loan_bracket(&sysvar, unsafe { &*(&our_program as *const [u8; 32] as *const hopper_runtime::Address) }).is_ok());
+    assert!(detect_flash_loan_bracket(&sysvar, unsafe {
+        &*(&our_program as *const [u8; 32] as *const hopper_runtime::Address)
+    })
+    .is_ok());
 }
 
 #[test]
@@ -150,7 +167,10 @@ fn cpi_guard_flash_loan_only_before() {
     let other = [2u8; 32];
     // Pattern: ours, ours, other. Current = 2. ours only before, not after.
     let sysvar = build_ix_sysvar(&[&our_program, &our_program, &other], 2);
-    assert!(detect_flash_loan_bracket(&sysvar, unsafe { &*(&our_program as *const [u8; 32] as *const hopper_runtime::Address) }).is_ok());
+    assert!(detect_flash_loan_bracket(&sysvar, unsafe {
+        &*(&our_program as *const [u8; 32] as *const hopper_runtime::Address)
+    })
+    .is_ok());
 }
 
 #[test]
@@ -159,7 +179,10 @@ fn cpi_guard_no_subsequent_invocation_pass() {
     let other = [2u8; 32];
     // Pattern: ours, other. Current = 0. Nothing after is ours.
     let sysvar = build_ix_sysvar(&[&our_program, &other], 0);
-    assert!(check_no_subsequent_invocation(&sysvar, unsafe { &*(&our_program as *const [u8; 32] as *const hopper_runtime::Address) }).is_ok());
+    assert!(check_no_subsequent_invocation(&sysvar, unsafe {
+        &*(&our_program as *const [u8; 32] as *const hopper_runtime::Address)
+    })
+    .is_ok());
 }
 
 #[test]
@@ -170,8 +193,13 @@ fn cpi_guard_no_subsequent_invocation_fail() {
     // check_no_subsequent_invocation checks if our_program appears AFTER current_idx.
     // At index 0, our_program is at index 1 (after). So this should fail.
     let sysvar = build_ix_sysvar(&[&other, &our_program], 0);
-    assert!(check_no_subsequent_invocation(&sysvar, unsafe { &*(&our_program as *const [u8; 32] as *const hopper_runtime::Address) }).is_err(),
-        "Expected Err: our program appears after current instruction");
+    assert!(
+        check_no_subsequent_invocation(&sysvar, unsafe {
+            &*(&our_program as *const [u8; 32] as *const hopper_runtime::Address)
+        })
+        .is_err(),
+        "Expected Err: our program appears after current instruction"
+    );
 }
 
 #[test]
@@ -180,7 +208,10 @@ fn cpi_guard_no_subsequent_invocation_at_last() {
     let other = [2u8; 32];
     // Pattern: other, other, ours. Current = 2 (last). Nothing after.
     let sysvar = build_ix_sysvar(&[&other, &other, &our_program], 2);
-    assert!(check_no_subsequent_invocation(&sysvar, unsafe { &*(&our_program as *const [u8; 32] as *const hopper_runtime::Address) }).is_ok());
+    assert!(check_no_subsequent_invocation(&sysvar, unsafe {
+        &*(&our_program as *const [u8; 32] as *const hopper_runtime::Address)
+    })
+    .is_ok());
 }
 
 #[test]
@@ -472,7 +503,9 @@ impl FixedLayout for Key4 {
 }
 
 impl Key4 {
-    fn new(v: u32) -> Self { Self(v.to_le_bytes()) }
+    fn new(v: u32) -> Self {
+        Self(v.to_le_bytes())
+    }
 }
 
 #[repr(C)]
@@ -487,8 +520,12 @@ impl FixedLayout for Val8 {
 }
 
 impl Val8 {
-    fn new(v: u64) -> Self { Self(v.to_le_bytes()) }
-    fn val(&self) -> u64 { u64::from_le_bytes(self.0) }
+    fn new(v: u64) -> Self {
+        Self(v.to_le_bytes())
+    }
+    fn val(&self) -> u64 {
+        u64::from_le_bytes(self.0)
+    }
 }
 
 #[test]
@@ -613,7 +650,10 @@ fn sorted_vec_duplicate_insert() {
     let vals: Vec<u64> = (0..sv.len()).map(|i| sv.get(i).unwrap().val()).collect();
     let mut sorted = vals.clone();
     sorted.sort();
-    assert_eq!(vals, sorted, "SortedVec must stay sorted even with duplicate inserts");
+    assert_eq!(
+        vals, sorted,
+        "SortedVec must stay sorted even with duplicate inserts"
+    );
     let _ = result; // don't care if Ok or Err
 }
 
@@ -653,22 +693,82 @@ fn make_manifest(
 }
 
 static VAULT_V1_FIELDS: &[FieldDescriptor] = &[
-    FieldDescriptor { name: "authority", canonical_type: "[u8;32]", size: 32, offset: 16, intent: FieldIntent::Custom },
-    FieldDescriptor { name: "balance", canonical_type: "WireU64", size: 8, offset: 48, intent: FieldIntent::Custom },
-    FieldDescriptor { name: "bump", canonical_type: "u8", size: 1, offset: 56, intent: FieldIntent::Custom },
+    FieldDescriptor {
+        name: "authority",
+        canonical_type: "[u8;32]",
+        size: 32,
+        offset: 16,
+        intent: FieldIntent::Custom,
+    },
+    FieldDescriptor {
+        name: "balance",
+        canonical_type: "WireU64",
+        size: 8,
+        offset: 48,
+        intent: FieldIntent::Custom,
+    },
+    FieldDescriptor {
+        name: "bump",
+        canonical_type: "u8",
+        size: 1,
+        offset: 56,
+        intent: FieldIntent::Custom,
+    },
 ];
 
 static VAULT_V2_FIELDS: &[FieldDescriptor] = &[
-    FieldDescriptor { name: "authority", canonical_type: "[u8;32]", size: 32, offset: 16, intent: FieldIntent::Custom },
-    FieldDescriptor { name: "balance", canonical_type: "WireU64", size: 8, offset: 48, intent: FieldIntent::Custom },
-    FieldDescriptor { name: "bump", canonical_type: "u8", size: 1, offset: 56, intent: FieldIntent::Custom },
-    FieldDescriptor { name: "fee_bps", canonical_type: "WireU16", size: 2, offset: 57, intent: FieldIntent::Custom },
+    FieldDescriptor {
+        name: "authority",
+        canonical_type: "[u8;32]",
+        size: 32,
+        offset: 16,
+        intent: FieldIntent::Custom,
+    },
+    FieldDescriptor {
+        name: "balance",
+        canonical_type: "WireU64",
+        size: 8,
+        offset: 48,
+        intent: FieldIntent::Custom,
+    },
+    FieldDescriptor {
+        name: "bump",
+        canonical_type: "u8",
+        size: 1,
+        offset: 56,
+        intent: FieldIntent::Custom,
+    },
+    FieldDescriptor {
+        name: "fee_bps",
+        canonical_type: "WireU16",
+        size: 2,
+        offset: 57,
+        intent: FieldIntent::Custom,
+    },
 ];
 
 static VAULT_V2_CHANGED_FIELDS: &[FieldDescriptor] = &[
-    FieldDescriptor { name: "authority", canonical_type: "[u8;32]", size: 32, offset: 16, intent: FieldIntent::Custom },
-    FieldDescriptor { name: "balance", canonical_type: "WireU128", size: 16, offset: 48, intent: FieldIntent::Custom }, // changed size
-    FieldDescriptor { name: "bump", canonical_type: "u8", size: 1, offset: 64, intent: FieldIntent::Custom },
+    FieldDescriptor {
+        name: "authority",
+        canonical_type: "[u8;32]",
+        size: 32,
+        offset: 16,
+        intent: FieldIntent::Custom,
+    },
+    FieldDescriptor {
+        name: "balance",
+        canonical_type: "WireU128",
+        size: 16,
+        offset: 48,
+        intent: FieldIntent::Custom,
+    }, // changed size
+    FieldDescriptor {
+        name: "bump",
+        canonical_type: "u8",
+        size: 1,
+        offset: 64,
+        intent: FieldIntent::Custom,
+    },
 ];
 
 #[test]
@@ -813,17 +913,22 @@ fn receipt_field_tracking() {
     after[32] = 0xFF;
     after[33] = 0xAA;
 
-    let fields: &[(&str, usize, usize)] = &[
-        ("authority", 0, 32),
-        ("balance", 32, 8),
-        ("bump", 40, 1),
-    ];
+    let fields: &[(&str, usize, usize)] =
+        &[("authority", 0, 32), ("balance", 32, 8), ("bump", 40, 1)];
 
     receipt.commit_with_fields(&after, fields);
     // Field 1 (balance) should be marked as changed
-    assert_ne!(receipt.changed_fields & (1 << 1), 0, "balance field bit should be set");
+    assert_ne!(
+        receipt.changed_fields & (1 << 1),
+        0,
+        "balance field bit should be set"
+    );
     // Field 0 (authority) should NOT be changed
-    assert_eq!(receipt.changed_fields & (1 << 0), 0, "authority field bit should be clear");
+    assert_eq!(
+        receipt.changed_fields & (1 << 0),
+        0,
+        "authority field bit should be clear"
+    );
 }
 
 #[test]
@@ -867,7 +972,11 @@ fn receipt_wire_format_roundtrip() {
     assert_ne!(flags & (1 << 3), 0, "committed flag");
 
     // Verify fingerprints populated
-    assert_ne!(&bytes[33..41], &[0u8; 8], "before fingerprint should be set");
+    assert_ne!(
+        &bytes[33..41],
+        &[0u8; 8],
+        "before fingerprint should be set"
+    );
     assert_ne!(&bytes[41..49], &[0u8; 8], "after fingerprint should be set");
 }
 
@@ -902,15 +1011,27 @@ fn receipt_segment_tracking() {
     // Mutate only the second segment (offset 32..48)
     data[40] = 0xFF;
     let segments: &[(usize, usize)] = &[
-        (0, 32),   // segment 0: unchanged
-        (32, 16),  // segment 1: changed
-        (48, 16),  // segment 2: unchanged
+        (0, 32),  // segment 0: unchanged
+        (32, 16), // segment 1: changed
+        (48, 16), // segment 2: unchanged
     ];
     receipt.commit_with_segments(&data, segments);
 
-    assert_eq!(receipt.segment_changed_mask & 0x01, 0, "segment 0 should be clean");
-    assert_ne!(receipt.segment_changed_mask & 0x02, 0, "segment 1 should be dirty");
-    assert_eq!(receipt.segment_changed_mask & 0x04, 0, "segment 2 should be clean");
+    assert_eq!(
+        receipt.segment_changed_mask & 0x01,
+        0,
+        "segment 0 should be clean"
+    );
+    assert_ne!(
+        receipt.segment_changed_mask & 0x02,
+        0,
+        "segment 1 should be dirty"
+    );
+    assert_eq!(
+        receipt.segment_changed_mask & 0x04,
+        0,
+        "segment 2 should be clean"
+    );
 }
 
 #[test]
@@ -938,7 +1059,10 @@ fn receipt_journal_and_cpi_count() {
 
     assert_eq!(receipt.journal_appends, 3);
     assert_eq!(receipt.cpi_count, 2);
-    assert!(receipt.cpi_invoked, "cpi_invoked should auto-set when count > 0");
+    assert!(
+        receipt.cpi_invoked,
+        "cpi_invoked should auto-set when count > 0"
+    );
 
     let wire = receipt.to_bytes();
     let decoded = hopper_core::receipt::DecodedReceipt::from_bytes(&wire).unwrap();
@@ -977,7 +1101,11 @@ fn receipt_decoded_roundtrip_full() {
     assert_eq!(d.cpi_count, 1);
     assert_eq!(d.journal_appends, 7);
     assert_eq!(d.policy_flags, 0x13);
-    assert_ne!(d.segment_changed_mask & 0x02, 0, "segment 1 should be dirty");
+    assert_ne!(
+        d.segment_changed_mask & 0x02,
+        0,
+        "segment 1 should be dirty"
+    );
 }
 
 // =============================================================================
@@ -1173,12 +1301,36 @@ fn layout_fingerprint_different_for_different_field_order() {
     // Two layouts with same fields but different order must have different layout_ids.
     // We test this via the schema crate's compare_fields which uses layout_id.
     let fields_ab: &[FieldDescriptor] = &[
-        FieldDescriptor { name: "alpha", canonical_type: "WireU64", size: 8, offset: 16, intent: FieldIntent::Custom },
-        FieldDescriptor { name: "beta", canonical_type: "WireU32", size: 4, offset: 24, intent: FieldIntent::Custom },
+        FieldDescriptor {
+            name: "alpha",
+            canonical_type: "WireU64",
+            size: 8,
+            offset: 16,
+            intent: FieldIntent::Custom,
+        },
+        FieldDescriptor {
+            name: "beta",
+            canonical_type: "WireU32",
+            size: 4,
+            offset: 24,
+            intent: FieldIntent::Custom,
+        },
     ];
     let fields_ba: &[FieldDescriptor] = &[
-        FieldDescriptor { name: "beta", canonical_type: "WireU32", size: 4, offset: 16, intent: FieldIntent::Custom },
-        FieldDescriptor { name: "alpha", canonical_type: "WireU64", size: 8, offset: 20, intent: FieldIntent::Custom },
+        FieldDescriptor {
+            name: "beta",
+            canonical_type: "WireU32",
+            size: 4,
+            offset: 16,
+            intent: FieldIntent::Custom,
+        },
+        FieldDescriptor {
+            name: "alpha",
+            canonical_type: "WireU64",
+            size: 8,
+            offset: 20,
+            intent: FieldIntent::Custom,
+        },
     ];
 
     let lid_ab = [0xAA; 8];
@@ -1190,9 +1342,12 @@ fn layout_fingerprint_different_for_different_field_order() {
     // These should NOT be append-compatible (different layout structure)
     let report = compare_fields::<8>(&m_ab, &m_ba);
     // Fields differ (different names at same positions)
-    assert!(!report.is_append_safe || report.count_status(FieldCompat::Changed) > 0
-        || report.count_status(FieldCompat::Added) > 0
-        || report.count_status(FieldCompat::Removed) > 0);
+    assert!(
+        !report.is_append_safe
+            || report.count_status(FieldCompat::Changed) > 0
+            || report.count_status(FieldCompat::Added) > 0
+            || report.count_status(FieldCompat::Removed) > 0
+    );
 }
 
 fn leak_fields(fields: &[FieldDescriptor]) -> &'static [FieldDescriptor] {
@@ -1203,13 +1358,43 @@ fn leak_fields(fields: &[FieldDescriptor]) -> &'static [FieldDescriptor] {
 fn layout_fingerprint_append_only_detection() {
     // V1 has fields A, B. V2 has A, B, C. Should be append-safe.
     let v1_fields: &[FieldDescriptor] = &[
-        FieldDescriptor { name: "a", canonical_type: "WireU64", size: 8, offset: 16, intent: FieldIntent::Custom },
-        FieldDescriptor { name: "b", canonical_type: "WireU32", size: 4, offset: 24, intent: FieldIntent::Custom },
+        FieldDescriptor {
+            name: "a",
+            canonical_type: "WireU64",
+            size: 8,
+            offset: 16,
+            intent: FieldIntent::Custom,
+        },
+        FieldDescriptor {
+            name: "b",
+            canonical_type: "WireU32",
+            size: 4,
+            offset: 24,
+            intent: FieldIntent::Custom,
+        },
     ];
     let v2_fields: &[FieldDescriptor] = &[
-        FieldDescriptor { name: "a", canonical_type: "WireU64", size: 8, offset: 16, intent: FieldIntent::Custom },
-        FieldDescriptor { name: "b", canonical_type: "WireU32", size: 4, offset: 24, intent: FieldIntent::Custom },
-        FieldDescriptor { name: "c", canonical_type: "WireU16", size: 2, offset: 28, intent: FieldIntent::Custom },
+        FieldDescriptor {
+            name: "a",
+            canonical_type: "WireU64",
+            size: 8,
+            offset: 16,
+            intent: FieldIntent::Custom,
+        },
+        FieldDescriptor {
+            name: "b",
+            canonical_type: "WireU32",
+            size: 4,
+            offset: 24,
+            intent: FieldIntent::Custom,
+        },
+        FieldDescriptor {
+            name: "c",
+            canonical_type: "WireU16",
+            size: 2,
+            offset: 28,
+            intent: FieldIntent::Custom,
+        },
     ];
 
     let v1 = make_manifest("Layout", 1, 1, [1; 8], 28, leak_fields(v1_fields));
@@ -1224,11 +1409,29 @@ fn layout_fingerprint_append_only_detection() {
 #[test]
 fn layout_fingerprint_removal_breaks_append_safety() {
     let v1_fields: &[FieldDescriptor] = &[
-        FieldDescriptor { name: "a", canonical_type: "WireU64", size: 8, offset: 16, intent: FieldIntent::Custom },
-        FieldDescriptor { name: "b", canonical_type: "WireU32", size: 4, offset: 24, intent: FieldIntent::Custom },
+        FieldDescriptor {
+            name: "a",
+            canonical_type: "WireU64",
+            size: 8,
+            offset: 16,
+            intent: FieldIntent::Custom,
+        },
+        FieldDescriptor {
+            name: "b",
+            canonical_type: "WireU32",
+            size: 4,
+            offset: 24,
+            intent: FieldIntent::Custom,
+        },
     ];
     let v2_fields: &[FieldDescriptor] = &[
-        FieldDescriptor { name: "a", canonical_type: "WireU64", size: 8, offset: 16, intent: FieldIntent::Custom },
+        FieldDescriptor {
+            name: "a",
+            canonical_type: "WireU64",
+            size: 8,
+            offset: 16,
+            intent: FieldIntent::Custom,
+        },
         // "b" removed
     ];
 
@@ -1455,7 +1658,8 @@ fn cpi_guard_current_index_at_boundary() {
     assert_eq!(current_instruction_index(&sysvar).unwrap(), 1);
     assert!(require_top_level(&sysvar, unsafe {
         &*(&p as *const [u8; 32] as *const hopper_runtime::Address)
-    }).is_ok());
+    })
+    .is_ok());
 }
 
 #[test]
@@ -1467,12 +1671,14 @@ fn cpi_guard_flash_loan_requires_both_sides() {
     // Flash loan bracket: ours before AND after current index -> should detect it
     assert!(detect_flash_loan_bracket(&sysvar, unsafe {
         &*(&ours as *const [u8; 32] as *const hopper_runtime::Address)
-    }).is_err());
+    })
+    .is_err());
     // But from our own program's perspective (index 0), only ours is after -> no bracket
     let sysvar2 = build_ix_sysvar(&[&ours, &other, &ours], 0);
     assert!(detect_flash_loan_bracket(&sysvar2, unsafe {
         &*(&ours as *const [u8; 32] as *const hopper_runtime::Address)
-    }).is_ok());
+    })
+    .is_ok());
 }
 
 // -- Journal edge cases --
@@ -1528,7 +1734,10 @@ fn journal_strict_rejects_when_full() {
 
     journal.append(Entry8::new(1)).unwrap();
     journal.append(Entry8::new(2)).unwrap();
-    assert!(journal.append(Entry8::new(3)).is_err(), "strict journal should reject when full");
+    assert!(
+        journal.append(Entry8::new(3)).is_err(),
+        "strict journal should reject when full"
+    );
 }
 
 #[test]
@@ -1554,13 +1763,16 @@ fn journal_read_out_of_bounds_fails() {
     journal.init(false);
 
     journal.append(Entry8::new(1)).unwrap();
-    assert!(journal.read(1).is_err(), "index 1 is out of bounds when only 1 entry written");
+    assert!(
+        journal.read(1).is_err(),
+        "index 1 is out of bounds when only 1 entry written"
+    );
     assert!(journal.read(100).is_err());
 }
 
 // -- Fingerprint regression --
 
-use hopper_core::abi::{LayoutFingerprint, FingerprintTransition};
+use hopper_core::abi::{FingerprintTransition, LayoutFingerprint};
 
 #[test]
 fn fingerprint_verify_header_correct_data() {
@@ -1582,7 +1794,10 @@ fn fingerprint_verify_header_wrong_id() {
 #[test]
 fn fingerprint_verify_header_too_short() {
     let fp = LayoutFingerprint::from_bytes([1; 8]);
-    assert!(fp.verify_header(&[0u8; 11]).is_err(), "data shorter than 12 should fail");
+    assert!(
+        fp.verify_header(&[0u8; 11]).is_err(),
+        "data shorter than 12 should fail"
+    );
 }
 
 #[test]
@@ -1653,7 +1868,10 @@ fn slab_alloc_all_slots_then_reject_golden() {
         slots.push(slab.alloc(Entry8::new(i as u64)).unwrap());
     }
     assert!(slab.is_full());
-    assert!(slab.alloc(Entry8::new(999)).is_err(), "should reject when all slots used");
+    assert!(
+        slab.alloc(Entry8::new(999)).is_err(),
+        "should reject when all slots used"
+    );
 
     // Free first and re-alloc should work
     slab.free(slots[0]).unwrap();

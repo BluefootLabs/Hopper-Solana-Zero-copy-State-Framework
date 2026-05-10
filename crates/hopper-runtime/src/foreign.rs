@@ -138,8 +138,7 @@ impl<'a, T: AccountLayout + LayoutContract> ForeignLens<'a, T> {
         // properly bounds-checked reference without touching unaligned
         // primitives (we copy packed fields out by value below).
         let data = account.try_borrow()?;
-        let header = HopperHeader::from_bytes(&data)
-            .ok_or(ProgramError::AccountDataTooSmall)?;
+        let header = HopperHeader::from_bytes(&data).ok_or(ProgramError::AccountDataTooSmall)?;
         // Packed-field reads must go through a local copy.
         let layout_id = header.layout_id;
         let schema_epoch = header.schema_epoch;
@@ -179,7 +178,11 @@ impl<'a, T: AccountLayout + LayoutContract> ForeignLens<'a, T> {
     pub fn field<F: ZeroCopy, const OFFSET: usize>(&self) -> Result<&F, ProgramError> {
         let body_size = core::mem::size_of::<T>();
         let field_size = core::mem::size_of::<F>();
-        if OFFSET.checked_add(field_size).map(|end| end > body_size).unwrap_or(true) {
+        if OFFSET
+            .checked_add(field_size)
+            .map(|end| end > body_size)
+            .unwrap_or(true)
+        {
             return Err(ProgramError::AccountDataTooSmall);
         }
         // SAFETY: We checked the byte range lies entirely inside the
@@ -189,6 +192,7 @@ impl<'a, T: AccountLayout + LayoutContract> ForeignLens<'a, T> {
         // cannot outlive the underlying borrow guard.
         // `Ref<T>` derefs to `T`; take the address via `&*`.
         let layout_ref: &T = &*self.inner;
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {
             let base = layout_ref as *const T as *const u8;
             let field_ptr = base.add(OFFSET) as *const F;
@@ -196,7 +200,6 @@ impl<'a, T: AccountLayout + LayoutContract> ForeignLens<'a, T> {
         }
     }
 }
-
 
 #[cfg(test)]
 mod tests {

@@ -23,17 +23,15 @@ pub fn zero_init(data: &mut [u8]) {
 ///
 /// Zeroes the account data and writes the close sentinel to prevent revival.
 #[inline]
-pub fn safe_close(
-    account: &AccountView,
-    destination: &AccountView,
-) -> ProgramResult {
+pub fn safe_close(account: &AccountView, destination: &AccountView) -> ProgramResult {
     let lamports = account.lamports();
     if lamports == 0 {
         return Ok(());
     }
 
     // Add to destination
-    let new_dest = destination.lamports()
+    let new_dest = destination
+        .lamports()
         .checked_add(lamports)
         .ok_or(ProgramError::ArithmeticOverflow)?;
     destination.set_lamports(new_dest);
@@ -50,10 +48,7 @@ pub fn safe_close(
 
 /// Close with sentinel -- writes `CLOSE_SENTINEL` to byte 0 after zeroing.
 #[inline]
-pub fn safe_close_with_sentinel(
-    account: &AccountView,
-    destination: &AccountView,
-) -> ProgramResult {
+pub fn safe_close_with_sentinel(account: &AccountView, destination: &AccountView) -> ProgramResult {
     safe_close(account, destination)?;
 
     // Write sentinel to prevent revival
@@ -69,11 +64,7 @@ pub fn safe_close_with_sentinel(
 ///
 /// Handles the rent-exemption delta and transfers lamports from/to `payer`.
 #[inline]
-pub fn safe_realloc(
-    account: &AccountView,
-    new_size: usize,
-    payer: &AccountView,
-) -> ProgramResult {
+pub fn safe_realloc(account: &AccountView, new_size: usize, payer: &AccountView) -> ProgramResult {
     account.resize(new_size)?;
 
     // Compute new rent and transfer delta
@@ -83,11 +74,13 @@ pub fn safe_realloc(
     if rent_needed > current_lamports {
         let deficit = rent_needed - current_lamports;
         // Transfer from payer to account
-        let payer_lamports = payer.lamports()
+        let payer_lamports = payer
+            .lamports()
             .checked_sub(deficit)
             .ok_or(ProgramError::InsufficientFunds)?;
         payer.set_lamports(payer_lamports);
-        let acct_lamports = account.lamports()
+        let acct_lamports = account
+            .lamports()
             .checked_add(deficit)
             .ok_or(ProgramError::ArithmeticOverflow)?;
         account.set_lamports(acct_lamports);

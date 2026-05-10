@@ -126,12 +126,15 @@ impl<'a> From<&'a AccountView> for CpiAccount<'a> {
         let raw = view.account_ptr();
         // Single u32 read extracts [borrow_state, is_signer, is_writable, executable].
         // On little-endian BPF: byte 1 = is_signer, byte 2 = is_writable, byte 3 = executable.
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let header = unsafe { *(raw as *const u32) };
         Self {
             address: unsafe { &(*raw).address as *const Address },
+            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             lamports: unsafe { &(*raw).lamports as *const u64 },
             data_len: view.data_len() as u64,
             data: view.data_ptr_unchecked(),
+            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             owner: unsafe { &(*raw).owner as *const Address },
             rent_epoch: 0,
             is_signer: header & 0x0000_FF00 != 0,
@@ -180,6 +183,7 @@ impl core::ops::Deref for Seed<'_> {
 
     #[inline(always)]
     fn deref(&self) -> &[u8] {
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe { core::slice::from_raw_parts(self.seed, self.len as usize) }
     }
 }

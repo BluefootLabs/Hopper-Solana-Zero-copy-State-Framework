@@ -134,7 +134,9 @@ pub fn check_header(
 /// byte or `AccountDataTooSmall` if `data` is empty.
 #[inline(always)]
 pub fn read_discriminator(data: &[u8]) -> Result<u8, ProgramError> {
-    data.first().copied().ok_or(ProgramError::AccountDataTooSmall)
+    data.first()
+        .copied()
+        .ok_or(ProgramError::AccountDataTooSmall)
 }
 
 /// Read the version byte.
@@ -152,7 +154,10 @@ pub fn read_header_flags(data: &[u8]) -> Result<u16, ProgramError> {
     if data.len() < 4 {
         return Err(ProgramError::AccountDataTooSmall);
     }
-    Ok(u16::from_le_bytes([data[FLAGS_OFFSET], data[FLAGS_OFFSET + 1]]))
+    Ok(u16::from_le_bytes([
+        data[FLAGS_OFFSET],
+        data[FLAGS_OFFSET + 1],
+    ]))
 }
 
 /// Read the 8-byte layout_id.

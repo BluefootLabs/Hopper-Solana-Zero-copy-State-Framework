@@ -22,12 +22,13 @@
 use proc_macro2::TokenStream;
 use quote::quote;
 use sha2::{Digest, Sha256};
-use syn::{parse2, parse::Parser, ItemStruct, LitInt, LitStr, Meta, Token, punctuated::Punctuated};
+use syn::{parse::Parser, parse2, punctuated::Punctuated, ItemStruct, LitInt, LitStr, Meta, Token};
 
 pub fn expand(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> {
     let input: ItemStruct = parse2(item)?;
-    let metas: Punctuated<Meta, Token![,]> =
-        Punctuated::<Meta, Token![,]>::parse_terminated.parse2(attr.clone()).unwrap_or_default();
+    let metas: Punctuated<Meta, Token![,]> = Punctuated::<Meta, Token![,]>::parse_terminated
+        .parse2(attr.clone())
+        .unwrap_or_default();
 
     let mut tag: Option<u8> = None;
     let mut name: Option<String> = None;
@@ -36,17 +37,29 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> 
     for m in &metas {
         match m {
             Meta::NameValue(nv) if nv.path.is_ident("tag") => {
-                if let syn::Expr::Lit(syn::ExprLit { lit: syn::Lit::Int(li), .. }) = &nv.value {
+                if let syn::Expr::Lit(syn::ExprLit {
+                    lit: syn::Lit::Int(li),
+                    ..
+                }) = &nv.value
+                {
                     tag = Some(li.base10_parse::<u8>()?);
                 }
             }
             Meta::NameValue(nv) if nv.path.is_ident("name") => {
-                if let syn::Expr::Lit(syn::ExprLit { lit: syn::Lit::Str(ls), .. }) = &nv.value {
+                if let syn::Expr::Lit(syn::ExprLit {
+                    lit: syn::Lit::Str(ls),
+                    ..
+                }) = &nv.value
+                {
                     name = Some(ls.value());
                 }
             }
             Meta::NameValue(nv) if nv.path.is_ident("segment") => {
-                if let syn::Expr::Lit(syn::ExprLit { lit: syn::Lit::Int(li), .. }) = &nv.value {
+                if let syn::Expr::Lit(syn::ExprLit {
+                    lit: syn::Lit::Int(li),
+                    ..
+                }) = &nv.value
+                {
                     segment_source = Some(li.base10_parse::<u8>()?);
                 }
             }
@@ -123,7 +136,9 @@ fn derive_tag(name: &str) -> u8 {
     let digest = h.finalize();
     let mut i = 0;
     while i < digest.len() {
-        if digest[i] != 0 { return digest[i]; }
+        if digest[i] != 0 {
+            return digest[i];
+        }
         i += 1;
     }
     1

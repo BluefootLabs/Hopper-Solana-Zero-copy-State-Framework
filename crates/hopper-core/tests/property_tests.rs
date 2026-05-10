@@ -16,7 +16,7 @@
 
 use hopper_core::abi::*;
 use hopper_core::account::*;
-use hopper_core::collections::{FixedVec, RingBuffer, BitSet};
+use hopper_core::collections::{BitSet, FixedVec, RingBuffer};
 use hopper_core::diff::StateSnapshot;
 
 // =====================================================================
@@ -27,9 +27,18 @@ use hopper_core::diff::StateSnapshot;
 #[test]
 fn prop_wire_u64_roundtrip_exhaustive_boundaries() {
     let test_values: &[u64] = &[
-        0, 1, 2, 127, 128, 255, 256,
-        u16::MAX as u64, u32::MAX as u64,
-        u64::MAX / 2, u64::MAX - 1, u64::MAX,
+        0,
+        1,
+        2,
+        127,
+        128,
+        255,
+        256,
+        u16::MAX as u64,
+        u32::MAX as u64,
+        u64::MAX / 2,
+        u64::MAX - 1,
+        u64::MAX,
         0x0102030405060708,
         0xDEADBEEFCAFEBABE,
         0x8000000000000000,
@@ -52,9 +61,18 @@ fn prop_wire_u64_is_little_endian() {
 #[test]
 fn prop_wire_u32_roundtrip_exhaustive_boundaries() {
     let test_values: &[u32] = &[
-        0, 1, 127, 128, 255, 256,
-        u16::MAX as u32, u32::MAX / 2, u32::MAX - 1, u32::MAX,
-        0xDEADBEEF, 0x80000000,
+        0,
+        1,
+        127,
+        128,
+        255,
+        256,
+        u16::MAX as u32,
+        u32::MAX / 2,
+        u32::MAX - 1,
+        u32::MAX,
+        0xDEADBEEF,
+        0x80000000,
     ];
     for &v in test_values {
         let wire = WireU32::new(v);
@@ -66,8 +84,15 @@ fn prop_wire_u32_roundtrip_exhaustive_boundaries() {
 #[test]
 fn prop_wire_i64_roundtrip_signed() {
     let test_values: &[i64] = &[
-        0, 1, -1, 127, -128, i64::MIN, i64::MAX,
-        i64::MIN / 2, i64::MAX / 2,
+        0,
+        1,
+        -1,
+        127,
+        -128,
+        i64::MIN,
+        i64::MAX,
+        i64::MIN / 2,
+        i64::MAX / 2,
         -0x0102030405060708,
     ];
     for &v in test_values {
@@ -148,8 +173,8 @@ fn prop_typed_address_zero_invariant() {
 #[test]
 fn prop_typed_address_from_slice_roundtrip() {
     let bytes: [u8; 32] = [
-        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
-        17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32,
+        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25,
+        26, 27, 28, 29, 30, 31, 32,
     ];
     let addr: TypedAddress<Authority> = TypedAddress::from_slice(&bytes);
     assert_eq!(addr.as_bytes(), &bytes);
@@ -335,7 +360,10 @@ fn prop_ring_buffer_preserves_last_n() {
 
         // Ring should contain capacity elements
         let count = ring.count();
-        assert!(count <= capacity, "ring count {count} > capacity {capacity}");
+        assert!(
+            count <= capacity,
+            "ring count {count} > capacity {capacity}"
+        );
 
         // Latest should be the last pushed
         let latest = ring.latest().unwrap().get();
@@ -521,8 +549,7 @@ fn prop_layout_id_length() {
     let input = b"hopper:v1:Test:1:field_a:WireU64:8,";
     let hash = sha2_const_stable::Sha256::new().update(input).finalize();
     let id: [u8; 8] = [
-        hash[0], hash[1], hash[2], hash[3],
-        hash[4], hash[5], hash[6], hash[7],
+        hash[0], hash[1], hash[2], hash[3], hash[4], hash[5], hash[6], hash[7],
     ];
     assert_eq!(id.len(), 8);
 }
@@ -536,12 +563,17 @@ fn prop_layout_id_collision_resistance() {
     let hash_a = sha2_const_stable::Sha256::new().update(input_a).finalize();
     let hash_b = sha2_const_stable::Sha256::new().update(input_b).finalize();
 
-    let id_a: [u8; 8] = [hash_a[0], hash_a[1], hash_a[2], hash_a[3],
-                          hash_a[4], hash_a[5], hash_a[6], hash_a[7]];
-    let id_b: [u8; 8] = [hash_b[0], hash_b[1], hash_b[2], hash_b[3],
-                          hash_b[4], hash_b[5], hash_b[6], hash_b[7]];
+    let id_a: [u8; 8] = [
+        hash_a[0], hash_a[1], hash_a[2], hash_a[3], hash_a[4], hash_a[5], hash_a[6], hash_a[7],
+    ];
+    let id_b: [u8; 8] = [
+        hash_b[0], hash_b[1], hash_b[2], hash_b[3], hash_b[4], hash_b[5], hash_b[6], hash_b[7],
+    ];
 
-    assert_ne!(id_a, id_b, "Different field names must produce different layout IDs");
+    assert_ne!(
+        id_a, id_b,
+        "Different field names must produce different layout IDs"
+    );
 }
 
 /// Same fields in different order produce different layout IDs.
@@ -553,18 +585,24 @@ fn prop_layout_id_order_sensitive() {
     let hash_a = sha2_const_stable::Sha256::new().update(input_a).finalize();
     let hash_b = sha2_const_stable::Sha256::new().update(input_b).finalize();
 
-    let id_a: [u8; 8] = [hash_a[0], hash_a[1], hash_a[2], hash_a[3],
-                          hash_a[4], hash_a[5], hash_a[6], hash_a[7]];
-    let id_b: [u8; 8] = [hash_b[0], hash_b[1], hash_b[2], hash_b[3],
-                          hash_b[4], hash_b[5], hash_b[6], hash_b[7]];
+    let id_a: [u8; 8] = [
+        hash_a[0], hash_a[1], hash_a[2], hash_a[3], hash_a[4], hash_a[5], hash_a[6], hash_a[7],
+    ];
+    let id_b: [u8; 8] = [
+        hash_b[0], hash_b[1], hash_b[2], hash_b[3], hash_b[4], hash_b[5], hash_b[6], hash_b[7],
+    ];
 
-    assert_ne!(id_a, id_b, "Field order must matter in layout ID generation");
+    assert_ne!(
+        id_a, id_b,
+        "Field order must matter in layout ID generation"
+    );
 }
 
 /// Same definition is deterministic (idempotent).
 #[test]
 fn prop_layout_id_deterministic() {
-    let input = b"hopper:v1:Vault:1:authority:TypedAddress < Authority >:32,balance:WireU64:8,bump:u8:1,";
+    let input =
+        b"hopper:v1:Vault:1:authority:TypedAddress < Authority >:32,balance:WireU64:8,bump:u8:1,";
     let hash1 = sha2_const_stable::Sha256::new().update(input).finalize();
     let hash2 = sha2_const_stable::Sha256::new().update(input).finalize();
 
@@ -580,10 +618,14 @@ fn prop_layout_id_version_changes_id() {
     let hash_v1 = sha2_const_stable::Sha256::new().update(input_v1).finalize();
     let hash_v2 = sha2_const_stable::Sha256::new().update(input_v2).finalize();
 
-    let id_v1: [u8; 8] = [hash_v1[0], hash_v1[1], hash_v1[2], hash_v1[3],
-                           hash_v1[4], hash_v1[5], hash_v1[6], hash_v1[7]];
-    let id_v2: [u8; 8] = [hash_v2[0], hash_v2[1], hash_v2[2], hash_v2[3],
-                           hash_v2[4], hash_v2[5], hash_v2[6], hash_v2[7]];
+    let id_v1: [u8; 8] = [
+        hash_v1[0], hash_v1[1], hash_v1[2], hash_v1[3], hash_v1[4], hash_v1[5], hash_v1[6],
+        hash_v1[7],
+    ];
+    let id_v2: [u8; 8] = [
+        hash_v2[0], hash_v2[1], hash_v2[2], hash_v2[3], hash_v2[4], hash_v2[5], hash_v2[6],
+        hash_v2[7],
+    ];
 
     assert_ne!(id_v1, id_v2, "Version bump must change layout ID");
 }
@@ -596,13 +638,21 @@ fn prop_layout_id_version_changes_id() {
 #[test]
 fn prop_schema_same_manifest_noop() {
     use hopper_schema::*;
-    let fields = &[
-        FieldDescriptor { name: "balance", canonical_type: "WireU64", size: 8, offset: 16, intent: FieldIntent::Custom },
-    ];
+    let fields = &[FieldDescriptor {
+        name: "balance",
+        canonical_type: "WireU64",
+        size: 8,
+        offset: 16,
+        intent: FieldIntent::Custom,
+    }];
     let m = LayoutManifest {
-        name: "Vault", version: 1, disc: 1,
+        name: "Vault",
+        version: 1,
+        disc: 1,
         layout_id: [1, 2, 3, 4, 5, 6, 7, 8],
-        total_size: 24, field_count: 1, fields,
+        total_size: 24,
+        field_count: 1,
+        fields,
     };
     assert!(!requires_migration(&m, &m));
     // Same manifest is NOT append-compatible (version not greater, layout_id not different)
@@ -613,22 +663,46 @@ fn prop_schema_same_manifest_noop() {
 #[test]
 fn prop_schema_append_compatible() {
     use hopper_schema::*;
-    let old_fields = &[
-        FieldDescriptor { name: "balance", canonical_type: "WireU64", size: 8, offset: 16, intent: FieldIntent::Custom },
-    ];
+    let old_fields = &[FieldDescriptor {
+        name: "balance",
+        canonical_type: "WireU64",
+        size: 8,
+        offset: 16,
+        intent: FieldIntent::Custom,
+    }];
     let new_fields = &[
-        FieldDescriptor { name: "balance", canonical_type: "WireU64", size: 8, offset: 16, intent: FieldIntent::Custom },
-        FieldDescriptor { name: "extra", canonical_type: "WireU32", size: 4, offset: 24, intent: FieldIntent::Custom },
+        FieldDescriptor {
+            name: "balance",
+            canonical_type: "WireU64",
+            size: 8,
+            offset: 16,
+            intent: FieldIntent::Custom,
+        },
+        FieldDescriptor {
+            name: "extra",
+            canonical_type: "WireU32",
+            size: 4,
+            offset: 24,
+            intent: FieldIntent::Custom,
+        },
     ];
     let old = LayoutManifest {
-        name: "Vault", version: 1, disc: 1,
+        name: "Vault",
+        version: 1,
+        disc: 1,
         layout_id: [1, 2, 3, 4, 5, 6, 7, 8],
-        total_size: 24, field_count: 1, fields: old_fields,
+        total_size: 24,
+        field_count: 1,
+        fields: old_fields,
     };
     let new = LayoutManifest {
-        name: "Vault", version: 2, disc: 1,
+        name: "Vault",
+        version: 2,
+        disc: 1,
         layout_id: [8, 7, 6, 5, 4, 3, 2, 1],
-        total_size: 28, field_count: 2, fields: new_fields,
+        total_size: 28,
+        field_count: 2,
+        fields: new_fields,
     };
     assert!(is_append_compatible(&old, &new));
 }
@@ -637,21 +711,37 @@ fn prop_schema_append_compatible() {
 #[test]
 fn prop_schema_changed_type_requires_migration() {
     use hopper_schema::*;
-    let old_fields = &[
-        FieldDescriptor { name: "balance", canonical_type: "WireU64", size: 8, offset: 16, intent: FieldIntent::Custom },
-    ];
-    let new_fields = &[
-        FieldDescriptor { name: "balance", canonical_type: "WireU128", size: 16, offset: 16, intent: FieldIntent::Custom },
-    ];
+    let old_fields = &[FieldDescriptor {
+        name: "balance",
+        canonical_type: "WireU64",
+        size: 8,
+        offset: 16,
+        intent: FieldIntent::Custom,
+    }];
+    let new_fields = &[FieldDescriptor {
+        name: "balance",
+        canonical_type: "WireU128",
+        size: 16,
+        offset: 16,
+        intent: FieldIntent::Custom,
+    }];
     let old = LayoutManifest {
-        name: "Vault", version: 1, disc: 1,
+        name: "Vault",
+        version: 1,
+        disc: 1,
         layout_id: [1, 2, 3, 4, 5, 6, 7, 8],
-        total_size: 24, field_count: 1, fields: old_fields,
+        total_size: 24,
+        field_count: 1,
+        fields: old_fields,
     };
     let new = LayoutManifest {
-        name: "Vault", version: 2, disc: 1,
+        name: "Vault",
+        version: 2,
+        disc: 1,
         layout_id: [9, 9, 9, 9, 9, 9, 9, 9],
-        total_size: 32, field_count: 1, fields: new_fields,
+        total_size: 32,
+        field_count: 1,
+        fields: new_fields,
     };
     assert!(requires_migration(&old, &new));
     // Coarse structural check passes (version bumped, size grew, layout_id differs)
@@ -695,7 +785,10 @@ fn prop_checked_sub_underflow() {
 // Segment Role Properties
 // =====================================================================
 
-use hopper_core::account::segment_role::{SegmentRole, SEG_ROLE_CORE, SEG_ROLE_EXTENSION, SEG_ROLE_JOURNAL, SEG_ROLE_INDEX, SEG_ROLE_CACHE, SEG_ROLE_AUDIT, SEG_ROLE_SHARD};
+use hopper_core::account::segment_role::{
+    SegmentRole, SEG_ROLE_AUDIT, SEG_ROLE_CACHE, SEG_ROLE_CORE, SEG_ROLE_EXTENSION, SEG_ROLE_INDEX,
+    SEG_ROLE_JOURNAL, SEG_ROLE_SHARD,
+};
 
 /// SegmentRole roundtrips through flags encoding.
 #[test]
@@ -722,7 +815,10 @@ fn prop_segment_role_flags_roundtrip() {
 fn prop_segment_role_preserves_lower_bits() {
     let lower_bits: &[u16] = &[0x000, 0x001, 0x007, 0x0FF, 0xFFF];
     let roles = [
-        SegmentRole::Core, SegmentRole::Journal, SegmentRole::Cache, SegmentRole::Shard,
+        SegmentRole::Core,
+        SegmentRole::Journal,
+        SegmentRole::Cache,
+        SegmentRole::Shard,
     ];
     for &bits in lower_bits {
         for role in roles {
@@ -847,14 +943,22 @@ fn prop_segment_role_unknown_maps_to_unclassified() {
 #[test]
 fn prop_segment_role_names_valid() {
     let roles = [
-        SegmentRole::Core, SegmentRole::Extension, SegmentRole::Journal,
-        SegmentRole::Index, SegmentRole::Cache, SegmentRole::Audit,
-        SegmentRole::Shard, SegmentRole::Unclassified,
+        SegmentRole::Core,
+        SegmentRole::Extension,
+        SegmentRole::Journal,
+        SegmentRole::Index,
+        SegmentRole::Cache,
+        SegmentRole::Audit,
+        SegmentRole::Shard,
+        SegmentRole::Unclassified,
     ];
     for role in roles {
         let name = role.name();
         assert!(!name.is_empty());
-        assert!(name.chars().all(|c| c.is_ascii_lowercase()), "name {name} not lowercase");
+        assert!(
+            name.chars().all(|c| c.is_ascii_lowercase()),
+            "name {name} not lowercase"
+        );
     }
 }
 
@@ -939,15 +1043,20 @@ fn prop_receipt_field_tracking() {
 
     // Mutate the balance field (offset 16, size 8)
     data[16] = 0xFF;
-    let fields: &[(&str, usize, usize)] = &[
-        ("balance", 16, 8),
-        ("count", 24, 4),
-    ];
+    let fields: &[(&str, usize, usize)] = &[("balance", 16, 8), ("count", 24, 4)];
     receipt.commit_with_fields(&data, fields);
 
     assert!(receipt.is_committed());
-    assert_eq!(receipt.changed_fields & 0x01, 1, "balance field not flagged");
-    assert_eq!(receipt.changed_fields & 0x02, 0, "count field falsely flagged");
+    assert_eq!(
+        receipt.changed_fields & 0x01,
+        1,
+        "balance field not flagged"
+    );
+    assert_eq!(
+        receipt.changed_fields & 0x02,
+        0,
+        "count field falsely flagged"
+    );
 }
 
 /// Receipt set_invariants records correctly.
@@ -999,7 +1108,7 @@ fn prop_receipt_wire_format() {
     // changed_fields at offset 8 (u64 LE)
     let cf = u64::from_le_bytes(wire[8..16].try_into().unwrap());
     assert_eq!(cf, 0); // commit (not commit_with_fields) doesn't set field mask
-    // changed_bytes at offset 16 (u32 LE)
+                       // changed_bytes at offset 16 (u32 LE)
     let cb = u32::from_le_bytes(wire[16..20].try_into().unwrap());
     assert_eq!(cb, 1);
     // old_size at offset 22 (u32 LE)
@@ -1019,9 +1128,17 @@ fn prop_receipt_wire_format() {
     assert_ne!(flags & (1 << 2), 0, "cpi_invoked should be set");
     assert_ne!(flags & (1 << 3), 0, "committed should be set");
     // before_fingerprint at offset 33..41 (should be non-zero, data was all zeros)
-    assert_ne!(&wire[33..41], &[0u8; 8], "before fingerprint should be populated");
+    assert_ne!(
+        &wire[33..41],
+        &[0u8; 8],
+        "before fingerprint should be populated"
+    );
     // after_fingerprint at offset 41..49 (should differ from before, data changed)
-    assert_ne!(&wire[33..41], &wire[41..49], "fingerprints should differ when data changed");
+    assert_ne!(
+        &wire[33..41],
+        &wire[41..49],
+        "fingerprints should differ when data changed"
+    );
 }
 
 /// Receipt to_bytes with field tracking includes changed_fields.
@@ -1032,10 +1149,7 @@ fn prop_receipt_wire_format_with_fields() {
     let mut receipt = StateReceipt::<28>::begin(&layout_id, &data);
 
     data[24] = 0x42; // mutate the second field
-    let fields: &[(&str, usize, usize)] = &[
-        ("balance", 16, 8),
-        ("count", 24, 4),
-    ];
+    let fields: &[(&str, usize, usize)] = &[("balance", 16, 8), ("count", 24, 4)];
     receipt.commit_with_fields(&data, fields);
 
     let wire = receipt.to_bytes();
@@ -1211,8 +1325,7 @@ fn prop_capability_set_subset() {
     let partial = CapabilitySet::new()
         .with(Capability::MutatesState)
         .with(Capability::TouchesJournal);
-    let disjoint = CapabilitySet::new()
-        .with(Capability::ClosesAccount);
+    let disjoint = CapabilitySet::new().with(Capability::ClosesAccount);
 
     assert!(partial.is_subset_of(&full));
     assert!(!full.is_subset_of(&partial));
@@ -1282,7 +1395,10 @@ fn prop_policy_resolve_basic() {
 fn prop_policy_resolve_all_caps() {
     let policy = InstructionPolicy::<3>::new()
         .when(Capability::MutatesState, PolicyRequirement::Authority)
-        .when(Capability::TouchesJournal, PolicyRequirement::JournalCapacity)
+        .when(
+            Capability::TouchesJournal,
+            PolicyRequirement::JournalCapacity,
+        )
         .when(Capability::ExternalCall, PolicyRequirement::CpiGuard);
 
     let all_caps = CapabilitySet::new()

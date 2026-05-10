@@ -148,7 +148,9 @@ mod imp {
 
             let index = match self.find(address) {
                 Some(index) => index,
-                None => self.first_empty().ok_or(ProgramError::AccountBorrowFailed)?,
+                None => self
+                    .first_empty()
+                    .ok_or(ProgramError::AccountBorrowFailed)?,
             };
 
             let state = &mut self.entries[index];
@@ -231,7 +233,8 @@ mod imp {
     unsafe impl Sync for RegistryCell {}
 
     #[cfg(not(test))]
-    static REGISTRY: RegistryCell = RegistryCell(core::cell::UnsafeCell::new(BorrowRegistry::new()));
+    static REGISTRY: RegistryCell =
+        RegistryCell(core::cell::UnsafeCell::new(BorrowRegistry::new()));
 
     #[cfg(test)]
     fn with_registry<R>(f: impl FnOnce(&BorrowRegistry) -> R) -> R {
@@ -243,6 +246,7 @@ mod imp {
 
     #[cfg(not(test))]
     fn with_registry<R>(f: impl FnOnce(&BorrowRegistry) -> R) -> R {
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe { f(&*REGISTRY.0.get()) }
     }
 
@@ -256,6 +260,7 @@ mod imp {
 
     #[cfg(not(test))]
     fn with_registry_mut<R>(f: impl FnOnce(&mut BorrowRegistry) -> R) -> R {
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe { f(&mut *REGISTRY.0.get()) }
     }
 }

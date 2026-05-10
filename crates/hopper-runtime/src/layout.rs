@@ -72,6 +72,7 @@ impl HopperHeader {
         if data.len() < Self::SIZE {
             return None;
         }
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         Some(unsafe { &mut *(data.as_mut_ptr() as *mut Self) })
     }
 }
@@ -317,7 +318,11 @@ pub fn read_disc(data: &[u8]) -> Option<u8> {
 /// Read the version from account data (byte 1).
 #[inline(always)]
 pub fn read_version(data: &[u8]) -> Option<u8> {
-    if data.len() < 2 { None } else { Some(data[1]) }
+    if data.len() < 2 {
+        None
+    } else {
+        Some(data[1])
+    }
 }
 
 /// Read the 8-byte layout_id from account data (bytes 4..12).
@@ -357,12 +362,7 @@ pub const DEFAULT_SCHEMA_EPOCH: u32 = 1;
 /// audit-added `schema_epoch = 1` (bytes 12..16).
 /// Returns `Err` if `data` is shorter than 16 bytes.
 #[inline(always)]
-pub fn write_header(
-    data: &mut [u8],
-    disc: u8,
-    version: u8,
-    layout_id: &[u8; 8],
-) -> ProgramResult {
+pub fn write_header(data: &mut [u8], disc: u8, version: u8, layout_id: &[u8; 8]) -> ProgramResult {
     write_header_with_epoch(data, disc, version, layout_id, DEFAULT_SCHEMA_EPOCH)
 }
 

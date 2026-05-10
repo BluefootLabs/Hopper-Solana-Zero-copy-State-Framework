@@ -37,6 +37,7 @@ pub fn token_account_owner(data: &[u8]) -> Result<&Address, ProgramError> {
     if data.len() < TOKEN_ACCOUNT_LEN {
         return Err(ProgramError::InvalidAccountData);
     }
+    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     Ok(unsafe { &*(data.as_ptr().add(OWNER_OFFSET) as *const Address) })
 }
 

@@ -1,7 +1,7 @@
 //! Typed instruction context and account struct trait.
 
-use hopper_runtime::{AccountView, Address};
 use hopper_runtime::error::ProgramError;
+use hopper_runtime::{AccountView, Address};
 
 #[cfg(feature = "explain")]
 use super::explain::ContextExplain;

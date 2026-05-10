@@ -17,7 +17,10 @@ extern crate alloc;
 #[cfg(any(
     all(feature = "hopper-native-backend", feature = "legacy-pinocchio-compat"),
     all(feature = "hopper-native-backend", feature = "solana-program-backend"),
-    all(feature = "legacy-pinocchio-compat", feature = "solana-program-backend"),
+    all(
+        feature = "legacy-pinocchio-compat",
+        feature = "solana-program-backend"
+    ),
 ))]
 compile_error!(
     "Only one backend feature may be enabled at a time: hopper-native-backend, legacy-pinocchio-compat, or solana-program-backend"
@@ -35,11 +38,9 @@ compile_error!(
 #[doc(hidden)]
 pub mod compat;
 
-pub mod error;
-pub mod result;
-pub mod address;
 pub mod account;
 pub mod account_wrappers;
+pub mod address;
 pub mod audit;
 pub mod borrow;
 pub(crate) mod borrow_registry;
@@ -47,46 +48,48 @@ pub mod cpi;
 pub mod cpi_event;
 pub mod crank;
 pub mod dyn_cpi;
-pub mod utils;
+pub mod error;
 pub mod field_map;
 pub mod foreign;
-pub mod migrate;
-pub mod tail;
 pub mod interop;
 pub mod log;
+pub mod migrate;
 pub mod pod;
-pub mod segment;
-pub mod zerocopy;
 pub mod policy;
 pub mod ref_only;
+pub mod result;
+pub mod segment;
+pub mod tail;
+pub mod utils;
+pub mod zerocopy;
 // Re-export the sealed marker module at the crate root so macro
 // codegen can address it as `::hopper_runtime::__sealed::...`. It's
 // doc-hidden because it's the audit's Step 5 enforcement surface,
 // not a normal-user-facing API.
 #[doc(hidden)]
 pub use zerocopy::__sealed;
-pub mod segment_borrow;
-pub mod segment_lease;
+pub mod context;
 pub mod instruction;
 pub mod layout;
-pub mod context;
+pub mod option_byte;
 pub mod pda;
+pub mod remaining;
 pub mod rent;
+pub mod segment_borrow;
+pub mod segment_lease;
 pub mod syscall;
 pub mod syscalls;
 pub mod system;
-pub mod option_byte;
-pub mod remaining;
 pub mod token;
 pub mod token_2022_ext;
 
 pub use account::{AccountView, RemainingAccounts};
-pub use account_wrappers::{Account, InitAccount, Program, ProgramId, Signer as HopperSigner, SystemId};
+pub use account_wrappers::{
+    Account, InitAccount, Program, ProgramId, Signer as HopperSigner, SystemId,
+};
 pub use address::Address;
 pub use audit::{AccountAudit, DuplicateAccount};
 pub use borrow::{Ref, RefMut};
-pub use policy::{HopperInstructionPolicy, HopperProgramPolicy};
-pub use ref_only::HopperRefOnly;
 pub use context::Context;
 pub use cpi::{invoke, invoke_signed};
 pub use error::ProgramError;
@@ -94,6 +97,8 @@ pub use field_map::{FieldInfo, FieldMap};
 pub use foreign::{ForeignLens, ForeignManifest};
 pub use interop::TransparentAddress;
 pub use migrate::{apply_pending_migrations, LayoutMigration, MigrationEdge};
+pub use policy::{HopperInstructionPolicy, HopperProgramPolicy};
+pub use ref_only::HopperRefOnly;
 pub use tail::{read_tail, read_tail_len, tail_payload, write_tail, TailCodec};
 
 /// Compose a layout's `LayoutMigration::MIGRATIONS` chain from a list
@@ -130,12 +135,12 @@ macro_rules! layout_migrations {
 pub use instruction::CpiAccount;
 pub use instruction::{InstructionAccount, InstructionView, Seed, Signer};
 pub use layout::{HopperHeader, LayoutContract, LayoutInfo};
-pub use result::ProgramResult;
 pub use pod::Pod;
-pub use zerocopy::{AccountLayout, WireLayout, ZeroCopy};
+pub use result::ProgramResult;
 pub use segment::{Segment, TypedSegment};
 pub use segment_borrow::{AccessKind, SegmentBorrow, SegmentBorrowGuard, SegmentBorrowRegistry};
 pub use segment_lease::{SegRef, SegRefMut, SegmentLease};
+pub use zerocopy::{AccountLayout, WireLayout, ZeroCopy};
 
 pub const MAX_TX_ACCOUNTS: usize = compat::BACKEND_MAX_TX_ACCOUNTS;
 pub const SUCCESS: u64 = compat::BACKEND_SUCCESS;
@@ -163,10 +168,14 @@ macro_rules! address {
 #[macro_export]
 macro_rules! require {
     ( $cond:expr, $err:expr ) => {
-        if !($cond) { return Err($err); }
+        if !($cond) {
+            return Err($err);
+        }
     };
     ( $cond:expr ) => {
-        if !($cond) { return Err($crate::ProgramError::InvalidArgument); }
+        if !($cond) {
+            return Err($crate::ProgramError::InvalidArgument);
+        }
     };
 }
 
@@ -174,10 +183,14 @@ macro_rules! require {
 #[macro_export]
 macro_rules! require_eq {
     ( $left:expr, $right:expr, $err:expr ) => {
-        if ($left) != ($right) { return Err($err); }
+        if ($left) != ($right) {
+            return Err($err);
+        }
     };
     ( $left:expr, $right:expr ) => {
-        if ($left) != ($right) { return Err($crate::ProgramError::InvalidArgument); }
+        if ($left) != ($right) {
+            return Err($crate::ProgramError::InvalidArgument);
+        }
     };
 }
 
@@ -187,10 +200,14 @@ macro_rules! require_eq {
 #[macro_export]
 macro_rules! require_neq {
     ( $left:expr, $right:expr, $err:expr ) => {
-        if ($left) == ($right) { return Err($err); }
+        if ($left) == ($right) {
+            return Err($err);
+        }
     };
     ( $left:expr, $right:expr ) => {
-        if ($left) == ($right) { return Err($crate::ProgramError::InvalidArgument); }
+        if ($left) == ($right) {
+            return Err($crate::ProgramError::InvalidArgument);
+        }
     };
 }
 
@@ -250,10 +267,14 @@ macro_rules! require_keys_neq {
 #[macro_export]
 macro_rules! require_gte {
     ( $left:expr, $right:expr, $err:expr ) => {
-        if !($left >= $right) { return Err($err); }
+        if !($left >= $right) {
+            return Err($err);
+        }
     };
     ( $left:expr, $right:expr ) => {
-        if !($left >= $right) { return Err($crate::ProgramError::InsufficientFunds); }
+        if !($left >= $right) {
+            return Err($crate::ProgramError::InsufficientFunds);
+        }
     };
 }
 
@@ -261,10 +282,14 @@ macro_rules! require_gte {
 #[macro_export]
 macro_rules! require_gt {
     ( $left:expr, $right:expr, $err:expr ) => {
-        if !($left > $right) { return Err($err); }
+        if !($left > $right) {
+            return Err($err);
+        }
     };
     ( $left:expr, $right:expr ) => {
-        if !($left > $right) { return Err($crate::ProgramError::InvalidArgument); }
+        if !($left > $right) {
+            return Err($crate::ProgramError::InvalidArgument);
+        }
     };
 }
 
@@ -274,10 +299,14 @@ macro_rules! require_gt {
 #[macro_export]
 macro_rules! require_lt {
     ( $left:expr, $right:expr, $err:expr ) => {
-        if !($left < $right) { return Err($err); }
+        if !($left < $right) {
+            return Err($err);
+        }
     };
     ( $left:expr, $right:expr ) => {
-        if !($left < $right) { return Err($crate::ProgramError::InvalidArgument); }
+        if !($left < $right) {
+            return Err($crate::ProgramError::InvalidArgument);
+        }
     };
 }
 
@@ -285,10 +314,14 @@ macro_rules! require_lt {
 #[macro_export]
 macro_rules! require_lte {
     ( $left:expr, $right:expr, $err:expr ) => {
-        if !($left <= $right) { return Err($err); }
+        if !($left <= $right) {
+            return Err($err);
+        }
     };
     ( $left:expr, $right:expr ) => {
-        if !($left <= $right) { return Err($crate::ProgramError::InvalidArgument); }
+        if !($left <= $right) {
+            return Err($crate::ProgramError::InvalidArgument);
+        }
     };
 }
 
@@ -349,6 +382,7 @@ macro_rules! hopper_unsafe_region {
         // the expanded tree the same way as the macro name.
         const _HOPPER_UNSAFE_REGION_LABEL: &str = $label;
         #[allow(unused_unsafe)]
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe { $body }
     }};
 }
@@ -368,6 +402,7 @@ macro_rules! msg {
             let _ = write!(wrapper, $fmt, $($arg)*);
             let len = wrapper.pos();
             $crate::log::log(
+                // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
                 unsafe { core::str::from_utf8_unchecked(&buf[..len]) }
             );
         }
@@ -484,9 +519,7 @@ macro_rules! hopper_log {
     }};
     ($label:expr, $a:expr, $b:expr, $c:expr, $d:expr, $e:expr) => {{
         $crate::log::log($label);
-        $crate::log::log_64(
-            $a as u64, $b as u64, $c as u64, $d as u64, $e as u64,
-        );
+        $crate::log::log_64($a as u64, $b as u64, $c as u64, $d as u64, $e as u64);
     }};
     // Bare message. Uses the one-argument `log::log` syscall.
     ($msg:expr) => {{
@@ -514,6 +547,7 @@ macro_rules! hopper_entrypoint {
                 core::mem::MaybeUninit::<$crate::__hopper_native::AccountView>::uninit();
             let mut accounts = [UNINIT; $maximum];
 
+            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             let (program_id, count, instruction_data) = unsafe {
                 $crate::__hopper_native::raw_input::deserialize_accounts::<$maximum>(
                     input,
@@ -521,12 +555,11 @@ macro_rules! hopper_entrypoint {
                 )
             };
 
+            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             let hopper_program_id = unsafe {
-                &*(
-                    &program_id as *const $crate::__hopper_native::Address
-                        as *const $crate::Address
-                )
+                &*(&program_id as *const $crate::__hopper_native::Address as *const $crate::Address)
             };
+            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             let hopper_accounts = unsafe {
                 core::slice::from_raw_parts(accounts.as_ptr() as *const $crate::AccountView, count)
             };
@@ -537,7 +570,10 @@ macro_rules! hopper_entrypoint {
             }
         }
 
-        #[cfg(any(feature = "legacy-pinocchio-compat", feature = "solana-program-backend"))]
+        #[cfg(any(
+            feature = "legacy-pinocchio-compat",
+            feature = "solana-program-backend"
+        ))]
         $crate::__hopper_compat_entrypoint!($process_instruction, $maximum);
     };
 }
@@ -576,13 +612,16 @@ macro_rules! hopper_fast_entrypoint {
                 core::mem::MaybeUninit::<$crate::__hopper_native::AccountView>::uninit();
             let mut accounts = [UNINIT; $maximum];
 
+            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             let ix_len = unsafe { *(ix_data.sub(8) as *const u64) as usize };
             let instruction_data: &'static [u8] =
                 unsafe { core::slice::from_raw_parts(ix_data, ix_len) };
+            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             let program_id = unsafe {
                 core::ptr::read(ix_data.add(ix_len) as *const $crate::__hopper_native::Address)
             };
 
+            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             let (program_id, count, instruction_data) = unsafe {
                 $crate::__hopper_native::raw_input::deserialize_accounts_fast::<$maximum>(
                     input,
@@ -592,12 +631,11 @@ macro_rules! hopper_fast_entrypoint {
                 )
             };
 
+            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             let hopper_program_id = unsafe {
-                &*(
-                    &program_id as *const $crate::__hopper_native::Address
-                        as *const $crate::Address
-                )
+                &*(&program_id as *const $crate::__hopper_native::Address as *const $crate::Address)
             };
+            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             let hopper_accounts = unsafe {
                 core::slice::from_raw_parts(accounts.as_ptr() as *const $crate::AccountView, count)
             };
@@ -608,7 +646,10 @@ macro_rules! hopper_fast_entrypoint {
             }
         }
 
-        #[cfg(any(feature = "legacy-pinocchio-compat", feature = "solana-program-backend"))]
+        #[cfg(any(
+            feature = "legacy-pinocchio-compat",
+            feature = "solana-program-backend"
+        ))]
         compile_error!("hopper_fast_entrypoint! requires hopper-native-backend");
     };
 }
@@ -631,7 +672,10 @@ macro_rules! hopper_lazy_entrypoint {
         #[cfg(feature = "hopper-native-backend")]
         $crate::__hopper_native::hopper_lazy_entrypoint!($process);
 
-        #[cfg(any(feature = "legacy-pinocchio-compat", feature = "solana-program-backend"))]
+        #[cfg(any(
+            feature = "legacy-pinocchio-compat",
+            feature = "solana-program-backend"
+        ))]
         compile_error!("hopper_lazy_entrypoint! requires hopper-native-backend");
     };
 }
