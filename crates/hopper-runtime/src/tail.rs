@@ -190,6 +190,296 @@ impl<T: TailCodec> TailCodec for Option<T> {
     }
 }
 
+// -- Bounded dynamic-tail helpers ------------------------------------------
+
+/// Bounded UTF-8 string for Hopper dynamic tails.
+///
+/// This is the common migration target for bounded string account metadata.
+/// It keeps a fixed `[u8; N]` backing buffer, carries a small length prefix on
+/// the tail wire, and validates UTF-8 when read as `&str`.
+#[derive(Clone, Copy, Eq, PartialEq)]
+pub struct BoundedString<const N: usize> {
+    len: u16,
+    bytes: [u8; N],
+}
+
+impl<const N: usize> BoundedString<N> {
+    /// Construct an empty bounded string.
+    #[inline]
+    pub const fn empty() -> Self {
+        Self {
+            len: 0,
+            bytes: [0u8; N],
+        }
+    }
+
+    /// Construct from UTF-8 bytes, rejecting values longer than `N`.
+    #[inline]
+    pub fn from_str(value: &str) -> Result<Self, ProgramError> {
+        Self::from_bytes(value.as_bytes())
+    }
+
+    /// Construct from bytes, rejecting values longer than `N`.
+    #[inline]
+    pub fn from_bytes(value: &[u8]) -> Result<Self, ProgramError> {
+        if value.len() > N || value.len() > u16::MAX as usize {
+            return Err(ProgramError::InvalidInstructionData);
+        }
+        let mut out = Self::empty();
+        out.bytes[..value.len()].copy_from_slice(value);
+        out.len = value.len() as u16;
+        Ok(out)
+    }
+
+    /// Replace the contents in place.
+    #[inline]
+    pub fn set_str(&mut self, value: &str) -> Result<(), ProgramError> {
+        self.set_bytes(value.as_bytes())
+    }
+
+    /// Replace the contents in place.
+    #[inline]
+    pub fn set_bytes(&mut self, value: &[u8]) -> Result<(), ProgramError> {
+        if value.len() > N || value.len() > u16::MAX as usize {
+            return Err(ProgramError::InvalidInstructionData);
+        }
+        self.bytes = [0u8; N];
+        self.bytes[..value.len()].copy_from_slice(value);
+        self.len = value.len() as u16;
+        Ok(())
+    }
+
+    /// Return the initialized bytes.
+    #[inline(always)]
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.bytes[..self.len as usize]
+    }
+
+    /// Return the initialized bytes as UTF-8.
+    #[inline]
+    pub fn as_str(&self) -> Result<&str, ProgramError> {
+        core::str::from_utf8(self.as_bytes()).map_err(|_| ProgramError::InvalidAccountData)
+    }
+
+    /// Number of initialized bytes.
+    #[inline(always)]
+    pub const fn len(&self) -> usize {
+        self.len as usize
+    }
+
+    /// Maximum byte capacity.
+    #[inline(always)]
+    pub const fn capacity(&self) -> usize {
+        N
+    }
+
+    /// Whether the string is empty.
+    #[inline(always)]
+    pub const fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+}
+
+impl<const N: usize> Default for BoundedString<N> {
+    #[inline]
+    fn default() -> Self {
+        Self::empty()
+    }
+}
+
+impl<const N: usize> TailCodec for BoundedString<N> {
+    const MAX_ENCODED_LEN: usize = 2 + N;
+
+    #[inline]
+    fn encode(&self, out: &mut [u8]) -> Result<usize, ProgramError> {
+        let len = self.len as usize;
+        if len > N || out.len() < 2 + len {
+            return Err(ProgramError::AccountDataTooSmall);
+        }
+        out[..2].copy_from_slice(&self.len.to_le_bytes());
+        out[2..2 + len].copy_from_slice(&self.bytes[..len]);
+        Ok(2 + len)
+    }
+
+    #[inline]
+    fn decode(input: &[u8]) -> Result<(Self, usize), ProgramError> {
+        if input.len() < 2 {
+            return Err(ProgramError::InvalidAccountData);
+        }
+        let len = u16::from_le_bytes([input[0], input[1]]) as usize;
+        if len > N || input.len() < 2 + len {
+            return Err(ProgramError::InvalidAccountData);
+        }
+        let mut out = Self::empty();
+        out.len = len as u16;
+        out.bytes[..len].copy_from_slice(&input[2..2 + len]);
+        Ok((out, 2 + len))
+    }
+}
+
+/// Bounded dynamic vector for Hopper dynamic tails.
+///
+/// This is the common migration target for bounded vector account metadata.
+/// Elements use `TailCodec`, so the vector can carry wire integers, addresses,
+/// or small custom structs declared with `hopper_dynamic_tail!`.
+#[derive(Clone, Copy, Eq, PartialEq)]
+pub struct BoundedVec<T, const N: usize>
+where
+    T: TailCodec + Copy + Default,
+{
+    len: u16,
+    items: [T; N],
+}
+
+impl<T, const N: usize> BoundedVec<T, N>
+where
+    T: TailCodec + Copy + Default,
+{
+    /// Construct an empty bounded vector.
+    #[inline]
+    pub fn empty() -> Self {
+        Self {
+            len: 0,
+            items: [T::default(); N],
+        }
+    }
+
+    /// Construct from a slice, rejecting values longer than `N`.
+    #[inline]
+    pub fn from_slice(values: &[T]) -> Result<Self, ProgramError> {
+        if values.len() > N || values.len() > u16::MAX as usize {
+            return Err(ProgramError::InvalidInstructionData);
+        }
+        let mut out = Self::empty();
+        out.items[..values.len()].copy_from_slice(values);
+        out.len = values.len() as u16;
+        Ok(out)
+    }
+
+    /// Push one item into the bounded vector.
+    #[inline]
+    pub fn push(&mut self, item: T) -> Result<(), ProgramError> {
+        let len = self.len as usize;
+        if len >= N || len >= u16::MAX as usize {
+            return Err(ProgramError::AccountDataTooSmall);
+        }
+        self.items[len] = item;
+        self.len += 1;
+        Ok(())
+    }
+
+    /// Return the initialized items.
+    #[inline(always)]
+    pub fn as_slice(&self) -> &[T] {
+        &self.items[..self.len as usize]
+    }
+
+    /// Return the initialized items mutably.
+    #[inline(always)]
+    pub fn as_mut_slice(&mut self) -> &mut [T] {
+        &mut self.items[..self.len as usize]
+    }
+
+    /// Number of initialized items.
+    #[inline(always)]
+    pub const fn len(&self) -> usize {
+        self.len as usize
+    }
+
+    /// Maximum number of items.
+    #[inline(always)]
+    pub const fn capacity(&self) -> usize {
+        N
+    }
+
+    /// Whether the vector is empty.
+    #[inline(always)]
+    pub const fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+}
+
+impl<T, const N: usize> Default for BoundedVec<T, N>
+where
+    T: TailCodec + Copy + Default,
+{
+    #[inline]
+    fn default() -> Self {
+        Self::empty()
+    }
+}
+
+impl<T, const N: usize> TailCodec for BoundedVec<T, N>
+where
+    T: TailCodec + Copy + Default,
+{
+    const MAX_ENCODED_LEN: usize = 2 + (N * T::MAX_ENCODED_LEN);
+
+    #[inline]
+    fn encode(&self, out: &mut [u8]) -> Result<usize, ProgramError> {
+        let len = self.len as usize;
+        if len > N || out.len() < 2 {
+            return Err(ProgramError::AccountDataTooSmall);
+        }
+        out[..2].copy_from_slice(&self.len.to_le_bytes());
+        let mut cursor = 2;
+        for item in self.as_slice() {
+            let written = item.encode(&mut out[cursor..])?;
+            cursor = cursor
+                .checked_add(written)
+                .ok_or(ProgramError::AccountDataTooSmall)?;
+        }
+        Ok(cursor)
+    }
+
+    #[inline]
+    fn decode(input: &[u8]) -> Result<(Self, usize), ProgramError> {
+        if input.len() < 2 {
+            return Err(ProgramError::InvalidAccountData);
+        }
+        let len = u16::from_le_bytes([input[0], input[1]]) as usize;
+        if len > N {
+            return Err(ProgramError::InvalidAccountData);
+        }
+        let mut out = Self::empty();
+        let mut cursor = 2;
+        let mut i = 0;
+        while i < len {
+            let (item, consumed) = T::decode(&input[cursor..])?;
+            out.items[i] = item;
+            cursor = cursor
+                .checked_add(consumed)
+                .ok_or(ProgramError::InvalidAccountData)?;
+            i += 1;
+        }
+        out.len = len as u16;
+        Ok((out, cursor))
+    }
+}
+
+impl TailCodec for crate::address::Address {
+    const MAX_ENCODED_LEN: usize = 32;
+
+    #[inline]
+    fn encode(&self, out: &mut [u8]) -> Result<usize, ProgramError> {
+        if out.len() < 32 {
+            return Err(ProgramError::AccountDataTooSmall);
+        }
+        out[..32].copy_from_slice(self.as_array());
+        Ok(32)
+    }
+
+    #[inline]
+    fn decode(input: &[u8]) -> Result<(Self, usize), ProgramError> {
+        if input.len() < 32 {
+            return Err(ProgramError::InvalidAccountData);
+        }
+        let mut bytes = [0u8; 32];
+        bytes.copy_from_slice(&input[..32]);
+        Ok((crate::address::Address::new(bytes), 32))
+    }
+}
+
 // ── Framework helpers used by `#[hopper::state(dynamic_tail = T)]` ──
 
 /// Read the tail's u32-LE length prefix.
@@ -400,5 +690,29 @@ mod tests {
             Option::<u32>::Some(0).encode(&mut buf).unwrap(),
             <Option<u32>>::MAX_ENCODED_LEN
         );
+    }
+
+    #[test]
+    fn bounded_string_roundtrip() {
+        let label = BoundedString::<32>::from_str("multisig").unwrap();
+        let mut buf = [0u8; BoundedString::<32>::MAX_ENCODED_LEN];
+        let written = label.encode(&mut buf).unwrap();
+        assert_eq!(written, 10);
+        let (back, consumed) = BoundedString::<32>::decode(&buf).unwrap();
+        assert_eq!(consumed, written);
+        assert_eq!(back.as_str().unwrap(), "multisig");
+    }
+
+    #[test]
+    fn bounded_vec_roundtrip() {
+        let mut vec = BoundedVec::<u64, 4>::empty();
+        vec.push(7).unwrap();
+        vec.push(9).unwrap();
+        let mut buf = [0u8; BoundedVec::<u64, 4>::MAX_ENCODED_LEN];
+        let written = vec.encode(&mut buf).unwrap();
+        assert_eq!(written, 18);
+        let (back, consumed) = BoundedVec::<u64, 4>::decode(&buf).unwrap();
+        assert_eq!(consumed, written);
+        assert_eq!(back.as_slice(), &[7, 9]);
     }
 }

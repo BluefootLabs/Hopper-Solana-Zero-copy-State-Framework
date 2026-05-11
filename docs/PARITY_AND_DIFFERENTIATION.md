@@ -197,9 +197,9 @@ provenance requirements.
 2. **Warning-free release lane:** `cargo check --workspace --all-targets` passes,
    but examples and CLI still emit warnings. They do not block correctness, but
    a public launch reads better with either fixes or deliberate `allow` markers.
-3. **Crate-name publication verification:** Before telling users to install
-   `hopper = "0.1.0"`, verify the crates.io name and docs.rs page point to this
-   project, not an unrelated historical crate.
+3. **Crate-name publication verification:** The public framework package is
+  `hopper-framework`; user manifests should alias it with
+  `hopper = { package = "hopper-framework", version = "0.1.0" }`.
 4. **Independent benchmark artifacts:** The current Hopper-vs-Quasar table is
    useful, but launch claims should link immutable `hopper-bench` artifacts and
    exact commits.

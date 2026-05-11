@@ -109,6 +109,13 @@ write the lowered preview instead of printing it.
 
 Docs: <https://docs.rs/crate/hopper-cli/0.1.0>
 
+## Support
+
+Hopper is open-source Solana infrastructure. Public-goods support and donations
+can be sent to `solanadevdao.sol` / `F42ZovBoRJZU4av5MiESVwJWnEx8ZQVFkc1RM29zMxNT`.
+
+Donation URI: <solana:F42ZovBoRJZU4av5MiESVwJWnEx8ZQVFkc1RM29zMxNT?label=solanadevdao.sol>
+
 ## License
 
 Apache-2.0

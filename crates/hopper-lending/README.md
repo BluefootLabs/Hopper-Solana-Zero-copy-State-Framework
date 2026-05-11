@@ -24,4 +24,6 @@ let seized = liquidation_seize_amount(max_repay, bonus_bps)?;
 
 Docs: <https://docs.rs/crate/hopper-lending/0.1.0>
 
+Support: `solanadevdao.sol` / `F42ZovBoRJZU4av5MiESVwJWnEx8ZQVFkc1RM29zMxNT`.
+
 License: Apache-2.0.

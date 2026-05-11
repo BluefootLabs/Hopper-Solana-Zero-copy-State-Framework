@@ -22,4 +22,6 @@ let (net, fee) = extract_fee(1_000_000, 30, 0)?; // 30 bps == 0.30%
 
 Docs: <https://docs.rs/crate/hopper-distribute/0.1.0>
 
+Support: `solanadevdao.sol` / `F42ZovBoRJZU4av5MiESVwJWnEx8ZQVFkc1RM29zMxNT`.
+
 License: Apache-2.0.

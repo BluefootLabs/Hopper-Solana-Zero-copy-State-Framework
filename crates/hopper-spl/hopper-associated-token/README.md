@@ -28,4 +28,6 @@ Works against both legacy SPL Token and Token-2022 mints; pass the
 
 Docs: <https://docs.rs/crate/hopper-associated-token/0.1.0>
 
+Support: `solanadevdao.sol` / `F42ZovBoRJZU4av5MiESVwJWnEx8ZQVFkc1RM29zMxNT`.
+
 License: Apache-2.0.

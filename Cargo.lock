@@ -2238,6 +2238,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "hopper-quasar-port-20-min"
+version = "0.1.0"
+dependencies = [
+ "hopper-framework",
+]
+
+[[package]]
 name = "hopper-registry"
 version = "0.1.0"
 dependencies = [

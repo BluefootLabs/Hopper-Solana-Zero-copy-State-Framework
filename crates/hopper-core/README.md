@@ -45,6 +45,11 @@ let vault = pod_from_bytes::<Vault>(data)?;
 
 Docs: <https://docs.rs/crate/hopper-core/0.1.0>
 
+## Support
+
+Public-goods support and donations can be sent to `solanadevdao.sol` /
+`F42ZovBoRJZU4av5MiESVwJWnEx8ZQVFkc1RM29zMxNT`.
+
 ## License
 
 Apache-2.0

@@ -1,6 +1,6 @@
 [workspace]
 # Framework-internal crates live in this workspace, matching the
-# Quasar-style "one repo per coherent product" model. The former
+# "One repo per coherent product" model. The former
 # sister repos were folded back with subtree history preserved.
 members = [
     ".",
@@ -38,6 +38,7 @@ members = [
     "examples/hopper-nft-mint",
     "examples/hopper-proc-vault",
     "examples/hopper-policy-vault",
+    "examples/quasar-port-20-min",
     "examples/cross-program-read/program-a",
     "examples/cross-program-read/program-b",
     "tests/hopper-trybuild",

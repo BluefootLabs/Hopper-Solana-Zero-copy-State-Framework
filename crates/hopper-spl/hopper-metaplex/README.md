@@ -93,6 +93,11 @@ issue if you want one prioritised.
 
 Docs: <https://docs.rs/crate/hopper-metaplex/0.1.0>
 
+## Support
+
+Public-goods support and donations can be sent to `solanadevdao.sol` /
+`F42ZovBoRJZU4av5MiESVwJWnEx8ZQVFkc1RM29zMxNT`.
+
 ## License
 
 Apache-2.0. See [LICENSE](../../LICENSE).

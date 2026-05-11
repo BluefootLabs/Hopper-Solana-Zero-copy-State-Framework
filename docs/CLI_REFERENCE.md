@@ -173,13 +173,20 @@ Run the primitive benchmark lab against a live cluster. Emits JSON and CSV regre
 
 ### `hopper profile elf <path/to/program.so>`
 
-Static SBF ELF analysis. Prints the top N symbols by size and can write a Brendan-Gregg folded-stack file for `inferno-flamegraph`.
+Static SBF ELF analysis. Prints the top N symbols by size and can write Brendan-Gregg folded-stack input or a self-contained HTML flamegraph for public launch demos and regression review.
 
 Flags:
 
 - `--top N` - how many symbols to print (default 20)
 - `--folded out.txt` - write flamegraph input
+- `--html out.html` - write an interactive single-file flamegraph
+- `--baseline folded.txt` - compare symbol sizes against a previous run
+- `--open` - open the HTML flamegraph after writing it
 - `--no-demangle` - skip rustc-demangle on symbol names
+
+Global profile option:
+
+- `-w`, `--watch` - re-run `profile bench` or `profile elf` on source changes
 
 ## Interactive
 

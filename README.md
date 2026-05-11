@@ -36,8 +36,7 @@ harness live separately so release claims stay reproducible and easy to audit.
 - Framework package target: `hopper-framework = "0.1.0"`; import it as
   `hopper` with `hopper = { package = "hopper-framework", version = "0.1.0" }`.
 - Version-pinned docs.rs target: <https://docs.rs/crate/hopper-framework/0.1.0>.
-- Source-backed CLI install: `cargo install --path tools/hopper-cli` from this
-  repository.
+- CLI install: `cargo install hopper-cli`.
 - Public companion crate targets include `hopper-native`, `hopper-runtime`,
   `hopper-core`, `hopper-schema`, `hopper-solana`, `hopper-token`,
   `hopper-token-2022`, `hopper-associated-token`, `hopper-system`,
@@ -52,24 +51,31 @@ harness live separately so release claims stay reproducible and easy to audit.
 
 ## Quick Start
 
+Add the published framework package under the Rust crate name `hopper`:
+
+```sh
+cargo add hopper-framework --rename hopper --features proc-macros
+```
+
+Equivalent `Cargo.toml` entry:
+
 ```toml
 [dependencies]
 hopper = { package = "hopper-framework", version = "0.1.0", features = ["proc-macros"] }
 ```
 
-Until crates.io publication completes, use the source-backed dependency:
+For SBF programs that want the same explicit feature shape used by `hopper init`:
 
 ```toml
 [dependencies]
-hopper = { git = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework", package = "hopper-framework", features = ["proc-macros"] }
+hopper = { package = "hopper-framework", version = "0.1.0", default-features = false, features = ["hopper-native-backend", "proc-macros"] }
 ```
 
 Install the CLI:
 
 ```sh
-git clone https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework hopper
-cd hopper
-cargo install --path tools/hopper-cli
+cargo install hopper-cli
+hopper init my-program --template minimal --yes
 ```
 
 For local development inside this repository:
@@ -78,6 +84,14 @@ For local development inside this repository:
 [dependencies]
 hopper = { path = "../Hopper-Solana-Zero-copy-State-Framework", package = "hopper-framework", features = ["proc-macros"] }
 ```
+
+Public package links:
+
+- Framework crate: <https://crates.io/crates/hopper-framework>
+- Framework docs: <https://docs.rs/crate/hopper-framework/0.1.0>
+- CLI crate: <https://crates.io/crates/hopper-cli>
+- CLI docs: <https://docs.rs/crate/hopper-cli/0.1.0>
+- Website and docs entry point: <https://hopperzero.dev>
 
 Minimal layout example:
 
@@ -113,6 +127,7 @@ mod vault {
 - [docs/POLICY_GUARANTEES.md](docs/POLICY_GUARANTEES.md): capability policy, sealed/raw/hybrid access, and the policy-vault example.
 - [docs/MIGRATION_FROM_ANCHOR.md](docs/MIGRATION_FROM_ANCHOR.md): Anchor-to-Hopper migration notes.
 - [docs/MIGRATION_FROM_QUASAR.md](docs/MIGRATION_FROM_QUASAR.md): Quasar-to-Hopper migration notes.
+- [docs/PORT_QUASAR_IN_20_MINUTES.md](docs/PORT_QUASAR_IN_20_MINUTES.md): hands-on bounded-tail vault/multisig port guide with dynamic-field helpers.
 - [docs/DYNAMIC_TAILS_FROM_QUASAR.md](docs/DYNAMIC_TAILS_FROM_QUASAR.md): mapping Quasar bounded dynamic fields to Hopper fixed-body + dynamic-tail layouts.
 - [docs/QUASAR_PINOCCHIO_REPLACEMENT.md](docs/QUASAR_PINOCCHIO_REPLACEMENT.md): what Hopper replaces from Quasar/Pinocchio and what benchmark claims still require same-provenance proof.
 - [docs/CLI_REFERENCE.md](docs/CLI_REFERENCE.md): lifecycle, schema, client, profiling, and manager command reference.
@@ -247,6 +262,13 @@ See:
 - `AUDIT.md`
 - `crates/hopper-core/tests/unsafe_boundary_tests.rs`
 - `crates/hopper-core/tests/overlay_equivalence_tests.rs`
+
+## Support
+
+Hopper is open-source Solana infrastructure. Public-goods support and donations
+can be sent to `solanadevdao.sol` / `F42ZovBoRJZU4av5MiESVwJWnEx8ZQVFkc1RM29zMxNT`.
+
+Donation URI: <solana:F42ZovBoRJZU4av5MiESVwJWnEx8ZQVFkc1RM29zMxNT?label=solanadevdao.sol>
 
 ## License
 

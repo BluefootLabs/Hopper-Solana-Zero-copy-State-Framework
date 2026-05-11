@@ -22,6 +22,7 @@ The following package manifests are intentionally non-public and must keep
 - `examples/hopper-nft-mint/Cargo.toml` (`hopper-nft-mint`)
 - `examples/hopper-proc-vault/Cargo.toml` (`hopper-proc-vault`)
 - `examples/hopper-policy-vault/Cargo.toml` (`hopper-policy-vault`)
+- `examples/quasar-port-20-min/Cargo.toml` (`hopper-quasar-port-20-min`)
 - `examples/cross-program-read/program-a/Cargo.toml` (`hopper-xp-program-a`)
 - `examples/cross-program-read/program-b/Cargo.toml` (`hopper-xp-program-b`)
 - `tests/hopper-trybuild/Cargo.toml` (`hopper-trybuild`)
@@ -30,6 +31,20 @@ The following package manifests are intentionally non-public and must keep
 Do not publish example crates such as `hopper-vault`, `hopper-parity-vault`, or
 `hopper-policy-vault` unless the release explicitly promotes them as public
 starter templates and their manifests receive complete crates.io metadata first.
+
+## Warning-free public lane
+
+Before a launch or benchmark announcement, run the warning gate locally and in CI:
+
+```sh
+cargo check --workspace --all-targets
+cargo test --workspace --all-targets
+cargo test -p hopper-framework --features proc-macros,metaplex --test metaplex_context_integration
+hopper lint
+hopper profile elf target/deploy/<program>.so --html target/hopper-profile.html
+```
+
+Examples and CLI code should either compile warning-free or carry narrow, documented `allow(...)` attributes. Avoid broad crate-level allows on launch-facing examples; they make the release surface look unfinished.
 
 ## Published Package Metadata Gate
 

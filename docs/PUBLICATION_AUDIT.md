@@ -4,7 +4,10 @@ This audit is a release-facing checklist for Hopper as a Solana zero-copy state 
 
 ## Publication Verdict
 
-Hopper is ready for a first public framework release after the package-order precondition in [docs/RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) is followed. The codebase has the core surfaces Solana program authors expect from a serious framework:
+Hopper `0.1.0` has been published to crates.io for the framework package,
+CLI, and companion crates listed in [docs/RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md).
+The codebase has the core surfaces Solana program authors expect from a serious
+framework:
 
 - on-chain `no_std` / `no_alloc` runtime and backend crates,
 - fixed-layout zero-copy state definitions,
@@ -16,11 +19,11 @@ Hopper is ready for a first public framework release after the package-order pre
 - examples that cover common program shapes, and
 - CLI release gates for manifest/binary verification and source checks.
 
-The remaining release constraint is operational, not architectural: public crates must be published in dependency order before the final `hopper-framework` package can be packaged by Cargo against crates.io dependencies.
-
 ## Package Name Decision
 
-The crates.io package name `hopper` is occupied by an unrelated crate. Hopper should publish the top-level framework package as `hopper-framework` while keeping the Rust library crate name as `hopper`:
+The crates.io package name `hopper` is occupied by an unrelated crate. Hopper
+publishes the top-level framework package as `hopper-framework` while keeping
+the Rust library crate name as `hopper`:
 
 ```toml
 [dependencies]
@@ -48,7 +51,7 @@ use hopper::prelude::*;
 | `hopper-system` | System-program helpers | Kept separate so programs can opt into only needed surfaces |
 | `hopper-token` | SPL Token helper crate | Plain legacy builders stay behind explicit feature gates |
 | `hopper-token-2022` | Token-2022 helper crate | Complements runtime extension readers and guide docs |
-| `hopper-associated-token` | Associated Token Account helpers | Must be published before `hopper-framework` because the top-level crate depends on it |
+| `hopper-associated-token` | Associated Token Account helpers | Published before `hopper-framework` because the top-level crate depends on it |
 | `hopper-metaplex` | Metaplex metadata and NFT CPI helpers | Optional from the top-level crate behind `metaplex` |
 | `hopper-memo` | Memo helper crate | Small and no-std oriented |
 | `hopper-finance` | AMM, slippage, and DeFi math helpers | Unit-tested independent crate |
@@ -60,7 +63,7 @@ use hopper::prelude::*;
 | `hopper-anchor` | Anchor compatibility helpers | Keeps migration and interop concerns isolated |
 | `hopper-manager` | Manifest-oriented manager library | Used by CLI and manager docs |
 | `hopper-sdk` | Off-chain reader, builder, diff, and receipt SDK | Tests cover parsing, diffing, and receipt decoding |
-| `hopper-cli` | Developer and release tool | Source-only publish gate passes; full gate requires release binary artifacts |
+| `hopper-cli` | Developer and release tool | Published; source-only publish gate and package verification pass |
 
 ## Feature Coverage by User Need
 
@@ -82,11 +85,15 @@ use hopper::prelude::*;
 | Risk | Mitigation |
 |---|---|
 | `hopper` package name on crates.io is occupied | Publish top-level package as `hopper-framework`; keep library crate name `hopper` |
-| Companion crates must exist before `hopper-framework` packages cleanly | Publish in dependency order and wait for crates.io indexing |
+| Companion crates must exist before `hopper-framework` packages cleanly | Completed for `0.1.0`; keep the same order for future releases |
 | Benchmarks can be overclaimed | Keep release docs tied to `hopper-bench` artifacts and source-only publish checks |
 | Framework surface is broad for a first release | Keep examples non-public, feature-gate optional surfaces, and document what is shipped versus planned |
 | Unsafe zero-copy APIs need ongoing review | Maintain `UNSAFE_INVARIANTS.md`, compile-fail tests, and release gates |
 
 ## Final Readiness Statement
 
-From code structure, crate coverage, tests, and CLI gates, Hopper has enough functionality for a first public release as a zero-copy Solana state framework. It should ship with conservative benchmark language, the `hopper-framework` package alias documented everywhere, and the release checklist followed in order.
+From code structure, crate coverage, tests, and CLI gates, Hopper has shipped a
+conservative first public release as a zero-copy Solana state framework. Future
+release docs should keep benchmark language tied to reproducible `hopper-bench`
+artifacts and continue documenting the `hopper-framework` package alias
+everywhere users install the framework.

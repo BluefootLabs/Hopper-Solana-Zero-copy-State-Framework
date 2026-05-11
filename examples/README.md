@@ -50,6 +50,12 @@ something simpler, then explore the advanced patterns as you need them.
     overrides. Companion guide:
     [hopper-policy-vault/README.md](hopper-policy-vault/README.md)
 
+
+11. **[quasar-port-20-min](quasar-port-20-min/src/lib.rs)** - Bounded
+   dynamic-tail example for a fixed vault and a multisig with bounded dynamic
+   `String`/`Vec` fields. Companion guide:
+    [../docs/PORT_QUASAR_IN_20_MINUTES.md](../docs/PORT_QUASAR_IN_20_MINUTES.md)
+
 ### Tier 3: Escape Hatch
 
 Every example uses the standard Hopper path. When you need to go lower, the

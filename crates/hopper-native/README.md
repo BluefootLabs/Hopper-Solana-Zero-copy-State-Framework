@@ -34,6 +34,11 @@ possible). See `raw_input.rs::malformed_duplicate_marker`.
 
 Docs: <https://docs.rs/crate/hopper-native/0.1.0>
 
+## Support
+
+Public-goods support and donations can be sent to `solanadevdao.sol` /
+`F42ZovBoRJZU4av5MiESVwJWnEx8ZQVFkc1RM29zMxNT`.
+
 ## License
 
 Apache-2.0. See [LICENSE](../../LICENSE).

@@ -1,0 +1,14 @@
+[package]
+name = "hopper-quasar-port-20-min"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+hopper = { workspace = true, features = ["proc-macros"] }
+
+[lints]
+workspace = true

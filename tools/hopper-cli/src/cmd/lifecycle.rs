@@ -14,6 +14,7 @@ pub enum Template {
     NftMint,
     Token2022Vault,
     DefiVault,
+    QuasarPort,
 }
 
 impl Template {
@@ -23,6 +24,7 @@ impl Template {
             Template::NftMint => "nft-mint",
             Template::Token2022Vault => "token-2022-vault",
             Template::DefiVault => "defi-vault",
+            Template::QuasarPort => "quasar-port",
         }
     }
 
@@ -38,6 +40,9 @@ impl Template {
             Template::DefiVault => {
                 "DeFi vault - segment-safe authority + balance pattern with PDA verification"
             }
+            Template::QuasarPort => {
+                "Bounded tail port - vault + multisig dynamic String/Vec tail in one scaffold"
+            }
         }
     }
 
@@ -47,6 +52,7 @@ impl Template {
             "nft-mint" | "nft" => Some(Template::NftMint),
             "token-2022-vault" | "t22-vault" | "t22" => Some(Template::Token2022Vault),
             "defi-vault" | "vault" => Some(Template::DefiVault),
+            "quasar-port" | "quasar" | "quasar-migration" => Some(Template::QuasarPort),
             _ => None,
         }
     }
@@ -141,7 +147,7 @@ pub fn cmd_init(args: &[String]) {
                 }
                 let value = &args[i + 1];
                 template_flag = Some(Template::from_name(value).unwrap_or_else(|| {
-                    eprintln!("Unknown template `{value}`. Try: minimal, nft-mint, token-2022-vault, defi-vault");
+                    eprintln!("Unknown template `{value}`. Try: minimal, nft-mint, token-2022-vault, defi-vault, quasar-port");
                     process::exit(1);
                 }));
                 i += 2;
@@ -359,6 +365,7 @@ fn run_init_wizard(
         Template::NftMint,
         Template::Token2022Vault,
         Template::DefiVault,
+        Template::QuasarPort,
     ];
     let labels: Vec<&str> = templates.iter().map(|t| t.label()).collect();
     let default_template_idx = template_hint
@@ -1073,6 +1080,7 @@ fn render_template_lib_rs(template: Template) -> String {
         Template::NftMint => render_lib_rs_nft_mint(),
         Template::Token2022Vault => render_lib_rs_token_2022_vault(),
         Template::DefiVault => render_lib_rs_defi_vault(),
+        Template::QuasarPort => render_lib_rs_quasar_port(),
     }
 }
 
@@ -1152,6 +1160,65 @@ mod tests {
         assert_eq!(Config::VERSION, 1);
         assert!(Config::LEN >= 33);
     }
+}
+"##
+    .to_string()
+}
+
+fn render_lib_rs_quasar_port() -> String {
+    r##"//! Bounded dynamic-tail port scaffold: fixed vault + dynamic multisig tail.
+
+#![cfg_attr(target_os = "solana", no_std)]
+#![allow(dead_code)]
+
+use hopper::prelude::*;
+
+#[derive(Clone, Copy)]
+#[hopper::state(disc = 1, version = 1)]
+#[repr(C)]
+pub struct Vault {
+    #[role = "authority"]
+    pub authority: Address,
+    #[role = "balance"]
+    pub balance: WireU64,
+    pub bump: u8,
+}
+
+hopper_dynamic_tail! {
+    pub struct MultisigTail {
+        label: BoundedString<32>,
+        signers: BoundedVec<Address, 10>,
+    }
+}
+
+#[derive(Clone, Copy)]
+#[hopper::state(disc = 7, version = 1, dynamic_tail = MultisigTail)]
+#[repr(C)]
+pub struct Multisig {
+    #[role = "threshold"]
+    pub threshold: WireU64,
+}
+
+impl Multisig {
+    pub const ALLOC_SPACE: usize = Self::INIT_SPACE + 4 + MultisigTail::MAX_ENCODED_LEN;
+}
+
+pub fn rename_multisig(multisig: &AccountView, label: &str) -> ProgramResult {
+    multisig.require_writable()?;
+    let mut data = multisig.try_borrow_mut()?;
+    let mut tail = Multisig::tail_read(&data)?;
+    tail.label.set_str(label)?;
+    Multisig::tail_write(&mut data, &tail)?;
+    Ok(())
+}
+
+pub fn add_signer(multisig: &AccountView, signer: Address) -> ProgramResult {
+    multisig.require_writable()?;
+    let mut data = multisig.try_borrow_mut()?;
+    let mut tail = Multisig::tail_read(&data)?;
+    tail.signers.push(signer)?;
+    Multisig::tail_write(&mut data, &tail)?;
+    Ok(())
 }
 "##
     .to_string()

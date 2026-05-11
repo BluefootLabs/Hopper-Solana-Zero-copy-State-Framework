@@ -46,4 +46,6 @@ Pinocchio parity: `pinocchio-memo`. Quasar omits a memo helper.
 
 Docs: <https://docs.rs/crate/hopper-memo/0.1.0>
 
+Support: `solanadevdao.sol` / `F42ZovBoRJZU4av5MiESVwJWnEx8ZQVFkc1RM29zMxNT`.
+
 License: Apache-2.0.

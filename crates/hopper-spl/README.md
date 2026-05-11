@@ -13,4 +13,6 @@ are developed in the main Hopper repository:
 The old standalone `BluefootLabs/hopper-spl` repository has been folded back
 into this workspace and archived.
 
+Support: `solanadevdao.sol` / `F42ZovBoRJZU4av5MiESVwJWnEx8ZQVFkc1RM29zMxNT`.
+
 License: MIT OR Apache-2.0.

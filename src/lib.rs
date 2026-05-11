@@ -202,6 +202,75 @@ macro_rules! hopper_load {
     };
 }
 
+/// Declare a dynamic-tail payload with bounded dynamic fields.
+///
+/// The generated type implements `TailCodec`, so it can be used directly with
+/// `#[hopper::state(dynamic_tail = MyTail)]`. Fields are encoded in declaration
+/// order. Use `BoundedString<N>` for bounded UTF-8 strings and
+/// `BoundedVec<T, N>` for bounded element lists.
+///
+/// ```ignore
+/// hopper::hopper_dynamic_tail! {
+///     pub struct MultisigTail {
+///         label: BoundedString<32>,
+///         signers: BoundedVec<Address, 10>,
+///     }
+/// }
+/// ```
+#[macro_export]
+macro_rules! hopper_dynamic_tail {
+    (
+        $(#[$meta:meta])*
+        $vis:vis struct $name:ident {
+            $( $field:ident : $ty:ty ),* $(,)?
+        }
+    ) => {
+        $(#[$meta])*
+        #[derive(Clone, Copy, Default)]
+        $vis struct $name {
+            $( pub $field: $ty, )*
+        }
+
+        impl $crate::__runtime::TailCodec for $name {
+            const MAX_ENCODED_LEN: usize = 0 $(+ <$ty as $crate::__runtime::TailCodec>::MAX_ENCODED_LEN)*;
+
+            #[inline]
+            fn encode(
+                &self,
+                out: &mut [u8],
+            ) -> ::core::result::Result<usize, $crate::__runtime::ProgramError> {
+                let mut cursor = 0usize;
+                $(
+                    let written = <$ty as $crate::__runtime::TailCodec>::encode(
+                        &self.$field,
+                        &mut out[cursor..],
+                    )?;
+                    cursor = cursor
+                        .checked_add(written)
+                        .ok_or($crate::__runtime::ProgramError::AccountDataTooSmall)?;
+                )*
+                Ok(cursor)
+            }
+
+            #[inline]
+            fn decode(
+                input: &[u8],
+            ) -> ::core::result::Result<(Self, usize), $crate::__runtime::ProgramError> {
+                let mut cursor = 0usize;
+                $(
+                    let ($field, consumed) = <$ty as $crate::__runtime::TailCodec>::decode(
+                        &input[cursor..],
+                    )?;
+                    cursor = cursor
+                        .checked_add(consumed)
+                        .ok_or($crate::__runtime::ProgramError::InvalidAccountData)?;
+                )*
+                Ok((Self { $( $field, )* }, cursor))
+            }
+        }
+    };
+}
+
 // Ergonomic guard macros (the "winning architecture" design's
 // Jiminy-replacement safety layer). All are `#[macro_export]` from
 // hopper_runtime and are re-exported here so programs see them at
@@ -226,9 +295,10 @@ pub use hopper_macros_proc::{
 pub mod __runtime {
     pub use hopper_runtime::{
         apply_pending_migrations, read_tail, read_tail_len, tail_payload, write_tail, Account,
-        AccountLayout, AccountView, Address, Context, HopperInstructionPolicy, HopperProgramPolicy,
-        HopperSigner, InitAccount, LayoutMigration, MigrationEdge, Pod, Program, ProgramError,
-        ProgramId, Ref, RefMut, SegRef, SegRefMut, SegmentLease, SystemId, TailCodec,
+        AccountLayout, AccountView, Address, BoundedString, BoundedVec, Context,
+        HopperInstructionPolicy, HopperProgramPolicy, HopperSigner, InitAccount, LayoutMigration,
+        MigrationEdge, Pod, Program, ProgramError, ProgramId, Ref, RefMut, SegRef, SegRefMut,
+        SegmentLease, SystemId, TailCodec,
     };
 
     // Crank marker type plus dynamic-CPI builder, emitted by

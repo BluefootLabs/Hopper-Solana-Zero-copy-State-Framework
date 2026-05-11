@@ -10,9 +10,10 @@ pub use hopper_core::abi::{
 
 // Macros
 pub use crate::{
-    const_assert_pod, hopper_accounts, hopper_check, hopper_close, hopper_error, hopper_init,
-    hopper_interface, hopper_invariant, hopper_layout, hopper_manifest, hopper_register_discs,
-    hopper_require, hopper_segment, hopper_validate, hopper_verify_pda, hopper_virtual,
+    const_assert_pod, hopper_accounts, hopper_check, hopper_close, hopper_dynamic_tail,
+    hopper_error, hopper_init, hopper_interface, hopper_invariant, hopper_layout, hopper_manifest,
+    hopper_register_discs, hopper_require, hopper_segment, hopper_validate, hopper_verify_pda,
+    hopper_virtual,
 };
 
 #[cfg(feature = "proc-macros")]
@@ -70,8 +71,8 @@ pub use hopper_runtime::lazy_entrypoint;
 pub use hopper_runtime::program_entrypoint;
 pub use hopper_runtime::{no_allocator, nostd_panic_handler};
 pub use hopper_runtime::{
-    AccountView, Address, Context, InstructionAccount, InstructionView, LayoutContract,
-    ProgramResult, Seed, Signer, TailCodec, TransparentAddress,
+    AccountView, Address, BoundedString, BoundedVec, Context, InstructionAccount, InstructionView,
+    LayoutContract, ProgramResult, Seed, Signer, TailCodec, TransparentAddress,
 };
 pub use hopper_system;
 pub use hopper_system::instructions as system_instructions;

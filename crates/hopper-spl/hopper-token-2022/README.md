@@ -41,4 +41,6 @@ for an end-to-end transfer-hook validation pattern.
 
 Docs: <https://docs.rs/crate/hopper-token-2022/0.1.0>
 
+Support: `solanadevdao.sol` / `F42ZovBoRJZU4av5MiESVwJWnEx8ZQVFkc1RM29zMxNT`.
+
 License: Apache-2.0.

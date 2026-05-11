@@ -40,6 +40,11 @@ assert_no_cpi(sysvar_account, &program_id)?;
 
 Docs: <https://docs.rs/crate/hopper-solana/0.1.0>
 
+## Support
+
+Public-goods support and donations can be sent to `solanadevdao.sol` /
+`F42ZovBoRJZU4av5MiESVwJWnEx8ZQVFkc1RM29zMxNT`.
+
 ## License
 
 Apache-2.0
