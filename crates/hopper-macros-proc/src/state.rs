@@ -39,12 +39,10 @@ impl Default for StateOptions {
 /// layout ties individual fields to schema intents and to the named
 /// invariants declared on an associated `#[hopper::error]` enum.
 ///
-/// ## Innovation over Anchor / Quasar / Pinocchio
+/// ## Design notes
 ///
-/// Anchor has no field-level intent. Quasar's field macros only touch
-/// offsets. Pinocchio deliberately stays out of the schema business.
-/// Hopper is the first of the four to give authored layouts a way to
-/// say "this field is a balance" or "this field is guarded by
+/// Hopper gives authored layouts a way to say "this field is a balance" or
+/// "this field is guarded by
 /// `balance_nonzero`" at declaration time. information that then
 /// flows directly into the manifest, the receipt narrative, and the
 /// Codama/Python client generators.

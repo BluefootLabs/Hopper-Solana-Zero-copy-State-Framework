@@ -131,14 +131,11 @@ pub fn require_token_owner_eq(
 /// before any downstream CPI runs, so a user-visible failure clearly
 /// points at "wrong mint" rather than an opaque SPL token error.
 ///
-/// ## Innovation over Anchor
+/// ## Design notes
 ///
-/// Anchor's `token::mint = X` is checked by deserializing the full
-/// `TokenAccount` struct via `anchor_spl`, which pulls in the anchor-spl
-/// crate and costs compute on every check. Hopper's version reads the
-/// exact 32 bytes of interest directly from the already-borrowed data
-/// buffer. zero extra crate dependencies, no full-struct deserialize,
-/// and the check is trivially inlinable.
+/// The check reads the exact 32 bytes of interest directly from the
+/// already-borrowed data buffer: no extra crate dependencies, no full-struct
+/// deserialize, and the check is trivially inlinable.
 #[inline]
 pub fn require_token_mint(token_account: &AccountView, expected_mint: &Address) -> ProgramResult {
     let data = token_account

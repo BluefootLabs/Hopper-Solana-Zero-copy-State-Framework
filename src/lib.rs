@@ -10,7 +10,7 @@
 //!    owner-checked, signer-checked, layout-checked, and borrow-checked
 //!    before you see it. Unsafe is an opt-in escape hatch, never a
 //!    default.
-//! 2. **Pinocchio-class performance.** Account data points directly at
+//! 2. **Low-overhead performance.** Account data points directly at
 //!    the runtime input region. No deserialization pass, no heap
 //!    allocation, no hidden format machinery. If it costs compute, it
 //!    is because you asked for it.

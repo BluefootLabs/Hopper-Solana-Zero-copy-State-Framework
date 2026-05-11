@@ -185,5 +185,5 @@ Hopper is not:
 Hopper is:
 
 * a typed state pipeline for Solana
-* a sovereign runtime surface
+* a dedicated low-level runtime surface
 * a serious-builder framework

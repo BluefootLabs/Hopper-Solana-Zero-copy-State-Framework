@@ -216,7 +216,7 @@ struct AccountAttr {
     /// `master_edition::rent = field`. Optional rent sysvar account.
     master_edition_rent: Option<Ident>,
 
-    /// `dup = other_field`. Quasar-style. This slot is allowed to
+    /// `dup = other_field`. This slot is allowed to
     /// alias `other_field` (the caller intentionally passed the same
     /// account in two roles). Skips the "no duplicate writables" and
     /// "no duplicate signers" pipeline checks for this pair. Does
@@ -287,7 +287,7 @@ struct ContextField {
 /// A single `name: Type` binding inside a struct-level
 /// `#[instruction(...)]` attribute.
 ///
-/// ## Innovation over Anchor
+/// ## Design notes
 ///
 /// Anchor's `#[instruction(...)]` is a **parse-only** hint. its argument
 /// names never appear in generated `impl` bodies beyond the accounts
@@ -724,7 +724,7 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
 
         // -- Stage 4a: typed-seeds sugar (`seeds_fn = Type::seeds(...)`) --
         //
-        // Quasar-style sugar: the user centralizes their PDA seed
+        // PDA seed wiring: the user centralizes their PDA seed
         // layout on the account type via a `seeds(...) -> ...` helper,
         // and every context references it by name. We lower to
         // `find_program_address(expr(), program_id)` and verify the

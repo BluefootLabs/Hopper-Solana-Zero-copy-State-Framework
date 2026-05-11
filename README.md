@@ -5,18 +5,17 @@
 
 > **Release status.** Hopper `0.1.0` is the first public release line for the
 > Hopper framework, CLI, and companion crates. APIs are still young, and the
-> release surface is documented, benchmark-provenanced, and gated by the checks
-> in this repository. Verify crates.io package ownership before using registry
-> install commands for the root `hopper` package.
+> release surface is documented, release-checked, and scoped to the APIs
+> exercised by this repository.
 
 Hopper is a zero-copy state framework for Solana programs. It maps typed,
 fixed-layout views onto account bytes without a serialization round trip, while
 keeping the byte layout inspectable through headers, layout fingerprints,
 schema manifests, and CLI tooling.
 
-The repository now follows the Quasar-style product layout: framework-internal
-crates live together in this main repo, while independent products such as the
-benchmark suite and SVM harness live separately.
+The repository keeps framework crates, first-party examples, and release
+tooling together. Independent products such as the benchmark suite and SVM
+harness live separately so release claims stay reproducible and easy to audit.
 
 ## What Hopper provides
 
@@ -26,16 +25,17 @@ benchmark suite and SVM harness live separately.
 - Segment-aware access helpers for field-level borrow tracking.
 - Optional proc macros for faster authoring; the core framework remains usable
   without proc macros.
-- Hopper Native by default, targeting Pinocchio-class performance with
-  framework safety/DX, with explicit legacy Pinocchio and `solana-program`
-  compatibility modes quarantined behind opt-in features.
+- Hopper Native by default for low-overhead account access with framework
+  safety/DX, with explicit legacy Pinocchio and `solana-program` compatibility
+  modes quarantined behind opt-in features.
 - Schema, IDL, manager, and CLI tooling for inspecting and explaining account
   layouts.
 
 ## Release Status
 
-- Framework version target: `hopper = "0.1.0"`.
-- Version-pinned docs.rs target: <https://docs.rs/crate/hopper/0.1.0>.
+- Framework package target: `hopper-framework = "0.1.0"`; import it as
+  `hopper` with `hopper = { package = "hopper-framework", version = "0.1.0" }`.
+- Version-pinned docs.rs target: <https://docs.rs/crate/hopper-framework/0.1.0>.
 - Source-backed CLI install: `cargo install --path tools/hopper-cli` from this
   repository.
 - Public companion crate targets include `hopper-native`, `hopper-runtime`,
@@ -54,7 +54,14 @@ benchmark suite and SVM harness live separately.
 
 ```toml
 [dependencies]
-hopper = { git = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework", features = ["proc-macros"] }
+hopper = { package = "hopper-framework", version = "0.1.0", features = ["proc-macros"] }
+```
+
+Until crates.io publication completes, use the source-backed dependency:
+
+```toml
+[dependencies]
+hopper = { git = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework", package = "hopper-framework", features = ["proc-macros"] }
 ```
 
 Install the CLI:
@@ -69,7 +76,7 @@ For local development inside this repository:
 
 ```toml
 [dependencies]
-hopper = { path = "../Hopper-Solana-Zero-copy-State-Framework", features = ["proc-macros"] }
+hopper = { path = "../Hopper-Solana-Zero-copy-State-Framework", package = "hopper-framework", features = ["proc-macros"] }
 ```
 
 Minimal layout example:
@@ -109,6 +116,7 @@ mod vault {
 - [docs/DYNAMIC_TAILS_FROM_QUASAR.md](docs/DYNAMIC_TAILS_FROM_QUASAR.md): mapping Quasar bounded dynamic fields to Hopper fixed-body + dynamic-tail layouts.
 - [docs/QUASAR_PINOCCHIO_REPLACEMENT.md](docs/QUASAR_PINOCCHIO_REPLACEMENT.md): what Hopper replaces from Quasar/Pinocchio and what benchmark claims still require same-provenance proof.
 - [docs/CLI_REFERENCE.md](docs/CLI_REFERENCE.md): lifecycle, schema, client, profiling, and manager command reference.
+- [docs/PUBLICATION_AUDIT.md](docs/PUBLICATION_AUDIT.md): crate-by-crate publication and competitive-readiness audit.
 
 ## Access model
 
@@ -160,13 +168,13 @@ Hopper Native is the default backend.
 
 ```toml
 # Default backend from source
-hopper = { git = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework" }
+hopper = { package = "hopper-framework", version = "0.1.0" }
 
 # Legacy Pinocchio migration/benchmark compatibility only
-hopper = { git = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework", default-features = false, features = ["legacy-pinocchio-compat"] }
+hopper = { package = "hopper-framework", version = "0.1.0", default-features = false, features = ["legacy-pinocchio-compat"] }
 
 # solana-program compatibility backend
-hopper = { git = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework", default-features = false, features = ["solana-program-backend"] }
+hopper = { package = "hopper-framework", version = "0.1.0", default-features = false, features = ["solana-program-backend"] }
 ```
 
 Only one backend should be enabled for a program build.
@@ -182,8 +190,8 @@ Useful development commands:
 ```sh
 cargo metadata --no-deps --format-version 1
 cargo test -p hopper-cli cmd::lint::tests -- --nocapture
-cargo test -p hopper --features proc-macros,metaplex --test constant_integration -- --nocapture
-cargo test -p hopper --features proc-macros,metaplex --test metaplex_context_integration -- --nocapture
+cargo test -p hopper-framework --features proc-macros,metaplex --test constant_integration -- --nocapture
+cargo test -p hopper-framework --features proc-macros,metaplex --test metaplex_context_integration -- --nocapture
 ```
 
 The CLI source lives in `tools/hopper-cli`. It supports lifecycle commands,
@@ -209,10 +217,9 @@ Pinocchio target is measured from the same `hopper-bench` lockfile, SBF
 toolchain, Mollusk version, seed set, feature flags, release profile, and
 command line as the Hopper and Quasar columns.
 
-Current positioning: Hopper targets Pinocchio-class performance and access
-shape while adding framework safety, schema, lifecycle, CPI, and CLI tooling.
-That is an architecture/DX claim until a same-provenance Pinocchio column is
-published.
+Current positioning: Hopper targets low-overhead account access while adding
+framework safety, schema, lifecycle, CPI, and CLI tooling. Direct Pinocchio
+comparison claims wait for a same-provenance Pinocchio benchmark column.
 
 Canonical reproduction command:
 

@@ -5,18 +5,14 @@
 //! - A stable event `TAG` byte (derived from the name if not supplied)
 //! - A `NAME` static string for IDL emission
 //! - A `SEGMENT_SOURCE` optional byte: the segment index whose mutation
-//!   triggered the event (Hopper innovation. Quasar/Anchor events have no
-//!   segment lineage).
+//!   triggered the event (Hopper can preserve segment lineage for indexers).
 //! - An `emit(&self) -> EventHandle` stub that serializes the event with its
 //!   1-byte tag prefix in the framework's log emission format. If a program
 //!   hasn't imported `hopper-core` at the call site, `emit` is elided.
 //!
-//! ## Innovation over Quasar / Anchor
+//! ## Design notes
 //!
-//! Anchor emits events as Borsh-encoded logs. Quasar is similar. Neither
-//! attaches a **segment lineage**, so off-chain indexers cannot filter "all
-//! events caused by writes to segment X" without re-deriving provenance.
-//! Hopper events carry `SEGMENT_SOURCE` so `hopper-sdk` can build segment-
+//! Hopper events can carry `SEGMENT_SOURCE` so `hopper-sdk` can build segment-
 //! keyed indexes for free.
 
 use proc_macro2::TokenStream;

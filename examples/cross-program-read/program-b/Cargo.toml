@@ -10,7 +10,7 @@ description = "Cross-program read example - Program B (vault reader via hopper_i
 crate-type = ["cdylib", "lib"]
 
 [dependencies]
-hopper = { path = "../../..", default-features = false }
+hopper = { path = "../../..", package = "hopper-framework", default-features = false }
 five8_const = { workspace = true }
 
 [features]

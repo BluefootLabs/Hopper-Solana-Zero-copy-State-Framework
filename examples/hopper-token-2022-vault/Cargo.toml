@@ -10,7 +10,7 @@ description = "Hopper-authored Token-2022 vault example with package-local manif
 crate-type = ["cdylib", "lib"]
 
 [dependencies]
-hopper = { path = "../..", default-features = false }
+hopper = { path = "../..", package = "hopper-framework", default-features = false }
 
 [features]
 default = ["hopper-native-backend"]

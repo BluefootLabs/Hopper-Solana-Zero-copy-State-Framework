@@ -50,7 +50,7 @@ pub struct Frame<'a> {
     mutable_borrows: u64,
     /// Segment-level borrow tracking for fine-grained conflict detection.
     /// Allows concurrent mutable access to non-overlapping regions of the
-    /// same account, the key safety innovation over raw Pinocchio.
+    /// same account, the key safety property missing from raw pointer access.
     segment_borrows: SegmentBorrowRegistry,
 }
 

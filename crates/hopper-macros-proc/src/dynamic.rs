@@ -26,10 +26,10 @@
 //! }
 //! ```
 //!
-//! ## Innovation over Quasar
+//! ## Design notes
 //!
-//! Quasar's dynamic fields are appended at the end of a blob. Hopper's
-//! dynamic region additionally supports a **tombstone ring**: a small
+//! Simple dynamic fields are often appended at the end of a blob. Hopper's
+//! dynamic region also supports a **tombstone ring**: a small
 //! bitmap at the head of the region tracks which slot is the oldest
 //! logically-removed entry so realloc-free extensions can insert into a
 //! freed slot without moving later data. The generated metadata tells the

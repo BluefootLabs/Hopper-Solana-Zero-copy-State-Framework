@@ -1,4 +1,4 @@
-//! Batched u32 header validation -- Quasar-inspired single-compare optimization.
+//! Batched u32 header validation using a single-compare optimization.
 //!
 //! The SVM `RuntimeAccount` header packs `borrow_state`, `is_signer`,
 //! `is_writable`, and `executable` into a 4-byte prefix. We read this as

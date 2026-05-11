@@ -74,9 +74,10 @@ crates.io indexing before publishing the next dependent crate.
 21. `hopper-manager`
 22. `hopper-sdk`
 23. `hopper-cli`
-24. `hopper`
+24. `hopper-framework` (library crate name `hopper`)
 
 `hopper-cli` is intentionally published after `hopper-manager` and
-`hopper-schema` have indexed because it depends on both.
-
-        
+`hopper-schema` have indexed because it depends on both. The top-level
+framework package publishes as `hopper-framework` because the crates.io
+`hopper` package name is occupied by an unrelated crate; consumers should alias
+it back to `hopper` in `Cargo.toml` with `hopper = { package = "hopper-framework", ... }`.

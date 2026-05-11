@@ -1058,11 +1058,11 @@ fn render_hopper_dependency(local_path: Option<&str>, template: Template) -> Str
     let features = template.cargo_features();
     match local_path {
         Some(path) => format!(
-            "hopper = {{ path = \"{}\", default-features = false, features = [{features}] }}",
+            "hopper = {{ path = \"{}\", package = \"hopper-framework\", default-features = false, features = [{features}] }}",
             path.replace('\\', "/")
         ),
         None => format!(
-            "hopper = {{ version = \"0.1.0\", default-features = false, features = [{features}] }}"
+            "hopper = {{ package = \"hopper-framework\", version = \"0.1.0\", default-features = false, features = [{features}] }}"
         ),
     }
 }

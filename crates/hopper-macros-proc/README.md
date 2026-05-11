@@ -49,7 +49,7 @@ README pattern above works without duplicate trait implementations.
 
 ```toml
 [dependencies]
-hopper = { version = "0.1.0", features = ["proc-macros"] }
+hopper = { package = "hopper-framework", version = "0.1.0", features = ["proc-macros"] }
 ```
 
 Docs: <https://docs.rs/crate/hopper-macros-proc/0.1.0>

@@ -17,11 +17,9 @@
 //!   preferred Solana client (solders, solana-py, …).
 //! - A `DISCRIMINATORS` dict mapping layout name to `(disc, layout_id)`.
 //!
-//! ## Innovation over Quasar / Anchor
+//! ## Design notes
 //!
-//! Quasar/Anchor Python support typically means "use Codama / Kinobi to
-//! generate TypeScript and hand-translate". there is no canonical Python
-//! path. Hopper emits Python that:
+//! Hopper emits Python that:
 //!   1. Verifies the `layout_id` fingerprint before decoding (impossible in
 //!      Anchor because Anchor has no layout fingerprint).
 //!   2. Honors `FieldIntent` by emitting typed `int` / `bytes` / `bool`

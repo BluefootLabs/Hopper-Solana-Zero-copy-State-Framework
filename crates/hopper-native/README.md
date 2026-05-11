@@ -10,7 +10,7 @@ Part of the **[Hopper](https://hopperzero.dev)** framework.
 
 - **`hopper_program_entrypoint!`** (alias `program_entrypoint!`) - standard
   eager parse. Stack-allocates `[MaybeUninit<AccountView>; MAX]`, scans the
-  whole input up front. Pinocchio-class CU efficiency.
+  whole input up front for low-overhead account access.
 - **`hopper_fast_entrypoint!`** (alias `fast_entrypoint!`) - uses the SVM
   two-argument entrypoint register; reads instruction data directly. Saves
   roughly 30 to 40 CU per call vs the eager variant.

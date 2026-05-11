@@ -306,7 +306,7 @@ pub fn find_and_verify_pda(
 
 // --- BUMP_OFFSET PDA Optimization ----------------------------------
 //
-// Inspired by Quasar's BUMP_OFFSET pattern. When a layout stores its PDA
+// When a layout stores its PDA
 // bump in a known field, we can read it directly from account data and
 // call `create_program_address` (~200 CU) instead of `find_program_address`
 // (~544 CU). Saves ~344 CU per PDA validation.
@@ -366,7 +366,7 @@ pub fn verify_pda_cached(
 
 // --- Multi-Owner Foreign Load --------------------------------------
 //
-// Inspired by Quasar's Interface<T> + ProgramInterface pattern.
+// Interface<T> + ProgramInterface pattern.
 // Allows loading foreign accounts that could be owned by any of several
 // programs (e.g., Token program OR Token-2022).
 

@@ -64,7 +64,7 @@ hopper-runtime = { path = "crates/hopper-runtime", version = "0.1.0", default-fe
 hopper-core = { path = "crates/hopper-core", version = "0.1.0", default-features = false }
 hopper-macros = { path = "crates/hopper-macros", version = "0.1.0", default-features = false }
 hopper-macros-proc = { path = "crates/hopper-macros-proc", version = "0.1.0" }
-hopper = { path = ".", version = "0.1.0" }
+hopper = { path = ".", package = "hopper-framework", version = "0.1.0" }
 hopper-system = { path = "crates/hopper-system", version = "0.1.0", default-features = false }
 hopper-schema = { path = "crates/hopper-schema", version = "0.1.0", default-features = false }
 hopper-solana = { path = "crates/hopper-solana", version = "0.1.0", default-features = false }
@@ -84,7 +84,7 @@ hopper-manager = { path = "crates/hopper-manager", version = "0.1.0" }
 hopper-sdk = { path = "crates/hopper-sdk", version = "0.1.0" }
 
 [package]
-name = "hopper"
+name = "hopper-framework"
 version = "0.1.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
@@ -92,7 +92,7 @@ authors = ["BluefootLabs <contact@bluefootlabs.com>", "MoonManQuark"]
 description = "Zero-copy state framework for Solana. Typed account architecture, phased execution, validation graphs, zero-copy collections, layout evolution, and cross-program interfaces. Built on Hopper Native. no_std, no_alloc, no proc macros required."
 repository = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework"
 homepage = "https://hopperzero.dev"
-documentation = "https://docs.rs/crate/hopper/0.1.0"
+documentation = "https://docs.rs/crate/hopper-framework/0.1.0"
 readme = "README.md"
 keywords = ["solana", "zero-copy", "framework", "state", "no-std"]
 categories = ["no-std", "embedded"]

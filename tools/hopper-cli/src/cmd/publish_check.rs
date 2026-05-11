@@ -262,6 +262,8 @@ fn scan_release_docs(root: &Path) -> Result<(), String> {
         "docs/UNSAFE_INVARIANTS.md",
         "docs/POLICY_GUARANTEES.md",
         "docs/CLI_REFERENCE.md",
+        "docs/RELEASE_CHECKLIST.md",
+        "docs/PUBLICATION_AUDIT.md",
     ];
     let banned = [
         ("re-run pending", "pending benchmark placeholder"),
@@ -309,7 +311,7 @@ fn scan_release_docs(root: &Path) -> Result<(), String> {
 }
 
 fn check_default_feature_tree(root: &Path) -> Result<(), String> {
-    let args = ["tree", "-p", "hopper", "--edges", "normal,build"];
+    let args = ["tree", "-p", "hopper-framework", "--edges", "normal,build"];
     let output = workspace::run_output("cargo", &to_strings(&args), root)?;
     if !output.status.success() {
         return Err(format!(

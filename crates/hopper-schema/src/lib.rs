@@ -2079,10 +2079,9 @@ impl fmt::Display for ArgParseError {
 /// codes back to names and. via `invariant`. to the safety check that
 /// produced them.
 ///
-/// ## Innovation over Quasar / Anchor
+/// ## Design notes
 ///
-/// Anchor errors and Quasar errors are "code + message" tuples. Hopper
-/// errors additionally carry the **invariant name** a variant corresponds
+/// Hopper errors can carry the **invariant name** a variant corresponds
 /// to, so a client that sees error `0x1001` can surface "Invariant
 /// `balance_nonzero` failed" without needing to keep a separate lookup
 /// table in sync with the on-chain code.

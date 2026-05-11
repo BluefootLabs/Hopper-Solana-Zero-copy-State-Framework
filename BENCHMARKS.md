@@ -37,8 +37,8 @@ the same lockfile, SBF toolchain, Mollusk version, seed set, feature flags,
 release profile, and command line used for Hopper and Quasar.
 
 Until that same-provenance run exists, Hopper's public positioning is
-Pinocchio-class performance and access shape with framework safety/DX, not a
-published Pinocchio win claim.
+low-overhead account access with framework safety/DX, not a published
+Pinocchio win claim.
 
 ## CU Results
 
@@ -82,8 +82,8 @@ Measured on solana-test-validator 2.1 (April 2026).
 
 **Hopper's safe path is within 4 CU of raw.**
 
-A raw `*const u8 as *const T` pointer cast (what Quasar-style frameworks
-do) costs ~4 CU. Hopper's safe overlay costs ~8 CU. The 4 CU difference
+A raw `*const u8 as *const T` pointer cast costs ~4 CU. Hopper's safe overlay
+costs ~8 CU. The 4 CU difference
 buys you: bounds checking, header validation, and layout_id fingerprint
 verification.
 
@@ -246,7 +246,7 @@ Every parity result published from `hopper-bench` must record:
 - The fast entrypoint receives instruction data via the second SVM register,
   avoiding a full-buffer account scan on supported runtimes.
 - Hopper's claim is not "raw Pinocchio is slower." The claim is that Hopper
-  packages a Pinocchio-class access model with framework validation, schema,
+  packages low-overhead account access with framework validation, schema,
   lifecycle, CPI, and CLI tooling.
 
 ### Where Pinocchio is still the right choice

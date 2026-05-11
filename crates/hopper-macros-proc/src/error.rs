@@ -12,10 +12,10 @@
 //!   that lets clients surface *which safety check actually failed*, not
 //!   just a numeric code.
 //!
-//! ## Innovation over Quasar / Anchor
+//! ## Design notes
 //!
-//! Anchor errors are codes + messages. Quasar follows the same shape. Neither
-//! binds errors to invariants. Hopper's errors carry `invariant = "…"`
+//! Most framework errors are codes + messages. Hopper's errors can also carry
+//! `invariant = "…"`
 //! metadata, so when an off-chain client sees error 0x42AA it can surface
 //! "Invariant `balance_nonzero` failed" instead of "Error: 0x42AA".
 //!

@@ -1,4 +1,4 @@
-//! Inline dynamic fields -- Quasar-inspired prefix-based variable-length data.
+//! Inline dynamic fields using prefix-based variable-length data.
 //!
 //! For accounts with 1-3 variable-length fields (strings, byte arrays),
 //! inline dynamic fields are more efficient than a full segment table.

@@ -12,7 +12,7 @@
 //!   `#[hopper::args(cu = 1200)]` and surfaced in the manifest so client
 //!   builders can budget compute before submitting.
 //!
-//! ## Innovation over Quasar / Anchor
+//! ## Design notes
 //!
 //! Anchor and Quasar parse args via Borsh deserialization into owned values.
 //! Hopper's args derive is **borrowing zero-copy**: the handler receives a

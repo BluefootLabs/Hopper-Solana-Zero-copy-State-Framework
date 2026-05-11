@@ -9,7 +9,7 @@
 //! There is no "regenerate the TypeScript types after you redeploy" step,
 //! because the source of truth is compiled into the program.
 //!
-//! # Innovation over Anchor/Quasar
+//! # Design notes
 //!
 //! - **Single source of truth**: no separate `.json` IDL file that drifts.
 //! - **Layout-id-verified account lookups**: if a caller supplies an account

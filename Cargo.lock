@@ -2116,26 +2116,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "hopper"
-version = "0.1.0"
-dependencies = [
- "hopper-associated-token",
- "hopper-core",
- "hopper-macros",
- "hopper-macros-proc",
- "hopper-memo",
- "hopper-metaplex",
- "hopper-runtime",
- "hopper-schema",
- "hopper-solana",
- "hopper-system",
- "hopper-token",
- "hopper-token-2022",
- "sha2-const-stable",
- "trybuild",
-]
-
-[[package]]
 name = "hopper-anchor"
 version = "0.1.0"
 dependencies = [
@@ -2206,7 +2186,7 @@ dependencies = [
 name = "hopper-escrow"
 version = "0.1.0"
 dependencies = [
- "hopper",
+ "hopper-framework",
 ]
 
 [[package]]
@@ -2215,6 +2195,26 @@ version = "0.1.0"
 dependencies = [
  "hopper-core",
  "hopper-runtime",
+]
+
+[[package]]
+name = "hopper-framework"
+version = "0.1.0"
+dependencies = [
+ "hopper-associated-token",
+ "hopper-core",
+ "hopper-macros",
+ "hopper-macros-proc",
+ "hopper-memo",
+ "hopper-metaplex",
+ "hopper-runtime",
+ "hopper-schema",
+ "hopper-solana",
+ "hopper-system",
+ "hopper-token",
+ "hopper-token-2022",
+ "sha2-const-stable",
+ "trybuild",
 ]
 
 [[package]]
@@ -2271,7 +2271,7 @@ dependencies = [
 name = "hopper-migration"
 version = "0.1.0"
 dependencies = [
- "hopper",
+ "hopper-framework",
  "hopper-schema",
 ]
 
@@ -2294,35 +2294,35 @@ dependencies = [
 name = "hopper-nft-mint"
 version = "0.1.0"
 dependencies = [
- "hopper",
+ "hopper-framework",
 ]
 
 [[package]]
 name = "hopper-parity-vault"
 version = "0.1.0"
 dependencies = [
- "hopper",
+ "hopper-framework",
 ]
 
 [[package]]
 name = "hopper-policy-vault"
 version = "0.1.0"
 dependencies = [
- "hopper",
+ "hopper-framework",
 ]
 
 [[package]]
 name = "hopper-proc-vault"
 version = "0.1.0"
 dependencies = [
- "hopper",
+ "hopper-framework",
 ]
 
 [[package]]
 name = "hopper-registry"
 version = "0.1.0"
 dependencies = [
- "hopper",
+ "hopper-framework",
 ]
 
 [[package]]
@@ -2357,7 +2357,7 @@ dependencies = [
 name = "hopper-showcase"
 version = "0.1.0"
 dependencies = [
- "hopper",
+ "hopper-framework",
 ]
 
 [[package]]
@@ -2404,35 +2404,35 @@ dependencies = [
 name = "hopper-token-2022-ata"
 version = "0.1.0"
 dependencies = [
- "hopper",
+ "hopper-framework",
 ]
 
 [[package]]
 name = "hopper-token-2022-transfer-hook"
 version = "0.1.0"
 dependencies = [
- "hopper",
+ "hopper-framework",
 ]
 
 [[package]]
 name = "hopper-token-2022-vault"
 version = "0.1.0"
 dependencies = [
- "hopper",
+ "hopper-framework",
 ]
 
 [[package]]
 name = "hopper-treasury"
 version = "0.1.0"
 dependencies = [
- "hopper",
+ "hopper-framework",
 ]
 
 [[package]]
 name = "hopper-trybuild"
 version = "0.1.0"
 dependencies = [
- "hopper",
+ "hopper-framework",
  "trybuild",
 ]
 
@@ -2440,7 +2440,7 @@ dependencies = [
 name = "hopper-vault"
 version = "0.1.0"
 dependencies = [
- "hopper",
+ "hopper-framework",
  "mollusk-svm",
  "openssl",
  "solana-account 3.4.0",
@@ -2459,14 +2459,14 @@ dependencies = [
 name = "hopper-virtual-state"
 version = "0.1.0"
 dependencies = [
- "hopper",
+ "hopper-framework",
 ]
 
 [[package]]
 name = "hopper-xp-program-a"
 version = "0.1.0"
 dependencies = [
- "hopper",
+ "hopper-framework",
 ]
 
 [[package]]
@@ -2474,7 +2474,7 @@ name = "hopper-xp-program-b"
 version = "0.1.0"
 dependencies = [
  "five8_const 0.1.4",
- "hopper",
+ "hopper-framework",
 ]
 
 [[package]]

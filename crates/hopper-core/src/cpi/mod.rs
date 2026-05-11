@@ -3,7 +3,7 @@
 //! Both account count and data size are const generics, ensuring everything
 //! lives on the SBF stack (4096 bytes). No heap allocation ever.
 //!
-//! ## Design (inspired by Quasar's CpiCall<N, D>, improved)
+//! ## Design
 //!
 //! - `HopperCpi<A, D>` -- fully const-generic: accounts + data
 //! - `HopperCpiBuf<A, MAX>` -- const accounts, runtime data length
