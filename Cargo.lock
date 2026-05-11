@@ -2171,7 +2171,6 @@ version = "0.1.0"
 dependencies = [
  "hopper-native",
  "hopper-runtime",
- "hopper-schema",
  "sha2-const-stable",
 ]
 

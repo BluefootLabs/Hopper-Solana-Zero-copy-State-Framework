@@ -25,7 +25,6 @@ sha2-const-stable = { workspace = true, optional = true }
 
 [dev-dependencies]
 sha2-const-stable = { workspace = true }
-hopper-schema = { workspace = true }
 # The audit-regression tests in `frame` need direct access to the
 # native substrate's `RuntimeAccount` layout so they can fabricate
 # accounts without spinning up the full BPF entrypoint. Only pulled in
