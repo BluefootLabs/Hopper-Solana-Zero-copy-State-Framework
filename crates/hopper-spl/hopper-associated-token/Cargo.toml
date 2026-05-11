@@ -9,7 +9,7 @@ repository = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Fram
 homepage = "https://hopperzero.dev"
 documentation = "https://docs.rs/crate/hopper-associated-token/0.1.0"
 readme = "README.md"
-keywords = ["solana", "associated-token-account", "cpi", "zero-copy", "hopper"]
+keywords = ["solana", "associated-token", "cpi", "zero-copy", "hopper"]
 categories = ["no-std"]
 
 [lib]
