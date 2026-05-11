@@ -73,8 +73,8 @@ fn print_usage() {
 fn run_explain(rpc_url: &str, signature: &str, show_raw_logs: bool) -> Result<(), String> {
     use solana_client::rpc_client::RpcClient;
     use solana_client::rpc_config::RpcTransactionConfig;
-    use solana_sdk::commitment_config::CommitmentConfig;
-    use solana_sdk::signature::Signature;
+    use solana_commitment_config::CommitmentConfig;
+    use solana_signature::Signature;
     use solana_transaction_status::UiTransactionEncoding;
 
     let sig: Signature = signature

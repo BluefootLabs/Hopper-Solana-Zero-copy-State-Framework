@@ -8,17 +8,20 @@ use serde::Serialize;
 use serde_json::Value as JsonValue;
 use solana_client::rpc_client::RpcClient;
 use solana_client::rpc_config::RpcSimulateTransactionConfig;
-use solana_sdk::commitment_config::CommitmentConfig;
-use solana_sdk::instruction::{AccountMeta, Instruction, InstructionError};
-use solana_sdk::native_token::LAMPORTS_PER_SOL;
-use solana_sdk::pubkey::Pubkey;
-use solana_sdk::signature::{read_keypair_file, Keypair, Signer};
-use solana_sdk::transaction::Transaction;
-use solana_sdk::transaction::TransactionError;
+use solana_commitment_config::CommitmentConfig;
+use solana_instruction::error::InstructionError;
+use solana_instruction::{AccountMeta, Instruction};
+use solana_keypair::{read_keypair_file, Keypair};
+use solana_pubkey::Pubkey;
+use solana_signer::Signer;
 use solana_system_interface::instruction as system_instruction;
+use solana_transaction::Transaction;
+use solana_transaction_error::TransactionError;
 use toml::Value as TomlValue;
 
 use crate::workspace;
+
+const LAMPORTS_PER_SOL: u64 = 1_000_000_000;
 
 const BENCH_ACCOUNT_LEN: usize = 57;
 const WRITE_HEADER_DISC: u8 = 6;

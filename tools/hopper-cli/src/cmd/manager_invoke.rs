@@ -157,12 +157,13 @@ fn parse_invoke_args(argv: &[String]) -> Result<InvokeOpts, String> {
 fn run_invoke(opts: &InvokeOpts) -> Result<(), String> {
     use solana_client::rpc_client::RpcClient;
     use solana_client::rpc_config::RpcSimulateTransactionConfig;
-    use solana_sdk::commitment_config::CommitmentConfig;
-    use solana_sdk::compute_budget::ComputeBudgetInstruction;
-    use solana_sdk::instruction::{AccountMeta, Instruction};
-    use solana_sdk::pubkey::Pubkey;
-    use solana_sdk::signature::{read_keypair_file, Signer};
-    use solana_sdk::transaction::Transaction;
+    use solana_commitment_config::CommitmentConfig;
+    use solana_compute_budget_interface::ComputeBudgetInstruction;
+    use solana_instruction::{AccountMeta, Instruction};
+    use solana_keypair::read_keypair_file;
+    use solana_pubkey::Pubkey;
+    use solana_signer::Signer;
+    use solana_transaction::Transaction;
 
     let rpc_url = opts
         .rpc
@@ -745,12 +746,13 @@ fn crank_tick(
     let _ = label;
     use solana_client::rpc_client::RpcClient;
     use solana_client::rpc_config::RpcSimulateTransactionConfig;
-    use solana_sdk::commitment_config::CommitmentConfig;
-    use solana_sdk::compute_budget::ComputeBudgetInstruction;
-    use solana_sdk::instruction::{AccountMeta, Instruction};
-    use solana_sdk::pubkey::Pubkey;
-    use solana_sdk::signature::{read_keypair_file, Signer};
-    use solana_sdk::transaction::Transaction;
+    use solana_commitment_config::CommitmentConfig;
+    use solana_compute_budget_interface::ComputeBudgetInstruction;
+    use solana_instruction::{AccountMeta, Instruction};
+    use solana_keypair::read_keypair_file;
+    use solana_pubkey::Pubkey;
+    use solana_signer::Signer;
+    use solana_transaction::Transaction;
 
     let program_id_str = program_id_cli
         .map(String::from)
@@ -894,9 +896,9 @@ fn program_id_from_manifest(manifest_json: &str) -> Option<String> {
 fn resolve_crank_account(
     name: &str,
     manifest_json: &str,
-    program_pubkey: &solana_sdk::pubkey::Pubkey,
-    payer_pubkey: &solana_sdk::pubkey::Pubkey,
-) -> Option<solana_sdk::pubkey::Pubkey> {
+    program_pubkey: &solana_pubkey::Pubkey,
+    payer_pubkey: &solana_pubkey::Pubkey,
+) -> Option<solana_pubkey::Pubkey> {
     match name {
         "payer" | "fee_payer" | "authority" => return Some(*payer_pubkey),
         _ => {}
@@ -921,8 +923,7 @@ fn resolve_crank_account(
         }
     }
     let seed_slices: Vec<&[u8]> = bytes_list.iter().map(|v| v.as_slice()).collect();
-    let (pda, _bump) =
-        solana_sdk::pubkey::Pubkey::find_program_address(&seed_slices, program_pubkey);
+    let (pda, _bump) = solana_pubkey::Pubkey::find_program_address(&seed_slices, program_pubkey);
     Some(pda)
 }
 

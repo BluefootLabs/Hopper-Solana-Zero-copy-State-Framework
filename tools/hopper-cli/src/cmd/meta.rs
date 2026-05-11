@@ -174,8 +174,8 @@ pub fn cmd_tx_submit(args: &[String]) {
 fn tx_simulate_or_submit(args: &[String], send: bool) {
     use solana_client::rpc_client::RpcClient;
     use solana_client::rpc_config::RpcSimulateTransactionConfig;
-    use solana_sdk::commitment_config::CommitmentConfig;
-    use solana_sdk::transaction::Transaction;
+    use solana_commitment_config::CommitmentConfig;
+    use solana_transaction::Transaction;
 
     if args.is_empty() || matches!(args[0].as_str(), "--help" | "-h") {
         let verb = if send { "submit" } else { "simulate" };
