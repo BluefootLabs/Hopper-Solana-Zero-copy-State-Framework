@@ -30,19 +30,18 @@
 //! errors, yellow (208) for warnings, dim (2) for paths.
 
 use std::io::IsTerminal;
-use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
+use std::sync::atomic::{AtomicU8, Ordering};
 
-// `Initialized` lets us tell apart "user explicitly disabled colour"
-// from "we never decided yet, so probe the environment". `Enabled`
-// holds the resolved decision once made.
-static INITIALIZED: AtomicBool = AtomicBool::new(false);
-static ENABLED: AtomicU8 = AtomicU8::new(1); // 1 = on, 0 = off
+const COLOR_OFF: u8 = 0;
+const COLOR_ON: u8 = 1;
+const COLOR_UNINITIALIZED: u8 = 2;
+
+static COLOR_STATE: AtomicU8 = AtomicU8::new(COLOR_UNINITIALIZED);
 
 /// Explicit override. Call once at startup after loading the global
 /// config so a user-set `ui.color = false` beats the auto-detect.
 pub fn init(color: bool) {
-    ENABLED.store(if color { 1 } else { 0 }, Ordering::Relaxed);
-    INITIALIZED.store(true, Ordering::Relaxed);
+    COLOR_STATE.store(if color { COLOR_ON } else { COLOR_OFF }, Ordering::Release);
 }
 
 /// Auto-detect rule: respect `NO_COLOR`, then check stdout TTY.
@@ -54,12 +53,22 @@ fn auto_detect() -> bool {
 }
 
 fn enabled() -> bool {
-    if !INITIALIZED.load(Ordering::Relaxed) {
-        let v = auto_detect();
-        ENABLED.store(if v { 1 } else { 0 }, Ordering::Relaxed);
-        INITIALIZED.store(true, Ordering::Relaxed);
+    match COLOR_STATE.load(Ordering::Acquire) {
+        COLOR_OFF => false,
+        COLOR_ON => true,
+        _ => {
+            let detected = if auto_detect() { COLOR_ON } else { COLOR_OFF };
+            match COLOR_STATE.compare_exchange(
+                COLOR_UNINITIALIZED,
+                detected,
+                Ordering::AcqRel,
+                Ordering::Acquire,
+            ) {
+                Ok(_) => detected == COLOR_ON,
+                Err(current) => current == COLOR_ON,
+            }
+        }
     }
-    ENABLED.load(Ordering::Relaxed) == 1
 }
 
 /// Lime checkmark followed by a message. Falls back to `[ok] ...`.
