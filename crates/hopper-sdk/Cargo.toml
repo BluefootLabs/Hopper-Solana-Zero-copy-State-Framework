@@ -22,7 +22,7 @@ keywords = ["solana", "zero-copy", "sdk", "client", "hopper"]
 categories = ["api-bindings", "development-tools"]
 
 [features]
-default = ["std", "narrate", "builder"]
+default = ["std", "narrate", "builder", "hopper-native-backend"]
 # Standard library off-chain usage (the common case).
 std = []
 # Human-readable receipt narration.
@@ -31,6 +31,9 @@ narrate = ["std"]
 builder = ["std"]
 # Serde JSON dump of receipts/narratives.
 serde_json = ["std"]
+hopper-native-backend = ["hopper-schema/hopper-native-backend"]
+legacy-pinocchio-compat = ["hopper-schema/legacy-pinocchio-compat"]
+solana-program-backend = ["hopper-schema/solana-program-backend"]
 
 [dependencies]
 hopper-schema = { workspace = true, default-features = false }
