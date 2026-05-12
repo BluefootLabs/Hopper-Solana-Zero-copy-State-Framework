@@ -48,6 +48,7 @@
 #![cfg_attr(target_os = "solana", no_std)]
 #![allow(dead_code)]
 
+use hopper::hopper_load;
 use hopper::prelude::*;
 
 #[cfg(target_os = "solana")]
@@ -55,14 +56,14 @@ mod __sbf {
     use super::*;
 
     #[cfg(not(feature = "solana-program-backend"))]
-    no_allocator!();
+    hopper::no_allocator!();
 
     #[cfg(not(feature = "solana-program-backend"))]
-    nostd_panic_handler!();
+    hopper::nostd_panic_handler!();
 }
 
 #[cfg(target_os = "solana")]
-fast_entrypoint!(process_instruction, 10);
+hopper::fast_entrypoint!(process_instruction, 10);
 
 fn process_instruction(
     program_id: &Address,

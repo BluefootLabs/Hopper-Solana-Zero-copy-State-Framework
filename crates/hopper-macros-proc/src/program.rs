@@ -809,7 +809,7 @@ fn apply_handler_modifiers(
                             __hopper_failure_info = ::core::option::Option::Some((
                                 __hopper_err_code,
                                 __hopper_err_idx,
-                                ::hopper::prelude::FailureStage::Invariant,
+                                ::hopper::receipt::FailureStage::Invariant,
                             ));
                         }
                     } else {
@@ -856,7 +856,7 @@ fn apply_handler_modifiers(
             let mut __hopper_failure_info: ::core::option::Option<(
                 u32,
                 u8,
-                ::hopper::prelude::FailureStage,
+                ::hopper::receipt::FailureStage,
             )> = None;
         }
     } else {

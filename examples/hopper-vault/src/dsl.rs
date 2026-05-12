@@ -5,6 +5,7 @@
 
 use super::Vault;
 use hopper::prelude::*;
+use hopper::systems::*;
 
 // --- Typed contexts via hopper_accounts! macro ----------------------
 

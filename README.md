@@ -115,37 +115,37 @@ use hopper::prelude::*;
 #[account(disc = 1, version = 1)]
 pub struct Counter {
     pub authority: Address,
-  pub value: WireU64,
+    pub value: WireU64,
 }
 
 #[accounts]
 pub struct Increment {
-  #[account(mut)]
-  pub counter: Counter,
+    #[account(mut)]
+    pub counter: Counter,
 
-  #[signer]
-  pub authority: AccountView,
+    #[signer]
+    pub authority: AccountView,
 }
 
 #[program]
 mod counter_program {
     use super::*;
 
-  #[instruction(0)]
-  pub fn increment(ctx: Context<Increment>) -> ProgramResult {
-    let authority = *ctx.authority_account()?.address();
-    let mut counter = ctx.counter_load_mut()?;
+    #[instruction(0)]
+    pub fn increment(ctx: Context<Increment>) -> ProgramResult {
+        let authority = *ctx.authority_account()?.address();
+        let mut counter = ctx.counter_load_mut()?;
 
-    require_keys_eq!(counter.authority, authority, ProgramError::IncorrectAuthority);
+        require_keys_eq!(counter.authority, authority, ProgramError::IncorrectAuthority);
 
-    let next = counter
-      .value
-      .get()
-      .checked_add(1)
-      .ok_or(ProgramError::ArithmeticOverflow)?;
-    counter.value = WireU64::new(next);
-    Ok(())
-  }
+        let next = counter
+            .value
+            .get()
+            .checked_add(1)
+            .ok_or(ProgramError::ArithmeticOverflow)?;
+        counter.value = WireU64::new(next);
+        Ok(())
+    }
 }
 ```
 
@@ -168,16 +168,19 @@ mod counter_program {
 Hopper is layered so users do not have to learn the systems surface first:
 
 1. Framework mode: `use hopper::prelude::*`, `#[account]`, `#[program]`,
-  typed wrappers, PDA and token helpers.
+   typed wrappers, PDA helpers, token modules, and guard macros.
 2. Structured state: add `hopper::layout`, `hopper::schema`, dynamic tails, and
-  generated manifests when account compatibility matters.
-3. Systems mode: add `hopper::systems::*`, `hopper::segment`, `hopper::receipt`, `hopper::policy`,
-  `hopper::migration`, and `hopper::interface` for field leasing, audit trails,
-  upgrades, and cross-program layout contracts.
+   generated manifests when account compatibility matters.
+3. Systems mode: add `hopper::systems::*`, `hopper::segment`,
+   `hopper::receipt`, `hopper::policy`, `hopper::migration`, and
+   `hopper::interface` for field leasing, audit trails, upgrades, and
+   cross-program layout contracts.
 
-## Access Tiers
+## Advanced Access Tiers
 
-Use Hopper's access tiers deliberately:
+Framework handlers normally use generated context accessors or `load` /
+`load_mut`. Reach for these lower-level access tiers when a protocol explicitly
+needs systems-mode control:
 
 1. `segment_ref_typed` / generated field accessors - default hot path for
   field-level borrow leasing.
@@ -187,12 +190,11 @@ Use Hopper's access tiers deliberately:
 4. `raw_ref` / `raw_mut` - unsafe typed escape hatch.
 5. `as_mut_ptr` - full raw pointer escape for policy-controlled raw mode.
 
-For variable-length account data, use `#[hopper::state(dynamic_tail = T)]` for
-small bounded payloads attached to one fixed layout. `hopper_dynamic_fields!`
-lets Quasar-style ports write `string<N>` and `vec<T, N>` while Hopper lowers
-them to `HopperString<N>` and `HopperVec<T, N>`; named extension segments remain
-the right tool for larger repeated regions that need independent borrow tracking
-or migration metadata.
+For variable-length account data, opt into structured state with
+`#[hopper::state(dynamic_tail = T)]` or systems mode with
+`hopper_dynamic_fields!`. Named extension segments remain the right tool for
+larger repeated regions that need independent borrow tracking or migration
+metadata.
 
 ## Repository layout
 

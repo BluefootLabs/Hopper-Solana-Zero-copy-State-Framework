@@ -652,7 +652,7 @@ pub struct B { pub y: u8 }
             r#"use hopper::prelude::*;
 
 #[cfg(target_os = "solana")]
-program_entrypoint!(process_instruction);
+hopper::program_entrypoint!(process_instruction);
 
 fn process_instruction(_p: &Address, _a: &[AccountView], _d: &[u8]) -> ProgramResult { Ok(()) }
 

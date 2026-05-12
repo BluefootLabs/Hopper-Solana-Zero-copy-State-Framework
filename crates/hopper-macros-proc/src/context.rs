@@ -750,7 +750,7 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
             field_checks.push(quote! {
                 {
                     let __seed_slices: &[&[u8]] = (#seeds_fn_expr).as_ref();
-                    let (expected, _bump) = ::hopper::prelude::find_program_address(
+                    let (expected, _bump) = ::hopper::pda::find_program_address(
                         __seed_slices,
                         #pda_program_expr,
                     );
@@ -770,7 +770,7 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
                 quote! {
                     {
                         let __seed_slices: &[&[u8]] = (#seeds_fn_expr).as_ref();
-                        let (_, __b) = ::hopper::prelude::find_program_address(
+                        let (_, __b) = ::hopper::pda::find_program_address(
                             __seed_slices,
                             #pda_program_expr,
                         );
@@ -798,7 +798,7 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
             let verify_call = match bump {
                 BumpSpec::Inferred => quote! {
                     {
-                        let (expected, _bump) = ::hopper::prelude::find_program_address(
+                        let (expected, _bump) = ::hopper::pda::find_program_address(
                             &[ #( AsRef::<[u8]>::as_ref(&(#seed_exprs)) ),* ],
                             #pda_program_expr,
                         );
@@ -816,7 +816,7 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
                             #( AsRef::<[u8]>::as_ref(&(#seed_exprs)) ),*,
                             ::core::slice::from_ref(&bump),
                         ];
-                        let expected = ::hopper::prelude::create_program_address(
+                        let expected = ::hopper::pda::create_program_address(
                             seeds_with_bump,
                             #pda_program_expr,
                         )?;
@@ -855,7 +855,7 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
                 },
                 BumpSpec::Inferred => quote! {
                     {
-                        let (_, __b) = ::hopper::prelude::find_program_address(
+                        let (_, __b) = ::hopper::pda::find_program_address(
                             &[ #( AsRef::<[u8]>::as_ref(&(#seed_exprs)) ),* ],
                             #pda_program_expr,
                         );
@@ -2043,14 +2043,14 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
         let layout_ident = type_ident(field_ty)?;
 
         receipt_scope_fields.push(quote! {
-            #receipt_field_name: ::hopper::prelude::StateReceipt<SNAP>,
+            #receipt_field_name: ::hopper::receipt::StateReceipt<SNAP>,
         });
 
         receipt_begin_inits.push(quote! {
             #receipt_field_name: {
                 let account = ctx.account(#idx)?;
                 let data = account.try_borrow()?;
-                ::hopper::prelude::StateReceipt::<SNAP>::begin(
+                ::hopper::receipt::StateReceipt::<SNAP>::begin(
                     &<#field_ty as ::hopper::hopper_runtime::LayoutContract>::LAYOUT_ID,
                     &data,
                 )
@@ -2096,7 +2096,7 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
                 if let ::core::option::Option::Some((__hp_code, __hp_idx, __hp_stage)) = failure {
                     self.#receipt_field_name.set_failure(__hp_code, __hp_idx, __hp_stage);
                 }
-                ::hopper::prelude::emit_receipt(&self.#receipt_field_name.to_bytes())?;
+                ::hopper::receipt::emit_receipt(&self.#receipt_field_name.to_bytes())?;
             }
         });
     }
@@ -2469,7 +2469,7 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
                 failure: ::core::option::Option<(
                     u32,
                     u8,
-                    ::hopper::prelude::FailureStage,
+                    ::hopper::receipt::FailureStage,
                 )>,
             ) -> ::core::result::Result<(), ::hopper::__runtime::ProgramError> {
                 #(#receipt_finish_blocks)*

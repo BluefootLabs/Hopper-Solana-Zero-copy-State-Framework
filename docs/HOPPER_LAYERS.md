@@ -30,8 +30,6 @@ Framework mode centers these pieces:
 - `hopper::account`, `hopper::context`, `hopper::cpi`, `hopper::system`,
   `hopper::token`, `hopper::token_2022`, `hopper::associated_token`, and
   `hopper::memo`.
-- `hopper_dynamic_fields!` for bounded `string<N>` and `vec<T, N>` fields when
-  porting Quasar-shaped programs.
 
 This path is published as `hopper-lang` and imported as `hopper`:
 
@@ -52,7 +50,8 @@ client generation matters.
 - `hopper::schema` exposes manifests, IDL projection, resolver metadata, and
   generated client inputs.
 - `hopper_dynamic_tail!` and `hopper_dynamic_fields!` attach bounded dynamic
-  payloads to fixed zero-copy layouts.
+  payloads to fixed zero-copy layouts when porting Quasar-shaped programs or
+  modeling compact metadata tails.
 - `declare_program!` consumes a manifest and generates typed CPI builders plus
   static account/effect specs.
 

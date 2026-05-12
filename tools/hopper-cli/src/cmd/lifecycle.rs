@@ -1101,10 +1101,10 @@ mod __hopper_sbf {
     use super::*;
 
     #[cfg(not(feature = "solana-program-backend"))]
-    no_allocator!();
+    hopper::no_allocator!();
 
     #[cfg(not(feature = "solana-program-backend"))]
-    nostd_panic_handler!();
+    hopper::nostd_panic_handler!();
 }
 
 #[derive(Clone, Copy)]
@@ -1125,7 +1125,7 @@ pub struct Initialize {
 }
 
 #[cfg(target_os = "solana")]
-program_entrypoint!(process_instruction);
+hopper::program_entrypoint!(process_instruction);
 
 fn process_instruction(
     program_id: &Address,
@@ -1303,13 +1303,13 @@ use hopper::prelude::*;
 mod __hopper_sbf {
     use super::*;
     #[cfg(not(feature = "solana-program-backend"))]
-    no_allocator!();
+    hopper::no_allocator!();
     #[cfg(not(feature = "solana-program-backend"))]
-    nostd_panic_handler!();
+    hopper::nostd_panic_handler!();
 }
 
 #[cfg(target_os = "solana")]
-fast_entrypoint!(process_instruction, 8);
+hopper::fast_entrypoint!(process_instruction, 8);
 
 fn process_instruction(
     _program_id: &Address,
@@ -1390,9 +1390,9 @@ use hopper::hopper_token_2022::check_safe_token_2022_mint;
 mod __hopper_sbf {
     use super::*;
     #[cfg(not(feature = "solana-program-backend"))]
-    no_allocator!();
+    hopper::no_allocator!();
     #[cfg(not(feature = "solana-program-backend"))]
-    nostd_panic_handler!();
+    hopper::nostd_panic_handler!();
 }
 
 #[derive(Clone, Copy)]
@@ -1410,7 +1410,7 @@ pub struct Vault {
 }
 
 #[cfg(target_os = "solana")]
-fast_entrypoint!(process_instruction, 4);
+hopper::fast_entrypoint!(process_instruction, 4);
 
 fn process_instruction(
     _program_id: &Address,
@@ -1540,9 +1540,9 @@ use hopper::prelude::*;
 mod __hopper_sbf {
     use super::*;
     #[cfg(not(feature = "solana-program-backend"))]
-    no_allocator!();
+    hopper::no_allocator!();
     #[cfg(not(feature = "solana-program-backend"))]
-    nostd_panic_handler!();
+    hopper::nostd_panic_handler!();
 }
 
 #[derive(Clone, Copy)]
@@ -1558,7 +1558,7 @@ pub struct Vault {
 }
 
 #[cfg(target_os = "solana")]
-fast_entrypoint!(process_instruction, 3);
+hopper::fast_entrypoint!(process_instruction, 3);
 
 fn process_instruction(
     program_id: &Address,

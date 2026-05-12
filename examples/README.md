@@ -1,8 +1,8 @@
 # Hopper Examples
 
-These examples teach Hopper in layers. Start with a small vault or escrow flow,
-then move into Token-2022, migration, cross-program interfaces, and the full
-showcase once the basics are familiar.
+These examples teach Hopper in layers. Start with the counter, then move into a
+small vault or escrow flow, Token-2022, migration, cross-program interfaces, and
+the full showcase once the basics are familiar.
 
 ## Learning Order
 

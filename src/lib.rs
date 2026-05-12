@@ -293,14 +293,22 @@ pub mod systems {
         write_dynamic_u8, DynamicView, DynamicViewMut, ReallocGuard, VerifiedAccount,
         VerifiedAccountMut, CLOSE_SENTINEL,
     };
+    pub use hopper_core::check::{find_and_verify_pda, rent_exempt_min};
     pub use hopper_core::prelude_advanced::*;
     pub use hopper_core::prelude_core::*;
+    pub use hopper_runtime::{
+        fast_entrypoint, hopper_entrypoint, hopper_fast_entrypoint, hopper_lazy_entrypoint,
+        lazy_entrypoint, no_allocator, nostd_panic_handler, program_entrypoint, BoundedString,
+        BoundedVec, CpiAccount, HopperString, HopperVec, InstructionAccount, InstructionView, Seed,
+        TailCodec,
+    };
 
     pub use crate::{
-        const_assert_pod, hopper_assert_compatible, hopper_assert_fingerprint,
-        hopper_dynamic_fields, hopper_dynamic_tail, hopper_interface, hopper_invariant,
-        hopper_layout, hopper_manifest, hopper_register_discs, hopper_segment, hopper_virtual,
-        layout_migrations,
+        const_assert_pod, hopper_accounts, hopper_assert_compatible, hopper_assert_fingerprint,
+        hopper_check, hopper_close, hopper_dynamic_fields, hopper_dynamic_tail, hopper_error,
+        hopper_init, hopper_interface, hopper_invariant, hopper_layout, hopper_load,
+        hopper_manifest, hopper_register_discs, hopper_require, hopper_segment, hopper_validate,
+        hopper_verify_pda, hopper_virtual, layout_migrations,
     };
 
     #[cfg(feature = "proc-macros")]
@@ -618,7 +626,9 @@ macro_rules! hopper_dynamic_fields {
 // the top-level `hopper::*` path without needing to reach through
 // `hopper_runtime::`.
 pub use hopper_runtime::{
-    address, err, error, hopper_emit_cpi, hopper_log, hopper_unsafe_region, msg, require,
+    address, err, error, fast_entrypoint, hopper_emit_cpi, hopper_entrypoint,
+    hopper_fast_entrypoint, hopper_lazy_entrypoint, hopper_log, hopper_unsafe_region,
+    lazy_entrypoint, msg, no_allocator, nostd_panic_handler, program_entrypoint, require,
     require_eq, require_gt, require_gte, require_keys_eq, require_keys_neq, require_lt,
     require_lte, require_neq,
 };

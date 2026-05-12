@@ -1,7 +1,8 @@
 extern crate std;
 
 use {
-    hopper::prelude::{TypedAddress, WireU64},
+    hopper::prelude::WireU64,
+    hopper::systems::TypedAddress,
     mollusk_svm::Mollusk,
     solana_account::Account,
     solana_address::Address,

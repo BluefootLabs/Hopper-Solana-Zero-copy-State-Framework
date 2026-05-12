@@ -9,6 +9,7 @@
 #![cfg(feature = "proc-macros")]
 
 use hopper::__runtime::{ProgramError, TailCodec};
+use hopper::hopper_dynamic_fields;
 use hopper::prelude::*;
 
 /// Fixed-body layout: authority + counter, nothing else in the hot

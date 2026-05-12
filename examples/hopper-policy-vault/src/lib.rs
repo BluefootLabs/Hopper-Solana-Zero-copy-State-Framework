@@ -41,10 +41,10 @@ mod __hopper_sbf {
     use super::*;
 
     #[cfg(not(feature = "solana-program-backend"))]
-    no_allocator!();
+    hopper::no_allocator!();
 
     #[cfg(not(feature = "solana-program-backend"))]
-    nostd_panic_handler!();
+    hopper::nostd_panic_handler!();
 }
 
 // ══════════════════════════════════════════════════════════════════════
