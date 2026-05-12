@@ -271,6 +271,42 @@ pub mod policy {
     pub use hopper_runtime::{HopperInstructionPolicy, HopperProgramPolicy};
 }
 
+/// Protocol-grade Hopper surface.
+///
+/// Import this when a program deliberately reaches beyond framework mode into
+/// layout contracts, segment registries, receipts, policies, migrations,
+/// manifests, overlays, or cross-program interface pinning.
+#[allow(ambiguous_glob_reexports, unused_imports)]
+pub mod systems {
+    pub use crate::interface::*;
+    pub use crate::layout::*;
+    pub use crate::migration::*;
+    pub use crate::policy::*;
+    pub use crate::receipt::*;
+    pub use crate::schema::*;
+    pub use crate::segment::*;
+    pub use crate::{interface, layout, migration, policy, receipt, schema, segment};
+
+    pub use hopper_core::account::{
+        overlay, overlay_mut, read_dynamic_u16, read_dynamic_u32, read_dynamic_u8, safe_close,
+        safe_close_with_sentinel, safe_realloc, write_dynamic_u16, write_dynamic_u32,
+        write_dynamic_u8, DynamicView, DynamicViewMut, ReallocGuard, VerifiedAccount,
+        VerifiedAccountMut, CLOSE_SENTINEL,
+    };
+    pub use hopper_core::prelude_advanced::*;
+    pub use hopper_core::prelude_core::*;
+
+    pub use crate::{
+        const_assert_pod, hopper_assert_compatible, hopper_assert_fingerprint,
+        hopper_dynamic_fields, hopper_dynamic_tail, hopper_interface, hopper_invariant,
+        hopper_layout, hopper_manifest, hopper_register_discs, hopper_segment, hopper_virtual,
+        layout_migrations,
+    };
+
+    #[cfg(feature = "proc-macros")]
+    pub use crate::{args, declare_program, dynamic, migrate, pod, state};
+}
+
 /// First-party DeFi math helpers. Enable with `features = ["finance"]`.
 #[cfg(feature = "finance")]
 pub mod finance {
@@ -590,9 +626,10 @@ pub use hopper_runtime::{
 // Optional proc macro re-exports (enabled with `proc-macros` feature)
 #[cfg(feature = "proc-macros")]
 pub use hopper_macros_proc::{
-    account, accounts, constant, context, crank, declare_program, hopper_constant, hopper_context,
-    hopper_crank, hopper_migrate, hopper_pod, hopper_program, hopper_state, migrate, pod, program,
-    state, Accounts, HopperInitSpace,
+    account, accounts, args, constant, context, crank, declare_program, dynamic,
+    error as error_code, event, hopper_args, hopper_constant, hopper_context, hopper_crank,
+    hopper_dynamic, hopper_event, hopper_migrate, hopper_pod, hopper_program, hopper_state,
+    migrate, pod, program, state, Accounts, HopperInitSpace,
 };
 
 // Private re-export for generated code to reference runtime types

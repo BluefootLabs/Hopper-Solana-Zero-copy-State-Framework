@@ -33,6 +33,7 @@
 use hopper::hopper_assert_compatible;
 use hopper::hopper_core::account::read_layout_id;
 use hopper::prelude::*;
+use hopper::systems::*;
 
 #[cfg(target_os = "solana")]
 mod __hopper_sbf {

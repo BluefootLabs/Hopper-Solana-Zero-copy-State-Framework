@@ -1,10 +1,10 @@
 # Hopper Layers
 
-Hopper is one framework with progressive disclosure. The simple path, the
+Hopper is one framework with progressive disclosure. The framework path, the
 Quasar-shaped migration path, and the systems-mode path all use the same account
 headers, layout fingerprints, runtime checks, and CPI machinery.
 
-## Level 1: Simple Mode
+## Level 1: Framework Mode
 
 Use this for new programs, tutorials, and ports that should feel like a normal
 Solana framework before they expose the deeper machinery.
@@ -22,7 +22,7 @@ pub struct Vault {
 }
 ```
 
-Simple mode centers these pieces:
+Framework mode centers these pieces:
 
 - `#[account]`, `#[accounts]`, `#[program]`, and `#[derive(Accounts)]`.
 - `Account<'info, T>`, `InitAccount<'info, T>`, `Signer<'info>`, and
@@ -39,7 +39,7 @@ This path is published as `hopper-lang` and imported as `hopper`:
 hopper = { package = "hopper-lang", version = "0.1.0", features = ["proc-macros"] }
 ```
 
-There is no separate simple runtime. The main framework crate is the simple
+There is no separate beginner crate. The main framework crate is the canonical
 facade, and it grows into the same systems layer when needed.
 
 ## Level 2: Structured State
@@ -64,6 +64,7 @@ state contracts and predictable upgrade paths.
 Use this when the program needs field leases, segmented layouts, policy receipts,
 explicit migrations, or foreign layout contracts.
 
+- `hopper::systems::*` is the branded one-import path for protocol-grade work.
 - `hopper::segment` exposes segment registries, segment roles, field-level borrow
   tracking, and typed segment references.
 - `hopper::receipt` exposes execution receipts and tagged event receipts.
@@ -98,6 +99,7 @@ Prefer the smallest import surface that matches the job:
 
 ```rust
 use hopper::prelude::*;              // main app framework surface
+use hopper::systems::*;              // protocol-grade state architecture
 use hopper::{layout, segment};       // explicit systems modules
 use hopper::{schema, cpi, token};     // tooling, CPI, and token facades
 ```

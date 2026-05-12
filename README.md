@@ -13,7 +13,7 @@ context ergonomics, then opt into upgradeable state contracts, segment-level
 borrows, receipts, policy graphs, and schema manifests when the program needs
 that power.
 
-The beginner path and the systems path share the same runtime. `hopper-lang`,
+The framework path and the systems path share the same runtime. `hopper-lang`,
 imported as `hopper`, is the front door: `use hopper::prelude::*`,
 `#[hopper::account]`, typed account wrappers, and the
 `hopper::{account,cpi,token,system}` facade modules. `hopper-systems` is the
@@ -26,16 +26,17 @@ harness live separately so release claims stay reproducible and easy to audit.
 ## What Hopper provides
 
 - `no_std` / `no_alloc` framework crates for on-chain programs.
-- A simple framework facade: `#[hopper::account]`, `#[hopper::program]`,
+- A focused framework facade: `#[hopper::account]`, `#[hopper::program]`,
   `#[derive(Accounts)]`, `Account<'info, T>`, `Signer<'info>`, `Program<'info, P>`.
 - Zero-copy typed account access over fixed-layout account bytes.
 - Layout fingerprints and versioned headers for account compatibility checks.
-- Segment-aware access helpers for field-level borrow tracking.
+- Segment-aware access helpers for field-level borrow tracking behind
+  `hopper::systems::*`.
 - Optional proc macros for faster authoring; the core framework remains usable
   without proc macros.
-- Progressive modules: `hopper::account`, `hopper::cpi`, `hopper::token`,
-  `hopper::layout`, `hopper::segment`, `hopper::receipt`, `hopper::policy`,
-  `hopper::schema`, and `hopper::internal` for explicit lower-layer access.
+- Progressive modules: `hopper::account`, `hopper::cpi`, and `hopper::token`
+  for app code; `hopper::systems::*` plus `hopper::{layout,segment,receipt}`
+  for explicit lower-layer access.
 - Hopper Native by default for low-overhead account access with framework
   safety/DX, with explicit legacy Pinocchio and `solana-program` compatibility
   modes quarantined behind opt-in features.
@@ -104,7 +105,7 @@ Public package links:
 - CLI docs: <https://docs.rs/crate/hopper-cli/0.1.0>
 - Website and docs entry point: <https://hopperzero.dev>
 
-Minimal layout example:
+Minimal framework example:
 
 ```rust
 use hopper::prelude::*;
@@ -112,25 +113,46 @@ use hopper::prelude::*;
 #[derive(Clone, Copy)]
 #[repr(C)]
 #[account(disc = 1, version = 1)]
-pub struct Vault {
+pub struct Counter {
     pub authority: Address,
-    pub balance: WireU64,
-    pub bump: u8,
+  pub value: WireU64,
+}
+
+#[accounts]
+pub struct Increment {
+  #[account(mut)]
+  pub counter: Counter,
+
+  #[signer]
+  pub authority: AccountView,
 }
 
 #[program]
-mod vault {
+mod counter_program {
     use super::*;
 
-    // Context structs can use Signer<'info>, Account<'info, Vault>,
-    // InitAccount<'info, Vault>, and Program<'info, SystemId>.
+  #[instruction(0)]
+  pub fn increment(ctx: Context<Increment>) -> ProgramResult {
+    let authority = *ctx.authority_account()?.address();
+    let mut counter = ctx.counter_load_mut()?;
+
+    require_keys_eq!(counter.authority, authority, ProgramError::IncorrectAuthority);
+
+    let next = counter
+      .value
+      .get()
+      .checked_add(1)
+      .ok_or(ProgramError::ArithmeticOverflow)?;
+    counter.value = WireU64::new(next);
+    Ok(())
+  }
 }
 ```
 
 ## Documentation map
 
 - [docs/GETTING_STARTED_SERIOUS.md](docs/GETTING_STARTED_SERIOUS.md): source-first setup and first serious program flow.
-- [docs/HOPPER_LAYERS.md](docs/HOPPER_LAYERS.md): simple mode, structured state, systems mode, and Anchor/Quasar/Hopper mental mapping.
+- [docs/HOPPER_LAYERS.md](docs/HOPPER_LAYERS.md): framework mode, structured state, systems mode, and Anchor/Quasar/Hopper mental mapping.
 - [docs/WRITING_HOPPER_PROGRAMS.md](docs/WRITING_HOPPER_PROGRAMS.md): Hopper authoring patterns and program structure.
 - [docs/POLICY_GUARANTEES.md](docs/POLICY_GUARANTEES.md): capability policy, sealed/raw/hybrid access, and the policy-vault example.
 - [docs/MIGRATION_FROM_ANCHOR.md](docs/MIGRATION_FROM_ANCHOR.md): Anchor-to-Hopper migration notes.
@@ -145,11 +167,11 @@ mod vault {
 
 Hopper is layered so users do not have to learn the systems surface first:
 
-1. Simple mode: `use hopper::prelude::*`, `#[account]`, `#[program]`,
+1. Framework mode: `use hopper::prelude::*`, `#[account]`, `#[program]`,
   typed wrappers, PDA and token helpers.
 2. Structured state: add `hopper::layout`, `hopper::schema`, dynamic tails, and
   generated manifests when account compatibility matters.
-3. Systems mode: add `hopper::segment`, `hopper::receipt`, `hopper::policy`,
+3. Systems mode: add `hopper::systems::*`, `hopper::segment`, `hopper::receipt`, `hopper::policy`,
   `hopper::migration`, and `hopper::interface` for field leasing, audit trails,
   upgrades, and cross-program layout contracts.
 
@@ -236,9 +258,10 @@ The CLI source lives in `tools/hopper-cli`. It supports lifecycle commands,
 linting, schema/IDL export, manifest inspection, account decoding, client
 generation, manager workflows, and profile helpers.
 
-Start with `examples/hopper-vault` or `examples/hopper-proc-vault` for the app
-framework path, then move to `examples/hopper-policy-vault` for strict, sealed,
-raw, and hybrid handlers side by side. For in-process tests, use the sibling
+Start with `examples/hopper-counter`, then move to `examples/hopper-vault` or
+`examples/hopper-proc-vault` for the app framework path. Move to
+`examples/hopper-policy-vault` for strict, sealed, raw, and hybrid handlers side
+by side. For in-process tests, use the sibling
 [hopper-svm](https://github.com/BluefootLabs/hopper-svm) repo as a
 dev-dependency.
 

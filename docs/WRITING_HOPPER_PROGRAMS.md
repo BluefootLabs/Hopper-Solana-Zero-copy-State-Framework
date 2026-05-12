@@ -1,189 +1,136 @@
 # Writing Hopper Programs
 
-Hopper is a Solana framework for serious builders who want:
-- pointer-cast speed
-- protocol-grade safety
-- explicit state evolution
-- no serialization tax
-- no hidden runtime magic
+Hopper's first-contact path is framework mode:
 
-This guide shows the canonical way to write Hopper programs.
+```rust
+use hopper::prelude::*;
+```
 
----
+Start with accounts, contexts, and instructions. Layout fingerprints, schema
+metadata, receipt hooks, and migration data are generated underneath the app
+surface and become explicit only when the program opts into systems mode.
 
-# Hopper Model
-
-Hopper should read like one coherent system, not a menu of competing modes:
-
-1. **Instruction surface**
-    - Define dispatch and arguments.
-2. **Validation**
-    - Prove signer, writable, ownership, and layout expectations.
-3. **Access**
-    - Use `load()` / `load_mut()` for whole layouts, `segment_ref()` /
-      `segment_mut()` for precise regions, and raw access only as an explicit
-      unsafe escape hatch.
-4. **Mutation + receipts**
-    - Mutate state and emit a structured receipt of what changed.
-
----
-
-# Canonical Hopper Instruction Shape
+## Framework Shape
 
 ```rust
 use hopper::prelude::*;
 
-hopper_layout! {
-    pub struct Vault, disc = 1, version = 1 {
-        authority: TypedAddress<Authority> = 32,
-        mint:      TypedAddress<Mint>      = 32,
-        balance:   WireU64                 = 8,
-        bump:      u8                      = 1,
+#[derive(Clone, Copy)]
+#[repr(C)]
+#[account(disc = 1, version = 1)]
+pub struct Counter {
+    pub authority: Address,
+    pub value: WireU64,
+}
+
+#[accounts]
+pub struct Increment {
+    #[account(mut)]
+    pub counter: Counter,
+
+    #[signer]
+    pub authority: AccountView,
+}
+
+#[program]
+mod counter_program {
+    use super::*;
+
+    #[instruction(0)]
+    pub fn increment(ctx: Context<Increment>) -> ProgramResult {
+        let authority = *ctx.authority_account()?.address();
+        let mut counter = ctx.counter_load_mut()?;
+
+        require_keys_eq!(counter.authority, authority, ProgramError::IncorrectAuthority);
+
+        let next = counter
+            .value
+            .get()
+            .checked_add(1)
+            .ok_or(ProgramError::ArithmeticOverflow)?;
+        counter.value = WireU64::new(next);
+        Ok(())
     }
 }
-
-pub enum VaultIx {
-    Deposit { amount: u64 },
-    Withdraw { amount: u64 },
-}
-
-pub fn process(
-    program_id: &Address,
-    accounts: &[AccountView],
-    data: &[u8],
-) -> ProgramResult {
-    match VaultIx::decode(data)? {
-        VaultIx::Deposit { amount } => process_deposit(program_id, accounts, amount),
-        VaultIx::Withdraw { amount } => process_withdraw(program_id, accounts, amount),
-    }
-}
 ```
 
----
+That is the canonical Hopper application model:
 
-# Canonical Validation Pattern
+- `#[account]` declares account state.
+- `#[accounts]` or `#[derive(Accounts)]` declares account roles and constraints.
+- `#[program]` declares instruction handlers.
+- `Context<T>` gives typed accessors generated from the context.
+- `require!`, `require_keys_eq!`, and `ProgramError` keep handler checks clear.
 
-Use Hopper's chainable validation methods:
+The compiled code still uses Hopper's zero-copy runtime. The author does not
+need to name headers, fingerprints, segment maps, or manifests to write a normal
+program.
+
+## Account Access
+
+Prefer typed accessors generated from the context:
 
 ```rust
-let vault = &accounts[0];
-let authority = &accounts[1];
-
-vault
-    .check_writable()?
-    .check_owned_by(program_id)?
-    .check_disc(Vault::DISC)?;
-
-authority
-    .check_signer()?;
+let mut counter = ctx.counter_load_mut()?;
+counter.value = WireU64::new(counter.value.get() + 1);
 ```
 
-This is the standard Hopper validation flow.
-
----
-
-# Canonical Typed Load Pattern
+For wrapper-shaped contexts, the framework surface also exposes:
 
 ```rust
-let vault = Vault::load(vault_account, program_id)?;
-let balance = vault.map(|v| v.balance.get());
+Account<'info, T>
+InitAccount<'info, T>
+Signer<'info>
+Program<'info, P>
+UncheckedAccount
 ```
 
-Prefer:
+Keep handlers boring: validate authority, load typed state, mutate, return.
 
-* `load()` / `load_mut()` for Hopper-owned whole-layout access
-* `load_foreign()` when the guarantee changes because the account is foreign
-* `load_versioned()` / `load_compatible()` when the guarantee changes because you are in a migration window
+## Token And CPI Work
 
-Avoid raw or unchecked access unless you are inside a proven safe initialization
-path or a deliberately audited hot path.
-
-# Canonical Segment Pattern
-
-When you want byte-range precision instead of whole-layout projection, keep the
-same access story and change only the guarantee level:
+Everyday program modules are available without entering systems mode:
 
 ```rust
-let core = ctx.account(0)?;
-let balance = core.segment_mut::<WireU64>(ctx.borrows_mut(), 32, 8)?;
-balance.set(balance.get() + amount);
+use hopper::{associated_token, cpi, system, token, token_2022};
 ```
 
-Generated proc-macro accessors such as `ctx.vault_balance_mut()?` are just a
-typed front-end over that same runtime call.
+Token-2022 programs should lean on Hopper's typed extension readers and CPI
+builders from `hopper::token_2022` and the unified token helpers from
+`hopper::token`.
 
----
+## Systems Mode
 
-# Canonical Mutation Pattern
+When the protocol needs layout evolution, field leases, receipts, policy graphs,
+foreign account interfaces, or schema-driven clients, opt in explicitly:
 
 ```rust
-let mut receipt = StateReceipt::<256>::begin(&Vault::LAYOUT_ID, vault_account.data()?);
-
-vault.map_mut(|v| {
-    let next = v.balance.get().checked_add(amount).unwrap();
-    v.balance.set(next);
-})?;
-
-receipt.commit(vault_account.data()?);
-emit_slices(&[&receipt.to_bytes()]);
+use hopper::systems::*;
 ```
 
-Every Hopper state mutation should have a clear validation boundary and a clear mutation boundary.
+Systems mode contains:
 
----
+- `hopper::layout` for headers, layout contracts, fingerprints, and wire maps.
+- `hopper::segment` for segment registries and field-level borrow leases.
+- `hopper::receipt` for state mutation receipts.
+- `hopper::migration` for append-only schema evolution.
+- `hopper::interface` for cross-program layout pinning.
+- `hopper::schema` for manifests, IDL projection, and generated clients.
+- `hopper::policy` for capability policies and protocol-grade guard rails.
 
-# Canonical CPI Pattern
+The old `hopper_layout!` path remains useful for no-proc-macro builds and
+systems examples, but it is no longer the first thing new users need to learn.
 
-Prefer checked CPI:
+## Example Order
 
-```rust
-hopper_runtime::cpi::invoke_signed(
-    &instruction,
-    &[source, destination, authority],
-    signer_seeds,
-)?;
-```
+Read examples in this order:
 
-Checked CPI validates:
-- account count matches instruction expectations
-- address identity (order-dependent matching)
-- signer requirements
-- writable requirements
-- borrow compatibility
+1. `examples/hopper-counter`
+2. `examples/hopper-vault`
+3. `examples/hopper-escrow`
+4. `examples/hopper-token-2022-vault`
+5. `examples/hopper-proc-vault`
+6. `examples/hopper-showcase`
 
-Only use unchecked CPI in tightly audited expert paths.
-
----
-
-# Hopper Style Rules
-
-## Prefer:
-
-* explicit validation
-* typed overlays
-* receipts for meaningful state changes
-* compatibility-aware loaders
-* safe/default APIs first
-
-## Avoid:
-
-* hidden account assumptions
-* unchecked pointer casts unless required
-* magic init flows
-* "just trust the bytes" programming
-
----
-
-# Hopper Philosophy
-
-Hopper is not:
-
-* a serialization framework
-* a runtime wrapper
-* a macro religion
-
-Hopper is:
-
-* a typed state pipeline for Solana
-* a dedicated low-level runtime surface
-* a serious-builder framework
+The first examples teach success first. The later examples expose why Hopper can
+scale into protocol-grade state systems without changing frameworks.

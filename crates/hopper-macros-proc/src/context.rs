@@ -1623,7 +1623,7 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
                     // const offset folded at the call site; this lowers to a
                     // single immediate add over `data_ptr` on Solana SBF.
                     const ABS_OFFSET: u32 =
-                        ::hopper::prelude::HEADER_LEN as u32 + <#field_ty>::#assoc_offset;
+                        ::hopper::hopper_core::account::HEADER_LEN as u32 + <#field_ty>::#assoc_offset;
                     self.ctx.segment_mut::<#type_alias>(#idx, ABS_OFFSET)
                 }
             });
@@ -1651,7 +1651,7 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
                     ::hopper::__runtime::ProgramError,
                 > {
                     const ABS_OFFSET: u32 =
-                        ::hopper::prelude::HEADER_LEN as u32 + <#field_ty>::#assoc_offset;
+                        ::hopper::hopper_core::account::HEADER_LEN as u32 + <#field_ty>::#assoc_offset;
                     self.ctx.segment_ref::<#type_alias>(#idx, ABS_OFFSET)
                 }
             });

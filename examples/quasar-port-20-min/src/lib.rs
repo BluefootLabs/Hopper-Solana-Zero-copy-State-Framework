@@ -3,6 +3,7 @@
 #![cfg_attr(target_os = "solana", no_std)]
 
 use hopper::prelude::*;
+use hopper::systems::*;
 
 #[cfg(target_os = "solana")]
 mod __hopper_sbf {

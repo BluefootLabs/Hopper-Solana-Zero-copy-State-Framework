@@ -1,9 +1,13 @@
 # Getting Started with Hopper
 
-This guide walks through a real Hopper Solana program: a SOL vault with typed
-state, explicit initialization, phased validation, controlled mutation, and CLI
-inspection. The snippets mirror the compiled `examples/hopper-vault` program,
-so the guide tracks code that is kept in CI instead of a standalone sketch.
+Start with `examples/hopper-counter` when you want the five-minute framework
+path: `#[account]`, `#[accounts]`, `#[program]`, one typed handler, done.
+
+This guide then walks through a fuller Hopper Solana program: a SOL vault with
+typed state, explicit initialization, phased validation, controlled mutation,
+and CLI inspection. The snippets mirror the compiled `examples/hopper-vault`
+program, so the guide tracks code that is kept in CI instead of a standalone
+sketch.
 
 ## Prerequisites
 
@@ -46,9 +50,9 @@ hopper init my-vault --template minimal --local-path ../Hopper-Solana-Zero-copy-
 
 ## Step 1: Define Account State
 
-Every Hopper program starts with a fixed-layout account type. The declarative
-path below does not require proc macros and is the style used by
-`examples/hopper-vault`:
+The framework-first account spelling is `#[account]`, shown in
+`examples/hopper-counter`. The vault below uses Hopper's no-proc-macro layout
+path because it demonstrates lower-level initialization and phased execution:
 
 ```rust
 #![cfg_attr(target_os = "solana", no_std)]

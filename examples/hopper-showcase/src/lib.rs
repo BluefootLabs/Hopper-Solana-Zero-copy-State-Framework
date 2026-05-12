@@ -39,6 +39,7 @@
 #![allow(dead_code, unused_variables)]
 
 use hopper::prelude::*;
+use hopper::systems::*;
 
 #[cfg(target_os = "solana")]
 mod __hopper_sbf {

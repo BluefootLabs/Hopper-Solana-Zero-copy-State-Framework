@@ -2086,6 +2086,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "hopper-counter"
+version = "0.1.0"
+dependencies = [
+ "hopper-lang",
+]
+
+[[package]]
 name = "hopper-derive"
 version = "0.1.0"
 dependencies = [

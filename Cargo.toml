@@ -24,6 +24,7 @@ members = [
     "crates/hopper-multisig",
     "crates/hopper-memo",
     "crates/hopper-anchor",
+    "examples/hopper-counter",
     "examples/hopper-vault",
     "examples/hopper-parity-vault",
     "examples/hopper-escrow",
@@ -127,8 +128,10 @@ hopper-macros-proc = { workspace = true, optional = true }
 trybuild = "1"
 
 [features]
-default = ["hopper-native-backend", "advanced", "collections"]
-proc-macros = ["hopper-macros-proc"]
+default = ["hopper-native-backend"]
+framework = []
+systems = ["advanced", "collections"]
+proc-macros = ["hopper-macros-proc", "receipt"]
 
 # Metaplex Token Metadata builders (NFT mint, master edition, metadata
 # update). Optional because not every Hopper program touches Metaplex
@@ -223,6 +226,6 @@ cu-trace = ["hopper-runtime/cu-trace"]
 [lints.rust]
 unexpected_cfgs = { level = "allow", check-cfg = [
     'cfg(target_os, values("solana"))',
-    'cfg(feature, values("frame", "receipt", "policy", "graph", "migrate", "virtual-state", "diff", "explain", "advanced"))',
+    'cfg(feature, values("frame", "receipt", "policy", "graph", "migrate", "virtual-state", "diff", "explain", "advanced", "collections", "framework", "systems"))',
 ] }
 
