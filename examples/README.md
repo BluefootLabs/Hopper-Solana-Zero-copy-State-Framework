@@ -1,61 +1,65 @@
 # Hopper Examples
 
-These examples teach Hopper in order. Start with showcase, move to vault for
-something simpler, then explore the advanced patterns as you need them.
+These examples teach Hopper in layers. Start with a small vault or escrow flow,
+then move into Token-2022, migration, cross-program interfaces, and the full
+showcase once the basics are familiar.
 
 ## Learning Order
 
 ### Tier 1: Start Here
 
-1. **[hopper-showcase](hopper-showcase/src/lib.rs)** - The canonical Hopper
-   program. Uses every layer of the pipeline: layout, dispatch, phased frame,
-   policy, receipts, invariants, segment roles, state diffs. Read this first.
-   Companion guide: [hopper-showcase/README.md](hopper-showcase/README.md)
+1. **[hopper-vault](hopper-vault/src/lib.rs)** - A compact SOL vault. Three
+   instructions (init, deposit, withdraw). Good for seeing Hopper's account,
+   dispatch, and state basics in one place. Companion guide:
+   [hopper-vault/README.md](hopper-vault/README.md)
 
-2. **[hopper-vault](hopper-vault/src/lib.rs)** - A simple SOL vault. Three
-   instructions (init, deposit, withdraw). Good for seeing the basics without
-   the advanced stuff. Companion guide: [hopper-vault/README.md](hopper-vault/README.md)
-
-3. **[hopper-escrow](hopper-escrow/src/lib.rs)** - Token escrow with authority
+2. **[hopper-escrow](hopper-escrow/src/lib.rs)** - Token escrow with authority
    checks and SPL Token integration. Companion guide: [hopper-escrow/README.md](hopper-escrow/README.md)
 
-### Tier 2: Advanced Patterns
-
-4. **[hopper-treasury](hopper-treasury/src/lib.rs)** - Multi-segment treasury
-   with permissions and budget controls.
-
-5. **[hopper-registry](hopper-registry/src/lib.rs)** - Segmented account with
-   journal, virtual state, and named segment lookup.
-
-6. **[hopper-migration](hopper-migration/src/lib.rs)** - V1 to V2 layout
-   evolution. Shows how append-only versioning and the migration planner work
-   together. Companion guide: [hopper-migration/README.md](hopper-migration/README.md)
-
-7. **[hopper-virtual-state](hopper-virtual-state/src/lib.rs)** - Multi-account
-   entities with VirtualState and ShardedAccess. For when your state is too big
-   for one account.
-
-8. **[hopper-token-2022-vault](hopper-token-2022-vault/src/lib.rs)** - Hopper-owned
+3. **[hopper-token-2022-vault](hopper-token-2022-vault/src/lib.rs)** - Hopper-owned
    Token-2022 vault flow with a local `hopper.manifest.json`, so the CLI can
    infer the package manifest and emit lowered accessors directly from the
    example directory.
 
-9. **[cross-program-read](cross-program-read/)** - Two separate programs reading
+4. **[quasar-port-20-min](quasar-port-20-min/src/lib.rs)** - Bounded
+   dynamic-tail example for a fixed vault and multisig metadata using
+   `hopper_dynamic_fields!`, initialization helpers, and threshold checks.
+   Companion guide:
+   [../docs/PORT_QUASAR_IN_20_MINUTES.md](../docs/PORT_QUASAR_IN_20_MINUTES.md)
+
+### Tier 2: Advanced Patterns
+
+5. **[hopper-proc-vault](hopper-proc-vault/src/lib.rs)** - Proc-macro vault that
+   demonstrates the `#[hopper::account]` / `#[hopper::program]` authoring path.
+
+6. **[hopper-treasury](hopper-treasury/src/lib.rs)** - Multi-segment treasury
+   with permissions and budget controls.
+
+7. **[hopper-registry](hopper-registry/src/lib.rs)** - Segmented account with
+   journal, virtual state, and named segment lookup.
+
+8. **[hopper-migration](hopper-migration/src/lib.rs)** - V1 to V2 layout
+   evolution. Shows how append-only versioning and the migration planner work
+   together. Companion guide: [hopper-migration/README.md](hopper-migration/README.md)
+
+9. **[hopper-virtual-state](hopper-virtual-state/src/lib.rs)** - Multi-account
+   entities with VirtualState and ShardedAccess. For when your state is too big
+   for one account.
+
+10. **[cross-program-read](cross-program-read/)** - Two separate programs reading
    each other's accounts via `hopper_interface!`. No shared crate dependency.
    Companion guide: [cross-program-read/README.md](cross-program-read/README.md)
 
-10. **[hopper-policy-vault](hopper-policy-vault/src/lib.rs)** - Three sibling
+11. **[hopper-policy-vault](hopper-policy-vault/src/lib.rs)** - Three sibling
     programs (`strict`, `sealed`, `raw`) demonstrating the policy-driven runtime
     plus the `#[instruction(N, unsafe_memory, skip_token_checks)]` per-handler
     overrides. Companion guide:
     [hopper-policy-vault/README.md](hopper-policy-vault/README.md)
 
-
-11. **[quasar-port-20-min](quasar-port-20-min/src/lib.rs)** - Bounded
-   dynamic-tail example for a fixed vault and multisig metadata using
-   `hopper_dynamic_fields!`, initialization helpers, and threshold checks.
-   Companion guide:
-    [../docs/PORT_QUASAR_IN_20_MINUTES.md](../docs/PORT_QUASAR_IN_20_MINUTES.md)
+12. **[hopper-showcase](hopper-showcase/src/lib.rs)** - Full systems-mode tour.
+    Uses layout, dispatch, phased frame, policy, receipts, invariants, segment
+    roles, and state diffs. Read this after the smaller examples. Companion
+    guide: [hopper-showcase/README.md](hopper-showcase/README.md)
 
 ### Tier 3: Escape Hatch
 

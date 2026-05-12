@@ -16,7 +16,7 @@ cargo-fuzz = true
 [dependencies]
 libfuzzer-sys = "0.4"
 hopper-native = { path = "../crates/hopper-native" }
-hopper-core = { path = "../crates/hopper-core" }
+hopper-core = { path = "../crates/hopper-core", package = "hopper-systems" }
 hopper-runtime = { path = "../crates/hopper-runtime" }
 hopper-schema = { path = "../crates/hopper-schema" }
 

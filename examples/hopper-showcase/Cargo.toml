@@ -1,4 +1,4 @@
-﻿[package]
+[package]
 name = "hopper-showcase"
 version = "0.1.0"
 edition = "2021"
@@ -10,7 +10,7 @@ description = "The canonical Hopper program -- demonstrates the default architec
 crate-type = ["cdylib", "lib"]
 
 [dependencies]
-hopper = { path = "../..", package = "hopper-framework", default-features = false }
+hopper = { path = "../..", package = "hopper-lang", default-features = false }
 
 [features]
 default = ["hopper-native-backend"]

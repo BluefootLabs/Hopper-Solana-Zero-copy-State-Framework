@@ -8,10 +8,16 @@
 > release surface is documented, release-checked, and scoped to the APIs
 > exercised by this repository.
 
-Hopper is a zero-copy state framework for Solana programs. It maps typed,
-fixed-layout views onto account bytes without a serialization round trip, while
-keeping the byte layout inspectable through headers, layout fingerprints,
-schema manifests, and CLI tooling.
+Hopper is a fast zero-copy Solana framework. Start with familiar account and
+context ergonomics, then opt into upgradeable state contracts, segment-level
+borrows, receipts, policy graphs, and schema manifests when the program needs
+that power.
+
+The beginner path and the systems path share the same runtime. `hopper-lang`,
+imported as `hopper`, is the front door: `use hopper::prelude::*`,
+`#[hopper::account]`, typed account wrappers, and the
+`hopper::{account,cpi,token,system}` facade modules. `hopper-systems` is the
+advanced state architecture underneath it.
 
 The repository keeps framework crates, first-party examples, and release
 tooling together. Independent products such as the benchmark suite and SVM
@@ -20,11 +26,16 @@ harness live separately so release claims stay reproducible and easy to audit.
 ## What Hopper provides
 
 - `no_std` / `no_alloc` framework crates for on-chain programs.
+- A simple framework facade: `#[hopper::account]`, `#[hopper::program]`,
+  `#[derive(Accounts)]`, `Account<'info, T>`, `Signer<'info>`, `Program<'info, P>`.
 - Zero-copy typed account access over fixed-layout account bytes.
 - Layout fingerprints and versioned headers for account compatibility checks.
 - Segment-aware access helpers for field-level borrow tracking.
 - Optional proc macros for faster authoring; the core framework remains usable
   without proc macros.
+- Progressive modules: `hopper::account`, `hopper::cpi`, `hopper::token`,
+  `hopper::layout`, `hopper::segment`, `hopper::receipt`, `hopper::policy`,
+  `hopper::schema`, and `hopper::internal` for explicit lower-layer access.
 - Hopper Native by default for low-overhead account access with framework
   safety/DX, with explicit legacy Pinocchio and `solana-program` compatibility
   modes quarantined behind opt-in features.
@@ -33,12 +44,12 @@ harness live separately so release claims stay reproducible and easy to audit.
 
 ## Release Status
 
-- Framework package target: `hopper-framework = "0.1.0"`; import it as
-  `hopper` with `hopper = { package = "hopper-framework", version = "0.1.0" }`.
-- Version-pinned docs.rs target: <https://docs.rs/crate/hopper-framework/0.1.0>.
+- Main framework package: `hopper-lang = "0.1.0"`; import it as
+  `hopper` with `hopper = { package = "hopper-lang", version = "0.1.0" }`.
+- Version-pinned docs.rs target: <https://docs.rs/crate/hopper-lang/0.1.0>.
 - CLI install: `cargo install hopper-cli`.
 - Public companion crate targets include `hopper-native`, `hopper-runtime`,
-  `hopper-core`, `hopper-schema`, `hopper-solana`, `hopper-token`,
+  `hopper-systems`, `hopper-derive`, `hopper-schema`, `hopper-solana`, `hopper-token`,
   `hopper-token-2022`, `hopper-associated-token`, `hopper-system`,
   `hopper-memo`, `hopper-finance`, `hopper-lending`, `hopper-staking`,
   `hopper-vesting`, `hopper-distribute`, `hopper-multisig`, `hopper-anchor`,
@@ -54,21 +65,21 @@ harness live separately so release claims stay reproducible and easy to audit.
 Add the published framework package under the Rust crate name `hopper`:
 
 ```sh
-cargo add hopper-framework --rename hopper --features proc-macros
+cargo add hopper-lang --rename hopper --features proc-macros
 ```
 
 Equivalent `Cargo.toml` entry:
 
 ```toml
 [dependencies]
-hopper = { package = "hopper-framework", version = "0.1.0", features = ["proc-macros"] }
+hopper = { package = "hopper-lang", version = "0.1.0", features = ["proc-macros"] }
 ```
 
 For SBF programs that want the same explicit feature shape used by `hopper init`:
 
 ```toml
 [dependencies]
-hopper = { package = "hopper-framework", version = "0.1.0", default-features = false, features = ["hopper-native-backend", "proc-macros"] }
+hopper = { package = "hopper-lang", version = "0.1.0", default-features = false, features = ["hopper-native-backend", "proc-macros"] }
 ```
 
 Install the CLI:
@@ -82,13 +93,13 @@ For local development inside this repository:
 
 ```toml
 [dependencies]
-hopper = { path = "../Hopper-Solana-Zero-copy-State-Framework", package = "hopper-framework", features = ["proc-macros"] }
+hopper = { path = "../Hopper-Solana-Zero-copy-State-Framework", package = "hopper-lang", features = ["proc-macros"] }
 ```
 
 Public package links:
 
-- Framework crate: <https://crates.io/crates/hopper-framework>
-- Framework docs: <https://docs.rs/crate/hopper-framework/0.1.0>
+- Framework crate: <https://crates.io/crates/hopper-lang>
+- Framework docs: <https://docs.rs/crate/hopper-lang/0.1.0>
 - CLI crate: <https://crates.io/crates/hopper-cli>
 - CLI docs: <https://docs.rs/crate/hopper-cli/0.1.0>
 - Website and docs entry point: <https://hopperzero.dev>
@@ -100,29 +111,26 @@ use hopper::prelude::*;
 
 #[derive(Clone, Copy)]
 #[repr(C)]
-#[hopper::state(disc = 1, version = 1)]
+#[account(disc = 1, version = 1)]
 pub struct Vault {
-    pub authority: TypedAddress<Authority>,
+    pub authority: Address,
     pub balance: WireU64,
     pub bump: u8,
 }
 
-#[hopper::program]
+#[program]
 mod vault {
     use super::*;
 
-    #[instruction(1)]
-    pub fn deposit(ctx: Context<Deposit>, amount: u64) -> ProgramResult {
-        let mut balance = ctx.vault_balance_mut()?;
-        *balance = WireU64::new(balance.get() + amount);
-        Ok(())
-    }
+    // Context structs can use Signer<'info>, Account<'info, Vault>,
+    // InitAccount<'info, Vault>, and Program<'info, SystemId>.
 }
 ```
 
 ## Documentation map
 
 - [docs/GETTING_STARTED_SERIOUS.md](docs/GETTING_STARTED_SERIOUS.md): source-first setup and first serious program flow.
+- [docs/HOPPER_LAYERS.md](docs/HOPPER_LAYERS.md): simple mode, structured state, systems mode, and Anchor/Quasar/Hopper mental mapping.
 - [docs/WRITING_HOPPER_PROGRAMS.md](docs/WRITING_HOPPER_PROGRAMS.md): Hopper authoring patterns and program structure.
 - [docs/POLICY_GUARANTEES.md](docs/POLICY_GUARANTEES.md): capability policy, sealed/raw/hybrid access, and the policy-vault example.
 - [docs/MIGRATION_FROM_ANCHOR.md](docs/MIGRATION_FROM_ANCHOR.md): Anchor-to-Hopper migration notes.
@@ -133,7 +141,19 @@ mod vault {
 - [docs/CLI_REFERENCE.md](docs/CLI_REFERENCE.md): lifecycle, schema, client, profiling, and manager command reference.
 - [docs/PUBLICATION_AUDIT.md](docs/PUBLICATION_AUDIT.md): crate-by-crate publication and competitive-readiness audit.
 
-## Access model
+## Progressive Use Model
+
+Hopper is layered so users do not have to learn the systems surface first:
+
+1. Simple mode: `use hopper::prelude::*`, `#[account]`, `#[program]`,
+  typed wrappers, PDA and token helpers.
+2. Structured state: add `hopper::layout`, `hopper::schema`, dynamic tails, and
+  generated manifests when account compatibility matters.
+3. Systems mode: add `hopper::segment`, `hopper::receipt`, `hopper::policy`,
+  `hopper::migration`, and `hopper::interface` for field leasing, audit trails,
+  upgrades, and cross-program layout contracts.
+
+## Access Tiers
 
 Use Hopper's access tiers deliberately:
 
@@ -156,10 +176,11 @@ or migration metadata.
 
 | Path | Purpose |
 |---|---|
-| `crates/hopper-runtime` | Runtime account views, borrow tracking, CPI helpers, backend compatibility. |
-| `crates/hopper-core` | ABI types, account headers, layout contracts, checks, collections, receipts. |
+| `.` (`hopper-lang`) | Main framework API imported as `hopper`: accounts, programs, CPI, PDA helpers, prelude. |
+| `crates/hopper-runtime` | Internal runtime: account views, borrow tracking, CPI helpers, backend compatibility. |
+| `crates/hopper-core` (`hopper-systems`) | Advanced state architecture: ABI types, headers, layout contracts, segments, policies, receipts. |
 | `crates/hopper-macros` | Declarative macro surface. |
-| `crates/hopper-macros-proc` | Optional proc-macro authoring layer. |
+| `crates/hopper-macros-proc` (`hopper-derive`) | Proc-macro authoring layer. |
 | `crates/hopper-native` | Native low-level backend used by Hopper by default. |
 | `crates/hopper-schema` | Schema, IDL, Codama projection, and layout manifest support. |
 | `crates/hopper-system` | Hopper-owned system-program helpers. |
@@ -185,13 +206,13 @@ Hopper Native is the default backend.
 
 ```toml
 # Default backend from source
-hopper = { package = "hopper-framework", version = "0.1.0" }
+hopper = { package = "hopper-lang", version = "0.1.0" }
 
 # Legacy Pinocchio migration/benchmark compatibility only
-hopper = { package = "hopper-framework", version = "0.1.0", default-features = false, features = ["legacy-pinocchio-compat"] }
+hopper = { package = "hopper-lang", version = "0.1.0", default-features = false, features = ["legacy-pinocchio-compat"] }
 
 # solana-program compatibility backend
-hopper = { package = "hopper-framework", version = "0.1.0", default-features = false, features = ["solana-program-backend"] }
+hopper = { package = "hopper-lang", version = "0.1.0", default-features = false, features = ["solana-program-backend"] }
 ```
 
 Only one backend should be enabled for a program build.
@@ -207,16 +228,17 @@ Useful development commands:
 ```sh
 cargo metadata --no-deps --format-version 1
 cargo test -p hopper-cli cmd::lint::tests -- --nocapture
-cargo test -p hopper-framework --features proc-macros,metaplex --test constant_integration -- --nocapture
-cargo test -p hopper-framework --features proc-macros,metaplex --test metaplex_context_integration -- --nocapture
+cargo test -p hopper-lang --features proc-macros,metaplex --test constant_integration -- --nocapture
+cargo test -p hopper-lang --features proc-macros,metaplex --test metaplex_context_integration -- --nocapture
 ```
 
 The CLI source lives in `tools/hopper-cli`. It supports lifecycle commands,
 linting, schema/IDL export, manifest inspection, account decoding, client
 generation, manager workflows, and profile helpers.
 
-Start with `examples/hopper-policy-vault` to see strict, sealed, raw, and
-hybrid handlers side by side. For in-process tests, use the sibling
+Start with `examples/hopper-vault` or `examples/hopper-proc-vault` for the app
+framework path, then move to `examples/hopper-policy-vault` for strict, sealed,
+raw, and hybrid handlers side by side. For in-process tests, use the sibling
 [hopper-svm](https://github.com/BluefootLabs/hopper-svm) repo as a
 dev-dependency.
 

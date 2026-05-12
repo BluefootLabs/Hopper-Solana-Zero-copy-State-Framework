@@ -10,7 +10,7 @@ description = "Reference Hopper NFT-mint program. Demonstrates the Metaplex Toke
 crate-type = ["cdylib", "lib"]
 
 [dependencies]
-hopper = { path = "../..", package = "hopper-framework", default-features = false, features = ["metaplex"] }
+hopper = { path = "../..", package = "hopper-lang", default-features = false, features = ["metaplex"] }
 
 [features]
 default = ["hopper-native-backend"]

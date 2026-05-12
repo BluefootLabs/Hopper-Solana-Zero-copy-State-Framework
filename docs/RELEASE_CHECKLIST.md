@@ -41,7 +41,7 @@ cargo check --workspace --all-targets
 cargo test --workspace --all-targets
 cargo check -p hopper-quasar-port-20-min
 cargo test -p hopper-quasar-port-20-min
-cargo test -p hopper-framework --features proc-macros,metaplex --test metaplex_context_integration
+cargo test -p hopper-lang --features proc-macros,metaplex --test metaplex_context_integration
 powershell -ExecutionPolicy Bypass -File .\scripts\kani-runtime-tail.ps1
 hopper lint
 hopper profile elf target/deploy/<program>.so --html target/hopper-profile.html
@@ -79,13 +79,13 @@ crates.io indexing before publishing the next dependent crate.
 
 1. `hopper-native`
 2. `hopper-runtime`
-3. `hopper-core`
+3. `hopper-systems` (source path `crates/hopper-core`, library crate `hopper_core`)
 4. `hopper-system`
 5. `hopper-token`
 6. `hopper-memo`
 7. `hopper-metaplex`
 8. `hopper-schema`
-9. `hopper-macros-proc`
+9. `hopper-derive` (source path `crates/hopper-macros-proc`, proc macro crate)
 10. `hopper-macros`
 11. `hopper-solana`
 12. `hopper-associated-token`
@@ -100,10 +100,10 @@ crates.io indexing before publishing the next dependent crate.
 21. `hopper-manager`
 22. `hopper-sdk`
 23. `hopper-cli`
-24. `hopper-framework` (library crate name `hopper`)
+24. `hopper-lang` (library crate name `hopper`)
 
 `hopper-cli` is intentionally published after `hopper-manager` and
 `hopper-schema` have indexed because it depends on both. The top-level
-framework package publishes as `hopper-framework` because the crates.io
+framework package publishes as `hopper-lang` because the crates.io
 `hopper` package name is occupied by an unrelated crate; consumers should alias
-it back to `hopper` in `Cargo.toml` with `hopper = { package = "hopper-framework", ... }`.
+it back to `hopper` in `Cargo.toml` with `hopper = { package = "hopper-lang", ... }`.

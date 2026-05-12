@@ -1216,5 +1216,5 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 ### Added
 
 - First public release line for the Hopper framework, CLI, and public companion
-  crates. The top-level package target is `hopper-framework` with library crate
+  crates. The top-level package target is `hopper-lang` with library crate
   name `hopper`. See [`AUDIT.md`](AUDIT.md) for a full feature audit.

@@ -1,6 +1,6 @@
-# hopper-core
+# hopper-systems
 
-Core engine for the Hopper zero-copy state framework on Solana.
+Advanced state architecture for the Hopper zero-copy framework on Solana.
 
 This is the foundation everything else sits on: account headers, ABI types,
 typed overlays, phased execution, zero-copy collections, policy enforcement,
@@ -43,7 +43,7 @@ let vault = Vault::load(account, program_id)?;
 let vault = pod_from_bytes::<Vault>(data)?;
 ```
 
-Docs: <https://docs.rs/crate/hopper-core/0.1.0>
+Docs: <https://docs.rs/crate/hopper-systems/0.1.0>
 
 ## Support
 

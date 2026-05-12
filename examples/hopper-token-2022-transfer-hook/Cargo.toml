@@ -10,7 +10,7 @@ description = "R6 audit closure. Hopper-authored Token-2022 example that reads t
 crate-type = ["cdylib", "lib"]
 
 [dependencies]
-hopper = { path = "../..", package = "hopper-framework", default-features = false, features = ["proc-macros"] }
+hopper = { path = "../..", package = "hopper-lang", default-features = false, features = ["proc-macros"] }
 
 [features]
 default = ["hopper-native-backend"]

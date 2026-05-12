@@ -10,7 +10,7 @@ description = "Cross-program read example - Program A (vault owner)"
 crate-type = ["cdylib", "lib"]
 
 [dependencies]
-hopper = { path = "../../..", package = "hopper-framework", default-features = false }
+hopper = { path = "../../..", package = "hopper-lang", default-features = false }
 
 [features]
 default = ["hopper-native-backend"]

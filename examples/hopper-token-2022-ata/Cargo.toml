@@ -10,7 +10,7 @@ description = "Hopper-authored example using Hopper-owned ATA and Token-2022 sur
 crate-type = ["cdylib", "lib"]
 
 [dependencies]
-hopper = { path = "../..", package = "hopper-framework", default-features = false }
+hopper = { path = "../..", package = "hopper-lang", default-features = false }
 
 [features]
 default = ["hopper-native-backend"]

@@ -9,7 +9,7 @@ publish = false
 crate-type = ["cdylib", "lib"]
 
 [dependencies]
-hopper = { path = "../..", package = "hopper-framework", default-features = false }
+hopper = { path = "../..", package = "hopper-lang", default-features = false }
 hopper-schema = { path = "../../crates/hopper-schema" }
 
 [features]

@@ -67,8 +67,8 @@ pub fn cmd_publish_check(args: &[String]) {
     }) as u32;
 
     if opts.full {
-        failures += run_stage("core test suite", || {
-            run_cargo_status(&root, &["test", "-p", "hopper-core"])
+        failures += run_stage("systems test suite", || {
+            run_cargo_status(&root, &["test", "-p", "hopper-systems"])
         }) as u32;
         failures += run_stage("trybuild UI suite", || {
             run_cargo_status(&root, &["test", "-p", "hopper-trybuild"])
@@ -311,7 +311,7 @@ fn scan_release_docs(root: &Path) -> Result<(), String> {
 }
 
 fn check_default_feature_tree(root: &Path) -> Result<(), String> {
-    let args = ["tree", "-p", "hopper-framework", "--edges", "normal,build"];
+    let args = ["tree", "-p", "hopper-lang", "--edges", "normal,build"];
     let output = workspace::run_output("cargo", &to_strings(&args), root)?;
     if !output.status.success() {
         return Err(format!(
@@ -506,5 +506,7 @@ fn print_usage() {
     eprintln!("  --so, --binary <path>      Explicit compiled program .so");
     eprintln!("  --workspace-root <path>    Workspace root to check (default: search upward)");
     eprintln!("  --source-only              Skip binary ABI verification; useful before SBF build");
-    eprintln!("  --full                     Also run hopper-core and hopper-trybuild test suites");
+    eprintln!(
+        "  --full                     Also run hopper-systems and hopper-trybuild test suites"
+    );
 }

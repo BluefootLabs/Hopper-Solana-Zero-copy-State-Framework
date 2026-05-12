@@ -26,10 +26,10 @@ as the Rust crate `hopper`:
 
 ```toml
 [dependencies]
-hopper = { package = "hopper-framework", version = "0.1.0", default-features = false, features = ["hopper-native-backend", "proc-macros"] }
+hopper = { package = "hopper-lang", version = "0.1.0", default-features = false, features = ["hopper-native-backend", "proc-macros"] }
 ```
 
-The package is named `hopper-framework` on crates.io because the `hopper`
+The package is named `hopper-lang` on crates.io because the `hopper`
 package name is already occupied by an unrelated crate. The library crate name
 is still `hopper`, so Rust code uses:
 

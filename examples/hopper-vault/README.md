@@ -1,7 +1,10 @@
 # Hopper Vault
 
-The minimal default Hopper example. This is the best starting point when you
-want a small program that still uses the real Hopper language surface.
+A compact code-first Hopper vault. This is a good starting point when you want a
+small program that still uses real Hopper account creation, dispatch, and state
+access. For the smallest facade-first import path, start with
+[../../docs/HOPPER_LAYERS.md](../../docs/HOPPER_LAYERS.md) and
+`hopper::prelude::*`.
 
 ## What It Demonstrates
 

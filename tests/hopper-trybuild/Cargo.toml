@@ -10,4 +10,4 @@ path = "tests/trybuild.rs"
 
 [dev-dependencies]
 trybuild = "1.0"
-hopper = { path = "../..", package = "hopper-framework", features = ["proc-macros"] }
+hopper = { path = "../..", package = "hopper-lang", features = ["proc-macros"] }

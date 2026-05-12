@@ -2086,12 +2086,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "hopper-core"
+name = "hopper-derive"
 version = "0.1.0"
 dependencies = [
- "hopper-native",
- "hopper-runtime",
- "sha2-const-stable",
+ "proc-macro2",
+ "quote",
+ "serde_json",
+ "sha2 0.10.9",
+ "syn 2.0.117",
 ]
 
 [[package]]
@@ -2105,33 +2107,40 @@ dependencies = [
 name = "hopper-escrow"
 version = "0.1.0"
 dependencies = [
- "hopper-framework",
+ "hopper-lang",
 ]
 
 [[package]]
 name = "hopper-finance"
 version = "0.1.0"
 dependencies = [
- "hopper-core",
  "hopper-runtime",
+ "hopper-systems",
 ]
 
 [[package]]
-name = "hopper-framework"
+name = "hopper-lang"
 version = "0.1.0"
 dependencies = [
+ "hopper-anchor",
  "hopper-associated-token",
- "hopper-core",
+ "hopper-derive",
+ "hopper-distribute",
+ "hopper-finance",
+ "hopper-lending",
  "hopper-macros",
- "hopper-macros-proc",
  "hopper-memo",
  "hopper-metaplex",
+ "hopper-multisig",
  "hopper-runtime",
  "hopper-schema",
  "hopper-solana",
+ "hopper-staking",
  "hopper-system",
+ "hopper-systems",
  "hopper-token",
  "hopper-token-2022",
+ "hopper-vesting",
  "sha2-const-stable",
  "trybuild",
 ]
@@ -2147,21 +2156,10 @@ dependencies = [
 name = "hopper-macros"
 version = "0.1.0"
 dependencies = [
- "hopper-core",
  "hopper-runtime",
  "hopper-schema",
  "hopper-system",
-]
-
-[[package]]
-name = "hopper-macros-proc"
-version = "0.1.0"
-dependencies = [
- "proc-macro2",
- "quote",
- "serde_json",
- "sha2 0.10.9",
- "syn 2.0.117",
+ "hopper-systems",
 ]
 
 [[package]]
@@ -2190,7 +2188,7 @@ dependencies = [
 name = "hopper-migration"
 version = "0.1.0"
 dependencies = [
- "hopper-framework",
+ "hopper-lang",
  "hopper-schema",
 ]
 
@@ -2213,42 +2211,42 @@ dependencies = [
 name = "hopper-nft-mint"
 version = "0.1.0"
 dependencies = [
- "hopper-framework",
+ "hopper-lang",
 ]
 
 [[package]]
 name = "hopper-parity-vault"
 version = "0.1.0"
 dependencies = [
- "hopper-framework",
+ "hopper-lang",
 ]
 
 [[package]]
 name = "hopper-policy-vault"
 version = "0.1.0"
 dependencies = [
- "hopper-framework",
+ "hopper-lang",
 ]
 
 [[package]]
 name = "hopper-proc-vault"
 version = "0.1.0"
 dependencies = [
- "hopper-framework",
+ "hopper-lang",
 ]
 
 [[package]]
 name = "hopper-quasar-port-20-min"
 version = "0.1.0"
 dependencies = [
- "hopper-framework",
+ "hopper-lang",
 ]
 
 [[package]]
 name = "hopper-registry"
 version = "0.1.0"
 dependencies = [
- "hopper-framework",
+ "hopper-lang",
 ]
 
 [[package]]
@@ -2268,8 +2266,8 @@ dependencies = [
 name = "hopper-schema"
 version = "0.1.0"
 dependencies = [
- "hopper-core",
  "hopper-runtime",
+ "hopper-systems",
 ]
 
 [[package]]
@@ -2283,7 +2281,7 @@ dependencies = [
 name = "hopper-showcase"
 version = "0.1.0"
 dependencies = [
- "hopper-framework",
+ "hopper-lang",
 ]
 
 [[package]]
@@ -2291,9 +2289,9 @@ name = "hopper-solana"
 version = "0.1.0"
 dependencies = [
  "five8_const 0.1.4",
- "hopper-core",
  "hopper-runtime",
  "hopper-system",
+ "hopper-systems",
  "hopper-token",
 ]
 
@@ -2309,6 +2307,15 @@ name = "hopper-system"
 version = "0.1.0"
 dependencies = [
  "hopper-runtime",
+]
+
+[[package]]
+name = "hopper-systems"
+version = "0.1.0"
+dependencies = [
+ "hopper-native",
+ "hopper-runtime",
+ "sha2-const-stable",
 ]
 
 [[package]]
@@ -2330,35 +2337,35 @@ dependencies = [
 name = "hopper-token-2022-ata"
 version = "0.1.0"
 dependencies = [
- "hopper-framework",
+ "hopper-lang",
 ]
 
 [[package]]
 name = "hopper-token-2022-transfer-hook"
 version = "0.1.0"
 dependencies = [
- "hopper-framework",
+ "hopper-lang",
 ]
 
 [[package]]
 name = "hopper-token-2022-vault"
 version = "0.1.0"
 dependencies = [
- "hopper-framework",
+ "hopper-lang",
 ]
 
 [[package]]
 name = "hopper-treasury"
 version = "0.1.0"
 dependencies = [
- "hopper-framework",
+ "hopper-lang",
 ]
 
 [[package]]
 name = "hopper-trybuild"
 version = "0.1.0"
 dependencies = [
- "hopper-framework",
+ "hopper-lang",
  "trybuild",
 ]
 
@@ -2366,7 +2373,7 @@ dependencies = [
 name = "hopper-vault"
 version = "0.1.0"
 dependencies = [
- "hopper-framework",
+ "hopper-lang",
  "mollusk-svm",
  "openssl",
  "solana-account 3.4.0",
@@ -2385,14 +2392,14 @@ dependencies = [
 name = "hopper-virtual-state"
 version = "0.1.0"
 dependencies = [
- "hopper-framework",
+ "hopper-lang",
 ]
 
 [[package]]
 name = "hopper-xp-program-a"
 version = "0.1.0"
 dependencies = [
- "hopper-framework",
+ "hopper-lang",
 ]
 
 [[package]]
@@ -2400,7 +2407,7 @@ name = "hopper-xp-program-b"
 version = "0.1.0"
 dependencies = [
  "five8_const 0.1.4",
- "hopper-framework",
+ "hopper-lang",
 ]
 
 [[package]]

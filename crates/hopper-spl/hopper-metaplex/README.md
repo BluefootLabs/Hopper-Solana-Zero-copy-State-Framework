@@ -30,7 +30,7 @@ push the program into UB.
 
 ```toml
 [dependencies]
-hopper = { package = "hopper-framework", version = "0.1.0", features = ["metaplex"] }
+hopper = { package = "hopper-lang", version = "0.1.0", features = ["metaplex"] }
 ```
 
 ```rust
@@ -78,7 +78,7 @@ Programs that don't touch Metaplex get no extra compile time and no extra
 dependencies pulled in. Enable with:
 
 ```toml
-hopper = { package = "hopper-framework", version = "0.1.0", features = ["metaplex"] }
+hopper = { package = "hopper-lang", version = "0.1.0", features = ["metaplex"] }
 ```
 
 ## What's not (yet) shipped

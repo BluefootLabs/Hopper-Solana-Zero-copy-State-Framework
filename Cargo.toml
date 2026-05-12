@@ -62,10 +62,10 @@ five8_const = "0.1"
 sha2-const-stable = "0.1"
 hopper-native = { path = "crates/hopper-native", version = "0.1.0", default-features = false }
 hopper-runtime = { path = "crates/hopper-runtime", version = "0.1.0", default-features = false }
-hopper-core = { path = "crates/hopper-core", version = "0.1.0", default-features = false }
+hopper-core = { path = "crates/hopper-core", package = "hopper-systems", version = "0.1.0", default-features = false }
 hopper-macros = { path = "crates/hopper-macros", version = "0.1.0", default-features = false }
-hopper-macros-proc = { path = "crates/hopper-macros-proc", version = "0.1.0" }
-hopper = { path = ".", package = "hopper-framework", version = "0.1.0" }
+hopper-macros-proc = { path = "crates/hopper-macros-proc", package = "hopper-derive", version = "0.1.0" }
+hopper = { path = ".", package = "hopper-lang", version = "0.1.0" }
 hopper-system = { path = "crates/hopper-system", version = "0.1.0", default-features = false }
 hopper-schema = { path = "crates/hopper-schema", version = "0.1.0", default-features = false }
 hopper-solana = { path = "crates/hopper-solana", version = "0.1.0", default-features = false }
@@ -85,15 +85,15 @@ hopper-manager = { path = "crates/hopper-manager", version = "0.1.0" }
 hopper-sdk = { path = "crates/hopper-sdk", version = "0.1.0" }
 
 [package]
-name = "hopper-framework"
+name = "hopper-lang"
 version = "0.1.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 authors = ["BluefootLabs <contact@bluefootlabs.com>", "MoonManQuark"]
-description = "Zero-copy state framework for Solana. Typed account architecture, phased execution, validation graphs, zero-copy collections, layout evolution, and cross-program interfaces. Built on Hopper Native. no_std, no_alloc, no proc macros required."
+description = "Fast zero-copy Solana framework with a simple account facade, typed state contracts, layout evolution, and systems-mode escape hatches. Built on Hopper Native. no_std, no_alloc."
 repository = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework"
 homepage = "https://hopperzero.dev"
-documentation = "https://docs.rs/crate/hopper-framework/0.1.0"
+documentation = "https://docs.rs/crate/hopper-lang/0.1.0"
 readme = "README.md"
 keywords = ["solana", "zero-copy", "framework", "state", "no-std"]
 categories = ["no-std", "embedded"]
@@ -111,6 +111,13 @@ hopper-token-2022 = { workspace = true }
 hopper-associated-token = { workspace = true }
 hopper-memo = { workspace = true, default-features = false }
 hopper-metaplex = { workspace = true, optional = true }
+hopper-finance = { workspace = true, optional = true }
+hopper-lending = { workspace = true, optional = true }
+hopper-staking = { workspace = true, optional = true }
+hopper-vesting = { workspace = true, optional = true }
+hopper-distribute = { workspace = true, optional = true }
+hopper-multisig = { workspace = true, optional = true }
+hopper-anchor = { workspace = true, optional = true }
 hopper-macros = { workspace = true }
 hopper-schema = { path = "crates/hopper-schema", version = "0.1.0", default-features = false }
 hopper-solana = { path = "crates/hopper-solana", version = "0.1.0", default-features = false }
@@ -127,6 +134,13 @@ proc-macros = ["hopper-macros-proc"]
 # update). Optional because not every Hopper program touches Metaplex
 # and the crate adds compile time; opt in with `--features metaplex`.
 metaplex = ["dep:hopper-metaplex"]
+finance = ["dep:hopper-finance"]
+lending = ["dep:hopper-lending"]
+staking = ["dep:hopper-staking"]
+vesting = ["dep:hopper-vesting"]
+distribute = ["dep:hopper-distribute"]
+multisig = ["dep:hopper-multisig"]
+anchor-interop = ["dep:hopper-anchor"]
 legacy-token-instructions = [
     "hopper-token/legacy-token-instructions",
     "hopper-solana/legacy-token-instructions",
@@ -153,6 +167,13 @@ hopper-native-backend = [
     "hopper-associated-token/hopper-native-backend",
     "hopper-memo/hopper-native-backend",
     "hopper-metaplex?/hopper-native-backend",  
+    "hopper-finance?/hopper-native-backend",
+    "hopper-lending?/hopper-native-backend",
+    "hopper-staking?/hopper-native-backend",
+    "hopper-vesting?/hopper-native-backend",
+    "hopper-distribute?/hopper-native-backend",
+    "hopper-multisig?/hopper-native-backend",
+    "hopper-anchor?/hopper-native-backend",
     "hopper-macros/hopper-native-backend",
     "hopper-schema/hopper-native-backend",
     "hopper-solana/hopper-native-backend",
@@ -166,6 +187,13 @@ legacy-pinocchio-compat = [
     "hopper-associated-token/legacy-pinocchio-compat",
     "hopper-memo/legacy-pinocchio-compat",
     "hopper-metaplex?/legacy-pinocchio-compat",
+    "hopper-finance?/legacy-pinocchio-compat",
+    "hopper-lending?/legacy-pinocchio-compat",
+    "hopper-staking?/legacy-pinocchio-compat",
+    "hopper-vesting?/legacy-pinocchio-compat",
+    "hopper-distribute?/legacy-pinocchio-compat",
+    "hopper-multisig?/legacy-pinocchio-compat",
+    "hopper-anchor?/legacy-pinocchio-compat",
     "hopper-macros/legacy-pinocchio-compat",
     "hopper-schema/legacy-pinocchio-compat",
     "hopper-solana/legacy-pinocchio-compat",
@@ -179,6 +207,13 @@ solana-program-backend = [
     "hopper-associated-token/solana-program-backend",
     "hopper-memo/solana-program-backend",
     "hopper-metaplex?/solana-program-backend",
+    "hopper-finance?/solana-program-backend",
+    "hopper-lending?/solana-program-backend",
+    "hopper-staking?/solana-program-backend",
+    "hopper-vesting?/solana-program-backend",
+    "hopper-distribute?/solana-program-backend",
+    "hopper-multisig?/solana-program-backend",
+    "hopper-anchor?/solana-program-backend",
     "hopper-macros/solana-program-backend",
     "hopper-schema/solana-program-backend",
     "hopper-solana/solana-program-backend",

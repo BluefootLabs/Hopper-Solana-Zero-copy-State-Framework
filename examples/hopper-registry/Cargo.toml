@@ -9,7 +9,7 @@ publish = false
 crate-type = ["cdylib", "lib"]
 
 [dependencies]
-hopper = { path = "../..", package = "hopper-framework", default-features = false }
+hopper = { path = "../..", package = "hopper-lang", default-features = false }
 
 [features]
 # Uses `check::graph` constraint helpers (`require_signer_at`,

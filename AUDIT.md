@@ -174,7 +174,7 @@ attributes.
 Public docs must consistently use the published package alias:
 
 ```toml
-hopper = { package = "hopper-framework", version = "0.1.0" }
+hopper = { package = "hopper-lang", version = "0.1.0" }
 ```
 
 Any future release should search for stale source-only install snippets before

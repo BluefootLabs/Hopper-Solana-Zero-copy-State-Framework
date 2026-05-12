@@ -47,7 +47,7 @@ tree excludes Pinocchio, legacy SPL Token builders stay behind
 fuzz target inventory is present.
 
 Use `--source-only` before an SBF build to run every non-binary gate. Add
-`--full` to also run the `hopper-core` and `hopper-trybuild` suites.
+`--full` to also run the `hopper-systems` and `hopper-trybuild` suites.
 
 ## Keys and identity
 

@@ -1,8 +1,9 @@
 //! # Hopper
 //!
-//! A zero-copy Solana program framework. One access model, one dispatch
-//! path, one set of safety rules. Unsafe is available when you need it,
-//! and it is spelled `unsafe` so you can find it again.
+//! Fast zero-copy Solana framework. Start with the familiar account/context
+//! facade, then opt into layout, segment, receipt, policy, migration, and
+//! schema modules only when the program needs them. Unsafe is available when
+//! you need it, and it is spelled `unsafe` so you can find it again.
 //!
 //! The goals, in priority order:
 //!
@@ -14,14 +15,25 @@
 //!    the runtime input region. No deserialization pass, no heap
 //!    allocation, no hidden format machinery. If it costs compute, it
 //!    is because you asked for it.
-//! 3. **Anchor-grade ergonomics.** `#[hopper::state]`, `#[hopper::context]`,
-//!    `#[hopper::program]`, and the `#[account(...)]` constraint vocabulary
-//!    read the same way an Anchor program reads. Porting is a rename,
-//!    not a rewrite.
+//! 3. **Framework-grade ergonomics.** `#[hopper::account]`,
+//!    `#[hopper::accounts]`, `#[hopper::program]`, typed wrappers such as
+//!    `Account<'info, T>` and `Signer<'info>`, and the facade modules under
+//!    `hopper::{account, cpi, token, system}` keep the beginner surface small.
 //! 4. **Schema that travels.** Every layout, instruction, event, and
 //!    error is emitted as inspectable compile-time metadata. Off-chain
 //!    SDKs, IDLs, client generators, and diff tools consume it without
 //!    parsing source.
+//!
+//! ## Layers
+//!
+//! - `hopper::prelude`: beginner and migration path. Same runtime, clean import
+//!   story.
+//! - `hopper::{account, context, cpi, system, token, associated_token, memo}`:
+//!   everyday program modules.
+//! - `hopper::{layout, segment, receipt, migration, interface, schema, policy}`:
+//!   systems-mode modules for layout evolution, field leasing, manifests, and
+//!   audited escape hatches.
+//! - `hopper::internal`: explicit lower-crate escape hatch.
 //!
 //! ## Crate map
 //!
@@ -69,26 +81,24 @@
 //!
 //! ## Quick start
 //!
-//! Declare a layout, declare a context, ship a handler.
+//! Declare an account layout, bind it in a context, ship a handler.
 //!
 //! ```ignore
 //! use hopper::prelude::*;
-//! use hopper::hopper_layout;
 //!
-//! hopper_layout! {
-//!     pub struct Vault, disc = 1, version = 1 {
-//!         authority: [u8; 32] = 32,
-//!         mint:      [u8; 32] = 32,
-//!         balance:   WireU64  = 8,
-//!         bump:      u8       = 1,
-//!     }
+//! #[account(disc = 1, version = 1)]
+//! #[repr(C)]
+//! #[derive(Clone, Copy)]
+//! pub struct Vault {
+//!     pub authority: Address,
+//!     pub balance: WireU64,
+//!     pub bump: u8,
 //! }
 //! ```
 //!
-//! That is it. `Vault` is now a zero-copy layout with a 16-byte Hopper
-//! header, a segment map, a schema export for the manifest, and a
-//! `load::<Vault>()` accessor on every `AccountView`. No derives, no
-//! Borsh, no writeback pass.
+//! `Vault` is now a zero-copy account layout with a Hopper header, layout
+//! fingerprint, schema metadata, and typed `Account<'info, Vault>` access. No
+//! Borsh pass, no hidden writeback pass.
 
 #![no_std]
 #![deny(unsafe_op_in_unsafe_fn)]
@@ -111,6 +121,203 @@ pub use hopper_solana;
 pub use hopper_system;
 pub use hopper_token;
 pub use hopper_token_2022;
+
+/// Beginner-facing account surface.
+///
+/// This module is the framework-first import path for account roles and typed
+/// account access. The lower-level crates remain available, but normal program
+/// authors should be able to stay inside `hopper::prelude::*` and these facade
+/// modules.
+pub mod account {
+    pub use hopper_core::abi::{
+        Authority, Mint, Token, TokenAccount, TypedAddress, UntypedAddress,
+    };
+    pub use hopper_core::accounts::{
+        HopperAccount, HopperAccounts, HopperCtx, HopperIx, ProgramAccount, ProgramRef,
+        SegmentedAccount, SignerAccount, UncheckedAccount, ValidateAccount,
+    };
+    pub use hopper_runtime::{Account, AccountView, HopperSigner as Signer, InitAccount, Program};
+}
+
+/// Typed instruction context and account-binding helpers.
+pub mod context {
+    pub use hopper_core::accounts::{hopper_entry, HopperAccounts, HopperCtx, HopperIx};
+    pub use hopper_runtime::Context;
+}
+
+/// Cross-program invocation helpers and generated instruction parts.
+pub mod cpi {
+    pub use hopper_core::cpi::*;
+    pub use hopper_runtime::cpi::{
+        invoke, invoke_signed, invoke_signed_unchecked, invoke_signed_with_bounds,
+        invoke_unchecked, invoke_with_bounds, set_return_data, MAX_CPI_ACCOUNTS, MAX_RETURN_DATA,
+        MAX_STATIC_CPI_ACCOUNTS,
+    };
+    pub use hopper_runtime::{CpiAccount, InstructionAccount, InstructionView, Seed, Signer};
+}
+
+/// System Program helpers.
+#[allow(unused_imports)]
+pub mod system {
+    pub use hopper_system::instructions::*;
+    pub use hopper_system::SYSTEM_PROGRAM_ID;
+    pub use hopper_system::*;
+}
+
+/// SPL Token helpers.
+#[allow(ambiguous_glob_reexports, unused_imports)]
+pub mod token {
+    pub use hopper_runtime::token::*;
+    pub use hopper_solana::interface::{
+        interface_transfer_checked, interface_transfer_checked_signed, InterfaceMint,
+        InterfaceTokenAccount, TokenProgramKind,
+    };
+    pub use hopper_token::instructions::*;
+    pub use hopper_token::TOKEN_PROGRAM_ID;
+    pub use hopper_token::*;
+}
+
+/// SPL Token-2022 helpers.
+#[allow(ambiguous_glob_reexports, unused_imports)]
+pub mod token_2022 {
+    pub use hopper_runtime::token_2022_ext::*;
+    pub use hopper_token_2022::instructions::*;
+    pub use hopper_token_2022::TOKEN_2022_PROGRAM_ID;
+    pub use hopper_token_2022::*;
+}
+
+/// Associated Token Account helpers.
+#[allow(unused_imports)]
+pub mod associated_token {
+    pub use hopper_associated_token::instructions::*;
+    pub use hopper_associated_token::ATA_PROGRAM_ID;
+    pub use hopper_associated_token::*;
+}
+
+/// SPL Memo helper surface.
+pub mod memo {
+    pub use hopper_memo::*;
+}
+
+/// Event and log helpers.
+pub mod events {
+    pub use crate::receipts::{emit_receipt, emit_tagged_receipt, emit_typed_receipt, Receipt};
+    #[cfg(feature = "cpi")]
+    pub use hopper_core::event::emit_event_cpi;
+    pub use hopper_core::event::{emit_event, emit_event_tagged, emit_slices};
+    pub use hopper_runtime::{hopper_emit_cpi, hopper_log, msg};
+}
+
+/// Advanced layout and header surface.
+pub mod layout {
+    pub use hopper_core::abi::{FingerprintTransition, LayoutFingerprint, WireType};
+    pub use hopper_core::account::{
+        check_header, read_discriminator, read_header_flags, read_layout_id, read_version,
+        write_header, AccountHeader, AccountReader, FixedLayout, HEADER_FORMAT, HEADER_LEN,
+    };
+    pub use hopper_core::field_map::{FieldInfo, FieldMap};
+    pub use hopper_runtime::layout::{init_header, HopperHeader, LayoutContract, LayoutInfo};
+    pub use hopper_runtime::{AccountLayout, Pod, WireLayout, ZeroCopy};
+}
+
+/// Advanced segment and field-lease surface.
+pub mod segment {
+    pub use hopper_core::account::segment_role::{
+        SegmentRole, SEG_ROLE_AUDIT, SEG_ROLE_CACHE, SEG_ROLE_CORE, SEG_ROLE_EXTENSION,
+        SEG_ROLE_INDEX, SEG_ROLE_JOURNAL, SEG_ROLE_SHARD,
+    };
+    pub use hopper_core::account::{
+        segment_id, SegmentDescriptor, SegmentEntry, SegmentId, SegmentRegistry,
+        SegmentRegistryMut, SegmentSlice, SegmentSliceMut, SegmentTable, SegmentTableMut,
+        MAX_REGISTRY_SEGMENTS, MAX_SEGMENTS, REGISTRY_HEADER_SIZE, REGISTRY_OFFSET,
+        SEGMENT_DESC_SIZE, SEGMENT_ENTRY_SIZE, SEG_FLAG_DYNAMIC, SEG_FLAG_FROZEN, SEG_FLAG_LOCKED,
+    };
+    pub use hopper_core::segment_map::{assert_segment_field_alignment, SegmentMap, StaticSegment};
+    pub use hopper_runtime::{
+        AccessKind, Ref, RefMut, SegRef, SegRefMut, Segment, SegmentBorrow, SegmentBorrowGuard,
+        SegmentBorrowRegistry, SegmentLease, TypedSegment,
+    };
+}
+
+/// Receipt helpers and receipt wire types.
+pub mod receipt {
+    pub use crate::receipts::{emit_receipt, emit_tagged_receipt, emit_typed_receipt, Receipt};
+    #[cfg(feature = "receipt")]
+    pub use hopper_core::receipt::*;
+}
+
+/// Layout migration helpers.
+pub mod migration {
+    #[cfg(feature = "migrate")]
+    pub use hopper_core::migrate::*;
+    pub use hopper_runtime::{apply_pending_migrations, LayoutMigration, MigrationEdge};
+}
+
+/// Cross-program layout/interface pinning helpers.
+pub mod interface {
+    pub use hopper_runtime::{ForeignLens, ForeignManifest, TransparentAddress};
+    pub use hopper_solana::interface::*;
+}
+
+/// Schema, manifest, and IDL projection surface.
+pub mod schema {
+    pub use hopper_schema::*;
+}
+
+/// Policy engine surface for systems-mode programs.
+pub mod policy {
+    #[cfg(feature = "policy")]
+    pub use hopper_core::policy::*;
+    pub use hopper_runtime::{HopperInstructionPolicy, HopperProgramPolicy};
+}
+
+/// First-party DeFi math helpers. Enable with `features = ["finance"]`.
+#[cfg(feature = "finance")]
+pub mod finance {
+    pub use hopper_finance::*;
+}
+
+/// First-party lending helpers. Enable with `features = ["lending"]`.
+#[cfg(feature = "lending")]
+pub mod lending {
+    pub use hopper_lending::*;
+}
+
+/// First-party staking helpers. Enable with `features = ["staking"]`.
+#[cfg(feature = "staking")]
+pub mod staking {
+    pub use hopper_staking::*;
+}
+
+/// First-party vesting helpers. Enable with `features = ["vesting"]`.
+#[cfg(feature = "vesting")]
+pub mod vesting {
+    pub use hopper_vesting::*;
+}
+
+/// First-party distribution helpers. Enable with `features = ["distribute"]`.
+#[cfg(feature = "distribute")]
+pub mod distribute {
+    pub use hopper_distribute::*;
+}
+
+/// First-party multisig helpers. Enable with `features = ["multisig"]`.
+#[cfg(feature = "multisig")]
+pub mod multisig {
+    pub use hopper_multisig::*;
+}
+
+/// Anchor interop helpers. Enable with `features = ["anchor-interop"]`.
+#[cfg(feature = "anchor-interop")]
+pub mod anchor {
+    pub use hopper_anchor::*;
+}
+
+/// Explicit escape hatch for lower layers. Normal programs should not need it.
+#[doc(hidden)]
+pub mod internal {
+    pub use crate::{hopper_core, hopper_runtime, hopper_schema, hopper_solana};
+}
 
 /// Optional Metaplex Token Metadata builders. Behind `--features metaplex`.
 /// Reach for this via `hopper::hopper_metaplex::CreateMetadataAccountV3`,
