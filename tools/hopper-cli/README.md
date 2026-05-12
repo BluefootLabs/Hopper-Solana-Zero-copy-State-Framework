@@ -57,13 +57,23 @@ Compatibility
 
 Lifecycle
   hopper init <path>                 Create a Hopper-native project scaffold
+  hopper add [-i|-s|-e <name>]       Scaffold instruction, state, or error files
   hopper build [--host|--sbf]        Build the current project (default: SBF)
   hopper test                        Run host-side tests for the current project
   hopper deploy [--no-build]         Build and deploy the current SBF program
   hopper dump [--no-build]           Disassemble the built SBF binary
 
+Keys
+  hopper keys new <path>             Generate a program/keypair json file
+  hopper keys sync <path>            Sync declare_id! from a keypair pubkey
+  hopper keys pda <seed> --program <id>  Derive a PDA and canonical bump
+
+Shell
+  hopper completions <shell>         Emit bash, zsh, fish, or PowerShell completions
+
 Profiling
   hopper profile bench               Run the primitive benchmark lab and emit JSON/CSV artifacts
+  hopper profile elf <program.so>    Static SBF symbols, CU-ish estimates, sections, flamegraph export
 
 Direct aliases
   hopper decode <hex>                Alias for inspect

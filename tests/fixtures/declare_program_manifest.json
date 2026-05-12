@@ -1,0 +1,45 @@
+{
+  "name": "DemoProgram",
+  "program_id": "Demo111111111111111111111111111111111111111",
+  "instructions": [
+    {
+      "name": "Deposit",
+      "tag": 7,
+      "accounts": [
+        {
+          "name": "authority",
+          "writable": false,
+          "signer": true
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "signer": false,
+          "layout_ref": "Vault",
+          "seeds": ["vault", "authority"],
+          "lifecycle": "init",
+          "payer": "authority",
+          "owner": "DemoProgram"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "canonical_type": "WireU64",
+          "size": 8
+        },
+        {
+          "name": "memo",
+          "canonical_type": "[u8; 4]",
+          "size": 4
+        },
+        {
+          "name": "authority_key",
+          "canonical_type": "Address",
+          "size": 32
+        }
+      ],
+      "receipt_expected": true
+    }
+  ]
+}

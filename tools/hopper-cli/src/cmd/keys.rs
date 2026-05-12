@@ -1,8 +1,8 @@
 //! `hopper keys` subcommand tree.
 //!
 //! Ed25519 keypair management for program deploys and PDA derivation.
-//! Matches the ergonomics of `solana-keygen` and `quasar keys` without
-//! forcing a second toolchain. Every Hopper workflow that used to
+//! Matches the ergonomics of common Solana key tooling without forcing a
+//! second toolchain. Every Hopper workflow that used to
 //! require dropping to `solana-keygen new -o target/deploy/foo-keypair.json`
 //! now has a framework-native path.
 //!
@@ -62,11 +62,10 @@ fn print_usage() {
 }
 
 /// Rewrite the in-source `declare_id!("...")` (or `hopper::declare_id!("...")`)
-/// invocation to match the keypair at `path`. Mirrors the
-/// `quasar keys sync` verb so a freshly-minted keypair (`hopper keys new
-/// target/deploy/my_program-keypair.json`) immediately propagates into
-/// the program's source without manual paste. Searches `src/lib.rs` by
-/// default; pass `--src <file.rs>` to point at a different file.
+/// invocation to match the keypair at `path`. A freshly minted keypair
+/// (`hopper keys new target/deploy/my_program-keypair.json`) immediately
+/// propagates into the program's source without manual paste. Searches
+/// `src/lib.rs` by default; pass `--src <file.rs>` to point at a different file.
 fn cmd_sync(args: &[String]) {
     let mut keypair_path: Option<PathBuf> = None;
     let mut src_path: Option<PathBuf> = None;

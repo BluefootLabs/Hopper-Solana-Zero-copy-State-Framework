@@ -48,8 +48,10 @@ Quasar's explicit `discriminator = 1` maps to Hopper's layout header: Hopper sta
 
 For Quasar bounded dynamic fields (`String<'a, N>`, `Vec<'a, T, N>`), keep
 the hot fixed fields in the Hopper layout and move variable data into a
-bounded dynamic tail. See [DYNAMIC_TAILS_FROM_QUASAR.md](DYNAMIC_TAILS_FROM_QUASAR.md)
-for side-by-side code and `TailCodec` examples.
+bounded dynamic tail. `hopper_dynamic_fields!` accepts `string<N>` and
+`vec<T, N>` sugar for the common porting cases while still generating an
+explicit `TailCodec` payload. See [DYNAMIC_TAILS_FROM_QUASAR.md](DYNAMIC_TAILS_FROM_QUASAR.md)
+for side-by-side code and tail-access examples.
 
 ## Accounts struct
 

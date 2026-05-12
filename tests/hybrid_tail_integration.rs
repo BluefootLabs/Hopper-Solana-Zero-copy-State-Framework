@@ -33,6 +33,14 @@ pub struct VaultMetadata {
     pub operator_tag: [u8; 8],
 }
 
+hopper_dynamic_fields! {
+    pub struct FriendlyMetadata {
+        label: string<12>,
+        signers: vec<Address, 4>,
+        nonce: u32,
+    }
+}
+
 impl TailCodec for VaultMetadata {
     const MAX_ENCODED_LEN: usize = <u32 as TailCodec>::MAX_ENCODED_LEN
         + <bool as TailCodec>::MAX_ENCODED_LEN
@@ -91,6 +99,24 @@ fn tail_write_then_read_roundtrips_typed_payload() {
     // Round-trip decode matches the original.
     let back = MetadataVault::tail_read(&data).unwrap();
     assert_eq!(back, meta);
+}
+
+#[test]
+fn dynamic_fields_sugar_expands_to_tail_codec() {
+    let signer = Address::new([4u8; 32]);
+    let mut tail = FriendlyMetadata::default();
+    tail.label.set_str("ops").unwrap();
+    tail.signers.push(signer).unwrap();
+    tail.nonce = 7;
+
+    let mut bytes = [0u8; FriendlyMetadata::MAX_ENCODED_LEN];
+    let written = tail.encode(&mut bytes).unwrap();
+    let (back, consumed) = FriendlyMetadata::decode(&bytes[..written]).unwrap();
+
+    assert_eq!(consumed, written);
+    assert_eq!(back.label.as_str().unwrap(), "ops");
+    assert_eq!(back.signers.as_slice(), &[signer]);
+    assert_eq!(back.nonce, 7);
 }
 
 #[test]

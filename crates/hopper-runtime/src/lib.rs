@@ -100,7 +100,8 @@ pub use migrate::{apply_pending_migrations, LayoutMigration, MigrationEdge};
 pub use policy::{HopperInstructionPolicy, HopperProgramPolicy};
 pub use ref_only::HopperRefOnly;
 pub use tail::{
-    read_tail, read_tail_len, tail_payload, write_tail, BoundedString, BoundedVec, TailCodec,
+    read_tail, read_tail_len, tail_payload, write_tail, BoundedString, BoundedVec, HopperString,
+    HopperVec, TailCodec,
 };
 
 /// Compose a layout's `LayoutMigration::MIGRATIONS` chain from a list

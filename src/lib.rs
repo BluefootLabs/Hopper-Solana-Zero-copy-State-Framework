@@ -206,14 +206,17 @@ macro_rules! hopper_load {
 ///
 /// The generated type implements `TailCodec`, so it can be used directly with
 /// `#[hopper::state(dynamic_tail = MyTail)]`. Fields are encoded in declaration
-/// order. Use `BoundedString<N>` for bounded UTF-8 strings and
-/// `BoundedVec<T, N>` for bounded element lists.
+/// order. Use `HopperString<N>` for bounded UTF-8 strings and
+/// `HopperVec<T, N>` for bounded element lists. The longer
+/// `BoundedString<N>` and `BoundedVec<T, N>` names remain available when a
+/// protocol wants the storage tradeoff to be explicit in source. For
+/// Quasar-shaped syntax, prefer `hopper_dynamic_fields!`.
 ///
 /// ```ignore
 /// hopper::hopper_dynamic_tail! {
 ///     pub struct MultisigTail {
-///         label: BoundedString<32>,
-///         signers: BoundedVec<Address, 10>,
+///         label: HopperString<32>,
+///         signers: HopperVec<Address, 10>,
 ///     }
 /// }
 /// ```
@@ -271,6 +274,101 @@ macro_rules! hopper_dynamic_tail {
     };
 }
 
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __hopper_dynamic_fields_tail {
+    (@emit [$($meta:tt)*] [$vis:vis] [$name:ident] [$($fields:tt)*]) => {
+        $crate::hopper_dynamic_tail! {
+            $($meta)*
+            $vis struct $name {
+                $($fields)*
+            }
+        }
+    };
+
+    (@parse [$($meta:tt)*] [$vis:vis] [$name:ident] [$($fields:tt)*]) => {
+        $crate::__hopper_dynamic_fields_tail!(@emit [$($meta)*] [$vis] [$name] [$($fields)*]);
+    };
+    (@parse [$($meta:tt)*] [$vis:vis] [$name:ident] [$($fields:tt)*] ,) => {
+        $crate::__hopper_dynamic_fields_tail!(@emit [$($meta)*] [$vis] [$name] [$($fields)*]);
+    };
+
+    (@parse [$($meta:tt)*] [$vis:vis] [$name:ident] [$($fields:tt)*]
+        $field:ident : string < $cap:literal >, $($rest:tt)+
+    ) => {
+        $crate::__hopper_dynamic_fields_tail!(@parse [$($meta)*] [$vis] [$name]
+            [$($fields)* $field: $crate::__runtime::HopperString<$cap>,]
+            $($rest)+
+        );
+    };
+    (@parse [$($meta:tt)*] [$vis:vis] [$name:ident] [$($fields:tt)*]
+        $field:ident : string < $cap:literal > $(,)?
+    ) => {
+        $crate::__hopper_dynamic_fields_tail!(@emit [$($meta)*] [$vis] [$name]
+            [$($fields)* $field: $crate::__runtime::HopperString<$cap>,]
+        );
+    };
+
+    (@parse [$($meta:tt)*] [$vis:vis] [$name:ident] [$($fields:tt)*]
+        $field:ident : vec < $ty:ty, $cap:literal >, $($rest:tt)+
+    ) => {
+        $crate::__hopper_dynamic_fields_tail!(@parse [$($meta)*] [$vis] [$name]
+            [$($fields)* $field: $crate::__runtime::HopperVec<$ty, $cap>,]
+            $($rest)+
+        );
+    };
+    (@parse [$($meta:tt)*] [$vis:vis] [$name:ident] [$($fields:tt)*]
+        $field:ident : vec < $ty:ty, $cap:literal > $(,)?
+    ) => {
+        $crate::__hopper_dynamic_fields_tail!(@emit [$($meta)*] [$vis] [$name]
+            [$($fields)* $field: $crate::__runtime::HopperVec<$ty, $cap>,]
+        );
+    };
+
+    (@parse [$($meta:tt)*] [$vis:vis] [$name:ident] [$($fields:tt)*]
+        $field:ident : $ty:ty, $($rest:tt)+
+    ) => {
+        $crate::__hopper_dynamic_fields_tail!(@parse [$($meta)*] [$vis] [$name]
+            [$($fields)* $field: $ty,]
+            $($rest)+
+        );
+    };
+    (@parse [$($meta:tt)*] [$vis:vis] [$name:ident] [$($fields:tt)*]
+        $field:ident : $ty:ty $(,)?
+    ) => {
+        $crate::__hopper_dynamic_fields_tail!(@emit [$($meta)*] [$vis] [$name]
+            [$($fields)* $field: $ty,]
+        );
+    };
+}
+
+/// Quasar-shaped sugar for declaring bounded dynamic-tail fields.
+///
+/// This is a small front end over `hopper_dynamic_tail!`. It keeps Hopper's
+/// explicit fixed-body plus encoded-tail model, while letting ported programs
+/// spell common fields as `string<N>` and `vec<T, N>`.
+///
+/// ```ignore
+/// hopper::hopper_dynamic_fields! {
+///     pub struct MultisigTail {
+///         label: string<32>,
+///         signers: vec<Address, 10>,
+///         nonce: u32,
+///     }
+/// }
+/// ```
+#[macro_export]
+macro_rules! hopper_dynamic_fields {
+    (
+        $(#[$meta:meta])*
+        $vis:vis struct $name:ident {
+            $($body:tt)*
+        }
+    ) => {
+        $crate::__hopper_dynamic_fields_tail!(@parse [$(#[$meta])*] [$vis] [$name] [] $($body)*);
+    };
+}
+
 // Ergonomic guard macros (the "winning architecture" design's
 // Jiminy-replacement safety layer). All are `#[macro_export]` from
 // hopper_runtime and are re-exported here so programs see them at
@@ -296,9 +394,10 @@ pub mod __runtime {
     pub use hopper_runtime::{
         apply_pending_migrations, read_tail, read_tail_len, tail_payload, write_tail, Account,
         AccountLayout, AccountView, Address, BoundedString, BoundedVec, Context,
-        HopperInstructionPolicy, HopperProgramPolicy, HopperSigner, InitAccount, LayoutMigration,
-        MigrationEdge, Pod, Program, ProgramError, ProgramId, Ref, RefMut, SegRef, SegRefMut,
-        SegmentLease, SystemId, TailCodec,
+        HopperInstructionPolicy, HopperProgramPolicy, HopperSigner, HopperString, HopperVec,
+        InitAccount, InstructionAccount, InstructionView, LayoutMigration, MigrationEdge, Pod,
+        Program, ProgramError, ProgramId, Ref, RefMut, SegRef, SegRefMut, SegmentLease, SystemId,
+        TailCodec,
     };
 
     // Crank marker type plus dynamic-CPI builder, emitted by

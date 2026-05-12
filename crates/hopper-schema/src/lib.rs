@@ -2047,6 +2047,237 @@ pub struct ArgDescriptor {
     pub size: u16,
 }
 
+/// How an instruction account is resolved before invocation.
+///
+/// The descriptor is intentionally small and string-backed so manifests can
+/// carry resolver plans without depending on a proc-macro registry or an
+/// allocator. Tooling can project this into richer client builders, while
+/// no-std programs can keep it as static metadata.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AccountResolverKind {
+    /// Caller must provide the account address directly.
+    Provided,
+    /// Account is derived from PDA seeds.
+    Pda,
+    /// Account is pinned to a known constant address.
+    Constant,
+    /// Account may be omitted by callers that do not need the path.
+    Optional,
+    /// Account is a program id entry.
+    Program,
+    /// Account is a sysvar entry.
+    Sysvar,
+}
+
+impl AccountResolverKind {
+    /// Stable manifest spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Provided => "provided",
+            Self::Pda => "pda",
+            Self::Constant => "constant",
+            Self::Optional => "optional",
+            Self::Program => "program",
+            Self::Sysvar => "sysvar",
+        }
+    }
+}
+
+impl fmt::Display for AccountResolverKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+/// Static resolver metadata for one instruction account.
+#[derive(Clone, Copy, Debug)]
+pub struct AccountResolverDescriptor {
+    /// Account field name.
+    pub account: &'static str,
+    /// Resolver strategy.
+    pub kind: AccountResolverKind,
+    /// PDA seed expressions or stable seed labels.
+    pub seeds: &'static [&'static str],
+    /// Expected address, when known.
+    pub expected_address: &'static str,
+    /// Expected owner, when known.
+    pub expected_owner: &'static str,
+    /// Payer account used by init/realloc flows, when applicable.
+    pub payer: &'static str,
+    /// Layout reference for typed account resolvers.
+    pub layout_ref: &'static str,
+    /// Whether the account is optional.
+    pub optional: bool,
+}
+
+/// Semantic effect an instruction has on accounts or emitted artifacts.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum InstructionEffectKind {
+    /// Reads an account without mutation.
+    Reads,
+    /// Mutates account data or lamports in place.
+    Writes,
+    /// Creates a fresh account.
+    CreatesAccount,
+    /// Reallocates account data.
+    ReallocatesAccount,
+    /// Closes an account.
+    ClosesAccount,
+    /// Requires a signer for authorization.
+    RequiresSigner,
+    /// Emits a receipt or event that clients should expect.
+    EmitsReceipt,
+    /// Performs a cross-program invocation.
+    InvokesCpi,
+}
+
+impl InstructionEffectKind {
+    /// Stable manifest spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Reads => "reads",
+            Self::Writes => "writes",
+            Self::CreatesAccount => "creates_account",
+            Self::ReallocatesAccount => "reallocates_account",
+            Self::ClosesAccount => "closes_account",
+            Self::RequiresSigner => "requires_signer",
+            Self::EmitsReceipt => "emits_receipt",
+            Self::InvokesCpi => "invokes_cpi",
+        }
+    }
+}
+
+impl fmt::Display for InstructionEffectKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+/// Static effect metadata for one instruction target.
+#[derive(Clone, Copy, Debug)]
+pub struct InstructionEffectDescriptor {
+    /// Effect kind.
+    pub kind: InstructionEffectKind,
+    /// Account, receipt, or CPI target this effect describes.
+    pub target: &'static str,
+    /// Layout reference for typed effects, if any.
+    pub layout_ref: &'static str,
+    /// Policy pack or lifecycle reason that explains the effect.
+    pub reason: &'static str,
+}
+
+impl crate::accounts::ContextAccountDescriptor {
+    /// Derive the default resolver kind from context account metadata.
+    pub const fn resolver_kind(&self) -> AccountResolverKind {
+        if self.expected_address.as_bytes().len() > 0 {
+            AccountResolverKind::Constant
+        } else if self.seeds.len() > 0 {
+            AccountResolverKind::Pda
+        } else if self.optional {
+            AccountResolverKind::Optional
+        } else if self.kind.as_bytes().len() >= 6
+            && self.kind.as_bytes()[0] == b'S'
+            && self.kind.as_bytes()[1] == b'y'
+            && self.kind.as_bytes()[2] == b's'
+            && self.kind.as_bytes()[3] == b'v'
+            && self.kind.as_bytes()[4] == b'a'
+            && self.kind.as_bytes()[5] == b'r'
+        {
+            AccountResolverKind::Sysvar
+        } else if self.kind.as_bytes().len() >= 7
+            && self.kind.as_bytes()[0] == b'P'
+            && self.kind.as_bytes()[1] == b'r'
+            && self.kind.as_bytes()[2] == b'o'
+            && self.kind.as_bytes()[3] == b'g'
+            && self.kind.as_bytes()[4] == b'r'
+            && self.kind.as_bytes()[5] == b'a'
+            && self.kind.as_bytes()[6] == b'm'
+        {
+            AccountResolverKind::Program
+        } else {
+            AccountResolverKind::Provided
+        }
+    }
+
+    /// Project account metadata into a resolver descriptor.
+    pub const fn resolver_descriptor(&self) -> AccountResolverDescriptor {
+        AccountResolverDescriptor {
+            account: self.name,
+            kind: self.resolver_kind(),
+            seeds: self.seeds,
+            expected_address: self.expected_address,
+            expected_owner: self.expected_owner,
+            payer: self.payer,
+            layout_ref: self.layout_ref,
+            optional: self.optional,
+        }
+    }
+
+    /// Derive the primary semantic effect this account contributes.
+    pub const fn primary_effect_kind(&self) -> InstructionEffectKind {
+        match self.lifecycle {
+            crate::accounts::AccountLifecycle::Init => InstructionEffectKind::CreatesAccount,
+            crate::accounts::AccountLifecycle::Realloc => InstructionEffectKind::ReallocatesAccount,
+            crate::accounts::AccountLifecycle::Close => InstructionEffectKind::ClosesAccount,
+            crate::accounts::AccountLifecycle::Existing => {
+                if self.writable {
+                    InstructionEffectKind::Writes
+                } else if self.signer {
+                    InstructionEffectKind::RequiresSigner
+                } else {
+                    InstructionEffectKind::Reads
+                }
+            }
+        }
+    }
+
+    /// Project account metadata into an effect descriptor.
+    pub const fn effect_descriptor(&self) -> InstructionEffectDescriptor {
+        InstructionEffectDescriptor {
+            kind: self.primary_effect_kind(),
+            target: self.name,
+            layout_ref: self.layout_ref,
+            reason: self.policy_ref,
+        }
+    }
+}
+
+impl crate::accounts::ContextDescriptor {
+    /// Number of account resolver descriptors this context can expose.
+    pub const fn resolver_count(&self) -> usize {
+        self.accounts.len()
+    }
+
+    /// Number of derived instruction effects, including receipt emission.
+    pub const fn effect_count(&self) -> usize {
+        self.accounts.len() + if self.receipts_expected { 1 } else { 0 }
+    }
+
+    /// Find the resolver descriptor for a named account.
+    pub fn find_resolver(&self, account: &str) -> Option<AccountResolverDescriptor> {
+        let mut i = 0;
+        while i < self.accounts.len() {
+            if const_str_eq(self.accounts[i].name, account) {
+                return Some(self.accounts[i].resolver_descriptor());
+            }
+            i += 1;
+        }
+        None
+    }
+
+    /// Find the primary effect descriptor for a named account.
+    pub fn find_effect(&self, target: &str) -> Option<InstructionEffectDescriptor> {
+        let mut i = 0;
+        while i < self.accounts.len() {
+            if const_str_eq(self.accounts[i].name, target) {
+                return Some(self.accounts[i].effect_descriptor());
+            }
+            i += 1;
+        }
+        None
+    }
+}
+
 /// Failure reason for `#[hopper::args] T::parse`.
 ///
 /// Exposed here (rather than in `hopper-core`) because programs that use
@@ -2663,6 +2894,18 @@ impl ProgramManifest {
         None
     }
 
+    /// Find context metadata by instruction/context name.
+    pub fn find_context(&self, name: &str) -> Option<&crate::accounts::ContextDescriptor> {
+        let mut i = 0;
+        while i < self.contexts.len() {
+            if const_str_eq(self.contexts[i].name, name) {
+                return Some(&self.contexts[i]);
+            }
+            i += 1;
+        }
+        None
+    }
+
     /// Find a compatibility pair for an upgrade path.
     pub fn find_compat_pair(
         &self,
@@ -2739,6 +2982,14 @@ impl fmt::Display for ProgramManifest {
             }
             if ix.receipt_expected {
                 write!(f, "  receipt=yes")?;
+            }
+            if let Some(ctx) = self.find_context(ix.name) {
+                write!(
+                    f,
+                    "  resolvers={} effects={}",
+                    ctx.resolver_count(),
+                    ctx.effect_count()
+                )?;
             }
             writeln!(f)?;
         }
@@ -4226,6 +4477,81 @@ mod tests {
         assert_eq!(prog.find_instruction(1).unwrap().name, "deposit");
         assert_eq!(prog.find_instruction(2).unwrap().name, "withdraw");
         assert!(prog.find_instruction(3).is_none());
+    }
+
+    #[test]
+    fn context_resolvers_and_effects_are_derived_from_manifest_metadata() {
+        static CTX_ACCOUNTS: &[crate::accounts::ContextAccountDescriptor] = &[
+            crate::accounts::ContextAccountDescriptor {
+                name: "authority",
+                kind: "Signer",
+                writable: false,
+                signer: true,
+                layout_ref: "",
+                policy_ref: "AUTHORITY",
+                seeds: &[],
+                optional: false,
+                lifecycle: crate::accounts::AccountLifecycle::Existing,
+                payer: "",
+                init_space: 0,
+                has_one: &[],
+                expected_address: "",
+                expected_owner: "",
+            },
+            crate::accounts::ContextAccountDescriptor {
+                name: "vault",
+                kind: "HopperAccount",
+                writable: true,
+                signer: false,
+                layout_ref: "Vault",
+                policy_ref: "TREASURY_WRITE",
+                seeds: &["b\"vault\"", "authority"],
+                optional: false,
+                lifecycle: crate::accounts::AccountLifecycle::Init,
+                payer: "authority",
+                init_space: 128,
+                has_one: &[],
+                expected_address: "",
+                expected_owner: "",
+            },
+        ];
+        static CONTEXTS: &[crate::accounts::ContextDescriptor] =
+            &[crate::accounts::ContextDescriptor {
+                name: "deposit",
+                accounts: CTX_ACCOUNTS,
+                policies: &["TREASURY_WRITE"],
+                receipts_expected: true,
+                mutation_classes: &["Financial"],
+            }];
+
+        let resolver = CONTEXTS[0].find_resolver("vault").unwrap();
+        assert_eq!(resolver.kind, AccountResolverKind::Pda);
+        assert_eq!(resolver.seeds.len(), 2);
+        assert_eq!(resolver.payer, "authority");
+
+        let effect = CONTEXTS[0].find_effect("vault").unwrap();
+        assert_eq!(effect.kind, InstructionEffectKind::CreatesAccount);
+        assert_eq!(effect.layout_ref, "Vault");
+        assert_eq!(CONTEXTS[0].effect_count(), 3);
+
+        let prog = ProgramManifest {
+            name: "test",
+            version: "0.1.0",
+            description: "",
+            layouts: &[],
+            layout_metadata: &[],
+            instructions: PM_INSTRUCTIONS,
+            events: &[],
+            policies: &[],
+            compatibility_pairs: &[],
+            tooling_hints: &[],
+            contexts: CONTEXTS,
+        };
+        assert!(prog.find_context("deposit").is_some());
+        extern crate alloc;
+        use alloc::format;
+        let rendered = format!("{}", prog);
+        assert!(rendered.contains("resolvers=2 effects=3"));
     }
 
     #[test]

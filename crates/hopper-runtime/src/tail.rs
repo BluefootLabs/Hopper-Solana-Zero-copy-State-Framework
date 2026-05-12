@@ -249,6 +249,13 @@ impl<const N: usize> BoundedString<N> {
         Ok(())
     }
 
+    /// Clear the string without changing its capacity.
+    #[inline]
+    pub fn clear(&mut self) {
+        self.bytes = [0u8; N];
+        self.len = 0;
+    }
+
     /// Return the initialized bytes.
     #[inline(always)]
     pub fn as_bytes(&self) -> &[u8] {
@@ -271,6 +278,18 @@ impl<const N: usize> BoundedString<N> {
     #[inline(always)]
     pub const fn capacity(&self) -> usize {
         N
+    }
+
+    /// Remaining byte capacity.
+    #[inline(always)]
+    pub const fn remaining_capacity(&self) -> usize {
+        N - self.len as usize
+    }
+
+    /// Whether the string has reached its maximum byte capacity.
+    #[inline(always)]
+    pub const fn is_full(&self) -> bool {
+        self.len as usize == N
     }
 
     /// Whether the string is empty.
@@ -368,6 +387,32 @@ where
         Ok(())
     }
 
+    /// Pop the last initialized item, if present.
+    #[inline]
+    pub fn pop(&mut self) -> Option<T> {
+        let len = self.len as usize;
+        if len == 0 {
+            return None;
+        }
+        let new_len = len - 1;
+        let item = self.items[new_len];
+        self.items[new_len] = T::default();
+        self.len = new_len as u16;
+        Some(item)
+    }
+
+    /// Clear all initialized items without changing capacity.
+    #[inline]
+    pub fn clear(&mut self) {
+        let len = self.len as usize;
+        let mut i = 0;
+        while i < len {
+            self.items[i] = T::default();
+            i += 1;
+        }
+        self.len = 0;
+    }
+
     /// Return the initialized items.
     #[inline(always)]
     pub fn as_slice(&self) -> &[T] {
@@ -392,12 +437,82 @@ where
         N
     }
 
+    /// Remaining element capacity.
+    #[inline(always)]
+    pub const fn remaining_capacity(&self) -> usize {
+        N - self.len as usize
+    }
+
+    /// Whether the vector has reached its maximum element capacity.
+    #[inline(always)]
+    pub const fn is_full(&self) -> bool {
+        self.len as usize == N
+    }
+
     /// Whether the vector is empty.
     #[inline(always)]
     pub const fn is_empty(&self) -> bool {
         self.len == 0
     }
 }
+
+impl<T, const N: usize> BoundedVec<T, N>
+where
+    T: TailCodec + Copy + Default + PartialEq,
+{
+    /// Return true when the initialized items contain `item`.
+    #[inline]
+    pub fn contains(&self, item: &T) -> bool {
+        self.as_slice().iter().any(|candidate| candidate == item)
+    }
+
+    /// Push `item` only if it is not already initialized.
+    ///
+    /// Returns `Ok(true)` when an item was inserted and `Ok(false)` when it
+    /// was already present.
+    #[inline]
+    pub fn push_unique(&mut self, item: T) -> Result<bool, ProgramError> {
+        if self.contains(&item) {
+            return Ok(false);
+        }
+        self.push(item)?;
+        Ok(true)
+    }
+
+    /// Remove the first matching item, preserving order.
+    ///
+    /// Returns `true` when an item was removed.
+    #[inline]
+    pub fn remove_first(&mut self, item: &T) -> bool {
+        let len = self.len as usize;
+        let mut found = None;
+        let mut i = 0;
+        while i < len {
+            if &self.items[i] == item {
+                found = Some(i);
+                break;
+            }
+            i += 1;
+        }
+        let Some(index) = found else {
+            return false;
+        };
+        let mut j = index;
+        while j + 1 < len {
+            self.items[j] = self.items[j + 1];
+            j += 1;
+        }
+        self.items[len - 1] = T::default();
+        self.len = (len - 1) as u16;
+        true
+    }
+}
+
+/// Short alias for bounded UTF-8 strings in dynamic tails.
+pub type HopperString<const N: usize> = BoundedString<N>;
+
+/// Short alias for bounded vectors in dynamic tails.
+pub type HopperVec<T, const N: usize> = BoundedVec<T, N>;
 
 impl<T, const N: usize> Default for BoundedVec<T, N>
 where
@@ -704,6 +819,18 @@ mod tests {
     }
 
     #[test]
+    fn bounded_string_capacity_helpers() {
+        let mut label = HopperString::<8>::from_str("ops").unwrap();
+        assert_eq!(label.remaining_capacity(), 5);
+        assert!(!label.is_full());
+        label.set_str("12345678").unwrap();
+        assert!(label.is_full());
+        label.clear();
+        assert!(label.is_empty());
+        assert_eq!(label.as_bytes(), b"");
+    }
+
+    #[test]
     fn bounded_vec_roundtrip() {
         let mut vec = BoundedVec::<u64, 4>::empty();
         vec.push(7).unwrap();
@@ -714,5 +841,74 @@ mod tests {
         let (back, consumed) = BoundedVec::<u64, 4>::decode(&buf).unwrap();
         assert_eq!(consumed, written);
         assert_eq!(back.as_slice(), &[7, 9]);
+    }
+
+    #[test]
+    fn bounded_vec_set_helpers_preserve_order() {
+        let mut vec = HopperVec::<u64, 4>::empty();
+        assert_eq!(vec.remaining_capacity(), 4);
+        assert_eq!(vec.push_unique(7).unwrap(), true);
+        assert_eq!(vec.push_unique(7).unwrap(), false);
+        vec.push(9).unwrap();
+        vec.push(11).unwrap();
+        assert!(vec.contains(&9));
+        assert!(vec.remove_first(&9));
+        assert_eq!(vec.as_slice(), &[7, 11]);
+        assert_eq!(vec.pop(), Some(11));
+        assert_eq!(vec.as_slice(), &[7]);
+        vec.clear();
+        assert!(vec.is_empty());
+    }
+}
+
+#[cfg(kani)]
+mod kani_proofs {
+    use super::*;
+
+    #[kani::proof]
+    fn bounded_string_decode_never_exceeds_capacity() {
+        let len: u16 = kani::any();
+        let mut input = [0u8; BoundedString::<4>::MAX_ENCODED_LEN];
+        input[..2].copy_from_slice(&len.to_le_bytes());
+
+        let result = BoundedString::<4>::decode(&input);
+        if len as usize > 4 {
+            assert!(result.is_err());
+        } else {
+            let (decoded, consumed) = result.unwrap();
+            assert!(decoded.len() <= decoded.capacity());
+            assert_eq!(consumed, 2 + decoded.len());
+        }
+    }
+
+    #[kani::proof]
+    fn bounded_vec_mutators_preserve_capacity() {
+        let values: [u8; 5] = kani::any();
+        let mut vec = BoundedVec::<u8, 4>::empty();
+
+        let _ = vec.push(values[0]);
+        let _ = vec.push(values[1]);
+        let _ = vec.push(values[2]);
+        let _ = vec.push(values[3]);
+        let fifth = vec.push(values[4]);
+
+        assert!(vec.len() <= vec.capacity());
+        assert!(fifth.is_err());
+        let _ = vec.pop();
+        assert!(vec.len() <= vec.capacity());
+        vec.clear();
+        assert_eq!(vec.len(), 0);
+    }
+
+    #[kani::proof]
+    fn tail_payload_bounds_checks_arbitrary_prefixes() {
+        let data: [u8; 16] = kani::any();
+        let body_end: usize = kani::any();
+        kani::assume(body_end < data.len());
+
+        let result = tail_payload(&data, body_end);
+        if let Ok(payload) = result {
+            assert!(payload.len() <= data.len());
+        }
     }
 }

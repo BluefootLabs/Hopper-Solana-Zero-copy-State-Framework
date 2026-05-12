@@ -1169,7 +1169,6 @@ fn render_lib_rs_quasar_port() -> String {
     r##"//! Bounded dynamic-tail port scaffold: fixed vault + dynamic multisig tail.
 
 #![cfg_attr(target_os = "solana", no_std)]
-#![allow(dead_code)]
 
 use hopper::prelude::*;
 
@@ -1184,10 +1183,10 @@ pub struct Vault {
     pub bump: u8,
 }
 
-hopper_dynamic_tail! {
+hopper_dynamic_fields! {
     pub struct MultisigTail {
-        label: BoundedString<32>,
-        signers: BoundedVec<Address, 10>,
+        label: string<32>,
+        signers: vec<Address, 10>,
     }
 }
 
@@ -1203,22 +1202,75 @@ impl Multisig {
     pub const ALLOC_SPACE: usize = Self::INIT_SPACE + 4 + MultisigTail::MAX_ENCODED_LEN;
 }
 
+pub fn initialize_multisig_data(
+    data: &mut [u8],
+    threshold: u64,
+    label: &str,
+    signers: &[Address],
+) -> ProgramResult {
+    if data.len() < Multisig::ALLOC_SPACE {
+        return Err(ProgramError::AccountDataTooSmall);
+    }
+    if threshold == 0 || threshold as usize > signers.len() {
+        return Err(ProgramError::InvalidInstructionData);
+    }
+    init_header::<Multisig>(data)?;
+    let body = Multisig::overlay_mut(&mut data[HopperHeader::SIZE..Multisig::TAIL_PREFIX_OFFSET])?;
+    body.threshold = WireU64::new(threshold);
+    let tail = MultisigTail {
+        label: HopperString::from_str(label)?,
+        signers: HopperVec::from_slice(signers)?,
+    };
+    Multisig::tail_write(data, &tail)?;
+    Ok(())
+}
+
+pub fn threshold_met(data: &[u8], approvals: &[Address]) -> Result<bool, ProgramError> {
+    if data.len() < Multisig::TAIL_PREFIX_OFFSET {
+        return Err(ProgramError::AccountDataTooSmall);
+    }
+    let body = Multisig::overlay(&data[HopperHeader::SIZE..Multisig::TAIL_PREFIX_OFFSET])?;
+    let needed = body.threshold.get() as usize;
+    if needed == 0 {
+        return Ok(false);
+    }
+    let tail = Multisig::tail_read(data)?;
+    let mut approved = 0usize;
+    for signer in tail.signers.as_slice() {
+        if approvals.iter().any(|candidate| candidate == signer) {
+            approved += 1;
+            if approved >= needed {
+                return Ok(true);
+            }
+        }
+    }
+    Ok(false)
+}
+
+pub fn rename_multisig_data(data: &mut [u8], label: &str) -> ProgramResult {
+    let mut tail = Multisig::tail_read(data)?;
+    tail.label.set_str(label)?;
+    Multisig::tail_write(data, &tail)?;
+    Ok(())
+}
+
+pub fn add_signer_data(data: &mut [u8], signer: Address) -> ProgramResult {
+    let mut tail = Multisig::tail_read(data)?;
+    tail.signers.push_unique(signer)?;
+    Multisig::tail_write(data, &tail)?;
+    Ok(())
+}
+
 pub fn rename_multisig(multisig: &AccountView, label: &str) -> ProgramResult {
     multisig.require_writable()?;
     let mut data = multisig.try_borrow_mut()?;
-    let mut tail = Multisig::tail_read(&data)?;
-    tail.label.set_str(label)?;
-    Multisig::tail_write(&mut data, &tail)?;
-    Ok(())
+    rename_multisig_data(&mut data, label)
 }
 
 pub fn add_signer(multisig: &AccountView, signer: Address) -> ProgramResult {
     multisig.require_writable()?;
     let mut data = multisig.try_borrow_mut()?;
-    let mut tail = Multisig::tail_read(&data)?;
-    tail.signers.push(signer)?;
-    Multisig::tail_write(&mut data, &tail)?;
-    Ok(())
+    add_signer_data(&mut data, signer)
 }
 "##
     .to_string()
@@ -1665,6 +1717,14 @@ mod tests {
         // The NFT template adds the `metaplex` feature.
         let dep_nft = render_hopper_dependency(Some("../hopper"), Template::NftMint);
         assert!(dep_nft.contains("metaplex"));
+    }
+
+    #[test]
+    fn quasar_port_template_uses_dynamic_fields_sugar() {
+        let source = render_lib_rs_quasar_port();
+        assert!(source.contains("hopper_dynamic_fields!"));
+        assert!(source.contains("label: string<32>"));
+        assert!(source.contains("signers: vec<Address, 10>"));
     }
 
     #[test]

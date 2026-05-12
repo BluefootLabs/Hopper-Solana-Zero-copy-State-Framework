@@ -91,10 +91,10 @@ pub struct SegmentBorrow {
 /// Check whether two byte ranges overlap.
 #[inline(always)]
 const fn ranges_overlap(a_off: u32, a_size: u32, b_off: u32, b_size: u32) -> bool {
-    let a_end = a_off + a_size;
-    let b_end = b_off + b_size;
+    let a_end = a_off as u64 + a_size as u64;
+    let b_end = b_off as u64 + b_size as u64;
     // Non-overlapping iff one ends before the other starts.
-    !(a_end <= b_off || b_end <= a_off)
+    !(a_end <= b_off as u64 || b_end <= a_off as u64)
 }
 
 /// Instruction-scoped segment borrow registry.
@@ -460,6 +460,92 @@ impl<'a> SegmentBorrowGuard<'a> {
 impl<'a> Drop for SegmentBorrowGuard<'a> {
     fn drop(&mut self) {
         self.registry.release(&self.borrow);
+    }
+}
+
+#[cfg(kani)]
+mod kani_proofs {
+    use super::*;
+
+    #[kani::proof]
+    fn range_overlap_is_symmetric_for_arbitrary_u32s() {
+        let a_off: u32 = kani::any();
+        let a_size: u32 = kani::any();
+        let b_off: u32 = kani::any();
+        let b_size: u32 = kani::any();
+
+        assert_eq!(
+            ranges_overlap(a_off, a_size, b_off, b_size),
+            ranges_overlap(b_off, b_size, a_off, a_size)
+        );
+    }
+
+    #[kani::proof]
+    fn overlapping_write_blocks_same_account_accesses() {
+        let offset: u32 = kani::any();
+        let size: u32 = kani::any();
+        let delta: u32 = kani::any();
+        kani::assume(offset <= 1024);
+        kani::assume(size > 0 && size <= 64);
+        kani::assume(delta < size);
+
+        let key = Address::new([7u8; 32]);
+        let probe_offset = offset + delta;
+        let mut reg = SegmentBorrowRegistry::new();
+
+        assert!(reg.register_write(&key, offset, size).is_ok());
+        assert!(reg.register_read(&key, probe_offset, 1).is_err());
+        assert!(reg.register_write(&key, probe_offset, 1).is_err());
+        assert_eq!(reg.len(), 1);
+    }
+
+    #[kani::proof]
+    fn overlapping_reads_are_shared_for_same_account() {
+        let offset: u32 = kani::any();
+        let size: u32 = kani::any();
+        let delta: u32 = kani::any();
+        kani::assume(offset <= 1024);
+        kani::assume(size > 0 && size <= 64);
+        kani::assume(delta < size);
+
+        let key = Address::new([8u8; 32]);
+        let probe_offset = offset + delta;
+        let mut reg = SegmentBorrowRegistry::new();
+
+        assert!(reg.register_read(&key, offset, size).is_ok());
+        assert!(reg.register_read(&key, probe_offset, 1).is_ok());
+        assert_eq!(reg.len(), 2);
+    }
+
+    #[kani::proof]
+    fn fingerprint_collision_different_addresses_do_not_conflict() {
+        let key_a = Address::new([9u8; 32]);
+        let mut key_b_bytes = [9u8; 32];
+        key_b_bytes[8] = 10;
+        let key_b = Address::new(key_b_bytes);
+        let mut reg = SegmentBorrowRegistry::new();
+
+        assert_eq!(address_fingerprint(&key_a), address_fingerprint(&key_b));
+        assert_ne!(key_a.as_array(), key_b.as_array());
+        assert!(reg.register_write(&key_a, 0, 8).is_ok());
+        assert!(reg.register_write(&key_b, 0, 8).is_ok());
+        assert_eq!(reg.len(), 2);
+    }
+
+    #[kani::proof]
+    fn release_removes_exact_borrow_and_preserves_others() {
+        let key = Address::new([11u8; 32]);
+        let mut reg = SegmentBorrowRegistry::new();
+
+        let first = reg.register_leased_read(&key, 0, 8).unwrap();
+        let second = reg.register_leased_write(&key, 8, 8).unwrap();
+        assert!(reg.release(&first));
+
+        assert_eq!(reg.len(), 1);
+        assert!(reg.find_exact(&key, 0, 8, AccessKind::Read).is_none());
+        assert!(reg.find_exact(&key, 8, 8, AccessKind::Write).is_some());
+        assert!(reg.release(&second));
+        assert!(reg.is_empty());
     }
 }
 

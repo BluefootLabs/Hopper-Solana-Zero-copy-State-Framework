@@ -126,6 +126,7 @@ fn print_profile_usage() {
     eprintln!(
         "  --baseline <folded.txt>      Compare symbol sizes against a saved baseline folded file"
     );
+    eprintln!("  --sections                   Print ELF section size summary");
     eprintln!("  --open                       Open the HTML flamegraph in the default browser");
     eprintln!("  --no-demangle                Leave mangled symbol names intact");
 }
@@ -138,6 +139,16 @@ struct ElfArgs<'a> {
     baseline: Option<&'a str>,
     open_html: bool,
     demangle: bool,
+    sections: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct SectionSummary {
+    name: String,
+    kind: String,
+    address: u64,
+    size: u64,
+    executable: bool,
 }
 
 fn parse_elf_args<'a>(args: &'a [String]) -> Result<ElfArgs<'a>, String> {
@@ -152,6 +163,7 @@ fn parse_elf_args<'a>(args: &'a [String]) -> Result<ElfArgs<'a>, String> {
         baseline: None,
         open_html: false,
         demangle: true,
+        sections: false,
     };
     let mut i = 1;
     while i < args.len() {
@@ -176,6 +188,7 @@ fn parse_elf_args<'a>(args: &'a [String]) -> Result<ElfArgs<'a>, String> {
                 i += 1;
                 out.baseline = Some(args.get(i).ok_or("`--baseline` requires a path")?.as_str());
             }
+            "--sections" => out.sections = true,
             "--open" => out.open_html = true,
             "--no-demangle" => out.demangle = false,
             other => return Err(format!("unknown elf flag: {other}")),
@@ -193,6 +206,7 @@ fn cmd_profile_elf(args: &[String]) -> Result<(), String> {
     let bytes = fs::read(opts.path).map_err(|e| format!("could not read `{}`: {e}", opts.path))?;
 
     let (symbols, byte_total) = parse_symbols(&bytes, opts.demangle)?;
+    let sections = parse_section_summary(&bytes)?;
 
     // Optional baseline. Loaded from a previously-saved folded-stack
     // file (the same format `--folded` writes). When present, every
@@ -210,6 +224,14 @@ fn cmd_profile_elf(args: &[String]) -> Result<(), String> {
 
     println!("hopper profile elf  -  {}", opts.path);
     println!("total code in .text: {} bytes", byte_total);
+    println!(
+        "estimated SBF instructions: {}",
+        estimate_sbf_instructions(byte_total)
+    );
+    println!(
+        "static CU heuristic: {}",
+        estimate_static_cu_total(&symbols)
+    );
     println!("distinct symbols:    {}", ranked.len());
     if let Some(ref base) = baseline_map {
         let base_total: u64 = base.values().sum();
@@ -223,16 +245,28 @@ fn cmd_profile_elf(args: &[String]) -> Result<(), String> {
         );
     }
     println!();
+    if opts.sections {
+        print_section_summary(&sections);
+        println!();
+    }
     if baseline_map.is_some() {
         println!("top {} symbols by static size (Δ vs. baseline):", opts.top);
-        println!("{:>10}  {:>6}  {:>10}  symbol", "bytes", "pct", "delta");
+        println!(
+            "{:>10}  {:>6}  {:>10}  {:>8}  {:>10}  symbol",
+            "bytes", "pct", "delta", "sbf-ins", "cu-ish"
+        );
     } else {
         println!("top {} symbols by static size:", opts.top);
-        println!("{:>10}  {:>6}  symbol", "bytes", "pct");
+        println!(
+            "{:>10}  {:>6}  {:>8}  {:>10}  symbol",
+            "bytes", "pct", "sbf-ins", "cu-ish"
+        );
     }
     let total = byte_total.max(1);
     for (name, sz) in ranked.iter().take(opts.top) {
         let pct = (*sz as f64 / total as f64) * 100.0;
+        let sbf_ins = estimate_sbf_instructions(*sz);
+        let cu = estimate_static_cu(name, *sz);
         match baseline_map.as_ref() {
             Some(base) => {
                 let prev = base.get(*name).copied().unwrap_or(0);
@@ -244,10 +278,16 @@ fn cmd_profile_elf(args: &[String]) -> Result<(), String> {
                 } else {
                     " "
                 };
-                println!("{:>10}  {:>5.2}%  {:>9}{}  {}", sz, pct, sign, delta, name);
+                println!(
+                    "{:>10}  {:>5.2}%  {:>9}{}  {:>8}  {:>10}  {}",
+                    sz, pct, sign, delta, sbf_ins, cu, name
+                );
             }
             None => {
-                println!("{:>10}  {:>5.2}%  {}", sz, pct, name);
+                println!(
+                    "{:>10}  {:>5.2}%  {:>8}  {:>10}  {}",
+                    sz, pct, sbf_ins, cu, name
+                );
             }
         }
     }
@@ -317,6 +357,86 @@ fn parse_symbols(bytes: &[u8], demangle: bool) -> Result<(BTreeMap<String, u64>,
         ));
     }
     Ok((out, total))
+}
+
+/// Parse a lightweight ELF section summary. This complements the symbol table:
+/// symbols explain which functions dominate code size, while sections show
+/// whether growth is coming from executable code, rodata, relocations, or
+/// debug/name payloads.
+fn parse_section_summary(bytes: &[u8]) -> Result<Vec<SectionSummary>, String> {
+    use object::{Object, ObjectSection};
+
+    let file = object::File::parse(bytes).map_err(|e| format!("not a valid ELF: {e}"))?;
+    let mut sections = Vec::new();
+    for section in file.sections() {
+        let name = section.name().unwrap_or("?").to_string();
+        let kind = format!("{:?}", section.kind());
+        let executable = matches!(section.kind(), object::SectionKind::Text)
+            || name == ".text"
+            || name.starts_with(".text.");
+        sections.push(SectionSummary {
+            name,
+            kind,
+            address: section.address(),
+            size: section.size(),
+            executable,
+        });
+    }
+    sections.sort_by(|a, b| b.size.cmp(&a.size).then_with(|| a.name.cmp(&b.name)));
+    Ok(sections)
+}
+
+fn print_section_summary(sections: &[SectionSummary]) {
+    println!("ELF sections by size:");
+    println!(
+        "{:>10}  {:>12}  {:>5}  {:<14}  section",
+        "bytes", "address", "exec", "kind"
+    );
+    for section in sections.iter().filter(|section| section.size > 0).take(16) {
+        println!(
+            "{:>10}  0x{:010x}  {:>5}  {:<14}  {}",
+            section.size,
+            section.address,
+            if section.executable { "yes" } else { "" },
+            section.kind,
+            section.name,
+        );
+    }
+}
+
+/// SBF/eBPF instructions are 8 bytes wide. Static code bytes therefore give
+/// a useful first-order instruction-count estimate, rounded up for odd section
+/// or symbol sizes that appear after linker/debug transformations.
+fn estimate_sbf_instructions(bytes: u64) -> u64 {
+    bytes.saturating_add(7) / 8
+}
+
+/// Deliberately simple static CU heuristic. The base signal is instruction
+/// count; symbol-name weights flag expensive families that static size alone
+/// hides, such as CPI invoke paths and crypto/hash helpers. Treat this as a
+/// prioritization score, not a replacement for on-chain measurements.
+fn estimate_static_cu(symbol: &str, bytes: u64) -> u64 {
+    let instructions = estimate_sbf_instructions(bytes);
+    let lower = symbol.to_ascii_lowercase();
+    let multiplier = if lower.contains("invoke") || lower.contains("cpi") {
+        24
+    } else if lower.contains("secp") || lower.contains("ed25519") {
+        64
+    } else if lower.contains("sha") || lower.contains("hash") || lower.contains("keccak") {
+        12
+    } else if lower.contains("memcpy") || lower.contains("memmove") || lower.contains("memcmp") {
+        4
+    } else {
+        1
+    };
+    instructions.saturating_mul(multiplier)
+}
+
+fn estimate_static_cu_total(symbols: &BTreeMap<String, u64>) -> u64 {
+    symbols
+        .iter()
+        .map(|(name, bytes)| estimate_static_cu(name, *bytes))
+        .sum()
 }
 
 /// Render a Brendan-Gregg folded-stack flamegraph input from a
@@ -411,14 +531,16 @@ fn render_html_flamegraph(
             .and_then(|b| b.get(*name).copied())
             .map(|prev| *sz as i64 - prev as i64);
         data_json.push_str(&format!(
-            "{{\"n\":\"{}\",\"b\":{},\"p\":{:.4},\"d\":{}}}",
+            "{{\"n\":\"{}\",\"b\":{},\"p\":{:.4},\"d\":{},\"i\":{},\"c\":{}}}",
             json_escape(name),
             sz,
             pct,
             match delta {
                 Some(d) => d.to_string(),
                 None => "null".to_string(),
-            }
+            },
+            estimate_sbf_instructions(*sz),
+            estimate_static_cu(name, *sz),
         ));
     }
     data_json.push(']');
@@ -572,7 +694,7 @@ function applyFilter(needle) {{
 }}
 
 function showTooltip(sym, x, y) {{
-  let body = `<strong>${{escapeHtml(sym.n)}}</strong>\n${{fmt(sym.b)}} (${{sym.p.toFixed(2)}}%)`;
+    let body = `<strong>${{escapeHtml(sym.n)}}</strong>\n${{fmt(sym.b)}} (${{sym.p.toFixed(2)}}%)\nSBF insns: ${{sym.i}}\nCU-ish score: ${{sym.c}}`;
   if (sym.d !== null) {{
     const sign = sym.d > 0 ? "+" : "";
     body += `\nΔ vs. baseline: ${{sign}}${{fmt(sym.d)}}`;
@@ -750,5 +872,24 @@ mod tests {
         // Names appear in the inlined JSON.
         assert!(html.contains("\"n\":\"foo\""));
         assert!(html.contains("\"n\":\"bar\""));
+        assert!(html.contains("\"i\":13"));
+        assert!(html.contains("CU-ish score"));
+    }
+
+    #[test]
+    fn sbf_instruction_estimate_rounds_up_to_eight_byte_slots() {
+        assert_eq!(estimate_sbf_instructions(0), 0);
+        assert_eq!(estimate_sbf_instructions(1), 1);
+        assert_eq!(estimate_sbf_instructions(8), 1);
+        assert_eq!(estimate_sbf_instructions(9), 2);
+    }
+
+    #[test]
+    fn static_cu_heuristic_weights_expensive_symbol_families() {
+        let plain = estimate_static_cu("deposit", 80);
+        let cpi = estimate_static_cu("hopper_runtime::cpi::invoke_signed", 80);
+        let hash = estimate_static_cu("sha256_compress", 80);
+        assert!(cpi > hash);
+        assert!(hash > plain);
     }
 }

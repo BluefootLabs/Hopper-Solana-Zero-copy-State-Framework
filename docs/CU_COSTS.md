@@ -130,7 +130,7 @@ Use the CLI shipped in this release:
 hopper profile bench --fail-on-regression 2
 ```
 
-against any program that links `hopper-bench`, or point `hopper profile elf` at a compiled `.so` for static size analysis plus a flamegraph.
+against any program that links `hopper-bench`, or point `hopper profile elf` at a compiled `.so` for static size analysis, SBF instruction-count estimates, optional ELF section summaries, and a flamegraph.
 
 ## Why these numbers hold up
 

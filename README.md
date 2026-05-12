@@ -146,9 +146,11 @@ Use Hopper's access tiers deliberately:
 5. `as_mut_ptr` - full raw pointer escape for policy-controlled raw mode.
 
 For variable-length account data, use `#[hopper::state(dynamic_tail = T)]` for
-small bounded payloads attached to one fixed layout, and named extension
-segments for larger/repeated regions that need independent borrow tracking or
-migration metadata.
+small bounded payloads attached to one fixed layout. `hopper_dynamic_fields!`
+lets Quasar-style ports write `string<N>` and `vec<T, N>` while Hopper lowers
+them to `HopperString<N>` and `HopperVec<T, N>`; named extension segments remain
+the right tool for larger repeated regions that need independent borrow tracking
+or migration metadata.
 
 ## Repository layout
 

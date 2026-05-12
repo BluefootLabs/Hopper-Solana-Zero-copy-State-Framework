@@ -43,14 +43,14 @@ validated loads, and generated segment accessors.
 
 ## Bounded Tail
 
-Use `hopper_dynamic_tail!` for a compact tail payload with bounded strings and
+Use `hopper_dynamic_fields!` for a compact tail payload with bounded strings and
 vectors:
 
 ```rust
-hopper_dynamic_tail! {
+hopper_dynamic_fields! {
     pub struct MultisigTail {
-        label: BoundedString<32>,
-        signers: BoundedVec<Address, 10>,
+        label: string<32>,
+        signers: vec<Address, 10>,
     }
 }
 
@@ -67,10 +67,12 @@ impl Multisig {
 }
 ```
 
-`BoundedString<N>` stores UTF-8 bytes with a `u16` length prefix.
-`BoundedVec<T, N>` stores a `u16` element count followed by each element's
-`TailCodec` encoding. `Address` implements `TailCodec`, so bounded signer lists
-work without a custom codec.
+The macro lowers `string<N>` to `HopperString<N>` and `vec<T, N>` to
+`HopperVec<T, N>`. Those are short aliases for `BoundedString<N>` and
+`BoundedVec<T, N>`, storing a `u16` byte or element count followed by the
+initialized payload. `Address` implements `TailCodec`, so bounded signer lists
+work without a custom codec. For non-string/list payload members, write the
+normal `TailCodec` type directly in the same macro body.
 
 ## Read and Write the Tail
 
@@ -88,19 +90,13 @@ Example update handlers:
 pub fn rename_multisig(multisig: &AccountView, label: &str) -> ProgramResult {
     multisig.require_writable()?;
     let mut data = multisig.try_borrow_mut()?;
-    let mut tail = Multisig::tail_read(&data)?;
-    tail.label.set_str(label)?;
-    Multisig::tail_write(&mut data, &tail)?;
-    Ok(())
+    rename_multisig_data(&mut data, label)
 }
 
 pub fn add_signer(multisig: &AccountView, signer: Address) -> ProgramResult {
     multisig.require_writable()?;
     let mut data = multisig.try_borrow_mut()?;
-    let mut tail = Multisig::tail_read(&data)?;
-    tail.signers.push(signer)?;
-    Multisig::tail_write(&mut data, &tail)?;
-    Ok(())
+    add_signer_data(&mut data, signer)
 }
 ```
 
@@ -112,5 +108,8 @@ segment or companion account instead.
 ## Full Example
 
 See [`examples/quasar-port-20-min`](../examples/quasar-port-20-min/src/lib.rs)
-for a complete compile-checked example containing the fixed vault, bounded
-multisig tail, and update helpers.
+for a workspace example containing the fixed vault, bounded multisig tail,
+initialization helper, signer-list mutation helpers, and threshold check. The
+release checklist runs `cargo check -p hopper-quasar-port-20-min` and
+`cargo test -p hopper-quasar-port-20-min` before the guide is treated as
+compile-checked release material.

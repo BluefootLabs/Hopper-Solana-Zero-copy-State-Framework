@@ -5,7 +5,7 @@ use hopper_core::abi::{
     TypedAddress, UntypedAddress, WireBool, WireI128, WireI16, WireI32, WireI64, WireU128, WireU16,
     WireU32, WireU64,
 };
-use hopper_runtime::{Address, ProgramError};
+use hopper_runtime::{Address, BoundedString, BoundedVec, ProgramError};
 
 /// Bounded decoder over the instruction payload after the discriminator byte.
 pub struct Decoder<'a> {
@@ -184,6 +184,31 @@ impl<'a> DecodeInstructionArg<'a> for &'a [u8] {
     }
 }
 
+impl<'a, const N: usize> DecodeInstructionArg<'a> for BoundedString<N> {
+    #[inline]
+    fn decode(decoder: &mut Decoder<'a>) -> Result<Self, ProgramError> {
+        let (value, consumed) =
+            <BoundedString<N> as hopper_runtime::TailCodec>::decode(decoder.remaining())
+                .map_err(|_| ProgramError::InvalidInstructionData)?;
+        decoder.take(consumed)?;
+        Ok(value)
+    }
+}
+
+impl<'a, T, const N: usize> DecodeInstructionArg<'a> for BoundedVec<T, N>
+where
+    T: hopper_runtime::TailCodec + Copy + Default,
+{
+    #[inline]
+    fn decode(decoder: &mut Decoder<'a>) -> Result<Self, ProgramError> {
+        let (value, consumed) =
+            <BoundedVec<T, N> as hopper_runtime::TailCodec>::decode(decoder.remaining())
+                .map_err(|_| ProgramError::InvalidInstructionData)?;
+        decoder.take(consumed)?;
+        Ok(value)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -228,5 +253,40 @@ mod tests {
         let mut decoder = Decoder::new(&data);
         assert_eq!(u8::decode(&mut decoder).unwrap(), 1);
         assert_eq!(decoder.finish(), Err(ProgramError::InvalidInstructionData));
+    }
+
+    #[test]
+    fn decodes_bounded_string_arg_then_scalar() {
+        let label = BoundedString::<16>::from_str("ops").unwrap();
+        let mut data = [0u8; <BoundedString<16> as hopper_runtime::TailCodec>::MAX_ENCODED_LEN + 8];
+        let written =
+            <BoundedString<16> as hopper_runtime::TailCodec>::encode(&label, &mut data).unwrap();
+        data[written..written + 8].copy_from_slice(&9u64.to_le_bytes());
+
+        let mut decoder = Decoder::new(&data[..written + 8]);
+        let decoded = <BoundedString<16> as DecodeInstructionArg>::decode(&mut decoder).unwrap();
+        let count = <u64 as DecodeInstructionArg>::decode(&mut decoder).unwrap();
+
+        assert_eq!(decoded.as_str().unwrap(), "ops");
+        assert_eq!(count, 9);
+        assert!(decoder.finish().is_ok());
+    }
+
+    #[test]
+    fn decodes_bounded_vec_arg_then_tail_slice() {
+        let vec = BoundedVec::<u16, 4>::from_slice(&[7, 11]).unwrap();
+        let mut data =
+            [0u8; <BoundedVec<u16, 4> as hopper_runtime::TailCodec>::MAX_ENCODED_LEN + 2];
+        let written =
+            <BoundedVec<u16, 4> as hopper_runtime::TailCodec>::encode(&vec, &mut data).unwrap();
+        data[written..written + 2].copy_from_slice(&[1, 2]);
+
+        let mut decoder = Decoder::new(&data[..written + 2]);
+        let decoded = <BoundedVec<u16, 4> as DecodeInstructionArg>::decode(&mut decoder).unwrap();
+        let tail = <&[u8]>::decode(&mut decoder).unwrap();
+
+        assert_eq!(decoded.as_slice(), &[7, 11]);
+        assert_eq!(tail, &[1, 2]);
+        assert!(decoder.finish().is_ok());
     }
 }

@@ -25,7 +25,7 @@ Hopper's typed pointer and validation surface.
 | `#[hopper::pod]` (alias `#[pod]`) | Pod marker derive with align-1 / no-padding compile-time assertions |
 | `#[hopper::crank]` | Keeper-bot autonomous-marker descriptor |
 | `#[hopper::dynamic]` | Dynamic-tail field metadata for ring-buffer bookkeeping |
-| `hopper::declare_program!` | IDL-driven CPI surface with compile-time `FINGERPRINT` const |
+| `hopper::declare_program!` | Manifest-driven CPI surface with compile-time `FINGERPRINT`, borrowed Hopper instruction parts, and resolver/effect specs |
 | `#[derive(HopperInitSpace)]` | Anchor-parity `INIT_SPACE` derive for hand-authored Pod structs |
 
 ## `#[hopper::state]` Copy contract

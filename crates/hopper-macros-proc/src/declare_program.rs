@@ -176,6 +176,67 @@ pub fn expand(input: TokenStream) -> syn::Result<TokenStream> {
             /// supply their own in that case.
             pub const PROGRAM_ID_STR: &str = #program_id_str;
 
+            /// Built instruction parts returned by generated CPI builders.
+            ///
+            /// The account metas borrow addresses from the caller-owned
+            /// `<Name>Accounts` value. Keep that value alive until the CPI
+            /// invoke using the `view()` helper has completed.
+            #[derive(Clone, Debug)]
+            pub struct BuiltInstruction<'a, const A: usize, const D: usize> {
+                pub program_id: &'a ::hopper::__runtime::Address,
+                pub accounts: [::hopper::__runtime::InstructionAccount<'a>; A],
+                pub data: [u8; D],
+            }
+
+            impl<'a, const A: usize, const D: usize> BuiltInstruction<'a, A, D> {
+                pub fn view<'b>(&'b self) -> ::hopper::__runtime::InstructionView<'a, 'b, 'a, 'b>
+                where
+                    'a: 'b,
+                {
+                    ::hopper::__runtime::InstructionView {
+                        program_id: self.program_id,
+                        accounts: &self.accounts,
+                        data: &self.data,
+                    }
+                }
+            }
+
+            /// Static resolver metadata generated from the manifest.
+            #[derive(Clone, Copy, Debug)]
+            pub struct AccountSpec {
+                pub name: &'static str,
+                pub writable: bool,
+                pub signer: bool,
+                pub resolver: &'static str,
+                pub layout_ref: &'static str,
+                pub lifecycle: &'static str,
+                pub payer: &'static str,
+                pub expected_address: &'static str,
+                pub expected_owner: &'static str,
+                pub optional: bool,
+                pub seeds: &'static [&'static str],
+            }
+
+            /// Static effect metadata generated from the manifest.
+            #[derive(Clone, Copy, Debug)]
+            pub struct EffectSpec {
+                pub kind: &'static str,
+                pub target: &'static str,
+                pub layout_ref: &'static str,
+                pub reason: &'static str,
+            }
+
+            /// Static instruction metadata generated alongside the builder.
+            #[derive(Clone, Copy, Debug)]
+            pub struct InstructionSpec {
+                pub name: &'static str,
+                pub tag: u8,
+                pub args_size: usize,
+                pub account_count: usize,
+                pub accounts: &'static [AccountSpec],
+                pub effects: &'static [EffectSpec],
+            }
+
             #( #instruction_items )*
         }
     };
@@ -195,6 +256,9 @@ fn build_instruction(ix: &serde_json::Value, manifest_span: &LitStr) -> syn::Res
     let name_ident = format_ident!("{}", camel_to_snake(name));
     let args_struct_ident = format_ident!("{}Args", name);
     let accounts_struct_ident = format_ident!("{}Accounts", name);
+    let account_specs_ident = format_ident!("{}_ACCOUNT_SPECS", upper_snake(name));
+    let effect_specs_ident = format_ident!("{}_EFFECT_SPECS", upper_snake(name));
+    let spec_ident = format_ident!("{}_SPEC", upper_snake(name));
 
     let args = ix
         .get("args")
@@ -215,14 +279,19 @@ fn build_instruction(ix: &serde_json::Value, manifest_span: &LitStr) -> syn::Res
             .and_then(|v| v.as_str())
             .ok_or_else(|| syn::Error::new_spanned(manifest_span, "arg missing `name`"))?;
         let size = a.get("size").and_then(|v| v.as_u64()).unwrap_or(0) as usize;
+        let canonical_type = a
+            .get("canonical_type")
+            .or_else(|| a.get("type"))
+            .and_then(|v| v.as_str());
         let field = format_ident!("{}", aname);
-        let (ty, serialize_stmt) = arg_type_for_size(size, &field);
+        let (ty, serialize_stmt) = arg_type_for_descriptor(size, canonical_type, &field);
         args_fields.push(quote! { pub #field: #ty, });
         args_serialize.push(serialize_stmt);
     }
 
     let mut account_fields: Vec<TokenStream> = Vec::new();
     let mut account_metas: Vec<TokenStream> = Vec::new();
+    let mut account_specs: Vec<TokenStream> = Vec::new();
     for acct in &accounts {
         let aname = acct
             .get("name")
@@ -237,15 +306,43 @@ fn build_instruction(ix: &serde_json::Value, manifest_span: &LitStr) -> syn::Res
             .and_then(|v| v.as_bool())
             .unwrap_or(false);
         let field = format_ident!("{}", aname);
-        account_fields.push(quote! { pub #field: [u8; 32], });
+        account_fields.push(quote! { pub #field: ::hopper::__runtime::Address, });
         account_metas.push(quote! {
-            ::hopper::__runtime::InstructionAccount {
-                pubkey: ::hopper::__runtime::Address::from(__acct.#field),
-                is_writable: #writable,
-                is_signer: #signer,
+            ::hopper::__runtime::InstructionAccount::new(&__accounts.#field, #writable, #signer)
+        });
+
+        let resolver = account_resolver(acct);
+        let layout_ref = json_str(acct, "layout_ref");
+        let lifecycle = account_lifecycle(acct);
+        let payer = json_str(acct, "payer");
+        let expected_address =
+            json_str(acct, "expected_address").or_else_empty(json_str(acct, "address"));
+        let expected_owner =
+            json_str(acct, "expected_owner").or_else_empty(json_str(acct, "owner"));
+        let optional = acct
+            .get("optional")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+        let seeds = json_string_array(acct, "seeds");
+        let seed_lits = seeds.iter().map(String::as_str);
+        account_specs.push(quote! {
+            AccountSpec {
+                name: #aname,
+                writable: #writable,
+                signer: #signer,
+                resolver: #resolver,
+                layout_ref: #layout_ref,
+                lifecycle: #lifecycle,
+                payer: #payer,
+                expected_address: #expected_address,
+                expected_owner: #expected_owner,
+                optional: #optional,
+                seeds: &[ #( #seed_lits ),* ],
             }
         });
     }
+
+    let effect_specs = instruction_effect_specs(ix, &accounts);
 
     let tag_byte: u8 = tag;
 
@@ -254,8 +351,26 @@ fn build_instruction(ix: &serde_json::Value, manifest_span: &LitStr) -> syn::Res
         .iter()
         .map(|a| a.get("size").and_then(|v| v.as_u64()).unwrap_or(0) as usize)
         .sum();
+    let data_size = 1 + args_size;
 
     Ok(quote! {
+        pub const #account_specs_ident: &[AccountSpec] = &[
+            #( #account_specs ),*
+        ];
+
+        pub const #effect_specs_ident: &[EffectSpec] = &[
+            #( #effect_specs ),*
+        ];
+
+        pub const #spec_ident: InstructionSpec = InstructionSpec {
+            name: #name,
+            tag: #tag_byte,
+            args_size: #args_size,
+            account_count: #accounts_count,
+            accounts: #account_specs_ident,
+            effects: #effect_specs_ident,
+        };
+
         /// Typed account metas for this instruction.
         #[derive(Clone, Copy, Debug)]
         pub struct #accounts_struct_ident {
@@ -277,34 +392,111 @@ fn build_instruction(ix: &serde_json::Value, manifest_span: &LitStr) -> syn::Res
         /// the deployed program id changes. When the manifest
         /// embedded a `program_id`, `PROGRAM_ID_STR` carries its
         /// base58 form.
-        pub fn #name_ident(
-            __program_id: ::hopper::__runtime::Address,
-            __acct: #accounts_struct_ident,
+        pub fn #name_ident<'a>(
+            __program_id: &'a ::hopper::__runtime::Address,
+            __accounts: &'a #accounts_struct_ident,
             __args: #args_struct_ident,
-        ) -> (
-            ::hopper::__runtime::Address,
-            [::hopper::__runtime::InstructionAccount; #accounts_count],
-            [u8; 1 + #args_size],
-        ) {
+        ) -> BuiltInstruction<'a, #accounts_count, #data_size> {
             let accounts = [ #( #account_metas ),* ];
             let mut data = [0u8; 1 + #args_size];
             data[0] = #tag_byte;
             let mut __offset: usize = 1;
             #( #args_serialize )*
-            (__program_id, accounts, data)
+            let _ = __offset;
+            BuiltInstruction {
+                program_id: __program_id,
+                accounts,
+                data,
+            }
         }
     })
 }
 
-/// Translate a manifest-declared byte size into a Rust arg type and
+/// Translate a manifest-declared type/size into a Rust arg type and
 /// a matching little-endian serialization statement.
 ///
 /// Size 1 -> `u8`, 2 -> `u16`, 4 -> `u32`, 8 -> `u64`, 16 -> `u128`,
 /// 32 -> `[u8; 32]`, anything else -> `[u8; N]` with a runtime
-/// copy. Future work: let the manifest carry a semantic type hint
-/// (Address, WireU64, etc.) so the emitted types are richer. The
-/// raw-bytes fallback keeps the macro robust against older
-/// manifests.
+/// copy. Semantic type hints like `Address`, `bool`, `WireU64`, and
+/// `LeU64` produce richer generated Rust while preserving the raw-byte
+/// fallback for older manifests.
+fn arg_type_for_descriptor(
+    size: usize,
+    canonical_type: Option<&str>,
+    field: &Ident,
+) -> (TokenStream, TokenStream) {
+    let canonical = canonical_type.unwrap_or("").trim();
+    if matches!(canonical, "bool" | "WireBool" | "LeBool") && size == 1 {
+        return (
+            quote!(bool),
+            quote! {
+                data[__offset] = if __args.#field { 1 } else { 0 };
+                __offset += 1;
+            },
+        );
+    }
+    if (matches!(
+        canonical,
+        "Address" | "Pubkey" | "PublicKey" | "UntypedAddress"
+    ) || canonical.starts_with("TypedAddress"))
+        && size == 32
+    {
+        return (
+            quote!(::hopper::__runtime::Address),
+            quote! {
+                data[__offset..__offset + 32]
+                    .copy_from_slice(__args.#field.as_array());
+                __offset += 32;
+            },
+        );
+    }
+    if canonical.starts_with("[u8;") {
+        return byte_array_arg_tokens(size, field);
+    }
+    match canonical {
+        "u8" => arg_type_for_size(1, field),
+        "i8" => (
+            quote!(i8),
+            quote! {
+                data[__offset..__offset + 1]
+                    .copy_from_slice(&__args.#field.to_le_bytes());
+                __offset += 1;
+            },
+        ),
+        "u16" | "WireU16" | "LeU16" => arg_type_for_size(2, field),
+        "i16" | "WireI16" | "LeI16" => int_arg_tokens(quote!(i16), 2, field),
+        "u32" | "WireU32" | "LeU32" => arg_type_for_size(4, field),
+        "i32" | "WireI32" | "LeI32" => int_arg_tokens(quote!(i32), 4, field),
+        "u64" | "WireU64" | "LeU64" => arg_type_for_size(8, field),
+        "i64" | "WireI64" | "LeI64" => int_arg_tokens(quote!(i64), 8, field),
+        "u128" | "WireU128" | "LeU128" => arg_type_for_size(16, field),
+        "i128" | "WireI128" | "LeI128" => int_arg_tokens(quote!(i128), 16, field),
+        _ => arg_type_for_size(size, field),
+    }
+}
+
+fn int_arg_tokens(ty: TokenStream, size: usize, field: &Ident) -> (TokenStream, TokenStream) {
+    (
+        ty,
+        quote! {
+            data[__offset..__offset + #size]
+                .copy_from_slice(&__args.#field.to_le_bytes());
+            __offset += #size;
+        },
+    )
+}
+
+fn byte_array_arg_tokens(size: usize, field: &Ident) -> (TokenStream, TokenStream) {
+    (
+        quote!([u8; #size]),
+        quote! {
+            data[__offset..__offset + #size]
+                .copy_from_slice(&__args.#field);
+            __offset += #size;
+        },
+    )
+}
+
 fn arg_type_for_size(size: usize, field: &Ident) -> (TokenStream, TokenStream) {
     match size {
         1 => (
@@ -346,14 +538,7 @@ fn arg_type_for_size(size: usize, field: &Ident) -> (TokenStream, TokenStream) {
                 __offset += 16;
             },
         ),
-        n => (
-            quote!([u8; #n]),
-            quote! {
-                data[__offset..__offset + #n]
-                    .copy_from_slice(&__args.#field);
-                __offset += #n;
-            },
-        ),
+        n => byte_array_arg_tokens(n, field),
     }
 }
 
@@ -368,6 +553,155 @@ fn camel_to_snake(s: &str) -> String {
             out.push('_');
         }
         out.push(c.to_ascii_lowercase());
+    }
+    out
+}
+
+/// Convert an instruction name into a stable SCREAMING_SNAKE const prefix.
+fn upper_snake(s: &str) -> String {
+    camel_to_snake(s).to_ascii_uppercase()
+}
+
+fn json_str<'a>(value: &'a serde_json::Value, key: &str) -> &'a str {
+    value.get(key).and_then(|v| v.as_str()).unwrap_or("")
+}
+
+trait EmptyStrExt {
+    fn or_else_empty(self, fallback: Self) -> Self;
+}
+
+impl<'a> EmptyStrExt for &'a str {
+    fn or_else_empty(self, fallback: Self) -> Self {
+        if self.is_empty() {
+            fallback
+        } else {
+            self
+        }
+    }
+}
+
+fn json_string_array(value: &serde_json::Value, key: &str) -> Vec<String> {
+    value
+        .get(key)
+        .and_then(|v| v.as_array())
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|item| item.as_str().map(str::to_string))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn account_lifecycle(account: &serde_json::Value) -> String {
+    json_str(account, "lifecycle").to_ascii_lowercase()
+}
+
+fn account_resolver(account: &serde_json::Value) -> String {
+    if let Some(resolver) = account.get("resolver").and_then(|v| v.as_str()) {
+        return resolver.to_ascii_lowercase();
+    }
+    if !json_str(account, "expected_address").is_empty() || !json_str(account, "address").is_empty()
+    {
+        "constant".to_string()
+    } else if account
+        .get("seeds")
+        .and_then(|v| v.as_array())
+        .map(|seeds| !seeds.is_empty())
+        .unwrap_or(false)
+    {
+        "pda".to_string()
+    } else if account
+        .get("optional")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false)
+    {
+        "optional".to_string()
+    } else {
+        "provided".to_string()
+    }
+}
+
+fn instruction_effect_specs(
+    ix: &serde_json::Value,
+    accounts: &[serde_json::Value],
+) -> Vec<TokenStream> {
+    if let Some(effects) = ix.get("effects").and_then(|v| v.as_array()) {
+        return effects
+            .iter()
+            .map(|effect| {
+                let kind = effect
+                    .get("kind")
+                    .or_else(|| effect.get("effect"))
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("custom");
+                let target = effect
+                    .get("target")
+                    .or_else(|| effect.get("account"))
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+                let layout_ref = json_str(effect, "layout_ref");
+                let reason = json_str(effect, "reason");
+                quote! {
+                    EffectSpec {
+                        kind: #kind,
+                        target: #target,
+                        layout_ref: #layout_ref,
+                        reason: #reason,
+                    }
+                }
+            })
+            .collect();
+    }
+
+    let mut out = Vec::new();
+    for account in accounts {
+        let target = json_str(account, "name");
+        let layout_ref = json_str(account, "layout_ref");
+        let lifecycle = account_lifecycle(account);
+        let writable = account
+            .get("writable")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+        let signer = account
+            .get("signer")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+        let kind = match lifecycle.as_str() {
+            "init" | "create" | "creates_account" => "creates_account",
+            "realloc" | "reallocate" => "reallocates_account",
+            "close" => "closes_account",
+            _ if writable => "writes",
+            _ if signer => "requires_signer",
+            _ => "reads",
+        };
+        let reason = if lifecycle.is_empty() {
+            json_str(account, "policy_ref")
+        } else {
+            lifecycle.as_str()
+        };
+        out.push(quote! {
+            EffectSpec {
+                kind: #kind,
+                target: #target,
+                layout_ref: #layout_ref,
+                reason: #reason,
+            }
+        });
+    }
+    if ix
+        .get("receipt_expected")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false)
+    {
+        out.push(quote! {
+            EffectSpec {
+                kind: "emits_receipt",
+                target: "receipt",
+                layout_ref: "",
+                reason: "receipt_expected",
+            }
+        });
     }
     out
 }

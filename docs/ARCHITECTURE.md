@@ -235,25 +235,38 @@ accessors for the default hot path. Methods: `get()`, `get_mut()`, `with()`,
   prevent account revival via rent-exempt deposit
 - `safe_realloc(account, new_size, payer)` -- handles rent delta
 
-### Dynamic Fields (`account/dynamic.rs`)
+### Dynamic Tail Payloads (`tail.rs`)
 
-Inline variable-length fields with length prefix. Alternative to segments for
-1-3 small variable-length values:
+Variable-length account metadata lives behind `#[hopper::state(dynamic_tail = T)]`:
 
-- `read_dynamic_u8/u16/u32(data, offset)` -- read length + bytes
-- `write_dynamic_u8/u16/u32(data, offset, value)` -- write length + bytes
-- `DynamicView` / `DynamicViewMut` -- typed access
+```text
+[ Hopper header ][ fixed account body ][ tail_len: u32 LE ][ encoded tail ]
+```
 
-Quasar's public `String` / `Vec` dynamic-field UX maps to two Hopper tools:
+The fixed body remains the zero-copy hot path. Handlers that need metadata call
+the generated `tail_read` / `tail_write` helpers and work with a bounded
+`TailCodec` payload. `HopperString<N>` and `HopperVec<T, N>` cover the common
+string/list cases without pulling heap allocation into SBF builds.
+`hopper_dynamic_fields!` is the Quasar-porting sugar for those aliases:
+`string<N>` lowers to `HopperString<N>`, and `vec<T, N>` lowers to
+`HopperVec<T, N>`.
 
-- use inline dynamic fields for a small bounded string/blob where the offset is
-   part of the fixed layout; and
-- use named extension segments for larger or repeated variable regions that need
-   independent borrow tracking, migration role metadata, or collection helpers.
+Use dynamic tails for small bounded payloads that are read or written as one
+logical unit. Use named extension segments or companion accounts for larger
+regions that need independent borrow tracking, migration role metadata, or
+collection-specific update paths.
 
-Both paths stay `no_alloc` on-chain. Inline dynamic fields optimize for simple
-bounded payloads; segments optimize for schema evolution and field-level borrow
-leasing.
+### Bounded Dynamic Instruction Args
+
+Authored handler arguments decode through `DecodeInstructionArg` over the bytes
+after the one-byte instruction discriminator. Fixed scalars use their native
+little-endian width. `HopperString<N>` and `HopperVec<T, N>` use the same
+`TailCodec` encoding as account tails, so on-chain handlers and generated
+clients share one deterministic bounded wire contract for small dynamic inputs.
+
+Use a final `&[u8]` argument only when the protocol deliberately wants an opaque
+remaining payload. Prefer `HopperString` / `HopperVec` for typed labels, signer
+sets, memo fields, and other bounded dynamic instruction data.
 
 ### Realloc Guard (`account/realloc_guard.rs`)
 
@@ -285,7 +298,7 @@ Five-layer validation hierarchy:
 
 #### Fast-path Checks (`check/fast.rs`)
 
-Quasar-inspired single-u32 compare: reads the RuntimeAccount 4-byte prefix
+Single-u32 compare: reads the RuntimeAccount 4-byte prefix
 (`borrow_state|is_signer|is_writable|executable`) as one u32. Saves 4-8 CU
 per account. `#[cfg(target_os = "solana")]` gated.
 

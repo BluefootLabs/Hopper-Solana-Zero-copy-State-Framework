@@ -63,6 +63,12 @@ Print pubkey plus path for every keypair. No args walks `target/deploy/*.json`.
 
 Emit just the base58 pubkey. Convenient in shell pipelines.
 
+### `hopper keys sync <keypair-path> [--src <file.rs>]`
+
+Rewrite the first `declare_id!("...")` or `hopper::declare_id!("...")` in
+source so it matches a Solana keypair json file. Defaults to `src/lib.rs`; pass
+`--src` for multi-program workspaces or generated source layouts.
+
 ### `hopper keys pda <seed>... --program <program_id>`
 
 Derive a PDA from the given seeds. Seed formats:
@@ -173,7 +179,7 @@ Run the primitive benchmark lab against a live cluster. Emits JSON and CSV regre
 
 ### `hopper profile elf <path/to/program.so>`
 
-Static SBF ELF analysis. Prints the top N symbols by size and can write Brendan-Gregg folded-stack input or a self-contained HTML flamegraph for public launch demos and regression review.
+Static SBF ELF analysis. Prints the top N symbols by size, estimated SBF instruction counts, and a static CU-ish prioritization score. It can also write Brendan-Gregg folded-stack input or a self-contained HTML flamegraph for public launch demos and regression review.
 
 Flags:
 
@@ -181,6 +187,7 @@ Flags:
 - `--folded out.txt` - write flamegraph input
 - `--html out.html` - write an interactive single-file flamegraph
 - `--baseline folded.txt` - compare symbol sizes against a previous run
+- `--sections` - include the largest ELF sections by size
 - `--open` - open the HTML flamegraph after writing it
 - `--no-demangle` - skip rustc-demangle on symbol names
 
@@ -193,6 +200,13 @@ Global profile option:
 ### `hopper interactive <manifest>` or `hopper ui <manifest>`
 
 Terminal UI for browsing live accounts under a program. Navigation matches the Helius Explorer key bindings.
+
+## Shell completions
+
+### `hopper completions <bash | zsh | fish | powershell>`
+
+Emit a shell-completion script for the selected shell. PowerShell users can run
+`hopper completions powershell >> $PROFILE`, then restart the shell.
 
 ## Compatibility aliases
 

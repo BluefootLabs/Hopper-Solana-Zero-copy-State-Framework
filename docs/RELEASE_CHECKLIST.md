@@ -39,10 +39,21 @@ Before a launch or benchmark announcement, run the warning gate locally and in C
 ```sh
 cargo check --workspace --all-targets
 cargo test --workspace --all-targets
+cargo check -p hopper-quasar-port-20-min
+cargo test -p hopper-quasar-port-20-min
 cargo test -p hopper-framework --features proc-macros,metaplex --test metaplex_context_integration
+powershell -ExecutionPolicy Bypass -File .\scripts\kani-runtime-tail.ps1
 hopper lint
 hopper profile elf target/deploy/<program>.so --html target/hopper-profile.html
 ```
+
+On Unix-like CI runners, use `sh ./scripts/kani-runtime-tail.sh` for the same
+proof lane. If PowerShell 7 is available, `pwsh ./scripts/kani-runtime-tail.ps1`
+works too. On native Windows, the PowerShell runner delegates to WSL when
+`cargo-kani` is not installed locally, because Kani's Cargo package currently
+targets Unix-like hosts. The runtime proof lane covers bounded dynamic tails and
+segment-borrow conflict invariants; the scripts fail fast when neither native
+Kani nor WSL Kani is available.
 
 Examples and CLI code should either compile warning-free or carry narrow, documented `allow(...)` attributes. Avoid broad crate-level allows on launch-facing examples; they make the release surface look unfinished.
 

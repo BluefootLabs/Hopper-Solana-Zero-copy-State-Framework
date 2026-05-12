@@ -24,7 +24,7 @@ pub fn cmd_version(_args: &[String]) {
 
 /// `hopper completions <shell>` - emit shell-completion script.
 ///
-/// Three shells: bash, zsh, fish. We hand-generate instead of
+/// Shells: bash, zsh, fish, powershell. We hand-generate instead of
 /// pulling clap-complete because the CLI is already hand-rolled and
 /// the completion set is short enough to maintain here.
 pub fn cmd_completions(args: &[String]) {
@@ -36,6 +36,7 @@ pub fn cmd_completions(args: &[String]) {
         "bash" => print!("{}", BASH_COMPLETION),
         "zsh" => print!("{}", ZSH_COMPLETION),
         "fish" => print!("{}", FISH_COMPLETION),
+        "powershell" | "pwsh" => print!("{}", POWERSHELL_COMPLETION),
         other => {
             eprintln!("unsupported shell: {other}");
             print_completions_usage();
@@ -45,12 +46,13 @@ pub fn cmd_completions(args: &[String]) {
 }
 
 fn print_completions_usage() {
-    eprintln!("Usage: hopper completions <bash | zsh | fish>");
+    eprintln!("Usage: hopper completions <bash | zsh | fish | powershell>");
     eprintln!();
     eprintln!("Emit a shell-completion script. Save it to your rc file or sourcing dir:");
     eprintln!("  bash  ->  hopper completions bash > /etc/bash_completion.d/hopper");
     eprintln!("  zsh   ->  hopper completions zsh  > \"${{fpath[1]}}/_hopper\"");
     eprintln!("  fish  ->  hopper completions fish > ~/.config/fish/completions/hopper.fish");
+    eprintln!("  pwsh  ->  hopper completions powershell >> $PROFILE");
 }
 
 #[allow(dead_code)]
@@ -88,7 +90,7 @@ const BASH_COMPLETION: &str = r#"_hopper() {
         return
     fi
     case "${words[1]}" in
-        keys) COMPREPLY=($(compgen -W "new list print pda" -- "$cur")) ;;
+        keys) COMPREPLY=($(compgen -W "new list print pda sync" -- "$cur")) ;;
         config) COMPREPLY=($(compgen -W "get set list reset path" -- "$cur")) ;;
         tx) COMPREPLY=($(compgen -W "explain simulate submit" -- "$cur")) ;;
         manager) COMPREPLY=($(compgen -W "fetch summary identify decode instruction layouts policies events fingerprints compat receipt explain diff simulate invoke crank accounts interactive" -- "$cur")) ;;
@@ -156,6 +158,38 @@ complete -c hopper -n '__fish_use_subcommand' -a 'manager' -d 'on-chain introspe
 complete -c hopper -n '__fish_use_subcommand' -a 'doctor' -d 'environment sanity check'
 complete -c hopper -n '__fish_use_subcommand' -a 'completions' -d 'emit shell completions'
 complete -c hopper -n '__fish_use_subcommand' -a 'version' -d 'print CLI version info'
+complete -c hopper -n '__fish_seen_subcommand_from keys' -a 'new list print pda sync'
+"#;
+
+const POWERSHELL_COMPLETION: &str = r#"Register-ArgumentCompleter -Native -CommandName hopper -ScriptBlock {
+    param($wordToComplete, $commandAst, $cursorPosition)
+
+    $words = @($commandAst.CommandElements | ForEach-Object { $_.ToString() })
+    $top = @('schema','compile','inspect','explain','client','profile','fetch','init','build','test','deploy','dump','verify','keys','config','lint','expand','tx','manager','doctor','completions','version','help')
+    $nested = @{
+        keys = @('new','list','print','pda','sync')
+        config = @('get','set','list','reset','path')
+        tx = @('explain','simulate','submit')
+        manager = @('fetch','summary','identify','decode','instruction','layouts','policies','events','fingerprints','compat','receipt','explain','diff','simulate','invoke','crank','accounts','interactive')
+        profile = @('bench','elf')
+        schema = @('export','validate','diff')
+        completions = @('bash','zsh','fish','powershell')
+    }
+
+    if ($words.Count -le 2) {
+        $top | Where-Object { $_ -like "$wordToComplete*" } | ForEach-Object {
+            [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
+        }
+        return
+    }
+
+    $cmd = $words[1]
+    if ($nested.ContainsKey($cmd)) {
+        $nested[$cmd] | Where-Object { $_ -like "$wordToComplete*" } | ForEach-Object {
+            [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
+        }
+    }
+}
 "#;
 
 /// `hopper tx simulate <tx-base64>` - simulate a pre-built tx.

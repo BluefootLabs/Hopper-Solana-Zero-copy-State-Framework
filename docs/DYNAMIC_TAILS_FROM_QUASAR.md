@@ -51,110 +51,40 @@ pub struct Multisig {
     pub threshold: WireU64,
 }
 
-pub struct MultisigTail {
-    pub label: BoundedString<32>,
-    pub signers: BoundedSigners<10>,
+hopper_dynamic_fields! {
+    pub struct MultisigTail {
+        label: string<32>,
+        signers: vec<Address, 10>,
+    }
 }
 ```
 
 `threshold` remains a zero-copy field. `label` and `signers` move into the
 single tail payload and are decoded only when a handler asks for them.
 
-## A small bounded tail codec
+## Bounded helper types
 
 `TailCodec` is a minimal Borsh-subset trait. Hopper implements it for integers,
-`bool`, `[u8; N]`, and `Option<T>`. Programs implement it for richer shapes.
+`bool`, `[u8; N]`, `Option<T>`, `Address`, `BoundedString<N>`, and
+`BoundedVec<T, N>`. `hopper_dynamic_fields!` lowers the common Quasar-shaped
+`string<N>` and `vec<T, N>` spellings into the `HopperString<N>` and
+`HopperVec<T, N>` aliases, keeping ported layouts concise while preserving
+explicit bounded storage.
 
 ```rust
 use hopper::prelude::*;
 
-pub struct BoundedString<const N: usize> {
-    pub len: u8,
-    pub bytes: [u8; N],
-}
-
-impl<const N: usize> TailCodec for BoundedString<N> {
-    const MAX_ENCODED_LEN: usize = 1 + N;
-
-    fn encode(&self, out: &mut [u8]) -> Result<usize, ProgramError> {
-        let len = self.len as usize;
-        if len > N || out.len() < 1 + len {
-            return Err(ProgramError::AccountDataTooSmall);
-        }
-        out[0] = self.len;
-        out[1..1 + len].copy_from_slice(&self.bytes[..len]);
-        Ok(1 + len)
-    }
-
-    fn decode(input: &[u8]) -> Result<(Self, usize), ProgramError> {
-        let len = *input.first().ok_or(ProgramError::InvalidAccountData)? as usize;
-        if len > N || input.len() < 1 + len {
-            return Err(ProgramError::InvalidAccountData);
-        }
-        let mut bytes = [0u8; N];
-        bytes[..len].copy_from_slice(&input[1..1 + len]);
-        Ok((Self { len: len as u8, bytes }, 1 + len))
-    }
-}
-
-pub struct BoundedSigners<const N: usize> {
-    pub len: u8,
-    pub keys: [[u8; 32]; N],
-}
-
-impl<const N: usize> TailCodec for BoundedSigners<N> {
-    const MAX_ENCODED_LEN: usize = 1 + 32 * N;
-
-    fn encode(&self, out: &mut [u8]) -> Result<usize, ProgramError> {
-        let len = self.len as usize;
-        let bytes = 1 + 32 * len;
-        if len > N || out.len() < bytes {
-            return Err(ProgramError::AccountDataTooSmall);
-        }
-        out[0] = self.len;
-        for i in 0..len {
-            let start = 1 + 32 * i;
-            out[start..start + 32].copy_from_slice(&self.keys[i]);
-        }
-        Ok(bytes)
-    }
-
-    fn decode(input: &[u8]) -> Result<(Self, usize), ProgramError> {
-        let len = *input.first().ok_or(ProgramError::InvalidAccountData)? as usize;
-        let bytes = 1 + 32 * len;
-        if len > N || input.len() < bytes {
-            return Err(ProgramError::InvalidAccountData);
-        }
-        let mut keys = [[0u8; 32]; N];
-        for i in 0..len {
-            let start = 1 + 32 * i;
-            keys[i].copy_from_slice(&input[start..start + 32]);
-        }
-        Ok((Self { len: len as u8, keys }, bytes))
-    }
-}
-
-impl TailCodec for MultisigTail {
-    const MAX_ENCODED_LEN: usize =
-        BoundedString::<32>::MAX_ENCODED_LEN + BoundedSigners::<10>::MAX_ENCODED_LEN;
-
-    fn encode(&self, out: &mut [u8]) -> Result<usize, ProgramError> {
-        let n0 = self.label.encode(out)?;
-        let n1 = self.signers.encode(&mut out[n0..])?;
-        Ok(n0 + n1)
-    }
-
-    fn decode(input: &[u8]) -> Result<(Self, usize), ProgramError> {
-        let (label, n0) = BoundedString::<32>::decode(input)?;
-        let (signers, n1) = BoundedSigners::<10>::decode(&input[n0..])?;
-        Ok((Self { label, signers }, n0 + n1))
+hopper_dynamic_fields! {
+    pub struct MultisigTail {
+        label: string<32>,
+        signers: vec<Address, 10>,
     }
 }
 ```
 
-The example uses `u8` lengths because the bounds are small. For larger tails,
-use `u32` length prefixes inside your codec or split the data into extension
-segments.
+`HopperVec<T, N>` also includes small set-like helpers for signer-list style
+tails: `contains`, `push_unique`, `remove_first`, `pop`, `clear`, and capacity
+inspection.
 
 ## Generated helpers
 
