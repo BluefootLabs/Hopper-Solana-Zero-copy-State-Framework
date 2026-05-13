@@ -1,6 +1,6 @@
 # Hopper Publication and Competitive-Readiness Audit
 
-This audit is a release-facing checklist for Hopper as a Solana zero-copy state framework. It is intentionally conservative: each statement is tied to a crate, document, test, or CLI gate in this repository. Competitive comparisons are scope comparisons, not live benchmark claims.
+This audit is a release-facing checklist for Hopper as a Solana zero-copy state framework. Each statement is tied to a crate, document, test, or CLI gate in this repository. Competitive comparisons are scope comparisons, not live benchmark claims.
 
 ## Publication Verdict
 
@@ -87,13 +87,13 @@ use hopper::prelude::*;
 | Main framework naming | Publish top-level package as `hopper-lang`; keep library crate name `hopper` |
 | Companion crates must exist before `hopper-lang` packages cleanly | Completed for `0.1.0`; keep the same order for future releases |
 | Benchmarks can be overclaimed | Keep release docs tied to `hopper-bench` artifacts and source-only publish checks |
-| Framework surface is broad for a first release | Keep examples non-public, feature-gate optional surfaces, and document what is shipped versus planned |
+| Broad framework surface | Keep examples non-public, feature-gate optional surfaces, and document what is shipped versus planned |
 | Unsafe zero-copy APIs need ongoing review | Maintain `UNSAFE_INVARIANTS.md`, compile-fail tests, and release gates |
 
 ## Final Readiness Statement
 
 From code structure, crate coverage, tests, and CLI gates, Hopper has shipped a
-conservative first public release as a zero-copy Solana state framework. Future
+source-backed public release as a zero-copy Solana state framework. Future
 release docs should keep benchmark language tied to reproducible `hopper-bench`
-artifacts and continue documenting the `hopper-lang` package alias
-everywhere users install the framework.
+artifacts and continue documenting the `hopper-lang` package alias everywhere
+users install the framework.

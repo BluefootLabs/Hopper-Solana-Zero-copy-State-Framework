@@ -1,16 +1,17 @@
 # Hopper Self Audit
 
-**Audit date:** 2026-05-11  
+**Audit date:** 2026-05-13
 **Scope:** `Hopper-Solana-Zero-copy-State-Framework` workspace: root framework
 crate, runtime, core overlay layer, macro crates, companion crates, CLI, SDK,
 schema/manager crates, examples, tests, and release documentation.  
 **Method:** Source-level review of public APIs, unsafe boundaries, account
-loading paths, dynamic-tail encoding, segment borrowing, CPI helpers, generated
-macro output, CLI scaffolding, release gates, and example coverage.
+loading paths, dynamic-tail encoding, remaining-account handling, Instructions
+sysvar parsing, segment borrowing, CPI helpers, generated macro output, CLI
+scaffolding, release gates, and example coverage.
 
 This document is a code audit, not a market or framework-comparison document.
 It records what the Hopper tree currently guarantees, what was remediated, and
-what remains worth tracking before wider production use.
+what should stay visible in release checks as adoption grows.
 
 ## Executive Summary
 
@@ -18,7 +19,8 @@ Hopper's core design is coherent: fixed-layout account state stays on a
 validated zero-copy path, unsafe operations are concentrated behind named
 runtime APIs, and higher-level macros lower to inspectable Rust. The strongest
 parts of the tree are the typed account loading tiers, segment borrow registry,
-runtime policy model, schema emission, and CLI verification flow.
+strict remaining-account model, dynamic-account lowering, runtime policy model,
+schema emission, and CLI verification flow.
 
 The main audit risks are operational rather than architectural:
 
@@ -30,6 +32,9 @@ The main audit risks are operational rather than architectural:
   surface changes.
 - Benchmark and profiling claims must be tied to reproducible commands,
   lockfiles, raw logs, and exact toolchain versions.
+- Backend feature lanes must be checked as valid lanes. `--all-features` is not
+  a backend matrix because the runtime intentionally rejects multiple backend
+  families at once.
 
 ## Implemented Remediations
 
@@ -119,23 +124,46 @@ The segment borrow registry is one of the most important safety components. Its
 tests cover overlapping read/write conflicts, adjacent ranges, guard release,
 capacity, duplicate-account handling, and account separation.
 
+Remaining accounts now have explicit strict and passthrough views. Strict mode
+rejects aliases to declared accounts and duplicate remaining slots; passthrough
+mode preserves duplicates when a protocol needs raw behavior. Bounded helpers
+parse remaining accounts as `account_views::<N>()` or `signers::<N>()`, giving
+multisig-style handlers a zero-allocation checked path instead of open-ended
+raw iteration.
+
 ### Dynamic Tail Encoding
 
-Dynamic tail support is intentionally not zero-copy. Fixed account fields remain
-zero-copy; tail payloads are explicitly length-prefixed and encoded through
+Dynamic tail support keeps fixed account fields on the zero-copy path while
+variable payloads are explicitly length-prefixed and encoded through
 `TailCodec`.
 
-The current pass adds bounded helper types:
+The current tree includes bounded helper types:
 
 - `BoundedString<N>` stores a UTF-8 byte string with a `u16` length prefix.
 - `BoundedVec<T, N>` stores up to `N` `TailCodec` elements with a `u16` count.
 - `Address` implements `TailCodec`, enabling bounded address lists without a
   custom codec.
 - `hopper_dynamic_tail!` generates small struct codecs from ordered fields.
+- `#[hopper::dynamic_account]` lowers inline `#[tail(string<N>)]` and
+  `#[tail(vec<Address, N>)]` fields into a fixed body plus compact tail, with a
+  generated tail struct, borrowed view, editor, `ALLOC_SPACE`, and native fixed
+  field getters.
 
-Runtime tests now cover bounded string and bounded vector roundtrips in
-addition to the existing primitive, option, length-prefix, truncation, and
-excess-payload checks.
+Workspace tests now cover bounded string and bounded vector roundtrips in
+addition to primitive, option, length-prefix, truncation, excess-payload,
+borrowed-view, invalid UTF-8, capacity, and layout-fingerprint checks.
+
+### Trust And Sysvar Checks
+
+The trust/check layer includes account, PDA, rent, and transaction-introspection
+helpers. The typed `InstructionsSysvar` view reads instruction count, current
+index, program IDs, instruction data, and account metas from the serialized
+Instructions sysvar with bounds checks at each offset.
+
+The native rent hot path uses Solana's current rent constants for rent-exempt
+minimums, and account initialization handles both empty accounts and pre-funded
+zero-data accounts through create or allocate/assign flows before writing the
+Hopper header.
 
 ### Macro Surface
 
@@ -149,9 +177,10 @@ surface. Both paths should continue to share the same runtime invariants.
 ### CLI And Scaffolding
 
 The CLI can scaffold programs, generate manifests, inspect schemas, lint common
-project issues, and profile ELF output. The current pass adds a bounded-tail
-port scaffold path and expands the profiling reference for HTML flamegraphs,
-baselines, and watch-mode usage.
+project issues, and profile ELF output. It includes a Quasar-port template for
+fixed-body plus explicit dynamic-tail programs, and the docs/examples now show
+the higher-level `#[hopper::dynamic_account]` path for the common bounded label
+and signer-list case.
 
 CLI tests cover template rendering, package-name normalization, key rewriting,
 manifest encoding, verification helpers, lint checks, profile output helpers,
@@ -159,9 +188,10 @@ and RPC manifest codecs.
 
 ### Examples And Documentation
 
-Examples should remain CI-backed and should avoid acting as sketches. The new
-bounded dynamic-tail example compiles as a workspace member and includes a unit
-test for label/signer roundtripping through the generated tail helpers.
+Examples should remain CI-backed and should avoid acting as sketches. The
+Quasar-port example compiles as a workspace member and includes unit tests for
+label/signer roundtripping through the generated `#[hopper::dynamic_account]`
+helpers.
 
 Release documentation now includes a warning-free lane. Launch-facing examples
 should either compile without warnings or use narrow, documented `allow(...)`
@@ -188,8 +218,9 @@ update `docs/UNSAFE_INVARIANTS.md` and add focused tests around the boundary.
 ### RSK-3: Dynamic Tail Allocation
 
 `TailCodec::MAX_ENCODED_LEN` is an upper bound. Programs that grow tails at
-runtime must allocate enough account space before calling `tail_write`. Example
-and scaffold code should make allocation constants obvious.
+runtime must allocate enough account space before calling `tail_write` or a
+generated dynamic-account setter. Example and scaffold code should keep
+allocation constants such as `ALLOC_SPACE` obvious.
 
 ### RSK-4: Benchmark Reproducibility
 
@@ -198,22 +229,29 @@ repository, raw output, command line, exact dependency graph, and toolchain.
 
 ### RSK-5: Feature Matrix Coverage
 
-The root crate supports multiple backend feature combinations. Release checks
-should continue to exercise default features, explicit native backend,
-compatibility backend, Solana-program backend, proc macros, and selected SPL
-feature combinations.
+The root crate supports several backend families, but they are mutually
+exclusive. Release checks should exercise default features, explicit native
+backend, compatibility backend, Solana-program backend, proc macros, and
+selected SPL feature combinations as separate lanes.
 
 ## Verification Commands
 
 Use these commands for a focused pre-release code-audit pass:
 
 ```sh
-cargo test -p hopper-runtime --offline
-cargo test -p hopper-cli --offline
-cargo test -p hopper-vault --locked
+cargo fmt --all
+cargo test -p hopper-systems --test trust_tests --locked
+cargo test -p hopper-lang --features proc-macros --test remaining_accounts_context_integration --locked
+cargo test -p hopper-lang --features proc-macros --test dynamic_account_integration --locked
+cargo test -p hopper-quasar-port-20-min --locked
+cargo check -p hopper-lang --features proc-macros --locked
+cargo check --workspace --all-targets --locked
+cargo check -p hopper-lang --no-default-features --features "hopper-native-backend,proc-macros,metaplex,finance,lending,staking,vesting,distribute,multisig,anchor-interop,legacy-token-instructions,advanced,frame,receipt,policy,graph,migrate,virtual-state,diff,explain,collections,cu-trace" --locked
 ```
 
-For a broader gate, use the release checklist in
+For backend coverage, run each valid backend family separately. Do not treat
+`--all-features` as a backend gate; the runtime rejects simultaneous backend
+families by design. For a broader gate, use the release checklist in
 `docs/RELEASE_CHECKLIST.md` and run workspace checks in CI.
 
 ## Maintenance Rules
