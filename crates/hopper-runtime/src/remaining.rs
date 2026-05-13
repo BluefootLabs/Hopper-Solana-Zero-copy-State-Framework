@@ -36,7 +36,7 @@
 //! that, it falls back to a linear scan of the declared slice plus
 //! the yielded-view cursor.
 
-use crate::{account::AccountView, error::ProgramError};
+use crate::{account::AccountView, account_wrappers::Signer, error::ProgramError};
 
 /// Upper bound on remaining-account iterator length. Matches Quasar's
 /// `MAX_REMAINING_ACCOUNTS` so programs porting from one framework to
@@ -86,9 +86,9 @@ pub enum RemainingMode {
 /// accessors that wire these up for you.
 pub struct RemainingAccounts<'a> {
     /// Already-validated context accounts, used for dedup in strict mode.
-    declared: &'a [&'a AccountView],
+    declared: &'a [AccountView],
     /// Accounts beyond the declared count.
-    remaining: &'a [&'a AccountView],
+    remaining: &'a [AccountView],
     /// Duplicate-handling policy.
     mode: RemainingMode,
 }
@@ -96,7 +96,7 @@ pub struct RemainingAccounts<'a> {
 impl<'a> RemainingAccounts<'a> {
     /// Build a strict accessor. Iteration rejects duplicates.
     #[inline(always)]
-    pub fn strict(declared: &'a [&'a AccountView], remaining: &'a [&'a AccountView]) -> Self {
+    pub fn strict(declared: &'a [AccountView], remaining: &'a [AccountView]) -> Self {
         Self {
             declared,
             remaining,
@@ -106,7 +106,7 @@ impl<'a> RemainingAccounts<'a> {
 
     /// Build a passthrough accessor. Iteration preserves duplicates.
     #[inline(always)]
-    pub fn passthrough(declared: &'a [&'a AccountView], remaining: &'a [&'a AccountView]) -> Self {
+    pub fn passthrough(declared: &'a [AccountView], remaining: &'a [AccountView]) -> Self {
         Self {
             declared,
             remaining,
@@ -132,6 +132,12 @@ impl<'a> RemainingAccounts<'a> {
         self.mode
     }
 
+    /// The raw remaining-account slice backing this view.
+    #[inline(always)]
+    pub fn as_slice(&self) -> &'a [AccountView] {
+        self.remaining
+    }
+
     /// Random access by index. Passthrough returns the slot as is;
     /// strict returns an error when the resolved slot aliases a
     /// previously-seen account (declared or yielded before `index`).
@@ -139,11 +145,11 @@ impl<'a> RemainingAccounts<'a> {
         if index >= self.remaining.len() {
             return Ok(None);
         }
-        let candidate = self.remaining[index];
+        let candidate = &self.remaining[index];
         match self.mode {
             RemainingMode::Passthrough => Ok(Some(candidate)),
             RemainingMode::Strict => {
-                if index > MAX_REMAINING_ACCOUNTS {
+                if index >= MAX_REMAINING_ACCOUNTS {
                     return Err(RemainingError::Overflow.into());
                 }
                 // Scan declared.
@@ -163,6 +169,44 @@ impl<'a> RemainingAccounts<'a> {
         }
     }
 
+    /// Validate the remaining tail as at most `N` account views.
+    ///
+    /// In strict mode this also rejects aliases to declared accounts
+    /// and duplicate remaining slots before returning the typed set.
+    pub fn account_views<const N: usize>(
+        &self,
+    ) -> Result<RemainingAccountViews<'a, N>, ProgramError> {
+        if self.remaining.len() > N {
+            return Err(RemainingError::Overflow.into());
+        }
+        let mut items: [Option<&'a AccountView>; N] = [None; N];
+        let mut index = 0;
+        while index < self.remaining.len() {
+            let account = self.get(index)?.ok_or(ProgramError::NotEnoughAccountKeys)?;
+            items[index] = Some(account);
+            index += 1;
+        }
+        Ok(RemainingAccountViews { items, len: index })
+    }
+
+    /// Validate the remaining tail as at most `N` signer accounts.
+    ///
+    /// This is the common multisig case: the handler gets a bounded,
+    /// duplicate-safe signer set instead of raw account iteration.
+    pub fn signers<const N: usize>(&self) -> Result<RemainingSigners<'a, N>, ProgramError> {
+        if self.remaining.len() > N {
+            return Err(RemainingError::Overflow.into());
+        }
+        let mut items: [Option<Signer<'a>>; N] = [None; N];
+        let mut index = 0;
+        while index < self.remaining.len() {
+            let account = self.get(index)?.ok_or(ProgramError::NotEnoughAccountKeys)?;
+            items[index] = Some(Signer::try_new(account)?);
+            index += 1;
+        }
+        Ok(RemainingSigners { items, len: index })
+    }
+
     /// Sequential iterator. Yields each account in declaration order,
     /// errors on duplicates in strict mode, preserves them in
     /// passthrough mode.
@@ -179,8 +223,8 @@ impl<'a> RemainingAccounts<'a> {
 
 /// Iterator yielded by [`RemainingAccounts::iter`].
 pub struct RemainingIter<'a> {
-    declared: &'a [&'a AccountView],
-    remaining: &'a [&'a AccountView],
+    declared: &'a [AccountView],
+    remaining: &'a [AccountView],
     mode: RemainingMode,
     index: usize,
 }
@@ -198,7 +242,7 @@ impl<'a> Iterator for RemainingIter<'a> {
             self.index = self.remaining.len();
             return Some(Err(RemainingError::Overflow.into()));
         }
-        let candidate = self.remaining[self.index];
+        let candidate = &self.remaining[self.index];
         let i = self.index;
         self.index = self.index.wrapping_add(1);
 
@@ -218,12 +262,128 @@ impl<'a> Iterator for RemainingIter<'a> {
     }
 }
 
+/// Bounded, validated remaining account-view set.
+pub struct RemainingAccountViews<'a, const N: usize> {
+    items: [Option<&'a AccountView>; N],
+    len: usize,
+}
+
+impl<'a, const N: usize> RemainingAccountViews<'a, N> {
+    /// Number of parsed account views.
+    #[inline(always)]
+    pub const fn len(&self) -> usize {
+        self.len
+    }
+
+    /// True when the parsed set is empty.
+    #[inline(always)]
+    pub const fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
+    /// Return account `index` if it exists.
+    #[inline(always)]
+    pub fn get(&self, index: usize) -> Option<&'a AccountView> {
+        if index >= self.len {
+            None
+        } else {
+            self.items[index]
+        }
+    }
+
+    /// Iterate over the parsed account views.
+    #[inline(always)]
+    pub fn iter(&self) -> RemainingAccountViewIter<'_, 'a, N> {
+        RemainingAccountViewIter {
+            set: self,
+            index: 0,
+        }
+    }
+}
+
+/// Iterator over a bounded account-view set.
+pub struct RemainingAccountViewIter<'set, 'a, const N: usize> {
+    set: &'set RemainingAccountViews<'a, N>,
+    index: usize,
+}
+
+impl<'a, const N: usize> Iterator for RemainingAccountViewIter<'_, 'a, N> {
+    type Item = &'a AccountView;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index >= self.set.len {
+            return None;
+        }
+        let item = self.set.items[self.index];
+        self.index += 1;
+        item
+    }
+}
+
+/// Bounded, validated remaining signer set.
+pub struct RemainingSigners<'a, const N: usize> {
+    items: [Option<Signer<'a>>; N],
+    len: usize,
+}
+
+impl<'a, const N: usize> RemainingSigners<'a, N> {
+    /// Number of parsed signers.
+    #[inline(always)]
+    pub const fn len(&self) -> usize {
+        self.len
+    }
+
+    /// True when the parsed set is empty.
+    #[inline(always)]
+    pub const fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
+    /// Return signer `index` if it exists.
+    #[inline(always)]
+    pub fn get(&self, index: usize) -> Option<Signer<'a>> {
+        if index >= self.len {
+            None
+        } else {
+            self.items[index]
+        }
+    }
+
+    /// Iterate over the parsed signers.
+    #[inline(always)]
+    pub fn iter(&self) -> RemainingSignerIter<'_, 'a, N> {
+        RemainingSignerIter {
+            set: self,
+            index: 0,
+        }
+    }
+}
+
+/// Iterator over a bounded signer set.
+pub struct RemainingSignerIter<'set, 'a, const N: usize> {
+    set: &'set RemainingSigners<'a, N>,
+    index: usize,
+}
+
+impl<'a, const N: usize> Iterator for RemainingSignerIter<'_, 'a, N> {
+    type Item = Signer<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index >= self.set.len {
+            return None;
+        }
+        let item = self.set.items[self.index];
+        self.index += 1;
+        item
+    }
+}
+
 /// Ergonomic fall-through used by the proc-macro codegen when the user
 /// wants to just burn through remaining accounts without a mode.
 #[inline(always)]
 pub fn strict<'a>(
-    declared: &'a [&'a AccountView],
-    remaining: &'a [&'a AccountView],
+    declared: &'a [AccountView],
+    remaining: &'a [AccountView],
 ) -> RemainingAccounts<'a> {
     RemainingAccounts::strict(declared, remaining)
 }

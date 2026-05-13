@@ -35,7 +35,7 @@ These are re-exported through the main `hopper` crate. You don't need to
 depend on `hopper-macros` directly.
 
 ```rust
-use hopper::prelude::*;
+use hopper::systems::*;
 
 hopper_layout! {
     pub struct Vault, disc = 1, version = 1 {

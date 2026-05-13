@@ -57,14 +57,10 @@ pub fn transfer_lamports(from: &AccountView, to: &AccountView, amount: u64) -> P
     Ok(())
 }
 
-/// Verify that an account is rent-exempt given the current rent parameters.
-///
-/// Reads the Rent sysvar and checks that the account's lamports meet
-/// the minimum balance for its data length.
+/// Verify that an account is rent-exempt under Solana's current rent constants.
 #[inline]
 pub fn require_rent_exempt(account: &AccountView) -> ProgramResult {
-    let rent = crate::sysvar::get_rent()?;
-    let min = rent.minimum_balance(account.data_len());
+    let min = crate::sysvar::rent_exempt_minimum(account.data_len());
     if account.lamports() >= min {
         Ok(())
     } else {
@@ -141,8 +137,7 @@ pub fn realloc_checked(
 ) -> ProgramResult {
     // Check rent requirement BEFORE resizing to avoid leaving the account
     // in an inconsistent state if the payer transfer fails.
-    let rent = crate::sysvar::get_rent()?;
-    let min = rent.minimum_balance(new_len);
+    let min = crate::sysvar::rent_exempt_minimum(new_len);
     let current = account.lamports();
 
     if current < min {

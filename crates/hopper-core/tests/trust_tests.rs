@@ -17,7 +17,7 @@ use hopper_core::account::*;
 use hopper_core::check::graph::{ValidationContext, ValidationGraph};
 use hopper_core::check::{
     check_no_subsequent_invocation, current_instruction_index, detect_flash_loan_bracket,
-    instruction_count, read_program_id_at, require_top_level,
+    instruction_count, read_program_id_at, require_top_level, InstructionsSysvar,
 };
 use hopper_core::collections::{
     bitmap_bytes, Journal, PackedMap, Slab, SortedVec, JOURNAL_HEADER_SIZE, SLAB_HEADER_SIZE,
@@ -1206,6 +1206,34 @@ fn build_ix_sysvar_with_metas(
     // current instruction index
     buf.extend_from_slice(&current_idx.to_le_bytes());
     buf
+}
+
+#[test]
+fn typed_instructions_sysvar_reads_program_data_and_metas() {
+    let program_a = [0x11u8; 32];
+    let program_b = [0x22u8; 32];
+    let sysvar = build_ix_sysvar_with_metas(&[(&program_a, 2), (&program_b, 0)], 0);
+    let view = InstructionsSysvar::new(&sysvar);
+
+    assert_eq!(view.len().unwrap(), 2);
+    assert_eq!(view.current_index().unwrap(), 0);
+    assert_eq!(view.program_id_at(1).unwrap().as_array(), &program_b);
+
+    let current = view.current_instruction().unwrap();
+    assert_eq!(current.account_count(), 2);
+    assert_eq!(current.program_id().as_array(), &program_a);
+    assert!(current.instruction_data().is_empty());
+
+    let first_meta = current.account(0).unwrap().unwrap();
+    assert_eq!(first_meta.pubkey_bytes()[0], 0);
+    assert!(first_meta.is_signer());
+    assert!(first_meta.is_writable());
+
+    let second_meta = current.account(1).unwrap().unwrap();
+    assert_eq!(second_meta.pubkey_bytes()[0], 1);
+    assert!(!second_meta.is_signer());
+    assert!(second_meta.is_writable());
+    assert!(current.account(2).unwrap().is_none());
 }
 
 #[test]

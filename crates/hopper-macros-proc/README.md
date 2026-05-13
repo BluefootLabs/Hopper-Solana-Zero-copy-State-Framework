@@ -24,6 +24,7 @@ Hopper's typed pointer and validation surface.
 | `#[hopper::args]` | Borrowing zero-copy instruction-arg parser with optional CU hint |
 | `#[hopper::pod]` (alias `#[pod]`) | Pod marker derive with align-1 / no-padding compile-time assertions |
 | `#[hopper::crank]` | Keeper-bot autonomous-marker descriptor |
+| `#[hopper::dynamic_account]` | Quasar-style bounded `String` / `Vec<Address>` fields lowered into fixed body + compact dynamic tail |
 | `#[hopper::dynamic]` | Dynamic-tail field metadata for ring-buffer bookkeeping |
 | `hopper::declare_program!` | Manifest-driven CPI surface with compile-time `FINGERPRINT`, borrowed Hopper instruction parts, and resolver/effect specs |
 | `#[derive(HopperInitSpace)]` | Anchor-parity `INIT_SPACE` derive for hand-authored Pod structs |
@@ -38,12 +39,35 @@ explicitly next to the layout:
 #[repr(C)]
 #[hopper::state(disc = 1, version = 1)]
 pub struct Vault {
-	pub balance: hopper::prelude::WireU64,
+    pub balance: hopper::prelude::WireU64,
 }
 ```
 
 The macro verifies this contract instead of injecting its own derive, so the
 README pattern above works without duplicate trait implementations.
+
+## `#[hopper::dynamic_account]`
+
+`dynamic_account` is the Quasar-porting façade. It accepts normal fixed fields
+plus bounded tail fields:
+
+```rust
+#[hopper::dynamic_account(disc = 7, version = 1)]
+pub struct Multisig {
+    pub threshold: u64,
+
+    #[tail(string<32>)]
+    pub label: String,
+
+    #[tail(vec<Address, 10>)]
+    pub signers: Vec<Address>,
+}
+```
+
+It emits a fixed-body `Multisig`, generated `MultisigTail`, borrowed view,
+owned editor, `ALLOC_SPACE`, and compact-tail helpers. The initial supported
+tail policy is `compact`; use explicit `hopper_dynamic_fields!` with
+`#[hopper::state(dynamic_tail = T)]` for custom `TailCodec` payloads.
 
 ## Enable
 

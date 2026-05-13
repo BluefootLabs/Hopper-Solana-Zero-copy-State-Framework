@@ -157,8 +157,8 @@ mod counter_program {
 - [docs/POLICY_GUARANTEES.md](docs/POLICY_GUARANTEES.md): capability policy, sealed/raw/hybrid access, and the policy-vault example.
 - [docs/MIGRATION_FROM_ANCHOR.md](docs/MIGRATION_FROM_ANCHOR.md): Anchor-to-Hopper migration notes.
 - [docs/MIGRATION_FROM_QUASAR.md](docs/MIGRATION_FROM_QUASAR.md): Quasar-to-Hopper migration notes.
-- [docs/PORT_QUASAR_IN_20_MINUTES.md](docs/PORT_QUASAR_IN_20_MINUTES.md): hands-on bounded-tail vault/multisig port guide with dynamic-field helpers.
-- [docs/DYNAMIC_TAILS_FROM_QUASAR.md](docs/DYNAMIC_TAILS_FROM_QUASAR.md): mapping Quasar bounded dynamic fields to Hopper fixed-body + dynamic-tail layouts.
+- [docs/PORT_QUASAR_IN_20_MINUTES.md](docs/PORT_QUASAR_IN_20_MINUTES.md): hands-on bounded-tail vault/multisig port guide using `#[hopper::dynamic_account]`.
+- [docs/DYNAMIC_TAILS_FROM_QUASAR.md](docs/DYNAMIC_TAILS_FROM_QUASAR.md): mapping Quasar bounded dynamic fields to Hopper fixed-body + compact dynamic-tail layouts.
 - [docs/QUASAR_PINOCCHIO_REPLACEMENT.md](docs/QUASAR_PINOCCHIO_REPLACEMENT.md): what Hopper replaces from Quasar/Pinocchio and what benchmark claims still require same-provenance proof.
 - [docs/CLI_REFERENCE.md](docs/CLI_REFERENCE.md): lifecycle, schema, client, profiling, and manager command reference.
 - [docs/PUBLICATION_AUDIT.md](docs/PUBLICATION_AUDIT.md): crate-by-crate publication and competitive-readiness audit.
@@ -169,8 +169,9 @@ Hopper is layered so users do not have to learn the systems surface first:
 
 1. Framework mode: `use hopper::prelude::*`, `#[account]`, `#[program]`,
    typed wrappers, PDA helpers, token modules, and guard macros.
-2. Structured state: add `hopper::layout`, `hopper::schema`, dynamic tails, and
-   generated manifests when account compatibility matters.
+2. Structured state: add `hopper::layout`, `hopper::schema`,
+   `#[hopper::dynamic_account]`, explicit dynamic tails, and generated
+   manifests when account compatibility matters.
 3. Systems mode: add `hopper::systems::*`, `hopper::segment`,
    `hopper::receipt`, `hopper::policy`, `hopper::migration`, and
    `hopper::interface` for field leasing, audit trails, upgrades, and
@@ -191,10 +192,17 @@ needs systems-mode control:
 5. `as_mut_ptr` - full raw pointer escape for policy-controlled raw mode.
 
 For variable-length account data, opt into structured state with
-`#[hopper::state(dynamic_tail = T)]` or systems mode with
-`hopper_dynamic_fields!`. Named extension segments remain the right tool for
-larger repeated regions that need independent borrow tracking or migration
-metadata.
+`#[hopper::dynamic_account]` for Quasar-style bounded `String` and
+`Vec<Address>` fields, or use `#[hopper::state(dynamic_tail = T)]` plus
+`hopper_dynamic_fields!` for explicit custom tails. Named extension segments
+remain the right tool for larger repeated regions that need independent borrow
+tracking or migration metadata.
+
+Handlers with variable account tails use generated remaining-account accessors:
+`ctx.remaining_accounts()` is strict and duplicate-rejecting,
+`ctx.remaining_accounts_passthrough()` preserves duplicates when a protocol
+needs that, and `ctx.remaining_accounts().signers::<N>()?` validates bounded
+multisig-style signer lists without allocation.
 
 ## Repository layout
 

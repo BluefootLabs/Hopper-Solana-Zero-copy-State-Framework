@@ -49,9 +49,11 @@ client generation matters.
   and wire types.
 - `hopper::schema` exposes manifests, IDL projection, resolver metadata, and
   generated client inputs.
-- `hopper_dynamic_tail!` and `hopper_dynamic_fields!` attach bounded dynamic
-  payloads to fixed zero-copy layouts when porting Quasar-shaped programs or
-  modeling compact metadata tails.
+- `#[hopper::dynamic_account]` gives Quasar-style bounded `String` and
+  `Vec<Address>` fields while lowering to Hopper's fixed-body + compact-tail
+  model.
+- `hopper_dynamic_tail!` and `hopper_dynamic_fields!` attach explicit bounded
+  dynamic payloads to fixed zero-copy layouts for custom `TailCodec` tails.
 - `declare_program!` consumes a manifest and generates typed CPI builders plus
   static account/effect specs.
 
@@ -87,7 +89,7 @@ the package name is the public ecosystem name.
 | Context/accounts | `#[derive(Accounts)]` | account list plus checks | `#[derive(Accounts)]`, `#[hopper::accounts]`, typed wrappers |
 | Signer | `Signer<'info>` | signer account check | `hopper::account::Signer<'info>` |
 | Typed account | `Account<'info, T>` | fixed account view | `hopper::account::Account<'info, T>` |
-| Dynamic string/vector | `String`, `Vec<T>` with serialization | bounded dynamic fields | `hopper_dynamic_fields! { name: string<N>, items: vec<T, N> }` |
+| Dynamic string/vector | `String`, `Vec<T>` with serialization | bounded dynamic fields | `#[hopper::dynamic_account]` or explicit `hopper_dynamic_fields!` |
 | CPI | generated CPI clients | manual/generated CPI | `declare_program!`, `hopper::cpi`, SPL facade modules |
 | Upgrade/migration | discriminator/version conventions | layout evolution discipline | layout fingerprints, `hopper::migration`, schema manifests |
 | Advanced safety | constraints and runtime checks | zero-copy constraints | segment leases, receipts, policy graphs, Kani-checked invariants |

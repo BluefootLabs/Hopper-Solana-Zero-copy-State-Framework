@@ -2,8 +2,11 @@
 
 Quasar lets a zero-copy account include bounded dynamic fields such as
 `String<'a, 32>` or `Vec<'a, Address, 10>` inside the account declaration.
-Hopper takes a different route: keep the fixed body strictly zero-copy, then
-attach one explicitly encoded dynamic tail after the fixed body.
+Hopper takes a different route internally: keep the fixed body strictly
+zero-copy, then attach one compact encoded dynamic tail after the fixed body.
+You can author that split directly, or use `#[hopper::dynamic_account]` to
+write the dynamic fields inline and let the macro lower them into the same
+layout.
 
 That split is intentional:
 
@@ -39,14 +42,35 @@ pub struct Multisig {
 }
 ```
 
-Hopper shape:
+Hopper ergonomic shape:
 
 ```rust
 use hopper::prelude::*;
 
+#[hopper::dynamic_account(disc = 7, version = 1)]
+pub struct Multisig {
+    pub threshold: u64,
+
+    #[tail(string<32>)]
+    pub label: String,
+
+    #[tail(vec<Address, 10>)]
+    pub signers: Vec<Address>,
+}
+```
+
+The macro emits a fixed `Multisig` body, a `MultisigTail`, `ALLOC_SPACE`,
+borrowed `tail_view` helpers, and an owned `tail_editor` for writeback.
+`threshold` remains a zero-copy field. `label` and `signers` move into the
+single compact tail payload and are decoded only when a handler asks for them.
+
+The explicit spelling is still available when you want a custom `TailCodec` or
+a tail shape beyond the current `dynamic_account` façade:
+
+```rust
 #[derive(Clone, Copy)]
-#[hopper::state(disc = 7, dynamic_tail = MultisigTail)]
 #[repr(C)]
+#[hopper::state(disc = 7, version = 1, dynamic_tail = MultisigTail)]
 pub struct Multisig {
     pub threshold: WireU64,
 }
@@ -58,9 +82,6 @@ hopper_dynamic_fields! {
     }
 }
 ```
-
-`threshold` remains a zero-copy field. `label` and `signers` move into the
-single tail payload and are decoded only when a handler asks for them.
 
 ## Bounded helper types
 
@@ -86,6 +107,11 @@ hopper_dynamic_fields! {
 tails: `contains`, `push_unique`, `remove_first`, `pop`, `clear`, and capacity
 inspection.
 
+`#[hopper::dynamic_account]` currently supports `#[tail(string<N>)]` and
+`#[tail(vec<Address, N>)]` with `tail_policy = "compact"` (the default). Use
+the explicit `hopper_dynamic_fields!` path for other `TailCodec` element types
+until indexed or segmented tail policies land.
+
 ## Generated helpers
 
 A dynamic-tail layout emits:
@@ -96,15 +122,22 @@ A dynamic-tail layout emits:
 - `tail_read(data: &[u8]) -> Result<T, ProgramError>`
 - `tail_write(data: &mut [u8], tail: &T) -> Result<usize, ProgramError>`
 
+`#[hopper::dynamic_account]` additionally emits:
+
+- `ALLOC_SPACE: usize`
+- `tail_capacity(data: &[u8]) -> Result<usize, ProgramError>`
+- `tail_view(data: &[u8]) -> Result<NameTailView<'_>, ProgramError>`
+- `tail_editor(data: &mut [u8]) -> Result<NameTailEditor<'_>, ProgramError>`
+- borrowed string/list accessors such as `label(data)` and `signers(data)`
+- setter/editor helpers such as `set_label`, `push_unique_signer`, and
+    `remove_signer`
+
 Example handler flow:
 
 ```rust
-pub fn rename(ctx: Context<Rename>, new_label: BoundedString<32>) -> ProgramResult {
+pub fn rename(ctx: Context<Rename>, new_label: &str) -> ProgramResult {
     let mut data = ctx.multisig.try_borrow_mut()?;
-    let mut tail = Multisig::tail_read(&data)?;
-    tail.label = new_label;
-    Multisig::tail_write(&mut data, &tail)?;
-    Ok(())
+    Multisig::set_label(&mut data, new_label)
 }
 ```
 
@@ -130,13 +163,15 @@ Use extension segments when:
 
 ## Migration checklist
 
-1. Keep the hot fixed fields in `#[hopper::state]` as `Wire*`, `[u8; N]`, or
-   other alignment-1 Hopper wire types.
-2. Group Quasar dynamic fields into one tail struct.
-3. Implement `TailCodec` with a deterministic bounded encoding.
-4. Allocate account space for `Fixed::LEN + 4 + Tail::MAX_ENCODED_LEN` when the
-   account is initialized.
-5. Use generated segment accessors for fixed fields and `tail_read` /
-   `tail_write` only at handlers that need dynamic data.
-6. Move to extension segments if tail updates become too large or need separate
-   borrow leases.
+1. Keep hot fields fixed. In `#[hopper::dynamic_account]`, native `u16`, `u32`,
+    `u64`, and `bool` fixed fields are stored as Hopper wire types and exposed
+    through generated native-value getters.
+2. Mark Quasar dynamic fields with `#[tail(string<N>)]` or
+    `#[tail(vec<Address, N>)]`, or use `hopper_dynamic_fields!` for explicit
+    custom tails.
+3. Allocate account space with `Multisig::ALLOC_SPACE` for the façade path, or
+    `Fixed::LEN + 4 + Tail::MAX_ENCODED_LEN` for the explicit path.
+4. Use generated segment accessors for fixed fields and tail view/editor helpers
+    only in handlers that need dynamic data.
+5. Move to extension segments if tail updates become too large or need separate
+    borrow leases.

@@ -83,7 +83,7 @@ pub mod system;
 pub mod token;
 pub mod token_2022_ext;
 
-pub use account::{AccountView, RemainingAccounts};
+pub use account::AccountView;
 pub use account_wrappers::{
     Account, InitAccount, Program, ProgramId, Signer as HopperSigner, SystemId,
 };
@@ -99,9 +99,13 @@ pub use interop::TransparentAddress;
 pub use migrate::{apply_pending_migrations, LayoutMigration, MigrationEdge};
 pub use policy::{HopperInstructionPolicy, HopperProgramPolicy};
 pub use ref_only::HopperRefOnly;
+pub use remaining::{
+    RemainingAccountViews, RemainingAccounts, RemainingError, RemainingMode, RemainingSigners,
+    MAX_REMAINING_ACCOUNTS,
+};
 pub use tail::{
-    read_tail, read_tail_len, tail_payload, write_tail, BoundedString, BoundedVec, HopperString,
-    HopperVec, TailCodec,
+    borrow_address_slice, borrow_bounded_str, read_tail, read_tail_len, tail_capacity,
+    tail_payload, write_tail, BoundedString, BoundedVec, HopperString, HopperVec, TailCodec,
 };
 
 /// Compose a layout's `LayoutMigration::MIGRATIONS` chain from a list

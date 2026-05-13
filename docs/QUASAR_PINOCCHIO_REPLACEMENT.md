@@ -59,6 +59,30 @@ The key design constraint is public-facing: Hopper should not expose separate
 one runtime story, and optional escape hatches where lower-level control is
 needed.
 
+## Quasar Open-Issue Pass
+
+The current Quasar issue queue points at a few places where Hopper should be
+the sharper choice:
+
+- **Dynamic account lifetimes:** `#[hopper::dynamic_account]` keeps Quasar-style
+  `String` / `Vec<Address>` authoring while generating borrowed views and an
+  owned editor over Hopper's fixed-body + compact-tail wire format.
+- **Fixed byte-array seeds:** `#[hopper::context]` lowers inline `seeds = [...]`
+  through `AsRef<[u8]>`, so `[u8; N]` seeds work with `hash.as_ref()`; signer
+  seeds also implement `Seed::from(&[u8; N])`.
+- **Rent paths:** runtime rent guards use Solana's constant rent minimum, and
+  `hopper_init!` handles pre-funded zero-data accounts with Transfer-if-needed
+  plus Allocate/Assign instead of forcing every path through CreateAccount.
+- **Remaining accounts:** generated contexts expose strict, passthrough, and raw
+  remaining-account views. Strict mode rejects duplicates against declared and
+  prior remaining accounts; `signers::<N>()?` validates bounded multisig tails.
+- **Instructions sysvar:** Hopper now has `InstructionsSysvar` and
+  `IntrospectedInstruction` over the raw parser helpers for top-level,
+  bracket, and follow-on invocation checks.
+- **Still honest gaps:** Anchor IDL export currently emits `errors: []`, and
+  `#[hopper::program]` still returns `ProgramResult` internally rather than a
+  generated raw-`u64` dispatch path. Both are small, explicit follow-ups.
+
 ## Cross-Framework Benchmark Path
 
 Cross-framework measurement is a standalone product surface in the sibling

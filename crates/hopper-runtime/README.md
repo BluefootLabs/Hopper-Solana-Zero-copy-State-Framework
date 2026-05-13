@@ -8,7 +8,8 @@ explicit `legacy-pinocchio-compat` migration and benchmark feature;
 ## What this crate owns
 
 - **Typed AccountView** with checked and unchecked borrow paths.
-- **`Context<T>`** - the typed entry point every Hopper handler receives.
+- **`Context<'a>`** - the raw runtime context that proc macros bind into typed
+  handler contexts.
 - **CPI** - `invoke`, `invoke_signed`, plus the unchecked Tier C variants
   with seven-item `# Safety` invariants documented inline.
 - **PDA helpers** - `find_program_address`, `create_program_address`, plus
@@ -26,6 +27,8 @@ explicit `legacy-pinocchio-compat` migration and benchmark feature;
   `Assign`.
 - **Rent-exemption helper** - `rent::check_rent_exempt(account)` backing the
   `#[account(rent_exempt = enforce)]` field keyword.
+- **Remaining accounts** - strict, passthrough, and raw remaining-account views
+  plus bounded account/signer parsing helpers.
 - **Token / Token-2022 readers** - base-layout readers for Mint and
   TokenAccount, plus the TLV scanner that powers the `extensions::*`
   constraints.

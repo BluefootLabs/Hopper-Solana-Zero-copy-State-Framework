@@ -99,6 +99,34 @@ Token-2022 programs should lean on Hopper's typed extension readers and CPI
 builders from `hopper::token_2022` and the unified token helpers from
 `hopper::token`.
 
+## Bounded Dynamic Fields
+
+When a fixed account needs a small bounded label or signer list, use
+`#[hopper::dynamic_account]`. The macro keeps fixed fields in the zero-copy body
+and lowers dynamic fields into Hopper's compact `[u32 len][payload]` tail.
+
+```rust
+use hopper::prelude::*;
+
+#[hopper::dynamic_account(disc = 7, version = 1)]
+pub struct Multisig {
+    pub threshold: u64,
+
+    #[tail(string<32>)]
+    pub label: String,
+
+    #[tail(vec<Address, 10>)]
+    pub signers: Vec<Address>,
+}
+```
+
+`Multisig::new(threshold)` constructs the fixed body, `Multisig::ALLOC_SPACE`
+is the maximum body-plus-tail allocation, `Multisig::label(data)` and
+`Multisig::signers(data)` borrow compact-tail fields, and setters such as
+`set_label` / `push_unique_signer` decode, edit, and write back the tail. Use
+explicit `hopper_dynamic_fields!` plus `#[hopper::state(dynamic_tail = T)]` when
+the tail contains custom `TailCodec` members.
+
 ## Systems Mode
 
 When the protocol needs layout evolution, field leases, receipts, policy graphs,

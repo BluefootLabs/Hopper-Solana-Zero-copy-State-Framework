@@ -13,8 +13,8 @@ variable-sized data in one explicit dynamic tail:
 ```
 
 Handlers that only touch fixed fields never decode the tail. Handlers that need
-metadata call the generated `tail_read` and `tail_write` helpers, making the
-dynamic path easy to audit.
+metadata use generated borrowed views or an owned editor/writeback helper,
+making the dynamic path easy to audit.
 
 ## Fixed Vault
 
@@ -41,48 +41,49 @@ pub struct Vault {
 The fixed fields still receive the normal Hopper constants, layout ID,
 validated loads, and generated segment accessors.
 
-## Bounded Tail
+## Bounded Dynamic Account
 
-Use `hopper_dynamic_fields!` for a compact tail payload with bounded strings and
-vectors:
+Use `#[hopper::dynamic_account]` when porting Quasar-style bounded fields. The
+fixed fields remain in the account body; fields marked with `#[tail(...)]` move
+into the compact dynamic tail.
 
 ```rust
-hopper_dynamic_fields! {
-    pub struct MultisigTail {
-        label: string<32>,
-        signers: vec<Address, 10>,
-    }
-}
-
-#[derive(Clone, Copy)]
-#[repr(C)]
-#[hopper::state(disc = 7, version = 1, dynamic_tail = MultisigTail)]
+#[hopper::dynamic_account(disc = 7, version = 1)]
 pub struct Multisig {
     #[role(threshold)]
-    pub threshold: WireU64,
-}
+    pub threshold: u64,
 
-impl Multisig {
-    pub const ALLOC_SPACE: usize = Self::INIT_SPACE + 4 + MultisigTail::MAX_ENCODED_LEN;
+    #[tail(string<32>)]
+    pub label: String,
+
+    #[tail(vec<Address, 10>)]
+    pub signers: Vec<Address>,
 }
 ```
 
-The macro lowers `string<N>` to `HopperString<N>` and `vec<T, N>` to
-`HopperVec<T, N>`. Those are short aliases for `BoundedString<N>` and
-`BoundedVec<T, N>`, storing a `u16` byte or element count followed by the
-initialized payload. `Address` implements `TailCodec`, so bounded signer lists
-work without a custom codec. For non-string/list payload members, write the
-normal `TailCodec` type directly in the same macro body.
+The macro generates a fixed `Multisig` body, a `MultisigTail`, borrowed
+`MultisigTailView`, owned `MultisigTailEditor`, and `Multisig::ALLOC_SPACE`.
+Native `u64` in the fixed body is stored as `WireU64` and exposed through the
+generated `threshold()` getter. `string<N>` lowers to `HopperString<N>` and
+`vec<Address, N>` lowers to `HopperVec<Address, N>` inside the generated tail.
+
+For custom tail element types, keep using the explicit lower-level pair:
+`hopper_dynamic_fields!` plus `#[hopper::state(dynamic_tail = Tail)]`.
 
 ## Read and Write the Tail
 
-The dynamic-tail state macro emits:
+The generated dynamic account emits:
 
 - `HAS_DYNAMIC_TAIL`
 - `TAIL_PREFIX_OFFSET`
+- `ALLOC_SPACE`
 - `tail_len(data)`
+- `tail_view(data)`
+- `tail_editor(data)`
 - `tail_read(data)`
 - `tail_write(data, tail)`
+- field helpers such as `label(data)`, `signers(data)`, `set_label(data, ...)`,
+  `push_unique_signer(data, ...)`, and `remove_signer(data, ...)`
 
 Example update handlers:
 
@@ -90,13 +91,13 @@ Example update handlers:
 pub fn rename_multisig(multisig: &AccountView, label: &str) -> ProgramResult {
     multisig.require_writable()?;
     let mut data = multisig.try_borrow_mut()?;
-    rename_multisig_data(&mut data, label)
+    Multisig::set_label(&mut data, label)
 }
 
 pub fn add_signer(multisig: &AccountView, signer: Address) -> ProgramResult {
     multisig.require_writable()?;
     let mut data = multisig.try_borrow_mut()?;
-    add_signer_data(&mut data, signer)
+    Multisig::push_unique_signer(&mut data, signer).map(|_| ())
 }
 ```
 
@@ -108,7 +109,7 @@ segment or companion account instead.
 ## Full Example
 
 See [`examples/quasar-port-20-min`](../examples/quasar-port-20-min/src/lib.rs)
-for a workspace example containing the fixed vault, bounded multisig tail,
+for a workspace example containing the fixed vault, dynamic-account multisig,
 initialization helper, signer-list mutation helpers, and threshold check. The
 release checklist runs `cargo check -p hopper-quasar-port-20-min` and
 `cargo test -p hopper-quasar-port-20-min` before the guide is treated as

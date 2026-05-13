@@ -19,6 +19,10 @@ struct StateOptions {
     /// length-prefixed dynamic payload at offset
     /// `HEADER_LEN + BODY_SIZE`.
     dynamic_tail: Option<syn::Type>,
+    /// Canonical compact-tail schema descriptor. `dynamic_account` supplies
+    /// this automatically; hand-written `dynamic_tail = T` layouts at least
+    /// fingerprint the tail type token.
+    dynamic_tail_schema: Option<String>,
 }
 
 impl Default for StateOptions {
@@ -27,6 +31,7 @@ impl Default for StateOptions {
             disc: None,
             version: 1,
             dynamic_tail: None,
+            dynamic_tail_schema: None,
         }
     }
 }
@@ -194,7 +199,16 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
 
     let body_size = running_offset.clone();
     let version = options.version;
-    let layout_id = layout_id_bytes(&name, version, fields);
+    let dynamic_tail_fingerprint = options
+        .dynamic_tail_schema
+        .as_deref()
+        .map(str::to_owned)
+        .or_else(|| {
+            dynamic_tail
+                .as_ref()
+                .map(|ty| format!("type:{}", ty.to_token_stream().to_string().replace(' ', "")))
+        });
+    let layout_id = layout_id_bytes(&name, version, fields, dynamic_tail_fingerprint.as_deref());
     // Default discriminator: first byte of the layout_id fingerprint.
     // If that byte is zero (1-in-256 chance given SHA-256 uniformity)
     // we fall through to the first non-zero byte so the compile-time
@@ -218,7 +232,15 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
     // Unique per-layout static that pins LAYOUT_ID bytes into
     // `.rodata`. `hopper verify` searches the compiled binary for
     // this exact 8-byte sequence to prove manifest/binary agreement.
-    let layout_id_anchor_ident = format_ident!("__HOPPER_LAYOUT_ID_ANCHOR_{}", struct_name_upper);
+    let layout_id_hex = layout_id
+        .iter()
+        .map(|byte| format!("{:02X}", byte))
+        .collect::<String>();
+    let layout_id_anchor_ident = format_ident!(
+        "__HOPPER_LAYOUT_ID_ANCHOR_{}_{}",
+        struct_name_upper,
+        layout_id_hex
+    );
 
     // ── Audit I5: hybrid-serialization tail helpers ──────────────────
     //
@@ -749,7 +771,12 @@ fn parse_state_options(attr: TokenStream) -> Result<StateOptions> {
             options.dynamic_tail = Some(ty);
             return Ok(());
         }
-        Err(meta.error("unsupported hopper_state option; expected `disc = N`, `version = N`, or `dynamic_tail = T`"))
+        if meta.path.is_ident("dynamic_tail_schema") || meta.path.is_ident("tail_schema") {
+            let value: LitStr = meta.value()?.parse()?;
+            options.dynamic_tail_schema = Some(value.value());
+            return Ok(());
+        }
+        Err(meta.error("unsupported hopper_state option; expected `disc = N`, `version = N`, `dynamic_tail = T`, or `dynamic_tail_schema = \"...\"`"))
     });
 
     parser.parse2(attr)?;
@@ -799,8 +826,12 @@ fn has_repr_c(attrs: &[Attribute]) -> bool {
 ///
 /// ```text
 /// hopper:wire:v2|S:<StructName>|V:<Version>|
-///   f0:<field_name>:<wire_stem>|f1:...|...
+///   f0:<field_name>:<wire_stem>|f1:...|...|tail:<schema-or-type>
 /// ```
+///
+/// Dynamic-tail layouts include either the precise compact-tail schema supplied
+/// by `#[hopper::dynamic_account]` or the explicit `dynamic_tail` type token.
+/// Fixed-only layouts omit the tail component.
 ///
 /// `hopper:wire:v2` is the fingerprint-algorithm version marker. If
 /// the descriptor format itself ever changes, bump this tag and the
@@ -809,12 +840,17 @@ fn layout_id_bytes(
     name: &syn::Ident,
     version: u8,
     fields: &syn::punctuated::Punctuated<syn::Field, syn::token::Comma>,
+    dynamic_tail_fingerprint: Option<&str>,
 ) -> [u8; 8] {
     let mut input = format!("hopper:wire:v2|S:{}|V:{}", name, version);
     for (idx, field) in fields.iter().enumerate() {
         let field_name = field.ident.as_ref().expect("named fields only");
         let stem = canonical_wire_stem(&field.ty);
         input.push_str(&format!("|f{}:{}:{}", idx, field_name, stem));
+    }
+    if let Some(tail) = dynamic_tail_fingerprint {
+        input.push_str("|tail:");
+        input.push_str(tail);
     }
 
     let digest = Sha256::digest(input.as_bytes());

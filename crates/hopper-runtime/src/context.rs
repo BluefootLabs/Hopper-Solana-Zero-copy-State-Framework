@@ -142,6 +142,32 @@ impl<'a> Context<'a> {
         }
     }
 
+    /// Get remaining accounts in strict duplicate-rejecting mode.
+    #[inline(always)]
+    pub fn remaining_accounts_strict(
+        &self,
+        from: usize,
+    ) -> crate::remaining::RemainingAccounts<'_> {
+        let declared_end = from.min(self.accounts.len());
+        crate::remaining::RemainingAccounts::strict(
+            &self.accounts[..declared_end],
+            self.remaining_accounts(from),
+        )
+    }
+
+    /// Get remaining accounts in duplicate-preserving passthrough mode.
+    #[inline(always)]
+    pub fn remaining_accounts_passthrough(
+        &self,
+        from: usize,
+    ) -> crate::remaining::RemainingAccounts<'_> {
+        let declared_end = from.min(self.accounts.len());
+        crate::remaining::RemainingAccounts::passthrough(
+            &self.accounts[..declared_end],
+            self.remaining_accounts(from),
+        )
+    }
+
     /// Require at least `n` accounts are present.
     #[inline(always)]
     pub fn require_accounts(&self, n: usize) -> ProgramResult {

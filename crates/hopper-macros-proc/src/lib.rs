@@ -25,6 +25,7 @@ mod context;
 mod crank;
 mod declare_program;
 mod dynamic;
+mod dynamic_account;
 mod error;
 mod event;
 mod init_space;
@@ -488,6 +489,43 @@ pub fn hopper_dynamic(attr: TokenStream, item: TokenStream) -> TokenStream {
 #[proc_macro_attribute]
 pub fn dynamic(attr: TokenStream, item: TokenStream) -> TokenStream {
     hopper_dynamic(attr, item)
+}
+
+/// Quasar-style bounded dynamic fields lowered into Hopper's fixed-body +
+/// compact-tail account layout.
+///
+/// Fields annotated with `#[tail(string<N>)]` or `#[tail(vec<Address, N>)]`
+/// are removed from the fixed body, encoded into a generated `NameTail`, and
+/// exposed through generated borrowed view / owned editor helpers. The account
+/// still uses Hopper's canonical `[body][u32 tail_len][tail_payload]` wire
+/// format.
+///
+/// # Example
+///
+/// ```ignore
+/// #[hopper::dynamic_account(disc = 7, version = 1)]
+/// pub struct Multisig {
+///     pub creator: Address,
+///     pub threshold: u8,
+///
+///     #[tail(string<32>)]
+///     pub label: String,
+///
+///     #[tail(vec<Address, 10>)]
+///     pub signers: Vec<Address>,
+/// }
+/// ```
+#[proc_macro_attribute]
+pub fn hopper_dynamic_account(attr: TokenStream, item: TokenStream) -> TokenStream {
+    dynamic_account::expand(attr.into(), item.into())
+        .unwrap_or_else(|e| e.to_compile_error())
+        .into()
+}
+
+/// Short alias: `#[hopper::dynamic_account]`.
+#[proc_macro_attribute]
+pub fn dynamic_account(attr: TokenStream, item: TokenStream) -> TokenStream {
+    hopper_dynamic_account(attr, item)
 }
 
 /// Mark a `pub const` so it is surfaced in the Anchor IDL `"constants"`

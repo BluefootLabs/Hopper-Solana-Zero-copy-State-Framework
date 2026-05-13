@@ -160,8 +160,10 @@ fn process_init(program_id: &Address, accounts: &[AccountView], _data: &[u8]) ->
 }
 ```
 
-`hopper_init!` creates the account through the system program, allocates the
-right length for `Vault::LEN`, zeroes the data, and writes the Hopper header.
+`hopper_init!` creates the account when it has zero lamports. If the account is
+already pre-funded but has no data, it transfers only any missing rent lamports
+and uses Allocate + Assign. Either way it allocates `Vault::LEN`, zeroes the
+data, and writes the Hopper header.
 After initialization, `Vault::load_mut` gives a validated mutable layout view.
 
 ## Step 5: Parse Instruction Arguments

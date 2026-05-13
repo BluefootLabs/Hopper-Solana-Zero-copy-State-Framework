@@ -8,7 +8,7 @@ Part of the **[Hopper](https://hopperzero.dev)** framework.
 ```rust
 use hopper::prelude::*;
 
-hopper_system::instructions::Transfer {
+system::Transfer {
     from: payer,
     to: vault,
     lamports: amount,
@@ -16,7 +16,7 @@ hopper_system::instructions::Transfer {
 .invoke()?;
 ```
 
-Re-exported through `hopper::prelude::*` as `system_instructions::*` and
+Re-exported through `hopper::prelude::*` as the `system` module and
 `SYSTEM_PROGRAM_ID`.
 
 Docs: <https://docs.rs/crate/hopper-system/0.1.0>

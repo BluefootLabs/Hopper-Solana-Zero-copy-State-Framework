@@ -666,7 +666,7 @@ macro_rules! hopper_require {
 //  Section: Lifecycle (init / close)
 // ═════════════════════════════════════════════════════════════════════
 
-/// Initialize an account: create via CPI, zero-init, write header.
+/// Initialize an account: allocate, assign, zero-init, write header.
 ///
 /// ```ignore
 /// hopper_init!(payer, account, system_program, program_id, Vault)?;
@@ -674,22 +674,45 @@ macro_rules! hopper_require {
 #[macro_export]
 macro_rules! hopper_init {
     ($payer:expr, $account:expr, $system:expr, $program_id:expr, $layout:ty) => {{
-        // Calculate rent
+        let payer = $payer;
+        let account = $account;
+        let program_id = $program_id;
+
         let lamports = $crate::hopper_core::check::rent_exempt_min(<$layout>::LEN);
         let space = <$layout>::LEN as u64;
 
-        // CPI CreateAccount
-        $crate::hopper_system::CreateAccount {
-            from: $payer,
-            to: $account,
-            lamports,
-            space,
-            owner: $program_id,
+        if account.data_len() != 0 {
+            Err($crate::hopper_runtime::ProgramError::AccountAlreadyInitialized)?;
         }
-        .invoke()?;
 
-        // Zero-init and write header
-        let mut data = $account.try_borrow_mut()?;
+        let current_lamports = account.lamports();
+        if current_lamports == 0 {
+            $crate::hopper_system::CreateAccount {
+                from: payer,
+                to: account,
+                lamports,
+                space,
+                owner: program_id,
+            }
+            .invoke()?;
+        } else {
+            if current_lamports < lamports {
+                $crate::hopper_system::Transfer {
+                    from: payer,
+                    to: account,
+                    lamports: lamports - current_lamports,
+                }
+                .invoke()?;
+            }
+            $crate::hopper_system::Allocate { account, space }.invoke()?;
+            $crate::hopper_system::Assign {
+                account,
+                owner: program_id,
+            }
+            .invoke()?;
+        }
+
+        let mut data = account.try_borrow_mut()?;
         $crate::hopper_core::account::zero_init(&mut *data);
         <$layout>::write_init_header(&mut *data)
     }};

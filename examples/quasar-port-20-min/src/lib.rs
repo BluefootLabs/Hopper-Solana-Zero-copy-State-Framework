@@ -30,23 +30,16 @@ pub struct Vault {
     pub bump: u8,
 }
 
-hopper_dynamic_fields! {
-    pub struct MultisigTail {
-        label: string<32>,
-        signers: vec<Address, 10>,
-    }
-}
-
-#[derive(Clone, Copy)]
-#[repr(C)]
-#[hopper::state(disc = 7, version = 1, dynamic_tail = MultisigTail)]
+#[hopper::dynamic_account(disc = 7, version = 1)]
 pub struct Multisig {
     #[role(threshold)]
-    pub threshold: WireU64,
-}
+    pub threshold: u64,
 
-impl Multisig {
-    pub const ALLOC_SPACE: usize = Self::INIT_SPACE + 4 + MultisigTail::MAX_ENCODED_LEN;
+    #[tail(string<32>)]
+    pub label: String,
+
+    #[tail(vec<Address, 10>)]
+    pub signers: Vec<Address>,
 }
 
 pub fn initialize_multisig_data(
@@ -64,7 +57,7 @@ pub fn initialize_multisig_data(
 
     init_header::<Multisig>(data)?;
     let body = Multisig::overlay_mut(&mut data[HopperHeader::SIZE..Multisig::TAIL_PREFIX_OFFSET])?;
-    body.threshold = WireU64::new(threshold);
+    *body = Multisig::new(threshold);
 
     let tail = MultisigTail {
         label: HopperString::from_str(label)?,
@@ -79,14 +72,14 @@ pub fn threshold_met(data: &[u8], approvals: &[Address]) -> Result<bool, Program
         return Err(ProgramError::AccountDataTooSmall);
     }
     let body = Multisig::overlay(&data[HopperHeader::SIZE..Multisig::TAIL_PREFIX_OFFSET])?;
-    let needed = body.threshold.get() as usize;
+    let needed = body.threshold() as usize;
     if needed == 0 {
         return Ok(false);
     }
 
-    let tail = Multisig::tail_read(data)?;
+    let signers = Multisig::signers(data)?;
     let mut approved = 0usize;
-    for signer in tail.signers.as_slice() {
+    for signer in signers {
         if approvals.iter().any(|candidate| candidate == signer) {
             approved += 1;
             if approved >= needed {
@@ -98,24 +91,15 @@ pub fn threshold_met(data: &[u8], approvals: &[Address]) -> Result<bool, Program
 }
 
 pub fn rename_multisig_data(data: &mut [u8], label: &str) -> ProgramResult {
-    let mut tail = Multisig::tail_read(data)?;
-    tail.label.set_str(label)?;
-    Multisig::tail_write(data, &tail)?;
-    Ok(())
+    Multisig::set_label(data, label)
 }
 
 pub fn add_signer_data(data: &mut [u8], signer: Address) -> ProgramResult {
-    let mut tail = Multisig::tail_read(data)?;
-    tail.signers.push_unique(signer)?;
-    Multisig::tail_write(data, &tail)?;
-    Ok(())
+    Multisig::push_unique_signer(data, signer).map(|_| ())
 }
 
 pub fn remove_signer_data(data: &mut [u8], signer: &Address) -> Result<bool, ProgramError> {
-    let mut tail = Multisig::tail_read(data)?;
-    let removed = tail.signers.remove_first(signer);
-    Multisig::tail_write(data, &tail)?;
-    Ok(removed)
+    Multisig::remove_signer(data, signer)
 }
 
 pub fn rename_multisig(multisig: &AccountView, label: &str) -> ProgramResult {
@@ -145,9 +129,9 @@ mod tests {
         let written = Multisig::tail_write(&mut data, &tail).unwrap();
         assert_eq!(Multisig::tail_len(&data).unwrap(), written as u32);
 
-        let back = Multisig::tail_read(&data).unwrap();
-        assert_eq!(back.label.as_str().unwrap(), "ops");
-        assert_eq!(back.signers.as_slice(), &[signer]);
+        let view = Multisig::tail_view(&data).unwrap();
+        assert_eq!(view.label().unwrap(), "ops");
+        assert_eq!(view.signers().unwrap(), &[signer]);
     }
 
     #[test]
@@ -165,9 +149,11 @@ mod tests {
         add_signer_data(&mut data, signer_c).unwrap();
         add_signer_data(&mut data, signer_c).unwrap();
 
-        let tail = Multisig::tail_read(&data).unwrap();
-        assert_eq!(tail.label.as_str().unwrap(), "treasury");
-        assert_eq!(tail.signers.as_slice(), &[signer_a, signer_b, signer_c]);
+        assert_eq!(Multisig::label(&data).unwrap(), "treasury");
+        assert_eq!(
+            Multisig::signers(&data).unwrap(),
+            &[signer_a, signer_b, signer_c]
+        );
 
         assert!(remove_signer_data(&mut data, &signer_b).unwrap());
         assert!(!threshold_met(&data, &[signer_a, signer_b]).unwrap());

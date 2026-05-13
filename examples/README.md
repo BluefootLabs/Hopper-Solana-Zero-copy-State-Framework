@@ -27,7 +27,7 @@ the full showcase once the basics are familiar.
 
 5. **[quasar-port-20-min](quasar-port-20-min/src/lib.rs)** - Bounded
    dynamic-tail example for a fixed vault and multisig metadata using
-   `hopper_dynamic_fields!`, initialization helpers, and threshold checks.
+   `#[hopper::dynamic_account]`, initialization helpers, and threshold checks.
    Companion guide:
    [../docs/PORT_QUASAR_IN_20_MINUTES.md](../docs/PORT_QUASAR_IN_20_MINUTES.md)
 

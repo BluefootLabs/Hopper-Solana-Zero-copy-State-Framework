@@ -237,19 +237,22 @@ accessors for the default hot path. Methods: `get()`, `get_mut()`, `with()`,
 
 ### Dynamic Tail Payloads (`tail.rs`)
 
-Variable-length account metadata lives behind `#[hopper::state(dynamic_tail = T)]`:
+Variable-length account metadata lives behind `#[hopper::dynamic_account]` or
+the explicit `#[hopper::state(dynamic_tail = T)]` path:
 
 ```text
 [ Hopper header ][ fixed account body ][ tail_len: u32 LE ][ encoded tail ]
 ```
 
-The fixed body remains the zero-copy hot path. Handlers that need metadata call
-the generated `tail_read` / `tail_write` helpers and work with a bounded
-`TailCodec` payload. `HopperString<N>` and `HopperVec<T, N>` cover the common
-string/list cases without pulling heap allocation into SBF builds.
-`hopper_dynamic_fields!` is the Quasar-porting sugar for those aliases:
-`string<N>` lowers to `HopperString<N>`, and `vec<T, N>` lowers to
-`HopperVec<T, N>`.
+The fixed body remains the zero-copy hot path. `#[hopper::dynamic_account]`
+lets authors write bounded `#[tail(string<N>)]` and `#[tail(vec<Address, N>)]`
+fields inline, then generates the compact tail struct, borrowed view, owned
+editor, and allocation constants. The explicit path uses `tail_read` /
+`tail_write` with a bounded `TailCodec` payload. `HopperString<N>` and
+`HopperVec<T, N>` cover the common string/list cases without pulling heap
+allocation into SBF builds. `hopper_dynamic_fields!` lowers `string<N>` to
+`HopperString<N>` and `vec<T, N>` to `HopperVec<T, N>` for custom explicit
+tails.
 
 Use dynamic tails for small bounded payloads that are read or written as one
 logical unit. Use named extension segments or companion accounts for larger
@@ -525,7 +528,7 @@ functionality (see [PROC_MACRO_POLICY.md](PROC_MACRO_POLICY.md)).
 | `hopper_check!` | Composable constraint: `owner=, writable, signer, disc=, size>=` |
 | `hopper_error!` | Sequential error code generation |
 | `hopper_require!` | Assert with custom error return |
-| `hopper_init!` | CreateAccount CPI + zero_init + write_header |
+| `hopper_init!` | CreateAccount or Allocate/Assign CPI + zero_init + write_header |
 | `hopper_close!` | safe_close_with_sentinel wrapper |
 | `hopper_dispatch!` | 1-byte tag match dispatch |
 | `hopper_register_discs!` | Compile-time discriminator uniqueness |

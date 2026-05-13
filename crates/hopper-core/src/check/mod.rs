@@ -464,6 +464,229 @@ pub fn current_instruction_index(sysvar_data: &[u8]) -> Result<u16, ProgramError
     ]))
 }
 
+#[inline(always)]
+fn instruction_offset(sysvar_data: &[u8], index: u16) -> Result<usize, ProgramError> {
+    let num_ix = instruction_count(sysvar_data)?;
+    if index >= num_ix {
+        return Err(ProgramError::InvalidArgument);
+    }
+    let offset_entry = 2usize
+        .checked_add((index as usize).saturating_mul(2))
+        .ok_or(ProgramError::ArithmeticOverflow)?;
+    if offset_entry + 2 > sysvar_data.len() {
+        return Err(ProgramError::InvalidAccountData);
+    }
+    Ok(u16::from_le_bytes([sysvar_data[offset_entry], sysvar_data[offset_entry + 1]]) as usize)
+}
+
+#[inline]
+fn instruction_layout(
+    sysvar_data: &[u8],
+    index: u16,
+) -> Result<(usize, usize, usize), ProgramError> {
+    let ix_offset = instruction_offset(sysvar_data, index)?;
+    if ix_offset + 2 > sysvar_data.len() {
+        return Err(ProgramError::InvalidAccountData);
+    }
+    let account_count =
+        u16::from_le_bytes([sysvar_data[ix_offset], sysvar_data[ix_offset + 1]]) as usize;
+    let accounts_offset = ix_offset + 2;
+    let metas_len = account_count
+        .checked_mul(33)
+        .ok_or(ProgramError::ArithmeticOverflow)?;
+    let program_id_offset = accounts_offset
+        .checked_add(metas_len)
+        .ok_or(ProgramError::ArithmeticOverflow)?;
+    if program_id_offset + 34 > sysvar_data.len() {
+        return Err(ProgramError::InvalidAccountData);
+    }
+    let data_len_offset = program_id_offset + 32;
+    let data_len = u16::from_le_bytes([
+        sysvar_data[data_len_offset],
+        sysvar_data[data_len_offset + 1],
+    ]) as usize;
+    let data_offset = data_len_offset + 2;
+    if data_offset
+        .checked_add(data_len)
+        .ok_or(ProgramError::ArithmeticOverflow)?
+        > sysvar_data.len()
+    {
+        return Err(ProgramError::InvalidAccountData);
+    }
+    Ok((account_count, program_id_offset, data_offset))
+}
+
+/// Typed borrowed view over the Instructions sysvar account data.
+pub struct InstructionsSysvar<'a> {
+    data: &'a [u8],
+}
+
+impl<'a> InstructionsSysvar<'a> {
+    /// Borrow serialized Instructions sysvar data.
+    #[inline(always)]
+    pub const fn new(data: &'a [u8]) -> Self {
+        Self { data }
+    }
+
+    /// Raw serialized sysvar bytes.
+    #[inline(always)]
+    pub const fn as_bytes(&self) -> &'a [u8] {
+        self.data
+    }
+
+    /// Number of instructions in the transaction.
+    #[inline(always)]
+    pub fn len(&self) -> Result<u16, ProgramError> {
+        instruction_count(self.data)
+    }
+
+    /// True when the sysvar reports zero instructions.
+    #[inline(always)]
+    pub fn is_empty(&self) -> Result<bool, ProgramError> {
+        Ok(self.len()? == 0)
+    }
+
+    /// Current instruction index.
+    #[inline(always)]
+    pub fn current_index(&self) -> Result<u16, ProgramError> {
+        current_instruction_index(self.data)
+    }
+
+    /// Borrow instruction `index` as a typed view.
+    #[inline(always)]
+    pub fn instruction(&self, index: u16) -> Result<IntrospectedInstruction<'a>, ProgramError> {
+        IntrospectedInstruction::new(self.data, index)
+    }
+
+    /// Borrow the current instruction as a typed view.
+    #[inline(always)]
+    pub fn current_instruction(&self) -> Result<IntrospectedInstruction<'a>, ProgramError> {
+        self.instruction(self.current_index()?)
+    }
+
+    /// Read the program id at instruction `index`.
+    #[inline(always)]
+    pub fn program_id_at(&self, index: u16) -> Result<Address, ProgramError> {
+        let bytes = read_program_id_at(self.data, index)?;
+        Ok(Address::new_from_array(bytes))
+    }
+}
+
+/// Typed borrowed view over one instruction inside the Instructions sysvar.
+pub struct IntrospectedInstruction<'a> {
+    data: &'a [u8],
+    account_count: usize,
+    accounts_offset: usize,
+    program_id_offset: usize,
+    data_offset: usize,
+    data_len: usize,
+}
+
+impl<'a> IntrospectedInstruction<'a> {
+    #[inline]
+    fn new(sysvar_data: &'a [u8], index: u16) -> Result<Self, ProgramError> {
+        let ix_offset = instruction_offset(sysvar_data, index)?;
+        let (account_count, program_id_offset, data_offset) =
+            instruction_layout(sysvar_data, index)?;
+        let data_len_offset = program_id_offset + 32;
+        let data_len = u16::from_le_bytes([
+            sysvar_data[data_len_offset],
+            sysvar_data[data_len_offset + 1],
+        ]) as usize;
+        Ok(Self {
+            data: sysvar_data,
+            account_count,
+            accounts_offset: ix_offset + 2,
+            program_id_offset,
+            data_offset,
+            data_len,
+        })
+    }
+
+    /// Number of account metas in this instruction.
+    #[inline(always)]
+    pub const fn account_count(&self) -> usize {
+        self.account_count
+    }
+
+    /// Instruction program id.
+    #[inline(always)]
+    pub fn program_id(&self) -> Address {
+        let mut bytes = [0u8; 32];
+        bytes.copy_from_slice(&self.data[self.program_id_offset..self.program_id_offset + 32]);
+        Address::new_from_array(bytes)
+    }
+
+    /// Instruction data bytes.
+    #[inline(always)]
+    pub fn instruction_data(&self) -> &'a [u8] {
+        &self.data[self.data_offset..self.data_offset + self.data_len]
+    }
+
+    /// Read account meta `index`.
+    #[inline]
+    pub fn account(&self, index: usize) -> Result<Option<InstructionAccountMeta>, ProgramError> {
+        if index >= self.account_count {
+            return Ok(None);
+        }
+        let meta_offset = index
+            .checked_mul(33)
+            .ok_or(ProgramError::ArithmeticOverflow)?;
+        let offset = self
+            .accounts_offset
+            .checked_add(meta_offset)
+            .ok_or(ProgramError::ArithmeticOverflow)?;
+        if offset + 33 > self.data.len() {
+            return Err(ProgramError::InvalidAccountData);
+        }
+        let mut pubkey = [0u8; 32];
+        pubkey.copy_from_slice(&self.data[offset + 1..offset + 33]);
+        Ok(Some(InstructionAccountMeta {
+            flags: self.data[offset],
+            pubkey,
+        }))
+    }
+}
+
+/// Account meta decoded from an Instructions sysvar entry.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct InstructionAccountMeta {
+    flags: u8,
+    pubkey: [u8; 32],
+}
+
+impl InstructionAccountMeta {
+    /// Raw meta flags.
+    #[inline(always)]
+    pub const fn flags(&self) -> u8 {
+        self.flags
+    }
+
+    /// The account public key bytes.
+    #[inline(always)]
+    pub const fn pubkey_bytes(&self) -> &[u8; 32] {
+        &self.pubkey
+    }
+
+    /// The account public key as a Hopper address.
+    #[inline(always)]
+    pub const fn address(&self) -> Address {
+        Address::new_from_array(self.pubkey)
+    }
+
+    /// True when the meta is marked signer.
+    #[inline(always)]
+    pub const fn is_signer(&self) -> bool {
+        self.flags & 0x01 != 0
+    }
+
+    /// True when the meta is marked writable.
+    #[inline(always)]
+    pub const fn is_writable(&self) -> bool {
+        self.flags & 0x02 != 0
+    }
+}
+
 /// Read the program_id of instruction at the given index.
 ///
 /// Instructions sysvar layout:
@@ -486,28 +709,7 @@ pub fn current_instruction_index(sysvar_data: &[u8]) -> Result<u16, ProgramError
 /// ```
 #[inline]
 pub fn read_program_id_at(sysvar_data: &[u8], index: u16) -> Result<[u8; 32], ProgramError> {
-    let num_ix = instruction_count(sysvar_data)?;
-    if index >= num_ix {
-        return Err(ProgramError::InvalidArgument);
-    }
-    // Offset table starts at byte 2, with one u16 per instruction.
-    let offset_entry = 2 + (index as usize) * 2;
-    if offset_entry + 2 > sysvar_data.len() {
-        return Err(ProgramError::InvalidAccountData);
-    }
-    let ix_offset =
-        u16::from_le_bytes([sysvar_data[offset_entry], sysvar_data[offset_entry + 1]]) as usize;
-
-    // At ix_offset: [num_accounts: u16 LE][accounts...]
-    // Each account meta is 33 bytes (1 byte flags + 32 byte pubkey).
-    // After accounts: [program_id: 32 bytes][data_len: u16][data...]
-    if ix_offset + 2 > sysvar_data.len() {
-        return Err(ProgramError::InvalidAccountData);
-    }
-    let num_accounts =
-        u16::from_le_bytes([sysvar_data[ix_offset], sysvar_data[ix_offset + 1]]) as usize;
-    // Skip accounts: each is 1 + 32 = 33 bytes
-    let program_id_offset = ix_offset + 2 + num_accounts * 33;
+    let (_, program_id_offset, _) = instruction_layout(sysvar_data, index)?;
     if program_id_offset + 32 > sysvar_data.len() {
         return Err(ProgramError::InvalidAccountData);
     }

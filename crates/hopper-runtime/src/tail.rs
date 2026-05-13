@@ -632,6 +632,75 @@ pub fn tail_payload(data: &[u8], body_end: usize) -> Result<&[u8], ProgramError>
     Ok(&data[start..end])
 }
 
+/// Return the account bytes available after the tail length prefix.
+///
+/// This is useful before a grow/realloc path: if the encoded payload to write
+/// is larger than this value, the caller must resize the account before
+/// calling `write_tail`.
+#[inline]
+pub fn tail_capacity(data: &[u8], body_end: usize) -> Result<usize, ProgramError> {
+    let start = body_end
+        .checked_add(4)
+        .ok_or(ProgramError::AccountDataTooSmall)?;
+    if data.len() < start {
+        return Err(ProgramError::AccountDataTooSmall);
+    }
+    Ok(data.len() - start)
+}
+
+/// Borrow one bounded UTF-8 string from a compact dynamic-tail payload.
+///
+/// The returned `usize` is the number of bytes consumed from `input`, so a
+/// generated view can walk subsequent compact-tail fields without decoding the
+/// whole tail into an owned value.
+#[inline]
+pub fn borrow_bounded_str<const N: usize>(input: &[u8]) -> Result<(&str, usize), ProgramError> {
+    if input.len() < 2 {
+        return Err(ProgramError::InvalidAccountData);
+    }
+    let len = u16::from_le_bytes([input[0], input[1]]) as usize;
+    if len > N || input.len() < 2 + len {
+        return Err(ProgramError::InvalidAccountData);
+    }
+    let bytes = &input[2..2 + len];
+    let value = core::str::from_utf8(bytes).map_err(|_| ProgramError::InvalidAccountData)?;
+    Ok((value, 2 + len))
+}
+
+/// Borrow one bounded address vector from a compact dynamic-tail payload.
+///
+/// This is the zero-copy read path for the common multisig/authority-list case
+/// that Quasar represents as `Vec<'a, Address, N>`. `Address` is
+/// `repr(transparent)` over `[u8; 32]` and alignment-1, so the slice cast is
+/// layout-safe after the length and capacity checks below.
+#[inline]
+pub fn borrow_address_slice<const N: usize>(
+    input: &[u8],
+) -> Result<(&[crate::address::Address], usize), ProgramError> {
+    if input.len() < 2 {
+        return Err(ProgramError::InvalidAccountData);
+    }
+    let len = u16::from_le_bytes([input[0], input[1]]) as usize;
+    if len > N {
+        return Err(ProgramError::InvalidAccountData);
+    }
+    let byte_len = len
+        .checked_mul(32)
+        .ok_or(ProgramError::InvalidAccountData)?;
+    let end = 2usize
+        .checked_add(byte_len)
+        .ok_or(ProgramError::InvalidAccountData)?;
+    if input.len() < end {
+        return Err(ProgramError::InvalidAccountData);
+    }
+    let bytes = &input[2..end];
+    let ptr = bytes.as_ptr() as *const crate::address::Address;
+    // SAFETY: Address has alignment 1 and is transparent over [u8; 32]. The
+    // byte range length is exactly len * 32, checked above.
+    let values = unsafe { core::slice::from_raw_parts(ptr, len) };
+    Ok((values, end))
+}
+
 /// Decode the tail as `T: TailCodec`, checking that the encoded length
 /// exactly matches the u32 prefix. Extra bytes beyond `T`'s decode
 /// are a malformed-encoding signal.

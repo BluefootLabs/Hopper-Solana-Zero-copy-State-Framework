@@ -18,6 +18,7 @@ It is `no_std`, `no_alloc`, and does not require proc macros.
 - **Segment borrows** - Byte-range borrow tracking for partial reads and writes on the same account.
 - **Collections** - `FixedVec`, `RingBuffer`, `SlotMap`, `BitSet`, `Journal`, `Slab`, `PackedMap`, and `SortedVec` over account bytes.
 - **Policy** - Declare what capabilities an instruction needs and auto-resolve validation requirements.
+- **Checks** - Account, PDA, rent, and Instructions sysvar helpers, including the typed `InstructionsSysvar` view.
 - **Receipts** - Structured mutation proof with before/after fingerprints, changed fields, byte diffs, segment tracking, and CPI flags.
 - **Segments** - Typed segment roles: Core, Extension, Journal, Index, Cache, Audit, and Shard.
 - **Virtual state** - Map state across multiple accounts with `hopper_virtual!`.
@@ -26,7 +27,7 @@ It is `no_std`, `no_alloc`, and does not require proc macros.
 ## Quick example
 
 ```rust
-use hopper::prelude::*;
+use hopper::systems::*;
 
 hopper_layout! {
     pub struct Vault, disc = 1, version = 1 {

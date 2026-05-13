@@ -50,6 +50,23 @@ pub struct Rent {
     pub burn_percent: u8,
 }
 
+/// Lamports charged per byte of account storage per year.
+pub const LAMPORTS_PER_BYTE_YEAR: u64 = 3_480;
+
+/// Years of rent an account must prepay to be rent-exempt.
+pub const EXEMPTION_THRESHOLD_YEARS: u64 = 2;
+
+/// Fixed per-account storage overhead charged by the cluster.
+pub const ACCOUNT_STORAGE_OVERHEAD: u64 = 128;
+
+/// Minimum balance for rent exemption under the current Solana cluster constants.
+#[inline]
+pub const fn rent_exempt_minimum(data_len: usize) -> u64 {
+    (data_len as u64 + ACCOUNT_STORAGE_OVERHEAD)
+        * LAMPORTS_PER_BYTE_YEAR
+        * EXEMPTION_THRESHOLD_YEARS
+}
+
 /// Read the Rent sysvar.
 #[inline]
 pub fn get_rent() -> Result<Rent, ProgramError> {
@@ -72,11 +89,8 @@ impl Rent {
     /// Calculate the minimum lamports for rent exemption at the given data size.
     #[inline]
     pub fn minimum_balance(&self, data_len: usize) -> u64 {
-        // Total account size = data + 128 bytes of account metadata overhead.
-        let total_size = (data_len as u64).saturating_add(128);
-        let lamports =
-            (total_size as f64) * self.lamports_per_byte_year as f64 * self.exemption_threshold;
-        lamports as u64
+        let total_size = (data_len as u64).saturating_add(ACCOUNT_STORAGE_OVERHEAD);
+        (total_size as f64 * self.lamports_per_byte_year as f64 * self.exemption_threshold) as u64
     }
 }
 

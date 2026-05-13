@@ -1710,11 +1710,10 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
 
             // Two emission shapes:
             //
-            //   init            - unconditionally call hopper_init!
-            //                     (which errors if the account is
-            //                     already allocated).
+            //   init            - call hopper_init! to create or allocate+assign
+            //                     a zero-data account, then write the header.
             //
-            //   init_if_needed  - skip the CreateAccount CPI entirely
+            //   init_if_needed  - skip the lifecycle CPI entirely
             //                     when the account already has data.
             //                     The account is then assumed to be
             //                     set up by a prior invocation; the
@@ -1755,12 +1754,12 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
             };
 
             let doc = if is_if_needed {
-                "Create the account via System Program CPI if it doesn't exist yet (init_if_needed). \
+                "Create or allocate+assign the account via System Program CPI if it doesn't exist yet (init_if_needed). \
                  If the account is already allocated (data_len > 0) the helper returns Ok(()) without \
                  touching lamports or data - caller is responsible for validating the existing layout."
             } else {
-                "Create the account via System Program CPI, zero-init its data, and write the Hopper header. \
-                 Errors if the account is already allocated."
+                "Create or allocate+assign the account via System Program CPI, zero-init its data, and write the Hopper header. \
+                  Errors if the account already has data."
             };
 
             accessors.push(quote! {
@@ -2535,7 +2534,21 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
             }
 
             #[inline(always)]
-            #vis fn remaining_accounts(&self) -> &[::hopper::prelude::AccountView] {
+            #vis fn remaining_accounts(
+                &self,
+            ) -> ::hopper::hopper_runtime::remaining::RemainingAccounts<'_> {
+                self.ctx.remaining_accounts_strict(#account_count)
+            }
+
+            #[inline(always)]
+            #vis fn remaining_accounts_passthrough(
+                &self,
+            ) -> ::hopper::hopper_runtime::remaining::RemainingAccounts<'_> {
+                self.ctx.remaining_accounts_passthrough(#account_count)
+            }
+
+            #[inline(always)]
+            #vis fn remaining_accounts_raw(&self) -> &[::hopper::prelude::AccountView] {
                 self.ctx.remaining_accounts(#account_count)
             }
 

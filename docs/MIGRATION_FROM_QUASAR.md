@@ -12,10 +12,10 @@ If you have a Quasar program, the mechanical port is smaller than the Anchor por
 | `#[instruction(discriminator = [0x1])]` | `#[instruction(discriminator = [0x1])]` or `#[instruction(1)]` |
 | `#[derive(QuasarSerialize)]` | `#[hopper::args]` |
 | `emit_event_cpi!` | `hopper_emit_cpi!` |
-| `Ctx<'info, T>` | `Context<'info>` with bound `TCtx` |
+| `Ctx<'info, T>` | `Context<T>` in handlers; Hopper binds the generated `TCtx` internally |
 | `ctx.accounts.field` | `ctx.field_*()` (segment-level accessors) |
 | `Pod` primitives in `quasar-pod` | Wire types in `hopper-runtime` |
-| bounded dynamic fields | fixed body + `#[hopper::state(dynamic_tail = T)]` |
+| bounded dynamic fields | `#[hopper::dynamic_account]` or explicit `#[hopper::state(dynamic_tail = T)]` |
 | `QuasarError::RemainingAccountDuplicate` | `hopper_runtime::remaining::RemainingError::DuplicateAccount` |
 
 ## Account layouts
@@ -46,12 +46,14 @@ Quasar's `PodU64` is Hopper's `WireU64`. Both are `#[repr(transparent)]` alignme
 
 Quasar's explicit `discriminator = 1` maps to Hopper's layout header: Hopper stamps a header byte at offset 0 containing the user-chosen `disc` from the macro (defaults to a fingerprint of the type name if not set). To match Quasar's behavior exactly, use `#[account(disc = 1)]` or the macro attribute form `#[account(discriminator = 1)]`.
 
-For Quasar bounded dynamic fields (`String<'a, N>`, `Vec<'a, T, N>`), keep
-the hot fixed fields in the Hopper layout and move variable data into a
-bounded dynamic tail. `hopper_dynamic_fields!` accepts `string<N>` and
-`vec<T, N>` sugar for the common porting cases while still generating an
-explicit `TailCodec` payload. See [DYNAMIC_TAILS_FROM_QUASAR.md](DYNAMIC_TAILS_FROM_QUASAR.md)
-for side-by-side code and tail-access examples.
+For Quasar bounded dynamic fields (`String<'a, N>`, `Vec<'a, Address, N>`), use
+`#[hopper::dynamic_account]` to keep hot fixed fields in the Hopper layout and
+lower variable data into a compact dynamic tail. The macro generates the tail
+struct, borrowed view, editor, and allocation constants. For custom dynamic-tail
+payloads, use `hopper_dynamic_fields!` plus
+`#[hopper::state(dynamic_tail = Tail)]`. See
+[DYNAMIC_TAILS_FROM_QUASAR.md](DYNAMIC_TAILS_FROM_QUASAR.md) for side-by-side
+code and tail-access examples.
 
 ## Accounts struct
 
@@ -82,8 +84,8 @@ pub struct Swap {
 
 Key differences:
 
-1. `seeds = Type::seeds(...)` becomes `seeds_fn = Type::seeds(...)`. The underscore disambiguates typed seeds from the inline array form (`seeds = [...]`), which Hopper also supports.
-2. Remaining accounts are exposed on the bound context, not as a struct field. Call `ctx.remaining_accounts()` for strict mode or `ctx.remaining_accounts_passthrough()` for the duplicate-preserving mode.
+1. `seeds = Type::seeds(...)` becomes `seeds_fn = Type::seeds(...)`. The underscore disambiguates typed seeds from the inline array form (`seeds = [...]`), which Hopper also supports. For fixed byte-array seeds, pass an expression that borrows as bytes, for example `seeds = [hash.as_ref()]`; signer seeds also accept `Seed::from(&my_seed_array)` for `&[u8; N]`.
+2. Remaining accounts are exposed on the bound context, not as a struct field. Call `ctx.remaining_accounts()` for strict mode or `ctx.remaining_accounts_passthrough()` for the duplicate-preserving mode. Use `ctx.remaining_accounts_raw()` only when a raw slice is actually what you want.
 3. Hopper's `AccountView` is the raw-byte counterpart to Quasar's `Account<Signer>`. Identical semantic.
 
 ## Handler
@@ -172,6 +174,7 @@ pub enum VaultError {
 ```
 
 Hopper exposes the error code explicitly. If you want Anchor-style auto-assignment starting at 6000, pick your own base and increment.
+The source today emits code and invariant tables for Hopper errors; Anchor IDL export still writes an empty `errors` array, so do not document `#[msg]` strings as exported IDL metadata yet.
 
 ## Remaining accounts
 
@@ -192,6 +195,7 @@ for acct in ctx.remaining_accounts().iter() {
 ```
 
 Strict mode is the default in both. Hopper's passthrough mode is `ctx.remaining_accounts_passthrough()`; Quasar spells it with a constructor argument.
+For the common multisig tail, `ctx.remaining_accounts().signers::<N>()?` validates the tail as a bounded, duplicate-safe signer set before you iterate it.
 
 ## Profile and tooling
 
@@ -213,12 +217,12 @@ Things Quasar does not have that your port gets for free:
 5. Segment-level mutable and read-only borrows on the same account.
 6. Policy levers (`strict`, `sealed`, `raw`) at the program and per-handler grain.
 7. Python and Kotlin client generators in addition to TypeScript.
-8. On-chain manifest PDA so indexers can fetch the schema without source access.
+8. Manifest, IDL, Codama, and client-generation tooling from the same layout metadata.
 
 ## Checklist for the port
 
 1. Rename `#[derive(Accounts)]` to `#[accounts]`.
-2. Change `Ctx<'info, T>` to `Context<'info>` in handler signatures (the bound type is implicit).
+2. Change `Ctx<'info, T>` to `Context<T>` in handler signatures. Hopper binds the generated `TCtx` under the hood.
 3. Rename `Account<MyLayout>` to plain `MyLayout` on context fields.
 4. Replace `ctx.accounts.field.load()` and `.load_mut()` with the segment accessors Hopper emits (`ctx.field_sub()` / `ctx.field_sub_mut()`).
 5. Rename `QuasarSerialize` to `hopper::args`. Swap `OptionZc` for `OptionByte` (or `Option` where you want the niche-optimized form).

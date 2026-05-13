@@ -51,7 +51,8 @@
 //! - `hopper_macros_proc`: proc-macro DX layer. `#[hopper::state]`,
 //!   `#[hopper::pod]`, `#[hopper::context]`, `#[hopper::program]`,
 //!   `#[hopper::migrate]`, `#[hopper::args]`, `#[hopper::error]`,
-//!   `#[hopper::event]`, `#[hopper::dynamic]`.
+//!   `#[hopper::event]`, `#[hopper::dynamic]`,
+//!   `#[hopper::dynamic_account]`.
 //! - `hopper_solana`: SPL Token/Mint readers, Token-2022 checks, CPI
 //!   guards, Pyth oracle, TWAP, Ed25519/Merkle crypto, authority rotation.
 //! - `hopper_system`: System Program instruction builders.
@@ -461,7 +462,8 @@ macro_rules! hopper_load {
 /// `HopperVec<T, N>` for bounded element lists. The longer
 /// `BoundedString<N>` and `BoundedVec<T, N>` names remain available when a
 /// protocol wants the storage tradeoff to be explicit in source. For
-/// Quasar-shaped syntax, prefer `hopper_dynamic_fields!`.
+/// Quasar-shaped account syntax, prefer `#[hopper::dynamic_account]`; use this
+/// macro when you want an explicit custom `TailCodec` payload.
 ///
 /// ```ignore
 /// hopper::hopper_dynamic_tail! {
@@ -593,11 +595,12 @@ macro_rules! __hopper_dynamic_fields_tail {
     };
 }
 
-/// Quasar-shaped sugar for declaring bounded dynamic-tail fields.
+/// Explicit sugar for declaring bounded dynamic-tail fields.
 ///
 /// This is a small front end over `hopper_dynamic_tail!`. It keeps Hopper's
 /// explicit fixed-body plus encoded-tail model, while letting ported programs
-/// spell common fields as `string<N>` and `vec<T, N>`.
+/// spell custom tail fields as `string<N>` and `vec<T, N>`. For a full account
+/// declaration with inline tail fields, use `#[hopper::dynamic_account]`.
 ///
 /// ```ignore
 /// hopper::hopper_dynamic_fields! {
@@ -636,22 +639,22 @@ pub use hopper_runtime::{
 // Optional proc macro re-exports (enabled with `proc-macros` feature)
 #[cfg(feature = "proc-macros")]
 pub use hopper_macros_proc::{
-    account, accounts, args, constant, context, crank, declare_program, dynamic,
+    account, accounts, args, constant, context, crank, declare_program, dynamic, dynamic_account,
     error as error_code, event, hopper_args, hopper_constant, hopper_context, hopper_crank,
-    hopper_dynamic, hopper_event, hopper_migrate, hopper_pod, hopper_program, hopper_state,
-    migrate, pod, program, state, Accounts, HopperInitSpace,
+    hopper_dynamic, hopper_dynamic_account, hopper_event, hopper_migrate, hopper_pod,
+    hopper_program, hopper_state, migrate, pod, program, state, Accounts, HopperInitSpace,
 };
 
 // Private re-export for generated code to reference runtime types
 #[doc(hidden)]
 pub mod __runtime {
     pub use hopper_runtime::{
-        apply_pending_migrations, read_tail, read_tail_len, tail_payload, write_tail, Account,
-        AccountLayout, AccountView, Address, BoundedString, BoundedVec, Context,
-        HopperInstructionPolicy, HopperProgramPolicy, HopperSigner, HopperString, HopperVec,
-        InitAccount, InstructionAccount, InstructionView, LayoutMigration, MigrationEdge, Pod,
-        Program, ProgramError, ProgramId, Ref, RefMut, SegRef, SegRefMut, SegmentLease, SystemId,
-        TailCodec,
+        apply_pending_migrations, borrow_address_slice, borrow_bounded_str, read_tail,
+        read_tail_len, tail_capacity, tail_payload, write_tail, Account, AccountLayout,
+        AccountView, Address, BoundedString, BoundedVec, Context, HopperInstructionPolicy,
+        HopperProgramPolicy, HopperSigner, HopperString, HopperVec, InitAccount,
+        InstructionAccount, InstructionView, LayoutMigration, MigrationEdge, Pod, Program,
+        ProgramError, ProgramId, Ref, RefMut, SegRef, SegRefMut, SegmentLease, SystemId, TailCodec,
     };
 
     // Crank marker type plus dynamic-CPI builder, emitted by
