@@ -1,8 +1,7 @@
 extern crate std;
 
 use {
-    hopper::prelude::WireU64,
-    hopper::systems::TypedAddress,
+    hopper::{layout, prelude::WireU64},
     mollusk_svm::Mollusk,
     solana_account::Account,
     solana_address::Address,
@@ -76,10 +75,16 @@ fn seeded_vault_account(
     balance: u64,
 ) -> Account {
     let mut account = Account::new(lamports, crate::Vault::LEN, program_id);
-    crate::Vault::write_init_header(&mut account.data).unwrap();
-    let vault = crate::Vault::overlay_mut(&mut account.data).unwrap();
-    let authority_bytes: &[u8; 32] = authority.as_ref().try_into().unwrap();
-    vault.authority = TypedAddress::from_slice(authority_bytes);
+    layout::write_header(
+        &mut account.data,
+        crate::Vault::DISC,
+        crate::Vault::VERSION,
+        &crate::Vault::LAYOUT_ID,
+    )
+    .unwrap();
+    let vault = crate::Vault::overlay_mut(&mut account.data[layout::HEADER_LEN..]).unwrap();
+    let authority_bytes: [u8; 32] = authority.as_ref().try_into().unwrap();
+    vault.authority = hopper::prelude::Address::new(authority_bytes);
     vault.balance = WireU64::new(balance);
     vault.bump = 0;
     account

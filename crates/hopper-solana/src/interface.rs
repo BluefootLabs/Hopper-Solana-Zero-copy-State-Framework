@@ -1,11 +1,9 @@
-//! `InterfaceAccount` / `InterfaceMint` - Token + Token-2022 polymorphism.
+//! Token and Token-2022 interface overlays.
 //!
-//! Quasar's headline DX win is `InterfaceAccount<Token>`: a single wrapper
-//! that accepts an account owned by either the SPL Token program or the
-//! Token-2022 program, performs one owner check at parse time, and
-//! exposes the unified mint / owner / amount / state surface.
-//!
-//! Hopper exposes the equivalent shape here:
+//! Hopper keeps the account-owner check separate from the zero-copy
+//! token-account and mint overlays. That gives callers one explicit gate
+//! for `owner in {SPL Token, Token-2022}` and then a shared reader surface
+//! for the base layouts supported by both programs:
 //!
 //! - [`InterfaceTokenAccount`] - token-account-shaped overlay for either
 //!   SPL Token or Token-2022.

@@ -178,6 +178,15 @@ impl<'info, T: crate::layout::LayoutContract> Account<'info, T> {
     }
 }
 
+impl<'info, T: crate::layout::LayoutContract> core::ops::Deref for Account<'info, T> {
+    type Target = AccountView;
+
+    #[inline(always)]
+    fn deref(&self) -> &AccountView {
+        self.inner
+    }
+}
+
 /// Account that is expected to be *created* during this instruction.
 ///
 /// `InitAccount<'info, T>` skips the layout-header check at validation
@@ -246,6 +255,114 @@ impl<'info, T: crate::layout::LayoutContract> InitAccount<'info, T> {
     }
 }
 
+impl<'info, T: crate::layout::LayoutContract> core::ops::Deref for InitAccount<'info, T> {
+    type Target = AccountView;
+
+    #[inline(always)]
+    fn deref(&self) -> &AccountView {
+        self.inner
+    }
+}
+
+/// Account with no role or layout validation.
+///
+/// Use this when a context needs a raw account in the `ctx.accounts.*`
+/// facade while keeping the role explicit in the type signature. Add
+/// field-level constraints such as `#[account(mut)]`, `owner = ...`, or
+/// `address = ...` when the account must satisfy additional checks.
+#[repr(transparent)]
+#[derive(Clone, Copy)]
+pub struct UncheckedAccount<'info> {
+    inner: &'info AccountView,
+}
+
+impl<'info> UncheckedAccount<'info> {
+    /// Wrap without validation.
+    #[inline(always)]
+    ///
+    /// # Safety
+    ///
+    /// Caller must ensure any required invariants are checked elsewhere.
+    pub unsafe fn new_unchecked(view: &'info AccountView) -> Self {
+        Self { inner: view }
+    }
+
+    /// Wrap without validation. This is intentionally explicit at the
+    /// type level: `UncheckedAccount` means no role has been proven.
+    #[inline(always)]
+    pub fn new(view: &'info AccountView) -> Self {
+        Self { inner: view }
+    }
+
+    /// The underlying account view.
+    #[inline(always)]
+    pub fn as_account(&self) -> &'info AccountView {
+        self.inner
+    }
+
+    /// The account public key.
+    #[inline(always)]
+    pub fn key(&self) -> &Address {
+        self.inner.address()
+    }
+}
+
+impl<'info> core::ops::Deref for UncheckedAccount<'info> {
+    type Target = AccountView;
+
+    #[inline(always)]
+    fn deref(&self) -> &AccountView {
+        self.inner
+    }
+}
+
+/// Account owned by the System Program.
+#[repr(transparent)]
+#[derive(Clone, Copy)]
+pub struct SystemAccount<'info> {
+    inner: &'info AccountView,
+}
+
+impl<'info> SystemAccount<'info> {
+    /// Wrap after verifying System Program ownership.
+    #[inline]
+    pub fn try_new(view: &'info AccountView) -> Result<Self, crate::error::ProgramError> {
+        view.check_owned_by(&SystemId::ID)?;
+        Ok(Self { inner: view })
+    }
+
+    /// Wrap an already-verified system-owned account.
+    #[inline(always)]
+    ///
+    /// # Safety
+    ///
+    /// Caller must have verified the account is owned by the System Program.
+    pub unsafe fn new_unchecked(view: &'info AccountView) -> Self {
+        Self { inner: view }
+    }
+
+    /// The underlying account view.
+    #[inline(always)]
+    pub fn as_account(&self) -> &'info AccountView {
+        self.inner
+    }
+
+    /// The account public key.
+    #[inline(always)]
+    pub fn key(&self) -> &Address {
+        self.inner.address()
+    }
+}
+
+impl<'info> core::ops::Deref for SystemAccount<'info> {
+    type Target = AccountView;
+
+    #[inline(always)]
+    fn deref(&self) -> &AccountView {
+        self.inner
+    }
+}
+
 /// Account that must be a named program. `P: ProgramId` identifies
 /// which program the account's address must equal.
 ///
@@ -290,6 +407,15 @@ impl<'info, P: ProgramId> Program<'info, P> {
     #[inline(always)]
     pub fn key(&self) -> &Address {
         self.inner.address()
+    }
+}
+
+impl<'info, P: ProgramId> core::ops::Deref for Program<'info, P> {
+    type Target = AccountView;
+
+    #[inline(always)]
+    fn deref(&self) -> &AccountView {
+        self.inner
     }
 }
 

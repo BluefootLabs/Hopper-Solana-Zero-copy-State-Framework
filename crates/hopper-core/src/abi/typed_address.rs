@@ -271,18 +271,22 @@ impl From<[u8; 32]> for UntypedAddress {
 // -- Marker types for common account roles --
 
 /// Marker: an authority/signer address.
+#[derive(Clone, Copy)]
 pub struct Authority;
 
 /// Marker: a mint address.
+#[derive(Clone, Copy)]
 pub struct Mint;
 
 /// Marker: a token account address.
+#[derive(Clone, Copy)]
 pub struct TokenAccount;
 
 /// Alias for [`TokenAccount`].
 pub type Token = TokenAccount;
 
 /// Marker: a program address (executable).
+#[derive(Clone, Copy)]
 pub struct Program;
 
 #[cfg(test)]

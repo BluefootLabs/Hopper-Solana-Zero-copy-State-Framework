@@ -588,8 +588,8 @@ every layer of the pipeline.
 | Example | What it shows | Tier |
 |---------|-------------|------|
 | `hopper-showcase` | Full pipeline: layout, dispatch, phased frame, policy, receipts, invariants, segment roles | 1+2 |
-| `hopper-vault` | Simple SOL vault: layout, dispatch, phased frame | 1 |
-| `hopper-escrow` | Token escrow with authority checks | 1 |
+| `hopper-vault` | Macro-first SOL vault: `#[account]`, `#[derive(Accounts)]`, `#[program]` | 1 |
+| `hopper-escrow` | Macro-first escrow with authority checks and raw-account escape hatch | 1 |
 | `hopper-treasury` | Multi-segment treasury with permissions | 2 |
 | `hopper-registry` | Segmented registry with journal and virtual state | 2 |
 | `hopper-migration` | V1 to V2 layout evolution with migration planner | 2 |

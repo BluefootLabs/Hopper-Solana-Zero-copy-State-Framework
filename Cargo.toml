@@ -226,6 +226,6 @@ cu-trace = ["hopper-runtime/cu-trace"]
 [lints.rust]
 unexpected_cfgs = { level = "allow", check-cfg = [
     'cfg(target_os, values("solana"))',
-    'cfg(feature, values("frame", "receipt", "policy", "graph", "migrate", "virtual-state", "diff", "explain", "advanced", "collections", "framework", "systems"))',
+    'cfg(feature, values("frame", "receipt", "policy", "graph", "migrate", "virtual-state", "diff", "explain", "advanced", "collections", "framework", "systems", "hopper-native-backend", "legacy-pinocchio-compat", "solana-program-backend"))',
 ] }
 

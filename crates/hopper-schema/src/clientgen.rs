@@ -470,7 +470,7 @@ impl<'a> fmt::Display for TsTypes<'a> {
         writeln!(f, "  version: number;")?;
         writeln!(f, "  flags: number;")?;
         writeln!(f, "  layoutId: Uint8Array;")?;
-        writeln!(f, "  reserved: Uint8Array;")?;
+        writeln!(f, "  schemaEpoch: number;")?;
         writeln!(f, "}}")?;
         writeln!(f)?;
         writeln!(f, "const HEADER_SIZE = 16;")?;
@@ -500,7 +500,7 @@ impl<'a> fmt::Display for TsTypes<'a> {
             f,
             "    layoutId: data.slice(LAYOUT_ID_OFFSET, LAYOUT_ID_OFFSET + LAYOUT_ID_LENGTH),"
         )?;
-        writeln!(f, "    reserved: data.slice(12, 16),")?;
+        writeln!(f, "    schemaEpoch: view.getUint32(12, true),")?;
         writeln!(f, "  }};")?;
         writeln!(f, "}}")?;
         writeln!(f)?;
@@ -1334,7 +1334,7 @@ impl<'a> fmt::Display for KtTypes<'a> {
         writeln!(f, "    val version: UByte,")?;
         writeln!(f, "    val flags: UShort,")?;
         writeln!(f, "    val layoutId: ByteArray,")?;
-        writeln!(f, "    val reserved: ByteArray")?;
+        writeln!(f, "    val schemaEpoch: UInt")?;
         writeln!(f, ")")?;
         writeln!(f)?;
         writeln!(f, "private const val TYPES_HEADER_SIZE: Int = 16")?;
@@ -1358,7 +1358,10 @@ impl<'a> fmt::Display for KtTypes<'a> {
             f,
             "        layoutId = data.copyOfRange(TYPES_LAYOUT_ID_OFFSET, TYPES_LAYOUT_ID_OFFSET + TYPES_LAYOUT_ID_LENGTH),"
         )?;
-        writeln!(f, "        reserved = data.copyOfRange(12, 16)")?;
+        writeln!(
+            f,
+            "        schemaEpoch = ByteBuffer.wrap(data, 12, 4).order(ByteOrder.LITTLE_ENDIAN).int.toUInt()"
+        )?;
         writeln!(f, "    )")?;
         writeln!(f, "}}")?;
         writeln!(f)?;
@@ -1607,7 +1610,7 @@ mod tests {
         assert!(output.contains(
             "layoutId: data.slice(LAYOUT_ID_OFFSET, LAYOUT_ID_OFFSET + LAYOUT_ID_LENGTH),"
         ));
-        assert!(output.contains("reserved: data.slice(12, 16),"));
+        assert!(output.contains("schemaEpoch: view.getUint32(12, true),"));
         assert!(output.contains("Vault: 1,"));
     }
 
@@ -1783,7 +1786,7 @@ mod tests {
             "flags = ByteBuffer.wrap(data, 2, 2).order(ByteOrder.LITTLE_ENDIAN).short.toUShort(),"
         ));
         assert!(output.contains("layoutId = data.copyOfRange(TYPES_LAYOUT_ID_OFFSET, TYPES_LAYOUT_ID_OFFSET + TYPES_LAYOUT_ID_LENGTH),"));
-        assert!(output.contains("reserved = data.copyOfRange(12, 16)"));
+        assert!(output.contains("schemaEpoch = ByteBuffer.wrap(data, 12, 4).order(ByteOrder.LITTLE_ENDIAN).int.toUInt()"));
         assert!(!output.contains("data.copyOfRange(2, 10)"));
         assert!(output.contains("VAULT: Byte = 1"));
     }

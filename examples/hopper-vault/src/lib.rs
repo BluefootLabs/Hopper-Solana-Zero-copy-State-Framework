@@ -1,6 +1,7 @@
 //! # Hopper Vault Example
 //!
-//! Demonstrates the Hopper framework with a simple SOL vault program.
+//! Macro-first SOL vault using Hopper's first-touch API:
+//! `#[account]`, `#[derive(Accounts)]`, `Ctx<T>`, and `ctx.accounts.*`.
 //!
 //! Instructions:
 //! - `0` = Initialize vault
@@ -11,7 +12,6 @@
 #![allow(dead_code, unused_variables)]
 
 use hopper::prelude::*;
-use hopper::systems::*;
 
 #[cfg(target_os = "solana")]
 mod __hopper_sbf {
@@ -24,199 +24,158 @@ mod __hopper_sbf {
     nostd_panic_handler!();
 }
 
-/// Account DSL alternative -- same vault logic using hopper_accounts! macro.
+/// Account DSL alternative for teams that want the older systems-style context.
 mod dsl;
 
 #[cfg(test)]
 mod tests;
 
-// --- Layout ---------------------------------------------------------
+// --- State ----------------------------------------------------------
 
-hopper_layout! {
-    /// A simple SOL vault account.
-    pub struct Vault, disc = 1, version = 1 {
-        authority: TypedAddress<Authority> = 32,
-        balance:   WireU64                = 8,
-        bump:      u8                     = 1,
-    }
+#[derive(Clone, Copy)]
+#[repr(C)]
+#[account(discriminator = 1, version = 1)]
+pub struct Vault {
+    pub authority: Address,
+    pub balance: WireU64,
+    pub bump: u8,
 }
 
 // --- Errors ---------------------------------------------------------
 
-hopper_error! {
+hopper::hopper_error! {
     base = 6000;
     Unauthorized,
     InsufficientBalance,
     ZeroAmount,
 }
 
+// --- Contexts -------------------------------------------------------
+
+#[derive(Accounts)]
+pub struct Initialize<'info> {
+    #[account(mut)]
+    pub payer: Signer<'info>,
+
+    #[account(init, payer = payer, space = Vault::INIT_SPACE)]
+    pub vault: InitAccount<'info, Vault>,
+
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct Deposit<'info> {
+    #[account(mut)]
+    pub authority: Signer<'info>,
+
+    #[account(mut, has_one = authority)]
+    pub vault: Account<'info, Vault>,
+}
+
+#[derive(Accounts)]
+pub struct Withdraw<'info> {
+    #[account(mut)]
+    pub authority: Signer<'info>,
+
+    #[account(mut, has_one = authority)]
+    pub vault: Account<'info, Vault>,
+}
+
 // --- Entrypoint -----------------------------------------------------
 
 #[cfg(target_os = "solana")]
-program_entrypoint!(process_instruction);
+hopper::program_entrypoint!(process_instruction);
 
 fn process_instruction(
     program_id: &Address,
     accounts: &[AccountView],
     instruction_data: &[u8],
 ) -> ProgramResult {
-    hopper::hopper_dispatch! {
-        program_id, accounts, instruction_data;
-        0 => process_init,
-        1 => process_deposit,
-        2 => process_withdraw,
+    let mut ctx = Context::new(program_id, accounts, instruction_data);
+    vault_program::process_instruction(&mut ctx)
+}
+
+#[program]
+mod vault_program {
+    use super::*;
+
+    #[instruction(0)]
+    pub fn initialize(ctx: Ctx<Initialize>) -> ProgramResult {
+        ctx.init_vault()?;
+        ctx.accounts.initialize()
+    }
+
+    #[instruction(1)]
+    pub fn deposit(ctx: Ctx<Deposit>, amount: u64) -> ProgramResult {
+        ctx.accounts.deposit(amount)
+    }
+
+    #[instruction(2)]
+    pub fn withdraw(ctx: Ctx<Withdraw>, amount: u64) -> ProgramResult {
+        ctx.accounts.withdraw(amount)
     }
 }
 
-// --- Init -----------------------------------------------------------
-
-fn process_init(program_id: &Address, accounts: &[AccountView], _data: &[u8]) -> ProgramResult {
-    if accounts.len() < 3 {
-        return Err(ProgramError::NotEnoughAccountKeys);
-    }
-    let payer = &accounts[0];
-    let vault_account = &accounts[1];
-    let system_program = &accounts[2];
-
-    payer.check_signer()?.check_writable()?;
-    vault_account.check_writable()?;
-
-    // Create account via CPI
-    hopper_init!(payer, vault_account, system_program, program_id, Vault)?;
-
-    // Write initial state
-    let mut vault = Vault::load_mut(vault_account, program_id)?;
-    let vault = vault.get_mut();
-    vault.authority = TypedAddress::from_account(payer);
-    vault.balance = WireU64::new(0);
-
-    Ok(())
-}
-
-// --- Deposit (phased) -----------------------------------------------
-
-struct DepositArgs {
-    amount: u64,
-}
-
-impl<'a> InstructionArgs<'a> for DepositArgs {
-    fn parse(data: &'a [u8]) -> Result<Self, ProgramError> {
-        if data.len() < 8 {
-            return Err(ProgramError::InvalidInstructionData);
-        }
-        Ok(Self {
-            amount: u64::from_le_bytes([
-                data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7],
-            ]),
-        })
+impl<'info> Initialize<'info> {
+    pub fn initialize(&self) -> ProgramResult {
+        let mut vault = self.vault.get_mut_after_init()?;
+        vault.set_inner(*self.payer.key(), 0, 0)
     }
 }
 
-impl ValidateArgs for DepositArgs {
-    fn validate(&self) -> Result<(), ProgramError> {
-        hopper_require!(self.amount > 0, ZeroAmount);
+impl<'info> Deposit<'info> {
+    pub fn deposit(&self, amount: u64) -> ProgramResult {
+        hopper::hopper_require!(amount > 0, ZeroAmount);
+
+        let authority = self.authority.as_account();
+        let vault_account = self.vault.as_account();
+
+        authority.set_lamports(
+            authority
+                .lamports()
+                .checked_sub(amount)
+                .ok_or(ProgramError::InsufficientFunds)?,
+        );
+        vault_account.set_lamports(
+            vault_account
+                .lamports()
+                .checked_add(amount)
+                .ok_or(ProgramError::ArithmeticOverflow)?,
+        );
+
+        let mut vault = self.vault.get_mut()?;
+        vault.balance.checked_add_assign(amount)?;
         Ok(())
     }
 }
 
-struct DepositAccounts<'a> {
-    depositor: &'a AccountView,
-    vault: &'a AccountView,
-}
+impl<'info> Withdraw<'info> {
+    pub fn withdraw(&self, amount: u64) -> ProgramResult {
+        hopper::hopper_require!(amount > 0, ZeroAmount);
 
-fn process_deposit(program_id: &Address, accounts: &[AccountView], data: &[u8]) -> ProgramResult {
-    let args = DepositArgs::parse(data)?;
-    args.validate()?;
+        let mut vault = self.vault.get_mut()?;
+        if vault.balance.get() < amount {
+            return Err(InsufficientBalance.into());
+        }
+        vault.balance.checked_sub_assign(amount)?;
+        drop(vault);
 
-    PhasedFrame::new(program_id, accounts, data)?
-        .resolve(2, |accts, _pid| {
-            Ok(DepositAccounts {
-                depositor: &accts[0],
-                vault: &accts[1],
-            })
-        })?
-        .validate_with_args(&args, |ctx, pid, _args| {
-            ctx.depositor.check_signer()?.check_writable()?;
-            ctx.vault.check_owned_by(pid)?.check_writable()?;
-            Ok(())
-        })?
-        .execute_with_args(&args, |ctx, args| {
-            // Load vault
-            let mut vault = Vault::load_mut(ctx.resolved().vault, ctx.program_id())?;
+        let authority = self.authority.as_account();
+        let vault_account = self.vault.as_account();
 
-            // Transfer SOL: depositor -> vault
-            let dep_lamports = ctx.resolved().depositor.lamports();
-            ctx.resolved().depositor.set_lamports(
-                dep_lamports
-                    .checked_sub(args.amount)
-                    .ok_or(ProgramError::InsufficientFunds)?,
-            );
-            let vault_lamports = ctx.resolved().vault.lamports();
-            ctx.resolved().vault.set_lamports(
-                vault_lamports
-                    .checked_add(args.amount)
-                    .ok_or(ProgramError::ArithmeticOverflow)?,
-            );
+        vault_account.set_lamports(
+            vault_account
+                .lamports()
+                .checked_sub(amount)
+                .ok_or(ProgramError::InsufficientFunds)?,
+        );
+        authority.set_lamports(
+            authority
+                .lamports()
+                .checked_add(amount)
+                .ok_or(ProgramError::ArithmeticOverflow)?,
+        );
 
-            // Update balance
-            let v = vault.get_mut();
-            let new_balance = v
-                .balance
-                .get()
-                .checked_add(args.amount)
-                .ok_or(ProgramError::ArithmeticOverflow)?;
-            v.balance = WireU64::new(new_balance);
-
-            Ok(())
-        })
-}
-
-// --- Withdraw (phased) ----------------------------------------------
-
-fn process_withdraw(program_id: &Address, accounts: &[AccountView], data: &[u8]) -> ProgramResult {
-    let args = DepositArgs::parse(data)?; // Same format: 8-byte LE amount
-    args.validate()?;
-
-    PhasedFrame::new(program_id, accounts, data)?
-        .resolve(2, |accts, _pid| {
-            Ok(DepositAccounts {
-                depositor: &accts[0], // authority
-                vault: &accts[1],
-            })
-        })?
-        .validate_with_args(&args, |ctx, pid, _args| {
-            ctx.depositor.check_signer()?;
-            ctx.vault.check_owned_by(pid)?.check_writable()?;
-            Ok(())
-        })?
-        .execute_with_args(&args, |ctx, args| {
-            let mut vault = Vault::load_mut(ctx.resolved().vault, ctx.program_id())?;
-            let v = vault.get_mut();
-
-            // Check authority
-            v.authority.require_eq_account(ctx.resolved().depositor)?;
-
-            // Check balance
-            let balance = v.balance.get();
-            if balance < args.amount {
-                return Err(InsufficientBalance.into());
-            }
-            v.balance = WireU64::new(balance - args.amount);
-
-            // Transfer SOL: vault -> authority
-            let vault_lamports = ctx.resolved().vault.lamports();
-            ctx.resolved().vault.set_lamports(
-                vault_lamports
-                    .checked_sub(args.amount)
-                    .ok_or(ProgramError::InsufficientFunds)?,
-            );
-            let auth_lamports = ctx.resolved().depositor.lamports();
-            ctx.resolved().depositor.set_lamports(
-                auth_lamports
-                    .checked_add(args.amount)
-                    .ok_or(ProgramError::ArithmeticOverflow)?,
-            );
-
-            Ok(())
-        })
+        Ok(())
+    }
 }

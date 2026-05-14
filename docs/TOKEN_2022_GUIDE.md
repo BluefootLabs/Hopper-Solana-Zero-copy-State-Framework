@@ -132,7 +132,7 @@ mod capped_mint {
         let mut config = ctx.config_mut()?;
         config.admin.copy_from_slice(ctx.admin_account()?.key().as_array());
         config.max_supply.set(max_supply);
-        config.bump = ctx.bumps().config;
+        config.bump = ctx.bumps.config;
         Ok(())
     }
 }

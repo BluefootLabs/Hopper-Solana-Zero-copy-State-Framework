@@ -2,7 +2,10 @@
 
 #![cfg(feature = "proc-macros")]
 
-use hopper::__runtime::{Account, HopperSigner, InitAccount, Program, ProgramId, SystemId};
+use hopper::__runtime::{
+    Account, HopperSigner, InitAccount, Program, ProgramId, SystemAccount, SystemId,
+    UncheckedAccount,
+};
 
 #[test]
 fn signer_wrapper_is_repr_transparent_pointer_sized() {
@@ -47,6 +50,43 @@ fn program_wrapper_phantom_data_is_zero_cost() {
 }
 
 #[test]
+fn unchecked_and_system_wrappers_are_zero_cost() {
+    assert_eq!(
+        core::mem::size_of::<UncheckedAccount<'static>>(),
+        core::mem::size_of::<&'static hopper::__runtime::AccountView>()
+    );
+    assert_eq!(
+        core::mem::size_of::<SystemAccount<'static>>(),
+        core::mem::size_of::<&'static hopper::__runtime::AccountView>()
+    );
+}
+
+#[test]
+fn prelude_exports_memo_and_token_interface_helpers() {
+    use hopper::prelude::{
+        interface_transfer_checked, InterfaceMint, InterfaceTokenAccount, Memo, TokenProgramKind,
+        MAX_MEMO_SIGNERS, MEMO_PROGRAM_ID,
+    };
+
+    let _transfer = interface_transfer_checked;
+    let _memo_program = MEMO_PROGRAM_ID;
+    assert_eq!(MAX_MEMO_SIGNERS, 16);
+    assert_eq!(
+        core::mem::size_of::<TokenProgramKind>(),
+        core::mem::size_of::<u8>(),
+    );
+    assert_eq!(
+        core::mem::size_of::<InterfaceTokenAccount<'static>>(),
+        core::mem::size_of::<(&'static [u8], TokenProgramKind)>(),
+    );
+    assert_eq!(
+        core::mem::size_of::<InterfaceMint<'static>>(),
+        core::mem::size_of::<(&'static [u8], TokenProgramKind)>(),
+    );
+    assert!(core::mem::size_of::<Memo<'static, 'static, 'static>>() > 0);
+}
+
+#[test]
 fn custom_program_id_impl_is_addressable_at_const_time() {
     struct MyProgram;
     impl ProgramId for MyProgram {
@@ -71,6 +111,7 @@ mod hero_program {
 
     #[instruction(0)]
     pub fn increment(ctx: hopper::prelude::Ctx<Increment>) -> hopper::prelude::ProgramResult {
+        let _bumps = ctx.bumps;
         let mut account = ctx.accounts.counter.get_mut()?;
         account.v.checked_add_assign(1)?;
         Ok(())

@@ -6,7 +6,8 @@
 //! `hopper::systems::*` or explicit modules such as `hopper::segment`.
 
 pub use crate::account::{
-    Account, InitAccount, Program, ProgramId, Signer, System, SystemId, UncheckedAccount,
+    Account, InitAccount, Program, ProgramId, Signer, System, SystemAccount, SystemId,
+    UncheckedAccount,
 };
 pub use crate::context::Context;
 pub use crate::context::Context as Ctx;
@@ -22,6 +23,11 @@ pub use hopper_core::abi::{WireBool, WireU16, WireU32, WireU64};
 
 pub use crate::{associated_token, cpi, events, memo, pda, system, token, token_2022};
 pub use hopper_associated_token::ATA_PROGRAM_ID;
+pub use hopper_memo::{Memo, MAX_MEMO_SIGNERS, MEMO_PROGRAM_ID};
+pub use hopper_solana::interface::{
+    interface_transfer_checked, interface_transfer_checked_signed, InterfaceMint,
+    InterfaceTokenAccount, TokenProgramKind,
+};
 pub use hopper_system::SYSTEM_PROGRAM_ID;
 pub use hopper_token::TOKEN_PROGRAM_ID;
 pub use hopper_token_2022::TOKEN_2022_PROGRAM_ID;

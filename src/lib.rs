@@ -104,6 +104,16 @@
 #![no_std]
 #![deny(unsafe_op_in_unsafe_fn)]
 
+#[cfg(any(
+    all(feature = "hopper-native-backend", feature = "legacy-pinocchio-compat"),
+    all(feature = "hopper-native-backend", feature = "solana-program-backend"),
+    all(
+        feature = "legacy-pinocchio-compat",
+        feature = "solana-program-backend"
+    ),
+))]
+compile_error!("Enable exactly one Hopper backend: hopper-native-backend, legacy-pinocchio-compat, or solana-program-backend.");
+
 // ── Hopper Lang modules ──────────────────────────────────────────────
 
 #[doc(hidden)]
@@ -135,10 +145,11 @@ pub mod account {
     };
     pub use hopper_core::accounts::{
         HopperAccount, HopperAccounts, HopperCtx, HopperIx, ProgramAccount, ProgramRef,
-        SegmentedAccount, SignerAccount, UncheckedAccount, ValidateAccount,
+        SegmentedAccount, SignerAccount, ValidateAccount,
     };
     pub use hopper_runtime::{
-        Account, AccountView, HopperSigner as Signer, InitAccount, Program, ProgramId, SystemId,
+        Account, AccountView, HopperSigner as Signer, InitAccount, Program, ProgramId,
+        SystemAccount, SystemId, UncheckedAccount,
     };
 
     /// Anchor-style spelling for the System Program marker.
@@ -659,7 +670,8 @@ pub mod __runtime {
         AccountView, Address, BoundedString, BoundedVec, Context, HopperInstructionPolicy,
         HopperProgramPolicy, HopperSigner, HopperString, HopperVec, InitAccount,
         InstructionAccount, InstructionView, LayoutMigration, MigrationEdge, Pod, Program,
-        ProgramError, ProgramId, Ref, RefMut, SegRef, SegRefMut, SegmentLease, SystemId, TailCodec,
+        ProgramError, ProgramId, Ref, RefMut, SegRef, SegRefMut, SegmentLease, SystemAccount,
+        SystemId, TailCodec, UncheckedAccount,
     };
 
     // Crank marker type plus dynamic-CPI builder, emitted by

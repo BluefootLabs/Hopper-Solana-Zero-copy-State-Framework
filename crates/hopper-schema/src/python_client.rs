@@ -406,7 +406,7 @@ impl<'a> fmt::Display for PyTypes<'a> {
         writeln!(f)?;
         writeln!(
             f,
-            "HEADER_LEN = 16  # disc(1) + version(1) + flags(2) + layout_id(8) + reserved(4)"
+            "HEADER_LEN = 16  # disc(1) + version(1) + flags(2) + layout_id(8) + schema_epoch(4)"
         )?;
         writeln!(f, "LAYOUT_ID_OFFSET = 4")?;
         writeln!(f, "LAYOUT_ID_LENGTH = 8")?;
@@ -417,7 +417,7 @@ impl<'a> fmt::Display for PyTypes<'a> {
         writeln!(f, "    version: int")?;
         writeln!(f, "    flags: int")?;
         writeln!(f, "    layout_id: bytes")?;
-        writeln!(f, "    reserved: bytes")?;
+        writeln!(f, "    schema_epoch: int")?;
         writeln!(f)?;
         writeln!(f, "    @classmethod")?;
         writeln!(f, "    def decode(cls, buf: bytes) -> \"HopperHeader\":")?;
@@ -431,7 +431,10 @@ impl<'a> fmt::Display for PyTypes<'a> {
         writeln!(f, "            version=buf[1],")?;
         writeln!(f, "            flags=int.from_bytes(buf[2:4], \"little\"),")?;
         writeln!(f, "            layout_id=bytes(buf[LAYOUT_ID_OFFSET:LAYOUT_ID_OFFSET + LAYOUT_ID_LENGTH]),")?;
-        writeln!(f, "            reserved=bytes(buf[12:16]),")?;
+        writeln!(
+            f,
+            "            schema_epoch=int.from_bytes(buf[12:16], \"little\"),"
+        )?;
         writeln!(f, "        )")?;
         writeln!(f)?;
         writeln!(
@@ -623,7 +626,7 @@ mod tests {
         assert!(out.contains(
             "layout_id=bytes(buf[LAYOUT_ID_OFFSET:LAYOUT_ID_OFFSET + LAYOUT_ID_LENGTH])"
         ));
-        assert!(out.contains("reserved=bytes(buf[12:16])"));
+        assert!(out.contains("schema_epoch=int.from_bytes(buf[12:16], \"little\")"));
         assert!(!out.contains("HEADER_LEN = 12"));
         assert!(!out.contains("layout_id=bytes(buf[4:12])"));
     }

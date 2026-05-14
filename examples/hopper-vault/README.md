@@ -1,18 +1,17 @@
 # Hopper Vault
 
-A compact code-first Hopper vault. This is a good starting point when you want a
-small program that still uses real Hopper account creation, dispatch, and state
-access. For the smallest facade-first import path, start with
-[../../docs/HOPPER_LAYERS.md](../../docs/HOPPER_LAYERS.md) and
-`hopper::prelude::*`.
+A compact macro-first Hopper vault. This is a good starting point when you want
+the Anchor/Quasar-feeling API while keeping Hopper's checked zero-copy account
+layout and runtime validation.
 
 ## What It Demonstrates
 
-- one zero-copy layout via `hopper_layout!`
+- one zero-copy account via `#[account]`
+- typed contexts via `#[derive(Accounts)]`
 - Hopper-owned errors via `hopper_error!`
-- Hopper entrypoint and dispatch
-- account creation with `hopper_init!`
-- phased instruction execution for deposit and withdraw
+- Hopper entrypoint and `#[program]` dispatch
+- account creation through `InitAccount` and generated `ctx.init_vault()`
+- business logic on `ctx.accounts.*`
 
 ## Instruction Map
 

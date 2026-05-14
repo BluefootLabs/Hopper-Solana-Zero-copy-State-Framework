@@ -41,7 +41,7 @@ informational by default, fatal with `--strict`, and required + fatal with
 
 Run the public release gate. This wraps `hopper verify --release` with the
 source checks that keep release artifacts honest: release-facing docs have no
-benchmark placeholders or stale in-tree benchmark paths, the default feature
+benchmark scaffolds or stale in-tree benchmark paths, the default feature
 tree excludes Pinocchio, legacy SPL Token builders stay behind
 `legacy-token-instructions`, client generators still assert layout IDs, and the
 fuzz target inventory is present.

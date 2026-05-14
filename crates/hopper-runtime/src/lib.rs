@@ -85,7 +85,8 @@ pub mod token_2022_ext;
 
 pub use account::AccountView;
 pub use account_wrappers::{
-    Account, InitAccount, Program, ProgramId, Signer as HopperSigner, SystemId,
+    Account, InitAccount, Program, ProgramId, Signer as HopperSigner, SystemAccount, SystemId,
+    UncheckedAccount,
 };
 pub use address::Address;
 pub use audit::{AccountAudit, DuplicateAccount};

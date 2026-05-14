@@ -9,12 +9,11 @@ publish = false
 crate-type = ["cdylib", "lib"]
 
 [dependencies]
-hopper = { path = "../..", package = "hopper-lang", default-features = false }
+hopper = { path = "../..", package = "hopper-lang", default-features = false, features = ["proc-macros"] }
 
 [features]
-default = ["hopper-native-backend", "frame"]
+default = ["hopper-native-backend"]
 hopper-native-backend = ["hopper/hopper-native-backend"]
-frame = ["hopper/frame"]
 legacy-pinocchio-compat = ["hopper/legacy-pinocchio-compat"]
 solana-program-backend = ["hopper/solana-program-backend"]
 

@@ -554,7 +554,9 @@ fn expand_state(input: syn::ItemStruct) -> TokenStream {
             })
         });
 
-        offset += 8; // placeholder, replace with real size calc later
+        // Illustrative sketch: production macros derive offsets from the
+        // compiled Hopper layout contract instead of hard-coding widths here.
+        offset += 8;
     }
 
     let expanded = quote! {

@@ -1,6 +1,6 @@
 //! # Hopper Escrow Example
 //!
-//! Demonstrates a token escrow using the Hopper framework.
+//! Macro-first token escrow sketch using Hopper's first-touch account API.
 //!
 //! Instructions:
 //! - `0` = Make (create escrow offer)
@@ -11,7 +11,7 @@
 #![allow(dead_code, unused_variables)]
 
 use hopper::prelude::*;
-use hopper::systems::*;
+use hopper::systems::{Authority, Mint, Token, TypedAddress};
 
 #[cfg(target_os = "solana")]
 mod __hopper_sbf {
@@ -24,24 +24,24 @@ mod __hopper_sbf {
     nostd_panic_handler!();
 }
 
-// --- Layout ---------------------------------------------------------
+// --- State ----------------------------------------------------------
 
-hopper_layout! {
-    /// An escrow account holding an offer to swap tokens.
-    pub struct Escrow, disc = 2, version = 1 {
-        maker:          TypedAddress<Authority> = 32,
-        maker_ta:       TypedAddress<Token>     = 32,
-        mint_a:         TypedAddress<Mint>       = 32,
-        mint_b:         TypedAddress<Mint>       = 32,
-        amount_offered: WireU64                  = 8,
-        amount_wanted:  WireU64                  = 8,
-        bump:           u8                       = 1,
-    }
+#[derive(Clone, Copy)]
+#[repr(C)]
+#[account(discriminator = 2, version = 1)]
+pub struct Escrow {
+    pub maker: TypedAddress<Authority>,
+    pub maker_ta: TypedAddress<Token>,
+    pub mint_a: TypedAddress<Mint>,
+    pub mint_b: TypedAddress<Mint>,
+    pub amount_offered: WireU64,
+    pub amount_wanted: WireU64,
+    pub bump: u8,
 }
 
 // --- Errors ---------------------------------------------------------
 
-hopper_error! {
+hopper::hopper_error! {
     base = 6100;
     MintMismatch,
     AmountMismatch,
@@ -50,129 +50,117 @@ hopper_error! {
     ZeroEscrowAmount,
 }
 
+// --- Contexts -------------------------------------------------------
+
+#[derive(Accounts)]
+pub struct Make<'info> {
+    #[account(mut)]
+    pub maker: Signer<'info>,
+
+    #[account(init, payer = maker, space = Escrow::INIT_SPACE)]
+    pub escrow: InitAccount<'info, Escrow>,
+
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct Take<'info> {
+    pub taker: Signer<'info>,
+
+    #[account(mut, has_one = maker)]
+    pub escrow: Account<'info, Escrow>,
+
+    pub maker: UncheckedAccount<'info>,
+}
+
+#[derive(Accounts)]
+pub struct Cancel<'info> {
+    pub maker: Signer<'info>,
+
+    #[account(mut, has_one = maker)]
+    pub escrow: Account<'info, Escrow>,
+}
+
 // --- Entrypoint -----------------------------------------------------
 
 #[cfg(target_os = "solana")]
-program_entrypoint!(process_instruction);
+hopper::program_entrypoint!(process_instruction);
 
 fn process_instruction(
     program_id: &Address,
     accounts: &[AccountView],
     instruction_data: &[u8],
 ) -> ProgramResult {
-    hopper::hopper_dispatch! {
-        program_id, accounts, instruction_data;
-        0 => process_make,
-        1 => process_take,
-        2 => process_cancel,
+    let mut ctx = Context::new(program_id, accounts, instruction_data);
+    escrow_program::process_instruction(&mut ctx)
+}
+
+#[program]
+mod escrow_program {
+    use super::*;
+
+    #[instruction(0)]
+    pub fn make(
+        ctx: Ctx<Make>,
+        mint_a: Address,
+        mint_b: Address,
+        amount_offered: u64,
+        amount_wanted: u64,
+    ) -> ProgramResult {
+        ctx.init_escrow()?;
+        ctx.accounts
+            .make(mint_a, mint_b, amount_offered, amount_wanted)
+    }
+
+    #[instruction(1)]
+    pub fn take(ctx: Ctx<Take>) -> ProgramResult {
+        ctx.accounts.take()
+    }
+
+    #[instruction(2)]
+    pub fn cancel(ctx: Ctx<Cancel>) -> ProgramResult {
+        ctx.accounts.cancel()
     }
 }
 
-// --- Make -----------------------------------------------------------
+impl<'info> Make<'info> {
+    pub fn make(
+        &self,
+        mint_a: Address,
+        mint_b: Address,
+        amount_offered: u64,
+        amount_wanted: u64,
+    ) -> ProgramResult {
+        hopper::hopper_require!(amount_offered > 0, ZeroEscrowAmount);
+        hopper::hopper_require!(amount_wanted > 0, ZeroEscrowAmount);
 
-fn process_make(program_id: &Address, accounts: &[AccountView], data: &[u8]) -> ProgramResult {
-    if accounts.len() < 3 {
-        return Err(ProgramError::NotEnoughAccountKeys);
+        let mut escrow = self.escrow.get_mut_after_init()?;
+        escrow.set_inner(
+            TypedAddress::from_account(self.maker.as_account()),
+            TypedAddress::zeroed(),
+            TypedAddress::from_slice(mint_a.as_array()),
+            TypedAddress::from_slice(mint_b.as_array()),
+            amount_offered,
+            amount_wanted,
+            0,
+        )
     }
-    let maker = &accounts[0];
-    let escrow_account = &accounts[1];
-    let system_program = &accounts[2];
-
-    maker.check_signer()?.check_writable()?;
-    escrow_account.check_writable()?;
-
-    // Parse: mint_a (32) + mint_b (32) + amount_offered (8) + amount_wanted (8)
-    if data.len() < 80 {
-        return Err(ProgramError::InvalidInstructionData);
-    }
-    let mint_a = &data[0..32];
-    let mint_b = &data[32..64];
-    let amount_offered = u64::from_le_bytes([
-        data[64], data[65], data[66], data[67], data[68], data[69], data[70], data[71],
-    ]);
-    let amount_wanted = u64::from_le_bytes([
-        data[72], data[73], data[74], data[75], data[76], data[77], data[78], data[79],
-    ]);
-
-    hopper_require!(amount_offered > 0, ZeroEscrowAmount);
-    hopper_require!(amount_wanted > 0, ZeroEscrowAmount);
-
-    // Create escrow account
-    hopper_init!(maker, escrow_account, system_program, program_id, Escrow)?;
-
-    // Write state
-    let mut escrow = Escrow::load_mut(escrow_account, program_id)?;
-    let escrow = escrow.get_mut();
-    escrow.maker = TypedAddress::from_account(maker);
-    escrow.maker_ta = TypedAddress::zeroed(); // Simplified: would be maker's token account
-    escrow.mint_a = TypedAddress::from_slice(
-        mint_a
-            .try_into()
-            .map_err(|_| ProgramError::InvalidInstructionData)?,
-    );
-    escrow.mint_b = TypedAddress::from_slice(
-        mint_b
-            .try_into()
-            .map_err(|_| ProgramError::InvalidInstructionData)?,
-    );
-    escrow.amount_offered = WireU64::new(amount_offered);
-    escrow.amount_wanted = WireU64::new(amount_wanted);
-
-    Ok(())
 }
 
-// --- Take -----------------------------------------------------------
+impl<'info> Take<'info> {
+    pub fn take(&self) -> ProgramResult {
+        let escrow = self.escrow.get()?;
+        if escrow.amount_offered.get() == 0 {
+            return Err(EscrowAlreadyFilled.into());
+        }
+        drop(escrow);
 
-fn process_take(program_id: &Address, accounts: &[AccountView], _data: &[u8]) -> ProgramResult {
-    if accounts.len() < 3 {
-        return Err(ProgramError::NotEnoughAccountKeys);
+        hopper::hopper_close!(self.escrow.as_account(), self.maker.as_account())
     }
-    let taker = &accounts[0];
-    let escrow_account = &accounts[1];
-    let maker_account = &accounts[2];
-
-    taker.check_signer()?;
-    escrow_account.check_writable()?;
-
-    // Load and validate escrow
-    let escrow = Escrow::load(escrow_account, program_id)?;
-    let e = escrow.get();
-
-    // Verify not already filled
-    if e.amount_offered.get() == 0 {
-        return Err(EscrowAlreadyFilled.into());
-    }
-
-    // In a real program, this would:
-    // 1. Transfer mint_a tokens from escrow vault to taker
-    // 2. Transfer mint_b tokens from taker to maker
-    // 3. Close escrow account
-
-    // Close escrow, return rent to maker
-    hopper_close!(escrow_account, maker_account)?;
-
-    Ok(())
 }
 
-// --- Cancel ---------------------------------------------------------
-
-fn process_cancel(program_id: &Address, accounts: &[AccountView], _data: &[u8]) -> ProgramResult {
-    if accounts.len() < 2 {
-        return Err(ProgramError::NotEnoughAccountKeys);
+impl<'info> Cancel<'info> {
+    pub fn cancel(&self) -> ProgramResult {
+        hopper::hopper_close!(self.escrow.as_account(), self.maker.as_account())
     }
-    let maker = &accounts[0];
-    let escrow_account = &accounts[1];
-
-    maker.check_signer()?;
-    escrow_account.check_writable()?;
-
-    // Load and verify maker is the authority
-    let escrow = Escrow::load(escrow_account, program_id)?;
-    let e = escrow.get();
-    e.maker.require_eq_account(maker)?;
-
-    // Close escrow, return rent to maker
-    hopper_close!(escrow_account, maker)?;
-
-    Ok(())
 }

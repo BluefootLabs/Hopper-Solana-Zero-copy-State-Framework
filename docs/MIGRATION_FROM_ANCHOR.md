@@ -12,7 +12,7 @@ This is the side-by-side. If you know Anchor, you can port a program in an after
 | `AccountLoader<'info, Vault>` | `Account<'info, Vault>` |
 | `#[account(mut)] pub vault: Account<'info, Vault>` | `#[account(mut)] pub vault: Account<'info, Vault>` |
 | `ctx.accounts.vault.load_mut()?.balance` | `ctx.accounts.vault.get_mut()?.balance` |
-| `ctx.bumps.vault` | `ctx.bumps().vault` |
+| `ctx.bumps.vault` | `ctx.bumps.vault` |
 | `emit!(Event { .. })` | `emit!(Event { .. })` |
 | `require!(x, ErrorCode::Foo)` | `require!(x, ErrorCode::Foo)` |
 | `Pubkey` | `Address` (same 32-byte shape) |
@@ -99,11 +99,11 @@ pub fn deposit(ctx: Ctx<Deposit>, amount: u64) -> ProgramResult {
 Two things to know:
 
 1. Handlers carry an `#[instruction(N)]` attribute that declares the discriminator byte. Anchor uses an 8-byte SHA-256 prefix of the function name; Hopper uses the user-chosen byte (or a `discriminator = [bytes]` array for multi-byte prefixes when you want Anchor-style uniqueness).
-2. Segment-level accessors like `vault_balance_mut()` replace the full `load_mut()` plus field access. You borrow exactly the u64 slot, not the whole struct. Two handlers can legally borrow `vault_balance_mut` and `vault_authority_mut` concurrently because Hopper tracks borrows at the segment level.
+2. `ctx.accounts.vault.get_mut()?` is the Anchor-feeling default. Segment-level accessors such as `vault_balance_mut()` are still available in systems-mode code when you want disjoint field borrows instead of a full-struct borrow.
 
 ## Bumps
 
-`ctx.bumps().field_name` instead of `ctx.bumps.field_name`. Same semantics, just a method call.
+Use `ctx.bumps.field_name`, the same shape Anchor users expect. Hopper also retains `ctx.bumps().field_name` for older code.
 
 ## Errors
 
@@ -192,7 +192,7 @@ Every extension listed in the final zero-copy matrix has an equivalent constrain
 3. Keep `#[derive(Accounts)]`; Hopper also supports `#[accounts]` for systems-style contexts.
 4. Change `AccountLoader<'info, T>` to `Account<'info, T>` on context fields.
 5. Replace `ctx.accounts.field.load_mut()?.subfield` with `ctx.accounts.field.get_mut()?.subfield`.
-6. Change `ctx.bumps.field` to `ctx.bumps().field`.
+6. Keep `ctx.bumps.field`; Hopper also accepts `ctx.bumps().field` for compatibility with older Hopper examples.
 7. Replace `Pubkey` with `Address`.
 8. Give each handler an `#[instruction(N)]` attribute with a distinct discriminator byte.
 9. Run `hopper build`. Fix whatever shows up. The errors will be clear.

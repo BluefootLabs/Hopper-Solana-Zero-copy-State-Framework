@@ -596,6 +596,15 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
                 }
             }
         }
+        if let Some(WrapperKind::SystemAccount) = &wrapper {
+            field_checks.push(quote! {
+                ctx.account(#idx)?.check_owned_by(&::hopper::prelude::SystemId::ID)?;
+            });
+            check_descriptions.push(format!(
+                "accounts[{}] ({}) must be owned by the System Program",
+                idx, field_name
+            ));
+        }
 
         // -- Stage 2: signer / mut / address / owner / layout -------------
 
@@ -683,7 +692,9 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
             Some(WrapperKind::Account { inner }) => (true, Some(inner.clone())),
             Some(WrapperKind::InitAccount { .. })
             | Some(WrapperKind::Signer)
-            | Some(WrapperKind::Program) => (false, None),
+            | Some(WrapperKind::Program)
+            | Some(WrapperKind::UncheckedAccount)
+            | Some(WrapperKind::SystemAccount) => (false, None),
             None => {
                 let h = !skips_layout_validation(&cf.ty);
                 (h, if h { Some(cf.ty.clone()) } else { None })
@@ -2346,7 +2357,7 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
         #vis struct #bound_name<'ctx, 'a> {
             ctx: &'ctx mut ::hopper::prelude::Context<'a>,
             #accounts_field_decl
-            bumps: #bumps_name,
+            pub bumps: #bumps_name,
         }
 
         #vis struct #receipt_scope_name<const SNAP: usize> {
@@ -3312,6 +3323,7 @@ fn skips_layout_validation(ty: &Type) -> bool {
                         | "Signer"
                         | "HopperSigner"
                         | "UncheckedAccount"
+                        | "SystemAccount"
                         | "ProgramRef"
                         | "Program"
                 )
@@ -3331,6 +3343,10 @@ enum WrapperKind {
     /// `Program<'info, P>`. emit `check_address == P::ID` and
     /// `check_executable`. Layout validation skipped.
     Program,
+    /// `UncheckedAccount<'info>`. no type-derived validation.
+    UncheckedAccount,
+    /// `SystemAccount<'info>`. emit owner == System Program.
+    SystemAccount,
     /// `Account<'info, T>`. emit `check_owned_by(program_id)` +
     /// `load::<T>()` using `T` as the layout.
     Account { inner: Type },
@@ -3354,6 +3370,8 @@ fn classify_wrapper(ty: &Type) -> Option<WrapperKind> {
     match name.as_str() {
         "Signer" | "HopperSigner" => Some(WrapperKind::Signer),
         "Program" => Some(WrapperKind::Program),
+        "UncheckedAccount" => Some(WrapperKind::UncheckedAccount),
+        "SystemAccount" => Some(WrapperKind::SystemAccount),
         "Account" | "InitAccount" => {
             // Pull out the generic `T` arg. `Account<'info, T>` has
             // a lifetime arg first, then a type arg. we want the
@@ -3416,6 +3434,14 @@ fn accounts_binding_fragments(
             WrapperKind::Program => quote! {
                 #field_name: ::hopper::prelude::Program::try_new(ctx.account(#idx)?)?
             },
+            WrapperKind::UncheckedAccount => quote! {
+                #field_name: unsafe {
+                    ::hopper::prelude::UncheckedAccount::new_unchecked(ctx.account(#idx)?)
+                }
+            },
+            WrapperKind::SystemAccount => quote! {
+                #field_name: ::hopper::prelude::SystemAccount::try_new(ctx.account(#idx)?)?
+            },
             WrapperKind::Account { .. } => quote! {
                 #field_name: unsafe {
                     ::hopper::prelude::Account::new_unchecked(ctx.account(#idx)?)
@@ -3445,7 +3471,10 @@ fn layout_type_for_field(field: &ContextField) -> Option<Type> {
         Some(WrapperKind::Account { inner }) | Some(WrapperKind::InitAccount { inner }) => {
             Some(inner)
         }
-        Some(WrapperKind::Signer) | Some(WrapperKind::Program) => None,
+        Some(WrapperKind::Signer)
+        | Some(WrapperKind::Program)
+        | Some(WrapperKind::UncheckedAccount)
+        | Some(WrapperKind::SystemAccount) => None,
         None => {
             if skips_layout_validation(&field.ty) {
                 None

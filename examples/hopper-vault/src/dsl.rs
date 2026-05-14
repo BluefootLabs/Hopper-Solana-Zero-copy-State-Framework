@@ -74,12 +74,7 @@ fn process_deposit_dsl(
         // Update balance in layout
         let mut vault = ctx.accounts.vault.write()?;
         let v = vault.get_mut();
-        let new_balance = v
-            .balance
-            .get()
-            .checked_add(amount)
-            .ok_or(ProgramError::ArithmeticOverflow)?;
-        v.balance = WireU64::new(new_balance);
+        v.balance.checked_add_assign(amount)?;
 
         Ok(())
     })
@@ -116,8 +111,9 @@ fn process_withdraw_dsl(
         // Check authority
         let vault = ctx.accounts.vault.read()?;
         let v = vault.get();
-        v.authority
-            .require_eq_account(ctx.accounts.authority.to_account_view())?;
+        if &v.authority != ctx.accounts.authority.to_account_view().address() {
+            return Err(super::Unauthorized.into());
+        }
 
         // Check balance
         let balance = v.balance.get();
@@ -128,7 +124,7 @@ fn process_withdraw_dsl(
         // Update balance
         let mut vault_mut = ctx.accounts.vault.write()?;
         let vm = vault_mut.get_mut();
-        vm.balance = WireU64::new(balance - amount);
+        vm.balance.checked_sub_assign(amount)?;
 
         // Transfer SOL: vault -> authority
         let vault_view = ctx.accounts.vault.to_account_view();

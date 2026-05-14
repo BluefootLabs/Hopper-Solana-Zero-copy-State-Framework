@@ -1,14 +1,16 @@
 # Hopper Escrow
 
 The SPL-facing Hopper example. It keeps the state model simple while showing
-how Hopper code reads when token flows and authority checks enter the picture.
+how Hopper's macro-first API reads when token flows and authority checks enter
+the picture.
 
 ## What It Demonstrates
 
-- zero-copy escrow state
-- instruction parsing without leaving Hopper terminology
+- zero-copy escrow state via `#[account]`
+- typed contexts via `#[derive(Accounts)]`
+- `Ctx<T>` handlers with `ctx.accounts.*` business methods
 - Hopper account creation and typed state writes
-- token-oriented program structure without changing framework identity
+- `UncheckedAccount` for raw accounts that are intentionally not decoded
 
 ## Instruction Map
 

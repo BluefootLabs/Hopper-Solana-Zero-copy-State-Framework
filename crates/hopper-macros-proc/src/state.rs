@@ -404,6 +404,18 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
             pub const INIT_SPACE: usize = Self::LEN;
 
             #[inline(always)]
+            pub fn write_init_header(
+                data: &mut [u8],
+            ) -> ::core::result::Result<(), ::hopper::__runtime::ProgramError> {
+                ::hopper::hopper_core::account::write_header(
+                    data,
+                    Self::DISC,
+                    Self::VERSION,
+                    &Self::LAYOUT_ID,
+                )
+            }
+
+            #[inline(always)]
             pub fn overlay(
                 data: &[u8],
             ) -> ::core::result::Result<&Self, ::hopper::__runtime::ProgramError> {
@@ -602,6 +614,13 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
             const VERSION: u8 = #name::VERSION;
             const LAYOUT_ID: [u8; 8] = #name::LAYOUT_ID;
             const SIZE: usize = #name::LEN;
+        }
+
+        impl ::hopper::hopper_core::check::modifier::HopperLayout for #name {
+            const DISC: u8 = #name::DISC;
+            const VERSION: u8 = #name::VERSION;
+            const LAYOUT_ID: [u8; 8] = #name::LAYOUT_ID;
+            const LEN_WITH_HEADER: usize = #name::LEN;
         }
 
         impl ::hopper::hopper_schema::SchemaExport for #name {
