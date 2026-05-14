@@ -129,19 +129,12 @@ impl<'info> Deposit<'info> {
 
         let authority = self.authority.as_account();
         let vault_account = self.vault.as_account();
-
-        authority.set_lamports(
-            authority
-                .lamports()
-                .checked_sub(amount)
-                .ok_or(ProgramError::InsufficientFunds)?,
-        );
-        vault_account.set_lamports(
-            vault_account
-                .lamports()
-                .checked_add(amount)
-                .ok_or(ProgramError::ArithmeticOverflow)?,
-        );
+        hopper::system::Transfer {
+            from: authority,
+            to: vault_account,
+            lamports: amount,
+        }
+        .invoke()?;
 
         let mut vault = self.vault.get_mut()?;
         vault.balance.checked_add_assign(amount)?;
@@ -163,6 +156,8 @@ impl<'info> Withdraw<'info> {
         let authority = self.authority.as_account();
         let vault_account = self.vault.as_account();
 
+        // The vault is program-owned, so withdraw debits lamports directly
+        // after Hopper has validated authority and account layout.
         vault_account.set_lamports(
             vault_account
                 .lamports()

@@ -64,8 +64,8 @@ fn amount_instruction(
     }
 }
 
-fn seeded_user_account(program_id: &Address, lamports: u64) -> Account {
-    Account::new(lamports, 0, program_id)
+fn seeded_user_account(_program_id: &Address, lamports: u64) -> Account {
+    Account::new(lamports, 0, &Address::default())
 }
 
 fn seeded_vault_account(

@@ -260,12 +260,27 @@ The CLI source lives in `tools/hopper-cli`. It supports lifecycle commands,
 linting, schema/IDL export, manifest inspection, account decoding, client
 generation, manager workflows, and profile helpers.
 
-Start with `examples/hopper-counter`, then move to `examples/hopper-vault` or
-`examples/hopper-proc-vault` for the app framework path. Move to
-`examples/hopper-policy-vault` for strict, sealed, raw, and hybrid handlers side
-by side. For in-process tests, use the sibling
-[hopper-svm](https://github.com/BluefootLabs/hopper-svm) repo as a
-dev-dependency.
+## Examples
+
+Framework-first examples:
+
+- [examples/hopper-counter](examples/hopper-counter): minimal `#[derive(Accounts)]`, `Ctx<T>`, and `ctx.accounts.*` flow.
+- [examples/hopper-vault](examples/hopper-vault): SOL vault using typed wrappers, `set_inner`, checked wire helpers, and a System Program transfer helper for deposits.
+- [examples/hopper-escrow](examples/hopper-escrow): token-escrow shape using the same account facade.
+- [examples/quasar-port-20-min](examples/quasar-port-20-min): Quasar-style bounded dynamic account port with Hopper's dynamic-tail guarantees.
+
+Systems-mode examples:
+
+- [examples/hopper-proc-vault](examples/hopper-proc-vault): generated/lowered account access for teams that want to inspect the macro output shape.
+- [examples/hopper-policy-vault](examples/hopper-policy-vault): strict, sealed, raw, and hybrid handlers side by side.
+- [examples/hopper-showcase](examples/hopper-showcase): broad feature tour across framework and systems layers.
+
+Raw and parity examples:
+
+- [examples/hopper-parity-vault](examples/hopper-parity-vault): apples-to-apples benchmark target with intentionally low-level lamport mutation.
+- [examples/hopper-token-2022-vault](examples/hopper-token-2022-vault) and [examples/hopper-token-2022-ata](examples/hopper-token-2022-ata): Token-2022 low-level validation and CPI examples.
+
+For in-process tests, use the sibling [hopper-svm](https://github.com/BluefootLabs/hopper-svm) repo as a dev-dependency.
 
 ## Benchmarks
 

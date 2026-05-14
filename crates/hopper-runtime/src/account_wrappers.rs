@@ -166,6 +166,11 @@ impl<'info, T: crate::layout::LayoutContract> Account<'info, T> {
     }
 
     /// Borrow the typed layout for writing.
+    ///
+    /// This takes `&self` because `Account<'info, T>` is a transparent
+    /// role wrapper over `AccountView`. Mutable exclusivity is enforced
+    /// by the account data borrow guard and Hopper borrow registry, so
+    /// copying the wrapper cannot create aliased writable access.
     #[inline(always)]
     pub fn load_mut(&self) -> Result<crate::borrow::RefMut<'_, T>, crate::error::ProgramError> {
         self.inner.load_mut::<T>()

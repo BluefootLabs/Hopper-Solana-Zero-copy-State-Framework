@@ -94,6 +94,8 @@ pub struct Multisig {
 
 `Address` and `Pubkey` vectors keep the borrowed zero-copy view path. Other `TailElement` vectors use `HopperVec<T, N>` through the same compact tail codec and generated editor helpers.
 
+Quasar puts dynamic fields visually inline; Hopper lets you author them inline, then lowers them into a compact dynamic tail so fixed fields remain segment-borrowable and the dynamic schema is layout-fingerprinted.
+
 ```rust
 let view = Multisig::tail_view(data)?;
 let signers: &[Address] = view.signers()?;
