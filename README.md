@@ -120,9 +120,9 @@ pub struct Counter {
 
 #[derive(Accounts)]
 pub struct Increment<'info> {
-  #[account(mut, has_one = authority)]
-  pub counter: Account<'info, Counter>,
-  pub authority: Signer<'info>,
+    #[account(mut, has_one = authority)]
+    pub counter: Account<'info, Counter>,
+    pub authority: Signer<'info>,
 }
 
 #[program]
@@ -131,8 +131,8 @@ mod counter_program {
 
     #[instruction(0)]
     pub fn increment(ctx: Ctx<Increment>) -> ProgramResult {
-      let mut counter = ctx.accounts.counter.get_mut()?;
-      counter.value.checked_add_assign(1)?;
+        let mut counter = ctx.accounts.counter.get_mut()?;
+        counter.value.checked_add_assign(1)?;
         Ok(())
     }
 }
@@ -140,9 +140,11 @@ mod counter_program {
 
 ## Documentation map
 
+- [docs/FIRST_FIVE_MINUTES.md](docs/FIRST_FIVE_MINUTES.md): counter, vault, dynamic multisig, token transfer, and raw escape hatch through the `ctx.accounts.*` path.
 - [docs/GETTING_STARTED_SERIOUS.md](docs/GETTING_STARTED_SERIOUS.md): source-first setup and first serious program flow.
 - [docs/HOPPER_LAYERS.md](docs/HOPPER_LAYERS.md): framework mode, structured state, systems mode, and Anchor/Quasar/Hopper mental mapping.
 - [docs/WRITING_HOPPER_PROGRAMS.md](docs/WRITING_HOPPER_PROGRAMS.md): Hopper authoring patterns and program structure.
+- [docs/HOPPER_VS_ANCHOR_QUASAR_PINOCCHIO.md](docs/HOPPER_VS_ANCHOR_QUASAR_PINOCCHIO.md): competitive positioning without overclaiming performance.
 - [docs/POLICY_GUARANTEES.md](docs/POLICY_GUARANTEES.md): capability policy, sealed/raw/hybrid access, and the policy-vault example.
 - [docs/MIGRATION_FROM_ANCHOR.md](docs/MIGRATION_FROM_ANCHOR.md): Anchor-to-Hopper migration notes.
 - [docs/MIGRATION_FROM_QUASAR.md](docs/MIGRATION_FROM_QUASAR.md): Quasar-to-Hopper migration notes.
@@ -168,24 +170,25 @@ Hopper is layered so users do not have to learn the systems surface first:
 
 ## Advanced Access Tiers
 
-Framework handlers normally use generated context accessors or `load` /
-`load_mut`. Reach for these lower-level access tiers when a protocol explicitly
-needs systems-mode control:
+Framework handlers normally use `ctx.accounts.*` plus `get()` / `get_mut()` on
+typed wrappers. Reach for these lower-level access tiers only when a protocol
+explicitly needs systems-mode control:
 
 1. `segment_ref_typed` / generated field accessors - default hot path for
   field-level borrow leasing.
-2. `load` / `load_mut` - validated whole-layout access.
+2. `get` / `get_mut` on `Account<'info, T>` - validated whole-layout access.
 3. `segment_ref_const` / dynamic `segment_ref` - advanced runtime-selected
   segment access.
 4. `raw_ref` / `raw_mut` - unsafe typed escape hatch.
 5. `as_mut_ptr` - full raw pointer escape for policy-controlled raw mode.
 
 For variable-length account data, opt into structured state with
-`#[hopper::dynamic_account]` for Quasar-style bounded `String` and
-`Vec<Address>` fields, or use `#[hopper::state(dynamic_tail = T)]` plus
-`hopper_dynamic_fields!` for explicit custom tails. Named extension segments
-remain the right tool for larger repeated regions that need independent borrow
-tracking or migration metadata.
+`#[hopper::dynamic_account]` for Quasar-style bounded `String` and `Vec<T>`
+fields where `T: TailElement`. `Address` / `Pubkey` vectors keep the borrowed
+zero-copy view path; other tail-element vectors use `HopperVec<T, N>` through
+the same compact codec/editor path. Named extension segments remain the right
+tool for larger repeated regions that need independent borrow tracking or
+migration metadata.
 
 Handlers with variable account tails use generated remaining-account accessors:
 `ctx.remaining_accounts()` is strict and duplicate-rejecting,

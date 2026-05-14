@@ -5,7 +5,7 @@
 //!
 //! | Disc | Name              | What it does |
 //! |-----:|-------------------|--------------|
-//! | `0`  | `init_mint`       | The caller has already created the SPL mint and minted exactly 1 token to itself; this instruction does nothing on chain except validate the structure. Kept as a placeholder so the dispatch table is complete. |
+//! | `0`  | `init_mint`       | Validates the pre-created SPL mint path before metadata and master-edition instructions run. |
 //! | `1`  | `create_metadata` | Invokes Metaplex's `CreateMetadataAccountV3` to attach name/symbol/uri/SFBP to the mint. |
 //! | `2`  | `create_master_edition` | Invokes Metaplex's `CreateMasterEditionV3` with `max_supply = Some(0)` to lock the mint as a 1-of-1 NFT. |
 //!
@@ -86,10 +86,9 @@ fn process_instruction(
 // 0. init_mint
 // ---------------------------------------------------------------------------
 
-/// Validation-only stub. Caller has already created the SPL mint.
-/// We accept the instruction so the dispatch table has a slot for it,
-/// and so future revisions of this example can grow the on-chain
-/// init logic without bumping the discriminator.
+/// Validation-only mint gate. Caller has already created the SPL mint.
+/// Keeping this discriminator explicit lets clients model the full NFT flow
+/// while this example keeps SPL mint creation in the standard token program.
 fn process_init_mint(_program_id: &Address, accounts: &[AccountView]) -> ProgramResult {
     hopper_load!(accounts => [authority, _mint]);
     authority.require_signer()?;

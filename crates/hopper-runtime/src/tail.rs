@@ -60,6 +60,15 @@ pub trait TailCodec: Sized {
     fn decode(input: &[u8]) -> Result<(Self, usize), ProgramError>;
 }
 
+/// Element type accepted by `#[tail(vec<T, N>)]` in `#[hopper::dynamic_account]`.
+///
+/// A tail element must have deterministic Hopper tail encoding, be cheap to copy
+/// into the fixed-capacity backing array, have a default empty slot value, and be
+/// comparable for generated `push_unique_*` / `remove_*` helpers.
+pub trait TailElement: TailCodec + Copy + Default + PartialEq {}
+
+impl<T> TailElement for T where T: TailCodec + Copy + Default + PartialEq {}
+
 // ── Primitive impls (little-endian, fixed width) ────────────────────
 
 impl TailCodec for u8 {
@@ -853,7 +862,7 @@ mod tests {
     }
 
     #[test]
-    fn tail_bounds_check_on_truncated_buffer() {
+    fn tail_bounds_check_on_short_buffer() {
         let data = [0u8; 10];
         assert!(read_tail_len(&data, 16).is_err());
         assert!(tail_payload(&data, 16).is_err());

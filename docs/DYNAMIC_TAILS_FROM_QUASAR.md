@@ -1,7 +1,7 @@
 # Dynamic tails from Quasar dynamic fields
 
 Quasar lets a zero-copy account include bounded dynamic fields such as
-`String<'a, 32>` or `Vec<'a, Address, 10>` inside the account declaration.
+`String<'a, 32>` or `Vec<'a, T, 10>` inside the account declaration.
 Hopper takes a different route internally: keep the fixed body strictly
 zero-copy, then attach one compact encoded dynamic tail after the fixed body.
 You can author that split directly, or use `#[hopper::dynamic_account]` to
@@ -56,13 +56,19 @@ pub struct Multisig {
 
     #[tail(vec<Address, 10>)]
     pub signers: Vec<Address>,
+
+    #[tail(vec<u16, 10>)]
+    pub weights: Vec<u16>,
 }
 ```
 
 The macro emits a fixed `Multisig` body, a `MultisigTail`, `ALLOC_SPACE`,
 borrowed `tail_view` helpers, and an owned `tail_editor` for writeback.
-`threshold` remains a zero-copy field. `label` and `signers` move into the
-single compact tail payload and are decoded only when a handler asks for them.
+`threshold` remains a zero-copy field. `label`, `signers`, and `weights` move
+into the single compact tail payload and are decoded only when a handler asks
+for them. `Address` / `Pubkey` vectors expose borrowed slices; other
+`TailElement` vectors expose `HopperVec<T, N>` values through the same view and
+editor helpers.
 
 The explicit spelling is still available when you want a custom `TailCodec` or
 a tail shape beyond the current `dynamic_account` façade:
@@ -107,10 +113,11 @@ hopper_dynamic_fields! {
 tails: `contains`, `push_unique`, `remove_first`, `pop`, `clear`, and capacity
 inspection.
 
-`#[hopper::dynamic_account]` currently supports `#[tail(string<N>)]` and
-`#[tail(vec<Address, N>)]` with `tail_policy = "compact"` (the default). Use
-the explicit `hopper_dynamic_fields!` path for other `TailCodec` element types
-until indexed or segmented tail policies land.
+`#[hopper::dynamic_account]` supports `#[tail(string<N>)]` and
+`#[tail(vec<T, N>)] where T: TailElement` with `tail_policy = "compact"` (the
+default). Use the explicit `hopper_dynamic_fields!` path when you want to name a
+custom `TailCodec` payload directly or when a future indexed/segmented tail
+policy is a better fit than one compact payload.
 
 ## Generated helpers
 
@@ -128,7 +135,8 @@ A dynamic-tail layout emits:
 - `tail_capacity(data: &[u8]) -> Result<usize, ProgramError>`
 - `tail_view(data: &[u8]) -> Result<NameTailView<'_>, ProgramError>`
 - `tail_editor(data: &mut [u8]) -> Result<NameTailEditor<'_>, ProgramError>`
-- borrowed string/list accessors such as `label(data)` and `signers(data)`
+- borrowed string/list accessors such as `label(data)` and `signers(data)`;
+    generic vectors return `HopperVec<T, N>`
 - setter/editor helpers such as `set_label`, `push_unique_signer`, and
     `remove_signer`
 
@@ -167,8 +175,8 @@ Use extension segments when:
     `u64`, and `bool` fixed fields are stored as Hopper wire types and exposed
     through generated native-value getters.
 2. Mark Quasar dynamic fields with `#[tail(string<N>)]` or
-    `#[tail(vec<Address, N>)]`, or use `hopper_dynamic_fields!` for explicit
-    custom tails.
+    `#[tail(vec<T, N>)] where T: TailElement`, or use
+    `hopper_dynamic_fields!` for explicit custom tails.
 3. Allocate account space with `Multisig::ALLOC_SPACE` for the façade path, or
     `Fixed::LEN + 4 + Tail::MAX_ENCODED_LEN` for the explicit path.
 4. Use generated segment accessors for fixed fields and tail view/editor helpers

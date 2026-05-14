@@ -1,6 +1,7 @@
 //! Bounded dynamic-tail port example: fixed vault + bounded multisig metadata.
 
 #![cfg_attr(target_os = "solana", no_std)]
+#![allow(dead_code)]
 
 use hopper::prelude::*;
 use hopper::systems::*;
@@ -40,6 +41,51 @@ pub struct Multisig {
 
     #[tail(vec<Address, 10>)]
     pub signers: Vec<Address>,
+}
+
+#[derive(Accounts)]
+pub struct RenameMultisig<'info> {
+    #[account(mut)]
+    pub multisig: hopper::prelude::UncheckedAccount<'info>,
+    pub authority: hopper::prelude::Signer<'info>,
+}
+
+#[derive(Accounts)]
+pub struct AddSigner<'info> {
+    #[account(mut)]
+    pub multisig: hopper::prelude::UncheckedAccount<'info>,
+    pub authority: hopper::prelude::Signer<'info>,
+}
+
+impl<'info> RenameMultisig<'info> {
+    #[inline]
+    pub fn rename(&self, label: &str) -> ProgramResult {
+        let mut data = self.multisig.as_account().try_borrow_mut()?;
+        rename_multisig_data(&mut data, label)
+    }
+}
+
+impl<'info> AddSigner<'info> {
+    #[inline]
+    pub fn add_signer(&self, signer: Address) -> ProgramResult {
+        let mut data = self.multisig.as_account().try_borrow_mut()?;
+        add_signer_data(&mut data, signer)
+    }
+}
+
+#[program]
+mod quasar_port {
+    use super::*;
+
+    #[instruction(0)]
+    pub fn rename(ctx: Ctx<RenameMultisig>, label: HopperString<32>) -> ProgramResult {
+        ctx.accounts.rename(label.as_str()?)
+    }
+
+    #[instruction(1)]
+    pub fn add_signer(ctx: Ctx<AddSigner>, signer: Address) -> ProgramResult {
+        ctx.accounts.add_signer(signer)
+    }
 }
 
 pub fn initialize_multisig_data(

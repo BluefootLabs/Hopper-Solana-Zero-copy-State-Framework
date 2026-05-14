@@ -16,6 +16,14 @@ pub struct InlineMultisig {
     pub signers: Vec<Address>,
 }
 
+#[hopper::dynamic_account(discriminator = 9, version = 1)]
+pub struct WeightedVotes {
+    pub epoch: u64,
+
+    #[tail(vec<u16, 4>)]
+    pub weights: Vec<u16>,
+}
+
 #[test]
 fn dynamic_account_generates_fixed_body_tail_and_views() {
     let creator = Address::new([1u8; 32]);
@@ -61,6 +69,32 @@ fn generated_editor_commits_string_and_vector_changes() {
     assert_eq!(InlineMultisig::signers(&data).unwrap(), &[signer]);
     assert!(InlineMultisig::remove_signer(&mut data, &signer).unwrap());
     assert!(InlineMultisig::signers(&data).unwrap().is_empty());
+}
+
+#[test]
+fn dynamic_account_accepts_generic_tail_vectors() {
+    let body = WeightedVotes::new(99);
+    assert_eq!(body.epoch(), 99);
+
+    let mut tail = WeightedVotesTail::default();
+    tail.weights.push(7).unwrap();
+    tail.weights.push(11).unwrap();
+
+    let mut data = vec![0u8; WeightedVotes::ALLOC_SPACE];
+    WeightedVotes::tail_write(&mut data, &tail).unwrap();
+
+    let view = WeightedVotes::tail_view(&data).unwrap();
+    let weights = view.weights().unwrap();
+    assert_eq!(weights.as_slice(), &[7, 11]);
+
+    let weights = WeightedVotes::weights(&data).unwrap();
+    assert_eq!(weights.as_slice(), &[7, 11]);
+
+    assert!(WeightedVotes::push_unique_weight(&mut data, 13).unwrap());
+    assert!(!WeightedVotes::push_unique_weight(&mut data, 13).unwrap());
+    assert!(WeightedVotes::remove_weight(&mut data, &7).unwrap());
+    let weights = WeightedVotes::weights(&data).unwrap();
+    assert_eq!(weights.as_slice(), &[11, 13]);
 }
 
 #[test]

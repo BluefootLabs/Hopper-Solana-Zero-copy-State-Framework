@@ -106,15 +106,19 @@ pub struct Multisig {
 
     #[tail(vec<Address, 10>)]
     pub signers: Vec<Address>,
+
+    #[tail(vec<u16, 10>)]
+    pub weights: Vec<u16>,
 }
 ```
 
 `Multisig::new(threshold)` constructs the fixed body, `Multisig::ALLOC_SPACE`
 is the maximum body-plus-tail allocation, `Multisig::label(data)` and
-`Multisig::signers(data)` borrow compact-tail fields, and setters such as
-`set_label` / `push_unique_signer` decode, edit, and write back the tail. Use
-explicit `hopper_dynamic_fields!` plus `#[hopper::state(dynamic_tail = T)]` when
-the tail contains custom `TailCodec` members.
+`Multisig::signers(data)` borrow compact-tail fields. Generic vectors such as
+`weights(data)` return `HopperVec<T, N>`. Setters such as `set_label` /
+`push_unique_signer` decode, edit, and write back the tail. Use explicit
+`hopper_dynamic_fields!` plus `#[hopper::state(dynamic_tail = T)]` when you want
+to name a custom `TailCodec` payload directly.
 
 ## Systems Mode
 

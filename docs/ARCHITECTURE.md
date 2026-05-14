@@ -245,14 +245,15 @@ the explicit `#[hopper::state(dynamic_tail = T)]` path:
 ```
 
 The fixed body remains the zero-copy hot path. `#[hopper::dynamic_account]`
-lets authors write bounded `#[tail(string<N>)]` and `#[tail(vec<Address, N>)]`
-fields inline, then generates the compact tail struct, borrowed view, owned
-editor, and allocation constants. The explicit path uses `tail_read` /
-`tail_write` with a bounded `TailCodec` payload. `HopperString<N>` and
-`HopperVec<T, N>` cover the common string/list cases without pulling heap
-allocation into SBF builds. `hopper_dynamic_fields!` lowers `string<N>` to
-`HopperString<N>` and `vec<T, N>` to `HopperVec<T, N>` for custom explicit
-tails.
+lets authors write bounded `#[tail(string<N>)]` and `#[tail(vec<T, N>)] where
+T: TailElement` fields inline, then generates the compact tail struct, view,
+owned editor, and allocation constants. `Address` / `Pubkey` vectors keep
+borrowed-slice views; other vectors return `HopperVec<T, N>`. The explicit path
+uses `tail_read` / `tail_write` with a bounded `TailCodec` payload.
+`HopperString<N>` and `HopperVec<T, N>` cover the common string/list cases
+without pulling heap allocation into SBF builds. `hopper_dynamic_fields!` lowers
+`string<N>` to `HopperString<N>` and `vec<T, N>` to `HopperVec<T, N>` for custom
+explicit tails.
 
 Use dynamic tails for small bounded payloads that are read or written as one
 logical unit. Use named extension segments or companion accounts for larger

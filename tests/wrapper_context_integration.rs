@@ -64,13 +64,22 @@ fn unchecked_and_system_wrappers_are_zero_cost() {
 #[test]
 fn prelude_exports_memo_and_token_interface_helpers() {
     use hopper::prelude::{
-        interface_transfer_checked, InterfaceMint, InterfaceTokenAccount, Memo, TokenProgramKind,
-        MAX_MEMO_SIGNERS, MEMO_PROGRAM_ID,
+        interface_transfer_checked, HopperString, HopperVec, InterfaceMint, InterfaceTokenAccount,
+        Memo, TailCodec, TailElement, TokenProgramKind, MAX_MEMO_SIGNERS, MEMO_PROGRAM_ID,
     };
+
+    fn assert_tail_element<T: TailElement>() {}
 
     let _transfer = interface_transfer_checked;
     let _memo_program = MEMO_PROGRAM_ID;
     assert_eq!(MAX_MEMO_SIGNERS, 16);
+    assert_tail_element::<u16>();
+    assert_eq!(
+        <HopperVec<u16, 4> as TailCodec>::MAX_ENCODED_LEN,
+        2 + (4 * 2),
+    );
+    let label = HopperString::<8>::from_str("ops").unwrap();
+    assert_eq!(label.as_str().unwrap(), "ops");
     assert_eq!(
         core::mem::size_of::<TokenProgramKind>(),
         core::mem::size_of::<u8>(),

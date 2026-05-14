@@ -107,6 +107,7 @@ pub use remaining::{
 pub use tail::{
     borrow_address_slice, borrow_bounded_str, read_tail, read_tail_len, tail_capacity,
     tail_payload, write_tail, BoundedString, BoundedVec, HopperString, HopperVec, TailCodec,
+    TailElement,
 };
 
 /// Compose a layout's `LayoutMigration::MIGRATIONS` chain from a list
@@ -425,8 +426,8 @@ macro_rules! msg {
 ///
 /// Wraps [`cpi_event::encode_event_cpi`] and a call into the active
 /// backend's `invoke_signed` so indexers see the event as an inner
-/// instruction in the transaction metadata. Logs truncate; inner
-/// instructions do not. Anchor's `emit_cpi!` solves the same problem
+/// instruction in the transaction metadata. Log output is size-capped; inner
+/// instructions are retained. Anchor's `emit_cpi!` solves the same problem
 /// with the same trick; Hopper's lives in pure Rust so it works under
 /// `no_std` and any of the three backends.
 ///

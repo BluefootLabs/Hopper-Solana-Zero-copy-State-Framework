@@ -494,11 +494,12 @@ pub fn dynamic(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// Quasar-style bounded dynamic fields lowered into Hopper's fixed-body +
 /// compact-tail account layout.
 ///
-/// Fields annotated with `#[tail(string<N>)]` or `#[tail(vec<Address, N>)]`
+/// Fields annotated with `#[tail(string<N>)]` or `#[tail(vec<T, N>)]`
 /// are removed from the fixed body, encoded into a generated `NameTail`, and
-/// exposed through generated borrowed view / owned editor helpers. The account
-/// still uses Hopper's canonical `[body][u32 tail_len][tail_payload]` wire
-/// format.
+/// exposed through generated view / owned editor helpers. `Address` / `Pubkey`
+/// vectors keep borrowed-slice views; other `T: TailElement` vectors return
+/// `HopperVec<T, N>` values. The account still uses Hopper's canonical
+/// `[body][u32 tail_len][tail_payload]` wire format.
 ///
 /// # Example
 ///
@@ -513,6 +514,9 @@ pub fn dynamic(attr: TokenStream, item: TokenStream) -> TokenStream {
 ///
 ///     #[tail(vec<Address, 10>)]
 ///     pub signers: Vec<Address>,
+///
+///     #[tail(vec<u16, 10>)]
+///     pub weights: Vec<u16>,
 /// }
 /// ```
 #[proc_macro_attribute]

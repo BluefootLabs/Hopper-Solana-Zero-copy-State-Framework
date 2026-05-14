@@ -9,16 +9,16 @@ This guide is the reference for using them.
 Before you touch an extension, constrain the account's owner program. Otherwise a caller could pass a legacy SPL Token account and every extension scan would miss (because legacy accounts have no TLV region).
 
 ```rust
-#[accounts]
-pub struct ConfigureMint {
+#[derive(Accounts)]
+pub struct ConfigureMint<'info> {
     #[account(
         mut,
         mint::authority = authority,
         mint::token_program = ::hopper_runtime::token::TOKEN_2022_PROGRAM_ID,
     )]
-    pub mint: AccountView,
-    #[account(signer)]
-    pub authority: AccountView,
+    pub mint: UncheckedAccount<'info>,
+
+    pub authority: Signer<'info>,
 }
 ```
 
@@ -97,8 +97,8 @@ pub struct Config {
     pub bump: u8,
 }
 
-#[accounts]
-pub struct Configure {
+#[derive(Accounts)]
+pub struct Configure<'info> {
     #[account(
         init,
         payer = admin,
@@ -106,7 +106,7 @@ pub struct Configure {
         seeds = [b"config", mint.key().as_ref()],
         bump,
     )]
-    pub config: Config,
+    pub config: InitAccount<'info, Config>,
 
     #[account(
         mut,
@@ -115,12 +115,12 @@ pub struct Configure {
         extensions::mint_close_authority::authority = admin,
         extensions::non_transferable,
     )]
-    pub mint: AccountView,
+    pub mint: UncheckedAccount<'info>,
 
-    #[account(signer, mut)]
-    pub admin: AccountView,
+    #[account(mut)]
+    pub admin: Signer<'info>,
 
-    pub system_program: Program<'_, System>,
+    pub system_program: Program<'info, System>,
 }
 
 #[program]
@@ -129,8 +129,8 @@ mod capped_mint {
 
     #[instruction(0)]
     pub fn configure(ctx: Context<Configure>, max_supply: u64) -> ProgramResult {
-        let mut config = ctx.config_mut()?;
-        config.admin.copy_from_slice(ctx.admin_account()?.key().as_array());
+        let mut config = ctx.accounts.config.get_mut()?;
+        config.admin.copy_from_slice(ctx.accounts.admin.key().as_array());
         config.max_supply.set(max_supply);
         config.bump = ctx.bumps.config;
         Ok(())

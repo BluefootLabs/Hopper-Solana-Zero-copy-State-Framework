@@ -11,7 +11,10 @@ pub use crate::account::{
 };
 pub use crate::context::Context;
 pub use crate::context::Context as Ctx;
-pub use hopper_runtime::{AccountView, Address, ProgramError, ProgramResult};
+pub use hopper_runtime::{
+    AccountView, Address, HopperString, HopperVec, ProgramError, ProgramResult, TailCodec,
+    TailElement,
+};
 
 /// Solana-familiar alias for Hopper's 32-byte address type.
 pub type Pubkey = Address;

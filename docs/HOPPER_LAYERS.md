@@ -50,8 +50,9 @@ client generation matters.
 - `hopper::schema` exposes manifests, IDL projection, resolver metadata, and
   generated client inputs.
 - `#[hopper::dynamic_account]` gives Quasar-style bounded `String` and
-  `Vec<Address>` fields while lowering to Hopper's fixed-body + compact-tail
-  model.
+  `Vec<T>` fields while lowering to Hopper's fixed-body + compact-tail model.
+  `Address` / `Pubkey` vectors keep borrowed views; other `TailElement` vectors
+  return `HopperVec<T, N>` values.
 - `hopper_dynamic_tail!` and `hopper_dynamic_fields!` attach explicit bounded
   dynamic payloads to fixed zero-copy layouts for custom `TailCodec` tails.
 - `declare_program!` consumes a manifest and generates typed CPI builders plus

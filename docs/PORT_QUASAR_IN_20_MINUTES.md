@@ -58,6 +58,9 @@ pub struct Multisig {
 
     #[tail(vec<Address, 10>)]
     pub signers: Vec<Address>,
+
+    #[tail(vec<u16, 10>)]
+    pub weights: Vec<u16>,
 }
 ```
 
@@ -65,9 +68,11 @@ The macro generates a fixed `Multisig` body, a `MultisigTail`, borrowed
 `MultisigTailView`, owned `MultisigTailEditor`, and `Multisig::ALLOC_SPACE`.
 Native `u64` in the fixed body is stored as `WireU64` and exposed through the
 generated `threshold()` getter. `string<N>` lowers to `HopperString<N>` and
-`vec<Address, N>` lowers to `HopperVec<Address, N>` inside the generated tail.
+`vec<T, N>` lowers to `HopperVec<T, N>` inside the generated tail. `Address` /
+`Pubkey` vectors keep borrowed-slice views; other `TailElement` vectors return
+`HopperVec<T, N>` values through generated view helpers.
 
-For custom tail element types, keep using the explicit lower-level pair:
+For custom named tail payloads, keep using the explicit lower-level pair:
 `hopper_dynamic_fields!` plus `#[hopper::state(dynamic_tail = Tail)]`.
 
 ## Read and Write the Tail

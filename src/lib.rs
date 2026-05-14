@@ -317,7 +317,7 @@ pub mod systems {
         fast_entrypoint, hopper_entrypoint, hopper_fast_entrypoint, hopper_lazy_entrypoint,
         lazy_entrypoint, no_allocator, nostd_panic_handler, program_entrypoint, BoundedString,
         BoundedVec, CpiAccount, HopperString, HopperVec, InstructionAccount, InstructionView, Seed,
-        TailCodec,
+        TailCodec, TailElement,
     };
 
     pub use crate::{
@@ -671,7 +671,7 @@ pub mod __runtime {
         HopperProgramPolicy, HopperSigner, HopperString, HopperVec, InitAccount,
         InstructionAccount, InstructionView, LayoutMigration, MigrationEdge, Pod, Program,
         ProgramError, ProgramId, Ref, RefMut, SegRef, SegRefMut, SegmentLease, SystemAccount,
-        SystemId, TailCodec, UncheckedAccount,
+        SystemId, TailCodec, TailElement, UncheckedAccount,
     };
 
     // Crank marker type plus dynamic-CPI builder, emitted by

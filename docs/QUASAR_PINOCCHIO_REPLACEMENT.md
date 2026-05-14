@@ -65,8 +65,10 @@ The current Quasar issue queue points at a few places where Hopper should be
 the sharper choice:
 
 - **Dynamic account lifetimes:** `#[hopper::dynamic_account]` keeps Quasar-style
-  `String` / `Vec<Address>` authoring while generating borrowed views and an
-  owned editor over Hopper's fixed-body + compact-tail wire format.
+  `String` / `Vec<T>` authoring while generating borrowed views for
+  `Address` / `Pubkey` vectors, `HopperVec<T, N>` views for other
+  `TailElement` vectors, and an owned editor over Hopper's fixed-body +
+  compact-tail wire format.
 - **Fixed byte-array seeds:** `#[hopper::context]` lowers inline `seeds = [...]`
   through `AsRef<[u8]>`, so `[u8; N]` seeds work with `hash.as_ref()`; signer
   seeds also implement `Seed::from(&[u8; N])`.

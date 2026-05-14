@@ -20,8 +20,14 @@ struct Options {
 
 #[derive(Clone)]
 enum TailKind {
-    String { cap: LitInt },
-    VecAddress { ty: Type, cap: LitInt },
+    String {
+        cap: LitInt,
+    },
+    Vec {
+        ty: Type,
+        cap: LitInt,
+        borrowed_slice: bool,
+    },
 }
 
 #[derive(Clone)]
@@ -53,21 +59,18 @@ impl Parse for TailSpec {
             let cap: LitInt = input.parse()?;
             input.parse::<Token![>]>()?;
 
-            if !is_address_type(&ty) {
-                return Err(syn::Error::new_spanned(
-                    ty,
-                    "#[tail(vec<T, N>)] currently supports `Address` / `Pubkey` for borrowed tail views; use hopper_dynamic_fields! for other TailCodec element types",
-                ));
-            }
-
             return Ok(Self {
-                kind: TailKind::VecAddress { ty, cap },
+                kind: TailKind::Vec {
+                    borrowed_slice: is_address_type(&ty),
+                    ty,
+                    cap,
+                },
             });
         }
 
         Err(syn::Error::new_spanned(
             keyword,
-            "unsupported #[tail(...)] spec; expected `string<N>` or `vec<Address, N>`",
+            "unsupported #[tail(...)] spec; expected `string<N>` or `vec<T, N>` where T: TailElement",
         ))
     }
 }
@@ -122,7 +125,7 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
         if is_unbounded_dynamic_type(&field.ty) {
             return Err(syn::Error::new_spanned(
                 field.ty,
-                "String and Vec fields in #[hopper::dynamic_account] must be annotated with #[tail(string<N>)] or #[tail(vec<Address, N>)]",
+                "String and Vec fields in #[hopper::dynamic_account] must be annotated with #[tail(string<N>)] or #[tail(vec<T, N>)] where T: TailElement",
             ));
         }
 
@@ -184,8 +187,14 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
         .iter()
         .map(|field| account_tail_methods(field, &vis))
         .collect();
+    let tail_element_assertions: Vec<_> = tail_fields
+        .iter()
+        .filter_map(tail_element_assertion)
+        .collect();
 
     Ok(quote! {
+        #(#tail_element_assertions)*
+
         ::hopper::hopper_dynamic_fields! {
             #vis struct #tail_name {
                 #(#tail_struct_fields)*
@@ -383,7 +392,19 @@ fn tail_struct_field(field: &TailField) -> TokenStream {
     let ident = &field.ident;
     match &field.kind {
         TailKind::String { cap } => quote! { #ident: string<#cap>, },
-        TailKind::VecAddress { ty, cap } => quote! { #ident: vec<#ty, #cap>, },
+        TailKind::Vec { ty, cap, .. } => quote! { #ident: vec<#ty, #cap>, },
+    }
+}
+
+fn tail_element_assertion(field: &TailField) -> Option<TokenStream> {
+    match &field.kind {
+        TailKind::String { .. } => None,
+        TailKind::Vec { ty, .. } => Some(quote! {
+            const _: () = {
+                fn __hopper_assert_tail_element<T: ::hopper::__runtime::TailElement>() {}
+                let _ = __hopper_assert_tail_element::<#ty>;
+            };
+        }),
     }
 }
 
@@ -401,7 +422,7 @@ fn tail_schema(fields: &[TailField]) -> String {
                 out.push_str(&cap.base10_digits().replace('_', ""));
                 out.push('>');
             }
-            TailKind::VecAddress { ty, cap } => {
+            TailKind::Vec { ty, cap, .. } => {
                 out.push_str("vec<");
                 out.push_str(&ty.to_token_stream().to_string().replace(' ', ""));
                 out.push(',');
@@ -421,8 +442,20 @@ fn tail_skip_tokens(previous: &[TailField]) -> Vec<TokenStream> {
                 let (_, __consumed) = ::hopper::__runtime::borrow_bounded_str::<#cap>(__cursor)?;
                 __cursor = &__cursor[__consumed..];
             },
-            TailKind::VecAddress { cap, .. } => quote! {
+            TailKind::Vec {
+                cap,
+                borrowed_slice: true,
+                ..
+            } => quote! {
                 let (_, __consumed) = ::hopper::__runtime::borrow_address_slice::<#cap>(__cursor)?;
+                __cursor = &__cursor[__consumed..];
+            },
+            TailKind::Vec {
+                ty,
+                cap,
+                borrowed_slice: false,
+            } => quote! {
+                let (_, __consumed) = <::hopper::__runtime::HopperVec<#ty, #cap> as ::hopper::__runtime::TailCodec>::decode(__cursor)?;
                 __cursor = &__cursor[__consumed..];
             },
         })
@@ -442,12 +475,29 @@ fn tail_view_method(field: &TailField, previous: &[TailField]) -> TokenStream {
                 Ok(__value)
             }
         },
-        TailKind::VecAddress { ty, cap } => quote! {
+        TailKind::Vec {
+            ty,
+            cap,
+            borrowed_slice: true,
+        } => quote! {
             #[inline]
             pub fn #ident(&self) -> ::core::result::Result<&'a [#ty], ::hopper::__runtime::ProgramError> {
                 let mut __cursor = self.payload;
                 #(#skips)*
                 let (__value, _) = ::hopper::__runtime::borrow_address_slice::<#cap>(__cursor)?;
+                Ok(__value)
+            }
+        },
+        TailKind::Vec {
+            ty,
+            cap,
+            borrowed_slice: false,
+        } => quote! {
+            #[inline]
+            pub fn #ident(&self) -> ::core::result::Result<::hopper::__runtime::HopperVec<#ty, #cap>, ::hopper::__runtime::ProgramError> {
+                let mut __cursor = self.payload;
+                #(#skips)*
+                let (__value, _) = <::hopper::__runtime::HopperVec<#ty, #cap> as ::hopper::__runtime::TailCodec>::decode(__cursor)?;
                 Ok(__value)
             }
         },
@@ -471,7 +521,7 @@ fn tail_editor_methods(field: &TailField) -> TokenStream {
                 }
             }
         }
-        TailKind::VecAddress { ty, .. } => {
+        TailKind::Vec { ty, .. } => {
             let singular = singular_ident(ident);
             let push = format_ident!("push_{}", singular);
             let push_unique = format_ident!("push_unique_{}", singular);
@@ -521,14 +571,23 @@ fn account_tail_methods(field: &TailField, vis: &Visibility) -> TokenStream {
                 }
             }
         }
-        TailKind::VecAddress { ty, .. } => {
+        TailKind::Vec {
+            ty,
+            cap,
+            borrowed_slice,
+        } => {
             let singular = singular_ident(ident);
             let push = format_ident!("push_{}", singular);
             let push_unique = format_ident!("push_unique_{}", singular);
             let remove = format_ident!("remove_{}", singular);
+            let getter_return = if *borrowed_slice {
+                quote! { &'a [#ty] }
+            } else {
+                quote! { ::hopper::__runtime::HopperVec<#ty, #cap> }
+            };
             quote! {
                 #[inline]
-                #vis fn #ident<'a>(data: &'a [u8]) -> ::core::result::Result<&'a [#ty], ::hopper::__runtime::ProgramError> {
+                #vis fn #ident<'a>(data: &'a [u8]) -> ::core::result::Result<#getter_return, ::hopper::__runtime::ProgramError> {
                     let __view = Self::tail_view(data)?;
                     __view.#ident()
                 }
