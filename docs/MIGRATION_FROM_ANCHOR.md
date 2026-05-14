@@ -8,10 +8,10 @@ This is the side-by-side. If you know Anchor, you can port a program in an after
 | --- | --- |
 | `#[program] mod my_program { ... }` | `#[program] mod my_program { ... }` |
 | `#[account(zero_copy)] pub struct Vault { ... }` | `#[account] #[repr(C)] pub struct Vault { ... }` |
-| `#[derive(Accounts)] pub struct Deposit<'info> { ... }` | `#[accounts] pub struct Deposit { ... }` |
-| `AccountLoader<'info, Vault>` | `Vault` (the account wrapper is implicit) |
-| `#[account(mut)] pub vault: Account<'info, Vault>` | `#[account(mut)] pub vault: Vault` |
-| `ctx.accounts.vault.load_mut()?.balance` | `ctx.vault_balance_mut()?` |
+| `#[derive(Accounts)] pub struct Deposit<'info> { ... }` | `#[derive(Accounts)] pub struct Deposit<'info> { ... }` |
+| `AccountLoader<'info, Vault>` | `Account<'info, Vault>` |
+| `#[account(mut)] pub vault: Account<'info, Vault>` | `#[account(mut)] pub vault: Account<'info, Vault>` |
+| `ctx.accounts.vault.load_mut()?.balance` | `ctx.accounts.vault.get_mut()?.balance` |
 | `ctx.bumps.vault` | `ctx.bumps().vault` |
 | `emit!(Event { .. })` | `emit!(Event { .. })` |
 | `require!(x, ErrorCode::Foo)` | `require!(x, ErrorCode::Foo)` |
@@ -47,7 +47,7 @@ Use the `WireU64` / `WireU32` / `WireI64` wrappers for multi-byte integers. They
 
 ## Accounts struct
 
-Anchor's `#[derive(Accounts)]` becomes Hopper's `#[accounts]`. The field-level constraint syntax is the same in both frameworks.
+Anchor's `#[derive(Accounts)]` stays `#[derive(Accounts)]`. The field-level constraint syntax is the same in both frameworks, and Hopper also keeps the lower-level `#[accounts]` attribute for systems-style declarations.
 
 ```rust
 // Anchor
@@ -61,21 +61,21 @@ pub struct Deposit<'info> {
 }
 
 // Hopper
-#[accounts]
-pub struct Deposit {
+#[derive(Accounts)]
+pub struct Deposit<'info> {
     #[account(mut, seeds = [b"vault", authority_key.as_ref()], bump = vault.load()?.bump)]
-    pub vault: Vault,
-    #[account(signer, mut)]
-    pub authority: AccountView,
-    pub system_program: Program<'_, System>,
+    pub vault: Account<'info, Vault>,
+    #[account(mut)]
+    pub authority: Signer<'info>,
+    pub system_program: Program<'info, System>,
 }
 ```
 
 Three differences:
 
-1. No lifetime on the context struct. Hopper binds lifetimes at the bound-context level (`DepositCtx<'ctx, 'a>`), not the declaration.
-2. `AccountLoader<'info, Vault>` becomes `Vault`. The zero-copy load is implicit in the segment accessors the macro generates.
-3. `Signer<'info>` is replaced by `AccountView` with `signer` on its constraint. You can also use the `Signer` wrapper if you prefer; both work.
+1. `AccountLoader<'info, Vault>` becomes `Account<'info, Vault>`.
+2. `load_mut()` becomes `get_mut()` on Hopper's wrapper, returning the same zero-copy borrow.
+3. `System` is a Hopper marker for the canonical System Program ID.
 
 ## Handler
 
@@ -89,9 +89,9 @@ pub fn deposit(ctx: Context<Deposit>, amount: u64) -> Result<()> {
 
 // Hopper
 #[instruction(0)]
-pub fn deposit(ctx: Context<Deposit>, amount: u64) -> ProgramResult {
-    let mut balance = ctx.vault_balance_mut()?;
-    balance.set(balance.get() + amount);
+pub fn deposit(ctx: Ctx<Deposit>, amount: u64) -> ProgramResult {
+    let mut vault = ctx.accounts.vault.get_mut()?;
+    vault.balance.checked_add_assign(amount)?;
     Ok(())
 }
 ```
@@ -153,7 +153,7 @@ Anchor's `InterfaceAccount<Mint>` and `Account<TokenAccount>` are Borsh-deserial
 Hopper ships the same constraints on the zero-copy path. The lowering is a direct TLV byte scan, not a deserialize.
 
 ```rust
-#[accounts]
+#[derive(Accounts)]
 pub struct Collect {
     #[account(
         mut,
@@ -189,9 +189,9 @@ Every extension listed in the final zero-copy matrix has an equivalent constrain
 
 1. Swap `#[account(zero_copy)] #[repr(C)]` to `#[account] #[repr(C)]` on each layout type.
 2. Replace `u64` fields with `WireU64` (and friends for other widths).
-3. Rename `#[derive(Accounts)]` to `#[accounts]`.
-4. Change `AccountLoader<'info, T>` to plain `T` on context fields.
-5. Replace `ctx.accounts.field.load_mut()?.subfield` with `ctx.field_subfield_mut()?`.
+3. Keep `#[derive(Accounts)]`; Hopper also supports `#[accounts]` for systems-style contexts.
+4. Change `AccountLoader<'info, T>` to `Account<'info, T>` on context fields.
+5. Replace `ctx.accounts.field.load_mut()?.subfield` with `ctx.accounts.field.get_mut()?.subfield`.
 6. Change `ctx.bumps.field` to `ctx.bumps().field`.
 7. Replace `Pubkey` with `Address`.
 8. Give each handler an `#[instruction(N)]` attribute with a distinct discriminator byte.

@@ -147,16 +147,34 @@ impl<'info, T: crate::layout::LayoutContract> Account<'info, T> {
         self.inner
     }
 
+    /// The account public key.
+    #[inline(always)]
+    pub fn key(&self) -> &Address {
+        self.inner.address()
+    }
+
     /// Borrow the typed layout for reading.
     #[inline(always)]
     pub fn load(&self) -> Result<crate::borrow::Ref<'_, T>, crate::error::ProgramError> {
         self.inner.load::<T>()
     }
 
+    /// Friendly alias for [`Self::load`].
+    #[inline(always)]
+    pub fn get(&self) -> Result<crate::borrow::Ref<'_, T>, crate::error::ProgramError> {
+        self.load()
+    }
+
     /// Borrow the typed layout for writing.
     #[inline(always)]
     pub fn load_mut(&self) -> Result<crate::borrow::RefMut<'_, T>, crate::error::ProgramError> {
         self.inner.load_mut::<T>()
+    }
+
+    /// Friendly alias for [`Self::load_mut`].
+    #[inline(always)]
+    pub fn get_mut(&self) -> Result<crate::borrow::RefMut<'_, T>, crate::error::ProgramError> {
+        self.load_mut()
     }
 }
 
@@ -203,6 +221,12 @@ impl<'info, T: crate::layout::LayoutContract> InitAccount<'info, T> {
         self.inner
     }
 
+    /// The account public key.
+    #[inline(always)]
+    pub fn key(&self) -> &Address {
+        self.inner.address()
+    }
+
     /// After `init_{field}()` has run, load the freshly-initialised
     /// layout for reads / writes. The caller is responsible for
     /// ordering this after the lifecycle helper.
@@ -211,6 +235,14 @@ impl<'info, T: crate::layout::LayoutContract> InitAccount<'info, T> {
         &self,
     ) -> Result<crate::borrow::RefMut<'_, T>, crate::error::ProgramError> {
         self.inner.load_mut::<T>()
+    }
+
+    /// Friendly alias for [`Self::load_after_init`].
+    #[inline(always)]
+    pub fn get_mut_after_init(
+        &self,
+    ) -> Result<crate::borrow::RefMut<'_, T>, crate::error::ProgramError> {
+        self.load_after_init()
     }
 }
 
@@ -252,6 +284,12 @@ impl<'info, P: ProgramId> Program<'info, P> {
     #[inline(always)]
     pub fn as_account(&self) -> &'info AccountView {
         self.inner
+    }
+
+    /// The program account public key.
+    #[inline(always)]
+    pub fn key(&self) -> &Address {
+        self.inner.address()
     }
 }
 

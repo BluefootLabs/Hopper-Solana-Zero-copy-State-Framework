@@ -274,7 +274,7 @@ fn parse_options(attr: TokenStream) -> Result<Options> {
 
     let mut options = Options::default();
     let parser = syn::meta::parser(|meta| {
-        if meta.path.is_ident("disc") {
+        if meta.path.is_ident("disc") || meta.path.is_ident("discriminator") {
             options.disc = Some(meta.value()?.parse()?);
             return Ok(());
         }
@@ -289,7 +289,7 @@ fn parse_options(attr: TokenStream) -> Result<Options> {
             }
             return Err(meta.error("only tail_policy = \"compact\" is implemented; use explicit hopper::systems APIs for indexed or segmented tails"));
         }
-        Err(meta.error("unsupported dynamic_account option; expected `disc = N`, `version = N`, or `tail_policy = \"compact\"`"))
+        Err(meta.error("unsupported dynamic_account option; expected `disc = N`, `discriminator = N`, `version = N`, or `tail_policy = \"compact\"`"))
     });
     parser.parse2(attr)?;
     Ok(options)

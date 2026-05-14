@@ -5,8 +5,8 @@ use core::fmt;
 /// Generate a little-endian wire integer type.
 ///
 /// Each type is `#[repr(transparent)]` over `[u8; N]`, guaranteeing alignment 1.
-/// Arithmetic operations are not provided -- convert to native, compute, convert back.
-/// This keeps the wire layer honest: it's a storage format, not a compute type.
+/// Checked assignment helpers are provided for common handler code; anything
+/// more complex should still convert to native, compute, then write back.
 macro_rules! wire_int {
     (
         $(#[$meta:meta])*
@@ -47,6 +47,75 @@ macro_rules! wire_int {
             #[inline(always)]
             pub fn set(&mut self, v: $native) {
                 self.0 = v.to_le_bytes();
+            }
+
+            /// Checked addition in native form, written back on success.
+            #[inline(always)]
+            pub fn checked_add_assign(
+                &mut self,
+                rhs: $native,
+            ) -> ::core::result::Result<(), ::hopper_runtime::ProgramError> {
+                let next = self
+                    .get()
+                    .checked_add(rhs)
+                    .ok_or(::hopper_runtime::ProgramError::ArithmeticOverflow)?;
+                self.set(next);
+                Ok(())
+            }
+
+            /// Alias for [`Self::checked_add_assign`].
+            #[inline(always)]
+            pub fn add_assign_checked(
+                &mut self,
+                rhs: $native,
+            ) -> ::core::result::Result<(), ::hopper_runtime::ProgramError> {
+                self.checked_add_assign(rhs)
+            }
+
+            /// Checked subtraction in native form, written back on success.
+            #[inline(always)]
+            pub fn checked_sub_assign(
+                &mut self,
+                rhs: $native,
+            ) -> ::core::result::Result<(), ::hopper_runtime::ProgramError> {
+                let next = self
+                    .get()
+                    .checked_sub(rhs)
+                    .ok_or(::hopper_runtime::ProgramError::ArithmeticOverflow)?;
+                self.set(next);
+                Ok(())
+            }
+
+            /// Alias for [`Self::checked_sub_assign`].
+            #[inline(always)]
+            pub fn sub_assign_checked(
+                &mut self,
+                rhs: $native,
+            ) -> ::core::result::Result<(), ::hopper_runtime::ProgramError> {
+                self.checked_sub_assign(rhs)
+            }
+
+            /// Checked multiplication in native form, written back on success.
+            #[inline(always)]
+            pub fn checked_mul_assign(
+                &mut self,
+                rhs: $native,
+            ) -> ::core::result::Result<(), ::hopper_runtime::ProgramError> {
+                let next = self
+                    .get()
+                    .checked_mul(rhs)
+                    .ok_or(::hopper_runtime::ProgramError::ArithmeticOverflow)?;
+                self.set(next);
+                Ok(())
+            }
+
+            /// Alias for [`Self::checked_mul_assign`].
+            #[inline(always)]
+            pub fn mul_assign_checked(
+                &mut self,
+                rhs: $native,
+            ) -> ::core::result::Result<(), ::hopper_runtime::ProgramError> {
+                self.checked_mul_assign(rhs)
             }
 
             /// Raw byte access (immutable).
@@ -187,6 +256,27 @@ mod tests {
     fn wire_i64_negative() {
         let w = WireI64::new(-42);
         assert_eq!(w.get(), -42);
+    }
+
+    #[test]
+    fn wire_u64_checked_assign_helpers() {
+        let mut w = WireU64::new(10);
+        w.checked_add_assign(5).unwrap();
+        assert_eq!(w.get(), 15);
+        w.checked_sub_assign(3).unwrap();
+        assert_eq!(w.get(), 12);
+        w.checked_mul_assign(2).unwrap();
+        assert_eq!(w.get(), 24);
+    }
+
+    #[test]
+    fn wire_u64_checked_assign_overflow_is_reported() {
+        let mut w = WireU64::new(u64::MAX);
+        assert_eq!(
+            w.checked_add_assign(1),
+            Err(::hopper_runtime::ProgramError::ArithmeticOverflow)
+        );
+        assert_eq!(w.get(), u64::MAX);
     }
 
     #[test]

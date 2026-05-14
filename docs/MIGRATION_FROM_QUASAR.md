@@ -8,12 +8,12 @@ If you have a Quasar program, the mechanical port is smaller than the Anchor por
 | --- | --- |
 | `#[program]` | `#[program]` |
 | `#[account]` | `#[account]` |
-| `#[derive(Accounts)]` | `#[accounts]` |
+| `#[derive(Accounts)]` | `#[derive(Accounts)]` |
 | `#[instruction(discriminator = [0x1])]` | `#[instruction(discriminator = [0x1])]` or `#[instruction(1)]` |
 | `#[derive(QuasarSerialize)]` | `#[hopper::args]` |
 | `emit_event_cpi!` | `hopper_emit_cpi!` |
-| `Ctx<'info, T>` | `Context<T>` in handlers; Hopper binds the generated `TCtx` internally |
-| `ctx.accounts.field` | `ctx.field_*()` (segment-level accessors) |
+| `Ctx<'info, T>` | `Ctx<T>` in handlers |
+| `ctx.accounts.field` | `ctx.accounts.field` |
 | `Pod` primitives in `quasar-pod` | Wire types in `hopper-runtime` |
 | bounded dynamic fields | `#[hopper::dynamic_account]` or explicit `#[hopper::state(dynamic_tail = T)]` |
 | `QuasarError::RemainingAccountDuplicate` | `hopper_runtime::remaining::RemainingError::DuplicateAccount` |
@@ -33,7 +33,7 @@ pub struct Vault {
 }
 
 // Hopper
-#[account]
+#[account(discriminator = 1)]
 #[repr(C)]
 pub struct Vault {
     pub authority: [u8; 32],
@@ -71,12 +71,12 @@ pub struct Swap {
 }
 
 // Hopper
-#[accounts]
-pub struct Swap {
+#[derive(Accounts)]
+pub struct Swap<'info> {
     #[account(mut, seeds_fn = Vault::seeds(&nonce), bump)]
-    pub vault: Vault,
-    #[account(mut, signer)]
-    pub authority: AccountView,
+    pub vault: Account<'info, Vault>,
+    #[account(mut)]
+    pub authority: Signer<'info>,
     // remaining accounts exposed as ctx.remaining_accounts() on the
     // bound context, no field needed.
 }
@@ -86,7 +86,7 @@ Key differences:
 
 1. `seeds = Type::seeds(...)` becomes `seeds_fn = Type::seeds(...)`. The underscore disambiguates typed seeds from the inline array form (`seeds = [...]`), which Hopper also supports. For fixed byte-array seeds, pass an expression that borrows as bytes, for example `seeds = [hash.as_ref()]`; signer seeds also accept `Seed::from(&my_seed_array)` for `&[u8; N]`.
 2. Remaining accounts are exposed on the bound context, not as a struct field. Call `ctx.remaining_accounts()` for strict mode or `ctx.remaining_accounts_passthrough()` for the duplicate-preserving mode. Use `ctx.remaining_accounts_raw()` only when a raw slice is actually what you want.
-3. Hopper's `AccountView` is the raw-byte counterpart to Quasar's `Account<Signer>`. Identical semantic.
+3. Hopper still exposes raw `AccountView` for systems code, but first-touch ports should use `Account<'info, T>` and `Signer<'info>`.
 
 ## Handler
 
@@ -101,18 +101,18 @@ pub fn swap(ctx: Ctx<Swap>, nonce: u64) -> Result<()> {
 
 // Hopper
 #[instruction(discriminator = [0])]
-pub fn swap(ctx: Context<Swap>, nonce: u64) -> ProgramResult {
-    let balance = ctx.vault_balance_mut()?;
-    balance.set(balance.get() + 1);
+pub fn swap(ctx: Ctx<Swap>, nonce: u64) -> ProgramResult {
+    let mut vault = ctx.accounts.vault.get_mut()?;
+    vault.balance.checked_add_assign(1)?;
     Ok(())
 }
 ```
 
 The discriminator syntax is identical. Hopper also accepts the short `#[instruction(0)]` form for single-byte discriminators when you do not need a multi-byte prefix.
 
-Quasar's `ctx.accounts.vault.load_mut()?` returns a `RefMut<Vault>` covering the entire account. Hopper's `ctx.vault_balance_mut()?` returns a `RefMut<WireU64>` covering only the balance slot. Two handlers can legally borrow different slots on the same account concurrently; Hopper's segment-level borrow registry tracks the disjoint regions.
+Quasar's `ctx.accounts.vault.load_mut()?` becomes Hopper's `ctx.accounts.vault.get_mut()?` for the same full-struct zero-copy borrow. Hopper also emits segment-level accessors such as `ctx.vault_balance_mut()?` for systems-mode code that wants disjoint field borrows.
 
-If you want the Quasar-style full-struct borrow, use `ctx.vault_mut()?` (which Hopper also emits). Both coexist on the bound context.
+Both surfaces coexist on the bound context.
 
 ## Instruction args
 
@@ -221,10 +221,10 @@ Things Quasar does not have that your port gets for free:
 
 ## Checklist for the port
 
-1. Rename `#[derive(Accounts)]` to `#[accounts]`.
-2. Change `Ctx<'info, T>` to `Context<T>` in handler signatures. Hopper binds the generated `TCtx` under the hood.
-3. Rename `Account<MyLayout>` to plain `MyLayout` on context fields.
-4. Replace `ctx.accounts.field.load()` and `.load_mut()` with the segment accessors Hopper emits (`ctx.field_sub()` / `ctx.field_sub_mut()`).
+1. Keep `#[derive(Accounts)]`.
+2. Change `Ctx<'info, T>` to `Ctx<T>` in handler signatures.
+3. Rename `Account<MyLayout>` to `Account<'info, MyLayout>` on context fields.
+4. Replace `ctx.accounts.field.load()` and `.load_mut()` with `ctx.accounts.field.get()` and `.get_mut()`.
 5. Rename `QuasarSerialize` to `hopper::args`. Swap `OptionZc` for `OptionByte` (or `Option` where you want the niche-optimized form).
 6. Replace `seeds = Type::seeds(...)` with `seeds_fn = Type::seeds(...)`.
 7. Move `RemainingAccounts` field references to `ctx.remaining_accounts()` on the bound context.

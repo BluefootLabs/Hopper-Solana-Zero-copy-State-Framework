@@ -1,10 +1,4 @@
-//! Stage 2.3 shipping verification: typed wrappers are usable as
-//! first-class types. Full macro-side integration
-//! (`#[hopper::context]` auto-accessor emission through
-//! `Account<'info, T>` generics) requires lifetime-aware context
-//! codegen. the wrappers ship as standalone now, and programs
-//! that want Anchor-style spelling can adopt them via the
-//! attribute path today.
+//! Typed wrapper and hero-context integration tests.
 
 #![cfg(feature = "proc-macros")]
 
@@ -62,10 +56,38 @@ fn custom_program_id_impl_is_addressable_at_const_time() {
     assert_eq!(MyProgram::ID.as_array(), &[0x42u8; 32]);
 }
 
+#[test]
+fn state_helpers_accept_native_wire_values() {
+    let mut layout = TinyLayout::new(41);
+    assert_eq!(layout.v.get(), 41);
+    layout.set_inner(42).unwrap();
+    assert_eq!(layout.v.get(), 42);
+}
+
+#[allow(dead_code)]
+#[hopper::program]
+mod hero_program {
+    use super::*;
+
+    #[instruction(0)]
+    pub fn increment(ctx: hopper::prelude::Ctx<Increment>) -> hopper::prelude::ProgramResult {
+        let mut account = ctx.accounts.counter.get_mut()?;
+        account.v.checked_add_assign(1)?;
+        Ok(())
+    }
+}
+
+#[derive(hopper::Accounts)]
+pub struct Increment<'info> {
+    #[account(mut)]
+    pub counter: hopper::prelude::Account<'info, TinyLayout>,
+    pub authority: hopper::prelude::Signer<'info>,
+}
+
 // A minimal layout type used to satisfy the `T: LayoutContract`
 // bound on `Account<'info, T>` / `InitAccount<'info, T>`.
 #[derive(Copy, Clone)]
-#[hopper::state(disc = 12, version = 1)]
+#[hopper::state(discriminator = 12, version = 1)]
 #[repr(C)]
 pub struct TinyLayout {
     pub v: hopper::prelude::WireU64,

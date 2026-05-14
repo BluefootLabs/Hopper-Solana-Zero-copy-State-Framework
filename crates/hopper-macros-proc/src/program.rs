@@ -11,6 +11,7 @@
 //!
 //!     #[instruction(1)]
 //!     fn deposit(ctx: Context<Deposit>, amount: u64) -> ProgramResult { ... }
+//!     fn withdraw(ctx: Ctx<Withdraw>, amount: u64) -> ProgramResult { ... }
 //!
 //!     // Context declared with `#[instruction(amount: u64, nonce: u8)]`:
 //!     // `ctx_args = 2` forwards the first two decoded args into
@@ -491,7 +492,7 @@ fn prepare_handler(function: &mut ItemFn) -> Result<Option<Handler>> {
     if function.sig.inputs.is_empty() {
         return Err(syn::Error::new_spanned(
             &function.sig,
-            "hopper_program handlers must start with either `ctx: &mut Context<'_>` or `ctx: Context<MyAccounts>`",
+            "hopper_program handlers must start with either `ctx: &mut Context<'_>`, `ctx: Context<MyAccounts>`, or `ctx: Ctx<MyAccounts>`",
         ));
     }
 
@@ -628,7 +629,7 @@ fn classify_context_binding(arg: &mut FnArg) -> Result<ContextBinding> {
 
     Err(syn::Error::new_spanned(
         &pat_type.ty,
-        "hopper_program handlers must start with either `ctx: &mut Context<'_>` or `ctx: Context<MyAccounts>`",
+        "hopper_program handlers must start with either `ctx: &mut Context<'_>`, `ctx: Context<MyAccounts>`, or `ctx: Ctx<MyAccounts>`",
     ))
 }
 
@@ -964,7 +965,7 @@ fn is_context_path(ty: &Type) -> bool {
     matches!(
         ty,
         Type::Path(TypePath { qself: None, path })
-            if path.segments.last().map(|segment| segment.ident == "Context").unwrap_or(false)
+            if path.segments.last().map(|segment| segment.ident == "Context" || segment.ident == "Ctx").unwrap_or(false)
     )
 }
 
@@ -975,14 +976,14 @@ fn extract_typed_context_spec(ty: &Type) -> Result<Option<Path>> {
     let Some(last) = path.segments.last() else {
         return Ok(None);
     };
-    if last.ident != "Context" {
+    if last.ident != "Context" && last.ident != "Ctx" {
         return Ok(None);
     }
 
     let PathArguments::AngleBracketed(args) = &last.arguments else {
         return Err(syn::Error::new_spanned(
             last,
-            "typed Hopper handlers use `Context<MyAccounts>`",
+            "typed Hopper handlers use `Context<MyAccounts>` or `Ctx<MyAccounts>`",
         ));
     };
 

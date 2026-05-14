@@ -83,7 +83,7 @@ impl<'a> Context<'a> {
 
     /// Get an account by index.
     #[inline(always)]
-    pub fn account(&self, index: usize) -> Result<&AccountView, ProgramError> {
+    pub fn account(&self, index: usize) -> Result<&'a AccountView, ProgramError> {
         self.accounts
             .get(index)
             .ok_or(ProgramError::NotEnoughAccountKeys)
@@ -96,7 +96,7 @@ impl<'a> Context<'a> {
     /// `try_borrow_mut`). The distinct name signals that the caller
     /// intends to write through the returned reference.
     #[inline(always)]
-    pub fn account_mut(&self, index: usize) -> Result<&AccountView, ProgramError> {
+    pub fn account_mut(&self, index: usize) -> Result<&'a AccountView, ProgramError> {
         self.accounts
             .get(index)
             .ok_or(ProgramError::NotEnoughAccountKeys)
@@ -110,7 +110,7 @@ impl<'a> Context<'a> {
 
     /// Get all accounts as a slice.
     #[inline(always)]
-    pub fn accounts(&self) -> &[AccountView] {
+    pub fn accounts(&self) -> &'a [AccountView] {
         self.accounts
     }
 
@@ -134,7 +134,7 @@ impl<'a> Context<'a> {
 
     /// Get the remaining accounts starting at `from`.
     #[inline(always)]
-    pub fn remaining_accounts(&self, from: usize) -> &[AccountView] {
+    pub fn remaining_accounts(&self, from: usize) -> &'a [AccountView] {
         if from >= self.accounts.len() {
             &[]
         } else {
@@ -147,7 +147,7 @@ impl<'a> Context<'a> {
     pub fn remaining_accounts_strict(
         &self,
         from: usize,
-    ) -> crate::remaining::RemainingAccounts<'_> {
+    ) -> crate::remaining::RemainingAccounts<'a> {
         let declared_end = from.min(self.accounts.len());
         crate::remaining::RemainingAccounts::strict(
             &self.accounts[..declared_end],
@@ -160,7 +160,7 @@ impl<'a> Context<'a> {
     pub fn remaining_accounts_passthrough(
         &self,
         from: usize,
-    ) -> crate::remaining::RemainingAccounts<'_> {
+    ) -> crate::remaining::RemainingAccounts<'a> {
         let declared_end = from.min(self.accounts.len());
         crate::remaining::RemainingAccounts::passthrough(
             &self.accounts[..declared_end],

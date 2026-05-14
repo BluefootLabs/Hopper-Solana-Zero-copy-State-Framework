@@ -16,7 +16,7 @@ use syn::{
     parse2,
     punctuated::Punctuated,
     token::Comma,
-    Attribute, Expr, Fields, Ident, ItemStruct, Result, Token, Type, TypePath,
+    Attribute, Expr, Fields, GenericParam, Ident, ItemStruct, Result, Token, Type, TypePath,
 };
 
 /// Parsed `#[account(...)]` attribute. the full Anchor-grade surface.
@@ -284,6 +284,12 @@ struct ContextField {
     index: usize,
 }
 
+struct AccountsBindingFragments {
+    field_decl: TokenStream,
+    init_stmt: TokenStream,
+    bound_field: TokenStream,
+}
+
 /// A single `name: Type` binding inside a struct-level
 /// `#[instruction(...)]` attribute.
 ///
@@ -460,6 +466,7 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
 
     let name = &input.ident;
     let vis = &input.vis;
+    let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
     let bound_name = format_ident!("{}Ctx", name);
     let receipt_scope_name = format_ident!("{}ReceiptScope", name);
 
@@ -497,6 +504,10 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
             index: i,
         });
     }
+    let accounts_binding = accounts_binding_fragments(name, &input.generics, &ctx_fields);
+    let accounts_field_decl = accounts_binding.field_decl;
+    let accounts_init_stmt = accounts_binding.init_stmt;
+    let accounts_bound_field = accounts_binding.bound_field;
 
     // Generate per-field validation functions and collect check descriptions.
     let mut validation_stmts = Vec::new();
@@ -920,7 +931,12 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
                         ),
                     )
                 })?;
-            let field_ty = &cf.ty;
+            let field_ty = layout_type_for_field(cf).ok_or_else(|| {
+                syn::Error::new_spanned(
+                    &cf.ty,
+                    "has_one requires a Hopper layout field or Account<'info, T> wrapper",
+                )
+            })?;
             let target_field_ident = target_ident.clone();
             field_checks.push(quote! {
                 {
@@ -1416,9 +1432,10 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
 
     for cf in &ctx_fields {
         let field_name = &cf.name;
-        let field_ty = &cf.ty;
         let idx = cf.index;
-        let type_ident = type_ident(field_ty)?;
+        let layout_ty = layout_type_for_field(cf);
+        let display_ty = layout_ty.as_ref().unwrap_or(&cf.ty);
+        let type_ident = type_ident(display_ty)?;
         let type_upper = to_screaming_snake(&type_ident.to_string());
 
         // `sweep = target` emits an inherent method `sweep_<field>()`
@@ -1483,7 +1500,7 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
             }
         });
 
-        if !skips_layout_validation(field_ty) {
+        if let Some(field_ty) = layout_ty.as_ref() {
             let load_fn = format_ident!("{}_load", field_name);
             let raw_ref_fn = format_ident!("{}_raw_ref", field_name);
 
@@ -1601,60 +1618,64 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
         // associated constants (`Vault::BALANCE_OFFSET`) it also emits. Using
         // the inherent constant for the offset means contexts compile cleanly
         // even when the layout type is imported from another module.
-        for seg_name in &cf.attr.mut_segments {
-            let fn_name = format_ident!("{}_{}_mut", field_name, seg_name);
-            let seg_upper = to_screaming_snake(seg_name);
-            let assoc_offset = format_ident!("{}_OFFSET", seg_upper);
-            let type_alias = format_ident!("{}_{}_TYPE", type_upper, seg_upper);
+        if let Some(field_ty) = layout_ty.as_ref() {
+            for seg_name in &cf.attr.mut_segments {
+                let fn_name = format_ident!("{}_{}_mut", field_name, seg_name);
+                let seg_upper = to_screaming_snake(seg_name);
+                let assoc_offset = format_ident!("{}_OFFSET", seg_upper);
+                let type_alias = format_ident!("{}_{}_TYPE", type_upper, seg_upper);
 
-            accessors.push(quote! {
-                /// Mutable access to the `#seg_name` segment of `#field_name`.
-                ///
-                /// Returns a [`SegRefMut`](::hopper::__runtime::SegRefMut)
-                ///. a RAII-leased guard that releases both the account
-                /// byte borrow and the segment registry entry on drop.
-                #[inline(always)]
-                #vis fn #fn_name(
-                    &mut self,
-                ) -> ::core::result::Result<
-                    ::hopper::__runtime::SegRefMut<'_, #type_alias>,
-                    ::hopper::__runtime::ProgramError,
-                > {
-                    // const offset folded at the call site; this lowers to a
-                    // single immediate add over `data_ptr` on Solana SBF.
-                    const ABS_OFFSET: u32 =
-                        ::hopper::hopper_core::account::HEADER_LEN as u32 + <#field_ty>::#assoc_offset;
-                    self.ctx.segment_mut::<#type_alias>(#idx, ABS_OFFSET)
-                }
-            });
+                accessors.push(quote! {
+                    /// Mutable access to the `#seg_name` segment of `#field_name`.
+                    ///
+                    /// Returns a [`SegRefMut`](::hopper::__runtime::SegRefMut)
+                    ///. a RAII-leased guard that releases both the account
+                    /// byte borrow and the segment registry entry on drop.
+                    #[inline(always)]
+                    #vis fn #fn_name(
+                        &mut self,
+                    ) -> ::core::result::Result<
+                        ::hopper::__runtime::SegRefMut<'_, #type_alias>,
+                        ::hopper::__runtime::ProgramError,
+                    > {
+                        // const offset folded at the call site; this lowers to a
+                        // single immediate add over `data_ptr` on Solana SBF.
+                        const ABS_OFFSET: u32 =
+                            ::hopper::hopper_core::account::HEADER_LEN as u32 + <#field_ty>::#assoc_offset;
+                        self.ctx.segment_mut::<#type_alias>(#idx, ABS_OFFSET)
+                    }
+                });
+            }
         }
 
         // Generate read-only segment accessors.
-        for seg_name in &cf.attr.read_segments {
-            let fn_name = format_ident!("{}_{}_ref", field_name, seg_name);
-            let seg_upper = to_screaming_snake(seg_name);
-            let assoc_offset = format_ident!("{}_OFFSET", seg_upper);
-            let type_alias = format_ident!("{}_{}_TYPE", type_upper, seg_upper);
+        if let Some(field_ty) = layout_ty.as_ref() {
+            for seg_name in &cf.attr.read_segments {
+                let fn_name = format_ident!("{}_{}_ref", field_name, seg_name);
+                let seg_upper = to_screaming_snake(seg_name);
+                let assoc_offset = format_ident!("{}_OFFSET", seg_upper);
+                let type_alias = format_ident!("{}_{}_TYPE", type_upper, seg_upper);
 
-            accessors.push(quote! {
-                /// Read-only access to the `#seg_name` segment of `#field_name`.
-                ///
-                /// Returns a [`SegRef`](::hopper::__runtime::SegRef) - a
-                /// RAII-leased guard that releases the shared byte borrow
-                /// on drop, allowing sequential non-overlapping reads
-                /// from the same account within one instruction.
-                #[inline(always)]
-                #vis fn #fn_name(
-                    &mut self,
-                ) -> ::core::result::Result<
-                    ::hopper::__runtime::SegRef<'_, #type_alias>,
-                    ::hopper::__runtime::ProgramError,
-                > {
-                    const ABS_OFFSET: u32 =
-                        ::hopper::hopper_core::account::HEADER_LEN as u32 + <#field_ty>::#assoc_offset;
-                    self.ctx.segment_ref::<#type_alias>(#idx, ABS_OFFSET)
-                }
-            });
+                accessors.push(quote! {
+                    /// Read-only access to the `#seg_name` segment of `#field_name`.
+                    ///
+                    /// Returns a [`SegRef`](::hopper::__runtime::SegRef) - a
+                    /// RAII-leased guard that releases the shared byte borrow
+                    /// on drop, allowing sequential non-overlapping reads
+                    /// from the same account within one instruction.
+                    #[inline(always)]
+                    #vis fn #fn_name(
+                        &mut self,
+                    ) -> ::core::result::Result<
+                        ::hopper::__runtime::SegRef<'_, #type_alias>,
+                        ::hopper::__runtime::ProgramError,
+                    > {
+                        const ABS_OFFSET: u32 =
+                            ::hopper::hopper_core::account::HEADER_LEN as u32 + <#field_ty>::#assoc_offset;
+                        self.ctx.segment_ref::<#type_alias>(#idx, ABS_OFFSET)
+                    }
+                });
+            }
         }
     }
 
@@ -1673,7 +1694,8 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
     // enforce (rent-exempt minimum, sentinel-protected close, etc.).
     for cf in &ctx_fields {
         let field_name = &cf.name;
-        let field_ty = &cf.ty;
+        let layout_ty = layout_type_for_field(cf);
+        let field_ty = layout_ty.as_ref().unwrap_or(&cf.ty);
         let idx = cf.index;
 
         if cf.attr.init || cf.attr.init_if_needed {
@@ -2028,18 +2050,17 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
     let mut receipt_finish_blocks = Vec::new();
 
     for cf in &ctx_fields {
-        if skips_layout_validation(&cf.ty) {
+        let Some(field_ty) = layout_type_for_field(cf) else {
             continue;
-        }
+        };
         if !(cf.attr.is_mut || !cf.attr.mut_segments.is_empty()) {
             continue;
         }
 
         let field_name = &cf.name;
-        let field_ty = &cf.ty;
         let idx = cf.index;
         let receipt_field_name = format_ident!("{}_receipt", field_name);
-        let layout_ident = type_ident(field_ty)?;
+        let layout_ident = type_ident(&field_ty)?;
 
         receipt_scope_fields.push(quote! {
             #receipt_field_name: ::hopper::receipt::StateReceipt<SNAP>,
@@ -2117,11 +2138,12 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
         .iter()
         .map(|cf| {
             let name_lit = cf.name.to_string();
-            let kind_lit = type_ident(&cf.ty)
+            let layout_ty = layout_type_for_field(cf);
+            let display_ty = layout_ty.as_ref().unwrap_or(&cf.ty);
+            let kind_lit = type_ident(display_ty)
                 .map(|i| i.to_string())
                 .unwrap_or_else(|_| "AccountView".to_string());
-            let has_layout = !skips_layout_validation(&cf.ty);
-            let layout_lit = if has_layout {
+            let layout_lit = if layout_ty.is_some() {
                 kind_lit.clone()
             } else {
                 String::new()
@@ -2323,6 +2345,7 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
 
         #vis struct #bound_name<'ctx, 'a> {
             ctx: &'ctx mut ::hopper::prelude::Context<'a>,
+            #accounts_field_decl
             bumps: #bumps_name,
         }
 
@@ -2330,7 +2353,7 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
             #(#receipt_scope_fields)*
         }
 
-        impl #name {
+        impl #impl_generics #name #ty_generics #where_clause {
             /// Number of accounts this context requires.
             pub const ACCOUNT_COUNT: usize = #account_count;
             pub const RECEIPT_EXPECTED: bool = #receipt_expected;
@@ -2435,7 +2458,12 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
                 // are the recommended path in hot handlers.
                 let mut __hopper_bumps = <#bumps_name as ::core::default::Default>::default();
                 #( #bumps_gather_stmts )*
-                let __hopper_bound = #bound_name { ctx, bumps: __hopper_bumps };
+                #accounts_init_stmt
+                let __hopper_bound = #bound_name {
+                    ctx,
+                    #accounts_bound_field
+                    bumps: __hopper_bumps,
+                };
                 #user_validate_call
                 Ok(__hopper_bound)
             }
@@ -3347,6 +3375,84 @@ fn classify_wrapper(ty: &Type) -> Option<WrapperKind> {
             }
         }
         _ => None,
+    }
+}
+
+fn accounts_binding_fragments(
+    name: &Ident,
+    generics: &syn::Generics,
+    ctx_fields: &[ContextField],
+) -> AccountsBindingFragments {
+    let has_only_lifetime_generics = generics
+        .params
+        .iter()
+        .all(|param| matches!(param, GenericParam::Lifetime(_)));
+    let all_fields_are_wrappers = ctx_fields
+        .iter()
+        .all(|field| classify_wrapper(&field.ty).is_some());
+
+    if ctx_fields.is_empty() || !has_only_lifetime_generics || !all_fields_are_wrappers {
+        return AccountsBindingFragments {
+            field_decl: TokenStream::new(),
+            init_stmt: TokenStream::new(),
+            bound_field: TokenStream::new(),
+        };
+    }
+
+    let generic_args: Vec<TokenStream> = generics.params.iter().map(|_| quote! { 'a }).collect();
+    let accounts_ty = if generic_args.is_empty() {
+        quote! { #name }
+    } else {
+        quote! { #name<#(#generic_args),*> }
+    };
+
+    let field_inits = ctx_fields.iter().map(|field| {
+        let field_name = &field.name;
+        let idx = field.index;
+        match classify_wrapper(&field.ty).expect("checked above") {
+            WrapperKind::Signer => quote! {
+                #field_name: ::hopper::prelude::Signer::try_new(ctx.account(#idx)?)?
+            },
+            WrapperKind::Program => quote! {
+                #field_name: ::hopper::prelude::Program::try_new(ctx.account(#idx)?)?
+            },
+            WrapperKind::Account { .. } => quote! {
+                #field_name: unsafe {
+                    ::hopper::prelude::Account::new_unchecked(ctx.account(#idx)?)
+                }
+            },
+            WrapperKind::InitAccount { .. } => quote! {
+                #field_name: unsafe {
+                    ::hopper::prelude::InitAccount::new_unchecked(ctx.account(#idx)?)
+                }
+            },
+        }
+    });
+
+    AccountsBindingFragments {
+        field_decl: quote! { pub accounts: #accounts_ty, },
+        init_stmt: quote! {
+            let __hopper_accounts: #accounts_ty = #name {
+                #(#field_inits),*
+            };
+        },
+        bound_field: quote! { accounts: __hopper_accounts, },
+    }
+}
+
+fn layout_type_for_field(field: &ContextField) -> Option<Type> {
+    match classify_wrapper(&field.ty) {
+        Some(WrapperKind::Account { inner }) | Some(WrapperKind::InitAccount { inner }) => {
+            Some(inner)
+        }
+        Some(WrapperKind::Signer) | Some(WrapperKind::Program) => None,
+        None => {
+            if skips_layout_validation(&field.ty) {
+                None
+            } else {
+                Some(field.ty.clone())
+            }
+        }
     }
 }
 

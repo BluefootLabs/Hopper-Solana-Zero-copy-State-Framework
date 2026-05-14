@@ -17,19 +17,17 @@ use hopper::prelude::*;
 
 #[derive(Clone, Copy)]
 #[repr(C)]
-#[account(disc = 1, version = 1)]
+#[account(discriminator = 1, version = 1)]
 pub struct Counter {
     pub authority: Address,
     pub value: WireU64,
 }
 
-#[accounts]
-pub struct Increment {
-    #[account(mut)]
-    pub counter: Counter,
-
-    #[signer]
-    pub authority: AccountView,
+#[derive(Accounts)]
+pub struct Increment<'info> {
+    #[account(mut, has_one = authority)]
+    pub counter: Account<'info, Counter>,
+    pub authority: Signer<'info>,
 }
 
 #[program]
@@ -37,18 +35,9 @@ mod counter_program {
     use super::*;
 
     #[instruction(0)]
-    pub fn increment(ctx: Context<Increment>) -> ProgramResult {
-        let authority = *ctx.authority_account()?.address();
-        let mut counter = ctx.counter_load_mut()?;
-
-        require_keys_eq!(counter.authority, authority, ProgramError::IncorrectAuthority);
-
-        let next = counter
-            .value
-            .get()
-            .checked_add(1)
-            .ok_or(ProgramError::ArithmeticOverflow)?;
-        counter.value = WireU64::new(next);
+    pub fn increment(ctx: Ctx<Increment>) -> ProgramResult {
+        let mut counter = ctx.accounts.counter.get_mut()?;
+        counter.value.checked_add_assign(1)?;
         Ok(())
     }
 }
@@ -57,9 +46,9 @@ mod counter_program {
 That is the canonical Hopper application model:
 
 - `#[account]` declares account state.
-- `#[accounts]` or `#[derive(Accounts)]` declares account roles and constraints.
+- `#[derive(Accounts)]` declares account roles and constraints.
 - `#[program]` declares instruction handlers.
-- `Context<T>` gives typed accessors generated from the context.
+- `Ctx<T>` gives wrapper-backed `ctx.accounts.*` access in handlers.
 - `require!`, `require_keys_eq!`, and `ProgramError` keep handler checks clear.
 
 The compiled code still uses Hopper's zero-copy runtime. The author does not
@@ -68,11 +57,11 @@ program.
 
 ## Account Access
 
-Prefer typed accessors generated from the context:
+Prefer wrapper-backed `ctx.accounts.*` access:
 
 ```rust
-let mut counter = ctx.counter_load_mut()?;
-counter.value = WireU64::new(counter.value.get() + 1);
+let mut counter = ctx.accounts.counter.get_mut()?;
+counter.value.checked_add_assign(1)?;
 ```
 
 For wrapper-shaped contexts, the framework surface also exposes:

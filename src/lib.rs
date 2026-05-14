@@ -137,7 +137,12 @@ pub mod account {
         HopperAccount, HopperAccounts, HopperCtx, HopperIx, ProgramAccount, ProgramRef,
         SegmentedAccount, SignerAccount, UncheckedAccount, ValidateAccount,
     };
-    pub use hopper_runtime::{Account, AccountView, HopperSigner as Signer, InitAccount, Program};
+    pub use hopper_runtime::{
+        Account, AccountView, HopperSigner as Signer, InitAccount, Program, ProgramId, SystemId,
+    };
+
+    /// Anchor-style spelling for the System Program marker.
+    pub type System = SystemId;
 }
 
 /// Typed instruction context and account-binding helpers.

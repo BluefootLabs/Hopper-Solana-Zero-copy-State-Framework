@@ -20,19 +20,17 @@ mod __hopper_sbf {
 
 #[derive(Clone, Copy)]
 #[repr(C)]
-#[account(disc = 1, version = 1)]
+#[account(discriminator = 1, version = 1)]
 pub struct Counter {
     pub authority: Address,
     pub value: WireU64,
 }
 
-#[accounts]
-pub struct Increment {
-    #[account(mut)]
-    pub counter: Counter,
-
-    #[signer]
-    pub authority: AccountView,
+#[derive(Accounts)]
+pub struct Increment<'info> {
+    #[account(mut, has_one = authority)]
+    pub counter: Account<'info, Counter>,
+    pub authority: Signer<'info>,
 }
 
 #[cfg(target_os = "solana")]
@@ -52,22 +50,9 @@ mod counter_program {
     use super::*;
 
     #[instruction(0)]
-    pub fn increment(ctx: Context<Increment>) -> ProgramResult {
-        let authority = *ctx.authority_account()?.address();
-        let mut counter = ctx.counter_load_mut()?;
-
-        require_keys_eq!(
-            counter.authority,
-            authority,
-            ProgramError::IncorrectAuthority
-        );
-
-        let next = counter
-            .value
-            .get()
-            .checked_add(1)
-            .ok_or(ProgramError::ArithmeticOverflow)?;
-        counter.value = WireU64::new(next);
+    pub fn increment(ctx: Ctx<Increment>) -> ProgramResult {
+        let mut counter = ctx.accounts.counter.get_mut()?;
+        counter.value.checked_add_assign(1)?;
         Ok(())
     }
 }

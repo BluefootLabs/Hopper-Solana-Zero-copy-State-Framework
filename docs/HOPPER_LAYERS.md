@@ -12,7 +12,7 @@ Solana framework before they expose the deeper machinery.
 ```rust
 use hopper::prelude::*;
 
-#[account(disc = 1, version = 1)]
+#[account(discriminator = 1, version = 1)]
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct Vault {
@@ -24,7 +24,7 @@ pub struct Vault {
 
 Framework mode centers these pieces:
 
-- `#[account]`, `#[accounts]`, `#[program]`, and `#[derive(Accounts)]`.
+- `#[account]`, `#[derive(Accounts)]`, `Ctx<T>`, and `#[program]`.
 - `Account<'info, T>`, `InitAccount<'info, T>`, `Signer<'info>`, and
   `Program<'info, P>`.
 - `hopper::account`, `hopper::context`, `hopper::cpi`, `hopper::system`,

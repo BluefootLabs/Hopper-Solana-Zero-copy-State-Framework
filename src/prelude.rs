@@ -5,8 +5,11 @@
 //! and the canonical proc macros. Protocol-grade state machinery lives behind
 //! `hopper::systems::*` or explicit modules such as `hopper::segment`.
 
-pub use crate::account::{Account, InitAccount, Program, Signer, UncheckedAccount};
+pub use crate::account::{
+    Account, InitAccount, Program, ProgramId, Signer, System, SystemId, UncheckedAccount,
+};
 pub use crate::context::Context;
+pub use crate::context::Context as Ctx;
 pub use hopper_runtime::{AccountView, Address, ProgramError, ProgramResult};
 
 /// Solana-familiar alias for Hopper's 32-byte address type.

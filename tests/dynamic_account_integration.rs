@@ -3,7 +3,7 @@
 use hopper::__runtime::ProgramError;
 use hopper::prelude::*;
 
-#[hopper::dynamic_account(disc = 7, version = 1)]
+#[hopper::dynamic_account(discriminator = 7, version = 1)]
 pub struct InlineMultisig {
     pub creator: Address,
     pub threshold: u8,

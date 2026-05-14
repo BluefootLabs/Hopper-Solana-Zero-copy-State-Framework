@@ -39,7 +39,7 @@ error[E0277]: the trait bound `BadHeap: std::marker::Copy` is not satisfied
 14 | pub struct BadHeap {
    |            ^^^^^^^ the trait `std::marker::Copy` is not implemented for `BadHeap`
    |
-note: required by a bound in `hopper::prelude::Pod`
+note: required by a bound in `hopper::layout::Pod`
   --> crates/hopper-native/src/pod.rs
    |
    | pub unsafe trait Pod: Copy + Sized + bytemuck::Pod + bytemuck::Zeroable {}

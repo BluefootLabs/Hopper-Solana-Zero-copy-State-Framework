@@ -314,6 +314,46 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
         }
     };
 
+    let state_param_inits = fields
+        .iter()
+        .map(state_field_param_init)
+        .collect::<Result<Vec<_>>>()?;
+    let constructor_params: Vec<TokenStream> = state_param_inits
+        .iter()
+        .map(|item| item.0.clone())
+        .collect();
+    let constructor_inits: Vec<TokenStream> = state_param_inits
+        .iter()
+        .map(|item| item.1.clone())
+        .collect();
+    let set_inner_assigns: Vec<TokenStream> = state_param_inits
+        .iter()
+        .map(|item| item.2.clone())
+        .collect();
+    let constructor_method = if options.dynamic_tail_schema.is_none() {
+        quote! {
+            #[inline(always)]
+            #vis const fn new(#(#constructor_params),*) -> Self {
+                Self {
+                    #(#constructor_inits),*
+                }
+            }
+        }
+    } else {
+        TokenStream::new()
+    };
+
+    let set_inner_method = quote! {
+        #[inline(always)]
+        #vis fn set_inner(
+            &mut self,
+            #(#constructor_params),*
+        ) -> ::core::result::Result<(), ::hopper::__runtime::ProgramError> {
+            #(#set_inner_assigns)*
+            Ok(())
+        }
+    };
+
     let expanded = quote! {
         #input
 
@@ -343,6 +383,9 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
         #(#module_items)*
 
         impl #name {
+            #constructor_method
+            #set_inner_method
+
             #(#inherent_items)*
 
             pub const BODY_SIZE: usize = core::mem::size_of::<Self>();
@@ -749,6 +792,45 @@ fn role_to_intent_tokens(role: &str, span: proc_macro2::Span) -> Result<TokenStr
     Ok(quote! { ::hopper::hopper_schema::FieldIntent::#ident })
 }
 
+fn state_field_param_init(field: &Field) -> Result<(TokenStream, TokenStream, TokenStream)> {
+    let field_name = field
+        .ident
+        .as_ref()
+        .ok_or_else(|| syn::Error::new_spanned(field, "hopper_state requires named fields"))?;
+    let field_ty = &field.ty;
+    let (param_ty, init_expr) = if let Some(native_ty) = native_wire_param_type(field_ty) {
+        (native_ty, quote! { <#field_ty>::new(#field_name) })
+    } else {
+        (quote! { #field_ty }, quote! { #field_name })
+    };
+
+    Ok((
+        quote! { #field_name: #param_ty },
+        quote! { #field_name: #init_expr },
+        quote! { self.#field_name = #init_expr; },
+    ))
+}
+
+fn native_wire_param_type(ty: &syn::Type) -> Option<TokenStream> {
+    let syn::Type::Path(type_path) = ty else {
+        return None;
+    };
+    let ident = type_path.path.segments.last()?.ident.to_string();
+    let native = match ident.as_str() {
+        "WireBool" => quote! { bool },
+        "WireU16" => quote! { u16 },
+        "WireU32" => quote! { u32 },
+        "WireU64" => quote! { u64 },
+        "WireU128" => quote! { u128 },
+        "WireI16" => quote! { i16 },
+        "WireI32" => quote! { i32 },
+        "WireI64" => quote! { i64 },
+        "WireI128" => quote! { i128 },
+        _ => return None,
+    };
+    Some(native)
+}
+
 fn parse_state_options(attr: TokenStream) -> Result<StateOptions> {
     if attr.is_empty() {
         return Ok(StateOptions::default());
@@ -756,7 +838,7 @@ fn parse_state_options(attr: TokenStream) -> Result<StateOptions> {
 
     let mut options = StateOptions::default();
     let parser = syn::meta::parser(|meta| {
-        if meta.path.is_ident("disc") {
+        if meta.path.is_ident("disc") || meta.path.is_ident("discriminator") {
             let value: LitInt = meta.value()?.parse()?;
             options.disc = Some(value.base10_parse()?);
             return Ok(());
@@ -776,7 +858,7 @@ fn parse_state_options(attr: TokenStream) -> Result<StateOptions> {
             options.dynamic_tail_schema = Some(value.value());
             return Ok(());
         }
-        Err(meta.error("unsupported hopper_state option; expected `disc = N`, `version = N`, `dynamic_tail = T`, or `dynamic_tail_schema = \"...\"`"))
+        Err(meta.error("unsupported hopper_state option; expected `disc = N`, `discriminator = N`, `version = N`, `dynamic_tail = T`, or `dynamic_tail_schema = \"...\"`"))
     });
 
     parser.parse2(attr)?;

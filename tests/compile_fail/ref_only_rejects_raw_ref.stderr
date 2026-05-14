@@ -9,8 +9,8 @@ error[E0277]: the trait bound `&mut u64: HopperRefOnly` is not satisfied
    = help: the following other types implement trait `HopperRefOnly`:
              SegRef<'_, T>
              SegRefMut<'_, T>
-             hopper::hopper_runtime::Ref<'_, T>
-             hopper::hopper_runtime::RefMut<'_, T>
+             hopper::segment::Ref<'_, T>
+             hopper::segment::RefMut<'_, T>
 note: required by a bound in `require_guard`
   --> tests/compile_fail/ref_only_rejects_raw_ref.rs:14:21
    |
