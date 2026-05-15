@@ -155,6 +155,7 @@ vault.set_inner(*ctx.accounts.payer.key(), 0, 0)?;
 - [docs/HOPPER_LAYERS.md](docs/HOPPER_LAYERS.md): framework mode, structured state, systems mode, and Anchor/Quasar/Hopper mental mapping.
 - [docs/WRITING_HOPPER_PROGRAMS.md](docs/WRITING_HOPPER_PROGRAMS.md): Hopper authoring patterns and program structure.
 - [docs/HOPPER_VS_ANCHOR_QUASAR_PINOCCHIO.md](docs/HOPPER_VS_ANCHOR_QUASAR_PINOCCHIO.md): competitive positioning, interface status, and benchmark language without overclaiming performance.
+- [docs/DX_PARITY_AUDIT.md](docs/DX_PARITY_AUDIT.md): first-touch DX mapping and regression guards for docs, templates, and examples.
 - [docs/POLICY_GUARANTEES.md](docs/POLICY_GUARANTEES.md): capability policy, sealed/raw/hybrid access, and the policy-vault example.
 - [docs/MIGRATION_FROM_ANCHOR.md](docs/MIGRATION_FROM_ANCHOR.md): Anchor-to-Hopper migration notes.
 - [docs/MIGRATION_FROM_QUASAR.md](docs/MIGRATION_FROM_QUASAR.md): Quasar-to-Hopper migration notes.

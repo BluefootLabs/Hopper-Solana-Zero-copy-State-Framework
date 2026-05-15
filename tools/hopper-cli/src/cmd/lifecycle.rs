@@ -1109,44 +1109,40 @@ mod __hopper_sbf {
 
 #[derive(Clone, Copy)]
 #[repr(C)]
-#[hopper::state(disc = 1, version = 1)]
+#[account(discriminator = 1, version = 1)]
 pub struct Config {
-    pub authority: TypedAddress<Authority>,
+    pub authority: Address,
     pub bump: u8,
 }
 
-#[hopper::context]
-pub struct Initialize {
-    #[account(mut(authority, bump))]
-    pub config: Config,
+#[derive(Accounts)]
+pub struct Initialize<'info> {
+    #[account(mut)]
+    pub authority: Signer<'info>,
 
-    #[signer]
-    pub authority: AccountView,
+    #[account(init, payer = authority, space = Config::INIT_SPACE)]
+    pub config: InitAccount<'info, Config>,
+
+    pub system_program: Program<'info, System>,
 }
 
-#[cfg(target_os = "solana")]
-hopper::program_entrypoint!(process_instruction);
-
-fn process_instruction(
-    program_id: &Address,
-    accounts: &[AccountView],
-    instruction_data: &[u8],
-) -> ProgramResult {
-    let mut ctx = Context::new(program_id, accounts, instruction_data);
-    app::process_instruction(&mut ctx)
-}
-
-#[hopper::program]
+#[program]
 mod app {
     use super::*;
 
-    #[hopper::pipeline]
     #[instruction(0)]
-    pub fn initialize(ctx: Context<Initialize>) -> ProgramResult {
-        let authority = TypedAddress::from_account(ctx.account(1)?);
-        *ctx.config_authority_mut()? = authority;
-        *ctx.config_bump_mut()? = 0;
-        Ok(())
+    pub fn initialize(ctx: Ctx<Initialize>) -> ProgramResult {
+        ctx.init_config()?;
+        ctx.accounts.initialize()
+    }
+}
+
+hopper::program_dispatch!(app);
+
+impl<'info> Initialize<'info> {
+    pub fn initialize(&self) -> ProgramResult {
+        let mut config = self.config.get_mut_after_init()?;
+        config.set_inner(*self.authority.key(), 0)
     }
 }
 
@@ -1158,7 +1154,7 @@ mod tests {
     fn config_constants_are_stable() {
         assert_eq!(Config::DISC, 1);
         assert_eq!(Config::VERSION, 1);
-        assert!(Config::LEN >= 33);
+        assert!(Config::INIT_SPACE >= 33);
     }
 }
 "##
@@ -1169,38 +1165,92 @@ fn render_lib_rs_quasar_port() -> String {
     r##"//! Bounded dynamic-tail port scaffold: fixed vault + dynamic multisig tail.
 
 #![cfg_attr(target_os = "solana", no_std)]
+#![allow(dead_code)]
 
 use hopper::prelude::*;
+use hopper::systems::{init_header, HopperHeader};
+
+#[cfg(target_os = "solana")]
+mod __hopper_sbf {
+    use super::*;
+
+    #[cfg(not(feature = "solana-program-backend"))]
+    no_allocator!();
+
+    #[cfg(not(feature = "solana-program-backend"))]
+    nostd_panic_handler!();
+}
 
 #[derive(Clone, Copy)]
-#[hopper::state(disc = 1, version = 1)]
 #[repr(C)]
+#[hopper::state(disc = 1, version = 1)]
 pub struct Vault {
-    #[role = "authority"]
+    #[role(authority)]
     pub authority: Address,
-    #[role = "balance"]
+
+    #[role(balance)]
     pub balance: WireU64,
+
+    #[role(bump)]
     pub bump: u8,
 }
 
-hopper_dynamic_fields! {
-    pub struct MultisigTail {
-        label: string<32>,
-        signers: vec<Address, 10>,
+#[hopper::dynamic_account(disc = 7, version = 1)]
+pub struct Multisig {
+    #[role(threshold)]
+    pub threshold: u64,
+
+    #[tail(string<32>)]
+    pub label: String,
+
+    #[tail(vec<Address, 10>)]
+    pub signers: Vec<Address>,
+}
+
+#[derive(Accounts)]
+pub struct RenameMultisig<'info> {
+    #[account(mut)]
+    pub multisig: Account<'info, Multisig>,
+    pub authority: Signer<'info>,
+}
+
+#[derive(Accounts)]
+pub struct AddSigner<'info> {
+    #[account(mut)]
+    pub multisig: Account<'info, Multisig>,
+    pub authority: Signer<'info>,
+}
+
+impl<'info> RenameMultisig<'info> {
+    pub fn rename(&self, label: &str) -> ProgramResult {
+        let mut data = self.multisig.as_account().try_borrow_mut()?;
+        rename_multisig_data(&mut data, label)
     }
 }
 
-#[derive(Clone, Copy)]
-#[hopper::state(disc = 7, version = 1, dynamic_tail = MultisigTail)]
-#[repr(C)]
-pub struct Multisig {
-    #[role = "threshold"]
-    pub threshold: WireU64,
+impl<'info> AddSigner<'info> {
+    pub fn add_signer(&self, signer: Address) -> ProgramResult {
+        let mut data = self.multisig.as_account().try_borrow_mut()?;
+        add_signer_data(&mut data, signer)
+    }
 }
 
-impl Multisig {
-    pub const ALLOC_SPACE: usize = Self::INIT_SPACE + 4 + MultisigTail::MAX_ENCODED_LEN;
+#[program]
+mod quasar_port {
+    use super::*;
+
+    #[instruction(0)]
+    pub fn rename(ctx: Ctx<RenameMultisig>, label: HopperString<32>) -> ProgramResult {
+        ctx.accounts.rename(label.as_str()?)
+    }
+
+    #[instruction(1)]
+    pub fn add_signer(ctx: Ctx<AddSigner>, signer: Address) -> ProgramResult {
+        ctx.accounts.add_signer(signer)
+    }
 }
+
+hopper::program_dispatch!(quasar_port);
 
 pub fn initialize_multisig_data(
     data: &mut [u8],
@@ -1214,9 +1264,11 @@ pub fn initialize_multisig_data(
     if threshold == 0 || threshold as usize > signers.len() {
         return Err(ProgramError::InvalidInstructionData);
     }
+
     init_header::<Multisig>(data)?;
     let body = Multisig::overlay_mut(&mut data[HopperHeader::SIZE..Multisig::TAIL_PREFIX_OFFSET])?;
-    body.threshold = WireU64::new(threshold);
+    *body = Multisig::new(threshold);
+
     let tail = MultisigTail {
         label: HopperString::from_str(label)?,
         signers: HopperVec::from_slice(signers)?,
@@ -1234,9 +1286,10 @@ pub fn threshold_met(data: &[u8], approvals: &[Address]) -> Result<bool, Program
     if needed == 0 {
         return Ok(false);
     }
-    let tail = Multisig::tail_read(data)?;
+
+    let signers = Multisig::signers(data)?;
     let mut approved = 0usize;
-    for signer in tail.signers.as_slice() {
+    for signer in signers {
         if approvals.iter().any(|candidate| candidate == signer) {
             approved += 1;
             if approved >= needed {
@@ -1248,29 +1301,11 @@ pub fn threshold_met(data: &[u8], approvals: &[Address]) -> Result<bool, Program
 }
 
 pub fn rename_multisig_data(data: &mut [u8], label: &str) -> ProgramResult {
-    let mut tail = Multisig::tail_read(data)?;
-    tail.label.set_str(label)?;
-    Multisig::tail_write(data, &tail)?;
-    Ok(())
+    Multisig::set_label(data, label)
 }
 
 pub fn add_signer_data(data: &mut [u8], signer: Address) -> ProgramResult {
-    let mut tail = Multisig::tail_read(data)?;
-    tail.signers.push_unique(signer)?;
-    Multisig::tail_write(data, &tail)?;
-    Ok(())
-}
-
-pub fn rename_multisig(multisig: &AccountView, label: &str) -> ProgramResult {
-    multisig.require_writable()?;
-    let mut data = multisig.try_borrow_mut()?;
-    rename_multisig_data(&mut data, label)
-}
-
-pub fn add_signer(multisig: &AccountView, signer: Address) -> ProgramResult {
-    multisig.require_writable()?;
-    let mut data = multisig.try_borrow_mut()?;
-    add_signer_data(&mut data, signer)
+    Multisig::push_unique_signer(data, signer).map(|_| ())
 }
 "##
     .to_string()
@@ -1719,12 +1754,82 @@ mod tests {
         assert!(dep_nft.contains("metaplex"));
     }
 
+    fn forbidden_first_touch_terms() -> Vec<String> {
+        vec![
+            ["#", "[hopper", "::context]"].concat(),
+            ["#", "[signer]"].concat(),
+            ["ctx: ", "Context<"].concat(),
+            ["Account", "View"].concat(),
+            "program_entrypoint!".to_string(),
+        ]
+    }
+
     #[test]
-    fn quasar_port_template_uses_dynamic_fields_sugar() {
+    fn minimal_template_uses_framework_first_surface() {
+        let source = render_lib_rs();
+
+        for forbidden in forbidden_first_touch_terms() {
+            assert!(
+                !source.contains(&forbidden),
+                "minimal template leaked old surface: {forbidden}"
+            );
+        }
+
+        for required in [
+            "#[derive(Accounts)]",
+            "pub struct Initialize<'info>",
+            "InitAccount<'info, Config>",
+            "Signer<'info>",
+            "Program<'info, System>",
+            "pub fn initialize(ctx: Ctx<Initialize>) -> ProgramResult",
+            "ctx.accounts.initialize()",
+            "config.set_inner(*self.authority.key(), 0)",
+            "hopper::program_dispatch!(app)",
+        ] {
+            assert!(
+                source.contains(required),
+                "minimal template missing first-touch surface: {required}"
+            );
+        }
+    }
+
+    #[test]
+    fn quasar_port_template_uses_dynamic_account_first_surface() {
         let source = render_lib_rs_quasar_port();
-        assert!(source.contains("hopper_dynamic_fields!"));
-        assert!(source.contains("label: string<32>"));
-        assert!(source.contains("signers: vec<Address, 10>"));
+
+        for forbidden in forbidden_first_touch_terms() {
+            assert!(
+                !source.contains(&forbidden),
+                "quasar-port template leaked old surface: {forbidden}"
+            );
+        }
+        for forbidden in [
+            "hopper_dynamic_fields!",
+            "pub fn rename_multisig(multisig",
+            "pub fn add_signer(multisig",
+        ] {
+            assert!(
+                !source.contains(forbidden),
+                "quasar-port template leaked raw helper path: {forbidden}"
+            );
+        }
+
+        for required in [
+            "#[hopper::dynamic_account(disc = 7, version = 1)]",
+            "#[tail(string<32>)]",
+            "#[tail(vec<Address, 10>)]",
+            "pub struct RenameMultisig<'info>",
+            "pub multisig: Account<'info, Multisig>",
+            "pub authority: Signer<'info>",
+            "pub fn rename(ctx: Ctx<RenameMultisig>, label: HopperString<32>)",
+            "ctx.accounts.rename(label.as_str()?)",
+            "hopper::program_dispatch!(quasar_port)",
+        ] {
+            assert!(
+                source.contains(required),
+                "quasar-port template missing first-touch surface: {required}"
+            );
+        }
     }
 
     #[test]

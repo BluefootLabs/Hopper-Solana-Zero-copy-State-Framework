@@ -1,4 +1,5 @@
-//! Anchor-grade typed account wrappers for `#[hopper::context]`.
+//! Anchor-grade typed account wrappers for `#[derive(Accounts)]` and Hopper
+//! context lowering.
 //!
 //! Closes Hopper Safety Audit Stage 2.3: zero-cost, zero-alignment,
 //! type-directed wrappers that programs can use in context structs to
@@ -6,7 +7,7 @@
 //! `#[account(signer)]` attribute.
 //!
 //! ```ignore
-//! #[hopper::context]
+//! #[derive(Accounts)]
 //! pub struct Deposit<'info> {
 //!     pub authority: Signer<'info>,
 //!     pub vault: Account<'info, Vault>,
@@ -14,7 +15,7 @@
 //! }
 //! ```
 //!
-//! The context macro recognizes these type names via
+//! The derive/context lowering recognizes these type names via
 //! `skips_layout_validation` and auto-derives the appropriate
 //! checks (`check_signer`, `check_owned_by`, `check_executable`,
 //! address-pin). The wrappers themselves are
@@ -39,9 +40,9 @@ use crate::address::Address;
 
 /// Account that must be a transaction signer.
 ///
-/// The `#[hopper::context]` macro treats a `Signer<'info>` field
-/// identically to `#[account(signer)] pub x: AccountView`. the
-/// emitted `validate_{field}()` calls `check_signer()`.
+/// Hopper's `#[derive(Accounts)]` / context lowering treats a `Signer<'info>`
+/// field identically to `#[account(signer)] pub x: AccountView`. The emitted
+/// validation calls `check_signer()`.
 #[repr(transparent)]
 #[derive(Clone, Copy)]
 pub struct Signer<'info> {
@@ -64,7 +65,7 @@ impl<'info> Signer<'info> {
 
     /// Wrap an `AccountView` after verifying the signer invariant.
     /// Prefer the macro-emitted `validate_{field}()` path when the
-    /// account is part of a `#[hopper::context]` struct.
+    /// account is part of a `#[derive(Accounts)]` context struct.
     #[inline]
     pub fn try_new(view: &'info AccountView) -> Result<Self, crate::error::ProgramError> {
         view.check_signer()?;
@@ -196,10 +197,10 @@ impl<'info, T: crate::layout::LayoutContract> core::ops::Deref for Account<'info
 ///
 /// `InitAccount<'info, T>` skips the layout-header check at validation
 /// time (there's nothing to validate yet. the CPI hasn't run) but
-/// otherwise behaves like `Account<'info, T>`. The `#[hopper::context]`
-/// macro pairs it with `#[account(init, payer = ..., space = ...)]`
-/// to emit the `init_{field}()` lifecycle helper that actually
-/// performs the System Program CPI.
+/// otherwise behaves like `Account<'info, T>`. Hopper context lowering pairs it
+/// with `#[account(init, payer = ..., space = ...)]` to emit the
+/// `init_{field}()` lifecycle helper that actually performs the System Program
+/// CPI.
 #[repr(transparent)]
 pub struct InitAccount<'info, T: crate::layout::LayoutContract> {
     inner: &'info AccountView,
