@@ -3,8 +3,8 @@
 #![cfg(feature = "proc-macros")]
 
 use hopper::__runtime::{
-    Account, HopperSigner, InitAccount, Program, ProgramId, SystemAccount, SystemId,
-    UncheckedAccount,
+    Account, HopperSigner, InitAccount, Interface, InterfaceAccount, InterfaceAccountLayout,
+    InterfaceSpec, Program, ProgramId, SystemAccount, SystemId, UncheckedAccount,
 };
 
 #[test]
@@ -50,6 +50,21 @@ fn program_wrapper_phantom_data_is_zero_cost() {
 }
 
 #[test]
+fn interface_wrappers_are_zero_cost() {
+    assert_eq!(
+        core::mem::size_of::<Interface<'static, VaultInterface>>(),
+        core::mem::size_of::<&'static hopper::__runtime::AccountView>()
+    );
+    assert_eq!(
+        core::mem::size_of::<InterfaceAccount<'static, TinyLayout>>(),
+        core::mem::size_of::<&'static hopper::__runtime::AccountView>()
+    );
+    assert!(VaultInterface::contains(&VAULT_PROGRAM_A));
+    assert!(VaultInterface::contains(&VAULT_PROGRAM_B));
+    assert!(!VaultInterface::contains(&SystemId::ID));
+}
+
+#[test]
 fn unchecked_and_system_wrappers_are_zero_cost() {
     assert_eq!(
         core::mem::size_of::<UncheckedAccount<'static>>(),
@@ -64,9 +79,13 @@ fn unchecked_and_system_wrappers_are_zero_cost() {
 #[test]
 fn prelude_exports_memo_and_token_interface_helpers() {
     use hopper::prelude::{
-        interface_transfer_checked, HopperString, HopperVec, InterfaceMint, InterfaceTokenAccount,
-        Memo, TailCodec, TailElement, TokenProgramKind, MAX_MEMO_SIGNERS, MEMO_PROGRAM_ID,
+        interface_transfer_checked, HopperString, HopperVec, Interface as PreludeInterface,
+        InterfaceAccount as PreludeInterfaceAccount, InterfaceMint, InterfaceTokenAccount, Memo,
+        TailCodec, TailElement, TokenProgramKind, MAX_MEMO_SIGNERS, MEMO_PROGRAM_ID,
     };
+
+    fn assert_prelude_interface_spec<T: hopper::prelude::InterfaceSpec>() {}
+    fn assert_prelude_interface_layout<T: hopper::prelude::InterfaceAccountLayout>() {}
 
     fn assert_tail_element<T: TailElement>() {}
 
@@ -92,6 +111,16 @@ fn prelude_exports_memo_and_token_interface_helpers() {
         core::mem::size_of::<InterfaceMint<'static>>(),
         core::mem::size_of::<(&'static [u8], TokenProgramKind)>(),
     );
+    assert_eq!(
+        core::mem::size_of::<PreludeInterface<'static, VaultInterface>>(),
+        core::mem::size_of::<&'static hopper::__runtime::AccountView>(),
+    );
+    assert_eq!(
+        core::mem::size_of::<PreludeInterfaceAccount<'static, TinyLayout>>(),
+        core::mem::size_of::<&'static hopper::__runtime::AccountView>(),
+    );
+    assert_prelude_interface_spec::<VaultInterface>();
+    assert_prelude_interface_layout::<TinyLayout>();
     assert!(core::mem::size_of::<Memo<'static, 'static, 'static>>() > 0);
 }
 
@@ -125,6 +154,15 @@ mod hero_program {
         account.v.checked_add_assign(1)?;
         Ok(())
     }
+
+    #[instruction(1)]
+    pub fn read_interface(
+        ctx: hopper::prelude::Ctx<ReadInterface>,
+    ) -> hopper::prelude::ProgramResult {
+        let _program = ctx.accounts.vault_program.key();
+        let _layout = ctx.accounts.remote_vault.get()?;
+        Ok(())
+    }
 }
 
 #[derive(hopper::Accounts)]
@@ -134,6 +172,12 @@ pub struct Increment<'info> {
     pub authority: hopper::prelude::Signer<'info>,
 }
 
+#[derive(hopper::Accounts)]
+pub struct ReadInterface<'info> {
+    pub vault_program: hopper::prelude::Interface<'info, VaultInterface>,
+    pub remote_vault: hopper::prelude::InterfaceAccount<'info, TinyLayout>,
+}
+
 // A minimal layout type used to satisfy the `T: LayoutContract`
 // bound on `Account<'info, T>` / `InitAccount<'info, T>`.
 #[derive(Copy, Clone)]
@@ -141,4 +185,19 @@ pub struct Increment<'info> {
 #[repr(C)]
 pub struct TinyLayout {
     pub v: hopper::prelude::WireU64,
+}
+
+const VAULT_PROGRAM_A: hopper::__runtime::Address =
+    hopper::__runtime::Address::new_from_array([0xA1; 32]);
+const VAULT_PROGRAM_B: hopper::__runtime::Address =
+    hopper::__runtime::Address::new_from_array([0xB2; 32]);
+
+pub struct VaultInterface;
+
+impl InterfaceSpec for VaultInterface {
+    const IDS: &'static [hopper::__runtime::Address] = &[VAULT_PROGRAM_A, VAULT_PROGRAM_B];
+}
+
+impl InterfaceAccountLayout for TinyLayout {
+    type Interface = VaultInterface;
 }

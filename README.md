@@ -136,6 +136,16 @@ mod counter_program {
         Ok(())
     }
 }
+
+    hopper::program_dispatch!(counter_program);
+```
+
+Initialization uses the same surface. After `ctx.init_vault()?`, mutate the
+fresh account through `ctx.accounts` and the generated `set_inner(...)` helper:
+
+```rust
+let mut vault = ctx.accounts.vault.get_mut_after_init()?;
+vault.set_inner(*ctx.accounts.payer.key(), 0, 0)?;
 ```
 
 ## Documentation map
@@ -144,7 +154,7 @@ mod counter_program {
 - [docs/GETTING_STARTED_SERIOUS.md](docs/GETTING_STARTED_SERIOUS.md): source-first setup and first serious program flow.
 - [docs/HOPPER_LAYERS.md](docs/HOPPER_LAYERS.md): framework mode, structured state, systems mode, and Anchor/Quasar/Hopper mental mapping.
 - [docs/WRITING_HOPPER_PROGRAMS.md](docs/WRITING_HOPPER_PROGRAMS.md): Hopper authoring patterns and program structure.
-- [docs/HOPPER_VS_ANCHOR_QUASAR_PINOCCHIO.md](docs/HOPPER_VS_ANCHOR_QUASAR_PINOCCHIO.md): competitive positioning without overclaiming performance.
+- [docs/HOPPER_VS_ANCHOR_QUASAR_PINOCCHIO.md](docs/HOPPER_VS_ANCHOR_QUASAR_PINOCCHIO.md): competitive positioning, interface status, and benchmark language without overclaiming performance.
 - [docs/POLICY_GUARANTEES.md](docs/POLICY_GUARANTEES.md): capability policy, sealed/raw/hybrid access, and the policy-vault example.
 - [docs/MIGRATION_FROM_ANCHOR.md](docs/MIGRATION_FROM_ANCHOR.md): Anchor-to-Hopper migration notes.
 - [docs/MIGRATION_FROM_QUASAR.md](docs/MIGRATION_FROM_QUASAR.md): Quasar-to-Hopper migration notes.

@@ -81,20 +81,6 @@ pub struct Cancel<'info> {
     pub escrow: Account<'info, Escrow>,
 }
 
-// --- Entrypoint -----------------------------------------------------
-
-#[cfg(target_os = "solana")]
-hopper::program_entrypoint!(process_instruction);
-
-fn process_instruction(
-    program_id: &Address,
-    accounts: &[AccountView],
-    instruction_data: &[u8],
-) -> ProgramResult {
-    let mut ctx = Context::new(program_id, accounts, instruction_data);
-    escrow_program::process_instruction(&mut ctx)
-}
-
 #[program]
 mod escrow_program {
     use super::*;
@@ -122,6 +108,8 @@ mod escrow_program {
         ctx.accounts.cancel()
     }
 }
+
+hopper::program_dispatch!(escrow_program);
 
 impl<'info> Make<'info> {
     pub fn make(

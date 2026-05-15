@@ -484,6 +484,7 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
     for (i, field) in fields.iter_mut().enumerate() {
         let field_name = field.ident.as_ref().unwrap().clone();
         let field_ty = field.ty.clone();
+        reject_reference_wrapped_account(&field_name, &field_ty)?;
         let attr = parse_account_attr(&field.attrs)?;
         validate_account_attr(&field_name, &attr)?;
         if (!attr.mut_segments.is_empty() || !attr.read_segments.is_empty())
@@ -596,6 +597,37 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
                 }
             }
         }
+        if let Some(WrapperKind::Interface { spec }) = &wrapper {
+            field_checks.push(quote! {
+                if !<#spec as ::hopper::__runtime::InterfaceSpec>::contains(
+                    ctx.account(#idx)?.address()
+                ) {
+                    return ::core::result::Result::Err(
+                        ::hopper::__runtime::ProgramError::IncorrectProgramId
+                    );
+                }
+                if !ctx.account(#idx)?.executable() {
+                    return ::core::result::Result::Err(
+                        ::hopper::__runtime::ProgramError::InvalidAccountData
+                    );
+                }
+            });
+            check_descriptions.push(format!(
+                "accounts[{}] ({}) must be one of the declared interface programs (address set + executable pin)",
+                idx, field_name
+            ));
+        }
+        if let Some(WrapperKind::InterfaceAccount { inner }) = &wrapper {
+            field_checks.push(quote! {
+                let _ = ::hopper::prelude::InterfaceAccount::<#inner>::try_new(
+                    ctx.account(#idx)?
+                )?;
+            });
+            check_descriptions.push(format!(
+                "accounts[{}] ({}) owner must belong to its declared interface and match the Hopper layout header",
+                idx, field_name
+            ));
+        }
         if let Some(WrapperKind::SystemAccount) = &wrapper {
             field_checks.push(quote! {
                 ctx.account(#idx)?.check_owned_by(&::hopper::prelude::SystemId::ID)?;
@@ -693,6 +725,8 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
             Some(WrapperKind::InitAccount { .. })
             | Some(WrapperKind::Signer)
             | Some(WrapperKind::Program)
+            | Some(WrapperKind::Interface { .. })
+            | Some(WrapperKind::InterfaceAccount { .. })
             | Some(WrapperKind::UncheckedAccount)
             | Some(WrapperKind::SystemAccount) => (false, None),
             None => {
@@ -3311,6 +3345,64 @@ fn type_ident(ty: &Type) -> Result<Ident> {
     }
 }
 
+fn reject_reference_wrapped_account(field_name: &Ident, ty: &Type) -> Result<()> {
+    let Type::Reference(reference) = ty else {
+        return Ok(());
+    };
+
+    let Some(wrapper) = classify_wrapper(reference.elem.as_ref()) else {
+        return Ok(());
+    };
+
+    match wrapper {
+        WrapperKind::Account { inner } => {
+            let inner = type_ident(&inner)
+                .map(|ident| ident.to_string())
+                .unwrap_or_else(|_| "T".to_string());
+            let account_ty = format!("Account<'info, {}>", inner);
+            let hint = if reference.mutability.is_some() {
+                format!("#[account(mut)] pub {}: {}", field_name, account_ty)
+            } else {
+                format!("pub {}: {}", field_name, account_ty)
+            };
+            let reason = if reference.mutability.is_some() {
+                "mutable access is enforced by Hopper account-data guards, not by `&mut` on the wrapper"
+            } else {
+                "the wrapper is already a borrowed role view over the account"
+            };
+            Err(syn::Error::new_spanned(
+                ty,
+                format!("Use `{}` in Hopper; {}.", hint, reason),
+            ))
+        }
+        WrapperKind::InitAccount { inner } => {
+            let inner = type_ident(&inner)
+                .map(|ident| ident.to_string())
+                .unwrap_or_else(|_| "T".to_string());
+            Err(syn::Error::new_spanned(
+                ty,
+                format!(
+                    "Use `pub {}: InitAccount<'info, {}>` with the appropriate `#[account(init, ...)]` attributes in Hopper; do not wrap Hopper account wrappers in references.",
+                    field_name, inner
+                ),
+            ))
+        }
+        WrapperKind::Interface { .. } | WrapperKind::InterfaceAccount { .. } => Err(
+            syn::Error::new_spanned(
+                ty,
+                "Hopper interface wrappers are value role wrappers; remove `&` or `&mut` from this field type and put mutability in `#[account(...)]` attributes.",
+            ),
+        ),
+        WrapperKind::Signer
+        | WrapperKind::Program
+        | WrapperKind::UncheckedAccount
+        | WrapperKind::SystemAccount => Err(syn::Error::new_spanned(
+            ty,
+            "Hopper account wrappers are value role wrappers; remove `&` or `&mut` from this field type and put mutability in `#[account(...)]` attributes.",
+        )),
+    }
+}
+
 fn skips_layout_validation(ty: &Type) -> bool {
     match ty {
         Type::Path(TypePath { path, .. }) => path
@@ -3326,6 +3418,8 @@ fn skips_layout_validation(ty: &Type) -> bool {
                         | "SystemAccount"
                         | "ProgramRef"
                         | "Program"
+                        | "Interface"
+                        | "InterfaceAccount"
                 )
             })
             .unwrap_or(false),
@@ -3343,6 +3437,8 @@ enum WrapperKind {
     /// `Program<'info, P>`. emit `check_address == P::ID` and
     /// `check_executable`. Layout validation skipped.
     Program,
+    /// `Interface<'info, I>`. emit address-in-interface-set and executable.
+    Interface { spec: Type },
     /// `UncheckedAccount<'info>`. no type-derived validation.
     UncheckedAccount,
     /// `SystemAccount<'info>`. emit owner == System Program.
@@ -3354,6 +3450,9 @@ enum WrapperKind {
     /// (account doesn't exist yet); the `init_{field}` lifecycle
     /// helper will create + initialise it.
     InitAccount { inner: Type },
+    /// `InterfaceAccount<'info, T>`. emit owner-in-interface-set plus
+    /// cross-program Hopper layout validation.
+    InterfaceAccount { inner: Type },
 }
 
 /// Recognize typed wrapper types (`Signer<'info>`, `Account<'info, T>`,
@@ -3370,9 +3469,22 @@ fn classify_wrapper(ty: &Type) -> Option<WrapperKind> {
     match name.as_str() {
         "Signer" | "HopperSigner" => Some(WrapperKind::Signer),
         "Program" => Some(WrapperKind::Program),
+        "Interface" => {
+            let syn::PathArguments::AngleBracketed(args) = &segment.arguments else {
+                return None;
+            };
+            let spec = args.args.iter().find_map(|arg| {
+                if let syn::GenericArgument::Type(ty) = arg {
+                    Some(ty.clone())
+                } else {
+                    None
+                }
+            })?;
+            Some(WrapperKind::Interface { spec })
+        }
         "UncheckedAccount" => Some(WrapperKind::UncheckedAccount),
         "SystemAccount" => Some(WrapperKind::SystemAccount),
-        "Account" | "InitAccount" => {
+        "Account" | "InitAccount" | "InterfaceAccount" => {
             // Pull out the generic `T` arg. `Account<'info, T>` has
             // a lifetime arg first, then a type arg. we want the
             // last type arg.
@@ -3388,8 +3500,10 @@ fn classify_wrapper(ty: &Type) -> Option<WrapperKind> {
             })?;
             if name == "Account" {
                 Some(WrapperKind::Account { inner })
-            } else {
+            } else if name == "InitAccount" {
                 Some(WrapperKind::InitAccount { inner })
+            } else {
+                Some(WrapperKind::InterfaceAccount { inner })
             }
         }
         _ => None,
@@ -3434,6 +3548,9 @@ fn accounts_binding_fragments(
             WrapperKind::Program => quote! {
                 #field_name: ::hopper::prelude::Program::try_new(ctx.account(#idx)?)?
             },
+            WrapperKind::Interface { spec } => quote! {
+                #field_name: ::hopper::prelude::Interface::<#spec>::try_new(ctx.account(#idx)?)?
+            },
             WrapperKind::UncheckedAccount => quote! {
                 #field_name: unsafe {
                     ::hopper::prelude::UncheckedAccount::new_unchecked(ctx.account(#idx)?)
@@ -3450,6 +3567,11 @@ fn accounts_binding_fragments(
             WrapperKind::InitAccount { .. } => quote! {
                 #field_name: unsafe {
                     ::hopper::prelude::InitAccount::new_unchecked(ctx.account(#idx)?)
+                }
+            },
+            WrapperKind::InterfaceAccount { .. } => quote! {
+                #field_name: unsafe {
+                    ::hopper::prelude::InterfaceAccount::new_unchecked(ctx.account(#idx)?)
                 }
             },
         }
@@ -3473,6 +3595,8 @@ fn layout_type_for_field(field: &ContextField) -> Option<Type> {
         }
         Some(WrapperKind::Signer)
         | Some(WrapperKind::Program)
+        | Some(WrapperKind::Interface { .. })
+        | Some(WrapperKind::InterfaceAccount { .. })
         | Some(WrapperKind::UncheckedAccount)
         | Some(WrapperKind::SystemAccount) => None,
         None => {

@@ -132,24 +132,14 @@ pub struct Withdraw<'info> {
 For raw accounts, use `UncheckedAccount<'info>`. For accounts owned by the
 System Program, use `SystemAccount<'info>`.
 
-## Step 4: Add Entrypoint and Handlers
+## Step 4: Add Handlers
 
-The runtime entrypoint creates a Hopper `Context`, and the `#[program]` module
-does instruction dispatch from the discriminator bytes.
+The CLI template includes the tiny runtime bridge through
+`hopper::program_dispatch!(...)`. Most program authors work in the `#[program]`
+module, where Hopper dispatches from the discriminator bytes and hands each
+handler a typed `Ctx<T>`.
 
 ```rust
-#[cfg(target_os = "solana")]
-hopper::program_entrypoint!(process_instruction);
-
-fn process_instruction(
-    program_id: &Address,
-    accounts: &[AccountView],
-    instruction_data: &[u8],
-) -> ProgramResult {
-    let mut ctx = Context::new(program_id, accounts, instruction_data);
-    vault_program::process_instruction(&mut ctx)
-}
-
 #[program]
 mod vault_program {
     use super::*;
@@ -170,6 +160,8 @@ mod vault_program {
         ctx.accounts.withdraw(amount)
     }
 }
+
+hopper::program_dispatch!(vault_program);
 ```
 
 `ctx.bumps.field_name` is available for seed-derived accounts. Older Hopper

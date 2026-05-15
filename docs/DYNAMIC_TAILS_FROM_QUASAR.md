@@ -143,9 +143,28 @@ A dynamic-tail layout emits:
 Example handler flow:
 
 ```rust
-pub fn rename(ctx: Context<Rename>, new_label: &str) -> ProgramResult {
-    let mut data = ctx.multisig.try_borrow_mut()?;
-    Multisig::set_label(&mut data, new_label)
+#[derive(Accounts)]
+pub struct Rename<'info> {
+    #[account(mut)]
+    pub multisig: Account<'info, Multisig>,
+    pub authority: Signer<'info>,
+}
+
+impl<'info> Rename<'info> {
+    pub fn rename(&self, new_label: &str) -> ProgramResult {
+        let mut data = self.multisig.as_account().try_borrow_mut()?;
+        Multisig::set_label(&mut data, new_label)
+    }
+}
+
+#[program]
+mod multisig_program {
+    use super::*;
+
+    #[instruction(1)]
+    pub fn rename(ctx: Ctx<Rename>, new_label: HopperString<32>) -> ProgramResult {
+        ctx.accounts.rename(new_label.as_str()?)
+    }
 }
 ```
 

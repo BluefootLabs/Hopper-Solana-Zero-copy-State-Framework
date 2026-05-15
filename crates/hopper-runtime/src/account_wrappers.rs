@@ -424,6 +424,197 @@ impl<'info, P: ProgramId> core::ops::Deref for Program<'info, P> {
     }
 }
 
+/// Compile-time owner/program set for generic interface wrappers.
+///
+/// Implement this on a zero-sized marker type when a program context accepts
+/// one of several compatible programs. `Interface<'info, I>` validates an
+/// executable program account by key against this set, while
+/// `InterfaceAccount<'info, T>` validates account ownership through
+/// `T::Interface`.
+pub trait InterfaceSpec: 'static {
+    /// Program IDs accepted by this interface.
+    const IDS: &'static [Address];
+
+    /// Whether `program_id` belongs to this interface.
+    #[inline(always)]
+    fn contains(program_id: &Address) -> bool {
+        Self::IDS.iter().any(|candidate| candidate == program_id)
+    }
+}
+
+/// Hopper layout whose owner may be any program in an interface set.
+///
+/// This is the generic counterpart to token-specific interface helpers.
+/// Use it for Hopper-header layouts shared across compatible programs:
+///
+/// ```ignore
+/// pub struct VaultPrograms;
+/// impl InterfaceSpec for VaultPrograms {
+///     const IDS: &'static [Address] = &[PROGRAM_A, PROGRAM_B];
+/// }
+///
+/// impl InterfaceAccountLayout for SharedVault {
+///     type Interface = VaultPrograms;
+/// }
+/// ```
+pub trait InterfaceAccountLayout: crate::layout::LayoutContract {
+    /// The owner/program set accepted for this layout.
+    type Interface: InterfaceSpec;
+}
+
+/// Executable program account whose key is one of an interface's program IDs.
+#[repr(transparent)]
+pub struct Interface<'info, I: InterfaceSpec> {
+    inner: &'info AccountView,
+    _ty: PhantomData<I>,
+}
+
+impl<'info, I: InterfaceSpec> Clone for Interface<'info, I> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+impl<'info, I: InterfaceSpec> Copy for Interface<'info, I> {}
+
+impl<'info, I: InterfaceSpec> Interface<'info, I> {
+    /// Wrap an already-validated interface program account.
+    #[inline(always)]
+    ///
+    /// # Safety
+    ///
+    /// Caller must have verified the account address is in `I::IDS` and the
+    /// account is executable.
+    pub unsafe fn new_unchecked(view: &'info AccountView) -> Self {
+        Self {
+            inner: view,
+            _ty: PhantomData,
+        }
+    }
+
+    /// Wrap after verifying address membership and executability.
+    #[inline]
+    pub fn try_new(view: &'info AccountView) -> Result<Self, crate::error::ProgramError> {
+        if !I::contains(view.address()) {
+            return Err(crate::error::ProgramError::IncorrectProgramId);
+        }
+        if !view.executable() {
+            return Err(crate::error::ProgramError::InvalidAccountData);
+        }
+        Ok(Self {
+            inner: view,
+            _ty: PhantomData,
+        })
+    }
+
+    /// The underlying account view.
+    #[inline(always)]
+    pub fn as_account(&self) -> &'info AccountView {
+        self.inner
+    }
+
+    /// The selected program id.
+    #[inline(always)]
+    pub fn key(&self) -> &Address {
+        self.inner.address()
+    }
+}
+
+impl<'info, I: InterfaceSpec> core::ops::Deref for Interface<'info, I> {
+    type Target = AccountView;
+
+    #[inline(always)]
+    fn deref(&self) -> &AccountView {
+        self.inner
+    }
+}
+
+/// Hopper-layout account owned by one of a declared interface's programs.
+///
+/// `InterfaceAccount<'info, T>` validates two things before binding:
+/// account owner is in `T::Interface::IDS`, and the account bytes match
+/// `T`'s Hopper layout header. Reads use `load_cross_program` so ownership is
+/// intentionally decoupled from the executing program.
+#[repr(transparent)]
+pub struct InterfaceAccount<'info, T: InterfaceAccountLayout> {
+    inner: &'info AccountView,
+    _ty: PhantomData<T>,
+}
+
+impl<'info, T: InterfaceAccountLayout> Clone for InterfaceAccount<'info, T> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+impl<'info, T: InterfaceAccountLayout> Copy for InterfaceAccount<'info, T> {}
+
+impl<'info, T: InterfaceAccountLayout> InterfaceAccount<'info, T> {
+    /// Wrap an already-validated interface-owned layout account.
+    #[inline(always)]
+    ///
+    /// # Safety
+    ///
+    /// Caller must have verified owner membership and layout identity.
+    pub unsafe fn new_unchecked(view: &'info AccountView) -> Self {
+        Self {
+            inner: view,
+            _ty: PhantomData,
+        }
+    }
+
+    /// Wrap after verifying owner membership and layout identity.
+    #[inline]
+    pub fn try_new(view: &'info AccountView) -> Result<Self, crate::error::ProgramError> {
+        let owner = view.read_owner();
+        if !<T::Interface as InterfaceSpec>::contains(&owner) {
+            return Err(crate::error::ProgramError::IncorrectProgramId);
+        }
+        let _ = view.load_cross_program::<T>()?;
+        Ok(Self {
+            inner: view,
+            _ty: PhantomData,
+        })
+    }
+
+    /// The underlying account view.
+    #[inline(always)]
+    pub fn as_account(&self) -> &'info AccountView {
+        self.inner
+    }
+
+    /// The account public key.
+    #[inline(always)]
+    pub fn key(&self) -> &Address {
+        self.inner.address()
+    }
+
+    /// The owning program, copied out of the account header.
+    #[inline(always)]
+    pub fn owner(&self) -> Address {
+        self.inner.read_owner()
+    }
+
+    /// Borrow the cross-program layout for reading.
+    #[inline(always)]
+    pub fn load(&self) -> Result<crate::borrow::Ref<'_, T>, crate::error::ProgramError> {
+        self.inner.load_cross_program::<T>()
+    }
+
+    /// Friendly alias for [`Self::load`].
+    #[inline(always)]
+    pub fn get(&self) -> Result<crate::borrow::Ref<'_, T>, crate::error::ProgramError> {
+        self.load()
+    }
+}
+
+impl<'info, T: InterfaceAccountLayout> core::ops::Deref for InterfaceAccount<'info, T> {
+    type Target = AccountView;
+
+    #[inline(always)]
+    fn deref(&self) -> &AccountView {
+        self.inner
+    }
+}
+
 /// Marker trait for a compile-time-known program ID.
 ///
 /// Callers wire programs into Hopper contexts by implementing this on

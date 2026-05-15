@@ -44,7 +44,7 @@ Every attribute below compiles to a TLV scan on the mint or token-account bytes.
     extensions::transfer_fee_config::withdraw_withheld_authority = withdraw_authority,
     extensions::non_transferable,
 )]
-pub mint: AccountView,
+pub mint: UncheckedAccount<'info>,
 ```
 
 `default_account_state` takes the state byte directly: `0` Uninitialized, `1` Initialized, `2` Frozen.
@@ -57,7 +57,7 @@ pub mint: AccountView,
 #[account(
     extensions::immutable_owner,
 )]
-pub ata: AccountView,
+pub ata: UncheckedAccount<'info>,
 ```
 
 Only one extension lives on the token-account side today. `TransferHookAccount` (the per-account companion to the mint's `TransferHook`) is reachable through the raw TLV reader if you need it.
@@ -71,7 +71,7 @@ use hopper_runtime::token_2022_ext::{
     find_extension, mint_tlv_region, EXT_GROUP_POINTER,
 };
 
-let data = mint.try_borrow()?;
+let data = mint.as_account().try_borrow()?;
 let tlv = mint_tlv_region(&data)
     .ok_or(ProgramError::InvalidAccountData)?;
 let group = find_extension(tlv, EXT_GROUP_POINTER)
@@ -128,12 +128,9 @@ mod capped_mint {
     use super::*;
 
     #[instruction(0)]
-    pub fn configure(ctx: Context<Configure>, max_supply: u64) -> ProgramResult {
-        let mut config = ctx.accounts.config.get_mut()?;
-        config.admin.copy_from_slice(ctx.accounts.admin.key().as_array());
-        config.max_supply.set(max_supply);
-        config.bump = ctx.bumps.config;
-        Ok(())
+    pub fn configure(ctx: Ctx<Configure>, max_supply: u64) -> ProgramResult {
+        let mut config = ctx.accounts.config.get_mut_after_init()?;
+        config.set_inner(*ctx.accounts.admin.key(), max_supply, ctx.bumps.config)
     }
 }
 ```

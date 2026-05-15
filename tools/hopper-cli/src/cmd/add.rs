@@ -694,11 +694,6 @@ pub struct B { pub y: u8 }
             &lib_rs,
             r#"use hopper::prelude::*;
 
-#[cfg(target_os = "solana")]
-hopper::program_entrypoint!(process_instruction);
-
-fn process_instruction(_p: &Address, _a: &[RawAccount], _d: &[u8]) -> ProgramResult { Ok(()) }
-
 #[hopper::program]
 mod app {
     use super::*;
@@ -706,6 +701,8 @@ mod app {
     #[instruction(0)]
     pub fn initialize(ctx: Ctx<Initialize>) -> ProgramResult { Ok(()) }
 }
+
+            hopper::program_dispatch!(app);
 "#,
         )
         .unwrap();
@@ -750,7 +747,7 @@ mod app {
             &lib_rs,
             r#"use hopper::prelude::*;
 
-    fn process_instruction(_p: &Address, _a: &[RawAccount], data: &[u8]) -> ProgramResult {
+                fn process_instruction(data: &[u8]) -> ProgramResult {
     let (disc, _) = data.split_first().ok_or(ProgramError::InvalidInstructionData)?;
     match *disc {
         0 => Ok(()),

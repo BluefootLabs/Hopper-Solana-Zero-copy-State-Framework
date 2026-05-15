@@ -31,14 +31,25 @@ Hopper is a policy-driven zero-copy runtime for Solana. Three things set it apar
 Every lever on. Typed contexts, auto-bind, constraint gauntlet, `enforce_token_checks`, `unsafe` allowed but isolated to explicit `hopper_unsafe_region!` blocks.
 
 ```rust
+#[derive(Accounts)]
+pub struct Deposit<'info> {
+    #[account(mut, has_one = authority)]
+    pub vault: Account<'info, Vault>,
+    pub authority: Signer<'info>,
+}
+
+impl<'info> Deposit<'info> {
+    pub fn deposit(&self, amount: u64) -> ProgramResult {
+        let mut vault = self.vault.get_mut()?;
+        vault.balance.checked_add_assign(amount)
+    }
+}
+
 #[hopper::program(strict)]
 pub mod vault {
     #[instruction(0)]
-    pub fn deposit(ctx: Context<Deposit>, amount: u64) -> ProgramResult {
-        let mut balance = ctx.vault_balance_mut()?;
-        *balance = WireU64::new(balance.get().checked_add(amount)
-            .ok_or(ProgramError::ArithmeticOverflow)?);
-        Ok(())
+    pub fn deposit(ctx: Ctx<Deposit>, amount: u64) -> ProgramResult {
+        ctx.accounts.deposit(amount)
     }
 }
 ```
@@ -54,11 +65,15 @@ Strict + `enforce_token_checks` + no `unsafe` anywhere. The program macro emits 
 pub mod vault {
     // Every handler here: no unsafe compiles.
     #[instruction(0)]
-    pub fn deposit(ctx: Context<Deposit>, amount: u64) -> ProgramResult { ... }
+    pub fn deposit(ctx: Ctx<Deposit>, amount: u64) -> ProgramResult {
+        ctx.accounts.deposit(amount)
+    }
 
     // Opt-in: this one handler gets raw access back.
     #[instruction(1, unsafe_memory)]
-    pub fn fast_sweep(ctx: Context<Sweep>) -> ProgramResult { ... }
+    pub fn fast_sweep(ctx: Ctx<Sweep>) -> ProgramResult {
+        ctx.accounts.fast_sweep()
+    }
 }
 ```
 

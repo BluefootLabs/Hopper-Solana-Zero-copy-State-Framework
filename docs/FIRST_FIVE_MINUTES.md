@@ -33,6 +33,8 @@ mod counter_program {
         Ok(())
     }
 }
+
+hopper::program_dispatch!(counter_program);
 ```
 
 This is the default mental model: validated accounts enter through `#[derive(Accounts)]`, then the handler mutates typed zero-copy state through `ctx.accounts`.
@@ -66,9 +68,27 @@ mod vault_program {
         ctx.accounts.deposit(amount)
     }
 }
+
+hopper::program_dispatch!(vault_program);
 ```
 
 See [examples/hopper-vault/src/lib.rs](../examples/hopper-vault/src/lib.rs) for the complete SOL-vault flow.
+
+Initialization uses the same wrapper path. `set_inner(...)` is generated for
+every Hopper account layout, accepts native values, and writes the wire fields:
+
+```rust
+let mut vault = ctx.accounts.vault.get_mut_after_init()?;
+vault.set_inner(*ctx.accounts.payer.key(), 0, 0)?;
+```
+
+When the initialized account uses PDA seeds, pass the generated bump field in
+the final slot instead of `0`.
+
+Mutability is declared on the account field with `#[account(mut)]`; Hopper does
+not use Quasar-style `&mut Account<T>` field types because writable
+exclusivity is enforced by Hopper's account-data guards, not by moving the
+role wrapper.
 
 ## 3. Dynamic Multisig
 

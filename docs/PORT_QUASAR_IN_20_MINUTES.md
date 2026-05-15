@@ -90,26 +90,100 @@ The generated dynamic account emits:
 - field helpers such as `label(data)`, `signers(data)`, `set_label(data, ...)`,
   `push_unique_signer(data, ...)`, and `remove_signer(data, ...)`
 
-Example update handlers:
+Example update handlers keep the Quasar-shaped `ctx.accounts.*` flow. The
+program handler decodes a bounded Hopper string from instruction data, then the
+accounts method works with `&str` and the generated dynamic-tail helpers:
 
 ```rust
-pub fn rename_multisig(multisig: &AccountView, label: &str) -> ProgramResult {
-    multisig.require_writable()?;
-    let mut data = multisig.try_borrow_mut()?;
-    Multisig::set_label(&mut data, label)
+#[derive(Accounts)]
+pub struct RenameMultisig<'info> {
+    #[account(mut)]
+    pub multisig: Account<'info, Multisig>,
+    pub authority: Signer<'info>,
 }
 
-pub fn add_signer(multisig: &AccountView, signer: Address) -> ProgramResult {
-    multisig.require_writable()?;
-    let mut data = multisig.try_borrow_mut()?;
-    Multisig::push_unique_signer(&mut data, signer).map(|_| ())
+#[derive(Accounts)]
+pub struct AddSigner<'info> {
+    #[account(mut)]
+    pub multisig: Account<'info, Multisig>,
+    pub authority: Signer<'info>,
+}
+
+impl<'info> RenameMultisig<'info> {
+    pub fn rename(&self, label: &str) -> ProgramResult {
+        let mut data = self.multisig.as_account().try_borrow_mut()?;
+        Multisig::set_label(&mut data, label)
+    }
+}
+
+impl<'info> AddSigner<'info> {
+    pub fn add_signer(&self, signer: Address) -> ProgramResult {
+        let mut data = self.multisig.as_account().try_borrow_mut()?;
+        Multisig::push_unique_signer(&mut data, signer).map(|_| ())
+    }
+}
+
+#[program]
+mod multisig_program {
+    use super::*;
+
+    #[instruction(1)]
+    pub fn rename(ctx: Ctx<RenameMultisig>, label: HopperString<32>) -> ProgramResult {
+        ctx.accounts.rename(label.as_str()?)
+    }
+
+    #[instruction(2)]
+    pub fn add_signer(ctx: Ctx<AddSigner>, signer: Address) -> ProgramResult {
+        ctx.accounts.add_signer(signer)
+    }
 }
 ```
+
+The raw account substrate is still available in systems-mode code, but a
+Quasar migration should start with `Account<'info, T>` wrappers and only drop to
+raw views for audited escape hatches.
 
 Use this pattern when the dynamic fields are small and logically owned by the
 same account. If the dynamic region needs independent borrow tracking,
 independent migrations, or large append-only history, split it into an explicit
 segment or companion account instead.
+
+## Interface Accounts
+
+For Quasar-style multi-owner protocols, declare the accepted program set once
+and bind remote Hopper layouts with `InterfaceAccount<'info, T>`:
+
+```rust
+pub struct VaultPrograms;
+
+impl InterfaceSpec for VaultPrograms {
+    const IDS: &'static [Address] = &[VAULT_PROGRAM_A, VAULT_PROGRAM_B];
+}
+
+impl InterfaceAccountLayout for RemoteVault {
+    type Interface = VaultPrograms;
+}
+
+#[derive(Accounts)]
+pub struct ReadRemoteVault<'info> {
+    pub vault_program: Interface<'info, VaultPrograms>,
+    pub remote_vault: InterfaceAccount<'info, RemoteVault>,
+}
+
+impl<'info> ReadRemoteVault<'info> {
+    pub fn read_balance(&self) -> Result<u64> {
+        Ok(self.remote_vault.get()?.balance.get())
+    }
+}
+```
+
+`Interface<'info, I>` verifies the executable program account is one of
+`I::IDS`. `InterfaceAccount<'info, T>` verifies the account owner is in
+`T::Interface::IDS` and then validates the Hopper layout header with the
+cross-program loader. Token and Token-2022 still use the specialized
+`TokenProgramKind`, `InterfaceTokenAccount`, `InterfaceMint`, and
+`interface_transfer_checked` helpers because SPL base layouts are not Hopper
+header layouts.
 
 ## Full Example
 

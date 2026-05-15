@@ -86,7 +86,7 @@ Key differences:
 
 1. `seeds = Type::seeds(...)` becomes `seeds_fn = Type::seeds(...)`. The underscore disambiguates typed seeds from the inline array form (`seeds = [...]`), which Hopper also supports. For fixed byte-array seeds, pass an expression that borrows as bytes, for example `seeds = [hash.as_ref()]`; signer seeds also accept `Seed::from(&my_seed_array)` for `&[u8; N]`.
 2. Remaining accounts are exposed on the bound context, not as a struct field. Call `ctx.remaining_accounts()` for strict mode or `ctx.remaining_accounts_passthrough()` for the duplicate-preserving mode. Use `ctx.remaining_accounts_raw()` only when a raw slice is actually what you want.
-3. Hopper still exposes raw `AccountView` for systems code, but first-touch ports should use `Account<'info, T>` and `Signer<'info>`.
+3. Hopper still exposes the raw account substrate for systems code, but first-touch ports should use `Account<'info, T>` and `Signer<'info>`.
 
 ## Handler
 

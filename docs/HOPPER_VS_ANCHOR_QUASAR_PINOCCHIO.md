@@ -46,6 +46,22 @@ pub fn increment(ctx: Ctx<Increment>) -> ProgramResult {
 
 Dynamic fields map to `#[hopper::dynamic_account]`. `Address` / `Pubkey` vectors use borrowed views; other `TailElement` vectors use `HopperVec<T, N>` with generated editor helpers.
 
+### Interfaces
+
+Quasar's generic `Interface<T>` / `InterfaceAccount<T>` model accepts accounts
+owned by a declared set of programs and dispatches layout reads by owner. Hopper
+matches that with `InterfaceSpec`, `Interface<'info, I>`, and
+`InterfaceAccount<'info, T>`.
+
+`Interface<'info, I>` validates an executable program account against `I::IDS`.
+`InterfaceAccount<'info, T>` validates account owner against
+`T::Interface::IDS`, then reads the remote Hopper layout with the
+cross-program layout loader. That keeps the generic owner-set path explicit,
+zero-copy, and layout-fingerprinted. For SPL Token and Token-2022, Hopper also
+ships the specialized `TokenProgramKind`, `InterfaceTokenAccount`,
+`InterfaceMint`, and `interface_transfer_checked` helpers because those account
+bytes use SPL base layouts rather than Hopper headers.
+
 ## Pinocchio
 
 Pinocchio is a low-level substrate. It gives authors direct control and minimal overhead, but the author owns most invariants. Hopper keeps that control available through explicit systems/raw tiers while making framework-mode safety the default.

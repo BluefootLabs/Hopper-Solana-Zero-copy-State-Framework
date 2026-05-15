@@ -46,14 +46,14 @@ pub struct Multisig {
 #[derive(Accounts)]
 pub struct RenameMultisig<'info> {
     #[account(mut)]
-    pub multisig: hopper::prelude::UncheckedAccount<'info>,
+    pub multisig: hopper::prelude::Account<'info, Multisig>,
     pub authority: hopper::prelude::Signer<'info>,
 }
 
 #[derive(Accounts)]
 pub struct AddSigner<'info> {
     #[account(mut)]
-    pub multisig: hopper::prelude::UncheckedAccount<'info>,
+    pub multisig: hopper::prelude::Account<'info, Multisig>,
     pub authority: hopper::prelude::Signer<'info>,
 }
 
@@ -146,18 +146,6 @@ pub fn add_signer_data(data: &mut [u8], signer: Address) -> ProgramResult {
 
 pub fn remove_signer_data(data: &mut [u8], signer: &Address) -> Result<bool, ProgramError> {
     Multisig::remove_signer(data, signer)
-}
-
-pub fn rename_multisig(multisig: &AccountView, label: &str) -> ProgramResult {
-    multisig.require_writable()?;
-    let mut data = multisig.try_borrow_mut()?;
-    rename_multisig_data(&mut data, label)
-}
-
-pub fn add_signer(multisig: &AccountView, signer: Address) -> ProgramResult {
-    multisig.require_writable()?;
-    let mut data = multisig.try_borrow_mut()?;
-    add_signer_data(&mut data, signer)
 }
 
 #[cfg(test)]

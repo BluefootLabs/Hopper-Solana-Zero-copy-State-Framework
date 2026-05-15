@@ -19,6 +19,51 @@ This is the side-by-side. If you know Anchor, you can port a program in an after
 
 Read that table once. Most mechanical edits are on it.
 
+## Anchor to Hopper in five minutes
+
+Keep the handler shape familiar, then move the state borrow behind an accounts
+method so every instruction reads as `ctx.accounts.*`:
+
+```rust
+use hopper::prelude::*;
+
+#[derive(Clone, Copy)]
+#[repr(C)]
+#[account(discriminator = 1, version = 1)]
+pub struct Vault {
+    pub authority: Address,
+    pub balance: WireU64,
+}
+
+#[derive(Accounts)]
+pub struct Deposit<'info> {
+    #[account(mut, has_one = authority)]
+    pub vault: Account<'info, Vault>,
+    pub authority: Signer<'info>,
+}
+
+impl<'info> Deposit<'info> {
+    pub fn deposit(&self, amount: u64) -> ProgramResult {
+        let mut vault = self.vault.get_mut()?;
+        vault.balance.checked_add_assign(amount)
+    }
+}
+
+#[program]
+mod vault_program {
+    use super::*;
+
+    #[instruction(0)]
+    pub fn deposit(ctx: Ctx<Deposit>, amount: u64) -> ProgramResult {
+        ctx.accounts.deposit(amount)
+    }
+}
+```
+
+That is the whole first port: `AccountLoader` becomes `Account`, `load_mut()`
+becomes `get_mut()`, native integers become wire types, and the public handler
+stays small.
+
 ## Account layouts
 
 Anchor's `#[account(zero_copy)]` forces `#[repr(C)]`, `Pod`, `Zeroable`, and an 8-byte discriminator. Hopper's `#[account]` does the same plus writes a 16-byte Hopper header that carries a layout fingerprint, version byte, and schema epoch. Every Hopper account starts at byte 16 of payload; the discriminator lives in byte 0.
@@ -154,7 +199,7 @@ Hopper ships the same constraints on the zero-copy path. The lowering is a direc
 
 ```rust
 #[derive(Accounts)]
-pub struct Collect {
+pub struct Collect<'info> {
     #[account(
         mut,
         token::mint = mint,
@@ -162,10 +207,10 @@ pub struct Collect {
         extensions::transfer_hook::authority = hook_authority,
         extensions::transfer_hook::program_id = hook_program_id,
     )]
-    pub source: AccountView,
-    pub mint: AccountView,
-    pub hook_authority: AccountView,
-    pub hook_program_id: AccountView,
+    pub source: UncheckedAccount<'info>,
+    pub mint: UncheckedAccount<'info>,
+    pub hook_authority: UncheckedAccount<'info>,
+    pub hook_program_id: UncheckedAccount<'info>,
 }
 ```
 
@@ -183,7 +228,7 @@ Every extension listed in the final zero-copy matrix has an equivalent constrain
 
 1. `init_if_needed` has no Hopper equivalent. The reinitialization-attack surface is wide enough that we chose to make users be explicit. Use `init` plus an explicit branch on the account's existing-account flag if you really need the pattern.
 2. Anchor's `#[derive(Accounts)]` struct-level `validate(&self)` hook is spelled `#[validate]` in Hopper with the same semantic. You opt in at the struct level; the bound context then calls your method after every built-in constraint passes.
-3. Anchor's `InterfaceAccount<T>` polymorphism is replaced by the `token::token_program` / `mint::token_program` constraint overrides and the direct TLV readers. One less wrapper type to reason about.
+3. Anchor's Borsh-backed SPL `InterfaceAccount<T>` path splits in Hopper: use `InterfaceAccount<'info, T>` for Hopper-header layouts owned by a declared program set, and use `TokenProgramKind`, `InterfaceTokenAccount`, `InterfaceMint`, or direct TLV readers for SPL Token and Token-2022 bytes.
 
 ## Checklist for the port
 

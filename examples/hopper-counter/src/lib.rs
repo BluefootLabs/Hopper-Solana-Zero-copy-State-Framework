@@ -33,18 +33,6 @@ pub struct Increment<'info> {
     pub authority: Signer<'info>,
 }
 
-#[cfg(target_os = "solana")]
-hopper::program_entrypoint!(process_instruction);
-
-fn process_instruction(
-    program_id: &Address,
-    accounts: &[AccountView],
-    instruction_data: &[u8],
-) -> ProgramResult {
-    let mut ctx = Context::new(program_id, accounts, instruction_data);
-    counter_program::process_instruction(&mut ctx)
-}
-
 #[program]
 mod counter_program {
     use super::*;
@@ -56,3 +44,5 @@ mod counter_program {
         Ok(())
     }
 }
+
+hopper::program_dispatch!(counter_program);

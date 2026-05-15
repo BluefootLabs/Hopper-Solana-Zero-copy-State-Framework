@@ -148,8 +148,9 @@ pub mod account {
         SegmentedAccount, SignerAccount, ValidateAccount,
     };
     pub use hopper_runtime::{
-        Account, AccountView, HopperSigner as Signer, InitAccount, Program, ProgramId,
-        SystemAccount, SystemId, UncheckedAccount,
+        Account, AccountView, HopperSigner as Signer, InitAccount, Interface, InterfaceAccount,
+        InterfaceAccountLayout, InterfaceSpec, Program, ProgramId, SystemAccount, SystemId,
+        UncheckedAccount,
     };
 
     /// Anchor-style spelling for the System Program marker.
@@ -272,7 +273,10 @@ pub mod migration {
 
 /// Cross-program layout/interface pinning helpers.
 pub mod interface {
-    pub use hopper_runtime::{ForeignLens, ForeignManifest, TransparentAddress};
+    pub use hopper_runtime::{
+        ForeignLens, ForeignManifest, Interface, InterfaceAccount, InterfaceAccountLayout,
+        InterfaceSpec, TransparentAddress,
+    };
     pub use hopper_solana::interface::*;
 }
 
@@ -652,6 +656,38 @@ pub use hopper_runtime::{
     require_lte, require_neq,
 };
 
+/// Generate the small runtime bridge for a `#[program]` module.
+///
+/// This keeps first-touch programs focused on `#[program]`, `Ctx<T>`, and
+/// `ctx.accounts.*` while still emitting the audited Hopper entrypoint under
+/// the hood.
+///
+/// ```ignore
+/// #[program]
+/// mod counter_program {
+///     // handlers
+/// }
+///
+/// hopper::program_dispatch!(counter_program);
+/// ```
+#[macro_export]
+macro_rules! program_dispatch {
+    ($program_mod:ident) => {
+        #[cfg(target_os = "solana")]
+        $crate::program_entrypoint!(__hopper_process_instruction);
+
+        #[doc(hidden)]
+        fn __hopper_process_instruction(
+            program_id: &$crate::__runtime::Address,
+            accounts: &[$crate::__runtime::AccountView],
+            instruction_data: &[u8],
+        ) -> ::core::result::Result<(), $crate::__runtime::ProgramError> {
+            let mut ctx = $crate::prelude::Context::new(program_id, accounts, instruction_data);
+            $program_mod::process_instruction(&mut ctx)
+        }
+    };
+}
+
 // Optional proc macro re-exports (enabled with `proc-macros` feature)
 #[cfg(feature = "proc-macros")]
 pub use hopper_macros_proc::{
@@ -669,9 +705,10 @@ pub mod __runtime {
         read_tail_len, tail_capacity, tail_payload, write_tail, Account, AccountLayout,
         AccountView, Address, BoundedString, BoundedVec, Context, HopperInstructionPolicy,
         HopperProgramPolicy, HopperSigner, HopperString, HopperVec, InitAccount,
-        InstructionAccount, InstructionView, LayoutMigration, MigrationEdge, Pod, Program,
-        ProgramError, ProgramId, Ref, RefMut, SegRef, SegRefMut, SegmentLease, SystemAccount,
-        SystemId, TailCodec, TailElement, UncheckedAccount,
+        InstructionAccount, InstructionView, Interface, InterfaceAccount, InterfaceAccountLayout,
+        InterfaceSpec, LayoutMigration, MigrationEdge, Pod, Program, ProgramError, ProgramId, Ref,
+        RefMut, SegRef, SegRefMut, SegmentLease, SystemAccount, SystemId, TailCodec, TailElement,
+        UncheckedAccount,
     };
 
     // Crank marker type plus dynamic-CPI builder, emitted by

@@ -1,0 +1,5 @@
+error: Use `#[account(mut)] pub vault: Account<'info, Vault>` in Hopper; mutable access is enforced by Hopper account-data guards, not by `&mut` on the wrapper.
+  --> tests/compile_fail/quasar_mut_account_reference.rs:18:16
+   |
+18 |     pub vault: &'info mut Account<'info, Vault>,
+   |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
