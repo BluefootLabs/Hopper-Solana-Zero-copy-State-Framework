@@ -149,8 +149,8 @@ pub mod account {
     };
     pub use hopper_runtime::{
         Account, AccountView, HopperSigner as Signer, InitAccount, Interface, InterfaceAccount,
-        InterfaceAccountLayout, InterfaceSpec, Program, ProgramId, SystemAccount, SystemId,
-        UncheckedAccount,
+        InterfaceAccountLayout, InterfaceAccountResolve, InterfaceSpec, Program, ProgramId,
+        SystemAccount, SystemId, UncheckedAccount,
     };
 
     /// Anchor-style spelling for the System Program marker.
@@ -275,7 +275,7 @@ pub mod migration {
 pub mod interface {
     pub use hopper_runtime::{
         ForeignLens, ForeignManifest, Interface, InterfaceAccount, InterfaceAccountLayout,
-        InterfaceSpec, TransparentAddress,
+        InterfaceAccountResolve, InterfaceSpec, TransparentAddress,
     };
     pub use hopper_solana::interface::*;
 }
@@ -656,6 +656,92 @@ pub use hopper_runtime::{
     require_lte, require_neq,
 };
 
+/// Declare a bounded multi-layout interface account resolver.
+///
+/// Use this when one account slot may hold one of several Hopper-header layouts
+/// owned by the same interface program set, such as a migration reader that
+/// accepts `VaultV1` or `VaultV2`.
+///
+/// ```ignore
+/// hopper::interface_account_set! {
+///     pub struct AnyVaultAccount: VaultPrograms;
+///     pub enum AnyVault {
+///         V1(VaultV1),
+///         V2(VaultV2),
+///     }
+/// }
+/// ```
+#[macro_export]
+macro_rules! interface_account_set {
+    (
+        $(#[$marker_meta:meta])*
+        $vis:vis struct $marker:ident : $interface:ty;
+        $(#[$resolved_meta:meta])*
+        $enum_vis:vis enum $resolved:ident {
+            $($variant:ident($layout:ty)),+ $(,)?
+        }
+    ) => {
+        $(#[$marker_meta])*
+        #[derive(Clone, Copy, Debug, Default)]
+        $vis struct $marker;
+
+        impl $crate::__runtime::FieldMap for $marker {
+            const FIELDS: &'static [$crate::__runtime::FieldInfo] = &[];
+        }
+
+        impl $crate::__runtime::LayoutContract for $marker {
+            const DISC: u8 = 0;
+            const VERSION: u8 = 0;
+            const LAYOUT_ID: [u8; 8] = [0; 8];
+            const SIZE: usize = $crate::__runtime::HopperHeader::SIZE;
+        }
+
+        impl $crate::__runtime::InterfaceAccountLayout for $marker {
+            type Interface = $interface;
+
+            #[inline]
+            fn validate_interface_account(
+                view: &$crate::__runtime::AccountView,
+            ) -> ::core::result::Result<(), $crate::__runtime::ProgramError> {
+                let data = view.try_borrow()?;
+                let info = $crate::__runtime::LayoutInfo::from_data(&data)
+                    .ok_or($crate::__runtime::ProgramError::AccountDataTooSmall)?;
+                if false $(|| info.matches::<$layout>())+ {
+                    Ok(())
+                } else {
+                    Err($crate::__runtime::ProgramError::InvalidAccountData)
+                }
+            }
+        }
+
+        $(#[$resolved_meta])*
+        $enum_vis enum $resolved<'a> {
+            $($variant($crate::__runtime::Ref<'a, $layout>)),+
+        }
+
+        impl $crate::__runtime::InterfaceAccountResolve for $marker {
+            type Resolved<'a> = $resolved<'a>;
+
+            #[inline]
+            fn resolve<'a>(
+                view: &'a $crate::__runtime::AccountView,
+            ) -> ::core::result::Result<Self::Resolved<'a>, $crate::__runtime::ProgramError> {
+                let info = {
+                    let data = view.try_borrow()?;
+                    $crate::__runtime::LayoutInfo::from_data(&data)
+                        .ok_or($crate::__runtime::ProgramError::AccountDataTooSmall)?
+                };
+                $(
+                    if info.matches::<$layout>() {
+                        return Ok($resolved::$variant(view.load_cross_program::<$layout>()?));
+                    }
+                )+
+                Err($crate::__runtime::ProgramError::InvalidAccountData)
+            }
+        }
+    };
+}
+
 /// Generate the small runtime bridge for a `#[program]` module.
 ///
 /// This keeps first-touch programs focused on `#[program]`, `Ctx<T>`, and
@@ -703,12 +789,12 @@ pub mod __runtime {
     pub use hopper_runtime::{
         apply_pending_migrations, borrow_address_slice, borrow_bounded_str, read_tail,
         read_tail_len, tail_capacity, tail_payload, write_tail, Account, AccountLayout,
-        AccountView, Address, BoundedString, BoundedVec, Context, HopperInstructionPolicy,
-        HopperProgramPolicy, HopperSigner, HopperString, HopperVec, InitAccount,
-        InstructionAccount, InstructionView, Interface, InterfaceAccount, InterfaceAccountLayout,
-        InterfaceSpec, LayoutMigration, MigrationEdge, Pod, Program, ProgramError, ProgramId, Ref,
-        RefMut, SegRef, SegRefMut, SegmentLease, SystemAccount, SystemId, TailCodec, TailElement,
-        UncheckedAccount,
+        AccountView, Address, BoundedString, BoundedVec, Context, FieldInfo, FieldMap,
+        HopperHeader, HopperInstructionPolicy, HopperProgramPolicy, HopperSigner, HopperString,
+        HopperVec, InitAccount, InstructionAccount, InstructionView, Interface, InterfaceAccount,
+        InterfaceAccountLayout, InterfaceAccountResolve, InterfaceSpec, LayoutContract, LayoutInfo,
+        LayoutMigration, MigrationEdge, Pod, Program, ProgramError, ProgramId, Ref, RefMut, SegRef,
+        SegRefMut, SegmentLease, SystemAccount, SystemId, TailCodec, TailElement, UncheckedAccount,
     };
 
     // Crank marker type plus dynamic-CPI builder, emitted by

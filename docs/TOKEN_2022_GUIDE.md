@@ -64,7 +64,7 @@ Only one extension lives on the token-account side today. `TransferHookAccount` 
 
 ## The raw TLV reader
 
-For an extension Hopper does not yet have a declarative constraint for, use the reader directly:
+For an extension outside the declarative constraint set, use the reader directly:
 
 ```rust
 use hopper_runtime::token_2022_ext::{
@@ -174,7 +174,7 @@ After the CPIs return, the mint carries the extensions; every `extensions::*` co
 1. Extension constraints fire BEFORE the TLV scan confirms the account is Token-2022. Always pair an `extensions::*` check with a `token::token_program = TOKEN_2022_PROGRAM_ID` or `mint::token_program = TOKEN_2022_PROGRAM_ID` in the same field declaration, or the scan fails with `InvalidAccountData` when the account turns out to be legacy SPL.
 2. `default_account_state` is validated as an integer byte, not as a named enum. Use `0`, `1`, or `2` directly.
 3. A just-extended mint's account-type byte may be `0` instead of `ACCOUNT_TYPE_MINT` (`0x01`). The TLV reader accepts both to keep init sequencing permissive; do not assume the byte is always `0x01` if you are writing a raw scan by hand.
-4. Extensions past the declared list (GroupPointer, GroupMemberPointer, Pausable, ScaledUiAmount, ConfidentialTransfer) have `EXT_*` constants registered but no dedicated `require_*` helper yet. Use `find_extension` plus a byte-level compare.
+4. Extensions past the declared list (GroupPointer, GroupMemberPointer, Pausable, ScaledUiAmount, ConfidentialTransfer) have `EXT_*` constants registered and are available through `find_extension` plus a byte-level compare.
 
 ## Worked example in the repo
 

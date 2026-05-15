@@ -43,17 +43,17 @@ Only coherent standalone products remain public siblings:
 | 1.4 | `hopper-log` crate | ⏳ planned |
 | 1.5 | Static syscalls feature | ✅ feature flag added (`static-syscalls`) |
 | 1.6 | Anza modular SDK 2.x audit | ⏳ planned |
-| 2.1 | Pod arithmetic operator overloads | ✅ shipped on all `Le*` wire types |
-| 2.2 | Wrapping in release / panic in debug | ✅ matches Rust default via direct `+`/`-` |
+| 2.1 | Wire integer arithmetic convenience | ✅ shipped on all `Wire*` integer types (`+`, `-`, `*`, `+=`, `-=`, `*=`) |
+| 2.2 | Wrapping in release / panic in debug | ✅ matches Rust default for direct operators; checked helpers stay explicit |
 | 2.3 | Compile-time discriminator dispatch | ⏳ planned substrate audit item; not part of current release claims |
 | 2.4 | Self-CPI event emission | ⏳ planned |
 | 2.5 | `init_if_needed`, `realloc`, `close` parity | ⏳ planned Anchor-keyword parity audit; current release documents only shipped keywords |
 
 ## Tier 3 - explicitly not porting
 
-- Anchor's `Account<'info, T>` / `Signer<'info>` runtime types verbatim.
-  Hopper's modifier composition (`Signer<Mut<Account<'a, T>>>`) is the
-  canonical surface.
+- Anchor's runtime types verbatim. Hopper's public surface is Hopper-owned:
+  `Account<'info, T>`, `InitAccount<'info, T>`, `Signer<'info>`, and the
+  lower-level modifier composition remain separate layers.
 - Quasar's IDL-by-default. We separate that into `hopper-schema`.
 - Bump allocator on by default. `no_alloc` stays default; heap is opt-in.
 - Pinocchio-style "zero deps" minimalism for the whole framework. We

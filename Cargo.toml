@@ -149,7 +149,7 @@ legacy-token-instructions = [
     "hopper-solana/legacy-token-instructions",
 ]
 
-# â”€â”€ Advanced subsystems (forwarded to hopper-core) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# Advanced subsystems (forwarded to hopper-core)
 advanced = ["hopper-core/advanced"]
 frame = ["hopper-core/frame"]
 receipt = ["hopper-core/receipt"]

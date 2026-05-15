@@ -26,8 +26,8 @@ pub struct FieldDelta<'a> {
 /// Error surface for diff operations.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DiffError {
-    /// `before` and `after` lengths differ; resize deltas require a richer
-    /// diff type (future work. see `DiffWithResize`).
+    /// `before` and `after` lengths differ. This fixed-size diff deliberately
+    /// rejects resize deltas.
     LengthMismatch {
         /// Length of `before`.
         before: usize,
@@ -38,8 +38,8 @@ pub enum DiffError {
     BufferTooShort,
 }
 
-/// Compute a fixed-size diff (no resize). Returns a list of `FieldDelta`s
-///. one per changed field.
+/// Compute a fixed-size diff (no resize). Returns one `FieldDelta` per changed
+/// field.
 ///
 /// # Errors
 /// - `LengthMismatch` if `before.len() != after.len()`.

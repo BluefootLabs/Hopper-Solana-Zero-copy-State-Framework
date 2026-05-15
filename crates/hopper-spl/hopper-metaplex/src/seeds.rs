@@ -78,7 +78,7 @@ pub fn master_edition_pda_with_bump(
     hopper_runtime::pda::create_program_address(&seeds, &MPL_TOKEN_METADATA_PROGRAM_ID)
 }
 
-// Off-chain stubs so the crate compiles in host tests without the
+// Off-chain fallbacks so the crate compiles in host tests without the
 // Solana target's PDA syscalls. Programs targeting on-chain only ever
 // see the `cfg(target_os = "solana")` versions above.
 #[cfg(not(target_os = "solana"))]

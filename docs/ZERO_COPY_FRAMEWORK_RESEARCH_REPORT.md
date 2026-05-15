@@ -908,7 +908,7 @@ pub struct Note<'a> {
 | `SystemAccount` | Owner == `[0u8; 32]` |
 | `Program<T>` | `executable` flag + address == `T::ID` |
 | `Interface<T>` | Address in `T::matches()` set |
-| `InterfaceAccount<T>` | Owner in interface set + discriminator. Supports `resolve()`. |
+| `InterfaceAccount<T>` | Owner in interface set + Hopper layout fingerprint. Concrete layouts use `get()` / `load()`. Bounded multi-layout slots use `interface_account_set!` and `resolve()`. |
 | `Sysvar<T>` | Address == sysvar ID |
 | `Option<T>` | All-zero address → `None` |
 
@@ -939,21 +939,54 @@ pub fn transfer() -> CpiCall<'a, 2, 12> { /* 2 accounts, 12 bytes data */ }
 pub authority_alias: &'info Signer,
 ```
 
-5. **`InterfaceAccount` with `resolve()`**: tagged-union dispatch over accounts owned by different programs:
+5. **Interface account owner sets**: Hopper supports concrete interface-owned
+layouts and bounded multi-layout dispatch. `Interface<'info, I>` validates
+executable program IDs, while `InterfaceAccount<'info, T>` validates the owner
+set and then loads `T` through the cross-program loader:
 ```rust
-// Define interface with multiple owners
-impl ProgramInterface for TokenInterface {
-    fn matches(address: &Address) -> bool {
-        *address == SPL_TOKEN_ID || *address == TOKEN_2022_ID
+pub struct OraclePrograms;
+
+impl InterfaceSpec for OraclePrograms {
+    const IDS: &'static [Address] = &[PYTH_PROGRAM_ID, SWITCHBOARD_PROGRAM_ID];
+}
+
+impl InterfaceAccountLayout for PythPrice {
+    type Interface = OraclePrograms;
+}
+
+#[derive(Accounts)]
+pub struct ReadPyth<'info> {
+    pub oracle_program: Interface<'info, OraclePrograms>,
+    pub oracle: InterfaceAccount<'info, PythPrice>,
+}
+
+let price = ctx.accounts.oracle.get()?;
+```
+
+For a single logical account slot that can hold several Hopper layouts, use a
+generated resolver marker:
+
+```rust
+hopper::interface_account_set! {
+    pub struct AnyOracleAccount: OraclePrograms;
+    pub enum OracleAccountVersion {
+        Pyth(PythPrice),
+        Switchboard(SwitchboardPrice),
     }
 }
 
-// Runtime dispatch: second pointer cast, no re-validation
 match ctx.accounts.oracle.resolve()? {
-    OraclePrice::Pyth(price) => { /* Pyth-specific fields */ }
-    OraclePrice::Switchboard(price) => { /* Switchboard fields */ }
+    OracleAccountVersion::Pyth(price) => {
+        let _ = price.price.get();
+    }
+    OracleAccountVersion::Switchboard(price) => {
+        let _ = price.price.get();
+    }
 }
 ```
+
+The generated marker implements `InterfaceAccountResolve`; validation accepts
+only the listed fingerprints after owner-set membership passes.
 
 6. **Compile-time PDA derivation**:
 ```rust
@@ -1470,7 +1503,7 @@ Based on exhaustive analysis of all 6 frameworks, here are the **top 10 innovati
 
 ### Innovation 4: Zero-Copy Algebraic Types (Tagged Unions / Enums in Account Data)
 
-**Gap**: No framework supports sum types in account data. You can store `TokenAccount` or `Escrow`, but you can't store `enum State { Active(ActiveData), Closed(ClosedData), Disputed(DisputeData) }` as zero-copy. Quasar's `InterfaceAccount::resolve()` is the closest, but it dispatches on account owner, not on data content.
+**Gap**: No framework supports sum types in account data. You can store `TokenAccount` or `Escrow`, but you can't store `enum State { Active(ActiveData), Closed(ClosedData), Disputed(DisputeData) }` as zero-copy. Quasar's interface-account owner dispatch is the closest, but it dispatches on account owner, not on data content.
 
 **Hopper Opportunity**: Zero-copy tagged unions stored in account data. A discriminator sub-field selects which variant layout to interpret. All variants share the same account type, but their data section has different shapes.
 

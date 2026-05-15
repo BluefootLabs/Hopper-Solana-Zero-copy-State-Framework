@@ -137,7 +137,7 @@ mod counter_program {
     }
 }
 
-    hopper::program_dispatch!(counter_program);
+hopper::program_dispatch!(counter_program);
 ```
 
 Initialization uses the same surface. After `ctx.init_vault()?`, mutate the

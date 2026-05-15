@@ -6,9 +6,8 @@
 //! - A `NAME` static string for IDL emission
 //! - A `SEGMENT_SOURCE` optional byte: the segment index whose mutation
 //!   triggered the event (Hopper can preserve segment lineage for indexers).
-//! - An `emit(&self) -> EventHandle` stub that serializes the event with its
-//!   1-byte tag prefix in the framework's log emission format. If a program
-//!   hasn't imported `hopper-core` at the call site, `emit` is elided.
+//! - A borrowed `as_bytes(&self)` helper. Event log and self-CPI emitters
+//!   prepend the stable 1-byte tag at the call site.
 //!
 //! ## Design notes
 //!

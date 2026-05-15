@@ -24,11 +24,12 @@
 //!
 //! ## Out of scope for this pass
 //!
-//! - Priority-fee attachment. Caller can pass `--priority-fee` but
-//!   the fee lands on a standard `ComputeBudget::SetComputeUnitPrice`
-//!   pre-instruction; multi-instruction bundles are future work.
-//! - Simulation round-trip. The command submits on request; dry-run
-//!   support is trivial to add and logs a TODO here for a follow-up.
+//! - Priority-fee attachment. Caller can pass `--priority-fee`; the
+//!   command prefixes the transaction with
+//!   `ComputeBudget::SetComputeUnitPrice`.
+//! - Simulation round-trip. `--dry-run` builds the transaction,
+//!   simulates it, and prints logs plus consumed units without
+//!   submitting.
 //! - Crank leader election. Running the loop from two machines
 //!   against the same program is the user's call; we do no locking.
 

@@ -1,6 +1,6 @@
 //! Alignment-1 little-endian integer wire types.
 
-use core::fmt;
+use core::{fmt, ops};
 
 /// Generate a little-endian wire integer type.
 ///
@@ -145,6 +145,102 @@ macro_rules! wire_int {
             }
         }
 
+        impl ops::Add<$native> for $name {
+            type Output = Self;
+
+            #[inline(always)]
+            fn add(self, rhs: $native) -> Self::Output {
+                Self::new(self.get() + rhs)
+            }
+        }
+
+        impl ops::Add<Self> for $name {
+            type Output = Self;
+
+            #[inline(always)]
+            fn add(self, rhs: Self) -> Self::Output {
+                Self::new(self.get() + rhs.get())
+            }
+        }
+
+        impl ops::AddAssign<$native> for $name {
+            #[inline(always)]
+            fn add_assign(&mut self, rhs: $native) {
+                self.set(self.get() + rhs);
+            }
+        }
+
+        impl ops::AddAssign<Self> for $name {
+            #[inline(always)]
+            fn add_assign(&mut self, rhs: Self) {
+                self.set(self.get() + rhs.get());
+            }
+        }
+
+        impl ops::Sub<$native> for $name {
+            type Output = Self;
+
+            #[inline(always)]
+            fn sub(self, rhs: $native) -> Self::Output {
+                Self::new(self.get() - rhs)
+            }
+        }
+
+        impl ops::Sub<Self> for $name {
+            type Output = Self;
+
+            #[inline(always)]
+            fn sub(self, rhs: Self) -> Self::Output {
+                Self::new(self.get() - rhs.get())
+            }
+        }
+
+        impl ops::SubAssign<$native> for $name {
+            #[inline(always)]
+            fn sub_assign(&mut self, rhs: $native) {
+                self.set(self.get() - rhs);
+            }
+        }
+
+        impl ops::SubAssign<Self> for $name {
+            #[inline(always)]
+            fn sub_assign(&mut self, rhs: Self) {
+                self.set(self.get() - rhs.get());
+            }
+        }
+
+        impl ops::Mul<$native> for $name {
+            type Output = Self;
+
+            #[inline(always)]
+            fn mul(self, rhs: $native) -> Self::Output {
+                Self::new(self.get() * rhs)
+            }
+        }
+
+        impl ops::Mul<Self> for $name {
+            type Output = Self;
+
+            #[inline(always)]
+            fn mul(self, rhs: Self) -> Self::Output {
+                Self::new(self.get() * rhs.get())
+            }
+        }
+
+        impl ops::MulAssign<$native> for $name {
+            #[inline(always)]
+            fn mul_assign(&mut self, rhs: $native) {
+                self.set(self.get() * rhs);
+            }
+        }
+
+        impl ops::MulAssign<Self> for $name {
+            #[inline(always)]
+            fn mul_assign(&mut self, rhs: Self) {
+                self.set(self.get() * rhs.get());
+            }
+        }
+
         impl PartialOrd for $name {
             #[inline(always)]
             fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
@@ -267,6 +363,32 @@ mod tests {
         assert_eq!(w.get(), 12);
         w.checked_mul_assign(2).unwrap();
         assert_eq!(w.get(), 24);
+    }
+
+    #[test]
+    fn wire_u64_assignment_operators_accept_native_rhs() {
+        let mut w = WireU64::new(10);
+        w += 5;
+        assert_eq!(w.get(), 15);
+        w -= 3;
+        assert_eq!(w.get(), 12);
+        w *= 2;
+        assert_eq!(w.get(), 24);
+
+        assert_eq!((w + 1).get(), 25);
+        assert_eq!((w - 4).get(), 20);
+        assert_eq!((w * 3).get(), 72);
+    }
+
+    #[test]
+    fn wire_assignment_operators_accept_wire_rhs() {
+        let mut w = WireI64::new(10);
+        w += WireI64::new(-3);
+        assert_eq!(w.get(), 7);
+        w -= WireI64::new(2);
+        assert_eq!(w.get(), 5);
+        w *= WireI64::new(-2);
+        assert_eq!(w.get(), -10);
     }
 
     #[test]

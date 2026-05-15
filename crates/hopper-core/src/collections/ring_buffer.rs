@@ -42,7 +42,7 @@ impl<'a, T: Pod + FixedLayout> RingBuffer<'a, T> {
         (self.data.len() - RING_HEADER) / T::SIZE
     }
 
-    /// Current number of elements (may be less than capacity if not yet full).
+    /// Current number of elements. May be less than capacity before wraparound.
     #[inline(always)]
     pub fn count(&self) -> usize {
         let bytes = [self.data[4], self.data[5], self.data[6], self.data[7]];

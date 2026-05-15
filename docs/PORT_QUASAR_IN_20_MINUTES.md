@@ -16,6 +16,23 @@ Handlers that only touch fixed fields never decode the tail. Handlers that need
 metadata use generated borrowed views or an owned editor/writeback helper,
 making the dynamic path easy to audit.
 
+## Porting Map
+
+Use the Hopper framework wrappers for the first pass, then drop to systems/raw
+access only when the program has a measured reason.
+
+| Quasar concept | Hopper equivalent |
+| --- | --- |
+| `Account<T>` | `Account<'info, T>` |
+| `Signer` | `Signer<'info>` |
+| `Program<T>` | `Program<'info, T>` |
+| `Interface<T>` | `Interface<'info, T>` |
+| `InterfaceAccount<T>` | `InterfaceAccount<'info, T>` for Hopper-header layouts owned by a declared program set |
+| `set_inner()` | generated `set_inner(...)` |
+| `String<'a, N>` | `#[tail(string<N>)]` |
+| `Vec<'a, T, N>` | `#[tail(vec<T, N>)]` where `T: TailElement` |
+| `ctx.bumps.foo` | `ctx.bumps.foo` |
+
 ## Fixed Vault
 
 Start with the fixed state that should remain segment-borrowable:
@@ -180,7 +197,39 @@ impl<'info> ReadRemoteVault<'info> {
 `Interface<'info, I>` verifies the executable program account is one of
 `I::IDS`. `InterfaceAccount<'info, T>` verifies the account owner is in
 `T::Interface::IDS` and then validates the Hopper layout header with the
-cross-program loader. Token and Token-2022 still use the specialized
+cross-program loader.
+
+When a single logical slot can contain one of several Hopper layouts, declare a
+bounded resolver and call `resolve()` in the handler:
+
+```rust
+hopper::interface_account_set! {
+    pub struct AnyRemoteVault: VaultPrograms;
+    pub enum RemoteVaultVersion {
+        V1(RemoteVaultV1),
+        V2(RemoteVaultV2),
+    }
+}
+
+#[derive(Accounts)]
+pub struct ReadAnyRemoteVault<'info> {
+    pub remote_vault: InterfaceAccount<'info, AnyRemoteVault>,
+}
+
+match ctx.accounts.remote_vault.resolve()? {
+    RemoteVaultVersion::V1(vault) => {
+        let _balance = vault.balance.get();
+    }
+    RemoteVaultVersion::V2(vault) => {
+        let _balance = vault.balance.get();
+    }
+}
+```
+
+The generated marker validates owner membership first, then matches only the
+listed layout fingerprints before returning a borrowed enum variant. Use
+`is::<RemoteVaultV2>()` or `get_as::<RemoteVaultV2>()` when you only need a
+targeted branch. Token and Token-2022 still use the specialized
 `TokenProgramKind`, `InterfaceTokenAccount`, `InterfaceMint`, and
 `interface_transfer_checked` helpers because SPL base layouts are not Hopper
 header layouts.

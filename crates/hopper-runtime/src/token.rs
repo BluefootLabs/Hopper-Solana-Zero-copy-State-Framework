@@ -264,8 +264,8 @@ pub fn require_mint_freeze_authority(
 /// program validates and is the Hopper-preferred path.
 ///
 /// This builder remains available for programs interoperating with
-/// pre-Token-2022 deployments where the checked variant is not yet
-/// universal, but new code should use `TransferChecked`.
+/// pre-Token-2022 deployments that only expose the plain transfer path, but
+/// new code should use `TransferChecked`.
 #[deprecated(
     since = "0.2.0",
     note = "use TransferChecked for Token-2022 safety (mint + decimals validation)"

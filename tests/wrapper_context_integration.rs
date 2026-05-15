@@ -80,12 +80,14 @@ fn unchecked_and_system_wrappers_are_zero_cost() {
 fn prelude_exports_memo_and_token_interface_helpers() {
     use hopper::prelude::{
         interface_transfer_checked, HopperString, HopperVec, Interface as PreludeInterface,
-        InterfaceAccount as PreludeInterfaceAccount, InterfaceMint, InterfaceTokenAccount, Memo,
-        TailCodec, TailElement, TokenProgramKind, MAX_MEMO_SIGNERS, MEMO_PROGRAM_ID,
+        InterfaceAccount as PreludeInterfaceAccount, InterfaceAccountResolve as PreludeResolve,
+        InterfaceMint, InterfaceTokenAccount, Memo, TailCodec, TailElement, TokenProgramKind,
+        MAX_MEMO_SIGNERS, MEMO_PROGRAM_ID,
     };
 
     fn assert_prelude_interface_spec<T: hopper::prelude::InterfaceSpec>() {}
     fn assert_prelude_interface_layout<T: hopper::prelude::InterfaceAccountLayout>() {}
+    fn assert_prelude_interface_resolve<T: PreludeResolve>() {}
 
     fn assert_tail_element<T: TailElement>() {}
 
@@ -121,6 +123,7 @@ fn prelude_exports_memo_and_token_interface_helpers() {
     );
     assert_prelude_interface_spec::<VaultInterface>();
     assert_prelude_interface_layout::<TinyLayout>();
+    assert_prelude_interface_resolve::<AnyTinyLayout>();
     assert!(core::mem::size_of::<Memo<'static, 'static, 'static>>() > 0);
 }
 
@@ -163,6 +166,21 @@ mod hero_program {
         let _layout = ctx.accounts.remote_vault.get()?;
         Ok(())
     }
+
+    #[instruction(2)]
+    pub fn read_any_interface(
+        ctx: hopper::prelude::Ctx<ReadAnyInterface>,
+    ) -> hopper::prelude::ProgramResult {
+        match ctx.accounts.remote_vault.resolve()? {
+            AnyTiny::Current(layout) => {
+                let _ = layout.v.get();
+            }
+            AnyTiny::Next(layout) => {
+                let _ = layout.v.get();
+            }
+        }
+        Ok(())
+    }
 }
 
 #[derive(hopper::Accounts)]
@@ -178,6 +196,11 @@ pub struct ReadInterface<'info> {
     pub remote_vault: hopper::prelude::InterfaceAccount<'info, TinyLayout>,
 }
 
+#[derive(hopper::Accounts)]
+pub struct ReadAnyInterface<'info> {
+    pub remote_vault: hopper::prelude::InterfaceAccount<'info, AnyTinyLayout>,
+}
+
 // A minimal layout type used to satisfy the `T: LayoutContract`
 // bound on `Account<'info, T>` / `InitAccount<'info, T>`.
 #[derive(Copy, Clone)]
@@ -185,6 +208,21 @@ pub struct ReadInterface<'info> {
 #[repr(C)]
 pub struct TinyLayout {
     pub v: hopper::prelude::WireU64,
+}
+
+#[derive(Copy, Clone)]
+#[hopper::state(discriminator = 13, version = 2)]
+#[repr(C)]
+pub struct TinyLayoutV2 {
+    pub v: hopper::prelude::WireU64,
+}
+
+hopper::interface_account_set! {
+    pub struct AnyTinyLayout: VaultInterface;
+    pub enum AnyTiny {
+        Current(TinyLayout),
+        Next(TinyLayoutV2),
+    }
 }
 
 const VAULT_PROGRAM_A: hopper::__runtime::Address =
@@ -199,5 +237,9 @@ impl InterfaceSpec for VaultInterface {
 }
 
 impl InterfaceAccountLayout for TinyLayout {
+    type Interface = VaultInterface;
+}
+
+impl InterfaceAccountLayout for TinyLayoutV2 {
     type Interface = VaultInterface;
 }

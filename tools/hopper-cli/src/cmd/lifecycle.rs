@@ -1313,13 +1313,13 @@ pub fn add_signer_data(data: &mut [u8], signer: Address) -> ProgramResult {
 
 fn render_readme(crate_name: &str, template: Template) -> String {
     format!(
-        "# {crate_name}\n\nGenerated with `hopper init` (template: `{}`). Hopper-native by default, proc-macro authoring path enabled.\n\nDocs: <https://hopperzero.dev>\n\n## Verify\n\n```bash\nhopper build --host    # host typecheck\nhopper test\nhopper build           # SBF build\n```\n\n## Project config\n\nSee `Hopper.toml` for the declarative project configuration\n(toolchain, testing framework, default backend).\n\n## Benchmark stub\n\n`hopper profile bench` runs the framework primitive lab. Add scenario-specific benchmarks under `bench/`.\n",
+        "# {crate_name}\n\nGenerated with `hopper init` (template: `{}`). Hopper-native by default, proc-macro authoring path enabled.\n\nDocs: <https://hopperzero.dev>\n\n## Verify\n\n```bash\nhopper build --host    # host typecheck\nhopper test\nhopper build           # SBF build\n```\n\n## Project config\n\nSee `Hopper.toml` for the declarative project configuration\n(toolchain, testing framework, default backend).\n\n## Benchmarks\n\n`hopper profile bench` runs the framework primitive lab. Add scenario-specific benchmarks under `bench/`.\n",
         template.name()
     )
 }
 
 fn render_bench_readme() -> String {
-    "# Benchmark Stub\n\nThis directory is reserved for scenario-specific benchmarks once the program has real instruction flows worth profiling. Hopper's framework-wide primitive lab is available through `hopper profile bench`.\n".to_string()
+    "# Benchmarks\n\nThis directory is reserved for scenario-specific benchmarks once the program has real instruction flows worth profiling. Hopper's framework-wide primitive lab is available through `hopper profile bench`.\n".to_string()
 }
 
 fn render_lib_rs_nft_mint() -> String {

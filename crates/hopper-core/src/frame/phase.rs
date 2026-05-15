@@ -24,7 +24,7 @@ use hopper_runtime::{error::ProgramError, AccountView, Address, ProgramResult, R
 
 // -- Phase Marker Types (zero-sized, compile-time only) --------------
 
-/// Phase: accounts not yet resolved.
+/// Phase: accounts pending resolution.
 pub struct Unresolved;
 /// Phase: accounts resolved and typed.
 pub struct Resolved;

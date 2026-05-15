@@ -37,9 +37,9 @@ use crate::ProgramResult;
 /// `schema_epoch` defaults to `1` at account initialisation via
 /// [`init_header`]. Programs that publish a migration bump this
 /// field to advertise the new shape while retaining the same
-/// `disc`/`version`; on-chain manifests (future work) pin the
-/// `(disc, version, schema_epoch, layout_id)` tuple so clients can
-/// verify they're reading the expected wire format.
+/// `disc`/`version`; manifests and generated clients pin the
+/// `(disc, version, schema_epoch, layout_id)` tuple so readers can
+/// verify they are decoding the expected wire format.
 #[repr(C, packed)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct HopperHeader {

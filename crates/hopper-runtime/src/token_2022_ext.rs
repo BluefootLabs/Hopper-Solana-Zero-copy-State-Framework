@@ -158,8 +158,8 @@ pub fn find_extension<'a>(tlv_bytes: &'a [u8], ext_type: u16) -> Option<&'a [u8]
 ///    header offset (`> TLV_OFFSET`, i.e. >= 166).
 /// 2. The `AccountType` discriminator at [`ACCOUNT_TYPE_OFFSET`]
 ///    is either [`ACCOUNT_TYPE_MINT`] (0x01) or `0x00`. We accept
-///    `0x00` for a just-reallocated mint that the Token-2022 program
-///    has not yet stamped; every subsequent extension initializer
+///    `0x00` for a just-reallocated mint before the Token-2022 program
+///    stamps its account type; every subsequent extension initializer
 ///    writes the correct byte, and the TLV scanner tolerates an
 ///    all-zero region by hitting `EXT_UNINITIALIZED` on the first
 ///    header read. This matches `spl-token-2022`'s permissive init

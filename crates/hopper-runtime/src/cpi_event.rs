@@ -127,9 +127,9 @@ pub fn invoke_event_cpi(
     {
         let _ = (program_id, event_authority, data, authority_seeds);
         // Off-chain or under a non-native backend: the self-CPI path
-        // is a no-op so host-side tests do not balloon into a CPI
-        // stub. Returning Ok keeps the handler happy; tests should
-        // assert on the encoded bytes via encode_event_cpi instead.
+        // is a no-op so host-side tests do not need a CPI runtime.
+        // Returning Ok keeps the handler happy; tests should assert
+        // on the encoded bytes via encode_event_cpi instead.
         Ok(())
     }
 }

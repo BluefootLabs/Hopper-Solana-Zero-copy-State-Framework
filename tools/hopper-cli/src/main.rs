@@ -2694,7 +2694,7 @@ fn cmd_explain(args: &[String]) {
     let zero_body = data[16..].iter().all(|&b| b == 0);
     if zero_body && data.len() > 16 {
         println!("Note: the body is entirely zeroed. This account may be freshly");
-        println!("initialized or not yet written to.");
+        println!("initialized and still zeroed.");
         println!();
     }
 

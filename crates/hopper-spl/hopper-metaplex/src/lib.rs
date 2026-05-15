@@ -2,12 +2,11 @@
 //!
 //! Hopper-owned builder surface for Metaplex Token Metadata. Powers the
 //! `metadata::*` and `master_edition::*` field keywords on
-//! `#[hopper::context]` and the `examples/hopper-nft-mint` reference
+//! `#[derive(Accounts)]` contexts and the `examples/hopper-nft-mint` reference
 //! program.
 //!
-//! Closes the Quasar-parity gap flagged in [`AUDIT.md`](../../../AUDIT.md)
-//! ("Quasar has Metaplex sugar, Hopper doesn't"). The keywords now have a
-//! working CPI lowering instead of being parser-only stubs.
+//! The keywords have working CPI lowering, so the accounts struct can own the
+//! Metaplex ceremony instead of pushing it into handwritten handler code.
 //!
 //! ## What this crate ships
 //!
@@ -21,7 +20,7 @@
 //!   calls every NFT-mint program reaches for: `CreateMetadataAccountV3`,
 //!   `CreateMasterEditionV3`, `UpdateMetadataAccountV2`.
 //!
-//! ## What it deliberately does not ship (yet)
+//! ## Scope
 //!
 //! Newer Metaplex flows (Bubblegum compressed NFTs, the
 //! `pNFT` programmable-NFT lifecycle, edition prints, collection

@@ -18,6 +18,24 @@ If you have a Quasar program, the mechanical port is smaller than the Anchor por
 | bounded dynamic fields | `#[hopper::dynamic_account]` or explicit `#[hopper::state(dynamic_tail = T)]` |
 | `QuasarError::RemainingAccountDuplicate` | `hopper_runtime::remaining::RemainingError::DuplicateAccount` |
 
+## First-touch equivalence table
+
+Keep the port on Hopper's framework surface first. The lower-level
+raw-account and systems APIs are still available for audited escape hatches,
+but they should not be the starting point for a Quasar migration.
+
+| Quasar concept | Hopper equivalent |
+| --- | --- |
+| `Account<T>` | `Account<'info, T>` |
+| `Signer` | `Signer<'info>` |
+| `Program<T>` | `Program<'info, T>` |
+| `Interface<T>` | `Interface<'info, T>` |
+| `InterfaceAccount<T>` | `InterfaceAccount<'info, T>` for Hopper-header layouts owned by a declared program set |
+| `set_inner()` | generated `set_inner(...)` |
+| `String<'a, N>` | `#[tail(string<N>)]` |
+| `Vec<'a, T, N>` | `#[tail(vec<T, N>)]` where `T: TailElement` |
+| `ctx.bumps.foo` | `ctx.bumps.foo` |
+
 ## Account layouts
 
 Same shape, different top-level macro.
@@ -113,6 +131,77 @@ The discriminator syntax is identical. Hopper also accepts the short `#[instruct
 Quasar's `ctx.accounts.vault.load_mut()?` becomes Hopper's `ctx.accounts.vault.get_mut()?` for the same full-struct zero-copy borrow. Hopper also emits segment-level accessors such as `ctx.vault_balance_mut()?` for systems-mode code that wants disjoint field borrows.
 
 Both surfaces coexist on the bound context.
+
+Hopper wire integers also support direct arithmetic operators and assignment
+operators with native or wire RHS values. Safety-first code should keep using
+`checked_add_assign`, `checked_sub_assign`, and `checked_mul_assign`; direct
+operators follow normal Rust integer behavior, including wrapping in release
+builds and overflow panics in debug builds.
+
+## Interface accounts
+
+For Quasar-style multi-owner protocols, declare the accepted program set once
+and bind remote Hopper layouts through `InterfaceAccount<'info, T>`:
+
+```rust
+pub struct VaultPrograms;
+
+impl InterfaceSpec for VaultPrograms {
+    const IDS: &'static [Address] = &[VAULT_PROGRAM_A, VAULT_PROGRAM_B];
+}
+
+impl InterfaceAccountLayout for RemoteVault {
+    type Interface = VaultPrograms;
+}
+
+#[derive(Accounts)]
+pub struct ReadRemoteVault<'info> {
+    pub vault_program: Interface<'info, VaultPrograms>,
+    pub remote_vault: InterfaceAccount<'info, RemoteVault>,
+}
+
+impl<'info> ReadRemoteVault<'info> {
+    pub fn read_balance(&self) -> Result<u64> {
+        Ok(self.remote_vault.get()?.balance.get())
+    }
+}
+```
+
+`Interface<'info, I>` checks that the program account is executable and its key
+is in `I::IDS`. `InterfaceAccount<'info, T>` checks that the account owner is
+in `T::Interface::IDS`, then validates and loads `T` through the cross-program
+Hopper layout loader.
+
+For one account slot that can hold several Hopper layouts, generate a bounded
+resolver and use `resolve()`:
+
+```rust
+hopper::interface_account_set! {
+    pub struct AnyRemoteVault: VaultPrograms;
+    pub enum RemoteVaultVersion {
+        V1(RemoteVaultV1),
+        V2(RemoteVaultV2),
+    }
+}
+
+#[derive(Accounts)]
+pub struct ReadAnyRemoteVault<'info> {
+    pub remote_vault: InterfaceAccount<'info, AnyRemoteVault>,
+}
+
+match ctx.accounts.remote_vault.resolve()? {
+    RemoteVaultVersion::V1(vault) => {
+        let _balance = vault.balance.get();
+    }
+    RemoteVaultVersion::V2(vault) => {
+        let _balance = vault.balance.get();
+    }
+}
+```
+
+The generated marker validates the owner set and accepts only the listed layout
+fingerprints. `is::<T>()` and `get_as::<T>()` are available for targeted reads
+within the same interface set.
 
 ## Instruction args
 

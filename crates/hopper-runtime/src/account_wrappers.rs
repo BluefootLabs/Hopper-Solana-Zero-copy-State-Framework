@@ -461,6 +461,37 @@ pub trait InterfaceSpec: 'static {
 pub trait InterfaceAccountLayout: crate::layout::LayoutContract {
     /// The owner/program set accepted for this layout.
     type Interface: InterfaceSpec;
+
+    /// Validate this interface account's bytes after owner-set validation.
+    ///
+    /// Concrete Hopper layouts keep the default: validate and borrow through
+    /// the cross-program loader, which checks discriminator, layout id, and
+    /// size without requiring the owner to be the executing program. Marker
+    /// interface layouts can override this to accept a bounded set of concrete
+    /// layout variants while still using the same `InterfaceAccount` wrapper.
+    #[inline]
+    fn validate_interface_account(view: &AccountView) -> Result<(), crate::error::ProgramError> {
+        let _ = view.load_cross_program::<Self>()?;
+        Ok(())
+    }
+}
+
+/// Runtime resolver for marker interface account layouts.
+///
+/// Implement this for an `InterfaceAccountLayout` marker when one account slot
+/// may legally hold several concrete Hopper layouts, for example a migration
+/// reader that accepts `VaultV1` or `VaultV2`. The marker's
+/// `validate_interface_account` should accept exactly the same variants that
+/// `resolve` can return.
+pub trait InterfaceAccountResolve: InterfaceAccountLayout {
+    /// Borrowed resolved view returned by [`InterfaceAccount::resolve`].
+    type Resolved<'a>
+    where
+        Self: 'a;
+
+    /// Resolve the account bytes to a concrete borrowed variant.
+    fn resolve<'a>(view: &'a AccountView)
+        -> Result<Self::Resolved<'a>, crate::error::ProgramError>;
 }
 
 /// Executable program account whose key is one of an interface's program IDs.
@@ -569,7 +600,7 @@ impl<'info, T: InterfaceAccountLayout> InterfaceAccount<'info, T> {
         if !<T::Interface as InterfaceSpec>::contains(&owner) {
             return Err(crate::error::ProgramError::IncorrectProgramId);
         }
-        let _ = view.load_cross_program::<T>()?;
+        T::validate_interface_account(view)?;
         Ok(Self {
             inner: view,
             _ty: PhantomData,
@@ -604,6 +635,50 @@ impl<'info, T: InterfaceAccountLayout> InterfaceAccount<'info, T> {
     #[inline(always)]
     pub fn get(&self) -> Result<crate::borrow::Ref<'_, T>, crate::error::ProgramError> {
         self.load()
+    }
+
+    /// Borrow the account as another concrete layout in the same interface set.
+    ///
+    /// This is useful for marker interface accounts whose validation accepts a
+    /// bounded set of compatible layouts. The associated-type equality keeps a
+    /// caller from accidentally loading a layout governed by a different owner
+    /// set.
+    #[inline(always)]
+    pub fn load_as<U>(&self) -> Result<crate::borrow::Ref<'_, U>, crate::error::ProgramError>
+    where
+        U: InterfaceAccountLayout<Interface = <T as InterfaceAccountLayout>::Interface>,
+    {
+        self.inner.load_cross_program::<U>()
+    }
+
+    /// Friendly alias for [`Self::load_as`].
+    #[inline(always)]
+    pub fn get_as<U>(&self) -> Result<crate::borrow::Ref<'_, U>, crate::error::ProgramError>
+    where
+        U: InterfaceAccountLayout<Interface = <T as InterfaceAccountLayout>::Interface>,
+    {
+        self.load_as::<U>()
+    }
+
+    /// Whether the current bytes match another concrete layout in the same
+    /// interface set.
+    #[inline(always)]
+    pub fn is<U>(&self) -> bool
+    where
+        U: InterfaceAccountLayout<Interface = <T as InterfaceAccountLayout>::Interface>,
+    {
+        self.inner
+            .layout_info()
+            .is_some_and(|info| info.matches::<U>())
+    }
+
+    /// Resolve a marker interface account to one of its concrete variants.
+    #[inline(always)]
+    pub fn resolve(&self) -> Result<T::Resolved<'_>, crate::error::ProgramError>
+    where
+        T: InterfaceAccountResolve,
+    {
+        T::resolve(self.inner)
     }
 }
 
@@ -651,5 +726,215 @@ mod tests {
     fn system_program_id_is_all_zero() {
         let sys = SystemId::ID;
         assert_eq!(sys.as_array(), &[0u8; 32]);
+    }
+}
+
+#[cfg(all(test, feature = "hopper-native-backend"))]
+mod resolver_tests {
+    use super::*;
+    use crate::layout::{HopperHeader, LayoutContract};
+
+    use hopper_native::{
+        AccountView as NativeAccountView, Address as NativeAddress, RuntimeAccount, NOT_BORROWED,
+    };
+
+    const PROGRAM_A: Address = Address::new_from_array([0xA1; 32]);
+    const PROGRAM_B: Address = Address::new_from_array([0xB2; 32]);
+    const OTHER_PROGRAM: Address = Address::new_from_array([0xCC; 32]);
+
+    struct VaultPrograms;
+    impl InterfaceSpec for VaultPrograms {
+        const IDS: &'static [Address] = &[PROGRAM_A, PROGRAM_B];
+    }
+
+    #[repr(C)]
+    #[derive(Clone, Copy, Debug, Default)]
+    struct VaultV1 {
+        balance: u64,
+    }
+
+    impl crate::field_map::FieldMap for VaultV1 {
+        const FIELDS: &'static [crate::field_map::FieldInfo] = &[crate::field_map::FieldInfo::new(
+            "balance",
+            HopperHeader::SIZE,
+            8,
+        )];
+    }
+
+    impl LayoutContract for VaultV1 {
+        const DISC: u8 = 11;
+        const VERSION: u8 = 1;
+        const LAYOUT_ID: [u8; 8] = [0x11; 8];
+        const SIZE: usize = HopperHeader::SIZE + core::mem::size_of::<Self>();
+    }
+
+    impl InterfaceAccountLayout for VaultV1 {
+        type Interface = VaultPrograms;
+    }
+
+    #[repr(C)]
+    #[derive(Clone, Copy, Debug, Default)]
+    struct VaultV2 {
+        balance: u64,
+        bump: u64,
+    }
+
+    impl crate::field_map::FieldMap for VaultV2 {
+        const FIELDS: &'static [crate::field_map::FieldInfo] = &[
+            crate::field_map::FieldInfo::new("balance", HopperHeader::SIZE, 8),
+            crate::field_map::FieldInfo::new("bump", HopperHeader::SIZE + 8, 8),
+        ];
+    }
+
+    impl LayoutContract for VaultV2 {
+        const DISC: u8 = 12;
+        const VERSION: u8 = 2;
+        const LAYOUT_ID: [u8; 8] = [0x22; 8];
+        const SIZE: usize = HopperHeader::SIZE + core::mem::size_of::<Self>();
+    }
+
+    impl InterfaceAccountLayout for VaultV2 {
+        type Interface = VaultPrograms;
+    }
+
+    #[derive(Clone, Copy, Debug, Default)]
+    struct AnyVault;
+
+    impl crate::field_map::FieldMap for AnyVault {
+        const FIELDS: &'static [crate::field_map::FieldInfo] = &[];
+    }
+
+    impl LayoutContract for AnyVault {
+        const DISC: u8 = 0;
+        const VERSION: u8 = 0;
+        const LAYOUT_ID: [u8; 8] = [0; 8];
+        const SIZE: usize = HopperHeader::SIZE;
+    }
+
+    impl InterfaceAccountLayout for AnyVault {
+        type Interface = VaultPrograms;
+
+        fn validate_interface_account(
+            view: &AccountView,
+        ) -> Result<(), crate::error::ProgramError> {
+            let data = view.try_borrow()?;
+            if VaultV1::validate_header(&data).is_ok() || VaultV2::validate_header(&data).is_ok() {
+                Ok(())
+            } else {
+                Err(crate::error::ProgramError::InvalidAccountData)
+            }
+        }
+    }
+
+    enum ResolvedVault<'a> {
+        V1(crate::borrow::Ref<'a, VaultV1>),
+        V2(crate::borrow::Ref<'a, VaultV2>),
+    }
+
+    impl InterfaceAccountResolve for AnyVault {
+        type Resolved<'a> = ResolvedVault<'a>;
+
+        fn resolve<'a>(
+            view: &'a AccountView,
+        ) -> Result<Self::Resolved<'a>, crate::error::ProgramError> {
+            let info = view
+                .layout_info()
+                .ok_or(crate::error::ProgramError::AccountDataTooSmall)?;
+            if info.matches::<VaultV1>() {
+                return Ok(ResolvedVault::V1(view.load_cross_program::<VaultV1>()?));
+            }
+            if info.matches::<VaultV2>() {
+                return Ok(ResolvedVault::V2(view.load_cross_program::<VaultV2>()?));
+            }
+            Err(crate::error::ProgramError::InvalidAccountData)
+        }
+    }
+
+    fn make_account(total_data_len: usize, owner: Address) -> (std::vec::Vec<u8>, AccountView) {
+        let mut backing = std::vec![0u8; RuntimeAccount::SIZE + total_data_len];
+        let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
+        unsafe {
+            raw.write(RuntimeAccount {
+                borrow_state: NOT_BORROWED,
+                is_signer: 1,
+                is_writable: 1,
+                executable: 0,
+                resize_delta: 0,
+                address: NativeAddress::new_from_array([0x44; 32]),
+                owner: NativeAddress::new_from_array(*owner.as_array()),
+                lamports: 42,
+                data_len: total_data_len as u64,
+            });
+        }
+        let backend = unsafe { NativeAccountView::new_unchecked(raw) };
+        (backing, AccountView::from_backend(backend))
+    }
+
+    #[test]
+    fn interface_account_resolves_bounded_layout_variants() {
+        let (_v1_backing, v1_account) = make_account(VaultV1::SIZE, PROGRAM_B);
+        {
+            let mut data = v1_account.try_borrow_mut().unwrap();
+            crate::layout::init_header::<VaultV1>(&mut data).unwrap();
+            data[HopperHeader::SIZE..HopperHeader::SIZE + 8].copy_from_slice(&300u64.to_le_bytes());
+        }
+
+        let v1_vault = InterfaceAccount::<AnyVault>::try_new(&v1_account).unwrap();
+        match v1_vault.resolve().unwrap() {
+            ResolvedVault::V1(v1) => {
+                assert_eq!(v1.balance, 300);
+            }
+            ResolvedVault::V2(_) => panic!("expected v1"),
+        }
+
+        let (_backing, account) = make_account(VaultV2::SIZE, PROGRAM_A);
+        {
+            let mut data = account.try_borrow_mut().unwrap();
+            crate::layout::init_header::<VaultV2>(&mut data).unwrap();
+            data[HopperHeader::SIZE..HopperHeader::SIZE + 8].copy_from_slice(&700u64.to_le_bytes());
+            data[HopperHeader::SIZE + 8..HopperHeader::SIZE + 16]
+                .copy_from_slice(&9u64.to_le_bytes());
+        }
+
+        let vault = InterfaceAccount::<AnyVault>::try_new(&account).unwrap();
+        assert!(vault.is::<VaultV2>());
+        assert!(!vault.is::<VaultV1>());
+
+        match vault.resolve().unwrap() {
+            ResolvedVault::V2(v2) => {
+                assert_eq!(v2.balance, 700);
+                assert_eq!(v2.bump, 9);
+            }
+            ResolvedVault::V1(_) => panic!("expected v2"),
+        }
+
+        let v2 = vault.load_as::<VaultV2>().unwrap();
+        assert_eq!(v2.balance, 700);
+        assert!(vault.get_as::<VaultV1>().is_err());
+    }
+
+    #[test]
+    fn interface_account_resolver_keeps_owner_and_layout_checks() {
+        let (_wrong_owner_backing, wrong_owner) = make_account(VaultV1::SIZE, OTHER_PROGRAM);
+        {
+            let mut data = wrong_owner.try_borrow_mut().unwrap();
+            crate::layout::init_header::<VaultV1>(&mut data).unwrap();
+        }
+        let wrong_owner_result = InterfaceAccount::<AnyVault>::try_new(&wrong_owner);
+        assert!(matches!(
+            wrong_owner_result,
+            Err(crate::error::ProgramError::IncorrectProgramId)
+        ));
+
+        let (_bad_layout_backing, bad_layout) = make_account(VaultV1::SIZE, PROGRAM_B);
+        {
+            let mut data = bad_layout.try_borrow_mut().unwrap();
+            crate::layout::write_header(&mut data, 99, 1, &[0x99; 8]).unwrap();
+        }
+        let bad_layout_result = InterfaceAccount::<AnyVault>::try_new(&bad_layout);
+        assert!(matches!(
+            bad_layout_result,
+            Err(crate::error::ProgramError::InvalidAccountData)
+        ));
     }
 }
