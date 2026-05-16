@@ -2,11 +2,13 @@
 
 Hopper-owned Metaplex Token Metadata builders, PDA helpers, and a stack-buffer
 Borsh encoder. Powers the `metadata::*` / `master_edition::*` field keywords on
-`#[hopper::context]` and the [`hopper-nft-mint`](../../examples/hopper-nft-mint/src/lib.rs)
-reference program.
+`#[derive(Accounts)]` contexts and the
+[`hopper-nft-mint`](../../examples/hopper-nft-mint/src/lib.rs) reference
+program. The lower-level `#[hopper::context]` spelling remains supported for
+older migration code.
 
 [![Crates.io](https://img.shields.io/crates/v/hopper-metaplex.svg)](https://crates.io/crates/hopper-metaplex)
-[![Docs.rs](https://img.shields.io/docsrs/hopper-metaplex)](https://docs.rs/crate/hopper-metaplex/0.1.0)
+[![Docs.rs](https://img.shields.io/docsrs/hopper-metaplex)](https://docs.rs/crate/hopper-metaplex/0.2.0)
 
 Part of the **[Hopper](https://hopperzero.dev)** framework.
 
@@ -30,7 +32,7 @@ push the program into UB.
 
 ```toml
 [dependencies]
-hopper = { package = "hopper-lang", version = "0.1.0", features = ["metaplex"] }
+hopper = { package = "hopper-lang", version = "0.2.0", features = ["metaplex"] }
 ```
 
 ```rust
@@ -78,7 +80,7 @@ Programs that don't touch Metaplex get no extra compile time and no extra
 dependencies pulled in. Enable with:
 
 ```toml
-hopper = { package = "hopper-lang", version = "0.1.0", features = ["metaplex"] }
+hopper = { package = "hopper-lang", version = "0.2.0", features = ["metaplex"] }
 ```
 
 ## What's not (yet) shipped
@@ -91,7 +93,7 @@ hopper = { package = "hopper-lang", version = "0.1.0", features = ["metaplex"] }
 Each of these is mechanical given the existing `BorshTape` encoder. Open an
 issue if you want one prioritised.
 
-Docs: <https://docs.rs/crate/hopper-metaplex/0.1.0>
+Docs: <https://docs.rs/crate/hopper-metaplex/0.2.0>
 
 ## Support
 

@@ -4,7 +4,7 @@ This audit is a release-facing checklist for Hopper as a Solana zero-copy state 
 
 ## Publication Verdict
 
-Hopper `0.1.0` has been published to crates.io for the framework package,
+Hopper `0.2.0` has been published to crates.io for the framework package,
 CLI, and companion crates listed in [docs/RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md).
 The codebase has the core surfaces Solana program authors expect from a serious
 framework:
@@ -27,7 +27,7 @@ the Rust library crate name as `hopper`:
 
 ```toml
 [dependencies]
-hopper = { package = "hopper-lang", version = "0.1.0" }
+hopper = { package = "hopper-lang", version = "0.2.0" }
 ```
 
 That keeps user code idiomatic:
@@ -85,7 +85,7 @@ use hopper::prelude::*;
 | Risk | Mitigation |
 |---|---|
 | Main framework naming | Publish top-level package as `hopper-lang`; keep library crate name `hopper` |
-| Companion crates must exist before `hopper-lang` packages cleanly | Completed for `0.1.0`; keep the same order for future releases |
+| Companion crates must exist before `hopper-lang` packages cleanly | Completed for `0.2.0`; keep the same order for future releases |
 | Benchmarks can be overclaimed | Keep release docs tied to `hopper-bench` artifacts and source-only publish checks |
 | Broad framework surface | Keep examples non-public, feature-gate optional surfaces, and document what is shipped versus planned |
 | Unsafe zero-copy APIs need ongoing review | Maintain `UNSAFE_INVARIANTS.md`, compile-fail tests, and release gates |

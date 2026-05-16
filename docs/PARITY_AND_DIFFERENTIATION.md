@@ -199,7 +199,7 @@ provenance requirements.
    a public launch reads better with either fixes or deliberate `allow` markers.
 3. **Crate-name publication verification:** The public framework package is
   `hopper-lang`; user manifests should alias it with
-  `hopper = { package = "hopper-lang", version = "0.1.0" }`.
+  `hopper = { package = "hopper-lang", version = "0.2.0" }`.
 4. **Independent benchmark artifacts:** The current Hopper-vs-Quasar table is
    useful, but launch claims should link immutable `hopper-bench` artifacts and
    exact commits.

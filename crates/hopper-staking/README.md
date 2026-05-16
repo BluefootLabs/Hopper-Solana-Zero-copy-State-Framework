@@ -22,7 +22,7 @@ let pending = pending_rewards(user.staked, pool.reward_per_token, user.reward_de
 user.reward_debt = update_reward_debt(user.staked, pool.reward_per_token);
 ```
 
-Docs: <https://docs.rs/crate/hopper-staking/0.1.0>
+Docs: <https://docs.rs/crate/hopper-staking/0.2.0>
 
 Support: `solanadevdao.sol` / `F42ZovBoRJZU4av5MiESVwJWnEx8ZQVFkc1RM29zMxNT`.
 

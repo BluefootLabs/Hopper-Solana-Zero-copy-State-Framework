@@ -2,7 +2,8 @@
 
 Optional proc macro DX layer for [Hopper](https://hopperzero.dev). It generates
 the parsing, validation, and dispatch code for the `#[hopper::state]`,
-`#[hopper::context]`, and `#[hopper::program]` authoring path.
+`#[derive(Accounts)]`, and `#[hopper::program]` authoring path. The older
+`#[hopper::context]` spelling remains available for lower-level migrations.
 
 ## Not required
 
@@ -16,7 +17,8 @@ Hopper's typed pointer and validation surface.
 | Macro | Purpose |
 |---|---|
 | `#[hopper::state]` (alias `#[account]`) | Zero-copy account layout with header + fingerprint + load/load_mut helpers |
-| `#[hopper::context]` (aliases `#[context]`, `#[accounts]`) | Typed account-context binding with the full Anchor keyword set + Hopper-unique segment-level borrow vocabulary |
+| `#[derive(Accounts)]` | First-touch account-context binding with the full Anchor keyword set and Hopper account wrappers |
+| `#[hopper::context]` (aliases `#[context]`, `#[accounts]`) | Attribute-form account-context binding for lower-level migrations and segment-level borrow vocabulary |
 | `#[hopper::program]` (alias `#[program]`) | Instruction dispatcher, supports `#[receipt]`, `#[invariant]`, `#[pipeline]`, `#[access_control]` handler attributes |
 | `#[hopper::migrate]` | Schema-epoch migration edges |
 | `#[hopper::event]` | Event types with discriminator + segment lineage |
@@ -78,10 +80,10 @@ to name a custom `TailCodec` payload directly.
 
 ```toml
 [dependencies]
-hopper = { package = "hopper-lang", version = "0.1.0", features = ["proc-macros"] }
+hopper = { package = "hopper-lang", version = "0.2.0", features = ["proc-macros"] }
 ```
 
-Docs: <https://docs.rs/crate/hopper-derive/0.1.0>
+Docs: <https://docs.rs/crate/hopper-derive/0.2.0>
 
 Support: `solanadevdao.sol` / `F42ZovBoRJZU4av5MiESVwJWnEx8ZQVFkc1RM29zMxNT`.
 

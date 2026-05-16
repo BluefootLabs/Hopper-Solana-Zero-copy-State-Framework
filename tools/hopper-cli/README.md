@@ -117,7 +117,7 @@ When run inside a Hopper package that already contains `hopper.manifest.json`,
 `--package <name>` to target another workspace member and `--out <path>` to
 write the lowered preview instead of printing it.
 
-Docs: <https://docs.rs/crate/hopper-cli/0.1.0>
+Docs: <https://docs.rs/crate/hopper-cli/0.2.0>
 
 ## Support
 

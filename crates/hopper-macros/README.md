@@ -52,7 +52,7 @@ hopper_dispatch! {
 }
 ```
 
-Docs: <https://docs.rs/crate/hopper-macros/0.1.0>
+Docs: <https://docs.rs/crate/hopper-macros/0.2.0>
 
 ## Support
 

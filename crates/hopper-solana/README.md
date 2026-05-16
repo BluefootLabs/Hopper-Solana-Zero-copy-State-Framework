@@ -38,7 +38,7 @@ let mint = token_account_mint(account_data)?;
 assert_no_cpi(sysvar_account, &program_id)?;
 ```
 
-Docs: <https://docs.rs/crate/hopper-solana/0.1.0>
+Docs: <https://docs.rs/crate/hopper-solana/0.2.0>
 
 ## Support
 

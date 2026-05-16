@@ -1,6 +1,6 @@
 [package]
 name = "hopper-sdk"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 license = "Apache-2.0"
 authors = ["BluefootLabs <contact@bluefootlabs.com>", "MoonManQuark"]
@@ -16,7 +16,7 @@ program boundary.
 """
 repository = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework"
 homepage = "https://hopperzero.dev"
-documentation = "https://docs.rs/crate/hopper-sdk/0.1.0"
+documentation = "https://docs.rs/crate/hopper-sdk/0.2.0"
 readme = "README.md"
 keywords = ["solana", "zero-copy", "sdk", "client", "hopper"]
 categories = ["api-bindings", "development-tools"]

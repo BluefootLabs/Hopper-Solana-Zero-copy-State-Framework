@@ -3,7 +3,7 @@
 [![License: MIT OR Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](LICENSE-MIT)
 ![no_std](https://img.shields.io/badge/no__std-yes-green.svg)
 
-> **Release status.** Hopper `0.1.0` is the first public release line for the
+> **Release status.** Hopper `0.2.0` is the current public release line for the
 > Hopper framework, CLI, and companion crates. APIs are still young, and the
 > release surface is documented, release-checked, and scoped to the APIs
 > exercised by this repository.
@@ -45,16 +45,16 @@ harness live separately so release claims stay reproducible and easy to audit.
 
 ## Release Status
 
-- Main framework package: `hopper-lang = "0.1.0"`; import it as
-  `hopper` with `hopper = { package = "hopper-lang", version = "0.1.0" }`.
-- Version-pinned docs.rs target: <https://docs.rs/crate/hopper-lang/0.1.0>.
+- Main framework package: `hopper-lang = "0.2.0"`; import it as
+  `hopper` with `hopper = { package = "hopper-lang", version = "0.2.0" }`.
+- Version-pinned docs.rs target: <https://docs.rs/crate/hopper-lang/0.2.0>.
 - CLI install: `cargo install hopper-cli`.
 - Public companion crate targets include `hopper-native`, `hopper-runtime`,
   `hopper-systems`, `hopper-derive`, `hopper-schema`, `hopper-solana`, `hopper-token`,
   `hopper-token-2022`, `hopper-associated-token`, `hopper-system`,
   `hopper-memo`, `hopper-finance`, `hopper-lending`, `hopper-staking`,
   `hopper-vesting`, `hopper-distribute`, `hopper-multisig`, `hopper-anchor`,
-  `hopper-manager`, and `hopper-sdk`, all at `0.1.0`.
+  `hopper-manager`, and `hopper-sdk`, all at `0.2.0`.
 - Benchmark numbers must be regenerated from the separate
   [hopper-bench](https://github.com/BluefootLabs/hopper-bench) repo before any
   launch or comparison claim.
@@ -73,14 +73,14 @@ Equivalent `Cargo.toml` entry:
 
 ```toml
 [dependencies]
-hopper = { package = "hopper-lang", version = "0.1.0", features = ["proc-macros"] }
+hopper = { package = "hopper-lang", version = "0.2.0", features = ["proc-macros"] }
 ```
 
 For SBF programs that want the same explicit feature shape used by `hopper init`:
 
 ```toml
 [dependencies]
-hopper = { package = "hopper-lang", version = "0.1.0", default-features = false, features = ["hopper-native-backend", "proc-macros"] }
+hopper = { package = "hopper-lang", version = "0.2.0", default-features = false, features = ["hopper-native-backend", "proc-macros"] }
 ```
 
 Install the CLI:
@@ -100,9 +100,9 @@ hopper = { path = "../Hopper-Solana-Zero-copy-State-Framework", package = "hoppe
 Public package links:
 
 - Framework crate: <https://crates.io/crates/hopper-lang>
-- Framework docs: <https://docs.rs/crate/hopper-lang/0.1.0>
+- Framework docs: <https://docs.rs/crate/hopper-lang/0.2.0>
 - CLI crate: <https://crates.io/crates/hopper-cli>
-- CLI docs: <https://docs.rs/crate/hopper-cli/0.1.0>
+- CLI docs: <https://docs.rs/crate/hopper-cli/0.2.0>
 - Website and docs entry point: <https://hopperzero.dev>
 
 Minimal framework example:
@@ -241,13 +241,13 @@ Hopper Native is the default backend.
 
 ```toml
 # Default backend from source
-hopper = { package = "hopper-lang", version = "0.1.0" }
+hopper = { package = "hopper-lang", version = "0.2.0" }
 
 # Legacy Pinocchio migration/benchmark compatibility only
-hopper = { package = "hopper-lang", version = "0.1.0", default-features = false, features = ["legacy-pinocchio-compat"] }
+hopper = { package = "hopper-lang", version = "0.2.0", default-features = false, features = ["legacy-pinocchio-compat"] }
 
 # solana-program compatibility backend
-hopper = { package = "hopper-lang", version = "0.1.0", default-features = false, features = ["solana-program-backend"] }
+hopper = { package = "hopper-lang", version = "0.2.0", default-features = false, features = ["solana-program-backend"] }
 ```
 
 Only one backend should be enabled for a program build.

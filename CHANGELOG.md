@@ -7,6 +7,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-05-15
+
 ### Added
 
 - **`hopper-svm` Tier 4 — Language bindings (TypeScript / Python).**
@@ -1208,7 +1210,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 - CONTRIBUTING.md: see [CONTRIBUTING.md](CONTRIBUTING.md).
 - SECURITY.md: see [SECURITY.md](SECURITY.md).
 - All published crates have `homepage = "https://hopperzero.dev"`,
-  version-pinned `documentation = "https://docs.rs/crate/<crate>/0.1.0"`, and a per-crate
+  version-pinned `documentation = "https://docs.rs/crate/<crate>/0.2.0"`, and a per-crate
   `README.md`.
 
 ## [0.1.0] - 2026-05-10

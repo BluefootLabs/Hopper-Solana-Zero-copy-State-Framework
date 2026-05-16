@@ -14,7 +14,7 @@ Every public function is pure (no I/O, no syscalls), so the same logic
 powers the `hopper manager` CLI subcommands and any embedded admin
 dashboard or web explorer that wants the same view.
 
-Docs: <https://docs.rs/crate/hopper-manager/0.1.0>
+Docs: <https://docs.rs/crate/hopper-manager/0.2.0>
 
 Support: `solanadevdao.sol` / `F42ZovBoRJZU4av5MiESVwJWnEx8ZQVFkc1RM29zMxNT`.
 

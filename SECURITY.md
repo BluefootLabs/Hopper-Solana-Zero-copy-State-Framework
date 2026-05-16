@@ -25,7 +25,7 @@ verdict within 5 business days.
 
 ## Out of scope
 
-- Findings against deprecated branches or pre-`0.1.0` versions.
+- Findings against deprecated branches or pre-`0.2.0` versions.
 - Issues caused by user code that violates a documented `# Safety`
   invariant. Hopper's unsafe inventory is at
   [`docs/UNSAFE_INVARIANTS.md`](docs/UNSAFE_INVARIANTS.md); calling a
