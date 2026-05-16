@@ -45,14 +45,17 @@
 //!   entrypoint bridges.
 //! - `hopper_macros`: declarative macros. `hopper_layout!`, `hopper_check!`,
 //!   `hopper_error!`, `hopper_init!`, `hopper_close!`, `hopper_require!`,
+//!   `hopper_register_discs!`, `hopper_verify_pda!`, `hopper_invariant!`,
 //!   `hopper_manifest!`, `hopper_segment!`, `hopper_validate!`,
-//!   `hopper_virtual!`, `hopper_interface!`, `hopper_assert_compatible!`,
-//!   `hopper_assert_fingerprint!`.
-//! - `hopper_macros_proc`: proc-macro DX layer. `#[hopper::state]`,
-//!   `#[hopper::pod]`, `#[hopper::context]`, `#[hopper::program]`,
-//!   `#[hopper::migrate]`, `#[hopper::args]`, `#[hopper::error]`,
-//!   `#[hopper::event]`, `#[hopper::dynamic]`,
-//!   `#[hopper::dynamic_account]`.
+//!   `hopper_virtual!`, `hopper_interface!`, `hopper_accounts!`,
+//!   `hopper_assert_compatible!`, `hopper_assert_fingerprint!`, and
+//!   `const_assert_pod!`.
+//! - `hopper_derive` (`hopper-derive` package): proc-macro DX layer.
+//!   `#[hopper::state]`, `#[hopper::pod]`, `#[hopper::context]`,
+//!   `#[derive(Accounts)]`, `#[hopper::program]`, `#[hopper::migrate]`,
+//!   `#[hopper::args]`, `#[hopper::error]`, `#[hopper::event]`,
+//!   `#[hopper::constant]`, `#[hopper::crank]`, `hopper::declare_program!`,
+//!   `#[hopper::dynamic]`, and `#[hopper::dynamic_account]`.
 //! - `hopper_solana`: SPL Token/Mint readers, Token-2022 checks, CPI
 //!   guards, Pyth oracle, TWAP, Ed25519/Merkle crypto, authority rotation.
 //! - `hopper_system`: System Program instruction builders.

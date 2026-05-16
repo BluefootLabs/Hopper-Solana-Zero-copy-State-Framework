@@ -8,7 +8,7 @@
 //!
 //! Programs that want richer DX should enable the `proc-macros` feature
 //! and reach for `#[hopper::state]`, `#[hopper::context]`, and
-//! `#[hopper::program]` in `hopper-macros-proc`. Programs that prefer a
+//! `#[hopper::program]` in the `hopper-derive` package. Programs that prefer a
 //! zero-tool-chain authoring path can use these declarative macros
 //! directly, both paths lower to the same runtime.
 //!

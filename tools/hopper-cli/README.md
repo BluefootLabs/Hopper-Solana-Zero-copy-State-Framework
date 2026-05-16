@@ -25,9 +25,13 @@ cargo run -p hopper-cli -- help
 
 ```
 Compile
-  hopper compile --emit rust [<manifest>]  Emit lowered runtime Rust: accessors, offsets, pointer path
-  hopper compile --emit rust-client <manifest>  Emit off-chain Rust client SDK
-  hopper compile --emit py <manifest>      Emit Python client SDK
+  hopper compile --emit <rust|ts|kt|py|rust-client|idl|codama|schema> [<manifest>|--package <name>|--program-id ...]
+                                      Emit lowered Rust, client SDKs, IDL JSON, Codama, or manifest
+
+Verify
+  hopper verify [<manifest>] [<.so>]        Confirm manifest layouts are present in the compiled binary
+  hopper verify --package <name>            Infer manifest and SBF binary from a workspace package
+  hopper publish-check --package <name>     Run release docs, feature, client, fuzz, and ABI gates
 
 Schema
   hopper schema export [--manifest|--idl|--codama|--anchor-idl]  Schema format reference
@@ -56,24 +60,41 @@ Compatibility
   hopper plan <old> <new>            Migration plan with steps
 
 Lifecycle
-  hopper init <path>                 Create a Hopper-native project scaffold
+  hopper init [path]                 Create a Hopper-native project scaffold
   hopper add [-i|-s|-e <name>]       Scaffold instruction, state, or error files
   hopper build [--host|--sbf]        Build the current project (default: SBF)
   hopper test                        Run host-side tests for the current project
   hopper deploy [--no-build]         Build and deploy the current SBF program
   hopper dump [--no-build]           Disassemble the built SBF binary
+  hopper clean [-a|--all]            Remove generated build artifacts while preserving keypairs
 
 Keys
   hopper keys new <path>             Generate a program/keypair json file
   hopper keys sync <path>            Sync declare_id! from a keypair pubkey
   hopper keys pda <seed> --program <id>  Derive a PDA and canonical bump
 
+Config
+  hopper config get <key>            Read a saved Hopper CLI config value
+  hopper config set <key> <value>    Write a saved Hopper CLI config value
+  hopper config list                 Show saved Hopper CLI config values
+
+Transactions
+  hopper tx explain <signature>      Fetch and explain an on-chain transaction
+  hopper tx simulate <tx-base64>     Simulate a pre-built transaction
+  hopper tx submit <tx-base64>       Submit a pre-built transaction
+
 Shell
   hopper completions <shell>         Emit bash, zsh, fish, or PowerShell completions
+  hopper version                     Print CLI version and linked schema version
 
 Profiling
   hopper profile bench               Run the primitive benchmark lab and emit JSON/CSV artifacts
   hopper profile elf <program.so>    Static SBF symbols, CU-ish estimates, sections, flamegraph export
+
+Project Health
+  hopper lint                        Run Hopper project diagnostics
+  hopper expand                      Show lowered macro output for the current project
+  hopper doctor                      Check toolchain and workspace health
 
 Direct aliases
   hopper decode <hex>                Alias for inspect

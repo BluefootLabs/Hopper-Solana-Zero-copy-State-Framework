@@ -1,7 +1,7 @@
 //! # Hopper SDK. Off-chain companion for the Hopper framework
 //!
-//! This crate is the **symmetric off-chain half** of Hopper. Where `hopper-core`,
-//! `hopper-runtime`, and `hopper-macros-proc` own the on-chain safety surface,
+//! This crate is the **symmetric off-chain half** of Hopper. Where `hopper-systems`,
+//! `hopper-runtime`, and `hopper-derive` own the on-chain safety surface,
 //! `hopper-sdk` owns the off-chain consumer surface: indexers, explorers,
 //! wallets, back-ends, and clients.
 //!

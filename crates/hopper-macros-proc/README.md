@@ -1,4 +1,4 @@
-# hopper-macros-proc
+# hopper-derive
 
 Optional proc macro DX layer for [Hopper](https://hopperzero.dev). It generates
 the parsing, validation, and dispatch code for the `#[hopper::state]`,
@@ -23,6 +23,7 @@ Hopper's typed pointer and validation surface.
 | `#[hopper::migrate]` | Schema-epoch migration edges |
 | `#[hopper::event]` | Event types with discriminator + segment lineage |
 | `#[hopper::error]` | Error enums with `code()` / `invariant_idx()` + `CODE_TABLE` / `INVARIANT_TABLE` |
+| `#[hopper::constant]` | Anchor-compatible constants surfaced for IDL generation |
 | `#[hopper::args]` | Borrowing zero-copy instruction-arg parser with optional CU hint |
 | `#[hopper::pod]` (alias `#[pod]`) | Pod marker derive with align-1 / no-padding compile-time assertions |
 | `#[hopper::crank]` | Keeper-bot autonomous-marker descriptor |

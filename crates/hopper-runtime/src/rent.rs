@@ -71,7 +71,7 @@ pub const fn minimum_balance(data_len: usize) -> u64 {
 
 /// Assert that `account` holds enough lamports to be rent-exempt for
 /// its current data length. Used by the `#[account(rent_exempt =
-/// enforce)]` constraint lowering in `hopper-macros-proc`.
+/// enforce)]` constraint lowering in `hopper-derive`.
 ///
 /// Returns `ProgramError::AccountNotRentExempt` on underrun. The error
 /// code maps to Solana's canonical `InstructionError::RentEpoch`

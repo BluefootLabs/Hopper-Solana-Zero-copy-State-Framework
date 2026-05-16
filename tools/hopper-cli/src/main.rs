@@ -10,9 +10,12 @@
 //! hopper schema validate <manifest-json>            Validate a manifest
 //! hopper schema diff <old> <new>                    Field-level diff
 //!
-//! hopper compile --emit rust [<manifest>]           Emit lowered Hopper runtime Rust preview
-//! hopper compile --emit py [<manifest>]             Emit Python client
-//! hopper compile --emit rust-client [<manifest>]    Emit Rust off-chain client
+//! hopper compile --emit <rust|ts|kt|py|rust-client|idl|codama|schema> [<manifest>|--package <name>|--program-id ...]
+//!                                                     Emit lowered Rust, client SDKs, IDL JSON, Codama, or manifest
+//!
+//! hopper verify [<manifest>] [<.so>]                  Confirm manifest layouts are present in the compiled binary
+//! hopper verify --package <name>                      Infer manifest and SBF binary from a workspace package
+//! hopper publish-check --package <name>                Run release/source gates before publishing
 //!
 //! hopper inspect <hex-data>                         Decode account header
 //! hopper inspect layout <manifest> <hex-data>       Decode fields using a program manifest
@@ -46,7 +49,15 @@
 //! hopper dump                                        Disassemble the current SBF artifact
 //! hopper clean [-a|--all]                            Remove build artefacts (preserves keypairs)
 //! hopper profile bench                               Run the primitive benchmark lab
-//! hopper publish-check --package <name>              Run release/source gates before publishing
+//! hopper keys new|sync|pda|list|print                 Keypair and PDA helpers
+//! hopper config get|set|list|reset|path               Global configuration store
+//! hopper lint                                        Run Hopper project diagnostics
+//! hopper expand                                      Show lowered macro output
+//! hopper tx explain <signature>                       Fetch and explain an on-chain transaction
+//! hopper tx simulate|submit <tx-base64>                Pre-built transaction helpers
+//! hopper doctor                                      Check toolchain and workspace health
+//! hopper completions <shell>                          Emit shell completions
+//! hopper version                                      Print CLI version info
 //!
 //! hopper interactive <manifest>                      Interactive terminal explorer
 //!
