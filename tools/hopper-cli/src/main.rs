@@ -1237,7 +1237,7 @@ fn cmd_explain_program(args: &[String]) {
     } else {
         println!("  Contexts:");
         println!("    No typed contexts embedded in this manifest.");
-        println!("    Use `hopper compile --emit rust [<manifest>]` to inspect the lowered");
+        println!("    Use `hopper compile --emit rust [<manifest>|--package <name>]` to inspect");
         println!("    runtime accessors Hopper derives from the instruction account lists.");
         println!();
     }

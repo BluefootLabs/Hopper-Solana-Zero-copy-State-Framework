@@ -157,9 +157,9 @@ impl<T: ZeroCopy> WireLayout for T {}
 /// story is anchored in the vocabulary the audit uses.
 ///
 /// `WIRE_FINGERPRINT` is the first 8 bytes of the canonical SHA-256
-/// wire descriptor (see `hopper_macros_proc::state::layout_id_bytes`)
-/// reinterpreted as a little-endian `u64`, so the runtime can compare
-/// against the on-account header byte-for-byte.
+/// wire descriptor emitted by the `#[hopper::state]` expansion in the
+/// `hopper-derive` package, reinterpreted as a little-endian `u64`, so
+/// the runtime can compare against the on-account header byte-for-byte.
 ///
 /// `SCHEMA_EPOCH` defaults to `1`; programs that publish later epochs
 /// via their on-chain manifest bump it to signal a version transition.

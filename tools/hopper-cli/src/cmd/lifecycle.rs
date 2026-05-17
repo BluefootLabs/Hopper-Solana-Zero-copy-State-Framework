@@ -1069,7 +1069,8 @@ fn render_hopper_dependency(local_path: Option<&str>, template: Template) -> Str
             path.replace('\\', "/")
         ),
         None => format!(
-            "hopper = {{ package = \"hopper-lang\", version = \"0.1.0\", default-features = false, features = [{features}] }}"
+            "hopper = {{ package = \"hopper-lang\", version = \"{}\", default-features = false, features = [{features}] }}",
+            env!("CARGO_PKG_VERSION")
         ),
     }
 }
@@ -1752,6 +1753,15 @@ mod tests {
         // The NFT template adds the `metaplex` feature.
         let dep_nft = render_hopper_dependency(Some("../hopper"), Template::NftMint);
         assert!(dep_nft.contains("metaplex"));
+    }
+
+    #[test]
+    fn crates_io_dependency_tracks_cli_release_version() {
+        let dep = render_hopper_dependency(None, Template::Minimal);
+        assert!(dep.contains("package = \"hopper-lang\""));
+        assert!(dep.contains(&format!("version = \"{}\"", env!("CARGO_PKG_VERSION"))));
+        assert!(dep.contains("default-features = false"));
+        assert!(dep.contains("hopper-native-backend"));
     }
 
     fn forbidden_first_touch_terms() -> Vec<String> {
