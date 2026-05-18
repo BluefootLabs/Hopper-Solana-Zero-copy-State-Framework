@@ -52,6 +52,8 @@ const fn to_builtin(index: u64) -> u64 {
     (index + 2) << BUILTIN_BIT_SHIFT
 }
 
+const BUILTIN_LOW_MASK: u64 = (1_u64 << BUILTIN_BIT_SHIFT) - 1;
+
 impl From<ProgramError> for u64 {
     fn from(err: ProgramError) -> u64 {
         match err {
@@ -88,35 +90,41 @@ impl From<ProgramError> for u64 {
 
 impl From<u64> for ProgramError {
     fn from(code: u64) -> Self {
-        match code {
-            CUSTOM_ZERO => ProgramError::Custom(0),
-            c if c == to_builtin(0) => ProgramError::InvalidArgument,
-            c if c == to_builtin(1) => ProgramError::InvalidInstructionData,
-            c if c == to_builtin(2) => ProgramError::InvalidAccountData,
-            c if c == to_builtin(3) => ProgramError::AccountDataTooSmall,
-            c if c == to_builtin(4) => ProgramError::InsufficientFunds,
-            c if c == to_builtin(5) => ProgramError::IncorrectProgramId,
-            c if c == to_builtin(6) => ProgramError::MissingRequiredSignature,
-            c if c == to_builtin(7) => ProgramError::AccountAlreadyInitialized,
-            c if c == to_builtin(8) => ProgramError::UninitializedAccount,
-            c if c == to_builtin(9) => ProgramError::NotEnoughAccountKeys,
-            c if c == to_builtin(10) => ProgramError::AccountBorrowFailed,
-            c if c == to_builtin(11) => ProgramError::MaxSeedLengthExceeded,
-            c if c == to_builtin(12) => ProgramError::InvalidSeeds,
-            c if c == to_builtin(13) => ProgramError::BorshIoError,
-            c if c == to_builtin(14) => ProgramError::AccountNotRentExempt,
-            c if c == to_builtin(15) => ProgramError::UnsupportedSysvar,
-            c if c == to_builtin(16) => ProgramError::IllegalOwner,
-            c if c == to_builtin(17) => ProgramError::MaxAccountsDataAllocationsExceeded,
-            c if c == to_builtin(18) => ProgramError::InvalidRealloc,
-            c if c == to_builtin(19) => ProgramError::MaxInstructionTraceLengthExceeded,
-            c if c == to_builtin(20) => ProgramError::BuiltinProgramsMustConsumeComputeUnits,
-            c if c == to_builtin(21) => ProgramError::InvalidAccountOwner,
-            c if c == to_builtin(22) => ProgramError::ArithmeticOverflow,
-            c if c == to_builtin(23) => ProgramError::Immutable,
-            c if c == to_builtin(24) => ProgramError::IncorrectAuthority,
-            other => ProgramError::Custom(other as u32),
+        if code == CUSTOM_ZERO {
+            return ProgramError::Custom(0);
         }
+        let builtin = code >> BUILTIN_BIT_SHIFT;
+        if code & BUILTIN_LOW_MASK == 0 && builtin >= 2 {
+            match builtin - 2 {
+                0 => return ProgramError::InvalidArgument,
+                1 => return ProgramError::InvalidInstructionData,
+                2 => return ProgramError::InvalidAccountData,
+                3 => return ProgramError::AccountDataTooSmall,
+                4 => return ProgramError::InsufficientFunds,
+                5 => return ProgramError::IncorrectProgramId,
+                6 => return ProgramError::MissingRequiredSignature,
+                7 => return ProgramError::AccountAlreadyInitialized,
+                8 => return ProgramError::UninitializedAccount,
+                9 => return ProgramError::NotEnoughAccountKeys,
+                10 => return ProgramError::AccountBorrowFailed,
+                11 => return ProgramError::MaxSeedLengthExceeded,
+                12 => return ProgramError::InvalidSeeds,
+                13 => return ProgramError::BorshIoError,
+                14 => return ProgramError::AccountNotRentExempt,
+                15 => return ProgramError::UnsupportedSysvar,
+                16 => return ProgramError::IllegalOwner,
+                17 => return ProgramError::MaxAccountsDataAllocationsExceeded,
+                18 => return ProgramError::InvalidRealloc,
+                19 => return ProgramError::MaxInstructionTraceLengthExceeded,
+                20 => return ProgramError::BuiltinProgramsMustConsumeComputeUnits,
+                21 => return ProgramError::InvalidAccountOwner,
+                22 => return ProgramError::ArithmeticOverflow,
+                23 => return ProgramError::Immutable,
+                24 => return ProgramError::IncorrectAuthority,
+                _ => {}
+            }
+        }
+        ProgramError::Custom(code as u32)
     }
 }
 
@@ -170,7 +178,72 @@ impl core::fmt::Display for ProgramError {
 impl From<hopper_native::error::ProgramError> for ProgramError {
     #[inline]
     fn from(e: hopper_native::error::ProgramError) -> Self {
-        ProgramError::from(u64::from(e))
+        match e {
+            hopper_native::error::ProgramError::Custom(code) => ProgramError::Custom(code),
+            hopper_native::error::ProgramError::InvalidArgument => ProgramError::InvalidArgument,
+            hopper_native::error::ProgramError::InvalidInstructionData => {
+                ProgramError::InvalidInstructionData
+            }
+            hopper_native::error::ProgramError::InvalidAccountData => {
+                ProgramError::InvalidAccountData
+            }
+            hopper_native::error::ProgramError::AccountDataTooSmall => {
+                ProgramError::AccountDataTooSmall
+            }
+            hopper_native::error::ProgramError::InsufficientFunds => {
+                ProgramError::InsufficientFunds
+            }
+            hopper_native::error::ProgramError::IncorrectProgramId => {
+                ProgramError::IncorrectProgramId
+            }
+            hopper_native::error::ProgramError::MissingRequiredSignature => {
+                ProgramError::MissingRequiredSignature
+            }
+            hopper_native::error::ProgramError::AccountAlreadyInitialized => {
+                ProgramError::AccountAlreadyInitialized
+            }
+            hopper_native::error::ProgramError::UninitializedAccount => {
+                ProgramError::UninitializedAccount
+            }
+            hopper_native::error::ProgramError::NotEnoughAccountKeys => {
+                ProgramError::NotEnoughAccountKeys
+            }
+            hopper_native::error::ProgramError::AccountBorrowFailed => {
+                ProgramError::AccountBorrowFailed
+            }
+            hopper_native::error::ProgramError::MaxSeedLengthExceeded => {
+                ProgramError::MaxSeedLengthExceeded
+            }
+            hopper_native::error::ProgramError::InvalidSeeds => ProgramError::InvalidSeeds,
+            hopper_native::error::ProgramError::BorshIoError => ProgramError::BorshIoError,
+            hopper_native::error::ProgramError::AccountNotRentExempt => {
+                ProgramError::AccountNotRentExempt
+            }
+            hopper_native::error::ProgramError::UnsupportedSysvar => {
+                ProgramError::UnsupportedSysvar
+            }
+            hopper_native::error::ProgramError::IllegalOwner => ProgramError::IllegalOwner,
+            hopper_native::error::ProgramError::MaxAccountsDataAllocationsExceeded => {
+                ProgramError::MaxAccountsDataAllocationsExceeded
+            }
+            hopper_native::error::ProgramError::InvalidRealloc => ProgramError::InvalidRealloc,
+            hopper_native::error::ProgramError::MaxInstructionTraceLengthExceeded => {
+                ProgramError::MaxInstructionTraceLengthExceeded
+            }
+            hopper_native::error::ProgramError::BuiltinProgramsMustConsumeComputeUnits => {
+                ProgramError::BuiltinProgramsMustConsumeComputeUnits
+            }
+            hopper_native::error::ProgramError::InvalidAccountOwner => {
+                ProgramError::InvalidAccountOwner
+            }
+            hopper_native::error::ProgramError::ArithmeticOverflow => {
+                ProgramError::ArithmeticOverflow
+            }
+            hopper_native::error::ProgramError::Immutable => ProgramError::Immutable,
+            hopper_native::error::ProgramError::IncorrectAuthority => {
+                ProgramError::IncorrectAuthority
+            }
+        }
     }
 }
 
@@ -178,7 +251,72 @@ impl From<hopper_native::error::ProgramError> for ProgramError {
 impl From<ProgramError> for hopper_native::error::ProgramError {
     #[inline]
     fn from(e: ProgramError) -> Self {
-        hopper_native::error::ProgramError::from(u64::from(e))
+        match e {
+            ProgramError::Custom(code) => hopper_native::error::ProgramError::Custom(code),
+            ProgramError::InvalidArgument => hopper_native::error::ProgramError::InvalidArgument,
+            ProgramError::InvalidInstructionData => {
+                hopper_native::error::ProgramError::InvalidInstructionData
+            }
+            ProgramError::InvalidAccountData => {
+                hopper_native::error::ProgramError::InvalidAccountData
+            }
+            ProgramError::AccountDataTooSmall => {
+                hopper_native::error::ProgramError::AccountDataTooSmall
+            }
+            ProgramError::InsufficientFunds => {
+                hopper_native::error::ProgramError::InsufficientFunds
+            }
+            ProgramError::IncorrectProgramId => {
+                hopper_native::error::ProgramError::IncorrectProgramId
+            }
+            ProgramError::MissingRequiredSignature => {
+                hopper_native::error::ProgramError::MissingRequiredSignature
+            }
+            ProgramError::AccountAlreadyInitialized => {
+                hopper_native::error::ProgramError::AccountAlreadyInitialized
+            }
+            ProgramError::UninitializedAccount => {
+                hopper_native::error::ProgramError::UninitializedAccount
+            }
+            ProgramError::NotEnoughAccountKeys => {
+                hopper_native::error::ProgramError::NotEnoughAccountKeys
+            }
+            ProgramError::AccountBorrowFailed => {
+                hopper_native::error::ProgramError::AccountBorrowFailed
+            }
+            ProgramError::MaxSeedLengthExceeded => {
+                hopper_native::error::ProgramError::MaxSeedLengthExceeded
+            }
+            ProgramError::InvalidSeeds => hopper_native::error::ProgramError::InvalidSeeds,
+            ProgramError::BorshIoError => hopper_native::error::ProgramError::BorshIoError,
+            ProgramError::AccountNotRentExempt => {
+                hopper_native::error::ProgramError::AccountNotRentExempt
+            }
+            ProgramError::UnsupportedSysvar => {
+                hopper_native::error::ProgramError::UnsupportedSysvar
+            }
+            ProgramError::IllegalOwner => hopper_native::error::ProgramError::IllegalOwner,
+            ProgramError::MaxAccountsDataAllocationsExceeded => {
+                hopper_native::error::ProgramError::MaxAccountsDataAllocationsExceeded
+            }
+            ProgramError::InvalidRealloc => hopper_native::error::ProgramError::InvalidRealloc,
+            ProgramError::MaxInstructionTraceLengthExceeded => {
+                hopper_native::error::ProgramError::MaxInstructionTraceLengthExceeded
+            }
+            ProgramError::BuiltinProgramsMustConsumeComputeUnits => {
+                hopper_native::error::ProgramError::BuiltinProgramsMustConsumeComputeUnits
+            }
+            ProgramError::InvalidAccountOwner => {
+                hopper_native::error::ProgramError::InvalidAccountOwner
+            }
+            ProgramError::ArithmeticOverflow => {
+                hopper_native::error::ProgramError::ArithmeticOverflow
+            }
+            ProgramError::Immutable => hopper_native::error::ProgramError::Immutable,
+            ProgramError::IncorrectAuthority => {
+                hopper_native::error::ProgramError::IncorrectAuthority
+            }
+        }
     }
 }
 
@@ -191,8 +329,7 @@ impl From<ProgramError> for hopper_native::error::ProgramError {
 // Call sites become a single branch + call, keeping the inlined fast path tiny.
 
 impl ProgramError {
-    #[cold]
-    #[inline(never)]
+    #[inline(always)]
     pub fn err_data_too_small<T>() -> Result<T, Self> {
         Err(ProgramError::AccountDataTooSmall)
     }
@@ -209,8 +346,7 @@ impl ProgramError {
         Err(ProgramError::MissingRequiredSignature)
     }
 
-    #[cold]
-    #[inline(never)]
+    #[inline(always)]
     pub fn err_immutable<T>() -> Result<T, Self> {
         Err(ProgramError::Immutable)
     }
@@ -239,8 +375,7 @@ impl ProgramError {
         Err(ProgramError::InvalidArgument)
     }
 
-    #[cold]
-    #[inline(never)]
+    #[inline(always)]
     pub fn err_incorrect_program<T>() -> Result<T, Self> {
         Err(ProgramError::IncorrectProgramId)
     }

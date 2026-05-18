@@ -701,8 +701,6 @@ mod app {
     #[instruction(0)]
     pub fn initialize(ctx: Ctx<Initialize>) -> ProgramResult { Ok(()) }
 }
-
-            hopper::program_dispatch!(app);
 "#,
         )
         .unwrap();

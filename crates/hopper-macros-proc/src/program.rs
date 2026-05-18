@@ -1,7 +1,7 @@
 //! `#[hopper_program]`, instruction dispatch codegen.
 //!
-//! Annotate a module to generate a `process_instruction` entry point that
-//! dispatches based on the first byte of instruction data (discriminator).
+//! Annotate a module to generate the Hopper entrypoint bridge plus a
+//! `process_instruction` dispatcher based on instruction data discriminators.
 //!
 //! ```ignore
 //! #[hopper_program]
@@ -98,6 +98,7 @@ struct ProgramPolicyArgs {
     strict: Option<bool>,
     enforce_token_checks: Option<bool>,
     allow_unsafe: Option<bool>,
+    entrypoint: Option<bool>,
 }
 
 impl ProgramPolicyArgs {
@@ -110,6 +111,9 @@ impl ProgramPolicyArgs {
     }
     fn allow_unsafe(&self) -> bool {
         self.allow_unsafe.unwrap_or(true)
+    }
+    fn entrypoint(&self) -> bool {
+        self.entrypoint.unwrap_or(true)
     }
 }
 
@@ -351,7 +355,31 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
         }
     });
 
-    let expanded = quote! { #input };
+    let program_mod = input.ident.clone();
+    let bridge_fn = format_ident!("__hopper_process_instruction_{}", program_mod);
+    let entrypoint_bridge = if policy.entrypoint() {
+        quote! {
+            #[cfg(target_os = "solana")]
+            ::hopper::program_entrypoint!(#bridge_fn);
+
+            #[doc(hidden)]
+            fn #bridge_fn(
+                program_id: &::hopper::__runtime::Address,
+                accounts: &[::hopper::__runtime::AccountView],
+                instruction_data: &[u8],
+            ) -> ::core::result::Result<(), ::hopper::__runtime::ProgramError> {
+                let mut ctx = ::hopper::prelude::Context::new(program_id, accounts, instruction_data);
+                #program_mod::process_instruction(&mut ctx)
+            }
+        }
+    } else {
+        quote! {}
+    };
+
+    let expanded = quote! {
+        #input
+        #entrypoint_bridge
+    };
 
     Ok(expanded)
 }
@@ -361,7 +389,7 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
 /// Accepts:
 /// - empty args: defaults to `HopperProgramPolicy::STRICT`
 /// - bare shorthand: `strict` | `raw` | `sealed`
-/// - explicit levers: `strict = bool`, `enforce_token_checks = bool`, `allow_unsafe = bool`
+/// - explicit levers: `strict = bool`, `enforce_token_checks = bool`, `allow_unsafe = bool`, `entrypoint = bool`
 /// - any combination (shorthand sets defaults; explicit levers override)
 fn parse_program_policy(attr: TokenStream) -> Result<ProgramPolicyArgs> {
     let mut policy = ProgramPolicyArgs::default();
@@ -409,11 +437,12 @@ fn parse_program_policy(attr: TokenStream) -> Result<ProgramPolicyArgs> {
                     "strict" => policy.strict = Some(value),
                     "enforce_token_checks" => policy.enforce_token_checks = Some(value),
                     "allow_unsafe" => policy.allow_unsafe = Some(value),
+                    "entrypoint" => policy.entrypoint = Some(value),
                     other => {
                         return Err(syn::Error::new(
                             nv.path.span(),
                             format!(
-                                "unknown program policy lever `{other}`; expected `strict`, `enforce_token_checks`, or `allow_unsafe`",
+                                "unknown program policy lever `{other}`; expected `strict`, `enforce_token_checks`, `allow_unsafe`, or `entrypoint`",
                             ),
                         ));
                     }

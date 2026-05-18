@@ -1138,8 +1138,6 @@ mod app {
     }
 }
 
-hopper::program_dispatch!(app);
-
 impl<'info> Initialize<'info> {
     pub fn initialize(&self) -> ProgramResult {
         let mut config = self.config.get_mut_after_init()?;
@@ -1250,8 +1248,6 @@ mod quasar_port {
         ctx.accounts.add_signer(signer)
     }
 }
-
-hopper::program_dispatch!(quasar_port);
 
 pub fn initialize_multisig_data(
     data: &mut [u8],
@@ -1771,6 +1767,7 @@ mod tests {
             ["ctx: ", "Context<"].concat(),
             ["Account", "View"].concat(),
             "program_entrypoint!".to_string(),
+            "program_dispatch!".to_string(),
         ]
     }
 
@@ -1794,7 +1791,6 @@ mod tests {
             "pub fn initialize(ctx: Ctx<Initialize>) -> ProgramResult",
             "ctx.accounts.initialize()",
             "config.set_inner(*self.authority.key(), 0)",
-            "hopper::program_dispatch!(app)",
         ] {
             assert!(
                 source.contains(required),
@@ -1833,7 +1829,6 @@ mod tests {
             "pub authority: Signer<'info>",
             "pub fn rename(ctx: Ctx<RenameMultisig>, label: HopperString<32>)",
             "ctx.accounts.rename(label.as_str()?)",
-            "hopper::program_dispatch!(quasar_port)",
         ] {
             assert!(
                 source.contains(required),

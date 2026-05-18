@@ -109,8 +109,6 @@ mod escrow_program {
     }
 }
 
-hopper::program_dispatch!(escrow_program);
-
 impl<'info> Make<'info> {
     pub fn make(
         &self,

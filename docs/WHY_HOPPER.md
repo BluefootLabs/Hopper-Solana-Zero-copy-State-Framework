@@ -114,29 +114,30 @@ Other frameworks rely on the author to remember every check. Hopper makes the ch
 
 Current release-facing numbers come from the sibling
 [hopper-bench](https://github.com/BluefootLabs/hopper-bench) parity harness:
-8-seed average, Mollusk execution, identical vault contract across Hopper and
-Quasar.
+8-seed average, Mollusk execution, and one command line for every included
+framework. The current snapshot includes Hopper, the benchmark repo's in-tree
+Anza Pinocchio target, and Quasar's upstream `examples/vault` target. Quasar's
+upstream vault implements only `deposit` and `withdraw`, so validation-only rows
+are `n/a` for Quasar.
 
-| Instruction | Hopper | Quasar |
-|---|---|---|
-| authorize | **432 CU** | 585 |
-| counter_access | **539 CU** | 607 |
-| deposit | **1651 CU** | 1768 |
-| withdraw | **455 CU** | 605 |
-| binary size | **7.62 KiB** | 8.36 |
+| Instruction | Hopper | Anza Pinocchio | Quasar |
+|---|---:|---:|---:|
+| authorize | **430 CU** | 2512 CU | n/a |
+| counter_access | **462 CU** | 2539 CU | n/a |
+| deposit | **1668 CU** | 3856 CU | 1767 CU |
+| withdraw | **453 CU** | 2548 CU | 603 CU |
+| binary size | 6.59 KiB | 7.73 KiB | **6.27 KiB** |
 
-Anza Pinocchio results are not shown in this release table until the sibling
-benchmark repo records the Pinocchio target with the same lockfile, SBF
-toolchain, Mollusk version, seed set, and command line. The older
-"Pinocchio-style" values were produced from a Quasar-authored reference vault
-and are intentionally excluded from launch claims.
+That supports a precise claim: **Anchor/Quasar-class DX, Hopper-grade
+safety/state contracts, Pinocchio-class raw control.** It does not turn one
+vault benchmark into a universal "faster than Pinocchio" statement.
 
 Methodology lives in the sibling
 [hopper-bench](https://github.com/BluefootLabs/hopper-bench) product repo. Re-run
 from that checkout:
 
-```sh
-./measure.sh all
+```powershell
+.\compare-framework-vaults.ps1 -HopperRoot ..\Hopper-Solana-Zero-copy-State-Framework -QuasarRoot <path-to-quasar> -OutDir results\framework-vaults
 ```
 
 ## In-process testing - `hopper-svm`

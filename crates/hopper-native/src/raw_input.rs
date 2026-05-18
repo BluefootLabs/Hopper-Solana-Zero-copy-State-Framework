@@ -99,7 +99,10 @@ pub unsafe fn deserialize_accounts<const MAX: usize>(
         if marker == u8::MAX {
             let raw = unsafe { input.add(offset) as *mut RuntimeAccount };
             // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-            accounts[slot] = MaybeUninit::new(unsafe { AccountView::new_unchecked(raw) });
+            unsafe {
+                *accounts.get_unchecked_mut(slot) =
+                    MaybeUninit::new(AccountView::new_unchecked(raw))
+            };
 
             let data_len = unsafe { (*raw).data_len as usize };
             offset += RuntimeAccount::SIZE;
@@ -118,8 +121,16 @@ pub unsafe fn deserialize_accounts<const MAX: usize>(
                 malformed_duplicate_marker(marker, slot);
             }
             // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-            let raw = unsafe { accounts[duplicate_of].assume_init_ref().raw_ptr() };
-            accounts[slot] = MaybeUninit::new(unsafe { AccountView::new_unchecked(raw) });
+            let raw = unsafe {
+                accounts
+                    .get_unchecked(duplicate_of)
+                    .assume_init_ref()
+                    .raw_ptr()
+            };
+            unsafe {
+                *accounts.get_unchecked_mut(slot) =
+                    MaybeUninit::new(AccountView::new_unchecked(raw))
+            };
             offset += 8;
         }
 
@@ -176,7 +187,10 @@ pub unsafe fn deserialize_accounts_fast<const MAX: usize>(
         if marker == u8::MAX {
             let raw = unsafe { input.add(offset) as *mut RuntimeAccount };
             // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-            accounts[slot] = MaybeUninit::new(unsafe { AccountView::new_unchecked(raw) });
+            unsafe {
+                *accounts.get_unchecked_mut(slot) =
+                    MaybeUninit::new(AccountView::new_unchecked(raw))
+            };
 
             let data_len = unsafe { (*raw).data_len as usize };
             offset += RuntimeAccount::SIZE;
@@ -191,8 +205,16 @@ pub unsafe fn deserialize_accounts_fast<const MAX: usize>(
                 malformed_duplicate_marker(marker, slot);
             }
             // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-            let raw = unsafe { accounts[duplicate_of].assume_init_ref().raw_ptr() };
-            accounts[slot] = MaybeUninit::new(unsafe { AccountView::new_unchecked(raw) });
+            let raw = unsafe {
+                accounts
+                    .get_unchecked(duplicate_of)
+                    .assume_init_ref()
+                    .raw_ptr()
+            };
+            unsafe {
+                *accounts.get_unchecked_mut(slot) =
+                    MaybeUninit::new(AccountView::new_unchecked(raw))
+            };
             offset += 8;
         }
 

@@ -21,6 +21,8 @@
 //! - Inline conflict checks
 //! - Deterministic iteration (bounded loop)
 
+use core::mem::MaybeUninit;
+
 use crate::address::Address;
 use crate::error::ProgramError;
 
@@ -115,7 +117,7 @@ const fn ranges_overlap(a_off: u32, a_size: u32, b_off: u32, b_size: u32) -> boo
 /// borrows.register_write(&vault_key, 0, 8)?;   // REJECTED, overlaps read
 /// ```
 pub struct SegmentBorrowRegistry {
-    entries: [SegmentBorrow; MAX_SEGMENT_BORROWS],
+    entries: [MaybeUninit<SegmentBorrow>; MAX_SEGMENT_BORROWS],
     len: u8,
 }
 
@@ -123,13 +125,7 @@ impl SegmentBorrowRegistry {
     /// Create an empty registry.
     #[inline(always)]
     pub const fn new() -> Self {
-        const EMPTY: SegmentBorrow = SegmentBorrow {
-            key_fp: 0,
-            key: Address::new([0u8; 32]),
-            offset: 0,
-            size: 0,
-            kind: AccessKind::Read,
-        };
+        const EMPTY: MaybeUninit<SegmentBorrow> = MaybeUninit::uninit();
         Self {
             entries: [EMPTY; MAX_SEGMENT_BORROWS],
             len: 0,
@@ -207,7 +203,7 @@ impl SegmentBorrowRegistry {
         // conflicts between unrelated accounts.
         let mut i = 0;
         while i < len {
-            let existing = &self.entries[i];
+            let existing = unsafe { self.entries.get_unchecked(i).assume_init_ref() };
             if existing.key_fp == new.key_fp
                 && address_eq(&existing.key, &new.key)
                 && ranges_overlap(existing.offset, existing.size, new.offset, new.size)
@@ -220,7 +216,7 @@ impl SegmentBorrowRegistry {
             i += 1;
         }
 
-        self.entries[len] = new;
+        unsafe { self.entries.get_unchecked_mut(len).write(new) };
         self.len = (len + 1) as u8;
         Ok(())
     }
@@ -268,7 +264,7 @@ impl SegmentBorrowRegistry {
         let len = self.len as usize;
         let mut i = 0;
         while i < len {
-            let existing = &self.entries[i];
+            let existing = unsafe { self.entries.get_unchecked(i).assume_init_ref() };
             if existing.key_fp == borrow.key_fp
                 && address_eq(&existing.key, &borrow.key)
                 && existing.offset == borrow.offset
@@ -279,13 +275,35 @@ impl SegmentBorrowRegistry {
                 let new_len = len - 1;
                 self.len = new_len as u8;
                 if i < new_len {
-                    self.entries[i] = self.entries[new_len];
+                    let last = unsafe { self.entries.get_unchecked(new_len).assume_init() };
+                    unsafe { self.entries.get_unchecked_mut(i).write(last) };
                 }
                 return true;
             }
             i += 1;
         }
         false
+    }
+
+    /// Release the most recently registered borrow.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure `borrow` is the last live entry in this
+    /// registry and that no earlier manual release has removed or reordered
+    /// it. This is exactly the invariant held by `SegmentLease`: the lease is
+    /// created immediately after registration, and safe Rust cannot borrow the
+    /// registry mutably again while the lease is live.
+    #[doc(hidden)]
+    #[inline(always)]
+    pub unsafe fn release_last_registered(&mut self, borrow: &SegmentBorrow) -> bool {
+        let _ = borrow;
+        let len = self.len as usize;
+        if len == 0 {
+            return false;
+        }
+        self.len = (len - 1) as u8;
+        true
     }
 
     /// Reset the registry, clearing all active borrows.
@@ -303,7 +321,7 @@ impl SegmentBorrowRegistry {
         let len = self.len as usize;
         let mut i = 0;
         while i < len {
-            let existing = &self.entries[i];
+            let existing = unsafe { self.entries.get_unchecked(i).assume_init_ref() };
             if existing.key_fp == proposed.key_fp
                 && address_eq(&existing.key, &proposed.key)
                 && ranges_overlap(
@@ -394,7 +412,7 @@ impl SegmentBorrowRegistry {
         let len = self.len as usize;
         let mut i = 0;
         while i < len {
-            f(&self.entries[i]);
+            f(unsafe { self.entries.get_unchecked(i).assume_init_ref() });
             i += 1;
         }
     }
@@ -412,7 +430,7 @@ impl SegmentBorrowRegistry {
         let len = self.len as usize;
         let mut i = 0;
         while i < len {
-            let e = &self.entries[i];
+            let e = unsafe { self.entries.get_unchecked(i).assume_init_ref() };
             if e.key_fp == fp
                 && address_eq(&e.key, key)
                 && e.offset == offset

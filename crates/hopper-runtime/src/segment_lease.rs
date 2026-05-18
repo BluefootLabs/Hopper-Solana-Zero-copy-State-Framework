@@ -108,10 +108,12 @@ impl<'a> Drop for SegmentLease<'a> {
     #[inline(always)]
     fn drop(&mut self) {
         // SAFETY: `_lt` pins `'a` to the registry's borrow; the pointer
-        // is valid for the full lifetime of `self`. `release` is a
-        // bounded-array swap-remove, no allocation, no panic path.
+        // is valid for the full lifetime of `self`. Leases are created
+        // immediately after registration, and safe callers cannot mutate the
+        // registry again while the lease is live, so the leased entry is the
+        // most recently registered one.
         unsafe {
-            (*self.registry).release(&self.borrow);
+            (*self.registry).release_last_registered(&self.borrow);
         }
     }
 }

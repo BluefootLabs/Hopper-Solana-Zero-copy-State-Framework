@@ -19,7 +19,7 @@ Hopper's typed pointer and validation surface.
 | `#[hopper::state]` (alias `#[account]`) | Zero-copy account layout with header + fingerprint + load/load_mut helpers |
 | `#[derive(Accounts)]` | First-touch account-context binding with the full Anchor keyword set and Hopper account wrappers |
 | `#[hopper::context]` (aliases `#[context]`, `#[accounts]`) | Attribute-form account-context binding for lower-level migrations and segment-level borrow vocabulary |
-| `#[hopper::program]` (alias `#[program]`) | Instruction dispatcher, supports `#[receipt]`, `#[invariant]`, `#[pipeline]`, `#[access_control]` handler attributes |
+| `#[hopper::program]` (alias `#[program]`) | Entrypoint bridge plus instruction dispatcher; supports `#[receipt]`, `#[invariant]`, `#[pipeline]`, `#[access_control]` handler attributes |
 | `#[hopper::migrate]` | Schema-epoch migration edges |
 | `#[hopper::event]` | Event types with discriminator + segment lineage |
 | `#[hopper::error]` | Error enums with `code()` / `invariant_idx()` + `CODE_TABLE` / `INVARIANT_TABLE` |

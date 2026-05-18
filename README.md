@@ -13,6 +13,9 @@ context ergonomics, then opt into upgradeable state contracts, segment-level
 borrows, receipts, policy graphs, and schema manifests when the program needs
 that power.
 
+The public claim is precise: **Anchor/Quasar-class DX, Hopper-grade
+safety/state contracts, Pinocchio-class raw control.**
+
 The framework path and the systems path share the same runtime. `hopper-lang`,
 imported as `hopper`, is the front door: `use hopper::prelude::*`,
 `#[hopper::account]`, typed account wrappers, and the
@@ -55,9 +58,10 @@ harness live separately so release claims stay reproducible and easy to audit.
   `hopper-memo`, `hopper-finance`, `hopper-lending`, `hopper-staking`,
   `hopper-vesting`, `hopper-distribute`, `hopper-multisig`, `hopper-anchor`,
   `hopper-manager`, and `hopper-sdk`, all at `0.2.0`.
-- Benchmark numbers must be regenerated from the separate
-  [hopper-bench](https://github.com/BluefootLabs/hopper-bench) repo before any
-  launch or comparison claim.
+- The current same-provenance vault benchmark snapshot is documented in
+  [BENCHMARKS.md](BENCHMARKS.md); regenerate it from the separate
+  [hopper-bench](https://github.com/BluefootLabs/hopper-bench) repo before
+  changing launch or comparison claims.
 - Security-sensitive users should review [AUDIT.md](AUDIT.md) and
   [docs/UNSAFE_INVARIANTS.md](docs/UNSAFE_INVARIANTS.md) before deployment.
 
@@ -136,8 +140,6 @@ mod counter_program {
         Ok(())
     }
 }
-
-hopper::program_dispatch!(counter_program);
 ```
 
 Initialization uses the same surface. After `ctx.init_vault()?`, mutate the
@@ -150,6 +152,7 @@ vault.set_inner(*ctx.accounts.payer.key(), 0, 0)?;
 
 ## Documentation map
 
+- [docs/README.md](docs/README.md): current docs front door and archive boundary.
 - [docs/FIRST_FIVE_MINUTES.md](docs/FIRST_FIVE_MINUTES.md): counter, vault, dynamic multisig, token transfer, and raw escape hatch through the `ctx.accounts.*` path.
 - [docs/GETTING_STARTED_SERIOUS.md](docs/GETTING_STARTED_SERIOUS.md): source-first setup and first serious program flow.
 - [docs/HOPPER_LAYERS.md](docs/HOPPER_LAYERS.md): framework mode, structured state, systems mode, and Anchor/Quasar/Hopper mental mapping.
@@ -161,7 +164,7 @@ vault.set_inner(*ctx.accounts.payer.key(), 0, 0)?;
 - [docs/MIGRATION_FROM_QUASAR.md](docs/MIGRATION_FROM_QUASAR.md): Quasar-to-Hopper migration notes.
 - [docs/PORT_QUASAR_IN_20_MINUTES.md](docs/PORT_QUASAR_IN_20_MINUTES.md): hands-on bounded-tail vault/multisig port guide using `#[hopper::dynamic_account]`.
 - [docs/DYNAMIC_TAILS_FROM_QUASAR.md](docs/DYNAMIC_TAILS_FROM_QUASAR.md): mapping Quasar bounded dynamic fields to Hopper fixed-body + compact dynamic-tail layouts.
-- [docs/QUASAR_PINOCCHIO_REPLACEMENT.md](docs/QUASAR_PINOCCHIO_REPLACEMENT.md): what Hopper replaces from Quasar/Pinocchio and what benchmark claims still require same-provenance proof.
+- [docs/QUASAR_PINOCCHIO_REPLACEMENT.md](docs/QUASAR_PINOCCHIO_REPLACEMENT.md): what Hopper replaces from Quasar/Pinocchio and how same-provenance benchmark claims are scoped.
 - [docs/CLI_REFERENCE.md](docs/CLI_REFERENCE.md): lifecycle, schema, client, profiling, and manager command reference.
 - [docs/PUBLICATION_AUDIT.md](docs/PUBLICATION_AUDIT.md): crate-by-crate publication and competitive-readiness audit.
 
@@ -302,20 +305,21 @@ https://github.com/BluefootLabs/hopper-bench
 Do not copy old benchmark numbers from this README. Regenerate numbers from the
 benchmark repo before publishing performance claims.
 
-Release-facing performance claims are Hopper-vs-Quasar only until the Anza
-Pinocchio target is measured from the same `hopper-bench` lockfile, SBF
-toolchain, Mollusk version, seed set, feature flags, release profile, and
-command line as the Hopper and Quasar columns.
+The current same-provenance vault snapshot includes Hopper, the in-tree Anza
+Pinocchio target, and Quasar's upstream vault target. Quasar implements only
+the financial `deposit` / `withdraw` rows, so validation-only rows are marked
+`n/a` rather than synthesized. See [BENCHMARKS.md](BENCHMARKS.md) for the table
+and provenance.
 
-Current positioning: Hopper targets low-overhead account access while adding
-framework safety, schema, lifecycle, CPI, and CLI tooling. Direct Pinocchio
-comparison claims wait for a same-provenance Pinocchio benchmark column.
+Current positioning: **Anchor/Quasar-class DX, Hopper-grade safety/state
+contracts, Pinocchio-class raw control.** Treat benchmark rows as measurements
+of that vault contract, not a universal raw-substrate ranking.
 
 Canonical reproduction command:
 
-```sh
+```powershell
 cd ../hopper-bench
-./measure.sh all
+.\compare-framework-vaults.ps1 -HopperRoot ..\Hopper-Solana-Zero-copy-State-Framework -QuasarRoot <path-to-quasar> -OutDir results\framework-vaults
 ```
 
 ### Where Pinocchio Is Still The Right Choice

@@ -1,6 +1,7 @@
 # Hopper vs Anchor vs Quasar vs Pinocchio
 
-Hopper's positioning is intentionally narrow: Anchor/Quasar feel at the first touch, Pinocchio-class control when you need it, and Hopper-only state guarantees underneath.
+Hopper's positioning is intentionally narrow: **Anchor/Quasar-class DX,
+Hopper-grade safety/state contracts, Pinocchio-class raw control.**
 
 ## Summary
 
@@ -14,7 +15,7 @@ Hopper's positioning is intentionally narrow: Anchor/Quasar feel at the first to
 | Layout compatibility | IDL convention | Local type contract | Author-owned | Layout fingerprints and schema epochs |
 | Borrow safety | Account-level | Account-level | Author-owned | Segment leases plus whole-layout wrappers |
 | Raw escape hatch | Limited | Focused | Full | Tiered, explicit, policy-controlled |
-| Benchmark posture | Mature ecosystem | Publicly fast | Fast substrate | Same-provenance proof required before direct claims |
+| Benchmark posture | Mature ecosystem | Publicly fast | Fast substrate | Same-provenance vault snapshot, scoped claims |
 
 ## Anchor
 
@@ -72,7 +73,7 @@ Use `hopper::systems::*` or raw access only when a protocol has a clear reason: 
 
 Hopper's differentiated promise is:
 
-> Anchor/Quasar feel. Hopper guarantees.
+> Anchor/Quasar-class DX, Hopper-grade safety/state contracts, Pinocchio-class raw control.
 
 Those guarantees are concrete:
 
@@ -85,11 +86,26 @@ Those guarantees are concrete:
 
 ## Benchmark Language
 
-Use cautious benchmark wording in release-facing material:
+Use cautious benchmark wording in release-facing material. Publish only tables
+produced by one `hopper-bench` run that uses the same lockfile, SBF toolchain,
+Mollusk version, seed set, feature flags, release profile, and command line for
+every included framework.
 
-> Hopper framework mode is Quasar-class fast; direct Pinocchio claims wait for same-provenance `hopper-bench` results.
+The current same-provenance vault snapshot is:
 
-Do not mix old Pinocchio-style numbers with Hopper-vs-Quasar release claims. Run the sibling [hopper-bench](https://github.com/BluefootLabs/hopper-bench) harness before publishing performance tables.
+| Scenario | Hopper | Anza Pinocchio | Quasar |
+|---|---:|---:|---:|
+| Authorize | **430 CU** | 2512 CU | n/a |
+| Auth-fail (missing sig) | 72 CU | **41 CU** | n/a |
+| Counter (segment-safe) | **462 CU** | 2539 CU | n/a |
+| Deposit | **1668 CU** | 3856 CU | 1767 CU |
+| Withdraw | **453 CU** | 2548 CU | 603 CU |
+| Binary size | 6.59 KiB | 7.73 KiB | **6.27 KiB** |
+
+`n/a` means Quasar's upstream vault example does not implement that instruction.
+Do not mix old Pinocchio-style numbers with this table. See
+[BENCHMARKS.md](../BENCHMARKS.md) for the result provenance and reproduction
+command.
 
 ## Migration Priority
 

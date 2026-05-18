@@ -745,14 +745,16 @@ macro_rules! interface_account_set {
     };
 }
 
-/// Generate the small runtime bridge for a `#[program]` module.
+/// Generate the small runtime bridge for a `#[program(entrypoint = false)]`
+/// module.
 ///
-/// This keeps first-touch programs focused on `#[program]`, `Ctx<T>`, and
-/// `ctx.accounts.*` while still emitting the audited Hopper entrypoint under
-/// the hood.
+/// New programs do not need this macro: `#[program]` emits the same audited
+/// Hopper entrypoint bridge automatically. Keep `program_dispatch!` for
+/// compatibility and for unusual crates that intentionally disable the
+/// automatic bridge.
 ///
 /// ```ignore
-/// #[program]
+/// #[program(entrypoint = false)]
 /// mod counter_program {
 ///     // handlers
 /// }

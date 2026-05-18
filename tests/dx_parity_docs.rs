@@ -4,6 +4,7 @@ fn legacy_surface_terms() -> Vec<String> {
         ["#", "[signer]"].concat(),
         ["ctx: ", "Context<"].concat(),
         ["Account", "View"].concat(),
+        "program_dispatch!".to_string(),
         ["_load", "_mut("].concat(),
         ["_load", "("].concat(),
     ]

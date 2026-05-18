@@ -1,12 +1,10 @@
 # Hopper Replacement Surface: Pinocchio + Quasar
 
 > **Benchmark posture.** Hopper's release-facing benchmark claims compare
-> Hopper and Quasar only. Older "Pinocchio-style" numbers came from a
-> Quasar-authored reference vault and are intentionally excluded from launch
-> claims. The sibling `hopper-bench` product repo owns the Anza Pinocchio
-> target and will publish Pinocchio numbers only when they share the same
-> lockfile, SBF toolchain, Mollusk version, seed set, and command line as the
-> Hopper and Quasar columns.
+> Hopper, an in-tree Anza Pinocchio target, and Quasar only when one
+> `hopper-bench` run measured them with the same lockfile, SBF toolchain,
+> Mollusk version, seed set, feature flags, release profile, and command line.
+> Older "Pinocchio-style" numbers from Quasar's reference vault remain excluded.
 
 This note records what the extracted upstream sources actually contain and how
 Hopper maps those surfaces into one unified system.
@@ -92,12 +90,13 @@ Cross-framework measurement is a standalone product surface in the sibling
 
 - Hopper parity vault from this framework workspace.
 - Quasar's vault example from a pinned Quasar source checkout.
-- Anza Pinocchio target when the benchmark lockfile includes it.
+- Anza Pinocchio target built in-tree from the benchmark repo.
 
-The output includes deposit CU, withdraw CU, counter CU, delta versus Hopper,
-compiled binary size, and unsigned-withdraw safety parity. The shared runner
-averages deterministic user seed cases across every included framework so the
-comparison does not hinge on one lucky or unlucky PDA bump.
+The output includes deposit CU, withdraw CU, validation CU where the comparator
+implements those instructions, delta versus Hopper, compiled binary size, and
+unsigned-withdraw safety parity. The shared runner averages deterministic user
+seed cases across every included framework so the comparison does not hinge on
+one lucky or unlucky PDA bump.
 
 The runner loads compiled SBF binaries into one shared `mollusk-svm` harness
 and executes the same scenarios for each:
@@ -112,24 +111,26 @@ and executes the same scenarios for each:
 That keeps the benchmark apples-to-apples instead of mixing framework overhead
 with extra example features like Hopper's init path and zero-copy vault state.
 
-Current release-facing results are the Hopper/Quasar table in
-[`../BENCHMARKS.md`](../BENCHMARKS.md). Pinocchio results stay out of this doc
-until the sibling benchmark repo publishes a same-provenance Anza Pinocchio
-run.
+Current release-facing results are the same-provenance table in
+[`../BENCHMARKS.md`](../BENCHMARKS.md). The current same-provenance snapshot
+includes Pinocchio, and marks Quasar's `authorize` / `counter_access` cells as
+`n/a` because Quasar's upstream vault example does not implement those
+instructions.
 
 ## Immutable Benchmark Provenance
 
 | Field | Value |
 |---|---|
-| Hopper framework commit | `55777a183e304bf43ec9d6e8e70fa6c75d3a8b6c` |
+| Hopper framework checkout | `e2633bf` plus local release-candidate changes |
+| Benchmark checkout | `f246c35` plus local harness/documentation changes |
+| Quasar checkout | `5fda2f5` clean |
 | Benchmark repository | `https://github.com/BluefootLabs/hopper-bench` |
 | Runner shape | Same Mollusk harness, deterministic 8-seed average |
-| Published release-facing columns | Hopper and Quasar only |
-| Excluded column | Anza Pinocchio until same-provenance measurement is available |
+| SBF toolchain | `cargo-build-sbf 4.0.0`, platform-tools `v1.53` |
 
 The benchmark claim is intentionally narrow: Hopper has measured advantages in
-the current Hopper/Quasar parity table, while Pinocchio remains an unclaimed
-comparison until the Anza target is measured with identical provenance.
+the current parity table, while the public positioning remains **Anchor/Quasar-class
+DX, Hopper-grade safety/state contracts, Pinocchio-class raw control.**
 
 ## Hopper Safety And Feature Coverage
 

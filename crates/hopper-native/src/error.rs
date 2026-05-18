@@ -73,35 +73,41 @@ impl From<ProgramError> for u64 {
 
 impl From<u64> for ProgramError {
     fn from(code: u64) -> Self {
-        match code {
-            CUSTOM_ZERO => ProgramError::Custom(0),
-            c if c == to_builtin(0) => ProgramError::InvalidArgument,
-            c if c == to_builtin(1) => ProgramError::InvalidInstructionData,
-            c if c == to_builtin(2) => ProgramError::InvalidAccountData,
-            c if c == to_builtin(3) => ProgramError::AccountDataTooSmall,
-            c if c == to_builtin(4) => ProgramError::InsufficientFunds,
-            c if c == to_builtin(5) => ProgramError::IncorrectProgramId,
-            c if c == to_builtin(6) => ProgramError::MissingRequiredSignature,
-            c if c == to_builtin(7) => ProgramError::AccountAlreadyInitialized,
-            c if c == to_builtin(8) => ProgramError::UninitializedAccount,
-            c if c == to_builtin(9) => ProgramError::NotEnoughAccountKeys,
-            c if c == to_builtin(10) => ProgramError::AccountBorrowFailed,
-            c if c == to_builtin(11) => ProgramError::MaxSeedLengthExceeded,
-            c if c == to_builtin(12) => ProgramError::InvalidSeeds,
-            c if c == to_builtin(13) => ProgramError::BorshIoError,
-            c if c == to_builtin(14) => ProgramError::AccountNotRentExempt,
-            c if c == to_builtin(15) => ProgramError::UnsupportedSysvar,
-            c if c == to_builtin(16) => ProgramError::IllegalOwner,
-            c if c == to_builtin(17) => ProgramError::MaxAccountsDataAllocationsExceeded,
-            c if c == to_builtin(18) => ProgramError::InvalidRealloc,
-            c if c == to_builtin(19) => ProgramError::MaxInstructionTraceLengthExceeded,
-            c if c == to_builtin(20) => ProgramError::BuiltinProgramsMustConsumeComputeUnits,
-            c if c == to_builtin(21) => ProgramError::InvalidAccountOwner,
-            c if c == to_builtin(22) => ProgramError::ArithmeticOverflow,
-            c if c == to_builtin(23) => ProgramError::Immutable,
-            c if c == to_builtin(24) => ProgramError::IncorrectAuthority,
-            other => ProgramError::Custom(other as u32),
+        if code == CUSTOM_ZERO {
+            return ProgramError::Custom(0);
         }
+        let builtin = code >> BUILTIN_BIT_SHIFT;
+        if code & BUILTIN_LOW_MASK == 0 && builtin >= 2 {
+            match builtin - 2 {
+                0 => return ProgramError::InvalidArgument,
+                1 => return ProgramError::InvalidInstructionData,
+                2 => return ProgramError::InvalidAccountData,
+                3 => return ProgramError::AccountDataTooSmall,
+                4 => return ProgramError::InsufficientFunds,
+                5 => return ProgramError::IncorrectProgramId,
+                6 => return ProgramError::MissingRequiredSignature,
+                7 => return ProgramError::AccountAlreadyInitialized,
+                8 => return ProgramError::UninitializedAccount,
+                9 => return ProgramError::NotEnoughAccountKeys,
+                10 => return ProgramError::AccountBorrowFailed,
+                11 => return ProgramError::MaxSeedLengthExceeded,
+                12 => return ProgramError::InvalidSeeds,
+                13 => return ProgramError::BorshIoError,
+                14 => return ProgramError::AccountNotRentExempt,
+                15 => return ProgramError::UnsupportedSysvar,
+                16 => return ProgramError::IllegalOwner,
+                17 => return ProgramError::MaxAccountsDataAllocationsExceeded,
+                18 => return ProgramError::InvalidRealloc,
+                19 => return ProgramError::MaxInstructionTraceLengthExceeded,
+                20 => return ProgramError::BuiltinProgramsMustConsumeComputeUnits,
+                21 => return ProgramError::InvalidAccountOwner,
+                22 => return ProgramError::ArithmeticOverflow,
+                23 => return ProgramError::Immutable,
+                24 => return ProgramError::IncorrectAuthority,
+                _ => {}
+            }
+        }
+        ProgramError::Custom(code as u32)
     }
 }
 
@@ -112,6 +118,7 @@ impl From<u64> for ProgramError {
 /// - builtin errors start at `2 << 32`
 const BUILTIN_BIT_SHIFT: usize = 32;
 const CUSTOM_ZERO: u64 = 1_u64 << BUILTIN_BIT_SHIFT;
+const BUILTIN_LOW_MASK: u64 = (1_u64 << BUILTIN_BIT_SHIFT) - 1;
 
 #[inline(always)]
 const fn to_builtin(index: u64) -> u64 {

@@ -33,8 +33,6 @@ mod counter_program {
         Ok(())
     }
 }
-
-hopper::program_dispatch!(counter_program);
 ```
 
 This is the default mental model: validated accounts enter through `#[derive(Accounts)]`, then the handler mutates typed zero-copy state through `ctx.accounts`.
@@ -68,8 +66,6 @@ mod vault_program {
         ctx.accounts.deposit(amount)
     }
 }
-
-hopper::program_dispatch!(vault_program);
 ```
 
 See [examples/hopper-vault/src/lib.rs](../examples/hopper-vault/src/lib.rs) for the complete SOL-vault flow.

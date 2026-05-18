@@ -134,10 +134,9 @@ System Program, use `SystemAccount<'info>`.
 
 ## Step 4: Add Handlers
 
-The CLI template includes the tiny runtime bridge through
-`hopper::program_dispatch!(...)`. Most program authors work in the `#[program]`
-module, where Hopper dispatches from the discriminator bytes and hands each
-handler a typed `Ctx<T>`.
+Most program authors work in the `#[program]` module. Hopper emits the tiny
+runtime bridge, dispatches from the discriminator bytes, and hands each handler
+a typed `Ctx<T>`.
 
 ```rust
 #[program]
@@ -160,8 +159,6 @@ mod vault_program {
         ctx.accounts.withdraw(amount)
     }
 }
-
-hopper::program_dispatch!(vault_program);
 ```
 
 `ctx.bumps.field_name` is available for seed-derived accounts. Older Hopper

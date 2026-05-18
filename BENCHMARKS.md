@@ -29,16 +29,15 @@ and historical result snapshots.
 
 ## Release-Facing Benchmark Policy
 
-Release-facing tables in this repository compare Hopper and Quasar only. Older
-"Pinocchio-style" measurements used a Quasar-authored reference vault and are
-not published as Anza Pinocchio results. A Pinocchio column may be added only
-after the sibling `hopper-bench` repo measures an Anza Pinocchio target from
-the same lockfile, SBF toolchain, Mollusk version, seed set, feature flags,
-release profile, and command line used for Hopper and Quasar.
+Release-facing comparison tables in this repository must come from one
+`hopper-bench` run that uses the same lockfile, SBF toolchain, Mollusk version,
+seed set, feature flags, release profile, and command line for every included
+framework.
 
-Until that same-provenance run exists, Hopper's public positioning is
-low-overhead account access with framework safety/DX, not a published
-Pinocchio win claim.
+The current vault snapshot includes Hopper, an in-tree Anza Pinocchio target,
+and Quasar's upstream `examples/vault` target. Quasar's upstream vault exposes
+only `deposit` and `withdraw`, so validation-only rows are shown as `n/a` for
+Quasar instead of being synthesized by the harness.
 
 ## CU Results
 
@@ -185,25 +184,24 @@ verification, and a clean typed API.
 
 ## Framework Parity Benchmark (Vault, 8-seed average)
 
-All frameworks execute identical logic: `['vault', user]` PDA derivation,
-signer/writable checks, and equivalent lamport movement. Measured on the
-Mollusk parity harness with the same seed set for every framework.
+Measured with the sibling `hopper-bench` Mollusk parity harness on 2026-05-18.
+Every included framework used the same deterministic user seed set, SBF
+toolchain, runner, and command line. `n/a` means the upstream comparator does
+not implement that benchmark instruction.
 
-| Scenario | Hopper | Quasar |
-|----------|--------|--------|
-| Authorize | **432 CU** | 585 CU |
-| Auth-fail (missing sig) | 70 CU | **66 CU** |
-| Counter (segment-safe) | **539 CU** | 607 CU |
-| Deposit | **1651 CU** | 1768 CU |
-| Withdraw | **455 CU** | 605 CU |
-| **Binary size** | **7.62 KiB** | 8.36 KiB |
+| Scenario | Hopper | Anza Pinocchio | Quasar |
+|----------|-------:|---------------:|-------:|
+| Authorize | **430 CU** | 2512 CU (+2082) | n/a |
+| Auth-fail (missing sig) | 72 CU | **41 CU** (-31) | n/a |
+| Counter (segment-safe) | **462 CU** | 2539 CU (+2077) | n/a |
+| Deposit | **1668 CU** | 3856 CU (+2188) | 1767 CU (+99) |
+| Withdraw | **453 CU** | 2548 CU (+2095) | 603 CU (+150) |
+| Unsigned withdraw | rejected | rejected | rejected |
+| Binary size | 6.59 KiB | 7.73 KiB | **6.27 KiB** |
 
-The old "Pinocchio-style" column was removed from release-facing tables. It
-used a Quasar-authored reference vault and was too easy to misread as an Anza
-Pinocchio framework measurement. The sibling `hopper-bench` repo now owns the
-Anza Pinocchio target and its provenance; Hopper will only publish Pinocchio
-numbers after that target is measured from the same lockfile, SBF toolchain,
-Mollusk version, seed set, and command line as the Hopper and Quasar columns.
+The Pinocchio column above is built in-tree from the benchmark repo's Anza
+Pinocchio target, not borrowed from Quasar's reference sample or an older
+"Pinocchio-style" proxy number.
 
 ### Benchmark provenance checklist
 
@@ -216,26 +214,30 @@ Every parity result published from `hopper-bench` must record:
 - Exact feature flags and release profile.
 - Exact reproduction command and seed count.
 
-### Immutable benchmark provenance
+### Current benchmark provenance
 
 | Field | Value |
 |---|---|
-| Hopper framework commit | `55777a183e304bf43ec9d6e8e70fa6c75d3a8b6c` |
-| Benchmark repository | `https://github.com/BluefootLabs/hopper-bench` |
-| Runner shape | Same Mollusk harness, deterministic 8-seed average |
-| Published frameworks | Hopper and Quasar only |
-| Excluded framework column | Anza Pinocchio, pending same-provenance target |
+| Result files | `hopper-bench/results/framework-vaults-2026-05-18-size-opt/vault-framework-comparison.{json,csv}` |
+| Hopper framework checkout | `e2633bf` plus local release-candidate changes |
+| Benchmark checkout | `f246c35` plus local harness/documentation changes |
+| Quasar checkout | `5fda2f5` clean |
+| SBF toolchain | `cargo-build-sbf 4.0.0`, platform-tools `v1.53` |
+| Samples | 8 deterministic user seed cases |
+| Command | `./compare-framework-vaults.ps1 -HopperRoot D:\tmp\Hopper-Solana-Zero-copy-State-Framework -QuasarRoot D:\tmp\quasar -OutDir results\framework-vaults-2026-05-18-size-opt` |
 
 ### Performance observations
 
-- Hopper is faster than Quasar on 4 of the 5 published instructions in this
-  Hopper/Quasar table. The only slower path is auth-fail (+4 CU), which is not
-  material at instruction scale.
-- Hopper has the smallest binary in the published Hopper/Quasar table: 7.62 KiB
-  versus Quasar at 8.36 KiB.
-- The counter-access instruction (539 vs 607 CU) beats Quasar while using
-  segment-level borrow tracking. Quasar's counter uses unchecked mutable byte
-  slicing with no conflict detection.
+- Hopper is within 150 CU of Quasar on the two upstream Quasar vault workloads
+  while adding Hopper's state-contract surface in its own parity target.
+- Hopper is lower-CU than the in-tree Anza Pinocchio parity target on the
+  measured PDA-bearing success paths in this vault contract. Treat that as a
+  result for this benchmark, not a universal "faster than Pinocchio" claim.
+- Hopper now produces a smaller binary than the four-instruction Anza Pinocchio
+  parity target. Quasar remains 0.31 KiB smaller, but its upstream vault only
+  implements `deposit` and `withdraw`.
+- Quasar's upstream vault does not implement `authorize` or `counter_access`, so
+  those rows are intentionally absent for Quasar.
 
 ### Architecture and DX observations
 

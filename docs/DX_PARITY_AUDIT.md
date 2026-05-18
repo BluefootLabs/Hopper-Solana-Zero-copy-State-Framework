@@ -28,8 +28,6 @@ mod app {
         ctx.accounts.ix()
     }
 }
-
-hopper::program_dispatch!(app);
 ```
 
 Raw account access belongs in explicit systems/raw documentation and advanced

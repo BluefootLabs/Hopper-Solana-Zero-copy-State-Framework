@@ -190,7 +190,7 @@ fn verify_pda_sha256_loop(
     let mut i = 0;
     while i < n {
         // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-        unsafe { sptr.add(i).write(seeds[i]) };
+        unsafe { sptr.add(i).write(*seeds.get_unchecked(i)) };
         i += 1;
     }
     let mut bump_byte = [255u8];

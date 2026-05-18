@@ -101,9 +101,13 @@ pub fn invoke_event_cpi(
 ) -> crate::result::ProgramResult {
     #[cfg(all(target_os = "solana", feature = "hopper-native-backend"))]
     {
-        use crate::instruction::{InstructionAccount, InstructionView};
+        use crate::instruction::{InstructionAccount, InstructionView, Seed, Signer};
+        if authority_seeds.len() > crate::address::MAX_SEEDS {
+            return Err(crate::error::ProgramError::MaxSeedLengthExceeded);
+        }
+
         let account_meta = InstructionAccount {
-            pubkey: event_authority.address(),
+            address: event_authority.address(),
             is_signer: true,
             is_writable: false,
         };
@@ -112,11 +116,25 @@ pub fn invoke_event_cpi(
             accounts: ::core::slice::from_ref(&account_meta),
             data,
         };
-        // Array-of-slices form the native CPI surface expects for
-        // signer seeds: one signer, one seed list.
-        let signer_list = [authority_seeds];
+        let mut seed_storage: [::core::mem::MaybeUninit<Seed<'_>>; crate::address::MAX_SEEDS] =
+            // SAFETY: MaybeUninit elements do not require initialization.
+            unsafe { ::core::mem::MaybeUninit::uninit().assume_init() };
+        let mut seed_index = 0;
+        while seed_index < authority_seeds.len() {
+            seed_storage[seed_index].write(Seed::from(authority_seeds[seed_index]));
+            seed_index += 1;
+        }
+        let seed_slice =
+            // SAFETY: The first `authority_seeds.len()` slots were initialized above.
+            unsafe {
+                ::core::slice::from_raw_parts(
+                    seed_storage.as_ptr() as *const Seed<'_>,
+                    authority_seeds.len(),
+                )
+            };
+        let signer_list = [Signer::from(seed_slice)];
         let account_views = [event_authority];
-        crate::cpi::invoke_signed::<1>(&ix, &account_views, &signer_list[..])
+        crate::cpi::invoke_signed::<1>(&ix, &account_views, &signer_list)
     }
 
     #[cfg(any(

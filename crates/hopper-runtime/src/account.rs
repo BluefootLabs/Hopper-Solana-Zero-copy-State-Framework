@@ -211,7 +211,7 @@ impl AccountView {
                     // Native guard could not be taken; undo the lease
                     // we just registered so the instruction-level view
                     // stays consistent.
-                    borrows.release(&borrow);
+                    unsafe { borrows.release_last_registered(&borrow) };
                     return Err(ProgramError::from(e));
                 }
             };
@@ -223,7 +223,7 @@ impl AccountView {
             let data = match self.try_borrow() {
                 Ok(d) => d,
                 Err(e) => {
-                    borrows.release(&borrow);
+                    unsafe { borrows.release_last_registered(&borrow) };
                     return Err(e);
                 }
             };
@@ -272,7 +272,7 @@ impl AccountView {
             let native_ref = match native_ref {
                 Ok(nr) => nr,
                 Err(e) => {
-                    borrows.release(&borrow);
+                    unsafe { borrows.release_last_registered(&borrow) };
                     return Err(ProgramError::from(e));
                 }
             };
@@ -284,7 +284,7 @@ impl AccountView {
             let mut data = match self.try_borrow_mut() {
                 Ok(d) => d,
                 Err(e) => {
-                    borrows.release(&borrow);
+                    unsafe { borrows.release_last_registered(&borrow) };
                     return Err(e);
                 }
             };
@@ -959,7 +959,8 @@ impl AccountView {
     // ── Backend access ───────────────────────────────────────────────
 
     /// Access the active backend account view inside the runtime crate.
-    #[cfg(feature = "solana-program-backend")]
+    #[cfg(any(feature = "hopper-native-backend", feature = "solana-program-backend"))]
+    #[allow(dead_code)]
     #[inline(always)]
     pub(crate) fn as_backend(&self) -> &BackendAccountView {
         &self.inner

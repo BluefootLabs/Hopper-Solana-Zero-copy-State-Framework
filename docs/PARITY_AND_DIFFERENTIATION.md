@@ -14,8 +14,10 @@ Solana team is likely to evaluate:
 
 The comparison below is intentionally conservative. A row is a Hopper win only
 when the repository contains the runtime, macro, test, or documentation surface
-that backs it. Performance claims stay Hopper-vs-Quasar unless the sibling
-`hopper-bench` repository publishes a same-provenance Anza Pinocchio run.
+that backs it. The public claim is precise: **Anchor/Quasar-class DX,
+Hopper-grade safety/state contracts, Pinocchio-class raw control.** Performance
+claims cite same-provenance `hopper-bench` runs and stay tied to the measured
+vault contract.
 
 ## External evidence snapshot
 
@@ -143,27 +145,29 @@ portability, and cross-program typed reads.
 
 ## Performance posture
 
-The release-facing parity table remains Hopper-vs-Quasar only:
+The current release-facing parity table comes from one `hopper-bench` run.
+Quasar's upstream vault implements only `deposit` and `withdraw`, so its
+validation-only cells are shown as `n/a`.
 
-| Scenario | Hopper | Quasar |
-|---|---:|---:|
-| Authorize | **432 CU** | 585 CU |
-| Auth-fail (missing sig) | 70 CU | **66 CU** |
-| Counter (segment-safe) | **539 CU** | 607 CU |
-| Deposit | **1651 CU** | 1768 CU |
-| Withdraw | **455 CU** | 605 CU |
-| Binary size | **7.62 KiB** | 8.36 KiB |
+| Scenario | Hopper | Anza Pinocchio | Quasar |
+|---|---:|---:|---:|
+| Authorize | **430 CU** | 2512 CU | n/a |
+| Auth-fail (missing sig) | 72 CU | **41 CU** | n/a |
+| Counter (segment-safe) | **462 CU** | 2539 CU | n/a |
+| Deposit | **1668 CU** | 3856 CU | 1767 CU |
+| Withdraw | **453 CU** | 2548 CU | 603 CU |
+| Binary size | 6.59 KiB | 7.73 KiB | **6.27 KiB** |
 
 Interpretation:
 
-- Hopper is faster than Quasar on four of five published instruction paths and
-  has the smaller binary in this table.
-- The auth-fail gap is negligible and not a protocol-level concern.
-- The counter result is important because Hopper keeps segment-level safety in
-  the measured path.
-- No Pinocchio win claim is published until the benchmark repo records the same
-  lockfile, SBF toolchain, Mollusk version, seed set, feature flags, release
-  profile, and command line for an Anza Pinocchio target.
+- Hopper is within 150 CU of Quasar on the two upstream Quasar vault workloads.
+- Hopper is lower-CU than the in-tree Anza Pinocchio target on the PDA-bearing
+  success paths in this vault contract.
+- Hopper now produces a smaller binary than the four-instruction Anza Pinocchio
+  target; Quasar remains slightly smaller because its upstream vault implements
+  only `deposit` and `withdraw`.
+- The Pinocchio comparison is a same-provenance benchmark result, not a blanket
+  claim that Hopper is always faster than raw Pinocchio.
 
 See [`BENCHMARKS.md`](../BENCHMARKS.md) for the full benchmark policy and
 provenance requirements.

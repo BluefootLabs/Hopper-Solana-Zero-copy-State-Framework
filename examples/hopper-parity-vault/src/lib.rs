@@ -47,9 +47,9 @@ fn parse_amount(data: &[u8]) -> Result<u64, ProgramError> {
         return Err(ProgramError::InvalidInstructionData);
     }
 
-    Ok(u64::from_le_bytes([
-        data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7],
-    ]))
+    Ok(u64::from_le(unsafe {
+        core::ptr::read_unaligned(data.as_ptr() as *const u64)
+    }))
 }
 
 #[inline(always)]
@@ -83,9 +83,21 @@ fn validate_writable(account: &AccountView) -> ProgramResult {
 
 #[inline(always)]
 fn transfer_unchecked(from: &AccountView, to: &AccountView, lamports: u64) -> ProgramResult {
-    let mut data = [0u8; 12];
-    data[..4].copy_from_slice(&2u32.to_le_bytes());
-    data[4..12].copy_from_slice(&lamports.to_le_bytes());
+    let lamports = lamports.to_le_bytes();
+    let data = [
+        2,
+        0,
+        0,
+        0,
+        lamports[0],
+        lamports[1],
+        lamports[2],
+        lamports[3],
+        lamports[4],
+        lamports[5],
+        lamports[6],
+        lamports[7],
+    ];
 
     let accounts = [
         InstructionAccount::writable_signer(from.address()),

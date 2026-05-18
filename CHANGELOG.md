@@ -11,11 +11,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 
 ### Added
 
-- **`hopper-svm` Tier 4 — Language bindings (TypeScript / Python).**
+- **`hopper-svm` Tier 4 - Language bindings (TypeScript / Python).**
   Closes the SVM roadmap by exposing the harness to non-Rust
   test code. Three pieces:
 
-  **`hopper-svm-ffi`** — new C-ABI wrapper crate. Single
+  **`hopper-svm-ffi`** - new C-ABI wrapper crate. Single
   `lib.rs` (~700 lines) exposes the `HopperSvm` surface as
   `extern "C"` functions through opaque handle types
   (`HopperSvmHandle`, `ExecutionResultHandle`). Builds three
@@ -31,14 +31,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
     `hopper_svm_get_lamports`, `hopper_svm_get_account_data`.
     The FFI keeps an internal account cache aligned with the
     Rust crate's stateless `process_instruction(ix, accounts)`
-    model — host code seeds accounts once, dispatches feed the
+    model - host code seeds accounts once, dispatches feed the
     cache through, post-state replaces the cache.
   - Dispatch: `hopper_svm_dispatch` returns an opaque outcome
     handle; eight accessor functions read out logs, error,
     consumed units, transaction fee, post-accounts, return
     data.
   - String marshalling: `HopperFfiString` (`{ ptr, len }`)
-    instead of null-terminated C strings — log lines may
+    instead of null-terminated C strings - log lines may
     contain interior nulls. `hopper_svm_string_free` releases
     every owned string.
   - Version probe: `hopper_svm_ffi_version` returns the crate
@@ -51,11 +51,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   lamports, set + get account round-trip, replace-existing-
   account-in-place, version-string format.
 
-  **`bindings/typescript/`** — `@hopper/svm` npm package.
+  **`bindings/typescript/`** - `@hopper/svm` npm package.
   Minimal scaffold (no compile step beyond `tsc`):
   - `package.json` declaring `koffi` as the only runtime dep.
   - `tsconfig.json` strict-mode, ES2022 target.
-  - `src/index.ts` (~450 lines) — wraps the FFI through
+  - `src/index.ts` (~450 lines) - wraps the FFI through
     `koffi.func` declarations, exposes high-level `HopperSvm`
     + `ExecutionResult` classes with `dispose()` + identical
     semantics to the Rust crate. Includes a hand-written
@@ -64,51 +64,51 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   - `README.md` covering build setup
     (`HOPPER_SVM_LIB_PATH` env var) + a quick-start example.
 
-  **`bindings/python/`** — `hopper-svm` PyPI package via
+  **`bindings/python/`** - `hopper-svm` PyPI package via
   `cffi` ABI mode (no compile step):
   - `pyproject.toml` declaring `cffi >= 1.16` as the only
     runtime dep, Python ≥ 3.10.
   - `hopper_svm/__init__.py` re-exports the public API.
-  - `hopper_svm/core.py` (~400 lines) — `cffi.FFI` `cdef`
+  - `hopper_svm/core.py` (~400 lines) - `cffi.FFI` `cdef`
     declarations matching the C surface exactly, plus
     Pythonic `HopperSvm` + `ExecutionResult` classes that
     are context managers (`with` blocks free the handle).
     Also includes a tiny base58 codec.
   - `README.md` mirroring the TS shape with Python idioms.
 
-  Both bindings drive the *same* shared library — one source
+  Both bindings drive the *same* shared library - one source
   of truth in Rust, two host-language ergonomic shapes. Adding
   a new FFI export means: edit `hopper-svm-ffi/src/lib.rs`,
   add the koffi `lib.func` line in TS, add the cffi `cdef`
   line in Python. The pattern is mechanical enough that future
   surface growth doesn't drift between the bindings.
 
-- **`hopper-svm` Tier 3 — Niche syscalls (introspection,
+- **`hopper-svm` Tier 3 - Niche syscalls (introspection,
   obsolete sysvars, curve25519, heavy-crypto clear-error shims).** New
   module `hopper-svm/src/bpf/tier3_syscalls.rs` plus the
   matching adapter shims in `bpf/adapters.rs` and the
   registrations in `bpf/engine.rs`. Closes the syscall surface
-  gap — programs that link these names now load and dispatch
+  gap - programs that link these names now load and dispatch
   cleanly under `--features bpf-execution`.
 
   **Introspection (fully implemented):**
-  - `sol_get_stack_height` — reports `BpfContext::cpi_depth`.
+  - `sol_get_stack_height` - reports `BpfContext::cpi_depth`.
     Outermost program runs at depth 1; each
     `sol_invoke_signed_*` increments. CU pinned at 100.
-  - `sol_remaining_compute_units` — reads the meter post the
+  - `sol_remaining_compute_units` - reads the meter post the
     syscall's own charge. CU pinned at 100.
-  - `sol_get_processed_sibling_instruction` — Hopper Phase 2
+  - `sol_get_processed_sibling_instruction` - Hopper Phase 2
     doesn't yet ledger sibling instructions, so the syscall
     returns `0` (mainnet's empty-list convention) for any
     index. CU pinned at 100.
 
   **Obsolete-but-referenced sysvars (compat buffers matching a
   fresh-validator state):**
-  - `sol_get_slothashes_sysvar` — empty SlotHashes vec
+  - `sol_get_slothashes_sysvar` - empty SlotHashes vec
     (`len(u64) = 0`).
-  - `sol_get_slothistory_sysvar` — all-zero SlotHistory
+  - `sol_get_slothistory_sysvar` - all-zero SlotHistory
     bitvec (16,392 bytes: 16,384 bitvec + 8 next_slot).
-  - `sol_get_stakehistory_sysvar` — empty StakeHistory vec
+  - `sol_get_stakehistory_sysvar` - empty StakeHistory vec
     (`len(u64) = 0`).
 
   **Generic `sol_get_sysvar` (fully implemented):**
@@ -120,27 +120,27 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
     `[offset, offset + length)` slice into `out`. CU pinned at
     100.
 
-  **Curve25519 (fully implemented — uses existing
+  **Curve25519 (fully implemented - uses existing
   `curve25519-dalek` dep):**
-  - `sol_curve_validate_point` — Edwards (curve = 0) or
+  - `sol_curve_validate_point` - Edwards (curve = 0) or
     Ristretto (curve = 1). Returns `0` for valid, `1` for
     invalid (mainnet's inverted-bool convention). Edwards
     validation includes the prime-order subgroup check
     (`is_torsion_free`); Ristretto validation is the
     decompression check. CU pinned at 159.
-  - `sol_curve_group_op` — Add (op = 0), Sub (op = 1),
+  - `sol_curve_group_op` - Add (op = 0), Sub (op = 1),
     Mul-by-scalar (op = 2). Edwards or Ristretto. Returns `0`
     on success (writes 32-byte result), `1` on invalid input
     (off-curve operand or non-canonical scalar). CU pinned at
     2,000.
 
-  **Heavy crypto — clear-error shims (Tier 4 work):**
-  - `sol_poseidon` — Poseidon hash. Returns a structured
+  **Heavy crypto - clear-error shims (Tier 4 work):**
+  - `sol_poseidon` - Poseidon hash. Returns a structured
     `Custom` error naming `light-poseidon` as the canonical
     backing crate.
-  - `sol_big_mod_exp` — RSA-style modular exponentiation.
+  - `sol_big_mod_exp` - RSA-style modular exponentiation.
     Error names `num-bigint`.
-  - `sol_alt_bn128_group_op` / `sol_alt_bn128_compression` —
+  - `sol_alt_bn128_group_op` / `sol_alt_bn128_compression` -
     BN254 / alt_bn128 ops. Error names `ark-bn254`.
 
   Why clear-error shims instead of "unknown syscall": mainnet programs
@@ -167,7 +167,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   registered against the canonical sbpf names in
   `bpf/engine.rs::build_loader`.
 
-- **`hopper-svm` Tier 2 (e) — Config / Stake / Vote programs.**
+- **`hopper-svm` Tier 2 (e) - Config / Stake / Vote programs.**
   Three native simulators close the validator-side parity gap
   (matching `quasar-svm`'s "default-loaded programs" surface)
   without pulling in any validator crates as dependencies. All
@@ -176,7 +176,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   selectable via `with_config_program()` / `with_stake_program()`
   / `with_vote_program()`.
 
-  - **`hopper-svm/src/spl/config_program.rs`** —
+  - **`hopper-svm/src/spl/config_program.rs`** -
     `ConfigProgramSimulator` for `Config1111111111111111111111111111111111111`.
     Single-instruction shape: parses
     `keys_len(u64) + n * (Pubkey + bool) + user_data`, validates
@@ -187,7 +187,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
     rejects unsigned signer-flagged key, rejects oversized
     payload. CU pinned at 450 (mainnet baseline).
 
-  - **`hopper-svm/src/spl/stake_program.rs`** —
+  - **`hopper-svm/src/spl/stake_program.rs`** -
     `StakeProgramSimulator` for `Stake11111111111111111111111111111111111111`.
     Lifecycle slice: `Initialize` (0), `Authorize` (1),
     `DelegateStake` (2), `Withdraw` (4), `Deactivate` (5).
@@ -211,7 +211,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
     Authorize swaps staker, Withdraw respects locked floor,
     unsupported variant errors. CU pinned at 750.
 
-  - **`hopper-svm/src/spl/vote_program.rs`** —
+  - **`hopper-svm/src/spl/vote_program.rs`** -
     `VoteProgramSimulator` for `Vote111111111111111111111111111111111111111`.
     Administrative slice: `InitializeAccount` (0), `Authorize`
     (1), `Withdraw` (3), `UpdateValidatorIdentity` (4),
@@ -236,12 +236,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   `HopperSvm::with_solana_runtime()` now registers the full
   Solana validator-side surface: System (default) + Compute
   Budget + ALT + Config + Stake + Vote + SPL Token + Token-2022
-  + ATA — closing the last out-of-the-box parity gap with
+  + ATA - closing the last out-of-the-box parity gap with
   `quasar-svm`.
 
-- **`hopper-svm` Tier 2 (d) — Address Lookup Tables.** Two new
+- **`hopper-svm` Tier 2 (d) - Address Lookup Tables.** Two new
   modules close the v0-transaction support gap:
-  - **`hopper-svm/src/alt.rs`** — byte-layout helpers
+  - **`hopper-svm/src/alt.rs`** - byte-layout helpers
     + the `LookupTableMeta` struct + `read_meta` / `write_meta` /
     `address_count` / `read_address` / `append_addresses` /
     `resolve_lookup`. Wire format matches mainnet exactly:
@@ -257,47 +257,47 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
     the authority slot, append-and-read, append rejects
     overflow, resolve writable-then-readonly, resolve rejects
     out-of-bounds, closeable-after-cooldown.
-  - **`hopper-svm/src/spl/alt_program.rs`** —
+  - **`hopper-svm/src/spl/alt_program.rs`** -
     `AltProgramSimulator`, the BuiltinProgram impl for
     `AddressLookupTab1e1111111111111111111111111111`. Five
     instruction tags:
-    - **0 / Create** — derives the PDA from
+    - **0 / Create** - derives the PDA from
       `(authority, recent_slot, bump_seed)` under the ALT
       program ID, validates the supplied target address
       matches, allocates the 56-byte meta header, sets the
       authority + active state.
-    - **1 / Freeze** — clears the authority field. Frozen
+    - **1 / Freeze** - clears the authority field. Frozen
       tables can't Extend / Deactivate / Close.
-    - **2 / Extend** — appends a `Vec<Pubkey>` to the data
+    - **2 / Extend** - appends a `Vec<Pubkey>` to the data
       region, updates `last_extended_slot` +
       `last_extended_slot_start_index`, charges rent to the
       payer.
-    - **3 / Deactivate** — writes the current slot into the
+    - **3 / Deactivate** - writes the current slot into the
       table's `deactivation_slot`, starting the 513-slot
       cooldown.
-    - **4 / Close** — moves lamports out, zeroes the data,
+    - **4 / Close** - moves lamports out, zeroes the data,
       reassigns ownership to the system program. Requires
       `is_closeable`: deactivated AND
       `current_slot - deactivation_slot > 513`.
 
-  Authority enforcement on every state-mutating instruction —
+  Authority enforcement on every state-mutating instruction -
   Extend / Deactivate / Close all check that `signer ==
   stored_authority` and reject otherwise. Frozen tables are
   immutable.
 
   **2 end-to-end unit tests** in `alt_program.rs`:
-  - `full_alt_lifecycle` — create → extend → deactivate →
+  - `full_alt_lifecycle` - create → extend → deactivate →
     close-rejected-before-cooldown → close-succeeds-after.
     Pins every state-machine transition + the cooldown
     boundary.
-  - `freeze_blocks_extend` — Freeze → Extend rejected.
+  - `freeze_blocks_extend` - Freeze → Extend rejected.
 
   **`HopperSvm::with_alt_program()`** registers the simulator
   against the canonical ALT program ID. **`HopperSvm::with_solana_runtime()`**
   now includes ALT in the registered set.
 
   **`HopperSvm::resolve_address_table_lookup(accounts,
-  table_address, writable_indexes, readonly_indexes)`** —
+  table_address, writable_indexes, readonly_indexes)`** -
   the v0-transaction resolution path. Reads the table from
   the supplied account state, expands writable + readonly
   index lists into concrete `(Vec<Pubkey>, Vec<Pubkey>)`
@@ -308,7 +308,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   to project lookup-table-shaped messages onto the standard
   flat `AccountMeta` shape `process_transaction` consumes.
 
-- **`hopper-svm` Tier 2 (c) — fee-payer accounting +
+- **`hopper-svm` Tier 2 (c) - fee-payer accounting +
   transaction-level CU budget.** New
   `hopper-svm/src/fees.rs` ships `FeeCalculator`
   (default 5000 lamports/signature, configurable via
@@ -349,31 +349,31 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   fast unit tests; `process_transaction` is the
   mainnet-equivalent path.
 
-- **`hopper-svm` Tier 2 (b) — system program parity.** All 8
+- **`hopper-svm` Tier 2 (b) - system program parity.** All 8
   remaining system-program variants implemented, closing the
   surface to mainnet:
-  - **Tag 3 — `CreateAccountWithSeed`**: parses
+  - **Tag 3 - `CreateAccountWithSeed`**: parses
     base/seed/lamports/space/owner from the body, validates the
     target address against `Pubkey::create_with_seed`, allocates
     + assigns + funds the new account.
-  - **Tag 9 — `AssignWithSeed`**: reassigns the owner of a
+  - **Tag 9 - `AssignWithSeed`**: reassigns the owner of a
     seed-derived account; same derivation check.
-  - **Tag 10 — `TransferWithSeed`**: debits a seed-derived
+  - **Tag 10 - `TransferWithSeed`**: debits a seed-derived
     source; the from_base must sign.
-  - **Tag 4 — `AdvanceNonceAccount`**: rotates the durable
+  - **Tag 4 - `AdvanceNonceAccount`**: rotates the durable
     nonce; the new nonce is deterministically synthesised from
     the harness's current `clock.slot` (since Hopper doesn't
-    track recent_blockhashes — that sysvar is deprecated).
+    track recent_blockhashes - that sysvar is deprecated).
     Same-slot calls produce the same nonce; different-slot
     calls produce different nonces.
-  - **Tag 5 — `WithdrawNonceAccount`**: moves lamports out of a
+  - **Tag 5 - `WithdrawNonceAccount`**: moves lamports out of a
     nonce account; only the stored authority can withdraw.
-  - **Tag 6 — `InitializeNonceAccount`**: writes the canonical
+  - **Tag 6 - `InitializeNonceAccount`**: writes the canonical
     80-byte nonce state with the requested authority and a
     starting durable nonce.
-  - **Tag 7 — `AuthorizeNonceAccount`**: changes the stored
+  - **Tag 7 - `AuthorizeNonceAccount`**: changes the stored
     authority; current authority must sign.
-  - **Tag 11 — `UpgradeNonceAccount`**: legacy → current
+  - **Tag 11 - `UpgradeNonceAccount`**: legacy → current
     `Versions` migration (no-op since both layouts share the
     same byte shape in our impl).
 
@@ -385,7 +385,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   [40..72] durable_nonce (Hash, 32 bytes)
   [72..80] fee_calculator.lamports_per_signature (u64 LE)
   ```
-  No `bincode` dep growth — the format is stable on mainnet
+  No `bincode` dep growth - the format is stable on mainnet
   and the 80-byte layout matches the upstream
   `solana_sdk::nonce::state::Versions`. Helper functions
   `read_nonce_state` / `write_nonce_state` /
@@ -406,10 +406,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   durable-nonce transactions, or any of the other previously-
   rejected variants now run unmodified.
 
-- **`hopper-svm` Tier 2 (a) — quasar-svm DX parity block.**
+- **`hopper-svm` Tier 2 (a) - quasar-svm DX parity block.**
   Five small wins that close the surface gap with
   `quasar-svm`'s public API:
-  - **`ExecutionOutcome::execution_time_us`** — wall-clock
+  - **`ExecutionOutcome::execution_time_us`** - wall-clock
     timing in microseconds, measured around the entire
     dispatch (built-in or BPF + post-validation). Stamped
     onto every outcome via a thin `dispatch_one` /
@@ -417,7 +417,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
     `ExecutionResult.execution_time_us`. Read via
     `HopperExecutionResult::execution_time_us()`.
   - **Typed `assert_error(&expected)`** on
-    `HopperExecutionResult` — structural equality on
+    `HopperExecutionResult` - structural equality on
     `HopperSvmError::describe()`. Mirrors quasar's
     `result.assert_error(ProgramError::InsufficientFunds)`.
     `assert_error_contains` (substring match) stays for
@@ -430,17 +430,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
     target slot duration), and recomputes `clock.epoch`
     against the configured `EpochSchedule`. Mirrors
     `quasar-svm`'s `svm.sysvars.warp_to_slot(200)`.
-  - **`HopperSvm::with_solana_runtime()`** — chained
+  - **`HopperSvm::with_solana_runtime()`** - chained
     builder that registers the full Solana runtime: system
     program (already from `new()`) + Compute Budget program
     + SPL Token + SPL Token-2022 + Associated Token Account
     simulators. Mirrors quasar's "SPL programs loaded by
     default on `QuasarSvm::new()`" without making `new()`
-    itself heavyweight — fault-injection tests keep the
+    itself heavyweight - fault-injection tests keep the
     bare `new()`, full-runtime tests call
     `.with_solana_runtime()`.
   - **`assert_inner_instruction_count(expected)`** on
-    `HopperExecutionResult` — pin the CPI count for a
+    `HopperExecutionResult` - pin the CPI count for a
     program's instruction (e.g. "this transfer makes
     exactly 2 CPIs: system create + token init"). Plus
     `format_inner_instructions()` for ad-hoc transcripts.
@@ -451,34 +451,34 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   Together, these close the surface-level public-API gap
   with quasar-svm: every public method or field quasar
   exposes has a Hopper-side equivalent (and Hopper has
-  more — `decode_header`, `hopper_accounts`,
+  more - `decode_header`, `hopper_accounts`,
   `decoded_logs`, the validation-policy switch, `Engine`
   trait seam). The remaining quasar-svm gap is bundled
   real `.so` files (we ship simulators) and the
   TypeScript / Python bindings (separate effort tracked as
   Tier 4).
 
-- **`hopper-svm` Tier 1 — pre/post account validation.** New
+- **`hopper-svm` Tier 1 - pre/post account validation.** New
   `hopper-svm/src/validation.rs` ships
   `validate_post_state(program_id, metas, pre, post, policy)`
   that enforces six structural invariants between an
   instruction's pre- and post-state, mirroring what
   `solana-bpf-loader-program` checks on mainnet:
-  1. **Read-only accounts cannot change** — lamports, data,
+  1. **Read-only accounts cannot change** - lamports, data,
      owner, executable all immutable when `meta.is_writable`
      is false.
-  2. **Lamport conservation** across all metas — the runtime
+  2. **Lamport conservation** across all metas - the runtime
      does not mint or destroy lamports.
-  3. **Data writes require ownership** — `pre.owner == program_id`,
+  3. **Data writes require ownership** - `pre.owner == program_id`,
      with an exception for the system program creating an
      account (empty pre, system_program owner).
-  4. **Owner reassignment requires ownership** — `pre.owner == program_id`,
+  4. **Owner reassignment requires ownership** - `pre.owner == program_id`,
      with the same creation exception. Backs
      `system_instruction::assign`.
-  5. **Executable flag is immutable** — programs cannot toggle
+  5. **Executable flag is immutable** - programs cannot toggle
      it; the BPF loader's `Finalize` is the only legitimate
      setter, and Phase 1 doesn't simulate that path.
-  6. **Lamport debits require ownership** — `n.lamports < p.lamports`
+  6. **Lamport debits require ownership** - `n.lamports < p.lamports`
      requires `pre.owner == program_id`. Anyone can credit any
      account; only the owner can debit. Combined with rule 2
      this makes "lamport theft" structurally impossible
@@ -514,7 +514,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   fired, instead of silently passing locally and reverting on
   mainnet.
 
-- **`hopper-svm` Tier 1 — Compute Budget program builtin.**
+- **`hopper-svm` Tier 1 - Compute Budget program builtin.**
   New `hopper-svm/src/compute_budget_program.rs` ships
   `ComputeBudgetProgramSimulator` registered via
   `HopperSvm::with_compute_budget_program()`. Handles the five
@@ -535,13 +535,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   untouched on rejection), the `RequestHeapFrame` Phase-1
   warning behavior, and the unknown-tag error message.
 
-- **`hopper-svm` Tier 1 — `inner_instructions` field on
+- **`hopper-svm` Tier 1 - `inner_instructions` field on
   ExecutionOutcome.** New `inner_instructions: Vec<InnerInstruction>`
   field on `ExecutionOutcome`. Each entry captures `program_id`,
   `accounts: Vec<AccountMeta>`, `data: Vec<u8>`, and
   `stack_height: u32` (1 = outermost; 2 = first-level CPI; …;
   capped at `MAX_CPI_DEPTH = 4`). Populated by
-  `bpf::cpi::dispatch_cpi` after each successful inner call —
+  `bpf::cpi::dispatch_cpi` after each successful inner call -
   the parent CPI is recorded first, then the inner call's own
   `inner_instructions` (CPIs the inner program made) are
   flattened in dispatch order. New `InnerInstruction` type
@@ -555,12 +555,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   CPIs flatten parent-before-child in dispatch order with
   correct stack-height assignment.
 
-- **`hopper-svm` Tier 1 — Token-2022 simulator.** New
+- **`hopper-svm` Tier 1 - Token-2022 simulator.** New
   `hopper-svm/src/spl/token_2022.rs` ships
   `SplToken2022Simulator` registered via
   `HopperSvm::with_spl_token_2022_simulator()`. The legacy 9
   tags (0/1/3/4/5/7/8/9) delegate to the SPL Token
-  simulator's logic — the on-disk Mint/Account layout is
+  simulator's logic - the on-disk Mint/Account layout is
   identical for non-extension accounts, and the owner check
   inside the Token handlers compares against `ctx.program_id`
   which is the Token-2022 ID at this dispatch site. Extension
@@ -571,7 +571,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   extension-tag rejection, and InitializeMint preserving the
   Token-2022 owner.
 
-- **`hopper-svm` Tier 1 — ATA simulator.** New
+- **`hopper-svm` Tier 1 - ATA simulator.** New
   `hopper-svm/src/spl/ata.rs` ships `SplAtaSimulator`
   registered via `HopperSvm::with_spl_associated_token_simulator()`.
   Handles `Create` (tag 0) and `CreateIdempotent` (tag 1).
@@ -582,16 +582,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   needed because the operation is deterministic and we have
   direct account-state access). Idempotent path validates
   the existing ATA matches the requested `(wallet, mint)`
-  pair — wrong-mint reuse is a structured rejection. 4 unit
+  pair - wrong-mint reuse is a structured rejection. 4 unit
   tests pin: legacy-Token ATA create, Token-2022 ATA create
   (different derived address), wrong-derived-address
   rejection, idempotent-on-existing no-op + idempotent-on-
   wrong-existing rejection.
 
-  Also adds `HopperSvm::with_spl_simulators()` — convenience
+  Also adds `HopperSvm::with_spl_simulators()` - convenience
   builder that registers all three SPL simulators in one call.
 
-- **`hopper-svm` Tier 1 — bundled SPL Token simulator.** New
+- **`hopper-svm` Tier 1 - bundled SPL Token simulator.** New
   `hopper-svm/src/spl/token.rs` ships `SplTokenSimulator`,
   a pure-Rust `BuiltinProgram` impl of the 8 most-used SPL
   Token instructions: `InitializeMint` (0), `InitializeAccount`
@@ -622,7 +622,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   non-empty accounts.
 
   Unsupported tags (`FreezeAccount`, `*Checked` variants,
-  `SetAuthority`, `InitializeMultisig`, etc. — 16 total) return
+  `SetAuthority`, `InitializeMultisig`, etc. - 16 total) return
   a structured `BuiltinError` with the supported-tag list so
   test failures are actionable. Programs that need an
   unsupported instruction can fall back to BPF by registering
@@ -636,7 +636,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   rejection, the close-account-rejects-non-empty rule, and
   the unsupported-tag error message.
 
-- **Hopper segment system polish — DX cohesion pass.** Audit
+- **Hopper segment system polish - DX cohesion pass.** Audit
   of `crates/hopper-core/src/account/`, `segment_map.rs`, and
   the macro-emitted accessors found three documentation gaps
   worth tightening:
@@ -653,13 +653,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
     now in both module headers, so a developer landing in
     either file sees both options.
 
-  No code changes — just documentation tightening that's
+  No code changes - just documentation tightening that's
   safe to ship and immediately improves the DX of the
   segment system.
 
-- **`hopper-svm` Phase 2.3 step 12 — `sol_invoke_signed_rust`
-  fully implemented.** The Rust-ABI CPI variant — what
-  `solana_program::program::invoke_signed` emits by default —
+- **`hopper-svm` Phase 2.3 step 12 - `sol_invoke_signed_rust`
+  fully implemented.** The Rust-ABI CPI variant - what
+  `solana_program::program::invoke_signed` emits by default -
   now parses through Rust's `Rc<RefCell<&mut u64>>` and
   `Rc<RefCell<&mut [u8]>>` AccountInfo wrappers + the
   three-level-nested `&[&[&[u8]]]` signer-seeds shape, runs
@@ -681,16 +681,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   rather than wrong runtime behaviour.
 
   **Pointer-chase helpers** in `cpi_rust`:
-  - `follow_rc_refcell_u64(rc_ptr) → u64_addr` — walks
+  - `follow_rc_refcell_u64(rc_ptr) → u64_addr` - walks
     `RcInner` (skip 16) → `RefCell` (skip 8) → `&mut u64`
     (read pointer).
   - `follow_rc_refcell_slice(rc_ptr) → (data_addr, data_len)`
-    — same chain, but the value at the end is a 16-byte fat
+    - same chain, but the value at the end is a 16-byte fat
     pointer.
   - `parse_account_infos`, `parse_instruction`,
-    `parse_signer_seeds` — full structured readers for the
+    `parse_signer_seeds` - full structured readers for the
     three top-level wire shapes the Rust ABI passes.
-  - `build_parsed_cpi` — the entry point the syscall
+  - `build_parsed_cpi` - the entry point the syscall
     adapter calls. Returns a `(ParsedCpi, Vec<RustAccountInfo>)`
     tuple where the second element captures every writeback
     address the post-call sync needs.
@@ -710,7 +710,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   `RecentBlockhashes`) most modern Hopper programs don't
   read, the `inner_instructions` slice on `ExecutionOutcome`,
   and JIT execution.
-- **`hopper-svm` Phase 2.2 step 11 — CPI polish: log
+- **`hopper-svm` Phase 2.2 step 11 - CPI polish: log
   threading, realloc-across-CPI, EpochRewards sysvar.** Three
   follow-ups to the step-10 CPI implementation:
   - **Inner-instruction logs land in the outer transcript.**
@@ -739,11 +739,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
     The writeback path now produces results bit-identical to
     what `solana-bpf-loader-program` does for a CPI that
     reallocs an account.
-  - **`sol_get_epoch_rewards_sysvar`** — final sysvar in
+  - **`sol_get_epoch_rewards_sysvar`** - final sysvar in
     scope. 96-byte wire layout (u64 distribution_starting_block_height
     + u64 num_partitions + 32-byte parent_blockhash + u128
     total_points + u64 total_rewards + u64 distributed_rewards
-    + bool active + 15-byte zero pad — `#[repr(C)]`-shaped to
+    + bool active + 15-byte zero pad - `#[repr(C)]`-shaped to
     match `solana_sdk::epoch_rewards::EpochRewards`). New
     `EpochRewards` struct + `Sysvars::epoch_rewards` field
     (defaults to "no rewards distributing"). Registered as
@@ -751,7 +751,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
     `epoch_rewards_layout_canonical` pins every field offset
     + the 15-byte zero pad against the canonical wire format.
 
-  **Phase 2 cumulative coverage**: 25 syscalls — 12 Phase 2.0
+  **Phase 2 cumulative coverage**: 25 syscalls - 12 Phase 2.0
   + 2 PDA + 5 sysvar + 1 heap + 3 crypto + 2 CPI. The BPF
   surface is feature-complete for the typical Hopper test
   workload. Remaining for Phase 2.3+: the Rust-ABI CPI
@@ -761,36 +761,36 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   (`SlotHashes`, `SlotHistory`, `StakeHistory`, `Fees`,
   `RecentBlockhashes`) most modern Hopper programs don't
   read.
-- **`hopper-svm` Phase 2.1 step 10 — CPI wired in.** Adds
+- **`hopper-svm` Phase 2.1 step 10 - CPI wired in.** Adds
   `sol_invoke_signed_c` (full implementation) and
   `sol_invoke_signed_rust` (registered with structured
   "Phase 2.2" error so programs see clean failure rather than
   "missing syscall"). The C-ABI variant ships:
   - **Wire-format parsing** of `SolInstruction` (40 bytes →
     program_id / metas / data pointers + lengths),
-    `SolAccountMeta` (16 bytes per entry — pubkey_addr + flags),
-    `SolAccountInfo` (56 bytes per entry — key_addr +
+    `SolAccountMeta` (16 bytes per entry - pubkey_addr + flags),
+    `SolAccountInfo` (56 bytes per entry - key_addr +
     lamports_addr + data_len + data_addr + owner_addr +
     rent_epoch + flags), and the nested `SolSignerSeeds[m]`
     pointing at `SolSignerSeed[q]` pointing at byte slices.
     Every pointer translation goes through `MemoryMapping::map`
     so an out-of-region read fails the syscall cleanly instead
     of segfaulting the host.
-  - **Signer-seed verification** — for each meta marked
+  - **Signer-seed verification** - for each meta marked
     `is_signer` in the inner instruction, either the same
     pubkey was a signer in the outer instruction (forwarded-
     signature path), or one of the supplied seed sets derives
     to the signer's pubkey under the calling program's ID
     (PDA-signing path). Reuses `do_sol_create_program_address`
-    from step 6 — no new crypto. Returns
+    from step 6 - no new crypto. Returns
     `cpi_err::SIGNER_SEEDS_INVALID = 3` on mismatch.
   - **Recursive dispatch** through a `CpiDispatcher` closure
     on `BpfContext` that the engine populates with a clone of
     the `HopperSvm`. The closure runs `HopperSvm::dispatch_one`
     one depth deeper. **Depth bounded at `MAX_CPI_DEPTH = 4`**
-    matching mainnet — `cpi_err::DEPTH_EXCEEDED = 2` past the
+    matching mainnet - `cpi_err::DEPTH_EXCEEDED = 2` past the
     limit.
-  - **Account-state writeback** — after the inner call returns,
+  - **Account-state writeback** - after the inner call returns,
     every modified writable account's lamports / owner / data
     are written back through the SolAccountInfo pointers the
     caller supplied. Outer program continues reading from
@@ -799,9 +799,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
     capacity; Phase 2.2 will plumb the realloc tail into the
     SolAccountInfo's `data_len` so growth across CPI is
     observable.
-  - **CU costs** — 1 000 CU per invoke (matches mainnet's
+  - **CU costs** - 1 000 CU per invoke (matches mainnet's
     `invoke_units`).
-  - **`MAX_SIGNERS = 16`** enforced — a 17th signer-seed set
+  - **`MAX_SIGNERS = 16`** enforced - a 17th signer-seed set
     is `cpi_err::TOO_MANY_SIGNERS = 4`.
   - **6 new unit tests** in `bpf/cpi.rs` pin: outer-signer
     pass-through accepted, unauthorised signer rejected,
@@ -824,26 +824,26 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   (12 Phase 2.0 + 2 PDA + 4 sysvar + 1 heap + 3 crypto + 2 CPI),
   matching the typical-program coverage of `mollusk-svm` while
   remaining 100% Hopper-owned above the eBPF interpreter.
-- **`hopper-svm` Phase 2.1 step 9 — crypto syscalls wired in.**
+- **`hopper-svm` Phase 2.1 step 9 - crypto syscalls wired in.**
   Adds `sol_keccak256_`, `sol_blake3`, and
   `sol_secp256k1_recover_` to the BPF engine. Each delegates to
   a published, well-vetted crate:
   - `sol_keccak256_` → `sha3 = "0.10"`'s `Keccak256` (the legacy
-    Ethereum variant — *not* the standardised SHA3-256, which
+    Ethereum variant - *not* the standardised SHA3-256, which
     differs in padding and produces different digests).
   - `sol_blake3` → `blake3 = "1"`.
   - `sol_secp256k1_recover_` → `secp256k1 = "0.29"` with the
     `recovery` feature.
   Wire shape: hashes accept the same `(addr, len)` chunk-list
-  format as `sol_log_data` and the PDA-derive seed list — the
+  format as `sol_log_data` and the PDA-derive seed list - the
   `translate_seeds` adapter helper is reused. secp256k1 recover
   takes a 32-byte hash, recovery id (0..=3), 64-byte (r || s)
   signature, and writes a 64-byte uncompressed public key
-  (X || Y, no leading 0x04 marker — matches upstream's wire).
+  (X || Y, no leading 0x04 marker - matches upstream's wire).
   CU costs match the production runtime: hash = 85 base + 1
   per 16-byte chunk, secp256k1 recover = 25_000 flat. **8 new
   unit tests** pin known-good digests for Keccak-256
-  (empty input → c5d24601…, "abc" → 4e03657a… — pinning these
+  (empty input → c5d24601…, "abc" → 4e03657a… - pinning these
   exact hex strings catches the SHA3-vs-Keccak swap bug class),
   BLAKE3 empty input → af1349b9…, streaming (multi-chunk) hashing
   matches one-shot, hash CU formula at 0/1/16/17/32 bytes,
@@ -851,10 +851,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   range recovery_id (7), out-of-meter on hash returns OutOfMeter
   without touching the output.
 
-  Phase 2.1 remaining: **CPI** (`sol_invoke_signed_*`) — the
+  Phase 2.1 remaining: **CPI** (`sol_invoke_signed_*`) - the
   recursive harness-dispatch one. After that, the BPF surface
   is feature-complete for the typical Hopper test workload.
-- **`hopper-svm` Phase 2.1 step 8 — heap allocator wired in.**
+- **`hopper-svm` Phase 2.1 step 8 - heap allocator wired in.**
   Adds `sol_alloc_free_` to the BPF engine. Bump-allocator
   semantics (matches upstream `agave-syscalls::SyscallAllocFree`):
   alloc returns monotonically-increasing 8-byte-aligned VM
@@ -876,17 +876,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   Phase 2.1 remaining: crypto syscalls (`sol_keccak256_`,
   `sol_secp256k1_recover_`, `sol_blake3`), CPI
   (`sol_invoke_signed_*`).
-- **`hopper-svm` Phase 2.1 step 7 — sysvar fetches wired in.**
+- **`hopper-svm` Phase 2.1 step 7 - sysvar fetches wired in.**
   Adds `sol_get_clock_sysvar`, `sol_get_rent_sysvar`,
   `sol_get_epoch_schedule_sysvar`, `sol_get_last_restart_slot_sysvar`
   to the BPF engine. Each writes a fixed-size `#[repr(C)]`-shaped
   byte buffer that's wire-compatible with the upstream
   `solana_sdk::sysvar::*` structs:
-  - `Clock` — 40 bytes (5 * 8-byte fields).
-  - `Rent` — 24 bytes (u64 + f64 + u8 + 7-byte zero pad).
-  - `EpochSchedule` — 40 bytes (2 * u64 + bool with 7-byte pad +
+  - `Clock` - 40 bytes (5 * 8-byte fields).
+  - `Rent` - 24 bytes (u64 + f64 + u8 + 7-byte zero pad).
+  - `EpochSchedule` - 40 bytes (2 * u64 + bool with 7-byte pad +
     2 * u64).
-  - `LastRestartSlot` — 8 bytes (single u64).
+  - `LastRestartSlot` - 8 bytes (single u64).
   Sysvar state lives on `Sysvars` (extended this release with
   `EpochSchedule` + `LastRestartSlot` fields, defaulted to
   mainnet-typical values). The engine snapshots sysvars onto
@@ -894,14 +894,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   a consistent view even if the outer test code mutates the
   harness mid-chain. **6 new unit tests** pin canonical layout
   for each sysvar (specifically including the zero-padding
-  bytes — a future change to `Rent` or `EpochSchedule` can't
+  bytes - a future change to `Rent` or `EpochSchedule` can't
   silently leak garbage into the wire format), short-buffer
   rejection, and out-of-meter short-circuit.
 
   Phase 2.1 remaining: heap alloc (`sol_alloc_free_`), crypto
   syscalls (`sol_keccak256_`, `sol_secp256k1_recover_`,
   `sol_blake3`), CPI (`sol_invoke_signed_*`).
-- **`hopper-svm` Phase 2.1 — PDA derivation syscalls wired in.**
+- **`hopper-svm` Phase 2.1 - PDA derivation syscalls wired in.**
   Adds `sol_create_program_address` and `sol_try_find_program_address`
   to the BPF engine's syscall registry. Pure compute (SHA-256 of
   `seed0 || seed1 || ... || program_id || "ProgramDerivedAddress"`,
@@ -911,7 +911,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   upstream runtime does: `>16 seeds`, individual seed `>32
   bytes`, candidate landing on the curve. `try_find` walks
   bumps `255 → 0` until [`do_sol_create_program_address`] returns
-  Ok, charging 1500 CU per attempt — same per-attempt cost as
+  Ok, charging 1500 CU per attempt - same per-attempt cost as
   the production runtime. Adds `sha2 = "0.10"` and
   `curve25519-dalek = "4"` (small, Anza-vetted, already used
   elsewhere in the workspace) as deps. **7 new unit tests**:
@@ -923,7 +923,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   (`sol_alloc_free_`), crypto (`sol_keccak256_`,
   `sol_secp256k1_recover_`, `sol_blake3`), CPI
   (`sol_invoke_signed_*`).
-- **`hopper-svm` Phase 2 — real BPF execution wired in.**
+- **`hopper-svm` Phase 2 - real BPF execution wired in.**
   Feature-gated behind `--features bpf-execution` (off by default
   so Phase 1's slim built-in path stays the out-of-the-box
   experience). When enabled, `HopperSvm::add_program(&id, "name")`
@@ -936,7 +936,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
     deserialiser, sbpf-independent, fully tested), `context`
     (`BpfContext` impls `solana_sbpf::vm::ContextObject`),
     `syscalls` (pure-Rust `do_*` logic), `adapters`
-    (`declare_builtin_function!` calls — the only file that
+    (`declare_builtin_function!` calls - the only file that
     touches sbpf macro/translation API surface), `engine`
     (`BpfEngine` with ELF loading + memory regions + VM lifecycle).
     Drift between sbpf minor versions concentrates in `adapters`
@@ -947,7 +947,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
     `sol_memcmp_`, `sol_memmove_`, `sol_set_return_data`,
     `sol_get_return_data`. CU costs match the production runtime
     defaults so Phase 2 CU readouts equal mainnet figures.
-  - **Phase 2.1 deferred**: CPI (`sol_invoke_signed_*` —
+  - **Phase 2.1 deferred**: CPI (`sol_invoke_signed_*` -
     recursive harness dispatch + signer-seed verification + acct
     remapping each have subtleties warranting focused work),
     sysvar reads (`sol_get_*_sysvar`), PDA derivation
@@ -985,7 +985,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
     return shapes. Each is one of small, well-bounded sites the
     user's "I'll keep it up to date" maintenance commitment
     covers.
-- **`hopper-svm` crate — Hopper-native execution harness, no
+- **`hopper-svm` crate - Hopper-native execution harness, no
   external SVM wrapper.** Wholesale rewrite of the previous
   `mollusk-svm`-wrapped Phase 1. The harness is now Hopper's
   through and through: built-in program registry, system-program
@@ -1004,7 +1004,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
     test that hits them fails fast with an actionable message).
   - `Engine` trait is the seam for Phase 2: a future `BpfEngine`
     that wraps `solana-sbpf` lands as one new module plus one
-    extra fall-through line in `HopperSvm::dispatch_one` — no
+    extra fall-through line in `HopperSvm::dispatch_one` - no
     other module changes.
   - `process_instruction_chain` carries account state forward
     across the chain and emits a chained log transcript with
@@ -1014,10 +1014,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   - `ComputeBudget` charges the system program a fixed 150 CU
     (matches mainnet) and configurable defaults for custom
     built-ins.
-  - `LogCapture` emits the runtime's exact wire format —
+  - `LogCapture` emits the runtime's exact wire format -
     `Program <id> invoke [N]` / `Program log: <msg>` /
     `Program <id> consumed N of M compute units` /
-    `Program <id> success` — so snapshot tests stay portable.
+    `Program <id> success` - so snapshot tests stay portable.
   - `HopperExecutionResult::decode_header(&pk)` reads the 16-byte
     Hopper account header by address; `hopper_accounts()` filters
     resulting accounts to only those with a valid Hopper header;
@@ -1027,7 +1027,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
     `create_keyed_mint_account[_with_program]`,
     `create_keyed_token_account[_with_program]`,
     `create_keyed_associated_token_account[_with_program]`)
-    serialise SPL wire shapes via `Pack` directly — no SVM
+    serialise SPL wire shapes via `Pack` directly - no SVM
     involvement, pure data construction.
   - Native error type `HopperSvmError` covers `UnknownProgram`,
     `BuiltinError`, `OutOfComputeUnits`, `EmptyChain`,
@@ -1053,7 +1053,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   is in place; the new file is a self-contained engine impl.
 - **Interactive HTML flamegraph for `hopper profile elf`.** New
   `--html <out.html>` flag emits a self-contained interactive
-  flamegraph — no CDN, no external resources, no JS framework: a
+  flamegraph - no CDN, no external resources, no JS framework: a
   single HTML file the user can open in any browser. Each symbol is
   a horizontal bar sized proportionally to its byte count, colour-cued
   by delta vs. baseline (lime if shrunk, orange if grown, neutral
@@ -1068,7 +1068,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   flamegraph. Per-symbol delta uses a "split at the *last* space"
   parser so symbol names containing spaces (Rust trait-method
   names like `<T as Trait>::method`) round-trip correctly.
-- **`#[derive(Accounts)]` — Anchor-spelled drop-in for `#[hopper::context]`.**
+- **`#[derive(Accounts)]` - Anchor-spelled drop-in for `#[hopper::context]`.**
   Anchor users porting code now get the spelling they expect without
   losing any of Hopper's account-attr surface. Identical generated code
   to the attribute form: same binder type, same accessors, same
@@ -1088,11 +1088,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   compile without an extra `use`. Lives in
   `hopper-macros-proc::derive_accounts`, exported through the
   `Accounts` symbol from `hopper::prelude::*`. Implementation reuses
-  `context::expand_inner` behind a single `emit_struct: bool` flag —
+  `context::expand_inner` behind a single `emit_struct: bool` flag -
   zero duplication of the constraint surface.
-- **CLI polish pass two — final Quasar parity sweep.** Three commands
+- **CLI polish pass two - final Quasar parity sweep.** Three commands
   Quasar shipped that Hopper still lacked, plus shared visual polish.
-  - **`hopper add [-i|-s|-e <name>]`** — incremental scaffolding for
+  - **`hopper add [-i|-s|-e <name>]`** - incremental scaffolding for
     an existing project. `-i/--instruction` creates
     `src/instructions/<name>.rs` with a Hopper-shaped context template,
     wires it through `src/instructions/mod.rs` and
@@ -1105,14 +1105,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
     `#[hopper::state(disc = N, version = 1)]` struct picking the
     next-unused discriminator. `-e/--error` creates or appends to
     `src/errors.rs` with a discriminated `pub enum` plus a
-    `From<...> for ProgramError` impl. All edits idempotent —
+    `From<...> for ProgramError` impl. All edits idempotent -
     re-running on the same name errors rather than overwriting.
-  - **`hopper clean [-a|--all]`** — clear `target/{deploy,idl,client,
+  - **`hopper clean [-a|--all]`** - clear `target/{deploy,idl,client,
     profile,hopper}` while preserving `*-keypair.json` files (losing
-    a program keypair means losing the on-chain program address —
+    a program keypair means losing the on-chain program address -
     Quasar makes the same exception). With `-a`, also runs
     `cargo clean` for a full target wipe.
-  - **Animated `hopper init` opening — leap reveal.** First-time
+  - **Animated `hopper init` opening - leap reveal.** First-time
     interactive runs play a one-second FIGlet `HOPPER` animation:
     each row arrives from below with an ease-out-back bounce,
     leaving a trail of green grass-dots. Quasar has the blue nebula
@@ -1128,7 +1128,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
     escapes that were sprinkled through `cmd::lifecycle`. Build-size
     delta lines now colour the delta itself: green when shrinking,
     yellow when growing.
-- **CLI polish — Quasar parity-plus pass.** `hopper init` now drops into
+- **CLI polish - Quasar parity-plus pass.** `hopper init` now drops into
   an interactive `dialoguer` wizard when invoked without a `<path>`,
   prompting for project name, template, testing framework, and git
   policy. Choices are persisted to `~/.hopper/wizard.toml` so the
@@ -1156,14 +1156,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   `UpdateMetadataAccountV2` builders, plus `metadata_pda` /
   `master_edition_pda` derivation helpers and a `BorshTape`
   stack-buffer encoder. Closes the Quasar-parity Metaplex gap.
-- **`examples/hopper-nft-mint`** — reference NFT-mint program using the
+- **`examples/hopper-nft-mint`** - reference NFT-mint program using the
   new Metaplex builders end-to-end (1-of-1 NFT with locked master
   edition).
-- **Benchmark repo split** — Anchor, Anza Pinocchio, and lazy-dispatch
+- **Benchmark repo split** - Anchor, Anza Pinocchio, and lazy-dispatch
   parity targets now live in the sibling `hopper-bench` product repo with
   competitor locks, raw logs, and runner scripts. Release-facing framework
   docs only publish same-provenance benchmark columns.
-- **`examples/hopper-token-2022-transfer-hook`** — Token-2022 transfer
+- **`examples/hopper-token-2022-transfer-hook`** - Token-2022 transfer
   hook validation reference program.
 - **DSL parity additions**: `#[derive(HopperInitSpace)]` standalone
   derive; `#[hopper::access_control(expr)]` handler attribute;
@@ -1171,20 +1171,20 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   `init_if_needed` field keyword; `hopper_load!(slice => [a, b])`
   destructuring sugar; `err!` and `error!` short-form aliases in the
   prelude.
-- **`hopper schema export --anchor-idl`** — emit Anchor 0.30-shaped
+- **`hopper schema export --anchor-idl`** - emit Anchor 0.30-shaped
   IDL JSON from a `ProgramManifest`. Codama remains the preferred
   interop path; this exists for the long tail of wallets/explorers
   that still consume Anchor IDL.
-- **`hopper-runtime::rent`** — `check_rent_exempt(account)` and
+- **`hopper-runtime::rent`** - `check_rent_exempt(account)` and
   `minimum_balance(data_len)` helpers backing the
   `rent_exempt = enforce` field keyword.
-- **`docs/UNSAFE_INVARIANTS.md`** — supplemented with the full
+- **`docs/UNSAFE_INVARIANTS.md`** - supplemented with the full
   hopper-native unsafe surface (every `AccountView` unsafe method,
   `raw_input.rs`, `lazy.rs`, `pda.rs`, `mem.rs`, plus the expanded
   `cpi.rs` invariants).
 - **Per-crate READMEs** for every crate under `crates/`, with
   hopperzero.dev / docs.rs / crates.io badges.
-- **`AUDIT.md`** — comprehensive deep-review of Hopper vs Pinocchio,
+- **`AUDIT.md`** - comprehensive deep-review of Hopper vs Pinocchio,
   Quasar, Anchor zero-copy with verified parity findings, gap list,
   and implementation-pass record.
 

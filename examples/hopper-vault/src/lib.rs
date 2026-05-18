@@ -102,8 +102,6 @@ mod vault_program {
     }
 }
 
-hopper::program_dispatch!(vault_program);
-
 impl<'info> Initialize<'info> {
     pub fn initialize(&self) -> ProgramResult {
         let mut vault = self.vault.get_mut_after_init()?;
