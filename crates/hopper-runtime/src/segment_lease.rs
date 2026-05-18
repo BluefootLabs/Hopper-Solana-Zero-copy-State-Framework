@@ -30,7 +30,7 @@
 //!, a regression far worse than the sticky behavior we are fixing.
 //! The `PhantomData` ties the lease's lifetime to the registry's, so
 //! use-after-free is impossible at the type level. Drop performs a
-//! single swap-remove; no allocation, no heap touch.
+//! bounded exact release; no allocation, no heap touch.
 //!
 //! ## Why a wrapper, not a field on `Ref`/`RefMut`
 //!
@@ -55,7 +55,7 @@ use crate::segment_borrow::{SegmentBorrow, SegmentBorrowRegistry};
 /// RAII lease on one registered entry in a
 /// [`SegmentBorrowRegistry`](crate::segment_borrow::SegmentBorrowRegistry).
 ///
-/// On drop, the lease removes the registered entry via swap-remove.
+/// On drop, the lease removes the registered entry via exact match.
 /// It is returned wrapped inside [`SegRef`] / [`SegRefMut`]; callers
 /// should not construct a `SegmentLease` directly.
 ///
@@ -108,12 +108,11 @@ impl<'a> Drop for SegmentLease<'a> {
     #[inline(always)]
     fn drop(&mut self) {
         // SAFETY: `_lt` pins `'a` to the registry's borrow; the pointer
-        // is valid for the full lifetime of `self`. Leases are created
-        // immediately after registration, and safe callers cannot mutate the
-        // registry again while the lease is live, so the leased entry is the
-        // most recently registered one.
+        // is valid for the full lifetime of `self`. Exact release keeps
+        // cleanup correct even if future internal plumbing stops being purely
+        // LIFO.
         unsafe {
-            (*self.registry).release_last_registered(&self.borrow);
+            (*self.registry).release(&self.borrow);
         }
     }
 }

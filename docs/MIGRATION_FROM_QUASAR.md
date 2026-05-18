@@ -15,7 +15,7 @@ If you have a Quasar program, the mechanical port is smaller than the Anchor por
 | `Ctx<'info, T>` | `Ctx<T>` in handlers |
 | `ctx.accounts.field` | `ctx.accounts.field` |
 | `Pod` primitives in `quasar-pod` | Wire types in `hopper-runtime` |
-| bounded dynamic fields | `#[hopper::dynamic_account]` or explicit `#[hopper::state(dynamic_tail = T)]` |
+| bounded dynamic fields | `String<'a, N>` / `Vec<'a, T, N>` in `#[hopper::account]`, explicit `#[hopper::dynamic_account]`, or `#[hopper::state(dynamic_tail = T)]` |
 | `QuasarError::RemainingAccountDuplicate` | `hopper_runtime::remaining::RemainingError::DuplicateAccount` |
 
 ## First-touch equivalence table
@@ -32,8 +32,8 @@ but they should not be the starting point for a Quasar migration.
 | `Interface<T>` | `Interface<'info, T>` |
 | `InterfaceAccount<T>` | `InterfaceAccount<'info, T>` for Hopper-header layouts owned by a declared program set |
 | `set_inner()` | generated `set_inner(...)` |
-| `String<'a, N>` | `#[tail(string<N>)]` |
-| `Vec<'a, T, N>` | `#[tail(vec<T, N>)]` where `T: TailElement` |
+| `String<'a, N>` | `String<'a, N>` in `#[hopper::account]`, or `#[tail(string<N>)]` in explicit systems-mode spelling |
+| `Vec<'a, T, N>` | `Vec<'a, T, N>` in `#[hopper::account]`, or `#[tail(vec<T, N>)]` where `T: TailElement` |
 | `ctx.bumps.foo` | `ctx.bumps.foo` |
 
 ## Account layouts
@@ -64,12 +64,13 @@ Quasar's `PodU64` is Hopper's `WireU64`. Both are `#[repr(transparent)]` alignme
 
 Quasar's explicit `discriminator = 1` maps to Hopper's layout header: Hopper stamps a header byte at offset 0 containing the user-chosen `disc` from the macro (defaults to a fingerprint of the type name if not set). To match Quasar's behavior exactly, use `#[account(disc = 1)]` or the macro attribute form `#[account(discriminator = 1)]`.
 
-For Quasar bounded dynamic fields (`String<'a, N>`, `Vec<'a, Address, N>`), use
-`#[hopper::dynamic_account]` to keep hot fixed fields in the Hopper layout and
-lower variable data into a compact dynamic tail. The macro generates the tail
-struct, borrowed view, editor, and allocation constants. For custom dynamic-tail
-payloads, use `hopper_dynamic_fields!` plus
-`#[hopper::state(dynamic_tail = Tail)]`. See
+For Quasar bounded dynamic fields (`String<'a, N>`, `Vec<'a, Address, N>`), keep
+the fields inside `#[hopper::account]`. Hopper keeps hot fixed fields in the
+layout and lowers variable data into a compact dynamic tail. The macro generates
+the tail struct, borrowed view, editor, extension trait, and allocation
+constants. Use `#[hopper::dynamic_account]` with `#[tail(...)]` when you want the
+systems-mode split visible in source. For custom dynamic-tail payloads, use
+`hopper_dynamic_fields!` plus `#[hopper::state(dynamic_tail = Tail)]`. See
 [DYNAMIC_TAILS_FROM_QUASAR.md](DYNAMIC_TAILS_FROM_QUASAR.md) for side-by-side
 code and tail-access examples.
 

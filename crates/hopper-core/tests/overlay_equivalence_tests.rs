@@ -279,7 +279,7 @@ fn header_overlay_matches_constructor() {
     assert_eq!(overlaid.version, constructed.version);
     assert_eq!(overlaid.flags, constructed.flags);
     assert_eq!(overlaid.layout_id, constructed.layout_id);
-    assert_eq!(overlaid.reserved, constructed.reserved);
+    assert_eq!(overlaid.schema_epoch, constructed.schema_epoch);
 }
 
 #[test]

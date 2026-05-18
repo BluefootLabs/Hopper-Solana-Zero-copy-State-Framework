@@ -1,0 +1,45 @@
+[package]
+name = "hopper-devnet-audit"
+version = "0.2.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+description = "Devnet audit program exercising Hopper dynamic tails, contexts, segments, and substrate APIs."
+
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[[bin]]
+name = "devnet_audit"
+path = "src/bin/devnet_audit.rs"
+required-features = ["devnet-client"]
+
+[dependencies]
+hopper = { path = "../..", package = "hopper-lang", default-features = false, features = ["proc-macros"] }
+
+[target.'cfg(not(target_os = "solana"))'.dependencies]
+solana-client = { version = "2.1", optional = true }
+solana-commitment-config = { version = "2.1", optional = true }
+solana-instruction = { version = "2.1", optional = true }
+solana-keypair = { version = "2.1", optional = true }
+solana-pubkey = { version = "2.1", optional = true }
+solana-signer = { version = "2.1", optional = true }
+solana-transaction = { version = "2.1", features = ["bincode"], optional = true }
+
+[features]
+default = ["hopper-native-backend"]
+devnet-client = [
+	"dep:solana-client",
+	"dep:solana-commitment-config",
+	"dep:solana-instruction",
+	"dep:solana-keypair",
+	"dep:solana-pubkey",
+	"dep:solana-signer",
+	"dep:solana-transaction",
+]
+hopper-native-backend = ["hopper/hopper-native-backend"]
+legacy-pinocchio-compat = ["hopper/legacy-pinocchio-compat"]
+solana-program-backend = ["hopper/solana-program-backend"]
+
+[lints]
+workspace = true

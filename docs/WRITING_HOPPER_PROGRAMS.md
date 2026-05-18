@@ -91,24 +91,19 @@ builders from `hopper::token_2022` and the unified token helpers from
 ## Bounded Dynamic Fields
 
 When a fixed account needs a small bounded label or signer list, use
-`#[hopper::dynamic_account]`. The macro keeps fixed fields in the zero-copy body
-and lowers dynamic fields into Hopper's compact `[u32 len][payload]` tail.
+`#[hopper::account]` with bounded dynamic fields. The macro keeps fixed fields
+in the zero-copy body and lowers dynamic fields into Hopper's compact
+`[u32 len][payload]` tail.
 
 ```rust
 use hopper::prelude::*;
 
-#[hopper::dynamic_account(disc = 7, version = 1)]
-pub struct Multisig {
+#[hopper::account(discriminator = 7, version = 1)]
+pub struct Multisig<'a> {
     pub threshold: u64,
-
-    #[tail(string<32>)]
-    pub label: String,
-
-    #[tail(vec<Address, 10>)]
-    pub signers: Vec<Address>,
-
-    #[tail(vec<u16, 10>)]
-    pub weights: Vec<u16>,
+    pub label: String<'a, 32>,
+    pub signers: Vec<'a, Address, 10>,
+    pub weights: Vec<'a, u16, 10>,
 }
 ```
 
@@ -117,8 +112,12 @@ is the maximum body-plus-tail allocation, `Multisig::label(data)` and
 `Multisig::signers(data)` borrow compact-tail fields. Generic vectors such as
 `weights(data)` return `HopperVec<T, N>`. Setters such as `set_label` /
 `push_unique_signer` decode, edit, and write back the tail. Use explicit
-`hopper_dynamic_fields!` plus `#[hopper::state(dynamic_tail = T)]` when you want
-to name a custom `TailCodec` payload directly.
+`#[hopper::dynamic_account]` plus `#[tail(...)]` when a review should see the
+tail split directly. Use `hopper_dynamic_fields!` plus
+`#[hopper::state(dynamic_tail = T)]` when you want to name a custom `TailCodec`
+payload directly. The generated `MultisigAccountTailExt` trait adds safe owned
+getters and mutating helpers on `Account<'info, Multisig>` and
+`InitAccount<'info, Multisig>` when the trait is in scope.
 
 ## Systems Mode
 
@@ -142,6 +141,20 @@ Systems mode contains:
 The old `hopper_layout!` path remains useful for no-proc-macro builds and
 systems examples, but it is no longer the first thing new users need to learn.
 
+## Substrate Mode
+
+When a program needs raw control, opt into the substrate layer explicitly:
+
+```rust
+use hopper::substrate::*;
+```
+
+This exposes Hopper Runtime types plus Hopper Native account views, raw input
+parsing, syscalls, hash helpers, PDA helpers, memory helpers, compute-budget
+probes, and verification primitives. It is the right layer for audited hot
+paths and benchmark targets. Framework code should stay in the prelude until a
+specific instruction needs substrate control.
+
 ## Example Order
 
 Read examples in this order:
@@ -152,6 +165,7 @@ Read examples in this order:
 4. `examples/hopper-token-2022-vault`
 5. `examples/hopper-proc-vault`
 6. `examples/hopper-showcase`
+7. `examples/hopper-devnet-audit`
 
 The first examples teach success first. The later examples expose why Hopper can
 scale into protocol-grade state systems without changing frameworks.

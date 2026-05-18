@@ -43,6 +43,12 @@ pub struct AccountView {
     inner: BackendAccountView,
 }
 
+const _: () = {
+    assert!(core::mem::size_of::<AccountView>() == core::mem::size_of::<BackendAccountView>());
+    assert!(core::mem::align_of::<AccountView>() == core::mem::align_of::<BackendAccountView>());
+    assert!(!core::mem::needs_drop::<AccountView>());
+};
+
 // SAFETY: AccountView is safe to send between threads (BPF is single-threaded;
 // tests may need Send/Sync).
 unsafe impl Send for AccountView {}
@@ -211,7 +217,7 @@ impl AccountView {
                     // Native guard could not be taken; undo the lease
                     // we just registered so the instruction-level view
                     // stays consistent.
-                    unsafe { borrows.release_last_registered(&borrow) };
+                    borrows.release(&borrow);
                     return Err(ProgramError::from(e));
                 }
             };
@@ -223,7 +229,7 @@ impl AccountView {
             let data = match self.try_borrow() {
                 Ok(d) => d,
                 Err(e) => {
-                    unsafe { borrows.release_last_registered(&borrow) };
+                    borrows.release(&borrow);
                     return Err(e);
                 }
             };
@@ -272,7 +278,7 @@ impl AccountView {
             let native_ref = match native_ref {
                 Ok(nr) => nr,
                 Err(e) => {
-                    unsafe { borrows.release_last_registered(&borrow) };
+                    borrows.release(&borrow);
                     return Err(ProgramError::from(e));
                 }
             };
@@ -284,7 +290,7 @@ impl AccountView {
             let mut data = match self.try_borrow_mut() {
                 Ok(d) => d,
                 Err(e) => {
-                    unsafe { borrows.release_last_registered(&borrow) };
+                    borrows.release(&borrow);
                     return Err(e);
                 }
             };
@@ -470,13 +476,14 @@ impl AccountView {
 
     /// Load a cross-program layout without ownership checks.
     ///
-    /// Validates wire format (disc + layout_id + size) but does not check
-    /// that the account is owned by this program. Use for cross-program
+    /// Validates the layout contract but does not check that the account is
+    /// owned by this program. Use for cross-program
     /// reads where the account is owned by another program and you need
     /// a typed, zero-copy view of its data.
     ///
-    /// The layout_id check ensures ABI compatibility: if the other program
-    /// changes its layout, this will fail rather than silently misinterpret.
+    /// Full contract validation ensures ABI compatibility: if the other
+    /// program changes its layout identity or schema epoch, this fails rather
+    /// than silently misinterpreting bytes.
     ///
     /// # Example
     ///
@@ -486,17 +493,7 @@ impl AccountView {
     #[inline(always)]
     pub fn load_cross_program<T: LayoutContract>(&self) -> Result<Ref<'_, T>, ProgramError> {
         let data = self.try_borrow()?;
-        if data.len() < T::required_len() {
-            return Err(ProgramError::AccountDataTooSmall);
-        }
-        T::check_disc(&data)?;
-        if let Some(id) = crate::layout::read_layout_id(&data) {
-            if *id != T::LAYOUT_ID {
-                return Err(ProgramError::InvalidAccountData);
-            }
-        } else {
-            return Err(ProgramError::AccountDataTooSmall);
-        }
+        T::validate_header(&data)?;
         // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let ptr = unsafe { data.as_bytes_ptr().add(T::TYPE_OFFSET) as *const T };
         // SAFETY: Wire identity and size validated above.
@@ -1062,6 +1059,12 @@ mod tests {
         amount: u64,
     }
 
+    #[repr(C)]
+    #[derive(Clone, Copy, Debug, Default)]
+    struct EpochTwoLayout {
+        amount: u64,
+    }
+
     impl crate::field_map::FieldMap for TestLayout {
         const FIELDS: &'static [crate::field_map::FieldInfo] = &[
             crate::field_map::FieldInfo::new("a", HopperHeader::SIZE, 8),
@@ -1091,6 +1094,22 @@ mod tests {
         const LAYOUT_ID: [u8; 8] = [0xCD; 8];
         const SIZE: usize = core::mem::size_of::<Self>();
         const TYPE_OFFSET: usize = 0;
+    }
+
+    impl crate::field_map::FieldMap for EpochTwoLayout {
+        const FIELDS: &'static [crate::field_map::FieldInfo] = &[crate::field_map::FieldInfo::new(
+            "amount",
+            HopperHeader::SIZE,
+            8,
+        )];
+    }
+
+    impl LayoutContract for EpochTwoLayout {
+        const DISC: u8 = 12;
+        const VERSION: u8 = 1;
+        const LAYOUT_ID: [u8; 8] = [0xEF; 8];
+        const SIZE: usize = HopperHeader::SIZE + core::mem::size_of::<Self>();
+        const SCHEMA_EPOCH: u32 = 2;
     }
 
     fn make_account(total_data_len: usize, address_byte: u8) -> (std::vec::Vec<u8>, AccountView) {
@@ -1150,6 +1169,87 @@ mod tests {
         let reread = account.load::<TestLayout>().unwrap();
         assert_eq!(reread.a, 10);
         assert_eq!(reread.b, 99);
+    }
+
+    #[test]
+    fn default_layout_accepts_legacy_zero_epoch() {
+        let (_backing, account) = make_account(TestLayout::SIZE, 43);
+        {
+            let mut data = account.try_borrow_mut().unwrap();
+            crate::layout::write_header_with_epoch(
+                &mut data,
+                TestLayout::DISC,
+                TestLayout::VERSION,
+                &TestLayout::LAYOUT_ID,
+                0,
+            )
+            .unwrap();
+        }
+
+        assert!(account.load::<TestLayout>().is_ok());
+    }
+
+    #[test]
+    fn init_header_stamps_layout_schema_epoch() {
+        let (_backing, account) = make_account(EpochTwoLayout::SIZE, 44);
+        {
+            let mut data = account.try_borrow_mut().unwrap();
+            crate::layout::init_header::<EpochTwoLayout>(&mut data).unwrap();
+            assert_eq!(crate::layout::read_schema_epoch(&data), Some(2));
+        }
+
+        assert!(account.load::<EpochTwoLayout>().is_ok());
+    }
+
+    #[test]
+    fn typed_load_rejects_schema_epoch_mismatch() {
+        let (_backing, account) = make_account(EpochTwoLayout::SIZE, 45);
+        {
+            let mut data = account.try_borrow_mut().unwrap();
+            crate::layout::write_header_with_epoch(
+                &mut data,
+                EpochTwoLayout::DISC,
+                EpochTwoLayout::VERSION,
+                &EpochTwoLayout::LAYOUT_ID,
+                1,
+            )
+            .unwrap();
+        }
+
+        assert_eq!(
+            account.load::<EpochTwoLayout>().unwrap_err(),
+            ProgramError::InvalidAccountData
+        );
+    }
+
+    #[test]
+    fn layout_info_matches_checks_schema_epoch() {
+        let (_backing, account) = make_account(EpochTwoLayout::SIZE, 46);
+        {
+            let mut data = account.try_borrow_mut().unwrap();
+            crate::layout::write_header_with_epoch(
+                &mut data,
+                EpochTwoLayout::DISC,
+                EpochTwoLayout::VERSION,
+                &EpochTwoLayout::LAYOUT_ID,
+                1,
+            )
+            .unwrap();
+        }
+        assert!(!account.layout_info().unwrap().matches::<EpochTwoLayout>());
+
+        {
+            let mut data = account.try_borrow_mut().unwrap();
+            crate::layout::write_header_with_epoch(
+                &mut data,
+                EpochTwoLayout::DISC,
+                EpochTwoLayout::VERSION,
+                &EpochTwoLayout::LAYOUT_ID,
+                EpochTwoLayout::SCHEMA_EPOCH,
+            )
+            .unwrap();
+        }
+        assert!(account.layout_info().unwrap().matches::<EpochTwoLayout>());
     }
 
     #[test]

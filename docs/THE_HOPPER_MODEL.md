@@ -57,12 +57,13 @@ Every Hopper account starts with a standard header:
 [1]       version     u8        Layout version
 [2..4]    flags       u16 LE    Status flags (frozen, segmented, etc.)
 [4..12]   layout_id   [u8;8]    SHA-256 fingerprint
-[12..16]  reserved    [u8;4]    Reserved
+[12..16]  schema_epoch u32 LE    Schema evolution epoch, default 1
 ```
 
 The header makes every account self-describing. Any tool can decode the
-type, version, and fingerprint without knowing the layout definition.
-This is what powers `hopper explain` and `hopper inspect`.
+type, version, fingerprint, and schema epoch without knowing the layout
+definition. This is what powers `hopper explain`, `hopper inspect`, and
+schema-aware migration planning.
 
 ## One Access System
 

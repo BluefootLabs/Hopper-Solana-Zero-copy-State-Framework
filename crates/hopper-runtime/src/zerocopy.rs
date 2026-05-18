@@ -195,7 +195,7 @@ impl<T: LayoutContract + ZeroCopy> AccountLayout for T {
     const DISC: u8 = <T as LayoutContract>::DISC;
     const VERSION: u8 = <T as LayoutContract>::VERSION;
     const WIRE_FINGERPRINT: u64 = u64::from_le_bytes(<T as LayoutContract>::LAYOUT_ID);
-    const SCHEMA_EPOCH: u32 = 1;
+    const SCHEMA_EPOCH: u32 = <T as LayoutContract>::SCHEMA_EPOCH;
     const TYPE_OFFSET: usize = <T as LayoutContract>::TYPE_OFFSET;
 }
 

@@ -564,13 +564,11 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
         // macro path is not automatically `ZeroCopy`.
         unsafe impl ::hopper::__runtime::__sealed::HopperZeroCopySealed for #name {}
 
-        // Anchor the layout fingerprint in `.rodata` so it survives
-        // dead-code elimination on SBF / LTO builds. `hopper verify`
-        // scans the compiled `.so` for this exact byte sequence to
-        // prove the binary matches the emitted manifest. Without
-        // `#[used]` the SBF linker aggressively strips const bytes
-        // that only appear inside inlined comparisons.
-        #[used]
+        // Anchor the layout fingerprint in `.rodata` so `hopper verify`
+        // can scan for the exact manifest bytes. On the Solana target,
+        // export the anchor without `#[used]`: the retain flag flips the
+        // artifact OSABI to GNU and `solana program deploy` rejects it.
+        #[cfg_attr(not(target_os = "solana"), used)]
         #[doc(hidden)]
         #[no_mangle]
         pub static #layout_id_anchor_ident: [u8; 8] = #name::LAYOUT_ID;

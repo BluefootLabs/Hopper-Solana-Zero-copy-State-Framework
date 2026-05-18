@@ -24,6 +24,25 @@ pub struct WeightedVotes {
     pub weights: Vec<u16>,
 }
 
+#[hopper::account(discriminator = 10, version = 1)]
+pub struct PrettyMultisig<'a> {
+    pub creator: Address,
+    pub threshold: u8,
+    pub label: String<'a, 32>,
+    pub signers: Vec<'a, Address, 10>,
+}
+
+#[allow(dead_code)]
+fn generated_account_wrapper_methods_compile<'info>(
+    account: Account<'info, PrettyMultisig>,
+) -> ProgramResult {
+    let _label = account.label()?;
+    let _signers = account.signers()?;
+    account.set_label("ops")?;
+    let _ = account.push_unique_signer(Address::new([7u8; 32]))?;
+    Ok(())
+}
+
 #[test]
 fn dynamic_account_generates_fixed_body_tail_and_views() {
     let creator = Address::new([1u8; 32]);
@@ -95,6 +114,58 @@ fn dynamic_account_accepts_generic_tail_vectors() {
     assert!(WeightedVotes::remove_weight(&mut data, &7).unwrap());
     let weights = WeightedVotes::weights(&data).unwrap();
     assert_eq!(weights.as_slice(), &[11, 13]);
+}
+
+#[test]
+fn account_attribute_auto_upgrades_pretty_dynamic_fields() {
+    let creator = Address::new([4u8; 32]);
+    let signer = Address::new([5u8; 32]);
+
+    let body = PrettyMultisig::new(creator, 3);
+    assert_eq!(body.creator(), creator);
+    assert_eq!(body.threshold(), 3);
+    assert!(PrettyMultisig::HAS_DYNAMIC_TAIL);
+    assert_eq!(PrettyMultisig::TAIL_PREFIX_OFFSET, PrettyMultisig::LEN);
+
+    let mut tail = PrettyMultisigTail::default();
+    tail.label.set_str("governance").unwrap();
+    tail.signers.push(signer).unwrap();
+
+    let mut data = vec![0u8; PrettyMultisig::ALLOC_SPACE];
+    PrettyMultisig::tail_write(&mut data, &tail).unwrap();
+    assert_eq!(PrettyMultisig::label(&data).unwrap(), "governance");
+    assert_eq!(PrettyMultisig::signers(&data).unwrap(), &[signer]);
+
+    PrettyMultisig::set_label(&mut data, "ops").unwrap();
+    assert_eq!(PrettyMultisig::label(&data).unwrap(), "ops");
+}
+
+mod pretty_cap_32 {
+    use super::*;
+
+    #[hopper::account(discriminator = 11, version = 1)]
+    pub struct PrettySameFixedBody<'a> {
+        pub creator: Address,
+        pub label: String<'a, 32>,
+    }
+}
+
+mod pretty_cap_64 {
+    use super::*;
+
+    #[hopper::account(discriminator = 11, version = 1)]
+    pub struct PrettySameFixedBody<'a> {
+        pub creator: Address,
+        pub label: String<'a, 64>,
+    }
+}
+
+#[test]
+fn account_pretty_tail_schema_changes_layout_fingerprint() {
+    assert_ne!(
+        pretty_cap_32::PrettySameFixedBody::LAYOUT_ID,
+        pretty_cap_64::PrettySameFixedBody::LAYOUT_ID
+    );
 }
 
 #[test]

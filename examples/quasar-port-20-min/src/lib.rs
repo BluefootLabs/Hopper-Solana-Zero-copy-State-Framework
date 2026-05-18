@@ -31,16 +31,12 @@ pub struct Vault {
     pub bump: u8,
 }
 
-#[hopper::dynamic_account(disc = 7, version = 1)]
-pub struct Multisig {
+#[hopper::account(discriminator = 7, version = 1)]
+pub struct Multisig<'a> {
     #[role(threshold)]
     pub threshold: u64,
-
-    #[tail(string<32>)]
-    pub label: String,
-
-    #[tail(vec<Address, 10>)]
-    pub signers: Vec<Address>,
+    pub label: String<'a, 32>,
+    pub signers: Vec<'a, Address, 10>,
 }
 
 #[derive(Accounts)]
@@ -60,16 +56,14 @@ pub struct AddSigner<'info> {
 impl<'info> RenameMultisig<'info> {
     #[inline]
     pub fn rename(&self, label: &str) -> ProgramResult {
-        let mut data = self.multisig.as_account().try_borrow_mut()?;
-        rename_multisig_data(&mut data, label)
+        self.multisig.set_label(label)
     }
 }
 
 impl<'info> AddSigner<'info> {
     #[inline]
     pub fn add_signer(&self, signer: Address) -> ProgramResult {
-        let mut data = self.multisig.as_account().try_borrow_mut()?;
-        add_signer_data(&mut data, signer)
+        self.multisig.push_unique_signer(signer).map(|_| ())
     }
 }
 

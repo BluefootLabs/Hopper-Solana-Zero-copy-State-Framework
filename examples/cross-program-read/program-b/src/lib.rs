@@ -65,15 +65,6 @@ hopper_interface! {
     }
 }
 
-// --- Hard-coded Program A address -----------------------------------
-//
-// In production, this would typically be a well-known deployed program ID
-// constant or an instruction-selected target.
-
-const PROGRAM_A_ID: Address = Address::new_from_array(five8_const::decode_32_const(
-    "11111111111111111111111111111112",
-));
-
 // --- Errors ---------------------------------------------------------
 
 hopper_error! {
@@ -101,19 +92,26 @@ fn process_instruction(
 
 // --- Read Vault Balance (basic cross-program read) ------------------
 
+fn program_a_id<'a>(accounts: &'a [AccountView]) -> Result<&'a Address, ProgramError> {
+    if accounts.len() < 2 {
+        return Err(ProgramError::NotEnoughAccountKeys);
+    }
+    let program_a = &accounts[0];
+    program_a.check_executable()?;
+    Ok(program_a.address())
+}
+
 fn process_read_vault(
     _program_id: &Address,
     accounts: &[AccountView],
     _data: &[u8],
 ) -> ProgramResult {
-    if accounts.is_empty() {
-        return Err(ProgramError::NotEnoughAccountKeys);
-    }
-    let vault_account = &accounts[0];
+    let program_a_id = program_a_id(accounts)?;
+    let vault_account = &accounts[1];
 
     // Tier 2: Cross-program read.
-    // Validates: owner == PROGRAM_A_ID, layout_id matches, exact size.
-    let verified = Vault::load_cross_program(vault_account, &PROGRAM_A_ID)?;
+    // Validates: owner == passed Program A id, layout_id matches, exact size.
+    let verified = Vault::load_cross_program(vault_account, program_a_id)?;
     let vault = verified.get();
 
     // Access Program A's vault data -- zero copies, zero deserialization.
@@ -130,10 +128,8 @@ fn process_check_vault_min_balance(
     accounts: &[AccountView],
     data: &[u8],
 ) -> ProgramResult {
-    if accounts.is_empty() {
-        return Err(ProgramError::NotEnoughAccountKeys);
-    }
-    let vault_account = &accounts[0];
+    let program_a_id = program_a_id(accounts)?;
+    let vault_account = &accounts[1];
 
     // Parse minimum balance threshold from instruction data.
     if data.len() < 8 {
@@ -145,7 +141,7 @@ fn process_check_vault_min_balance(
 
     // Use a TrustProfile for configurable validation.
     // Strict: owner + layout_id + exact size + reject closed.
-    let profile = TrustProfile::strict(&PROGRAM_A_ID, &Vault::LAYOUT_ID, Vault::LEN);
+    let profile = TrustProfile::strict(program_a_id, &Vault::LAYOUT_ID, Vault::LEN);
     let verified = Vault::load_with_profile(vault_account, &profile)?;
     let vault = verified.get();
 

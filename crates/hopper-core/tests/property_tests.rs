@@ -228,7 +228,7 @@ fn prop_header_write_read_roundtrip() {
                 assert_eq!(header.version, ver, "version mismatch");
                 assert_eq!(&header.layout_id, layout_id, "layout_id mismatch");
                 assert_eq!(header.flags, [0, 0], "flags should be zero");
-                assert_eq!(header.reserved, [0, 0, 0, 0], "reserved should be zero");
+                assert_eq!(header.schema_epoch_u32(), 1, "schema_epoch should be 1");
             }
         }
     }

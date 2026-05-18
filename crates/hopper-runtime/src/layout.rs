@@ -122,9 +122,11 @@ impl LayoutInfo {
     /// Whether this account matches the given layout contract.
     #[inline(always)]
     pub fn matches<T: LayoutContract>(&self) -> bool {
+        let schema_epoch = effective_schema_epoch(self.schema_epoch);
         self.disc == T::DISC
             && self.version == T::VERSION
             && self.layout_id == T::LAYOUT_ID
+            && schema_epoch == T::SCHEMA_EPOCH
             && self.data_len >= T::required_len()
     }
 
@@ -158,7 +160,7 @@ impl LayoutInfo {
 /// byte 1   : version (u8)
 /// bytes 2-3: flags (u16 LE)
 /// bytes 4-11: layout_id (first 8 bytes of SHA-256 fingerprint)
-/// bytes 12-15: reserved
+/// bytes 12-15: schema_epoch (u32 LE; zero is accepted as legacy epoch 1)
 /// ```
 ///
 /// # Example
@@ -192,6 +194,14 @@ pub trait LayoutContract: Sized + Copy + FieldMap {
     /// projects the full account struct.
     const TYPE_OFFSET: usize = HopperHeader::SIZE;
 
+    /// Schema-evolution epoch expected in the Hopper header.
+    ///
+    /// Fresh accounts default to epoch 1. A stored header epoch of 0
+    /// is treated as legacy epoch 1 for backwards compatibility, but
+    /// non-default layout epochs must match exactly before typed access
+    /// is granted.
+    const SCHEMA_EPOCH: u32 = DEFAULT_SCHEMA_EPOCH;
+
     /// Number of reserved bytes at the end of the layout. Reserved bytes
     /// provide forward-compatible padding that future versions can claim
     /// without a realloc.
@@ -204,8 +214,9 @@ pub trait LayoutContract: Sized + Copy + FieldMap {
 
     /// Validate a raw data slice against this contract.
     ///
-    /// Returns `Ok(())` if the discriminator, version, and layout_id all match.
-    /// This is the canonical "is this account what I think it is?" check.
+    /// Returns `Ok(())` if the discriminator, version, layout_id, schema
+    /// epoch, and required length all match. This is the canonical "is this
+    /// account what I think it is?" check.
     #[inline(always)]
     fn validate_header(data: &[u8]) -> ProgramResult {
         if data.len() < Self::required_len() {
@@ -225,6 +236,11 @@ pub trait LayoutContract: Sized + Copy + FieldMap {
             }
         } else {
             return ProgramError::err_data_too_small();
+        }
+        match read_schema_epoch(data) {
+            Some(stored) if effective_schema_epoch(stored) == Self::SCHEMA_EPOCH => {}
+            Some(_) => return ProgramError::err_invalid_data(),
+            None => return ProgramError::err_data_too_small(),
         }
         Ok(())
     }
@@ -297,7 +313,7 @@ pub trait LayoutContract: Sized + Copy + FieldMap {
             version: Self::VERSION,
             flags: 0,
             layout_id: Self::LAYOUT_ID,
-            schema_epoch: DEFAULT_SCHEMA_EPOCH,
+            schema_epoch: Self::SCHEMA_EPOCH,
             data_len: Self::required_len(),
         }
     }
@@ -356,6 +372,18 @@ pub fn read_flags(data: &[u8]) -> Option<u16> {
 /// monotonically without any lookback.
 pub const DEFAULT_SCHEMA_EPOCH: u32 = 1;
 
+/// Convert a stored header epoch into the effective value used by
+/// runtime validation. Epoch 0 is legacy pre-audit Hopper data and is
+/// treated as epoch 1 only for default-epoch layouts.
+#[inline(always)]
+pub const fn effective_schema_epoch(stored: u32) -> u32 {
+    if stored == 0 {
+        DEFAULT_SCHEMA_EPOCH
+    } else {
+        stored
+    }
+}
+
 /// Write a complete Hopper header to the beginning of `data`.
 ///
 /// Writes disc, version, flags (zeroed), layout_id, and the
@@ -412,9 +440,9 @@ pub fn read_schema_epoch(data: &[u8]) -> Option<u32> {
 
 /// Initialize an account's header from a layout contract type.
 ///
-/// Convenience wrapper that pulls disc, version, and layout_id from
-/// the type and stamps `schema_epoch = DEFAULT_SCHEMA_EPOCH`.
+/// Convenience wrapper that pulls disc, version, layout_id, and
+/// schema_epoch from the type.
 #[inline(always)]
 pub fn init_header<T: LayoutContract>(data: &mut [u8]) -> ProgramResult {
-    write_header(data, T::DISC, T::VERSION, &T::LAYOUT_ID)
+    write_header_with_epoch(data, T::DISC, T::VERSION, &T::LAYOUT_ID, T::SCHEMA_EPOCH)
 }

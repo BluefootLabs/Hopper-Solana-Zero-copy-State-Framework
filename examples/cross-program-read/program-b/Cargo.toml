@@ -11,7 +11,6 @@ crate-type = ["cdylib", "lib"]
 
 [dependencies]
 hopper = { path = "../../..", package = "hopper-lang", default-features = false }
-five8_const = { workspace = true }
 
 [features]
 default = ["hopper-native-backend"]

@@ -29,8 +29,8 @@ access only when the program has a measured reason.
 | `Interface<T>` | `Interface<'info, T>` |
 | `InterfaceAccount<T>` | `InterfaceAccount<'info, T>` for Hopper-header layouts owned by a declared program set |
 | `set_inner()` | generated `set_inner(...)` |
-| `String<'a, N>` | `#[tail(string<N>)]` |
-| `Vec<'a, T, N>` | `#[tail(vec<T, N>)]` where `T: TailElement` |
+| `String<'a, N>` | `String<'a, N>` in `#[hopper::account]`, or `#[tail(string<N>)]` in systems-mode spelling |
+| `Vec<'a, T, N>` | `Vec<'a, T, N>` in `#[hopper::account]`, or `#[tail(vec<T, N>)]` where `T: TailElement` |
 | `ctx.bumps.foo` | `ctx.bumps.foo` |
 
 ## Fixed Vault
@@ -60,24 +60,18 @@ validated loads, and generated segment accessors.
 
 ## Bounded Dynamic Account
 
-Use `#[hopper::dynamic_account]` when porting Quasar-style bounded fields. The
-fixed fields remain in the account body; fields marked with `#[tail(...)]` move
-into the compact dynamic tail.
+Use `#[hopper::account]` when porting Quasar-style bounded fields. Hopper
+detects bounded `String` and `Vec` fields and lowers them into the compact
+dynamic tail while keeping fixed fields in the account body.
 
 ```rust
-#[hopper::dynamic_account(disc = 7, version = 1)]
-pub struct Multisig {
+#[hopper::account(discriminator = 7, version = 1)]
+pub struct Multisig<'a> {
     #[role(threshold)]
     pub threshold: u64,
-
-    #[tail(string<32>)]
-    pub label: String,
-
-    #[tail(vec<Address, 10>)]
-    pub signers: Vec<Address>,
-
-    #[tail(vec<u16, 10>)]
-    pub weights: Vec<u16>,
+    pub label: String<'a, 32>,
+    pub signers: Vec<'a, Address, 10>,
+    pub weights: Vec<'a, u16, 10>,
 }
 ```
 
@@ -88,9 +82,14 @@ generated `threshold()` getter. `string<N>` lowers to `HopperString<N>` and
 `vec<T, N>` lowers to `HopperVec<T, N>` inside the generated tail. `Address` /
 `Pubkey` vectors keep borrowed-slice views; other `TailElement` vectors return
 `HopperVec<T, N>` values through generated view helpers.
+The lifetime in the source declaration is authoring syntax only; contexts use
+`Account<'info, Multisig>`.
 
-For custom named tail payloads, keep using the explicit lower-level pair:
-`hopper_dynamic_fields!` plus `#[hopper::state(dynamic_tail = Tail)]`.
+When a review should see the split directly, use the systems-mode spelling:
+`#[hopper::dynamic_account]` plus `#[tail(string<N>)]` or
+`#[tail(vec<T, N>)]`. For custom named tail payloads, keep using the explicit
+lower-level pair: `hopper_dynamic_fields!` plus
+`#[hopper::state(dynamic_tail = Tail)]`.
 
 ## Read and Write the Tail
 
@@ -128,15 +127,13 @@ pub struct AddSigner<'info> {
 
 impl<'info> RenameMultisig<'info> {
     pub fn rename(&self, label: &str) -> ProgramResult {
-        let mut data = self.multisig.as_account().try_borrow_mut()?;
-        Multisig::set_label(&mut data, label)
+        self.multisig.set_label(label)
     }
 }
 
 impl<'info> AddSigner<'info> {
     pub fn add_signer(&self, signer: Address) -> ProgramResult {
-        let mut data = self.multisig.as_account().try_borrow_mut()?;
-        Multisig::push_unique_signer(&mut data, signer).map(|_| ())
+        self.multisig.push_unique_signer(signer).map(|_| ())
     }
 }
 

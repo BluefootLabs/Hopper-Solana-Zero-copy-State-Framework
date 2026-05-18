@@ -4,9 +4,9 @@ Quasar lets a zero-copy account include bounded dynamic fields such as
 `String<'a, 32>` or `Vec<'a, T, 10>` inside the account declaration.
 Hopper takes a different route internally: keep the fixed body strictly
 zero-copy, then attach one compact encoded dynamic tail after the fixed body.
-You can author that split directly, or use `#[hopper::dynamic_account]` to
-write the dynamic fields inline and let the macro lower them into the same
-layout.
+You can write Quasar-pretty fields directly in `#[hopper::account]`, or use
+`#[hopper::dynamic_account]` with explicit `#[tail(...)]` markers when a review
+needs the fixed/tail split spelled out in source.
 
 That split is intentional:
 
@@ -47,18 +47,12 @@ Hopper ergonomic shape:
 ```rust
 use hopper::prelude::*;
 
-#[hopper::dynamic_account(disc = 7, version = 1)]
-pub struct Multisig {
+#[hopper::account(discriminator = 7, version = 1)]
+pub struct Multisig<'a> {
     pub threshold: u64,
-
-    #[tail(string<32>)]
-    pub label: String,
-
-    #[tail(vec<Address, 10>)]
-    pub signers: Vec<Address>,
-
-    #[tail(vec<u16, 10>)]
-    pub weights: Vec<u16>,
+    pub label: String<'a, 32>,
+    pub signers: Vec<'a, Address, 10>,
+    pub weights: Vec<'a, u16, 10>,
 }
 ```
 
@@ -69,6 +63,25 @@ into the single compact tail payload and are decoded only when a handler asks
 for them. `Address` / `Pubkey` vectors expose borrowed slices; other
 `TailElement` vectors expose `HopperVec<T, N>` values through the same view and
 editor helpers.
+
+The lifetime in `Multisig<'a>` is authoring syntax for the macro. The emitted
+layout type is concrete, so account contexts use `Account<'info, Multisig>`.
+
+Systems-mode spelling stays available when you want every tail decision visible
+at the field site:
+
+```rust
+#[hopper::dynamic_account(disc = 7, version = 1)]
+pub struct Multisig {
+    pub threshold: u64,
+
+    #[tail(string<32>)]
+    pub label: String,
+
+    #[tail(vec<Address, 10>)]
+    pub signers: Vec<Address>,
+}
+```
 
 The explicit spelling is still available when you want a custom `TailCodec` or
 a tail shape beyond the current `dynamic_account` façade:
@@ -98,6 +111,10 @@ hopper_dynamic_fields! {
 `HopperVec<T, N>` aliases, keeping ported layouts concise while preserving
 explicit bounded storage.
 
+Outside account authoring, the prelude exports owned bounded aliases too:
+`String<N>` / `Text<N>` for `HopperString<N>` and `Vec<T, N>` /
+`List<T, N>` for `HopperVec<T, N>`.
+
 ```rust
 use hopper::prelude::*;
 
@@ -113,11 +130,20 @@ hopper_dynamic_fields! {
 tails: `contains`, `push_unique`, `remove_first`, `pop`, `clear`, and capacity
 inspection.
 
-`#[hopper::dynamic_account]` supports `#[tail(string<N>)]` and
-`#[tail(vec<T, N>)] where T: TailElement` with `tail_policy = "compact"` (the
-default). Use the explicit `hopper_dynamic_fields!` path when you want to name a
-custom `TailCodec` payload directly or when a future indexed/segmented tail
-policy is a better fit than one compact payload.
+`#[hopper::account]` auto-upgrades to the dynamic account lowering when it sees
+bounded `String<'a, N>`, `Text<N>`, `Vec<'a, T, N>`, or `List<T, N>` fields.
+`#[hopper::dynamic_account]` supports the same pretty types plus
+`#[tail(string<N>)]` and `#[tail(vec<T, N>)] where T: TailElement` with
+`tail_policy = "compact"` (the default). Use the explicit
+`hopper_dynamic_fields!` path when you want to name a custom `TailCodec` payload
+directly or when an indexed/segmented tail policy is a better fit than one
+compact payload.
+
+Hopper intentionally does not make bare unsized final tails such as
+`TailStr<'a>` or `&'a str` implicit in `#[account]`. Bounded compact tails keep
+maximum allocation, schema, and compatibility fingerprinted. If a protocol wants
+remaining-bytes semantics, spell that as a systems-mode payload so reviewers can
+see the wire policy directly.
 
 ## Generated helpers
 
@@ -139,6 +165,9 @@ A dynamic-tail layout emits:
     generic vectors return `HopperVec<T, N>`
 - setter/editor helpers such as `set_label`, `push_unique_signer`, and
     `remove_signer`
+- a local extension trait named `NameAccountTailExt` for `Account<'info, Name>`
+    and `InitAccount<'info, Name>`; getters return owned bounded values so
+    account-data borrows do not escape the wrapper method
 
 Example handler flow:
 
@@ -152,8 +181,7 @@ pub struct Rename<'info> {
 
 impl<'info> Rename<'info> {
     pub fn rename(&self, new_label: &str) -> ProgramResult {
-        let mut data = self.multisig.as_account().try_borrow_mut()?;
-        Multisig::set_label(&mut data, new_label)
+        self.multisig.set_label(new_label)
     }
 }
 
@@ -193,9 +221,10 @@ Use extension segments when:
 1. Keep hot fields fixed. In `#[hopper::dynamic_account]`, native `u16`, `u32`,
     `u64`, and `bool` fixed fields are stored as Hopper wire types and exposed
     through generated native-value getters.
-2. Mark Quasar dynamic fields with `#[tail(string<N>)]` or
-    `#[tail(vec<T, N>)] where T: TailElement`, or use
-    `hopper_dynamic_fields!` for explicit custom tails.
+2. Spell compact dynamic fields as `String<'a, N>` or `Vec<'a, T, N>` inside
+    `#[hopper::account]`. Use `#[tail(string<N>)]` or `#[tail(vec<T, N>)]`
+    inside `#[hopper::dynamic_account]` when the systems-mode split should be
+    explicit.
 3. Allocate account space with `Multisig::ALLOC_SPACE` for the façade path, or
     `Fixed::LEN + 4 + Tail::MAX_ENCODED_LEN` for the explicit path.
 4. Use generated segment accessors for fixed fields and tail view/editor helpers

@@ -110,7 +110,17 @@ pub fn derive_hopper_init_space(input: TokenStream) -> TokenStream {
 /// consumed by the outer macro, not by this proc macro.
 #[proc_macro_attribute]
 pub fn account(attr: TokenStream, item: TokenStream) -> TokenStream {
-    hopper_state(attr, item)
+    let attr: TokenStream = attr;
+    let item: proc_macro2::TokenStream = item.into();
+    if dynamic_account::looks_dynamic_account(&item) {
+        dynamic_account::expand(attr.into(), item)
+            .unwrap_or_else(|e| e.to_compile_error())
+            .into()
+    } else {
+        state::expand(attr.into(), item)
+            .unwrap_or_else(|e| e.to_compile_error())
+            .into()
+    }
 }
 
 /// Generate typed context accessors with segment-level borrow tracking.

@@ -105,7 +105,7 @@ Offset  Size  Field        Description
 1       1     version      Layout version (starts at 1)
 2       2     flags        Status flags (u16 LE)
 4       8     layout_id    SHA-256 fingerprint of the layout (first 8 bytes)
-12      4     reserved     Reserved for future header format versions
+12      4     schema_epoch Schema evolution epoch (u32 LE, default 1)
 ```
 
 `HEADER_LEN = 16`. `HEADER_FORMAT = 1`.
@@ -237,19 +237,21 @@ accessors for the default hot path. Methods: `get()`, `get_mut()`, `with()`,
 
 ### Dynamic Tail Payloads (`tail.rs`)
 
-Variable-length account metadata lives behind `#[hopper::dynamic_account]` or
-the explicit `#[hopper::state(dynamic_tail = T)]` path:
+Variable-length account metadata lives behind pretty dynamic fields in
+`#[hopper::account]`, explicit `#[hopper::dynamic_account]`, or the explicit
+`#[hopper::state(dynamic_tail = T)]` path:
 
 ```text
 [ Hopper header ][ fixed account body ][ tail_len: u32 LE ][ encoded tail ]
 ```
 
-The fixed body remains the zero-copy hot path. `#[hopper::dynamic_account]`
-lets authors write bounded `#[tail(string<N>)]` and `#[tail(vec<T, N>)] where
-T: TailElement` fields inline, then generates the compact tail struct, view,
-owned editor, and allocation constants. `Address` / `Pubkey` vectors keep
-borrowed-slice views; other vectors return `HopperVec<T, N>`. The explicit path
-uses `tail_read` / `tail_write` with a bounded `TailCodec` payload.
+The fixed body remains the zero-copy hot path. `#[hopper::account]` lets authors
+write bounded `String<'a, N>` and `Vec<'a, T, N>` fields inline, then generates
+the compact tail struct, view, owned editor, extension trait, and allocation
+constants. `#[hopper::dynamic_account]` keeps the explicit `#[tail(...)]`
+systems-mode spelling. `Address` / `Pubkey` vectors keep borrowed-slice views;
+other vectors return `HopperVec<T, N>`. The explicit path uses `tail_read` /
+`tail_write` with a bounded `TailCodec` payload.
 `HopperString<N>` and `HopperVec<T, N>` cover the common string/list cases
 without pulling heap allocation into SBF builds. `hopper_dynamic_fields!` lowers
 `string<N>` to `HopperString<N>` and `vec<T, N>` to `HopperVec<T, N>` for custom

@@ -17,6 +17,26 @@ pub use hopper_runtime::{
     TailElement,
 };
 
+/// Short alias for bounded dynamic UTF-8 fields outside account authoring.
+pub type Text<const N: usize> = HopperString<N>;
+
+/// Short alias for bounded dynamic list fields outside account authoring.
+pub type List<T, const N: usize> = HopperVec<T, N>;
+
+/// Quasar-shaped alias for bounded dynamic UTF-8 values outside account authoring.
+///
+/// In `#[account]` structs, `String<'a, N>` is an authoring form that the
+/// macro lowers into Hopper's compact dynamic tail. In ordinary Rust code,
+/// use `String<N>` for the owned bounded value.
+pub type String<const N: usize> = HopperString<N>;
+
+/// Quasar-shaped alias for bounded dynamic list values outside account authoring.
+///
+/// In `#[account]` structs, `Vec<'a, T, N>` is an authoring form that the
+/// macro lowers into Hopper's compact dynamic tail. In ordinary Rust code,
+/// use `Vec<T, N>` for the owned bounded value.
+pub type Vec<T, const N: usize> = HopperVec<T, N>;
+
 /// Solana-familiar alias for Hopper's 32-byte address type.
 pub type Pubkey = Address;
 

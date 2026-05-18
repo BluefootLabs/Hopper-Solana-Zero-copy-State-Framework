@@ -62,14 +62,15 @@ needed.
 The current Quasar issue queue points at a few places where Hopper should be
 the sharper choice:
 
-- **Dynamic account lifetimes:** `#[hopper::dynamic_account]` keeps Quasar-style
-  `String` / `Vec<T>` authoring while generating borrowed views for
-  `Address` / `Pubkey` vectors, `HopperVec<T, N>` views for other
-  `TailElement` vectors, and an owned editor over Hopper's fixed-body +
-  compact-tail wire format.
-- **Fixed byte-array seeds:** `#[hopper::context]` lowers inline `seeds = [...]`
-  through `AsRef<[u8]>`, so `[u8; N]` seeds work with `hash.as_ref()`; signer
-  seeds also implement `Seed::from(&[u8; N])`.
+- **Dynamic account lifetimes:** `#[hopper::account]` keeps Quasar-style
+  `String<'a, N>` / `Vec<'a, T, N>` authoring while generating borrowed views
+  for `Address` / `Pubkey` vectors, `HopperVec<T, N>` views for other
+  `TailElement` vectors, a local account-tail extension trait, and an owned
+  editor over Hopper's fixed-body + compact-tail wire format.
+- **Fixed byte-array seeds:** `#[derive(Accounts)]` and the lower-level context
+  binding path lower inline `seeds = [...]` through `AsRef<[u8]>`, so `[u8; N]`
+  seeds work with `hash.as_ref()`; signer seeds also implement
+  `Seed::from(&[u8; N])`.
 - **Rent paths:** runtime rent guards use Solana's constant rent minimum, and
   `hopper_init!` handles pre-funded zero-data accounts with Transfer-if-needed
   plus Allocate/Assign instead of forcing every path through CreateAccount.

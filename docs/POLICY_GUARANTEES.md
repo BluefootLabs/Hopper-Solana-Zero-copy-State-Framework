@@ -31,7 +31,7 @@ paths.
 
 ### `strict`
 
-Documents that every handler in the module uses a typed context (`Context<MyAccounts>`), so `MyAccounts::bind(ctx)?` runs before the handler body. The bind call chains into the constraint check gauntlet:
+Documents that every normal handler in the module uses a typed context (`Ctx<MyAccounts>`), so `MyAccounts::bind(ctx)?` runs before the handler body. The bind call chains into the constraint check gauntlet:
 
 1. signer
 2. mut / owner / executable / address
@@ -40,7 +40,7 @@ Documents that every handler in the module uses a typed context (`Context<MyAcco
 5. init / realloc / close preconditions
 6. `constraint = expr`
 
-Flipping to `strict = false` is an intent marker: the author plans to use `&mut Context<'_>` handlers and accepts responsibility for calling `validate()` where needed. The macro does not mechanically skip bind based on this flag. The handler's parameter type is the final word.
+Flipping to `strict = false` is an intent marker: the author plans to use raw `&mut Context<'_>` handlers or other hand-validated paths and accepts responsibility for calling `validate()` where needed. Typed `Ctx<T>` handlers still bind. The handler's parameter type is the final word.
 
 ### `enforce_token_checks`
 
@@ -65,7 +65,7 @@ When false, the program macro emits `#[deny(unsafe_code)]` on every handler that
 
 | Policy | Dropped invariant | What this means |
 |---|---|---|
-| `strict = false` | Auto-injected `bind(ctx)?` when handlers use raw `&mut Context<'_>` | Author must call constraint checks manually. Typed-context handlers still bind. |
+| `strict = false` | Framework guarantee that handlers are all typed `Ctx<T>` paths | Author must call constraint checks manually on raw `&mut Context<'_>` paths. Typed-context handlers still bind. |
 | `enforce_token_checks = false` | Hopper-branded pre-check on token CPIs | Only the SPL program's checks run. Any Hopper-side ownership mismatch surfaces as a generic CPI failure. |
 | `allow_unsafe = false` | Raw pointer access in handler bodies | `unsafe { ... }` and `hopper_unsafe_region!` fail to compile unless the handler opts in via `#[instruction(N, unsafe_memory)]`. |
 | `#[instruction(N, unsafe_memory)]` | Program-level `#[deny(unsafe_code)]` for this handler only | Raw pointer access restored for this one handler. Other handlers stay sealed. |

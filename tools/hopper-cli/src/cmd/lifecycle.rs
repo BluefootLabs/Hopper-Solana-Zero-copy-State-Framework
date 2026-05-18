@@ -1194,16 +1194,12 @@ pub struct Vault {
     pub bump: u8,
 }
 
-#[hopper::dynamic_account(disc = 7, version = 1)]
-pub struct Multisig {
+#[hopper::account(discriminator = 7, version = 1)]
+pub struct Multisig<'a> {
     #[role(threshold)]
     pub threshold: u64,
-
-    #[tail(string<32>)]
-    pub label: String,
-
-    #[tail(vec<Address, 10>)]
-    pub signers: Vec<Address>,
+    pub label: String<'a, 32>,
+    pub signers: Vec<'a, Address, 10>,
 }
 
 #[derive(Accounts)]
@@ -1222,15 +1218,13 @@ pub struct AddSigner<'info> {
 
 impl<'info> RenameMultisig<'info> {
     pub fn rename(&self, label: &str) -> ProgramResult {
-        let mut data = self.multisig.as_account().try_borrow_mut()?;
-        rename_multisig_data(&mut data, label)
+        self.multisig.set_label(label)
     }
 }
 
 impl<'info> AddSigner<'info> {
     pub fn add_signer(&self, signer: Address) -> ProgramResult {
-        let mut data = self.multisig.as_account().try_borrow_mut()?;
-        add_signer_data(&mut data, signer)
+        self.multisig.push_unique_signer(signer).map(|_| ())
     }
 }
 
@@ -1279,7 +1273,7 @@ pub fn threshold_met(data: &[u8], approvals: &[Address]) -> Result<bool, Program
         return Err(ProgramError::AccountDataTooSmall);
     }
     let body = Multisig::overlay(&data[HopperHeader::SIZE..Multisig::TAIL_PREFIX_OFFSET])?;
-    let needed = body.threshold.get() as usize;
+    let needed = body.threshold() as usize;
     if needed == 0 {
         return Ok(false);
     }
@@ -1800,7 +1794,7 @@ mod tests {
     }
 
     #[test]
-    fn quasar_port_template_uses_dynamic_account_first_surface() {
+    fn quasar_port_template_uses_pretty_dynamic_account_surface() {
         let source = render_lib_rs_quasar_port();
 
         for forbidden in forbidden_first_touch_terms() {
@@ -1811,6 +1805,8 @@ mod tests {
         }
         for forbidden in [
             "hopper_dynamic_fields!",
+            "#[tail(string<32>)]",
+            "#[tail(vec<Address, 10>)]",
             "pub fn rename_multisig(multisig",
             "pub fn add_signer(multisig",
         ] {
@@ -1821,9 +1817,10 @@ mod tests {
         }
 
         for required in [
-            "#[hopper::dynamic_account(disc = 7, version = 1)]",
-            "#[tail(string<32>)]",
-            "#[tail(vec<Address, 10>)]",
+            "#[hopper::account(discriminator = 7, version = 1)]",
+            "pub struct Multisig<'a>",
+            "pub label: String<'a, 32>",
+            "pub signers: Vec<'a, Address, 10>",
             "pub struct RenameMultisig<'info>",
             "pub multisig: Account<'info, Multisig>",
             "pub authority: Signer<'info>",

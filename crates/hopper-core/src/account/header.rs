@@ -5,8 +5,8 @@
 //! ----------------------------------------------------------------
 //! - byte 0  - byte 1  - bytes 2-3- bytes 4-11       - bytes 12-15-
 //! ----------------------------------------------------------------
-//! - DISC    - VERSION - FLAGS    - LAYOUT_ID (8)    - RESERVED   -
-//! - u8      - u8      - u16 LE   - [u8; 8] SHA-256  - [u8; 4]    -
+//! - DISC    - VERSION - FLAGS    - LAYOUT_ID (8)    - SCHEMA EPOCH-
+//! - u8      - u8      - u16 LE   - [u8; 8] SHA-256  - u32 LE      -
 //! ----------------------------------------------------------------
 //! ```
 //!
@@ -29,7 +29,10 @@ const DISC_OFFSET: usize = 0;
 const VERSION_OFFSET: usize = 1;
 const FLAGS_OFFSET: usize = 2;
 const LAYOUT_ID_OFFSET: usize = 4;
-const RESERVED_OFFSET: usize = 12;
+const SCHEMA_EPOCH_OFFSET: usize = 12;
+
+/// Default schema epoch stamped into freshly initialized headers.
+pub const DEFAULT_SCHEMA_EPOCH: u32 = hopper_runtime::layout::DEFAULT_SCHEMA_EPOCH;
 
 /// The 16-byte account header, overlay-safe.
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -39,7 +42,7 @@ pub struct AccountHeader {
     pub version: u8,
     pub flags: [u8; 2],
     pub layout_id: [u8; 8],
-    pub reserved: [u8; 4],
+    pub schema_epoch: [u8; 4],
 }
 
 const _: () = assert!(core::mem::size_of::<AccountHeader>() == HEADER_LEN);
@@ -66,12 +69,24 @@ impl AccountHeader {
     /// Create a new header.
     #[inline(always)]
     pub const fn new(disc: u8, version: u8, flags: u16, layout_id: [u8; 8]) -> Self {
+        Self::new_with_schema_epoch(disc, version, flags, layout_id, DEFAULT_SCHEMA_EPOCH)
+    }
+
+    /// Create a new header with an explicit schema epoch.
+    #[inline(always)]
+    pub const fn new_with_schema_epoch(
+        disc: u8,
+        version: u8,
+        flags: u16,
+        layout_id: [u8; 8],
+        schema_epoch: u32,
+    ) -> Self {
         Self {
             disc,
             version,
             flags: flags.to_le_bytes(),
             layout_id,
-            reserved: [0; 4],
+            schema_epoch: schema_epoch.to_le_bytes(),
         }
     }
 
@@ -79,6 +94,12 @@ impl AccountHeader {
     #[inline(always)]
     pub const fn flags_u16(&self) -> u16 {
         u16::from_le_bytes(self.flags)
+    }
+
+    /// Read the schema epoch as a `u32`.
+    #[inline(always)]
+    pub const fn schema_epoch_u32(&self) -> u32 {
+        u32::from_le_bytes(self.schema_epoch)
     }
 }
 
@@ -100,7 +121,8 @@ pub fn write_header(
     data[VERSION_OFFSET] = version;
     data[FLAGS_OFFSET..FLAGS_OFFSET + 2].copy_from_slice(&0u16.to_le_bytes());
     data[LAYOUT_ID_OFFSET..LAYOUT_ID_OFFSET + 8].copy_from_slice(layout_id);
-    data[RESERVED_OFFSET..RESERVED_OFFSET + 4].copy_from_slice(&[0u8; 4]);
+    data[SCHEMA_EPOCH_OFFSET..SCHEMA_EPOCH_OFFSET + 4]
+        .copy_from_slice(&DEFAULT_SCHEMA_EPOCH.to_le_bytes());
     Ok(())
 }
 

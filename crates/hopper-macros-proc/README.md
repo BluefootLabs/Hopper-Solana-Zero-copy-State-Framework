@@ -16,7 +16,8 @@ Hopper's typed pointer and validation surface.
 
 | Macro | Purpose |
 |---|---|
-| `#[hopper::state]` (alias `#[account]`) | Zero-copy account layout with header + fingerprint + load/load_mut helpers |
+| `#[hopper::state]` | Zero-copy account layout with header + fingerprint + load/load_mut helpers |
+| `#[hopper::account]` | Framework account layout; auto-upgrades bounded dynamic `String<'a, N>` / `Vec<'a, T, N>` fields into compact tails |
 | `#[derive(Accounts)]` | First-touch account-context binding with the full Anchor keyword set and Hopper account wrappers |
 | `#[hopper::context]` (aliases `#[context]`, `#[accounts]`) | Attribute-form account-context binding for lower-level migrations and segment-level borrow vocabulary |
 | `#[hopper::program]` (alias `#[program]`) | Entrypoint bridge plus instruction dispatcher; supports `#[receipt]`, `#[invariant]`, `#[pipeline]`, `#[access_control]` handler attributes |
@@ -27,7 +28,7 @@ Hopper's typed pointer and validation surface.
 | `#[hopper::args]` | Borrowing zero-copy instruction-arg parser with optional CU hint |
 | `#[hopper::pod]` (alias `#[pod]`) | Pod marker derive with align-1 / no-padding compile-time assertions |
 | `#[hopper::crank]` | Keeper-bot autonomous-marker descriptor |
-| `#[hopper::dynamic_account]` | Quasar-style bounded `String` / `Vec<T>` fields lowered into fixed body + compact dynamic tail |
+| `#[hopper::dynamic_account]` | Explicit systems-mode bounded `#[tail(...)]` fields lowered into fixed body + compact dynamic tail |
 | `#[hopper::dynamic]` | Dynamic-tail field metadata for ring-buffer bookkeeping |
 | `hopper::declare_program!` | Manifest-driven CPI surface with compile-time `FINGERPRINT`, borrowed Hopper instruction parts, and resolver/effect specs |
 | `#[derive(HopperInitSpace)]` | Anchor-parity `INIT_SPACE` derive for hand-authored Pod structs |
@@ -49,10 +50,28 @@ pub struct Vault {
 The macro verifies this contract instead of injecting its own derive, so the
 README pattern above works without duplicate trait implementations.
 
+## `#[hopper::account]` Dynamic Fields
+
+The framework account macro accepts Quasar-pretty bounded fields and lowers
+them into Hopper's fixed-body + compact-tail layout:
+
+```rust
+#[hopper::account(discriminator = 7, version = 1)]
+pub struct Multisig<'a> {
+    pub threshold: u64,
+    pub label: String<'a, 32>,
+    pub signers: Vec<'a, Address, 10>,
+    pub weights: Vec<'a, u16, 10>,
+}
+```
+
+The lifetime is authoring syntax for the macro. The emitted account type is a
+concrete fixed-body layout with generated tail helpers.
+
 ## `#[hopper::dynamic_account]`
 
-`dynamic_account` is the Quasar-porting façade. It accepts normal fixed fields
-plus bounded tail fields:
+`dynamic_account` is the explicit systems-mode spelling. It accepts normal
+fixed fields plus bounded tail fields:
 
 ```rust
 #[hopper::dynamic_account(disc = 7, version = 1)]

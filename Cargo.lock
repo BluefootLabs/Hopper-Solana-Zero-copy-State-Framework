@@ -2104,6 +2104,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "hopper-devnet-audit"
+version = "0.2.0"
+dependencies = [
+ "hopper-lang",
+ "solana-client",
+ "solana-commitment-config",
+ "solana-instruction 2.3.3",
+ "solana-keypair",
+ "solana-pubkey 2.4.0",
+ "solana-signer",
+ "solana-transaction 2.2.3",
+]
+
+[[package]]
 name = "hopper-distribute"
 version = "0.2.0"
 dependencies = [
@@ -2403,6 +2417,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "hopper-xp-devnet-runner"
+version = "0.2.0"
+dependencies = [
+ "hopper-lang",
+ "hopper-xp-program-a",
+ "solana-client",
+ "solana-commitment-config",
+ "solana-instruction 2.3.3",
+ "solana-keypair",
+ "solana-pubkey 2.4.0",
+ "solana-signer",
+ "solana-transaction 2.2.3",
+]
+
+[[package]]
 name = "hopper-xp-program-a"
 version = "0.2.0"
 dependencies = [
@@ -2413,7 +2442,6 @@ dependencies = [
 name = "hopper-xp-program-b"
 version = "0.2.0"
 dependencies = [
- "five8_const 0.1.4",
  "hopper-lang",
 ]
 

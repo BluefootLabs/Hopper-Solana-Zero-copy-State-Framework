@@ -670,16 +670,32 @@ macro_rules! hopper_require {
 ///
 /// ```ignore
 /// hopper_init!(payer, account, system_program, program_id, Vault)?;
+/// hopper_init!(payer, account, system_program, program_id, Vault, Vault::ALLOC_SPACE)?;
 /// ```
 #[macro_export]
 macro_rules! hopper_init {
     ($payer:expr, $account:expr, $system:expr, $program_id:expr, $layout:ty) => {{
+        $crate::hopper_init!(
+            $payer,
+            $account,
+            $system,
+            $program_id,
+            $layout,
+            <$layout>::LEN
+        )
+    }};
+    ($payer:expr, $account:expr, $system:expr, $program_id:expr, $layout:ty, $space:expr) => {{
         let payer = $payer;
         let account = $account;
         let program_id = $program_id;
 
-        let lamports = $crate::hopper_core::check::rent_exempt_min(<$layout>::LEN);
-        let space = <$layout>::LEN as u64;
+        let space = ($space) as usize;
+        if space < <$layout>::LEN {
+            Err($crate::hopper_runtime::ProgramError::InvalidAccountData)?;
+        }
+
+        let lamports = $crate::hopper_core::check::rent_exempt_min(space);
+        let space = space as u64;
 
         if account.data_len() != 0 {
             Err($crate::hopper_runtime::ProgramError::AccountAlreadyInitialized)?;

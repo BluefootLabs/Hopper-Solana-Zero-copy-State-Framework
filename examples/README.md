@@ -27,7 +27,7 @@ the full showcase once the basics are familiar.
 
 5. **[quasar-port-20-min](quasar-port-20-min/src/lib.rs)** - Bounded
    dynamic-tail example for a fixed vault and multisig metadata using
-   `#[hopper::dynamic_account]`, initialization helpers, and threshold checks.
+   Quasar-pretty `#[hopper::account]` fields, initialization helpers, and threshold checks.
    Companion guide:
    [../docs/PORT_QUASAR_IN_20_MINUTES.md](../docs/PORT_QUASAR_IN_20_MINUTES.md)
 
@@ -51,8 +51,10 @@ the full showcase once the basics are familiar.
    for one account.
 
 11. **[cross-program-read](cross-program-read/)** - Two separate programs reading
-   each other's accounts via `hopper_interface!`. No shared crate dependency.
-   Companion guide: [cross-program-read/README.md](cross-program-read/README.md)
+   each other's accounts via `hopper_interface!`. No shared on-chain crate
+   dependency, plus a host-only devnet runner that proves Program B can validate
+   Program A's live deployed owner and layout contract. Companion guide:
+   [cross-program-read/README.md](cross-program-read/README.md)
 
 12. **[hopper-policy-vault](hopper-policy-vault/src/lib.rs)** - Three sibling
     programs (`strict`, `sealed`, `raw`) demonstrating the policy-driven runtime
@@ -64,6 +66,11 @@ the full showcase once the basics are familiar.
     Uses layout, dispatch, phased frame, policy, receipts, invariants, segment
     roles, and state diffs. Read this after the smaller examples. Companion
     guide: [hopper-showcase/README.md](hopper-showcase/README.md)
+
+14. **[hopper-devnet-audit](hopper-devnet-audit/src/lib.rs)** - Deployable
+   devnet audit program for dynamic tails, typed contexts, segment mutation,
+   remaining-account parsing, and substrate CU probes. Companion guide:
+   [hopper-devnet-audit/README.md](hopper-devnet-audit/README.md)
 
 ### Tier 3: Escape Hatch
 

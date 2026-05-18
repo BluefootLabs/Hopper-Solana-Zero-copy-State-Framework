@@ -14,7 +14,8 @@ Proc macros are allowed for optional ergonomic and schema-generation
 tasks:
 
 - `#[hopper::state]` -- emit layout contracts and segment metadata
-- `#[hopper::context]` -- emit typed account accessors over Hopper runtime
+- `#[derive(Accounts)]` -- emit first-touch typed account binding over Hopper runtime wrappers
+- `#[hopper::context]` -- emit lower-level typed account accessors for migrations and systems-mode code
 - `#[hopper::program]` -- emit dispatch glue over ordinary Hopper handlers
 - `#[derive(HopperSchema)]` -- emit LayoutManifest const from struct
 - `#[derive(HopperInstruction)]` -- emit instruction metadata
@@ -24,11 +25,12 @@ tasks:
 These generate **code around existing Hopper runtime semantics**, not new
 runtime behavior. The program works identically with or without them.
 
-For typed account contexts, this means proc macros may emit narrow wrappers
-such as `vault_account()`, `vault_load()`, `vault_raw_ref()`,
-`vault_balance_mut()`, and, for fully mutable accounts only,
-`vault_load_mut()` / `vault_raw_mut()`. Those methods must remain direct,
-inspectable calls into `AccountView` and `Context`, not hidden logic.
+For first-touch typed account contexts, this means proc macros may emit the
+`Ctx<T>` binding and `ctx.accounts.*` wrapper construction used by
+`Account<'info, T>`, `Signer<'info>`, `Program<'info, P>`, and related account
+types. For systems-mode context macros, generated helpers such as segment
+accessors and raw-account escape hatches must remain direct, inspectable calls
+into `AccountView` and `Context`, not hidden logic.
 
 ## What proc macros must not do
 

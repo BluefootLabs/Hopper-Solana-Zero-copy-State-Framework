@@ -22,6 +22,7 @@ The following package manifests are intentionally non-public and must keep
 - `examples/hopper-nft-mint/Cargo.toml` (`hopper-nft-mint`)
 - `examples/hopper-proc-vault/Cargo.toml` (`hopper-proc-vault`)
 - `examples/hopper-policy-vault/Cargo.toml` (`hopper-policy-vault`)
+- `examples/hopper-devnet-audit/Cargo.toml` (`hopper-devnet-audit`)
 - `examples/quasar-port-20-min/Cargo.toml` (`hopper-quasar-port-20-min`)
 - `examples/cross-program-read/program-a/Cargo.toml` (`hopper-xp-program-a`)
 - `examples/cross-program-read/program-b/Cargo.toml` (`hopper-xp-program-b`)
@@ -41,6 +42,7 @@ cargo check --workspace --all-targets
 cargo test --workspace --all-targets
 cargo check -p hopper-quasar-port-20-min
 cargo test -p hopper-quasar-port-20-min
+cargo check -p hopper-devnet-audit
 cargo test -p hopper-lang --features proc-macros,metaplex --test metaplex_context_integration
 powershell -ExecutionPolicy Bypass -File .\scripts\kani-runtime-tail.ps1
 hopper lint

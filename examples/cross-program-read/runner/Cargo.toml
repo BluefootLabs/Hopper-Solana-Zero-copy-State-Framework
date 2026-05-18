@@ -1,0 +1,21 @@
+[package]
+name = "hopper-xp-devnet-runner"
+version = "0.2.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+description = "Devnet runner for the Hopper cross-program read proof."
+
+[dependencies]
+hopper = { path = "../../..", package = "hopper-lang", default-features = false, features = ["hopper-native-backend"] }
+hopper-xp-program-a = { path = "../program-a" }
+solana-client = { version = "2.1" }
+solana-commitment-config = { version = "2.1" }
+solana-instruction = { version = "2.1" }
+solana-keypair = { version = "2.1" }
+solana-pubkey = { version = "2.1" }
+solana-signer = { version = "2.1" }
+solana-transaction = { version = "2.1", features = ["bincode"] }
+
+[lints]
+workspace = true

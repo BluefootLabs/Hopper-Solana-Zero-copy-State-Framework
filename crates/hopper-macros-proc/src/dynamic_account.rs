@@ -8,8 +8,8 @@ use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, quote, ToTokens};
 use syn::parse::{Parse, ParseStream, Parser};
 use syn::{
-    parse2, Attribute, Field, Fields, Ident, ItemStruct, LitInt, LitStr, Result, Token, Type,
-    Visibility,
+    parse2, Attribute, Expr, ExprLit, Field, Fields, GenericArgument, GenericParam, Ident,
+    ItemStruct, Lit, LitInt, LitStr, PathArguments, Result, Token, Type, Visibility,
 };
 
 #[derive(Default)]
@@ -77,19 +77,14 @@ impl Parse for TailSpec {
 
 pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
     let options = parse_options(attr)?;
-    let input: ItemStruct = parse2(item)?;
+    let mut input: ItemStruct = parse2(item)?;
+    strip_authoring_lifetime_generics(&mut input)?;
     let name = input.ident.clone();
     let vis = input.vis.clone();
     let tail_name = format_ident!("{}Tail", name);
     let tail_view_name = format_ident!("{}TailView", name);
     let tail_editor_name = format_ident!("{}TailEditor", name);
-
-    if !input.generics.params.is_empty() || input.generics.where_clause.is_some() {
-        return Err(syn::Error::new_spanned(
-            input.generics,
-            "#[hopper::dynamic_account] currently supports concrete account structs only",
-        ));
-    }
+    let tail_ext_trait_name = format_ident!("{}AccountTailExt", name);
 
     let named = match input.fields {
         Fields::Named(named) => named.named,
@@ -112,20 +107,22 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
             continue;
         };
         let tail_spec = parse_tail_attr(&field)?;
+        let pretty_tail = if tail_spec.is_none() {
+            parse_pretty_tail_type(&field.ty)?
+        } else {
+            None
+        };
         field.attrs = strip_tail_attrs(field.attrs);
 
-        if let Some(spec) = tail_spec {
-            tail_fields.push(TailField {
-                ident,
-                kind: spec.kind,
-            });
+        if let Some(kind) = tail_spec.map(|spec| spec.kind).or(pretty_tail) {
+            tail_fields.push(TailField { ident, kind });
             continue;
         }
 
         if is_unbounded_dynamic_type(&field.ty) {
             return Err(syn::Error::new_spanned(
                 field.ty,
-                "String and Vec fields in #[hopper::dynamic_account] must be annotated with #[tail(string<N>)] or #[tail(vec<T, N>)] where T: TailElement",
+                "dynamic String/Text and Vec/List fields must be bounded, for example `String<'a, 32>` or `Vec<'a, Address, 10>`; explicit systems-mode syntax can use #[tail(string<N>)] or #[tail(vec<T, N>)]",
             ));
         }
 
@@ -187,6 +184,14 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
         .iter()
         .map(|field| account_tail_methods(field, &vis))
         .collect();
+    let account_wrapper_trait_methods: Vec<_> = tail_fields
+        .iter()
+        .map(account_wrapper_trait_methods)
+        .collect();
+    let account_wrapper_impl_methods: Vec<_> = tail_fields
+        .iter()
+        .map(|field| account_wrapper_impl_methods(field, &name, &tail_name))
+        .collect();
     let tail_element_assertions: Vec<_> = tail_fields
         .iter()
         .filter_map(tail_element_assertion)
@@ -202,6 +207,10 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
         }
 
         #(#outer_attrs)*
+        #[doc = "Hopper dynamic account."]
+        #[doc = "Write it like Quasar. Hopper stores it like a protocol contract."]
+        #[doc = "Wire model: fixed body + [u32 len] compact dynamic tail."]
+        #[doc = concat!("Tail schema: ", #tail_schema_lit)]
         #[derive(Clone, Copy)]
         #[repr(C)]
         #[hopper::state(#(#state_args),*)]
@@ -251,6 +260,54 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
             #(#account_tail_methods)*
         }
 
+        #vis trait #tail_ext_trait_name {
+            /// Decode this account's compact dynamic tail into an owned value.
+            fn tail_read(&self) -> ::core::result::Result<#tail_name, ::hopper::__runtime::ProgramError>;
+
+            /// Write this account's compact dynamic tail in place.
+            fn tail_write(&self, tail: &#tail_name) -> ::core::result::Result<usize, ::hopper::__runtime::ProgramError>;
+
+            #(#account_wrapper_trait_methods)*
+        }
+
+        impl<'info> #tail_ext_trait_name for ::hopper::prelude::Account<'info, #name> {
+            /// Decode this account's compact dynamic tail into an owned value.
+            /// Borrowed zero-copy views remain available through `#name::tail_view(data)`
+            /// when the caller already holds the account data borrow.
+            #[inline]
+            fn tail_read(&self) -> ::core::result::Result<#tail_name, ::hopper::__runtime::ProgramError> {
+                let __data = self.as_account().try_borrow()?;
+                #name::tail_read(&__data)
+            }
+
+            /// Write this account's compact dynamic tail in place.
+            #[inline]
+            fn tail_write(&self, tail: &#tail_name) -> ::core::result::Result<usize, ::hopper::__runtime::ProgramError> {
+                let mut __data = self.as_account().try_borrow_mut()?;
+                #name::tail_write(&mut __data, tail)
+            }
+
+            #(#account_wrapper_impl_methods)*
+        }
+
+        impl<'info> #tail_ext_trait_name for ::hopper::prelude::InitAccount<'info, #name> {
+            /// Decode this initialized account's compact dynamic tail into an owned value.
+            #[inline]
+            fn tail_read(&self) -> ::core::result::Result<#tail_name, ::hopper::__runtime::ProgramError> {
+                let __data = self.as_account().try_borrow()?;
+                #name::tail_read(&__data)
+            }
+
+            /// Write this initialized account's compact dynamic tail in place.
+            #[inline]
+            fn tail_write(&self, tail: &#tail_name) -> ::core::result::Result<usize, ::hopper::__runtime::ProgramError> {
+                let mut __data = self.as_account().try_borrow_mut()?;
+                #name::tail_write(&mut __data, tail)
+            }
+
+            #(#account_wrapper_impl_methods)*
+        }
+
         #vis struct #tail_view_name<'a> {
             payload: &'a [u8],
         }
@@ -274,6 +331,36 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
             }
         }
     })
+}
+
+pub fn looks_dynamic_account(item: &TokenStream) -> bool {
+    let Ok(input) = parse2::<ItemStruct>(item.clone()) else {
+        return false;
+    };
+    let Fields::Named(named) = input.fields else {
+        return false;
+    };
+    named.named.iter().any(|field| {
+        field.attrs.iter().any(|attr| attr.path().is_ident("tail"))
+            || is_dynamic_authoring_type(&field.ty)
+    })
+}
+
+fn strip_authoring_lifetime_generics(input: &mut ItemStruct) -> Result<()> {
+    if input.generics.where_clause.is_some()
+        || input
+            .generics
+            .params
+            .iter()
+            .any(|param| !matches!(param, GenericParam::Lifetime(_)))
+    {
+        return Err(syn::Error::new_spanned(
+            &input.generics,
+            "#[hopper::dynamic_account] supports concrete structs plus authoring-only lifetimes used by String<'a, N> and Vec<'a, T, N>",
+        ));
+    }
+    input.generics.params.clear();
+    Ok(())
 }
 
 fn parse_options(attr: TokenStream) -> Result<Options> {
@@ -327,9 +414,140 @@ fn strip_tail_attrs(attrs: Vec<Attribute>) -> Vec<Attribute> {
         .collect()
 }
 
+fn parse_pretty_tail_type(ty: &Type) -> Result<Option<TailKind>> {
+    let Type::Path(type_path) = ty else {
+        return Ok(None);
+    };
+    let Some(segment) = type_path.path.segments.last() else {
+        return Ok(None);
+    };
+    let ident = segment.ident.to_string();
+
+    if ident == "TailStr" || ident == "TailBytes" {
+        return Err(syn::Error::new_spanned(
+            ty,
+            "unsized final-tail authoring is intentionally not implicit; use bounded `String<'a, N>` / `Vec<'a, T, N>` or explicit systems-mode tail APIs so account allocation remains fingerprinted",
+        ));
+    }
+
+    if ident == "String" || ident == "Text" {
+        let args = angle_args(&segment.arguments, ty)?;
+        let (_, cap_index) = leading_lifetime_index(args);
+        let cap = lit_int_arg(
+            args,
+            cap_index,
+            ty,
+            "String/Text expects `String<'a, N>` or `Text<N>`",
+        )?;
+        if args.len() != cap_index + 1 {
+            return Err(syn::Error::new_spanned(
+                ty,
+                "String/Text dynamic fields expect one capacity after the optional lifetime, for example `String<'a, 32>`",
+            ));
+        }
+        return Ok(Some(TailKind::String { cap }));
+    }
+
+    if ident == "Vec" || ident == "List" {
+        let args = angle_args(&segment.arguments, ty)?;
+        let (_, first_type_index) = leading_lifetime_index(args);
+        let ty_arg = type_arg(
+            args,
+            first_type_index,
+            ty,
+            "Vec/List expects `Vec<'a, T, N>` or `List<T, N>`",
+        )?;
+        let cap = lit_int_arg(
+            args,
+            first_type_index + 1,
+            ty,
+            "Vec/List expects `Vec<'a, T, N>` or `List<T, N>`",
+        )?;
+        if args.len() != first_type_index + 2 {
+            return Err(syn::Error::new_spanned(
+                ty,
+                "Vec/List dynamic fields expect an element type and capacity after the optional lifetime, for example `Vec<'a, Address, 10>`",
+            ));
+        }
+        return Ok(Some(TailKind::Vec {
+            borrowed_slice: is_address_type(&ty_arg),
+            ty: ty_arg,
+            cap,
+        }));
+    }
+
+    Ok(None)
+}
+
+fn angle_args<'a>(
+    args: &'a PathArguments,
+    ty: &Type,
+) -> Result<&'a syn::punctuated::Punctuated<GenericArgument, Token![,]>> {
+    match args {
+        PathArguments::AngleBracketed(args) => Ok(&args.args),
+        _ => Err(syn::Error::new_spanned(
+            ty,
+            "dynamic authoring fields must specify bounded generic arguments",
+        )),
+    }
+}
+
+fn leading_lifetime_index(
+    args: &syn::punctuated::Punctuated<GenericArgument, Token![,]>,
+) -> (bool, usize) {
+    match args.first() {
+        Some(GenericArgument::Lifetime(_)) => (true, 1),
+        _ => (false, 0),
+    }
+}
+
+fn lit_int_arg(
+    args: &syn::punctuated::Punctuated<GenericArgument, Token![,]>,
+    index: usize,
+    ty: &Type,
+    message: &str,
+) -> Result<LitInt> {
+    let Some(arg) = args.iter().nth(index) else {
+        return Err(syn::Error::new_spanned(ty, message));
+    };
+    match arg {
+        GenericArgument::Const(Expr::Lit(ExprLit {
+            lit: Lit::Int(value),
+            ..
+        })) => Ok(value.clone()),
+        _ => Err(syn::Error::new_spanned(arg, message)),
+    }
+}
+
+fn type_arg(
+    args: &syn::punctuated::Punctuated<GenericArgument, Token![,]>,
+    index: usize,
+    ty: &Type,
+    message: &str,
+) -> Result<Type> {
+    let Some(arg) = args.iter().nth(index) else {
+        return Err(syn::Error::new_spanned(ty, message));
+    };
+    match arg {
+        GenericArgument::Type(value) => Ok(value.clone()),
+        _ => Err(syn::Error::new_spanned(arg, message)),
+    }
+}
+
+fn is_dynamic_authoring_type(ty: &Type) -> bool {
+    path_last_ident(ty)
+        .map(|ident| {
+            matches!(
+                ident.as_str(),
+                "String" | "Text" | "Vec" | "List" | "TailStr" | "TailBytes"
+            )
+        })
+        .unwrap_or(false)
+}
+
 fn is_unbounded_dynamic_type(ty: &Type) -> bool {
     path_last_ident(ty)
-        .map(|ident| ident == "String" || ident == "Vec")
+        .map(|ident| matches!(ident.as_str(), "String" | "Text" | "Vec" | "List"))
         .unwrap_or(false)
 }
 
@@ -610,6 +828,98 @@ fn account_tail_methods(field: &TailField, vis: &Visibility) -> TokenStream {
                 #[inline]
                 #vis fn #remove(data: &mut [u8], value: &#ty) -> ::core::result::Result<bool, ::hopper::__runtime::ProgramError> {
                     let mut __editor = Self::tail_editor(data)?;
+                    let __removed = __editor.#remove(value);
+                    __editor.commit()?;
+                    Ok(__removed)
+                }
+            }
+        }
+    }
+}
+
+fn account_wrapper_trait_methods(field: &TailField) -> TokenStream {
+    let ident = &field.ident;
+    match &field.kind {
+        TailKind::String { cap } => {
+            let setter = format_ident!("set_{}", ident);
+            quote! {
+                fn #ident(&self) -> ::core::result::Result<::hopper::__runtime::HopperString<#cap>, ::hopper::__runtime::ProgramError>;
+                fn #setter(&self, value: &str) -> ::hopper::prelude::ProgramResult;
+            }
+        }
+        TailKind::Vec { ty, cap, .. } => {
+            let singular = singular_ident(ident);
+            let push = format_ident!("push_{}", singular);
+            let push_unique = format_ident!("push_unique_{}", singular);
+            let remove = format_ident!("remove_{}", singular);
+            quote! {
+                fn #ident(&self) -> ::core::result::Result<::hopper::__runtime::HopperVec<#ty, #cap>, ::hopper::__runtime::ProgramError>;
+                fn #push(&self, value: #ty) -> ::hopper::prelude::ProgramResult;
+                fn #push_unique(&self, value: #ty) -> ::core::result::Result<bool, ::hopper::__runtime::ProgramError>;
+                fn #remove(&self, value: &#ty) -> ::core::result::Result<bool, ::hopper::__runtime::ProgramError>;
+            }
+        }
+    }
+}
+
+fn account_wrapper_impl_methods(
+    field: &TailField,
+    account_name: &Ident,
+    tail_name: &Ident,
+) -> TokenStream {
+    let ident = &field.ident;
+    match &field.kind {
+        TailKind::String { cap } => {
+            let setter = format_ident!("set_{}", ident);
+            quote! {
+                #[inline]
+                fn #ident(&self) -> ::core::result::Result<::hopper::__runtime::HopperString<#cap>, ::hopper::__runtime::ProgramError> {
+                    let __tail: #tail_name = self.tail_read()?;
+                    Ok(__tail.#ident)
+                }
+
+                #[inline]
+                fn #setter(&self, value: &str) -> ::hopper::prelude::ProgramResult {
+                    let mut __data = self.as_account().try_borrow_mut()?;
+                    let mut __editor = #account_name::tail_editor(&mut __data)?;
+                    __editor.#setter(value)?;
+                    __editor.commit()
+                }
+            }
+        }
+        TailKind::Vec { ty, cap, .. } => {
+            let singular = singular_ident(ident);
+            let push = format_ident!("push_{}", singular);
+            let push_unique = format_ident!("push_unique_{}", singular);
+            let remove = format_ident!("remove_{}", singular);
+            quote! {
+                #[inline]
+                fn #ident(&self) -> ::core::result::Result<::hopper::__runtime::HopperVec<#ty, #cap>, ::hopper::__runtime::ProgramError> {
+                    let __tail: #tail_name = self.tail_read()?;
+                    Ok(__tail.#ident)
+                }
+
+                #[inline]
+                fn #push(&self, value: #ty) -> ::hopper::prelude::ProgramResult {
+                    let mut __data = self.as_account().try_borrow_mut()?;
+                    let mut __editor = #account_name::tail_editor(&mut __data)?;
+                    __editor.#push(value)?;
+                    __editor.commit()
+                }
+
+                #[inline]
+                fn #push_unique(&self, value: #ty) -> ::core::result::Result<bool, ::hopper::__runtime::ProgramError> {
+                    let mut __data = self.as_account().try_borrow_mut()?;
+                    let mut __editor = #account_name::tail_editor(&mut __data)?;
+                    let __inserted = __editor.#push_unique(value)?;
+                    __editor.commit()?;
+                    Ok(__inserted)
+                }
+
+                #[inline]
+                fn #remove(&self, value: &#ty) -> ::core::result::Result<bool, ::hopper::__runtime::ProgramError> {
+                    let mut __data = self.as_account().try_borrow_mut()?;
+                    let mut __editor = #account_name::tail_editor(&mut __data)?;
                     let __removed = __editor.#remove(value);
                     __editor.commit()?;
                     Ok(__removed)

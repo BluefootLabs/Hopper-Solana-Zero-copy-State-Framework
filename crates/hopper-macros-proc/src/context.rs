@@ -1774,6 +1774,11 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
                         "#[account(init | init_if_needed)] requires a `system_program` field in the context",
                     )
                 })?;
+            let space_expr = cf
+                .attr
+                .space
+                .as_ref()
+                .expect("validate_account_attr guarantees init/init_if_needed has space");
 
             // Two emission shapes:
             //
@@ -1802,7 +1807,8 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
                         account,
                         system_program,
                         self.ctx.program_id(),
-                        #field_ty
+                        #field_ty,
+                        #space_expr
                     )
                 }
             } else {
@@ -1815,7 +1821,8 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
                         account,
                         system_program,
                         self.ctx.program_id(),
-                        #field_ty
+                        #field_ty,
+                        #space_expr
                     )
                 }
             };
@@ -3760,6 +3767,33 @@ mod instruction_arg_tests {
         assert!(
             s.contains("DepositCtx"),
             "attribute form missing the bound context type: {s}"
+        );
+    }
+
+    #[test]
+    fn init_lifecycle_passes_explicit_space_to_hopper_init() {
+        let item: TokenStream = quote! {
+            #[derive(Accounts)]
+            pub struct Initialize<'info> {
+                #[account(mut)]
+                pub payer: Signer<'info>,
+
+                #[account(init, payer = payer, space = AuditState::ALLOC_SPACE)]
+                pub state: InitAccount<'info, AuditState>,
+
+                pub system_program: Program<'info, System>,
+            }
+        };
+
+        let derived = expand_for_derive(item).expect("derive expand ok");
+        let s = derived.to_string();
+        let call_idx = s
+            .find("hopper_init")
+            .expect("generated init helper should call hopper_init!");
+        let call_tail = &s[call_idx..];
+        assert!(
+            call_tail.contains("AuditState :: ALLOC_SPACE"),
+            "init helper must pass the explicit `space =` expression into hopper_init!: {s}"
         );
     }
 

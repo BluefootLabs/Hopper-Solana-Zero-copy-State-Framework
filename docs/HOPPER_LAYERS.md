@@ -49,10 +49,12 @@ client generation matters.
   and wire types.
 - `hopper::schema` exposes manifests, IDL projection, resolver metadata, and
   generated client inputs.
-- `#[hopper::dynamic_account]` gives Quasar-style bounded `String` and
-  `Vec<T>` fields while lowering to Hopper's fixed-body + compact-tail model.
+- `#[hopper::account]` auto-detects Quasar-style bounded `String<'a, N>` and
+  `Vec<'a, T, N>` fields while lowering to Hopper's fixed-body + compact-tail model.
   `Address` / `Pubkey` vectors keep borrowed views; other `TailElement` vectors
   return `HopperVec<T, N>` values.
+- `#[hopper::dynamic_account]` plus `#[tail(...)]` remains the explicit
+  systems-mode spelling for the same compact-tail model.
 - `hopper_dynamic_tail!` and `hopper_dynamic_fields!` attach explicit bounded
   dynamic payloads to fixed zero-copy layouts for custom `TailCodec` tails.
 - `declare_program!` consumes a manifest and generates typed CPI builders plus
@@ -82,6 +84,19 @@ The systems layer publishes as `hopper-systems`. The source still lives in
 `crates/hopper-core` for now to preserve history and keep this rename focused;
 the package name is the public ecosystem name.
 
+## Level 4: Substrate Mode
+
+Use this when a handler or benchmark target deliberately wants raw Hopper Native
+control.
+
+- `hopper::substrate` exports Hopper Runtime account, instruction, and result
+  types.
+- With the Hopper Native backend, it also exports raw account views, raw input
+  parsing, syscall modules, hashes, PDA helpers, memory helpers, CU budget
+  probes, return data, and CPI verification primitives.
+- This is the place for audited hot paths. It is not the first-contact import
+  path for normal application code.
+
 ## Mental Mapping
 
 | Concept | Anchor-shaped mental model | Quasar-shaped mental model | Hopper path |
@@ -90,7 +105,7 @@ the package name is the public ecosystem name.
 | Context/accounts | `#[derive(Accounts)]` | account list plus checks | `#[derive(Accounts)]`, `#[hopper::accounts]`, typed wrappers |
 | Signer | `Signer<'info>` | signer account check | `hopper::account::Signer<'info>` |
 | Typed account | `Account<'info, T>` | fixed account view | `hopper::account::Account<'info, T>` |
-| Dynamic string/vector | `String`, `Vec<T>` with serialization | bounded dynamic fields | `#[hopper::dynamic_account]` or explicit `hopper_dynamic_fields!` |
+| Dynamic string/vector | `String`, `Vec<T>` with serialization | bounded dynamic fields | `#[hopper::account]` pretty fields, `#[hopper::dynamic_account]`, or explicit `hopper_dynamic_fields!` |
 | CPI | generated CPI clients | manual/generated CPI | `declare_program!`, `hopper::cpi`, SPL facade modules |
 | Upgrade/migration | discriminator/version conventions | layout evolution discipline | layout fingerprints, `hopper::migration`, schema manifests |
 | Advanced safety | constraints and runtime checks | zero-copy constraints | segment leases, receipts, policy graphs, Kani-checked invariants |
@@ -102,6 +117,7 @@ Prefer the smallest import surface that matches the job:
 ```rust
 use hopper::prelude::*;              // main app framework surface
 use hopper::systems::*;              // protocol-grade state architecture
+use hopper::substrate::*;            // raw Hopper Native substrate surface
 use hopper::{layout, segment};       // explicit systems modules
 use hopper::{schema, cpi, token};     // tooling, CPI, and token facades
 ```

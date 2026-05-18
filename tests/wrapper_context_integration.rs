@@ -81,8 +81,9 @@ fn prelude_exports_memo_and_token_interface_helpers() {
     use hopper::prelude::{
         interface_transfer_checked, HopperString, HopperVec, Interface as PreludeInterface,
         InterfaceAccount as PreludeInterfaceAccount, InterfaceAccountResolve as PreludeResolve,
-        InterfaceMint, InterfaceTokenAccount, Memo, TailCodec, TailElement, TokenProgramKind,
-        MAX_MEMO_SIGNERS, MEMO_PROGRAM_ID,
+        InterfaceMint, InterfaceTokenAccount, List, Memo, String as HopperPrettyString, TailCodec,
+        TailElement, Text, TokenProgramKind, Vec as HopperPrettyVec, MAX_MEMO_SIGNERS,
+        MEMO_PROGRAM_ID,
     };
 
     fn assert_prelude_interface_spec<T: hopper::prelude::InterfaceSpec>() {}
@@ -101,6 +102,12 @@ fn prelude_exports_memo_and_token_interface_helpers() {
     );
     let label = HopperString::<8>::from_str("ops").unwrap();
     assert_eq!(label.as_str().unwrap(), "ops");
+    let label_alias = Text::<8>::from_str("ops").unwrap();
+    assert_eq!(label_alias.as_str().unwrap(), "ops");
+    let string_alias = HopperPrettyString::<8>::from_str("ops").unwrap();
+    assert_eq!(string_alias.as_str().unwrap(), "ops");
+    assert_eq!(<List<u16, 4> as TailCodec>::MAX_ENCODED_LEN, 10);
+    assert_eq!(<HopperPrettyVec<u16, 4> as TailCodec>::MAX_ENCODED_LEN, 10);
     assert_eq!(
         core::mem::size_of::<TokenProgramKind>(),
         core::mem::size_of::<u8>(),
@@ -125,6 +132,20 @@ fn prelude_exports_memo_and_token_interface_helpers() {
     assert_prelude_interface_layout::<TinyLayout>();
     assert_prelude_interface_resolve::<AnyTinyLayout>();
     assert!(core::mem::size_of::<Memo<'static, 'static, 'static>>() > 0);
+}
+
+#[test]
+fn substrate_exports_runtime_and_native_symbols() {
+    use hopper::substrate::{AccountView, Address, NativeAccountView, NativeAddress};
+
+    assert_eq!(
+        core::mem::size_of::<Address>(),
+        core::mem::size_of::<NativeAddress>()
+    );
+    assert_eq!(
+        core::mem::size_of::<AccountView>(),
+        core::mem::size_of::<NativeAccountView>()
+    );
 }
 
 #[test]

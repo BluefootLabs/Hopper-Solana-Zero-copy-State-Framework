@@ -162,7 +162,7 @@ vault.set_inner(*ctx.accounts.payer.key(), 0, 0)?;
 - [docs/POLICY_GUARANTEES.md](docs/POLICY_GUARANTEES.md): capability policy, sealed/raw/hybrid access, and the policy-vault example.
 - [docs/MIGRATION_FROM_ANCHOR.md](docs/MIGRATION_FROM_ANCHOR.md): Anchor-to-Hopper migration notes.
 - [docs/MIGRATION_FROM_QUASAR.md](docs/MIGRATION_FROM_QUASAR.md): Quasar-to-Hopper migration notes.
-- [docs/PORT_QUASAR_IN_20_MINUTES.md](docs/PORT_QUASAR_IN_20_MINUTES.md): hands-on bounded-tail vault/multisig port guide using `#[hopper::dynamic_account]`.
+- [docs/PORT_QUASAR_IN_20_MINUTES.md](docs/PORT_QUASAR_IN_20_MINUTES.md): hands-on bounded-tail vault/multisig port guide using pretty `#[hopper::account]` fields.
 - [docs/DYNAMIC_TAILS_FROM_QUASAR.md](docs/DYNAMIC_TAILS_FROM_QUASAR.md): mapping Quasar bounded dynamic fields to Hopper fixed-body + compact dynamic-tail layouts.
 - [docs/QUASAR_PINOCCHIO_REPLACEMENT.md](docs/QUASAR_PINOCCHIO_REPLACEMENT.md): what Hopper replaces from Quasar/Pinocchio and how same-provenance benchmark claims are scoped.
 - [docs/CLI_REFERENCE.md](docs/CLI_REFERENCE.md): lifecycle, schema, client, profiling, and manager command reference.
@@ -174,13 +174,16 @@ Hopper is layered so users do not have to learn the systems surface first:
 
 1. Framework mode: `use hopper::prelude::*`, `#[account]`, `#[program]`,
    typed wrappers, PDA helpers, token modules, and guard macros.
-2. Structured state: add `hopper::layout`, `hopper::schema`,
-   `#[hopper::dynamic_account]`, explicit dynamic tails, and generated
-   manifests when account compatibility matters.
+2. Structured state: keep `#[account]` and add bounded dynamic fields such as
+  `String<'a, 32>` or `Vec<'a, Address, 10>`. Hopper lowers them into the
+  same fixed-body + compact-tail layout as explicit `#[hopper::dynamic_account]`.
 3. Systems mode: add `hopper::systems::*`, `hopper::segment`,
    `hopper::receipt`, `hopper::policy`, `hopper::migration`, and
    `hopper::interface` for field leasing, audit trails, upgrades, and
    cross-program layout contracts.
+4. Substrate mode: use `hopper::substrate` when a program needs direct Hopper
+  Native tools such as account views, CU budget probes, hashes, PDA helpers,
+  raw input parsing, memory helpers, and syscalls.
 
 ## Advanced Access Tiers
 
@@ -196,11 +199,24 @@ explicitly needs systems-mode control:
 4. `raw_ref` / `raw_mut` - unsafe typed escape hatch.
 5. `as_mut_ptr` - full raw pointer escape for policy-controlled raw mode.
 
-For variable-length account data, opt into structured state with
-`#[hopper::dynamic_account]` for Quasar-style bounded `String` and `Vec<T>`
-fields where `T: TailElement`. `Address` / `Pubkey` vectors keep the borrowed
-zero-copy view path; other tail-element vectors use `HopperVec<T, N>` through
-the same compact codec/editor path. Named extension segments remain the right
+For variable-length account data, use Quasar-style bounded fields directly in
+`#[account]`:
+
+```ignore
+#[hopper::account(discriminator = 10, version = 1)]
+pub struct Multisig<'a> {
+  pub threshold: u64,
+  pub label: String<'a, 32>,
+  pub signers: Vec<'a, Address, 10>,
+}
+```
+
+The source stays pretty, but the wire truth stays explicit: fixed body, `u32`
+tail length, compact tail payload. `Address` / `Pubkey` vectors keep the
+borrowed zero-copy view path; other `T: TailElement` vectors use
+`HopperVec<T, N>` through the same codec/editor path. Use
+`#[hopper::dynamic_account]` with `#[tail(...)]` when you want the systems-mode
+tail shape spelled out in source. Named extension segments remain the right
 tool for larger repeated regions that need independent borrow tracking or
 migration metadata.
 
@@ -282,6 +298,7 @@ Framework-first examples:
 - [examples/hopper-vault](examples/hopper-vault): SOL vault using typed wrappers, `set_inner`, checked wire helpers, and a System Program transfer helper for deposits.
 - [examples/hopper-escrow](examples/hopper-escrow): token-escrow shape using the same account facade.
 - [examples/quasar-port-20-min](examples/quasar-port-20-min): Quasar-style bounded dynamic account port with Hopper's dynamic-tail guarantees.
+- [examples/hopper-devnet-audit](examples/hopper-devnet-audit): deployable devnet audit program covering dynamic tails, contexts, segments, and substrate probes.
 
 Systems-mode examples:
 

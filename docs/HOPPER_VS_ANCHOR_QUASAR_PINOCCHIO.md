@@ -45,7 +45,7 @@ pub fn increment(ctx: Ctx<Increment>) -> ProgramResult {
 }
 ```
 
-Dynamic fields map to `#[hopper::dynamic_account]`. `Address` / `Pubkey` vectors use borrowed views; other `TailElement` vectors use `HopperVec<T, N>` with generated editor helpers.
+Dynamic fields can stay Quasar-pretty inside `#[hopper::account]` as `String<'a, N>` and `Vec<'a, T, N>`. `Address` / `Pubkey` vectors use borrowed views; other `TailElement` vectors use `HopperVec<T, N>` with generated editor helpers. Use `#[hopper::dynamic_account]` with `#[tail(...)]` when the fixed/tail split should be explicit in source.
 
 ### Interfaces
 
@@ -112,5 +112,5 @@ command.
 1. Start with [FIRST_FIVE_MINUTES.md](FIRST_FIVE_MINUTES.md).
 2. Port account contexts to `#[derive(Accounts)]` and `ctx.accounts.*`.
 3. Replace `load()` / `load_mut()` naming with Hopper's `get()` / `get_mut()` wrappers.
-4. Move bounded dynamic fields to `#[hopper::dynamic_account]`.
+4. Move bounded dynamic fields to pretty `#[hopper::account]` fields, or to explicit `#[hopper::dynamic_account]` fields for systems-mode review.
 5. Add systems features only after the first-touch program is working.

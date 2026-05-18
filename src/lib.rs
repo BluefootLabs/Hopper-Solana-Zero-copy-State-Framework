@@ -33,6 +33,9 @@
 //! - `hopper::{layout, segment, receipt, migration, interface, schema, policy}`:
 //!   systems-mode modules for layout evolution, field leasing, manifests, and
 //!   audited escape hatches.
+//! - `hopper::substrate`: raw Hopper Runtime and Hopper Native building blocks
+//!   for programs that want Pinocchio-class control with Hopper's account and
+//!   wire contracts still visible.
 //! - `hopper::internal`: explicit lower-crate escape hatch.
 //!
 //! ## Crate map
@@ -337,6 +340,34 @@ pub mod systems {
 
     #[cfg(feature = "proc-macros")]
     pub use crate::{args, declare_program, dynamic, migrate, pod, state};
+}
+
+/// Sovereign substrate surface.
+///
+/// This is the lowest public layer for programs that want direct account,
+/// syscall, PDA, hashing, memory, budget, and raw-entrypoint tools while still
+/// staying inside Hopper's crate graph. Framework-mode code should prefer
+/// `hopper::prelude::*`; systems-mode code should prefer `hopper::systems::*`.
+#[allow(ambiguous_glob_reexports, unused_imports)]
+pub mod substrate {
+    pub use hopper_runtime::{
+        AccountView, Address, CpiAccount, InstructionAccount, InstructionView, ProgramError,
+        ProgramResult, Ref, RefMut, Seed, Signer, SUCCESS,
+    };
+
+    #[cfg(feature = "hopper-native-backend")]
+    pub use hopper_runtime::__hopper_native::{
+        account_view, address, batch, budget, capability, entrypoint, error, hash, introspect,
+        lazy, lens, log, mem, pda, pod, raw, raw_account, raw_input, return_data, safe, syscalls,
+        sysvar, verify, wire, AccountView as NativeAccountView, Address as NativeAddress, CuBudget,
+        DataFingerprint, LamportSnapshot, ReturnData,
+    };
+
+    #[cfg(feature = "hopper-native-backend")]
+    pub use hopper_runtime::__hopper_native::{
+        find_bump_for_address, read_bump_from_account, verify_pda_from_stored_bump,
+        verify_pda_strict, RuntimeAccount,
+    };
 }
 
 /// First-party DeFi math helpers. Enable with `features = ["finance"]`.

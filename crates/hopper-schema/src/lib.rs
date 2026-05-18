@@ -1093,7 +1093,7 @@ pub struct DecodedHeader {
     pub version: u8,
     pub flags: u16,
     pub layout_id: [u8; 8],
-    pub reserved: [u8; 4],
+    pub schema_epoch: u32,
 }
 
 /// Decode an account header from raw bytes.
@@ -1112,7 +1112,7 @@ pub fn decode_header(data: &[u8]) -> Option<DecodedHeader> {
         layout_id: [
             data[4], data[5], data[6], data[7], data[8], data[9], data[10], data[11],
         ],
-        reserved: [data[12], data[13], data[14], data[15]],
+        schema_epoch: u32::from_le_bytes([data[12], data[13], data[14], data[15]]),
     })
 }
 
@@ -1832,7 +1832,7 @@ impl fmt::Display for DecodedHeader {
             self.disc, self.version, self.flags,
         )?;
         write_hex(f, &self.layout_id)?;
-        write!(f, " }}")
+        write!(f, ", schema_epoch: {} }}", self.schema_epoch)
     }
 }
 
@@ -1844,9 +1844,7 @@ impl fmt::Debug for DecodedHeader {
             self.disc, self.version, self.flags,
         )?;
         write_hex(f, &self.layout_id)?;
-        write!(f, ", reserved: ")?;
-        write_hex(f, &self.reserved)?;
-        write!(f, " }}")
+        write!(f, ", schema_epoch: {} }}", self.schema_epoch)
     }
 }
 

@@ -2781,7 +2781,7 @@ fn print_header(h: &DecodedHeader) {
         format_flags(h.flags)
     );
     println!("  Layout ID     : {}", hex_encode(&h.layout_id));
-    println!("  Reserved      : {}", hex_encode(&h.reserved));
+    println!("  Schema epoch  : {}", h.schema_epoch);
 }
 
 fn format_flags(flags: u16) -> String {
@@ -3304,7 +3304,7 @@ fn cmd_schema_export() {
     println!("  [1]      version     u8       Layout version");
     println!("  [2..4]   flags       u16 LE   Status flags");
     println!("  [4..12]  layout_id   [u8;8]   SHA-256 fingerprint (first 8 bytes)");
-    println!("  [12..16] reserved    [u8;4]   Reserved for future use");
+    println!("  [12..16] schema_epoch u32 LE  Schema evolution epoch");
     println!();
     println!("Flags (bits):");
     println!("  0x0001   INITIALIZED");

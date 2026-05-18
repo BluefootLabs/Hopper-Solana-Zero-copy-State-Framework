@@ -286,7 +286,7 @@ fn header_roundtrip_all_fields() {
         hdr.layout_id,
         [0xA0, 0xA1, 0xA2, 0xA3, 0xA4, 0xA5, 0xA6, 0xA7]
     );
-    assert_eq!(hdr.reserved, [0; 4]);
+    assert_eq!(hdr.schema_epoch_u32(), 1);
 }
 
 #[test]
@@ -324,7 +324,7 @@ fn header_wire_layout_matches_expected() {
     assert_eq!(bytes[2], 0x34); // flags LE low
     assert_eq!(bytes[3], 0x12); // flags LE high
     assert_eq!(&bytes[4..12], &[1, 2, 3, 4, 5, 6, 7, 8]); // layout_id
-    assert_eq!(&bytes[12..16], &[0, 0, 0, 0]); // reserved
+    assert_eq!(&bytes[12..16], &[1, 0, 0, 0]); // schema_epoch
 }
 
 // =====================================================================

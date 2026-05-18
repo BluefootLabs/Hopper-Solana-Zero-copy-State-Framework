@@ -68,6 +68,12 @@ impl<'a> AccountReader<'a> {
         id
     }
 
+    /// Schema epoch (u32 LE at bytes 12..16).
+    #[inline(always)]
+    pub fn schema_epoch(&self) -> u32 {
+        u32::from_le_bytes([self.data[12], self.data[13], self.data[14], self.data[15]])
+    }
+
     /// Body data after the header as a cursor.
     #[inline(always)]
     pub fn body(&self) -> SliceCursor<'a> {

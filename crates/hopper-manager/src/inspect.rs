@@ -217,7 +217,7 @@ pub fn header_report(data: &[u8]) -> String {
                 format_flags(h.flags)
             );
             let _ = writeln!(out, "  Layout ID     : {}", hex8(&h.layout_id));
-            let _ = writeln!(out, "  Reserved      : {}", hex4(&h.reserved));
+            let _ = writeln!(out, "  Schema epoch  : {}", h.schema_epoch);
         }
         None => {
             let _ = writeln!(
@@ -286,14 +286,6 @@ fn format_flags(flags: u16) -> String {
 
 fn hex8(bytes: &[u8; 8]) -> String {
     let mut out = String::with_capacity(16);
-    for b in bytes {
-        let _ = write!(out, "{:02x}", b);
-    }
-    out
-}
-
-fn hex4(bytes: &[u8; 4]) -> String {
-    let mut out = String::with_capacity(8);
     for b in bytes {
         let _ = write!(out, "{:02x}", b);
     }

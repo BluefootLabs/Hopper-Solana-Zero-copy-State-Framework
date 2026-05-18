@@ -43,8 +43,8 @@ templates only.
 | Signer role wrappers | `Signer<'info>` | Shipped |
 | New instruction scaffold | `hopper add instruction` with `ctx.accounts.*` injection | Shipped |
 | Minimal project scaffold | `hopper init --template minimal` first-touch template | Shipped |
-| Dynamic fields | `#[hopper::dynamic_account]` + bounded `#[tail(...)]` fields | Shipped |
-| Quasar migration scaffold | `hopper init --template quasar-port` dynamic-account template | Shipped |
+| Dynamic fields | `#[hopper::account]` + bounded `String<'a, N>` / `Vec<'a, T, N>` fields, with explicit `#[hopper::dynamic_account]` available | Shipped |
+| Quasar migration scaffold | `hopper init --template quasar-port` pretty dynamic account template | Shipped |
 | Generic program interfaces | `InterfaceSpec` + `Interface<'info, I>` | Shipped |
 | Generic interface accounts | `InterfaceAccountLayout` + `InterfaceAccount<'info, T>` | Shipped |
 | Token/Token-2022 interfaces | `TokenProgramKind`, `InterfaceTokenAccount`, `InterfaceMint` | Shipped |

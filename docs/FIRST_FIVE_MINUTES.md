@@ -88,23 +88,17 @@ role wrapper.
 
 ## 3. Dynamic Multisig
 
-Use `#[hopper::dynamic_account]` when a fixed zero-copy body needs bounded dynamic metadata.
+Use `#[hopper::account]` with bounded fields when a fixed zero-copy body needs dynamic metadata.
 
 ```rust
 use hopper::prelude::*;
 
-#[hopper::dynamic_account(discriminator = 7, version = 1)]
-pub struct Multisig {
+#[hopper::account(discriminator = 7, version = 1)]
+pub struct Multisig<'a> {
     pub threshold: u64,
-
-    #[tail(string<32>)]
-    pub label: String,
-
-    #[tail(vec<Address, 10>)]
-    pub signers: Vec<Address>,
-
-    #[tail(vec<u16, 8>)]
-    pub weights: Vec<u16>,
+    pub label: String<'a, 32>,
+    pub signers: Vec<'a, Address, 10>,
+    pub weights: Vec<'a, u16, 8>,
 }
 ```
 

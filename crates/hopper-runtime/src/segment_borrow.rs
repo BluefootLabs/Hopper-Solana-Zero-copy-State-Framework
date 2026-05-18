@@ -67,6 +67,15 @@ fn address_eq(a: &Address, b: &Address) -> bool {
     a.as_array() == b.as_array()
 }
 
+#[inline(always)]
+fn borrow_eq(a: &SegmentBorrow, b: &SegmentBorrow) -> bool {
+    a.key_fp == b.key_fp
+        && address_eq(&a.key, &b.key)
+        && a.offset == b.offset
+        && a.size == b.size
+        && a.kind == b.kind
+}
+
 /// A single active segment borrow.
 ///
 /// Carries both a fast `u64` fingerprint and the full 32-byte account
@@ -265,12 +274,7 @@ impl SegmentBorrowRegistry {
         let mut i = 0;
         while i < len {
             let existing = unsafe { self.entries.get_unchecked(i).assume_init_ref() };
-            if existing.key_fp == borrow.key_fp
-                && address_eq(&existing.key, &borrow.key)
-                && existing.offset == borrow.offset
-                && existing.size == borrow.size
-                && existing.kind == borrow.kind
-            {
+            if borrow_eq(existing, borrow) {
                 // Swap-remove: move last entry into this slot.
                 let new_len = len - 1;
                 self.len = new_len as u8;
@@ -285,22 +289,27 @@ impl SegmentBorrowRegistry {
         false
     }
 
-    /// Release the most recently registered borrow.
+    /// Release a borrow that is expected to be the most recently registered one.
+    ///
+    /// The last slot is checked first for the hot RAII cleanup path. If the
+    /// entry is no longer last, this falls back to exact removal instead of
+    /// popping an unrelated borrow.
     ///
     /// # Safety
     ///
-    /// The caller must ensure `borrow` is the last live entry in this
-    /// registry and that no earlier manual release has removed or reordered
-    /// it. This is exactly the invariant held by `SegmentLease`: the lease is
-    /// created immediately after registration, and safe Rust cannot borrow the
-    /// registry mutably again while the lease is live.
+    /// The caller must ensure `borrow` was previously registered in this
+    /// registry and that calling this does not violate any higher-level aliasing
+    /// contract.
     #[doc(hidden)]
     #[inline(always)]
     pub unsafe fn release_last_registered(&mut self, borrow: &SegmentBorrow) -> bool {
-        let _ = borrow;
         let len = self.len as usize;
         if len == 0 {
             return false;
+        }
+        let last = unsafe { *self.entries.get_unchecked(len - 1).assume_init_ref() };
+        if !borrow_eq(&last, borrow) {
+            return self.release(borrow);
         }
         self.len = (len - 1) as u8;
         true
@@ -435,7 +444,7 @@ impl SegmentBorrowRegistry {
                 && address_eq(&e.key, key)
                 && e.offset == offset
                 && e.size == size
-                && e.kind as u8 == kind as u8
+                && e.kind == kind
             {
                 return Some(e);
             }
@@ -651,6 +660,22 @@ mod tests {
         assert!(reg.register_write(&key, 0, 8).is_err()); // conflict
         assert!(reg.release(&borrow));
         assert!(reg.register_write(&key, 0, 8).is_ok()); // now OK
+    }
+
+    #[test]
+    fn release_last_registered_falls_back_to_exact_release() {
+        let mut reg = SegmentBorrowRegistry::new();
+        let key = test_addr(1);
+        let first = reg.register_leased_read(&key, 0, 8).unwrap();
+        let second = reg.register_leased_write(&key, 8, 8).unwrap();
+
+        assert!(unsafe { reg.release_last_registered(&first) });
+        assert_eq!(reg.len(), 1);
+        assert!(reg.find_exact(&key, 0, 8, AccessKind::Read).is_none());
+        assert!(reg.find_exact(&key, 8, 8, AccessKind::Write).is_some());
+
+        assert!(unsafe { reg.release_last_registered(&second) });
+        assert!(reg.is_empty());
     }
 
     #[test]
