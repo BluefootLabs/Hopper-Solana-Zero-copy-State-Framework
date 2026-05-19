@@ -7,6 +7,8 @@ use crate::config::{GlobalConfig, HopperToml};
 use crate::workspace;
 use toml::Value;
 
+const TEMPLATE_CHOICES: &str = "minimal | nft-mint | token-2022-vault | defi-vault | quasar-port";
+
 /// Project template. Picked interactively or via `--template <name>`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Template {
@@ -142,7 +144,7 @@ pub fn cmd_init(args: &[String]) {
             }
             "--template" | "-t" => {
                 if i + 1 >= args.len() {
-                    eprintln!("--template requires a value (minimal | nft-mint | token-2022-vault | defi-vault)");
+                    eprintln!("--template requires a value ({TEMPLATE_CHOICES})");
                     process::exit(1);
                 }
                 let value = &args[i + 1];
@@ -1642,7 +1644,7 @@ fn print_init_usage() {
     eprintln!("  hopper init <path> [flags]                   Use saved defaults");
     eprintln!();
     eprintln!("Flags:");
-    eprintln!("  --template, -t <name>     minimal | nft-mint | token-2022-vault | defi-vault");
+    eprintln!("  --template, -t <name>     {TEMPLATE_CHOICES}");
     eprintln!("  --name <crate-name>       Override the inferred crate name");
     eprintln!("  --local-path <path>       Path-dep on a local Hopper checkout (development)");
     eprintln!(

@@ -4,14 +4,22 @@ Every subcommand `hopper` ships today, grouped by workflow phase. Commands that 
 
 ## Lifecycle
 
-### `hopper init <path>`
+### `hopper init [path]`
 
-Scaffold a new Hopper project. Writes a `Cargo.toml`, a `src/lib.rs` with a minimal `#[program]` module, and a `tests/` directory.
+Scaffold a new Hopper project. With no path, opens the interactive wizard. With
+`path`, uses saved defaults unless `--interactive` is supplied. Writes a
+`Cargo.toml`, a `src/lib.rs`, and a `tests/` directory shaped by the selected
+template.
 
 Flags:
 
 - `--name <name>` - override the package name (defaults to the directory name)
+- `--template, -t <name>` - choose `minimal`, `nft-mint`,
+  `token-2022-vault`, `defi-vault`, or `quasar-port`
 - `--local-path <repo-root>` - point `Cargo.toml` deps at a local Hopper checkout instead of crates.io
+- `--yes, -y` - skip prompts and use saved defaults from `~/.hopper/wizard.toml`
+- `--interactive` - force the wizard even when `path` is supplied
+- `--no-git` - skip `git init` and the initial commit
 - `--force` - overwrite an existing directory
 
 ### `hopper build [--host | --sbf] [cargo args...] [--watch]`

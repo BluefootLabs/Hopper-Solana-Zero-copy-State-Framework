@@ -53,6 +53,7 @@ Explain
   hopper explain layout <manifest>   Explain layout fields, intents, fingerprint
   hopper explain program <manifest>  Explain entire program pipeline
   hopper explain context <manifest> [--type <ContextName>]  Explain instruction contexts and generated accessors
+  hopper explain instruction <manifest> <tag|name>  Explain one instruction's accounts and policy
 
 Compatibility
   hopper compat <old> <new>          Compatibility report
@@ -60,7 +61,7 @@ Compatibility
   hopper plan <old> <new>            Migration plan with steps
 
 Lifecycle
-  hopper init [path]                 Create a Hopper-native project scaffold
+  hopper init [path]                 Create a Hopper-native project scaffold with minimal, NFT, Token-2022, DeFi, or Quasar-port templates
   hopper add [-i|-s|-e <name>]       Scaffold instruction, state, or error files
   hopper build [--host|--sbf]        Build the current project (default: SBF)
   hopper test                        Run host-side tests for the current project

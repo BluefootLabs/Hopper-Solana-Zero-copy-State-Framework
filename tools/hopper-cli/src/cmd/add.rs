@@ -5,9 +5,10 @@
 //! - `-i / --instruction <name>`: create `src/instructions/<name>.rs`,
 //!   ensure `src/instructions/mod.rs` re-exports it, ensure
 //!   `mod instructions;` is wired into `src/lib.rs`. If the project
-//!   uses the `#[hopper::program]` style dispatch (the minimal
-//!   template), inject a `#[instruction(N)] pub fn <name>(ctx: Ctx<Name>)`
-//!   handler that delegates to `ctx.accounts.<name>()`. If
+//!   uses the `#[hopper::program]` style dispatch (the minimal and
+//!   quasar-port templates), inject a
+//!   `#[instruction(N)] pub fn <name>(ctx: Ctx<Name>)` handler that delegates
+//!   to `ctx.accounts.<name>()`. If
 //!   the project uses the manual `match *disc` dispatch (the
 //!   `nft-mint`, `token-2022-vault`, and `defi-vault` templates),
 //!   skip the auto-injection and print a "wire it in by hand" hint
