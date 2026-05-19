@@ -40,6 +40,11 @@ use std::process;
 use syn::{Attribute, File, Item, ItemStruct, Type};
 
 pub fn cmd_lint(args: &[String]) {
+    if args.first().map(String::as_str) == Some("svm") {
+        cmd_lint_svm(&args[1..]);
+        return;
+    }
+
     if args.iter().any(|a| matches!(a.as_str(), "--help" | "-h")) {
         print_usage();
         return;
@@ -111,17 +116,96 @@ pub fn cmd_lint(args: &[String]) {
 
 fn print_usage() {
     eprintln!("Usage: hopper lint [options]");
+    eprintln!("       hopper lint svm [--project <path>] [--fail-on-warn]");
     eprintln!();
     eprintln!("Options:");
     eprintln!("  --project <path>       Project root (default: current dir)");
     eprintln!("  --graph <format>       Output format: ascii | mermaid | dot | json");
     eprintln!("                         default: ascii");
     eprintln!("  --fail-on-warn         Exit 1 on warnings in addition to errors");
+    eprintln!("  svm                    Scan for duplicate manual SVM checks");
     eprintln!();
     eprintln!("Lints the cross-context account relationship graph in a Hopper");
     eprintln!("project, including Metaplex context keywords and on-chain");
     eprintln!("zero-allocation markers. Prints the graph and every diagnostic");
     eprintln!("found. Exits non-zero when an error-level diagnostic is surfaced.");
+}
+
+fn cmd_lint_svm(args: &[String]) {
+    let mut project = PathBuf::from(".");
+    let mut fail_on_warn = false;
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--project" => {
+                i += 1;
+                project = PathBuf::from(args.get(i).cloned().unwrap_or_default());
+            }
+            "--fail-on-warn" => fail_on_warn = true,
+            "--help" | "-h" => {
+                print_usage();
+                return;
+            }
+            other => {
+                eprintln!("unknown lint svm flag: {other}");
+                print_usage();
+                process::exit(1);
+            }
+        }
+        i += 1;
+    }
+
+    let mut files = Vec::new();
+    collect_rs_files(&project.join("src"), &mut files);
+    collect_rs_files(&project.join("programs"), &mut files);
+    if files.is_empty() {
+        eprintln!("hopper lint svm found no Rust source files under src/ or programs/");
+        process::exit(1);
+    }
+
+    let mut diagnostics = Vec::new();
+    for file in files {
+        let Ok(text) = fs::read_to_string(&file) else {
+            continue;
+        };
+        let context_is_typed = text.contains("derive(Accounts)")
+            || text.contains("#[derive(hopper::Accounts)]")
+            || text.contains("#[hopper::context]");
+        if !context_is_typed {
+            continue;
+        }
+        for (idx, line) in text.lines().enumerate() {
+            let message = if line.contains(".is_signer()") || line.contains(".check_signer()") {
+                Some("manual signer check found in a typed-context source; prefer Signer<'info> or #[account(signer)] unless this is a raw remaining account")
+            } else if line.contains(".check_owned_by(") || line.contains(".owned_by(") {
+                Some("manual owner check found in a typed-context source; prefer owner = expr on the account field unless this is a raw remaining account")
+            } else if line.contains(".is_writable()") || line.contains(".check_writable()") {
+                Some("manual writable check found in a typed-context source; prefer #[account(mut)] unless this is a raw remaining account")
+            } else {
+                None
+            };
+            if let Some(message) = message {
+                diagnostics.push(Diagnostic {
+                    level: Level::Warn,
+                    context: format!("{}:{}", file.display(), idx + 1),
+                    field: None,
+                    message: message.to_string(),
+                    source_file: file.clone(),
+                });
+            }
+        }
+    }
+
+    if diagnostics.is_empty() {
+        println!("PASS lint svm: no duplicate manual SVM checks found");
+        return;
+    }
+    for diagnostic in &diagnostics {
+        println!("{}", diagnostic.format());
+    }
+    if fail_on_warn {
+        process::exit(1);
+    }
 }
 
 /// Result of an inline lint pass: the count of error- and warn-level

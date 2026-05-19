@@ -42,6 +42,8 @@ Every attribute below compiles to a TLV scan on the mint or token-account bytes.
     extensions::interest_bearing::rate_authority = rate_authority,
     extensions::transfer_fee_config::authority = fee_authority,
     extensions::transfer_fee_config::withdraw_withheld_authority = withdraw_authority,
+    extensions::confidential_transfer::mint,
+    extensions::scaled_ui_amount::config,
     extensions::non_transferable,
 )]
 pub mint: UncheckedAccount<'info>,
@@ -56,11 +58,35 @@ pub mint: UncheckedAccount<'info>,
 ```rust
 #[account(
     extensions::immutable_owner,
+    extensions::cpi_guard,
+    extensions::confidential_transfer::account,
 )]
 pub ata: UncheckedAccount<'info>,
 ```
 
-Only one extension lives on the token-account side today. `TransferHookAccount` (the per-account companion to the mint's `TransferHook`) is reachable through the raw TLV reader if you need it.
+The token-account side now covers immutable owner, CPI guard, and confidential transfer account presence. `TransferHookAccount` (the per-account companion to the mint's `TransferHook`) is reachable through the raw TLV reader if you need it.
+
+## Policy matrix checks
+
+For low-level programs, use the no-alloc policy helper directly over a TLV region:
+
+```rust
+use hopper_runtime::token_2022_ext::{
+    validate_extension_policy, ExtensionPolicy,
+    EXT_CONFIDENTIAL_TRANSFER_MINT, EXT_SCALED_UI_AMOUNT_CONFIG,
+    EXT_TRANSFER_HOOK,
+};
+
+validate_extension_policy(
+    tlv,
+    &ExtensionPolicy::new(
+        &[EXT_CONFIDENTIAL_TRANSFER_MINT, EXT_SCALED_UI_AMOUNT_CONFIG],
+        &[EXT_TRANSFER_HOOK],
+    ),
+)?;
+```
+
+This is useful for generated policy packs and devnet probes: the same scan can require the extensions a product relies on and reject extensions the product has not audited.
 
 ## The raw TLV reader
 
@@ -146,6 +172,10 @@ The zero-copy path carries every extension check without ever leaving the pointe
 | Bind a mint to a metadata-pointer account | `extensions::metadata_pointer::metadata_address = X` |
 | Require a mint to be soulbound | `extensions::non_transferable` |
 | Verify the ATA is immutable-owner | `extensions::immutable_owner` |
+| Require CPI guard on a token account | `extensions::cpi_guard` |
+| Require confidential transfer mint support | `extensions::confidential_transfer::mint` |
+| Require confidential transfer account support | `extensions::confidential_transfer::account` |
+| Require scaled UI amount config | `extensions::scaled_ui_amount::config` |
 | Pin transfer-fee authorities | `extensions::transfer_fee_config::authority = X` |
 | Read an extension Hopper does not cover yet | `find_extension(tlv, EXT_<NAME>)` directly |
 
@@ -174,7 +204,7 @@ After the CPIs return, the mint carries the extensions; every `extensions::*` co
 1. Extension constraints fire BEFORE the TLV scan confirms the account is Token-2022. Always pair an `extensions::*` check with a `token::token_program = TOKEN_2022_PROGRAM_ID` or `mint::token_program = TOKEN_2022_PROGRAM_ID` in the same field declaration, or the scan fails with `InvalidAccountData` when the account turns out to be legacy SPL.
 2. `default_account_state` is validated as an integer byte, not as a named enum. Use `0`, `1`, or `2` directly.
 3. A just-extended mint's account-type byte may be `0` instead of `ACCOUNT_TYPE_MINT` (`0x01`). The TLV reader accepts both to keep init sequencing permissive; do not assume the byte is always `0x01` if you are writing a raw scan by hand.
-4. Extensions past the declared list (GroupPointer, GroupMemberPointer, Pausable, ScaledUiAmount, ConfidentialTransfer) have `EXT_*` constants registered and are available through `find_extension` plus a byte-level compare.
+4. Extensions past the declared list (GroupPointer, GroupMemberPointer, Pausable, transfer-hook account data, and future Token-2022 additions) have `EXT_*` constants registered and are available through `find_extension` plus a byte-level compare.
 
 ## Worked example in the repo
 

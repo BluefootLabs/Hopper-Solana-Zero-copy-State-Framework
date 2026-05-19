@@ -123,6 +123,27 @@ fn run() -> Result<(), String> {
     send_instruction(
         &client,
         &payer,
+        &[],
+        mutate_instruction(program_id, &payer.pubkey(), &state.pubkey(), 7),
+        "proof_probe",
+    )?;
+    send_instruction(
+        &client,
+        &payer,
+        &[],
+        mutate_instruction(program_id, &payer.pubkey(), &state.pubkey(), 8),
+        "token_policy_probe",
+    )?;
+    send_instruction(
+        &client,
+        &payer,
+        &[],
+        mutate_instruction(program_id, &payer.pubkey(), &state.pubkey(), 9),
+        "field_cap_probe",
+    )?;
+    send_instruction(
+        &client,
+        &payer,
         &[&remaining_a, &remaining_b],
         Instruction::new_with_bytes(
             program_id,
@@ -220,6 +241,15 @@ fn verify_state(client: &RpcClient, state: &Pubkey, authority: &Pubkey) -> Resul
         &account.data,
         AuditState::REMAINING_SIGNER_CHECKS_ABS_OFFSET as usize,
     )?;
+    let proof_checks = read_u64(&account.data, AuditState::PROOF_CHECKS_ABS_OFFSET as usize)?;
+    let token_policy_checks = read_u64(
+        &account.data,
+        AuditState::TOKEN_POLICY_CHECKS_ABS_OFFSET as usize,
+    )?;
+    let field_capability_checks = read_u64(
+        &account.data,
+        AuditState::FIELD_CAPABILITY_CHECKS_ABS_OFFSET as usize,
+    )?;
     let label =
         AuditState::label(&account.data).map_err(|err| format!("read label tail: {err:?}"))?;
     let members =
@@ -239,6 +269,21 @@ fn verify_state(client: &RpcClient, state: &Pubkey, authority: &Pubkey) -> Resul
             "remaining_signer_checks mismatch: expected 2, got {remaining_signer_checks}"
         ));
     }
+    if proof_checks != 1 {
+        return Err(format!(
+            "proof_checks mismatch: expected 1, got {proof_checks}"
+        ));
+    }
+    if token_policy_checks != 1 {
+        return Err(format!(
+            "token_policy_checks mismatch: expected 1, got {token_policy_checks}"
+        ));
+    }
+    if field_capability_checks != 1 {
+        return Err(format!(
+            "field_capability_checks mismatch: expected 1, got {field_capability_checks}"
+        ));
+    }
     if label != "hopper-live" {
         return Err(format!("label mismatch: expected hopper-live, got {label}"));
     }
@@ -247,7 +292,7 @@ fn verify_state(client: &RpcClient, state: &Pubkey, authority: &Pubkey) -> Resul
     }
 
     println!(
-        "verified      : counter={counter}, substrate_passes={substrate_passes}, remaining_signer_checks={remaining_signer_checks}, label={label}, members={}",
+        "verified      : counter={counter}, substrate_passes={substrate_passes}, remaining_signer_checks={remaining_signer_checks}, proof_checks={proof_checks}, token_policy_checks={token_policy_checks}, field_capability_checks={field_capability_checks}, label={label}, members={}",
         members.len()
     );
     Ok(())

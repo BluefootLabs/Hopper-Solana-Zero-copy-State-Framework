@@ -162,6 +162,10 @@ struct AccountAttr {
     // it on the zero-copy path end to end.
     ext_non_transferable: bool,
     ext_immutable_owner: bool,
+    ext_cpi_guard: bool,
+    ext_confidential_transfer_mint: bool,
+    ext_confidential_transfer_account: bool,
+    ext_scaled_ui_amount_config: bool,
     ext_mint_close_authority: Option<Expr>,
     ext_permanent_delegate: Option<Expr>,
     ext_transfer_hook_authority: Option<Expr>,
@@ -1182,6 +1186,50 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
             });
             check_descriptions.push(format!(
                 "accounts[{}] ({}) carries ImmutableOwner extension",
+                idx, field_name
+            ));
+        }
+        if cf.attr.ext_cpi_guard {
+            field_checks.push(quote! {
+                ::hopper::__runtime::token_2022_ext::require_cpi_guard(
+                    ctx.account(#idx)?,
+                )?;
+            });
+            check_descriptions.push(format!(
+                "accounts[{}] ({}) carries CpiGuard extension",
+                idx, field_name
+            ));
+        }
+        if cf.attr.ext_confidential_transfer_mint {
+            field_checks.push(quote! {
+                ::hopper::__runtime::token_2022_ext::require_confidential_transfer_mint(
+                    ctx.account(#idx)?,
+                )?;
+            });
+            check_descriptions.push(format!(
+                "accounts[{}] ({}) carries ConfidentialTransferMint extension",
+                idx, field_name
+            ));
+        }
+        if cf.attr.ext_confidential_transfer_account {
+            field_checks.push(quote! {
+                ::hopper::__runtime::token_2022_ext::require_confidential_transfer_account(
+                    ctx.account(#idx)?,
+                )?;
+            });
+            check_descriptions.push(format!(
+                "accounts[{}] ({}) carries ConfidentialTransferAccount extension",
+                idx, field_name
+            ));
+        }
+        if cf.attr.ext_scaled_ui_amount_config {
+            field_checks.push(quote! {
+                ::hopper::__runtime::token_2022_ext::require_scaled_ui_amount_config(
+                    ctx.account(#idx)?,
+                )?;
+            });
+            check_descriptions.push(format!(
+                "accounts[{}] ({}) carries ScaledUiAmountConfig extension",
                 idx, field_name
             ));
         }
@@ -2699,6 +2747,18 @@ fn parse_account_attr(attrs: &[Attribute]) -> Result<AccountAttr> {
                         result.ext_transfer_hook_program = Some(expr);
                         Ok(())
                     }
+                    ("confidential_transfer", "mint") => {
+                        result.ext_confidential_transfer_mint = true;
+                        Ok(())
+                    }
+                    ("confidential_transfer", "account") => {
+                        result.ext_confidential_transfer_account = true;
+                        Ok(())
+                    }
+                    ("scaled_ui_amount", "config") => {
+                        result.ext_scaled_ui_amount_config = true;
+                        Ok(())
+                    }
                     ("metadata_pointer", "authority") => {
                         let expr: Expr = meta.value()?.parse()?;
                         result.ext_metadata_pointer_authority = Some(expr);
@@ -2937,6 +2997,22 @@ fn parse_account_attr(attrs: &[Attribute]) -> Result<AccountAttr> {
                     }
                     ("extensions", "immutable_owner") => {
                         result.ext_immutable_owner = true;
+                        Ok(())
+                    }
+                    ("extensions", "cpi_guard") => {
+                        result.ext_cpi_guard = true;
+                        Ok(())
+                    }
+                    ("extensions", "confidential_transfer_mint") => {
+                        result.ext_confidential_transfer_mint = true;
+                        Ok(())
+                    }
+                    ("extensions", "confidential_transfer_account") => {
+                        result.ext_confidential_transfer_account = true;
+                        Ok(())
+                    }
+                    ("extensions", "scaled_ui_amount_config") => {
+                        result.ext_scaled_ui_amount_config = true;
                         Ok(())
                     }
                     _ => Err(meta.error(format!(

@@ -99,6 +99,15 @@ struct ProgramPolicyArgs {
     enforce_token_checks: Option<bool>,
     allow_unsafe: Option<bool>,
     entrypoint: Option<bool>,
+    profile: Option<ProgramProfile>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ProgramProfile {
+    Tiny,
+    Strict,
+    Audit,
+    Raw,
 }
 
 impl ProgramPolicyArgs {
@@ -114,6 +123,14 @@ impl ProgramPolicyArgs {
     }
     fn entrypoint(&self) -> bool {
         self.entrypoint.unwrap_or(true)
+    }
+    fn profile_tokens(&self) -> TokenStream {
+        match self.profile.unwrap_or(ProgramProfile::Strict) {
+            ProgramProfile::Tiny => quote! { ::hopper::__runtime::HopperProgramProfile::TINY },
+            ProgramProfile::Strict => quote! { ::hopper::__runtime::HopperProgramProfile::STRICT },
+            ProgramProfile::Audit => quote! { ::hopper::__runtime::HopperProgramProfile::AUDIT },
+            ProgramProfile::Raw => quote! { ::hopper::__runtime::HopperProgramProfile::RAW },
+        }
     }
 }
 
@@ -335,6 +352,7 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
     let strict = policy.strict();
     let enforce_token_checks = policy.enforce_token_checks();
     let allow_unsafe = policy.allow_unsafe();
+    let profile = policy.profile_tokens();
     items.push(syn::parse_quote! {
         #[allow(dead_code)]
         pub const HOPPER_PROGRAM_POLICY: ::hopper::__runtime::HopperProgramPolicy =
@@ -343,6 +361,11 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
                 enforce_token_checks: #enforce_token_checks,
                 allow_unsafe: #allow_unsafe,
             };
+    });
+
+    items.push(syn::parse_quote! {
+        #[allow(dead_code)]
+        pub const HOPPER_PROGRAM_PROFILE: ::hopper::__runtime::HopperProgramProfile = #profile;
     });
 
     items.push(syn::parse_quote! {
@@ -389,7 +412,7 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
 /// Accepts:
 /// - empty args: defaults to `HopperProgramPolicy::STRICT`
 /// - bare shorthand: `strict` | `raw` | `sealed`
-/// - explicit levers: `strict = bool`, `enforce_token_checks = bool`, `allow_unsafe = bool`, `entrypoint = bool`
+/// - explicit levers: `strict = bool`, `enforce_token_checks = bool`, `allow_unsafe = bool`, `entrypoint = bool`, `profile = "tiny|strict|audit|raw"`
 /// - any combination (shorthand sets defaults; explicit levers override)
 fn parse_program_policy(attr: TokenStream) -> Result<ProgramPolicyArgs> {
     let mut policy = ProgramPolicyArgs::default();
@@ -407,11 +430,13 @@ fn parse_program_policy(attr: TokenStream) -> Result<ProgramPolicyArgs> {
                     policy.strict.get_or_insert(true);
                     policy.enforce_token_checks.get_or_insert(true);
                     policy.allow_unsafe.get_or_insert(true);
+                    policy.profile.get_or_insert(ProgramProfile::Strict);
                 }
                 "sealed" => {
                     policy.strict.get_or_insert(true);
                     policy.enforce_token_checks.get_or_insert(true);
                     policy.allow_unsafe.get_or_insert(false);
+                    policy.profile.get_or_insert(ProgramProfile::Audit);
                     // Explicit `sealed` locks allow_unsafe off even if
                     // defaulting left it unset as true.
                     policy.allow_unsafe = Some(false);
@@ -420,6 +445,7 @@ fn parse_program_policy(attr: TokenStream) -> Result<ProgramPolicyArgs> {
                     policy.strict = Some(false);
                     policy.enforce_token_checks = Some(false);
                     policy.allow_unsafe.get_or_insert(true);
+                    policy.profile.get_or_insert(ProgramProfile::Raw);
                 }
                 other => {
                     return Err(syn::Error::new(
@@ -432,6 +458,15 @@ fn parse_program_policy(attr: TokenStream) -> Result<ProgramPolicyArgs> {
             },
             Meta::NameValue(nv) => {
                 let name = path_ident(&nv.path)?;
+                if name == "profile" {
+                    policy.profile = Some(expect_profile_lit(&nv.value)?);
+                    if matches!(policy.profile, Some(ProgramProfile::Raw)) {
+                        policy.strict = Some(false);
+                        policy.enforce_token_checks = Some(false);
+                        policy.allow_unsafe.get_or_insert(true);
+                    }
+                    continue;
+                }
                 let value = expect_bool_lit(&nv.value)?;
                 match name.as_str() {
                     "strict" => policy.strict = Some(value),
@@ -442,7 +477,7 @@ fn parse_program_policy(attr: TokenStream) -> Result<ProgramPolicyArgs> {
                         return Err(syn::Error::new(
                             nv.path.span(),
                             format!(
-                                "unknown program policy lever `{other}`; expected `strict`, `enforce_token_checks`, `allow_unsafe`, or `entrypoint`",
+                                "unknown program policy lever `{other}`; expected `strict`, `enforce_token_checks`, `allow_unsafe`, `entrypoint`, or `profile`",
                             ),
                         ));
                     }
@@ -458,6 +493,32 @@ fn parse_program_policy(attr: TokenStream) -> Result<ProgramPolicyArgs> {
     }
 
     Ok(policy)
+}
+
+fn expect_profile_lit(expr: &Expr) -> Result<ProgramProfile> {
+    if let Expr::Lit(ExprLit {
+        lit: Lit::Str(value),
+        ..
+    }) = expr
+    {
+        match value.value().as_str() {
+            "tiny" => Ok(ProgramProfile::Tiny),
+            "strict" => Ok(ProgramProfile::Strict),
+            "audit" => Ok(ProgramProfile::Audit),
+            "raw" => Ok(ProgramProfile::Raw),
+            other => Err(syn::Error::new(
+                value.span(),
+                format!(
+                    "unknown program profile `{other}`; expected `tiny`, `strict`, `audit`, or `raw`"
+                ),
+            )),
+        }
+    } else {
+        Err(syn::Error::new(
+            expr.span(),
+            "expected a string literal (`tiny`, `strict`, `audit`, or `raw`)",
+        ))
+    }
 }
 
 fn path_ident(path: &Path) -> Result<String> {

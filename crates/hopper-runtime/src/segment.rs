@@ -158,6 +158,76 @@ const _: () = {
     );
 };
 
+/// Generic field role for account field capability descriptors.
+pub const FIELD_ROLE_DATA: u8 = 0;
+/// Field carries authority or signer identity semantics.
+pub const FIELD_ROLE_AUTHORITY: u8 = 1;
+/// Field carries accounting or balance semantics.
+pub const FIELD_ROLE_BALANCE: u8 = 2;
+/// Field carries migration/versioning semantics.
+pub const FIELD_ROLE_VERSION: u8 = 3;
+/// Field is intended to become immutable after initialization.
+pub const FIELD_POLICY_IMMUTABLE_AFTER_INIT: u8 = 1 << 0;
+/// Field mutations should use checked arithmetic.
+pub const FIELD_POLICY_CHECKED_MATH: u8 = 1 << 1;
+/// Field mutations should be gated by an admin or authority proof.
+pub const FIELD_POLICY_AUTHORITY_GATED: u8 = 1 << 2;
+
+/// Zero-sized field capability: type, byte offset, semantic role, and policy.
+///
+/// This is the runtime half of proof-carrying field access. Macros and tooling
+/// can emit these ZSTs for each account field, then require a matching
+/// capability in higher-level mutation helpers without storing extra metadata
+/// in the account body.
+#[derive(Copy, Clone, Debug, Default)]
+pub struct FieldCapability<T: crate::Pod, const OFFSET: u32, const ROLE: u8, const POLICY: u8> {
+    _marker: core::marker::PhantomData<fn() -> T>,
+}
+
+impl<T: crate::Pod, const OFFSET: u32, const ROLE: u8, const POLICY: u8>
+    FieldCapability<T, OFFSET, ROLE, POLICY>
+{
+    #[inline(always)]
+    pub const fn new() -> Self {
+        Self {
+            _marker: core::marker::PhantomData,
+        }
+    }
+
+    #[inline(always)]
+    pub const fn role() -> u8 {
+        ROLE
+    }
+
+    #[inline(always)]
+    pub const fn policy() -> u8 {
+        POLICY
+    }
+
+    #[inline(always)]
+    pub const fn typed_segment() -> TypedSegment<T, OFFSET> {
+        TypedSegment::new()
+    }
+
+    #[inline(always)]
+    pub const fn as_segment() -> Segment {
+        TypedSegment::<T, OFFSET>::as_segment()
+    }
+
+    #[inline(always)]
+    pub const fn has_policy(flag: u8) -> bool {
+        POLICY & flag != 0
+    }
+}
+
+// SAFETY: Field capabilities must also remain ZSTs.
+const _: () = {
+    assert!(
+        core::mem::size_of::<FieldCapability<u64, 0, FIELD_ROLE_DATA, 0>>() == 0,
+        "FieldCapability must be zero-sized",
+    );
+};
+
 #[cfg(test)]
 mod tests {
     use super::*;

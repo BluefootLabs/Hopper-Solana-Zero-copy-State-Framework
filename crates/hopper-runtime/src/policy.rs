@@ -14,6 +14,7 @@
 //! | [`HopperProgramPolicy::STRICT`] | `strict`, `enforce_token_checks`, `allow_unsafe` all on. Recommended default. |
 //! | [`HopperProgramPolicy::SEALED`] | `strict` + `enforce_token_checks` on, `allow_unsafe` off. Zero-`unsafe`-in-handlers programs. |
 //! | [`HopperProgramPolicy::RAW`] | Every lever off. Pinocchio-parity throughput. Responsibility shifts fully to the handler author. |
+//! | [`HopperProgramProfile::TINY`] | Binary-size intent marker for compact programs that still keep Hopper's safety envelope. |
 //!
 //! ## Zero runtime cost
 //!
@@ -84,6 +85,23 @@ pub struct HopperProgramPolicy {
     /// `#[deny(unsafe_code)]` so the compiler rejects any raw pointer
     /// detour.
     pub allow_unsafe: bool,
+}
+
+/// Program-size/audit profile emitted by `#[hopper::program(profile = "...")]`.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[repr(u8)]
+pub enum HopperProgramProfile {
+    Tiny = 0,
+    Strict = 1,
+    Audit = 2,
+    Raw = 3,
+}
+
+impl HopperProgramProfile {
+    pub const TINY: Self = Self::Tiny;
+    pub const STRICT: Self = Self::Strict;
+    pub const AUDIT: Self = Self::Audit;
+    pub const RAW: Self = Self::Raw;
 }
 
 impl HopperProgramPolicy {
@@ -189,6 +207,14 @@ mod tests {
         assert!(!HopperProgramPolicy::RAW.strict);
         assert!(!HopperProgramPolicy::RAW.enforce_token_checks);
         assert!(HopperProgramPolicy::RAW.allow_unsafe);
+    }
+
+    #[test]
+    fn program_profiles_are_stable() {
+        assert_eq!(HopperProgramProfile::TINY as u8, 0);
+        assert_eq!(HopperProgramProfile::STRICT as u8, 1);
+        assert_eq!(HopperProgramProfile::AUDIT as u8, 2);
+        assert_eq!(HopperProgramProfile::RAW as u8, 3);
     }
 
     #[test]

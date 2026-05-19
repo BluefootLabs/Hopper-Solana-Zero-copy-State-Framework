@@ -70,6 +70,7 @@ const TOP_LEVEL: &[&str] = &[
     "deploy",
     "dump",
     "verify",
+    "solana-check",
     "keys",
     "config",
     "lint",
@@ -77,6 +78,9 @@ const TOP_LEVEL: &[&str] = &[
     "tx",
     "manager",
     "doctor",
+    "actions",
+    "mobile",
+    "test-gen",
     "completions",
     "version",
     "help",
@@ -86,7 +90,7 @@ const BASH_COMPLETION: &str = r#"_hopper() {
     local cur prev words cword
     _init_completion || return
     if [ "$cword" -eq 1 ]; then
-        COMPREPLY=($(compgen -W "schema compile inspect explain client profile fetch init build test deploy dump verify keys config lint expand tx manager doctor completions version help" -- "$cur"))
+        COMPREPLY=($(compgen -W "schema compile inspect explain client profile fetch init build test deploy dump verify solana-check keys config lint expand tx manager doctor actions mobile test-gen completions version help" -- "$cur"))
         return
     fi
     case "${words[1]}" in
@@ -95,6 +99,9 @@ const BASH_COMPLETION: &str = r#"_hopper() {
         tx) COMPREPLY=($(compgen -W "explain simulate submit" -- "$cur")) ;;
         manager) COMPREPLY=($(compgen -W "fetch summary identify decode instruction layouts policies events fingerprints compat receipt explain diff simulate invoke crank accounts interactive" -- "$cur")) ;;
         profile) COMPREPLY=($(compgen -W "bench elf" -- "$cur")) ;;
+        actions) COMPREPLY=($(compgen -W "gen" -- "$cur")) ;;
+        mobile) COMPREPLY=($(compgen -W "gen" -- "$cur")) ;;
+        test-gen) COMPREPLY=($(compgen -W "security" -- "$cur")) ;;
         schema) COMPREPLY=($(compgen -W "export validate diff" -- "$cur")) ;;
         completions) COMPREPLY=($(compgen -W "bash zsh fish" -- "$cur")) ;;
     esac
@@ -119,6 +126,7 @@ _hopper() {
         'deploy:deploy an SBF artifact'
         'dump:disassemble .so'
         'verify:ABI fingerprint check'
+        'solana-check:SBF crate shape gate'
         'keys:key + PDA helpers'
         'config:global config store'
         'lint:account-relationship checker'
@@ -126,6 +134,9 @@ _hopper() {
         'tx:on-chain transaction helpers'
         'manager:on-chain introspection + invoke + crank'
         'doctor:environment sanity check'
+        'actions:generate Solana Actions route scaffolds'
+        'mobile:generate mobile bindings'
+        'test-gen:generate test matrices'
         'completions:emit shell completions'
         'version:print CLI version info'
         'help:print top-level usage'
@@ -149,6 +160,7 @@ complete -c hopper -n '__fish_use_subcommand' -a 'test' -d 'run tests (optionall
 complete -c hopper -n '__fish_use_subcommand' -a 'deploy' -d 'deploy an SBF artifact'
 complete -c hopper -n '__fish_use_subcommand' -a 'dump' -d 'disassemble .so'
 complete -c hopper -n '__fish_use_subcommand' -a 'verify' -d 'ABI fingerprint check'
+complete -c hopper -n '__fish_use_subcommand' -a 'solana-check' -d 'SBF crate shape gate'
 complete -c hopper -n '__fish_use_subcommand' -a 'keys' -d 'key + PDA helpers'
 complete -c hopper -n '__fish_use_subcommand' -a 'config' -d 'global config store'
 complete -c hopper -n '__fish_use_subcommand' -a 'lint' -d 'account-relationship checker'
@@ -156,6 +168,9 @@ complete -c hopper -n '__fish_use_subcommand' -a 'expand' -d 'macro expansion'
 complete -c hopper -n '__fish_use_subcommand' -a 'tx' -d 'on-chain transaction helpers'
 complete -c hopper -n '__fish_use_subcommand' -a 'manager' -d 'on-chain introspection + invoke + crank'
 complete -c hopper -n '__fish_use_subcommand' -a 'doctor' -d 'environment sanity check'
+complete -c hopper -n '__fish_use_subcommand' -a 'actions' -d 'generate Solana Actions route scaffolds'
+complete -c hopper -n '__fish_use_subcommand' -a 'mobile' -d 'generate mobile bindings'
+complete -c hopper -n '__fish_use_subcommand' -a 'test-gen' -d 'generate test matrices'
 complete -c hopper -n '__fish_use_subcommand' -a 'completions' -d 'emit shell completions'
 complete -c hopper -n '__fish_use_subcommand' -a 'version' -d 'print CLI version info'
 complete -c hopper -n '__fish_seen_subcommand_from keys' -a 'new list print pda sync'
@@ -165,13 +180,16 @@ const POWERSHELL_COMPLETION: &str = r#"Register-ArgumentCompleter -Native -Comma
     param($wordToComplete, $commandAst, $cursorPosition)
 
     $words = @($commandAst.CommandElements | ForEach-Object { $_.ToString() })
-    $top = @('schema','compile','inspect','explain','client','profile','fetch','init','build','test','deploy','dump','verify','keys','config','lint','expand','tx','manager','doctor','completions','version','help')
+    $top = @('schema','compile','inspect','explain','client','profile','fetch','init','build','test','deploy','dump','verify','solana-check','keys','config','lint','expand','tx','manager','doctor','actions','mobile','test-gen','completions','version','help')
     $nested = @{
         keys = @('new','list','print','pda','sync')
         config = @('get','set','list','reset','path')
         tx = @('explain','simulate','submit')
         manager = @('fetch','summary','identify','decode','instruction','layouts','policies','events','fingerprints','compat','receipt','explain','diff','simulate','invoke','crank','accounts','interactive')
         profile = @('bench','elf')
+        actions = @('gen')
+        mobile = @('gen')
+        'test-gen' = @('security')
         schema = @('export','validate','diff')
         completions = @('bash','zsh','fish','powershell')
     }

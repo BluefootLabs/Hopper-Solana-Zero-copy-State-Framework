@@ -3,7 +3,8 @@
 //! The program is intentionally small, but it touches the Hopper surfaces that
 //! need live-cluster confidence: pretty dynamic account syntax, typed context
 //! validation, generated tail helpers, remaining-account signer parsing,
-//! segment leases, and substrate exports.
+//! segment leases, proof-carrying checks, Token-2022 TLV policies, and
+//! substrate exports.
 
 #![cfg_attr(any(target_os = "solana", target_arch = "bpf"), no_std)]
 #![allow(dead_code)]
@@ -20,7 +21,7 @@ mod __hopper_sbf {
     hopper::nostd_panic_handler!();
 }
 
-hopper::fast_entrypoint!(process_instruction, 8);
+hopper::fast_entrypoint!(process_instruction, 10);
 
 fn process_instruction(
     program_id: &Address,
@@ -39,6 +40,9 @@ pub struct AuditState<'a> {
     pub flags: u16,
     pub substrate_passes: u64,
     pub remaining_signer_checks: u64,
+    pub proof_checks: u64,
+    pub token_policy_checks: u64,
+    pub field_capability_checks: u64,
     pub label: String<'a, 32>,
     pub members: Vec<'a, Address, 8>,
 }
@@ -82,7 +86,7 @@ mod hopper_devnet_audit {
 
         {
             let mut state = ctx.accounts.state.get_mut_after_init()?;
-            state.set_inner(authority, 0, bump, 0, 0, 0)?;
+            state.set_inner(authority, 0, bump, 0, 0, 0, 0, 0, 0)?;
         }
 
         let mut tail = AuditStateTail::default();
@@ -154,6 +158,77 @@ mod hopper_devnet_audit {
         Ok(())
     }
 
+    #[instruction(7)]
+    pub fn proof_probe(ctx: Ctx<Mutate>) -> ProgramResult {
+        ctx.accounts
+            .authority
+            .as_account()
+            .proof()
+            .check_signer()?
+            .check_writable()?;
+
+        ctx.accounts
+            .state
+            .as_account()
+            .proof()
+            .check_owner(ctx.program_id())?
+            .check_layout::<AuditState>()?
+            .check_writable()?;
+
+        let mut state = ctx.accounts.state.get_mut()?;
+        state.proof_checks.checked_add_assign(1)?;
+        Ok(())
+    }
+
+    #[instruction(8)]
+    pub fn token_policy_probe(ctx: Ctx<Mutate>) -> ProgramResult {
+        use hopper::__runtime::token_2022_ext::{
+            validate_extension_policy, ExtensionPolicy, EXT_CONFIDENTIAL_TRANSFER_MINT,
+            EXT_SCALED_UI_AMOUNT_CONFIG, EXT_TRANSFER_HOOK, TLV_OFFSET,
+        };
+
+        let mut data = [0u8; TLV_OFFSET + 14];
+        data[hopper::__runtime::token_2022_ext::ACCOUNT_TYPE_OFFSET] =
+            hopper::__runtime::token_2022_ext::ACCOUNT_TYPE_MINT;
+        let tlv = &mut data[TLV_OFFSET..];
+        write_tlv(tlv, 0, EXT_CONFIDENTIAL_TRANSFER_MINT, &[1])?;
+        write_tlv(tlv, 5, EXT_SCALED_UI_AMOUNT_CONFIG, &[2])?;
+
+        validate_extension_policy(
+            tlv,
+            &ExtensionPolicy::new(
+                &[EXT_CONFIDENTIAL_TRANSFER_MINT, EXT_SCALED_UI_AMOUNT_CONFIG],
+                &[EXT_TRANSFER_HOOK],
+            ),
+        )?;
+
+        let mut state = ctx.accounts.state.get_mut()?;
+        state.token_policy_checks.checked_add_assign(1)?;
+        Ok(())
+    }
+
+    #[instruction(9)]
+    pub fn field_capability_probe(ctx: Ctx<Mutate>) -> ProgramResult {
+        type CounterCapability = hopper::systems::FieldCapability<
+            WireU64,
+            { AuditState::COUNTER_ABS_OFFSET },
+            { hopper::systems::FIELD_ROLE_BALANCE },
+            { hopper::systems::FIELD_POLICY_CHECKED_MATH },
+        >;
+
+        let segment = CounterCapability::as_segment();
+        if segment.offset != AuditState::COUNTER_ABS_OFFSET {
+            return Err(ProgramError::InvalidAccountData);
+        }
+        if !CounterCapability::has_policy(hopper::systems::FIELD_POLICY_CHECKED_MATH) {
+            return Err(ProgramError::InvalidAccountData);
+        }
+
+        let mut state = ctx.accounts.state.get_mut()?;
+        state.field_capability_checks.checked_add_assign(1)?;
+        Ok(())
+    }
+
     #[instruction(5)]
     pub fn audit(ctx: Ctx<ReadAudit>) -> ProgramResult {
         let state = ctx.accounts.state.get()?;
@@ -180,4 +255,18 @@ mod hopper_devnet_audit {
 
         Ok(())
     }
+}
+
+fn write_tlv(out: &mut [u8], offset: usize, ext_type: u16, payload: &[u8]) -> ProgramResult {
+    let end = offset
+        .checked_add(4)
+        .and_then(|v| v.checked_add(payload.len()))
+        .ok_or(ProgramError::ArithmeticOverflow)?;
+    if end > out.len() || payload.len() > u16::MAX as usize {
+        return Err(ProgramError::InvalidAccountData);
+    }
+    out[offset..offset + 2].copy_from_slice(&ext_type.to_le_bytes());
+    out[offset + 2..offset + 4].copy_from_slice(&(payload.len() as u16).to_le_bytes());
+    out[offset + 4..end].copy_from_slice(payload);
+    Ok(())
 }

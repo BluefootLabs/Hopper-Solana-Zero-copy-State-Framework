@@ -111,9 +111,10 @@ hopper_dynamic_fields! {
 `HopperVec<T, N>` aliases, keeping ported layouts concise while preserving
 explicit bounded storage.
 
-Outside account authoring, the prelude exports owned bounded aliases too:
-`String<N>` / `Text<N>` for `HopperString<N>` and `Vec<T, N>` /
-`List<T, N>` for `HopperVec<T, N>`.
+The prelude uses the Option-A shape directly: `String<'a, N>` and
+`Vec<'a, T, N>` are the account-authoring forms. For ordinary owned Rust
+values, use `Text<N>` and `List<T, N>` or the explicit `HopperString<N>` and
+`HopperVec<T, N>` names.
 
 ```rust
 use hopper::prelude::*;

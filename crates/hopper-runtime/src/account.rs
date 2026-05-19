@@ -716,6 +716,12 @@ impl AccountView {
         Ok(self)
     }
 
+    /// Start a proof-carrying validation chain for this account.
+    #[inline(always)]
+    pub const fn proof(&self) -> crate::proof::AccountProof<'_> {
+        crate::proof::AccountProof::new(self)
+    }
+
     // ── Hopper header readers ────────────────────────────────────────
 
     /// Read the Hopper account discriminator (first byte of data).

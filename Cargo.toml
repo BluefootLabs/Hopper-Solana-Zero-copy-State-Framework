@@ -58,9 +58,9 @@ unexpected_cfgs = { level = "allow", check-cfg = [
 ] }
 
 [workspace.dependencies]
-pinocchio = { version = "0.10", features = ["cpi", "copy"] }
-pinocchio-system = "0.5"
-pinocchio-token = "0.5"
+pinocchio = { version = "0.11", features = ["cpi", "copy"] }
+pinocchio-system = "0.6"
+pinocchio-token = "0.6"
 five8_const = "0.1"
 sha2-const-stable = "0.1"
 hopper-native = { path = "crates/hopper-native", version = "0.2.0", default-features = false }

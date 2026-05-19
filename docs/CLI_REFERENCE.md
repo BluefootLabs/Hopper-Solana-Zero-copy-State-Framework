@@ -49,6 +49,14 @@ fuzz target inventory is present.
 Use `--source-only` before an SBF build to run every non-binary gate. Add
 `--full` to also run the `hopper-systems` and `hopper-trybuild` suites.
 
+### `hopper solana-check [--all] [--manifest-path Cargo.toml] [--build-sbf]`
+
+Check that Hopper program crates are shaped for Solana instead of merely
+Rust-valid: `cdylib` output, Solana `no_std` intent, Hopper allocator and panic
+markers, a generated or explicit entrypoint, and a single backend feature. Use
+`--all` to scan program-shaped packages below the workspace root. Use
+`--build-sbf` in CI when you want the gate to run `cargo build-sbf` too.
+
 ## Keys and identity
 
 ### `hopper keys new <path>`
@@ -137,6 +145,32 @@ shapes: instruction builders, account readers, PDA helpers, event decoders. Use
 target and `hopper compile --emit <ts|kt|py|rust-client|idl|codama|schema>` for
 one-shot manifest-source inference via `--package` or `--program-id`.
 
+### `hopper actions gen --program <manifest> --out <dir> [--framework next]`
+
+Generate a Solana Actions scaffold from the manifest. The first target is Next:
+`actions.json` plus a `route.ts` that exposes instruction tags and CORS-safe
+GET/POST handlers.
+
+### `hopper mobile gen --program <manifest> --target <kotlin | react-native> [--out <dir>]`
+
+Generate mobile binding stubs from the manifest. Kotlin emits an instruction tag
+object. React Native emits a TypeScript helper with typed instruction names.
+
+### `hopper test-gen security --program <manifest> [--out <path>]`
+
+Generate a security test matrix with per-instruction cases for missing signer,
+wrong owner, wrong PDA, wrong layout, non-writable mutable accounts, and token
+extension mistakes when token capabilities are present.
+
+## Project linting
+
+### `hopper lint svm [--project <path>] [--fail-on-warn]`
+
+Scan typed-context sources for duplicate manual SVM checks that should usually
+live in account constraints instead: signer, writable, and owner checks. The
+lint stays conservative and treats raw remaining-account checks as review items,
+not hard errors unless `--fail-on-warn` is set.
+
 ## Inspection
 
 ### `hopper inspect <hex-data>`
@@ -147,9 +181,10 @@ Parse raw account bytes and print the decoded header, discriminator, version, an
 
 Drill-downs for each piece: named segment offsets, receipt wire-format decode.
 
-### `hopper explain [account | receipt | compat | policy | layout | program | context]`
+### `hopper explain [account | receipt | compat | policy | layout | program | context | instruction]`
 
 Human-readable narratives. `explain receipt <hex>` turns a raw receipt into "Invariant `balance_nonzero` failed at stage Invariant, code 0x1001".
+`explain instruction <manifest> <tag|name>` prints the instruction's account order, signer/writable requirements, argument bytes, capabilities, policy pack, and receipt expectation.
 
 ## On-chain fetch
 

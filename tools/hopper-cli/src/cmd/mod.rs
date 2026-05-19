@@ -1,3 +1,4 @@
+pub mod actions;
 pub mod add;
 pub mod banner;
 pub mod clean;
@@ -10,8 +11,11 @@ pub mod lint;
 pub mod manager_accounts;
 pub mod manager_invoke;
 pub mod meta;
+pub mod mobile;
 pub mod profile;
 pub mod publish_check;
+pub mod solana_check;
+pub mod test_gen;
 pub mod tx_explain;
 pub mod verify;
 pub mod watch;

@@ -17,25 +17,200 @@ pub use hopper_runtime::{
     TailElement,
 };
 
+/// Lifetime-shaped bounded UTF-8 authoring value.
+///
+/// Hopper account macros accept `String<'a, N>` as the canonical pretty
+/// dynamic-field syntax and lower it into the compact tail model. This wrapper
+/// makes the same spelling available to type checkers without changing the
+/// owned runtime representation, which remains [`HopperString<N>`].
+#[repr(transparent)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+pub struct HopperAuthoringString<'a, const N: usize> {
+    inner: HopperString<N>,
+    _lifetime: core::marker::PhantomData<&'a ()>,
+}
+
+impl<'a, const N: usize> HopperAuthoringString<'a, N> {
+    #[inline]
+    pub const fn empty() -> Self {
+        Self {
+            inner: HopperString::empty(),
+            _lifetime: core::marker::PhantomData,
+        }
+    }
+
+    #[inline]
+    pub fn from_str(value: &str) -> Result<Self> {
+        Ok(Self::from_hopper(HopperString::from_str(value)?))
+    }
+
+    #[inline]
+    pub const fn from_hopper(inner: HopperString<N>) -> Self {
+        Self {
+            inner,
+            _lifetime: core::marker::PhantomData,
+        }
+    }
+
+    #[inline(always)]
+    pub const fn as_hopper(&self) -> &HopperString<N> {
+        &self.inner
+    }
+
+    #[inline(always)]
+    pub fn into_hopper(self) -> HopperString<N> {
+        self.inner
+    }
+
+    #[inline]
+    pub fn set_str(&mut self, value: &str) -> Result<()> {
+        self.inner.set_str(value)
+    }
+
+    #[inline]
+    pub fn as_str(&self) -> Result<&str> {
+        self.inner.as_str()
+    }
+
+    #[inline(always)]
+    pub fn as_bytes(&self) -> &[u8] {
+        self.inner.as_bytes()
+    }
+}
+
+impl<'a, const N: usize> Default for HopperAuthoringString<'a, N> {
+    #[inline]
+    fn default() -> Self {
+        Self::empty()
+    }
+}
+
+impl<'a, const N: usize> TailCodec for HopperAuthoringString<'a, N> {
+    const MAX_ENCODED_LEN: usize = HopperString::<N>::MAX_ENCODED_LEN;
+
+    #[inline]
+    fn encode(&self, out: &mut [u8]) -> Result<usize> {
+        self.inner.encode(out)
+    }
+
+    #[inline]
+    fn decode(input: &[u8]) -> Result<(Self, usize)> {
+        let (inner, used) = HopperString::<N>::decode(input)?;
+        Ok((Self::from_hopper(inner), used))
+    }
+}
+
+/// Lifetime-shaped bounded list authoring value.
+#[repr(transparent)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+pub struct HopperAuthoringVec<'a, T, const N: usize>
+where
+    T: TailCodec + Copy + Default,
+{
+    inner: HopperVec<T, N>,
+    _lifetime: core::marker::PhantomData<&'a ()>,
+}
+
+impl<'a, T, const N: usize> HopperAuthoringVec<'a, T, N>
+where
+    T: TailCodec + Copy + Default,
+{
+    #[inline]
+    pub fn empty() -> Self {
+        Self::from_hopper(HopperVec::empty())
+    }
+
+    #[inline]
+    pub const fn from_hopper(inner: HopperVec<T, N>) -> Self {
+        Self {
+            inner,
+            _lifetime: core::marker::PhantomData,
+        }
+    }
+
+    #[inline(always)]
+    pub const fn as_hopper(&self) -> &HopperVec<T, N> {
+        &self.inner
+    }
+
+    #[inline(always)]
+    pub fn into_hopper(self) -> HopperVec<T, N> {
+        self.inner
+    }
+
+    #[inline(always)]
+    pub fn as_slice(&self) -> &[T] {
+        self.inner.as_slice()
+    }
+
+    #[inline]
+    pub fn push(&mut self, value: T) -> Result<()> {
+        self.inner.push(value)
+    }
+}
+
+impl<'a, T, const N: usize> HopperAuthoringVec<'a, T, N>
+where
+    T: TailCodec + Copy + Default + PartialEq,
+{
+    #[inline]
+    pub fn push_unique(&mut self, value: T) -> Result<bool> {
+        self.inner.push_unique(value)
+    }
+
+    #[inline]
+    pub fn remove_first(&mut self, value: &T) -> bool {
+        self.inner.remove_first(value)
+    }
+}
+
+impl<'a, T, const N: usize> Default for HopperAuthoringVec<'a, T, N>
+where
+    T: TailCodec + Copy + Default,
+{
+    #[inline]
+    fn default() -> Self {
+        Self::empty()
+    }
+}
+
+impl<'a, T, const N: usize> TailCodec for HopperAuthoringVec<'a, T, N>
+where
+    T: TailCodec + Copy + Default,
+{
+    const MAX_ENCODED_LEN: usize = HopperVec::<T, N>::MAX_ENCODED_LEN;
+
+    #[inline]
+    fn encode(&self, out: &mut [u8]) -> Result<usize> {
+        self.inner.encode(out)
+    }
+
+    #[inline]
+    fn decode(input: &[u8]) -> Result<(Self, usize)> {
+        let (inner, used) = HopperVec::<T, N>::decode(input)?;
+        Ok((Self::from_hopper(inner), used))
+    }
+}
+
 /// Short alias for bounded dynamic UTF-8 fields outside account authoring.
 pub type Text<const N: usize> = HopperString<N>;
 
 /// Short alias for bounded dynamic list fields outside account authoring.
 pub type List<T, const N: usize> = HopperVec<T, N>;
 
-/// Quasar-shaped alias for bounded dynamic UTF-8 values outside account authoring.
+/// Option-A Quasar-shaped alias for bounded dynamic UTF-8 authoring values.
 ///
-/// In `#[account]` structs, `String<'a, N>` is an authoring form that the
-/// macro lowers into Hopper's compact dynamic tail. In ordinary Rust code,
-/// use `String<N>` for the owned bounded value.
-pub type String<const N: usize> = HopperString<N>;
+/// In `#[account]` structs, `String<'a, N>` is the canonical pretty form that
+/// the macro lowers into Hopper's compact dynamic tail. In ordinary Rust code,
+/// use [`HopperString<N>`] or [`Text<N>`] for the owned bounded value.
+pub type String<'a, const N: usize> = HopperAuthoringString<'a, N>;
 
-/// Quasar-shaped alias for bounded dynamic list values outside account authoring.
+/// Option-A Quasar-shaped alias for bounded dynamic list authoring values.
 ///
-/// In `#[account]` structs, `Vec<'a, T, N>` is an authoring form that the
-/// macro lowers into Hopper's compact dynamic tail. In ordinary Rust code,
-/// use `Vec<T, N>` for the owned bounded value.
-pub type Vec<T, const N: usize> = HopperVec<T, N>;
+/// In `#[account]` structs, `Vec<'a, T, N>` is the canonical pretty form that
+/// the macro lowers into Hopper's compact dynamic tail. In ordinary Rust code,
+/// use [`HopperVec<T, N>`] or [`List<T, N>`] for the owned bounded value.
+pub type Vec<'a, T, const N: usize> = HopperAuthoringVec<'a, T, N>;
 
 /// Solana-familiar alias for Hopper's 32-byte address type.
 pub type Pubkey = Address;

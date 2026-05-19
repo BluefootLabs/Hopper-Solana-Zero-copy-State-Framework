@@ -9,6 +9,9 @@ It exercises:
 - Generated dynamic-tail helpers through `AuditStateAccountTailExt`.
 - Strict and passthrough remaining-account parsing through `ctx.remaining_accounts()`.
 - Segment leases through `AccountView::segment_mut` and `SegmentBorrowRegistry`.
+- Proof-carrying account checks through `AccountView::proof()`.
+- Token-2022 no-alloc extension policies through `ExtensionPolicy`.
+- Field capability metadata through `FieldCapability`.
 - `hopper::substrate::CuBudget` from the raw substrate export layer.
 
 Instruction table:
@@ -22,6 +25,9 @@ Instruction table:
 | 4 | `substrate_probe()` | Runs a substrate compute-budget probe and records a fixed-body counter. |
 | 5 | `audit()` | Checks owner-linked authority, non-empty label, and member membership. |
 | 6 | `remaining_signers()` | Validates strict remaining-account signer parsing and passthrough length parity. |
+| 7 | `proof_probe()` | Exercises signer, writable, owner, and layout proof chains. |
+| 8 | `token_policy_probe()` | Builds a small Token-2022 TLV buffer and validates required/forbidden extensions. |
+| 9 | `field_capability_probe()` | Confirms generated field offsets compose with field capability policy flags. |
 
 Build for SBF:
 
@@ -45,21 +51,16 @@ $keypair = 'C:\path\to\deployer.json'
 solana --keypair $keypair --url devnet program deploy --program-id target\deploy\hopper_devnet_audit-keypair.json target\deploy\hopper_devnet_audit.so
 ```
 
+If TPU writes fail with `30 write transactions failed`, close the buffer account printed by the CLI to recover lamports, then retry with `--use-rpc`:
+
+```powershell
+solana --keypair $keypair --url devnet program deploy --use-rpc --program-id target\deploy\hopper_devnet_audit-keypair.json target\deploy\hopper_devnet_audit.so
+```
+
 If devnet airdrop is rate-limited, fund the deployer shown by:
 
 ```powershell
 solana --keypair $keypair --url devnet address
-```
-
-Latest verified devnet deployment from this workspace:
-
-```text
-Program Id: 4LPSXhMpx2DrFvMSHXRB3yaGmz7iKP4nKkfD92mAtAdT
-ProgramData Address: E6qeWd7GwZF13dY14BkaKLguKEPJkKmUqgoDxK4XSTzR
-Authority: HoppRy1HbNcHus9rmubDdXejDqAmhi55AURiCrq6tvxT
-Last Deployed In Slot: 463314412
-Data Length: 28664 bytes
-Deploy Signature: 24PoRp6xziX7QAG5tygvhKTioySpq6d1YskKq5JuPHXukxSHqRpa6b7sBzJ83xqeUigCVCT2Z4Lkw9P9b6U6ZTz5
 ```
 
 Run the host-only audit client against devnet:
@@ -68,18 +69,19 @@ Run the host-only audit client against devnet:
 cargo run -p hopper-devnet-audit --features devnet-client --bin devnet_audit -- --keypair C:\path\to\deployer.json --program-id <PROGRAM_ID> --rpc https://api.devnet.solana.com
 ```
 
-The client creates a fresh `AuditState` account with `AuditState::ALLOC_SPACE`, sends all seven instructions, then fetches and decodes the account. A passing run prints `verified` with `counter=1`, `substrate_passes=1`, `remaining_signer_checks=2`, `label=hopper-live`, and `members=1`.
+The client creates a fresh `AuditState` account with `AuditState::ALLOC_SPACE`, sends all ten instructions, then fetches and decodes the account. A passing run prints `verified` with `counter=1`, `substrate_passes=1`, `remaining_signer_checks=2`, `proof_checks=1`, `token_policy_checks=1`, `field_capability_checks=1`, `label=hopper-live`, and `members=1`.
+
+Latest verified deployment from this workspace:
+
+```text
+Program Id: 4LPSXhMpx2DrFvMSHXRB3yaGmz7iKP4nKkfD92mAtAdT
+Deploy Signature: 4KGzT5XH9KjtGH5JR4A2WfYRv6uWAdTYuJw5Qu2rACnsLNiP9wq1Zuu8ZUQWvpUWwKAQFV6CZmdv5UZBUQQcPDYM
+Artifact Size: 30408 bytes
+```
 
 Latest verified audit run from this workspace:
 
 ```text
-State: CHm3CnZTwjiMY4AmRjEU2B6qLVR8CSSqwyqLpatSPHVy
-initialize: 3dmbhLsKdTCRNxznHPhWUuMNNKk7Vh9QvMvGUXyfMLVY8kVv5dWS4a5Fu7yjjfpDwJZgCAaypa5bPLEpRsYmrL1S
-rename: enPBxKfQRRbv67HYVKHvxLWCQczRpwKxW8cbjTndcWqkCU2KWZXMyK4nxPt7Gu4n3CcqYBLP6aJq2mfnRyMdvPx
-add_member: 3ApDvyYyB4yDT7vP4MwAxxPwR4ZbdH132qGj3LSTyFZyNyw8sC8GrSHxy1dhBQhUpAWov5GJpWURd1h7vY4wyxY6
-increment_segment: 5r6dozDCDoWK3epBaL4mTEfj1cBopfQYM9kQcrEmkx1TG7b78gPcWnmYGTz2St9D1jFpCXAb8biWmsEoC3znEFex
-substrate_probe: 2GhoviwJqbydPz6ZJUmXgv4rDX9oimpGvg3KqmF9hGRL7VT4jo5y1NvfP47qGVDJijYVBRioW6ZxEiCVBu5sLqb1
-remaining_signers: 5ZsADeEx7CuMTjgyqivv3agH9dn1QKvuUGfXj4s2P49PPe9x9wSnpbBZ6jbf6K8yJVW4gNBUn5Qnr8BWG8vUHLu6
-audit: 4ur5XQMwBwaPd1RWyiWSGQknhmhaNqJg3sagbi7GVSuQ1Lz538EjvZuWZzi3cvfp9mSQdky2Buimd2y7bo9skQZt
-verified: counter=1, substrate_passes=1, remaining_signer_checks=2, label=hopper-live, members=1
+State: 9gQf48rtnX36me4xhkgvoVi9VqBX3C5d2T3qoqBGLjFR
+verified: counter=1, substrate_passes=1, remaining_signer_checks=2, proof_checks=1, token_policy_checks=1, field_capability_checks=1, label=hopper-live, members=1
 ```

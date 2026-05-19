@@ -16,6 +16,7 @@
 //! hopper verify [<manifest>] [<.so>]                  Confirm manifest layouts are present in the compiled binary
 //! hopper verify --package <name>                      Infer manifest and SBF binary from a workspace package
 //! hopper publish-check --package <name>                Run release/source gates before publishing
+//! hopper solana-check [--all]                          Verify Hopper program crates are SBF-shaped
 //!
 //! hopper inspect <hex-data>                         Decode account header
 //! hopper inspect layout <manifest> <hex-data>       Decode fields using a program manifest
@@ -29,6 +30,7 @@
 //! hopper explain policy <policy-pack>                Explain a named policy pack
 //! hopper explain layout <manifest>                   Explain layout fields and fingerprint
 //! hopper explain program <manifest>                  Explain entire program pipeline
+//! hopper explain instruction <manifest> <tag|name>    Explain one instruction's accounts and policy
 //!
 //! hopper compat <old> <new>                         Compatibility report
 //! hopper compat --why <old> <new>                   Compatibility with explanations
@@ -52,6 +54,7 @@
 //! hopper keys new|sync|pda|list|print                 Keypair and PDA helpers
 //! hopper config get|set|list|reset|path               Global configuration store
 //! hopper lint                                        Run Hopper project diagnostics
+//! hopper lint svm                                    Run SVM-specific duplicate-check diagnostics
 //! hopper expand                                      Show lowered macro output
 //! hopper tx explain <signature>                       Fetch and explain an on-chain transaction
 //! hopper tx simulate|submit <tx-base64>                Pre-built transaction helpers
@@ -64,6 +67,9 @@
 //! hopper client gen --ts <manifest>                 Generate TypeScript client
 //! hopper client gen --kt <manifest>                 Generate Kotlin client
 //! hopper client gen --py <manifest>                 Generate Python client
+//! hopper actions gen --program <manifest> --out api/actions
+//! hopper mobile gen --program <manifest> --target kotlin|react-native
+//! hopper test-gen security --program <manifest>
 //! ```
 //!
 //! Hex data is passed as a hex string (no 0x prefix).
@@ -167,6 +173,7 @@ fn main() {
         "clean" => cmd::clean::cmd_clean(&args[2..]),
         "verify" => cmd::verify::cmd_verify(&args[2..]),
         "publish-check" => cmd::publish_check::cmd_publish_check(&args[2..]),
+        "solana-check" => cmd::solana_check::cmd_solana_check(&args[2..]),
 
         // DX and tooling
         "keys" => cmd::keys::cmd_keys(&args[2..]),
@@ -177,6 +184,9 @@ fn main() {
         "doctor" => cmd::doctor::cmd_doctor(&args[2..]),
         "completions" => cmd::meta::cmd_completions(&args[2..]),
         "version" | "--version" | "-V" => cmd::meta::cmd_version(&args[2..]),
+        "actions" => cmd::actions::cmd_actions(&args[2..]),
+        "mobile" => cmd::mobile::cmd_mobile(&args[2..]),
+        "test-gen" => cmd::test_gen::cmd_test_gen(&args[2..]),
 
         // Direct commands (backward compatible)
         "decode" => cmd_inspect(&args[2..]),
@@ -256,6 +266,7 @@ fn cmd_explain_family(args: &[String]) {
             "  hopper explain program <manifest>    Explain an entire program from its manifest"
         );
         eprintln!("  hopper explain context <manifest>    Explain instruction contexts (accounts, roles, policies)");
+        eprintln!("  hopper explain instruction <manifest> <tag|name>  Explain one instruction's accounts and policy");
         process::exit(1);
     }
     match args[0].as_str() {
@@ -266,8 +277,17 @@ fn cmd_explain_family(args: &[String]) {
         "layout" => cmd_explain_layout(&args[1..]),
         "program" => cmd_explain_program(&args[1..]),
         "context" => cmd_explain_context(&args[1..]),
+        "instruction" => cmd_explain_instruction(&args[1..]),
         _ => cmd_explain(args), // treat first arg as hex data
     }
+}
+
+fn cmd_explain_instruction(args: &[String]) {
+    if args.is_empty() {
+        eprintln!("Usage: hopper explain instruction <manifest> <tag|name>");
+        process::exit(1);
+    }
+    cmd_manager_instruction(args);
 }
 
 fn cmd_client_family(args: &[String]) {
@@ -2271,6 +2291,7 @@ fn print_usage() {
         "    hopper verify --package <name>         Infer manifest + .so from a workspace package"
     );
     println!("    hopper publish-check --package <name>  Run release docs, feature, client, fuzz, and ABI gates");
+    println!("    hopper solana-check [--all]            Check SBF crate shape and Hopper entrypoint invariants");
     println!();
     println!("  Schema:");
     println!("    hopper schema export               Schema format reference");
@@ -2291,6 +2312,7 @@ fn print_usage() {
     println!("    hopper explain policy <pack-name>   Explain a named policy pack");
     println!("    hopper explain layout <manifest>    Explain layout fields, intents, fingerprint");
     println!("    hopper explain program <manifest>   Explain entire program pipeline");
+    println!("    hopper explain instruction <manifest> <tag|name>  Explain instruction accounts and policy");
     println!(
         "    hopper explain context <manifest>   Explain instruction contexts and account roles"
     );
@@ -2345,6 +2367,9 @@ fn print_usage() {
     println!("    hopper client gen --ts <manifest>  Generate TypeScript client SDK");
     println!("    hopper client gen --kt <manifest>  Generate Kotlin client SDK");
     println!("    hopper client gen --py <manifest>  Generate Python client SDK");
+    println!("    hopper actions gen --program <manifest> --out api/actions  Generate Solana Actions routes");
+    println!("    hopper mobile gen --program <manifest> --target kotlin|react-native  Generate mobile bindings");
+    println!("    hopper test-gen security --program <manifest>  Generate security test matrix");
     println!();
     println!("Hex data: hex-encoded account bytes (no 0x prefix).");
     println!("Manifest arguments accept inline JSON or @path/to/file.json.");

@@ -93,6 +93,8 @@ Profiling
 
 Project Health
   hopper lint                        Run Hopper project diagnostics
+  hopper lint svm                    Scan typed-context sources for duplicate manual SVM checks
+  hopper solana-check [--all]        Check SBF crate shape and Hopper entrypoint invariants
   hopper expand                      Show lowered macro output for the current project
   hopper doctor                      Check toolchain and workspace health
 
@@ -107,6 +109,9 @@ Client SDK
   hopper client gen --ts <manifest>  Generate TypeScript client SDK
   hopper client gen --kt <manifest>  Generate Kotlin client SDK (org.sol4k)
   hopper client gen --py <manifest>  Generate Python client SDK
+  hopper actions gen --program <manifest> --out api/actions  Generate Solana Actions route scaffolds
+  hopper mobile gen --program <manifest> --target kotlin|react-native  Generate mobile bindings
+  hopper test-gen security --program <manifest>  Generate a security test matrix
 
 Fetch
   hopper fetch <program-id> [--rpc <url>] [--json]  Fetch manifest from on-chain

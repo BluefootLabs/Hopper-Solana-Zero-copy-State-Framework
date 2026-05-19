@@ -165,8 +165,10 @@ vault.set_inner(*ctx.accounts.payer.key(), 0, 0)?;
 - [docs/PORT_QUASAR_IN_20_MINUTES.md](docs/PORT_QUASAR_IN_20_MINUTES.md): hands-on bounded-tail vault/multisig port guide using pretty `#[hopper::account]` fields.
 - [docs/DYNAMIC_TAILS_FROM_QUASAR.md](docs/DYNAMIC_TAILS_FROM_QUASAR.md): mapping Quasar bounded dynamic fields to Hopper fixed-body + compact dynamic-tail layouts.
 - [docs/QUASAR_PINOCCHIO_REPLACEMENT.md](docs/QUASAR_PINOCCHIO_REPLACEMENT.md): what Hopper replaces from Quasar/Pinocchio and how same-provenance benchmark claims are scoped.
-- [docs/CLI_REFERENCE.md](docs/CLI_REFERENCE.md): lifecycle, schema, client, profiling, and manager command reference.
+- [docs/ARGUS_PROOF.md](docs/ARGUS_PROOF.md): evidence sheet for Hopper's safety, DX, raw-control, and devnet proof claims.
+- [docs/CLI_REFERENCE.md](docs/CLI_REFERENCE.md): lifecycle, schema, client, profiling, Solana compatibility gates, generated Actions/mobile/test scaffolds, and manager command reference.
 - [docs/PUBLICATION_AUDIT.md](docs/PUBLICATION_AUDIT.md): crate-by-crate publication and competitive-readiness audit.
+- [docs/DEPENDENCY_AUDIT.md](docs/DEPENDENCY_AUDIT.md): dependency freshness decisions and re-check commands.
 
 ## Progressive Use Model
 
@@ -287,8 +289,9 @@ cargo test -p hopper-lang --features proc-macros,metaplex --test metaplex_contex
 ```
 
 The CLI source lives in `tools/hopper-cli`. It supports lifecycle commands,
-linting, schema/IDL export, manifest inspection, account decoding, client
-generation, manager workflows, and profile helpers.
+linting, `solana-check`, schema/IDL export, manifest inspection, account
+decoding, client generation, Solana Actions scaffolds, mobile bindings,
+security test matrices, manager workflows, and profile helpers.
 
 ## Examples
 
@@ -298,7 +301,7 @@ Framework-first examples:
 - [examples/hopper-vault](examples/hopper-vault): SOL vault using typed wrappers, `set_inner`, checked wire helpers, and a System Program transfer helper for deposits.
 - [examples/hopper-escrow](examples/hopper-escrow): token-escrow shape using the same account facade.
 - [examples/quasar-port-20-min](examples/quasar-port-20-min): Quasar-style bounded dynamic account port with Hopper's dynamic-tail guarantees.
-- [examples/hopper-devnet-audit](examples/hopper-devnet-audit): deployable devnet audit program covering dynamic tails, contexts, segments, and substrate probes.
+- [examples/hopper-devnet-audit](examples/hopper-devnet-audit): deployable devnet audit program covering dynamic tails, contexts, segments, proof chains, Token-2022 policy scans, field capabilities, and substrate probes.
 
 Systems-mode examples:
 

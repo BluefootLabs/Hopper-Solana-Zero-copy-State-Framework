@@ -200,6 +200,57 @@ pub fn token_account_tlv_region(data: &[u8]) -> Option<&[u8]> {
     Some(&data[TLV_OFFSET..])
 }
 
+/// A no-alloc Token-2022 extension policy over a TLV region.
+///
+/// `required` entries must be present; `forbidden` entries must be absent.
+/// This is the common core beneath declarative account constraints and tiny
+/// on-chain probes that want to validate a Token-2022 shape without pulling in
+/// `spl-token-2022` deserialization.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ExtensionPolicy<'a> {
+    pub required: &'a [u16],
+    pub forbidden: &'a [u16],
+}
+
+impl<'a> ExtensionPolicy<'a> {
+    #[inline]
+    pub const fn new(required: &'a [u16], forbidden: &'a [u16]) -> Self {
+        Self {
+            required,
+            forbidden,
+        }
+    }
+}
+
+#[inline]
+pub fn require_extension(tlv: &[u8], ext_type: u16) -> ProgramResult {
+    if find_extension(tlv, ext_type).is_some() {
+        Ok(())
+    } else {
+        Err(ProgramError::InvalidAccountData)
+    }
+}
+
+#[inline]
+pub fn forbid_extension(tlv: &[u8], ext_type: u16) -> ProgramResult {
+    if find_extension(tlv, ext_type).is_none() {
+        Ok(())
+    } else {
+        Err(ProgramError::InvalidAccountData)
+    }
+}
+
+#[inline]
+pub fn validate_extension_policy(tlv: &[u8], policy: &ExtensionPolicy<'_>) -> ProgramResult {
+    for ext_type in policy.required {
+        require_extension(tlv, *ext_type)?;
+    }
+    for ext_type in policy.forbidden {
+        forbid_extension(tlv, *ext_type)?;
+    }
+    Ok(())
+}
+
 // ── Declarative require_* helpers for the common cases ────────────────
 
 /// Require a mint to carry the `NonTransferable` extension.
@@ -341,11 +392,47 @@ pub fn require_immutable_owner(token_account: &AccountView) -> ProgramResult {
         .try_borrow()
         .map_err(|_| ProgramError::AccountBorrowFailed)?;
     let tlv = token_account_tlv_region(&data).ok_or(ProgramError::InvalidAccountData)?;
-    if find_extension(tlv, EXT_IMMUTABLE_OWNER).is_some() {
-        Ok(())
-    } else {
-        Err(ProgramError::InvalidAccountData)
-    }
+    require_extension(tlv, EXT_IMMUTABLE_OWNER)
+}
+
+/// Require a token account to carry the `CpiGuard` extension.
+#[inline]
+pub fn require_cpi_guard(token_account: &AccountView) -> ProgramResult {
+    let data = token_account
+        .try_borrow()
+        .map_err(|_| ProgramError::AccountBorrowFailed)?;
+    let tlv = token_account_tlv_region(&data).ok_or(ProgramError::InvalidAccountData)?;
+    require_extension(tlv, EXT_CPI_GUARD)
+}
+
+/// Require a mint to carry the `ConfidentialTransferMint` extension.
+#[inline]
+pub fn require_confidential_transfer_mint(mint: &AccountView) -> ProgramResult {
+    let data = mint
+        .try_borrow()
+        .map_err(|_| ProgramError::AccountBorrowFailed)?;
+    let tlv = mint_tlv_region(&data).ok_or(ProgramError::InvalidAccountData)?;
+    require_extension(tlv, EXT_CONFIDENTIAL_TRANSFER_MINT)
+}
+
+/// Require a token account to carry the `ConfidentialTransferAccount` extension.
+#[inline]
+pub fn require_confidential_transfer_account(token_account: &AccountView) -> ProgramResult {
+    let data = token_account
+        .try_borrow()
+        .map_err(|_| ProgramError::AccountBorrowFailed)?;
+    let tlv = token_account_tlv_region(&data).ok_or(ProgramError::InvalidAccountData)?;
+    require_extension(tlv, EXT_CONFIDENTIAL_TRANSFER_ACCOUNT)
+}
+
+/// Require a mint to carry the `ScaledUiAmountConfig` extension.
+#[inline]
+pub fn require_scaled_ui_amount_config(mint: &AccountView) -> ProgramResult {
+    let data = mint
+        .try_borrow()
+        .map_err(|_| ProgramError::AccountBorrowFailed)?;
+    let tlv = mint_tlv_region(&data).ok_or(ProgramError::InvalidAccountData)?;
+    require_extension(tlv, EXT_SCALED_UI_AMOUNT_CONFIG)
 }
 
 /// Require a mint's `DefaultAccountState` byte to equal `expected`.
@@ -563,6 +650,45 @@ mod tests {
         let tlv = mint_tlv_region(&data).unwrap();
         let perm = find_extension(tlv, EXT_PERMANENT_DELEGATE).unwrap();
         assert_eq!(perm, &[2u8; 32]);
+    }
+
+    #[test]
+    fn extension_policy_requires_and_forbids_extensions() {
+        let data = mint_with_exts(&[
+            (EXT_CONFIDENTIAL_TRANSFER_MINT, &[0u8; 1]),
+            (EXT_SCALED_UI_AMOUNT_CONFIG, &[0u8; 1]),
+        ]);
+        let tlv = mint_tlv_region(&data).unwrap();
+        let policy = ExtensionPolicy::new(
+            &[EXT_CONFIDENTIAL_TRANSFER_MINT, EXT_SCALED_UI_AMOUNT_CONFIG],
+            &[EXT_TRANSFER_HOOK],
+        );
+
+        validate_extension_policy(tlv, &policy).unwrap();
+
+        let rejected = ExtensionPolicy::new(
+            &[EXT_CONFIDENTIAL_TRANSFER_MINT],
+            &[EXT_SCALED_UI_AMOUNT_CONFIG],
+        );
+        assert_eq!(
+            validate_extension_policy(tlv, &rejected),
+            Err(ProgramError::InvalidAccountData)
+        );
+    }
+
+    #[test]
+    fn token_account_policy_sees_cpi_guard_and_confidential_account() {
+        let data = token_account_with_exts(&[
+            (EXT_CPI_GUARD, &[]),
+            (EXT_CONFIDENTIAL_TRANSFER_ACCOUNT, &[0u8; 1]),
+        ]);
+        let tlv = token_account_tlv_region(&data).unwrap();
+
+        validate_extension_policy(
+            tlv,
+            &ExtensionPolicy::new(&[EXT_CPI_GUARD, EXT_CONFIDENTIAL_TRANSFER_ACCOUNT], &[]),
+        )
+        .unwrap();
     }
 
     // ── Region accept / reject edges ─────────────────────────────────────

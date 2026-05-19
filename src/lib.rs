@@ -258,8 +258,10 @@ pub mod segment {
     };
     pub use hopper_core::segment_map::{assert_segment_field_alignment, SegmentMap, StaticSegment};
     pub use hopper_runtime::{
-        AccessKind, Ref, RefMut, SegRef, SegRefMut, Segment, SegmentBorrow, SegmentBorrowGuard,
-        SegmentBorrowRegistry, SegmentLease, TypedSegment,
+        AccessKind, FieldCapability, Ref, RefMut, SegRef, SegRefMut, Segment, SegmentBorrow,
+        SegmentBorrowGuard, SegmentBorrowRegistry, SegmentLease, TypedSegment,
+        FIELD_POLICY_AUTHORITY_GATED, FIELD_POLICY_CHECKED_MATH, FIELD_POLICY_IMMUTABLE_AFTER_INIT,
+        FIELD_ROLE_AUTHORITY, FIELD_ROLE_BALANCE, FIELD_ROLE_DATA, FIELD_ROLE_VERSION,
     };
 }
 
@@ -295,7 +297,7 @@ pub mod schema {
 pub mod policy {
     #[cfg(feature = "policy")]
     pub use hopper_core::policy::*;
-    pub use hopper_runtime::{HopperInstructionPolicy, HopperProgramPolicy};
+    pub use hopper_runtime::{HopperInstructionPolicy, HopperProgramPolicy, HopperProgramProfile};
 }
 
 /// Protocol-grade Hopper surface.
@@ -325,9 +327,11 @@ pub mod systems {
     pub use hopper_core::prelude_core::*;
     pub use hopper_runtime::{
         fast_entrypoint, hopper_entrypoint, hopper_fast_entrypoint, hopper_lazy_entrypoint,
-        lazy_entrypoint, no_allocator, nostd_panic_handler, program_entrypoint, BoundedString,
-        BoundedVec, CpiAccount, HopperString, HopperVec, InstructionAccount, InstructionView, Seed,
-        TailCodec, TailElement,
+        lazy_entrypoint, no_allocator, nostd_panic_handler, program_entrypoint, AccountProof,
+        BoundedString, BoundedVec, CpiAccount, ExecutableChecked, HasOneChecked, HopperString,
+        HopperVec, InstructionAccount, InstructionView, LayoutChecked, OwnerChecked, Seed,
+        SeedsChecked, SignerChecked, TailCodec, TailElement, TokenExtensionsChecked, Unchecked,
+        WritableChecked,
     };
 
     pub use crate::{
@@ -822,15 +826,17 @@ pub use hopper_macros_proc::{
 // Private re-export for generated code to reference runtime types
 #[doc(hidden)]
 pub mod __runtime {
+    pub use hopper_runtime::token_2022_ext;
     pub use hopper_runtime::{
         apply_pending_migrations, borrow_address_slice, borrow_bounded_str, read_tail,
         read_tail_len, tail_capacity, tail_payload, write_tail, Account, AccountLayout,
         AccountView, Address, BoundedString, BoundedVec, Context, FieldInfo, FieldMap,
-        HopperHeader, HopperInstructionPolicy, HopperProgramPolicy, HopperSigner, HopperString,
-        HopperVec, InitAccount, InstructionAccount, InstructionView, Interface, InterfaceAccount,
-        InterfaceAccountLayout, InterfaceAccountResolve, InterfaceSpec, LayoutContract, LayoutInfo,
-        LayoutMigration, MigrationEdge, Pod, Program, ProgramError, ProgramId, Ref, RefMut, SegRef,
-        SegRefMut, SegmentLease, SystemAccount, SystemId, TailCodec, TailElement, UncheckedAccount,
+        HopperHeader, HopperInstructionPolicy, HopperProgramPolicy, HopperProgramProfile,
+        HopperSigner, HopperString, HopperVec, InitAccount, InstructionAccount, InstructionView,
+        Interface, InterfaceAccount, InterfaceAccountLayout, InterfaceAccountResolve,
+        InterfaceSpec, LayoutContract, LayoutInfo, LayoutMigration, MigrationEdge, Pod, Program,
+        ProgramError, ProgramId, Ref, RefMut, SegRef, SegRefMut, SegmentLease, SystemAccount,
+        SystemId, TailCodec, TailElement, UncheckedAccount,
     };
 
     // Crank marker type plus dynamic-CPI builder, emitted by

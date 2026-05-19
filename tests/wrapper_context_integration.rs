@@ -104,10 +104,13 @@ fn prelude_exports_memo_and_token_interface_helpers() {
     assert_eq!(label.as_str().unwrap(), "ops");
     let label_alias = Text::<8>::from_str("ops").unwrap();
     assert_eq!(label_alias.as_str().unwrap(), "ops");
-    let string_alias = HopperPrettyString::<8>::from_str("ops").unwrap();
+    let string_alias = HopperPrettyString::<'static, 8>::from_str("ops").unwrap();
     assert_eq!(string_alias.as_str().unwrap(), "ops");
     assert_eq!(<List<u16, 4> as TailCodec>::MAX_ENCODED_LEN, 10);
-    assert_eq!(<HopperPrettyVec<u16, 4> as TailCodec>::MAX_ENCODED_LEN, 10);
+    assert_eq!(
+        <HopperPrettyVec<'static, u16, 4> as TailCodec>::MAX_ENCODED_LEN,
+        10
+    );
     assert_eq!(
         core::mem::size_of::<TokenProgramKind>(),
         core::mem::size_of::<u8>(),
@@ -204,6 +207,23 @@ mod hero_program {
     }
 }
 
+#[allow(dead_code)]
+#[hopper::program(profile = "tiny", entrypoint = false)]
+mod tiny_profile_program {
+    #[instruction(0)]
+    pub fn noop(_ctx: &mut hopper::prelude::Context<'_>) -> hopper::prelude::ProgramResult {
+        Ok(())
+    }
+}
+
+#[test]
+fn program_profile_tiny_is_emitted() {
+    assert_eq!(
+        tiny_profile_program::HOPPER_PROGRAM_PROFILE,
+        hopper::__runtime::HopperProgramProfile::TINY
+    );
+}
+
 #[derive(hopper::Accounts)]
 pub struct Increment<'info> {
     #[account(mut)]
@@ -215,6 +235,23 @@ pub struct Increment<'info> {
 pub struct ReadInterface<'info> {
     pub vault_program: hopper::prelude::Interface<'info, VaultInterface>,
     pub remote_vault: hopper::prelude::InterfaceAccount<'info, TinyLayout>,
+}
+
+#[derive(hopper::Accounts)]
+pub struct Token2022NewExtensionSyntax<'info> {
+    #[account(
+        mint::token_program = hopper::token_2022::TOKEN_2022_PROGRAM_ID,
+        extensions::confidential_transfer::mint,
+        extensions::scaled_ui_amount::config,
+    )]
+    pub mint: hopper::prelude::UncheckedAccount<'info>,
+
+    #[account(
+        token::token_program = hopper::token_2022::TOKEN_2022_PROGRAM_ID,
+        extensions::cpi_guard,
+        extensions::confidential_transfer::account,
+    )]
+    pub token_account: hopper::prelude::UncheckedAccount<'info>,
 }
 
 #[derive(hopper::Accounts)]

@@ -56,6 +56,7 @@ pub mod log;
 pub mod migrate;
 pub mod pod;
 pub mod policy;
+pub mod proof;
 pub mod ref_only;
 pub mod result;
 pub mod segment;
@@ -99,7 +100,11 @@ pub use field_map::{FieldInfo, FieldMap};
 pub use foreign::{ForeignLens, ForeignManifest};
 pub use interop::TransparentAddress;
 pub use migrate::{apply_pending_migrations, LayoutMigration, MigrationEdge};
-pub use policy::{HopperInstructionPolicy, HopperProgramPolicy};
+pub use policy::{HopperInstructionPolicy, HopperProgramPolicy, HopperProgramProfile};
+pub use proof::{
+    AccountProof, ExecutableChecked, HasOneChecked, LayoutChecked, OwnerChecked, SeedsChecked,
+    SignerChecked, TokenExtensionsChecked, Unchecked, WritableChecked,
+};
 pub use ref_only::HopperRefOnly;
 pub use remaining::{
     RemainingAccountViews, RemainingAccounts, RemainingError, RemainingMode, RemainingSigners,
@@ -147,7 +152,11 @@ pub use instruction::{InstructionAccount, InstructionView, Seed, Signer};
 pub use layout::{HopperHeader, LayoutContract, LayoutInfo};
 pub use pod::Pod;
 pub use result::ProgramResult;
-pub use segment::{Segment, TypedSegment};
+pub use segment::{
+    FieldCapability, Segment, TypedSegment, FIELD_POLICY_AUTHORITY_GATED,
+    FIELD_POLICY_CHECKED_MATH, FIELD_POLICY_IMMUTABLE_AFTER_INIT, FIELD_ROLE_AUTHORITY,
+    FIELD_ROLE_BALANCE, FIELD_ROLE_DATA, FIELD_ROLE_VERSION,
+};
 pub use segment_borrow::{AccessKind, SegmentBorrow, SegmentBorrowGuard, SegmentBorrowRegistry};
 pub use segment_lease::{SegRef, SegRefMut, SegmentLease};
 pub use zerocopy::{AccountLayout, WireLayout, ZeroCopy};
