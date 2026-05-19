@@ -9,12 +9,6 @@ Start here for the current Hopper framework surface:
 - [DYNAMIC_TAILS_FROM_QUASAR.md](DYNAMIC_TAILS_FROM_QUASAR.md) - bounded dynamic fields, generated tail helpers, and explicit tail wiring.
 - [PORT_QUASAR_IN_20_MINUTES.md](PORT_QUASAR_IN_20_MINUTES.md) - hands-on Quasar-style dynamic account port.
 - [../examples/hopper-devnet-audit/README.md](../examples/hopper-devnet-audit/README.md) - devnet audit program for dynamic tails, segments, and substrate probes.
-- [HOPPER_VS_ANCHOR_QUASAR_PINOCCHIO.md](HOPPER_VS_ANCHOR_QUASAR_PINOCCHIO.md) - positioning and benchmark language without overclaiming.
-- [QUASAR_PINOCCHIO_REPLACEMENT.md](QUASAR_PINOCCHIO_REPLACEMENT.md) - mapped replacement surface and benchmark provenance rules.
-- [ARGUS_PROOF.md](ARGUS_PROOF.md) - evidence sheet for Hopper's safety, DX, raw-control, and devnet proof claims.
+- [PROFILING.md](PROFILING.md) - `hopper profile elf`, binary profile artifacts, and reproducible benchmark commands.
+- [PROTOCOL_GRADE_EXAMPLES.md](PROTOCOL_GRADE_EXAMPLES.md) - receipt indexing, compatibility reports, migration plans, typed cross-program reads, and segment leases.
 - [DEPENDENCY_AUDIT.md](DEPENDENCY_AUDIT.md) - dependency freshness decisions and re-check commands.
-
-Historical research, presplit notes, and older systems-first sketches live in
-[archive/](archive/). They may mention older spellings such as
-`#[hopper::context]`, `AccountView`, or manual entrypoints, and should not be
-used as the first-touch authoring model.

@@ -643,6 +643,51 @@ pub struct DecodedReceipt {
     pub failure_stage: u8,
 }
 
+/// Stable, indexer-oriented projection of a decoded receipt.
+///
+/// This keeps the 72-byte wire format unchanged while giving off-chain stores a
+/// compact row shape to key, filter, and aggregate by layout, phase, changed
+/// fields, touched segments, compatibility impact, and failure metadata.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ReceiptIndexRecord {
+    /// Deterministic grouping key: `layout_id || after_fingerprint`.
+    pub index_key: [u8; 16],
+    /// Layout identifier of the account this receipt was produced for.
+    pub layout_id: [u8; 8],
+    /// Instruction phase at which the receipt was sealed.
+    pub phase: u8,
+    /// Compatibility class of the mutation.
+    pub compat_impact: u8,
+    /// Bitmask of migration-related flags.
+    pub migration_flags: u8,
+    /// Bitmask of changed field indices.
+    pub changed_fields: u64,
+    /// Number of changed field bits set in `changed_fields`.
+    pub changed_field_count: u16,
+    /// Bitmask of changed segment indices.
+    pub segment_changed_mask: u16,
+    /// Number of changed segment bits set in `segment_changed_mask`.
+    pub changed_segment_count: u8,
+    /// Policy/capability flags active for the instruction.
+    pub policy_flags: u32,
+    /// Program-defined validation bundle identifier.
+    pub validation_bundle_id: u16,
+    /// Account data size before mutation.
+    pub old_size: u32,
+    /// Account data size after mutation.
+    pub new_size: u32,
+    /// Total number of changed bytes.
+    pub changed_bytes: u32,
+    /// Whether the receipt recorded a failure path.
+    pub had_failure: bool,
+    /// Program error code associated with the failure, or zero when none.
+    pub failed_error_code: u32,
+    /// Invariant index associated with the failure, or `FAILED_INVARIANT_NONE`.
+    pub failed_invariant_idx: u8,
+    /// Stage at which the failure occurred.
+    pub failure_stage: u8,
+}
+
 impl DecodedReceipt {
     /// Decode a receipt from its 72-byte wire representation.
     ///
@@ -727,6 +772,55 @@ impl DecodedReceipt {
             failed_invariant_idx,
             failure_stage,
         })
+    }
+
+    /// Deterministic index key: `layout_id || after_fingerprint`.
+    ///
+    /// Indexers can combine this with the transaction signature/log index for a
+    /// unique primary key while still grouping by layout and final state.
+    #[inline]
+    pub fn index_key(&self) -> [u8; 16] {
+        let mut key = [0u8; 16];
+        key[..8].copy_from_slice(&self.layout_id);
+        key[8..].copy_from_slice(&self.after_fingerprint);
+        key
+    }
+
+    /// Number of changed fields recorded in the bitmask.
+    #[inline(always)]
+    pub fn changed_field_count(&self) -> u16 {
+        self.changed_fields.count_ones() as u16
+    }
+
+    /// Number of changed segments recorded in the bitmask.
+    #[inline(always)]
+    pub fn changed_segment_count(&self) -> u8 {
+        self.segment_changed_mask.count_ones() as u8
+    }
+
+    /// Project this receipt into a stable indexer row.
+    #[inline]
+    pub fn index_record(&self) -> ReceiptIndexRecord {
+        ReceiptIndexRecord {
+            index_key: self.index_key(),
+            layout_id: self.layout_id,
+            phase: self.phase,
+            compat_impact: self.compat_impact,
+            migration_flags: self.migration_flags,
+            changed_fields: self.changed_fields,
+            changed_field_count: self.changed_field_count(),
+            segment_changed_mask: self.segment_changed_mask,
+            changed_segment_count: self.changed_segment_count(),
+            policy_flags: self.policy_flags,
+            validation_bundle_id: self.validation_bundle_id,
+            old_size: self.old_size,
+            new_size: self.new_size,
+            changed_bytes: self.changed_bytes,
+            had_failure: self.had_failure,
+            failed_error_code: self.failed_error_code,
+            failed_invariant_idx: self.failed_invariant_idx,
+            failure_stage: self.failure_stage,
+        }
     }
 
     /// Resolve the `failure_stage` byte to a [`FailureStage`] enum.

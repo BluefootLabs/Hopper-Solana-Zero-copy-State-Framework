@@ -1,6 +1,6 @@
-# Hopper Publication and Competitive-Readiness Audit
+# Hopper Publication and Release-Readiness Audit
 
-This audit is a release-facing checklist for Hopper as a Solana zero-copy state framework. Each statement is tied to a crate, document, test, or CLI gate in this repository. Competitive comparisons are scope comparisons, not live benchmark claims.
+This audit is a release-facing checklist for Hopper as a Solana zero-copy state framework. Each statement is tied to a crate, document, test, or CLI gate in this repository. Benchmark claims must stay tied to the reproducible benchmark suite.
 
 ## Publication Verdict
 

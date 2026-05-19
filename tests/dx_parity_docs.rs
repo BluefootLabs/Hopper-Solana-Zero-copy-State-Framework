@@ -44,10 +44,6 @@ fn public_docs_and_templates_stay_on_first_touch_surface() {
             include_str!("../docs/TOKEN_2022_GUIDE.md"),
         ),
         (
-            "docs/HOPPER_VS_ANCHOR_QUASAR_PINOCCHIO.md",
-            include_str!("../docs/HOPPER_VS_ANCHOR_QUASAR_PINOCCHIO.md"),
-        ),
-        (
             "tools/hopper-cli/src/cmd/add.rs",
             include_str!("../tools/hopper-cli/src/cmd/add.rs"),
         ),

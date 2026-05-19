@@ -32,9 +32,13 @@ harness live separately so release claims stay reproducible and easy to audit.
 - A focused framework facade: `#[hopper::account]`, `#[hopper::program]`,
   `#[derive(Accounts)]`, `Account<'info, T>`, `Signer<'info>`, `Program<'info, P>`.
 - Zero-copy typed account access over fixed-layout account bytes.
+- Closure-scoped `with` / `with_mut` account access for direct state mutation
+  while Hopper owns validation and borrow lifetimes.
 - Layout fingerprints and versioned headers for account compatibility checks.
 - Segment-aware access helpers for field-level borrow tracking behind
   `hopper::systems::*`.
+- Token-2022 extension constraints that scan TLV data without leaving the
+  zero-copy path.
 - Optional proc macros for faster authoring; the core framework remains usable
   without proc macros.
 - Progressive modules: `hopper::account`, `hopper::cpi`, and `hopper::token`
@@ -61,7 +65,7 @@ harness live separately so release claims stay reproducible and easy to audit.
 - The current same-provenance vault benchmark snapshot is documented in
   [BENCHMARKS.md](BENCHMARKS.md); regenerate it from the separate
   [hopper-bench](https://github.com/BluefootLabs/hopper-bench) repo before
-  changing launch or comparison claims.
+  changing launch or benchmark claims.
 - Security-sensitive users should review [AUDIT.md](AUDIT.md) and
   [docs/UNSAFE_INVARIANTS.md](docs/UNSAFE_INVARIANTS.md) before deployment.
 
@@ -135,9 +139,9 @@ mod counter_program {
 
     #[instruction(0)]
     pub fn increment(ctx: Ctx<Increment>) -> ProgramResult {
-        let mut counter = ctx.accounts.counter.get_mut()?;
-        counter.value.checked_add_assign(1)?;
-        Ok(())
+        ctx.accounts
+            .counter
+            .with_mut(|counter| counter.value.checked_add_assign(1))
     }
 }
 ```
@@ -146,28 +150,28 @@ Initialization uses the same surface. After `ctx.init_vault()?`, mutate the
 fresh account through `ctx.accounts` and the generated `set_inner(...)` helper:
 
 ```rust
-let mut vault = ctx.accounts.vault.get_mut_after_init()?;
-vault.set_inner(*ctx.accounts.payer.key(), 0, 0)?;
+ctx.accounts
+    .vault
+    .with_mut_after_init(|vault| vault.set_inner(*ctx.accounts.payer.key(), 0, 0))?;
 ```
 
 ## Documentation map
 
-- [docs/README.md](docs/README.md): current docs front door and archive boundary.
+- [docs/README.md](docs/README.md): current docs front door.
 - [docs/FIRST_FIVE_MINUTES.md](docs/FIRST_FIVE_MINUTES.md): counter, vault, dynamic multisig, token transfer, and raw escape hatch through the `ctx.accounts.*` path.
 - [docs/GETTING_STARTED_SERIOUS.md](docs/GETTING_STARTED_SERIOUS.md): source-first setup and first serious program flow.
 - [docs/HOPPER_LAYERS.md](docs/HOPPER_LAYERS.md): framework mode, structured state, systems mode, and Anchor/Quasar/Hopper mental mapping.
 - [docs/WRITING_HOPPER_PROGRAMS.md](docs/WRITING_HOPPER_PROGRAMS.md): Hopper authoring patterns and program structure.
-- [docs/HOPPER_VS_ANCHOR_QUASAR_PINOCCHIO.md](docs/HOPPER_VS_ANCHOR_QUASAR_PINOCCHIO.md): competitive positioning, interface status, and benchmark language without overclaiming performance.
-- [docs/DX_PARITY_AUDIT.md](docs/DX_PARITY_AUDIT.md): first-touch DX mapping and regression guards for docs, templates, and examples.
+- [docs/PROFILING.md](docs/PROFILING.md): `hopper profile elf`, binary profile artifacts, and reproducible benchmark commands.
+- [docs/PROTOCOL_GRADE_EXAMPLES.md](docs/PROTOCOL_GRADE_EXAMPLES.md): receipt indexing, compatibility reports, migration plans, typed cross-program reads, and segment leases.
 - [docs/POLICY_GUARANTEES.md](docs/POLICY_GUARANTEES.md): capability policy, sealed/raw/hybrid access, and the policy-vault example.
 - [docs/MIGRATION_FROM_ANCHOR.md](docs/MIGRATION_FROM_ANCHOR.md): Anchor-to-Hopper migration notes.
 - [docs/MIGRATION_FROM_QUASAR.md](docs/MIGRATION_FROM_QUASAR.md): Quasar-to-Hopper migration notes.
 - [docs/PORT_QUASAR_IN_20_MINUTES.md](docs/PORT_QUASAR_IN_20_MINUTES.md): hands-on bounded-tail vault/multisig port guide using pretty `#[hopper::account]` fields.
 - [docs/DYNAMIC_TAILS_FROM_QUASAR.md](docs/DYNAMIC_TAILS_FROM_QUASAR.md): mapping Quasar bounded dynamic fields to Hopper fixed-body + compact dynamic-tail layouts.
-- [docs/QUASAR_PINOCCHIO_REPLACEMENT.md](docs/QUASAR_PINOCCHIO_REPLACEMENT.md): what Hopper replaces from Quasar/Pinocchio and how same-provenance benchmark claims are scoped.
-- [docs/ARGUS_PROOF.md](docs/ARGUS_PROOF.md): evidence sheet for Hopper's safety, DX, raw-control, and devnet proof claims.
+- [docs/TOKEN_2022_GUIDE.md](docs/TOKEN_2022_GUIDE.md): zero-copy Token-2022 extension policies and account constraint syntax.
 - [docs/CLI_REFERENCE.md](docs/CLI_REFERENCE.md): lifecycle, schema, client, profiling, Solana compatibility gates, generated Actions/mobile/test scaffolds, and manager command reference.
-- [docs/PUBLICATION_AUDIT.md](docs/PUBLICATION_AUDIT.md): crate-by-crate publication and competitive-readiness audit.
+- [docs/PUBLICATION_AUDIT.md](docs/PUBLICATION_AUDIT.md): crate-by-crate publication and release-readiness audit.
 - [docs/DEPENDENCY_AUDIT.md](docs/DEPENDENCY_AUDIT.md): dependency freshness decisions and re-check commands.
 
 ## Progressive Use Model
@@ -309,7 +313,7 @@ Systems-mode examples:
 - [examples/hopper-policy-vault](examples/hopper-policy-vault): strict, sealed, raw, and hybrid handlers side by side.
 - [examples/hopper-showcase](examples/hopper-showcase): broad feature tour across framework and systems layers.
 
-Raw and parity examples:
+Raw and benchmark examples:
 
 - [examples/hopper-parity-vault](examples/hopper-parity-vault): apples-to-apples benchmark target with intentionally low-level lamport mutation.
 - [examples/hopper-token-2022-vault](examples/hopper-token-2022-vault) and [examples/hopper-token-2022-ata](examples/hopper-token-2022-ata): Token-2022 low-level validation and CPI examples.

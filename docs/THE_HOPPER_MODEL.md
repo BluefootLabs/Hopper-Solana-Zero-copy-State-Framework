@@ -394,7 +394,7 @@ impl. No panics on-chain. Every error path returns a specific code.
 
 ## Where to Go Next
 
-- [README.md](../README.md) -- quick start and comparison table
+- [README.md](../README.md) -- quick start and docs map
 - [MEMORY_ACCESS.md](MEMORY_ACCESS.md) -- memory tier doctrine and performance
 - [UNSAFE_INVARIANTS.md](UNSAFE_INVARIANTS.md) -- every unsafe block cataloged
 - [ARCHITECTURE.md](ARCHITECTURE.md) -- crate structure and module map

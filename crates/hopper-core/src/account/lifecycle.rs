@@ -21,7 +21,9 @@ pub fn zero_init(data: &mut [u8]) {
 
 /// Safely close an account by draining all lamports to `destination`.
 ///
-/// Zeroes the account data and writes the close sentinel to prevent revival.
+/// This is the advanced no-sentinel primitive: it zeroes account data but does
+/// not mark byte 0 with [`CLOSE_SENTINEL`]. Generated Hopper close helpers use
+/// [`safe_close_with_sentinel`] via `hopper_close!`.
 #[inline]
 pub fn safe_close(account: &AccountView, destination: &AccountView) -> ProgramResult {
     let lamports = account.lamports();
@@ -62,36 +64,115 @@ pub fn safe_close_with_sentinel(account: &AccountView, destination: &AccountView
 
 /// Reallocate an account to a new size.
 ///
-/// Handles the rent-exemption delta and transfers lamports from/to `payer`.
+/// Handles the rent-exemption delta and transfers lamports from `payer` after
+/// preflighting rent and balance checks. The order is intentional: the function
+/// does all arithmetic and funding validation before the account data length is
+/// changed, then performs the resize, then applies the lamport movement.
 #[inline]
 pub fn safe_realloc(account: &AccountView, new_size: usize, payer: &AccountView) -> ProgramResult {
+    let rent_needed = rent_exempt_min_internal(new_size)?;
+    let current_lamports = account.lamports();
+    let deficit = rent_needed.saturating_sub(current_lamports);
+
+    let payer_lamports_after = if deficit > 0 {
+        Some(
+            payer
+                .lamports()
+                .checked_sub(deficit)
+                .ok_or(ProgramError::InsufficientFunds)?,
+        )
+    } else {
+        None
+    };
+    let account_lamports_after = if deficit > 0 {
+        Some(
+            current_lamports
+                .checked_add(deficit)
+                .ok_or(ProgramError::ArithmeticOverflow)?,
+        )
+    } else {
+        None
+    };
+
     account.resize(new_size)?;
 
-    // Compute new rent and transfer delta
-    let rent_needed = rent_exempt_min_internal(new_size);
-    let current_lamports = account.lamports();
-
-    if rent_needed > current_lamports {
-        let deficit = rent_needed - current_lamports;
-        // Transfer from payer to account
-        let payer_lamports = payer
-            .lamports()
-            .checked_sub(deficit)
-            .ok_or(ProgramError::InsufficientFunds)?;
+    if let (Some(payer_lamports), Some(account_lamports)) =
+        (payer_lamports_after, account_lamports_after)
+    {
         payer.set_lamports(payer_lamports);
-        let acct_lamports = account
-            .lamports()
-            .checked_add(deficit)
-            .ok_or(ProgramError::ArithmeticOverflow)?;
-        account.set_lamports(acct_lamports);
+        account.set_lamports(account_lamports);
     }
 
     Ok(())
 }
 
 // Internal rent calculation (matches Solana's formula).
-pub(crate) fn rent_exempt_min_internal(data_len: usize) -> u64 {
+pub(crate) fn rent_exempt_min_internal(data_len: usize) -> Result<u64, ProgramError> {
     // Solana formula: (128 + data_len) * 6960 lamports (approximately)
     // This is the standard exemption calculation.
-    ((128 + data_len) as u64) * 6960
+    let data_len = u64::try_from(data_len).map_err(|_| ProgramError::ArithmeticOverflow)?;
+    data_len
+        .checked_add(128)
+        .and_then(|bytes| bytes.checked_mul(6960))
+        .ok_or(ProgramError::ArithmeticOverflow)
+}
+
+#[cfg(all(test, feature = "hopper-native-backend"))]
+mod tests {
+    use super::*;
+    use hopper_native::{
+        AccountView as NativeAccountView, Address as NativeAddress, RuntimeAccount, NOT_BORROWED,
+    };
+
+    fn make_account(data_len: usize, lamports: u64, seed: u8) -> (std::vec::Vec<u8>, AccountView) {
+        let mut backing = std::vec![0u8; RuntimeAccount::SIZE + data_len];
+        let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
+        // SAFETY: The test owns `backing`, writes one valid RuntimeAccount header,
+        // and keeps the backing buffer alive for the returned AccountView.
+        unsafe {
+            raw.write(RuntimeAccount {
+                borrow_state: NOT_BORROWED,
+                is_signer: 1,
+                is_writable: 1,
+                executable: 0,
+                resize_delta: 0,
+                address: NativeAddress::new_from_array([seed; 32]),
+                owner: NativeAddress::new_from_array([2; 32]),
+                lamports,
+                data_len: data_len as u64,
+            });
+        }
+        // SAFETY: `raw` points at the RuntimeAccount header just initialized above.
+        let backend = unsafe { NativeAccountView::new_unchecked(raw) };
+        // SAFETY: hopper-runtime AccountView is repr(transparent) over the active
+        // hopper-native AccountView when the hopper-native backend feature is enabled.
+        let view = unsafe { core::mem::transmute::<NativeAccountView, AccountView>(backend) };
+        (backing, view)
+    }
+
+    #[test]
+    fn safe_realloc_checks_funding_before_resize() {
+        let (_account_backing, account) = make_account(16, 0, 1);
+        let (_payer_backing, payer) = make_account(0, 1, 2);
+
+        let result = safe_realloc(&account, 64, &payer);
+
+        assert_eq!(result, Err(ProgramError::InsufficientFunds));
+        assert_eq!(account.data_len(), 16);
+        assert_eq!(account.lamports(), 0);
+        assert_eq!(payer.lamports(), 1);
+    }
+
+    #[test]
+    fn safe_realloc_moves_lamports_after_successful_resize() {
+        let needed = rent_exempt_min_internal(32).unwrap();
+        let (_account_backing, account) = make_account(16, 0, 3);
+        let (_payer_backing, payer) = make_account(0, needed, 4);
+
+        safe_realloc(&account, 32, &payer).unwrap();
+
+        assert_eq!(account.data_len(), 32);
+        assert_eq!(account.lamports(), needed);
+        assert_eq!(payer.lamports(), 0);
+    }
 }

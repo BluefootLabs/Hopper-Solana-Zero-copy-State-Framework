@@ -1,9 +1,33 @@
 # Client Generation
 
-> - `hopper client gen --ts <manifest.json>` → TypeScript SDK
-> - `hopper client gen --kt <manifest.json>` → Kotlin SDK (`org.sol4k`)
-> - `hopper client gen --py <manifest.json>` → Python SDK (stdlib-only)
-> - `hopper compile --emit rust-client <manifest.json>` → Rust off-chain SDK
+> - `hopper client gen --ts <manifest.json>` -> TypeScript SDK
+> - `hopper client gen --kt <manifest.json>` -> Kotlin SDK (`org.sol4k`)
+> - `hopper client gen --py <manifest.json>` -> Python SDK (stdlib-only)
+> - `hopper compile --emit rust-client <manifest.json>` -> Rust off-chain SDK
+
+## Copyable generated-client flows
+
+Write all generated artifacts to files during release verification:
+
+```powershell
+hopper compile --emit ts --package hopper-token-2022-vault --out target/clients/vault.ts --force
+hopper compile --emit kt --package hopper-token-2022-vault --out target/clients/Vault.kt --force
+hopper compile --emit py --package hopper-token-2022-vault --out target/clients/vault_client.py --force
+hopper compile --emit rust-client --package hopper-token-2022-vault --out target/clients/vault_client.rs --force
+```
+
+Generate user-facing surfaces from the same manifest:
+
+```powershell
+hopper actions gen --program examples/hopper-token-2022-vault/hopper.manifest.json --out target/actions
+hopper mobile gen --program examples/hopper-token-2022-vault/hopper.manifest.json --target kotlin --out target/mobile-kotlin
+hopper mobile gen --program examples/hopper-token-2022-vault/hopper.manifest.json --target react-native --out target/mobile-rn
+hopper test-gen security --program examples/hopper-token-2022-vault/hopper.manifest.json --out target/security_matrix.rs
+```
+
+Every command above consumes the manifest. That keeps account layout identity,
+instruction tags, client decoders, Actions routes, mobile bindings, and generated
+security test matrices on the same source of truth.
 
 ## Motivation
 
@@ -51,6 +75,7 @@ its own file, or consumed by a generation pipeline.
 ### Account decoders
 
 Each account type gets:
+
 - A TypeScript interface with typed fields
 - A `decode<Name>(data: Buffer): <Name>` function
 - A discriminator constant for account identification
@@ -58,6 +83,7 @@ Each account type gets:
 ### Instruction builders
 
 Each instruction gets:
+
 - An `<InstructionName>Args` interface for typed arguments
 - An `<InstructionName>Accounts` interface for required accounts
 - A `create<InstructionName>Instruction(args, accounts, programId)` function
@@ -66,6 +92,7 @@ Each instruction gets:
 ### Events
 
 Each event gets:
+
 - A TypeScript interface with typed fields
 - A `decode<Name>Event(data: Buffer): <Name>Event` function
 

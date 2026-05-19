@@ -257,7 +257,6 @@ fn scan_release_docs(root: &Path) -> Result<(), String> {
         "BENCHMARKS.md",
         "AUDIT.md",
         "docs/WHY_HOPPER.md",
-        "docs/QUASAR_PINOCCHIO_REPLACEMENT.md",
         "docs/HOPPER_NATIVE_ENHANCEMENTS.md",
         "docs/UNSAFE_INVARIANTS.md",
         "docs/POLICY_GUARANTEES.md",

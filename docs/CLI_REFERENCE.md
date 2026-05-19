@@ -224,6 +224,8 @@ Run the primitive benchmark lab against a live cluster. Emits JSON and CSV regre
 
 Static SBF ELF analysis. Prints the top N symbols by size, estimated SBF instruction counts, and a static CU-ish prioritization score. It can also write Brendan-Gregg folded-stack input or a self-contained HTML flamegraph for public launch demos and regression review.
 
+See [PROFILING.md](PROFILING.md) for the release profile workflow and same-provenance benchmark checklist.
+
 Flags:
 
 - `--top N` - how many symbols to print (default 20)

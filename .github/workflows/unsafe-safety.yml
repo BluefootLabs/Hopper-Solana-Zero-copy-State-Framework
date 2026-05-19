@@ -10,6 +10,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Check unsafe safety comments
-        run: python3 scripts/check-unsafe-safety-comments.py
+      - name: Check unsafe safety comments and inventory
+        run: python3 scripts/check-unsafe-safety-comments.py --inventory-out unsafe-inventory.md
+      - name: Upload unsafe inventory
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unsafe-inventory
+          path: unsafe-inventory.md
         

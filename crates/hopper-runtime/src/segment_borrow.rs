@@ -212,6 +212,8 @@ impl SegmentBorrowRegistry {
         // conflicts between unrelated accounts.
         let mut i = 0;
         while i < len {
+            // SAFETY: `i < len`, and every slot below `len` was initialized by
+            // `register` before `self.len` was advanced.
             let existing = unsafe { self.entries.get_unchecked(i).assume_init_ref() };
             if existing.key_fp == new.key_fp
                 && address_eq(&existing.key, &new.key)
@@ -225,6 +227,8 @@ impl SegmentBorrowRegistry {
             i += 1;
         }
 
+        // SAFETY: Capacity was checked above, so `len` is an in-bounds
+        // uninitialized slot owned by this registry.
         unsafe { self.entries.get_unchecked_mut(len).write(new) };
         self.len = (len + 1) as u8;
         Ok(())
@@ -273,13 +277,17 @@ impl SegmentBorrowRegistry {
         let len = self.len as usize;
         let mut i = 0;
         while i < len {
+            // SAFETY: `i < len`, and all slots below `len` are initialized.
             let existing = unsafe { self.entries.get_unchecked(i).assume_init_ref() };
             if borrow_eq(existing, borrow) {
                 // Swap-remove: move last entry into this slot.
                 let new_len = len - 1;
                 self.len = new_len as u8;
                 if i < new_len {
+                    // SAFETY: `new_len < len`, so the former last entry is
+                    // initialized and available to move into the removed slot.
                     let last = unsafe { self.entries.get_unchecked(new_len).assume_init() };
+                    // SAFETY: `i < new_len`, so the target slot is in-bounds.
                     unsafe { self.entries.get_unchecked_mut(i).write(last) };
                 }
                 return true;
@@ -307,6 +315,7 @@ impl SegmentBorrowRegistry {
         if len == 0 {
             return false;
         }
+        // SAFETY: `len > 0`, and all slots below `len` are initialized.
         let last = unsafe { *self.entries.get_unchecked(len - 1).assume_init_ref() };
         if !borrow_eq(&last, borrow) {
             return self.release(borrow);
@@ -330,6 +339,7 @@ impl SegmentBorrowRegistry {
         let len = self.len as usize;
         let mut i = 0;
         while i < len {
+            // SAFETY: `i < len`, and all slots below `len` are initialized.
             let existing = unsafe { self.entries.get_unchecked(i).assume_init_ref() };
             if existing.key_fp == proposed.key_fp
                 && address_eq(&existing.key, &proposed.key)
@@ -421,6 +431,7 @@ impl SegmentBorrowRegistry {
         let len = self.len as usize;
         let mut i = 0;
         while i < len {
+            // SAFETY: `i < len`, and all slots below `len` are initialized.
             f(unsafe { self.entries.get_unchecked(i).assume_init_ref() });
             i += 1;
         }
@@ -439,6 +450,7 @@ impl SegmentBorrowRegistry {
         let len = self.len as usize;
         let mut i = 0;
         while i < len {
+            // SAFETY: `i < len`, and all slots below `len` are initialized.
             let e = unsafe { self.entries.get_unchecked(i).assume_init_ref() };
             if e.key_fp == fp
                 && address_eq(&e.key, key)
@@ -669,11 +681,15 @@ mod tests {
         let first = reg.register_leased_read(&key, 0, 8).unwrap();
         let second = reg.register_leased_write(&key, 8, 8).unwrap();
 
+        // SAFETY: `first` was returned by this registry and has not been
+        // released yet.
         assert!(unsafe { reg.release_last_registered(&first) });
         assert_eq!(reg.len(), 1);
         assert!(reg.find_exact(&key, 0, 8, AccessKind::Read).is_none());
         assert!(reg.find_exact(&key, 8, 8, AccessKind::Write).is_some());
 
+        // SAFETY: `second` was returned by this registry and has not been
+        // released yet.
         assert!(unsafe { reg.release_last_registered(&second) });
         assert!(reg.is_empty());
     }

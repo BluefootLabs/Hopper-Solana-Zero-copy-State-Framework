@@ -127,6 +127,8 @@ pub unsafe fn deserialize_accounts<const MAX: usize>(
                     .assume_init_ref()
                     .raw_ptr()
             };
+            // SAFETY: `slot < count <= MAX`, and `raw` came from a validated
+            // earlier slot in this same frame.
             unsafe {
                 *accounts.get_unchecked_mut(slot) =
                     MaybeUninit::new(AccountView::new_unchecked(raw))
@@ -141,6 +143,8 @@ pub unsafe fn deserialize_accounts<const MAX: usize>(
         // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let marker = unsafe { *input.add(offset) };
         if marker == u8::MAX {
+            // SAFETY: `offset` is on a Solana account record boundary produced
+            // by the loader input format.
             let raw = unsafe { input.add(offset) as *const RuntimeAccount };
             // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             let data_len = unsafe { (*raw).data_len as usize };
@@ -185,6 +189,8 @@ pub unsafe fn deserialize_accounts_fast<const MAX: usize>(
         // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let marker = unsafe { *input.add(offset) };
         if marker == u8::MAX {
+            // SAFETY: `offset` is on a Solana account record boundary produced
+            // by the loader input format.
             let raw = unsafe { input.add(offset) as *mut RuntimeAccount };
             // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             unsafe {
@@ -192,6 +198,8 @@ pub unsafe fn deserialize_accounts_fast<const MAX: usize>(
                     MaybeUninit::new(AccountView::new_unchecked(raw))
             };
 
+            // SAFETY: `raw` points to the RuntimeAccount header just decoded
+            // from the current input slot.
             let data_len = unsafe { (*raw).data_len as usize };
             offset += RuntimeAccount::SIZE;
             offset += data_len + MAX_PERMITTED_DATA_INCREASE;
@@ -211,6 +219,8 @@ pub unsafe fn deserialize_accounts_fast<const MAX: usize>(
                     .assume_init_ref()
                     .raw_ptr()
             };
+            // SAFETY: `slot < count <= MAX`, and `raw` came from a validated
+            // earlier slot in this same frame.
             unsafe {
                 *accounts.get_unchecked_mut(slot) =
                     MaybeUninit::new(AccountView::new_unchecked(raw))

@@ -411,6 +411,21 @@ impl AccountView {
         Ok(unsafe { data.project(ptr) })
     }
 
+    /// Borrow a typed layout for the duration of a closure.
+    ///
+    /// This is the ergonomic safe path for read-only handlers: Hopper still
+    /// validates the header and holds the data borrow guard, while user code
+    /// gets a plain `&T` inside the closure.
+    #[inline]
+    pub fn with<T, R, F>(&self, f: F) -> Result<R, ProgramError>
+    where
+        T: LayoutContract,
+        F: FnOnce(&T) -> Result<R, ProgramError>,
+    {
+        let account = self.load::<T>()?;
+        f(&*account)
+    }
+
     /// Load a mutable typed layout after validating the account header.
     ///
     /// Same as `load()` but provides a mutable reference for in-place
@@ -433,6 +448,20 @@ impl AccountView {
         let ptr = unsafe { data.as_bytes_mut_ptr().add(T::TYPE_OFFSET) as *mut T };
         // SAFETY: Header and length validated above. `ptr` points into the borrowed bytes.
         Ok(unsafe { data.project(ptr) })
+    }
+
+    /// Mutably borrow a typed layout for the duration of a closure.
+    ///
+    /// This keeps the zero-copy borrow guard scoped to the closure while making
+    /// common updates read like direct state mutation.
+    #[inline]
+    pub fn with_mut<T, R, F>(&self, f: F) -> Result<R, ProgramError>
+    where
+        T: LayoutContract,
+        F: FnOnce(&mut T) -> Result<R, ProgramError>,
+    {
+        let mut account = self.load_mut::<T>()?;
+        f(&mut *account)
     }
 
     /// Explicit raw typed read of the account buffer.

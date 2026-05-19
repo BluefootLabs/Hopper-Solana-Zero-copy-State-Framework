@@ -107,10 +107,9 @@ impl<'a> SegmentLease<'a> {
 impl<'a> Drop for SegmentLease<'a> {
     #[inline(always)]
     fn drop(&mut self) {
-        // SAFETY: `_lt` pins `'a` to the registry's borrow; the pointer
-        // is valid for the full lifetime of `self`. Exact release keeps
-        // cleanup correct even if future internal plumbing stops being purely
-        // LIFO.
+        // SAFETY: `_lt` pins `'a` to the registry borrow. The pointer remains
+        // valid for the full lifetime of `self`, and exact release removes only
+        // this lease's registered entry.
         unsafe {
             (*self.registry).release(&self.borrow);
         }

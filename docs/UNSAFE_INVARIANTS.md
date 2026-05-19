@@ -23,6 +23,12 @@ Pod reads/writes, CPI assembly, and bounded in-place collection operations.
 Every `unsafe` block in Hopper, its justification, and the invariants
 that must hold. Organized by module boundary.
 
+CI also emits a machine-generated unsafe inventory artifact. The workflow
+`.github/workflows/unsafe-safety.yml` runs
+`scripts/check-unsafe-safety-comments.py --inventory-out unsafe-inventory.md`
+and uploads the resulting markdown table as the `unsafe-inventory` artifact for
+each push and pull request.
+
 ## Current Unsafe Source Inventory
 
 This inventory is generated from the current source tree by scanning for real

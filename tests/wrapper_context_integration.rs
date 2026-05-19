@@ -177,9 +177,9 @@ mod hero_program {
     #[instruction(0)]
     pub fn increment(ctx: hopper::prelude::Ctx<Increment>) -> hopper::prelude::ProgramResult {
         let _bumps = ctx.bumps;
-        let mut account = ctx.accounts.counter.get_mut()?;
-        account.v.checked_add_assign(1)?;
-        Ok(())
+        ctx.accounts
+            .counter
+            .with_mut(|account| account.v.checked_add_assign(1))
     }
 
     #[instruction(1)]

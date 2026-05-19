@@ -166,6 +166,18 @@ impl<'info, T: crate::layout::LayoutContract> Account<'info, T> {
         self.load()
     }
 
+    /// Borrow the typed layout for the duration of a closure.
+    ///
+    /// The borrow guard stays scoped to the closure, so handlers can keep the
+    /// Quasar/Anchor-simple shape without bypassing Hopper's validation path.
+    #[inline]
+    pub fn with<R, F>(&self, f: F) -> Result<R, crate::error::ProgramError>
+    where
+        F: FnOnce(&T) -> Result<R, crate::error::ProgramError>,
+    {
+        self.inner.with::<T, R, F>(f)
+    }
+
     /// Borrow the typed layout for writing.
     ///
     /// This takes `&self` because `Account<'info, T>` is a transparent
@@ -181,6 +193,18 @@ impl<'info, T: crate::layout::LayoutContract> Account<'info, T> {
     #[inline(always)]
     pub fn get_mut(&self) -> Result<crate::borrow::RefMut<'_, T>, crate::error::ProgramError> {
         self.load_mut()
+    }
+
+    /// Mutably borrow the typed layout for the duration of a closure.
+    ///
+    /// This is the first-touch mutation sugar:
+    /// `ctx.accounts.counter.with_mut(|counter| counter.value.checked_add_assign(1))?;`
+    #[inline]
+    pub fn with_mut<R, F>(&self, f: F) -> Result<R, crate::error::ProgramError>
+    where
+        F: FnOnce(&mut T) -> Result<R, crate::error::ProgramError>,
+    {
+        self.inner.with_mut::<T, R, F>(f)
     }
 }
 
@@ -258,6 +282,15 @@ impl<'info, T: crate::layout::LayoutContract> InitAccount<'info, T> {
         &self,
     ) -> Result<crate::borrow::RefMut<'_, T>, crate::error::ProgramError> {
         self.load_after_init()
+    }
+
+    /// Mutably borrow the freshly-initialised layout for the duration of a closure.
+    #[inline]
+    pub fn with_mut_after_init<R, F>(&self, f: F) -> Result<R, crate::error::ProgramError>
+    where
+        F: FnOnce(&mut T) -> Result<R, crate::error::ProgramError>,
+    {
+        self.inner.with_mut::<T, R, F>(f)
     }
 }
 
@@ -637,6 +670,16 @@ impl<'info, T: InterfaceAccountLayout> InterfaceAccount<'info, T> {
         self.load()
     }
 
+    /// Borrow the cross-program layout for the duration of a closure.
+    #[inline]
+    pub fn with<R, F>(&self, f: F) -> Result<R, crate::error::ProgramError>
+    where
+        F: FnOnce(&T) -> Result<R, crate::error::ProgramError>,
+    {
+        let account = self.load()?;
+        f(&*account)
+    }
+
     /// Borrow the account as another concrete layout in the same interface set.
     ///
     /// This is useful for marker interface accounts whose validation accepts a
@@ -658,6 +701,17 @@ impl<'info, T: InterfaceAccountLayout> InterfaceAccount<'info, T> {
         U: InterfaceAccountLayout<Interface = <T as InterfaceAccountLayout>::Interface>,
     {
         self.load_as::<U>()
+    }
+
+    /// Borrow another concrete interface layout for the duration of a closure.
+    #[inline]
+    pub fn with_as<U, R, F>(&self, f: F) -> Result<R, crate::error::ProgramError>
+    where
+        U: InterfaceAccountLayout<Interface = <T as InterfaceAccountLayout>::Interface>,
+        F: FnOnce(&U) -> Result<R, crate::error::ProgramError>,
+    {
+        let account = self.load_as::<U>()?;
+        f(&*account)
     }
 
     /// Whether the current bytes match another concrete layout in the same
@@ -853,6 +907,8 @@ mod resolver_tests {
     fn make_account(total_data_len: usize, owner: Address) -> (std::vec::Vec<u8>, AccountView) {
         let mut backing = std::vec![0u8; RuntimeAccount::SIZE + total_data_len];
         let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
+        // SAFETY: The test owns `backing`, writes one RuntimeAccount header,
+        // and keeps the buffer alive for the returned AccountView.
         unsafe {
             raw.write(RuntimeAccount {
                 borrow_state: NOT_BORROWED,
@@ -866,6 +922,7 @@ mod resolver_tests {
                 data_len: total_data_len as u64,
             });
         }
+        // SAFETY: `raw` points to the RuntimeAccount header initialized above.
         let backend = unsafe { NativeAccountView::new_unchecked(raw) };
         (backing, AccountView::from_backend(backend))
     }

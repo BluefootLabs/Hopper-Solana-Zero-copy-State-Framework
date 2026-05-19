@@ -124,13 +124,7 @@ fn is_program_candidate(manifest: &Path) -> bool {
         return true;
     }
 
-    let Ok(text) = fs::read_to_string(manifest) else {
-        return false;
-    };
-    let Ok(value) = text.parse::<toml::Value>() else {
-        return false;
-    };
-    has_cdylib(&value)
+    false
 }
 
 fn check_package(manifest: &Path, build_sbf: bool) -> PackageReport {
@@ -227,11 +221,20 @@ fn check_package(manifest: &Path, build_sbf: bool) -> PackageReport {
 }
 
 fn source_has_hopper_entrypoint(source: &str) -> bool {
-    source.contains("#[program")
-        || source.contains("#[hopper::program")
-        || source.contains("#[hopper_program")
-        || source.contains("fast_entrypoint!")
-        || source.contains("program_entrypoint!")
+    source.lines().any(|line| {
+        let trimmed = line.trim();
+        if trimmed.starts_with("//") || trimmed.starts_with("*") {
+            return false;
+        }
+        if trimmed.contains("$crate::") {
+            return false;
+        }
+        trimmed.starts_with("#[program")
+            || trimmed.starts_with("#[hopper::program")
+            || trimmed.starts_with("#[hopper_program")
+            || (trimmed.contains("fast_entrypoint!(") && !trimmed.starts_with("macro_rules!"))
+            || (trimmed.contains("program_entrypoint!(") && !trimmed.starts_with("macro_rules!"))
+    })
 }
 
 fn has_cdylib(value: &toml::Value) -> bool {
@@ -309,9 +312,9 @@ edition = "2021"
             "#[program]\npub mod demo {}",
         );
         write_package(
-            &root.join("cdylib_program"),
+            &root.join("cdylib_library"),
             r#"[package]
-name = "cdylib_program"
+name = "cdylib_library"
 version = "0.0.0"
 edition = "2021"
 
@@ -319,6 +322,30 @@ edition = "2021"
 crate-type = ["cdylib", "lib"]
 "#,
             "pub fn process() {}",
+        );
+        write_package(
+            &root.join("manual_entrypoint_program"),
+            r#"[package]
+name = "manual_entrypoint_program"
+version = "0.0.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+"#,
+            "pub fn process() {}\nprogram_entrypoint!(process);",
+        );
+        write_package(
+            &root.join("framework_facade"),
+            r#"[package]
+name = "framework_facade"
+version = "0.0.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+"#,
+            "pub use hopper::program_entrypoint;\nmacro_rules! program_entrypoint { () => { $crate::program_entrypoint!(process); } }\n/// #[program]\npub fn helper() {}",
         );
 
         let manifests = collect_candidate_manifests(&root);
@@ -328,11 +355,17 @@ crate-type = ["cdylib", "lib"]
             .collect::<Vec<_>>();
 
         assert_eq!(rendered.len(), 2, "collected manifests: {rendered:?}");
-        assert!(rendered.iter().any(|path| path.contains("cdylib_program")));
+        assert!(rendered
+            .iter()
+            .any(|path| path.contains("manual_entrypoint_program")));
         assert!(rendered
             .iter()
             .any(|path| path.contains("missing_cdylib_program")));
         assert!(!rendered.iter().any(|path| path.contains("runtime")));
+        assert!(!rendered.iter().any(|path| path.contains("cdylib_library")));
+        assert!(!rendered
+            .iter()
+            .any(|path| path.contains("framework_facade")));
 
         let _ = fs::remove_dir_all(root);
     }
