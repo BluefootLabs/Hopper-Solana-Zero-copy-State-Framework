@@ -1,13 +1,13 @@
 [package]
 name = "hopper-runtime"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 license = "Apache-2.0"
 authors = ["BluefootLabs <contact@bluefootlabs.com>", "MoonManQuark"]
 description = "Canonical low-level runtime surface for Hopper. Hopper Native is the primary backend; legacy Pinocchio and solana-program compatibility are explicit opt-ins."
 repository = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework"
 homepage = "https://hopperzero.dev"
-documentation = "https://docs.rs/crate/hopper-runtime/0.2.0"
+documentation = "https://docs.rs/crate/hopper-runtime/0.2.1"
 readme = "README.md"
 keywords = ["solana", "zero-copy", "runtime", "no-std", "framework"]
 categories = ["no-std", "embedded"]

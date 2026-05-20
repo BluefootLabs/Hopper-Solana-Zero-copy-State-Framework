@@ -100,10 +100,10 @@ to name a custom `TailCodec` payload directly.
 
 ```toml
 [dependencies]
-hopper = { package = "hopper-lang", version = "0.2.0", features = ["proc-macros"] }
+hopper = { package = "hopper-lang", version = "0.2.1", features = ["proc-macros"] }
 ```
 
-Docs: <https://docs.rs/crate/hopper-derive/0.2.0>
+Docs: <https://docs.rs/crate/hopper-derive/0.2.1>
 
 Support: `solanadevdao.sol` / `F42ZovBoRJZU4av5MiESVwJWnEx8ZQVFkc1RM29zMxNT`.
 

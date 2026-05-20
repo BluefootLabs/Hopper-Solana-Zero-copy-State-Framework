@@ -53,7 +53,7 @@ hopper_register_discs! {
 }
 ```
 
-Docs: <https://docs.rs/crate/hopper-macros/0.2.0>
+Docs: <https://docs.rs/crate/hopper-macros/0.2.1>
 
 ## Support
 

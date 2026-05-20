@@ -18,7 +18,7 @@ running on-chain.
 - **Builder** (optional feature) - typed instruction and account builders
   derived from a `ProgramManifest`.
 
-Docs: <https://docs.rs/crate/hopper-sdk/0.2.0>
+Docs: <https://docs.rs/crate/hopper-sdk/0.2.1>
 
 Support: `solanadevdao.sol` / `F42ZovBoRJZU4av5MiESVwJWnEx8ZQVFkc1RM29zMxNT`.
 

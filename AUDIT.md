@@ -204,7 +204,7 @@ attributes.
 Public docs must consistently use the published package alias:
 
 ```toml
-hopper = { package = "hopper-lang", version = "0.2.0" }
+hopper = { package = "hopper-lang", version = "0.2.1" }
 ```
 
 Any future release should search for stale source-only install snippets before

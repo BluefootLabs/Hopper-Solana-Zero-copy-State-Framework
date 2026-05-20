@@ -9,6 +9,7 @@ The following package manifests are intentionally non-public and must keep
 `publish = false` under `[package]`:
 
 - `examples/hopper-vault/Cargo.toml` (`hopper-vault`)
+- `examples/hopper-counter/Cargo.toml` (`hopper-counter`)
 - `examples/hopper-parity-vault/Cargo.toml` (`hopper-parity-vault`)
 - `examples/hopper-escrow/Cargo.toml` (`hopper-escrow`)
 - `examples/hopper-showcase/Cargo.toml` (`hopper-showcase`)
@@ -23,9 +24,11 @@ The following package manifests are intentionally non-public and must keep
 - `examples/hopper-proc-vault/Cargo.toml` (`hopper-proc-vault`)
 - `examples/hopper-policy-vault/Cargo.toml` (`hopper-policy-vault`)
 - `examples/hopper-devnet-audit/Cargo.toml` (`hopper-devnet-audit`)
+- `examples/hopper-argus-guard/Cargo.toml` (`hopper-argus-guard`)
 - `examples/quasar-port-20-min/Cargo.toml` (`hopper-quasar-port-20-min`)
 - `examples/cross-program-read/program-a/Cargo.toml` (`hopper-xp-program-a`)
 - `examples/cross-program-read/program-b/Cargo.toml` (`hopper-xp-program-b`)
+- `examples/cross-program-read/runner/Cargo.toml` (`hopper-xp-devnet-runner`)
 - `tests/hopper-trybuild/Cargo.toml` (`hopper-trybuild`)
 - `fuzz/Cargo.toml` (`hopper-fuzz`)
 

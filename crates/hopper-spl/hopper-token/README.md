@@ -6,7 +6,7 @@ Hopper-owned SPL Token builders. The default public API is safety-first:
 data, no heap.
 
 [![Crates.io](https://img.shields.io/crates/v/hopper-token.svg)](https://crates.io/crates/hopper-token)
-[![Docs.rs](https://img.shields.io/docsrs/hopper-token)](https://docs.rs/crate/hopper-token/0.2.0)
+[![Docs.rs](https://img.shields.io/docsrs/hopper-token)](https://docs.rs/crate/hopper-token/0.2.1)
 
 Part of the **[Hopper](https://hopperzero.dev)** framework.
 
@@ -32,7 +32,7 @@ use the checked instructions.
 For Token-2022 mints with extension awareness, see
 [`hopper-token-2022`](../hopper-token-2022).
 
-Docs: <https://docs.rs/crate/hopper-token/0.2.0>
+Docs: <https://docs.rs/crate/hopper-token/0.2.1>
 
 Support: `solanadevdao.sol` / `F42ZovBoRJZU4av5MiESVwJWnEx8ZQVFkc1RM29zMxNT`.
 

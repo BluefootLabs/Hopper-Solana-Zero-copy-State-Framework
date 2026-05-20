@@ -44,7 +44,7 @@ let vault = Vault::load(account, program_id)?;
 let vault = pod_from_bytes::<Vault>(data)?;
 ```
 
-Docs: <https://docs.rs/crate/hopper-systems/0.2.0>
+Docs: <https://docs.rs/crate/hopper-systems/0.2.1>
 
 ## Support
 

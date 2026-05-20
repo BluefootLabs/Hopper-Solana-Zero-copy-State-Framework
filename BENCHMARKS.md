@@ -164,10 +164,8 @@ deterministic fixture accounts, simulates each implemented primitive
 benchmark, parses bounded `sol_log_compute_units()` deltas, and emits JSON/CSV
 artifacts in the benchmark repo's results directory.
 
-Golden baselines, Docker runners, competitor locks, and CI thresholds are in
-the sibling `hopper-bench` repo. See
-[`docs/BENCHMARK_AND_TOOLING_PARITY_PLAN.md`](docs/BENCHMARK_AND_TOOLING_PARITY_PLAN.md)
-for the long-form benchmark roadmap.
+Golden baselines, Docker runners, competitor locks, CI thresholds, and the
+long-form benchmark roadmap are maintained in the sibling `hopper-bench` repo.
 
 ## Competitor-Shaped Baselines
 

@@ -32,7 +32,7 @@ or any invalid offset rather than silently falling through to account zero
 (a real footgun that would have made attacker-supplied account substitutions
 possible). See `raw_input.rs::malformed_duplicate_marker`.
 
-Docs: <https://docs.rs/crate/hopper-native/0.2.0>
+Docs: <https://docs.rs/crate/hopper-native/0.2.1>
 
 ## Support
 

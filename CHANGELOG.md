@@ -7,6 +7,25 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-05-19
+
+### Added
+
+- Added Solana SBF release gates that build the counter, vault, and Quasar-port examples, enforce the counter size budget, and run `hopper solana-check --all --build-sbf` in CI.
+- Added an Argus-style risk guard proof example with authority-bound exposure accounting.
+- Added a dynamic-field migration note documenting Hopper's bounded bare-tail contract.
+
+### Changed
+
+- Hardened `hopper solana-check` so SBF macro calls must be path-qualified and backend selection is resolved from current Hopper feature names and dependency-selected features.
+- Wired `hopper publish-check --full` to run the Solana program shape gate before the full systems and trybuild suites.
+- Updated public release docs, README links, and crate docs targets for the `0.2.1` release line.
+
+### Fixed
+
+- The `solana-program-backend` entrypoint now rejects excess accounts instead of truncating them.
+- The compatibility backend build now handles the `solana_program::AccountInfo` drop semantics without tripping Hopper Native's no-drop assertion.
+
 ## [0.2.0] - 2026-05-15
 
 ### Added

@@ -38,7 +38,7 @@ and `hopper::prelude::*`. Reach for `hopper-runtime` directly when writing a
 crate that needs the runtime surface without the higher-level framework
 features.
 
-Docs: <https://docs.rs/crate/hopper-runtime/0.2.0>
+Docs: <https://docs.rs/crate/hopper-runtime/0.2.1>
 
 ## Support
 

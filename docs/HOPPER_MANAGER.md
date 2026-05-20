@@ -105,7 +105,7 @@ Status: compatible with Vault v2 (append-safe)
 ## Output: Program Summary
 
 ```
-Program: hopper_registry v0.2.0
+Program: hopper_registry v0.2.1
 
 Layouts (3):
   Vault      v1  disc=1  57 bytes   fingerprint=a1b2c3d4e5f60718

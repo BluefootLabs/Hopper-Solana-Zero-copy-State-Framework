@@ -64,7 +64,7 @@ The Manifest is Hopper's rich internal schema. It powers:
   "program": {
     "name": "hopper_registry",
     "program_id": "...",
-    "version": "0.2.0",
+    "version": "0.2.1",
     "description": "Segmented registry example"
   },
   "layouts": [
@@ -176,7 +176,7 @@ The IDL is the public-facing schema for:
   "program": {
     "name": "hopper_registry",
     "program_id": "...",
-    "version": "0.2.0"
+    "version": "0.2.1"
   },
   "instructions": [
     {

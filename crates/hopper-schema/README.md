@@ -39,7 +39,7 @@ CodamaProjection     Ecosystem interop (Codama-shaped for client generators)
 
 Code is the source of truth. Schema is always derived, never hand-written.
 
-Docs: <https://docs.rs/crate/hopper-schema/0.2.0>
+Docs: <https://docs.rs/crate/hopper-schema/0.2.1>
 
 ## Support
 

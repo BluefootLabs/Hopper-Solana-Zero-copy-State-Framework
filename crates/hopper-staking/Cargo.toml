@@ -1,13 +1,13 @@
 [package]
 name = "hopper-staking"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 license = "Apache-2.0"
 authors = ["BluefootLabs <contact@bluefootlabs.com>", "MoonManQuark"]
 description = "Staking reward accumulators for Hopper: MasterChef-style reward-per-token, emission rates, reward debt tracking. Zero-copy, no_std, no_alloc, BPF-safe."
 repository = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework"
 homepage = "https://hopperzero.dev"
-documentation = "https://docs.rs/crate/hopper-staking/0.2.0"
+documentation = "https://docs.rs/crate/hopper-staking/0.2.1"
 readme = "README.md"
 keywords = ["solana", "zero-copy", "staking", "rewards", "defi"]
 categories = ["no-std"]

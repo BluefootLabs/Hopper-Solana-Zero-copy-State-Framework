@@ -64,40 +64,40 @@ pinocchio-system = "0.6"
 pinocchio-token = "0.6"
 five8_const = "0.1"
 sha2-const-stable = "0.1"
-hopper-native = { path = "crates/hopper-native", version = "0.2.0", default-features = false }
-hopper-runtime = { path = "crates/hopper-runtime", version = "0.2.0", default-features = false }
-hopper-core = { path = "crates/hopper-core", package = "hopper-systems", version = "0.2.0", default-features = false }
-hopper-macros = { path = "crates/hopper-macros", version = "0.2.0", default-features = false }
-hopper-macros-proc = { path = "crates/hopper-macros-proc", package = "hopper-derive", version = "0.2.0" }
-hopper = { path = ".", package = "hopper-lang", version = "0.2.0" }
-hopper-system = { path = "crates/hopper-system", version = "0.2.0", default-features = false }
-hopper-schema = { path = "crates/hopper-schema", version = "0.2.0", default-features = false }
-hopper-solana = { path = "crates/hopper-solana", version = "0.2.0", default-features = false }
-hopper-token = { path = "crates/hopper-spl/hopper-token", version = "0.2.0", default-features = false }
-hopper-token-2022 = { path = "crates/hopper-spl/hopper-token-2022", version = "0.2.0", default-features = false }
-hopper-associated-token = { path = "crates/hopper-spl/hopper-associated-token", version = "0.2.0", default-features = false }
-hopper-metaplex = { path = "crates/hopper-spl/hopper-metaplex", version = "0.2.0", default-features = false }
-hopper-finance = { path = "crates/hopper-finance", version = "0.2.0" }
-hopper-lending = { path = "crates/hopper-lending", version = "0.2.0" }
-hopper-staking = { path = "crates/hopper-staking", version = "0.2.0" }
-hopper-vesting = { path = "crates/hopper-vesting", version = "0.2.0" }
-hopper-distribute = { path = "crates/hopper-distribute", version = "0.2.0" }
-hopper-multisig = { path = "crates/hopper-multisig", version = "0.2.0" }
-hopper-memo = { path = "crates/hopper-memo", version = "0.2.0", default-features = false }
-hopper-anchor = { path = "crates/hopper-anchor", version = "0.2.0" }
-hopper-manager = { path = "crates/hopper-manager", version = "0.2.0" }
-hopper-sdk = { path = "crates/hopper-sdk", version = "0.2.0" }
+hopper-native = { path = "crates/hopper-native", version = "0.2.1", default-features = false }
+hopper-runtime = { path = "crates/hopper-runtime", version = "0.2.1", default-features = false }
+hopper-core = { path = "crates/hopper-core", package = "hopper-systems", version = "0.2.1", default-features = false }
+hopper-macros = { path = "crates/hopper-macros", version = "0.2.1", default-features = false }
+hopper-macros-proc = { path = "crates/hopper-macros-proc", package = "hopper-derive", version = "0.2.1" }
+hopper = { path = ".", package = "hopper-lang", version = "0.2.1" }
+hopper-system = { path = "crates/hopper-system", version = "0.2.1", default-features = false }
+hopper-schema = { path = "crates/hopper-schema", version = "0.2.1", default-features = false }
+hopper-solana = { path = "crates/hopper-solana", version = "0.2.1", default-features = false }
+hopper-token = { path = "crates/hopper-spl/hopper-token", version = "0.2.1", default-features = false }
+hopper-token-2022 = { path = "crates/hopper-spl/hopper-token-2022", version = "0.2.1", default-features = false }
+hopper-associated-token = { path = "crates/hopper-spl/hopper-associated-token", version = "0.2.1", default-features = false }
+hopper-metaplex = { path = "crates/hopper-spl/hopper-metaplex", version = "0.2.1", default-features = false }
+hopper-finance = { path = "crates/hopper-finance", version = "0.2.1" }
+hopper-lending = { path = "crates/hopper-lending", version = "0.2.1" }
+hopper-staking = { path = "crates/hopper-staking", version = "0.2.1" }
+hopper-vesting = { path = "crates/hopper-vesting", version = "0.2.1" }
+hopper-distribute = { path = "crates/hopper-distribute", version = "0.2.1" }
+hopper-multisig = { path = "crates/hopper-multisig", version = "0.2.1" }
+hopper-memo = { path = "crates/hopper-memo", version = "0.2.1", default-features = false }
+hopper-anchor = { path = "crates/hopper-anchor", version = "0.2.1" }
+hopper-manager = { path = "crates/hopper-manager", version = "0.2.1" }
+hopper-sdk = { path = "crates/hopper-sdk", version = "0.2.1" }
 
 [package]
 name = "hopper-lang"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 authors = ["BluefootLabs <contact@bluefootlabs.com>", "MoonManQuark"]
 description = "Fast zero-copy Solana framework with a simple account facade, typed state contracts, layout evolution, and systems-mode escape hatches. Built on Hopper Native. no_std, no_alloc."
 repository = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework"
 homepage = "https://hopperzero.dev"
-documentation = "https://docs.rs/crate/hopper-lang/0.2.0"
+documentation = "https://docs.rs/crate/hopper-lang/0.2.1"
 readme = "README.md"
 keywords = ["solana", "zero-copy", "framework", "state", "no-std"]
 categories = ["no-std", "embedded"]
@@ -123,8 +123,8 @@ hopper-distribute = { workspace = true, optional = true }
 hopper-multisig = { workspace = true, optional = true }
 hopper-anchor = { workspace = true, optional = true }
 hopper-macros = { workspace = true }
-hopper-schema = { path = "crates/hopper-schema", version = "0.2.0", default-features = false }
-hopper-solana = { path = "crates/hopper-solana", version = "0.2.0", default-features = false }
+hopper-schema = { path = "crates/hopper-schema", version = "0.2.1", default-features = false }
+hopper-solana = { path = "crates/hopper-solana", version = "0.2.1", default-features = false }
 hopper-macros-proc = { workspace = true, optional = true }
 
 [dev-dependencies]
