@@ -1,0 +1,43 @@
+name: Solana SBF gates
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  sbf:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      AGAVE_VERSION: v2.3.13
+      HOPPER_COUNTER_MAX_BYTES: 16384
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Install Agave SBF tools
+        run: sh -c "$(curl -sSfL https://release.anza.xyz/${AGAVE_VERSION}/install)"
+      - name: Add Agave tools to PATH
+        run: echo "$HOME/.local/share/solana/install/active_release/bin" >> "$GITHUB_PATH"
+      - name: Toolchain versions
+        run: |
+          solana --version
+          cargo build-sbf --version
+      - name: Build tiny counter and enforce size budget
+        run: |
+          cargo build-sbf -- -p hopper-counter
+          bytes=$(stat -c%s target/deploy/hopper_counter.so)
+          echo "hopper-counter SBF bytes: ${bytes}"
+          if [ "${bytes}" -gt "${HOPPER_COUNTER_MAX_BYTES}" ]; then
+            echo "hopper-counter exceeded ${HOPPER_COUNTER_MAX_BYTES} byte SBF budget"
+            exit 1
+          fi
+      - name: Build vault SBF
+        run: cargo build-sbf -- -p hopper-vault
+      - name: Build Quasar port SBF
+        run: cargo build-sbf -- -p hopper-quasar-port-20-min
+      - name: Install Hopper CLI
+        run: cargo install --path tools/hopper-cli --locked
+      - name: Solana shape and SBF scan
+        run: hopper solana-check --all --build-sbf

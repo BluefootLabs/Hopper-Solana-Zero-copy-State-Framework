@@ -67,6 +67,7 @@ pub fn cmd_publish_check(args: &[String]) {
     }) as u32;
 
     if opts.full {
+        failures += run_stage("Solana program shape gate", || run_solana_check(&root)) as u32;
         failures += run_stage("systems test suite", || {
             run_cargo_status(&root, &["test", "-p", "hopper-systems"])
         }) as u32;
@@ -412,6 +413,25 @@ fn check_fuzz_inventory(root: &Path) -> Result<(), String> {
     }
 }
 
+fn run_solana_check(root: &Path) -> Result<(), String> {
+    let exe = std::env::current_exe()
+        .map_err(|err| format!("failed to locate hopper executable: {err}"))?;
+    let args = vec!["solana-check".to_string(), "--all".to_string()];
+    let status = Command::new(&exe)
+        .args(&args)
+        .current_dir(root)
+        .status()
+        .map_err(|err| format!("failed to run {}: {err}", display_command(&exe, &args)))?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(format!(
+            "{} exited with status {status}",
+            display_command(&exe, &args)
+        ))
+    }
+}
+
 fn check_tracked_build_artifacts(root: &Path) -> Result<(), String> {
     let args = ["ls-files"];
     let output = workspace::run_output("git", &to_strings(&args), root)?;
@@ -506,6 +526,6 @@ fn print_usage() {
     eprintln!("  --workspace-root <path>    Workspace root to check (default: search upward)");
     eprintln!("  --source-only              Skip binary ABI verification; useful before SBF build");
     eprintln!(
-        "  --full                     Also run hopper-systems and hopper-trybuild test suites"
+        "  --full                     Also run solana-check --all plus hopper-systems and hopper-trybuild"
     );
 }

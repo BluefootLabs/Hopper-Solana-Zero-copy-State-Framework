@@ -5,8 +5,6 @@ use hopper::prelude::*;
 
 #[cfg(target_os = "solana")]
 mod __hopper_sbf {
-    use super::*;
-
     #[cfg(not(feature = "solana-program-backend"))]
     hopper::no_allocator!();
 

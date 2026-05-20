@@ -46,6 +46,7 @@ pub struct AccountView {
 const _: () = {
     assert!(core::mem::size_of::<AccountView>() == core::mem::size_of::<BackendAccountView>());
     assert!(core::mem::align_of::<AccountView>() == core::mem::align_of::<BackendAccountView>());
+    #[cfg(not(feature = "solana-program-backend"))]
     assert!(!core::mem::needs_drop::<AccountView>());
 };
 

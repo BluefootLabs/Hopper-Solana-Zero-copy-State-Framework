@@ -35,6 +35,13 @@ Use this in reviews before deploying a layout change. `schema diff` gives field
 movement and type changes. `compat --why` adds the operator-facing reason for the
 compatibility verdict.
 
+## Risk guard subsystem
+
+[examples/hopper-argus-guard](../examples/hopper-argus-guard) is the real-world
+subsystem proof pattern: an authority-owned risk book with checked reserve and
+release flows. It demonstrates how Hopper keeps protocol accounting inside a
+versioned layout contract while using `with_mut` for concise safe mutation.
+
 ## Migration planner
 
 ```powershell

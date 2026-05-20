@@ -31,7 +31,7 @@ pub struct Increment<'info> {
     pub authority: Signer<'info>,
 }
 
-#[program]
+#[program(profile = "tiny")]
 mod counter_program {
     use super::*;
 

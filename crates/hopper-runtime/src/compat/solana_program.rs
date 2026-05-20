@@ -295,9 +295,12 @@ pub unsafe fn process_entrypoint<const MAX: usize>(
     // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     let (program_id, accounts, data) = unsafe { ::solana_program::entrypoint::deserialize(input) };
 
-    let count = accounts.len().min(MAX);
+    if accounts.len() > MAX {
+        return ::solana_program::program_error::ProgramError::NotEnoughAccountKeys.into();
+    }
+
     // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-    let wrapped = unsafe { wrap_deserialized_accounts(&accounts[..count]) };
+    let wrapped = unsafe { wrap_deserialized_accounts(&accounts) };
 
     let program_id: &'static BackendAddress = unsafe { core::mem::transmute(program_id) };
 

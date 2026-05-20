@@ -16,6 +16,22 @@ hopper profile elf target/deploy/hopper_vault.so --json > target/hopper-vault-pr
 and flamegraph export data. Treat it as a repeatable binary inspection tool, not
 as a substitute for live compute-unit measurements.
 
+## Tiny profile and size budget
+
+Use `#[program(profile = "tiny")]` on programs whose public contract includes a
+small binary budget. The profile is an explicit intent marker emitted by the
+macro as `HOPPER_PROGRAM_PROFILE`, so CI, `cargo expand`, and release reviews can
+distinguish size-sensitive programs from strict, audit, or raw profiles.
+
+The repository enforces a 16 KiB SBF budget for [../examples/hopper-counter](../examples/hopper-counter)
+in the Solana SBF workflow. Keep that budget tied to the built `.so` size, not a
+source estimate:
+
+```bash
+cargo build-sbf -- -p hopper-counter
+stat -c%s target/deploy/hopper_counter.so
+```
+
 ## Same-provenance benchmark flow
 
 ```powershell

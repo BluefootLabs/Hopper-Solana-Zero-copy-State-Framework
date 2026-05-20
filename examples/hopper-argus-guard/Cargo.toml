@@ -1,0 +1,16 @@
+[package]
+name = "hopper-argus-guard"
+version = "0.2.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+description = "Argus-style risk guard subsystem port proof for Hopper."
+
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+hopper = { workspace = true, features = ["proc-macros"] }
+
+[lints]
+workspace = true

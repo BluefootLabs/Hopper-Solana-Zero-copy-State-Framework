@@ -40,6 +40,7 @@ members = [
     "examples/hopper-proc-vault",
     "examples/hopper-policy-vault",
     "examples/hopper-devnet-audit",
+    "examples/hopper-argus-guard",
     "examples/quasar-port-20-min",
     "examples/cross-program-read/program-a",
     "examples/cross-program-read/program-b",

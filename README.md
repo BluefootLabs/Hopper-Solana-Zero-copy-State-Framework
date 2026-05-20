@@ -169,7 +169,8 @@ ctx.accounts
 - [docs/MIGRATION_FROM_QUASAR.md](docs/MIGRATION_FROM_QUASAR.md): Quasar-to-Hopper migration notes.
 - [docs/PORT_QUASAR_IN_20_MINUTES.md](docs/PORT_QUASAR_IN_20_MINUTES.md): hands-on bounded-tail vault/multisig port guide using pretty `#[hopper::account]` fields.
 - [docs/DYNAMIC_TAILS_FROM_QUASAR.md](docs/DYNAMIC_TAILS_FROM_QUASAR.md): mapping Quasar bounded dynamic fields to Hopper fixed-body + compact dynamic-tail layouts.
-- [docs/TOKEN_2022_GUIDE.md](docs/TOKEN_2022_GUIDE.md): zero-copy Token-2022 extension policies and account constraint syntax.
+- [docs/DYNAMIC_FIELDS_QUASAR_TO_HOPPER.md](docs/DYNAMIC_FIELDS_QUASAR_TO_HOPPER.md): side-by-side bounded dynamic field migration, including Hopper's deliberate bare-tail contract.
+- [docs/TOKEN_2022_GUIDE.md](docs/TOKEN_2022_GUIDE.md): zero-copy Token-2022 extension policy examples and account constraint syntax.
 - [docs/CLI_REFERENCE.md](docs/CLI_REFERENCE.md): lifecycle, schema, client, profiling, Solana compatibility gates, generated Actions/mobile/test scaffolds, and manager command reference.
 - [docs/PUBLICATION_AUDIT.md](docs/PUBLICATION_AUDIT.md): crate-by-crate publication and release-readiness audit.
 - [docs/DEPENDENCY_AUDIT.md](docs/DEPENDENCY_AUDIT.md): dependency freshness decisions and re-check commands.
@@ -306,6 +307,7 @@ Framework-first examples:
 - [examples/hopper-escrow](examples/hopper-escrow): token-escrow shape using the same account facade.
 - [examples/quasar-port-20-min](examples/quasar-port-20-min): Quasar-style bounded dynamic account port with Hopper's dynamic-tail guarantees.
 - [examples/hopper-devnet-audit](examples/hopper-devnet-audit): deployable devnet audit program covering dynamic tails, contexts, segments, proof chains, Token-2022 policy scans, field capabilities, and substrate probes.
+- [examples/hopper-argus-guard](examples/hopper-argus-guard): Argus-style risk guard subsystem proof with checked exposure accounting and authority-bound state.
 
 Systems-mode examples:
 

@@ -17,6 +17,18 @@ struct PackageReport {
     warnings: Vec<String>,
 }
 
+#[derive(Default)]
+struct SbfMacroState {
+    has_path_qualified: bool,
+    has_unqualified: bool,
+}
+
+const BACKEND_FEATURES: [&str; 3] = [
+    "hopper-native-backend",
+    "legacy-pinocchio-compat",
+    "solana-program-backend",
+];
+
 pub fn cmd_solana_check(args: &[String]) {
     let options = parse_args(args);
     let manifests = if options.all {
@@ -169,12 +181,26 @@ fn check_package(manifest: &Path, build_sbf: bool) -> PackageReport {
             .warnings
             .push("source does not advertise cfg_attr(target_os = \"solana\", no_std)".to_string());
     }
-    if !source.contains("no_allocator!") {
+    let allocator_macro = sbf_macro_state(&source, "no_allocator");
+    if allocator_macro.has_unqualified {
+        report.failures.push(
+            "call the SBF allocator macro as hopper::no_allocator!(); unqualified calls can resolve to the wrong macro in generated or nested modules"
+                .to_string(),
+        );
+    }
+    if !allocator_macro.has_path_qualified {
         report
             .warnings
             .push("source does not call hopper::no_allocator!(); verify the SBF allocator path is intentional".to_string());
     }
-    if !source.contains("nostd_panic_handler!") {
+    let panic_macro = sbf_macro_state(&source, "nostd_panic_handler");
+    if panic_macro.has_unqualified {
+        report.failures.push(
+            "call the SBF panic macro as hopper::nostd_panic_handler!(); unqualified calls can resolve to the wrong macro in generated or nested modules"
+                .to_string(),
+        );
+    }
+    if !panic_macro.has_path_qualified {
         report
             .warnings
             .push("source does not call hopper::nostd_panic_handler!(); verify panic handling is intentional".to_string());
@@ -194,10 +220,17 @@ fn check_package(manifest: &Path, build_sbf: bool) -> PackageReport {
                 .to_string(),
         );
     }
-    if !uses_single_backend(&value) {
-        report
-            .failures
-            .push("select exactly one Hopper backend feature for SBF program crates".to_string());
+    let selected_backends = selected_hopper_backends(&value);
+    match selected_backends.as_slice() {
+        [_] => {}
+        [] => report.failures.push(
+            "select exactly one Hopper backend feature for SBF program crates; found none. Expected one of hopper-native-backend, legacy-pinocchio-compat, or solana-program-backend"
+                .to_string(),
+        ),
+        _ => report.failures.push(format!(
+            "select exactly one Hopper backend feature for SBF program crates; selected: {}",
+            selected_backends.join(", ")
+        )),
     }
     if build_sbf {
         match Command::new("cargo")
@@ -246,20 +279,133 @@ fn has_cdylib(value: &toml::Value) -> bool {
         .unwrap_or(false)
 }
 
-fn uses_single_backend(value: &toml::Value) -> bool {
-    let Some(features) = value.get("features").and_then(|f| f.as_table()) else {
-        return true;
+fn sbf_macro_state(source: &str, name: &str) -> SbfMacroState {
+    let needle = format!("{name}!");
+    let path_qualified = format!("hopper::{name}!");
+    let mut state = SbfMacroState::default();
+
+    for raw_line in source.lines() {
+        let line = raw_line.split("//").next().unwrap_or_default();
+        if !line.contains(&needle) {
+            continue;
+        }
+        if line.contains(&path_qualified) {
+            state.has_path_qualified = true;
+        } else {
+            state.has_unqualified = true;
+        }
+    }
+
+    state
+}
+
+fn selected_hopper_backends(value: &toml::Value) -> Vec<&'static str> {
+    let mut selected = Vec::new();
+
+    if let Some(features) = value.get("features") {
+        collect_feature_selection("default", features, &mut Vec::new(), &mut selected);
+    }
+
+    collect_dependency_table_backends(value.get("dependencies"), &mut selected);
+    if let Some(targets) = value.get("target").and_then(|target| target.as_table()) {
+        for target in targets.values() {
+            collect_dependency_table_backends(target.get("dependencies"), &mut selected);
+        }
+    }
+
+    selected
+}
+
+fn collect_feature_selection<'a>(
+    feature: &'a str,
+    features: &'a toml::Value,
+    visiting: &mut Vec<&'a str>,
+    selected: &mut Vec<&'static str>,
+) {
+    if let Some((dep, dep_feature)) = feature.split_once('/') {
+        if dep == "hopper" {
+            push_backend(dep_feature, selected);
+        }
+        return;
+    }
+
+    push_backend(feature, selected);
+
+    if visiting.contains(&feature) {
+        return;
+    }
+    let Some(feature_table) = features.as_table() else {
+        return;
     };
-    let backend_features = [
-        "hopper-native-backend",
-        "hopper-anchor-backend",
-        "hopper-pinocchio-backend",
-    ];
-    let declared = backend_features
+    let Some(values) = feature_table
+        .get(feature)
+        .and_then(|value| value.as_array())
+    else {
+        return;
+    };
+
+    visiting.push(feature);
+    for value in values {
+        if let Some(next) = value.as_str() {
+            collect_feature_selection(next, features, visiting, selected);
+        }
+    }
+    visiting.pop();
+}
+
+fn collect_dependency_table_backends(
+    dependencies: Option<&toml::Value>,
+    selected: &mut Vec<&'static str>,
+) {
+    let Some(table) = dependencies.and_then(|value| value.as_table()) else {
+        return;
+    };
+
+    for (alias, dependency) in table {
+        let package_name = dependency.get("package").and_then(|value| value.as_str());
+        let is_hopper =
+            alias == "hopper" || alias == "hopper-lang" || package_name == Some("hopper-lang");
+        if !is_hopper {
+            continue;
+        }
+
+        let Some(dependency_table) = dependency.as_table() else {
+            push_backend("hopper-native-backend", selected);
+            continue;
+        };
+
+        if dependency_table
+            .get("default-features")
+            .and_then(|value| value.as_bool())
+            != Some(false)
+        {
+            push_backend("hopper-native-backend", selected);
+        }
+
+        if let Some(features) = dependency_table
+            .get("features")
+            .and_then(|value| value.as_array())
+        {
+            for feature in features {
+                if let Some(feature) = feature.as_str() {
+                    push_backend(feature, selected);
+                }
+            }
+        }
+    }
+}
+
+fn push_backend(candidate: &str, selected: &mut Vec<&'static str>) {
+    let Some(backend) = BACKEND_FEATURES
         .iter()
-        .filter(|name| features.contains_key(**name))
-        .count();
-    declared <= 1
+        .copied()
+        .find(|backend| *backend == candidate)
+    else {
+        return;
+    };
+    if !selected.contains(&backend) {
+        selected.push(backend);
+    }
 }
 
 fn print_report(report: &PackageReport) {
@@ -368,6 +514,72 @@ crate-type = ["cdylib", "lib"]
             .any(|path| path.contains("framework_facade")));
 
         let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn backend_selection_uses_hopper_dependency_defaults() {
+        let value: toml::Value = r#"
+[dependencies]
+hopper = { workspace = true, features = ["proc-macros"] }
+"#
+        .parse()
+        .expect("manifest parses");
+
+        assert_eq!(selected_hopper_backends(&value), ["hopper-native-backend"]);
+    }
+
+    #[test]
+    fn backend_selection_accepts_direct_hopper_lang_dependency() {
+        let value: toml::Value = r#"
+[dependencies]
+hopper-lang = { version = "0.2.0", default-features = false, features = ["solana-program-backend"] }
+"#
+        .parse()
+        .expect("manifest parses");
+
+        assert_eq!(selected_hopper_backends(&value), ["solana-program-backend"]);
+    }
+
+    #[test]
+    fn backend_selection_follows_default_feature_aliases() {
+        let value: toml::Value = r#"
+[dependencies]
+hopper = { workspace = true, default-features = false, features = ["proc-macros"] }
+
+[features]
+default = ["solana-program-backend"]
+solana-program-backend = ["hopper/solana-program-backend"]
+"#
+        .parse()
+        .expect("manifest parses");
+
+        assert_eq!(selected_hopper_backends(&value), ["solana-program-backend"]);
+    }
+
+    #[test]
+    fn backend_selection_detects_dependency_backend_conflicts() {
+        let value: toml::Value = r#"
+[dependencies]
+hopper = { workspace = true, features = ["solana-program-backend", "proc-macros"] }
+"#
+        .parse()
+        .expect("manifest parses");
+
+        assert_eq!(
+            selected_hopper_backends(&value),
+            ["hopper-native-backend", "solana-program-backend"]
+        );
+    }
+
+    #[test]
+    fn sbf_macro_state_requires_path_qualified_calls() {
+        let qualified = sbf_macro_state("hopper::no_allocator!();", "no_allocator");
+        assert!(qualified.has_path_qualified);
+        assert!(!qualified.has_unqualified);
+
+        let unqualified = sbf_macro_state("no_allocator!();", "no_allocator");
+        assert!(!unqualified.has_path_qualified);
+        assert!(unqualified.has_unqualified);
     }
 
     fn unique_temp_dir() -> PathBuf {
