@@ -7,7 +7,7 @@ use hopper::__runtime::{Ref, RefMut};
 
 pub mod hopper_token_2022_vault_generated {
     pub const PROGRAM_NAME: &str = "hopper_token_2022_vault";
-    pub const PROGRAM_VERSION: &str = "0.1.0";
+    pub const PROGRAM_VERSION: &str = "0.2.1";
     pub const PROGRAM_DESCRIPTION: &str = "A Hopper-authored Token-2022 vault with local manifest-backed CLI preview.";
     pub const HEADER_LEN: usize = 16;
 

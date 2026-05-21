@@ -41,6 +41,7 @@ members = [
     "examples/hopper-policy-vault",
     "examples/hopper-devnet-audit",
     "examples/hopper-argus-guard",
+    "examples/hopper-tail-lab",
     "examples/quasar-port-20-min",
     "examples/cross-program-read/program-a",
     "examples/cross-program-read/program-b",

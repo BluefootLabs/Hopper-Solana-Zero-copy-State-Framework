@@ -24,6 +24,12 @@ It is `no_std`, `no_alloc`, and does not require proc macros.
 - **Virtual state** - Map state across multiple accounts with `hopper_virtual!`.
 - **Cross-program reads** - `hopper_interface!` reads foreign accounts by fingerprint without crate dependencies.
 
+The mental model is simple: Quasar-style programs cast account bytes quickly;
+Hopper systems code checks the layout contract first, then casts. That contract
+is what lets higher layers add schema epochs, dynamic-tail fingerprints,
+segment borrows, receipts, policies, and migration reports without giving up
+zero-copy account access.
+
 ## Quick example
 
 ```rust

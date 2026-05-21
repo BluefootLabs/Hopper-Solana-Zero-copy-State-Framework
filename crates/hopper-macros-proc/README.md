@@ -96,6 +96,21 @@ The initial supported tail policy is `compact`; use explicit
 `hopper_dynamic_fields!` with `#[hopper::state(dynamic_tail = T)]` when you want
 to name a custom `TailCodec` payload directly.
 
+For deliberate remaining-bytes semantics, use an explicit final raw tail:
+
+```rust
+#[hopper::account(discriminator = 21, version = 1)]
+pub struct Note<'a> {
+    pub authority: Address,
+    pub label: String<'a, 32>,
+    pub body: TailStr<'a>,
+}
+```
+
+`TailStr<'a>` and `TailBytes<'a>` must be final fields. They consume the
+remaining Hopper dynamic-tail payload without an inner field prefix and enter
+the layout fingerprint as `tail_str` or `tail_bytes`.
+
 ## Enable
 
 ```toml

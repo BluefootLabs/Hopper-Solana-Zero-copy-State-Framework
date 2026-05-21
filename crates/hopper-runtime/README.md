@@ -32,6 +32,14 @@ explicit `legacy-pinocchio-compat` migration and benchmark feature;
 - **Token / Token-2022 readers** - base-layout readers for Mint and
   TokenAccount, plus the TLV scanner that powers the `extensions::*`
   constraints.
+- **Dynamic-tail runtime** - `HopperString`, `HopperVec`, `TailStr`,
+  `TailBytes`, and compact-tail codecs used by Quasar-style `#[account]`
+  dynamic fields.
+
+Hopper's framework layer verifies owner, account role, discriminator, version,
+and layout fingerprint before typed borrows reach program code. Runtime helpers
+keep that contract small enough for SBF programs while still exposing raw escape
+hatches for systems-mode code.
 
 Most users touch this crate transitively through the `hopper` umbrella crate
 and `hopper::prelude::*`. Reach for `hopper-runtime` directly when writing a

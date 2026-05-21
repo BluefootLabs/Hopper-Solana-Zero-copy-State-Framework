@@ -26,8 +26,8 @@ hopper test-gen security --program examples/hopper-token-2022-vault/hopper.manif
 ```
 
 Every command above consumes the manifest. That keeps account layout identity,
-instruction tags, client decoders, Actions routes, mobile bindings, and generated
-security test matrices on the same source of truth.
+instruction tags, client decoders, Actions route scaffolds, mobile binding
+stubs, and generated security test matrices on the same source of truth.
 
 ## Motivation
 

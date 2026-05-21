@@ -111,8 +111,8 @@ Client SDK
   hopper client gen --kt <manifest>  Generate Kotlin client SDK (org.sol4k)
   hopper client gen --py <manifest>  Generate Python client SDK
   hopper actions gen --program <manifest> --out api/actions  Generate Solana Actions route scaffolds
-  hopper mobile gen --program <manifest> --target kotlin|react-native  Generate mobile bindings
-  hopper test-gen security --program <manifest>  Generate a security test matrix
+  hopper mobile gen --program <manifest> --target kotlin|react-native  Generate mobile binding stubs
+  hopper test-gen security --program <manifest>  Generate a security test matrix scaffold
 
 Fetch
   hopper fetch <program-id> [--rpc <url>] [--json]  Fetch manifest from on-chain
@@ -143,6 +143,13 @@ When run inside a Hopper package that already contains `hopper.manifest.json`,
 `hopper compile --emit rust` can infer that local manifest automatically. Use
 `--package <name>` to target another workspace member and `--out <path>` to
 write the lowered preview instead of printing it.
+
+Use `hopper solana-check --all --build-sbf` before publishing deployability
+claims. It checks the same crate shape the Solana SBF workflow enforces:
+`cdylib` output, exactly one Hopper backend feature, path-qualified SBF macros,
+and a successful `cargo build-sbf` for each program crate. Actions, mobile, and
+security-test commands are manifest-backed scaffolds unless a project extends
+the generated files into a production workflow.
 
 Docs: <https://docs.rs/crate/hopper-cli/0.2.1>
 

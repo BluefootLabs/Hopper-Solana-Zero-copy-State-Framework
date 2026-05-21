@@ -70,6 +70,29 @@ harness live separately so release claims stay reproducible and easy to audit.
 - Security-sensitive users should review [AUDIT.md](AUDIT.md) and
   [docs/UNSAFE_INVARIANTS.md](docs/UNSAFE_INVARIANTS.md) before deployment.
 
+## Hopper in 30 seconds
+
+Write the account shape, derive the account context, and keep mutation behind
+`ctx.accounts.*`:
+
+```rust
+#[program(profile = "tiny")]
+mod counter_program {
+  use super::*;
+
+  #[instruction(0)]
+  pub fn increment(ctx: Ctx<Increment>) -> ProgramResult {
+    ctx.accounts
+      .counter
+      .with_mut(|counter| counter.value.checked_add_assign(1))
+  }
+}
+```
+
+That is the core Hopper pitch: Quasar-like handler shape, but the account has
+already passed owner, role, discriminator, version, and layout-fingerprint
+checks before the typed borrow reaches the closure.
+
 ## Quick Start
 
 Add the published framework package under the Rust crate name `hopper`:
@@ -168,6 +191,7 @@ ctx.accounts
 - [docs/POLICY_GUARANTEES.md](docs/POLICY_GUARANTEES.md): capability policy, sealed/raw/hybrid access, and the policy-vault example.
 - [docs/MIGRATION_FROM_ANCHOR.md](docs/MIGRATION_FROM_ANCHOR.md): Anchor-to-Hopper migration notes.
 - [docs/MIGRATION_FROM_QUASAR.md](docs/MIGRATION_FROM_QUASAR.md): Quasar-to-Hopper migration notes.
+- [docs/HOPPER_VS_QUASAR.md](docs/HOPPER_VS_QUASAR.md): simple side-by-side positioning: Quasar casts; Hopper checks the cast.
 - [docs/PORT_QUASAR_IN_20_MINUTES.md](docs/PORT_QUASAR_IN_20_MINUTES.md): hands-on bounded-tail vault/multisig port guide using pretty `#[hopper::account]` fields.
 - [docs/DYNAMIC_TAILS_FROM_QUASAR.md](docs/DYNAMIC_TAILS_FROM_QUASAR.md): mapping Quasar bounded dynamic fields to Hopper fixed-body + compact dynamic-tail layouts.
 - [docs/DYNAMIC_FIELDS_QUASAR_TO_HOPPER.md](docs/DYNAMIC_FIELDS_QUASAR_TO_HOPPER.md): side-by-side bounded dynamic field migration, including Hopper's compact-tail contract.
@@ -256,6 +280,7 @@ multisig-style signer lists without allocation.
 | `crates/hopper-sdk` | Client-side SDK surface. |
 | `tools/hopper-cli` | `hopper` CLI for linting, schema export, account inspection, and profiling. |
 | `examples` | Example Hopper programs. |
+| `examples/hopper-tail-lab` | Devnet-ready dynamic-tail lab covering bounded fields, `TailStr`, `TailBytes`, init, and account wrappers. |
 | `docs` | Design notes, unsafe invariants, and audit/recovery notes. |
 
 The obsolete split repositories were folded back into this workspace with

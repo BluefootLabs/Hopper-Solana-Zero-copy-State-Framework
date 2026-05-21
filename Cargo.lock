@@ -2373,6 +2373,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "hopper-tail-lab"
+version = "0.2.1"
+dependencies = [
+ "hopper-lang",
+]
+
+[[package]]
 name = "hopper-token"
 version = "0.2.1"
 dependencies = [

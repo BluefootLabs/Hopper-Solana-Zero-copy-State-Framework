@@ -1,6 +1,6 @@
 {
   "name": "hopper_vault",
-  "version": "0.1.0",
+  "version": "0.2.1",
   "description": "A sample vault program demonstrating Hopper Manager",
   "layouts": [
     {

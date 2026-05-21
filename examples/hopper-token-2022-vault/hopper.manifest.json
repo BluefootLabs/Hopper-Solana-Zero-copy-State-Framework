@@ -1,6 +1,6 @@
 {
   "name": "hopper_token_2022_vault",
-  "version": "0.1.0",
+  "version": "0.2.1",
   "description": "A Hopper-authored Token-2022 vault with local manifest-backed CLI preview.",
   "layouts": [
     {

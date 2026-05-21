@@ -2,6 +2,10 @@
 
 Start in framework mode. Import the prelude, declare account bytes, derive account validation, and put handler logic behind `ctx.accounts.*`.
 
+Hopper in one sentence: write handlers with the Anchor/Quasar shape, then let
+Hopper verify owner, role, discriminator, version, and layout fingerprint before
+program code receives a typed zero-copy borrow.
+
 ## 1. Counter
 
 ```rust

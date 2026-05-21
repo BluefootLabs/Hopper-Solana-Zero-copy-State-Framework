@@ -146,7 +146,9 @@ instruction, then use overlays for all subsequent access.
 ```
 
 A complete audit trail of every state mutation costs less than a single
-`check_owner` call. There is no reason not to use receipts.
+`check_owner` call in this benchmark. Receipts are cheap enough to make the
+default answer "yes" for audit-sensitive state changes, while tiny one-shot
+programs can still omit them when every byte matters.
 
 ## Running Benchmarks
 

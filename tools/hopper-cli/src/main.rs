@@ -2367,9 +2367,11 @@ fn print_usage() {
     println!("    hopper client gen --ts <manifest>  Generate TypeScript client SDK");
     println!("    hopper client gen --kt <manifest>  Generate Kotlin client SDK");
     println!("    hopper client gen --py <manifest>  Generate Python client SDK");
-    println!("    hopper actions gen --program <manifest> --out api/actions  Generate Solana Actions routes");
-    println!("    hopper mobile gen --program <manifest> --target kotlin|react-native  Generate mobile bindings");
-    println!("    hopper test-gen security --program <manifest>  Generate security test matrix");
+    println!("    hopper actions gen --program <manifest> --out api/actions  Generate Solana Actions route scaffolds");
+    println!("    hopper mobile gen --program <manifest> --target kotlin|react-native  Generate mobile binding stubs");
+    println!(
+        "    hopper test-gen security --program <manifest>  Generate security test matrix scaffold"
+    );
     println!();
     println!("Hex data: hex-encoded account bytes (no 0x prefix).");
     println!("Manifest arguments accept inline JSON or @path/to/file.json.");
@@ -3415,7 +3417,7 @@ fn cmd_schema_export() {
     println!("--- Program Manifest JSON (for Hopper Manager) ---");
     println!("  {{");
     println!("    \"name\": \"my_program\",");
-    println!("    \"version\": \"0.1.0\",");
+    println!("    \"version\": \"0.2.1\",");
     println!("    \"description\": \"Program description\",");
     println!("    \"layouts\": [");
     println!("      {{ <layout manifest as above> }}");
