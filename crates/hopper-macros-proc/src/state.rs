@@ -23,6 +23,10 @@ struct StateOptions {
     /// this automatically; hand-written `dynamic_tail = T` layouts at least
     /// fingerprint the tail type token.
     dynamic_tail_schema: Option<String>,
+    /// Raw final-tail layouts still carry the Hopper u32 tail prefix, but the
+    /// final field consumes the remaining payload bytes without its own
+    /// field-level prefix and therefore cannot be represented as `TailCodec`.
+    raw_tail: bool,
 }
 
 impl Default for StateOptions {
@@ -32,6 +36,7 @@ impl Default for StateOptions {
             version: 1,
             dynamic_tail: None,
             dynamic_tail_schema: None,
+            raw_tail: false,
         }
     }
 }
@@ -64,6 +69,12 @@ struct FieldMeta {
 
 pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
     let options = parse_state_options(attr)?;
+    if options.raw_tail && options.dynamic_tail.is_some() {
+        return Err(syn::Error::new(
+            proc_macro2::Span::call_site(),
+            "raw_tail = true cannot be combined with dynamic_tail = T",
+        ));
+    }
     let dynamic_tail = options.dynamic_tail.clone();
     let mut input: ItemStruct = parse2(item)?;
     let name = input.ident.clone();
@@ -304,6 +315,36 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
                     Self::TAIL_PREFIX_OFFSET,
                     tail,
                 )
+            }
+        }
+    } else if options.raw_tail {
+        quote! {
+            /// This layout opts in to a Hopper raw final tail. Fixed body
+            /// remains zero-copy; the final dynamic field consumes the
+            /// remaining tail payload bytes without a field-level prefix.
+            pub const HAS_DYNAMIC_TAIL: bool = true;
+            pub const HAS_RAW_DYNAMIC_TAIL: bool = true;
+
+            /// Byte offset of the tail's `u32 LE` length prefix. The payload
+            /// starts at `TAIL_PREFIX_OFFSET + 4`.
+            pub const TAIL_PREFIX_OFFSET: usize = Self::LEN;
+
+            /// Read the tail's length prefix.
+            #[inline]
+            pub fn tail_len(data: &[u8]) -> ::core::result::Result<
+                u32,
+                ::hopper::__runtime::ProgramError,
+            > {
+                ::hopper::__runtime::read_tail_len(data, Self::TAIL_PREFIX_OFFSET)
+            }
+
+            /// Borrow the full dynamic-tail payload, excluding the u32 prefix.
+            #[inline]
+            pub fn tail_payload<'a>(data: &'a [u8]) -> ::core::result::Result<
+                &'a [u8],
+                ::hopper::__runtime::ProgramError,
+            > {
+                ::hopper::__runtime::tail_payload(data, Self::TAIL_PREFIX_OFFSET)
             }
         }
     } else {
@@ -870,12 +911,17 @@ fn parse_state_options(attr: TokenStream) -> Result<StateOptions> {
             options.dynamic_tail = Some(ty);
             return Ok(());
         }
+        if meta.path.is_ident("raw_tail") {
+            let value: syn::LitBool = meta.value()?.parse()?;
+            options.raw_tail = value.value;
+            return Ok(());
+        }
         if meta.path.is_ident("dynamic_tail_schema") || meta.path.is_ident("tail_schema") {
             let value: LitStr = meta.value()?.parse()?;
             options.dynamic_tail_schema = Some(value.value());
             return Ok(());
         }
-        Err(meta.error("unsupported hopper_state option; expected `disc = N`, `discriminator = N`, `version = N`, `dynamic_tail = T`, or `dynamic_tail_schema = \"...\"`"))
+        Err(meta.error("unsupported hopper_state option; expected `disc = N`, `discriminator = N`, `version = N`, `dynamic_tail = T`, `raw_tail = true`, or `dynamic_tail_schema = \"...\"`"))
     });
 
     parser.parse2(attr)?;

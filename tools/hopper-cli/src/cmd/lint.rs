@@ -40,8 +40,8 @@ use std::process;
 use syn::{Attribute, File, Item, ItemStruct, Type};
 
 pub fn cmd_lint(args: &[String]) {
-    if args.first().map(String::as_str) == Some("svm") {
-        cmd_lint_svm(&args[1..]);
+    if matches!(args.first().map(String::as_str), Some("svm" | "zc")) {
+        cmd_lint_zc(&args[1..]);
         return;
     }
 
@@ -116,14 +116,16 @@ pub fn cmd_lint(args: &[String]) {
 
 fn print_usage() {
     eprintln!("Usage: hopper lint [options]");
-    eprintln!("       hopper lint svm [--project <path>] [--fail-on-warn]");
+    eprintln!("       hopper lint zc [--project <path>] [--fail-on-warn]");
+    eprintln!("       hopper lint svm [--project <path>] [--fail-on-warn]  # compatibility alias");
     eprintln!();
     eprintln!("Options:");
     eprintln!("  --project <path>       Project root (default: current dir)");
     eprintln!("  --graph <format>       Output format: ascii | mermaid | dot | json");
     eprintln!("                         default: ascii");
     eprintln!("  --fail-on-warn         Exit 1 on warnings in addition to errors");
-    eprintln!("  svm                    Scan for duplicate manual SVM checks");
+    eprintln!("  zc                     Scan for zero-copy footguns in typed contexts");
+    eprintln!("  svm                    Compatibility alias for zc");
     eprintln!();
     eprintln!("Lints the cross-context account relationship graph in a Hopper");
     eprintln!("project, including Metaplex context keywords and on-chain");
@@ -131,7 +133,7 @@ fn print_usage() {
     eprintln!("found. Exits non-zero when an error-level diagnostic is surfaced.");
 }
 
-fn cmd_lint_svm(args: &[String]) {
+fn cmd_lint_zc(args: &[String]) {
     let mut project = PathBuf::from(".");
     let mut fail_on_warn = false;
     let mut i = 0;
@@ -147,7 +149,7 @@ fn cmd_lint_svm(args: &[String]) {
                 return;
             }
             other => {
-                eprintln!("unknown lint svm flag: {other}");
+                eprintln!("unknown lint zc flag: {other}");
                 print_usage();
                 process::exit(1);
             }
@@ -159,7 +161,7 @@ fn cmd_lint_svm(args: &[String]) {
     collect_rs_files(&project.join("src"), &mut files);
     collect_rs_files(&project.join("programs"), &mut files);
     if files.is_empty() {
-        eprintln!("hopper lint svm found no Rust source files under src/ or programs/");
+        eprintln!("hopper lint zc found no Rust source files under src/ or programs/");
         process::exit(1);
     }
 
@@ -181,6 +183,10 @@ fn cmd_lint_svm(args: &[String]) {
                 Some("manual owner check found in a typed-context source; prefer owner = expr on the account field unless this is a raw remaining account")
             } else if line.contains(".is_writable()") || line.contains(".check_writable()") {
                 Some("manual writable check found in a typed-context source; prefer #[account(mut)] unless this is a raw remaining account")
+            } else if line.contains("try_borrow()?") && line.contains(".to_vec()") {
+                Some("account data copied into Vec inside a typed-context source; prefer a zero-copy account view or field accessor")
+            } else if line.contains("try_from_slice(") || line.contains("deserialize(") {
+                Some("deserialization found in a typed-context source; prefer Hopper zero-copy views when the account layout is known")
             } else {
                 None
             };
@@ -197,7 +203,7 @@ fn cmd_lint_svm(args: &[String]) {
     }
 
     if diagnostics.is_empty() {
-        println!("PASS lint svm: no duplicate manual SVM checks found");
+        println!("PASS lint zc: no zero-copy footguns found");
         return;
     }
     for diagnostic in &diagnostics {

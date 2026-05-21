@@ -7,13 +7,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 
 ## [Unreleased]
 
+### Added
+
+- Added named bare final tails for `#[account]` dynamic layouts via `TailStr<'a>` and `TailBytes<'a>`.
+
 ## [0.2.1] - 2026-05-19
 
 ### Added
 
 - Added Solana SBF release gates that build the counter, vault, and Quasar-port examples, enforce the counter size budget, and run `hopper solana-check --all --build-sbf` in CI.
 - Added an Argus-style risk guard proof example with authority-bound exposure accounting.
-- Added a dynamic-field migration note documenting Hopper's bounded bare-tail contract.
+- Added a dynamic-field migration note documenting Hopper's bounded compact-tail contract.
 
 ### Changed
 

@@ -13,8 +13,8 @@ pub use crate::account::{
 pub use crate::context::Context;
 pub use crate::context::Context as Ctx;
 pub use hopper_runtime::{
-    AccountView, Address, HopperString, HopperVec, ProgramError, ProgramResult, TailCodec,
-    TailElement,
+    AccountView, Address, HopperString, HopperVec, ProgramError, ProgramResult, TailBytes,
+    TailCodec, TailElement, TailStr,
 };
 
 /// Lifetime-shaped bounded UTF-8 authoring value.

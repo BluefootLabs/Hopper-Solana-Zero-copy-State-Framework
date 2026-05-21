@@ -24,6 +24,18 @@ pub struct WeightedVotes {
     pub weights: Vec<u16>,
 }
 
+#[hopper::account(discriminator = 12, version = 1)]
+pub struct BareNote<'a> {
+    pub author: Address,
+    pub content: TailStr<'a>,
+}
+
+#[hopper::account(discriminator = 13, version = 1)]
+pub struct BareBlob<'a> {
+    pub tag: u8,
+    pub blob: TailBytes<'a>,
+}
+
 #[hopper::account(discriminator = 10, version = 1)]
 pub struct PrettyMultisig<'a> {
     pub creator: Address,
@@ -114,6 +126,80 @@ fn dynamic_account_accepts_generic_tail_vectors() {
     assert!(WeightedVotes::remove_weight(&mut data, &7).unwrap());
     let weights = WeightedVotes::weights(&data).unwrap();
     assert_eq!(weights.as_slice(), &[11, 13]);
+}
+
+#[test]
+fn bare_tail_str_consumes_remaining_payload() {
+    let author = Address::new([8u8; 32]);
+    let body = BareNote::new(author);
+    assert_eq!(body.author(), author);
+    assert!(BareNote::HAS_DYNAMIC_TAIL);
+    assert!(BareNote::HAS_RAW_DYNAMIC_TAIL);
+    assert_eq!(BareNote::TAIL_PREFIX_OFFSET, BareNote::LEN);
+
+    let mut data = vec![0u8; BareNote::space_for_tail("hello hopper".len())];
+    let tail = BareNoteTail {
+        content: TailStr::from_str("hello hopper"),
+    };
+    BareNote::tail_write(&mut data, &tail).unwrap();
+
+    assert_eq!(
+        BareNote::tail_len(&data).unwrap(),
+        "hello hopper".len() as u32
+    );
+    assert_eq!(
+        BareNote::content(&data).unwrap().as_str().unwrap(),
+        "hello hopper"
+    );
+    assert_eq!(
+        BareNote::tail_read(&data)
+            .unwrap()
+            .content
+            .as_str()
+            .unwrap(),
+        "hello hopper"
+    );
+
+    BareNote::set_content(&mut data, "raw tail").unwrap();
+    assert_eq!(
+        BareNote::content(&data).unwrap().as_str().unwrap(),
+        "raw tail"
+    );
+}
+
+#[test]
+fn bare_tail_bytes_are_binary_safe() {
+    let body = BareBlob::new(7);
+    assert_eq!(body.tag(), 7);
+
+    let raw = [0, 1, 2, 0xFF, 4, 5];
+    let mut data = vec![0u8; BareBlob::space_for_tail(raw.len())];
+    let tail = BareBlobTail {
+        blob: TailBytes::new(&raw),
+    };
+    BareBlob::tail_write(&mut data, &tail).unwrap();
+
+    let view = BareBlob::tail_view(&data).unwrap();
+    assert_eq!(view.blob().unwrap().as_bytes(), raw);
+    assert_eq!(BareBlob::blob(&data).unwrap().as_bytes(), raw);
+
+    BareBlob::set_blob(&mut data, &[9, 8, 7]).unwrap();
+    assert_eq!(BareBlob::blob(&data).unwrap().as_bytes(), &[9, 8, 7]);
+}
+
+#[test]
+fn bare_tail_str_validates_utf8_on_access() {
+    let mut data = vec![0u8; BareNote::space_for_tail(1)];
+    let offset = BareNote::TAIL_PREFIX_OFFSET;
+    data[offset..offset + 4].copy_from_slice(&1u32.to_le_bytes());
+    data[offset + 4] = 0xFF;
+
+    let err = BareNote::content(&data).unwrap().as_str().unwrap_err();
+    assert!(matches!(err, ProgramError::InvalidAccountData));
+
+    let err =
+        BareNote::tail_write_parts(&mut data, &BareNoteTailHead::default(), &[0xFF]).unwrap_err();
+    assert!(matches!(err, ProgramError::InvalidAccountData));
 }
 
 #[test]
@@ -226,10 +312,38 @@ mod tail_cap_64 {
     }
 }
 
+mod bare_tail_str_fp {
+    use super::*;
+
+    #[hopper::account(discriminator = 14, version = 1)]
+    pub struct SameFixedBody<'a> {
+        pub author: Address,
+        pub content: TailStr<'a>,
+    }
+}
+
+mod bare_tail_bytes_fp {
+    use super::*;
+
+    #[hopper::account(discriminator = 14, version = 1)]
+    pub struct SameFixedBody<'a> {
+        pub author: Address,
+        pub content: TailBytes<'a>,
+    }
+}
+
 #[test]
 fn layout_fingerprint_includes_dynamic_tail_schema() {
     assert_ne!(
         tail_cap_32::SameFixedBody::LAYOUT_ID,
         tail_cap_64::SameFixedBody::LAYOUT_ID
+    );
+}
+
+#[test]
+fn layout_fingerprint_distinguishes_bare_tail_kind() {
+    assert_ne!(
+        bare_tail_str_fp::SameFixedBody::LAYOUT_ID,
+        bare_tail_bytes_fp::SameFixedBody::LAYOUT_ID
     );
 }

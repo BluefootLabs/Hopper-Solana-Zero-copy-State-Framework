@@ -8,10 +8,11 @@
 > release surface is documented, release-checked, and scoped to the APIs
 > exercised by this repository.
 
-Hopper is a fast zero-copy Solana framework. Start with familiar account and
-context ergonomics, then opt into upgradeable state contracts, segment-level
-borrows, receipts, policy graphs, and schema manifests when the program needs
-that power.
+Hopper is a fast zero-copy Solana framework: write programs like Anchor or
+Quasar, while Hopper verifies the bytes before it casts them. Start with
+familiar account and context ergonomics, then opt into upgradeable state
+contracts, segment-level borrows, receipts, policy graphs, and schema manifests
+when the program needs that power.
 
 The public claim is precise: **Anchor/Quasar-class DX, Hopper-grade
 safety/state contracts, Pinocchio-class raw control.**
@@ -169,7 +170,7 @@ ctx.accounts
 - [docs/MIGRATION_FROM_QUASAR.md](docs/MIGRATION_FROM_QUASAR.md): Quasar-to-Hopper migration notes.
 - [docs/PORT_QUASAR_IN_20_MINUTES.md](docs/PORT_QUASAR_IN_20_MINUTES.md): hands-on bounded-tail vault/multisig port guide using pretty `#[hopper::account]` fields.
 - [docs/DYNAMIC_TAILS_FROM_QUASAR.md](docs/DYNAMIC_TAILS_FROM_QUASAR.md): mapping Quasar bounded dynamic fields to Hopper fixed-body + compact dynamic-tail layouts.
-- [docs/DYNAMIC_FIELDS_QUASAR_TO_HOPPER.md](docs/DYNAMIC_FIELDS_QUASAR_TO_HOPPER.md): side-by-side bounded dynamic field migration, including Hopper's deliberate bare-tail contract.
+- [docs/DYNAMIC_FIELDS_QUASAR_TO_HOPPER.md](docs/DYNAMIC_FIELDS_QUASAR_TO_HOPPER.md): side-by-side bounded dynamic field migration, including Hopper's compact-tail contract.
 - [docs/TOKEN_2022_GUIDE.md](docs/TOKEN_2022_GUIDE.md): zero-copy Token-2022 extension policy examples and account constraint syntax.
 - [docs/CLI_REFERENCE.md](docs/CLI_REFERENCE.md): lifecycle, schema, client, profiling, Solana compatibility gates, generated Actions/mobile/test scaffolds, and manager command reference.
 - [docs/PUBLICATION_AUDIT.md](docs/PUBLICATION_AUDIT.md): crate-by-crate publication and release-readiness audit.
@@ -184,6 +185,8 @@ Hopper is layered so users do not have to learn the systems surface first:
 2. Structured state: keep `#[account]` and add bounded dynamic fields such as
   `String<'a, 32>` or `Vec<'a, Address, 10>`. Hopper lowers them into the
   same fixed-body + compact-tail layout as explicit `#[hopper::dynamic_account]`.
+  Use `TailStr<'a>` or `TailBytes<'a>` only when a protocol deliberately wants a
+  named final field to consume the remaining tail payload.
 3. Systems mode: add `hopper::systems::*`, `hopper::segment`,
    `hopper::receipt`, `hopper::policy`, `hopper::migration`, and
    `hopper::interface` for field leasing, audit trails, upgrades, and
@@ -223,9 +226,11 @@ tail length, compact tail payload. `Address` / `Pubkey` vectors keep the
 borrowed zero-copy view path; other `T: TailElement` vectors use
 `HopperVec<T, N>` through the same codec/editor path. Use
 `#[hopper::dynamic_account]` with `#[tail(...)]` when you want the systems-mode
-tail shape spelled out in source. Named extension segments remain the right
-tool for larger repeated regions that need independent borrow tracking or
-migration metadata.
+tail shape spelled out in source. For Quasar-style bare final tails, spell the
+last field as `TailStr<'a>` or `TailBytes<'a>`; Hopper fingerprints it as
+`tail_str` or `tail_bytes` and leaves the bytes unprefixed inside the tail
+payload. Named extension segments remain the right tool for larger repeated
+regions that need independent borrow tracking or migration metadata.
 
 Handlers with variable account tails use generated remaining-account accessors:
 `ctx.remaining_accounts()` is strict and duplicate-rejecting,

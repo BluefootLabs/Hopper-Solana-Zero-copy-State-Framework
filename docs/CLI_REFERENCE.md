@@ -174,12 +174,14 @@ extension mistakes when token capabilities are present.
 
 ## Project linting
 
-### `hopper lint svm [--project <path>] [--fail-on-warn]`
+### `hopper lint zc [--project <path>] [--fail-on-warn]`
 
-Scan typed-context sources for duplicate manual SVM checks that should usually
-live in account constraints instead: signer, writable, and owner checks. The
-lint stays conservative and treats raw remaining-account checks as review items,
-not hard errors unless `--fail-on-warn` is set.
+Scan typed-context sources for zero-copy footguns: duplicate manual signer,
+writable, and owner checks that should usually live in account constraints,
+account-data copies into `Vec`, and deserialization calls where a Hopper view is
+usually the safer path. The lint stays conservative and treats raw
+remaining-account checks as review items, not hard errors unless
+`--fail-on-warn` is set. `hopper lint svm` remains as a compatibility alias.
 
 ## Inspection
 

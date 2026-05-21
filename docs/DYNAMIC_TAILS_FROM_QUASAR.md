@@ -140,11 +140,22 @@ bounded `String<'a, N>`, `Text<N>`, `Vec<'a, T, N>`, or `List<T, N>` fields.
 directly or when an indexed/segmented tail policy is a better fit than one
 compact payload.
 
-Hopper intentionally does not make bare unsized final tails such as
-`TailStr<'a>` or `&'a str` implicit in `#[account]`. Bounded compact tails keep
-maximum allocation, schema, and compatibility fingerprinted. If a protocol wants
-remaining-bytes semantics, spell that as a systems-mode payload so reviewers can
-see the wire policy directly.
+Hopper also supports named bare final tails for protocols that intentionally
+want remaining-bytes semantics:
+
+```rust
+#[hopper::account(discriminator = 9, version = 1)]
+pub struct Note<'a> {
+    pub author: Address,
+    pub content: TailStr<'a>,
+}
+```
+
+`TailStr<'a>` and `TailBytes<'a>` must be the final account field. They consume
+the remaining dynamic-tail payload without an inner field-level prefix and are
+included in the layout fingerprint as `tail_str` or `tail_bytes`. The account
+still has Hopper's outer `u32` dynamic-tail payload length. `TailStr` validates
+UTF-8 on `as_str()`; `TailBytes` returns raw bytes.
 
 ## Generated helpers
 
@@ -155,6 +166,11 @@ A dynamic-tail layout emits:
 - `tail_len(data: &[u8]) -> Result<u32, ProgramError>`
 - `tail_read(data: &[u8]) -> Result<T, ProgramError>`
 - `tail_write(data: &mut [u8], tail: &T) -> Result<usize, ProgramError>`
+
+For raw final-tail accounts, `tail_read` returns a borrowed `NameTail<'a>`,
+`tail_write_parts(data, &NameTailHead, raw)` writes the bounded head plus raw
+tail bytes, and `space_for_tail(raw_len)` computes allocation for a chosen raw
+tail length.
 
 `#[hopper::dynamic_account]` additionally emits:
 

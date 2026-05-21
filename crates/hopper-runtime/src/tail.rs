@@ -69,6 +69,92 @@ pub trait TailElement: TailCodec + Copy + Default + PartialEq {}
 
 impl<T> TailElement for T where T: TailCodec + Copy + Default + PartialEq {}
 
+/// Borrowed final raw-byte tail.
+///
+/// `TailBytes<'a>` is intentionally not a `TailCodec`: it is a borrowed view
+/// over the bytes remaining after any bounded compact-tail fields. The owning
+/// account data provides the storage.
+#[derive(Clone, Copy, Eq, PartialEq)]
+pub struct TailBytes<'a> {
+    bytes: &'a [u8],
+}
+
+impl<'a> TailBytes<'a> {
+    /// Borrow `bytes` as a final raw tail.
+    #[inline(always)]
+    pub const fn new(bytes: &'a [u8]) -> Self {
+        Self { bytes }
+    }
+
+    /// Return the raw tail bytes.
+    #[inline(always)]
+    pub const fn as_bytes(&self) -> &'a [u8] {
+        self.bytes
+    }
+
+    /// Number of raw tail bytes.
+    #[inline(always)]
+    pub const fn len(&self) -> usize {
+        self.bytes.len()
+    }
+
+    /// Whether the raw tail is empty.
+    #[inline(always)]
+    pub const fn is_empty(&self) -> bool {
+        self.bytes.is_empty()
+    }
+}
+
+/// Borrowed final UTF-8 tail.
+///
+/// The raw bytes consume the remaining dynamic-tail payload. UTF-8 is checked
+/// only when the caller asks for `&str`, so binary-safe inspection and strict
+/// text validation are both available without copying.
+#[derive(Clone, Copy, Eq, PartialEq)]
+pub struct TailStr<'a> {
+    bytes: &'a [u8],
+}
+
+impl<'a> TailStr<'a> {
+    /// Borrow `bytes` as a final UTF-8 tail.
+    #[inline(always)]
+    pub const fn new(bytes: &'a [u8]) -> Self {
+        Self { bytes }
+    }
+
+    /// Borrow a string as a final UTF-8 tail.
+    #[inline(always)]
+    pub const fn from_str(value: &'a str) -> Self {
+        Self {
+            bytes: value.as_bytes(),
+        }
+    }
+
+    /// Return the raw UTF-8 bytes without validating again.
+    #[inline(always)]
+    pub const fn as_bytes(&self) -> &'a [u8] {
+        self.bytes
+    }
+
+    /// Validate and return the tail as UTF-8.
+    #[inline]
+    pub fn as_str(&self) -> Result<&'a str, ProgramError> {
+        core::str::from_utf8(self.bytes).map_err(|_| ProgramError::InvalidAccountData)
+    }
+
+    /// Number of raw UTF-8 bytes.
+    #[inline(always)]
+    pub const fn len(&self) -> usize {
+        self.bytes.len()
+    }
+
+    /// Whether the raw tail is empty.
+    #[inline(always)]
+    pub const fn is_empty(&self) -> bool {
+        self.bytes.is_empty()
+    }
+}
+
 // ── Primitive impls (little-endian, fixed width) ────────────────────
 
 impl TailCodec for u8 {
@@ -745,6 +831,31 @@ pub fn write_tail<T: TailCodec>(
     }
     data[body_end..prefix_end].copy_from_slice(&(written as u32).to_le_bytes());
     Ok(written)
+}
+
+/// Write an already-encoded dynamic-tail payload.
+///
+/// This is used by generated bare-final-tail accounts: bounded fields are
+/// encoded first, then `TailStr` / `TailBytes` contributes the remaining raw
+/// payload without its own field-level length prefix.
+#[inline]
+pub fn write_tail_payload(
+    data: &mut [u8],
+    body_end: usize,
+    payload: &[u8],
+) -> Result<usize, ProgramError> {
+    let prefix_end = body_end
+        .checked_add(4)
+        .ok_or(ProgramError::AccountDataTooSmall)?;
+    let payload_end = prefix_end
+        .checked_add(payload.len())
+        .ok_or(ProgramError::AccountDataTooSmall)?;
+    if data.len() < payload_end || payload.len() > u32::MAX as usize {
+        return Err(ProgramError::AccountDataTooSmall);
+    }
+    data[prefix_end..payload_end].copy_from_slice(payload);
+    data[body_end..prefix_end].copy_from_slice(&(payload.len() as u32).to_le_bytes());
+    Ok(payload.len())
 }
 
 #[cfg(test)]

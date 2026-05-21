@@ -148,10 +148,15 @@ The current tree includes bounded helper types:
   `#[tail(vec<Address, N>)]` fields into a fixed body plus compact tail, with a
   generated tail struct, borrowed view, editor, `ALLOC_SPACE`, and native fixed
   field getters.
+- `TailStr<'a>` and `TailBytes<'a>` are named bare final-tail opt-ins. They must
+  be the last account field, consume the remaining dynamic-tail payload without
+  an inner field-level prefix, and enter the layout fingerprint as `tail_str` or
+  `tail_bytes`. `TailStr` validates UTF-8 on access.
 
-Workspace tests now cover bounded string and bounded vector roundtrips in
-addition to primitive, option, length-prefix, truncation, excess-payload,
-borrowed-view, invalid UTF-8, capacity, and layout-fingerprint checks.
+Workspace tests now cover bounded string and bounded vector roundtrips, bare
+final string/byte tails, primitive, option, length-prefix, truncation,
+excess-payload, borrowed-view, invalid UTF-8, capacity, and layout-fingerprint
+checks.
 
 ### Trust And Sysvar Checks
 

@@ -112,8 +112,8 @@ pub use remaining::{
 };
 pub use tail::{
     borrow_address_slice, borrow_bounded_str, read_tail, read_tail_len, tail_capacity,
-    tail_payload, write_tail, BoundedString, BoundedVec, HopperString, HopperVec, TailCodec,
-    TailElement,
+    tail_payload, write_tail, write_tail_payload, BoundedString, BoundedVec, HopperString,
+    HopperVec, TailBytes, TailCodec, TailElement, TailStr,
 };
 
 /// Compose a layout's `LayoutMigration::MIGRATIONS` chain from a list

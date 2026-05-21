@@ -22,6 +22,7 @@
 //! | `zerocopy_seal_required.rs` | bypass `#[hopper::pod]` and hand-roll `Pod`: cannot earn `ZeroCopy` |
 //! | `ref_only_rejects_raw_ref.rs` | naked `&mut T` cannot satisfy `HopperRefOnly` (audit Finding 2) |
 //! | `quasar_mut_account_reference.rs` | Quasar-style `&mut Account<T>` fields get a Hopper-specific fix-it |
+//! | `bare_tail_not_final.rs` | `TailStr<'a>` / `TailBytes<'a>` bare tails must be final account fields |
 //!
 //! Additional `state_*` fixtures are added in Stage 2 as each
 //! `#[account(...)]` constraint attribute lands.
@@ -50,4 +51,10 @@ fn compile_fail_state_constraints() {
     t.compile_fail("tests/compile_fail/state_seeds_no_bump.rs");
     t.compile_fail("tests/compile_fail/state_realloc_no_payer.rs");
     t.compile_fail("tests/compile_fail/state_realloc_no_zero.rs");
+}
+
+#[test]
+fn compile_fail_dynamic_tails() {
+    let t = trybuild::TestCases::new();
+    t.compile_fail("tests/compile_fail/bare_tail_not_final.rs");
 }

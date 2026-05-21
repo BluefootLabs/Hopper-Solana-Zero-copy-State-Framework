@@ -28,9 +28,9 @@ pub struct Multisig<'a> {
 
 The generated Hopper layout preserves a zero-copy fixed body and stores variable bytes in the account tail. That lets hot fixed fields stay predictable while string and vector payloads remain bounded, validated, and schema-visible.
 
-## Deliberate bare-tail difference
+## Deliberate compact-tail difference
 
-Hopper's tail is deliberately bare: it stores the bounded payload bytes described by the account schema instead of wrapping every dynamic value in an extra runtime object header. The account header, layout fingerprint, field metadata, and dynamic-tail schema hash are the contract. The tail itself stays compact.
+Hopper's current dynamic tail is deliberately bounded and compact: it stores the payload bytes described by the account schema instead of wrapping every dynamic value in an extra runtime object header. The account header, layout fingerprint, field metadata, and dynamic-tail schema hash are the contract. The tail itself stays compact.
 
 That gives Hopper three properties that matter for stateful programs:
 
@@ -38,13 +38,26 @@ That gives Hopper three properties that matter for stateful programs:
 - dynamic fields are bounded by the source type and checked by generated helpers,
 - schema and compatibility tools can verify the tail contract without inventing a second serialization model.
 
+Hopper also supports named bare final tails when a protocol really wants remaining-bytes semantics:
+
+```rust
+#[hopper::account(discriminator = 9, version = 1)]
+pub struct Note<'a> {
+    pub author: Address,
+    pub content: TailStr<'a>,
+}
+```
+
+`TailStr<'a>` and `TailBytes<'a>` are explicit opt-ins. They must be the last account field, they are fingerprinted as `tail_str` or `tail_bytes`, and they consume the remaining tail payload without an inner field-level length prefix. The Hopper account still carries the outer dynamic-tail `u32` payload length so tools can bound the region. `TailStr` validates UTF-8 when read as text; `TailBytes` stays binary-safe.
+
 ## Migration pattern
 
 1. Keep fixed, hot fields first.
 2. Use `String<'a, N>` and `Vec<'a, T, N>` for bounded dynamic fields.
 3. Pick caps that are protocol rules, not UI guesses.
-4. Use generated setters and push helpers so bounds and tail offsets stay checked.
-5. Export schema during review so clients and migrations see the same tail contract.
+4. Use `TailStr<'a>` or `TailBytes<'a>` only for deliberate final raw tails.
+5. Use generated setters and push helpers so bounds and tail offsets stay checked.
+6. Export schema during review so clients and migrations see the same tail contract.
 
 ```rust
 impl<'info> RenameMultisig<'info> {

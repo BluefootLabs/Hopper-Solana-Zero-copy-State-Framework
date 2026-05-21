@@ -54,7 +54,7 @@
 //! hopper keys new|sync|pda|list|print                 Keypair and PDA helpers
 //! hopper config get|set|list|reset|path               Global configuration store
 //! hopper lint                                        Run Hopper project diagnostics
-//! hopper lint svm                                    Run SVM-specific duplicate-check diagnostics
+//! hopper lint zc                                     Run zero-copy source diagnostics
 //! hopper expand                                      Show lowered macro output
 //! hopper tx explain <signature>                       Fetch and explain an on-chain transaction
 //! hopper tx simulate|submit <tx-base64>                Pre-built transaction helpers

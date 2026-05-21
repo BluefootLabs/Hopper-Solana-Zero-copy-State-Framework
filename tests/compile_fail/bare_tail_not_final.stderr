@@ -1,0 +1,5 @@
+error: TailStr<'a> and TailBytes<'a> are bare final tails and must be the last account field
+ --> tests/compile_fail/bare_tail_not_final.rs:7:18
+  |
+7 |     pub content: hopper::prelude::TailStr<'a>,
+  |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^

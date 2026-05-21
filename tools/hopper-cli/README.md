@@ -94,7 +94,7 @@ Profiling
 
 Project Health
   hopper lint                        Run Hopper project diagnostics
-  hopper lint svm                    Scan typed-context sources for duplicate manual SVM checks
+  hopper lint zc                     Scan typed-context sources for zero-copy footguns
   hopper solana-check [--all]        Check SBF crate shape and Hopper entrypoint invariants
   hopper expand                      Show lowered macro output for the current project
   hopper doctor                      Check toolchain and workspace health
