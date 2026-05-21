@@ -1,0 +1,5 @@
+error: profile = "tiny" does not allow #[pipeline], #[receipt], #[invariant], or #[access_control] handler modifiers; use profile = "strict" or profile = "audit" for modifier instrumentation
+  --> tests/compile_fail/tiny_profile_receipt_modifier.rs:11:9
+   |
+11 |     pub fn run(_ctx: &mut Context<'_>) -> ProgramResult {
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

@@ -50,6 +50,21 @@ pub struct Note<'a> {
 
 `TailStr<'a>` and `TailBytes<'a>` are explicit opt-ins. They must be the last account field, they are fingerprinted as `tail_str` or `tail_bytes`, and they consume the remaining tail payload without an inner field-level length prefix. The Hopper account still carries the outer dynamic-tail `u32` payload length so tools can bound the region. `TailStr` validates UTF-8 when read as text; `TailBytes` stays binary-safe.
 
+Unlike a fully implicit remaining slice, Hopper lets a raw final tail sit behind
+bounded compact fields while preserving the account contract:
+
+```rust
+#[hopper::account(discriminator = 10, version = 1)]
+pub struct Note<'a> {
+    pub author: Address,
+    pub label: String<'a, 32>,
+    pub content: TailStr<'a>,
+}
+```
+
+The label remains bounded and schema-visible. The content consumes the remaining
+payload bytes and is still recorded in the layout fingerprint as `tail_str`.
+
 ## Migration pattern
 
 1. Keep fixed, hot fields first.

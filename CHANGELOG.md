@@ -10,6 +10,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 ### Added
 
 - Added named bare final tails for `#[account]` dynamic layouts via `TailStr<'a>` and `TailBytes<'a>`.
+- Made `#[program(profile = "tiny")]` enforce a compact dispatch shape by rejecting multi-byte discriminators and handler-level modifier instrumentation.
 
 ## [0.2.1] - 2026-05-19
 

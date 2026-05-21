@@ -132,6 +132,19 @@ impl ProgramPolicyArgs {
             ProgramProfile::Raw => quote! { ::hopper::__runtime::HopperProgramProfile::RAW },
         }
     }
+
+    fn is_tiny_profile(&self) -> bool {
+        matches!(self.profile, Some(ProgramProfile::Tiny))
+    }
+}
+
+impl HandlerModifiers {
+    fn is_empty(&self) -> bool {
+        !self.pipeline
+            && !self.receipt
+            && self.invariants.is_empty()
+            && self.access_control.is_empty()
+    }
 }
 
 /// Parsed per-handler `#[instruction(N, unsafe_memory, skip_token_checks, ctx_args = K)]`
@@ -183,12 +196,27 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
 
     for module_item in items.iter_mut() {
         if let Item::Fn(method) = module_item {
-            if let Some(mut handler) = prepare_handler(method)? {
+            if let Some(mut handler) = prepare_handler(method, policy.is_tiny_profile())? {
                 method
                     .attrs
                     .retain(|attr| !attr.path().is_ident("instruction"));
                 handler.fn_name = method.sig.ident.clone();
                 handlers.push(handler);
+            }
+        }
+    }
+
+    if policy.is_tiny_profile() {
+        for handler in &handlers {
+            if handler.discriminator.len() != 1 {
+                return Err(syn::Error::new_spanned(
+                    &input,
+                    format!(
+                        "profile = \"tiny\" requires one-byte instruction discriminators; `{}` uses {} bytes",
+                        handler.fn_name,
+                        handler.discriminator.len()
+                    ),
+                ));
             }
         }
     }
@@ -560,7 +588,7 @@ fn expect_u8_lit(expr: &Expr) -> Result<u8> {
     }
 }
 
-fn prepare_handler(function: &mut ItemFn) -> Result<Option<Handler>> {
+fn prepare_handler(function: &mut ItemFn, tiny_profile: bool) -> Result<Option<Handler>> {
     if !function
         .attrs
         .iter()
@@ -570,6 +598,12 @@ fn prepare_handler(function: &mut ItemFn) -> Result<Option<Handler>> {
     }
 
     let modifiers = extract_handler_modifiers(&mut function.attrs)?;
+    if tiny_profile && !modifiers.is_empty() {
+        return Err(syn::Error::new_spanned(
+            &function.sig,
+            "profile = \"tiny\" does not allow #[pipeline], #[receipt], #[invariant], or #[access_control] handler modifiers; use profile = \"strict\" or profile = \"audit\" for modifier instrumentation",
+        ));
+    }
 
     let (discriminator, instruction_policy) = extract_instruction_attribute(&function.attrs)?
         .ok_or_else(|| {

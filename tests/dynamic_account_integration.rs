@@ -36,6 +36,14 @@ pub struct BareBlob<'a> {
     pub blob: TailBytes<'a>,
 }
 
+#[hopper::account(discriminator = 15, version = 1)]
+pub struct LabeledBareNote<'a> {
+    pub author: Address,
+    pub label: String<'a, 16>,
+    pub reviewers: Vec<'a, Address, 2>,
+    pub content: TailStr<'a>,
+}
+
 #[hopper::account(discriminator = 10, version = 1)]
 pub struct PrettyMultisig<'a> {
     pub creator: Address,
@@ -200,6 +208,57 @@ fn bare_tail_str_validates_utf8_on_access() {
     let err =
         BareNote::tail_write_parts(&mut data, &BareNoteTailHead::default(), &[0xFF]).unwrap_err();
     assert!(matches!(err, ProgramError::InvalidAccountData));
+}
+
+#[test]
+fn bare_tail_can_follow_bounded_compact_head() {
+    let author = Address::new([6u8; 32]);
+    let reviewer = Address::new([7u8; 32]);
+    let body = LabeledBareNote::new(author);
+    assert_eq!(body.author(), author);
+    assert!(LabeledBareNote::HAS_DYNAMIC_TAIL);
+    assert!(LabeledBareNote::HAS_RAW_DYNAMIC_TAIL);
+
+    let mut label = HopperString::<16>::empty();
+    label.set_str("audit").unwrap();
+    let mut reviewers = HopperVec::<Address, 2>::empty();
+    reviewers.push(reviewer).unwrap();
+    let tail = LabeledBareNoteTail {
+        label,
+        reviewers,
+        content: TailStr::from_str("remaining bytes are the note body"),
+    };
+
+    let mut data = vec![0u8; LabeledBareNote::space_for_tail(tail.content.len())];
+    let written = LabeledBareNote::tail_write(&mut data, &tail).unwrap();
+    assert_eq!(LabeledBareNote::tail_len(&data).unwrap() as usize, written);
+
+    let view = LabeledBareNote::tail_view(&data).unwrap();
+    assert_eq!(view.label().unwrap(), "audit");
+    assert_eq!(view.reviewers().unwrap(), &[reviewer]);
+    assert_eq!(
+        view.content().unwrap().as_str().unwrap(),
+        "remaining bytes are the note body"
+    );
+
+    let read = LabeledBareNote::tail_read(&data).unwrap();
+    assert_eq!(read.label.as_str().unwrap(), "audit");
+    assert_eq!(read.reviewers.as_slice(), &[reviewer]);
+    assert_eq!(
+        read.content.as_str().unwrap(),
+        "remaining bytes are the note body"
+    );
+
+    let mut editor = LabeledBareNote::tail_editor(&mut data).unwrap();
+    editor.set_label("ops").unwrap();
+    editor
+        .commit_with_raw("edited raw body".as_bytes())
+        .unwrap();
+    assert_eq!(LabeledBareNote::label(&data).unwrap(), "ops");
+    assert_eq!(
+        LabeledBareNote::content(&data).unwrap().as_str().unwrap(),
+        "edited raw body"
+    );
 }
 
 #[test]

@@ -23,6 +23,8 @@
 //! | `ref_only_rejects_raw_ref.rs` | naked `&mut T` cannot satisfy `HopperRefOnly` (audit Finding 2) |
 //! | `quasar_mut_account_reference.rs` | Quasar-style `&mut Account<T>` fields get a Hopper-specific fix-it |
 //! | `bare_tail_not_final.rs` | `TailStr<'a>` / `TailBytes<'a>` bare tails must be final account fields |
+//! | `tiny_profile_multibyte_discriminator.rs` | tiny programs must keep one-byte dispatch |
+//! | `tiny_profile_receipt_modifier.rs` | tiny programs cannot inject handler modifier instrumentation |
 //!
 //! Additional `state_*` fixtures are added in Stage 2 as each
 //! `#[account(...)]` constraint attribute lands.
@@ -57,4 +59,11 @@ fn compile_fail_state_constraints() {
 fn compile_fail_dynamic_tails() {
     let t = trybuild::TestCases::new();
     t.compile_fail("tests/compile_fail/bare_tail_not_final.rs");
+}
+
+#[test]
+fn compile_fail_tiny_profile() {
+    let t = trybuild::TestCases::new();
+    t.compile_fail("tests/compile_fail/tiny_profile_multibyte_discriminator.rs");
+    t.compile_fail("tests/compile_fail/tiny_profile_receipt_modifier.rs");
 }

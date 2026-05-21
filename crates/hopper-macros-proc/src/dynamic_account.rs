@@ -1,8 +1,10 @@
 //! `#[hopper::dynamic_account]`.
 //!
-//! Quasar-style authoring surface for bounded dynamic fields. The macro keeps
-//! Hopper's wire truth unchanged: a fixed zero-copy body plus one compact
-//! dynamic tail encoded after the body as `[u32 len][payload]`.
+//! Quasar-style authoring surface for bounded dynamic fields and explicit raw
+//! final tails. The macro keeps Hopper's wire truth explicit: a fixed zero-copy
+//! body plus one length-bounded dynamic payload encoded after the body as
+//! `[u32 len][payload]`. Bounded fields encode inside the payload; a final
+//! `TailStr<'a>` or `TailBytes<'a>` consumes the remaining payload bytes.
 
 use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, quote, ToTokens};

@@ -157,6 +157,23 @@ included in the layout fingerprint as `tail_str` or `tail_bytes`. The account
 still has Hopper's outer `u32` dynamic-tail payload length. `TailStr` validates
 UTF-8 on `as_str()`; `TailBytes` returns raw bytes.
 
+Bare final tails can follow bounded compact fields. In that case Hopper stores
+the bounded field headers/payload first and the raw field consumes the rest:
+
+```rust
+#[hopper::account(discriminator = 10, version = 1)]
+pub struct Note<'a> {
+    pub author: Address,
+    pub label: String<'a, 32>,
+    pub reviewers: Vec<'a, Address, 4>,
+    pub content: TailStr<'a>,
+}
+```
+
+That is the Quasar-style compact tail with Hopper's extra contract layer: the
+raw field is named, final-only, layout-fingerprinted, and length-bounded by the
+outer Hopper tail prefix.
+
 ## Generated helpers
 
 A dynamic-tail layout emits:

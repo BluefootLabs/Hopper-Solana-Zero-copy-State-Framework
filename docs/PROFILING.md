@@ -19,9 +19,17 @@ as a substitute for live compute-unit measurements.
 ## Tiny profile and size budget
 
 Use `#[program(profile = "tiny")]` on programs whose public contract includes a
-small binary budget. The profile is an explicit intent marker emitted by the
-macro as `HOPPER_PROGRAM_PROFILE`, so CI, `cargo expand`, and release reviews can
-distinguish size-sensitive programs from strict, audit, or raw profiles.
+small binary budget. The macro emits `HOPPER_PROGRAM_PROFILE` and enforces the
+first size-shape rules at compile time:
+
+- instruction discriminators must be one byte so dispatch stays in the dense
+	`match data[0]` form;
+- handler-level modifier instrumentation is rejected, including `#[pipeline]`,
+	`#[receipt]`, `#[invariant]`, and `#[access_control]`.
+
+Use `profile = "strict"` or `profile = "audit"` when a program needs those
+instrumented paths. Tiny programs still use typed contexts and Hopper account
+validation; the profile only keeps extra audit scaffolding out of the binary.
 
 The repository enforces a 16 KiB SBF budget for [../examples/hopper-counter](../examples/hopper-counter)
 in the Solana SBF workflow. Keep that budget tied to the built `.so` size, not a
