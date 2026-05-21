@@ -37,7 +37,8 @@ source estimate:
 
 ```bash
 cargo build-sbf -- -p hopper-counter
-stat -c%s target/deploy/hopper_counter.so
+program=$(find target -type f -name hopper_counter.so -print -quit)
+stat -c%s "${program}"
 ```
 
 ## Same-provenance benchmark flow

@@ -27,7 +27,14 @@ jobs:
       - name: Build tiny counter and enforce size budget
         run: |
           cargo build-sbf -- -p hopper-counter
-          bytes=$(stat -c%s target/deploy/hopper_counter.so)
+          program=$(find target -type f -name hopper_counter.so -print -quit)
+          if [ -z "${program}" ]; then
+            echo "hopper_counter.so was not found under target/"
+            find target -maxdepth 5 -type f -name '*.so' -print || true
+            exit 1
+          fi
+          bytes=$(stat -c%s "${program}")
+          echo "hopper-counter SBF artifact: ${program}"
           echo "hopper-counter SBF bytes: ${bytes}"
           if [ "${bytes}" -gt "${HOPPER_COUNTER_MAX_BYTES}" ]; then
             echo "hopper-counter exceeded ${HOPPER_COUNTER_MAX_BYTES} byte SBF budget"
