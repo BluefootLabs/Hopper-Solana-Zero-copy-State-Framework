@@ -189,6 +189,10 @@ Every included framework used the same deterministic user seed set, SBF
 toolchain, runner, and command line. `n/a` means the upstream comparator does
 not implement that benchmark instruction.
 
+This is a historical release-candidate vault snapshot, not current-head proof
+that Hopper is broadly faster than Quasar. Re-run `hopper-bench` against the
+current Hopper and Quasar revisions before publishing new performance claims.
+
 | Scenario | Hopper | Anza Pinocchio | Quasar |
 |----------|-------:|---------------:|-------:|
 | Authorize | **430 CU** | 2512 CU (+2082) | n/a |

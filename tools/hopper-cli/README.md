@@ -25,7 +25,7 @@ cargo run -p hopper-cli -- help
 
 ```
 Compile
-  hopper compile --emit <rust|ts|kt|py|rust-client|idl|codama|schema> [<manifest>|--package <name>|--program-id ...]
+  hopper compile --emit <rust|ts|kt|py|go|c|rust-client|idl|codama|schema> [<manifest>|--package <name>|--program-id ...]
                                       Emit lowered Rust, client SDKs, IDL JSON, Codama, or manifest
 
 Verify
@@ -110,6 +110,8 @@ Client SDK
   hopper client gen --ts <manifest>  Generate TypeScript client SDK
   hopper client gen --kt <manifest>  Generate Kotlin client SDK (org.sol4k)
   hopper client gen --py <manifest>  Generate Python client SDK
+  hopper client gen --go <manifest>  Generate Go client SDK
+  hopper client gen --c <manifest>   Generate C client header
   hopper actions gen --program <manifest> --out api/actions  Generate Solana Actions route scaffolds
   hopper mobile gen --program <manifest> --target kotlin|react-native  Generate mobile binding stubs
   hopper test-gen security --program <manifest>  Generate a security test matrix scaffold

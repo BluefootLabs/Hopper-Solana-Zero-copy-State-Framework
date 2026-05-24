@@ -41,16 +41,24 @@ starter templates and their manifests receive complete crates.io metadata first.
 Before a launch or benchmark announcement, run the warning gate locally and in CI:
 
 ```sh
-cargo check --workspace --all-targets
-cargo test --workspace --all-targets
+cargo check --workspace --locked
+cargo check --workspace --all-targets --locked
 cargo check -p hopper-quasar-port-20-min
 cargo test -p hopper-quasar-port-20-min
 cargo check -p hopper-devnet-audit
+cargo test -p hopper-systems --test trust_tests --locked
+cargo test -p hopper-lang --features proc-macros --test dynamic_account_integration --locked
+cargo test -p hopper-lang --features proc-macros --test remaining_accounts_context_integration --locked
 cargo test -p hopper-lang --features proc-macros,metaplex --test metaplex_context_integration
 powershell -ExecutionPolicy Bypass -File .\scripts\kani-runtime-tail.ps1
 hopper lint
 hopper profile elf target/deploy/<program>.so --html target/hopper-profile.html
 ```
+
+The GitHub `Rust release gates` workflow enforces the locked all-target
+workspace check on both Ubuntu and Windows, then runs the focused safety and
+Quasar-port regression tests on Ubuntu. Keep that workflow green before making
+claims about release readiness or cross-platform build health.
 
 On Unix-like CI runners, use `sh ./scripts/kani-runtime-tail.sh` for the same
 proof lane. If PowerShell 7 is available, `pwsh ./scripts/kani-runtime-tail.ps1`

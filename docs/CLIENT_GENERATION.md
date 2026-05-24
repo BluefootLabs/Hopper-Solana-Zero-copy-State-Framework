@@ -3,7 +3,14 @@
 > - `hopper client gen --ts <manifest.json>` -> TypeScript SDK
 > - `hopper client gen --kt <manifest.json>` -> Kotlin SDK (`org.sol4k`)
 > - `hopper client gen --py <manifest.json>` -> Python SDK (stdlib-only)
+> - `hopper client gen --go <manifest.json>` -> Go SDK (stdlib-only)
+> - `hopper client gen --c <manifest.json>` -> C header-only client
 > - `hopper compile --emit rust-client <manifest.json>` -> Rust off-chain SDK
+
+Hopper `0.2.1` generates TypeScript, Kotlin, Python, Go, C header-only, and
+off-chain Rust clients, plus Codama-shaped JSON and Anchor-shaped IDL JSON for
+downstream tooling. Account readers in every generated language assert the
+8-byte Hopper `LAYOUT_ID` fingerprint before decoding fields.
 
 ## Copyable generated-client flows
 
@@ -13,6 +20,8 @@ Write all generated artifacts to files during release verification:
 hopper compile --emit ts --package hopper-token-2022-vault --out target/clients/vault.ts --force
 hopper compile --emit kt --package hopper-token-2022-vault --out target/clients/Vault.kt --force
 hopper compile --emit py --package hopper-token-2022-vault --out target/clients/vault_client.py --force
+hopper compile --emit go --package hopper-token-2022-vault --out target/clients/vault_client.go --force
+hopper compile --emit c --package hopper-token-2022-vault --out target/clients/vault_client.h --force
 hopper compile --emit rust-client --package hopper-token-2022-vault --out target/clients/vault_client.rs --force
 ```
 
@@ -122,6 +131,32 @@ The generated module intentionally does not pick a Solana transport library.
 Callers can pass the emitted bytes to `solders`, `solana-py`, or their own RPC
 stack.
 
+## Go Generation
+
+Go generation emits a single stdlib-only package with:
+
+- `Pubkey`, `AccountMeta`, and `Instruction` transport-neutral structs
+- typed account structs and `Decode<Name>` helpers that verify `LAYOUT_ID`
+- typed `<Instruction>Args` / `<Instruction>Accounts` structs
+- `Build<Instruction>Instruction` helpers with discriminator-prefixed data
+- event structs and decoders keyed by event tag
+
+The generated package deliberately avoids choosing a Go Solana SDK. Callers can
+adapt the emitted `Instruction` into their RPC or transaction-building library.
+
+## C Generation
+
+C generation emits a single header-style client with:
+
+- fixed-width integer and `HopperPubkey` types
+- `hopper_decode_<layout>` account decoders that verify `LAYOUT_ID`
+- `hopper_build_<instruction>_data` payload builders
+- `hopper_<instruction>_account_metas` account metadata helpers
+- event decoders and explicit `HopperClientError` return codes
+
+The header is dependency-light (`stdint.h`, `stdbool.h`, `stddef.h`, `string.h`)
+and leaves transaction transport to the embedding application.
+
 ## Rust Client Generation
 
 `hopper compile --emit rust-client` emits an off-chain Rust client using
@@ -140,6 +175,12 @@ hopper client gen --kt @my-program.manifest.json
 
 # Generate Python client module
 hopper client gen --py @my-program.manifest.json
+
+# Generate Go client package
+hopper client gen --go @my-program.manifest.json
+
+# Generate C client header
+hopper client gen --c @my-program.manifest.json
 
 # Generate off-chain Rust client
 hopper compile --emit rust-client @my-program.manifest.json
@@ -165,10 +206,14 @@ ProgramManifest
   │    └─ Events.kt
   ├─ hopper-schema::python_client::PyClientGen
   │    └─ <program>_client.py
+  ├─ hopper-schema::go_client::GoClientGen
+  │    └─ client.go
+  ├─ hopper-schema::c_client::CClientGen
+  │    └─ client.h
   └─ hopper-schema::rust_client::RsClientGen
        └─ client.rs
 ```
 
 The generator operates on `ProgramManifest` directly. It does NOT
 parse JSON. The CLI is responsible for loading the manifest; the
-generator formats TypeScript, Kotlin, Python, and Rust output bundles.
+generator formats TypeScript, Kotlin, Python, Go, C, and Rust output bundles.

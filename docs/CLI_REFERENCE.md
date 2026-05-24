@@ -137,6 +137,8 @@ Emit artifacts from a local, package-inferred, or fetched manifest. Targets:
 - `ts` - TypeScript client SDK
 - `kt` - Kotlin client SDK
 - `py` - Python client SDK
+- `go` - Go client SDK
+- `c` - C client header
 - `rust-client` - off-chain Rust client SDK
 - `idl` - Anchor-shaped IDL JSON
 - `codama` - Codama-shaped JSON
@@ -147,12 +149,14 @@ after emitting.
 
 ## Client generation
 
-### `hopper client gen --ts <manifest>` / `--kt <manifest>` / `--py <manifest>`
+### `hopper client gen --ts <manifest>` / `--kt <manifest>` / `--py <manifest>` / `--go <manifest>` / `--c <manifest>`
 
-Emit a typed TypeScript, Kotlin, or Python client from the manifest. Supported
-shapes: instruction builders, account readers, PDA helpers, event decoders. Use
-`hopper compile --emit rust-client <manifest>` for the off-chain Rust client
-target and `hopper compile --emit <ts|kt|py|rust-client|idl|codama|schema>` for
+Emit a typed TypeScript, Kotlin, Python, Go, or C client from the manifest.
+Supported shapes: instruction builders, account readers with layout-id checks,
+account metadata helpers where the target language has a neutral representation,
+and event decoders. Use `hopper compile --emit rust-client <manifest>` for the
+off-chain Rust client target and
+`hopper compile --emit <ts|kt|py|go|c|rust-client|idl|codama|schema>` for
 one-shot manifest-source inference via `--package` or `--program-id`.
 
 ### `hopper actions gen --program <manifest> --out <dir> [--framework next]`

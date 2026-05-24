@@ -1456,7 +1456,7 @@ mod ctx_args_tests {
     // Parse a handler function body end-to-end through `prepare_handler`
     // to verify the combined ctx_args + typed context validation path.
     fn run_prepare(mut function: syn::ItemFn) -> Result<Handler> {
-        prepare_handler(&mut function).map(|o| o.expect("handler discovered"))
+        prepare_handler(&mut function, false).map(|o| o.expect("handler discovered"))
     }
 
     #[test]

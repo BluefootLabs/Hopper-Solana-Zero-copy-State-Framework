@@ -11,19 +11,22 @@
 //! - **TypeScript**: Full SDK with accounts, instructions, events, types.
 //! - **Kotlin**: Android SDK for Solana Mobile, using `@solana/web3.js` patterns
 //!   mapped to `com.solana.mobilewalletadapter` and `org.sol4k`.
+//! - **Python, Go, C, Rust**: Transport-neutral clients in sibling modules.
 //!
 //! ## Usage
 //!
 //! ```text
 //! hopper client gen --ts @my-program.manifest.json
 //! hopper client gen --kt @my-program.manifest.json
+//! hopper client gen --go @my-program.manifest.json
+//! hopper client gen --c @my-program.manifest.json
 //! ```
 
 use core::fmt;
 
 extern crate alloc;
 
-use crate::{InstructionDescriptor, ProgramManifest};
+use crate::{EventDescriptor, InstructionDescriptor, ProgramManifest};
 
 // ---------------------------------------------------------------------------
 // Type Mapping
@@ -408,6 +411,9 @@ impl<'a> fmt::Display for TsEvents<'a> {
             write!(f, "export const ")?;
             write_upper_snake(f, event.name)?;
             writeln!(f, "_EVENT_DISC = {};", event.tag)?;
+            write!(f, "export const ")?;
+            write_upper_snake(f, event.name)?;
+            writeln!(f, "_EVENT_DATA_LEN = {};", event_data_size(event))?;
             writeln!(f)?;
 
             // Decoder
@@ -417,13 +423,33 @@ impl<'a> fmt::Display for TsEvents<'a> {
             write!(f, "  ")?;
             write_pascal(f, event.name)?;
             writeln!(f, "Event {{")?;
+            write!(f, "  if (data.length < ")?;
+            write_upper_snake(f, event.name)?;
+            writeln!(f, "_EVENT_DATA_LEN) {{")?;
+            write!(
+                f,
+                "    throw new Error(`Hopper event too short: ${{data.length}} < ${{"
+            )?;
+            write_upper_snake(f, event.name)?;
+            writeln!(f, "_EVENT_DATA_LEN}}`);")?;
+            writeln!(f, "  }}")?;
+            write!(f, "  if (data[0] !== ")?;
+            write_upper_snake(f, event.name)?;
+            writeln!(f, "_EVENT_DISC) {{")?;
+            write!(
+                f,
+                "    throw new Error(`Hopper event tag mismatch: ${{data[0]}} !== ${{"
+            )?;
+            write_upper_snake(f, event.name)?;
+            writeln!(f, "_EVENT_DISC}}`);")?;
+            writeln!(f, "  }}")?;
             writeln!(
                 f,
                 "  const view = new DataView(data.buffer, data.byteOffset, data.byteLength);"
             )?;
 
             for field in event.fields.iter() {
-                let offset = field.offset as usize;
+                let offset = field.offset as usize + 1;
                 let end = offset + field.size as usize;
                 write!(f, "  const ")?;
                 write_camel(f, field.name)?;
@@ -727,6 +753,15 @@ fn instruction_data_size(ix: &InstructionDescriptor) -> usize {
         size += arg.size as usize;
     }
     size
+}
+
+fn event_data_size(event: &EventDescriptor) -> usize {
+    1 + event
+        .fields
+        .iter()
+        .map(|field| field.offset as usize + field.size as usize)
+        .max()
+        .unwrap_or(0)
 }
 
 // ---------------------------------------------------------------------------
@@ -1263,6 +1298,9 @@ impl<'a> fmt::Display for KtEvents<'a> {
             write!(f, "const val ")?;
             write_kt_const(f, event.name)?;
             writeln!(f, "_EVENT_DISC: Byte = {}", event.tag)?;
+            write!(f, "const val ")?;
+            write_kt_const(f, event.name)?;
+            writeln!(f, "_EVENT_DATA_LEN: Int = {}", event_data_size(event))?;
             writeln!(f)?;
 
             write!(f, "fun decode")?;
@@ -1270,9 +1308,19 @@ impl<'a> fmt::Display for KtEvents<'a> {
             write!(f, "Event(data: ByteArray): ")?;
             write_kt_pascal(f, event.name)?;
             writeln!(f, "Event {{")?;
+            write!(f, "    require(data.size >= ")?;
+            write_kt_const(f, event.name)?;
+            writeln!(
+                f,
+                "_EVENT_DATA_LEN) {{ \"Data too small for {} event\" }}",
+                event.name
+            )?;
+            write!(f, "    require(data[0] == ")?;
+            write_kt_const(f, event.name)?;
+            writeln!(f, "_EVENT_DISC) {{ \"Event tag mismatch\" }}")?;
 
             for field in event.fields.iter() {
-                let offset = field.offset as usize;
+                let offset = field.offset as usize + 1;
                 let end = offset + field.size as usize;
                 write!(f, "    val ")?;
                 write_kt_camel(f, field.name)?;
@@ -1598,6 +1646,10 @@ mod tests {
         assert!(output.contains("export interface DepositEventEvent {"));
         assert!(output.contains("export function decodeDepositEventEvent(data: Uint8Array)"));
         assert!(output.contains("DEPOSIT_EVENT_EVENT_DISC = 0;"));
+        assert!(output.contains("DEPOSIT_EVENT_EVENT_DATA_LEN = 41;"));
+        assert!(output.contains("data[0] !== DEPOSIT_EVENT_EVENT_DISC"));
+        assert!(output.contains("new PublicKey(data.slice(1, 33))"));
+        assert!(output.contains("view.getBigUint64(33, true)"));
     }
 
     #[test]
@@ -1774,6 +1826,10 @@ mod tests {
         assert!(output.contains("data class DepositEventEvent("));
         assert!(output.contains("fun decodeDepositEventEvent(data: ByteArray)"));
         assert!(output.contains("DEPOSIT_EVENT_EVENT_DISC: Byte = 0"));
+        assert!(output.contains("DEPOSIT_EVENT_EVENT_DATA_LEN: Int = 41"));
+        assert!(output.contains("data[0] == DEPOSIT_EVENT_EVENT_DISC"));
+        assert!(output.contains("PublicKey(data.copyOfRange(1, 33))"));
+        assert!(output.contains("ByteBuffer.wrap(data, 33, 8)"));
     }
 
     #[test]

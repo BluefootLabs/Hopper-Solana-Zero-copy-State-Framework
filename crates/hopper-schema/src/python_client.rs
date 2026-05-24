@@ -349,6 +349,7 @@ fn fmt_event(f: &mut fmt::Formatter<'_>, e: &EventDescriptor) -> fmt::Result {
     writeln!(f, ":")?;
     writeln!(f, "    \"\"\"Event {} (tag={})\"\"\"", e.name, e.tag)?;
     writeln!(f, "    TAG: int = {}", e.tag)?;
+    writeln!(f, "    DATA_LEN: int = {}", event_data_len(e))?;
     for fd in e.fields {
         write!(f, "    ")?;
         write_snake(f, fd.name)?;
@@ -360,18 +361,19 @@ fn fmt_event(f: &mut fmt::Formatter<'_>, e: &EventDescriptor) -> fmt::Result {
     write!(f, "    def decode(cls, buf: bytes) -> \"")?;
     write_pascal(f, e.name)?;
     writeln!(f, "\":")?;
-    writeln!(f, "        if not buf or buf[0] != cls.TAG:")?;
+    writeln!(f, "        if len(buf) < cls.DATA_LEN:")?;
+    writeln!(
+        f,
+        "            raise ValueError(\"event buffer too short\")"
+    )?;
+    writeln!(f, "        if buf[0] != cls.TAG:")?;
     writeln!(f, "            raise ValueError(\"event tag mismatch\")")?;
-    writeln!(f, "        p = 1")?;
     for fd in e.fields {
         let fmt = struct_format(fd.canonical_type, fd.size);
+        let offset = fd.offset as usize + 1;
         write!(f, "        ")?;
         write_snake(f, fd.name)?;
-        writeln!(
-            f,
-            " = struct.unpack_from(\"{}\", buf, p)[0]; p += {}",
-            fmt, fd.size
-        )?;
+        writeln!(f, " = struct.unpack_from(\"{}\", buf, {})[0]", fmt, offset)?;
     }
     write!(f, "        return cls(")?;
     for (i, fd) in e.fields.iter().enumerate() {
@@ -384,6 +386,15 @@ fn fmt_event(f: &mut fmt::Formatter<'_>, e: &EventDescriptor) -> fmt::Result {
     }
     writeln!(f, ")")?;
     Ok(())
+}
+
+fn event_data_len(event: &EventDescriptor) -> usize {
+    1 + event
+        .fields
+        .iter()
+        .map(|field| field.offset as usize + field.size as usize)
+        .max()
+        .unwrap_or(0)
 }
 
 // ---------------------------------------------------------------------------
@@ -613,6 +624,10 @@ mod tests {
         assert!(out.contains("class Deposited"));
         assert!(out.contains("EVENT_DECODERS"));
         assert!(out.contains("1: Deposited"));
+        assert!(out.contains("DATA_LEN: int = 10"));
+        assert!(out.contains("if len(buf) < cls.DATA_LEN:"));
+        assert!(out.contains("if buf[0] != cls.TAG:"));
+        assert!(out.contains("struct.unpack_from(\"<Q\", buf, 2)[0]"));
     }
 
     #[test]

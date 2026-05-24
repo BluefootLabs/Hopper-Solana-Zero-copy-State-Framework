@@ -40,7 +40,7 @@ use alloc::format;
 use alloc::string::{String, ToString};
 use core::fmt;
 
-use crate::{InstructionDescriptor, LayoutManifest, ProgramManifest};
+use crate::{EventDescriptor, InstructionDescriptor, LayoutManifest, ProgramManifest};
 
 /// Full Rust client emitter.
 ///
@@ -124,6 +124,11 @@ impl<'a> fmt::Display for RsClientGen<'a> {
             f,
             "    LayoutMismatch {{ expected: [u8; 8], actual: [u8; 8] }},"
         )?;
+        writeln!(
+            f,
+            "    /// Event tag byte does not match the expected event decoder."
+        )?;
+        writeln!(f, "    EventTagMismatch {{ expected: u8, actual: u8 }},")?;
         writeln!(f, "}}")?;
         writeln!(f)?;
         writeln!(f, "impl core::fmt::Display for ClientError {{")?;
@@ -146,6 +151,15 @@ impl<'a> fmt::Display for RsClientGen<'a> {
             f,
             "                write!(f, \"hopper client: layout mismatch: expected {{:02x?}}, got {{:02x?}}\", expected, actual)"
         )?;
+        writeln!(f, "            }}")?;
+        writeln!(
+            f,
+            "            Self::EventTagMismatch {{ expected, actual }} => {{"
+        )?;
+        writeln!(
+                f,
+                "                write!(f, \"hopper client: event tag mismatch: expected {{}} got {{}}\", expected, actual)"
+            )?;
         writeln!(f, "            }}")?;
         writeln!(f, "        }}")?;
         writeln!(f, "    }}")?;
@@ -181,6 +195,10 @@ impl<'a> fmt::Display for RsClientGen<'a> {
 
         for ix in prog.instructions.iter() {
             write_instruction_builder(f, ix, &prog.name)?;
+        }
+
+        for event in prog.events.iter() {
+            write_event_decoder(f, event)?;
         }
 
         Ok(())
@@ -536,6 +554,86 @@ fn write_arg_encode(f: &mut fmt::Formatter<'_>, canonical: &str, name: &str) -> 
     }
 }
 
+fn write_event_decoder(f: &mut fmt::Formatter<'_>, event: &EventDescriptor) -> fmt::Result {
+    let pascal = pascal_case(event.name);
+    let snake = snake_case(event.name);
+    let upper = upper_snake_case(event.name);
+
+    writeln!(f, "// {} event (tag = {})", pascal, event.tag)?;
+    writeln!(f, "pub const {}_EVENT_TAG: u8 = {};", upper, event.tag)?;
+    writeln!(
+        f,
+        "pub const {}_EVENT_DATA_LEN: usize = {};",
+        upper,
+        event_data_len(event)
+    )?;
+    writeln!(f)?;
+    writeln!(f, "/// Decoded `{}` event.", pascal)?;
+    writeln!(f, "#[derive(Clone, Debug)]")?;
+    writeln!(f, "pub struct {}Event {{", pascal)?;
+    for field in event.fields.iter() {
+        writeln!(
+            f,
+            "    pub {}: {},",
+            snake_case(field.name),
+            rust_field_type(field.canonical_type)
+        )?;
+    }
+    writeln!(f, "}}")?;
+    writeln!(f)?;
+    writeln!(
+        f,
+        "/// Decode `{}` event data (`tag` byte followed by payload).",
+        pascal
+    )?;
+    writeln!(
+        f,
+        "pub fn decode_{}_data(data: &[u8]) -> Result<{}Event, ClientError> {{",
+        snake, pascal
+    )?;
+    writeln!(f, "    if data.len() < {}_EVENT_DATA_LEN {{", upper)?;
+    writeln!(
+        f,
+        "        return Err(ClientError::BufferTooSmall {{ need: {}_EVENT_DATA_LEN, got: data.len() }});",
+        upper
+    )?;
+    writeln!(f, "    }}")?;
+    writeln!(f, "    if data[0] != {}_EVENT_TAG {{", upper)?;
+    writeln!(
+        f,
+        "        return Err(ClientError::EventTagMismatch {{ expected: {}_EVENT_TAG, actual: data[0] }});",
+        upper
+    )?;
+    writeln!(f, "    }}")?;
+    for field in event.fields.iter() {
+        writeln!(f, "    let {} = {{", snake_case(field.name))?;
+        write_field_decode(
+            f,
+            field.canonical_type,
+            field.offset as usize + 1,
+            field.size as usize,
+        )?;
+        writeln!(f, "    }};")?;
+    }
+    writeln!(f, "    Ok({}Event {{", pascal)?;
+    for field in event.fields.iter() {
+        writeln!(f, "        {},", snake_case(field.name))?;
+    }
+    writeln!(f, "    }})")?;
+    writeln!(f, "}}")?;
+    writeln!(f)?;
+    Ok(())
+}
+
+fn event_data_len(event: &EventDescriptor) -> usize {
+    1 + event
+        .fields
+        .iter()
+        .map(|field| field.offset as usize + field.size as usize)
+        .max()
+        .unwrap_or(0)
+}
+
 fn rust_field_type(canonical: &str) -> String {
     match canonical {
         "u8" => "u8".into(),
@@ -673,7 +771,19 @@ mod tests {
             receipt_expected: false,
         };
         static INSTRUCTIONS: &[InstructionDescriptor] = &[DEPOSIT];
-        static EVENTS: &[EventDescriptor] = &[];
+        static EVENT_FIELDS: &[FieldDescriptor] = &[FieldDescriptor {
+            name: "amount",
+            canonical_type: "u64",
+            size: 8,
+            offset: 4,
+            intent: FieldIntent::Balance,
+        }];
+        static DEPOSIT_EVENT: EventDescriptor = EventDescriptor {
+            name: "deposit_event",
+            tag: 2,
+            fields: EVENT_FIELDS,
+        };
+        static EVENTS: &[EventDescriptor] = &[DEPOSIT_EVENT];
         static POLICIES: &[PolicyDescriptor] = &[];
 
         ProgramManifest {
@@ -780,5 +890,17 @@ mod tests {
         let out = RsClientGen(&m).to_string();
         assert!(out.contains("use solana_program::instruction::{AccountMeta, Instruction};"));
         assert!(out.contains("use solana_program::pubkey::Pubkey;"));
+    }
+
+    #[test]
+    fn rs_client_emits_event_decoder_with_payload_relative_offsets() {
+        let m = test_manifest();
+        let out = RsClientGen(&m).to_string();
+        assert!(out.contains("pub const DEPOSIT_EVENT_EVENT_TAG: u8 = 2;"));
+        assert!(out.contains("pub const DEPOSIT_EVENT_EVENT_DATA_LEN: usize = 13;"));
+        assert!(out.contains("pub struct DepositEventEvent {"));
+        assert!(out.contains("pub fn decode_deposit_event_data(data: &[u8])"));
+        assert!(out.contains("data[0] != DEPOSIT_EVENT_EVENT_TAG"));
+        assert!(out.contains("buf.copy_from_slice(&data[5..13]);"));
     }
 }

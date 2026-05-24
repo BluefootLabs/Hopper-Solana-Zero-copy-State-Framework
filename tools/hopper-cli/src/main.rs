@@ -10,7 +10,7 @@
 //! hopper schema validate <manifest-json>            Validate a manifest
 //! hopper schema diff <old> <new>                    Field-level diff
 //!
-//! hopper compile --emit <rust|ts|kt|py|rust-client|idl|codama|schema> [<manifest>|--package <name>|--program-id ...]
+//! hopper compile --emit <rust|ts|kt|py|go|c|rust-client|idl|codama|schema> [<manifest>|--package <name>|--program-id ...]
 //!                                                     Emit lowered Rust, client SDKs, IDL JSON, Codama, or manifest
 //!
 //! hopper verify [<manifest>] [<.so>]                  Confirm manifest layouts are present in the compiled binary
@@ -67,6 +67,8 @@
 //! hopper client gen --ts <manifest>                 Generate TypeScript client
 //! hopper client gen --kt <manifest>                 Generate Kotlin client
 //! hopper client gen --py <manifest>                 Generate Python client
+//! hopper client gen --go <manifest>                 Generate Go client
+//! hopper client gen --c <manifest>                  Generate C client header
 //! hopper actions gen --program <manifest> --out api/actions
 //! hopper mobile gen --program <manifest> --target kotlin|react-native
 //! hopper test-gen security --program <manifest>
@@ -76,7 +78,9 @@
 //! Manifest arguments accept inline JSON or `@path/to/file.json`.
 
 use hopper_schema::accounts::{AccountLifecycle, ContextAccountDescriptor, ContextDescriptor};
+use hopper_schema::c_client::CClientGen;
 use hopper_schema::clientgen::{KtClientGen, TsClientGen};
+use hopper_schema::go_client::GoClientGen;
 use hopper_schema::python_client::PyClientGen;
 use hopper_schema::{
     compare_fields,
@@ -292,12 +296,14 @@ fn cmd_explain_instruction(args: &[String]) {
 
 fn cmd_client_family(args: &[String]) {
     if args.is_empty() {
-        eprintln!("Usage: hopper client gen [--ts|--kt|--py] <manifest-json>");
+        eprintln!("Usage: hopper client gen [--ts|--kt|--py|--go|--c] <manifest-json>");
         eprintln!();
         eprintln!("Subcommands:");
         eprintln!("  gen --ts <manifest>   Generate TypeScript client SDK");
         eprintln!("  gen --kt <manifest>   Generate Kotlin client SDK");
         eprintln!("  gen --py <manifest>   Generate Python client SDK");
+        eprintln!("  gen --go <manifest>   Generate Go client SDK");
+        eprintln!("  gen --c <manifest>    Generate C client header");
         process::exit(1);
     }
     match args[0].as_str() {
@@ -360,6 +366,8 @@ fn cmd_compile(args: &[String]) {
         eprintln!("  ts            TypeScript client SDK");
         eprintln!("  kt            Kotlin client SDK");
         eprintln!("  py            Python client SDK");
+        eprintln!("  go            Go client SDK");
+        eprintln!("  c             C client header");
         eprintln!("  rust-client   Off-chain Rust client (solana-sdk types)");
         eprintln!("  idl           Anchor-style IDL JSON");
         eprintln!("  codama        Codama-flavored JSON");
@@ -394,6 +402,8 @@ fn cmd_compile(args: &[String]) {
         "ts" => (format!("{}", TsClientGen(&prog)), "TypeScript client SDK"),
         "kt" => (format!("{}", KtClientGen(&prog)), "Kotlin client SDK"),
         "py" => (format!("{}", PyClientGen(&prog)), "Python client SDK"),
+        "go" => (format!("{}", GoClientGen(&prog)), "Go client SDK"),
+        "c" => (format!("{}", CClientGen(&prog)), "C client header"),
         "rust-client" => (
             format!("{}", hopper_schema::rust_client::RsClientGen(&prog)),
             "Rust off-chain client",
@@ -412,7 +422,9 @@ fn cmd_compile(args: &[String]) {
         ),
         other => {
             eprintln!("Unsupported emit target: {}", other);
-            eprintln!("Supported: rust | ts | kt | py | rust-client | idl | codama | schema");
+            eprintln!(
+                "Supported: rust | ts | kt | py | go | c | rust-client | idl | codama | schema"
+            );
             process::exit(1);
         }
     };
@@ -623,13 +635,13 @@ fn load_program_manifest_from_path(path: &std::path::Path) -> Result<ProgramMani
 
 fn cmd_client_gen(args: &[String]) {
     if args.is_empty() {
-        eprintln!("Usage: hopper client gen [--ts|--kt|--py] <manifest-json>");
+        eprintln!("Usage: hopper client gen [--ts|--kt|--py|--go|--c] <manifest-json>");
         process::exit(1);
     }
 
     let (lang, manifest_arg) = if args[0].starts_with("--") {
         if args.len() < 2 {
-            eprintln!("Usage: hopper client gen [--ts|--kt|--py] <manifest-json>");
+            eprintln!("Usage: hopper client gen [--ts|--kt|--py|--go|--c] <manifest-json>");
             process::exit(1);
         }
         (args[0].as_str(), &args[1])
@@ -650,8 +662,17 @@ fn cmd_client_gen(args: &[String]) {
         "--py" => {
             println!("{}", PyClientGen(&manifest));
         }
+        "--go" => {
+            println!("{}", GoClientGen(&manifest));
+        }
+        "--c" => {
+            println!("{}", CClientGen(&manifest));
+        }
         other => {
-            eprintln!("Unknown language flag: {}. Use --ts, --kt, or --py.", other);
+            eprintln!(
+                "Unknown language flag: {}. Use --ts, --kt, --py, --go, or --c.",
+                other
+            );
             process::exit(1);
         }
     }
@@ -2246,6 +2267,8 @@ fn print_compile_usage() {
     eprintln!("  ts      TypeScript client SDK");
     eprintln!("  kt      Kotlin client SDK");
     eprintln!("  py      Python client SDK");
+    eprintln!("  go      Go client SDK");
+    eprintln!("  c       C client header");
     eprintln!("  rust-client  Off-chain Rust client SDK");
     eprintln!("  idl     Anchor-style IDL JSON");
     eprintln!("  codama  Codama-flavored JSON");
@@ -2269,6 +2292,8 @@ fn print_compile_usage() {
     eprintln!("  hopper compile --emit codama --program-id <program-id> --rpc <url>");
     eprintln!("  hopper compile --emit kt --package vault");
     eprintln!("  hopper compile --emit py --package vault --out vault_client.py --force");
+    eprintln!("  hopper compile --emit go --package vault --out vault_client.go --force");
+    eprintln!("  hopper compile --emit c --package vault --out vault_client.h --force");
     eprintln!("  hopper compile --emit schema --package vault --out manifest.json --force");
     eprintln!("  hopper compile --emit rust --package vault --lint    # one-shot build + lint");
 }
@@ -2279,7 +2304,7 @@ fn print_usage() {
     println!("COMMAND FAMILIES:");
     println!();
     println!("  Compile:");
-    println!("    hopper compile --emit <rust|ts|kt|py|rust-client|idl|codama|schema> [<manifest>|--package <name>|--program-id ...]");
+    println!("    hopper compile --emit <rust|ts|kt|py|go|c|rust-client|idl|codama|schema> [<manifest>|--package <name>|--program-id ...]");
     println!("                                           Emit lowered Rust, client SDKs, IDL JSON, Codama, or manifest");
     println!();
     println!("  Verify (ABI integrity):");
@@ -2367,6 +2392,8 @@ fn print_usage() {
     println!("    hopper client gen --ts <manifest>  Generate TypeScript client SDK");
     println!("    hopper client gen --kt <manifest>  Generate Kotlin client SDK");
     println!("    hopper client gen --py <manifest>  Generate Python client SDK");
+    println!("    hopper client gen --go <manifest>  Generate Go client SDK");
+    println!("    hopper client gen --c <manifest>   Generate C client header");
     println!("    hopper actions gen --program <manifest> --out api/actions  Generate Solana Actions route scaffolds");
     println!("    hopper mobile gen --program <manifest> --target kotlin|react-native  Generate mobile binding stubs");
     println!(

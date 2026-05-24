@@ -1,0 +1,42 @@
+name: Rust release gates
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  workspace-all-targets:
+    name: workspace all-targets (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Check workspace all targets
+        run: cargo check --workspace --all-targets --locked
+
+  focused-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Run focused audit tests
+        run: |
+          cargo test -p hopper-systems --test trust_tests --locked
+          cargo test -p hopper-quasar-port-20-min --locked
+          cargo test -p hopper-lang --features proc-macros --test dynamic_account_integration --locked
+          cargo test -p hopper-lang --features proc-macros --test remaining_accounts_context_integration --locked
+      - name: Check unsafe safety comments
+        run: python3 scripts/check-unsafe-safety-comments.py

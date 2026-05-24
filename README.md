@@ -67,6 +67,9 @@ harness live separately so release claims stay reproducible and easy to audit.
   [BENCHMARKS.md](BENCHMARKS.md); regenerate it from the separate
   [hopper-bench](https://github.com/BluefootLabs/hopper-bench) repo before
   changing launch or benchmark claims.
+- Generated client targets in this release are TypeScript, Kotlin, Python, Go,
+  C header-only, off-chain Rust, Codama-shaped JSON, and Anchor-shaped IDL JSON.
+  Generated readers assert Hopper layout IDs before decoding account bytes.
 - Security-sensitive users should review [AUDIT.md](AUDIT.md) and
   [docs/UNSAFE_INVARIANTS.md](docs/UNSAFE_INVARIANTS.md) before deployment.
 
@@ -366,6 +369,10 @@ Pinocchio target, and Quasar's upstream vault target. Quasar implements only
 the financial `deposit` / `withdraw` rows, so validation-only rows are marked
 `n/a` rather than synthesized. See [BENCHMARKS.md](BENCHMARKS.md) for the table
 and provenance.
+
+Treat that table as a historical release-candidate vault measurement, not proof
+that Hopper is broadly faster than Quasar. Re-run the benchmark repo at current
+Hopper and Quasar heads before publishing fresh performance language.
 
 Current positioning: **Anchor/Quasar-class DX, Hopper-grade safety/state
 contracts, Pinocchio-class raw control.** Treat benchmark rows as measurements

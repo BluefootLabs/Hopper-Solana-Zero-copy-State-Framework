@@ -582,14 +582,14 @@ the ground truth the audit will be compared against on re-review.
 | S3 | Tighten `close` / `close_to` preconditions | `crates/hopper-runtime/src/account.rs:764-783` (writable + owner + dest-writable checks); `crates/hopper-native/src/account_view.rs:389-415` (System Program ID constant + doc clarity) |
 | S4 | Fix stale `T: Copy` docs where code requires `T: Pod` | Audited across crates/; all zero-copy signature docs now say `T: Pod` (see `crates/hopper-runtime/src/context.rs:229-244`, `account.rs:182-187`) |
 
-## Structural (2 of 4 DONE; 2 deferred with rationale below)
+## Structural (3 of 4 DONE; 1 deferred with rationale below)
 
 | # | Audit item | Status |
 |---|---|---|
 | ST1 | Unify trait model -> `ZeroCopy` -> `WireLayout` -> `AccountLayout` | **DONE**. `crates/hopper-runtime/src/zerocopy.rs` defines the three-tier stack; blanket impls make every `LayoutContract` automatically an `AccountLayout` |
 | ST2 | Anchor-grade declarative account constraints | **DONE (parser + validation + lifecycle)**. `crates/hopper-macros-proc/src/context.rs` now parses `init/zero/close/realloc/realloc_payer/realloc_zero/payer/space/seeds/bump/has_one/owner/address/constraint`; emits ordered validation per audit page 12; generates `init_{field}`/`close_{field}`/`realloc_{field}` lifecycle helpers. Deferred: typed wrappers `Signer<'info>`/`Account<T>` (attribute-directed lowering is functionally equivalent today) |
 | ST3 | Schema epoch in header + wire fingerprinting | **DONE**. `HopperHeader::schema_epoch: u32` at bytes 12-15; `AccountLayout::WIRE_FINGERPRINT: u64` constant |
-| ST4 | `hopper compile` beyond `--emit rust` | **DEFERRED**. existing `hopper client gen --ts` / `--kt` already emit those targets through separate code paths (`TsClientGen`, `KtClientGen`); unifying them under `--emit` is a CLI refactor that doesn't touch the safety story |
+| ST4 | `hopper compile` beyond `--emit rust` | **DONE**. `hopper compile --emit` routes Rust preview, TypeScript, Kotlin, Python, Go, C, Rust client, IDL, Codama, and schema output through the shared manifest-source path |
 
 ## DX (1 of 4 DONE; 3 documented)
 

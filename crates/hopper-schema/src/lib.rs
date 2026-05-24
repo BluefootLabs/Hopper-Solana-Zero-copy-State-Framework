@@ -19,8 +19,10 @@
 
 pub mod accounts;
 pub mod anchor_idl;
+pub mod c_client;
 pub mod clientgen;
 pub mod codama;
+pub mod go_client;
 pub mod python_client;
 pub mod rust_client;
 
