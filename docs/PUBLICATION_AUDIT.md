@@ -5,7 +5,7 @@ This audit is a release-facing checklist for Hopper as a Solana zero-copy state 
 ## Publication Verdict
 
 Hopper `0.2.1` has been published to crates.io for the framework package,
-CLI, and companion crates listed in [docs/RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md).
+CLI, and companion crates in this workspace.
 The codebase has the core surfaces Solana program authors expect from a serious
 framework:
 

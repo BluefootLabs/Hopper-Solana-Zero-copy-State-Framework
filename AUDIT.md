@@ -256,8 +256,7 @@ cargo check -p hopper-lang --no-default-features --features "hopper-native-backe
 
 For backend coverage, run each valid backend family separately. Do not treat
 `--all-features` as a backend gate; the runtime rejects simultaneous backend
-families by design. For a broader gate, use the release checklist in
-`docs/RELEASE_CHECKLIST.md` and run workspace checks in CI.
+families by design. For a broader gate, run the workspace checks in CI.
 
 ## Maintenance Rules
 

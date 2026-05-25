@@ -14,4 +14,3 @@ Start here for the current Hopper framework surface:
 - [../examples/hopper-devnet-audit/README.md](../examples/hopper-devnet-audit/README.md) - devnet audit program for dynamic tails, segments, and substrate probes.
 - [PROFILING.md](PROFILING.md) - `hopper profile elf`, binary profile artifacts, and reproducible benchmark commands.
 - [PROTOCOL_GRADE_EXAMPLES.md](PROTOCOL_GRADE_EXAMPLES.md) - receipt indexing, compatibility reports, migration plans, typed cross-program reads, and segment leases.
-- [DEPENDENCY_AUDIT.md](DEPENDENCY_AUDIT.md) - dependency freshness decisions and re-check commands.

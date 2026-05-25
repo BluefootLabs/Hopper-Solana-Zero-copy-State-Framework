@@ -236,6 +236,6 @@ header layouts.
 See [`examples/quasar-port-20-min`](../examples/quasar-port-20-min/src/lib.rs)
 for a workspace example containing the fixed vault, dynamic-account multisig,
 initialization helper, signer-list mutation helpers, and threshold check. The
-release checklist runs `cargo check -p hopper-quasar-port-20-min` and
+CI/release gate runs `cargo check -p hopper-quasar-port-20-min` and
 `cargo test -p hopper-quasar-port-20-min` before the guide is treated as
-compile-checked release material.
+compile-checked material.

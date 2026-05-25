@@ -262,7 +262,6 @@ fn scan_release_docs(root: &Path) -> Result<(), String> {
         "docs/UNSAFE_INVARIANTS.md",
         "docs/POLICY_GUARANTEES.md",
         "docs/CLI_REFERENCE.md",
-        "docs/RELEASE_CHECKLIST.md",
         "docs/PUBLICATION_AUDIT.md",
     ];
     let banned = [

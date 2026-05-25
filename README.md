@@ -200,8 +200,6 @@ ctx.accounts
 - [docs/DYNAMIC_FIELDS_QUASAR_TO_HOPPER.md](docs/DYNAMIC_FIELDS_QUASAR_TO_HOPPER.md): side-by-side bounded dynamic field migration, including Hopper's compact-tail contract.
 - [docs/TOKEN_2022_GUIDE.md](docs/TOKEN_2022_GUIDE.md): zero-copy Token-2022 extension policy examples and account constraint syntax.
 - [docs/CLI_REFERENCE.md](docs/CLI_REFERENCE.md): lifecycle, schema, client, profiling, Solana compatibility gates, generated Actions/mobile/test scaffolds, and manager command reference.
-- [docs/PUBLICATION_AUDIT.md](docs/PUBLICATION_AUDIT.md): crate-by-crate publication and release-readiness audit.
-- [docs/DEPENDENCY_AUDIT.md](docs/DEPENDENCY_AUDIT.md): dependency freshness decisions and re-check commands.
 
 ## Progressive Use Model
 

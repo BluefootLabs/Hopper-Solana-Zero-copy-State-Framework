@@ -1,0 +1,101 @@
+﻿# Build output
+/target
+/target/
+**/target/
+Cargo.lock.bak
+
+*.patched.so
+*.so.dbg
+
+# Fuzz / trybuild scratch
+wip/
+/fuzz/target/
+/fuzz/corpus/
+/fuzz/artifacts/
+/fuzz/coverage/
+
+# Local Solana state
+test-ledger/
+test-output.txt
+*.log
+
+# Bench artefacts
+bench/results/
+bench/fixtures/local/
+bench/external/
+
+# Per-package local scratch
+examples/*/.local/
+examples/*/target/
+
+# Editor / IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Environment
+.env
+.env.*
+!.env.example
+/out/
+
+# Local tooling state
+.claude/
+CLAUDE.md
+CLAUDE.local.md
+.claudeignore
+.codex/
+.openai/
+.cursor/
+.cursorrules
+.cursorignore
+.windsurf/
+.continue/
+.aider*
+
+# Local notes
+planning/
+docs/_local/
+docs/archive/
+docs/_*
+docs/RELEASE_CHECKLIST.md
+docs/BENCHMARK_AND_TOOLING_PARITY_PLAN.md
+docs/COMPETITIVE_FRAMEWORK_ANALYSIS.md
+docs/FRAMEWORK_RESEARCH_2026_03.md
+docs/JIMINY_FRAMEWORK_ANALYSIS.md
+docs/PUBLISH_READINESS.md
+docs/Now we*.md
+docs/Where *
+docs/Hopper Safety Audit.docx
+docs/Hopper audit and design plan.*
+docs/Untitled-*.md
+docs/fmwk*.md
+docs/*.docx
+docs/*.pdf
+Untitled-*.md
+TODO.md
+NOTES.md
+SCRATCH.md
+
+# Third-party source drops
+quasar-master/
+quasar-master.zip
+pinocchio-main.zip
+*-main.zip
+*-master.zip
+Hopper-Solana-Zero-copy-State-Framework-main*.zip
+
+# Self
+.gitignore
+
