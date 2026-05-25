@@ -282,6 +282,7 @@ multisig-style signer lists without allocation.
 | `tools/hopper-cli` | `hopper` CLI for linting, schema export, account inspection, and profiling. |
 | `examples` | Example Hopper programs. |
 | `examples/hopper-tail-lab` | Devnet-ready dynamic-tail lab covering bounded fields, `TailStr`, `TailBytes`, init, and account wrappers. |
+| `examples/hopper-stablecoin-memo-pay` | Devnet-ready stablecoin payment ledger using checked token transfers plus SPL Memo CPI. |
 | `docs` | Design notes, unsafe invariants, and audit/recovery notes. |
 
 The obsolete split repositories were folded back into this workspace with

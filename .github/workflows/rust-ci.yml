@@ -51,15 +51,17 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install nightly Rust
         uses: dtolnay/rust-toolchain@nightly
+      - name: Install stable Rust for cargo-fuzz
+        uses: dtolnay/rust-toolchain@stable
       - name: Install cargo-fuzz
-        run: cargo install cargo-fuzz --locked
+        run: cargo +stable install cargo-fuzz --locked
       - name: Run fuzz smoke targets
         working-directory: fuzz
         run: |
-          cargo fuzz run fuzz_instruction_frame -- -max_total_time=15 -timeout=5
-          cargo fuzz run fuzz_decode_header -- -max_total_time=15 -timeout=5
-          cargo fuzz run fuzz_decode_segments -- -max_total_time=15 -timeout=5
-          cargo fuzz run fuzz_pod_overlay -- -max_total_time=15 -timeout=5
+          cargo +nightly fuzz run fuzz_instruction_frame -- -max_total_time=15 -timeout=5
+          cargo +nightly fuzz run fuzz_decode_header -- -max_total_time=15 -timeout=5
+          cargo +nightly fuzz run fuzz_decode_segments -- -max_total_time=15 -timeout=5
+          cargo +nightly fuzz run fuzz_pod_overlay -- -max_total_time=15 -timeout=5
 
   kani-runtime-proofs:
     name: Kani runtime proofs
