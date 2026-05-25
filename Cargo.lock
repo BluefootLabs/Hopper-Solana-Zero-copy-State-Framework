@@ -2349,6 +2349,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "hopper-styx-ferry"
+version = "0.2.1"
+dependencies = [
+ "hopper-lang",
+]
+
+[[package]]
 name = "hopper-system"
 version = "0.2.1"
 dependencies = [

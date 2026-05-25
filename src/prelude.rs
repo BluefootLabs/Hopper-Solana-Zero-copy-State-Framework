@@ -220,7 +220,7 @@ pub type Result<T = (), E = ProgramError> = core::result::Result<T, E>;
 
 pub use hopper_core::abi::{WireBool, WireU16, WireU32, WireU64};
 
-pub use crate::{associated_token, cpi, events, memo, pda, system, token, token_2022};
+pub use crate::{associated_token, cpi, crypto, events, memo, pda, system, token, token_2022};
 pub use hopper_associated_token::ATA_PROGRAM_ID;
 pub use hopper_memo::{Memo, MAX_MEMO_SIGNERS, MEMO_PROGRAM_ID};
 pub use hopper_solana::interface::{

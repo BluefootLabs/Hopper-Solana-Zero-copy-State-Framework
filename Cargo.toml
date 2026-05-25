@@ -43,6 +43,7 @@ members = [
     "examples/hopper-argus-guard",
     "examples/hopper-tail-lab",
     "examples/hopper-stablecoin-memo-pay",
+    "examples/hopper-styx-ferry",
     "examples/quasar-port-20-min",
     "examples/cross-program-read/program-a",
     "examples/cross-program-read/program-b",

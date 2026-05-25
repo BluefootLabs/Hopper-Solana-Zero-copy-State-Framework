@@ -42,14 +42,19 @@ subsystem proof pattern: an authority-owned risk book with checked reserve and
 release flows. It demonstrates how Hopper keeps protocol accounting inside a
 versioned layout contract while using `with_mut` for concise safe mutation.
 
-## Stablecoin memo payments
+## Styx ferry and forward-secret messaging
 
-[examples/hopper-stablecoin-memo-pay](../examples/hopper-stablecoin-memo-pay)
-is the checkout-shaped example: a merchant-owned ledger validates SPL Token or
-Token-2022 accounts, executes `TransferChecked` through Hopper's token interface
-helper, emits a payer-signed SPL Memo CPI, and records the cumulative paid amount
-plus the latest 32-byte checkout reference. It is intentionally non-custodial:
-the merchant token account receives the payment directly.
+[examples/hopper-styx-ferry](../examples/hopper-styx-ferry) is the
+protocol-shaped sample: a Hopper program that ports the Styx ferry/messaging
+control plane while keeping Signal-style X3DH, Double Ratchet state, and payload
+encryption in the client protocol. On chain, Hopper verifies the signed-prekey
+boundary with the Ed25519 precompile, derives the VSL domain separator with
+Keccak, enforces bounded ratchet message envelopes and monotonic counters, checks
+the 513-byte Styx proof envelope, and CPIs into a pinned verifier program.
+
+This is the crypto/syscall parity example: Hopper exposes the Solana hashing,
+precompile-inspection, stack-height, and processed-instruction surfaces needed by
+Pinocchio/Jiminy/Quasar-style programs without dropping the typed account model.
 
 ## Migration planner
 

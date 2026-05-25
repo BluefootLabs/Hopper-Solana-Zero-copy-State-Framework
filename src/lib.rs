@@ -180,6 +180,11 @@ pub mod cpi {
     pub use hopper_runtime::{CpiAccount, InstructionAccount, InstructionView, Seed, Signer};
 }
 
+/// On-chain cryptography and precompile-verification helpers.
+pub mod crypto {
+    pub use hopper_runtime::crypto::*;
+}
+
 /// System Program helpers.
 #[allow(unused_imports)]
 pub mod system {
@@ -314,7 +319,7 @@ pub mod systems {
     pub use crate::receipt::*;
     pub use crate::schema::*;
     pub use crate::segment::*;
-    pub use crate::{interface, layout, migration, policy, receipt, schema, segment};
+    pub use crate::{crypto, interface, layout, migration, policy, receipt, schema, segment};
 
     pub use hopper_core::account::{
         overlay, overlay_mut, read_dynamic_u16, read_dynamic_u32, read_dynamic_u8, safe_close,
@@ -354,6 +359,7 @@ pub mod systems {
 /// `hopper::prelude::*`; systems-mode code should prefer `hopper::systems::*`.
 #[allow(ambiguous_glob_reexports, unused_imports)]
 pub mod substrate {
+    pub use crate::crypto;
     pub use hopper_runtime::{
         AccountView, Address, CpiAccount, InstructionAccount, InstructionView, ProgramError,
         ProgramResult, Ref, RefMut, Seed, Signer, SUCCESS,
