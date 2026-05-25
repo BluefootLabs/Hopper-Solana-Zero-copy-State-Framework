@@ -372,7 +372,7 @@ pub fn invoke_signed<const ACCOUNTS: usize>(
 /// Set return data for the current instruction.
 #[inline(always)]
 pub fn set_return_data(data: &[u8]) {
-    crate::compat::set_return_data(data)
+    crate::return_data::set_return_data(data)
 }
 
 #[cfg(all(test, feature = "hopper-native-backend"))]

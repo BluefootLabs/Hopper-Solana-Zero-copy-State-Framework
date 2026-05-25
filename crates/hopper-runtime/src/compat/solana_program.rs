@@ -415,11 +415,6 @@ pub fn invoke_signed<const ACCOUNTS: usize>(
     .map_err(ProgramError::from)
 }
 
-#[inline(always)]
-pub fn set_return_data(data: &[u8]) {
-    ::solana_program::program::set_return_data(data)
-}
-
 impl From<BackendAddress> for Address {
     #[inline(always)]
     fn from(address: BackendAddress) -> Self {

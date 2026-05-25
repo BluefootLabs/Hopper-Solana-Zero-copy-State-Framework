@@ -44,6 +44,7 @@ pub mod address;
 pub mod audit;
 pub mod borrow;
 pub(crate) mod borrow_registry;
+pub mod compute;
 pub mod cpi;
 pub mod cpi_event;
 pub mod crank;
@@ -54,6 +55,7 @@ pub mod field_map;
 pub mod foreign;
 pub mod interop;
 pub mod log;
+pub mod memory;
 pub mod migrate;
 pub mod pod;
 pub mod policy;
@@ -77,6 +79,7 @@ pub mod option_byte;
 pub mod pda;
 pub mod remaining;
 pub mod rent;
+pub mod return_data;
 pub mod segment_borrow;
 pub mod segment_lease;
 pub mod syscall;
@@ -94,6 +97,7 @@ pub use account_wrappers::{
 pub use address::Address;
 pub use audit::{AccountAudit, DuplicateAccount};
 pub use borrow::{Ref, RefMut};
+pub use compute::{check_compute_units, remaining_compute_units, require_compute_units};
 pub use context::Context;
 pub use cpi::{invoke, invoke_signed};
 pub use crypto::{keccak256, keccak256_single, sha256, sha256_single};
@@ -112,6 +116,7 @@ pub use remaining::{
     RemainingAccountViews, RemainingAccounts, RemainingError, RemainingMode, RemainingSigners,
     MAX_REMAINING_ACCOUNTS,
 };
+pub use return_data::{get_return_data, set_return_data, try_set_return_data, ReturnData};
 pub use tail::{
     borrow_address_slice, borrow_bounded_str, read_tail, read_tail_len, tail_capacity,
     tail_payload, write_tail, write_tail_payload, BoundedString, BoundedVec, HopperString,

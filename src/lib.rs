@@ -174,8 +174,10 @@ pub mod cpi {
     pub use hopper_core::cpi::*;
     pub use hopper_runtime::cpi::{
         invoke, invoke_signed, invoke_signed_unchecked, invoke_signed_with_bounds,
-        invoke_unchecked, invoke_with_bounds, set_return_data, MAX_CPI_ACCOUNTS, MAX_RETURN_DATA,
-        MAX_STATIC_CPI_ACCOUNTS,
+        invoke_unchecked, invoke_with_bounds, MAX_CPI_ACCOUNTS, MAX_STATIC_CPI_ACCOUNTS,
+    };
+    pub use hopper_runtime::return_data::{
+        get_return_data, set_return_data, try_set_return_data, ReturnData, MAX_RETURN_DATA,
     };
     pub use hopper_runtime::{CpiAccount, InstructionAccount, InstructionView, Seed, Signer};
 }
@@ -183,6 +185,21 @@ pub mod cpi {
 /// On-chain cryptography and precompile-verification helpers.
 pub mod crypto {
     pub use hopper_runtime::crypto::*;
+}
+
+/// Compute-budget helpers.
+pub mod compute {
+    pub use hopper_runtime::compute::*;
+}
+
+/// SVM memory helpers with safe slice wrappers.
+pub mod memory {
+    pub use hopper_runtime::memory::*;
+}
+
+/// CPI return-data helpers.
+pub mod return_data {
+    pub use hopper_runtime::return_data::*;
 }
 
 /// System Program helpers.
@@ -312,14 +329,20 @@ pub mod policy {
 /// manifests, overlays, or cross-program interface pinning.
 #[allow(ambiguous_glob_reexports, unused_imports)]
 pub mod systems {
+    pub use crate::compute::*;
     pub use crate::interface::*;
     pub use crate::layout::*;
+    pub use crate::memory::*;
     pub use crate::migration::*;
     pub use crate::policy::*;
     pub use crate::receipt::*;
+    pub use crate::return_data::*;
     pub use crate::schema::*;
     pub use crate::segment::*;
-    pub use crate::{crypto, interface, layout, migration, policy, receipt, schema, segment};
+    pub use crate::{
+        compute, crypto, interface, layout, memory, migration, policy, receipt, return_data,
+        schema, segment,
+    };
 
     pub use hopper_core::account::{
         overlay, overlay_mut, read_dynamic_u16, read_dynamic_u32, read_dynamic_u8, safe_close,
@@ -359,7 +382,8 @@ pub mod systems {
 /// `hopper::prelude::*`; systems-mode code should prefer `hopper::systems::*`.
 #[allow(ambiguous_glob_reexports, unused_imports)]
 pub mod substrate {
-    pub use crate::crypto;
+    pub use crate::return_data as hopper_return_data;
+    pub use crate::{compute, crypto, memory};
     pub use hopper_runtime::{
         AccountView, Address, CpiAccount, InstructionAccount, InstructionView, ProgramError,
         ProgramResult, Ref, RefMut, Seed, Signer, SUCCESS,

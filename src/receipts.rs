@@ -24,7 +24,6 @@ struct SolBytes {
 #[cfg(target_os = "solana")]
 extern "C" {
     fn sol_log_data(data: *const SolBytes, data_len: u64);
-    fn sol_set_return_data(data: *const u8, length: u64);
 }
 
 /// Emit a raw receipt (log the bytes to the runtime).
@@ -93,16 +92,7 @@ pub fn emit_tagged_receipt(tag: u8, data: &[u8]) -> ProgramResult {
 /// Maximum 1024 bytes per Solana runtime limits.
 #[inline(always)]
 pub fn set_return_data(data: &[u8]) -> ProgramResult {
-    #[cfg(target_os = "solana")]
-    {
-        unsafe {
-            sol_set_return_data(data.as_ptr(), data.len() as u64);
-        }
-    }
-    #[cfg(not(target_os = "solana"))]
-    {
-        let _ = data;
-    }
+    hopper_runtime::return_data::set_return_data(data);
     Ok(())
 }
 

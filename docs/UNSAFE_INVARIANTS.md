@@ -100,6 +100,7 @@ requirements.
 | `crates/hopper-runtime/src/compat/solana_program.rs` | 16 | `borrow_unchecked`, `borrow_unchecked_mut`, `close_unchecked`, `wrap_account_slice`, `account_owner`, `assign`, `process_entrypoint` |
 | `crates/hopper-runtime/src/context.rs` | 4 | `raw_ref`, `raw_mut`, `raw_unchecked`, `as_mut_ptr` |
 | `crates/hopper-runtime/src/cpi.rs` | 12 | `invoke_unchecked`, `invoke_signed_unchecked` |
+| `crates/hopper-runtime/src/crypto.rs` | 4 | - |
 | `crates/hopper-runtime/src/dyn_cpi.rs` | 1 | - |
 | `crates/hopper-runtime/src/foreign.rs` | 1 | - |
 | `crates/hopper-runtime/src/instruction.rs` | 4 | - |
@@ -107,11 +108,13 @@ requirements.
 | `crates/hopper-runtime/src/layout.rs` | 3 | - |
 | `crates/hopper-runtime/src/lib.rs` | 11 | - |
 | `crates/hopper-runtime/src/log.rs` | 4 | - |
+| `crates/hopper-runtime/src/memory.rs` | 8 | `copy_nonoverlapping`, `copy`, `fill`, `compare` |
 | `crates/hopper-runtime/src/option_byte.rs` | 2 | - |
 | `crates/hopper-runtime/src/pda.rs` | 7 | - |
+| `crates/hopper-runtime/src/return_data.rs` | 3 | - |
 | `crates/hopper-runtime/src/segment_lease.rs` | 1 | `new` |
 | `crates/hopper-runtime/src/syscall.rs` | 2 | - |
-| `crates/hopper-runtime/src/syscalls.rs` | 7 | `sol_log_data`, `sol_sha256` |
+| `crates/hopper-runtime/src/syscalls.rs` | 31 | `sol_log_data`, `sol_sha256`, `sol_keccak256`, `sol_curve_validate_point`, `sol_get_processed_sibling_instruction`, `sol_set_return_data`, `sol_get_return_data`, `sol_memcpy_`, `sol_memmove_`, `sol_memcmp_`, `sol_memset_` |
 | `crates/hopper-runtime/src/token.rs` | 10 | - |
 | `crates/hopper-solana/src/compute.rs` | 1 | - |
 | `crates/hopper-solana/src/crypto/merkle.rs` | 2 | - |

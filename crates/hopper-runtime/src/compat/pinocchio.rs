@@ -207,19 +207,6 @@ pub fn invoke_signed<const ACCOUNTS: usize>(
     }
 }
 
-#[inline(always)]
-pub fn set_return_data(data: &[u8]) {
-    #[cfg(target_os = "solana")]
-    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-    unsafe {
-        pinocchio::syscalls::sol_set_return_data(data.as_ptr(), data.len() as u64);
-    }
-    #[cfg(not(target_os = "solana"))]
-    {
-        let _ = data;
-    }
-}
-
 impl From<BackendAddress> for Address {
     #[inline(always)]
     fn from(address: BackendAddress) -> Self {
