@@ -24,6 +24,9 @@ use crate::layout::LayoutContract;
 use crate::segment_borrow::SegmentBorrowRegistry;
 use crate::ProgramResult;
 
+#[cfg(feature = "legacy-pinocchio-compat")]
+use core::cell::UnsafeCell;
+
 // ══════════════════════════════════════════════════════════════════════
 //  AccountView -- Hopper's canonical typed state gateway
 // ══════════════════════════════════════════════════════════════════════
@@ -38,8 +41,10 @@ use crate::ProgramResult;
 /// can be safely reinterpreted as `&[AccountView]` at the entrypoint
 /// boundary with zero conversion cost.
 #[repr(transparent)]
-#[derive(Clone, PartialEq, Eq)]
 pub struct AccountView {
+    #[cfg(feature = "legacy-pinocchio-compat")]
+    inner: UnsafeCell<BackendAccountView>,
+    #[cfg(not(feature = "legacy-pinocchio-compat"))]
     inner: BackendAccountView,
 }
 
@@ -55,11 +60,67 @@ const _: () = {
 unsafe impl Send for AccountView {}
 unsafe impl Sync for AccountView {}
 
+impl Clone for AccountView {
+    #[inline(always)]
+    fn clone(&self) -> Self {
+        Self::from_inner(self.backend().clone())
+    }
+}
+
+impl PartialEq for AccountView {
+    #[inline(always)]
+    fn eq(&self, other: &Self) -> bool {
+        self.backend() == other.backend()
+    }
+}
+
+impl Eq for AccountView {}
+
 impl AccountView {
+    #[inline(always)]
+    fn from_inner(inner: BackendAccountView) -> Self {
+        #[cfg(feature = "legacy-pinocchio-compat")]
+        {
+            Self {
+                inner: UnsafeCell::new(inner),
+            }
+        }
+
+        #[cfg(not(feature = "legacy-pinocchio-compat"))]
+        {
+            Self { inner }
+        }
+    }
+
+    #[inline(always)]
+    fn backend(&self) -> &BackendAccountView {
+        #[cfg(feature = "legacy-pinocchio-compat")]
+        {
+            // SAFETY: The Pinocchio backend account view is a Copy raw-pointer
+            // wrapper over SVM account memory. Hopper's borrow registry and the
+            // backend borrow state guard accesses to the pointed-to account.
+            unsafe { &*self.inner.get() }
+        }
+
+        #[cfg(not(feature = "legacy-pinocchio-compat"))]
+        {
+            &self.inner
+        }
+    }
+
+    #[cfg(feature = "legacy-pinocchio-compat")]
+    #[inline(always)]
+    fn backend_mut(&self) -> &mut BackendAccountView {
+        // SAFETY: `inner` is behind `UnsafeCell` specifically for Pinocchio
+        // 0.11 APIs that require `&mut AccountView` while mutating the SVM
+        // account behind the raw pointer, not the wrapper identity.
+        unsafe { &mut *self.inner.get() }
+    }
+
     #[cfg(test)]
     #[inline(always)]
     pub(crate) fn from_backend(inner: BackendAccountView) -> Self {
-        Self { inner }
+        Self::from_inner(inner)
     }
 
     // ── Getters ──────────────────────────────────────────────────────
@@ -67,7 +128,7 @@ impl AccountView {
     /// The account's public key.
     #[inline(always)]
     pub fn address(&self) -> &Address {
-        compat::account_address(&self.inner)
+        compat::account_address(self.backend())
     }
 
     /// The owning program's address.
@@ -79,49 +140,49 @@ impl AccountView {
     #[inline(always)]
     pub unsafe fn owner(&self) -> &Address {
         // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-        unsafe { compat::account_owner(&self.inner) }
+        unsafe { compat::account_owner(self.backend()) }
     }
 
     /// Read the owner address as a copy (safe, no aliasing hazard).
     #[inline(always)]
     pub fn read_owner(&self) -> Address {
-        compat::read_owner(&self.inner)
+        compat::read_owner(self.backend())
     }
 
     /// Whether this account is owned by the given program.
     #[inline(always)]
     pub fn owned_by(&self, program: &Address) -> bool {
-        compat::owned_by(&self.inner, program)
+        compat::owned_by(self.backend(), program)
     }
 
     /// Whether this account signed the transaction.
     #[inline(always)]
     pub fn is_signer(&self) -> bool {
-        self.inner.is_signer()
+        self.backend().is_signer()
     }
 
     /// Whether this account is writable in the transaction.
     #[inline(always)]
     pub fn is_writable(&self) -> bool {
-        self.inner.is_writable()
+        self.backend().is_writable()
     }
 
     /// Whether this account contains an executable program.
     #[inline(always)]
     pub fn executable(&self) -> bool {
-        self.inner.executable()
+        self.backend().executable()
     }
 
     /// Current data length in bytes.
     #[inline(always)]
     pub fn data_len(&self) -> usize {
-        self.inner.data_len()
+        self.backend().data_len()
     }
 
     /// Current lamport balance.
     #[inline(always)]
     pub fn lamports(&self) -> u64 {
-        self.inner.lamports()
+        self.backend().lamports()
     }
 
     /// Whether the account data is empty.
@@ -133,7 +194,11 @@ impl AccountView {
     /// Set the lamport balance.
     #[inline(always)]
     pub fn set_lamports(&self, lamports: u64) {
-        self.inner.set_lamports(lamports);
+        #[cfg(feature = "legacy-pinocchio-compat")]
+        self.backend_mut().set_lamports(lamports);
+
+        #[cfg(not(feature = "legacy-pinocchio-compat"))]
+        self.backend().set_lamports(lamports);
     }
 
     // ── Borrow tracking ─────────────────────────────────────────────
@@ -142,7 +207,7 @@ impl AccountView {
     #[inline(always)]
     pub fn try_borrow(&self) -> Result<Ref<'_, [u8]>, ProgramError> {
         let token = BorrowToken::shared(self.address())?;
-        match self.inner.try_borrow() {
+        match self.backend().try_borrow() {
             Ok(data) => Ok(Ref::from_backend(data, token)),
             Err(error) => {
                 drop(token);
@@ -155,7 +220,13 @@ impl AccountView {
     #[inline(always)]
     pub fn try_borrow_mut(&self) -> Result<RefMut<'_, [u8]>, ProgramError> {
         let token = BorrowToken::mutable(self.address())?;
-        match self.inner.try_borrow_mut() {
+        #[cfg(feature = "legacy-pinocchio-compat")]
+        let borrow = self.backend_mut().try_borrow_mut();
+
+        #[cfg(not(feature = "legacy-pinocchio-compat"))]
+        let borrow = self.backend().try_borrow_mut();
+
+        match borrow {
             Ok(data) => Ok(RefMut::from_backend(data, token)),
             Err(error) => {
                 drop(token);
@@ -211,7 +282,7 @@ impl AccountView {
         #[cfg(target_os = "solana")]
         let inner: Ref<'_, T> = {
             // SAFETY: size, overflow, and bounds already validated above.
-            let native_ref = unsafe { self.inner.segment_ref_unchecked::<T>(abs_offset) };
+            let native_ref = unsafe { self.backend().segment_ref_unchecked::<T>(abs_offset) };
             let native_ref = match native_ref {
                 Ok(nr) => nr,
                 Err(e) => {
@@ -275,7 +346,7 @@ impl AccountView {
         #[cfg(target_os = "solana")]
         let inner: RefMut<'_, T> = {
             // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-            let native_ref = unsafe { self.inner.segment_mut_unchecked::<T>(abs_offset) };
+            let native_ref = unsafe { self.backend().segment_mut_unchecked::<T>(abs_offset) };
             let native_ref = match native_ref {
                 Ok(nr) => nr,
                 Err(e) => {
@@ -757,19 +828,19 @@ impl AccountView {
     /// Read the Hopper account discriminator (first byte of data).
     #[inline(always)]
     pub fn disc(&self) -> u8 {
-        compat::disc(&self.inner)
+        compat::disc(self.backend())
     }
 
     /// Read the Hopper account version (second byte of data).
     #[inline(always)]
     pub fn version(&self) -> u8 {
-        compat::version(&self.inner)
+        compat::version(self.backend())
     }
 
     /// Read the 8-byte layout_id from the Hopper account header (bytes 4..12).
     #[inline(always)]
     pub fn layout_id(&self) -> Option<&[u8; 8]> {
-        compat::layout_id(&self.inner)
+        compat::layout_id(self.backend())
     }
 
     /// Verify that this account has the given discriminator.
@@ -821,7 +892,7 @@ impl AccountView {
     /// Resize the account data.
     #[inline]
     pub fn resize(&self, new_len: usize) -> ProgramResult {
-        self.inner.resize(new_len).map_err(ProgramError::from)
+        compat::resize(self.backend(), new_len)
     }
 
     /// Assign a new owner.
@@ -834,14 +905,14 @@ impl AccountView {
     pub unsafe fn assign(&self, new_owner: &Address) {
         // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {
-            compat::assign(&self.inner, new_owner);
+            compat::assign(self.backend(), new_owner);
         }
     }
 
     /// Close the account: zero lamports and data.
     #[inline]
     pub fn close(&self) -> ProgramResult {
-        compat::close(&self.inner)
+        compat::close(self.backend())
     }
 
     /// Close the account, transferring remaining lamports to `destination`.
@@ -886,7 +957,7 @@ impl AccountView {
                 .ok_or(ProgramError::ArithmeticOverflow)?,
         );
         self.set_lamports(0);
-        compat::zero_data(&self.inner)?;
+        compat::zero_data(self.backend())?;
         Ok(())
     }
 
@@ -906,7 +977,7 @@ impl AccountView {
                 .ok_or(ProgramError::ArithmeticOverflow)?,
         );
         self.set_lamports(0);
-        compat::zero_data(&self.inner)?;
+        compat::zero_data(self.backend())?;
         Ok(())
     }
 
@@ -916,28 +987,30 @@ impl AccountView {
     #[cfg(feature = "hopper-native-backend")]
     #[inline(always)]
     pub(crate) fn data_ptr_unchecked(&self) -> *mut u8 {
-        self.inner.data_ptr_unchecked()
+        self.backend().data_ptr_unchecked()
     }
 
     /// Raw pointer to the RuntimeAccount header.
     #[cfg(feature = "hopper-native-backend")]
     #[inline(always)]
     pub(crate) fn account_ptr(&self) -> *const hopper_native::RuntimeAccount {
-        self.inner.account_ptr()
+        self.backend().account_ptr()
     }
 
     /// Check that the account can be shared-borrowed.
     #[inline(always)]
     pub fn check_borrow(&self) -> Result<(), ProgramError> {
         borrow_registry::check_shared(self.address())?;
-        self.inner.check_borrow().map_err(ProgramError::from)
+        self.backend().check_borrow().map_err(ProgramError::from)
     }
 
     /// Check that the account can be exclusively borrowed.
     #[inline(always)]
     pub fn check_borrow_mut(&self) -> Result<(), ProgramError> {
         borrow_registry::check_mutable(self.address())?;
-        self.inner.check_borrow_mut().map_err(ProgramError::from)
+        self.backend()
+            .check_borrow_mut()
+            .map_err(ProgramError::from)
     }
 
     /// Borrow account data without tracking.
@@ -948,7 +1021,7 @@ impl AccountView {
     #[inline(always)]
     pub unsafe fn borrow_unchecked(&self) -> &[u8] {
         // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-        unsafe { self.inner.borrow_unchecked() }
+        unsafe { self.backend().borrow_unchecked() }
     }
 
     /// Mutably borrow account data without tracking.
@@ -959,7 +1032,15 @@ impl AccountView {
     #[inline(always)]
     pub unsafe fn borrow_unchecked_mut(&self) -> &mut [u8] {
         // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-        unsafe { self.inner.borrow_unchecked_mut() }
+        #[cfg(feature = "legacy-pinocchio-compat")]
+        {
+            unsafe { self.backend_mut().borrow_unchecked_mut() }
+        }
+
+        #[cfg(not(feature = "legacy-pinocchio-compat"))]
+        {
+            unsafe { self.backend().borrow_unchecked_mut() }
+        }
     }
 
     /// Resize without bounds checking.
@@ -972,7 +1053,7 @@ impl AccountView {
     pub unsafe fn resize_unchecked(&self, new_len: usize) {
         // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {
-            self.inner.resize_unchecked(new_len);
+            self.backend().resize_unchecked(new_len);
         }
     }
 
@@ -985,7 +1066,11 @@ impl AccountView {
     pub unsafe fn close_unchecked(&self) {
         // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {
-            self.inner.close_unchecked();
+            #[cfg(feature = "legacy-pinocchio-compat")]
+            self.backend_mut().close_unchecked();
+
+            #[cfg(not(feature = "legacy-pinocchio-compat"))]
+            self.backend().close_unchecked();
         }
     }
 
@@ -996,7 +1081,7 @@ impl AccountView {
     #[allow(dead_code)]
     #[inline(always)]
     pub(crate) fn as_backend(&self) -> &BackendAccountView {
-        &self.inner
+        self.backend()
     }
 }
 

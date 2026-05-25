@@ -8,6 +8,7 @@ use crate::instruction::{InstructionView, Signer};
 use crate::ProgramResult;
 
 pub type BackendAddress = ::solana_program::pubkey::Pubkey;
+pub type BackendAccountSlice<'a> = &'a [BackendAccountView];
 pub type BackendProgramResult = ::solana_program::entrypoint::ProgramResult;
 pub type BackendRef<'a, T> = Ref<'a, T>;
 pub type BackendRefMut<'a, T> = RefMut<'a, T>;
@@ -264,6 +265,11 @@ pub fn zero_data(view: &BackendAccountView) -> ProgramResult {
     Ok(())
 }
 
+#[inline(always)]
+pub fn resize(view: &BackendAccountView, new_len: usize) -> ProgramResult {
+    view.resize(new_len).map_err(ProgramError::from)
+}
+
 #[cfg(target_os = "solana")]
 #[inline(always)]
 pub fn find_program_address(seeds: &[&[u8]], program_id: &Address) -> (Address, u8) {
@@ -290,7 +296,11 @@ pub fn create_program_address(
 /// Caller must uphold the invariants documented for this unsafe API before invoking it.
 pub unsafe fn process_entrypoint<const MAX: usize>(
     input: *mut u8,
-    process_instruction: fn(&BackendAddress, &[BackendAccountView], &[u8]) -> BackendProgramResult,
+    process_instruction: fn(
+        &BackendAddress,
+        BackendAccountSlice<'_>,
+        &[u8],
+    ) -> BackendProgramResult,
 ) -> u64 {
     // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     let (program_id, accounts, data) = unsafe { ::solana_program::entrypoint::deserialize(input) };
@@ -313,7 +323,7 @@ pub unsafe fn process_entrypoint<const MAX: usize>(
 #[inline(always)]
 pub fn bridge_to_runtime(
     program_id: &BackendAddress,
-    accounts: &[BackendAccountView],
+    accounts: BackendAccountSlice<'_>,
     data: &[u8],
     process_instruction: fn(&Address, &[AccountView], &[u8]) -> ProgramResult,
 ) -> BackendProgramResult {

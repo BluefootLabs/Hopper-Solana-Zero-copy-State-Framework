@@ -88,15 +88,15 @@ requirements.
 | `crates/hopper-native/src/sysvar.rs` | 3 | - |
 | `crates/hopper-native/src/token.rs` | 1 | - |
 | `crates/hopper-native/src/verify.rs` | 1 | - |
-| `crates/hopper-runtime/src/account.rs` | 26 | `owner`, `raw_ref`, `raw_mut`, `assign`, `borrow_unchecked`, `borrow_unchecked_mut`, `resize_unchecked`, `close_unchecked` |
+| `crates/hopper-runtime/src/account.rs` | 29 | `owner`, `raw_ref`, `raw_mut`, `assign`, `borrow_unchecked`, `borrow_unchecked_mut`, `resize_unchecked`, `close_unchecked` |
 | `crates/hopper-runtime/src/account_wrappers.rs` | 0 | `new_unchecked`, `new_unchecked`, `new_unchecked` |
 | `crates/hopper-runtime/src/address.rs` | 1 | - |
 | `crates/hopper-runtime/src/audit.rs` | 2 | - |
 | `crates/hopper-runtime/src/borrow.rs` | 13 | `project`, `project` |
 | `crates/hopper-runtime/src/borrow_registry.rs` | 2 | - |
 | `crates/hopper-runtime/src/compat/mod.rs` | 1 | - |
-| `crates/hopper-runtime/src/compat/native.rs` | 9 | `wrap_account_slice`, `account_owner`, `assign`, `process_entrypoint` |
-| `crates/hopper-runtime/src/compat/pinocchio.rs` | 17 | `wrap_account_slice`, `account_owner`, `assign`, `process_entrypoint` |
+| `crates/hopper-runtime/src/compat/native.rs` | 8 | `wrap_account_slice`, `account_owner`, `assign`, `process_entrypoint` |
+| `crates/hopper-runtime/src/compat/pinocchio.rs` | 15 | `wrap_account_slice`, `account_owner`, `assign`, `process_entrypoint` |
 | `crates/hopper-runtime/src/compat/solana_program.rs` | 16 | `borrow_unchecked`, `borrow_unchecked_mut`, `close_unchecked`, `wrap_account_slice`, `account_owner`, `assign`, `process_entrypoint` |
 | `crates/hopper-runtime/src/context.rs` | 4 | `raw_ref`, `raw_mut`, `raw_unchecked`, `as_mut_ptr` |
 | `crates/hopper-runtime/src/cpi.rs` | 12 | `invoke_unchecked`, `invoke_signed_unchecked` |

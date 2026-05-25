@@ -8,21 +8,21 @@ mod solana_program;
 #[cfg(feature = "hopper-native-backend")]
 #[doc(hidden)]
 pub use native::{
-    bridge_to_runtime, process_entrypoint, BackendAccountView, BackendAddress,
+    bridge_to_runtime, process_entrypoint, BackendAccountSlice, BackendAccountView, BackendAddress,
     BackendProgramResult, BACKEND_MAX_TX_ACCOUNTS, BACKEND_SUCCESS,
 };
 
 #[cfg(feature = "legacy-pinocchio-compat")]
 #[doc(hidden)]
 pub use pinocchio::{
-    bridge_to_runtime, process_entrypoint, BackendAccountView, BackendAddress,
+    bridge_to_runtime, process_entrypoint, BackendAccountSlice, BackendAccountView, BackendAddress,
     BackendProgramResult, BACKEND_MAX_TX_ACCOUNTS, BACKEND_SUCCESS,
 };
 
 #[cfg(feature = "solana-program-backend")]
 #[doc(hidden)]
 pub use solana_program::{
-    bridge_to_runtime, process_entrypoint, BackendAccountView, BackendAddress,
+    bridge_to_runtime, process_entrypoint, BackendAccountSlice, BackendAccountView, BackendAddress,
     BackendProgramResult, BACKEND_MAX_TX_ACCOUNTS, BACKEND_SUCCESS,
 };
 
@@ -45,7 +45,7 @@ macro_rules! __hopper_compat_entrypoint {
             #[inline(always)]
             fn __hopper_bridge(
                 program_id: &$crate::compat::BackendAddress,
-                accounts: &[$crate::compat::BackendAccountView],
+                accounts: $crate::compat::BackendAccountSlice<'_>,
                 data: &[u8],
             ) -> $crate::compat::BackendProgramResult {
                 $crate::compat::bridge_to_runtime(program_id, accounts, data, $process_instruction)

@@ -5,6 +5,7 @@ use crate::instruction::{InstructionView, Signer};
 use crate::ProgramResult;
 
 pub type BackendAccountView = pinocchio::AccountView;
+pub type BackendAccountSlice<'a> = &'a mut [BackendAccountView];
 pub type BackendAddress = pinocchio::Address;
 pub type BackendProgramResult = pinocchio::ProgramResult;
 pub type BackendRef<'a, T> = pinocchio::account::Ref<'a, T>;
@@ -17,7 +18,7 @@ pub const BACKEND_SUCCESS: u64 = pinocchio::SUCCESS;
 /// # Safety
 ///
 /// Caller must uphold the invariants documented for this unsafe API before invoking it.
-pub unsafe fn wrap_account_slice(accounts: &[BackendAccountView]) -> &[AccountView] {
+pub unsafe fn wrap_account_slice(accounts: BackendAccountSlice<'_>) -> &[AccountView] {
     // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe { core::slice::from_raw_parts(accounts.as_ptr() as *const AccountView, accounts.len()) }
 }
@@ -40,8 +41,7 @@ pub unsafe fn account_owner(view: &BackendAccountView) -> &Address {
 
 #[inline(always)]
 pub fn read_owner(view: &BackendAccountView) -> Address {
-    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-    Address(unsafe { view.owner() }.to_bytes())
+    Address(view.owner().to_bytes())
 }
 
 #[inline(always)]
@@ -91,6 +91,7 @@ pub fn layout_id(view: &BackendAccountView) -> Option<&[u8; 8]> {
 ///
 /// Caller must uphold the invariants documented for this unsafe API before invoking it.
 pub unsafe fn assign(view: &BackendAccountView, new_owner: &Address) {
+    let mut view = *view;
     // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe {
         view.assign(as_backend_address(new_owner));
@@ -99,12 +100,14 @@ pub unsafe fn assign(view: &BackendAccountView, new_owner: &Address) {
 
 #[inline(always)]
 pub fn close(view: &BackendAccountView) -> ProgramResult {
+    let mut view = *view;
     view.set_lamports(0);
-    zero_data(view)
+    zero_data(&view)
 }
 
 #[inline(always)]
 pub fn zero_data(view: &BackendAccountView) -> ProgramResult {
+    let mut view = *view;
     // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe {
         let data = view.borrow_unchecked_mut();
@@ -115,6 +118,12 @@ pub fn zero_data(view: &BackendAccountView) -> ProgramResult {
         }
     }
     Ok(())
+}
+
+#[inline(always)]
+pub fn resize(view: &BackendAccountView, new_len: usize) -> ProgramResult {
+    let mut view = *view;
+    pinocchio::Resize::resize(&mut view, new_len).map_err(ProgramError::from)
 }
 
 #[cfg(target_os = "solana")]
@@ -138,7 +147,11 @@ pub fn create_program_address(
 /// Caller must uphold the invariants documented for this unsafe API before invoking it.
 pub unsafe fn process_entrypoint<const MAX: usize>(
     input: *mut u8,
-    process_instruction: fn(&BackendAddress, &[BackendAccountView], &[u8]) -> BackendProgramResult,
+    process_instruction: fn(
+        &BackendAddress,
+        BackendAccountSlice<'_>,
+        &[u8],
+    ) -> BackendProgramResult,
 ) -> u64 {
     // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe { pinocchio::entrypoint::process_entrypoint::<MAX>(input, process_instruction) }
@@ -147,7 +160,7 @@ pub unsafe fn process_entrypoint<const MAX: usize>(
 #[inline(always)]
 pub fn bridge_to_runtime(
     program_id: &BackendAddress,
-    accounts: &[BackendAccountView],
+    accounts: BackendAccountSlice<'_>,
     data: &[u8],
     process_instruction: fn(&Address, &[AccountView], &[u8]) -> ProgramResult,
 ) -> BackendProgramResult {

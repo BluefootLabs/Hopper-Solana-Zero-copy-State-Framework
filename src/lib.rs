@@ -173,13 +173,18 @@ pub mod context {
 pub mod cpi {
     pub use hopper_core::cpi::*;
     pub use hopper_runtime::cpi::{
-        invoke, invoke_signed, invoke_signed_unchecked, invoke_signed_with_bounds,
-        invoke_unchecked, invoke_with_bounds, MAX_CPI_ACCOUNTS, MAX_STATIC_CPI_ACCOUNTS,
+        invoke, invoke_signed, MAX_CPI_ACCOUNTS, MAX_STATIC_CPI_ACCOUNTS,
+    };
+    #[cfg(feature = "hopper-native-backend")]
+    pub use hopper_runtime::cpi::{
+        invoke_signed_unchecked, invoke_signed_with_bounds, invoke_unchecked, invoke_with_bounds,
     };
     pub use hopper_runtime::return_data::{
         get_return_data, set_return_data, try_set_return_data, ReturnData, MAX_RETURN_DATA,
     };
-    pub use hopper_runtime::{CpiAccount, InstructionAccount, InstructionView, Seed, Signer};
+    #[cfg(feature = "hopper-native-backend")]
+    pub use hopper_runtime::CpiAccount;
+    pub use hopper_runtime::{InstructionAccount, InstructionView, Seed, Signer};
 }
 
 /// On-chain cryptography and precompile-verification helpers.
@@ -353,13 +358,14 @@ pub mod systems {
     pub use hopper_core::check::{find_and_verify_pda, rent_exempt_min};
     pub use hopper_core::prelude_advanced::*;
     pub use hopper_core::prelude_core::*;
+    #[cfg(feature = "hopper-native-backend")]
+    pub use hopper_runtime::CpiAccount;
     pub use hopper_runtime::{
         fast_entrypoint, hopper_entrypoint, hopper_fast_entrypoint, hopper_lazy_entrypoint,
         lazy_entrypoint, no_allocator, nostd_panic_handler, program_entrypoint, AccountProof,
-        BoundedString, BoundedVec, CpiAccount, ExecutableChecked, HasOneChecked, HopperString,
-        HopperVec, InstructionAccount, InstructionView, LayoutChecked, OwnerChecked, Seed,
-        SeedsChecked, SignerChecked, TailCodec, TailElement, TokenExtensionsChecked, Unchecked,
-        WritableChecked,
+        BoundedString, BoundedVec, ExecutableChecked, HasOneChecked, HopperString, HopperVec,
+        InstructionAccount, InstructionView, LayoutChecked, OwnerChecked, Seed, SeedsChecked,
+        SignerChecked, TailCodec, TailElement, TokenExtensionsChecked, Unchecked, WritableChecked,
     };
 
     pub use crate::{
@@ -384,9 +390,11 @@ pub mod systems {
 pub mod substrate {
     pub use crate::return_data as hopper_return_data;
     pub use crate::{compute, crypto, memory};
+    #[cfg(feature = "hopper-native-backend")]
+    pub use hopper_runtime::CpiAccount;
     pub use hopper_runtime::{
-        AccountView, Address, CpiAccount, InstructionAccount, InstructionView, ProgramError,
-        ProgramResult, Ref, RefMut, Seed, Signer, SUCCESS,
+        AccountView, Address, InstructionAccount, InstructionView, ProgramError, ProgramResult,
+        Ref, RefMut, Seed, Signer, SUCCESS,
     };
 
     #[cfg(feature = "hopper-native-backend")]
