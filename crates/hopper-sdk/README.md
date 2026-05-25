@@ -6,8 +6,9 @@ running on-chain.
 
 ## What's here
 
-- **Receipt decoder** - parse Hopper's 64-byte `StateReceipt` wire format
-  into a structured value plus a human-readable narrative.
+- **Receipt decoder** - parse Hopper's 72-byte `StateReceipt` wire format,
+  with 64-byte legacy receipt support, into a structured value plus a
+  human-readable narrative.
 - **Reader** - segment-aware partial account readers that fetch only the
   fields you need from an account snapshot, with `LAYOUT_ID` fingerprint
   verification.

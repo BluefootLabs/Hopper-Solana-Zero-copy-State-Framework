@@ -223,10 +223,9 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
     // Default discriminator: first byte of the layout_id fingerprint.
     // If that byte is zero (1-in-256 chance given SHA-256 uniformity)
     // we fall through to the first non-zero byte so the compile-time
-    // "disc != 0" fence never fires spuriously. This mirrors Quasar's
-    // `validate_discriminator_not_zero()` but in a forgiving form:
-    // the user never needs to set `disc = ...` explicitly unless they
-    // want a specific wire value.
+    // "disc != 0" fence never fires spuriously. The user never needs
+    // to set `disc = ...` explicitly unless they want a specific wire
+    // value.
     let disc = options.disc.unwrap_or_else(|| {
         for byte in layout_id.iter() {
             if *byte != 0 {
@@ -399,8 +398,7 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
         #input
 
         // ── Compile-time safety fence ──────────────────────────────────
-        // Mirrors Quasar's alignment/padding/zero-discriminator asserts
-        // plus Hopper's own size invariant. All four checks fire at
+        // Alignment, padding, discriminator, and size checks all fire at
         // type-check time, so malformed layouts never reach link time.
         const _: () = {
             assert!(
@@ -609,6 +607,7 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
         // can scan for the exact manifest bytes. On the Solana target,
         // export the anchor without `#[used]`: the retain flag flips the
         // artifact OSABI to GNU and `solana program deploy` rejects it.
+        #[allow(unexpected_cfgs)]
         #[cfg_attr(not(target_os = "solana"), used)]
         #[doc(hidden)]
         #[no_mangle]

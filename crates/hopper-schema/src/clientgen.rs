@@ -115,8 +115,8 @@ impl<'a> fmt::Display for TsAccounts<'a> {
         writeln!(f)?;
         // Offset of the 8-byte LAYOUT_ID fingerprint within the
         // Hopper header. Clients read bytes [4, 12) to assert the
-        // account matches the expected layout. See audit ST2 + the
-        // "winning architecture" design's client-side ABI guard.
+        // account matches the expected layout. See audit ST2 for the
+        // client-side ABI guard.
         writeln!(
             f,
             "/** Byte offset of the 8-byte layout fingerprint in a Hopper account header. */"

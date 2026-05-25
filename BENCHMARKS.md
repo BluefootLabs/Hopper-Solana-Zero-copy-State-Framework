@@ -63,7 +63,7 @@ Measured on solana-test-validator 2.1 (April 2026).
 | 15 | `overlay_mut` + field write | ~10 | Memory access (Tier A mut) |
 | 16 | `raw_cast_baseline` (unsafe ptr) | ~4 | Competitor baseline |
 | 17 | `StateReceipt` (enriched fields) | ~80 | Receipt (all fields) |
-| 18 | `receipt + emit` (64B log) | ~150 | Receipt + event |
+| 18 | `receipt + emit` (72B log) | ~150 | Receipt + event |
 
 ## Memory Access Tier Comparison
 
@@ -109,7 +109,7 @@ validation. The cost of safety scales with how much safety you need.
 
 | Operation | CU | Notes |
 |-----------|-----|-------|
-| `StateReceipt::begin + commit` | ~50 | Snapshot + diff + encode to 64 bytes |
+| `StateReceipt::begin + commit` | ~50 | Snapshot + diff + encode to 72 bytes |
 | `StateReceipt` (enriched) | ~80 | + phase, compat_impact, validation, migration |
 | `receipt + emit` | ~150 | Full cycle: begin + set + commit + emit |
 | `StateSnapshot::capture + diff` | ~30 | Snapshot + diff without receipt framing |
@@ -184,24 +184,20 @@ verification, and a clean typed API.
 
 ## Framework Parity Benchmark (Vault, 8-seed average)
 
-Measured with the sibling `hopper-bench` Mollusk parity harness on 2026-05-18.
+Measured with the sibling `hopper-bench` Mollusk parity harness on 2026-05-25.
 Every included framework used the same deterministic user seed set, SBF
 toolchain, runner, and command line. `n/a` means the upstream comparator does
 not implement that benchmark instruction.
 
-This is a historical release-candidate vault snapshot, not current-head proof
-that Hopper is broadly faster than Quasar. Re-run `hopper-bench` against the
-current Hopper and Quasar revisions before publishing new performance claims.
-
 | Scenario | Hopper | Anza Pinocchio | Quasar |
 |----------|-------:|---------------:|-------:|
-| Authorize | **430 CU** | 2512 CU (+2082) | n/a |
+| Authorize | **431 CU** | 2512 CU (+2081) | n/a |
 | Auth-fail (missing sig) | 72 CU | **41 CU** (-31) | n/a |
-| Counter (segment-safe) | **462 CU** | 2539 CU (+2077) | n/a |
-| Deposit | **1668 CU** | 3856 CU (+2188) | 1767 CU (+99) |
+| Counter (segment-safe) | **551 CU** | 2539 CU (+1988) | n/a |
+| Deposit | **1669 CU** | 3856 CU (+2187) | 1767 CU (+98) |
 | Withdraw | **453 CU** | 2548 CU (+2095) | 603 CU (+150) |
 | Unsigned withdraw | rejected | rejected | rejected |
-| Binary size | 6.59 KiB | 7.73 KiB | **6.27 KiB** |
+| Binary size | 7.53 KiB | 7.73 KiB | **6.27 KiB** |
 
 The Pinocchio column above is built in-tree from the benchmark repo's Anza
 Pinocchio target, not borrowed from Quasar's reference sample or an older
@@ -222,13 +218,13 @@ Every parity result published from `hopper-bench` must record:
 
 | Field | Value |
 |---|---|
-| Result files | `hopper-bench/results/framework-vaults-2026-05-18-size-opt/vault-framework-comparison.{json,csv}` |
-| Hopper framework checkout | `e2633bf` plus local release-candidate changes |
-| Benchmark checkout | `f246c35` plus local harness/documentation changes |
+| Result files | `hopper-bench/results/framework-vaults-current-head-2026-05-25/vault-framework-comparison.{json,csv}` |
+| Hopper framework checkout | `300797d` plus local audit-fix changes |
+| Benchmark checkout | `4c5183c` clean |
 | Quasar checkout | `5fda2f5` clean |
 | SBF toolchain | `cargo-build-sbf 4.0.0`, platform-tools `v1.53` |
 | Samples | 8 deterministic user seed cases |
-| Command | `./compare-framework-vaults.ps1 -HopperRoot D:\tmp\Hopper-Solana-Zero-copy-State-Framework -QuasarRoot D:\tmp\quasar -OutDir results\framework-vaults-2026-05-18-size-opt` |
+| Command | `./compare-framework-vaults.ps1 -HopperRoot D:\tmp\Hopper-Solana-Zero-copy-State-Framework -QuasarRoot D:\tmp\quasar -OutDir results\framework-vaults-current-head-2026-05-25` |
 
 ### Performance observations
 
@@ -237,8 +233,8 @@ Every parity result published from `hopper-bench` must record:
 - Hopper is lower-CU than the in-tree Anza Pinocchio parity target on the
   measured PDA-bearing success paths in this vault contract. Treat that as a
   result for this benchmark, not a universal "faster than Pinocchio" claim.
-- Hopper now produces a smaller binary than the four-instruction Anza Pinocchio
-  parity target. Quasar remains 0.31 KiB smaller, but its upstream vault only
+- Hopper produces a smaller binary than the four-instruction Anza Pinocchio
+  parity target. Quasar remains 1.26 KiB smaller, but its upstream vault only
   implements `deposit` and `withdraw`.
 - Quasar's upstream vault does not implement `authorize` or `counter_access`, so
   those rows are intentionally absent for Quasar.

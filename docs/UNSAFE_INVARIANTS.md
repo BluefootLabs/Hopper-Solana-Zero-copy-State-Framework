@@ -557,7 +557,9 @@ that fails loudly if the coordination breaks.
 
 # Post-Audit Closure
 
-**Last verified: 2026-04-20. 647 workspace tests pass, zero failures.**
+**Last focused verification refresh: 2026-05-25.** Current proof lanes are
+listed in the Verification section; avoid treating this document as a frozen
+workspace-wide test-count snapshot.
 
 This section enumerates every item in the `docs/Hopper Safety Audit.docx`
 and points at the source-of-truth closure in the current tree. It is
@@ -571,7 +573,7 @@ the ground truth the audit will be compared against on re-review.
 | M2 | RAII segment leases | `crates/hopper-runtime/src/segment_lease.rs` (`SegmentLease`/`SegRef`/`SegRefMut` with `Drop`); integrated into `Frame::segment_ref`/`segment_mut` at `crates/hopper-core/src/frame/mod.rs:207-300`; regression tests in `trust_tests.rs` |
 | M3 | Canonical wire-fingerprint layout identity | `crates/hopper-macros-proc/src/state.rs:373-467`. `canonical_wire_stem` + `hopper:wire:v2` descriptor, SHA-256-hashed; spelling-drift regression tests at `state.rs:515-568` |
 | M4 | Field-level Pod proof at macro expansion | `crates/hopper-macros-proc/src/pod.rs` and `src/state.rs` now emit a `__FieldPodProof<T: bytemuck::Pod + Zeroable>` marker per field. a bare `unsafe impl bytemuck::Pod` is a rubber stamp that does not check fields, so this closes the hole rubber stamps left. Every field type is forced through the trait bound at expansion time |
-| M5 | Compile-fail doctests for negative proof | `crates/hopper-runtime/src/pod.rs:33-92` (3 doctests); `tests/compile_fail/pod_*.rs` (5 trybuild fixtures covering `bool`, `char`, reference, missing repr, padded) |
+| M5 | Compile-fail doctests for negative proof | `crates/hopper-runtime/src/pod.rs` carries 3 compile-fail doctests for non-Pod overlays; the root `tests/ui.rs` suite has 17 compile-fail fixtures under `tests/compile_fail/`; `tests/hopper-trybuild/tests/ui/` adds 6 generated macro-DX fixtures covering minimal state expansion, Pod alignment accept/reject, `#[state]` Copy enforcement, `#[program]` crank handler arity, and verified-ref lifetime rejection |
 
 ## Should-fix (4 of 4. DONE)
 
@@ -605,7 +607,7 @@ the ground truth the audit will be compared against on re-review.
 | # | Audit item | Status |
 |---|---|---|
 | D1 | Canonical unsafe-invariants document | **DONE**. this file |
-| D2 | Compile-fail coverage | **DONE**. 12 trybuild fixtures in `tests/compile_fail/`: 5 Pod cases (bool/char/reference/missing-repr/padded), 5 state-constraint cases (init_no_payer/init_no_space/seeds_no_bump/realloc_no_payer/realloc_no_zero), `pod_vec_field` (heap types rejected), `zerocopy_seal_required` (proof that bypassing `#[hopper::pod]` cannot earn `ZeroCopy`). Wired via `tests/ui.rs` |
+| D2 | Compile-fail coverage | **DONE**. The current UI proof lanes are `cargo test --test ui --features proc-macros --locked` for 17 root compile-fail fixtures, plus `cargo test -p hopper-trybuild --locked` for 2 pass fixtures and 4 compile-fail fixtures under `tests/hopper-trybuild/tests/ui/`. Together they pin Pod validity, state constraints, dynamic tails, tiny profile restrictions, borrow guards, generated state/program diagnostics, and prelude ergonomics. |
 | D3 | Fuzzing low-level loaders/parsers | **DONE**. `fuzz/` crate with 4 targets (`fuzz_instruction_frame`, `fuzz_decode_header`, `fuzz_decode_segments`, `fuzz_pod_overlay`) + new safe bounds-checked parser `parse_instruction_frame_checked` in `raw_input.rs` with 7 regression tests |
 | D4 | Benchmark suite across frameworks | **DONE as a sibling product**. The `hopper-bench` repo owns primitive benchmarks, cross-framework parity vaults, competitor locks, raw logs, and CI thresholds; this framework repo keeps release docs and lightweight result snapshots only. |
 
@@ -619,10 +621,9 @@ the ground truth the audit will be compared against on re-review.
 | I4 | Schema epoch with in-place migration helpers | **DONE**. `#[hopper::migrate(from, to)]` proc macro in `crates/hopper-macros-proc/src/migrate.rs` + `hopper::layout_migrations!` composition macro + `apply_pending_migrations` runtime in `crates/hopper-runtime/src/migrate.rs`. 8 integration tests in `tests/migrate_integration.rs` |
 | I5 | Hybrid serialization (fixed body + typed dynamic tail) | **DONE**. `#[hopper::state(dynamic_tail = T)]` + `TailCodec` trait (Borsh-subset) in `crates/hopper-runtime/src/tail.rs`. 12 codec + 8 integration tests |
 
-## Winning-architecture design closure
+## Follow-up design closure
 
-On top of the original audit, a follow-up design pass
-(`we're designing the winning architecture.rs`, 3000+ line doc) called for the
+On top of the original audit, a follow-up design pass called for the
 Jiminy-replacement safety surface, the `hopper verify` ABI-integrity command,
 and client-side layout verification. All three are now in-tree:
 
@@ -660,7 +661,7 @@ The three audit findings that remained open after the enforcement pass asked for
 |---|---|---|---|
 | F1: provable single access path | `AccountView.*data_ptr_unchecked\|borrow_unchecked` | Every slice-returning accessor on `hopper_native::AccountView` is `pub unsafe fn` (`borrow_unchecked`, `borrow_unchecked_mut`) or explicitly low-level raw pointer (`data_ptr_unchecked`) consumed by same-crate internals and the documented raw-pointer escape hatches in `hopper-runtime`. Safe paths (`try_borrow`, `try_borrow_mut`, `segment_ref`, `segment_mut`) return `Ref` / `RefMut` with native borrow-state tracking | Any call to `borrow_unchecked*` requires an `unsafe` block visible in the caller's source; obtaining a raw pointer is spelled `_unchecked` and dereferencing it remains unsafe |
 | F2: compile-proven borrow safety | `HopperRefOnly` | Eight impls total (four sealed-trait impls, four marker-trait impls), all visible in `crates/hopper-runtime/src/ref_only.rs`. No macro expansion, no derive. The compile-fail fixture `tests/compile_fail/ref_only_rejects_raw_ref.rs` is the end-to-end proof | Raw reference at the call site: `error[E0277]: the trait bound '&mut u64: HopperRefOnly' is not satisfied` |
-| F3: entrypoint minimal | sibling `hopper-bench` parity artifacts | Hopper `authorize = 430 CU`, `counter_access = 462 CU`, `deposit = 1668 CU`, `withdraw = 453 CU`, binary `6.59 KiB`; Anza Pinocchio `authorize = 2512 CU`, `counter_access = 2539 CU`, `deposit = 3856 CU`, `withdraw = 2548 CU`, binary `7.73 KiB`; Quasar `deposit = 1767 CU`, `withdraw = 603 CU`, binary `6.27 KiB`. Quasar's upstream vault does not implement `authorize` / `counter_access`, so those cells are `n/a`. Methodology is owned by the benchmark repo: pinned toolchain, equivalent-logic rule, shared vault contract, seed count, and exact command line | Any regression is caught by the sibling parity runner, which records a `cu_delta` vs the Hopper baseline; the safety-correctness gate (`unsigned_withdraw_rejected`) excludes any framework that trades safety for speed |
+| F3: entrypoint minimal | sibling `hopper-bench` parity artifacts | Hopper `authorize = 431 CU`, `counter_access = 551 CU`, `deposit = 1669 CU`, `withdraw = 453 CU`, binary `7.53 KiB`; Anza Pinocchio `authorize = 2512 CU`, `counter_access = 2539 CU`, `deposit = 3856 CU`, `withdraw = 2548 CU`, binary `7.73 KiB`; Quasar `deposit = 1767 CU`, `withdraw = 603 CU`, binary `6.27 KiB`. Quasar's upstream vault does not implement `authorize` / `counter_access`, so those cells are `n/a`. Methodology is owned by the benchmark repo: pinned toolchain, equivalent-logic rule, shared vault contract, seed count, and exact command line | Any regression is caught by the sibling parity runner, which records a `cu_delta` vs the Hopper baseline; the safety-correctness gate (`unsigned_withdraw_rejected`) excludes any framework that trades safety for speed |
 
 ## hopper-native Unsafe Surface (post-audit supplement, R10)
 
@@ -743,7 +744,8 @@ measurement justifies bypassing validation.
 ```bash
 cargo check --workspace --all-targets    # green (pre-existing deprecation warnings only)
 cargo test  --workspace --no-fail-fast   # 740 passed, 0 failed, 133 ignored
-cargo test  --test ui --features proc-macros  # 2 trybuild tests, 10 fixtures, all pass
+cargo test --test ui --features proc-macros --locked  # 4 trybuild tests, 17 compile-fail fixtures
+cargo test -p hopper-trybuild --locked                # 2 trybuild tests, 6 fixtures, all pass
 cargo test  --test require_macros        # 16 guard-macro tests pass
 cargo test  --test migrate_integration --features proc-macros  # 8 migration-chain tests pass
 cargo test  --test hybrid_tail_integration --features proc-macros  # 8 dynamic-tail tests pass

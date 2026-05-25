@@ -681,8 +681,7 @@ macro_rules! hopper_dynamic_fields {
     };
 }
 
-// Ergonomic guard macros (the "winning architecture" design's
-// Jiminy-replacement safety layer). All are `#[macro_export]` from
+// Ergonomic guard macros. All are `#[macro_export]` from
 // hopper_runtime and are re-exported here so programs see them at
 // the top-level `hopper::*` path without needing to reach through
 // `hopper_runtime::`.

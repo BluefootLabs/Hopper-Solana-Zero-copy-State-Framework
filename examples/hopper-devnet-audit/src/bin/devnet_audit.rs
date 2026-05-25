@@ -11,8 +11,6 @@ use solana_signer::Signer;
 use solana_transaction::Transaction;
 
 const DEFAULT_RPC: &str = "https://api.devnet.solana.com";
-const DEFAULT_KEYPAIR: &str =
-    "C:\\Users\\matts\\KEYPAIRS_BLUEFOOT_LABS\\HoppRy1HbNcHus9rmubDdXejDqAmhi55AURiCrq6tvxT.json";
 
 fn main() {
     if let Err(err) = run() {
@@ -24,7 +22,7 @@ fn main() {
 fn run() -> Result<(), String> {
     let mut rpc_url = DEFAULT_RPC.to_string();
     let mut program_id: Option<Pubkey> = None;
-    let mut keypair_path = PathBuf::from(DEFAULT_KEYPAIR);
+    let mut keypair_path = env::var_os("SOLANA_KEYPAIR").map(PathBuf::from);
 
     let mut args = env::args().skip(1);
     while let Some(arg) = args.next() {
@@ -43,10 +41,10 @@ fn run() -> Result<(), String> {
                 );
             }
             "--keypair" => {
-                keypair_path = PathBuf::from(
+                keypair_path = Some(PathBuf::from(
                     args.next()
                         .ok_or_else(|| "--keypair requires a path".to_string())?,
-                );
+                ));
             }
             "--help" | "-h" => {
                 print_usage();
@@ -57,6 +55,8 @@ fn run() -> Result<(), String> {
     }
 
     let program_id = program_id.ok_or_else(|| "--program-id is required".to_string())?;
+    let keypair_path = keypair_path
+        .ok_or_else(|| "--keypair is required unless SOLANA_KEYPAIR is set".to_string())?;
 
     let payer = read_keypair_file(&keypair_path)
         .map_err(|err| format!("read keypair {}: {err}", keypair_path.display()))?;
@@ -177,7 +177,8 @@ fn run() -> Result<(), String> {
 }
 
 fn print_usage() {
-    eprintln!("Usage: cargo run -p hopper-devnet-audit --bin devnet-audit -- --program-id <pubkey> [--keypair <path>] [--rpc <url>]");
+    eprintln!("Usage: cargo run -p hopper-devnet-audit --bin devnet-audit -- --program-id <pubkey> --keypair <path> [--rpc <url>]");
+    eprintln!("       SOLANA_KEYPAIR may be used instead of --keypair.");
 }
 
 fn mutate_instruction(

@@ -12,8 +12,9 @@
 //! frameworks tend to re-implement borsh/IDL decoders from scratch and always
 //! lag on-chain semantics. Hopper closes that loop:
 //!
-//! - **Receipts are a first-class wire format** (64-byte fixed, documented in
-//!   the program manifest). This crate parses them and narrates them.
+//! - **Receipts are a first-class wire format** (72-byte fixed, with 64-byte
+//!   legacy decode support, documented in the program manifest). This crate
+//!   parses them and narrates them.
 //! - **Layout fingerprints are mutual**. A client can verify the on-chain
 //!   account header matches the layout_id it was compiled against before any
 //!   decoding. No "surprise layout change" incidents.
@@ -26,8 +27,9 @@
 //!
 //! ## Module map
 //!
-//! - [`receipt`]. Decode the Hopper 64-byte receipt wire format and convert
-//!   it into structured data or a human-readable narrative.
+//! - [`receipt`]. Decode the Hopper 72-byte receipt wire format, plus legacy
+//!   64-byte receipts, and convert it into structured data or a human-readable
+//!   narrative.
 //! - [`reader`]. Segment-aware partial account readers that only pull the
 //!   fields the caller asked for. Rejects mismatched `layout_id`.
 //! - [`builder`]. Instruction and account-list builder driven by the

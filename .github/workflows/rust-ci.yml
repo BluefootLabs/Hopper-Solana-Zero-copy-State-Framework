@@ -40,3 +40,40 @@ jobs:
           cargo test -p hopper-lang --features proc-macros --test remaining_accounts_context_integration --locked
       - name: Check unsafe safety comments
         run: python3 scripts/check-unsafe-safety-comments.py
+
+  fuzz-smoke:
+    name: fuzz smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install nightly Rust
+        uses: dtolnay/rust-toolchain@nightly
+      - name: Install cargo-fuzz
+        run: cargo install cargo-fuzz --locked
+      - name: Run fuzz smoke targets
+        working-directory: fuzz
+        run: |
+          cargo fuzz run fuzz_instruction_frame -- -max_total_time=15 -timeout=5
+          cargo fuzz run fuzz_decode_header -- -max_total_time=15 -timeout=5
+          cargo fuzz run fuzz_decode_segments -- -max_total_time=15 -timeout=5
+          cargo fuzz run fuzz_pod_overlay -- -max_total_time=15 -timeout=5
+
+  kani-runtime-proofs:
+    name: Kani runtime proofs
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Install Kani
+        run: |
+          cargo install --locked kani-verifier
+          cargo kani setup
+      - name: Run runtime Kani proofs
+        run: sh ./scripts/kani-runtime-tail.sh

@@ -410,6 +410,7 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
     let bridge_fn = format_ident!("__hopper_process_instruction_{}", program_mod);
     let entrypoint_bridge = if policy.entrypoint() {
         quote! {
+            #[allow(unexpected_cfgs)]
             #[cfg(target_os = "solana")]
             ::hopper::program_entrypoint!(#bridge_fn);
 

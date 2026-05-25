@@ -26,9 +26,8 @@ use crate::ProgramResult;
 /// but the resulting error is a raw CPI failure without context.
 /// This helper surfaces a Hopper-branded
 /// `ProgramError::MissingRequiredSignature` before the CPI runs so
-/// the caller sees exactly which field is wrong. Matches the
-/// "winning architecture" design's directive that safety be default
-/// and enforced at the API boundary, not "by convention".
+/// the caller sees exactly which field is wrong. Safety is enforced at
+/// the API boundary, not left to convention.
 ///
 /// Intentionally only applied on `invoke()`. The `invoke_signed()`
 /// path is the explicit "I am signing programmatically with these
@@ -533,8 +532,8 @@ impl Revoke<'_> {
 
 // ── TransferChecked (Token-2022-safe, SPL index 12) ──────────────────
 //
-// The "winning architecture" audit flagged Token-2022 extension
-// handling as a gap. `TransferChecked` is the SPL instruction that
+// The Hopper audit flagged Token-2022 extension handling as a gap.
+// `TransferChecked` is the SPL instruction that
 // carries an extra `decimals: u8` byte the token program verifies
 // against the mint's stored decimals. That verification defends
 // against wrong-mint attacks where the caller passed a different

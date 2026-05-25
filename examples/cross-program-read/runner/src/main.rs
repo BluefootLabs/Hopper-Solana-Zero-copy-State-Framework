@@ -11,8 +11,6 @@ use solana_signer::Signer;
 use solana_transaction::Transaction;
 
 const DEFAULT_RPC: &str = "https://api.devnet.solana.com";
-const DEFAULT_KEYPAIR: &str =
-    "C:\\Users\\matts\\KEYPAIRS_BLUEFOOT_LABS\\HoppRy1HbNcHus9rmubDdXejDqAmhi55AURiCrq6tvxT.json";
 const DEFAULT_AMOUNT: u64 = 42;
 const VAULT_AUTHORITY_OFFSET: usize = hopper::hopper_core::account::HEADER_LEN;
 const VAULT_BALANCE_OFFSET: usize = VAULT_AUTHORITY_OFFSET + 32;
@@ -26,7 +24,7 @@ fn main() {
 
 fn run() -> Result<(), String> {
     let mut rpc_url = DEFAULT_RPC.to_string();
-    let mut keypair_path = PathBuf::from(DEFAULT_KEYPAIR);
+    let mut keypair_path = env::var_os("SOLANA_KEYPAIR").map(PathBuf::from);
     let mut program_a_id: Option<Pubkey> = None;
     let mut program_b_id: Option<Pubkey> = None;
     let mut amount = DEFAULT_AMOUNT;
@@ -40,10 +38,10 @@ fn run() -> Result<(), String> {
                     .ok_or_else(|| "--rpc requires a URL".to_string())?;
             }
             "--keypair" => {
-                keypair_path = PathBuf::from(
+                keypair_path = Some(PathBuf::from(
                     args.next()
                         .ok_or_else(|| "--keypair requires a path".to_string())?,
-                );
+                ));
             }
             "--program-a" => {
                 let value = args
@@ -79,6 +77,8 @@ fn run() -> Result<(), String> {
 
     let program_a_id = program_a_id.ok_or_else(|| "--program-a is required".to_string())?;
     let program_b_id = program_b_id.ok_or_else(|| "--program-b is required".to_string())?;
+    let keypair_path = keypair_path
+        .ok_or_else(|| "--keypair is required unless SOLANA_KEYPAIR is set".to_string())?;
     let payer = read_keypair_file(&keypair_path)
         .map_err(|err| format!("read keypair {}: {err}", keypair_path.display()))?;
     let vault = Keypair::new();
@@ -167,8 +167,9 @@ fn run() -> Result<(), String> {
 
 fn print_usage() {
     eprintln!(
-        "Usage: cargo run -p hopper-xp-devnet-runner -- --program-a <pubkey> --program-b <pubkey> [--keypair <path>] [--rpc <url>] [--amount <u64>]"
+        "Usage: cargo run -p hopper-xp-devnet-runner -- --program-a <pubkey> --program-b <pubkey> --keypair <path> [--rpc <url>] [--amount <u64>]"
     );
+    eprintln!("       SOLANA_KEYPAIR may be used instead of --keypair.");
 }
 
 fn program_b_instruction(

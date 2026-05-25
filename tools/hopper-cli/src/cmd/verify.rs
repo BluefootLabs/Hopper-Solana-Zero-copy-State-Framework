@@ -1,10 +1,8 @@
 //! `hopper verify` - ABI integrity check between a program manifest
 //! and its compiled `.so` binary.
 //!
-//! This command closes the "winning architecture" design's
-//! safety-check gap: Anchor, Quasar, and Pinocchio all trust the
-//! developer to keep IDL and binary in sync. Hopper catches drift at
-//! the CLI by scanning the compiled ELF for each layout's 8-byte
+//! Hopper catches manifest/binary drift at the CLI by scanning the
+//! compiled ELF for each layout's 8-byte
 //! `LAYOUT_ID` fingerprint. Any manifest entry that does not appear
 //! in the binary indicates a refactor that was not re-exported to the
 //! manifest (or a manifest that belongs to a different program).
@@ -336,16 +334,12 @@ fn resolve_manifest_path(opts: &VerifyOptions, cwd: &Path) -> Result<PathBuf, St
         return Ok(abs);
     }
     if let Some(pkg) = &opts.package {
-        // Look inside the workspace for the package's manifest.
-        let candidate = cwd
-            .join(format!("examples/{}/hopper.manifest.json", pkg))
-            .exists();
-        if candidate {
-            return Ok(cwd.join(format!("examples/{}/hopper.manifest.json", pkg)));
-        }
-        return Err(format!(
-            "could not find hopper.manifest.json for --package {pkg}"
-        ));
+        let root = workspace::find_workspace_root(cwd)?;
+        return workspace::infer_program_manifest_for_package(&root, pkg).map_err(|err| {
+            format!(
+                "{err}\nRemediation: add hopper.manifest.json next to {pkg}'s Cargo.toml, or run `hopper compile --emit schema --package {pkg} --out <package-root>/hopper.manifest.json --force` after generating the package manifest."
+            )
+        });
     }
     // Default: infer from cwd.
     let default = cwd.join("hopper.manifest.json");
@@ -368,13 +362,15 @@ fn resolve_so_path(opts: &VerifyOptions, cwd: &Path) -> Result<PathBuf, String> 
         return Ok(abs);
     }
     if let Some(pkg) = &opts.package {
+        let root = workspace::find_workspace_root(cwd)?;
         let snake = pkg.replace('-', "_");
-        let candidate = cwd.join(format!("target/deploy/{}.so", snake));
+        let candidate = root.join(format!("target/deploy/{}.so", snake));
         if candidate.is_file() {
             return Ok(candidate);
         }
         return Err(format!(
-            "could not find target/deploy/{snake}.so. Did you run `hopper build`?"
+            "could not find {}. Run `hopper build -- -p {pkg}` from the workspace root, or pass --so <path> after building the SBF binary.",
+            candidate.display()
         ));
     }
     Err("no .so specified. Pass a path via `--so <path>` or `--package <name>`.".to_string())

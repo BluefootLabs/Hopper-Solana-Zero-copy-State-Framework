@@ -21,11 +21,10 @@
 //! invoke(&ix, &accounts)?;
 //! ```
 //!
-//! ## Innovation (not a copy of Anchor's declare_program!)
+//! ## Manifest Fingerprinting
 //!
 //! Anchor's `declare_program!` reads its IDL and produces a module
-//! of typed CPI builders. Hopper does the same but goes one step
-//! further: it stamps the manifest's SHA-256 fingerprint as a
+//! of typed CPI builders. Hopper stamps the manifest's SHA-256 fingerprint as a
 //! compile-time `FINGERPRINT: [u8; 32]` const on the generated
 //! module. A caller who wants to assert "my client was built
 //! against the exact manifest that is live on chain" writes

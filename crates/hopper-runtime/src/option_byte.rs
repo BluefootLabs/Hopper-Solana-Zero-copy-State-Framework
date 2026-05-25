@@ -14,9 +14,7 @@
 //!
 //! `tag == 0` is `None`, `tag == 1` is `Some`. Any other tag byte is
 //! a protocol error and [`OptionByte::get`] surfaces it as
-//! `ProgramError::InvalidInstructionData`. This mirrors Quasar's
-//! `OptionZc<T>::validate_zc` contract with one fewer type parameter
-//! and no `MaybeUninit` escape hatch.
+//! `ProgramError::InvalidInstructionData`.
 //!
 //! ## Usage
 //!

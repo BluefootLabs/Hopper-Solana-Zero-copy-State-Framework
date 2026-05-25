@@ -2,10 +2,7 @@
 //!
 //! Centralised so output across `init`, `add`, `clean`, `doctor`, etc.
 //! looks consistent: same checkmark, same dim grey for paths, same
-//! cyan accent for arrows. Mirrors Quasar's `style.rs` shape so output
-//! reads similarly to developers porting between the two frameworks,
-//! but the colour palette is Hopper's (cyan + lime - Hopper *jumps*,
-//! Quasar drifts through a blue nebula).
+//! cyan accent for arrows, and the same Hopper palette across commands.
 //!
 //! Behavior:
 //!

@@ -2,9 +2,9 @@ error[E0277]: the trait bound `SneakyBypass: ZeroCopy` is not satisfied
   --> tests/compile_fail/zerocopy_seal_required.rs:23:25
    |
 23 |     require_zero_copy::<SneakyBypass>();
-   |                         ^^^^^^^^^^^^ the trait `hopper::layout::Pod` is not implemented for `SneakyBypass`
+   |                         ^^^^^^^^^^^^ the trait `hopper::prelude::Pod` is not implemented for `SneakyBypass`
    |
-   = help: the following other types implement trait `hopper::layout::Pod`:
+   = help: the following other types implement trait `hopper::prelude::Pod`:
              ()
              AccountHeader
              SegmentDescriptor

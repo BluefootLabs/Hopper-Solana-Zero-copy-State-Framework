@@ -22,7 +22,7 @@ Hopper is a policy-driven zero-copy runtime for Solana. Three things set it apar
 | Policy-driven safety levers | no | no | no | **yes** |
 | Selective per-instruction unsafe | no | no | no | **yes** |
 | Proc macros optional (not required) | required | yes | no | **yes** |
-| Compile-fail safety proofs | no | no | no | **yes** (13 fixtures) |
+| Compile-fail safety proofs | no | no | no | **yes** (21 compile-fail fixtures + 2 pass guards) |
 
 ## The three modes you can ship
 
@@ -122,11 +122,11 @@ are `n/a` for Quasar.
 
 | Instruction | Hopper | Anza Pinocchio | Quasar |
 |---|---:|---:|---:|
-| authorize | **430 CU** | 2512 CU | n/a |
-| counter_access | **462 CU** | 2539 CU | n/a |
-| deposit | **1668 CU** | 3856 CU | 1767 CU |
+| authorize | **431 CU** | 2512 CU | n/a |
+| counter_access | **551 CU** | 2539 CU | n/a |
+| deposit | **1669 CU** | 3856 CU | 1767 CU |
 | withdraw | **453 CU** | 2548 CU | 603 CU |
-| binary size | 6.59 KiB | 7.73 KiB | **6.27 KiB** |
+| binary size | 7.53 KiB | 7.73 KiB | **6.27 KiB** |
 
 That supports a precise claim: **Anchor/Quasar-class DX, Hopper-grade
 safety/state contracts, Pinocchio-class raw control.** It does not turn one

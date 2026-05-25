@@ -54,7 +54,7 @@ It covers four matched instruction paths:
 
 Current release-facing averaged result:
 
-- Hopper parity: authorize `430` CU, auth-fail `72` CU, counter `462` CU, deposit `1668` CU, withdraw `453` CU, binary `6.59` KiB
+- Hopper parity: authorize `431` CU, auth-fail `72` CU, counter `551` CU, deposit `1669` CU, withdraw `453` CU, binary `7.53` KiB
 - Anza Pinocchio: authorize `2512` CU, auth-fail `41` CU, counter `2539` CU, deposit `3856` CU, withdraw `2548` CU, binary `7.73` KiB
 - Quasar: deposit `1767` CU, withdraw `603` CU, binary `6.27` KiB; `authorize` and `counter-access` are `n/a` because Quasar's upstream vault does not implement those instructions
 

@@ -47,8 +47,8 @@ pub struct Context<'a> {
     /// Segment-level borrow tracking for fine-grained access control.
     ///
     /// Enables safe concurrent mutable access to non-overlapping regions
-    /// of the same account. This is what makes Hopper strictly safer than
-    /// raw Pinocchio without adding meaningful CU overhead.
+    /// of the same account while keeping typed access under Hopper's borrow
+    /// registry.
     /// Prefer the `borrows()` / `borrows_mut()` accessors in new code.
     pub(crate) segment_borrows: SegmentBorrowRegistry,
 }

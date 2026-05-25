@@ -46,7 +46,7 @@ CreateMetadataAccountV3 {
     update_authority: authority,
     system_program,
     rent: None,
-    data: DataV2::simple("Boobies #001", "BOOB", "https://...", 500),
+    data: DataV2::simple("Hopper #001", "HOP", "https://...", 500),
     is_mutable: true,
 }
 .invoke()?;

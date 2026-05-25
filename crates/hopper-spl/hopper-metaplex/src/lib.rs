@@ -25,8 +25,8 @@
 //! Newer Metaplex flows (Bubblegum compressed NFTs, the
 //! `pNFT` programmable-NFT lifecycle, edition prints, collection
 //! verification) are out of scope for this first cut. The three
-//! instructions above cover ~95% of straightforward 1-of-1 NFT mint
-//! programs and the full Boobies use case. Adding more is a matter of
+//! instructions above cover most straightforward 1-of-1 NFT mint
+//! programs. Adding more is a matter of
 //! pattern-matching against the existing builders; the core encoding
 //! infrastructure ([`encoding`]) is shared.
 //!

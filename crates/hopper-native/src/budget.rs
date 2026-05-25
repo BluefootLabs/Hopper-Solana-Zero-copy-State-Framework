@@ -1,9 +1,9 @@
 //! Compute-unit budget tracking and instrumentation.
 //!
 //! Solana programs have a finite CU budget per instruction. Exceeding it
-//! is a hard abort. No existing framework provides runtime CU tracking
-//! at the substrate level -- programs either blindly hope they fit or
-//! manually sprinkle `sol_log_compute_units()` calls.
+//! is a hard abort. Hopper provides runtime CU tracking at the substrate
+//! level so programs can avoid scattering ad hoc `sol_log_compute_units()`
+//! calls through business logic.
 //!
 //! Hopper's `CuBudget` provides:
 //!

@@ -56,7 +56,7 @@ error[E0277]: the trait bound `MissingCopy: std::marker::Copy` is not satisfied
 5 | pub struct MissingCopy {
   |            ^^^^^^^^^^^ the trait `std::marker::Copy` is not implemented for `MissingCopy`
   |
-note: required by a bound in `hopper::prelude::LayoutContract`
+note: required by a bound in `LayoutContract`
  --> $WORKSPACE/crates/hopper-runtime/src/layout.rs
   |
   | pub trait LayoutContract: Sized + Copy + FieldMap {
@@ -73,9 +73,29 @@ error[E0277]: the trait bound `MissingCopy: std::marker::Copy` is not satisfied
 5 | pub struct MissingCopy {
   |            ^^^^^^^^^^^ the trait `std::marker::Copy` is not implemented for `MissingCopy`
   |
-  = help: the trait `hopper::prelude::LayoutContract` is not implemented for `MissingCopy`
+  = help: the trait `hopper::prelude::Pod` is not implemented for `MissingCopy`
+          but trait `Pod` is implemented for it
+  = note: required for `MissingCopy` to implement `hopper::prelude::Pod`
+note: required by a bound in `HopperLayout`
+ --> $WORKSPACE/crates/hopper-core/src/check/modifier.rs
+  |
+  | pub trait HopperLayout: Pod + FixedLayout {
+  |                         ^^^ required by this bound in `HopperLayout`
+help: consider annotating `MissingCopy` with `#[derive(Copy)]`
+  |
+5 + #[derive(Copy)]
+6 | pub struct MissingCopy {
+  |
+
+error[E0277]: the trait bound `MissingCopy: std::marker::Copy` is not satisfied
+ --> tests/ui/fail/state_requires_clone_copy.rs:5:12
+  |
+5 | pub struct MissingCopy {
+  |            ^^^^^^^^^^^ the trait `std::marker::Copy` is not implemented for `MissingCopy`
+  |
+  = help: the trait `LayoutContract` is not implemented for `MissingCopy`
           but trait `LayoutContract` is implemented for it
-  = note: required for `MissingCopy` to implement `hopper::prelude::LayoutContract`
+  = note: required for `MissingCopy` to implement `LayoutContract`
 note: required by a bound in `SchemaExport`
  --> $WORKSPACE/crates/hopper-schema/src/lib.rs
   |

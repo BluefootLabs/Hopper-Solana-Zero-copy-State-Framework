@@ -14,7 +14,7 @@
 //!    output shows the macros users actually care about.
 //! 4. Filter by symbol. `--filter vault` walks the expanded output
 //!    and prints just the functions, structs, and impls whose name
-//!    matches the substring. Mirrors Quasar's `quasar profile --expand`.
+//!    matches the substring.
 //!
 //! Every unknown flag passes straight to `cargo expand`, so the
 //! upstream flag surface is reachable.

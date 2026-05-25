@@ -794,37 +794,40 @@ fn write_compat_pair_array(f: &mut fmt::Formatter<'_>, pairs: &[CompatibilityPai
     write!(f, "]")
 }
 
-/// Emit the fixed 64-byte receipt wire schema as a JSON object.
+/// Emit the fixed 72-byte receipt wire schema as a JSON object.
 /// This describes the binary layout so tools can decode receipts
 /// without linking the Hopper crate.
 fn write_receipt_schema(f: &mut fmt::Formatter<'_>) -> fmt::Result {
     writeln!(f, "{{")?;
     write_indent(f, 2)?;
-    writeln!(f, "\"size\": 64,")?;
+    writeln!(f, "\"size\": 72,")?;
+    write_indent(f, 2)?;
+    writeln!(f, "\"legacySize\": 64,")?;
     write_indent(f, 2)?;
     writeln!(f, "\"fields\": [")?;
     let fields: &[(&str, &str, u8, u8)] = &[
         ("layout_id", "bytes", 0, 8),
-        ("phase", "u8", 8, 1),
-        ("committed", "bool", 9, 1),
-        ("changed_fields", "u64", 10, 8),
-        ("changed_bytes", "u16", 18, 2),
-        ("changed_regions", "u8", 20, 1),
-        ("was_resized", "bool", 21, 1),
-        ("old_size", "u16", 22, 2),
-        ("new_size", "u16", 24, 2),
-        ("before_fingerprint", "bytes", 26, 4),
-        ("after_fingerprint", "bytes", 30, 4),
-        ("invariants_passed", "bool", 34, 1),
-        ("invariants_checked", "u8", 35, 1),
-        ("cpi_invoked", "bool", 36, 1),
-        ("cpi_count", "u8", 37, 1),
-        ("journal_appends", "u8", 38, 1),
-        ("segment_changed_mask", "u16", 39, 2),
-        ("policy_flags", "u32", 41, 4),
-        ("compat_impact", "u8", 45, 1),
-        ("validation_bundle_id", "u8", 46, 1),
-        ("migration_flags", "u8", 47, 1),
+        ("changed_fields", "u64", 8, 8),
+        ("changed_bytes", "u32", 16, 4),
+        ("changed_regions", "u16", 20, 2),
+        ("old_size", "u32", 22, 4),
+        ("new_size", "u32", 26, 4),
+        ("invariants_checked", "u16", 30, 2),
+        ("flags", "u8", 32, 1),
+        ("before_fingerprint", "bytes", 33, 8),
+        ("after_fingerprint", "bytes", 41, 8),
+        ("segment_changed_mask", "u16", 49, 2),
+        ("policy_flags", "u32", 51, 4),
+        ("journal_appends", "u16", 55, 2),
+        ("cpi_count", "u8", 57, 1),
+        ("phase", "u8", 58, 1),
+        ("validation_bundle_id", "u16", 59, 2),
+        ("compat_impact", "u8", 61, 1),
+        ("migration_flags", "u8", 62, 1),
+        ("failed_invariant_idx", "u8", 63, 1),
+        ("failed_error_code", "u32", 64, 4),
+        ("failure_stage", "u8", 68, 1),
+        ("reserved", "bytes", 69, 3),
     ];
     for (i, (name, ty, offset, size)) in fields.iter().enumerate() {
         write_indent(f, 3)?;

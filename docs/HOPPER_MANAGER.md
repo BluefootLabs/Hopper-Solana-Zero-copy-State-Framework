@@ -36,7 +36,7 @@ hopper manager policies <manifest>
 hopper manager events <manifest>
 hopper manager fingerprints <manifest>
 hopper manager compat <manifest> <hex-old> <hex-new>
-hopper manager receipt <hex-64-bytes>
+hopper manager receipt <hex-64-or-72-bytes>
 hopper manager explain <manifest>
 hopper manager diff <manifest> <hex-before> <hex-after>
 hopper manager simulate <manifest> <instruction>

@@ -1,8 +1,8 @@
 //! Devnet tail lab: bounded compact fields plus explicit bare final tails.
 //!
-//! The example intentionally mirrors Quasar's authoring shape while proving
-//! Hopper's extra layout contracts: role metadata, fingerprints, generated
-//! account wrappers, bounded tail editors, and final-only raw tails.
+//! The example keeps the authoring surface compact while proving Hopper's
+//! layout contracts: role metadata, fingerprints, generated account wrappers,
+//! bounded tail editors, and final-only raw tails.
 
 #![cfg_attr(target_os = "solana", no_std)]
 #![allow(dead_code)]

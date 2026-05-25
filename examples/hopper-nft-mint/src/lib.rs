@@ -9,11 +9,8 @@
 //! | `1`  | `create_metadata` | Invokes Metaplex's `CreateMetadataAccountV3` to attach name/symbol/uri/SFBP to the mint. |
 //! | `2`  | `create_master_edition` | Invokes Metaplex's `CreateMasterEditionV3` with `max_supply = Some(0)` to lock the mint as a 1-of-1 NFT. |
 //!
-//! Closes the Quasar-parity Metaplex gap from
-//! [`AUDIT.md`](../../AUDIT.md). Built specifically with the Boobies
-//! NFT project (Galápagos blue-footed boobies, conservation donations
-//! via [bluefoot.xyz](https://bluefoot.xyz)) in mind: a real-world
-//! pattern Hopper users can copy-paste.
+//! Demonstrates Hopper's Metaplex CPI helpers as a real-world pattern users can
+//! copy into simple NFT mint programs.
 //!
 //! ## What this example does NOT do
 //!

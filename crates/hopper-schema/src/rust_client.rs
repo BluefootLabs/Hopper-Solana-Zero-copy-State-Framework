@@ -9,8 +9,7 @@
 //! (`Pubkey`, `Instruction`, `AccountMeta`) so it drops into any
 //! existing Rust program or test harness without a custom runtime.
 //!
-//! Closes the "winning architecture" design's Category 5 item
-//! ("generate TS + Rust clients") and is the Rust counterpart to
+//! Implements Hopper's generated Rust client surface and is the Rust counterpart to
 //! [`TsClientGen`](crate::clientgen::TsClientGen) and
 //! [`KtClientGen`](crate::clientgen::KtClientGen).
 //!

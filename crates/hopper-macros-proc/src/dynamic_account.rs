@@ -549,7 +549,7 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
 
         #(#outer_attrs)*
         #[doc = "Hopper dynamic account."]
-        #[doc = "Write it like Quasar. Hopper stores it like a protocol contract."]
+        #[doc = "Author fixed fields normally; Hopper stores dynamic data as a protocol tail."]
         #[doc = "Wire model: fixed body + [u32 len] compact dynamic tail."]
         #[doc = concat!("Tail schema: ", #tail_schema_lit)]
         #[derive(Clone, Copy)]

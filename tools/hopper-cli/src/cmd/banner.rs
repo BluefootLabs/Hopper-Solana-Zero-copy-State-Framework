@@ -1,8 +1,6 @@
 //! `hopper init` opening banner.
 //!
-//! Quasar prints an animated FIGlet "Quasar" reveal under a sweeping
-//! blue nebula. We do something distinct that fits Hopper's identity
-//! - a **leap reveal**: each row of the FIGlet "HOPPER" arrives from
+//! Hopper uses a **leap reveal**: each row of the FIGlet "HOPPER" arrives from
 //! below with a small bounce, settling in, while the background fills
 //! with a gradient of green dots ("grass") that the H jumped through.
 //!
@@ -20,7 +18,7 @@
 //! annoy power users running `hopper init` repeatedly during plugin
 //! development. After the banner runs once, `globals.ui.animation` is
 //! flipped to false in the saved defaults so the second run is silent
-//! by default; mirrors Quasar's "be polite on the second run" rule.
+//! by default.
 
 use std::io::{self, IsTerminal, Write};
 

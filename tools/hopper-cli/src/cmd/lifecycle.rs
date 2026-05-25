@@ -68,7 +68,7 @@ impl Template {
     }
 }
 
-/// Git policy after scaffolding. Mirrors Quasar's `init / commit / skip`.
+/// Git policy after scaffolding.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GitPolicy {
     Commit,
@@ -185,10 +185,10 @@ pub fn cmd_init(args: &[String]) {
         }
     }
 
-    // Decide whether to run the wizard. Match Quasar's contract: bare
-    // `hopper init` (no path, no -y) drops into prompts. `hopper init
-    // <path>` skips them and uses saved defaults. `--interactive`
-    // forces the wizard even when a path is supplied.
+    // Decide whether to run the wizard. Bare `hopper init` (no path,
+    // no -y) drops into prompts. `hopper init <path>` skips them and
+    // uses saved defaults. `--interactive` forces the wizard even when
+    // a path is supplied.
     let wizard_mode = interactive_flag || (destination.is_none() && !yes);
 
     let plan = if wizard_mode {
@@ -730,7 +730,7 @@ struct DumpOptions {
     /// Pass `-S` to llvm-objdump so DWARF source lines are interleaved
     /// with disassembly. Requires the `.so` to have been built with
     /// debug info (`cargo build-sbf` keeps it; `--release --strip` does
-    /// not). Quasar parity flag.
+    /// not).
     source_interleave: bool,
 }
 

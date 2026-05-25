@@ -2361,7 +2361,7 @@ fn print_usage() {
     println!("    hopper manager events <manifest|--program-id ...>      List events with fields");
     println!("    hopper manager fingerprints <manifest|--program-id ...>  Show all fingerprints");
     println!("    hopper manager compat <manifest|--program-id ...> <hex-old> <hex-new>  Compare two accounts");
-    println!("    hopper manager receipt <hex-64-bytes>                  Decode a state receipt");
+    println!("    hopper manager receipt <hex-64-or-72-bytes>             Decode a state receipt");
     println!("    hopper manager explain <manifest|--program-id ...>     Aggregated summary");
     println!("    hopper manager diff <manifest|--program-id ...> <hex-old> <hex-new>  Semantic field diff");
     println!("    hopper manager simulate <manifest|--program-id ...> <instruction>  Preview requirements");
@@ -2927,9 +2927,25 @@ fn cmd_segments(args: &[String]) {
     }
 }
 
-// -- Receipt decoding (matches hopper-core receipt wire format v2, 64 bytes) --
+// -- Receipt decoding (matches hopper-core receipt wire format v2, 72 bytes) --
 
-const RECEIPT_WIRE_SIZE: usize = 64;
+const RECEIPT_WIRE_SIZE: usize = 72;
+const RECEIPT_WIRE_SIZE_LEGACY: usize = 64;
+
+fn valid_receipt_len(len: usize) -> bool {
+    len == RECEIPT_WIRE_SIZE_LEGACY || len >= RECEIPT_WIRE_SIZE
+}
+
+fn receipt_failure_stage_name(stage: u8) -> &'static str {
+    match stage {
+        1 => "validation",
+        2 => "handler",
+        3 => "invariant",
+        4 => "post",
+        5 => "teardown",
+        _ => "none",
+    }
+}
 
 fn cmd_receipt(args: &[String]) {
     if args.is_empty() {
@@ -2944,11 +2960,12 @@ fn cmd_receipt(args: &[String]) {
         }
     };
 
-    if data.len() < RECEIPT_WIRE_SIZE {
+    if !valid_receipt_len(data.len()) {
         eprintln!(
-            "Receipt data too short (got {} bytes, need {} bytes).",
-            data.len(),
+            "Receipt data must be exactly {} legacy bytes or at least {} current bytes (got {}).",
+            RECEIPT_WIRE_SIZE_LEGACY,
             RECEIPT_WIRE_SIZE,
+            data.len(),
         );
         process::exit(1);
     }
@@ -2967,6 +2984,7 @@ fn cmd_receipt(args: &[String]) {
     let invariants_passed = flags & (1 << 1) != 0;
     let cpi_invoked = flags & (1 << 2) != 0;
     let committed = flags & (1 << 3) != 0;
+    let had_failure = flags & (1 << 4) != 0;
     let before_fp = &data[33..41];
     let after_fp = &data[41..49];
     let segment_mask = u16::from_le_bytes(data[49..51].try_into().expect("slice length mismatch"));
@@ -2979,6 +2997,16 @@ fn cmd_receipt(args: &[String]) {
         u16::from_le_bytes(data[59..61].try_into().expect("slice length mismatch"));
     let compat_impact = data[61];
     let migration_flags = data[62];
+    let (failed_invariant_idx, failed_error_code, failure_stage) =
+        if data.len() >= RECEIPT_WIRE_SIZE {
+            (
+                data[63],
+                u32::from_le_bytes(data[64..68].try_into().expect("slice length mismatch")),
+                data[68],
+            )
+        } else {
+            (0xFF, 0, 0)
+        };
 
     let phase_name = match phase {
         1 => "init",
@@ -2995,6 +3023,14 @@ fn cmd_receipt(args: &[String]) {
     };
 
     println!("=== State Receipt ({} bytes) ===", data.len());
+    println!(
+        "  Wire format         : {}",
+        if data.len() == RECEIPT_WIRE_SIZE_LEGACY {
+            "legacy 64-byte"
+        } else {
+            "current 72-byte"
+        }
+    );
     println!();
     println!("  Layout ID           : {}", hex_encode(layout_id));
     println!(
@@ -3101,6 +3137,19 @@ fn cmd_receipt(args: &[String]) {
             mig.push("schema-bump");
         }
         println!("  Migration           : {}", mig.join(", "));
+    }
+
+    if had_failure || data.len() >= RECEIPT_WIRE_SIZE {
+        println!(
+            "  Failure recorded    : {}",
+            if had_failure { "YES" } else { "NO" }
+        );
+        println!(
+            "  Failure stage       : {}",
+            receipt_failure_stage_name(failure_stage)
+        );
+        println!("  Failed invariant    : 0x{:02x}", failed_invariant_idx);
+        println!("  Failed error code   : {}", failed_error_code);
     }
 }
 
@@ -3390,22 +3439,29 @@ fn cmd_schema_export() {
     println!("  0x6000   Audit      -- immutable trail, must preserve");
     println!("  0x7000   Shard      -- partitioned data, must preserve");
     println!();
-    println!("State Receipt (64 bytes, emitted as event):");
-    println!("  [0..8]   layout_id       [u8;8]    Source layout fingerprint");
-    println!("  [8..12]  before_fp       u32 LE    FNV-1a fingerprint before mutation");
-    println!("  [12..16] after_fp        u32 LE    FNV-1a fingerprint after mutation");
-    println!("  [16..20] changed_bytes   u32 LE    Byte count of changes");
-    println!("  [20..24] changed_regions u32 LE    Number of changed regions");
-    println!("  [24..28] old_size        u32 LE    Size before (0 if no resize)");
-    println!("  [28..32] new_size        u32 LE    Size after (0 if no resize)");
-    println!("  [32..36] segment_mask    u32 LE    Bitmask of changed segments");
-    println!("  [36..40] policy_flags    u32 LE    Capability bitmask");
-    println!("  [40]     inv_passed      u8        Invariants passed count");
-    println!("  [41]     inv_checked     u8        Invariants checked count");
-    println!("  [42]     journal_appends u8        Journal append count");
-    println!("  [43]     cpi_count       u8        CPI invocation count");
-    println!("  [44]     flags           u8        Status (bit 0 = committed, bit 1 = resized)");
-    println!("  [45..64] reserved        [u8;19]   Reserved");
+    println!("State Receipt (72 bytes current, 64-byte legacy prefix supported):");
+    println!("  [0..8]   layout_id            [u8;8]    Source layout fingerprint");
+    println!("  [8..16]  changed_fields       u64 LE    Changed field bitmask");
+    println!("  [16..20] changed_bytes        u32 LE    Byte count of changes");
+    println!("  [20..22] changed_regions      u16 LE    Number of changed regions");
+    println!("  [22..26] old_size             u32 LE    Size before mutation");
+    println!("  [26..30] new_size             u32 LE    Size after mutation");
+    println!("  [30..32] inv_checked          u16 LE    Invariants checked count");
+    println!("  [32]     flags                u8        resized/passed/CPI/committed/failure bits");
+    println!("  [33..41] before_fp            [u8;8]    Fingerprint before mutation");
+    println!("  [41..49] after_fp             [u8;8]    Fingerprint after mutation");
+    println!("  [49..51] segment_mask         u16 LE    Bitmask of changed segments");
+    println!("  [51..55] policy_flags         u32 LE    Capability bitmask");
+    println!("  [55..57] journal_appends      u16 LE    Journal append count");
+    println!("  [57]     cpi_count            u8        CPI invocation count");
+    println!("  [58]     phase                u8        Instruction phase tag");
+    println!("  [59..61] validation_bundle_id u16 LE    Program-defined validation bundle");
+    println!("  [61]     compat_impact        u8        Compatibility impact tag");
+    println!("  [62]     migration_flags      u8        Migration flags");
+    println!("  [63]     failed_invariant_idx u8        0xFF = none");
+    println!("  [64..68] failed_error_code    u32 LE    0 = none");
+    println!("  [68]     failure_stage        u8        FailureStage tag");
+    println!("  [69..72] reserved             [u8;3]    Reserved");
     println!();
     println!("Policy Capability Bits (in receipt policy_flags):");
     println!("  bit 0    ReadsState");
@@ -4037,7 +4093,7 @@ fn cmd_manager(args: &[String]) {
         eprintln!("  events <manifest|--program-id ...>      List events with fields");
         eprintln!("  fingerprints <manifest|--program-id ...>  Show all layout fingerprints");
         eprintln!("  compat <manifest|--program-id ...> <hex-old> <hex-new>  Compare two account versions");
-        eprintln!("  receipt <hex-64-bytes>                  Decode a receipt from wire bytes");
+        eprintln!("  receipt <hex-64-or-72-bytes>             Decode a receipt from wire bytes");
         eprintln!("  explain <manifest|--program-id ...>     Aggregated human-readable summary");
         eprintln!("  diff <manifest|--program-id ...> <hex-before> <hex-after>  Semantic field-level diff");
         eprintln!("  simulate <manifest|--program-id ...> <instruction>  Preview instruction requirements");
@@ -4845,7 +4901,7 @@ fn cmd_manager_compat(args: &[String]) {
 
 fn cmd_manager_receipt(args: &[String]) {
     if args.is_empty() {
-        eprintln!("Usage: hopper manager receipt <hex-64-bytes>");
+        eprintln!("Usage: hopper manager receipt <hex-64-or-72-bytes>");
         process::exit(1);
     }
     let data = match hex_decode(&args[0]) {
@@ -4856,8 +4912,13 @@ fn cmd_manager_receipt(args: &[String]) {
         }
     };
 
-    if data.len() < 64 {
-        eprintln!("Receipt data must be exactly 64 bytes (got {})", data.len());
+    if !valid_receipt_len(data.len()) {
+        eprintln!(
+            "Receipt data must be exactly {} legacy bytes or at least {} current bytes (got {})",
+            RECEIPT_WIRE_SIZE_LEGACY,
+            RECEIPT_WIRE_SIZE,
+            data.len()
+        );
         process::exit(1);
     }
 
@@ -4873,6 +4934,14 @@ fn cmd_manager_receipt(args: &[String]) {
     let impact = CompatImpact::from_tag(r.compat_impact);
 
     println!("=== State Receipt ===");
+    println!(
+        "  Wire format         : {}",
+        if data.len() == RECEIPT_WIRE_SIZE_LEGACY {
+            "legacy 64-byte"
+        } else {
+            "current 72-byte"
+        }
+    );
     println!();
     println!("  Layout ID           : {}", hex_encode(&r.layout_id));
     println!("  Phase               : {} ({})", phase.name(), r.phase);
@@ -4923,6 +4992,14 @@ fn cmd_manager_receipt(args: &[String]) {
     if r.migration_flags & 0x04 != 0 {
         println!("    - Schema version bumped");
     }
+    println!();
+    println!("  Failure recorded    : {}", r.had_failure);
+    println!(
+        "  Failure stage       : {}",
+        receipt_failure_stage_name(r.failure_stage)
+    );
+    println!("  Failed invariant    : 0x{:02x}", r.failed_invariant_idx);
+    println!("  Failed error code   : {}", r.failed_error_code);
 }
 
 fn cmd_manager_explain(args: &[String]) {

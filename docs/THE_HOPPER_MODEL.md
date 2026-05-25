@@ -218,7 +218,8 @@ receipt.set_policy_flags(DEPOSIT_CAPS.bits());
 emit_slices(&[&receipt.to_bytes()]);
 ```
 
-The 64-byte receipt encodes:
+The current 72-byte receipt encodes the legacy 64-byte prefix plus the v2
+failure payload:
 
 - Before/after fingerprints (FNV-1a)
 - Changed byte count and field regions
@@ -229,6 +230,7 @@ The 64-byte receipt encodes:
 - Journal append count
 - CPI invocation count
 - Committed flag
+- Failed invariant index, error code, and failure stage
 
 Receipts are the signature Hopper artifact. Every serious mutation can
 produce a receipt that explains what changed, why it was allowed, and
@@ -340,7 +342,7 @@ Hopper includes a CLI for inspecting, comparing, and planning:
 hopper explain <hex>           Human-readable account explanation
 hopper inspect <hex>           Raw header decode
 hopper segments <hex>          Segment registry map with roles
-hopper receipt <hex>           Decode a 64-byte state receipt
+hopper receipt <hex>           Decode a 72-byte state receipt, or a legacy 64-byte receipt
 hopper compat <v1> <v2>        Compatibility report
 hopper diff <v1> <v2>          Field-level diff
 hopper plan <v1> <v2>          Migration plan with steps

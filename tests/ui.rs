@@ -8,8 +8,9 @@
 //! safety property, accept it; otherwise investigate.
 //!
 //! This harness mechanically enforces the Hopper Safety Audit's
-//! "Compile-fail coverage" item. The five shipping cases cover
-//! `#[hopper::pod]`:
+//! "Compile-fail coverage" item. The current root suite has 17
+//! compile-fail fixtures covering `#[hopper::pod]`, state constraints,
+//! dynamic tails, tiny profile restrictions, and borrow guard proofs:
 //!
 //! | Fixture | Violation |
 //! |---|---|
@@ -26,13 +27,40 @@
 //! | `tiny_profile_multibyte_discriminator.rs` | tiny programs must keep one-byte dispatch |
 //! | `tiny_profile_receipt_modifier.rs` | tiny programs cannot inject handler modifier instrumentation |
 //!
-//! Additional `state_*` fixtures are added in Stage 2 as each
-//! `#[account(...)]` constraint attribute lands.
+//! The newer `tests/hopper-trybuild` package carries the generated
+//! macro-DX fixtures that exercise `hopper::prelude::*` and downstream
+//! check-cfg behavior.
 
 #![cfg(feature = "proc-macros")]
 
+fn install_sol_callback_check_cfg() {
+    const CHECK_CFG: &str = "--check-cfg=cfg(target_os,values(\"solana\")) --check-cfg=cfg(target_arch,values(\"bpf\"))";
+    const CHECK_CFG_ENCODED: &str = "--check-cfg=cfg(target_os,values(\"solana\"))\x1f--check-cfg=cfg(target_arch,values(\"bpf\"))";
+    let rustflags = std::env::var("RUSTFLAGS").unwrap_or_default();
+    if !rustflags.contains("cfg(target_os,values(\"solana\"))") {
+        let rustflags = if rustflags.trim().is_empty() {
+            CHECK_CFG.to_string()
+        } else {
+            format!("{} {}", rustflags, CHECK_CFG)
+        };
+        std::env::set_var("RUSTFLAGS", rustflags);
+    }
+
+    let encoded = std::env::var("CARGO_ENCODED_RUSTFLAGS").unwrap_or_default();
+    if encoded.contains("cfg(target_os,values(\"solana\"))") {
+        return;
+    }
+    let encoded = if encoded.trim().is_empty() {
+        CHECK_CFG_ENCODED.to_string()
+    } else {
+        format!("{}\x1f{}", encoded, CHECK_CFG_ENCODED)
+    };
+    std::env::set_var("CARGO_ENCODED_RUSTFLAGS", encoded);
+}
+
 #[test]
 fn compile_fail_pod() {
+    install_sol_callback_check_cfg();
     let t = trybuild::TestCases::new();
     t.compile_fail("tests/compile_fail/pod_bool_field.rs");
     t.compile_fail("tests/compile_fail/pod_char_field.rs");
@@ -47,6 +75,7 @@ fn compile_fail_pod() {
 
 #[test]
 fn compile_fail_state_constraints() {
+    install_sol_callback_check_cfg();
     let t = trybuild::TestCases::new();
     t.compile_fail("tests/compile_fail/state_init_no_payer.rs");
     t.compile_fail("tests/compile_fail/state_init_no_space.rs");
@@ -57,12 +86,14 @@ fn compile_fail_state_constraints() {
 
 #[test]
 fn compile_fail_dynamic_tails() {
+    install_sol_callback_check_cfg();
     let t = trybuild::TestCases::new();
     t.compile_fail("tests/compile_fail/bare_tail_not_final.rs");
 }
 
 #[test]
 fn compile_fail_tiny_profile() {
+    install_sol_callback_check_cfg();
     let t = trybuild::TestCases::new();
     t.compile_fail("tests/compile_fail/tiny_profile_multibyte_discriminator.rs");
     t.compile_fail("tests/compile_fail/tiny_profile_receipt_modifier.rs");

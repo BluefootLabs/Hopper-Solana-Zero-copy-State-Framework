@@ -13,9 +13,8 @@
 //!
 //! - **Secp256k1 recovery**: Same pattern for Ethereum-compatible signatures.
 //!
-//! No existing framework (pinocchio, Anchor, Steel, Quasar) wraps these
-//! syscalls with ergonomic APIs. Programs that need them write raw unsafe
-//! glue every time.
+//! Hopper wraps these syscalls behind small typed helpers so programs do not
+//! need to repeat raw unsafe glue at every call site.
 
 use crate::address::Address;
 use crate::error::ProgramError;

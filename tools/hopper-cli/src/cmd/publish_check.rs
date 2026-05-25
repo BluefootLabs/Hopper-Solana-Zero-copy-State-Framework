@@ -433,6 +433,26 @@ fn run_solana_check(root: &Path) -> Result<(), String> {
 }
 
 fn check_tracked_build_artifacts(root: &Path) -> Result<(), String> {
+    let inside_args = ["rev-parse", "--is-inside-work-tree"];
+    match workspace::run_output("git", &to_strings(&inside_args), root) {
+        Ok(output)
+            if output.status.success()
+                && String::from_utf8_lossy(&output.stdout).trim() == "true" => {}
+        Ok(_) => {
+            println!(
+                "source archive mode: skipped git tracked-artifact gate because {} is not inside a git work tree",
+                root.display()
+            );
+            return Ok(());
+        }
+        Err(err) => {
+            println!(
+                "source archive mode: skipped git tracked-artifact gate because git is unavailable: {err}"
+            );
+            return Ok(());
+        }
+    }
+
     let args = ["ls-files"];
     let output = workspace::run_output("git", &to_strings(&args), root)?;
     if !output.status.success() {

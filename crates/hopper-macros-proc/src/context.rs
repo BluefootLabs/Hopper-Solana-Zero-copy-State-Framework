@@ -1449,6 +1449,7 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
                     // We only need the address; the bump byte is
                     // meaningful only if the caller wants to cache it
                     // in account data.
+                    #[allow(unexpected_cfgs)]
                     #[cfg(target_os = "solana")]
                     {
                         let (expected, _bump) =

@@ -463,8 +463,9 @@ on commit. Tracks: `layout_id`, `changed_fields` (u64 bitmask), `changed_bytes`,
 and `cpi_count`.
 
 `commit_with_segments(data, segments)` is the preferred commit path when segment
-tracking matters. `to_bytes()` produces a 64-byte wire payload for event emission.
-`DecodedReceipt` provides off-chain decoding via `from_bytes()`.
+tracking matters. `to_bytes()` produces the current 72-byte wire payload for
+event emission. `DecodedReceipt::from_bytes()` accepts that format plus legacy
+64-byte receipts whose failure-payload suffix is absent.
 
 ### Virtual State (`virtual_state/`)
 
@@ -629,6 +630,6 @@ hopper segments <hex>          Segment registry map
 hopper compat <v1.json> <v2>   Compatibility report (append-safe, backward-readable, migration)
 hopper diff <v1.json> <v2>     Field-level diff
 hopper plan <v1.json> <v2>     Migration plan with steps, byte counts, backward readability
-hopper receipt <hex>           Decode and explain a 64-byte state receipt
+hopper receipt <hex>           Decode and explain a 72-byte state receipt, or a legacy 64-byte receipt
 hopper schema-export           Schema format reference
 ```

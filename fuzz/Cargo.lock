@@ -80,27 +80,19 @@ dependencies = [
 ]
 
 [[package]]
-name = "hopper-core"
-version = "0.1.0"
-dependencies = [
- "hopper-runtime",
- "sha2-const-stable",
-]
-
-[[package]]
 name = "hopper-fuzz"
 version = "0.0.0"
 dependencies = [
- "hopper-core",
  "hopper-native",
  "hopper-runtime",
  "hopper-schema",
+ "hopper-systems",
  "libfuzzer-sys",
 ]
 
 [[package]]
 name = "hopper-native"
-version = "0.1.0"
+version = "0.2.1"
 dependencies = [
  "bytemuck",
  "five8_const",
@@ -108,7 +100,7 @@ dependencies = [
 
 [[package]]
 name = "hopper-runtime"
-version = "0.1.0"
+version = "0.2.1"
 dependencies = [
  "bytemuck",
  "five8_const",
@@ -117,10 +109,18 @@ dependencies = [
 
 [[package]]
 name = "hopper-schema"
-version = "0.1.0"
+version = "0.2.1"
 dependencies = [
- "hopper-core",
  "hopper-runtime",
+ "hopper-systems",
+]
+
+[[package]]
+name = "hopper-systems"
+version = "0.2.1"
+dependencies = [
+ "hopper-runtime",
+ "sha2-const-stable",
 ]
 
 [[package]]

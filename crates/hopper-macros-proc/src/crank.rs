@@ -36,11 +36,9 @@
 //! name. A user running `hopper manager crank run --program-id <id>`
 //! never has to pass `--account` for a crank that has hints.
 //!
-//! ## Innovation (not a copy of Quasar)
+//! ## Manifest-Backed Cranks
 //!
-//! Quasar's cranks are a convention; the framework does not stamp
-//! anything onto the manifest. Hopper's crank attribute is an
-//! opt-in but type-checked: miss the zero-arg rule and the macro
+//! Hopper's crank attribute is opt-in and type-checked: miss the zero-arg rule and the macro
 //! refuses to compile. The `seeds_hint` manifest entry is Hopper-
 //! specific and lets a generic crank runner work against any
 //! Hopper program without per-program config files.

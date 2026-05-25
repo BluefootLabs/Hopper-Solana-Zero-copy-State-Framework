@@ -4,11 +4,9 @@
 //! It ties together discriminator, version, and layout fingerprint into a single
 //! compile-time contract that the runtime can validate before granting typed access.
 //!
-//! This is what makes Hopper different from every other Solana framework:
-//! layouts are not just metadata or serialization hints. They are runtime contracts
-//! that gate account access, enforce compatibility, and enable schema evolution.
-//!
-//! No competitor (Pinocchio, Steel, Quasar) has anything equivalent.
+//! Layouts are not just metadata or serialization hints. They are runtime
+//! contracts that gate account access, enforce compatibility, and enable schema
+//! evolution.
 
 use crate::error::ProgramError;
 use crate::field_map::{FieldInfo, FieldMap};

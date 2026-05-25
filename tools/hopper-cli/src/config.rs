@@ -50,7 +50,7 @@ pub struct ProjectSection {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolchainSection {
     /// `solana` (cargo build-sbf) or `upstream` (cargo +nightly build-bpf).
-    /// Mirrors Quasar's split for porting parity.
+    /// Keeps the project file explicit about which Solana build path to use.
     #[serde(default = "default_toolchain_kind")]
     pub kind: String,
 }
