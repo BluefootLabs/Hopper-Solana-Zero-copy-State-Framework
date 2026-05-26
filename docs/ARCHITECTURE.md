@@ -66,7 +66,7 @@ All on-chain crates are `#![no_std]` with `#![deny(unsafe_op_in_unsafe_fn)]`.
 ```
 hopper (umbrella, re-exports macros + prelude)
  |
- +-- hopper-runtime      <- hopper-native (primary), pinocchio / solana-program (compat)
+ +-- hopper-runtime      <- hopper-native (primary), legacy pinocchio / solana-program (compat only)
  +-- hopper-core         <- hopper-runtime, sha2-const-stable
  +-- hopper-macros       <- references hopper-core / hopper-runtime paths
  +-- hopper-schema       <- hopper-core
@@ -80,12 +80,17 @@ Hopper's architecture depends on a hard split between substrate and semantics.
 
 - `hopper-native` owns raw execution: loader parsing, duplicate-account
    resolution, `raw_input`, `raw_account`, entrypoint macros, syscall wrappers,
-   lazy parsing, and the substrate `AccountView`.
+   lazy parsing, account resize/realloc reserve handling, and the substrate
+   `AccountView`.
 - `hopper-runtime` owns Hopper semantics: typed state access, `LayoutContract`,
    `Context`, checked CPI rules, and Hopper-facing PDA ergonomics.
 - `hopper-runtime::compat/*` owns every backend bridge. If a file outside
    `compat/` needs to name Pinocchio or solana-program identity directly, that is
    an architectural regression.
+- Pinocchio is not a normal Hopper dependency. It is activated only by the
+   `legacy-pinocchio-compat` feature for migration and comparison builds;
+   Hopper Native remains the default production backend and `publish-check`
+   verifies the default dependency tree stays Pinocchio-free.
 
 This keeps Hopper Native sovereign at the execution boundary while letting
 Hopper Runtime stay framework-owned instead of adapter-shaped.

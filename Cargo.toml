@@ -62,7 +62,7 @@ unexpected_cfgs = { level = "allow", check-cfg = [
 ] }
 
 [workspace.dependencies]
-pinocchio = { version = "0.11", features = ["account-resize", "cpi", "copy"] }
+pinocchio = { version = "0.11", features = ["cpi", "copy"] }
 pinocchio-system = "0.6"
 pinocchio-token = "0.6"
 five8_const = "0.1"

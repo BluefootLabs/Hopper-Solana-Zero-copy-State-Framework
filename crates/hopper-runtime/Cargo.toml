@@ -19,7 +19,7 @@ name = "hopper_runtime"
 default = ["hopper-native-backend"]
 
 hopper-native-backend = ["hopper-native", "hopper-native/cpi", "hopper-native/bytemuck", "dep:bytemuck"]
-legacy-pinocchio-compat = ["pinocchio", "pinocchio-system", "pinocchio-token"]
+legacy-pinocchio-compat = ["pinocchio", "pinocchio/account-resize", "pinocchio-system", "pinocchio-token"]
 solana-program-backend = ["solana-program"]
 
 cu-trace = ["hopper-native/cu-trace"]

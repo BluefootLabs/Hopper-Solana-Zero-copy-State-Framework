@@ -24,9 +24,6 @@ use crate::layout::LayoutContract;
 use crate::segment_borrow::SegmentBorrowRegistry;
 use crate::ProgramResult;
 
-#[cfg(feature = "legacy-pinocchio-compat")]
-use core::cell::UnsafeCell;
-
 // ══════════════════════════════════════════════════════════════════════
 //  AccountView -- Hopper's canonical typed state gateway
 // ══════════════════════════════════════════════════════════════════════
@@ -42,9 +39,6 @@ use core::cell::UnsafeCell;
 /// boundary with zero conversion cost.
 #[repr(transparent)]
 pub struct AccountView {
-    #[cfg(feature = "legacy-pinocchio-compat")]
-    inner: UnsafeCell<BackendAccountView>,
-    #[cfg(not(feature = "legacy-pinocchio-compat"))]
     inner: BackendAccountView,
 }
 
@@ -79,42 +73,12 @@ impl Eq for AccountView {}
 impl AccountView {
     #[inline(always)]
     fn from_inner(inner: BackendAccountView) -> Self {
-        #[cfg(feature = "legacy-pinocchio-compat")]
-        {
-            Self {
-                inner: UnsafeCell::new(inner),
-            }
-        }
-
-        #[cfg(not(feature = "legacy-pinocchio-compat"))]
-        {
-            Self { inner }
-        }
+        Self { inner }
     }
 
     #[inline(always)]
     fn backend(&self) -> &BackendAccountView {
-        #[cfg(feature = "legacy-pinocchio-compat")]
-        {
-            // SAFETY: The Pinocchio backend account view is a Copy raw-pointer
-            // wrapper over SVM account memory. Hopper's borrow registry and the
-            // backend borrow state guard accesses to the pointed-to account.
-            unsafe { &*self.inner.get() }
-        }
-
-        #[cfg(not(feature = "legacy-pinocchio-compat"))]
-        {
-            &self.inner
-        }
-    }
-
-    #[cfg(feature = "legacy-pinocchio-compat")]
-    #[inline(always)]
-    fn backend_mut(&self) -> &mut BackendAccountView {
-        // SAFETY: `inner` is behind `UnsafeCell` specifically for Pinocchio
-        // 0.11 APIs that require `&mut AccountView` while mutating the SVM
-        // account behind the raw pointer, not the wrapper identity.
-        unsafe { &mut *self.inner.get() }
+        &self.inner
     }
 
     #[cfg(test)]
@@ -194,10 +158,6 @@ impl AccountView {
     /// Set the lamport balance.
     #[inline(always)]
     pub fn set_lamports(&self, lamports: u64) {
-        #[cfg(feature = "legacy-pinocchio-compat")]
-        self.backend_mut().set_lamports(lamports);
-
-        #[cfg(not(feature = "legacy-pinocchio-compat"))]
         self.backend().set_lamports(lamports);
     }
 
@@ -220,13 +180,7 @@ impl AccountView {
     #[inline(always)]
     pub fn try_borrow_mut(&self) -> Result<RefMut<'_, [u8]>, ProgramError> {
         let token = BorrowToken::mutable(self.address())?;
-        #[cfg(feature = "legacy-pinocchio-compat")]
-        let borrow = self.backend_mut().try_borrow_mut();
-
-        #[cfg(not(feature = "legacy-pinocchio-compat"))]
-        let borrow = self.backend().try_borrow_mut();
-
-        match borrow {
+        match self.backend().try_borrow_mut() {
             Ok(data) => Ok(RefMut::from_backend(data, token)),
             Err(error) => {
                 drop(token);
@@ -1032,15 +986,7 @@ impl AccountView {
     #[inline(always)]
     pub unsafe fn borrow_unchecked_mut(&self) -> &mut [u8] {
         // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-        #[cfg(feature = "legacy-pinocchio-compat")]
-        {
-            unsafe { self.backend_mut().borrow_unchecked_mut() }
-        }
-
-        #[cfg(not(feature = "legacy-pinocchio-compat"))]
-        {
-            unsafe { self.backend().borrow_unchecked_mut() }
-        }
+        unsafe { self.backend().borrow_unchecked_mut() }
     }
 
     /// Resize without bounds checking.
@@ -1066,10 +1012,6 @@ impl AccountView {
     pub unsafe fn close_unchecked(&self) {
         // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {
-            #[cfg(feature = "legacy-pinocchio-compat")]
-            self.backend_mut().close_unchecked();
-
-            #[cfg(not(feature = "legacy-pinocchio-compat"))]
             self.backend().close_unchecked();
         }
     }
