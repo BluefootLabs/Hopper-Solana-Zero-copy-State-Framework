@@ -40,6 +40,9 @@ harness live separately so release claims stay reproducible and easy to audit.
   `hopper::systems::*`.
 - Token-2022 extension constraints that scan TLV data without leaving the
   zero-copy path.
+- On-chain crypto helpers for SHA-256, Keccak-256, BLAKE3, curve validation,
+  Ed25519/secp256k1 precompile payload checks, secp256k1 recovery, and Merkle
+  verification.
 - Optional proc macros for faster authoring; the core framework remains usable
   without proc macros.
 - Progressive modules: `hopper::account`, `hopper::cpi`, and `hopper::token`
@@ -199,6 +202,7 @@ ctx.accounts
 - [docs/DYNAMIC_TAILS_FROM_QUASAR.md](docs/DYNAMIC_TAILS_FROM_QUASAR.md): mapping Quasar bounded dynamic fields to Hopper fixed-body + compact dynamic-tail layouts.
 - [docs/DYNAMIC_FIELDS_QUASAR_TO_HOPPER.md](docs/DYNAMIC_FIELDS_QUASAR_TO_HOPPER.md): side-by-side bounded dynamic field migration, including Hopper's compact-tail contract.
 - [docs/TOKEN_2022_GUIDE.md](docs/TOKEN_2022_GUIDE.md): zero-copy Token-2022 extension policy examples and account constraint syntax.
+- [docs/CRYPTO_CAPABILITIES.md](docs/CRYPTO_CAPABILITIES.md): shipped Solana crypto helpers, precompile checkers, and feature-gated heavy crypto wrappers.
 - [docs/CLI_REFERENCE.md](docs/CLI_REFERENCE.md): lifecycle, schema, client, profiling, Solana compatibility gates, generated Actions/mobile/test scaffolds, and manager command reference.
 
 ## Progressive Use Model

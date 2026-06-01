@@ -8,6 +8,7 @@ Start here for the current Hopper framework surface:
 - [HOPPER_LAYERS.md](HOPPER_LAYERS.md) - when to stay in framework mode and when to reach for systems mode.
 - [DYNAMIC_TAILS_FROM_QUASAR.md](DYNAMIC_TAILS_FROM_QUASAR.md) - bounded dynamic fields, generated tail helpers, and explicit tail wiring.
 - [DYNAMIC_FIELDS_QUASAR_TO_HOPPER.md](DYNAMIC_FIELDS_QUASAR_TO_HOPPER.md) - side-by-side bounded dynamic field migration and Hopper's compact-tail contract.
+- [CRYPTO_CAPABILITIES.md](CRYPTO_CAPABILITIES.md) - shipped Solana crypto helpers, precompile checkers, and feature-gated heavy crypto wrappers.
 - [HOPPER_VS_QUASAR.md](HOPPER_VS_QUASAR.md) - one-page product/technical comparison: write like Quasar, Hopper checks the cast.
 - [PORT_QUASAR_IN_20_MINUTES.md](PORT_QUASAR_IN_20_MINUTES.md) - hands-on Quasar-style dynamic account port.
 - [../examples/hopper-tail-lab/README.md](../examples/hopper-tail-lab/README.md) - devnet tail lab for bounded fields, `TailStr`, `TailBytes`, init helpers, and account wrappers.

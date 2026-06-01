@@ -15,6 +15,8 @@ explicit `legacy-pinocchio-compat` migration and benchmark feature;
 - **PDA helpers** - `find_program_address`, `create_program_address`, plus
   Hopper's verify-only sha256 path that skips `curve_validate` for stored-bump
   PDA verification.
+- **Crypto syscalls** - SHA-256, Keccak-256, BLAKE3, curve validation, and
+  secp256k1 public-key recovery behind Hopper-owned wrappers.
 - **Layout contract** - `LayoutContract` trait, header read/write, layout
   fingerprint comparison.
 - **Guard macros** - full Anchor-parity family (`require!`, `require_eq!`,
@@ -45,6 +47,11 @@ Most users touch this crate transitively through the `hopper` umbrella crate
 and `hopper::prelude::*`. Reach for `hopper-runtime` directly when writing a
 crate that needs the runtime surface without the higher-level framework
 features.
+
+Crypto API coverage is tracked in
+[`docs/CRYPTO_CAPABILITIES.md`](../../docs/CRYPTO_CAPABILITIES.md), including
+the shipped hash/recover helpers and the planned feature-gated heavy-crypto
+surface.
 
 Docs: <https://docs.rs/crate/hopper-runtime/0.2.1>
 

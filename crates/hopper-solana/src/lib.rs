@@ -4,8 +4,9 @@
 //!
 //! Provides zero-copy readers for SPL Token/Mint accounts, Token-2022
 //! extension screening, CPI guards, token-specific validation helpers,
-//! transaction introspection, Ed25519/Merkle cryptography, balance delta
-//! guards, compute budget monitoring, and two-step authority rotation.
+//! transaction introspection, Ed25519/secp256k1 precompile checks, Merkle
+//! cryptography, balance delta guards, compute budget monitoring, and two-step
+//! authority rotation.
 
 #![no_std]
 #![deny(unsafe_op_in_unsafe_fn)]

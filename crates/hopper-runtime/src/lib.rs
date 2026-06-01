@@ -100,7 +100,22 @@ pub use borrow::{Ref, RefMut};
 pub use compute::{check_compute_units, remaining_compute_units, require_compute_units};
 pub use context::Context;
 pub use cpi::{invoke, invoke_signed};
-pub use crypto::{keccak256, keccak256_single, sha256, sha256_single};
+#[cfg(feature = "crypto-big-mod-exp")]
+pub use crypto::big_mod_exp;
+#[cfg(feature = "crypto-bn254")]
+pub use crypto::{
+    alt_bn128_add, alt_bn128_g1_addition_be, alt_bn128_g1_compress_be, alt_bn128_g1_decompress_be,
+    alt_bn128_g1_multiplication_be, alt_bn128_g2_compress_be, alt_bn128_g2_decompress_be,
+    alt_bn128_mul, alt_bn128_pairing, alt_bn128_pairing_be,
+};
+pub use crypto::{
+    blake3, blake3_single, keccak256, keccak256_single, recover_ethereum_address,
+    secp256k1_recover, sha256, sha256_single,
+};
+#[cfg(feature = "crypto-curve")]
+pub use crypto::{curve_group_add, curve_group_mul, curve_group_sub, curve_multiscalar_mul};
+#[cfg(feature = "crypto-poseidon")]
+pub use crypto::{poseidon_bn254_x5, poseidon_hash, poseidon_hashv};
 pub use error::ProgramError;
 pub use field_map::{FieldInfo, FieldMap};
 pub use foreign::{ForeignLens, ForeignManifest};

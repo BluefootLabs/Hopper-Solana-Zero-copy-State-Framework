@@ -26,6 +26,10 @@ cu-trace = ["hopper-native/cu-trace"]
 cpi = []
 copy = []
 legacy-token-instructions = []
+crypto-curve = []
+crypto-poseidon = []
+crypto-bn254 = []
+crypto-big-mod-exp = []
 
 [dependencies]
 hopper-native = { workspace = true, optional = true, default-features = false }

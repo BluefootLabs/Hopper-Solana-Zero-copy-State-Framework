@@ -190,6 +190,7 @@ pub mod cpi {
 /// On-chain cryptography and precompile-verification helpers.
 pub mod crypto {
     pub use hopper_runtime::crypto::*;
+    pub use hopper_solana::crypto::{ed25519::*, merkle::*, secp256k1::*};
 }
 
 /// Compute-budget helpers.

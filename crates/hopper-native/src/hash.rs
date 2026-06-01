@@ -15,6 +15,12 @@ pub type Sha256Hash = [u8; 32];
 /// Keccak-256 hash output: 32 bytes.
 pub type Keccak256Hash = [u8; 32];
 
+/// BLAKE3 hash output: 32 bytes.
+pub type Blake3Hash = [u8; 32];
+
+/// Maximum number of byte slices accepted by Solana hash syscalls.
+pub const MAX_HASH_SEGMENTS: usize = 16;
+
 /// Compute SHA-256 over one or more byte slices.
 ///
 /// The Solana `sol_sha256` syscall accepts a vector of (ptr, len) pairs,
@@ -28,13 +34,16 @@ pub type Keccak256Hash = [u8; 32];
 #[inline]
 #[allow(unused_mut)]
 pub fn sha256(inputs: &[&[u8]]) -> Result<Sha256Hash, ProgramError> {
+    if inputs.len() > MAX_HASH_SEGMENTS {
+        return Err(ProgramError::InvalidArgument);
+    }
+
     let mut result = [0u8; 32];
 
     #[cfg(target_os = "solana")]
     {
         // Build the parameter array: each element is (ptr, len) as two u64s.
-        // Maximum practical limit: 16 segments.
-        let count = inputs.len().min(16);
+        let count = inputs.len();
         let mut params: [u64; 32] = [0; 32];
         let mut i = 0;
         while i < count {
@@ -78,11 +87,15 @@ pub fn sha256_single(input: &[u8]) -> Result<Sha256Hash, ProgramError> {
 #[inline]
 #[allow(unused_mut)]
 pub fn keccak256(inputs: &[&[u8]]) -> Result<Keccak256Hash, ProgramError> {
+    if inputs.len() > MAX_HASH_SEGMENTS {
+        return Err(ProgramError::InvalidArgument);
+    }
+
     let mut result = [0u8; 32];
 
     #[cfg(target_os = "solana")]
     {
-        let count = inputs.len().min(16);
+        let count = inputs.len();
         let mut params: [u64; 32] = [0; 32];
         let mut i = 0;
         while i < count {
@@ -115,4 +128,95 @@ pub fn keccak256(inputs: &[&[u8]]) -> Result<Keccak256Hash, ProgramError> {
 #[inline]
 pub fn keccak256_single(input: &[u8]) -> Result<Keccak256Hash, ProgramError> {
     keccak256(&[input])
+}
+
+/// Compute BLAKE3 over one or more byte slices.
+#[inline]
+#[allow(unused_mut)]
+pub fn blake3(inputs: &[&[u8]]) -> Result<Blake3Hash, ProgramError> {
+    if inputs.len() > MAX_HASH_SEGMENTS {
+        return Err(ProgramError::InvalidArgument);
+    }
+
+    let mut result = [0u8; 32];
+
+    #[cfg(target_os = "solana")]
+    {
+        let count = inputs.len();
+        let mut params: [u64; 32] = [0; 32];
+        let mut i = 0;
+        while i < count {
+            params[i * 2] = inputs[i].as_ptr() as u64;
+            params[i * 2 + 1] = inputs[i].len() as u64;
+            i += 1;
+        }
+
+        // SAFETY: params contains `count` slice descriptors and `result` is
+        // a 32-byte writable hash output buffer.
+        let rc = unsafe {
+            crate::syscalls::sol_blake3(
+                params.as_ptr() as *const u8,
+                count as u64,
+                result.as_mut_ptr(),
+            )
+        };
+        if rc != 0 {
+            return Err(ProgramError::InvalidArgument);
+        }
+    }
+    #[cfg(not(target_os = "solana"))]
+    {
+        let _ = inputs;
+    }
+
+    Ok(result)
+}
+
+/// Compute BLAKE3 over a single byte slice.
+#[inline]
+pub fn blake3_single(input: &[u8]) -> Result<Blake3Hash, ProgramError> {
+    blake3(&[input])
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const EMPTY: &[u8] = b"";
+
+    #[test]
+    fn sha256_accepts_sixteen_segments() {
+        let inputs = [EMPTY; MAX_HASH_SEGMENTS];
+        assert_eq!(sha256(&inputs), Ok([0; 32]));
+    }
+
+    #[test]
+    fn keccak256_accepts_sixteen_segments() {
+        let inputs = [EMPTY; MAX_HASH_SEGMENTS];
+        assert_eq!(keccak256(&inputs), Ok([0; 32]));
+    }
+
+    #[test]
+    fn blake3_accepts_sixteen_segments() {
+        let inputs = [EMPTY; MAX_HASH_SEGMENTS];
+        assert_eq!(blake3(&inputs), Ok([0; 32]));
+    }
+
+    #[test]
+    fn sha256_rejects_more_than_sixteen_segments() {
+        let inputs = [EMPTY; MAX_HASH_SEGMENTS + 1];
+        assert_eq!(sha256(&inputs), Err(ProgramError::InvalidArgument));
+    }
+
+    #[test]
+    fn keccak256_rejects_more_than_sixteen_segments() {
+        let inputs = [EMPTY; MAX_HASH_SEGMENTS + 1];
+        assert_eq!(keccak256(&inputs), Err(ProgramError::InvalidArgument));
+    }
+
+    #[test]
+    fn blake3_rejects_more_than_sixteen_segments() {
+        let inputs = [EMPTY; MAX_HASH_SEGMENTS + 1];
+        assert_eq!(blake3(&inputs), Err(ProgramError::InvalidArgument));
+    }
 }

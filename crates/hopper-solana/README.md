@@ -21,14 +21,15 @@ Solana surface.
 - **Balance guards** - Lamport conservation checks across instruction execution.
 - **Compute monitoring** - Remaining compute budget tracking.
 - **Oracle and TWAP helpers** - Pyth price feed readers and TWAP math.
-- **Crypto helpers** - Ed25519 signature checks and Merkle proof validation.
+- **Crypto helpers** - Ed25519 and secp256k1 precompile checks plus Merkle proof validation.
 - **ATA utilities** - Associated Token Account address derivation.
 - **Transaction introspection** - Signer detection and remaining account iteration.
 
 ## Quick example
 
 ```rust
-use hopper_solana::{token_account_amount, token_account_mint, assert_no_cpi};
+use hopper_solana::{assert_no_cpi, token_account_amount, token_account_mint};
+use hopper_solana::crypto::{check_ed25519_signature_at, check_secp256k1_instruction_at};
 
 // Zero-copy token account read
 let amount = token_account_amount(account_data)?;
@@ -36,7 +37,14 @@ let mint = token_account_mint(account_data)?;
 
 // CPI guard (pass the Instructions sysvar account)
 assert_no_cpi(sysvar_account, &program_id)?;
+
+// Native precompile payload checks (pass raw Instructions sysvar data)
+check_ed25519_signature_at(instructions, ed_ix, 0, signer, message)?;
+check_secp256k1_instruction_at(instructions, secp_ix, 0, eth_address, message)?;
 ```
+
+The full shipped/planned crypto matrix lives in
+[`docs/CRYPTO_CAPABILITIES.md`](../../docs/CRYPTO_CAPABILITIES.md).
 
 Docs: <https://docs.rs/crate/hopper-solana/0.2.1>
 

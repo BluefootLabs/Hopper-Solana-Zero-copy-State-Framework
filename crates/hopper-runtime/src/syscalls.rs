@@ -11,6 +11,63 @@ extern "C" {
     #[link_name = "sol_get_return_data"]
     fn syscall_sol_get_return_data(data: *mut u8, length: u64, program_id: *mut u8) -> u64;
 
+    #[link_name = "sol_blake3"]
+    fn syscall_sol_blake3(vals: *const u8, vals_len: u64, result: *mut u8) -> u64;
+
+    #[link_name = "sol_secp256k1_recover"]
+    fn syscall_sol_secp256k1_recover(
+        hash: *const u8,
+        recovery_id: u64,
+        signature: *const u8,
+        result: *mut u8,
+    ) -> u64;
+
+    #[link_name = "sol_curve_group_op"]
+    fn syscall_sol_curve_group_op(
+        curve_id: u64,
+        group_op: u64,
+        left_input_addr: *const u8,
+        right_input_addr: *const u8,
+        result_point_addr: *mut u8,
+    ) -> u64;
+
+    #[link_name = "sol_curve_multiscalar_mul"]
+    fn syscall_sol_curve_multiscalar_mul(
+        curve_id: u64,
+        scalars_addr: *const u8,
+        points_addr: *const u8,
+        points_len: u64,
+        result_point_addr: *mut u8,
+    ) -> u64;
+
+    #[link_name = "sol_poseidon"]
+    fn syscall_sol_poseidon(
+        parameters: u64,
+        endianness: u64,
+        vals: *const u8,
+        val_len: u64,
+        hash_result: *mut u8,
+    ) -> u64;
+
+    #[link_name = "sol_alt_bn128_group_op"]
+    fn syscall_sol_alt_bn128_group_op(
+        group_op: u64,
+        input: *const u8,
+        input_size: u64,
+        result: *mut u8,
+    ) -> u64;
+
+    #[link_name = "sol_alt_bn128_compression"]
+    fn syscall_sol_alt_bn128_compression(
+        op: u64,
+        input: *const u8,
+        input_size: u64,
+        result: *mut u8,
+    ) -> u64;
+
+    #[link_name = "sol_big_mod_exp"]
+    fn syscall_sol_big_mod_exp(params: *const u8, result: *mut u8) -> u64;
+
     #[link_name = "sol_remaining_compute_units"]
     fn syscall_sol_remaining_compute_units() -> u64;
 
@@ -137,6 +194,113 @@ pub unsafe fn sol_keccak256(vals: *const u8, vals_len: u64, result: *mut u8) {
     }
 }
 
+/// Compute BLAKE3 over a slice-of-slices payload.
+///
+/// Returns the Solana runtime status code (`0` on success).
+///
+/// # Safety
+///
+/// `vals` must point to a valid array of slice descriptors and `result` must
+/// point to writable storage for 32 output bytes.
+#[inline(always)]
+pub unsafe fn sol_blake3(vals: *const u8, vals_len: u64, result: *mut u8) -> u64 {
+    #[cfg(all(target_os = "solana", feature = "hopper-native-backend"))]
+    // SAFETY: Caller supplies the Solana hash syscall descriptors and output buffer.
+    unsafe {
+        return hopper_native::syscalls::sol_blake3(vals, vals_len, result);
+    }
+
+    #[cfg(all(
+        target_os = "solana",
+        any(
+            feature = "legacy-pinocchio-compat",
+            feature = "solana-program-backend"
+        )
+    ))]
+    // SAFETY: Caller supplies the Solana hash syscall descriptors and output buffer.
+    unsafe {
+        return syscall_sol_blake3(vals, vals_len, result);
+    }
+
+    #[cfg(all(
+        target_os = "solana",
+        not(any(
+            feature = "hopper-native-backend",
+            feature = "legacy-pinocchio-compat",
+            feature = "solana-program-backend"
+        ))
+    ))]
+    {
+        let _ = (vals, vals_len, result);
+        1
+    }
+
+    #[cfg(not(target_os = "solana"))]
+    {
+        let _ = (vals, vals_len, result);
+        0
+    }
+}
+
+/// Recover a secp256k1 public key from a 32-byte message hash and 64-byte
+/// compact signature.
+///
+/// Returns the Solana runtime status code (`0` on success).
+///
+/// # Safety
+///
+/// `hash` must point to 32 bytes, `signature` must point to 64 bytes, and
+/// `result` must point to 64 writable bytes.
+#[inline(always)]
+pub unsafe fn sol_secp256k1_recover(
+    hash: *const u8,
+    recovery_id: u64,
+    signature: *const u8,
+    result: *mut u8,
+) -> u64 {
+    #[cfg(all(target_os = "solana", feature = "hopper-native-backend"))]
+    // SAFETY: Caller supplies fixed-width secp256k1 recover syscall buffers.
+    unsafe {
+        return hopper_native::syscalls::sol_secp256k1_recover(
+            hash,
+            recovery_id,
+            signature,
+            result,
+        );
+    }
+
+    #[cfg(all(
+        target_os = "solana",
+        any(
+            feature = "legacy-pinocchio-compat",
+            feature = "solana-program-backend"
+        )
+    ))]
+    // SAFETY: Caller supplies fixed-width secp256k1 recover syscall buffers.
+    unsafe {
+        return syscall_sol_secp256k1_recover(hash, recovery_id, signature, result);
+    }
+
+    #[cfg(all(
+        target_os = "solana",
+        not(any(
+            feature = "hopper-native-backend",
+            feature = "legacy-pinocchio-compat",
+            feature = "solana-program-backend"
+        ))
+    ))]
+    {
+        let _ = (hash, recovery_id, signature, result);
+        1
+    }
+
+    #[cfg(not(target_os = "solana"))]
+    {
+        let _ = (hash, recovery_id, signature, result);
+        1
+    }
+}
+
 /// Validate whether a point lies on a runtime-supported curve.
 ///
 /// Returns the runtime status code. For Solana curve-validation syscalls,
@@ -185,6 +349,290 @@ pub unsafe fn sol_curve_validate_point(
     #[cfg(not(target_os = "solana"))]
     {
         let _ = (curve_id, point_addr, result_point_addr);
+        1
+    }
+}
+
+/// Run a group operation on a runtime-supported curve.
+///
+/// Returns the Solana runtime status code (`0` on success).
+///
+/// # Safety
+///
+/// `left_input_addr`, `right_input_addr`, and `result_point_addr` must point to
+/// buffers matching the selected curve and group operation. For multiplication,
+/// Solana expects the scalar as the left input and the point as the right input.
+#[inline(always)]
+pub unsafe fn sol_curve_group_op(
+    curve_id: u64,
+    group_op: u64,
+    left_input_addr: *const u8,
+    right_input_addr: *const u8,
+    result_point_addr: *mut u8,
+) -> u64 {
+    #[cfg(all(target_os = "solana", feature = "hopper-native-backend"))]
+    // SAFETY: Caller supplies curve syscall buffers matching the selected operation.
+    unsafe {
+        return hopper_native::syscalls::sol_curve_group_op(
+            curve_id,
+            group_op,
+            left_input_addr,
+            right_input_addr,
+            result_point_addr,
+        );
+    }
+
+    #[cfg(all(
+        target_os = "solana",
+        any(
+            feature = "legacy-pinocchio-compat",
+            feature = "solana-program-backend"
+        )
+    ))]
+    // SAFETY: Caller supplies curve syscall buffers matching the selected operation.
+    unsafe {
+        return syscall_sol_curve_group_op(
+            curve_id,
+            group_op,
+            left_input_addr,
+            right_input_addr,
+            result_point_addr,
+        );
+    }
+
+    #[cfg(not(target_os = "solana"))]
+    {
+        let _ = (
+            curve_id,
+            group_op,
+            left_input_addr,
+            right_input_addr,
+            result_point_addr,
+        );
+        1
+    }
+}
+
+/// Run variable-length multiscalar multiplication on a runtime-supported curve.
+///
+/// Returns the Solana runtime status code (`0` on success).
+///
+/// # Safety
+///
+/// `scalars_addr` and `points_addr` must point to contiguous arrays of 32-byte
+/// scalar and point encodings with exactly `points_len` entries. `result_point_addr`
+/// must point to 32 writable output bytes.
+#[inline(always)]
+pub unsafe fn sol_curve_multiscalar_mul(
+    curve_id: u64,
+    scalars_addr: *const u8,
+    points_addr: *const u8,
+    points_len: u64,
+    result_point_addr: *mut u8,
+) -> u64 {
+    #[cfg(all(target_os = "solana", feature = "hopper-native-backend"))]
+    // SAFETY: Caller supplies curve syscall buffers matching the selected operation.
+    unsafe {
+        return hopper_native::syscalls::sol_curve_multiscalar_mul(
+            curve_id,
+            scalars_addr,
+            points_addr,
+            points_len,
+            result_point_addr,
+        );
+    }
+
+    #[cfg(all(
+        target_os = "solana",
+        any(
+            feature = "legacy-pinocchio-compat",
+            feature = "solana-program-backend"
+        )
+    ))]
+    // SAFETY: Caller supplies curve syscall buffers matching the selected operation.
+    unsafe {
+        return syscall_sol_curve_multiscalar_mul(
+            curve_id,
+            scalars_addr,
+            points_addr,
+            points_len,
+            result_point_addr,
+        );
+    }
+
+    #[cfg(not(target_os = "solana"))]
+    {
+        let _ = (
+            curve_id,
+            scalars_addr,
+            points_addr,
+            points_len,
+            result_point_addr,
+        );
+        1
+    }
+}
+
+/// Compute a Poseidon hash using Solana's runtime syscall.
+///
+/// Returns the Solana runtime status code (`0` on success).
+///
+/// # Safety
+///
+/// `vals` must point to a valid array of slice descriptors and `hash_result`
+/// must point to 32 writable output bytes.
+#[inline(always)]
+pub unsafe fn sol_poseidon(
+    parameters: u64,
+    endianness: u64,
+    vals: *const u8,
+    val_len: u64,
+    hash_result: *mut u8,
+) -> u64 {
+    #[cfg(all(target_os = "solana", feature = "hopper-native-backend"))]
+    // SAFETY: Caller supplies Poseidon slice descriptors and output buffer.
+    unsafe {
+        return hopper_native::syscalls::sol_poseidon(
+            parameters,
+            endianness,
+            vals,
+            val_len,
+            hash_result,
+        );
+    }
+
+    #[cfg(all(
+        target_os = "solana",
+        any(
+            feature = "legacy-pinocchio-compat",
+            feature = "solana-program-backend"
+        )
+    ))]
+    // SAFETY: Caller supplies Poseidon slice descriptors and output buffer.
+    unsafe {
+        return syscall_sol_poseidon(parameters, endianness, vals, val_len, hash_result);
+    }
+
+    #[cfg(not(target_os = "solana"))]
+    {
+        let _ = (parameters, endianness, vals, val_len, hash_result);
+        1
+    }
+}
+
+/// Run a BN254 / alt_bn128 group operation.
+///
+/// Returns the Solana runtime status code (`0` on success).
+///
+/// # Safety
+///
+/// `input` must point to `input_size` bytes in the operation-specific encoding
+/// and `result` must point to the operation-specific output buffer.
+#[inline(always)]
+pub unsafe fn sol_alt_bn128_group_op(
+    group_op: u64,
+    input: *const u8,
+    input_size: u64,
+    result: *mut u8,
+) -> u64 {
+    #[cfg(all(target_os = "solana", feature = "hopper-native-backend"))]
+    // SAFETY: Caller supplies BN254 operation buffers matching `group_op`.
+    unsafe {
+        return hopper_native::syscalls::sol_alt_bn128_group_op(
+            group_op, input, input_size, result,
+        );
+    }
+
+    #[cfg(all(
+        target_os = "solana",
+        any(
+            feature = "legacy-pinocchio-compat",
+            feature = "solana-program-backend"
+        )
+    ))]
+    // SAFETY: Caller supplies BN254 operation buffers matching `group_op`.
+    unsafe {
+        return syscall_sol_alt_bn128_group_op(group_op, input, input_size, result);
+    }
+
+    #[cfg(not(target_os = "solana"))]
+    {
+        let _ = (group_op, input, input_size, result);
+        1
+    }
+}
+
+/// Run a BN254 / alt_bn128 compression operation.
+///
+/// Returns the Solana runtime status code (`0` on success).
+///
+/// # Safety
+///
+/// `input` must point to `input_size` bytes in the operation-specific encoding
+/// and `result` must point to the operation-specific output buffer.
+#[inline(always)]
+pub unsafe fn sol_alt_bn128_compression(
+    op: u64,
+    input: *const u8,
+    input_size: u64,
+    result: *mut u8,
+) -> u64 {
+    #[cfg(all(target_os = "solana", feature = "hopper-native-backend"))]
+    // SAFETY: Caller supplies BN254 compression buffers matching `op`.
+    unsafe {
+        return hopper_native::syscalls::sol_alt_bn128_compression(op, input, input_size, result);
+    }
+
+    #[cfg(all(
+        target_os = "solana",
+        any(
+            feature = "legacy-pinocchio-compat",
+            feature = "solana-program-backend"
+        )
+    ))]
+    // SAFETY: Caller supplies BN254 compression buffers matching `op`.
+    unsafe {
+        return syscall_sol_alt_bn128_compression(op, input, input_size, result);
+    }
+
+    #[cfg(not(target_os = "solana"))]
+    {
+        let _ = (op, input, input_size, result);
+        1
+    }
+}
+
+/// Run big integer modular exponentiation.
+///
+/// Returns the Solana runtime status code (`0` on success).
+///
+/// # Safety
+///
+/// `params` must point to a `BigModExpParams`-compatible C layout and `result`
+/// must point to writable storage with exactly the modulus length.
+#[inline(always)]
+pub unsafe fn sol_big_mod_exp(params: *const u8, result: *mut u8) -> u64 {
+    #[cfg(all(target_os = "solana", feature = "hopper-native-backend"))]
+    // SAFETY: Caller supplies a valid big-mod-exp parameter block and output buffer.
+    unsafe {
+        return hopper_native::syscalls::sol_big_mod_exp(params, result);
+    }
+
+    #[cfg(all(
+        target_os = "solana",
+        any(
+            feature = "legacy-pinocchio-compat",
+            feature = "solana-program-backend"
+        )
+    ))]
+    // SAFETY: Caller supplies a valid big-mod-exp parameter block and output buffer.
+    unsafe {
+        return syscall_sol_big_mod_exp(params, result);
+    }
+
+    #[cfg(not(target_os = "solana"))]
+    {
+        let _ = (params, result);
         1
     }
 }

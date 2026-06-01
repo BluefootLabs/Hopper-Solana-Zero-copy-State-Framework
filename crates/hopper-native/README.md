@@ -3,6 +3,12 @@
 Low-level runtime backend for Hopper programs on Solana. This crate owns raw
 loader parsing, syscall wrappers, entrypoint glue, the substrate `AccountView`,
 and duplicate-account resolution.
+It exposes SHA-256, Keccak-256, BLAKE3, curve, and secp256k1 syscall bindings
+without pulling framework code into the raw substrate.
+
+Hopper's hash wrappers reject too many segments instead of silently dropping
+bytes. The public crypto matrix is maintained in
+[`docs/CRYPTO_CAPABILITIES.md`](../../docs/CRYPTO_CAPABILITIES.md).
 
 Part of the **[Hopper](https://hopperzero.dev)** framework.
 
