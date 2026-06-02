@@ -31,6 +31,7 @@ but they should not be the starting point for a Quasar migration.
 | `Program<T>` | `Program<'info, T>` |
 | `Interface<T>` | `Interface<'info, T>` |
 | `InterfaceAccount<T>` | `InterfaceAccount<'info, T>` for Hopper-header layouts owned by a declared program set |
+| `UncheckedAccount` / foreign byte adapters | `UncheckedAccount<'info>` for raw access, or `ExternalAccount<'info, T: ExternalZeroCopy>` for known non-Hopper accounts |
 | `set_inner()` | generated `set_inner(...)` |
 | `String<'a, N>` | `String<'a, N>` in `#[hopper::account]`, or `#[tail(string<N>)]` in explicit systems-mode spelling |
 | `Vec<'a, T, N>` | `Vec<'a, T, N>` in `#[hopper::account]`, or `#[tail(vec<T, N>)]` where `T: TailElement` |
@@ -286,6 +287,18 @@ for acct in ctx.remaining_accounts().iter() {
 
 Strict mode is the default in both. Hopper's passthrough mode is `ctx.remaining_accounts_passthrough()`; Quasar spells it with a constructor argument.
 For the common multisig tail, `ctx.remaining_accounts().signers::<N>()?` validates the tail as a bounded, duplicate-safe signer set before you iterate it.
+
+For perps-style variable tails, use the typed sequential parser:
+
+```rust
+let mut rem = ctx.remaining_typed();
+let oracle = rem.next_external::<PythPrice>()?;
+let market = rem.next_account()?;
+rem.assert_no_duplicates()?;
+rem.assert_sorted_by(|account| Ok(account.address().as_bytes()[0]))?;
+```
+
+`ExternalAccount<'info, T>` is for accounts with known non-Hopper bytes, such as oracle feeds, SPL/plugin state, governance add-ins, or another protocol's account layout. Hopper headers remain specific to Hopper-owned accounts; Hopper can still read, validate, route, and explain non-Hopper accounts.
 
 ## Profile and tooling
 

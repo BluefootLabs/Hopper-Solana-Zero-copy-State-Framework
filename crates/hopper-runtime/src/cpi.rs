@@ -367,6 +367,25 @@ pub fn invoke_signed<const ACCOUNTS: usize>(
     crate::compat::invoke_signed(instruction, account_views, signers_seeds)
 }
 
+/// Explicit alias for Hopper's validated CPI path.
+#[inline]
+pub fn invoke_checked<const ACCOUNTS: usize>(
+    instruction: &InstructionView,
+    account_views: &[&AccountView; ACCOUNTS],
+) -> ProgramResult {
+    invoke::<ACCOUNTS>(instruction, account_views)
+}
+
+/// Explicit alias for Hopper's validated signed CPI path.
+#[inline]
+pub fn invoke_signed_checked<const ACCOUNTS: usize>(
+    instruction: &InstructionView,
+    account_views: &[&AccountView; ACCOUNTS],
+    signers_seeds: &[Signer],
+) -> ProgramResult {
+    invoke_signed::<ACCOUNTS>(instruction, account_views, signers_seeds)
+}
+
 // ── Return data ──────────────────────────────────────────────────────
 
 /// Set return data for the current instruction.

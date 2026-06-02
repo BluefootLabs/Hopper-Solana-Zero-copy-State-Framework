@@ -6,9 +6,9 @@
 //! `hopper::systems::*` or explicit modules such as `hopper::segment`.
 
 pub use crate::account::{
-    Account, InitAccount, Interface, InterfaceAccount, InterfaceAccountLayout,
-    InterfaceAccountResolve, InterfaceSpec, Program, ProgramId, Signer, System, SystemAccount,
-    SystemId, UncheckedAccount,
+    Account, ExternalAccount, ExternalZeroCopy, InitAccount, Interface, InterfaceAccount,
+    InterfaceAccountLayout, InterfaceAccountResolve, InterfaceSpec, Program, ProgramId, Signer,
+    System, SystemAccount, SystemId, UncheckedAccount,
 };
 pub use crate::context::Context;
 pub use crate::context::Context as Ctx;

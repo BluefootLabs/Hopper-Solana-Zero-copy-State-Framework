@@ -36,6 +36,11 @@ harness live separately so release claims stay reproducible and easy to audit.
 - Closure-scoped `with` / `with_mut` account access for direct state mutation
   while Hopper owns validation and borrow lifetimes.
 - Layout fingerprints and versioned headers for account compatibility checks.
+- A universal Solana account model: Hopper headers for Hopper-owned accounts,
+  `ExternalAccount<'info, T>` adapters for known foreign bytes,
+  `Interface<'info, I>` / `InterfaceAccount<'info, T>` for multi-program sets,
+  and raw `UncheckedAccount` / remaining-account access when a protocol needs
+  direct Solana control.
 - Segment-aware access helpers for field-level borrow tracking behind
   `hopper::systems::*`.
 - Token-2022 extension constraints that scan TLV data without leaving the
@@ -48,6 +53,9 @@ harness live separately so release claims stay reproducible and easy to audit.
 - Progressive modules: `hopper::account`, `hopper::cpi`, and `hopper::token`
   for app code; `hopper::systems::*` plus `hopper::{layout,segment,receipt}`
   for explicit lower-layer access.
+- Typed remaining-account parsing, stored-instruction primitives, explicit
+  checked CPI aliases, and fixed-point/risk units for governance and
+  perps-style account flows.
 - Hopper Native by default for low-overhead account access with framework
   safety/DX, with explicit legacy Pinocchio and `solana-program` compatibility
   modes quarantined behind opt-in features.

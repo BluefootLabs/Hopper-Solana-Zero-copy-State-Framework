@@ -50,7 +50,151 @@ use crate::address::Address;
 use crate::borrow::Ref;
 use crate::error::ProgramError;
 use crate::layout::{HopperHeader, LayoutContract};
+use crate::ProgramResult;
 use crate::zerocopy::{AccountLayout, ZeroCopy};
+use core::marker::PhantomData;
+
+/// Validation contract for known non-Hopper account layouts.
+///
+/// Hopper-owned layouts use Hopper headers and [`Account`](crate::Account).
+/// Known foreign accounts usually do not. Implement this trait on a marker or
+/// adapter type to validate owner, fixed byte prefix/discriminator, minimum
+/// length, version bytes, oracle freshness gates, or any other external
+/// invariant before binding an [`ExternalAccount`].
+pub trait ExternalZeroCopy {
+    /// Single expected owner program, when the adapter has one.
+    const OWNER: Option<Address> = None;
+    /// Optional byte prefix/discriminator at offset 0.
+    const DISCRIMINATOR: Option<&'static [u8]> = None;
+    /// Minimum account data length accepted by this adapter.
+    const MIN_LEN: usize = 0;
+
+    /// Validate this external account. Override for multi-owner layouts,
+    /// versioned dispatch, or custom invariants.
+    #[inline]
+    fn validate(view: &AccountView) -> ProgramResult {
+        if let Some(owner) = Self::OWNER {
+            view.check_owned_by(&owner)?;
+        }
+        if view.data_len() < Self::MIN_LEN {
+            return Err(ProgramError::AccountDataTooSmall);
+        }
+        if let Some(discriminator) = Self::DISCRIMINATOR {
+            let data = view.try_borrow()?;
+            if data.len() < discriminator.len() {
+                return Err(ProgramError::AccountDataTooSmall);
+            }
+            if !data.starts_with(discriminator) {
+                return Err(ProgramError::InvalidAccountData);
+            }
+        }
+        Ok(())
+    }
+}
+
+/// Validated handle to a known external account.
+///
+/// This wrapper is intentionally transparent over [`AccountView`]. It proves
+/// the adapter's [`ExternalZeroCopy::validate`] contract, but it does not imply
+/// a Hopper header is present. Use [`ExternalAccount::data`] or adapter helper
+/// methods to read bytes, and keep raw `AccountView`/`UncheckedAccount` for
+/// accounts that truly have no known schema.
+#[repr(transparent)]
+pub struct ExternalAccount<'info, T: ExternalZeroCopy> {
+    inner: &'info AccountView,
+    _ty: PhantomData<T>,
+}
+
+impl<'info, T: ExternalZeroCopy> Clone for ExternalAccount<'info, T> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+impl<'info, T: ExternalZeroCopy> Copy for ExternalAccount<'info, T> {}
+
+impl<T: ExternalZeroCopy> core::fmt::Debug for ExternalAccount<'_, T> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("ExternalAccount")
+            .field("key", self.key())
+            .field("owner", &self.owner())
+            .field("data_len", &self.data_len())
+            .finish()
+    }
+}
+
+impl<'info, T: ExternalZeroCopy> ExternalAccount<'info, T> {
+    /// Wrap an account that has already been validated by `T`.
+    #[inline(always)]
+    ///
+    /// # Safety
+    ///
+    /// Caller must have verified `T::validate(view)` for this account.
+    pub unsafe fn new_unchecked(view: &'info AccountView) -> Self {
+        Self {
+            inner: view,
+            _ty: PhantomData,
+        }
+    }
+
+    /// Validate and bind a known external account.
+    #[inline]
+    pub fn try_new(view: &'info AccountView) -> Result<Self, ProgramError> {
+        T::validate(view)?;
+        Ok(Self {
+            inner: view,
+            _ty: PhantomData,
+        })
+    }
+
+    /// The underlying account view.
+    #[inline(always)]
+    pub fn as_account(&self) -> &'info AccountView {
+        self.inner
+    }
+
+    /// The account public key.
+    #[inline(always)]
+    pub fn key(&self) -> &Address {
+        self.inner.address()
+    }
+
+    /// The owning program, copied out of the account header.
+    #[inline(always)]
+    pub fn owner(&self) -> Address {
+        self.inner.read_owner()
+    }
+
+    /// Current external account data length.
+    #[inline(always)]
+    pub fn data_len(&self) -> usize {
+        self.inner.data_len()
+    }
+
+    /// Borrow the external account bytes after adapter validation.
+    #[inline(always)]
+    pub fn data(&self) -> Result<Ref<'_, [u8]>, ProgramError> {
+        self.inner.try_borrow()
+    }
+
+    /// Borrow the bytes for the duration of a closure.
+    #[inline]
+    pub fn with_data<R, F>(&self, f: F) -> Result<R, ProgramError>
+    where
+        F: FnOnce(&[u8]) -> Result<R, ProgramError>,
+    {
+        let data = self.data()?;
+        f(&data)
+    }
+}
+
+impl<'info, T: ExternalZeroCopy> core::ops::Deref for ExternalAccount<'info, T> {
+    type Target = AccountView;
+
+    #[inline(always)]
+    fn deref(&self) -> &AccountView {
+        self.inner
+    }
+}
 
 /// Opaque witness to a foreign program's layout ABI.
 ///
@@ -205,6 +349,47 @@ impl<'a, T: AccountLayout + LayoutContract> ForeignLens<'a, T> {
 mod tests {
     use super::*;
 
+    #[cfg(feature = "hopper-native-backend")]
+    use hopper_native::{
+        AccountView as NativeAccountView, Address as NativeAddress, RuntimeAccount, NOT_BORROWED,
+    };
+
+    #[cfg(feature = "hopper-native-backend")]
+    const EXTERNAL_OWNER: Address = Address::new_from_array([7; 32]);
+
+    #[cfg(feature = "hopper-native-backend")]
+    struct SampleExternal;
+
+    #[cfg(feature = "hopper-native-backend")]
+    impl ExternalZeroCopy for SampleExternal {
+        const OWNER: Option<Address> = Some(EXTERNAL_OWNER);
+        const DISCRIMINATOR: Option<&'static [u8]> = Some(b"PX");
+        const MIN_LEN: usize = 4;
+    }
+
+    #[cfg(feature = "hopper-native-backend")]
+    fn make_external_account(owner: Address, data: &[u8]) -> (std::vec::Vec<u8>, AccountView) {
+        let mut backing = std::vec![0u8; RuntimeAccount::SIZE + data.len()];
+        let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
+        unsafe {
+            raw.write(RuntimeAccount {
+                borrow_state: NOT_BORROWED,
+                is_signer: 0,
+                is_writable: 0,
+                executable: 0,
+                resize_delta: 0,
+                address: NativeAddress::new_from_array([3; 32]),
+                owner: NativeAddress::new_from_array(owner.to_bytes()),
+                lamports: 1,
+                data_len: data.len() as u64,
+            });
+            let data_ptr = backing.as_mut_ptr().add(RuntimeAccount::SIZE);
+            core::ptr::copy_nonoverlapping(data.as_ptr(), data_ptr, data.len());
+        }
+        let backend = unsafe { NativeAccountView::new_unchecked(raw) };
+        (backing, AccountView::from_backend(backend))
+    }
+
     #[test]
     fn manifest_single_epoch_is_inclusive_single_value() {
         let program = Address::new_from_array([7u8; 32]);
@@ -231,5 +416,43 @@ mod tests {
         for fail in [0u32, 1, 6, 100] {
             assert!(!m.supported_epochs.contains(&fail), "{fail}");
         }
+    }
+
+    #[cfg(feature = "hopper-native-backend")]
+    #[test]
+    fn external_account_validates_owner_discriminator_and_length() {
+        let (_backing, account) = make_external_account(EXTERNAL_OWNER, b"PX12");
+        let external = ExternalAccount::<SampleExternal>::try_new(&account).unwrap();
+        assert_eq!(external.owner(), EXTERNAL_OWNER);
+        assert_eq!(external.data_len(), 4);
+        external
+            .with_data(|data| {
+                assert_eq!(data, b"PX12");
+                Ok(())
+            })
+            .unwrap();
+    }
+
+    #[cfg(feature = "hopper-native-backend")]
+    #[test]
+    fn external_account_rejects_wrong_owner_or_prefix() {
+        let (_wrong_owner_backing, wrong_owner) =
+            make_external_account(Address::new_from_array([8; 32]), b"PX12");
+        assert_eq!(
+            ExternalAccount::<SampleExternal>::try_new(&wrong_owner).unwrap_err(),
+            ProgramError::IncorrectProgramId
+        );
+
+        let (_wrong_prefix_backing, wrong_prefix) = make_external_account(EXTERNAL_OWNER, b"NO12");
+        assert_eq!(
+            ExternalAccount::<SampleExternal>::try_new(&wrong_prefix).unwrap_err(),
+            ProgramError::InvalidAccountData
+        );
+
+        let (_short_backing, short) = make_external_account(EXTERNAL_OWNER, b"PX");
+        assert_eq!(
+            ExternalAccount::<SampleExternal>::try_new(&short).unwrap_err(),
+            ProgramError::AccountDataTooSmall
+        );
     }
 }

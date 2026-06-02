@@ -39,7 +39,7 @@ pub mod validate;
 pub use context::{HopperAccounts, HopperCtx};
 pub use entry::{hopper_entry, HopperIx};
 #[cfg(feature = "explain")]
-pub use explain::{AccountExplain, ContextExplain};
+pub use explain::{AccountClass, AccountExplain, ContextExplain};
 pub use hopper_account::HopperAccount;
 pub use meta::AccountMetaProvider;
 #[cfg(feature = "migrate")]

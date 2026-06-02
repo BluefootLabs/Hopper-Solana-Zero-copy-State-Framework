@@ -243,3 +243,177 @@ pub fn checked_pow(base: u64, exp: u32) -> Result<u64, ProgramError> {
     }
     Ok(result)
 }
+
+// ── Fixed-point and protocol unit wrappers ─────────────────────────────────
+
+/// Signed fixed-point value with 80 integer bits and 48 fractional bits.
+#[repr(transparent)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+pub struct I80F48(i128);
+
+impl I80F48 {
+    pub const FRAC_BITS: u32 = 48;
+    pub const ONE_BITS: i128 = 1i128 << Self::FRAC_BITS;
+    pub const ZERO: Self = Self(0);
+    pub const ONE: Self = Self(Self::ONE_BITS);
+
+    /// Construct from raw fixed-point bits.
+    #[inline(always)]
+    pub const fn from_bits(bits: i128) -> Self {
+        Self(bits)
+    }
+
+    /// Return raw fixed-point bits.
+    #[inline(always)]
+    pub const fn bits(self) -> i128 {
+        self.0
+    }
+
+    /// Convert an integer into I80F48.
+    #[inline(always)]
+    pub fn from_integer(value: i64) -> Result<Self, ProgramError> {
+        (value as i128)
+            .checked_mul(Self::ONE_BITS)
+            .map(Self)
+            .ok_or(ProgramError::ArithmeticOverflow)
+    }
+
+    /// Construct `numerator / denominator` as I80F48, truncating toward zero.
+    #[inline(always)]
+    pub fn from_ratio(numerator: i128, denominator: i128) -> Result<Self, ProgramError> {
+        if denominator == 0 {
+            return Err(ProgramError::ArithmeticOverflow);
+        }
+        numerator
+            .checked_mul(Self::ONE_BITS)
+            .ok_or(ProgramError::ArithmeticOverflow)?
+            .checked_div(denominator)
+            .map(Self)
+            .ok_or(ProgramError::ArithmeticOverflow)
+    }
+
+    #[inline(always)]
+    pub fn checked_add(self, rhs: Self) -> Result<Self, ProgramError> {
+        self.0
+            .checked_add(rhs.0)
+            .map(Self)
+            .ok_or(ProgramError::ArithmeticOverflow)
+    }
+
+    #[inline(always)]
+    pub fn checked_sub(self, rhs: Self) -> Result<Self, ProgramError> {
+        self.0
+            .checked_sub(rhs.0)
+            .map(Self)
+            .ok_or(ProgramError::ArithmeticOverflow)
+    }
+
+    /// Checked multiplication, truncating toward zero.
+    #[inline(always)]
+    pub fn checked_mul(self, rhs: Self) -> Result<Self, ProgramError> {
+        self.0
+            .checked_mul(rhs.0)
+            .ok_or(ProgramError::ArithmeticOverflow)?
+            .checked_div(Self::ONE_BITS)
+            .map(Self)
+            .ok_or(ProgramError::ArithmeticOverflow)
+    }
+
+    /// Checked division, truncating toward zero.
+    #[inline(always)]
+    pub fn checked_div(self, rhs: Self) -> Result<Self, ProgramError> {
+        if rhs.0 == 0 {
+            return Err(ProgramError::ArithmeticOverflow);
+        }
+        self.0
+            .checked_mul(Self::ONE_BITS)
+            .ok_or(ProgramError::ArithmeticOverflow)?
+            .checked_div(rhs.0)
+            .map(Self)
+            .ok_or(ProgramError::ArithmeticOverflow)
+    }
+
+    /// Truncate to an integer, toward zero.
+    #[inline(always)]
+    pub const fn to_integer_trunc(self) -> i128 {
+        self.0 / Self::ONE_BITS
+    }
+}
+
+/// Basis points. `10_000` represents 100%.
+#[repr(transparent)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+pub struct BasisPoints(u32);
+
+impl BasisPoints {
+    pub const ONE_HUNDRED_PERCENT: u32 = 10_000;
+
+    #[inline(always)]
+    pub const fn new(value: u32) -> Self {
+        Self(value)
+    }
+
+    #[inline(always)]
+    pub const fn get(self) -> u32 {
+        self.0
+    }
+
+    #[inline(always)]
+    pub fn of_floor(self, amount: u64) -> Result<u64, ProgramError> {
+        checked_mul_div(amount, self.0 as u64, Self::ONE_HUNDRED_PERCENT as u64)
+    }
+
+    #[inline(always)]
+    pub fn of_ceil(self, amount: u64) -> Result<u64, ProgramError> {
+        checked_mul_div_ceil(amount, self.0 as u64, Self::ONE_HUNDRED_PERCENT as u64)
+    }
+}
+
+#[repr(transparent)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Price(pub I80F48);
+
+#[repr(transparent)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+pub struct FundingRate(pub I80F48);
+
+#[repr(transparent)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+pub struct MarginRatio(pub BasisPoints);
+
+#[repr(transparent)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+pub struct QuoteAmount(pub i128);
+
+#[repr(transparent)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+pub struct BaseAmount(pub i128);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn i80f48_integer_and_ratio_round_trip() {
+        let two = I80F48::from_integer(2).unwrap();
+        let half = I80F48::from_ratio(1, 2).unwrap();
+        let one = two.checked_mul(half).unwrap();
+        assert_eq!(one, I80F48::ONE);
+        assert_eq!(one.to_integer_trunc(), 1);
+    }
+
+    #[test]
+    fn i80f48_checked_division_rejects_zero() {
+        assert_eq!(
+            I80F48::ONE.checked_div(I80F48::ZERO).unwrap_err(),
+            ProgramError::ArithmeticOverflow
+        );
+    }
+
+    #[test]
+    fn basis_points_apply_floor_and_ceil() {
+        let bps = BasisPoints::new(25);
+        assert_eq!(bps.of_floor(10_000).unwrap(), 25);
+        assert_eq!(bps.of_ceil(1).unwrap(), 1);
+    }
+}

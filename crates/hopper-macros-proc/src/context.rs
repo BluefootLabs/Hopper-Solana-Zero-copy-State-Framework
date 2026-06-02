@@ -632,6 +632,17 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
                 idx, field_name
             ));
         }
+        if let Some(WrapperKind::ExternalAccount { inner }) = &wrapper {
+            field_checks.push(quote! {
+                let _ = ::hopper::prelude::ExternalAccount::<#inner>::try_new(
+                    ctx.account(#idx)?
+                )?;
+            });
+            check_descriptions.push(format!(
+                "accounts[{}] ({}) must satisfy its declared external account adapter",
+                idx, field_name
+            ));
+        }
         if let Some(WrapperKind::SystemAccount) = &wrapper {
             field_checks.push(quote! {
                 ctx.account(#idx)?.check_owned_by(&::hopper::prelude::SystemId::ID)?;
@@ -731,6 +742,7 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
             | Some(WrapperKind::Program)
             | Some(WrapperKind::Interface { .. })
             | Some(WrapperKind::InterfaceAccount { .. })
+            | Some(WrapperKind::ExternalAccount { .. })
             | Some(WrapperKind::UncheckedAccount)
             | Some(WrapperKind::SystemAccount) => (false, None),
             None => {
@@ -2677,6 +2689,13 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
             }
 
             #[inline(always)]
+            #vis fn remaining_typed(
+                &self,
+            ) -> ::hopper::hopper_runtime::remaining::RemainingTyped<'_> {
+                self.ctx.remaining_accounts_typed(#account_count)
+            }
+
+            #[inline(always)]
             #vis fn remaining_accounts_raw(&self) -> &[::hopper::prelude::AccountView] {
                 self.ctx.remaining_accounts(#account_count)
             }
@@ -3471,12 +3490,12 @@ fn reject_reference_wrapped_account(field_name: &Ident, ty: &Type) -> Result<()>
                 ),
             ))
         }
-        WrapperKind::Interface { .. } | WrapperKind::InterfaceAccount { .. } => Err(
-            syn::Error::new_spanned(
-                ty,
-                "Hopper interface wrappers are value role wrappers; remove `&` or `&mut` from this field type and put mutability in `#[account(...)]` attributes.",
-            ),
-        ),
+        WrapperKind::Interface { .. }
+        | WrapperKind::InterfaceAccount { .. }
+        | WrapperKind::ExternalAccount { .. } => Err(syn::Error::new_spanned(
+            ty,
+            "Hopper interface/external wrappers are value role wrappers; remove `&` or `&mut` from this field type and put mutability in `#[account(...)]` attributes.",
+        )),
         WrapperKind::Signer
         | WrapperKind::Program
         | WrapperKind::UncheckedAccount
@@ -3504,6 +3523,7 @@ fn skips_layout_validation(ty: &Type) -> bool {
                         | "Program"
                         | "Interface"
                         | "InterfaceAccount"
+                        | "ExternalAccount"
                 )
             })
             .unwrap_or(false),
@@ -3537,6 +3557,9 @@ enum WrapperKind {
     /// `InterfaceAccount<'info, T>`. emit owner-in-interface-set plus
     /// cross-program Hopper layout validation.
     InterfaceAccount { inner: Type },
+    /// `ExternalAccount<'info, T>`. emit adapter validation without Hopper
+    /// header validation.
+    ExternalAccount { inner: Type },
 }
 
 /// Recognize typed wrapper types (`Signer<'info>`, `Account<'info, T>`,
@@ -3568,7 +3591,7 @@ fn classify_wrapper(ty: &Type) -> Option<WrapperKind> {
         }
         "UncheckedAccount" => Some(WrapperKind::UncheckedAccount),
         "SystemAccount" => Some(WrapperKind::SystemAccount),
-        "Account" | "InitAccount" | "InterfaceAccount" => {
+        "Account" | "InitAccount" | "InterfaceAccount" | "ExternalAccount" => {
             // Pull out the generic `T` arg. `Account<'info, T>` has
             // a lifetime arg first, then a type arg. we want the
             // last type arg.
@@ -3586,6 +3609,8 @@ fn classify_wrapper(ty: &Type) -> Option<WrapperKind> {
                 Some(WrapperKind::Account { inner })
             } else if name == "InitAccount" {
                 Some(WrapperKind::InitAccount { inner })
+            } else if name == "ExternalAccount" {
+                Some(WrapperKind::ExternalAccount { inner })
             } else {
                 Some(WrapperKind::InterfaceAccount { inner })
             }
@@ -3658,6 +3683,11 @@ fn accounts_binding_fragments(
                     ::hopper::prelude::InterfaceAccount::new_unchecked(ctx.account(#idx)?)
                 }
             },
+            WrapperKind::ExternalAccount { .. } => quote! {
+                #field_name: unsafe {
+                    ::hopper::prelude::ExternalAccount::new_unchecked(ctx.account(#idx)?)
+                }
+            },
         }
     });
 
@@ -3681,6 +3711,7 @@ fn layout_type_for_field(field: &ContextField) -> Option<Type> {
         | Some(WrapperKind::Program)
         | Some(WrapperKind::Interface { .. })
         | Some(WrapperKind::InterfaceAccount { .. })
+        | Some(WrapperKind::ExternalAccount { .. })
         | Some(WrapperKind::UncheckedAccount)
         | Some(WrapperKind::SystemAccount) => None,
         None => {
@@ -3871,6 +3902,31 @@ mod instruction_arg_tests {
         assert!(
             call_tail.contains("AuditState :: ALLOC_SPACE"),
             "init helper must pass the explicit `space =` expression into hopper_init!: {s}"
+        );
+    }
+
+    #[test]
+    fn external_account_wrapper_validates_without_hopper_layout() {
+        let item: TokenStream = quote! {
+            #[derive(Accounts)]
+            pub struct ReadOracle<'info> {
+                pub oracle: ExternalAccount<'info, PythPrice>,
+            }
+        };
+
+        let derived = expand_for_derive(item).expect("derive expand ok");
+        let s = derived.to_string();
+        assert!(
+            s.contains("ExternalAccount :: < PythPrice > :: try_new"),
+            "ExternalAccount fields must validate through their adapter: {s}"
+        );
+        assert!(
+            s.contains("ExternalAccount :: new_unchecked"),
+            "ExternalAccount fields must bind into the generated accounts facade: {s}"
+        );
+        assert!(
+            !s.contains("load :: < PythPrice >"),
+            "ExternalAccount must not be treated as a Hopper-header layout: {s}"
         );
     }
 

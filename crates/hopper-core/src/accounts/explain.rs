@@ -21,6 +21,61 @@ pub struct AccountFieldSchema {
     pub optional: bool,
 }
 
+impl AccountFieldSchema {
+    /// Classify the account model represented by this schema field.
+    pub const fn account_class(&self) -> AccountClass {
+        if matches_str(self.kind, "ExternalAccount") {
+            AccountClass::ExternalKnown
+        } else if matches_str(self.kind, "Interface") || matches_str(self.kind, "InterfaceAccount") {
+            AccountClass::Interface
+        } else if matches_str(self.kind, "UncheckedAccount") || matches_str(self.kind, "AccountView") {
+            AccountClass::Raw
+        } else if matches_str(self.kind, "Program") || matches_str(self.kind, "ProgramRef") {
+            AccountClass::Program
+        } else if matches_str(self.kind, "Signer") || matches_str(self.kind, "HopperSigner") {
+            AccountClass::Signer
+        } else if matches_str(self.kind, "SystemAccount") {
+            AccountClass::System
+        } else if self.layout.is_some()
+            || matches_str(self.kind, "Account")
+            || matches_str(self.kind, "HopperAccount")
+        {
+            AccountClass::HopperOwned
+        } else {
+            AccountClass::Unknown
+        }
+    }
+}
+
+/// High-level account class for explain/audit tooling.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AccountClass {
+    HopperOwned,
+    ExternalKnown,
+    Interface,
+    Raw,
+    Program,
+    Signer,
+    System,
+    Unknown,
+}
+
+const fn matches_str(left: &str, right: &str) -> bool {
+    let left = left.as_bytes();
+    let right = right.as_bytes();
+    if left.len() != right.len() {
+        return false;
+    }
+    let mut i = 0;
+    while i < left.len() {
+        if left[i] != right[i] {
+            return false;
+        }
+        i += 1;
+    }
+    true
+}
+
 /// Schema metadata for an entire instruction context.
 #[derive(Clone, Copy)]
 pub struct ContextSchema {
@@ -199,5 +254,34 @@ mod tests {
         assert_eq!(TEST_SCHEMA.name, "Deposit");
         assert_eq!(TEST_SCHEMA.policy_names.len(), 1);
         assert_eq!(TEST_SCHEMA.mutation_classes.len(), 1);
+    }
+
+    #[test]
+    fn account_classes_cover_mixed_solana_models() {
+        let external = AccountFieldSchema {
+            name: "oracle",
+            kind: "ExternalAccount",
+            mutable: false,
+            signer: false,
+            layout: None,
+            policy: None,
+            seeds: &[],
+            optional: false,
+        };
+        let raw = AccountFieldSchema {
+            name: "cpi_target",
+            kind: "UncheckedAccount",
+            mutable: false,
+            signer: false,
+            layout: None,
+            policy: None,
+            seeds: &[],
+            optional: false,
+        };
+
+        assert_eq!(TEST_FIELDS[1].account_class(), AccountClass::HopperOwned);
+        assert_eq!(TEST_FIELDS[2].account_class(), AccountClass::Program);
+        assert_eq!(external.account_class(), AccountClass::ExternalKnown);
+        assert_eq!(raw.account_class(), AccountClass::Raw);
     }
 }

@@ -154,9 +154,9 @@ pub mod account {
         SegmentedAccount, SignerAccount, ValidateAccount,
     };
     pub use hopper_runtime::{
-        Account, AccountView, HopperSigner as Signer, InitAccount, Interface, InterfaceAccount,
-        InterfaceAccountLayout, InterfaceAccountResolve, InterfaceSpec, Program, ProgramId,
-        SystemAccount, SystemId, UncheckedAccount,
+        Account, AccountView, ExternalAccount, ExternalZeroCopy, HopperSigner as Signer,
+        InitAccount, Interface, InterfaceAccount, InterfaceAccountLayout, InterfaceAccountResolve,
+        InterfaceSpec, Program, ProgramId, SystemAccount, SystemId, UncheckedAccount,
     };
 
     /// Anchor-style spelling for the System Program marker.
@@ -173,7 +173,8 @@ pub mod context {
 pub mod cpi {
     pub use hopper_core::cpi::*;
     pub use hopper_runtime::cpi::{
-        invoke, invoke_signed, MAX_CPI_ACCOUNTS, MAX_STATIC_CPI_ACCOUNTS,
+        invoke, invoke_checked, invoke_signed, invoke_signed_checked, MAX_CPI_ACCOUNTS,
+        MAX_STATIC_CPI_ACCOUNTS,
     };
     #[cfg(feature = "hopper-native-backend")]
     pub use hopper_runtime::cpi::{
@@ -184,7 +185,9 @@ pub mod cpi {
     };
     #[cfg(feature = "hopper-native-backend")]
     pub use hopper_runtime::CpiAccount;
-    pub use hopper_runtime::{InstructionAccount, InstructionView, Seed, Signer};
+    pub use hopper_runtime::{
+        InstructionAccount, InstructionView, Seed, Signer, StoredAccountMeta, StoredInstruction,
+    };
 }
 
 /// On-chain cryptography and precompile-verification helpers.
@@ -310,10 +313,16 @@ pub mod migration {
 /// Cross-program layout/interface pinning helpers.
 pub mod interface {
     pub use hopper_runtime::{
-        ForeignLens, ForeignManifest, Interface, InterfaceAccount, InterfaceAccountLayout,
-        InterfaceAccountResolve, InterfaceSpec, TransparentAddress,
+        ExternalAccount, ExternalZeroCopy, ForeignLens, ForeignManifest, Interface,
+        InterfaceAccount, InterfaceAccountLayout, InterfaceAccountResolve, InterfaceSpec,
+        TransparentAddress,
     };
     pub use hopper_solana::interface::*;
+}
+
+/// Checked arithmetic and protocol-grade unit wrappers.
+pub mod math {
+    pub use hopper_core::math::*;
 }
 
 /// Schema, manifest, and IDL projection surface.
@@ -340,14 +349,15 @@ pub mod systems {
     pub use crate::layout::*;
     pub use crate::memory::*;
     pub use crate::migration::*;
+    pub use crate::math::*;
     pub use crate::policy::*;
     pub use crate::receipt::*;
     pub use crate::return_data::*;
     pub use crate::schema::*;
     pub use crate::segment::*;
     pub use crate::{
-        compute, crypto, interface, layout, memory, migration, policy, receipt, return_data,
-        schema, segment,
+        compute, crypto, interface, layout, math, memory, migration, policy, receipt,
+        return_data, schema, segment,
     };
 
     pub use hopper_core::account::{
@@ -366,7 +376,8 @@ pub mod systems {
         lazy_entrypoint, no_allocator, nostd_panic_handler, program_entrypoint, AccountProof,
         BoundedString, BoundedVec, ExecutableChecked, HasOneChecked, HopperString, HopperVec,
         InstructionAccount, InstructionView, LayoutChecked, OwnerChecked, Seed, SeedsChecked,
-        SignerChecked, TailCodec, TailElement, TokenExtensionsChecked, Unchecked, WritableChecked,
+        SignerChecked, StoredAccountMeta, StoredInstruction, TailCodec, TailElement,
+        TokenExtensionsChecked, Unchecked, WritableChecked,
     };
 
     pub use crate::{
@@ -395,7 +406,7 @@ pub mod substrate {
     pub use hopper_runtime::CpiAccount;
     pub use hopper_runtime::{
         AccountView, Address, InstructionAccount, InstructionView, ProgramError, ProgramResult,
-        Ref, RefMut, Seed, Signer, SUCCESS,
+        Ref, RefMut, Seed, Signer, StoredAccountMeta, StoredInstruction, SUCCESS,
     };
 
     #[cfg(feature = "hopper-native-backend")]

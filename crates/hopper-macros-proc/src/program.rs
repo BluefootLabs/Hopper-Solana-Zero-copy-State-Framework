@@ -147,7 +147,7 @@ impl HandlerModifiers {
     }
 }
 
-/// Parsed per-handler `#[instruction(N, unsafe_memory, skip_token_checks, ctx_args = K)]`
+/// Parsed per-handler `#[instruction(N, unsafe_memory, skip_token_checks, allow_arbitrary_cpi, ctx_args = K)]`
 /// flags. Bare flag form only: `unsafe_memory` equivalent to
 /// `unsafe_memory = true`.
 ///
@@ -173,6 +173,7 @@ impl HandlerModifiers {
 struct InstructionPolicyArgs {
     unsafe_memory: bool,
     skip_token_checks: bool,
+    allow_arbitrary_cpi: bool,
     ctx_args: u8,
 }
 
@@ -363,6 +364,7 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
         let const_name = format_ident!("{}_POLICY", handler.fn_name.to_string().to_uppercase());
         let unsafe_memory = handler.instruction_policy.unsafe_memory;
         let skip_token_checks = handler.instruction_policy.skip_token_checks;
+        let allow_arbitrary_cpi = handler.instruction_policy.allow_arbitrary_cpi;
         let ctx_args = handler.instruction_policy.ctx_args;
         items.push(syn::parse_quote! {
             #[allow(non_upper_case_globals, dead_code)]
@@ -370,6 +372,7 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
                 ::hopper::__runtime::HopperInstructionPolicy {
                     unsafe_memory: #unsafe_memory,
                     skip_token_checks: #skip_token_checks,
+                    allow_arbitrary_cpi: #allow_arbitrary_cpi,
                     ctx_args: #ctx_args,
                 };
         });
@@ -1168,6 +1171,7 @@ fn mark_pattern_mutable(pattern: &mut Box<Pat>) -> Result<()> {
 /// Extract the discriminator plus any per-handler policy flags from
 /// `#[instruction(N)]`, `#[instruction(discriminator = [0x1a, 0xf4])]`,
 /// or either plus trailing `unsafe_memory` / `skip_token_checks` /
+/// `allow_arbitrary_cpi` /
 /// `ctx_args = K` levers.
 ///
 /// Two discriminator forms are accepted:
@@ -1278,11 +1282,12 @@ fn extract_instruction_attribute(
                     Meta::Path(path) => match path_ident(&path)?.as_str() {
                         "unsafe_memory" => policy.unsafe_memory = true,
                         "skip_token_checks" => policy.skip_token_checks = true,
+                        "allow_arbitrary_cpi" => policy.allow_arbitrary_cpi = true,
                         other => {
                             return Err(syn::Error::new(
                                 path.span(),
                                 format!(
-                                    "unknown instruction policy flag `{other}`; expected `unsafe_memory`, `skip_token_checks`, or `ctx_args = K`",
+                                    "unknown instruction policy flag `{other}`; expected `unsafe_memory`, `skip_token_checks`, `allow_arbitrary_cpi`, or `ctx_args = K`",
                                 ),
                             ));
                         }
@@ -1295,6 +1300,9 @@ fn extract_instruction_attribute(
                             }
                             "skip_token_checks" => {
                                 policy.skip_token_checks = expect_bool_lit(&nv.value)?;
+                            }
+                            "allow_arbitrary_cpi" => {
+                                policy.allow_arbitrary_cpi = expect_bool_lit(&nv.value)?;
                             }
                             // `ctx_args = K`. forward the first K decoded
                             // instruction args to the typed context's
@@ -1311,7 +1319,7 @@ fn extract_instruction_attribute(
                                 return Err(syn::Error::new(
                                     nv.path.span(),
                                     format!(
-                                        "unknown instruction policy lever `{other}`; expected `unsafe_memory`, `skip_token_checks`, or `ctx_args`",
+                                        "unknown instruction policy lever `{other}`; expected `unsafe_memory`, `skip_token_checks`, `allow_arbitrary_cpi`, or `ctx_args`",
                                     ),
                                 ));
                             }
@@ -1361,6 +1369,7 @@ mod ctx_args_tests {
         assert_eq!(pol.ctx_args, 0);
         assert!(!pol.unsafe_memory);
         assert!(!pol.skip_token_checks);
+        assert!(!pol.allow_arbitrary_cpi);
     }
 
     #[test]
@@ -1414,11 +1423,25 @@ mod ctx_args_tests {
     #[test]
     fn ctx_args_coexists_with_other_flags() {
         let (_, pol) = extract(parse_quote!(
-            #[instruction(3, unsafe_memory, ctx_args = 1, skip_token_checks)]
+            #[instruction(3, unsafe_memory, ctx_args = 1, skip_token_checks, allow_arbitrary_cpi)]
         ));
         assert!(pol.unsafe_memory);
         assert!(pol.skip_token_checks);
+        assert!(pol.allow_arbitrary_cpi);
         assert_eq!(pol.ctx_args, 1);
+    }
+
+    #[test]
+    fn arbitrary_cpi_flag_accepts_name_value_form() {
+        let (_, pol) = extract(parse_quote!(
+            #[instruction(7, allow_arbitrary_cpi = true)]
+        ));
+        assert!(pol.allow_arbitrary_cpi);
+
+        let (_, pol) = extract(parse_quote!(
+            #[instruction(8, allow_arbitrary_cpi = false)]
+        ));
+        assert!(!pol.allow_arbitrary_cpi);
     }
 
     #[test]
@@ -1510,6 +1533,7 @@ mod ctx_args_tests {
             instruction_policy: InstructionPolicyArgs {
                 unsafe_memory: false,
                 skip_token_checks: false,
+                allow_arbitrary_cpi: false,
                 ctx_args: 2,
             },
         };

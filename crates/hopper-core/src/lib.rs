@@ -342,7 +342,7 @@ pub mod prelude_advanced {
     pub use crate::diff::{StateDiff, StateSnapshot};
 
     #[cfg(feature = "explain")]
-    pub use crate::accounts::{AccountExplain, ContextExplain, ExplainAccount};
+    pub use crate::accounts::{AccountClass, AccountExplain, ContextExplain, ExplainAccount};
 
     #[cfg(feature = "migrate")]
     pub use crate::accounts::MigratingAccount;
@@ -421,7 +421,7 @@ pub mod prelude {
         ValidateAccount,
     };
     #[cfg(feature = "explain")]
-    pub use crate::accounts::{AccountExplain, ContextExplain, ExplainAccount};
+    pub use crate::accounts::{AccountClass, AccountExplain, ContextExplain, ExplainAccount};
     #[cfg(feature = "anchor-compat")]
     pub use crate::anchor_account_discriminator;
     #[cfg(feature = "anchor-compat")]

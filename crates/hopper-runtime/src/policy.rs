@@ -40,7 +40,7 @@
 //! ## Per-instruction overrides
 //!
 //! A handler can override the program-level policy with
-//! `#[instruction(N, unsafe_memory, skip_token_checks)]`. The macro
+//! `#[instruction(N, unsafe_memory, skip_token_checks, allow_arbitrary_cpi)]`. The macro
 //! emits `pub const <HANDLER>_POLICY: HopperInstructionPolicy = ...;`
 //! alongside the handler so the same const-branch pattern works at
 //! the per-instruction grain.
@@ -146,7 +146,7 @@ impl Default for HopperProgramPolicy {
 
 /// Per-instruction policy override.
 ///
-/// The `#[instruction(N, unsafe_memory, skip_token_checks, ctx_args = K)]`
+/// The `#[instruction(N, unsafe_memory, skip_token_checks, allow_arbitrary_cpi, ctx_args = K)]`
 /// attribute emits `pub const <HANDLER>_POLICY: HopperInstructionPolicy = ...;`
 /// alongside the handler. All fields default to the inherit-from-program
 /// behaviour (`false` / `0`) so handlers without overrides get the program
@@ -162,6 +162,12 @@ pub struct HopperInstructionPolicy {
     /// The handler still compiles, but authors must document why the
     /// token invariants are upheld through some other mechanism.
     pub skip_token_checks: bool,
+
+    /// Marks a handler as intentionally able to invoke arbitrary external
+    /// programs, for governance/proposal executors and plugin dispatchers.
+    /// Hopper does not forbid this path; the flag makes the capability visible
+    /// to generated schema, review tools, and audit-oriented explain output.
+    pub allow_arbitrary_cpi: bool,
 
     /// Count of leading instruction args the dispatcher threads to the
     /// typed context's `bind_with_args(...)`. `0` means the context
@@ -180,6 +186,7 @@ impl HopperInstructionPolicy {
     pub const INHERIT: Self = Self {
         unsafe_memory: false,
         skip_token_checks: false,
+        allow_arbitrary_cpi: false,
         ctx_args: 0,
     };
 }
@@ -230,6 +237,7 @@ mod tests {
     fn instruction_inherit_zeroes_every_lever() {
         assert!(!HopperInstructionPolicy::INHERIT.unsafe_memory);
         assert!(!HopperInstructionPolicy::INHERIT.skip_token_checks);
+        assert!(!HopperInstructionPolicy::INHERIT.allow_arbitrary_cpi);
         assert_eq!(HopperInstructionPolicy::INHERIT.ctx_args, 0);
         assert_eq!(
             HopperInstructionPolicy::default(),
@@ -242,6 +250,7 @@ mod tests {
         let p = HopperInstructionPolicy {
             unsafe_memory: false,
             skip_token_checks: false,
+            allow_arbitrary_cpi: false,
             ctx_args: 3,
         };
         assert_eq!(p.ctx_args, 3);

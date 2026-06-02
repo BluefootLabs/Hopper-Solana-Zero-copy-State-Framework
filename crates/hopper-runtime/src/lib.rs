@@ -99,7 +99,7 @@ pub use audit::{AccountAudit, DuplicateAccount};
 pub use borrow::{Ref, RefMut};
 pub use compute::{check_compute_units, remaining_compute_units, require_compute_units};
 pub use context::Context;
-pub use cpi::{invoke, invoke_signed};
+pub use cpi::{invoke, invoke_checked, invoke_signed, invoke_signed_checked};
 #[cfg(feature = "crypto-big-mod-exp")]
 pub use crypto::big_mod_exp;
 #[cfg(feature = "crypto-bn254")]
@@ -118,7 +118,7 @@ pub use crypto::{curve_group_add, curve_group_mul, curve_group_sub, curve_multis
 pub use crypto::{poseidon_bn254_x5, poseidon_hash, poseidon_hashv};
 pub use error::ProgramError;
 pub use field_map::{FieldInfo, FieldMap};
-pub use foreign::{ForeignLens, ForeignManifest};
+pub use foreign::{ExternalAccount, ExternalZeroCopy, ForeignLens, ForeignManifest};
 pub use interop::TransparentAddress;
 pub use migrate::{apply_pending_migrations, LayoutMigration, MigrationEdge};
 pub use policy::{HopperInstructionPolicy, HopperProgramPolicy, HopperProgramProfile};
@@ -129,7 +129,7 @@ pub use proof::{
 pub use ref_only::HopperRefOnly;
 pub use remaining::{
     RemainingAccountViews, RemainingAccounts, RemainingError, RemainingMode, RemainingSigners,
-    MAX_REMAINING_ACCOUNTS,
+    RemainingTyped, MAX_REMAINING_ACCOUNTS,
 };
 pub use return_data::{get_return_data, set_return_data, try_set_return_data, ReturnData};
 pub use tail::{
@@ -170,7 +170,9 @@ macro_rules! layout_migrations {
 }
 #[cfg(feature = "hopper-native-backend")]
 pub use instruction::CpiAccount;
-pub use instruction::{InstructionAccount, InstructionView, Seed, Signer};
+pub use instruction::{
+    InstructionAccount, InstructionView, Seed, Signer, StoredAccountMeta, StoredInstruction,
+};
 pub use layout::{HopperHeader, LayoutContract, LayoutInfo};
 pub use pod::Pod;
 pub use result::ProgramResult;

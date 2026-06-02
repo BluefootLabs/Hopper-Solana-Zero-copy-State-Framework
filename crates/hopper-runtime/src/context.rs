@@ -168,6 +168,12 @@ impl<'a> Context<'a> {
         )
     }
 
+    /// Get remaining accounts in strict mode and bind a sequential typed parser.
+    #[inline(always)]
+    pub fn remaining_accounts_typed(&self, from: usize) -> crate::remaining::RemainingTyped<'a> {
+        self.remaining_accounts_strict(from).typed()
+    }
+
     /// Require at least `n` accounts are present.
     #[inline(always)]
     pub fn require_accounts(&self, n: usize) -> ProgramResult {
