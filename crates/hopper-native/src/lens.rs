@@ -45,10 +45,10 @@ use crate::project::Projectable;
 /// [`read_field_pod`] which enforces the stronger [`crate::Pod`]
 /// bound at the type level.
 #[inline]
-pub fn read_field<T: Projectable>(
-    account: &AccountView,
+pub fn read_field<'a, T: Projectable>(
+    account: &'a AccountView<'a>,
     offset: usize,
-) -> Result<&T, ProgramError> {
+) -> Result<&'a T, ProgramError> {
     crate::project::project::<T>(account, offset, None)
 }
 
@@ -70,10 +70,10 @@ pub fn read_field<T: Projectable>(
 /// let counter: &LeU64 = lens::read_field_pod(foreign_account, 16)?;
 /// ```
 #[inline]
-pub fn read_field_pod<T: crate::Pod>(
-    account: &AccountView,
+pub fn read_field_pod<'a, T: crate::Pod>(
+    account: &'a AccountView<'a>,
     offset: usize,
-) -> Result<&T, ProgramError> {
+) -> Result<&'a T, ProgramError> {
     let data_len = account.data_len();
     let size = core::mem::size_of::<T>();
     let end = offset
@@ -84,7 +84,7 @@ pub fn read_field_pod<T: crate::Pod>(
     }
     // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     let ptr = unsafe { account.data_ptr_unchecked().add(offset) };
-    // SAFETY: T: Pod ⇒ align 1, every bit pattern valid, no padding.
+    // ---------------------------------------------------------------------
     // Bounds and arithmetic overflow checked above. No alignment check
     // needed (Pod's align-1 obligation subsumes it).
     Ok(unsafe { &*(ptr as *const T) })
@@ -95,7 +95,7 @@ pub fn read_field_pod<T: crate::Pod>(
 /// The most common cross-program read: check the authority, mint, owner,
 /// or any other public key stored in a foreign account.
 #[inline]
-pub fn read_address(account: &AccountView, offset: usize) -> Result<&Address, ProgramError> {
+pub fn read_address<'a>(account: &'a AccountView<'a>, offset: usize) -> Result<&'a Address, ProgramError> {
     let data_len = account.data_len();
     if offset.checked_add(32).map_or(true, |end| end > data_len) {
         return Err(ProgramError::AccountDataTooSmall);
@@ -113,7 +113,7 @@ pub fn read_address(account: &AccountView, offset: usize) -> Result<&Address, Pr
 /// safest way to read a u64 from potentially unaligned account data --
 /// no pointer cast, just a byte copy.
 #[inline]
-pub fn read_le_u64(account: &AccountView, offset: usize) -> Result<u64, ProgramError> {
+pub fn read_le_u64(account: &AccountView<'_>, offset: usize) -> Result<u64, ProgramError> {
     let data_len = account.data_len();
     if offset.checked_add(8).map_or(true, |end| end > data_len) {
         return Err(ProgramError::AccountDataTooSmall);
@@ -129,7 +129,7 @@ pub fn read_le_u64(account: &AccountView, offset: usize) -> Result<u64, ProgramE
 
 /// Read a little-endian u32 from account data.
 #[inline]
-pub fn read_le_u32(account: &AccountView, offset: usize) -> Result<u32, ProgramError> {
+pub fn read_le_u32(account: &AccountView<'_>, offset: usize) -> Result<u32, ProgramError> {
     let data_len = account.data_len();
     if offset.checked_add(4).map_or(true, |end| end > data_len) {
         return Err(ProgramError::AccountDataTooSmall);
@@ -145,7 +145,7 @@ pub fn read_le_u32(account: &AccountView, offset: usize) -> Result<u32, ProgramE
 
 /// Read a little-endian u16 from account data.
 #[inline]
-pub fn read_le_u16(account: &AccountView, offset: usize) -> Result<u16, ProgramError> {
+pub fn read_le_u16(account: &AccountView<'_>, offset: usize) -> Result<u16, ProgramError> {
     let data_len = account.data_len();
     if offset.checked_add(2).map_or(true, |end| end > data_len) {
         return Err(ProgramError::AccountDataTooSmall);
@@ -161,7 +161,7 @@ pub fn read_le_u16(account: &AccountView, offset: usize) -> Result<u16, ProgramE
 
 /// Read a single byte from account data.
 #[inline]
-pub fn read_u8(account: &AccountView, offset: usize) -> Result<u8, ProgramError> {
+pub fn read_u8(account: &AccountView<'_>, offset: usize) -> Result<u8, ProgramError> {
     if offset >= account.data_len() {
         return Err(ProgramError::AccountDataTooSmall);
     }
@@ -171,7 +171,7 @@ pub fn read_u8(account: &AccountView, offset: usize) -> Result<u8, ProgramError>
 
 /// Read a boolean from account data (0 = false, nonzero = true).
 #[inline]
-pub fn read_bool(account: &AccountView, offset: usize) -> Result<bool, ProgramError> {
+pub fn read_bool(account: &AccountView<'_>, offset: usize) -> Result<bool, ProgramError> {
     read_u8(account, offset).map(|b| b != 0)
 }
 
@@ -180,7 +180,11 @@ pub fn read_bool(account: &AccountView, offset: usize) -> Result<bool, ProgramEr
 /// Returns a reference to `len` bytes starting at `offset`.
 /// Useful for reading variable-length fields when you know the layout.
 #[inline]
-pub fn read_bytes(account: &AccountView, offset: usize, len: usize) -> Result<&[u8], ProgramError> {
+pub fn read_bytes<'a>(
+    account: &'a AccountView<'a>,
+    offset: usize,
+    len: usize,
+) -> Result<&'a [u8], ProgramError> {
     let data_len = account.data_len();
     if offset.checked_add(len).map_or(true, |end| end > data_len) {
         return Err(ProgramError::AccountDataTooSmall);
@@ -196,7 +200,7 @@ pub fn read_bytes(account: &AccountView, offset: usize, len: usize) -> Result<&[
 /// Useful for checking discriminators or magic numbers in foreign accounts.
 #[inline]
 pub fn field_eq(
-    account: &AccountView,
+    account: &AccountView<'_>,
     offset: usize,
     expected: &[u8],
 ) -> Result<bool, ProgramError> {

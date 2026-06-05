@@ -41,7 +41,7 @@ pub struct Frame<'a> {
     /// Program ID that is executing.
     program_id: &'a Address,
     /// Raw account views.
-    accounts: &'a [AccountView],
+    accounts: &'a [AccountView<'a>],
     /// Instruction data cursor.
     ix_data: SliceCursor<'a>,
     /// Borrow tracking: bit N = 1 means account N is mutably borrowed.
@@ -59,7 +59,7 @@ impl<'a> Frame<'a> {
     #[inline(always)]
     pub fn new(
         program_id: &'a Address,
-        accounts: &'a [AccountView],
+        accounts: &'a [AccountView<'a>],
         instruction_data: &'a [u8],
     ) -> Result<Self, ProgramError> {
         if accounts.len() > MAX_FRAME_ACCOUNTS {
@@ -88,7 +88,7 @@ impl<'a> Frame<'a> {
 
     /// Get raw account view by index.
     #[inline(always)]
-    pub fn account_view(&self, index: usize) -> Result<&AccountView, ProgramError> {
+    pub fn account_view(&self, index: usize) -> Result<&AccountView<'_>, ProgramError> {
         self.accounts
             .get(index)
             .ok_or(ProgramError::NotEnoughAccountKeys)
@@ -397,13 +397,13 @@ impl<'a> Frame<'a> {
 
 /// Immutable account view within a Frame.
 pub struct FrameAccount<'a> {
-    view: &'a AccountView,
+    view: &'a AccountView<'a>,
 }
 
 impl<'a> FrameAccount<'a> {
     /// The underlying AccountView.
     #[inline(always)]
-    pub fn view(&self) -> &AccountView {
+    pub fn view(&self) -> &AccountView<'_> {
         self.view
     }
 
@@ -443,7 +443,7 @@ impl<'a> FrameAccount<'a> {
 /// When this is dropped, the mutable borrow tracking bit is cleared,
 /// allowing the account to be re-borrowed.
 pub struct FrameAccountMut<'a> {
-    view: &'a AccountView,
+    view: &'a AccountView<'a>,
     borrow_mask: &'a mut u64,
     bit: u64,
 }
@@ -451,7 +451,7 @@ pub struct FrameAccountMut<'a> {
 impl<'a> FrameAccountMut<'a> {
     /// The underlying AccountView.
     #[inline(always)]
-    pub fn view(&self) -> &AccountView {
+    pub fn view(&self) -> &AccountView<'_> {
         self.view
     }
 
@@ -487,9 +487,8 @@ impl<'a> Drop for FrameAccountMut<'a> {
     }
 }
 
-// ══════════════════════════════════════════════════════════════════════
+// -- Audit regression tests ------------------------------------------
 //  Audit regression tests
-// ══════════════════════════════════════════════════════════════════════
 //
 // Lock in the Hopper Safety Audit's top-priority fix: Frame's segment
 // accessors now hand back `Ref<T>` / `RefMut<T>` that keep the
@@ -543,7 +542,7 @@ mod audit_tests {
         (backing, view)
     }
 
-    fn new_frame<'a>(program_id: &'a Address, accounts: &'a [AccountView]) -> Frame<'a> {
+    fn new_frame<'a>(program_id: &'a Address, accounts: &'a [AccountView<'a>]) -> Frame<'a> {
         Frame::new(program_id, accounts, &[]).unwrap()
     }
 

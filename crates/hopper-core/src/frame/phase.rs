@@ -42,7 +42,7 @@ pub struct Executed;
 /// phase transitions are compile-time checked.
 pub struct PhasedFrame<'a, P> {
     program_id: &'a Address,
-    accounts: &'a [AccountView],
+    accounts: &'a [AccountView<'a>],
     ix_data: &'a [u8],
     mutable_borrows: u64,
     _phase: core::marker::PhantomData<P>,
@@ -53,7 +53,7 @@ impl<'a> PhasedFrame<'a, Unresolved> {
     #[inline(always)]
     pub fn new(
         program_id: &'a Address,
-        accounts: &'a [AccountView],
+        accounts: &'a [AccountView<'a>],
         ix_data: &'a [u8],
     ) -> Result<Self, ProgramError> {
         if accounts.len() > crate::frame::MAX_FRAME_ACCOUNTS {
@@ -88,7 +88,7 @@ impl<'a> PhasedFrame<'a, Unresolved> {
         f: F,
     ) -> Result<ResolvedFrame<'a, T>, ProgramError>
     where
-        F: FnOnce(&'a [AccountView], &'a Address) -> Result<T, ProgramError>,
+        F: FnOnce(&'a [AccountView<'a>], &'a Address) -> Result<T, ProgramError>,
     {
         if self.accounts.len() < min_accounts {
             return Err(ProgramError::NotEnoughAccountKeys);
@@ -109,7 +109,7 @@ impl<'a> PhasedFrame<'a, Unresolved> {
 /// `T` is the user's account struct (e.g., `SwapAccounts<'a>`).
 pub struct ResolvedFrame<'a, T> {
     pub(crate) program_id: &'a Address,
-    pub(crate) accounts: &'a [AccountView],
+    pub(crate) accounts: &'a [AccountView<'a>],
     pub(crate) ix_data: &'a [u8],
     pub(crate) mutable_borrows: u64,
     pub(crate) resolved: T,
@@ -165,7 +165,7 @@ impl<'a, T> ResolvedFrame<'a, T> {
 /// A frame whose accounts have been validated.
 pub struct ValidatedFrame<'a, T> {
     pub(crate) program_id: &'a Address,
-    pub(crate) accounts: &'a [AccountView],
+    pub(crate) accounts: &'a [AccountView<'a>],
     pub(crate) ix_data: &'a [u8],
     pub(crate) mutable_borrows: u64,
     pub(crate) resolved: T,
@@ -221,7 +221,7 @@ impl<'a, T> ValidatedFrame<'a, T> {
 /// Mutable execution context available during the Execute phase.
 pub struct ExecutionContext<'a, 'f, T> {
     pub(crate) program_id: &'a Address,
-    pub(crate) accounts: &'a [AccountView],
+    pub(crate) accounts: &'a [AccountView<'a>],
     pub(crate) ix_data: &'a [u8],
     pub(crate) mutable_borrows: &'f mut u64,
     pub(crate) resolved: &'f T,
@@ -279,7 +279,7 @@ impl<'a, 'f, T> ExecutionContext<'a, 'f, T> {
 
     /// Get raw AccountView by index.
     #[inline(always)]
-    pub fn account(&self, index: usize) -> Result<&'a AccountView, ProgramError> {
+    pub fn account(&self, index: usize) -> Result<&'a AccountView<'a>, ProgramError> {
         self.accounts
             .get(index)
             .ok_or(ProgramError::NotEnoughAccountKeys)

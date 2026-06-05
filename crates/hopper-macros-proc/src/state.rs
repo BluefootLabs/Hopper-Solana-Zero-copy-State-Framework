@@ -470,7 +470,7 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
 
             #[inline(always)]
             pub fn load<'a>(
-                account: &'a ::hopper::prelude::AccountView,
+                account: &'a ::hopper::prelude::AccountView<'a>,
                 program_id: &::hopper::prelude::Address,
             ) -> ::core::result::Result<
                 ::hopper::__runtime::Ref<'a, Self>,
@@ -482,7 +482,7 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
 
             #[inline(always)]
             pub fn load_mut<'a>(
-                account: &'a ::hopper::prelude::AccountView,
+                account: &'a ::hopper::prelude::AccountView<'a>,
                 program_id: &::hopper::prelude::Address,
             ) -> ::core::result::Result<
                 ::hopper::__runtime::RefMut<'a, Self>,
@@ -495,7 +495,7 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
             #[inline(always)]
             #[deprecated(since = "0.2.0", note = "renamed to load_cross_program()")]
             pub fn load_foreign<'a>(
-                account: &'a ::hopper::prelude::AccountView,
+                account: &'a ::hopper::prelude::AccountView<'a>,
                 expected_owner: &::hopper::prelude::Address,
             ) -> ::core::result::Result<
                 ::hopper::__runtime::Ref<'a, Self>,
@@ -506,7 +506,7 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
 
             #[inline(always)]
             pub fn load_cross_program<'a>(
-                account: &'a ::hopper::prelude::AccountView,
+                account: &'a ::hopper::prelude::AccountView<'a>,
                 expected_owner: &::hopper::prelude::Address,
             ) -> ::core::result::Result<
                 ::hopper::__runtime::Ref<'a, Self>,

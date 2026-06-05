@@ -1,4 +1,4 @@
-//! Cross-framework type interop for Hopper.
+//! Type interop for Hopper-owned address values.
 //!
 //! Hopper keeps its own `Address` and `AccountView` types because they
 //! carry segment metadata, layout fingerprints, and borrow-tracking that
@@ -8,9 +8,9 @@
 //!
 //! # Zero-cost reference casts
 //!
-//! Both Hopper's `Address` and the upstream types (`pinocchio::Address`,
-//! `solana_program::pubkey::Pubkey`) are `#[repr(transparent)]` over
-//! `[u8; 32]`. This means reference casts are valid and zero-cost:
+//! Hopper's `Address` is `#[repr(transparent)]` over `[u8; 32]`. This means
+//! reference casts to other transparent 32-byte address wrappers are valid
+//! when the caller opts into the marker trait:
 //!
 //! ```ignore
 //! let hopper_addr: &Address = Address::from_ref(upstream_addr);
@@ -19,16 +19,13 @@
 //!
 //! # By-value conversions
 //!
-//! `From`/`Into` impls are provided automatically via the active backend.
-//! When `legacy-pinocchio-compat` is enabled, `From<pinocchio::Address>` and
-//! `From<Address> for pinocchio::Address` are available. When
-//! `solana-program-backend` is enabled, the same exists for `Pubkey`.
+//! Hopper's runtime uses its own canonical `Address`. By-value conversions to
+//! Hopper Native's address live in the direct runtime bridge.
 //!
 //! # Backend-agnostic conversions
 //!
-//! Regardless of backend, Hopper `Address` always converts to/from
-//! `[u8; 32]`, making it trivially interoperable with any type that
-//! also wraps 32 bytes.
+//! Hopper `Address` always converts to/from `[u8; 32]`, making it trivially
+//! interoperable with any type that also wraps 32 bytes.
 
 use crate::address::Address;
 
@@ -39,8 +36,7 @@ impl Address {
     /// 32-byte type that shares layout with `[u8; 32]`.
     ///
     /// This is the preferred way to pass a Hopper `Address` where an
-    /// upstream reference is expected (e.g. `&pinocchio::Address` or
-    /// `&Pubkey`).
+    /// upstream reference is expected.
     ///
     /// # Safety
     ///
@@ -78,36 +74,4 @@ pub unsafe trait TransparentAddress: Sized {}
 // Hopper's own Address is trivially transparent.
 unsafe impl TransparentAddress for Address {}
 
-#[cfg(feature = "legacy-pinocchio-compat")]
-unsafe impl TransparentAddress for pinocchio::address::Address {}
-
-#[cfg(feature = "solana-program-backend")]
-unsafe impl TransparentAddress for ::solana_program::pubkey::Pubkey {}
-
-// ── By-value conversions (re-documented for discoverability) ─────────
-//
-// The actual From/Into impls live in the compat modules (compat/pinocchio.rs,
-// compat/solana_program.rs) where backend types are in scope. This module
-// just makes them discoverable and documents the interop story.
-//
-// Available conversions by backend:
-//
-// legacy-pinocchio-compat:
-//   From<pinocchio::Address>     for Address
-//   From<Address>                for pinocchio::Address
-//
-// solana-program-backend:
-//   From<solana_program::Pubkey> for Address
-//   From<Address>                for solana_program::Pubkey
-//
-// hopper-native-backend:
-//   From<hopper_native::Address> for Address  (via [u8; 32])
-//   From<Address> for hopper_native::Address  (via [u8; 32])
-
-// ── hopper-native backend conversions ────────────────────────────────
-//
-// From/Into impls for hopper_native::Address <-> Address already live
-// in compat/native.rs. We only add the TransparentAddress marker here.
-
-#[cfg(feature = "hopper-native-backend")]
 unsafe impl TransparentAddress for hopper_native::address::Address {}

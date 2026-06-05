@@ -8,6 +8,8 @@ Start here for the current Hopper framework surface:
 - [HOPPER_LAYERS.md](HOPPER_LAYERS.md) - when to stay in framework mode and when to reach for systems mode.
 - [DYNAMIC_TAILS_FROM_QUASAR.md](DYNAMIC_TAILS_FROM_QUASAR.md) - bounded dynamic fields, generated tail helpers, and explicit tail wiring.
 - [DYNAMIC_FIELDS_QUASAR_TO_HOPPER.md](DYNAMIC_FIELDS_QUASAR_TO_HOPPER.md) - side-by-side bounded dynamic field migration and Hopper's compact-tail contract.
+- [EXTERNAL_ACCOUNTS.md](EXTERNAL_ACCOUNTS.md) - adapter-checked zero-copy for non-Hopper accounts, typed views, lenses, snapshots, lazy remaining accounts, and grouped tails.
+- [LARGE_ZERO_COPY_ACCOUNTS.md](LARGE_ZERO_COPY_ACCOUNTS.md) - pre-created large accounts, `load_init()`, segment-safe queues, and external large-account adapters.
 - [CRYPTO_CAPABILITIES.md](CRYPTO_CAPABILITIES.md) - shipped Solana crypto helpers, precompile checkers, and feature-gated heavy crypto wrappers.
 - [HOPPER_VS_QUASAR.md](HOPPER_VS_QUASAR.md) - one-page product/technical comparison: write like Quasar, Hopper checks the cast.
 - [PORT_QUASAR_IN_20_MINUTES.md](PORT_QUASAR_IN_20_MINUTES.md) - hands-on Quasar-style dynamic account port.

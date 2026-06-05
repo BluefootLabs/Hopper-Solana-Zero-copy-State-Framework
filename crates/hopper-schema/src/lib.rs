@@ -2216,7 +2216,10 @@ impl crate::accounts::ContextAccountDescriptor {
     /// Derive the primary semantic effect this account contributes.
     pub const fn primary_effect_kind(&self) -> InstructionEffectKind {
         match self.lifecycle {
-            crate::accounts::AccountLifecycle::Init => InstructionEffectKind::CreatesAccount,
+            crate::accounts::AccountLifecycle::Init
+            | crate::accounts::AccountLifecycle::InitIfNeeded => {
+                InstructionEffectKind::CreatesAccount
+            }
             crate::accounts::AccountLifecycle::Realloc => InstructionEffectKind::ReallocatesAccount,
             crate::accounts::AccountLifecycle::Close => InstructionEffectKind::ClosesAccount,
             crate::accounts::AccountLifecycle::Existing => {
@@ -3946,7 +3949,7 @@ pub trait AccountSchemaExt {
     fn schema_bundle_for<T: SchemaExport>(&self) -> Option<SchemaBundle>;
 }
 
-impl AccountSchemaExt for AccountView {
+impl<'info> AccountSchemaExt for AccountView<'info> {
     #[inline]
     fn manager_metadata_for<T: SchemaExport>(&self) -> Option<ManagerMetadata> {
         let info = self.layout_info()?;

@@ -45,7 +45,7 @@
 
 use crate::{account::AccountView, address::Address, error::ProgramError, result::ProgramResult};
 
-// ── Extension type codes (stable wire values) ────────────────────────
+// ---------------------------------------------------------------------
 
 pub const EXT_UNINITIALIZED: u16 = 0;
 pub const EXT_TRANSFER_FEE_CONFIG: u16 = 1;
@@ -106,7 +106,7 @@ pub const MINT_EXTENSION_PADDING_START: usize = BASE_MINT_LEN;
 /// End of the mint extension padding region (exclusive).
 pub const MINT_EXTENSION_PADDING_END: usize = ACCOUNT_TYPE_OFFSET;
 
-// ── TLV scanner ──────────────────────────────────────────────────────
+// ---------------------------------------------------------------------
 
 /// Locate an extension in a Token-2022 account's TLV region.
 ///
@@ -251,13 +251,13 @@ pub fn validate_extension_policy(tlv: &[u8], policy: &ExtensionPolicy<'_>) -> Pr
     Ok(())
 }
 
-// ── Declarative require_* helpers for the common cases ────────────────
+// ---------------------------------------------------------------------
 
 /// Require a mint to carry the `NonTransferable` extension.
 ///
 /// Use when a program is designed to only ever mint soulbound tokens.
 #[inline]
-pub fn require_non_transferable(mint: &AccountView) -> ProgramResult {
+pub fn require_non_transferable(mint: &AccountView<'_>) -> ProgramResult {
     let data = mint
         .try_borrow()
         .map_err(|_| ProgramError::AccountBorrowFailed)?;
@@ -271,7 +271,7 @@ pub fn require_non_transferable(mint: &AccountView) -> ProgramResult {
 
 /// Require a mint's `MintCloseAuthority` extension to equal `expected`.
 #[inline]
-pub fn require_mint_close_authority(mint: &AccountView, expected: &Address) -> ProgramResult {
+pub fn require_mint_close_authority(mint: &AccountView<'_>, expected: &Address) -> ProgramResult {
     let data = mint
         .try_borrow()
         .map_err(|_| ProgramError::AccountBorrowFailed)?;
@@ -290,7 +290,7 @@ pub fn require_mint_close_authority(mint: &AccountView, expected: &Address) -> P
 
 /// Require a mint's `PermanentDelegate` extension to equal `expected`.
 #[inline]
-pub fn require_permanent_delegate(mint: &AccountView, expected: &Address) -> ProgramResult {
+pub fn require_permanent_delegate(mint: &AccountView<'_>, expected: &Address) -> ProgramResult {
     let data = mint
         .try_borrow()
         .map_err(|_| ProgramError::AccountBorrowFailed)?;
@@ -313,7 +313,7 @@ pub fn require_permanent_delegate(mint: &AccountView, expected: &Address) -> Pro
 /// validates the second field. Use [`require_transfer_hook_authority`]
 /// for the first.
 #[inline]
-pub fn require_transfer_hook_program(mint: &AccountView, expected: &Address) -> ProgramResult {
+pub fn require_transfer_hook_program(mint: &AccountView<'_>, expected: &Address) -> ProgramResult {
     let data = mint
         .try_borrow()
         .map_err(|_| ProgramError::AccountBorrowFailed)?;
@@ -331,7 +331,7 @@ pub fn require_transfer_hook_program(mint: &AccountView, expected: &Address) -> 
 
 /// Require a mint's `TransferHook` authority to equal `expected`.
 #[inline]
-pub fn require_transfer_hook_authority(mint: &AccountView, expected: &Address) -> ProgramResult {
+pub fn require_transfer_hook_authority(mint: &AccountView<'_>, expected: &Address) -> ProgramResult {
     let data = mint
         .try_borrow()
         .map_err(|_| ProgramError::AccountBorrowFailed)?;
@@ -351,7 +351,7 @@ pub fn require_transfer_hook_authority(mint: &AccountView, expected: &Address) -
 ///
 /// `MetadataPointer` layout: `[authority: 32][metadata_address: 32]`.
 #[inline]
-pub fn require_metadata_pointer_address(mint: &AccountView, expected: &Address) -> ProgramResult {
+pub fn require_metadata_pointer_address(mint: &AccountView<'_>, expected: &Address) -> ProgramResult {
     let data = mint
         .try_borrow()
         .map_err(|_| ProgramError::AccountBorrowFailed)?;
@@ -369,7 +369,7 @@ pub fn require_metadata_pointer_address(mint: &AccountView, expected: &Address) 
 
 /// Require a mint's `MetadataPointer` authority to equal `expected`.
 #[inline]
-pub fn require_metadata_pointer_authority(mint: &AccountView, expected: &Address) -> ProgramResult {
+pub fn require_metadata_pointer_authority(mint: &AccountView<'_>, expected: &Address) -> ProgramResult {
     let data = mint
         .try_borrow()
         .map_err(|_| ProgramError::AccountBorrowFailed)?;
@@ -387,7 +387,7 @@ pub fn require_metadata_pointer_authority(mint: &AccountView, expected: &Address
 
 /// Require a token account to carry the `ImmutableOwner` extension.
 #[inline]
-pub fn require_immutable_owner(token_account: &AccountView) -> ProgramResult {
+pub fn require_immutable_owner(token_account: &AccountView<'_>) -> ProgramResult {
     let data = token_account
         .try_borrow()
         .map_err(|_| ProgramError::AccountBorrowFailed)?;
@@ -397,7 +397,7 @@ pub fn require_immutable_owner(token_account: &AccountView) -> ProgramResult {
 
 /// Require a token account to carry the `CpiGuard` extension.
 #[inline]
-pub fn require_cpi_guard(token_account: &AccountView) -> ProgramResult {
+pub fn require_cpi_guard(token_account: &AccountView<'_>) -> ProgramResult {
     let data = token_account
         .try_borrow()
         .map_err(|_| ProgramError::AccountBorrowFailed)?;
@@ -407,7 +407,7 @@ pub fn require_cpi_guard(token_account: &AccountView) -> ProgramResult {
 
 /// Require a mint to carry the `ConfidentialTransferMint` extension.
 #[inline]
-pub fn require_confidential_transfer_mint(mint: &AccountView) -> ProgramResult {
+pub fn require_confidential_transfer_mint(mint: &AccountView<'_>) -> ProgramResult {
     let data = mint
         .try_borrow()
         .map_err(|_| ProgramError::AccountBorrowFailed)?;
@@ -417,7 +417,7 @@ pub fn require_confidential_transfer_mint(mint: &AccountView) -> ProgramResult {
 
 /// Require a token account to carry the `ConfidentialTransferAccount` extension.
 #[inline]
-pub fn require_confidential_transfer_account(token_account: &AccountView) -> ProgramResult {
+pub fn require_confidential_transfer_account(token_account: &AccountView<'_>) -> ProgramResult {
     let data = token_account
         .try_borrow()
         .map_err(|_| ProgramError::AccountBorrowFailed)?;
@@ -427,7 +427,7 @@ pub fn require_confidential_transfer_account(token_account: &AccountView) -> Pro
 
 /// Require a mint to carry the `ScaledUiAmountConfig` extension.
 #[inline]
-pub fn require_scaled_ui_amount_config(mint: &AccountView) -> ProgramResult {
+pub fn require_scaled_ui_amount_config(mint: &AccountView<'_>) -> ProgramResult {
     let data = mint
         .try_borrow()
         .map_err(|_| ProgramError::AccountBorrowFailed)?;
@@ -439,7 +439,7 @@ pub fn require_scaled_ui_amount_config(mint: &AccountView) -> ProgramResult {
 ///
 /// Values: `0` Uninitialized, `1` Initialized, `2` Frozen.
 #[inline]
-pub fn require_default_account_state(mint: &AccountView, expected: u8) -> ProgramResult {
+pub fn require_default_account_state(mint: &AccountView<'_>, expected: u8) -> ProgramResult {
     let data = mint
         .try_borrow()
         .map_err(|_| ProgramError::AccountBorrowFailed)?;
@@ -460,7 +460,7 @@ pub fn require_default_account_state(mint: &AccountView, expected: u8) -> Progra
 ///
 /// Layout: `[rate_authority: 32][initialization_timestamp: 8][pre_update_average_rate: 2][last_update_timestamp: 8][current_rate: 2]`.
 #[inline]
-pub fn require_interest_bearing_authority(mint: &AccountView, expected: &Address) -> ProgramResult {
+pub fn require_interest_bearing_authority(mint: &AccountView<'_>, expected: &Address) -> ProgramResult {
     let data = mint
         .try_borrow()
         .map_err(|_| ProgramError::AccountBorrowFailed)?;
@@ -482,7 +482,7 @@ pub fn require_interest_bearing_authority(mint: &AccountView, expected: &Address
 /// Layout prefix: `[transfer_fee_config_authority: 32][withdraw_withheld_authority: 32]...`.
 #[inline]
 pub fn require_transfer_fee_config_authority(
-    mint: &AccountView,
+    mint: &AccountView<'_>,
     expected: &Address,
 ) -> ProgramResult {
     let data = mint
@@ -504,7 +504,7 @@ pub fn require_transfer_fee_config_authority(
 /// Require a mint's `TransferFeeConfig` withdraw-withheld-authority to equal `expected`.
 #[inline]
 pub fn require_transfer_fee_withdraw_authority(
-    mint: &AccountView,
+    mint: &AccountView<'_>,
     expected: &Address,
 ) -> ProgramResult {
     let data = mint
@@ -571,7 +571,7 @@ mod tests {
         v
     }
 
-    // ── Layout invariants (the regression suite for the offset bug) ──────
+    // ---------------------------------------------------------------------
 
     #[test]
     fn offset_constants_match_authoritative_spec() {
@@ -612,7 +612,7 @@ mod tests {
         assert!(find_extension(tlv, EXT_TRANSFER_HOOK).is_some());
     }
 
-    // ── find_extension core ──────────────────────────────────────────────
+    // ---------------------------------------------------------------------
 
     #[test]
     fn find_extension_returns_payload_slice() {
@@ -691,7 +691,7 @@ mod tests {
         .unwrap();
     }
 
-    // ── Region accept / reject edges ─────────────────────────────────────
+    // ---------------------------------------------------------------------
 
     #[test]
     fn mint_tlv_region_rejects_short_account() {

@@ -5,10 +5,7 @@ use hopper::prelude::*;
 
 #[cfg(target_os = "solana")]
 mod __hopper_sbf {
-    #[cfg(not(feature = "solana-program-backend"))]
     hopper::no_allocator!();
-
-    #[cfg(not(feature = "solana-program-backend"))]
     hopper::nostd_panic_handler!();
 }
 
@@ -21,21 +18,21 @@ pub struct Vault {
 }
 
 #[hopper::context]
-pub struct Deposit {
+pub struct Deposit<'info> {
     #[account(mut(balance), read(balance, pending_rewards))]
     pub vault: Vault,
 
     #[signer]
-    pub authority: AccountView,
+    pub authority: AccountView<'info>,
 }
 
 #[hopper::context]
-pub struct AdminSweep {
+pub struct AdminSweep<'info> {
     #[account(mut)]
     pub vault: Vault,
 
     #[signer]
-    pub authority: AccountView,
+    pub authority: AccountView<'info>,
 }
 
 #[cfg(target_os = "solana")]
@@ -43,14 +40,14 @@ hopper::program_entrypoint!(process_instruction);
 
 fn process_instruction(
     program_id: &Address,
-    accounts: &[AccountView],
+    accounts: &[AccountView<'_>],
     instruction_data: &[u8],
 ) -> ProgramResult {
     let mut ctx = Context::new(program_id, accounts, instruction_data);
     vault_program::process_instruction(&mut ctx)
 }
 
-#[hopper::program]
+#[hopper::program(entrypoint = false)]
 mod vault_program {
     use super::*;
 
@@ -61,7 +58,7 @@ mod vault_program {
         vault.balance.get() >= vault.pending_rewards.get()
     })]
     #[instruction(0)]
-    pub fn deposit(ctx: Context<Deposit>, amount: u64) -> ProgramResult {
+    pub fn deposit(ctx: Context<Deposit<'_>>, amount: u64) -> ProgramResult {
         let mut balance = ctx.vault_balance_mut()?;
         let next = balance
             .get()
@@ -72,7 +69,7 @@ mod vault_program {
     }
 
     #[instruction(1)]
-    pub fn admin_sweep(ctx: Context<AdminSweep>) -> ProgramResult {
+    pub fn admin_sweep(ctx: Context<AdminSweep<'_>>) -> ProgramResult {
         let account = ctx.vault_account()?;
         let _vault_address = account.address();
 

@@ -84,7 +84,7 @@ pub struct Note<'a> {
 
 - Segment leases let systems-mode code borrow disjoint byte ranges instead of whole accounts.
 - Token-2022 TLV constraints validate extension state without deserializing into owned structs.
-- `hopper solana-check`, `publish-check`, and the SBF workflow keep deployable crate shape and backend feature selection honest.
+- `hopper solana-check`, `publish-check`, and the SBF workflow keep deployable crate shape and direct-runtime assumptions honest.
 - Actions, mobile, and security-test generators have a manifest-backed foundation for product scaffolding.
 
 Use Quasar mental models to read Hopper programs. Use Hopper contracts when account bytes, upgrades, and long-lived protocol state need to be auditable.

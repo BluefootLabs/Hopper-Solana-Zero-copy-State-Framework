@@ -115,7 +115,7 @@ Anchor has no equivalent today. The ~300 CU buys you "Invariant balance_nonzero 
 
 | Op | CU | Notes |
 | --- | --- | --- |
-| `invoke(&ix, &accounts)` | ~600 + recipient | `hopper-native-backend` direct syscall |
+| `invoke(&ix, &accounts)` | ~600 + recipient | Hopper direct syscall |
 | `invoke_signed(&ix, &accounts, &signers)` | ~750 + recipient | syscall plus seed setup |
 | `HopperDynCpi::invoke_signed` | ~750 + recipient | same cost; stack-only build |
 | Anchor `CpiContext::new_with_signer` | ~850 + recipient | extra bookkeeping around the same syscall |

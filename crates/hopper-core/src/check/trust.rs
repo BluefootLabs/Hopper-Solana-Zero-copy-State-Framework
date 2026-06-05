@@ -162,7 +162,7 @@ impl<'a> TrustProfile<'a> {
     ///
     /// On success, returns a borrow-carrying byte view suitable for overlay.
     #[inline]
-    pub fn load(&self, account: &'a AccountView) -> Result<Ref<'a, [u8]>, ProgramError> {
+    pub fn load(&self, account: &'a AccountView<'a>) -> Result<Ref<'a, [u8]>, ProgramError> {
         // Immutability check (if required).
         if self.flags.require_immutable && account.is_writable() {
             return Err(ProgramError::InvalidAccountData);
@@ -176,7 +176,7 @@ impl<'a> TrustProfile<'a> {
     }
 
     #[inline]
-    fn load_strict(&self, account: &'a AccountView) -> Result<Ref<'a, [u8]>, ProgramError> {
+    fn load_strict(&self, account: &'a AccountView<'a>) -> Result<Ref<'a, [u8]>, ProgramError> {
         // Owner check.
         if !account.owned_by(self.owner) {
             return Err(ProgramError::IncorrectProgramId);
@@ -200,7 +200,7 @@ impl<'a> TrustProfile<'a> {
     }
 
     #[inline]
-    fn load_compatible(&self, account: &'a AccountView) -> Result<Ref<'a, [u8]>, ProgramError> {
+    fn load_compatible(&self, account: &'a AccountView<'a>) -> Result<Ref<'a, [u8]>, ProgramError> {
         if !account.owned_by(self.owner) {
             return Err(ProgramError::IncorrectProgramId);
         }
@@ -220,7 +220,7 @@ impl<'a> TrustProfile<'a> {
     }
 
     #[inline]
-    fn load_observational(&self, account: &'a AccountView) -> Result<Ref<'a, [u8]>, ProgramError> {
+    fn load_observational(&self, account: &'a AccountView<'a>) -> Result<Ref<'a, [u8]>, ProgramError> {
         let data = account.try_borrow()?;
         if data.len() < crate::account::HEADER_LEN {
             return Err(ProgramError::AccountDataTooSmall);
@@ -268,7 +268,7 @@ impl<'a> TrustProfile<'a> {
 /// Convenience function combining profile validation with Pod overlay.
 #[inline]
 pub fn load_foreign_with_profile<'a, T: crate::account::Pod + crate::account::FixedLayout>(
-    account: &'a AccountView,
+    account: &'a AccountView<'a>,
     profile: &TrustProfile<'a>,
 ) -> Result<crate::account::VerifiedAccount<'a, T>, ProgramError> {
     let data = profile.load(account)?;

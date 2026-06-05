@@ -77,6 +77,13 @@ pub struct ProcessedInstruction {
     pub accounts_len: usize,
 }
 
+#[derive(Clone, Debug)]
+pub struct ProcessedInstructionData<const MAX_DATA: usize> {
+    pub program_id: Address,
+    pub data: [u8; MAX_DATA],
+    pub data_len: usize,
+}
+
 #[repr(C)]
 struct ProcessedInstructionMeta {
     data_len: u64,
@@ -591,11 +598,58 @@ pub fn get_processed_instruction(index: u64) -> Option<ProcessedInstruction> {
 }
 
 #[inline]
+pub fn get_processed_instruction_data<const MAX_DATA: usize>(
+    index: u64,
+) -> Option<ProcessedInstructionData<MAX_DATA>> {
+    let mut meta = ProcessedInstructionMeta {
+        data_len: MAX_DATA as u64,
+        accounts_len: 0,
+    };
+    let mut program_id = Address::default();
+    let mut data = [0u8; MAX_DATA];
+    let mut accounts = [0u8; 0];
+
+    // SAFETY: output pointers refer to writable buffers. The account-meta
+    // capacity is advertised as zero because callers of this helper only need
+    // program id and instruction data.
+    let rc = unsafe {
+        crate::syscalls::sol_get_processed_sibling_instruction(
+            index,
+            &mut meta as *mut ProcessedInstructionMeta as *mut u8,
+            program_id.as_mut().as_mut_ptr(),
+            data.as_mut_ptr(),
+            accounts.as_mut_ptr(),
+        )
+    };
+    if rc != 0 {
+        return None;
+    }
+
+    Some(ProcessedInstructionData {
+        program_id,
+        data,
+        data_len: meta.data_len as usize,
+    })
+}
+
+#[inline]
 pub fn require_ed25519_instruction(
     sibling_index: u64,
 ) -> Result<ProcessedInstruction, ProgramError> {
     let instruction =
         get_processed_instruction(sibling_index).ok_or(ProgramError::InvalidArgument)?;
+    if instruction.program_id != ED25519_PROGRAM_ID {
+        return Err(ProgramError::IncorrectProgramId);
+    }
+    Ok(instruction)
+}
+
+#[inline]
+pub fn require_ed25519_instruction_data<const MAX_DATA: usize>(
+    sibling_index: u64,
+) -> Result<ProcessedInstructionData<MAX_DATA>, ProgramError> {
+    let instruction =
+        get_processed_instruction_data(sibling_index).ok_or(ProgramError::InvalidArgument)?;
     if instruction.program_id != ED25519_PROGRAM_ID {
         return Err(ProgramError::IncorrectProgramId);
     }

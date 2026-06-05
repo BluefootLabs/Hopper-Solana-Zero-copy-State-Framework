@@ -46,7 +46,7 @@ use crate::address::Address;
 #[repr(transparent)]
 #[derive(Clone, Copy)]
 pub struct Signer<'info> {
-    inner: &'info AccountView,
+    inner: &'info AccountView<'info>,
 }
 
 impl<'info> Signer<'info> {
@@ -59,7 +59,7 @@ impl<'info> Signer<'info> {
     /// # Safety
     ///
     /// Caller must uphold the invariants documented for this unsafe API before invoking it.
-    pub unsafe fn new_unchecked(view: &'info AccountView) -> Self {
+    pub unsafe fn new_unchecked(view: &'info AccountView<'info>) -> Self {
         Self { inner: view }
     }
 
@@ -67,14 +67,14 @@ impl<'info> Signer<'info> {
     /// Prefer the macro-emitted `validate_{field}()` path when the
     /// account is part of a `#[derive(Accounts)]` context struct.
     #[inline]
-    pub fn try_new(view: &'info AccountView) -> Result<Self, crate::error::ProgramError> {
+    pub fn try_new(view: &'info AccountView<'info>) -> Result<Self, crate::error::ProgramError> {
         view.check_signer()?;
         Ok(Self { inner: view })
     }
 
     /// The underlying account view.
     #[inline(always)]
-    pub fn as_account(&self) -> &'info AccountView {
+    pub fn as_account(&self) -> &'info AccountView<'info> {
         self.inner
     }
 
@@ -86,9 +86,9 @@ impl<'info> Signer<'info> {
 }
 
 impl<'info> core::ops::Deref for Signer<'info> {
-    type Target = AccountView;
+    type Target = AccountView<'info>;
     #[inline(always)]
-    fn deref(&self) -> &AccountView {
+    fn deref(&self) -> &AccountView<'info> {
         self.inner
     }
 }
@@ -102,7 +102,7 @@ impl<'info> core::ops::Deref for Signer<'info> {
 /// which return typed references into the borrowed account data.
 #[repr(transparent)]
 pub struct Account<'info, T: crate::layout::LayoutContract> {
-    inner: &'info AccountView,
+    inner: &'info AccountView<'info>,
     _ty: PhantomData<T>,
 }
 
@@ -121,7 +121,7 @@ impl<'info, T: crate::layout::LayoutContract> Account<'info, T> {
     /// # Safety
     ///
     /// Caller must uphold the invariants documented for this unsafe API before invoking it.
-    pub unsafe fn new_unchecked(view: &'info AccountView) -> Self {
+    pub unsafe fn new_unchecked(view: &'info AccountView<'info>) -> Self {
         Self {
             inner: view,
             _ty: PhantomData,
@@ -131,7 +131,7 @@ impl<'info, T: crate::layout::LayoutContract> Account<'info, T> {
     /// Wrap with owner + layout verification.
     #[inline]
     pub fn try_new(
-        view: &'info AccountView,
+        view: &'info AccountView<'info>,
         owner: &Address,
     ) -> Result<Self, crate::error::ProgramError> {
         view.check_owned_by(owner)?;
@@ -144,7 +144,7 @@ impl<'info, T: crate::layout::LayoutContract> Account<'info, T> {
 
     /// The underlying account view.
     #[inline(always)]
-    pub fn as_account(&self) -> &'info AccountView {
+    pub fn as_account(&self) -> &'info AccountView<'info> {
         self.inner
     }
 
@@ -209,10 +209,10 @@ impl<'info, T: crate::layout::LayoutContract> Account<'info, T> {
 }
 
 impl<'info, T: crate::layout::LayoutContract> core::ops::Deref for Account<'info, T> {
-    type Target = AccountView;
+    type Target = AccountView<'info>;
 
     #[inline(always)]
-    fn deref(&self) -> &AccountView {
+    fn deref(&self) -> &AccountView<'info> {
         self.inner
     }
 }
@@ -227,7 +227,7 @@ impl<'info, T: crate::layout::LayoutContract> core::ops::Deref for Account<'info
 /// CPI.
 #[repr(transparent)]
 pub struct InitAccount<'info, T: crate::layout::LayoutContract> {
-    inner: &'info AccountView,
+    inner: &'info AccountView<'info>,
     _ty: PhantomData<T>,
 }
 
@@ -247,7 +247,7 @@ impl<'info, T: crate::layout::LayoutContract> InitAccount<'info, T> {
     /// # Safety
     ///
     /// Caller must uphold the invariants documented for this unsafe API before invoking it.
-    pub unsafe fn new_unchecked(view: &'info AccountView) -> Self {
+    pub unsafe fn new_unchecked(view: &'info AccountView<'info>) -> Self {
         Self {
             inner: view,
             _ty: PhantomData,
@@ -256,7 +256,7 @@ impl<'info, T: crate::layout::LayoutContract> InitAccount<'info, T> {
 
     /// The underlying account view.
     #[inline(always)]
-    pub fn as_account(&self) -> &'info AccountView {
+    pub fn as_account(&self) -> &'info AccountView<'info> {
         self.inner
     }
 
@@ -284,6 +284,12 @@ impl<'info, T: crate::layout::LayoutContract> InitAccount<'info, T> {
         self.load_after_init()
     }
 
+    /// Anchor-compatible alias for [`Self::load_after_init`].
+    #[inline(always)]
+    pub fn load_init(&self) -> Result<crate::borrow::RefMut<'_, T>, crate::error::ProgramError> {
+        self.load_after_init()
+    }
+
     /// Mutably borrow the freshly-initialised layout for the duration of a closure.
     #[inline]
     pub fn with_mut_after_init<R, F>(&self, f: F) -> Result<R, crate::error::ProgramError>
@@ -295,10 +301,10 @@ impl<'info, T: crate::layout::LayoutContract> InitAccount<'info, T> {
 }
 
 impl<'info, T: crate::layout::LayoutContract> core::ops::Deref for InitAccount<'info, T> {
-    type Target = AccountView;
+    type Target = AccountView<'info>;
 
     #[inline(always)]
-    fn deref(&self) -> &AccountView {
+    fn deref(&self) -> &AccountView<'info> {
         self.inner
     }
 }
@@ -312,7 +318,7 @@ impl<'info, T: crate::layout::LayoutContract> core::ops::Deref for InitAccount<'
 #[repr(transparent)]
 #[derive(Clone, Copy)]
 pub struct UncheckedAccount<'info> {
-    inner: &'info AccountView,
+    inner: &'info AccountView<'info>,
 }
 
 impl<'info> UncheckedAccount<'info> {
@@ -322,20 +328,20 @@ impl<'info> UncheckedAccount<'info> {
     /// # Safety
     ///
     /// Caller must ensure any required invariants are checked elsewhere.
-    pub unsafe fn new_unchecked(view: &'info AccountView) -> Self {
+    pub unsafe fn new_unchecked(view: &'info AccountView<'info>) -> Self {
         Self { inner: view }
     }
 
     /// Wrap without validation. This is intentionally explicit at the
     /// type level: `UncheckedAccount` means no role has been proven.
     #[inline(always)]
-    pub fn new(view: &'info AccountView) -> Self {
+    pub fn new(view: &'info AccountView<'info>) -> Self {
         Self { inner: view }
     }
 
     /// The underlying account view.
     #[inline(always)]
-    pub fn as_account(&self) -> &'info AccountView {
+    pub fn as_account(&self) -> &'info AccountView<'info> {
         self.inner
     }
 
@@ -347,10 +353,10 @@ impl<'info> UncheckedAccount<'info> {
 }
 
 impl<'info> core::ops::Deref for UncheckedAccount<'info> {
-    type Target = AccountView;
+    type Target = AccountView<'info>;
 
     #[inline(always)]
-    fn deref(&self) -> &AccountView {
+    fn deref(&self) -> &AccountView<'info> {
         self.inner
     }
 }
@@ -359,13 +365,13 @@ impl<'info> core::ops::Deref for UncheckedAccount<'info> {
 #[repr(transparent)]
 #[derive(Clone, Copy)]
 pub struct SystemAccount<'info> {
-    inner: &'info AccountView,
+    inner: &'info AccountView<'info>,
 }
 
 impl<'info> SystemAccount<'info> {
     /// Wrap after verifying System Program ownership.
     #[inline]
-    pub fn try_new(view: &'info AccountView) -> Result<Self, crate::error::ProgramError> {
+    pub fn try_new(view: &'info AccountView<'info>) -> Result<Self, crate::error::ProgramError> {
         view.check_owned_by(&SystemId::ID)?;
         Ok(Self { inner: view })
     }
@@ -376,13 +382,13 @@ impl<'info> SystemAccount<'info> {
     /// # Safety
     ///
     /// Caller must have verified the account is owned by the System Program.
-    pub unsafe fn new_unchecked(view: &'info AccountView) -> Self {
+    pub unsafe fn new_unchecked(view: &'info AccountView<'info>) -> Self {
         Self { inner: view }
     }
 
     /// The underlying account view.
     #[inline(always)]
-    pub fn as_account(&self) -> &'info AccountView {
+    pub fn as_account(&self) -> &'info AccountView<'info> {
         self.inner
     }
 
@@ -394,10 +400,10 @@ impl<'info> SystemAccount<'info> {
 }
 
 impl<'info> core::ops::Deref for SystemAccount<'info> {
-    type Target = AccountView;
+    type Target = AccountView<'info>;
 
     #[inline(always)]
-    fn deref(&self) -> &AccountView {
+    fn deref(&self) -> &AccountView<'info> {
         self.inner
     }
 }
@@ -410,7 +416,7 @@ impl<'info> core::ops::Deref for SystemAccount<'info> {
 /// ```
 #[repr(transparent)]
 pub struct Program<'info, P: ProgramId> {
-    inner: &'info AccountView,
+    inner: &'info AccountView<'info>,
     _ty: PhantomData<P>,
 }
 
@@ -424,7 +430,7 @@ impl<'info, P: ProgramId> Copy for Program<'info, P> {}
 impl<'info, P: ProgramId> Program<'info, P> {
     /// Wrap with address-pin and executable-flag verification.
     #[inline]
-    pub fn try_new(view: &'info AccountView) -> Result<Self, crate::error::ProgramError> {
+    pub fn try_new(view: &'info AccountView<'info>) -> Result<Self, crate::error::ProgramError> {
         if view.address() != &P::ID {
             return Err(crate::error::ProgramError::IncorrectProgramId);
         }
@@ -438,7 +444,7 @@ impl<'info, P: ProgramId> Program<'info, P> {
     }
 
     #[inline(always)]
-    pub fn as_account(&self) -> &'info AccountView {
+    pub fn as_account(&self) -> &'info AccountView<'info> {
         self.inner
     }
 
@@ -450,10 +456,10 @@ impl<'info, P: ProgramId> Program<'info, P> {
 }
 
 impl<'info, P: ProgramId> core::ops::Deref for Program<'info, P> {
-    type Target = AccountView;
+    type Target = AccountView<'info>;
 
     #[inline(always)]
-    fn deref(&self) -> &AccountView {
+    fn deref(&self) -> &AccountView<'info> {
         self.inner
     }
 }
@@ -503,7 +509,7 @@ pub trait InterfaceAccountLayout: crate::layout::LayoutContract {
     /// interface layouts can override this to accept a bounded set of concrete
     /// layout variants while still using the same `InterfaceAccount` wrapper.
     #[inline]
-    fn validate_interface_account(view: &AccountView) -> Result<(), crate::error::ProgramError> {
+    fn validate_interface_account(view: &AccountView<'_>) -> Result<(), crate::error::ProgramError> {
         let _ = view.load_cross_program::<Self>()?;
         Ok(())
     }
@@ -523,14 +529,14 @@ pub trait InterfaceAccountResolve: InterfaceAccountLayout {
         Self: 'a;
 
     /// Resolve the account bytes to a concrete borrowed variant.
-    fn resolve<'a>(view: &'a AccountView)
+    fn resolve<'a>(view: &'a AccountView<'a>)
         -> Result<Self::Resolved<'a>, crate::error::ProgramError>;
 }
 
 /// Executable program account whose key is one of an interface's program IDs.
 #[repr(transparent)]
 pub struct Interface<'info, I: InterfaceSpec> {
-    inner: &'info AccountView,
+    inner: &'info AccountView<'info>,
     _ty: PhantomData<I>,
 }
 
@@ -549,7 +555,7 @@ impl<'info, I: InterfaceSpec> Interface<'info, I> {
     ///
     /// Caller must have verified the account address is in `I::IDS` and the
     /// account is executable.
-    pub unsafe fn new_unchecked(view: &'info AccountView) -> Self {
+    pub unsafe fn new_unchecked(view: &'info AccountView<'info>) -> Self {
         Self {
             inner: view,
             _ty: PhantomData,
@@ -558,7 +564,7 @@ impl<'info, I: InterfaceSpec> Interface<'info, I> {
 
     /// Wrap after verifying address membership and executability.
     #[inline]
-    pub fn try_new(view: &'info AccountView) -> Result<Self, crate::error::ProgramError> {
+    pub fn try_new(view: &'info AccountView<'info>) -> Result<Self, crate::error::ProgramError> {
         if !I::contains(view.address()) {
             return Err(crate::error::ProgramError::IncorrectProgramId);
         }
@@ -573,7 +579,7 @@ impl<'info, I: InterfaceSpec> Interface<'info, I> {
 
     /// The underlying account view.
     #[inline(always)]
-    pub fn as_account(&self) -> &'info AccountView {
+    pub fn as_account(&self) -> &'info AccountView<'info> {
         self.inner
     }
 
@@ -585,10 +591,10 @@ impl<'info, I: InterfaceSpec> Interface<'info, I> {
 }
 
 impl<'info, I: InterfaceSpec> core::ops::Deref for Interface<'info, I> {
-    type Target = AccountView;
+    type Target = AccountView<'info>;
 
     #[inline(always)]
-    fn deref(&self) -> &AccountView {
+    fn deref(&self) -> &AccountView<'info> {
         self.inner
     }
 }
@@ -601,7 +607,7 @@ impl<'info, I: InterfaceSpec> core::ops::Deref for Interface<'info, I> {
 /// intentionally decoupled from the executing program.
 #[repr(transparent)]
 pub struct InterfaceAccount<'info, T: InterfaceAccountLayout> {
-    inner: &'info AccountView,
+    inner: &'info AccountView<'info>,
     _ty: PhantomData<T>,
 }
 
@@ -619,7 +625,7 @@ impl<'info, T: InterfaceAccountLayout> InterfaceAccount<'info, T> {
     /// # Safety
     ///
     /// Caller must have verified owner membership and layout identity.
-    pub unsafe fn new_unchecked(view: &'info AccountView) -> Self {
+    pub unsafe fn new_unchecked(view: &'info AccountView<'info>) -> Self {
         Self {
             inner: view,
             _ty: PhantomData,
@@ -628,7 +634,7 @@ impl<'info, T: InterfaceAccountLayout> InterfaceAccount<'info, T> {
 
     /// Wrap after verifying owner membership and layout identity.
     #[inline]
-    pub fn try_new(view: &'info AccountView) -> Result<Self, crate::error::ProgramError> {
+    pub fn try_new(view: &'info AccountView<'info>) -> Result<Self, crate::error::ProgramError> {
         let owner = view.read_owner();
         if !<T::Interface as InterfaceSpec>::contains(&owner) {
             return Err(crate::error::ProgramError::IncorrectProgramId);
@@ -642,7 +648,7 @@ impl<'info, T: InterfaceAccountLayout> InterfaceAccount<'info, T> {
 
     /// The underlying account view.
     #[inline(always)]
-    pub fn as_account(&self) -> &'info AccountView {
+    pub fn as_account(&self) -> &'info AccountView<'info> {
         self.inner
     }
 
@@ -737,10 +743,10 @@ impl<'info, T: InterfaceAccountLayout> InterfaceAccount<'info, T> {
 }
 
 impl<'info, T: InterfaceAccountLayout> core::ops::Deref for InterfaceAccount<'info, T> {
-    type Target = AccountView;
+    type Target = AccountView<'info>;
 
     #[inline(always)]
-    fn deref(&self) -> &AccountView {
+    fn deref(&self) -> &AccountView<'info> {
         self.inner
     }
 }
@@ -772,7 +778,7 @@ mod tests {
         // assertion via `size_of`.
         assert_eq!(
             core::mem::size_of::<Signer<'static>>(),
-            core::mem::size_of::<&'static AccountView>()
+            core::mem::size_of::<&'static AccountView<'static>>()
         );
     }
 
@@ -783,7 +789,7 @@ mod tests {
     }
 }
 
-#[cfg(all(test, feature = "hopper-native-backend"))]
+#[cfg(test)]
 mod resolver_tests {
     use super::*;
     use crate::layout::{HopperHeader, LayoutContract};
@@ -869,7 +875,7 @@ mod resolver_tests {
         type Interface = VaultPrograms;
 
         fn validate_interface_account(
-            view: &AccountView,
+            view: &AccountView<'_>,
         ) -> Result<(), crate::error::ProgramError> {
             let data = view.try_borrow()?;
             if VaultV1::validate_header(&data).is_ok() || VaultV2::validate_header(&data).is_ok() {
@@ -889,7 +895,7 @@ mod resolver_tests {
         type Resolved<'a> = ResolvedVault<'a>;
 
         fn resolve<'a>(
-            view: &'a AccountView,
+            view: &'a AccountView<'a>,
         ) -> Result<Self::Resolved<'a>, crate::error::ProgramError> {
             let info = view
                 .layout_info()
@@ -904,7 +910,7 @@ mod resolver_tests {
         }
     }
 
-    fn make_account(total_data_len: usize, owner: Address) -> (std::vec::Vec<u8>, AccountView) {
+    fn make_account(total_data_len: usize, owner: Address) -> (std::vec::Vec<u8>, AccountView<'static>) {
         let mut backing = std::vec![0u8; RuntimeAccount::SIZE + total_data_len];
         let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
         // SAFETY: The test owns `backing`, writes one RuntimeAccount header,

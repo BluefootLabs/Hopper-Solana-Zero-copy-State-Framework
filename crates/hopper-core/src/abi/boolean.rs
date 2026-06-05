@@ -68,9 +68,7 @@ unsafe impl crate::abi::WireType for WireBool {
 // Bytemuck proof (Hopper Safety Audit Must-Fix #5). `#[repr(transparent)]`
 // over `[u8; 1]` with every bit pattern decoding to a valid `WireBool`
 // satisfies the `bytemuck::Pod + Zeroable` obligations.
-#[cfg(feature = "hopper-native-backend")]
 unsafe impl ::hopper_runtime::__hopper_native::bytemuck::Zeroable for WireBool {}
-#[cfg(feature = "hopper-native-backend")]
 unsafe impl ::hopper_runtime::__hopper_native::bytemuck::Pod for WireBool {}
 
 // SAFETY: #[repr(transparent)] over [u8; 1], all bit patterns valid.

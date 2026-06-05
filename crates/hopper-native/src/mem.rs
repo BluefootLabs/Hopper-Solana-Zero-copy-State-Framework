@@ -157,7 +157,7 @@ pub fn bytes_eq(a: &[u8], b: &[u8]) -> bool {
 /// More efficient than the byte-by-byte loop in `AccountView::close()`.
 /// Use this when you need to clear account data without closing the account.
 #[inline]
-pub fn zero_account_data(account: &crate::account_view::AccountView) {
+pub fn zero_account_data(account: &crate::account_view::AccountView<'_>) {
     let len = account.data_len();
     if len == 0 {
         return;

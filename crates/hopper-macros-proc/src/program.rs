@@ -99,6 +99,7 @@ struct ProgramPolicyArgs {
     enforce_token_checks: Option<bool>,
     allow_unsafe: Option<bool>,
     entrypoint: Option<bool>,
+    max_accounts: Option<usize>,
     profile: Option<ProgramProfile>,
 }
 
@@ -123,6 +124,9 @@ impl ProgramPolicyArgs {
     }
     fn entrypoint(&self) -> bool {
         self.entrypoint.unwrap_or(true)
+    }
+    fn max_accounts(&self) -> Option<usize> {
+        self.max_accounts
     }
     fn profile_tokens(&self) -> TokenStream {
         match self.profile.unwrap_or(ProgramProfile::Strict) {
@@ -287,6 +291,23 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
     // touched the multi-byte syntax see byte-for-byte identical
     // codegen to the pre-multi-byte Hopper.
     let all_single_byte = handlers.iter().all(|h| h.discriminator.len() == 1);
+    let dispatch_helpers: Vec<(Vec<u8>, Ident, Item)> = handlers
+        .iter()
+        .map(|h| {
+            let helper = format_ident!("__hopper_dispatch_{}", h.fn_name);
+            let invocation = handler_invocation(h);
+            let item = syn::parse2(quote! {
+                #[inline(never)]
+                fn #helper(
+                    ctx: &mut ::hopper::prelude::Context<'_>,
+                    data: &[u8],
+                ) -> ::core::result::Result<(), ::hopper::__runtime::ProgramError> {
+                    #invocation
+                }
+            })?;
+            Ok::<_, syn::Error>((h.discriminator.clone(), helper, item))
+        })
+        .collect::<Result<_>>()?;
 
     // Slow path entries for the multi-byte case. Emitted as an
     // ordered `if data.starts_with(&[...]) { ... } else if ...` chain
@@ -295,10 +316,10 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
     let dispatch_body = if all_single_byte {
         let match_arms: Vec<TokenStream> = handlers
             .iter()
-            .map(|h| {
+            .zip(dispatch_helpers.iter())
+            .map(|(h, (_, helper, _))| {
                 let byte = h.discriminator[0];
-                let invocation = handler_invocation(h);
-                quote! { #byte => #invocation, }
+                quote! { #byte => #helper(ctx, data), }
             })
             .collect();
         quote! {
@@ -318,13 +339,13 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
         // Prefix-match chain, longest first.
         let arms: Vec<TokenStream> = handlers
             .iter()
-            .map(|h| {
+            .zip(dispatch_helpers.iter())
+            .map(|(h, (_, helper, _))| {
                 let bytes = &h.discriminator;
                 let byte_lits: Vec<u8> = bytes.clone();
-                let invocation = handler_invocation(h);
                 quote! {
                     if data.starts_with(&[ #(#byte_lits),* ]) {
-                        return #invocation;
+                        return #helper(ctx, data);
                     }
                 }
             })
@@ -399,8 +420,12 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
         pub const HOPPER_PROGRAM_PROFILE: ::hopper::__runtime::HopperProgramProfile = #profile;
     });
 
+    for (_, _, helper) in dispatch_helpers {
+        items.push(helper);
+    }
+
     items.push(syn::parse_quote! {
-        #[inline]
+        #[inline(never)]
         pub fn process_instruction(
             ctx: &mut ::hopper::prelude::Context<'_>,
         ) -> ::core::result::Result<(), ::hopper::__runtime::ProgramError> {
@@ -411,16 +436,21 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
 
     let program_mod = input.ident.clone();
     let bridge_fn = format_ident!("__hopper_process_instruction_{}", program_mod);
+    let entrypoint_macro = match policy.max_accounts() {
+        Some(max_accounts) => quote! { ::hopper::program_entrypoint!(#bridge_fn, #max_accounts); },
+        None => quote! { ::hopper::program_entrypoint!(#bridge_fn); },
+    };
     let entrypoint_bridge = if policy.entrypoint() {
         quote! {
             #[allow(unexpected_cfgs)]
             #[cfg(target_os = "solana")]
-            ::hopper::program_entrypoint!(#bridge_fn);
+            #entrypoint_macro
 
             #[doc(hidden)]
+            #[inline(never)]
             fn #bridge_fn(
                 program_id: &::hopper::__runtime::Address,
-                accounts: &[::hopper::__runtime::AccountView],
+                accounts: &[::hopper::__runtime::AccountView<'_>],
                 instruction_data: &[u8],
             ) -> ::core::result::Result<(), ::hopper::__runtime::ProgramError> {
                 let mut ctx = ::hopper::prelude::Context::new(program_id, accounts, instruction_data);
@@ -444,7 +474,7 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
 /// Accepts:
 /// - empty args: defaults to `HopperProgramPolicy::STRICT`
 /// - bare shorthand: `strict` | `raw` | `sealed`
-/// - explicit levers: `strict = bool`, `enforce_token_checks = bool`, `allow_unsafe = bool`, `entrypoint = bool`, `profile = "tiny|strict|audit|raw"`
+/// - explicit levers: `strict = bool`, `enforce_token_checks = bool`, `allow_unsafe = bool`, `entrypoint = bool`, `max_accounts = usize`, `profile = "tiny|strict|audit|raw"`
 /// - any combination (shorthand sets defaults; explicit levers override)
 fn parse_program_policy(attr: TokenStream) -> Result<ProgramPolicyArgs> {
     let mut policy = ProgramPolicyArgs::default();
@@ -499,6 +529,10 @@ fn parse_program_policy(attr: TokenStream) -> Result<ProgramPolicyArgs> {
                     }
                     continue;
                 }
+                if name == "max_accounts" {
+                    policy.max_accounts = Some(expect_usize_lit(&nv.value, "max_accounts")?);
+                    continue;
+                }
                 let value = expect_bool_lit(&nv.value)?;
                 match name.as_str() {
                     "strict" => policy.strict = Some(value),
@@ -509,7 +543,7 @@ fn parse_program_policy(attr: TokenStream) -> Result<ProgramPolicyArgs> {
                         return Err(syn::Error::new(
                             nv.path.span(),
                             format!(
-                                "unknown program policy lever `{other}`; expected `strict`, `enforce_token_checks`, `allow_unsafe`, `entrypoint`, or `profile`",
+                                "unknown program policy lever `{other}`; expected `strict`, `enforce_token_checks`, `allow_unsafe`, `entrypoint`, `max_accounts`, or `profile`",
                             ),
                         ));
                     }
@@ -569,6 +603,22 @@ fn expect_bool_lit(expr: &Expr) -> Result<bool> {
         Err(syn::Error::new(
             expr.span(),
             "expected a boolean literal (`true` or `false`)",
+        ))
+    }
+}
+
+fn expect_usize_lit(expr: &Expr, name: &str) -> Result<usize> {
+    if let Expr::Lit(ExprLit {
+        lit: Lit::Int(int),
+        ..
+    }) = expr
+    {
+        int.base10_parse::<usize>()
+            .map_err(|_| syn::Error::new(expr.span(), format!("`{name}` must fit in usize")))
+    } else {
+        Err(syn::Error::new(
+            expr.span(),
+            format!("expected an integer literal for `{name}`"),
         ))
     }
 }
@@ -749,6 +799,7 @@ fn classify_context_binding(arg: &mut FnArg) -> Result<ContextBinding> {
     }
 
     if let Some(spec) = extract_typed_context_spec(&pat_type.ty)? {
+        let spec = strip_context_type_args(spec);
         let bound_ty = bind_type_for(&spec)?;
         pat_type.ty = Box::new(bound_ty);
         mark_pattern_mutable(&mut pat_type.pat)?;
@@ -887,7 +938,7 @@ fn apply_handler_modifiers(
     let receipt_begin = if modifiers.receipt {
         match binding {
             ContextBinding::Typed { spec } => quote! {
-                let __hopper_receipt_scope = #spec::begin_receipt_scope::<256>(#raw_ctx)?;
+                let __hopper_receipt_scope = #spec::begin_receipt_scope::<256>(&#raw_ctx)?;
             },
             ContextBinding::Raw => TokenStream::new(),
         }
@@ -898,7 +949,7 @@ fn apply_handler_modifiers(
     let receipt_finish = if modifiers.receipt {
         quote! {
             __hopper_receipt_scope.finish(
-                #raw_ctx,
+                &#raw_ctx,
                 __hopper_invariants_passed,
                 __hopper_invariants_checked,
                 __hopper_failure_info,
@@ -1144,15 +1195,17 @@ fn bind_type_for(spec: &Path) -> Result<Type> {
             "expected a concrete context type path",
         ));
     };
-    if !matches!(last.arguments, PathArguments::None) {
-        return Err(syn::Error::new_spanned(
-            last,
-            "typed Hopper contexts must name the generated context struct directly",
-        ));
-    }
+    last.arguments = PathArguments::None;
     last.ident = format_ident!("{}Ctx", last.ident);
 
     Ok(syn::parse_quote! { #bound<'_, '_> })
+}
+
+fn strip_context_type_args(mut spec: Path) -> Path {
+    if let Some(last) = spec.segments.last_mut() {
+        last.arguments = PathArguments::None;
+    }
+    spec
 }
 
 fn mark_pattern_mutable(pattern: &mut Box<Pat>) -> Result<()> {
@@ -1209,7 +1262,7 @@ fn extract_instruction_attribute(
 
         use syn::parse::{ParseStream, Parser};
 
-        let parser = |input: ParseStream| -> Result<(Vec<u8>, InstructionPolicyArgs)> {
+        let parser = |input: ParseStream<'_>| -> Result<(Vec<u8>, InstructionPolicyArgs)> {
             // Peek to decide single-byte vs multi-byte form. A leading
             // `discriminator` identifier signals the array form; anything
             // else (integer literal, bare flag, nothing) falls through to

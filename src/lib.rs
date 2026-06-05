@@ -110,17 +110,7 @@
 #![no_std]
 #![deny(unsafe_op_in_unsafe_fn)]
 
-#[cfg(any(
-    all(feature = "hopper-native-backend", feature = "legacy-pinocchio-compat"),
-    all(feature = "hopper-native-backend", feature = "solana-program-backend"),
-    all(
-        feature = "legacy-pinocchio-compat",
-        feature = "solana-program-backend"
-    ),
-))]
-compile_error!("Enable exactly one Hopper backend: hopper-native-backend, legacy-pinocchio-compat, or solana-program-backend.");
-
-// ── Hopper Lang modules ──────────────────────────────────────────────
+// ---------------------------------------------------------------------
 
 #[doc(hidden)]
 pub mod __macro_support;
@@ -154,9 +144,11 @@ pub mod account {
         SegmentedAccount, SignerAccount, ValidateAccount,
     };
     pub use hopper_runtime::{
-        Account, AccountView, ExternalAccount, ExternalZeroCopy, HopperSigner as Signer,
-        InitAccount, Interface, InterfaceAccount, InterfaceAccountLayout, InterfaceAccountResolve,
-        InterfaceSpec, Program, ProgramId, SystemAccount, SystemId, UncheckedAccount,
+        Account, AccountView, ExplainExternal, ExternalAccount, ExternalBytes, ExternalChecked,
+        ExternalExplainSink, ExternalLens, ExternalLensValue, ExternalProof, ExternalResolve,
+        ExternalZeroCopy, HopperSigner as Signer, InitAccount, Interface, InterfaceAccount,
+        InterfaceAccountLayout, InterfaceAccountResolve, InterfaceSpec, Program, ProgramId,
+        SystemAccount, SystemId, UncheckedAccount,
     };
 
     /// Anchor-style spelling for the System Program marker.
@@ -166,7 +158,7 @@ pub mod account {
 /// Typed instruction context and account-binding helpers.
 pub mod context {
     pub use hopper_core::accounts::{hopper_entry, HopperAccounts, HopperCtx, HopperIx};
-    pub use hopper_runtime::Context;
+    pub use hopper_runtime::{Context, ScopedContext};
 }
 
 /// Cross-program invocation helpers and generated instruction parts.
@@ -176,14 +168,12 @@ pub mod cpi {
         invoke, invoke_checked, invoke_signed, invoke_signed_checked, MAX_CPI_ACCOUNTS,
         MAX_STATIC_CPI_ACCOUNTS,
     };
-    #[cfg(feature = "hopper-native-backend")]
     pub use hopper_runtime::cpi::{
         invoke_signed_unchecked, invoke_signed_with_bounds, invoke_unchecked, invoke_with_bounds,
     };
     pub use hopper_runtime::return_data::{
         get_return_data, set_return_data, try_set_return_data, ReturnData, MAX_RETURN_DATA,
     };
-    #[cfg(feature = "hopper-native-backend")]
     pub use hopper_runtime::CpiAccount;
     pub use hopper_runtime::{
         InstructionAccount, InstructionView, Seed, Signer, StoredAccountMeta, StoredInstruction,
@@ -313,9 +303,10 @@ pub mod migration {
 /// Cross-program layout/interface pinning helpers.
 pub mod interface {
     pub use hopper_runtime::{
-        ExternalAccount, ExternalZeroCopy, ForeignLens, ForeignManifest, Interface,
-        InterfaceAccount, InterfaceAccountLayout, InterfaceAccountResolve, InterfaceSpec,
-        TransparentAddress,
+        ExplainExternal, ExternalAccount, ExternalBytes, ExternalChecked, ExternalExplainSink,
+        ExternalLens, ExternalLensValue, ExternalProof, ExternalResolve, ExternalZeroCopy,
+        ForeignLens, ForeignManifest, Interface, InterfaceAccount, InterfaceAccountLayout,
+        InterfaceAccountResolve, InterfaceSpec, TransparentAddress,
     };
     pub use hopper_solana::interface::*;
 }
@@ -369,15 +360,17 @@ pub mod systems {
     pub use hopper_core::check::{find_and_verify_pda, rent_exempt_min};
     pub use hopper_core::prelude_advanced::*;
     pub use hopper_core::prelude_core::*;
-    #[cfg(feature = "hopper-native-backend")]
     pub use hopper_runtime::CpiAccount;
     pub use hopper_runtime::{
         fast_entrypoint, hopper_entrypoint, hopper_fast_entrypoint, hopper_lazy_entrypoint,
         lazy_entrypoint, no_allocator, nostd_panic_handler, program_entrypoint, AccountProof,
-        BoundedString, BoundedVec, ExecutableChecked, HasOneChecked, HopperString, HopperVec,
-        InstructionAccount, InstructionView, LayoutChecked, OwnerChecked, Seed, SeedsChecked,
-        SignerChecked, StoredAccountMeta, StoredInstruction, TailCodec, TailElement,
-        TokenExtensionsChecked, Unchecked, WritableChecked,
+        BoundedString, BoundedVec, ExecutableChecked, ExplainExternal, ExternalBytes,
+        ExternalChecked, ExternalExplainSink, ExternalLens, ExternalLensValue, ExternalProof,
+        ExternalResolve, HasOneChecked, HopperString, HopperVec, InstructionAccount,
+        InstructionView, LayoutChecked, OwnerChecked, RemainingExternalAccounts, RemainingGroup,
+        RemainingLazy, RemainingLazySlot, Seed, SeedsChecked, SignerChecked, StoredAccountMeta,
+        StoredInstruction, TailCodec, TailElement, TokenExtensionsChecked, Unchecked,
+        WritableChecked,
     };
 
     pub use crate::{
@@ -402,14 +395,13 @@ pub mod systems {
 pub mod substrate {
     pub use crate::return_data as hopper_return_data;
     pub use crate::{compute, crypto, memory};
-    #[cfg(feature = "hopper-native-backend")]
     pub use hopper_runtime::CpiAccount;
     pub use hopper_runtime::{
         AccountView, Address, InstructionAccount, InstructionView, ProgramError, ProgramResult,
-        Ref, RefMut, Seed, Signer, StoredAccountMeta, StoredInstruction, SUCCESS,
+        Ref, RefMut, RemainingLazy, RemainingLazySlot, Seed, Signer, StoredAccountMeta,
+        StoredInstruction, SUCCESS,
     };
 
-    #[cfg(feature = "hopper-native-backend")]
     pub use hopper_runtime::__hopper_native::{
         account_view, address, batch, budget, capability, entrypoint, error, hash, introspect,
         lazy, lens, log, mem, pda, pod, raw, raw_account, raw_input, return_data, safe, syscalls,
@@ -417,7 +409,6 @@ pub mod substrate {
         DataFingerprint, LamportSnapshot, ReturnData,
     };
 
-    #[cfg(feature = "hopper-native-backend")]
     pub use hopper_runtime::__hopper_native::{
         find_bump_for_address, read_bump_from_account, verify_pda_from_stored_bump,
         verify_pda_strict, RuntimeAccount,
@@ -514,7 +505,7 @@ pub use hopper_runtime::layout_migrations;
 /// hopper_load!(accounts => [user, vault, system_program]);
 /// ```
 ///
-/// The bindings are plain `&AccountView` references (not owned values),
+/// The bindings are plain `&AccountView<'_>` references (not owned values),
 /// matching the destructuring pattern. A trailing `..` is accepted and
 /// discards any extra accounts. The macro bails with
 /// `ProgramError::NotEnoughAccountKeys` when the slice is too short,
@@ -522,8 +513,8 @@ pub use hopper_runtime::layout_migrations;
 ///
 /// Use this in the raw-dispatch authoring style (no `#[hopper::context]`).
 /// The proc-macro context already binds accounts by name, so this is only
-/// useful when you are working with `&[AccountView]` directly - typically
-/// inside `fn process_instruction(_, accounts: &[AccountView], _)` before
+/// useful when you are working with `&[AccountView<'_>]` directly - typically
+/// inside `fn process_instruction(_, accounts: &[AccountView<'_>], _)` before
 /// routing to per-variant handlers.
 ///
 /// ## Examples
@@ -531,7 +522,7 @@ pub use hopper_runtime::layout_migrations;
 /// ```ignore
 /// fn process_deposit(
 ///     program_id: &Address,
-///     accounts: &[AccountView],
+///     accounts: &[AccountView<'_>],
 ///     data: &[u8],
 /// ) -> ProgramResult {
 ///     hopper_load!(accounts => [user, vault, system_program]);
@@ -788,7 +779,7 @@ macro_rules! interface_account_set {
 
             #[inline]
             fn validate_interface_account(
-                view: &$crate::__runtime::AccountView,
+                view: &$crate::__runtime::AccountView<'_>,
             ) -> ::core::result::Result<(), $crate::__runtime::ProgramError> {
                 let data = view.try_borrow()?;
                 let info = $crate::__runtime::LayoutInfo::from_data(&data)
@@ -811,7 +802,7 @@ macro_rules! interface_account_set {
 
             #[inline]
             fn resolve<'a>(
-                view: &'a $crate::__runtime::AccountView,
+                view: &'a $crate::__runtime::AccountView<'a>,
             ) -> ::core::result::Result<Self::Resolved<'a>, $crate::__runtime::ProgramError> {
                 let info = {
                     let data = view.try_borrow()?;
@@ -854,7 +845,7 @@ macro_rules! program_dispatch {
         #[doc(hidden)]
         fn __hopper_process_instruction(
             program_id: &$crate::__runtime::Address,
-            accounts: &[$crate::__runtime::AccountView],
+            accounts: &[$crate::__runtime::AccountView<'_>],
             instruction_data: &[u8],
         ) -> ::core::result::Result<(), $crate::__runtime::ProgramError> {
             let mut ctx = $crate::prelude::Context::new(program_id, accounts, instruction_data);
@@ -898,9 +889,7 @@ pub mod __runtime {
 
     // `#[hopper::state]` and `#[hopper::pod]` emit bytemuck-backed
     // proofs through this path so user code never needs a direct
-    // bytemuck dependency. Gated on the native backend because that's
-    // where the bytemuck re-export lives.
-    #[cfg(feature = "hopper-native-backend")]
+    // bytemuck dependency.
     pub use hopper_runtime::__hopper_native;
 
     // Audit final-API Step 5 seal. Doc-hidden re-export of the

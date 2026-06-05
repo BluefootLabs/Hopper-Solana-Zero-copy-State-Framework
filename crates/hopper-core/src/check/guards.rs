@@ -13,7 +13,7 @@ use hopper_runtime::{AccountAudit, AccountView, Address, ProgramResult};
 
 /// Validate a payer account: must be signer + writable.
 #[inline(always)]
-pub fn require_payer(account: &AccountView) -> ProgramResult {
+pub fn require_payer(account: &AccountView<'_>) -> ProgramResult {
     if !account.is_signer() {
         return Err(ProgramError::MissingRequiredSignature);
     }
@@ -25,7 +25,7 @@ pub fn require_payer(account: &AccountView) -> ProgramResult {
 
 /// Validate an authority account: must be signer, owned by expected program.
 #[inline(always)]
-pub fn require_authority(account: &AccountView, stored_authority: &[u8; 32]) -> ProgramResult {
+pub fn require_authority(account: &AccountView<'_>, stored_authority: &[u8; 32]) -> ProgramResult {
     if !account.is_signer() {
         return Err(ProgramError::MissingRequiredSignature);
     }
@@ -42,7 +42,7 @@ pub fn require_authority(account: &AccountView, stored_authority: &[u8; 32]) -> 
 
 /// Validate a writable program-owned account.
 #[inline(always)]
-pub fn require_owned_writable(account: &AccountView, program_id: &Address) -> ProgramResult {
+pub fn require_owned_writable(account: &AccountView<'_>, program_id: &Address) -> ProgramResult {
     if !account.owned_by(program_id) {
         return Err(ProgramError::IncorrectProgramId);
     }
@@ -56,22 +56,22 @@ pub fn require_owned_writable(account: &AccountView, program_id: &Address) -> Pr
 
 /// Verify that all accounts in a slice have unique addresses.
 ///
-/// O(n²) but n is small (typically < 16). Prevents double-spend and
+/// O(n^2) but n is small (typically < 16). Prevents double-spend and
 /// confused-deputy attacks from duplicate account passing.
 #[inline]
-pub fn require_all_unique(accounts: &[AccountView]) -> ProgramResult {
+pub fn require_all_unique(accounts: &[AccountView<'_>]) -> ProgramResult {
     AccountAudit::new(accounts).require_all_unique()
 }
 
 /// Verify that no duplicated account is writable.
 #[inline]
-pub fn require_unique_writable(accounts: &[AccountView]) -> ProgramResult {
+pub fn require_unique_writable(accounts: &[AccountView<'_>]) -> ProgramResult {
     AccountAudit::new(accounts).require_unique_writable()
 }
 
 /// Verify that no duplicated account is used as a signer.
 #[inline]
-pub fn require_unique_signers(accounts: &[AccountView]) -> ProgramResult {
+pub fn require_unique_signers(accounts: &[AccountView<'_>]) -> ProgramResult {
     AccountAudit::new(accounts).require_unique_signers()
 }
 
@@ -82,7 +82,7 @@ pub fn require_unique_signers(accounts: &[AccountView]) -> ProgramResult {
 /// Call with pre-mutation snapshots of lamport values and the current
 /// account views. Detects lamport creation/destruction bugs.
 #[inline]
-pub fn check_lamport_conservation(accounts: &[AccountView], pre_lamports: &[u64]) -> ProgramResult {
+pub fn check_lamport_conservation(accounts: &[AccountView<'_>], pre_lamports: &[u64]) -> ProgramResult {
     if accounts.len() != pre_lamports.len() {
         return Err(ProgramError::InvalidArgument);
     }
@@ -110,7 +110,7 @@ pub fn check_lamport_conservation(accounts: &[AccountView], pre_lamports: &[u64]
 /// `N` must match the number of accounts tracked.
 #[inline]
 pub fn snapshot_lamports<const N: usize>(
-    accounts: &[AccountView],
+    accounts: &[AccountView<'_>],
 ) -> Result<[u64; N], ProgramError> {
     if accounts.len() < N {
         return Err(ProgramError::NotEnoughAccountKeys);
@@ -132,7 +132,7 @@ pub fn snapshot_lamports<const N: usize>(
 /// Prevents fee-drain attacks where an attacker passes a writable
 /// account they don't own, hoping the program modifies it.
 #[inline]
-pub fn check_writable_coherence(accounts: &[AccountView], program_id: &Address) -> ProgramResult {
+pub fn check_writable_coherence(accounts: &[AccountView<'_>], program_id: &Address) -> ProgramResult {
     let mut i = 0;
     while i < accounts.len() {
         if accounts[i].is_writable()

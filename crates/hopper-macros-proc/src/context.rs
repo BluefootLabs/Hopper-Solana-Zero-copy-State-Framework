@@ -12,7 +12,7 @@
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use syn::{
-    parse::{Parse, ParseStream},
+    parse::{Parse, ParseStream, Parser},
     parse2,
     punctuated::Punctuated,
     token::Comma,
@@ -42,17 +42,14 @@ struct AccountAttr {
     /// Requires `payer` and `space`; implies `mut`. PDA-init also
     /// requires `seeds` + `bump`.
     init: bool,
-    /// `init_if_needed`. Anchor-parity sibling of `init`. When the
-    /// account is already allocated (data_len > 0 with a Hopper
-    /// header in place) the lifecycle helper returns `Ok(())` without
-    /// invoking the system-program CreateAccount CPI. When the
-    /// account is empty, it falls through to the same init path as
-    /// `init`. Requires the same fields as `init` (`payer`, `space`,
-    /// optional `seeds`/`bump`). Callers must still validate the
-    /// existing layout separately - `init_if_needed` guarantees the
-    /// account exists and was sized at creation time, not that its
-    /// current contents match a specific layout.
+    /// `init_if_needed`. Anchor-parity sibling of `init`. Empty account slots
+    /// are allowed through binding so the handler can create them with the
+    /// generated lifecycle helper. Nonempty slots are owner-checked and
+    /// layout-checked during binding before the handler receives a typed
+    /// account wrapper.
     init_if_needed: bool,
+    /// Per-field opt-in for bind-time lifecycle execution.
+    auto_lifecycle: bool,
     /// `zero`. assert the account was previously zero-initialized.
     /// Cheaper than `init` for already-allocated accounts.
     zero: bool,
@@ -325,12 +322,75 @@ struct InstructionArgDecl {
 }
 
 impl Parse for InstructionArgDecl {
-    fn parse(input: ParseStream) -> Result<Self> {
+    fn parse(input: ParseStream<'_>) -> Result<Self> {
         let name: Ident = input.parse()?;
         let _: Token![:] = input.parse()?;
         let ty: Type = input.parse()?;
         Ok(Self { name, ty })
     }
+}
+
+#[derive(Default)]
+struct ContextOptions {
+    /// Opt-in Anchor-like lifecycle execution. When true, bind runs generated
+    /// init/realloc/close helpers in field declaration order after built-in
+    /// validation and before returning the bound context.
+    auto_lifecycle: bool,
+}
+
+fn parse_context_options(attr: TokenStream, attrs: &mut Vec<Attribute>) -> Result<ContextOptions> {
+    let mut options = ContextOptions::default();
+
+    if !attr.is_empty() {
+        let parsed: Punctuated<Ident, Comma> =
+            Punctuated::<Ident, Comma>::parse_terminated.parse2(attr)?;
+        for ident in parsed {
+            if ident == "auto_lifecycle" {
+                options.auto_lifecycle = true;
+            } else {
+                return Err(syn::Error::new_spanned(
+                    ident,
+                    "unknown Hopper context option; supported: `auto_lifecycle`",
+                ));
+            }
+        }
+    }
+
+    let mut retained = Vec::with_capacity(attrs.len());
+    for attr in attrs.drain(..) {
+        if attr.path().is_ident("accounts") {
+            attr.parse_nested_meta(|meta| {
+                if meta.path.is_ident("auto_lifecycle") {
+                    options.auto_lifecycle = true;
+                    Ok(())
+                } else {
+                    Err(meta.error("unknown #[accounts(...)] option; supported: auto_lifecycle"))
+                }
+            })?;
+            continue;
+        }
+
+        if attr.path().is_ident("account") {
+            let mut only_context_options = true;
+            attr.parse_nested_meta(|meta| {
+                if meta.path.is_ident("auto_lifecycle") {
+                    options.auto_lifecycle = true;
+                    Ok(())
+                } else {
+                    only_context_options = false;
+                    Ok(())
+                }
+            })?;
+            if only_context_options {
+                continue;
+            }
+        }
+
+        retained.push(attr);
+    }
+    *attrs = retained;
+
+    Ok(options)
 }
 
 /// Scan a struct's outer attribute list for `#[instruction(...)]`,
@@ -384,8 +444,8 @@ fn parse_instruction_attr(attrs: &mut Vec<Attribute>) -> Result<Vec<InstructionA
 /// Backward-compatible wrapper around [`expand_inner`]; emits the original
 /// struct definition, since attribute macros are responsible for the
 /// passthrough.
-pub fn expand(_attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
-    expand_inner(item, /* emit_struct */ true)
+pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
+    expand_inner(attr, item, /* emit_struct */ true)
 }
 
 /// Public entry point for the `#[derive(Accounts)]` proc-macro derive.
@@ -399,11 +459,12 @@ pub fn expand(_attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
 /// compiler's "unknown attribute" check; the helpers are dropped from the
 /// final compilation unit by `rustc` once all derives have run.
 pub fn expand_for_derive(item: TokenStream) -> Result<TokenStream> {
-    expand_inner(item, /* emit_struct */ false)
+    expand_inner(TokenStream::new(), item, /* emit_struct */ false)
 }
 
-fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
+fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
     let mut input: ItemStruct = parse2(item)?;
+    let context_options = parse_context_options(attr, &mut input.attrs)?;
 
     // ── Instruction-arg typing (audit Stage 2.6) ──────────────────────
     //
@@ -753,11 +814,40 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
 
         // For `init` accounts the account hasn't been created yet, so we
         // skip the owner+load step. the `init_{field}()` lifecycle
-        // helper will allocate and write the header later. Other cases
+        // helper will allocate and write the header later. `init_if_needed`
+        // is conditional: empty slots are allowed through binding for
+        // creation, while nonempty slots are owner-checked and layout-checked
+        // before the handler receives a typed wrapper. Other cases
         // (including `zero`) assume the account already exists. The same
         // reasoning applies when the field is typed as `InitAccount<T>`.
         let is_init_field = cf.attr.init || wrapper_is_init;
-        if has_layout && !is_init_field {
+        if has_layout && cf.attr.init_if_needed && !is_init_field {
+            let field_ty = layout_ty.as_ref().unwrap_or(&cf.ty);
+            let owner_check = if let Some(expr) = &owner_expr {
+                quote! {
+                    __hopper_account.check_owned_by(&(#expr))?;
+                }
+            } else {
+                quote! {
+                    __hopper_account.check_owned_by(ctx.program_id())?;
+                }
+            };
+            field_checks.push(quote! {
+                let __hopper_account = ctx.account(#idx)?;
+                if __hopper_account.data_len() > 0 {
+                    #owner_check
+                    let _ = __hopper_account.load::<#field_ty>()?;
+                }
+            });
+            check_descriptions.push(format!(
+                "accounts[{}] ({}) may be empty for init_if_needed; if nonempty, owner matches and {} header is valid",
+                idx,
+                field_name,
+                type_ident(field_ty)
+                    .map(|i| i.to_string())
+                    .unwrap_or_default()
+            ));
+        } else if has_layout && !is_init_field {
             let field_ty = layout_ty.as_ref().unwrap_or(&cf.ty);
             let owner_check = if let Some(expr) = &owner_expr {
                 quote! {
@@ -945,16 +1035,23 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
         // methods on the bound context. The payer/space/target
         // existence checks are cheap and catch malformed Context
         // wiring up-front.
-        if cf.attr.init {
+        if cf.attr.init || cf.attr.init_if_needed {
             // Precondition: the account must be writable and, once the
-            // lifecycle helper runs, owned by this program. The
-            // helper itself handles CPI + header write.
+            // lifecycle helper runs for an empty slot, owned by this
+            // program. The helper itself handles CPI + header write.
+            // For `init_if_needed`, nonempty slots have already taken
+            // the owner+layout validation path above.
             field_checks.push(quote! {
                 ctx.account(#idx)?.check_writable()?;
             });
+            let lifecycle = if cf.attr.init_if_needed {
+                "init_if_needed"
+            } else {
+                "init"
+            };
             check_descriptions.push(format!(
-                "accounts[{}] ({}) must be writable (init precondition)",
-                idx, field_name
+                "accounts[{}] ({}) must be writable ({} precondition)",
+                idx, field_name, lifecycle
             ));
         }
         if cf.attr.realloc.is_some() {
@@ -1599,7 +1696,7 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
             #vis fn #account_fn(
                 &self,
             ) -> ::core::result::Result<
-                &::hopper::prelude::AccountView,
+                &::hopper::prelude::AccountView<'_>,
                 ::hopper::__runtime::ProgramError,
             > {
                 self.ctx.account(#idx)
@@ -2101,7 +2198,7 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
                 #vis fn #close_fn(&self) -> ::core::result::Result<(), ::hopper::__runtime::ProgramError> {
                     let account = self.ctx.account(#idx)?;
                     let destination = self.ctx.account(#close_target_idx)?;
-                    ::hopper::hopper_close!(account, destination)
+                    ::hopper::hopper_close!(account, destination, self.ctx.program_id())
                 }
             });
         }
@@ -2141,10 +2238,12 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
                     let account = self.ctx.account(#idx)?;
                     let new_len: usize = (#realloc_expr) as usize;
                     let old_len = account.data_len() as usize;
-                    ::hopper::__runtime::__hopper_native::batch::realloc_checked(
+                    let payer = #payer_path.ok_or(::hopper::__runtime::ProgramError::InvalidArgument)?;
+                    ::hopper::hopper_core::account::safe_realloc(
                         account,
                         new_len,
-                        #payer_path,
+                        payer,
+                        self.ctx.program_id(),
                     )?;
                     if #zero && new_len > old_len {
                         let mut data = account.try_borrow_mut()?;
@@ -2275,6 +2374,8 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
             let has_one_lits: Vec<String> = cf.attr.has_one.iter().map(|i| i.to_string()).collect();
             let lifecycle_path = if cf.attr.init {
                 quote! { ::hopper::hopper_schema::accounts::AccountLifecycle::Init }
+            } else if cf.attr.init_if_needed {
+                quote! { ::hopper::hopper_schema::accounts::AccountLifecycle::InitIfNeeded }
             } else if cf.attr.realloc.is_some() {
                 quote! { ::hopper::hopper_schema::accounts::AccountLifecycle::Realloc }
             } else if cf.attr.close.is_some() {
@@ -2401,6 +2502,32 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
         .map(|(ident, _)| {
             let s = ident.to_string();
             quote! { #s }
+        })
+        .collect();
+
+    let auto_lifecycle_stmts: Vec<TokenStream> = ctx_fields
+        .iter()
+        .flat_map(|cf| {
+            let should_auto = context_options.auto_lifecycle || cf.attr.auto_lifecycle;
+            if !should_auto {
+                return Vec::new();
+            }
+
+            let field_name = &cf.name;
+            let mut calls = Vec::new();
+            if cf.attr.init || cf.attr.init_if_needed {
+                let init_fn = format_ident!("init_{}", field_name);
+                calls.push(quote! { __hopper_bound.#init_fn()?; });
+            }
+            if cf.attr.realloc.is_some() {
+                let realloc_fn = format_ident!("realloc_{}", field_name);
+                calls.push(quote! { __hopper_bound.#realloc_fn()?; });
+            }
+            if cf.attr.close.is_some() {
+                let close_fn = format_ident!("close_{}", field_name);
+                calls.push(quote! { __hopper_bound.#close_fn()?; });
+            }
+            calls
         })
         .collect();
 
@@ -2577,13 +2704,14 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
                     #accounts_bound_field
                     bumps: __hopper_bumps,
                 };
+                #(#auto_lifecycle_stmts)*
                 #user_validate_call
                 Ok(__hopper_bound)
             }
 
             #[inline]
             pub fn begin_receipt_scope<const SNAP: usize>(
-                ctx: &::hopper::prelude::Context<'_>,
+                ctx: &::hopper::prelude::ScopedContext<'_, '_>,
             ) -> ::core::result::Result<#receipt_scope_name<SNAP>, ::hopper::__runtime::ProgramError> {
                 Ok(#receipt_scope_name {
                     #(#receipt_begin_inits),*
@@ -2603,7 +2731,7 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
             #[inline]
             #vis fn finish(
                 mut self,
-                ctx: &::hopper::prelude::Context<'_>,
+                ctx: &::hopper::prelude::ScopedContext<'_, '_>,
                 invariants_passed: bool,
                 invariants_checked: u16,
                 failure: ::core::option::Option<(
@@ -2618,8 +2746,27 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
         }
 
         impl<'ctx, 'a> #bound_name<'ctx, 'a> {
+            /// Borrow-scoped access to the underlying raw Hopper context.
+            ///
+            /// Account references returned through this value are tied to the
+            /// borrow of the generated context, not to the raw instruction
+            /// lifetime. Use `raw_unchecked()` only when an audited escape
+            /// from that restriction is required.
             #[inline(always)]
-            #vis fn raw(&mut self) -> &mut ::hopper::prelude::Context<'a> {
+            #vis fn raw(&mut self) -> ::hopper::prelude::ScopedContext<'_, 'a> {
+                ::hopper::prelude::ScopedContext::new(self.ctx)
+            }
+
+            /// Direct access to the underlying raw Hopper context.
+            ///
+            /// # Safety
+            ///
+            /// Returning `&mut Context<'a>` exposes methods whose account
+            /// references are parameterized by the raw instruction lifetime.
+            /// Callers must not return, store, or otherwise leak those
+            /// references beyond the generated context/instruction scope.
+            #[inline(always)]
+            #vis unsafe fn raw_unchecked(&mut self) -> &mut ::hopper::prelude::Context<'a> {
                 self.ctx
             }
 
@@ -2657,7 +2804,7 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
                 &self,
                 index: usize,
             ) -> ::core::result::Result<
-                &::hopper::prelude::AccountView,
+                &::hopper::prelude::AccountView<'_>,
                 ::hopper::__runtime::ProgramError,
             > {
                 self.ctx.account(index)
@@ -2668,7 +2815,7 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
                 &self,
                 index: usize,
             ) -> ::core::result::Result<
-                &::hopper::prelude::AccountView,
+                &::hopper::prelude::AccountView<'_>,
                 ::hopper::__runtime::ProgramError,
             > {
                 self.ctx.account_mut(index)
@@ -2696,7 +2843,14 @@ fn expand_inner(item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
             }
 
             #[inline(always)]
-            #vis fn remaining_accounts_raw(&self) -> &[::hopper::prelude::AccountView] {
+            #vis fn remaining_lazy(
+                &self,
+            ) -> ::hopper::hopper_runtime::remaining::RemainingLazy<'_> {
+                self.ctx.remaining_accounts_lazy(#account_count)
+            }
+
+            #[inline(always)]
+            #vis fn remaining_accounts_raw(&self) -> &[::hopper::prelude::AccountView<'_>] {
                 self.ctx.remaining_accounts(#account_count)
             }
 
@@ -3099,6 +3253,10 @@ fn parse_account_attr(attrs: &[Attribute]) -> Result<AccountAttr> {
                     // lifecycle-helper bodies.
                     result.init_if_needed = true;
                     result.is_mut = true;
+                    Ok(())
+                }
+                "auto" | "auto_lifecycle" => {
+                    result.auto_lifecycle = true;
                     Ok(())
                 }
                 "zero" => {
@@ -3902,6 +4060,106 @@ mod instruction_arg_tests {
         assert!(
             call_tail.contains("AuditState :: ALLOC_SPACE"),
             "init helper must pass the explicit `space =` expression into hopper_init!: {s}"
+        );
+    }
+
+    #[test]
+    fn context_auto_lifecycle_bind_calls_helpers_in_declaration_order() {
+        let item: TokenStream = quote! {
+            #[derive(Accounts)]
+            #[accounts(auto_lifecycle)]
+            pub struct Lifecycle<'info> {
+                #[account(mut)]
+                pub payer: Signer<'info>,
+
+                #[account(init, payer = payer, space = FirstState::INIT_SPACE)]
+                pub first: InitAccount<'info, FirstState>,
+
+                #[account(realloc = SecondState::NEW_LEN, realloc_payer = payer, realloc_zero = true)]
+                pub second: Account<'info, SecondState>,
+
+                #[account(close = payer)]
+                pub third: Account<'info, ThirdState>,
+
+                pub system_program: Program<'info, System>,
+            }
+        };
+
+        let derived = expand_for_derive(item).expect("derive expand ok");
+        let s = derived.to_string();
+        let init_idx = s
+            .find("__hopper_bound . init_first")
+            .expect("auto lifecycle should call init_first in bind");
+        let realloc_idx = s
+            .find("__hopper_bound . realloc_second")
+            .expect("auto lifecycle should call realloc_second in bind");
+        let close_idx = s
+            .find("__hopper_bound . close_third")
+            .expect("auto lifecycle should call close_third in bind");
+        assert!(
+            init_idx < realloc_idx && realloc_idx < close_idx,
+            "auto lifecycle calls must follow field declaration order: {s}"
+        );
+    }
+
+    #[test]
+    fn field_auto_lifecycle_keeps_other_fields_explicit() {
+        let item: TokenStream = quote! {
+            #[derive(Accounts)]
+            pub struct Mixed<'info> {
+                #[account(mut)]
+                pub payer: Signer<'info>,
+
+                #[account(init, payer = payer, space = AutoState::INIT_SPACE, auto)]
+                pub auto_state: InitAccount<'info, AutoState>,
+
+                #[account(init, payer = payer, space = ExplicitState::INIT_SPACE)]
+                pub explicit_state: InitAccount<'info, ExplicitState>,
+
+                pub system_program: Program<'info, System>,
+            }
+        };
+
+        let derived = expand_for_derive(item).expect("derive expand ok");
+        let s = derived.to_string();
+        assert!(
+            s.contains("__hopper_bound . init_auto_state"),
+            "field-level auto should call only the opted-in lifecycle helper: {s}"
+        );
+        assert!(
+            !s.contains("__hopper_bound . init_explicit_state"),
+            "non-auto field must stay explicit by default: {s}"
+        );
+    }
+
+    #[test]
+    fn init_if_needed_allows_empty_but_validates_nonempty_layout_before_binding() {
+        let item: TokenStream = quote! {
+            #[derive(Accounts)]
+            pub struct Upsert<'info> {
+                #[account(mut)]
+                pub payer: Signer<'info>,
+
+                #[account(init_if_needed, payer = payer, space = AuditState::ALLOC_SPACE)]
+                pub state: Account<'info, AuditState>,
+
+                pub system_program: Program<'info, System>,
+            }
+        };
+
+        let derived = expand_for_derive(item).expect("derive expand ok");
+        let s = derived.to_string();
+        assert!(
+            s.contains("if __hopper_account . data_len () > 0"),
+            "init_if_needed validation must branch on the existing data length: {s}"
+        );
+        assert!(
+            s.contains("__hopper_account . load :: < AuditState > ()"),
+            "nonempty init_if_needed accounts must be layout-checked before binding: {s}"
+        );
+        assert!(
+            s.contains("Account :: new_unchecked"),
+            "validated init_if_needed Account wrapper should still bind through the generated facade: {s}"
         );
     }
 

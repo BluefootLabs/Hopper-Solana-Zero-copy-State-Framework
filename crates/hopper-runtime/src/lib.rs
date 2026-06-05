@@ -11,30 +11,6 @@
 #[cfg(test)]
 extern crate std;
 
-#[cfg(feature = "solana-program-backend")]
-extern crate alloc;
-
-#[cfg(any(
-    all(feature = "hopper-native-backend", feature = "legacy-pinocchio-compat"),
-    all(feature = "hopper-native-backend", feature = "solana-program-backend"),
-    all(
-        feature = "legacy-pinocchio-compat",
-        feature = "solana-program-backend"
-    ),
-))]
-compile_error!(
-    "Only one backend feature may be enabled at a time: hopper-native-backend, legacy-pinocchio-compat, or solana-program-backend"
-);
-
-#[cfg(not(any(
-    feature = "hopper-native-backend",
-    feature = "legacy-pinocchio-compat",
-    feature = "solana-program-backend",
-)))]
-compile_error!(
-    "At least one backend feature must be enabled: hopper-native-backend, legacy-pinocchio-compat, or solana-program-backend"
-);
-
 #[doc(hidden)]
 pub mod compat;
 
@@ -98,7 +74,7 @@ pub use address::Address;
 pub use audit::{AccountAudit, DuplicateAccount};
 pub use borrow::{Ref, RefMut};
 pub use compute::{check_compute_units, remaining_compute_units, require_compute_units};
-pub use context::Context;
+pub use context::{Context, ScopedContext};
 pub use cpi::{invoke, invoke_checked, invoke_signed, invoke_signed_checked};
 #[cfg(feature = "crypto-big-mod-exp")]
 pub use crypto::big_mod_exp;
@@ -118,7 +94,11 @@ pub use crypto::{curve_group_add, curve_group_mul, curve_group_sub, curve_multis
 pub use crypto::{poseidon_bn254_x5, poseidon_hash, poseidon_hashv};
 pub use error::ProgramError;
 pub use field_map::{FieldInfo, FieldMap};
-pub use foreign::{ExternalAccount, ExternalZeroCopy, ForeignLens, ForeignManifest};
+pub use foreign::{
+    ExplainExternal, ExternalAccount, ExternalBytes, ExternalChecked, ExternalExplainSink,
+    ExternalLens, ExternalLensValue, ExternalProof, ExternalResolve, ExternalZeroCopy, ForeignLens,
+    ForeignManifest,
+};
 pub use interop::TransparentAddress;
 pub use migrate::{apply_pending_migrations, LayoutMigration, MigrationEdge};
 pub use policy::{HopperInstructionPolicy, HopperProgramPolicy, HopperProgramProfile};
@@ -128,7 +108,8 @@ pub use proof::{
 };
 pub use ref_only::HopperRefOnly;
 pub use remaining::{
-    RemainingAccountViews, RemainingAccounts, RemainingError, RemainingMode, RemainingSigners,
+    RemainingAccountViews, RemainingAccounts, RemainingError, RemainingExternalAccounts,
+    RemainingGroup, RemainingLazy, RemainingLazySlot, RemainingMode, RemainingSigners,
     RemainingTyped, MAX_REMAINING_ACCOUNTS,
 };
 pub use return_data::{get_return_data, set_return_data, try_set_return_data, ReturnData};
@@ -168,7 +149,6 @@ macro_rules! layout_migrations {
         }
     };
 }
-#[cfg(feature = "hopper-native-backend")]
 pub use instruction::CpiAccount;
 pub use instruction::{
     InstructionAccount, InstructionView, Seed, Signer, StoredAccountMeta, StoredInstruction,
@@ -188,13 +168,8 @@ pub use zerocopy::{AccountLayout, WireLayout, ZeroCopy};
 pub const MAX_TX_ACCOUNTS: usize = compat::BACKEND_MAX_TX_ACCOUNTS;
 pub const SUCCESS: u64 = compat::BACKEND_SUCCESS;
 
-#[cfg(feature = "hopper-native-backend")]
 #[doc(hidden)]
 pub use hopper_native as __hopper_native;
-
-#[cfg(feature = "solana-program-backend")]
-#[doc(hidden)]
-pub use ::solana_program as __solana_program;
 
 #[doc(hidden)]
 pub use five8_const as __five8_const;
@@ -572,22 +547,20 @@ macro_rules! hopper_log {
 
 /// Declare the explicit Hopper runtime entrypoint bridge.
 ///
-/// With `hopper-native-backend`, this is a thin alias to Hopper Native's raw
-/// entrypoint macro. With compatibility backends, it delegates to `compat/`.
+/// This is Hopper's direct runtime entrypoint over Solana account memory.
 #[macro_export]
 macro_rules! hopper_entrypoint {
     ( $process_instruction:expr ) => {
         $crate::hopper_entrypoint!($process_instruction, { $crate::MAX_TX_ACCOUNTS });
     };
     ( $process_instruction:expr, $maximum:expr ) => {
-        #[cfg(feature = "hopper-native-backend")]
         /// # Safety
         ///
         /// Called by the Solana runtime; `input` is a valid BPF input buffer.
         #[no_mangle]
         pub unsafe extern "C" fn entrypoint(input: *mut u8) -> u64 {
-            const UNINIT: core::mem::MaybeUninit<$crate::__hopper_native::AccountView> =
-                core::mem::MaybeUninit::<$crate::__hopper_native::AccountView>::uninit();
+            const UNINIT: core::mem::MaybeUninit<$crate::__hopper_native::AccountView<'static>> =
+                core::mem::MaybeUninit::<$crate::__hopper_native::AccountView<'static>>::uninit();
             let mut accounts = [UNINIT; $maximum];
 
             // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
@@ -604,7 +577,7 @@ macro_rules! hopper_entrypoint {
             };
             // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             let hopper_accounts = unsafe {
-                core::slice::from_raw_parts(accounts.as_ptr() as *const $crate::AccountView, count)
+                core::slice::from_raw_parts(accounts.as_ptr() as *const $crate::AccountView<'_>, count)
             };
 
             match $process_instruction(hopper_program_id, hopper_accounts, instruction_data) {
@@ -612,12 +585,6 @@ macro_rules! hopper_entrypoint {
                 Err(error) => error.into(),
             }
         }
-
-        #[cfg(any(
-            feature = "legacy-pinocchio-compat",
-            feature = "solana-program-backend"
-        ))]
-        $crate::__hopper_compat_entrypoint!($process_instruction, $maximum);
     };
 }
 
@@ -643,7 +610,6 @@ macro_rules! hopper_fast_entrypoint {
         $crate::hopper_fast_entrypoint!($process_instruction, { $crate::MAX_TX_ACCOUNTS });
     };
     ( $process_instruction:expr, $maximum:expr ) => {
-        #[cfg(feature = "hopper-native-backend")]
         /// # Safety
         ///
         /// Called by the Solana runtime; `input` is a valid BPF input buffer
@@ -688,12 +654,6 @@ macro_rules! hopper_fast_entrypoint {
                 Err(error) => error.into(),
             }
         }
-
-        #[cfg(any(
-            feature = "legacy-pinocchio-compat",
-            feature = "solana-program-backend"
-        ))]
-        compile_error!("hopper_fast_entrypoint! requires hopper-native-backend");
     };
 }
 
@@ -712,14 +672,7 @@ macro_rules! fast_entrypoint {
 #[macro_export]
 macro_rules! hopper_lazy_entrypoint {
     ( $process:expr ) => {
-        #[cfg(feature = "hopper-native-backend")]
         $crate::__hopper_native::hopper_lazy_entrypoint!($process);
-
-        #[cfg(any(
-            feature = "legacy-pinocchio-compat",
-            feature = "solana-program-backend"
-        ))]
-        compile_error!("hopper_lazy_entrypoint! requires hopper-native-backend");
     };
 }
 

@@ -16,7 +16,7 @@ categories = ["command-line-utilities"]
 name = "hopper_manager"
 
 [dependencies]
-hopper-schema = { workspace = true, features = ["hopper-native-backend", "receipt", "policy"] }
+hopper-schema = { workspace = true, features = ["receipt", "policy"] }
 
 [lints]
 workspace = true

@@ -82,10 +82,10 @@ pub struct RawInstructionFrame {
 ///
 /// `input` must point to a valid Solana BPF input buffer.
 #[inline(always)]
-pub unsafe fn deserialize_accounts<const MAX: usize>(
+pub unsafe fn deserialize_accounts<'info, const MAX: usize>(
     input: *mut u8,
-    accounts: &mut [MaybeUninit<AccountView>; MAX],
-) -> (Address, usize, &'static [u8]) {
+    accounts: &mut [MaybeUninit<AccountView<'info>>; MAX],
+) -> (Address, usize, &'info [u8]) {
     // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     let frame = unsafe { scan_instruction_frame(input) };
 
@@ -173,12 +173,12 @@ pub unsafe fn deserialize_accounts<const MAX: usize>(
 ///   `u64` at offset `-8`.
 /// * `program_id` must be the correct program id for this invocation.
 #[inline(always)]
-pub unsafe fn deserialize_accounts_fast<const MAX: usize>(
+pub unsafe fn deserialize_accounts_fast<'info, const MAX: usize>(
     input: *mut u8,
-    accounts: &mut [MaybeUninit<AccountView>; MAX],
-    instruction_data: &'static [u8],
+    accounts: &mut [MaybeUninit<AccountView<'info>>; MAX],
+    instruction_data: &'info [u8],
     program_id: Address,
-) -> (Address, usize, &'static [u8]) {
+) -> (Address, usize, &'info [u8]) {
     // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     let num_accounts = unsafe { *(input as *const u64) as usize };
     let count = num_accounts.min(MAX);

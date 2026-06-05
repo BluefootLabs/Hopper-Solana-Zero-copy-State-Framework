@@ -4,7 +4,7 @@ version = "0.2.1"
 edition = "2021"
 license = "Apache-2.0"
 authors = ["BluefootLabs <contact@bluefootlabs.com>", "MoonManQuark"]
-description = "Canonical low-level runtime surface for Hopper. Hopper Native is the primary backend; legacy Pinocchio and solana-program compatibility are explicit opt-ins."
+description = "Canonical low-level runtime surface for Hopper programs: direct account memory, validation, borrow guards, CPI, and zero-copy state access."
 repository = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework"
 homepage = "https://hopperzero.dev"
 documentation = "https://docs.rs/crate/hopper-runtime/0.2.1"
@@ -16,11 +16,14 @@ categories = ["no-std", "embedded"]
 name = "hopper_runtime"
 
 [features]
-default = ["hopper-native-backend"]
+default = []
 
-hopper-native-backend = ["hopper-native", "hopper-native/cpi", "hopper-native/bytemuck", "dep:bytemuck"]
-legacy-pinocchio-compat = ["pinocchio", "pinocchio/account-resize", "pinocchio-system", "pinocchio-token"]
-solana-program-backend = ["solana-program"]
+# Compatibility aliases retained so downstream crates do not need an immediate
+# Cargo.toml migration. They no longer select alternate backends: Hopper Runtime
+# has one production account-memory path.
+hopper-native-backend = []
+legacy-pinocchio-compat = []
+solana-program-backend = []
 
 cu-trace = ["hopper-native/cu-trace"]
 cpi = []
@@ -32,19 +35,13 @@ crypto-bn254 = []
 crypto-big-mod-exp = []
 
 [dependencies]
-hopper-native = { workspace = true, optional = true, default-features = false }
+hopper-native = { workspace = true, default-features = false, features = ["cpi", "bytemuck"] }
 five8_const = { workspace = true }
 # bytemuck is brought in transitively via hopper-native when the
 # native backend is active, but we also need direct access here to
 # emit `unsafe impl bytemuck::Pod` on runtime-owned types like
 # `Address`. `default-features = false` keeps this no_std-friendly.
-bytemuck = { version = "1", default-features = false, optional = true }
-
-pinocchio = { workspace = true, optional = true }
-pinocchio-system = { workspace = true, optional = true }
-pinocchio-token = { workspace = true, optional = true }
-
-solana-program = { version = "2", optional = true, default-features = false }
+bytemuck = { version = "1", default-features = false }
 
 [lints]
 workspace = true

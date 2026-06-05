@@ -11,13 +11,13 @@ use hopper_runtime::{AccountView, Address};
 /// what to do (e.g. conditional logic based on owner or data).
 #[derive(Clone, Copy)]
 pub struct UncheckedAccount<'a> {
-    view: &'a AccountView,
+    view: &'a AccountView<'a>,
 }
 
 impl<'a> UncheckedAccount<'a> {
     /// Wrap an account without validation.
     #[inline(always)]
-    pub fn new(account: &'a AccountView) -> Self {
+    pub fn new(account: &'a AccountView<'a>) -> Self {
         Self { view: account }
     }
 
@@ -29,7 +29,7 @@ impl<'a> UncheckedAccount<'a> {
 
     /// The underlying AccountView.
     #[inline(always)]
-    pub fn to_account_view(&self) -> &'a AccountView {
+    pub fn to_account_view(&self) -> &'a AccountView<'a> {
         self.view
     }
 

@@ -62,8 +62,8 @@ impl Template {
     /// Cargo features to enable on the `hopper` dependency for this template.
     fn cargo_features(&self) -> &'static str {
         match self {
-            Template::NftMint => "\"hopper-native-backend\", \"proc-macros\", \"metaplex\"",
-            _ => "\"hopper-native-backend\", \"proc-macros\"",
+            Template::NftMint => "\"proc-macros\", \"metaplex\"",
+            _ => "\"proc-macros\"",
         }
     }
 }
@@ -1101,10 +1101,8 @@ use hopper::prelude::*;
 
 #[cfg(target_os = "solana")]
 mod __hopper_sbf {
-    #[cfg(not(feature = "solana-program-backend"))]
     hopper::no_allocator!();
 
-    #[cfg(not(feature = "solana-program-backend"))]
     hopper::nostd_panic_handler!();
 }
 
@@ -1171,10 +1169,8 @@ use hopper::systems::{init_header, HopperHeader};
 
 #[cfg(target_os = "solana")]
 mod __hopper_sbf {
-    #[cfg(not(feature = "solana-program-backend"))]
     hopper::no_allocator!();
 
-    #[cfg(not(feature = "solana-program-backend"))]
     hopper::nostd_panic_handler!();
 }
 
@@ -1326,7 +1322,6 @@ use hopper::prelude::*;
 #[cfg(target_os = "solana")]
 mod __hopper_sbf {
     hopper::no_allocator!();
-    #[cfg(not(feature = "solana-program-backend"))]
     hopper::nostd_panic_handler!();
 }
 
@@ -1411,7 +1406,6 @@ use hopper::hopper_token_2022::check_safe_token_2022_mint;
 #[cfg(target_os = "solana")]
 mod __hopper_sbf {
     hopper::no_allocator!();
-    #[cfg(not(feature = "solana-program-backend"))]
     hopper::nostd_panic_handler!();
 }
 
@@ -1559,7 +1553,6 @@ use hopper::prelude::*;
 #[cfg(target_os = "solana")]
 mod __hopper_sbf {
     hopper::no_allocator!();
-    #[cfg(not(feature = "solana-program-backend"))]
     hopper::nostd_panic_handler!();
 }
 
@@ -1730,7 +1723,7 @@ mod tests {
         let dep = render_hopper_dependency(Some("../hopper"), Template::Minimal);
         assert!(dep.contains("path"));
         assert!(dep.contains("default-features = false"));
-        assert!(dep.contains("hopper-native-backend"));
+        assert!(!dep.contains("hopper-native-backend"));
 
         // The NFT template adds the `metaplex` feature.
         let dep_nft = render_hopper_dependency(Some("../hopper"), Template::NftMint);
@@ -1743,7 +1736,7 @@ mod tests {
         assert!(dep.contains("package = \"hopper-lang\""));
         assert!(dep.contains(&format!("version = \"{}\"", env!("CARGO_PKG_VERSION"))));
         assert!(dep.contains("default-features = false"));
-        assert!(dep.contains("hopper-native-backend"));
+        assert!(!dep.contains("hopper-native-backend"));
     }
 
     fn forbidden_first_touch_terms() -> Vec<String> {

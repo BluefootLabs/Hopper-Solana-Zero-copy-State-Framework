@@ -7,7 +7,7 @@
 //!
 //! - [`ZeroCopy`], the canonical "safe to overlay on raw bytes"
 //!   marker. Equivalent-in-contract to [`Pod`](crate::pod::Pod), which
-//!   (under the default `hopper-native-backend` + `bytemuck` features)
+//!   (through Hopper's canonical `Pod` + `bytemuck` contract)
 //!   is a sub-trait of `bytemuck::Pod + bytemuck::Zeroable`.
 //!   `ZeroCopy` is implemented for every `Pod` type via a blanket
 //!   impl, so existing layouts participate automatically.

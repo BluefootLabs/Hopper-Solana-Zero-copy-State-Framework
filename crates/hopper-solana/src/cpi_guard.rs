@@ -55,7 +55,7 @@ pub fn instruction_count(sysvar_data: &[u8]) -> Result<u16, ProgramError> {
 /// # CU Cost
 /// Minimal -- sysvar data reads + one 32-byte comparison. No syscall.
 #[inline(always)]
-pub fn assert_no_cpi(instructions_sysvar: &AccountView, our_program_id: &Address) -> ProgramResult {
+pub fn assert_no_cpi(instructions_sysvar: &AccountView<'_>, our_program_id: &Address) -> ProgramResult {
     // Verify the account is actually the Instructions sysvar
     if *instructions_sysvar.address() != SYSVAR_INSTRUCTIONS_ID {
         return Err(ProgramError::InvalidArgument);
@@ -105,7 +105,7 @@ pub fn assert_no_cpi(instructions_sysvar: &AccountView, our_program_id: &Address
 
 /// Check that an account is owned by the SPL Token program.
 #[inline(always)]
-pub fn check_token_program_owner(account: &AccountView) -> ProgramResult {
+pub fn check_token_program_owner(account: &AccountView<'_>) -> ProgramResult {
     if !account.owned_by(&TOKEN_PROGRAM_ID) {
         return Err(ProgramError::IncorrectProgramId);
     }
@@ -114,7 +114,7 @@ pub fn check_token_program_owner(account: &AccountView) -> ProgramResult {
 
 /// Check that an account is owned by the Token-2022 program.
 #[inline(always)]
-pub fn check_token_2022_program_owner(account: &AccountView) -> ProgramResult {
+pub fn check_token_2022_program_owner(account: &AccountView<'_>) -> ProgramResult {
     if !account.owned_by(&TOKEN_2022_PROGRAM_ID) {
         return Err(ProgramError::IncorrectProgramId);
     }
@@ -123,7 +123,7 @@ pub fn check_token_2022_program_owner(account: &AccountView) -> ProgramResult {
 
 /// Check that an account is owned by either SPL Token or Token-2022.
 #[inline(always)]
-pub fn check_any_token_program_owner(account: &AccountView) -> ProgramResult {
+pub fn check_any_token_program_owner(account: &AccountView<'_>) -> ProgramResult {
     if check_token_program_owner(account).is_ok() || check_token_2022_program_owner(account).is_ok()
     {
         return Ok(());

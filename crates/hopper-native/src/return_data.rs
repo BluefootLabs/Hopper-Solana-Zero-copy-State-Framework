@@ -148,9 +148,9 @@ pub fn get_return_data() -> Option<ReturnData> {
 #[cfg(feature = "cpi")]
 #[inline]
 pub fn invoke_and_read<'a, T: Projectable, const ACCOUNTS: usize>(
-    instruction: &InstructionView,
-    account_views: &[&crate::account_view::AccountView; ACCOUNTS],
-    signers_seeds: &[Signer],
+    instruction: &InstructionView<'_, '_, '_, '_>,
+    account_views: &[&crate::account_view::AccountView<'_>; ACCOUNTS],
+    signers_seeds: &[Signer<'_, '_>],
 ) -> Result<ReturnData, ProgramError> {
     crate::cpi::invoke_signed::<ACCOUNTS>(instruction, account_views, signers_seeds)?;
 

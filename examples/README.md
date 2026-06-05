@@ -72,6 +72,10 @@ the full showcase once the basics are familiar.
    remaining-account parsing, and substrate CU probes. Companion guide:
    [hopper-devnet-audit/README.md](hopper-devnet-audit/README.md)
 
+15. **[hopper-external-oracle](hopper-external-oracle/src/lib.rs)** - Known
+   non-Hopper oracle bytes through `ExternalAccount<T>`, typed zero-copy views,
+   checked lenses, snapshot hashes, and normal Hopper-owned state updates.
+
 ### Tier 3: Escape Hatch
 
 Every example uses the standard Hopper path. When you need to go lower, the

@@ -26,14 +26,14 @@ use hopper_runtime::{AccountView, Address};
 ///
 /// Proves: owner == program_id, disc match, version match, layout_id match, size match.
 pub struct Account<'a, T: Pod + FixedLayout> {
-    view: &'a AccountView,
+    view: &'a AccountView<'a>,
     verified: VerifiedAccount<'a, T>,
 }
 
 impl<'a, T: Pod + FixedLayout> Account<'a, T> {
     /// The underlying AccountView.
     #[inline(always)]
-    pub fn view(&self) -> &'a AccountView {
+    pub fn view(&self) -> &'a AccountView<'a> {
         self.view
     }
 
@@ -63,14 +63,14 @@ impl<'a, T: Pod + FixedLayout> Account<'a, T> {
 ///
 /// Proves: owner == program_id, writable, disc match, layout_id match, size match.
 pub struct AccountMut<'a, T: Pod + FixedLayout> {
-    view: &'a AccountView,
+    view: &'a AccountView<'a>,
     verified: VerifiedAccountMut<'a, T>,
 }
 
 impl<'a, T: Pod + FixedLayout> AccountMut<'a, T> {
     /// The underlying AccountView.
     #[inline(always)]
-    pub fn view(&self) -> &'a AccountView {
+    pub fn view(&self) -> &'a AccountView<'a> {
         self.view
     }
 
@@ -141,13 +141,13 @@ impl<I> Mut<I> {
 /// Trait for types that can be constructed from an AccountView with validation.
 pub trait FromAccount<'a>: Sized {
     /// Construct this type from an account, performing all required validation.
-    fn from_account(account: &'a AccountView, program_id: &Address) -> Result<Self, ProgramError>;
+    fn from_account(account: &'a AccountView<'a>, program_id: &Address) -> Result<Self, ProgramError>;
 }
 
 // Account<T>: owner + disc + version + layout_id + size
 impl<'a, T: Pod + FixedLayout + HopperLayout> FromAccount<'a> for Account<'a, T> {
     #[inline]
-    fn from_account(account: &'a AccountView, program_id: &Address) -> Result<Self, ProgramError> {
+    fn from_account(account: &'a AccountView<'a>, program_id: &Address) -> Result<Self, ProgramError> {
         check::check_owner(account, program_id)?;
         let data = account.try_borrow()?;
         crate::account::check_header(&data, T::DISC, T::VERSION, &T::LAYOUT_ID)?;
@@ -163,7 +163,7 @@ impl<'a, T: Pod + FixedLayout + HopperLayout> FromAccount<'a> for Account<'a, T>
 // AccountMut<T>: owner + writable + disc + version + layout_id + size
 impl<'a, T: Pod + FixedLayout + HopperLayout> FromAccount<'a> for AccountMut<'a, T> {
     #[inline]
-    fn from_account(account: &'a AccountView, program_id: &Address) -> Result<Self, ProgramError> {
+    fn from_account(account: &'a AccountView<'a>, program_id: &Address) -> Result<Self, ProgramError> {
         check::check_owner(account, program_id)?;
         check::check_writable(account)?;
         let data = account.try_borrow_mut()?;
@@ -180,7 +180,7 @@ impl<'a, T: Pod + FixedLayout + HopperLayout> FromAccount<'a> for AccountMut<'a,
 // Signer<I>: validates signer, then delegates to inner
 impl<'a, I: FromAccount<'a> + HasView<'a>> FromAccount<'a> for Signer<I> {
     #[inline]
-    fn from_account(account: &'a AccountView, program_id: &Address) -> Result<Self, ProgramError> {
+    fn from_account(account: &'a AccountView<'a>, program_id: &Address) -> Result<Self, ProgramError> {
         check::check_signer(account)?;
         let inner = I::from_account(account, program_id)?;
         Ok(Self { inner })
@@ -190,42 +190,42 @@ impl<'a, I: FromAccount<'a> + HasView<'a>> FromAccount<'a> for Signer<I> {
 // Mut<I>: validates writable, then delegates to inner
 impl<'a, I: FromAccount<'a> + HasView<'a>> FromAccount<'a> for Mut<I> {
     #[inline]
-    fn from_account(account: &'a AccountView, program_id: &Address) -> Result<Self, ProgramError> {
+    fn from_account(account: &'a AccountView<'a>, program_id: &Address) -> Result<Self, ProgramError> {
         check::check_writable(account)?;
         let inner = I::from_account(account, program_id)?;
         Ok(Self { inner })
     }
 }
 
-/// Helper trait for types that hold an `&AccountView`.
+/// Helper trait for types that hold an `&AccountView<'_>`.
 pub trait HasView<'a> {
-    fn view(&self) -> &'a AccountView;
+    fn view(&self) -> &'a AccountView<'a>;
 }
 
 impl<'a, T: Pod + FixedLayout> HasView<'a> for Account<'a, T> {
     #[inline(always)]
-    fn view(&self) -> &'a AccountView {
+    fn view(&self) -> &'a AccountView<'a> {
         self.view
     }
 }
 
 impl<'a, T: Pod + FixedLayout> HasView<'a> for AccountMut<'a, T> {
     #[inline(always)]
-    fn view(&self) -> &'a AccountView {
+    fn view(&self) -> &'a AccountView<'a> {
         self.view
     }
 }
 
 impl<'a, I: HasView<'a>> HasView<'a> for Signer<I> {
     #[inline(always)]
-    fn view(&self) -> &'a AccountView {
+    fn view(&self) -> &'a AccountView<'a> {
         self.inner.view()
     }
 }
 
 impl<'a, I: HasView<'a>> HasView<'a> for Mut<I> {
     #[inline(always)]
-    fn view(&self) -> &'a AccountView {
+    fn view(&self) -> &'a AccountView<'a> {
         self.inner.view()
     }
 }

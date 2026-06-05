@@ -77,7 +77,7 @@ pub const fn minimum_balance(data_len: usize) -> u64 {
 /// code maps to Solana's canonical `InstructionError::RentEpoch`
 /// (built-in 29) when surfaced through the runtime.
 #[inline]
-pub fn check_rent_exempt(account: &AccountView) -> ProgramResult {
+pub fn check_rent_exempt(account: &AccountView<'_>) -> ProgramResult {
     let data_len = account.data_len();
     let required = minimum_balance(data_len);
     if account.lamports() >= required {

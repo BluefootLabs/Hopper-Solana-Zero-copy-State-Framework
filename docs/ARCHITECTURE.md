@@ -84,16 +84,15 @@ Hopper's architecture depends on a hard split between substrate and semantics.
    `AccountView`.
 - `hopper-runtime` owns Hopper semantics: typed state access, `LayoutContract`,
    `Context`, checked CPI rules, and Hopper-facing PDA ergonomics.
-- `hopper-runtime::compat/*` owns every backend bridge. If a file outside
-   `compat/` needs to name Pinocchio or solana-program identity directly, that is
+- `hopper-runtime::compat` owns the direct Hopper runtime bridge. If runtime
+   code needs to name Pinocchio or `solana-program` identity directly, that is
    an architectural regression.
-- Pinocchio is not a normal Hopper dependency. It is activated only by the
-   `legacy-pinocchio-compat` feature for migration and comparison builds;
-   Hopper Native remains the default production backend and `publish-check`
-   verifies the default dependency tree stays Pinocchio-free.
+- Pinocchio is not a Hopper runtime dependency. Benchmark comparisons may use
+   external Pinocchio targets, but production Hopper programs run through
+   Hopper's direct account-memory runtime.
 
-This keeps Hopper Native sovereign at the execution boundary while letting
-Hopper Runtime stay framework-owned instead of adapter-shaped.
+This keeps Hopper sovereign at the execution boundary while letting Hopper
+Runtime stay framework-owned instead of adapter-shaped.
 
 ---
 

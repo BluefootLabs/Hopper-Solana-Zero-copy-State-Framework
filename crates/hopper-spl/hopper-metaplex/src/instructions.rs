@@ -4,7 +4,7 @@
 //! Each builder follows the same shape as `hopper_runtime::system::*`
 //! and `hopper_runtime::token::*`: a struct with `&AccountView` and
 //! `&str`/`u64`/`bool` fields, an `invoke()` method for unsigned CPI,
-//! and an `invoke_signed()` method that takes `&[Signer]` for PDA
+//! and an `invoke_signed()` method that takes `&[Signer<'_, '_>]` for PDA
 //! signing.
 //!
 //! ## Instruction discriminators
@@ -145,7 +145,7 @@ impl IntoMasterEditionMaxSupply for Option<u64> {
     }
 }
 
-// ── CreateMetadataAccountV3 ──────────────────────────────────────────
+// -- CreateMetadataAccountV3 -----------------------------------------
 
 /// Builder for the Metaplex Token Metadata `CreateMetadataAccountV3`
 /// instruction.
@@ -166,16 +166,16 @@ impl IntoMasterEditionMaxSupply for Option<u64> {
 /// 7. rent (optional)   - read-only; modern Metaplex doesn't require it but
 ///    accepts it for backward compatibility
 pub struct CreateMetadataAccountV3<'a> {
-    pub metadata: &'a AccountView,
-    pub mint: &'a AccountView,
-    pub mint_authority: &'a AccountView,
-    pub payer: &'a AccountView,
-    pub update_authority: &'a AccountView,
-    pub system_program: &'a AccountView,
+    pub metadata: &'a AccountView<'a>,
+    pub mint: &'a AccountView<'a>,
+    pub mint_authority: &'a AccountView<'a>,
+    pub payer: &'a AccountView<'a>,
+    pub update_authority: &'a AccountView<'a>,
+    pub system_program: &'a AccountView<'a>,
     /// Rent sysvar account. Optional in current Metaplex; pass `None`
     /// to omit it from the account list (the on-chain program will
     /// load it from the sysvar cache when not supplied).
-    pub rent: Option<&'a AccountView>,
+    pub rent: Option<&'a AccountView<'a>>,
 
     pub data: DataV2<'a>,
     pub is_mutable: bool,
@@ -187,7 +187,7 @@ impl CreateMetadataAccountV3<'_> {
         self.invoke_signed(&[])
     }
 
-    pub fn invoke_signed(&self, signers: &[Signer]) -> ProgramResult {
+    pub fn invoke_signed(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
         self.data.validate_lengths()?;
 
         // Borsh-encoded data payload, capped at 320 bytes (covers the
@@ -259,7 +259,7 @@ impl CreateMetadataAccountV3<'_> {
     }
 }
 
-// ── CreateMasterEditionV3 ────────────────────────────────────────────
+// -- CreateMasterEditionV3 -------------------------------------------
 
 /// Builder for the Metaplex Token Metadata `CreateMasterEditionV3`
 /// instruction.
@@ -281,15 +281,15 @@ impl CreateMetadataAccountV3<'_> {
 /// 8. system_program    - read-only
 /// 9. rent (optional)   - read-only
 pub struct CreateMasterEditionV3<'a> {
-    pub edition: &'a AccountView,
-    pub mint: &'a AccountView,
-    pub update_authority: &'a AccountView,
-    pub mint_authority: &'a AccountView,
-    pub payer: &'a AccountView,
-    pub metadata: &'a AccountView,
-    pub token_program: &'a AccountView,
-    pub system_program: &'a AccountView,
-    pub rent: Option<&'a AccountView>,
+    pub edition: &'a AccountView<'a>,
+    pub mint: &'a AccountView<'a>,
+    pub update_authority: &'a AccountView<'a>,
+    pub mint_authority: &'a AccountView<'a>,
+    pub payer: &'a AccountView<'a>,
+    pub metadata: &'a AccountView<'a>,
+    pub token_program: &'a AccountView<'a>,
+    pub system_program: &'a AccountView<'a>,
+    pub rent: Option<&'a AccountView<'a>>,
 
     /// `None` for unlimited prints, `Some(0)` for a 1-of-1 NFT,
     /// `Some(N)` for a numbered edition.
@@ -302,7 +302,7 @@ impl CreateMasterEditionV3<'_> {
         self.invoke_signed(&[])
     }
 
-    pub fn invoke_signed(&self, signers: &[Signer]) -> ProgramResult {
+    pub fn invoke_signed(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
         let mut buf = [0u8; 16];
         let mut tape = BorshTape::new(&mut buf);
         tape.write_disc(DISC_CREATE_MASTER_EDITION_V3)?;
@@ -370,7 +370,7 @@ impl CreateMasterEditionV3<'_> {
     }
 }
 
-// ── UpdateMetadataAccountV2 ──────────────────────────────────────────
+// ---------------------------------------------------------------------
 
 /// Builder for the Metaplex Token Metadata `UpdateMetadataAccountV2`
 /// instruction.
@@ -385,8 +385,8 @@ impl CreateMasterEditionV3<'_> {
 /// 1. metadata          - writable
 /// 2. update_authority  - signer
 pub struct UpdateMetadataAccountV2<'a> {
-    pub metadata: &'a AccountView,
-    pub update_authority: &'a AccountView,
+    pub metadata: &'a AccountView<'a>,
+    pub update_authority: &'a AccountView<'a>,
 
     /// Replace `data` field. `None` keeps existing.
     pub new_data: Option<DataV2<'a>>,
@@ -405,7 +405,7 @@ impl UpdateMetadataAccountV2<'_> {
         self.invoke_signed(&[])
     }
 
-    pub fn invoke_signed(&self, signers: &[Signer]) -> ProgramResult {
+    pub fn invoke_signed(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
         if let Some(data) = self.new_data {
             data.validate_lengths()?;
         }
@@ -462,7 +462,7 @@ impl UpdateMetadataAccountV2<'_> {
     }
 }
 
-// ── DataV2 / BorshTape glue ──────────────────────────────────────────
+// ---------------------------------------------------------------------
 //
 // DataV2 lives in this file (not encoding.rs) to keep encoding.rs
 // purely about the Borsh tape mechanics. The `write_borsh_into`
@@ -476,7 +476,7 @@ impl<'a> DataV2<'a> {
     }
 }
 
-// ── BorshTape extension for raw byte writes ──────────────────────────
+// ---------------------------------------------------------------------
 //
 // `UpdateMetadataAccountV2` writes a raw 32-byte pubkey for the
 // optional new update authority; the encoding module's `write_str`

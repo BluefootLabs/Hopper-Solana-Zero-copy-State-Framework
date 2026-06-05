@@ -3,66 +3,44 @@
 [![License: MIT OR Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](LICENSE-MIT)
 ![no_std](https://img.shields.io/badge/no__std-yes-green.svg)
 
-> **Release status.** Hopper `0.2.1` is the current public release line for the
-> Hopper framework, CLI, and companion crates. APIs are still young, and the
-> release surface is documented, release-checked, and scoped to the APIs
-> exercised by this repository.
+Hopper is a zero-copy Solana program framework built around direct account-byte
+validation. It gives you the account ergonomics people like in Anchor, the
+direct state model people reach for in Quasar, and a low-level escape hatch when
+you need to work close to the SVM.
 
-Hopper is a fast zero-copy Solana framework: write programs like Anchor or
-Quasar, while Hopper verifies the bytes before it casts them. Start with
-familiar account and context ergonomics, then opt into upgradeable state
-contracts, segment-level borrows, receipts, policy graphs, and schema manifests
-when the program needs that power.
+The important part is the order of operations: Hopper validates owner, role,
+discriminator, version, layout fingerprint, and borrow rules before typed state
+is exposed. No deserialize-then-hope path. No unchecked cast hidden behind a
+macro.
 
-The public claim is precise: **Anchor/Quasar-class DX, Hopper-grade
-safety/state contracts, Pinocchio-class raw control.**
+Hopper has one production runtime path: direct Solana account memory through
+Hopper's own `AccountView`, validation layer, borrow guards, and CPI surface.
 
-The framework path and the systems path share the same runtime. `hopper-lang`,
-imported as `hopper`, is the front door: `use hopper::prelude::*`,
-`#[hopper::account]`, typed account wrappers, and the
-`hopper::{account,cpi,token,system}` facade modules. `hopper-systems` is the
-advanced state architecture underneath it.
+Use `hopper-lang` as `hopper` for normal programs: `use hopper::prelude::*`,
+`#[account]`, `#[derive(Accounts)]`, `#[program]`, typed wrappers, checked CPI,
+and SPL helpers. Reach for `hopper::systems::*` when you want segment borrows,
+layout manifests, receipts, policies, and lower-level state machinery.
 
-The repository keeps framework crates, first-party examples, and release
-tooling together. Independent products such as the benchmark suite and SVM
-harness live separately so release claims stay reproducible and easy to audit.
+## What You Get
 
-## What Hopper provides
+- `no_std` / `no_alloc` program crates by default.
+- Direct Hopper account access over Solana account memory.
+- `#[account]`, `#[derive(Accounts)]`, `#[program]`, `Ctx<T>`,
+  `Account<'info, T>`, `InitAccount<'info, T>`, `Signer<'info>`,
+  `Program<'info, P>`, and `UncheckedAccount<'info>`.
+- Zero-copy account loads guarded by owner, discriminator, version, layout ID,
+  size, signer, writable, seed, and custom constraint checks.
+- External account adapters for known non-Hopper accounts, including typed
+  views, checked lenses, proof tokens, explain hooks, snapshots, lazy remaining
+  parsing, and SPL Token account/mint adapters.
+- Checked CPI, signed CPI, stored instructions, Token and Token-2022 helpers,
+  ATA helpers, memo helpers, and on-chain crypto utilities.
+- Systems-mode APIs for segmented layouts, dynamic tails, receipt trails,
+  policy checks, schema manifests, migration plans, and raw SVM control.
+- CLI, schema, IDL, and client generation tools that understand Hopper layout
+  fingerprints before decoding account bytes.
 
-- `no_std` / `no_alloc` framework crates for on-chain programs.
-- A focused framework facade: `#[hopper::account]`, `#[hopper::program]`,
-  `#[derive(Accounts)]`, `Account<'info, T>`, `Signer<'info>`, `Program<'info, P>`.
-- Zero-copy typed account access over fixed-layout account bytes.
-- Closure-scoped `with` / `with_mut` account access for direct state mutation
-  while Hopper owns validation and borrow lifetimes.
-- Layout fingerprints and versioned headers for account compatibility checks.
-- A universal Solana account model: Hopper headers for Hopper-owned accounts,
-  `ExternalAccount<'info, T>` adapters for known foreign bytes,
-  `Interface<'info, I>` / `InterfaceAccount<'info, T>` for multi-program sets,
-  and raw `UncheckedAccount` / remaining-account access when a protocol needs
-  direct Solana control.
-- Segment-aware access helpers for field-level borrow tracking behind
-  `hopper::systems::*`.
-- Token-2022 extension constraints that scan TLV data without leaving the
-  zero-copy path.
-- On-chain crypto helpers for SHA-256, Keccak-256, BLAKE3, curve validation,
-  Ed25519/secp256k1 precompile payload checks, secp256k1 recovery, and Merkle
-  verification.
-- Optional proc macros for faster authoring; the core framework remains usable
-  without proc macros.
-- Progressive modules: `hopper::account`, `hopper::cpi`, and `hopper::token`
-  for app code; `hopper::systems::*` plus `hopper::{layout,segment,receipt}`
-  for explicit lower-layer access.
-- Typed remaining-account parsing, stored-instruction primitives, explicit
-  checked CPI aliases, and fixed-point/risk units for governance and
-  perps-style account flows.
-- Hopper Native by default for low-overhead account access with framework
-  safety/DX, with explicit legacy Pinocchio and `solana-program` compatibility
-  modes quarantined behind opt-in features.
-- Schema, IDL, manager, and CLI tooling for inspecting and explaining account
-  layouts.
-
-## Release Status
+## Current Release
 
 - Main framework package: `hopper-lang = "0.2.1"`; import it as
   `hopper` with `hopper = { package = "hopper-lang", version = "0.2.1" }`.
@@ -86,8 +64,7 @@ harness live separately so release claims stay reproducible and easy to audit.
 
 ## Hopper in 30 seconds
 
-Write the account shape, derive the account context, and keep mutation behind
-`ctx.accounts.*`:
+Write state, declare accounts, mutate through checked wrappers:
 
 ```rust
 #[program(profile = "tiny")]
@@ -103,9 +80,8 @@ mod counter_program {
 }
 ```
 
-That is the core Hopper pitch: Quasar-like handler shape, but the account has
-already passed owner, role, discriminator, version, and layout-fingerprint
-checks before the typed borrow reaches the closure.
+By the time `counter` reaches the closure, Hopper has already checked the
+account role and layout contract.
 
 ## Quick Start
 
@@ -120,13 +96,6 @@ Equivalent `Cargo.toml` entry:
 ```toml
 [dependencies]
 hopper = { package = "hopper-lang", version = "0.2.1", features = ["proc-macros"] }
-```
-
-For SBF programs that want the same explicit feature shape used by `hopper init`:
-
-```toml
-[dependencies]
-hopper = { package = "hopper-lang", version = "0.2.1", default-features = false, features = ["hopper-native-backend", "proc-macros"] }
 ```
 
 Install the CLI:
@@ -278,7 +247,7 @@ multisig-style signer lists without allocation.
 ## Repository layout
 
 | Path | Purpose |
-|---|---|
+| --- | --- |
 | `.` (`hopper-lang`) | Main framework API imported as `hopper`: accounts, programs, CPI, PDA helpers, prelude. |
 | `crates/hopper-runtime` | Internal runtime: account views, borrow tracking, CPI helpers, backend compatibility. |
 | `crates/hopper-core` (`hopper-systems`) | Advanced state architecture: ABI types, headers, layout contracts, segments, policies, receipts. |
@@ -305,27 +274,6 @@ Sibling product repos:
 
 - [hopper-bench](https://github.com/BluefootLabs/hopper-bench): benchmark harness and CU regression lab.
 - [hopper-svm](https://github.com/BluefootLabs/hopper-svm): in-process Solana execution harness for Hopper test authors.
-
-## Backend features
-
-Hopper Native is the default backend.
-
-```toml
-# Default backend from source
-hopper = { package = "hopper-lang", version = "0.2.1" }
-
-# Legacy Pinocchio migration/benchmark compatibility only
-hopper = { package = "hopper-lang", version = "0.2.1", default-features = false, features = ["legacy-pinocchio-compat"] }
-
-# solana-program compatibility backend
-hopper = { package = "hopper-lang", version = "0.2.1", default-features = false, features = ["solana-program-backend"] }
-```
-
-Only one backend should be enabled for a program build.
-
-`legacy-pinocchio-compat` is not Hopper's native execution story. It exists for
-migration tests and compatibility benchmarking. New programs should use the
-default Hopper Native backend.
 
 ## Tooling
 
@@ -370,8 +318,7 @@ For in-process tests, use the sibling [hopper-svm](https://github.com/BluefootLa
 ## Benchmarks
 
 The benchmark suite is maintained as a separate product repo:
-
-https://github.com/BluefootLabs/hopper-bench
+[hopper-bench](https://github.com/BluefootLabs/hopper-bench)
 
 Do not copy old benchmark numbers from this README. Regenerate numbers from the
 benchmark repo before publishing performance claims.

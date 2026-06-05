@@ -18,7 +18,7 @@ use crate::token::TOKEN_ACCOUNT_LEN;
 ///
 /// Reads amount at bytes 64..72 of the SPL Token layout.
 #[inline(always)]
-pub fn snapshot_token_balance(account: &AccountView) -> Result<u64, ProgramError> {
+pub fn snapshot_token_balance(account: &AccountView<'_>) -> Result<u64, ProgramError> {
     let data = account.try_borrow()?;
     if data.len() < TOKEN_ACCOUNT_LEN {
         return Err(ProgramError::AccountDataTooSmall);
@@ -30,14 +30,14 @@ pub fn snapshot_token_balance(account: &AccountView) -> Result<u64, ProgramError
 
 /// Snapshot the current lamport balance of any account.
 #[inline(always)]
-pub fn snapshot_lamport_balance(account: &AccountView) -> u64 {
+pub fn snapshot_lamport_balance(account: &AccountView<'_>) -> u64 {
     account.lamports()
 }
 
 /// Verify a token account balance increased by at least `min_increase` since the snapshot.
 #[inline(always)]
 pub fn check_balance_increased(
-    account: &AccountView,
+    account: &AccountView<'_>,
     balance_before: u64,
     min_increase: u64,
 ) -> ProgramResult {
@@ -55,7 +55,7 @@ pub fn check_balance_increased(
 /// Verify a token account balance decreased by at most `max_decrease` since the snapshot.
 #[inline(always)]
 pub fn check_balance_decreased(
-    account: &AccountView,
+    account: &AccountView<'_>,
     balance_before: u64,
     max_decrease: u64,
 ) -> ProgramResult {
@@ -75,7 +75,7 @@ pub fn check_balance_decreased(
 /// `tolerance_bps` is the acceptable deviation in basis points.
 #[inline(always)]
 pub fn check_balance_delta(
-    account: &AccountView,
+    account: &AccountView<'_>,
     balance_before: u64,
     expected_delta: u64,
     tolerance_bps: u16,
@@ -96,7 +96,7 @@ pub fn check_balance_delta(
 /// Verify a lamport balance increased by at least `min_increase` since the snapshot.
 #[inline(always)]
 pub fn check_lamport_balance_increased(
-    account: &AccountView,
+    account: &AccountView<'_>,
     balance_before: u64,
     min_increase: u64,
 ) -> ProgramResult {

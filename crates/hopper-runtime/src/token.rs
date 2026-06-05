@@ -16,7 +16,9 @@
 
 use crate::account::AccountView;
 use crate::address::Address;
+use crate::borrow::Ref;
 use crate::error::ProgramError;
+use crate::foreign::{ExplainExternal, ExternalAccount, ExternalExplainSink, ExternalZeroCopy};
 use crate::instruction::{InstructionAccount, InstructionView, Signer};
 use crate::ProgramResult;
 
@@ -35,7 +37,7 @@ use crate::ProgramResult;
 /// the SPL token program is about to do anyway. In the PDA path
 /// the CPI itself is the authoritative check.
 #[inline(always)]
-fn require_authority_signed_direct(authority: &AccountView) -> ProgramResult {
+fn require_authority_signed_direct(authority: &AccountView<'_>) -> ProgramResult {
     if authority.is_signer() {
         Ok(())
     } else {
@@ -64,8 +66,8 @@ fn require_authority_signed_direct(authority: &AccountView) -> ProgramResult {
 /// account's data buffer is too short (not a valid SPL TokenAccount).
 #[inline]
 pub fn require_token_authority(
-    token_account: &AccountView,
-    authority: &AccountView,
+    token_account: &AccountView<'_>,
+    authority: &AccountView<'_>,
 ) -> ProgramResult {
     // SPL TokenAccount.owner lives at bytes 32..64. The buffer must
     // be at least 64 bytes; a valid TokenAccount is exactly 165 on
@@ -91,7 +93,7 @@ pub fn require_token_authority(
 ///
 /// This is the sibling of [`require_token_authority`], differing only
 /// in its argument shape: it takes `&Address` rather than
-/// `&AccountView` for the expected authority. The declarative
+/// `&AccountView<'_>` for the expected authority. The declarative
 /// `#[account(token::authority = X)]` attribute lowers to this form
 /// because the user's expression might resolve to a constant address,
 /// a cached field, or another account's key. all of which are
@@ -99,7 +101,7 @@ pub fn require_token_authority(
 /// wrapped in an `AccountView`.
 #[inline]
 pub fn require_token_owner_eq(
-    token_account: &AccountView,
+    token_account: &AccountView<'_>,
     expected_owner: &Address,
 ) -> ProgramResult {
     let data = token_account
@@ -136,7 +138,7 @@ pub fn require_token_owner_eq(
 /// already-borrowed data buffer: no extra crate dependencies, no full-struct
 /// deserialize, and the check is trivially inlinable.
 #[inline]
-pub fn require_token_mint(token_account: &AccountView, expected_mint: &Address) -> ProgramResult {
+pub fn require_token_mint(token_account: &AccountView<'_>, expected_mint: &Address) -> ProgramResult {
     let data = token_account
         .try_borrow()
         .map_err(|_| ProgramError::AccountBorrowFailed)?;
@@ -175,7 +177,7 @@ pub fn require_token_mint(token_account: &AccountView, expected_mint: &Address) 
 /// all" apart from "wrong authority".
 #[inline]
 pub fn require_mint_authority(
-    mint_account: &AccountView,
+    mint_account: &AccountView<'_>,
     expected_authority: &Address,
 ) -> ProgramResult {
     let data = mint_account
@@ -204,7 +206,7 @@ pub fn require_mint_authority(
 /// to express the full `#[account(mint::authority = X, mint::decimals = N)]`
 /// Anchor-compat syntax with zero additional crate dependencies.
 #[inline]
-pub fn require_mint_decimals(mint_account: &AccountView, expected: u8) -> ProgramResult {
+pub fn require_mint_decimals(mint_account: &AccountView<'_>, expected: u8) -> ProgramResult {
     let data = mint_account
         .try_borrow()
         .map_err(|_| ProgramError::AccountBorrowFailed)?;
@@ -227,7 +229,7 @@ pub fn require_mint_decimals(mint_account: &AccountView, expected: u8) -> Progra
 /// constraint without another runtime change.
 #[inline]
 pub fn require_mint_freeze_authority(
-    mint_account: &AccountView,
+    mint_account: &AccountView<'_>,
     expected_freeze: &Address,
 ) -> ProgramResult {
     let data = mint_account
@@ -249,7 +251,7 @@ pub fn require_mint_freeze_authority(
     }
 }
 
-// ── Transfer ─────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------
 
 /// Builder for SPL Token Transfer (instruction index 3).
 ///
@@ -271,9 +273,9 @@ pub fn require_mint_freeze_authority(
 )]
 #[cfg(feature = "legacy-token-instructions")]
 pub struct Transfer<'a> {
-    pub from: &'a AccountView,
-    pub to: &'a AccountView,
-    pub authority: &'a AccountView,
+    pub from: &'a AccountView<'a>,
+    pub to: &'a AccountView<'a>,
+    pub authority: &'a AccountView<'a>,
     pub amount: u64,
 }
 
@@ -292,12 +294,12 @@ impl Transfer<'_> {
     /// Invoke with explicit PDA seeds. Skips the direct-signer
     /// pre-check; the supplied signer seeds authorize the CPI.
     #[inline]
-    pub fn invoke_signed(&self, signers: &[Signer]) -> ProgramResult {
+    pub fn invoke_signed(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
         self.invoke_signed_unchecked(signers)
     }
 
     #[inline(always)]
-    fn invoke_signed_unchecked(&self, signers: &[Signer]) -> ProgramResult {
+    fn invoke_signed_unchecked(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
         let mut data = [0u8; 9];
         data[0] = 3;
         data[1..9].copy_from_slice(&self.amount.to_le_bytes());
@@ -318,7 +320,7 @@ impl Transfer<'_> {
     }
 }
 
-// ── MintTo ───────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------
 
 /// Builder for SPL Token MintTo (instruction index 7).
 ///
@@ -329,9 +331,9 @@ impl Transfer<'_> {
 )]
 #[cfg(feature = "legacy-token-instructions")]
 pub struct MintTo<'a> {
-    pub mint: &'a AccountView,
-    pub account: &'a AccountView,
-    pub mint_authority: &'a AccountView,
+    pub mint: &'a AccountView<'a>,
+    pub account: &'a AccountView<'a>,
+    pub mint_authority: &'a AccountView<'a>,
     pub amount: u64,
 }
 
@@ -345,7 +347,7 @@ impl MintTo<'_> {
     }
 
     #[inline]
-    pub fn invoke_signed(&self, signers: &[Signer]) -> ProgramResult {
+    pub fn invoke_signed(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
         let mut data = [0u8; 9];
         data[0] = 7;
         data[1..9].copy_from_slice(&self.amount.to_le_bytes());
@@ -366,7 +368,7 @@ impl MintTo<'_> {
     }
 }
 
-// ── Burn ─────────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------
 
 /// Builder for SPL Token Burn (instruction index 8).
 ///
@@ -377,9 +379,9 @@ impl MintTo<'_> {
 )]
 #[cfg(feature = "legacy-token-instructions")]
 pub struct Burn<'a> {
-    pub account: &'a AccountView,
-    pub mint: &'a AccountView,
-    pub authority: &'a AccountView,
+    pub account: &'a AccountView<'a>,
+    pub mint: &'a AccountView<'a>,
+    pub authority: &'a AccountView<'a>,
     pub amount: u64,
 }
 
@@ -393,7 +395,7 @@ impl Burn<'_> {
     }
 
     #[inline]
-    pub fn invoke_signed(&self, signers: &[Signer]) -> ProgramResult {
+    pub fn invoke_signed(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
         let mut data = [0u8; 9];
         data[0] = 8;
         data[1..9].copy_from_slice(&self.amount.to_le_bytes());
@@ -414,13 +416,13 @@ impl Burn<'_> {
     }
 }
 
-// ── CloseAccount ─────────────────────────────────────────────────────
+// ---------------------------------------------------------------------
 
 /// Builder for SPL Token CloseAccount (instruction index 9).
 pub struct CloseAccount<'a> {
-    pub account: &'a AccountView,
-    pub destination: &'a AccountView,
-    pub authority: &'a AccountView,
+    pub account: &'a AccountView<'a>,
+    pub destination: &'a AccountView<'a>,
+    pub authority: &'a AccountView<'a>,
 }
 
 impl CloseAccount<'_> {
@@ -431,7 +433,7 @@ impl CloseAccount<'_> {
     }
 
     #[inline]
-    pub fn invoke_signed(&self, signers: &[Signer]) -> ProgramResult {
+    pub fn invoke_signed(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
         let data = [9u8];
         let accounts = [
             InstructionAccount::writable(self.account.address()),
@@ -449,7 +451,7 @@ impl CloseAccount<'_> {
     }
 }
 
-// ── Approve ──────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------
 
 /// Builder for SPL Token Approve (instruction index 4).
 ///
@@ -460,9 +462,9 @@ impl CloseAccount<'_> {
 )]
 #[cfg(feature = "legacy-token-instructions")]
 pub struct Approve<'a> {
-    pub source: &'a AccountView,
-    pub delegate: &'a AccountView,
-    pub authority: &'a AccountView,
+    pub source: &'a AccountView<'a>,
+    pub delegate: &'a AccountView<'a>,
+    pub authority: &'a AccountView<'a>,
     pub amount: u64,
 }
 
@@ -476,7 +478,7 @@ impl Approve<'_> {
     }
 
     #[inline]
-    pub fn invoke_signed(&self, signers: &[Signer]) -> ProgramResult {
+    pub fn invoke_signed(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
         let mut data = [0u8; 9];
         data[0] = 4;
         data[1..9].copy_from_slice(&self.amount.to_le_bytes());
@@ -497,12 +499,12 @@ impl Approve<'_> {
     }
 }
 
-// ── Revoke ───────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------
 
 /// Builder for SPL Token Revoke (instruction index 5).
 pub struct Revoke<'a> {
-    pub source: &'a AccountView,
-    pub authority: &'a AccountView,
+    pub source: &'a AccountView<'a>,
+    pub authority: &'a AccountView<'a>,
 }
 
 impl Revoke<'_> {
@@ -513,7 +515,7 @@ impl Revoke<'_> {
     }
 
     #[inline]
-    pub fn invoke_signed(&self, signers: &[Signer]) -> ProgramResult {
+    pub fn invoke_signed(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
         let data = [5u8];
         let accounts = [
             InstructionAccount::writable(self.source.address()),
@@ -530,7 +532,7 @@ impl Revoke<'_> {
     }
 }
 
-// ── TransferChecked (Token-2022-safe, SPL index 12) ──────────────────
+// ---------------------------------------------------------------------
 //
 // The Hopper audit flagged Token-2022 extension handling as a gap.
 // `TransferChecked` is the SPL instruction that
@@ -547,10 +549,10 @@ impl Revoke<'_> {
 /// Adds mint + decimals validation over [`Transfer`]. Required for
 /// accounts that participate in Token-2022 extension flows.
 pub struct TransferChecked<'a> {
-    pub from: &'a AccountView,
-    pub mint: &'a AccountView,
-    pub to: &'a AccountView,
-    pub authority: &'a AccountView,
+    pub from: &'a AccountView<'a>,
+    pub mint: &'a AccountView<'a>,
+    pub to: &'a AccountView<'a>,
+    pub authority: &'a AccountView<'a>,
     pub amount: u64,
     pub decimals: u8,
 }
@@ -586,7 +588,7 @@ impl TransferChecked<'_> {
     /// Invoke with explicit PDA signer seeds. The SPL token program
     /// validates mint + decimals regardless of the signer source.
     #[inline]
-    pub fn invoke_signed(&self, signers: &[Signer]) -> ProgramResult {
+    pub fn invoke_signed(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
         self.invoke_signed_unchecked(signers)
     }
 
@@ -594,13 +596,13 @@ impl TransferChecked<'_> {
     /// program revalidates, but Hopper surfaces a branded error
     /// first) then CPI with the supplied signer seeds.
     #[inline]
-    pub fn invoke_signed_strict(&self, signers: &[Signer]) -> ProgramResult {
+    pub fn invoke_signed_strict(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
         require_token_authority(self.from, self.authority)?;
         self.invoke_signed_unchecked(signers)
     }
 
     #[inline(always)]
-    fn invoke_signed_unchecked(&self, signers: &[Signer]) -> ProgramResult {
+    fn invoke_signed_unchecked(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
         let mut data = [0u8; 10];
         data[0] = 12;
         data[1..9].copy_from_slice(&self.amount.to_le_bytes());
@@ -623,16 +625,16 @@ impl TransferChecked<'_> {
     }
 }
 
-// ── MintToChecked (SPL index 14) ─────────────────────────────────────
+// ---------------------------------------------------------------------
 
 /// Builder for SPL Token MintToChecked (instruction index 14).
 ///
 /// Same-shape decimals guard as [`TransferChecked`]. The Hopper-
 /// preferred path when minting into a Token-2022 account.
 pub struct MintToChecked<'a> {
-    pub mint: &'a AccountView,
-    pub account: &'a AccountView,
-    pub mint_authority: &'a AccountView,
+    pub mint: &'a AccountView<'a>,
+    pub account: &'a AccountView<'a>,
+    pub mint_authority: &'a AccountView<'a>,
     pub amount: u64,
     pub decimals: u8,
 }
@@ -645,12 +647,12 @@ impl MintToChecked<'_> {
     }
 
     #[inline]
-    pub fn invoke_signed(&self, signers: &[Signer]) -> ProgramResult {
+    pub fn invoke_signed(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
         self.invoke_signed_unchecked(signers)
     }
 
     #[inline(always)]
-    fn invoke_signed_unchecked(&self, signers: &[Signer]) -> ProgramResult {
+    fn invoke_signed_unchecked(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
         let mut data = [0u8; 10];
         data[0] = 14;
         data[1..9].copy_from_slice(&self.amount.to_le_bytes());
@@ -672,7 +674,7 @@ impl MintToChecked<'_> {
     }
 }
 
-// ── BurnChecked (SPL index 15) ───────────────────────────────────────
+// ---------------------------------------------------------------------
 
 /// Builder for SPL Token BurnChecked (instruction index 15).
 ///
@@ -680,9 +682,9 @@ impl MintToChecked<'_> {
 /// `Burn` whenever the mint's decimals are known to the caller,
 /// so the SPL token program can reject a mis-routed call at CPI time.
 pub struct BurnChecked<'a> {
-    pub account: &'a AccountView,
-    pub mint: &'a AccountView,
-    pub authority: &'a AccountView,
+    pub account: &'a AccountView<'a>,
+    pub mint: &'a AccountView<'a>,
+    pub authority: &'a AccountView<'a>,
     pub amount: u64,
     pub decimals: u8,
 }
@@ -705,7 +707,7 @@ impl BurnChecked<'_> {
     }
 
     #[inline]
-    pub fn invoke_signed(&self, signers: &[Signer]) -> ProgramResult {
+    pub fn invoke_signed(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
         self.invoke_signed_unchecked(signers)
     }
 
@@ -713,13 +715,13 @@ impl BurnChecked<'_> {
     /// before the CPI so a misrouted signer surfaces a Hopper-branded
     /// error instead of an opaque SPL failure.
     #[inline]
-    pub fn invoke_signed_strict(&self, signers: &[Signer]) -> ProgramResult {
+    pub fn invoke_signed_strict(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
         require_token_authority(self.account, self.authority)?;
         self.invoke_signed_unchecked(signers)
     }
 
     #[inline(always)]
-    fn invoke_signed_unchecked(&self, signers: &[Signer]) -> ProgramResult {
+    fn invoke_signed_unchecked(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
         let mut data = [0u8; 10];
         data[0] = 15;
         data[1..9].copy_from_slice(&self.amount.to_le_bytes());
@@ -741,17 +743,17 @@ impl BurnChecked<'_> {
     }
 }
 
-// ── ApproveChecked (SPL index 13) ────────────────────────────────────
+// ---------------------------------------------------------------------
 
 /// Builder for SPL Token ApproveChecked (instruction index 13).
 ///
 /// Mint + decimals-verified approval. Same safety profile as the
 /// other `*Checked` variants.
 pub struct ApproveChecked<'a> {
-    pub source: &'a AccountView,
-    pub mint: &'a AccountView,
-    pub delegate: &'a AccountView,
-    pub authority: &'a AccountView,
+    pub source: &'a AccountView<'a>,
+    pub mint: &'a AccountView<'a>,
+    pub delegate: &'a AccountView<'a>,
+    pub authority: &'a AccountView<'a>,
     pub amount: u64,
     pub decimals: u8,
 }
@@ -775,20 +777,20 @@ impl ApproveChecked<'_> {
     }
 
     #[inline]
-    pub fn invoke_signed(&self, signers: &[Signer]) -> ProgramResult {
+    pub fn invoke_signed(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
         self.invoke_signed_unchecked(signers)
     }
 
     /// Strict PDA-signed invoke. Pre-check the source-account owner
     /// before the CPI.
     #[inline]
-    pub fn invoke_signed_strict(&self, signers: &[Signer]) -> ProgramResult {
+    pub fn invoke_signed_strict(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
         require_token_authority(self.source, self.authority)?;
         self.invoke_signed_unchecked(signers)
     }
 
     #[inline(always)]
-    fn invoke_signed_unchecked(&self, signers: &[Signer]) -> ProgramResult {
+    fn invoke_signed_unchecked(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
         let mut data = [0u8; 10];
         data[0] = 13;
         data[1..9].copy_from_slice(&self.amount.to_le_bytes());
@@ -811,14 +813,14 @@ impl ApproveChecked<'_> {
     }
 }
 
-// ── InitializeAccount ────────────────────────────────────────────────
+// ---------------------------------------------------------------------
 
 /// Builder for SPL Token InitializeAccount (instruction index 1).
 pub struct InitializeAccount<'a> {
-    pub account: &'a AccountView,
-    pub mint: &'a AccountView,
-    pub owner: &'a AccountView,
-    pub rent_sysvar: &'a AccountView,
+    pub account: &'a AccountView<'a>,
+    pub mint: &'a AccountView<'a>,
+    pub owner: &'a AccountView<'a>,
+    pub rent_sysvar: &'a AccountView<'a>,
 }
 
 impl InitializeAccount<'_> {
@@ -847,6 +849,334 @@ pub const TOKEN_PROGRAM_ID: Address = Address::new_from_array(five8_const::decod
     "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
 ));
 
+// ---------------------------------------------------------------------
+
+pub const SPL_TOKEN_ACCOUNT_LEN: usize = 165;
+pub const SPL_MINT_LEN: usize = 82;
+
+const TOKEN_ACCOUNT_MINT_OFFSET: usize = 0;
+const TOKEN_ACCOUNT_AUTHORITY_OFFSET: usize = 32;
+const TOKEN_ACCOUNT_AMOUNT_OFFSET: usize = 64;
+const TOKEN_ACCOUNT_STATE_OFFSET: usize = 108;
+
+const MINT_AUTHORITY_TAG_OFFSET: usize = 0;
+const MINT_AUTHORITY_OFFSET: usize = 4;
+const MINT_SUPPLY_OFFSET: usize = 36;
+const MINT_DECIMALS_OFFSET: usize = 44;
+const MINT_INITIALIZED_OFFSET: usize = 45;
+const MINT_FREEZE_AUTHORITY_TAG_OFFSET: usize = 46;
+const MINT_FREEZE_AUTHORITY_OFFSET: usize = 50;
+
+/// Known external SPL TokenAccount adapter.
+pub struct SplTokenAccount;
+
+/// Guard-owned zero-copy SPL TokenAccount view.
+pub struct SplTokenAccountView<'a> {
+    data: Ref<'a, [u8]>,
+}
+
+impl SplTokenAccountView<'_> {
+    #[inline(always)]
+    pub fn mint(&self) -> Address {
+        read_address_unchecked(&self.data, TOKEN_ACCOUNT_MINT_OFFSET)
+    }
+
+    #[inline(always)]
+    pub fn authority(&self) -> Address {
+        read_address_unchecked(&self.data, TOKEN_ACCOUNT_AUTHORITY_OFFSET)
+    }
+
+    #[inline(always)]
+    pub fn amount(&self) -> u64 {
+        read_u64_unchecked(&self.data, TOKEN_ACCOUNT_AMOUNT_OFFSET)
+    }
+
+    #[inline(always)]
+    pub fn state(&self) -> u8 {
+        self.data[TOKEN_ACCOUNT_STATE_OFFSET]
+    }
+
+    #[inline(always)]
+    pub fn is_initialized(&self) -> bool {
+        self.state() != 0
+    }
+}
+
+impl ExternalZeroCopy for SplTokenAccount {
+    type View<'a> = SplTokenAccountView<'a>;
+
+    const OWNER: Option<Address> = Some(TOKEN_PROGRAM_ID);
+    const MIN_LEN: usize = SPL_TOKEN_ACCOUNT_LEN;
+
+    #[inline]
+    fn view<'a>(data: Ref<'a, [u8]>) -> Result<Self::View<'a>, ProgramError> {
+        Ok(SplTokenAccountView { data })
+    }
+}
+
+impl ExplainExternal for SplTokenAccount {
+    fn explain<S: ExternalExplainSink>(account: &AccountView<'_>, sink: &mut S) -> ProgramResult {
+        let account = ExternalAccount::<SplTokenAccount>::try_new(account)?;
+        account.with_view(|token| {
+            sink.field_str("adapter", "SplTokenAccount")?;
+            sink.field_address("mint", &token.mint())?;
+            sink.field_address("authority", &token.authority())?;
+            sink.field_u64("amount", token.amount())?;
+            sink.field_bool("initialized", token.is_initialized())
+        })
+    }
+}
+
+/// Known external SPL Mint adapter.
+pub struct SplMint;
+
+/// Guard-owned zero-copy SPL Mint view.
+pub struct SplMintView<'a> {
+    data: Ref<'a, [u8]>,
+}
+
+impl SplMintView<'_> {
+    #[inline(always)]
+    pub fn mint_authority(&self) -> Option<Address> {
+        read_coption_address(&self.data, MINT_AUTHORITY_TAG_OFFSET, MINT_AUTHORITY_OFFSET)
+    }
+
+    #[inline(always)]
+    pub fn supply(&self) -> u64 {
+        read_u64_unchecked(&self.data, MINT_SUPPLY_OFFSET)
+    }
+
+    #[inline(always)]
+    pub fn decimals(&self) -> u8 {
+        self.data[MINT_DECIMALS_OFFSET]
+    }
+
+    #[inline(always)]
+    pub fn is_initialized(&self) -> bool {
+        self.data[MINT_INITIALIZED_OFFSET] != 0
+    }
+
+    #[inline(always)]
+    pub fn freeze_authority(&self) -> Option<Address> {
+        read_coption_address(
+            &self.data,
+            MINT_FREEZE_AUTHORITY_TAG_OFFSET,
+            MINT_FREEZE_AUTHORITY_OFFSET,
+        )
+    }
+}
+
+impl ExternalZeroCopy for SplMint {
+    type View<'a> = SplMintView<'a>;
+
+    const OWNER: Option<Address> = Some(TOKEN_PROGRAM_ID);
+    const MIN_LEN: usize = SPL_MINT_LEN;
+
+    #[inline]
+    fn view<'a>(data: Ref<'a, [u8]>) -> Result<Self::View<'a>, ProgramError> {
+        Ok(SplMintView { data })
+    }
+}
+
+impl ExplainExternal for SplMint {
+    fn explain<S: ExternalExplainSink>(account: &AccountView<'_>, sink: &mut S) -> ProgramResult {
+        let account = ExternalAccount::<SplMint>::try_new(account)?;
+        account.with_view(|mint| {
+            sink.field_str("adapter", "SplMint")?;
+            sink.field_u64("supply", mint.supply())?;
+            sink.field_u64("decimals", mint.decimals() as u64)?;
+            sink.field_bool("initialized", mint.is_initialized())
+        })
+    }
+}
+
+/// Proof token that an SPL TokenAccount matched an expected mint.
+#[derive(Debug)]
+pub struct CheckedTokenMint<'info> {
+    account: ExternalAccount<'info, SplTokenAccount>,
+    mint: Address,
+}
+
+impl<'info> CheckedTokenMint<'info> {
+    #[inline(always)]
+    pub const fn account(&self) -> ExternalAccount<'info, SplTokenAccount> {
+        self.account
+    }
+
+    #[inline(always)]
+    pub const fn mint(&self) -> Address {
+        self.mint
+    }
+}
+
+/// Proof token that an SPL TokenAccount matched an expected token authority.
+#[derive(Debug)]
+pub struct CheckedTokenAuthority<'info> {
+    account: ExternalAccount<'info, SplTokenAccount>,
+    authority: Address,
+}
+
+impl<'info> CheckedTokenAuthority<'info> {
+    #[inline(always)]
+    pub const fn account(&self) -> ExternalAccount<'info, SplTokenAccount> {
+        self.account
+    }
+
+    #[inline(always)]
+    pub const fn authority(&self) -> Address {
+        self.authority
+    }
+}
+
+/// Proof token that an SPL Mint matched expected decimals.
+#[derive(Debug)]
+pub struct CheckedMintDecimals<'info> {
+    account: ExternalAccount<'info, SplMint>,
+    decimals: u8,
+}
+
+impl<'info> CheckedMintDecimals<'info> {
+    #[inline(always)]
+    pub const fn account(&self) -> ExternalAccount<'info, SplMint> {
+        self.account
+    }
+
+    #[inline(always)]
+    pub const fn decimals(&self) -> u8 {
+        self.decimals
+    }
+}
+
+/// Snapshot of a token account amount before CPI.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct TokenAmountSnapshot {
+    amount: u64,
+}
+
+impl TokenAmountSnapshot {
+    #[inline(always)]
+    pub const fn amount(self) -> u64 {
+        self.amount
+    }
+}
+
+impl<'info> ExternalAccount<'info, SplTokenAccount> {
+    #[inline]
+    pub fn token_amount(&self) -> Result<u64, ProgramError> {
+        Ok(self.view()?.amount())
+    }
+
+    #[inline]
+    pub fn checked_mint(&self, expected_mint: &Address) -> Result<CheckedTokenMint<'info>, ProgramError> {
+        let mint = self.view()?.mint();
+        if &mint == expected_mint {
+            Ok(CheckedTokenMint {
+                account: *self,
+                mint,
+            })
+        } else {
+            Err(ProgramError::InvalidAccountData)
+        }
+    }
+
+    #[inline]
+    pub fn checked_authority(
+        &self,
+        expected_authority: &Address,
+    ) -> Result<CheckedTokenAuthority<'info>, ProgramError> {
+        let authority = self.view()?.authority();
+        if &authority == expected_authority {
+            Ok(CheckedTokenAuthority {
+                account: *self,
+                authority,
+            })
+        } else {
+            Err(ProgramError::IncorrectAuthority)
+        }
+    }
+
+    #[inline]
+    pub fn amount_snapshot(&self) -> Result<TokenAmountSnapshot, ProgramError> {
+        Ok(TokenAmountSnapshot {
+            amount: self.token_amount()?,
+        })
+    }
+
+    #[inline]
+    pub fn assert_amount_delta(
+        &self,
+        before: TokenAmountSnapshot,
+        expected_delta: i128,
+    ) -> ProgramResult {
+        let after = self.token_amount()? as i128;
+        let expected = (before.amount as i128)
+            .checked_add(expected_delta)
+            .ok_or(ProgramError::ArithmeticOverflow)?;
+        if expected < 0 || expected > u64::MAX as i128 {
+            return Err(ProgramError::ArithmeticOverflow);
+        }
+        if after == expected {
+            Ok(())
+        } else {
+            Err(ProgramError::InvalidAccountData)
+        }
+    }
+
+    #[inline]
+    pub fn assert_amount_unchanged(&self, before: TokenAmountSnapshot) -> ProgramResult {
+        self.assert_amount_delta(before, 0)
+    }
+}
+
+impl<'info> ExternalAccount<'info, SplMint> {
+    #[inline]
+    pub fn checked_decimals(&self, expected: u8) -> Result<CheckedMintDecimals<'info>, ProgramError> {
+        let decimals = self.view()?.decimals();
+        if decimals == expected {
+            Ok(CheckedMintDecimals {
+                account: *self,
+                decimals,
+            })
+        } else {
+            Err(ProgramError::InvalidAccountData)
+        }
+    }
+}
+
+#[inline(always)]
+fn read_address_unchecked(data: &[u8], offset: usize) -> Address {
+    let mut bytes = [0u8; 32];
+    bytes.copy_from_slice(&data[offset..offset + 32]);
+    Address::new_from_array(bytes)
+}
+
+#[inline(always)]
+fn read_u64_unchecked(data: &[u8], offset: usize) -> u64 {
+    u64::from_le_bytes([
+        data[offset],
+        data[offset + 1],
+        data[offset + 2],
+        data[offset + 3],
+        data[offset + 4],
+        data[offset + 5],
+        data[offset + 6],
+        data[offset + 7],
+    ])
+}
+
+#[inline(always)]
+fn read_u32_unchecked(data: &[u8], offset: usize) -> u32 {
+    u32::from_le_bytes([data[offset], data[offset + 1], data[offset + 2], data[offset + 3]])
+}
+
+#[inline(always)]
+fn read_coption_address(data: &[u8], tag_offset: usize, address_offset: usize) -> Option<Address> {
+    match read_u32_unchecked(data, tag_offset) {
+        1 => Some(read_address_unchecked(data, address_offset)),
+        _ => None,
+    }
+}
+
 /// Compatibility re-exports.
 pub mod instructions {
     pub use super::{
@@ -869,6 +1199,47 @@ mod tests {
     //! builder produces.
 
     use super::*;
+    use hopper_native::{
+        AccountView as NativeAccountView, Address as NativeAddress, RuntimeAccount, NOT_BORROWED,
+    };
+    fn make_account(owner: Address, data: &[u8]) -> (std::vec::Vec<u8>, AccountView) {
+        let mut backing = std::vec![0u8; RuntimeAccount::SIZE + data.len()];
+        let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
+        unsafe {
+            raw.write(RuntimeAccount {
+                borrow_state: NOT_BORROWED,
+                is_signer: 0,
+                is_writable: 1,
+                executable: 0,
+                resize_delta: 0,
+                address: NativeAddress::new_from_array([7; 32]),
+                owner: NativeAddress::new_from_array(owner.to_bytes()),
+                lamports: 1,
+                data_len: data.len() as u64,
+            });
+            let data_ptr = backing.as_mut_ptr().add(RuntimeAccount::SIZE);
+            core::ptr::copy_nonoverlapping(data.as_ptr(), data_ptr, data.len());
+        }
+        let backend = unsafe { NativeAccountView::new_unchecked(raw) };
+        (backing, AccountView::from_backend(backend))
+    }
+    fn token_account_data(mint: Address, authority: Address, amount: u64) -> [u8; SPL_TOKEN_ACCOUNT_LEN] {
+        let mut data = [0u8; SPL_TOKEN_ACCOUNT_LEN];
+        data[0..32].copy_from_slice(mint.as_bytes());
+        data[32..64].copy_from_slice(authority.as_bytes());
+        data[64..72].copy_from_slice(&amount.to_le_bytes());
+        data[108] = 1;
+        data
+    }
+    fn mint_data(authority: Address, supply: u64, decimals: u8) -> [u8; SPL_MINT_LEN] {
+        let mut data = [0u8; SPL_MINT_LEN];
+        data[0..4].copy_from_slice(&1u32.to_le_bytes());
+        data[4..36].copy_from_slice(authority.as_bytes());
+        data[36..44].copy_from_slice(&supply.to_le_bytes());
+        data[44] = decimals;
+        data[45] = 1;
+        data
+    }
 
     // Verify the discriminator byte of each `*Checked` variant
     // matches the SPL Token program's public definition. These are
@@ -895,6 +1266,55 @@ mod tests {
         // Keep these tests if the SPL Token program adds new
         // instructions that might conflict; they pin our build to
         // the canonical numbering.
+    }
+    #[test]
+    fn spl_external_token_account_view_proofs_and_amount_delta() {
+        let mint = Address::new_from_array([2; 32]);
+        let authority = Address::new_from_array([3; 32]);
+        let data = token_account_data(mint, authority, 100);
+        let (mut backing, account) = make_account(TOKEN_PROGRAM_ID, &data);
+
+        let token = ExternalAccount::<SplTokenAccount>::try_new(&account).unwrap();
+        let view = token.view().unwrap();
+        assert_eq!(view.mint(), mint);
+        assert_eq!(view.authority(), authority);
+        assert_eq!(view.amount(), 100);
+        assert!(view.is_initialized());
+        assert_eq!(token.checked_mint(&mint).unwrap().mint(), mint);
+        assert_eq!(token.checked_authority(&authority).unwrap().authority(), authority);
+        assert_eq!(
+            token
+                .checked_mint(&Address::new_from_array([9; 32]))
+                .unwrap_err(),
+            ProgramError::InvalidAccountData
+        );
+
+        let before = token.amount_snapshot().unwrap();
+        backing[RuntimeAccount::SIZE + 64..RuntimeAccount::SIZE + 72]
+            .copy_from_slice(&150u64.to_le_bytes());
+        token.assert_amount_delta(before, 50).unwrap();
+        assert_eq!(
+            token.assert_amount_delta(before, 49).unwrap_err(),
+            ProgramError::InvalidAccountData
+        );
+    }
+    #[test]
+    fn spl_external_mint_view_and_decimals_proof() {
+        let authority = Address::new_from_array([4; 32]);
+        let data = mint_data(authority, 1_000_000, 6);
+        let (_backing, account) = make_account(TOKEN_PROGRAM_ID, &data);
+
+        let mint = ExternalAccount::<SplMint>::try_new(&account).unwrap();
+        let view = mint.view().unwrap();
+        assert_eq!(view.mint_authority(), Some(authority));
+        assert_eq!(view.supply(), 1_000_000);
+        assert_eq!(view.decimals(), 6);
+        assert!(view.is_initialized());
+        assert_eq!(mint.checked_decimals(6).unwrap().decimals(), 6);
+        assert_eq!(
+            mint.checked_decimals(9).unwrap_err(),
+            ProgramError::InvalidAccountData
+        );
     }
 
     /// Helper: reconstruct the 10-byte instruction-data buffer a
@@ -967,7 +1387,7 @@ mod tests {
         }
     }
 
-    // ── require_token_authority regression tests ─────────────────────
+    // ---------------------------------------------------------------------
 
     /// Build a minimal valid SPL TokenAccount data buffer + an
     /// AccountView wrapping it, plus a matching authority view. The
@@ -1092,7 +1512,7 @@ mod tests {
         assert!(matches!(err, ProgramError::AccountDataTooSmall));
     }
 
-    // ── New Anchor-parity helpers (require_token_mint / require_mint_*) ──
+    // ---------------------------------------------------------------------
     //
     // These lock in the behavior that `#[account(token::mint = X)]`,
     // `#[account(mint::authority = Y)]`, and friends lower to. They

@@ -65,6 +65,8 @@ pub enum AccountLifecycle {
     Existing,
     /// Account is created fresh this instruction (`#[account(init, ...)]`).
     Init,
+    /// Account may be created by this instruction if it does not already exist.
+    InitIfNeeded,
     /// Account data is resized this instruction.
     Realloc,
     /// Account is drained and reassigned to the System Program.
@@ -76,10 +78,43 @@ impl AccountLifecycle {
         match self {
             AccountLifecycle::Existing => "existing",
             AccountLifecycle::Init => "init",
+            AccountLifecycle::InitIfNeeded => "init_if_needed",
             AccountLifecycle::Realloc => "realloc",
             AccountLifecycle::Close => "close",
         }
     }
+}
+
+/// Normalize schema and manifest lifecycle strings into Hopper metadata.
+pub fn normalize_lifecycle(s: &str) -> AccountLifecycle {
+    let s = s.trim();
+    if lifecycle_token_eq(s, "initifneeded") || lifecycle_token_eq(s, "createifneeded") {
+        AccountLifecycle::InitIfNeeded
+    } else if lifecycle_token_eq(s, "init") || lifecycle_token_eq(s, "create") {
+        AccountLifecycle::Init
+    } else if lifecycle_token_eq(s, "realloc") || lifecycle_token_eq(s, "reallocate") {
+        AccountLifecycle::Realloc
+    } else if lifecycle_token_eq(s, "close") {
+        AccountLifecycle::Close
+    } else {
+        AccountLifecycle::Existing
+    }
+}
+
+fn lifecycle_token_eq(input: &str, canonical: &str) -> bool {
+    let canonical = canonical.as_bytes();
+    let mut canonical_idx = 0;
+    for byte in input.bytes() {
+        if matches!(byte, b'_' | b'-') {
+            continue;
+        }
+        if canonical_idx >= canonical.len() || byte.to_ascii_lowercase() != canonical[canonical_idx]
+        {
+            return false;
+        }
+        canonical_idx += 1;
+    }
+    canonical_idx == canonical.len()
 }
 
 impl fmt::Display for ContextAccountDescriptor {
@@ -357,8 +392,30 @@ mod tests {
     fn lifecycle_as_str_roundtrips_all_variants() {
         assert_eq!(AccountLifecycle::Existing.as_str(), "existing");
         assert_eq!(AccountLifecycle::Init.as_str(), "init");
+        assert_eq!(AccountLifecycle::InitIfNeeded.as_str(), "init_if_needed");
         assert_eq!(AccountLifecycle::Realloc.as_str(), "realloc");
         assert_eq!(AccountLifecycle::Close.as_str(), "close");
+    }
+
+    #[test]
+    fn normalize_lifecycle_maps_init_if_needed_aliases() {
+        for alias in [
+            "init_if_needed",
+            "initIfNeeded",
+            "init-if-needed",
+            "create_if_needed",
+        ] {
+            assert_eq!(normalize_lifecycle(alias), AccountLifecycle::InitIfNeeded);
+        }
+    }
+
+    #[test]
+    fn normalize_lifecycle_preserves_existing_variants() {
+        assert_eq!(normalize_lifecycle("init"), AccountLifecycle::Init);
+        assert_eq!(normalize_lifecycle("realloc"), AccountLifecycle::Realloc);
+        assert_eq!(normalize_lifecycle("close"), AccountLifecycle::Close);
+        assert_eq!(normalize_lifecycle(""), AccountLifecycle::Existing);
+        assert_eq!(normalize_lifecycle("unknown"), AccountLifecycle::Existing);
     }
 
     #[test]

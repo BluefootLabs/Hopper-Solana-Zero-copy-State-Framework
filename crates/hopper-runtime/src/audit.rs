@@ -12,17 +12,17 @@ pub struct DuplicateAccount {
 /// Instruction-scope duplicate-account audit over a slice of account views.
 #[derive(Clone, Copy)]
 pub struct AccountAudit<'a> {
-    accounts: &'a [AccountView],
+    accounts: &'a [AccountView<'a>],
 }
 
 impl<'a> AccountAudit<'a> {
     #[inline(always)]
-    pub const fn new(accounts: &'a [AccountView]) -> Self {
+    pub const fn new(accounts: &'a [AccountView<'a>]) -> Self {
         Self { accounts }
     }
 
     #[inline(always)]
-    pub fn accounts(&self) -> &'a [AccountView] {
+    pub fn accounts(&self) -> &'a [AccountView<'a>] {
         self.accounts
     }
 
@@ -71,7 +71,7 @@ impl<'a> AccountAudit<'a> {
     #[inline]
     fn first_duplicate_where(
         &self,
-        predicate: impl Fn(&AccountView, &AccountView) -> bool,
+        predicate: impl Fn(&AccountView<'a>, &AccountView<'a>) -> bool,
     ) -> Option<DuplicateAccount> {
         let mut i = 0;
         while i < self.accounts.len() {
@@ -94,7 +94,7 @@ impl<'a> AccountAudit<'a> {
     }
 }
 
-#[cfg(all(test, feature = "hopper-native-backend"))]
+#[cfg(test)]
 mod tests {
     use super::*;
 

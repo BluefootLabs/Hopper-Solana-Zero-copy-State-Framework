@@ -32,7 +32,8 @@ pub use header::{
     write_header, AccountHeader, HEADER_FORMAT, HEADER_LEN,
 };
 pub use lifecycle::{
-    safe_close, safe_close_with_sentinel, safe_realloc, zero_init, CLOSE_SENTINEL,
+    safe_close, safe_close_unchecked, safe_close_with_sentinel, safe_close_with_sentinel_unchecked,
+    safe_realloc, safe_realloc_unchecked, zero_init, CLOSE_SENTINEL,
 };
 pub use overlay::{overlay, overlay_mut};
 pub use pod::{

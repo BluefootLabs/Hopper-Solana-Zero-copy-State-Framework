@@ -68,7 +68,7 @@ pub const HEADER_AUTHORITY: u32 = HEADER_SIGNER_WRITABLE;
 /// this layout.
 #[cfg(all(target_os = "solana", feature = "hopper-native-backend"))]
 #[inline(always)]
-unsafe fn read_account_header(account: &AccountView) -> u32 {
+unsafe fn read_account_header(account: &AccountView<'_>) -> u32 {
     // SAFETY: AccountView is repr(C) with a pointer to the raw RuntimeAccount
     // as its first field. We dereference this pointer to get the RuntimeAccount
     // base address, then read the first 4 bytes as an unaligned u32.
@@ -94,7 +94,7 @@ unsafe fn read_account_header(account: &AccountView) -> u32 {
 /// Safe to call on any `AccountView` from the SVM entrypoint.
 /// On non-SVM targets, falls back to individual checks via AccountView methods.
 #[inline(always)]
-pub fn check_account_fast(account: &AccountView, expected_header: u32) -> ProgramResult {
+pub fn check_account_fast(account: &AccountView<'_>, expected_header: u32) -> ProgramResult {
     // Fast path: one compare for all flags
     #[cfg(all(target_os = "solana", feature = "hopper-native-backend"))]
     {
@@ -143,7 +143,7 @@ fn decompose_header_error(actual: u32, expected: u32) -> ProgramResult {
 
 /// Off-chain fallback using individual AccountView methods.
 #[cfg(not(all(target_os = "solana", feature = "hopper-native-backend")))]
-fn check_account_flags_fallback(account: &AccountView, expected: u32) -> ProgramResult {
+fn check_account_flags_fallback(account: &AccountView<'_>, expected: u32) -> ProgramResult {
     if (expected & (1 << 8)) != 0 && !account.is_signer() {
         return Err(ProgramError::MissingRequiredSignature);
     }
@@ -158,24 +158,24 @@ fn check_account_flags_fallback(account: &AccountView, expected: u32) -> Program
 
 /// Validate a signer account with single u32 compare.
 #[inline(always)]
-pub fn check_signer_fast(account: &AccountView) -> ProgramResult {
+pub fn check_signer_fast(account: &AccountView<'_>) -> ProgramResult {
     check_account_fast(account, HEADER_SIGNER)
 }
 
 /// Validate a writable account with single u32 compare.
 #[inline(always)]
-pub fn check_writable_fast(account: &AccountView) -> ProgramResult {
+pub fn check_writable_fast(account: &AccountView<'_>) -> ProgramResult {
     check_account_fast(account, HEADER_WRITABLE)
 }
 
 /// Validate a signer + writable account (authority) with single u32 compare.
 #[inline(always)]
-pub fn check_authority_fast(account: &AccountView) -> ProgramResult {
+pub fn check_authority_fast(account: &AccountView<'_>) -> ProgramResult {
     check_account_fast(account, HEADER_AUTHORITY)
 }
 
 /// Validate an executable (program) account with single u32 compare.
 #[inline(always)]
-pub fn check_executable_fast(account: &AccountView) -> ProgramResult {
+pub fn check_executable_fast(account: &AccountView<'_>) -> ProgramResult {
     check_account_fast(account, HEADER_EXECUTABLE)
 }

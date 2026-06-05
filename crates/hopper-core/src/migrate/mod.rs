@@ -38,8 +38,8 @@ use hopper_runtime::{error::ProgramError, AccountView, Address, ProgramResult};
 #[inline]
 #[allow(clippy::too_many_arguments)]
 pub fn migrate_append(
-    account: &AccountView,
-    payer: &AccountView,
+    account: &AccountView<'_>,
+    payer: &AccountView<'_>,
     program_id: &Address,
     old_layout_id: &[u8; 8],
     new_version: u8,
@@ -64,9 +64,10 @@ pub fn migrate_append(
     if new_size <= old_size {
         return Err(ProgramError::InvalidArgument);
     }
+    drop(data);
 
     // Realloc
-    crate::account::safe_realloc(account, new_size, payer)?;
+    crate::account::safe_realloc(account, new_size, payer, program_id)?;
 
     // Write updated header
     let mut data = account.try_borrow_mut()?;

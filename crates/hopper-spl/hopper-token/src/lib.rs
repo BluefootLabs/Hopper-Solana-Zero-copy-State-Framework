@@ -8,8 +8,9 @@
 #![deny(unsafe_op_in_unsafe_fn)]
 
 pub use hopper_runtime::token::{
-    ApproveChecked, BurnChecked, CloseAccount, InitializeAccount, MintToChecked, Revoke,
-    TransferChecked, TOKEN_PROGRAM_ID,
+    ApproveChecked, BurnChecked, CheckedMintDecimals, CheckedTokenAuthority, CheckedTokenMint,
+    CloseAccount, InitializeAccount, MintToChecked, Revoke, SplMint, SplMintView,
+    SplTokenAccount, SplTokenAccountView, TokenAmountSnapshot, TransferChecked, TOKEN_PROGRAM_ID,
 };
 
 #[cfg(feature = "legacy-token-instructions")]

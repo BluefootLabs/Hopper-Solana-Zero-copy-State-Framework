@@ -56,7 +56,7 @@ pub struct ValidationContext<'a> {
     /// The program ID.
     pub program_id: &'a Address,
     /// All accounts in the instruction.
-    pub accounts: &'a [AccountView],
+    pub accounts: &'a [AccountView<'a>],
     /// Instruction data.
     pub data: &'a [u8],
 }
@@ -64,7 +64,7 @@ pub struct ValidationContext<'a> {
 impl<'a> ValidationContext<'a> {
     /// Create a new validation context.
     #[inline(always)]
-    pub fn new(program_id: &'a Address, accounts: &'a [AccountView], data: &'a [u8]) -> Self {
+    pub fn new(program_id: &'a Address, accounts: &'a [AccountView<'a>], data: &'a [u8]) -> Self {
         Self {
             program_id,
             accounts,
@@ -74,7 +74,7 @@ impl<'a> ValidationContext<'a> {
 
     /// Get an account by index.
     #[inline(always)]
-    pub fn account(&self, index: usize) -> Result<&'a AccountView, ProgramError> {
+    pub fn account(&self, index: usize) -> Result<&'a AccountView<'a>, ProgramError> {
         self.accounts
             .get(index)
             .ok_or(ProgramError::NotEnoughAccountKeys)
@@ -595,7 +595,7 @@ impl<'a, const N: usize> ValidationBundle<'a, N> {
 ///
 /// Receives the account slice after mutation. Can inspect state
 /// for invariants that should hold after any write.
-pub type PostMutationFn = fn(accounts: &[AccountView], program_id: &Address) -> ProgramResult;
+pub type PostMutationFn = fn(accounts: &[AccountView<'_>], program_id: &Address) -> ProgramResult;
 
 /// Collects post-mutation checks that run after instruction execution.
 ///
@@ -651,7 +651,7 @@ impl<const N: usize> PostMutationValidator<N> {
 
     /// Run all post-mutation checks. Fail-fast.
     #[inline]
-    pub fn run(&self, accounts: &[AccountView], program_id: &Address) -> ProgramResult {
+    pub fn run(&self, accounts: &[AccountView<'_>], program_id: &Address) -> ProgramResult {
         let mut i = 0;
         while i < self.count {
             if let Some(check) = self.checks[i] {

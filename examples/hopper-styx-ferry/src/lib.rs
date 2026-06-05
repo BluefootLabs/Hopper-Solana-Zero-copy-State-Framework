@@ -11,20 +11,19 @@ use hopper::prelude::*;
 
 #[cfg(target_os = "solana")]
 mod __hopper_sbf {
-    #[cfg(not(feature = "solana-program-backend"))]
     hopper::no_allocator!();
-
-    #[cfg(not(feature = "solana-program-backend"))]
     hopper::nostd_panic_handler!();
 }
 
 pub const RATCHET_CIPHERTEXT_MAX: usize = 900;
+pub const RATCHET_CIPHERTEXT_MAX_U16: u16 = RATCHET_CIPHERTEXT_MAX as u16;
 pub const STYX_ZK_PROOF_V2_LEN: usize = 513;
 pub const STYX_ZK_INPUTS_OFFSET: usize = 1 + 64 + 128 + 64;
 pub const STYX_ZK_PUBLIC_INPUTS: usize = 8;
 pub const MAX_ONE_TIME_PREKEYS: u16 = 200;
 pub const MAX_FEE_TIER: u64 = 3;
 pub const ED25519_PRECOMPILE_SAME_INSTRUCTION: u16 = u16::MAX;
+pub const ED25519_PREKEY_INSTRUCTION_MAX: usize = 160;
 
 pub const BN254_FR_MODULUS: [u8; 32] = [
     0x30, 0x64, 0x4e, 0x72, 0xe1, 0x31, 0xa0, 0x29, 0xb8, 0x50, 0x45, 0xb6, 0x81, 0x81, 0x58, 0x5d,
@@ -163,7 +162,7 @@ pub struct SubmitZkFerry<'info> {
     pub verifier_program: UncheckedAccount<'info>,
 }
 
-#[program]
+#[program(max_accounts = 4)]
 mod styx_ferry_program {
     use super::*;
 
@@ -194,12 +193,12 @@ mod styx_ferry_program {
     ) -> ProgramResult {
         ctx.init_bundle()?;
         ctx.accounts.publish(
-            domain,
-            identity_key,
+            &domain,
+            &identity_key,
             signed_prekey_id,
-            signed_prekey,
-            signed_prekey_signature,
-            one_time_prekey_root,
+            &signed_prekey,
+            &signed_prekey_signature,
+            &one_time_prekey_root,
             one_time_prekey_count,
             published_at,
             ed25519_sibling_index,
@@ -229,10 +228,10 @@ mod styx_ferry_program {
         counter: u64,
         ratchet_key: [u8; 32],
         sealed_message_hash: [u8; 32],
-        ciphertext: HopperVec<u8, RATCHET_CIPHERTEXT_MAX>,
+        ciphertext_len: u16,
     ) -> ProgramResult {
         ctx.accounts
-            .send(counter, ratchet_key, sealed_message_hash, ciphertext)
+            .send(counter, ratchet_key, sealed_message_hash, ciphertext_len)
     }
 
     #[instruction(5)]
@@ -271,12 +270,12 @@ impl<'info> PublishPrekeyBundle<'info> {
     #[allow(clippy::too_many_arguments)]
     pub fn publish(
         &self,
-        domain: [u8; 32],
-        identity_key: [u8; 32],
+        domain: &[u8; 32],
+        identity_key: &[u8; 32],
         signed_prekey_id: u32,
-        signed_prekey: [u8; 32],
-        signed_prekey_signature: [u8; 64],
-        one_time_prekey_root: [u8; 32],
+        signed_prekey: &[u8; 32],
+        signed_prekey_signature: &[u8; 64],
+        one_time_prekey_root: &[u8; 32],
         one_time_prekey_count: u16,
         published_at: u64,
         ed25519_sibling_index: u64,
@@ -292,18 +291,16 @@ impl<'info> PublishPrekeyBundle<'info> {
 
         {
             let mut bundle = self.bundle.get_mut_after_init()?;
-            bundle.set_inner(
-                *self.owner.key(),
-                domain,
-                identity_key,
-                signed_prekey_id,
-                signed_prekey,
-                signed_prekey_signature,
-                one_time_prekey_root,
-                one_time_prekey_count,
-                published_at,
-                0,
-            )?;
+            bundle.owner = *self.owner.key();
+            bundle.domain = *domain;
+            bundle.identity_key = *identity_key;
+            bundle.signed_prekey_id = WireU32::new(signed_prekey_id);
+            bundle.signed_prekey = *signed_prekey;
+            bundle.signed_prekey_signature = *signed_prekey_signature;
+            bundle.one_time_prekey_root = *one_time_prekey_root;
+            bundle.one_time_prekey_count = WireU16::new(one_time_prekey_count);
+            bundle.published_at = WireU64::new(published_at);
+            bundle.refresh_count = WireU64::new(0);
         }
 
         {
@@ -379,9 +376,10 @@ impl<'info> SendRatchetMessage<'info> {
         counter: u64,
         ratchet_key: [u8; 32],
         sealed_message_hash: [u8; 32],
-        ciphertext: HopperVec<u8, RATCHET_CIPHERTEXT_MAX>,
+        ciphertext_len: u16,
     ) -> ProgramResult {
-        hopper::hopper_require!(!ciphertext.is_empty(), EmptyCiphertext);
+        hopper::hopper_require!(ciphertext_len > 0, EmptyCiphertext);
+        hopper::hopper_require!(ciphertext_len <= RATCHET_CIPHERTEXT_MAX_U16, EmptyCiphertext);
 
         let recipient = {
             let mut thread = self.thread.get_mut()?;
@@ -402,7 +400,7 @@ impl<'info> SendRatchetMessage<'info> {
         }
 
         let counter_bytes = counter.to_le_bytes();
-        let ciphertext_len = (ciphertext.len() as u16).to_le_bytes();
+        let ciphertext_len_bytes = ciphertext_len.to_le_bytes();
         hopper::events::emit_slices(&[
             &[EVENT_RATCHET_MESSAGE],
             self.sender.key().as_bytes(),
@@ -410,8 +408,7 @@ impl<'info> SendRatchetMessage<'info> {
             &counter_bytes,
             &ratchet_key,
             &sealed_message_hash,
-            &ciphertext_len,
-            ciphertext.as_slice(),
+            &ciphertext_len_bytes,
         ]);
         Ok(())
     }
@@ -547,7 +544,9 @@ fn verify_signed_prekey_instruction(
     signed_prekey: &[u8; 32],
     signed_prekey_signature: &[u8; 64],
 ) -> ProgramResult {
-    let instruction = crypto::require_ed25519_instruction(sibling_index)
+    let instruction = crypto::require_ed25519_instruction_data::<ED25519_PREKEY_INSTRUCTION_MAX>(
+        sibling_index,
+    )
         .map_err(|_| MissingSignedPrekeySignature)?;
     verify_ed25519_payload(
         &instruction,
@@ -558,7 +557,7 @@ fn verify_signed_prekey_instruction(
 }
 
 fn verify_ed25519_payload(
-    instruction: &crypto::ProcessedInstruction,
+    instruction: &crypto::ProcessedInstructionData<ED25519_PREKEY_INSTRUCTION_MAX>,
     signer: &[u8; 32],
     message: &[u8; 32],
     signature: &[u8; 64],
@@ -599,7 +598,7 @@ fn verify_ed25519_payload(
 }
 
 fn instruction_data_eq(
-    instruction: &crypto::ProcessedInstruction,
+    instruction: &crypto::ProcessedInstructionData<ED25519_PREKEY_INSTRUCTION_MAX>,
     offset: usize,
     expected: &[u8],
 ) -> bool {

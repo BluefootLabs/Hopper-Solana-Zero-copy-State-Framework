@@ -3,8 +3,8 @@ use crate::address::Address;
 use crate::error::ProgramError;
 use crate::ProgramResult;
 
-pub type BackendAccountView = hopper_native::AccountView;
-pub type BackendAccountSlice<'a> = &'a [BackendAccountView];
+pub type BackendAccountView<'info> = hopper_native::AccountView<'info>;
+pub type BackendAccountSlice<'info> = &'info [BackendAccountView<'info>];
 pub type BackendAddress = hopper_native::Address;
 pub type BackendProgramResult = hopper_native::ProgramResult;
 pub type BackendRef<'a, T> = hopper_native::borrow::Ref<'a, T>;
@@ -17,13 +17,15 @@ pub const BACKEND_SUCCESS: u64 = hopper_native::SUCCESS;
 /// # Safety
 ///
 /// Caller must uphold the invariants documented for this unsafe API before invoking it.
-pub unsafe fn wrap_account_slice(accounts: &[BackendAccountView]) -> &[AccountView] {
+pub unsafe fn wrap_account_slice<'info>(
+    accounts: &'info [BackendAccountView<'info>],
+) -> &'info [AccountView<'info>] {
     // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-    unsafe { core::slice::from_raw_parts(accounts.as_ptr() as *const AccountView, accounts.len()) }
+    unsafe { core::slice::from_raw_parts(accounts.as_ptr() as *const AccountView<'info>, accounts.len()) }
 }
 
 #[inline(always)]
-pub fn account_address(view: &BackendAccountView) -> &Address {
+pub fn account_address<'a>(view: &'a BackendAccountView<'a>) -> &'a Address {
     // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe { &*(view.address() as *const BackendAddress as *const Address) }
 }
@@ -33,13 +35,13 @@ pub fn account_address(view: &BackendAccountView) -> &Address {
 /// # Safety
 ///
 /// Caller must uphold the invariants documented for this unsafe API before invoking it.
-pub unsafe fn account_owner(view: &BackendAccountView) -> &Address {
+pub unsafe fn account_owner<'a>(view: &'a BackendAccountView<'a>) -> &'a Address {
     // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe { &*(view.owner() as *const BackendAddress as *const Address) }
 }
 
 #[inline(always)]
-pub fn read_owner(view: &BackendAccountView) -> Address {
+pub fn read_owner(view: &BackendAccountView<'_>) -> Address {
     Address::from(view.read_owner())
 }
 
@@ -50,22 +52,22 @@ pub fn as_backend_address(address: &Address) -> &BackendAddress {
 }
 
 #[inline(always)]
-pub fn owned_by(view: &BackendAccountView, program: &Address) -> bool {
+pub fn owned_by(view: &BackendAccountView<'_>, program: &Address) -> bool {
     view.owned_by(as_backend_address(program))
 }
 
 #[inline(always)]
-pub fn disc(view: &BackendAccountView) -> u8 {
+pub fn disc(view: &BackendAccountView<'_>) -> u8 {
     view.disc()
 }
 
 #[inline(always)]
-pub fn version(view: &BackendAccountView) -> u8 {
+pub fn version(view: &BackendAccountView<'_>) -> u8 {
     view.version()
 }
 
 #[inline(always)]
-pub fn layout_id(view: &BackendAccountView) -> Option<&[u8; 8]> {
+pub fn layout_id<'a>(view: &'a BackendAccountView<'a>) -> Option<&'a [u8; 8]> {
     view.layout_id()
 }
 
@@ -74,7 +76,7 @@ pub fn layout_id(view: &BackendAccountView) -> Option<&[u8; 8]> {
 /// # Safety
 ///
 /// Caller must uphold the invariants documented for this unsafe API before invoking it.
-pub unsafe fn assign(view: &BackendAccountView, new_owner: &Address) {
+pub unsafe fn assign(view: &BackendAccountView<'_>, new_owner: &Address) {
     // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe {
         view.assign(as_backend_address(new_owner));
@@ -82,12 +84,18 @@ pub unsafe fn assign(view: &BackendAccountView, new_owner: &Address) {
 }
 
 #[inline(always)]
-pub fn close(view: &BackendAccountView) -> ProgramResult {
+pub fn try_set_lamports(view: &BackendAccountView<'_>, lamports: u64) -> ProgramResult {
+    view.set_lamports(lamports);
+    Ok(())
+}
+
+#[inline(always)]
+pub fn close(view: &BackendAccountView<'_>) -> ProgramResult {
     view.close().map_err(ProgramError::from)
 }
 
 #[inline(always)]
-pub fn zero_data(view: &BackendAccountView) -> ProgramResult {
+pub fn zero_data(view: &BackendAccountView<'_>) -> ProgramResult {
     let mut data = view.try_borrow_mut().map_err(ProgramError::from)?;
     let mut i = 0;
     while i < data.len() {
@@ -98,7 +106,7 @@ pub fn zero_data(view: &BackendAccountView) -> ProgramResult {
 }
 
 #[inline(always)]
-pub fn resize(view: &BackendAccountView, new_len: usize) -> ProgramResult {
+pub fn resize(view: &BackendAccountView<'_>, new_len: usize) -> ProgramResult {
     view.resize(new_len).map_err(ProgramError::from)
 }
 
@@ -150,7 +158,7 @@ pub fn bridge_to_runtime(
     program_id: &BackendAddress,
     accounts: BackendAccountSlice<'_>,
     data: &[u8],
-    process_instruction: fn(&Address, &[AccountView], &[u8]) -> ProgramResult,
+    process_instruction: for<'info> fn(&'info Address, &'info [AccountView<'info>], &'info [u8]) -> ProgramResult,
 ) -> BackendProgramResult {
     // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     let hopper_id = unsafe { &*(program_id as *const BackendAddress as *const Address) };

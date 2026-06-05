@@ -11,7 +11,7 @@
 //!   directly. This matches Pinocchio's pointer shape while adding the
 //!   deterministic RAII release that Pinocchio pushes onto the caller.
 //!
-//! - **non-Solana (host tests, legacy-pinocchio-compat, solana-program)**.
+//! - **non-Solana host tests**.
 //!   `{ ptr, guard, token, _marker }`. Richer because host tests rely on
 //!   the active backend's borrow machinery (RefCell, etc.) plus Hopper's
 //!   own cross-handle alias registry (`BorrowToken`). Both are real RAII

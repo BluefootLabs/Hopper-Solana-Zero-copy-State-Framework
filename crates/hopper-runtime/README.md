@@ -31,8 +31,12 @@ explicit `legacy-pinocchio-compat` migration and benchmark feature;
 - **Rent-exemption helper** - `rent::check_rent_exempt(account)` backing the
   `#[account(rent_exempt = enforce)]` field keyword.
 - **Foreign and remaining accounts** - `ExternalZeroCopy` /
-  `ExternalAccount<'info, T>` for known non-Hopper account bytes, plus strict,
-  passthrough, raw, bounded, and typed sequential remaining-account parsers.
+  `ExternalAccount<'info, T>` for known non-Hopper account bytes with typed
+  views, lenses, resolver dispatch, proof tokens, explain hooks, and snapshots,
+  plus strict, passthrough, raw, bounded, typed, grouped, and lazy
+  remaining-account parsers.
+- **SPL external adapters** - Token account and mint external views with mint,
+  authority, decimals, and amount-delta proof helpers.
 - **Stored instructions** - `StoredAccountMeta` and `StoredInstruction<'a>` for
   governance/proposal executors that persist arbitrary CPI payloads.
 - **Token / Token-2022 readers** - base-layout readers for Mint and

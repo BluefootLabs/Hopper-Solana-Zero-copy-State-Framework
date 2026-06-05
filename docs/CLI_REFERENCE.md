@@ -62,8 +62,7 @@ Use `--source-only` before an SBF build to run every non-binary gate. Add
 Check that Hopper program crates are shaped for Solana instead of merely
 Rust-valid: `cdylib` output, Solana `no_std` intent, Hopper allocator and panic
 markers, a generated or explicit entrypoint, path-qualified SBF macros, and the
-single backend feature selected by default package features or direct Hopper
-dependency features. Use `--all` to scan program-shaped packages below the
+direct Hopper runtime dependency shape. Use `--all` to scan program-shaped packages below the
 workspace root. Use `--build-sbf` in CI when you want the gate to run
 `cargo build-sbf` too.
 

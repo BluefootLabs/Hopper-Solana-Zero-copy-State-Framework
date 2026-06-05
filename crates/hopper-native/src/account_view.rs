@@ -5,6 +5,8 @@
 //! pointer to a `RuntimeAccount` in that buffer, providing safe accessors
 //! for address, owner, flags, lamports, and data.
 
+use core::marker::PhantomData;
+
 use crate::address::{address_eq, Address};
 use crate::borrow::{Ref, RefMut};
 use crate::error::ProgramError;
@@ -20,16 +22,17 @@ use crate::{ProgramResult, MAX_PERMITTED_DATA_INCREASE, NOT_BORROWED};
 #[repr(C)]
 #[cfg_attr(feature = "copy", derive(Copy))]
 #[derive(Clone, PartialEq, Eq)]
-pub struct AccountView {
+pub struct AccountView<'info> {
     raw: *mut RuntimeAccount,
+    _marker: PhantomData<&'info RuntimeAccount>,
 }
 
 // SAFETY: AccountView is safe to send between threads in test contexts.
 // On BPF there is only one thread.
-unsafe impl Send for AccountView {}
-unsafe impl Sync for AccountView {}
+unsafe impl<'info> Send for AccountView<'info> {}
+unsafe impl<'info> Sync for AccountView<'info> {}
 
-impl AccountView {
+impl<'info> AccountView<'info> {
     /// Construct an AccountView from a raw pointer.
     ///
     /// # Safety
@@ -39,7 +42,10 @@ impl AccountView {
     /// `(*raw).data_len` bytes of account data.
     #[inline(always)]
     pub const unsafe fn new_unchecked(raw: *mut RuntimeAccount) -> Self {
-        Self { raw }
+        Self {
+            raw,
+            _marker: PhantomData,
+        }
     }
 
     #[inline(always)]
@@ -782,7 +788,7 @@ impl AccountView {
     }
 }
 
-impl core::fmt::Debug for AccountView {
+impl<'info> core::fmt::Debug for AccountView<'info> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("AccountView")
             .field("address", self.address())
@@ -798,14 +804,14 @@ impl core::fmt::Debug for AccountView {
 
 /// Iterator over remaining (unstructured) accounts after the known ones.
 pub struct RemainingAccounts<'a> {
-    accounts: &'a [AccountView],
+    accounts: &'a [AccountView<'a>],
     cursor: usize,
 }
 
 impl<'a> RemainingAccounts<'a> {
     /// Create from a slice of the remaining accounts.
     #[inline(always)]
-    pub fn new(accounts: &'a [AccountView]) -> Self {
+    pub fn new(accounts: &'a [AccountView<'a>]) -> Self {
         Self {
             accounts,
             cursor: 0,
@@ -820,7 +826,7 @@ impl<'a> RemainingAccounts<'a> {
 
     /// Take the next account, or return `NotEnoughAccountKeys`.
     #[inline(always)]
-    pub fn next(&mut self) -> Result<&'a AccountView, ProgramError> {
+    pub fn next(&mut self) -> Result<&'a AccountView<'a>, ProgramError> {
         if self.cursor >= self.accounts.len() {
             return Err(ProgramError::NotEnoughAccountKeys);
         }
@@ -831,7 +837,7 @@ impl<'a> RemainingAccounts<'a> {
 
     /// Take the next account that is a signer.
     #[inline(always)]
-    pub fn next_signer(&mut self) -> Result<&'a AccountView, ProgramError> {
+    pub fn next_signer(&mut self) -> Result<&'a AccountView<'a>, ProgramError> {
         let account = self.next()?;
         account.require_signer()?;
         Ok(account)
@@ -839,7 +845,7 @@ impl<'a> RemainingAccounts<'a> {
 
     /// Take the next account that is writable.
     #[inline(always)]
-    pub fn next_writable(&mut self) -> Result<&'a AccountView, ProgramError> {
+    pub fn next_writable(&mut self) -> Result<&'a AccountView<'a>, ProgramError> {
         let account = self.next()?;
         account.require_writable()?;
         Ok(account)
@@ -847,7 +853,7 @@ impl<'a> RemainingAccounts<'a> {
 
     /// Take the next account owned by the given program.
     #[inline(always)]
-    pub fn next_owned_by(&mut self, program: &Address) -> Result<&'a AccountView, ProgramError> {
+    pub fn next_owned_by(&mut self, program: &Address) -> Result<&'a AccountView<'a>, ProgramError> {
         let account = self.next()?;
         account.require_owned_by(program)?;
         Ok(account)

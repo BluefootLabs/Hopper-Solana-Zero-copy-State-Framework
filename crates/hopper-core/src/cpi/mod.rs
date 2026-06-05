@@ -38,7 +38,7 @@ pub struct HopperCpi<'a, const ACCTS: usize, const DATA: usize> {
     /// Source AccountViews for the CPI (needed by the runtime).
     /// Uses MaybeUninit to avoid UB from null/zeroed references.
     /// Slots 0..acct_cursor are initialized; the rest are uninit.
-    account_views: [MaybeUninit<&'a hopper_runtime::AccountView>; ACCTS],
+    account_views: [MaybeUninit<&'a hopper_runtime::AccountView<'a>>; ACCTS],
     /// Instruction data (fixed size, fully on stack).
     data: [u8; DATA],
     /// Number of accounts added so far.
@@ -67,7 +67,7 @@ impl<'a, const ACCTS: usize, const DATA: usize> HopperCpi<'a, ACCTS, DATA> {
     #[inline(always)]
     pub fn add_account(
         mut self,
-        view: &'a hopper_runtime::AccountView,
+        view: &'a hopper_runtime::AccountView<'a>,
         is_writable: bool,
         is_signer: bool,
     ) -> Self {
@@ -116,9 +116,9 @@ impl<'a, const ACCTS: usize, const DATA: usize> HopperCpi<'a, ACCTS, DATA> {
             // SAFETY: All ACCTS slots have been initialized via add_account
             // (enforced by the debug_assert above). We transmute the
             // MaybeUninit array to the initialized reference array.
-            let views: &[&hopper_runtime::AccountView; ACCTS] = unsafe {
-                &*(&self.account_views as *const [MaybeUninit<&hopper_runtime::AccountView>; ACCTS]
-                    as *const [&hopper_runtime::AccountView; ACCTS])
+            let views: &[&hopper_runtime::AccountView<'_>; ACCTS] = unsafe {
+                &*(&self.account_views as *const [MaybeUninit<&hopper_runtime::AccountView<'_>>; ACCTS]
+                    as *const [&hopper_runtime::AccountView<'_>; ACCTS])
             };
 
             // Build InstructionAccount array on the stack
@@ -188,7 +188,7 @@ pub struct HopperCpiBuf<'a, const ACCTS: usize, const MAX: usize> {
     program_id: &'a hopper_runtime::Address,
     account_keys: [&'a hopper_runtime::Address; ACCTS],
     account_flags: [(bool, bool); ACCTS],
-    account_views: [MaybeUninit<&'a hopper_runtime::AccountView>; ACCTS],
+    account_views: [MaybeUninit<&'a hopper_runtime::AccountView<'a>>; ACCTS],
     data: [u8; MAX],
     data_len: usize,
     acct_cursor: usize,
@@ -214,7 +214,7 @@ impl<'a, const ACCTS: usize, const MAX: usize> HopperCpiBuf<'a, ACCTS, MAX> {
     #[inline(always)]
     pub fn add_account(
         mut self,
-        view: &'a hopper_runtime::AccountView,
+        view: &'a hopper_runtime::AccountView<'a>,
         is_writable: bool,
         is_signer: bool,
     ) -> Self {
@@ -254,9 +254,9 @@ impl<'a, const ACCTS: usize, const MAX: usize> HopperCpiBuf<'a, ACCTS, MAX> {
             debug_assert_eq!(self.acct_cursor, ACCTS, "Not all accounts added to CPI");
 
             // SAFETY: All ACCTS slots initialized via add_account.
-            let views: &[&hopper_runtime::AccountView; ACCTS] = unsafe {
-                &*(&self.account_views as *const [MaybeUninit<&hopper_runtime::AccountView>; ACCTS]
-                    as *const [&hopper_runtime::AccountView; ACCTS])
+            let views: &[&hopper_runtime::AccountView<'_>; ACCTS] = unsafe {
+                &*(&self.account_views as *const [MaybeUninit<&hopper_runtime::AccountView<'_>>; ACCTS]
+                    as *const [&hopper_runtime::AccountView<'_>; ACCTS])
             };
 
             // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.

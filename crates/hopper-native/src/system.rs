@@ -13,12 +13,12 @@ pub const SYSTEM_PROGRAM_ID: Address = Address::new_from_array([
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 ]);
 
-// ── CreateAccount ────────────────────────────────────────────────────
+// ---------------------------------------------------------------------
 
 /// Builder for the system program's CreateAccount instruction.
 pub struct CreateAccount<'a, 'b> {
-    pub from: &'a AccountView,
-    pub to: &'a AccountView,
+    pub from: &'a AccountView<'a>,
+    pub to: &'a AccountView<'a>,
     pub lamports: u64,
     pub space: u64,
     pub owner: &'b Address,
@@ -33,7 +33,7 @@ impl CreateAccount<'_, '_> {
 
     /// Invoke the CreateAccount instruction with PDA signers.
     #[inline]
-    pub fn invoke_signed(&self, signers: &[Signer]) -> ProgramResult {
+    pub fn invoke_signed(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
         // Instruction data: u32(0) + u64(lamports) + u64(space) + [u8;32](owner)
         let mut data = [0u8; 52];
         // index 0 = CreateAccount (already zero)
@@ -47,12 +47,12 @@ impl CreateAccount<'_, '_> {
     }
 }
 
-// ── Transfer ─────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------
 
 /// Builder for the system program's Transfer instruction.
 pub struct Transfer<'a> {
-    pub from: &'a AccountView,
-    pub to: &'a AccountView,
+    pub from: &'a AccountView<'a>,
+    pub to: &'a AccountView<'a>,
     pub lamports: u64,
 }
 
@@ -65,7 +65,7 @@ impl Transfer<'_> {
 
     /// Invoke the Transfer instruction with PDA signers.
     #[inline]
-    pub fn invoke_signed(&self, signers: &[Signer]) -> ProgramResult {
+    pub fn invoke_signed(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
         // Instruction data: u32(2) + u64(lamports)
         let mut data = [0u8; 12];
         data[0] = 2;
@@ -77,11 +77,11 @@ impl Transfer<'_> {
     }
 }
 
-// ── Assign ───────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------
 
 /// Builder for the system program's Assign instruction.
 pub struct Assign<'a, 'b> {
-    pub account: &'a AccountView,
+    pub account: &'a AccountView<'a>,
     pub owner: &'b Address,
 }
 
@@ -94,7 +94,7 @@ impl Assign<'_, '_> {
 
     /// Invoke the Assign instruction with PDA signers.
     #[inline]
-    pub fn invoke_signed(&self, signers: &[Signer]) -> ProgramResult {
+    pub fn invoke_signed(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
         // Instruction data: u32(1) + [u8;32](owner)
         let mut data = [0u8; 36];
         data[0] = 1;
@@ -106,11 +106,11 @@ impl Assign<'_, '_> {
     }
 }
 
-// ── Allocate ─────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------
 
 /// Builder for the system program's Allocate instruction.
 pub struct Allocate<'a> {
-    pub account: &'a AccountView,
+    pub account: &'a AccountView<'a>,
     pub space: u64,
 }
 
@@ -123,7 +123,7 @@ impl Allocate<'_> {
 
     /// Invoke the Allocate instruction with PDA signers.
     #[inline]
-    pub fn invoke_signed(&self, signers: &[Signer]) -> ProgramResult {
+    pub fn invoke_signed(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
         // Instruction data: u32(8) + u64(space)
         let mut data = [0u8; 12];
         data[0] = 8;
@@ -135,12 +135,12 @@ impl Allocate<'_> {
     }
 }
 
-// ── Internal helper ──────────────────────────────────────────────────
+// ---------------------------------------------------------------------
 
-/// Build an InstructionView to the system program and invoke.
+/// Build an InstructionView<'_, '_, '_, '_> to the system program and invoke.
 #[inline]
-fn invoke_system(data: &[u8], accounts: &[CpiAccount], signers: &[Signer]) -> ProgramResult {
-    // Build an InstructionView to the system program and invoke via C ABI.
+fn invoke_system(data: &[u8], accounts: &[CpiAccount<'_>], signers: &[Signer<'_, '_>]) -> ProgramResult {
+    // Build an InstructionView<'_, '_, '_, '_> to the system program and invoke via C ABI.
     #[cfg(target_os = "solana")]
     {
         let ix = crate::instruction::InstructionView {

@@ -226,7 +226,7 @@ pub fn based_try_find_program_address(
 /// or `Err(InvalidSeeds)` if it does not.
 #[inline(always)]
 pub fn verify_pda(
-    account: &AccountView,
+    account: &AccountView<'_>,
     seeds: &[&[u8]],
     program_id: &Address,
 ) -> Result<(), ProgramError> {
@@ -245,7 +245,7 @@ pub fn verify_pda(
 /// `create_program_address` approach (~1500 CU).
 #[inline]
 pub fn verify_pda_with_bump(
-    account: &AccountView,
+    account: &AccountView<'_>,
     seeds: &[&[u8]],
     bump: u8,
     program_id: &Address,
@@ -384,7 +384,7 @@ pub fn find_bump_for_address(
 /// `bump_offset + 1`.
 #[inline(always)]
 pub fn read_bump_from_account(
-    account: &AccountView,
+    account: &AccountView<'_>,
     bump_offset: usize,
 ) -> Result<u8, ProgramError> {
     let data = account.try_borrow()?;
@@ -403,7 +403,7 @@ pub fn read_bump_from_account(
 /// for Hopper programs that store bumps in their account layout.
 #[inline]
 pub fn verify_pda_from_stored_bump(
-    account: &AccountView,
+    account: &AccountView<'_>,
     seeds: &[&[u8]],
     bump_offset: usize,
     program_id: &Address,

@@ -38,52 +38,51 @@ use crate::ProgramResult;
 /// can be safely reinterpreted as `&[AccountView]` at the entrypoint
 /// boundary with zero conversion cost.
 #[repr(transparent)]
-pub struct AccountView {
-    inner: BackendAccountView,
+pub struct AccountView<'info> {
+    inner: BackendAccountView<'info>,
 }
 
 const _: () = {
-    assert!(core::mem::size_of::<AccountView>() == core::mem::size_of::<BackendAccountView>());
-    assert!(core::mem::align_of::<AccountView>() == core::mem::align_of::<BackendAccountView>());
-    #[cfg(not(feature = "solana-program-backend"))]
-    assert!(!core::mem::needs_drop::<AccountView>());
+    assert!(core::mem::size_of::<AccountView<'static>>() == core::mem::size_of::<BackendAccountView<'static>>());
+    assert!(core::mem::align_of::<AccountView<'static>>() == core::mem::align_of::<BackendAccountView<'static>>());
+    assert!(!core::mem::needs_drop::<AccountView<'static>>());
 };
 
 // SAFETY: AccountView is safe to send between threads (BPF is single-threaded;
 // tests may need Send/Sync).
-unsafe impl Send for AccountView {}
-unsafe impl Sync for AccountView {}
+unsafe impl<'info> Send for AccountView<'info> {}
+unsafe impl<'info> Sync for AccountView<'info> {}
 
-impl Clone for AccountView {
+impl<'info> Clone for AccountView<'info> {
     #[inline(always)]
     fn clone(&self) -> Self {
         Self::from_inner(self.backend().clone())
     }
 }
 
-impl PartialEq for AccountView {
+impl<'info> PartialEq for AccountView<'info> {
     #[inline(always)]
     fn eq(&self, other: &Self) -> bool {
         self.backend() == other.backend()
     }
 }
 
-impl Eq for AccountView {}
+impl<'info> Eq for AccountView<'info> {}
 
-impl AccountView {
+impl<'info> AccountView<'info> {
     #[inline(always)]
-    fn from_inner(inner: BackendAccountView) -> Self {
+    fn from_inner(inner: BackendAccountView<'info>) -> Self {
         Self { inner }
     }
 
     #[inline(always)]
-    fn backend(&self) -> &BackendAccountView {
+    fn backend(&self) -> &BackendAccountView<'info> {
         &self.inner
     }
 
     #[cfg(test)]
     #[inline(always)]
-    pub(crate) fn from_backend(inner: BackendAccountView) -> Self {
+    pub(crate) fn from_backend(inner: BackendAccountView<'info>) -> Self {
         Self::from_inner(inner)
     }
 
@@ -155,10 +154,21 @@ impl AccountView {
         self.data_len() == 0
     }
 
+    /// Try to set the lamport balance.
+    ///
+    /// Backends such as `solana-program` enforce lamport borrow rules at
+    /// runtime. Use this in framework code so borrow conflicts return a
+    /// `ProgramError` instead of panicking.
+    #[inline(always)]
+    pub fn try_set_lamports(&self, lamports: u64) -> ProgramResult {
+        compat::try_set_lamports(self.backend(), lamports)
+    }
+
     /// Set the lamport balance.
     #[inline(always)]
     pub fn set_lamports(&self, lamports: u64) {
-        self.backend().set_lamports(lamports);
+        self.try_set_lamports(lamports)
+            .expect("lamports mutation failed");
     }
 
     // ── Borrow tracking ─────────────────────────────────────────────
@@ -898,19 +908,19 @@ impl AccountView {
     /// patterns that will only be rejected later", the safe API
     /// should surface the violation at call time.
     #[inline]
-    pub fn close_to(&self, destination: &AccountView, program_id: &Address) -> ProgramResult {
+    pub fn close_to(&self, destination: &AccountView<'_>, program_id: &Address) -> ProgramResult {
         self.require_writable()?;
         self.require_owned_by(program_id)?;
         destination.require_writable()?;
 
         let lamports = self.lamports();
         let dest_lamports = destination.lamports();
-        destination.set_lamports(
+        destination.try_set_lamports(
             dest_lamports
                 .checked_add(lamports)
                 .ok_or(ProgramError::ArithmeticOverflow)?,
-        );
-        self.set_lamports(0);
+        )?;
+        self.try_set_lamports(0)?;
         compat::zero_data(self.backend())?;
         Ok(())
     }
@@ -922,30 +932,28 @@ impl AccountView {
     /// binding). **Does not** check writable or owner, so only use it
     /// when the preconditions are guaranteed by the surrounding code.
     #[inline]
-    pub fn close_to_unchecked(&self, destination: &AccountView) -> ProgramResult {
+    pub fn close_to_unchecked(&self, destination: &AccountView<'_>) -> ProgramResult {
         let lamports = self.lamports();
         let dest_lamports = destination.lamports();
-        destination.set_lamports(
+        destination.try_set_lamports(
             dest_lamports
                 .checked_add(lamports)
                 .ok_or(ProgramError::ArithmeticOverflow)?,
-        );
-        self.set_lamports(0);
+        )?;
+        self.try_set_lamports(0)?;
         compat::zero_data(self.backend())?;
         Ok(())
     }
 
-    // ── Raw access (hopper-native-backend only) ──────────────────────
+    // ── Raw direct-memory access ────────────────────────────────────
 
     /// Unchecked raw pointer to the first byte of account data.
-    #[cfg(feature = "hopper-native-backend")]
     #[inline(always)]
     pub(crate) fn data_ptr_unchecked(&self) -> *mut u8 {
         self.backend().data_ptr_unchecked()
     }
 
     /// Raw pointer to the RuntimeAccount header.
-    #[cfg(feature = "hopper-native-backend")]
     #[inline(always)]
     pub(crate) fn account_ptr(&self) -> *const hopper_native::RuntimeAccount {
         self.backend().account_ptr()
@@ -994,7 +1002,6 @@ impl AccountView {
     /// # Safety
     ///
     /// The caller must guarantee the new length is within the permitted increase.
-    #[cfg(feature = "hopper-native-backend")]
     #[inline(always)]
     pub unsafe fn resize_unchecked(&self, new_len: usize) {
         // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
@@ -1019,15 +1026,14 @@ impl AccountView {
     // ── Backend access ───────────────────────────────────────────────
 
     /// Access the active backend account view inside the runtime crate.
-    #[cfg(any(feature = "hopper-native-backend", feature = "solana-program-backend"))]
     #[allow(dead_code)]
     #[inline(always)]
-    pub(crate) fn as_backend(&self) -> &BackendAccountView {
+    pub(crate) fn as_backend(&self) -> &BackendAccountView<'_> {
         self.backend()
     }
 }
 
-impl core::fmt::Debug for AccountView {
+impl<'info> core::fmt::Debug for AccountView<'info> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("AccountView")
             .field("address", self.address())
@@ -1043,14 +1049,14 @@ impl core::fmt::Debug for AccountView {
 
 /// Iterator over remaining (unstructured) accounts.
 pub struct RemainingAccounts<'a> {
-    accounts: &'a [AccountView],
+    accounts: &'a [AccountView<'a>],
     cursor: usize,
 }
 
 impl<'a> RemainingAccounts<'a> {
     /// Create from a slice of accounts.
     #[inline(always)]
-    pub fn new(accounts: &'a [AccountView]) -> Self {
+    pub fn new(accounts: &'a [AccountView<'a>]) -> Self {
         Self {
             accounts,
             cursor: 0,
@@ -1065,7 +1071,7 @@ impl<'a> RemainingAccounts<'a> {
 
     /// Take the next account, or return `NotEnoughAccountKeys`.
     #[inline(always)]
-    pub fn next(&mut self) -> Result<&'a AccountView, ProgramError> {
+    pub fn next(&mut self) -> Result<&'a AccountView<'a>, ProgramError> {
         if self.cursor >= self.accounts.len() {
             return Err(ProgramError::NotEnoughAccountKeys);
         }
@@ -1076,7 +1082,7 @@ impl<'a> RemainingAccounts<'a> {
 
     /// Take the next account that is a signer.
     #[inline(always)]
-    pub fn next_signer(&mut self) -> Result<&'a AccountView, ProgramError> {
+    pub fn next_signer(&mut self) -> Result<&'a AccountView<'a>, ProgramError> {
         let account = self.next()?;
         account.require_signer()?;
         Ok(account)
@@ -1084,7 +1090,7 @@ impl<'a> RemainingAccounts<'a> {
 
     /// Take the next account that is writable.
     #[inline(always)]
-    pub fn next_writable(&mut self) -> Result<&'a AccountView, ProgramError> {
+    pub fn next_writable(&mut self) -> Result<&'a AccountView<'a>, ProgramError> {
         let account = self.next()?;
         account.require_writable()?;
         Ok(account)
@@ -1092,14 +1098,14 @@ impl<'a> RemainingAccounts<'a> {
 
     /// Take the next account owned by the given program.
     #[inline(always)]
-    pub fn next_owned_by(&mut self, program: &Address) -> Result<&'a AccountView, ProgramError> {
+    pub fn next_owned_by(&mut self, program: &Address) -> Result<&'a AccountView<'a>, ProgramError> {
         let account = self.next()?;
         account.require_owned_by(program)?;
         Ok(account)
     }
 }
 
-#[cfg(all(test, feature = "hopper-native-backend"))]
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::layout::HopperHeader;

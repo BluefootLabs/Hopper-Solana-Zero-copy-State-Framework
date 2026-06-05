@@ -69,7 +69,7 @@ struct Input {
 }
 
 impl syn::parse::Parse for Input {
-    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+    fn parse(input: syn::parse::ParseStream<'_>) -> syn::Result<Self> {
         let module_name: Ident = input.parse()?;
         let _: Token![,] = input.parse()?;
         let manifest_path: LitStr = input.parse()?;
@@ -593,7 +593,42 @@ fn json_string_array(value: &serde_json::Value, key: &str) -> Vec<String> {
 }
 
 fn account_lifecycle(account: &serde_json::Value) -> String {
-    json_str(account, "lifecycle").to_ascii_lowercase()
+    normalize_lifecycle_str(json_str(account, "lifecycle"))
+}
+
+fn normalize_lifecycle_str(lifecycle: &str) -> String {
+    let lifecycle = lifecycle.trim();
+    if lifecycle_token_eq(lifecycle, "initifneeded")
+        || lifecycle_token_eq(lifecycle, "createifneeded")
+    {
+        "init_if_needed".to_string()
+    } else if lifecycle_token_eq(lifecycle, "init") || lifecycle_token_eq(lifecycle, "create") {
+        "init".to_string()
+    } else if lifecycle_token_eq(lifecycle, "realloc")
+        || lifecycle_token_eq(lifecycle, "reallocate")
+    {
+        "realloc".to_string()
+    } else if lifecycle_token_eq(lifecycle, "close") {
+        "close".to_string()
+    } else {
+        lifecycle.to_ascii_lowercase()
+    }
+}
+
+fn lifecycle_token_eq(input: &str, canonical: &str) -> bool {
+    let canonical = canonical.as_bytes();
+    let mut canonical_idx = 0;
+    for byte in input.bytes() {
+        if matches!(byte, b'_' | b'-') {
+            continue;
+        }
+        if canonical_idx >= canonical.len() || byte.to_ascii_lowercase() != canonical[canonical_idx]
+        {
+            return false;
+        }
+        canonical_idx += 1;
+    }
+    canonical_idx == canonical.len()
 }
 
 fn account_resolver(account: &serde_json::Value) -> String {
@@ -667,7 +702,7 @@ fn instruction_effect_specs(
             .and_then(|v| v.as_bool())
             .unwrap_or(false);
         let kind = match lifecycle.as_str() {
-            "init" | "create" | "creates_account" => "creates_account",
+            "init" | "init_if_needed" | "create" | "creates_account" => "creates_account",
             "realloc" | "reallocate" => "reallocates_account",
             "close" => "closes_account",
             _ if writable => "writes",

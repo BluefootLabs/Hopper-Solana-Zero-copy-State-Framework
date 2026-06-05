@@ -52,7 +52,7 @@ const BPF_ALIGN_OF_U128: usize = 8;
 /// program ID, plus a cursor positioned at the first account.
 ///
 /// Accounts are parsed lazily as you call `next_account()`.
-pub struct LazyContext {
+pub struct LazyContext<'info> {
     /// Raw pointer into the BPF input buffer, positioned at the first
     /// account (or past the account count if num_accounts == 0).
     cursor: *mut u8,
@@ -67,14 +67,14 @@ pub struct LazyContext {
     program_id: Address,
     /// Stack of already-parsed AccountViews so we can resolve duplicates
     /// that reference earlier accounts. Fixed size = MAX_TX_ACCOUNTS.
-    resolved: [AccountView; 254],
+    resolved: [AccountView<'info>; 254],
 }
 
 // SAFETY: Single-threaded BPF runtime.
-unsafe impl Send for LazyContext {}
-unsafe impl Sync for LazyContext {}
+unsafe impl<'info> Send for LazyContext<'info> {}
+unsafe impl<'info> Sync for LazyContext<'info> {}
 
-impl LazyContext {
+impl<'info> LazyContext<'info> {
     /// Instruction data for this invocation.
     #[inline(always)]
     pub fn instruction_data(&self) -> &[u8] {
@@ -112,7 +112,7 @@ impl LazyContext {
     /// Each call advances the internal cursor by one account. Returns
     /// `Err(NotEnoughAccountKeys)` if all accounts have been consumed.
     #[inline]
-    pub fn next_account(&mut self) -> Result<AccountView, ProgramError> {
+    pub fn next_account(&mut self) -> Result<AccountView<'info>, ProgramError> {
         if self.parsed_count >= self.total_accounts {
             return Err(ProgramError::NotEnoughAccountKeys);
         }
@@ -126,7 +126,7 @@ impl LazyContext {
 
     /// Parse the next account and validate it is a signer.
     #[inline]
-    pub fn next_signer(&mut self) -> Result<AccountView, ProgramError> {
+    pub fn next_signer(&mut self) -> Result<AccountView<'info>, ProgramError> {
         let acct = self.next_account()?;
         acct.require_signer()?;
         Ok(acct)
@@ -134,7 +134,7 @@ impl LazyContext {
 
     /// Parse the next account and validate it is writable.
     #[inline]
-    pub fn next_writable(&mut self) -> Result<AccountView, ProgramError> {
+    pub fn next_writable(&mut self) -> Result<AccountView<'info>, ProgramError> {
         let acct = self.next_account()?;
         acct.require_writable()?;
         Ok(acct)
@@ -142,7 +142,7 @@ impl LazyContext {
 
     /// Parse the next account and validate it is a writable signer (payer).
     #[inline]
-    pub fn next_payer(&mut self) -> Result<AccountView, ProgramError> {
+    pub fn next_payer(&mut self) -> Result<AccountView<'info>, ProgramError> {
         let acct = self.next_account()?;
         acct.require_payer()?;
         Ok(acct)
@@ -150,7 +150,7 @@ impl LazyContext {
 
     /// Parse the next account and validate it is owned by `program`.
     #[inline]
-    pub fn next_owned_by(&mut self, program: &Address) -> Result<AccountView, ProgramError> {
+    pub fn next_owned_by(&mut self, program: &Address) -> Result<AccountView<'info>, ProgramError> {
         let acct = self.next_account()?;
         acct.require_owned_by(program)?;
         Ok(acct)
@@ -180,7 +180,7 @@ impl LazyContext {
     /// Parses all remaining accounts eagerly and returns them as a slice.
     /// After this call, `remaining()` returns 0.
     #[inline]
-    pub fn drain_remaining(&mut self) -> Result<&[AccountView], ProgramError> {
+    pub fn drain_remaining(&mut self) -> Result<&[AccountView<'info>], ProgramError> {
         let start = self.parsed_count;
         while self.parsed_count < self.total_accounts {
             // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
@@ -195,7 +195,7 @@ impl LazyContext {
     ///
     /// Returns `None` if `index >= parsed_count`.
     #[inline(always)]
-    pub fn get(&self, index: usize) -> Option<&AccountView> {
+    pub fn get(&self, index: usize) -> Option<&AccountView<'info>> {
         if index < self.parsed_count {
             Some(&self.resolved[index])
         } else {
@@ -210,7 +210,7 @@ impl LazyContext {
     /// Caller must ensure `parsed_count < total_accounts` and that `cursor`
     /// points to valid BPF input buffer data.
     #[inline(always)]
-    unsafe fn parse_one_account(&mut self) -> AccountView {
+    unsafe fn parse_one_account(&mut self) -> AccountView<'info> {
         // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {
             let dup_marker = *self.cursor;
@@ -283,13 +283,13 @@ impl LazyContext {
 ///
 /// `input` must point to a valid Solana BPF input buffer.
 #[inline(always)]
-pub unsafe fn lazy_deserialize(input: *mut u8) -> LazyContext {
+pub unsafe fn lazy_deserialize<'info>(input: *mut u8) -> LazyContext<'info> {
     // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     let frame = unsafe { crate::raw_input::scan_instruction_frame(input) };
     // SAFETY: AccountView is a single raw pointer, zeroed is a valid
     // sentinel (null). These slots are only read after `next_account()`
     // initializes them via `parse_one_account()`.
-    let resolved: [AccountView; 254] = unsafe { core::mem::zeroed() };
+    let resolved: [AccountView<'info>; 254] = unsafe { core::mem::zeroed() };
 
     LazyContext {
         cursor: frame.accounts_start,

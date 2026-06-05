@@ -77,7 +77,7 @@
 //! Hex data is passed as a hex string (no 0x prefix).
 //! Manifest arguments accept inline JSON or `@path/to/file.json`.
 
-use hopper_schema::accounts::{AccountLifecycle, ContextAccountDescriptor, ContextDescriptor};
+use hopper_schema::accounts::{normalize_lifecycle, ContextAccountDescriptor, ContextDescriptor};
 use hopper_schema::c_client::CClientGen;
 use hopper_schema::clientgen::{KtClientGen, TsClientGen};
 use hopper_schema::go_client::GoClientGen;
@@ -3996,12 +3996,7 @@ fn to_program_manifest(m: &OwnedProgramManifest) -> ProgramManifest {
                         account.seeds.iter().map(|seed| leak_str(seed)).collect();
                     let has_one: Vec<&'static str> =
                         account.has_one.iter().map(|h| leak_str(h)).collect();
-                    let lifecycle = match account.lifecycle.as_str() {
-                        "init" => AccountLifecycle::Init,
-                        "realloc" => AccountLifecycle::Realloc,
-                        "close" => AccountLifecycle::Close,
-                        _ => AccountLifecycle::Existing,
-                    };
+                    let lifecycle = normalize_lifecycle(&account.lifecycle);
                     ContextAccountDescriptor {
                         name: leak_str(&account.name),
                         kind: leak_str(&account.kind),

@@ -83,7 +83,7 @@ pub mod v1 {
 /// the heap.
 pub struct Memo<'a, 'b, 'c> {
     /// Signing accounts the Memo program will validate.
-    pub signers: &'a [&'a AccountView],
+    pub signers: &'a [&'a AccountView<'a>],
     /// Raw memo payload.
     pub memo: &'b [u8],
     /// Target program. `None` = Memo v2 (default).
@@ -102,7 +102,7 @@ impl Memo<'_, '_, '_> {
     /// Any signer in `self.signers` whose address is a PDA must have
     /// its derivation seeds in `signers_seeds`; the runtime will sign
     /// the inner CPI on its behalf.
-    pub fn invoke_signed(&self, signers_seeds: &[Signer]) -> ProgramResult {
+    pub fn invoke_signed(&self, signers_seeds: &[Signer<'_, '_>]) -> ProgramResult {
         let n = self.signers.len();
         if n > MAX_MEMO_SIGNERS {
             return Err(ProgramError::InvalidArgument);
@@ -111,7 +111,7 @@ impl Memo<'_, '_, '_> {
         // Build the InstructionAccount array on the stack. We use
         // MaybeUninit so we don't need a Default / Copy bound on
         // InstructionAccount, mirroring the Pinocchio shape.
-        let mut accounts: [MaybeUninit<InstructionAccount>; MAX_MEMO_SIGNERS] =
+        let mut accounts: [MaybeUninit<InstructionAccount<'_>>; MAX_MEMO_SIGNERS] =
             [const { MaybeUninit::uninit() }; MAX_MEMO_SIGNERS];
 
         let mut i = 0;
@@ -124,8 +124,8 @@ impl Memo<'_, '_, '_> {
 
         // SAFETY: the first `n` slots have been initialised in the
         // loop above; we hand only that prefix to InstructionView.
-        let accounts_slice: &[InstructionAccount] = unsafe {
-            core::slice::from_raw_parts(accounts.as_ptr() as *const InstructionAccount, n)
+        let accounts_slice: &[InstructionAccount<'_>] = unsafe {
+            core::slice::from_raw_parts(accounts.as_ptr() as *const InstructionAccount<'_>, n)
         };
 
         let pid = self.program_id.unwrap_or(&MEMO_PROGRAM_ID);
@@ -137,7 +137,7 @@ impl Memo<'_, '_, '_> {
 
         macro_rules! invoke_with_signers {
             ($n:literal, [$($idx:literal),*]) => {{
-                let account_views: [&AccountView; $n] = [$(self.signers[$idx]),*];
+                let account_views: [&AccountView<'_>; $n] = [$(self.signers[$idx]),*];
                 hopper_runtime::cpi::invoke_signed::<$n>(&instruction, &account_views, signers_seeds)
             }};
         }

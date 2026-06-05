@@ -48,7 +48,7 @@ pub struct LamportSnapshot {
 impl LamportSnapshot {
     /// Capture the current lamport balances of source and destination.
     #[inline(always)]
-    pub fn capture(source: &AccountView, destination: &AccountView) -> Self {
+    pub fn capture(source: &AccountView<'_>, destination: &AccountView<'_>) -> Self {
         Self {
             source_before: source.lamports(),
             destination_before: destination.lamports(),
@@ -64,8 +64,8 @@ impl LamportSnapshot {
     #[inline]
     pub fn verify_transfer(
         &self,
-        source: &AccountView,
-        destination: &AccountView,
+        source: &AccountView<'_>,
+        destination: &AccountView<'_>,
         amount: u64,
     ) -> ProgramResult {
         let source_after = source.lamports();
@@ -96,7 +96,7 @@ impl LamportSnapshot {
     /// Use this when the destination is a program-controlled escrow or
     /// fee account where you only care about the deduction.
     #[inline]
-    pub fn verify_deduction(&self, source: &AccountView, amount: u64) -> ProgramResult {
+    pub fn verify_deduction(&self, source: &AccountView<'_>, amount: u64) -> ProgramResult {
         let delta = self
             .source_before
             .checked_sub(source.lamports())
@@ -111,8 +111,8 @@ impl LamportSnapshot {
     #[inline]
     pub fn verify_unchanged(
         &self,
-        source: &AccountView,
-        destination: &AccountView,
+        source: &AccountView<'_>,
+        destination: &AccountView<'_>,
     ) -> ProgramResult {
         if source.lamports() != self.source_before
             || destination.lamports() != self.destination_before
@@ -146,7 +146,7 @@ pub struct BalanceSnapshot {
 impl BalanceSnapshot {
     /// Capture a single account's lamport balance.
     #[inline(always)]
-    pub fn capture(account: &AccountView) -> Self {
+    pub fn capture(account: &AccountView<'_>) -> Self {
         Self {
             before: account.lamports(),
         }
@@ -154,7 +154,7 @@ impl BalanceSnapshot {
 
     /// Verify the balance increased by at least `min_increase`.
     #[inline]
-    pub fn verify_increased_by(&self, account: &AccountView, min_increase: u64) -> ProgramResult {
+    pub fn verify_increased_by(&self, account: &AccountView<'_>, min_increase: u64) -> ProgramResult {
         let current = account.lamports();
         let delta = current
             .checked_sub(self.before)
@@ -169,7 +169,7 @@ impl BalanceSnapshot {
     #[inline]
     pub fn verify_decreased_by_at_most(
         &self,
-        account: &AccountView,
+        account: &AccountView<'_>,
         max_decrease: u64,
     ) -> ProgramResult {
         let current = account.lamports();
@@ -185,7 +185,7 @@ impl BalanceSnapshot {
 
     /// Verify the balance is unchanged.
     #[inline]
-    pub fn verify_unchanged(&self, account: &AccountView) -> ProgramResult {
+    pub fn verify_unchanged(&self, account: &AccountView<'_>) -> ProgramResult {
         if account.lamports() != self.before {
             return Err(ProgramError::InvalidAccountData);
         }
@@ -202,7 +202,7 @@ impl BalanceSnapshot {
     ///
     /// Returns the change as an i128 to avoid overflow.
     #[inline(always)]
-    pub fn net_change(&self, account: &AccountView) -> i128 {
+    pub fn net_change(&self, account: &AccountView<'_>) -> i128 {
         account.lamports() as i128 - self.before as i128
     }
 }
@@ -225,7 +225,7 @@ impl DataFingerprint {
     /// Uses FNV-1a (fast, no dependencies, good collision resistance for
     /// short inputs). Not suitable for cryptographic purposes.
     #[inline]
-    pub fn capture(account: &AccountView, len: usize) -> Self {
+    pub fn capture(account: &AccountView<'_>, len: usize) -> Self {
         let data_len = account.data_len().min(len);
         let data_ptr = account.data_ptr_unchecked();
 
@@ -245,7 +245,7 @@ impl DataFingerprint {
 
     /// Verify the data has not changed since the snapshot.
     #[inline]
-    pub fn verify_unchanged(&self, account: &AccountView) -> ProgramResult {
+    pub fn verify_unchanged(&self, account: &AccountView<'_>) -> ProgramResult {
         let current = Self::capture(account, self.data_len);
         if current.hash != self.hash || current.data_len != self.data_len {
             return Err(ProgramError::InvalidAccountData);

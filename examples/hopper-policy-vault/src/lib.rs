@@ -38,10 +38,7 @@ use hopper::prelude::*;
 
 #[cfg(target_os = "solana")]
 mod __hopper_sbf {
-    #[cfg(not(feature = "solana-program-backend"))]
     hopper::no_allocator!();
-
-    #[cfg(not(feature = "solana-program-backend"))]
     hopper::nostd_panic_handler!();
 }
 
@@ -58,21 +55,21 @@ pub struct Vault {
 }
 
 #[hopper::context]
-pub struct Deposit {
+pub struct Deposit<'info> {
     #[account(mut(balance))]
     pub vault: Vault,
 
     #[signer]
-    pub authority: AccountView,
+    pub authority: AccountView<'info>,
 }
 
 #[hopper::context]
-pub struct Sweep {
+pub struct Sweep<'info> {
     #[account(mut)]
     pub vault: Vault,
 
     #[signer]
-    pub authority: AccountView,
+    pub authority: AccountView<'info>,
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -84,7 +81,7 @@ pub mod strict_vault {
     use super::*;
 
     #[instruction(0)]
-    pub fn deposit(ctx: Context<Deposit>, amount: u64) -> ProgramResult {
+    pub fn deposit(ctx: Context<Deposit<'_>>, amount: u64) -> ProgramResult {
         let mut balance = ctx.vault_balance_mut()?;
         let next = balance
             .get()
@@ -95,7 +92,7 @@ pub mod strict_vault {
     }
 
     #[instruction(1)]
-    pub fn sweep(ctx: Context<Sweep>) -> ProgramResult {
+    pub fn sweep(ctx: Context<Sweep<'_>>) -> ProgramResult {
         let mut vault = ctx.vault_load_mut()?;
         vault.pending_rewards = WireU64::new(0);
         Ok(())
@@ -112,6 +109,7 @@ pub mod strict_vault {
 //  instruction override; every other handler in this module is
 //  compile-rejected from dropping to raw pointer access.
 
+#[cfg(not(target_os = "solana"))]
 #[hopper::program(sealed)]
 pub mod sealed_vault {
     use super::*;
@@ -121,7 +119,7 @@ pub mod sealed_vault {
     /// this handler body would fail to compile under the
     /// `#[deny(unsafe_code)]` attribute the program macro emits.
     #[instruction(0)]
-    pub fn deposit(ctx: Context<Deposit>, amount: u64) -> ProgramResult {
+    pub fn deposit(ctx: Context<Deposit<'_>>, amount: u64) -> ProgramResult {
         let mut balance = ctx.vault_balance_mut()?;
         let next = balance
             .get()
@@ -136,7 +134,7 @@ pub mod sealed_vault {
     /// "safe-by-default, raw-where-needed" Hopper promise.
     #[instruction(1, unsafe_memory)]
     #[allow(unused_unsafe)]
-    pub fn fast_sweep(ctx: Context<Sweep>) -> ProgramResult {
+    pub fn fast_sweep(ctx: Context<Sweep<'_>>) -> ProgramResult {
         // The sealed-mode default would reject this block; the
         // per-instruction override restores the normal lint level.
         // The body happens to be safe today, but the module is
@@ -163,6 +161,7 @@ pub mod sealed_vault {
 //  check. This is the mode to reach for when the protocol has its
 //  own validation flow that Hopper should not second-guess.
 
+#[cfg(not(target_os = "solana"))]
 #[hopper::program(raw)]
 pub mod raw_vault {
     use super::*;
@@ -262,33 +261,39 @@ const _STRICT_POLICY_IS_STRICT: () = {
     assert!(strict_vault::HOPPER_PROGRAM_POLICY.allow_unsafe);
 };
 
+#[cfg(not(target_os = "solana"))]
 const _SEALED_POLICY_IS_SEALED: () = {
     assert!(sealed_vault::HOPPER_PROGRAM_POLICY.strict);
     assert!(sealed_vault::HOPPER_PROGRAM_POLICY.enforce_token_checks);
     assert!(!sealed_vault::HOPPER_PROGRAM_POLICY.allow_unsafe);
 };
 
+#[cfg(not(target_os = "solana"))]
 const _RAW_POLICY_IS_RAW: () = {
     assert!(!raw_vault::HOPPER_PROGRAM_POLICY.strict);
     assert!(!raw_vault::HOPPER_PROGRAM_POLICY.enforce_token_checks);
     assert!(raw_vault::HOPPER_PROGRAM_POLICY.allow_unsafe);
 };
 
+#[cfg(not(target_os = "solana"))]
 const _SEALED_FAST_SWEEP_OPTS_INTO_UNSAFE: () = {
     assert!(sealed_vault::FAST_SWEEP_POLICY.unsafe_memory);
     assert!(!sealed_vault::FAST_SWEEP_POLICY.skip_token_checks);
 };
 
+#[cfg(not(target_os = "solana"))]
 const _RAW_RAW_SWEEP_SKIPS_TOKEN_CHECKS: () = {
     assert!(raw_vault::RAW_SWEEP_POLICY.skip_token_checks);
     assert!(!raw_vault::RAW_SWEEP_POLICY.unsafe_memory);
 };
 
+#[cfg(not(target_os = "solana"))]
 const _RAW_POINTER_RESET_OPTS_INTO_UNSAFE: () = {
     assert!(raw_vault::RAW_POINTER_RESET_POLICY.unsafe_memory);
     assert!(!raw_vault::RAW_POINTER_RESET_POLICY.skip_token_checks);
 };
 
+#[cfg(not(target_os = "solana"))]
 const _RAW_HYBRID_BUMP_OPTS_INTO_UNSAFE: () = {
     assert!(raw_vault::HYBRID_BUMP_POLICY.unsafe_memory);
     assert!(!raw_vault::HYBRID_BUMP_POLICY.skip_token_checks);

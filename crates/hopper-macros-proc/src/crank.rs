@@ -136,7 +136,7 @@ fn parse_seeds_hint(attr: TokenStream) -> syn::Result<Vec<(Ident, Vec<Expr>)>> {
             ));
         }
         // Parse the inner `name = [expr, ...], name = [...]` list.
-        let parser = |input: syn::parse::ParseStream| -> syn::Result<Vec<(Ident, Vec<Expr>)>> {
+        let parser = |input: syn::parse::ParseStream<'_>| -> syn::Result<Vec<(Ident, Vec<Expr>)>> {
             let mut pairs: Vec<(Ident, Vec<Expr>)> = Vec::new();
             while !input.is_empty() {
                 let name: Ident = input.parse()?;

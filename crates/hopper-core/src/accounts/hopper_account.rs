@@ -22,7 +22,7 @@ use crate::check::modifier::HopperLayout;
 /// - Discriminator, version, layout_id match T's constants
 /// - Account data size matches T's expected layout size
 pub struct HopperAccount<'a, T: Pod + FixedLayout + HopperLayout> {
-    view: &'a AccountView,
+    view: &'a AccountView<'a>,
     #[allow(dead_code)] // stored for future PDA derivation and CPI use
     program_id: &'a Address,
     _marker: core::marker::PhantomData<T>,
@@ -34,7 +34,7 @@ impl<'a, T: Pod + FixedLayout + HopperLayout> HopperAccount<'a, T> {
     /// Validates: owner == program_id, discriminator, version, layout_id, size.
     #[inline]
     pub fn from_account(
-        account: &'a AccountView,
+        account: &'a AccountView<'a>,
         program_id: &'a Address,
     ) -> Result<Self, ProgramError> {
         check::check_owner(account, program_id)?;
@@ -51,7 +51,7 @@ impl<'a, T: Pod + FixedLayout + HopperLayout> HopperAccount<'a, T> {
     /// Construct from an AccountView that must also be writable.
     #[inline]
     pub fn from_account_mut(
-        account: &'a AccountView,
+        account: &'a AccountView<'a>,
         program_id: &'a Address,
     ) -> Result<Self, ProgramError> {
         check::check_writable(account)?;
@@ -106,7 +106,7 @@ impl<'a, T: Pod + FixedLayout + HopperLayout> HopperAccount<'a, T> {
 
     /// The underlying AccountView.
     #[inline(always)]
-    pub fn to_account_view(&self) -> &'a AccountView {
+    pub fn to_account_view(&self) -> &'a AccountView<'a> {
         self.view
     }
 

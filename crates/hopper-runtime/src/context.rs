@@ -41,7 +41,7 @@ pub struct Context<'a> {
     /// The program's own address.
     pub program_id: &'a Address,
     /// All accounts passed to this instruction.
-    accounts: &'a [AccountView],
+    accounts: &'a [AccountView<'a>],
     /// Raw instruction data (past the discriminator byte, if applicable).
     pub instruction_data: &'a [u8],
     /// Segment-level borrow tracking for fine-grained access control.
@@ -58,7 +58,7 @@ impl<'a> Context<'a> {
     #[inline(always)]
     pub fn new(
         program_id: &'a Address,
-        accounts: &'a [AccountView],
+        accounts: &'a [AccountView<'a>],
         instruction_data: &'a [u8],
     ) -> Self {
         Self {
@@ -83,7 +83,7 @@ impl<'a> Context<'a> {
 
     /// Get an account by index.
     #[inline(always)]
-    pub fn account(&self, index: usize) -> Result<&'a AccountView, ProgramError> {
+    pub fn account(&self, index: usize) -> Result<&'a AccountView<'a>, ProgramError> {
         self.accounts
             .get(index)
             .ok_or(ProgramError::NotEnoughAccountKeys)
@@ -96,7 +96,7 @@ impl<'a> Context<'a> {
     /// `try_borrow_mut`). The distinct name signals that the caller
     /// intends to write through the returned reference.
     #[inline(always)]
-    pub fn account_mut(&self, index: usize) -> Result<&'a AccountView, ProgramError> {
+    pub fn account_mut(&self, index: usize) -> Result<&'a AccountView<'a>, ProgramError> {
         self.accounts
             .get(index)
             .ok_or(ProgramError::NotEnoughAccountKeys)
@@ -110,7 +110,7 @@ impl<'a> Context<'a> {
 
     /// Get all accounts as a slice.
     #[inline(always)]
-    pub fn accounts(&self) -> &'a [AccountView] {
+    pub fn accounts(&self) -> &'a [AccountView<'a>] {
         self.accounts
     }
 
@@ -134,7 +134,7 @@ impl<'a> Context<'a> {
 
     /// Get the remaining accounts starting at `from`.
     #[inline(always)]
-    pub fn remaining_accounts(&self, from: usize) -> &'a [AccountView] {
+    pub fn remaining_accounts(&self, from: usize) -> &'a [AccountView<'a>] {
         if from >= self.accounts.len() {
             &[]
         } else {
@@ -172,6 +172,12 @@ impl<'a> Context<'a> {
     #[inline(always)]
     pub fn remaining_accounts_typed(&self, from: usize) -> crate::remaining::RemainingTyped<'a> {
         self.remaining_accounts_strict(from).typed()
+    }
+
+    /// Get remaining accounts in strict mode and bind a lazy indexed parser.
+    #[inline(always)]
+    pub fn remaining_accounts_lazy(&self, from: usize) -> crate::remaining::RemainingLazy<'a> {
+        self.remaining_accounts_strict(from).lazy()
     }
 
     /// Require at least `n` accounts are present.
@@ -461,7 +467,6 @@ impl<'a> Context<'a> {
     /// returned pointer. The returned pointer must be dereferenced
     /// within the `'info` lifetime of the account view; reading past
     /// `AccountView::data_len()` is undefined behaviour.
-    #[cfg(feature = "hopper-native-backend")]
     #[inline(always)]
     pub unsafe fn as_mut_ptr(&self, index: usize) -> Result<*mut u8, ProgramError> {
         let view = self
@@ -484,7 +489,6 @@ impl<'a> Context<'a> {
     /// caller only needs `unsafe` to dereference it.
     ///
     /// [`as_mut_ptr`]: Self::as_mut_ptr
-    #[cfg(feature = "hopper-native-backend")]
     #[inline(always)]
     pub fn as_ptr(&self, index: usize) -> Result<*const u8, ProgramError> {
         let view = self
@@ -536,6 +540,179 @@ impl<'a> Context<'a> {
         self.instruction_data
             .first()
             .copied()
+            .ok_or(ProgramError::InvalidInstructionData)
+    }
+}
+
+/// Borrow-scoped view of a [`Context`].
+///
+/// Generated typed contexts expose this wrapper from their safe `raw()` method
+/// instead of returning `&mut Context<'a>` directly. That keeps account and
+/// remaining-account references tied to the borrow of the generated context,
+/// preventing backend account-view lifetimes from being widened through the raw
+/// escape hatch.
+pub struct ScopedContext<'ctx, 'a> {
+    inner: &'ctx mut Context<'a>,
+}
+
+impl<'ctx, 'a> ScopedContext<'ctx, 'a> {
+    /// Create a borrow-scoped wrapper around a raw Hopper context.
+    #[inline(always)]
+    pub fn new(inner: &'ctx mut Context<'a>) -> Self {
+        Self { inner }
+    }
+
+    /// Program ID, narrowed to the wrapper borrow lifetime.
+    #[inline(always)]
+    pub fn program_id(&self) -> &'ctx Address {
+        self.inner.program_id
+    }
+
+    /// Raw instruction data, narrowed to the wrapper borrow lifetime.
+    #[inline(always)]
+    pub fn instruction_data(&self) -> &'ctx [u8] {
+        self.inner.instruction_data
+    }
+
+    /// Get an account by index, narrowed to the wrapper borrow lifetime.
+    #[inline(always)]
+    pub fn account(&self, index: usize) -> Result<&'ctx AccountView<'a>, ProgramError> {
+        self.inner
+            .accounts
+            .get(index)
+            .ok_or(ProgramError::NotEnoughAccountKeys)
+    }
+
+    /// Mutation-intent account access, narrowed to the wrapper borrow lifetime.
+    #[inline(always)]
+    pub fn account_mut(&self, index: usize) -> Result<&'ctx AccountView<'a>, ProgramError> {
+        self.account(index)
+    }
+
+    /// Get the total number of accounts.
+    #[inline(always)]
+    pub fn num_accounts(&self) -> usize {
+        self.inner.num_accounts()
+    }
+
+    /// Get all accounts as a slice, narrowed to the wrapper borrow lifetime.
+    #[inline(always)]
+    pub fn accounts(&self) -> &'ctx [AccountView<'a>] {
+        self.inner.accounts
+    }
+
+    /// Access the instruction-scoped segment borrow registry.
+    #[inline(always)]
+    pub fn borrows(&self) -> &SegmentBorrowRegistry {
+        &self.inner.segment_borrows
+    }
+
+    /// Mutably access the instruction-scoped segment borrow registry.
+    #[inline(always)]
+    pub fn borrows_mut(&mut self) -> &mut SegmentBorrowRegistry {
+        &mut self.inner.segment_borrows
+    }
+
+    /// Inspect the currently reachable account slice for duplicate aliases.
+    #[inline(always)]
+    pub fn audit_accounts(&self) -> AccountAudit<'ctx> {
+        AccountAudit::new(self.inner.accounts)
+    }
+
+    /// Get the remaining accounts starting at `from`, narrowed to the wrapper
+    /// borrow lifetime.
+    #[inline(always)]
+    pub fn remaining_accounts(&self, from: usize) -> &'ctx [AccountView<'a>] {
+        if from >= self.inner.accounts.len() {
+            &[]
+        } else {
+            &self.inner.accounts[from..]
+        }
+    }
+
+    /// Get remaining accounts in strict duplicate-rejecting mode.
+    #[inline(always)]
+    pub fn remaining_accounts_strict(
+        &self,
+        from: usize,
+    ) -> crate::remaining::RemainingAccounts<'ctx> {
+        let declared_end = from.min(self.inner.accounts.len());
+        crate::remaining::RemainingAccounts::strict(
+            &self.inner.accounts[..declared_end],
+            self.remaining_accounts(from),
+        )
+    }
+
+    /// Get remaining accounts in duplicate-preserving passthrough mode.
+    #[inline(always)]
+    pub fn remaining_accounts_passthrough(
+        &self,
+        from: usize,
+    ) -> crate::remaining::RemainingAccounts<'ctx> {
+        let declared_end = from.min(self.inner.accounts.len());
+        crate::remaining::RemainingAccounts::passthrough(
+            &self.inner.accounts[..declared_end],
+            self.remaining_accounts(from),
+        )
+    }
+
+    /// Get remaining accounts in strict mode and bind a sequential typed parser.
+    #[inline(always)]
+    pub fn remaining_accounts_typed(&self, from: usize) -> crate::remaining::RemainingTyped<'ctx> {
+        self.remaining_accounts_strict(from).typed()
+    }
+
+    /// Get remaining accounts in strict mode and bind a lazy indexed parser.
+    #[inline(always)]
+    pub fn remaining_accounts_lazy(&self, from: usize) -> crate::remaining::RemainingLazy<'ctx> {
+        self.remaining_accounts_strict(from).lazy()
+    }
+
+    /// Require at least `n` accounts are present.
+    #[inline(always)]
+    pub fn require_accounts(&self, n: usize) -> ProgramResult {
+        self.inner.require_accounts(n)
+    }
+
+    /// Require all account addresses to be unique.
+    #[inline(always)]
+    pub fn require_unique_accounts(&self) -> ProgramResult {
+        self.audit_accounts().require_all_unique()
+    }
+
+    /// Require that no duplicated account is writable in this instruction.
+    #[inline(always)]
+    pub fn require_unique_writable_accounts(&self) -> ProgramResult {
+        self.audit_accounts().require_unique_writable()
+    }
+
+    /// Require that no duplicated account is used as a signer role.
+    #[inline(always)]
+    pub fn require_unique_signer_accounts(&self) -> ProgramResult {
+        self.audit_accounts().require_unique_signers()
+    }
+
+    /// Require at least `n` bytes of instruction data.
+    #[inline(always)]
+    pub fn require_data_len(&self, n: usize) -> ProgramResult {
+        self.inner.require_data_len(n)
+    }
+
+    /// Read instruction data as a typed value.
+    #[inline(always)]
+    pub fn read_data<T: crate::Pod>(&self, offset: usize) -> Result<T, ProgramError> {
+        self.inner.read_data(offset)
+    }
+
+    /// Get a byte slice from instruction data.
+    #[inline(always)]
+    pub fn data_slice(&self, offset: usize, len: usize) -> Result<&'ctx [u8], ProgramError> {
+        let end = offset
+            .checked_add(len)
+            .ok_or(ProgramError::ArithmeticOverflow)?;
+        self.inner
+            .instruction_data
+            .get(offset..end)
             .ok_or(ProgramError::InvalidInstructionData)
     }
 }

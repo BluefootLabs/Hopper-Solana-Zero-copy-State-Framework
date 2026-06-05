@@ -20,12 +20,12 @@ pub const SYSTEM_PROGRAM_ID: Address = Address::new_from_array([
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 ]);
 
-// ── CreateAccount ────────────────────────────────────────────────────
+// ---------------------------------------------------------------------
 
 /// Builder for the system program's CreateAccount instruction.
 pub struct CreateAccount<'a, 'b> {
-    pub from: &'a AccountView,
-    pub to: &'a AccountView,
+    pub from: &'a AccountView<'a>,
+    pub to: &'a AccountView<'a>,
     pub lamports: u64,
     pub space: u64,
     pub owner: &'b Address,
@@ -38,7 +38,7 @@ impl CreateAccount<'_, '_> {
     }
 
     #[inline]
-    pub fn invoke_signed(&self, signers: &[Signer]) -> ProgramResult {
+    pub fn invoke_signed(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
         let mut data = [0u8; 52];
         // index 0 = CreateAccount (already zero)
         data[4..12].copy_from_slice(&self.lamports.to_le_bytes());
@@ -60,12 +60,12 @@ impl CreateAccount<'_, '_> {
     }
 }
 
-// ── Transfer ─────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------
 
 /// Builder for the system program's Transfer instruction.
 pub struct Transfer<'a> {
-    pub from: &'a AccountView,
-    pub to: &'a AccountView,
+    pub from: &'a AccountView<'a>,
+    pub to: &'a AccountView<'a>,
     pub lamports: u64,
 }
 
@@ -76,7 +76,7 @@ impl Transfer<'_> {
     }
 
     #[inline]
-    pub fn invoke_signed(&self, signers: &[Signer]) -> ProgramResult {
+    pub fn invoke_signed(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
         let mut data = [0u8; 12];
         data[0] = 2;
         data[4..12].copy_from_slice(&self.lamports.to_le_bytes());
@@ -96,11 +96,11 @@ impl Transfer<'_> {
     }
 }
 
-// ── Assign ───────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------
 
 /// Builder for the system program's Assign instruction.
 pub struct Assign<'a, 'b> {
-    pub account: &'a AccountView,
+    pub account: &'a AccountView<'a>,
     pub owner: &'b Address,
 }
 
@@ -111,7 +111,7 @@ impl Assign<'_, '_> {
     }
 
     #[inline]
-    pub fn invoke_signed(&self, signers: &[Signer]) -> ProgramResult {
+    pub fn invoke_signed(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
         let mut data = [0u8; 36];
         data[0] = 1;
         data[4..36].copy_from_slice(self.owner.as_array());
@@ -128,11 +128,11 @@ impl Assign<'_, '_> {
     }
 }
 
-// ── Allocate ─────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------
 
 /// Builder for the system program's Allocate instruction.
 pub struct Allocate<'a> {
-    pub account: &'a AccountView,
+    pub account: &'a AccountView<'a>,
     pub space: u64,
 }
 
@@ -143,7 +143,7 @@ impl Allocate<'_> {
     }
 
     #[inline]
-    pub fn invoke_signed(&self, signers: &[Signer]) -> ProgramResult {
+    pub fn invoke_signed(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
         let mut data = [0u8; 12];
         data[0] = 8;
         data[4..12].copy_from_slice(&self.space.to_le_bytes());

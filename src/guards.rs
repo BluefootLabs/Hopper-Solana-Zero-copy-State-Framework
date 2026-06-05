@@ -81,31 +81,31 @@ pub fn require_gt<T: PartialOrd>(a: T, b: T, err: ProgramError) -> ProgramResult
 
 /// Require that the account signed the transaction.
 #[inline(always)]
-pub fn require_signer(account: &AccountView) -> ProgramResult {
+pub fn require_signer(account: &AccountView<'_>) -> ProgramResult {
     account.require_signer()
 }
 
 /// Require that the account is writable.
 #[inline(always)]
-pub fn require_writable(account: &AccountView) -> ProgramResult {
+pub fn require_writable(account: &AccountView<'_>) -> ProgramResult {
     account.require_writable()
 }
 
 /// Require both signer and writable (common payer pattern).
 #[inline(always)]
-pub fn require_payer(account: &AccountView) -> ProgramResult {
+pub fn require_payer(account: &AccountView<'_>) -> ProgramResult {
     account.require_payer()
 }
 
 /// Require that the account is owned by the given program.
 #[inline(always)]
-pub fn require_owner(account: &AccountView, owner: &Address) -> ProgramResult {
+pub fn require_owner(account: &AccountView<'_>, owner: &Address) -> ProgramResult {
     account.require_owned_by(owner)
 }
 
 /// Require that the account has the given address.
 #[inline(always)]
-pub fn require_address(account: &AccountView, expected: &Address) -> ProgramResult {
+pub fn require_address(account: &AccountView<'_>, expected: &Address) -> ProgramResult {
     if hopper_runtime::address::address_eq(account.address(), expected) {
         Ok(())
     } else {
@@ -135,19 +135,19 @@ pub fn require_keys_neq(a: &Address, b: &Address, err: ProgramError) -> ProgramR
 
 /// Require the account has the given discriminator byte.
 #[inline(always)]
-pub fn require_disc(account: &AccountView, expected: u8) -> ProgramResult {
+pub fn require_disc(account: &AccountView<'_>, expected: u8) -> ProgramResult {
     account.require_disc(expected)
 }
 
 /// Require the account passes a full layout contract check (disc + version + layout_id).
 #[inline(always)]
-pub fn require_layout<T: LayoutContract>(account: &AccountView) -> ProgramResult {
+pub fn require_layout<T: LayoutContract>(account: &AccountView<'_>) -> ProgramResult {
     account.check_layout::<T>().map(|_| ())
 }
 
 /// Require the account has non-empty data.
 #[inline(always)]
-pub fn require_has_data(account: &AccountView) -> ProgramResult {
+pub fn require_has_data(account: &AccountView<'_>) -> ProgramResult {
     if !account.is_data_empty() {
         Ok(())
     } else {
@@ -157,7 +157,7 @@ pub fn require_has_data(account: &AccountView) -> ProgramResult {
 
 /// Require the account has at least `min_len` bytes of data.
 #[inline(always)]
-pub fn require_data_len(account: &AccountView, min_len: usize) -> ProgramResult {
+pub fn require_data_len(account: &AccountView<'_>, min_len: usize) -> ProgramResult {
     if account.data_len() >= min_len {
         Ok(())
     } else {
@@ -169,7 +169,7 @@ pub fn require_data_len(account: &AccountView, min_len: usize) -> ProgramResult 
 ///
 /// For more than 6 accounts, use `check_accounts_unique!` macro from jiminy-core.
 #[inline(always)]
-pub fn require_unique_2(a: &AccountView, b: &AccountView) -> ProgramResult {
+pub fn require_unique_2(a: &AccountView<'_>, b: &AccountView<'_>) -> ProgramResult {
     if hopper_runtime::address::address_eq(a.address(), b.address()) {
         Err(ProgramError::InvalidArgument)
     } else {
@@ -179,13 +179,13 @@ pub fn require_unique_2(a: &AccountView, b: &AccountView) -> ProgramResult {
 
 /// Require the account's version byte matches the layout contract's VERSION.
 #[inline(always)]
-pub fn require_version<T: LayoutContract>(account: &AccountView) -> ProgramResult {
+pub fn require_version<T: LayoutContract>(account: &AccountView<'_>) -> ProgramResult {
     account.check_version(T::VERSION).map(|_| ())
 }
 
 /// Require 3 accounts are pairwise unique.
 #[inline(always)]
-pub fn require_unique_3(a: &AccountView, b: &AccountView, c: &AccountView) -> ProgramResult {
+pub fn require_unique_3(a: &AccountView<'_>, b: &AccountView<'_>, c: &AccountView<'_>) -> ProgramResult {
     require_unique_2(a, b)?;
     require_unique_2(a, c)?;
     require_unique_2(b, c)

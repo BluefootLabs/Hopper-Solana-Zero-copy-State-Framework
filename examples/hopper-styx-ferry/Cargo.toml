@@ -10,13 +10,13 @@ description = "Hopper port of Styx-style prekeys, ratchet envelopes, and ZK ferr
 crate-type = ["cdylib", "lib"]
 
 [dependencies]
-hopper = { path = "../..", package = "hopper-lang", default-features = false, features = ["hopper-native-backend", "proc-macros"] }
+hopper = { path = "../..", package = "hopper-lang", default-features = false, features = ["proc-macros"] }
 
 [features]
-default = ["hopper-native-backend"]
-hopper-native-backend = ["hopper/hopper-native-backend"]
-legacy-pinocchio-compat = ["hopper/legacy-pinocchio-compat"]
-solana-program-backend = ["hopper/solana-program-backend"]
+default = []
+hopper-native-backend = []
+legacy-pinocchio-compat = []
+solana-program-backend = []
 
 [lints]
 workspace = true

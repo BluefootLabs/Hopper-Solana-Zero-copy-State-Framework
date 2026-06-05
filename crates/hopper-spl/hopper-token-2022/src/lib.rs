@@ -34,9 +34,9 @@ pub use hopper_solana::token2022_ext::{
 
 /// Builder for Token-2022 Transfer (instruction index 3).
 pub struct Transfer<'a> {
-    pub from: &'a AccountView,
-    pub to: &'a AccountView,
-    pub authority: &'a AccountView,
+    pub from: &'a AccountView<'a>,
+    pub to: &'a AccountView<'a>,
+    pub authority: &'a AccountView<'a>,
     pub amount: u64,
 }
 
@@ -47,7 +47,7 @@ impl Transfer<'_> {
     }
 
     #[inline]
-    pub fn invoke_signed(&self, signers: &[Signer]) -> ProgramResult {
+    pub fn invoke_signed(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
         let mut data = [0u8; 9];
         data[0] = 3;
         data[1..9].copy_from_slice(&self.amount.to_le_bytes());
@@ -70,9 +70,9 @@ impl Transfer<'_> {
 
 /// Builder for Token-2022 MintTo (instruction index 7).
 pub struct MintTo<'a> {
-    pub mint: &'a AccountView,
-    pub account: &'a AccountView,
-    pub mint_authority: &'a AccountView,
+    pub mint: &'a AccountView<'a>,
+    pub account: &'a AccountView<'a>,
+    pub mint_authority: &'a AccountView<'a>,
     pub amount: u64,
 }
 
@@ -83,7 +83,7 @@ impl MintTo<'_> {
     }
 
     #[inline]
-    pub fn invoke_signed(&self, signers: &[Signer]) -> ProgramResult {
+    pub fn invoke_signed(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
         let mut data = [0u8; 9];
         data[0] = 7;
         data[1..9].copy_from_slice(&self.amount.to_le_bytes());
@@ -106,9 +106,9 @@ impl MintTo<'_> {
 
 /// Builder for Token-2022 Burn (instruction index 8).
 pub struct Burn<'a> {
-    pub account: &'a AccountView,
-    pub mint: &'a AccountView,
-    pub authority: &'a AccountView,
+    pub account: &'a AccountView<'a>,
+    pub mint: &'a AccountView<'a>,
+    pub authority: &'a AccountView<'a>,
     pub amount: u64,
 }
 
@@ -119,7 +119,7 @@ impl Burn<'_> {
     }
 
     #[inline]
-    pub fn invoke_signed(&self, signers: &[Signer]) -> ProgramResult {
+    pub fn invoke_signed(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
         let mut data = [0u8; 9];
         data[0] = 8;
         data[1..9].copy_from_slice(&self.amount.to_le_bytes());
@@ -142,9 +142,9 @@ impl Burn<'_> {
 
 /// Builder for Token-2022 CloseAccount (instruction index 9).
 pub struct CloseAccount<'a> {
-    pub account: &'a AccountView,
-    pub destination: &'a AccountView,
-    pub authority: &'a AccountView,
+    pub account: &'a AccountView<'a>,
+    pub destination: &'a AccountView<'a>,
+    pub authority: &'a AccountView<'a>,
 }
 
 impl CloseAccount<'_> {
@@ -154,7 +154,7 @@ impl CloseAccount<'_> {
     }
 
     #[inline]
-    pub fn invoke_signed(&self, signers: &[Signer]) -> ProgramResult {
+    pub fn invoke_signed(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
         let data = [9u8];
         let accounts = [
             InstructionAccount::writable(self.account.address()),
@@ -174,9 +174,9 @@ impl CloseAccount<'_> {
 
 /// Builder for Token-2022 Approve (instruction index 4).
 pub struct Approve<'a> {
-    pub source: &'a AccountView,
-    pub delegate: &'a AccountView,
-    pub authority: &'a AccountView,
+    pub source: &'a AccountView<'a>,
+    pub delegate: &'a AccountView<'a>,
+    pub authority: &'a AccountView<'a>,
     pub amount: u64,
 }
 
@@ -187,7 +187,7 @@ impl Approve<'_> {
     }
 
     #[inline]
-    pub fn invoke_signed(&self, signers: &[Signer]) -> ProgramResult {
+    pub fn invoke_signed(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
         let mut data = [0u8; 9];
         data[0] = 4;
         data[1..9].copy_from_slice(&self.amount.to_le_bytes());
@@ -210,8 +210,8 @@ impl Approve<'_> {
 
 /// Builder for Token-2022 Revoke (instruction index 5).
 pub struct Revoke<'a> {
-    pub source: &'a AccountView,
-    pub authority: &'a AccountView,
+    pub source: &'a AccountView<'a>,
+    pub authority: &'a AccountView<'a>,
 }
 
 impl Revoke<'_> {
@@ -221,7 +221,7 @@ impl Revoke<'_> {
     }
 
     #[inline]
-    pub fn invoke_signed(&self, signers: &[Signer]) -> ProgramResult {
+    pub fn invoke_signed(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
         let data = [5u8];
         let accounts = [
             InstructionAccount::writable(self.source.address()),
@@ -240,10 +240,10 @@ impl Revoke<'_> {
 
 /// Builder for Token-2022 InitializeAccount (instruction index 1).
 pub struct InitializeAccount<'a> {
-    pub account: &'a AccountView,
-    pub mint: &'a AccountView,
-    pub owner: &'a AccountView,
-    pub rent_sysvar: &'a AccountView,
+    pub account: &'a AccountView<'a>,
+    pub mint: &'a AccountView<'a>,
+    pub owner: &'a AccountView<'a>,
+    pub rent_sysvar: &'a AccountView<'a>,
 }
 
 impl InitializeAccount<'_> {

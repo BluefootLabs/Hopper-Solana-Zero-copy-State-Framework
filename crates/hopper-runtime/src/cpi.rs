@@ -1,16 +1,16 @@
 //! Cross-program invocation for Hopper programs.
 //!
 //! Provides both checked (borrow-validating) and unchecked invoke paths.
-//! hopper-native-backend uses direct runtime syscalls; compatibility
-//! backends delegate through `compat` after Hopper-level validation.
+//! Hopper uses direct runtime syscalls after Hopper-level validation.
 
 use crate::account::AccountView;
 use crate::address::{address_eq, Address};
 use crate::error::ProgramError;
-use crate::instruction::InstructionView;
+use crate::instruction::{CpiAccount, InstructionView};
 use crate::ProgramResult;
+use core::mem::MaybeUninit;
 
-#[cfg(all(feature = "hopper-native-backend", target_os = "solana"))]
+#[cfg(target_os = "solana")]
 use crate::instruction::InstructionAccount;
 
 // Re-export Signer and Seed so callers can use `cpi::Signer` / `cpi::Seed`.
@@ -25,16 +25,9 @@ pub const MAX_CPI_ACCOUNTS: usize = 128;
 /// Maximum return data size (1 KiB).
 pub const MAX_RETURN_DATA: usize = 1024;
 
-// ══════════════════════════════════════════════════════════════════════
-//  hopper-native-backend CPI
-// ══════════════════════════════════════════════════════════════════════
+// -- Hopper CPI -------------------------------------------------------
 
-#[cfg(feature = "hopper-native-backend")]
-use crate::instruction::CpiAccount;
-#[cfg(feature = "hopper-native-backend")]
-use core::mem::MaybeUninit;
-
-#[cfg(all(feature = "hopper-native-backend", target_os = "solana"))]
+#[cfg(target_os = "solana")]
 #[repr(C)]
 struct CInstruction<'a> {
     program_id: *const Address,
@@ -44,18 +37,17 @@ struct CInstruction<'a> {
     data_len: u64,
 }
 
-// ── Unchecked invoke ─────────────────────────────────────────────────
+// -- Unchecked invoke -------------------------------------------------
 
 /// Invoke a CPI without borrow validation (lowest CU cost).
 ///
 /// # Safety
 ///
 /// The caller must ensure no account data borrows conflict with the CPI.
-#[cfg(feature = "hopper-native-backend")]
 #[inline]
 pub unsafe fn invoke_unchecked(
-    instruction: &InstructionView,
-    accounts: &[CpiAccount],
+    instruction: &InstructionView<'_, '_, '_, '_>,
+    accounts: &[CpiAccount<'_>],
 ) -> ProgramResult {
     #[cfg(target_os = "solana")]
     {
@@ -95,12 +87,11 @@ pub unsafe fn invoke_unchecked(
 /// # Safety
 ///
 /// The caller must ensure no account data borrows conflict with the CPI.
-#[cfg(feature = "hopper-native-backend")]
 #[inline]
 pub unsafe fn invoke_signed_unchecked(
-    instruction: &InstructionView,
-    accounts: &[CpiAccount],
-    signers_seeds: &[Signer],
+    instruction: &InstructionView<'_, '_, '_, '_>,
+    accounts: &[CpiAccount<'_>],
+    signers_seeds: &[Signer<'_, '_>],
 ) -> ProgramResult {
     #[cfg(target_os = "solana")]
     {
@@ -135,13 +126,13 @@ pub unsafe fn invoke_signed_unchecked(
     }
 }
 
-// ── CPI validation ───────────────────────────────────────────────────
+// ---------------------------------------------------------------------
 
 /// Reject duplicate writable accounts before invoking CPI.
 #[inline]
 fn validate_no_duplicate_writable(
-    instruction: &InstructionView,
-    account_views: &[&AccountView],
+    instruction: &InstructionView<'_, '_, '_, '_>,
+    account_views: &[&AccountView<'_>],
 ) -> ProgramResult {
     let mut i = 0;
     while i < instruction.accounts.len() {
@@ -162,7 +153,7 @@ fn validate_no_duplicate_writable(
 }
 
 #[inline]
-fn signer_matches_pda(program_id: &Address, account: &Address, signers_seeds: &[Signer]) -> bool {
+fn signer_matches_pda(program_id: &Address, account: &Address, signers_seeds: &[Signer<'_, '_>]) -> bool {
     let mut i = 0;
     while i < signers_seeds.len() {
         let signer = &signers_seeds[i];
@@ -198,9 +189,9 @@ fn signer_matches_pda(program_id: &Address, account: &Address, signers_seeds: &[
 /// Validate CPI account views match the instruction's expectations.
 #[inline]
 fn validate_cpi_accounts(
-    instruction: &InstructionView,
-    account_views: &[&AccountView],
-    signers_seeds: &[Signer],
+    instruction: &InstructionView<'_, '_, '_, '_>,
+    account_views: &[&AccountView<'_>],
+    signers_seeds: &[Signer<'_, '_>],
 ) -> ProgramResult {
     if account_views.len() < instruction.accounts.len() {
         return Err(ProgramError::NotEnoughAccountKeys);
@@ -240,29 +231,27 @@ fn validate_cpi_accounts(
     Ok(())
 }
 
-// ── Checked invoke ───────────────────────────────────────────────────
+// ---------------------------------------------------------------------
 
 /// Invoke a CPI with full validation.
-#[cfg(feature = "hopper-native-backend")]
 #[inline]
 pub fn invoke<const ACCOUNTS: usize>(
-    instruction: &InstructionView,
-    account_views: &[&AccountView; ACCOUNTS],
+    instruction: &InstructionView<'_, '_, '_, '_>,
+    account_views: &[&AccountView<'_>; ACCOUNTS],
 ) -> ProgramResult {
     invoke_signed::<ACCOUNTS>(instruction, account_views, &[])
 }
 
 /// Invoke a signed CPI with full validation.
-#[cfg(feature = "hopper-native-backend")]
 #[inline]
 pub fn invoke_signed<const ACCOUNTS: usize>(
-    instruction: &InstructionView,
-    account_views: &[&AccountView; ACCOUNTS],
-    signers_seeds: &[Signer],
+    instruction: &InstructionView<'_, '_, '_, '_>,
+    account_views: &[&AccountView<'_>; ACCOUNTS],
+    signers_seeds: &[Signer<'_, '_>],
 ) -> ProgramResult {
     validate_cpi_accounts(instruction, &account_views[..], signers_seeds)?;
 
-    let mut cpi_accounts: [MaybeUninit<CpiAccount>; ACCOUNTS] =
+    let mut cpi_accounts: [MaybeUninit<CpiAccount<'_>>; ACCOUNTS] =
         // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe { MaybeUninit::uninit().assume_init() };
 
@@ -273,8 +262,8 @@ pub fn invoke_signed<const ACCOUNTS: usize>(
     }
 
     // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-    let accounts: &[CpiAccount; ACCOUNTS] =
-        unsafe { &*(cpi_accounts.as_ptr() as *const [CpiAccount; ACCOUNTS]) };
+    let accounts: &[CpiAccount<'_>; ACCOUNTS] =
+        unsafe { &*(cpi_accounts.as_ptr() as *const [CpiAccount<'_>; ACCOUNTS]) };
 
     // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe {
@@ -287,22 +276,20 @@ pub fn invoke_signed<const ACCOUNTS: usize>(
 }
 
 /// Invoke with a dynamic number of accounts (bounded by const generic).
-#[cfg(feature = "hopper-native-backend")]
 #[inline]
 pub fn invoke_with_bounds<const MAX_ACCOUNTS: usize>(
-    instruction: &InstructionView,
-    account_views: &[&AccountView],
+    instruction: &InstructionView<'_, '_, '_, '_>,
+    account_views: &[&AccountView<'_>],
 ) -> ProgramResult {
     invoke_signed_with_bounds::<MAX_ACCOUNTS>(instruction, account_views, &[])
 }
 
 /// Signed invoke with a dynamic number of accounts (bounded by const generic).
-#[cfg(feature = "hopper-native-backend")]
 #[inline]
 pub fn invoke_signed_with_bounds<const MAX_ACCOUNTS: usize>(
-    instruction: &InstructionView,
-    account_views: &[&AccountView],
-    signers_seeds: &[Signer],
+    instruction: &InstructionView<'_, '_, '_, '_>,
+    account_views: &[&AccountView<'_>],
+    signers_seeds: &[Signer<'_, '_>],
 ) -> ProgramResult {
     if account_views.len() > MAX_ACCOUNTS {
         return Err(ProgramError::InvalidArgument);
@@ -310,7 +297,7 @@ pub fn invoke_signed_with_bounds<const MAX_ACCOUNTS: usize>(
 
     validate_cpi_accounts(instruction, account_views, signers_seeds)?;
 
-    let mut cpi_accounts: [MaybeUninit<CpiAccount>; MAX_ACCOUNTS] =
+    let mut cpi_accounts: [MaybeUninit<CpiAccount<'_>>; MAX_ACCOUNTS] =
         // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe { MaybeUninit::uninit().assume_init() };
 
@@ -323,7 +310,7 @@ pub fn invoke_signed_with_bounds<const MAX_ACCOUNTS: usize>(
 
     // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     let accounts =
-        unsafe { core::slice::from_raw_parts(cpi_accounts.as_ptr() as *const CpiAccount, count) };
+        unsafe { core::slice::from_raw_parts(cpi_accounts.as_ptr() as *const CpiAccount<'_>, count) };
 
     // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe {
@@ -335,43 +322,11 @@ pub fn invoke_signed_with_bounds<const MAX_ACCOUNTS: usize>(
     }
 }
 
-// ══════════════════════════════════════════════════════════════════════
-//  Compatibility backends CPI
-// ══════════════════════════════════════════════════════════════════════
-
-/// Invoke a CPI through the active compatibility backend.
-#[cfg(any(
-    feature = "legacy-pinocchio-compat",
-    feature = "solana-program-backend"
-))]
-#[inline]
-pub fn invoke<const ACCOUNTS: usize>(
-    instruction: &InstructionView,
-    account_views: &[&AccountView; ACCOUNTS],
-) -> ProgramResult {
-    invoke_signed::<ACCOUNTS>(instruction, account_views, &[])
-}
-
-/// Invoke a signed CPI through the active compatibility backend.
-#[cfg(any(
-    feature = "legacy-pinocchio-compat",
-    feature = "solana-program-backend"
-))]
-#[inline]
-pub fn invoke_signed<const ACCOUNTS: usize>(
-    instruction: &InstructionView,
-    account_views: &[&AccountView; ACCOUNTS],
-    signers_seeds: &[Signer],
-) -> ProgramResult {
-    validate_cpi_accounts(instruction, &account_views[..], signers_seeds)?;
-    crate::compat::invoke_signed(instruction, account_views, signers_seeds)
-}
-
 /// Explicit alias for Hopper's validated CPI path.
 #[inline]
 pub fn invoke_checked<const ACCOUNTS: usize>(
-    instruction: &InstructionView,
-    account_views: &[&AccountView; ACCOUNTS],
+    instruction: &InstructionView<'_, '_, '_, '_>,
+    account_views: &[&AccountView<'_>; ACCOUNTS],
 ) -> ProgramResult {
     invoke::<ACCOUNTS>(instruction, account_views)
 }
@@ -379,14 +334,14 @@ pub fn invoke_checked<const ACCOUNTS: usize>(
 /// Explicit alias for Hopper's validated signed CPI path.
 #[inline]
 pub fn invoke_signed_checked<const ACCOUNTS: usize>(
-    instruction: &InstructionView,
-    account_views: &[&AccountView; ACCOUNTS],
-    signers_seeds: &[Signer],
+    instruction: &InstructionView<'_, '_, '_, '_>,
+    account_views: &[&AccountView<'_>; ACCOUNTS],
+    signers_seeds: &[Signer<'_, '_>],
 ) -> ProgramResult {
     invoke_signed::<ACCOUNTS>(instruction, account_views, signers_seeds)
 }
 
-// ── Return data ──────────────────────────────────────────────────────
+// ---------------------------------------------------------------------
 
 /// Set return data for the current instruction.
 #[inline(always)]
@@ -394,7 +349,7 @@ pub fn set_return_data(data: &[u8]) {
     crate::return_data::set_return_data(data)
 }
 
-#[cfg(all(test, feature = "hopper-native-backend"))]
+#[cfg(test)]
 mod tests {
     use super::*;
 

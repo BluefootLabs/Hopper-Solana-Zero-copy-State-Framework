@@ -8,7 +8,7 @@ use hopper_runtime::{error::ProgramError, AccountView, ProgramResult};
 
 /// Count how many accounts in the slice are transaction signers.
 #[inline(always)]
-pub fn count_signers(accounts: &[&AccountView]) -> u8 {
+pub fn count_signers(accounts: &[&AccountView<'_>]) -> u8 {
     let mut n: u8 = 0;
     let mut i = 0;
     while i < accounts.len() {
@@ -28,7 +28,7 @@ pub fn count_signers(accounts: &[&AccountView]) -> u8 {
 /// Returns `MissingRequiredSignature` if fewer than `threshold` are signers.
 /// Returns `InvalidArgument` if duplicate addresses are found.
 #[inline(always)]
-pub fn check_threshold(accounts: &[&AccountView], threshold: u8) -> ProgramResult {
+pub fn check_threshold(accounts: &[&AccountView<'_>], threshold: u8) -> ProgramResult {
     // Check uniqueness (O(n^2) but n is always small, typically 3-9)
     let len = accounts.len();
     let mut i = 0;
@@ -55,7 +55,7 @@ pub fn check_threshold(accounts: &[&AccountView], threshold: u8) -> ProgramResul
 /// Also checks uniqueness. Use this for operations that require
 /// unanimous consent.
 #[inline(always)]
-pub fn check_all_signers(accounts: &[&AccountView]) -> ProgramResult {
+pub fn check_all_signers(accounts: &[&AccountView<'_>]) -> ProgramResult {
     let len = accounts.len();
     if len > u8::MAX as usize {
         return Err(ProgramError::InvalidArgument);
@@ -67,6 +67,6 @@ pub fn check_all_signers(accounts: &[&AccountView]) -> ProgramResult {
 ///
 /// Useful for "any admin can act" patterns. Checks uniqueness.
 #[inline(always)]
-pub fn check_any_signer(accounts: &[&AccountView]) -> ProgramResult {
+pub fn check_any_signer(accounts: &[&AccountView<'_>]) -> ProgramResult {
     check_threshold(accounts, 1)
 }

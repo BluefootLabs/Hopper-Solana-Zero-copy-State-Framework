@@ -6,15 +6,16 @@
 //! `hopper::systems::*` or explicit modules such as `hopper::segment`.
 
 pub use crate::account::{
-    Account, ExternalAccount, ExternalZeroCopy, InitAccount, Interface, InterfaceAccount,
-    InterfaceAccountLayout, InterfaceAccountResolve, InterfaceSpec, Program, ProgramId, Signer,
-    System, SystemAccount, SystemId, UncheckedAccount,
+    Account, ExplainExternal, ExternalAccount, ExternalBytes, ExternalChecked, ExternalExplainSink,
+    ExternalLens, ExternalLensValue, ExternalProof, ExternalResolve, ExternalZeroCopy, InitAccount,
+    Interface, InterfaceAccount, InterfaceAccountLayout, InterfaceAccountResolve, InterfaceSpec,
+    Program, ProgramId, Signer, System, SystemAccount, SystemId, UncheckedAccount,
 };
 pub use crate::context::Context;
 pub use crate::context::Context as Ctx;
 pub use hopper_runtime::{
     AccountView, Address, HopperString, HopperVec, Pod, ProgramError, ProgramResult, TailBytes,
-    TailCodec, TailElement, TailStr,
+    Ref, ScopedContext, TailCodec, TailElement, TailStr,
 };
 
 /// Lifetime-shaped bounded UTF-8 authoring value.

@@ -9,10 +9,7 @@ use hopper::prelude::*;
 
 #[cfg(target_os = "solana")]
 mod __hopper_sbf {
-    #[cfg(not(feature = "solana-program-backend"))]
     hopper::no_allocator!();
-
-    #[cfg(not(feature = "solana-program-backend"))]
     hopper::nostd_panic_handler!();
 }
 

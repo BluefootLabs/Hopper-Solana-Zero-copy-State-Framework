@@ -30,13 +30,13 @@ pub struct HasOneChecked;
 
 #[derive(Clone, Copy)]
 pub struct AccountProof<'a, P = Unchecked> {
-    account: &'a AccountView,
+    account: &'a AccountView<'a>,
     _proof: PhantomData<P>,
 }
 
 impl<'a> AccountProof<'a, Unchecked> {
     #[inline(always)]
-    pub const fn new(account: &'a AccountView) -> Self {
+    pub const fn new(account: &'a AccountView<'a>) -> Self {
         Self {
             account,
             _proof: PhantomData,
@@ -46,7 +46,7 @@ impl<'a> AccountProof<'a, Unchecked> {
 
 impl<'a, P> AccountProof<'a, P> {
     #[inline(always)]
-    pub const fn account(&self) -> &'a AccountView {
+    pub const fn account(&self) -> &'a AccountView<'a> {
         self.account
     }
 

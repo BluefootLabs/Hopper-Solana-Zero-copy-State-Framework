@@ -11,15 +11,15 @@ use hopper_runtime::{AccountView, Address, ProgramResult};
 
 use crate::constants::{ATA_PROGRAM_ID, TOKEN_2022_PROGRAM_ID};
 
-// ────────────────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------
 // System Program
-// ────────────────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------
 
 /// Create a new account owned by `owner` with `space` bytes.
 #[inline]
 pub fn create_account<'a>(
-    payer: &'a AccountView,
-    new_account: &'a AccountView,
+    payer: &'a AccountView<'a>,
+    new_account: &'a AccountView<'a>,
     lamports: u64,
     space: u64,
     owner: &'a Address,
@@ -37,12 +37,12 @@ pub fn create_account<'a>(
 /// Create a new account with PDA signer seeds.
 #[inline]
 pub fn create_account_signed<'a>(
-    payer: &'a AccountView,
-    new_account: &'a AccountView,
+    payer: &'a AccountView<'a>,
+    new_account: &'a AccountView<'a>,
     lamports: u64,
     space: u64,
     owner: &'a Address,
-    signers: &[Signer],
+    signers: &[Signer<'_, '_>],
 ) -> ProgramResult {
     hopper_system::CreateAccount {
         from: payer,
@@ -57,8 +57,8 @@ pub fn create_account_signed<'a>(
 /// Transfer lamports between accounts.
 #[inline]
 pub fn transfer_sol<'a>(
-    from: &'a AccountView,
-    to: &'a AccountView,
+    from: &'a AccountView<'a>,
+    to: &'a AccountView<'a>,
     lamports: u64,
 ) -> ProgramResult {
     hopper_system::Transfer { from, to, lamports }.invoke()
@@ -67,29 +67,29 @@ pub fn transfer_sol<'a>(
 /// Transfer lamports with PDA signer seeds.
 #[inline]
 pub fn transfer_sol_signed<'a>(
-    from: &'a AccountView,
-    to: &'a AccountView,
+    from: &'a AccountView<'a>,
+    to: &'a AccountView<'a>,
     lamports: u64,
-    signers: &[Signer],
+    signers: &[Signer<'_, '_>],
 ) -> ProgramResult {
     hopper_system::Transfer { from, to, lamports }.invoke_signed(signers)
 }
 
 /// Assign account ownership to a new program.
 #[inline]
-pub fn assign<'a>(account: &'a AccountView, owner: &'a Address) -> ProgramResult {
+pub fn assign<'a>(account: &'a AccountView<'a>, owner: &'a Address) -> ProgramResult {
     hopper_system::Assign { account, owner }.invoke()
 }
 
 /// Allocate space in an account (without changing owner).
 #[inline]
-pub fn allocate(account: &AccountView, space: u64) -> ProgramResult {
+pub fn allocate(account: &AccountView<'_>, space: u64) -> ProgramResult {
     hopper_system::Allocate { account, space }.invoke()
 }
 
-// ────────────────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------
 // SPL Token (via hopper-token)
-// ────────────────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------
 
 /// Transfer SPL tokens between token accounts.
 ///
@@ -104,9 +104,9 @@ pub fn allocate(account: &AccountView, space: u64) -> ProgramResult {
 #[allow(deprecated)]
 #[inline]
 pub fn token_transfer<'a>(
-    source: &'a AccountView,
-    destination: &'a AccountView,
-    authority: &'a AccountView,
+    source: &'a AccountView<'a>,
+    destination: &'a AccountView<'a>,
+    authority: &'a AccountView<'a>,
     amount: u64,
 ) -> ProgramResult {
     hopper_token::Transfer {
@@ -127,10 +127,10 @@ pub fn token_transfer<'a>(
 /// the account expects.
 #[inline]
 pub fn token_transfer_checked<'a>(
-    source: &'a AccountView,
-    mint: &'a AccountView,
-    destination: &'a AccountView,
-    authority: &'a AccountView,
+    source: &'a AccountView<'a>,
+    mint: &'a AccountView<'a>,
+    destination: &'a AccountView<'a>,
+    authority: &'a AccountView<'a>,
     amount: u64,
     decimals: u8,
 ) -> ProgramResult {
@@ -148,13 +148,13 @@ pub fn token_transfer_checked<'a>(
 /// `token_transfer_checked` with explicit PDA signer seeds.
 #[inline]
 pub fn token_transfer_checked_signed<'a>(
-    source: &'a AccountView,
-    mint: &'a AccountView,
-    destination: &'a AccountView,
-    authority: &'a AccountView,
+    source: &'a AccountView<'a>,
+    mint: &'a AccountView<'a>,
+    destination: &'a AccountView<'a>,
+    authority: &'a AccountView<'a>,
     amount: u64,
     decimals: u8,
-    signers: &[Signer],
+    signers: &[Signer<'_, '_>],
 ) -> ProgramResult {
     hopper_token::TransferChecked {
         from: source,
@@ -178,11 +178,11 @@ pub fn token_transfer_checked_signed<'a>(
 #[allow(deprecated)]
 #[inline]
 pub fn token_transfer_signed<'a>(
-    source: &'a AccountView,
-    destination: &'a AccountView,
-    authority: &'a AccountView,
+    source: &'a AccountView<'a>,
+    destination: &'a AccountView<'a>,
+    authority: &'a AccountView<'a>,
     amount: u64,
-    signers: &[Signer],
+    signers: &[Signer<'_, '_>],
 ) -> ProgramResult {
     hopper_token::Transfer {
         from: source,
@@ -204,9 +204,9 @@ pub fn token_transfer_signed<'a>(
 #[allow(deprecated)]
 #[inline]
 pub fn token_mint_to<'a>(
-    mint: &'a AccountView,
-    destination: &'a AccountView,
-    authority: &'a AccountView,
+    mint: &'a AccountView<'a>,
+    destination: &'a AccountView<'a>,
+    authority: &'a AccountView<'a>,
     amount: u64,
 ) -> ProgramResult {
     hopper_token::MintTo {
@@ -229,11 +229,11 @@ pub fn token_mint_to<'a>(
 #[allow(deprecated)]
 #[inline]
 pub fn token_mint_to_signed<'a>(
-    mint: &'a AccountView,
-    destination: &'a AccountView,
-    authority: &'a AccountView,
+    mint: &'a AccountView<'a>,
+    destination: &'a AccountView<'a>,
+    authority: &'a AccountView<'a>,
     amount: u64,
-    signers: &[Signer],
+    signers: &[Signer<'_, '_>],
 ) -> ProgramResult {
     hopper_token::MintTo {
         mint,
@@ -247,9 +247,9 @@ pub fn token_mint_to_signed<'a>(
 /// Mint tokens with mint + decimals validation (Token-2022-safe).
 #[inline]
 pub fn token_mint_to_checked<'a>(
-    mint: &'a AccountView,
-    destination: &'a AccountView,
-    authority: &'a AccountView,
+    mint: &'a AccountView<'a>,
+    destination: &'a AccountView<'a>,
+    authority: &'a AccountView<'a>,
     amount: u64,
     decimals: u8,
 ) -> ProgramResult {
@@ -266,12 +266,12 @@ pub fn token_mint_to_checked<'a>(
 /// `token_mint_to_checked` with explicit PDA signer seeds.
 #[inline]
 pub fn token_mint_to_checked_signed<'a>(
-    mint: &'a AccountView,
-    destination: &'a AccountView,
-    authority: &'a AccountView,
+    mint: &'a AccountView<'a>,
+    destination: &'a AccountView<'a>,
+    authority: &'a AccountView<'a>,
     amount: u64,
     decimals: u8,
-    signers: &[Signer],
+    signers: &[Signer<'_, '_>],
 ) -> ProgramResult {
     hopper_token::MintToChecked {
         mint,
@@ -294,9 +294,9 @@ pub fn token_mint_to_checked_signed<'a>(
 #[allow(deprecated)]
 #[inline]
 pub fn token_burn<'a>(
-    token_account: &'a AccountView,
-    mint: &'a AccountView,
-    authority: &'a AccountView,
+    token_account: &'a AccountView<'a>,
+    mint: &'a AccountView<'a>,
+    authority: &'a AccountView<'a>,
     amount: u64,
 ) -> ProgramResult {
     hopper_token::Burn {
@@ -319,11 +319,11 @@ pub fn token_burn<'a>(
 #[allow(deprecated)]
 #[inline]
 pub fn token_burn_signed<'a>(
-    token_account: &'a AccountView,
-    mint: &'a AccountView,
-    authority: &'a AccountView,
+    token_account: &'a AccountView<'a>,
+    mint: &'a AccountView<'a>,
+    authority: &'a AccountView<'a>,
     amount: u64,
-    signers: &[Signer],
+    signers: &[Signer<'_, '_>],
 ) -> ProgramResult {
     hopper_token::Burn {
         account: token_account,
@@ -337,9 +337,9 @@ pub fn token_burn_signed<'a>(
 /// Burn tokens with mint + decimals validation (Token-2022-safe).
 #[inline]
 pub fn token_burn_checked<'a>(
-    token_account: &'a AccountView,
-    mint: &'a AccountView,
-    authority: &'a AccountView,
+    token_account: &'a AccountView<'a>,
+    mint: &'a AccountView<'a>,
+    authority: &'a AccountView<'a>,
     amount: u64,
     decimals: u8,
 ) -> ProgramResult {
@@ -356,12 +356,12 @@ pub fn token_burn_checked<'a>(
 /// `token_burn_checked` with explicit PDA signer seeds.
 #[inline]
 pub fn token_burn_checked_signed<'a>(
-    token_account: &'a AccountView,
-    mint: &'a AccountView,
-    authority: &'a AccountView,
+    token_account: &'a AccountView<'a>,
+    mint: &'a AccountView<'a>,
+    authority: &'a AccountView<'a>,
     amount: u64,
     decimals: u8,
-    signers: &[Signer],
+    signers: &[Signer<'_, '_>],
 ) -> ProgramResult {
     hopper_token::BurnChecked {
         account: token_account,
@@ -376,9 +376,9 @@ pub fn token_burn_checked_signed<'a>(
 /// Close a token account, returning remaining lamports to destination.
 #[inline]
 pub fn token_close_account<'a>(
-    token_account: &'a AccountView,
-    destination: &'a AccountView,
-    authority: &'a AccountView,
+    token_account: &'a AccountView<'a>,
+    destination: &'a AccountView<'a>,
+    authority: &'a AccountView<'a>,
 ) -> ProgramResult {
     hopper_token::CloseAccount {
         account: token_account,
@@ -391,10 +391,10 @@ pub fn token_close_account<'a>(
 /// Close a token account with PDA signer seeds.
 #[inline]
 pub fn token_close_account_signed<'a>(
-    token_account: &'a AccountView,
-    destination: &'a AccountView,
-    authority: &'a AccountView,
-    signers: &[Signer],
+    token_account: &'a AccountView<'a>,
+    destination: &'a AccountView<'a>,
+    authority: &'a AccountView<'a>,
+    signers: &[Signer<'_, '_>],
 ) -> ProgramResult {
     hopper_token::CloseAccount {
         account: token_account,
@@ -415,9 +415,9 @@ pub fn token_close_account_signed<'a>(
 #[allow(deprecated)]
 #[inline]
 pub fn token_approve<'a>(
-    token_account: &'a AccountView,
-    delegate: &'a AccountView,
-    authority: &'a AccountView,
+    token_account: &'a AccountView<'a>,
+    delegate: &'a AccountView<'a>,
+    authority: &'a AccountView<'a>,
     amount: u64,
 ) -> ProgramResult {
     hopper_token::Approve {
@@ -432,10 +432,10 @@ pub fn token_approve<'a>(
 /// Approve a delegate with mint + decimals validation (Token-2022-safe).
 #[inline]
 pub fn token_approve_checked<'a>(
-    token_account: &'a AccountView,
-    mint: &'a AccountView,
-    delegate: &'a AccountView,
-    authority: &'a AccountView,
+    token_account: &'a AccountView<'a>,
+    mint: &'a AccountView<'a>,
+    delegate: &'a AccountView<'a>,
+    authority: &'a AccountView<'a>,
     amount: u64,
     decimals: u8,
 ) -> ProgramResult {
@@ -453,8 +453,8 @@ pub fn token_approve_checked<'a>(
 /// Revoke a delegate from a token account.
 #[inline]
 pub fn token_revoke<'a>(
-    token_account: &'a AccountView,
-    authority: &'a AccountView,
+    token_account: &'a AccountView<'a>,
+    authority: &'a AccountView<'a>,
 ) -> ProgramResult {
     hopper_token::Revoke {
         source: token_account,
@@ -463,9 +463,9 @@ pub fn token_revoke<'a>(
     .invoke()
 }
 
-// ────────────────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------
 // Checked Transfer (with mint verification)
-// ────────────────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------
 
 /// Transfer SPL tokens with mint validation.
 ///
@@ -485,9 +485,9 @@ pub fn token_revoke<'a>(
 #[allow(deprecated)]
 #[inline]
 pub fn checked_token_transfer<'a>(
-    source: &'a AccountView,
-    destination: &'a AccountView,
-    authority: &'a AccountView,
+    source: &'a AccountView<'a>,
+    destination: &'a AccountView<'a>,
+    authority: &'a AccountView<'a>,
     amount: u64,
 ) -> ProgramResult {
     let source_data = source.try_borrow()?;
@@ -508,16 +508,16 @@ pub fn checked_token_transfer<'a>(
     .invoke()
 }
 
-// ────────────────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------
 // Token-2022 (via hopper-token-2022)
-// ────────────────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------
 
 /// Transfer Token-2022 tokens between token accounts.
 #[inline]
 pub fn token_2022_transfer<'a>(
-    source: &'a AccountView,
-    destination: &'a AccountView,
-    authority: &'a AccountView,
+    source: &'a AccountView<'a>,
+    destination: &'a AccountView<'a>,
+    authority: &'a AccountView<'a>,
     amount: u64,
 ) -> ProgramResult {
     token_2022_transfer_signed(source, destination, authority, amount, &[])
@@ -526,11 +526,11 @@ pub fn token_2022_transfer<'a>(
 /// Transfer Token-2022 tokens with PDA signer seeds.
 #[inline]
 pub fn token_2022_transfer_signed<'a>(
-    source: &'a AccountView,
-    destination: &'a AccountView,
-    authority: &'a AccountView,
+    source: &'a AccountView<'a>,
+    destination: &'a AccountView<'a>,
+    authority: &'a AccountView<'a>,
     amount: u64,
-    signers: &[Signer],
+    signers: &[Signer<'_, '_>],
 ) -> ProgramResult {
     let mut data = [0u8; 9];
     data[0] = 3;
@@ -554,9 +554,9 @@ pub fn token_2022_transfer_signed<'a>(
 /// Mint Token-2022 tokens to a destination token account.
 #[inline]
 pub fn token_2022_mint_to<'a>(
-    mint: &'a AccountView,
-    destination: &'a AccountView,
-    authority: &'a AccountView,
+    mint: &'a AccountView<'a>,
+    destination: &'a AccountView<'a>,
+    authority: &'a AccountView<'a>,
     amount: u64,
 ) -> ProgramResult {
     token_2022_mint_to_signed(mint, destination, authority, amount, &[])
@@ -565,11 +565,11 @@ pub fn token_2022_mint_to<'a>(
 /// Mint Token-2022 tokens with PDA signer seeds.
 #[inline]
 pub fn token_2022_mint_to_signed<'a>(
-    mint: &'a AccountView,
-    destination: &'a AccountView,
-    authority: &'a AccountView,
+    mint: &'a AccountView<'a>,
+    destination: &'a AccountView<'a>,
+    authority: &'a AccountView<'a>,
     amount: u64,
-    signers: &[Signer],
+    signers: &[Signer<'_, '_>],
 ) -> ProgramResult {
     let mut data = [0u8; 9];
     data[0] = 7;
@@ -593,9 +593,9 @@ pub fn token_2022_mint_to_signed<'a>(
 /// Burn Token-2022 tokens from a token account.
 #[inline]
 pub fn token_2022_burn<'a>(
-    token_account: &'a AccountView,
-    mint: &'a AccountView,
-    authority: &'a AccountView,
+    token_account: &'a AccountView<'a>,
+    mint: &'a AccountView<'a>,
+    authority: &'a AccountView<'a>,
     amount: u64,
 ) -> ProgramResult {
     let mut data = [0u8; 9];
@@ -620,12 +620,12 @@ pub fn token_2022_burn<'a>(
 /// Create an associated token account.
 #[inline]
 pub fn ata_create<'a>(
-    payer: &'a AccountView,
-    associated_account: &'a AccountView,
-    wallet: &'a AccountView,
-    mint: &'a AccountView,
-    system_program: &'a AccountView,
-    token_program: &'a AccountView,
+    payer: &'a AccountView<'a>,
+    associated_account: &'a AccountView<'a>,
+    wallet: &'a AccountView<'a>,
+    mint: &'a AccountView<'a>,
+    system_program: &'a AccountView<'a>,
+    token_program: &'a AccountView<'a>,
 ) -> ProgramResult {
     let data = [0u8];
     let accounts = [
@@ -656,12 +656,12 @@ pub fn ata_create<'a>(
 /// Create an associated token account idempotently.
 #[inline]
 pub fn ata_create_idempotent<'a>(
-    payer: &'a AccountView,
-    associated_account: &'a AccountView,
-    wallet: &'a AccountView,
-    mint: &'a AccountView,
-    system_program: &'a AccountView,
-    token_program: &'a AccountView,
+    payer: &'a AccountView<'a>,
+    associated_account: &'a AccountView<'a>,
+    wallet: &'a AccountView<'a>,
+    mint: &'a AccountView<'a>,
+    system_program: &'a AccountView<'a>,
+    token_program: &'a AccountView<'a>,
 ) -> ProgramResult {
     let data = [1u8];
     let accounts = [
@@ -692,13 +692,13 @@ pub fn ata_create_idempotent<'a>(
 /// Recover a nested associated token account.
 #[inline]
 pub fn ata_recover_nested<'a>(
-    nested_associated_account: &'a AccountView,
-    nested_token_mint: &'a AccountView,
-    destination_associated_account: &'a AccountView,
-    owner_associated_account: &'a AccountView,
-    owner_token_mint: &'a AccountView,
-    wallet: &'a AccountView,
-    token_program: &'a AccountView,
+    nested_associated_account: &'a AccountView<'a>,
+    nested_token_mint: &'a AccountView<'a>,
+    destination_associated_account: &'a AccountView<'a>,
+    owner_associated_account: &'a AccountView<'a>,
+    owner_token_mint: &'a AccountView<'a>,
+    wallet: &'a AccountView<'a>,
+    token_program: &'a AccountView<'a>,
 ) -> ProgramResult {
     let data = [2u8];
     let accounts = [

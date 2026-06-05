@@ -13,10 +13,9 @@ and the priority order.
 
 ## Substrate-boundary commitment (Option A)
 
-Hopper Native is the canonical substrate. `legacy-pinocchio-compat` and
-`solana-program-backend` are **compat shims** for users with existing
-dep trees, not peer targets. Enhancement effort goes into Hopper Native.
-The `legacy-pinocchio-compat` feature surface is frozen.
+Hopper's direct runtime is the canonical substrate. Old backend feature names
+are compatibility aliases only; they do not select peer runtime targets.
+Enhancement effort goes into Hopper's own account-memory runtime.
 
 ## Product repositories
 

@@ -137,11 +137,11 @@ mod private {
 /// Prefer this over [`project`] in new code; it enforces the audit's
 /// "only Pod + non-ZST types reach the projection primitive" rule.
 #[inline]
-pub fn project_safe<T: SafeProjectable>(
-    account: &AccountView,
+pub fn project_safe<'a, T: SafeProjectable>(
+    account: &'a AccountView<'a>,
     offset: usize,
     expected_disc: Option<u8>,
-) -> Result<&T, ProgramError> {
+) -> Result<&'a T, ProgramError> {
     const {
         assert!(
             core::mem::size_of::<T>() > 0,
@@ -158,11 +158,11 @@ pub fn project_safe<T: SafeProjectable>(
 /// Same contract as [`project_mut`], caller holds an exclusive borrow
 /// on the account data region for the returned reference's lifetime.
 #[inline]
-pub unsafe fn project_safe_mut<T: SafeProjectable>(
-    account: &AccountView,
+pub unsafe fn project_safe_mut<'a, T: SafeProjectable>(
+    account: &'a AccountView<'a>,
     offset: usize,
     expected_disc: Option<u8>,
-) -> Result<&mut T, ProgramError> {
+) -> Result<&'a mut T, ProgramError> {
     const {
         assert!(
             core::mem::size_of::<T>() > 0,
@@ -193,11 +193,11 @@ pub unsafe fn project_safe_mut<T: SafeProjectable>(
 /// * `expected_disc` - If `Some(d)`, verify that `data[0] == d` before
 ///   projecting. Pass `None` to skip the discriminator check.
 #[inline]
-pub fn project<T: Projectable>(
-    account: &AccountView,
+pub fn project<'a, T: Projectable>(
+    account: &'a AccountView<'a>,
     offset: usize,
     expected_disc: Option<u8>,
-) -> Result<&T, ProgramError> {
+) -> Result<&'a T, ProgramError> {
     let data_len = account.data_len();
     let type_size = core::mem::size_of::<T>();
 
@@ -244,11 +244,11 @@ pub fn project<T: Projectable>(
 /// are active. For most use cases, call `account.try_borrow_mut()`
 /// first, then use `project_mut` on the resulting data.
 #[inline]
-pub unsafe fn project_mut<T: Projectable>(
-    account: &AccountView,
+pub unsafe fn project_mut<'a, T: Projectable>(
+    account: &'a AccountView<'a>,
     offset: usize,
     expected_disc: Option<u8>,
-) -> Result<&mut T, ProgramError> {
+) -> Result<&'a mut T, ProgramError> {
     let data_len = account.data_len();
     let type_size = core::mem::size_of::<T>();
 
@@ -286,11 +286,11 @@ pub unsafe fn project_mut<T: Projectable>(
 /// Returns `&[T]` with `count` elements, performing bounds and alignment
 /// checks.
 #[inline]
-pub fn project_slice<T: Projectable>(
-    account: &AccountView,
+pub fn project_slice<'a, T: Projectable>(
+    account: &'a AccountView<'a>,
     offset: usize,
     count: usize,
-) -> Result<&[T], ProgramError> {
+) -> Result<&'a [T], ProgramError> {
     let data_len = account.data_len();
     let type_size = core::mem::size_of::<T>();
     let total = count
@@ -320,10 +320,10 @@ pub fn project_slice<T: Projectable>(
 ///
 /// This is the most common projection pattern for Hopper accounts.
 #[inline]
-pub fn project_hopper<T: Projectable>(
-    account: &AccountView,
+pub fn project_hopper<'a, T: Projectable>(
+    account: &'a AccountView<'a>,
     expected_disc: u8,
-) -> Result<&T, ProgramError> {
+) -> Result<&'a T, ProgramError> {
     project::<T>(account, 10, Some(expected_disc))
 }
 
@@ -333,10 +333,10 @@ pub fn project_hopper<T: Projectable>(
 ///
 /// Caller must ensure exclusive access to the account data.
 #[inline]
-pub unsafe fn project_hopper_mut<T: Projectable>(
-    account: &AccountView,
+pub unsafe fn project_hopper_mut<'a, T: Projectable>(
+    account: &'a AccountView<'a>,
     expected_disc: u8,
-) -> Result<&mut T, ProgramError> {
+) -> Result<&'a mut T, ProgramError> {
     // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe { project_mut::<T>(account, 10, Some(expected_disc)) }
 }

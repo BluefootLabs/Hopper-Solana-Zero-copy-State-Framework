@@ -36,7 +36,7 @@ pub trait HopperIx<'a>: Sized {
 #[inline]
 pub fn hopper_entry<'a, I, F>(
     program_id: &'a Address,
-    accounts: &'a [AccountView],
+    accounts: &'a [AccountView<'a>],
     instruction_data: &'a [u8],
     handler: F,
 ) -> Result<(), ProgramError>

@@ -93,47 +93,14 @@
 //!
 //! ## Trait identity across layers
 //!
-//! When `hopper-native-backend` is active (the default), this trait is
-//! a direct re-export of [`hopper_native::Pod`]. That keeps the entire
-//! Hopper stack, substrate, runtime, core, macros, on a single Pod
-//! trait: one `unsafe impl Pod for MyStruct {}` unlocks every Hopper
-//! access API from the lowest-level `AccountView::raw_mut` up to
-//! `#[hopper::state]`-generated accessors, across all crates, with no
-//! orphan-rule gymnastics. When a non-native backend is selected
-//! (`legacy-pinocchio-compat`, `solana-program-backend`), the trait is
-//! defined locally with the same contract so user code compiles
-//! unchanged.
+//! Hopper re-exports [`hopper_native::Pod`] as the single Pod trait for the
+//! stack. One `unsafe impl Pod for MyStruct {}` unlocks every Hopper access API
+//! from the lowest-level `AccountView::raw_mut` up to `#[hopper::state]`-
+//! generated accessors, across all crates, with no orphan-rule gymnastics.
 
-// ── Trait identity: native backend path ──────────────────────────────
-//
 // Re-export `hopper_native::Pod` directly so the "one canonical Pod"
 // invariant holds end-to-end.
-#[cfg(feature = "hopper-native-backend")]
 pub use hopper_native::Pod;
-
-// ── Trait identity: non-native backend path ─────────────────────────
-//
-// Define the trait locally for test harnesses and alternate backends
-// that don't pull in `hopper-native`. The contract is identical.
-#[cfg(not(feature = "hopper-native-backend"))]
-pub unsafe trait Pod: Copy + Sized {}
-
-#[cfg(not(feature = "hopper-native-backend"))]
-mod local_impls {
-    use super::Pod;
-    unsafe impl Pod for u8 {}
-    unsafe impl Pod for u16 {}
-    unsafe impl Pod for u32 {}
-    unsafe impl Pod for u64 {}
-    unsafe impl Pod for u128 {}
-    unsafe impl Pod for i8 {}
-    unsafe impl Pod for i16 {}
-    unsafe impl Pod for i32 {}
-    unsafe impl Pod for i64 {}
-    unsafe impl Pod for i128 {}
-    unsafe impl<const N: usize> Pod for [u8; N] {}
-    unsafe impl Pod for () {}
-}
 
 #[cfg(test)]
 mod tests {

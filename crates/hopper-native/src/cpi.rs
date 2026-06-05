@@ -18,7 +18,7 @@ pub const MAX_CPI_ACCOUNTS: usize = 128;
 /// Maximum return data size (1 KiB).
 pub const MAX_RETURN_DATA: usize = 1024;
 
-// ── Unchecked invoke ─────────────────────────────────────────────────
+// ---------------------------------------------------------------------
 
 /// Invoke a CPI without borrow validation (lowest CU cost).
 ///
@@ -39,16 +39,16 @@ pub const MAX_RETURN_DATA: usize = 1024;
 ///    regions via the callee, and Rust's aliasing rules do not permit
 ///    the caller to hold outstanding references to memory that is
 ///    about to change under it.
-/// 2. **Account list consistency.** Every `CpiAccount` in `accounts`
+/// 2. **Account list consistency.** Every `CpiAccount<'_>` in `accounts`
 ///    must correspond to a real account previously passed to the
-///    program's entrypoint (same address, same `is_signer` /
+///    program's entrypoint (same address, same `is_Signer<'_, '_>` /
 ///    `is_writable` flags the runtime already knows about). The
 ///    runtime will not re-derive account permissions; invalid flags
 ///    propagate into the callee.
 /// 3. **Writability coverage.** Every account that the `instruction`
 ///    marks writable must have `is_writable = true` in `accounts`,
-///    and every account the instruction marks as signer must have
-///    `is_signer = true`. Mismatches are rejected by the runtime but
+///    and every account the instruction marks as Signer<'_, '_> must have
+///    `is_Signer<'_, '_> = true`. Mismatches are rejected by the runtime but
 ///    the rejection path is not cheap and the caller is expected to
 ///    get this right.
 /// 4. **No shared mutable slices across CPIs.** If the same account
@@ -58,15 +58,15 @@ pub const MAX_RETURN_DATA: usize = 1024;
 /// 5. **Valid instruction encoding.** `instruction.program_id`,
 ///    `instruction.accounts`, and `instruction.data` must all point
 ///    to valid memory for the duration of the call. An
-///    `InstructionView` built from a local `InstructionAccount` slice
+///    `InstructionView<'_, '_, '_, '_>` built from a local `InstructionAccount` slice
 ///    is fine; one built from a dropped stack slot is not.
 ///
 /// The runtime does not enforce any of these from the caller side -
 /// it assumes a well-formed CPI. That is the cost of the Tier C path.
 #[inline]
 pub unsafe fn invoke_unchecked(
-    instruction: &InstructionView,
-    accounts: &[CpiAccount],
+    instruction: &InstructionView<'_, '_, '_, '_>,
+    accounts: &[CpiAccount<'_>],
 ) -> ProgramResult {
     #[cfg(target_os = "solana")]
     {
@@ -99,19 +99,19 @@ pub unsafe fn invoke_unchecked(
 
 /// Invoke a signed CPI without borrow validation.
 ///
-/// Same as [`invoke_unchecked`] but also passes PDA signer seeds so
+/// Same as [`invoke_unchecked`] but also passes PDA Signer<'_, '_> seeds so
 /// the callee can accept writes that would otherwise require a
 /// signature.
 ///
 /// # Safety
 ///
 /// All of [`invoke_unchecked`]'s invariants apply, plus two more for
-/// the signer-seeds path:
+/// the Signer<'_, '_>-seeds path:
 ///
-/// 6. **Signer seeds must derive the claimed PDA.** For every
-///    `Signer` in `signers_seeds`, the derived address
+/// 6. **Signer<'_, '_> seeds must derive the claimed PDA.** For every
+///    `Signer<'_, '_>` in `signers_seeds`, the derived address
 ///    (sha256 of `seeds || program_id || PDA_MARKER`) must equal an
-///    address in `accounts` that is marked as signer. A mismatch will
+///    address in `accounts` that is marked as Signer<'_, '_>. A mismatch will
 ///    cause the runtime to reject the CPI, but the caller is expected
 ///    to have verified this before reaching the Tier C path.
 /// 7. **Seed lifetime.** `signers_seeds` (and every `&[u8]` it points
@@ -125,9 +125,9 @@ pub unsafe fn invoke_unchecked(
 /// required above.
 #[inline]
 pub unsafe fn invoke_signed_unchecked(
-    instruction: &InstructionView,
-    accounts: &[CpiAccount],
-    signers_seeds: &[Signer],
+    instruction: &InstructionView<'_, '_, '_, '_>,
+    accounts: &[CpiAccount<'_>],
+    signers_seeds: &[Signer<'_, '_>],
 ) -> ProgramResult {
     #[cfg(target_os = "solana")]
     {
@@ -154,21 +154,21 @@ pub unsafe fn invoke_signed_unchecked(
     }
 }
 
-// ── CPI validation ───────────────────────────────────────────────────
+// ---------------------------------------------------------------------
 
 /// Validate that CPI account views match the instruction's expectations.
 ///
 /// Checks:
 /// - Sufficient number of accounts.
 /// - Address identity (order-dependent matching).
-/// - Signer requirements.
+/// - Signer<'_, '_> requirements.
 /// - Writable requirements.
 /// - Borrow compatibility (writable accounts must not be already borrowed,
 ///   read-only accounts must not be exclusively borrowed).
 #[inline]
 fn validate_cpi_accounts(
-    instruction: &InstructionView,
-    account_views: &[&AccountView],
+    instruction: &InstructionView<'_, '_, '_, '_>,
+    account_views: &[&AccountView<'_>],
 ) -> ProgramResult {
     if account_views.len() < instruction.accounts.len() {
         return Err(ProgramError::NotEnoughAccountKeys);
@@ -205,34 +205,34 @@ fn validate_cpi_accounts(
     Ok(())
 }
 
-// ── Checked invoke ───────────────────────────────────────────────────
+// ---------------------------------------------------------------------
 
 /// Invoke a CPI with full validation.
 ///
-/// Validates account count, address identity, signer/writable requirements,
+/// Validates account count, address identity, Signer<'_, '_>/writable requirements,
 /// and borrow compatibility before calling the runtime.
 #[inline]
 pub fn invoke<const ACCOUNTS: usize>(
-    instruction: &InstructionView,
-    account_views: &[&AccountView; ACCOUNTS],
+    instruction: &InstructionView<'_, '_, '_, '_>,
+    account_views: &[&AccountView<'_>; ACCOUNTS],
 ) -> ProgramResult {
     invoke_signed::<ACCOUNTS>(instruction, account_views, &[])
 }
 
 /// Invoke a signed CPI with full validation.
 ///
-/// Validates account count, address identity, signer/writable requirements,
+/// Validates account count, address identity, Signer<'_, '_>/writable requirements,
 /// and borrow compatibility before calling the runtime.
 #[inline]
 pub fn invoke_signed<const ACCOUNTS: usize>(
-    instruction: &InstructionView,
-    account_views: &[&AccountView; ACCOUNTS],
-    signers_seeds: &[Signer],
+    instruction: &InstructionView<'_, '_, '_, '_>,
+    account_views: &[&AccountView<'_>; ACCOUNTS],
+    signers_seeds: &[Signer<'_, '_>],
 ) -> ProgramResult {
     validate_cpi_accounts(instruction, &account_views[..])?;
 
-    // Build CpiAccount array on the stack.
-    let mut cpi_accounts: [MaybeUninit<CpiAccount>; ACCOUNTS] =
+    // Build CpiAccount<'_> array on the stack.
+    let mut cpi_accounts: [MaybeUninit<CpiAccount<'_>>; ACCOUNTS] =
         // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe { MaybeUninit::uninit().assume_init() };
 
@@ -243,8 +243,8 @@ pub fn invoke_signed<const ACCOUNTS: usize>(
     }
 
     // SAFETY: All ACCOUNTS slots are now initialized.
-    let accounts: &[CpiAccount; ACCOUNTS] =
-        unsafe { &*(cpi_accounts.as_ptr() as *const [CpiAccount; ACCOUNTS]) };
+    let accounts: &[CpiAccount<'_>; ACCOUNTS] =
+        unsafe { &*(cpi_accounts.as_ptr() as *const [CpiAccount<'_>; ACCOUNTS]) };
 
     // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe {
@@ -259,8 +259,8 @@ pub fn invoke_signed<const ACCOUNTS: usize>(
 /// Invoke with a dynamic number of accounts (bounded by const generic).
 #[inline]
 pub fn invoke_with_bounds<const MAX_ACCOUNTS: usize>(
-    instruction: &InstructionView,
-    account_views: &[&AccountView],
+    instruction: &InstructionView<'_, '_, '_, '_>,
+    account_views: &[&AccountView<'_>],
 ) -> ProgramResult {
     invoke_signed_with_bounds::<MAX_ACCOUNTS>(instruction, account_views, &[])
 }
@@ -271,9 +271,9 @@ pub fn invoke_with_bounds<const MAX_ACCOUNTS: usize>(
 /// Validates accounts before invoking.
 #[inline]
 pub fn invoke_signed_with_bounds<const MAX_ACCOUNTS: usize>(
-    instruction: &InstructionView,
-    account_views: &[&AccountView],
-    signers_seeds: &[Signer],
+    instruction: &InstructionView<'_, '_, '_, '_>,
+    account_views: &[&AccountView<'_>],
+    signers_seeds: &[Signer<'_, '_>],
 ) -> ProgramResult {
     if account_views.len() > MAX_ACCOUNTS {
         return Err(ProgramError::InvalidArgument);
@@ -281,7 +281,7 @@ pub fn invoke_signed_with_bounds<const MAX_ACCOUNTS: usize>(
 
     validate_cpi_accounts(instruction, account_views)?;
 
-    let mut cpi_accounts: [MaybeUninit<CpiAccount>; MAX_ACCOUNTS] =
+    let mut cpi_accounts: [MaybeUninit<CpiAccount<'_>>; MAX_ACCOUNTS] =
         // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe { MaybeUninit::uninit().assume_init() };
 
@@ -294,7 +294,7 @@ pub fn invoke_signed_with_bounds<const MAX_ACCOUNTS: usize>(
 
     // SAFETY: first `count` slots are initialized.
     let accounts =
-        unsafe { core::slice::from_raw_parts(cpi_accounts.as_ptr() as *const CpiAccount, count) };
+        unsafe { core::slice::from_raw_parts(cpi_accounts.as_ptr() as *const CpiAccount<'_>, count) };
 
     // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe {
@@ -306,7 +306,7 @@ pub fn invoke_signed_with_bounds<const MAX_ACCOUNTS: usize>(
     }
 }
 
-// ── Return data ──────────────────────────────────────────────────────
+// ---------------------------------------------------------------------
 
 /// Set return data for the current instruction.
 #[inline(always)]

@@ -174,7 +174,7 @@ impl<const N: usize> VirtualState<N> {
     #[inline]
     pub fn validate(
         &self,
-        accounts: &[AccountView],
+        accounts: &[AccountView<'_>],
         program_id: &Address,
     ) -> Result<(), ProgramError> {
         let mut i = 0;
@@ -201,7 +201,7 @@ impl<const N: usize> VirtualState<N> {
     #[inline]
     pub fn overlay<'a, T: Pod + FixedLayout>(
         &self,
-        accounts: &'a [AccountView],
+        accounts: &'a [AccountView<'a>],
         slot: usize,
     ) -> Result<Ref<'a, T>, ProgramError> {
         if slot >= self.count {
@@ -228,7 +228,7 @@ impl<const N: usize> VirtualState<N> {
     #[allow(clippy::mut_from_ref)]
     pub fn overlay_mut<'a, T: Pod + FixedLayout>(
         &self,
-        accounts: &'a [AccountView],
+        accounts: &'a [AccountView<'a>],
         slot: usize,
     ) -> Result<RefMut<'a, T>, ProgramError> {
         if slot >= self.count {
@@ -252,7 +252,7 @@ impl<const N: usize> VirtualState<N> {
     #[inline]
     pub fn data<'a>(
         &self,
-        accounts: &'a [AccountView],
+        accounts: &'a [AccountView<'a>],
         slot: usize,
     ) -> Result<Ref<'a, [u8]>, ProgramError> {
         if slot >= self.count {
@@ -269,9 +269,9 @@ impl<const N: usize> VirtualState<N> {
     #[inline]
     pub fn account<'a>(
         &self,
-        accounts: &'a [AccountView],
+        accounts: &'a [AccountView<'a>],
         slot: usize,
-    ) -> Result<&'a AccountView, ProgramError> {
+    ) -> Result<&'a AccountView<'a>, ProgramError> {
         if slot >= self.count {
             return Err(ProgramError::InvalidArgument);
         }
@@ -295,7 +295,7 @@ impl<const N: usize> Default for VirtualState<N> {
 ///
 /// This enables collections that exceed single-account size limits.
 pub struct ShardedAccess<'a, const SHARDS: usize> {
-    accounts: &'a [AccountView],
+    accounts: &'a [AccountView<'a>],
     shard_indices: [u8; SHARDS],
     shard_count: usize,
 }
@@ -303,7 +303,7 @@ pub struct ShardedAccess<'a, const SHARDS: usize> {
 impl<'a, const SHARDS: usize> ShardedAccess<'a, SHARDS> {
     /// Create a sharded access from account indices.
     #[inline]
-    pub fn new(accounts: &'a [AccountView], shard_indices: &[u8]) -> Result<Self, ProgramError> {
+    pub fn new(accounts: &'a [AccountView<'a>], shard_indices: &[u8]) -> Result<Self, ProgramError> {
         if shard_indices.len() > SHARDS {
             return Err(ProgramError::InvalidArgument);
         }
@@ -339,7 +339,7 @@ impl<'a, const SHARDS: usize> ShardedAccess<'a, SHARDS> {
 
     /// Get the account for a given shard index.
     #[inline]
-    pub fn shard_account(&self, shard: usize) -> Result<&'a AccountView, ProgramError> {
+    pub fn shard_account(&self, shard: usize) -> Result<&'a AccountView<'a>, ProgramError> {
         if shard >= self.shard_count {
             return Err(ProgramError::InvalidArgument);
         }

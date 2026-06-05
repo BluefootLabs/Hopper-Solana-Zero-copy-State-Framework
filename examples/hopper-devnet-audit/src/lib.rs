@@ -14,10 +14,7 @@ use hopper::systems::SegmentBorrowRegistry;
 
 #[cfg(any(target_os = "solana", target_arch = "bpf"))]
 mod __hopper_sbf {
-    #[cfg(not(feature = "solana-program-backend"))]
     hopper::no_allocator!();
-
-    #[cfg(not(feature = "solana-program-backend"))]
     hopper::nostd_panic_handler!();
 }
 

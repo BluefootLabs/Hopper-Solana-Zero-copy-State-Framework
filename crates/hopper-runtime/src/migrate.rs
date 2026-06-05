@@ -20,7 +20,7 @@
 //! * **Idempotent**. re-running an already-applied edge is a no-op
 //!   (the header epoch mismatch returns `MigrationMismatch`).
 //! * **Deterministic**. edges are applied in strict
-//!   `from_epoch → to_epoch` order, and any gap in the chain fails.
+// ---------------------------------------------------------------------
 
 use crate::account::AccountView;
 use crate::error::ProgramError;
@@ -92,7 +92,7 @@ pub trait LayoutMigration {
 /// returned an error.
 #[inline]
 pub fn apply_pending_migrations<T>(
-    account: &AccountView,
+    account: &AccountView<'_>,
     current_epoch: u32,
 ) -> Result<u32, ProgramError>
 where

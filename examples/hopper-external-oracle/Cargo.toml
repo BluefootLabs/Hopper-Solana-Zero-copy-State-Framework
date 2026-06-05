@@ -1,0 +1,16 @@
+[package]
+name = "hopper-external-oracle"
+version = "0.2.1"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+description = "External oracle account adapter example for Hopper."
+
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+hopper = { workspace = true, features = ["proc-macros"] }
+
+[lints]
+workspace = true

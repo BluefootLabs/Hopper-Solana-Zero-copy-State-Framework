@@ -13,13 +13,13 @@ use crate::check;
 /// Construction validates `is_executable`. After construction, the
 /// executable property is proven by the type system.
 pub struct ProgramRef<'a> {
-    view: &'a AccountView,
+    view: &'a AccountView<'a>,
 }
 
 impl<'a> ProgramRef<'a> {
     /// Construct from an AccountView, validating the executable flag.
     #[inline]
-    pub fn from_account(account: &'a AccountView) -> Result<Self, ProgramError> {
+    pub fn from_account(account: &'a AccountView<'a>) -> Result<Self, ProgramError> {
         check::check_executable(account)?;
         Ok(Self { view: account })
     }
@@ -27,7 +27,7 @@ impl<'a> ProgramRef<'a> {
     /// Construct and also verify the program's address matches expected.
     #[inline]
     pub fn from_account_checked(
-        account: &'a AccountView,
+        account: &'a AccountView<'a>,
         expected_key: &Address,
     ) -> Result<Self, ProgramError> {
         check::check_executable(account)?;
@@ -43,7 +43,7 @@ impl<'a> ProgramRef<'a> {
 
     /// The underlying AccountView.
     #[inline(always)]
-    pub fn to_account_view(&self) -> &'a AccountView {
+    pub fn to_account_view(&self) -> &'a AccountView<'a> {
         self.view
     }
 }

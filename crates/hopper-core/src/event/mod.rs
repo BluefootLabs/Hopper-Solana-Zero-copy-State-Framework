@@ -77,7 +77,7 @@ pub fn emit_event_cpi<T: Pod + FixedLayout>(
     disc: u8,
     value: &T,
     program_id: &hopper_runtime::Address,
-    accounts: &[&hopper_runtime::AccountView],
+    accounts: &[&hopper_runtime::AccountView<'_>],
 ) -> Result<(), ProgramError> {
     // Build event data: [0xFF, 0xFE, disc, ...value_bytes]
     // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.

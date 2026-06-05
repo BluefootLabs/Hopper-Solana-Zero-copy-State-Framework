@@ -22,7 +22,7 @@ where
     From: Pod + FixedLayout + HopperLayout,
     To: Pod + FixedLayout + HopperLayout,
 {
-    view: &'a AccountView,
+    view: &'a AccountView<'a>,
     program_id: &'a Address,
     _from: core::marker::PhantomData<From>,
     _to: core::marker::PhantomData<To>,
@@ -36,7 +36,7 @@ where
     /// Construct from an AccountView, validating it holds the `From` layout.
     #[inline]
     pub fn from_account(
-        account: &'a AccountView,
+        account: &'a AccountView<'a>,
         program_id: &'a Address,
     ) -> Result<Self, ProgramError> {
         check::check_owner(account, program_id)?;
@@ -82,7 +82,7 @@ where
     ///
     /// After this returns successfully, `into_latest()` will succeed.
     #[inline]
-    pub fn migrate_append(&self, payer: &AccountView) -> Result<(), ProgramError> {
+    pub fn migrate_append(&self, payer: &AccountView<'_>) -> Result<(), ProgramError> {
         crate::migrate::migrate_append(
             self.view,
             payer,
@@ -116,7 +116,7 @@ where
 
     /// The underlying AccountView.
     #[inline(always)]
-    pub fn to_account_view(&self) -> &'a AccountView {
+    pub fn to_account_view(&self) -> &'a AccountView<'a> {
         self.view
     }
 }

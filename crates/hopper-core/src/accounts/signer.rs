@@ -16,13 +16,13 @@ use crate::check;
 /// property is proven by the type system.
 #[derive(Clone, Copy)]
 pub struct SignerAccount<'a> {
-    view: &'a AccountView,
+    view: &'a AccountView<'a>,
 }
 
 impl<'a> SignerAccount<'a> {
     /// Construct from an AccountView, validating the signer flag.
     #[inline]
-    pub fn from_account(account: &'a AccountView) -> Result<Self, ProgramError> {
+    pub fn from_account(account: &'a AccountView<'a>) -> Result<Self, ProgramError> {
         check::check_signer(account)?;
         Ok(Self { view: account })
     }
@@ -35,7 +35,7 @@ impl<'a> SignerAccount<'a> {
 
     /// The underlying AccountView.
     #[inline(always)]
-    pub fn to_account_view(&self) -> &'a AccountView {
+    pub fn to_account_view(&self) -> &'a AccountView<'a> {
         self.view
     }
 

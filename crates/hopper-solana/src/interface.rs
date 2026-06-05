@@ -12,9 +12,9 @@
 //!
 //! The first 165 bytes of an SPL Token Account and the first 165 bytes
 //! of a Token-2022 token account share the same on-disk layout (mint,
-//! owner, amount, delegate, state, …), so the existing zero-copy
+// ---------------------------------------------------------------------
 //! readers in [`crate::token`] and [`crate::mint`] work for both. This
-//! module adds the validation gate (owner ∈ {Token, Token-2022}) plus
+// ---------------------------------------------------------------------
 //! a polymorphic `transfer_checked` CPI helper that dispatches to the
 //! correct program.
 
@@ -65,7 +65,7 @@ impl TokenProgramKind {
     /// Wrapper over [`AccountView::owned_by`] that stays on the safe
     /// (no-unsafe) side of the runtime API surface.
     #[inline(always)]
-    pub fn for_account(view: &AccountView) -> Result<Self, ProgramError> {
+    pub fn for_account(view: &AccountView<'_>) -> Result<Self, ProgramError> {
         if view.owned_by(&TOKEN_PROGRAM_ID) {
             Ok(TokenProgramKind::Spl)
         } else if view.owned_by(&TOKEN_2022_PROGRAM_ID) {
@@ -225,7 +225,7 @@ impl<'a> InterfaceMint<'a> {
     }
 }
 
-// ── Polymorphic CPI helpers ──────────────────────────────────────────
+// ---------------------------------------------------------------------
 
 /// Polymorphic `TransferChecked` CPI that dispatches to the program
 /// that owns the source token account.
@@ -237,10 +237,10 @@ impl<'a> InterfaceMint<'a> {
 /// runtime's checked CPI path.
 #[inline]
 pub fn interface_transfer_checked<'a>(
-    source: &'a AccountView,
-    mint: &'a AccountView,
-    destination: &'a AccountView,
-    authority: &'a AccountView,
+    source: &'a AccountView<'a>,
+    mint: &'a AccountView<'a>,
+    destination: &'a AccountView<'a>,
+    authority: &'a AccountView<'a>,
     amount: u64,
     decimals: u8,
 ) -> ProgramResult {
@@ -250,13 +250,13 @@ pub fn interface_transfer_checked<'a>(
 /// PDA-signing variant of [`interface_transfer_checked`].
 #[inline]
 pub fn interface_transfer_checked_signed<'a>(
-    source: &'a AccountView,
-    mint: &'a AccountView,
-    destination: &'a AccountView,
-    authority: &'a AccountView,
+    source: &'a AccountView<'a>,
+    mint: &'a AccountView<'a>,
+    destination: &'a AccountView<'a>,
+    authority: &'a AccountView<'a>,
     amount: u64,
     decimals: u8,
-    signers: &[Signer],
+    signers: &[Signer<'_, '_>],
 ) -> ProgramResult {
     let kind = TokenProgramKind::for_account(source)?;
 

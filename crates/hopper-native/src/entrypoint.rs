@@ -21,9 +21,13 @@ use crate::address::Address;
 #[inline(always)]
 pub unsafe fn process_entrypoint<const MAX: usize>(
     input: *mut u8,
-    process_instruction: fn(&Address, &[AccountView], &[u8]) -> crate::ProgramResult,
+    process_instruction: for<'info> fn(
+        &'info Address,
+        &'info [AccountView<'info>],
+        &'info [u8],
+    ) -> crate::ProgramResult,
 ) -> u64 {
-    const UNINIT: MaybeUninit<AccountView> = MaybeUninit::uninit();
+    const UNINIT: MaybeUninit<AccountView<'static>> = MaybeUninit::uninit();
     let mut accounts = [UNINIT; 254]; // MAX_TX_ACCOUNTS
 
     let (program_id, count, instruction_data) =
@@ -34,7 +38,7 @@ pub unsafe fn process_entrypoint<const MAX: usize>(
     let effective_count = count.min(MAX);
     // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     let account_slice = unsafe {
-        core::slice::from_raw_parts(accounts.as_ptr() as *const AccountView, effective_count)
+        core::slice::from_raw_parts(accounts.as_ptr() as *const AccountView<'_>, effective_count)
     };
 
     match process_instruction(&program_id, account_slice, instruction_data) {
@@ -74,8 +78,8 @@ macro_rules! hopper_program_entrypoint {
         /// Called by the Solana runtime; `input` is a valid BPF input buffer.
         #[no_mangle]
         pub unsafe extern "C" fn entrypoint(input: *mut u8) -> u64 {
-            const UNINIT: core::mem::MaybeUninit<$crate::AccountView> =
-                core::mem::MaybeUninit::<$crate::AccountView>::uninit();
+            const UNINIT: core::mem::MaybeUninit<$crate::AccountView<'static>> =
+                core::mem::MaybeUninit::<$crate::AccountView<'static>>::uninit();
             let mut accounts = [UNINIT; $maximum];
 
             // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
@@ -86,7 +90,7 @@ macro_rules! hopper_program_entrypoint {
             match $process_instruction(
                 &program_id,
                 // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-                unsafe { core::slice::from_raw_parts(accounts.as_ptr() as _, count) },
+                unsafe { core::slice::from_raw_parts(accounts.as_ptr() as *const $crate::AccountView<'_>, count) },
                 instruction_data,
             ) {
                 Ok(()) => $crate::SUCCESS,
@@ -144,8 +148,8 @@ macro_rules! hopper_fast_entrypoint {
         /// stored at offset -8.
         #[no_mangle]
         pub unsafe extern "C" fn entrypoint(input: *mut u8, ix_data: *const u8) -> u64 {
-            const UNINIT: core::mem::MaybeUninit<$crate::AccountView> =
-                core::mem::MaybeUninit::<$crate::AccountView>::uninit();
+            const UNINIT: core::mem::MaybeUninit<$crate::AccountView<'static>> =
+                core::mem::MaybeUninit::<$crate::AccountView<'static>>::uninit();
             let mut accounts = [UNINIT; $maximum];
 
             // Instruction data length is the u64 immediately before the data pointer.
@@ -171,7 +175,7 @@ macro_rules! hopper_fast_entrypoint {
             match $process_instruction(
                 &program_id,
                 // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-                unsafe { core::slice::from_raw_parts(accounts.as_ptr() as _, count) },
+                unsafe { core::slice::from_raw_parts(accounts.as_ptr() as *const $crate::AccountView<'_>, count) },
                 instruction_data,
             ) {
                 Ok(()) => $crate::SUCCESS,

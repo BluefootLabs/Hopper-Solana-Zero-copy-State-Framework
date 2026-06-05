@@ -84,10 +84,7 @@ pub fn encode_event_cpi(event_tag: u8, event_payload: &[u8], out: &mut [u8]) -> 
 /// Invoke a self-CPI carrying the encoded event payload.
 ///
 /// Builds the one-account instruction (event-authority as signer) and
-/// hands it to the active backend's `invoke_signed`. The native
-/// backend path is the load-bearing one; a legacy-pinocchio-compat or
-/// solana-program-backend build routes through their respective
-/// compat shims.
+/// hands it to Hopper's direct-runtime `invoke_signed`.
 ///
 /// This is the function [`crate::hopper_emit_cpi!`] calls. Users who
 /// want finer-grained control over the CPI (extra accounts, custom
@@ -95,11 +92,11 @@ pub fn encode_event_cpi(event_tag: u8, event_payload: &[u8], out: &mut [u8]) -> 
 #[inline]
 pub fn invoke_event_cpi(
     program_id: &crate::address::Address,
-    event_authority: &crate::account::AccountView,
+    event_authority: &crate::account::AccountView<'_>,
     data: &[u8],
     authority_seeds: &[&[u8]],
 ) -> crate::result::ProgramResult {
-    #[cfg(all(target_os = "solana", feature = "hopper-native-backend"))]
+    #[cfg(target_os = "solana")]
     {
         use crate::instruction::{InstructionAccount, InstructionView, Seed, Signer};
         if authority_seeds.len() > crate::address::MAX_SEEDS {
@@ -137,11 +134,7 @@ pub fn invoke_event_cpi(
         crate::cpi::invoke_signed::<1>(&ix, &account_views, &signer_list)
     }
 
-    #[cfg(any(
-        not(target_os = "solana"),
-        feature = "legacy-pinocchio-compat",
-        feature = "solana-program-backend",
-    ))]
+    #[cfg(not(target_os = "solana"))]
     {
         let _ = (program_id, event_authority, data, authority_seeds);
         // Off-chain or under a non-native backend: the self-CPI path

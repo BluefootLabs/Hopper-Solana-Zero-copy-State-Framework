@@ -25,7 +25,7 @@ pub trait HopperAccounts<'a>: Sized {
     /// PDA verification, layout validation.
     fn try_from_accounts(
         program_id: &'a Address,
-        accounts: &'a [AccountView],
+        accounts: &'a [AccountView<'a>],
         instruction_data: &'a [u8],
     ) -> Result<(Self, Self::Bumps), ProgramError>;
 
@@ -53,7 +53,7 @@ where
     /// Remaining unparsed instruction data (after dispatch tag).
     pub instruction_data: &'a [u8],
     /// Accounts not consumed by the struct (for CPI or dynamic use).
-    pub remaining_accounts: &'a [AccountView],
+    pub remaining_accounts: &'a [AccountView<'a>],
 }
 
 impl<'a, T> HopperCtx<'a, T>
@@ -96,7 +96,7 @@ where
         bumps: T::Bumps,
         program_id: &'a Address,
         instruction_data: &'a [u8],
-        remaining_accounts: &'a [AccountView],
+        remaining_accounts: &'a [AccountView<'a>],
     ) -> Self {
         Self {
             accounts,

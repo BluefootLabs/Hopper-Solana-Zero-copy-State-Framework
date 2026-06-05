@@ -14,11 +14,8 @@ hopper = { path = "../..", package = "hopper-lang", default-features = false }
 [features]
 # Uses graph constraints, segment registries, collections, and virtual state,
 # so this example deliberately opts into Hopper's systems surface.
-default = ["hopper-native-backend", "systems"]
-hopper-native-backend = ["hopper/hopper-native-backend"]
+default = ["systems"]
 systems = ["hopper/systems"]
-legacy-pinocchio-compat = ["hopper/legacy-pinocchio-compat"]
-solana-program-backend = ["hopper/solana-program-backend"]
 
 [lints.rust]
 unexpected_cfgs = { level = "allow", check-cfg = ['cfg(target_os, values("solana"))'] }

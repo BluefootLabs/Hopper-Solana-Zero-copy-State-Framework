@@ -7,7 +7,7 @@ publish = false
 description = "Devnet runner for the Hopper cross-program read proof."
 
 [dependencies]
-hopper = { path = "../../..", package = "hopper-lang", default-features = false, features = ["hopper-native-backend"] }
+hopper = { path = "../../..", package = "hopper-lang", default-features = false }
 hopper-xp-program-a = { path = "../program-a" }
 solana-client = { version = "2.1" }
 solana-commitment-config = { version = "2.1" }

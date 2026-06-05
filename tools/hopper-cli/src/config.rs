@@ -80,8 +80,7 @@ impl Default for TestingSection {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BackendSection {
-    /// `hopper-native` (default) | `pinocchio` | `solana-program`.
-    /// Forwarded into the cargo build feature flag.
+    /// Deprecated. Hopper now has one production runtime path.
     #[serde(default = "default_backend")]
     pub default: String,
 }

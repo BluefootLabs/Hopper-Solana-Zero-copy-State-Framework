@@ -34,12 +34,10 @@ pub struct MapEntry<K: Pod + FixedLayout + PartialEq, V: Pod + FixedLayout> {
 // both `hopper_native::Pod`-bounded, which transitively requires
 // `bytemuck::Pod + Zeroable`, so `MapEntry<K, V>` is itself
 // byte-compatible by construction.
-#[cfg(feature = "hopper-native-backend")]
 unsafe impl<K: Pod + FixedLayout + PartialEq, V: Pod + FixedLayout>
     ::hopper_runtime::__hopper_native::bytemuck::Zeroable for MapEntry<K, V>
 {
 }
-#[cfg(feature = "hopper-native-backend")]
 unsafe impl<K: Pod + FixedLayout + PartialEq, V: Pod + FixedLayout>
     ::hopper_runtime::__hopper_native::bytemuck::Pod for MapEntry<K, V>
 {

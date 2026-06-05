@@ -48,6 +48,7 @@
 use crate::account::AccountView;
 use crate::address::Address;
 use crate::borrow::Ref;
+use crate::crypto::{sha256_single, Sha256Hash};
 use crate::error::ProgramError;
 use crate::layout::{HopperHeader, LayoutContract};
 use crate::ProgramResult;
@@ -62,6 +63,13 @@ use core::marker::PhantomData;
 /// length, version bytes, oracle freshness gates, or any other external
 /// invariant before binding an [`ExternalAccount`].
 pub trait ExternalZeroCopy {
+    /// Guard-owned zero-copy view returned by this external adapter.
+    ///
+    /// Implementations should store the supplied [`Ref<'a, [u8]>`] directly or
+    /// project it into a narrower borrowed view. This keeps the account-data
+    /// borrow alive for exactly as long as the external view exists.
+    type View<'a>;
+
     /// Single expected owner program, when the adapter has one.
     const OWNER: Option<Address> = None;
     /// Optional byte prefix/discriminator at offset 0.
@@ -72,7 +80,7 @@ pub trait ExternalZeroCopy {
     /// Validate this external account. Override for multi-owner layouts,
     /// versioned dispatch, or custom invariants.
     #[inline]
-    fn validate(view: &AccountView) -> ProgramResult {
+    fn validate(view: &AccountView<'_>) -> ProgramResult {
         if let Some(owner) = Self::OWNER {
             view.check_owned_by(&owner)?;
         }
@@ -90,6 +98,253 @@ pub trait ExternalZeroCopy {
         }
         Ok(())
     }
+
+    /// Build the adapter's typed zero-copy view from an active account-data
+    /// borrow. The borrow guard is consumed so the returned view can carry it.
+    fn view<'a>(data: Ref<'a, [u8]>) -> Result<Self::View<'a>, ProgramError>;
+}
+
+/// Minimal guard-owned external byte view.
+///
+/// Adapters that only need checked bytes can use this as their `View<'a>` while
+/// richer adapters can expose accessor methods over the same borrowed data.
+pub struct ExternalBytes<'a> {
+    data: Ref<'a, [u8]>,
+}
+
+impl<'a> ExternalBytes<'a> {
+    /// Wrap an active external account-data borrow.
+    #[inline(always)]
+    pub const fn new(data: Ref<'a, [u8]>) -> Self {
+        Self { data }
+    }
+
+    /// Borrow the validated external bytes.
+    #[inline(always)]
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.data
+    }
+}
+
+impl core::ops::Deref for ExternalBytes<'_> {
+    type Target = [u8];
+
+    #[inline(always)]
+    fn deref(&self) -> &[u8] {
+        self.as_bytes()
+    }
+}
+
+/// Owner/discriminator-selected resolver for external account families.
+///
+/// Use this for account sets such as Pyth/Switchboard/custom oracle unions or
+/// Token/Token-2022 interfaces where the account owner decides which zero-copy
+/// view should be used at runtime.
+pub trait ExternalResolve {
+    /// Guard-owned resolved view.
+    type Resolved<'a>;
+
+    /// Resolve the account into one of the supported external views.
+    fn resolve<'a>(view: &'a AccountView<'a>) -> Result<Self::Resolved<'a>, ProgramError>;
+}
+
+/// Adapter-specific proof verifier for known external accounts.
+///
+/// Proof implementations should perform one focused validation step, such as
+/// "this token account has the expected mint" or "this oracle price is fresh".
+/// The returned proof token can be carried into downstream APIs that should not
+/// accept a merely raw or adapter-checked account.
+pub trait ExternalProof<T: ExternalZeroCopy> {
+    /// Proof token produced by this verifier.
+    type Proof<'a>;
+
+    /// Verify `account` and return the proof token.
+    fn verify<'a>(account: ExternalAccount<'a, T>) -> Result<Self::Proof<'a>, ProgramError>;
+}
+
+/// External account paired with an adapter-specific proof token.
+pub struct ExternalChecked<'info, T, P>
+where
+    T: ExternalZeroCopy,
+    P: ExternalProof<T>,
+{
+    account: ExternalAccount<'info, T>,
+    proof: P::Proof<'info>,
+    _marker: PhantomData<P>,
+}
+
+impl<'info, T, P> ExternalChecked<'info, T, P>
+where
+    T: ExternalZeroCopy,
+    P: ExternalProof<T>,
+{
+    /// The checked external account.
+    #[inline(always)]
+    pub const fn account(&self) -> ExternalAccount<'info, T> {
+        self.account
+    }
+
+    /// The adapter-specific proof token.
+    #[inline(always)]
+    pub const fn proof(&self) -> &P::Proof<'info> {
+        &self.proof
+    }
+
+    /// Borrow and decode the adapter's typed zero-copy view.
+    #[inline]
+    pub fn view(&self) -> Result<T::View<'info>, ProgramError> {
+        self.account.view()
+    }
+}
+
+/// Minimal no-allocation sink for external explain adapters.
+///
+/// Runtime adapters can emit structured fields without depending on a concrete
+/// CLI/SVM explain representation. Sinks may redact, hash, serialize, or ignore
+/// fields according to their environment.
+pub trait ExternalExplainSink {
+    fn field_str(&mut self, name: &'static str, value: &str) -> ProgramResult {
+        let _ = (name, value);
+        Ok(())
+    }
+
+    fn field_bytes(&mut self, name: &'static str, value: &[u8]) -> ProgramResult {
+        let _ = (name, value);
+        Ok(())
+    }
+
+    fn field_address(&mut self, name: &'static str, value: &Address) -> ProgramResult {
+        let _ = (name, value);
+        Ok(())
+    }
+
+    fn field_u64(&mut self, name: &'static str, value: u64) -> ProgramResult {
+        let _ = (name, value);
+        Ok(())
+    }
+
+    fn field_i64(&mut self, name: &'static str, value: i64) -> ProgramResult {
+        let _ = (name, value);
+        Ok(())
+    }
+
+    fn field_bool(&mut self, name: &'static str, value: bool) -> ProgramResult {
+        let _ = (name, value);
+        Ok(())
+    }
+}
+
+/// Optional structured explain hook for external account adapters.
+pub trait ExplainExternal: ExternalZeroCopy {
+    /// Emit adapter-specific explain fields.
+    fn explain<S: ExternalExplainSink>(account: &AccountView<'_>, sink: &mut S) -> ProgramResult;
+}
+
+/// Copyable value that can be read from a checked external-account byte lens.
+pub trait ExternalLensValue: Sized {
+    /// Number of bytes consumed by this lens value.
+    const SIZE: usize;
+
+    /// Read a value from exactly [`Self::SIZE`] bytes.
+    fn read(bytes: &[u8]) -> Self;
+}
+
+macro_rules! impl_external_lens_value_le {
+    ($ty:ty, $size:expr) => {
+        impl ExternalLensValue for $ty {
+            const SIZE: usize = $size;
+
+            #[inline(always)]
+            fn read(bytes: &[u8]) -> Self {
+                let mut raw = [0u8; $size];
+                raw.copy_from_slice(bytes);
+                <$ty>::from_le_bytes(raw)
+            }
+        }
+    };
+}
+
+impl ExternalLensValue for u8 {
+    const SIZE: usize = 1;
+
+    #[inline(always)]
+    fn read(bytes: &[u8]) -> Self {
+        bytes[0]
+    }
+}
+
+impl ExternalLensValue for i8 {
+    const SIZE: usize = 1;
+
+    #[inline(always)]
+    fn read(bytes: &[u8]) -> Self {
+        bytes[0] as i8
+    }
+}
+
+impl_external_lens_value_le!(u16, 2);
+impl_external_lens_value_le!(u32, 4);
+impl_external_lens_value_le!(u64, 8);
+impl_external_lens_value_le!(u128, 16);
+impl_external_lens_value_le!(i16, 2);
+impl_external_lens_value_le!(i32, 4);
+impl_external_lens_value_le!(i64, 8);
+impl_external_lens_value_le!(i128, 16);
+
+impl<const N: usize> ExternalLensValue for [u8; N] {
+    const SIZE: usize = N;
+
+    #[inline(always)]
+    fn read(bytes: &[u8]) -> Self {
+        let mut raw = [0u8; N];
+        raw.copy_from_slice(bytes);
+        raw
+    }
+}
+
+impl ExternalLensValue for Address {
+    const SIZE: usize = 32;
+
+    #[inline(always)]
+    fn read(bytes: &[u8]) -> Self {
+        let mut raw = [0u8; 32];
+        raw.copy_from_slice(bytes);
+        Address::new_from_array(raw)
+    }
+}
+
+/// Bounds-checked zero-copy byte lens into an external account.
+pub struct ExternalLens<'a, V: ExternalLensValue, const OFFSET: usize> {
+    data: Ref<'a, [u8]>,
+    _value: PhantomData<V>,
+}
+
+impl<'a, V: ExternalLensValue, const OFFSET: usize> ExternalLens<'a, V, OFFSET> {
+    #[inline]
+    fn new(data: Ref<'a, [u8]>) -> Result<Self, ProgramError> {
+        let end = OFFSET
+            .checked_add(V::SIZE)
+            .ok_or(ProgramError::ArithmeticOverflow)?;
+        if end > data.len() {
+            return Err(ProgramError::AccountDataTooSmall);
+        }
+        Ok(Self {
+            data,
+            _value: PhantomData,
+        })
+    }
+
+    /// Borrow the checked byte range backing this lens.
+    #[inline(always)]
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.data[OFFSET..OFFSET + V::SIZE]
+    }
+
+    /// Read the lens value by copy.
+    #[inline(always)]
+    pub fn get(&self) -> V {
+        V::read(self.as_bytes())
+    }
 }
 
 /// Validated handle to a known external account.
@@ -101,7 +356,7 @@ pub trait ExternalZeroCopy {
 /// accounts that truly have no known schema.
 #[repr(transparent)]
 pub struct ExternalAccount<'info, T: ExternalZeroCopy> {
-    inner: &'info AccountView,
+    inner: &'info AccountView<'info>,
     _ty: PhantomData<T>,
 }
 
@@ -129,7 +384,7 @@ impl<'info, T: ExternalZeroCopy> ExternalAccount<'info, T> {
     /// # Safety
     ///
     /// Caller must have verified `T::validate(view)` for this account.
-    pub unsafe fn new_unchecked(view: &'info AccountView) -> Self {
+    pub unsafe fn new_unchecked(view: &'info AccountView<'info>) -> Self {
         Self {
             inner: view,
             _ty: PhantomData,
@@ -138,7 +393,7 @@ impl<'info, T: ExternalZeroCopy> ExternalAccount<'info, T> {
 
     /// Validate and bind a known external account.
     #[inline]
-    pub fn try_new(view: &'info AccountView) -> Result<Self, ProgramError> {
+    pub fn try_new(view: &'info AccountView<'info>) -> Result<Self, ProgramError> {
         T::validate(view)?;
         Ok(Self {
             inner: view,
@@ -148,7 +403,7 @@ impl<'info, T: ExternalZeroCopy> ExternalAccount<'info, T> {
 
     /// The underlying account view.
     #[inline(always)]
-    pub fn as_account(&self) -> &'info AccountView {
+    pub fn as_account(&self) -> &'info AccountView<'info> {
         self.inner
     }
 
@@ -172,7 +427,7 @@ impl<'info, T: ExternalZeroCopy> ExternalAccount<'info, T> {
 
     /// Borrow the external account bytes after adapter validation.
     #[inline(always)]
-    pub fn data(&self) -> Result<Ref<'_, [u8]>, ProgramError> {
+    pub fn data(&self) -> Result<Ref<'info, [u8]>, ProgramError> {
         self.inner.try_borrow()
     }
 
@@ -185,13 +440,108 @@ impl<'info, T: ExternalZeroCopy> ExternalAccount<'info, T> {
         let data = self.data()?;
         f(&data)
     }
+
+    /// Borrow and decode the adapter's typed zero-copy view.
+    #[inline]
+    pub fn view(&self) -> Result<T::View<'info>, ProgramError> {
+        T::view(self.data()?)
+    }
+
+    /// Borrow the typed zero-copy view for the duration of a closure.
+    #[inline]
+    pub fn with_view<R, F>(&self, f: F) -> Result<R, ProgramError>
+    where
+        F: FnOnce(T::View<'info>) -> Result<R, ProgramError>,
+    {
+        f(self.view()?)
+    }
+
+    /// Verify an adapter-specific proof and carry its token with the account.
+    #[inline]
+    pub fn checked<P>(self) -> Result<ExternalChecked<'info, T, P>, ProgramError>
+    where
+        P: ExternalProof<T>,
+    {
+        let proof = P::verify(self)?;
+        Ok(ExternalChecked {
+            account: self,
+            proof,
+            _marker: PhantomData,
+        })
+    }
+
+    /// Require a specific owner in fluent external-account code.
+    #[inline]
+    pub fn require_owner(&self, owner: &Address) -> Result<&Self, ProgramError> {
+        self.inner.check_owned_by(owner)?;
+        Ok(self)
+    }
+
+    /// Borrow a checked offset lens into this external account's bytes.
+    #[inline]
+    pub fn lens<V: ExternalLensValue, const OFFSET: usize>(
+        &self,
+    ) -> Result<ExternalLens<'info, V, OFFSET>, ProgramError> {
+        ExternalLens::new(self.data()?)
+    }
+
+    /// Hash the external account bytes for CPI/oracle consistency checks.
+    #[inline]
+    pub fn snapshot_hash(&self) -> Result<Sha256Hash, ProgramError> {
+        let data = self.data()?;
+        sha256_single(&data)
+    }
+
+    /// Verify the external account bytes still match a previous snapshot.
+    #[inline]
+    pub fn assert_snapshot(&self, expected: &Sha256Hash) -> ProgramResult {
+        if &self.snapshot_hash()? == expected {
+            Ok(())
+        } else {
+            Err(ProgramError::InvalidAccountData)
+        }
+    }
+
+    /// Run a closure and verify this external account is unchanged afterward.
+    #[inline]
+    pub fn assert_unchanged_after<R, F>(&self, f: F) -> Result<R, ProgramError>
+    where
+        F: FnOnce() -> Result<R, ProgramError>,
+    {
+        let before = self.snapshot_hash()?;
+        let result = f()?;
+        self.assert_snapshot(&before)?;
+        Ok(result)
+    }
+}
+
+impl<'info, T> ExternalAccount<'info, T>
+where
+    T: ExplainExternal,
+{
+    /// Emit structured external explain fields through the supplied sink.
+    #[inline]
+    pub fn explain<S: ExternalExplainSink>(&self, sink: &mut S) -> ProgramResult {
+        T::explain(self.inner, sink)
+    }
+}
+
+impl<'info, T> ExternalAccount<'info, T>
+where
+    T: ExternalZeroCopy + ExternalResolve,
+{
+    /// Resolve this external account into an owner-selected view family.
+    #[inline]
+    pub fn resolve(&self) -> Result<T::Resolved<'info>, ProgramError> {
+        T::resolve(self.inner)
+    }
 }
 
 impl<'info, T: ExternalZeroCopy> core::ops::Deref for ExternalAccount<'info, T> {
-    type Target = AccountView;
+    type Target = AccountView<'info>;
 
     #[inline(always)]
-    fn deref(&self) -> &AccountView {
+    fn deref(&self) -> &AccountView<'info> {
         self.inner
     }
 }
@@ -259,7 +609,7 @@ impl<'a, T: AccountLayout + LayoutContract> ForeignLens<'a, T> {
     /// 4. schema_epoch in supported range
     #[inline]
     pub fn open(
-        account: &'a AccountView,
+        account: &'a AccountView<'a>,
         manifest: &ForeignManifest,
     ) -> Result<Self, ProgramError> {
         // 1. Owner match. `check_owned_by` compares address bytes.
@@ -348,27 +698,87 @@ impl<'a, T: AccountLayout + LayoutContract> ForeignLens<'a, T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[cfg(feature = "hopper-native-backend")]
     use hopper_native::{
         AccountView as NativeAccountView, Address as NativeAddress, RuntimeAccount, NOT_BORROWED,
     };
-
-    #[cfg(feature = "hopper-native-backend")]
     const EXTERNAL_OWNER: Address = Address::new_from_array([7; 32]);
-
-    #[cfg(feature = "hopper-native-backend")]
     struct SampleExternal;
-
-    #[cfg(feature = "hopper-native-backend")]
     impl ExternalZeroCopy for SampleExternal {
+        type View<'a> = SampleExternalView<'a>;
+
         const OWNER: Option<Address> = Some(EXTERNAL_OWNER);
         const DISCRIMINATOR: Option<&'static [u8]> = Some(b"PX");
         const MIN_LEN: usize = 4;
-    }
 
-    #[cfg(feature = "hopper-native-backend")]
-    fn make_external_account(owner: Address, data: &[u8]) -> (std::vec::Vec<u8>, AccountView) {
+        fn view<'a>(data: Ref<'a, [u8]>) -> Result<Self::View<'a>, ProgramError> {
+            Ok(SampleExternalView { data })
+        }
+    }
+    struct SampleExternalView<'a> {
+        data: Ref<'a, [u8]>,
+    }
+    impl SampleExternalView<'_> {
+        fn tag(&self) -> &[u8] {
+            &self.data[..2]
+        }
+
+        fn value(&self) -> u16 {
+            u16::from_le_bytes([self.data[2], self.data[3]])
+        }
+    }
+    enum SampleResolved<'a> {
+        Price(SampleExternalView<'a>),
+    }
+    impl ExternalResolve for SampleExternal {
+        type Resolved<'a> = SampleResolved<'a>;
+
+        fn resolve<'a>(view: &'a AccountView<'a>) -> Result<Self::Resolved<'a>, ProgramError> {
+            Ok(SampleResolved::Price(
+                ExternalAccount::<SampleExternal>::try_new(view)?.view()?,
+            ))
+        }
+    }
+    struct SampleValueProof;
+    struct SampleValueChecked {
+        value: u16,
+    }
+    impl ExternalProof<SampleExternal> for SampleValueProof {
+        type Proof<'a> = SampleValueChecked;
+
+        fn verify<'a>(account: ExternalAccount<'a, SampleExternal>) -> Result<Self::Proof<'a>, ProgramError> {
+            let value = account.view()?.value();
+            if value == view_u16(b"12") {
+                Ok(SampleValueChecked { value })
+            } else {
+                Err(ProgramError::InvalidAccountData)
+            }
+        }
+    }
+    impl ExplainExternal for SampleExternal {
+        fn explain<S: ExternalExplainSink>(account: &AccountView<'_>, sink: &mut S) -> ProgramResult {
+            let external = ExternalAccount::<SampleExternal>::try_new(account)?;
+            external.with_view(|view| {
+                sink.field_str("adapter", "SampleExternal")?;
+                sink.field_u64("value", view.value() as u64)
+            })
+        }
+    }
+    #[derive(Default)]
+    struct CountingExplainSink {
+        fields: usize,
+    }
+    impl ExternalExplainSink for CountingExplainSink {
+        fn field_str(&mut self, _name: &'static str, _value: &str) -> ProgramResult {
+            self.fields += 1;
+            Ok(())
+        }
+
+        fn field_u64(&mut self, _name: &'static str, _value: u64) -> ProgramResult {
+            self.fields += 1;
+            Ok(())
+        }
+    }
+    fn make_external_account(owner: Address, data: &[u8]) -> (std::vec::Vec<u8>, AccountView<'static>) {
         let mut backing = std::vec![0u8; RuntimeAccount::SIZE + data.len()];
         let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
         unsafe {
@@ -417,8 +827,6 @@ mod tests {
             assert!(!m.supported_epochs.contains(&fail), "{fail}");
         }
     }
-
-    #[cfg(feature = "hopper-native-backend")]
     #[test]
     fn external_account_validates_owner_discriminator_and_length() {
         let (_backing, account) = make_external_account(EXTERNAL_OWNER, b"PX12");
@@ -431,9 +839,29 @@ mod tests {
                 Ok(())
             })
             .unwrap();
+        external
+            .with_view(|view| {
+                assert_eq!(view.tag(), b"PX");
+                assert_eq!(view.value(), u16::from_le_bytes(*b"12"));
+                Ok(())
+            })
+            .unwrap();
+        assert_eq!(external.lens::<u16, 2>().unwrap().get(), view_u16(b"12"));
+        let snapshot = external.snapshot_hash().unwrap();
+        external.assert_snapshot(&snapshot).unwrap();
+        let resolved = external.resolve().unwrap();
+        match resolved {
+            SampleResolved::Price(view) => assert_eq!(view.value(), view_u16(b"12")),
+        }
+        let checked = external.checked::<SampleValueProof>().unwrap();
+        assert_eq!(checked.proof().value, view_u16(b"12"));
+        let mut sink = CountingExplainSink::default();
+        external.explain(&mut sink).unwrap();
+        assert_eq!(sink.fields, 2);
     }
-
-    #[cfg(feature = "hopper-native-backend")]
+    fn view_u16(bytes: &[u8; 2]) -> u16 {
+        u16::from_le_bytes(*bytes)
+    }
     #[test]
     fn external_account_rejects_wrong_owner_or_prefix() {
         let (_wrong_owner_backing, wrong_owner) =

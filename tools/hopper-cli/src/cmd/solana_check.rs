@@ -23,7 +23,7 @@ struct SbfMacroState {
     has_unqualified: bool,
 }
 
-const BACKEND_FEATURES: [&str; 3] = [
+const DEPRECATED_BACKEND_FEATURES: [&str; 3] = [
     "hopper-native-backend",
     "legacy-pinocchio-compat",
     "solana-program-backend",
@@ -220,17 +220,12 @@ fn check_package(manifest: &Path, build_sbf: bool) -> PackageReport {
                 .to_string(),
         );
     }
-    let selected_backends = selected_hopper_backends(&value);
-    match selected_backends.as_slice() {
-        [_] => {}
-        [] => report.failures.push(
-            "select exactly one Hopper backend feature for SBF program crates; found none. Expected one of hopper-native-backend, legacy-pinocchio-compat, or solana-program-backend"
-                .to_string(),
-        ),
-        _ => report.failures.push(format!(
-            "select exactly one Hopper backend feature for SBF program crates; selected: {}",
-            selected_backends.join(", ")
-        )),
+    let deprecated_backends = selected_hopper_backends(&value);
+    if !deprecated_backends.is_empty() {
+        report.warnings.push(format!(
+            "deprecated Hopper backend feature aliases are ignored by the production runtime: {}",
+            deprecated_backends.join(", ")
+        ));
     }
     if build_sbf {
         match Command::new("cargo")
@@ -370,17 +365,8 @@ fn collect_dependency_table_backends(
         }
 
         let Some(dependency_table) = dependency.as_table() else {
-            push_backend("hopper-native-backend", selected);
             continue;
         };
-
-        if dependency_table
-            .get("default-features")
-            .and_then(|value| value.as_bool())
-            != Some(false)
-        {
-            push_backend("hopper-native-backend", selected);
-        }
 
         if let Some(features) = dependency_table
             .get("features")
@@ -396,7 +382,7 @@ fn collect_dependency_table_backends(
 }
 
 fn push_backend(candidate: &str, selected: &mut Vec<&'static str>) {
-    let Some(backend) = BACKEND_FEATURES
+    let Some(backend) = DEPRECATED_BACKEND_FEATURES
         .iter()
         .copied()
         .find(|backend| *backend == candidate)
@@ -517,7 +503,7 @@ crate-type = ["cdylib", "lib"]
     }
 
     #[test]
-    fn backend_selection_uses_hopper_dependency_defaults() {
+    fn backend_selection_ignores_hopper_dependency_defaults() {
         let value: toml::Value = r#"
 [dependencies]
 hopper = { workspace = true, features = ["proc-macros"] }
@@ -525,7 +511,7 @@ hopper = { workspace = true, features = ["proc-macros"] }
         .parse()
         .expect("manifest parses");
 
-        assert_eq!(selected_hopper_backends(&value), ["hopper-native-backend"]);
+        assert!(selected_hopper_backends(&value).is_empty());
     }
 
     #[test]
@@ -557,7 +543,7 @@ solana-program-backend = ["hopper/solana-program-backend"]
     }
 
     #[test]
-    fn backend_selection_detects_dependency_backend_conflicts() {
+    fn backend_selection_detects_explicit_deprecated_aliases_only() {
         let value: toml::Value = r#"
 [dependencies]
 hopper = { workspace = true, features = ["solana-program-backend", "proc-macros"] }
@@ -565,10 +551,7 @@ hopper = { workspace = true, features = ["solana-program-backend", "proc-macros"
         .parse()
         .expect("manifest parses");
 
-        assert_eq!(
-            selected_hopper_backends(&value),
-            ["hopper-native-backend", "solana-program-backend"]
-        );
+        assert_eq!(selected_hopper_backends(&value), ["solana-program-backend"]);
     }
 
     #[test]

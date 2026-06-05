@@ -1,11 +1,8 @@
 //! Hopper-owned address type for Solana programs.
 //!
 //! `Address` is a 32-byte public key with `#[repr(transparent)]` layout
-//! over `[u8; 32]`. This enables zero-cost reference casting from any
-//! backend address type that shares the same representation.
-//!
-//! Hopper owns the canonical type. Backend-specific conversions live in
-//! compatibility modules so the core identity remains framework-owned.
+//! over `[u8; 32]`. Hopper owns the canonical public-key type across the
+//! runtime.
 
 // ── Constants ────────────────────────────────────────────────────────
 
@@ -25,8 +22,7 @@ pub const PDA_MARKER: &[u8; 21] = b"ProgramDerivedAddress";
 
 /// A Solana address (public key): 32 bytes, transparent layout.
 ///
-/// This is part of the Hopper runtime type surface. Backends convert
-/// to and from this type at system boundaries.
+/// This is part of the Hopper runtime type surface.
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq, Eq, Default, PartialOrd, Ord)]
 pub struct Address(pub(crate) [u8; 32]);
@@ -36,12 +32,9 @@ pub struct Address(pub(crate) [u8; 32]);
 // - Every byte pattern is valid (no niches).
 // - Alignment is 1 (inherits `[u8; 32]`'s alignment).
 // - No padding, no drop glue, no interior pointers.
-// Under `feature = "hopper-native-backend"` (default) `hopper_native::Pod`
-// is a sub-trait of `bytemuck::Pod + bytemuck::Zeroable`, so we
-// satisfy those two as well with the same justification.
-#[cfg(feature = "hopper-native-backend")]
+// `hopper_native::Pod` is a sub-trait of `bytemuck::Pod + bytemuck::Zeroable`,
+// so we satisfy those two as well with the same justification.
 unsafe impl bytemuck::Zeroable for Address {}
-#[cfg(feature = "hopper-native-backend")]
 unsafe impl bytemuck::Pod for Address {}
 
 unsafe impl crate::pod::Pod for Address {}

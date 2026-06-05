@@ -1,7 +1,7 @@
 //! Minimal syscall shims exposed through Hopper Runtime.
 //!
-//! Hopper-owned crates use this module instead of binding directly to backend
-//! SDK syscall paths. That keeps backend differences inside Hopper Runtime.
+//! Hopper-owned crates use this module instead of depending on external SDK
+//! syscall paths.
 
 #[cfg(target_os = "solana")]
 extern "C" {
@@ -10,63 +10,6 @@ extern "C" {
 
     #[link_name = "sol_get_return_data"]
     fn syscall_sol_get_return_data(data: *mut u8, length: u64, program_id: *mut u8) -> u64;
-
-    #[link_name = "sol_blake3"]
-    fn syscall_sol_blake3(vals: *const u8, vals_len: u64, result: *mut u8) -> u64;
-
-    #[link_name = "sol_secp256k1_recover"]
-    fn syscall_sol_secp256k1_recover(
-        hash: *const u8,
-        recovery_id: u64,
-        signature: *const u8,
-        result: *mut u8,
-    ) -> u64;
-
-    #[link_name = "sol_curve_group_op"]
-    fn syscall_sol_curve_group_op(
-        curve_id: u64,
-        group_op: u64,
-        left_input_addr: *const u8,
-        right_input_addr: *const u8,
-        result_point_addr: *mut u8,
-    ) -> u64;
-
-    #[link_name = "sol_curve_multiscalar_mul"]
-    fn syscall_sol_curve_multiscalar_mul(
-        curve_id: u64,
-        scalars_addr: *const u8,
-        points_addr: *const u8,
-        points_len: u64,
-        result_point_addr: *mut u8,
-    ) -> u64;
-
-    #[link_name = "sol_poseidon"]
-    fn syscall_sol_poseidon(
-        parameters: u64,
-        endianness: u64,
-        vals: *const u8,
-        val_len: u64,
-        hash_result: *mut u8,
-    ) -> u64;
-
-    #[link_name = "sol_alt_bn128_group_op"]
-    fn syscall_sol_alt_bn128_group_op(
-        group_op: u64,
-        input: *const u8,
-        input_size: u64,
-        result: *mut u8,
-    ) -> u64;
-
-    #[link_name = "sol_alt_bn128_compression"]
-    fn syscall_sol_alt_bn128_compression(
-        op: u64,
-        input: *const u8,
-        input_size: u64,
-        result: *mut u8,
-    ) -> u64;
-
-    #[link_name = "sol_big_mod_exp"]
-    fn syscall_sol_big_mod_exp(params: *const u8, result: *mut u8) -> u64;
 
     #[link_name = "sol_remaining_compute_units"]
     fn syscall_sol_remaining_compute_units() -> u64;
@@ -89,27 +32,13 @@ extern "C" {
 /// # Safety
 ///
 /// `segments` must point to a valid array of slice descriptors for the active
-/// backend ABI, and `segments_len` must match the number of entries.
+/// Hopper's direct runtime ABI, and `segments_len` must match the number of entries.
 #[inline(always)]
 pub unsafe fn sol_log_data(segments: *const u8, segments_len: u64) {
-    #[cfg(all(target_os = "solana", feature = "hopper-native-backend"))]
+    #[cfg(target_os = "solana")]
     // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe {
         hopper_native::syscalls::sol_log_data(segments, segments_len);
-    }
-
-    #[cfg(all(target_os = "solana", feature = "legacy-pinocchio-compat"))]
-    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-    unsafe {
-        pinocchio::syscalls::sol_log_data(segments, segments_len);
-    }
-
-    #[cfg(all(target_os = "solana", feature = "solana-program-backend"))]
-    {
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-        let slices =
-            unsafe { core::slice::from_raw_parts(segments as *const &[u8], segments_len as usize) };
-        ::solana_program::log::sol_log_data(slices);
     }
 
     #[cfg(not(target_os = "solana"))]
@@ -126,28 +55,10 @@ pub unsafe fn sol_log_data(segments: *const u8, segments_len: u64) {
 /// point to writable storage for 32 output bytes.
 #[inline(always)]
 pub unsafe fn sol_sha256(vals: *const u8, vals_len: u64, result: *mut u8) {
-    #[cfg(all(target_os = "solana", feature = "hopper-native-backend"))]
+    #[cfg(target_os = "solana")]
     // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe {
         hopper_native::syscalls::sol_sha256(vals, vals_len, result);
-    }
-
-    #[cfg(all(target_os = "solana", feature = "legacy-pinocchio-compat"))]
-    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-    unsafe {
-        pinocchio::syscalls::sol_sha256(vals, vals_len, result);
-    }
-
-    #[cfg(all(target_os = "solana", feature = "solana-program-backend"))]
-    {
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-        let slices =
-            unsafe { core::slice::from_raw_parts(vals as *const &[u8], vals_len as usize) };
-        let digest = ::solana_program::hash::hashv(slices).to_bytes();
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-        unsafe {
-            core::ptr::copy_nonoverlapping(digest.as_ptr(), result, digest.len());
-        }
     }
 
     #[cfg(not(target_os = "solana"))]
@@ -164,28 +75,10 @@ pub unsafe fn sol_sha256(vals: *const u8, vals_len: u64, result: *mut u8) {
 /// point to writable storage for 32 output bytes.
 #[inline(always)]
 pub unsafe fn sol_keccak256(vals: *const u8, vals_len: u64, result: *mut u8) {
-    #[cfg(all(target_os = "solana", feature = "hopper-native-backend"))]
+    #[cfg(target_os = "solana")]
     // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe {
         hopper_native::syscalls::sol_keccak256(vals, vals_len, result);
-    }
-
-    #[cfg(all(target_os = "solana", feature = "legacy-pinocchio-compat"))]
-    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-    unsafe {
-        pinocchio::syscalls::sol_keccak256(vals, vals_len, result);
-    }
-
-    #[cfg(all(target_os = "solana", feature = "solana-program-backend"))]
-    {
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-        let slices =
-            unsafe { core::slice::from_raw_parts(vals as *const &[u8], vals_len as usize) };
-        let digest = ::solana_program::keccak::hashv(slices).to_bytes();
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-        unsafe {
-            core::ptr::copy_nonoverlapping(digest.as_ptr(), result, digest.len());
-        }
     }
 
     #[cfg(not(target_os = "solana"))]
@@ -204,35 +97,10 @@ pub unsafe fn sol_keccak256(vals: *const u8, vals_len: u64, result: *mut u8) {
 /// point to writable storage for 32 output bytes.
 #[inline(always)]
 pub unsafe fn sol_blake3(vals: *const u8, vals_len: u64, result: *mut u8) -> u64 {
-    #[cfg(all(target_os = "solana", feature = "hopper-native-backend"))]
+    #[cfg(target_os = "solana")]
     // SAFETY: Caller supplies the Solana hash syscall descriptors and output buffer.
     unsafe {
         return hopper_native::syscalls::sol_blake3(vals, vals_len, result);
-    }
-
-    #[cfg(all(
-        target_os = "solana",
-        any(
-            feature = "legacy-pinocchio-compat",
-            feature = "solana-program-backend"
-        )
-    ))]
-    // SAFETY: Caller supplies the Solana hash syscall descriptors and output buffer.
-    unsafe {
-        return syscall_sol_blake3(vals, vals_len, result);
-    }
-
-    #[cfg(all(
-        target_os = "solana",
-        not(any(
-            feature = "hopper-native-backend",
-            feature = "legacy-pinocchio-compat",
-            feature = "solana-program-backend"
-        ))
-    ))]
-    {
-        let _ = (vals, vals_len, result);
-        1
     }
 
     #[cfg(not(target_os = "solana"))]
@@ -258,7 +126,7 @@ pub unsafe fn sol_secp256k1_recover(
     signature: *const u8,
     result: *mut u8,
 ) -> u64 {
-    #[cfg(all(target_os = "solana", feature = "hopper-native-backend"))]
+    #[cfg(target_os = "solana")]
     // SAFETY: Caller supplies fixed-width secp256k1 recover syscall buffers.
     unsafe {
         return hopper_native::syscalls::sol_secp256k1_recover(
@@ -267,31 +135,6 @@ pub unsafe fn sol_secp256k1_recover(
             signature,
             result,
         );
-    }
-
-    #[cfg(all(
-        target_os = "solana",
-        any(
-            feature = "legacy-pinocchio-compat",
-            feature = "solana-program-backend"
-        )
-    ))]
-    // SAFETY: Caller supplies fixed-width secp256k1 recover syscall buffers.
-    unsafe {
-        return syscall_sol_secp256k1_recover(hash, recovery_id, signature, result);
-    }
-
-    #[cfg(all(
-        target_os = "solana",
-        not(any(
-            feature = "hopper-native-backend",
-            feature = "legacy-pinocchio-compat",
-            feature = "solana-program-backend"
-        ))
-    ))]
-    {
-        let _ = (hash, recovery_id, signature, result);
-        1
     }
 
     #[cfg(not(target_os = "solana"))]
@@ -316,30 +159,10 @@ pub unsafe fn sol_curve_validate_point(
     point_addr: *const u8,
     result_point_addr: *mut u8,
 ) -> u64 {
-    #[cfg(all(target_os = "solana", feature = "hopper-native-backend"))]
+    #[cfg(target_os = "solana")]
     // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe {
         return hopper_native::syscalls::sol_curve_validate_point(
-            curve_id,
-            point_addr,
-            result_point_addr,
-        );
-    }
-
-    #[cfg(all(target_os = "solana", feature = "legacy-pinocchio-compat"))]
-    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-    unsafe {
-        return pinocchio::syscalls::sol_curve_validate_point(
-            curve_id,
-            point_addr,
-            result_point_addr,
-        );
-    }
-
-    #[cfg(all(target_os = "solana", feature = "solana-program-backend"))]
-    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-    unsafe {
-        return ::solana_program::syscalls::sol_curve_validate_point(
             curve_id,
             point_addr,
             result_point_addr,
@@ -370,28 +193,10 @@ pub unsafe fn sol_curve_group_op(
     right_input_addr: *const u8,
     result_point_addr: *mut u8,
 ) -> u64 {
-    #[cfg(all(target_os = "solana", feature = "hopper-native-backend"))]
+    #[cfg(target_os = "solana")]
     // SAFETY: Caller supplies curve syscall buffers matching the selected operation.
     unsafe {
         return hopper_native::syscalls::sol_curve_group_op(
-            curve_id,
-            group_op,
-            left_input_addr,
-            right_input_addr,
-            result_point_addr,
-        );
-    }
-
-    #[cfg(all(
-        target_os = "solana",
-        any(
-            feature = "legacy-pinocchio-compat",
-            feature = "solana-program-backend"
-        )
-    ))]
-    // SAFETY: Caller supplies curve syscall buffers matching the selected operation.
-    unsafe {
-        return syscall_sol_curve_group_op(
             curve_id,
             group_op,
             left_input_addr,
@@ -430,28 +235,10 @@ pub unsafe fn sol_curve_multiscalar_mul(
     points_len: u64,
     result_point_addr: *mut u8,
 ) -> u64 {
-    #[cfg(all(target_os = "solana", feature = "hopper-native-backend"))]
+    #[cfg(target_os = "solana")]
     // SAFETY: Caller supplies curve syscall buffers matching the selected operation.
     unsafe {
         return hopper_native::syscalls::sol_curve_multiscalar_mul(
-            curve_id,
-            scalars_addr,
-            points_addr,
-            points_len,
-            result_point_addr,
-        );
-    }
-
-    #[cfg(all(
-        target_os = "solana",
-        any(
-            feature = "legacy-pinocchio-compat",
-            feature = "solana-program-backend"
-        )
-    ))]
-    // SAFETY: Caller supplies curve syscall buffers matching the selected operation.
-    unsafe {
-        return syscall_sol_curve_multiscalar_mul(
             curve_id,
             scalars_addr,
             points_addr,
@@ -489,7 +276,7 @@ pub unsafe fn sol_poseidon(
     val_len: u64,
     hash_result: *mut u8,
 ) -> u64 {
-    #[cfg(all(target_os = "solana", feature = "hopper-native-backend"))]
+    #[cfg(target_os = "solana")]
     // SAFETY: Caller supplies Poseidon slice descriptors and output buffer.
     unsafe {
         return hopper_native::syscalls::sol_poseidon(
@@ -499,18 +286,6 @@ pub unsafe fn sol_poseidon(
             val_len,
             hash_result,
         );
-    }
-
-    #[cfg(all(
-        target_os = "solana",
-        any(
-            feature = "legacy-pinocchio-compat",
-            feature = "solana-program-backend"
-        )
-    ))]
-    // SAFETY: Caller supplies Poseidon slice descriptors and output buffer.
-    unsafe {
-        return syscall_sol_poseidon(parameters, endianness, vals, val_len, hash_result);
     }
 
     #[cfg(not(target_os = "solana"))]
@@ -535,24 +310,12 @@ pub unsafe fn sol_alt_bn128_group_op(
     input_size: u64,
     result: *mut u8,
 ) -> u64 {
-    #[cfg(all(target_os = "solana", feature = "hopper-native-backend"))]
+    #[cfg(target_os = "solana")]
     // SAFETY: Caller supplies BN254 operation buffers matching `group_op`.
     unsafe {
         return hopper_native::syscalls::sol_alt_bn128_group_op(
             group_op, input, input_size, result,
         );
-    }
-
-    #[cfg(all(
-        target_os = "solana",
-        any(
-            feature = "legacy-pinocchio-compat",
-            feature = "solana-program-backend"
-        )
-    ))]
-    // SAFETY: Caller supplies BN254 operation buffers matching `group_op`.
-    unsafe {
-        return syscall_sol_alt_bn128_group_op(group_op, input, input_size, result);
     }
 
     #[cfg(not(target_os = "solana"))]
@@ -577,22 +340,10 @@ pub unsafe fn sol_alt_bn128_compression(
     input_size: u64,
     result: *mut u8,
 ) -> u64 {
-    #[cfg(all(target_os = "solana", feature = "hopper-native-backend"))]
+    #[cfg(target_os = "solana")]
     // SAFETY: Caller supplies BN254 compression buffers matching `op`.
     unsafe {
         return hopper_native::syscalls::sol_alt_bn128_compression(op, input, input_size, result);
-    }
-
-    #[cfg(all(
-        target_os = "solana",
-        any(
-            feature = "legacy-pinocchio-compat",
-            feature = "solana-program-backend"
-        )
-    ))]
-    // SAFETY: Caller supplies BN254 compression buffers matching `op`.
-    unsafe {
-        return syscall_sol_alt_bn128_compression(op, input, input_size, result);
     }
 
     #[cfg(not(target_os = "solana"))]
@@ -612,22 +363,10 @@ pub unsafe fn sol_alt_bn128_compression(
 /// must point to writable storage with exactly the modulus length.
 #[inline(always)]
 pub unsafe fn sol_big_mod_exp(params: *const u8, result: *mut u8) -> u64 {
-    #[cfg(all(target_os = "solana", feature = "hopper-native-backend"))]
+    #[cfg(target_os = "solana")]
     // SAFETY: Caller supplies a valid big-mod-exp parameter block and output buffer.
     unsafe {
         return hopper_native::syscalls::sol_big_mod_exp(params, result);
-    }
-
-    #[cfg(all(
-        target_os = "solana",
-        any(
-            feature = "legacy-pinocchio-compat",
-            feature = "solana-program-backend"
-        )
-    ))]
-    // SAFETY: Caller supplies a valid big-mod-exp parameter block and output buffer.
-    unsafe {
-        return syscall_sol_big_mod_exp(params, result);
     }
 
     #[cfg(not(target_os = "solana"))]
@@ -640,22 +379,10 @@ pub unsafe fn sol_big_mod_exp(params: *const u8, result: *mut u8) -> u64 {
 /// Return the current Solana instruction stack height.
 #[inline(always)]
 pub fn sol_get_stack_height() -> u64 {
-    #[cfg(all(target_os = "solana", feature = "hopper-native-backend"))]
+    #[cfg(target_os = "solana")]
     // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe {
         return hopper_native::syscalls::sol_get_stack_height();
-    }
-
-    #[cfg(all(target_os = "solana", feature = "legacy-pinocchio-compat"))]
-    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-    unsafe {
-        return pinocchio::syscalls::sol_get_stack_height();
-    }
-
-    #[cfg(all(target_os = "solana", feature = "solana-program-backend"))]
-    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-    unsafe {
-        return ::solana_program::syscalls::sol_get_stack_height();
     }
 
     #[cfg(not(target_os = "solana"))]
@@ -678,26 +405,10 @@ pub unsafe fn sol_get_processed_sibling_instruction(
     data: *mut u8,
     accounts: *mut u8,
 ) -> u64 {
-    #[cfg(all(target_os = "solana", feature = "hopper-native-backend"))]
+    #[cfg(target_os = "solana")]
     // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe {
         return hopper_native::syscalls::sol_get_processed_sibling_instruction(
-            index, meta, program_id, data, accounts,
-        );
-    }
-
-    #[cfg(all(target_os = "solana", feature = "legacy-pinocchio-compat"))]
-    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-    unsafe {
-        return pinocchio::syscalls::sol_get_processed_sibling_instruction(
-            index, meta, program_id, data, accounts,
-        );
-    }
-
-    #[cfg(all(target_os = "solana", feature = "solana-program-backend"))]
-    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-    unsafe {
-        return ::solana_program::syscalls::sol_get_processed_sibling_instruction(
             index, meta, program_id, data, accounts,
         );
     }

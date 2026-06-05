@@ -46,7 +46,7 @@ use crate::{account::AccountView, address::Address, error::ProgramError, result:
 /// avoids the two bounds entirely.
 pub struct DynCpi<'a, const MAX_ACCTS: usize, const MAX_DATA: usize> {
     program_id: &'a Address,
-    accounts: [MaybeUninit<&'a AccountView>; MAX_ACCTS],
+    accounts: [MaybeUninit<&'a AccountView<'a>>; MAX_ACCTS],
     writable: [bool; MAX_ACCTS],
     signer: [bool; MAX_ACCTS],
     account_count: usize,
@@ -79,7 +79,7 @@ impl<'a, const MAX_ACCTS: usize, const MAX_DATA: usize> DynCpi<'a, MAX_ACCTS, MA
     #[inline]
     pub fn push_account(
         &mut self,
-        account: &'a AccountView,
+        account: &'a AccountView<'a>,
         writable: bool,
         signer: bool,
     ) -> ProgramResult {

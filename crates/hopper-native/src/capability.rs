@@ -41,14 +41,14 @@ use crate::error::ProgramError;
 /// to guarantee the property without re-checking.
 #[repr(transparent)]
 #[derive(Clone, PartialEq, Eq)]
-pub struct SignerView {
-    inner: AccountView,
+pub struct SignerView<'info> {
+    inner: AccountView<'info>,
 }
 
-impl SignerView {
+impl<'info> SignerView<'info> {
     /// Validate that the account is a signer and return a capability token.
     #[inline(always)]
-    pub fn validate(view: AccountView) -> Result<Self, ProgramError> {
+    pub fn validate(view: AccountView<'info>) -> Result<Self, ProgramError> {
         if view.is_signer() {
             Ok(Self { inner: view })
         } else {
@@ -58,22 +58,22 @@ impl SignerView {
 
     /// Access the underlying `AccountView`.
     #[inline(always)]
-    pub fn as_view(&self) -> &AccountView {
+    pub fn as_view(&self) -> &AccountView<'info> {
         &self.inner
     }
 
     /// Consume and return the inner `AccountView`.
     #[inline(always)]
-    pub fn into_view(self) -> AccountView {
+    pub fn into_view(self) -> AccountView<'info> {
         self.inner
     }
 }
 
-impl core::ops::Deref for SignerView {
-    type Target = AccountView;
+impl<'info> core::ops::Deref for SignerView<'info> {
+    type Target = AccountView<'info>;
 
     #[inline(always)]
-    fn deref(&self) -> &AccountView {
+    fn deref(&self) -> &AccountView<'info> {
         &self.inner
     }
 }
@@ -85,14 +85,14 @@ impl core::ops::Deref for SignerView {
 /// Guarantees that `is_writable() == true` without re-checking.
 #[repr(transparent)]
 #[derive(Clone, PartialEq, Eq)]
-pub struct WritableView {
-    inner: AccountView,
+pub struct WritableView<'info> {
+    inner: AccountView<'info>,
 }
 
-impl WritableView {
+impl<'info> WritableView<'info> {
     /// Validate that the account is writable and return a capability token.
     #[inline(always)]
-    pub fn validate(view: AccountView) -> Result<Self, ProgramError> {
+    pub fn validate(view: AccountView<'info>) -> Result<Self, ProgramError> {
         if view.is_writable() {
             Ok(Self { inner: view })
         } else {
@@ -102,22 +102,22 @@ impl WritableView {
 
     /// Access the underlying `AccountView`.
     #[inline(always)]
-    pub fn as_view(&self) -> &AccountView {
+    pub fn as_view(&self) -> &AccountView<'info> {
         &self.inner
     }
 
     /// Consume and return the inner `AccountView`.
     #[inline(always)]
-    pub fn into_view(self) -> AccountView {
+    pub fn into_view(self) -> AccountView<'info> {
         self.inner
     }
 }
 
-impl core::ops::Deref for WritableView {
-    type Target = AccountView;
+impl<'info> core::ops::Deref for WritableView<'info> {
+    type Target = AccountView<'info>;
 
     #[inline(always)]
-    fn deref(&self) -> &AccountView {
+    fn deref(&self) -> &AccountView<'info> {
         &self.inner
     }
 }
@@ -131,14 +131,14 @@ impl core::ops::Deref for WritableView {
 /// guarantees via the type.
 #[repr(transparent)]
 #[derive(Clone, PartialEq, Eq)]
-pub struct MutableView {
-    inner: AccountView,
+pub struct MutableView<'info> {
+    inner: AccountView<'info>,
 }
 
-impl MutableView {
+impl<'info> MutableView<'info> {
     /// Validate that the account is both a signer and writable.
     #[inline(always)]
-    pub fn validate(view: AccountView) -> Result<Self, ProgramError> {
+    pub fn validate(view: AccountView<'info>) -> Result<Self, ProgramError> {
         if !view.is_signer() {
             return Err(ProgramError::MissingRequiredSignature);
         }
@@ -150,19 +150,19 @@ impl MutableView {
 
     /// Access the underlying `AccountView`.
     #[inline(always)]
-    pub fn as_view(&self) -> &AccountView {
+    pub fn as_view(&self) -> &AccountView<'info> {
         &self.inner
     }
 
     /// Consume and return the inner `AccountView`.
     #[inline(always)]
-    pub fn into_view(self) -> AccountView {
+    pub fn into_view(self) -> AccountView<'info> {
         self.inner
     }
 
     /// Upcast to `SignerView` (free -- MutableView implies signer).
     #[inline(always)]
-    pub fn as_signer(&self) -> SignerView {
+    pub fn as_signer(&self) -> SignerView<'info> {
         // SAFETY: MutableView guarantees is_signer.
         SignerView {
             inner: self.inner.clone(),
@@ -171,7 +171,7 @@ impl MutableView {
 
     /// Upcast to `WritableView` (free -- MutableView implies writable).
     #[inline(always)]
-    pub fn as_writable(&self) -> WritableView {
+    pub fn as_writable(&self) -> WritableView<'info> {
         // SAFETY: MutableView guarantees is_writable.
         WritableView {
             inner: self.inner.clone(),
@@ -179,11 +179,11 @@ impl MutableView {
     }
 }
 
-impl core::ops::Deref for MutableView {
-    type Target = AccountView;
+impl<'info> core::ops::Deref for MutableView<'info> {
+    type Target = AccountView<'info>;
 
     #[inline(always)]
-    fn deref(&self) -> &AccountView {
+    fn deref(&self) -> &AccountView<'info> {
         &self.inner
     }
 }
@@ -196,14 +196,14 @@ impl core::ops::Deref for MutableView {
 /// can trust the account data without re-checking ownership.
 #[repr(transparent)]
 #[derive(Clone, PartialEq, Eq)]
-pub struct OwnedView {
-    inner: AccountView,
+pub struct OwnedView<'info> {
+    inner: AccountView<'info>,
 }
 
-impl OwnedView {
+impl<'info> OwnedView<'info> {
     /// Validate that the account is owned by `expected_owner`.
     #[inline(always)]
-    pub fn validate(view: AccountView, expected_owner: &Address) -> Result<Self, ProgramError> {
+    pub fn validate(view: AccountView<'info>, expected_owner: &Address) -> Result<Self, ProgramError> {
         if view.owned_by(expected_owner) {
             Ok(Self { inner: view })
         } else {
@@ -213,22 +213,22 @@ impl OwnedView {
 
     /// Access the underlying `AccountView`.
     #[inline(always)]
-    pub fn as_view(&self) -> &AccountView {
+    pub fn as_view(&self) -> &AccountView<'info> {
         &self.inner
     }
 
     /// Consume and return the inner `AccountView`.
     #[inline(always)]
-    pub fn into_view(self) -> AccountView {
+    pub fn into_view(self) -> AccountView<'info> {
         self.inner
     }
 }
 
-impl core::ops::Deref for OwnedView {
-    type Target = AccountView;
+impl<'info> core::ops::Deref for OwnedView<'info> {
+    type Target = AccountView<'info>;
 
     #[inline(always)]
-    fn deref(&self) -> &AccountView {
+    fn deref(&self) -> &AccountView<'info> {
         &self.inner
     }
 }
@@ -240,14 +240,14 @@ impl core::ops::Deref for OwnedView {
 /// to prevent accidental mutation attempts.
 #[repr(transparent)]
 #[derive(Clone, PartialEq, Eq)]
-pub struct ReadonlyView {
-    inner: AccountView,
+pub struct ReadonlyView<'info> {
+    inner: AccountView<'info>,
 }
 
-impl ReadonlyView {
+impl<'info> ReadonlyView<'info> {
     /// Validate that the account is neither a signer nor writable.
     #[inline(always)]
-    pub fn validate(view: AccountView) -> Result<Self, ProgramError> {
+    pub fn validate(view: AccountView<'info>) -> Result<Self, ProgramError> {
         // A "readonly" account in Solana's model is one that the
         // transaction declared as non-writable. We don't require
         // non-signer because some read-only lookups still need signer
@@ -261,22 +261,22 @@ impl ReadonlyView {
 
     /// Access the underlying `AccountView`.
     #[inline(always)]
-    pub fn as_view(&self) -> &AccountView {
+    pub fn as_view(&self) -> &AccountView<'info> {
         &self.inner
     }
 
     /// Consume and return the inner `AccountView`.
     #[inline(always)]
-    pub fn into_view(self) -> AccountView {
+    pub fn into_view(self) -> AccountView<'info> {
         self.inner
     }
 }
 
-impl core::ops::Deref for ReadonlyView {
-    type Target = AccountView;
+impl<'info> core::ops::Deref for ReadonlyView<'info> {
+    type Target = AccountView<'info>;
 
     #[inline(always)]
-    fn deref(&self) -> &AccountView {
+    fn deref(&self) -> &AccountView<'info> {
         &self.inner
     }
 }
@@ -289,14 +289,14 @@ impl core::ops::Deref for ReadonlyView {
 /// actually contains a program, preventing CPI to data accounts.
 #[repr(transparent)]
 #[derive(Clone, PartialEq, Eq)]
-pub struct ExecutableView {
-    inner: AccountView,
+pub struct ExecutableView<'info> {
+    inner: AccountView<'info>,
 }
 
-impl ExecutableView {
+impl<'info> ExecutableView<'info> {
     /// Validate that the account is executable.
     #[inline(always)]
-    pub fn validate(view: AccountView) -> Result<Self, ProgramError> {
+    pub fn validate(view: AccountView<'info>) -> Result<Self, ProgramError> {
         if view.executable() {
             Ok(Self { inner: view })
         } else {
@@ -306,60 +306,60 @@ impl ExecutableView {
 
     /// Access the underlying `AccountView`.
     #[inline(always)]
-    pub fn as_view(&self) -> &AccountView {
+    pub fn as_view(&self) -> &AccountView<'info> {
         &self.inner
     }
 
     /// Consume and return the inner `AccountView`.
     #[inline(always)]
-    pub fn into_view(self) -> AccountView {
+    pub fn into_view(self) -> AccountView<'info> {
         self.inner
     }
 }
 
-impl core::ops::Deref for ExecutableView {
-    type Target = AccountView;
+impl<'info> core::ops::Deref for ExecutableView<'info> {
+    type Target = AccountView<'info>;
 
     #[inline(always)]
-    fn deref(&self) -> &AccountView {
+    fn deref(&self) -> &AccountView<'info> {
         &self.inner
     }
 }
 
 // ── Capability Composition via LazyContext ────────────────────────────
 
-impl crate::lazy::LazyContext {
+impl<'info> crate::lazy::LazyContext<'info> {
     /// Parse the next account as a proven signer.
     #[inline]
-    pub fn next_validated_signer(&mut self) -> Result<SignerView, ProgramError> {
+    pub fn next_validated_signer(&mut self) -> Result<SignerView<'info>, ProgramError> {
         let acct = self.next_account()?;
         SignerView::validate(acct)
     }
 
     /// Parse the next account as a proven writable.
     #[inline]
-    pub fn next_validated_writable(&mut self) -> Result<WritableView, ProgramError> {
+    pub fn next_validated_writable(&mut self) -> Result<WritableView<'info>, ProgramError> {
         let acct = self.next_account()?;
         WritableView::validate(acct)
     }
 
     /// Parse the next account as a proven mutable (signer + writable).
     #[inline]
-    pub fn next_validated_mutable(&mut self) -> Result<MutableView, ProgramError> {
+    pub fn next_validated_mutable(&mut self) -> Result<MutableView<'info>, ProgramError> {
         let acct = self.next_account()?;
         MutableView::validate(acct)
     }
 
     /// Parse the next account as a proven program-owned account.
     #[inline]
-    pub fn next_validated_owned(&mut self, owner: &Address) -> Result<OwnedView, ProgramError> {
+    pub fn next_validated_owned(&mut self, owner: &Address) -> Result<OwnedView<'info>, ProgramError> {
         let acct = self.next_account()?;
         OwnedView::validate(acct, owner)
     }
 
     /// Parse the next account as a proven executable program.
     #[inline]
-    pub fn next_validated_executable(&mut self) -> Result<ExecutableView, ProgramError> {
+    pub fn next_validated_executable(&mut self) -> Result<ExecutableView<'info>, ProgramError> {
         let acct = self.next_account()?;
         ExecutableView::validate(acct)
     }

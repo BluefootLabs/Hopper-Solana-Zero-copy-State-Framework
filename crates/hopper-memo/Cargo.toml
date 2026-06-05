@@ -19,10 +19,10 @@ name = "hopper_memo"
 hopper-runtime = { workspace = true }
 
 [features]
-default = ["hopper-native-backend"]
-hopper-native-backend = ["hopper-runtime/hopper-native-backend"]
-legacy-pinocchio-compat = ["hopper-runtime/legacy-pinocchio-compat"]
-solana-program-backend = ["hopper-runtime/solana-program-backend"]
+default = []
+hopper-native-backend = []
+legacy-pinocchio-compat = []
+solana-program-backend = []
 
 [lints]
 workspace = true

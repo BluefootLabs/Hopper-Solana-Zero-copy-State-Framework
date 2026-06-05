@@ -17,7 +17,7 @@ name = "hopper"
 path = "src/main.rs"
 
 [dependencies]
-hopper-schema = { workspace = true, features = ["hopper-native-backend", "receipt", "policy"] }
+hopper-schema = { workspace = true, features = ["receipt", "policy"] }
 hopper-manager = { workspace = true }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

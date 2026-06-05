@@ -41,11 +41,11 @@ pub fn derive(seeds: &[&[u8]], program_id: &Address) -> (Address, u8) {
 /// Verify that an account's address matches a PDA derived from the given seeds.
 #[inline]
 pub fn verify_pda(
-    account: &AccountView,
+    account: &AccountView<'_>,
     seeds: &[&[u8]],
     program_id: &Address,
 ) -> Result<(), ProgramError> {
-    #[cfg(all(target_os = "solana", feature = "hopper-native-backend"))]
+    #[cfg(target_os = "solana")]
     {
         hopper_native::pda::verify_pda(
             account.as_backend(),
@@ -55,7 +55,7 @@ pub fn verify_pda(
         .map_err(ProgramError::from)
     }
 
-    #[cfg(not(all(target_os = "solana", feature = "hopper-native-backend")))]
+    #[cfg(not(target_os = "solana"))]
     {
         let expected = create_program_address(seeds, program_id)?;
         if crate::address::address_eq(account.address(), &expected) {
@@ -69,12 +69,12 @@ pub fn verify_pda(
 /// Verify a PDA with an explicit bump seed appended to the seeds.
 #[inline]
 pub fn verify_pda_with_bump(
-    account: &AccountView,
+    account: &AccountView<'_>,
     seeds: &[&[u8]],
     bump: u8,
     program_id: &Address,
 ) -> Result<(), ProgramError> {
-    #[cfg(all(target_os = "solana", feature = "hopper-native-backend"))]
+    #[cfg(target_os = "solana")]
     {
         hopper_native::pda::verify_pda_with_bump(
             account.as_backend(),
@@ -85,7 +85,7 @@ pub fn verify_pda_with_bump(
         .map_err(ProgramError::from)
     }
 
-    #[cfg(not(all(target_os = "solana", feature = "hopper-native-backend")))]
+    #[cfg(not(target_os = "solana"))]
     {
         let mut full_seeds: [&[u8]; 17] = [&[]; 17];
         let num = seeds.len().min(15);
@@ -108,7 +108,7 @@ pub fn verify_pda_with_bump(
 
 /// Verify that an account matches a PDA derived from the given seeds.
 ///
-/// **Verify-only approach**: iterates bumps 255→0 using `sol_sha256` only -
+// ---------------------------------------------------------------------
 /// no `sol_curve_validate_point` needed because we compare each hash directly
 /// against the known PDA address. This saves ~159 CU per attempt compared to
 /// the standard `find_program_address` approach (sha256+curve_validate).
@@ -119,11 +119,11 @@ pub fn verify_pda_with_bump(
 /// Returns the bump seed on success.
 #[inline]
 pub fn find_and_verify_pda(
-    account: &AccountView,
+    account: &AccountView<'_>,
     seeds: &[&[u8]],
     program_id: &Address,
 ) -> Result<u8, ProgramError> {
-    #[cfg(all(target_os = "solana", feature = "hopper-native-backend"))]
+    #[cfg(target_os = "solana")]
     {
         let expected_addr = account.as_backend().address();
         let backend_expected =
@@ -132,7 +132,7 @@ pub fn find_and_verify_pda(
         verify_pda_sha256_loop(backend_expected, seeds, program_id)
     }
 
-    #[cfg(not(all(target_os = "solana", feature = "hopper-native-backend")))]
+    #[cfg(not(target_os = "solana"))]
     {
         let (expected, bump) = find_program_address(seeds, program_id);
         if crate::address::address_eq(account.address(), &expected) {
@@ -152,7 +152,7 @@ pub fn verify_pda_strict(
     seeds: &[&[u8]],
     program_id: &Address,
 ) -> Result<(), ProgramError> {
-    #[cfg(all(target_os = "solana", feature = "hopper-native-backend"))]
+    #[cfg(target_os = "solana")]
     {
         let backend_expected =
             // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
@@ -160,7 +160,7 @@ pub fn verify_pda_strict(
         verify_pda_sha256_loop(backend_expected, seeds, program_id).map(|_| ())
     }
 
-    #[cfg(not(all(target_os = "solana", feature = "hopper-native-backend")))]
+    #[cfg(not(target_os = "solana"))]
     {
         let (derived, _) = find_program_address(seeds, program_id);
         if crate::address::address_eq(&derived, expected) {
@@ -174,9 +174,9 @@ pub fn verify_pda_strict(
 /// Shared sha256-only PDA verify loop used by both `find_and_verify_pda`
 /// and `verify_pda_strict`.
 ///
-/// Iterates bumps 255→0, hashing seeds + bump + program_id + PDA_MARKER.
+// ---------------------------------------------------------------------
 /// Returns the matching bump on success.
-#[cfg(all(target_os = "solana", feature = "hopper-native-backend"))]
+#[cfg(target_os = "solana")]
 #[inline(always)]
 fn verify_pda_sha256_loop(
     expected: &hopper_native::address::Address,
@@ -235,12 +235,12 @@ fn verify_pda_sha256_loop(
 /// then hashes with SHA-256 and compares to the account address. ~200 CU total.
 #[inline]
 pub fn verify_pda_from_stored_bump(
-    account: &AccountView,
+    account: &AccountView<'_>,
     seeds: &[&[u8]],
     bump_offset: usize,
     program_id: &Address,
 ) -> Result<(), ProgramError> {
-    #[cfg(all(target_os = "solana", feature = "hopper-native-backend"))]
+    #[cfg(target_os = "solana")]
     {
         hopper_native::verify_pda_from_stored_bump(
             account.as_backend(),
@@ -251,7 +251,7 @@ pub fn verify_pda_from_stored_bump(
         .map_err(ProgramError::from)
     }
 
-    #[cfg(not(all(target_os = "solana", feature = "hopper-native-backend")))]
+    #[cfg(not(target_os = "solana"))]
     {
         // Off-chain fallback: read bump, append to seeds, derive + compare.
         let data = account.try_borrow()?;

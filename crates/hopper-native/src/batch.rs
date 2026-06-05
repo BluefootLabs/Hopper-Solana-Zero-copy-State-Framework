@@ -16,7 +16,7 @@ use crate::ProgramResult;
 /// normally be 3 separate operations (read lamports, set source to 0,
 /// add to destination) into one safe call.
 #[inline]
-pub fn close_and_transfer(source: &AccountView, destination: &AccountView) -> ProgramResult {
+pub fn close_and_transfer(source: &AccountView<'_>, destination: &AccountView<'_>) -> ProgramResult {
     let lamports = source.lamports();
     if lamports == 0 {
         // Already empty -- just close.
@@ -42,7 +42,7 @@ pub fn close_and_transfer(source: &AccountView, destination: &AccountView) -> Pr
 /// manipulation is cheaper than a system program CPI transfer.
 /// This method checks for sufficient balance and overflow.
 #[inline]
-pub fn transfer_lamports(from: &AccountView, to: &AccountView, amount: u64) -> ProgramResult {
+pub fn transfer_lamports(from: &AccountView<'_>, to: &AccountView<'_>, amount: u64) -> ProgramResult {
     let from_lamports = from.lamports();
     if from_lamports < amount {
         return Err(ProgramError::InsufficientFunds);
@@ -59,7 +59,7 @@ pub fn transfer_lamports(from: &AccountView, to: &AccountView, amount: u64) -> P
 
 /// Verify that an account is rent-exempt under Solana's current rent constants.
 #[inline]
-pub fn require_rent_exempt(account: &AccountView) -> ProgramResult {
+pub fn require_rent_exempt(account: &AccountView<'_>) -> ProgramResult {
     let min = crate::sysvar::rent_exempt_minimum(account.data_len());
     if account.lamports() >= min {
         Ok(())
@@ -73,7 +73,7 @@ pub fn require_rent_exempt(account: &AccountView) -> ProgramResult {
 /// Useful for verifying expected accounts match (e.g., token mint
 /// matches the vault's expected mint).
 #[inline]
-pub fn require_same_address(a: &AccountView, b: &AccountView) -> ProgramResult {
+pub fn require_same_address(a: &AccountView<'_>, b: &AccountView<'_>) -> ProgramResult {
     if crate::address::address_eq(a.address(), b.address()) {
         Ok(())
     } else {
@@ -83,7 +83,7 @@ pub fn require_same_address(a: &AccountView, b: &AccountView) -> ProgramResult {
 
 /// Assert that an account's address matches an expected address.
 #[inline]
-pub fn require_address(account: &AccountView, expected: &Address) -> ProgramResult {
+pub fn require_address(account: &AccountView<'_>, expected: &Address) -> ProgramResult {
     if crate::address::address_eq(account.address(), expected) {
         Ok(())
     } else {
@@ -96,7 +96,7 @@ pub fn require_address(account: &AccountView, expected: &Address) -> ProgramResu
 /// "is this the right account type?" pattern in Solana programs.
 #[inline]
 pub fn require_account_type(
-    account: &AccountView,
+    account: &AccountView<'_>,
     expected_disc: u8,
     expected_owner: &Address,
 ) -> ProgramResult {
@@ -111,7 +111,7 @@ pub fn require_account_type(
 /// Useful for "soft close" patterns where you want to mark an account
 /// as consumed but leave it allocated for potential reuse.
 #[inline]
-pub fn zero_data(account: &AccountView) -> ProgramResult {
+pub fn zero_data(account: &AccountView<'_>) -> ProgramResult {
     let len = account.data_len();
     if len == 0 {
         return Ok(());
@@ -131,9 +131,9 @@ pub fn zero_data(account: &AccountView) -> ProgramResult {
 /// the account has enough lamports to cover rent at the new data length.
 #[inline]
 pub fn realloc_checked(
-    account: &AccountView,
+    account: &AccountView<'_>,
     new_len: usize,
-    payer: Option<&AccountView>,
+    payer: Option<&AccountView<'_>>,
 ) -> ProgramResult {
     // Check rent requirement BEFORE resizing to avoid leaving the account
     // in an inconsistent state if the payer transfer fails.

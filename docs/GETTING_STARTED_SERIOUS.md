@@ -29,7 +29,7 @@ crate `hopper`:
 
 ```toml
 [dependencies]
-hopper = { package = "hopper-lang", version = "0.2.1", default-features = false, features = ["hopper-native-backend", "proc-macros"] }
+hopper = { package = "hopper-lang", version = "0.2.1", default-features = false, features = ["proc-macros"] }
 ```
 
 The package is named `hopper-lang` on crates.io because the `hopper` package

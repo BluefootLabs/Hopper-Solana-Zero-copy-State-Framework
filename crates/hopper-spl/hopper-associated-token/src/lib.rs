@@ -19,12 +19,12 @@ pub use hopper_solana::ata::{
 
 /// Builder for Associated Token Account `Create` (instruction 0).
 pub struct Create<'a> {
-    pub payer: &'a AccountView,
-    pub associated_account: &'a AccountView,
-    pub wallet: &'a AccountView,
-    pub mint: &'a AccountView,
-    pub system_program: &'a AccountView,
-    pub token_program: &'a AccountView,
+    pub payer: &'a AccountView<'a>,
+    pub associated_account: &'a AccountView<'a>,
+    pub wallet: &'a AccountView<'a>,
+    pub mint: &'a AccountView<'a>,
+    pub system_program: &'a AccountView<'a>,
+    pub token_program: &'a AccountView<'a>,
 }
 
 impl Create<'_> {
@@ -34,7 +34,7 @@ impl Create<'_> {
     }
 
     #[inline]
-    pub fn invoke_signed(&self, signers: &[Signer]) -> ProgramResult {
+    pub fn invoke_signed(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
         let data = [0u8];
         let accounts = [
             InstructionAccount::writable_signer(self.payer.address()),
@@ -64,12 +64,12 @@ impl Create<'_> {
 
 /// Builder for Associated Token Account `CreateIdempotent` (instruction 1).
 pub struct CreateIdempotent<'a> {
-    pub payer: &'a AccountView,
-    pub associated_account: &'a AccountView,
-    pub wallet: &'a AccountView,
-    pub mint: &'a AccountView,
-    pub system_program: &'a AccountView,
-    pub token_program: &'a AccountView,
+    pub payer: &'a AccountView<'a>,
+    pub associated_account: &'a AccountView<'a>,
+    pub wallet: &'a AccountView<'a>,
+    pub mint: &'a AccountView<'a>,
+    pub system_program: &'a AccountView<'a>,
+    pub token_program: &'a AccountView<'a>,
 }
 
 impl CreateIdempotent<'_> {
@@ -79,7 +79,7 @@ impl CreateIdempotent<'_> {
     }
 
     #[inline]
-    pub fn invoke_signed(&self, signers: &[Signer]) -> ProgramResult {
+    pub fn invoke_signed(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
         let data = [1u8];
         let accounts = [
             InstructionAccount::writable_signer(self.payer.address()),
@@ -109,13 +109,13 @@ impl CreateIdempotent<'_> {
 
 /// Builder for ATA `RecoverNested` (instruction 2).
 pub struct RecoverNested<'a> {
-    pub nested_associated_account: &'a AccountView,
-    pub nested_token_mint: &'a AccountView,
-    pub destination_associated_account: &'a AccountView,
-    pub owner_associated_account: &'a AccountView,
-    pub owner_token_mint: &'a AccountView,
-    pub wallet: &'a AccountView,
-    pub token_program: &'a AccountView,
+    pub nested_associated_account: &'a AccountView<'a>,
+    pub nested_token_mint: &'a AccountView<'a>,
+    pub destination_associated_account: &'a AccountView<'a>,
+    pub owner_associated_account: &'a AccountView<'a>,
+    pub owner_token_mint: &'a AccountView<'a>,
+    pub wallet: &'a AccountView<'a>,
+    pub token_program: &'a AccountView<'a>,
 }
 
 impl RecoverNested<'_> {
@@ -125,7 +125,7 @@ impl RecoverNested<'_> {
     }
 
     #[inline]
-    pub fn invoke_signed(&self, signers: &[Signer]) -> ProgramResult {
+    pub fn invoke_signed(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
         let data = [2u8];
         let accounts = [
             InstructionAccount::writable(self.nested_associated_account.address()),

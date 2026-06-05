@@ -73,9 +73,9 @@ impl<'a> InstructionAccount<'a> {
     }
 }
 
-impl<'a> From<&'a AccountView> for InstructionAccount<'a> {
+impl<'a> From<&'a AccountView<'a>> for InstructionAccount<'a> {
     #[inline(always)]
-    fn from(view: &'a AccountView) -> Self {
+    fn from(view: &'a AccountView<'a>) -> Self {
         Self {
             address: view.address(),
             is_writable: view.is_writable(),
@@ -117,12 +117,12 @@ pub struct CpiAccount<'a> {
     is_signer: bool,
     is_writable: bool,
     executable: bool,
-    _account_view: PhantomData<&'a AccountView>,
+    _account_view: PhantomData<&'a AccountView<'a>>,
 }
 
-impl<'a> From<&'a AccountView> for CpiAccount<'a> {
+impl<'a> From<&'a AccountView<'a>> for CpiAccount<'a> {
     #[inline(always)]
-    fn from(view: &'a AccountView) -> Self {
+    fn from(view: &'a AccountView<'a>) -> Self {
         let raw = view.account_ptr();
         // Single u32 read extracts [borrow_state, is_signer, is_writable, executable].
         // On little-endian BPF: byte 1 = is_signer, byte 2 = is_writable, byte 3 = executable.

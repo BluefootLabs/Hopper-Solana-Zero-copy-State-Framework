@@ -359,19 +359,10 @@ fn check_legacy_token_gate(root: &Path) -> Result<(), String> {
     }
 
     // Disable the token crate's default features so this check proves the
-    // deprecated plain builders are not required by the public default API,
-    // but keep an explicit backend enabled because hopper-runtime has no
-    // backend-free build mode.
+    // deprecated plain builders are not required by the public default API.
     run_cargo_status(
         root,
-        &[
-            "check",
-            "-p",
-            "hopper-token",
-            "--no-default-features",
-            "--features",
-            "hopper-native-backend",
-        ],
+        &["check", "-p", "hopper-token", "--no-default-features"],
     )
 }
 

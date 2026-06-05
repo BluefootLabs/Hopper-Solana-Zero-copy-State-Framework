@@ -68,7 +68,7 @@ impl<'a> BorrowedSegmentRegistry<'a> {
 /// typed segments. Each segment has a role (Core, Extension, Journal, etc.)
 /// and can be accessed individually.
 pub struct SegmentedAccount<'a, T: Pod + FixedLayout + HopperLayout> {
-    view: &'a AccountView,
+    view: &'a AccountView<'a>,
     #[allow(dead_code)] // stored for future segment CPI operations
     program_id: &'a Address,
     _marker: core::marker::PhantomData<T>,
@@ -78,7 +78,7 @@ impl<'a, T: Pod + FixedLayout + HopperLayout> SegmentedAccount<'a, T> {
     /// Construct from an AccountView with header and owner validation.
     #[inline]
     pub fn from_account(
-        account: &'a AccountView,
+        account: &'a AccountView<'a>,
         program_id: &'a Address,
     ) -> Result<Self, ProgramError> {
         check::check_owner(account, program_id)?;
@@ -146,7 +146,7 @@ impl<'a, T: Pod + FixedLayout + HopperLayout> SegmentedAccount<'a, T> {
 
     /// The underlying AccountView.
     #[inline(always)]
-    pub fn to_account_view(&self) -> &'a AccountView {
+    pub fn to_account_view(&self) -> &'a AccountView<'a> {
         self.view
     }
 }

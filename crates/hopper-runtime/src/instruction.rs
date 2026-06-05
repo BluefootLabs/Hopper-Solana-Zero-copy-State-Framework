@@ -76,9 +76,9 @@ impl<'a> InstructionAccount<'a> {
     }
 }
 
-impl<'a> From<&'a AccountView> for InstructionAccount<'a> {
+impl<'a> From<&'a AccountView<'a>> for InstructionAccount<'a> {
     #[inline(always)]
-    fn from(view: &'a AccountView) -> Self {
+    fn from(view: &'a AccountView<'a>) -> Self {
         Self {
             address: view.address(),
             is_writable: view.is_writable(),
@@ -251,14 +251,12 @@ where
     pub accounts: &'b [InstructionAccount<'a>],
 }
 
-// ── CpiAccount (hopper-native backend) ───────────────────────────────
+// ── CpiAccount ──────────────────────────────────────────────────────
 
 /// C-ABI account info passed to `sol_invoke_signed_c`.
 ///
 /// This matches the Solana runtime's expected layout for CPI account infos.
-/// Only available with hopper-native-backend because it requires direct
-/// pointer access into the runtime's account memory.
-#[cfg(feature = "hopper-native-backend")]
+/// This requires direct pointer access into Hopper's runtime account memory.
 #[repr(C)]
 #[derive(Clone, Copy, Debug)]
 pub struct CpiAccount<'a> {
@@ -271,13 +269,12 @@ pub struct CpiAccount<'a> {
     is_signer: bool,
     is_writable: bool,
     executable: bool,
-    _account_view: PhantomData<&'a AccountView>,
+    _account_view: PhantomData<&'a AccountView<'a>>,
 }
 
-#[cfg(feature = "hopper-native-backend")]
-impl<'a> From<&'a AccountView> for CpiAccount<'a> {
+impl<'a> From<&'a AccountView<'a>> for CpiAccount<'a> {
     #[inline]
-    fn from(view: &'a AccountView) -> Self {
+    fn from(view: &'a AccountView<'a>) -> Self {
         let raw = view.account_ptr();
         // SAFETY: account_ptr() returns a valid pointer to the runtime
         // account struct. The address and owner fields have the same binary

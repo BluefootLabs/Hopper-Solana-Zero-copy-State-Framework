@@ -26,7 +26,7 @@ use hopper_runtime::{
 
 /// Check that an account is a signer.
 #[inline(always)]
-pub fn check_signer(account: &AccountView) -> ProgramResult {
+pub fn check_signer(account: &AccountView<'_>) -> ProgramResult {
     if !account.is_signer() {
         return Err(ProgramError::MissingRequiredSignature);
     }
@@ -35,7 +35,7 @@ pub fn check_signer(account: &AccountView) -> ProgramResult {
 
 /// Check that an account is writable.
 #[inline(always)]
-pub fn check_writable(account: &AccountView) -> ProgramResult {
+pub fn check_writable(account: &AccountView<'_>) -> ProgramResult {
     if !account.is_writable() {
         return Err(ProgramError::InvalidAccountData);
     }
@@ -44,7 +44,7 @@ pub fn check_writable(account: &AccountView) -> ProgramResult {
 
 /// Check that an account is owned by the expected program.
 #[inline(always)]
-pub fn check_owner(account: &AccountView, expected: &Address) -> ProgramResult {
+pub fn check_owner(account: &AccountView<'_>, expected: &Address) -> ProgramResult {
     if !account.owned_by(expected) {
         return Err(ProgramError::IncorrectProgramId);
     }
@@ -53,7 +53,7 @@ pub fn check_owner(account: &AccountView, expected: &Address) -> ProgramResult {
 
 /// Check that an account is executable (a program).
 #[inline(always)]
-pub fn check_executable(account: &AccountView) -> ProgramResult {
+pub fn check_executable(account: &AccountView<'_>) -> ProgramResult {
     if !account.executable() {
         return Err(ProgramError::InvalidAccountData);
     }
@@ -70,7 +70,7 @@ pub fn check_executable(account: &AccountView) -> ProgramResult {
 /// ad-hoc program pinning where the program ID is only known at
 /// runtime (for instance, a caller-supplied cross-program id).
 #[inline(always)]
-pub fn check_program(account: &AccountView, expected_program_id: &Address) -> ProgramResult {
+pub fn check_program(account: &AccountView<'_>, expected_program_id: &Address) -> ProgramResult {
     if !address_eq(account.address(), expected_program_id) {
         return Err(ProgramError::IncorrectProgramId);
     }
@@ -100,7 +100,7 @@ pub fn check_discriminator(data: &[u8], expected: u8) -> ProgramResult {
 
 /// Check uninitialized: account data is empty.
 #[inline(always)]
-pub fn check_uninitialized(account: &AccountView) -> ProgramResult {
+pub fn check_uninitialized(account: &AccountView<'_>) -> ProgramResult {
     if !account.is_data_empty() {
         return Err(ProgramError::AccountAlreadyInitialized);
     }
@@ -124,7 +124,7 @@ pub fn rent_exempt_min(data_len: usize) -> u64 {
 
 /// Check that an account is rent exempt.
 #[inline(always)]
-pub fn check_rent_exempt(account: &AccountView) -> ProgramResult {
+pub fn check_rent_exempt(account: &AccountView<'_>) -> ProgramResult {
     let lamports = account.lamports();
     let data = account.try_borrow()?;
     let min = rent_exempt_min(data.len());
@@ -136,7 +136,7 @@ pub fn check_rent_exempt(account: &AccountView) -> ProgramResult {
 
 /// Check that the account has at least `min` lamports.
 #[inline(always)]
-pub fn check_lamports_gte(account: &AccountView, min: u64) -> ProgramResult {
+pub fn check_lamports_gte(account: &AccountView<'_>, min: u64) -> ProgramResult {
     let lamports = account.lamports();
     if lamports < min {
         return Err(ProgramError::InsufficientFunds);
@@ -148,7 +148,7 @@ pub fn check_lamports_gte(account: &AccountView, min: u64) -> ProgramResult {
 
 /// Check that two account addresses are equal.
 #[inline(always)]
-pub fn check_keys_eq(a: &AccountView, b: &AccountView) -> ProgramResult {
+pub fn check_keys_eq(a: &AccountView<'_>, b: &AccountView<'_>) -> ProgramResult {
     if !address_eq(a.address(), b.address()) {
         return Err(ProgramError::InvalidAccountData);
     }
@@ -196,7 +196,7 @@ pub fn is_zero_address(addr: &[u8; 32]) -> bool {
 /// `stored` is the 32-byte address stored in account data at a given offset.
 /// This is the Anchor-style `has_one` equivalent.
 #[inline(always)]
-pub fn check_has_one(stored: &[u8; 32], account: &AccountView) -> ProgramResult {
+pub fn check_has_one(stored: &[u8; 32], account: &AccountView<'_>) -> ProgramResult {
     // SAFETY: Address is [u8; 32]. Reinterpret as reference.
     let addr: &[u8; 32] = unsafe { &*(account.address() as *const Address as *const [u8; 32]) };
     if !keys_eq_fast(stored, addr) {
@@ -207,7 +207,7 @@ pub fn check_has_one(stored: &[u8; 32], account: &AccountView) -> ProgramResult 
 
 /// Check that two accounts are unique (different addresses).
 #[inline(always)]
-pub fn check_accounts_unique(a: &AccountView, b: &AccountView) -> ProgramResult {
+pub fn check_accounts_unique(a: &AccountView<'_>, b: &AccountView<'_>) -> ProgramResult {
     if address_eq(a.address(), b.address()) {
         return Err(ProgramError::InvalidArgument);
     }
@@ -216,7 +216,7 @@ pub fn check_accounts_unique(a: &AccountView, b: &AccountView) -> ProgramResult 
 
 /// Check that three accounts are all unique.
 #[inline(always)]
-pub fn check_accounts_unique_3(a: &AccountView, b: &AccountView, c: &AccountView) -> ProgramResult {
+pub fn check_accounts_unique_3(a: &AccountView<'_>, b: &AccountView<'_>, c: &AccountView<'_>) -> ProgramResult {
     if address_eq(a.address(), b.address())
         || address_eq(a.address(), c.address())
         || address_eq(b.address(), c.address())
@@ -228,7 +228,7 @@ pub fn check_accounts_unique_3(a: &AccountView, b: &AccountView, c: &AccountView
 
 /// Check an account's address matches an expected value.
 #[inline(always)]
-pub fn check_address(account: &AccountView, expected: &Address) -> ProgramResult {
+pub fn check_address(account: &AccountView<'_>, expected: &Address) -> ProgramResult {
     if !address_eq(account.address(), expected) {
         return Err(ProgramError::InvalidAccountData);
     }
@@ -251,7 +251,7 @@ pub fn check_instruction_data_min(data: &[u8], min: usize) -> ProgramResult {
 /// This is the most common validation pattern. One function call instead of three.
 #[inline(always)]
 pub fn check_account(
-    account: &AccountView,
+    account: &AccountView<'_>,
     program_id: &Address,
     disc: u8,
     min_size: usize,
@@ -265,7 +265,7 @@ pub fn check_account(
 
 /// System program check.
 #[inline(always)]
-pub fn check_system_program(account: &AccountView) -> ProgramResult {
+pub fn check_system_program(account: &AccountView<'_>) -> ProgramResult {
     // System program ID: 11111111111111111111111111111111
     const SYSTEM_PROGRAM: Address = Address::new_from_array([0; 32]);
     if *account.address() != SYSTEM_PROGRAM {
@@ -282,7 +282,7 @@ pub fn check_system_program(account: &AccountView) -> ProgramResult {
 /// Always use this when you have the bump stored.
 #[inline(always)]
 pub fn verify_pda(
-    account: &AccountView,
+    account: &AccountView<'_>,
     seeds: &[&[u8]],
     bump: u8,
     program_id: &Address,
@@ -297,7 +297,7 @@ pub fn verify_pda(
 /// Prefer `verify_pda` when bump is stored.
 #[inline(always)]
 pub fn find_and_verify_pda(
-    account: &AccountView,
+    account: &AccountView<'_>,
     seeds: &[&[u8]],
     program_id: &Address,
 ) -> Result<u8, ProgramError> {
@@ -325,7 +325,7 @@ pub fn find_and_verify_pda(
 /// - `program_id` -- The owning program
 #[inline(always)]
 pub fn verify_pda_cached(
-    account: &AccountView,
+    account: &AccountView<'_>,
     seeds: &[&[u8]],
     bump_offset: usize,
     program_id: &Address,
@@ -376,7 +376,7 @@ pub fn verify_pda_cached(
 /// Returns the index of the matching owner, or error.
 #[inline]
 pub fn check_owner_multi(
-    account: &AccountView,
+    account: &AccountView<'_>,
     owners: &[&Address],
 ) -> Result<usize, ProgramError> {
     // SAFETY: Reading the owner field is safe in the context of

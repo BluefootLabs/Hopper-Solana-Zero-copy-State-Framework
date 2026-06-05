@@ -22,7 +22,7 @@
 //! }
 //!
 //! // Type error: can't pass TypedAddress<Mint> where TypedAddress<Authority> is expected
-//! fn check_authority(addr: &TypedAddress<Authority>, signer: &AccountView) -> ProgramResult { ... }
+//! fn check_authority(addr: &TypedAddress<Authority>, signer: &AccountView<'_>) -> ProgramResult { ... }
 //! ```
 
 use core::marker::PhantomData;
@@ -61,9 +61,7 @@ const _: () = assert!(core::mem::align_of::<TypedAddress<()>>() == 1);
 // is fine because `TypedAddress<T>` is `#[repr(transparent)]` over
 // `[u8; 32]` and `T` only participates as `PhantomData`, the wire
 // payload doesn't depend on `T` at all.
-#[cfg(feature = "hopper-native-backend")]
 unsafe impl<T: 'static> ::hopper_runtime::__hopper_native::bytemuck::Zeroable for TypedAddress<T> {}
-#[cfg(feature = "hopper-native-backend")]
 unsafe impl<T: Copy + 'static> ::hopper_runtime::__hopper_native::bytemuck::Pod
     for TypedAddress<T>
 {
@@ -99,7 +97,7 @@ impl<T> TypedAddress<T> {
 
     /// Create from an `AccountView`'s address.
     #[inline(always)]
-    pub fn from_account(account: &hopper_runtime::AccountView) -> Self {
+    pub fn from_account(account: &hopper_runtime::AccountView<'_>) -> Self {
         // SAFETY: Address is [u8; 32].
         let bytes =
             unsafe { *(account.address() as *const hopper_runtime::Address as *const [u8; 32]) };
@@ -126,7 +124,7 @@ impl<T> TypedAddress<T> {
 
     /// Check if this address matches an `AccountView`'s address.
     #[inline(always)]
-    pub fn eq_account(&self, account: &hopper_runtime::AccountView) -> bool {
+    pub fn eq_account(&self, account: &hopper_runtime::AccountView<'_>) -> bool {
         // SAFETY: Address is [u8; 32], same as our bytes.
         let addr =
             unsafe { &*(account.address() as *const hopper_runtime::Address as *const [u8; 32]) };
@@ -137,7 +135,7 @@ impl<T> TypedAddress<T> {
     #[inline(always)]
     pub fn require_eq_account(
         &self,
-        account: &hopper_runtime::AccountView,
+        account: &hopper_runtime::AccountView<'_>,
     ) -> Result<(), hopper_runtime::error::ProgramError> {
         if self.eq_account(account) {
             Ok(())
@@ -226,9 +224,7 @@ const _: () = assert!(core::mem::size_of::<UntypedAddress>() == 32);
 const _: () = assert!(core::mem::align_of::<UntypedAddress>() == 1);
 
 // Bytemuck proof (Hopper Safety Audit Must-Fix #5).
-#[cfg(feature = "hopper-native-backend")]
 unsafe impl ::hopper_runtime::__hopper_native::bytemuck::Zeroable for UntypedAddress {}
-#[cfg(feature = "hopper-native-backend")]
 unsafe impl ::hopper_runtime::__hopper_native::bytemuck::Pod for UntypedAddress {}
 
 // SAFETY: Transparent over [u8; 32], align 1, all bits valid.

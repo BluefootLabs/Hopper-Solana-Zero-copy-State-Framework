@@ -174,7 +174,6 @@ impl core::fmt::Display for ProgramError {
 /// Both types encode errors as the same u64 values, so we round-trip
 /// through the integer representation. This is zero-cost in the happy
 /// path (errors are exceptional).
-#[cfg(feature = "hopper-native-backend")]
 impl From<hopper_native::error::ProgramError> for ProgramError {
     #[inline]
     fn from(e: hopper_native::error::ProgramError) -> Self {
@@ -247,7 +246,6 @@ impl From<hopper_native::error::ProgramError> for ProgramError {
     }
 }
 
-#[cfg(feature = "hopper-native-backend")]
 impl From<ProgramError> for hopper_native::error::ProgramError {
     #[inline]
     fn from(e: ProgramError) -> Self {

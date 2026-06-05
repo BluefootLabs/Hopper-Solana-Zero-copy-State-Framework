@@ -15,7 +15,7 @@ use crate::check;
 /// `ProgramAccount<T>` validates against an arbitrary expected owner.
 /// Used for external program accounts (token accounts, mints, etc.).
 pub struct ProgramAccount<'a, T: Pod + FixedLayout> {
-    view: &'a AccountView,
+    view: &'a AccountView<'a>,
     _marker: core::marker::PhantomData<T>,
 }
 
@@ -23,7 +23,7 @@ impl<'a, T: Pod + FixedLayout> ProgramAccount<'a, T> {
     /// Construct from an AccountView, validating the owner.
     #[inline]
     pub fn from_account(
-        account: &'a AccountView,
+        account: &'a AccountView<'a>,
         expected_owner: &Address,
     ) -> Result<Self, ProgramError> {
         check::check_owner(account, expected_owner)?;
@@ -37,7 +37,7 @@ impl<'a, T: Pod + FixedLayout> ProgramAccount<'a, T> {
 
     /// Construct without owner validation (caller's responsibility).
     #[inline]
-    pub fn from_account_unchecked(account: &'a AccountView) -> Self {
+    pub fn from_account_unchecked(account: &'a AccountView<'a>) -> Self {
         Self {
             view: account,
             _marker: core::marker::PhantomData,
@@ -74,7 +74,7 @@ impl<'a, T: Pod + FixedLayout> ProgramAccount<'a, T> {
 
     /// The underlying AccountView.
     #[inline(always)]
-    pub fn to_account_view(&self) -> &'a AccountView {
+    pub fn to_account_view(&self) -> &'a AccountView<'a> {
         self.view
     }
 }

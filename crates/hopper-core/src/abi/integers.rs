@@ -278,9 +278,7 @@ macro_rules! wire_int {
         // over `[u8; N]` satisfies every bytemuck obligation, all
         // bit patterns valid, no padding, align-1 inherited from the
         // inner array.
-        #[cfg(feature = "hopper-native-backend")]
         unsafe impl ::hopper_runtime::__hopper_native::bytemuck::Zeroable for $name {}
-        #[cfg(feature = "hopper-native-backend")]
         unsafe impl ::hopper_runtime::__hopper_native::bytemuck::Pod for $name {}
 
         // SAFETY: #[repr(transparent)] over [u8; N], all bit patterns valid.
