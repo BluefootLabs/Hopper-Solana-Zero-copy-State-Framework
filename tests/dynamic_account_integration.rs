@@ -391,6 +391,38 @@ mod bare_tail_bytes_fp {
     }
 }
 
+#[hopper::account(discriminator = 16, version = 1)]
+pub struct PrettySignedWide<'a> {
+    pub delta: i64,
+    pub cap: u128,
+    pub label: String<'a, 8>,
+}
+
+#[hopper::dynamic_account(discriminator = 17, version = 1)]
+pub struct ExplicitSignedWide {
+    pub delta: i64,
+    pub cap: u128,
+
+    #[tail(string<8>)]
+    pub label: String,
+}
+
+#[test]
+fn account_sugar_lowers_signed_and_wide_scalars_to_wire() {
+    let body = PrettySignedWide::new(-7, 123_456_789_000_000_000_000u128);
+    assert_eq!(body.delta(), -7);
+    assert_eq!(body.cap(), 123_456_789_000_000_000_000u128);
+    assert_eq!(core::mem::align_of::<PrettySignedWide>(), 1);
+}
+
+#[test]
+fn dynamic_account_sugar_lowers_signed_and_wide_scalars_to_wire() {
+    let body = ExplicitSignedWide::new(-9, 42u128);
+    assert_eq!(body.delta(), -9);
+    assert_eq!(body.cap(), 42u128);
+    assert_eq!(core::mem::align_of::<ExplicitSignedWide>(), 1);
+}
+
 #[test]
 fn layout_fingerprint_includes_dynamic_tail_schema() {
     assert_ne!(

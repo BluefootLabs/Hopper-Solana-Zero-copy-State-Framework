@@ -844,6 +844,30 @@ fn fixed_wire_type(
     field: &Ident,
 ) -> (TokenStream, TokenStream, TokenStream, TokenStream) {
     match path_last_ident(ty).as_deref() {
+        Some("i16") => (
+            quote! { ::hopper::prelude::WireI16 },
+            quote! { i16 },
+            quote! { self.#field.get() },
+            quote! { ::hopper::prelude::WireI16::new(#field) },
+        ),
+        Some("i32") => (
+            quote! { ::hopper::prelude::WireI32 },
+            quote! { i32 },
+            quote! { self.#field.get() },
+            quote! { ::hopper::prelude::WireI32::new(#field) },
+        ),
+        Some("i64") => (
+            quote! { ::hopper::prelude::WireI64 },
+            quote! { i64 },
+            quote! { self.#field.get() },
+            quote! { ::hopper::prelude::WireI64::new(#field) },
+        ),
+        Some("i128") => (
+            quote! { ::hopper::prelude::WireI128 },
+            quote! { i128 },
+            quote! { self.#field.get() },
+            quote! { ::hopper::prelude::WireI128::new(#field) },
+        ),
         Some("u16") => (
             quote! { ::hopper::prelude::WireU16 },
             quote! { u16 },
@@ -861,6 +885,12 @@ fn fixed_wire_type(
             quote! { u64 },
             quote! { self.#field.get() },
             quote! { ::hopper::prelude::WireU64::new(#field) },
+        ),
+        Some("u128") => (
+            quote! { ::hopper::prelude::WireU128 },
+            quote! { u128 },
+            quote! { self.#field.get() },
+            quote! { ::hopper::prelude::WireU128::new(#field) },
         ),
         Some("bool") => (
             quote! { ::hopper::prelude::WireBool },

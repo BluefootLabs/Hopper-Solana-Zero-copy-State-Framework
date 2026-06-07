@@ -219,7 +219,9 @@ pub type Pubkey = Address;
 /// Handler result alias for examples that prefer `Result<()>` spelling.
 pub type Result<T = (), E = ProgramError> = core::result::Result<T, E>;
 
-pub use hopper_core::abi::{WireBool, WireU16, WireU32, WireU64};
+pub use hopper_core::abi::{
+    WireBool, WireI128, WireI16, WireI32, WireI64, WireU128, WireU16, WireU32, WireU64,
+};
 
 pub use crate::{
     associated_token, compute, cpi, crypto, events, memo, pda, return_data, system, token,
