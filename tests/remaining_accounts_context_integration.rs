@@ -4,7 +4,7 @@ use hopper::prelude::*;
 
 #[hopper::context]
 pub struct UsesRemainingAccounts {
-    pub authority: AccountView,
+    pub authority: AccountView<'static>,
 }
 
 fn accessors_typecheck(

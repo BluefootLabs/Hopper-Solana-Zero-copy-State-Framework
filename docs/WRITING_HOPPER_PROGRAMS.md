@@ -107,6 +107,10 @@ pub struct Multisig<'a> {
 }
 ```
 
+For `#[hopper::account]`, this source-level `u64` field is lowered to a
+wire-safe fixed-body field (`WireU64`) in the emitted layout. Use wire wrappers
+directly in explicit overlay code paths.
+
 `Multisig::new(threshold)` constructs the fixed body, `Multisig::ALLOC_SPACE`
 is the maximum body-plus-tail allocation, `Multisig::label(data)` and
 `Multisig::signers(data)` borrow compact-tail fields. Generic vectors such as

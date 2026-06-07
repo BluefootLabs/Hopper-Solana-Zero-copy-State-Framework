@@ -1205,6 +1205,8 @@ mod tests {
     fn make_account(owner: Address, data: &[u8]) -> (std::vec::Vec<u8>, AccountView<'static>) {
         let mut backing = std::vec![0u8; RuntimeAccount::SIZE + data.len()];
         let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
+        // SAFETY: Test helper writes a valid RuntimeAccount header and copies
+        // payload bytes into owned backing memory.
         unsafe {
             raw.write(RuntimeAccount {
                 borrow_state: NOT_BORROWED,
@@ -1220,6 +1222,7 @@ mod tests {
             let data_ptr = backing.as_mut_ptr().add(RuntimeAccount::SIZE);
             core::ptr::copy_nonoverlapping(data.as_ptr(), data_ptr, data.len());
         }
+        // SAFETY: `raw` points at the initialized RuntimeAccount header.
         let backend = unsafe { NativeAccountView::new_unchecked(raw) };
         (backing, AccountView::from_backend(backend))
     }

@@ -212,6 +212,8 @@ impl<'a> StoredInstruction<'a> {
             out[index].write(self.account_metas[index].to_instruction_account());
             index += 1;
         }
+        // SAFETY: Elements `0..account_metas.len()` were fully initialized by
+        // the loop above, and we expose exactly that initialized prefix.
         Ok(unsafe {
             core::slice::from_raw_parts(
                 out.as_ptr() as *const InstructionAccount<'a>,

@@ -243,13 +243,13 @@ fn process_deposit(program_id: &Address, accounts: &[AccountView], data: &[u8]) 
         dep_lamports
             .checked_sub(amount)
             .ok_or(ProgramError::InsufficientFunds)?,
-    );
+    )?;
     let t_lamports = treasury.lamports();
     treasury.set_lamports(
         t_lamports
             .checked_add(amount)
             .ok_or(ProgramError::ArithmeticOverflow)?,
-    );
+    )?;
 
     // Update core balance
     let mut buf = treasury.try_borrow_mut()?;
@@ -343,13 +343,13 @@ fn process_withdraw(program_id: &Address, accounts: &[AccountView], data: &[u8])
 
     // Transfer SOL
     let t_lamports = treasury.lamports();
-    treasury.set_lamports(t_lamports - amount);
+    treasury.set_lamports(t_lamports - amount)?;
     let d_lamports = destination.lamports();
     destination.set_lamports(
         d_lamports
             .checked_add(amount)
             .ok_or(ProgramError::ArithmeticOverflow)?,
-    );
+    )?;
 
     // -- Phase 4: Post-mutation invariant ----------------------------
 

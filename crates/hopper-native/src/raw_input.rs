@@ -273,6 +273,9 @@ pub unsafe fn scan_instruction_frame(input: *mut u8) -> RawInstructionFrame {
             if duplicate_of >= slot {
                 malformed_duplicate_marker(marker, slot);
             }
+            // SAFETY: Duplicate-account entries are 8-byte slots in the
+            // Solana input frame format; scanner bounds are driven by
+            // `num_accounts` and validated traversal above.
             scan = unsafe { scan.add(8) };
         }
         slot += 1;

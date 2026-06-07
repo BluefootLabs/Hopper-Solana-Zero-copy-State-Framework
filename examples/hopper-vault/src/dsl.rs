@@ -63,13 +63,13 @@ fn process_deposit_dsl(
             dep_lamports
                 .checked_sub(amount)
                 .ok_or(ProgramError::InsufficientFunds)?,
-        );
+        )?;
         let vault_lamports = vault_view.lamports();
         vault_view.set_lamports(
             vault_lamports
                 .checked_add(amount)
                 .ok_or(ProgramError::ArithmeticOverflow)?,
-        );
+        )?;
 
         // Update balance in layout
         let mut vault = ctx.accounts.vault.write()?;
@@ -134,13 +134,13 @@ fn process_withdraw_dsl(
             vault_lamports
                 .checked_sub(amount)
                 .ok_or(ProgramError::InsufficientFunds)?,
-        );
+        )?;
         let auth_lamports = auth_view.lamports();
         auth_view.set_lamports(
             auth_lamports
                 .checked_add(amount)
                 .ok_or(ProgramError::ArithmeticOverflow)?,
-        );
+        )?;
 
         Ok(())
     })

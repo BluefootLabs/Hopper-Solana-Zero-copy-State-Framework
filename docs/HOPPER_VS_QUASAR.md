@@ -64,6 +64,10 @@ pub struct Multisig<'a> {
 }
 ```
 
+Hopper accepts this source shape and lowers fixed multi-byte scalars to wire
+wrappers (`u64` -> `WireU64`) in the emitted layout so typed overlays stay
+alignment-safe.
+
 Hopper lowers that to fixed body plus `[u32 len][compact tail payload]`. The dynamic tail schema is included in the layout fingerprint, so changing a capacity or element type is an ABI change that tools can detect.
 
 For deliberate remaining-bytes semantics, Hopper uses named final tails:

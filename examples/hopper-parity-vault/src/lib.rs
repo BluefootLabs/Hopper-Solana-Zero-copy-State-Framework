@@ -164,12 +164,12 @@ fn process_withdraw_accounts(
         return Err(ProgramError::InsufficientFunds);
     }
 
-    vault.set_lamports(vault_lamports - amount);
+    vault.set_lamports(vault_lamports - amount)?;
     user.set_lamports(
         user.lamports()
             .checked_add(amount)
             .ok_or(ProgramError::ArithmeticOverflow)?,
-    );
+    )?;
 
     Ok(())
 }

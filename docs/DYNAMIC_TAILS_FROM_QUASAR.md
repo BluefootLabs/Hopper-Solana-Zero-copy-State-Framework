@@ -56,6 +56,11 @@ pub struct Multisig<'a> {
 }
 ```
 
+`#[hopper::account]` keeps this authoring shape but lowers fixed multi-byte
+scalars to wire-safe wrappers in the emitted type (`u64` -> `WireU64`).
+This keeps zero-copy overlays alignment-safe while preserving Quasar-style
+source ergonomics.
+
 The macro emits a fixed `Multisig` body, a `MultisigTail`, `ALLOC_SPACE`,
 borrowed `tail_view` helpers, and an owned `tail_editor` for writeback.
 `threshold` remains a zero-copy field. `label`, `signers`, and `weights` move
@@ -82,6 +87,9 @@ pub struct Multisig {
     pub signers: Vec<Address>,
 }
 ```
+
+For explicit systems-mode declarations, prefer `WireU64` / other wire wrappers
+for fixed multi-byte scalar fields.
 
 The explicit spelling is still available when you want a custom `TailCodec` or
 a tail shape beyond the current `dynamic_account` façade:

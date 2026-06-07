@@ -87,6 +87,9 @@ pub fn read_field_pod<'a, T: crate::Pod>(
     // ---------------------------------------------------------------------
     // Bounds and arithmetic overflow checked above. No alignment check
     // needed (Pod's align-1 obligation subsumes it).
+    // SAFETY: `ptr` is within account data bounds, `T: Pod` guarantees
+    // alignment-1 + any-bit-pattern validity, and the returned reference
+    // lifetime is tied to `account`.
     Ok(unsafe { &*(ptr as *const T) })
 }
 

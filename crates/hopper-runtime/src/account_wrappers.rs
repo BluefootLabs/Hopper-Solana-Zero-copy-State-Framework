@@ -504,16 +504,21 @@ pub trait InterfaceAccountLayout: crate::layout::LayoutContract {
     /// Validate this interface account's bytes after owner-set validation.
     ///
     /// Concrete Hopper layouts keep the default: validate and borrow through
-    /// the cross-program loader, which checks discriminator, layout id, and
-    /// size without requiring the owner to be the executing program. Marker
+    /// layout metadata checks (discriminator/version/layout id + required
+    /// length) without requiring the owner to be the executing program. Marker
     /// interface layouts can override this to accept a bounded set of concrete
     /// layout variants while still using the same `InterfaceAccount` wrapper.
     #[inline]
-    fn validate_interface_account(view: &AccountView<'_>) -> Result<(), crate::error::ProgramError>
-    where
-        Self: crate::Pod,
-    {
-        let _ = view.load_cross_program::<Self>()?;
+    fn validate_interface_account(view: &AccountView<'_>) -> Result<(), crate::error::ProgramError> {
+        let info = view
+            .layout_info()
+            .ok_or(crate::error::ProgramError::InvalidAccountData)?;
+        if !info.matches::<Self>() {
+            return Err(crate::error::ProgramError::InvalidAccountData);
+        }
+        if view.data_len() < Self::required_len() {
+            return Err(crate::error::ProgramError::AccountDataTooSmall);
+        }
         Ok(())
     }
 }
@@ -621,7 +626,7 @@ impl<'info, T: InterfaceAccountLayout> Clone for InterfaceAccount<'info, T> {
 }
 impl<'info, T: InterfaceAccountLayout> Copy for InterfaceAccount<'info, T> {}
 
-impl<'info, T: InterfaceAccountLayout + crate::Pod> InterfaceAccount<'info, T> {
+impl<'info, T: InterfaceAccountLayout> InterfaceAccount<'info, T> {
     /// Wrap an already-validated interface-owned layout account.
     #[inline(always)]
     ///
@@ -752,7 +757,7 @@ impl<'info, T: InterfaceAccountLayout + crate::Pod> InterfaceAccount<'info, T> {
     }
 }
 
-impl<'info, T: InterfaceAccountLayout + crate::Pod> core::ops::Deref for InterfaceAccount<'info, T> {
+impl<'info, T: InterfaceAccountLayout> core::ops::Deref for InterfaceAccount<'info, T> {
     type Target = AccountView<'info>;
 
     #[inline(always)]

@@ -26,6 +26,10 @@ pub struct Multisig<'a> {
 }
 ```
 
+The `#[hopper::account]` macro lowers fixed multi-byte scalars to wire-safe
+wrappers in the emitted fixed-body type (`u64` -> `WireU64`) so typed overlays
+remain alignment-safe.
+
 The generated Hopper layout preserves a zero-copy fixed body and stores variable bytes in the account tail. That lets hot fixed fields stay predictable while string and vector payloads remain bounded, validated, and schema-visible.
 
 ## Deliberate compact-tail difference

@@ -753,6 +753,8 @@ mod tests {
     ) -> (std::vec::Vec<u8>, AccountView<'static>) {
         let mut backing = std::vec![0u8; RuntimeAccount::SIZE + data.len()];
         let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
+        // SAFETY: Test helper writes a valid RuntimeAccount header and payload
+        // into owned backing memory that outlives the returned AccountView.
         unsafe {
             raw.write(RuntimeAccount {
                 borrow_state: NOT_BORROWED,
@@ -768,6 +770,7 @@ mod tests {
             let data_ptr = backing.as_mut_ptr().add(RuntimeAccount::SIZE);
             core::ptr::copy_nonoverlapping(data.as_ptr(), data_ptr, data.len());
         }
+        // SAFETY: `raw` points to the initialized RuntimeAccount header above.
         let backend = unsafe { NativeAccountView::new_unchecked(raw) };
         (backing, AccountView::from_backend(backend))
     }

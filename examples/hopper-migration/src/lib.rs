@@ -269,13 +269,13 @@ fn process_deposit_v2(
         dep_lamports
             .checked_sub(amount)
             .ok_or(ProgramError::InsufficientFunds)?,
-    );
+    )?;
     let vault_lamports = vault_account.lamports();
     vault_account.set_lamports(
         vault_lamports
             .checked_add(amount)
             .ok_or(ProgramError::ArithmeticOverflow)?,
-    );
+    )?;
 
     // Update balance and last_deposit
     let new_balance = v

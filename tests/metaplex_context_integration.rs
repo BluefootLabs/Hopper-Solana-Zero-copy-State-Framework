@@ -19,10 +19,10 @@ use hopper::prelude::*;
 )]
 pub struct MintNft {
     #[account(signer, mut)]
-    pub authority: AccountView,
+    pub authority: AccountView<'static>,
 
     #[account(mut)]
-    pub mint: AccountView,
+    pub mint: AccountView<'static>,
 
     #[account(
         metadata::mint = mint,
@@ -36,7 +36,7 @@ pub struct MintNft {
         metadata::seller_fee_basis_points = _sfbp,
         metadata::is_mutable = true,
     )]
-    pub metadata: AccountView,
+    pub metadata: AccountView<'static>,
 
     #[account(
         master_edition::mint = mint,
@@ -48,10 +48,10 @@ pub struct MintNft {
         master_edition::system_program = system_program,
         master_edition::max_supply = _max_supply,
     )]
-    pub master_edition: AccountView,
+    pub master_edition: AccountView<'static>,
 
-    pub token_program: AccountView,
-    pub system_program: AccountView,
+    pub token_program: AccountView<'static>,
+    pub system_program: AccountView<'static>,
 }
 
 #[test]

@@ -212,7 +212,7 @@ mod tests {
         owner: [u8; 32],
         is_writable: bool,
         is_signer: bool,
-    ) -> (std::vec::Vec<u8>, AccountView) {
+    ) -> (std::vec::Vec<u8>, AccountView<'static>) {
         let mut backing = std::vec![0u8; RuntimeAccount::SIZE + data_len];
         let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
         // SAFETY: The test owns `backing`, writes one valid RuntimeAccount header,
@@ -238,7 +238,11 @@ mod tests {
         (backing, view)
     }
 
-    fn make_account(data_len: usize, lamports: u64, seed: u8) -> (std::vec::Vec<u8>, AccountView) {
+    fn make_account(
+        data_len: usize,
+        lamports: u64,
+        seed: u8,
+    ) -> (std::vec::Vec<u8>, AccountView<'static>) {
         make_account_with_flags(data_len, lamports, seed, PROGRAM_BYTES, true, true)
     }
 

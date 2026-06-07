@@ -144,13 +144,13 @@ impl<'info> Withdraw<'info> {
                 .lamports()
                 .checked_sub(amount)
                 .ok_or(ProgramError::InsufficientFunds)?,
-        );
+        )?;
         authority.set_lamports(
             authority
                 .lamports()
                 .checked_add(amount)
                 .ok_or(ProgramError::ArithmeticOverflow)?,
-        );
+        )?;
 
         Ok(())
     }
