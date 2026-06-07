@@ -80,15 +80,7 @@ pub mod __sealed {
     // via `ForeignLens::field::<T, OFFSET>` or equivalent paths get
     // `ZeroCopy` for free.
     unsafe impl HopperZeroCopySealed for u8 {}
-    unsafe impl HopperZeroCopySealed for u16 {}
-    unsafe impl HopperZeroCopySealed for u32 {}
-    unsafe impl HopperZeroCopySealed for u64 {}
-    unsafe impl HopperZeroCopySealed for u128 {}
     unsafe impl HopperZeroCopySealed for i8 {}
-    unsafe impl HopperZeroCopySealed for i16 {}
-    unsafe impl HopperZeroCopySealed for i32 {}
-    unsafe impl HopperZeroCopySealed for i64 {}
-    unsafe impl HopperZeroCopySealed for i128 {}
     unsafe impl<const N: usize> HopperZeroCopySealed for [u8; N] {}
     unsafe impl HopperZeroCopySealed for () {}
 }
@@ -209,12 +201,12 @@ mod tests {
     #[test]
     fn primitives_are_zero_copy_and_wire() {
         require_zero_copy::<u8>();
-        require_zero_copy::<u64>();
+        require_zero_copy::<i8>();
         require_zero_copy::<[u8; 32]>();
         require_wire::<u8>();
-        require_wire::<u64>();
+        require_wire::<i8>();
         require_wire::<[u8; 32]>();
-        assert_eq!(<u64 as WireLayout>::WIRE_SIZE, 8);
+        assert_eq!(<i8 as WireLayout>::WIRE_SIZE, 1);
         assert_eq!(<[u8; 32] as WireLayout>::WIRE_SIZE, 32);
     }
 

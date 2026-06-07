@@ -86,8 +86,8 @@
 //! ```ignore
 //! # use hopper_runtime::{AccountView, segment_borrow::SegmentBorrowRegistry};
 //! # fn example(account: &AccountView, borrows: &mut SegmentBorrowRegistry) {
-//! let _: Result<hopper_runtime::SegRef<'_, u64>, _> =
-//!     account.segment_ref::<u64>(borrows, 16, 8);
+//! let _: Result<hopper_runtime::SegRef<'_, [u8; 8]>, _> =
+//!     account.segment_ref::<[u8; 8]>(borrows, 16, 8);
 //! # }
 //! ```
 //!
@@ -111,15 +111,7 @@ mod tests {
     #[test]
     fn primitives_are_pod() {
         assert_pod::<u8>();
-        assert_pod::<u16>();
-        assert_pod::<u32>();
-        assert_pod::<u64>();
-        assert_pod::<u128>();
         assert_pod::<i8>();
-        assert_pod::<i16>();
-        assert_pod::<i32>();
-        assert_pod::<i64>();
-        assert_pod::<i128>();
         assert_pod::<[u8; 32]>();
     }
 

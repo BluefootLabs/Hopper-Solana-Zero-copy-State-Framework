@@ -146,6 +146,7 @@ mod tests {
             data_len: 8,
             actual_len: 8,
         };
-        assert_eq!(snapshot.read_pod::<u64>().unwrap(), 7);
+        let raw = snapshot.read_pod::<[u8; 8]>().unwrap();
+        assert_eq!(u64::from_le_bytes(raw), 7);
     }
 }

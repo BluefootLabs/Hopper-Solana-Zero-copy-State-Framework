@@ -85,20 +85,35 @@ pub trait DecodeInstructionArg<'a>: Sized {
     fn decode(decoder: &mut Decoder<'a>) -> Result<Self, ProgramError>;
 }
 
-macro_rules! impl_decode_copy {
+impl<'a> DecodeInstructionArg<'a> for u8 {
+    #[inline(always)]
+    fn decode(decoder: &mut Decoder<'a>) -> Result<Self, ProgramError> {
+        decoder.read_copy::<Self>()
+    }
+}
+
+impl<'a> DecodeInstructionArg<'a> for i8 {
+    #[inline(always)]
+    fn decode(decoder: &mut Decoder<'a>) -> Result<Self, ProgramError> {
+        decoder.read_copy::<Self>()
+    }
+}
+
+macro_rules! impl_decode_le {
     ($($ty:ty),* $(,)?) => {
         $(
             impl<'a> DecodeInstructionArg<'a> for $ty {
                 #[inline(always)]
                 fn decode(decoder: &mut Decoder<'a>) -> Result<Self, ProgramError> {
-                    decoder.read_copy::<Self>()
+                    let bytes = decoder.read_array::<{ core::mem::size_of::<$ty>() }>()?;
+                    Ok(<$ty>::from_le_bytes(bytes))
                 }
             }
         )*
     };
 }
 
-impl_decode_copy!(u8, u16, u32, u64, u128, i8, i16, i32, i64, i128);
+impl_decode_le!(u16, u32, u64, u128, i16, i32, i64, i128);
 
 impl<'a> DecodeInstructionArg<'a> for bool {
     #[inline]

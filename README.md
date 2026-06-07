@@ -221,11 +221,16 @@ For variable-length account data, use Quasar-style bounded fields directly in
 ```ignore
 #[hopper::account(discriminator = 10, version = 1)]
 pub struct Multisig<'a> {
-  pub threshold: u64,
+  pub threshold: hopper::prelude::WireU64,
   pub label: String<'a, 32>,
   pub signers: Vec<'a, Address, 10>,
 }
 ```
+
+Hopper's typed zero-copy overlays require alignment-1 `Pod` types. Use
+`WireU64`/`WireI64`/`WireU128` (and other wire wrappers) for multi-byte scalar
+fields in account layouts; native `u64`/`i64`/`u128` are intentionally rejected
+for typed overlay APIs.
 
 The source stays pretty, but the wire truth stays explicit: fixed body, `u32`
 tail length, compact tail payload. `Address` / `Pubkey` vectors keep the

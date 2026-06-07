@@ -1202,7 +1202,7 @@ mod tests {
     use hopper_native::{
         AccountView as NativeAccountView, Address as NativeAddress, RuntimeAccount, NOT_BORROWED,
     };
-    fn make_account(owner: Address, data: &[u8]) -> (std::vec::Vec<u8>, AccountView) {
+    fn make_account(owner: Address, data: &[u8]) -> (std::vec::Vec<u8>, AccountView<'static>) {
         let mut backing = std::vec![0u8; RuntimeAccount::SIZE + data.len()];
         let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
         unsafe {
@@ -1400,8 +1400,8 @@ mod tests {
     ) -> (
         std::vec::Vec<u8>,
         std::vec::Vec<u8>,
-        crate::account::AccountView,
-        crate::account::AccountView,
+        crate::account::AccountView<'static>,
+        crate::account::AccountView<'static>,
     ) {
         use hopper_native::{
             AccountView as NativeAccountView, Address as NativeAddress, RuntimeAccount,
@@ -1526,7 +1526,7 @@ mod tests {
     fn make_token_with_mint_and_owner(
         mint_bytes: [u8; 32],
         owner_bytes: [u8; 32],
-    ) -> (std::vec::Vec<u8>, crate::account::AccountView) {
+    ) -> (std::vec::Vec<u8>, crate::account::AccountView<'static>) {
         use hopper_native::{
             AccountView as NativeAccountView, Address as NativeAddress, RuntimeAccount,
             NOT_BORROWED,
@@ -1564,7 +1564,7 @@ mod tests {
     fn make_mint_with_authority_decimals(
         mint_authority: [u8; 32],
         decimals: u8,
-    ) -> (std::vec::Vec<u8>, crate::account::AccountView) {
+    ) -> (std::vec::Vec<u8>, crate::account::AccountView<'static>) {
         use hopper_native::{
             AccountView as NativeAccountView, Address as NativeAddress, RuntimeAccount,
             NOT_BORROWED,

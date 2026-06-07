@@ -1676,14 +1676,18 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                     if amount == 0 {
                         return Ok(0);
                     }
-                    src.try_borrow_mut_lamports()?
-                        .checked_sub(amount)
-                        .map(|v| *src.try_borrow_mut_lamports().unwrap() = v)
-                        .ok_or(::hopper::__runtime::ProgramError::ArithmeticOverflow)?;
-                    let dst_lam = dst.try_borrow_mut_lamports()?;
-                    *dst_lam = dst_lam
-                        .checked_add(amount)
-                        .ok_or(::hopper::__runtime::ProgramError::ArithmeticOverflow)?;
+                    {
+                        let mut src_lamports = src.try_borrow_mut_lamports()?;
+                        *src_lamports = src_lamports
+                            .checked_sub(amount)
+                            .ok_or(::hopper::__runtime::ProgramError::ArithmeticOverflow)?;
+                    }
+                    {
+                        let mut dst_lamports = dst.try_borrow_mut_lamports()?;
+                        *dst_lamports = dst_lamports
+                            .checked_add(amount)
+                            .ok_or(::hopper::__runtime::ProgramError::ArithmeticOverflow)?;
+                    }
                     Ok(amount)
                 }
             });

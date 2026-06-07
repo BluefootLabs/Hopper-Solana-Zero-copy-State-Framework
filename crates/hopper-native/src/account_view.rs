@@ -27,9 +27,11 @@ pub struct AccountView<'info> {
     _marker: PhantomData<&'info RuntimeAccount>,
 }
 
-// SAFETY: AccountView is safe to send between threads in test contexts.
-// On BPF there is only one thread.
+// SAFETY: On Solana execution is single-threaded. Host tools and fuzzers
+// should not rely on cross-thread sharing of raw account pointers.
+#[cfg(target_os = "solana")]
 unsafe impl<'info> Send for AccountView<'info> {}
+#[cfg(target_os = "solana")]
 unsafe impl<'info> Sync for AccountView<'info> {}
 
 impl<'info> AccountView<'info> {

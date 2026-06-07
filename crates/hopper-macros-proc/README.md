@@ -58,7 +58,7 @@ them into Hopper's fixed-body + compact-tail layout:
 ```rust
 #[hopper::account(discriminator = 7, version = 1)]
 pub struct Multisig<'a> {
-    pub threshold: u64,
+    pub threshold: hopper::prelude::WireU64,
     pub label: String<'a, 32>,
     pub signers: Vec<'a, Address, 10>,
     pub weights: Vec<'a, u16, 10>,
@@ -76,7 +76,7 @@ fixed fields plus bounded tail fields:
 ```rust
 #[hopper::dynamic_account(disc = 7, version = 1)]
 pub struct Multisig {
-    pub threshold: u64,
+    pub threshold: hopper::prelude::WireU64,
 
     #[tail(string<32>)]
     pub label: String,

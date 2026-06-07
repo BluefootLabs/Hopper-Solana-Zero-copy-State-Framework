@@ -269,6 +269,10 @@ pub unsafe fn scan_instruction_frame(input: *mut u8) -> RawInstructionFrame {
             // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             scan = unsafe { scan.add(step) };
         } else {
+            let duplicate_of = marker as usize;
+            if duplicate_of >= slot {
+                malformed_duplicate_marker(marker, slot);
+            }
             scan = unsafe { scan.add(8) };
         }
         slot += 1;

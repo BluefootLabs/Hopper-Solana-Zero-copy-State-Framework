@@ -71,15 +71,7 @@ pub unsafe trait Pod: Copy + Sized {}
 // impls for the same primitive types.
 
 unsafe impl Pod for u8 {}
-unsafe impl Pod for u16 {}
-unsafe impl Pod for u32 {}
-unsafe impl Pod for u64 {}
-unsafe impl Pod for u128 {}
 unsafe impl Pod for i8 {}
-unsafe impl Pod for i16 {}
-unsafe impl Pod for i32 {}
-unsafe impl Pod for i64 {}
-unsafe impl Pod for i128 {}
 unsafe impl<const N: usize> Pod for [u8; N] {}
 unsafe impl Pod for () {}
 
@@ -92,8 +84,7 @@ mod tests {
     #[test]
     fn primitives_are_pod() {
         require::<u8>();
-        require::<u64>();
-        require::<i128>();
+        require::<i8>();
         require::<[u8; 32]>();
     }
 

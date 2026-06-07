@@ -227,7 +227,10 @@ impl<'a> Context<'a> {
     /// Hopper header, validates the data length, and projects the typed
     /// view in one inlined call. no extra cost over the spelled-out form.
     #[inline(always)]
-    pub fn load<T: LayoutContract>(&self, index: usize) -> Result<crate::Ref<'_, T>, ProgramError> {
+    pub fn load<T: LayoutContract + crate::Pod>(
+        &self,
+        index: usize,
+    ) -> Result<crate::Ref<'_, T>, ProgramError> {
         self.account(index)?.load::<T>()
     }
 
@@ -237,7 +240,7 @@ impl<'a> Context<'a> {
     /// returned guard holds the account-level exclusive borrow until
     /// it drops.
     #[inline(always)]
-    pub fn load_mut<T: LayoutContract>(
+    pub fn load_mut<T: LayoutContract + crate::Pod>(
         &self,
         index: usize,
     ) -> Result<crate::RefMut<'_, T>, ProgramError> {
@@ -249,7 +252,7 @@ impl<'a> Context<'a> {
     /// Use this when reading an account whose owner is another program but
     /// whose layout is published as a Hopper layout contract.
     #[inline(always)]
-    pub fn load_cross_program<T: LayoutContract>(
+    pub fn load_cross_program<T: LayoutContract + crate::Pod>(
         &self,
         index: usize,
     ) -> Result<crate::Ref<'_, T>, ProgramError> {

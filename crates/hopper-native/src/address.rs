@@ -95,20 +95,10 @@ impl core::fmt::Debug for Address {
     }
 }
 
-/// Fast address equality using 4 x u64 comparison.
+/// Address equality over raw bytes.
 #[inline(always)]
 pub fn address_eq(a: &Address, b: &Address) -> bool {
-    let a_ptr = a.0.as_ptr() as *const u64;
-    let b_ptr = b.0.as_ptr() as *const u64;
-    // SAFETY: Address is 32 bytes = 4 x u64. The #[repr(transparent)]
-    // layout guarantees the bytes are contiguous. We compare as u64
-    // for fewer instructions.
-    unsafe {
-        *a_ptr == *b_ptr
-            && *a_ptr.add(1) == *b_ptr.add(1)
-            && *a_ptr.add(2) == *b_ptr.add(2)
-            && *a_ptr.add(3) == *b_ptr.add(3)
-    }
+    a.0 == b.0
 }
 
 /// Compile-time base58 address literal.

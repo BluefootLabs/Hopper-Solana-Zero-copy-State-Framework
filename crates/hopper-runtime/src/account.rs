@@ -48,9 +48,11 @@ const _: () = {
     assert!(!core::mem::needs_drop::<AccountView<'static>>());
 };
 
-// SAFETY: AccountView is safe to send between threads (BPF is single-threaded;
-// tests may need Send/Sync).
+// SAFETY: On Solana execution is single-threaded. Host tools and fuzzers
+// should not rely on cross-thread sharing of raw account pointers.
+#[cfg(target_os = "solana")]
 unsafe impl<'info> Send for AccountView<'info> {}
+#[cfg(target_os = "solana")]
 unsafe impl<'info> Sync for AccountView<'info> {}
 
 impl<'info> Clone for AccountView<'info> {
@@ -166,9 +168,8 @@ impl<'info> AccountView<'info> {
 
     /// Set the lamport balance.
     #[inline(always)]
-    pub fn set_lamports(&self, lamports: u64) {
+    pub fn set_lamports(&self, lamports: u64) -> ProgramResult {
         self.try_set_lamports(lamports)
-            .expect("lamports mutation failed");
     }
 
     // ── Borrow tracking ─────────────────────────────────────────────
@@ -435,7 +436,7 @@ impl<'info> AccountView<'info> {
     /// let vault = account.load::<Vault>()?;
     /// ```
     #[inline(always)]
-    pub fn load<T: LayoutContract>(&self) -> Result<Ref<'_, T>, ProgramError> {
+    pub fn load<T: LayoutContract + crate::Pod>(&self) -> Result<Ref<'_, T>, ProgramError> {
         let data = self.try_borrow()?;
         T::validate_header(&data)?;
         if data.len() < T::required_len() {
@@ -455,7 +456,7 @@ impl<'info> AccountView<'info> {
     #[inline]
     pub fn with<T, R, F>(&self, f: F) -> Result<R, ProgramError>
     where
-        T: LayoutContract,
+        T: LayoutContract + crate::Pod,
         F: FnOnce(&T) -> Result<R, ProgramError>,
     {
         let account = self.load::<T>()?;
@@ -474,7 +475,7 @@ impl<'info> AccountView<'info> {
     /// vault.balance = vault.balance.checked_add(amount)?;
     /// ```
     #[inline(always)]
-    pub fn load_mut<T: LayoutContract>(&self) -> Result<RefMut<'_, T>, ProgramError> {
+    pub fn load_mut<T: LayoutContract + crate::Pod>(&self) -> Result<RefMut<'_, T>, ProgramError> {
         let mut data = self.try_borrow_mut()?;
         T::validate_header(&data)?;
         if data.len() < T::required_len() {
@@ -493,7 +494,7 @@ impl<'info> AccountView<'info> {
     #[inline]
     pub fn with_mut<T, R, F>(&self, f: F) -> Result<R, ProgramError>
     where
-        T: LayoutContract,
+        T: LayoutContract + crate::Pod,
         F: FnOnce(&mut T) -> Result<R, ProgramError>,
     {
         let mut account = self.load_mut::<T>()?;
@@ -556,7 +557,7 @@ impl<'info> AccountView<'info> {
     /// let other_vault = foreign_account.load_cross_program::<OtherVault>()?;
     /// ```
     #[inline(always)]
-    pub fn load_cross_program<T: LayoutContract>(&self) -> Result<Ref<'_, T>, ProgramError> {
+    pub fn load_cross_program<T: LayoutContract + crate::Pod>(&self) -> Result<Ref<'_, T>, ProgramError> {
         let data = self.try_borrow()?;
         T::validate_header(&data)?;
         // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
@@ -1115,23 +1116,37 @@ mod tests {
     };
 
     #[repr(C)]
-    #[derive(Clone, Copy, Debug, Default)]
+    #[derive(Clone, Copy, Debug, Default, bytemuck::Pod, bytemuck::Zeroable)]
     struct TestLayout {
-        a: u64,
-        b: u64,
+        a: [u8; 8],
+        b: [u8; 8],
     }
 
     #[repr(C)]
-    #[derive(Clone, Copy, Debug)]
+    #[derive(Clone, Copy, Debug, bytemuck::Pod, bytemuck::Zeroable)]
     struct HeaderLayout {
-        header: HopperHeader,
-        amount: u64,
+        header: [u8; HopperHeader::SIZE],
+        amount: [u8; 8],
     }
 
     #[repr(C)]
-    #[derive(Clone, Copy, Debug, Default)]
+    #[derive(Clone, Copy, Debug, Default, bytemuck::Pod, bytemuck::Zeroable)]
     struct EpochTwoLayout {
-        amount: u64,
+        amount: [u8; 8],
+    }
+
+    unsafe impl crate::Pod for TestLayout {}
+    unsafe impl crate::Pod for HeaderLayout {}
+    unsafe impl crate::Pod for EpochTwoLayout {}
+
+    #[inline(always)]
+    fn le_u64(v: u64) -> [u8; 8] {
+        v.to_le_bytes()
+    }
+
+    #[inline(always)]
+    fn from_le_u64(bytes: [u8; 8]) -> u64 {
+        u64::from_le_bytes(bytes)
     }
 
     impl crate::field_map::FieldMap for TestLayout {
@@ -1181,7 +1196,10 @@ mod tests {
         const SCHEMA_EPOCH: u32 = 2;
     }
 
-    fn make_account(total_data_len: usize, address_byte: u8) -> (std::vec::Vec<u8>, AccountView) {
+    fn make_account(
+        total_data_len: usize,
+        address_byte: u8,
+    ) -> (std::vec::Vec<u8>, AccountView<'static>) {
         let mut backing = std::vec![0u8; RuntimeAccount::SIZE + total_data_len];
         let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
         // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
@@ -1219,8 +1237,8 @@ mod tests {
 
         let first_ptr = {
             let first = account.load::<TestLayout>().unwrap();
-            assert_eq!(first.a, 10);
-            assert_eq!(first.b, 20);
+            assert_eq!(from_le_u64(first.a), 10);
+            assert_eq!(from_le_u64(first.b), 20);
             first.as_ptr() as usize
         };
 
@@ -1231,13 +1249,13 @@ mod tests {
 
         let mut second = account.load_mut::<TestLayout>().unwrap();
         let second_ptr = second.as_mut_ptr() as usize;
-        second.b = 99;
+        second.b = le_u64(99);
         assert_eq!(first_ptr, second_ptr);
         drop(second);
 
         let reread = account.load::<TestLayout>().unwrap();
-        assert_eq!(reread.a, 10);
-        assert_eq!(reread.b, 99);
+        assert_eq!(from_le_u64(reread.a), 10);
+        assert_eq!(from_le_u64(reread.b), 99);
     }
 
     #[test]
@@ -1412,13 +1430,13 @@ mod tests {
 
         {
             let mut layout = account.load_mut::<HeaderLayout>().unwrap();
-            layout.amount = 55;
+            layout.amount = le_u64(55);
         }
 
         let layout = account.load::<HeaderLayout>().unwrap();
-        assert_eq!(layout.header.disc, HeaderLayout::DISC);
-        assert_eq!(layout.header.version, HeaderLayout::VERSION);
-        assert_eq!(layout.amount, 55);
+        assert_eq!(layout.header[0], HeaderLayout::DISC);
+        assert_eq!(layout.header[1], HeaderLayout::VERSION);
+        assert_eq!(from_le_u64(layout.amount), 55);
     }
 
     // ── Cross-path access coordination ──────────────────────────────
@@ -1443,7 +1461,7 @@ mod tests {
 
         // Account-level shared borrow is live, a segment write MUST fail.
         let err = account
-            .segment_mut::<u64>(&mut borrows, crate::layout::HopperHeader::SIZE as u32, 8)
+            .segment_mut::<[u8; 8]>(&mut borrows, crate::layout::HopperHeader::SIZE as u32, 8)
             .unwrap_err();
         assert_eq!(err, ProgramError::AccountBorrowFailed);
     }
@@ -1462,7 +1480,7 @@ mod tests {
         // Exclusive account-level borrow is live, even a segment read
         // must be rejected because the bytes are mutably aliased.
         let err = account
-            .segment_ref::<u64>(&mut borrows, crate::layout::HopperHeader::SIZE as u32, 8)
+            .segment_ref::<[u8; 8]>(&mut borrows, crate::layout::HopperHeader::SIZE as u32, 8)
             .unwrap_err();
         assert_eq!(err, ProgramError::AccountBorrowFailed);
     }
@@ -1519,7 +1537,7 @@ mod tests {
         //    returned `SegRef` owns a RAII lease that releases on drop.
         {
             let _r = account
-                .segment_ref::<u64>(&mut borrows, crate::layout::HopperHeader::SIZE as u32, 8)
+                .segment_ref::<[u8; 8]>(&mut borrows, crate::layout::HopperHeader::SIZE as u32, 8)
                 .unwrap();
             // Guard alive → the borrow checker forbids touching
             // `borrows` directly here; that's the compile-time half of
@@ -1534,7 +1552,7 @@ mod tests {
         //    rest of the instruction.
         assert_eq!(borrows.len(), 0);
         let _w = account
-            .segment_mut::<u64>(&mut borrows, crate::layout::HopperHeader::SIZE as u32, 8)
+            .segment_mut::<[u8; 8]>(&mut borrows, crate::layout::HopperHeader::SIZE as u32, 8)
             .unwrap();
     }
 
@@ -1553,21 +1571,21 @@ mod tests {
         const OFF: u32 = crate::layout::HopperHeader::SIZE as u32;
 
         {
-            let mut first = account.segment_mut::<u64>(&mut borrows, OFF, 8).unwrap();
-            *first = 100;
+            let mut first = account.segment_mut::<[u8; 8]>(&mut borrows, OFF, 8).unwrap();
+            *first = le_u64(100);
         }
         // Lease dropped → registry empty.
         assert_eq!(borrows.len(), 0);
         // Second acquire on the exact same region succeeds; pre-audit
         // this was rejected.
         {
-            let mut second = account.segment_mut::<u64>(&mut borrows, OFF, 8).unwrap();
-            assert_eq!(*second, 100);
-            *second = 200;
+            let mut second = account.segment_mut::<[u8; 8]>(&mut borrows, OFF, 8).unwrap();
+            assert_eq!(from_le_u64(*second), 100);
+            *second = le_u64(200);
         }
         assert_eq!(borrows.len(), 0);
-        let read = account.segment_ref::<u64>(&mut borrows, OFF, 8).unwrap();
-        assert_eq!(*read, 200);
+        let read = account.segment_ref::<[u8; 8]>(&mut borrows, OFF, 8).unwrap();
+        assert_eq!(from_le_u64(*read), 200);
     }
 
     /// Two overlapping writes that are simultaneously alive must still
@@ -1583,7 +1601,7 @@ mod tests {
         let mut borrows = crate::segment_borrow::SegmentBorrowRegistry::new();
         const OFF: u32 = crate::layout::HopperHeader::SIZE as u32;
 
-        let _first = account.segment_mut::<u64>(&mut borrows, OFF, 8).unwrap();
+        let _first = account.segment_mut::<[u8; 8]>(&mut borrows, OFF, 8).unwrap();
         // While `_first` is alive, `&mut borrows` is exclusively
         // re-borrowed by the lease, so the compiler itself forbids a
         // second `segment_mut` call; that's the **strongest** form of
@@ -1604,7 +1622,7 @@ mod tests {
             crate::layout::init_header::<TestLayout>(&mut data).unwrap();
         }
 
-        const A_TYPED: TypedSegment<u64, { crate::layout::HopperHeader::SIZE as u32 }> =
+        const A_TYPED: TypedSegment<[u8; 8], { crate::layout::HopperHeader::SIZE as u32 }> =
             TypedSegment::new();
 
         // Post-audit (RAII leases): a single registry suffices for
@@ -1613,22 +1631,22 @@ mod tests {
         let mut borrows = crate::segment_borrow::SegmentBorrowRegistry::new();
         {
             let mut a = account
-                .segment_mut_typed::<u64, { crate::layout::HopperHeader::SIZE as u32 }>(
+                .segment_mut_typed::<[u8; 8], { crate::layout::HopperHeader::SIZE as u32 }>(
                     &mut borrows,
                     A_TYPED,
                 )
                 .unwrap();
-            *a = 1337;
+            *a = le_u64(1337);
         }
         assert_eq!(borrows.len(), 0);
 
         let read = account
-            .segment_ref_typed::<u64, { crate::layout::HopperHeader::SIZE as u32 }>(
+            .segment_ref_typed::<[u8; 8], { crate::layout::HopperHeader::SIZE as u32 }>(
                 &mut borrows,
                 A_TYPED,
             )
             .unwrap();
-        assert_eq!(*read, 1337);
+        assert_eq!(from_le_u64(*read), 1337);
     }
 
     #[test]
@@ -1648,14 +1666,14 @@ mod tests {
         let mut borrows = crate::segment_borrow::SegmentBorrowRegistry::new();
         {
             let mut a = account
-                .segment_mut_const::<u64>(&mut borrows, A_SEG)
+                .segment_mut_const::<[u8; 8]>(&mut borrows, A_SEG)
                 .unwrap();
-            *a = 7;
+            *a = le_u64(7);
         }
         let read = account
-            .segment_ref::<u64>(&mut borrows, crate::layout::HopperHeader::SIZE as u32, 8)
+            .segment_ref::<[u8; 8]>(&mut borrows, crate::layout::HopperHeader::SIZE as u32, 8)
             .unwrap();
-        assert_eq!(*read, 7);
+        assert_eq!(from_le_u64(*read), 7);
     }
 
     #[test]
@@ -1669,12 +1687,12 @@ mod tests {
         let mut borrows = crate::segment_borrow::SegmentBorrowRegistry::new();
         {
             let mut seg = account
-                .segment_mut::<u64>(&mut borrows, crate::layout::HopperHeader::SIZE as u32, 8)
+                .segment_mut::<[u8; 8]>(&mut borrows, crate::layout::HopperHeader::SIZE as u32, 8)
                 .unwrap();
-            *seg = 42;
+            *seg = le_u64(42);
         }
         // Segment borrow released, load_mut should now succeed.
         let view = account.load::<TestLayout>().unwrap();
-        assert_eq!(view.a, 42);
+        assert_eq!(from_le_u64(view.a), 42);
     }
 }

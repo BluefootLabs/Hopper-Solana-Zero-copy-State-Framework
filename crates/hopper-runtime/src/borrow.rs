@@ -96,8 +96,9 @@ impl<'a> Ref<'a, [u8]> {
     ///
     /// `ptr` must point inside the byte slice that this `Ref<[u8]>`
     /// guards (offset bounds checked by the caller), the pointee must
-    /// be valid `U` for any bit pattern (`U: Pod`-style), and no
-    /// alignment beyond the source slice's may be assumed for `U`. The
+    /// be valid `U` for any bit pattern (`U: Pod`-style), and `ptr`
+    /// must satisfy `U`'s alignment requirements. Hopper's typed access
+    /// APIs enforce this by requiring alignment-1 wire/pod types. The
     /// returned `Ref<U>` inherits the source guard's lifetime, so the
     /// account stays read-borrowed for as long as the typed view lives.
     #[inline(always)]
@@ -273,8 +274,9 @@ impl<'a> RefMut<'a, [u8]> {
     /// # Safety
     ///
     /// Same contract as [`Ref::project`]: `ptr` must point inside the
-    /// byte slice this guard owns, and the pointee must be valid `U`
-    /// for any bit pattern (`U: Pod`-style). The returned `RefMut<U>`
+    /// byte slice this guard owns, the pointee must be valid `U`
+    /// for any bit pattern (`U: Pod`-style), and `ptr` must satisfy
+    /// `U` alignment. The returned `RefMut<U>`
     /// inherits the source guard's lifetime so the account stays
     /// exclusively borrowed for as long as the typed view lives.
     #[inline(always)]

@@ -153,7 +153,7 @@ impl<T: crate::Pod, const OFFSET: u32> TypedSegment<T, OFFSET> {
 // SAFETY: Proof that `TypedSegment` really is zero-sized.
 const _: () = {
     assert!(
-        core::mem::size_of::<TypedSegment<u64, 0>>() == 0,
+        core::mem::size_of::<TypedSegment<[u8; 8], 0>>() == 0,
         "TypedSegment must be zero-sized so it costs nothing to pass around",
     );
 };
@@ -223,7 +223,7 @@ impl<T: crate::Pod, const OFFSET: u32, const ROLE: u8, const POLICY: u8>
 // SAFETY: Field capabilities must also remain ZSTs.
 const _: () = {
     assert!(
-        core::mem::size_of::<FieldCapability<u64, 0, FIELD_ROLE_DATA, 0>>() == 0,
+        core::mem::size_of::<FieldCapability<[u8; 8], 0, FIELD_ROLE_DATA, 0>>() == 0,
         "FieldCapability must be zero-sized",
     );
 };
@@ -234,22 +234,22 @@ mod tests {
 
     #[test]
     fn typed_segment_is_zero_sized() {
-        assert_eq!(core::mem::size_of::<TypedSegment<u64, 16>>(), 0);
+        assert_eq!(core::mem::size_of::<TypedSegment<[u8; 8], 16>>(), 0);
     }
 
     #[test]
     fn typed_segment_offset_and_size_fold() {
-        const S: TypedSegment<u64, 16> = TypedSegment::new();
+        const S: TypedSegment<[u8; 8], 16> = TypedSegment::new();
         // The values come from the type system directly.
-        assert_eq!(TypedSegment::<u64, 16>::offset(), 16);
-        assert_eq!(TypedSegment::<u64, 16>::size(), 8);
-        assert_eq!(TypedSegment::<u64, 16>::end(), 24);
+        assert_eq!(TypedSegment::<[u8; 8], 16>::offset(), 16);
+        assert_eq!(TypedSegment::<[u8; 8], 16>::size(), 8);
+        assert_eq!(TypedSegment::<[u8; 8], 16>::end(), 24);
         let _ = S; // ensure const ctor works
     }
 
     #[test]
     fn typed_segment_lowers_to_runtime_segment() {
-        const S: Segment = TypedSegment::<u64, 16>::as_segment();
+        const S: Segment = TypedSegment::<[u8; 8], 16>::as_segment();
         assert_eq!(S.offset, 16);
         assert_eq!(S.size, 8);
     }

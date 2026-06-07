@@ -750,7 +750,7 @@ mod tests {
         owner: Address,
         signer: bool,
         data: &[u8],
-    ) -> (std::vec::Vec<u8>, AccountView) {
+    ) -> (std::vec::Vec<u8>, AccountView<'static>) {
         let mut backing = std::vec![0u8; RuntimeAccount::SIZE + data.len()];
         let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
         unsafe {

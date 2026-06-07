@@ -1,0 +1,16 @@
+error[E0277]: the trait bound `u64: hopper::prelude::Pod` is not satisfied
+ --> tests/ui/fail/raw_ref_u64_rejected.rs:9:40
+  |
+9 |     let _ = unsafe { account.raw_ref::<u64>() };
+  |                              -------   ^^^ the trait `hopper::prelude::Pod` is not implemented for `u64`
+  |                              |
+  |                              required by a bound introduced by this call
+  |
+  = help: the following other types implement trait `hopper::prelude::Pod`:
+            i8
+            u8
+note: required by a bound in `hopper::prelude::AccountView::<'info>::raw_ref`
+ --> $WORKSPACE/crates/hopper-runtime/src/account.rs
+  |
+  |     pub unsafe fn raw_ref<T: crate::Pod>(&self) -> Result<Ref<'_, T>, ProgramError> {
+  |                              ^^^^^^^^^^ required by this bound in `AccountView::<'info>::raw_ref`

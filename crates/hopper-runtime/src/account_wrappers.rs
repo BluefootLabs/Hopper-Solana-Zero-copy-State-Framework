@@ -101,19 +101,19 @@ impl<'info> core::ops::Deref for Signer<'info> {
 /// and wire fingerprint). Field access is through `get()` / `get_mut()`
 /// which return typed references into the borrowed account data.
 #[repr(transparent)]
-pub struct Account<'info, T: crate::layout::LayoutContract> {
+pub struct Account<'info, T: crate::layout::LayoutContract + crate::Pod> {
     inner: &'info AccountView<'info>,
     _ty: PhantomData<T>,
 }
 
-impl<'info, T: crate::layout::LayoutContract> Clone for Account<'info, T> {
+impl<'info, T: crate::layout::LayoutContract + crate::Pod> Clone for Account<'info, T> {
     fn clone(&self) -> Self {
         *self
     }
 }
-impl<'info, T: crate::layout::LayoutContract> Copy for Account<'info, T> {}
+impl<'info, T: crate::layout::LayoutContract + crate::Pod> Copy for Account<'info, T> {}
 
-impl<'info, T: crate::layout::LayoutContract> Account<'info, T> {
+impl<'info, T: crate::layout::LayoutContract + crate::Pod> Account<'info, T> {
     /// Wrap an already-validated `AccountView`. Unsafe because the
     /// caller must have verified owner + layout header.
     #[inline(always)]
@@ -208,7 +208,7 @@ impl<'info, T: crate::layout::LayoutContract> Account<'info, T> {
     }
 }
 
-impl<'info, T: crate::layout::LayoutContract> core::ops::Deref for Account<'info, T> {
+impl<'info, T: crate::layout::LayoutContract + crate::Pod> core::ops::Deref for Account<'info, T> {
     type Target = AccountView<'info>;
 
     #[inline(always)]
@@ -226,19 +226,19 @@ impl<'info, T: crate::layout::LayoutContract> core::ops::Deref for Account<'info
 /// `init_{field}()` lifecycle helper that actually performs the System Program
 /// CPI.
 #[repr(transparent)]
-pub struct InitAccount<'info, T: crate::layout::LayoutContract> {
+pub struct InitAccount<'info, T: crate::layout::LayoutContract + crate::Pod> {
     inner: &'info AccountView<'info>,
     _ty: PhantomData<T>,
 }
 
-impl<'info, T: crate::layout::LayoutContract> Clone for InitAccount<'info, T> {
+impl<'info, T: crate::layout::LayoutContract + crate::Pod> Clone for InitAccount<'info, T> {
     fn clone(&self) -> Self {
         *self
     }
 }
-impl<'info, T: crate::layout::LayoutContract> Copy for InitAccount<'info, T> {}
+impl<'info, T: crate::layout::LayoutContract + crate::Pod> Copy for InitAccount<'info, T> {}
 
-impl<'info, T: crate::layout::LayoutContract> InitAccount<'info, T> {
+impl<'info, T: crate::layout::LayoutContract + crate::Pod> InitAccount<'info, T> {
     /// Wrap an `AccountView` slot that will be created + initialised
     /// by a lifecycle helper later in this instruction. Unsafe
     /// because no state invariants hold for the account at wrap time.
@@ -300,7 +300,7 @@ impl<'info, T: crate::layout::LayoutContract> InitAccount<'info, T> {
     }
 }
 
-impl<'info, T: crate::layout::LayoutContract> core::ops::Deref for InitAccount<'info, T> {
+impl<'info, T: crate::layout::LayoutContract + crate::Pod> core::ops::Deref for InitAccount<'info, T> {
     type Target = AccountView<'info>;
 
     #[inline(always)]
@@ -509,7 +509,10 @@ pub trait InterfaceAccountLayout: crate::layout::LayoutContract {
     /// interface layouts can override this to accept a bounded set of concrete
     /// layout variants while still using the same `InterfaceAccount` wrapper.
     #[inline]
-    fn validate_interface_account(view: &AccountView<'_>) -> Result<(), crate::error::ProgramError> {
+    fn validate_interface_account(view: &AccountView<'_>) -> Result<(), crate::error::ProgramError>
+    where
+        Self: crate::Pod,
+    {
         let _ = view.load_cross_program::<Self>()?;
         Ok(())
     }
@@ -618,7 +621,7 @@ impl<'info, T: InterfaceAccountLayout> Clone for InterfaceAccount<'info, T> {
 }
 impl<'info, T: InterfaceAccountLayout> Copy for InterfaceAccount<'info, T> {}
 
-impl<'info, T: InterfaceAccountLayout> InterfaceAccount<'info, T> {
+impl<'info, T: InterfaceAccountLayout + crate::Pod> InterfaceAccount<'info, T> {
     /// Wrap an already-validated interface-owned layout account.
     #[inline(always)]
     ///
@@ -666,13 +669,19 @@ impl<'info, T: InterfaceAccountLayout> InterfaceAccount<'info, T> {
 
     /// Borrow the cross-program layout for reading.
     #[inline(always)]
-    pub fn load(&self) -> Result<crate::borrow::Ref<'_, T>, crate::error::ProgramError> {
+    pub fn load(&self) -> Result<crate::borrow::Ref<'_, T>, crate::error::ProgramError>
+    where
+        T: crate::Pod,
+    {
         self.inner.load_cross_program::<T>()
     }
 
     /// Friendly alias for [`Self::load`].
     #[inline(always)]
-    pub fn get(&self) -> Result<crate::borrow::Ref<'_, T>, crate::error::ProgramError> {
+    pub fn get(&self) -> Result<crate::borrow::Ref<'_, T>, crate::error::ProgramError>
+    where
+        T: crate::Pod,
+    {
         self.load()
     }
 
@@ -680,6 +689,7 @@ impl<'info, T: InterfaceAccountLayout> InterfaceAccount<'info, T> {
     #[inline]
     pub fn with<R, F>(&self, f: F) -> Result<R, crate::error::ProgramError>
     where
+        T: crate::Pod,
         F: FnOnce(&T) -> Result<R, crate::error::ProgramError>,
     {
         let account = self.load()?;
@@ -695,7 +705,7 @@ impl<'info, T: InterfaceAccountLayout> InterfaceAccount<'info, T> {
     #[inline(always)]
     pub fn load_as<U>(&self) -> Result<crate::borrow::Ref<'_, U>, crate::error::ProgramError>
     where
-        U: InterfaceAccountLayout<Interface = <T as InterfaceAccountLayout>::Interface>,
+        U: InterfaceAccountLayout<Interface = <T as InterfaceAccountLayout>::Interface> + crate::Pod,
     {
         self.inner.load_cross_program::<U>()
     }
@@ -704,7 +714,7 @@ impl<'info, T: InterfaceAccountLayout> InterfaceAccount<'info, T> {
     #[inline(always)]
     pub fn get_as<U>(&self) -> Result<crate::borrow::Ref<'_, U>, crate::error::ProgramError>
     where
-        U: InterfaceAccountLayout<Interface = <T as InterfaceAccountLayout>::Interface>,
+        U: InterfaceAccountLayout<Interface = <T as InterfaceAccountLayout>::Interface> + crate::Pod,
     {
         self.load_as::<U>()
     }
@@ -713,7 +723,7 @@ impl<'info, T: InterfaceAccountLayout> InterfaceAccount<'info, T> {
     #[inline]
     pub fn with_as<U, R, F>(&self, f: F) -> Result<R, crate::error::ProgramError>
     where
-        U: InterfaceAccountLayout<Interface = <T as InterfaceAccountLayout>::Interface>,
+        U: InterfaceAccountLayout<Interface = <T as InterfaceAccountLayout>::Interface> + crate::Pod,
         F: FnOnce(&U) -> Result<R, crate::error::ProgramError>,
     {
         let account = self.load_as::<U>()?;
@@ -725,7 +735,7 @@ impl<'info, T: InterfaceAccountLayout> InterfaceAccount<'info, T> {
     #[inline(always)]
     pub fn is<U>(&self) -> bool
     where
-        U: InterfaceAccountLayout<Interface = <T as InterfaceAccountLayout>::Interface>,
+        U: InterfaceAccountLayout<Interface = <T as InterfaceAccountLayout>::Interface> + crate::Pod,
     {
         self.inner
             .layout_info()
@@ -742,7 +752,7 @@ impl<'info, T: InterfaceAccountLayout> InterfaceAccount<'info, T> {
     }
 }
 
-impl<'info, T: InterfaceAccountLayout> core::ops::Deref for InterfaceAccount<'info, T> {
+impl<'info, T: InterfaceAccountLayout + crate::Pod> core::ops::Deref for InterfaceAccount<'info, T> {
     type Target = AccountView<'info>;
 
     #[inline(always)]
@@ -808,10 +818,12 @@ mod resolver_tests {
     }
 
     #[repr(C)]
-    #[derive(Clone, Copy, Debug, Default)]
+    #[derive(Clone, Copy, Debug, Default, bytemuck::Pod, bytemuck::Zeroable)]
     struct VaultV1 {
-        balance: u64,
+        balance: [u8; 8],
     }
+
+    unsafe impl crate::Pod for VaultV1 {}
 
     impl crate::field_map::FieldMap for VaultV1 {
         const FIELDS: &'static [crate::field_map::FieldInfo] = &[crate::field_map::FieldInfo::new(
@@ -833,11 +845,13 @@ mod resolver_tests {
     }
 
     #[repr(C)]
-    #[derive(Clone, Copy, Debug, Default)]
+    #[derive(Clone, Copy, Debug, Default, bytemuck::Pod, bytemuck::Zeroable)]
     struct VaultV2 {
-        balance: u64,
-        bump: u64,
+        balance: [u8; 8],
+        bump: [u8; 8],
     }
+
+    unsafe impl crate::Pod for VaultV2 {}
 
     impl crate::field_map::FieldMap for VaultV2 {
         const FIELDS: &'static [crate::field_map::FieldInfo] = &[
@@ -857,8 +871,13 @@ mod resolver_tests {
         type Interface = VaultPrograms;
     }
 
-    #[derive(Clone, Copy, Debug, Default)]
-    struct AnyVault;
+    #[repr(C)]
+    #[derive(Clone, Copy, Debug, Default, bytemuck::Pod, bytemuck::Zeroable)]
+    struct AnyVault {
+        _reserved: [u8; 1],
+    }
+
+    unsafe impl crate::Pod for AnyVault {}
 
     impl crate::field_map::FieldMap for AnyVault {
         const FIELDS: &'static [crate::field_map::FieldInfo] = &[];
@@ -945,7 +964,7 @@ mod resolver_tests {
         let v1_vault = InterfaceAccount::<AnyVault>::try_new(&v1_account).unwrap();
         match v1_vault.resolve().unwrap() {
             ResolvedVault::V1(v1) => {
-                assert_eq!(v1.balance, 300);
+                assert_eq!(u64::from_le_bytes(v1.balance), 300);
             }
             ResolvedVault::V2(_) => panic!("expected v1"),
         }
@@ -965,14 +984,14 @@ mod resolver_tests {
 
         match vault.resolve().unwrap() {
             ResolvedVault::V2(v2) => {
-                assert_eq!(v2.balance, 700);
-                assert_eq!(v2.bump, 9);
+                assert_eq!(u64::from_le_bytes(v2.balance), 700);
+                assert_eq!(u64::from_le_bytes(v2.bump), 9);
             }
             ResolvedVault::V1(_) => panic!("expected v2"),
         }
 
         let v2 = vault.load_as::<VaultV2>().unwrap();
-        assert_eq!(v2.balance, 700);
+        assert_eq!(u64::from_le_bytes(v2.balance), 700);
         assert!(vault.get_as::<VaultV1>().is_err());
     }
 
