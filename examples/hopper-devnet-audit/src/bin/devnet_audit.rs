@@ -288,7 +288,7 @@ fn verify_state(client: &RpcClient, state: &Pubkey, authority: &Pubkey) -> Resul
     if label != "hopper-live" {
         return Err(format!("label mismatch: expected hopper-live, got {label}"));
     }
-    if !members.iter().any(|member| *member == authority_addr) {
+    if !members.contains(&authority_addr) {
         return Err("authority missing from members tail".to_string());
     }
 

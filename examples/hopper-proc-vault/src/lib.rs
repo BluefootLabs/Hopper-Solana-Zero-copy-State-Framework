@@ -85,6 +85,9 @@ mod vault_program {
 }
 
 #[cfg(test)]
+// These tests assert relationships between derived inherent consts; the
+// constant value of the assertion is precisely what is under test.
+#[allow(clippy::assertions_on_constants)]
 mod abs_offset_tests {
     //! Regression tests for the `{FIELD}_ABS_OFFSET` inherent constants
     //! emitted by `#[hopper::state]`. These close the Hopper Safety

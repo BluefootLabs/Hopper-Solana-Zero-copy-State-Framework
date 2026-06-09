@@ -39,13 +39,8 @@ fn ts_type(canonical: &str) -> &str {
         "u64" | "u128" | "i64" | "i128" => "bigint",
         "bool" => "boolean",
         "Pubkey" => "PublicKey",
-        _ => {
-            if canonical.starts_with("[u8;") {
-                "Uint8Array"
-            } else {
-                "Uint8Array" // fallback for unknown types
-            }
-        }
+        // `[u8; N]` byte arrays and any unknown type both map to `Uint8Array`.
+        _ => "Uint8Array",
     }
 }
 
@@ -782,13 +777,8 @@ fn kt_type(canonical: &str) -> &str {
         "u128" | "i128" => "ByteArray",
         "bool" => "Boolean",
         "Pubkey" => "PublicKey",
-        _ => {
-            if canonical.starts_with("[u8;") {
-                "ByteArray"
-            } else {
-                "ByteArray"
-            }
-        }
+        // `[u8; N]` byte arrays and any unknown type both map to `ByteArray`.
+        _ => "ByteArray",
     }
 }
 
@@ -868,7 +858,7 @@ fn write_kt_encode_expr(
         "i8" => {
             write!(f, "    data[{}] = args.", offset)?;
             write_kt_camel(f, name)?;
-            writeln!(f, "")
+            writeln!(f)
         }
         "u16" => {
             write!(

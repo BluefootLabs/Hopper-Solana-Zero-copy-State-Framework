@@ -309,6 +309,11 @@ impl<const N: usize> BoundedString<N> {
     }
 
     /// Construct from UTF-8 bytes, rejecting values longer than `N`.
+    ///
+    /// Inherent fallible constructor returning `ProgramError`, not
+    /// `core::str::FromStr` (which would force an associated `Err` type and a
+    /// trait import at every call site).
+    #[allow(clippy::should_implement_trait)]
     #[inline]
     pub fn from_str(value: &str) -> Result<Self, ProgramError> {
         Self::from_bytes(value.as_bytes())
@@ -1036,8 +1041,8 @@ mod tests {
     fn bounded_vec_set_helpers_preserve_order() {
         let mut vec = HopperVec::<u64, 4>::empty();
         assert_eq!(vec.remaining_capacity(), 4);
-        assert_eq!(vec.push_unique(7).unwrap(), true);
-        assert_eq!(vec.push_unique(7).unwrap(), false);
+        assert!(vec.push_unique(7).unwrap());
+        assert!(!vec.push_unique(7).unwrap());
         vec.push(9).unwrap();
         vec.push(11).unwrap();
         assert!(vec.contains(&9));

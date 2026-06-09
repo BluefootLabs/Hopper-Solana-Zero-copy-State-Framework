@@ -72,7 +72,7 @@ pub fn cmd_profile(args: &[String]) {
     process::exit(1);
 }
 
-fn run_under_watch<F>(mut run_once: F)
+fn run_under_watch<F>(run_once: F)
 where
     F: FnMut(),
 {
@@ -87,7 +87,7 @@ where
         Ok(r) => r,
         Err(_) => cwd.clone(),
     };
-    crate::cmd::watch::watch(&project_root, move || run_once());
+    crate::cmd::watch::watch(&project_root, run_once);
 }
 
 fn print_profile_usage() {
@@ -220,7 +220,7 @@ fn cmd_profile_elf(args: &[String]) -> Result<(), String> {
 
     // Rank and print top-N by size.
     let mut ranked: Vec<(&str, u64)> = symbols.iter().map(|(k, v)| (k.as_str(), *v)).collect();
-    ranked.sort_by(|a, b| b.1.cmp(&a.1));
+    ranked.sort_by_key(|&(_, size)| ::core::cmp::Reverse(size));
 
     println!("hopper profile elf  -  {}", opts.path);
     println!("total code in .text: {} bytes", byte_total);

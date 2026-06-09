@@ -193,7 +193,7 @@ impl<'a> fmt::Display for RsClientGen<'a> {
         }
 
         for ix in prog.instructions.iter() {
-            write_instruction_builder(f, ix, &prog.name)?;
+            write_instruction_builder(f, ix, prog.name)?;
         }
 
         for event in prog.events.iter() {

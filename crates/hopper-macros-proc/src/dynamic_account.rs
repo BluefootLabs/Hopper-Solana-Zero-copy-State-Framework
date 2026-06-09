@@ -20,6 +20,10 @@ struct Options {
     version: Option<LitInt>,
 }
 
+// Build-time-only AST descriptor; the size spread between unit and
+// `syn::Type`-carrying variants is irrelevant for a proc-macro that allocates
+// one of these per field at compile time. Boxing would only add indirection.
+#[allow(clippy::large_enum_variant)]
 #[derive(Clone)]
 enum TailKind {
     String {
@@ -197,7 +201,7 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
     let tail_struct_fields: Vec<_> = tail_fields
         .iter()
         .filter(|field| !field.kind.is_raw_final())
-        .map(|field| tail_struct_field(field))
+        .map(tail_struct_field)
         .collect();
     let tail_value_fields: Vec<_> = tail_fields.iter().map(tail_value_field).collect();
     let tail_value_head_inits: Vec<_> = tail_fields
@@ -562,6 +566,9 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
         impl #name {
             /// Construct the fixed account body. Dynamic fields are written
             /// separately with `tail_write`, `tail_editor`, or generated setters.
+            // One parameter per fixed field mirrors the user's struct; arity is
+            // governed by their schema, not an API design choice.
+            #[allow(clippy::too_many_arguments)]
             #[inline(always)]
             #vis fn new(#(#fixed_new_params),*) -> Self {
                 Self {

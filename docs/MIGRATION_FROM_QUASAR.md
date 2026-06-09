@@ -256,7 +256,7 @@ pub enum VaultError {
 }
 
 // Hopper
-#[hopper::error]
+#[hopper::error_code]
 #[repr(u32)]
 pub enum VaultError {
     #[invariant = "balance_nonzero"]

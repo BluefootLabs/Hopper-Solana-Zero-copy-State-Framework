@@ -1,8 +1,10 @@
-//! `#[hopper::error]`. stable error-code enum derive.
+//! `#[hopper::error_code]`. stable error-code enum derive.
 //!
 //! Decorates a `#[repr(u32)]` enum of unit variants. Emits:
 //! - `From<T> for u32` using the stable codes assigned by the user (or by
 //!   SHA-256 fingerprint when no `= N` discriminant is given).
+//! - `From<T> for ProgramError` lowering to `ProgramError::Custom(code)`, so a
+//!   handler can `return Err(MyError::Foo.into())` like Anchor's `#[error_code]`.
 //! - A `code(self) -> u32` inherent method.
 //! - A `variant_name(self) -> &'static str` inherent method.
 //! - A `CODE_TABLE: &[(&str, u32)]` const slice so the schema crate can
@@ -22,7 +24,7 @@
 //! ## Example
 //!
 //! ```ignore
-//! #[hopper::error]
+//! #[hopper::error_code]
 //! #[repr(u32)]
 //! pub enum VaultError {
 //!     #[invariant = "balance_nonzero"]
@@ -50,7 +52,7 @@ pub fn expand(_attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream>
     {
         return Err(syn::Error::new_spanned(
             &enum_name,
-            "#[hopper::error] only supports unit variants",
+            "#[hopper::error_code] only supports unit variants",
         ));
     }
 
@@ -127,7 +129,7 @@ pub fn expand(_attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream>
     if variant_idents.len() > 255 {
         return Err(syn::Error::new_spanned(
             &enum_name,
-            "#[hopper::error] supports at most 255 variants (receipt's failed_invariant_idx is a u8)",
+            "#[hopper::error_code] supports at most 255 variants (receipt's failed_invariant_idx is a u8)",
         ));
     }
     let idx_values: Vec<LitInt> = (0..variant_idents.len())
@@ -198,6 +200,17 @@ pub fn expand(_attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream>
                 match e {
                     #( #enum_name::#idents_for_from => #codes_for_from ),*
                 }
+            }
+        }
+
+        // Lower straight into the program-return channel so handlers can write
+        // `return Err(MyError::Foo.into())` exactly like Anchor's `#[error_code]`.
+        // The stable code rides in `ProgramError::Custom(u32)`; the runtime then
+        // packs it into the syscall return slot.
+        impl ::core::convert::From<#enum_name> for ::hopper::__runtime::ProgramError {
+            #[inline]
+            fn from(e: #enum_name) -> ::hopper::__runtime::ProgramError {
+                ::hopper::__runtime::ProgramError::Custom(e.code())
             }
         }
     };

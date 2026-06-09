@@ -11,6 +11,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 
 - Added named bare final tails for `#[account]` dynamic layouts via `TailStr<'a>` and `TailBytes<'a>`.
 - Made `#[program(profile = "tiny")]` enforce a compact dispatch shape by rejecting multi-byte discriminators and handler-level modifier instrumentation.
+- Closed the error-model parity gap: `#[hopper::error_code]` now derives `From<E> for ProgramError` lowering to `ProgramError::Custom(code)`, so handlers can `return Err(MyError::Foo.into())` exactly like Anchor's `#[error_code]`. Covered by `tests/error_derive_integration.rs`.
+- Added `COMPARISON.md` (feature-by-feature matrix vs Quasar / Anchor zero-copy / Pinocchio with the implementing file+symbol for every Hopper row) and `ROADMAP.md` (deferred capabilities with rationale: litesvm harness, kani proofs, `build-sbf` CI, compile-time segment disjointness).
+
+### Changed
+
+- Corrected pervasive documentation that referred to the error attribute as `#[hopper::error]`; the canonical public spelling is `#[hopper::error_code]` (the `error` macro namespace is occupied by the runtime `error!` guard macro). Fixed across migration guides, crate READMEs, macro docs, and compile-error messages.
+
+### Fixed
+
+- Resolved all `clippy --workspace --all-targets --all-features -D warnings` findings (collapsible_if, if_same_then_else, doc_lazy_continuation, manual loop→`fill`/`strip_prefix`/`sort_by_key`, and narrowly-scoped `#[allow]` on macro-generated arity), and regenerated trybuild `.stderr` snapshots for rustc 1.96 diagnostic formatting drift while verifying every Hopper-authored guard message is unchanged.
 
 ## [0.2.1] - 2026-05-19
 

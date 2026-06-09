@@ -98,6 +98,11 @@ impl<'a> SegmentLease<'a> {
     }
 
     /// The borrow entry this lease owns, for diagnostics.
+    ///
+    /// Inherent diagnostic accessor returning the owned `SegmentBorrow` record,
+    /// not `core::borrow::Borrow` (whose blanket reflexive impl has a different
+    /// shape); the name reads naturally at call sites.
+    #[allow(clippy::should_implement_trait)]
     #[inline(always)]
     pub fn borrow(&self) -> &SegmentBorrow {
         &self.borrow
@@ -179,7 +184,7 @@ impl<T: ?Sized> Deref for SegRef<'_, T> {
     type Target = T;
     #[inline(always)]
     fn deref(&self) -> &T {
-        &*self.inner
+        &self.inner
     }
 }
 
@@ -230,14 +235,14 @@ impl<T: ?Sized> Deref for SegRefMut<'_, T> {
     type Target = T;
     #[inline(always)]
     fn deref(&self) -> &T {
-        &*self.inner
+        &self.inner
     }
 }
 
 impl<T: ?Sized> DerefMut for SegRefMut<'_, T> {
     #[inline(always)]
     fn deref_mut(&mut self) -> &mut T {
-        &mut *self.inner
+        &mut self.inner
     }
 }
 

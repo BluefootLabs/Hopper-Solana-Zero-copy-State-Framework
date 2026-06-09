@@ -569,7 +569,7 @@ trait EmptyStrExt {
     fn or_else_empty(self, fallback: Self) -> Self;
 }
 
-impl<'a> EmptyStrExt for &'a str {
+impl EmptyStrExt for &str {
     fn or_else_empty(self, fallback: Self) -> Self {
         if self.is_empty() {
             fallback

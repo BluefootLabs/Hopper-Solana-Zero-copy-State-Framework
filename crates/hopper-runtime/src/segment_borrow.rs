@@ -130,6 +130,13 @@ pub struct SegmentBorrowRegistry {
     len: u8,
 }
 
+impl Default for SegmentBorrowRegistry {
+    #[inline(always)]
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SegmentBorrowRegistry {
     /// Create an empty registry.
     #[inline(always)]

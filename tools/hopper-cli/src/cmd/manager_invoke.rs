@@ -184,9 +184,7 @@ fn run_invoke(opts: &InvokeOpts) -> Result<(), String> {
     // instruction's declared `policy_pack` with the manifest's
     // `policies` array and rejects before submission when a required
     // account is missing or a readonly slot was passed as writable.
-    if let Err(e) = policy_precheck(&manifest_json, &ix_desc, &opts.accounts) {
-        return Err(e);
-    }
+    policy_precheck(&manifest_json, &ix_desc, &opts.accounts)?;
 
     let data = build_instruction_data(&ix_desc, &opts.args_raw)?;
     let account_metas = build_account_metas(&ix_desc, &opts.accounts)?;
@@ -814,8 +812,7 @@ fn crank_tick(
 
     // Cranks are invoked with zero user-supplied args; every declared
     // arg must be zero-length or the crank is not autonomous.
-    let mut data: Vec<u8> = Vec::with_capacity(1);
-    data.push(crank.tag);
+    let data: Vec<u8> = vec![crank.tag];
     for arg in &ix_desc.args {
         if arg.size != 0 {
             return Err(format!(
@@ -996,7 +993,7 @@ fn find_instruction_in_manifest(
     for ix in ixs {
         let name = ix.get("name").and_then(|v| v.as_str()).unwrap_or_default();
         if name == instruction_name || tag_matches(ix, instruction_name) {
-            return Ok(parse_instruction(ix)?);
+            return parse_instruction(ix);
         }
     }
     Err(format!(
@@ -1239,7 +1236,7 @@ fn encode_arg_value(raw: &str, size: u16) -> Result<Vec<u8>, String> {
 }
 
 fn decode_hex(s: &str) -> Result<Vec<u8>, String> {
-    if s.len() % 2 != 0 {
+    if !s.len().is_multiple_of(2) {
         return Err("hex string must have even length".into());
     }
     let bytes = s.as_bytes();

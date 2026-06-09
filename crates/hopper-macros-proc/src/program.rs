@@ -69,7 +69,7 @@ struct HandlerModifiers {
 ///   `ProgramError::InvalidAccountData` and leaves the receipt's
 ///   failure payload empty.
 /// - `#[invariant(cond, err = MyError::Variant)]`. typed error
-///   variant (declared via `#[hopper::error]`). On violation the
+///   variant (declared via `#[hopper::error_code]`). On violation the
 ///   handler returns `ProgramError::Custom(MyError::Variant.code())`
 ///   and the receipt is stamped with the variant's code, its index
 ///   in `INVARIANT_TABLE`, and `FailureStage::Invariant`, closing the
@@ -624,7 +624,7 @@ fn expect_usize_lit(expr: &Expr, name: &str) -> Result<usize> {
 }
 
 /// Extract a u8 literal for `ctx_args = K`. The cap matches the
-/// Hopper-wide 255-item limit already used by `#[hopper::error]`
+/// Hopper-wide 255-item limit already used by `#[hopper::error_code]`
 /// receipts and SchemaExport positional slots. Anything larger almost
 /// certainly indicates a typo rather than a 256-arg handler.
 fn expect_u8_lit(expr: &Expr) -> Result<u8> {
@@ -801,7 +801,7 @@ fn classify_context_binding(arg: &mut FnArg) -> Result<ContextBinding> {
     if let Some(spec) = extract_typed_context_spec(&pat_type.ty)? {
         let spec = strip_context_type_args(spec);
         let bound_ty = bind_type_for(&spec)?;
-        pat_type.ty = Box::new(bound_ty);
+        *pat_type.ty = bound_ty;
         mark_pattern_mutable(&mut pat_type.pat)?;
         return Ok(ContextBinding::Typed { spec });
     }
@@ -818,7 +818,7 @@ fn classify_context_binding(arg: &mut FnArg) -> Result<ContextBinding> {
 /// - `#[invariant(expr)]`. condition only.
 /// - `#[invariant(expr, err = MyError::Variant)]`. condition plus
 ///   typed error variant. The variant must come from an enum decorated
-///   with `#[hopper::error]` so that `.code()` and `.invariant_idx()`
+///   with `#[hopper::error_code]` so that `.code()` and `.invariant_idx()`
 ///   exist on it at expansion time.
 ///
 /// Additional positional args or repeated `err =` keys are rejected
@@ -967,7 +967,7 @@ fn apply_handler_modifiers(
     //
     // 2. Typed-error form (`#[invariant(cond, err = MyError::Variant)]`)
     //. on violation we extract `.code()` and `.invariant_idx()` from
-    //    the variant (methods emitted by `#[hopper::error]`), stamp the
+    //    the variant (methods emitted by `#[hopper::error_code]`), stamp the
     //    receipt's failure slot when a receipt is in scope, and return
     //    `ProgramError::Custom(code)`. This is what makes the invariant
     //    name visible to off-chain consumers without a hand-written
@@ -1066,7 +1066,7 @@ fn apply_handler_modifiers(
         })
         .collect();
 
-    function.block = Box::new(syn::parse_quote!({
+    *function.block = syn::parse_quote!({
         #(#access_control_gates)*
         #pipeline_checks
         #receipt_begin
@@ -1088,7 +1088,7 @@ fn apply_handler_modifiers(
             }
             Err(__hopper_error) => Err(__hopper_error),
         }
-    }));
+    });
 
     Ok(())
 }

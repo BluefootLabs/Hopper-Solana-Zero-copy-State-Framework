@@ -47,7 +47,7 @@ impl Default for StateOptions {
 /// consumed by `#[hopper::state]` itself. they are stripped from the
 /// re-emitted struct so the compiler never sees them. This is how the
 /// layout ties individual fields to schema intents and to the named
-/// invariants declared on an associated `#[hopper::error]` enum.
+/// invariants declared on an associated `#[hopper::error_code]` enum.
 ///
 /// ## Design notes
 ///
@@ -372,6 +372,9 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
         .collect();
     let constructor_method = if options.dynamic_tail_schema.is_none() {
         quote! {
+            // One parameter per field mirrors the user's struct; arity follows
+            // their schema, not an API design choice.
+            #[allow(clippy::too_many_arguments)]
             #[inline(always)]
             #vis const fn new(#(#constructor_params),*) -> Self {
                 Self {
@@ -384,6 +387,9 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
     };
 
     let set_inner_method = quote! {
+        // One parameter per field mirrors the user's struct; arity follows
+        // their schema, not an API design choice.
+        #[allow(clippy::too_many_arguments)]
         #[inline(always)]
         #vis fn set_inner(
             &mut self,
@@ -521,7 +527,7 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
             // ── Field-level metadata registries ──────────────────────────
             //
             // These two tables are the structural twin of the `CODE_TABLE`
-            // / `INVARIANT_TABLE` pair produced by `#[hopper::error]`.
+            // / `INVARIANT_TABLE` pair produced by `#[hopper::error_code]`.
             // Together they let off-chain tooling (SDK narrator, Codama
             // client generator, IDL exporter) answer three questions at
             // declaration time, without ever running the program:
@@ -1062,7 +1068,7 @@ fn strip_int_literal_suffix(raw: &str) -> String {
     // Only strip if the prefix is a plausible integer literal: starts
     // with a digit, and the trailing non-digit tail is one of the
     // known integer-type suffixes.
-    if !raw.chars().next().map_or(false, |c| c.is_ascii_digit()) {
+    if !raw.chars().next().is_some_and(|c| c.is_ascii_digit()) {
         return raw.to_string();
     }
     const SUFFIXES: &[&str] = &[
@@ -1077,7 +1083,7 @@ fn strip_int_literal_suffix(raw: &str) -> String {
             let before_ok = stripped
                 .chars()
                 .last()
-                .map_or(false, |c| c.is_ascii_digit() || c == '_');
+                .is_some_and(|c| c.is_ascii_digit() || c == '_');
             if before_ok {
                 return stripped.to_string();
             }

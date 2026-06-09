@@ -992,9 +992,16 @@ impl<'info> AccountView<'info> {
     /// # Safety
     ///
     /// The caller must ensure no other borrows are active.
+    //
+    // `mut_from_ref`: intentional. Account data lives behind an SVM-owned raw
+    // pointer; `AccountView` models shared access while exposing interior
+    // mutability through this documented `unsafe` contract. Aliasing is the
+    // caller's invariant — see `hopper_native::AccountView::borrow_unchecked_mut`.
+    #[allow(clippy::mut_from_ref)]
     #[inline(always)]
     pub unsafe fn borrow_unchecked_mut(&self) -> &mut [u8] {
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: delegates to the native backend's documented interior-mutability
+        // accessor; the caller's no-aliasing precondition is forwarded unchanged.
         unsafe { self.backend().borrow_unchecked_mut() }
     }
 
@@ -1071,6 +1078,10 @@ impl<'a> RemainingAccounts<'a> {
     }
 
     /// Take the next account, or return `NotEnoughAccountKeys`.
+    ///
+    /// A fallible cursor advance, not `Iterator::next`: it yields a `Result`
+    /// so a missing account surfaces as a program error rather than `None`.
+    #[allow(clippy::should_implement_trait)]
     #[inline(always)]
     pub fn next(&mut self) -> Result<&'a AccountView<'a>, ProgramError> {
         if self.cursor >= self.accounts.len() {

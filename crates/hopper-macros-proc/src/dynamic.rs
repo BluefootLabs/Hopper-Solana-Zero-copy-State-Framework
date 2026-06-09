@@ -85,12 +85,7 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> 
     };
     let tail_field = fields
         .iter()
-        .find(|f| {
-            f.ident
-                .as_ref()
-                .map(|i| i.to_string() == tail_name)
-                .unwrap_or(false)
-        })
+        .find(|f| f.ident.as_ref().is_some_and(|i| *i == tail_name))
         .ok_or_else(|| {
             syn::Error::new_spanned(
                 &input.ident,

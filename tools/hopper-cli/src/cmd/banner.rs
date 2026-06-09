@@ -33,7 +33,7 @@ pub fn print_banner(animation_enabled: bool) {
         plain_header();
         return;
     }
-    if !animate(stdout.lock()).is_ok() {
+    if animate(stdout.lock()).is_err() {
         // Anything went wrong mid-frame (broken pipe, weird terminal):
         // fall back to the plain header so the wizard still has its
         // intro line.

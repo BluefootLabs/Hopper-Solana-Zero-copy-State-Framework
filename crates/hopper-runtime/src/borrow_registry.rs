@@ -223,7 +223,7 @@ mod imp {
 
     #[cfg(test)]
     std::thread_local! {
-        static REGISTRY: RefCell<BorrowRegistry> = RefCell::new(BorrowRegistry::new());
+        static REGISTRY: RefCell<BorrowRegistry> = const { RefCell::new(BorrowRegistry::new()) };
     }
 
     #[cfg(not(test))]

@@ -219,11 +219,21 @@ impl<'info> AccountView<'info> {
     /// # Safety
     ///
     /// The caller must ensure no other borrows (shared or exclusive) are active.
+    //
+    // `mut_from_ref` fires because this returns `&mut [u8]` from `&self`. That
+    // is intentional: account data lives behind a raw pointer the SVM owns, so
+    // the `AccountView` only models shared access to that region while exposing
+    // interior mutability through the documented `unsafe` contract above
+    // (Pinocchio uses the same shape). Aliasing is the caller's invariant, not
+    // the borrow checker's — that is exactly what the `unsafe` marker conveys.
+    #[allow(clippy::mut_from_ref)]
     #[inline(always)]
     pub unsafe fn borrow_unchecked_mut(&self) -> &mut [u8] {
         let data_ptr = self.data_ptr_unchecked();
         let len = self.data_len();
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: `data_ptr_unchecked()` and `data_len()` describe the exact
+        // SVM-owned data region for this account, and the caller guarantees no
+        // overlapping borrow is live for the returned lifetime.
         unsafe { core::slice::from_raw_parts_mut(data_ptr, len) }
     }
 
@@ -237,6 +247,8 @@ impl<'info> AccountView<'info> {
         self.check_borrow()?;
         // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let state_ptr = unsafe { &mut (*self.raw).borrow_state as *mut u8 };
+        // SAFETY: `state_ptr` points at this account's borrow-state byte and is
+        // only read after `check_borrow()` confirmed the borrow is compatible.
         let state = unsafe { *state_ptr };
         let new_state = if state == NOT_BORROWED { 1 } else { state + 1 };
         if new_state == 0 {
@@ -260,6 +272,8 @@ impl<'info> AccountView<'info> {
         self.check_borrow_mut()?;
         // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let state_ptr = unsafe { &mut (*self.raw).borrow_state as *mut u8 };
+        // SAFETY: `state_ptr` points at this account's borrow-state byte and is
+        // only written after `check_borrow_mut()` ruled out incompatible borrows.
         unsafe {
             *state_ptr = 0;
         } // Mark exclusive.
@@ -827,6 +841,11 @@ impl<'a> RemainingAccounts<'a> {
     }
 
     /// Take the next account, or return `NotEnoughAccountKeys`.
+    ///
+    /// This is a fallible cursor advance, not an `Iterator::next`: it yields a
+    /// `Result` so a missing account is a program error rather than a silent
+    /// `None`, which is the wrong shape for the `Iterator` trait.
+    #[allow(clippy::should_implement_trait)]
     #[inline(always)]
     pub fn next(&mut self) -> Result<&'a AccountView<'a>, ProgramError> {
         if self.cursor >= self.accounts.len() {

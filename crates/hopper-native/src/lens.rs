@@ -100,7 +100,7 @@ pub fn read_field_pod<'a, T: crate::Pod>(
 #[inline]
 pub fn read_address<'a>(account: &'a AccountView<'a>, offset: usize) -> Result<&'a Address, ProgramError> {
     let data_len = account.data_len();
-    if offset.checked_add(32).map_or(true, |end| end > data_len) {
+    if offset.checked_add(32).is_none_or(|end| end > data_len) {
         return Err(ProgramError::AccountDataTooSmall);
     }
     // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
@@ -118,7 +118,7 @@ pub fn read_address<'a>(account: &'a AccountView<'a>, offset: usize) -> Result<&
 #[inline]
 pub fn read_le_u64(account: &AccountView<'_>, offset: usize) -> Result<u64, ProgramError> {
     let data_len = account.data_len();
-    if offset.checked_add(8).map_or(true, |end| end > data_len) {
+    if offset.checked_add(8).is_none_or(|end| end > data_len) {
         return Err(ProgramError::AccountDataTooSmall);
     }
     // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
@@ -134,7 +134,7 @@ pub fn read_le_u64(account: &AccountView<'_>, offset: usize) -> Result<u64, Prog
 #[inline]
 pub fn read_le_u32(account: &AccountView<'_>, offset: usize) -> Result<u32, ProgramError> {
     let data_len = account.data_len();
-    if offset.checked_add(4).map_or(true, |end| end > data_len) {
+    if offset.checked_add(4).is_none_or(|end| end > data_len) {
         return Err(ProgramError::AccountDataTooSmall);
     }
     // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
@@ -150,7 +150,7 @@ pub fn read_le_u32(account: &AccountView<'_>, offset: usize) -> Result<u32, Prog
 #[inline]
 pub fn read_le_u16(account: &AccountView<'_>, offset: usize) -> Result<u16, ProgramError> {
     let data_len = account.data_len();
-    if offset.checked_add(2).map_or(true, |end| end > data_len) {
+    if offset.checked_add(2).is_none_or(|end| end > data_len) {
         return Err(ProgramError::AccountDataTooSmall);
     }
     // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
@@ -189,7 +189,7 @@ pub fn read_bytes<'a>(
     len: usize,
 ) -> Result<&'a [u8], ProgramError> {
     let data_len = account.data_len();
-    if offset.checked_add(len).map_or(true, |end| end > data_len) {
+    if offset.checked_add(len).is_none_or(|end| end > data_len) {
         return Err(ProgramError::AccountDataTooSmall);
     }
     // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.

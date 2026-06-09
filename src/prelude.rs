@@ -40,6 +40,9 @@ impl<'a, const N: usize> HopperAuthoringString<'a, N> {
         }
     }
 
+    // Inherent `from_str` (not `FromStr`): the bounded-capacity constructor is
+    // fallible and returns Hopper's `Result`, not `Result<Self, Self::Err>`.
+    #[allow(clippy::should_implement_trait)]
     #[inline]
     pub fn from_str(value: &str) -> Result<Self> {
         Ok(Self::from_hopper(HopperString::from_str(value)?))

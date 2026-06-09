@@ -152,7 +152,7 @@ Use `ctx.bumps.field_name`, the same shape Anchor users expect. Hopper also reta
 
 ## Errors
 
-Anchor's `#[error_code]` maps directly to Hopper's `#[error]`:
+Anchor's `#[error_code]` maps directly to Hopper's `#[error_code]`:
 
 ```rust
 // Anchor
@@ -165,7 +165,7 @@ pub enum VaultError {
 }
 
 // Hopper
-#[hopper::error]
+#[hopper::error_code]
 #[repr(u32)]
 pub enum VaultError {
     #[invariant = "balance_nonzero"]
@@ -174,6 +174,14 @@ pub enum VaultError {
     Unauthorized = 0x1002,
 }
 ```
+
+Just like Anchor, you return the error straight into a `ProgramResult`:
+
+```rust
+return Err(VaultError::Unauthorized.into()); // -> ProgramError::Custom(0x1002)
+```
+
+The derive emits both `From<VaultError> for u32` and `From<VaultError> for ProgramError`, so `.into()` lands the stable code in `ProgramError::Custom(code)`.
 
 Hopper adds the `#[invariant = "..."]` tag that ties an error to a named runtime check. When your program fails, the off-chain SDK surfaces "Invariant `balance_nonzero` failed" instead of "Error: 0x1001". You do not need to use invariants; the plain form `InsufficientBalance` without the tag still works.
 

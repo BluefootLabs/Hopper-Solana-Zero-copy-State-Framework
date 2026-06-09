@@ -452,6 +452,10 @@ pub fn parse_instruction_frame_checked(buf: &[u8]) -> Result<FrameInfo, FrameErr
 
     let mut slot_offsets = [0usize; MAX_SAFE_ACCOUNT_SLOTS];
 
+    // The slot index is load-bearing: it backs the duplicate-marker invariant
+    // (`duplicate_of >= slot`) and every `FrameError { slot, .. }` report, so
+    // an iterator over values would lose the information the loop exists for.
+    #[allow(clippy::needless_range_loop)]
     for slot in 0..account_count {
         let slot_start = pos;
         slot_offsets[slot] = slot_start;
@@ -541,7 +545,7 @@ mod checked_parser_tests {
     /// 8 (account_count) + 88 (RuntimeAccount) + 10240 (realloc reserve)
     /// + 0 (already u128-aligned at 10336) + 8 (rent_epoch)
     /// + 8 (ix_data_len) + 32 (program_id) = 10384
-    const MINIMAL_FRAME_LEN: usize = 8 + 88 + MAX_PERMITTED_DATA_INCREASE + 0 + 8 + 8 + 32;
+    const MINIMAL_FRAME_LEN: usize = 8 + 88 + MAX_PERMITTED_DATA_INCREASE + 8 + 8 + 32;
 
     /// Build a valid one-canonical-account frame with zero-byte data.
     fn build_minimal_frame() -> [u8; MINIMAL_FRAME_LEN] {

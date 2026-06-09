@@ -122,7 +122,7 @@ pub const MINT_EXTENSION_PADDING_END: usize = ACCOUNT_TYPE_OFFSET;
 /// One pass, O(n) in the TLV count. No allocation. The caller is
 /// expected to amortize calls by grouping checks.
 #[inline]
-pub fn find_extension<'a>(tlv_bytes: &'a [u8], ext_type: u16) -> Option<&'a [u8]> {
+pub fn find_extension(tlv_bytes: &[u8], ext_type: u16) -> Option<&[u8]> {
     let mut cursor = 0usize;
     while cursor + 4 <= tlv_bytes.len() {
         let t = u16::from_le_bytes([tlv_bytes[cursor], tlv_bytes[cursor + 1]]);

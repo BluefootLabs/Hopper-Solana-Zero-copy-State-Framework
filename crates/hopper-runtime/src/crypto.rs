@@ -454,7 +454,7 @@ pub fn alt_bn128_g1_multiplication_be(input: &[u8]) -> Result<AltBn128G1, Progra
 #[cfg(feature = "crypto-bn254")]
 #[inline]
 pub fn alt_bn128_pairing_be(input: &[u8]) -> Result<AltBn128PairingResult, ProgramError> {
-    if input.len() % ALT_BN128_PAIRING_ELEMENT_SIZE != 0 {
+    if !input.len().is_multiple_of(ALT_BN128_PAIRING_ELEMENT_SIZE) {
         return Err(ProgramError::InvalidArgument);
     }
     alt_bn128_group_op::<ALT_BN128_FIELD_SIZE>(ALT_BN128_PAIRING_BE, input)

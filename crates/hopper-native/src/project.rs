@@ -204,7 +204,7 @@ pub fn project<'a, T: Projectable>(
     // Bounds check.
     if offset
         .checked_add(type_size)
-        .map_or(true, |end| end > data_len)
+        .is_none_or(|end| end > data_len)
     {
         return Err(ProgramError::AccountDataTooSmall);
     }
@@ -222,7 +222,7 @@ pub fn project<'a, T: Projectable>(
 
     // Alignment check.
     let align = core::mem::align_of::<T>();
-    if align > 1 && (target_ptr as usize) % align != 0 {
+    if !(target_ptr as usize).is_multiple_of(align) {
         return Err(ProgramError::InvalidAccountData);
     }
 
@@ -255,7 +255,7 @@ pub unsafe fn project_mut<'a, T: Projectable>(
     // Bounds check.
     if offset
         .checked_add(type_size)
-        .map_or(true, |end| end > data_len)
+        .is_none_or(|end| end > data_len)
     {
         return Err(ProgramError::AccountDataTooSmall);
     }
@@ -273,7 +273,7 @@ pub unsafe fn project_mut<'a, T: Projectable>(
 
     // Alignment check.
     let align = core::mem::align_of::<T>();
-    if align > 1 && (target_ptr as usize) % align != 0 {
+    if !(target_ptr as usize).is_multiple_of(align) {
         return Err(ProgramError::InvalidAccountData);
     }
 
@@ -297,7 +297,7 @@ pub fn project_slice<'a, T: Projectable>(
         .checked_mul(type_size)
         .ok_or(ProgramError::ArithmeticOverflow)?;
 
-    if offset.checked_add(total).map_or(true, |end| end > data_len) {
+    if offset.checked_add(total).is_none_or(|end| end > data_len) {
         return Err(ProgramError::AccountDataTooSmall);
     }
 
@@ -306,7 +306,7 @@ pub fn project_slice<'a, T: Projectable>(
     let target_ptr = unsafe { data_ptr.add(offset) };
 
     let align = core::mem::align_of::<T>();
-    if align > 1 && (target_ptr as usize) % align != 0 {
+    if !(target_ptr as usize).is_multiple_of(align) {
         return Err(ProgramError::InvalidAccountData);
     }
 

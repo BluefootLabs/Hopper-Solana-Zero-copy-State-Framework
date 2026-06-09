@@ -7,6 +7,10 @@
 
 #![no_std]
 #![deny(unsafe_op_in_unsafe_fn)]
+// The backend `AccountView` is `Copy` only under the `copy` feature. The
+// `.clone()` in our manual `Clone` impl is required in the default lane, so we
+// silence `clone_on_copy` only in the lane where the type is actually `Copy`.
+#![cfg_attr(feature = "copy", allow(clippy::clone_on_copy))]
 
 #[cfg(test)]
 extern crate std;

@@ -180,9 +180,9 @@ pub fn accounts(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// `token::*`, `mint::*`, `associated_token::*`, the Token-2022 extension
 /// gates, `dup`, `sweep`, `executable`, `rent_exempt`, `realloc`, `zero`,
 /// `close`) all work in the derive form. Hopper-specific authoring sugar
-/// - segment-tagged `mut(field, …)`, `read(field, …)`, the inline
+/// (segment-tagged `mut(field, …)`, `read(field, …)`, the inline
 /// `#[hopper::pipeline]` / `#[hopper::receipt]` / `#[hopper::invariant]`
-/// stack - also works untouched.
+/// stack) also works untouched.
 ///
 /// The derive registers `account`, `accounts`, `signer`, `instruction`, and `validate`
 /// as helper attributes so the existing `#[account(...)]`, `#[accounts(...)]`, `#[signer]`,
@@ -337,7 +337,7 @@ pub fn migrate(attr: TokenStream, item: TokenStream) -> TokenStream {
 // -----------------------------------------------------------------------------
 // Newly added derives (added alongside the existing surface, not replacing it):
 //   - `#[hopper::event]`. segment-tagged events with a stable tag byte.
-//   - `#[hopper::error]`. error codes linked to invariant IDs.
+//   - `#[hopper::error_code]`. error codes linked to invariant IDs.
 //   - `#[hopper::args]`. borrowing zero-copy instruction argument parser.
 //   - `#[hopper::dynamic]`- field-level dynamic tail opt-in.
 // -----------------------------------------------------------------------------
@@ -419,7 +419,7 @@ pub fn declare_program(input: TokenStream) -> TokenStream {
 ///
 /// # Example
 /// ```ignore
-/// #[hopper::error]
+/// #[hopper::error_code]
 /// #[repr(u32)]
 /// pub enum VaultError {
 ///     #[invariant = "balance_nonzero"]
@@ -434,7 +434,8 @@ pub fn hopper_error(attr: TokenStream, item: TokenStream) -> TokenStream {
         .into()
 }
 
-/// Short alias: `#[hopper::error]`.
+/// Public alias re-exported as `#[hopper::error_code]` (the macro-namespace
+/// name `error` is taken by the `error!` guard macro from `hopper-runtime`).
 #[proc_macro_attribute]
 pub fn error(attr: TokenStream, item: TokenStream) -> TokenStream {
     hopper_error(attr, item)

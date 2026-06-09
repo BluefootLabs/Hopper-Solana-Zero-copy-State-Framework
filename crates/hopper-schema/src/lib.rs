@@ -835,12 +835,11 @@ impl CompatibilityExplain {
             let name_eq = const_str_eq(old_f.name, new_f.name);
             let type_eq = const_str_eq(old_f.canonical_type, new_f.canonical_type);
             let size_eq = old_f.size == new_f.size;
-            if !(name_eq && type_eq && size_eq) {
-                if (changed_n as usize) < 16 {
+            if !(name_eq && type_eq && size_eq)
+                && (changed_n as usize) < 16 {
                     changed[changed_n as usize] = old_f.name;
                     changed_n += 1;
                 }
-            }
             i += 1;
         }
         // Fields only in newer (added).
@@ -2169,13 +2168,13 @@ pub struct InstructionEffectDescriptor {
 impl crate::accounts::ContextAccountDescriptor {
     /// Derive the default resolver kind from context account metadata.
     pub const fn resolver_kind(&self) -> AccountResolverKind {
-        if self.expected_address.as_bytes().len() > 0 {
+        if !self.expected_address.is_empty() {
             AccountResolverKind::Constant
-        } else if self.seeds.len() > 0 {
+        } else if !self.seeds.is_empty() {
             AccountResolverKind::Pda
         } else if self.optional {
             AccountResolverKind::Optional
-        } else if self.kind.as_bytes().len() >= 6
+        } else if self.kind.len() >= 6
             && self.kind.as_bytes()[0] == b'S'
             && self.kind.as_bytes()[1] == b'y'
             && self.kind.as_bytes()[2] == b's'
@@ -2184,7 +2183,7 @@ impl crate::accounts::ContextAccountDescriptor {
             && self.kind.as_bytes()[5] == b'r'
         {
             AccountResolverKind::Sysvar
-        } else if self.kind.as_bytes().len() >= 7
+        } else if self.kind.len() >= 7
             && self.kind.as_bytes()[0] == b'P'
             && self.kind.as_bytes()[1] == b'r'
             && self.kind.as_bytes()[2] == b'o'
@@ -2307,7 +2306,7 @@ impl fmt::Display for ArgParseError {
     }
 }
 
-/// Descriptor for one variant of a `#[hopper::error]` enum.
+/// Descriptor for one variant of a `#[hopper::error_code]` enum.
 ///
 /// Carried in the program manifest so off-chain SDKs can map numeric error
 /// codes back to names and. via `invariant`. to the safety check that
@@ -3336,8 +3335,7 @@ pub fn lint_layout<const N: usize>(
         if field.intent.is_authority_sensitive()
             && behavior.mutation_class.is_mutating()
             && !behavior.requires_signer
-        {
-            if count < N {
+            && count < N {
                 lints[count] = SemanticLint {
                     severity: LintSeverity::Error,
                     code: "E001",
@@ -3347,14 +3345,12 @@ pub fn lint_layout<const N: usize>(
                 };
                 count += 1;
             }
-        }
 
         // Financial field mutated without financial mutation class
         if field.intent.is_monetary()
             && behavior.mutation_class.is_mutating()
             && !matches!(behavior.mutation_class, MutationClass::Financial)
-        {
-            if count < N {
+            && count < N {
                 lints[count] = SemanticLint {
                     severity: LintSeverity::Warning,
                     code: "W001",
@@ -3363,14 +3359,12 @@ pub fn lint_layout<const N: usize>(
                 };
                 count += 1;
             }
-        }
 
         // Init-only field (PDA seed, bump) in a layout that isn't read-only
         if field.intent.is_init_only()
             && behavior.mutation_class.is_mutating()
             && !matches!(behavior.mutation_class, MutationClass::AppendOnly)
-        {
-            if count < N {
+            && count < N {
                 lints[count] = SemanticLint {
                     severity: LintSeverity::Warning,
                     code: "W002",
@@ -3379,7 +3373,6 @@ pub fn lint_layout<const N: usize>(
                 };
                 count += 1;
             }
-        }
 
         i += 1;
     }
@@ -3387,8 +3380,8 @@ pub fn lint_layout<const N: usize>(
     // Layout-wide lints
 
     // Mutable layout with no signer
-    if behavior.mutation_class.is_mutating() && !behavior.requires_signer {
-        if count < N {
+    if behavior.mutation_class.is_mutating() && !behavior.requires_signer
+        && count < N {
             lints[count] = SemanticLint {
                 severity: LintSeverity::Warning,
                 code: "W003",
@@ -3397,7 +3390,6 @@ pub fn lint_layout<const N: usize>(
             };
             count += 1;
         }
-    }
 
     // Financial impact without balance tracking
     if behavior.affects_balance {
@@ -3444,8 +3436,7 @@ pub fn lint_policy<const N: usize>(
     // Financial mutation class without financial policy class
     if matches!(behavior.mutation_class, MutationClass::Financial)
         && !matches!(policy, hopper_core::policy::PolicyClass::Financial)
-    {
-        if count < N {
+        && count < N {
             lints[count] = SemanticLint {
                 severity: LintSeverity::Warning,
                 code: "W005",
@@ -3454,13 +3445,11 @@ pub fn lint_policy<const N: usize>(
             };
             count += 1;
         }
-    }
 
     // Financial policy class without financial mutation class
     if matches!(policy, hopper_core::policy::PolicyClass::Financial)
         && !matches!(behavior.mutation_class, MutationClass::Financial)
-    {
-        if count < N {
+        && count < N {
             lints[count] = SemanticLint {
                 severity: LintSeverity::Warning,
                 code: "W006",
@@ -3469,7 +3458,6 @@ pub fn lint_policy<const N: usize>(
             };
             count += 1;
         }
-    }
 
     (count, lints)
 }

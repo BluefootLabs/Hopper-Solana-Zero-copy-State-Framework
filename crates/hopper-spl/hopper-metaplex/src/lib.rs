@@ -10,8 +10,8 @@
 //!
 //! ## What this crate ships
 //!
-//! - [`MPL_TOKEN_METADATA_PROGRAM_ID`](constants::MPL_TOKEN_METADATA_PROGRAM_ID)
-//!   - the canonical Metaplex Token Metadata program address as a Hopper
+//! - [`MPL_TOKEN_METADATA_PROGRAM_ID`](constants::MPL_TOKEN_METADATA_PROGRAM_ID) -
+//!   the canonical Metaplex Token Metadata program address as a Hopper
 //!   `Address` constant, decoded at compile time.
 //! - [`seeds`] - PDA-seed helpers (`metadata_pda`, `master_edition_pda`).
 //!   Hopper's typed-seeds path uses these so the field-level

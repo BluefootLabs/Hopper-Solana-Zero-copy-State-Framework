@@ -178,6 +178,9 @@ mod styx_ferry_program {
             .init(verifier_program, domain_separator, base_fee_lamports)
     }
 
+    // X3DH prekey bundles carry a fixed set of cryptographic fields; the arg
+    // list mirrors the wire format rather than reflecting an API design choice.
+    #[allow(clippy::too_many_arguments)]
     #[instruction(1)]
     pub fn publish_prekey_bundle(
         ctx: Ctx<PublishPrekeyBundle>,
@@ -280,13 +283,13 @@ impl<'info> PublishPrekeyBundle<'info> {
         published_at: u64,
         ed25519_sibling_index: u64,
     ) -> ProgramResult {
-        validate_prekey_domain(&domain)?;
+        validate_prekey_domain(domain)?;
         validate_prekey_count(one_time_prekey_count)?;
         verify_signed_prekey_instruction(
             ed25519_sibling_index,
             self.owner.key(),
-            &signed_prekey,
-            &signed_prekey_signature,
+            signed_prekey,
+            signed_prekey_signature,
         )?;
 
         {
@@ -311,10 +314,10 @@ impl<'info> PublishPrekeyBundle<'info> {
         emit_prekey_event(
             EVENT_PREKEY_PUBLISH,
             self.owner.key(),
-            &domain,
-            &identity_key,
+            domain,
+            identity_key,
             signed_prekey_id,
-            &one_time_prekey_root,
+            one_time_prekey_root,
             one_time_prekey_count,
             published_at,
         );

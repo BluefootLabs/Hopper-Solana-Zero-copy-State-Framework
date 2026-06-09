@@ -72,6 +72,14 @@ pub mod __sealed {
     /// See the module-level documentation. Do not implement directly
     /// unless you understand the full `Pod` + `bytemuck::Pod` +
     /// alignment-1 + no-padding + no-interior-pointers contract.
+    ///
+    /// # Safety
+    ///
+    /// Implementors promise the type is a fixed-size, `#[repr(C)]`,
+    /// alignment-1 plain-old-data value with no padding bytes and no
+    /// interior pointers, so that any byte pattern of the correct length is
+    /// a valid instance. Implementing this for a type that violates the
+    /// contract makes every downstream [`ZeroCopy`] cast unsound.
     pub unsafe trait HopperZeroCopySealed {}
 
     // Framework-provided primitives. Every Rust-level `Pod` integer

@@ -575,7 +575,7 @@ mod audit_tests {
         // instruction, so we confirm persistence by rereading the raw
         // bytes via the underlying account view.
         let bytes = frame.account(0).unwrap().data().unwrap();
-        let slice: &[u8] = &*bytes;
+        let slice: &[u8] = &bytes;
         // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let raw_u64 =
             unsafe { core::ptr::read_unaligned(slice.as_ptr().add(HEADER_LEN) as *const u64) };

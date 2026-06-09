@@ -120,7 +120,7 @@ pub fn cmd_verify(args: &[String]) {
     }
     println!("  binary size: {} bytes", binary.len());
     println!();
-    println!("{:<32} {:<24} {}", "Layout", "LAYOUT_ID (hex)", "Presence");
+    println!("{:<32} {:<24} Presence", "Layout", "LAYOUT_ID (hex)");
     println!("{}", "-".repeat(80));
 
     let mut found_count = 0u32;
@@ -417,10 +417,7 @@ struct ManifestLayout {
 fn extract_layouts_from_manifest(json: &str) -> Result<Vec<ManifestLayout>, String> {
     let mut out = Vec::new();
     let mut rest = json;
-    loop {
-        let Some(name_idx) = rest.find("\"name\"") else {
-            break;
-        };
+    while let Some(name_idx) = rest.find("\"name\"") {
         let after_name = &rest[name_idx + 6..];
         let Some(colon) = after_name.find(':') else {
             break;
@@ -471,10 +468,10 @@ fn find_layout_id_in_window(window: &str) -> Option<[u8; 8]> {
         };
         let tail = after[colon + 1..].trim_start();
 
-        if tail.starts_with('[') {
+        if let Some(inner) = tail.strip_prefix('[') {
             // Byte-array form.
-            if let Some(close) = tail[1..].find(']') {
-                let body = &tail[1..1 + close];
+            if let Some(close) = inner.find(']') {
+                let body = &inner[..close];
                 let bytes: Result<Vec<u8>, _> = body
                     .split(',')
                     .map(|s| s.trim())
@@ -489,9 +486,8 @@ fn find_layout_id_in_window(window: &str) -> Option<[u8; 8]> {
                     }
                 }
             }
-        } else if tail.starts_with('"') {
+        } else if let Some(body) = tail.strip_prefix('"') {
             // Hex-string form.
-            let body = &tail[1..];
             if let Some(close) = body.find('"') {
                 let hex = &body[..close];
                 if hex.len() == 16 {

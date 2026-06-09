@@ -2,8 +2,13 @@ error[E0277]: the trait bound `SneakyBypass: ZeroCopy` is not satisfied
   --> tests/compile_fail/zerocopy_seal_required.rs:23:25
    |
 23 |     require_zero_copy::<SneakyBypass>();
-   |                         ^^^^^^^^^^^^ the trait `hopper::prelude::Pod` is not implemented for `SneakyBypass`
+   |                         ^^^^^^^^^^^^ unsatisfied trait bound
    |
+help: the trait `hopper::prelude::Pod` is not implemented for `SneakyBypass`
+  --> tests/compile_fail/zerocopy_seal_required.rs:14:1
+   |
+14 | pub struct SneakyBypass {
+   | ^^^^^^^^^^^^^^^^^^^^^^^
    = help: the following other types implement trait `hopper::prelude::Pod`:
              ()
              AccountHeader
@@ -25,9 +30,14 @@ error[E0277]: the trait bound `SneakyBypass: ZeroCopy` is not satisfied
   --> tests/compile_fail/zerocopy_seal_required.rs:23:25
    |
 23 |     require_zero_copy::<SneakyBypass>();
-   |                         ^^^^^^^^^^^^ the trait `HopperZeroCopySealed` is not implemented for `SneakyBypass`
+   |                         ^^^^^^^^^^^^ unsatisfied trait bound
    |
-   = help: the following other types implement trait `HopperZeroCopySealed`:
+help: the trait `hopper::hopper_runtime::__sealed::HopperZeroCopySealed` is not implemented for `SneakyBypass`
+  --> tests/compile_fail/zerocopy_seal_required.rs:14:1
+   |
+14 | pub struct SneakyBypass {
+   | ^^^^^^^^^^^^^^^^^^^^^^^
+   = help: the following other types implement trait `hopper::hopper_runtime::__sealed::HopperZeroCopySealed`:
              ()
              AccountHeader
              SegmentDescriptor

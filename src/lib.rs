@@ -56,7 +56,7 @@
 //! - `hopper_derive` (`hopper-derive` package): proc-macro DX layer.
 //!   `#[hopper::state]`, `#[hopper::pod]`, `#[hopper::context]`,
 //!   `#[derive(Accounts)]`, `#[hopper::program]`, `#[hopper::migrate]`,
-//!   `#[hopper::args]`, `#[hopper::error]`, `#[hopper::event]`,
+//!   `#[hopper::args]`, `#[hopper::error_code]`, `#[hopper::event]`,
 //!   `#[hopper::constant]`, `#[hopper::crank]`, `hopper::declare_program!`,
 //!   `#[hopper::dynamic]`, and `#[hopper::dynamic_account]`.
 //! - `hopper_solana`: SPL Token/Mint readers, Token-2022 checks, CPI

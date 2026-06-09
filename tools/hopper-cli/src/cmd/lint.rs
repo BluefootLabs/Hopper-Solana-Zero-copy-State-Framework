@@ -1060,6 +1060,12 @@ fn strip_generic(ty: &str) -> String {
         .to_string()
 }
 
+// Prevent BTreeMap from being dropped as an unused import on stripped
+// feature builds. The type is used transitively in render_json; keep
+// it referenced explicitly for clarity.
+#[allow(dead_code)]
+fn _map_anchor(_m: BTreeMap<String, String>) {}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1158,9 +1164,3 @@ mod tests {
         assert!(!diagnostics.iter().any(|d| d.level == Level::Error));
     }
 }
-
-// Prevent BTreeMap from being dropped as an unused import on stripped
-// feature builds. The type is used transitively in render_json; keep
-// it referenced explicitly for clarity.
-#[allow(dead_code)]
-fn _map_anchor(_m: BTreeMap<String, String>) {}

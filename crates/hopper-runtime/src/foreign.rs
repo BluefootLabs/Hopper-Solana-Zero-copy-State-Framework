@@ -684,8 +684,8 @@ impl<'a, T: AccountLayout + LayoutContract> ForeignLens<'a, T> {
         // so every byte pattern is valid for `F: ZeroCopy`. The
         // returned reference inherits the lens's lifetime and thus
         // cannot outlive the underlying borrow guard.
-        // `Ref<T>` derefs to `T`; take the address via `&*`.
-        let layout_ref: &T = &*self.inner;
+        // `Ref<T>` derefs to `T`; the `&T` annotation drives the coercion.
+        let layout_ref: &T = &self.inner;
         // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {
             let base = layout_ref as *const T as *const u8;

@@ -455,7 +455,7 @@ impl<const SNAP_SIZE: usize> StateReceipt<SNAP_SIZE> {
     ///
     /// This is the hook that closes the invariant-error chain: when an
     /// instruction aborts, the program writes the *actual* user error
-    /// code (from the `#[hopper::error]`-derived enum) and the invariant
+    /// code (from the `#[hopper::error_code]`-derived enum) and the invariant
     /// index (from `INVARIANT_TABLE`) into the receipt before emitting
     /// it. The off-chain SDK can then map the code back to a variant name
     /// and the idx to an invariant label without ever guessing.
@@ -1102,11 +1102,9 @@ impl ReceiptNarrative {
         // Mutation details
         if explain.changed_field_count > 0 {
             risk = NarrativeRisk::Low;
-            if explain.segment_count > 1 {
-                if n < 8 {
-                    frags[n as usize] = "Changes span multiple segments.";
-                    n += 1;
-                }
+            if explain.segment_count > 1 && n < 8 {
+                frags[n as usize] = "Changes span multiple segments.";
+                n += 1;
             }
         }
 
@@ -1147,11 +1145,9 @@ impl ReceiptNarrative {
         }
 
         // CPI
-        if !crate::const_str_eq(explain.cpi_summary, "No CPI calls") {
-            if n < 8 {
-                frags[n as usize] = "Cross-program invocation occurred.";
-                n += 1;
-            }
+        if !crate::const_str_eq(explain.cpi_summary, "No CPI calls") && n < 8 {
+            frags[n as usize] = "Cross-program invocation occurred.";
+            n += 1;
         }
 
         // Integrity
@@ -1178,21 +1174,21 @@ impl ReceiptNarrative {
             let mut i = 0u8;
             while i < explain.segment_role_count && i < 8 {
                 let role = explain.segment_role_names[i as usize];
-                if crate::const_str_eq(role, "audit") || crate::const_str_eq(role, "Audit") {
-                    if n < 8 {
-                        frags[n as usize] = "Audit segment was touched.";
-                        n += 1;
-                    }
+                if (crate::const_str_eq(role, "audit") || crate::const_str_eq(role, "Audit"))
+                    && n < 8
+                {
+                    frags[n as usize] = "Audit segment was touched.";
+                    n += 1;
                 }
                 i += 1;
             }
         }
 
         // Phase-level risk escalation
-        if crate::const_str_eq(explain.phase_name, "Migrate") {
-            if (risk as u8) < NarrativeRisk::High as u8 {
-                risk = NarrativeRisk::High;
-            }
+        if crate::const_str_eq(explain.phase_name, "Migrate")
+            && (risk as u8) < NarrativeRisk::High as u8
+        {
+            risk = NarrativeRisk::High;
         }
 
         Self {

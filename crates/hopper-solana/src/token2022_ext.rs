@@ -556,14 +556,9 @@ mod tests {
     #[test]
     fn read_transfer_hook_parses_authority_and_program_id() {
         let mut ext_value = vec![0u8; 64];
-        // authority = 0xAA... (32 bytes)
-        for i in 0..32 {
-            ext_value[i] = 0xAA;
-        }
-        // program_id = 0xBB... (32 bytes)
-        for i in 32..64 {
-            ext_value[i] = 0xBB;
-        }
+        // authority = 0xAA... (32 bytes), program_id = 0xBB... (32 bytes)
+        ext_value[..32].fill(0xAA);
+        ext_value[32..64].fill(0xBB);
         let data = sample_mint_with_extension(EXT_TRANSFER_HOOK, &ext_value);
         let hook = read_transfer_hook(&data).unwrap().unwrap();
         assert_eq!(hook.authority, &[0xAA; 32]);

@@ -569,7 +569,7 @@ pub fn cmd_test(args: &[String]) {
         process::exit(1);
     });
 
-    let mut passthrough: Vec<String> = args.iter().cloned().collect();
+    let mut passthrough: Vec<String> = args.to_vec();
     let watch_mode = crate::cmd::watch::extract_watch_flag(&mut passthrough);
 
     let run_once = {

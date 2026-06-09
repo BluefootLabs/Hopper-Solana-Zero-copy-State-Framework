@@ -1,4 +1,7 @@
 #![cfg(feature = "proc-macros")]
+// These tests assert derived associated consts (HAS_DYNAMIC_TAIL, etc.); the
+// constant value of the assertion is precisely what is under test.
+#![allow(clippy::assertions_on_constants)]
 
 use hopper::__runtime::ProgramError;
 use hopper::prelude::*;

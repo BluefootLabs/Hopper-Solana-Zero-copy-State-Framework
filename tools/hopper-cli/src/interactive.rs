@@ -240,8 +240,8 @@ impl<'a> Session<'a> {
         write!(w, "  \x1b[1;33mFields:\x1b[0m\r\n")?;
         write!(
             w,
-            "  {:<4} {:<20} {:<14} {:<6} {:<6} {}\r\n",
-            "#", "Name", "Type", "Offset", "Size", "Intent"
+            "  {:<4} {:<20} {:<14} {:<6} {:<6} Intent\r\n",
+            "#", "Name", "Type", "Offset", "Size"
         )?;
         write!(w, "  {}\r\n", "─".repeat(70))?;
         for (i, f) in l.fields.iter().enumerate() {
@@ -629,12 +629,12 @@ impl<'a> Session<'a> {
         };
 
         let mut out = String::new();
-        out.push_str(&format!("\x1b[1mAccount Header\x1b[0m\n"));
+        out.push_str("\x1b[1mAccount Header\x1b[0m\n");
         out.push_str(&format!("  Disc:      {}\n", header.disc));
         out.push_str(&format!("  Version:   {}\n", header.version));
         out.push_str(&format!("  Layout ID: {}\n", hex_encode(&header.layout_id)));
         out.push_str(&format!("  Data size: {} bytes\n", data.len()));
-        out.push_str("\n");
+        out.push('\n');
 
         // Try to identify layout
         match self.prog.identify_from_data(&data) {
@@ -645,7 +645,7 @@ impl<'a> Session<'a> {
                 ));
                 out.push_str(&format!("  Expected size: {} bytes\n", layout.total_size));
                 out.push_str(&format!("  Fields:        {}\n", layout.field_count));
-                out.push_str("\n");
+                out.push('\n');
 
                 // Decode fields
                 let (_count, fields) = decode_account_fields::<64>(&data, layout);
@@ -705,7 +705,7 @@ fn hex_short(bytes: &[u8]) -> String {
 
 fn hex_decode_bytes(s: &str) -> Result<Vec<u8>, String> {
     let s = s.trim();
-    if s.len() % 2 != 0 {
+    if !s.len().is_multiple_of(2) {
         return Err("Hex string must have even length".to_string());
     }
     let mut bytes = Vec::with_capacity(s.len() / 2);

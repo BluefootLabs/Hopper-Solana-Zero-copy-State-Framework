@@ -198,6 +198,9 @@ impl Default for HopperInstructionPolicy {
 }
 
 #[cfg(test)]
+// These tests assert the field values of `const` policy profiles; the constant
+// value of each assertion is precisely the invariant under test.
+#[allow(clippy::assertions_on_constants)]
 mod tests {
     use super::*;
 

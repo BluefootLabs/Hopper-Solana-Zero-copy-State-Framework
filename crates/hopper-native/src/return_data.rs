@@ -62,7 +62,7 @@ impl ReturnData {
 
         let align = core::mem::align_of::<T>();
         let ptr = self.buf.as_ptr();
-        if align > 1 && (ptr as usize) % align != 0 {
+        if !(ptr as usize).is_multiple_of(align) {
             return Err(ProgramError::InvalidAccountData);
         }
 
@@ -147,7 +147,7 @@ pub fn get_return_data() -> Option<ReturnData> {
 /// ```
 #[cfg(feature = "cpi")]
 #[inline]
-pub fn invoke_and_read<'a, T: Projectable, const ACCOUNTS: usize>(
+pub fn invoke_and_read<T: Projectable, const ACCOUNTS: usize>(
     instruction: &InstructionView<'_, '_, '_, '_>,
     account_views: &[&crate::account_view::AccountView<'_>; ACCOUNTS],
     signers_seeds: &[Signer<'_, '_>],

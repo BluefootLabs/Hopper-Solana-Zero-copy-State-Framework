@@ -79,7 +79,7 @@ fn test_cp_in_basic() {
     // Inverse of out: if we want 181818 out, how much in?
     let needed = constant_product_in(1_000_000, 2_000_000, 181818, 0).unwrap();
     // Should be close to 100_000 (may differ by rounding)
-    assert!(needed >= 99_999 && needed <= 100_001, "needed={needed}");
+    assert!((99_999..=100_001).contains(&needed), "needed={needed}");
 }
 
 #[test]

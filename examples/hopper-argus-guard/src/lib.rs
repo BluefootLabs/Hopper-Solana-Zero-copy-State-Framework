@@ -103,6 +103,9 @@ impl<'info> MutateRisk<'info> {
 }
 
 #[cfg(test)]
+// These tests assert relationships between derived inherent consts; the
+// constant value of the assertion is precisely what is under test.
+#[allow(clippy::assertions_on_constants)]
 mod tests {
     use super::*;
 

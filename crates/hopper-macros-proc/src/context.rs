@@ -2269,7 +2269,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         let Some(field_ty) = layout_type_for_field(cf) else {
             continue;
         };
-        if !(cf.attr.is_mut || !cf.attr.mut_segments.is_empty()) {
+        if !cf.attr.is_mut && cf.attr.mut_segments.is_empty() {
             continue;
         }
 
@@ -3533,19 +3533,18 @@ fn validate_account_attr(field_name: &Ident, attr: &AccountAttr) -> Result<()> {
         || attr.metadata_update_authority.is_some()
         || attr.metadata_system_program.is_some()
         || attr.metadata_rent.is_some();
-    if metadata_cpi_any {
-        if !metadata_data_complete
+    if metadata_cpi_any
+        && (!metadata_data_complete
             || attr.metadata_mint.is_none()
             || attr.metadata_mint_authority.is_none()
             || attr.metadata_payer.is_none()
             || attr.metadata_update_authority.is_none()
-            || attr.metadata_system_program.is_none()
-        {
-            return Err(syn::Error::new_spanned(
-                field_name,
-                "metadata CPI helpers require metadata::{mint,mint_authority,payer,update_authority,system_program,name,symbol,uri,seller_fee_basis_points}; `metadata::rent` is optional",
-            ));
-        }
+            || attr.metadata_system_program.is_none())
+    {
+        return Err(syn::Error::new_spanned(
+            field_name,
+            "metadata CPI helpers require metadata::{mint,mint_authority,payer,update_authority,system_program,name,symbol,uri,seller_fee_basis_points}; `metadata::rent` is optional",
+        ));
     }
 
     let master_edition_any = attr.master_edition_max_supply.is_some()

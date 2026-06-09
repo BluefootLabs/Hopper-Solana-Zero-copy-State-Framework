@@ -429,9 +429,7 @@ fn find_max_state_disc(s: &str) -> Option<i64> {
         for ch in rest.chars() {
             if ch.is_ascii_digit() {
                 num.push(ch);
-            } else if !num.is_empty() {
-                break;
-            } else if !ch.is_whitespace() {
+            } else if !num.is_empty() || !ch.is_whitespace() {
                 break;
             }
         }

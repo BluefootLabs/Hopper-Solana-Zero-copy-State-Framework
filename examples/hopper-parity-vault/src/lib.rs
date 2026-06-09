@@ -203,7 +203,7 @@ fn process_counter_access(program_id: &Address, accounts: &[AccountView]) -> Pro
     let mut borrows = SegmentBorrowRegistry::new();
     {
         let authority = vault.segment_ref::<Address>(&mut borrows, 0, 32)?;
-        if !hopper::hopper_runtime::address::address_eq(&*authority, user.address()) {
+        if !hopper::hopper_runtime::address::address_eq(&authority, user.address()) {
             return Err(ProgramError::InvalidAccountData);
         }
     }

@@ -14,7 +14,8 @@ is exposed. No deserialize-then-hope path. No unchecked cast hidden behind a
 macro.
 
 Hopper has one production runtime path: direct Solana account memory through
-Hopper's own `AccountView`, validation layer, borrow guards, and CPI surface.
+Hopper's own typed account handles, validation layer, borrow guards, and CPI
+surface.
 
 Use `hopper-lang` as `hopper` for normal programs: `use hopper::prelude::*`,
 `#[account]`, `#[derive(Accounts)]`, `#[program]`, typed wrappers, checked CPI,

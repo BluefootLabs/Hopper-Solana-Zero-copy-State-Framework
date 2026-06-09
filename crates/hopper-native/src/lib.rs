@@ -45,6 +45,11 @@
 
 #![no_std]
 #![deny(unsafe_op_in_unsafe_fn)]
+// `AccountView`/`Address` are `Copy` only under the `copy` feature. The
+// `.clone()` calls on them are mandatory in the default (non-`copy`) build, so
+// suppress `clone_on_copy` only in the feature lane where the type gains `Copy`
+// — keeping one source of truth instead of feature-splitting every call site.
+#![cfg_attr(feature = "copy", allow(clippy::clone_on_copy))]
 
 // ── Core modules (always available) ──────────────────────────────────
 
