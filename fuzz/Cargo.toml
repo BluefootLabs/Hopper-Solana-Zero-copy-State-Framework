@@ -48,5 +48,15 @@ test = false
 doc = false
 bench = false
 
+# P0 addition: covers AccountView::load unsafe casting boundary
+# (discriminator + version + layout fingerprint + alignment gate).
+# Exercises both the happy path and adversarial arbitrary-byte path.
+[[bin]]
+name = "fuzz_account_view_load"
+path = "fuzz_targets/fuzz_account_view_load.rs"
+test = false
+doc = false
+bench = false
+
 [profile.release]
 debug = 1
