@@ -62,6 +62,8 @@ jobs:
           cargo +nightly fuzz run fuzz_decode_header -- -max_total_time=15 -timeout=5
           cargo +nightly fuzz run fuzz_decode_segments -- -max_total_time=15 -timeout=5
           cargo +nightly fuzz run fuzz_pod_overlay -- -max_total_time=15 -timeout=5
+          # P0: AccountView::load unsafe boundary (discriminator + version + layout fingerprint + alignment)
+          cargo +nightly fuzz run fuzz_account_view_load -- -max_total_time=15 -timeout=5
 
   kani-runtime-proofs:
     name: Kani runtime proofs
