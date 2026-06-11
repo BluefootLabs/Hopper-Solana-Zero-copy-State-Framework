@@ -608,7 +608,11 @@ pub fn cmd_deploy(args: &[String]) {
         process::exit(1);
     });
 
-    let (common, solana_args) = parse_lifecycle_args(args).unwrap_or_else(|err| {
+    let (common, rest) = parse_lifecycle_args(args).unwrap_or_else(|err| {
+        eprintln!("hopper deploy failed: {err}");
+        process::exit(1);
+    });
+    let cluster = crate::cmd::cluster::parse_cluster_args(&rest).unwrap_or_else(|err| {
         eprintln!("hopper deploy failed: {err}");
         process::exit(1);
     });
@@ -623,16 +627,218 @@ pub fn cmd_deploy(args: &[String]) {
             process::exit(1);
         });
 
+    cluster.confirm_destructive("deploy a program", &cluster.label);
+
+    eprintln!(
+        "hopper deploy -> cluster {} ({})",
+        cluster.label, cluster.url
+    );
+
     let mut command_args = vec![
         "program".to_string(),
         "deploy".to_string(),
         artifact.display().to_string(),
     ];
-    if !solana_args.iter().any(|arg| arg == "--use-rpc") {
+    let passthrough = &cluster.passthrough;
+    if !passthrough.iter().any(|arg| arg == "--use-rpc") {
         command_args.push("--use-rpc".to_string());
     }
-    command_args.extend(solana_args);
+    command_args.extend(cluster.solana_flags());
+    command_args.extend(passthrough.iter().cloned());
     run_external_command("solana", &workspace_root, &command_args);
+}
+
+/// `hopper upgrade` — redeploy the current SBF program against an
+/// existing program id using the BPF Loader Upgradeable upgrade path.
+pub fn cmd_upgrade(args: &[String]) {
+    if args.iter().any(|arg| arg == "--help" || arg == "-h") {
+        print_upgrade_usage();
+        return;
+    }
+
+    let cwd = workspace::current_dir().unwrap_or_else(|err| {
+        eprintln!("{err}");
+        process::exit(1);
+    });
+    let project_root = workspace::find_project_root(&cwd).unwrap_or_else(|err| {
+        eprintln!("{err}");
+        process::exit(1);
+    });
+    let workspace_root = workspace::find_workspace_root(&cwd).unwrap_or_else(|err| {
+        eprintln!("{err}");
+        process::exit(1);
+    });
+
+    let (common, mut rest) = parse_lifecycle_args(args).unwrap_or_else(|err| {
+        eprintln!("hopper upgrade failed: {err}");
+        process::exit(1);
+    });
+
+    // `--program-id <path|pubkey>` is required for an upgrade.
+    let program_id = take_flag_value(&mut rest, &["--program-id"]).unwrap_or_else(|| {
+        eprintln!("hopper upgrade failed: --program-id <path|pubkey> is required");
+        process::exit(1);
+    });
+
+    let cluster = crate::cmd::cluster::parse_cluster_args(&rest).unwrap_or_else(|err| {
+        eprintln!("hopper upgrade failed: {err}");
+        process::exit(1);
+    });
+
+    if !common.no_build {
+        build_sbf(&project_root, &workspace_root, common.package.as_deref());
+    }
+    let artifact = resolve_sbf_artifact(&project_root, &workspace_root, common.package.as_deref())
+        .unwrap_or_else(|err| {
+            eprintln!("hopper upgrade failed: {err}");
+            process::exit(1);
+        });
+
+    cluster.confirm_destructive("upgrade a program", &program_id);
+
+    eprintln!(
+        "hopper upgrade -> program {} on cluster {} ({})",
+        program_id, cluster.label, cluster.url
+    );
+
+    let mut command_args = vec![
+        "program".to_string(),
+        "deploy".to_string(),
+        artifact.display().to_string(),
+        "--program-id".to_string(),
+        program_id,
+    ];
+    if !cluster.passthrough.iter().any(|arg| arg == "--use-rpc") {
+        command_args.push("--use-rpc".to_string());
+    }
+    command_args.extend(cluster.solana_flags());
+    command_args.extend(cluster.passthrough.iter().cloned());
+    run_external_command("solana", &workspace_root, &command_args);
+}
+
+/// `hopper close` — close an upgradeable program or buffer, reclaiming
+/// its rent. Always prompts for confirmation (any cluster) because the
+/// program id becomes permanently unusable.
+pub fn cmd_close(args: &[String]) {
+    if args.is_empty() || args.iter().any(|arg| arg == "--help" || arg == "-h") {
+        print_close_usage();
+        return;
+    }
+
+    let cwd = workspace::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+    let workspace_root = workspace::find_workspace_root(&cwd).unwrap_or(cwd);
+
+    let mut rest = args.to_vec();
+    let buffers = take_bare_flag(&mut rest, &["--buffers"]);
+    let target = take_flag_value(&mut rest, &["--program-id", "--buffer"]);
+
+    let cluster = crate::cmd::cluster::parse_cluster_args(&rest).unwrap_or_else(|err| {
+        eprintln!("hopper close failed: {err}");
+        process::exit(1);
+    });
+
+    let label = target.clone().unwrap_or_else(|| {
+        if buffers {
+            "all dangling buffers".to_string()
+        } else {
+            eprintln!("hopper close failed: pass --program-id <pubkey>, --buffer <pubkey>, or --buffers");
+            process::exit(1);
+        }
+    });
+
+    // close is irreversible everywhere, so always confirm unless --yes.
+    if !cluster.yes {
+        eprint!("About to close {label} on {}. This is irreversible. Type 'yes' to continue: ", cluster.label);
+        use std::io::Write;
+        let _ = std::io::stderr().flush();
+        let mut line = String::new();
+        if std::io::stdin().read_line(&mut line).is_err() || line.trim() != "yes" {
+            eprintln!("aborted.");
+            process::exit(1);
+        }
+    }
+
+    let mut command_args = vec!["program".to_string(), "close".to_string()];
+    if let Some(t) = target {
+        command_args.push(t);
+    }
+    if buffers {
+        command_args.push("--buffers".to_string());
+    }
+    command_args.extend(cluster.solana_flags());
+    command_args.extend(cluster.passthrough.iter().cloned());
+    run_external_command("solana", &workspace_root, &command_args);
+}
+
+/// `hopper migrate` — drive a `LayoutMigration` upgrade against a
+/// deployed program. In practice this rebuilds the current (v2) program
+/// and performs an on-chain upgrade against the existing program id, so
+/// the new bytecode (carrying the new layout handlers) replaces the old
+/// one in a single upgrade transaction. The layout-level migration plan
+/// (which account fields change) is reported via `hopper plan` /
+/// `hopper manager plan`; this command performs the bytecode side.
+pub fn cmd_migrate(args: &[String]) {
+    if args.iter().any(|arg| arg == "--help" || arg == "-h") {
+        print_migrate_usage();
+        return;
+    }
+    // A migrate is an upgrade with a louder banner. Reuse the upgrade
+    // path so the cluster/keypair/confirmation handling stays in one
+    // place.
+    eprintln!("hopper migrate: performing a LayoutMigration bytecode upgrade");
+    cmd_upgrade(args);
+}
+
+/// Pull the value following any of `flags` out of `args`, removing both
+/// the flag and its value. Returns the first match found.
+fn take_flag_value(args: &mut Vec<String>, flags: &[&str]) -> Option<String> {
+    let mut i = 0;
+    while i < args.len() {
+        if flags.contains(&args[i].as_str()) {
+            if i + 1 < args.len() {
+                let value = args.remove(i + 1);
+                args.remove(i);
+                return Some(value);
+            }
+            args.remove(i);
+            return None;
+        }
+        i += 1;
+    }
+    None
+}
+
+/// Remove a bare boolean flag if present; report whether it was there.
+fn take_bare_flag(args: &mut Vec<String>, flags: &[&str]) -> bool {
+    if let Some(pos) = args.iter().position(|a| flags.contains(&a.as_str())) {
+        args.remove(pos);
+        true
+    } else {
+        false
+    }
+}
+
+fn print_upgrade_usage() {
+    eprintln!("Usage: hopper upgrade --program-id <path|pubkey> [--cluster <name>] [--keypair <path>] [--commitment <level>] [--no-build] [-y|--yes]");
+    eprintln!();
+    eprintln!("Rebuild the current SBF program and upgrade an existing program id");
+    eprintln!("via the BPF Loader Upgradeable. Mainnet requires --cluster mainnet-beta");
+    eprintln!("and prompts for confirmation unless --yes is passed.");
+}
+
+fn print_close_usage() {
+    eprintln!("Usage: hopper close (--program-id <pubkey> | --buffer <pubkey> | --buffers) [--cluster <name>] [--keypair <path>] [-y|--yes]");
+    eprintln!();
+    eprintln!("Close an upgradeable program or buffer and reclaim its rent.");
+    eprintln!("Always prompts for confirmation unless --yes is passed.");
+}
+
+fn print_migrate_usage() {
+    eprintln!("Usage: hopper migrate --program-id <path|pubkey> [--cluster <name>] [--keypair <path>] [--no-build] [-y|--yes]");
+    eprintln!();
+    eprintln!("Perform a LayoutMigration bytecode upgrade against a deployed program.");
+    eprintln!("Equivalent to `hopper upgrade` with a migration banner; use `hopper plan`");
+    eprintln!("to inspect the field-level layout migration plan beforehand.");
 }
 
 pub fn cmd_dump(args: &[String]) {

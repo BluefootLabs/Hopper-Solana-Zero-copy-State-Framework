@@ -173,6 +173,9 @@ fn main() {
         "build" => cmd::lifecycle::cmd_build(&args[2..]),
         "test" => cmd::lifecycle::cmd_test(&args[2..]),
         "deploy" => cmd::lifecycle::cmd_deploy(&args[2..]),
+        "upgrade" => cmd::lifecycle::cmd_upgrade(&args[2..]),
+        "close" => cmd::lifecycle::cmd_close(&args[2..]),
+        "migrate" => cmd::lifecycle::cmd_migrate(&args[2..]),
         "dump" => cmd::lifecycle::cmd_dump(&args[2..]),
         "clean" => cmd::clean::cmd_clean(&args[2..]),
         "verify" => cmd::verify::cmd_verify(&args[2..]),
@@ -282,7 +285,79 @@ fn cmd_explain_family(args: &[String]) {
         "program" => cmd_explain_program(&args[1..]),
         "context" => cmd_explain_context(&args[1..]),
         "instruction" => cmd_explain_instruction(&args[1..]),
+        // Top-level differentiator: `hopper explain <tx-sig|program-id>`.
+        // A confirmed-tx signature decodes against every touched Hopper
+        // manifest; a program address fetches the on-chain manifest and
+        // renders a full program explanation. Anything else falls back to
+        // treating the first arg as raw account hex.
+        first if looks_like_tx_signature(first) => {
+            cmd::tx_explain::cmd_tx_explain(args);
+        }
+        first if looks_like_program_id(first) => {
+            cmd_explain_program_onchain(args);
+        }
         _ => cmd_explain(args), // treat first arg as hex data
+    }
+}
+
+/// A base58 confirmed-transaction signature is 64 raw bytes, which
+/// encodes to 86-88 base58 chars. Hex account data never reaches that
+/// length with a purely base58 alphabet, so length + alphabet is a
+/// reliable discriminator here.
+fn looks_like_tx_signature(s: &str) -> bool {
+    if s.len() < 84 || s.len() > 90 {
+        return false;
+    }
+    is_base58(s) && bs58::decode(s).into_vec().map(|b| b.len() == 64).unwrap_or(false)
+}
+
+/// A base58 program address is 32 raw bytes (32-44 base58 chars). We
+/// also reject pure-hex strings (which would be account data) by
+/// requiring at least one non-hex base58 character, so a short hex blob
+/// is never mistaken for an address.
+fn looks_like_program_id(s: &str) -> bool {
+    if s.len() < 32 || s.len() > 44 {
+        return false;
+    }
+    if !is_base58(s) {
+        return false;
+    }
+    let all_hex = s.chars().all(|c| c.is_ascii_hexdigit());
+    if all_hex {
+        return false;
+    }
+    bs58::decode(s).into_vec().map(|b| b.len() == 32).unwrap_or(false)
+}
+
+fn is_base58(s: &str) -> bool {
+    const ALPHABET: &[u8] = b"123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+    !s.is_empty() && s.bytes().all(|b| ALPHABET.contains(&b))
+}
+
+/// Fetch a program's on-chain Hopper manifest by address and render the
+/// same full explanation as `hopper explain program <manifest-file>`.
+fn cmd_explain_program_onchain(args: &[String]) {
+    let program_id = &args[0];
+    let mut rpc_override: Option<String> = None;
+    let mut i = 1;
+    while i < args.len() {
+        if args[i] == "--rpc" {
+            rpc_override = args.get(i + 1).cloned();
+            i += 2;
+        } else {
+            i += 1;
+        }
+    }
+    let rpc_url = crate::rpc::resolve_rpc_url(rpc_override.as_deref());
+    match cmd::manager_invoke::try_fetch_manifest(&rpc_url, program_id) {
+        Ok(json) => cmd_explain_program(&[json]),
+        Err(e) => {
+            eprintln!("hopper explain {program_id}: no on-chain Hopper manifest found ({e})");
+            eprintln!();
+            eprintln!("Hint: publish a manifest with `hopper manager publish`, or pass a");
+            eprintln!("manifest file directly: `hopper explain program <manifest.json>`.");
+            process::exit(1);
+        }
     }
 }
 
@@ -2337,6 +2412,8 @@ fn print_usage() {
     println!("    hopper explain policy <pack-name>   Explain a named policy pack");
     println!("    hopper explain layout <manifest>    Explain layout fields, intents, fingerprint");
     println!("    hopper explain program <manifest>   Explain entire program pipeline");
+    println!("    hopper explain <tx-signature>       Decode a confirmed devnet/mainnet tx against on-chain manifests");
+    println!("    hopper explain <program-id>         Fetch the on-chain manifest and explain the program");
     println!("    hopper explain instruction <manifest> <tag|name>  Explain instruction accounts and policy");
     println!(
         "    hopper explain context <manifest>   Explain instruction contexts and account roles"
@@ -2376,7 +2453,10 @@ fn print_usage() {
     println!("    hopper add [-i|-s|-e <name>]       Scaffold an instruction, state, or error into the current project");
     println!("    hopper build [--host|--sbf]        Build the current project (default: SBF)");
     println!("    hopper test                        Run the current project's host-side tests");
-    println!("    hopper deploy [--no-build]         Build and deploy the current SBF program");
+    println!("    hopper deploy [--cluster <c>] [--keypair <p>] [--no-build]  Build and deploy the current SBF program");
+    println!("    hopper upgrade --program-id <id> [--cluster <c>]  Upgrade a deployed program in place");
+    println!("    hopper close --program-id <id> [--cluster <c>]    Close a program/buffer and reclaim rent");
+    println!("    hopper migrate --program-id <id> [--cluster <c>]  Upgrade a program carrying a layout migration");
     println!("    hopper dump [--no-build]           Disassemble the current SBF artifact");
     println!("    hopper clean [-a|--all]            Remove target/{{deploy,idl,client,profile,hopper}} (preserves keypairs)");
     println!();

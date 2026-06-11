@@ -68,6 +68,9 @@ const TOP_LEVEL: &[&str] = &[
     "build",
     "test",
     "deploy",
+    "upgrade",
+    "close",
+    "migrate",
     "dump",
     "verify",
     "solana-check",
@@ -90,7 +93,7 @@ const BASH_COMPLETION: &str = r#"_hopper() {
     local cur prev words cword
     _init_completion || return
     if [ "$cword" -eq 1 ]; then
-        COMPREPLY=($(compgen -W "schema compile inspect explain client profile fetch init build test deploy dump verify solana-check keys config lint expand tx manager doctor actions mobile test-gen completions version help" -- "$cur"))
+        COMPREPLY=($(compgen -W "schema compile inspect explain client profile fetch init build test deploy upgrade close migrate dump verify solana-check keys config lint expand tx manager doctor actions mobile test-gen completions version help" -- "$cur"))
         return
     fi
     case "${words[1]}" in
@@ -124,6 +127,9 @@ _hopper() {
         'build:compile (optionally --watch)'
         'test:run tests (optionally --watch)'
         'deploy:deploy an SBF artifact'
+        'upgrade:upgrade a deployed program'
+        'close:close a program or buffer account'
+        'migrate:run a layout migration upgrade'
         'dump:disassemble .so'
         'verify:ABI fingerprint check'
         'solana-check:SBF crate shape gate'
@@ -158,6 +164,9 @@ complete -c hopper -n '__fish_use_subcommand' -a 'init' -d 'scaffold a Hopper pr
 complete -c hopper -n '__fish_use_subcommand' -a 'build' -d 'compile (optionally --watch)'
 complete -c hopper -n '__fish_use_subcommand' -a 'test' -d 'run tests (optionally --watch)'
 complete -c hopper -n '__fish_use_subcommand' -a 'deploy' -d 'deploy an SBF artifact'
+complete -c hopper -n '__fish_use_subcommand' -a 'upgrade' -d 'upgrade a deployed program'
+complete -c hopper -n '__fish_use_subcommand' -a 'close' -d 'close a program or buffer account'
+complete -c hopper -n '__fish_use_subcommand' -a 'migrate' -d 'run a layout migration upgrade'
 complete -c hopper -n '__fish_use_subcommand' -a 'dump' -d 'disassemble .so'
 complete -c hopper -n '__fish_use_subcommand' -a 'verify' -d 'ABI fingerprint check'
 complete -c hopper -n '__fish_use_subcommand' -a 'solana-check' -d 'SBF crate shape gate'
@@ -180,7 +189,7 @@ const POWERSHELL_COMPLETION: &str = r#"Register-ArgumentCompleter -Native -Comma
     param($wordToComplete, $commandAst, $cursorPosition)
 
     $words = @($commandAst.CommandElements | ForEach-Object { $_.ToString() })
-    $top = @('schema','compile','inspect','explain','client','profile','fetch','init','build','test','deploy','dump','verify','solana-check','keys','config','lint','expand','tx','manager','doctor','actions','mobile','test-gen','completions','version','help')
+    $top = @('schema','compile','inspect','explain','client','profile','fetch','init','build','test','deploy','upgrade','close','migrate','dump','verify','solana-check','keys','config','lint','expand','tx','manager','doctor','actions','mobile','test-gen','completions','version','help')
     $nested = @{
         keys = @('new','list','print','pda','sync')
         config = @('get','set','list','reset','path')

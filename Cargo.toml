@@ -33,6 +33,7 @@ members = [
     "examples/hopper-registry",
     "examples/hopper-migration",
     "examples/hopper-virtual-state",
+    "examples/hopper-orderbook",
     "examples/hopper-token-2022-ata",
     "examples/hopper-token-2022-vault",
     "examples/hopper-token-2022-transfer-hook",
@@ -52,6 +53,7 @@ members = [
     "tests/hopper-trybuild",
     "crates/hopper-manager",
     "crates/hopper-sdk",
+    "crates/hopper-test",
     "tools/hopper-cli",
 ]
 resolver = "2"

@@ -1,0 +1,16 @@
+[package]
+name = "hopper-test"
+version = "0.2.1"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+description = "Reusable in-process SVM harness for testing Hopper programs without a validator."
+
+[dependencies]
+mollusk-svm = "0.10.3"
+solana-account = "3.2.0"
+solana-pubkey = { version = "4.1.0", features = ["std", "rand"] }
+solana-instruction = "3.0"
+
+[lints]
+workspace = true

@@ -1,0 +1,87 @@
+{
+  "name": "hopper_escrow",
+  "version": "0.2.1",
+  "description": "Macro-first token escrow example: make, take, cancel.",
+  "layouts": [
+    {
+      "name": "Escrow",
+      "disc": 2,
+      "version": 1,
+      "layout_id": [0, 0, 0, 0, 0, 0, 0, 0],
+      "total_size": 161,
+      "fields": [
+        {"name": "maker", "type": "Address", "size": 32, "offset": 16},
+        {"name": "maker_ta", "type": "Address", "size": 32, "offset": 48},
+        {"name": "mint_a", "type": "Address", "size": 32, "offset": 80},
+        {"name": "mint_b", "type": "Address", "size": 32, "offset": 112},
+        {"name": "amount_offered", "type": "WireU64", "size": 8, "offset": 144},
+        {"name": "amount_wanted", "type": "WireU64", "size": 8, "offset": 152},
+        {"name": "bump", "type": "u8", "size": 1, "offset": 160}
+      ]
+    }
+  ],
+  "instructions": [
+    {
+      "name": "make",
+      "tag": 0,
+      "args": [
+        {"name": "mint_a", "type": "Address", "size": 32},
+        {"name": "mint_b", "type": "Address", "size": 32},
+        {"name": "amount_offered", "type": "u64", "size": 8},
+        {"name": "amount_wanted", "type": "u64", "size": 8}
+      ],
+      "accounts": [
+        {"name": "maker", "writable": true, "signer": true, "layout_ref": ""},
+        {"name": "escrow", "writable": true, "signer": true, "layout_ref": "Escrow"},
+        {"name": "system_program", "writable": false, "signer": false, "layout_ref": ""}
+      ],
+      "capabilities": ["MutatesState", "CreatesAccount"],
+      "policy_pack": "ESCROW_MAKE",
+      "receipt_expected": false
+    },
+    {
+      "name": "take",
+      "tag": 1,
+      "args": [],
+      "accounts": [
+        {"name": "taker", "writable": false, "signer": true, "layout_ref": ""},
+        {"name": "escrow", "writable": true, "signer": false, "layout_ref": "Escrow"},
+        {"name": "maker", "writable": false, "signer": false, "layout_ref": ""}
+      ],
+      "capabilities": ["MutatesState", "ClosesAccount"],
+      "policy_pack": "ESCROW_TAKE",
+      "receipt_expected": false
+    },
+    {
+      "name": "cancel",
+      "tag": 2,
+      "args": [],
+      "accounts": [
+        {"name": "maker", "writable": false, "signer": true, "layout_ref": ""},
+        {"name": "escrow", "writable": true, "signer": false, "layout_ref": "Escrow"}
+      ],
+      "capabilities": ["MutatesState", "ClosesAccount"],
+      "policy_pack": "ESCROW_CANCEL",
+      "receipt_expected": false
+    }
+  ],
+  "contexts": [],
+  "events": [],
+  "policies": [
+    {
+      "name": "ESCROW_MAKE",
+      "capabilities": ["MutatesState", "CreatesAccount"],
+      "requirements": ["SignerAuthority"]
+    },
+    {
+      "name": "ESCROW_TAKE",
+      "capabilities": ["MutatesState", "ClosesAccount"],
+      "requirements": ["SignerAuthority"]
+    },
+    {
+      "name": "ESCROW_CANCEL",
+      "capabilities": ["MutatesState", "ClosesAccount"],
+      "requirements": ["SignerAuthority"]
+    }
+  ]
+}

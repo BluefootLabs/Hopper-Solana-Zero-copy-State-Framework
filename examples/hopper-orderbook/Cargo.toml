@@ -1,15 +1,16 @@
 [package]
-name = "hopper-escrow"
+name = "hopper-orderbook"
 version = "0.2.1"
 edition = "2021"
 license = "Apache-2.0"
 publish = false
+description = "Segment-borrow orderbook example: a >100 KB zero-copy account split into bids/asks/event-queue segments."
 
 [lib]
 crate-type = ["cdylib", "lib"]
 
 [dependencies]
-hopper = { path = "../..", package = "hopper-lang", default-features = false, features = ["proc-macros"] }
+hopper = { workspace = true, features = ["proc-macros", "advanced"] }
 
 [dev-dependencies]
 solana-client = "2.1"
@@ -21,11 +22,5 @@ solana-transaction = { version = "2.1", features = ["bincode"] }
 solana-system-interface = { version = "1.0.0", features = ["bincode"] }
 solana-commitment-config = "2.1"
 
-[features]
-default = []
-hopper-native-backend = []
-legacy-pinocchio-compat = []
-solana-program-backend = []
-
-[lints.rust]
-unexpected_cfgs = { level = "allow", check-cfg = ['cfg(target_os, values("solana"))'] }
+[lints]
+workspace = true

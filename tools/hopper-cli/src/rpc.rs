@@ -83,7 +83,16 @@ pub const DEFAULT_RPC_URL: &str = "https://api.mainnet-beta.solana.com";
 #[allow(dead_code)]
 pub const DEVNET_RPC_URL: &str = "https://api.devnet.solana.com";
 
-/// Resolved RPC endpoint: checks `SOLANA_RPC_URL` env, then falls back.
+/// Resolved RPC endpoint. Resolution order:
+///   1. explicit `--rpc` override,
+///   2. `SOLANA_RPC_URL` env var,
+///   3. the active Solana CLI config (`~/.config/solana/cli/config.yml`),
+///   4. mainnet-beta as a last resort.
+///
+/// Honoring the Solana CLI config means `hopper explain <sig>` targets
+/// whatever cluster the operator already selected with
+/// `solana config set --url`, so devnet work does not silently query
+/// mainnet.
 pub fn resolve_rpc_url(cli_override: Option<&str>) -> String {
     if let Some(url) = cli_override {
         return url.to_string();
@@ -93,7 +102,31 @@ pub fn resolve_rpc_url(cli_override: Option<&str>) -> String {
             return url;
         }
     }
+    if let Some(url) = rpc_url_from_solana_config() {
+        return url;
+    }
     DEFAULT_RPC_URL.to_string()
+}
+
+/// Read `json_rpc_url` out of the active Solana CLI config. Returns
+/// `None` if the file is missing or the key is absent. We parse the one
+/// line we care about rather than pulling in a YAML dependency.
+fn rpc_url_from_solana_config() -> Option<String> {
+    let path = std::env::var("SOLANA_CONFIG_FILE").ok().or_else(|| {
+        let home = std::env::var("HOME").ok()?;
+        Some(format!("{home}/.config/solana/cli/config.yml"))
+    })?;
+    let contents = std::fs::read_to_string(&path).ok()?;
+    for line in contents.lines() {
+        let line = line.trim();
+        if let Some(rest) = line.strip_prefix("json_rpc_url:") {
+            let url = rest.trim().trim_matches(['"', '\'']).to_string();
+            if !url.is_empty() {
+                return Some(url);
+            }
+        }
+    }
+    None
 }
 
 /// Account data returned from `getAccountInfo`.

@@ -43,5 +43,10 @@ five8_const = { workspace = true }
 # `Address`. `default-features = false` keeps this no_std-friendly.
 bytemuck = { version = "1", default-features = false }
 
+[dev-dependencies]
+# Property-based testing for the segment-borrow disjointness invariant.
+# Host-only (`cargo test`); never compiled into the no_std SBF build.
+proptest = "1"
+
 [lints]
 workspace = true
