@@ -326,7 +326,7 @@ fn process_match(
     accounts: &[AccountView],
     _data: &[u8],
 ) -> ProgramResult {
-    if accounts.len() < 1 {
+    if accounts.is_empty() {
         return Err(ProgramError::NotEnoughAccountKeys);
     }
     let book = &accounts[0];
@@ -419,7 +419,7 @@ mod tests {
 
     #[test]
     fn account_is_large() {
-        assert!(BOOK_ACCOUNT_SIZE > 100_000, "got {BOOK_ACCOUNT_SIZE}");
+        const { assert!(BOOK_ACCOUNT_SIZE > 100_000) };
     }
 
     #[test]
