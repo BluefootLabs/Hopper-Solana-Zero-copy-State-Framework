@@ -19,6 +19,41 @@ just account helpers.
 - `2` = `DepositV2`
 - `3` = `ReadEither`
 
+## Devnet (versioned-state)
+
+This is the brief's `versioned-state` example. Deployed to devnet in
+this pass:
+
+- Program id: `EuDECNLNwPAptWC5NmenBBfjSuhZtmpPwpMQ7Z1P2GMt`
+- `.so` size: 25 664 bytes
+
+```bash
+hopper build -p hopper-migration
+hopper deploy --cluster devnet \
+  --keypair /abs/path/devnet-keypair.json \
+  --program-id target/deploy/hopper_migration-keypair.json
+```
+
+`hopper migrate` drives a `LayoutMigration` bytecode upgrade against the
+deployed program:
+
+```bash
+hopper migrate --cluster devnet \
+  --keypair /abs/path/devnet-keypair.json \
+  --program-id target/deploy/hopper_migration-keypair.json \
+  -p hopper-migration
+```
+
+The on-chain `init_v1` → `migrate_v1_to_v2` account evolution is covered
+by the gated integration test (V1 56 B → V2 65 B in place):
+
+```bash
+HOPPER_DEVNET=1 \
+HOPPER_MIGRATION_PROGRAM_ID=EuDECNLNwPAptWC5NmenBBfjSuhZtmpPwpMQ7Z1P2GMt \
+HOPPER_KEYPAIR=/abs/path/devnet-keypair.json \
+cargo test -p hopper-migration --test devnet -- --nocapture
+```
+
 ## Verify
 
 ```bash

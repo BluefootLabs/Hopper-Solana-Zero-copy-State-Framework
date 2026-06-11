@@ -125,3 +125,25 @@ impl HarnessResult {
         &self.0
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn load_returns_none_for_missing_artifact() {
+        let program_id = Pubkey::new_unique();
+        // A path that cannot exist in the sandbox: load must decline so a
+        // caller can skip the test rather than panic on a missing `.so`.
+        assert!(LiteSvmHarness::load(&program_id, "/nonexistent/hopper_missing").is_none());
+    }
+
+    #[test]
+    fn funded_account_is_system_owned_and_carries_lamports() {
+        let (addr, account) = LiteSvmHarness::funded_account(1_234_567);
+        assert_ne!(addr, Pubkey::default(), "fresh address should be unique");
+        assert_eq!(account.lamports, 1_234_567);
+        assert_eq!(account.owner, Pubkey::default(), "fee payer is system-owned");
+        assert!(account.data.is_empty(), "fee payer carries no data");
+    }
+}
