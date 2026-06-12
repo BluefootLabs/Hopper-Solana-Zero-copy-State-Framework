@@ -34,7 +34,6 @@
 #![allow(dead_code, unused_variables)]
 
 use hopper::hopper_core::account;
-use hopper::hopper_runtime::__hopper_native::bytemuck;
 use hopper::prelude::*;
 use hopper::systems::*;
 
@@ -60,10 +59,9 @@ struct OrderRecord {
 }
 const _: () = assert!(core::mem::size_of::<OrderRecord>() == 56);
 const _: () = assert!(core::mem::align_of::<OrderRecord>() == 1);
-unsafe impl hopper::hopper_runtime::__hopper_native::bytemuck::Zeroable for OrderRecord {}
-unsafe impl hopper::hopper_runtime::__hopper_native::bytemuck::Pod for OrderRecord {}
 // SAFETY: #[repr(C)] of byte arrays only; every bit pattern is valid and
 // alignment is 1, so a cast from any 56-byte window is sound.
+unsafe impl Zeroable for OrderRecord {}
 unsafe impl Pod for OrderRecord {}
 impl FixedLayout for OrderRecord {
     const SIZE: usize = 56;
@@ -79,10 +77,9 @@ struct EventRecord {
 }
 const _: () = assert!(core::mem::size_of::<EventRecord>() == 48);
 const _: () = assert!(core::mem::align_of::<EventRecord>() == 1);
-unsafe impl hopper::hopper_runtime::__hopper_native::bytemuck::Zeroable for EventRecord {}
-unsafe impl hopper::hopper_runtime::__hopper_native::bytemuck::Pod for EventRecord {}
 // SAFETY: #[repr(C)] of byte arrays only; every bit pattern is valid and
 // alignment is 1, so a cast from any 48-byte window is sound.
+unsafe impl Zeroable for EventRecord {}
 unsafe impl Pod for EventRecord {}
 impl FixedLayout for EventRecord {
     const SIZE: usize = 48;
@@ -236,7 +233,7 @@ fn segment_push_order(
     // SAFETY: `slot` is exactly OrderRecord::SIZE bytes, OrderRecord is
     // align-1 Pod, and `base` is bounded by the `count < SIDE_CAP`
     // capacity check above, so the window lies inside the segment.
-    let bytes: &[u8] = bytemuck::bytes_of(rec);
+    let bytes: &[u8] = unsafe { core::slice::from_raw_parts(rec as *const _ as *const u8, OrderRecord::SIZE) };
     slot.copy_from_slice(bytes);
     let new_count = count + 1;
     region[0..4].copy_from_slice(&new_count.to_le_bytes());
@@ -345,7 +342,7 @@ fn process_match(
         }
         let top = (count - 1) as usize;
         let base = SEG_META as usize + top * OrderRecord::SIZE;
-        let rec: &OrderRecord = bytemuck::from_bytes(&asks[base..base + OrderRecord::SIZE]);
+            let rec: &OrderRecord = unsafe { &*(asks[base..base + OrderRecord::SIZE].as_ptr() as *const OrderRecord) };
         let m = rec.maker_clone();
         asks[0..4].copy_from_slice(&(count - 1).to_le_bytes());
         m
@@ -363,7 +360,8 @@ fn process_match(
             size: size.to_le_bytes(),
         };
         let dst = &mut events[base..base + EventRecord::SIZE];
-        dst.copy_from_slice(bytemuck::bytes_of(&ev));
+            let ev_bytes: &[u8] = unsafe { core::slice::from_raw_parts(&ev as *const _ as *const u8, EventRecord::SIZE) };
+            dst.copy_from_slice(ev_bytes);
         events[0..4].copy_from_slice(&(tail + 1).to_le_bytes());
     }
 

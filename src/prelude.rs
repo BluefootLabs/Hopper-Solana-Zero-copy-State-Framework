@@ -14,7 +14,7 @@ pub use crate::account::{
 pub use crate::context::Context;
 pub use crate::context::Context as Ctx;
 pub use hopper_runtime::{
-    AccountView, Address, HopperString, HopperVec, Pod, ProgramError, ProgramResult, TailBytes,
+    AccountView, Address, HopperString, HopperVec, Pod, Zeroable, ProgramError, ProgramResult, TailBytes,
     Ref, ScopedContext, TailCodec, TailElement, TailStr,
 };
 
