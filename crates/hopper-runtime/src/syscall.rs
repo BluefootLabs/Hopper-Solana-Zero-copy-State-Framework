@@ -1,5 +1,5 @@
-//! Small compatibility shims for individual runtime syscalls used directly by
-//! Hopper-owned crates.
+//! Small Hopper-owned wrappers for individual runtime syscalls used directly by
+//! framework crates.
 
 /// Emit the current compute-unit counter.
 #[inline(always)]

@@ -31,9 +31,6 @@ narrate = ["std"]
 builder = ["std"]
 # Serde JSON dump of receipts/narratives.
 serde_json = ["std"]
-hopper-native-backend = []
-legacy-pinocchio-compat = []
-solana-program-backend = []
 
 [dependencies]
 hopper-schema = { workspace = true, default-features = false }

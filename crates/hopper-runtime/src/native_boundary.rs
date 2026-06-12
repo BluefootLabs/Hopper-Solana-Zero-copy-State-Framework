@@ -12,31 +12,29 @@ pub type BackendRefMut<'a, T> = hopper_native::borrow::RefMut<'a, T>;
 pub const BACKEND_MAX_TX_ACCOUNTS: usize = hopper_native::MAX_TX_ACCOUNTS;
 pub const BACKEND_SUCCESS: u64 = hopper_native::SUCCESS;
 
-#[inline(always)]
-///
 /// # Safety
 ///
-/// Caller must uphold the invariants documented for this unsafe API before invoking it.
+/// Caller must provide the account slice handed to Hopper by the native Solana
+/// entrypoint boundary. `AccountView` is layout-checked as transparent over the
+/// native account view before this cast is used.
+#[inline(always)]
 pub unsafe fn wrap_account_slice<'info>(
     accounts: &'info [BackendAccountView<'info>],
 ) -> &'info [AccountView<'info>] {
-    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe { core::slice::from_raw_parts(accounts.as_ptr() as *const AccountView<'info>, accounts.len()) }
 }
 
 #[inline(always)]
 pub fn account_address<'a>(view: &'a BackendAccountView<'a>) -> &'a Address {
-    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe { &*(view.address() as *const BackendAddress as *const Address) }
 }
 
-#[inline(always)]
-///
 /// # Safety
 ///
-/// Caller must uphold the invariants documented for this unsafe API before invoking it.
+/// The returned owner reference is invalidated if the native account owner is
+/// reassigned. Callers that need stable ownership should use `read_owner`.
+#[inline(always)]
 pub unsafe fn account_owner<'a>(view: &'a BackendAccountView<'a>) -> &'a Address {
-    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe { &*(view.owner() as *const BackendAddress as *const Address) }
 }
 
@@ -47,7 +45,6 @@ pub fn read_owner(view: &BackendAccountView<'_>) -> Address {
 
 #[inline(always)]
 pub fn as_backend_address(address: &Address) -> &BackendAddress {
-    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe { &*(address as *const Address as *const BackendAddress) }
 }
 
@@ -71,13 +68,12 @@ pub fn layout_id<'a>(view: &'a BackendAccountView<'a>) -> Option<&'a [u8; 8]> {
     view.layout_id()
 }
 
-#[inline(always)]
-///
 /// # Safety
 ///
-/// Caller must uphold the invariants documented for this unsafe API before invoking it.
+/// Caller must ensure the account is writable and that owner reassignment is
+/// authorized by the active instruction.
+#[inline(always)]
 pub unsafe fn assign(view: &BackendAccountView<'_>, new_owner: &Address) {
-    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe {
         view.assign(as_backend_address(new_owner));
     }
@@ -136,11 +132,11 @@ pub fn create_program_address(
     }
 }
 
-#[inline(always)]
-///
 /// # Safety
 ///
-/// Caller must uphold the invariants documented for this unsafe API before invoking it.
+/// Called from the exported Solana entrypoint with the loader-provided input
+/// buffer. The pointer must be the raw SVM input buffer for this invocation.
+#[inline(always)]
 pub unsafe fn process_entrypoint<const MAX: usize>(
     input: *mut u8,
     process_instruction: fn(
@@ -149,7 +145,6 @@ pub unsafe fn process_entrypoint<const MAX: usize>(
         &[u8],
     ) -> BackendProgramResult,
 ) -> u64 {
-    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe { hopper_native::entrypoint::process_entrypoint::<MAX>(input, process_instruction) }
 }
 
@@ -160,7 +155,6 @@ pub fn bridge_to_runtime(
     data: &[u8],
     process_instruction: for<'info> fn(&'info Address, &'info [AccountView<'info>], &'info [u8]) -> ProgramResult,
 ) -> BackendProgramResult {
-    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     let hopper_id = unsafe { &*(program_id as *const BackendAddress as *const Address) };
     let hopper_accounts = unsafe { wrap_account_slice(accounts) };
     match process_instruction(hopper_id, hopper_accounts, data) {
@@ -181,4 +175,28 @@ impl From<Address> for BackendAddress {
     fn from(address: Address) -> Self {
         BackendAddress::new_from_array(address.to_bytes())
     }
+}
+
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __hopper_native_entrypoint {
+    ( $process_instruction:expr, $maximum:expr ) => {
+        /// # Safety
+        ///
+        /// Called by the Solana runtime; `input` is a valid BPF input buffer.
+        #[no_mangle]
+        pub unsafe extern "C" fn entrypoint(input: *mut u8) -> u64 {
+            #[inline(always)]
+            fn __hopper_bridge(
+                program_id: &$crate::native_boundary::BackendAddress,
+                accounts: $crate::native_boundary::BackendAccountSlice<'_>,
+                data: &[u8],
+            ) -> $crate::native_boundary::BackendProgramResult {
+                $crate::native_boundary::bridge_to_runtime(program_id, accounts, data, $process_instruction)
+            }
+
+            unsafe { $crate::native_boundary::process_entrypoint::<$maximum>(input, __hopper_bridge) }
+        }
+
+    };
 }

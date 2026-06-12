@@ -14,7 +14,7 @@
 
 use hopper_runtime::error::ProgramError;
 
-pub use hopper_runtime::pod::Pod;
+pub use hopper_runtime::pod::{Pod, Zeroable};
 
 /// Trait for types with a compile-time known wire size.
 pub trait FixedLayout {

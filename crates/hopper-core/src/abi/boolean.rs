@@ -65,13 +65,8 @@ unsafe impl crate::abi::WireType for WireBool {
     const CANONICAL_NAME: &'static str = "bool";
 }
 
-// Bytemuck proof (Hopper Safety Audit Must-Fix #5). `#[repr(transparent)]`
-// over `[u8; 1]` with every bit pattern decoding to a valid `WireBool`
-// satisfies the `bytemuck::Pod + Zeroable` obligations.
-unsafe impl ::hopper_runtime::__hopper_native::bytemuck::Zeroable for WireBool {}
-unsafe impl ::hopper_runtime::__hopper_native::bytemuck::Pod for WireBool {}
-
 // SAFETY: #[repr(transparent)] over [u8; 1], all bit patterns valid.
+unsafe impl crate::account::Zeroable for WireBool {}
 unsafe impl crate::account::Pod for WireBool {}
 // Audit Step 5 seal: Hopper-authored primitive.
 unsafe impl ::hopper_runtime::__sealed::HopperZeroCopySealed for WireBool {}

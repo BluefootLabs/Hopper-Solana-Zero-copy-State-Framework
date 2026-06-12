@@ -383,7 +383,7 @@ fn run_init_wizard(
     let template = templates[template_idx];
 
     // 3. Testing framework.
-    let testing_options = ["mollusk", "quasarsvm", "solana-test-validator", "none"];
+    let testing_options = ["hopper-svm", "mollusk", "solana-test-validator", "none"];
     let default_testing_idx = testing_options
         .iter()
         .position(|x| *x == global.defaults.testing.as_str())

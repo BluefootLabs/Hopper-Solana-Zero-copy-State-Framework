@@ -31,14 +31,14 @@
 //! ## Feature flags
 //!
 //! `hopper-core` ships one hot-path core plus opt-in advanced subsystems.
-//! The default feature set is `programs`, `hopper-native-backend`, `cpi`,
-//! `collections`, and the `advanced` umbrella (`frame`, `receipt`, `policy`,
-//! `graph`, `migrate`, `virtual-state`, `diff`, `explain`). Programs that
+//! The default feature set is `programs`, `cpi`, `collections`, and the
+//! `advanced` umbrella (`frame`, `receipt`, `policy`, `graph`, `migrate`,
+//! `virtual-state`, `diff`, `explain`). Programs that
 //! only touch raw fields and segments can disable every optional surface:
 //!
 //! ```toml
 //! hopper-core = { version = "0.1", default-features = false,
-//!                 features = ["programs", "hopper-native-backend", "cpi"] }
+//!                 features = ["programs", "cpi"] }
 //! ```
 //!
 //! That lean configuration drops `frame`, `receipt`, `policy`, `graph`,
@@ -109,7 +109,7 @@ pub use hopper_runtime as __runtime;
 pub const fn __sha256_const(data: &[u8]) -> [u8; 32] {
     #[cfg(feature = "sha2-layout-id")]
     {
-        sha2_const_stable::Sha256::new().update(data).finalize()
+        hopper_runtime::sha256::sha256(data)
     }
     #[cfg(not(feature = "sha2-layout-id"))]
     {
@@ -192,13 +192,7 @@ pub const fn const_str_eq(a: &str, b: &str) -> bool {
 /// ```
 #[cfg(feature = "anchor-compat")]
 pub const fn anchor_discriminator(instruction_name: &str) -> [u8; 8] {
-    let hash = sha2_const_stable::Sha256::new()
-        .update(b"global:")
-        .update(instruction_name.as_bytes())
-        .finalize();
-    [
-        hash[0], hash[1], hash[2], hash[3], hash[4], hash[5], hash[6], hash[7],
-    ]
+    hopper_runtime::sha256::sha256_prefix8(b"global:", instruction_name.as_bytes())
 }
 
 /// Compute an Anchor-compatible 8-byte account discriminator at compile time.
@@ -207,13 +201,7 @@ pub const fn anchor_discriminator(instruction_name: &str) -> [u8; 8] {
 /// Gated on `anchor-compat`; see [`anchor_discriminator`] for rationale.
 #[cfg(feature = "anchor-compat")]
 pub const fn anchor_account_discriminator(type_name: &str) -> [u8; 8] {
-    let hash = sha2_const_stable::Sha256::new()
-        .update(b"account:")
-        .update(type_name.as_bytes())
-        .finalize();
-    [
-        hash[0], hash[1], hash[2], hash[3], hash[4], hash[5], hash[6], hash[7],
-    ]
+    hopper_runtime::sha256::sha256_prefix8(b"account:", type_name.as_bytes())
 }
 
 /// Narrow, hot-path-only prelude.

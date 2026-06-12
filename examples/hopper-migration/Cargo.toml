@@ -14,9 +14,6 @@ hopper-schema = { path = "../../crates/hopper-schema" }
 
 [features]
 default = ["migrate"]
-hopper-native-backend = []
-legacy-pinocchio-compat = []
-solana-program-backend = []
 migrate = ["hopper/migrate"]
 
 [lints.rust]

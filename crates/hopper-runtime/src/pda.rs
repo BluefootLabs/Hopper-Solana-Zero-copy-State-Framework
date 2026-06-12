@@ -1,4 +1,4 @@
-//! Hopper-owned PDA ergonomics on top of the active backend substrate.
+//! Hopper-owned PDA ergonomics on top of the native runtime boundary.
 
 use crate::address::Address;
 use crate::error::ProgramError;
@@ -13,7 +13,7 @@ pub fn create_program_address(
     seeds: &[&[u8]],
     program_id: &Address,
 ) -> Result<Address, ProgramError> {
-    crate::compat::create_program_address(seeds, program_id)
+    crate::native_boundary::create_program_address(seeds, program_id)
 }
 
 /// Find a program-derived address and its bump seed.
@@ -23,7 +23,7 @@ pub fn create_program_address(
 pub fn find_program_address(seeds: &[&[u8]], program_id: &Address) -> (Address, u8) {
     #[cfg(target_os = "solana")]
     {
-        crate::compat::find_program_address(seeds, program_id)
+        crate::native_boundary::find_program_address(seeds, program_id)
     }
     #[cfg(not(target_os = "solana"))]
     {
@@ -50,7 +50,7 @@ pub fn verify_pda(
         hopper_native::pda::verify_pda(
             account.as_backend(),
             seeds,
-            crate::compat::as_backend_address(program_id),
+            crate::native_boundary::as_backend_address(program_id),
         )
         .map_err(ProgramError::from)
     }
@@ -80,7 +80,7 @@ pub fn verify_pda_with_bump(
             account.as_backend(),
             seeds,
             bump,
-            crate::compat::as_backend_address(program_id),
+            crate::native_boundary::as_backend_address(program_id),
         )
         .map_err(ProgramError::from)
     }
@@ -183,7 +183,7 @@ fn verify_pda_sha256_loop(
     seeds: &[&[u8]],
     program_id: &Address,
 ) -> Result<u8, ProgramError> {
-    let backend_pid = crate::compat::as_backend_address(program_id);
+    let backend_pid = crate::native_boundary::as_backend_address(program_id);
     let n = seeds.len().min(16);
     let mut slices = core::mem::MaybeUninit::<[&[u8]; 19]>::uninit();
     let sptr = slices.as_mut_ptr() as *mut &[u8];
@@ -246,7 +246,7 @@ pub fn verify_pda_from_stored_bump(
             account.as_backend(),
             seeds,
             bump_offset,
-            crate::compat::as_backend_address(program_id),
+            crate::native_boundary::as_backend_address(program_id),
         )
         .map_err(ProgramError::from)
     }

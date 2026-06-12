@@ -23,9 +23,6 @@ hopper-runtime = { workspace = true }
 default = ["receipt", "policy"]
 receipt = ["hopper-core/receipt"]
 policy = ["hopper-core/policy"]
-hopper-native-backend = []
-legacy-pinocchio-compat = []
-solana-program-backend = []
 
 [lints.rust]
 unexpected_cfgs = { level = "allow", check-cfg = [

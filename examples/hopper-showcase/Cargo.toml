@@ -14,9 +14,6 @@ hopper = { path = "../..", package = "hopper-lang", default-features = false }
 
 [features]
 default = ["systems"]
-hopper-native-backend = []
-legacy-pinocchio-compat = []
-solana-program-backend = []
 systems = ["hopper/systems"]
 
 [lints.rust]

@@ -5,12 +5,12 @@ use hopper_runtime::address::Address;
 /// Canonical Metaplex Token Metadata program ID:
 /// `metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s`.
 ///
-/// Decoded at compile time via `five8_const::decode_32_const`. The
+/// Decoded at compile time via Hopper Runtime's native base58 decoder. The
 /// constant is unchanged since the program's deployment in 2021 and is
 /// the on-chain entry point for every Metaplex Token Metadata
 /// instruction this crate builds.
 pub const MPL_TOKEN_METADATA_PROGRAM_ID: Address = Address::new_from_array(
-    five8_const::decode_32_const("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s"),
+    hopper_runtime::__decode_base58_32("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s"),
 );
 
 /// Seed prefix for the metadata PDA: `b"metadata"`.

@@ -14,9 +14,6 @@ hopper = { path = "../../..", package = "hopper-lang", default-features = false 
 
 [features]
 default = []
-hopper-native-backend = []
-legacy-pinocchio-compat = []
-solana-program-backend = []
 
 [lints.rust]
 unexpected_cfgs = { level = "allow", check-cfg = ['cfg(target_os, values("solana"))'] }

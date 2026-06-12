@@ -1,9 +1,8 @@
 //! Hopper-owned account view for Solana programs.
 //!
 //! `AccountView` is the canonical typed state gateway for Hopper programs.
-//! It wraps the active backend's account representation behind a
-//! `#[repr(transparent)]` boundary, delegating all methods with zero-cost
-//! type conversion.
+//! It wraps Hopper Native's account representation behind a transparent
+//! boundary, delegating all methods with zero-cost type conversion.
 //!
 //! Key capabilities:
 //! - Chainable validation (`check_signer()?.check_writable()?`)
@@ -17,10 +16,10 @@
 use crate::address::{address_eq, Address};
 use crate::borrow::{Ref, RefMut};
 use crate::borrow_registry::{self, BorrowToken};
-use crate::compat::{self, BackendAccountView};
 use crate::error::ProgramError;
 use crate::field_map::FieldInfo;
 use crate::layout::LayoutContract;
+use crate::native_boundary::{self, BackendAccountView};
 use crate::segment_borrow::SegmentBorrowRegistry;
 use crate::ProgramResult;
 
@@ -31,10 +30,10 @@ use crate::ProgramResult;
 /// Zero-copy view over a Solana account.
 ///
 /// `AccountView` is the single canonical type for account access in
-/// Hopper programs. It wraps whatever backend is active and exposes a
-/// Hopper-owned API surface.
+/// Hopper programs. It wraps Hopper Native's account representation and
+/// exposes a Hopper-owned API surface.
 ///
-/// The `#[repr(transparent)]` layout guarantees that `&[backend::AccountView]`
+/// The `#[repr(transparent)]` layout guarantees that `&[native::AccountView]`
 /// can be safely reinterpreted as `&[AccountView]` at the entrypoint
 /// boundary with zero conversion cost.
 #[repr(transparent)]
@@ -93,7 +92,7 @@ impl<'info> AccountView<'info> {
     /// The account's public key.
     #[inline(always)]
     pub fn address(&self) -> &Address {
-        compat::account_address(self.backend())
+        native_boundary::account_address(self.backend())
     }
 
     /// The owning program's address.
@@ -105,19 +104,19 @@ impl<'info> AccountView<'info> {
     #[inline(always)]
     pub unsafe fn owner(&self) -> &Address {
         // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-        unsafe { compat::account_owner(self.backend()) }
+        unsafe { native_boundary::account_owner(self.backend()) }
     }
 
     /// Read the owner address as a copy (safe, no aliasing hazard).
     #[inline(always)]
     pub fn read_owner(&self) -> Address {
-        compat::read_owner(self.backend())
+        native_boundary::read_owner(self.backend())
     }
 
     /// Whether this account is owned by the given program.
     #[inline(always)]
     pub fn owned_by(&self, program: &Address) -> bool {
-        compat::owned_by(self.backend(), program)
+        native_boundary::owned_by(self.backend(), program)
     }
 
     /// Whether this account signed the transaction.
@@ -163,7 +162,7 @@ impl<'info> AccountView<'info> {
     /// `ProgramError` instead of panicking.
     #[inline(always)]
     pub fn try_set_lamports(&self, lamports: u64) -> ProgramResult {
-        compat::try_set_lamports(self.backend(), lamports)
+        native_boundary::try_set_lamports(self.backend(), lamports)
     }
 
     /// Set the lamport balance.
@@ -793,19 +792,19 @@ impl<'info> AccountView<'info> {
     /// Read the Hopper account discriminator (first byte of data).
     #[inline(always)]
     pub fn disc(&self) -> u8 {
-        compat::disc(self.backend())
+        native_boundary::disc(self.backend())
     }
 
     /// Read the Hopper account version (second byte of data).
     #[inline(always)]
     pub fn version(&self) -> u8 {
-        compat::version(self.backend())
+        native_boundary::version(self.backend())
     }
 
     /// Read the 8-byte layout_id from the Hopper account header (bytes 4..12).
     #[inline(always)]
     pub fn layout_id(&self) -> Option<&[u8; 8]> {
-        compat::layout_id(self.backend())
+        native_boundary::layout_id(self.backend())
     }
 
     /// Verify that this account has the given discriminator.
@@ -857,7 +856,7 @@ impl<'info> AccountView<'info> {
     /// Resize the account data.
     #[inline]
     pub fn resize(&self, new_len: usize) -> ProgramResult {
-        compat::resize(self.backend(), new_len)
+        native_boundary::resize(self.backend(), new_len)
     }
 
     /// Assign a new owner.
@@ -870,14 +869,14 @@ impl<'info> AccountView<'info> {
     pub unsafe fn assign(&self, new_owner: &Address) {
         // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {
-            compat::assign(self.backend(), new_owner);
+            native_boundary::assign(self.backend(), new_owner);
         }
     }
 
     /// Close the account: zero lamports and data.
     #[inline]
     pub fn close(&self) -> ProgramResult {
-        compat::close(self.backend())
+        native_boundary::close(self.backend())
     }
 
     /// Close the account, transferring remaining lamports to `destination`.
@@ -922,7 +921,7 @@ impl<'info> AccountView<'info> {
                 .ok_or(ProgramError::ArithmeticOverflow)?,
         )?;
         self.try_set_lamports(0)?;
-        compat::zero_data(self.backend())?;
+        native_boundary::zero_data(self.backend())?;
         Ok(())
     }
 
@@ -942,7 +941,7 @@ impl<'info> AccountView<'info> {
                 .ok_or(ProgramError::ArithmeticOverflow)?,
         )?;
         self.try_set_lamports(0)?;
-        compat::zero_data(self.backend())?;
+        native_boundary::zero_data(self.backend())?;
         Ok(())
     }
 
@@ -1127,25 +1126,28 @@ mod tests {
     };
 
     #[repr(C)]
-    #[derive(Clone, Copy, Debug, Default, bytemuck::Pod, bytemuck::Zeroable)]
+    #[derive(Clone, Copy, Debug, Default)]
     struct TestLayout {
         a: [u8; 8],
         b: [u8; 8],
     }
 
     #[repr(C)]
-    #[derive(Clone, Copy, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+    #[derive(Clone, Copy, Debug)]
     struct HeaderLayout {
         header: [u8; HopperHeader::SIZE],
         amount: [u8; 8],
     }
 
     #[repr(C)]
-    #[derive(Clone, Copy, Debug, Default, bytemuck::Pod, bytemuck::Zeroable)]
+    #[derive(Clone, Copy, Debug, Default)]
     struct EpochTwoLayout {
         amount: [u8; 8],
     }
 
+    unsafe impl crate::Zeroable for TestLayout {}
+    unsafe impl crate::Zeroable for HeaderLayout {}
+    unsafe impl crate::Zeroable for EpochTwoLayout {}
     unsafe impl crate::Pod for TestLayout {}
     unsafe impl crate::Pod for HeaderLayout {}
     unsafe impl crate::Pod for EpochTwoLayout {}

@@ -234,10 +234,10 @@ repository, raw output, command line, exact dependency graph, and toolchain.
 
 ### RSK-5: Feature Matrix Coverage
 
-The root crate supports several backend families, but they are mutually
-exclusive. Release checks should exercise default features, explicit native
-backend, compatibility backend, Solana-program backend, proc macros, and
-selected SPL feature combinations as separate lanes.
+The root crate supports one production runtime path: Hopper Native. Release
+checks should exercise default features, proc macros, optional interop crates,
+selected SPL feature combinations, and benchmark comparison packages as
+separate lanes.
 
 ## Verification Commands
 
@@ -251,12 +251,12 @@ cargo test -p hopper-lang --features proc-macros --test dynamic_account_integrat
 cargo test -p hopper-quasar-port-20-min --locked
 cargo check -p hopper-lang --features proc-macros --locked
 cargo check --workspace --all-targets --locked
-cargo check -p hopper-lang --no-default-features --features "hopper-native-backend,proc-macros,metaplex,finance,lending,staking,vesting,distribute,multisig,anchor-interop,legacy-token-instructions,advanced,frame,receipt,policy,graph,migrate,virtual-state,diff,explain,collections,cu-trace" --locked
+cargo check -p hopper-lang --no-default-features --features "proc-macros,metaplex,finance,lending,staking,vesting,distribute,multisig,anchor-interop,legacy-token-instructions,advanced,frame,receipt,policy,graph,migrate,virtual-state,diff,explain,collections,cu-trace" --locked
 ```
 
-For backend coverage, run each valid backend family separately. Do not treat
-`--all-features` as a backend gate; the runtime rejects simultaneous backend
-families by design. For a broader gate, run the workspace checks in CI.
+For a broader gate, run the workspace checks in CI. Hopper's production runtime
+is native-only; framework-comparison targets live in benchmark packages, not in
+the runtime backend surface.
 
 ## Maintenance Rules
 

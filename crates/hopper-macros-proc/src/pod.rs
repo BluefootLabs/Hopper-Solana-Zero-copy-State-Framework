@@ -98,23 +98,21 @@ pub fn expand(_attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
     //
     // Two layers of safety proof fire at compile time:
     //
-    // 1. A per-field `__FieldPodProof<T: bytemuck::Pod + bytemuck::Zeroable>`
-    //    marker forces every field type to already satisfy bytemuck's
+    // 1. A per-field `__FieldPodProof<T: ::hopper::__runtime::Pod>`
+    //    marker forces every field type to already satisfy Hopper's
     //    all-bits-valid / no-pointers / no-padding contract. A `bool`,
-    //    `char`, reference, or non-`bytemuck::Pod` struct field fails
+    //    `char`, reference, or non-`Pod` struct field fails
     //    *this* bound, not some later use-site bound. so the compile
     //    error points at the field, not at a distant `segment_ref::<T>()`.
     //
-    // 2. Rubber-stamp `unsafe impl bytemuck::{Pod, Zeroable} for #name`
-    //    lifts those per-field proofs to the whole struct. They're
-    //    `unsafe` because bytemuck's own marker contract is `unsafe`;
-    //    the field-level proofs above are the evidence that satisfies
-    //    the safety obligation.
+    // 2. Rubber-stamp Hopper `Zeroable` and `Pod` impls for the
+    //    containing type. The field-level proofs above are the evidence
+    //    that satisfies the safety obligation.
     let expanded = quote! {
         #input
 
-        // Field-level proof: every field must itself implement both
-        // `bytemuck::Pod` and `bytemuck::Zeroable`. This closes the
+        // Field-level proof: every field must itself implement Hopper
+        // `Pod`. This closes the
         // Hopper Safety Audit Must-Fix #5 / #4 gap. rubber-stamp
         // `unsafe impl` alone cannot catch `bool` / `char` /
         // reference / padded nested fields. The `__FieldPodProof`
@@ -122,8 +120,7 @@ pub fn expand(_attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
         #[doc(hidden)]
         const _: () = {
             struct __FieldPodProof<
-                T: ::hopper::__runtime::__hopper_native::bytemuck::Pod
-                    + ::hopper::__runtime::__hopper_native::bytemuck::Zeroable,
+                T: ::hopper::__runtime::Pod,
             >(::core::marker::PhantomData<T>);
             #(
                 #[allow(dead_code)]
@@ -132,14 +129,7 @@ pub fn expand(_attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
             )*
         };
 
-        // Rubber-stamp bytemuck impls so `#[hopper::pod]` types
-        // participate in bytemuck-gated APIs without a separate derive.
-        // Safety: upheld by the per-field proof above, the `#[repr(C)]`
-        // / `#[repr(transparent)]` check, and the alignment + padding
-        // asserts below.
-        unsafe impl #impl_generics ::hopper::__runtime::__hopper_native::bytemuck::Zeroable
-            for #name #ty_generics #where_clause {}
-        unsafe impl #impl_generics ::hopper::__runtime::__hopper_native::bytemuck::Pod
+        unsafe impl #impl_generics ::hopper::__runtime::Zeroable
             for #name #ty_generics #where_clause {}
 
         // Hopper runtime Pod marker + FixedLayout.

@@ -47,22 +47,22 @@ hopper client gen --ts @examples/sample-manifest.json
 
 ## Scenario CU And Safety Tests
 
-The host-side tests in `src/tests.rs` load the compiled `hopper_vault` SBF
-binary through Mollusk and cover:
+The host-side tests in `src/tests.rs` execute the generated Hopper program
+bridge through `hopper-svm` and cover:
 
 - deposit CU
 - withdraw CU
 - unsigned withdraw rejection
 
-Build first, then run:
+Run them directly:
 
 ```bash
-hopper build -p hopper-vault
 cargo test -p hopper-vault -- --nocapture
 ```
 
-That output is useful for local smoke testing, but it is no longer the
-cross-framework release benchmark input.
+That output is useful for local smoke testing. `hopper-svm` executes Hopper
+account-memory fixtures in-process, so these tests no longer require a compiled
+SBF artifact.
 
 The fair cross-framework benchmark now uses `examples/hopper-parity-vault` plus
 the shared runner in the sibling `hopper-bench` repo so the comparison does not

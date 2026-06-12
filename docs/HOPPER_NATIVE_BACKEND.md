@@ -68,10 +68,8 @@ The structural invariant is simple: account bytes come from Solana, but the
 contract that makes those bytes safe to use is Hopper's. Validation happens
 before typed access. Raw access stays named and explicit.
 
-The old `legacy-pinocchio-compat` and `solana-program-backend` feature names are
-kept only as temporary Cargo compatibility aliases. They do not select alternate
-runtime implementations. Production Hopper code runs through Hopper's direct
-account-memory runtime.
+Hopper no longer exposes alternate runtime backend feature names. Production
+Hopper code runs through Hopper's direct account-memory runtime.
 
 ---
 
