@@ -1,12 +1,7 @@
-//! TEMPORARY: backend facade for System Program CPI builders.
+//! Hopper-native System Program CPI builders.
 //!
-//! This module keeps Hopper-owned instruction semantics while execution still
-//! flows through the active backend substrate. It will be replaced by
-//! Hopper-native builders once the system-instruction surface is fully owned.
-//!
-//! Semantic CPI facades: the API is Hopper-owned (builder pattern over
-//! `AccountView` / `Address` / `Signer`), while execution is delegated to the
-//! active backend through Hopper's checked CPI semantics.
+//! The API is Hopper-owned (builder pattern over `AccountView` / `Address` /
+//! `Signer`) and execution flows through Hopper's checked native CPI semantics.
 //!
 //! Provides CreateAccount, Transfer, Assign, and Allocate builders.
 
@@ -160,7 +155,7 @@ impl Allocate<'_> {
     }
 }
 
-/// Compatibility re-exports.
+/// Legacy module-path re-exports.
 pub mod instructions {
     pub use super::{Allocate, Assign, CreateAccount, Transfer};
 }

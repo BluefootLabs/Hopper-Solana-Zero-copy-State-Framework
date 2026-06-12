@@ -128,6 +128,11 @@ impl<'a> fmt::Display for RsClientGen<'a> {
             "    /// Event tag byte does not match the expected event decoder."
         )?;
         writeln!(f, "    EventTagMismatch {{ expected: u8, actual: u8 }},")?;
+        writeln!(
+            f,
+            "    /// Instruction discriminator byte does not match the expected builder/decoder."
+        )?;
+        writeln!(f, "    InstructionTagMismatch {{ expected: u8, actual: u8 }},")?;
         writeln!(f, "}}")?;
         writeln!(f)?;
         writeln!(f, "impl core::fmt::Display for ClientError {{")?;
@@ -160,6 +165,15 @@ impl<'a> fmt::Display for RsClientGen<'a> {
                 "                write!(f, \"hopper client: event tag mismatch: expected {{}} got {{}}\", expected, actual)"
             )?;
         writeln!(f, "            }}")?;
+            writeln!(
+                f,
+                "            Self::InstructionTagMismatch {{ expected, actual }} => {{"
+            )?;
+            writeln!(
+                f,
+                "                write!(f, \"hopper client: instruction tag mismatch: expected {{}} got {{}}\", expected, actual)"
+            )?;
+            writeln!(f, "            }}")?;
         writeln!(f, "        }}")?;
         writeln!(f, "    }}")?;
         writeln!(f, "}}")?;
@@ -442,6 +456,12 @@ fn write_instruction_builder(
 
     writeln!(f, "// {} instruction (discriminator = {})", pascal, ix.tag)?;
     writeln!(f, "pub const {}_DISC: u8 = {};", upper, ix.tag)?;
+    writeln!(
+        f,
+        "pub const {}_DATA_LEN: usize = {};",
+        upper,
+        instruction_data_size(ix)
+    )?;
     writeln!(f)?;
 
     if !ix.args.is_empty() {
@@ -459,6 +479,8 @@ fn write_instruction_builder(
         writeln!(f, "}}")?;
         writeln!(f)?;
     }
+
+    write_instruction_data_codec(f, ix)?;
 
     writeln!(
         f,
@@ -491,16 +513,10 @@ fn write_instruction_builder(
         writeln!(f, "    args: &{}Args,", pascal)?;
     }
     writeln!(f, ") -> Instruction {{")?;
-    // Args encoding: 1-byte disc + LE-encoded args.
-    let arg_bytes: usize = ix.args.iter().map(|a| a.size as usize).sum();
-    writeln!(
-        f,
-        "    let mut data = Vec::with_capacity(1 + {});",
-        arg_bytes
-    )?;
-    writeln!(f, "    data.push({}_DISC);", upper)?;
-    for arg in ix.args.iter() {
-        write_arg_encode(f, arg.canonical_type, &snake_case(arg.name))?;
+    if ix.args.is_empty() {
+        writeln!(f, "    let data = encode_{}_data();", snake)?;
+    } else {
+        writeln!(f, "    let data = encode_{}_data(args);", snake)?;
     }
     writeln!(f, "    let account_metas = vec![")?;
     for acc in ix.accounts.iter() {
@@ -528,6 +544,82 @@ fn write_instruction_builder(
     writeln!(f, "    }}")?;
     writeln!(f, "}}")?;
     writeln!(f)?;
+    Ok(())
+}
+
+fn write_instruction_data_codec(f: &mut fmt::Formatter<'_>, ix: &InstructionDescriptor) -> fmt::Result {
+    let pascal = pascal_case(ix.name);
+    let snake = snake_case(ix.name);
+    let upper = upper_snake_case(ix.name);
+
+    writeln!(f, "/// Encode only the `{}` instruction data bytes.", snake)?;
+    if ix.args.is_empty() {
+        writeln!(f, "pub fn encode_{}_data() -> Vec<u8> {{", snake)?;
+    } else {
+        writeln!(f, "pub fn encode_{}_data(args: &{}Args) -> Vec<u8> {{", snake, pascal)?;
+    }
+    writeln!(f, "    let mut data = Vec::with_capacity({}_DATA_LEN);", upper)?;
+    writeln!(f, "    data.push({}_DISC);", upper)?;
+    for arg in ix.args.iter() {
+        write_arg_encode(f, arg.canonical_type, &snake_case(arg.name))?;
+    }
+    writeln!(f, "    data")?;
+    writeln!(f, "}}")?;
+    writeln!(f)?;
+
+    if ix.args.is_empty() {
+        writeln!(f, "/// Validate `{}` instruction data bytes.", snake)?;
+        writeln!(f, "pub fn assert_{}_data(data: &[u8]) -> Result<(), ClientError> {{", snake)?;
+        writeln!(f, "    if data.len() < {}_DATA_LEN {{", upper)?;
+        writeln!(
+            f,
+            "        return Err(ClientError::BufferTooSmall {{ need: {}_DATA_LEN, got: data.len() }});",
+            upper
+        )?;
+        writeln!(f, "    }}")?;
+        writeln!(f, "    if data[0] != {}_DISC {{", upper)?;
+        writeln!(
+            f,
+            "        return Err(ClientError::InstructionTagMismatch {{ expected: {}_DISC, actual: data[0] }});",
+            upper
+        )?;
+        writeln!(f, "    }}")?;
+        writeln!(f, "    Ok(())")?;
+        writeln!(f, "}}")?;
+        writeln!(f)?;
+    } else {
+        writeln!(f, "/// Decode `{}` instruction data bytes into typed args.", snake)?;
+        writeln!(f, "pub fn decode_{}_args(data: &[u8]) -> Result<{}Args, ClientError> {{", snake, pascal)?;
+        writeln!(f, "    if data.len() < {}_DATA_LEN {{", upper)?;
+        writeln!(
+            f,
+            "        return Err(ClientError::BufferTooSmall {{ need: {}_DATA_LEN, got: data.len() }});",
+            upper
+        )?;
+        writeln!(f, "    }}")?;
+        writeln!(f, "    if data[0] != {}_DISC {{", upper)?;
+        writeln!(
+            f,
+            "        return Err(ClientError::InstructionTagMismatch {{ expected: {}_DISC, actual: data[0] }});",
+            upper
+        )?;
+        writeln!(f, "    }}")?;
+        let mut offset = 1usize;
+        for arg in ix.args.iter() {
+            writeln!(f, "    let {} = {{", snake_case(arg.name))?;
+            write_field_decode(f, arg.canonical_type, offset, arg.size as usize)?;
+            writeln!(f, "    }};")?;
+            offset += arg.size as usize;
+        }
+        writeln!(f, "    Ok({}Args {{", pascal)?;
+        for arg in ix.args.iter() {
+            writeln!(f, "        {},", snake_case(arg.name))?;
+        }
+        writeln!(f, "    }})")?;
+        writeln!(f, "}}")?;
+        writeln!(f)?;
+    }
+
     Ok(())
 }
 
@@ -631,6 +723,10 @@ fn event_data_len(event: &EventDescriptor) -> usize {
         .map(|field| field.offset as usize + field.size as usize)
         .max()
         .unwrap_or(0)
+}
+
+fn instruction_data_size(ix: &InstructionDescriptor) -> usize {
+    1 + ix.args.iter().map(|arg| arg.size as usize).sum::<usize>()
 }
 
 fn rust_field_type(canonical: &str) -> String {
@@ -858,8 +954,21 @@ mod tests {
         let out = RsClientGen(&m).to_string();
         assert!(out.contains("pub fn deposit_ix("));
         assert!(out.contains("data.push(DEPOSIT_DISC);"));
+        assert!(out.contains("let data = encode_deposit_data(args);"));
         assert!(out.contains("program_id: *program_id,"));
         assert!(out.contains("AccountMeta::new"));
+    }
+
+    #[test]
+    fn rs_client_emits_instruction_data_codec() {
+        let m = test_manifest();
+        let out = RsClientGen(&m).to_string();
+        assert!(out.contains("pub const DEPOSIT_DATA_LEN: usize = 9;"));
+        assert!(out.contains("pub fn encode_deposit_data(args: &DepositArgs) -> Vec<u8>"));
+        assert!(out.contains("let mut data = Vec::with_capacity(DEPOSIT_DATA_LEN);"));
+        assert!(out.contains("pub fn decode_deposit_args(data: &[u8]) -> Result<DepositArgs, ClientError>"));
+        assert!(out.contains("ClientError::InstructionTagMismatch { expected: DEPOSIT_DISC, actual: data[0] }"));
+        assert!(out.contains("Ok(DepositArgs {"));
     }
 
     #[test]

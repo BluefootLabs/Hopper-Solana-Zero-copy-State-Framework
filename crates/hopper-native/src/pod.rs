@@ -4,16 +4,14 @@
 //! all the way down to the native substrate, to require a real Pod
 //! bound rather than the loose `T: Copy`. This module is that marker.
 //!
-//! ## Bytemuck-backed safety (default)
+//! ## Hopper-owned safety
 //!
-//! With the `bytemuck` feature enabled (default), `Pod` is declared
-//! as a **sub-trait** of `bytemuck::Pod + bytemuck::Zeroable`. That
-//! raises the bar exactly the way the audit recommends: every
-//! `unsafe impl Pod for T {}` must be accompanied by a
-//! `#[derive(bytemuck::Pod, bytemuck::Zeroable)]` (or hand-written
-//! impls that satisfy bytemuck's machine-checked obligations).
-//! Bytemuck's derive emits a compile-time proof that **every field**
-//! of `T` is itself `Pod`, which mechanically rejects:
+//! `Zeroable` and `Pod` are Hopper-owned marker traits. Hopper macros
+//! emit field-level proof blocks that require every field to already
+//! implement Hopper `Pod` before the containing layout receives its own
+//! impl. That gives the same useful rejection points users got from the
+//! old dependency-backed path while keeping the proof surface inside the
+//! framework:
 //!
 //! - `bool`, `char`, references, not all bit patterns valid
 //! - padded `#[repr(C)]` structs, padding bytes aren't accounted for
@@ -22,17 +20,8 @@
 //!
 //! This is the **Must-Fix #5** the audit flagged: "enforce field-level
 //! Pod proof at macro expansion time". Hopper's `#[hopper::pod]` derive
-//! and `#[hopper::state]` macro emit the machine-checked proof so users
-//! never need to name bytemuck in their own sources. State layouts keep
-//! their `#[derive(Clone, Copy)]` visible, and the macro verifies it.
-//!
-//! ## Disable-able for zero-dep builds
-//!
-//! Programs that want to avoid any external dependency can turn off
-//! the `bytemuck` feature. In that mode `Pod` is a standalone marker
-//! with the documented four-point contract; the compile-time
-//! obligation falls entirely on the `unsafe impl`. Existing primitive
-//! impls continue to work either way.
+//! and `#[hopper::state]` macro emit the proof so users never need to
+//! name an external crate in their own sources.
 //!
 //! See [`hopper_runtime::pod::Pod`] (downstream re-export) for the
 //! runtime-side view.
@@ -48,31 +37,39 @@
 /// 3. `T` contains no padding.
 /// 4. `T` contains no internal pointers or references.
 ///
-/// With `feature = "bytemuck"` on (default), the trait is sealed so
-/// callers must **also** prove `T: bytemuck::Pod + bytemuck::Zeroable`,
-/// which gets them obligations 1, 3, and 4 mechanically via bytemuck's
-/// derive. Obligation 2 (alignment) is still a Hopper-specific
-/// constraint enforced by the `#[hopper::pod]` / `#[hopper::state]`
-/// compile-time asserts.
-#[cfg(feature = "bytemuck")]
-pub unsafe trait Pod: Copy + Sized + bytemuck::Pod + bytemuck::Zeroable {}
+pub unsafe trait Zeroable: Copy + Sized {}
 
 /// Marker for types that can be safely overlaid on raw account bytes.
 ///
-/// `bytemuck` feature disabled: the four-point contract must be
-/// satisfied by the `unsafe impl` alone.
-#[cfg(not(feature = "bytemuck"))]
-pub unsafe trait Pod: Copy + Sized {}
+/// Hopper macros mechanically enforce the field-level proof before
+/// emitting this impl. Hand-written impls carry the same unsafe contract.
+pub unsafe trait Pod: Zeroable {}
 
 // ── Primitive implementations ───────────────────────────────────────
 //
-// Both feature configurations get the same set of blanket impls.
-// With `bytemuck` on these compile because bytemuck also has blanket
-// impls for the same primitive types.
-
+unsafe impl Zeroable for u8 {}
 unsafe impl Pod for u8 {}
+unsafe impl Zeroable for u16 {}
+unsafe impl Pod for u16 {}
+unsafe impl Zeroable for u32 {}
+unsafe impl Pod for u32 {}
+unsafe impl Zeroable for u64 {}
+unsafe impl Pod for u64 {}
+unsafe impl Zeroable for u128 {}
+unsafe impl Pod for u128 {}
+unsafe impl Zeroable for i8 {}
 unsafe impl Pod for i8 {}
-unsafe impl<const N: usize> Pod for [u8; N] {}
+unsafe impl Zeroable for i16 {}
+unsafe impl Pod for i16 {}
+unsafe impl Zeroable for i32 {}
+unsafe impl Pod for i32 {}
+unsafe impl Zeroable for i64 {}
+unsafe impl Pod for i64 {}
+unsafe impl Zeroable for i128 {}
+unsafe impl Pod for i128 {}
+unsafe impl<T: Zeroable, const N: usize> Zeroable for [T; N] {}
+unsafe impl<T: Pod, const N: usize> Pod for [T; N] {}
+unsafe impl Zeroable for () {}
 unsafe impl Pod for () {}
 
 #[cfg(test)]
@@ -90,10 +87,9 @@ mod tests {
 
     /// Demonstrates that `bool`, `Copy + Sized` but not all bit
     /// patterns valid, is **not** `Pod` under Hopper's contract.
-    /// With the `bytemuck` feature on this is enforced mechanically
-    /// because `bool` isn't `bytemuck::Pod`. Without the feature the
-    /// trait is a plain marker and the rejection relies on the user
-    /// not writing `unsafe impl Pod for bool`.
+    /// This relies on Hopper not providing a primitive impl for bool;
+    /// Hopper macros also reject bool fields because every field must
+    /// already satisfy Hopper `Pod`.
     #[test]
     fn bool_is_not_pod() {
         trait NotPod {}

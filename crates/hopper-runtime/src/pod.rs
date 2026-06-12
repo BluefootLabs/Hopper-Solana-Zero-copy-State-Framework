@@ -32,11 +32,10 @@
 //!
 //! ## Compile-fail demonstration (Hopper Safety Audit regression)
 //!
-//! With the `bytemuck` feature on (default), the following mis-use
-//! patterns are all rejected at compile time. The audit's Must-Fix #5
-//!, "enforce field-level Pod proof at macro expansion time", is
-//! now mechanically enforced by bytemuck's own `Pod + Zeroable`
-//! bounds, so every zero-copy access path rejects them automatically.
+//! The following mis-use patterns are rejected at compile time. The
+//! audit's Must-Fix #5, "enforce field-level Pod proof at macro
+//! expansion time", is now enforced by Hopper's own `Pod + Zeroable`
+//! proof layer, so every zero-copy access path rejects them automatically.
 //!
 //! `bool` is not Pod (the bit patterns `0x02..=0xFF` don't decode to
 //! a valid `bool`):
@@ -57,9 +56,8 @@
 //! # }
 //! ```
 //!
-//! A `#[repr(C)]` struct with implicit padding is not bytemuck-Pod
-//!, bytemuck's derive / Pod bound rejects the padding bytes because
-//! they'd leak uninitialised data through `bytes_of`:
+//! A `#[repr(C)]` struct with implicit padding is not Pod because the
+//! padding bytes would be part of the raw overlay contract:
 //!
 //! ```compile_fail
 //! # use hopper_runtime::{AccountView, segment_borrow::SegmentBorrowRegistry};
@@ -75,11 +73,9 @@
 //! # }
 //! ```
 //!
-//! A type-level user mis-spelling `unsafe impl Pod for Padded {}`
-//! without also satisfying `bytemuck::Pod + Zeroable` would fail at
-//! the `Pod` supertrait bound. The compile-fail block above exercises
-//! that path: no explicit `impl Pod` exists, and the access-path
-//! generic requires it.
+//! A type-level user mis-spelling `unsafe impl Pod for Padded {}` can
+//! still opt into an unsafe contract manually, but Hopper's macro entry
+//! points reject that layout before emitting the impl.
 //!
 //! A well-formed primitive or wire type is accepted:
 //!
@@ -100,7 +96,7 @@
 
 // Re-export `hopper_native::Pod` directly so the "one canonical Pod"
 // invariant holds end-to-end.
-pub use hopper_native::Pod;
+pub use hopper_native::{Pod, Zeroable};
 
 #[cfg(test)]
 mod tests {

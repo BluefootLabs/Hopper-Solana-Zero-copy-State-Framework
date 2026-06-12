@@ -876,7 +876,7 @@ pub mod __runtime {
         Interface, InterfaceAccount, InterfaceAccountLayout, InterfaceAccountResolve,
         InterfaceSpec, LayoutContract, LayoutInfo, LayoutMigration, MigrationEdge, Pod, Program,
         ProgramError, ProgramId, Ref, RefMut, SegRef, SegRefMut, SegmentLease, SystemAccount,
-        SystemId, TailBytes, TailCodec, TailElement, TailStr, UncheckedAccount,
+        SystemId, TailBytes, TailCodec, TailElement, TailStr, UncheckedAccount, Zeroable,
     };
 
     // Crank marker type plus dynamic-CPI builder, emitted by
@@ -887,9 +887,9 @@ pub mod __runtime {
     pub use hopper_runtime::crank::CrankMarker;
     pub use hopper_runtime::dyn_cpi::DynCpi;
 
-    // `#[hopper::state]` and `#[hopper::pod]` emit bytemuck-backed
-    // proofs through this path so user code never needs a direct
-    // bytemuck dependency.
+    // `#[hopper::state]` and `#[hopper::pod]` emit Hopper-owned
+    // zero-copy proofs through this path so user code never needs a
+    // direct runtime-internals dependency.
     pub use hopper_runtime::__hopper_native;
 
     // Audit final-API Step 5 seal. Doc-hidden re-export of the

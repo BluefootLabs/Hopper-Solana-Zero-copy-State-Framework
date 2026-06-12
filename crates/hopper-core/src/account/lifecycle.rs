@@ -191,7 +191,7 @@ pub(crate) fn rent_exempt_min_internal(data_len: usize) -> Result<u64, ProgramEr
         .ok_or(ProgramError::ArithmeticOverflow)
 }
 
-#[cfg(all(test, feature = "hopper-native-backend"))]
+#[cfg(test)]
 mod tests {
     use super::*;
     use hopper_native::{

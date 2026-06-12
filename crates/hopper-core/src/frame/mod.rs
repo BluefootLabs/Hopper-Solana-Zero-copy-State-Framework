@@ -496,7 +496,7 @@ impl<'a> Drop for FrameAccountMut<'a> {
 // pre-audit version dropped the byte-slice guard before returning the
 // typed reference, which is silent UB. These tests prove the guard is
 // still live at use time.
-#[cfg(all(test, feature = "hopper-native-backend"))]
+#[cfg(test)]
 mod audit_tests {
     use super::*;
     use hopper_native::{
@@ -509,8 +509,7 @@ mod audit_tests {
         value: u64,
     }
 
-    unsafe impl hopper_runtime::__hopper_native::bytemuck::Zeroable for Counter {}
-    unsafe impl hopper_runtime::__hopper_native::bytemuck::Pod for Counter {}
+    unsafe impl hopper_runtime::Zeroable for Counter {}
     unsafe impl hopper_runtime::Pod for Counter {}
 
     impl crate::account::FixedLayout for Counter {

@@ -222,8 +222,8 @@ fn check_package(manifest: &Path, build_sbf: bool) -> PackageReport {
     }
     let deprecated_backends = selected_hopper_backends(&value);
     if !deprecated_backends.is_empty() {
-        report.warnings.push(format!(
-            "deprecated Hopper backend feature aliases are ignored by the production runtime: {}",
+        report.failures.push(format!(
+            "removed Hopper backend feature names are no longer valid: {}",
             deprecated_backends.join(", ")
         ));
     }
@@ -515,7 +515,7 @@ hopper = { workspace = true, features = ["proc-macros"] }
     }
 
     #[test]
-    fn backend_selection_accepts_direct_hopper_lang_dependency() {
+    fn backend_selection_detects_direct_hopper_lang_dependency() {
         let value: toml::Value = r#"
 [dependencies]
 hopper-lang = { version = "0.2.0", default-features = false, features = ["solana-program-backend"] }
@@ -527,7 +527,7 @@ hopper-lang = { version = "0.2.0", default-features = false, features = ["solana
     }
 
     #[test]
-    fn backend_selection_follows_default_feature_aliases() {
+    fn backend_selection_detects_default_feature_aliases() {
         let value: toml::Value = r#"
 [dependencies]
 hopper = { workspace = true, default-features = false, features = ["proc-macros"] }
@@ -543,7 +543,7 @@ solana-program-backend = ["hopper/solana-program-backend"]
     }
 
     #[test]
-    fn backend_selection_detects_explicit_deprecated_aliases_only() {
+    fn backend_selection_detects_explicit_removed_aliases_only() {
         let value: toml::Value = r#"
 [dependencies]
 hopper = { workspace = true, features = ["solana-program-backend", "proc-macros"] }

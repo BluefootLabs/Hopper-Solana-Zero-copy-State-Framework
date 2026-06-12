@@ -576,22 +576,15 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
                 __StateCopyProof(::core::marker::PhantomData);
         };
 
-        // Bytemuck-backed field-level Pod proof (Hopper Safety Audit
-        // Must-Fix #4 / #5).
-        //
-        // The three `unsafe impl`s alone would be rubber stamps. the
-        // compiler does not inspect fields when a bare `unsafe impl
-        // bytemuck::Pod for T` is emitted. We therefore pair them with
-        // a per-field `__FieldPodProof<T: bytemuck::Pod + Zeroable>`
-        // instantiation. Each field type is forced through that bound;
-        // a `bool`, `char`, reference, or non-`bytemuck::Pod` nested
+        // Hopper field-level Pod proof (Hopper Safety Audit Must-Fix
+        // #4 / #5). Each field type is forced through this bound;
+        // a `bool`, `char`, reference, or non-`Pod` nested
         // struct fails the trait bound *on the field*, not at some
         // distant `segment_ref::<T>()` call site.
         #[doc(hidden)]
         const _: () = {
             struct __FieldPodProof<
-                T: ::hopper::__runtime::__hopper_native::bytemuck::Pod
-                    + ::hopper::__runtime::__hopper_native::bytemuck::Zeroable,
+                T: ::hopper::__runtime::Pod,
             >(::core::marker::PhantomData<T>);
             #(
                 #[allow(dead_code)]
@@ -600,8 +593,7 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
             )*
         };
 
-        unsafe impl ::hopper::__runtime::__hopper_native::bytemuck::Zeroable for #name {}
-        unsafe impl ::hopper::__runtime::__hopper_native::bytemuck::Pod for #name {}
+        unsafe impl ::hopper::__runtime::Zeroable for #name {}
         unsafe impl ::hopper::hopper_core::account::Pod for #name {}
         // Audit final-API Step 5 seal. `#[hopper::state]` stamps
         // the Hopper-authored marker so the `ZeroCopy` blanket

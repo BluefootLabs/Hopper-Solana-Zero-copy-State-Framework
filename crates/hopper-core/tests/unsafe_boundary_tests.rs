@@ -33,8 +33,7 @@ struct TinyPod {
 const _: () = assert!(core::mem::size_of::<TinyPod>() == 2);
 const _: () = assert!(core::mem::align_of::<TinyPod>() == 1);
 
-unsafe impl ::hopper_runtime::__hopper_native::bytemuck::Zeroable for TinyPod {}
-unsafe impl ::hopper_runtime::__hopper_native::bytemuck::Pod for TinyPod {}
+unsafe impl ::hopper_runtime::Zeroable for TinyPod {}
 unsafe impl Pod for TinyPod {}
 impl FixedLayout for TinyPod {
     const SIZE: usize = 2;
@@ -52,8 +51,7 @@ struct MockLayout {
 const _: () = assert!(core::mem::size_of::<MockLayout>() == 32);
 const _: () = assert!(core::mem::align_of::<MockLayout>() == 1);
 
-unsafe impl ::hopper_runtime::__hopper_native::bytemuck::Zeroable for MockLayout {}
-unsafe impl ::hopper_runtime::__hopper_native::bytemuck::Pod for MockLayout {}
+unsafe impl ::hopper_runtime::Zeroable for MockLayout {}
 unsafe impl Pod for MockLayout {}
 impl FixedLayout for MockLayout {
     const SIZE: usize = 32;

@@ -1,13 +1,7 @@
-//! TEMPORARY: backend facade for SPL Token CPI builders.
+//! Hopper-native SPL Token CPI builders.
 //!
-//! This module keeps Hopper-owned instruction semantics while execution still
-//! flows through the active backend substrate. It will be replaced by
-//! Hopper-native instruction builders once the substrate-facing builders are
-//! finalized.
-//!
-//! Semantic CPI facades: the API is Hopper-owned (builder pattern over
-//! `AccountView` / `Signer`), while execution is delegated through Hopper's
-//! checked CPI semantics.
+//! The API is Hopper-owned (builder pattern over `AccountView` / `Signer`) and
+//! execution flows through Hopper's checked native CPI semantics.
 //!
 //! Provides checked-by-default TransferChecked, MintToChecked, BurnChecked,
 //! ApproveChecked, CloseAccount, Revoke, and InitializeAccount builders.
@@ -845,7 +839,7 @@ impl InitializeAccount<'_> {
 }
 
 /// SPL Token program address.
-pub const TOKEN_PROGRAM_ID: Address = Address::new_from_array(five8_const::decode_32_const(
+pub const TOKEN_PROGRAM_ID: Address = Address::new_from_array(crate::__decode_base58_32(
     "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
 ));
 
@@ -1177,7 +1171,7 @@ fn read_coption_address(data: &[u8], tag_offset: usize, address_offset: usize) -
     }
 }
 
-/// Compatibility re-exports.
+/// Legacy module-path re-exports.
 pub mod instructions {
     pub use super::{
         ApproveChecked, BurnChecked, CloseAccount, InitializeAccount, MintToChecked, Revoke,

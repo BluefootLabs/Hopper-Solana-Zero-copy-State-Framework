@@ -1,111 +1,83 @@
 extern crate std;
 
 use {
-    hopper::{layout, prelude::WireU64},
-    mollusk_svm::Mollusk,
-    solana_account::Account,
-    solana_address::Address,
-    solana_instruction::{AccountMeta, Instruction},
-    std::{fs, path::Path, println, time::SystemTime, vec},
+    hopper::{layout, prelude::{Address, WireU64}},
+    hopper_svm::{AccountFixture, HopperSvm, ProcessResult},
+    std::{println, vec, vec::Vec},
 };
 
-const PROGRAM_PATH: &str = "../../target/deploy/hopper_vault";
-const PROGRAM_SO: &str = "../../target/deploy/hopper_vault.so";
-const PROGRAM_SOURCES: &[&str] = &["Cargo.toml", "src/lib.rs", "src/dsl.rs"];
-
-fn setup(program_id: &Address) -> Option<Mollusk> {
-    let program_so = Path::new(PROGRAM_SO);
-    if !program_so.exists() {
-        eprintln!("skipping Mollusk integration test; build the SBF program first: {PROGRAM_SO}");
-        return None;
-    }
-    if artifact_is_stale(program_so) {
-        eprintln!("skipping Mollusk integration test; rebuild the stale SBF program: {PROGRAM_SO}");
-        return None;
-    }
-    Some(Mollusk::new(program_id, PROGRAM_PATH))
-}
-
-fn artifact_is_stale(program_so: &Path) -> bool {
-    let Some(artifact_modified_at) = modified_at(program_so) else {
-        return true;
-    };
-    PROGRAM_SOURCES
-        .iter()
-        .map(Path::new)
-        .any(|source| modified_after(source, artifact_modified_at))
-}
-
-fn modified_after(path: &Path, cutoff: SystemTime) -> bool {
-    modified_at(path).is_some_and(|modified_at| modified_at > cutoff)
-}
-
-fn modified_at(path: &Path) -> Option<SystemTime> {
-    fs::metadata(path).ok()?.modified().ok()
-}
-
-fn amount_instruction(
-    discriminator: u8,
+fn process_instruction(
     program_id: Address,
-    user: Address,
-    user_is_signer: bool,
-    vault: Address,
-    amount: u64,
-) -> Instruction {
+    instruction_data: &[u8],
+    accounts: &[AccountFixture],
+) -> ProcessResult {
+    HopperSvm::new().process_instruction(
+        program_id,
+        instruction_data,
+        accounts,
+        super::__hopper_process_instruction_vault_program,
+    )
+}
+
+fn amount_instruction(discriminator: u8, amount: u64) -> Vec<u8> {
     let mut data = vec![discriminator];
     data.extend_from_slice(&amount.to_le_bytes());
-    Instruction {
-        program_id,
-        accounts: vec![
-            AccountMeta::new(user, user_is_signer),
-            AccountMeta::new(vault, false),
-        ],
-        data,
-    }
+    data
 }
 
-fn seeded_user_account(_program_id: &Address, lamports: u64) -> Account {
-    Account::new(lamports, 0, &Address::default())
+fn address(seed: u8) -> Address {
+    Address::new_from_array([seed; 32])
+}
+
+fn system_program() -> Address {
+    Address::new_from_array([0; 32])
+}
+
+fn seeded_user_account(address: Address, lamports: u64, is_signer: bool) -> AccountFixture {
+    let account = AccountFixture::new(address, system_program(), lamports, 0).writable();
+    if is_signer {
+        account.signer()
+    } else {
+        account
+    }
 }
 
 fn seeded_vault_account(
-    program_id: &Address,
+    address: Address,
+    program_id: Address,
     authority: Address,
     lamports: u64,
     balance: u64,
-) -> Account {
-    let mut account = Account::new(lamports, crate::Vault::LEN, program_id);
+) -> AccountFixture {
+    let mut data = vec![0; crate::Vault::LEN];
     layout::write_header(
-        &mut account.data,
+        &mut data,
         crate::Vault::DISC,
         crate::Vault::VERSION,
         &crate::Vault::LAYOUT_ID,
     )
     .unwrap();
-    let vault = crate::Vault::overlay_mut(&mut account.data[layout::HEADER_LEN..]).unwrap();
-    let authority_bytes: [u8; 32] = authority.as_ref().try_into().unwrap();
-    vault.authority = hopper::prelude::Address::new(authority_bytes);
+    let vault = crate::Vault::overlay_mut(&mut data[layout::HEADER_LEN..]).unwrap();
+    vault.authority = authority;
     vault.balance = WireU64::new(balance);
     vault.bump = 0;
-    account
+    AccountFixture::with_data(address, program_id, lamports, data).writable()
 }
 
 #[test]
 fn test_deposit() {
-    let program_id = Address::new_unique();
-    let Some(mollusk) = setup(&program_id) else {
-        return;
-    };
-    let user = Address::new_unique();
-    let vault = Address::new_unique();
+    let program_id = address(9);
+    let user = address(1);
+    let vault = address(2);
 
-    let user_before = seeded_user_account(&program_id, 10_000_000_000);
-    let vault_before = seeded_vault_account(&program_id, user, 1_000_000_000, 0);
+    let user_before = seeded_user_account(user, 10_000_000_000, true);
+    let vault_before = seeded_vault_account(vault, program_id, user, 1_000_000_000, 0);
 
     let deposit_amount = 1_000_000_000u64;
-    let result = mollusk.process_instruction(
-        &amount_instruction(1, program_id, user, true, vault, deposit_amount),
-        &[(user, user_before.clone()), (vault, vault_before.clone())],
+    let result = process_instruction(
+        program_id,
+        &amount_instruction(1, deposit_amount),
+        &[user_before.clone(), vault_before.clone()],
     );
 
     assert!(
@@ -114,8 +86,8 @@ fn test_deposit() {
         result.program_result
     );
 
-    let user_after = result.resulting_accounts[0].1.lamports;
-    let vault_after = result.resulting_accounts[1].1.lamports;
+    let user_after = result.resulting_accounts[0].lamports;
+    let vault_after = result.resulting_accounts[1].lamports;
 
     assert_eq!(
         user_after,
@@ -133,20 +105,18 @@ fn test_deposit() {
 
 #[test]
 fn test_withdraw() {
-    let program_id = Address::new_unique();
-    let Some(mollusk) = setup(&program_id) else {
-        return;
-    };
-    let user = Address::new_unique();
-    let vault = Address::new_unique();
+    let program_id = address(19);
+    let user = address(11);
+    let vault = address(12);
 
-    let user_before = seeded_user_account(&program_id, 10_000_000_000);
-    let vault_before = seeded_vault_account(&program_id, user, 1_000_000_000, 0);
+    let user_before = seeded_user_account(user, 10_000_000_000, true);
+    let vault_before = seeded_vault_account(vault, program_id, user, 1_000_000_000, 0);
 
     let deposit_amount = 1_000_000_000u64;
-    let deposit_result = mollusk.process_instruction(
-        &amount_instruction(1, program_id, user, true, vault, deposit_amount),
-        &[(user, user_before.clone()), (vault, vault_before.clone())],
+    let deposit_result = process_instruction(
+        program_id,
+        &amount_instruction(1, deposit_amount),
+        &[user_before.clone(), vault_before.clone()],
     );
 
     assert!(
@@ -155,16 +125,14 @@ fn test_withdraw() {
         deposit_result.program_result
     );
 
-    let user_after_deposit = deposit_result.resulting_accounts[0].1.clone();
-    let vault_after_deposit = deposit_result.resulting_accounts[1].1.clone();
+    let user_after_deposit = deposit_result.resulting_accounts[0].clone();
+    let vault_after_deposit = deposit_result.resulting_accounts[1].clone();
 
     let withdraw_amount = 500_000_000u64;
-    let withdraw_result = mollusk.process_instruction(
-        &amount_instruction(2, program_id, user, true, vault, withdraw_amount),
-        &[
-            (user, user_after_deposit.clone()),
-            (vault, vault_after_deposit.clone()),
-        ],
+    let withdraw_result = process_instruction(
+        program_id,
+        &amount_instruction(2, withdraw_amount),
+        &[user_after_deposit.clone(), vault_after_deposit.clone()],
     );
 
     assert!(
@@ -173,8 +141,8 @@ fn test_withdraw() {
         withdraw_result.program_result
     );
 
-    let user_final = withdraw_result.resulting_accounts[0].1.lamports;
-    let vault_final = withdraw_result.resulting_accounts[1].1.lamports;
+    let user_final = withdraw_result.resulting_accounts[0].lamports;
+    let vault_final = withdraw_result.resulting_accounts[1].lamports;
 
     assert_eq!(
         user_final,
@@ -192,20 +160,18 @@ fn test_withdraw() {
 
 #[test]
 fn test_withdraw_rejects_unsigned_user() {
-    let program_id = Address::new_unique();
-    let Some(mollusk) = setup(&program_id) else {
-        return;
-    };
-    let user = Address::new_unique();
-    let vault = Address::new_unique();
+    let program_id = address(29);
+    let user = address(21);
+    let vault = address(22);
 
-    let user_before = seeded_user_account(&program_id, 10_000_000_000);
-    let vault_before = seeded_vault_account(&program_id, user, 1_000_000_000, 0);
+    let user_before = seeded_user_account(user, 10_000_000_000, true);
+    let vault_before = seeded_vault_account(vault, program_id, user, 1_000_000_000, 0);
 
     let deposit_amount = 1_000_000_000u64;
-    let deposit_result = mollusk.process_instruction(
-        &amount_instruction(1, program_id, user, true, vault, deposit_amount),
-        &[(user, user_before.clone()), (vault, vault_before.clone())],
+    let deposit_result = process_instruction(
+        program_id,
+        &amount_instruction(1, deposit_amount),
+        &[user_before.clone(), vault_before.clone()],
     );
 
     assert!(
@@ -214,16 +180,15 @@ fn test_withdraw_rejects_unsigned_user() {
         deposit_result.program_result
     );
 
-    let user_after_deposit = deposit_result.resulting_accounts[0].1.clone();
-    let vault_after_deposit = deposit_result.resulting_accounts[1].1.clone();
+    let mut user_after_deposit = deposit_result.resulting_accounts[0].clone();
+    user_after_deposit.is_signer = false;
+    let vault_after_deposit = deposit_result.resulting_accounts[1].clone();
 
     let withdraw_amount = 500_000_000u64;
-    let withdraw_result = mollusk.process_instruction(
-        &amount_instruction(2, program_id, user, false, vault, withdraw_amount),
-        &[
-            (user, user_after_deposit.clone()),
-            (vault, vault_after_deposit.clone()),
-        ],
+    let withdraw_result = process_instruction(
+        program_id,
+        &amount_instruction(2, withdraw_amount),
+        &[user_after_deposit.clone(), vault_after_deposit.clone()],
     );
 
     assert!(
@@ -231,11 +196,11 @@ fn test_withdraw_rejects_unsigned_user() {
         "withdraw without signer unexpectedly succeeded"
     );
     assert_eq!(
-        withdraw_result.resulting_accounts[0].1.lamports, user_after_deposit.lamports,
+        withdraw_result.resulting_accounts[0].lamports, user_after_deposit.lamports,
         "unsigned withdraw mutated the authority account"
     );
     assert_eq!(
-        withdraw_result.resulting_accounts[1].1.lamports, vault_after_deposit.lamports,
+        withdraw_result.resulting_accounts[1].lamports, vault_after_deposit.lamports,
         "unsigned withdraw mutated the vault account"
     );
 }

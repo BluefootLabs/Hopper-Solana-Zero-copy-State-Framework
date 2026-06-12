@@ -92,18 +92,7 @@ pub fn check_ix_and_body<'a>(data: &'a [u8], expected: &[u8; 8]) -> Result<&'a [
 
 /// Compute SHA256(prefix || suffix)[..8] at compile time.
 const fn sha256_prefix(prefix: &[u8], suffix: &[u8]) -> [u8; 8] {
-    let hash = sha2_const_stable::Sha256::new()
-        .update(prefix)
-        .update(suffix)
-        .finalize();
-
-    let mut disc = [0u8; 8];
-    let mut k = 0;
-    while k < 8 {
-        disc[k] = hash[k];
-        k += 1;
-    }
-    disc
+    hopper_runtime::sha256::sha256_prefix8(prefix, suffix)
 }
 
 // ── Tests ────────────────────────────────────────────────────────────────────

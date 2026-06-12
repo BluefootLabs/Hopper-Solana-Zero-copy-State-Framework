@@ -23,11 +23,7 @@ hopper-core = { workspace = true }
 hopper-runtime = { workspace = true }
 hopper-system = { path = "../hopper-system", version = "0.2.1", default-features = false }
 hopper-token = { workspace = true, default-features = false }
-five8_const = { workspace = true }
 
 [features]
 default = []
 legacy-token-instructions = ["hopper-token/legacy-token-instructions"]
-hopper-native-backend = []
-legacy-pinocchio-compat = []
-solana-program-backend = []

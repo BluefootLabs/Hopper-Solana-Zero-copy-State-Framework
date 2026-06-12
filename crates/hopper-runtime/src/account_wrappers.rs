@@ -823,11 +823,12 @@ mod resolver_tests {
     }
 
     #[repr(C)]
-    #[derive(Clone, Copy, Debug, Default, bytemuck::Pod, bytemuck::Zeroable)]
+    #[derive(Clone, Copy, Debug, Default)]
     struct VaultV1 {
         balance: [u8; 8],
     }
 
+    unsafe impl crate::Zeroable for VaultV1 {}
     unsafe impl crate::Pod for VaultV1 {}
 
     impl crate::field_map::FieldMap for VaultV1 {
@@ -850,12 +851,13 @@ mod resolver_tests {
     }
 
     #[repr(C)]
-    #[derive(Clone, Copy, Debug, Default, bytemuck::Pod, bytemuck::Zeroable)]
+    #[derive(Clone, Copy, Debug, Default)]
     struct VaultV2 {
         balance: [u8; 8],
         bump: [u8; 8],
     }
 
+    unsafe impl crate::Zeroable for VaultV2 {}
     unsafe impl crate::Pod for VaultV2 {}
 
     impl crate::field_map::FieldMap for VaultV2 {
@@ -877,11 +879,12 @@ mod resolver_tests {
     }
 
     #[repr(C)]
-    #[derive(Clone, Copy, Debug, Default, bytemuck::Pod, bytemuck::Zeroable)]
+    #[derive(Clone, Copy, Debug, Default)]
     struct AnyVault {
         _reserved: [u8; 1],
     }
 
+    unsafe impl crate::Zeroable for AnyVault {}
     unsafe impl crate::Pod for AnyVault {}
 
     impl crate::field_map::FieldMap for AnyVault {

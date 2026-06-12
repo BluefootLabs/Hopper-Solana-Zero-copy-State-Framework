@@ -21,9 +21,6 @@ hopper-solana = { workspace = true }
 
 [features]
 default = []
-hopper-native-backend = []
-legacy-pinocchio-compat = []
-solana-program-backend = []
 
 [lints]
 workspace = true

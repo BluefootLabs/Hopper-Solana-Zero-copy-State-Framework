@@ -33,11 +33,8 @@ pub struct SegmentDescriptor {
 const _: () = assert!(core::mem::size_of::<SegmentDescriptor>() == SEGMENT_DESC_SIZE);
 const _: () = assert!(core::mem::align_of::<SegmentDescriptor>() == 1);
 
-// Bytemuck proof (Hopper Safety Audit Must-Fix #5).
-unsafe impl ::hopper_runtime::__hopper_native::bytemuck::Zeroable for SegmentDescriptor {}
-unsafe impl ::hopper_runtime::__hopper_native::bytemuck::Pod for SegmentDescriptor {}
-
 // SAFETY: All fields are [u8; N], all bit patterns valid.
+unsafe impl super::Zeroable for SegmentDescriptor {}
 unsafe impl Pod for SegmentDescriptor {}
 // Audit Step 5 seal: Hopper-authored primitive.
 unsafe impl ::hopper_runtime::__sealed::HopperZeroCopySealed for SegmentDescriptor {}
