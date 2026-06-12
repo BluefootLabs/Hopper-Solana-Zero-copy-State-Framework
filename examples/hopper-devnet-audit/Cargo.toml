@@ -37,9 +37,6 @@ devnet-client = [
 	"dep:solana-signer",
 	"dep:solana-transaction",
 ]
-hopper-native-backend = []
-legacy-pinocchio-compat = []
-solana-program-backend = []
 
 [lints]
 workspace = true

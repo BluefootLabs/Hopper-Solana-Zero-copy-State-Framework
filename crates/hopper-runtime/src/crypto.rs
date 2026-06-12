@@ -62,11 +62,11 @@ pub const MAX_INSTRUCTION_DATA_LEN: usize = 1232;
 pub const MAX_INSTRUCTION_ACCOUNTS_BYTES: usize = 2176;
 
 pub const ED25519_PROGRAM_ID: Address = Address::new_from_array(
-    crate::__five8_const::decode_32_const("Ed25519SigVerify111111111111111111111111111"),
+    crate::__decode_base58_32("Ed25519SigVerify111111111111111111111111111"),
 );
 
 pub const SECP256K1_PROGRAM_ID: Address = Address::new_from_array(
-    crate::__five8_const::decode_32_const("KeccakSecp256k11111111111111111111111111111"),
+    crate::__decode_base58_32("KeccakSecp256k11111111111111111111111111111"),
 );
 
 #[derive(Clone, Debug)]

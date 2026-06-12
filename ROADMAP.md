@@ -8,27 +8,25 @@ row here. Items that are implemented live in the code and are cited in
 
 ## Deferred capabilities
 
-### R-1: litesvm-based integration test harness
+### R-1: full-validator integration test harness
 
-**Status:** deferred.
-**What:** a `hopper-test` crate wrapping `litesvm` (or `mollusk`) so program
-authors can spin up an SVM, deploy a Hopper program, build instructions with the
-generated client surface, and assert on account bytes / receipts.
+**Status:** partial. `crates/hopper-svm` now provides Hopper-owned host
+execution for generated program bridges and account-memory fixtures.
+**What remains:** an optional full-validator harness so program authors can spin
+up a bank-style SVM, deploy a compiled Hopper program, build instructions with
+the generated client surface, and assert on account bytes / receipts.
 
-**Why deferred:** pulling `litesvm` into the workspace adds a `solana-program` /
-`solana-sdk` dependency subtree. That is acceptable for a *test-only* crate, but
-it must be isolated so it can never leak onto the runtime hot path or into
-`cargo build-sbf` output. Wiring that isolation (separate workspace member,
-dev-dependency-only, feature-gated) is a self-contained chunk of work that was
-scoped out of the soundness/parity pass to keep this PR focused. Current testing
-is unit + integration against the runtime, codec, schema, and macro layers
-(1000+ tests), which covers correctness of the framework itself; the harness is
-about *program-author ergonomics*, not framework soundness.
+**Why deferred:** pulling an external bank/validator implementation into the
+workspace adds a `solana-program` / `solana-sdk` dependency subtree. That is
+acceptable for a *test-only* crate, but it must be isolated so it can never leak
+onto the runtime hot path or into `cargo build-sbf` output. Current testing is
+unit + integration against the runtime, codec, schema, macro layers, and
+`hopper-svm` host execution; the remaining harness is about compiled-program
+ergonomics, not framework soundness.
 
-**Shape:** new `crates/hopper-test` member, `litesvm` as a normal (not dev-only)
-dependency of that crate so downstream test code can use it, with the rest of
-the workspace unaffected. Provide `deploy_program`, `with_account`, and
-receipt-assertion helpers.
+**Shape:** extend `crates/hopper-svm` or add a sibling full-validator crate with
+`deploy_program`, `with_account`, and receipt-assertion helpers while keeping the
+rest of the workspace unaffected.
 
 ### R-2: `proptest` / `kani` verification layer for layout checks
 

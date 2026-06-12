@@ -11,11 +11,18 @@ crate-type = ["cdylib", "lib"]
 [dependencies]
 hopper = { path = "../..", package = "hopper-lang", default-features = false, features = ["proc-macros"] }
 
+[dev-dependencies]
+solana-client = "2.1"
+solana-keypair = "2.1"
+solana-pubkey = "2.1"
+solana-signer = "2.1"
+solana-instruction = "2.1"
+solana-transaction = { version = "2.1", features = ["bincode"] }
+solana-system-interface = { version = "1.0.0", features = ["bincode"] }
+solana-commitment-config = "2.1"
+
 [features]
 default = []
-hopper-native-backend = []
-legacy-pinocchio-compat = []
-solana-program-backend = []
 
 [lints.rust]
 unexpected_cfgs = { level = "allow", check-cfg = ['cfg(target_os, values("solana"))'] }

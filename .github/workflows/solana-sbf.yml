@@ -44,6 +44,12 @@ jobs:
         run: cargo build-sbf -- -p hopper-vault
       - name: Build Quasar port SBF
         run: cargo build-sbf -- -p hopper-quasar-port-20-min
+      - name: Build escrow SBF
+        run: cargo build-sbf -- -p hopper-escrow
+      - name: Build versioned-state (migration) SBF
+        run: cargo build-sbf -- -p hopper-migration
+      - name: Build orderbook SBF
+        run: cargo build-sbf -- -p hopper-orderbook
       - name: Install Hopper CLI
         run: cargo install --path tools/hopper-cli --locked
       - name: Solana shape and SBF scan

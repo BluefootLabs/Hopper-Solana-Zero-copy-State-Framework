@@ -63,6 +63,7 @@ pub mod pda;
 pub mod pod;
 pub mod raw_account;
 pub mod raw_input;
+pub mod sha256;
 pub mod syscalls;
 
 // ── Innovation modules ───────────────────────────────────────────────
@@ -114,16 +115,7 @@ pub use account_view::AccountView;
 pub use address::Address;
 pub use borrow::{Ref, RefMut};
 pub use error::ProgramError;
-pub use pod::Pod;
-
-// Re-export bytemuck so downstream macros can reference it through
-// the hopper dependency chain without every user adding bytemuck to
-// their own Cargo.toml. `#[hopper::state]` / `#[hopper::pod]` emit
-// `#[derive(::hopper::__runtime::__hopper_native::bytemuck::Pod, ...)]`
-// which resolves here.
-#[cfg(feature = "bytemuck")]
-#[doc(hidden)]
-pub use bytemuck;
+pub use pod::{Pod, Zeroable};
 pub use raw_account::RuntimeAccount;
 
 // Innovation re-exports.

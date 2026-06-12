@@ -66,7 +66,7 @@ pub const HEADER_AUTHORITY: u32 = HEADER_SIGNER_WRITABLE;
 /// layout would require updating this function. The `target_os = "solana"` gate
 /// ensures this is only compiled for the SBF target where the SVM guarantees
 /// this layout.
-#[cfg(all(target_os = "solana", feature = "hopper-native-backend"))]
+#[cfg(target_os = "solana")]
 #[inline(always)]
 unsafe fn read_account_header(account: &AccountView<'_>) -> u32 {
     // SAFETY: AccountView is repr(C) with a pointer to the raw RuntimeAccount
@@ -96,7 +96,7 @@ unsafe fn read_account_header(account: &AccountView<'_>) -> u32 {
 #[inline(always)]
 pub fn check_account_fast(account: &AccountView<'_>, expected_header: u32) -> ProgramResult {
     // Fast path: one compare for all flags
-    #[cfg(all(target_os = "solana", feature = "hopper-native-backend"))]
+    #[cfg(target_os = "solana")]
     {
         // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let actual = unsafe { read_account_header(account) };
@@ -106,7 +106,7 @@ pub fn check_account_fast(account: &AccountView<'_>, expected_header: u32) -> Pr
         // Cold path: decompose error
         decompose_header_error(actual, expected_header)
     }
-    #[cfg(not(all(target_os = "solana", feature = "hopper-native-backend")))]
+    #[cfg(not(target_os = "solana"))]
     {
         // Off-chain fallback: individual checks
         check_account_flags_fallback(account, expected_header)
@@ -142,7 +142,7 @@ fn decompose_header_error(actual: u32, expected: u32) -> ProgramResult {
 }
 
 /// Off-chain fallback using individual AccountView methods.
-#[cfg(not(all(target_os = "solana", feature = "hopper-native-backend")))]
+#[cfg(not(target_os = "solana"))]
 fn check_account_flags_fallback(account: &AccountView<'_>, expected: u32) -> ProgramResult {
     if (expected & (1 << 8)) != 0 && !account.is_signer() {
         return Err(ProgramError::MissingRequiredSignature);

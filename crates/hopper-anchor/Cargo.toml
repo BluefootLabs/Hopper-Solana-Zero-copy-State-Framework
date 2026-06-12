@@ -17,10 +17,6 @@ name = "hopper_anchor"
 
 [dependencies]
 hopper-runtime = { workspace = true }
-sha2-const-stable = { workspace = true }
 
 [features]
 default = []
-hopper-native-backend = []
-legacy-pinocchio-compat = []
-solana-program-backend = []

@@ -803,3 +803,112 @@ mod tests {
         assert_eq!(reg.len(), 1);
     }
 }
+
+// ── Property tests ───────────────────────────────────────────────────
+//
+// The kani proofs above verify the overlap predicate and a few hand-
+// chosen registry sequences exhaustively. These property tests carve
+// *randomly generated* segment maps and assert the registry's runtime
+// behaviour against an independent reference oracle, so a regression in
+// the conflict scan is caught even on inputs nobody thought to write a
+// unit test for. proptest is a host-only dev-dependency; this module is
+// `#[cfg(test)]` and never reaches the no_std SBF build.
+#[cfg(test)]
+mod proptests {
+    use super::*;
+    use crate::Address;
+    use proptest::prelude::*;
+
+    /// A single carved write segment: `[offset, offset + size)`.
+    #[derive(Debug, Clone, Copy)]
+    struct Seg {
+        offset: u32,
+        size: u32,
+    }
+
+    /// Reference overlap check, written independently of the production
+    /// `ranges_overlap` so the two can disagree and surface a bug.
+    fn oracle_overlap(a: Seg, b: Seg) -> bool {
+        let a_end = a.offset as u64 + a.size as u64;
+        let b_end = b.offset as u64 + b.size as u64;
+        (a.offset as u64) < b_end && (b.offset as u64) < a_end
+    }
+
+    // Small, dense ranges so collisions actually happen and we exercise
+    // both the accept and reject paths. Sizes are >= 1 (a zero-size
+    // borrow can never overlap and is not interesting here).
+    fn seg_strategy() -> impl Strategy<Value = Seg> {
+        (0u32..64, 1u32..16).prop_map(|(offset, size)| Seg { offset, size })
+    }
+
+    proptest! {
+        /// Registering a sequence of write borrows on the *same* account
+        /// must accept exactly the segments that are disjoint from every
+        /// previously-accepted segment, and reject every one that
+        /// overlaps an accepted segment. We replay the same decisions on
+        /// an independent oracle and require they agree.
+        #[test]
+        fn write_borrows_match_disjointness_oracle(
+            segs in proptest::collection::vec(seg_strategy(), 0..MAX_SEGMENT_BORROWS)
+        ) {
+            let key = Address::new([42u8; 32]);
+            let mut reg = SegmentBorrowRegistry::new();
+            let mut accepted: alloc_vec::Vec<Seg> = alloc_vec::Vec::new();
+
+            for seg in segs {
+                let conflicts = accepted.iter().any(|prev| oracle_overlap(*prev, seg));
+                let result = reg.register_write(&key, seg.offset, seg.size);
+                if conflicts {
+                    prop_assert!(
+                        result.is_err(),
+                        "registry accepted an overlapping write {:?} against {:?}",
+                        seg,
+                        accepted
+                    );
+                } else {
+                    prop_assert!(
+                        result.is_ok(),
+                        "registry rejected a disjoint write {:?} against {:?}",
+                        seg,
+                        accepted
+                    );
+                    accepted.push(seg);
+                }
+            }
+            prop_assert_eq!(reg.len(), accepted.len());
+        }
+
+        /// Overlapping *reads* are always shareable: a read never
+        /// conflicts with another read regardless of how the ranges are
+        /// carved, so every read in the sequence must be accepted (up to
+        /// the capacity bound, which the input size respects).
+        #[test]
+        fn read_borrows_never_conflict(
+            segs in proptest::collection::vec(seg_strategy(), 0..MAX_SEGMENT_BORROWS)
+        ) {
+            let key = Address::new([7u8; 32]);
+            let mut reg = SegmentBorrowRegistry::new();
+            let n = segs.len();
+            for seg in segs {
+                prop_assert!(reg.register_read(&key, seg.offset, seg.size).is_ok());
+            }
+            prop_assert_eq!(reg.len(), n);
+        }
+
+        /// Borrows on distinct accounts never conflict, even when their
+        /// byte ranges are identical: disjointness is per-account.
+        #[test]
+        fn distinct_accounts_never_conflict(seg in seg_strategy()) {
+            let mut reg = SegmentBorrowRegistry::new();
+            prop_assert!(reg.register_write(&Address::new([1u8; 32]), seg.offset, seg.size).is_ok());
+            prop_assert!(reg.register_write(&Address::new([2u8; 32]), seg.offset, seg.size).is_ok());
+            prop_assert_eq!(reg.len(), 2);
+        }
+    }
+
+    // The registry is no_std and never allocates; the proptest oracle is
+    // host-only, so a plain `std::vec::Vec` is fine for bookkeeping.
+    mod alloc_vec {
+        pub use std::vec::Vec;
+    }
+}

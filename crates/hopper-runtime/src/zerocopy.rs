@@ -6,9 +6,8 @@
 //! coherent trait stack. This module delivers the foundation:
 //!
 //! - [`ZeroCopy`], the canonical "safe to overlay on raw bytes"
-//!   marker. Equivalent-in-contract to [`Pod`](crate::pod::Pod), which
-//!   (through Hopper's canonical `Pod` + `bytemuck` contract)
-//!   is a sub-trait of `bytemuck::Pod + bytemuck::Zeroable`.
+//!   marker. Equivalent-in-contract to [`Pod`](crate::pod::Pod), using
+//!   Hopper's owned `Pod` / `Zeroable` proof layer.
 //!   `ZeroCopy` is implemented for every `Pod` type via a blanket
 //!   impl, so existing layouts participate automatically.
 //!
@@ -70,8 +69,8 @@ use crate::pod::Pod;
 #[doc(hidden)]
 pub mod __sealed {
     /// See the module-level documentation. Do not implement directly
-    /// unless you understand the full `Pod` + `bytemuck::Pod` +
-    /// alignment-1 + no-padding + no-interior-pointers contract.
+    /// unless you understand the full Hopper `Pod` + `Zeroable` +
+    /// alignment + no-padding + no-interior-pointers contract.
     ///
     /// # Safety
     ///

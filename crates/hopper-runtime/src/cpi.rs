@@ -172,7 +172,7 @@ fn signer_matches_pda(program_id: &Address, account: &Address, signers_seeds: &[
             }
 
             if let Ok(derived) =
-                crate::compat::create_program_address(&seed_refs[..seeds.len()], program_id)
+                crate::native_boundary::create_program_address(&seed_refs[..seeds.len()], program_id)
             {
                 if address_eq(&derived, account) {
                     return true;
@@ -231,6 +231,77 @@ fn validate_cpi_accounts(
     Ok(())
 }
 
+#[cfg(not(target_os = "solana"))]
+fn is_host_system_transfer(instruction: &InstructionView<'_, '_, '_, '_>) -> bool {
+    address_eq(instruction.program_id, &crate::system::SYSTEM_PROGRAM_ID)
+        && instruction.data.len() == 12
+        && instruction.data[0..4] == [2, 0, 0, 0]
+}
+
+#[cfg(not(target_os = "solana"))]
+fn validate_host_system_transfer(
+    instruction: &InstructionView<'_, '_, '_, '_>,
+    account_views: &[&AccountView<'_>],
+    signers_seeds: &[Signer<'_, '_>],
+) -> ProgramResult {
+    if account_views.len() < instruction.accounts.len() || account_views.len() < 2 {
+        return Err(ProgramError::NotEnoughAccountKeys);
+    }
+
+    let mut i = 0;
+    while i < instruction.accounts.len() {
+        let expected = &instruction.accounts[i];
+        let actual = account_views[i];
+
+        if !address_eq(actual.address(), expected.address) {
+            return Err(ProgramError::InvalidAccountData);
+        }
+        if expected.is_signer
+            && !actual.is_signer()
+            && !signer_matches_pda(instruction.program_id, actual.address(), signers_seeds)
+        {
+            return Err(ProgramError::MissingRequiredSignature);
+        }
+        if expected.is_writable && !actual.is_writable() {
+            return Err(ProgramError::Immutable);
+        }
+
+        i += 1;
+    }
+
+    validate_no_duplicate_writable(instruction, account_views)
+}
+
+#[cfg(not(target_os = "solana"))]
+fn emulate_host_system_transfer(
+    instruction: &InstructionView<'_, '_, '_, '_>,
+    account_views: &[&AccountView<'_>],
+) -> ProgramResult {
+    let amount = u64::from_le_bytes([
+        instruction.data[4],
+        instruction.data[5],
+        instruction.data[6],
+        instruction.data[7],
+        instruction.data[8],
+        instruction.data[9],
+        instruction.data[10],
+        instruction.data[11],
+    ]);
+    let from = account_views[0];
+    let to = account_views[1];
+    from.set_lamports(
+        from.lamports()
+            .checked_sub(amount)
+            .ok_or(ProgramError::InsufficientFunds)?,
+    )?;
+    to.set_lamports(
+        to.lamports()
+            .checked_add(amount)
+            .ok_or(ProgramError::ArithmeticOverflow)?,
+    )?;
+    Ok(())
+}
+
 // ---------------------------------------------------------------------
 
 /// Invoke a CPI with full validation.
@@ -249,6 +320,12 @@ pub fn invoke_signed<const ACCOUNTS: usize>(
     account_views: &[&AccountView<'_>; ACCOUNTS],
     signers_seeds: &[Signer<'_, '_>],
 ) -> ProgramResult {
+    #[cfg(not(target_os = "solana"))]
+    if is_host_system_transfer(instruction) {
+        validate_host_system_transfer(instruction, &account_views[..], signers_seeds)?;
+        return emulate_host_system_transfer(instruction, &account_views[..]);
+    }
+
     validate_cpi_accounts(instruction, &account_views[..], signers_seeds)?;
 
     let mut cpi_accounts: [MaybeUninit<CpiAccount<'_>>; ACCOUNTS] =
@@ -293,6 +370,12 @@ pub fn invoke_signed_with_bounds<const MAX_ACCOUNTS: usize>(
 ) -> ProgramResult {
     if account_views.len() > MAX_ACCOUNTS {
         return Err(ProgramError::InvalidArgument);
+    }
+
+    #[cfg(not(target_os = "solana"))]
+    if is_host_system_transfer(instruction) {
+        validate_host_system_transfer(instruction, account_views, signers_seeds)?;
+        return emulate_host_system_transfer(instruction, account_views);
     }
 
     validate_cpi_accounts(instruction, account_views, signers_seeds)?;

@@ -1,7 +1,6 @@
 //! Hopper-owned program error type for Solana on-chain programs.
 //!
-//! Wire-compatible with all backends. Each variant maps to a fixed u64
-//! error code returned to the Solana runtime.
+//! Each variant maps to a fixed u64 error code returned to the Solana runtime.
 
 /// Errors that a Solana program can return.
 ///

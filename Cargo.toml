@@ -24,6 +24,7 @@ members = [
     "crates/hopper-multisig",
     "crates/hopper-memo",
     "crates/hopper-anchor",
+    "crates/hopper-svm",
     "examples/hopper-counter",
     "examples/hopper-vault",
     "examples/hopper-parity-vault",
@@ -33,6 +34,7 @@ members = [
     "examples/hopper-registry",
     "examples/hopper-migration",
     "examples/hopper-virtual-state",
+    "examples/hopper-orderbook",
     "examples/hopper-token-2022-ata",
     "examples/hopper-token-2022-vault",
     "examples/hopper-token-2022-transfer-hook",
@@ -52,6 +54,7 @@ members = [
     "tests/hopper-trybuild",
     "crates/hopper-manager",
     "crates/hopper-sdk",
+    "crates/hopper-test",
     "tools/hopper-cli",
 ]
 resolver = "2"
@@ -63,11 +66,6 @@ unexpected_cfgs = { level = "allow", check-cfg = [
 ] }
 
 [workspace.dependencies]
-pinocchio = { version = "0.11", features = ["cpi", "copy"] }
-pinocchio-system = "0.6"
-pinocchio-token = "0.6"
-five8_const = "0.1"
-sha2-const-stable = "0.1"
 hopper-native = { path = "crates/hopper-native", version = "0.2.1", default-features = false }
 hopper-runtime = { path = "crates/hopper-runtime", version = "0.2.1", default-features = false }
 hopper-core = { path = "crates/hopper-core", package = "hopper-systems", version = "0.2.1", default-features = false }
@@ -89,6 +87,7 @@ hopper-distribute = { path = "crates/hopper-distribute", version = "0.2.1" }
 hopper-multisig = { path = "crates/hopper-multisig", version = "0.2.1" }
 hopper-memo = { path = "crates/hopper-memo", version = "0.2.1", default-features = false }
 hopper-anchor = { path = "crates/hopper-anchor", version = "0.2.1" }
+hopper-svm = { path = "crates/hopper-svm", version = "0.2.1" }
 hopper-manager = { path = "crates/hopper-manager", version = "0.2.1" }
 hopper-sdk = { path = "crates/hopper-sdk", version = "0.2.1" }
 
@@ -111,7 +110,6 @@ name = "hopper"
 
 [dependencies]
 hopper-runtime = { workspace = true }
-sha2-const-stable = { workspace = true }
 hopper-core = { workspace = true }
 hopper-system = { workspace = true }
 hopper-token = { workspace = true }
@@ -168,16 +166,11 @@ diff = ["hopper-core/diff"]
 explain = ["hopper-core/explain"]
 collections = ["hopper-core/collections"]
 
-# Deprecated compatibility aliases. Hopper no longer exposes alternate runtime
-# backends; these remain temporarily so older manifests continue to resolve.
-hopper-native-backend = []
-legacy-pinocchio-compat = []
-solana-program-backend = []
 cu-trace = ["hopper-runtime/cu-trace"]
 
 [lints.rust]
 unexpected_cfgs = { level = "allow", check-cfg = [
     'cfg(target_os, values("solana"))',
-    'cfg(feature, values("frame", "receipt", "policy", "graph", "migrate", "virtual-state", "diff", "explain", "advanced", "collections", "framework", "systems", "hopper-native-backend", "legacy-pinocchio-compat", "solana-program-backend"))',
+    'cfg(feature, values("frame", "receipt", "policy", "graph", "migrate", "virtual-state", "diff", "explain", "advanced", "collections", "framework", "systems"))',
 ] }
 

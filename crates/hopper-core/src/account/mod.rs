@@ -38,7 +38,7 @@ pub use lifecycle::{
 pub use overlay::{overlay, overlay_mut};
 pub use pod::{
     cast_unchecked, cast_unchecked_mut, pod_from_bytes, pod_from_bytes_mut, pod_read, pod_write,
-    FixedLayout, Pod,
+    FixedLayout, Pod, Zeroable,
 };
 pub use reader::AccountReader;
 pub use realloc_guard::ReallocGuard;

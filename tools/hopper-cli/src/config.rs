@@ -65,7 +65,7 @@ impl Default for ToolchainSection {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TestingSection {
-    /// `mollusk` (default) | `quasarsvm` | `solana-test-validator` | `none`.
+    /// `hopper-svm` (default) | `mollusk` | `solana-test-validator` | `none`.
     #[serde(default = "default_testing_framework")]
     pub framework: String,
 }
@@ -100,7 +100,7 @@ fn default_toolchain_kind() -> String {
     "solana".to_string()
 }
 fn default_testing_framework() -> String {
-    "mollusk".to_string()
+    "hopper-svm".to_string()
 }
 fn default_backend() -> String {
     "hopper-native".to_string()
@@ -269,7 +269,7 @@ mod tests {
         assert_eq!(parsed.project.name, "my-program");
         assert_eq!(parsed.project.template, "nft-mint");
         assert_eq!(parsed.toolchain.kind, "solana");
-        assert_eq!(parsed.testing.framework, "mollusk");
+        assert_eq!(parsed.testing.framework, "hopper-svm");
         assert_eq!(parsed.backend.default, "hopper-native");
     }
 

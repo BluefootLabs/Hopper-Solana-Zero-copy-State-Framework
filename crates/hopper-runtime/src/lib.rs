@@ -2,8 +2,7 @@
 //!
 //! Hopper Runtime owns the public rules, validation, typed loading, CPI
 //! semantics, and execution context that authored Hopper code targets.
-//! Hopper Native owns the raw execution boundary. Pinocchio and
-//! solana-program remain compatibility backends isolated behind `compat/`.
+//! Hopper Native owns the raw execution boundary.
 
 #![no_std]
 #![deny(unsafe_op_in_unsafe_fn)]
@@ -16,7 +15,7 @@
 extern crate std;
 
 #[doc(hidden)]
-pub mod compat;
+pub mod native_boundary;
 
 pub mod account;
 pub mod account_wrappers;
@@ -158,7 +157,7 @@ pub use instruction::{
     InstructionAccount, InstructionView, Seed, Signer, StoredAccountMeta, StoredInstruction,
 };
 pub use layout::{HopperHeader, LayoutContract, LayoutInfo};
-pub use pod::Pod;
+pub use pod::{Pod, Zeroable};
 pub use result::ProgramResult;
 pub use segment::{
     FieldCapability, Segment, TypedSegment, FIELD_POLICY_AUTHORITY_GATED,
@@ -169,20 +168,21 @@ pub use segment_borrow::{AccessKind, SegmentBorrow, SegmentBorrowGuard, SegmentB
 pub use segment_lease::{SegRef, SegRefMut, SegmentLease};
 pub use zerocopy::{AccountLayout, WireLayout, ZeroCopy};
 
-pub const MAX_TX_ACCOUNTS: usize = compat::BACKEND_MAX_TX_ACCOUNTS;
-pub const SUCCESS: u64 = compat::BACKEND_SUCCESS;
+pub const MAX_TX_ACCOUNTS: usize = native_boundary::BACKEND_MAX_TX_ACCOUNTS;
+pub const SUCCESS: u64 = native_boundary::BACKEND_SUCCESS;
 
 #[doc(hidden)]
 pub use hopper_native as __hopper_native;
+pub use hopper_native::sha256;
 
 #[doc(hidden)]
-pub use five8_const as __five8_const;
+pub use hopper_native::address::decode_base58_32 as __decode_base58_32;
 
 /// Compile-time base58 address literal.
 #[macro_export]
 macro_rules! address {
     ( $literal:expr ) => {
-        $crate::Address::new_from_array($crate::__five8_const::decode_32_const($literal))
+        $crate::Address::new_from_array($crate::__decode_base58_32($literal))
     };
 }
 
@@ -366,8 +366,8 @@ macro_rules! err {
     };
 }
 
-/// Alias for [`err!`]. Anchor compatibility shim so ported code needs
-/// no rename. Functionally identical.
+/// Alias for [`err!`]. Anchor-style spelling for ported code. Functionally
+/// identical.
 #[macro_export]
 macro_rules! error {
     ( $e:expr ) => {

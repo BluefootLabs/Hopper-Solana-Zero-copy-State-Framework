@@ -96,7 +96,7 @@ runtime it lowers to is in `crates/hopper-runtime/src/` or
 |---|---|---|---|---|---|
 | CLI scaffold / manifest gen / inspect / lint / profile | Yes | Partial | Yes (`anchor` CLI) | No | `tools/hopper-cli/src/cmd/*` |
 | Client codegen (TS / Kotlin / Python / Rust) | Yes | Partial | Yes (TS) | No | `crates/hopper-schema/src/{clientgen,rust_client,python_client}.rs` |
-| litesvm-based integration test harness | No (tracked) | Partial | Yes | No | Deferred — see `ROADMAP.md` |
+| In-process SVM integration test harness | Yes | Partial | Yes | No | `crates/hopper-test/src/lib.rs::LiteSvmHarness` (mollusk-backed); used by the gated devnet tests |
 
 ---
 
@@ -124,11 +124,28 @@ Anchor or Quasar. The error model gap (lowering a derived error into
 `ProgramError::Custom`) was the most recent parity item closed; see
 `crates/hopper-macros-proc/src/error.rs` and `tests/error_derive_integration.rs`.
 
+## Devnet evidence (this pass)
+
+The framework now backs the comparison with programs running on devnet,
+deployed from authority `HoppRy1HbNcHus9rmubDdXejDqAmhi55AURiCrq6tvxT`:
+
+| Example | Devnet program id | SBF bytes |
+|---|---|---:|
+| counter | `D8UGWDX5QRwEkKs2J9Sweabf4zd6hzdLqv7CB11SF91F` | 4 688 |
+| escrow | `5Ficb6k1Lv8tV8pThmQLU9H4MAYGbArwGRH2vrTHoPuN` | 18 736 |
+| versioned-state | `EuDECNLNwPAptWC5NmenBBfjSuhZtmpPwpMQ7Z1P2GMt` | 25 664 |
+| orderbook | `CK3XYYsbFducx9UEEWWLGAVnSAhGkMtM1TKLe8PDP6dJ` | 18 408 |
+
+`hopper explain` decodes a real escrow `make` transaction against the
+checked-in manifest (1 761 CU on devnet), and `hopper migrate` drove a
+`LayoutMigration` upgrade against the versioned-state program. See
+`BENCHMARKS.md` for sizes and the measured CU figure.
+
 ## Honest gaps
 
-- **litesvm test harness** is not yet shipped as a Hopper crate; tests today are
-  unit/integration against the runtime and codec layers. Tracked in `ROADMAP.md`.
-- **Benchmark/CU claims** are intentionally kept out of this document. They are
-  only release-grade when tied to the benchmark repository's reproducibility
-  envelope (lockfile, raw logs, toolchain). See `BENCHMARKS.md` and `AUDIT.md`
-  R2/RSK-4.
+- **Cross-framework CU comparison rows** are intentionally kept out of this
+  document. They are only release-grade when tied to the benchmark repository's
+  reproducibility envelope (lockfile, raw logs, toolchain). The artifact sizes
+  and single-program on-chain CU above were produced directly in this devnet
+  pass; the same-lockfile competitor matrix lives in `hopper-bench`. See
+  `BENCHMARKS.md` and `AUDIT.md` R2/RSK-4.

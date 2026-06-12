@@ -18,6 +18,30 @@ the picture.
 - `1` = `Take`
 - `2` = `Cancel`
 
+## Devnet
+
+Deployed to devnet in this pass:
+
+- Program id: `5Ficb6k1Lv8tV8pThmQLU9H4MAYGbArwGRH2vrTHoPuN`
+- `.so` size: 18 736 bytes
+
+```bash
+hopper build -p hopper-escrow
+hopper deploy --cluster devnet \
+  --keypair /abs/path/devnet-keypair.json \
+  --program-id target/deploy/hopper_escrow-keypair.json
+```
+
+Integration test against the deployed program (gated so the default
+`cargo test` stays offline):
+
+```bash
+HOPPER_DEVNET=1 \
+HOPPER_ESCROW_PROGRAM_ID=5Ficb6k1Lv8tV8pThmQLU9H4MAYGbArwGRH2vrTHoPuN \
+HOPPER_KEYPAIR=/abs/path/devnet-keypair.json \
+cargo test -p hopper-escrow --test devnet -- --nocapture
+```
+
 ## Verify
 
 ```bash
@@ -28,9 +52,17 @@ hopper build -p hopper-escrow
 
 ## Manifest Path
 
-This example does not ship a checked-in `ProgramManifest` JSON yet.
+This example ships a checked-in `hopper.manifest.json` describing the
+`Escrow` layout and the make/take/cancel instructions. `hopper explain`
+uses it to decode a real devnet `make` transaction even before the
+program publishes its manifest on chain:
 
-Canonical generation path:
+```bash
+hopper explain <make-tx-signature> \
+  --manifest examples/hopper-escrow/hopper.manifest.json
+```
+
+Canonical on-chain generation path:
 
 1. publish the example program with an on-chain Hopper manifest
 2. fetch it with `hopper fetch <program-id>`

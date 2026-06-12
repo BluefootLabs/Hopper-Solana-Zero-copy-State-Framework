@@ -17,14 +17,8 @@ name = "hopper_core"
 
 [dependencies]
 hopper-runtime = { workspace = true, default-features = false }
-# Optional: const-SHA256 is used for the canonical layout_id fingerprint and
-# for Anchor-compat discriminators. Under the `spartan` profile the crate
-# compiles without pulling sha2, substituting a pure-core FNV-1a fallback for
-# layout_id generation (Anchor-compat helpers are compiled out entirely).
-sha2-const-stable = { workspace = true, optional = true }
 
 [dev-dependencies]
-sha2-const-stable = { workspace = true }
 # The audit-regression tests in `frame` need direct access to the
 # native substrate's `RuntimeAccount` layout so they can fabricate
 # accounts without spinning up the full BPF entrypoint. Only pulled in
@@ -32,25 +26,19 @@ sha2-const-stable = { workspace = true }
 hopper-native = { workspace = true }
 
 [features]
-default = ["programs", "hopper-native-backend", "advanced", "cpi", "collections", "sha2-layout-id", "anchor-compat"]
+default = ["programs", "advanced", "cpi", "collections", "sha2-layout-id", "anchor-compat"]
 programs = []
 log = []
-hopper-native-backend = []
-legacy-pinocchio-compat = []
-solana-program-backend = []
 cpi = ["hopper-runtime/cpi"]
 
-# SHA-256 backed layout_id generation. ON by default. Pulls `sha2-const-stable`
-# as a hard build dep. Spartan programs turn this off; `hopper_layout!` then
-# hashes via a const FNV-1a-64 implementation that lives entirely in
-# `hopper-core`. The fingerprint space is still 8 bytes and collision-resistant
-# for realistic program sizes, but it is NOT byte-equal to an SHA-256-derived
-# layout_id, so off-chain tooling must be rebuilt with the same feature set.
-sha2-layout-id = ["dep:sha2-const-stable"]
+# SHA-256 backed layout_id generation. ON by default and powered by Hopper's
+# owned const SHA-256 implementation in hopper-native. Spartan programs turn
+# this off; `hopper_layout!` then hashes via the const FNV-1a-64 fallback below.
+sha2-layout-id = []
 
 # Anchor discriminator compat helpers (`anchor_discriminator`,
-# `anchor_account_discriminator`). These require SHA-256 by definition (the
-# Anchor ABI specifies SHA-256), so they implicitly enable `sha2-layout-id`.
+# `anchor_account_discriminator`). These require SHA-256 by definition, so they
+# implicitly enable Hopper's SHA-256 layout-id path.
 # Drop them to shave the last bit of Anchor-adjacent surface.
 anchor-compat = ["sha2-layout-id"]
 

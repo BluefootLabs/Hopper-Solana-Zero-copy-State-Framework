@@ -86,6 +86,41 @@ account role and layout contract.
 
 ## Quick Start
 
+### Quickstart in 60 seconds (source → live devnet program)
+
+```sh
+# 1. Scaffold a program
+hopper init my-program --template minimal --yes
+cd my-program
+
+# 2. Build to SBF (emits target/deploy/my_program.so)
+hopper build
+
+# 3. Deploy to devnet (uses your funded devnet keypair)
+hopper deploy --cluster devnet \
+  --keypair /abs/path/devnet-keypair.json \
+  --program-id target/deploy/my_program-keypair.json
+
+# 4. Confirm it on chain
+solana program show <PROGRAM_ID> --url devnet
+```
+
+The same four steps deployed this repo's `counter` example to devnet at
+program id `D8UGWDX5QRwEkKs2J9Sweabf4zd6hzdLqv7CB11SF91F` — a complete
+zero-copy program in a **4 688-byte** `.so`. To decode a confirmed
+transaction against the program's manifest:
+
+```sh
+hopper explain <CONFIRMED_SIG> --manifest hopper.manifest.json
+```
+
+`hopper deploy` defaults to devnet and refuses to target mainnet unless you
+pass `--cluster mainnet-beta` explicitly. See
+[`docs/cli/`](docs/cli/README.md) for the deploy-family reference and
+[`cli/SMOKE.md`](cli/SMOKE.md) for an end-to-end runbook.
+
+### Add the framework to an existing crate
+
 Add the published framework package under the Rust crate name `hopper`:
 
 ```sh

@@ -28,8 +28,8 @@
 use core::marker::PhantomData;
 
 use crate::borrow_registry::BorrowToken;
-use crate::compat::{BackendRef, BackendRefMut};
 use crate::error::ProgramError;
+use crate::native_boundary::{BackendRef, BackendRefMut};
 
 // ══════════════════════════════════════════════════════════════════════
 //  Ref (shared borrow)

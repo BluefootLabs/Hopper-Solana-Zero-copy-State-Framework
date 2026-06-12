@@ -547,7 +547,7 @@ fn prop_realloc_guard_register_bounds() {
 fn prop_layout_id_length() {
     // Compute a fingerprint manually using the same algorithm
     let input = b"hopper:v1:Test:1:field_a:WireU64:8,";
-    let hash = sha2_const_stable::Sha256::new().update(input).finalize();
+    let hash = hopper_core::__sha256_const(input);
     let id: [u8; 8] = [
         hash[0], hash[1], hash[2], hash[3], hash[4], hash[5], hash[6], hash[7],
     ];
@@ -560,8 +560,8 @@ fn prop_layout_id_collision_resistance() {
     let input_a = b"hopper:v1:Vault:1:balance:WireU64:8,";
     let input_b = b"hopper:v1:Vault:1:amount:WireU64:8,";
 
-    let hash_a = sha2_const_stable::Sha256::new().update(input_a).finalize();
-    let hash_b = sha2_const_stable::Sha256::new().update(input_b).finalize();
+    let hash_a = hopper_core::__sha256_const(input_a);
+    let hash_b = hopper_core::__sha256_const(input_b);
 
     let id_a: [u8; 8] = [
         hash_a[0], hash_a[1], hash_a[2], hash_a[3], hash_a[4], hash_a[5], hash_a[6], hash_a[7],
@@ -582,8 +582,8 @@ fn prop_layout_id_order_sensitive() {
     let input_a = b"hopper:v1:Test:1:alpha:WireU64:8,beta:WireU32:4,";
     let input_b = b"hopper:v1:Test:1:beta:WireU32:4,alpha:WireU64:8,";
 
-    let hash_a = sha2_const_stable::Sha256::new().update(input_a).finalize();
-    let hash_b = sha2_const_stable::Sha256::new().update(input_b).finalize();
+    let hash_a = hopper_core::__sha256_const(input_a);
+    let hash_b = hopper_core::__sha256_const(input_b);
 
     let id_a: [u8; 8] = [
         hash_a[0], hash_a[1], hash_a[2], hash_a[3], hash_a[4], hash_a[5], hash_a[6], hash_a[7],
@@ -603,8 +603,8 @@ fn prop_layout_id_order_sensitive() {
 fn prop_layout_id_deterministic() {
     let input =
         b"hopper:v1:Vault:1:authority:TypedAddress < Authority >:32,balance:WireU64:8,bump:u8:1,";
-    let hash1 = sha2_const_stable::Sha256::new().update(input).finalize();
-    let hash2 = sha2_const_stable::Sha256::new().update(input).finalize();
+    let hash1 = hopper_core::__sha256_const(input);
+    let hash2 = hopper_core::__sha256_const(input);
 
     assert_eq!(hash1, hash2, "Same input must always produce same hash");
 }
@@ -615,8 +615,8 @@ fn prop_layout_id_version_changes_id() {
     let input_v1 = b"hopper:v1:Vault:1:balance:WireU64:8,";
     let input_v2 = b"hopper:v1:Vault:2:balance:WireU64:8,";
 
-    let hash_v1 = sha2_const_stable::Sha256::new().update(input_v1).finalize();
-    let hash_v2 = sha2_const_stable::Sha256::new().update(input_v2).finalize();
+    let hash_v1 = hopper_core::__sha256_const(input_v1);
+    let hash_v2 = hopper_core::__sha256_const(input_v2);
 
     let id_v1: [u8; 8] = [
         hash_v1[0], hash_v1[1], hash_v1[2], hash_v1[3], hash_v1[4], hash_v1[5], hash_v1[6],

@@ -20,6 +20,3 @@ hopper-runtime = { workspace = true }
 
 [features]
 default = []
-hopper-native-backend = []
-legacy-pinocchio-compat = []
-solana-program-backend = []

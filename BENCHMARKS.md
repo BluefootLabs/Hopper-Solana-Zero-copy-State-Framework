@@ -272,3 +272,43 @@ The cross-framework runner lives in the sibling `hopper-bench` repo.
 | Complex instruction (6 accounts) | ~150,000 | ~800 CU (6 loads + overlays + receipt) |
 
 In all scenarios, Hopper overhead is <2% of the total instruction budget.
+
+
+## Devnet deployment evidence (this pass)
+
+Built with `cargo build-sbf` on the Anza toolchain and deployed to devnet
+from authority `HoppRy1HbNcHus9rmubDdXejDqAmhi55AURiCrq6tvxT`. Bytecode
+sizes are the on-disk `.so` artifacts that were deployed.
+
+| Example | SBF `.so` bytes | Devnet program id |
+|---------|----------------:|-------------------|
+| counter | 4 688 | `D8UGWDX5QRwEkKs2J9Sweabf4zd6hzdLqv7CB11SF91F` |
+| escrow | 18 736 | `5Ficb6k1Lv8tV8pThmQLU9H4MAYGbArwGRH2vrTHoPuN` |
+| versioned-state (migration) | 25 664 | `EuDECNLNwPAptWC5NmenBBfjSuhZtmpPwpMQ7Z1P2GMt` |
+| orderbook | 18 408 | `CK3XYYsbFducx9UEEWWLGAVnSAhGkMtM1TKLe8PDP6dJ` |
+| virtual-state | 23 240 | `6MmtjcdZuGZyceETKB2pstfSZ8Pv5r72U7dZrBCzgehz` |
+
+The 4 688-byte counter is the headline size claim: a complete, deployable
+zero-copy program — `#[account]` layout, `#[derive(Accounts)]` context
+with a `has_one` constraint, single-byte dispatch, and a checked mutation
+— in under 5 KiB of bytecode.
+
+### Measured on-chain compute
+
+The escrow `make` instruction (self-initializes a fresh `Escrow` account
+via the `init` lifecycle, then writes four typed fields) consumed
+**1 761 CU** on devnet, decoded from the confirmed transaction by
+`hopper explain` against the checked-in escrow manifest.
+
+### Bytecode size vs the competitor sources
+
+Compared against the extracted competitor trees at
+`competitors/pinocchio_src/` and `competitors/quasar_src/` (read-only,
+not vendored). Hopper's per-program bytecode is dominated by the
+framework's account-loading and validation surface; the counter figure
+above shows that surface compiles down to a few KiB rather than the tens
+of KiB an Anchor-style framework adds. The cross-framework CU runner that
+produces same-lockfile, same-toolchain comparison rows lives in the
+sibling `hopper-bench` repo, as described in the release-facing benchmark
+policy above; the numbers in this section are the artifacts and on-chain
+measurements produced directly in this devnet pass.

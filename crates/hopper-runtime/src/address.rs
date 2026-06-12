@@ -32,11 +32,7 @@ pub struct Address(pub(crate) [u8; 32]);
 // - Every byte pattern is valid (no niches).
 // - Alignment is 1 (inherits `[u8; 32]`'s alignment).
 // - No padding, no drop glue, no interior pointers.
-// `hopper_native::Pod` is a sub-trait of `bytemuck::Pod + bytemuck::Zeroable`,
-// so we satisfy those two as well with the same justification.
-unsafe impl bytemuck::Zeroable for Address {}
-unsafe impl bytemuck::Pod for Address {}
-
+unsafe impl crate::pod::Zeroable for Address {}
 unsafe impl crate::pod::Pod for Address {}
 // Audit Step 5 seal: Hopper-authored primitive.
 unsafe impl crate::zerocopy::__sealed::HopperZeroCopySealed for Address {}
@@ -78,7 +74,7 @@ impl Address {
     /// Only available on-chain (`target_os = "solana"`).
     #[cfg(target_os = "solana")]
     pub fn find_program_address(seeds: &[&[u8]], program_id: &Address) -> (Address, u8) {
-        crate::compat::find_program_address(seeds, program_id)
+        crate::native_boundary::find_program_address(seeds, program_id)
     }
 
     /// Create a program-derived address from seeds.
@@ -89,7 +85,7 @@ impl Address {
         seeds: &[&[u8]],
         program_id: &Address,
     ) -> Result<Address, crate::ProgramError> {
-        crate::compat::create_program_address(seeds, program_id)
+        crate::native_boundary::create_program_address(seeds, program_id)
     }
 }
 

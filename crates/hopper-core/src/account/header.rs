@@ -48,13 +48,8 @@ pub struct AccountHeader {
 const _: () = assert!(core::mem::size_of::<AccountHeader>() == HEADER_LEN);
 const _: () = assert!(core::mem::align_of::<AccountHeader>() == 1);
 
-// Bytemuck proof (Hopper Safety Audit Must-Fix #5). All fields are
-// `[u8; N]`-family types so every bit pattern decodes to a valid
-// `AccountHeader`.
-unsafe impl ::hopper_runtime::__hopper_native::bytemuck::Zeroable for AccountHeader {}
-unsafe impl ::hopper_runtime::__hopper_native::bytemuck::Pod for AccountHeader {}
-
 // SAFETY: #[repr(C)] of all-byte fields, all bit patterns valid.
+unsafe impl super::Zeroable for AccountHeader {}
 unsafe impl super::Pod for AccountHeader {}
 // Audit Step 5 seal: Hopper-authored primitive.
 unsafe impl ::hopper_runtime::__sealed::HopperZeroCopySealed for AccountHeader {}

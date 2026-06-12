@@ -74,7 +74,8 @@ use crate::error::ProgramError;
 /// 3. Every bit pattern is valid (no padding-dependent invariants).
 /// 4. No references or pointers (only plain data).
 ///
-/// This is the same contract as `bytemuck::Pod` without the dependency.
+/// This is the same plain-data contract as Hopper `Pod`, without requiring
+/// callers to enter the canonical account-overlay API.
 pub unsafe trait Projectable: Copy + 'static {}
 
 // Built-in projectable types.

@@ -9,6 +9,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 
 ### Added
 
+- **Devnet validation pass.** Built every example to SBF and deployed counter, escrow, versioned-state (migration), orderbook, and virtual-state to devnet from the staged authority `HoppRy1HbNcHus9rmubDdXejDqAmhi55AURiCrq6tvxT`. Program ids and `.so` sizes are recorded in `BENCHMARKS.md` and each example README.
+- **`hopper explain <tx-sig | program-id>`** as a first-class top-level command. For a transaction signature it fetches the confirmed tx over raw JSON-RPC and decodes every instruction against the target program's on-chain Hopper manifest (or an operator-supplied `--manifest <file>`), printing the matched instruction name, disc byte, args, policy, and account slots. For a program id it lists the registered instructions. The raw-RPC path keeps `explain` working across versioned (v0) transactions and new RPC response fields that a pinned typed SDK rejects.
+- **`hopper upgrade`, `hopper close`, `hopper migrate`** lifecycle commands over the BPF Loader Upgradeable, with confirmation prompts on destructive operations and shell completions (bash/zsh/fish/powershell) for the new verbs.
+- **`hopper-test` crate** exposing `LiteSvmHarness` — an in-process SVM harness (mollusk-backed) that loads a compiled `.so`, seeds program-owned accounts, fires instructions, and reads back lamports / account data / compute-unit cost without a validator. `load()` returns `None` when the artifact is missing so callers can skip cleanly.
+- **Property-based segment-disjointness proof.** Added a `proptest` oracle alongside the existing kani proofs in `hopper-runtime::segment_borrow`: it randomly carves segment maps and asserts the runtime registry accepts exactly the disjoint borrows and rejects every overlap, with read-sharing and per-account-isolation properties.
+- **Gated `HOPPER_DEVNET=1` integration tests** for escrow (make round-trip), migration/versioned-state (`init_v1` → `migrate_v1_to_v2` in-place growth), and orderbook (`init_book` → `post_bid` touching only the bids segment). Default `cargo test` stays offline.
+- A checked-in `examples/hopper-escrow/hopper.manifest.json` so `hopper explain --manifest` decodes a real devnet `make` transaction before the program publishes its manifest on chain.
+- CI: `solana-sbf.yml` now builds escrow, versioned-state, and orderbook to SBF on every PR in addition to counter, vault, and the Quasar port.
 - Added named bare final tails for `#[account]` dynamic layouts via `TailStr<'a>` and `TailBytes<'a>`.
 - Made `#[program(profile = "tiny")]` enforce a compact dispatch shape by rejecting multi-byte discriminators and handler-level modifier instrumentation.
 - Closed the error-model parity gap: `#[hopper::error_code]` now derives `From<E> for ProgramError` lowering to `ProgramError::Custom(code)`, so handlers can `return Err(MyError::Foo.into())` exactly like Anchor's `#[error_code]`. Covered by `tests/error_derive_integration.rs`.
@@ -32,14 +40,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 
 ### Changed
 
-- Hardened `hopper solana-check` so SBF macro calls must be path-qualified and backend selection is resolved from current Hopper feature names and dependency-selected features.
+- Hardened `hopper solana-check` so SBF macro calls must be path-qualified and stale runtime backend feature names are rejected.
 - Wired `hopper publish-check --full` to run the Solana program shape gate before the full systems and trybuild suites.
 - Updated public release docs, README links, and crate docs targets for the `0.2.1` release line.
 
 ### Fixed
 
-- The `solana-program-backend` entrypoint now rejects excess accounts instead of truncating them.
-- The compatibility backend build now handles the `solana_program::AccountInfo` drop semantics without tripping Hopper Native's no-drop assertion.
+- The native entrypoint now rejects excess accounts instead of truncating them.
 
 ## [0.2.0] - 2026-05-15
 

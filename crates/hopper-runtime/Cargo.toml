@@ -18,13 +18,6 @@ name = "hopper_runtime"
 [features]
 default = []
 
-# Compatibility aliases retained so downstream crates do not need an immediate
-# Cargo.toml migration. They no longer select alternate backends: Hopper Runtime
-# has one production account-memory path.
-hopper-native-backend = []
-legacy-pinocchio-compat = []
-solana-program-backend = []
-
 cu-trace = ["hopper-native/cu-trace"]
 cpi = []
 copy = []
@@ -35,13 +28,12 @@ crypto-bn254 = []
 crypto-big-mod-exp = []
 
 [dependencies]
-hopper-native = { workspace = true, default-features = false, features = ["cpi", "bytemuck"] }
-five8_const = { workspace = true }
-# bytemuck is brought in transitively via hopper-native when the
-# native backend is active, but we also need direct access here to
-# emit `unsafe impl bytemuck::Pod` on runtime-owned types like
-# `Address`. `default-features = false` keeps this no_std-friendly.
-bytemuck = { version = "1", default-features = false }
+hopper-native = { workspace = true, default-features = false, features = ["cpi"] }
+
+[dev-dependencies]
+# Property-based testing for the segment-borrow disjointness invariant.
+# Host-only (`cargo test`); never compiled into the no_std SBF build.
+proptest = "1"
 
 [lints]
 workspace = true
