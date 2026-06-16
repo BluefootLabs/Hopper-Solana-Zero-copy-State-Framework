@@ -245,21 +245,28 @@ impl<'info> AccountView<'info> {
     #[inline(always)]
     pub fn try_borrow(&self) -> Result<Ref<'_, [u8]>, ProgramError> {
         self.check_borrow()?;
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: `self.raw` is a valid `RuntimeAccount` for this account
+        // (entrypoint invariant); `borrow_state` is its first byte. Taking a
+        // `*mut u8` to it does not create an aliasing reference.
         let state_ptr = unsafe { &mut (*self.raw).borrow_state as *mut u8 };
         // SAFETY: `state_ptr` points at this account's borrow-state byte and is
         // only read after `check_borrow()` confirmed the borrow is compatible.
         let state = unsafe { *state_ptr };
         let new_state = if state == NOT_BORROWED { 1 } else { state + 1 };
-        if new_state == 0 {
-            // Overflow into exclusive-borrow sentinel.
+        if new_state == 0 || new_state == NOT_BORROWED {
+            // `0` would alias the exclusive-borrow sentinel; `NOT_BORROWED`
+            // (0xFF) would silently reset tracking on the 255th concurrent
+            // shared borrow, after which a mutable borrow could be granted
+            // while shared refs are still live. Cap the count at 254.
             return Err(ProgramError::AccountBorrowFailed);
         }
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: single-threaded SVM execution; we hold the only path that
+        // writes this byte and have just validated the new shared count.
         unsafe {
             *state_ptr = new_state;
         }
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: the shared count was incremented above, so no exclusive
+        // borrow is outstanding; the returned `Ref` decrements it on drop.
         let data = unsafe { self.borrow_unchecked() };
         Ok(Ref::new(data, state_ptr))
     }
@@ -270,14 +277,16 @@ impl<'info> AccountView<'info> {
     #[inline(always)]
     pub fn try_borrow_mut(&self) -> Result<RefMut<'_, [u8]>, ProgramError> {
         self.check_borrow_mut()?;
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: `self.raw` is a valid `RuntimeAccount`; `borrow_state` is its
+        // first byte. The `*mut u8` does not create an aliasing reference.
         let state_ptr = unsafe { &mut (*self.raw).borrow_state as *mut u8 };
-        // SAFETY: `state_ptr` points at this account's borrow-state byte and is
-        // only written after `check_borrow_mut()` ruled out incompatible borrows.
+        // SAFETY: `check_borrow_mut()` confirmed the account was NOT_BORROWED,
+        // so writing the exclusive sentinel (0) cannot stomp a live borrow.
         unsafe {
             *state_ptr = 0;
         } // Mark exclusive.
-          // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+          // SAFETY: state is now exclusive, so no other borrow is live; the
+          // returned `RefMut` restores NOT_BORROWED on drop.
         let data = unsafe { self.borrow_unchecked_mut() };
         Ok(RefMut::new(data, state_ptr))
     }
@@ -308,7 +317,9 @@ impl<'info> AccountView<'info> {
         let state_ptr = unsafe { &mut (*self.raw).borrow_state as *mut u8 };
         let state = unsafe { *state_ptr };
         let new_state = if state == NOT_BORROWED { 1 } else { state + 1 };
-        if new_state == 0 {
+        if new_state == 0 || new_state == NOT_BORROWED {
+            // See `try_borrow`: cap the shared count at 254 so it can never
+            // wrap into the NOT_BORROWED sentinel.
             return Err(ProgramError::AccountBorrowFailed);
         }
         // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
@@ -333,22 +344,9 @@ impl<'info> AccountView<'info> {
         &self,
         offset: u32,
     ) -> Result<Ref<'_, T>, ProgramError> {
-        self.check_borrow()?;
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-        let state_ptr = unsafe { &mut (*self.raw).borrow_state as *mut u8 };
-        let state = unsafe { *state_ptr };
-        let new_state = if state == NOT_BORROWED { 1 } else { state + 1 };
-        if new_state == 0 {
-            return Err(ProgramError::AccountBorrowFailed);
-        }
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-        unsafe {
-            *state_ptr = new_state;
-        }
-
         // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let ptr = unsafe { self.data_ptr_unchecked().add(offset as usize) as *const T };
-        Ok(Ref::new(unsafe { &*ptr }, state_ptr))
+        Ok(Ref::new_external(unsafe { &*ptr }))
     }
 
     /// Project a mutable typed segment from account data with native borrow tracking.
@@ -397,16 +395,9 @@ impl<'info> AccountView<'info> {
         &self,
         offset: u32,
     ) -> Result<RefMut<'_, T>, ProgramError> {
-        self.check_borrow_mut()?;
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-        let state_ptr = unsafe { &mut (*self.raw).borrow_state as *mut u8 };
-        unsafe {
-            *state_ptr = 0;
-        }
-
         // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let ptr = unsafe { self.data_ptr_unchecked().add(offset as usize) as *mut T };
-        Ok(RefMut::new(unsafe { &mut *ptr }, state_ptr))
+        Ok(RefMut::new_external(unsafe { &mut *ptr }))
     }
 
     /// Explicit raw typed read of the account buffer.
@@ -431,18 +422,55 @@ impl<'info> AccountView<'info> {
 
     // ── Resize ───────────────────────────────────────────────────────
 
-    /// Resize the account data to `new_len` bytes.
+    /// Resize the account data to `new_len` bytes, zeroing any newly
+    /// exposed region.
     ///
     /// Returns `Err(InvalidRealloc)` if the new length exceeds the
     /// permitted increase from the original allocation.
+    ///
+    /// When the account grows, the bytes in `[old_len, new_len)` are
+    /// zero-filled. The Solana loader zeroes the realloc reserve once at
+    /// the start of an instruction, but a shrink-then-grow within a
+    /// single instruction can re-expose previously written bytes; zeroing
+    /// on growth makes that impossible. Use [`resize_raw`](Self::resize_raw)
+    /// for the hot path when the caller will overwrite the grown region
+    /// in full and has measured the saved `memset`.
     #[inline(always)]
     pub fn resize(&self, new_len: usize) -> Result<(), ProgramError> {
         let original_len = (self.data_len() as i64 - self.resize_delta() as i64) as usize;
         if new_len > original_len + MAX_PERMITTED_DATA_INCREASE {
             return Err(ProgramError::InvalidRealloc);
         }
+        let old_len = self.data_len();
         let delta = new_len as i64 - original_len as i64;
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: `data_ptr_unchecked()` is the account data base; the loader
+        // guarantees `[old_len, new_len)` is within the realloc-reserve
+        // capacity once the `InvalidRealloc` bound above has passed.
+        unsafe {
+            if new_len > old_len {
+                crate::mem::memset(self.data_ptr_unchecked().add(old_len), 0, new_len - old_len);
+            }
+            (*self.raw).data_len = new_len as u64;
+            (*self.raw).resize_delta = delta as i32;
+        }
+        Ok(())
+    }
+
+    /// Resize without zero-filling the newly exposed region.
+    ///
+    /// Same bounds check as [`resize`](Self::resize) but skips the
+    /// zero-fill on growth. Prefer `resize` unless the caller immediately
+    /// overwrites the entire grown region; otherwise stale bytes from an
+    /// earlier shrink within the same instruction can leak into the new
+    /// region.
+    #[inline(always)]
+    pub fn resize_raw(&self, new_len: usize) -> Result<(), ProgramError> {
+        let original_len = (self.data_len() as i64 - self.resize_delta() as i64) as usize;
+        if new_len > original_len + MAX_PERMITTED_DATA_INCREASE {
+            return Err(ProgramError::InvalidRealloc);
+        }
+        let delta = new_len as i64 - original_len as i64;
+        // SAFETY: bounds validated above; only header fields are written.
         unsafe {
             (*self.raw).data_len = new_len as u64;
             (*self.raw).resize_delta = delta as i32;
@@ -450,11 +478,13 @@ impl<'info> AccountView<'info> {
         Ok(())
     }
 
-    /// Resize without bounds checking.
+    /// Resize without bounds checking or zero-filling.
     ///
     /// # Safety
     ///
-    /// The caller must guarantee `new_len <= original_len + MAX_PERMITTED_DATA_INCREASE`.
+    /// The caller must guarantee `new_len <= original_len + MAX_PERMITTED_DATA_INCREASE`
+    /// and is responsible for any zero-fill of the grown region (see
+    /// [`resize`](Self::resize) for why that matters).
     #[inline(always)]
     pub unsafe fn resize_unchecked(&self, new_len: usize) {
         let original_len = (self.data_len() as i64 - self.resize_delta() as i64) as usize;

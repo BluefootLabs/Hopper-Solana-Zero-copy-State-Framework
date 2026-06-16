@@ -4,10 +4,9 @@
 //! per-account prefix. Each TLV entry is
 //! `[type: u16 LE][length: u16 LE][data: length bytes]`.
 //!
-//! Anchor routes every extension constraint through
-//! `InterfaceAccount<Mint>`, which Borsh-deserializes the whole
-//! account. Quasar has a zero-copy base-layout reader but no TLV
-//! helpers. Pinocchio has nothing. This module fills the gap.
+//! This module reads Token-2022 TLV data directly from account bytes,
+//! avoiding full-account decode while preserving the on-chain wire
+//! rules.
 //!
 //! Every reader here validates only the bytes it reads. No heap
 //! allocation, no full-account decode, no version coupling to
@@ -32,9 +31,8 @@
 //! data at offset 166. `BASE_MINT_LEN` (82) is the length of a *plain*,
 //! non-extended mint and is used by length checks; it is **not** the
 //! offset at which mint extensions live. This layout matches
-//! `spl-token-2022` and the pinocchio reference implementation
-//! (`validate_account_type` keys on `bytes[BASE_ACCOUNT_LENGTH]`
-//! where `BASE_ACCOUNT_LENGTH = 165`).
+//! `spl-token-2022` (`validate_account_type` keys on
+//! `bytes[BASE_ACCOUNT_LENGTH]` where `BASE_ACCOUNT_LENGTH = 165`).
 //!
 //! ## Extension type constants
 //!
@@ -331,7 +329,10 @@ pub fn require_transfer_hook_program(mint: &AccountView<'_>, expected: &Address)
 
 /// Require a mint's `TransferHook` authority to equal `expected`.
 #[inline]
-pub fn require_transfer_hook_authority(mint: &AccountView<'_>, expected: &Address) -> ProgramResult {
+pub fn require_transfer_hook_authority(
+    mint: &AccountView<'_>,
+    expected: &Address,
+) -> ProgramResult {
     let data = mint
         .try_borrow()
         .map_err(|_| ProgramError::AccountBorrowFailed)?;
@@ -351,7 +352,10 @@ pub fn require_transfer_hook_authority(mint: &AccountView<'_>, expected: &Addres
 ///
 /// `MetadataPointer` layout: `[authority: 32][metadata_address: 32]`.
 #[inline]
-pub fn require_metadata_pointer_address(mint: &AccountView<'_>, expected: &Address) -> ProgramResult {
+pub fn require_metadata_pointer_address(
+    mint: &AccountView<'_>,
+    expected: &Address,
+) -> ProgramResult {
     let data = mint
         .try_borrow()
         .map_err(|_| ProgramError::AccountBorrowFailed)?;
@@ -369,7 +373,10 @@ pub fn require_metadata_pointer_address(mint: &AccountView<'_>, expected: &Addre
 
 /// Require a mint's `MetadataPointer` authority to equal `expected`.
 #[inline]
-pub fn require_metadata_pointer_authority(mint: &AccountView<'_>, expected: &Address) -> ProgramResult {
+pub fn require_metadata_pointer_authority(
+    mint: &AccountView<'_>,
+    expected: &Address,
+) -> ProgramResult {
     let data = mint
         .try_borrow()
         .map_err(|_| ProgramError::AccountBorrowFailed)?;
@@ -460,7 +467,10 @@ pub fn require_default_account_state(mint: &AccountView<'_>, expected: u8) -> Pr
 ///
 /// Layout: `[rate_authority: 32][initialization_timestamp: 8][pre_update_average_rate: 2][last_update_timestamp: 8][current_rate: 2]`.
 #[inline]
-pub fn require_interest_bearing_authority(mint: &AccountView<'_>, expected: &Address) -> ProgramResult {
+pub fn require_interest_bearing_authority(
+    mint: &AccountView<'_>,
+    expected: &Address,
+) -> ProgramResult {
     let data = mint
         .try_borrow()
         .map_err(|_| ProgramError::AccountBorrowFailed)?;
@@ -537,9 +547,9 @@ mod tests {
     /// base. The parser was wrong in exactly the complementary way, so
     /// the two wrongnesses aligned and the tests passed while the
     /// production code silently mis-read every real mainnet mint. This
-    /// helper now matches `spl-token-2022` and pinocchio's
-    /// `validate_account_type` (which keys on
-    /// `bytes[BASE_ACCOUNT_LENGTH]` where `BASE_ACCOUNT_LENGTH = 165`).
+    /// helper now matches `spl-token-2022`'s `validate_account_type`
+    /// (which keys on `bytes[BASE_ACCOUNT_LENGTH]` where
+    /// `BASE_ACCOUNT_LENGTH = 165`).
     fn mint_with_exts(exts: &[(u16, &[u8])]) -> alloc::vec::Vec<u8> {
         // 82 base + 83 padding = 165 bytes, then AccountType, then TLV.
         let mut v = alloc::vec![0u8; ACCOUNT_TYPE_OFFSET];
@@ -575,7 +585,7 @@ mod tests {
 
     #[test]
     fn offset_constants_match_authoritative_spec() {
-        // Values anchored to spl-token-2022 and pinocchio's reference.
+        // Values anchored to the spl-token-2022 wire layout.
         assert_eq!(BASE_MINT_LEN, 82);
         assert_eq!(BASE_TOKEN_LEN, 165);
         assert_eq!(ACCOUNT_TYPE_OFFSET, 165);

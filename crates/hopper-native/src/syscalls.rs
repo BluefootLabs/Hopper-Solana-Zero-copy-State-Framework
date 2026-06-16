@@ -161,4 +161,22 @@ extern "C" {
 
     /// Get the last restart slot sysvar.
     pub fn sol_get_last_restart_slot(addr: *mut u8) -> u64;
+
+    /// Generalized sysvar read: copy `length` bytes starting at `offset`
+    /// from the sysvar identified by `sysvar_id_addr` into `result`.
+    ///
+    /// This is the modern replacement for the per-sysvar syscalls and the
+    /// only way to read large sysvars (SlotHashes, StakeHistory) without
+    /// passing them as accounts.
+    pub fn sol_get_sysvar(
+        sysvar_id_addr: *const u8,
+        result: *mut u8,
+        offset: u64,
+        length: u64,
+    ) -> u64;
+
+    /// Get the activated stake (current epoch) of the vote account at
+    /// `vote_address`. A null `vote_address` returns the cluster-wide
+    /// total active stake (SIMD-0133).
+    pub fn sol_get_epoch_stake(vote_address: *const u8) -> u64;
 }

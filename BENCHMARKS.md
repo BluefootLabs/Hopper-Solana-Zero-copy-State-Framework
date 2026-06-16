@@ -239,14 +239,31 @@ Every parity result published from `hopper-bench` must record:
 - Quasar's upstream vault does not implement `authorize` or `counter_access`, so
   those rows are intentionally absent for Quasar.
 
+### Reading the Pinocchio deltas honestly
+
+The large CU gaps on `deposit`, `withdraw`, `authorize`, and
+`counter_access` are **mostly a PDA-strategy difference, not a substrate
+difference**. The in-tree Pinocchio target uses idiomatic
+`find_program_address` (a bump search that can cost ~1,500–2,500 CU),
+whereas the Hopper parity vault verifies a **stored canonical bump** with
+a single `create_program_address` (~200 CU). A Pinocchio program that
+also stored its bump would land close to Hopper on these rows.
+
+So the accurate claim is **"Hopper is fast by default"**: the cheap PDA
+path is the one the macros and conventions steer you toward, while raw
+Pinocchio leaves that optimization to the author. It is not "raw
+Pinocchio is slower." A stored-bump Pinocchio row is tracked for the
+`hopper-bench` matrix so this comparison stays apples-to-apples.
+
 ### Architecture and DX observations
 
 - Verify-only PDA avoids `sol_curve_validate_point` by comparing hashes directly
-  against the known PDA address. This is a Hopper optimization to keep measuring
-  against same-provenance competitors, not a published Pinocchio performance
-  claim.
-- The fast entrypoint receives instruction data via the second SVM register,
-  avoiding a full-buffer account scan on supported runtimes.
+  against the known PDA address. This is the stored-bump path described above.
+- The fast entrypoint receives instruction data via the second SVM register
+  (`r2`). This depends on **SIMD-0321**, whose feature gate is not yet active on
+  public clusters, so it is opt-in behind the `simd-0321` cargo feature; with
+  the feature off, `fast_entrypoint!` is the standard scanning entrypoint and
+  these numbers are measured without the `r2` shortcut.
 - Hopper's claim is not "raw Pinocchio is slower." The claim is that Hopper
   packages low-overhead account access with framework validation, schema,
   lifecycle, CPI, and CLI tooling.

@@ -6,6 +6,12 @@
 #![no_std]
 #![deny(unsafe_op_in_unsafe_fn)]
 
+pub mod hook;
+pub use hook::{
+    extra_account_metas_pda, ExtraAccountMeta, ExtraAccountMetaList, HookAccountBuf, HookError,
+    ResolvedHookAccount, EXTRA_ACCOUNT_METAS_SEED,
+};
+
 use hopper_runtime::instruction::{InstructionAccount, InstructionView, Signer};
 use hopper_runtime::{AccountView, ProgramResult};
 

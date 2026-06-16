@@ -48,6 +48,11 @@ pub fn cmd_doctor(args: &[String]) {
     warns += check_warn("#[program] module declared", check_program_attr);
 
     println!();
+    println!(
+        "tip: before shipping a `--features simd-0321` build, run `hopper feature-gate`"
+    );
+    println!("     to confirm SIMD-0321 is active on your target cluster.");
+    println!();
     println!("summary: {} failed, {} warnings", fails, warns);
     if fails > 0 {
         process::exit(1);

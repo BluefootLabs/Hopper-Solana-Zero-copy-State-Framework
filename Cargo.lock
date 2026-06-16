@@ -2324,6 +2324,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "hopper-smoke"
+version = "0.2.1"
+dependencies = [
+ "hopper-lang",
+]
+
+[[package]]
 name = "hopper-solana"
 version = "0.2.1"
 dependencies = [

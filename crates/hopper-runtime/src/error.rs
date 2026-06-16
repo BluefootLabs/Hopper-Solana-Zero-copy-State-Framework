@@ -321,8 +321,8 @@ impl From<ProgramError> for hopper_native::error::ProgramError {
 //  Cold error constructors
 // ══════════════════════════════════════════════════════════════════════
 //
-// Following Pinocchio's pattern: `#[cold]` + `#[inline(never)]` on error
-// return helpers keeps the error path out of the hot-path instruction cache.
+// `#[cold]` + `#[inline(never)]` on error return helpers keeps the error path
+// out of the hot-path instruction cache.
 // Call sites become a single branch + call, keeping the inlined fast path tiny.
 
 impl ProgramError {

@@ -81,6 +81,17 @@ runtime it lowers to is in `crates/hopper-runtime/src/` or
 | `_unchecked` CPI for hot paths with documented invariants | Yes | N/A | No | Manual | `cpi.rs::invoke_unchecked` / `invoke_signed_unchecked` |
 | Typed CPI surface generated from a manifest | Yes | No | Yes (IDL) | No | `crates/hopper-macros-proc/src/declare_program.rs` (`hopper::declare_program!`) |
 
+## Native substrate surface
+
+| Capability | Hopper | Quasar | Anchor zc | Pinocchio | Hopper implements |
+|---|---|---|---|---|---|
+| Full System program incl. `*WithSeed` + durable-nonce family | Yes | Partial | Via SDK | Yes | `crates/hopper-native/src/system.rs` (`CreateAccountWithSeed`, `TransferWithSeed`, `Advance/Withdraw/Initialize/Authorize/UpgradeNonceAccount`, typed `NonceState`) |
+| Generalized sysvar access (`sol_get_sysvar`, SlotHashes, StakeHistory) | Yes | Partial | Via SDK | Partial | `crates/hopper-native/src/sysvar.rs` (`get_sysvar_into`, `slot_hashes_latest`, `stake_history_latest`, `get_epoch_stake`) |
+| secp256r1 / passkey precompile introspection | Yes | No | No | No | `crates/hopper-native/src/introspect.rs::require_secp256r1_instruction`; `crates/hopper-runtime/src/crypto.rs` |
+| Token-2022 `ExtraAccountMetaList` resolver (transfer hooks), `no_std`/no-alloc | Yes | No | No | No | `crates/hopper-spl/hopper-token-2022/src/hook.rs::ExtraAccountMetaList::resolve_into` |
+| Opt-in bump allocator *and* trap-on-alloc, both first-class | Yes | Partial | N/A | Yes | `default_allocator!` / `no_allocator!`; `crates/hopper-native/src/entrypoint.rs::BumpAllocator` |
+| Compile-config ↔ cluster feature-gate check (SIMD-0321) | Yes | No | No | No | `tools/hopper-cli/src/cmd/feature_gate.rs` (`hopper feature-gate`) |
+
 ## Schema / IDL
 
 | Capability | Hopper | Quasar | Anchor zc | Pinocchio | Hopper implements |
@@ -135,11 +146,17 @@ deployed from authority `HoppRy1HbNcHus9rmubDdXejDqAmhi55AURiCrq6tvxT`:
 | escrow | `5Ficb6k1Lv8tV8pThmQLU9H4MAYGbArwGRH2vrTHoPuN` | 18 736 |
 | versioned-state | `EuDECNLNwPAptWC5NmenBBfjSuhZtmpPwpMQ7Z1P2GMt` | 25 664 |
 | orderbook | `CK3XYYsbFducx9UEEWWLGAVnSAhGkMtM1TKLe8PDP6dJ` | 18 408 |
+| smoke | `2YPBvKJ8h37bUEFBrmytzNuKfUJ5Q2o2tkTiqRCZdjme` | 20 280 |
 
 `hopper explain` decodes a real escrow `make` transaction against the
 checked-in manifest (1 761 CU on devnet), and `hopper migrate` drove a
-`LayoutMigration` upgrade against the versioned-state program. See
-`BENCHMARKS.md` for sizes and the measured CU figure.
+`LayoutMigration` upgrade against the versioned-state program. The
+`smoke` program ran a live `initialize → deposit → withdraw` sequence on
+devnet (init writes the layout-fingerprint header and reads the Clock
+sysvar; deposit CPIs System `Transfer` and emits a typed event; withdraw
+debits program-owned lamports under a `has_one` check) — see
+`examples/hopper-smoke/README.md` for the confirmed transaction
+signatures. See `BENCHMARKS.md` for sizes and the measured CU figure.
 
 ## Honest gaps
 

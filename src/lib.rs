@@ -362,8 +362,9 @@ pub mod systems {
     pub use hopper_core::prelude_core::*;
     pub use hopper_runtime::CpiAccount;
     pub use hopper_runtime::{
-        fast_entrypoint, hopper_entrypoint, hopper_fast_entrypoint, hopper_lazy_entrypoint,
-        lazy_entrypoint, no_allocator, nostd_panic_handler, program_entrypoint, AccountProof,
+        default_allocator, fast_entrypoint, hopper_entrypoint, hopper_fast_entrypoint,
+        hopper_lazy_entrypoint, lazy_entrypoint, no_allocator, nostd_panic_handler,
+        program_entrypoint, AccountProof,
         BoundedString, BoundedVec, ExecutableChecked, ExplainExternal, ExternalBytes,
         ExternalChecked, ExternalExplainSink, ExternalLens, ExternalLensValue, ExternalProof,
         ExternalResolve, HasOneChecked, HopperString, HopperVec, InstructionAccount,
@@ -727,7 +728,7 @@ macro_rules! hopper_dynamic_fields {
 // the top-level `hopper::*` path without needing to reach through
 // `hopper_runtime::`.
 pub use hopper_runtime::{
-    address, err, error, fast_entrypoint, hopper_emit_cpi, hopper_entrypoint,
+    address, default_allocator, err, error, fast_entrypoint, hopper_emit_cpi, hopper_entrypoint,
     hopper_fast_entrypoint, hopper_lazy_entrypoint, hopper_log, hopper_unsafe_region,
     lazy_entrypoint, msg, no_allocator, nostd_panic_handler, program_entrypoint, require,
     require_eq, require_gt, require_gte, require_keys_eq, require_keys_neq, require_lt,

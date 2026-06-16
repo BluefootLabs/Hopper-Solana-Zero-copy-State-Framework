@@ -853,10 +853,20 @@ impl<'info> AccountView<'info> {
 
     // ── Resize / Close ───────────────────────────────────────────────
 
-    /// Resize the account data.
+    /// Resize the account data, zeroing any newly exposed region on growth.
+    ///
+    /// See [`hopper_native::AccountView::resize`] for why zero-on-growth
+    /// is the safe default. Use [`resize_raw`](Self::resize_raw) for the
+    /// hot path when the caller overwrites the grown region in full.
     #[inline]
     pub fn resize(&self, new_len: usize) -> ProgramResult {
         native_boundary::resize(self.backend(), new_len)
+    }
+
+    /// Resize the account data without zero-filling the grown region.
+    #[inline]
+    pub fn resize_raw(&self, new_len: usize) -> ProgramResult {
+        native_boundary::resize_raw(self.backend(), new_len)
     }
 
     /// Assign a new owner.

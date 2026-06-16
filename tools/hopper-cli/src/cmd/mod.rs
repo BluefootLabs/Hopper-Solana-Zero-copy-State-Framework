@@ -6,6 +6,7 @@ pub mod cluster;
 pub mod config;
 pub mod doctor;
 pub mod expand;
+pub mod feature_gate;
 pub mod keys;
 pub mod lifecycle;
 pub mod lint;

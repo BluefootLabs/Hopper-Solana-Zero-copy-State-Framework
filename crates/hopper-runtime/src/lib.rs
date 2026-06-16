@@ -605,9 +605,19 @@ macro_rules! program_entrypoint {
 
 /// Declare the fast two-argument Hopper entrypoint.
 ///
-/// Uses the SVM's second register to receive instruction data directly,
-/// eliminating the full account-scanning pass. Saves ~30-40 CU per
-/// instruction. Requires SVM runtime ≥1.17.
+/// Uses the SVM's second register (`r2`) to receive instruction data
+/// directly, eliminating the full account-scanning pass (~30-40 CU per
+/// instruction). The `r2` instruction-data pointer is [SIMD-0321], whose
+/// feature gate is **not yet activated** on public clusters.
+///
+/// Without the `simd-0321` cargo feature this macro expands to the
+/// standard scanning entrypoint — identical semantics, sound everywhere
+/// today. With the feature it expands to the two-argument form, which
+/// null-checks `r2` and falls back to the scanning parse as defense in
+/// depth.
+///
+/// [SIMD-0321]: https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0321-vm-r2-instruction-data-pointer.md
+#[cfg(feature = "simd-0321")]
 #[macro_export]
 macro_rules! hopper_fast_entrypoint {
     ( $process_instruction:expr ) => {
@@ -616,39 +626,59 @@ macro_rules! hopper_fast_entrypoint {
     ( $process_instruction:expr, $maximum:expr ) => {
         /// # Safety
         ///
-        /// Called by the Solana runtime; `input` is a valid BPF input buffer
-        /// and `ix_data` points to the instruction data with its u64 length
-        /// stored at offset -8.
+        /// Called by the Solana runtime; `input` is a valid BPF input buffer.
+        /// When SIMD-0321 is active, `ix_data` points to the instruction data
+        /// with its u64 length stored at offset -8; when it is not active the
+        /// register is zero and the scanning fallback is taken.
         #[no_mangle]
         pub unsafe extern "C" fn entrypoint(input: *mut u8, ix_data: *const u8) -> u64 {
             const UNINIT: core::mem::MaybeUninit<$crate::__hopper_native::AccountView> =
                 core::mem::MaybeUninit::<$crate::__hopper_native::AccountView>::uninit();
             let mut accounts = [UNINIT; $maximum];
 
-            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-            let ix_len = unsafe { *(ix_data.sub(8) as *const u64) as usize };
-            let instruction_data: &'static [u8] =
-                unsafe { core::slice::from_raw_parts(ix_data, ix_len) };
-            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-            let program_id = unsafe {
-                core::ptr::read(ix_data.add(ix_len) as *const $crate::__hopper_native::Address)
+            let (program_id, count, instruction_data) = if ix_data.is_null() {
+                // SIMD-0321 not active on this cluster: r2 is zero. Fall back
+                // to the full scanning parse so the program stays correct.
+                // SAFETY: `input` is the loader-provided input buffer; the
+                // scanning parser owns all bounds/duplicate-marker checks.
+                unsafe {
+                    $crate::__hopper_native::raw_input::deserialize_accounts::<$maximum>(
+                        input,
+                        &mut accounts,
+                    )
+                }
+            } else {
+                // SAFETY: SIMD-0321 guarantees `ix_data` points at the
+                // instruction-data bytes, with the u64 length prefix at
+                // `ix_data - 8` and the 32-byte program id after the data.
+                let ix_len = unsafe { *(ix_data.sub(8) as *const u64) as usize };
+                let instruction_data: &'static [u8] =
+                    unsafe { core::slice::from_raw_parts(ix_data, ix_len) };
+                // SAFETY: program id trails the instruction data per the
+                // loader serialization layout; reading 32 bytes by value.
+                let program_id = unsafe {
+                    core::ptr::read(ix_data.add(ix_len) as *const $crate::__hopper_native::Address)
+                };
+
+                // SAFETY: `input` is the loader input buffer; account-slot
+                // framing is validated by `deserialize_accounts_fast`.
+                unsafe {
+                    $crate::__hopper_native::raw_input::deserialize_accounts_fast::<$maximum>(
+                        input,
+                        &mut accounts,
+                        instruction_data,
+                        program_id,
+                    )
+                }
             };
 
-            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-            let (program_id, count, instruction_data) = unsafe {
-                $crate::__hopper_native::raw_input::deserialize_accounts_fast::<$maximum>(
-                    input,
-                    &mut accounts,
-                    instruction_data,
-                    program_id,
-                )
-            };
-
-            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+            // SAFETY: `Address` is a transparent 32-byte wrapper shared by the
+            // native and runtime layers; the reinterpret is layout-identical.
             let hopper_program_id = unsafe {
                 &*(&program_id as *const $crate::__hopper_native::Address as *const $crate::Address)
             };
-            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+            // SAFETY: the first `count` slots were initialized by the parser;
+            // runtime `AccountView` is repr(transparent) over the native view.
             let hopper_accounts = unsafe {
                 core::slice::from_raw_parts(accounts.as_ptr() as *const $crate::AccountView, count)
             };
@@ -658,6 +688,21 @@ macro_rules! hopper_fast_entrypoint {
                 Err(error) => error.into(),
             }
         }
+    };
+}
+
+/// Without the `simd-0321` feature the "fast" entrypoint is an alias for
+/// the standard scanning entrypoint: SIMD-0321 has not been activated, so
+/// the two-argument form would read an uninitialized register on today's
+/// clusters. Rebuild with `--features simd-0321` once the gate activates.
+#[cfg(not(feature = "simd-0321"))]
+#[macro_export]
+macro_rules! hopper_fast_entrypoint {
+    ( $process_instruction:expr ) => {
+        $crate::hopper_entrypoint!($process_instruction);
+    };
+    ( $process_instruction:expr, $maximum:expr ) => {
+        $crate::hopper_entrypoint!($process_instruction, $maximum);
     };
 }
 
@@ -697,6 +742,11 @@ macro_rules! no_allocator {
 
             unsafe impl core::alloc::GlobalAlloc for NoAlloc {
                 unsafe fn alloc(&self, _layout: core::alloc::Layout) -> *mut u8 {
+                    // A no-alloc program must never reach here. Returning null
+                    // fails the allocation and builds on stable SBF without the
+                    // experimental inline-asm arch feature. Reach for
+                    // `hopper_native::no_allocator!` (which traps via asm) when
+                    // the crate already enables `asm_experimental_arch`.
                     core::ptr::null_mut()
                 }
 
@@ -709,12 +759,33 @@ macro_rules! no_allocator {
     };
 }
 
+/// Install the default bump allocator over the SVM heap region. Opt-in
+/// counterpart to [`no_allocator!`] for programs that need `alloc` on a
+/// cold path. See [`hopper_native::BumpAllocator`].
+#[macro_export]
+macro_rules! default_allocator {
+    () => {
+        #[cfg(target_os = "solana")]
+        #[global_allocator]
+        static ALLOCATOR: $crate::__hopper_native::BumpAllocator =
+            $crate::__hopper_native::BumpAllocator {
+                start: $crate::__hopper_native::HEAP_START_ADDRESS,
+                len: $crate::__hopper_native::HEAP_LENGTH,
+            };
+    };
+}
+
 #[macro_export]
 macro_rules! nostd_panic_handler {
     () => {
         #[cfg(target_os = "solana")]
         #[panic_handler]
         fn panic(_info: &core::panic::PanicInfo) -> ! {
+            // Stable-SBF panic handler: no inline asm, so it builds without the
+            // experimental `asm_experimental_arch` feature. The runtime caps
+            // compute, so the spin terminates the transaction. Use
+            // `hopper_native::nostd_panic_handler!` for the asm trap variant
+            // when the crate already enables that feature.
             let _ = _info;
             loop {
                 core::hint::spin_loop();

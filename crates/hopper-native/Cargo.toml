@@ -24,6 +24,12 @@ cu-trace = []
 # Saves 1-3 CU per syscall by replacing dynamic dispatch with direct
 # calls. Off by default until the upstream feature stabilizes.
 static-syscalls = []
+# Opt-in for the SIMD-0321 two-argument entrypoint (`r2` carries a
+# direct instruction-data pointer). The SIMD's feature gate
+# (5xXZc66h4UdB6Yq7FzdBxBiRAFMMScMLwHxk2QZDaNZL) is not yet activated
+# on public clusters; without this feature `hopper_fast_entrypoint!`
+# compiles to the standard scanning entrypoint so programs stay sound.
+simd-0321 = []
 # `legacy-projectable` exposes the `Projectable` / `SafeProjectable`
 # cross-program lens traits. The Hopper Safety Audit asked these be
 # gated behind a feature and marked Tier-C so new code reaches for

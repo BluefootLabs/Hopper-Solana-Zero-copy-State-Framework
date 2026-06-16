@@ -33,8 +33,7 @@ pub struct AlignedEntry {
 // alignment 1" message from the const_assert_pod! macro.
 const_assert_pod!(AlignedEntry, 16);
 
-unsafe impl hopper::hopper_runtime::__hopper_native::bytemuck::Zeroable for AlignedEntry {}
-unsafe impl hopper::hopper_runtime::__hopper_native::bytemuck::Pod for AlignedEntry {}
+unsafe impl hopper::hopper_runtime::Zeroable for AlignedEntry {}
 unsafe impl Pod for AlignedEntry {}
 
 fn main() {}

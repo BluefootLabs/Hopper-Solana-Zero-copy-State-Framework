@@ -8,8 +8,8 @@
 //! - **Solana (on-chain)**. `{ ptr, state_ptr }`. Two pointer words, no
 //!   extra guards, no slice fat-pointer, no ZSTs. Drop decrements or
 //!   restores the single `borrow_state` byte on the `RuntimeAccount`
-//!   directly. This matches Pinocchio's pointer shape while adding the
-//!   deterministic RAII release that Pinocchio pushes onto the caller.
+//!   directly. This is Hopper Native's pointer-shaped hot path with
+//!   deterministic RAII release built into the guard.
 //!
 //! - **non-Solana host tests**.
 //!   `{ ptr, guard, token, _marker }`. Richer because host tests rely on
@@ -202,6 +202,9 @@ impl<T: ?Sized> core::ops::Deref for Ref<'_, T> {
 impl<T: ?Sized> Drop for Ref<'_, T> {
     #[inline(always)]
     fn drop(&mut self) {
+        if self.state.is_null() {
+            return;
+        }
         // Mirror `hopper_native::borrow::Ref::drop`: decrement the
         // shared count, restoring NOT_BORROWED on the last release.
         // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
@@ -383,6 +386,9 @@ impl<T: ?Sized> core::ops::DerefMut for RefMut<'_, T> {
 impl<T: ?Sized> Drop for RefMut<'_, T> {
     #[inline(always)]
     fn drop(&mut self) {
+        if self.state.is_null() {
+            return;
+        }
         // Exclusive borrow. restore NOT_BORROWED.
         // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {

@@ -13,7 +13,7 @@
 //! |---|---|
 //! | [`HopperProgramPolicy::STRICT`] | `strict`, `enforce_token_checks`, `allow_unsafe` all on. Recommended default. |
 //! | [`HopperProgramPolicy::SEALED`] | `strict` + `enforce_token_checks` on, `allow_unsafe` off. Zero-`unsafe`-in-handlers programs. |
-//! | [`HopperProgramPolicy::RAW`] | Every lever off. Pinocchio-parity throughput. Responsibility shifts fully to the handler author. |
+//! | [`HopperProgramPolicy::RAW`] | Every lever off. Native hot-path throughput. Responsibility shifts fully to the handler author. |
 //! | [`HopperProgramProfile::TINY`] | Binary-size profile for compact programs: one-byte instruction discriminators and no handler-level modifier instrumentation. |
 //!
 //! ## Zero runtime cost
@@ -120,7 +120,7 @@ impl HopperProgramPolicy {
         allow_unsafe: false,
     };
 
-    /// Every lever disengaged. Pinocchio-parity throughput with
+    /// Every lever disengaged. Native hot-path throughput with
     /// responsibility pushed to the handler author.
     pub const RAW: Self = Self {
         strict: false,

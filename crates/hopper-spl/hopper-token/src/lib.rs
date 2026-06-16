@@ -9,8 +9,10 @@
 
 pub use hopper_runtime::token::{
     ApproveChecked, BurnChecked, CheckedMintDecimals, CheckedTokenAuthority, CheckedTokenMint,
-    CloseAccount, InitializeAccount, MintToChecked, Revoke, SplMint, SplMintView,
-    SplTokenAccount, SplTokenAccountView, TokenAmountSnapshot, TransferChecked, TOKEN_PROGRAM_ID,
+    CloseAccount, FreezeAccount, InitializeAccount, InitializeAccount2, InitializeAccount3,
+    MintToChecked, Revoke, SetAuthority, SplMint, SplMintView, SplTokenAccount,
+    SplTokenAccountView, SyncNative, ThawAccount, TokenAmountSnapshot, TokenAuthorityType,
+    TransferChecked, TOKEN_PROGRAM_ID,
 };
 
 #[cfg(feature = "legacy-token-instructions")]
@@ -25,8 +27,9 @@ pub use hopper_runtime::token::{Approve, Burn, MintTo, Transfer};
 /// `Transfer`, `MintTo`, `Burn`, and `Approve` builders for migration tests.
 pub mod instructions {
     pub use hopper_runtime::token::{
-        ApproveChecked, BurnChecked, CloseAccount, InitializeAccount, MintToChecked, Revoke,
-        TransferChecked,
+        ApproveChecked, BurnChecked, CloseAccount, FreezeAccount, InitializeAccount,
+        InitializeAccount2, InitializeAccount3, MintToChecked, Revoke, SetAuthority, SyncNative,
+        ThawAccount, TokenAuthorityType, TransferChecked,
     };
 
     #[cfg(feature = "legacy-token-instructions")]

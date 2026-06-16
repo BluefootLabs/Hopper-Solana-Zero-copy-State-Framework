@@ -69,6 +69,12 @@ pub const SECP256K1_PROGRAM_ID: Address = Address::new_from_array(
     crate::__decode_base58_32("KeccakSecp256k11111111111111111111111111111"),
 );
 
+/// Secp256r1 (P-256) signature-verification precompile (SIMD-0075).
+/// This is the precompile passkey / WebAuthn flows verify against.
+pub const SECP256R1_PROGRAM_ID: Address = Address::new_from_array(
+    crate::__decode_base58_32("Secp256r1SigVerify1111111111111111111111111"),
+);
+
 #[derive(Clone, Debug)]
 pub struct ProcessedInstruction {
     pub program_id: Address,
@@ -663,6 +669,36 @@ pub fn require_secp256k1_instruction(
     let instruction =
         get_processed_instruction(sibling_index).ok_or(ProgramError::InvalidArgument)?;
     if instruction.program_id != SECP256K1_PROGRAM_ID {
+        return Err(ProgramError::IncorrectProgramId);
+    }
+    Ok(instruction)
+}
+
+/// Require that a sibling instruction targeted the Secp256r1 (P-256)
+/// precompile — the verification path for passkeys / WebAuthn. Returns
+/// the precompile instruction so the caller can bind the verified
+/// `(public_key, message, signature)` to its own authorization logic.
+#[inline]
+pub fn require_secp256r1_instruction(
+    sibling_index: u64,
+) -> Result<ProcessedInstruction, ProgramError> {
+    let instruction =
+        get_processed_instruction(sibling_index).ok_or(ProgramError::InvalidArgument)?;
+    if instruction.program_id != SECP256R1_PROGRAM_ID {
+        return Err(ProgramError::IncorrectProgramId);
+    }
+    Ok(instruction)
+}
+
+/// Variant of [`require_secp256r1_instruction`] returning the bounded
+/// instruction-data form for callers that parse the precompile payload.
+#[inline]
+pub fn require_secp256r1_instruction_data<const MAX_DATA: usize>(
+    sibling_index: u64,
+) -> Result<ProcessedInstructionData<MAX_DATA>, ProgramError> {
+    let instruction =
+        get_processed_instruction_data(sibling_index).ok_or(ProgramError::InvalidArgument)?;
+    if instruction.program_id != SECP256R1_PROGRAM_ID {
         return Err(ProgramError::IncorrectProgramId);
     }
     Ok(instruction)

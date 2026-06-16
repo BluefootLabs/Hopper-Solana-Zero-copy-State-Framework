@@ -6,8 +6,7 @@ struct Tiny {
     value: u8,
 }
 
-unsafe impl hopper::hopper_runtime::__hopper_native::bytemuck::Zeroable for Tiny {}
-unsafe impl hopper::hopper_runtime::__hopper_native::bytemuck::Pod for Tiny {}
+unsafe impl hopper::hopper_runtime::Zeroable for Tiny {}
 unsafe impl Pod for Tiny {}
 
 impl FixedLayout for Tiny {

@@ -181,23 +181,44 @@ The zero-copy path carries every extension check without ever leaving the pointe
 
 ## What still needs a separate CPI
 
-Creating extensions (not validating them) still routes through the SPL Token-2022 program's own instructions. Hopper's `hopper-token-2022` crate ships CPI builders for `InitializeTransferFeeConfig`, `InitializeTransferHook`, `InitializeMetadataPointer`, and the other initializers. Pattern:
+Hopper's `hopper-token-2022` crate ships the common operation builders
+(`Transfer`, `MintTo`, `Burn`, `CloseAccount`, `Approve`, `Revoke`,
+`InitializeAccount`). **Creating extensions** (e.g. `InitializeTransferHook`,
+`InitializeTransferFeeConfig`, `InitializeMetadataPointer`,
+`InitializeNonTransferableMint`) is not yet wrapped — build those instructions
+against the SPL Token-2022 program directly with a raw `InstructionView` /
+`invoke`, then validate the result with Hopper's `extensions::*` constraints
+and the `check_*`/`find_extension` TLV readers, which **are** shipped.
+
+Wrapping the extension initializers is tracked future work; the validation
+and screening surface is the part Hopper owns today.
+
+## Resolving transfer-hook extra accounts
+
+When a mint carries the `TransferHook` extension, a transfer must append the
+extra accounts the hook program declares in its `ExtraAccountMetaList` PDA.
+Hopper ships a `no_std`, zero-alloc resolver so you do not need
+`spl-tlv-account-resolution`:
 
 ```rust
-use hopper_token_2022::{InitializeTransferHook, InitializeNonTransferableMint};
+use hopper_token_2022::{extra_account_metas_pda, ExtraAccountMetaList, HookAccountBuf};
 
-InitializeNonTransferableMint {
-    mint: ctx.mint_account()?,
-}.invoke()?;
+// PDA holding the list: ["extra-account-metas", mint] under the hook program.
+let (metas_pda, _bump) = extra_account_metas_pda(mint.key(), hook_program.key());
 
-InitializeTransferHook {
-    mint: ctx.mint_account()?,
-    authority: ctx.hook_authority_account()?,
-    program_id: Some(*hook_program_id),
-}.invoke()?;
+let data = metas_account.try_borrow()?;
+let list = ExtraAccountMetaList::unpack(&data)?;
+
+let mut resolved = HookAccountBuf::<16>::new();
+list.resolve_into(&mut resolved, instruction_data, hook_program.key(), &known_keys)?;
+// `resolved.as_slice()` is the (address, is_signer, is_writable) set to append.
 ```
 
-After the CPIs return, the mint carries the extensions; every `extensions::*` constraint on a downstream handler validates the bytes.
+It resolves literal-pubkey (disc `0`), this-program PDA (disc `1`), and
+external-program PDA (disc `≥128`) entries with `Literal`, `InstructionData`,
+and `AccountKey` seeds. Seed kinds that need another account's bytes return
+`HookError::UnsupportedSeed` so they are resolved explicitly rather than
+silently mis-built.
 
 ## Gotchas
 

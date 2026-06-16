@@ -1,10 +1,10 @@
 error: profile = "tiny" requires one-byte instruction discriminators; `run` uses 2 bytes
   --> tests/compile_fail/tiny_profile_multibyte_discriminator.rs:6:1
    |
- 6 | / mod bad_tiny_program {
- 7 | |     use super::*;
- 8 | |
- 9 | |     #[instruction(discriminator = [1, 2])]
+6  | / mod bad_tiny_program {
+7  | |     use super::*;
+8  | |
+9  | |     #[instruction(discriminator = [1, 2])]
 ...  |
 13 | | }
    | |_^

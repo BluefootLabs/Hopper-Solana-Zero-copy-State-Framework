@@ -19,6 +19,10 @@ name = "hopper_runtime"
 default = []
 
 cu-trace = ["hopper-native/cu-trace"]
+# Opt-in SIMD-0321 two-argument fast entrypoint. See hopper-native's
+# feature of the same name; without it `hopper_fast_entrypoint!` is an
+# alias for the standard scanning entrypoint.
+simd-0321 = ["hopper-native/simd-0321"]
 cpi = []
 copy = []
 legacy-token-instructions = []

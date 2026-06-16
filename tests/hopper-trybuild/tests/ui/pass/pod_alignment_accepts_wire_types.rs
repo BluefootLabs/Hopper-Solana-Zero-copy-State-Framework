@@ -15,8 +15,9 @@ pub struct SafeEntry {
 
 const_assert_pod!(SafeEntry, 41);
 
-unsafe impl hopper::hopper_runtime::__hopper_native::bytemuck::Zeroable for SafeEntry {}
-unsafe impl hopper::hopper_runtime::__hopper_native::bytemuck::Pod for SafeEntry {}
+// Hopper owns its own `Pod`/`Zeroable` (no bytemuck dependency). `Pod`
+// has `Zeroable` as a supertrait, so both impls are required.
+unsafe impl hopper::hopper_runtime::Zeroable for SafeEntry {}
 unsafe impl Pod for SafeEntry {}
 
 fn main() {

@@ -189,6 +189,7 @@ fn main() {
         "expand" => cmd::expand::cmd_expand(&args[2..]),
         "tx" => cmd_tx_family(&args[2..]),
         "doctor" => cmd::doctor::cmd_doctor(&args[2..]),
+        "feature-gate" | "feature-gates" => cmd::feature_gate::cmd_feature_gate(&args[2..]),
         "completions" => cmd::meta::cmd_completions(&args[2..]),
         "version" | "--version" | "-V" => cmd::meta::cmd_version(&args[2..]),
         "actions" => cmd::actions::cmd_actions(&args[2..]),

@@ -23,11 +23,7 @@ struct SbfMacroState {
     has_unqualified: bool,
 }
 
-const DEPRECATED_BACKEND_FEATURES: [&str; 3] = [
-    "hopper-native-backend",
-    "legacy-pinocchio-compat",
-    "solana-program-backend",
-];
+const DEPRECATED_BACKEND_FEATURES: [&str; 2] = ["hopper-native-backend", "solana-program-backend"];
 
 pub fn cmd_solana_check(args: &[String]) {
     let options = parse_args(args);

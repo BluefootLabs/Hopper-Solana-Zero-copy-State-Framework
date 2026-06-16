@@ -26,6 +26,20 @@ impl<'a, T: ?Sized> Ref<'a, T> {
         Self { value, state }
     }
 
+    /// Create a shared guard whose aliasing is enforced outside the native
+    /// account borrow byte.
+    ///
+    /// Runtime segment access uses this after `SegmentBorrowRegistry` has
+    /// leased the exact byte range. Drop must therefore avoid changing the
+    /// whole-account `borrow_state` byte.
+    #[inline(always)]
+    pub(crate) fn new_external(value: &'a T) -> Self {
+        Self {
+            value,
+            state: core::ptr::null_mut(),
+        }
+    }
+
     /// Create a shared borrow guard from raw parts.
     ///
     /// # Safety
@@ -63,6 +77,9 @@ impl<T: ?Sized> core::ops::Deref for Ref<'_, T> {
 
 impl<T: ?Sized> Drop for Ref<'_, T> {
     fn drop(&mut self) {
+        if self.state.is_null() {
+            return;
+        }
         // SAFETY: state points to RuntimeAccount.borrow_state in the
         // BPF input buffer. We decrement the shared borrow count,
         // restoring NOT_BORROWED when the last shared borrow is released.
@@ -93,6 +110,16 @@ impl<'a, T: ?Sized> RefMut<'a, T> {
     #[inline(always)]
     pub(crate) fn new(value: &'a mut T, state: *mut u8) -> Self {
         Self { value, state }
+    }
+
+    /// Create an exclusive guard whose aliasing is enforced by an external
+    /// segment lease rather than the whole-account borrow byte.
+    #[inline(always)]
+    pub(crate) fn new_external(value: &'a mut T) -> Self {
+        Self {
+            value,
+            state: core::ptr::null_mut(),
+        }
     }
 
     /// Create an exclusive borrow guard from raw parts.
@@ -140,6 +167,9 @@ impl<T: ?Sized> core::ops::DerefMut for RefMut<'_, T> {
 
 impl<T: ?Sized> Drop for RefMut<'_, T> {
     fn drop(&mut self) {
+        if self.state.is_null() {
+            return;
+        }
         // SAFETY: state points to RuntimeAccount.borrow_state.
         // Restore to NOT_BORROWED when the exclusive borrow is released.
         unsafe {

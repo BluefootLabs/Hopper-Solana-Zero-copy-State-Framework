@@ -21,11 +21,20 @@ pub const BACKEND_SUCCESS: u64 = hopper_native::SUCCESS;
 pub unsafe fn wrap_account_slice<'info>(
     accounts: &'info [BackendAccountView<'info>],
 ) -> &'info [AccountView<'info>] {
-    unsafe { core::slice::from_raw_parts(accounts.as_ptr() as *const AccountView<'info>, accounts.len()) }
+    // SAFETY: AccountView is repr(transparent) over BackendAccountView and
+    // compile-time layout assertions in account.rs enforce size/alignment.
+    unsafe {
+        core::slice::from_raw_parts(
+            accounts.as_ptr() as *const AccountView<'info>,
+            accounts.len(),
+        )
+    }
 }
 
 #[inline(always)]
 pub fn account_address<'a>(view: &'a BackendAccountView<'a>) -> &'a Address {
+    // SAFETY: Hopper Address and BackendAddress are both 32-byte transparent
+    // address wrappers; returned reference is tied to the backend view.
     unsafe { &*(view.address() as *const BackendAddress as *const Address) }
 }
 
@@ -35,6 +44,8 @@ pub fn account_address<'a>(view: &'a BackendAccountView<'a>) -> &'a Address {
 /// reassigned. Callers that need stable ownership should use `read_owner`.
 #[inline(always)]
 pub unsafe fn account_owner<'a>(view: &'a BackendAccountView<'a>) -> &'a Address {
+    // SAFETY: Same address-layout cast as account_address; caller upholds the
+    // owner-reference invalidation contract documented above.
     unsafe { &*(view.owner() as *const BackendAddress as *const Address) }
 }
 
@@ -45,6 +56,7 @@ pub fn read_owner(view: &BackendAccountView<'_>) -> Address {
 
 #[inline(always)]
 pub fn as_backend_address(address: &Address) -> &BackendAddress {
+    // SAFETY: Address and BackendAddress share the exact 32-byte wire layout.
     unsafe { &*(address as *const Address as *const BackendAddress) }
 }
 
@@ -74,6 +86,8 @@ pub fn layout_id<'a>(view: &'a BackendAccountView<'a>) -> Option<&'a [u8; 8]> {
 /// authorized by the active instruction.
 #[inline(always)]
 pub unsafe fn assign(view: &BackendAccountView<'_>, new_owner: &Address) {
+    // SAFETY: Caller guarantees owner reassignment is authorized; the address
+    // cast preserves the 32-byte owner value exactly.
     unsafe {
         view.assign(as_backend_address(new_owner));
     }
@@ -104,6 +118,11 @@ pub fn zero_data(view: &BackendAccountView<'_>) -> ProgramResult {
 #[inline(always)]
 pub fn resize(view: &BackendAccountView<'_>, new_len: usize) -> ProgramResult {
     view.resize(new_len).map_err(ProgramError::from)
+}
+
+#[inline(always)]
+pub fn resize_raw(view: &BackendAccountView<'_>, new_len: usize) -> ProgramResult {
+    view.resize_raw(new_len).map_err(ProgramError::from)
 }
 
 #[cfg(target_os = "solana")]
@@ -145,6 +164,8 @@ pub unsafe fn process_entrypoint<const MAX: usize>(
         &[u8],
     ) -> BackendProgramResult,
 ) -> u64 {
+    // SAFETY: Entrypoint caller provides the SVM input pointer and bridge
+    // function matching Hopper Native's expected ABI.
     unsafe { hopper_native::entrypoint::process_entrypoint::<MAX>(input, process_instruction) }
 }
 
@@ -153,9 +174,17 @@ pub fn bridge_to_runtime(
     program_id: &BackendAddress,
     accounts: BackendAccountSlice<'_>,
     data: &[u8],
-    process_instruction: for<'info> fn(&'info Address, &'info [AccountView<'info>], &'info [u8]) -> ProgramResult,
+    process_instruction: for<'info> fn(
+        &'info Address,
+        &'info [AccountView<'info>],
+        &'info [u8],
+    ) -> ProgramResult,
 ) -> BackendProgramResult {
+    // SAFETY: BackendAddress and Address have identical 32-byte layouts;
+    // lifetime is inherited from the entrypoint-provided program id.
     let hopper_id = unsafe { &*(program_id as *const BackendAddress as *const Address) };
+    // SAFETY: Backend account slice comes directly from Hopper Native and is
+    // repr-compatible with runtime AccountView.
     let hopper_accounts = unsafe { wrap_account_slice(accounts) };
     match process_instruction(hopper_id, hopper_accounts, data) {
         Ok(()) => Ok(()),
@@ -192,11 +221,18 @@ macro_rules! __hopper_native_entrypoint {
                 accounts: $crate::native_boundary::BackendAccountSlice<'_>,
                 data: &[u8],
             ) -> $crate::native_boundary::BackendProgramResult {
-                $crate::native_boundary::bridge_to_runtime(program_id, accounts, data, $process_instruction)
+                $crate::native_boundary::bridge_to_runtime(
+                    program_id,
+                    accounts,
+                    data,
+                    $process_instruction,
+                )
             }
-
-            unsafe { $crate::native_boundary::process_entrypoint::<$maximum>(input, __hopper_bridge) }
+            // SAFETY: Solana calls this entrypoint with a valid BPF input
+            // buffer; process_entrypoint performs the loader-frame parse.
+            unsafe {
+                $crate::native_boundary::process_entrypoint::<$maximum>(input, __hopper_bridge)
+            }
         }
-
     };
 }

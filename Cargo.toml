@@ -26,6 +26,7 @@ members = [
     "crates/hopper-anchor",
     "crates/hopper-svm",
     "examples/hopper-counter",
+    "examples/hopper-smoke",
     "examples/hopper-vault",
     "examples/hopper-parity-vault",
     "examples/hopper-escrow",
@@ -167,6 +168,12 @@ explain = ["hopper-core/explain"]
 collections = ["hopper-core/collections"]
 
 cu-trace = ["hopper-runtime/cu-trace"]
+
+# Opt-in SIMD-0321 two-argument fast entrypoint (r2 instruction-data
+# pointer). Off by default: the SIMD's feature gate is not yet activated
+# on public clusters, so `hopper::fast_entrypoint!` compiles to the
+# standard scanning entrypoint unless this feature is enabled.
+simd-0321 = ["hopper-runtime/simd-0321"]
 
 [lints.rust]
 unexpected_cfgs = { level = "allow", check-cfg = [

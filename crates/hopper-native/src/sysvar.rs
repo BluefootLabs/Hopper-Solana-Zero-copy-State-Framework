@@ -110,6 +110,34 @@ pub struct EpochSchedule {
     pub first_normal_slot: u64,
 }
 
+// ABI lock: `sol_get_epoch_schedule_sysvar` memcpy's the runtime's
+// `#[repr(C)]` `EpochSchedule` into this buffer. The canonical Agave
+// definition (solana-sdk `epoch-schedule`) is `#[repr(C)]` with field
+// order `slots_per_epoch, leader_schedule_slot_offset, warmup,
+// first_normal_epoch, first_normal_slot`. The `bool` sits between two
+// u64 fields, so the layout depends on `repr(C)` padding — any drift in
+// field order or repr here silently misreads every field after `warmup`.
+// These asserts fail the build if that ever happens.
+const _: () = {
+    assert!(core::mem::size_of::<EpochSchedule>() == 40);
+    assert!(core::mem::align_of::<EpochSchedule>() == 8);
+    assert!(core::mem::offset_of!(EpochSchedule, slots_per_epoch) == 0);
+    assert!(core::mem::offset_of!(EpochSchedule, leader_schedule_slot_offset) == 8);
+    assert!(core::mem::offset_of!(EpochSchedule, warmup) == 16);
+    assert!(core::mem::offset_of!(EpochSchedule, first_normal_epoch) == 24);
+    assert!(core::mem::offset_of!(EpochSchedule, first_normal_slot) == 32);
+};
+
+// The Clock sysvar is also memcpy'd from a `#[repr(C)]` runtime struct.
+const _: () = {
+    assert!(core::mem::size_of::<Clock>() == 40);
+    assert!(core::mem::offset_of!(Clock, slot) == 0);
+    assert!(core::mem::offset_of!(Clock, epoch_start_timestamp) == 8);
+    assert!(core::mem::offset_of!(Clock, epoch) == 16);
+    assert!(core::mem::offset_of!(Clock, leader_schedule_epoch) == 24);
+    assert!(core::mem::offset_of!(Clock, unix_timestamp) == 32);
+};
+
 /// Read the EpochSchedule sysvar.
 #[inline]
 pub fn get_epoch_schedule() -> Result<EpochSchedule, ProgramError> {
@@ -188,3 +216,209 @@ pub const RENT_ID: Address = crate::address!("SysvarRent111111111111111111111111
 /// Epoch schedule sysvar address.
 pub const EPOCH_SCHEDULE_ID: Address =
     crate::address!("SysvarEpochSchedu1e111111111111111111111111");
+
+/// SlotHashes sysvar address.
+pub const SLOT_HASHES_ID: Address = crate::address!("SysvarS1otHashes111111111111111111111111111");
+
+/// StakeHistory sysvar address.
+pub const STAKE_HISTORY_ID: Address =
+    crate::address!("SysvarStakeHistory1111111111111111111111111");
+
+/// Instructions sysvar address (for instruction introspection).
+pub const INSTRUCTIONS_ID: Address =
+    crate::address!("Sysvar1nstructions1111111111111111111111111");
+
+// ── Generalized sysvar access (sol_get_sysvar) ──────────────────────
+
+/// Copy `dst.len()` bytes starting at `offset` from the sysvar identified
+/// by `sysvar_id` into `dst`.
+///
+/// This wraps the modern `sol_get_sysvar` syscall, the only zero-copy way
+/// to read large sysvars (SlotHashes, StakeHistory) without passing them
+/// as instruction accounts. Returns `Err(UnsupportedSysvar)` on syscall
+/// failure (e.g. reading past the sysvar's length).
+#[inline]
+pub fn get_sysvar_into(sysvar_id: &Address, offset: u64, dst: &mut [u8]) -> Result<(), ProgramError> {
+    #[cfg(target_os = "solana")]
+    {
+        // SAFETY: `sysvar_id` is a 32-byte address; `dst` is valid for its
+        // own length; the syscall copies exactly `dst.len()` bytes.
+        let rc = unsafe {
+            crate::syscalls::sol_get_sysvar(
+                sysvar_id.as_array().as_ptr(),
+                dst.as_mut_ptr(),
+                offset,
+                dst.len() as u64,
+            )
+        };
+        if rc != 0 {
+            return Err(ProgramError::UnsupportedSysvar);
+        }
+    }
+    #[cfg(not(target_os = "solana"))]
+    {
+        let _ = (sysvar_id, offset, dst);
+    }
+    Ok(())
+}
+
+// ── Epoch stake (sol_get_epoch_stake, SIMD-0133) ────────────────────
+
+/// Get the current-epoch activated stake of the vote account at `vote`.
+#[inline]
+pub fn get_epoch_stake(vote: &Address) -> u64 {
+    #[cfg(target_os = "solana")]
+    {
+        // SAFETY: `vote` is a 32-byte address pointer the syscall reads.
+        unsafe { crate::syscalls::sol_get_epoch_stake(vote.as_array().as_ptr()) }
+    }
+    #[cfg(not(target_os = "solana"))]
+    {
+        let _ = vote;
+        0
+    }
+}
+
+/// Get the cluster-wide total activated stake for the current epoch.
+#[inline]
+pub fn get_total_epoch_stake() -> u64 {
+    #[cfg(target_os = "solana")]
+    {
+        // SAFETY: a null `vote_address` is the documented request for the
+        // cluster total (SIMD-0133).
+        unsafe { crate::syscalls::sol_get_epoch_stake(core::ptr::null()) }
+    }
+    #[cfg(not(target_os = "solana"))]
+    {
+        0
+    }
+}
+
+// ── SlotHashes ──────────────────────────────────────────────────────
+
+/// One `(slot, hash)` entry from the SlotHashes sysvar.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SlotHash {
+    pub slot: u64,
+    pub hash: [u8; 32],
+}
+
+/// Read the most recent `(slot, hash)` from the SlotHashes sysvar.
+///
+/// SlotHashes is a length-prefixed list ordered most-recent-first:
+/// `u64 count` then `count` entries of `slot(u64) + hash([u8;32])`. This
+/// reads just the count and the first entry (48 bytes total) via
+/// `sol_get_sysvar`, avoiding the cost of materializing the full 16 KiB
+/// sysvar. Returns `Ok(None)` when the list is empty.
+#[inline]
+pub fn slot_hashes_latest() -> Result<Option<SlotHash>, ProgramError> {
+    let mut count_buf = [0u8; 8];
+    get_sysvar_into(&SLOT_HASHES_ID, 0, &mut count_buf)?;
+    let count = u64::from_le_bytes(count_buf);
+    if count == 0 {
+        return Ok(None);
+    }
+    let mut entry = [0u8; 40];
+    get_sysvar_into(&SLOT_HASHES_ID, 8, &mut entry)?;
+    let slot = u64::from_le_bytes([
+        entry[0], entry[1], entry[2], entry[3], entry[4], entry[5], entry[6], entry[7],
+    ]);
+    let mut hash = [0u8; 32];
+    hash.copy_from_slice(&entry[8..40]);
+    Ok(Some(SlotHash { slot, hash }))
+}
+
+// ── StakeHistory ────────────────────────────────────────────────────
+
+/// One epoch's stake-history entry.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct StakeHistoryEntry {
+    pub epoch: u64,
+    pub effective: u64,
+    pub activating: u64,
+    pub deactivating: u64,
+}
+
+/// Read the most recent stake-history entry.
+///
+/// StakeHistory is a length-prefixed list ordered most-recent-first:
+/// `u64 count` then entries of `epoch(u64) + effective(u64) +
+/// activating(u64) + deactivating(u64)` (32 bytes each). Returns
+/// `Ok(None)` when the history is empty.
+#[inline]
+pub fn stake_history_latest() -> Result<Option<StakeHistoryEntry>, ProgramError> {
+    let mut count_buf = [0u8; 8];
+    get_sysvar_into(&STAKE_HISTORY_ID, 0, &mut count_buf)?;
+    let count = u64::from_le_bytes(count_buf);
+    if count == 0 {
+        return Ok(None);
+    }
+    let mut entry = [0u8; 32];
+    get_sysvar_into(&STAKE_HISTORY_ID, 8, &mut entry)?;
+    let rd = |o: usize| {
+        u64::from_le_bytes([
+            entry[o],
+            entry[o + 1],
+            entry[o + 2],
+            entry[o + 3],
+            entry[o + 4],
+            entry[o + 5],
+            entry[o + 6],
+            entry[o + 7],
+        ])
+    };
+    Ok(Some(StakeHistoryEntry {
+        epoch: rd(0),
+        effective: rd(8),
+        activating: rd(16),
+        deactivating: rd(24),
+    }))
+}
+
+#[cfg(test)]
+mod abi_tests {
+    use super::*;
+
+    /// Reproduce the byte image the runtime memcpy's for EpochSchedule and
+    /// confirm every field reads from the offset the syscall writes. This
+    /// is the runtime counterpart to the compile-time offset asserts: it
+    /// proves the read side, not just the struct shape.
+    #[test]
+    fn epoch_schedule_reads_canonical_byte_image() {
+        // Devnet/mainnet default: 432_000 slots/epoch, no warmup.
+        let mut buf = [0u8; 40];
+        buf[0..8].copy_from_slice(&432_000u64.to_le_bytes()); // slots_per_epoch
+        buf[8..16].copy_from_slice(&432_000u64.to_le_bytes()); // leader_schedule_slot_offset
+        buf[16] = 0; // warmup = false
+                     // bytes 17..24 are padding
+        buf[24..32].copy_from_slice(&0u64.to_le_bytes()); // first_normal_epoch
+        buf[32..40].copy_from_slice(&0u64.to_le_bytes()); // first_normal_slot
+
+        // SAFETY: `EpochSchedule` is repr(C), size 40, and `buf` is 40 bytes
+        // matching the canonical wire image asserted above.
+        let sched: EpochSchedule = unsafe { core::ptr::read(buf.as_ptr() as *const EpochSchedule) };
+        assert_eq!(sched.slots_per_epoch, 432_000);
+        assert_eq!(sched.leader_schedule_slot_offset, 432_000);
+        assert!(!sched.warmup);
+        assert_eq!(sched.first_normal_epoch, 0);
+        assert_eq!(sched.first_normal_slot, 0);
+    }
+
+    #[test]
+    fn clock_reads_canonical_byte_image() {
+        let mut buf = [0u8; 40];
+        buf[0..8].copy_from_slice(&123u64.to_le_bytes()); // slot
+        buf[8..16].copy_from_slice(&1_600_000_000i64.to_le_bytes()); // epoch_start_timestamp
+        buf[16..24].copy_from_slice(&7u64.to_le_bytes()); // epoch
+        buf[24..32].copy_from_slice(&8u64.to_le_bytes()); // leader_schedule_epoch
+        buf[32..40].copy_from_slice(&1_600_000_500i64.to_le_bytes()); // unix_timestamp
+
+        // SAFETY: `Clock` is repr(C), size 40, matching this 40-byte image.
+        let clock: Clock = unsafe { core::ptr::read(buf.as_ptr() as *const Clock) };
+        assert_eq!(clock.slot, 123);
+        assert_eq!(clock.epoch_start_timestamp, 1_600_000_000);
+        assert_eq!(clock.epoch, 7);
+        assert_eq!(clock.leader_schedule_epoch, 8);
+        assert_eq!(clock.unix_timestamp, 1_600_000_500);
+    }
+}

@@ -4,7 +4,9 @@
 //! execution flows through Hopper's checked native CPI semantics.
 //!
 //! Provides checked-by-default TransferChecked, MintToChecked, BurnChecked,
-//! ApproveChecked, CloseAccount, Revoke, and InitializeAccount builders.
+//! ApproveChecked, CloseAccount, Revoke, SetAuthority, FreezeAccount,
+//! ThawAccount, SyncNative, and InitializeAccount builders.
+//! Multisig owner flows are first-class via bounded signer-account slices.
 //! Deprecated plain Transfer/MintTo/Burn/Approve builders are compiled only
 //! when `legacy-token-instructions` is explicitly enabled.
 
@@ -15,6 +17,10 @@ use crate::error::ProgramError;
 use crate::foreign::{ExplainExternal, ExternalAccount, ExternalExplainSink, ExternalZeroCopy};
 use crate::instruction::{InstructionAccount, InstructionView, Signer};
 use crate::ProgramResult;
+use core::mem::MaybeUninit;
+
+/// SPL Token multisig accounts support at most 11 signer accounts.
+pub const MAX_TOKEN_MULTISIG_SIGNERS: usize = 11;
 
 /// Fail-fast authority-signer precondition for the `invoke()` path.
 ///
@@ -37,6 +43,110 @@ fn require_authority_signed_direct(authority: &AccountView<'_>) -> ProgramResult
     } else {
         Err(ProgramError::MissingRequiredSignature)
     }
+}
+
+#[inline(always)]
+fn authority_meta<'a>(
+    authority: &'a AccountView<'a>,
+    multisig_signers: &[&'a AccountView<'a>],
+) -> InstructionAccount<'a> {
+    if multisig_signers.is_empty() {
+        InstructionAccount::readonly_signer(authority.address())
+    } else {
+        InstructionAccount::readonly(authority.address())
+    }
+}
+
+#[inline]
+fn require_multisig_signers_direct(multisig_signers: &[&AccountView<'_>]) -> ProgramResult {
+    if multisig_signers.len() > MAX_TOKEN_MULTISIG_SIGNERS {
+        return Err(ProgramError::InvalidArgument);
+    }
+    for signer in multisig_signers {
+        require_authority_signed_direct(signer)?;
+    }
+    Ok(())
+}
+
+#[inline(always)]
+fn encode_set_authority_data(
+    authority_type: TokenAuthorityType,
+    new_authority: Option<&Address>,
+    out: &mut [u8; 35],
+) -> usize {
+    out[0] = 6;
+    out[1] = authority_type as u8;
+    if let Some(new_authority) = new_authority {
+        out[2] = 1;
+        out[3..35].copy_from_slice(new_authority.as_bytes());
+        35
+    } else {
+        out[2] = 0;
+        3
+    }
+}
+
+#[inline(always)]
+fn encode_initialize_account_with_owner(discriminator: u8, owner: &Address) -> [u8; 33] {
+    let mut data = [0u8; 33];
+    data[0] = discriminator;
+    data[1..33].copy_from_slice(owner.as_bytes());
+    data
+}
+
+#[inline]
+fn invoke_token_signed<'a, const FIXED: usize>(
+    data: &[u8],
+    fixed_accounts: [InstructionAccount<'a>; FIXED],
+    fixed_views: [&'a AccountView<'a>; FIXED],
+    multisig_signers: &[&'a AccountView<'a>],
+    signer_seeds: &[Signer<'_, '_>],
+) -> ProgramResult {
+    let total = FIXED
+        .checked_add(multisig_signers.len())
+        .ok_or(ProgramError::ArithmeticOverflow)?;
+    if multisig_signers.len() > MAX_TOKEN_MULTISIG_SIGNERS
+        || total > crate::cpi::MAX_STATIC_CPI_ACCOUNTS
+    {
+        return Err(ProgramError::InvalidArgument);
+    }
+
+    let mut accounts: [MaybeUninit<InstructionAccount<'a>>; crate::cpi::MAX_STATIC_CPI_ACCOUNTS] =
+        [MaybeUninit::uninit(); crate::cpi::MAX_STATIC_CPI_ACCOUNTS];
+    let mut views: [MaybeUninit<&'a AccountView<'a>>; crate::cpi::MAX_STATIC_CPI_ACCOUNTS] =
+        [MaybeUninit::uninit(); crate::cpi::MAX_STATIC_CPI_ACCOUNTS];
+
+    let mut index = 0;
+    while index < FIXED {
+        accounts[index].write(fixed_accounts[index]);
+        views[index].write(fixed_views[index]);
+        index += 1;
+    }
+    for signer in multisig_signers {
+        accounts[index].write(InstructionAccount::readonly_signer(signer.address()));
+        views[index].write(*signer);
+        index += 1;
+    }
+
+    // SAFETY: slots in 0..total were initialized above, and `total` never
+    // exceeds the fixed buffer capacity checked before writes.
+    let accounts = unsafe {
+        core::slice::from_raw_parts(accounts.as_ptr() as *const InstructionAccount<'a>, total)
+    };
+    // SAFETY: mirrors `accounts`; every view slot in 0..total was initialized.
+    let views =
+        unsafe { core::slice::from_raw_parts(views.as_ptr() as *const &'a AccountView<'a>, total) };
+
+    let instruction = InstructionView {
+        program_id: &TOKEN_PROGRAM_ID,
+        data,
+        accounts,
+    };
+    crate::cpi::invoke_signed_with_bounds::<{ crate::cpi::MAX_STATIC_CPI_ACCOUNTS }>(
+        &instruction,
+        views,
+        signer_seeds,
+    )
 }
 
 /// Verify an SPL Token account's `owner` field matches `authority.key()`.
@@ -132,7 +242,10 @@ pub fn require_token_owner_eq(
 /// already-borrowed data buffer: no extra crate dependencies, no full-struct
 /// deserialize, and the check is trivially inlinable.
 #[inline]
-pub fn require_token_mint(token_account: &AccountView<'_>, expected_mint: &Address) -> ProgramResult {
+pub fn require_token_mint(
+    token_account: &AccountView<'_>,
+    expected_mint: &Address,
+) -> ProgramResult {
     let data = token_account
         .try_borrow()
         .map_err(|_| ProgramError::AccountBorrowFailed)?;
@@ -428,20 +541,38 @@ impl CloseAccount<'_> {
 
     #[inline]
     pub fn invoke_signed(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
+        self.invoke_signed_unchecked_with_multisig(&[], signers)
+    }
+
+    #[inline]
+    pub fn invoke_multisig(&self, multisig_signers: &[&AccountView<'_>]) -> ProgramResult {
+        require_multisig_signers_direct(multisig_signers)?;
+        self.invoke_signed_multisig(multisig_signers, &[])
+    }
+
+    #[inline]
+    pub fn invoke_signed_multisig(
+        &self,
+        multisig_signers: &[&AccountView<'_>],
+        signers: &[Signer<'_, '_>],
+    ) -> ProgramResult {
+        self.invoke_signed_unchecked_with_multisig(multisig_signers, signers)
+    }
+
+    #[inline(always)]
+    fn invoke_signed_unchecked_with_multisig(
+        &self,
+        multisig_signers: &[&AccountView<'_>],
+        signers: &[Signer<'_, '_>],
+    ) -> ProgramResult {
         let data = [9u8];
         let accounts = [
             InstructionAccount::writable(self.account.address()),
             InstructionAccount::writable(self.destination.address()),
-            InstructionAccount::readonly_signer(self.authority.address()),
+            authority_meta(self.authority, multisig_signers),
         ];
         let views = [self.account, self.destination, self.authority];
-        let instruction = InstructionView {
-            program_id: &TOKEN_PROGRAM_ID,
-            data: &data,
-            accounts: &accounts,
-        };
-
-        crate::cpi::invoke_signed(&instruction, &views, signers)
+        invoke_token_signed(&data, accounts, views, multisig_signers, signers)
     }
 }
 
@@ -510,19 +641,37 @@ impl Revoke<'_> {
 
     #[inline]
     pub fn invoke_signed(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
+        self.invoke_signed_unchecked_with_multisig(&[], signers)
+    }
+
+    #[inline]
+    pub fn invoke_multisig(&self, multisig_signers: &[&AccountView<'_>]) -> ProgramResult {
+        require_multisig_signers_direct(multisig_signers)?;
+        self.invoke_signed_multisig(multisig_signers, &[])
+    }
+
+    #[inline]
+    pub fn invoke_signed_multisig(
+        &self,
+        multisig_signers: &[&AccountView<'_>],
+        signers: &[Signer<'_, '_>],
+    ) -> ProgramResult {
+        self.invoke_signed_unchecked_with_multisig(multisig_signers, signers)
+    }
+
+    #[inline(always)]
+    fn invoke_signed_unchecked_with_multisig(
+        &self,
+        multisig_signers: &[&AccountView<'_>],
+        signers: &[Signer<'_, '_>],
+    ) -> ProgramResult {
         let data = [5u8];
         let accounts = [
             InstructionAccount::writable(self.source.address()),
-            InstructionAccount::readonly_signer(self.authority.address()),
+            authority_meta(self.authority, multisig_signers),
         ];
         let views = [self.source, self.authority];
-        let instruction = InstructionView {
-            program_id: &TOKEN_PROGRAM_ID,
-            data: &data,
-            accounts: &accounts,
-        };
-
-        crate::cpi::invoke_signed(&instruction, &views, signers)
+        invoke_token_signed(&data, accounts, views, multisig_signers, signers)
     }
 }
 
@@ -586,6 +735,24 @@ impl TransferChecked<'_> {
         self.invoke_signed_unchecked(signers)
     }
 
+    /// Invoke with an SPL multisig owner account plus transaction-signed
+    /// multisig signer accounts.
+    #[inline]
+    pub fn invoke_multisig(&self, multisig_signers: &[&AccountView<'_>]) -> ProgramResult {
+        require_multisig_signers_direct(multisig_signers)?;
+        self.invoke_signed_multisig(multisig_signers, &[])
+    }
+
+    /// Invoke with an SPL multisig owner account and explicit PDA signer seeds.
+    #[inline]
+    pub fn invoke_signed_multisig(
+        &self,
+        multisig_signers: &[&AccountView<'_>],
+        signers: &[Signer<'_, '_>],
+    ) -> ProgramResult {
+        self.invoke_signed_unchecked_with_multisig(multisig_signers, signers)
+    }
+
     /// Strict PDA-signed invoke: ownership pre-check (the SPL token
     /// program revalidates, but Hopper surfaces a branded error
     /// first) then CPI with the supplied signer seeds.
@@ -597,6 +764,15 @@ impl TransferChecked<'_> {
 
     #[inline(always)]
     fn invoke_signed_unchecked(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
+        self.invoke_signed_unchecked_with_multisig(&[], signers)
+    }
+
+    #[inline(always)]
+    fn invoke_signed_unchecked_with_multisig(
+        &self,
+        multisig_signers: &[&AccountView<'_>],
+        signers: &[Signer<'_, '_>],
+    ) -> ProgramResult {
         let mut data = [0u8; 10];
         data[0] = 12;
         data[1..9].copy_from_slice(&self.amount.to_le_bytes());
@@ -606,16 +782,10 @@ impl TransferChecked<'_> {
             InstructionAccount::writable(self.from.address()),
             InstructionAccount::readonly(self.mint.address()),
             InstructionAccount::writable(self.to.address()),
-            InstructionAccount::readonly_signer(self.authority.address()),
+            authority_meta(self.authority, multisig_signers),
         ];
         let views = [self.from, self.mint, self.to, self.authority];
-        let instruction = InstructionView {
-            program_id: &TOKEN_PROGRAM_ID,
-            data: &data,
-            accounts: &accounts,
-        };
-
-        crate::cpi::invoke_signed(&instruction, &views, signers)
+        invoke_token_signed(&data, accounts, views, multisig_signers, signers)
     }
 }
 
@@ -645,8 +815,32 @@ impl MintToChecked<'_> {
         self.invoke_signed_unchecked(signers)
     }
 
+    #[inline]
+    pub fn invoke_multisig(&self, multisig_signers: &[&AccountView<'_>]) -> ProgramResult {
+        require_multisig_signers_direct(multisig_signers)?;
+        self.invoke_signed_multisig(multisig_signers, &[])
+    }
+
+    #[inline]
+    pub fn invoke_signed_multisig(
+        &self,
+        multisig_signers: &[&AccountView<'_>],
+        signers: &[Signer<'_, '_>],
+    ) -> ProgramResult {
+        self.invoke_signed_unchecked_with_multisig(multisig_signers, signers)
+    }
+
     #[inline(always)]
     fn invoke_signed_unchecked(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
+        self.invoke_signed_unchecked_with_multisig(&[], signers)
+    }
+
+    #[inline(always)]
+    fn invoke_signed_unchecked_with_multisig(
+        &self,
+        multisig_signers: &[&AccountView<'_>],
+        signers: &[Signer<'_, '_>],
+    ) -> ProgramResult {
         let mut data = [0u8; 10];
         data[0] = 14;
         data[1..9].copy_from_slice(&self.amount.to_le_bytes());
@@ -655,16 +849,10 @@ impl MintToChecked<'_> {
         let accounts = [
             InstructionAccount::writable(self.mint.address()),
             InstructionAccount::writable(self.account.address()),
-            InstructionAccount::readonly_signer(self.mint_authority.address()),
+            authority_meta(self.mint_authority, multisig_signers),
         ];
         let views = [self.mint, self.account, self.mint_authority];
-        let instruction = InstructionView {
-            program_id: &TOKEN_PROGRAM_ID,
-            data: &data,
-            accounts: &accounts,
-        };
-
-        crate::cpi::invoke_signed(&instruction, &views, signers)
+        invoke_token_signed(&data, accounts, views, multisig_signers, signers)
     }
 }
 
@@ -705,6 +893,21 @@ impl BurnChecked<'_> {
         self.invoke_signed_unchecked(signers)
     }
 
+    #[inline]
+    pub fn invoke_multisig(&self, multisig_signers: &[&AccountView<'_>]) -> ProgramResult {
+        require_multisig_signers_direct(multisig_signers)?;
+        self.invoke_signed_multisig(multisig_signers, &[])
+    }
+
+    #[inline]
+    pub fn invoke_signed_multisig(
+        &self,
+        multisig_signers: &[&AccountView<'_>],
+        signers: &[Signer<'_, '_>],
+    ) -> ProgramResult {
+        self.invoke_signed_unchecked_with_multisig(multisig_signers, signers)
+    }
+
     /// Strict PDA-signed invoke. Pre-check the burn-source owner
     /// before the CPI so a misrouted signer surfaces a Hopper-branded
     /// error instead of an opaque SPL failure.
@@ -716,6 +919,15 @@ impl BurnChecked<'_> {
 
     #[inline(always)]
     fn invoke_signed_unchecked(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
+        self.invoke_signed_unchecked_with_multisig(&[], signers)
+    }
+
+    #[inline(always)]
+    fn invoke_signed_unchecked_with_multisig(
+        &self,
+        multisig_signers: &[&AccountView<'_>],
+        signers: &[Signer<'_, '_>],
+    ) -> ProgramResult {
         let mut data = [0u8; 10];
         data[0] = 15;
         data[1..9].copy_from_slice(&self.amount.to_le_bytes());
@@ -724,16 +936,10 @@ impl BurnChecked<'_> {
         let accounts = [
             InstructionAccount::writable(self.account.address()),
             InstructionAccount::writable(self.mint.address()),
-            InstructionAccount::readonly_signer(self.authority.address()),
+            authority_meta(self.authority, multisig_signers),
         ];
         let views = [self.account, self.mint, self.authority];
-        let instruction = InstructionView {
-            program_id: &TOKEN_PROGRAM_ID,
-            data: &data,
-            accounts: &accounts,
-        };
-
-        crate::cpi::invoke_signed(&instruction, &views, signers)
+        invoke_token_signed(&data, accounts, views, multisig_signers, signers)
     }
 }
 
@@ -775,6 +981,21 @@ impl ApproveChecked<'_> {
         self.invoke_signed_unchecked(signers)
     }
 
+    #[inline]
+    pub fn invoke_multisig(&self, multisig_signers: &[&AccountView<'_>]) -> ProgramResult {
+        require_multisig_signers_direct(multisig_signers)?;
+        self.invoke_signed_multisig(multisig_signers, &[])
+    }
+
+    #[inline]
+    pub fn invoke_signed_multisig(
+        &self,
+        multisig_signers: &[&AccountView<'_>],
+        signers: &[Signer<'_, '_>],
+    ) -> ProgramResult {
+        self.invoke_signed_unchecked_with_multisig(multisig_signers, signers)
+    }
+
     /// Strict PDA-signed invoke. Pre-check the source-account owner
     /// before the CPI.
     #[inline]
@@ -785,6 +1006,15 @@ impl ApproveChecked<'_> {
 
     #[inline(always)]
     fn invoke_signed_unchecked(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
+        self.invoke_signed_unchecked_with_multisig(&[], signers)
+    }
+
+    #[inline(always)]
+    fn invoke_signed_unchecked_with_multisig(
+        &self,
+        multisig_signers: &[&AccountView<'_>],
+        signers: &[Signer<'_, '_>],
+    ) -> ProgramResult {
         let mut data = [0u8; 10];
         data[0] = 13;
         data[1..9].copy_from_slice(&self.amount.to_le_bytes());
@@ -794,16 +1024,195 @@ impl ApproveChecked<'_> {
             InstructionAccount::writable(self.source.address()),
             InstructionAccount::readonly(self.mint.address()),
             InstructionAccount::readonly(self.delegate.address()),
-            InstructionAccount::readonly_signer(self.authority.address()),
+            authority_meta(self.authority, multisig_signers),
         ];
         let views = [self.source, self.mint, self.delegate, self.authority];
-        let instruction = InstructionView {
-            program_id: &TOKEN_PROGRAM_ID,
-            data: &data,
-            accounts: &accounts,
-        };
+        invoke_token_signed(&data, accounts, views, multisig_signers, signers)
+    }
+}
 
-        crate::cpi::invoke_signed(&instruction, &views, signers)
+// ---------------------------------------------------------------------
+
+/// Authority classes accepted by SPL Token's SetAuthority instruction.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[repr(u8)]
+pub enum TokenAuthorityType {
+    MintTokens = 0,
+    FreezeAccount = 1,
+    AccountOwner = 2,
+    CloseAccount = 3,
+}
+
+/// Builder for SPL Token SetAuthority (instruction index 6).
+pub struct SetAuthority<'a> {
+    pub account: &'a AccountView<'a>,
+    pub current_authority: &'a AccountView<'a>,
+    pub authority_type: TokenAuthorityType,
+    pub new_authority: Option<&'a Address>,
+}
+
+impl SetAuthority<'_> {
+    #[inline]
+    pub fn invoke(&self) -> ProgramResult {
+        require_authority_signed_direct(self.current_authority)?;
+        self.invoke_signed_unchecked_with_multisig(&[], &[])
+    }
+
+    #[inline]
+    pub fn invoke_signed(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
+        self.invoke_signed_unchecked_with_multisig(&[], signers)
+    }
+
+    #[inline]
+    pub fn invoke_multisig(&self, multisig_signers: &[&AccountView<'_>]) -> ProgramResult {
+        require_multisig_signers_direct(multisig_signers)?;
+        self.invoke_signed_multisig(multisig_signers, &[])
+    }
+
+    #[inline]
+    pub fn invoke_signed_multisig(
+        &self,
+        multisig_signers: &[&AccountView<'_>],
+        signers: &[Signer<'_, '_>],
+    ) -> ProgramResult {
+        self.invoke_signed_unchecked_with_multisig(multisig_signers, signers)
+    }
+
+    #[inline(always)]
+    fn invoke_signed_unchecked_with_multisig(
+        &self,
+        multisig_signers: &[&AccountView<'_>],
+        signers: &[Signer<'_, '_>],
+    ) -> ProgramResult {
+        let mut data = [0u8; 35];
+        let len = encode_set_authority_data(self.authority_type, self.new_authority, &mut data);
+        let accounts = [
+            InstructionAccount::writable(self.account.address()),
+            authority_meta(self.current_authority, multisig_signers),
+        ];
+        let views = [self.account, self.current_authority];
+        invoke_token_signed(&data[..len], accounts, views, multisig_signers, signers)
+    }
+}
+
+// ---------------------------------------------------------------------
+
+/// Builder for SPL Token FreezeAccount (instruction index 10).
+pub struct FreezeAccount<'a> {
+    pub account: &'a AccountView<'a>,
+    pub mint: &'a AccountView<'a>,
+    pub freeze_authority: &'a AccountView<'a>,
+}
+
+impl FreezeAccount<'_> {
+    #[inline]
+    pub fn invoke(&self) -> ProgramResult {
+        require_authority_signed_direct(self.freeze_authority)?;
+        self.invoke_signed_unchecked_with_multisig(&[], &[])
+    }
+
+    #[inline]
+    pub fn invoke_signed(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
+        self.invoke_signed_unchecked_with_multisig(&[], signers)
+    }
+
+    #[inline]
+    pub fn invoke_multisig(&self, multisig_signers: &[&AccountView<'_>]) -> ProgramResult {
+        require_multisig_signers_direct(multisig_signers)?;
+        self.invoke_signed_multisig(multisig_signers, &[])
+    }
+
+    #[inline]
+    pub fn invoke_signed_multisig(
+        &self,
+        multisig_signers: &[&AccountView<'_>],
+        signers: &[Signer<'_, '_>],
+    ) -> ProgramResult {
+        self.invoke_signed_unchecked_with_multisig(multisig_signers, signers)
+    }
+
+    #[inline(always)]
+    fn invoke_signed_unchecked_with_multisig(
+        &self,
+        multisig_signers: &[&AccountView<'_>],
+        signers: &[Signer<'_, '_>],
+    ) -> ProgramResult {
+        let data = [10u8];
+        let accounts = [
+            InstructionAccount::writable(self.account.address()),
+            InstructionAccount::readonly(self.mint.address()),
+            authority_meta(self.freeze_authority, multisig_signers),
+        ];
+        let views = [self.account, self.mint, self.freeze_authority];
+        invoke_token_signed(&data, accounts, views, multisig_signers, signers)
+    }
+}
+
+/// Builder for SPL Token ThawAccount (instruction index 11).
+pub struct ThawAccount<'a> {
+    pub account: &'a AccountView<'a>,
+    pub mint: &'a AccountView<'a>,
+    pub freeze_authority: &'a AccountView<'a>,
+}
+
+impl ThawAccount<'_> {
+    #[inline]
+    pub fn invoke(&self) -> ProgramResult {
+        require_authority_signed_direct(self.freeze_authority)?;
+        self.invoke_signed_unchecked_with_multisig(&[], &[])
+    }
+
+    #[inline]
+    pub fn invoke_signed(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
+        self.invoke_signed_unchecked_with_multisig(&[], signers)
+    }
+
+    #[inline]
+    pub fn invoke_multisig(&self, multisig_signers: &[&AccountView<'_>]) -> ProgramResult {
+        require_multisig_signers_direct(multisig_signers)?;
+        self.invoke_signed_multisig(multisig_signers, &[])
+    }
+
+    #[inline]
+    pub fn invoke_signed_multisig(
+        &self,
+        multisig_signers: &[&AccountView<'_>],
+        signers: &[Signer<'_, '_>],
+    ) -> ProgramResult {
+        self.invoke_signed_unchecked_with_multisig(multisig_signers, signers)
+    }
+
+    #[inline(always)]
+    fn invoke_signed_unchecked_with_multisig(
+        &self,
+        multisig_signers: &[&AccountView<'_>],
+        signers: &[Signer<'_, '_>],
+    ) -> ProgramResult {
+        let data = [11u8];
+        let accounts = [
+            InstructionAccount::writable(self.account.address()),
+            InstructionAccount::readonly(self.mint.address()),
+            authority_meta(self.freeze_authority, multisig_signers),
+        ];
+        let views = [self.account, self.mint, self.freeze_authority];
+        invoke_token_signed(&data, accounts, views, multisig_signers, signers)
+    }
+}
+
+// ---------------------------------------------------------------------
+
+/// Builder for SPL Token SyncNative (instruction index 17).
+pub struct SyncNative<'a> {
+    pub account: &'a AccountView<'a>,
+}
+
+impl SyncNative<'_> {
+    #[inline]
+    pub fn invoke(&self) -> ProgramResult {
+        let data = [17u8];
+        let accounts = [InstructionAccount::writable(self.account.address())];
+        let views = [self.account];
+        invoke_token_signed(&data, accounts, views, &[], &[])
     }
 }
 
@@ -835,6 +1244,48 @@ impl InitializeAccount<'_> {
         };
 
         crate::cpi::invoke(&instruction, &views)
+    }
+}
+
+/// Builder for SPL Token InitializeAccount2 (instruction index 16).
+pub struct InitializeAccount2<'a> {
+    pub account: &'a AccountView<'a>,
+    pub mint: &'a AccountView<'a>,
+    pub owner: &'a Address,
+    pub rent_sysvar: &'a AccountView<'a>,
+}
+
+impl InitializeAccount2<'_> {
+    #[inline]
+    pub fn invoke(&self) -> ProgramResult {
+        let data = encode_initialize_account_with_owner(16, self.owner);
+        let accounts = [
+            InstructionAccount::writable(self.account.address()),
+            InstructionAccount::readonly(self.mint.address()),
+            InstructionAccount::readonly(self.rent_sysvar.address()),
+        ];
+        let views = [self.account, self.mint, self.rent_sysvar];
+        invoke_token_signed(&data, accounts, views, &[], &[])
+    }
+}
+
+/// Builder for SPL Token InitializeAccount3 (instruction index 18).
+pub struct InitializeAccount3<'a> {
+    pub account: &'a AccountView<'a>,
+    pub mint: &'a AccountView<'a>,
+    pub owner: &'a Address,
+}
+
+impl InitializeAccount3<'_> {
+    #[inline]
+    pub fn invoke(&self) -> ProgramResult {
+        let data = encode_initialize_account_with_owner(18, self.owner);
+        let accounts = [
+            InstructionAccount::writable(self.account.address()),
+            InstructionAccount::readonly(self.mint.address()),
+        ];
+        let views = [self.account, self.mint];
+        invoke_token_signed(&data, accounts, views, &[], &[])
     }
 }
 
@@ -1061,7 +1512,10 @@ impl<'info> ExternalAccount<'info, SplTokenAccount> {
     }
 
     #[inline]
-    pub fn checked_mint(&self, expected_mint: &Address) -> Result<CheckedTokenMint<'info>, ProgramError> {
+    pub fn checked_mint(
+        &self,
+        expected_mint: &Address,
+    ) -> Result<CheckedTokenMint<'info>, ProgramError> {
         let mint = self.view()?.mint();
         if &mint == expected_mint {
             Ok(CheckedTokenMint {
@@ -1124,7 +1578,10 @@ impl<'info> ExternalAccount<'info, SplTokenAccount> {
 
 impl<'info> ExternalAccount<'info, SplMint> {
     #[inline]
-    pub fn checked_decimals(&self, expected: u8) -> Result<CheckedMintDecimals<'info>, ProgramError> {
+    pub fn checked_decimals(
+        &self,
+        expected: u8,
+    ) -> Result<CheckedMintDecimals<'info>, ProgramError> {
         let decimals = self.view()?.decimals();
         if decimals == expected {
             Ok(CheckedMintDecimals {
@@ -1160,7 +1617,12 @@ fn read_u64_unchecked(data: &[u8], offset: usize) -> u64 {
 
 #[inline(always)]
 fn read_u32_unchecked(data: &[u8], offset: usize) -> u32 {
-    u32::from_le_bytes([data[offset], data[offset + 1], data[offset + 2], data[offset + 3]])
+    u32::from_le_bytes([
+        data[offset],
+        data[offset + 1],
+        data[offset + 2],
+        data[offset + 3],
+    ])
 }
 
 #[inline(always)]
@@ -1174,8 +1636,9 @@ fn read_coption_address(data: &[u8], tag_offset: usize, address_offset: usize) -
 /// Legacy module-path re-exports.
 pub mod instructions {
     pub use super::{
-        ApproveChecked, BurnChecked, CloseAccount, InitializeAccount, MintToChecked, Revoke,
-        TransferChecked,
+        ApproveChecked, BurnChecked, CloseAccount, FreezeAccount, InitializeAccount,
+        InitializeAccount2, InitializeAccount3, MintToChecked, Revoke, SetAuthority, SyncNative,
+        ThawAccount, TokenAuthorityType, TransferChecked,
     };
 
     #[cfg(feature = "legacy-token-instructions")]
@@ -1220,7 +1683,11 @@ mod tests {
         let backend = unsafe { NativeAccountView::new_unchecked(raw) };
         (backing, AccountView::from_backend(backend))
     }
-    fn token_account_data(mint: Address, authority: Address, amount: u64) -> [u8; SPL_TOKEN_ACCOUNT_LEN] {
+    fn token_account_data(
+        mint: Address,
+        authority: Address,
+        amount: u64,
+    ) -> [u8; SPL_TOKEN_ACCOUNT_LEN] {
         let mut data = [0u8; SPL_TOKEN_ACCOUNT_LEN];
         data[0..32].copy_from_slice(mint.as_bytes());
         data[32..64].copy_from_slice(authority.as_bytes());
@@ -1278,7 +1745,10 @@ mod tests {
         assert_eq!(view.amount(), 100);
         assert!(view.is_initialized());
         assert_eq!(token.checked_mint(&mint).unwrap().mint(), mint);
-        assert_eq!(token.checked_authority(&authority).unwrap().authority(), authority);
+        assert_eq!(
+            token.checked_authority(&authority).unwrap().authority(),
+            authority
+        );
         assert_eq!(
             token
                 .checked_mint(&Address::new_from_array([9; 32]))
@@ -1382,6 +1852,34 @@ mod tests {
             let decoded = u64::from_le_bytes(out[1..9].try_into().unwrap());
             assert_eq!(decoded, amount);
         }
+    }
+
+    #[test]
+    fn authority_and_initialize_encodings_match_spl_token_wire_format() {
+        let authority = Address::new_from_array([9; 32]);
+        let mut set_authority = [0u8; 35];
+        let len = encode_set_authority_data(
+            TokenAuthorityType::AccountOwner,
+            Some(&authority),
+            &mut set_authority,
+        );
+        assert_eq!(len, 35);
+        assert_eq!(set_authority[0], 6);
+        assert_eq!(set_authority[1], 2);
+        assert_eq!(set_authority[2], 1);
+        assert_eq!(&set_authority[3..35], authority.as_bytes());
+
+        let len =
+            encode_set_authority_data(TokenAuthorityType::CloseAccount, None, &mut set_authority);
+        assert_eq!(len, 3);
+        assert_eq!(&set_authority[..3], &[6, 3, 0]);
+
+        let init2 = encode_initialize_account_with_owner(16, &authority);
+        let init3 = encode_initialize_account_with_owner(18, &authority);
+        assert_eq!(init2[0], 16);
+        assert_eq!(init3[0], 18);
+        assert_eq!(&init2[1..33], authority.as_bytes());
+        assert_eq!(&init3[1..33], authority.as_bytes());
     }
 
     // ---------------------------------------------------------------------

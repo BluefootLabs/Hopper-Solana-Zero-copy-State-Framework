@@ -6,17 +6,11 @@ error[E0277]: the trait bound `&mut u64: HopperRefOnly` is not satisfied
    |     |
    |     required by a bound introduced by this call
    |
-help: the following other types implement trait `HopperRefOnly`
-  --> crates/hopper-runtime/src/ref_only.rs
-   |
-   | impl<T: ?Sized> HopperRefOnly for Ref<'_, T> {}
-   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `hopper::prelude::Ref<'_, T>`
-   | impl<T: ?Sized> HopperRefOnly for RefMut<'_, T> {}
-   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `hopper::segment::RefMut<'_, T>`
-   | impl<T: ?Sized> HopperRefOnly for SegRef<'_, T> {}
-   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `SegRef<'_, T>`
-   | impl<T: ?Sized> HopperRefOnly for SegRefMut<'_, T> {}
-   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `SegRefMut<'_, T>`
+   = help: the following other types implement trait `HopperRefOnly`:
+             SegRef<'_, T>
+             SegRefMut<'_, T>
+             hopper::prelude::Ref<'_, T>
+             hopper::segment::RefMut<'_, T>
 note: required by a bound in `require_guard`
   --> tests/compile_fail/ref_only_rejects_raw_ref.rs:14:21
    |

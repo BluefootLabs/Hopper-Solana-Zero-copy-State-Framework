@@ -113,12 +113,34 @@ macro_rules! program_entrypoint {
 
 /// Declare a fast two-argument Hopper Native program entrypoint.
 ///
-/// Uses the SVM's second entrypoint register, which provides a direct
-/// pointer to instruction data, eliminating the full account-scanning pass
-/// that the single-argument entrypoint requires. Saves ~30-40 CU per
-/// instruction invocation.
+/// Uses the SVM's second entrypoint register (`r2`), which — once
+/// [SIMD-0321] is activated — carries a direct pointer to instruction
+/// data, eliminating the full account-scanning pass that the
+/// single-argument entrypoint requires. Saves ~30-40 CU per instruction
+/// invocation.
 ///
-/// The SVM has provided the second argument since runtime ~1.17.
+/// # Feature gating (`simd-0321`)
+///
+/// SIMD-0321 is **not yet activated** on public clusters (feature gate
+/// `5xXZc66h4UdB6Yq7FzdBxBiRAFMMScMLwHxk2QZDaNZL`). Without the
+/// activation, `r2` carries no instruction-data pointer at entry.
+///
+/// - **Default (feature off):** this macro expands to the standard
+///   scanning entrypoint ([`hopper_program_entrypoint!`]). Identical
+///   semantics, sound on every cluster today, and source-compatible:
+///   when the gate activates, rebuild with the feature to claim the
+///   CU savings.
+/// - **`simd-0321` enabled:** the macro expands to the two-argument
+///   entrypoint. As defense in depth it null-checks `r2` and falls
+///   back to the scanning parse when the register is zero (current
+///   SBPF VMs zero-initialize unused argument registers), so a binary
+///   built with the feature degrades to the slow path instead of
+///   reading garbage if it lands on a cluster without the activation.
+///
+/// `hopper doctor` / `hopper deploy` can check the feature-gate account
+/// on the target cluster before a `simd-0321` build ships.
+///
+/// [SIMD-0321]: https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0321-vm-r2-instruction-data-pointer.md
 ///
 /// # Usage
 ///
@@ -135,6 +157,7 @@ macro_rules! program_entrypoint {
 ///     Ok(())
 /// }
 /// ```
+#[cfg(feature = "simd-0321")]
 #[macro_export]
 macro_rules! hopper_fast_entrypoint {
     ( $process_instruction:expr ) => {
@@ -143,38 +166,54 @@ macro_rules! hopper_fast_entrypoint {
     ( $process_instruction:expr, $maximum:expr ) => {
         /// # Safety
         ///
-        /// Called by the Solana runtime; `input` is a valid BPF input buffer
-        /// and `ix_data` points to the instruction data with its u64 length
-        /// stored at offset -8.
+        /// Called by the Solana runtime; `input` is a valid BPF input buffer.
+        /// When SIMD-0321 is active, `ix_data` points to the instruction data
+        /// with its u64 length stored at offset -8; when it is not active the
+        /// register is zero and the scanning fallback below is taken.
         #[no_mangle]
         pub unsafe extern "C" fn entrypoint(input: *mut u8, ix_data: *const u8) -> u64 {
             const UNINIT: core::mem::MaybeUninit<$crate::AccountView<'static>> =
                 core::mem::MaybeUninit::<$crate::AccountView<'static>>::uninit();
             let mut accounts = [UNINIT; $maximum];
 
-            // Instruction data length is the u64 immediately before the data pointer.
-            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-            let ix_len = unsafe { *(ix_data.sub(8) as *const u64) as usize };
-            let instruction_data: &'static [u8] =
-                unsafe { core::slice::from_raw_parts(ix_data, ix_len) };
+            let (program_id, count, instruction_data) = if ix_data.is_null() {
+                // SIMD-0321 not active on this cluster: r2 is zero. Fall back
+                // to the full scanning parse so the program stays correct.
+                // SAFETY: `input` is the loader-provided input buffer; the
+                // scanning parser owns all bounds/duplicate-marker checks.
+                unsafe { $crate::raw_input::deserialize_accounts::<$maximum>(input, &mut accounts) }
+            } else {
+                // Instruction data length is the u64 immediately before the
+                // data pointer (per SIMD-0321's serialization contract).
+                // SAFETY: SIMD-0321 guarantees `ix_data` points at the
+                // instruction-data bytes inside the loader input region, with
+                // the u64 length prefix at `ix_data - 8` and the 32-byte
+                // program id immediately after the data.
+                let ix_len = unsafe { *(ix_data.sub(8) as *const u64) as usize };
+                let instruction_data: &'static [u8] =
+                    unsafe { core::slice::from_raw_parts(ix_data, ix_len) };
 
-            // Program ID immediately follows instruction data in the SVM buffer.
-            let program_id =
-                // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-                unsafe { core::ptr::read(ix_data.add(ix_len) as *const $crate::Address) };
+                // SAFETY: program id trails the instruction data per the
+                // loader serialization layout; reading 32 bytes by value.
+                let program_id =
+                    unsafe { core::ptr::read(ix_data.add(ix_len) as *const $crate::Address) };
 
-            let (program_id, count, instruction_data) = unsafe {
-                $crate::raw_input::deserialize_accounts_fast::<$maximum>(
-                    input,
-                    &mut accounts,
-                    instruction_data,
-                    program_id,
-                )
+                // SAFETY: `input` is the loader input buffer; account-slot
+                // framing is validated by `deserialize_accounts_fast`.
+                unsafe {
+                    $crate::raw_input::deserialize_accounts_fast::<$maximum>(
+                        input,
+                        &mut accounts,
+                        instruction_data,
+                        program_id,
+                    )
+                }
             };
 
             match $process_instruction(
                 &program_id,
-                // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+                // SAFETY: the first `count` slots were initialized by the
+                // parser above; `AccountView` is repr(C) over the slot data.
                 unsafe { core::slice::from_raw_parts(accounts.as_ptr() as *const $crate::AccountView<'_>, count) },
                 instruction_data,
             ) {
@@ -182,6 +221,22 @@ macro_rules! hopper_fast_entrypoint {
                 Err(error) => error.into(),
             }
         }
+    };
+}
+
+/// Without the `simd-0321` feature the "fast" entrypoint is an alias for
+/// the standard scanning entrypoint. See the feature-gated definition
+/// above for the rationale: SIMD-0321 has not been activated, so the
+/// two-argument form would read an uninitialized register on today's
+/// clusters.
+#[cfg(not(feature = "simd-0321"))]
+#[macro_export]
+macro_rules! hopper_fast_entrypoint {
+    ( $process_instruction:expr ) => {
+        $crate::hopper_program_entrypoint!($process_instruction);
+    };
+    ( $process_instruction:expr, $maximum:expr ) => {
+        $crate::hopper_program_entrypoint!($process_instruction, $maximum);
     };
 }
 
@@ -248,6 +303,78 @@ macro_rules! no_allocator {
             #[global_allocator]
             static ALLOCATOR: NoAlloc = NoAlloc;
         }
+    };
+}
+
+/// Canonical Solana heap region start address (`0x3_0000_0000`).
+pub const HEAP_START_ADDRESS: usize = 0x3_0000_0000;
+
+/// Default Solana heap region length (32 KiB).
+pub const HEAP_LENGTH: usize = 32 * 1024;
+
+/// A bump allocator over the SVM heap region.
+///
+/// This is the same single-pass, never-frees design the Solana SDK and
+/// Pinocchio use: the first word of the heap stores the current cursor,
+/// allocations bump it downward from the top of the region, and
+/// `dealloc` is a no-op. It is the right allocator for the cold paths of
+/// a program that wants `alloc` (e.g. a `Vec` while building a CPI) while
+/// keeping the hot path zero-allocation. For programs that must never
+/// allocate, prefer [`no_allocator!`] so any stray allocation traps.
+///
+/// Install it with [`default_allocator!`].
+pub struct BumpAllocator {
+    /// Heap region start address.
+    pub start: usize,
+    /// Heap region length in bytes.
+    pub len: usize,
+}
+
+// SAFETY: Solana program execution is single-threaded, so the cursor word
+// at `start` is never accessed concurrently.
+unsafe impl core::alloc::GlobalAlloc for BumpAllocator {
+    #[inline]
+    unsafe fn alloc(&self, layout: core::alloc::Layout) -> *mut u8 {
+        // The cursor is stored in the first word of the heap region.
+        let pos_ptr = self.start as *mut usize;
+        // SAFETY: `pos_ptr` is the reserved cursor word; single-threaded.
+        let mut pos = unsafe { *pos_ptr };
+        if pos == 0 {
+            // First allocation: start at the top of the region.
+            pos = self.start + self.len;
+        }
+        pos = pos.saturating_sub(layout.size());
+        pos &= !(layout.align().wrapping_sub(1));
+        // Keep the cursor word itself intact.
+        if pos < self.start + core::mem::size_of::<usize>() {
+            return core::ptr::null_mut();
+        }
+        // SAFETY: `pos_ptr` is the reserved cursor word; single-threaded.
+        unsafe { *pos_ptr = pos };
+        pos as *mut u8
+    }
+
+    #[inline]
+    unsafe fn dealloc(&self, _ptr: *mut u8, _layout: core::alloc::Layout) {
+        // Bump allocator: memory is reclaimed when the instruction ends.
+    }
+}
+
+/// Install the default bump allocator over the SVM heap region.
+///
+/// Opt-in counterpart to [`no_allocator!`]: use this when a program needs
+/// `alloc` (e.g. heap `Vec`/`String` on a cold path) while keeping the
+/// zero-copy hot path allocation-free. Never frees within an instruction;
+/// the whole heap is reclaimed when the instruction returns.
+#[macro_export]
+macro_rules! default_allocator {
+    () => {
+        #[cfg(target_os = "solana")]
+        #[global_allocator]
+        static ALLOCATOR: $crate::BumpAllocator = $crate::BumpAllocator {
+            start: $crate::HEAP_START_ADDRESS,
+            len: $crate::HEAP_LENGTH,
+        };
     };
 }
 

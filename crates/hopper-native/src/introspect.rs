@@ -166,6 +166,12 @@ pub const ED25519_PROGRAM_ID: Address =
 pub const SECP256K1_PROGRAM_ID: Address =
     crate::address!("KeccakSecp256k11111111111111111111111111111");
 
+/// Well-known precompile address for Secp256r1 (P-256) signature
+/// verification (SIMD-0075). This is the precompile that backs passkey /
+/// WebAuthn signature checks on Solana.
+pub const SECP256R1_PROGRAM_ID: Address =
+    crate::address!("Secp256r1SigVerify1111111111111111111111111");
+
 /// Check that a previous sibling instruction was to the Ed25519 precompile.
 ///
 /// Returns the instruction data from the Ed25519 precompile instruction.
@@ -194,6 +200,30 @@ pub fn require_secp256k1_instruction(
     let ix = get_processed_instruction(sibling_index).ok_or(ProgramError::InvalidArgument)?;
 
     if !crate::address::address_eq(&ix.program_id, &SECP256K1_PROGRAM_ID) {
+        return Err(ProgramError::IncorrectProgramId);
+    }
+
+    Ok(ix)
+}
+
+/// Check that a previous sibling instruction was to the Secp256r1
+/// (P-256) precompile — the verification path for passkeys / WebAuthn.
+///
+/// Returns the precompile instruction data, which the caller parses to
+/// bind the verified `(public_key, message, signature)` to the
+/// program's own authorization logic. Pairing this introspection check
+/// with the precompile is how a program proves a passkey signed a
+/// specific payload without trusting the client.
+///
+/// `sibling_index` is 0 for the most recent sibling, 1 for the one
+/// before, etc.
+#[inline]
+pub fn require_secp256r1_instruction(
+    sibling_index: u64,
+) -> Result<ProcessedInstruction, ProgramError> {
+    let ix = get_processed_instruction(sibling_index).ok_or(ProgramError::InvalidArgument)?;
+
+    if !crate::address::address_eq(&ix.program_id, &SECP256R1_PROGRAM_ID) {
         return Err(ProgramError::IncorrectProgramId);
     }
 
