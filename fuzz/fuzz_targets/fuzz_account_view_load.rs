@@ -4,7 +4,7 @@
 //!
 //! # Contract
 //!
-//! Given **any** byte slice as a pretend account data buffer,
+//! Given any byte slice as a pretend account data buffer,
 //! `AccountView::load` must:
 //!
 //! 1. Never panic.
@@ -33,8 +33,12 @@
 //! check + alignment gate into a single validated zero-copy load.  This
 //! target closes that gap.
 
-use libfuzzer_sys::fuzz_target;
+use hopper_native::raw_account::RuntimeAccount;
+use hopper_native::{AccountView as NativeAccountView, Address as NativeAddress, NOT_BORROWED};
 use hopper_runtime::account::AccountView;
+use hopper_runtime::field_map::FieldMap;
+use hopper_runtime::layout::{self, HopperHeader, LayoutContract};
+use libfuzzer_sys::fuzz_target;
 
 /// Minimum valid Hopper account header size (bytes).
 /// Layout: [discriminator: 1][version: 1][layout_id: 8][schema_epoch: 2]
@@ -42,40 +46,78 @@ use hopper_runtime::account::AccountView;
 /// The loader requires at least the 16-byte fixed prefix.
 const HEADER_MIN: usize = 16;
 
-fuzz_target!(|data: &[u8]| {
-    // --- derive "expected" values directly from the input bytes -------
-    // Using bytes from `data` itself as expected discriminator/fingerprint
-    // ensures the fuzzer explores both the match and mismatch branches
-    // without needing a structured input format.
-    let expected_disc: u8 = data.first().copied().unwrap_or(0);
-    let expected_layout_id: u64 = if data.len() >= 10 {
-        u64::from_le_bytes(data[2..10].try_into().unwrap())
-    } else {
-        0u64
-    };
-    let expected_version: u8 = data.get(1).copied().unwrap_or(0);
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Default)]
+struct FuzzLayout {
+    value: [u8; 8],
+}
 
-    // --- call load with the raw buffer as account data -----------------
+unsafe impl hopper_runtime::Zeroable for FuzzLayout {}
+unsafe impl hopper_runtime::Pod for FuzzLayout {}
+
+impl FieldMap for FuzzLayout {
+    const FIELDS: &'static [hopper_runtime::field_map::FieldInfo] = &[];
+}
+
+impl LayoutContract for FuzzLayout {
+    const DISC: u8 = 7;
+    const VERSION: u8 = 1;
+    const LAYOUT_ID: [u8; 8] = [0xAB; 8];
+    const SIZE: usize = HopperHeader::SIZE + core::mem::size_of::<Self>();
+}
+
+fn make_account(data: &[u8]) -> (Vec<u8>, NativeAccountView<'static>) {
+    let mut backing = vec![0u8; RuntimeAccount::SIZE + data.len()];
+    let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
+    // SAFETY: `backing` is sized for RuntimeAccount followed by `data.len()` bytes.
+    unsafe {
+        raw.write(RuntimeAccount {
+            borrow_state: NOT_BORROWED,
+            is_signer: 1,
+            is_writable: 1,
+            executable: 0,
+            resize_delta: 0,
+            address: NativeAddress::new_from_array([1; 32]),
+            owner: NativeAddress::new_from_array([2; 32]),
+            lamports: 42,
+            data_len: data.len() as u64,
+        });
+        core::ptr::copy_nonoverlapping(
+            data.as_ptr(),
+            backing.as_mut_ptr().add(RuntimeAccount::SIZE),
+            data.len(),
+        );
+    }
+    // SAFETY: `raw` points into `backing`, which is returned with the view.
+    let account = unsafe { NativeAccountView::new_unchecked(raw) };
+    (backing, account)
+}
+
+fuzz_target!(|data: &[u8]| {
+    let (backing, native_account) = make_account(data);
+    let accounts = [native_account];
+    // SAFETY: AccountView is repr(transparent) over the native account view.
+    let runtime_accounts = unsafe { hopper_runtime::native_boundary::wrap_account_slice(&accounts) };
+    let account: &AccountView<'_> = &runtime_accounts[0];
+
     // Contract: must never panic or UB regardless of buffer contents.
-    let result = AccountView::load(
-        data,
-        expected_disc,
-        expected_version,
-        expected_layout_id,
-    );
+    let result = account.load::<FuzzLayout>();
 
     // --- enforce structural invariants ---------------------------------
     match result {
-        Ok(view) => {
+        Ok(_view) => {
             // If load succeeded the buffer must have been large enough
             // for the minimum header.
             assert!(
-                data.len() >= HEADER_MIN,
+                backing.len() >= RuntimeAccount::SIZE + HEADER_MIN,
                 "AccountView::load returned Ok on a buffer shorter than HEADER_MIN"
             );
+            assert!(layout::read_disc(data) == Some(FuzzLayout::DISC));
+            assert!(layout::read_version(data) == Some(FuzzLayout::VERSION));
+            assert!(layout::read_layout_id(data) == Some(&FuzzLayout::LAYOUT_ID));
             // The view must not report a data region that exceeds the
             // buffer we handed it.
-            let reported_len = view.data_len();
+            let reported_len = account.data_len();
             assert!(
                 reported_len <= data.len(),
                 "AccountView reported data_len {} > buffer len {}",

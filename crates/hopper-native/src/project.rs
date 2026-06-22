@@ -223,7 +223,7 @@ pub fn project<'a, T: Projectable>(
 
     // Alignment check.
     let align = core::mem::align_of::<T>();
-    if !(target_ptr as usize).is_multiple_of(align) {
+    if (target_ptr as usize) % align != 0 {
         return Err(ProgramError::InvalidAccountData);
     }
 
@@ -274,7 +274,7 @@ pub unsafe fn project_mut<'a, T: Projectable>(
 
     // Alignment check.
     let align = core::mem::align_of::<T>();
-    if !(target_ptr as usize).is_multiple_of(align) {
+    if (target_ptr as usize) % align != 0 {
         return Err(ProgramError::InvalidAccountData);
     }
 
@@ -307,7 +307,7 @@ pub fn project_slice<'a, T: Projectable>(
     let target_ptr = unsafe { data_ptr.add(offset) };
 
     let align = core::mem::align_of::<T>();
-    if !(target_ptr as usize).is_multiple_of(align) {
+    if (target_ptr as usize) % align != 0 {
         return Err(ProgramError::InvalidAccountData);
     }
 
