@@ -27,16 +27,39 @@ events end-to-end. See `examples/hopper-smoke/README.md`.
 | F7 coverage gaps | **Closed.** System WithSeed + durable-nonce family, `sol_get_sysvar`/`sol_get_epoch_stake`/SlotHashes/StakeHistory, secp256r1 introspection, opt-in `default_allocator!` bump allocator, and a `no_std` Token-2022 `ExtraAccountMetaList` resolver all landed. |
 | Innovation #1 (feature-gate-aware deploys) | **Shipped.** `hopper feature-gate` queries the SIMD-0321 gate on the target cluster (confirmed active on devnet at slot 446688000); `hopper doctor` points to it. |
 
-### One inconsistency surfaced and resolved
+### Alignment bound — tightened (2026-06-19, P0)
 
-The bytemuck→Hopper-Pod migration made scalar native ints (`u64` etc.)
-implement `Pod` (with a dedicated `primitives_are_pod` unit test), which
-silently obsoleted two older trybuild guards asserting `raw_ref::<u64>`
-must not compile. Struct-level align-1 is still enforced by `#[hopper::pod]`.
-The two obsolete guards were retired. **Recommendation:** if strict align-1
-for scalar account reads is desired, tighten `raw_ref`/`segment_ref` to a
-`ZeroCopy` (align-1 sealed) bound rather than `Pod`; left as a maintainer
-call.
+An external expert review (`E:\Hopper is now clearly shaped as a sovere.txt`)
+correctly overruled an earlier interim decision here. The real bug was that
+`Pod` claimed `align_of == 1` in its contract yet was implemented for native
+multi-byte integers (`u64` has align 8), so `segment_ref::<u64>` / `raw_ref::<u64>`
+type-checked and could form a `&u64` at an unaligned account offset — alignment
+UB. **The guard was tightened, not retired:**
+
+- `Pod` is now implemented **only** for alignment-1 types (`u8`, `i8`,
+  `[u8; N]`, `()`, and macro-authored wire/layout types). Every
+  reference-returning overlay API (`load`, `segment_ref`, `raw_ref`,
+  `pod_from_bytes`, …) bounds on `Pod`, so `segment_ref::<u64>` is now a
+  **compile error** (`crates/hopper-native/src/pod.rs`; proven by
+  `tests/hopper-trybuild/tests/ui/fail/{raw_ref,segment_ref}_u64_rejected.rs`,
+  with `WireU64`/`[u8;8]` accepted in `…/pass/overlay_wire_types_accepted.rs`).
+- A separate `ValuePod` marker (all native ints + arrays) plus
+  `read_unaligned_value` / `Context::read_data::<u64>` cover by-value scalar
+  decoding via `core::ptr::read_unaligned`.
+- The two internal aligned-cast reads the review named
+  (`AccountView::header_u32`, the fast-entrypoint length prefix) now use
+  `read_unaligned`, so `UNSAFE_INVARIANTS.md` invariant #1 ("all overlay
+  targets are alignment-1; no cast yields a reference with align > 1") is now
+  literally true and type-enforced.
+
+### Other review items closed (2026-06-19)
+
+| Review item | Status |
+|---|---|
+| Rent hard-coded `(128+len)*6960` in `lifecycle.rs` | **Fixed.** `rent::minimum_balance_live` reads the **live** Rent sysvar on-chain (falls back to launch constants off-chain); `lifecycle` delegates to it, removing the duplicate magic-number formula. |
+| Segment split / simultaneous disjoint mutable borrows | **Added.** `AccountView::split_segments_mut` / `Context::split_segments_mut` register N disjoint ranges (proving disjointness once) and return a `SegmentsMut` guard whose `all_mut()` hands back `[&mut T; N]`. Tested for the happy path and overlap/OOB rollback. |
+| `hopper-system` only re-exported a subset | **Fixed.** All System builders (WithSeed family, durable-nonce family, `NonceState`, the consts) are re-exported at the crate root. |
+| SBF deployability of new generic code | **Verified.** The `hopper-smoke` program rebuilt with every change above redeployed to devnet and re-ran `initialize → deposit → withdraw` (`SMOKE OK`); new runtime code uses conservative `MaybeUninit` array idioms to keep SBPF codegen broadly compatible. |
 
 ## Bottom line
 

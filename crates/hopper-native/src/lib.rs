@@ -116,7 +116,7 @@ pub use address::Address;
 pub use borrow::{Ref, RefMut};
 pub use entrypoint::{BumpAllocator, HEAP_LENGTH, HEAP_START_ADDRESS};
 pub use error::ProgramError;
-pub use pod::{Pod, Zeroable};
+pub use pod::{read_unaligned_value, Pod, ValuePod, Zeroable};
 pub use raw_account::RuntimeAccount;
 
 // Innovation re-exports.

@@ -777,12 +777,13 @@ impl<'info> AccountView<'info> {
     ///, a single aligned u32 read instead of 3-4 separate byte loads.
     #[inline(always)]
     fn header_u32(&self) -> u32 {
-        // SAFETY: RuntimeAccount is #[repr(C)] with first 4 fields as u8,
-        // totalling 4 bytes at the start. Reading as u32 is safe because
-        // the struct is at least 88 bytes and the BPF input buffer is
-        // sufficiently aligned.
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-        unsafe { *(self.raw as *const u32) }
+        // SAFETY: `RuntimeAccount` is `#[repr(C)]` with its first 4 fields as
+        // `u8` (borrow_state, is_signer, is_writable, executable), so the
+        // first 4 bytes are always present. `read_unaligned` imposes no
+        // alignment requirement, so this is sound regardless of the input
+        // buffer's alignment (the loader guarantees 8-alignment in practice,
+        // but we do not rely on it).
+        unsafe { core::ptr::read_unaligned(self.raw as *const u32) }
     }
 
     /// Pack the account's boolean flags into a single byte for fast

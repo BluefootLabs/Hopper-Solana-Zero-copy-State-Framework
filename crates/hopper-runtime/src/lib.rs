@@ -157,7 +157,7 @@ pub use instruction::{
     InstructionAccount, InstructionView, Seed, Signer, StoredAccountMeta, StoredInstruction,
 };
 pub use layout::{HopperHeader, LayoutContract, LayoutInfo};
-pub use pod::{Pod, Zeroable};
+pub use pod::{read_unaligned_value, Pod, ValuePod, Zeroable};
 pub use result::ProgramResult;
 pub use segment::{
     FieldCapability, Segment, TypedSegment, FIELD_POLICY_AUTHORITY_GATED,
@@ -165,7 +165,7 @@ pub use segment::{
     FIELD_ROLE_BALANCE, FIELD_ROLE_DATA, FIELD_ROLE_VERSION,
 };
 pub use segment_borrow::{AccessKind, SegmentBorrow, SegmentBorrowGuard, SegmentBorrowRegistry};
-pub use segment_lease::{SegRef, SegRefMut, SegmentLease};
+pub use segment_lease::{SegRef, SegRefMut, SegmentLease, SegmentsMut};
 pub use zerocopy::{AccountLayout, WireLayout, ZeroCopy};
 
 pub const MAX_TX_ACCOUNTS: usize = native_boundary::BACKEND_MAX_TX_ACCOUNTS;
@@ -651,7 +651,8 @@ macro_rules! hopper_fast_entrypoint {
                 // SAFETY: SIMD-0321 guarantees `ix_data` points at the
                 // instruction-data bytes, with the u64 length prefix at
                 // `ix_data - 8` and the 32-byte program id after the data.
-                let ix_len = unsafe { *(ix_data.sub(8) as *const u64) as usize };
+                let ix_len =
+                    unsafe { core::ptr::read_unaligned(ix_data.sub(8) as *const u64) as usize };
                 let instruction_data: &'static [u8] =
                     unsafe { core::slice::from_raw_parts(ix_data, ix_len) };
                 // SAFETY: program id trails the instruction data per the

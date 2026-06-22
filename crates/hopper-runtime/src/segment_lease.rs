@@ -97,6 +97,31 @@ impl<'a> SegmentLease<'a> {
         }
     }
 
+    /// Construct a lease from a raw registry pointer.
+    ///
+    /// Used by batch APIs (`AccountView::split_segments_mut`) that
+    /// register several disjoint borrows against one
+    /// `&'a mut SegmentBorrowRegistry` and then hand back several
+    /// coexisting guards — each guard needs its own lease, but only one
+    /// `&mut` exists. The batch helper takes the registry's raw pointer
+    /// once and binds every lease's lifetime to that single `&'a mut`.
+    ///
+    /// # Safety
+    ///
+    /// `registry` must point to a `SegmentBorrowRegistry` borrowed
+    /// mutably for `'a` (the caller holds the `&'a mut`), `borrow` must
+    /// have been registered in it immediately before, and no path other
+    /// than dropping the returned lease may remove that entry.
+    #[doc(hidden)]
+    #[inline(always)]
+    pub unsafe fn from_raw(registry: *mut SegmentBorrowRegistry, borrow: SegmentBorrow) -> Self {
+        Self {
+            registry,
+            borrow,
+            _lt: PhantomData,
+        }
+    }
+
     /// The borrow entry this lease owns, for diagnostics.
     ///
     /// Inherent diagnostic accessor returning the owned `SegmentBorrow` record,
@@ -250,6 +275,109 @@ impl<T: ?Sized> core::fmt::Debug for SegRefMut<'_, T> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("SegRefMut")
             .field("lease", &self.lease)
+            .finish_non_exhaustive()
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  SegmentsMut — simultaneous disjoint mutable segment access
+// ══════════════════════════════════════════════════════════════════════
+
+/// A guard over **several disjoint typed sub-ranges** of one account,
+/// returned by [`AccountView::split_segments_mut`](crate::AccountView::split_segments_mut).
+///
+/// It holds a single exclusive byte borrow of the account plus `N`
+/// registry leases (one per range) that proved pairwise disjointness at
+/// construction and release on drop. Because the ranges are disjoint and
+/// all sit inside the one borrow, [`all_mut`](Self::all_mut) can hand out
+/// `N` independent `&mut T` simultaneously — the generalized
+/// `split_at_mut` for account fields that ordinary `segment_mut` cannot
+/// express.
+pub struct SegmentsMut<'a, T, const N: usize> {
+    data: RefMut<'a, [u8]>,
+    offsets: [usize; N],
+    // Leases live for the guard; dropping them releases the registry
+    // entries. Order of field drops doesn't matter (independent ranges).
+    _leases: [SegmentLease<'a>; N],
+    _t: PhantomData<fn() -> T>,
+}
+
+impl<'a, T: crate::Pod, const N: usize> SegmentsMut<'a, T, N> {
+    /// Assemble the guard. Doc-hidden; built by `split_segments_mut`.
+    #[doc(hidden)]
+    #[inline(always)]
+    pub fn new(
+        data: RefMut<'a, [u8]>,
+        offsets: [usize; N],
+        leases: [SegmentLease<'a>; N],
+    ) -> Self {
+        Self {
+            data,
+            offsets,
+            _leases: leases,
+            _t: PhantomData,
+        }
+    }
+
+    /// Number of disjoint segments held.
+    #[inline(always)]
+    pub const fn len(&self) -> usize {
+        N
+    }
+
+    /// Always `false` (a split with `N == 0` is not constructed).
+    #[inline(always)]
+    pub const fn is_empty(&self) -> bool {
+        N == 0
+    }
+
+    /// Mutably access one segment by batch index.
+    #[inline(always)]
+    pub fn get_mut(&mut self, i: usize) -> Option<&mut T> {
+        let off = *self.offsets.get(i)?;
+        let base = self.data.as_bytes_mut_ptr();
+        // SAFETY: `off` was bounds- and size-validated for `T` at
+        // construction; the byte borrow backing `base` is exclusive and
+        // live for `&mut self`.
+        Some(unsafe { &mut *(base.add(off) as *mut T) })
+    }
+
+    /// Borrow **all** segments mutably at once as `[&mut T; N]`.
+    ///
+    /// Sound because the offsets are pairwise disjoint (proven by the
+    /// registry at construction) and every range lies inside the single
+    /// exclusive byte borrow, so the references never alias.
+    #[inline(always)]
+    pub fn all_mut(&mut self) -> [&mut T; N] {
+        let base = self.data.as_bytes_mut_ptr();
+        let offsets = self.offsets;
+        // Manual MaybeUninit fill (avoids `core::array::from_fn`, keeping
+        // codegen on the conservative SBPF version for broad deployability).
+        // SAFETY: array of `MaybeUninit` is valid uninitialized.
+        let mut out: [core::mem::MaybeUninit<&mut T>; N] =
+            unsafe { core::mem::MaybeUninit::uninit().assume_init() };
+        let mut i = 0;
+        while i < N {
+            // SAFETY: ranges are disjoint and validated; `base` is a live
+            // exclusive byte borrow, so each typed pointer is unique and
+            // non-overlapping.
+            let r: &mut T = unsafe { &mut *(base.add(offsets[i]) as *mut T) };
+            out[i] = core::mem::MaybeUninit::new(r);
+            i += 1;
+        }
+        // SAFETY: all N slots initialized above.
+        unsafe {
+            let init = core::ptr::read(&out as *const _ as *const [&mut T; N]);
+            core::mem::forget(out);
+            init
+        }
+    }
+}
+
+impl<'a, T, const N: usize> core::fmt::Debug for SegmentsMut<'a, T, N> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("SegmentsMut")
+            .field("offsets", &self.offsets)
             .finish_non_exhaustive()
     }
 }

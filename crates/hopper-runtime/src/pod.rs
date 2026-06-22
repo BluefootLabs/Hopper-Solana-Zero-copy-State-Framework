@@ -96,7 +96,7 @@
 
 // Re-export `hopper_native::Pod` directly so the "one canonical Pod"
 // invariant holds end-to-end.
-pub use hopper_native::{Pod, Zeroable};
+pub use hopper_native::{read_unaligned_value, Pod, ValuePod, Zeroable};
 
 #[cfg(test)]
 mod tests {

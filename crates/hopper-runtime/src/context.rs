@@ -306,6 +306,30 @@ impl<'a> Context<'a> {
         )
     }
 
+    /// Borrow several disjoint typed sub-ranges of one account mutably at
+    /// the same time. See
+    /// [`AccountView::split_segments_mut`](crate::AccountView::split_segments_mut).
+    ///
+    /// ```ignore
+    /// let mut segs = ctx.split_segments_mut::<WireU64, 2>(
+    ///     vault_idx, [(BALANCE_OFF, 8), (NONCE_OFF, 8)])?;
+    /// let [bal, nonce] = segs.all_mut();
+    /// bal.set(bal.get() + amount);
+    /// nonce.set(nonce.get() + 1);
+    /// ```
+    #[inline(always)]
+    pub fn split_segments_mut<'b, T: crate::Pod, const N: usize>(
+        &'b mut self,
+        index: usize,
+        ranges: [(u32, u32); N],
+    ) -> Result<crate::SegmentsMut<'b, T, N>, ProgramError> {
+        let view = self
+            .accounts
+            .get(index)
+            .ok_or(ProgramError::NotEnoughAccountKeys)?;
+        view.split_segments_mut::<T, N>(&mut self.segment_borrows, ranges)
+    }
+
     /// Register a write borrow for a segment of an account.
     ///
     /// Validates bounds, checks writable, and registers a leased
@@ -508,7 +532,7 @@ impl<'a> Context<'a> {
     /// Caller must ensure `T` is a plain-old-data type where all bit patterns
     /// are valid.
     #[inline(always)]
-    pub fn read_data<T: crate::Pod>(&self, offset: usize) -> Result<T, ProgramError> {
+    pub fn read_data<T: crate::ValuePod>(&self, offset: usize) -> Result<T, ProgramError> {
         let end = offset
             .checked_add(core::mem::size_of::<T>())
             .ok_or(ProgramError::ArithmeticOverflow)?;
@@ -703,7 +727,7 @@ impl<'ctx, 'a> ScopedContext<'ctx, 'a> {
 
     /// Read instruction data as a typed value.
     #[inline(always)]
-    pub fn read_data<T: crate::Pod>(&self, offset: usize) -> Result<T, ProgramError> {
+    pub fn read_data<T: crate::ValuePod>(&self, offset: usize) -> Result<T, ProgramError> {
         self.inner.read_data(offset)
     }
 

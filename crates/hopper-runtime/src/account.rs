@@ -23,6 +23,30 @@ use crate::native_boundary::{self, BackendAccountView};
 use crate::segment_borrow::SegmentBorrowRegistry;
 use crate::ProgramResult;
 
+/// Release the first `count` registered borrows during a
+/// `split_segments_mut` rollback.
+///
+/// # Safety
+///
+/// `reg` must be a valid `&mut`-derived registry pointer, and the first
+/// `count` entries of `recs` must be initialized `SegmentBorrow` records
+/// registered in it.
+#[inline]
+unsafe fn release_registered<const N: usize>(
+    reg: *mut SegmentBorrowRegistry,
+    recs: &[core::mem::MaybeUninit<crate::segment_borrow::SegmentBorrow>; N],
+    count: usize,
+) {
+    let mut j = 0;
+    while j < count {
+        // SAFETY: caller guarantees `recs[j]` is an initialized, registered borrow.
+        unsafe {
+            (*reg).release(recs[j].assume_init_ref());
+        }
+        j += 1;
+    }
+}
+
 // ══════════════════════════════════════════════════════════════════════
 //  AccountView -- Hopper's canonical typed state gateway
 // ══════════════════════════════════════════════════════════════════════
@@ -338,6 +362,115 @@ impl<'info> AccountView<'info> {
         // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let lease = unsafe { crate::SegmentLease::new(borrows, borrow) };
         Ok(crate::SegRefMut::new(inner, lease))
+    }
+
+    /// Borrow **several disjoint byte ranges of one account** as
+    /// independent typed `&mut` guards at the same time.
+    ///
+    /// This is the ergonomic answer to "I need mutable access to two
+    /// fields of the same account simultaneously". A single
+    /// `segment_mut` call exclusively borrows the registry for the
+    /// returned guard's lifetime, so two `segment_mut` calls cannot
+    /// coexist. `split_segments_mut` registers **all** `N` ranges up
+    /// front — proving pairwise disjointness once through the borrow
+    /// registry — and returns an array of `N` guards that live together
+    /// and each release their lease on drop.
+    ///
+    /// Every range is `(abs_offset, size)` where `size == size_of::<T>()`.
+    /// Overlapping ranges are rejected with `AccountBorrowFailed`; an
+    /// out-of-bounds or wrong-size range is rejected with
+    /// `InvalidArgument` / `AccountDataTooSmall`, and any already-claimed
+    /// leases from the batch are rolled back before returning.
+    ///
+    /// ```ignore
+    /// // Mutate balance and nonce of the same vault at once.
+    /// let [mut bal, mut nonce] =
+    ///     vault.split_segments_mut::<WireU64, 2>(ctx.borrows_mut(),
+    ///         [(BALANCE_OFF, 8), (NONCE_OFF, 8)])?;
+    /// bal.set(bal.get() + amount);
+    /// nonce.set(nonce.get() + 1);
+    /// ```
+    pub fn split_segments_mut<'a, T: crate::Pod, const N: usize>(
+        &'a self,
+        borrows: &'a mut SegmentBorrowRegistry,
+        ranges: [(u32, u32); N],
+    ) -> Result<crate::SegmentsMut<'a, T, N>, ProgramError> {
+        self.check_writable()?;
+        let expected = core::mem::size_of::<T>() as u32;
+        let data_len = self.data_len();
+        let reg_ptr = borrows as *mut SegmentBorrowRegistry;
+
+        // Phase 1: validate + register every range. `register_leased_write`
+        // rejects a range that overlaps one already registered in this
+        // batch, so disjointness is proven here, once, up front.
+        // SAFETY: an array of `MaybeUninit` is itself always valid
+        // uninitialized; we initialize entries `0..i` before reading them.
+        let mut recs: [core::mem::MaybeUninit<crate::segment_borrow::SegmentBorrow>; N] =
+            unsafe { core::mem::MaybeUninit::uninit().assume_init() };
+        let mut offsets = [0usize; N];
+        let mut i = 0;
+        while i < N {
+            let (off, size) = ranges[i];
+            let in_bounds = match off.checked_add(size) {
+                Some(end) => end as usize <= data_len,
+                None => false,
+            };
+            if size != expected || !in_bounds {
+                // SAFETY: indices `0..i` were initialized and registered above.
+                unsafe { release_registered(reg_ptr, &recs, i) };
+                return if size != expected {
+                    ProgramError::err_invalid_argument()
+                } else {
+                    ProgramError::err_data_too_small()
+                };
+            }
+            match borrows.register_leased_write(self.address(), off, size) {
+                Ok(b) => {
+                    recs[i] = core::mem::MaybeUninit::new(b);
+                    offsets[i] = off as usize;
+                }
+                Err(e) => {
+                    // SAFETY: indices `0..i` were initialized and registered.
+                    unsafe { release_registered(reg_ptr, &recs, i) };
+                    return Err(e);
+                }
+            }
+            i += 1;
+        }
+
+        // One exclusive byte borrow of the whole account backs every
+        // typed view; the registry leases prove the ranges are disjoint,
+        // so handing out N `&mut T` from this single borrow is sound.
+        let data = match self.try_borrow_mut() {
+            Ok(d) => d,
+            Err(e) => {
+                // SAFETY: all N entries were registered in phase 1.
+                unsafe { release_registered(reg_ptr, &recs, N) };
+                return Err(e);
+            }
+        };
+
+        // Build the N leases (each shares the one registry raw pointer,
+        // lifetime-pinned to `'a` by the `&'a mut borrows` we hold).
+        // SAFETY: array of `MaybeUninit` is valid uninitialized.
+        let mut leases: [core::mem::MaybeUninit<crate::SegmentLease<'a>>; N] =
+            unsafe { core::mem::MaybeUninit::uninit().assume_init() };
+        let mut k = 0;
+        while k < N {
+            // SAFETY: `recs[k]` was initialized in phase 1; `reg_ptr` is
+            // borrowed `&'a mut` for the returned guard's lifetime.
+            let lease = unsafe { crate::SegmentLease::from_raw(reg_ptr, recs[k].assume_init()) };
+            leases[k] = core::mem::MaybeUninit::new(lease);
+            k += 1;
+        }
+        // SAFETY: all N lease slots initialized.
+        let leases = unsafe {
+            let out = core::ptr::read(&leases as *const _ as *const [crate::SegmentLease<'a>; N]);
+            core::mem::forget(leases);
+            out
+        };
+
+        Ok(crate::SegmentsMut::new(data, offsets, leases))
     }
 
     // ── Const-driven segment access ─────────────────────────────────
@@ -1632,6 +1765,63 @@ mod tests {
         // the test by dropping then trying again inside a single scope
         // where the registry temporarily shows the live entry.
         drop(_first);
+        assert_eq!(borrows.len(), 0);
+    }
+
+    #[test]
+    fn split_segments_mut_borrows_two_disjoint_ranges() {
+        let (_backing, account) = make_account(TestLayout::SIZE, 43);
+        {
+            let mut data = account.try_borrow_mut().unwrap();
+            crate::layout::init_header::<TestLayout>(&mut data).unwrap();
+        }
+        let mut borrows = crate::segment_borrow::SegmentBorrowRegistry::new();
+        const A: u32 = HopperHeader::SIZE as u32; // field "a"
+        const B: u32 = HopperHeader::SIZE as u32 + 8; // field "b"
+
+        {
+            let mut segs = account
+                .split_segments_mut::<[u8; 8], 2>(&mut borrows, [(A, 8), (B, 8)])
+                .unwrap();
+            assert_eq!(segs.len(), 2);
+            // Two simultaneous disjoint &mut into the same account.
+            let [a, b] = segs.all_mut();
+            *a = le_u64(111);
+            *b = le_u64(222);
+        }
+        // Both leases released on drop.
+        assert_eq!(borrows.len(), 0);
+
+        let a = account.segment_ref::<[u8; 8]>(&mut borrows, A, 8).unwrap();
+        assert_eq!(from_le_u64(*a), 111);
+        drop(a);
+        let b = account.segment_ref::<[u8; 8]>(&mut borrows, B, 8).unwrap();
+        assert_eq!(from_le_u64(*b), 222);
+    }
+
+    #[test]
+    fn split_segments_mut_rejects_overlap_and_rolls_back() {
+        let (_backing, account) = make_account(TestLayout::SIZE, 44);
+        {
+            let mut data = account.try_borrow_mut().unwrap();
+            crate::layout::init_header::<TestLayout>(&mut data).unwrap();
+        }
+        let mut borrows = crate::segment_borrow::SegmentBorrowRegistry::new();
+        const A: u32 = HopperHeader::SIZE as u32;
+
+        // Overlapping ranges must be rejected, and every partial lease
+        // from the batch must be rolled back (registry left empty).
+        let err = account
+            .split_segments_mut::<[u8; 8], 2>(&mut borrows, [(A, 8), (A + 4, 8)])
+            .unwrap_err();
+        assert_eq!(err, ProgramError::AccountBorrowFailed);
+        assert_eq!(borrows.len(), 0);
+
+        // Out-of-bounds range is rejected too, with rollback.
+        let err = account
+            .split_segments_mut::<[u8; 8], 2>(&mut borrows, [(A, 8), (9_000, 8)])
+            .unwrap_err();
+        assert_eq!(err, ProgramError::AccountDataTooSmall);
         assert_eq!(borrows.len(), 0);
     }
 

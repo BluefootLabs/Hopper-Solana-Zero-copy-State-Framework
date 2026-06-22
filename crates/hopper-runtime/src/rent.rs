@@ -69,6 +69,27 @@ pub const fn minimum_balance(data_len: usize) -> u64 {
         * EXEMPTION_THRESHOLD_YEARS
 }
 
+/// Rent-exempt minimum read from the **live** Rent sysvar on-chain,
+/// falling back to the compile-time constants off-chain (host tests) or
+/// if the syscall fails.
+///
+/// Use this for value-bearing decisions — funding a new account, the
+/// realloc top-up — so that if the cluster ever re-governs the rent
+/// parameters, Hopper charges the live amount rather than a stale
+/// hard-coded one. The pure [`minimum_balance`] remains the right choice
+/// for the zero-CU `rent_exempt` *gate*, where being conservative
+/// against the launch constants is acceptable.
+#[inline]
+pub fn minimum_balance_live(data_len: usize) -> u64 {
+    #[cfg(target_os = "solana")]
+    {
+        if let Ok(rent) = hopper_native::sysvar::get_rent() {
+            return rent.minimum_balance(data_len);
+        }
+    }
+    minimum_balance(data_len)
+}
+
 /// Assert that `account` holds enough lamports to be rent-exempt for
 /// its current data length. Used by the `#[account(rent_exempt =
 /// enforce)]` constraint lowering in `hopper-derive`.

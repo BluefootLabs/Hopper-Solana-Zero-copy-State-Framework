@@ -180,15 +180,14 @@ pub fn safe_realloc_unchecked(
     Ok(())
 }
 
-// Internal rent calculation (matches Solana's formula).
+// Internal rent calculation. Delegates to the canonical runtime rent
+// helper, which reads the **live** Rent sysvar on-chain (so a cluster
+// re-governing the rent parameters is reflected here) and falls back to
+// the documented launch constants off-chain. This replaces a previously
+// duplicated hard-coded `(128 + data_len) * 6960` formula.
 pub(crate) fn rent_exempt_min_internal(data_len: usize) -> Result<u64, ProgramError> {
-    // Solana formula: (128 + data_len) * 6960 lamports (approximately)
-    // This is the standard exemption calculation.
-    let data_len = u64::try_from(data_len).map_err(|_| ProgramError::ArithmeticOverflow)?;
-    data_len
-        .checked_add(128)
-        .and_then(|bytes| bytes.checked_mul(6960))
-        .ok_or(ProgramError::ArithmeticOverflow)
+    let _ = u64::try_from(data_len).map_err(|_| ProgramError::ArithmeticOverflow)?;
+    Ok(hopper_runtime::rent::minimum_balance_live(data_len))
 }
 
 #[cfg(test)]

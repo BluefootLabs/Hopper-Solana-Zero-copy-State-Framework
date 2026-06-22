@@ -125,7 +125,7 @@ requirements.
 
 Hopper's unsafe surface is deliberately narrow and follows three foundational rules:
 
-1. **All overlay targets are alignment-1.** No pointer cast in the codebase produces a reference with `align > 1`. This eliminates alignment UB entirely.
+1. **All overlay targets are alignment-1, enforced by the type system.** The `Pod` marker is implemented only for alignment-1 types (`u8`, `i8`, `[u8; N]`, and macro-authored wire/layout types), so every reference-returning overlay API (`load`, `segment_ref`, `raw_ref`, `pod_from_bytes`, …) bounds on `Pod` and **cannot** be instantiated with a native multi-byte integer — `segment_ref::<u64>` is a compile error (see `tests/hopper-trybuild/tests/ui/fail/*_u64_rejected.rs`). Native scalars are read **by value** via the separate `ValuePod` marker and `read_unaligned`/`Context::read_data`, never as `&u64`. The two internal header reads that previously used aligned casts (`AccountView::header_u32`, the fast-entrypoint length prefix) now use `core::ptr::read_unaligned`. No pointer cast in the codebase produces a reference with `align > 1`; this eliminates alignment UB entirely.
 2. **All casts are bounds-checked.** Every `pod_from_bytes` / `overlay_at` / `read_unaligned` call is preceded by a length check against `T::SIZE` or explicit offset arithmetic.
 3. **Aliasing is structurally prevented.** Mutable borrows flow through `&mut self` (compile-time) or frame-level bitmask tracking (runtime). No two mutable references can alias the same account data.
 

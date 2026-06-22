@@ -189,7 +189,7 @@ macro_rules! hopper_fast_entrypoint {
                 // instruction-data bytes inside the loader input region, with
                 // the u64 length prefix at `ix_data - 8` and the 32-byte
                 // program id immediately after the data.
-                let ix_len = unsafe { *(ix_data.sub(8) as *const u64) as usize };
+                let ix_len = unsafe { core::ptr::read_unaligned(ix_data.sub(8) as *const u64) as usize };
                 let instruction_data: &'static [u8] =
                     unsafe { core::slice::from_raw_parts(ix_data, ix_len) };
 
