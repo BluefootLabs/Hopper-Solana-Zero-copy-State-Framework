@@ -185,10 +185,8 @@ macro_rules! hopper_fast_entrypoint {
             } else {
                 // Instruction data length is the u64 immediately before the
                 // data pointer (per SIMD-0321's serialization contract).
-                // SAFETY: SIMD-0321 guarantees `ix_data` points at the
-                // instruction-data bytes inside the loader input region, with
-                // the u64 length prefix at `ix_data - 8` and the 32-byte
-                // program id immediately after the data.
+                // SAFETY: SIMD-0321 ix_data points at instruction-data bytes
+                // with u64 length prefix at `ix_data - 8`.
                 let ix_len = unsafe { core::ptr::read_unaligned(ix_data.sub(8) as *const u64) as usize };
                 let instruction_data: &'static [u8] =
                     unsafe { core::slice::from_raw_parts(ix_data, ix_len) };

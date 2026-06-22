@@ -777,12 +777,8 @@ impl<'info> AccountView<'info> {
     ///, a single aligned u32 read instead of 3-4 separate byte loads.
     #[inline(always)]
     fn header_u32(&self) -> u32 {
-        // SAFETY: `RuntimeAccount` is `#[repr(C)]` with its first 4 fields as
-        // `u8` (borrow_state, is_signer, is_writable, executable), so the
-        // first 4 bytes are always present. `read_unaligned` imposes no
-        // alignment requirement, so this is sound regardless of the input
-        // buffer's alignment (the loader guarantees 8-alignment in practice,
-        // but we do not rely on it).
+        // SAFETY: RuntimeAccount is #[repr(C)] with first 4 bytes as
+        // u8 fields; read_unaligned imposes no alignment requirement.
         unsafe { core::ptr::read_unaligned(self.raw as *const u32) }
     }
 
