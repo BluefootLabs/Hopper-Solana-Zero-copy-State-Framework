@@ -1,65 +1,50 @@
 # hopper-macros
 
-Declarative macros for the Hopper zero-copy state framework.
+[![Crates.io](https://img.shields.io/crates/v/hopper-macros.svg)](https://crates.io/crates/hopper-macros)
+[![Docs.rs](https://img.shields.io/docsrs/hopper-macros)](https://docs.rs/hopper-macros)
 
-All `macro_rules!`. No proc macros. You can build a full Hopper program without
-ever touching a derive or attribute macro. These macros cut boilerplate while
-leaving the generated account layout and dispatch model visible.
+Declarative macros for the Hopper zero-copy state framework. All macro_rules!, no proc macros. You can build a full Hopper program without ever touching a derive or attribute macro.
 
-## Macros
+## Core macros
 
-| Macro | What it does |
-|-------|-------------|
-| `hopper_layout!` | Define a zero-copy account layout with auto-generated header, SHA-256 fingerprint, and tiered load methods |
-| `hopper_register_discs!` | Assert discriminator uniqueness across a program |
-| `hopper_check!` | Composable constraint checks with clear error messages |
-| `hopper_validate!` | Validation combinator blocks |
-| `hopper_error!` | Define program error codes |
-| `hopper_require!` | Assert-or-error shorthand |
-| `hopper_init!` | Account initialization with header write |
-| `hopper_close!` | Account closure with lamport drain |
-| `hopper_verify_pda!` | PDA verification using a layout's cached bump offset |
-| `hopper_invariant!` | Inline invariant check runner |
-| `hopper_segment!` | Define typed segment regions within an account |
-| `hopper_virtual!` | Map state across multiple accounts |
-| `hopper_interface!` | Cross-program account reading by fingerprint |
-| `hopper_accounts!` | Declare typed account context structs |
-| `hopper_manifest!` | Declare a program manifest for schema export |
-| `hopper_assert_compatible!` | Compile-time layout compatibility assertion |
-| `hopper_assert_fingerprint!` | Compile-time fingerprint equality assertion |
-| `const_assert_pod!` | Compile-time checks for manual Pod implementations |
+hopper_layout!: Define a zero-copy account layout with auto-generated header, SHA-256 fingerprint, and tiered load methods.
 
-Instruction-routing macros such as `hopper_dispatch!`, `hopper_dispatch_lazy!`,
-and `hopper_dispatch_8!` live in `hopper-systems` and are re-exported by the
-main `hopper` crate.
+hopper_register_discs!: Assert discriminator uniqueness across a program.
 
-## Usage
+hopper_check!: Composable constraint checks with clear error messages.
 
-These are re-exported through the main `hopper` crate. You don't need to
-depend on `hopper-macros` directly.
+hopper_validate!: Validation combinator blocks.
 
-```rust
-use hopper::systems::*;
+hopper_error!: Define program error codes.
 
-hopper_layout! {
-    pub struct Vault, disc = 1, version = 1 {
-        authority: TypedAddress<Authority>  = 32,
-        balance:   WireU64                  = 8,
-    }
-}
+hopper_require!: Assert-or-error shorthand.
 
-hopper_register_discs! {
-    Vault,
-}
-```
+hopper_init!: Account initialization with header write.
 
-Docs: <https://docs.rs/crate/hopper-macros/0.2.1>
+hopper_close!: Account closure with lamport drain.
 
-## Support
+hopper_verify_pda!: PDA verification using a layout's cached bump offset.
 
-Public-goods support and donations can be sent to `solanadevdao.sol` /
-`F42ZovBoRJZU4av5MiESVwJWnEx8ZQVFkc1RM29zMxNT`.
+hopper_invariant!: Inline invariant check runner.
+
+hopper_segment!: Define typed segment regions within an account.
+
+hopper_virtual!: Map state across multiple accounts.
+
+hopper_interface!: Cross-program account reading by fingerprint.
+
+hopper_accounts!: Declare typed account context structs.
+
+hopper_manifest!: Declare a program manifest for schema export.
+
+hopper_assert_compatible!: Compile-time layout compatibility assertion.
+
+hopper_assert_fingerprint!: Compile-time fingerprint equality assertion.
+
+const_assert_pod!: Compile-time checks for manual Pod implementations.
+
+Instruction-routing macros such as hopper_dispatch!, hopper_dispatch_lazy!, and hopper_dispatch_8! live in hopper-systems and are re-exported by the main hopper crate.
 
 ## License
 
-Apache-2.0
+Apache-2.0. See [LICENSE](../../LICENSE).

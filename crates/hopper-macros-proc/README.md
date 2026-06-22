@@ -1,16 +1,11 @@
-# hopper-derive
+# hopper-macros-proc
 
-Optional proc macro DX layer for [Hopper](https://hopperzero.dev). It generates
-the parsing, validation, and dispatch code for the `#[hopper::state]`,
-`#[derive(Accounts)]`, and `#[hopper::program]` authoring path. The older
-`#[hopper::context]` spelling remains available for lower-level migrations.
+[![Crates.io](https://img.shields.io/crates/v/hopper-macros-proc.svg)](https://crates.io/crates/hopper-macros-proc)
+[![Docs.rs](https://img.shields.io/docsrs/hopper-macros-proc)](https://docs.rs/hopper-macros-proc)
 
-## Not required
+Optional proc macro DX layer for [Hopper](https://hopperzero.dev). It generates parsing, validation, and dispatch code for the #[hopper::state], #[derive(Accounts)], and #[hopper::program] authoring path.
 
-Every feature these macros provide is achievable through Hopper's declarative
-`macro_rules!` macros in [`hopper-macros`](../hopper-macros) or hand-written
-code. They exist for developer velocity. Generated code still lowers to
-Hopper's typed pointer and validation surface.
+Every feature these macros provide is achievable through Hopper's declarative macro_rules! macros in hopper-macros or hand-written code. They exist for developer velocity. Generated code lowers to Hopper's typed pointer and validation surface.
 
 ## What's emitted
 
