@@ -28,6 +28,8 @@
 
 /// Marker for `Copy + Sized` values that are valid for every bit pattern.
 ///
+/// # Safety
+///
 /// This is the **by-value** contract: a `Zeroable` value can be produced
 /// by copying `size_of::<T>()` arbitrary bytes (e.g. a zero fill, or an
 /// unaligned `read_unaligned`). It says **nothing** about alignment, so
@@ -63,10 +65,13 @@ pub unsafe trait Pod: Zeroable {}
 /// Marker for `Copy + Sized` scalars/arrays that may be read **by value**
 /// from raw bytes with [`read_unaligned_value`] (alignment-independent).
 ///
+/// # Safety
+///
 /// Unlike [`Pod`], `ValuePod` does not permit forming a `&T` overlay, so
 /// it is safe to implement for native multi-byte integers. Use it for
 /// instruction-argument decoding and local scalar loads where the value
-/// is copied out, not referenced in place.
+/// is copied out, not referenced in place. Implementers assert every
+/// `[u8; size_of::<T>()]` bit pattern decodes to a valid `T`.
 pub unsafe trait ValuePod: Copy + Sized {}
 
 // ── Primitive implementations ───────────────────────────────────────
@@ -153,7 +158,7 @@ mod tests {
         assert_eq!(v0, 1); // bytes[0..8] LE = 1
         let v1: u64 = read_unaligned_value(&bytes, 1).unwrap();
         assert_eq!(v1, 7 << 56); // bytes[1..9] LE = [0,0,0,0,0,0,0,7]
-        // Out-of-bounds is a clean error, never UB.
+                                 // Out-of-bounds is a clean error, never UB.
         assert!(read_unaligned_value::<u64>(&bytes, 5).is_err());
     }
 

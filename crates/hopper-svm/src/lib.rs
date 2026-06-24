@@ -13,11 +13,8 @@ use std::sync::Mutex;
 static PROCESS_LOCK: Mutex<()> = Mutex::new(());
 
 /// Host-callable Hopper program dispatcher.
-pub type ProcessInstruction = for<'info> fn(
-    &'info Address,
-    &'info [AccountView<'info>],
-    &'info [u8],
-) -> ProgramResult;
+pub type ProcessInstruction =
+    for<'info> fn(&'info Address, &'info [AccountView<'info>], &'info [u8]) -> ProgramResult;
 
 /// Account fixture consumed and produced by [`HopperSvm`].
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -105,7 +102,8 @@ impl HopperSvm {
                 .iter_mut()
                 .map(|account| unsafe { NativeAccountView::new_unchecked(account.raw_mut()) })
                 .collect();
-            let runtime_accounts = unsafe { hopper_runtime::native_boundary::wrap_account_slice(&native_views) };
+            let runtime_accounts =
+                unsafe { hopper_runtime::native_boundary::wrap_account_slice(&native_views) };
             process(&program_id, runtime_accounts, instruction_data)
         };
 
@@ -124,7 +122,7 @@ struct BackingAccount {
 impl BackingAccount {
     fn new(account: &AccountFixture) -> Self {
         let byte_len = RuntimeAccount::SIZE + account.data.len();
-        let word_len = (byte_len + core::mem::size_of::<u64>() - 1) / core::mem::size_of::<u64>();
+        let word_len = byte_len.div_ceil(core::mem::size_of::<u64>());
         let mut backing = Self {
             words: vec![0; word_len],
         };
@@ -203,8 +201,8 @@ mod tests {
     #[test]
     fn process_round_trips_account_mutation() {
         let program_id = Address::new_from_array([9; 32]);
-        let account = AccountFixture::new(Address::new_from_array([1; 32]), program_id, 41, 8)
-            .writable();
+        let account =
+            AccountFixture::new(Address::new_from_array([1; 32]), program_id, 41, 8).writable();
         let result = HopperSvm::new().process_instruction(program_id, &[], &[account], ok_process);
         assert!(result.program_result.is_ok());
         assert_eq!(result.resulting_accounts[0].lamports, 42);

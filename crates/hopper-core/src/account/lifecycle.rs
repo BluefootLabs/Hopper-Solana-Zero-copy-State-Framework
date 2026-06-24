@@ -58,7 +58,10 @@ pub fn safe_close(
 /// writability or ownership. Use it only after those preconditions were already
 /// established by generated or hand-written validation.
 #[inline]
-pub fn safe_close_unchecked(account: &AccountView<'_>, destination: &AccountView<'_>) -> ProgramResult {
+pub fn safe_close_unchecked(
+    account: &AccountView<'_>,
+    destination: &AccountView<'_>,
+) -> ProgramResult {
     // Fail before moving lamports if outstanding data borrows would prevent
     // zeroing the closed account.
     drop(account.try_borrow_mut()?);
@@ -194,7 +197,8 @@ pub(crate) fn rent_exempt_min_internal(data_len: usize) -> Result<u64, ProgramEr
 mod tests {
     use super::*;
     use hopper_native::{
-        AccountView as NativeAccountView, Address as NativeAddress, RuntimeAccount, NOT_BORROWED,
+        AccountView as NativeAccountView, Address as NativeAddress, RuntimeAccount,
+        MAX_PERMITTED_DATA_INCREASE, NOT_BORROWED,
     };
 
     const PROGRAM_BYTES: [u8; 32] = [2; 32];
@@ -212,7 +216,13 @@ mod tests {
         is_writable: bool,
         is_signer: bool,
     ) -> (std::vec::Vec<u8>, AccountView<'static>) {
-        let mut backing = std::vec![0u8; RuntimeAccount::SIZE + data_len];
+        // The Solana loader always reserves `MAX_PERMITTED_DATA_INCREASE` bytes
+        // of growth capacity after the account data (see `raw_input` parsing).
+        // `resize` zero-fills into that reserve, so the test backing buffer must
+        // include it; otherwise a realloc growth writes past the allocation and
+        // corrupts the host heap.
+        let mut backing =
+            std::vec![0u8; RuntimeAccount::SIZE + data_len + MAX_PERMITTED_DATA_INCREASE];
         let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
         // SAFETY: The test owns `backing`, writes one valid RuntimeAccount header,
         // and keeps the backing buffer alive for the returned AccountView.

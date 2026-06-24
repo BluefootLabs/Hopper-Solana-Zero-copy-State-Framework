@@ -6,6 +6,25 @@ on:
     branches: [main]
 
 jobs:
+  lint:
+    name: fmt + clippy
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@v5
+      # Pin to the channel in rust-toolchain.toml so fmt/clippy diagnostics are
+      # deterministic (H-6). Keep this version in sync with that file.
+      - name: Install Rust (pinned, rustfmt + clippy)
+        uses: dtolnay/rust-toolchain@1.96.0
+        with:
+          components: rustfmt, clippy
+      - name: rustfmt
+        run: cargo fmt --all --check
+      - name: clippy
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
   workspace-all-targets:
     name: workspace all-targets (${{ matrix.os }})
     runs-on: ${{ matrix.os }}

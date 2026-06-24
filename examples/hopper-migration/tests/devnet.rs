@@ -89,8 +89,12 @@ fn migration_v1_to_v2_roundtrip() {
         data: vec![INIT_V1_TAG],
     };
     let bh = client.get_latest_blockhash().expect("blockhash");
-    let init_tx =
-        Transaction::new_signed_with_payer(&[init_ix], Some(&payer.pubkey()), &[&payer, &vault], bh);
+    let init_tx = Transaction::new_signed_with_payer(
+        &[init_ix],
+        Some(&payer.pubkey()),
+        &[&payer, &vault],
+        bh,
+    );
     let init_sig = client
         .send_and_confirm_transaction(&init_tx)
         .expect("init_v1 tx should succeed");
@@ -100,7 +104,11 @@ fn migration_v1_to_v2_roundtrip() {
     let v1_data = client
         .get_account_data(&vault.pubkey())
         .expect("get vault data after init");
-    assert_eq!(v1_data.len(), V1_LEN, "freshly-initialized vault is V1-sized");
+    assert_eq!(
+        v1_data.len(),
+        V1_LEN,
+        "freshly-initialized vault is V1-sized"
+    );
     let v1_layout = layout_id(&v1_data);
 
     // 2. migrate_v1_to_v2: authority (signer), vault (writable). The

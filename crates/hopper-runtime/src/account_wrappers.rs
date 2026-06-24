@@ -300,7 +300,9 @@ impl<'info, T: crate::layout::LayoutContract + crate::Pod> InitAccount<'info, T>
     }
 }
 
-impl<'info, T: crate::layout::LayoutContract + crate::Pod> core::ops::Deref for InitAccount<'info, T> {
+impl<'info, T: crate::layout::LayoutContract + crate::Pod> core::ops::Deref
+    for InitAccount<'info, T>
+{
     type Target = AccountView<'info>;
 
     #[inline(always)]
@@ -509,7 +511,9 @@ pub trait InterfaceAccountLayout: crate::layout::LayoutContract {
     /// interface layouts can override this to accept a bounded set of concrete
     /// layout variants while still using the same `InterfaceAccount` wrapper.
     #[inline]
-    fn validate_interface_account(view: &AccountView<'_>) -> Result<(), crate::error::ProgramError> {
+    fn validate_interface_account(
+        view: &AccountView<'_>,
+    ) -> Result<(), crate::error::ProgramError> {
         let info = view
             .layout_info()
             .ok_or(crate::error::ProgramError::InvalidAccountData)?;
@@ -537,8 +541,9 @@ pub trait InterfaceAccountResolve: InterfaceAccountLayout {
         Self: 'a;
 
     /// Resolve the account bytes to a concrete borrowed variant.
-    fn resolve<'a>(view: &'a AccountView<'a>)
-        -> Result<Self::Resolved<'a>, crate::error::ProgramError>;
+    fn resolve<'a>(
+        view: &'a AccountView<'a>,
+    ) -> Result<Self::Resolved<'a>, crate::error::ProgramError>;
 }
 
 /// Executable program account whose key is one of an interface's program IDs.
@@ -710,7 +715,8 @@ impl<'info, T: InterfaceAccountLayout> InterfaceAccount<'info, T> {
     #[inline(always)]
     pub fn load_as<U>(&self) -> Result<crate::borrow::Ref<'_, U>, crate::error::ProgramError>
     where
-        U: InterfaceAccountLayout<Interface = <T as InterfaceAccountLayout>::Interface> + crate::Pod,
+        U: InterfaceAccountLayout<Interface = <T as InterfaceAccountLayout>::Interface>
+            + crate::Pod,
     {
         self.inner.load_cross_program::<U>()
     }
@@ -719,7 +725,8 @@ impl<'info, T: InterfaceAccountLayout> InterfaceAccount<'info, T> {
     #[inline(always)]
     pub fn get_as<U>(&self) -> Result<crate::borrow::Ref<'_, U>, crate::error::ProgramError>
     where
-        U: InterfaceAccountLayout<Interface = <T as InterfaceAccountLayout>::Interface> + crate::Pod,
+        U: InterfaceAccountLayout<Interface = <T as InterfaceAccountLayout>::Interface>
+            + crate::Pod,
     {
         self.load_as::<U>()
     }
@@ -728,7 +735,8 @@ impl<'info, T: InterfaceAccountLayout> InterfaceAccount<'info, T> {
     #[inline]
     pub fn with_as<U, R, F>(&self, f: F) -> Result<R, crate::error::ProgramError>
     where
-        U: InterfaceAccountLayout<Interface = <T as InterfaceAccountLayout>::Interface> + crate::Pod,
+        U: InterfaceAccountLayout<Interface = <T as InterfaceAccountLayout>::Interface>
+            + crate::Pod,
         F: FnOnce(&U) -> Result<R, crate::error::ProgramError>,
     {
         let account = self.load_as::<U>()?;
@@ -740,7 +748,8 @@ impl<'info, T: InterfaceAccountLayout> InterfaceAccount<'info, T> {
     #[inline(always)]
     pub fn is<U>(&self) -> bool
     where
-        U: InterfaceAccountLayout<Interface = <T as InterfaceAccountLayout>::Interface> + crate::Pod,
+        U: InterfaceAccountLayout<Interface = <T as InterfaceAccountLayout>::Interface>
+            + crate::Pod,
     {
         self.inner
             .layout_info()
@@ -937,7 +946,10 @@ mod resolver_tests {
         }
     }
 
-    fn make_account(total_data_len: usize, owner: Address) -> (std::vec::Vec<u8>, AccountView<'static>) {
+    fn make_account(
+        total_data_len: usize,
+        owner: Address,
+    ) -> (std::vec::Vec<u8>, AccountView<'static>) {
         let mut backing = std::vec![0u8; RuntimeAccount::SIZE + total_data_len];
         let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
         // SAFETY: The test owns `backing`, writes one RuntimeAccount header,

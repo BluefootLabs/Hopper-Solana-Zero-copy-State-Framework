@@ -201,6 +201,28 @@ pub mod return_data {
     pub use hopper_runtime::return_data::*;
 }
 
+/// Sysvar access (Clock, Rent, EpochSchedule, SlotHashes, StakeHistory,
+/// LastRestartSlot, epoch stake) via direct syscalls — no account passing,
+/// no deserialization.
+///
+/// Framework-mode programs that need on-chain time, rent-exempt minimums, or
+/// epoch/slot context import these here (`hopper::sysvar::Clock::get()`,
+/// `hopper::sysvar::get_rent()`), instead of descending into the low-level
+/// `hopper::substrate::sysvar` substrate path.
+pub mod sysvar {
+    pub use hopper_runtime::__hopper_native::sysvar::*;
+
+    // Instructions-sysvar introspection lives here too, so a single
+    // `hopper::sysvar` import covers both the direct-syscall sysvars
+    // (Clock/Rent/EpochRewards/…) and reading the Instructions sysvar
+    // account (parity with Pinocchio `Instructions<T>` / Quasar
+    // introspection). The richer guard helpers stay in `hopper::systems`.
+    pub use hopper_core::check::{
+        current_instruction_index, instruction_count, read_program_id_at, InstructionAccountMeta,
+        InstructionsSysvar, IntrospectedInstruction,
+    };
+}
+
 /// System Program helpers.
 #[allow(unused_imports)]
 pub mod system {
@@ -338,17 +360,17 @@ pub mod systems {
     pub use crate::compute::*;
     pub use crate::interface::*;
     pub use crate::layout::*;
+    pub use crate::math::*;
     pub use crate::memory::*;
     pub use crate::migration::*;
-    pub use crate::math::*;
     pub use crate::policy::*;
     pub use crate::receipt::*;
     pub use crate::return_data::*;
     pub use crate::schema::*;
     pub use crate::segment::*;
     pub use crate::{
-        compute, crypto, interface, layout, math, memory, migration, policy, receipt,
-        return_data, schema, segment,
+        compute, crypto, interface, layout, math, memory, migration, policy, receipt, return_data,
+        schema, segment,
     };
 
     pub use hopper_core::account::{
@@ -364,14 +386,13 @@ pub mod systems {
     pub use hopper_runtime::{
         default_allocator, fast_entrypoint, hopper_entrypoint, hopper_fast_entrypoint,
         hopper_lazy_entrypoint, lazy_entrypoint, no_allocator, nostd_panic_handler,
-        program_entrypoint, AccountProof,
-        BoundedString, BoundedVec, ExecutableChecked, ExplainExternal, ExternalBytes,
-        ExternalChecked, ExternalExplainSink, ExternalLens, ExternalLensValue, ExternalProof,
-        ExternalResolve, HasOneChecked, HopperString, HopperVec, InstructionAccount,
-        InstructionView, LayoutChecked, OwnerChecked, RemainingExternalAccounts, RemainingGroup,
-        RemainingLazy, RemainingLazySlot, Seed, SeedsChecked, SignerChecked, StoredAccountMeta,
-        StoredInstruction, TailCodec, TailElement, TokenExtensionsChecked, Unchecked,
-        WritableChecked,
+        program_entrypoint, AccountProof, BoundedString, BoundedVec, ExecutableChecked,
+        ExplainExternal, ExternalBytes, ExternalChecked, ExternalExplainSink, ExternalLens,
+        ExternalLensValue, ExternalProof, ExternalResolve, HasOneChecked, HopperString, HopperVec,
+        InstructionAccount, InstructionView, LayoutChecked, OwnerChecked,
+        RemainingExternalAccounts, RemainingGroup, RemainingLazy, RemainingLazySlot, Seed,
+        SeedsChecked, SignerChecked, StoredAccountMeta, StoredInstruction, TailCodec, TailElement,
+        TokenExtensionsChecked, Unchecked, WritableChecked,
     };
 
     pub use crate::{
@@ -728,11 +749,11 @@ macro_rules! hopper_dynamic_fields {
 // the top-level `hopper::*` path without needing to reach through
 // `hopper_runtime::`.
 pub use hopper_runtime::{
-    address, default_allocator, err, error, fast_entrypoint, hopper_emit_cpi, hopper_entrypoint,
-    hopper_fast_entrypoint, hopper_lazy_entrypoint, hopper_log, hopper_unsafe_region,
-    lazy_entrypoint, msg, no_allocator, nostd_panic_handler, program_entrypoint, require,
-    require_eq, require_gt, require_gte, require_keys_eq, require_keys_neq, require_lt,
-    require_lte, require_neq,
+    address, declare_id, default_allocator, err, error, fast_entrypoint, hopper_emit_cpi,
+    hopper_entrypoint, hopper_fast_entrypoint, hopper_lazy_entrypoint, hopper_log,
+    hopper_unsafe_region, lazy_entrypoint, msg, no_allocator, nostd_panic_handler,
+    program_entrypoint, require, require_eq, require_gt, require_gte, require_keys_eq,
+    require_keys_neq, require_lt, require_lte, require_neq,
 };
 
 /// Declare a bounded multi-layout interface account resolver.

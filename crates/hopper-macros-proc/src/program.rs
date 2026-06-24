@@ -609,8 +609,7 @@ fn expect_bool_lit(expr: &Expr) -> Result<bool> {
 
 fn expect_usize_lit(expr: &Expr, name: &str) -> Result<usize> {
     if let Expr::Lit(ExprLit {
-        lit: Lit::Int(int),
-        ..
+        lit: Lit::Int(int), ..
     }) = expr
     {
         int.base10_parse::<usize>()

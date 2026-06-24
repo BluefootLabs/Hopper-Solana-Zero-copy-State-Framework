@@ -55,7 +55,10 @@ pub fn instruction_count(sysvar_data: &[u8]) -> Result<u16, ProgramError> {
 /// # CU Cost
 /// Minimal -- sysvar data reads + one 32-byte comparison. No syscall.
 #[inline(always)]
-pub fn assert_no_cpi(instructions_sysvar: &AccountView<'_>, our_program_id: &Address) -> ProgramResult {
+pub fn assert_no_cpi(
+    instructions_sysvar: &AccountView<'_>,
+    our_program_id: &Address,
+) -> ProgramResult {
     // Verify the account is actually the Instructions sysvar
     if *instructions_sysvar.address() != SYSVAR_INSTRUCTIONS_ID {
         return Err(ProgramError::InvalidArgument);

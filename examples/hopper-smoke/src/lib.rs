@@ -152,6 +152,9 @@ mod smoke_program {
 impl<'info> Initialize<'info> {
     pub fn initialize(&self) -> ProgramResult {
         // Read the on-chain clock so the vault records its birth time.
+        // NOTE: this sample uses the low-level `substrate` layer on purpose to
+        // demonstrate it; application code should prefer the ergonomic
+        // `hopper::sysvar::Clock::get()` (or `hopper::sysvar::get_clock()`).
         let now = hopper::substrate::sysvar::get_clock()?;
 
         let mut vault = self.vault.get_mut_after_init()?;

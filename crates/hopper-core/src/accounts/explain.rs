@@ -26,9 +26,12 @@ impl AccountFieldSchema {
     pub const fn account_class(&self) -> AccountClass {
         if matches_str(self.kind, "ExternalAccount") {
             AccountClass::ExternalKnown
-        } else if matches_str(self.kind, "Interface") || matches_str(self.kind, "InterfaceAccount") {
+        } else if matches_str(self.kind, "Interface") || matches_str(self.kind, "InterfaceAccount")
+        {
             AccountClass::Interface
-        } else if matches_str(self.kind, "UncheckedAccount") || matches_str(self.kind, "AccountView") {
+        } else if matches_str(self.kind, "UncheckedAccount")
+            || matches_str(self.kind, "AccountView")
+        {
             AccountClass::Raw
         } else if matches_str(self.kind, "Program") || matches_str(self.kind, "ProgramRef") {
             AccountClass::Program

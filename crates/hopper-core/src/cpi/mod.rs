@@ -117,7 +117,8 @@ impl<'a, const ACCTS: usize, const DATA: usize> HopperCpi<'a, ACCTS, DATA> {
             // (enforced by the debug_assert above). We transmute the
             // MaybeUninit array to the initialized reference array.
             let views: &[&hopper_runtime::AccountView<'_>; ACCTS] = unsafe {
-                &*(&self.account_views as *const [MaybeUninit<&hopper_runtime::AccountView<'_>>; ACCTS]
+                &*(&self.account_views
+                    as *const [MaybeUninit<&hopper_runtime::AccountView<'_>>; ACCTS]
                     as *const [&hopper_runtime::AccountView<'_>; ACCTS])
             };
 
@@ -255,7 +256,8 @@ impl<'a, const ACCTS: usize, const MAX: usize> HopperCpiBuf<'a, ACCTS, MAX> {
 
             // SAFETY: All ACCTS slots initialized via add_account.
             let views: &[&hopper_runtime::AccountView<'_>; ACCTS] = unsafe {
-                &*(&self.account_views as *const [MaybeUninit<&hopper_runtime::AccountView<'_>>; ACCTS]
+                &*(&self.account_views
+                    as *const [MaybeUninit<&hopper_runtime::AccountView<'_>>; ACCTS]
                     as *const [&hopper_runtime::AccountView<'_>; ACCTS])
             };
 

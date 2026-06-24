@@ -51,8 +51,8 @@ use crate::borrow::Ref;
 use crate::crypto::{sha256_single, Sha256Hash};
 use crate::error::ProgramError;
 use crate::layout::{HopperHeader, LayoutContract};
-use crate::ProgramResult;
 use crate::zerocopy::{AccountLayout, ZeroCopy};
+use crate::ProgramResult;
 use core::marker::PhantomData;
 
 /// Validation contract for known non-Hopper account layouts.
@@ -745,7 +745,9 @@ mod tests {
     impl ExternalProof<SampleExternal> for SampleValueProof {
         type Proof<'a> = SampleValueChecked;
 
-        fn verify<'a>(account: ExternalAccount<'a, SampleExternal>) -> Result<Self::Proof<'a>, ProgramError> {
+        fn verify<'a>(
+            account: ExternalAccount<'a, SampleExternal>,
+        ) -> Result<Self::Proof<'a>, ProgramError> {
             let value = account.view()?.value();
             if value == view_u16(b"12") {
                 Ok(SampleValueChecked { value })
@@ -755,7 +757,10 @@ mod tests {
         }
     }
     impl ExplainExternal for SampleExternal {
-        fn explain<S: ExternalExplainSink>(account: &AccountView<'_>, sink: &mut S) -> ProgramResult {
+        fn explain<S: ExternalExplainSink>(
+            account: &AccountView<'_>,
+            sink: &mut S,
+        ) -> ProgramResult {
             let external = ExternalAccount::<SampleExternal>::try_new(account)?;
             external.with_view(|view| {
                 sink.field_str("adapter", "SampleExternal")?;
@@ -778,7 +783,10 @@ mod tests {
             Ok(())
         }
     }
-    fn make_external_account(owner: Address, data: &[u8]) -> (std::vec::Vec<u8>, AccountView<'static>) {
+    fn make_external_account(
+        owner: Address,
+        data: &[u8],
+    ) -> (std::vec::Vec<u8>, AccountView<'static>) {
         let mut backing = std::vec![0u8; RuntimeAccount::SIZE + data.len()];
         let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
         // SAFETY: Test helper initializes a valid RuntimeAccount header and

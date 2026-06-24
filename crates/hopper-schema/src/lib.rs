@@ -835,11 +835,10 @@ impl CompatibilityExplain {
             let name_eq = const_str_eq(old_f.name, new_f.name);
             let type_eq = const_str_eq(old_f.canonical_type, new_f.canonical_type);
             let size_eq = old_f.size == new_f.size;
-            if !(name_eq && type_eq && size_eq)
-                && (changed_n as usize) < 16 {
-                    changed[changed_n as usize] = old_f.name;
-                    changed_n += 1;
-                }
+            if !(name_eq && type_eq && size_eq) && (changed_n as usize) < 16 {
+                changed[changed_n as usize] = old_f.name;
+                changed_n += 1;
+            }
             i += 1;
         }
         // Fields only in newer (added).
@@ -3335,44 +3334,46 @@ pub fn lint_layout<const N: usize>(
         if field.intent.is_authority_sensitive()
             && behavior.mutation_class.is_mutating()
             && !behavior.requires_signer
-            && count < N {
-                lints[count] = SemanticLint {
-                    severity: LintSeverity::Error,
-                    code: "E001",
-                    message:
-                        "Authority-sensitive field in mutable layout without signer requirement",
-                    field: field.name,
-                };
-                count += 1;
-            }
+            && count < N
+        {
+            lints[count] = SemanticLint {
+                severity: LintSeverity::Error,
+                code: "E001",
+                message: "Authority-sensitive field in mutable layout without signer requirement",
+                field: field.name,
+            };
+            count += 1;
+        }
 
         // Financial field mutated without financial mutation class
         if field.intent.is_monetary()
             && behavior.mutation_class.is_mutating()
             && !matches!(behavior.mutation_class, MutationClass::Financial)
-            && count < N {
-                lints[count] = SemanticLint {
-                    severity: LintSeverity::Warning,
-                    code: "W001",
-                    message: "Monetary field in layout without financial mutation class",
-                    field: field.name,
-                };
-                count += 1;
-            }
+            && count < N
+        {
+            lints[count] = SemanticLint {
+                severity: LintSeverity::Warning,
+                code: "W001",
+                message: "Monetary field in layout without financial mutation class",
+                field: field.name,
+            };
+            count += 1;
+        }
 
         // Init-only field (PDA seed, bump) in a layout that isn't read-only
         if field.intent.is_init_only()
             && behavior.mutation_class.is_mutating()
             && !matches!(behavior.mutation_class, MutationClass::AppendOnly)
-            && count < N {
-                lints[count] = SemanticLint {
+            && count < N
+        {
+            lints[count] = SemanticLint {
                     severity: LintSeverity::Warning,
                     code: "W002",
                     message: "Init-only field (PDA seed or bump) in mutable layout. Consider making read-only or append-only.",
                     field: field.name,
                 };
-                count += 1;
-            }
+            count += 1;
+        }
 
         i += 1;
     }
@@ -3380,16 +3381,15 @@ pub fn lint_layout<const N: usize>(
     // Layout-wide lints
 
     // Mutable layout with no signer
-    if behavior.mutation_class.is_mutating() && !behavior.requires_signer
-        && count < N {
-            lints[count] = SemanticLint {
-                severity: LintSeverity::Warning,
-                code: "W003",
-                message: "Mutable layout does not require signer. Verify this is intentional.",
-                field: "",
-            };
-            count += 1;
-        }
+    if behavior.mutation_class.is_mutating() && !behavior.requires_signer && count < N {
+        lints[count] = SemanticLint {
+            severity: LintSeverity::Warning,
+            code: "W003",
+            message: "Mutable layout does not require signer. Verify this is intentional.",
+            field: "",
+        };
+        count += 1;
+    }
 
     // Financial impact without balance tracking
     if behavior.affects_balance {
@@ -3436,28 +3436,30 @@ pub fn lint_policy<const N: usize>(
     // Financial mutation class without financial policy class
     if matches!(behavior.mutation_class, MutationClass::Financial)
         && !matches!(policy, hopper_core::policy::PolicyClass::Financial)
-        && count < N {
-            lints[count] = SemanticLint {
-                severity: LintSeverity::Warning,
-                code: "W005",
-                message: "Financial mutation class but policy class is not Financial",
-                field: "",
-            };
-            count += 1;
-        }
+        && count < N
+    {
+        lints[count] = SemanticLint {
+            severity: LintSeverity::Warning,
+            code: "W005",
+            message: "Financial mutation class but policy class is not Financial",
+            field: "",
+        };
+        count += 1;
+    }
 
     // Financial policy class without financial mutation class
     if matches!(policy, hopper_core::policy::PolicyClass::Financial)
         && !matches!(behavior.mutation_class, MutationClass::Financial)
-        && count < N {
-            lints[count] = SemanticLint {
-                severity: LintSeverity::Warning,
-                code: "W006",
-                message: "Financial policy class but mutation class is not Financial",
-                field: "",
-            };
-            count += 1;
-        }
+        && count < N
+    {
+        lints[count] = SemanticLint {
+            severity: LintSeverity::Warning,
+            code: "W006",
+            message: "Financial policy class but mutation class is not Financial",
+            field: "",
+        };
+        count += 1;
+    }
 
     (count, lints)
 }

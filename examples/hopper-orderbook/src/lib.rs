@@ -234,7 +234,8 @@ fn segment_push_order(
     // align-1 Pod, and `base` is bounded by the `count < SIDE_CAP`
     // capacity check above, so the window lies inside the segment.
     // SAFETY: rec is a valid OrderRecord (56 bytes), alignment 1.
-    let bytes: &[u8] = unsafe { core::slice::from_raw_parts(rec as *const _ as *const u8, OrderRecord::SIZE) };
+    let bytes: &[u8] =
+        unsafe { core::slice::from_raw_parts(rec as *const _ as *const u8, OrderRecord::SIZE) };
     slot.copy_from_slice(bytes);
     let new_count = count + 1;
     region[0..4].copy_from_slice(&new_count.to_le_bytes());
@@ -262,11 +263,7 @@ fn parse_order(owner: &AccountView, data: &[u8], seq: u64) -> Result<OrderRecord
 // Instruction 1 / 2: Post Bid / Post Ask
 // =====================================================================
 
-fn process_post_bid(
-    program_id: &Address,
-    accounts: &[AccountView],
-    data: &[u8],
-) -> ProgramResult {
+fn process_post_bid(program_id: &Address, accounts: &[AccountView], data: &[u8]) -> ProgramResult {
     if accounts.len() < 2 {
         return Err(ProgramError::NotEnoughAccountKeys);
     }
@@ -282,11 +279,7 @@ fn process_post_bid(
     Ok(())
 }
 
-fn process_post_ask(
-    program_id: &Address,
-    accounts: &[AccountView],
-    data: &[u8],
-) -> ProgramResult {
+fn process_post_ask(program_id: &Address, accounts: &[AccountView], data: &[u8]) -> ProgramResult {
     if accounts.len() < 2 {
         return Err(ProgramError::NotEnoughAccountKeys);
     }
@@ -319,11 +312,7 @@ fn slot_seq(data: &[u8]) -> u64 {
 // segment, demonstrating that a single instruction borrows only the
 // regions it needs.
 
-fn process_match(
-    program_id: &Address,
-    accounts: &[AccountView],
-    _data: &[u8],
-) -> ProgramResult {
+fn process_match(program_id: &Address, accounts: &[AccountView], _data: &[u8]) -> ProgramResult {
     if accounts.is_empty() {
         return Err(ProgramError::NotEnoughAccountKeys);
     }
@@ -343,8 +332,9 @@ fn process_match(
         }
         let top = (count - 1) as usize;
         let base = SEG_META as usize + top * OrderRecord::SIZE;
-                // SAFETY: window is OrderRecord::SIZE bytes, within segment bounds checked above.
-            let rec: &OrderRecord = unsafe { &*(asks[base..base + OrderRecord::SIZE].as_ptr() as *const OrderRecord) };
+        // SAFETY: window is OrderRecord::SIZE bytes, within segment bounds checked above.
+        let rec: &OrderRecord =
+            unsafe { &*(asks[base..base + OrderRecord::SIZE].as_ptr() as *const OrderRecord) };
         let m = rec.maker_clone();
         asks[0..4].copy_from_slice(&(count - 1).to_le_bytes());
         m
@@ -362,9 +352,10 @@ fn process_match(
             size: size.to_le_bytes(),
         };
         let dst = &mut events[base..base + EventRecord::SIZE];
-                // SAFETY: ev is a valid EventRecord (48 bytes), alignment 1.
-            let ev_bytes: &[u8] = unsafe { core::slice::from_raw_parts(&ev as *const _ as *const u8, EventRecord::SIZE) };
-            dst.copy_from_slice(ev_bytes);
+        // SAFETY: ev is a valid EventRecord (48 bytes), alignment 1.
+        let ev_bytes: &[u8] =
+            unsafe { core::slice::from_raw_parts(&ev as *const _ as *const u8, EventRecord::SIZE) };
+        dst.copy_from_slice(ev_bytes);
         events[0..4].copy_from_slice(&(tail + 1).to_le_bytes());
     }
 

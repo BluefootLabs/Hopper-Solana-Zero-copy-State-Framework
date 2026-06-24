@@ -16,7 +16,10 @@ use crate::ProgramResult;
 /// normally be 3 separate operations (read lamports, set source to 0,
 /// add to destination) into one safe call.
 #[inline]
-pub fn close_and_transfer(source: &AccountView<'_>, destination: &AccountView<'_>) -> ProgramResult {
+pub fn close_and_transfer(
+    source: &AccountView<'_>,
+    destination: &AccountView<'_>,
+) -> ProgramResult {
     let lamports = source.lamports();
     if lamports == 0 {
         // Already empty -- just close.
@@ -42,7 +45,11 @@ pub fn close_and_transfer(source: &AccountView<'_>, destination: &AccountView<'_
 /// manipulation is cheaper than a system program CPI transfer.
 /// This method checks for sufficient balance and overflow.
 #[inline]
-pub fn transfer_lamports(from: &AccountView<'_>, to: &AccountView<'_>, amount: u64) -> ProgramResult {
+pub fn transfer_lamports(
+    from: &AccountView<'_>,
+    to: &AccountView<'_>,
+    amount: u64,
+) -> ProgramResult {
     let from_lamports = from.lamports();
     if from_lamports < amount {
         return Err(ProgramError::InsufficientFunds);

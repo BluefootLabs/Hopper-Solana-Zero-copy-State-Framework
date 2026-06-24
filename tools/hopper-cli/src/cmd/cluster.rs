@@ -86,8 +86,8 @@ pub fn parse_cluster_args(args: &[String]) -> Result<ClusterArgs, String> {
                 let v = args
                     .get(i + 1)
                     .ok_or_else(|| format!("{} requires a value", args[i]))?;
-                let (resolved, lbl, mainnet) = cluster_url(v)
-                    .ok_or_else(|| format!("unknown cluster moniker: {v}"))?;
+                let (resolved, lbl, mainnet) =
+                    cluster_url(v).ok_or_else(|| format!("unknown cluster moniker: {v}"))?;
                 url = resolved;
                 label = lbl;
                 is_mainnet = mainnet;

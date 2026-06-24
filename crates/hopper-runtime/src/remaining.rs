@@ -519,7 +519,9 @@ impl<'a> RemainingTyped<'a> {
         };
         let mut index = 0;
         while index < self.remaining.len() {
-            strict.get(index)?.ok_or(ProgramError::NotEnoughAccountKeys)?;
+            strict
+                .get(index)?
+                .ok_or(ProgramError::NotEnoughAccountKeys)?;
             index += 1;
         }
         Ok(())
@@ -800,7 +802,8 @@ mod tests {
         let (_external_backing, external) = make_account([2; 32], EXTERNAL_OWNER, false, b"EX12");
         let (_signer_backing, signer) =
             make_account([3; 32], Address::new_from_array([9; 32]), true, b"");
-        let (_raw_backing, raw) = make_account([4; 32], Address::new_from_array([9; 32]), false, b"");
+        let (_raw_backing, raw) =
+            make_account([4; 32], Address::new_from_array([9; 32]), false, b"");
 
         let declared_accounts = [declared];
         let remaining_accounts = [external, signer, raw];
@@ -829,15 +832,26 @@ mod tests {
         let remaining_accounts = [external_a, external_b, signer];
         let accounts = RemainingAccounts::strict(&declared_accounts, &remaining_accounts);
 
-        let lazy_external = accounts.lazy().at(1).unwrap().external::<SampleExternal>().unwrap();
+        let lazy_external = accounts
+            .lazy()
+            .at(1)
+            .unwrap()
+            .external::<SampleExternal>()
+            .unwrap();
         assert_eq!(lazy_external.key(), remaining_accounts[1].address());
 
         let mut typed = accounts.typed().no_duplicates().unwrap();
         let mut oracle_group = typed.take_group(2).unwrap();
         let parsed = oracle_group.parse_external::<SampleExternal, 4>().unwrap();
         assert_eq!(parsed.len(), 2);
-        assert_eq!(parsed.get(0).unwrap().key(), remaining_accounts[0].address());
-        assert_eq!(parsed.get(1).unwrap().key(), remaining_accounts[1].address());
+        assert_eq!(
+            parsed.get(0).unwrap().key(),
+            remaining_accounts[0].address()
+        );
+        assert_eq!(
+            parsed.get(1).unwrap().key(),
+            remaining_accounts[1].address()
+        );
         assert!(oracle_group.assert_empty().is_ok());
 
         let signer = typed.next_signer().unwrap();

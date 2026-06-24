@@ -1,0 +1,14 @@
+# Pinned toolchain for reproducible CI gates.
+#
+# Why pin (H-6): without a checked-in channel, `cargo fmt --check` and the
+# trybuild `.stderr` snapshots in `tests/compile_fail/` drift with whatever
+# rustc the runner happens to install — the snapshots encode compiler
+# diagnostic formatting (line-number gutters, label wording), which changes
+# between releases. Pinning makes both gates deterministic.
+#
+# 1.96.0 is the stable release the audit/build was validated against; it is
+# the floor for the workspace (edition 2021). Bump deliberately and re-bless
+# the trybuild snapshots in the same change.
+[toolchain]
+channel = "1.96.0"
+components = ["rustfmt", "clippy"]

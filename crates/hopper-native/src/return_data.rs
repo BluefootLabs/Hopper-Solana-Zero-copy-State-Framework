@@ -62,7 +62,7 @@ impl ReturnData {
 
         let align = core::mem::align_of::<T>();
         let ptr = self.buf.as_ptr();
-        if (ptr as usize) % align != 0 {
+        if !(ptr as usize).is_multiple_of(align) {
             return Err(ProgramError::InvalidAccountData);
         }
 

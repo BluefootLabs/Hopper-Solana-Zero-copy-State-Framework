@@ -4,7 +4,11 @@ error[E0277]: the trait bound `&'static u8: Pod` is not satisfied
 6 | #[pod]
   | ^^^^^^ the trait `Pod` is not implemented for `&'static u8`
   |
-  = help: the trait `Pod` is implemented for `u8`
+help: the trait `Pod` is implemented for `u8`
+ --> crates/hopper-native/src/pod.rs
+  |
+  | unsafe impl Pod for u8 {}
+  | ^^^^^^^^^^^^^^^^^^^^^^
 note: required by a bound in `__FieldPodProof`
  --> tests/compile_fail/pod_reference_field.rs:6:1
   |

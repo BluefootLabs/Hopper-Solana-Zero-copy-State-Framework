@@ -1,7 +1,10 @@
 extern crate std;
 
 use {
-    hopper::{layout, prelude::{Address, WireU64}},
+    hopper::{
+        layout,
+        prelude::{Address, WireU64},
+    },
     hopper_svm::{AccountFixture, HopperSvm, ProcessResult},
     std::{println, vec, vec::Vec},
 };

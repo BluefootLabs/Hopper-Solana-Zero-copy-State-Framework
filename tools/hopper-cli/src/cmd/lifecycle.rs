@@ -741,14 +741,19 @@ pub fn cmd_close(args: &[String]) {
         if buffers {
             "all dangling buffers".to_string()
         } else {
-            eprintln!("hopper close failed: pass --program-id <pubkey>, --buffer <pubkey>, or --buffers");
+            eprintln!(
+                "hopper close failed: pass --program-id <pubkey>, --buffer <pubkey>, or --buffers"
+            );
             process::exit(1);
         }
     });
 
     // close is irreversible everywhere, so always confirm unless --yes.
     if !cluster.yes {
-        eprint!("About to close {label} on {}. This is irreversible. Type 'yes' to continue: ", cluster.label);
+        eprint!(
+            "About to close {label} on {}. This is irreversible. Type 'yes' to continue: ",
+            cluster.label
+        );
         use std::io::Write;
         let _ = std::io::stderr().flush();
         let mut line = String::new();

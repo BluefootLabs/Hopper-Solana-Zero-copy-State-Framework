@@ -216,7 +216,11 @@ pub fn check_accounts_unique(a: &AccountView<'_>, b: &AccountView<'_>) -> Progra
 
 /// Check that three accounts are all unique.
 #[inline(always)]
-pub fn check_accounts_unique_3(a: &AccountView<'_>, b: &AccountView<'_>, c: &AccountView<'_>) -> ProgramResult {
+pub fn check_accounts_unique_3(
+    a: &AccountView<'_>,
+    b: &AccountView<'_>,
+    c: &AccountView<'_>,
+) -> ProgramResult {
     if address_eq(a.address(), b.address())
         || address_eq(a.address(), c.address())
         || address_eq(b.address(), c.address())

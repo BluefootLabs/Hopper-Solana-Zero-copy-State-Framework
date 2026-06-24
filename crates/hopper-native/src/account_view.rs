@@ -901,7 +901,10 @@ impl<'a> RemainingAccounts<'a> {
 
     /// Take the next account owned by the given program.
     #[inline(always)]
-    pub fn next_owned_by(&mut self, program: &Address) -> Result<&'a AccountView<'a>, ProgramError> {
+    pub fn next_owned_by(
+        &mut self,
+        program: &Address,
+    ) -> Result<&'a AccountView<'a>, ProgramError> {
         let account = self.next()?;
         account.require_owned_by(program)?;
         Ok(account)

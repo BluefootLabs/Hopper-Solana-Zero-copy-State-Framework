@@ -309,7 +309,11 @@ fn looks_like_tx_signature(s: &str) -> bool {
     if s.len() < 84 || s.len() > 90 {
         return false;
     }
-    is_base58(s) && bs58::decode(s).into_vec().map(|b| b.len() == 64).unwrap_or(false)
+    is_base58(s)
+        && bs58::decode(s)
+            .into_vec()
+            .map(|b| b.len() == 64)
+            .unwrap_or(false)
 }
 
 /// A base58 program address is 32 raw bytes (32-44 base58 chars). We
@@ -327,7 +331,10 @@ fn looks_like_program_id(s: &str) -> bool {
     if all_hex {
         return false;
     }
-    bs58::decode(s).into_vec().map(|b| b.len() == 32).unwrap_or(false)
+    bs58::decode(s)
+        .into_vec()
+        .map(|b| b.len() == 32)
+        .unwrap_or(false)
 }
 
 fn is_base58(s: &str) -> bool {
@@ -2455,7 +2462,9 @@ fn print_usage() {
     println!("    hopper build [--host|--sbf]        Build the current project (default: SBF)");
     println!("    hopper test                        Run the current project's host-side tests");
     println!("    hopper deploy [--cluster <c>] [--keypair <p>] [--no-build]  Build and deploy the current SBF program");
-    println!("    hopper upgrade --program-id <id> [--cluster <c>]  Upgrade a deployed program in place");
+    println!(
+        "    hopper upgrade --program-id <id> [--cluster <c>]  Upgrade a deployed program in place"
+    );
     println!("    hopper close --program-id <id> [--cluster <c>]    Close a program/buffer and reclaim rent");
     println!("    hopper migrate --program-id <id> [--cluster <c>]  Upgrade a program carrying a layout migration");
     println!("    hopper dump [--no-build]           Disassemble the current SBF artifact");

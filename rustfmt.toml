@@ -1,0 +1,9 @@
+# Formatting contract for the workspace, paired with the pinned toolchain in
+# rust-toolchain.toml so `cargo fmt --check` is a stable CI gate (H-6).
+#
+# These are stable-rustfmt defaults stated explicitly: the tree is normalized
+# to plain stable formatting (max_width 100) rather than an unreproducible
+# nightly config. Keep this minimal — only stable keys, so `cargo fmt` works
+# without `--nightly`.
+edition = "2021"
+max_width = 100

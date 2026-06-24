@@ -303,7 +303,10 @@ pub struct ShardedAccess<'a, const SHARDS: usize> {
 impl<'a, const SHARDS: usize> ShardedAccess<'a, SHARDS> {
     /// Create a sharded access from account indices.
     #[inline]
-    pub fn new(accounts: &'a [AccountView<'a>], shard_indices: &[u8]) -> Result<Self, ProgramError> {
+    pub fn new(
+        accounts: &'a [AccountView<'a>],
+        shard_indices: &[u8],
+    ) -> Result<Self, ProgramError> {
         if shard_indices.len() > SHARDS {
             return Err(ProgramError::InvalidArgument);
         }

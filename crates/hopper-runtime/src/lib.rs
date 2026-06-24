@@ -186,6 +186,39 @@ macro_rules! address {
     };
 }
 
+/// Declare a program's on-chain id, mirroring the `declare_id!` convention
+/// every other Solana framework ships (Anchor, Pinocchio, Quasar).
+///
+/// Expands to a `pub const ID: Address` decoded at compile time, a
+/// `pub const fn id() -> Address` accessor, and a `pub fn check_id(&Address)
+/// -> bool` guard. Programs that pin their own id for self-PDA derivation,
+/// CPI-guard checks, or `require_keys_eq!(program.key(), &crate::ID)` use this
+/// instead of hand-rolling an [`address!`] constant.
+///
+/// ```ignore
+/// hopper::declare_id!("D8UGWDX5QRwEkKs2J9Sweabf4zd6hzdLqv7CB11SF91F");
+/// assert!(crate::check_id(&crate::ID));
+/// ```
+#[macro_export]
+macro_rules! declare_id {
+    ( $literal:expr ) => {
+        /// The program's on-chain address, decoded at compile time.
+        pub const ID: $crate::Address = $crate::address!($literal);
+
+        /// Return the program's declared id.
+        #[inline]
+        pub const fn id() -> $crate::Address {
+            ID
+        }
+
+        /// Return true if `other` equals the declared program id.
+        #[inline]
+        pub fn check_id(other: &$crate::Address) -> bool {
+            *other == ID
+        }
+    };
+}
+
 /// Early-return with an error if the condition is false.
 #[macro_export]
 macro_rules! require {
@@ -581,7 +614,10 @@ macro_rules! hopper_entrypoint {
             };
             // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
             let hopper_accounts = unsafe {
-                core::slice::from_raw_parts(accounts.as_ptr() as *const $crate::AccountView<'_>, count)
+                core::slice::from_raw_parts(
+                    accounts.as_ptr() as *const $crate::AccountView<'_>,
+                    count,
+                )
             };
 
             match $process_instruction(hopper_program_id, hopper_accounts, instruction_data) {

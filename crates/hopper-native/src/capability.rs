@@ -203,7 +203,10 @@ pub struct OwnedView<'info> {
 impl<'info> OwnedView<'info> {
     /// Validate that the account is owned by `expected_owner`.
     #[inline(always)]
-    pub fn validate(view: AccountView<'info>, expected_owner: &Address) -> Result<Self, ProgramError> {
+    pub fn validate(
+        view: AccountView<'info>,
+        expected_owner: &Address,
+    ) -> Result<Self, ProgramError> {
         if view.owned_by(expected_owner) {
             Ok(Self { inner: view })
         } else {
@@ -352,7 +355,10 @@ impl<'info> crate::lazy::LazyContext<'info> {
 
     /// Parse the next account as a proven program-owned account.
     #[inline]
-    pub fn next_validated_owned(&mut self, owner: &Address) -> Result<OwnedView<'info>, ProgramError> {
+    pub fn next_validated_owned(
+        &mut self,
+        owner: &Address,
+    ) -> Result<OwnedView<'info>, ProgramError> {
         let acct = self.next_account()?;
         OwnedView::validate(acct, owner)
     }

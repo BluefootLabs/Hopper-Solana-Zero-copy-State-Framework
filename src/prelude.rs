@@ -14,8 +14,8 @@ pub use crate::account::{
 pub use crate::context::Context;
 pub use crate::context::Context as Ctx;
 pub use hopper_runtime::{
-    AccountView, Address, HopperString, HopperVec, Pod, Zeroable, ProgramError, ProgramResult, TailBytes,
-    Ref, ScopedContext, TailCodec, TailElement, TailStr,
+    AccountView, Address, HopperString, HopperVec, Pod, ProgramError, ProgramResult, Ref,
+    ScopedContext, TailBytes, TailCodec, TailElement, TailStr, Zeroable,
 };
 
 /// Lifetime-shaped bounded UTF-8 authoring value.
@@ -227,9 +227,13 @@ pub use hopper_core::abi::{
 };
 
 pub use crate::{
-    associated_token, compute, cpi, crypto, events, memo, pda, return_data, system, token,
+    associated_token, compute, cpi, crypto, events, memo, pda, return_data, system, sysvar, token,
     token_2022,
 };
+// The two sysvars almost every program reads (on-chain time, rent-exempt
+// minimums) are surfaced directly so `Clock::get()` / `Rent::get()` work from
+// the prelude without an extra `use hopper::sysvar::*`.
+pub use crate::sysvar::{Clock, Rent};
 pub use hopper_associated_token::ATA_PROGRAM_ID;
 pub use hopper_memo::{Memo, MAX_MEMO_SIGNERS, MEMO_PROGRAM_ID};
 pub use hopper_solana::interface::{
@@ -251,8 +255,9 @@ pub use hopper_metaplex::{
 
 pub use crate::const_assert_pod;
 pub use hopper_runtime::{
-    address, err, error, hopper_emit_cpi, hopper_log, msg, require, require_eq, require_gt,
-    require_gte, require_keys_eq, require_keys_neq, require_lt, require_lte, require_neq,
+    address, declare_id, err, error, hopper_emit_cpi, hopper_log, msg, require, require_eq,
+    require_gt, require_gte, require_keys_eq, require_keys_neq, require_lt, require_lte,
+    require_neq,
 };
 
 #[cfg(feature = "proc-macros")]

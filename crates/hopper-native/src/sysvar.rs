@@ -39,6 +39,17 @@ pub fn get_clock() -> Result<Clock, ProgramError> {
     Ok(clock)
 }
 
+impl Clock {
+    /// Read the Clock sysvar.
+    ///
+    /// Method-style alias for [`get_clock`], matching the `Sysvar::get()`
+    /// ergonomics other Solana frameworks expose (`Clock::get()`).
+    #[inline]
+    pub fn get() -> Result<Self, ProgramError> {
+        get_clock()
+    }
+}
+
 // ── Rent ─────────────────────────────────────────────────────────────
 
 /// Rent sysvar data.
@@ -86,6 +97,15 @@ pub fn get_rent() -> Result<Rent, ProgramError> {
 }
 
 impl Rent {
+    /// Read the Rent sysvar.
+    ///
+    /// Method-style alias for [`get_rent`], matching the `Sysvar::get()`
+    /// ergonomics other Solana frameworks expose (`Rent::get()`).
+    #[inline]
+    pub fn get() -> Result<Self, ProgramError> {
+        get_rent()
+    }
+
     /// Calculate the minimum lamports for rent exemption at the given data size.
     #[inline]
     pub fn minimum_balance(&self, data_len: usize) -> u64 {
@@ -225,8 +245,11 @@ pub const STAKE_HISTORY_ID: Address =
     crate::address!("SysvarStakeHistory1111111111111111111111111");
 
 /// Instructions sysvar address (for instruction introspection).
-pub const INSTRUCTIONS_ID: Address =
-    crate::address!("Sysvar1nstructions1111111111111111111111111");
+pub const INSTRUCTIONS_ID: Address = crate::address!("Sysvar1nstructions1111111111111111111111111");
+
+/// EpochRewards sysvar address (SIMD-0118).
+pub const EPOCH_REWARDS_ID: Address =
+    crate::address!("SysvarEpochRewards1111111111111111111111111");
 
 // ── Generalized sysvar access (sol_get_sysvar) ──────────────────────
 
@@ -238,7 +261,11 @@ pub const INSTRUCTIONS_ID: Address =
 /// as instruction accounts. Returns `Err(UnsupportedSysvar)` on syscall
 /// failure (e.g. reading past the sysvar's length).
 #[inline]
-pub fn get_sysvar_into(sysvar_id: &Address, offset: u64, dst: &mut [u8]) -> Result<(), ProgramError> {
+pub fn get_sysvar_into(
+    sysvar_id: &Address,
+    offset: u64,
+    dst: &mut [u8],
+) -> Result<(), ProgramError> {
     #[cfg(target_os = "solana")]
     {
         // SAFETY: `sysvar_id` is a 32-byte address; `dst` is valid for its
@@ -292,6 +319,36 @@ pub fn get_total_epoch_stake() -> u64 {
     {
         0
     }
+}
+
+// ── LastRestartSlot (SIMD-0047) ─────────────────────────────────────
+
+/// LastRestartSlot sysvar address.
+pub const LAST_RESTART_SLOT_ID: Address =
+    crate::address!("SysvarLastRestartS1ot1111111111111111111111");
+
+/// Read the slot of the last cluster restart (hard fork), or `0` if the
+/// cluster has never been restarted.
+///
+/// This wraps the dedicated `sol_get_last_restart_slot` syscall
+/// (SIMD-0047). Programs that must reason about whether state predates a
+/// restart (oracle freshness, liveness windows) read it here instead of
+/// passing the sysvar as an account.
+#[inline]
+pub fn get_last_restart_slot() -> Result<u64, ProgramError> {
+    #[allow(unused_mut)]
+    let mut slot: u64 = 0;
+    #[cfg(target_os = "solana")]
+    {
+        // SAFETY: the syscall writes a single `u64` into the 8-byte buffer
+        // `slot` points at; `slot` is a live stack local for the call.
+        let rc =
+            unsafe { crate::syscalls::sol_get_last_restart_slot(&mut slot as *mut u64 as *mut u8) };
+        if rc != 0 {
+            return Err(ProgramError::UnsupportedSysvar);
+        }
+    }
+    Ok(slot)
 }
 
 // ── SlotHashes ──────────────────────────────────────────────────────
@@ -375,6 +432,86 @@ pub fn stake_history_latest() -> Result<Option<StakeHistoryEntry>, ProgramError>
     }))
 }
 
+// ── EpochRewards (SIMD-0118) ────────────────────────────────────────
+
+/// EpochRewards sysvar data (SIMD-0118).
+///
+/// Surfaces the partitioned-rewards distribution state for the current
+/// epoch: how many lamports are being paid out, how far distribution has
+/// progressed, and whether the rewards period is still active. Staking and
+/// airdrop programs read it to gate behaviour during the distribution
+/// window.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct EpochRewards {
+    /// First block height at which rewards distribution begins this epoch.
+    pub distribution_starting_block_height: u64,
+    /// Number of partitions the distribution is split across.
+    pub num_partitions: u64,
+    /// Blockhash of the parent of the epoch's first block.
+    pub parent_blockhash: [u8; 32],
+    /// Total rewards points calculated for the epoch.
+    pub total_points: u128,
+    /// Total rewards (lamports) calculated for the epoch.
+    pub total_rewards: u64,
+    /// Rewards (lamports) distributed so far this epoch.
+    pub distributed_rewards: u64,
+    /// Whether the rewards period (calculation + distribution) is active.
+    pub active: bool,
+}
+
+/// Wire size of the bincode-serialized EpochRewards sysvar account data.
+///
+/// `8 + 8 + 32 + 16 + 8 + 8 + 1`. Unlike Clock/Rent/EpochSchedule (which
+/// have dedicated syscalls that memcpy a `#[repr(C)]` struct), EpochRewards
+/// is only reachable through `sol_get_sysvar`, which returns the sysvar
+/// *account data* in bincode form: a flat little-endian field concatenation
+/// with no padding. The decoder below mirrors that image byte-for-byte
+/// rather than casting a `#[repr(C)]` struct (whose `u128` would force
+/// 16-byte alignment and 96-byte size, reading past the 81-byte image).
+const EPOCH_REWARDS_LEN: usize = 81;
+
+#[inline]
+fn decode_epoch_rewards(buf: &[u8; EPOCH_REWARDS_LEN]) -> EpochRewards {
+    let rd8 = |o: usize| {
+        u64::from_le_bytes([
+            buf[o],
+            buf[o + 1],
+            buf[o + 2],
+            buf[o + 3],
+            buf[o + 4],
+            buf[o + 5],
+            buf[o + 6],
+            buf[o + 7],
+        ])
+    };
+    let mut parent_blockhash = [0u8; 32];
+    parent_blockhash.copy_from_slice(&buf[16..48]);
+    let mut points = [0u8; 16];
+    points.copy_from_slice(&buf[48..64]);
+    EpochRewards {
+        distribution_starting_block_height: rd8(0),
+        num_partitions: rd8(8),
+        parent_blockhash,
+        total_points: u128::from_le_bytes(points),
+        total_rewards: rd8(64),
+        distributed_rewards: rd8(72),
+        active: buf[80] != 0,
+    }
+}
+
+/// Read the EpochRewards sysvar (SIMD-0118).
+///
+/// Reads the bincode account-data image via `sol_get_sysvar` and decodes
+/// it without alignment assumptions. Off-chain this returns the zeroed
+/// default (`active = false`). Returns `Err(UnsupportedSysvar)` if the
+/// syscall fails (e.g. the sysvar is unavailable on the cluster).
+#[inline]
+pub fn get_epoch_rewards() -> Result<EpochRewards, ProgramError> {
+    let mut buf = [0u8; EPOCH_REWARDS_LEN];
+    get_sysvar_into(&EPOCH_REWARDS_ID, 0, &mut buf)?;
+    Ok(decode_epoch_rewards(&buf))
+}
+
 #[cfg(test)]
 mod abi_tests {
     use super::*;
@@ -420,5 +557,38 @@ mod abi_tests {
         assert_eq!(clock.epoch, 7);
         assert_eq!(clock.leader_schedule_epoch, 8);
         assert_eq!(clock.unix_timestamp, 1_600_000_500);
+    }
+
+    /// Build the canonical bincode image for EpochRewards and confirm the
+    /// decoder reads every field from the byte offset the runtime writes.
+    /// This is the read-side proof for the no-dedicated-syscall sysvar.
+    #[test]
+    fn epoch_rewards_decodes_canonical_byte_image() {
+        let mut buf = [0u8; EPOCH_REWARDS_LEN];
+        buf[0..8].copy_from_slice(&100u64.to_le_bytes()); // distribution_starting_block_height
+        buf[8..16].copy_from_slice(&8u64.to_le_bytes()); // num_partitions
+        buf[16..48].copy_from_slice(&[7u8; 32]); // parent_blockhash
+        buf[48..64].copy_from_slice(&123_456_789u128.to_le_bytes()); // total_points
+        buf[64..72].copy_from_slice(&5_000_000u64.to_le_bytes()); // total_rewards
+        buf[72..80].copy_from_slice(&1_250_000u64.to_le_bytes()); // distributed_rewards
+        buf[80] = 1; // active = true
+
+        let er = decode_epoch_rewards(&buf);
+        assert_eq!(er.distribution_starting_block_height, 100);
+        assert_eq!(er.num_partitions, 8);
+        assert_eq!(er.parent_blockhash, [7u8; 32]);
+        assert_eq!(er.total_points, 123_456_789);
+        assert_eq!(er.total_rewards, 5_000_000);
+        assert_eq!(er.distributed_rewards, 1_250_000);
+        assert!(er.active);
+    }
+
+    #[test]
+    fn epoch_rewards_off_chain_is_zeroed_default() {
+        // Off-chain `get_sysvar_into` is a no-op, so the getter yields the
+        // zeroed default with `active = false`.
+        let er = get_epoch_rewards().unwrap();
+        assert_eq!(er, EpochRewards::default());
+        assert!(!er.active);
     }
 }

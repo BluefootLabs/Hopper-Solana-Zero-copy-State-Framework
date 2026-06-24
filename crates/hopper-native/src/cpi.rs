@@ -293,8 +293,9 @@ pub fn invoke_signed_with_bounds<const MAX_ACCOUNTS: usize>(
     }
 
     // SAFETY: first `count` slots are initialized.
-    let accounts =
-        unsafe { core::slice::from_raw_parts(cpi_accounts.as_ptr() as *const CpiAccount<'_>, count) };
+    let accounts = unsafe {
+        core::slice::from_raw_parts(cpi_accounts.as_ptr() as *const CpiAccount<'_>, count)
+    };
 
     // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe {

@@ -98,7 +98,10 @@ pub fn read_field_pod<'a, T: crate::Pod>(
 /// The most common cross-program read: check the authority, mint, owner,
 /// or any other public key stored in a foreign account.
 #[inline]
-pub fn read_address<'a>(account: &'a AccountView<'a>, offset: usize) -> Result<&'a Address, ProgramError> {
+pub fn read_address<'a>(
+    account: &'a AccountView<'a>,
+    offset: usize,
+) -> Result<&'a Address, ProgramError> {
     let data_len = account.data_len();
     if offset.checked_add(32).is_none_or(|end| end > data_len) {
         return Err(ProgramError::AccountDataTooSmall);

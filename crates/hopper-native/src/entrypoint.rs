@@ -90,7 +90,12 @@ macro_rules! hopper_program_entrypoint {
             match $process_instruction(
                 &program_id,
                 // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-                unsafe { core::slice::from_raw_parts(accounts.as_ptr() as *const $crate::AccountView<'_>, count) },
+                unsafe {
+                    core::slice::from_raw_parts(
+                        accounts.as_ptr() as *const $crate::AccountView<'_>,
+                        count,
+                    )
+                },
                 instruction_data,
             ) {
                 Ok(()) => $crate::SUCCESS,
@@ -187,7 +192,8 @@ macro_rules! hopper_fast_entrypoint {
                 // data pointer (per SIMD-0321's serialization contract).
                 // SAFETY: SIMD-0321 ix_data points at instruction-data bytes
                 // with u64 length prefix at `ix_data - 8`.
-                let ix_len = unsafe { core::ptr::read_unaligned(ix_data.sub(8) as *const u64) as usize };
+                let ix_len =
+                    unsafe { core::ptr::read_unaligned(ix_data.sub(8) as *const u64) as usize };
                 let instruction_data: &'static [u8] =
                     unsafe { core::slice::from_raw_parts(ix_data, ix_len) };
 
@@ -212,7 +218,12 @@ macro_rules! hopper_fast_entrypoint {
                 &program_id,
                 // SAFETY: the first `count` slots were initialized by the
                 // parser above; `AccountView` is repr(C) over the slot data.
-                unsafe { core::slice::from_raw_parts(accounts.as_ptr() as *const $crate::AccountView<'_>, count) },
+                unsafe {
+                    core::slice::from_raw_parts(
+                        accounts.as_ptr() as *const $crate::AccountView<'_>,
+                        count,
+                    )
+                },
                 instruction_data,
             ) {
                 Ok(()) => $crate::SUCCESS,

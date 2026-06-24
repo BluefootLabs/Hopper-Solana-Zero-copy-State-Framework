@@ -15,9 +15,9 @@ pub const TOKEN_PROGRAM_ID: Address = Address::new_from_array(hopper_runtime::__
 ));
 
 /// Token-2022 program.
-pub const TOKEN_2022_PROGRAM_ID: Address = Address::new_from_array(hopper_runtime::__decode_base58_32(
-    "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
-));
+pub const TOKEN_2022_PROGRAM_ID: Address = Address::new_from_array(
+    hopper_runtime::__decode_base58_32("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"),
+);
 
 /// Associated Token Account program.
 pub const ATA_PROGRAM_ID: Address = Address::new_from_array(hopper_runtime::__decode_base58_32(
@@ -25,9 +25,9 @@ pub const ATA_PROGRAM_ID: Address = Address::new_from_array(hopper_runtime::__de
 ));
 
 /// Sysvar Instructions.
-pub const SYSVAR_INSTRUCTIONS_ID: Address = Address::new_from_array(hopper_runtime::__decode_base58_32(
-    "Sysvar1nstructions1111111111111111111111111",
-));
+pub const SYSVAR_INSTRUCTIONS_ID: Address = Address::new_from_array(
+    hopper_runtime::__decode_base58_32("Sysvar1nstructions1111111111111111111111111"),
+);
 
 /// Sysvar Clock.
 pub const SYSVAR_CLOCK_ID: Address = Address::new_from_array(hopper_runtime::__decode_base58_32(
@@ -50,6 +50,6 @@ pub const BPF_LOADER_UPGRADEABLE_ID: Address = Address::new_from_array(
 );
 
 /// Metaplex Token Metadata program.
-pub const METADATA_PROGRAM_ID: Address = Address::new_from_array(hopper_runtime::__decode_base58_32(
-    "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s",
-));
+pub const METADATA_PROGRAM_ID: Address = Address::new_from_array(
+    hopper_runtime::__decode_base58_32("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s"),
+);

@@ -132,7 +132,10 @@ impl<'a> fmt::Display for RsClientGen<'a> {
             f,
             "    /// Instruction discriminator byte does not match the expected builder/decoder."
         )?;
-        writeln!(f, "    InstructionTagMismatch {{ expected: u8, actual: u8 }},")?;
+        writeln!(
+            f,
+            "    InstructionTagMismatch {{ expected: u8, actual: u8 }},"
+        )?;
         writeln!(f, "}}")?;
         writeln!(f)?;
         writeln!(f, "impl core::fmt::Display for ClientError {{")?;
@@ -165,15 +168,15 @@ impl<'a> fmt::Display for RsClientGen<'a> {
                 "                write!(f, \"hopper client: event tag mismatch: expected {{}} got {{}}\", expected, actual)"
             )?;
         writeln!(f, "            }}")?;
-            writeln!(
-                f,
-                "            Self::InstructionTagMismatch {{ expected, actual }} => {{"
-            )?;
-            writeln!(
+        writeln!(
+            f,
+            "            Self::InstructionTagMismatch {{ expected, actual }} => {{"
+        )?;
+        writeln!(
                 f,
                 "                write!(f, \"hopper client: instruction tag mismatch: expected {{}} got {{}}\", expected, actual)"
             )?;
-            writeln!(f, "            }}")?;
+        writeln!(f, "            }}")?;
         writeln!(f, "        }}")?;
         writeln!(f, "    }}")?;
         writeln!(f, "}}")?;
@@ -547,7 +550,10 @@ fn write_instruction_builder(
     Ok(())
 }
 
-fn write_instruction_data_codec(f: &mut fmt::Formatter<'_>, ix: &InstructionDescriptor) -> fmt::Result {
+fn write_instruction_data_codec(
+    f: &mut fmt::Formatter<'_>,
+    ix: &InstructionDescriptor,
+) -> fmt::Result {
     let pascal = pascal_case(ix.name);
     let snake = snake_case(ix.name);
     let upper = upper_snake_case(ix.name);
@@ -556,9 +562,17 @@ fn write_instruction_data_codec(f: &mut fmt::Formatter<'_>, ix: &InstructionDesc
     if ix.args.is_empty() {
         writeln!(f, "pub fn encode_{}_data() -> Vec<u8> {{", snake)?;
     } else {
-        writeln!(f, "pub fn encode_{}_data(args: &{}Args) -> Vec<u8> {{", snake, pascal)?;
+        writeln!(
+            f,
+            "pub fn encode_{}_data(args: &{}Args) -> Vec<u8> {{",
+            snake, pascal
+        )?;
     }
-    writeln!(f, "    let mut data = Vec::with_capacity({}_DATA_LEN);", upper)?;
+    writeln!(
+        f,
+        "    let mut data = Vec::with_capacity({}_DATA_LEN);",
+        upper
+    )?;
     writeln!(f, "    data.push({}_DISC);", upper)?;
     for arg in ix.args.iter() {
         write_arg_encode(f, arg.canonical_type, &snake_case(arg.name))?;
@@ -569,7 +583,11 @@ fn write_instruction_data_codec(f: &mut fmt::Formatter<'_>, ix: &InstructionDesc
 
     if ix.args.is_empty() {
         writeln!(f, "/// Validate `{}` instruction data bytes.", snake)?;
-        writeln!(f, "pub fn assert_{}_data(data: &[u8]) -> Result<(), ClientError> {{", snake)?;
+        writeln!(
+            f,
+            "pub fn assert_{}_data(data: &[u8]) -> Result<(), ClientError> {{",
+            snake
+        )?;
         writeln!(f, "    if data.len() < {}_DATA_LEN {{", upper)?;
         writeln!(
             f,
@@ -588,8 +606,16 @@ fn write_instruction_data_codec(f: &mut fmt::Formatter<'_>, ix: &InstructionDesc
         writeln!(f, "}}")?;
         writeln!(f)?;
     } else {
-        writeln!(f, "/// Decode `{}` instruction data bytes into typed args.", snake)?;
-        writeln!(f, "pub fn decode_{}_args(data: &[u8]) -> Result<{}Args, ClientError> {{", snake, pascal)?;
+        writeln!(
+            f,
+            "/// Decode `{}` instruction data bytes into typed args.",
+            snake
+        )?;
+        writeln!(
+            f,
+            "pub fn decode_{}_args(data: &[u8]) -> Result<{}Args, ClientError> {{",
+            snake, pascal
+        )?;
         writeln!(f, "    if data.len() < {}_DATA_LEN {{", upper)?;
         writeln!(
             f,
@@ -966,8 +992,12 @@ mod tests {
         assert!(out.contains("pub const DEPOSIT_DATA_LEN: usize = 9;"));
         assert!(out.contains("pub fn encode_deposit_data(args: &DepositArgs) -> Vec<u8>"));
         assert!(out.contains("let mut data = Vec::with_capacity(DEPOSIT_DATA_LEN);"));
-        assert!(out.contains("pub fn decode_deposit_args(data: &[u8]) -> Result<DepositArgs, ClientError>"));
-        assert!(out.contains("ClientError::InstructionTagMismatch { expected: DEPOSIT_DISC, actual: data[0] }"));
+        assert!(out.contains(
+            "pub fn decode_deposit_args(data: &[u8]) -> Result<DepositArgs, ClientError>"
+        ));
+        assert!(out.contains(
+            "ClientError::InstructionTagMismatch { expected: DEPOSIT_DISC, actual: data[0] }"
+        ));
         assert!(out.contains("Ok(DepositArgs {"));
     }
 

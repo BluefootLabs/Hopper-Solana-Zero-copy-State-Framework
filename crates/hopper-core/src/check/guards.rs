@@ -82,7 +82,10 @@ pub fn require_unique_signers(accounts: &[AccountView<'_>]) -> ProgramResult {
 /// Call with pre-mutation snapshots of lamport values and the current
 /// account views. Detects lamport creation/destruction bugs.
 #[inline]
-pub fn check_lamport_conservation(accounts: &[AccountView<'_>], pre_lamports: &[u64]) -> ProgramResult {
+pub fn check_lamport_conservation(
+    accounts: &[AccountView<'_>],
+    pre_lamports: &[u64],
+) -> ProgramResult {
     if accounts.len() != pre_lamports.len() {
         return Err(ProgramError::InvalidArgument);
     }
@@ -132,7 +135,10 @@ pub fn snapshot_lamports<const N: usize>(
 /// Prevents fee-drain attacks where an attacker passes a writable
 /// account they don't own, hoping the program modifies it.
 #[inline]
-pub fn check_writable_coherence(accounts: &[AccountView<'_>], program_id: &Address) -> ProgramResult {
+pub fn check_writable_coherence(
+    accounts: &[AccountView<'_>],
+    program_id: &Address,
+) -> ProgramResult {
     let mut i = 0;
     while i < accounts.len() {
         if accounts[i].is_writable()

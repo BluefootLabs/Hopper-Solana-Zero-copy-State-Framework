@@ -220,7 +220,10 @@ impl<'a> TrustProfile<'a> {
     }
 
     #[inline]
-    fn load_observational(&self, account: &'a AccountView<'a>) -> Result<Ref<'a, [u8]>, ProgramError> {
+    fn load_observational(
+        &self,
+        account: &'a AccountView<'a>,
+    ) -> Result<Ref<'a, [u8]>, ProgramError> {
         let data = account.try_borrow()?;
         if data.len() < crate::account::HEADER_LEN {
             return Err(ProgramError::AccountDataTooSmall);

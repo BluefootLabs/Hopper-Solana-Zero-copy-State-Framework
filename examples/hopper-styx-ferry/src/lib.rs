@@ -382,7 +382,10 @@ impl<'info> SendRatchetMessage<'info> {
         ciphertext_len: u16,
     ) -> ProgramResult {
         hopper::hopper_require!(ciphertext_len > 0, EmptyCiphertext);
-        hopper::hopper_require!(ciphertext_len <= RATCHET_CIPHERTEXT_MAX_U16, EmptyCiphertext);
+        hopper::hopper_require!(
+            ciphertext_len <= RATCHET_CIPHERTEXT_MAX_U16,
+            EmptyCiphertext
+        );
 
         let recipient = {
             let mut thread = self.thread.get_mut()?;
@@ -547,10 +550,9 @@ fn verify_signed_prekey_instruction(
     signed_prekey: &[u8; 32],
     signed_prekey_signature: &[u8; 64],
 ) -> ProgramResult {
-    let instruction = crypto::require_ed25519_instruction_data::<ED25519_PREKEY_INSTRUCTION_MAX>(
-        sibling_index,
-    )
-        .map_err(|_| MissingSignedPrekeySignature)?;
+    let instruction =
+        crypto::require_ed25519_instruction_data::<ED25519_PREKEY_INSTRUCTION_MAX>(sibling_index)
+            .map_err(|_| MissingSignedPrekeySignature)?;
     verify_ed25519_payload(
         &instruction,
         owner.as_bytes(),

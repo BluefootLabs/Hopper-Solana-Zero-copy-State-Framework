@@ -463,7 +463,10 @@ impl AuthorizeNonceAccount<'_, '_> {
         let mut data = [0u8; 36];
         data[0] = 7;
         data[4..36].copy_from_slice(self.new_authority.as_array());
-        let accounts = [CpiAccount::from(self.nonce), CpiAccount::from(self.authority)];
+        let accounts = [
+            CpiAccount::from(self.nonce),
+            CpiAccount::from(self.authority),
+        ];
         invoke_system(&data, &accounts, signers)
     }
 }
@@ -489,7 +492,11 @@ impl UpgradeNonceAccount<'_> {
 
 /// Build an InstructionView<'_, '_, '_, '_> to the system program and invoke.
 #[inline]
-fn invoke_system(data: &[u8], accounts: &[CpiAccount<'_>], signers: &[Signer<'_, '_>]) -> ProgramResult {
+fn invoke_system(
+    data: &[u8],
+    accounts: &[CpiAccount<'_>],
+    signers: &[Signer<'_, '_>],
+) -> ProgramResult {
     // Build an InstructionView<'_, '_, '_, '_> to the system program and invoke via C ABI.
     #[cfg(target_os = "solana")]
     {

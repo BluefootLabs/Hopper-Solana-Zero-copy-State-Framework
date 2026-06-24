@@ -128,7 +128,11 @@ fn check_secp256k1_instruction_at_inner(
         offsets.signature_instruction_index,
         allow_cross_instruction,
     )?;
-    inline_range(signature_data, offsets.signature_offset, SIGNATURE_PAYLOAD_LEN)?;
+    inline_range(
+        signature_data,
+        offsets.signature_offset,
+        SIGNATURE_PAYLOAD_LEN,
+    )?;
 
     let eth_data = referenced_instruction_data(
         sysvar_data,
@@ -152,7 +156,11 @@ fn check_secp256k1_instruction_at_inner(
     if offsets.message_data_size != expected_message.len() {
         return Err(ProgramError::InvalidArgument);
     }
-    let message = inline_range(message_data, offsets.message_data_offset, offsets.message_data_size)?;
+    let message = inline_range(
+        message_data,
+        offsets.message_data_offset,
+        offsets.message_data_size,
+    )?;
     if message != expected_message {
         return Err(ProgramError::InvalidArgument);
     }
@@ -288,10 +296,8 @@ mod tests {
     #[test]
     fn rejects_cross_instruction_reference_by_default() {
         let (secp_data, payload) = cross_instruction_secp_data(1, ETH_A, MESSAGE_A);
-        let sysvar = sysvar_with_instructions(&[
-            (SECP256K1_PROGRAM, &secp_data),
-            (PROGRAM_A, &payload),
-        ]);
+        let sysvar =
+            sysvar_with_instructions(&[(SECP256K1_PROGRAM, &secp_data), (PROGRAM_A, &payload)]);
 
         assert_eq!(
             check_secp256k1_instruction(&sysvar, 0, &ETH_A, MESSAGE_A),
@@ -302,10 +308,8 @@ mod tests {
     #[test]
     fn cross_instruction_variant_checks_referenced_payload() {
         let (secp_data, payload) = cross_instruction_secp_data(1, ETH_A, MESSAGE_A);
-        let sysvar = sysvar_with_instructions(&[
-            (SECP256K1_PROGRAM, &secp_data),
-            (PROGRAM_A, &payload),
-        ]);
+        let sysvar =
+            sysvar_with_instructions(&[(SECP256K1_PROGRAM, &secp_data), (PROGRAM_A, &payload)]);
 
         assert_eq!(
             check_secp256k1_instruction_at_cross_instruction(&sysvar, 0, 0, &ETH_A, MESSAGE_A),
@@ -423,8 +427,7 @@ mod tests {
         for (index, (program_id, instruction_data)) in instructions.iter().enumerate() {
             let instruction_offset = data.len() as u16;
             let offset_start = 2 + index * 2;
-            data[offset_start..offset_start + 2]
-                .copy_from_slice(&instruction_offset.to_le_bytes());
+            data[offset_start..offset_start + 2].copy_from_slice(&instruction_offset.to_le_bytes());
 
             data.extend_from_slice(&0u16.to_le_bytes());
             data.extend_from_slice(program_id.as_ref());

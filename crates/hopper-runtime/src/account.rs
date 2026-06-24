@@ -66,8 +66,14 @@ pub struct AccountView<'info> {
 }
 
 const _: () = {
-    assert!(core::mem::size_of::<AccountView<'static>>() == core::mem::size_of::<BackendAccountView<'static>>());
-    assert!(core::mem::align_of::<AccountView<'static>>() == core::mem::align_of::<BackendAccountView<'static>>());
+    assert!(
+        core::mem::size_of::<AccountView<'static>>()
+            == core::mem::size_of::<BackendAccountView<'static>>()
+    );
+    assert!(
+        core::mem::align_of::<AccountView<'static>>()
+            == core::mem::align_of::<BackendAccountView<'static>>()
+    );
     assert!(!core::mem::needs_drop::<AccountView<'static>>());
 };
 
@@ -466,6 +472,9 @@ impl<'info> AccountView<'info> {
         // SAFETY: all N lease slots initialized.
         let leases = unsafe {
             let out = core::ptr::read(&leases as *const _ as *const [crate::SegmentLease<'a>; N]);
+            // The `MaybeUninit` array does not drop its contents; the forget
+            // documents that ownership moved into `out` via the read above.
+            #[allow(clippy::forget_non_drop)]
             core::mem::forget(leases);
             out
         };
@@ -689,7 +698,9 @@ impl<'info> AccountView<'info> {
     /// let other_vault = foreign_account.load_cross_program::<OtherVault>()?;
     /// ```
     #[inline(always)]
-    pub fn load_cross_program<T: LayoutContract + crate::Pod>(&self) -> Result<Ref<'_, T>, ProgramError> {
+    pub fn load_cross_program<T: LayoutContract + crate::Pod>(
+        &self,
+    ) -> Result<Ref<'_, T>, ProgramError> {
         let data = self.try_borrow()?;
         T::validate_header(&data)?;
         // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
@@ -1252,7 +1263,10 @@ impl<'a> RemainingAccounts<'a> {
 
     /// Take the next account owned by the given program.
     #[inline(always)]
-    pub fn next_owned_by(&mut self, program: &Address) -> Result<&'a AccountView<'a>, ProgramError> {
+    pub fn next_owned_by(
+        &mut self,
+        program: &Address,
+    ) -> Result<&'a AccountView<'a>, ProgramError> {
         let account = self.next()?;
         account.require_owned_by(program)?;
         Ok(account)
@@ -1727,7 +1741,9 @@ mod tests {
         const OFF: u32 = crate::layout::HopperHeader::SIZE as u32;
 
         {
-            let mut first = account.segment_mut::<[u8; 8]>(&mut borrows, OFF, 8).unwrap();
+            let mut first = account
+                .segment_mut::<[u8; 8]>(&mut borrows, OFF, 8)
+                .unwrap();
             *first = le_u64(100);
         }
         // Lease dropped → registry empty.
@@ -1735,12 +1751,16 @@ mod tests {
         // Second acquire on the exact same region succeeds; pre-audit
         // this was rejected.
         {
-            let mut second = account.segment_mut::<[u8; 8]>(&mut borrows, OFF, 8).unwrap();
+            let mut second = account
+                .segment_mut::<[u8; 8]>(&mut borrows, OFF, 8)
+                .unwrap();
             assert_eq!(from_le_u64(*second), 100);
             *second = le_u64(200);
         }
         assert_eq!(borrows.len(), 0);
-        let read = account.segment_ref::<[u8; 8]>(&mut borrows, OFF, 8).unwrap();
+        let read = account
+            .segment_ref::<[u8; 8]>(&mut borrows, OFF, 8)
+            .unwrap();
         assert_eq!(from_le_u64(*read), 200);
     }
 
@@ -1757,7 +1777,9 @@ mod tests {
         let mut borrows = crate::segment_borrow::SegmentBorrowRegistry::new();
         const OFF: u32 = crate::layout::HopperHeader::SIZE as u32;
 
-        let _first = account.segment_mut::<[u8; 8]>(&mut borrows, OFF, 8).unwrap();
+        let _first = account
+            .segment_mut::<[u8; 8]>(&mut borrows, OFF, 8)
+            .unwrap();
         // While `_first` is alive, `&mut borrows` is exclusively
         // re-borrowed by the lease, so the compiler itself forbids a
         // second `segment_mut` call; that's the **strongest** form of

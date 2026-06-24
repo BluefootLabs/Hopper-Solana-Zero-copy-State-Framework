@@ -55,10 +55,16 @@ fn into_works_in_program_result_position() {
 
 #[test]
 fn invariant_metadata_is_recoverable() {
-    assert_eq!(VaultError::InsufficientBalance.invariant(), "balance_nonzero");
+    assert_eq!(
+        VaultError::InsufficientBalance.invariant(),
+        "balance_nonzero"
+    );
     assert_eq!(VaultError::Unauthorized.invariant(), "authority_match");
     assert_eq!(VaultError::MigrationRequired.invariant(), "");
-    assert_eq!(VaultError::InsufficientBalance.variant_name(), "InsufficientBalance");
+    assert_eq!(
+        VaultError::InsufficientBalance.variant_name(),
+        "InsufficientBalance"
+    );
 }
 
 #[test]

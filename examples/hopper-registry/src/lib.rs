@@ -309,6 +309,10 @@ fn process_add_entry(program_id: &Address, accounts: &[AccountView], data: &[u8]
         }
     }
 
+    // On-chain wall-clock time for the entry and the audit record, read
+    // straight from the Clock sysvar via the prelude (no account passed).
+    let now = Clock::get()?.unix_timestamp as u64;
+
     // Write the new entry
     let entry_offset = count as usize * RegistryEntry::LEN;
     let entry_end = entry_offset + RegistryEntry::LEN;
@@ -327,7 +331,7 @@ fn process_add_entry(program_id: &Address, accounts: &[AccountView], data: &[u8]
     let entry = RegistryEntry::overlay_mut(entry_slice)?;
     entry.key.copy_from_slice(new_key);
     entry.value.copy_from_slice(&data[32..48]);
-    entry.timestamp = WireU64::new(0); // In production: use Clock sysvar
+    entry.timestamp = WireU64::new(now);
     entry.creator = TypedAddress::from_account(authority);
 
     // Update count in core (need to re-borrow since entries_data consumed the mut ref)
@@ -362,7 +366,7 @@ fn process_add_entry(program_id: &Address, accounts: &[AccountView], data: &[u8]
                 a
             },
             action: ACTION_ADD_ENTRY,
-            timestamp: [0u8; 8], // In production: Clock sysvar
+            timestamp: now.to_le_bytes(),
             data_hash,
         };
         journal.append(record)?;

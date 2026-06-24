@@ -306,11 +306,7 @@ impl<'a, T: crate::Pod, const N: usize> SegmentsMut<'a, T, N> {
     /// Assemble the guard. Doc-hidden; built by `split_segments_mut`.
     #[doc(hidden)]
     #[inline(always)]
-    pub fn new(
-        data: RefMut<'a, [u8]>,
-        offsets: [usize; N],
-        leases: [SegmentLease<'a>; N],
-    ) -> Self {
+    pub fn new(data: RefMut<'a, [u8]>, offsets: [usize; N], leases: [SegmentLease<'a>; N]) -> Self {
         Self {
             data,
             offsets,
@@ -368,6 +364,9 @@ impl<'a, T: crate::Pod, const N: usize> SegmentsMut<'a, T, N> {
         // SAFETY: all N slots initialized above.
         unsafe {
             let init = core::ptr::read(&out as *const _ as *const [&mut T; N]);
+            // The `MaybeUninit` array does not drop its contents; the forget
+            // documents that ownership moved into `init` via the read above.
+            #[allow(clippy::forget_non_drop)]
             core::mem::forget(out);
             init
         }

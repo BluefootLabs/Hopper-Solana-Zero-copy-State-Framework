@@ -197,7 +197,8 @@ impl<'a> ExtraAccountMetaList<'a> {
         for i in 0..self.count {
             let entry = self.get(i).ok_or(HookError::Truncated)?;
             // Earlier-resolved entries are addressable by index too.
-            let resolved = self.resolve_entry(&entry, instruction_data, hook_program, known, out)?;
+            let resolved =
+                self.resolve_entry(&entry, instruction_data, hook_program, known, out)?;
             out.push(resolved)?;
         }
         Ok(out.len() - start)
@@ -418,11 +419,12 @@ mod tests {
 
         let mut out = HookAccountBuf::<8>::new();
         let program = Address::new_from_array([9u8; 32]);
-        let n = list
-            .resolve_into(&mut out, &[], &program, &[])
-            .unwrap();
+        let n = list.resolve_into(&mut out, &[], &program, &[]).unwrap();
         assert_eq!(n, 1);
-        assert_eq!(out.as_slice()[0].address, Address::new_from_array([7u8; 32]));
+        assert_eq!(
+            out.as_slice()[0].address,
+            Address::new_from_array([7u8; 32])
+        );
         assert!(out.as_slice()[0].is_writable);
         assert!(!out.as_slice()[0].is_signer);
     }

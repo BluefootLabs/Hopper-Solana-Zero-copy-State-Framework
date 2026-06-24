@@ -185,7 +185,11 @@ pub fn require_version<T: LayoutContract>(account: &AccountView<'_>) -> ProgramR
 
 /// Require 3 accounts are pairwise unique.
 #[inline(always)]
-pub fn require_unique_3(a: &AccountView<'_>, b: &AccountView<'_>, c: &AccountView<'_>) -> ProgramResult {
+pub fn require_unique_3(
+    a: &AccountView<'_>,
+    b: &AccountView<'_>,
+    c: &AccountView<'_>,
+) -> ProgramResult {
     require_unique_2(a, b)?;
     require_unique_2(a, c)?;
     require_unique_2(b, c)

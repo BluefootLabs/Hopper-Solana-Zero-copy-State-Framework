@@ -130,7 +130,11 @@ fn orderbook_post_bid_touches_only_bids_segment() {
     let after_bid = client
         .get_account_data(&book.pubkey())
         .expect("get book data after bid");
-    assert_eq!(after_bid.len(), after_init.len(), "post_bid did not realloc");
+    assert_eq!(
+        after_bid.len(),
+        after_init.len(),
+        "post_bid did not realloc"
+    );
     let ones = after_bid
         .chunks_exact(4)
         .filter(|w| u32::from_le_bytes([w[0], w[1], w[2], w[3]]) == 1)

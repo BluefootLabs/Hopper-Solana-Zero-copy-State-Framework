@@ -143,7 +143,11 @@ mod tests {
         let (addr, account) = LiteSvmHarness::funded_account(1_234_567);
         assert_ne!(addr, Pubkey::default(), "fresh address should be unique");
         assert_eq!(account.lamports, 1_234_567);
-        assert_eq!(account.owner, Pubkey::default(), "fee payer is system-owned");
+        assert_eq!(
+            account.owner,
+            Pubkey::default(),
+            "fee payer is system-owned"
+        );
         assert!(account.data.is_empty(), "fee payer carries no data");
     }
 }

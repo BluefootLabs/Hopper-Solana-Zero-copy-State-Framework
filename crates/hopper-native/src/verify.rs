@@ -154,7 +154,11 @@ impl BalanceSnapshot {
 
     /// Verify the balance increased by at least `min_increase`.
     #[inline]
-    pub fn verify_increased_by(&self, account: &AccountView<'_>, min_increase: u64) -> ProgramResult {
+    pub fn verify_increased_by(
+        &self,
+        account: &AccountView<'_>,
+        min_increase: u64,
+    ) -> ProgramResult {
         let current = account.lamports();
         let delta = current
             .checked_sub(self.before)

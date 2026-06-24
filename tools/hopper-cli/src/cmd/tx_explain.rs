@@ -75,7 +75,12 @@ pub fn cmd_tx_explain(args: &[String]) {
         }
     });
     let rpc_url = rpc.unwrap_or_else(|| crate::rpc::resolve_rpc_url(None));
-    if let Err(e) = run_explain(&rpc_url, &signature, show_raw_logs, local_manifest.as_deref()) {
+    if let Err(e) = run_explain(
+        &rpc_url,
+        &signature,
+        show_raw_logs,
+        local_manifest.as_deref(),
+    ) {
         eprintln!("hopper tx explain failed: {e}");
         process::exit(1);
     }

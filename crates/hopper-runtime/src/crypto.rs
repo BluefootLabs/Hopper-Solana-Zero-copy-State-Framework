@@ -61,19 +61,19 @@ pub const ALT_BN128_G2_DECOMPRESS_LE: u64 = ALT_BN128_G2_DECOMPRESS_BE | ALT_BN1
 pub const MAX_INSTRUCTION_DATA_LEN: usize = 1232;
 pub const MAX_INSTRUCTION_ACCOUNTS_BYTES: usize = 2176;
 
-pub const ED25519_PROGRAM_ID: Address = Address::new_from_array(
-    crate::__decode_base58_32("Ed25519SigVerify111111111111111111111111111"),
-);
+pub const ED25519_PROGRAM_ID: Address = Address::new_from_array(crate::__decode_base58_32(
+    "Ed25519SigVerify111111111111111111111111111",
+));
 
-pub const SECP256K1_PROGRAM_ID: Address = Address::new_from_array(
-    crate::__decode_base58_32("KeccakSecp256k11111111111111111111111111111"),
-);
+pub const SECP256K1_PROGRAM_ID: Address = Address::new_from_array(crate::__decode_base58_32(
+    "KeccakSecp256k11111111111111111111111111111",
+));
 
 /// Secp256r1 (P-256) signature-verification precompile (SIMD-0075).
 /// This is the precompile passkey / WebAuthn flows verify against.
-pub const SECP256R1_PROGRAM_ID: Address = Address::new_from_array(
-    crate::__decode_base58_32("Secp256r1SigVerify1111111111111111111111111"),
-);
+pub const SECP256R1_PROGRAM_ID: Address = Address::new_from_array(crate::__decode_base58_32(
+    "Secp256r1SigVerify1111111111111111111111111",
+));
 
 #[derive(Clone, Debug)]
 pub struct ProcessedInstruction {

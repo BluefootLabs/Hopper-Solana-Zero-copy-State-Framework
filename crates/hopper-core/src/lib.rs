@@ -325,6 +325,13 @@ pub mod prelude_advanced {
     pub use crate::check::{
         check_no_subsequent_invocation, detect_flash_loan_bracket, require_top_level,
     };
+    // Instructions-sysvar introspection (parity with Pinocchio `Instructions<T>`
+    // / Quasar introspection): the typed reader, a single decoded instruction,
+    // its account metas, and the low-level index/program-id helpers.
+    pub use crate::check::{
+        current_instruction_index, instruction_count, read_program_id_at, InstructionAccountMeta,
+        InstructionsSysvar, IntrospectedInstruction,
+    };
 
     #[cfg(feature = "diff")]
     pub use crate::diff::{StateDiff, StateSnapshot};

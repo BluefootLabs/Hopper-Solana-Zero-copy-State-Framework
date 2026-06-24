@@ -199,7 +199,11 @@ impl Revoke<'_> {
 // ---------------------------------------------------------------------
 
 #[inline]
-fn invoke_token(data: &[u8], accounts: &[CpiAccount<'_>], signers: &[Signer<'_, '_>]) -> ProgramResult {
+fn invoke_token(
+    data: &[u8],
+    accounts: &[CpiAccount<'_>],
+    signers: &[Signer<'_, '_>],
+) -> ProgramResult {
     #[cfg(target_os = "solana")]
     {
         let ix = crate::instruction::InstructionView {
