@@ -279,6 +279,9 @@ impl<'a> ProgramManifestView<'a> {
         if !header.magic_ok() {
             return Err(ProgramError::InvalidAccountData);
         }
+        if header.version.get() != REGISTRY_VERSION {
+            return Err(ProgramError::InvalidAccountData);
+        }
         let count = header.account_count.get() as usize;
         let need = registry_len(count);
         if data.len() < need {
@@ -357,6 +360,9 @@ pub fn write_registry(
     schema_hash: &[u8; 32],
     entries: &[AccountLayoutEntry],
 ) -> Result<usize, ProgramError> {
+    if version != REGISTRY_VERSION || entries.len() > u16::MAX as usize {
+        return Err(ProgramError::InvalidArgument);
+    }
     let total = registry_len(entries.len());
     if buf.len() < total {
         return Err(ProgramError::AccountDataTooSmall);
@@ -596,6 +602,7 @@ pub fn registry_matches(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::vec;
 
     fn sample_entries() -> [AccountLayoutEntry; 2] {
         [
@@ -675,7 +682,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_rejects_bad_magic_and_short_buffers() {
+    fn parse_rejects_bad_magic_version_and_short_buffers() {
         let mut buf = [0u8; registry_len(1)];
         let entries = [AccountLayoutEntry::new(1, 1, 1, 0, 0, 0, [0; 8])];
         write_registry(&mut buf, 1, 0, &[0; 32], &entries).unwrap();
@@ -694,6 +701,14 @@ mod tests {
             Err(ProgramError::InvalidAccountData)
         ));
 
+        // Unsupported wire-format version.
+        let mut bad_version = buf;
+        bad_version[8..10].copy_from_slice(&(REGISTRY_VERSION + 1).to_le_bytes());
+        assert!(matches!(
+            ProgramManifestView::parse(&bad_version),
+            Err(ProgramError::InvalidAccountData)
+        ));
+
         // Declares one entry but the entry bytes are missing.
         assert!(matches!(
             ProgramManifestView::parse(&buf[..ProgramManifestHeader::SIZE + 4]),
@@ -708,6 +723,22 @@ mod tests {
         assert!(matches!(
             write_registry(&mut buf, 1, 0, &[0; 32], &entries),
             Err(ProgramError::AccountDataTooSmall)
+        ));
+    }
+
+    #[test]
+    fn write_registry_rejects_bad_version_and_entry_count_overflow() {
+        let entries = sample_entries();
+        let mut buf = [0u8; registry_len(2)];
+        assert!(matches!(
+            write_registry(&mut buf, REGISTRY_VERSION + 1, 0, &[0; 32], &entries),
+            Err(ProgramError::InvalidArgument)
+        ));
+
+        let too_many = vec![AccountLayoutEntry::default(); u16::MAX as usize + 1];
+        assert!(matches!(
+            write_registry(&mut buf, REGISTRY_VERSION, 0, &[0; 32], &too_many),
+            Err(ProgramError::InvalidArgument)
         ));
     }
 

@@ -43,12 +43,12 @@ surface is:
 #[hopper::state(compact, disc = 1)]
 pub struct Vault {
     pub authority: Pubkey,
-    pub balance:   u64,
+  pub balance:   WireU64,
 }
 // → byte 0 = 1, bytes 1.. = { authority, balance }
 ```
 
-Loading a compact account is `check_owner` + `check_len` + `check_disc`
+Loading a compact fixed account is `check_owner` + `check_len_exact` + `check_disc`
 + cast-body-at-offset-1. No layout_id read, no epoch comparison, no
 manifest fetch on the hot path. The runtime support for this lives in
 [`hopper_runtime::compact`](../crates/hopper-runtime/src/compact.rs):
@@ -188,12 +188,13 @@ Declares a Tier-1 compact account. The macro emits the `CompactLayout`
 impl (`DISC = N`, body = the struct), the `Pod`/`Zeroable` proofs, the
 `[disc:u8][body]` load helpers (`load_compact`, `load_compact_mut`,
 `init_compact`, `overlay_body`), the `registry_entry()` Tier-2 row
-builder, and per-field offset consts. It deliberately does **not** emit
-`LayoutContract`/`HopperLayout`: a compact account has no 16-byte header,
-so `account.load::<T>()` must not be made available for it. Offsets are
-body-relative inside the struct but absolute on the wire -- the emitted
-`{FIELD}_ABS_OFFSET` consts fold in the single discriminator byte
-(`COMPACT_BODY_OFFSET = 1`), not `HEADER_LEN`:
+builder, field roles/invariants, and per-field offset consts. It
+deliberately does **not** emit `LayoutContract`/`HopperLayout` or
+`SchemaExport`: those surfaces assume the 16-byte headered account path,
+so `account.load::<T>()` must not be made available for compact layouts.
+Offsets are body-relative inside the struct but absolute on the wire --
+the emitted `{FIELD}_ABS_OFFSET` consts fold in the single discriminator
+byte (`COMPACT_BODY_OFFSET = 1`), not `HEADER_LEN`:
 
 ```rust
 #[derive(Clone, Copy, Debug, Default)]

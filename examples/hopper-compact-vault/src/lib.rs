@@ -29,7 +29,7 @@ pub const VAULT_DISC: u8 = 1;
 ///
 /// `#[hopper::state(compact, disc = 1)]` emits the `CompactLayout` impl,
 /// `Pod`/`Zeroable` proofs, compact load helpers, the `registry_entry()`
-/// row builder, and a `SchemaExport` impl whose offsets start at byte 1.
+/// row builder, and field metadata whose absolute offsets start at byte 1.
 #[derive(Clone, Copy, Debug, Default)]
 #[hopper::state(compact, disc = 1)]
 #[repr(C)]

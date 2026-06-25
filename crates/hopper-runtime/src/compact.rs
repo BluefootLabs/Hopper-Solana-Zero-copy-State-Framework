@@ -11,7 +11,7 @@
 //! ```
 //!
 //! There is **no 16-byte universal header**. The hot path is
-//! `check_len` + `check_disc` + cast-body-at-offset-1: no layout_id read,
+//! `check_len_exact` + `check_disc` + cast-body-at-offset-1: no layout_id read,
 //! no schema-epoch comparison, no registry fetch. Identity of the layout
 //! behind a discriminator is a *program-level* fact (Tier 2 / Tier 3),
 //! not a per-account one.
@@ -50,12 +50,16 @@ pub trait CompactLayout: Sized + Copy + crate::Pod {
 
     /// Validate that `data` is a compact account of this type.
     ///
-    /// Checks the buffer is long enough and the discriminator at byte 0
-    /// matches. Deliberately does **not** read a layout_id or epoch.
+    /// Checks the buffer has exactly the fixed compact wire length and
+    /// the discriminator at byte 0 matches. Deliberately does **not**
+    /// read a layout_id or epoch.
     #[inline(always)]
     fn validate_compact(data: &[u8]) -> ProgramResult {
         if data.len() < Self::COMPACT_LEN {
             return Err(ProgramError::AccountDataTooSmall);
+        }
+        if data.len() != Self::COMPACT_LEN {
+            return Err(ProgramError::InvalidAccountData);
         }
         if data[0] != Self::DISC {
             return Err(ProgramError::InvalidAccountData);
@@ -104,6 +108,13 @@ mod tests {
         assert!(matches!(
             Body::validate_compact(&buf[..40]),
             Err(ProgramError::AccountDataTooSmall)
+        ));
+
+        let mut oversized = [0u8; 42];
+        oversized[0] = 7;
+        assert!(matches!(
+            Body::validate_compact(&oversized),
+            Err(ProgramError::InvalidAccountData)
         ));
     }
 }

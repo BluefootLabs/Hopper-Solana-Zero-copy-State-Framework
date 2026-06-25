@@ -646,7 +646,7 @@ impl<'info> AccountView<'info> {
 
     /// Load a Tier-1 compact layout: `[disc:u8][zero-copy body]`.
     ///
-    /// The hot path is `check_len` + `check_disc` + project-body-at-byte-1.
+    /// The hot path is `check_len_exact` + `check_disc` + project-body-at-byte-1.
     /// Unlike [`load`](Self::load) there is **no** 16-byte header, no
     /// layout_id read, and no schema-epoch comparison. Layout identity is
     /// a program-level fact (the Tier-2 registry), not a per-account one.
@@ -707,7 +707,7 @@ impl<'info> AccountView<'info> {
     ///
     /// Writes `T::DISC` at byte 0; the body is left as-is (callers
     /// typically follow with [`load_compact_mut`](Self::load_compact_mut)
-    /// to populate it). Requires the account to be writable and at least
+    /// to populate it). Requires the account to be writable and exactly
     /// `T::COMPACT_LEN` bytes long.
     #[inline(always)]
     pub fn init_compact<T: crate::CompactLayout>(&self) -> ProgramResult {
@@ -715,6 +715,9 @@ impl<'info> AccountView<'info> {
         let mut data = self.try_borrow_mut()?;
         if data.len() < T::COMPACT_LEN {
             return Err(ProgramError::AccountDataTooSmall);
+        }
+        if data.len() != T::COMPACT_LEN {
+            return Err(ProgramError::InvalidAccountData);
         }
         data[0] = T::DISC;
         Ok(())
@@ -1579,6 +1582,23 @@ mod tests {
         assert_eq!(
             account.load_compact::<CompactVault>().unwrap_err(),
             ProgramError::AccountDataTooSmall
+        );
+    }
+
+    #[test]
+    fn compact_load_rejects_oversized_fixed_buffer() {
+        let (_backing, account) = make_account(CompactVault::COMPACT_LEN + 1, 53);
+        {
+            let mut data = account.try_borrow_mut().unwrap();
+            data[0] = CompactVault::DISC;
+        }
+        assert_eq!(
+            account.load_compact::<CompactVault>().unwrap_err(),
+            ProgramError::InvalidAccountData
+        );
+        assert_eq!(
+            account.init_compact::<CompactVault>().unwrap_err(),
+            ProgramError::InvalidAccountData
         );
     }
 

@@ -738,10 +738,9 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
 ///   hot-path loader contract) instead of `LayoutContract` / `HopperLayout`,
 /// - body-relative and account-absolute field offsets (the absolute
 ///   offsets fold in the single discriminator byte, not `HEADER_LEN`),
-/// - a `registry_entry()` helper so the layout can be listed in a Tier-2
-///   on-chain registry without hand-writing the `AccountLayoutEntry`,
-/// - a `SchemaExport` impl whose offsets start at byte 1, so the same
-///   layout still flows into IDL / client generators (Tier 3).
+/// - a `registry_entry()` helper plus role/invariant metadata so the layout
+///   can flow into Tier-2/Tier-3 tooling without hand-writing the
+///   `AccountLayoutEntry`.
 ///
 /// The headered path is untouched: a type is compact iff it asked for it.
 fn expand_compact(options: StateOptions, item: TokenStream) -> Result<TokenStream> {
