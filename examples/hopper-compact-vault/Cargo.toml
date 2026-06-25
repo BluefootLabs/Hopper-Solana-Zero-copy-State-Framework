@@ -9,5 +9,16 @@ description = "Three-tier metadata example: a Tier-1 compact account plus a Tier
 [dependencies]
 hopper = { workspace = true, features = ["proc-macros"] }
 
+[dev-dependencies]
+hopper-schema = { workspace = true }
+solana-client = "2.1"
+solana-commitment-config = "2.1"
+solana-instruction = "2.1"
+solana-keypair = "2.1"
+solana-pubkey = "2.1"
+solana-signer = "2.1"
+solana-system-interface = { version = "1.0.0", features = ["bincode"] }
+solana-transaction = { version = "2.1", features = ["bincode"] }
+
 [lints]
 workspace = true

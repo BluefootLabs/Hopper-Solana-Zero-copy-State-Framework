@@ -2081,6 +2081,15 @@ name = "hopper-compact-vault"
 version = "0.2.1"
 dependencies = [
  "hopper-lang",
+ "hopper-schema",
+ "solana-client",
+ "solana-commitment-config",
+ "solana-instruction 2.3.3",
+ "solana-keypair",
+ "solana-pubkey 2.4.0",
+ "solana-signer",
+ "solana-system-interface 1.0.0",
+ "solana-transaction 2.2.3",
 ]
 
 [[package]]

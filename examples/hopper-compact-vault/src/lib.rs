@@ -19,11 +19,27 @@
 #![cfg_attr(target_os = "solana", no_std)]
 
 use hopper::hopper_core::abi::WireU64;
+use hopper::hopper_runtime::address::address_eq;
 use hopper::manifest::{write_registry, ManifestProfile, ProgramManifestView, REGISTRY_VERSION};
 use hopper::prelude::{AccountView, Address, ProgramError, ProgramResult};
 
+#[cfg(target_os = "solana")]
+mod __hopper_sbf {
+    hopper::no_allocator!();
+    hopper::nostd_panic_handler!();
+}
+
+#[cfg(target_os = "solana")]
+hopper::program_entrypoint!(process_instruction);
+
 /// Discriminator for the compact vault.
 pub const VAULT_DISC: u8 = 1;
+
+/// Initialize a pre-created 41-byte compact vault account.
+pub const IX_INIT: u8 = 0;
+
+/// Deposit lamports into the compact vault balance field.
+pub const IX_DEPOSIT: u8 = 1;
 
 /// Tier-1 compact vault body: `[disc:u8][authority:32][balance:8]`.
 ///
@@ -49,6 +65,24 @@ pub fn deposit(vault: &AccountView, amount: u64) -> ProgramResult {
     v.balance.checked_add_assign(amount)
 }
 
+/// Deposit after proving the signing account matches the compact authority
+/// field stored at byte offset 1.
+pub fn authorized_deposit(
+    vault: &AccountView,
+    authority: &AccountView,
+    amount: u64,
+) -> ProgramResult {
+    authority.require_signer()?;
+    let expected = {
+        let v = vault.load_compact::<Vault>()?;
+        v.authority
+    };
+    if !address_eq(&expected, authority.address()) {
+        return Err(ProgramError::IncorrectAuthority);
+    }
+    deposit(vault, amount)
+}
+
 /// Initialise a fresh compact vault account.
 pub fn initialize(vault: &AccountView, authority: Address) -> ProgramResult {
     vault.init_compact::<Vault>()?;
@@ -56,6 +90,54 @@ pub fn initialize(vault: &AccountView, authority: Address) -> ProgramResult {
     v.authority = authority;
     v.balance = WireU64::ZERO;
     Ok(())
+}
+
+/// Minimal deployable dispatcher used by the devnet proof.
+///
+/// Accounts:
+/// - `init`: `[vault(w), authority(s)]`; the caller creates and funds the
+///   exact 41-byte account with the System Program before invoking Hopper.
+/// - `deposit`: `[vault(w), authority(s)]`, data `[1][amount:u64-le]`.
+pub fn process_instruction(
+    program_id: &Address,
+    accounts: &[AccountView],
+    instruction_data: &[u8],
+) -> ProgramResult {
+    let (tag, data) = instruction_data
+        .split_first()
+        .ok_or(ProgramError::InvalidInstructionData)?;
+    match *tag {
+        IX_INIT => process_init(program_id, accounts, data),
+        IX_DEPOSIT => process_deposit(program_id, accounts, data),
+        _ => Err(ProgramError::InvalidInstructionData),
+    }
+}
+
+fn process_init(program_id: &Address, accounts: &[AccountView], data: &[u8]) -> ProgramResult {
+    if !data.is_empty() || accounts.len() < 2 {
+        return Err(ProgramError::InvalidInstructionData);
+    }
+    let vault = &accounts[0];
+    let authority = &accounts[1];
+    vault.require_writable()?;
+    vault.require_owned_by(program_id)?;
+    authority.require_signer()?;
+    initialize(vault, *authority.address())
+}
+
+fn process_deposit(program_id: &Address, accounts: &[AccountView], data: &[u8]) -> ProgramResult {
+    if data.len() != 8 || accounts.len() < 2 {
+        return Err(ProgramError::InvalidInstructionData);
+    }
+    let vault = &accounts[0];
+    let authority = &accounts[1];
+    vault.require_writable()?;
+    vault.require_owned_by(program_id)?;
+    let amount = u64::from_le_bytes(
+        data.try_into()
+            .map_err(|_| ProgramError::InvalidInstructionData)?,
+    );
+    authorized_deposit(vault, authority, amount)
 }
 
 /// This program's manifest profile. `onchain` means it publishes and
@@ -87,6 +169,80 @@ pub fn read_registry(data: &[u8]) -> Result<ProgramManifestView<'_>, ProgramErro
 mod tests {
     use super::*;
     use hopper::manifest::{name_hash, ENTRY_FLAG_COMPACT};
+    use hopper_schema::clientgen::{KtAccounts, TsAccounts};
+    use hopper_schema::codama::{IdlJsonFromManifest, ManifestJson};
+    use hopper_schema::{
+        FieldDescriptor, FieldIntent, InstructionDescriptor, LayoutManifest, ProgramManifest,
+    };
+
+    static VAULT_FIELDS: [FieldDescriptor; 2] = [
+        FieldDescriptor {
+            name: "authority",
+            canonical_type: "Pubkey",
+            size: 32,
+            offset: 1,
+            intent: FieldIntent::Authority,
+        },
+        FieldDescriptor {
+            name: "balance",
+            canonical_type: "u64",
+            size: 8,
+            offset: 33,
+            intent: FieldIntent::Balance,
+        },
+    ];
+
+    static VAULT_LAYOUTS: [LayoutManifest; 1] = [LayoutManifest {
+        name: "Vault",
+        disc: VAULT_DISC,
+        version: 1,
+        layout_id: Vault::LAYOUT_ID,
+        total_size: Vault::COMPACT_LEN,
+        field_count: VAULT_FIELDS.len(),
+        fields: &VAULT_FIELDS,
+    }];
+
+    static INIT_IX: InstructionDescriptor = InstructionDescriptor {
+        name: "initialize",
+        tag: IX_INIT,
+        args: &[],
+        accounts: &[],
+        capabilities: &["CreatesAccount", "MutatesState"],
+        policy_pack: "COMPACT_VAULT_WRITE",
+        receipt_expected: false,
+    };
+
+    static DEPOSIT_IX: InstructionDescriptor = InstructionDescriptor {
+        name: "deposit",
+        tag: IX_DEPOSIT,
+        args: &[],
+        accounts: &[],
+        capabilities: &["MutatesState"],
+        policy_pack: "COMPACT_VAULT_WRITE",
+        receipt_expected: false,
+    };
+
+    static INSTRUCTIONS: [InstructionDescriptor; 2] = [INIT_IX, DEPOSIT_IX];
+
+    fn manifest() -> ProgramManifest {
+        ProgramManifest {
+            name: "hopper_compact_vault",
+            version: "0.2.1",
+            description: "Devnet-ready proof for a 1-byte compact Hopper account.",
+            layouts: &VAULT_LAYOUTS,
+            layout_metadata: &[],
+            instructions: &INSTRUCTIONS,
+            events: &[],
+            policies: &[],
+            compatibility_pairs: &[],
+            tooling_hints: &[
+                "account_encoding=compact",
+                "compact_body_offset=1",
+                "layout_fingerprint_source=manifest_or_idl",
+            ],
+            contexts: &[],
+        }
+    }
 
     #[test]
     fn compact_vault_is_one_byte_header_plus_body() {
@@ -95,6 +251,7 @@ mod tests {
         assert_eq!(Vault::COMPACT_LEN, 41);
         assert_eq!(Vault::MIN_SIZE, 41);
         assert_eq!(Vault::DISC, VAULT_DISC);
+        assert_eq!(Vault::LAYOUT_ID, [67, 113, 65, 144, 124, 9, 52, 79]);
         // The macro-generated absolute offset folds in the single disc byte.
         assert_eq!(Vault::AUTHORITY_ABS_OFFSET, 1);
         assert_eq!(Vault::BALANCE_ABS_OFFSET, 33);
@@ -117,5 +274,39 @@ mod tests {
         assert_eq!(entry.name_hash, name_hash("Vault"));
 
         assert!(PROFILE.publishes_onchain());
+    }
+
+    #[test]
+    fn generated_metadata_carries_compact_fingerprint() {
+        let manifest = manifest();
+        let manifest_json = ManifestJson(&manifest).to_string();
+        let idl_json = IdlJsonFromManifest(&manifest).to_string();
+        let ts_accounts = TsAccounts(&manifest).to_string();
+        let kt_accounts = KtAccounts(&manifest).to_string();
+
+        assert!(manifest_json.contains("\"layoutId\": \"437141907c09344f\""));
+        assert!(manifest_json.contains("\"totalSize\": 41"));
+        assert!(manifest_json.contains("\"offset\": 1"));
+        assert!(manifest_json.contains("\"offset\": 33"));
+        assert!(manifest_json.contains("layout_fingerprint_source=manifest_or_idl"));
+
+        assert!(idl_json.contains("\"layoutId\": \"437141907c09344f\""));
+        assert!(idl_json.contains("\"totalSize\": 41"));
+
+        assert!(ts_accounts
+            .contains("export const VAULT_ACCOUNT_ENCODING: AccountEncoding = \"compact\";"));
+        assert!(ts_accounts.contains("export const VAULT_LAYOUT_ID = \"437141907c09344f\";"));
+        assert!(ts_accounts.contains("assertCompactLayout(data, VAULT_LAYOUT);"));
+        assert!(ts_accounts.contains("new PublicKey(data.slice(1, 33))"));
+        assert!(ts_accounts.contains("view.getBigUint64(33, true)"));
+        assert!(!ts_accounts.contains("assertLayoutId(data, VAULT_LAYOUT_ID);"));
+
+        assert!(kt_accounts
+            .contains("val VAULT_ACCOUNT_ENCODING: AccountEncoding = AccountEncoding.Compact"));
+        assert!(kt_accounts.contains("const val VAULT_LAYOUT_ID: String = \"437141907c09344f\""));
+        assert!(kt_accounts.contains("assertCompactLayout(data, VAULT_LAYOUT)"));
+        assert!(kt_accounts.contains("PublicKey(data.copyOfRange(1, 33))"));
+        assert!(kt_accounts.contains("ByteBuffer.wrap(data, 33, 8)"));
+        assert!(!kt_accounts.contains("assertLayoutId(data, VAULT_LAYOUT_ID)"));
     }
 }

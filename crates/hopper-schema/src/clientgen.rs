@@ -26,7 +26,14 @@ use core::fmt;
 
 extern crate alloc;
 
-use crate::{EventDescriptor, InstructionDescriptor, ProgramManifest};
+use crate::{EventDescriptor, InstructionDescriptor, LayoutManifest, ProgramManifest};
+
+const HOPPER_HEADER_SIZE: usize = 16;
+
+fn layout_is_compact(layout: &LayoutManifest) -> bool {
+    layout.fields.iter().map(|field| field.offset).min() == Some(1)
+        || layout.total_size < HOPPER_HEADER_SIZE
+}
 
 // ---------------------------------------------------------------------------
 // Type Mapping
@@ -104,9 +111,14 @@ impl<'a> fmt::Display for TsAccounts<'a> {
         writeln!(f, "import {{ PublicKey }} from \"@solana/web3.js\";")?;
         writeln!(f)?;
 
-        // Header size constant
+        // Header/compact account constants
         writeln!(f, "/** Hopper account header size in bytes. */")?;
-        writeln!(f, "export const HEADER_SIZE = 16;")?;
+        writeln!(f, "export const HEADER_SIZE = {};", HOPPER_HEADER_SIZE)?;
+        writeln!(
+            f,
+            "/** Compact account body starts immediately after the discriminator byte. */"
+        )?;
+        writeln!(f, "export const COMPACT_BODY_OFFSET = 1;")?;
         writeln!(f)?;
         // Offset of the 8-byte LAYOUT_ID fingerprint within the
         // Hopper header. Clients read bytes [4, 12) to assert the
@@ -119,6 +131,26 @@ impl<'a> fmt::Display for TsAccounts<'a> {
         writeln!(f, "export const LAYOUT_ID_OFFSET = 4;")?;
         writeln!(f, "/** Byte length of the layout fingerprint. */")?;
         writeln!(f, "export const LAYOUT_ID_LENGTH = 8;")?;
+        writeln!(f)?;
+        writeln!(
+            f,
+            "export type AccountEncoding = \"headered\" | \"compact\";"
+        )?;
+        writeln!(f)?;
+        writeln!(f, "export interface LayoutIdentity {{")?;
+        writeln!(f, "  name: string;")?;
+        writeln!(f, "  encoding: AccountEncoding;")?;
+        writeln!(f, "  disc: number;")?;
+        writeln!(f, "  size: number;")?;
+        writeln!(f, "  layoutId: string;")?;
+        writeln!(f, "}}")?;
+        writeln!(f)?;
+        writeln!(
+            f,
+            "export function layoutFingerprint(layout: LayoutIdentity): string {{"
+        )?;
+        writeln!(f, "  return layout.layoutId;")?;
+        writeln!(f, "}}")?;
         writeln!(f)?;
         // Generic layout-fingerprint verifier. Used by every
         // per-layout `assertXxxLayout(data)` generated below.
@@ -174,6 +206,35 @@ impl<'a> fmt::Display for TsAccounts<'a> {
         writeln!(f, "}}")?;
         writeln!(f)?;
 
+        writeln!(f, "/**")?;
+        writeln!(
+            f,
+            " * Raise if `data` is not a compact Hopper account for `layout`."
+        )?;
+        writeln!(f, " *")?;
+        writeln!(
+            f,
+            " * Compact accounts do not store the 8-byte LAYOUT_ID in account data;"
+        )?;
+        writeln!(
+            f,
+            " * the fingerprint is carried by the manifest/IDL and exposed through"
+        )?;
+        writeln!(
+            f,
+            " * `layoutFingerprint(layout)` while the hot-path bytes prove disc + exact size."
+        )?;
+        writeln!(f, " */")?;
+        writeln!(f, "export function assertCompactLayout(data: Uint8Array, layout: LayoutIdentity): void {{")?;
+        writeln!(f, "  if (data.length !== layout.size) {{")?;
+        writeln!(f, "    throw new Error(`Hopper compact account size mismatch for ${{layout.name}}: ${{data.length}} !== ${{layout.size}}`);")?;
+        writeln!(f, "  }}")?;
+        writeln!(f, "  if (data[0] !== layout.disc) {{")?;
+        writeln!(f, "    throw new Error(`Hopper compact discriminator mismatch for ${{layout.name}}: ${{data[0]}} !== ${{layout.disc}}`);")?;
+        writeln!(f, "  }}")?;
+        writeln!(f, "}}")?;
+        writeln!(f)?;
+
         for layout in prog.layouts.iter() {
             // Interface
             write!(f, "export interface ")?;
@@ -199,22 +260,62 @@ impl<'a> fmt::Display for TsAccounts<'a> {
             writeln!(f, "\";")?;
             writeln!(f)?;
 
-            // Per-layout assertion helper. Thin wrapper over
-            // `assertLayoutId` that fills in the expected hex for
-            // convenience at call sites.
-            write!(f, "export function assert")?;
-            write_pascal(f, layout.name)?;
-            writeln!(f, "Layout(data: Uint8Array): void {{")?;
-            write!(f, "  assertLayoutId(data, ")?;
+            write!(f, "export const ")?;
             write_upper_snake(f, layout.name)?;
-            writeln!(f, "_LAYOUT_ID);")?;
-            writeln!(f, "}}")?;
+            writeln!(f, "_SIZE = {};", layout.total_size)?;
+            write!(f, "export const ")?;
+            write_upper_snake(f, layout.name)?;
+            writeln!(
+                f,
+                "_ACCOUNT_ENCODING: AccountEncoding = \"{}\";",
+                if layout_is_compact(layout) {
+                    "compact"
+                } else {
+                    "headered"
+                }
+            )?;
             writeln!(f)?;
 
             // Discriminator constant
             write!(f, "export const ")?;
             write_upper_snake(f, layout.name)?;
             writeln!(f, "_DISC = {};", layout.disc)?;
+            writeln!(f)?;
+
+            write!(f, "export const ")?;
+            write_upper_snake(f, layout.name)?;
+            writeln!(f, "_LAYOUT: LayoutIdentity = {{")?;
+            writeln!(f, "  name: \"{}\",", layout.name)?;
+            write!(f, "  encoding: ")?;
+            write_upper_snake(f, layout.name)?;
+            writeln!(f, "_ACCOUNT_ENCODING,")?;
+            write!(f, "  disc: ")?;
+            write_upper_snake(f, layout.name)?;
+            writeln!(f, "_DISC,")?;
+            write!(f, "  size: ")?;
+            write_upper_snake(f, layout.name)?;
+            writeln!(f, "_SIZE,")?;
+            write!(f, "  layoutId: ")?;
+            write_upper_snake(f, layout.name)?;
+            writeln!(f, "_LAYOUT_ID,")?;
+            writeln!(f, "}};")?;
+            writeln!(f)?;
+
+            // Per-layout assertion helper. Thin wrapper over
+            // the headered or compact assertion for convenience at call sites.
+            write!(f, "export function assert")?;
+            write_pascal(f, layout.name)?;
+            writeln!(f, "Layout(data: Uint8Array): void {{")?;
+            if layout_is_compact(layout) {
+                write!(f, "  assertCompactLayout(data, ")?;
+                write_upper_snake(f, layout.name)?;
+                writeln!(f, "_LAYOUT);")?;
+            } else {
+                write!(f, "  assertLayoutId(data, ")?;
+                write_upper_snake(f, layout.name)?;
+                writeln!(f, "_LAYOUT_ID);")?;
+            }
+            writeln!(f, "}}")?;
             writeln!(f)?;
 
             // Decoder
@@ -964,7 +1065,12 @@ impl<'a> fmt::Display for KtAccounts<'a> {
         // the client-side complement to the runtime's `load::<T>()`
         // fingerprint check.
         writeln!(f, "/** Hopper account header size in bytes. */")?;
-        writeln!(f, "const val HEADER_SIZE: Int = 16")?;
+        writeln!(f, "const val HEADER_SIZE: Int = {}", HOPPER_HEADER_SIZE)?;
+        writeln!(
+            f,
+            "/** Compact account body starts immediately after the discriminator byte. */"
+        )?;
+        writeln!(f, "const val COMPACT_BODY_OFFSET: Int = 1")?;
         writeln!(
             f,
             "/** Byte offset of the 8-byte layout fingerprint in a Hopper header. */"
@@ -972,6 +1078,22 @@ impl<'a> fmt::Display for KtAccounts<'a> {
         writeln!(f, "const val LAYOUT_ID_OFFSET: Int = 4")?;
         writeln!(f, "/** Byte length of the layout fingerprint. */")?;
         writeln!(f, "const val LAYOUT_ID_LENGTH: Int = 8")?;
+        writeln!(f)?;
+
+        writeln!(f, "enum class AccountEncoding {{ Headered, Compact }}")?;
+        writeln!(f)?;
+        writeln!(f, "data class LayoutIdentity(")?;
+        writeln!(f, "    val name: String,")?;
+        writeln!(f, "    val encoding: AccountEncoding,")?;
+        writeln!(f, "    val disc: Int,")?;
+        writeln!(f, "    val size: Int,")?;
+        writeln!(f, "    val layoutId: String,")?;
+        writeln!(f, ")")?;
+        writeln!(f)?;
+        writeln!(
+            f,
+            "fun layoutFingerprint(layout: LayoutIdentity): String = layout.layoutId"
+        )?;
         writeln!(f)?;
 
         writeln!(
@@ -1026,6 +1148,34 @@ impl<'a> fmt::Display for KtAccounts<'a> {
         writeln!(f, "}}")?;
         writeln!(f)?;
 
+        writeln!(f, "/**")?;
+        writeln!(
+            f,
+            " * Raise if `data` is not a compact Hopper account for `layout`."
+        )?;
+        writeln!(
+            f,
+            " * Compact accounts carry only discriminator + body; the layout fingerprint"
+        )?;
+        writeln!(
+            f,
+            " * comes from manifest/IDL metadata through `layoutFingerprint(layout)`."
+        )?;
+        writeln!(f, " */")?;
+        writeln!(
+            f,
+            "fun assertCompactLayout(data: ByteArray, layout: LayoutIdentity) {{"
+        )?;
+        writeln!(f, "    if (data.size != layout.size) {{")?;
+        writeln!(f, "        throw RuntimeException(\"Hopper compact account size mismatch for ${{layout.name}}: ${{data.size}} != ${{layout.size}}\")")?;
+        writeln!(f, "    }}")?;
+        writeln!(f, "    val actualDisc = data[0].toInt() and 0xFF")?;
+        writeln!(f, "    if (actualDisc != layout.disc) {{")?;
+        writeln!(f, "        throw RuntimeException(\"Hopper compact discriminator mismatch for ${{layout.name}}: $actualDisc != ${{layout.disc}}\")")?;
+        writeln!(f, "    }}")?;
+        writeln!(f, "}}")?;
+        writeln!(f)?;
+
         for layout in prog.layouts.iter() {
             // Data class
             write!(f, "data class ")?;
@@ -1056,21 +1206,62 @@ impl<'a> fmt::Display for KtAccounts<'a> {
             writeln!(f, "\"")?;
             writeln!(f)?;
 
-            // Per-layout assertion helper. Thin wrapper over
-            // `assertLayoutId` that fills in the expected hex.
-            write!(f, "fun assert")?;
-            write_kt_pascal(f, layout.name)?;
-            writeln!(f, "Layout(data: ByteArray) {{")?;
-            write!(f, "    assertLayoutId(data, ")?;
+            write!(f, "const val ")?;
             write_kt_const(f, layout.name)?;
-            writeln!(f, "_LAYOUT_ID)")?;
-            writeln!(f, "}}")?;
+            writeln!(f, "_SIZE: Int = {}", layout.total_size)?;
+            write!(f, "val ")?;
+            write_kt_const(f, layout.name)?;
+            writeln!(
+                f,
+                "_ACCOUNT_ENCODING: AccountEncoding = AccountEncoding.{}",
+                if layout_is_compact(layout) {
+                    "Compact"
+                } else {
+                    "Headered"
+                }
+            )?;
             writeln!(f)?;
 
             // Discriminator constant
             write!(f, "const val ")?;
             write_kt_const(f, layout.name)?;
             writeln!(f, "_DISC: Byte = {}", layout.disc)?;
+            writeln!(f)?;
+
+            write!(f, "val ")?;
+            write_kt_const(f, layout.name)?;
+            writeln!(f, "_LAYOUT: LayoutIdentity = LayoutIdentity(")?;
+            writeln!(f, "    name = \"{}\",", layout.name)?;
+            write!(f, "    encoding = ")?;
+            write_kt_const(f, layout.name)?;
+            writeln!(f, "_ACCOUNT_ENCODING,")?;
+            write!(f, "    disc = ")?;
+            write_kt_const(f, layout.name)?;
+            writeln!(f, "_DISC.toInt() and 0xFF,")?;
+            write!(f, "    size = ")?;
+            write_kt_const(f, layout.name)?;
+            writeln!(f, "_SIZE,")?;
+            write!(f, "    layoutId = ")?;
+            write_kt_const(f, layout.name)?;
+            writeln!(f, "_LAYOUT_ID,")?;
+            writeln!(f, ")")?;
+            writeln!(f)?;
+
+            // Per-layout assertion helper. Thin wrapper over
+            // the headered or compact assertion.
+            write!(f, "fun assert")?;
+            write_kt_pascal(f, layout.name)?;
+            writeln!(f, "Layout(data: ByteArray) {{")?;
+            if layout_is_compact(layout) {
+                write!(f, "    assertCompactLayout(data, ")?;
+                write_kt_const(f, layout.name)?;
+                writeln!(f, "_LAYOUT)")?;
+            } else {
+                write!(f, "    assertLayoutId(data, ")?;
+                write_kt_const(f, layout.name)?;
+                writeln!(f, "_LAYOUT_ID)")?;
+            }
+            writeln!(f, "}}")?;
             writeln!(f)?;
 
             // Decoder
@@ -1579,6 +1770,49 @@ mod tests {
         }
     }
 
+    fn compact_manifest() -> ProgramManifest {
+        static FIELDS: &[FieldDescriptor] = &[
+            FieldDescriptor {
+                name: "authority",
+                canonical_type: "Pubkey",
+                size: 32,
+                offset: 1,
+                intent: FieldIntent::Custom,
+            },
+            FieldDescriptor {
+                name: "balance",
+                canonical_type: "u64",
+                size: 8,
+                offset: 33,
+                intent: FieldIntent::Custom,
+            },
+        ];
+
+        static LAYOUTS: &[LayoutManifest] = &[LayoutManifest {
+            name: "compact_vault",
+            disc: 7,
+            version: 1,
+            layout_id: [0x10, 0x20, 0x30, 0x40, 0x50, 0x60, 0x70, 0x80],
+            total_size: 41,
+            field_count: 2,
+            fields: FIELDS,
+        }];
+
+        ProgramManifest {
+            name: "compact_vault_program",
+            version: "0.1.0",
+            description: "A compact account manifest",
+            layouts: LAYOUTS,
+            layout_metadata: &[],
+            instructions: &[],
+            events: &[],
+            policies: &[],
+            compatibility_pairs: &[],
+            tooling_hints: &[],
+            contexts: &[],
+        }
+    }
+
     #[test]
     fn ts_accounts_generates_interface() {
         let m = test_manifest();
@@ -1706,6 +1940,24 @@ mod tests {
     }
 
     #[test]
+    fn ts_accounts_uses_manifest_fingerprint_for_compact_layouts() {
+        let m = compact_manifest();
+        let output = TsAccounts(&m).to_string();
+        assert!(output.contains(
+            "export const COMPACT_VAULT_ACCOUNT_ENCODING: AccountEncoding = \"compact\";"
+        ));
+        assert!(output.contains("export const COMPACT_VAULT_LAYOUT_ID = \"1020304050607080\";"));
+        assert!(output.contains("export const COMPACT_VAULT_SIZE = 41;"));
+        assert!(output.contains("export const COMPACT_VAULT_DISC = 7;"));
+        assert!(output.contains("export const COMPACT_VAULT_LAYOUT: LayoutIdentity = {"));
+        assert!(output.contains("assertCompactLayout(data, COMPACT_VAULT_LAYOUT);"));
+        assert!(output.contains("layoutFingerprint(layout)"));
+        assert!(output.contains("new PublicKey(data.slice(1, 33))"));
+        assert!(output.contains("view.getBigUint64(33, true)"));
+        assert!(!output.contains("assertLayoutId(data, COMPACT_VAULT_LAYOUT_ID);"));
+    }
+
+    #[test]
     fn ts_assert_layout_id_handles_short_buffer_check() {
         let m = test_manifest();
         let output = TsAccounts(&m).to_string();
@@ -1789,6 +2041,25 @@ mod tests {
         // fails with LayoutMismatchException instead of decoding garbage.
         assert!(output
             .contains("fun decodeVault(data: ByteArray): Vault {\n    assertVaultLayout(data)"));
+    }
+
+    #[test]
+    fn kt_accounts_uses_manifest_fingerprint_for_compact_layouts() {
+        let m = compact_manifest();
+        let output = KtAccounts(&m).to_string();
+        assert!(output.contains(
+            "val COMPACT_VAULT_ACCOUNT_ENCODING: AccountEncoding = AccountEncoding.Compact"
+        ));
+        assert!(output.contains("const val COMPACT_VAULT_LAYOUT_ID: String = \"1020304050607080\""));
+        assert!(output.contains("const val COMPACT_VAULT_SIZE: Int = 41"));
+        assert!(output.contains("const val COMPACT_VAULT_DISC: Byte = 7"));
+        assert!(output.contains("val COMPACT_VAULT_LAYOUT: LayoutIdentity = LayoutIdentity("));
+        assert!(output.contains("assertCompactLayout(data, COMPACT_VAULT_LAYOUT)"));
+        assert!(output
+            .contains("fun layoutFingerprint(layout: LayoutIdentity): String = layout.layoutId"));
+        assert!(output.contains("PublicKey(data.copyOfRange(1, 33))"));
+        assert!(output.contains("ByteBuffer.wrap(data, 33, 8)"));
+        assert!(!output.contains("assertLayoutId(data, COMPACT_VAULT_LAYOUT_ID)"));
     }
 
     #[test]

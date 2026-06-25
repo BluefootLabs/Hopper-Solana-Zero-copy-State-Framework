@@ -1,0 +1,64 @@
+{
+  "name": "hopper_compact_vault",
+  "version": "0.2.1",
+  "description": "Devnet-ready proof for a 1-byte compact Hopper account with manifest-backed layout fingerprints.",
+  "layouts": [
+    {
+      "name": "Vault",
+      "disc": 1,
+      "version": 1,
+      "layout_id": [67, 113, 65, 144, 124, 9, 52, 79],
+      "layoutId": "437141907c09344f",
+      "encoding": "compact",
+      "total_size": 41,
+      "totalSize": 41,
+      "field_count": 2,
+      "fields": [
+        {"name": "authority", "type": "Pubkey", "size": 32, "offset": 1},
+        {"name": "balance", "type": "u64", "size": 8, "offset": 33}
+      ]
+    }
+  ],
+  "instructions": [
+    {
+      "name": "initialize",
+      "tag": 0,
+      "args": [],
+      "accounts": [
+        {"name": "vault", "writable": true, "signer": false, "layout_ref": "Vault"},
+        {"name": "authority", "writable": false, "signer": true, "layout_ref": ""}
+      ],
+      "capabilities": ["CreatesAccount", "MutatesState"],
+      "policy_pack": "COMPACT_VAULT_WRITE",
+      "receipt_expected": false
+    },
+    {
+      "name": "deposit",
+      "tag": 1,
+      "args": [
+        {"name": "amount", "type": "u64", "size": 8}
+      ],
+      "accounts": [
+        {"name": "vault", "writable": true, "signer": false, "layout_ref": "Vault"},
+        {"name": "authority", "writable": false, "signer": true, "layout_ref": ""}
+      ],
+      "capabilities": ["MutatesState"],
+      "policy_pack": "COMPACT_VAULT_WRITE",
+      "receipt_expected": false
+    }
+  ],
+  "events": [],
+  "policies": [
+    {
+      "name": "COMPACT_VAULT_WRITE",
+      "capabilities": ["CreatesAccount", "MutatesState"],
+      "requirements": ["SignerAuthority", "ExactAccountSize"]
+    }
+  ],
+  "toolingHints": [
+    "account_encoding=compact",
+    "compact_body_offset=1",
+    "layout_fingerprint_source=manifest_or_idl",
+    "no_header_layout_id_offset=4"
+  ]
+}

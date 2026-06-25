@@ -139,6 +139,15 @@ live in `hopper-schema` and the codegen modules. The on-chain registry's
 `schema_hash` pins the off-chain artifacts to a specific schema so a
 client can prove the IDL it holds matches the program it is calling.
 
+Generated clients branch on account encoding. Headered layouts read the
+8-byte layout fingerprint from the Hopper header at bytes `4..12` before
+decoding. Compact layouts have no such header: generated TypeScript and
+Kotlin clients assert exact size plus discriminator, then expose the
+fingerprint from the manifest/IDL `LayoutIdentity`. The field offsets in
+compact generated clients are absolute `[disc][body]` offsets, so a
+41-byte compact vault decodes `authority` from `1..33` and `balance`
+from `33..41`.
+
 See also [`docs/ONCHAIN_SCHEMA_PUBLICATION.md`](ONCHAIN_SCHEMA_PUBLICATION.md)
 (the JSON manifest PDA + `HopperSchemaPointer`) and
 [`docs/SCHEMA_ARCHITECTURE.md`](SCHEMA_ARCHITECTURE.md).
@@ -177,8 +186,9 @@ ergonomics**, and validation helpers -- fully tested and
 5. Validation/diff primitives (below): `diff_entry`, `diff_registries`,
    `registry_matches`, `ManifestProfile::try_parse` /
    `permits_upgrade`, `RegistryCompat`.
-6. A macro-based example (`examples/hopper-compact-vault`) and the
-   compile-pass/compile-fail trybuild coverage.
+6. A macro-based, devnet-ready example (`examples/hopper-compact-vault`),
+  generated TypeScript/Kotlin compact client coverage, and the
+  compile-pass/compile-fail trybuild coverage.
 
 ## Macro ergonomics
 

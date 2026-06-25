@@ -3,7 +3,7 @@
 [![License: MIT OR Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](LICENSE-MIT)
 ![no_std](https://img.shields.io/badge/no__std-yes-green.svg)
 
-Hopper is a zero-copy Solana program framework. Write programs with the Anchor shape you're used to. Hopper verifies owner, role, discriminator, version, and layout fingerprint before account bytes reach typed state. No deserialize-then-hope path. No unchecked cast hiding in a macro.
+Hopper is a zero-copy Solana program framework. Write programs with the Anchor shape you're used to. Hopper verifies owner, role, discriminator, version, layout fingerprint, or compact exact-size identity before account bytes reach typed state. No deserialize-then-hope path. No unchecked cast hiding in a macro.
 
 The framework gives you Anchor ergonomics, Quasar direct-state speed, and an escape hatch when you need raw SVM control. One production runtime: direct Solana account memory through Hopper's typed handles, validation layer, and CPI surface.
 
@@ -18,6 +18,7 @@ For normal programs, use `hopper-lang` as `hopper`: `use hopper::prelude::*`, `#
 - External account adapters for non-Hopper accounts: typed views, checked lenses, proof tokens, snapshots, lazy remaining parsing, SPL Token adapters.
 - Checked CPI, signed CPI, stored instructions, Token and Token-2022 helpers, ATA, memo, and on-chain crypto.
 - Systems-mode APIs for segmented layouts, dynamic tails, receipt trails, policy checks, schema manifests, migrations.
+- Opt-in 1-byte compact accounts for hot state: exact `[disc][body]` sizing on-chain, with layout fingerprints supplied by the manifest, IDL, registry, and generated SDK constants.
 - CLI, schema, IDL, and code generation tools that understand Hopper layout fingerprints before decoding accounts.
 
 ## Current Release
@@ -30,7 +31,7 @@ All companion crates target 0.2.1: hopper-runtime, hopper-systems, hopper-derive
 
 Benchmark snapshot: [BENCHMARKS.md](BENCHMARKS.md). Regenerate from the separate [hopper-bench](https://github.com/BluefootLabs/hopper-bench) repo before changing benchmark claims.
 
-Generated clients: TypeScript, Kotlin, Python, Go, C header-only, off-chain Rust, Codama JSON, Anchor IDL JSON. All readers assert Hopper layout IDs before decode.
+Generated clients: TypeScript, Kotlin, Python, Go, C header-only, off-chain Rust, Codama JSON, Anchor IDL JSON. Headered readers assert Hopper layout IDs from bytes `4..12` before decode; compact readers assert exact size plus discriminator and expose the layout fingerprint from manifest/IDL metadata. See [examples/hopper-compact-vault](examples/hopper-compact-vault/README.md).
 
 Security users should review [AUDIT.md](AUDIT.md) and [docs/UNSAFE_INVARIANTS.md](docs/UNSAFE_INVARIANTS.md).
 
