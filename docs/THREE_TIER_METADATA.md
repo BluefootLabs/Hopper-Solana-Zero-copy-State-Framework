@@ -36,8 +36,8 @@ byte 0   : disc (u8)
 bytes 1..: zero-copy body (alignment-1 Pod fields)
 ```
 
-There is **no universal 16-byte header by default**. The intended
-authoring surface is:
+There is **no universal 16-byte header by default**. The authoring
+surface is:
 
 ```rust
 #[hopper::state(compact, disc = 1)]
@@ -153,16 +153,18 @@ A program declares how much of the registry machinery it wants:
 | `onchain`   | yes                 | published & read      | no             |
 | `governed`  | yes                 | published & read      | upgrades/migrations must match the on-chain registry |
 
-The intended authoring surface is
+The authoring surface is
 `#[hopper::program(manifest = "offchain" | "onchain" | "governed")]`.
-The profile semantics (`ManifestProfile`) are implemented today in
-`hopper_core::manifest`; the macro wiring is the documented next step
-(see below).
+The macro emits a `HOPPER_PROGRAM_MANIFEST_PROFILE: ManifestProfile`
+const for build tooling to read; unknown profile strings fail closed at
+macro-expansion time. The profile semantics (`ManifestProfile`) live in
+`hopper_core::manifest`.
 
 ## What ships in this change
 
-This change lands the **foundation** of the model, fully tested and
-`no_std`/zero-copy clean, without a large macro rewrite:
+This change lands the model end to end -- runtime, data model, **macro
+ergonomics**, and validation helpers -- fully tested and
+`no_std`/zero-copy clean:
 
 1. This design note.
 2. Tier 1 runtime support: `hopper_runtime::compact` (`CompactLayout`,
@@ -170,31 +172,78 @@ This change lands the **foundation** of the model, fully tested and
 3. Tier 2 data model: `hopper_core::manifest` (`ProgramManifestHeader`,
    `AccountLayoutEntry`, `ProgramManifestView`, `ManifestProfile`,
    `REGISTRY_SEED`, deterministic FNV-1a-64 hashing, builder helper).
-4. An example (`examples/hopper-compact-vault`) showing a compact
-   account hand-implementing `CompactLayout` and a registry built and
-   read back.
-5. Unit tests for the loader, the registry reader, and hashing.
+4. Macro ergonomics (below): `#[hopper::state(compact, disc = N)]` and
+   `#[hopper::program(manifest = "...")]`.
+5. Validation/diff primitives (below): `diff_entry`, `diff_registries`,
+   `registry_matches`, `ManifestProfile::try_parse` /
+   `permits_upgrade`, `RegistryCompat`.
+6. A macro-based example (`examples/hopper-compact-vault`) and the
+   compile-pass/compile-fail trybuild coverage.
 
-## Documented next step (deferred macro wiring)
+## Macro ergonomics
 
-The proc-macro surface is intentionally **not** changed in this pass to
-avoid a broad, risky rewrite. To finish the ergonomic story:
+### `#[hopper::state(compact, disc = N)]`
 
-- **`#[hopper::state(compact, disc = N)]`** (`crates/hopper-macros-proc/src/state.rs`):
-  add a `compact` flag to the attribute parser. When set, emit a
-  `CompactLayout` impl (`DISC = N`, body = the struct) and skip the
-  `HopperHeader`/`LayoutContract` codegen and the 16-byte `LEN` math.
-  The generated `Pod`/`Zeroable`/`FixedLayout` impls and per-field
-  offset consts are reused as-is, but offsets are body-relative (base 0
-  inside the body, byte 1 on the wire).
+Declares a Tier-1 compact account. The macro emits the `CompactLayout`
+impl (`DISC = N`, body = the struct), the `Pod`/`Zeroable` proofs, the
+`[disc:u8][body]` load helpers (`load_compact`, `load_compact_mut`,
+`init_compact`, `overlay_body`), the `registry_entry()` Tier-2 row
+builder, and per-field offset consts. It deliberately does **not** emit
+`LayoutContract`/`HopperLayout`: a compact account has no 16-byte header,
+so `account.load::<T>()` must not be made available for it. Offsets are
+body-relative inside the struct but absolute on the wire -- the emitted
+`{FIELD}_ABS_OFFSET` consts fold in the single discriminator byte
+(`COMPACT_BODY_OFFSET = 1`), not `HEADER_LEN`:
 
-- **`#[hopper::program(manifest = "...")]`** (`crates/hopper-macros-proc/src/program.rs`,
-  `parse_program_policy`): parse the profile string into a
-  `ManifestProfile`, and for `onchain`/`governed` emit a
-  `const PROGRAM_REGISTRY: [AccountLayoutEntry; N]` plus a helper that
-  writes a `ProgramManifestHeader` + entries into a buffer (registry PDA
-  init) and, for `governed`, a check that upgrade/migration instructions
-  validate the on-chain `registry_hash` before proceeding.
+```rust
+#[derive(Clone, Copy, Debug, Default)]
+#[hopper::state(compact, disc = 1)]
+#[repr(C)]
+pub struct Vault {
+    #[role = "authority"] pub authority: Address,
+    #[role = "balance"]   pub balance: WireU64,
+}
 
-Until then, both traits can be hand-implemented (the example shows how),
-so the capability is available now; only the derive sugar is pending.
+// Vault::BODY_SIZE == 40, COMPACT_LEN == MIN_SIZE == 41, DISC == 1
+// Vault::AUTHORITY_ABS_OFFSET == 1, Vault::BALANCE_ABS_OFFSET == 33
+let entry = Vault::registry_entry(); // ENTRY_FLAG_COMPACT row for Tier 2
+```
+
+`compact` is fixed-size by construction: combining it with
+`dynamic_tail = T` or `raw_tail = true` is rejected at macro-expansion
+time.
+
+### `#[hopper::program(manifest = "...")]`
+
+Parses the profile string into a `ManifestProfile` and emits
+`pub const HOPPER_PROGRAM_MANIFEST_PROFILE: ManifestProfile`. Unknown
+strings fail closed during expansion (only `offchain`, `onchain`,
+`governed` are accepted). Build/publish tooling reads the const to decide
+whether to publish the registry PDA and whether to gate upgrades.
+
+## Validation and diff primitives
+
+`hopper_core::manifest` provides pure, no-alloc helpers over the
+zero-copy `ProgramManifestView` so a governed program can compare its
+*generated* registry against the *on-chain* one without leaving the hot
+path's allocation-free model:
+
+- `registry_matches(view, &schema_hash, &registry_hash)` -- confirms an
+  on-chain view pins the expected schema and verifies its own registry
+  hash.
+- `diff_entry(old, new) -> RegistryCompat` and
+  `diff_registries(old, new) -> RegistryCompat` -- classify a layout
+  change as `Unchanged`, `Additive`, `MigrationRequired`, or `Breaking`
+  (a layout-id change, shape-flag flip, removed disc, or shrunk size is
+  `Breaking`; a grown size or version bump is `MigrationRequired`; a new
+  disc is `Additive`). `RegistryCompat` is severity-ordered, so
+  combining rows is a `max`.
+- `ManifestProfile::try_parse(s)` -- fail-closed string parse mirroring
+  the macro.
+- `ManifestProfile::permits_upgrade(compat)` -- `governed` admits only
+  `Unchanged`/`Additive`; `offchain`/`onchain` admit everything short of
+  `Breaking`.
+
+Hot-path compact account loading stays manifest-free: these helpers are
+for upgrade/migration instructions and off-chain tooling, never the
+per-account read.

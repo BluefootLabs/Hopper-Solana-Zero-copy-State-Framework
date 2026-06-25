@@ -1,0 +1,15 @@
+error: compact layouts are fixed-size: `compact` cannot be combined with `dynamic_tail = T` or `raw_tail = true`
+ --> tests/ui/fail/compact_rejects_tail.rs:5:1
+  |
+5 | #[hopper::state(compact, raw_tail = true)]
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: this error originates in the attribute macro `hopper::state` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unused import: `hopper::prelude::*`
+ --> tests/ui/fail/compact_rejects_tail.rs:1:5
+  |
+1 | use hopper::prelude::*;
+  |     ^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default

@@ -27,6 +27,10 @@ struct StateOptions {
     /// final field consumes the remaining payload bytes without its own
     /// field-level prefix and therefore cannot be represented as `TailCodec`.
     raw_tail: bool,
+    /// Tier-1 compact layout: store the account as `[disc:u8][body]` with
+    /// no 16-byte universal header. Emits a [`CompactLayout`] impl and the
+    /// compact load helpers instead of the headered `LayoutContract` path.
+    compact: bool,
 }
 
 impl Default for StateOptions {
@@ -37,6 +41,7 @@ impl Default for StateOptions {
             dynamic_tail: None,
             dynamic_tail_schema: None,
             raw_tail: false,
+            compact: false,
         }
     }
 }
@@ -74,6 +79,15 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
             proc_macro2::Span::call_site(),
             "raw_tail = true cannot be combined with dynamic_tail = T",
         ));
+    }
+    if options.compact {
+        if options.dynamic_tail.is_some() || options.raw_tail {
+            return Err(syn::Error::new(
+                proc_macro2::Span::call_site(),
+                "compact layouts are fixed-size: `compact` cannot be combined with `dynamic_tail = T` or `raw_tail = true`",
+            ));
+        }
+        return expand_compact(options, item);
     }
     let dynamic_tail = options.dynamic_tail.clone();
     let mut input: ItemStruct = parse2(item)?;
@@ -714,6 +728,342 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
     Ok(expanded)
 }
 
+/// Tier-1 compact-layout codegen for `#[hopper::state(compact, ...)]`.
+///
+/// A compact account is stored as `[disc:u8][zero-copy body]` with **no**
+/// 16-byte universal header. This path therefore emits a deliberately
+/// smaller surface than the headered [`expand`] path:
+///
+/// - a [`CompactLayout`](::hopper::account::CompactLayout) impl (the
+///   hot-path loader contract) instead of `LayoutContract` / `HopperLayout`,
+/// - body-relative and account-absolute field offsets (the absolute
+///   offsets fold in the single discriminator byte, not `HEADER_LEN`),
+/// - a `registry_entry()` helper so the layout can be listed in a Tier-2
+///   on-chain registry without hand-writing the `AccountLayoutEntry`,
+/// - a `SchemaExport` impl whose offsets start at byte 1, so the same
+///   layout still flows into IDL / client generators (Tier 3).
+///
+/// The headered path is untouched: a type is compact iff it asked for it.
+fn expand_compact(options: StateOptions, item: TokenStream) -> Result<TokenStream> {
+    let mut input: ItemStruct = parse2(item)?;
+    let name = input.ident.clone();
+    let vis = input.vis.clone();
+
+    if !has_repr_c(&input.attrs) {
+        return Err(syn::Error::new_spanned(
+            &input,
+            "hopper_state(compact) requires #[repr(C)] so the compact body offset stays stable",
+        ));
+    }
+    if !matches!(input.fields, Fields::Named(_)) {
+        return Err(syn::Error::new_spanned(
+            &input,
+            "hopper_state(compact) requires a struct with named fields",
+        ));
+    }
+
+    // Strip hopper-internal field attrs from the re-emitted struct, same as
+    // the headered path. Compact layouts still support `#[role]`/`#[invariant]`
+    // so they participate in schema export.
+    let field_metas: Vec<FieldMeta> = match &mut input.fields {
+        Fields::Named(named) => {
+            let mut out = Vec::with_capacity(named.named.len());
+            for field in named.named.iter_mut() {
+                let meta = parse_field_meta(field)?;
+                strip_hopper_field_attrs(field);
+                out.push(meta);
+            }
+            out
+        }
+        _ => unreachable!("checked above"),
+    };
+
+    let fields = match &input.fields {
+        Fields::Named(f) => &f.named,
+        _ => unreachable!("checked above"),
+    };
+
+    let struct_name_upper = to_screaming_snake(&name.to_string());
+
+    let mut module_items = Vec::new();
+    let mut inherent_items = Vec::new();
+    let mut segment_entries = Vec::new();
+    let mut field_name_literals = Vec::new();
+    let mut field_types = Vec::new();
+    let mut field_role_literals: Vec<LitStr> = Vec::new();
+    let mut field_invariant_literals: Vec<LitStr> = Vec::new();
+    let mut running_offset = quote! { 0u32 };
+
+    for (field, meta) in fields.iter().zip(field_metas.iter()) {
+        let field_name = field.ident.as_ref().unwrap();
+        let field_name_str = field_name.to_string();
+        let field_ty = &field.ty;
+        let field_name_upper = to_screaming_snake(&field_name_str);
+        let current_offset = running_offset.clone();
+
+        field_name_literals.push(LitStr::new(&field_name_str, field_name.span()));
+        field_types.push(field_ty.clone());
+        field_role_literals.push(LitStr::new(&meta.role, field_name.span()));
+        field_invariant_literals.push(LitStr::new(&meta.invariant, field_name.span()));
+
+        segment_entries.push(quote! {
+            ::hopper::hopper_core::segment_map::StaticSegment::new(
+                #field_name_str,
+                #current_offset,
+                core::mem::size_of::<#field_ty>() as u32,
+            )
+        });
+
+        let const_name = format_ident!("{}_{}_OFFSET", struct_name_upper, field_name_upper);
+        let const_abs_name = format_ident!("{}_{}_ABS_OFFSET", struct_name_upper, field_name_upper);
+        let const_size_name = format_ident!("{}_{}_SIZE", struct_name_upper, field_name_upper);
+        let const_type_name = format_ident!("{}_{}_TYPE", struct_name_upper, field_name_upper);
+        let assoc_offset_name = format_ident!("{}_OFFSET", field_name_upper);
+        let assoc_abs_offset_name = format_ident!("{}_ABS_OFFSET", field_name_upper);
+        let assoc_size_name = format_ident!("{}_SIZE", field_name_upper);
+
+        // `*_OFFSET` is body-relative (from the start of the `#[repr(C)]`
+        // struct). `*_ABS_OFFSET` folds in the single compact discriminator
+        // byte (`COMPACT_BODY_OFFSET`), not `HEADER_LEN`.
+        module_items.push(quote! {
+            #vis const #const_name: u32 = #current_offset;
+            #vis const #const_abs_name: u32 =
+                ::hopper::account::COMPACT_BODY_OFFSET as u32 + #current_offset;
+            #vis const #const_size_name: u32 = core::mem::size_of::<#field_ty>() as u32;
+            #vis type #const_type_name = #field_ty;
+        });
+
+        inherent_items.push(quote! {
+            #vis const #assoc_offset_name: u32 = #current_offset;
+            #vis const #assoc_abs_offset_name: u32 =
+                ::hopper::account::COMPACT_BODY_OFFSET as u32 + #current_offset;
+            #vis const #assoc_size_name: u32 = core::mem::size_of::<#field_ty>() as u32;
+        });
+
+        running_offset = quote! {
+            #current_offset + core::mem::size_of::<#field_ty>() as u32
+        };
+    }
+
+    let body_size = running_offset.clone();
+    let version = options.version;
+    let layout_id = layout_id_bytes(&name, version, fields, None);
+    let disc = options.disc.unwrap_or_else(|| {
+        for byte in layout_id.iter() {
+            if *byte != 0 {
+                return *byte;
+            }
+        }
+        1u8
+    });
+    let layout_id_tokens = byte_array_literal(&layout_id);
+
+    let layout_id_hex = layout_id
+        .iter()
+        .map(|byte| format!("{:02X}", byte))
+        .collect::<String>();
+    let layout_id_anchor_ident = format_ident!(
+        "__HOPPER_COMPACT_LAYOUT_ID_ANCHOR_{}_{}",
+        struct_name_upper,
+        layout_id_hex
+    );
+
+    let state_param_inits = fields
+        .iter()
+        .map(state_field_param_init)
+        .collect::<Result<Vec<_>>>()?;
+    let constructor_params: Vec<TokenStream> =
+        state_param_inits.iter().map(|i| i.0.clone()).collect();
+    let constructor_inits: Vec<TokenStream> =
+        state_param_inits.iter().map(|i| i.1.clone()).collect();
+
+    let expanded = quote! {
+        #input
+
+        // ── Compile-time safety fence (compact) ────────────────────────
+        const _: () = {
+            assert!(
+                core::mem::align_of::<#name>() == 1,
+                "hopper_state(compact) layouts must use alignment-1 field types such as WireU64 or TypedAddress",
+            );
+            assert!(
+                core::mem::size_of::<#name>() == ((#body_size) as usize),
+                "hopper_state(compact) layouts must be #[repr(C)] with no implicit padding",
+            );
+            assert!(
+                core::mem::size_of::<#name>() > 0,
+                "hopper_state(compact) layouts must have at least one field; zero-sized overlays project to dangling pointers",
+            );
+            assert!(
+                #disc != 0,
+                "hopper_state(compact) discriminator must be non-zero: a zero discriminator cannot be distinguished from an uninitialized account",
+            );
+        };
+
+        #(#module_items)*
+
+        impl #name {
+            // One parameter per field mirrors the user's struct.
+            #[allow(clippy::too_many_arguments)]
+            #[inline(always)]
+            #vis const fn new(#(#constructor_params),*) -> Self {
+                Self {
+                    #(#constructor_inits),*
+                }
+            }
+
+            #(#inherent_items)*
+
+            /// Zero-copy body size in bytes (no discriminator).
+            pub const BODY_SIZE: usize = core::mem::size_of::<Self>();
+            /// Total compact wire length: 1 discriminator byte + body.
+            pub const COMPACT_LEN: usize =
+                ::hopper::account::COMPACT_BODY_OFFSET + Self::BODY_SIZE;
+            /// Minimum account data length to load this layout. Equal to
+            /// [`Self::COMPACT_LEN`]; compact layouts are fixed-size.
+            pub const MIN_SIZE: usize = Self::COMPACT_LEN;
+            /// Bytes to allocate for a fresh compact account. Spelled
+            /// `INIT_SPACE` for Anchor-style `space = T::INIT_SPACE` parity.
+            pub const INIT_SPACE: usize = Self::COMPACT_LEN;
+            /// Discriminator byte stored at offset 0.
+            pub const DISC: u8 = #disc;
+            /// Layout version.
+            pub const VERSION: u8 = #version;
+            /// 8-byte wire fingerprint (same algorithm as headered layouts).
+            pub const LAYOUT_ID: [u8; 8] = #layout_id_tokens;
+            /// Deterministic 8-byte hash of the type name, for registry rows.
+            pub const NAME_HASH: [u8; 8] =
+                ::hopper::manifest::name_hash(stringify!(#name));
+
+            /// Build the Tier-2 registry row describing this compact layout.
+            ///
+            /// Lets a program list its compact accounts in an on-chain
+            /// registry (or off-chain manifest) without hand-writing the
+            /// `AccountLayoutEntry`.
+            #[inline]
+            #vis fn registry_entry() -> ::hopper::manifest::AccountLayoutEntry {
+                ::hopper::manifest::AccountLayoutEntry::new(
+                    Self::DISC,
+                    Self::VERSION as u16,
+                    Self::COMPACT_LEN as u32,
+                    Self::BODY_SIZE as u32,
+                    u64::from_le_bytes(Self::LAYOUT_ID),
+                    ::hopper::manifest::ENTRY_FLAG_COMPACT,
+                    Self::NAME_HASH,
+                )
+            }
+
+            /// Overlay the body on `body_bytes` (the bytes *after* the
+            /// discriminator). Use [`Self::load_compact`] for whole accounts.
+            #[inline(always)]
+            pub fn overlay_body(
+                body_bytes: &[u8],
+            ) -> ::core::result::Result<&Self, ::hopper::__runtime::ProgramError> {
+                ::hopper::hopper_core::account::pod_from_bytes::<Self>(body_bytes)
+            }
+
+            /// Load a compact account owned by `program_id`.
+            #[inline(always)]
+            pub fn load_compact<'a>(
+                account: &'a ::hopper::prelude::AccountView<'a>,
+                program_id: &::hopper::prelude::Address,
+            ) -> ::core::result::Result<
+                ::hopper::__runtime::Ref<'a, Self>,
+                ::hopper::__runtime::ProgramError,
+            > {
+                account.check_owned_by(program_id)?;
+                account.load_compact::<Self>()
+            }
+
+            /// Mutably load a compact account owned and writable by `program_id`.
+            #[inline(always)]
+            pub fn load_compact_mut<'a>(
+                account: &'a ::hopper::prelude::AccountView<'a>,
+                program_id: &::hopper::prelude::Address,
+            ) -> ::core::result::Result<
+                ::hopper::__runtime::RefMut<'a, Self>,
+                ::hopper::__runtime::ProgramError,
+            > {
+                account.check_owned_by(program_id)?.check_writable()?;
+                account.load_compact_mut::<Self>()
+            }
+
+            /// Stamp the discriminator on a fresh account (offset 0).
+            #[inline(always)]
+            pub fn init_compact(
+                account: &::hopper::prelude::AccountView<'_>,
+            ) -> ::core::result::Result<(), ::hopper::__runtime::ProgramError> {
+                account.init_compact::<Self>()
+            }
+
+            /// Declared semantic role per field, in declaration order.
+            pub const FIELD_ROLES: &'static [(&'static str, &'static str)] = &[
+                #( (#field_name_literals, #field_role_literals) ),*
+            ];
+
+            /// Declared invariant name per field, in declaration order.
+            pub const FIELD_INVARIANTS: &'static [(&'static str, &'static str)] = &[
+                #( (#field_name_literals, #field_invariant_literals) ),*
+            ];
+        }
+
+        // Copy proof: the canonical Pod contract is `Copy + Sized`.
+        #[doc(hidden)]
+        const _: () = {
+            struct __CompactCopyProof<T: ::core::clone::Clone + ::core::marker::Copy>(
+                ::core::marker::PhantomData<T>,
+            );
+            const _: __CompactCopyProof<#name> =
+                __CompactCopyProof(::core::marker::PhantomData);
+        };
+
+        // Field-level Pod proof: each field type is forced through the
+        // Pod bound so a non-Pod field fails at the field, not at a load.
+        #[doc(hidden)]
+        const _: () = {
+            struct __CompactFieldPodProof<T: ::hopper::__runtime::Pod>(
+                ::core::marker::PhantomData<T>,
+            );
+            #(
+                #[allow(dead_code)]
+                const _: __CompactFieldPodProof<#field_types> =
+                    __CompactFieldPodProof(::core::marker::PhantomData);
+            )*
+        };
+
+        unsafe impl ::hopper::__runtime::Zeroable for #name {}
+        unsafe impl ::hopper::hopper_core::account::Pod for #name {}
+
+        // Anchor the layout fingerprint in `.rodata` for `hopper verify`.
+        #[allow(unexpected_cfgs)]
+        #[cfg_attr(not(target_os = "solana"), used)]
+        #[doc(hidden)]
+        #[no_mangle]
+        pub static #layout_id_anchor_ident: [u8; 8] = #name::LAYOUT_ID;
+
+        impl ::hopper::hopper_core::account::FixedLayout for #name {
+            const SIZE: usize = core::mem::size_of::<Self>();
+        }
+
+        impl ::hopper::hopper_core::segment_map::SegmentMap for #name {
+            const SEGMENTS: &'static [::hopper::hopper_core::segment_map::StaticSegment] = &[
+                #(#segment_entries),*
+            ];
+        }
+
+        // The compact hot-path loader contract. This is what distinguishes
+        // a compact layout from a headered one at the type level. The
+        // headered `LayoutContract` / `SchemaExport` (which assumes a
+        // 16-byte header) is deliberately NOT implemented: Tier-2/3 metadata
+        // for a compact layout flows through `registry_entry()` instead.
+        impl ::hopper::account::CompactLayout for #name {
+            const DISC: u8 = #name::DISC;
+        }
+    };
+
+    Ok(expanded)
+}
+
 /// Consume hopper-internal attributes (`#[role = "..."]`,
 /// `#[invariant = "..."]`) from a single field and return the
 /// extracted metadata. Attributes that fail to parse raise a
@@ -913,12 +1263,20 @@ fn parse_state_options(attr: TokenStream) -> Result<StateOptions> {
             options.raw_tail = value.value;
             return Ok(());
         }
+        if meta.path.is_ident("compact") {
+            // Accept both the bare flag `compact` and `compact = true`.
+            options.compact = match meta.value() {
+                Ok(value) => value.parse::<syn::LitBool>()?.value,
+                Err(_) => true,
+            };
+            return Ok(());
+        }
         if meta.path.is_ident("dynamic_tail_schema") || meta.path.is_ident("tail_schema") {
             let value: LitStr = meta.value()?.parse()?;
             options.dynamic_tail_schema = Some(value.value());
             return Ok(());
         }
-        Err(meta.error("unsupported hopper_state option; expected `disc = N`, `discriminator = N`, `version = N`, `dynamic_tail = T`, `raw_tail = true`, or `dynamic_tail_schema = \"...\"`"))
+        Err(meta.error("unsupported hopper_state option; expected `disc = N`, `discriminator = N`, `version = N`, `compact`, `dynamic_tail = T`, `raw_tail = true`, or `dynamic_tail_schema = \"...\"`"))
     });
 
     parser.parse2(attr)?;

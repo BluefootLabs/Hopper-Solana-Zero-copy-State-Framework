@@ -47,7 +47,7 @@ fn process_instruction(
     vault_program::process_instruction(&mut ctx)
 }
 
-#[hopper::program(entrypoint = false)]
+#[hopper::program(entrypoint = false, manifest = "onchain")]
 mod vault_program {
     use super::*;
 
@@ -116,6 +116,23 @@ mod abs_offset_tests {
     #[test]
     fn abs_offsets_are_strictly_increasing() {
         assert!(Vault::BALANCE_ABS_OFFSET < Vault::PENDING_REWARDS_ABS_OFFSET);
+    }
+}
+
+#[cfg(test)]
+mod manifest_profile_tests {
+    //! `#[hopper::program(manifest = "...")]` must emit the
+    //! `HOPPER_PROGRAM_MANIFEST_PROFILE` const so build tooling can read
+    //! which metadata tier the program opts into.
+    use hopper::manifest::ManifestProfile;
+
+    #[test]
+    fn program_declares_onchain_manifest_profile() {
+        assert_eq!(
+            super::vault_program::HOPPER_PROGRAM_MANIFEST_PROFILE,
+            ManifestProfile::Onchain
+        );
+        assert!(super::vault_program::HOPPER_PROGRAM_MANIFEST_PROFILE.publishes_onchain());
     }
 }
 

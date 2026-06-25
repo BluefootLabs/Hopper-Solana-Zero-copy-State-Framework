@@ -361,9 +361,9 @@ pub mod prelude_advanced {
 
     // Tier 2 on-chain program registry (three-tier metadata model).
     pub use crate::manifest::{
-        name_hash, registry_len, write_registry, AccountLayoutEntry, ManifestProfile,
-        ProgramManifestHeader, ProgramManifestView, REGISTRY_MAGIC, REGISTRY_SEED,
-        REGISTRY_VERSION,
+        diff_entry, diff_registries, name_hash, registry_len, registry_matches, write_registry,
+        AccountLayoutEntry, ManifestProfile, ProgramManifestHeader, ProgramManifestView,
+        RegistryCompat, REGISTRY_MAGIC, REGISTRY_SEED, REGISTRY_VERSION,
     };
 
     #[cfg(feature = "migrate")]

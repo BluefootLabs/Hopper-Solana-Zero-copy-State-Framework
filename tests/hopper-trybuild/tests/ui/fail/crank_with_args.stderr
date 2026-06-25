@@ -10,16 +10,10 @@ warning: unused import: `hopper::prelude::*`
 1 | use hopper::prelude::*;
   |     ^^^^^^^^^^^^^^^^^^
   |
-  = note: `#[warn(unused_imports)]` on by default
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
 
 warning: unused import: `super::*`
  --> tests/ui/fail/crank_with_args.rs:5:9
   |
 5 |     use super::*;
   |         ^^^^^^^^
-
-error[E0425]: cannot find function `settle` in this scope
-  --> tests/ui/fail/crank_with_args.rs:11:8
-   |
-11 |     fn settle(_ctx: &mut Context<'_>, amount: u64) -> ProgramResult {
-   |        ^^^^^^ not found in this scope

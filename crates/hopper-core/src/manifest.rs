@@ -425,6 +425,7 @@ impl ManifestProfile {
 
     /// Parse from the macro attribute string.
     #[inline]
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Option<Self> {
         match s {
             "offchain" => Some(Self::Offchain),
@@ -444,11 +445,152 @@ impl ManifestProfile {
     }
 }
 
+impl ManifestProfile {
+    /// Parse from the macro attribute string, failing closed on unknown
+    /// values. Unlike [`from_str`](Self::from_str) this distinguishes an
+    /// unknown profile (returned in the `Err`) so callers can surface a
+    /// precise diagnostic.
+    #[inline]
+    pub fn try_parse(s: &str) -> Result<Self, ProgramError> {
+        Self::from_str(s).ok_or(ProgramError::InvalidArgument)
+    }
+
+    /// Whether an upgrade producing `compat` is permitted under this profile.
+    ///
+    /// - `Offchain` / `Onchain` allow anything except a `Breaking` change.
+    /// - `Governed` additionally blocks `MigrationRequired` unless an
+    ///   explicit migration has been registered (the caller is responsible
+    ///   for re-classifying a registered migration as `Additive`).
+    #[inline]
+    pub const fn permits_upgrade(self, compat: RegistryCompat) -> bool {
+        match self {
+            Self::Offchain | Self::Onchain => !matches!(compat, RegistryCompat::Breaking),
+            Self::Governed => {
+                matches!(compat, RegistryCompat::Unchanged | RegistryCompat::Additive)
+            }
+        }
+    }
+}
+
 impl Default for ManifestProfile {
     #[inline]
     fn default() -> Self {
         Self::Offchain
     }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  Registry compatibility -- diff two registry snapshots
+// ══════════════════════════════════════════════════════════════════════
+
+/// Compatibility verdict between two registry snapshots (or two entries).
+///
+/// Variants are ordered by increasing severity, so combining several
+/// per-entry verdicts is a `max`. A governed upgrade gate consults
+/// [`ManifestProfile::permits_upgrade`] with the combined verdict.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum RegistryCompat {
+    /// Entry tables are byte-identical.
+    Unchanged,
+    /// Only new account types were added; every existing row is unchanged.
+    Additive,
+    /// An existing account type changed in a forward-compatible way that
+    /// still needs a migration (version bump with the same `layout_id`, or
+    /// a grown `fixed_size`).
+    MigrationRequired,
+    /// An existing account type changed incompatibly: a discriminator now
+    /// maps to a different `layout_id`, a body shrank, the compact/headered
+    /// flag flipped, or a previously-present type was removed.
+    Breaking,
+}
+
+impl RegistryCompat {
+    /// The more severe of two verdicts.
+    #[inline]
+    pub fn worst(self, other: Self) -> Self {
+        if self >= other {
+            self
+        } else {
+            other
+        }
+    }
+}
+
+/// The compact/headered shape bits that may never change in place.
+const ENTRY_SHAPE_FLAGS: u32 = ENTRY_FLAG_COMPACT | ENTRY_FLAG_HEADERED | ENTRY_FLAG_DYNAMIC_TAIL;
+
+/// Classify the change from `old` to `new` for one account type.
+///
+/// Both entries are assumed to share a discriminator (the caller matches
+/// them up). The verdict captures whether redeploying `new` over `old`
+/// is safe, needs a migration, or breaks existing accounts.
+pub fn diff_entry(old: &AccountLayoutEntry, new: &AccountLayoutEntry) -> RegistryCompat {
+    if old == new {
+        return RegistryCompat::Unchanged;
+    }
+    // A discriminator that now maps to a different wire layout, or whose
+    // structural shape flipped, breaks every account already on chain.
+    if old.layout_id != new.layout_id
+        || (old.flags.get() & ENTRY_SHAPE_FLAGS) != (new.flags.get() & ENTRY_SHAPE_FLAGS)
+    {
+        return RegistryCompat::Breaking;
+    }
+    // A body that shrank invalidates existing accounts; a body that grew is
+    // a migration (the loader's min_size check rejects stale-short accounts).
+    if new.fixed_size.get() < old.fixed_size.get() || new.min_size.get() < old.min_size.get() {
+        return RegistryCompat::Breaking;
+    }
+    if new.fixed_size.get() > old.fixed_size.get() || new.version.get() > old.version.get() {
+        return RegistryCompat::MigrationRequired;
+    }
+    // Same shape and sizes, only non-structural metadata differs (e.g. a
+    // deprecated flag or name hash). Treat as a migration to be safe.
+    RegistryCompat::MigrationRequired
+}
+
+/// Classify the change from registry `old` to registry `new`.
+///
+/// Walks both entry tables (no allocation): every old discriminator must
+/// still be present and compatible, and any brand-new discriminator is
+/// additive. The returned verdict is the worst across all rows.
+pub fn diff_registries(
+    old: &ProgramManifestView<'_>,
+    new: &ProgramManifestView<'_>,
+) -> RegistryCompat {
+    let mut verdict = RegistryCompat::Unchanged;
+
+    for old_entry in old.entries() {
+        match new.find_by_disc(old_entry.disc) {
+            Some(new_entry) => verdict = verdict.worst(diff_entry(old_entry, new_entry)),
+            // A type that used to exist is gone: existing accounts orphaned.
+            None => verdict = verdict.worst(RegistryCompat::Breaking),
+        }
+    }
+
+    for new_entry in new.entries() {
+        if old.find_by_disc(new_entry.disc).is_none() {
+            verdict = verdict.worst(RegistryCompat::Additive);
+        }
+    }
+
+    verdict
+}
+
+/// Verify an on-chain registry view against expected off-chain hashes.
+///
+/// Returns `true` only if the stored `registry_hash` is internally
+/// consistent (matches the entry table) **and** both the schema hash and
+/// registry hash equal the values the off-chain build produced. This is
+/// the governed-upgrade gate: a deploy proceeds only when the binary the
+/// validator will run matches the artifacts the client/manager generated.
+pub fn registry_matches(
+    view: &ProgramManifestView<'_>,
+    expected_schema_hash: &[u8; 32],
+    expected_registry_hash: &[u8; 32],
+) -> bool {
+    view.verify_registry_hash()
+        && &view.header().schema_hash == expected_schema_hash
+        && &view.header().registry_hash == expected_registry_hash
 }
 
 #[cfg(test)]
@@ -596,5 +738,99 @@ mod tests {
     fn name_hash_is_deterministic_and_distinct() {
         assert_eq!(name_hash("Vault"), name_hash("Vault"));
         assert_ne!(name_hash("Vault"), name_hash("Order"));
+    }
+
+    #[test]
+    fn profile_try_parse_fails_closed() {
+        assert_eq!(
+            ManifestProfile::try_parse("governed"),
+            Ok(ManifestProfile::Governed)
+        );
+        assert!(matches!(
+            ManifestProfile::try_parse("bogus"),
+            Err(ProgramError::InvalidArgument)
+        ));
+    }
+
+    /// Build a one-entry registry view backed by `buf` for diff testing.
+    fn write_one(buf: &mut [u8], entry: AccountLayoutEntry) -> usize {
+        write_registry(buf, REGISTRY_VERSION, 0, &[0; 32], &[entry]).unwrap()
+    }
+
+    #[test]
+    fn diff_entry_classifies_each_kind() {
+        let base = AccountLayoutEntry::new(1, 1, 41, 40, 0xABCD, ENTRY_FLAG_COMPACT, [1; 8]);
+
+        // Identical -> Unchanged.
+        assert_eq!(diff_entry(&base, &base), RegistryCompat::Unchanged);
+
+        // Grown body, same layout_id -> MigrationRequired.
+        let grown = AccountLayoutEntry::new(1, 1, 49, 48, 0xABCD, ENTRY_FLAG_COMPACT, [1; 8]);
+        assert_eq!(diff_entry(&base, &grown), RegistryCompat::MigrationRequired);
+
+        // Version bump only -> MigrationRequired.
+        let bumped = AccountLayoutEntry::new(1, 2, 41, 40, 0xABCD, ENTRY_FLAG_COMPACT, [1; 8]);
+        assert_eq!(
+            diff_entry(&base, &bumped),
+            RegistryCompat::MigrationRequired
+        );
+
+        // Different layout_id -> Breaking.
+        let relaid = AccountLayoutEntry::new(1, 1, 41, 40, 0x9999, ENTRY_FLAG_COMPACT, [1; 8]);
+        assert_eq!(diff_entry(&base, &relaid), RegistryCompat::Breaking);
+
+        // Shrunk body -> Breaking.
+        let shrunk = AccountLayoutEntry::new(1, 1, 33, 32, 0xABCD, ENTRY_FLAG_COMPACT, [1; 8]);
+        assert_eq!(diff_entry(&base, &shrunk), RegistryCompat::Breaking);
+
+        // Compact -> headered shape flip -> Breaking.
+        let reshaped = AccountLayoutEntry::new(1, 1, 41, 40, 0xABCD, ENTRY_FLAG_HEADERED, [1; 8]);
+        assert_eq!(diff_entry(&base, &reshaped), RegistryCompat::Breaking);
+    }
+
+    #[test]
+    fn diff_registries_combines_rows() {
+        let v = AccountLayoutEntry::new(1, 1, 41, 40, 0xABCD, ENTRY_FLAG_COMPACT, name_hash("V"));
+
+        let mut old_buf = [0u8; registry_len(1)];
+        let n0 = write_one(&mut old_buf, v);
+        let old = ProgramManifestView::parse(&old_buf[..n0]).unwrap();
+
+        // Same registry -> Unchanged.
+        assert_eq!(diff_registries(&old, &old), RegistryCompat::Unchanged);
+
+        // Add a brand-new account type -> Additive.
+        let w = AccountLayoutEntry::new(2, 1, 25, 24, 0x1234, ENTRY_FLAG_COMPACT, name_hash("W"));
+        let mut add_buf = [0u8; registry_len(2)];
+        write_registry(&mut add_buf, REGISTRY_VERSION, 0, &[0; 32], &[v, w]).unwrap();
+        let added = ProgramManifestView::parse(&add_buf).unwrap();
+        assert_eq!(diff_registries(&old, &added), RegistryCompat::Additive);
+
+        // Dropping an existing type -> Breaking.
+        assert_eq!(diff_registries(&added, &old), RegistryCompat::Breaking);
+    }
+
+    #[test]
+    fn permits_upgrade_gates_by_profile() {
+        // Offchain/Onchain allow migrations; only Breaking is blocked.
+        assert!(ManifestProfile::Onchain.permits_upgrade(RegistryCompat::MigrationRequired));
+        assert!(!ManifestProfile::Onchain.permits_upgrade(RegistryCompat::Breaking));
+        // Governed blocks anything beyond Additive.
+        assert!(ManifestProfile::Governed.permits_upgrade(RegistryCompat::Additive));
+        assert!(!ManifestProfile::Governed.permits_upgrade(RegistryCompat::MigrationRequired));
+    }
+
+    #[test]
+    fn registry_matches_checks_hashes() {
+        let entries = sample_entries();
+        let schema_hash = expand_hash(b"schema:v7");
+        let mut buf = [0u8; registry_len(2)];
+        write_registry(&mut buf, REGISTRY_VERSION, 0, &schema_hash, &entries).unwrap();
+        let view = ProgramManifestView::parse(&buf).unwrap();
+
+        let registry_hash = view.compute_registry_hash();
+        assert!(registry_matches(&view, &schema_hash, &registry_hash));
+        // Wrong expected schema hash -> rejected.
+        assert!(!registry_matches(&view, &[9; 32], &registry_hash));
     }
 }

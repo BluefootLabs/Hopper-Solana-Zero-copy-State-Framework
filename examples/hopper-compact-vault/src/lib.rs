@@ -1,59 +1,49 @@
 //! # Hopper Compact Vault — three-tier metadata example
 //!
-//! Demonstrates two of the three tiers from `docs/THREE_TIER_METADATA.md`:
+//! Demonstrates two of the three tiers from `docs/THREE_TIER_METADATA.md`
+//! using the **macro ergonomics** added on top of the foundation:
 //!
-//! - **Tier 1 (hot path):** [`Vault`] is a *compact* account stored as
-//!   `[disc:u8][zero-copy body]` — no 16-byte universal header. A handler
-//!   loads it with [`AccountView::load_compact`], which is just
-//!   `check_len` + `check_disc` + cast-body-at-byte-1.
+//! - **Tier 1 (hot path):** [`Vault`] is declared with
+//!   `#[hopper::state(compact, disc = 1)]`. The macro emits a
+//!   [`CompactLayout`](hopper::account::CompactLayout) impl, the
+//!   `[disc:u8][zero-copy body]` load helpers, and the compact field
+//!   offsets — no 16-byte universal header.
 //! - **Tier 2 (on-chain registry):** [`program_registry`] builds a
-//!   compact binary registry describing every account the program owns,
-//!   and [`read_registry`] reads it back and verifies its hash.
+//!   compact binary registry from the macro-generated
+//!   [`Vault::registry_entry`], and [`read_registry`] reads it back and
+//!   verifies its hash.
 //!
-//! The `#[hopper::state(compact, ...)]` derive sugar is the documented
-//! next step; until it lands, a compact layout is a plain `#[repr(C)]`
-//! struct that implements `Pod` + [`CompactLayout`], as shown here.
+//! The hand-written `impl CompactLayout` shown in earlier revisions is no
+//! longer needed: `#[hopper::state(compact, ...)]` generates it.
 
 #![cfg_attr(target_os = "solana", no_std)]
 
-use hopper::account::{AccountView, CompactLayout};
 use hopper::hopper_core::abi::WireU64;
-use hopper::hopper_core::account::{Pod, Zeroable};
-use hopper::manifest::{
-    name_hash, write_registry, AccountLayoutEntry, ManifestProfile, ProgramManifestView,
-    ENTRY_FLAG_COMPACT, REGISTRY_VERSION,
-};
-use hopper::prelude::{Address, ProgramError, ProgramResult};
+use hopper::manifest::{write_registry, ManifestProfile, ProgramManifestView, REGISTRY_VERSION};
+use hopper::prelude::{AccountView, Address, ProgramError, ProgramResult};
 
 /// Discriminator for the compact vault.
 pub const VAULT_DISC: u8 = 1;
 
 /// Tier-1 compact vault body: `[disc:u8][authority:32][balance:8]`.
 ///
-/// All fields are alignment-1 (`Address` is a 32-byte array, `WireU64` is
-/// `#[repr(transparent)]` over `[u8; 8]`), so the body is `Pod` and
-/// overlays directly on bytes 1.. of the account.
+/// `#[hopper::state(compact, disc = 1)]` emits the `CompactLayout` impl,
+/// `Pod`/`Zeroable` proofs, compact load helpers, the `registry_entry()`
+/// row builder, and a `SchemaExport` impl whose offsets start at byte 1.
 #[derive(Clone, Copy, Debug, Default)]
+#[hopper::state(compact, disc = 1)]
 #[repr(C)]
 pub struct Vault {
+    #[role = "authority"]
     pub authority: Address,
+    #[role = "balance"]
     pub balance: WireU64,
-}
-
-// SAFETY: `#[repr(C)]` over alignment-1 fields with no padding; every bit
-// pattern is valid; `Copy`, no drop glue.
-unsafe impl Zeroable for Vault {}
-unsafe impl Pod for Vault {}
-
-impl CompactLayout for Vault {
-    const DISC: u8 = VAULT_DISC;
 }
 
 /// Hot-path handler shape: load the compact vault and add to its balance.
 ///
-/// Note there is no header validation beyond the single discriminator
-/// byte — layout identity is the program's Tier-2 registry, not a
-/// per-account fact re-checked on every call.
+/// No header validation beyond the single discriminator byte — layout
+/// identity is the program's Tier-2 registry, not a per-account fact.
 pub fn deposit(vault: &AccountView, amount: u64) -> ProgramResult {
     let mut v = vault.load_compact_mut::<Vault>()?;
     v.balance.checked_add_assign(amount)
@@ -74,18 +64,11 @@ pub const PROFILE: ManifestProfile = ManifestProfile::Onchain;
 
 /// Build the Tier-2 binary registry into `buf`, returning bytes written.
 ///
-/// One entry describes the compact [`Vault`]. A real program with several
-/// account types would list them all here (typically code-generated).
+/// The single entry is produced by the macro-generated
+/// [`Vault::registry_entry`]. A real program with several account types
+/// would push one `registry_entry()` per type.
 pub fn program_registry(buf: &mut [u8], schema_hash: &[u8; 32]) -> Result<usize, ProgramError> {
-    let entries = [AccountLayoutEntry::new(
-        Vault::DISC,
-        1,
-        Vault::COMPACT_LEN as u32,
-        Vault::BODY_SIZE as u32,
-        0,
-        ENTRY_FLAG_COMPACT,
-        name_hash("Vault"),
-    )];
+    let entries = [Vault::registry_entry()];
     write_registry(
         buf,
         REGISTRY_VERSION,
@@ -103,12 +86,18 @@ pub fn read_registry(data: &[u8]) -> Result<ProgramManifestView<'_>, ProgramErro
 #[cfg(test)]
 mod tests {
     use super::*;
+    use hopper::manifest::{name_hash, ENTRY_FLAG_COMPACT};
 
     #[test]
     fn compact_vault_is_one_byte_header_plus_body() {
         // disc(1) + authority(32) + balance(8) = 41, NOT 16 + 40.
         assert_eq!(Vault::BODY_SIZE, 40);
         assert_eq!(Vault::COMPACT_LEN, 41);
+        assert_eq!(Vault::MIN_SIZE, 41);
+        assert_eq!(Vault::DISC, VAULT_DISC);
+        // The macro-generated absolute offset folds in the single disc byte.
+        assert_eq!(Vault::AUTHORITY_ABS_OFFSET, 1);
+        assert_eq!(Vault::BALANCE_ABS_OFFSET, 33);
     }
 
     #[test]

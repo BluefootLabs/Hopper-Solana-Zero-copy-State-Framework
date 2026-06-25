@@ -101,6 +101,7 @@ struct ProgramPolicyArgs {
     entrypoint: Option<bool>,
     max_accounts: Option<usize>,
     profile: Option<ProgramProfile>,
+    manifest: Option<ManifestProfile>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -109,6 +110,16 @@ enum ProgramProfile {
     Strict,
     Audit,
     Raw,
+}
+
+/// Which of the three metadata tiers a program opts into. Mirrors
+/// `hopper_core::manifest::ManifestProfile`; parsed from
+/// `#[hopper::program(manifest = "offchain" | "onchain" | "governed")]`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ManifestProfile {
+    Offchain,
+    Onchain,
+    Governed,
 }
 
 impl ProgramPolicyArgs {
@@ -139,6 +150,20 @@ impl ProgramPolicyArgs {
 
     fn is_tiny_profile(&self) -> bool {
         matches!(self.profile, Some(ProgramProfile::Tiny))
+    }
+
+    fn manifest_tokens(&self) -> TokenStream {
+        match self.manifest.unwrap_or(ManifestProfile::Offchain) {
+            ManifestProfile::Offchain => {
+                quote! { ::hopper::manifest::ManifestProfile::Offchain }
+            }
+            ManifestProfile::Onchain => {
+                quote! { ::hopper::manifest::ManifestProfile::Onchain }
+            }
+            ManifestProfile::Governed => {
+                quote! { ::hopper::manifest::ManifestProfile::Governed }
+            }
+        }
     }
 }
 
@@ -420,6 +445,15 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
         pub const HOPPER_PROGRAM_PROFILE: ::hopper::__runtime::HopperProgramProfile = #profile;
     });
 
+    let manifest_profile = policy.manifest_tokens();
+    items.push(syn::parse_quote! {
+        /// Which metadata tier this program opts into (Tier 2/3).
+        /// Defaults to `Offchain`; set with `#[hopper::program(manifest = "...")]`.
+        #[allow(dead_code)]
+        pub const HOPPER_PROGRAM_MANIFEST_PROFILE: ::hopper::manifest::ManifestProfile =
+            #manifest_profile;
+    });
+
     for (_, _, helper) in dispatch_helpers {
         items.push(helper);
     }
@@ -533,6 +567,10 @@ fn parse_program_policy(attr: TokenStream) -> Result<ProgramPolicyArgs> {
                     policy.max_accounts = Some(expect_usize_lit(&nv.value, "max_accounts")?);
                     continue;
                 }
+                if name == "manifest" {
+                    policy.manifest = Some(expect_manifest_lit(&nv.value)?);
+                    continue;
+                }
                 let value = expect_bool_lit(&nv.value)?;
                 match name.as_str() {
                     "strict" => policy.strict = Some(value),
@@ -543,7 +581,7 @@ fn parse_program_policy(attr: TokenStream) -> Result<ProgramPolicyArgs> {
                         return Err(syn::Error::new(
                             nv.path.span(),
                             format!(
-                                "unknown program policy lever `{other}`; expected `strict`, `enforce_token_checks`, `allow_unsafe`, `entrypoint`, `max_accounts`, or `profile`",
+                                "unknown program policy lever `{other}`; expected `strict`, `enforce_token_checks`, `allow_unsafe`, `entrypoint`, `max_accounts`, `profile`, or `manifest`",
                             ),
                         ));
                     }
@@ -583,6 +621,31 @@ fn expect_profile_lit(expr: &Expr) -> Result<ProgramProfile> {
         Err(syn::Error::new(
             expr.span(),
             "expected a string literal (`tiny`, `strict`, `audit`, or `raw`)",
+        ))
+    }
+}
+
+fn expect_manifest_lit(expr: &Expr) -> Result<ManifestProfile> {
+    if let Expr::Lit(ExprLit {
+        lit: Lit::Str(value),
+        ..
+    }) = expr
+    {
+        match value.value().as_str() {
+            "offchain" => Ok(ManifestProfile::Offchain),
+            "onchain" => Ok(ManifestProfile::Onchain),
+            "governed" => Ok(ManifestProfile::Governed),
+            other => Err(syn::Error::new(
+                value.span(),
+                format!(
+                    "unknown manifest profile `{other}`; expected `offchain`, `onchain`, or `governed`"
+                ),
+            )),
+        }
+    } else {
+        Err(syn::Error::new(
+            expr.span(),
+            "manifest expects a string literal (`offchain`, `onchain`, or `governed`)",
         ))
     }
 }

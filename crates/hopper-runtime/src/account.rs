@@ -1525,7 +1525,10 @@ mod tests {
         // 16-byte HopperHeader path: the saving is exactly 15 bytes.
         assert_eq!(CompactVault::COMPACT_LEN, 1 + 40);
         let headered_len = HopperHeader::SIZE + CompactVault::BODY_SIZE;
-        assert_eq!(headered_len - CompactVault::COMPACT_LEN, HopperHeader::SIZE - 1);
+        assert_eq!(
+            headered_len - CompactVault::COMPACT_LEN,
+            HopperHeader::SIZE - 1
+        );
 
         let (_backing, account) = make_account(CompactVault::COMPACT_LEN, 50);
 
