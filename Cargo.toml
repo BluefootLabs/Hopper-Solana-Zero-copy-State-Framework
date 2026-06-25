@@ -26,6 +26,7 @@ members = [
     "crates/hopper-anchor",
     "crates/hopper-svm",
     "examples/hopper-counter",
+    "examples/hopper-compact-vault",
     "examples/hopper-smoke",
     "examples/hopper-vault",
     "examples/hopper-parity-vault",

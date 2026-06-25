@@ -1,0 +1,13 @@
+[package]
+name = "hopper-compact-vault"
+version = "0.2.1"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+description = "Three-tier metadata example: a Tier-1 compact account plus a Tier-2 on-chain registry."
+
+[dependencies]
+hopper = { workspace = true, features = ["proc-macros"] }
+
+[lints]
+workspace = true

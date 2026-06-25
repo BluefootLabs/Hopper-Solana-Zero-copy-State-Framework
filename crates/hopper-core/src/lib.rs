@@ -64,6 +64,7 @@ pub mod dispatch;
 pub mod event;
 pub mod field_map;
 pub mod invariant;
+pub mod manifest;
 pub mod math;
 pub mod segment_map;
 pub mod state;
@@ -356,6 +357,13 @@ pub mod prelude_advanced {
         require_unique_writable_accounts, require_writable_at, AccountConstraint,
         PostMutationValidator, TransactionConstraint, TransitionRulePack, Validatable,
         ValidationBundle, ValidationContext, ValidationGraph, ValidationGroup,
+    };
+
+    // Tier 2 on-chain program registry (three-tier metadata model).
+    pub use crate::manifest::{
+        name_hash, registry_len, write_registry, AccountLayoutEntry, ManifestProfile,
+        ProgramManifestHeader, ProgramManifestView, REGISTRY_MAGIC, REGISTRY_SEED,
+        REGISTRY_VERSION,
     };
 
     #[cfg(feature = "migrate")]

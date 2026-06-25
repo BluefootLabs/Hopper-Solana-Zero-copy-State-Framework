@@ -144,15 +144,21 @@ pub mod account {
         SegmentedAccount, SignerAccount, ValidateAccount,
     };
     pub use hopper_runtime::{
-        Account, AccountView, ExplainExternal, ExternalAccount, ExternalBytes, ExternalChecked,
-        ExternalExplainSink, ExternalLens, ExternalLensValue, ExternalProof, ExternalResolve,
-        ExternalZeroCopy, HopperSigner as Signer, InitAccount, Interface, InterfaceAccount,
-        InterfaceAccountLayout, InterfaceAccountResolve, InterfaceSpec, Program, ProgramId,
-        SystemAccount, SystemId, UncheckedAccount,
+        Account, AccountView, CompactLayout, ExplainExternal, ExternalAccount, ExternalBytes,
+        ExternalChecked, ExternalExplainSink, ExternalLens, ExternalLensValue, ExternalProof,
+        ExternalResolve, ExternalZeroCopy, HopperSigner as Signer, InitAccount, Interface,
+        InterfaceAccount, InterfaceAccountLayout, InterfaceAccountResolve, InterfaceSpec, Program,
+        ProgramId, SystemAccount, SystemId, UncheckedAccount, COMPACT_BODY_OFFSET,
     };
 
     /// Anchor-style spelling for the System Program marker.
     pub type System = SystemId;
+}
+
+/// Tier 2 of the three-tier metadata model: the on-chain program
+/// registry (see `docs/THREE_TIER_METADATA.md`).
+pub mod manifest {
+    pub use hopper_core::manifest::*;
 }
 
 /// Typed instruction context and account-binding helpers.

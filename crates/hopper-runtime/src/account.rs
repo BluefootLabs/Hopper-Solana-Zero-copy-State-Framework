@@ -642,6 +642,84 @@ impl<'info> AccountView<'info> {
         f(&mut *account)
     }
 
+    // ── Tier 1 compact load (`[disc:u8][body]`) ─────────────────────
+
+    /// Load a Tier-1 compact layout: `[disc:u8][zero-copy body]`.
+    ///
+    /// The hot path is `check_len` + `check_disc` + project-body-at-byte-1.
+    /// Unlike [`load`](Self::load) there is **no** 16-byte header, no
+    /// layout_id read, and no schema-epoch comparison. Layout identity is
+    /// a program-level fact (the Tier-2 registry), not a per-account one.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let vault = account.load_compact::<Vault>()?;
+    /// ```
+    #[inline(always)]
+    pub fn load_compact<T: crate::CompactLayout>(&self) -> Result<Ref<'_, T>, ProgramError> {
+        let data = self.try_borrow()?;
+        T::validate_compact(&data)?;
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        let ptr =
+            unsafe { data.as_bytes_ptr().add(crate::compact::COMPACT_BODY_OFFSET) as *const T };
+        // SAFETY: length and disc validated above; `ptr` points into the borrowed body.
+        Ok(unsafe { data.project(ptr) })
+    }
+
+    /// Mutable Tier-1 compact load. See [`load_compact`](Self::load_compact).
+    #[inline(always)]
+    pub fn load_compact_mut<T: crate::CompactLayout>(&self) -> Result<RefMut<'_, T>, ProgramError> {
+        let mut data = self.try_borrow_mut()?;
+        T::validate_compact(&data)?;
+        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        let ptr = unsafe {
+            data.as_bytes_mut_ptr()
+                .add(crate::compact::COMPACT_BODY_OFFSET) as *mut T
+        };
+        // SAFETY: length and disc validated above; `ptr` points into the borrowed body.
+        Ok(unsafe { data.project(ptr) })
+    }
+
+    /// Borrow a compact layout for the duration of a closure (read-only).
+    #[inline]
+    pub fn with_compact<T, R, F>(&self, f: F) -> Result<R, ProgramError>
+    where
+        T: crate::CompactLayout,
+        F: FnOnce(&T) -> Result<R, ProgramError>,
+    {
+        let account = self.load_compact::<T>()?;
+        f(&*account)
+    }
+
+    /// Mutably borrow a compact layout for the duration of a closure.
+    #[inline]
+    pub fn with_compact_mut<T, R, F>(&self, f: F) -> Result<R, ProgramError>
+    where
+        T: crate::CompactLayout,
+        F: FnOnce(&mut T) -> Result<R, ProgramError>,
+    {
+        let mut account = self.load_compact_mut::<T>()?;
+        f(&mut *account)
+    }
+
+    /// Initialise a compact account by stamping the discriminator byte.
+    ///
+    /// Writes `T::DISC` at byte 0; the body is left as-is (callers
+    /// typically follow with [`load_compact_mut`](Self::load_compact_mut)
+    /// to populate it). Requires the account to be writable and at least
+    /// `T::COMPACT_LEN` bytes long.
+    #[inline(always)]
+    pub fn init_compact<T: crate::CompactLayout>(&self) -> ProgramResult {
+        self.check_writable()?;
+        let mut data = self.try_borrow_mut()?;
+        if data.len() < T::COMPACT_LEN {
+            return Err(ProgramError::AccountDataTooSmall);
+        }
+        data[0] = T::DISC;
+        Ok(())
+    }
+
     /// Explicit raw typed read of the account buffer.
     ///
     /// This bypasses Hopper layout validation and segment tracking, but it still
@@ -1276,6 +1354,7 @@ impl<'a> RemainingAccounts<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::compact::CompactLayout;
     use crate::layout::HopperHeader;
 
     use hopper_native::{
@@ -1426,6 +1505,78 @@ mod tests {
         let reread = account.load::<TestLayout>().unwrap();
         assert_eq!(from_le_u64(reread.a), 10);
         assert_eq!(from_le_u64(reread.b), 99);
+    }
+
+    #[repr(C)]
+    #[derive(Clone, Copy, Debug, Default)]
+    struct CompactVault {
+        authority: [u8; 32],
+        balance: [u8; 8],
+    }
+    unsafe impl crate::Zeroable for CompactVault {}
+    unsafe impl crate::Pod for CompactVault {}
+    impl crate::CompactLayout for CompactVault {
+        const DISC: u8 = 1;
+    }
+
+    #[test]
+    fn compact_load_uses_one_byte_header_and_body_at_offset_one() {
+        // Compact wire length is exactly 1 disc byte + body, NOT the
+        // 16-byte HopperHeader path: the saving is exactly 15 bytes.
+        assert_eq!(CompactVault::COMPACT_LEN, 1 + 40);
+        let headered_len = HopperHeader::SIZE + CompactVault::BODY_SIZE;
+        assert_eq!(headered_len - CompactVault::COMPACT_LEN, HopperHeader::SIZE - 1);
+
+        let (_backing, account) = make_account(CompactVault::COMPACT_LEN, 50);
+
+        account.init_compact::<CompactVault>().unwrap();
+        {
+            // Byte 0 is the disc; the body starts at byte 1.
+            let data = account.try_borrow().unwrap();
+            assert_eq!(data[0], 1);
+        }
+
+        {
+            let mut v = account.load_compact_mut::<CompactVault>().unwrap();
+            v.authority = [9u8; 32];
+            v.balance = 1234u64.to_le_bytes();
+        }
+
+        let v = account.load_compact::<CompactVault>().unwrap();
+        assert_eq!(v.authority, [9u8; 32]);
+        assert_eq!(u64::from_le_bytes(v.balance), 1234);
+
+        // The body reference points at byte 1 of the buffer.
+        let data = account.try_borrow().unwrap();
+        let base = data.as_bytes_ptr() as usize;
+        let body = (&*v) as *const CompactVault as usize;
+        assert_eq!(body, base + 1);
+    }
+
+    #[test]
+    fn compact_load_rejects_wrong_disc() {
+        let (_backing, account) = make_account(CompactVault::COMPACT_LEN, 51);
+        {
+            let mut data = account.try_borrow_mut().unwrap();
+            data[0] = 2; // not CompactVault::DISC
+        }
+        assert_eq!(
+            account.load_compact::<CompactVault>().unwrap_err(),
+            ProgramError::InvalidAccountData
+        );
+    }
+
+    #[test]
+    fn compact_load_rejects_short_buffer() {
+        let (_backing, account) = make_account(CompactVault::COMPACT_LEN - 1, 52);
+        account
+            .try_borrow_mut()
+            .map(|mut d| d[0] = CompactVault::DISC)
+            .unwrap();
+        assert_eq!(
+            account.load_compact::<CompactVault>().unwrap_err(),
+            ProgramError::AccountDataTooSmall
+        );
     }
 
     #[test]

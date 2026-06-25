@@ -23,6 +23,7 @@ pub mod address;
 pub mod audit;
 pub mod borrow;
 pub(crate) mod borrow_registry;
+pub mod compact;
 pub mod compute;
 pub mod cpi;
 pub mod cpi_event;
@@ -76,6 +77,7 @@ pub use account_wrappers::{
 pub use address::Address;
 pub use audit::{AccountAudit, DuplicateAccount};
 pub use borrow::{Ref, RefMut};
+pub use compact::{CompactLayout, COMPACT_BODY_OFFSET};
 pub use compute::{check_compute_units, remaining_compute_units, require_compute_units};
 pub use context::{Context, ScopedContext};
 pub use cpi::{invoke, invoke_checked, invoke_signed, invoke_signed_checked};

@@ -2077,6 +2077,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "hopper-compact-vault"
+version = "0.2.1"
+dependencies = [
+ "hopper-lang",
+]
+
+[[package]]
 name = "hopper-counter"
 version = "0.2.1"
 dependencies = [
