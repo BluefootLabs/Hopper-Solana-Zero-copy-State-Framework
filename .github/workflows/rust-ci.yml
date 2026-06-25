@@ -13,7 +13,7 @@ jobs:
     env:
       CARGO_TERM_COLOR: always
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       # Pin to the channel in rust-toolchain.toml so fmt/clippy diagnostics are
       # deterministic (H-6). Keep this version in sync with that file.
       - name: Install Rust (pinned, rustfmt + clippy)
@@ -36,7 +36,7 @@ jobs:
     env:
       CARGO_TERM_COLOR: always
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
       - name: Check workspace all targets
@@ -48,7 +48,7 @@ jobs:
     env:
       CARGO_TERM_COLOR: always
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
       - name: Run focused audit tests
@@ -67,7 +67,7 @@ jobs:
     env:
       CARGO_TERM_COLOR: always
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install nightly Rust
         uses: dtolnay/rust-toolchain@nightly
       - name: Install stable Rust for cargo-fuzz
@@ -91,7 +91,7 @@ jobs:
     env:
       CARGO_TERM_COLOR: always
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
       - name: Install Kani
