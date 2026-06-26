@@ -599,6 +599,219 @@ pub fn registry_matches(
         && &view.header().registry_hash == expected_registry_hash
 }
 
+// ══════════════════════════════════════════════════════════════════════
+//  AccountDescriptor / LayoutDescriptor -- the one-source-of-truth view
+// ══════════════════════════════════════════════════════════════════════
+
+/// A single, compile-time description of one account layout that every
+/// tier reads from: the hot-path loader (length + discriminator), the
+/// Tier-2 registry row, off-chain schema/client metadata, and field
+/// offsets.
+///
+/// Both compact (`[disc:u8][body]`) and headered (16-byte `HopperHeader`)
+/// layouts produce an `AccountDescriptor` through [`LayoutDescriptor`], so
+/// Hopper has *one* registry/identity model while keeping the 1-byte
+/// compact hot path. The descriptor is fully `const`: building it costs no
+/// CU and reads no on-chain registry.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct AccountDescriptor {
+    /// Account type name (matches the Rust struct identifier).
+    pub name: &'static str,
+    /// Deterministic 8-byte hash of `name` (Tier-2 row key).
+    pub name_hash: [u8; 8],
+    /// Discriminator stored at byte 0.
+    pub disc: u8,
+    /// Layout/schema version.
+    pub version: u16,
+    /// Fixed body size in bytes (the zero-copy struct, no header/disc).
+    pub body_size: u32,
+    /// Minimum account data length to load this type (header/disc + body).
+    pub min_size: u32,
+    /// Byte offset at which the typed body begins (`1` compact, `16`
+    /// headered). The discriminator is always at byte 0.
+    pub body_offset: u8,
+    /// First 8 bytes of the layout fingerprint.
+    pub layout_id: [u8; 8],
+    /// Entry flags (`ENTRY_FLAG_*`): the structural shape of the layout.
+    pub flags: u32,
+}
+
+impl AccountDescriptor {
+    /// Build a descriptor for a compact `[disc:u8][body]` layout.
+    #[inline]
+    pub const fn compact(
+        name: &'static str,
+        disc: u8,
+        version: u16,
+        body_size: u32,
+        layout_id: [u8; 8],
+    ) -> Self {
+        Self {
+            name,
+            name_hash: name_hash(name),
+            disc,
+            version,
+            body_size,
+            min_size: hopper_runtime::COMPACT_BODY_OFFSET as u32 + body_size,
+            body_offset: hopper_runtime::COMPACT_BODY_OFFSET as u8,
+            layout_id,
+            flags: ENTRY_FLAG_COMPACT,
+        }
+    }
+
+    /// Build a descriptor for a headered layout (16-byte `HopperHeader`).
+    #[inline]
+    pub const fn headered(
+        name: &'static str,
+        disc: u8,
+        version: u16,
+        body_size: u32,
+        layout_id: [u8; 8],
+    ) -> Self {
+        let header_len = crate::account::HEADER_LEN as u32;
+        Self {
+            name,
+            name_hash: name_hash(name),
+            disc,
+            version,
+            body_size,
+            min_size: header_len + body_size,
+            body_offset: crate::account::HEADER_LEN as u8,
+            layout_id,
+            flags: ENTRY_FLAG_HEADERED,
+        }
+    }
+
+    /// Mark this layout as carrying a variable-length tail. `min_size`
+    /// stays the fixed prefix length (the loader rejects anything shorter);
+    /// the tail lives beyond it.
+    #[inline]
+    pub const fn with_dynamic_tail(mut self) -> Self {
+        self.flags |= ENTRY_FLAG_DYNAMIC_TAIL;
+        self
+    }
+
+    /// Mark this layout as deprecated (readable, not writable).
+    #[inline]
+    pub const fn deprecated(mut self) -> Self {
+        self.flags |= ENTRY_FLAG_DEPRECATED;
+        self
+    }
+
+    /// Whether this descriptor is a compact `[disc][body]` layout.
+    #[inline]
+    pub const fn is_compact(self) -> bool {
+        self.flags & ENTRY_FLAG_COMPACT != 0
+    }
+
+    /// Whether this descriptor is a 16-byte-headered layout.
+    #[inline]
+    pub const fn is_headered(self) -> bool {
+        self.flags & ENTRY_FLAG_HEADERED != 0
+    }
+
+    /// Whether this descriptor carries a dynamic tail.
+    #[inline]
+    pub const fn has_dynamic_tail(self) -> bool {
+        self.flags & ENTRY_FLAG_DYNAMIC_TAIL != 0
+    }
+
+    /// The Tier-2 registry row for this layout. Single source of truth:
+    /// the macro-generated `registry_entry()` delegates here.
+    #[inline]
+    pub fn registry_entry(self) -> AccountLayoutEntry {
+        AccountLayoutEntry::new(
+            self.disc,
+            self.version,
+            self.min_size,
+            self.body_size,
+            u64::from_le_bytes(self.layout_id),
+            self.flags,
+            self.name_hash,
+        )
+    }
+
+    /// Hot-path validation: length + discriminator only, **no registry
+    /// read**. Inlined and branch-light so a compact loader pays nothing
+    /// for the unified model. The discriminator is at byte 0 for both
+    /// compact and headered layouts.
+    #[inline(always)]
+    pub fn validate(self, data: &[u8]) -> Result<(), ProgramError> {
+        if data.len() < self.min_size as usize {
+            return Err(ProgramError::AccountDataTooSmall);
+        }
+        if data[0] != self.disc {
+            return Err(ProgramError::InvalidAccountData);
+        }
+        Ok(())
+    }
+}
+
+/// One layout, one descriptor. Implemented by every Hopper account type
+/// (compact or headered) so a program can enumerate, register, and
+/// validate all of its layouts through a single trait.
+///
+/// The macros emit the impl; the provided methods route the Tier-2 row and
+/// the hot-path check through the single [`AccountDescriptor`] constant so
+/// the loader, the registry, and the off-chain metadata can never drift.
+pub trait LayoutDescriptor {
+    /// The compile-time descriptor for this layout.
+    const DESCRIPTOR: AccountDescriptor;
+
+    /// The Tier-2 registry row for this layout.
+    #[inline]
+    fn registry_entry() -> AccountLayoutEntry {
+        Self::DESCRIPTOR.registry_entry()
+    }
+
+    /// Hot-path length + discriminator check, no registry read.
+    #[inline(always)]
+    fn validate_hot(data: &[u8]) -> Result<(), ProgramError> {
+        Self::DESCRIPTOR.validate(data)
+    }
+}
+
+/// Classify deploying a set of *generated* descriptors over an *on-chain*
+/// registry, for the governed-upgrade gate. No allocation: both sides are
+/// walked in place.
+///
+/// - An on-chain discriminator with no matching descriptor means a type
+///   was removed: `Breaking`.
+/// - A descriptor with no on-chain row is a new type: `Additive`.
+/// - A descriptor that matches an on-chain row is classified by
+///   [`diff_entry`] (on-chain row is the `old` side).
+///
+/// The result is the worst verdict across all rows; feed it to
+/// [`ManifestProfile::permits_upgrade`].
+pub fn diff_descriptors_vs_registry(
+    descriptors: &[AccountDescriptor],
+    onchain: &ProgramManifestView<'_>,
+) -> RegistryCompat {
+    let mut verdict = RegistryCompat::Unchanged;
+
+    for entry in onchain.entries() {
+        let mut described = false;
+        for d in descriptors {
+            if d.disc == entry.disc {
+                described = true;
+                break;
+            }
+        }
+        if !described {
+            verdict = verdict.worst(RegistryCompat::Breaking);
+        }
+    }
+
+    for d in descriptors {
+        match onchain.find_by_disc(d.disc) {
+            Some(entry) => verdict = verdict.worst(diff_entry(entry, &d.registry_entry())),
+            None => verdict = verdict.worst(RegistryCompat::Additive),
+        }
+    }
+
+    verdict
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -863,5 +1076,112 @@ mod tests {
         assert!(registry_matches(&view, &schema_hash, &registry_hash));
         // Wrong expected schema hash -> rejected.
         assert!(!registry_matches(&view, &[9; 32], &registry_hash));
+    }
+
+    #[test]
+    fn descriptor_compact_and_headered_shapes() {
+        let c = AccountDescriptor::compact("Vault", 1, 1, 40, [1; 8]);
+        assert!(c.is_compact());
+        assert!(!c.is_headered());
+        // Compact folds in the single discriminator byte.
+        assert_eq!(c.body_offset, 1);
+        assert_eq!(c.min_size, 41);
+        assert_eq!(c.body_size, 40);
+
+        let h = AccountDescriptor::headered("Config", 2, 1, 40, [2; 8]);
+        assert!(h.is_headered());
+        assert!(!h.is_compact());
+        // Headered folds in the 16-byte universal header.
+        assert_eq!(h.body_offset, 16);
+        assert_eq!(h.min_size, 56);
+
+        let t = h.with_dynamic_tail();
+        assert!(t.has_dynamic_tail());
+        // min_size stays the fixed prefix; the tail lives beyond it.
+        assert_eq!(t.min_size, 56);
+    }
+
+    #[test]
+    fn descriptor_is_single_source_for_registry_entry() {
+        let d = AccountDescriptor::compact("Vault", 1, 2, 40, [7; 8]);
+        let e = d.registry_entry();
+        assert_eq!(e.disc, 1);
+        assert_eq!(e.version.get(), 2);
+        assert_eq!(e.min_size.get(), 41);
+        assert_eq!(e.fixed_size.get(), 40);
+        assert_eq!(e.layout_id.get(), u64::from_le_bytes([7; 8]));
+        assert!(e.has_flag(ENTRY_FLAG_COMPACT));
+        assert_eq!(e.name_hash, name_hash("Vault"));
+    }
+
+    #[test]
+    fn descriptor_validate_is_len_and_disc_only() {
+        let d = AccountDescriptor::compact("Vault", 7, 1, 40, [1; 8]);
+        let mut buf = [0u8; 41];
+        buf[0] = 7;
+        assert!(d.validate(&buf).is_ok());
+        buf[0] = 8;
+        assert!(matches!(
+            d.validate(&buf),
+            Err(ProgramError::InvalidAccountData)
+        ));
+        buf[0] = 7;
+        assert!(matches!(
+            d.validate(&buf[..40]),
+            Err(ProgramError::AccountDataTooSmall)
+        ));
+    }
+
+    #[test]
+    fn diff_descriptors_vs_registry_classifies() {
+        let v = AccountDescriptor::compact("V", 1, 1, 40, [0xAB; 8]);
+        let entry = v.registry_entry();
+        let mut buf = [0u8; registry_len(1)];
+        let n = write_one(&mut buf, entry);
+        let onchain = ProgramManifestView::parse(&buf[..n]).unwrap();
+
+        // Identical descriptor set -> Unchanged.
+        assert_eq!(
+            diff_descriptors_vs_registry(&[v], &onchain),
+            RegistryCompat::Unchanged
+        );
+
+        // Add a new descriptor not yet on chain -> Additive.
+        let w = AccountDescriptor::compact("W", 2, 1, 24, [0x12; 8]);
+        assert_eq!(
+            diff_descriptors_vs_registry(&[v, w], &onchain),
+            RegistryCompat::Additive
+        );
+
+        // Drop the on-chain type from the descriptor set -> Breaking.
+        assert_eq!(
+            diff_descriptors_vs_registry(&[w], &onchain),
+            RegistryCompat::Breaking
+        );
+
+        // Grow the body of an existing type -> MigrationRequired.
+        let v_grown = AccountDescriptor::compact("V", 1, 2, 48, [0xAB; 8]);
+        assert_eq!(
+            diff_descriptors_vs_registry(&[v_grown], &onchain),
+            RegistryCompat::MigrationRequired
+        );
+    }
+
+    #[test]
+    fn descriptor_governed_gate_end_to_end() {
+        // Generated descriptors for the redeploy.
+        let descriptors = [
+            AccountDescriptor::compact("V", 1, 1, 40, [0xAB; 8]),
+            AccountDescriptor::compact("W", 2, 1, 24, [0x12; 8]),
+        ];
+        // On-chain registry only knows V.
+        let mut buf = [0u8; registry_len(1)];
+        let n = write_one(&mut buf, descriptors[0].registry_entry());
+        let onchain = ProgramManifestView::parse(&buf[..n]).unwrap();
+
+        let compat = diff_descriptors_vs_registry(&descriptors, &onchain);
+        assert_eq!(compat, RegistryCompat::Additive);
+        // Additive is allowed even under the strict governed profile.
+        assert!(ManifestProfile::Governed.permits_upgrade(compat));
     }
 }

@@ -4,6 +4,12 @@ How Hopper separates *hot-path account bytes* from *program-level
 metadata* from *off-chain generated artifacts* so that the common case
 pays for nothing it does not use.
 
+> These three tiers are an implementation detail. The developer faces one
+> system: see [`HOPPER_UNIFIED_ZERO_COPY.md`](HOPPER_UNIFIED_ZERO_COPY.md)
+> for the `AccountDescriptor` / `LayoutDescriptor` one-source-of-truth model
+> that derives the loader, the registry row, the field offsets, and the
+> upgrade gate from a single layout declaration.
+
 ## Motivation
 
 Hopper's default account layout carries a 16-byte universal header

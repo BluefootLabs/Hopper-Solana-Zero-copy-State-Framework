@@ -22,4 +22,10 @@ fn main() {
 
     // The macro also emits a registry-row builder for the Tier-2 manifest.
     let _entry = Vault::registry_entry();
+
+    // The unified one-source-of-truth descriptor: the loader, the registry
+    // row, and the offsets all read from `LayoutDescriptor::DESCRIPTOR`.
+    use hopper::manifest::LayoutDescriptor;
+    const _: u8 = <Vault as LayoutDescriptor>::DESCRIPTOR.disc; // 1
+    let _entry2 = <Vault as LayoutDescriptor>::registry_entry();
 }

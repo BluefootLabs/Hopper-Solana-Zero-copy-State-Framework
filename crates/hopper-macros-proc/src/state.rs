@@ -253,6 +253,14 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
     let layout_id_tokens = byte_array_literal(&layout_id);
     let field_count = field_name_literals.len();
 
+    // A headered layout with a variable tail flips the descriptor's
+    // dynamic-tail flag; the `min_size` stays the fixed prefix length.
+    let dynamic_tail_descriptor = if options.dynamic_tail.is_some() || options.raw_tail {
+        quote! { .with_dynamic_tail() }
+    } else {
+        quote! {}
+    };
+
     // Unique per-layout static that pins LAYOUT_ID bytes into
     // `.rodata`. `hopper verify` searches the compiled binary for
     // this exact 8-byte sequence to prove manifest/binary agreement.
@@ -723,6 +731,22 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
                 }
             }
         }
+
+        // The unified one-source-of-truth descriptor. A headered layout
+        // produces the same `AccountDescriptor` shape a compact one does,
+        // so a program registers, diffs, and validates every account type
+        // through a single model regardless of wire shape. The descriptor
+        // is `const` and folds in the 16-byte header.
+        impl ::hopper::manifest::LayoutDescriptor for #name {
+            const DESCRIPTOR: ::hopper::manifest::AccountDescriptor =
+                ::hopper::manifest::AccountDescriptor::headered(
+                    stringify!(#name),
+                    #name::DISC,
+                    #name::VERSION as u16,
+                    #name::BODY_SIZE as u32,
+                    #name::LAYOUT_ID,
+                )#dynamic_tail_descriptor;
+        }
     };
 
     Ok(expanded)
@@ -936,20 +960,14 @@ fn expand_compact(options: StateOptions, item: TokenStream) -> Result<TokenStrea
 
             /// Build the Tier-2 registry row describing this compact layout.
             ///
-            /// Lets a program list its compact accounts in an on-chain
-            /// registry (or off-chain manifest) without hand-writing the
-            /// `AccountLayoutEntry`.
+            /// Delegates to the single [`LayoutDescriptor::DESCRIPTOR`] so
+            /// the loader, the registry row, and the off-chain metadata can
+            /// never drift. Lets a program list its compact accounts in an
+            /// on-chain registry (or off-chain manifest) without
+            /// hand-writing the `AccountLayoutEntry`.
             #[inline]
             #vis fn registry_entry() -> ::hopper::manifest::AccountLayoutEntry {
-                ::hopper::manifest::AccountLayoutEntry::new(
-                    Self::DISC,
-                    Self::VERSION as u16,
-                    Self::COMPACT_LEN as u32,
-                    Self::BODY_SIZE as u32,
-                    u64::from_le_bytes(Self::LAYOUT_ID),
-                    ::hopper::manifest::ENTRY_FLAG_COMPACT,
-                    Self::NAME_HASH,
-                )
+                <Self as ::hopper::manifest::LayoutDescriptor>::DESCRIPTOR.registry_entry()
             }
 
             /// Overlay the body on `body_bytes` (the bytes *after* the
@@ -1057,6 +1075,21 @@ fn expand_compact(options: StateOptions, item: TokenStream) -> Result<TokenStrea
         // for a compact layout flows through `registry_entry()` instead.
         impl ::hopper::account::CompactLayout for #name {
             const DISC: u8 = #name::DISC;
+        }
+
+        // The unified one-source-of-truth descriptor. Both compact and
+        // headered layouts implement `LayoutDescriptor`, so a program has a
+        // single registry/identity model regardless of wire shape. The
+        // descriptor is `const`, so the hot path pays nothing for it.
+        impl ::hopper::manifest::LayoutDescriptor for #name {
+            const DESCRIPTOR: ::hopper::manifest::AccountDescriptor =
+                ::hopper::manifest::AccountDescriptor::compact(
+                    stringify!(#name),
+                    #name::DISC,
+                    #name::VERSION as u16,
+                    #name::BODY_SIZE as u32,
+                    #name::LAYOUT_ID,
+                );
         }
     };
 
