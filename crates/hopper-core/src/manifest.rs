@@ -739,6 +739,108 @@ impl AccountDescriptor {
         }
         Ok(())
     }
+
+    /// The deterministic [`LayoutFingerprint`] a generated client checks
+    /// before zero-copy-decoding a fetched account. `const`: a client can
+    /// embed it as a compile-time constant and compare without a registry
+    /// read. Folds in only wire-identity fields (name, disc, version,
+    /// sizes, body offset, shape flags, layout_id), never the `deprecated`
+    /// lifecycle bit -- so deprecating a layout never changes how it decodes.
+    pub const fn fingerprint(self) -> LayoutFingerprint {
+        // Canonical 32-byte wire-identity encoding (shape flags only).
+        let mut buf = [0u8; 32];
+        let mut i = 0;
+        while i < 8 {
+            buf[i] = self.name_hash[i];
+            i += 1;
+        }
+        buf[8] = self.disc;
+        let v = self.version.to_le_bytes();
+        buf[9] = v[0];
+        buf[10] = v[1];
+        let bs = self.body_size.to_le_bytes();
+        buf[11] = bs[0];
+        buf[12] = bs[1];
+        buf[13] = bs[2];
+        buf[14] = bs[3];
+        let ms = self.min_size.to_le_bytes();
+        buf[15] = ms[0];
+        buf[16] = ms[1];
+        buf[17] = ms[2];
+        buf[18] = ms[3];
+        buf[19] = self.body_offset;
+        let sf = (self.flags & ENTRY_SHAPE_FLAGS).to_le_bytes();
+        buf[20] = sf[0];
+        buf[21] = sf[1];
+        buf[22] = sf[2];
+        buf[23] = sf[3];
+        let mut j = 0;
+        while j < 8 {
+            buf[24 + j] = self.layout_id[j];
+            j += 1;
+        }
+        let digest = expand_hash(&buf);
+        let mut fp = [0u8; 16];
+        let mut k = 0;
+        while k < 16 {
+            fp[k] = digest[k];
+            k += 1;
+        }
+        LayoutFingerprint(fp)
+    }
+
+    /// Project this descriptor into a [`DescriptorIdlNode`] for IDL / Codama
+    /// generators -- sourced from the same descriptor the loader enforces.
+    #[inline]
+    pub const fn idl_node(self) -> DescriptorIdlNode {
+        DescriptorIdlNode {
+            name: self.name,
+            disc: self.disc,
+            version: self.version,
+            body_offset: self.body_offset,
+            body_size: self.body_size,
+            min_size: self.min_size,
+            kind: if self.is_compact() {
+                LayoutKind::Compact
+            } else {
+                LayoutKind::Headered
+            },
+            has_dynamic_tail: self.has_dynamic_tail(),
+            deprecated: self.flags & ENTRY_FLAG_DEPRECATED != 0,
+            layout_id: self.layout_id,
+            fingerprint: self.fingerprint(),
+        }
+    }
+
+    /// The direct-mapping account-data cost profile for this layout: how
+    /// many bytes a first write copies (copy-on-write), the size class, and
+    /// whether it can grow (the expensive realloc path).
+    #[inline]
+    pub const fn cost_profile(self) -> CostProfile {
+        CostProfile {
+            cow_copy_bytes: self.min_size,
+            class: SizeClass::of(self.min_size),
+            growable: self.has_dynamic_tail(),
+        }
+    }
+
+    /// A descriptor-level advisory lint under the account-data cost model.
+    /// Large fixed layouts make first-write CoW copies expensive; growable
+    /// large layouts also pay the realloc growth cost.
+    #[inline]
+    pub const fn cost_lint(self) -> CostLint {
+        let class = SizeClass::of(self.min_size);
+        if self.has_dynamic_tail() {
+            match class {
+                SizeClass::Large | SizeClass::VeryLarge => return CostLint::ExpensiveGrowth,
+                _ => {}
+            }
+        }
+        match class {
+            SizeClass::Large | SizeClass::VeryLarge => CostLint::LargeFixedCopy,
+            _ => CostLint::Ok,
+        }
+    }
 }
 
 /// One layout, one descriptor. Implemented by every Hopper account type
@@ -762,6 +864,25 @@ pub trait LayoutDescriptor {
     #[inline(always)]
     fn validate_hot(data: &[u8]) -> Result<(), ProgramError> {
         Self::DESCRIPTOR.validate(data)
+    }
+
+    /// The client decode fingerprint a generated SDK checks before casting
+    /// fetched bytes. Derived from the same descriptor the loader uses.
+    #[inline]
+    fn fingerprint() -> LayoutFingerprint {
+        Self::DESCRIPTOR.fingerprint()
+    }
+
+    /// The IDL / Codama projection for this layout, for off-chain codegen.
+    #[inline]
+    fn idl_node() -> DescriptorIdlNode {
+        Self::DESCRIPTOR.idl_node()
+    }
+
+    /// The direct-mapping account-data cost profile for this layout.
+    #[inline]
+    fn cost_profile() -> CostProfile {
+        Self::DESCRIPTOR.cost_profile()
     }
 }
 
@@ -804,6 +925,312 @@ pub fn diff_descriptors_vs_registry(
     }
 
     verdict
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  Client decode fingerprint
+// ══════════════════════════════════════════════════════════════════════
+
+/// A 16-byte deterministic identity for one wire layout. A generated client
+/// embeds the fingerprint of the descriptor it was built against as a
+/// constant, then compares it to the fingerprint computed from the layout
+/// the program actually advertises (its on-chain registry row) **before**
+/// casting fetched bytes. A mismatch means the program was redeployed with a
+/// different layout at that discriminator: the client must fail closed
+/// rather than zero-copy-decode stale or mis-shaped bytes.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct LayoutFingerprint(pub [u8; 16]);
+
+impl LayoutFingerprint {
+    /// The raw 16 bytes.
+    #[inline]
+    pub const fn as_bytes(self) -> [u8; 16] {
+        self.0
+    }
+
+    /// Lowercase-hex encoding (32 ASCII bytes), for embedding the
+    /// fingerprint in generated client source as a string literal.
+    pub const fn to_hex(self) -> [u8; 32] {
+        const HEX: &[u8; 16] = b"0123456789abcdef";
+        let mut out = [0u8; 32];
+        let mut i = 0;
+        while i < 16 {
+            out[i * 2] = HEX[(self.0[i] >> 4) as usize];
+            out[i * 2 + 1] = HEX[(self.0[i] & 0x0f) as usize];
+            i += 1;
+        }
+        out
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  Loaded-accounts data-size budgeting (setLoadedAccountsDataSizeLimit)
+// ══════════════════════════════════════════════════════════════════════
+
+/// Sum the minimum loaded byte size of a set of account layouts.
+///
+/// The descriptor-sourced floor for a transaction's
+/// `setLoadedAccountsDataSizeLimit`: every listed account contributes at
+/// least its `min_size` (header/disc + fixed body). Saturating.
+pub fn min_loaded_data_size(descriptors: &[AccountDescriptor]) -> u64 {
+    let mut total: u64 = 0;
+    let mut i = 0;
+    while i < descriptors.len() {
+        total = total.saturating_add(descriptors[i].min_size as u64);
+        i += 1;
+    }
+    total
+}
+
+/// Recommend a `setLoadedAccountsDataSizeLimit` value from descriptors.
+///
+/// Starts from [`min_loaded_data_size`], adds `tail_headroom` bytes for each
+/// dynamic-tail layout (whose on-wire length exceeds the fixed prefix the
+/// descriptor records), and adds a flat `extra` margin for loaders,
+/// programs, and sysvars the descriptor set does not model. Saturating; the
+/// caller clamps to the runtime maximum.
+pub fn recommend_loaded_data_limit(
+    descriptors: &[AccountDescriptor],
+    tail_headroom: u32,
+    extra: u32,
+) -> u64 {
+    let mut total = min_loaded_data_size(descriptors);
+    let mut i = 0;
+    while i < descriptors.len() {
+        if descriptors[i].has_dynamic_tail() {
+            total = total.saturating_add(tail_headroom as u64);
+        }
+        i += 1;
+    }
+    total.saturating_add(extra as u64)
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  Dynamic-tail-aware layout change classification
+// ══════════════════════════════════════════════════════════════════════
+
+/// A precise classification of how one layout row changed between two
+/// registry generations -- finer-grained than [`RegistryCompat`], and
+/// aware that a dynamic-tail layout's capacity is an off-chain concern.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum LayoutChange {
+    /// Byte-identical.
+    Unchanged,
+    /// Only the name hash changed (rename); wire layout identical.
+    NameOnly,
+    /// A dynamic-tail layout kept its fixed prefix and identity but bumped
+    /// version: a tail capacity/policy change that lives off-chain and does
+    /// not invalidate existing accounts (the loader only checks the prefix).
+    TailCapacity,
+    /// Version bumped on a fixed-size layout, prefix unchanged.
+    VersionBump,
+    /// The fixed prefix grew: the loader's `min_size` check rejects
+    /// stale-short accounts until they are migrated / realloced.
+    FixedPrefixGrew,
+    /// The fixed prefix shrank: existing accounts are now invalid.
+    FixedPrefixShrank,
+    /// The structural shape flipped (compact <-> headered, or fixed <->
+    /// dynamic-tail).
+    ShapeFlipped,
+    /// The layout fingerprint changed: a different wire type at this disc.
+    IdentityChanged,
+}
+
+impl LayoutChange {
+    /// Map the precise change to the coarse upgrade verdict. A dynamic-tail
+    /// capacity bump is `Additive`, unlike a fixed-prefix grow.
+    #[inline]
+    pub const fn compat(self) -> RegistryCompat {
+        match self {
+            LayoutChange::Unchanged => RegistryCompat::Unchanged,
+            LayoutChange::NameOnly | LayoutChange::TailCapacity => RegistryCompat::Additive,
+            LayoutChange::VersionBump | LayoutChange::FixedPrefixGrew => {
+                RegistryCompat::MigrationRequired
+            }
+            LayoutChange::FixedPrefixShrank
+            | LayoutChange::ShapeFlipped
+            | LayoutChange::IdentityChanged => RegistryCompat::Breaking,
+        }
+    }
+}
+
+/// Classify the change between two registry rows sharing a discriminator,
+/// distinguishing a dynamic-tail capacity change from a fixed-prefix change.
+pub fn classify_entry_change(old: &AccountLayoutEntry, new: &AccountLayoutEntry) -> LayoutChange {
+    if old == new {
+        return LayoutChange::Unchanged;
+    }
+    if old.layout_id != new.layout_id {
+        return LayoutChange::IdentityChanged;
+    }
+    if (old.flags.get() & ENTRY_SHAPE_FLAGS) != (new.flags.get() & ENTRY_SHAPE_FLAGS) {
+        return LayoutChange::ShapeFlipped;
+    }
+    if new.fixed_size.get() < old.fixed_size.get() || new.min_size.get() < old.min_size.get() {
+        return LayoutChange::FixedPrefixShrank;
+    }
+    if new.fixed_size.get() > old.fixed_size.get() || new.min_size.get() > old.min_size.get() {
+        return LayoutChange::FixedPrefixGrew;
+    }
+    // Same identity, shape, and sizes: only version/name metadata differs.
+    if new.version.get() != old.version.get() {
+        // A dynamic-tail layout with an unchanged fixed prefix only moved
+        // its (off-chain) tail capacity/policy: additive, not a migration.
+        if new.flags.get() & ENTRY_FLAG_DYNAMIC_TAIL != 0 {
+            return LayoutChange::TailCapacity;
+        }
+        return LayoutChange::VersionBump;
+    }
+    LayoutChange::NameOnly
+}
+
+/// Tail-aware variant of [`diff_descriptors_vs_registry`]: classifies each
+/// matched row with [`classify_entry_change`], so a dynamic-tail capacity
+/// bump reads as `Additive` rather than `MigrationRequired`. Removal and
+/// addition rules are identical; returns the worst verdict.
+pub fn diff_descriptors_vs_registry_detailed(
+    descriptors: &[AccountDescriptor],
+    onchain: &ProgramManifestView<'_>,
+) -> RegistryCompat {
+    let mut verdict = RegistryCompat::Unchanged;
+
+    for entry in onchain.entries() {
+        let mut described = false;
+        for d in descriptors {
+            if d.disc == entry.disc {
+                described = true;
+                break;
+            }
+        }
+        if !described {
+            verdict = verdict.worst(RegistryCompat::Breaking);
+        }
+    }
+
+    for d in descriptors {
+        match onchain.find_by_disc(d.disc) {
+            Some(entry) => {
+                verdict = verdict.worst(classify_entry_change(entry, &d.registry_entry()).compat())
+            }
+            None => verdict = verdict.worst(RegistryCompat::Additive),
+        }
+    }
+
+    verdict
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  CoW / account-data-cost layout linting
+// ══════════════════════════════════════════════════════════════════════
+
+/// Inclusive upper byte bound for the `Small` size class.
+pub const SIZE_CLASS_SMALL_MAX: u32 = 256;
+/// Inclusive upper byte bound for the `Medium` size class.
+pub const SIZE_CLASS_MEDIUM_MAX: u32 = 4 * 1024;
+/// Inclusive upper byte bound for the `Large` size class (one CPI realloc
+/// step under the current 10 KiB-per-instruction growth cap).
+pub const SIZE_CLASS_LARGE_MAX: u32 = 10 * 1024;
+
+/// Coarse size class for an account layout, aligned with the direct-mapping
+/// cost gradient: reads are ~free, the first write copies the whole account
+/// (copy-on-write), and growth (realloc) is the most expensive operation.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum SizeClass {
+    /// `<= SIZE_CLASS_SMALL_MAX`: copy-on-first-write is cheap.
+    Small,
+    /// `<= SIZE_CLASS_MEDIUM_MAX`.
+    Medium,
+    /// `<= SIZE_CLASS_LARGE_MAX`.
+    Large,
+    /// Above the large bound: every first-write copy is costly; keep off
+    /// hot write paths.
+    VeryLarge,
+}
+
+impl SizeClass {
+    /// Classify a fixed byte size.
+    #[inline]
+    pub const fn of(bytes: u32) -> Self {
+        if bytes <= SIZE_CLASS_SMALL_MAX {
+            SizeClass::Small
+        } else if bytes <= SIZE_CLASS_MEDIUM_MAX {
+            SizeClass::Medium
+        } else if bytes <= SIZE_CLASS_LARGE_MAX {
+            SizeClass::Large
+        } else {
+            SizeClass::VeryLarge
+        }
+    }
+}
+
+/// A descriptor-level cost profile under the direct-mapping account model.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct CostProfile {
+    /// Bytes copied on the first write to a fully-populated account
+    /// (copy-on-write). For fixed layouts this equals `min_size`.
+    pub cow_copy_bytes: u32,
+    /// Size class of the fixed prefix.
+    pub class: SizeClass,
+    /// Whether the layout can grow (dynamic tail), which triggers the
+    /// expensive realloc path rather than a fixed-size CoW copy.
+    pub growable: bool,
+}
+
+/// An advisory lint verdict for a layout under the account-data cost model.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum CostLint {
+    /// No concern: small/medium fixed layout.
+    Ok,
+    /// Large fixed layout: first-write CoW copies are non-trivial. Keep it
+    /// off the hottest write paths, or split hot fields into a small account.
+    LargeFixedCopy,
+    /// Growable and already large: realloc growth is expensive and may
+    /// exceed per-instruction growth limits. Consider a paged design.
+    ExpensiveGrowth,
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  IDL / Codama export hook
+// ══════════════════════════════════════════════════════════════════════
+
+/// The structural kind of a layout, for IDL / codegen consumers.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum LayoutKind {
+    /// Tier-1 compact `[disc:u8][body]`.
+    Compact,
+    /// 16-byte-headered.
+    Headered,
+}
+
+/// A minimal, stable, `no_std` projection of an [`AccountDescriptor`] for
+/// IDL / Codama-style generators. It carries exactly what a generator needs
+/// to emit an account node and a fail-closed decode guard, sourced from the
+/// same descriptor the on-chain loader enforces -- so the IDL can never
+/// describe a different layout than the program runs.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct DescriptorIdlNode {
+    /// Account type name.
+    pub name: &'static str,
+    /// Discriminator byte.
+    pub disc: u8,
+    /// Layout version.
+    pub version: u16,
+    /// Byte offset of the typed body (after disc / header).
+    pub body_offset: u8,
+    /// Fixed body size.
+    pub body_size: u32,
+    /// Minimum total account size.
+    pub min_size: u32,
+    /// Structural kind.
+    pub kind: LayoutKind,
+    /// Whether a variable-length tail follows the fixed body.
+    pub has_dynamic_tail: bool,
+    /// Whether the layout is deprecated.
+    pub deprecated: bool,
+    /// 8-byte layout id.
+    pub layout_id: [u8; 8],
+    /// 16-byte client decode fingerprint.
+    pub fingerprint: LayoutFingerprint,
 }
 
 #[cfg(test)]
@@ -1152,5 +1579,197 @@ mod tests {
         assert_eq!(compat, RegistryCompat::Additive);
         // Additive is allowed even under the strict governed profile.
         assert!(ManifestProfile::Governed.permits_upgrade(compat));
+    }
+
+    #[test]
+    fn fingerprint_is_deterministic_and_identity_sensitive() {
+        let d = AccountDescriptor::compact("Vault", 1, 1, 40, [0xAB; 8]);
+        // Deterministic: same descriptor -> same fingerprint.
+        assert_eq!(d.fingerprint(), d.fingerprint());
+        // Independent rebuild of the same identity matches.
+        let same = AccountDescriptor::compact("Vault", 1, 1, 40, [0xAB; 8]);
+        assert_eq!(d.fingerprint(), same.fingerprint());
+
+        // Each wire-identity field shifts the fingerprint.
+        let diff_id = AccountDescriptor::compact("Vault", 1, 1, 40, [0xCD; 8]);
+        assert_ne!(d.fingerprint(), diff_id.fingerprint());
+        let diff_disc = AccountDescriptor::compact("Vault", 2, 1, 40, [0xAB; 8]);
+        assert_ne!(d.fingerprint(), diff_disc.fingerprint());
+        let diff_ver = AccountDescriptor::compact("Vault", 1, 2, 40, [0xAB; 8]);
+        assert_ne!(d.fingerprint(), diff_ver.fingerprint());
+        let diff_size = AccountDescriptor::compact("Vault", 1, 1, 48, [0xAB; 8]);
+        assert_ne!(d.fingerprint(), diff_size.fingerprint());
+        // Same identity but headered shape -> different fingerprint.
+        let headered = AccountDescriptor::headered("Vault", 1, 1, 40, [0xAB; 8]);
+        assert_ne!(d.fingerprint(), headered.fingerprint());
+    }
+
+    #[test]
+    fn fingerprint_ignores_deprecated_bit() {
+        // Marking a layout deprecated must not change how a client decodes it.
+        let d = AccountDescriptor::compact("Vault", 1, 1, 40, [0xAB; 8]);
+        assert_eq!(d.fingerprint(), d.deprecated().fingerprint());
+    }
+
+    #[test]
+    fn fingerprint_hex_roundtrips_bytes() {
+        let d = AccountDescriptor::headered("Config", 3, 1, 40, [0x10; 8]);
+        let fp = d.fingerprint();
+        let hex = fp.to_hex();
+        assert_eq!(hex.len(), 32);
+        // Recompose bytes from the hex and compare.
+        let decode = |c: u8| -> u8 {
+            match c {
+                b'0'..=b'9' => c - b'0',
+                b'a'..=b'f' => c - b'a' + 10,
+                _ => unreachable!(),
+            }
+        };
+        let mut bytes = [0u8; 16];
+        for i in 0..16 {
+            bytes[i] = (decode(hex[i * 2]) << 4) | decode(hex[i * 2 + 1]);
+        }
+        assert_eq!(bytes, fp.as_bytes());
+    }
+
+    #[test]
+    fn loaded_data_size_sums_min_size() {
+        let v = AccountDescriptor::compact("V", 1, 1, 40, [1; 8]); // min_size 41
+        let c = AccountDescriptor::headered("C", 2, 1, 40, [2; 8]); // min_size 56
+        assert_eq!(min_loaded_data_size(&[v, c]), 41 + 56);
+        assert_eq!(min_loaded_data_size(&[]), 0);
+    }
+
+    #[test]
+    fn recommend_limit_adds_tail_headroom_and_margin() {
+        let fixed = AccountDescriptor::compact("V", 1, 1, 40, [1; 8]); // 41
+        let tail = AccountDescriptor::headered("Log", 2, 1, 40, [2; 8]).with_dynamic_tail(); // 56
+                                                                                             // 41 + 56 + (1 tail * 1024 headroom) + 128 margin.
+        assert_eq!(
+            recommend_loaded_data_limit(&[fixed, tail], 1024, 128),
+            41 + 56 + 1024 + 128
+        );
+        // No dynamic tails -> headroom not applied.
+        assert_eq!(recommend_loaded_data_limit(&[fixed], 1024, 0), 41);
+    }
+
+    #[test]
+    fn classify_entry_change_is_tail_aware() {
+        let fixed = AccountLayoutEntry::new(1, 1, 41, 40, 0xAB, ENTRY_FLAG_COMPACT, [1; 8]);
+        let fixed_v2 = AccountLayoutEntry::new(1, 2, 41, 40, 0xAB, ENTRY_FLAG_COMPACT, [1; 8]);
+        // Version bump on a fixed layout -> migration.
+        assert_eq!(
+            classify_entry_change(&fixed, &fixed_v2),
+            LayoutChange::VersionBump
+        );
+        assert_eq!(
+            classify_entry_change(&fixed, &fixed_v2).compat(),
+            RegistryCompat::MigrationRequired
+        );
+
+        let tail_flags = ENTRY_FLAG_HEADERED | ENTRY_FLAG_DYNAMIC_TAIL;
+        let tail = AccountLayoutEntry::new(2, 1, 56, 40, 0xCD, tail_flags, [2; 8]);
+        let tail_v2 = AccountLayoutEntry::new(2, 2, 56, 40, 0xCD, tail_flags, [2; 8]);
+        // Version bump on a dynamic-tail layout with unchanged prefix is a
+        // tail capacity/policy change -> additive, not a migration.
+        assert_eq!(
+            classify_entry_change(&tail, &tail_v2),
+            LayoutChange::TailCapacity
+        );
+        assert_eq!(
+            classify_entry_change(&tail, &tail_v2).compat(),
+            RegistryCompat::Additive
+        );
+
+        // Grown prefix even on a tail layout -> migration.
+        let tail_grown = AccountLayoutEntry::new(2, 2, 64, 48, 0xCD, tail_flags, [2; 8]);
+        assert_eq!(
+            classify_entry_change(&tail, &tail_grown),
+            LayoutChange::FixedPrefixGrew
+        );
+
+        // Toggling the tail flag is a shape flip -> breaking.
+        let detailed = AccountLayoutEntry::new(2, 1, 56, 40, 0xCD, ENTRY_FLAG_HEADERED, [2; 8]);
+        assert_eq!(
+            classify_entry_change(&detailed, &tail),
+            LayoutChange::ShapeFlipped
+        );
+        // Identity change dominates.
+        let reid = AccountLayoutEntry::new(1, 1, 41, 40, 0x99, ENTRY_FLAG_COMPACT, [1; 8]);
+        assert_eq!(
+            classify_entry_change(&fixed, &reid),
+            LayoutChange::IdentityChanged
+        );
+    }
+
+    #[test]
+    fn detailed_diff_treats_tail_capacity_as_additive() {
+        let tail = AccountDescriptor::headered("Log", 1, 1, 40, [0xCD; 8]).with_dynamic_tail();
+        let mut buf = [0u8; registry_len(1)];
+        let n = write_one(&mut buf, tail.registry_entry());
+        let onchain = ProgramManifestView::parse(&buf[..n]).unwrap();
+
+        // Same prefix/identity, bumped version (tail capacity bump).
+        let tail_v2 = AccountDescriptor::headered("Log", 1, 2, 40, [0xCD; 8]).with_dynamic_tail();
+        // The coarse diff calls this a migration...
+        assert_eq!(
+            diff_descriptors_vs_registry(&[tail_v2], &onchain),
+            RegistryCompat::MigrationRequired
+        );
+        // ...the tail-aware diff recognises it as additive.
+        assert_eq!(
+            diff_descriptors_vs_registry_detailed(&[tail_v2], &onchain),
+            RegistryCompat::Additive
+        );
+        assert!(ManifestProfile::Governed
+            .permits_upgrade(diff_descriptors_vs_registry_detailed(&[tail_v2], &onchain)));
+    }
+
+    #[test]
+    fn cost_profile_and_lint_track_size_and_growth() {
+        // Small fixed layout: cheap CoW, Ok.
+        let small = AccountDescriptor::compact("V", 1, 1, 40, [1; 8]);
+        let p = small.cost_profile();
+        assert_eq!(p.cow_copy_bytes, 41);
+        assert_eq!(p.class, SizeClass::Small);
+        assert!(!p.growable);
+        assert_eq!(small.cost_lint(), CostLint::Ok);
+
+        // Large fixed layout: non-trivial first-write copy.
+        let large = AccountDescriptor::headered("Book", 2, 1, 9000, [2; 8]);
+        assert_eq!(large.cost_profile().class, SizeClass::Large);
+        assert_eq!(large.cost_lint(), CostLint::LargeFixedCopy);
+
+        // Large + growable: expensive realloc growth.
+        let growable = AccountDescriptor::headered("Log", 3, 1, 9000, [3; 8]).with_dynamic_tail();
+        assert!(growable.cost_profile().growable);
+        assert_eq!(growable.cost_lint(), CostLint::ExpensiveGrowth);
+
+        // Very large boundary.
+        assert_eq!(
+            SizeClass::of(SIZE_CLASS_LARGE_MAX + 1),
+            SizeClass::VeryLarge
+        );
+    }
+
+    #[test]
+    fn idl_node_projects_descriptor_fields() {
+        let d = AccountDescriptor::headered("Config", 5, 2, 40, [0x42; 8]).with_dynamic_tail();
+        let node = d.idl_node();
+        assert_eq!(node.name, "Config");
+        assert_eq!(node.disc, 5);
+        assert_eq!(node.version, 2);
+        assert_eq!(node.body_offset, 16);
+        assert_eq!(node.body_size, 40);
+        assert_eq!(node.kind, LayoutKind::Headered);
+        assert!(node.has_dynamic_tail);
+        assert!(!node.deprecated);
+        assert_eq!(node.layout_id, [0x42; 8]);
+        // The node carries the same fingerprint a client checks.
+        assert_eq!(node.fingerprint, d.fingerprint());
+
+        let dep = AccountDescriptor::compact("Old", 6, 1, 8, [0; 8]).deprecated();
+        assert!(dep.idl_node().deprecated);
+        assert_eq!(dep.idl_node().kind, LayoutKind::Compact);
     }
 }

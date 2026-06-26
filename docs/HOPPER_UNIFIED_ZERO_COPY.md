@@ -192,12 +192,81 @@ Additive, fully tested, `no_std` / zero-copy clean:
    "one descriptor feeds loader + registry + offsets" in both the compact and
    headered examples, plus a trybuild pass exercising the trait const.
 
+## Anchor v2-informed descriptor tooling
+
+Anchor v2 is Pinocchio-backed and zero-copy-by-default, so the speed/DX gap is
+gone. The ideas worth taking are about *coherence* — typed account validation,
+fail-closed client decode, and tooling that cannot describe a different layout
+than the program runs. Hopper adapts each in its own descriptor-native way
+(not by copying Anchor syntax or internals). Every API below derives from the
+one `AccountDescriptor` and is `const` / `no_std` / no-alloc.
+
+### Client decode fingerprint (`LayoutFingerprint`)
+
+`AccountDescriptor::fingerprint() -> LayoutFingerprint` is a deterministic
+16-byte identity over the *wire-identity* fields (name, disc, version, sizes,
+body offset, shape flags, `layout_id`) — never the `deprecated` lifecycle bit,
+so deprecating a layout never changes how it decodes. A generated SDK embeds
+`LayoutFingerprint::to_hex()` (32 ASCII bytes) as a constant and **fails closed**
+if the layout the program advertises for a discriminator does not match:
+
+```rust
+let fp = <Vault as LayoutDescriptor>::fingerprint();   // const, embeddable
+// TS/Kotlin/Rust SDK: before casting fetched bytes, compare the embedded
+// fingerprint to the one computed from the program's on-chain registry row.
+// Mismatch ⇒ refuse to zero-copy-decode (the program was redeployed with a
+// different layout at this disc) rather than read stale/mis-shaped memory.
+```
+
+This is the per-type complement to the registry's `schema_hash` / `registry_hash`
+(which pin the whole artifact set): the fingerprint pins one account type.
+
+### Loaded-accounts data-size budgeting
+
+`min_loaded_data_size(&descriptors)` sums each layout's `min_size`;
+`recommend_loaded_data_limit(&descriptors, tail_headroom, extra)` adds headroom
+per dynamic-tail layout plus a flat margin. A transaction builder sizes
+`setLoadedAccountsDataSizeLimit` directly from the descriptors of the accounts
+an instruction touches — sourced from the same `min_size` the loader enforces,
+so the limit and the validation can never disagree. Both are saturating; the
+caller clamps to the runtime maximum.
+
+### Dynamic-tail-aware registry diff
+
+`classify_entry_change(old, new) -> LayoutChange` is finer-grained than
+`RegistryCompat`: it separates `FixedPrefixGrew` / `FixedPrefixShrank`,
+`VersionBump`, `ShapeFlipped`, `IdentityChanged`, and — crucially —
+`TailCapacity`. A dynamic-tail layout that keeps its fixed prefix and identity
+but bumps version only moved its (off-chain) tail capacity/policy: that is
+`Additive`, not `MigrationRequired`, because the loader only checks the fixed
+prefix. `diff_descriptors_vs_registry_detailed` is the tail-aware companion to
+`diff_descriptors_vs_registry`; feed either to `ManifestProfile::permits_upgrade`.
+
+### CoW / account-data-cost layout lint
+
+Direct mapping makes reads ≈ free, the first write a copy-on-write copy, and
+growth (realloc) the most expensive operation. `AccountDescriptor::cost_profile()`
+reports `cow_copy_bytes` (= `min_size`), a `SizeClass`
+(Small/Medium/Large/VeryLarge by byte thresholds), and whether the layout is
+`growable`. `cost_lint()` returns an advisory `CostLint`: `LargeFixedCopy` for
+big fixed layouts on hot write paths, `ExpensiveGrowth` for large growable ones.
+This is a descriptor-level model (no per-field metadata required) tied to the
+runtime cost direction without asserting unsupported specifics.
+
+### IDL / Codama export hook
+
+`AccountDescriptor::idl_node() -> DescriptorIdlNode` is a minimal, stable,
+`no_std` projection (name, disc, version, body offset/size, `LayoutKind`,
+dynamic-tail/deprecated flags, `layout_id`, and the `LayoutFingerprint`) that an
+IDL or Codama-style generator consumes to emit an account node *and* the
+fail-closed decode guard — sourced from the same descriptor the loader enforces,
+so the generated IDL can never describe a layout the program does not run.
+
 ## Next concrete steps
 
-- Auto-emit `setLoadedAccountsDataSizeLimit` from each descriptor's `min_size`
-  (sum over the accounts an instruction touches) in the generated client.
-- Surface `layout_id` as the client-side decode fingerprint in the TypeScript
-  / Rust SDKs so a fetched account is checked against the descriptor before a
-  zero-copy cast.
-- Extend `diff_descriptors_vs_registry` with a dynamic-tail-aware size policy
-  (a grown *tail* is `Additive`, a grown *fixed prefix* is `MigrationRequired`).
+- Wire the generated TS/Rust SDKs to embed `fingerprint().to_hex()` and call
+  `recommend_loaded_data_limit` in their transaction builders.
+- Feed `DescriptorIdlNode` into the existing `hopper-schema` IDL emitter so the
+  off-chain IDL and the on-chain registry are generated from one descriptor pass.
+- Extend `cost_lint` with per-field hot/cold classification once field-level
+  role metadata is threaded through the descriptor.
