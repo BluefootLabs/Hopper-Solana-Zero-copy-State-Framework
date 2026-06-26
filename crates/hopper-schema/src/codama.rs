@@ -12,9 +12,9 @@
 use core::fmt;
 
 use crate::{
-    ArgDescriptor, CodamaProjection, CompatibilityPair, EventDescriptor, FieldDescriptor,
-    IdlAccountEntry, InstructionDescriptor, LayoutFingerprint, LayoutManifest, MigrationPolicy,
-    PdaSeedHint, PolicyDescriptor, ProgramIdl, ProgramManifest,
+    ArgDescriptor, CodamaProjection, CompatibilityPair, DescriptorMetadata, EventDescriptor,
+    FieldDescriptor, IdlAccountEntry, InstructionDescriptor, LayoutFingerprint, LayoutKind,
+    LayoutManifest, MigrationPolicy, PdaSeedHint, PolicyDescriptor, ProgramIdl, ProgramManifest,
 };
 
 // ---------------------------------------------------------------------------
@@ -1062,6 +1062,102 @@ impl<'a> fmt::Display for CodamaJsonFromManifest<'a> {
 }
 
 // ---------------------------------------------------------------------------
+// DescriptorMetadata JSON -- fail-closed off-chain decode record
+// ---------------------------------------------------------------------------
+
+fn layout_kind_str(kind: LayoutKind) -> &'static str {
+    match kind {
+        LayoutKind::Compact => "compact",
+        LayoutKind::Headered => "headered",
+    }
+}
+
+/// JSON wrapper for a single [`DescriptorMetadata`] record.
+///
+/// Emits exactly what a generated client embeds to fail closed before
+/// zero-copy-decoding: identity (`name`/`disc`/`version`), shape
+/// (`kind`/`bodyOffset`/`bodySize`/`fixedSize`/`minSize`/`hasDynamicTail`/
+/// `deprecated`), the 8-byte `layoutId` and 16-byte `fingerprint` as hex, the
+/// `loadedDataSizeRecommendation`, and the field wire `offsets`.
+pub struct DescriptorMetadataJson<'a>(pub &'a DescriptorMetadata);
+
+impl<'a> fmt::Display for DescriptorMetadataJson<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let m = self.0;
+        let n = &m.node;
+        writeln!(f, "{{")?;
+        write!(f, "  \"name\": ")?;
+        write_json_str(f, n.name)?;
+        writeln!(f, ",")?;
+        writeln!(f, "  \"disc\": {},", n.disc)?;
+        writeln!(f, "  \"version\": {},", n.version)?;
+        writeln!(f, "  \"kind\": \"{}\",", layout_kind_str(n.kind))?;
+        writeln!(f, "  \"bodyOffset\": {},", n.body_offset)?;
+        writeln!(f, "  \"bodySize\": {},", n.body_size)?;
+        writeln!(f, "  \"fixedSize\": {},", n.body_size)?;
+        writeln!(f, "  \"minSize\": {},", n.min_size)?;
+        writeln!(f, "  \"hasDynamicTail\": {},", n.has_dynamic_tail)?;
+        writeln!(f, "  \"deprecated\": {},", n.deprecated)?;
+        write!(f, "  \"layoutId\": ")?;
+        write_hex_json(f, &n.layout_id)?;
+        writeln!(f, ",")?;
+        write!(f, "  \"fingerprint\": ")?;
+        write_hex_json(f, &n.fingerprint.as_bytes())?;
+        writeln!(f, ",")?;
+        writeln!(
+            f,
+            "  \"loadedDataSizeRecommendation\": {},",
+            m.loaded_data_size
+        )?;
+        write!(f, "  \"fields\": ")?;
+        write_fields_json(f, m.fields, 1)?;
+        writeln!(f)?;
+        write!(f, "}}")
+    }
+}
+
+/// JSON wrapper for a program's full descriptor-metadata set.
+///
+/// Emits an `accounts` array of [`DescriptorMetadataJson`] records plus two
+/// transaction-builder budgets summed across the set: `minLoadedDataSize`
+/// (the floor each layout's loader enforces) and `recommendedLoadedDataSize`
+/// (the floor plus per-layout margins). Both are saturating; clamp to the
+/// runtime maximum at the call site.
+pub struct DescriptorMetadataSetJson<'a>(pub &'a [DescriptorMetadata]);
+
+impl<'a> fmt::Display for DescriptorMetadataSetJson<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let set = self.0;
+        let mut min_total: u64 = 0;
+        let mut rec_total: u64 = 0;
+        for m in set {
+            min_total = min_total.saturating_add(m.node.min_size as u64);
+            rec_total = rec_total.saturating_add(m.loaded_data_size);
+        }
+        writeln!(f, "{{")?;
+        write!(f, "  \"accounts\": ")?;
+        if set.is_empty() {
+            write!(f, "[]")?;
+        } else {
+            writeln!(f, "[")?;
+            for (i, m) in set.iter().enumerate() {
+                write!(f, "{}", DescriptorMetadataJson(m))?;
+                if i + 1 < set.len() {
+                    writeln!(f, ",")?;
+                } else {
+                    writeln!(f)?;
+                }
+            }
+            write!(f, "  ]")?;
+        }
+        writeln!(f, ",")?;
+        writeln!(f, "  \"minLoadedDataSize\": {},", min_total)?;
+        writeln!(f, "  \"recommendedLoadedDataSize\": {}", rec_total)?;
+        write!(f, "}}")
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
@@ -1072,8 +1168,8 @@ mod tests {
 
     use super::*;
     use crate::{
-        CodamaAccount, CodamaInstruction, CodamaProjection, FieldIntent, ProgramIdl,
-        ProgramManifest,
+        AccountDescriptor, CodamaAccount, CodamaInstruction, CodamaProjection, FieldIntent,
+        ProgramIdl, ProgramManifest,
     };
 
     #[test]
@@ -1353,5 +1449,115 @@ mod tests {
         assert!(!json.contains("\"receiptExpected\""));
         assert!(!json.contains("\"fingerprints\""));
         assert!(!json.contains("\"toolingHints\""));
+    }
+
+    // -- DescriptorMetadata JSON --
+
+    const VAULT_FIELDS: &[FieldDescriptor] = &[
+        FieldDescriptor {
+            name: "authority",
+            canonical_type: "[u8;32]",
+            size: 32,
+            offset: 1,
+            intent: FieldIntent::Custom,
+        },
+        FieldDescriptor {
+            name: "balance",
+            canonical_type: "WireU64",
+            size: 8,
+            offset: 33,
+            intent: FieldIntent::Custom,
+        },
+    ];
+
+    fn vault_descriptor() -> AccountDescriptor {
+        AccountDescriptor::compact("Vault", 1, 1, 40, [0xAB; 8])
+    }
+
+    #[test]
+    fn descriptor_metadata_json_carries_fail_closed_fields() {
+        let d = vault_descriptor();
+        let meta = DescriptorMetadata::from_descriptor(&d, VAULT_FIELDS);
+        let json = format!("{}", DescriptorMetadataJson(&meta));
+
+        assert!(json.contains("\"name\": \"Vault\""));
+        assert!(json.contains("\"disc\": 1"));
+        assert!(json.contains("\"version\": 1"));
+        assert!(json.contains("\"kind\": \"compact\""));
+        assert!(json.contains("\"bodyOffset\": 1"));
+        assert!(json.contains("\"bodySize\": 40"));
+        assert!(json.contains("\"fixedSize\": 40"));
+        // compact: min_size = 1 + body_size.
+        assert!(json.contains("\"minSize\": 41"));
+        assert!(json.contains("\"hasDynamicTail\": false"));
+        assert!(json.contains("\"deprecated\": false"));
+        assert!(json.contains("\"layoutId\": \"abababababababab\""));
+
+        // Fingerprint hex matches the descriptor's own to_hex (32 ASCII chars).
+        let fp_hex = meta.fingerprint_hex();
+        let fp_str = core::str::from_utf8(&fp_hex).unwrap();
+        assert!(json.contains(fp_str));
+        assert_eq!(fp_hex.len(), 32);
+
+        // Default recommendation: min_size + flat margin (no tail headroom).
+        assert!(json.contains("\"loadedDataSizeRecommendation\": 297"));
+
+        // Field offsets are present for client decode.
+        assert!(json.contains("\"name\": \"authority\""));
+        assert!(json.contains("\"offset\": 33"));
+    }
+
+    #[test]
+    fn descriptor_metadata_json_headered_and_dynamic_tail() {
+        // Headered layout with a dynamic tail: body offset is 16, kind is
+        // "headered", and the growable flag pulls in tail headroom.
+        let d = AccountDescriptor::headered("Order", 2, 3, 48, [0x11; 8]).with_dynamic_tail();
+        let meta = DescriptorMetadata::from_descriptor(&d, &[]);
+        let json = format!("{}", DescriptorMetadataJson(&meta));
+
+        assert!(json.contains("\"kind\": \"headered\""));
+        assert!(json.contains("\"bodyOffset\": 16"));
+        assert!(json.contains("\"minSize\": 64"));
+        assert!(json.contains("\"hasDynamicTail\": true"));
+        // min_size 64 + tail_headroom 1024 + margin 256 = 1344.
+        assert!(json.contains("\"loadedDataSizeRecommendation\": 1344"));
+        assert!(json.contains("\"fields\": []"));
+    }
+
+    #[test]
+    fn descriptor_metadata_set_json_sums_budgets() {
+        let d = vault_descriptor();
+        let meta = DescriptorMetadata::from_descriptor(&d, VAULT_FIELDS);
+        let set = [meta, meta];
+        let json = format!("{}", DescriptorMetadataSetJson(&set));
+
+        assert!(json.contains("\"accounts\": ["));
+        // Two 41-byte floors.
+        assert!(json.contains("\"minLoadedDataSize\": 82"));
+        // Two (41 + 256) recommendations.
+        assert!(json.contains("\"recommendedLoadedDataSize\": 594"));
+    }
+
+    #[test]
+    fn descriptor_metadata_set_json_empty() {
+        let json = format!("{}", DescriptorMetadataSetJson(&[]));
+        assert!(json.contains("\"accounts\": []"));
+        assert!(json.contains("\"minLoadedDataSize\": 0"));
+        assert!(json.contains("\"recommendedLoadedDataSize\": 0"));
+    }
+
+    #[test]
+    fn decode_guard_fails_closed_on_mismatch() {
+        let d = vault_descriptor();
+        let same = d.fingerprint();
+        assert!(crate::decode_allowed(&d.fingerprint(), &same));
+
+        // A version bump changes the wire-identity fingerprint, so a client
+        // embedding the old fingerprint must refuse to decode.
+        let bumped = AccountDescriptor::compact("Vault", 1, 2, 40, [0xAB; 8]);
+        assert!(!crate::decode_allowed(
+            &d.fingerprint(),
+            &bumped.fingerprint()
+        ));
     }
 }

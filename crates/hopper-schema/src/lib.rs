@@ -3928,6 +3928,27 @@ pub trait SchemaExport: LayoutContract {
 
     /// Rich schema manifest for diffing, linting, and client generation.
     fn layout_manifest() -> LayoutManifest;
+
+    /// The one-source-of-truth [`AccountDescriptor`] for this (headered)
+    /// layout, derived from the manifest. The body size is `total_size`
+    /// minus the 16-byte universal header; the discriminator, version, and
+    /// `layout_id` come straight from the manifest, so the descriptor a client
+    /// fingerprints matches the header the runtime validates.
+    #[inline]
+    fn descriptor() -> AccountDescriptor {
+        let m = Self::layout_manifest();
+        let body_size = (m.total_size as u32).saturating_sub(HEADER_LEN as u32);
+        AccountDescriptor::headered(m.name, m.disc, m.version as u16, body_size, m.layout_id)
+    }
+
+    /// Fail-closed off-chain decode metadata for this layout: the descriptor
+    /// projection plus the manifest's field wire map and a loaded-data-size
+    /// recommendation. Serialize with
+    /// [`codama::DescriptorMetadataJson`](crate::codama::DescriptorMetadataJson).
+    #[inline]
+    fn descriptor_metadata() -> DescriptorMetadata {
+        DescriptorMetadata::from_descriptor(&Self::descriptor(), Self::layout_manifest().fields)
+    }
 }
 
 /// Bridge from a live `AccountView` to the schema bundle of a concrete layout type.
@@ -3959,6 +3980,106 @@ impl<'info> AccountSchemaExt for AccountView<'info> {
             None
         }
     }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  Descriptor metadata -- fail-closed off-chain decode record
+// ═══════════════════════════════════════════════════════════════════════
+
+// The one-source-of-truth descriptor types live in `hopper_core::manifest`;
+// re-export the ones off-chain tooling consumes so a client/IDL generator and
+// the CLI read the exact identity model the on-chain loader enforces.
+pub use hopper_core::manifest::{
+    min_loaded_data_size, recommend_loaded_data_limit, AccountDescriptor, CostLint, CostProfile,
+    DescriptorIdlNode, LayoutKind, SizeClass,
+};
+
+/// A stable, fail-closed decode-metadata record for one account layout.
+///
+/// It projects a [`hopper_core::manifest::AccountDescriptor`] -- the same
+/// `const` the on-chain loader validates against -- into the fields a
+/// generated client or manager needs to refuse decoding a mis-shaped account
+/// *before* casting its bytes: discriminator, body/fixed/min sizes, body
+/// offset, layout kind, dynamic-tail/deprecated flags, the 8-byte `layout_id`,
+/// the 16-byte client decode fingerprint, the field wire offsets, and a
+/// recommended `setLoadedAccountsDataSizeLimit` contribution.
+///
+/// Because every field derives from the descriptor, the off-chain metadata can
+/// never describe a layout the program does not run. Serialize it with
+/// [`codama::DescriptorMetadataJson`](crate::codama::DescriptorMetadataJson).
+#[derive(Clone, Copy, Debug)]
+pub struct DescriptorMetadata {
+    /// Descriptor-derived IDL node (identity + shape + fingerprint).
+    pub node: DescriptorIdlNode,
+    /// Field-level wire map (offsets/sizes/intents). Empty when the layout
+    /// has no field schema.
+    pub fields: &'static [FieldDescriptor],
+    /// Recommended loaded-account-data-size budget for a transaction that
+    /// loads exactly this account: `min_size` plus a flat margin (and tail
+    /// headroom when the layout is growable). Saturating; clamp to the
+    /// runtime maximum at the call site.
+    pub loaded_data_size: u64,
+}
+
+impl DescriptorMetadata {
+    /// Flat margin (bytes) added to `min_size` for the loaded-data-size
+    /// recommendation, matching the descriptor tooling's default.
+    pub const DEFAULT_MARGIN: u32 = 256;
+    /// Per-layout tail headroom applied to growable (dynamic-tail) layouts.
+    pub const DEFAULT_TAIL_HEADROOM: u32 = 1024;
+
+    /// Project a descriptor and its field map into fail-closed metadata using
+    /// the default loaded-data-size margins.
+    pub fn from_descriptor(
+        descriptor: &AccountDescriptor,
+        fields: &'static [FieldDescriptor],
+    ) -> Self {
+        Self::with_margins(
+            descriptor,
+            fields,
+            Self::DEFAULT_TAIL_HEADROOM,
+            Self::DEFAULT_MARGIN,
+        )
+    }
+
+    /// Project a descriptor with explicit loaded-data-size margins.
+    pub fn with_margins(
+        descriptor: &AccountDescriptor,
+        fields: &'static [FieldDescriptor],
+        tail_headroom: u32,
+        extra: u32,
+    ) -> Self {
+        let single = [*descriptor];
+        Self {
+            node: descriptor.idl_node(),
+            fields,
+            loaded_data_size: recommend_loaded_data_limit(&single, tail_headroom, extra),
+        }
+    }
+
+    /// The 32-ASCII-byte hex of the client decode fingerprint. A generated SDK
+    /// embeds this constant and compares it to the program-advertised layout's
+    /// fingerprint before zero-copy-decoding.
+    #[inline]
+    pub fn fingerprint_hex(&self) -> [u8; 32] {
+        self.node.fingerprint.to_hex()
+    }
+}
+
+/// Fail-closed decode guard.
+///
+/// Returns `true` only when the layout a client expects (its embedded
+/// fingerprint) exactly matches the layout the program currently advertises
+/// for the same discriminator. A generated client MUST refuse to
+/// zero-copy-decode a fetched account when this is `false` -- the program was
+/// redeployed with a different layout at this discriminator, so reading its
+/// bytes as the old shape would read mis-shaped memory.
+#[inline]
+pub fn decode_allowed(
+    expected: &hopper_core::manifest::LayoutFingerprint,
+    advertised: &hopper_core::manifest::LayoutFingerprint,
+) -> bool {
+    expected == advertised
 }
 
 // -- Migration Plan Tests --
