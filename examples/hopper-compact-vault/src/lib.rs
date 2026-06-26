@@ -169,7 +169,8 @@ pub fn read_registry(data: &[u8]) -> Result<ProgramManifestView<'_>, ProgramErro
 mod tests {
     use super::*;
     use hopper::manifest::{
-        diff_descriptors_vs_registry, name_hash, LayoutDescriptor, ManifestProfile, RegistryCompat,
+        diff_descriptors_vs_registry, min_loaded_data_size, name_hash, recommend_loaded_data_limit,
+        CostLint, LayoutDescriptor, LayoutKind, ManifestProfile, RegistryCompat, SizeClass,
         ENTRY_FLAG_COMPACT,
     };
     use hopper_schema::clientgen::{KtAccounts, TsAccounts};
@@ -348,5 +349,46 @@ mod tests {
         let compat = diff_descriptors_vs_registry(&descriptors, &onchain);
         assert_eq!(compat, RegistryCompat::Unchanged);
         assert!(ManifestProfile::Governed.permits_upgrade(compat));
+    }
+
+    #[test]
+    fn one_state_drives_loader_fingerprint_datasize_and_idl() {
+        // The single `#[hopper::state(compact, disc = 1)]` declaration above
+        // produces, with no extra glue: the hot-path loader, the Tier-2
+        // registry row, a client decode fingerprint, a data-size budget, and
+        // an IDL/Codama node -- all from one descriptor.
+
+        // Client decode fingerprint: deterministic, embeddable as hex.
+        let fp = <Vault as LayoutDescriptor>::fingerprint();
+        assert_eq!(fp, <Vault as LayoutDescriptor>::fingerprint());
+        assert_eq!(fp.to_hex().len(), 32);
+
+        // Transaction builders size loaded account data from the descriptor.
+        let descriptors = [<Vault as LayoutDescriptor>::DESCRIPTOR];
+        assert_eq!(
+            min_loaded_data_size(&descriptors),
+            Vault::COMPACT_LEN as u64
+        );
+        // No dynamic tail here, so headroom is not applied; margin still adds.
+        assert_eq!(
+            recommend_loaded_data_limit(&descriptors, 1024, 256),
+            Vault::COMPACT_LEN as u64 + 256
+        );
+
+        // Cost model: a 41-byte compact vault is cheap to copy-on-write.
+        let profile = <Vault as LayoutDescriptor>::cost_profile();
+        assert_eq!(profile.class, SizeClass::Small);
+        assert!(!profile.growable);
+        assert_eq!(
+            <Vault as LayoutDescriptor>::DESCRIPTOR.cost_lint(),
+            CostLint::Ok
+        );
+
+        // IDL/Codama node carries the same identity a client checks.
+        let node = <Vault as LayoutDescriptor>::idl_node();
+        assert_eq!(node.name, "Vault");
+        assert_eq!(node.disc, VAULT_DISC);
+        assert_eq!(node.kind, LayoutKind::Compact);
+        assert_eq!(node.fingerprint, fp);
     }
 }
