@@ -262,11 +262,51 @@ IDL or Codama-style generator consumes to emit an account node *and* the
 fail-closed decode guard — sourced from the same descriptor the loader enforces,
 so the generated IDL can never describe a layout the program does not run.
 
+### Off-chain metadata export (`hopper-schema`)
+
+The IDL hook is wired into the off-chain emitter. `hopper_schema::DescriptorMetadata`
+projects an `AccountDescriptor` (plus the layout's field wire map) into the exact
+record a generated client embeds to **fail closed before decode**, and
+`hopper_schema::codama::DescriptorMetadataJson` serializes it with the existing
+hand-written (`no_std`, no-serde) JSON emitters:
+
+```jsonc
+{
+  "name": "Vault",
+  "disc": 1,
+  "version": 1,
+  "kind": "compact",
+  "bodyOffset": 1,
+  "bodySize": 40,
+  "fixedSize": 40,
+  "minSize": 41,
+  "hasDynamicTail": false,
+  "deprecated": false,
+  "layoutId": "abababababababab",
+  "fingerprint": "…32 ASCII hex chars…",
+  "loadedDataSizeRecommendation": 297,
+  "fields": [ { "name": "authority", "size": 32, "offset": 1, … } ]
+}
+```
+
+A generated SDK embeds `fingerprint` (and/or `layoutId`) as a constant and calls
+`hopper_schema::decode_allowed(expected, advertised)` — comparing its embedded
+fingerprint to the one computed from the program's on-chain registry row — before
+zero-copy-decoding. A mismatch means the program was redeployed with a different
+layout at that discriminator, so the client refuses rather than reading
+mis-shaped memory. `loadedDataSizeRecommendation` feeds
+`setLoadedAccountsDataSizeLimit` directly. `DescriptorMetadataSetJson` emits a
+whole program's accounts plus summed `minLoadedDataSize` /
+`recommendedLoadedDataSize` budgets. Existing headered `SchemaExport` layouts get
+`descriptor()` / `descriptor_metadata()` for free, derived from their manifest.
+
 ## Next concrete steps
 
-- Wire the generated TS/Rust SDKs to embed `fingerprint().to_hex()` and call
-  `recommend_loaded_data_limit` in their transaction builders.
-- Feed `DescriptorIdlNode` into the existing `hopper-schema` IDL emitter so the
-  off-chain IDL and the on-chain registry are generated from one descriptor pass.
+- `DescriptorIdlNode` now feeds the `hopper-schema` emitter via
+  `DescriptorMetadata` / `DescriptorMetadataJson`, so the off-chain metadata and
+  the on-chain registry derive from one descriptor pass. Next: have the
+  per-language client generators (`rust_client`, `python_client`, …) consume that
+  JSON to embed `fingerprint` and call `recommend_loaded_data_limit` in their
+  transaction builders.
 - Extend `cost_lint` with per-field hot/cold classification once field-level
   role metadata is threaded through the descriptor.
