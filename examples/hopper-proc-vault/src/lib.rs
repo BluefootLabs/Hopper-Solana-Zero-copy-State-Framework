@@ -137,6 +137,29 @@ mod manifest_profile_tests {
 }
 
 #[cfg(test)]
+mod descriptor_tests {
+    //! A *headered* layout produces the same unified `AccountDescriptor`
+    //! shape a compact one does, so both feed one registry/identity model.
+    use super::Vault;
+    use hopper::hopper_core::account::HEADER_LEN;
+    use hopper::manifest::{LayoutDescriptor, ENTRY_FLAG_HEADERED};
+
+    #[test]
+    fn headered_descriptor_folds_in_universal_header() {
+        let d = <Vault as LayoutDescriptor>::DESCRIPTOR;
+        assert!(d.is_headered());
+        assert!(!d.is_compact());
+        assert_eq!(d.body_offset as usize, HEADER_LEN);
+        assert_eq!(d.flags & ENTRY_FLAG_HEADERED, ENTRY_FLAG_HEADERED);
+        // The registry row is derived from the single descriptor.
+        assert_eq!(
+            <Vault as LayoutDescriptor>::registry_entry(),
+            d.registry_entry()
+        );
+    }
+}
+
+#[cfg(test)]
 mod schema_metadata_tests {
     //! Stage 2.5 regression tests. `#[hopper::context]` must emit a
     //! `SCHEMA_METADATA` const carrying every Anchor-grade constraint

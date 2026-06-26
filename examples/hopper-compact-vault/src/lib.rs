@@ -86,7 +86,10 @@ pub fn read_registry(data: &[u8]) -> Result<ProgramManifestView<'_>, ProgramErro
 #[cfg(test)]
 mod tests {
     use super::*;
-    use hopper::manifest::{name_hash, ENTRY_FLAG_COMPACT};
+    use hopper::manifest::{
+        diff_descriptors_vs_registry, name_hash, LayoutDescriptor, ManifestProfile, RegistryCompat,
+        ENTRY_FLAG_COMPACT,
+    };
 
     #[test]
     fn compact_vault_is_one_byte_header_plus_body() {
@@ -117,5 +120,42 @@ mod tests {
         assert_eq!(entry.name_hash, name_hash("Vault"));
 
         assert!(PROFILE.publishes_onchain());
+    }
+
+    #[test]
+    fn one_descriptor_feeds_loader_registry_and_offsets() {
+        // The macro emits a single `LayoutDescriptor::DESCRIPTOR` that the
+        // hot-path loader, the Tier-2 registry row, and the field offsets
+        // all read from. Prove they agree.
+        let d = <Vault as LayoutDescriptor>::DESCRIPTOR;
+        assert_eq!(d.disc, VAULT_DISC);
+        assert!(d.is_compact());
+        assert_eq!(d.body_offset as u32, Vault::AUTHORITY_ABS_OFFSET);
+        assert_eq!(d.min_size as usize, Vault::COMPACT_LEN);
+
+        // The registry row is built from the same descriptor.
+        assert_eq!(d.registry_entry(), Vault::registry_entry());
+
+        // Hot-path validation reads no registry: just len + disc.
+        let mut buf = [0u8; 41];
+        buf[0] = VAULT_DISC;
+        assert!(<Vault as LayoutDescriptor>::validate_hot(&buf).is_ok());
+        buf[0] = VAULT_DISC ^ 0xFF;
+        assert!(<Vault as LayoutDescriptor>::validate_hot(&buf).is_err());
+    }
+
+    #[test]
+    fn governed_redeploy_against_onchain_registry() {
+        // Publish the current registry on chain.
+        let schema_hash = [7u8; 32];
+        let mut buf = [0u8; 512];
+        let n = program_registry(&mut buf, &schema_hash).unwrap();
+        let onchain = read_registry(&buf[..n]).unwrap();
+
+        // Redeploying the same descriptor set is Unchanged and always allowed.
+        let descriptors = [<Vault as LayoutDescriptor>::DESCRIPTOR];
+        let compat = diff_descriptors_vs_registry(&descriptors, &onchain);
+        assert_eq!(compat, RegistryCompat::Unchanged);
+        assert!(ManifestProfile::Governed.permits_upgrade(compat));
     }
 }
