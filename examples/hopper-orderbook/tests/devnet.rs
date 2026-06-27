@@ -27,6 +27,7 @@ use solana_instruction::{AccountMeta, Instruction};
 use solana_keypair::{read_keypair_file, Keypair};
 use solana_pubkey::Pubkey;
 use solana_signer::Signer;
+use solana_system_interface::instruction as system_instruction;
 use solana_transaction::Transaction;
 
 const INIT_BOOK_TAG: u8 = 0;
@@ -76,8 +77,20 @@ fn orderbook_post_bid_touches_only_bids_segment() {
     let program = program_id();
     let book = Keypair::new();
 
-    // 1. init_book: payer (signer, writable), book (init, signer),
-    //    system_program.
+    let lamports = client
+        .get_minimum_balance_for_rent_exemption(hopper_orderbook::BOOK_ACCOUNT_SIZE)
+        .expect("rent exemption");
+    let create_book = system_instruction::create_account(
+        &payer.pubkey(),
+        &book.pubkey(),
+        lamports,
+        hopper_orderbook::BOOK_ACCOUNT_SIZE as u64,
+        &program,
+    );
+
+    // 1. init_book: payer (signer, writable), pre-created book (signer),
+    //    system_program. The top-level create avoids Solana's 10 KB
+    //    inner-instruction realloc limit for this >100 KB account.
     let init_ix = Instruction {
         program_id: program,
         accounts: vec![
@@ -88,8 +101,12 @@ fn orderbook_post_bid_touches_only_bids_segment() {
         data: vec![INIT_BOOK_TAG],
     };
     let bh = client.get_latest_blockhash().expect("blockhash");
-    let init_tx =
-        Transaction::new_signed_with_payer(&[init_ix], Some(&payer.pubkey()), &[&payer, &book], bh);
+    let init_tx = Transaction::new_signed_with_payer(
+        &[create_book, init_ix],
+        Some(&payer.pubkey()),
+        &[&payer, &book],
+        bh,
+    );
     let init_sig = client
         .send_and_confirm_transaction(&init_tx)
         .expect("init_book tx should succeed");

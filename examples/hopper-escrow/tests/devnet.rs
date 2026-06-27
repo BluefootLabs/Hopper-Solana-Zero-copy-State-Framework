@@ -26,6 +26,8 @@ use solana_signer::Signer;
 use solana_transaction::Transaction;
 
 const MAKE_TAG: u8 = 0;
+const TAKE_TAG: u8 = 1;
+const CANCEL_TAG: u8 = 2;
 // 16-byte header + maker(32) + maker_ta(32) + mint_a(32) + mint_b(32)
 // + amount_offered(8) + amount_wanted(8) + bump(1), rounded for align.
 const ESCROW_INIT_SPACE: u64 = 161;
@@ -69,6 +71,20 @@ fn make_ix_data(mint_a: &Pubkey, mint_b: &Pubkey, offered: u64, wanted: u64) -> 
     data
 }
 
+fn make_instruction(program: Pubkey, payer: &Pubkey, escrow: &Pubkey) -> Instruction {
+    let mint_a = Pubkey::new_unique();
+    let mint_b = Pubkey::new_unique();
+    Instruction {
+        program_id: program,
+        accounts: vec![
+            AccountMeta::new(*payer, true),
+            AccountMeta::new(*escrow, true),
+            AccountMeta::new_readonly(SYSTEM_PROGRAM, false),
+        ],
+        data: make_ix_data(&mint_a, &mint_b, AMOUNT_OFFERED, AMOUNT_WANTED),
+    }
+}
+
 #[test]
 fn escrow_make_roundtrip() {
     if !enabled() {
@@ -81,20 +97,10 @@ fn escrow_make_roundtrip() {
     let program = program_id();
 
     let escrow = Keypair::new();
-    let mint_a = Pubkey::new_unique();
-    let mint_b = Pubkey::new_unique();
 
     // Make: maker (signer, writable, payer), escrow (init, signer),
     // system_program. Order matches `#[derive(Accounts)] struct Make`.
-    let ix = Instruction {
-        program_id: program,
-        accounts: vec![
-            AccountMeta::new(payer.pubkey(), true),
-            AccountMeta::new(escrow.pubkey(), true),
-            AccountMeta::new_readonly(SYSTEM_PROGRAM, false),
-        ],
-        data: make_ix_data(&mint_a, &mint_b, AMOUNT_OFFERED, AMOUNT_WANTED),
-    };
+    let ix = make_instruction(program, &payer.pubkey(), &escrow.pubkey());
 
     let blockhash = client.get_latest_blockhash().expect("blockhash");
     let tx = Transaction::new_signed_with_payer(
@@ -132,4 +138,61 @@ fn escrow_make_roundtrip() {
     assert_eq!(offered, AMOUNT_OFFERED, "amount_offered mismatch");
     assert_eq!(wanted, AMOUNT_WANTED, "amount_wanted mismatch");
     eprintln!("escrow round-trip ok: offered={offered} wanted={wanted}");
+}
+
+#[test]
+fn escrow_close_paths_roundtrip() {
+    if !enabled() {
+        eprintln!("skipping escrow devnet close-path test (set HOPPER_DEVNET=1 to run)");
+        return;
+    }
+
+    let client = RpcClient::new_with_commitment(rpc_url(), CommitmentConfig::confirmed());
+    let payer = load_payer();
+    let program = program_id();
+
+    let cancel_escrow = Keypair::new();
+    let make_cancel = make_instruction(program, &payer.pubkey(), &cancel_escrow.pubkey());
+    let cancel = Instruction {
+        program_id: program,
+        accounts: vec![
+            AccountMeta::new(payer.pubkey(), true),
+            AccountMeta::new(cancel_escrow.pubkey(), false),
+        ],
+        data: vec![CANCEL_TAG],
+    };
+    let blockhash = client.get_latest_blockhash().expect("blockhash");
+    let tx = Transaction::new_signed_with_payer(
+        &[make_cancel, cancel],
+        Some(&payer.pubkey()),
+        &[&payer, &cancel_escrow],
+        blockhash,
+    );
+    let sig = client
+        .send_and_confirm_transaction(&tx)
+        .expect("make+cancel tx should succeed");
+    eprintln!("escrow cancel sig {sig}");
+
+    let take_escrow = Keypair::new();
+    let make_take = make_instruction(program, &payer.pubkey(), &take_escrow.pubkey());
+    let take = Instruction {
+        program_id: program,
+        accounts: vec![
+            AccountMeta::new_readonly(payer.pubkey(), true),
+            AccountMeta::new(take_escrow.pubkey(), false),
+            AccountMeta::new(payer.pubkey(), false),
+        ],
+        data: vec![TAKE_TAG],
+    };
+    let blockhash = client.get_latest_blockhash().expect("blockhash");
+    let tx = Transaction::new_signed_with_payer(
+        &[make_take, take],
+        Some(&payer.pubkey()),
+        &[&payer, &take_escrow],
+        blockhash,
+    );
+    let sig = client
+        .send_and_confirm_transaction(&tx)
+        .expect("make+take tx should succeed");
+    eprintln!("escrow take sig {sig}");
 }

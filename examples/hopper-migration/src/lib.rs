@@ -23,7 +23,7 @@
 //! ## Instructions
 //!
 //! - `0` = InitV1: create a V1 vault
-//! - `1` = MigrateV1ToV2: upgrade a V1 account to V2 (append-only)
+//! - `1` = MigrateV1ToV2: upgrade a V1 account to V2 (append-only; include System Program for rent top-up)
 //! - `2` = DepositV2: deposit into a V2 vault (shows post-migration usage)
 //! - `3` = ReadEither: load either V1 or V2 vault (dual-version pattern)
 
@@ -205,9 +205,22 @@ fn process_migrate_v1_to_v2(
         }
     }
 
+    let rent_needed = rent_exempt_min(VaultV2::LEN);
+    let rent_delta = rent_needed.saturating_sub(vault_account.lamports());
+    if rent_delta > 0 {
+        hopper::hopper_system::Transfer {
+            from: authority,
+            to: vault_account,
+            lamports: rent_delta,
+        }
+        .invoke()?;
+    }
+
     // Execute the append migration.
     // migrate_append validates ownership, writable, and old layout_id,
-    // then reallocs, updates header, and zeroes the new region.
+    // then reallocs, updates header, and zeroes the new region. The rent
+    // delta is funded above because only the System Program can debit the
+    // external authority account on-chain.
     migrate_append(
         vault_account,
         authority, // payer for realloc rent

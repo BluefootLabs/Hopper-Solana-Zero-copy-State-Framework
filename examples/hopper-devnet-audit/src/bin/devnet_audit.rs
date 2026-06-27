@@ -65,7 +65,7 @@ fn run() -> Result<(), String> {
     let remaining_a = Keypair::new();
     let remaining_b = Keypair::new();
 
-    println!("rpc           : {rpc_url}");
+    println!("rpc           : {}", redact_rpc_url(&rpc_url));
     println!("program id    : {program_id}");
     println!("authority     : {}", payer.pubkey());
     println!("state         : {}", state.pubkey());
@@ -309,4 +309,46 @@ fn read_u64(data: &[u8], offset: usize) -> Result<u64, String> {
     let mut array = [0u8; 8];
     array.copy_from_slice(bytes);
     Ok(u64::from_le_bytes(array))
+}
+
+fn redact_rpc_url(url: &str) -> String {
+    let mut redacted = url.to_string();
+
+    if let Some(authority_start) = redacted.find("://").map(|idx| idx + 3) {
+        let authority_end = redacted[authority_start..]
+            .find(['/', '?', '#'])
+            .map(|idx| authority_start + idx)
+            .unwrap_or(redacted.len());
+        if let Some(at) = redacted[authority_start..authority_end].rfind('@') {
+            redacted.replace_range(authority_start..authority_start + at, "<redacted>");
+        }
+    }
+
+    if let Some(query_start) = redacted.find('?') {
+        if let Some(fragment_start) = redacted[query_start..].find('#') {
+            redacted.replace_range(query_start + 1..query_start + fragment_start, "<redacted>");
+        } else {
+            redacted.truncate(query_start + 1);
+            redacted.push_str("<redacted>");
+        }
+    }
+
+    redacted
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn redacts_rpc_query_from_output() {
+        assert_eq!(
+            redact_rpc_url("https://user:pass@example.invalid?key=secret&mode=fast"),
+            "https://<redacted>@example.invalid?<redacted>"
+        );
+        assert_eq!(
+            redact_rpc_url("https://api.devnet.solana.com"),
+            "https://api.devnet.solana.com"
+        );
+    }
 }

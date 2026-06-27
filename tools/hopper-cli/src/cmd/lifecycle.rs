@@ -631,7 +631,8 @@ pub fn cmd_deploy(args: &[String]) {
 
     eprintln!(
         "hopper deploy -> cluster {} ({})",
-        cluster.label, cluster.url
+        cluster.label,
+        cluster.display_url()
     );
 
     let mut command_args = vec![
@@ -698,7 +699,9 @@ pub fn cmd_upgrade(args: &[String]) {
 
     eprintln!(
         "hopper upgrade -> program {} on cluster {} ({})",
-        program_id, cluster.label, cluster.url
+        program_id,
+        cluster.label,
+        cluster.display_url()
     );
 
     let mut command_args = vec![
@@ -729,24 +732,17 @@ pub fn cmd_close(args: &[String]) {
     let workspace_root = workspace::find_workspace_root(&cwd).unwrap_or(cwd);
 
     let mut rest = args.to_vec();
-    let buffers = take_bare_flag(&mut rest, &["--buffers"]);
-    let target = take_flag_value(&mut rest, &["--program-id", "--buffer"]);
+    let target = parse_close_target(&mut rest).unwrap_or_else(|err| {
+        eprintln!("hopper close failed: {err}");
+        process::exit(1);
+    });
 
     let cluster = crate::cmd::cluster::parse_cluster_args(&rest).unwrap_or_else(|err| {
         eprintln!("hopper close failed: {err}");
         process::exit(1);
     });
 
-    let label = target.clone().unwrap_or_else(|| {
-        if buffers {
-            "all dangling buffers".to_string()
-        } else {
-            eprintln!(
-                "hopper close failed: pass --program-id <pubkey>, --buffer <pubkey>, or --buffers"
-            );
-            process::exit(1);
-        }
-    });
+    let label = target.label();
 
     // close is irreversible everywhere, so always confirm unless --yes.
     if !cluster.yes {
@@ -764,15 +760,65 @@ pub fn cmd_close(args: &[String]) {
     }
 
     let mut command_args = vec!["program".to_string(), "close".to_string()];
-    if let Some(t) = target {
-        command_args.push(t);
-    }
-    if buffers {
-        command_args.push("--buffers".to_string());
+    match target {
+        CloseTarget::Account(address) => command_args.push(address),
+        CloseTarget::Buffers => command_args.push("--buffers".to_string()),
     }
     command_args.extend(cluster.solana_flags());
     command_args.extend(cluster.passthrough.iter().cloned());
     run_external_command("solana", &workspace_root, &command_args);
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum CloseTarget {
+    Account(String),
+    Buffers,
+}
+
+impl CloseTarget {
+    fn label(&self) -> String {
+        match self {
+            CloseTarget::Account(address) => address.clone(),
+            CloseTarget::Buffers => "all dangling buffers".to_string(),
+        }
+    }
+}
+
+fn parse_close_target(args: &mut Vec<String>) -> Result<CloseTarget, String> {
+    let buffers = take_bare_flags(args, &["--buffers"]);
+    let program_ids = take_flag_values(args, "--program-id")?;
+    let buffer_ids = take_flag_values(args, "--buffer")?;
+
+    if buffers > 1 {
+        return Err("--buffers may only be passed once".to_string());
+    }
+    if program_ids.len() > 1 {
+        return Err("--program-id may only be passed once".to_string());
+    }
+    if buffer_ids.len() > 1 {
+        return Err("--buffer may only be passed once".to_string());
+    }
+
+    let target_count = usize::from(buffers == 1) + program_ids.len() + buffer_ids.len();
+    if target_count == 0 {
+        return Err("pass --program-id <pubkey>, --buffer <pubkey>, or --buffers".to_string());
+    }
+    if target_count > 1 {
+        return Err("pass exactly one of --program-id, --buffer, or --buffers".to_string());
+    }
+
+    if buffers == 1 {
+        Ok(CloseTarget::Buffers)
+    } else if let Some(address) = program_ids.into_iter().next() {
+        Ok(CloseTarget::Account(address))
+    } else {
+        Ok(CloseTarget::Account(
+            buffer_ids
+                .into_iter()
+                .next()
+                .expect("target_count proved one buffer target"),
+        ))
+    }
 }
 
 /// `hopper migrate` — drive a `LayoutMigration` upgrade against a
@@ -813,14 +859,25 @@ fn take_flag_value(args: &mut Vec<String>, flags: &[&str]) -> Option<String> {
     None
 }
 
-/// Remove a bare boolean flag if present; report whether it was there.
-fn take_bare_flag(args: &mut Vec<String>, flags: &[&str]) -> bool {
-    if let Some(pos) = args.iter().position(|a| flags.contains(&a.as_str())) {
+fn take_bare_flags(args: &mut Vec<String>, flags: &[&str]) -> usize {
+    let mut count = 0;
+    while let Some(pos) = args.iter().position(|a| flags.contains(&a.as_str())) {
         args.remove(pos);
-        true
-    } else {
-        false
+        count += 1;
     }
+    count
+}
+
+fn take_flag_values(args: &mut Vec<String>, flag: &str) -> Result<Vec<String>, String> {
+    let mut values = Vec::new();
+    while let Some(pos) = args.iter().position(|a| a == flag) {
+        args.remove(pos);
+        if pos >= args.len() {
+            return Err(format!("{flag} requires a value"));
+        }
+        values.push(args.remove(pos));
+    }
+    Ok(values)
 }
 
 fn print_upgrade_usage() {
@@ -2068,5 +2125,48 @@ mod tests {
         assert_eq!(common.package.as_deref(), Some("vault"));
         assert!(!dump_default.source_interleave);
         assert_eq!(dump_default.out.as_deref(), Some(Path::new("x.txt")));
+    }
+
+    #[test]
+    fn close_target_requires_exactly_one_target() {
+        let mut missing = vec!["--cluster".to_string(), "devnet".to_string()];
+        assert!(parse_close_target(&mut missing).is_err());
+        assert_eq!(missing, vec!["--cluster", "devnet"]);
+
+        let mut program = vec![
+            "--program-id".to_string(),
+            "Prog1111111111111111111111111111111111111".to_string(),
+            "--cluster".to_string(),
+            "devnet".to_string(),
+        ];
+        assert_eq!(
+            parse_close_target(&mut program).unwrap(),
+            CloseTarget::Account("Prog1111111111111111111111111111111111111".to_string())
+        );
+        assert_eq!(program, vec!["--cluster", "devnet"]);
+
+        let mut buffer = vec![
+            "--buffer".to_string(),
+            "Buf11111111111111111111111111111111111111".to_string(),
+        ];
+        assert_eq!(
+            parse_close_target(&mut buffer).unwrap(),
+            CloseTarget::Account("Buf11111111111111111111111111111111111111".to_string())
+        );
+        assert!(buffer.is_empty());
+
+        let mut all_buffers = vec!["--buffers".to_string(), "--yes".to_string()];
+        assert_eq!(
+            parse_close_target(&mut all_buffers).unwrap(),
+            CloseTarget::Buffers
+        );
+        assert_eq!(all_buffers, vec!["--yes"]);
+
+        let mut conflicting = vec![
+            "--program-id".to_string(),
+            "Prog1111111111111111111111111111111111111".to_string(),
+            "--buffers".to_string(),
+        ];
+        assert!(parse_close_target(&mut conflicting).is_err());
     }
 }

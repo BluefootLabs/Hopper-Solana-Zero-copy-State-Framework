@@ -82,6 +82,6 @@ Artifact Size: 30408 bytes
 Latest verified audit run from this workspace:
 
 ```text
-State: 9gQf48rtnX36me4xhkgvoVi9VqBX3C5d2T3qoqBGLjFR
+State: EAQdR2FjcEHuerPV4c2yhwc9Z8crtk6YRmeMtsuRntCV
 verified: counter=1, substrate_passes=1, remaining_signer_checks=2, proof_checks=1, token_policy_checks=1, field_capability_checks=1, label=hopper-live, members=1
 ```

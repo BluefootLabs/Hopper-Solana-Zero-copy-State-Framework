@@ -6,6 +6,9 @@ license = "Apache-2.0"
 publish = false
 description = "Three-tier metadata example: a Tier-1 compact account plus a Tier-2 on-chain registry."
 
+[lib]
+crate-type = ["cdylib", "lib"]
+
 [dependencies]
 hopper = { workspace = true, features = ["proc-macros"] }
 

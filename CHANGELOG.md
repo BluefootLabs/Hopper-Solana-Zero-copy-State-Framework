@@ -9,6 +9,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 
 ### Added
 
+- Added `docs/HOPPER_COMPETITIVE_AUDIT_2026_06_27.md`, recording the live
+  devnet deployment pass, buffer hygiene findings, Hopper-vs-Anchor/Quasar/
+  Pinocchio gap triage, and the prioritized DX roadmap for the next framework
+  improvements.
 - **Devnet validation pass.** Built every example to SBF and deployed counter, escrow, versioned-state (migration), orderbook, and virtual-state to devnet from the staged authority `HoppRy1HbNcHus9rmubDdXejDqAmhi55AURiCrq6tvxT`. Program ids and `.so` sizes are recorded in `BENCHMARKS.md` and each example README.
 - **`hopper explain <tx-sig | program-id>`** as a first-class top-level command. For a transaction signature it fetches the confirmed tx over raw JSON-RPC and decodes every instruction against the target program's on-chain Hopper manifest (or an operator-supplied `--manifest <file>`), printing the matched instruction name, disc byte, args, policy, and account slots. For a program id it lists the registered instructions. The raw-RPC path keeps `explain` working across versioned (v0) transactions and new RPC response fields that a pinned typed SDK rejects.
 - **`hopper upgrade`, `hopper close`, `hopper migrate`** lifecycle commands over the BPF Loader Upgradeable, with confirmation prompts on destructive operations and shell completions (bash/zsh/fish/powershell) for the new verbs.
@@ -28,6 +32,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 
 ### Fixed
 
+- Tightened `hopper close` target parsing so ambiguous buffer/program cleanup
+  invocations are rejected before forwarding to `solana program close`; exactly
+  one of `--program-id`, `--buffer`, or `--buffers` is now required.
+- Redacted query credentials when lifecycle commands and the devnet audit
+  runner display custom RPC URLs.
+- Made `hopper-compact-vault` emit a deployable SBF artifact, fixed the
+  migration example's live rent top-up path to use System Program transfer
+  before realloc, and updated the orderbook devnet test to pre-create its
+  large segmented account outside CPI.
 - Resolved all `clippy --workspace --all-targets --all-features -D warnings` findings (collapsible_if, if_same_then_else, doc_lazy_continuation, manual loop→`fill`/`strip_prefix`/`sort_by_key`, and narrowly-scoped `#[allow]` on macro-generated arity), and regenerated trybuild `.stderr` snapshots for rustc 1.96 diagnostic formatting drift while verifying every Hopper-authored guard message is unchanged.
 
 ## [0.2.1] - 2026-05-19

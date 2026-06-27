@@ -118,6 +118,7 @@ fn migration_v1_to_v2_roundtrip() {
         accounts: vec![
             AccountMeta::new(payer.pubkey(), true),
             AccountMeta::new(vault.pubkey(), false),
+            AccountMeta::new_readonly(SYSTEM_PROGRAM, false),
         ],
         data: vec![MIGRATE_TAG, NEW_BUMP],
     };

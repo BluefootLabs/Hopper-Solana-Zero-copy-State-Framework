@@ -66,6 +66,31 @@ pub fn cluster_url(moniker: &str) -> Option<(String, String, bool)> {
     }
 }
 
+pub fn redact_rpc_url(url: &str) -> String {
+    let mut redacted = url.to_string();
+
+    if let Some(authority_start) = redacted.find("://").map(|idx| idx + 3) {
+        let authority_end = redacted[authority_start..]
+            .find(['/', '?', '#'])
+            .map(|idx| authority_start + idx)
+            .unwrap_or(redacted.len());
+        if let Some(at) = redacted[authority_start..authority_end].rfind('@') {
+            redacted.replace_range(authority_start..authority_start + at, "<redacted>");
+        }
+    }
+
+    if let Some(query_start) = redacted.find('?') {
+        if let Some(fragment_start) = redacted[query_start..].find('#') {
+            redacted.replace_range(query_start + 1..query_start + fragment_start, "<redacted>");
+        } else {
+            redacted.truncate(query_start + 1);
+            redacted.push_str("<redacted>");
+        }
+    }
+
+    redacted
+}
+
 /// Parse the shared cluster flags out of an argument list, leaving the
 /// rest in `passthrough`. The default cluster is devnet — never
 /// mainnet — so omitting `--cluster` can never target mainnet.
@@ -142,6 +167,10 @@ pub fn parse_cluster_args(args: &[String]) -> Result<ClusterArgs, String> {
 }
 
 impl ClusterArgs {
+    pub fn display_url(&self) -> String {
+        redact_rpc_url(&self.url)
+    }
+
     /// Build the `solana` CLI flags (`--url`, `--keypair`,
     /// `--commitment`) this target implies.
     pub fn solana_flags(&self) -> Vec<String> {
@@ -173,5 +202,26 @@ impl ClusterArgs {
             eprintln!("aborted.");
             process::exit(1);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn redacts_rpc_url_query_and_userinfo() {
+        assert_eq!(
+            redact_rpc_url("https://user:pass@example.invalid/path?key=secret&mode=fast"),
+            "https://<redacted>@example.invalid/path?<redacted>"
+        );
+        assert_eq!(
+            redact_rpc_url("https://example.invalid?api-key=secret#frag"),
+            "https://example.invalid?<redacted>#frag"
+        );
+        assert_eq!(
+            redact_rpc_url("https://api.devnet.solana.com"),
+            "https://api.devnet.solana.com"
+        );
     }
 }

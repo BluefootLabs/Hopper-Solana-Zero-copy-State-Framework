@@ -40,6 +40,21 @@ cargo test --manifest-path ..\..\Cargo.toml -p hopper-compact-vault --test devne
 
 The devnet test creates an exact 41-byte account owned by the deployed program, sends `initialize` and `deposit`, fetches the account back, and verifies the returned bytes match the compact layout. It also checks the generated manifest fingerprint constant separately, so a client cannot accidentally treat bytes `4..12` as an on-account layout header.
 
+Latest verified deployment from this workspace:
+
+```text
+Program Id: 6aKUB52fa1KmGTh11GCuMhixKk9Sgo2nDrmsmMz8DZvs
+Deploy Signature: 9QpuQjtQ8B85tDnMa7HEj7fejVLQ3SWaqMjWEjfc21CS5aeTzZcGYrqwCy5qWj7ts6BGgQxgZGxyYhPXhpggB46
+Artifact Size: 4400 bytes
+```
+
+Latest verified devnet run from this workspace:
+
+```text
+Account: EvrdGfn3vYrFm8s3SggCCn5MYkViPT4utrrXEDAWSdat
+Signature: 4v72Kp9ewbxFUkgEKDL16FcApuW87HTy9X2HkdFp4FjXZe4Pq3iyNuBXiPcmzEUiaUxBgQ49ttJPFR18WZLhNjgT
+```
+
 ## Instructions
 
 `initialize` uses instruction data `[0]` and accounts `[vault(w), authority(s)]`. The vault account must already exist, be program-owned, and be exactly 41 bytes.

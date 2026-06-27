@@ -38,7 +38,8 @@ Orderbook account (segmented, ~140 KB):
 Deployed to devnet in this pass:
 
 - Program id: `CK3XYYsbFducx9UEEWWLGAVnSAhGkMtM1TKLe8PDP6dJ`
-- `.so` size: 18 408 bytes
+- Latest program id: `9EpzXZKmdHnkxWayAMoaxxxwgHehe2arQ3chVY9Tmvyr`
+- `.so` size: 18 392 bytes
 
 ```bash
 hopper build -p hopper-orderbook
@@ -51,15 +52,24 @@ Integration test (gated so the default `cargo test` stays offline):
 
 ```bash
 HOPPER_DEVNET=1 \
-HOPPER_ORDERBOOK_PROGRAM_ID=CK3XYYsbFducx9UEEWWLGAVnSAhGkMtM1TKLe8PDP6dJ \
+HOPPER_ORDERBOOK_PROGRAM_ID=9EpzXZKmdHnkxWayAMoaxxxwgHehe2arQ3chVY9Tmvyr \
 HOPPER_KEYPAIR=/abs/path/devnet-keypair.json \
 cargo test -p hopper-orderbook --test devnet -- --nocapture
 ```
 
 The book account is larger than the 10 KB single-CPI allocation limit,
-so `InitBook` runs on its own transaction. If a deployed build predates
-large-account support, `InitBook` fails and the test surfaces the
-program error rather than masking it.
+so the live test pre-creates the account in the top-level transaction and then
+calls `InitBook` to initialize Hopper's segmented regions. This avoids Solana's
+inner-instruction realloc limit while still proving program-side segment setup.
+
+Latest verified devnet run from this workspace:
+
+```text
+Book: 4m9w7WcG4BrGvcuzD6VhMm6DXA2oZePJN4Rctnr6ZnLc
+Init Signature: KvWsRFsx2qyMkiAKVr12drz3oDj96hDDUdTKoSFsvoPAjkDL91RarrzLhHV17nPkB4jMskcixznuUg38TG1Wvan
+Post Bid Signature: 5zeFZN4SBGooeasMAdNNVhprqcpcZ3iBzcYKLHZUpYfotZgVQeCtKXMRt6rc3q2rdmnmNarQ2a3RdZBNM8rcPkkw
+Verified: book 139356 bytes, post_bid touched the bids segment
+```
 
 ## Verify
 

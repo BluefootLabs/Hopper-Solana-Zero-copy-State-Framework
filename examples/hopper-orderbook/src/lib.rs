@@ -105,7 +105,7 @@ const SIDE_SIZE: u32 = SEG_META + SIDE_CAP * OrderRecord::SIZE as u32; // 57_352
 const EVENT_CAP: u32 = 512;
 const EVENTS_SIZE: u32 = SEG_META + EVENT_CAP * EventRecord::SIZE as u32; // 24_584
 
-const BOOK_ACCOUNT_SIZE: usize = HEADER_LEN
+pub const BOOK_ACCOUNT_SIZE: usize = HEADER_LEN
     + account::registry::REGISTRY_HEADER_SIZE
     + 3 * account::registry::SEGMENT_ENTRY_SIZE
     + SIDE_SIZE as usize
@@ -178,15 +178,17 @@ fn process_init_book(
         }
     }?;
 
-    let lamports = rent_exempt_min(BOOK_ACCOUNT_SIZE);
-    hopper::hopper_system::CreateAccount {
-        from: payer,
-        to: book,
-        lamports,
-        space: BOOK_ACCOUNT_SIZE as u64,
-        owner: program_id,
+    if !(book.owned_by(program_id) && book.data_len() == BOOK_ACCOUNT_SIZE) {
+        let lamports = rent_exempt_min(BOOK_ACCOUNT_SIZE);
+        hopper::hopper_system::CreateAccount {
+            from: payer,
+            to: book,
+            lamports,
+            space: BOOK_ACCOUNT_SIZE as u64,
+            owner: program_id,
+        }
+        .invoke()?;
     }
-    .invoke()?;
 
     let mut data = book.try_borrow_mut()?;
     zero_init(&mut data);
