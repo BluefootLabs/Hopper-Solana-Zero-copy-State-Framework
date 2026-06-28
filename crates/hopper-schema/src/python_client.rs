@@ -526,6 +526,7 @@ mod tests {
             writable: true,
             signer: false,
             layout_ref: "vault",
+            seeds: &[],
         }];
         static ARGS: [ArgDescriptor; 1] = [ArgDescriptor {
             name: "amount",

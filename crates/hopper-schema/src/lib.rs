@@ -2032,6 +2032,34 @@ pub struct AccountEntry {
     pub signer: bool,
     /// Optional layout reference name (for typed accounts).
     pub layout_ref: &'static str,
+    /// PDA seed source expressions, in order. Empty for caller-provided
+    /// accounts; non-empty marks a program-derived address that generated
+    /// clients can resolve automatically via [`classify_seed`] rather than
+    /// requiring the caller to pass it. See [`AccountEntry::PROVIDED`] for a
+    /// zero-seed constructor.
+    pub seeds: &'static [&'static str],
+}
+
+impl AccountEntry {
+    /// A caller-provided account (no PDA seeds). Spread it to keep existing
+    /// literals concise: `AccountEntry { name, writable, signer, layout_ref,
+    /// ..AccountEntry::PROVIDED }` is not possible for `&'static` consts, so
+    /// this is mainly a documentation anchor and a default for builders.
+    pub const PROVIDED: AccountEntry = AccountEntry {
+        name: "",
+        writable: false,
+        signer: false,
+        layout_ref: "",
+        seeds: &[],
+    };
+
+    /// `true` when this account is a program-derived address (has seeds) and a
+    /// generated client can resolve it instead of requiring the caller to pass
+    /// it.
+    #[inline]
+    pub const fn is_pda(&self) -> bool {
+        !self.seeds.is_empty()
+    }
 }
 
 /// An argument descriptor for an instruction.
@@ -2106,6 +2134,103 @@ pub struct AccountResolverDescriptor {
     pub layout_ref: &'static str,
     /// Whether the account is optional.
     pub optional: bool,
+}
+
+/// A single PDA seed, classified from its stringified source expression so a
+/// client generator can resolve it without a proc-macro registry.
+///
+/// Seeds are stored in the manifest as the source spelling the program author
+/// wrote (`b"vault"`, `authority.as_ref()`, `nonce.to_le_bytes()`), because the
+/// concrete bytes are not known until runtime. [`classify_seed`] projects each
+/// into one of these structured parts, which generators turn into the host
+/// language's PDA-derivation call.
+///
+/// All variants borrow from the source string, so this stays `no_std` and
+/// allocation-free.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SeedPart<'a> {
+    /// A byte-string literal (`b"vault"` / `"vault"`). Carries the inner text;
+    /// generators encode it as UTF-8 bytes.
+    Literal(&'a str),
+    /// A reference to one of the instruction's accounts
+    /// (`authority`, `authority.key()`, `authority.as_ref()`). Carries the
+    /// account name; generators use that account's address bytes.
+    Account(&'a str),
+    /// A reference to one of the instruction's arguments encoded as bytes
+    /// (`nonce.to_le_bytes()`). Carries the argument name; generators encode
+    /// that argument.
+    Arg(&'a str),
+    /// An expression the classifier could not resolve. Carried verbatim so a
+    /// generator can surface it (e.g. emit a `TODO`) rather than silently
+    /// dropping a seed and deriving the wrong address.
+    Unknown(&'a str),
+}
+
+/// Whether `s` is a plain Rust identifier (`[A-Za-z_][A-Za-z0-9_]*`).
+fn is_seed_ident(s: &str) -> bool {
+    let mut chars = s.chars();
+    match chars.next() {
+        Some(c) if c.is_ascii_alphabetic() || c == '_' => {}
+        _ => return false,
+    }
+    chars.all(|c| c.is_ascii_alphanumeric() || c == '_')
+}
+
+/// Classify a single stringified seed expression into a [`SeedPart`].
+///
+/// Recognizes the seed spellings Hopper and Anchor programs use in practice:
+///
+/// - `b"vault"` / `"vault"` -> [`SeedPart::Literal`]
+/// - `authority`, `authority.key()`, `authority.as_ref()`,
+///   `authority.key().as_ref()` -> [`SeedPart::Account`]
+/// - `nonce.to_le_bytes()`, `nonce.to_be_bytes()` (optionally `.as_ref()`) ->
+///   [`SeedPart::Arg`]
+///
+/// Anything else becomes [`SeedPart::Unknown`] so generators fail loud.
+pub fn classify_seed(seed: &str) -> SeedPart<'_> {
+    let s = seed.trim();
+
+    // Byte-string / string literal: take the inner text.
+    if let Some(inner) = s.strip_prefix("b\"").and_then(|r| r.strip_suffix('"')) {
+        return SeedPart::Literal(inner);
+    }
+    if let Some(inner) = s.strip_prefix('"').and_then(|r| r.strip_suffix('"')) {
+        return SeedPart::Literal(inner);
+    }
+
+    // Strip a trailing byte-view wrapper (`.as_ref()` / `.as_bytes()`).
+    let mut base = s;
+    if let Some(stripped) = base.strip_suffix(".as_ref()") {
+        base = stripped.trim();
+    } else if let Some(stripped) = base.strip_suffix(".as_bytes()") {
+        base = stripped.trim();
+    }
+
+    // An argument encoded as little/big-endian bytes.
+    if let Some(arg) = base
+        .strip_suffix(".to_le_bytes()")
+        .or_else(|| base.strip_suffix(".to_be_bytes()"))
+    {
+        let arg = arg.trim();
+        return if is_seed_ident(arg) {
+            SeedPart::Arg(arg)
+        } else {
+            SeedPart::Unknown(s)
+        };
+    }
+
+    // An account address accessor (`.key()` / `.pubkey()`).
+    if let Some(stripped) = base.strip_suffix(".key()") {
+        base = stripped.trim();
+    } else if let Some(stripped) = base.strip_suffix(".pubkey()") {
+        base = stripped.trim();
+    }
+
+    if is_seed_ident(base) {
+        SeedPart::Account(base)
+    } else {
+        SeedPart::Unknown(s)
+    }
 }
 
 /// Semantic effect an instruction has on accounts or emitted artifacts.
@@ -5553,5 +5678,68 @@ mod tests {
         assert!(s.contains("Core"));
         assert!(s.contains("must-preserve"));
         assert!(!s.contains("append-only"));
+    }
+
+    #[test]
+    fn classify_seed_recognizes_literals_accounts_and_args() {
+        // Byte-string and string literals carry their inner text.
+        assert_eq!(classify_seed("b\"vault\""), SeedPart::Literal("vault"));
+        assert_eq!(classify_seed("\"registry\""), SeedPart::Literal("registry"));
+
+        // Account references in their common spellings all resolve to the name.
+        assert_eq!(classify_seed("authority"), SeedPart::Account("authority"));
+        assert_eq!(
+            classify_seed("authority.key()"),
+            SeedPart::Account("authority")
+        );
+        assert_eq!(
+            classify_seed("authority.as_ref()"),
+            SeedPart::Account("authority")
+        );
+        assert_eq!(
+            classify_seed("authority.key().as_ref()"),
+            SeedPart::Account("authority")
+        );
+        assert_eq!(
+            classify_seed("authority.pubkey()"),
+            SeedPart::Account("authority")
+        );
+
+        // Args encoded as little/big-endian bytes resolve to the arg name.
+        assert_eq!(classify_seed("nonce.to_le_bytes()"), SeedPart::Arg("nonce"));
+        assert_eq!(
+            classify_seed("nonce.to_le_bytes().as_ref()"),
+            SeedPart::Arg("nonce")
+        );
+        assert_eq!(classify_seed("id.to_be_bytes()"), SeedPart::Arg("id"));
+
+        // Surrounding whitespace is tolerated.
+        assert_eq!(classify_seed("  authority  "), SeedPart::Account("authority"));
+
+        // Unresolvable expressions are surfaced verbatim, never silently
+        // dropped (which would derive a wrong address).
+        assert!(matches!(classify_seed("some_fn(a, b)"), SeedPart::Unknown(_)));
+        assert!(matches!(classify_seed("1 + 2"), SeedPart::Unknown(_)));
+    }
+
+    #[test]
+    fn account_entry_is_pda_tracks_seeds() {
+        let provided = AccountEntry {
+            name: "authority",
+            writable: false,
+            signer: true,
+            layout_ref: "",
+            seeds: &[],
+        };
+        let pda = AccountEntry {
+            name: "vault",
+            writable: true,
+            signer: false,
+            layout_ref: "Vault",
+            seeds: &["b\"vault\"", "authority.key().as_ref()"],
+        };
+        assert!(!provided.is_pda());
+        assert!(pda.is_pda());
+        assert!(!AccountEntry::PROVIDED.is_pda());
     }
 }

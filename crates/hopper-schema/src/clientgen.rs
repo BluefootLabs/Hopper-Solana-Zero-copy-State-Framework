@@ -70,6 +70,20 @@ fn write_pascal(f: &mut fmt::Formatter<'_>, name: &str) -> fmt::Result {
 }
 
 /// camelCase from snake_case or as-is.
+/// Write `text` as a double-quoted TypeScript string literal, escaping `\` and
+/// `"` so seed literals like `b"a\"b"` stay valid in the generated source.
+fn write_ts_string(f: &mut fmt::Formatter<'_>, text: &str) -> fmt::Result {
+    write!(f, "\"")?;
+    for c in text.chars() {
+        match c {
+            '\\' => write!(f, "\\\\")?,
+            '"' => write!(f, "\\\"")?,
+            other => write!(f, "{}", other)?,
+        }
+    }
+    write!(f, "\"")
+}
+
 fn write_camel(f: &mut fmt::Formatter<'_>, name: &str) -> fmt::Result {
     let mut capitalize_next = false;
     let mut first = true;
@@ -401,11 +415,29 @@ impl<'a> fmt::Display for TsInstructions<'a> {
                 writeln!(f)?;
             }
 
-            // Accounts interface
+            // An account is auto-resolved as a PDA only when *every* seed is a
+            // byte literal or another account reference. Any arg/unknown seed
+            // falls back to caller-provided so the client never derives a wrong
+            // address from a seed it cannot encode.
+            let is_auto_pda = |acc: &crate::AccountEntry| -> bool {
+                acc.is_pda()
+                    && acc.seeds.iter().all(|s| {
+                        matches!(
+                            crate::classify_seed(s),
+                            crate::SeedPart::Literal(_) | crate::SeedPart::Account(_)
+                        )
+                    })
+            };
+
+            // Accounts interface: only caller-provided accounts. PDAs are
+            // derived in the builder, so callers never pass (or mis-derive) them.
             write!(f, "export interface ")?;
             write_pascal(f, ix.name)?;
             writeln!(f, "Accounts {{")?;
             for acc in ix.accounts.iter() {
+                if is_auto_pda(acc) {
+                    continue;
+                }
                 write!(f, "  ")?;
                 write_camel(f, acc.name)?;
                 writeln!(f, ": PublicKey;")?;
@@ -428,6 +460,57 @@ impl<'a> fmt::Display for TsInstructions<'a> {
             writeln!(f, "  programId: PublicKey,")?;
             writeln!(f, "): TransactionInstruction {{")?;
 
+            // Resolve program-derived addresses from their on-chain seeds, so
+            // the caller supplies only the accounts it actually owns.
+            if ix.accounts.iter().any(&is_auto_pda) {
+                writeln!(
+                    f,
+                    "  // Program-derived addresses, resolved from on-chain seeds."
+                )?;
+                for acc in ix.accounts.iter() {
+                    if !is_auto_pda(acc) {
+                        continue;
+                    }
+                    write!(f, "  const [")?;
+                    write_camel(f, acc.name)?;
+                    writeln!(f, "] = PublicKey.findProgramAddressSync(")?;
+                    write!(f, "    [")?;
+                    for (i, seed) in acc.seeds.iter().enumerate() {
+                        if i > 0 {
+                            write!(f, ", ")?;
+                        }
+                        match crate::classify_seed(seed) {
+                            crate::SeedPart::Literal(text) => {
+                                write!(f, "Buffer.from(")?;
+                                write_ts_string(f, text)?;
+                                write!(f, ")")?;
+                            }
+                            crate::SeedPart::Account(name) => {
+                                // Reference an already-derived PDA local when the
+                                // seed points at another PDA; otherwise the
+                                // caller-provided account.
+                                let refs_pda = ix
+                                    .accounts
+                                    .iter()
+                                    .any(|a| a.name == name && is_auto_pda(a));
+                                if !refs_pda {
+                                    write!(f, "accounts.")?;
+                                }
+                                write_camel(f, name)?;
+                                write!(f, ".toBuffer()")?;
+                            }
+                            crate::SeedPart::Arg(_) | crate::SeedPart::Unknown(_) => {
+                                // Unreachable: is_auto_pda rejects these.
+                            }
+                        }
+                    }
+                    writeln!(f, "],")?;
+                    writeln!(f, "    programId,")?;
+                    writeln!(f, "  );")?;
+                }
+                writeln!(f)?;
+            }
+
             // Build instruction data
             let data_size = instruction_data_size(ix);
             writeln!(f, "  const data = new Uint8Array({});", data_size)?;
@@ -442,11 +525,17 @@ impl<'a> fmt::Display for TsInstructions<'a> {
 
             writeln!(f)?;
 
-            // Build keys array
+            // Build keys array. PDA accounts use their derived local; provided
+            // accounts come from the `accounts` argument.
             writeln!(f, "  const keys = [")?;
             for acc in ix.accounts.iter() {
-                write!(f, "    {{ pubkey: accounts.")?;
-                write_camel(f, acc.name)?;
+                if is_auto_pda(acc) {
+                    write!(f, "    {{ pubkey: ")?;
+                    write_camel(f, acc.name)?;
+                } else {
+                    write!(f, "    {{ pubkey: accounts.")?;
+                    write_camel(f, acc.name)?;
+                }
                 writeln!(
                     f,
                     ", isSigner: {}, isWritable: {} }},",
@@ -1713,12 +1802,14 @@ mod tests {
                 writable: false,
                 signer: true,
                 layout_ref: "",
+                seeds: &[],
             },
             AccountEntry {
                 name: "vault",
                 writable: true,
                 signer: false,
                 layout_ref: "vault",
+                seeds: &["b\"vault\"", "authority.key().as_ref()"],
             },
         ];
 
@@ -1859,8 +1950,29 @@ mod tests {
     fn ts_instructions_account_meta() {
         let m = test_manifest();
         let output = TsInstructions(&m).to_string();
+        // `authority` is caller-provided; `vault` is a PDA, so its key comes
+        // from the derived local, not `accounts.vault`.
         assert!(output.contains("accounts.authority, isSigner: true, isWritable: false"));
-        assert!(output.contains("accounts.vault, isSigner: false, isWritable: true"));
+        assert!(output.contains("pubkey: vault, isSigner: false, isWritable: true"));
+        assert!(!output.contains("accounts.vault"));
+    }
+
+    #[test]
+    fn ts_instructions_auto_derives_pda_accounts() {
+        let m = test_manifest();
+        let output = TsInstructions(&m).to_string();
+
+        // The PDA account is dropped from the caller-facing interface...
+        assert!(output.contains("export interface DepositAccounts {"));
+        assert!(output.contains("  authority: PublicKey;"));
+        assert!(!output.contains("  vault: PublicKey;"));
+
+        // ...and derived in the builder from its on-chain seeds: the literal
+        // `b"vault"` and the `authority` account's address.
+        assert!(output.contains("const [vault] = PublicKey.findProgramAddressSync("));
+        assert!(output
+            .contains("[Buffer.from(\"vault\"), accounts.authority.toBuffer()],"));
+        assert!(output.contains("    programId,"));
     }
 
     #[test]

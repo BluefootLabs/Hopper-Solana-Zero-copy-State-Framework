@@ -1349,6 +1349,7 @@ mod tests {
             writable: true,
             signer: false,
             layout_ref: "Vault",
+            seeds: &[],
         }];
         static IX: &[InstructionDescriptor] = &[InstructionDescriptor {
             name: "deposit",
@@ -1398,6 +1399,7 @@ mod tests {
             writable: true,
             signer: false,
             layout_ref: "Vault",
+            seeds: &[],
         }];
         static IX: &[InstructionDescriptor] = &[InstructionDescriptor {
             name: "deposit",

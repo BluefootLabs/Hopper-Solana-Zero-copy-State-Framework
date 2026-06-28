@@ -562,12 +562,14 @@ mod tests {
                 writable: true,
                 signer: false,
                 layout_ref: "vault",
+                seeds: &[],
             },
             AccountEntry {
                 name: "authority",
                 writable: false,
                 signer: true,
                 layout_ref: "",
+                seeds: &[],
             },
         ];
         static IXS: &[InstructionDescriptor] = &[InstructionDescriptor {

@@ -211,12 +211,14 @@ mod tests {
                 writable: true,
                 signer: false,
                 layout_ref: "Vault",
+                seeds: &[],
             },
             AccountEntry {
                 name: "authority",
                 writable: false,
                 signer: true,
                 layout_ref: "",
+                seeds: &[],
             },
         ];
         static IX: [InstructionDescriptor; 1] = [InstructionDescriptor {

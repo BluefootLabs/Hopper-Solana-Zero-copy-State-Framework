@@ -9,6 +9,52 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 
 ### Added
 
+- **Client PDA auto-resolution from manifest seeds.** Added `AccountEntry.seeds`
+  (the PDA seed source expressions) plus a `no_std` seed classifier —
+  `classify_seed` / `SeedPart` (`Literal` / `Account` / `Arg` / `Unknown`) — that
+  projects the stored seed spellings (`b"vault"`, `authority.key().as_ref()`,
+  `nonce.to_le_bytes()`) into structured parts. The TypeScript generator now
+  consumes them: a PDA account is **dropped from the caller-facing `Accounts`
+  interface** and **derived in the builder** via
+  `PublicKey.findProgramAddressSync([...], programId)`, so generated clients
+  build instructions from only the accounts the caller actually owns — no
+  hand-written PDA glue, no client-side seed drift. Resolution is fail-safe:
+  an account is auto-derived only when *every* seed is a byte literal or another
+  account reference, so a seed the client cannot encode falls back to
+  caller-provided rather than deriving a wrong address. Covered by
+  `classify_seed` unit tests and `ts_instructions_auto_derives_pda_accounts`.
+  (Kotlin/Python/Go/Rust generators reuse the same classifier as a mechanical
+  follow-up.)
+- **Zero-copy collection tails for compact accounts (`Tail*` + `CompactTail`).**
+  Added the `dynamic` flag — `#[hopper::state(compact, disc = N, dynamic)]` —
+  for a program-managed tail with no length prefix, plus a `CompactTail` bridge
+  (blanket-impl'd for every `CompactDynamicLayout`) that overlays Hopper's
+  existing zero-copy collections on the tail region: `tail_vec` / `tail_ring` /
+  `tail_slab` / `tail_bitset`, `tail_slab_init`, and `space_for_tail_vec` /
+  `_ring` / `_slab` allocators. The collections are re-exported under the
+  audit/Quasar vocabulary — `TailVec` (`FixedVec`), `TailRing` (`RingBuffer`),
+  `TailSlab` (`Slab`), `TailBitSet` (`BitSet`) — and surfaced at
+  `hopper::collections`. This makes the `[disc][fixed_head][tail_collection]`
+  shape (order books, event rings, slab registries) first-class on a 1-byte
+  header with O(1) cast-in-place access. Covered by
+  `tests/compact_tail_collections_integration.rs`.
+- **First-class compact *dynamic* accounts.** `#[hopper::state(compact,
+  dynamic_tail = T)]` and `#[hopper::state(compact, raw_tail = true)]` now
+  produce the wire shape `[disc:u8][fixed_head][tail]` with **no** 16-byte
+  universal header — the 1-byte-header analogue of the headered hybrid tail,
+  closing the last Quasar "1-byte *and* dynamic" gap. Adds the
+  `CompactDynamicLayout` runtime trait (relaxed `>=` length validation), the
+  `AccountView::{load_compact_dynamic, load_compact_dynamic_mut,
+  init_compact_dynamic, with_compact_dynamic, with_compact_dynamic_mut}`
+  loaders with fail-closed init (zeroes the empty-tail length prefix), and
+  macro-emitted `tail_len` / `tail_read` / `tail_write` / `tail_payload`
+  helpers plus a `space_for_tail(n)` allocator — all anchored at `COMPACT_LEN`
+  and reusing the existing offset-parameterized tail runtime. The dynamic tail
+  type folds into the layout fingerprint, so distinct tails are distinct
+  layouts; the descriptor flips its `with_dynamic_tail()` flag, keeping the
+  single registry/identity model. Covered by
+  `tests/compact_dynamic_tail_integration.rs`, a `compact_dynamic_tail`
+  trybuild pass case, and `hopper-runtime` unit tests.
 - Added `docs/HOPPER_COMPETITIVE_AUDIT_2026_06_27.md`, recording the live
   devnet deployment pass, buffer hygiene findings, Hopper-vs-Anchor/Quasar/
   Pinocchio gap triage, and the prioritized DX roadmap for the next framework
@@ -32,6 +78,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 
 ### Fixed
 
+- **Hardened raw-input and cross-program soundness.** Replaced the remaining
+  aligned scalar reads from the Solana BPF input buffer (`*(p as *const u64)`
+  in `hopper-native`'s `raw_input.rs` account-count / instruction-length
+  parsers and the `*(raw as *const u32)` CpiAccount header read in
+  `instruction.rs`) with `core::ptr::read_unaligned`, so the parser never
+  assumes pointer alignment it is not guaranteed. Added an explicit
+  `required_len` guard to `AccountView::load_cross_program` (matching `load` /
+  `load_mut`) so a foreign or overridden `LayoutContract` cannot force an
+  out-of-bounds typed cast; covered by a lax-foreign-contract regression test.
 - Tightened `hopper close` target parsing so ambiguous buffer/program cleanup
   invocations are rejected before forwarding to `solana program close`; exactly
   one of `--program-id`, `--buffer`, or `--buffers` is now required.
