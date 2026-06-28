@@ -723,6 +723,102 @@ impl<'info> AccountView<'info> {
         Ok(())
     }
 
+    /// Tier-1 compact **dynamic** load: validate the discriminator and the
+    /// minimum length, then project the fixed head at
+    /// [`COMPACT_BODY_OFFSET`](crate::compact::COMPACT_BODY_OFFSET).
+    ///
+    /// Unlike [`load_compact`](Self::load_compact), the account may be longer
+    /// than the fixed head: the trailing bytes are the dynamic tail, left
+    /// untouched here and accessed through the generated `tail_*` helpers.
+    /// This is the `[disc:u8][fixed_head][tail]` analogue of
+    /// [`load`](Self::load)'s tolerance of a headered dynamic tail.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let head = account.load_compact_dynamic::<Market>()?;   // fixed head
+    /// let data = account.try_borrow()?;
+    /// let tail = Market::tail_read(&data)?;                   // dynamic tail
+    /// ```
+    #[inline(always)]
+    pub fn load_compact_dynamic<T: crate::CompactDynamicLayout>(
+        &self,
+    ) -> Result<Ref<'_, T>, ProgramError> {
+        let data = self.try_borrow()?;
+        T::validate_compact_dynamic(&data)?;
+        // SAFETY: validate_compact_dynamic guarantees `data.len() >= 1 +
+        // size_of::<T>()`, `T` is Pod (align 1, all-bit-patterns valid), and
+        // the fixed head begins at COMPACT_BODY_OFFSET. Trailing tail bytes are
+        // never read through this `&T`.
+        let ptr =
+            unsafe { data.as_bytes_ptr().add(crate::compact::COMPACT_BODY_OFFSET) as *const T };
+        // SAFETY: length and disc validated above; `ptr` points into the borrowed head.
+        Ok(unsafe { data.project(ptr) })
+    }
+
+    /// Mutable Tier-1 compact-dynamic load of the fixed head.
+    /// See [`load_compact_dynamic`](Self::load_compact_dynamic).
+    #[inline(always)]
+    pub fn load_compact_dynamic_mut<T: crate::CompactDynamicLayout>(
+        &self,
+    ) -> Result<RefMut<'_, T>, ProgramError> {
+        let mut data = self.try_borrow_mut()?;
+        T::validate_compact_dynamic(&data)?;
+        // SAFETY: see `load_compact_dynamic`; the head window is exclusively
+        // borrowed for the lifetime of the returned guard.
+        let ptr = unsafe {
+            data.as_bytes_mut_ptr()
+                .add(crate::compact::COMPACT_BODY_OFFSET) as *mut T
+        };
+        // SAFETY: length and disc validated above; `ptr` points into the borrowed head.
+        Ok(unsafe { data.project(ptr) })
+    }
+
+    /// Borrow a compact-dynamic fixed head for the duration of a closure.
+    #[inline]
+    pub fn with_compact_dynamic<T, R, F>(&self, f: F) -> Result<R, ProgramError>
+    where
+        T: crate::CompactDynamicLayout,
+        F: FnOnce(&T) -> Result<R, ProgramError>,
+    {
+        let account = self.load_compact_dynamic::<T>()?;
+        f(&*account)
+    }
+
+    /// Mutably borrow a compact-dynamic fixed head for the duration of a closure.
+    #[inline]
+    pub fn with_compact_dynamic_mut<T, R, F>(&self, f: F) -> Result<R, ProgramError>
+    where
+        T: crate::CompactDynamicLayout,
+        F: FnOnce(&mut T) -> Result<R, ProgramError>,
+    {
+        let mut account = self.load_compact_dynamic_mut::<T>()?;
+        f(&mut *account)
+    }
+
+    /// Initialise a compact-dynamic account: stamp `T::DISC` at byte 0 and, if
+    /// the account was allocated with room for a tail, zero the tail's `u32`
+    /// length prefix so a fresh account reads as an **empty** tail rather than
+    /// uninitialized bytes (fail-closed init).
+    ///
+    /// Requires the account to be writable and at least `T::MIN_LEN` bytes
+    /// (discriminator + fixed head). The tail region may be larger to reserve
+    /// growth headroom.
+    #[inline(always)]
+    pub fn init_compact_dynamic<T: crate::CompactDynamicLayout>(&self) -> ProgramResult {
+        self.check_writable()?;
+        let mut data = self.try_borrow_mut()?;
+        if data.len() < T::MIN_LEN {
+            return Err(ProgramError::AccountDataTooSmall);
+        }
+        data[0] = T::DISC;
+        // Stamp an empty-tail length prefix when the allocation has room for it.
+        if data.len() >= T::TAIL_OFFSET + 4 {
+            data[T::TAIL_OFFSET..T::TAIL_OFFSET + 4].copy_from_slice(&0u32.to_le_bytes());
+        }
+        Ok(())
+    }
+
     /// Explicit raw typed read of the account buffer.
     ///
     /// This bypasses Hopper layout validation and segment tracking, but it still
@@ -784,6 +880,13 @@ impl<'info> AccountView<'info> {
     ) -> Result<Ref<'_, T>, ProgramError> {
         let data = self.try_borrow()?;
         T::validate_header(&data)?;
+        // Defense in depth: `validate_header`'s default impl already checks this,
+        // but a foreign `LayoutContract` could override it. Re-check the projection
+        // length explicitly so an overridden or mismatched contract can never
+        // produce an out-of-bounds typed view from another program's bytes.
+        if data.len() < T::required_len() {
+            return ProgramError::err_data_too_small();
+        }
         // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let ptr = unsafe { data.as_bytes_ptr().add(T::TYPE_OFFSET) as *const T };
         // SAFETY: Wire identity and size validated above.
@@ -1448,6 +1551,66 @@ mod tests {
         const SCHEMA_EPOCH: u32 = 2;
     }
 
+    // A deliberately lax "foreign" contract: its `validate_header` checks only
+    // the discriminator and skips the length check, simulating another
+    // program's overridden impl. `load_cross_program` must still refuse an
+    // undersized account through its own `required_len` guard, never casting
+    // out of bounds.
+    #[repr(C)]
+    #[derive(Clone, Copy, Debug, Default)]
+    struct LaxForeignLayout {
+        amount: [u8; 8],
+    }
+    unsafe impl crate::Zeroable for LaxForeignLayout {}
+    unsafe impl crate::Pod for LaxForeignLayout {}
+    impl crate::field_map::FieldMap for LaxForeignLayout {
+        const FIELDS: &'static [crate::field_map::FieldInfo] =
+            &[crate::field_map::FieldInfo::new("amount", HopperHeader::SIZE, 8)];
+    }
+    impl LayoutContract for LaxForeignLayout {
+        const DISC: u8 = 0x5A;
+        const VERSION: u8 = 1;
+        const LAYOUT_ID: [u8; 8] = [0x5A; 8];
+        const SIZE: usize = HopperHeader::SIZE + core::mem::size_of::<Self>();
+        // Intentionally lax: discriminator only, no length enforcement.
+        fn validate_header(data: &[u8]) -> ProgramResult {
+            if crate::layout::read_disc(data) != Some(Self::DISC) {
+                return ProgramError::err_invalid_data();
+            }
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn load_cross_program_guards_length_even_with_lax_foreign_header() {
+        // The projected view begins at HopperHeader::SIZE and is 8 bytes, so the
+        // loader needs at least HopperHeader::SIZE + 8 bytes.
+        let required = HopperHeader::SIZE + 8;
+        assert_eq!(LaxForeignLayout::required_len(), required);
+
+        // Undersized by one byte: the lax foreign header accepts it (disc only),
+        // but the explicit guard in load_cross_program must reject before any
+        // cast, so a foreign/overridden contract can never force an OOB view.
+        let (_short_backing, short) = make_account(required - 1, 60);
+        {
+            let mut d = short.try_borrow_mut().unwrap();
+            d[0] = LaxForeignLayout::DISC;
+        }
+        assert!(matches!(
+            short.load_cross_program::<LaxForeignLayout>(),
+            Err(ProgramError::AccountDataTooSmall)
+        ));
+
+        // Correctly sized: projects cleanly to a zeroed body.
+        let (_ok_backing, ok) = make_account(required, 61);
+        {
+            let mut d = ok.try_borrow_mut().unwrap();
+            d[0] = LaxForeignLayout::DISC;
+        }
+        let view = ok.load_cross_program::<LaxForeignLayout>().unwrap();
+        assert_eq!(view.amount, [0u8; 8]);
+    }
+
     fn make_account(
         total_data_len: usize,
         address_byte: u8,
@@ -1598,6 +1761,83 @@ mod tests {
         );
         assert_eq!(
             account.init_compact::<CompactVault>().unwrap_err(),
+            ProgramError::InvalidAccountData
+        );
+    }
+
+    // A compact-dynamic head: `[disc][owner:32][count:8][tail...]`.
+    #[repr(C)]
+    #[derive(Clone, Copy, Debug, Default)]
+    struct CompactDynHead {
+        owner: [u8; 32],
+        count: [u8; 8],
+    }
+    unsafe impl crate::Zeroable for CompactDynHead {}
+    unsafe impl crate::Pod for CompactDynHead {}
+    impl crate::CompactDynamicLayout for CompactDynHead {
+        const DISC: u8 = 9;
+    }
+
+    #[test]
+    fn compact_dynamic_loads_head_with_a_growable_tail() {
+        use crate::CompactDynamicLayout;
+        assert_eq!(CompactDynHead::FIXED_HEAD_SIZE, 40);
+        assert_eq!(CompactDynHead::MIN_LEN, 41);
+        assert_eq!(CompactDynHead::TAIL_OFFSET, 41);
+
+        // Allocate the fixed head + a 4-byte tail prefix + 16 tail payload bytes.
+        let total = CompactDynHead::MIN_LEN + 4 + 16;
+        let (_backing, account) = make_account(total, 70);
+
+        // init stamps the disc and zeroes the tail length prefix (empty tail).
+        account.init_compact_dynamic::<CompactDynHead>().unwrap();
+        {
+            let data = account.try_borrow().unwrap();
+            assert_eq!(data[0], 9);
+            let prefix = u32::from_le_bytes(
+                data[CompactDynHead::TAIL_OFFSET..CompactDynHead::TAIL_OFFSET + 4]
+                    .try_into()
+                    .unwrap(),
+            );
+            assert_eq!(prefix, 0);
+        }
+
+        // The fixed head loads even though the account is far longer than the
+        // head -- the *fixed* compact loader would reject this as oversized.
+        {
+            let mut head = account.load_compact_dynamic_mut::<CompactDynHead>().unwrap();
+            head.owner = [7u8; 32];
+            head.count = 5u64.to_le_bytes();
+        }
+        let head = account.load_compact_dynamic::<CompactDynHead>().unwrap();
+        assert_eq!(head.owner, [7u8; 32]);
+        assert_eq!(u64::from_le_bytes(head.count), 5);
+
+        // The head projection points at byte 1, leaving the tail region intact.
+        let data = account.try_borrow().unwrap();
+        let base = data.as_bytes_ptr() as usize;
+        assert_eq!((&*head) as *const CompactDynHead as usize, base + 1);
+    }
+
+    #[test]
+    fn compact_dynamic_rejects_short_and_wrong_disc() {
+        use crate::CompactDynamicLayout;
+        // Shorter than the fixed head -> AccountDataTooSmall.
+        let (_b1, short) = make_account(CompactDynHead::MIN_LEN - 1, 71);
+        short
+            .try_borrow_mut()
+            .map(|mut d| d[0] = CompactDynHead::DISC)
+            .unwrap();
+        assert_eq!(
+            short.load_compact_dynamic::<CompactDynHead>().unwrap_err(),
+            ProgramError::AccountDataTooSmall
+        );
+
+        // Long enough for a tail, wrong disc -> InvalidAccountData.
+        let (_b2, bad) = make_account(CompactDynHead::MIN_LEN + 8, 72);
+        bad.try_borrow_mut().map(|mut d| d[0] = 3).unwrap();
+        assert_eq!(
+            bad.load_compact_dynamic::<CompactDynHead>().unwrap_err(),
             ProgramError::InvalidAccountData
         );
     }

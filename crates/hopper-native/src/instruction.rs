@@ -126,8 +126,11 @@ impl<'a> From<&'a AccountView<'a>> for CpiAccount<'a> {
         let raw = view.account_ptr();
         // Single u32 read extracts [borrow_state, is_signer, is_writable, executable].
         // On little-endian BPF: byte 1 = is_signer, byte 2 = is_writable, byte 3 = executable.
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-        let header = unsafe { *(raw as *const u32) };
+        // SAFETY: `raw` points at the RuntimeAccount header in the Solana input
+        // buffer; its first 4 bytes pack [borrow_state, is_signer, is_writable,
+        // executable]. `read_unaligned` reads them as a u32 without assuming
+        // 4-byte pointer alignment.
+        let header = unsafe { core::ptr::read_unaligned(raw as *const u32) };
         Self {
             address: unsafe { &(*raw).address as *const Address },
             // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.

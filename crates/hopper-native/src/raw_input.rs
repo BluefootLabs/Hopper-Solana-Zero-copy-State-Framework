@@ -179,8 +179,11 @@ pub unsafe fn deserialize_accounts_fast<'info, const MAX: usize>(
     instruction_data: &'info [u8],
     program_id: Address,
 ) -> (Address, usize, &'info [u8]) {
-    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-    let num_accounts = unsafe { *(input as *const u64) as usize };
+    // SAFETY: `input` points to the head of the Solana BPF input buffer, whose
+    // first 8 bytes are the account count. `read_unaligned` reads the u64 without
+    // assuming 8-byte pointer alignment, so this stays sound even if the loader
+    // ever hands us an unaligned buffer.
+    let num_accounts = unsafe { core::ptr::read_unaligned(input as *const u64) as usize };
     let count = num_accounts.min(MAX);
     let mut offset = 8usize;
 
@@ -250,8 +253,10 @@ pub unsafe fn deserialize_accounts_fast<'info, const MAX: usize>(
 pub unsafe fn scan_instruction_frame(input: *mut u8) -> RawInstructionFrame {
     let mut scan = input;
 
-    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-    let num_accounts = unsafe { *(scan as *const u64) as usize };
+    // SAFETY: `scan` starts at the head of the Solana BPF input buffer, whose
+    // first 8 bytes are the account count. `read_unaligned` avoids assuming the
+    // pointer is 8-byte aligned.
+    let num_accounts = unsafe { core::ptr::read_unaligned(scan as *const u64) as usize };
     scan = unsafe { scan.add(8) };
     let accounts_start = scan;
 
@@ -281,8 +286,10 @@ pub unsafe fn scan_instruction_frame(input: *mut u8) -> RawInstructionFrame {
         slot += 1;
     }
 
-    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-    let data_len = unsafe { *(scan as *const u64) as usize };
+    // SAFETY: `scan` now points at the 8-byte instruction-data length in the
+    // Solana BPF input buffer. `read_unaligned` avoids assuming 8-byte pointer
+    // alignment of `scan`.
+    let data_len = unsafe { core::ptr::read_unaligned(scan as *const u64) as usize };
     scan = unsafe { scan.add(8) };
     let instruction_data = unsafe { core::slice::from_raw_parts(scan as *const u8, data_len) };
     // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
