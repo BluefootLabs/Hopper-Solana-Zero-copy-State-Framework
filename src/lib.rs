@@ -144,11 +144,12 @@ pub mod account {
         SegmentedAccount, SignerAccount, ValidateAccount,
     };
     pub use hopper_runtime::{
-        Account, AccountView, CompactLayout, ExplainExternal, ExternalAccount, ExternalBytes,
-        ExternalChecked, ExternalExplainSink, ExternalLens, ExternalLensValue, ExternalProof,
-        ExternalResolve, ExternalZeroCopy, HopperSigner as Signer, InitAccount, Interface,
-        InterfaceAccount, InterfaceAccountLayout, InterfaceAccountResolve, InterfaceSpec, Program,
-        ProgramId, SystemAccount, SystemId, UncheckedAccount, COMPACT_BODY_OFFSET,
+        Account, AccountView, CompactDynamicLayout, CompactLayout, ExplainExternal,
+        ExternalAccount, ExternalBytes, ExternalChecked, ExternalExplainSink, ExternalLens,
+        ExternalLensValue, ExternalProof, ExternalResolve, ExternalZeroCopy,
+        HopperSigner as Signer, InitAccount, Interface, InterfaceAccount, InterfaceAccountLayout,
+        InterfaceAccountResolve, InterfaceSpec, Program, ProgramId, SystemAccount, SystemId,
+        UncheckedAccount, COMPACT_BODY_OFFSET,
     };
 
     /// Anchor-style spelling for the System Program marker.
@@ -159,6 +160,18 @@ pub mod account {
 /// registry (see `docs/THREE_TIER_METADATA.md`).
 pub mod manifest {
     pub use hopper_core::manifest::*;
+}
+
+/// Zero-copy collections for on-chain account data, including the `Tail*`
+/// views (`TailVec`, `TailRing`, `TailSlab`, `TailBitSet`) and the
+/// [`CompactTail`](hopper_core::collections::CompactTail) bridge that overlays
+/// them on a compact dynamic account's tail.
+///
+/// Enable with `--features collections` (the collections crate surface is
+/// opt-in to keep the minimal build small).
+#[cfg(feature = "collections")]
+pub mod collections {
+    pub use hopper_core::collections::*;
 }
 
 /// Typed instruction context and account-binding helpers.

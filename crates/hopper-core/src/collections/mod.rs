@@ -30,3 +30,6 @@ pub use journal::{Journal, JournalReader, JOURNAL_HEADER_SIZE};
 
 pub mod slab;
 pub use slab::{bitmap_bytes, Slab, SLAB_HEADER_SIZE};
+
+pub mod compact_tail;
+pub use compact_tail::{CompactTail, TailBitSet, TailRing, TailSlab, TailVec};
