@@ -77,7 +77,7 @@ pub use account_wrappers::{
 pub use address::Address;
 pub use audit::{AccountAudit, DuplicateAccount};
 pub use borrow::{Ref, RefMut};
-pub use compact::{CompactLayout, COMPACT_BODY_OFFSET};
+pub use compact::{CompactDynamicLayout, CompactLayout, COMPACT_BODY_OFFSET};
 pub use compute::{check_compute_units, remaining_compute_units, require_compute_units};
 pub use context::{Context, ScopedContext};
 pub use cpi::{invoke, invoke_checked, invoke_signed, invoke_signed_checked};

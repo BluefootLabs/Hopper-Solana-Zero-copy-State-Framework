@@ -31,6 +31,12 @@ struct StateOptions {
     /// no 16-byte universal header. Emits a [`CompactLayout`] impl and the
     /// compact load helpers instead of the headered `LayoutContract` path.
     compact: bool,
+    /// Compact layouts only: opt into a program-managed dynamic tail
+    /// (`[disc][fixed_head][tail]`) with no length prefix, typically overlaid
+    /// with a zero-copy collection (TailVec/TailRing/TailSlab) via the
+    /// `CompactTail` helpers. Emits a [`CompactDynamicLayout`] impl (relaxed
+    /// length validation) instead of [`CompactLayout`].
+    dynamic: bool,
 }
 
 impl Default for StateOptions {
@@ -42,6 +48,7 @@ impl Default for StateOptions {
             dynamic_tail_schema: None,
             raw_tail: false,
             compact: false,
+            dynamic: false,
         }
     }
 }
@@ -80,13 +87,24 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
             "raw_tail = true cannot be combined with dynamic_tail = T",
         ));
     }
+    if options.dynamic && (options.dynamic_tail.is_some() || options.raw_tail) {
+        return Err(syn::Error::new(
+            proc_macro2::Span::call_site(),
+            "`dynamic` (program-managed tail) cannot be combined with `dynamic_tail = T` or `raw_tail = true`: choose one tail discipline",
+        ));
+    }
+    if options.dynamic && !options.compact {
+        return Err(syn::Error::new(
+            proc_macro2::Span::call_site(),
+            "`dynamic` is a compact-only option; use `compact, dynamic` (or a headered `dynamic_tail = T` / `raw_tail`)",
+        ));
+    }
     if options.compact {
-        if options.dynamic_tail.is_some() || options.raw_tail {
-            return Err(syn::Error::new(
-                proc_macro2::Span::call_site(),
-                "compact layouts are fixed-size: `compact` cannot be combined with `dynamic_tail = T` or `raw_tail = true`",
-            ));
-        }
+        // Compact layouts may now carry a dynamic tail: `[disc:u8][fixed_head]
+        // [tail]`. With a tail the type implements `CompactDynamicLayout`
+        // (relaxed length validation); without one it stays a fixed-size
+        // `CompactLayout`. The `raw_tail` + `dynamic_tail` mutual-exclusion is
+        // already enforced above and applies here too.
         return expand_compact(options, item);
     }
     let dynamic_tail = options.dynamic_tail.clone();
@@ -870,7 +888,28 @@ fn expand_compact(options: StateOptions, item: TokenStream) -> Result<TokenStrea
 
     let body_size = running_offset.clone();
     let version = options.version;
-    let layout_id = layout_id_bytes(&name, version, fields, None);
+    // A compact-dynamic tail is part of the layout's identity: two layouts
+    // with the same fixed head but different tail types are different wire
+    // shapes, so the tail type/schema folds into the fingerprint exactly as it
+    // does on the headered path.
+    let dynamic_tail_fingerprint = options
+        .dynamic_tail_schema
+        .as_deref()
+        .map(str::to_owned)
+        .or_else(|| {
+            options
+                .dynamic_tail
+                .as_ref()
+                .map(|ty| format!("type:{}", ty.to_token_stream().to_string().replace(' ', "")))
+        })
+        .or(if options.raw_tail {
+            Some("raw_tail".to_owned())
+        } else if options.dynamic {
+            Some("dynamic".to_owned())
+        } else {
+            None
+        });
+    let layout_id = layout_id_bytes(&name, version, fields, dynamic_tail_fingerprint.as_deref());
     let disc = options.disc.unwrap_or_else(|| {
         for byte in layout_id.iter() {
             if *byte != 0 {
@@ -899,6 +938,248 @@ fn expand_compact(options: StateOptions, item: TokenStream) -> Result<TokenStrea
         state_param_inits.iter().map(|i| i.0.clone()).collect();
     let constructor_inits: Vec<TokenStream> =
         state_param_inits.iter().map(|i| i.1.clone()).collect();
+
+    // ── Compact dynamic-tail wiring ────────────────────────────────────
+    // A compact layout may carry a dynamic tail (`[disc][fixed_head][tail]`).
+    // The tail's u32 length prefix lives at `COMPACT_LEN`, and we reuse the
+    // same offset-parameterized tail runtime as the headered path — only the
+    // prefix offset differs (1-byte disc vs 16-byte header).
+    let has_tail = options.dynamic_tail.is_some() || options.raw_tail || options.dynamic;
+
+    let compact_tail_methods = if let Some(tail_ty) = &options.dynamic_tail {
+        quote! {
+            /// This compact layout carries a Hopper dynamic tail
+            /// (`[disc][fixed_head][tail]`). The fixed head stays zero-copy;
+            /// tail access is explicit via the `tail_*` helpers below.
+            pub const HAS_DYNAMIC_TAIL: bool = true;
+
+            /// Byte offset of the tail's `u32 LE` length prefix, immediately
+            /// after the fixed compact head. The payload starts 4 bytes later.
+            pub const TAIL_PREFIX_OFFSET: usize = Self::COMPACT_LEN;
+
+            /// Bytes to allocate for a fresh compact-dynamic account whose tail
+            /// payload may grow to `tail_capacity` bytes: disc + fixed head +
+            /// the 4-byte length prefix + `tail_capacity`.
+            #[inline]
+            pub const fn space_for_tail(tail_capacity: usize) -> usize {
+                Self::COMPACT_LEN + 4 + tail_capacity
+            }
+
+            /// Read the tail's length prefix.
+            #[inline]
+            pub fn tail_len(data: &[u8]) -> ::core::result::Result<
+                u32, ::hopper::__runtime::ProgramError,
+            > {
+                ::hopper::__runtime::read_tail_len(data, Self::TAIL_PREFIX_OFFSET)
+            }
+
+            /// Decode and return the dynamic tail as `#tail_ty`.
+            #[inline]
+            pub fn tail_read(data: &[u8]) -> ::core::result::Result<
+                #tail_ty, ::hopper::__runtime::ProgramError,
+            > {
+                ::hopper::__runtime::read_tail::<#tail_ty>(data, Self::TAIL_PREFIX_OFFSET)
+            }
+
+            /// Encode `tail` in place and update the u32 length prefix. Returns
+            /// the number of payload bytes written (excluding the prefix). The
+            /// caller must ensure the account has room (call `resize` first when
+            /// growing).
+            #[inline]
+            pub fn tail_write(
+                data: &mut [u8],
+                tail: &#tail_ty,
+            ) -> ::core::result::Result<usize, ::hopper::__runtime::ProgramError> {
+                ::hopper::__runtime::write_tail::<#tail_ty>(data, Self::TAIL_PREFIX_OFFSET, tail)
+            }
+        }
+    } else if options.raw_tail {
+        quote! {
+            /// This compact layout carries a Hopper raw final tail. The fixed
+            /// head stays zero-copy; the final dynamic payload consumes the
+            /// remaining tail bytes without a field-level prefix.
+            pub const HAS_DYNAMIC_TAIL: bool = true;
+            pub const HAS_RAW_DYNAMIC_TAIL: bool = true;
+
+            /// Byte offset of the tail's `u32 LE` length prefix, immediately
+            /// after the fixed compact head. The payload starts 4 bytes later.
+            pub const TAIL_PREFIX_OFFSET: usize = Self::COMPACT_LEN;
+
+            /// Bytes to allocate for a fresh compact-dynamic account whose tail
+            /// payload may grow to `tail_capacity` bytes.
+            #[inline]
+            pub const fn space_for_tail(tail_capacity: usize) -> usize {
+                Self::COMPACT_LEN + 4 + tail_capacity
+            }
+
+            /// Read the tail's length prefix.
+            #[inline]
+            pub fn tail_len(data: &[u8]) -> ::core::result::Result<
+                u32, ::hopper::__runtime::ProgramError,
+            > {
+                ::hopper::__runtime::read_tail_len(data, Self::TAIL_PREFIX_OFFSET)
+            }
+
+            /// Borrow the full dynamic-tail payload, excluding the u32 prefix.
+            #[inline]
+            pub fn tail_payload<'a>(data: &'a [u8]) -> ::core::result::Result<
+                &'a [u8], ::hopper::__runtime::ProgramError,
+            > {
+                ::hopper::__runtime::tail_payload(data, Self::TAIL_PREFIX_OFFSET)
+            }
+        }
+    } else if options.dynamic {
+        quote! {
+            /// This compact layout has a **program-managed** dynamic tail
+            /// (`[disc][fixed_head][tail]`) with no length prefix, typically
+            /// overlaid with a zero-copy collection (`TailVec` / `TailRing` /
+            /// `TailSlab`) through the `CompactTail` helpers. The tail region
+            /// begins at `<Self as CompactDynamicLayout>::TAIL_OFFSET`
+            /// (== `COMPACT_LEN`).
+            pub const HAS_DYNAMIC_TAIL: bool = true;
+
+            /// Borrow the program-managed tail region (bytes after the fixed
+            /// head). Returns an error if `data` is shorter than the fixed
+            /// head, which a validated load already rules out.
+            #[inline]
+            pub fn tail_region(data: &[u8]) -> ::core::result::Result<
+                &[u8], ::hopper::__runtime::ProgramError,
+            > {
+                data.get(Self::COMPACT_LEN..)
+                    .ok_or(::hopper::__runtime::ProgramError::AccountDataTooSmall)
+            }
+
+            /// Mutably borrow the program-managed tail region.
+            #[inline]
+            pub fn tail_region_mut(data: &mut [u8]) -> ::core::result::Result<
+                &mut [u8], ::hopper::__runtime::ProgramError,
+            > {
+                let start = Self::COMPACT_LEN;
+                if data.len() < start {
+                    return ::core::result::Result::Err(
+                        ::hopper::__runtime::ProgramError::AccountDataTooSmall,
+                    );
+                }
+                ::core::result::Result::Ok(&mut data[start..])
+            }
+
+            /// Bytes to allocate for a fresh compact account whose program-
+            /// managed tail region needs `tail_capacity` bytes: disc + fixed
+            /// head + `tail_capacity`.
+            #[inline]
+            pub const fn space_for_tail(tail_capacity: usize) -> usize {
+                Self::COMPACT_LEN + tail_capacity
+            }
+        }
+    } else {
+        quote! {
+            /// This compact layout has no dynamic tail; emitted unconditionally
+            /// so callers can branch on it at compile time.
+            pub const HAS_DYNAMIC_TAIL: bool = false;
+        }
+    };
+
+    // Owner-checked load/init helpers. With a tail they route through the
+    // relaxed `*_compact_dynamic` runtime (length `>=` the fixed head); without
+    // one they use the exact-length `*_compact` runtime. Method names are
+    // identical so user code is uniform across fixed and dynamic compact types.
+    let compact_load_helpers = if has_tail {
+        quote! {
+            /// Load the fixed head of this compact-dynamic account, owned by
+            /// `program_id`. The tail is accessed via the `tail_*` helpers.
+            #[inline(always)]
+            pub fn load_compact<'a>(
+                account: &'a ::hopper::prelude::AccountView<'a>,
+                program_id: &::hopper::prelude::Address,
+            ) -> ::core::result::Result<
+                ::hopper::__runtime::Ref<'a, Self>,
+                ::hopper::__runtime::ProgramError,
+            > {
+                account.check_owned_by(program_id)?;
+                account.load_compact_dynamic::<Self>()
+            }
+
+            /// Mutably load the fixed head, owned and writable by `program_id`.
+            #[inline(always)]
+            pub fn load_compact_mut<'a>(
+                account: &'a ::hopper::prelude::AccountView<'a>,
+                program_id: &::hopper::prelude::Address,
+            ) -> ::core::result::Result<
+                ::hopper::__runtime::RefMut<'a, Self>,
+                ::hopper::__runtime::ProgramError,
+            > {
+                account.check_owned_by(program_id)?.check_writable()?;
+                account.load_compact_dynamic_mut::<Self>()
+            }
+
+            /// Initialise a fresh compact-dynamic account: stamp the disc and
+            /// zero the tail length prefix (empty tail, fail-closed).
+            #[inline(always)]
+            pub fn init_compact(
+                account: &::hopper::prelude::AccountView<'_>,
+            ) -> ::core::result::Result<(), ::hopper::__runtime::ProgramError> {
+                account.init_compact_dynamic::<Self>()
+            }
+        }
+    } else {
+        quote! {
+            /// Load a compact account owned by `program_id`.
+            #[inline(always)]
+            pub fn load_compact<'a>(
+                account: &'a ::hopper::prelude::AccountView<'a>,
+                program_id: &::hopper::prelude::Address,
+            ) -> ::core::result::Result<
+                ::hopper::__runtime::Ref<'a, Self>,
+                ::hopper::__runtime::ProgramError,
+            > {
+                account.check_owned_by(program_id)?;
+                account.load_compact::<Self>()
+            }
+
+            /// Mutably load a compact account owned and writable by `program_id`.
+            #[inline(always)]
+            pub fn load_compact_mut<'a>(
+                account: &'a ::hopper::prelude::AccountView<'a>,
+                program_id: &::hopper::prelude::Address,
+            ) -> ::core::result::Result<
+                ::hopper::__runtime::RefMut<'a, Self>,
+                ::hopper::__runtime::ProgramError,
+            > {
+                account.check_owned_by(program_id)?.check_writable()?;
+                account.load_compact_mut::<Self>()
+            }
+
+            /// Stamp the discriminator on a fresh account (offset 0).
+            #[inline(always)]
+            pub fn init_compact(
+                account: &::hopper::prelude::AccountView<'_>,
+            ) -> ::core::result::Result<(), ::hopper::__runtime::ProgramError> {
+                account.init_compact::<Self>()
+            }
+        }
+    };
+
+    // A compact-dynamic layout implements `CompactDynamicLayout` (relaxed
+    // length validation); a fixed compact layout implements `CompactLayout`.
+    let compact_trait_impl = if has_tail {
+        quote! {
+            impl ::hopper::account::CompactDynamicLayout for #name {
+                const DISC: u8 = #name::DISC;
+            }
+        }
+    } else {
+        quote! {
+            impl ::hopper::account::CompactLayout for #name {
+                const DISC: u8 = #name::DISC;
+            }
+        }
+    };
+
+    let descriptor_tail = if has_tail {
+        quote! { .with_dynamic_tail() }
+    } else {
+        quote! {}
+    };
 
     let expanded = quote! {
         #input
@@ -979,39 +1260,9 @@ fn expand_compact(options: StateOptions, item: TokenStream) -> Result<TokenStrea
                 ::hopper::hopper_core::account::pod_from_bytes::<Self>(body_bytes)
             }
 
-            /// Load a compact account owned by `program_id`.
-            #[inline(always)]
-            pub fn load_compact<'a>(
-                account: &'a ::hopper::prelude::AccountView<'a>,
-                program_id: &::hopper::prelude::Address,
-            ) -> ::core::result::Result<
-                ::hopper::__runtime::Ref<'a, Self>,
-                ::hopper::__runtime::ProgramError,
-            > {
-                account.check_owned_by(program_id)?;
-                account.load_compact::<Self>()
-            }
+            #compact_load_helpers
 
-            /// Mutably load a compact account owned and writable by `program_id`.
-            #[inline(always)]
-            pub fn load_compact_mut<'a>(
-                account: &'a ::hopper::prelude::AccountView<'a>,
-                program_id: &::hopper::prelude::Address,
-            ) -> ::core::result::Result<
-                ::hopper::__runtime::RefMut<'a, Self>,
-                ::hopper::__runtime::ProgramError,
-            > {
-                account.check_owned_by(program_id)?.check_writable()?;
-                account.load_compact_mut::<Self>()
-            }
-
-            /// Stamp the discriminator on a fresh account (offset 0).
-            #[inline(always)]
-            pub fn init_compact(
-                account: &::hopper::prelude::AccountView<'_>,
-            ) -> ::core::result::Result<(), ::hopper::__runtime::ProgramError> {
-                account.init_compact::<Self>()
-            }
+            #compact_tail_methods
 
             /// Declared semantic role per field, in declaration order.
             pub const FIELD_ROLES: &'static [(&'static str, &'static str)] = &[
@@ -1069,18 +1320,20 @@ fn expand_compact(options: StateOptions, item: TokenStream) -> Result<TokenStrea
         }
 
         // The compact hot-path loader contract. This is what distinguishes
-        // a compact layout from a headered one at the type level. The
-        // headered `LayoutContract` / `SchemaExport` (which assumes a
-        // 16-byte header) is deliberately NOT implemented: Tier-2/3 metadata
-        // for a compact layout flows through `registry_entry()` instead.
-        impl ::hopper::account::CompactLayout for #name {
-            const DISC: u8 = #name::DISC;
-        }
+        // a compact layout from a headered one at the type level. A fixed
+        // compact layout implements `CompactLayout` (exact-length validation);
+        // a compact layout with a dynamic tail implements `CompactDynamicLayout`
+        // (length `>=` the fixed head). The headered `LayoutContract` /
+        // `SchemaExport` (which assumes a 16-byte header) is deliberately NOT
+        // implemented: Tier-2/3 metadata flows through `registry_entry()`.
+        #compact_trait_impl
 
         // The unified one-source-of-truth descriptor. Both compact and
         // headered layouts implement `LayoutDescriptor`, so a program has a
         // single registry/identity model regardless of wire shape. The
-        // descriptor is `const`, so the hot path pays nothing for it.
+        // descriptor is `const`, so the hot path pays nothing for it. A
+        // dynamic tail flips the descriptor's tail flag; `min_size` stays the
+        // fixed compact prefix length.
         impl ::hopper::manifest::LayoutDescriptor for #name {
             const DESCRIPTOR: ::hopper::manifest::AccountDescriptor =
                 ::hopper::manifest::AccountDescriptor::compact(
@@ -1089,7 +1342,7 @@ fn expand_compact(options: StateOptions, item: TokenStream) -> Result<TokenStrea
                     #name::VERSION as u16,
                     #name::BODY_SIZE as u32,
                     #name::LAYOUT_ID,
-                );
+                )#descriptor_tail;
         }
     };
 
@@ -1303,12 +1556,20 @@ fn parse_state_options(attr: TokenStream) -> Result<StateOptions> {
             };
             return Ok(());
         }
+        if meta.path.is_ident("dynamic") {
+            // Accept both the bare flag `dynamic` and `dynamic = true`.
+            options.dynamic = match meta.value() {
+                Ok(value) => value.parse::<syn::LitBool>()?.value,
+                Err(_) => true,
+            };
+            return Ok(());
+        }
         if meta.path.is_ident("dynamic_tail_schema") || meta.path.is_ident("tail_schema") {
             let value: LitStr = meta.value()?.parse()?;
             options.dynamic_tail_schema = Some(value.value());
             return Ok(());
         }
-        Err(meta.error("unsupported hopper_state option; expected `disc = N`, `discriminator = N`, `version = N`, `compact`, `dynamic_tail = T`, `raw_tail = true`, or `dynamic_tail_schema = \"...\"`"))
+        Err(meta.error("unsupported hopper_state option; expected `disc = N`, `discriminator = N`, `version = N`, `compact`, `dynamic`, `dynamic_tail = T`, `raw_tail = true`, or `dynamic_tail_schema = \"...\"`"))
     });
 
     parser.parse2(attr)?;
