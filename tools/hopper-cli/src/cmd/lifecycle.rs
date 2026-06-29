@@ -859,7 +859,7 @@ fn take_flag_value(args: &mut Vec<String>, flags: &[&str]) -> Option<String> {
     None
 }
 
-fn take_bare_flags(args: &mut Vec<String>, flags: &[&str]) -> usize {
+pub(crate) fn take_bare_flags(args: &mut Vec<String>, flags: &[&str]) -> usize {
     let mut count = 0;
     while let Some(pos) = args.iter().position(|a| flags.contains(&a.as_str())) {
         args.remove(pos);
@@ -868,7 +868,7 @@ fn take_bare_flags(args: &mut Vec<String>, flags: &[&str]) -> usize {
     count
 }
 
-fn take_flag_values(args: &mut Vec<String>, flag: &str) -> Result<Vec<String>, String> {
+pub(crate) fn take_flag_values(args: &mut Vec<String>, flag: &str) -> Result<Vec<String>, String> {
     let mut values = Vec::new();
     while let Some(pos) = args.iter().position(|a| a == flag) {
         args.remove(pos);
@@ -972,7 +972,7 @@ fn run_cargo_command(project_root: &Path, args: &[String]) {
     }
 }
 
-fn run_external_command(program: &str, cwd: &Path, args: &[String]) {
+pub(crate) fn run_external_command(program: &str, cwd: &Path, args: &[String]) {
     let display = workspace::display_command(program, args);
     let status = workspace::run_status(program, args, cwd).unwrap_or_else(|err| {
         eprintln!("{err}");

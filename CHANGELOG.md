@@ -9,6 +9,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 
 ### Added
 
+- **`hopper buffers` command group** for recovering rent stranded in dangling
+  BPF Loader buffers after a failed deploy: `hopper buffers list` (→ `solana
+  program show --buffers`), `hopper buffers close <BUFFER>` and `hopper buffers
+  close --all` (→ `solana program close`). Closing is irreversible and confirms
+  unless `-y`; the confirmation prompt shows the RPC URL redacted so a custom
+  endpoint's API key never reaches the terminal log. The target parser and the
+  exact Solana command construction are pure functions covered by unit tests
+  (`build_list_command`, `build_close_command`, `parse_buffers_close`), and
+  `buffers` is added to shell completions.
 - **Client PDA auto-resolution from manifest seeds.** Added `AccountEntry.seeds`
   (the PDA seed source expressions) plus a `no_std` seed classifier —
   `classify_seed` / `SeedPart` (`Literal` / `Account` / `Arg` / `Unknown`) — that

@@ -175,6 +175,7 @@ fn main() {
         "deploy" => cmd::lifecycle::cmd_deploy(&args[2..]),
         "upgrade" => cmd::lifecycle::cmd_upgrade(&args[2..]),
         "close" => cmd::lifecycle::cmd_close(&args[2..]),
+        "buffers" => cmd::buffers::cmd_buffers(&args[2..]),
         "migrate" => cmd::lifecycle::cmd_migrate(&args[2..]),
         "dump" => cmd::lifecycle::cmd_dump(&args[2..]),
         "clean" => cmd::clean::cmd_clean(&args[2..]),
@@ -4018,6 +4019,9 @@ fn to_program_manifest(m: &OwnedProgramManifest) -> ProgramManifest {
                     writable: a.writable,
                     signer: a.signer,
                     layout_ref: leak_str(&a.layout_ref),
+                    // The explain/manager path decodes existing transactions; it
+                    // does not resolve PDAs, so seed metadata is not needed here.
+                    seeds: &[],
                 })
                 .collect();
             let capabilities: Vec<&'static str> =

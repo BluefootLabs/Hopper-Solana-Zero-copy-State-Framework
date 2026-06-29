@@ -1,6 +1,7 @@
 pub mod actions;
 pub mod add;
 pub mod banner;
+pub mod buffers;
 pub mod clean;
 pub mod cluster;
 pub mod config;

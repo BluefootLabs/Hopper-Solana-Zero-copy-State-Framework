@@ -70,6 +70,7 @@ const TOP_LEVEL: &[&str] = &[
     "deploy",
     "upgrade",
     "close",
+    "buffers",
     "migrate",
     "dump",
     "verify",
