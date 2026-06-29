@@ -1,0 +1,5 @@
+error: use either `owner = expr` or `owner_any = [..]`, not both
+  --> tests/ui/fail/owner_and_owner_any.rs:13:9
+   |
+13 |     pub token_account: UncheckedAccount<'info>,
+   |         ^^^^^^^^^^^^^

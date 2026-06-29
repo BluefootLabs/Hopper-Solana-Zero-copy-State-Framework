@@ -1041,6 +1041,21 @@ impl<'info> AccountView<'info> {
         }
     }
 
+    /// Chainable check that this account's owner is **one of** `programs`.
+    ///
+    /// Accepts an account from any of several programs — most commonly an SPL
+    /// Token *or* Token-2022 mint / token account — and rejects every other
+    /// owner. This is [`check_owned_by`](Self::check_owned_by) generalized to a
+    /// set; an empty `programs` slice always rejects.
+    #[inline]
+    pub fn check_owned_by_any(&self, programs: &[&Address]) -> Result<&Self, ProgramError> {
+        if programs.iter().any(|program| self.owned_by(program)) {
+            Ok(self)
+        } else {
+            ProgramError::err_incorrect_program()
+        }
+    }
+
     /// Chainable discriminator check.
     #[inline(always)]
     pub fn check_disc(&self, expected: u8) -> Result<&Self, ProgramError> {
@@ -1840,6 +1855,26 @@ mod tests {
             bad.load_compact_dynamic::<CompactDynHead>().unwrap_err(),
             ProgramError::InvalidAccountData
         );
+    }
+
+    #[test]
+    fn check_owned_by_any_accepts_listed_owner_and_rejects_others() {
+        // make_account stores owner = [2; 32].
+        let (_backing, account) = make_account(8, 80);
+        let token = Address::new([2; 32]); // matches the stored owner
+        let token_2022 = Address::new([9; 32]);
+        let other = Address::new([3; 32]);
+
+        // Owner is in the set in either position -> Ok (the Token/Token-2022
+        // polymorphism case).
+        assert!(account.check_owned_by_any(&[&token_2022, &token]).is_ok());
+        assert!(account.check_owned_by_any(&[&token]).is_ok());
+
+        // Owner is not in the set -> Err.
+        assert!(account.check_owned_by_any(&[&token_2022, &other]).is_err());
+
+        // An empty set always rejects.
+        assert!(account.check_owned_by_any(&[]).is_err());
     }
 
     #[test]

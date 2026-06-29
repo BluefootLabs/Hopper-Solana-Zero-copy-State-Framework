@@ -9,6 +9,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 
 ### Added
 
+- **`owner_any` account constraint for Token / Token-2022 polymorphism.**
+  `#[account(owner_any = [token::ID, token_2022::ID])]` accepts an account owned
+  by *any* of the listed programs and rejects every other owner — the
+  first-touch surface for handlers that take an SPL Token *or* Token-2022 mint /
+  token account. Backed by a new `AccountView::check_owned_by_any(&[&Address])`
+  runtime guard; mutually exclusive with `owner = expr`. Covered by a runtime
+  accept/reject unit test, an `owner_any_accounts` trybuild pass case, and an
+  `owner_and_owner_any` trybuild fail case.
 - **`hopper buffers` command group** for recovering rent stranded in dangling
   BPF Loader buffers after a failed deploy: `hopper buffers list` (→ `solana
   program show --buffers`), `hopper buffers close <BUFFER>` and `hopper buffers

@@ -89,6 +89,12 @@ struct AccountAttr {
     /// `owner = expr`. require the account's owner equal `expr`.
     /// Default for layout fields is `ctx.program_id()`.
     owner: Option<Expr>,
+    /// `owner_any = [expr, ...]`. require the account's owner to equal *one of*
+    /// the listed program ids. The motivating case is accepting an account from
+    /// either SPL Token or Token-2022:
+    /// `owner_any = [token::ID, token_2022::ID]`. Mutually exclusive with
+    /// `owner`.
+    owner_any: Vec<Expr>,
     /// `address = expr`. require the account's key equal `expr`.
     address: Option<Expr>,
     /// `constraint = expr`. arbitrary boolean guard, evaluated as the
@@ -791,6 +797,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             ));
         }
         let owner_expr = cf.attr.owner.clone();
+        let owner_any = cf.attr.owner_any.clone();
         // Wrapper-aware layout handling:
         //   Account<'info, T>     → layout = T, has_layout = true
         //   InitAccount<'info, T> → has_layout = false at validate time
@@ -823,7 +830,12 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         let is_init_field = cf.attr.init || wrapper_is_init;
         if has_layout && cf.attr.init_if_needed && !is_init_field {
             let field_ty = layout_ty.as_ref().unwrap_or(&cf.ty);
-            let owner_check = if let Some(expr) = &owner_expr {
+            let owner_check = if !owner_any.is_empty() {
+                let ids = owner_any.iter().map(|expr| quote! { &(#expr) });
+                quote! {
+                    __hopper_account.check_owned_by_any(&[ #(#ids),* ])?;
+                }
+            } else if let Some(expr) = &owner_expr {
                 quote! {
                     __hopper_account.check_owned_by(&(#expr))?;
                 }
@@ -849,7 +861,12 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             ));
         } else if has_layout && !is_init_field {
             let field_ty = layout_ty.as_ref().unwrap_or(&cf.ty);
-            let owner_check = if let Some(expr) = &owner_expr {
+            let owner_check = if !owner_any.is_empty() {
+                let ids = owner_any.iter().map(|expr| quote! { &(#expr) });
+                quote! {
+                    ctx.account(#idx)?.check_owned_by_any(&[ #(#ids),* ])?;
+                }
+            } else if let Some(expr) = &owner_expr {
                 quote! {
                     ctx.account(#idx)?.check_owned_by(&(#expr))?;
                 }
@@ -872,8 +889,17 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             ));
         } else if !has_layout {
             // For raw AccountView fields, still honor an explicit
-            // `owner = expr` even without a layout header to validate.
-            if let Some(expr) = &owner_expr {
+            // `owner = expr` / `owner_any = [..]` even without a layout header.
+            if !owner_any.is_empty() {
+                let ids = owner_any.iter().map(|expr| quote! { &(#expr) });
+                field_checks.push(quote! {
+                    ctx.account(#idx)?.check_owned_by_any(&[ #(#ids),* ])?;
+                });
+                check_descriptions.push(format!(
+                    "accounts[{}] ({}) owner must match one of `owner_any = [..]`",
+                    idx, field_name
+                ));
+            } else if let Some(expr) = &owner_expr {
                 field_checks.push(quote! {
                     ctx.account(#idx)?.check_owned_by(&(#expr))?;
                 });
@@ -3363,6 +3389,16 @@ fn parse_account_attr(attrs: &[Attribute]) -> Result<AccountAttr> {
                     result.owner = Some(expr);
                     Ok(())
                 }
+                "owner_any" => {
+                    let array: syn::ExprArray = meta.value()?.parse()?;
+                    if array.elems.is_empty() {
+                        return Err(meta.error(
+                            "owner_any requires at least one program id, e.g. owner_any = [token::ID, token_2022::ID]",
+                        ));
+                    }
+                    result.owner_any = array.elems.into_iter().collect();
+                    Ok(())
+                }
                 "address" => {
                     let expr: Expr = meta.value()?.parse()?;
                     result.address = Some(expr);
@@ -3413,6 +3449,12 @@ fn validate_account_attr(field_name: &Ident, attr: &AccountAttr) -> Result<()> {
         return Err(syn::Error::new_spanned(
             field_name,
             "use either `init` or `init_if_needed`, not both",
+        ));
+    }
+    if attr.owner.is_some() && !attr.owner_any.is_empty() {
+        return Err(syn::Error::new_spanned(
+            field_name,
+            "use either `owner = expr` or `owner_any = [..]`, not both",
         ));
     }
     if attr.init || attr.init_if_needed {
