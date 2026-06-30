@@ -84,6 +84,36 @@ fn write_ts_string(f: &mut fmt::Formatter<'_>, text: &str) -> fmt::Result {
     write!(f, "\"")
 }
 
+/// Write `text` as a double-quoted Kotlin string literal, escaping `\`, `"`,
+/// and `$` (Kotlin string-template sigil) so seed literals stay valid.
+fn write_kt_string(f: &mut fmt::Formatter<'_>, text: &str) -> fmt::Result {
+    write!(f, "\"")?;
+    for c in text.chars() {
+        match c {
+            '\\' => write!(f, "\\\\")?,
+            '"' => write!(f, "\\\"")?,
+            '$' => write!(f, "\\$")?,
+            other => write!(f, "{}", other)?,
+        }
+    }
+    write!(f, "\"")
+}
+
+/// Whether a generated client should auto-resolve `acc` as a program-derived
+/// address. True only when the account has seeds and *every* seed is a byte
+/// literal or another account reference — anything an arg/unknown seed would
+/// require encoding is left caller-provided so a client never derives a wrong
+/// address. Shared by every language generator.
+fn account_is_auto_pda(acc: &crate::AccountEntry) -> bool {
+    acc.is_pda()
+        && acc.seeds.iter().all(|s| {
+            matches!(
+                crate::classify_seed(s),
+                crate::SeedPart::Literal(_) | crate::SeedPart::Account(_)
+            )
+        })
+}
+
 fn write_camel(f: &mut fmt::Formatter<'_>, name: &str) -> fmt::Result {
     let mut capitalize_next = false;
     let mut first = true;
@@ -419,15 +449,7 @@ impl<'a> fmt::Display for TsInstructions<'a> {
             // byte literal or another account reference. Any arg/unknown seed
             // falls back to caller-provided so the client never derives a wrong
             // address from a seed it cannot encode.
-            let is_auto_pda = |acc: &crate::AccountEntry| -> bool {
-                acc.is_pda()
-                    && acc.seeds.iter().all(|s| {
-                        matches!(
-                            crate::classify_seed(s),
-                            crate::SeedPart::Literal(_) | crate::SeedPart::Account(_)
-                        )
-                    })
-            };
+            let is_auto_pda = |acc: &crate::AccountEntry| account_is_auto_pda(acc);
 
             // Accounts interface: only caller-provided accounts. PDAs are
             // derived in the builder, so callers never pass (or mis-derive) them.
@@ -1449,11 +1471,15 @@ impl<'a> fmt::Display for KtInstructions<'a> {
                 writeln!(f)?;
             }
 
-            // Accounts data class
+            // Accounts data class: only caller-provided accounts. PDAs are
+            // derived in the builder, so callers never pass (or mis-derive) them.
             write!(f, "data class ")?;
             write_kt_pascal(f, ix.name)?;
             writeln!(f, "Accounts(")?;
             for (i, acc) in ix.accounts.iter().enumerate() {
+                if account_is_auto_pda(acc) {
+                    continue;
+                }
                 write!(f, "    val ")?;
                 write_kt_camel(f, acc.name)?;
                 write!(f, ": PublicKey")?;
@@ -1481,6 +1507,50 @@ impl<'a> fmt::Display for KtInstructions<'a> {
             writeln!(f, "    programId: PublicKey,")?;
             writeln!(f, "): Instruction {{")?;
 
+            // Resolve program-derived addresses from their on-chain seeds.
+            if ix.accounts.iter().any(account_is_auto_pda) {
+                writeln!(
+                    f,
+                    "    // Program-derived addresses, resolved from on-chain seeds."
+                )?;
+                for acc in ix.accounts.iter() {
+                    if !account_is_auto_pda(acc) {
+                        continue;
+                    }
+                    write!(f, "    val ")?;
+                    write_kt_camel(f, acc.name)?;
+                    writeln!(f, " = PublicKey.findProgramAddress(")?;
+                    writeln!(f, "        listOf(")?;
+                    for (i, seed) in acc.seeds.iter().enumerate() {
+                        let comma = if i + 1 < acc.seeds.len() { "," } else { "" };
+                        write!(f, "            ")?;
+                        match crate::classify_seed(seed) {
+                            crate::SeedPart::Literal(text) => {
+                                write_kt_string(f, text)?;
+                                write!(f, ".toByteArray()")?;
+                            }
+                            crate::SeedPart::Account(name) => {
+                                let refs_pda = ix
+                                    .accounts
+                                    .iter()
+                                    .any(|a| a.name == name && account_is_auto_pda(a));
+                                if !refs_pda {
+                                    write!(f, "accounts.")?;
+                                }
+                                write_kt_camel(f, name)?;
+                                write!(f, ".bytes()")?;
+                            }
+                            crate::SeedPart::Arg(_) | crate::SeedPart::Unknown(_) => {}
+                        }
+                        writeln!(f, "{}", comma)?;
+                    }
+                    writeln!(f, "        ),")?;
+                    writeln!(f, "        programId,")?;
+                    writeln!(f, "    ).address")?;
+                }
+                writeln!(f)?;
+            }
+
             let data_size = instruction_data_size(ix);
             writeln!(f, "    val data = ByteArray({})", data_size)?;
             writeln!(
@@ -1498,8 +1568,13 @@ impl<'a> fmt::Display for KtInstructions<'a> {
             writeln!(f)?;
             writeln!(f, "    val keys = listOf(")?;
             for acc in ix.accounts.iter() {
-                write!(f, "        AccountMeta(accounts.")?;
-                write_kt_camel(f, acc.name)?;
+                if account_is_auto_pda(acc) {
+                    write!(f, "        AccountMeta(")?;
+                    write_kt_camel(f, acc.name)?;
+                } else {
+                    write!(f, "        AccountMeta(accounts.")?;
+                    write_kt_camel(f, acc.name)?;
+                }
                 writeln!(
                     f,
                     ", isSigner = {}, isWritable = {}),",
@@ -2190,6 +2265,27 @@ mod tests {
         let output = KtInstructions(&m).to_string();
         assert!(output.contains("isSigner = true, isWritable = false"));
         assert!(output.contains("isSigner = false, isWritable = true"));
+    }
+
+    #[test]
+    fn kt_instructions_auto_derives_pda_accounts() {
+        let m = test_manifest();
+        let output = KtInstructions(&m).to_string();
+
+        // The PDA account is dropped from the caller-facing data class...
+        assert!(output.contains("data class DepositAccounts("));
+        assert!(output.contains("val authority: PublicKey"));
+        assert!(!output.contains("val vault: PublicKey"));
+
+        // ...and derived in the builder from its on-chain seeds via sol4k.
+        assert!(output.contains("val vault = PublicKey.findProgramAddress("));
+        assert!(output.contains("\"vault\".toByteArray()"));
+        assert!(output.contains("accounts.authority.bytes()"));
+        assert!(output.contains(").address"));
+
+        // The PDA key uses the derived local, not accounts.vault.
+        assert!(output.contains("AccountMeta(vault, isSigner = false, isWritable = true)"));
+        assert!(!output.contains("accounts.vault"));
     }
 
     #[test]

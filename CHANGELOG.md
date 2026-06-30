@@ -9,6 +9,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 
 ### Added
 
+- **JSON execution traces for the SVM harness (`hopper_test::Trace`).**
+  `HarnessResult::trace(program_id, &pre_accounts)` turns a single `process`
+  into a reviewable, snapshot-friendly trace: success/error, compute units,
+  return data, and a per-account before/after diff (lamport delta, data-length
+  change, owner change) including decoded SPL Token / Token-2022 balance deltas.
+  `Trace::build` is a pure function (unit-testable without an SBF artifact) and
+  `Trace::to_json` renders dependency-free pretty JSON. (Per-frame CPI tree
+  capture is a planned follow-up: mollusk 0.10's `InstructionResult` does not
+  surface program logs, so it needs a separate log collector.)
 - **`owner_any` account constraint for Token / Token-2022 polymorphism.**
   `#[account(owner_any = [token::ID, token_2022::ID])]` accepts an account owned
   by *any* of the listed programs and rejects every other owner — the
@@ -40,8 +49,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   account reference, so a seed the client cannot encode falls back to
   caller-provided rather than deriving a wrong address. Covered by
   `classify_seed` unit tests and `ts_instructions_auto_derives_pda_accounts`.
-  (Kotlin/Python/Go/Rust generators reuse the same classifier as a mechanical
-  follow-up.)
+  The Kotlin generator does the same via sol4k's `findProgramAddress`
+  (`kt_instructions_auto_derives_pda_accounts`); both share an
+  `account_is_auto_pda` helper. Python / Go / Rust / C remain mechanical
+  follow-ups reusing the classifier.
 - **Zero-copy collection tails for compact accounts (`Tail*` + `CompactTail`).**
   Added the `dynamic` flag — `#[hopper::state(compact, disc = N, dynamic)]` —
   for a program-managed tail with no length prefix, plus a `CompactTail` bridge
