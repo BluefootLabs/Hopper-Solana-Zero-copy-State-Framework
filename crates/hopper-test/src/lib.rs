@@ -34,6 +34,9 @@ use solana_account::Account;
 use solana_instruction::Instruction;
 use solana_pubkey::Pubkey;
 
+pub mod trace;
+pub use trace::{AccountDelta, Trace};
+
 /// A lightweight, in-process SVM for exercising a single Hopper program.
 pub struct LiteSvmHarness {
     program_id: Pubkey,
