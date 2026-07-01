@@ -104,7 +104,7 @@ fn write_kt_string(f: &mut fmt::Formatter<'_>, text: &str) -> fmt::Result {
 /// literal or another account reference — anything an arg/unknown seed would
 /// require encoding is left caller-provided so a client never derives a wrong
 /// address. Shared by every language generator.
-fn account_is_auto_pda(acc: &crate::AccountEntry) -> bool {
+pub(crate) fn account_is_auto_pda(acc: &crate::AccountEntry) -> bool {
     acc.is_pda()
         && acc.seeds.iter().all(|s| {
             matches!(

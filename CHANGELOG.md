@@ -50,9 +50,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   caller-provided rather than deriving a wrong address. Covered by
   `classify_seed` unit tests and `ts_instructions_auto_derives_pda_accounts`.
   The Kotlin generator does the same via sol4k's `findProgramAddress`
-  (`kt_instructions_auto_derives_pda_accounts`); both share an
-  `account_is_auto_pda` helper. Python / Go / Rust / C remain mechanical
-  follow-ups reusing the classifier.
+  (`kt_instructions_auto_derives_pda_accounts`) and the Rust generator via
+  `Pubkey::find_program_address` (`rs_instructions_auto_derives_pda_accounts`);
+  all three SDK-coupled generators share the `account_is_auto_pda` helper. The
+  dependency-free generators (Go / Python / C define their own minimal types and
+  carry no PDA-derivation crypto) surface the classified seed plan as metadata
+  for host-side derivation instead of deriving inline.
 - **Zero-copy collection tails for compact accounts (`Tail*` + `CompactTail`).**
   Added the `dynamic` flag — `#[hopper::state(compact, disc = N, dynamic)]` —
   for a program-managed tail with no length prefix, plus a `CompactTail` bridge

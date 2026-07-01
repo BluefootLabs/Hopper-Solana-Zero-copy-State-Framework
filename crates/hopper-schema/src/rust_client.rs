@@ -493,6 +493,10 @@ fn write_instruction_builder(
     writeln!(f, "#[derive(Clone, Debug)]")?;
     writeln!(f, "pub struct {}Accounts {{", pascal)?;
     for acc in ix.accounts.iter() {
+        // PDA accounts are derived in the builder, not supplied by the caller.
+        if crate::clientgen::account_is_auto_pda(acc) {
+            continue;
+        }
         writeln!(f, "    pub {}: Pubkey,", snake_case(acc.name))?;
     }
     writeln!(f, "}}")?;
@@ -521,23 +525,66 @@ fn write_instruction_builder(
     } else {
         writeln!(f, "    let data = encode_{}_data(args);", snake)?;
     }
+    // Resolve program-derived addresses from their on-chain seeds, so the
+    // caller passes only the accounts it actually owns.
+    for acc in ix.accounts.iter() {
+        if !crate::clientgen::account_is_auto_pda(acc) {
+            continue;
+        }
+        writeln!(f, "    let ({}, _) = Pubkey::find_program_address(", snake_case(acc.name))?;
+        write!(f, "        &[")?;
+        for (i, seed) in acc.seeds.iter().enumerate() {
+            if i > 0 {
+                write!(f, ", ")?;
+            }
+            match crate::classify_seed(seed) {
+                crate::SeedPart::Literal(text) => {
+                    write!(f, "&b\"")?;
+                    for c in text.chars() {
+                        match c {
+                            '\\' => write!(f, "\\\\")?,
+                            '"' => write!(f, "\\\"")?,
+                            other => write!(f, "{}", other)?,
+                        }
+                    }
+                    write!(f, "\"[..]")?;
+                }
+                crate::SeedPart::Account(name) => {
+                    let refs_pda = ix
+                        .accounts
+                        .iter()
+                        .any(|a| a.name == name && crate::clientgen::account_is_auto_pda(a));
+                    if refs_pda {
+                        write!(f, "{}.as_ref()", snake_case(name))?;
+                    } else {
+                        write!(f, "accounts.{}.as_ref()", snake_case(name))?;
+                    }
+                }
+                crate::SeedPart::Arg(_) | crate::SeedPart::Unknown(_) => {}
+            }
+        }
+        writeln!(f, "],")?;
+        writeln!(f, "        program_id,")?;
+        writeln!(f, "    );")?;
+    }
+
     writeln!(f, "    let account_metas = vec![")?;
     for acc in ix.accounts.iter() {
-        let ctor = match (acc.writable, acc.signer) {
-            (true, true) => "new",
-            (true, false) => "new",
-            (false, true) => "new_readonly",
-            (false, false) => "new_readonly",
-        };
         let signer_bool = if acc.signer { "true" } else { "false" };
+        // PDA accounts use the derived local; provided accounts come from the
+        // `accounts` struct.
+        let pubkey_expr = if crate::clientgen::account_is_auto_pda(acc) {
+            snake_case(acc.name)
+        } else {
+            format!("accounts.{}", snake_case(acc.name))
+        };
         writeln!(
             f,
-            "        AccountMeta::{}(accounts.{}, {}),",
+            "        AccountMeta::{}({}, {}),",
             if acc.writable { "new" } else { "new_readonly" },
-            snake_case(acc.name),
+            pubkey_expr,
             signer_bool
         )?;
-        let _ = ctor;
     }
     writeln!(f, "    ];")?;
     writeln!(f, "    Instruction {{")?;
@@ -874,7 +921,7 @@ mod tests {
                 writable: true,
                 signer: false,
                 layout_ref: "Vault",
-                seeds: &[],
+                seeds: &["b\"vault\"", "authority.key().as_ref()"],
             },
             AccountEntry {
                 name: "authority",
@@ -1020,8 +1067,23 @@ mod tests {
         assert!(out.contains("pub struct DepositArgs {"));
         assert!(out.contains("pub amount: u64,"));
         assert!(out.contains("pub struct DepositAccounts {"));
-        assert!(out.contains("pub vault: Pubkey,"));
+        // `vault` is a PDA -> derived in the builder, not a caller-supplied field.
+        assert!(!out.contains("pub vault: Pubkey,"));
         assert!(out.contains("pub authority: Pubkey,"));
+    }
+
+    #[test]
+    fn rs_instructions_auto_derives_pda_accounts() {
+        let m = test_manifest();
+        let out = RsClientGen(&m).to_string();
+
+        // The PDA account is derived in the builder from its on-chain seeds...
+        assert!(out.contains("let (vault, _) = Pubkey::find_program_address("));
+        assert!(out.contains("&b\"vault\"[..]"));
+        assert!(out.contains("accounts.authority.as_ref()"));
+        // ...and the derived local is used in the AccountMeta, not accounts.vault.
+        assert!(out.contains("AccountMeta::new(vault, false)"));
+        assert!(!out.contains("accounts.vault"));
     }
 
     #[test]
