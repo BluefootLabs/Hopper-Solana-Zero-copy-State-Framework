@@ -740,10 +740,14 @@ impl AccountDescriptor {
         if data.len() < self.min_size as usize {
             return Err(ProgramError::AccountDataTooSmall);
         }
-        if data[0] != self.disc {
-            return Err(ProgramError::InvalidAccountData);
+        // `data.first()`, not `data[0]`: a degenerate entry with
+        // `min_size == 0` passes the length check above even on an empty
+        // account, and a bare `data[0]` would then panic.
+        match data.first() {
+            Some(&disc) if disc == self.disc => Ok(()),
+            Some(_) => Err(ProgramError::InvalidAccountData),
+            None => Err(ProgramError::AccountDataTooSmall),
         }
-        Ok(())
     }
 
     /// The deterministic [`LayoutFingerprint`] a generated client checks

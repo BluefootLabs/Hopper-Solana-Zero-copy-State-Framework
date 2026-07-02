@@ -370,17 +370,23 @@ impl<const SNAP_SIZE: usize> StateReceipt<SNAP_SIZE> {
             if i >= 16 {
                 break;
             }
-            let end = offset + size;
-            if end <= compare_len {
-                if snap_data[offset..end] != current_data[offset..end] {
-                    mask |= 1 << i;
+            // Checked: an `offset + size` that wraps (a malformed segment
+            // spec) would make `offset > end` and panic the `[offset..end]`
+            // slice below. A `None` here means the segment reaches past
+            // any real buffer, which is exactly the "extends beyond" case
+            // handled by the fall-through arms.
+            match offset.checked_add(size) {
+                Some(end) if end <= compare_len => {
+                    if snap_data[offset..end] != current_data[offset..end] {
+                        mask |= 1 << i;
+                    }
                 }
-            } else if offset < compare_len {
-                // Partial overlap: segment extends beyond one of the buffers
-                mask |= 1 << i;
-            } else if self.was_resized {
-                // Segment entirely in new region
-                mask |= 1 << i;
+                // Partial overlap, or a spec that runs past the compared
+                // region: conservatively mark the segment changed.
+                _ if offset < compare_len => mask |= 1 << i,
+                // Segment lies entirely in freshly-grown data.
+                _ if self.was_resized => mask |= 1 << i,
+                _ => {}
             }
         }
         self.segment_changed_mask = mask;

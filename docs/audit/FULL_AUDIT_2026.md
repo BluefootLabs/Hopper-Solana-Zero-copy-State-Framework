@@ -671,6 +671,34 @@ Wave 3 (account/* remainder, 2026-07-02):
   bounds-checked; `FixedLayout` simplified to the I15 empty body),
   `account/segment_role.rs` (pure const enum, no unsafe).
 
+Wave 4 (the two big files, 2026-07-02):
+
+- [x] receipt.rs (1214), manifest.rs (1806)
+
+#### Batch 3 Wave 4 findings
+
+- **verified sound** `receipt.rs` — **no `unsafe` anywhere**; the whole
+  serializer writes into a compile-time `[u8; RECEIPT_SIZE=72]` at fixed
+  offsets, and `DecodedReceipt::from_bytes` gates untrusted input at
+  `RECEIPT_SIZE_LEGACY` before reading, only touching the extended
+  failure payload when `len >= RECEIPT_SIZE`. **P3 hardened:**
+  `commit_with_segments` computed `offset + size` unchecked — a wrapped
+  (malformed) segment spec would make `offset > end` and panic the
+  `[offset..end]` slice. Now `checked_add`, with overflow folding into
+  the existing "extends past buffer" arms. (Segment specs are
+  `#[hopper::state]` code constants, not instruction data, so this was a
+  latent-not-reachable panic; hardened for defense-in-depth.)
+- **verified sound** `manifest.rs` — `ProgramManifestView::parse` and
+  `entry(i)` are exemplary: header cast is length-checked align-1 Pod,
+  entry access uses `.get(start..start+SIZE)?` (no panic), and the
+  entry count is `u16`-bounded so `registry_len` can't overflow;
+  `write_registry` bounds every write against a pre-checked `total`.
+  The two `FixedLayout` impls already dropped to the I15 empty body
+  (Wave 2). **P3 fixed:** `AccountDescriptor::validate` read `data[0]`
+  after only a `data.len() < min_size` check — a degenerate
+  `min_size == 0` entry passes that on an *empty* account, so the bare
+  index would panic. Now `data.first()`.
+
 ### Batch 4 — macros (hopper-macros-proc 15 files ~12.2k + hopper-macros ~1.9k)
 
 - [ ] state.rs, context.rs, program.rs, dynamic.rs, declare_program.rs,
