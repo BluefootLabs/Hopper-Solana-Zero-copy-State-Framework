@@ -19,41 +19,49 @@ const HEADER_SIZE: usize = 4;
 /// remove is O(n) (shift left), search is O(log n).
 pub struct SortedVec<'a, T: Pod + FixedLayout + Ord> {
     data: &'a mut [u8],
+    /// Element capacity, derived once at construction
+    /// (parse-don't-validate).
+    capacity: usize,
     _phantom: core::marker::PhantomData<T>,
 }
 
 impl<'a, T: Pod + FixedLayout + Ord> SortedVec<'a, T> {
     /// Overlay a SortedVec on a mutable byte slice.
+    ///
+    /// **Parse, don't validate.** The stored length (untrusted account
+    /// bytes) must not exceed the byte-derived capacity; a header
+    /// claiming `len > capacity` is rejected here with
+    /// `InvalidAccountData` rather than clamped in `binary_search` /
+    /// `remove` / `max`. Every method then trusts `len() <= capacity`.
     #[inline]
     pub fn from_bytes(data: &'a mut [u8]) -> Result<Self, ProgramError> {
         const { super::assert_zero_copy_element::<T>() };
         if data.len() < HEADER_SIZE {
             return Err(ProgramError::AccountDataTooSmall);
         }
+        let capacity = (data.len() - HEADER_SIZE) / T::SIZE;
+        let len = u32::from_le_bytes([data[0], data[1], data[2], data[3]]) as usize;
+        if len > capacity {
+            return Err(ProgramError::InvalidAccountData);
+        }
         Ok(Self {
             data,
+            capacity,
             _phantom: core::marker::PhantomData,
         })
     }
 
-    /// Current number of elements.
-    ///
-    /// Clamped to [`capacity`](Self::capacity): the raw count is read
-    /// from account bytes, and a corrupted count above capacity would
-    /// otherwise drive `binary_search` (`hi = len`, `read_at(mid)`),
-    /// `remove`, and `max` past the buffer. Well-formed vecs store
-    /// `count <= capacity`, so the clamp is a no-op for them.
+    /// Current number of elements. Trusted `<= capacity` by the
+    /// `from_bytes` invariant and preserved by every mutator.
     #[inline(always)]
     pub fn len(&self) -> usize {
-        let raw =
-            u32::from_le_bytes([self.data[0], self.data[1], self.data[2], self.data[3]]) as usize;
-        raw.min(self.capacity())
+        u32::from_le_bytes([self.data[0], self.data[1], self.data[2], self.data[3]]) as usize
     }
 
     /// Maximum capacity.
     #[inline(always)]
     pub fn capacity(&self) -> usize {
-        (self.data.len() - HEADER_SIZE) / T::SIZE
+        self.capacity
     }
 
     /// Is the vec empty?

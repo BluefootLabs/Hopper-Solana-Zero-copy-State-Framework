@@ -290,9 +290,9 @@ macro_rules! wire_int {
         // `unsafe impl Pod` does not get the seal.
         unsafe impl ::hopper_runtime::__sealed::HopperZeroCopySealed for $name {}
 
-        impl crate::account::FixedLayout for $name {
-            const SIZE: usize = $size;
-        }
+        // SIZE defaults to size_of::<Self>() == $size, proven by the
+        // trait (I15); the wire size is pinned by WIRE_SIZE above.
+        impl crate::account::FixedLayout for $name {}
     };
 }
 

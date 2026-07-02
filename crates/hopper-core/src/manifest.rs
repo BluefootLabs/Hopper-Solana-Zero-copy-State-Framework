@@ -186,9 +186,9 @@ impl AccountLayoutEntry {
 // SAFETY: all fields are alignment-1, every bit pattern valid, no padding.
 unsafe impl Zeroable for AccountLayoutEntry {}
 unsafe impl Pod for AccountLayoutEntry {}
-impl FixedLayout for AccountLayoutEntry {
-    const SIZE: usize = AccountLayoutEntry::SIZE;
-}
+// SIZE defaults to size_of::<Self>() == 31, proven by the trait (I15);
+// the wire size stays pinned by the const asserts above.
+impl FixedLayout for AccountLayoutEntry {}
 
 // ══════════════════════════════════════════════════════════════════════
 //  ProgramManifestHeader -- the registry header
@@ -244,9 +244,9 @@ impl ProgramManifestHeader {
 // SAFETY: all fields are alignment-1, every bit pattern valid, no padding.
 unsafe impl Zeroable for ProgramManifestHeader {}
 unsafe impl Pod for ProgramManifestHeader {}
-impl FixedLayout for ProgramManifestHeader {
-    const SIZE: usize = ProgramManifestHeader::SIZE;
-}
+// SIZE defaults to size_of::<Self>() == 80, proven by the trait (I15);
+// the wire size stays pinned by the const asserts above.
+impl FixedLayout for ProgramManifestHeader {}
 
 /// Required byte length for a registry with `count` entries.
 #[inline]

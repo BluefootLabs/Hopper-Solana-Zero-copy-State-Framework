@@ -66,9 +66,8 @@ unsafe impl<T: Copy + 'static> ::hopper_runtime::__sealed::HopperZeroCopySealed
 {
 }
 
-impl<T> crate::account::FixedLayout for TypedAddress<T> {
-    const SIZE: usize = 32;
-}
+// SIZE defaults to size_of::<Self>() == 32, proven by the trait (I15).
+impl<T> crate::account::FixedLayout for TypedAddress<T> {}
 
 impl<T> TypedAddress<T> {
     /// Create a typed address from raw bytes.
@@ -220,9 +219,8 @@ unsafe impl crate::account::Pod for UntypedAddress {}
 // Audit Step 5 seal: Hopper-authored primitive.
 unsafe impl ::hopper_runtime::__sealed::HopperZeroCopySealed for UntypedAddress {}
 
-impl crate::account::FixedLayout for UntypedAddress {
-    const SIZE: usize = 32;
-}
+// SIZE defaults to size_of::<Self>() == 32, proven by the trait (I15).
+impl crate::account::FixedLayout for UntypedAddress {}
 
 impl UntypedAddress {
     /// Tag this address with a layout type.

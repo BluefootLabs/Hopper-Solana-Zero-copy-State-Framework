@@ -351,3 +351,35 @@ attribute would be small ergonomic parity if users ask.
   while *raising* the safety floor. Follow-up: delete the 10 now-redundant
   hand-written `assert!(size_of == N)` guards and the explicit `const
   SIZE = N` on conforming types.
+
+### I16 — Field behaviors: packageable per-field lifecycle plugins (the Quasar DX gap)
+
+- **idea.** Impact: high (the one place Quasar's DX is genuinely ahead).
+  Effort: high (macro + trait design).
+- Quasar's `AccountBehavior<A>` (`lang/src/account_behavior.rs`) lets a
+  *protocol* author a reusable, parameterized behavior module and attach
+  it per-field: `#[account(fee_vault(bps = 30))]`. Phase hooks
+  (`set_init_param` / `after_init` / `check` / `update` / `exit`) are
+  gated by associated consts so the derive emits code only for the
+  phases a behavior actually uses; `VALIDATES_ACCOUNT_DATA` even lets a
+  behavior take over data validation so parsing can use a cheaper
+  pre-load path. Hopper's equivalents are weaker for this use case:
+  `constraint = expr` is ad-hoc (copy-paste, not packageable),
+  `#[validate]` is one per-context method (not per-field, not
+  composable), and the lifecycle helpers are framework-owned (not
+  protocol-extensible).
+- **Match:** a `HopperBehavior<A>` trait + `#[account(my_behavior(...))]`
+  attachment with const-gated phases, same shape.
+- **Surpass (what Quasar cannot do):**
+  1. behaviors return **proof tokens** (the `AccountProof` /
+     `ExternalProof` capability layer already exists) so downstream APIs
+     can *require* evidence a behavior ran — Quasar behaviors are
+     side-effects only;
+  2. behaviors declare their **write-set contribution** so they compose
+     with I12 `strict_writes` instead of punching holes in it;
+  3. behavior executions are visible in the I7 **touch map** and the
+     receipt system, so `hopper explain` can show which behavior touched
+     which field — auditable plugins, not opaque ones.
+- Owner files: `crates/hopper-runtime/src/proof.rs` (token surface),
+  `crates/hopper-macros-proc/src/context.rs` (attachment parsing +
+  phase emission), new `hopper-runtime/src/behavior.rs`.

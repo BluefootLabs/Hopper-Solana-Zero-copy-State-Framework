@@ -84,9 +84,8 @@ unsafe impl crate::account::Pod for WireBool {}
 // Audit Step 5 seal: Hopper-authored primitive.
 unsafe impl ::hopper_runtime::__sealed::HopperZeroCopySealed for WireBool {}
 
-impl crate::account::FixedLayout for WireBool {
-    const SIZE: usize = 1;
-}
+// SIZE defaults to size_of::<Self>() == 1, proven by the trait (I15).
+impl crate::account::FixedLayout for WireBool {}
 
 #[cfg(test)]
 mod tests {

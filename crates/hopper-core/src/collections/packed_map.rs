@@ -47,6 +47,9 @@ impl<K: Pod + FixedLayout + PartialEq, V: Pod + FixedLayout> FixedLayout for Map
 /// No heap allocation.
 pub struct PackedMap<'a, K: Pod + FixedLayout + PartialEq, V: Pod + FixedLayout> {
     data: &'a mut [u8],
+    /// Entry capacity, derived once at construction
+    /// (parse-don't-validate).
+    capacity: usize,
     _phantom: core::marker::PhantomData<(K, V)>,
 }
 
@@ -54,36 +57,46 @@ impl<'a, K: Pod + FixedLayout + PartialEq, V: Pod + FixedLayout> PackedMap<'a, K
     const ENTRY_SIZE: usize = K::SIZE + V::SIZE;
 
     /// Overlay a PackedMap on a mutable byte slice.
+    ///
+    /// **Parse, don't validate.** Both `K` and `V` are compile-checked
+    /// (`assert_zero_copy_element`, which also guarantees `ENTRY_SIZE > 0`
+    /// so the capacity division cannot divide by zero), and the stored
+    /// entry count (untrusted account bytes) must not exceed the
+    /// byte-derived capacity; an inconsistent header is rejected here
+    /// with `InvalidAccountData` rather than clamped in `find` /
+    /// `read_key` / `clear`.
     #[inline]
     pub fn from_bytes(data: &'a mut [u8]) -> Result<Self, ProgramError> {
+        const {
+            super::assert_zero_copy_element::<K>();
+            super::assert_zero_copy_element::<V>();
+        }
         if data.len() < HEADER_SIZE {
             return Err(ProgramError::AccountDataTooSmall);
         }
+        let capacity = (data.len() - HEADER_SIZE) / Self::ENTRY_SIZE;
+        let len = u32::from_le_bytes([data[0], data[1], data[2], data[3]]) as usize;
+        if len > capacity {
+            return Err(ProgramError::InvalidAccountData);
+        }
         Ok(Self {
             data,
+            capacity,
             _phantom: core::marker::PhantomData,
         })
     }
 
-    /// Current number of entries.
-    ///
-    /// Clamped to [`capacity`](Self::capacity): the raw count comes from
-    /// account bytes, and a corrupted count larger than capacity would
-    /// otherwise drive `find` / `read_key` / `clear` to read or index
-    /// past the buffer. For a well-formed map the stored count is always
-    /// `<= capacity`, so the clamp is a no-op; for a malformed one it
-    /// bounds every downstream loop and offset to the real slot region.
+    /// Current number of entries. Trusted `<= capacity` by the
+    /// `from_bytes` invariant and preserved by every mutator.
     #[inline(always)]
     pub fn len(&self) -> usize {
-        let raw =
-            u32::from_le_bytes([self.data[0], self.data[1], self.data[2], self.data[3]]) as usize;
-        raw.min(self.capacity())
+        u32::from_le_bytes([self.data[0], self.data[1], self.data[2], self.data[3]]) as usize
     }
 
     /// Maximum capacity.
     #[inline(always)]
     pub fn capacity(&self) -> usize {
-        (self.data.len() - HEADER_SIZE) / Self::ENTRY_SIZE
+        self.capacity
     }
 
     /// Is the map empty?

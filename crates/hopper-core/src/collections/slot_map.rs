@@ -40,22 +40,40 @@ const _: () = assert!(core::mem::align_of::<SlotKey>() == 4); // OK for non-wire
 /// - Used for registries, entity systems, order books with stable handles.
 pub struct SlotMap<'a, T: Pod + FixedLayout> {
     data: &'a mut [u8],
+    /// Slot capacity, derived once at construction
+    /// (parse-don't-validate).
+    capacity: usize,
     _phantom: core::marker::PhantomData<T>,
 }
 
 impl<'a, T: Pod + FixedLayout> SlotMap<'a, T> {
-    /// Size of one slot (overhead + element).
+    /// Size of one slot (overhead + element). `SLOT_OVERHEAD > 0`, so
+    /// this is always nonzero even for a (rejected) zero-sized `T`, and
+    /// the capacity division below cannot divide by zero.
     const SLOT_SIZE: usize = SLOT_OVERHEAD + T::SIZE;
 
     /// Overlay a SlotMap on a mutable byte slice.
+    ///
+    /// **Parse, don't validate.** The stored occupied-slot count comes
+    /// from untrusted account bytes; a header claiming `count > capacity`
+    /// is inconsistent geometry and is rejected here. (Access itself was
+    /// already sound — every `SlotKey` index is bounds-checked against
+    /// `capacity` and the generation counter defeats ABA — so this adds
+    /// consistency, not a missing bound.)
     #[inline]
     pub fn from_bytes(data: &'a mut [u8]) -> Result<Self, ProgramError> {
         const { super::assert_zero_copy_element::<T>() };
         if data.len() < MAP_HEADER {
             return Err(ProgramError::AccountDataTooSmall);
         }
+        let capacity = (data.len() - MAP_HEADER) / Self::SLOT_SIZE;
+        let count = u32::from_le_bytes([data[0], data[1], data[2], data[3]]) as usize;
+        if count > capacity {
+            return Err(ProgramError::InvalidAccountData);
+        }
         Ok(Self {
             data,
+            capacity,
             _phantom: core::marker::PhantomData,
         })
     }
@@ -63,7 +81,7 @@ impl<'a, T: Pod + FixedLayout> SlotMap<'a, T> {
     /// Maximum capacity (number of slots).
     #[inline(always)]
     pub fn capacity(&self) -> usize {
-        (self.data.len() - MAP_HEADER) / Self::SLOT_SIZE
+        self.capacity
     }
 
     /// Current number of occupied slots.

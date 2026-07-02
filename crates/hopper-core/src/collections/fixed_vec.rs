@@ -20,43 +20,53 @@ const HEADER_SIZE: usize = 4;
 /// No heap allocation.
 pub struct FixedVec<'a, T: Pod + FixedLayout> {
     data: &'a mut [u8],
+    /// Element capacity, derived from `data.len()` once at construction
+    /// (parse-don't-validate, matching `Slab`/`Journal`/`RingBuffer`).
+    capacity: usize,
     _phantom: core::marker::PhantomData<T>,
 }
 
 impl<'a, T: Pod + FixedLayout> FixedVec<'a, T> {
     /// Overlay a FixedVec on a mutable byte slice.
     ///
-    /// The slice must be at least `HEADER_SIZE` bytes.
-    /// Capacity is `(data.len() - HEADER_SIZE) / T::SIZE`.
+    /// **Parse, don't validate.** The slice must be at least
+    /// `HEADER_SIZE` bytes, and the stored length — which comes from
+    /// untrusted account bytes — must not exceed the capacity the byte
+    /// length affords. A header claiming `len > capacity` is inconsistent
+    /// geometry and is **rejected** here with `InvalidAccountData`,
+    /// rather than silently clamped in every accessor. Every method then
+    /// trusts `len() <= capacity` (sound because the handler holds the
+    /// `&mut [u8]` exclusively), and the mutators keep it that way.
     #[inline]
     pub fn from_bytes(data: &'a mut [u8]) -> Result<Self, ProgramError> {
         const { super::assert_zero_copy_element::<T>() };
         if data.len() < HEADER_SIZE {
             return Err(ProgramError::AccountDataTooSmall);
         }
+        let capacity = (data.len() - HEADER_SIZE) / T::SIZE;
+        let len = u32::from_le_bytes([data[0], data[1], data[2], data[3]]) as usize;
+        if len > capacity {
+            return Err(ProgramError::InvalidAccountData);
+        }
         Ok(Self {
             data,
+            capacity,
             _phantom: core::marker::PhantomData,
         })
     }
 
-    /// Current number of elements.
-    ///
-    /// Clamped to [`capacity`](Self::capacity): the raw count is read
-    /// from account bytes, and a corrupted count above capacity would
-    /// otherwise let `get`/`pop`/`swap_remove`/`clear` compute offsets
-    /// past the buffer. Well-formed vecs always store `count <=
-    /// capacity`, so the clamp is a no-op for them.
+    /// Current number of elements. Trusted `<= capacity` by the
+    /// `from_bytes` invariant and preserved by every mutator.
     #[inline(always)]
     pub fn len(&self) -> usize {
         let bytes = [self.data[0], self.data[1], self.data[2], self.data[3]];
-        (u32::from_le_bytes(bytes) as usize).min(self.capacity())
+        u32::from_le_bytes(bytes) as usize
     }
 
     /// Maximum capacity.
     #[inline(always)]
     pub fn capacity(&self) -> usize {
-        (self.data.len() - HEADER_SIZE) / T::SIZE
+        self.capacity
     }
 
     /// Is the vec empty?
@@ -263,20 +273,15 @@ mod tests {
     }
 
     #[test]
-    fn corrupt_count_is_clamped_to_capacity() {
-        // capacity 2, but the stored count claims 9999. Every accessor
-        // must behave as if the count were capped at capacity, never
-        // reading or writing past the two real slots.
+    fn corrupt_count_is_rejected_at_construction() {
+        // capacity 2, but the stored count claims 9999: inconsistent
+        // geometry, refused at the boundary (parse-don't-validate) rather
+        // than clamped per-accessor. No method ever sees the poison.
         let mut buf = [0u8; 4 + 8 * 2];
         buf[0..4].copy_from_slice(&9999u32.to_le_bytes());
-        let mut vec = FixedVec::<WireU64>::from_bytes(&mut buf).unwrap();
-        assert_eq!(vec.len(), 2);
-        assert!(vec.get(2).is_err());
-        // pop/swap_remove operate on the clamped last index, in-bounds.
-        assert!(vec.get(1).is_ok());
-        let _ = vec.pop().unwrap();
-        assert_eq!(vec.len(), 1);
-        vec.clear();
-        assert_eq!(vec.len(), 0);
+        assert!(matches!(
+            FixedVec::<WireU64>::from_bytes(&mut buf),
+            Err(ProgramError::InvalidAccountData)
+        ));
     }
 }

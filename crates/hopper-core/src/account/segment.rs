@@ -39,9 +39,9 @@ unsafe impl Pod for SegmentDescriptor {}
 // Audit Step 5 seal: Hopper-authored primitive.
 unsafe impl ::hopper_runtime::__sealed::HopperZeroCopySealed for SegmentDescriptor {}
 
-impl FixedLayout for SegmentDescriptor {
-    const SIZE: usize = SEGMENT_DESC_SIZE;
-}
+// SIZE defaults to size_of::<Self>() == SEGMENT_DESC_SIZE (12), proven
+// by the trait (I15) and pinned by the const asserts above.
+impl FixedLayout for SegmentDescriptor {}
 
 impl SegmentDescriptor {
     /// Data region byte offset within the account.
