@@ -437,18 +437,26 @@ now line-by-line audited.
   repo `5da482a` (fixed the removed backend-selection feature forwards
   and the anchor-vault `declare_id!` placeholder that aborted local
   Mollusk runs with `DeclaredProgramIdMismatch`).
-- **P2-perf OPEN — CU drift +13…+44 per row since `300797d`**
-  (2026-05-25 run): authorize 431→466, auth-fail 72→107 (gap to
-  Pinocchio widened −31→−66), counter 551→564, deposit 1669→1713,
-  withdraw 453→488. Binary shrank 7.53→7.46 KiB. Suspects, in order:
-  (1) I10 `expect_signer_writable` failure-path fallback shape — and
-  possibly its success path costing more than the two separate checks
-  it replaced in this lowering; (2) per-write-acquire additions in the
-  same window (I12 `None`-policy branch, `flags()` indirection);
-  (3) other runtime changes between the two commits. Action: bisect the
-  parity vault CU across the commit range; if I10's fused compare is
-  net-negative at Mollusk-measured granularity, revisit or gate it —
-  measurement over narrative, same standard as I8's invalidation.
+- **P2-perf RESOLVED (bisected 2026-07-02) — the +13…+44 CU delta was
+  the removal of an unsound optimization, not a regression.** Method:
+  control run first (May framework commit `300797d` + today's runner
+  reproduces 431/72/551/1669/453 bit-for-bit, exonerating the harness),
+  then automated `git bisect run` over `300797d..411790f` in a
+  throwaway worktree (build parity vault per candidate, measure, skip
+  broken-at-commit states from the history rewrite). **First bad
+  commit: `8899e99`** — the SIMD-0321 feature-gating of
+  `fast_entrypoint!`. Pre-`8899e99` the parity vault entered through
+  the two-argument `r2` entrypoint unconditionally; SIMD-0321 is not
+  active on any public cluster, so that path reads an uninitialized
+  register on mainnet and only worked under local SVMs. The May
+  numbers were therefore unachievable on real clusters; the current
+  numbers are the honest ones, and the ~30–40 CU scanning cost returns
+  as savings when the SIMD-0321 gate activates. Corollaries proven by
+  the bisect endpoints: **I10, I7, and I12 cost exactly 0 CU** (parity
+  vault identical at `411790f` and current head — the original
+  suspicion of I10's fallback shape was wrong), and the wider
+  auth-fail gap to Pinocchio is the same entrypoint story. Suspects
+  (1)–(3) above: all cleared by measurement.
 
 ### Batch 3 — hopper-core (69 files, ~18.6k lines)
 

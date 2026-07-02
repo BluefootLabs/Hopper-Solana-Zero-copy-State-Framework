@@ -255,17 +255,39 @@ Hopper 431/72/551/1669/453 CU at 7.53 KiB; Quasar deposit 1767 / withdraw
 - Quasar's upstream vault does not implement `authorize` or `counter_access`,
   so those rows are intentionally absent for Quasar.
 
-### Regression watch (honest deltas vs 2026-05-25)
+### The +13…+44 CU delta vs 2026-05-25, bisected and resolved
 
-Hopper's own rows drifted **+13…+44 CU** between `300797d` and `1d10d04`
-(authorize 431→466, auth-fail 72→107, counter 551→564, deposit
-1669→1713, withdraw 453→488; binary 7.53→7.46 KiB). The auth-fail gap to
-Pinocchio consequently widened from −31 to −66 CU. Prime suspect: the
-I10 fused-validation lowering's *failure-path* fallback (fused compare,
-then per-check precise-error re-validation) plus per-acquire additions
-that landed in the same window. A commit-range bisect on the parity
-vault is queued in `docs/audit/FULL_AUDIT_2026.md`; the success-path
-wins above stand either way.
+Hopper's rows moved between the runs (authorize 431→466, auth-fail
+72→107, counter 551→564, deposit 1669→1713, withdraw 453→488; binary
+7.53→7.46 KiB). An automated `git bisect run` (build the parity vault at
+each candidate, measure with the pinned 2026-07-02 runner; the runner
+itself reproduces the May numbers bit-for-bit on the May commit) pinned
+the **entire** delta to one commit: `8899e99`, which feature-gated the
+`r2` fast entrypoint behind `simd-0321`.
+
+**This is not a regression — it is the removal of an unsound
+optimization.** Before `8899e99`, `fast_entrypoint!` unconditionally
+read the instruction-data pointer from the SVM's second entrypoint
+register. SIMD-0321 — the proposal that populates that register — is
+**not activated on any public cluster**; the fast path only worked in
+local SVMs that happen to pass `r2`. The May numbers were therefore
+~30–40 CU better than any mainnet deployment could actually achieve.
+Today's table is the honest, deployable number; the delta is exactly
+the account-scanning pass the sound entrypoint performs, and it comes
+back the day the SIMD-0321 gate activates (rebuild with the feature).
+
+Two corollaries the bisect proved along the way:
+
+- **I10 (fused signer/writable validation), I7 (touch maps), and I12
+  (write policies) cost 0 CU** — the parity vault measures identically
+  at the pre-I10 commit `411790f` and at current head, across all five
+  scenarios and binary size. The earlier suspicion of I10's
+  failure-path fallback was wrong.
+- The widened auth-fail gap to Pinocchio (−31 → −66 CU) is the same
+  entrypoint story: their 41 CU rejection is measured with their
+  scanning entrypoint too, so the honest comparison is 107 vs 41 — the
+  scanning pass plus Hopper's dispatch reaching the fused check. Still
+  the only row Pinocchio wins.
 
 ### Reading the Pinocchio deltas honestly
 
