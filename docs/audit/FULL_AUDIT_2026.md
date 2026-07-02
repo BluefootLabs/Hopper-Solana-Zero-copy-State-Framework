@@ -50,9 +50,10 @@ been read line-by-line and its findings logged.
 
 - [x] segment_borrow.rs (flagship differentiator — see findings)
 - [x] pda.rs (fixed with the Batch 1 PDA hardening: host fallback panic)
-- [~] account.rs (large; loaders/compact/cross-program/close/check surfaces
-      audited during this session's fixes — remaining: wrappers/init/realloc
-      internals)
+- [x] account.rs (audited incrementally across the session: loaders,
+      compact + compact-dynamic, cross-program, close, checks, segments,
+      split, flags/fused-validation, resize, extension helpers, init_layout)
+- [x] token.rs (pattern-verified with spot checks — see findings)
 - [x] borrow.rs (host-repr provenance fix — see findings)
 - [x] memory.rs
 - [x] zerocopy.rs
@@ -277,6 +278,23 @@ been read line-by-line and its findings logged.
   auditors a single greppable name for every raw reinterpretation site
   (feeds innovation I2's `verify-unsafe` tooling); remainder is
   re-exports/docs.
+- **verified sound** `hopper-runtime/token.rs` — the SPL builder/validator
+  layer. The single non-test unsafe (`assemble_and_invoke`'s
+  count-gated `MaybeUninit` arrays) is bounds-checked
+  (`FIXED + multisig ≤ MAX_STATIC_CPI_ACCOUNTS`, checked_add) and —
+  importantly — **routes every builder through the fully-validated
+  `cpi::invoke_signed_with_bounds`** (borrow-compat, duplicate-writable,
+  PDA-signer checks). This **mitigates the Batch-1 P2-open** on the
+  native-layer token/system helpers: the primary surface programs use via
+  `hopper::token` is the validated one. The `require_token_*` /
+  `require_mint_*` validators use `try_borrow` (borrow-checked reads),
+  explicit length bounds, and by-copy field extraction at the documented
+  SPL offsets. Remaining unsafe is the standard test-helper constructor.
+- **account.rs fully closed** — the gap-scan confirmed the last unaudited
+  sections (`fields`/`field` inspection, `extension_range`/`bytes`/
+  `bytes_mut` — offset-presence + bounds before `slice_from`, borrow-
+  tracked — and `init_layout`) are sound; every other section was audited
+  during this session's fixes and features.
 
 ### Batch 3 — hopper-core (69 files, ~18.6k lines)
 
