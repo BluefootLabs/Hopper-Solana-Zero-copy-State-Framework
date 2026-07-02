@@ -65,6 +65,8 @@ been read line-by-line and its findings logged.
 - [x] cpi.rs
 - [x] context.rs
 - [x] borrow_registry.rs (host global race fixed — see findings)
+- [x] remaining.rs
+- [x] native_boundary.rs
 - [ ] compact.rs, tail.rs, segment_lease.rs, layout.rs,
       account_wrappers.rs, borrow_registry.rs, address.rs, cpi.rs,
       token.rs, crypto.rs, context.rs, policy.rs, native_boundary.rs,
@@ -238,6 +240,24 @@ been read line-by-line and its findings logged.
   borrow byte) were already sound. The registry's conflict matrix itself
   verified correct (shared blocked by mutable, mutable blocked by
   anything, `checked_add` on the shared count, tolerant release).
+- **verified sound** `hopper-runtime/remaining.rs` — the four-mode
+  remaining-accounts taxonomy (innovation I6): strict-mode `get()` scans
+  both the declared prefix and earlier remaining slots for address
+  aliases (bounded by `MAX_REMAINING_ACCOUNTS`); `signers::<N>` enforces
+  the signer role through the audited `Signer::try_new`;
+  `account_views::<N>` bounds by `N`; `take_group`/`assert_sorted_by`/
+  `assert_no_duplicates`/`assert_empty` all safe over audited primitives.
+  The only unsafe is the standard test-helper account constructor.
+- **verified sound** `hopper-runtime/native_boundary.rs` — the
+  native↔runtime bridge: every transparent cast is backed by verified
+  layout guarantees (runtime `AccountView` is `repr(transparent)` over
+  the backend view with compile-time size + `needs_drop` asserts at
+  account.rs:69/76; both `Address` types are `repr(transparent)`
+  `[u8; 32]`); `wrap_account_slice`'s contract is accurate;
+  `account_owner` carries the owner-invalidation caveat with `read_owner`
+  as the safe alternative; the entrypoint bridge macro forwards the
+  loader contract verbatim. Middle sections (close/zero_data/lamports/
+  resize/PDA forwarding) were audited during this session's fixes.
 
 ### Batch 3 — hopper-core (69 files, ~18.6k lines)
 
