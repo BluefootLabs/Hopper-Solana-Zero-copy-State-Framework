@@ -19,6 +19,15 @@ pub fn create_program_address(
 /// Find a program-derived address and its bump seed.
 ///
 /// Iterates bump seeds 255..=0 until a valid PDA is found.
+///
+/// # Panics
+///
+/// Panics if no viable bump exists (matching upstream
+/// `Pubkey::find_program_address`), and on non-SVM hosts, where the sha256
+/// syscall is unavailable. The pre-audit host fallback silently returned
+/// `(Address::default(), 0)` — the all-zero System Program address — which
+/// made host tests "pass" derivation while comparing against a meaningless
+/// key. Host tests should exercise PDA paths through the SVM harness.
 #[inline]
 pub fn find_program_address(seeds: &[&[u8]], program_id: &Address) -> (Address, u8) {
     #[cfg(target_os = "solana")]
@@ -28,7 +37,10 @@ pub fn find_program_address(seeds: &[&[u8]], program_id: &Address) -> (Address, 
     #[cfg(not(target_os = "solana"))]
     {
         let _ = (seeds, program_id);
-        (Address::default(), 0)
+        panic!(
+            "hopper: find_program_address requires the SVM sha256 syscall; \
+             run PDA paths under the SVM harness (target_os = \"solana\")"
+        );
     }
 }
 

@@ -14,18 +14,23 @@ const PDA_MARKER_BYTES: &[u8; 21] = crate::address::PDA_MARKER;
 /// Create a program-derived address from seeds and a program ID.
 ///
 /// Returns `Err(InvalidSeeds)` if the derived address falls on the
-/// ed25519 curve (not a valid PDA).
+/// ed25519 curve (not a valid PDA), or if more than [`MAX_SEEDS`] seeds
+/// are supplied (matching upstream `Pubkey::create_program_address`
+/// semantics — never silently truncating the seed set).
 #[inline(always)]
 pub fn create_program_address(
     seeds: &[&[u8]],
     program_id: &Address,
 ) -> Result<Address, ProgramError> {
+    if seeds.len() > MAX_SEEDS {
+        return Err(ProgramError::InvalidSeeds);
+    }
     #[cfg(target_os = "solana")]
     {
         // Build the seeds array in the format expected by the syscall:
         // each seed is a (ptr, len) pair packed as two u64 values.
         let mut seed_buf: [u64; 32] = [0; 32]; // MAX_SEEDS * 2
-        let num_seeds = seeds.len().min(16);
+        let num_seeds = seeds.len();
         let mut i = 0;
         while i < num_seeds {
             seed_buf[i * 2] = seeds[i].as_ptr() as u64;
@@ -59,16 +64,27 @@ pub fn create_program_address(
 /// Find a program-derived address and its bump seed.
 ///
 /// Iterates bump seeds 255..=0 until a valid PDA is found.
+///
+/// # Panics
+///
+/// Panics if no viable bump exists or more than [`MAX_SEEDS`] seeds are
+/// supplied, matching upstream `Pubkey::find_program_address` semantics.
+/// Silently returning a placeholder here would hand callers the all-zero
+/// address — the System Program — as if it were their PDA. Use
+/// [`based_try_find_program_address`] for the fallible variant.
 #[inline(always)]
 pub fn find_program_address(seeds: &[&[u8]], program_id: &Address) -> (Address, u8) {
     #[cfg(target_os = "solana")]
     {
-        based_try_find_program_address(seeds, program_id).unwrap_or((Address::default(), 0))
+        match based_try_find_program_address(seeds, program_id) {
+            Ok(found) => found,
+            Err(_) => panic!("hopper: unable to find a viable program address bump seed"),
+        }
     }
     #[cfg(not(target_os = "solana"))]
     {
         let _ = (seeds, program_id);
-        (Address::default(), 0)
+        panic!("hopper: find_program_address requires the SVM sha256 syscall (target_os = \"solana\")");
     }
 }
 
@@ -188,8 +204,11 @@ pub fn based_try_find_program_address(
                 );
             }
 
-            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-            let on_curve = unsafe {
+            // SAFETY: `hash` was fully written by sol_sha256 above; the
+            // syscall only reads 32 bytes from it.
+            // Return code semantics: 0 = the point IS on the ed25519 curve
+            // (not a valid PDA), nonzero = off-curve (valid PDA).
+            let curve_rc = unsafe {
                 crate::syscalls::sol_curve_validate_point(
                     CURVE25519_EDWARDS,
                     hash.as_ptr() as *const u8,
@@ -197,7 +216,7 @@ pub fn based_try_find_program_address(
                 )
             };
 
-            if on_curve != 0 {
+            if curve_rc != 0 {
                 return Ok((
                     // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
                     Address::new_from_array(unsafe { hash.assume_init() }),
@@ -243,6 +262,19 @@ pub fn verify_pda(
 /// Appends `&[bump]` to the end of the seed list before verifying via
 /// SHA-256 (~200 CU). This is substantially cheaper than the syscall-based
 /// `create_program_address` approach (~1500 CU).
+///
+/// Returns `Err(InvalidSeeds)` if more than [`MAX_SEEDS`] seeds are
+/// supplied (the bump occupies its own slot on top of that limit).
+///
+/// # Bump canonicalization
+///
+/// `bump` must be the **canonical** bump for these seeds — the one
+/// `find_program_address` returns and the program stored at init. Passing
+/// an attacker-supplied bump (e.g. straight from instruction data) lets
+/// multiple addresses verify for the same logical seed set, the classic
+/// bump-canonicalization vulnerability. Prefer
+/// [`verify_pda_from_stored_bump`], which reads the bump the account
+/// itself recorded.
 #[inline]
 pub fn verify_pda_with_bump(
     account: &AccountView<'_>,
@@ -250,10 +282,13 @@ pub fn verify_pda_with_bump(
     bump: u8,
     program_id: &Address,
 ) -> Result<(), ProgramError> {
+    if seeds.len() > MAX_SEEDS {
+        return Err(ProgramError::InvalidSeeds);
+    }
     // Build a seed list with the bump appended.
-    // We use a stack-allocated array since MAX_SEEDS is 16.
-    let mut full_seeds: [&[u8]; 17] = [&[]; 17];
-    let num = seeds.len().min(15);
+    // Stack-allocated: MAX_SEEDS seeds + 1 bump slot.
+    let mut full_seeds: [&[u8]; MAX_SEEDS + 1] = [&[]; MAX_SEEDS + 1];
+    let num = seeds.len();
     let mut i = 0;
     while i < num {
         full_seeds[i] = seeds[i];
@@ -274,6 +309,11 @@ pub fn verify_pda_with_bump(
 /// The seeds slice must already include the bump byte (like
 /// `verify_program_address`). Uses SHA-256 verify-only path (~200 CU)
 /// instead of the full `find_program_address` (~1500 CU).
+///
+/// The included bump must be the **canonical** one for the seed set (see
+/// [`verify_pda_with_bump`]'s bump-canonicalization note): verifying with
+/// an attacker-supplied bump lets multiple addresses pass for the same
+/// logical seeds.
 ///
 /// Returns `Ok(())` if the address matches the derived PDA,
 /// or `Err(InvalidSeeds)` if it does not.
@@ -408,10 +448,13 @@ pub fn verify_pda_from_stored_bump(
     bump_offset: usize,
     program_id: &Address,
 ) -> Result<(), ProgramError> {
+    if seeds.len() > MAX_SEEDS {
+        return Err(ProgramError::InvalidSeeds);
+    }
     let bump = read_bump_from_account(account, bump_offset)?;
 
-    let mut full_seeds: [&[u8]; 17] = [&[]; 17];
-    let num = seeds.len().min(15);
+    let mut full_seeds: [&[u8]; MAX_SEEDS + 1] = [&[]; MAX_SEEDS + 1];
+    let num = seeds.len();
     let mut i = 0;
     while i < num {
         full_seeds[i] = seeds[i];

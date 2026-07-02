@@ -37,7 +37,7 @@ been read line-by-line and its findings logged.
 - [x] project.rs
 - [x] lens.rs (moved up: shares the projection surface)
 - [x] wire.rs
-- [ ] pda.rs
+- [x] pda.rs (+ the runtime pda.rs host fallback it exposed)
 - [ ] cpi.rs
 - [ ] syscalls.rs
 - [ ] sha256.rs / hash.rs
@@ -233,3 +233,41 @@ hopper-sdk (~2k), hopper-manager (~0.9k), hopper-test.
   overflow in debug, wrap in release; its own doc says so). Module doc now
   describes the real semantics and points balance math at the explicit
   `checked_*`/`saturating_*`/`wrapping_*` methods.
+- **P1 fixed (this commit)** `hopper-native/pda.rs::find_program_address`
+  and `hopper-runtime/pda.rs::find_program_address` — on failure (or on any
+  non-SVM host) both silently returned `(Address::default(), 0)`, i.e. the
+  **all-zero System Program address** presented as the caller's PDA. A
+  program (or macro-generated `#[account(seeds=...)]` check — four call
+  sites in `context.rs`) that trusted the result would compare against or
+  derive the wrong key. Now panics on no-viable-bump and on the host
+  fallback, matching upstream `Pubkey::find_program_address`; the fallible
+  path remains `based_try_find_program_address`. Host tests must exercise
+  PDA paths through the SVM harness.
+- **P2 fixed (this commit)** `hopper-native/pda.rs` seed-count truncation —
+  `create_program_address` did `seeds.len().min(16)` and
+  `verify_pda_with_bump`/`verify_pda_from_stored_bump` did `.min(15)`,
+  silently dropping seeds past the cap and deriving a *different* PDA than
+  the caller specified. All now reject `seeds.len() > MAX_SEEDS` with
+  `InvalidSeeds` (bump helpers size their buffer `MAX_SEEDS + 1`), matching
+  the explicit checks the other pda.rs functions already had.
+- **P2/DOC fixed (this commit)** `hopper-native/pda.rs` bump
+  canonicalization — `verify_pda_with_bump` / `verify_pda_strict` accept a
+  caller-supplied bump; without canonicalization multiple addresses verify
+  for the same seed set (the classic Solana bump vuln). Added explicit
+  guidance to both pointing at `verify_pda_from_stored_bump` (reads the
+  account's own recorded bump) as the safe default; renamed the confusing
+  `on_curve`/`if on_curve != 0` local (nonzero actually means *off*-curve /
+  valid PDA) to `curve_rc` with a comment.
+- **P1 fixed (this commit)** `hopper-native/pda.rs::find_program_address` +
+  `hopper-runtime/pda.rs::find_program_address` — on failure (no viable
+  bump, >MAX_SEEDS, or the non-SVM host path) both silently returned
+  `(Address::default(), 0)`: the all-zero address is the **System
+  Program**, handed to callers as if it were their PDA. Both now panic
+  with a clear message, matching upstream `Pubkey::find_program_address`
+  semantics; `based_try_find_program_address` remains the fallible variant.
+- **P1 fixed (this commit)** `hopper-native/pda.rs::verify_pda_with_bump` /
+  `verify_pda_from_stored_bump` — seeds were truncated at `min(15)`: a
+  legitimate 16-seed PDA (MAX_SEEDS) mis-derived and failed verification,
+  and larger seed sets silently derived over the wrong subset instead of
+  erroring. Both now reject `> MAX_SEEDS` explicitly and copy the full set
+  (the stack array hol
