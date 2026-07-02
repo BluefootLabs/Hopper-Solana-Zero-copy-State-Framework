@@ -99,6 +99,14 @@ Status: `idea` | `spiked` | `planned` | `shipped`.
   overflow-partiality). Remaining follow-ups: receipt/`sol_log_data`
   emission encoding, `hopper explain` field-name decoding via
   `#[hopper::state]` constants, and `hopper_test::Trace` surfacing.
+- **Blind spot closed 2026-07-01 (with I12):** whole-account
+  `Context::load_mut` borrows — previously invisible because they never
+  reach the segment registry — now land in the touch log as
+  `(0, data_len)` write records via `record_account_touch` (footprint
+  only; liveness stays with the account borrow byte). Remaining gap:
+  whole-account *reads* (`Context::load`) and direct `AccountView`-level
+  borrows are still unrecorded — documented, and the latter is the same
+  enforcement boundary as I12.
 - Original idea: Impact: high (unique explainability moat). Effort: low-medium.
 - Second-pass audit of `context.rs` found the original audit's wishlist
   item #7 ("instruction touch maps") is almost already built: `Context`
@@ -220,8 +228,29 @@ attribute would be small ergonomic parity if users ask.
 
 ### I12 — Field-level write policies: the ledger as enforcer (THE moat)
 
-- **idea.** Impact: **very high** (a security primitive no chain framework
-  has, and none can copy without Hopper's ledger). Effort: medium-high.
+- **shipped (core) 2026-07-01.** Landed as
+  `#[hopper::context(strict_writes)]`: the context's *existing* `mut` /
+  `mut(seg, ...)` / lifecycle declarations compile into a `static
+  WritePolicy` installed during `bind()`, and every Context-mediated
+  write acquire (`segment_mut*`, `split_segments_mut`, `load_mut`,
+  `raw_mut`, `as_mut_ptr`) is gated at acquisition time with error page
+  `Custom(0xD000 | account_index)`. Whole-account borrows claim
+  `[0, data_len)` for both the policy and the touch map
+  (`SegmentBorrowRegistry::record_account_touch`), which also closed
+  the I7 blind spot. The declaration surface turned out to be already
+  shipped (`mut(seg, ...)` accessor syntax) — the innovation was making
+  it *enforced* rather than advisory. Runtime:
+  `hopper-runtime/src/write_policy.rs`; tests in `write_policy.rs`,
+  `context.rs::write_policy_tests` (gate ordering, refusal indexing,
+  read-only-contract, whole-account claims), both feature lanes green.
+  Follow-ups: publish write-sets through the schema/manifest so clients
+  and indexers see per-instruction effects; SVM-level declared-vs-actual
+  test (policy vs I7 touch map); `hopper doctor` lint flagging raw
+  `AccountView` borrows inside `strict_writes` handlers (the documented
+  enforcement boundary).
+- Original idea: Impact: **very high** (a security primitive no chain
+  framework has, and none can copy without Hopper's ledger). Effort:
+  medium-high.
 - Close-read synthesis of `policy.rs` + the touch-map work: all the
   pieces already exist — per-handler compile-time policy consts
   (`HopperInstructionPolicy`), a registry that intercepts every segment

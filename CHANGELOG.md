@@ -9,6 +9,33 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 
 ### Added
 
+- **Field-level write policies (`strict_writes`, innovation I12).**
+  `#[hopper::context(strict_writes)]` compiles the context's existing
+  `mut` / `mut(seg, ...)` / lifecycle declarations into a `static`
+  `WritePolicy` installed on the raw context during `bind()`. From then
+  on **every** Context-mediated write acquire — `segment_mut` /
+  `segment_mut_const` / `segment_mut_typed` / `split_segments_mut`,
+  whole-account `load_mut`, and the raw escape hatches `raw_mut` /
+  `as_mut_ptr` — must be fully contained in a declared range or it fails
+  with `Custom(0xD000 | account_index)` *at acquisition time*, before a
+  single byte moves. This is Sealevel's account-level `writable` flag
+  enforced at byte-range granularity: a `mut(balance)`-only account
+  refuses whole-account loads and undeclared segments outright, and an
+  instruction with no `mut` declarations becomes a machine-checked
+  read-only contract. No competing framework can express this — it rides
+  on Hopper's instruction-scoped borrow ledger. Runtime surface:
+  `hopper_runtime::write_policy::{WritePolicy, WriteRange}` +
+  `Context::set_write_policy` for hand-rolled programs. Zero cost when
+  unused (one `None` check per write acquire); the policy ranges are the
+  same const arithmetic the generated segment accessors use, so declared
+  accessors can never be refused by their own declaration.
+- **Whole-account borrows enter the touch map (`touch-map` feature).**
+  `Context::load_mut` now records a `(0, data_len)` write record in the
+  instruction touch log (liveness stays with the account borrow byte —
+  no live-ledger entry), closing the I7 blind spot where the most common
+  access path was invisible to the footprint. New
+  `SegmentBorrowRegistry::record_account_touch` primitive. Note:
+  `Context::load_mut` now takes `&mut self`.
 - **Instruction touch maps (`touch-map` feature).** The segment borrow
   registry now keeps an append-only, deduplicated log of every distinct
   `(account, offset, size, read/write)` range an instruction registers —

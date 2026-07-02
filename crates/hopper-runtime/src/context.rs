@@ -51,6 +51,12 @@ pub struct Context<'a> {
     /// registry.
     /// Prefer the `borrows()` / `borrows_mut()` accessors in new code.
     pub(crate) segment_borrows: SegmentBorrowRegistry,
+    /// Declared write-set enforced on every Context-mediated write
+    /// acquire (innovation I12). `None` (the default) means no policy:
+    /// writes are governed by the Sealevel `writable` flag and the
+    /// borrow system alone, with zero added cost beyond one pointer
+    /// compare per write acquire.
+    write_policy: Option<&'static crate::write_policy::WritePolicy>,
 }
 
 impl<'a> Context<'a> {
@@ -66,7 +72,53 @@ impl<'a> Context<'a> {
             accounts,
             instruction_data,
             segment_borrows: SegmentBorrowRegistry::new(),
+            write_policy: None,
         }
+    }
+
+    /// Install a declared write policy (innovation I12).
+    ///
+    /// From this point on, **every** Context-mediated write acquire —
+    /// segment writes, whole-account `load_mut`, and the raw escape
+    /// hatches `raw_mut` / `as_mut_ptr` — must be fully contained in one
+    /// of the policy's declared ranges or it fails with
+    /// `Custom(0xD000 | account_index)` before any byte is written.
+    /// Whole-account paths claim `[0, data_len)`, so a policy that
+    /// declares only field ranges forces handlers onto the declared
+    /// segment accessors.
+    ///
+    /// `#[hopper::context(strict_writes)]` compiles the context's
+    /// `mut` / `mut(seg, ...)` declarations into a `static` policy
+    /// and installs it during `bind()`; calling this by hand is the raw
+    /// equivalent. Direct substrate access on the raw
+    /// [`AccountView`](crate::account::AccountView) (via
+    /// [`account`](Self::account)) is outside the governed surface, like
+    /// every other documented escape hatch.
+    #[inline(always)]
+    pub fn set_write_policy(&mut self, policy: &'static crate::write_policy::WritePolicy) {
+        self.write_policy = Some(policy);
+    }
+
+    /// The installed write policy, if any.
+    #[inline(always)]
+    pub fn write_policy(&self) -> Option<&'static crate::write_policy::WritePolicy> {
+        self.write_policy
+    }
+
+    /// Gate a proposed write acquire behind the installed policy.
+    /// No policy installed = allowed (one branch on a `None`).
+    #[inline(always)]
+    fn check_write_policy(&self, index: usize, offset: u32, size: u32) -> ProgramResult {
+        if let Some(policy) = self.write_policy {
+            // Account indices are u8 on the wire; an index beyond 255
+            // can never have been declared, so refuse it outright rather
+            // than truncating into a potential false allow.
+            if index > u8::MAX as usize {
+                return Err(crate::write_policy::write_policy_violation(u8::MAX));
+            }
+            policy.check_write(index as u8, offset, size)?;
+        }
+        Ok(())
     }
 
     /// Program ID.
@@ -266,12 +318,31 @@ impl<'a> Context<'a> {
     /// Indexed shortcut for `ctx.account(idx)?.load_mut::<T>()`. The
     /// returned guard holds the account-level exclusive borrow until
     /// it drops.
+    ///
+    /// As a whole-account write borrow, this claims `[0, data_len)`:
+    /// under an installed [write policy](Self::set_write_policy) it
+    /// requires a whole-account allowance (a plain `mut` declaration),
+    /// and with the `touch-map` feature it lands in the instruction
+    /// touch map as a full-account write record.
     #[inline(always)]
     pub fn load_mut<T: LayoutContract + crate::Pod>(
-        &self,
+        &mut self,
         index: usize,
     ) -> Result<crate::RefMut<'_, T>, ProgramError> {
-        self.account(index)?.load_mut::<T>()
+        let view = self.account(index)?;
+        let data_len = view.data_len() as u32;
+        self.check_write_policy(index, 0, data_len)?;
+        let guard = view.load_mut::<T>()?;
+        // Whole-account borrows are governed live by the account borrow
+        // byte, not the segment registry; only their footprint is
+        // recorded (I7 blind-spot closure).
+        #[cfg(feature = "touch-map")]
+        self.segment_borrows.record_account_touch(
+            view.address(),
+            data_len,
+            crate::segment_borrow::AccessKind::Write,
+        );
+        Ok(guard)
     }
 
     /// Cross-program load: validate ABI fingerprint without ownership check.
@@ -350,6 +421,11 @@ impl<'a> Context<'a> {
         index: usize,
         ranges: [(u32, u32); N],
     ) -> Result<crate::SegmentsMut<'b, T, N>, ProgramError> {
+        let mut i = 0;
+        while i < N {
+            self.check_write_policy(index, ranges[i].0, ranges[i].1)?;
+            i += 1;
+        }
         let view = self
             .accounts
             .get(index)
@@ -373,6 +449,7 @@ impl<'a> Context<'a> {
         index: usize,
         abs_offset: u32,
     ) -> Result<crate::SegRefMut<'b, T>, ProgramError> {
+        self.check_write_policy(index, abs_offset, core::mem::size_of::<T>() as u32)?;
         let view = self
             .accounts
             .get(index)
@@ -409,6 +486,7 @@ impl<'a> Context<'a> {
         index: usize,
         segment: crate::Segment,
     ) -> Result<crate::SegRefMut<'b, T>, ProgramError> {
+        self.check_write_policy(index, segment.offset, segment.size)?;
         let view = self
             .accounts
             .get(index)
@@ -439,6 +517,7 @@ impl<'a> Context<'a> {
         index: usize,
         segment: crate::TypedSegment<T, OFFSET>,
     ) -> Result<crate::SegRefMut<'b, T>, ProgramError> {
+        self.check_write_policy(index, OFFSET, core::mem::size_of::<T>() as u32)?;
         let view = self
             .accounts
             .get(index)
@@ -478,6 +557,9 @@ impl<'a> Context<'a> {
             .accounts
             .get(index)
             .ok_or(ProgramError::NotEnoughAccountKeys)?;
+        // Whole-account write claim: an installed write policy gates the
+        // raw path exactly like `load_mut` (coarse, never under-claims).
+        self.check_write_policy(index, 0, view.data_len() as u32)?;
         // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe { view.raw_mut::<T>() }
     }
@@ -532,6 +614,9 @@ impl<'a> Context<'a> {
             .get(index)
             .ok_or(ProgramError::NotEnoughAccountKeys)?;
         view.require_writable()?;
+        // The untracked pointer is whole-account write capability, so an
+        // installed write policy must have granted the whole account.
+        self.check_write_policy(index, 0, view.data_len() as u32)?;
         // SAFETY: the account view is live for `'info` and
         // `data_ptr` yields a pointer inside the loader-provided
         // per-account buffer. Returning the untyped pointer transfers
@@ -772,5 +857,225 @@ impl<'ctx, 'a> ScopedContext<'ctx, 'a> {
             .instruction_data
             .get(offset..end)
             .ok_or(ProgramError::InvalidInstructionData)
+    }
+}
+
+// ── Tests ────────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod write_policy_tests {
+    use super::*;
+    use crate::write_policy::{WritePolicy, WriteRange};
+    use hopper_native::{
+        AccountView as NativeAccountView, Address as NativeAddress, RuntimeAccount, NOT_BORROWED,
+    };
+
+    const DATA_LEN: usize = 64;
+    const BALANCE_OFF: u32 = 16;
+    const NONCE_OFF: u32 = 24;
+
+    fn make_account(address_byte: u8) -> (std::vec::Vec<u8>, AccountView<'static>) {
+        let mut backing = std::vec![0u8; RuntimeAccount::SIZE + DATA_LEN];
+        let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
+        // SAFETY: `backing` is sized for the header plus DATA_LEN bytes and
+        // outlives the returned view (the caller holds the Vec).
+        unsafe {
+            raw.write(RuntimeAccount {
+                borrow_state: NOT_BORROWED,
+                is_signer: 1,
+                is_writable: 1,
+                executable: 0,
+                resize_delta: 0,
+                address: NativeAddress::new_from_array([address_byte; 32]),
+                owner: NativeAddress::new_from_array([2; 32]),
+                lamports: 42,
+                data_len: DATA_LEN as u64,
+            });
+        }
+        // SAFETY: `raw` points at a fully initialized RuntimeAccount with
+        // its data region in the same allocation.
+        let backend = unsafe { NativeAccountView::new_unchecked(raw) };
+        (backing, AccountView::from_backend(backend))
+    }
+
+    // Field-granular policy on account 0: balance + nonce only.
+    static FIELD_POLICY: WritePolicy = WritePolicy::new(&[
+        WriteRange::new(0, BALANCE_OFF, 8),
+        WriteRange::new(0, NONCE_OFF, 8),
+    ]);
+    // Whole-account allowance on account 0 (a plain `mut` declaration).
+    static WHOLE_POLICY: WritePolicy = WritePolicy::new(&[WriteRange::whole_account(0)]);
+
+    #[test]
+    fn no_policy_leaves_every_write_path_open() {
+        let (_b, account) = make_account(1);
+        let accounts = [account];
+        let pid = Address::new([9u8; 32]);
+        let mut ctx = Context::new(&pid, &accounts, &[]);
+
+        assert!(ctx.segment_mut::<[u8; 8]>(0, BALANCE_OFF).is_ok());
+        assert!(ctx.segment_mut::<[u8; 4]>(0, 0).is_ok());
+    }
+
+    #[test]
+    fn field_policy_allows_declared_segments_and_refuses_the_rest() {
+        let (_b, account) = make_account(1);
+        let accounts = [account];
+        let pid = Address::new([9u8; 32]);
+        let mut ctx = Context::new(&pid, &accounts, &[]);
+        ctx.set_write_policy(&FIELD_POLICY);
+
+        // Declared ranges work, including disjoint simultaneous writes.
+        {
+            let mut segs =
+                ctx.split_segments_mut::<[u8; 8], 2>(0, [(BALANCE_OFF, 8), (NONCE_OFF, 8)])
+                    .unwrap();
+            let [bal, nonce] = segs.all_mut();
+            bal[0] = 1;
+            nonce[0] = 2;
+        }
+        assert!(ctx.segment_mut::<[u8; 8]>(0, BALANCE_OFF).is_ok());
+
+        // An undeclared range is refused with the indexed policy error —
+        // before any borrow state changes, so reads still work after.
+        assert_eq!(
+            ctx.segment_mut::<[u8; 8]>(0, 0).unwrap_err(),
+            crate::write_policy::write_policy_violation(0)
+        );
+        assert!(ctx.segment_ref::<[u8; 8]>(0, 0).is_ok());
+
+        // A split where ONE range is undeclared is refused whole.
+        assert!(ctx
+            .split_segments_mut::<[u8; 8], 2>(0, [(BALANCE_OFF, 8), (0, 8)])
+            .is_err());
+
+        // Reads are never policy-gated.
+        assert!(ctx.segment_ref::<[u8; 8]>(0, BALANCE_OFF).is_ok());
+    }
+
+    #[test]
+    fn field_policy_refuses_whole_account_write_paths() {
+        let (_b, account) = make_account(1);
+        let accounts = [account];
+        let pid = Address::new([9u8; 32]);
+        let mut ctx = Context::new(&pid, &accounts, &[]);
+        ctx.set_write_policy(&FIELD_POLICY);
+
+        // The untracked whole-account pointer is whole-account write
+        // capability: a field-granular policy must refuse it.
+        // SAFETY: never dereferenced; testing the acquire-time gate only.
+        assert_eq!(
+            unsafe { ctx.as_mut_ptr(0) }.unwrap_err(),
+            crate::write_policy::write_policy_violation(0)
+        );
+    }
+
+    #[test]
+    fn whole_account_allowance_admits_all_write_paths() {
+        let (_b, account) = make_account(1);
+        let accounts = [account];
+        let pid = Address::new([9u8; 32]);
+        let mut ctx = Context::new(&pid, &accounts, &[]);
+        ctx.set_write_policy(&WHOLE_POLICY);
+
+        assert!(ctx.segment_mut::<[u8; 8]>(0, BALANCE_OFF).is_ok());
+        // SAFETY: never dereferenced; testing the acquire-time gate only.
+        assert!(unsafe { ctx.as_mut_ptr(0) }.is_ok());
+    }
+
+    #[test]
+    fn empty_policy_is_a_machine_checked_read_only_instruction() {
+        static READ_ONLY: WritePolicy = WritePolicy::new(&[]);
+        let (_b, account) = make_account(1);
+        let accounts = [account];
+        let pid = Address::new([9u8; 32]);
+        let mut ctx = Context::new(&pid, &accounts, &[]);
+        ctx.set_write_policy(&READ_ONLY);
+
+        assert!(ctx.segment_mut::<[u8; 8]>(0, BALANCE_OFF).is_err());
+        // SAFETY: never dereferenced; testing the acquire-time gate only.
+        assert!(unsafe { ctx.as_mut_ptr(0) }.is_err());
+        // Reads remain untouched.
+        assert!(ctx.segment_ref::<[u8; 8]>(0, BALANCE_OFF).is_ok());
+        assert!(ctx.as_ptr(0).is_ok());
+    }
+
+    #[repr(C)]
+    #[derive(Clone, Copy)]
+    struct PolicyLayout {
+        a: [u8; 8],
+    }
+    // SAFETY: repr(C), all-byte-array fields — every bit pattern valid,
+    // no padding, align 1.
+    unsafe impl crate::Zeroable for PolicyLayout {}
+    // SAFETY: as above.
+    unsafe impl crate::Pod for PolicyLayout {}
+    impl crate::field_map::FieldMap for PolicyLayout {
+        const FIELDS: &'static [crate::field_map::FieldInfo] = &[crate::field_map::FieldInfo::new(
+            "a",
+            crate::layout::HopperHeader::SIZE,
+            8,
+        )];
+    }
+    impl LayoutContract for PolicyLayout {
+        const DISC: u8 = 77;
+        const VERSION: u8 = 1;
+        const LAYOUT_ID: [u8; 8] = [0x77; 8];
+        const SIZE: usize = crate::layout::HopperHeader::SIZE + core::mem::size_of::<Self>();
+    }
+
+    #[test]
+    fn load_mut_is_gated_before_header_validation_or_borrow() {
+        let (_b, account) = make_account(1);
+        let accounts = [account];
+        let pid = Address::new([9u8; 32]);
+        let mut ctx = Context::new(&pid, &accounts, &[]);
+        ctx.set_write_policy(&FIELD_POLICY);
+
+        // The whole-account claim `[0, data_len)` is refused by a
+        // field-granular policy — with the policy error, not a layout
+        // error, proving the gate runs before any borrow or header read.
+        assert_eq!(
+            ctx.load_mut::<PolicyLayout>(0).unwrap_err(),
+            crate::write_policy::write_policy_violation(0)
+        );
+
+        // Under a whole-account allowance the gate passes; the account
+        // has no valid Hopper header, so whatever happens next it is not
+        // a policy refusal.
+        let mut ctx2 = Context::new(&pid, &accounts, &[]);
+        ctx2.set_write_policy(&WHOLE_POLICY);
+        assert_ne!(
+            ctx2.load_mut::<PolicyLayout>(0).unwrap_err(),
+            crate::write_policy::write_policy_violation(0)
+        );
+    }
+
+    #[cfg(feature = "touch-map")]
+    #[test]
+    fn whole_account_load_mut_lands_in_the_touch_map() {
+        use crate::segment_borrow::AccessKind;
+
+        let (_b, account) = make_account(1);
+        let accounts = [account];
+        let pid = Address::new([9u8; 32]);
+        let mut ctx = Context::new(&pid, &accounts, &[]);
+
+        // A segment write followed by a whole-account borrow recorded
+        // through the same ledger: the I7 map now sees both shapes.
+        drop(ctx.segment_mut::<[u8; 8]>(0, BALANCE_OFF).unwrap());
+        {
+            let view = ctx.account(0).unwrap();
+            let data_len = view.data_len() as u32;
+            let addr = *view.address();
+            ctx.borrows_mut()
+                .record_account_touch(&addr, data_len, AccessKind::Write);
+        }
+
+        let mut seen = std::vec::Vec::new();
+        ctx.for_each_touch(|t| seen.push((t.offset, t.size, t.kind)));
+        assert_eq!(seen.len(), 2);
+        assert_eq!(seen[0], (BALANCE_OFF, 8, AccessKind::Write));
+        assert_eq!(seen[1], (0, DATA_LEN as u32, AccessKind::Write));
     }
 }

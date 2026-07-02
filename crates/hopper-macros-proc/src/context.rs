@@ -342,6 +342,13 @@ struct ContextOptions {
     /// init/realloc/close helpers in field declaration order after built-in
     /// validation and before returning the bound context.
     auto_lifecycle: bool,
+    /// Innovation I12: compile the context's `mut` / `mut(seg, ...)` /
+    /// lifecycle declarations into a `static` [`WritePolicy`] installed on
+    /// the raw context during `bind()`. Every Context-mediated write
+    /// acquire outside the declared set then fails with
+    /// `Custom(0xD000 | account_index)` at acquisition time — Sealevel's
+    /// account-level `writable` flag, enforced at byte-range granularity.
+    strict_writes: bool,
 }
 
 fn parse_context_options(attr: TokenStream, attrs: &mut Vec<Attribute>) -> Result<ContextOptions> {
@@ -353,10 +360,12 @@ fn parse_context_options(attr: TokenStream, attrs: &mut Vec<Attribute>) -> Resul
         for ident in parsed {
             if ident == "auto_lifecycle" {
                 options.auto_lifecycle = true;
+            } else if ident == "strict_writes" {
+                options.strict_writes = true;
             } else {
                 return Err(syn::Error::new_spanned(
                     ident,
-                    "unknown Hopper context option; supported: `auto_lifecycle`",
+                    "unknown Hopper context option; supported: `auto_lifecycle`, `strict_writes`",
                 ));
             }
         }
@@ -369,8 +378,13 @@ fn parse_context_options(attr: TokenStream, attrs: &mut Vec<Attribute>) -> Resul
                 if meta.path.is_ident("auto_lifecycle") {
                     options.auto_lifecycle = true;
                     Ok(())
+                } else if meta.path.is_ident("strict_writes") {
+                    options.strict_writes = true;
+                    Ok(())
                 } else {
-                    Err(meta.error("unknown #[accounts(...)] option; supported: auto_lifecycle"))
+                    Err(meta.error(
+                        "unknown #[accounts(...)] option; supported: auto_lifecycle, strict_writes",
+                    ))
                 }
             })?;
             continue;
@@ -381,6 +395,9 @@ fn parse_context_options(attr: TokenStream, attrs: &mut Vec<Attribute>) -> Resul
             attr.parse_nested_meta(|meta| {
                 if meta.path.is_ident("auto_lifecycle") {
                     options.auto_lifecycle = true;
+                    Ok(())
+                } else if meta.path.is_ident("strict_writes") {
+                    options.strict_writes = true;
                     Ok(())
                 } else {
                     only_context_options = false;
@@ -2545,6 +2562,68 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         })
         .collect();
 
+    // ── Innovation I12: strict_writes → static WritePolicy ────────────
+    //
+    // The context's own declarations already carve the write surface:
+    // `mut` grants the whole account, `mut(seg, ...)` grants exact field
+    // ranges, and the lifecycle attrs (init / realloc / close) rewrite
+    // the account wholesale. Under `strict_writes` those declarations
+    // stop being documentation and become a `static` write-set the
+    // runtime enforces at every Context-mediated write acquire. The
+    // range expressions below are the *same* const arithmetic the
+    // generated segment accessors use, so a declared accessor can never
+    // be refused by the policy compiled from its own declaration.
+    let write_policy_install_stmt: TokenStream = if context_options.strict_writes {
+        let mut range_exprs: Vec<TokenStream> = Vec::new();
+        for cf in &ctx_fields {
+            let idx_u8 = cf.index as u8;
+            let whole_account = cf.attr.is_mut
+                || cf.attr.init
+                || cf.attr.init_if_needed
+                || cf.attr.realloc.is_some()
+                || cf.attr.close.is_some();
+            if whole_account {
+                range_exprs.push(quote! {
+                    ::hopper::__runtime::write_policy::WriteRange::whole_account(#idx_u8)
+                });
+                continue;
+            }
+            if cf.attr.mut_segments.is_empty() {
+                continue;
+            }
+            // `mut(seg, ...)`-only fields: one exact range per declared
+            // segment, resolved through the `#[hopper::state]` constants.
+            let field_ty = layout_type_for_field(cf).unwrap_or_else(|| cf.ty.clone());
+            let type_ident = type_ident(&field_ty)?;
+            let type_upper = to_screaming_snake(&type_ident.to_string());
+            for seg_name in &cf.attr.mut_segments {
+                let seg_upper = to_screaming_snake(seg_name);
+                let assoc_offset = format_ident!("{}_OFFSET", seg_upper);
+                let type_alias = format_ident!("{}_{}_TYPE", type_upper, seg_upper);
+                range_exprs.push(quote! {
+                    ::hopper::__runtime::write_policy::WriteRange::new(
+                        #idx_u8,
+                        ::hopper::hopper_core::account::HEADER_LEN as u32
+                            + <#field_ty>::#assoc_offset,
+                        ::core::mem::size_of::<#type_alias>() as u32,
+                    )
+                });
+            }
+        }
+        quote! {
+            {
+                static __HOPPER_WRITE_POLICY:
+                    ::hopper::__runtime::write_policy::WritePolicy =
+                    ::hopper::__runtime::write_policy::WritePolicy::new(&[
+                        #(#range_exprs),*
+                    ]);
+                ctx.set_write_policy(&__HOPPER_WRITE_POLICY);
+            }
+        }
+    } else {
+        TokenStream::new()
+    };
+
     let auto_lifecycle_stmts: Vec<TokenStream> = ctx_fields
         .iter()
         .flat_map(|cf| {
@@ -2728,6 +2807,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                 #top_arg_param_fragment
             ) -> ::core::result::Result<#bound_name<'ctx, 'a>, ::hopper::__runtime::ProgramError> {
                 Self::#top_validate_ident(ctx #top_arg_name_fragment)?;
+                #write_policy_install_stmt
                 // `validate` already proved every PDA matches its seeds,
                 // so each gather expression can assume the derivation
                 // will produce the same pubkey. For stored bumps this

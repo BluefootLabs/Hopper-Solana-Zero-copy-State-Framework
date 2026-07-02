@@ -12,12 +12,12 @@ help: the trait `Pod` is not implemented for `SneakyBypass`
    = help: the following other types implement trait `Pod`:
              ()
              AccountHeader
-             SegmentDescriptor
-             TypedAddress<T>
-             UntypedAddress
-             WireBool
-             WireI128
-             WireI16
+             AccountLayoutEntry
+             LeBool
+             LeI16
+             LeI32
+             LeI64
+             LeU128
            and $N others
    = note: required for `SneakyBypass` to implement `ZeroCopy`
 note: required by a bound in `require_zero_copy`

@@ -71,11 +71,13 @@ been read line-by-line and its findings logged.
 - [x] crypto.rs
 - [x] syscalls.rs
 - [x] lib.rs
-- [ ] compact.rs, tail.rs, segment_lease.rs, layout.rs,
-      account_wrappers.rs, borrow_registry.rs, address.rs, cpi.rs,
-      token.rs, crypto.rs, context.rs, policy.rs, native_boundary.rs,
-      syscalls.rs, lib.rs, foreign.rs, instruction.rs, interop.rs,
-      pod.rs, remaining files
+- [x] policy.rs (verified sound — see findings; seeded I12)
+- [x] write_policy.rs (new this session — audited at authoring, I12)
+- [ ] address.rs, foreign.rs, instruction.rs, interop.rs, pod.rs,
+      audit.rs, segment.rs, compute.rs, crank.rs, dyn_cpi.rs,
+      field_map.rs, log.rs, migrate.rs, option_byte.rs, proof.rs,
+      ref_only.rs, rent.rs, result.rs, return_data.rs, syscall.rs,
+      system.rs, token_2022_ext.rs, utils.rs, remaining files
 
 #### Batch 2 findings
 
@@ -308,6 +310,22 @@ been read line-by-line and its findings logged.
   never reach the registry, so they are invisible to the map. Routing
   whole-account write borrows through the same ledger completes the map
   and is required for sound I12 enforcement.
+- **I12 SHIPPED (core)** — new `hopper-runtime/src/write_policy.rs`
+  (audited at authoring: pure const data + u64-widened containment, no
+  unsafe, edge-pinned tests incl. u32-boundary wrap); `Context` write
+  acquires gated (`segment_mut*`, `split_segments_mut`, `load_mut`,
+  `raw_mut`, `as_mut_ptr`) with a gate-ordering test proving refusal
+  fires before header validation or borrow acquisition;
+  `Context::load_mut` now `&mut self` and records `(0, data_len)` in the
+  touch map (I7 blind-spot closure); macro `strict_writes` option
+  compiles `mut` / `mut(seg, ...)` / lifecycle declarations into the
+  installed static policy using the same const arithmetic as the
+  generated accessors. Enforcement boundary documented: raw
+  `AccountView` access via `ctx.account(i)` is outside the governed
+  surface (same tier as the raw-pointer escape hatches; `hopper doctor`
+  lint queued). Workspace 140 suites green both lanes; 5 trybuild stderr
+  snapshots re-blessed (rustc candidate-list sampling shifted — cosmetic
+  only, verified line-by-line).
 
 ### Batch 3 — hopper-core (69 files, ~18.6k lines)
 

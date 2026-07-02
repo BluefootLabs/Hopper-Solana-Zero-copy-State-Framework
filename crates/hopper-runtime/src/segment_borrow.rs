@@ -196,6 +196,31 @@ impl SegmentBorrowRegistry {
         self.touch_len = (len + 1) as u8;
     }
 
+    /// Record a whole-account borrow as a `(0, data_len)` entry in the
+    /// touch log **without** registering a live-ledger entry
+    /// (`touch-map` feature).
+    ///
+    /// Whole-account borrows (`try_borrow_mut` / `load_mut`) are
+    /// governed by the account-level borrow byte, which already
+    /// mutually excludes live segment leases (segment acquires take
+    /// shared account borrows; the whole-account path takes the
+    /// exclusive one). Their *liveness* therefore never belongs in this
+    /// registry — only their cumulative footprint does. This closes the
+    /// I7 blind spot where the most common access path was invisible to
+    /// the touch map.
+    #[cfg(feature = "touch-map")]
+    #[inline]
+    pub fn record_account_touch(&mut self, key: &Address, data_len: u32, kind: AccessKind) {
+        let borrow = SegmentBorrow {
+            key_fp: address_fingerprint(key),
+            key: *key,
+            offset: 0,
+            size: data_len,
+            kind,
+        };
+        self.record_touch(&borrow);
+    }
+
     /// Visit every distinct range this instruction has touched so far
     /// (`touch-map` feature). Order is first-touch order. Use
     /// [`touch_map_overflowed`](Self::touch_map_overflowed) to detect a
@@ -1039,6 +1064,32 @@ mod touch_map_tests {
         assert_eq!(seen[1], (key(1), 8, 8, AccessKind::Read));
         assert_eq!(seen[2], (key(2), 0, 4, AccessKind::Read));
         assert_eq!(seen[3], (key(1), 0, 8, AccessKind::Read));
+    }
+
+    #[test]
+    fn whole_account_touch_recorded_without_live_ledger_entry() {
+        let mut reg = SegmentBorrowRegistry::new();
+
+        // A segment lease and a whole-account borrow on the same account.
+        let seg = reg.register_leased_write(&key(3), 16, 8).unwrap();
+        reg.release(&seg);
+        reg.record_account_touch(&key(3), 64, AccessKind::Write);
+
+        // The whole-account record is footprint-only: the live ledger
+        // stays empty (the account borrow byte owns its liveness), so a
+        // later segment lease on the same bytes is not falsely blocked.
+        assert!(reg.is_empty());
+        assert!(reg.register_write(&key(3), 0, 8).is_ok());
+
+        // Both access shapes appear in the touch map, and repeating the
+        // whole-account borrow dedups.
+        reg.record_account_touch(&key(3), 64, AccessKind::Write);
+        assert_eq!(reg.touch_map_len(), 3);
+        let mut seen = std::vec::Vec::new();
+        reg.for_each_touch(|t| seen.push((t.offset, t.size, t.kind)));
+        assert_eq!(seen[0], (16, 8, AccessKind::Write));
+        assert_eq!(seen[1], (0, 64, AccessKind::Write));
+        assert_eq!(seen[2], (0, 8, AccessKind::Write));
     }
 
     #[test]

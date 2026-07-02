@@ -67,6 +67,7 @@ pub mod syscalls;
 pub mod system;
 pub mod token;
 pub mod token_2022_ext;
+pub mod write_policy;
 
 pub use account::AccountView;
 pub use account_wrappers::{
@@ -168,6 +169,7 @@ pub use segment::{
 };
 pub use segment_borrow::{AccessKind, SegmentBorrow, SegmentBorrowGuard, SegmentBorrowRegistry};
 pub use segment_lease::{SegRef, SegRefMut, SegmentLease, SegmentsMut};
+pub use write_policy::{WritePolicy, WriteRange, WRITE_POLICY_VIOLATION_PAGE};
 pub use zerocopy::{AccountLayout, WireLayout, ZeroCopy};
 
 pub const MAX_TX_ACCOUNTS: usize = native_boundary::BACKEND_MAX_TX_ACCOUNTS;

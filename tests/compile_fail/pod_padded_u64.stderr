@@ -4,7 +4,6 @@ error[E0277]: the trait bound `u64: Pod` is not satisfied
 10 | #[pod]
    | ^^^^^^ the trait `Pod` is not implemented for `u64`
    |
-   = note: `u64` implements similarly named trait `object::pod::Pod`, but not `Pod`
 help: the following other types implement trait `Pod`
   --> crates/hopper-native/src/pod.rs
    |

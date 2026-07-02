@@ -45,6 +45,8 @@ runtime it lowers to is in `crates/hopper-runtime/src/` or
 | Borrow disjoint byte ranges of one account as independent typed refs | Yes | No | No (whole-account only) | No (manual) | `crates/hopper-runtime/src/account.rs::segment_ref` / `segment_mut` / `segment_ref_typed` |
 | Runtime aliasing guard across segment borrows | Yes | N/A | N/A | No | segment borrow registry (`crates/hopper-runtime/src/segment_borrow.rs`, `segment_lease.rs`); conflict tests cover overlap/adjacent/release |
 | Const-offset typed segments (zero runtime offset math) | Yes | No | No | No | `segment_ref_typed::<T, const OFFSET>` in `account.rs` / `context.rs` |
+| Instruction touch maps (cumulative per-ix `(account, range, R/W)` footprint) | Yes (`touch-map` feature) | No | No | No | `segment_borrow.rs` touch log; `Context::for_each_touch` / `touch_map_len` / `touch_map_overflowed` |
+| Field-level write policies (declared write-set enforced at borrow acquire) | Yes (`strict_writes`) | No | No | No (Sealevel account-level `writable` only, all frameworks) | `#[hopper::context(strict_writes)]` → `static WritePolicy` installed in `bind()`; runtime gate in `context.rs::check_write_policy` over `write_policy.rs` |
 
 ## Upgradeable state contracts (no competitor has this first-class)
 

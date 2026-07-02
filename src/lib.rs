@@ -947,4 +947,10 @@ pub mod __runtime {
     // preconditions used to lower Anchor's `token::mint`,
     // `mint::authority`, etc. constraints to a single inline check.
     pub use hopper_runtime::token;
+
+    // Innovation I12: `#[hopper::context(strict_writes)]` emits a
+    // `static ::hopper::__runtime::write_policy::WritePolicy` compiled
+    // from the context's `mut` / `mut(seg, ...)` declarations and
+    // installs it on the raw context during `bind()`.
+    pub use hopper_runtime::write_policy;
 }

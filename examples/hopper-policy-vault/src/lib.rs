@@ -54,7 +54,13 @@ pub struct Vault {
     pub pending_rewards: WireU64,
 }
 
-#[hopper::context]
+// `strict_writes` (innovation I12): the `mut(balance)` declaration below
+// is not just accessor sugar — bind() compiles it into a static write
+// policy, so *any* Context-mediated write outside `vault.balance`
+// (another segment, a whole-account `load_mut`, even the raw
+// `as_mut_ptr` escape hatch) fails with `Custom(0xD000 | account_index)`
+// at acquisition time. Sealevel's `writable` flag, at field granularity.
+#[hopper::context(strict_writes)]
 pub struct Deposit<'info> {
     #[account(mut(balance))]
     pub vault: Vault,
