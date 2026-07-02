@@ -36,7 +36,7 @@ been read line-by-line and its findings logged.
 - [x] pod.rs
 - [x] project.rs
 - [x] lens.rs (moved up: shares the projection surface)
-- [ ] wire.rs
+- [x] wire.rs
 - [ ] pda.rs
 - [ ] cpi.rs
 - [ ] syscalls.rs
@@ -218,3 +218,18 @@ hopper-sdk (~2k), hopper-manager (~0.9k), hopper-test.
 - **audited** `hopper-native/lens.rs` — module doc's "never cause UB" claim
   corrected to state the borrow-guard semantics; by-value paths verified
   sound (raw-pointer copies, bounds-checked, no reference formation).
+- **P2 fixed (this commit)** `hopper-native/wire.rs` — the native `Le*` wire
+  types implemented `Projectable` only, **not** the substrate
+  `Pod`/`Zeroable`, so the Pod-bounded native APIs (`lens::read_field_pod`,
+  `segment_ref`) rejected the crate's own alignment-1 wire types —
+  `read_field_pod`'s own doc example (`&LeU64`) did not compile. All wire
+  types (`LeU64/32/16`, `LeI64/32/16`, `LeBool`, `LeU128`) now implement
+  `Zeroable` + `Pod` (contract holds: `repr(transparent)` over `[u8; N]`,
+  align 1, no padding, all bit patterns valid). Compile-proof test
+  `wire_types_satisfy_substrate_pod`.
+- **DOC fixed (this commit)** `hopper-native/wire.rs` module doc — claimed
+  "checked arithmetic by default: `+`, `-`, `*` return `Option`", but
+  `__wire_arith_ops!` implements native-mirroring operators (panic on
+  overflow in debug, wrap in release; its own doc says so). Module doc now
+  describes the real semantics and points balance math at the explicit
+  `checked_*`/`saturating_*`/`wrapping_*` methods.

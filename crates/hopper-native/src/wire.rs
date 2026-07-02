@@ -9,14 +9,18 @@
 //!
 //! - **Explicit endianness**: Types are named `LeU64` ("little-endian u64"),
 //!   making the wire representation unambiguous at every call site.
-//! - **Checked arithmetic by default**: `+`, `-`, `*` return `Option` via
-//!   `checked_add` etc. This is safer than wrapping overflow silently
-//!   (Quasar's default) and matches Rust's principled stance on UB.
+//! - **Explicit arithmetic semantics**: the `checked_*`, `saturating_*`,
+//!   and `wrapping_*` inherent methods spell out overflow behavior at the
+//!   call site. The `+`/`-`/`*` operators mirror Rust's native integers
+//!   (panic on overflow in debug, wrap in release) — safer than Quasar's
+//!   silent wrapping default, but prefer the explicit methods for on-chain
+//!   balance math.
 //! - **`const fn` constructors**: `LeU64::new(42)` works in const context,
 //!   enabling compile-time constants for discriminators, seeds, etc.
-//! - **`Projectable`**: All wire types implement `Projectable`, so you can
-//!   use `project::<LeU64>(account, offset, None)` to read them directly
-//!   from account data without alignment issues.
+//! - **`Pod` + `Projectable`**: All wire types satisfy both the substrate
+//!   [`crate::Pod`] overlay contract and [`Projectable`], so
+//!   `lens::read_field_pod::<LeU64>` and `project::<LeU64>` both work
+//!   directly on account data without alignment issues.
 //!
 //! These types are the foundation for safe zero-copy account structs.
 //! Any `#[repr(C)]` struct composed entirely of wire types + `[u8; N]`
@@ -173,6 +177,11 @@ macro_rules! le_integer {
         // SAFETY: $name is #[repr(transparent)] over [u8; N].
         // All bit patterns are valid (no padding, no alignment requirement).
         unsafe impl Projectable for $name {}
+        // SAFETY: #[repr(transparent)] over [u8; N]: alignment 1, no padding,
+        // every bit pattern valid, no internal pointers — the full substrate
+        // Pod overlay contract.
+        unsafe impl $crate::pod::Zeroable for $name {}
+        unsafe impl $crate::pod::Pod for $name {}
 
         $crate::__wire_arith_ops!($name, $native);
     };
@@ -325,6 +334,10 @@ macro_rules! le_integer {
         }
 
         unsafe impl Projectable for $name {}
+        // SAFETY: #[repr(transparent)] over [u8; N]: alignment 1, no padding,
+        // every bit pattern valid, no internal pointers.
+        unsafe impl $crate::pod::Zeroable for $name {}
+        unsafe impl $crate::pod::Pod for $name {}
 
         $crate::__wire_arith_ops!($name, $native);
     };
@@ -597,8 +610,12 @@ impl core::fmt::Display for LeBool {
     }
 }
 
-// SAFETY: LeBool is #[repr(transparent)] over u8. All bit patterns valid.
+// SAFETY: LeBool is #[repr(transparent)] over u8. All bit patterns valid
+// (`get()` treats any nonzero byte as true; `is_canonical()` flags 2..=255).
 unsafe impl Projectable for LeBool {}
+// SAFETY: as above — alignment 1, no padding, every bit pattern valid.
+unsafe impl crate::pod::Zeroable for LeBool {}
+unsafe impl crate::pod::Pod for LeBool {}
 
 // ---- LeU128 ----------------------------------------------------------
 
@@ -710,5 +727,43 @@ impl core::fmt::Display for LeU128 {
 }
 
 unsafe impl Projectable for LeU128 {}
+// SAFETY: #[repr(transparent)] over [u8; 16]: alignment 1, no padding,
+// every bit pattern valid, no internal pointers.
+unsafe impl crate::pod::Zeroable for LeU128 {}
+unsafe impl crate::pod::Pod for LeU128 {}
 
 __wire_arith_ops!(LeU128, u128);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn require_pod<T: crate::pod::Pod>() {}
+
+    /// Every wire type must satisfy the substrate `Pod` overlay contract so
+    /// the Pod-bounded APIs (`lens::read_field_pod`, `segment_ref`) accept
+    /// the crate's own alignment-1 types.
+    #[test]
+    fn wire_types_satisfy_substrate_pod() {
+        require_pod::<LeU64>();
+        require_pod::<LeU32>();
+        require_pod::<LeU16>();
+        require_pod::<LeI64>();
+        require_pod::<LeI32>();
+        require_pod::<LeI16>();
+        require_pod::<LeBool>();
+        require_pod::<LeU128>();
+    }
+
+    #[test]
+    fn wire_roundtrip_and_checked_math() {
+        let a = LeU64::new(u64::MAX - 1);
+        assert_eq!(a.get(), u64::MAX - 1);
+        assert_eq!(a.checked_add(LeU64::new(1)), Some(LeU64::MAX));
+        assert_eq!(LeU64::MAX.checked_add(LeU64::new(1)), None);
+        assert_eq!(LeU64::ZERO.checked_sub(LeU64::new(1)), None);
+        assert!(LeBool::new(true).get());
+        assert!(!LeBool::FALSE.get());
+        assert!(LeBool::TRUE.is_canonical());
+    }
+}
