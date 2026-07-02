@@ -13,10 +13,14 @@
 //! * **In-place**. no allocation, no CPI. Migration rewrites the
 //!   account body (within its existing byte range) and the 16-byte
 //!   Hopper header.
-//! * **Atomic per edge**. each migration edge updates both the body
-//!   *and* the `schema_epoch` header field under a single mutable
-//!   byte borrow. A mid-migration abort leaves the header and body
-//!   consistent with *one* of the two endpoints, never a hybrid.
+//! * **Atomic per edge — under transaction-abort semantics.** Each
+//!   edge bumps the header's `schema_epoch` only after its body
+//!   mutation fully succeeded, so a *completed* edge is always
+//!   consistent. A migrator that errors after partially writing the
+//!   body, however, leaves a hybrid body under the old epoch — the
+//!   returned error **must** propagate to instruction failure (the
+//!   Solana runtime then rolls every byte back). Callers must not
+//!   swallow migration errors and continue using the account.
 //! * **Idempotent**. re-running an already-applied edge is a no-op
 //!   (the header epoch mismatch returns `MigrationMismatch`).
 //! * **Deterministic**. edges are applied in strict
@@ -124,6 +128,14 @@ where
 
     while epoch < target_epoch {
         let edge = find_edge(edges, epoch)?;
+        // A declared edge must not overshoot the layout's current
+        // epoch: stamping the header past SCHEMA_EPOCH would mark the
+        // account as from-the-future and make every subsequent typed
+        // load refuse it — silent corruption from a misdeclared chain.
+        // Refuse before touching a byte.
+        if edge.to_epoch > target_epoch {
+            return Err(ProgramError::InvalidAccountData);
+        }
         let (header_bytes, body_bytes) = data.split_at_mut(header_len);
         // Step 1: mutate the body.
         (edge.migrator)(body_bytes)?;
@@ -225,5 +237,81 @@ mod tests {
             migrator: identity,
         }];
         assert!(find_edge(&edges, 3).is_err());
+    }
+
+    mod overshoot {
+        use super::*;
+        use crate::layout::{HopperHeader, LayoutContract};
+        use crate::zerocopy::AccountLayout;
+        use hopper_native::{
+            AccountView as NativeAccountView, Address as NativeAddress, RuntimeAccount,
+            NOT_BORROWED,
+        };
+
+        #[repr(C)]
+        #[derive(Clone, Copy)]
+        struct EpochTwo {
+            v: [u8; 8],
+        }
+        // SAFETY: repr(C), byte-array field — every bit pattern valid,
+        // align 1, no padding.
+        unsafe impl crate::Zeroable for EpochTwo {}
+        // SAFETY: as above.
+        unsafe impl crate::Pod for EpochTwo {}
+        // SAFETY: test-local layout upholding the sealed overlay contract.
+        unsafe impl crate::zerocopy::__sealed::HopperZeroCopySealed for EpochTwo {}
+        impl crate::field_map::FieldMap for EpochTwo {
+            const FIELDS: &'static [crate::field_map::FieldInfo] =
+                &[crate::field_map::FieldInfo::new("v", HopperHeader::SIZE, 8)];
+        }
+        impl LayoutContract for EpochTwo {
+            const DISC: u8 = 91;
+            const VERSION: u8 = 1;
+            const LAYOUT_ID: [u8; 8] = [0x91; 8];
+            const SIZE: usize = HopperHeader::SIZE + core::mem::size_of::<Self>();
+            const SCHEMA_EPOCH: u32 = 2;
+        }
+        impl LayoutMigration for EpochTwo {
+            // Misdeclared chain: jumps 1 → 3 while SCHEMA_EPOCH is 2.
+            const MIGRATIONS: &'static [MigrationEdge] = &[MigrationEdge {
+                from_epoch: 1,
+                to_epoch: 3,
+                migrator: identity,
+            }];
+        }
+
+        #[test]
+        fn overshooting_edge_is_refused_before_writing() {
+            let mut backing =
+                std::vec![0u8; RuntimeAccount::SIZE + HopperHeader::SIZE + 8];
+            let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
+            // SAFETY: backing is sized for the header plus data and
+            // outlives the view.
+            unsafe {
+                raw.write(RuntimeAccount {
+                    borrow_state: NOT_BORROWED,
+                    is_signer: 0,
+                    is_writable: 1,
+                    executable: 0,
+                    resize_delta: 0,
+                    address: NativeAddress::new_from_array([5; 32]),
+                    owner: NativeAddress::new_from_array([6; 32]),
+                    lamports: 1,
+                    data_len: (HopperHeader::SIZE + 8) as u64,
+                });
+            }
+            // SAFETY: raw points at a fully initialized RuntimeAccount.
+            let backend = unsafe { NativeAccountView::new_unchecked(raw) };
+            let account = crate::AccountView::from_backend(backend);
+
+            // The 1→3 edge would stamp the header past SCHEMA_EPOCH=2:
+            // must refuse instead of silently marking the account as
+            // from the future.
+            assert_eq!(
+                apply_pending_migrations::<EpochTwo>(&account, 1),
+                Err(ProgramError::InvalidAccountData)
+            );
+            let _ = <EpochTwo as AccountLayout>::SCHEMA_EPOCH;
+        }
     }
 }

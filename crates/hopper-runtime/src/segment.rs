@@ -62,16 +62,19 @@ impl Segment {
         }
     }
 
-    /// One-past-the-end byte offset.
+    /// One-past-the-end byte offset, widened to `u64` so `offset + size`
+    /// cannot wrap. (The registry's `ranges_overlap` learned this same
+    /// lesson in the audit: comparing wrapped `u32` ends turns an
+    /// out-of-range segment into a falsely *contained* one.)
     #[inline(always)]
-    pub const fn end(&self) -> u32 {
-        self.offset + self.size
+    pub const fn end(&self) -> u64 {
+        self.offset as u64 + self.size as u64
     }
 
     /// Whether two segments share any byte.
     #[inline(always)]
     pub const fn overlaps(&self, other: &Segment) -> bool {
-        self.offset < other.end() && other.offset < self.end()
+        (self.offset as u64) < other.end() && (other.offset as u64) < self.end()
     }
 
     /// Whether this segment is contained fully within `container`.
@@ -136,10 +139,10 @@ impl<T: crate::Pod, const OFFSET: u32> TypedSegment<T, OFFSET> {
         core::mem::size_of::<T>() as u32
     }
 
-    /// One-past-the-end byte offset.
+    /// One-past-the-end byte offset, widened like [`Segment::end`].
     #[inline(always)]
-    pub const fn end() -> u32 {
-        OFFSET + core::mem::size_of::<T>() as u32
+    pub const fn end() -> u64 {
+        OFFSET as u64 + core::mem::size_of::<T>() as u64
     }
 
     /// Lower to a runtime [`Segment`] when a heterogeneous collection
@@ -259,7 +262,7 @@ mod tests {
         let s = Segment::body(0, 8);
         assert_eq!(s.offset, HopperHeader::SIZE as u32);
         assert_eq!(s.size, 8);
-        assert_eq!(s.end(), HopperHeader::SIZE as u32 + 8);
+        assert_eq!(s.end(), HopperHeader::SIZE as u64 + 8);
     }
 
     #[test]
@@ -281,5 +284,20 @@ mod tests {
         assert!(inner.contained_in(&outer));
         assert!(equal.contained_in(&outer));
         assert!(!escape.contained_in(&outer));
+    }
+
+    #[test]
+    fn end_arithmetic_does_not_wrap_at_u32_max() {
+        // Pre-fix, `end()` wrapped: offset u32::MAX + size 2 → end 1,
+        // making this segment falsely "contained" in a small container
+        // and falsely non-overlapping with its own bytes.
+        let huge = Segment::new(u32::MAX, 2);
+        let container = Segment::new(0, 32);
+        assert_eq!(huge.end(), u32::MAX as u64 + 2);
+        assert!(!huge.contained_in(&container));
+        assert!(!huge.overlaps(&container));
+        // And it does overlap a range that genuinely reaches it.
+        let touching = Segment::new(u32::MAX, 1);
+        assert!(huge.overlaps(&touching));
     }
 }

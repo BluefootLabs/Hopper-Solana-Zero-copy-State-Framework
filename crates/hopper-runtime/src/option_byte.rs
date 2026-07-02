@@ -104,15 +104,27 @@ impl<T: Copy> OptionByte<T> {
 mod tests {
     use super::*;
 
-    /// 8-byte-aligned scratch buffer for the pointer-cast tests below.
-    /// `[u8; 9]` on the stack has alignment 1, which means a raw
-    /// reinterpret to `&OptionByte<u64>` (alignment 8) trips the
-    /// rustc 1.78+ debug-build "misaligned pointer dereference"
-    /// check on whichever fraction of stack frames don't happen to
-    /// land on an 8-aligned address. Wrapping the bytes in a
-    /// repr(align(8)) struct removes the alignment lottery.
+    /// Aligned, full-size scratch buffer for the pointer-cast tests
+    /// below. `OptionByte<u64>` is `#[repr(C)] { tag: u8, value: u64 }`,
+    /// which under C layout is **16 bytes** (7 padding bytes after the
+    /// tag; the value sits at offset 8) with alignment 8. The buffer
+    /// must therefore be 16 bytes and 8-aligned: a reference's referent
+    /// must be entirely in-bounds of one allocation, and an unaligned
+    /// cast trips the rustc 1.78+ debug misalignment check. This is
+    /// also why overlay-facing args use align-1 `Pod` payloads
+    /// (`OptionByte<[u8; 32]>`, wire types) — a raw `u64` payload only
+    /// appears here to exercise tag validation.
     #[repr(C, align(8))]
-    struct AlignedNine([u8; 9]);
+    struct AlignedBuf([u8; core::mem::size_of::<OptionByte<u64>>()]);
+
+    #[test]
+    fn layout_is_c_with_value_at_align_of_t() {
+        // Pin the layout the module docs promise: tag at offset 0,
+        // value at `align_of::<T>()` under repr(C).
+        assert_eq!(core::mem::size_of::<OptionByte<u64>>(), 16);
+        assert_eq!(core::mem::size_of::<OptionByte<[u8; 32]>>(), 33);
+        assert_eq!(core::mem::align_of::<OptionByte<[u8; 32]>>(), 1);
+    }
 
     #[test]
     fn none_reads_as_none() {
@@ -130,9 +142,12 @@ mod tests {
     fn malformed_tag_rejects() {
         // Simulate a pointer-cast from hostile bytes: a 0xFF tag is
         // neither 0 nor 1.
-        let mut buf = AlignedNine([0u8; 9]);
+        let mut buf = AlignedBuf([0u8; core::mem::size_of::<OptionByte<u64>>()]);
         buf.0[0] = 0xFF;
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: the buffer is 8-aligned and exactly
+        // `size_of::<OptionByte<u64>>()` bytes, so the referent is fully
+        // in-bounds; every byte pattern is inspected only through the
+        // validated `get`/`validate_tag` paths.
         let o: &OptionByte<u64> = unsafe { &*(buf.0.as_ptr() as *const OptionByte<u64>) };
         assert_eq!(o.get().unwrap_err(), ProgramError::InvalidInstructionData);
         assert_eq!(
@@ -143,10 +158,13 @@ mod tests {
 
     #[test]
     fn zero_tag_ignores_value_payload() {
-        // A None with garbage value bytes still decodes cleanly.
-        let mut buf = AlignedNine([0u8; 9]);
-        buf.0[1..9].copy_from_slice(&0x1234_5678_9ABC_DEF0u64.to_le_bytes());
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // A None with garbage value bytes still decodes cleanly. The
+        // value field lives at offset 8 (after repr(C) padding), so the
+        // garbage goes there — not at offset 1.
+        let mut buf = AlignedBuf([0u8; core::mem::size_of::<OptionByte<u64>>()]);
+        buf.0[8..16].copy_from_slice(&0x1234_5678_9ABC_DEF0u64.to_le_bytes());
+        // SAFETY: as in `malformed_tag_rejects` — aligned, full-size,
+        // access through the validated path only.
         let o: &OptionByte<u64> = unsafe { &*(buf.0.as_ptr() as *const OptionByte<u64>) };
         assert!(o.get().unwrap().is_none());
     }

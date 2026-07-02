@@ -22,8 +22,8 @@
 //!    `#[account(rent_exempt = enforce)]` field keyword emitted by
 //!    `#[hopper::context]`. Compares `account.lamports()` to
 //!    `minimum_balance(account.data_len())` and returns
-//!    `ProgramError::AccountNotRentExempt` (Solana's canonical error
-//!    code, routed through `ProgramError::Custom`) on failure.
+//!    `ProgramError::AccountNotRentExempt` (a builtin variant mapping
+//!    to Solana's canonical code) on failure.
 //!
 //! ## Why not use `sol_get_rent_sysvar`?
 //!
@@ -94,9 +94,9 @@ pub fn minimum_balance_live(data_len: usize) -> u64 {
 /// its current data length. Used by the `#[account(rent_exempt =
 /// enforce)]` constraint lowering in `hopper-derive`.
 ///
-/// Returns `ProgramError::AccountNotRentExempt` on underrun. The error
-/// code maps to Solana's canonical `InstructionError::RentEpoch`
-/// (built-in 29) when surfaced through the runtime.
+/// Returns `ProgramError::AccountNotRentExempt` on underrun (builtin
+/// index 14 in Hopper's error ABI, matching Solana's canonical
+/// `AccountNotRentExempt` code).
 #[inline]
 pub fn check_rent_exempt(account: &AccountView<'_>) -> ProgramResult {
     let data_len = account.data_len();

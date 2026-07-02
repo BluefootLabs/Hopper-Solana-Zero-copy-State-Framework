@@ -73,11 +73,15 @@ been read line-by-line and its findings logged.
 - [x] lib.rs
 - [x] policy.rs (verified sound — see findings; seeded I12)
 - [x] write_policy.rs (new this session — audited at authoring, I12)
-- [ ] address.rs, foreign.rs, instruction.rs, interop.rs, pod.rs,
-      audit.rs, segment.rs, compute.rs, crank.rs, dyn_cpi.rs,
-      field_map.rs, log.rs, migrate.rs, option_byte.rs, proof.rs,
-      ref_only.rs, rent.rs, result.rs, return_data.rs, syscall.rs,
-      system.rs, token_2022_ext.rs, utils.rs, remaining files
+- [x] address.rs, instruction.rs, interop.rs, pod.rs, audit.rs,
+      compute.rs, crank.rs, field_map.rs, log.rs, proof.rs, ref_only.rs,
+      rent.rs (DOC fixed), result.rs, return_data.rs, syscall.rs,
+      system.rs (all 13 wire encodings verified), utils.rs
+- [x] segment.rs (P2 fixed: end() u64 widening)
+- [x] migrate.rs (P2 fixed: overshoot refusal; DOC fixed: atomicity)
+- [x] option_byte.rs (P3 fixed: test-only OOB referent + layout pin)
+- [x] dyn_cpi.rs (P1 fixed: builder had no invoke)
+- [ ] foreign.rs, token_2022_ext.rs (the last two Batch 2 files)
 
 #### Batch 2 findings
 
@@ -326,6 +330,68 @@ been read line-by-line and its findings logged.
   lint queued). Workspace 140 suites green both lanes; 5 trybuild stderr
   snapshots re-blessed (rustc candidate-list sampling shifted — cosmetic
   only, verified line-by-line).
+
+#### Batch 2 tail findings (2026-07-01 sweep, 21 files)
+
+- **P1 fixed** `dyn_cpi.rs` — `DynCpi` was a CPI builder **with no way to
+  submit**: the pushed `accounts`/`writable`/`signer` arrays were
+  write-only (nothing consumed them) and the module docs promised
+  signer-threaded invocation that did not exist. Added
+  `invoke()`/`invoke_signed(signers)` assembling the pushed metas into an
+  `InstructionView` and routing through the **validated**
+  `cpi::invoke_signed_with_bounds` path (address/flag agreement,
+  PDA-signer resolution, live-borrow checks, duplicate-writable
+  rejection), plus `account_views()` prefix accessor. Tests pin the
+  build→submit chain end-to-end: flag-mismatch surfaces
+  `MissingRequiredSignature` from the *built* metas, duplicate writable
+  refused, host validate+no-op submit.
+- **P2 fixed** `segment.rs` — `Segment::end()` was `offset + size` on
+  `u32`: near-`u32::MAX` offsets wrapped, making `contained_in` falsely
+  TRUE (a bounds-escape shape) and `overlaps` falsely false. Widened
+  `end()` to `u64` (same lesson the registry's `ranges_overlap` learned);
+  `TypedSegment::end()` matched; wrap-pinning test added. Public-API
+  break is a return-type widening only.
+- **P2 fixed** `migrate.rs` — a misdeclared edge overshooting
+  `SCHEMA_EPOCH` (e.g. chain 1→3 with target 2) was applied silently:
+  the header got stamped with a **future** epoch and `Ok` returned,
+  bricking the account for every subsequent typed load. Now refused
+  (`InvalidAccountData`) before any byte is written; test with a real
+  account fixture. **DOC fixed** — the "never a hybrid" atomicity claim
+  was false for migrators that error after partial body writes; the
+  contract now states epoch-bump-after-success + errors MUST propagate
+  to instruction failure (tx rollback is what makes it safe).
+- **P3 fixed** `option_byte.rs` — tests cast a 9-byte buffer to
+  `&OptionByte<u64>` (size **16**: repr(C) puts the value at offset 8,
+  not 1) — an out-of-bounds referent (validity-rule UB, Miri-flaggable)
+  with a comment mis-modeling the layout. Fixed to full-size aligned
+  buffers with honest SAFETY comments + a layout-pinning test
+  (`OptionByte<[u8;32]>` is 33 bytes align 1 — the overlay-facing form).
+- **DOC fixed** `rent.rs` — claimed `AccountNotRentExempt` routes
+  through `Custom` / builtin 29; it is builtin 14 in Hopper's ABI.
+- **verified sound** `system.rs` — all 13 System Program builders
+  checked against the interface wire format (tags 0–12, bincode field
+  order, u64-len seed strings, account meta shapes); every builder
+  routes through the validated CPI path, so address/flag agreement and
+  duplicate-writable rejection apply. (The earlier P2-open about CPI
+  helpers bypassing validation concerned hopper-**native**'s helpers,
+  not these.)
+- **verified sound** `instruction.rs` — `StoredInstruction` bounds
+  against `MAX_CPI_ACCOUNTS` and buffer `N` with initialized-prefix
+  exposure; `CpiAccount` C-ABI carries `PhantomData` lifetime pinning;
+  `Seed`/`Signer` raw-pointer FFI pairs are lifetime-pinned the same way.
+- **verified sound** the rest of the tail: `address.rs` (Pod/seal impls
+  correct for transparent [u8;32]; 4×u64 unaligned fast-eq),
+  `interop.rs` (unsafe `TransparentAddress` marker, both impls genuinely
+  transparent), `pod.rs` (doc-carrier re-export + compile-fail
+  doctests), `audit.rs` (O(n²) scan fine at Solana account counts),
+  `return_data.rs` (truncation surfaced via `is_truncated`; P3 noted:
+  ~1 KiB by-value snapshot on 4 KiB SBF frames — document stack cost),
+  `compute.rs`, `crank.rs`, `field_map.rs`, `log.rs` (StackWriter
+  truncates silently — acceptable for logs), `proof.rs` (P3 noted:
+  `assume_token_extensions_checked` is the only unverified proof grant —
+  honestly named; Seeds/HasOne markers granted macro-side), `ref_only.rs`
+  (sealed, grep-receipt claim matches), `result.rs`, `syscall.rs`,
+  `utils.rs`.
 
 ### Batch 3 — hopper-core (69 files, ~18.6k lines)
 
