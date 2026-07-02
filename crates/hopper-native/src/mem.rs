@@ -126,7 +126,9 @@ pub fn zero_fill(buf: &mut [u8]) {
 
 /// Copy bytes from one slice to another (no overlap).
 ///
-/// Returns `Err(InvalidArgument)` if lengths differ.
+/// Copies `src.len()` bytes into the front of `dst`. Returns
+/// `Err(InvalidArgument)` if `dst` is shorter than `src`; a longer `dst`
+/// keeps its trailing bytes unchanged.
 #[inline]
 pub fn copy_bytes(dst: &mut [u8], src: &[u8]) -> Result<(), ProgramError> {
     if dst.len() < src.len() {
@@ -154,16 +156,24 @@ pub fn bytes_eq(a: &[u8], b: &[u8]) -> bool {
 
 /// Zero-fill account data using SVM-optimized memset.
 ///
-/// More efficient than the byte-by-byte loop in `AccountView::close()`.
 /// Use this when you need to clear account data without closing the account.
+///
+/// Fails with `AccountBorrowFailed` if any data borrow (shared or exclusive)
+/// is outstanding: the memset would mutate memory a live `Ref`/`RefMut`
+/// still points at.
 #[inline]
-pub fn zero_account_data(account: &crate::account_view::AccountView<'_>) {
+pub fn zero_account_data(
+    account: &crate::account_view::AccountView<'_>,
+) -> Result<(), ProgramError> {
+    account.check_borrow_mut()?;
     let len = account.data_len();
     if len == 0 {
-        return;
+        return Ok(());
     }
-    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+    // SAFETY: no data borrow is outstanding (checked above); the pointer and
+    // length describe this account's SVM-owned data region.
     unsafe {
         memset(account.data_ptr_unchecked(), 0, len);
     }
+    Ok(())
 }

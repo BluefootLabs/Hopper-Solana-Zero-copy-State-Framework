@@ -31,9 +31,9 @@ been read line-by-line and its findings logged.
 - [x] instruction.rs (re-audited post-hardening)
 - [x] account_view.rs
 - [ ] raw.rs
-- [ ] borrow.rs
-- [ ] mem.rs
-- [ ] pod.rs
+- [x] borrow.rs
+- [x] mem.rs
+- [x] pod.rs
 - [ ] project.rs
 - [ ] wire.rs
 - [ ] pda.rs
@@ -168,3 +168,28 @@ hopper-sdk (~2k), hopper-manager (~0.9k), hopper-test.
   from valid slices. P3 note: field pointers use `&(*raw).field as *const _`
   where `core::ptr::addr_of!` would avoid materializing intermediate
   references (provenance hygiene; fields are disjoint so not unsound).
+- **P1 fixed (this commit)** `hopper-native/mem.rs::zero_account_data` —
+  same class as the `close()` finding: a *safe* fn that memset the entire
+  data region with no borrow check, mutating memory a live `Ref`/`RefMut`
+  still points at. No in-tree callers existed, so the signature change to
+  `Result<(), ProgramError>` with a `check_borrow_mut()` guard is
+  non-breaking.
+- **DOC fixed (this commit)** `hopper-native/mem.rs::copy_bytes` — doc said
+  "Err if lengths differ"; behavior accepts a longer `dst` (prefix copy) and
+  rejects only `dst` shorter than `src`. Doc corrected.
+- **verified sound** `hopper-native/borrow.rs` — `Ref`/`RefMut` drop paths
+  restore `borrow_state` correctly (last shared borrow -> NOT_BORROWED,
+  otherwise decrement; exclusive -> NOT_BORROWED). Underflow is reachable
+  only via already-broken invariants (constructors are `pub(crate)` or
+  `unsafe` with documented contracts). `into_raw_parts` leaks the borrow
+  count by design (leak-safe, not memory-unsafe); `new_external` null-state
+  guards no-op on drop (registry-leased segments release externally); the
+  raw-pointer field keeps both guards `!Send`/`!Sync`.
+- **verified sound** `hopper-native/mem.rs` syscall wrappers — memcpy /
+  memmove / memset / memcmp contracts documented; host fallbacks match SVM
+  semantics; safe wrappers bounds-check before delegating.
+- **verified sound** `hopper-native/pod.rs` — the Pod/ValuePod split holds
+  the audit's safety line: `Pod` (overlay) is implemented only for
+  alignment-1 types (u8/i8/arrays/unit); multi-byte integers are
+  `Zeroable`+`ValuePod` only, so `&u64` overlays are compile-time rejected;
+  `read_unaligned_value` is bounds-checked and alignment-independent.
