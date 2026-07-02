@@ -629,6 +629,48 @@ Wave 2 (abi/* + collections/*, 2026-07-02):
   adversarial Miri suite (`lang/tests/miri.rs`, Tree-Borrows flags, a
   documented findings table) — logged as I14.
 
+Wave 3 (account/* remainder, 2026-07-02):
+
+- [x] account/{registry,lifecycle,dynamic,verified,realloc_guard,cursor,
+      reader,header,segment_role}.rs
+
+#### Batch 3 Wave 3 findings
+
+- **P0 fixed (OOB read / UB) `account/reader.rs`** — `address_at(offset)`
+  bounds-checked with `offset + 32 > data.len()`, an add that **wraps**
+  for a near-`usize::MAX` offset: the wrapped small value passes the
+  bound, then the raw `data.as_ptr().add(offset)` is out-of-bounds
+  pointer arithmetic (UB) reading 32 bytes from a wild address. Public
+  method — if `offset` is ever derived from instruction data it is an
+  exploitable OOB read. Fixed with `checked_add`; `u64_at` hardened the
+  same way for consistency (its array reads panic-not-UB, but the check
+  is now honest). Regression test with `usize::MAX - 16`.
+- **P1 fixed (panic + silent overlap) `account/registry.rs`** —
+  `SegmentRegistryMut::init` (1) wrote the header and entry table
+  without checking `data.len() >= entries_offset + count*16`, so an
+  undersized buffer **panicked** at the slice index (the "verified
+  above" SAFETY note was never actually enforced); and (2) accumulated
+  each segment's data offset with unchecked `current_offset += size`
+  (hopper-core opts out of the overflow-checks profile), so a wrapped
+  offset placed a later segment **inside** an earlier one — overlapping,
+  silent corruption. Both fixed (up-front bound + `checked_add`); two
+  regression tests.
+- **verified sound** `account/lifecycle.rs` — checked lamport
+  arithmetic throughout; `safe_realloc` does all funding validation
+  *before* the resize and fails fast on outstanding borrows;
+  `safe_close_with_sentinel` zeroes the whole account **and** stamps the
+  `0xFF` revival-attack sentinel at byte 0 (stronger than Quasar's
+  zero-the-discriminator close). Thoroughly tested.
+- **verified sound** `account/realloc_guard.rs` (all-checked cumulative
+  growth budget, u32-boundary tested), `account/cursor.rs` (every
+  advance length-checked, `pos <= len` invariant), `account/verified.rs`
+  (all overlays size-checked; `overlay_at` uses `checked_add`),
+  `account/dynamic.rs` (parse validates every range; cached-offset
+  accessors are a clean parse-don't-validate — offsets were bounds-proven
+  at parse and the view is immutable), `account/header.rs` (all reads
+  bounds-checked; `FixedLayout` simplified to the I15 empty body),
+  `account/segment_role.rs` (pure const enum, no unsafe).
+
 ### Batch 4 — macros (hopper-macros-proc 15 files ~12.2k + hopper-macros ~1.9k)
 
 - [ ] state.rs, context.rs, program.rs, dynamic.rs, declare_program.rs,

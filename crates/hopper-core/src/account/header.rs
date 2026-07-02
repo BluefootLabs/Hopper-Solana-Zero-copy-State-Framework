@@ -54,9 +54,9 @@ unsafe impl super::Pod for AccountHeader {}
 // Audit Step 5 seal: Hopper-authored primitive.
 unsafe impl ::hopper_runtime::__sealed::HopperZeroCopySealed for AccountHeader {}
 
-impl super::FixedLayout for AccountHeader {
-    const SIZE: usize = HEADER_LEN;
-}
+// SIZE defaults to size_of::<Self>() == HEADER_LEN (16), proven by the
+// trait (I15) and pinned by the const asserts above.
+impl super::FixedLayout for AccountHeader {}
 
 impl AccountHeader {
     /// Create a new header.

@@ -423,20 +423,30 @@ impl<'a> SegmentRegistryMut<'a> {
         let entries_offset = start + REGISTRY_HEADER_SIZE;
         let data_region = entries_offset + count * SEGMENT_ENTRY_SIZE;
 
+        // The header + entry-table writes below index up to `data_region`;
+        // without this bound they would panic on an undersized buffer
+        // (the old "verified above" SAFETY note was not actually
+        // enforced anywhere). Reject instead.
+        if data.len() < data_region {
+            return Err(ProgramError::AccountDataTooSmall);
+        }
+
         // Write registry header: segment_count (u16 LE) + flags (u16 LE)
         data[start] = (count & 0xFF) as u8;
         data[start + 1] = ((count >> 8) & 0xFF) as u8;
         data[start + 2] = 0; // flags low
         data[start + 3] = 0; // flags high
 
-        // Write entries and compute offsets
+        // Write entries and compute offsets.
         let mut current_offset = data_region as u32;
         for (i, &(id, size, version)) in specs.iter().enumerate() {
             let entry = SegmentEntry::new(id, current_offset, size, 0, version);
             let entry_offset = entries_offset + i * SEGMENT_ENTRY_SIZE;
-            // SAFETY: entry_offset + 16 is within bounds (verified above).
+            // `entry_offset + SEGMENT_ENTRY_SIZE <= data_region <= data.len()`,
+            // proven by the bound above and `i < count`.
             let dst = &mut data[entry_offset..entry_offset + SEGMENT_ENTRY_SIZE];
-            // SAFETY: SegmentEntry is repr(C), alignment-1, 16 bytes.
+            // SAFETY: SegmentEntry is repr(C), alignment-1, 16 bytes; `dst`
+            // is exactly that many bytes.
             unsafe {
                 core::ptr::copy_nonoverlapping(
                     &entry as *const SegmentEntry as *const u8,
@@ -444,7 +454,14 @@ impl<'a> SegmentRegistryMut<'a> {
                     SEGMENT_ENTRY_SIZE,
                 );
             }
-            current_offset += size;
+            // Checked: a wrapped `current_offset` would give a later
+            // segment a small offset that lands *inside* an earlier
+            // segment's region — overlapping, silently corrupting data.
+            // (hopper-core opts out of the workspace overflow-checks
+            // profile, so the wrap would otherwise be invisible.)
+            current_offset = current_offset
+                .checked_add(size)
+                .ok_or(ProgramError::ArithmeticOverflow)?;
         }
 
         Ok(())
@@ -687,5 +704,36 @@ mod tests {
         assert_eq!(reader.entry_count(), 2);
         assert_eq!(reader.read(0).unwrap().value, 3);
         assert_eq!(reader.read(1).unwrap().value, 4);
+    }
+
+    #[test]
+    fn init_rejects_buffer_too_small_for_entry_table() {
+        const A: SegmentId = segment_id("a");
+        const B: SegmentId = segment_id("b");
+        // Room for the header + registry header but only ONE entry, while
+        // two are declared: the second entry write would have panicked
+        // pre-fix; now it's a clean error.
+        let too_small = REGISTRY_OFFSET + REGISTRY_HEADER_SIZE + SEGMENT_ENTRY_SIZE;
+        let mut account = std::vec![0u8; too_small];
+        assert_eq!(
+            SegmentRegistryMut::init(&mut account, &[(A, 8, 1), (B, 8, 1)]),
+            Err(ProgramError::AccountDataTooSmall)
+        );
+    }
+
+    #[test]
+    fn init_rejects_offset_overflow_instead_of_overlapping() {
+        const A: SegmentId = segment_id("a");
+        const B: SegmentId = segment_id("b");
+        // Give the entry table room, then declare a first segment whose
+        // size is near u32::MAX so the running data offset for the second
+        // would wrap — pre-fix that wrap silently placed segment B on top
+        // of an earlier region; now it's refused.
+        let buf_len = REGISTRY_OFFSET + REGISTRY_HEADER_SIZE + 2 * SEGMENT_ENTRY_SIZE;
+        let mut account = std::vec![0u8; buf_len];
+        assert_eq!(
+            SegmentRegistryMut::init(&mut account, &[(A, u32::MAX - 4, 1), (B, 64, 1)]),
+            Err(ProgramError::ArithmeticOverflow)
+        );
     }
 }
