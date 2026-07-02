@@ -62,6 +62,7 @@ been read line-by-line and its findings logged.
 - [x] compact.rs (fully read + extended with `CompactDynamicLayout` and
       tests during this session's compact-dynamic feature work)
 - [x] account_wrappers.rs
+- [x] cpi.rs
 - [ ] compact.rs, tail.rs, segment_lease.rs, layout.rs,
       account_wrappers.rs, borrow_registry.rs, address.rs, cpi.rs,
       token.rs, crypto.rs, context.rs, policy.rs, native_boundary.rs,
@@ -178,6 +179,18 @@ been read line-by-line and its findings logged.
   tests) was audited during this session's `owner_any` work. Parity note
   for COMPARISON.md: this matches Anchor's wrapper vocabulary at zero
   runtime cost (no RefCell).
+- **verified sound** `hopper-runtime/cpi.rs` — the checked CPI layer
+  validates address identity, signer requirements **with a PDA-signer
+  derivation fallback** (`signer_matches_pda` via
+  `create_program_address`), writable flags, per-account borrow
+  compatibility, and **rejects duplicate writable accounts** before the
+  syscall (test-pinned: `duplicate_writable_accounts_are_rejected_before_cpi`)
+  — validation beyond both Pinocchio (no checked layer) and Anchor's
+  `CpiContext`. `MaybeUninit` account arrays are count-gated; the host-only
+  system-transfer emulation uses checked lamport math behind the same
+  signer/duplicate validation. Innovation note: "the only zero-copy
+  framework whose checked CPI proves borrow-compatibility and
+  duplicate-writable safety pre-syscall" belongs in COMPARISON.md.
 
 ### Batch 3 — hopper-core (69 files, ~18.6k lines)
 
