@@ -12,9 +12,12 @@
 //! # Safety
 //!
 //! Lenses bypass type-level layout guarantees. The caller must know the
-//! correct offset and type for the target field. Incorrect offsets will
-//! read garbage data (but never cause UB, since all reads go through
-//! bounds-checked accessors).
+//! correct offset and type for the target field. Incorrect offsets read
+//! garbage data, never out-of-bounds memory: every accessor is
+//! bounds-checked. Reference-returning lenses additionally hold a shared
+//! data borrow (a [`crate::borrow::Ref`] guard) for their lifetime, so
+//! they cannot coexist with an exclusive borrow of the same account's
+//! data; by-value lenses copy through raw pointers and take no borrow.
 //!
 //! # Usage
 //!
@@ -34,6 +37,7 @@
 
 use crate::account_view::AccountView;
 use crate::address::Address;
+use crate::borrow::Ref;
 use crate::error::ProgramError;
 use crate::project::Projectable;
 
@@ -44,11 +48,13 @@ use crate::project::Projectable;
 /// against padding/alignment bugs. New code should prefer
 /// [`read_field_pod`] which enforces the stronger [`crate::Pod`]
 /// bound at the type level.
+///
+/// The returned guard holds a shared data borrow for its lifetime.
 #[inline]
 pub fn read_field<'a, T: Projectable>(
     account: &'a AccountView<'a>,
     offset: usize,
-) -> Result<&'a T, ProgramError> {
+) -> Result<Ref<'a, T>, ProgramError> {
     crate::project::project::<T>(account, offset, None)
 }
 
@@ -73,7 +79,7 @@ pub fn read_field<'a, T: Projectable>(
 pub fn read_field_pod<'a, T: crate::Pod>(
     account: &'a AccountView<'a>,
     offset: usize,
-) -> Result<&'a T, ProgramError> {
+) -> Result<Ref<'a, T>, ProgramError> {
     let data_len = account.data_len();
     let size = core::mem::size_of::<T>();
     let end = offset
@@ -82,15 +88,17 @@ pub fn read_field_pod<'a, T: crate::Pod>(
     if end > data_len {
         return Err(ProgramError::AccountDataTooSmall);
     }
-    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+    // SAFETY: bounds checked above; the sum stays within the data region.
     let ptr = unsafe { account.data_ptr_unchecked().add(offset) };
-    // ---------------------------------------------------------------------
+    // Shared data borrow: released by the guard's drop; prevents coexistence
+    // with an exclusive borrow of the same region.
+    let state_ptr = account.acquire_shared()?;
     // Bounds and arithmetic overflow checked above. No alignment check
     // needed (Pod's align-1 obligation subsumes it).
     // SAFETY: `ptr` is within account data bounds, `T: Pod` guarantees
-    // alignment-1 + any-bit-pattern validity, and the returned reference
+    // alignment-1 + any-bit-pattern validity, and the returned guard's
     // lifetime is tied to `account`.
-    Ok(unsafe { &*(ptr as *const T) })
+    Ok(Ref::new(unsafe { &*(ptr as *const T) }, state_ptr))
 }
 
 /// Read a 32-byte address from account data.
@@ -101,16 +109,18 @@ pub fn read_field_pod<'a, T: crate::Pod>(
 pub fn read_address<'a>(
     account: &'a AccountView<'a>,
     offset: usize,
-) -> Result<&'a Address, ProgramError> {
+) -> Result<Ref<'a, Address>, ProgramError> {
     let data_len = account.data_len();
     if offset.checked_add(32).is_none_or(|end| end > data_len) {
         return Err(ProgramError::AccountDataTooSmall);
     }
-    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+    // SAFETY: bounds checked above; the sum stays within the data region.
     let ptr = unsafe { account.data_ptr_unchecked().add(offset) };
+    // Shared data borrow: released by the guard's drop.
+    let state_ptr = account.acquire_shared()?;
     // SAFETY: Address is #[repr(transparent)] over [u8; 32].
     // Alignment 1, bounds checked above.
-    Ok(unsafe { &*(ptr as *const Address) })
+    Ok(Ref::new(unsafe { &*(ptr as *const Address) }, state_ptr))
 }
 
 /// Read a little-endian u64 from account data.
@@ -190,14 +200,20 @@ pub fn read_bytes<'a>(
     account: &'a AccountView<'a>,
     offset: usize,
     len: usize,
-) -> Result<&'a [u8], ProgramError> {
+) -> Result<Ref<'a, [u8]>, ProgramError> {
     let data_len = account.data_len();
     if offset.checked_add(len).is_none_or(|end| end > data_len) {
         return Err(ProgramError::AccountDataTooSmall);
     }
-    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+    // SAFETY: bounds checked above; the sum stays within the data region.
     let ptr = unsafe { account.data_ptr_unchecked().add(offset) };
-    Ok(unsafe { core::slice::from_raw_parts(ptr, len) })
+    // Shared data borrow: released by the guard's drop.
+    let state_ptr = account.acquire_shared()?;
+    // SAFETY: bounds checked; u8 has no alignment or validity requirements.
+    Ok(Ref::new(
+        unsafe { core::slice::from_raw_parts(ptr, len) },
+        state_ptr,
+    ))
 }
 
 /// Compare a field in account data against an expected value without copying.
@@ -211,5 +227,5 @@ pub fn field_eq(
     expected: &[u8],
 ) -> Result<bool, ProgramError> {
     let actual = read_bytes(account, offset, expected.len())?;
-    Ok(actual == expected)
+    Ok(&*actual == expected)
 }

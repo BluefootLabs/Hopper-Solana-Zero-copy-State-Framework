@@ -62,6 +62,7 @@
 //! ```
 
 use crate::account_view::AccountView;
+use crate::borrow::Ref;
 use crate::error::ProgramError;
 
 /// Marker trait for types that can be safely projected from raw account data.
@@ -142,7 +143,7 @@ pub fn project_safe<'a, T: SafeProjectable>(
     account: &'a AccountView<'a>,
     offset: usize,
     expected_disc: Option<u8>,
-) -> Result<&'a T, ProgramError> {
+) -> Result<Ref<'a, T>, ProgramError> {
     const {
         assert!(
             core::mem::size_of::<T>() > 0,
@@ -182,8 +183,11 @@ pub unsafe fn project_safe_mut<'a, T: SafeProjectable>(
 /// 2. **Alignment**: `(data_ptr + offset) % align_of::<T>() == 0`
 /// 3. **Discriminator** (optional): `data[0] == expected_disc`
 ///
-/// Returns a direct `&T` reference into the account's data region.
-/// No copies, no allocation.
+/// Returns a [`Ref`] guard whose deref is a direct `&T` into the account's
+/// data region — no copies, no allocation. The guard holds a **shared data
+/// borrow** for its lifetime, so an exclusive borrow (`try_borrow_mut`)
+/// cannot be taken while the projection is live, and vice versa. Fails
+/// with `AccountBorrowFailed` if the data is exclusively borrowed.
 ///
 /// # Arguments
 ///
@@ -198,7 +202,7 @@ pub fn project<'a, T: Projectable>(
     account: &'a AccountView<'a>,
     offset: usize,
     expected_disc: Option<u8>,
-) -> Result<&'a T, ProgramError> {
+) -> Result<Ref<'a, T>, ProgramError> {
     let data_len = account.data_len();
     let type_size = core::mem::size_of::<T>();
 
@@ -218,7 +222,7 @@ pub fn project<'a, T: Projectable>(
     }
 
     let data_ptr = account.data_ptr_unchecked();
-    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+    // SAFETY: bounds checked above; the sum stays within the data region.
     let target_ptr = unsafe { data_ptr.add(offset) };
 
     // Alignment check.
@@ -227,9 +231,14 @@ pub fn project<'a, T: Projectable>(
         return Err(ProgramError::InvalidAccountData);
     }
 
+    // Take a shared data borrow so the returned reference cannot coexist
+    // with an exclusive borrow of the same region (aliasing soundness).
+    let state_ptr = account.acquire_shared()?;
+
     // SAFETY: bounds checked, alignment verified, T: Projectable guarantees
-    // all bit patterns are valid.
-    Ok(unsafe { &*(target_ptr as *const T) })
+    // all bit patterns are valid; the shared borrow taken above is released
+    // by the returned guard's drop.
+    Ok(Ref::new(unsafe { &*(target_ptr as *const T) }, state_ptr))
 }
 
 /// Project a mutable `#[repr(C)]` struct from account data.
@@ -284,14 +293,15 @@ pub unsafe fn project_mut<'a, T: Projectable>(
 
 /// Project a slice of `T` from account data starting at `offset`.
 ///
-/// Returns `&[T]` with `count` elements, performing bounds and alignment
-/// checks.
+/// Returns a [`Ref`] guard over `[T]` with `count` elements, performing
+/// bounds and alignment checks. The guard holds a shared data borrow for
+/// its lifetime (see [`project`]).
 #[inline]
 pub fn project_slice<'a, T: Projectable>(
     account: &'a AccountView<'a>,
     offset: usize,
     count: usize,
-) -> Result<&'a [T], ProgramError> {
+) -> Result<Ref<'a, [T]>, ProgramError> {
     let data_len = account.data_len();
     let type_size = core::mem::size_of::<T>();
     let total = count
@@ -303,7 +313,7 @@ pub fn project_slice<'a, T: Projectable>(
     }
 
     let data_ptr = account.data_ptr_unchecked();
-    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+    // SAFETY: bounds checked above; the sum stays within the data region.
     let target_ptr = unsafe { data_ptr.add(offset) };
 
     let align = core::mem::align_of::<T>();
@@ -311,8 +321,15 @@ pub fn project_slice<'a, T: Projectable>(
         return Err(ProgramError::InvalidAccountData);
     }
 
-    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-    Ok(unsafe { core::slice::from_raw_parts(target_ptr as *const T, count) })
+    // Shared data borrow: released by the guard's drop (see `project`).
+    let state_ptr = account.acquire_shared()?;
+
+    // SAFETY: bounds and alignment checked; T: Projectable guarantees all bit
+    // patterns valid; the shared borrow above guards against aliasing.
+    Ok(Ref::new(
+        unsafe { core::slice::from_raw_parts(target_ptr as *const T, count) },
+        state_ptr,
+    ))
 }
 
 /// Project with a Hopper standard header: skip the 10-byte header
@@ -324,7 +341,7 @@ pub fn project_slice<'a, T: Projectable>(
 pub fn project_hopper<'a, T: Projectable>(
     account: &'a AccountView<'a>,
     expected_disc: u8,
-) -> Result<&'a T, ProgramError> {
+) -> Result<Ref<'a, T>, ProgramError> {
     project::<T>(account, 10, Some(expected_disc))
 }
 
@@ -340,4 +357,68 @@ pub unsafe fn project_hopper_mut<'a, T: Projectable>(
 ) -> Result<&'a mut T, ProgramError> {
     // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
     unsafe { project_mut::<T>(account, 10, Some(expected_disc)) }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::raw_account::RuntimeAccount;
+    use crate::NOT_BORROWED;
+
+    /// A stack-allocated account: 88-byte header + contiguous data region,
+    /// mirroring the loader input layout (data follows the header).
+    #[repr(C, align(8))]
+    struct Backing {
+        header: RuntimeAccount,
+        data: [u8; 16],
+    }
+
+    fn make_backing() -> Backing {
+        let mut header = RuntimeAccount::default();
+        header.borrow_state = NOT_BORROWED;
+        header.data_len = 16;
+        Backing {
+            header,
+            data: [7u8; 16],
+        }
+    }
+
+    #[test]
+    fn projection_takes_a_shared_borrow_and_blocks_exclusive() {
+        let mut backing = make_backing();
+        // SAFETY: `backing` has the loader layout (header + contiguous data)
+        // and lives for the whole test.
+        let account = unsafe { AccountView::new_unchecked(&mut backing.header) };
+
+        // A live projection holds a shared borrow, so an exclusive borrow
+        // must be refused while it exists...
+        {
+            let field = project::<u8>(&account, 0, None).unwrap();
+            assert_eq!(*field, 7);
+            assert!(account.try_borrow_mut().is_err());
+        }
+        // ...and granted again once the guard drops.
+        assert!(account.try_borrow_mut().is_ok());
+
+        // Symmetrically, a live exclusive borrow blocks projection.
+        {
+            let _data = account.try_borrow_mut().unwrap();
+            assert!(project::<u8>(&account, 0, None).is_err());
+        }
+        assert!(project::<u8>(&account, 0, None).is_ok());
+    }
+
+    #[test]
+    fn project_bounds_and_disc_checks_run_before_borrowing() {
+        let mut backing = make_backing();
+        // SAFETY: as above.
+        let account = unsafe { AccountView::new_unchecked(&mut backing.header) };
+
+        // Out-of-bounds projection fails without leaking a borrow.
+        assert!(project::<[u8; 32]>(&account, 0, None).is_err());
+        // Wrong disc fails without leaking a borrow.
+        assert!(project::<u8>(&account, 0, Some(9)).is_err());
+        // The account is still exclusively borrowable (no stuck state).
+        assert!(account.try_borrow_mut().is_ok());
+    }
 }

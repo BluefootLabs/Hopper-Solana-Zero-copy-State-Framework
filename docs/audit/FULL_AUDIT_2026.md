@@ -34,7 +34,8 @@ been read line-by-line and its findings logged.
 - [x] borrow.rs
 - [x] mem.rs
 - [x] pod.rs
-- [ ] project.rs
+- [x] project.rs
+- [x] lens.rs (moved up: shares the projection surface)
 - [ ] wire.rs
 - [ ] pda.rs
 - [ ] cpi.rs
@@ -193,3 +194,27 @@ hopper-sdk (~2k), hopper-manager (~0.9k), hopper-test.
   alignment-1 types (u8/i8/arrays/unit); multi-byte integers are
   `Zeroable`+`ValuePod` only, so `&u64` overlays are compile-time rejected;
   `read_unaligned_value` is bounds-checked and alignment-independent.
+- **P1 fixed (this commit)** `hopper-native/project.rs` + `lens.rs` — the
+  reference-returning projection/lens surface (`project`, `project_safe`,
+  `project_slice`, `project_hopper`, `lens::read_field`,
+  `lens::read_field_pod`, `lens::read_address`, `lens::read_bytes`) returned
+  bare `&T`/`&[u8]` into account data with **no borrow tracking**. Safe
+  `project::<u8>()` + safe `try_borrow_mut()` could therefore hold a shared
+  reference and `&mut [u8]` over the same bytes simultaneously — aliasing UB
+  with zero `unsafe` in user code (the `unsafe impl Projectable` contract
+  covers layout, not aliasing; the lens module docs even claimed "never
+  cause UB"). Fix: all eight functions now take a shared data borrow via a
+  new `AccountView::acquire_shared()` (the `try_borrow` state transition,
+  254-cap included) and return `Ref` guards that release on drop, making
+  projection and exclusive borrows mutually exclusive. By-value lenses
+  (`read_le_u64/u32/u16`, `read_u8`, `read_bool`, `field_eq`) copy through
+  raw pointers, form no references, and are unchanged. Only one in-tree
+  caller existed (`lens::read_field` → `project`), so the `&T` → `Ref<T>`
+  signature change is contained; `Ref` derefs to `&T` for call-site
+  compatibility. Regression tests:
+  `projection_takes_a_shared_borrow_and_blocks_exclusive`,
+  `project_bounds_and_disc_checks_run_before_borrowing`. Full workspace
+  builds clean.
+- **audited** `hopper-native/lens.rs` — module doc's "never cause UB" claim
+  corrected to state the borrow-guard semantics; by-value paths verified
+  sound (raw-pointer copies, bounds-checked, no reference formation).

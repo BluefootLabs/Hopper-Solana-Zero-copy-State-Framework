@@ -199,6 +199,34 @@ impl<'info> AccountView<'info> {
         }
     }
 
+    /// Acquire a shared data borrow, returning the borrow-state pointer for a
+    /// [`Ref`] guard to release on drop.
+    ///
+    /// Mirrors the `try_borrow` state transition (increment with the 254 cap
+    /// so the count can never wrap into a sentinel) without materializing the
+    /// data slice; used by projection/lens paths that form their own typed
+    /// reference into the data region.
+    #[inline(always)]
+    pub(crate) fn acquire_shared(&self) -> Result<*mut u8, ProgramError> {
+        self.check_borrow()?;
+        // SAFETY: `self.raw` is a valid `RuntimeAccount`; `borrow_state` is its
+        // first byte. Taking a `*mut u8` to it creates no aliasing reference.
+        let state_ptr = unsafe { &mut (*self.raw).borrow_state as *mut u8 };
+        // SAFETY: read/write of the borrow byte on the single-threaded SVM,
+        // after `check_borrow` confirmed a shared borrow is compatible.
+        let state = unsafe { *state_ptr };
+        let new_state = if state == NOT_BORROWED { 1 } else { state + 1 };
+        if new_state == 0 || new_state == NOT_BORROWED {
+            // See `try_borrow`: cap the shared count at 254.
+            return Err(ProgramError::AccountBorrowFailed);
+        }
+        // SAFETY: as above; the new count was just validated.
+        unsafe {
+            *state_ptr = new_state;
+        }
+        Ok(state_ptr)
+    }
+
     // ── Unchecked data access ────────────────────────────────────────
 
     /// Borrow account data without borrow tracking.
