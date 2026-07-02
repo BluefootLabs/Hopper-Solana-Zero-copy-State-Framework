@@ -53,8 +53,9 @@ been read line-by-line and its findings logged.
 - [~] account.rs (large; loaders/compact/cross-program/close/check surfaces
       audited during this session's fixes — remaining: wrappers/init/realloc
       internals)
+- [x] borrow.rs (host-repr provenance fix — see findings)
 - [ ] compact.rs, tail.rs, segment_lease.rs, layout.rs, zerocopy.rs,
-      account_wrappers.rs, borrow.rs, borrow_registry.rs, address.rs, cpi.rs,
+      account_wrappers.rs, borrow_registry.rs, address.rs, cpi.rs,
       token.rs, crypto.rs, context.rs, policy.rs, native_boundary.rs,
       memory.rs, syscalls.rs, lib.rs, foreign.rs, instruction.rs, interop.rs,
       pod.rs, remaining files
@@ -75,6 +76,23 @@ been read line-by-line and its findings logged.
   `&mut registry`, so two RAII guards cannot coexist — simultaneous disjoint
   segments go through the `segment_lease`/`split_segments_mut` path; the
   guard docs should say so explicitly.
+- **P2 fixed (this commit)** `hopper-runtime/borrow.rs::RefMut::from_backend`
+  (host repr) — derived its write pointer from a **shared** reborrow
+  (`(&*inner as *const [u8]).cast_mut()`), giving the pointer shared
+  provenance; subsequent writes through it are UB under the aliasing model
+  (Miri flags this pattern). Now takes the pointer from a mutable reborrow
+  (`&mut *inner`). Host-only repr; the Solana repr extracts raw parts and was
+  unaffected.
+- **verified sound** `hopper-runtime/borrow.rs` — dual-repr guards: Solana
+  `{ptr, state}` with build-enforced 2-word size asserts, host
+  `{ptr, guard, token}` where the backend guard + alias token keep the
+  pointee alive for `deref`. Drop paths mirror the native state machine
+  (decrement / restore NOT_BORROWED); `project` transfers release ownership
+  without double-release (`mem::forget` on the Solana arm, destructuring on
+  the host arm which has no Drop impl); `slice` is overflow- and
+  bounds-checked. **P3 open:** `slice_from` panics (Rust slicing) on
+  offset > len rather than returning `Err` — document or route through the
+  checked `slice`.
 
 ### Batch 3 — hopper-core (69 files, ~18.6k lines)
 

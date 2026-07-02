@@ -246,7 +246,7 @@ pub struct RefMut<'a, T: ?Sized> {
 impl<'a> RefMut<'a, [u8]> {
     /// Wrap an active-backend mutable byte borrow into a Hopper RefMut.
     #[inline(always)]
-    pub(crate) fn from_backend(inner: BackendRefMut<'a, [u8]>, token: BorrowToken) -> Self {
+    pub(crate) fn from_backend(mut inner: BackendRefMut<'a, [u8]>, token: BorrowToken) -> Self {
         #[cfg(target_os = "solana")]
         {
             let _ = token;
@@ -259,7 +259,11 @@ impl<'a> RefMut<'a, [u8]> {
         }
         #[cfg(not(target_os = "solana"))]
         {
-            let ptr = (&*inner as *const [u8]).cast_mut();
+            // Take the write pointer from a *mutable* reborrow: deriving it
+            // from `&*inner` (a shared reborrow) and casting would give the
+            // pointer shared provenance, making later writes through it UB
+            // under the aliasing model (Miri flags it).
+            let ptr = (&mut *inner) as *mut [u8];
             Self {
                 ptr,
                 guard: inner,
