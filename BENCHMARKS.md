@@ -184,24 +184,29 @@ verification, and a clean typed API.
 
 ## Framework Parity Benchmark (Vault, 8-seed average)
 
-Measured with the sibling `hopper-bench` Mollusk parity harness on 2026-05-25.
+Measured with the sibling `hopper-bench` Mollusk parity harness on 2026-07-02.
 Every included framework used the same deterministic user seed set, SBF
 toolchain, runner, and command line. `n/a` means the upstream comparator does
-not implement that benchmark instruction.
+not implement that benchmark instruction. This run adds the first **measured**
+Anchor column (anchor-lang 0.31.1, the latest stable line — there is no
+official "Anchor v2"), replacing earlier estimates.
 
-| Scenario | Hopper | Anza Pinocchio | Quasar |
-|----------|-------:|---------------:|-------:|
-| Authorize | **431 CU** | 2512 CU (+2081) | n/a |
-| Auth-fail (missing sig) | 72 CU | **41 CU** (-31) | n/a |
-| Counter (segment-safe) | **551 CU** | 2539 CU (+1988) | n/a |
-| Deposit | **1669 CU** | 3856 CU (+2187) | 1767 CU (+98) |
-| Withdraw | **453 CU** | 2548 CU (+2095) | 603 CU (+150) |
-| Unsigned withdraw | rejected | rejected | rejected |
-| Binary size | 7.53 KiB | 7.73 KiB | **6.27 KiB** |
+| Scenario | Hopper | Anza Pinocchio | Quasar | Anchor 0.31.1 |
+|----------|-------:|---------------:|-------:|--------------:|
+| Authorize | **466 CU** | 2512 CU (+2046) | n/a | 5017 CU (+4551) |
+| Auth-fail (missing sig) | 107 CU | **41 CU** (-66) | n/a | 2284 CU (+2177) |
+| Counter (segment-safe) | **564 CU** | 2539 CU (+1975) | n/a | 5156 CU (+4592) |
+| Deposit | **1713 CU** | 3856 CU (+2143) | 1756 CU (+43) | 7150 CU (+5437) |
+| Withdraw | **488 CU** | 2548 CU (+2060) | 592 CU (+104) | 5108 CU (+4620) |
+| Unsigned withdraw | rejected | rejected | rejected | rejected |
+| Binary size | 7.46 KiB | 7.73 KiB | **5.47 KiB** | 190.11 KiB |
 
-The Pinocchio column above is built in-tree from the benchmark repo's Anza
+The Pinocchio column is built in-tree from the benchmark repo's Anza
 Pinocchio target, not borrowed from Quasar's reference sample or an older
-"Pinocchio-style" proxy number.
+"Pinocchio-style" proxy number. The Anchor column is the benchmark repo's
+in-tree `anchor-vault` implementing the identical instruction contract
+(explicit one-byte-style discriminators via Anchor's `discriminator`
+attribute so the harness drives all four programs the same way).
 
 ### Benchmark provenance checklist
 
@@ -218,26 +223,49 @@ Every parity result published from `hopper-bench` must record:
 
 | Field | Value |
 |---|---|
-| Result files | `hopper-bench/results/framework-vaults-current-head-2026-05-25/vault-framework-comparison.{json,csv}` |
-| Hopper framework checkout | `300797d` plus local audit-fix changes |
-| Benchmark checkout | `4c5183c` clean |
-| Quasar checkout | `5fda2f5` clean |
+| Result files | `hopper-bench/results/framework-vaults-2026-07-02-post-i10/vault-framework-comparison.{json,csv}` |
+| Hopper framework checkout | `1d10d04` clean (post-I10 fused validation, post-I12 write policies) |
+| Benchmark checkout | `5da482a` (backend-feature no-ops + anchor declare_id fix) |
+| Quasar checkout | `37e8a6b` clean (upstream 2026-06-28) |
+| Anchor | `anchor-lang 0.31.1` (crates.io, locked), in-tree `anchor-vault` comparator |
 | SBF toolchain | `cargo-build-sbf 4.0.0`, platform-tools `v1.53` |
+| SVM harness | `mollusk-svm 0.10.3` |
 | Samples | 8 deterministic user seed cases |
-| Command | `./compare-framework-vaults.ps1 -HopperRoot D:\tmp\Hopper-Solana-Zero-copy-State-Framework -QuasarRoot D:\tmp\quasar -OutDir results\framework-vaults-current-head-2026-05-25` |
+| Command | `./compare-framework-vaults.ps1 -QuasarRoot E:\Frameworks\quasar -IncludeAnchor -OutDir results\framework-vaults-2026-07-02-post-i10` |
+
+Previous published run (2026-05-25, Hopper `300797d`, Quasar `5fda2f5`):
+Hopper 431/72/551/1669/453 CU at 7.53 KiB; Quasar deposit 1767 / withdraw
+603 at 6.27 KiB. Kept here so the deltas below are checkable.
 
 ### Performance observations
 
-- Hopper is within 150 CU of Quasar on the two upstream Quasar vault workloads
-  while adding Hopper's state-contract surface in its own parity target.
+- **Anchor, measured:** Hopper is ~10.8× cheaper on `authorize`, ~4.2× on
+  `deposit`, ~10.5× on `withdraw`, and the artifact is **25× smaller**
+  (7.46 vs 190.11 KiB). Anchor's failure path is also expensive: a missing
+  signer costs 2284 CU (8-byte discriminator hash + full `try_accounts`
+  before the signer check) vs Hopper's 107 CU.
+- Hopper beats Quasar on **both** upstream Quasar workloads (deposit
+  −43 CU, withdraw −104 CU) while carrying its full state-contract
+  surface. The margin narrowed since 2026-05-25 — partly because Quasar
+  improved upstream (withdraw 603→592, binary 6.27→5.47 KiB), partly
+  because of the Hopper regression noted below.
 - Hopper is lower-CU than the in-tree Anza Pinocchio parity target on the
   measured PDA-bearing success paths in this vault contract. Treat that as a
   result for this benchmark, not a universal "faster than Pinocchio" claim.
-- Hopper produces a smaller binary than the four-instruction Anza Pinocchio
-  parity target. Quasar remains 1.26 KiB smaller, but its upstream vault only
-  implements `deposit` and `withdraw`.
-- Quasar's upstream vault does not implement `authorize` or `counter_access`, so
-  those rows are intentionally absent for Quasar.
+- Quasar's upstream vault does not implement `authorize` or `counter_access`,
+  so those rows are intentionally absent for Quasar.
+
+### Regression watch (honest deltas vs 2026-05-25)
+
+Hopper's own rows drifted **+13…+44 CU** between `300797d` and `1d10d04`
+(authorize 431→466, auth-fail 72→107, counter 551→564, deposit
+1669→1713, withdraw 453→488; binary 7.53→7.46 KiB). The auth-fail gap to
+Pinocchio consequently widened from −31 to −66 CU. Prime suspect: the
+I10 fused-validation lowering's *failure-path* fallback (fused compare,
+then per-check precise-error re-validation) plus per-acquire additions
+that landed in the same window. A commit-range bisect on the parity
+vault is queued in `docs/audit/FULL_AUDIT_2026.md`; the success-path
+wins above stand either way.
 
 ### Reading the Pinocchio deltas honestly
 

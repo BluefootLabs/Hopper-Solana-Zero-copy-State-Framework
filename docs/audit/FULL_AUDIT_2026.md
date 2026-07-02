@@ -428,6 +428,28 @@ now line-by-line audited.
   the snapshot-hash / `assert_unchanged_after` oracle-consistency
   primitives are the I11 cluster's strongest members.
 
+#### Phase 3 benchmark findings (2026-07-02 four-framework run)
+
+- **First measured Anchor row** (anchor-lang 0.31.1):
+  5017/2284/5156/7150/5108 CU at 190.11 KiB vs Hopper's
+  466/107/564/1713/488 at 7.46 KiB. Results tracked in
+  `hopper-bench/results/framework-vaults-2026-07-02-post-i10/`; bench
+  repo `5da482a` (fixed the removed backend-selection feature forwards
+  and the anchor-vault `declare_id!` placeholder that aborted local
+  Mollusk runs with `DeclaredProgramIdMismatch`).
+- **P2-perf OPEN — CU drift +13…+44 per row since `300797d`**
+  (2026-05-25 run): authorize 431→466, auth-fail 72→107 (gap to
+  Pinocchio widened −31→−66), counter 551→564, deposit 1669→1713,
+  withdraw 453→488. Binary shrank 7.53→7.46 KiB. Suspects, in order:
+  (1) I10 `expect_signer_writable` failure-path fallback shape — and
+  possibly its success path costing more than the two separate checks
+  it replaced in this lowering; (2) per-write-acquire additions in the
+  same window (I12 `None`-policy branch, `flags()` indirection);
+  (3) other runtime changes between the two commits. Action: bisect the
+  parity vault CU across the commit range; if I10's fused compare is
+  net-negative at Mollusk-measured granularity, revisit or gate it —
+  measurement over narrative, same standard as I8's invalidation.
+
 ### Batch 3 — hopper-core (69 files, ~18.6k lines)
 
 - [ ] manifest.rs, collections/*, account/*, accounts/*, check/*, frame/*,
