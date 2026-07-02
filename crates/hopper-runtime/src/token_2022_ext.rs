@@ -40,6 +40,16 @@
 //! `spl-token-2022::extension::ExtensionType`. They are stable wire
 //! values and safe to hard-code. The full set is listed below so
 //! tooling can surface the name for any TLV it encounters.
+//!
+//! ## Authority comparisons and `OptionalNonZeroPubkey`
+//!
+//! Token-2022 stores optional authorities as `OptionalNonZeroPubkey`:
+//! an **all-zero pubkey means "not set"**. The `require_*_authority`
+//! comparators below do a plain 32-byte compare, so passing an all-zero
+//! `expected` would "match" an unset authority. Never pass
+//! `Address::default()` as the expected authority; if the intent is
+//! "authority must be unset", compare against zero explicitly and name
+//! that intent in the calling code.
 
 use crate::{account::AccountView, address::Address, error::ProgramError, result::ProgramResult};
 

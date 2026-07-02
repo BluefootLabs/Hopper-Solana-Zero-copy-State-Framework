@@ -81,7 +81,12 @@ been read line-by-line and its findings logged.
 - [x] migrate.rs (P2 fixed: overshoot refusal; DOC fixed: atomicity)
 - [x] option_byte.rs (P3 fixed: test-only OOB referent + layout pin)
 - [x] dyn_cpi.rs (P1 fixed: builder had no invoke)
-- [ ] foreign.rs, token_2022_ext.rs (the last two Batch 2 files)
+- [x] token_2022_ext.rs (verified sound; DOC added: OptionalNonZeroPubkey)
+- [x] foreign.rs (verified sound — manifest lens four-step pinned)
+
+**BATCH 2 COMPLETE ✅ — 47/47 files.** Together with Batch 1, the entire
+unsafe-bearing substrate (hopper-native 33 + hopper-runtime 47 files) is
+now line-by-line audited.
 
 #### Batch 2 findings
 
@@ -392,6 +397,36 @@ been read line-by-line and its findings logged.
   honestly named; Seeds/HasOne markers granted macro-side), `ref_only.rs`
   (sealed, grep-receipt claim matches), `result.rs`, `syscall.rs`,
   `utils.rs`.
+
+#### Batch 2 closing findings (final two files)
+
+- **verified sound** `token_2022_ext.rs` — the TLV walk is
+  overflow-safe (`cursor + 4` / `data_start + len` cannot wrap at
+  Solana account sizes; run-past-buffer returns `None`, never panics);
+  the type-0 stop matches spl-token-2022's uninitialized-marker
+  semantics; unknown types are walked over (forward-compatible);
+  region slicing mirrors `validate_account_type` (AccountType at 165,
+  TLV at 166, permissive kind==0 for init sequencing — safe because a
+  zeroed region terminates on first header read); all six documented
+  extension layouts verified against spl-token-2022 (TransferHook,
+  MetadataPointer, TransferFeeConfig, InterestBearing,
+  DefaultAccountState, MintCloseAuthority/PermanentDelegate). The test
+  suite pins the *real* 82+83+1 mint layout and documents a historical
+  two-wrongs-align bug. **DOC added:** authority comparators now warn
+  that Token-2022 authorities are `OptionalNonZeroPubkey` (all-zero =
+  unset), so an all-zero `expected` would "match" an unset authority.
+- **verified sound** `foreign.rs` — `ForeignLens::open` implements the
+  audit's page-14 manifest contract exactly: owner match → header load
+  (disc/version/length via the authored path) → wire-fingerprint
+  matched against BOTH the manifest and `T::WIRE_FINGERPRINT` → epoch
+  range; borrow-guard ordering is correct (shared+shared during header
+  re-read, explicit drop before handing out the lens).
+  `ForeignLens::field::<F, OFFSET>` overflow- and bounds-checks against
+  the body before the cast; `F: ZeroCopy` supplies the every-bit-valid
+  and align-1 contract. `ExternalLens` is offset-overflow-checked;
+  `ExternalAccount::new_unchecked` carries a proper unsafe contract;
+  the snapshot-hash / `assert_unchanged_after` oracle-consistency
+  primitives are the I11 cluster's strongest members.
 
 ### Batch 3 — hopper-core (69 files, ~18.6k lines)
 
