@@ -21,6 +21,7 @@ pub mod account;
 pub mod account_wrappers;
 pub mod address;
 pub mod audit;
+pub mod behavior;
 pub mod borrow;
 pub(crate) mod borrow_registry;
 pub mod compact;
@@ -77,6 +78,7 @@ pub use account_wrappers::{
 };
 pub use address::Address;
 pub use audit::{AccountAudit, DuplicateAccount};
+pub use behavior::{BehaviorChecked, BehaviorWrite, HopperBehavior};
 pub use borrow::{Ref, RefMut};
 pub use compact::{CompactDynamicLayout, CompactLayout, COMPACT_BODY_OFFSET};
 pub use compute::{check_compute_units, remaining_compute_units, require_compute_units};

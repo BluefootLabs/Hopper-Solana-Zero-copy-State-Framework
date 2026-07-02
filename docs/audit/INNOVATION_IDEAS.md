@@ -354,8 +354,16 @@ attribute would be small ergonomic parity if users ask.
 
 ### I16 — Field behaviors: packageable per-field lifecycle plugins (the Quasar DX gap)
 
-- **idea.** Impact: high (the one place Quasar's DX is genuinely ahead).
-  Effort: high (macro + trait design).
+- **spiked (runtime core shipped) 2026-07-02.** Impact: high (the one
+  place Quasar's DX is genuinely ahead). Effort remaining: medium (macro
+  attachment). `hopper-runtime/src/behavior.rs` ships the plugin
+  contract (`HopperBehavior<T>` with const-gated check/update/exit
+  phases), the `BehaviorChecked<B, _>` proof token, the `BehaviorWrite`
+  write-set contribution, and typed-path runners where `run_update`
+  *takes* the check token — ordering made structural. A worked `FeeCap`
+  plugin is test-pinned. Full macro design in
+  `docs/design/BEHAVIORS_RFC.md` (attachment syntax, strict_writes
+  folding, epilogue emission, trybuild matrix).
 - Quasar's `AccountBehavior<A>` (`lang/src/account_behavior.rs`) lets a
   *protocol* author a reusable, parameterized behavior module and attach
   it per-field: `#[account(fee_vault(bps = 30))]`. Phase hooks
