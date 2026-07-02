@@ -295,6 +295,19 @@ been read line-by-line and its findings logged.
   `bytes_mut` — offset-presence + bounds before `slice_from`, borrow-
   tracked — and `init_layout`) are sound; every other section was audited
   during this session's fixes and features.
+- **verified sound** `hopper-runtime/policy.rs` — pure compile-time const
+  policy levers (`HopperProgramPolicy` STRICT/SEALED/RAW,
+  `HopperInstructionPolicy` overrides, program profiles); no runtime
+  state, no unsafe operations (the grep hits are docs discussing
+  `allow_unsafe`); all invariants test-pinned. Synthesis with the
+  touch-map work produced innovation **I12** (field-level write policies
+  enforced by the borrow ledger).
+- **I7 limitation (logged as I12 prerequisite)** — the shipped touch map
+  records only *segment-registry-mediated* access: whole-account borrows
+  (`try_borrow_mut`/`load_mut`) use the account-level borrow byte and
+  never reach the registry, so they are invisible to the map. Routing
+  whole-account write borrows through the same ledger completes the map
+  and is required for sound I12 enforcement.
 
 ### Batch 3 — hopper-core (69 files, ~18.6k lines)
 

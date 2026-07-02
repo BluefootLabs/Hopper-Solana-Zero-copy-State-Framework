@@ -218,6 +218,36 @@ attribute would be small ergonomic parity if users ask.
 - Action: COMPARISON.md rows + website copy for all four; line-by-line
   audit of the four files rides along in the Batch-2 tail.
 
+### I12 — Field-level write policies: the ledger as enforcer (THE moat)
+
+- **idea.** Impact: **very high** (a security primitive no chain framework
+  has, and none can copy without Hopper's ledger). Effort: medium-high.
+- Close-read synthesis of `policy.rs` + the touch-map work: all the
+  pieces already exist — per-handler compile-time policy consts
+  (`HopperInstructionPolicy`), a registry that intercepts every segment
+  write at `register()` time, and `#[hopper::state]` field constants
+  mapping names → `(offset, size)`. Solana's own safety model stops at
+  account-level `writable`.
+- **The breakthrough:** `#[instruction(writes = [vault.balance,
+  vault.nonce], reads = [config])]` emits a const write/read-set; the
+  registry **rejects any write borrow outside the declared set at
+  acquisition time**. Byte-range `writable` — statically declared,
+  runtime-enforced, published through the schema so clients, indexers,
+  and auditors get "this instruction cannot touch anything else" as a
+  machine-enforced contract rather than a comment. Pairs with the I7
+  touch map for declared-vs-actual verification in tests and `hopper
+  explain`.
+- **Prerequisite (also fixes I7's blind spot):** whole-account borrows
+  (`try_borrow_mut` / `load_mut`) bypass the segment registry today, so
+  the shipped touch map records only segment-level access and a naive
+  enforcement would too. Route whole-account write borrows through the
+  same ledger (a `(0, data_len)` record / policy check at the
+  account-level acquire points) — one change serving both the complete
+  touch map and sound enforcement.
+- Owner files: `crates/hopper-runtime/src/{segment_borrow.rs,account.rs,
+  context.rs,policy.rs}`, `crates/hopper-macros-proc/src/program.rs`
+  (writes= parsing), schema plumbing for published write-sets.
+
 ### I4 — `hopper doctor` as the safety linter no competitor has
 
 - **idea.** Impact: high (DX). Effort: medium.
