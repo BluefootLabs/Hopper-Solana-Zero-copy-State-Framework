@@ -61,6 +61,7 @@ been read line-by-line and its findings logged.
 - [x] layout.rs
 - [x] compact.rs (fully read + extended with `CompactDynamicLayout` and
       tests during this session's compact-dynamic feature work)
+- [x] account_wrappers.rs
 - [ ] compact.rs, tail.rs, segment_lease.rs, layout.rs,
       account_wrappers.rs, borrow_registry.rs, address.rs, cpi.rs,
       token.rs, crypto.rs, context.rs, policy.rs, native_boundary.rs,
@@ -163,6 +164,20 @@ been read line-by-line and its findings logged.
   `CompactDynamicLayout` validator were read in full and extended under
   test during this session's compact-dynamic feature work
   (unit + integration + trybuild coverage).
+- **verified sound** `hopper-runtime/account_wrappers.rs` — the
+  Anchor-parity role-wrapper layer: every wrapper is `repr(transparent)`
+  over `&AccountView` and enforces exactly its named role at `try_new`
+  (`Signer` → `check_signer`; `Account<T>` → owner + full `load::<T>()`
+  header/fingerprint validation; `Program<P>` → address-pin + executable;
+  `SystemAccount` → system ownership; `UncheckedAccount` → honestly nothing,
+  by name; `InitAccount<T>` → deferred to the paired `init_{field}()`
+  lifecycle helper, documented). Mutability flows through the audited
+  borrow-tracked `load_mut` path, so `Copy` role wrappers cannot mint
+  aliased writable access. The `Interface`/`InterfaceAccount` half
+  (owner-set + layout validation, wrong-owner and bad-layout rejection
+  tests) was audited during this session's `owner_any` work. Parity note
+  for COMPARISON.md: this matches Anchor's wrapper vocabulary at zero
+  runtime cost (no RefCell).
 
 ### Batch 3 — hopper-core (69 files, ~18.6k lines)
 
