@@ -6,9 +6,22 @@ use core::fmt;
 ///
 /// `0x00` = `false`, any non-zero = `true`.
 /// Normalizes to `0x01` on write.
-#[derive(Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Clone, Copy, Default)]
 #[repr(transparent)]
 pub struct WireBool([u8; 1]);
+
+// Equality compares the *boolean projection*, not raw bytes: the wire
+// rule above makes 0xFF just as `true` as 0x01, so a byte-derived
+// PartialEq would report `WireBool([0xFF]) != WireBool::TRUE` — byte
+// equality disagreeing with the type's own semantics. (Lawful Eq: the
+// projection partitions all 256 patterns into exactly two classes.)
+impl PartialEq for WireBool {
+    #[inline(always)]
+    fn eq(&self, other: &Self) -> bool {
+        self.get() == other.get()
+    }
+}
+impl Eq for WireBool {}
 
 const _: () = assert!(core::mem::size_of::<WireBool>() == 1);
 const _: () = assert!(core::mem::align_of::<WireBool>() == 1);
@@ -89,5 +102,14 @@ mod tests {
     fn nonzero_is_true() {
         let w = WireBool([0xFF]);
         assert!(w.get());
+    }
+
+    #[test]
+    fn equality_follows_boolean_semantics_not_bytes() {
+        // Any non-zero byte is `true`, so it must equal TRUE even when
+        // the raw bytes differ (e.g. written by a foreign program).
+        assert_eq!(WireBool([0xFF]), WireBool::TRUE);
+        assert_ne!(WireBool([0xFF]), WireBool::FALSE);
+        assert_eq!(WireBool([0x00]), WireBool::FALSE);
     }
 }

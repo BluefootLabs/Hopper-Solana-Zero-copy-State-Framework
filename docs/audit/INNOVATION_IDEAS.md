@@ -286,3 +286,68 @@ attribute would be small ergonomic parity if users ask.
 - **Surpass:** wire the audit's own finding categories (this log + FULL_AUDIT)
   into `hopper doctor` lints so the framework ships the auditor. Each P-class
   finding we fix becomes a lint that stops users reintroducing it.
+
+### I13 — Hostile-metadata property harness (shipped)
+
+- **shipped 2026-07-02** (`hopper-core/src/collections/mod.rs`,
+  `hostile_metadata_proptests`). Impact: high (safety moat + a standing
+  regression gate). Effort: low.
+- Every zero-copy collection is an overlay on account bytes, and account
+  bytes are **attacker-writable between instructions**: the stored
+  lengths, heads, counts, and free lists are untrusted input on every
+  touch. The Batch-3 sweep found five point instances of one root cause
+  (a collection trusting its own stored metadata → OOB or panic). The
+  harness generalizes the fix into a property: for arbitrary buffer
+  contents and any API sequence, every collection returns a clean `Err`,
+  never panics, never leaves bounds. It earned its keep immediately by
+  catching a ring-buffer `get` underflow the manual point-fixes had
+  missed.
+- **Surpass:** no competitor ships on-chain zero-copy collections at all
+  (Anchor/Quasar/Pinocchio have none), so this is Hopper-only ground —
+  now corruption-fuzzed. COMPARISON.md row queued.
+
+### I14 — Adversarial Miri suite for the unsafe overlay paths
+
+- **idea.** Impact: high (soundness assurance). Effort: medium.
+- Quasar's one testing discipline worth importing: `lang/tests/miri.rs`
+  runs the unsafe pointer paths under Miri with Tree-Borrows +
+  symbolic-alignment flags and publishes a findings table
+  (`& -> &mut` casts, `MaybeUninit` init, event memcpy, etc.). Hopper
+  has Kani proofs on the segment registry but nothing pointing Miri at
+  the collections' `read_unaligned` / `write_unaligned` /
+  `copy_nonoverlapping` sites or the frame/segment projection casts.
+- **Surpass:** a Hopper Miri suite covering the collections (post-I13
+  hardening), the frame provenance fixes (Batch 3 Wave 1), and the
+  segment-lease projection — with the same published findings table, but
+  over a *larger* unsafe surface than Quasar has. Pairs with I13:
+  proptest fuzzes logic/panics, Miri proves no UB.
+
+### I15 — Self-proving `FixedLayout::SIZE` (safe trait → proven trait)
+
+- **shipped (core) 2026-07-02** (`hopper-core/src/account/pod.rs`).
+  Impact: high (closes a soundness-hole *class* + DX). Effort: low.
+- The disease behind the whole Batch-3 collection cluster: `FixedLayout`
+  was a **safe trait** whose free `const SIZE: usize` fed unsafe pointer
+  arithmetic across 34 files. `SIZE` and `size_of::<Self>()` were equal
+  only by convention — every overlay author had to write the size
+  *twice* (`const SIZE = N` plus a separate `const _: () =
+  assert!(size_of == N)`; 10 such hand-written asserts existed) and a
+  forgotten or wrong one flowed straight into out-of-bounds pointer math
+  that no byte-fuzzer could reach (it is a property of the type
+  parameter, not the bytes).
+- **The fix — the framework owns the invariant, not the author:** `SIZE`
+  now *defaults* to `size_of::<Self>()` (correct for every align-1
+  no-padding `Pod` overlay — most impls become an empty body, the DX
+  win), and a `#[doc(hidden)] const _SIZE_IS_HONEST: () = assert!(SIZE ==
+  size_of::<Self>())` makes any dishonest override a **compile error the
+  moment the type is used** in unsafe math. Consumers touch the proof
+  (the collections via `assert_zero_copy_element`); rolling the touch
+  into `pod_from_bytes` / the frame / segment projection paths extends
+  the guarantee to every overlay consumer.
+- **Surpass:** this is the sovereign-framework move — a trait that makes
+  an unsafe invariant *unrepresentable-wrong*, rather than a lint or a
+  convention. No competitor has an equivalent because none has this
+  trait; and it simultaneously *reduces* boilerplate (Quasar-parity DX)
+  while *raising* the safety floor. Follow-up: delete the 10 now-redundant
+  hand-written `assert!(size_of == N)` guards and the explicit `const
+  SIZE = N` on conforming types.

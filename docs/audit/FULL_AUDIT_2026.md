@@ -471,8 +471,10 @@ Wave 1 (unsafe-dense core, 2026-07-02):
       Tier C contracts)
 - [x] account/segment.rs (P3 hardened: MAX_SEGMENTS enforced, checked
       offset accumulation in init)
-- [ ] abi/* (typed_address, integers, boolean, field_ref), collections/*,
-      account/* remainder (registry, lifecycle, dynamic, verified,
+- [x] abi/* (typed_address, integers, boolean, field_ref, mod)
+- [x] collections/* (slab, ring_buffer, journal, packed_map, fixed_vec,
+      sorted_vec, bit_set, slot_map, compact_tail)
+- [ ] account/* remainder (registry, lifecycle, dynamic, verified,
       realloc_guard, cursor, header, segment_role, reader, overlay),
       manifest.rs, receipt.rs, check/*, policy.rs, virtual_state/*,
       diff/*, math/*, segment_map.rs, dispatch/*, accounts/*, event/*,
@@ -526,6 +528,106 @@ Wave 1 (unsafe-dense core, 2026-07-02):
 - **verified sound** `account/pod.rs` — length-checked align-1 casts,
   unaligned read/write copies, Tier C escapes carry real caller
   contracts.
+
+Wave 2 (abi/* + collections/*, 2026-07-02):
+
+- [x] abi/{typed_address,boolean,integers,field_ref}.rs, abi/mod.rs
+- [x] collections/{slab,ring_buffer,journal,packed_map,fixed_vec,
+      sorted_vec,bit_set,slot_map,compact_tail}.rs
+
+#### Batch 3 Wave 2 findings
+
+- **P1 fixed (OOB write) `collections/slab.rs`** — `alloc` used the
+  `free_head` read from account bytes as a slot index **without a
+  capacity bound**: a `free_head` between `capacity` and `NO_FREE - 1`
+  (attacker-influenceable, since account data is untrusted) computed an
+  out-of-bounds `slot_offset` and the unchecked `copy_nonoverlapping`
+  wrote `T::SIZE` bytes past the account buffer. Added `idx >= capacity`
+  guard, **plus** an occupancy-bitmap check: a free list rewired onto an
+  *allocated* slot (or into a cycle) would otherwise hand live data out
+  for silent overwrite — the bitmap is the ground truth, and requiring
+  the popped head to be free defeats both shapes. Count updates now
+  saturate (matching `free`). New test suite (was untested): roundtrip,
+  double-free, full, corrupt-free_head OOB, and rewired-to-live-slot
+  regressions.
+- **P1 fixed (OOB write) `collections/ring_buffer.rs`** — `push` wrote
+  at `slot_offset(head)` with `head` read from account bytes and **no**
+  bound (unlike `get`, which reduces its physical index `% cap`). A
+  corrupted `head >= capacity` was an OOB write; the I13 harness then
+  caught a second hit in `get` (`cap - (count - head)` underflow-panic on
+  a corrupt-high count). Final design goes past point-guards to
+  **parse-don't-validate**: `from_bytes` validates `head`/`count`
+  against the (cached) capacity once and **rejects** inconsistent
+  geometry with `InvalidAccountData` — the pattern `Slab`/`Journal`
+  already used, and notably the two collections that did *not* have
+  these bugs. Methods then operate on a proven-consistent view (sound
+  because the handler holds `&mut [u8]` exclusively), with cheap
+  backstop guards retained. Both unsafe blocks additionally prove their
+  **exact touched range** (`offset .. offset + size_of::<T>()`) locally
+  instead of relying on the geometry chain by convention.
+- **P1 fixed (compile-time) `collections/*` element contract** — every
+  collection did its offset/capacity math in units of
+  `FixedLayout::SIZE` while the actual `read_unaligned`/
+  `write_unaligned` moved `size_of::<T>()` bytes; the two are equal only
+  by convention (`SIZE` is a hand-written const with no language-level
+  tie to the type). A mismatched impl made bounds math and write width
+  disagree (OOB write past a proven-in-bounds offset), and a zero `SIZE`
+  made `capacity()`'s division panic. Neither is reachable by the
+  byte-fuzzing harness (they are properties of the *type parameter*).
+  New `assert_zero_copy_element::<T>()` — a `const`-block assertion
+  (`SIZE == size_of::<T>() && SIZE > 0`) invoked in every constructor —
+  turns both into per-monomorphization **build errors** at zero runtime
+  cost.
+- **P1 fixed (OOB read)** `collections/{packed_map,fixed_vec,sorted_vec}.rs`
+  — all three trusted the element **count** read from account
+  bytes unclamped, then looped or indexed on it: `PackedMap::find` /
+  `read_key`, `FixedVec::{get,pop,swap_remove,clear}`, `SortedVec::
+  {binary_search,remove,max}` would read (and `clear` panic-index) past
+  the slot region on a corrupted count. Fixed at the source by clamping
+  `len()` to `capacity()` — a no-op for well-formed containers (stored
+  count is always `<= capacity`), a hard bound for malformed ones. Added
+  a clamp regression test to `FixedVec`.
+- **P2 fixed (mod-by-zero panic) `collections/journal.rs`** — a
+  zero-capacity circular journal (buffer sized for the header only) hit
+  `head %= self.capacity` → divide-by-zero panic (transaction abort /
+  DoS). Guarded `capacity == 0` at the top of `append`. Added strict,
+  circular-wrap, and zero-capacity tests (was untested).
+- **P3 fixed `abi/integers.rs`** — the `Add`/`Sub`/`Mul` (and `*Assign`)
+  operator impls on every wire integer used native `+`/`-`/`*`, which
+  **wrap silently in release** — `balance += amount` compiling to
+  wrapping arithmetic on mainnet is the classic overflow-exploit shape.
+  Now overflow-checked (panic → transaction abort, a loud fail-safe);
+  the recoverable path remains the `checked_*_assign` helpers. Panic
+  tests pin the new behavior.
+- **P3 fixed `abi/boolean.rs`** — `WireBool` derived `PartialEq`, so it
+  compared raw bytes: `WireBool([0xFF]) != WireBool::TRUE` despite both
+  projecting to `true` under the type's own "non-zero = true" rule
+  (a foreign writer's `0xFF` would spuriously mismatch). Hand-wrote
+  `PartialEq`/`Eq` over the boolean projection; lawful-Eq test added.
+- **verified sound** `abi/{typed_address,field_ref}.rs`,
+  `collections/{bit_set,slot_map,compact_tail}.rs` — SlotMap
+  bounds-checks every key index against `capacity()` and its generation
+  counter defeats ABA; BitSet bounds-checks every bit against
+  `data.len()`; `compact_tail` is a thin bridge routing through the
+  now-hardened constructors; `field_ref`/`typed_address` are
+  length-checked align-1 projections.
+- **I13 SHIPPED — hostile-metadata property harness**
+  (`collections::hostile_metadata_proptests`): all 8 collections fuzzed
+  with fully arbitrary buffer contents through their whole API, required
+  to return clean `Err`s — never panic, never leave bounds. Earned its
+  keep immediately by catching the ring `get` underflow that the manual
+  point-fixes had missed. Root-cause synthesis: five findings, one
+  cause — *collections trusting their own stored metadata, which is
+  attacker-writable account bytes between instructions*. Follow-up
+  queued: roll `parse-don't-validate` to
+  `fixed_vec`/`sorted_vec`/`packed_map`/`slot_map` (currently
+  clamp-on-read, which is memory-safe but silently tolerates corrupt
+  headers instead of refusing them).
+- **Competitor note:** Quasar/Anchor/Pinocchio ship **no** on-chain
+  zero-copy collections at all — this whole surface is Hopper-only, now
+  corruption-fuzzed. Quasar's one discipline worth importing here: an
+  adversarial Miri suite (`lang/tests/miri.rs`, Tree-Borrows flags, a
+  documented findings table) — logged as I14.
 
 ### Batch 4 — macros (hopper-macros-proc 15 files ~12.2k + hopper-macros ~1.9k)
 

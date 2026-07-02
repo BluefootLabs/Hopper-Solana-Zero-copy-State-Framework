@@ -24,6 +24,13 @@ hopper-runtime = { workspace = true, default-features = false }
 # accounts without spinning up the full BPF entrypoint. Only pulled in
 # as a dev-dep; the main library never names `hopper-native`.
 hopper-native = { workspace = true }
+# Adversarial-metadata property harness (I13): every zero-copy
+# collection is an overlay over attacker-writable account bytes, so its
+# stored metadata (lengths, heads, free lists) is untrusted input. The
+# proptests in `collections::hostile_metadata_proptests` fuzz arbitrary
+# buffers through every collection API and require clean `Err`s, never
+# panics or out-of-bounds access.
+proptest = "1"
 
 [features]
 default = ["programs", "advanced", "cpi", "collections", "sha2-layout-id", "anchor-compat"]

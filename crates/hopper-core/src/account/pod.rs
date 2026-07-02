@@ -16,10 +16,41 @@ use hopper_runtime::error::ProgramError;
 
 pub use hopper_runtime::pod::{Pod, Zeroable};
 
-/// Trait for types with a compile-time known wire size.
-pub trait FixedLayout {
-    /// Total byte size on the wire (including any header if applicable).
-    const SIZE: usize;
+/// Trait for zero-copy overlay types with a compile-time-known wire size.
+///
+/// # Self-proving size (Hopper's sovereign design)
+///
+/// For an align-1, no-padding overlay type — which is exactly the `Pod`
+/// contract this trait is used alongside — the wire size *is*
+/// `size_of::<Self>()`, always. So [`SIZE`](Self::SIZE) **defaults** to
+/// it: conforming types implement `FixedLayout` with an empty body and
+/// get the correct size for free.
+///
+/// The value is not merely defaulted, it is *proven*.
+/// [`_SIZE_IS_HONEST`](Self::_SIZE_IS_HONEST) is a compile-time assertion
+/// that `SIZE == size_of::<Self>()`; every consumer that trusts `SIZE`
+/// in unsafe pointer arithmetic references it, so an impl that overrides
+/// `SIZE` with a wrong value is a **build error the moment the type is
+/// used** — not a latent out-of-bounds waiting for a fuzzer. This
+/// replaces the hand-written `const _: () = assert!(size_of == N)` that
+/// each overlay type previously had to remember to write next to its
+/// `SIZE`. The framework owns the invariant now, not the author.
+pub trait FixedLayout: Sized {
+    /// Total byte size on the wire. Defaults to `size_of::<Self>()`,
+    /// which is correct for every align-1, no-padding `Pod` overlay;
+    /// override only if you have a genuine reason (and it must still
+    /// equal `size_of::<Self>()`, enforced by [`Self::_SIZE_IS_HONEST`]).
+    const SIZE: usize = core::mem::size_of::<Self>();
+
+    /// Compile-time proof that [`SIZE`](Self::SIZE) is the true byte
+    /// size of `Self`. Consumers that feed `SIZE` into unsafe pointer
+    /// arithmetic touch this const so a dishonest override cannot reach
+    /// runtime. Not intended to be referenced by name in user code.
+    #[doc(hidden)]
+    const _SIZE_IS_HONEST: () = assert!(
+        Self::SIZE == core::mem::size_of::<Self>(),
+        "FixedLayout::SIZE must equal size_of::<Self>()",
+    );
 }
 
 /// Zero-copy cast from bytes to an immutable reference.

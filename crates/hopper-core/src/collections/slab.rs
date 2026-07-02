@@ -60,6 +60,12 @@ impl<'a, T: Pod + FixedLayout> Slab<'a, T> {
     /// Parse a slab from a mutable byte slice.
     #[inline]
     pub fn from_bytes_mut(data: &'a mut [u8]) -> Result<Self, ProgramError> {
+        // Compile-time: `FixedLayout::SIZE == size_of::<T>()` (the slot
+        // copy moves `T::SIZE` bytes out of a `T` value, so a mismatch
+        // reads or writes past the value) and `> 0`. The `< 4` runtime
+        // check below is a *separate* slab-specific requirement: freed
+        // slots store a `u32` next-free pointer in their first 4 bytes.
+        const { super::assert_zero_copy_element::<T>() };
         if data.len() < SLAB_HEADER_SIZE {
             return Err(ProgramError::AccountDataTooSmall);
         }
@@ -203,6 +209,31 @@ impl<'a, T: Pod + FixedLayout> Slab<'a, T> {
         }
 
         let idx = head as usize;
+        // The free-list head comes from account bytes, which are
+        // attacker-influenceable (a malicious or corrupted account can
+        // carry any `free_head`). Two guards, both load-bearing:
+        //
+        // 1. Capacity bound — a `head` between `capacity` and
+        //    `NO_FREE - 1` would compute an out-of-bounds `slot_offset`
+        //    and the unchecked slot write below would corrupt memory
+        //    past the account.
+        // 2. Occupancy check — the bitmap is the ground truth. A free
+        //    list rewired to point at an ALLOCATED slot would otherwise
+        //    hand live data out for silent overwrite; and a free-list
+        //    CYCLE (slot chained to itself or an earlier slot) would
+        //    alias one slot across "distinct" allocations. Requiring
+        //    the head slot to be free in the bitmap defeats both: any
+        //    slot this alloc returns gets marked allocated, so a cycle
+        //    is refused on its next visit.
+        //
+        // A bad next-free pointer chained in from a freed slot's bytes
+        // is caught by these same guards on the next alloc.
+        if idx >= self.capacity {
+            return Err(ProgramError::InvalidAccountData);
+        }
+        if self.is_allocated(idx) {
+            return Err(ProgramError::InvalidAccountData);
+        }
         let slot_offset = self.slots_offset() + idx * T::SIZE;
 
         // Read the next-free pointer from this slot before overwriting
@@ -229,8 +260,10 @@ impl<'a, T: Pod + FixedLayout> Slab<'a, T> {
         // Update free_head
         self.data[8..12].copy_from_slice(&next_free.to_le_bytes());
 
-        // Increment count
-        let count = self.count() + 1;
+        // Increment count (saturating: `count` is metadata read from
+        // account bytes — a corrupted u32::MAX must not wrap to 0, the
+        // same discipline `free` already applies with saturating_sub).
+        let count = self.count().saturating_add(1);
         self.data[0..4].copy_from_slice(&count.to_le_bytes());
 
         Ok(head)
@@ -342,5 +375,115 @@ impl<'a, T: Pod + FixedLayout> Slab<'a, T> {
     #[inline(always)]
     pub const fn required_bytes(capacity: usize) -> usize {
         SLAB_HEADER_SIZE + bitmap_bytes(capacity) + capacity * T::SIZE
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[repr(C)]
+    #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+    struct Entry {
+        // Min element size is 4 (free-list pointer lives in the first
+        // 4 bytes of a freed slot); use 8.
+        v: [u8; 8],
+    }
+    // SAFETY: repr(C), byte-array field — align 1, all patterns valid.
+    unsafe impl crate::account::Zeroable for Entry {}
+    // SAFETY: as above.
+    unsafe impl crate::account::Pod for Entry {}
+    impl FixedLayout for Entry {
+        const SIZE: usize = 8;
+    }
+
+    fn e(n: u64) -> Entry {
+        Entry { v: n.to_le_bytes() }
+    }
+
+    fn make(capacity: usize) -> std::vec::Vec<u8> {
+        let mut buf = std::vec![0u8; Slab::<Entry>::required_bytes(capacity)];
+        Slab::<Entry>::init(&mut buf, capacity).unwrap();
+        buf
+    }
+
+    #[test]
+    fn alloc_get_free_roundtrip_and_double_free_rejected() {
+        let mut buf = make(4);
+        let mut slab = Slab::<Entry>::from_bytes_mut(&mut buf).unwrap();
+
+        let a = slab.alloc(e(10)).unwrap();
+        let b = slab.alloc(e(20)).unwrap();
+        assert_eq!(slab.count(), 2);
+        assert_eq!(slab.get(a).unwrap(), e(10));
+        assert_eq!(slab.get(b).unwrap(), e(20));
+
+        slab.free(a).unwrap();
+        assert_eq!(slab.count(), 1);
+        // Read of a freed slot is refused.
+        assert!(slab.get(a).is_err());
+        // Double free is refused.
+        assert!(slab.free(a).is_err());
+        // The freed slot is reused by the next alloc.
+        let c = slab.alloc(e(30)).unwrap();
+        assert_eq!(c, a);
+        assert_eq!(slab.get(c).unwrap(), e(30));
+    }
+
+    #[test]
+    fn alloc_fails_when_full_without_overflow() {
+        let mut buf = make(2);
+        let mut slab = Slab::<Entry>::from_bytes_mut(&mut buf).unwrap();
+        slab.alloc(e(1)).unwrap();
+        slab.alloc(e(2)).unwrap();
+        assert!(slab.is_full());
+        assert!(slab.alloc(e(3)).is_err());
+    }
+
+    #[test]
+    fn free_list_rewired_to_live_slot_is_refused() {
+        // free_head pointing at an ALLOCATED slot must not hand live
+        // data out for overwrite. This also models the head of a
+        // free-list cycle: the cycled slot is allocated on first pop,
+        // so the second visit hits this same refusal.
+        let mut buf = make(4);
+        {
+            let mut slab = Slab::<Entry>::from_bytes_mut(&mut buf).unwrap();
+            let a = slab.alloc(e(1)).unwrap();
+            assert_eq!(a, 0);
+        }
+        // Rewire free_head back to the allocated slot 0.
+        buf[8..12].copy_from_slice(&0u32.to_le_bytes());
+        let mut slab = Slab::<Entry>::from_bytes_mut(&mut buf).unwrap();
+        assert_eq!(
+            slab.alloc(e(2)).unwrap_err(),
+            ProgramError::InvalidAccountData
+        );
+        // The live slot's data is untouched.
+        assert_eq!(slab.get(0).unwrap(), e(1));
+    }
+
+    #[test]
+    fn corrupt_free_head_cannot_force_oob_write() {
+        // The regression this guards: a free_head between capacity and
+        // NO_FREE-1, planted in the account bytes, previously flowed into
+        // an unchecked slot write past the end of the buffer.
+        let mut buf = make(4);
+        // Overwrite free_head (bytes 8..12) with an in-range-looking but
+        // out-of-capacity index.
+        buf[8..12].copy_from_slice(&9u32.to_le_bytes());
+        let mut slab = Slab::<Entry>::from_bytes_mut(&mut buf).unwrap();
+        assert_eq!(
+            slab.alloc(e(99)).unwrap_err(),
+            ProgramError::InvalidAccountData
+        );
+    }
+
+    #[test]
+    fn from_bytes_mut_rejects_undersized_buffer() {
+        // Header claims capacity 4 but the buffer is header-only.
+        let mut buf = std::vec![0u8; SLAB_HEADER_SIZE];
+        buf[4..8].copy_from_slice(&4u32.to_le_bytes());
+        assert!(Slab::<Entry>::from_bytes_mut(&mut buf).is_err());
     }
 }

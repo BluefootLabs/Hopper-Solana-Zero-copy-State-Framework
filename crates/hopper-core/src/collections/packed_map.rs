@@ -66,9 +66,18 @@ impl<'a, K: Pod + FixedLayout + PartialEq, V: Pod + FixedLayout> PackedMap<'a, K
     }
 
     /// Current number of entries.
+    ///
+    /// Clamped to [`capacity`](Self::capacity): the raw count comes from
+    /// account bytes, and a corrupted count larger than capacity would
+    /// otherwise drive `find` / `read_key` / `clear` to read or index
+    /// past the buffer. For a well-formed map the stored count is always
+    /// `<= capacity`, so the clamp is a no-op; for a malformed one it
+    /// bounds every downstream loop and offset to the real slot region.
     #[inline(always)]
     pub fn len(&self) -> usize {
-        u32::from_le_bytes([self.data[0], self.data[1], self.data[2], self.data[3]]) as usize
+        let raw =
+            u32::from_le_bytes([self.data[0], self.data[1], self.data[2], self.data[3]]) as usize;
+        raw.min(self.capacity())
     }
 
     /// Maximum capacity.

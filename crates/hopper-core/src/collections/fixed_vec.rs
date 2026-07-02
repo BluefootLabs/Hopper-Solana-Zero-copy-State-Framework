@@ -30,6 +30,7 @@ impl<'a, T: Pod + FixedLayout> FixedVec<'a, T> {
     /// Capacity is `(data.len() - HEADER_SIZE) / T::SIZE`.
     #[inline]
     pub fn from_bytes(data: &'a mut [u8]) -> Result<Self, ProgramError> {
+        const { super::assert_zero_copy_element::<T>() };
         if data.len() < HEADER_SIZE {
             return Err(ProgramError::AccountDataTooSmall);
         }
@@ -40,10 +41,16 @@ impl<'a, T: Pod + FixedLayout> FixedVec<'a, T> {
     }
 
     /// Current number of elements.
+    ///
+    /// Clamped to [`capacity`](Self::capacity): the raw count is read
+    /// from account bytes, and a corrupted count above capacity would
+    /// otherwise let `get`/`pop`/`swap_remove`/`clear` compute offsets
+    /// past the buffer. Well-formed vecs always store `count <=
+    /// capacity`, so the clamp is a no-op for them.
     #[inline(always)]
     pub fn len(&self) -> usize {
         let bytes = [self.data[0], self.data[1], self.data[2], self.data[3]];
-        u32::from_le_bytes(bytes) as usize
+        (u32::from_le_bytes(bytes) as usize).min(self.capacity())
     }
 
     /// Maximum capacity.
@@ -253,5 +260,23 @@ mod tests {
         let mut vec = FixedVec::<WireU64>::from_bytes(&mut buf).unwrap();
         vec.push(WireU64::new(1)).unwrap();
         assert!(vec.push(WireU64::new(2)).is_err());
+    }
+
+    #[test]
+    fn corrupt_count_is_clamped_to_capacity() {
+        // capacity 2, but the stored count claims 9999. Every accessor
+        // must behave as if the count were capped at capacity, never
+        // reading or writing past the two real slots.
+        let mut buf = [0u8; 4 + 8 * 2];
+        buf[0..4].copy_from_slice(&9999u32.to_le_bytes());
+        let mut vec = FixedVec::<WireU64>::from_bytes(&mut buf).unwrap();
+        assert_eq!(vec.len(), 2);
+        assert!(vec.get(2).is_err());
+        // pop/swap_remove operate on the clamped last index, in-bounds.
+        assert!(vec.get(1).is_ok());
+        let _ = vec.pop().unwrap();
+        assert_eq!(vec.len(), 1);
+        vec.clear();
+        assert_eq!(vec.len(), 0);
     }
 }

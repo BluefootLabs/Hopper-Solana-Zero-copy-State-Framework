@@ -138,6 +138,14 @@ impl<'a, T: Pod + FixedLayout> Journal<'a, T> {
     /// Append an entry to the journal.
     #[inline]
     pub fn append(&mut self, entry: T) -> Result<(), ProgramError> {
+        // A zero-capacity journal (buffer only large enough for the
+        // header) has no slot to write, and the circular-mode `%
+        // self.capacity` below would be a divide-by-zero panic. Refuse
+        // before either.
+        if self.capacity == 0 {
+            return Err(ProgramError::AccountDataTooSmall);
+        }
+
         let mut head = self.write_head() as usize;
 
         if head >= self.capacity {
@@ -321,5 +329,53 @@ impl<'a, T: Pod + FixedLayout> JournalReader<'a, T> {
             return Err(ProgramError::InvalidArgument);
         }
         self.read(count - 1)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::abi::WireU32;
+
+    #[test]
+    fn strict_appends_then_rejects_when_full() {
+        let mut buf = std::vec![0u8; Journal::<WireU32>::required_bytes(3)];
+        let mut j = Journal::<WireU32>::from_bytes_mut(&mut buf).unwrap();
+        j.init(false);
+        j.append(WireU32::new(1)).unwrap();
+        j.append(WireU32::new(2)).unwrap();
+        j.append(WireU32::new(3)).unwrap();
+        assert_eq!(j.entry_count(), 3);
+        assert!(j.append(WireU32::new(4)).is_err());
+        assert_eq!(j.read(0).unwrap().get(), 1);
+        assert_eq!(j.latest().unwrap().get(), 3);
+    }
+
+    #[test]
+    fn circular_wraps_and_reports_oldest_first() {
+        let mut buf = std::vec![0u8; Journal::<WireU32>::required_bytes(2)];
+        let mut j = Journal::<WireU32>::from_bytes_mut(&mut buf).unwrap();
+        j.init(true);
+        j.append(WireU32::new(1)).unwrap();
+        j.append(WireU32::new(2)).unwrap();
+        j.append(WireU32::new(3)).unwrap(); // overwrites 1
+        assert!(j.has_wrapped());
+        assert_eq!(j.entry_count(), 2);
+        assert_eq!(j.read(0).unwrap().get(), 2); // oldest visible
+        assert_eq!(j.latest().unwrap().get(), 3);
+    }
+
+    #[test]
+    fn zero_capacity_circular_append_errs_not_panics() {
+        // Buffer sized for the header only: capacity 0. Pre-fix this
+        // hit `head %= 0` in circular mode -- a divide-by-zero panic.
+        let mut buf = std::vec![0u8; JOURNAL_HEADER_SIZE];
+        let mut j = Journal::<WireU32>::from_bytes_mut(&mut buf).unwrap();
+        j.init(true);
+        assert_eq!(j.capacity(), 0);
+        assert_eq!(
+            j.append(WireU32::new(1)).unwrap_err(),
+            ProgramError::AccountDataTooSmall
+        );
     }
 }

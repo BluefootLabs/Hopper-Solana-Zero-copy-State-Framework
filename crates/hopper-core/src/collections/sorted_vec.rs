@@ -26,6 +26,7 @@ impl<'a, T: Pod + FixedLayout + Ord> SortedVec<'a, T> {
     /// Overlay a SortedVec on a mutable byte slice.
     #[inline]
     pub fn from_bytes(data: &'a mut [u8]) -> Result<Self, ProgramError> {
+        const { super::assert_zero_copy_element::<T>() };
         if data.len() < HEADER_SIZE {
             return Err(ProgramError::AccountDataTooSmall);
         }
@@ -36,9 +37,17 @@ impl<'a, T: Pod + FixedLayout + Ord> SortedVec<'a, T> {
     }
 
     /// Current number of elements.
+    ///
+    /// Clamped to [`capacity`](Self::capacity): the raw count is read
+    /// from account bytes, and a corrupted count above capacity would
+    /// otherwise drive `binary_search` (`hi = len`, `read_at(mid)`),
+    /// `remove`, and `max` past the buffer. Well-formed vecs store
+    /// `count <= capacity`, so the clamp is a no-op for them.
     #[inline(always)]
     pub fn len(&self) -> usize {
-        u32::from_le_bytes([self.data[0], self.data[1], self.data[2], self.data[3]]) as usize
+        let raw =
+            u32::from_le_bytes([self.data[0], self.data[1], self.data[2], self.data[3]]) as usize;
+        raw.min(self.capacity())
     }
 
     /// Maximum capacity.

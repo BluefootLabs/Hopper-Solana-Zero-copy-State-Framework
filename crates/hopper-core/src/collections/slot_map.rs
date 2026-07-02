@@ -50,6 +50,7 @@ impl<'a, T: Pod + FixedLayout> SlotMap<'a, T> {
     /// Overlay a SlotMap on a mutable byte slice.
     #[inline]
     pub fn from_bytes(data: &'a mut [u8]) -> Result<Self, ProgramError> {
+        const { super::assert_zero_copy_element::<T>() };
         if data.len() < MAP_HEADER {
             return Err(ProgramError::AccountDataTooSmall);
         }

@@ -145,12 +145,19 @@ macro_rules! wire_int {
             }
         }
 
+        // Operator sugar is overflow-CHECKED: on overflow it panics,
+        // which on SBF aborts the transaction — a loud fail-safe. The
+        // pre-audit impls used native `+`/`-`/`*`, which wrap silently
+        // in release builds: `balance += amount` compiling to wrapping
+        // arithmetic on mainnet is the classic exploit shape. Handlers
+        // that want a clean recoverable error should use the
+        // `checked_*_assign` helpers above instead of the operators.
         impl ops::Add<$native> for $name {
             type Output = Self;
 
             #[inline(always)]
             fn add(self, rhs: $native) -> Self::Output {
-                Self::new(self.get() + rhs)
+                Self::new(self.get().checked_add(rhs).expect("wire integer addition overflowed"))
             }
         }
 
@@ -159,21 +166,21 @@ macro_rules! wire_int {
 
             #[inline(always)]
             fn add(self, rhs: Self) -> Self::Output {
-                Self::new(self.get() + rhs.get())
+                Self::new(self.get().checked_add(rhs.get()).expect("wire integer addition overflowed"))
             }
         }
 
         impl ops::AddAssign<$native> for $name {
             #[inline(always)]
             fn add_assign(&mut self, rhs: $native) {
-                self.set(self.get() + rhs);
+                self.set(self.get().checked_add(rhs).expect("wire integer addition overflowed"));
             }
         }
 
         impl ops::AddAssign<Self> for $name {
             #[inline(always)]
             fn add_assign(&mut self, rhs: Self) {
-                self.set(self.get() + rhs.get());
+                self.set(self.get().checked_add(rhs.get()).expect("wire integer addition overflowed"));
             }
         }
 
@@ -182,7 +189,7 @@ macro_rules! wire_int {
 
             #[inline(always)]
             fn sub(self, rhs: $native) -> Self::Output {
-                Self::new(self.get() - rhs)
+                Self::new(self.get().checked_sub(rhs).expect("wire integer subtraction overflowed"))
             }
         }
 
@@ -191,21 +198,21 @@ macro_rules! wire_int {
 
             #[inline(always)]
             fn sub(self, rhs: Self) -> Self::Output {
-                Self::new(self.get() - rhs.get())
+                Self::new(self.get().checked_sub(rhs.get()).expect("wire integer subtraction overflowed"))
             }
         }
 
         impl ops::SubAssign<$native> for $name {
             #[inline(always)]
             fn sub_assign(&mut self, rhs: $native) {
-                self.set(self.get() - rhs);
+                self.set(self.get().checked_sub(rhs).expect("wire integer subtraction overflowed"));
             }
         }
 
         impl ops::SubAssign<Self> for $name {
             #[inline(always)]
             fn sub_assign(&mut self, rhs: Self) {
-                self.set(self.get() - rhs.get());
+                self.set(self.get().checked_sub(rhs.get()).expect("wire integer subtraction overflowed"));
             }
         }
 
@@ -214,7 +221,7 @@ macro_rules! wire_int {
 
             #[inline(always)]
             fn mul(self, rhs: $native) -> Self::Output {
-                Self::new(self.get() * rhs)
+                Self::new(self.get().checked_mul(rhs).expect("wire integer multiplication overflowed"))
             }
         }
 
@@ -223,21 +230,21 @@ macro_rules! wire_int {
 
             #[inline(always)]
             fn mul(self, rhs: Self) -> Self::Output {
-                Self::new(self.get() * rhs.get())
+                Self::new(self.get().checked_mul(rhs.get()).expect("wire integer multiplication overflowed"))
             }
         }
 
         impl ops::MulAssign<$native> for $name {
             #[inline(always)]
             fn mul_assign(&mut self, rhs: $native) {
-                self.set(self.get() * rhs);
+                self.set(self.get().checked_mul(rhs).expect("wire integer multiplication overflowed"));
             }
         }
 
         impl ops::MulAssign<Self> for $name {
             #[inline(always)]
             fn mul_assign(&mut self, rhs: Self) {
-                self.set(self.get() * rhs.get());
+                self.set(self.get().checked_mul(rhs.get()).expect("wire integer multiplication overflowed"));
             }
         }
 
@@ -390,6 +397,23 @@ mod tests {
             Err(::hopper_runtime::ProgramError::ArithmeticOverflow)
         );
         assert_eq!(w.get(), u64::MAX);
+    }
+
+    #[test]
+    #[should_panic(expected = "wire integer addition overflowed")]
+    fn operator_overflow_panics_instead_of_wrapping() {
+        // Pre-fix the operators used native `+`, which WRAPS in release
+        // builds — u64::MAX + 1 silently became 0. The operators must
+        // abort loudly; the recoverable path is checked_add_assign.
+        let mut w = WireU64::new(u64::MAX);
+        w += 1;
+    }
+
+    #[test]
+    #[should_panic(expected = "wire integer subtraction overflowed")]
+    fn operator_underflow_panics_instead_of_wrapping() {
+        let mut w = WireU64::new(0);
+        w -= 1;
     }
 
     #[test]
