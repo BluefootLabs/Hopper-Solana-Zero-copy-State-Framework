@@ -186,3 +186,27 @@ unexpected_cfgs = { level = "allow", check-cfg = [
     'cfg(feature, values("frame", "receipt", "policy", "graph", "migrate", "virtual-state", "diff", "explain", "advanced", "collections", "framework", "systems"))',
 ] }
 
+
+# Deny silent integer wrap on-chain: without this, release builds (the
+# only kind that reach a cluster) compile native `+`/`-`/`*` to wrapping
+# arithmetic — the classic balance-overflow exploit shape. With it, any
+# unchecked arithmetic that overflows aborts the transaction instead of
+# corrupting state. Hopper's hot paths already use explicit checked or
+# wire-type arithmetic, so the measured CU cost on the parity vault is
+# recorded in BENCHMARKS.md alongside this flag.
+[profile.release]
+overflow-checks = true
+
+# The audited substrate opts back out: its arithmetic is explicitly
+# checked/widened where it matters (see docs/audit/FULL_AUDIT_2026.md)
+# and its parsing loops are bounds-guarded by construction, so the flag
+# only adds flat CU there. User program crates and the domain crates
+# keep full checking.
+[profile.release.package.hopper-native]
+overflow-checks = false
+[profile.release.package.hopper-runtime]
+overflow-checks = false
+[profile.release.package.hopper-systems]
+overflow-checks = false
+[profile.release.package.hopper-lang]
+overflow-checks = false
