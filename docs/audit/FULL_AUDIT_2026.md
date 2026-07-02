@@ -46,11 +46,35 @@ been read line-by-line and its findings logged.
       introspect.rs / lib.rs / log.rs / return_data.rs / safe.rs / system.rs /
       sysvar.rs / token.rs / verify.rs
 
-### Batch 2 — hopper-runtime (46 files, ~20.3k lines)
+### Batch 2 — hopper-runtime (46 files, ~20.3k lines) — IN PROGRESS
 
-- [ ] account.rs, compact.rs, tail.rs, segment_borrow.rs, segment_lease.rs,
-      layout.rs, zerocopy.rs, account_wrappers.rs, borrow*.rs, address.rs,
-      cpi.rs, token*.rs, remaining files
+- [x] segment_borrow.rs (flagship differentiator — see findings)
+- [x] pda.rs (fixed with the Batch 1 PDA hardening: host fallback panic)
+- [~] account.rs (large; loaders/compact/cross-program/close/check surfaces
+      audited during this session's fixes — remaining: wrappers/init/realloc
+      internals)
+- [ ] compact.rs, tail.rs, segment_lease.rs, layout.rs, zerocopy.rs,
+      account_wrappers.rs, borrow.rs, borrow_registry.rs, address.rs, cpi.rs,
+      token.rs, crypto.rs, context.rs, policy.rs, native_boundary.rs,
+      memory.rs, syscalls.rs, lib.rs, foreign.rs, instruction.rs, interop.rs,
+      pod.rs, remaining files
+
+#### Batch 2 findings
+
+- **verified sound** `hopper-runtime/segment_borrow.rs` — the segment
+  registry (the disjoint-borrow differentiator no competitor has):
+  `ranges_overlap` widens to u64 so `offset + size` cannot wrap;
+  fingerprint-then-verify identity means collisions cost one extra compare
+  and can never manufacture or miss a conflict; the conflict matrix admits
+  only Read+Read on overlap; `MaybeUninit` slots are strictly len-gated;
+  `release` removes by full `(key, offset, size, kind)` identity with
+  swap-remove; `release_last_registered` fast-pops with exact-removal
+  fallback; duplicate identical writes are rejected by the Write+Write rule.
+  In-file Kani proofs (overlap symmetry et al.) and unit tests pin the
+  invariants. **P3 open:** `register_guard` returns a guard holding
+  `&mut registry`, so two RAII guards cannot coexist — simultaneous disjoint
+  segments go through the `segment_lease`/`split_segments_mut` path; the
+  guard docs should say so explicitly.
 
 ### Batch 3 — hopper-core (69 files, ~18.6k lines)
 
