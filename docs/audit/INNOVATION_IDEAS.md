@@ -119,6 +119,11 @@ Status: `idea` | `spiked` | `planned` | `shipped`.
   `hopper build` / the workspace `.cargo/config`, measure the delta in the
   Phase 3 benchmark, and keep `hopper verify`'s `.rodata` layout-id anchor
   intact (verify the anchor section survives the discard list).
+- Second-pass detail: Quasar builds through Anza platform-tools'
+  **`sbpf-linker`** (checked on PATH by their CLI; `-C link-arg=--btf
+  -C debuginfo=2` only on their debug/profile path). Evaluate whether
+  `hopper build` should support the same linker route alongside
+  `cargo-build-sbf`.
 - Owner files: new `link/sbf.ld` + `tools/hopper-cli` build plumbing;
   validate with `examples/hopper-parity-vault`.
 
@@ -141,6 +146,36 @@ Minor note from the same study: Quasar's `#[account(dup)]` lets a context
 borrows (`AccountLoad::check_checked`). Hopper's `require_unique_*` +
 strict remaining-modes cover the safety side; a declared-duplicate field
 attribute would be small ergonomic parity if users ask.
+
+### I10 — Fused expected-header validation (one u32 compare per account)
+
+- **idea.** Impact: **high** (directly attacks the fixed-overhead CU gap).
+  Effort: medium (macro lowering change; primitive already exists).
+- Second link/loader pass over Quasar found the real breakthrough: their
+  `#[derive(Accounts)]` plan (`derive/src/accounts/plan.rs`) computes a
+  **compile-time expected-header mask** per account field —
+  `0xFF | (S << 8) | (W << 16) | (E << 24)`, the packed
+  `[dup_marker, is_signer, is_writable, executable]` u32 at the head of
+  each account record — and `parse_accounts` validates all three flags
+  with **a single u32 load + compare against a literal, fused into the
+  SVM-buffer parse walk** (dup-aware via `parse_account_dup`). Their
+  generated context is bound in the same pass; no generic account array,
+  COUNT known at compile time. This is very likely the 41-vs-72 CU
+  auth-fail delta in BENCHMARKS.md.
+- **Hopper already has the primitive**: `AccountView::header_u32()` /
+  `flags()` / `expect_flags()` read exactly this packed u32. The gap is
+  purely in lowering — `#[derive(Accounts)]`/`#[hopper::context]` emit
+  separate `check_signer()` / `check_writable()` calls per field instead
+  of one fused compare.
+- **Surpass:** (a) lower per-field flag constraints to one
+  `expect_flags`-style masked compare against a macro-computed literal;
+  (b) go further than Quasar by folding the **discriminator byte** check
+  into the same pass (their compare covers flags only), and keep the
+  borrow-ledger/touch-map machinery they lack; (c) benchmark the delta on
+  the parity vault's auth-fail row.
+- Owner files: `crates/hopper-macros-proc/src/context.rs` (lowering),
+  `crates/hopper-native/src/account_view.rs` (primitive exists),
+  `examples/hopper-parity-vault` (measure).
 
 ### I4 — `hopper doctor` as the safety linter no competitor has
 
