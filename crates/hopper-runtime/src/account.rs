@@ -28,12 +28,11 @@ use crate::ProgramResult;
 ///
 /// # Safety
 ///
-/// `reg` must be a valid `&mut`-derived registry pointer, and the first
-/// `count` entries of `recs` must be initialized `SegmentBorrow` records
-/// registered in it.
+/// The first `count` entries of `recs` must be initialized `SegmentBorrow`
+/// records registered in `reg`.
 #[inline]
 unsafe fn release_registered<const N: usize>(
-    reg: *mut SegmentBorrowRegistry,
+    reg: &mut SegmentBorrowRegistry,
     recs: &[core::mem::MaybeUninit<crate::segment_borrow::SegmentBorrow>; N],
     count: usize,
 ) {
@@ -41,7 +40,7 @@ unsafe fn release_registered<const N: usize>(
     while j < count {
         // SAFETY: caller guarantees `recs[j]` is an initialized, registered borrow.
         unsafe {
-            (*reg).release(recs[j].assume_init_ref());
+            reg.release(recs[j].assume_init_ref());
         }
         j += 1;
     }
@@ -404,11 +403,15 @@ impl<'info> AccountView<'info> {
         self.check_writable()?;
         let expected = core::mem::size_of::<T>() as u32;
         let data_len = self.data_len();
-        let reg_ptr = borrows as *mut SegmentBorrowRegistry;
 
-        // Phase 1: validate + register every range. `register_leased_write`
-        // rejects a range that overlaps one already registered in this
-        // batch, so disjointness is proven here, once, up front.
+        // Phase 1: validate + register every range **through the `&mut`**.
+        // The raw registry pointer the leases share is deliberately derived
+        // only after the final `&mut` use below: deriving it first and then
+        // using `borrows` would invalidate the raw under Stacked Borrows,
+        // leaving the rollback paths and every lease drop writing through a
+        // dead pointer. `register_leased_write` rejects a range that overlaps
+        // one already registered in this batch, so disjointness is proven
+        // here, once, up front.
         // SAFETY: an array of `MaybeUninit` is itself always valid
         // uninitialized; we initialize entries `0..i` before reading them.
         let mut recs: [core::mem::MaybeUninit<crate::segment_borrow::SegmentBorrow>; N] =
@@ -423,7 +426,7 @@ impl<'info> AccountView<'info> {
             };
             if size != expected || !in_bounds {
                 // SAFETY: indices `0..i` were initialized and registered above.
-                unsafe { release_registered(reg_ptr, &recs, i) };
+                unsafe { release_registered(borrows, &recs, i) };
                 return if size != expected {
                     ProgramError::err_invalid_argument()
                 } else {
@@ -437,7 +440,7 @@ impl<'info> AccountView<'info> {
                 }
                 Err(e) => {
                     // SAFETY: indices `0..i` were initialized and registered.
-                    unsafe { release_registered(reg_ptr, &recs, i) };
+                    unsafe { release_registered(borrows, &recs, i) };
                     return Err(e);
                 }
             }
@@ -451,10 +454,16 @@ impl<'info> AccountView<'info> {
             Ok(d) => d,
             Err(e) => {
                 // SAFETY: all N entries were registered in phase 1.
-                unsafe { release_registered(reg_ptr, &recs, N) };
+                unsafe { release_registered(borrows, &recs, N) };
                 return Err(e);
             }
         };
+
+        // LAST use of the `&mut`: derive the single raw pointer every lease
+        // shares. All registry access from here on (lease drops) flows
+        // through copies of this one derivation, so the pointer's provenance
+        // stays valid for the guard's whole lifetime.
+        let reg_ptr = borrows as *mut SegmentBorrowRegistry;
 
         // Build the N leases (each shares the one registry raw pointer,
         // lifetime-pinned to `'a` by the `&'a mut borrows` we hold).

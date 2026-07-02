@@ -56,6 +56,7 @@ been read line-by-line and its findings logged.
 - [x] borrow.rs (host-repr provenance fix — see findings)
 - [x] memory.rs
 - [x] zerocopy.rs
+- [x] segment_lease.rs (+ account.rs::split_segments_mut ordering fix)
 - [ ] compact.rs, tail.rs, segment_lease.rs, layout.rs,
       account_wrappers.rs, borrow_registry.rs, address.rs, cpi.rs,
       token.rs, crypto.rs, context.rs, policy.rs, native_boundary.rs,
@@ -106,6 +107,28 @@ been read line-by-line and its findings logged.
   `WireLayout`/`AccountLayout` blankets coherent; the
   `LAYOUT_ID → WIRE_FINGERPRINT` LE reinterpretation documented. All unsafe
   here is trait contracts, not operations.
+- **P2 fixed (this commit)** `hopper-runtime/account.rs::split_segments_mut`
+  — derived the leases' shared raw registry pointer (`reg_ptr`) **before**
+  the phase-1 registrations that go through the parent `&mut borrows`. Under
+  Stacked Borrows, using the parent `&mut` invalidates the earlier-derived
+  raw, so the rollback paths and every lease drop wrote through a dead
+  pointer (host-Miri-flaggable; single-threaded SVM masks it). Reordered:
+  phase-1 registration/rollback flows through the `&mut`
+  (`release_registered` now takes `&mut SegmentBorrowRegistry`), and the raw
+  pointer is derived once as the **final** `&mut` use, so every subsequent
+  registry access (lease drops) is a child of that single live derivation.
+- **verified sound** `hopper-runtime/segment_lease.rs` — the RAII lease
+  layer: `SegmentLease` pins the registry lifetime via
+  `PhantomData<&'a mut _>` and releases by exact identity on drop;
+  `SegRef`/`SegRefMut` pair the typed guard with the lease so registry
+  entries live exactly as long as the data guard (fixing the audit's
+  "sticky ledger"). The **sequential** `segment_ref`/`segment_mut` path is
+  provenance-clean by construction: the raw is derived in
+  `SegmentLease::new` *after* the registration's last `&mut` use, and the
+  returned guard holds `'a` so no new `&mut` can exist while the lease
+  lives. `SegmentsMut::all_mut` hands out N `&mut T` that are pairwise
+  disjoint (registry-proven at construction) inside one exclusive byte
+  borrow — the generalized `split_at_mut` claim holds.
 
 ### Batch 3 — hopper-core (69 files, ~18.6k lines)
 
