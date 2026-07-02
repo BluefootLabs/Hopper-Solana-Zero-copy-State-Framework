@@ -128,7 +128,23 @@ const fn ranges_overlap(a_off: u32, a_size: u32, b_off: u32, b_size: u32) -> boo
 pub struct SegmentBorrowRegistry {
     entries: [MaybeUninit<SegmentBorrow>; MAX_SEGMENT_BORROWS],
     len: u8,
+    /// Append-only touch log (innovation I7): unlike `entries`, which
+    /// empties as RAII leases release, this records every distinct
+    /// `(account, offset, size, kind)` the instruction ever registered,
+    /// so end-of-handler introspection can emit an instruction touch map.
+    #[cfg(feature = "touch-map")]
+    touches: [MaybeUninit<SegmentBorrow>; MAX_TOUCH_RECORDS],
+    #[cfg(feature = "touch-map")]
+    touch_len: u8,
+    /// Set when more distinct ranges were touched than the log can hold;
+    /// consumers must treat the map as partial.
+    #[cfg(feature = "touch-map")]
+    touch_overflow: bool,
 }
+
+/// Capacity of the instruction touch log (`touch-map` feature).
+#[cfg(feature = "touch-map")]
+pub const MAX_TOUCH_RECORDS: usize = 32;
 
 impl Default for SegmentBorrowRegistry {
     #[inline(always)]
@@ -145,7 +161,70 @@ impl SegmentBorrowRegistry {
         Self {
             entries: [EMPTY; MAX_SEGMENT_BORROWS],
             len: 0,
+            #[cfg(feature = "touch-map")]
+            touches: [EMPTY; MAX_TOUCH_RECORDS],
+            #[cfg(feature = "touch-map")]
+            touch_len: 0,
+            #[cfg(feature = "touch-map")]
+            touch_overflow: false,
         }
+    }
+
+    /// Record `borrow` in the append-only touch log, deduplicating by
+    /// exact `(key, offset, size, kind)` identity so repeated sequential
+    /// leases of the same range appear once.
+    #[cfg(feature = "touch-map")]
+    #[inline]
+    fn record_touch(&mut self, borrow: &SegmentBorrow) {
+        let len = self.touch_len as usize;
+        let mut i = 0;
+        while i < len {
+            // SAFETY: `i < touch_len`, and every slot below `touch_len` was
+            // initialized by this method before `touch_len` advanced.
+            let existing = unsafe { self.touches.get_unchecked(i).assume_init_ref() };
+            if borrow_eq(existing, borrow) {
+                return;
+            }
+            i += 1;
+        }
+        if len >= MAX_TOUCH_RECORDS {
+            self.touch_overflow = true;
+            return;
+        }
+        // SAFETY: `len < MAX_TOUCH_RECORDS`, an in-bounds uninitialized slot.
+        unsafe { self.touches.get_unchecked_mut(len).write(*borrow) };
+        self.touch_len = (len + 1) as u8;
+    }
+
+    /// Visit every distinct range this instruction has touched so far
+    /// (`touch-map` feature). Order is first-touch order. Use
+    /// [`touch_map_overflowed`](Self::touch_map_overflowed) to detect a
+    /// partial log.
+    #[cfg(feature = "touch-map")]
+    #[inline]
+    pub fn for_each_touch<F: FnMut(&SegmentBorrow)>(&self, mut f: F) {
+        let len = self.touch_len as usize;
+        let mut i = 0;
+        while i < len {
+            // SAFETY: `i < touch_len`; slots below `touch_len` are initialized.
+            f(unsafe { self.touches.get_unchecked(i).assume_init_ref() });
+            i += 1;
+        }
+    }
+
+    /// Number of distinct touch records captured (`touch-map` feature).
+    #[cfg(feature = "touch-map")]
+    #[inline(always)]
+    pub const fn touch_map_len(&self) -> usize {
+        self.touch_len as usize
+    }
+
+    /// Whether the touch log overflowed [`MAX_TOUCH_RECORDS`] and is
+    /// therefore partial (`touch-map` feature).
+    #[cfg(feature = "touch-map")]
+    #[inline(always)]
+    pub const fn touch_map_overflowed(&self) -> bool {
+        self.touch_overflow
     }
 
     /// Number of active borrows.
@@ -238,6 +317,11 @@ impl SegmentBorrowRegistry {
         // uninitialized slot owned by this registry.
         unsafe { self.entries.get_unchecked_mut(len).write(new) };
         self.len = (len + 1) as u8;
+        // Touch map (I7): record the successful registration in the
+        // append-only log. Releases never remove touch records — the log
+        // is the instruction's cumulative footprint.
+        #[cfg(feature = "touch-map")]
+        self.record_touch(&new);
         Ok(())
     }
 
@@ -910,5 +994,65 @@ mod proptests {
     // host-only, so a plain `std::vec::Vec` is fine for bookkeeping.
     mod alloc_vec {
         pub use std::vec::Vec;
+    }
+}
+
+#[cfg(all(test, feature = "touch-map"))]
+mod touch_map_tests {
+    use super::*;
+
+    fn key(byte: u8) -> Address {
+        Address::new([byte; 32])
+    }
+
+    #[test]
+    fn touch_log_survives_release_and_dedups() {
+        let mut reg = SegmentBorrowRegistry::new();
+
+        // Two disjoint borrows on one account, one on another.
+        let a = reg.register_leased_write(&key(1), 0, 8).unwrap();
+        let b = reg.register_leased_read(&key(1), 8, 8).unwrap();
+        let c = reg.register_leased_read(&key(2), 0, 4).unwrap();
+
+        // Release everything (the RAII path): the live ledger empties...
+        assert!(reg.release(&a));
+        assert!(reg.release(&b));
+        assert!(reg.release(&c));
+        assert!(reg.is_empty());
+
+        // ...but the touch log keeps the cumulative footprint.
+        assert_eq!(reg.touch_map_len(), 3);
+        assert!(!reg.touch_map_overflowed());
+
+        // Re-registering an identical range (sequential lease) dedups.
+        let a2 = reg.register_leased_write(&key(1), 0, 8).unwrap();
+        assert_eq!(reg.touch_map_len(), 3);
+        // A same-range borrow with a different kind is a distinct record.
+        reg.release(&a2);
+        let _a3 = reg.register_leased_read(&key(1), 0, 8).unwrap();
+        assert_eq!(reg.touch_map_len(), 4);
+
+        // First-touch order is preserved.
+        let mut seen = std::vec::Vec::new();
+        reg.for_each_touch(|t| seen.push((t.key, t.offset, t.size, t.kind)));
+        assert_eq!(seen[0], (key(1), 0, 8, AccessKind::Write));
+        assert_eq!(seen[1], (key(1), 8, 8, AccessKind::Read));
+        assert_eq!(seen[2], (key(2), 0, 4, AccessKind::Read));
+        assert_eq!(seen[3], (key(1), 0, 8, AccessKind::Read));
+    }
+
+    #[test]
+    fn touch_log_flags_overflow_and_stays_partial_not_wrong() {
+        let mut reg = SegmentBorrowRegistry::new();
+        // Touch more distinct ranges than the log holds. Register/release
+        // pairs keep the live ledger small while the touch log accumulates.
+        let mut i: u32 = 0;
+        while (i as usize) < MAX_TOUCH_RECORDS + 3 {
+            let b = reg.register_leased_read(&key(9), i * 16, 8).unwrap();
+            reg.release(&b);
+            i += 1;
+        }
+        assert_eq!(reg.touch_map_len(), MAX_TOUCH_RECORDS);
+        assert!(reg.touch_map_overflowed());
     }
 }

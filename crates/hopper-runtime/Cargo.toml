@@ -19,6 +19,11 @@ name = "hopper_runtime"
 default = []
 
 cu-trace = ["hopper-native/cu-trace"]
+# Opt-in instruction touch maps: the segment borrow registry keeps an
+# append-only, deduplicated log of every (account, offset, size, R/W)
+# range the instruction touches, readable via `Context::touch_map()`.
+# Off by default so the hot path pays nothing.
+touch-map = []
 # Opt-in SIMD-0321 two-argument fast entrypoint. See hopper-native's
 # feature of the same name; without it `hopper_fast_entrypoint!` is an
 # alias for the standard scanning entrypoint.

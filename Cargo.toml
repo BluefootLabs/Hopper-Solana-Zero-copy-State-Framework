@@ -169,6 +169,10 @@ explain = ["hopper-core/explain"]
 collections = ["hopper-core/collections"]
 
 cu-trace = ["hopper-runtime/cu-trace"]
+# Opt-in instruction touch maps (innovation I7): Context::for_each_touch
+# yields every distinct (account, offset, size, R/W) range an instruction
+# touched, from the segment registry's append-only log.
+touch-map = ["hopper-runtime/touch-map"]
 
 # Opt-in SIMD-0321 two-argument fast entrypoint (r2 instruction-data
 # pointer). Off by default: the SIMD's feature gate is not yet activated

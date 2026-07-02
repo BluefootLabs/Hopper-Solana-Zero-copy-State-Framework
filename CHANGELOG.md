@@ -9,6 +9,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 
 ### Added
 
+- **Instruction touch maps (`touch-map` feature).** The segment borrow
+  registry now keeps an append-only, deduplicated log of every distinct
+  `(account, offset, size, read/write)` range an instruction registers —
+  surviving RAII lease releases, so `Context::for_each_touch()` at the end
+  of a handler yields the instruction's cumulative segment-level footprint
+  in first-touch order (`touch_map_len`/`touch_map_overflowed` report
+  size and partiality; capacity 32). Off by default with zero hot-path
+  cost. No other Solana framework can produce this: it reads directly off
+  Hopper's instruction-scoped aliasing ledger. Follow-ups tracked in
+  `docs/audit/INNOVATION_IDEAS.md` (I7): receipt/log emission encoding,
+  `hopper explain` field-name decoding, `hopper_test::Trace` surfacing.
 - **JSON execution traces for the SVM harness (`hopper_test::Trace`).**
   `HarnessResult::trace(program_id, &pre_accounts)` turns a single `process`
   into a reviewable, snapshot-friendly trace: success/error, compute units,

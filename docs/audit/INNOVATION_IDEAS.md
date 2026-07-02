@@ -89,7 +89,17 @@ Status: `idea` | `spiked` | `planned` | `shipped`.
 
 ### I7 — Instruction touch maps from the borrow ledger (nearly free)
 
-- **idea.** Impact: high (unique explainability moat). Effort: low-medium.
+- **shipped (core) 2026-06-30.** The segment registry now keeps an
+  append-only, deduplicated touch log behind the `touch-map` feature
+  (zero cost when off): `Context::for_each_touch` / `touch_map_len` /
+  `touch_map_overflowed` yield the instruction's cumulative
+  `(account, offset, size, R/W)` footprint in first-touch order —
+  surviving RAII lease releases, which the live ledger does not.
+  Test-pinned (`touch_log_survives_release_and_dedups`,
+  overflow-partiality). Remaining follow-ups: receipt/`sol_log_data`
+  emission encoding, `hopper explain` field-name decoding via
+  `#[hopper::state]` constants, and `hopper_test::Trace` surfacing.
+- Original idea: Impact: high (unique explainability moat). Effort: low-medium.
 - Second-pass audit of `context.rs` found the original audit's wishlist
   item #7 ("instruction touch maps") is almost already built: `Context`
   embeds the instruction-scoped `SegmentBorrowRegistry`, every segment
@@ -184,6 +194,29 @@ attribute would be small ergonomic parity if users ask.
 - Owner files: `crates/hopper-macros-proc/src/context.rs` (lowering),
   `crates/hopper-native/src/account_view.rs` (primitive exists),
   `examples/hopper-parity-vault` (measure).
+
+### I11 — Shipped-but-invisible cluster: foreign lenses, proof markers, migration chains, crank discovery
+
+- **shipped — document + polish.** Impact: high (positioning). Effort: low.
+- The Batch-2 tail sweep found four substantial shipped capabilities that
+  neither COMPARISON.md nor the website leads with, and that none of
+  Anchor/Quasar/Pinocchio has any equivalent of:
+  - `foreign.rs` — **manifest-backed foreign-account lenses**: 4-point
+    verified cross-program reads (owner + disc + wire fingerprint +
+    schema epoch) with caller-supplied manifests. No crate coupling, no
+    silent ABI drift; Anchor requires importing the foreign crate,
+    Quasar/Pinocchio hand-maintained offsets.
+  - `proof.rs` — **proof-carrying account markers**: type-state
+    capabilities (`OwnerChecked`, `SignerChecked`, `LayoutChecked<T>`,
+    tuple composition) so downstream helpers *require* proofs in their
+    signatures. Type-level check composition no competitor has.
+  - `migrate.rs` — **schema-epoch migration chains**: declared edges
+    applied in sequence, atomically, with epoch bumps at load time,
+    before any typed access. The governed-migration moat, implemented.
+  - `crank.rs` — **on-chain crank markers**: crankable-instruction
+    discovery stamped into the binary for indexers/`hopper manager`.
+- Action: COMPARISON.md rows + website copy for all four; line-by-line
+  audit of the four files rides along in the Batch-2 tail.
 
 ### I4 — `hopper doctor` as the safety linter no competitor has
 

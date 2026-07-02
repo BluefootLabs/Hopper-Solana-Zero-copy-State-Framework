@@ -132,6 +132,33 @@ impl<'a> Context<'a> {
         AccountAudit::new(self.accounts)
     }
 
+    /// Visit every distinct `(account, offset, size, R/W)` range this
+    /// instruction has touched so far (`touch-map` feature, innovation
+    /// I7). The log is cumulative — RAII lease releases do not remove
+    /// records — so calling this at the end of a handler yields the
+    /// instruction's segment-level footprint in first-touch order.
+    /// Pair with [`touch_map_overflowed`](Self::touch_map_overflowed).
+    #[cfg(feature = "touch-map")]
+    #[inline]
+    pub fn for_each_touch<F: FnMut(&crate::segment_borrow::SegmentBorrow)>(&self, f: F) {
+        self.segment_borrows.for_each_touch(f)
+    }
+
+    /// Number of distinct touch records captured (`touch-map` feature).
+    #[cfg(feature = "touch-map")]
+    #[inline(always)]
+    pub fn touch_map_len(&self) -> usize {
+        self.segment_borrows.touch_map_len()
+    }
+
+    /// Whether the touch log overflowed and is partial (`touch-map`
+    /// feature).
+    #[cfg(feature = "touch-map")]
+    #[inline(always)]
+    pub fn touch_map_overflowed(&self) -> bool {
+        self.segment_borrows.touch_map_overflowed()
+    }
+
     /// Get the remaining accounts starting at `from`.
     #[inline(always)]
     pub fn remaining_accounts(&self, from: usize) -> &'a [AccountView<'a>] {
