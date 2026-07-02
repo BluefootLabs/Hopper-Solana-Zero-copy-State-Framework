@@ -139,26 +139,9 @@ pub unsafe fn deserialize_accounts<'info, const MAX: usize>(
         slot += 1;
     }
 
-    while slot < frame.account_count {
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-        let marker = unsafe { *input.add(offset) };
-        if marker == u8::MAX {
-            // SAFETY: `offset` is on a Solana account record boundary produced
-            // by the loader input format.
-            let raw = unsafe { input.add(offset) as *const RuntimeAccount };
-            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-            let data_len = unsafe { (*raw).data_len as usize };
-            offset += RuntimeAccount::SIZE;
-            offset += data_len + MAX_PERMITTED_DATA_INCREASE;
-            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-            offset += unsafe { input.add(offset).align_offset(BPF_ALIGN_OF_U128) };
-            offset += 8;
-        } else {
-            offset += 8;
-        }
-        slot += 1;
-    }
-
+    // Accounts beyond MAX (if any) are simply not materialized: instruction
+    // data and the program id were already located by `scan_instruction_frame`,
+    // so there is nothing to gain from walking the remaining records.
     (frame.program_id, count, frame.instruction_data)
 }
 
