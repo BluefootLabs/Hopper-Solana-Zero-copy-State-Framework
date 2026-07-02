@@ -108,8 +108,16 @@ Status: `idea` | `spiked` | `planned` | `shipped`.
 
 ### I8 — Tuned SBF linker script (close the binary-size gap cheaply)
 
-- **idea.** Impact: high (attacks the one benchmark row Quasar wins).
-  Effort: **low**.
+- **invalidated by measurement (2026-06-30).** Built `hopper-counter` to
+  SBF with and without an equivalent discard script: byte-identical
+  (4 736 bytes), and `llvm-readelf -S` shows the baseline artifact already
+  carries only the 8 essential sections — `cargo-build-sbf` 4.0 strips
+  `.symtab`/`.eh_frame`/hash tables by default. Quasar's `sbf.ld` matters
+  for *their* plain-cargo + `sbpf-linker` route, not Hopper's toolchain.
+  **Consequence:** the 6.27 vs 7.53 KiB vault gap is real `.text`/framework
+  code, so the size-gap attack is I10's smaller validation codegen plus a
+  dead-weight review of the fixed runtime surface — not linker games.
+- Original (superseded) idea kept for the record: Impact: high. Effort: low.
 - Competitor-source study: Quasar ships `link/sbf.ld`, a ~20-line linker
   script whose `/DISCARD/` drops `.eh_frame*`, `.gnu.hash*`, `.hash*`,
   `.comment*`, `.symtab`, `.strtab`, and `.debug_*` from the final `.so`.

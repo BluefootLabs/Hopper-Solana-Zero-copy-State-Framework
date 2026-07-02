@@ -721,24 +721,34 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         }
 
         // -- Stage 2: signer / mut / address / owner / layout -------------
+        //
+        // Signer and writable requirements lower to ONE fused packed-flags
+        // compare (`expect_signer_writable`) instead of separate
+        // `check_signer()` + `check_writable()` calls: the native backend
+        // reads the four header flag bytes as a single u32, and with the
+        // two literals below the whole check folds to `flags & MASK ==
+        // MASK`. Precise errors are preserved by the helper's
+        // failure-path fallback. (Innovation I10 — the fused-validation
+        // shape competitor derives use, plus exact error codes.)
 
-        if cf.attr.is_signer || wrapper_is_signer {
+        let needs_signer = cf.attr.is_signer || wrapper_is_signer;
+        let needs_writable = cf.attr.is_mut || !cf.attr.mut_segments.is_empty();
+        if needs_signer || needs_writable {
             field_checks.push(quote! {
-                ctx.account(#idx)?.check_signer()?;
+                ctx.account(#idx)?.expect_signer_writable(#needs_signer, #needs_writable)?;
             });
-            check_descriptions.push(format!(
-                "accounts[{}] ({}) must be a signer",
-                idx, field_name
-            ));
-        }
-        if cf.attr.is_mut || !cf.attr.mut_segments.is_empty() {
-            field_checks.push(quote! {
-                ctx.account(#idx)?.check_writable()?;
-            });
-            check_descriptions.push(format!(
-                "accounts[{}] ({}) must be writable",
-                idx, field_name
-            ));
+            if needs_signer {
+                check_descriptions.push(format!(
+                    "accounts[{}] ({}) must be a signer",
+                    idx, field_name
+                ));
+            }
+            if needs_writable {
+                check_descriptions.push(format!(
+                    "accounts[{}] ({}) must be writable",
+                    idx, field_name
+                ));
+            }
         }
         if cf.attr.executable {
             // Anchor-parity `executable` keyword. Routes through

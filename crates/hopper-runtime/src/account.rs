@@ -1175,22 +1175,13 @@ impl<'info> AccountView<'info> {
     ///
     /// Bit layout: bit 0 = signer, bit 1 = writable, bit 2 = executable,
     /// bit 3 = has data.
+    ///
+    /// Delegates to the native backend, which extracts signer/writable/
+    /// executable from **one** packed-u32 header read instead of three
+    /// separate byte loads.
     #[inline(always)]
     pub fn flags(&self) -> u8 {
-        let mut f: u8 = 0;
-        if self.is_signer() {
-            f |= 0b0001;
-        }
-        if self.is_writable() {
-            f |= 0b0010;
-        }
-        if self.executable() {
-            f |= 0b0100;
-        }
-        if !self.is_data_empty() {
-            f |= 0b1000;
-        }
-        f
+        self.backend().flags()
     }
 
     /// Check that the account's flags contain all required bits.
@@ -1201,6 +1192,44 @@ impl<'info> AccountView<'info> {
         } else {
             Err(ProgramError::InvalidArgument)
         }
+    }
+
+    /// Fused signer/writable validation (the generated-context hot path).
+    ///
+    /// Validates both requirements with a **single packed-flags read and
+    /// one masked compare** — the same shape a hand-rolled
+    /// `header & MASK == MASK` check compiles to, since `need_signer` /
+    /// `need_writable` are compile-time literals at every macro call site
+    /// and this function is `#[inline(always)]`. On mismatch it falls back
+    /// to the individual checks so the error stays precise
+    /// (`MissingRequiredSignature` vs `Immutable`); the fallback runs only
+    /// on the failure path, where compute cost is irrelevant.
+    #[inline(always)]
+    pub fn expect_signer_writable(
+        &self,
+        need_signer: bool,
+        need_writable: bool,
+    ) -> ProgramResult {
+        let mut required: u8 = 0;
+        if need_signer {
+            required |= 0b0001;
+        }
+        if need_writable {
+            required |= 0b0010;
+        }
+        if self.flags() & required == required {
+            return Ok(());
+        }
+        // Failure path: re-check individually for the precise error.
+        if need_signer {
+            self.require_signer()?;
+        }
+        if need_writable {
+            self.require_writable()?;
+        }
+        // Unreachable when the fused compare failed for one of the two
+        // requested bits, but keeps the signature total.
+        Ok(())
     }
 
     // ── Resize / Close ───────────────────────────────────────────────
