@@ -44,7 +44,6 @@ pub struct PhasedFrame<'a, P> {
     program_id: &'a Address,
     accounts: &'a [AccountView<'a>],
     ix_data: &'a [u8],
-    mutable_borrows: u64,
     _phase: core::marker::PhantomData<P>,
 }
 
@@ -63,7 +62,6 @@ impl<'a> PhasedFrame<'a, Unresolved> {
             program_id,
             accounts,
             ix_data,
-            mutable_borrows: 0,
             _phase: core::marker::PhantomData,
         })
     }
@@ -98,7 +96,6 @@ impl<'a> PhasedFrame<'a, Unresolved> {
             program_id: self.program_id,
             accounts: self.accounts,
             ix_data: self.ix_data,
-            mutable_borrows: self.mutable_borrows,
             resolved,
         })
     }
@@ -111,7 +108,6 @@ pub struct ResolvedFrame<'a, T> {
     pub(crate) program_id: &'a Address,
     pub(crate) accounts: &'a [AccountView<'a>],
     pub(crate) ix_data: &'a [u8],
-    pub(crate) mutable_borrows: u64,
     pub(crate) resolved: T,
 }
 
@@ -156,7 +152,6 @@ impl<'a, T> ResolvedFrame<'a, T> {
             program_id: self.program_id,
             accounts: self.accounts,
             ix_data: self.ix_data,
-            mutable_borrows: self.mutable_borrows,
             resolved: self.resolved,
         })
     }
@@ -167,7 +162,6 @@ pub struct ValidatedFrame<'a, T> {
     pub(crate) program_id: &'a Address,
     pub(crate) accounts: &'a [AccountView<'a>],
     pub(crate) ix_data: &'a [u8],
-    pub(crate) mutable_borrows: u64,
     pub(crate) resolved: T,
 }
 
@@ -203,7 +197,7 @@ impl<'a, T> ValidatedFrame<'a, T> {
     /// })?;
     /// ```
     #[inline]
-    pub fn execute<R, F>(mut self, f: F) -> Result<R, ProgramError>
+    pub fn execute<R, F>(self, f: F) -> Result<R, ProgramError>
     where
         F: FnOnce(&mut ExecutionContext<'a, '_, T>) -> Result<R, ProgramError>,
     {
@@ -211,7 +205,6 @@ impl<'a, T> ValidatedFrame<'a, T> {
             program_id: self.program_id,
             accounts: self.accounts,
             ix_data: self.ix_data,
-            mutable_borrows: &mut self.mutable_borrows,
             resolved: &self.resolved,
         };
         f(&mut ctx)
@@ -223,7 +216,6 @@ pub struct ExecutionContext<'a, 'f, T> {
     pub(crate) program_id: &'a Address,
     pub(crate) accounts: &'a [AccountView<'a>],
     pub(crate) ix_data: &'a [u8],
-    pub(crate) mutable_borrows: &'f mut u64,
     pub(crate) resolved: &'f T,
 }
 
@@ -247,24 +239,21 @@ impl<'a, 'f, T> ExecutionContext<'a, 'f, T> {
     }
 
     /// Borrow account data mutably with runtime aliasing protection.
+    ///
+    /// Aliasing is enforced by the account-level borrow byte, which is
+    /// exact and RAII-released: a second mutable borrow fails while the
+    /// returned guard lives and succeeds after it drops, and duplicate
+    /// account metas (two indices, one account) are correctly rejected
+    /// because the byte is per-account, not per-index. (An earlier
+    /// index-bitmask layer here was strictly weaker on duplicates and
+    /// never cleared its bit on guard drop, so sequential legal
+    /// re-borrows failed for the rest of the phase.)
     #[inline]
     pub fn borrow_mut(&mut self, index: usize) -> Result<RefMut<'a, [u8]>, ProgramError> {
         if index >= self.accounts.len() {
             return Err(ProgramError::NotEnoughAccountKeys);
         }
-        let bit = 1u64 << (index as u32);
-        if *self.mutable_borrows & bit != 0 {
-            return Err(ProgramError::AccountBorrowFailed);
-        }
-        *self.mutable_borrows |= bit;
-        // SAFETY: Borrow tracking prevents aliasing. Caller proved validation.
-        match self.accounts[index].try_borrow_mut() {
-            Ok(data) => Ok(data),
-            Err(error) => {
-                *self.mutable_borrows &= !bit;
-                Err(error)
-            }
-        }
+        self.accounts[index].try_borrow_mut()
     }
 
     /// Borrow account data immutably.
@@ -283,5 +272,125 @@ impl<'a, 'f, T> ExecutionContext<'a, 'f, T> {
         self.accounts
             .get(index)
             .ok_or(ProgramError::NotEnoughAccountKeys)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use hopper_native::{
+        AccountView as NativeAccountView, Address as NativeAddress, RuntimeAccount, NOT_BORROWED,
+    };
+
+    fn make_account(seed: u8) -> (std::vec::Vec<u8>, AccountView<'static>) {
+        let mut backing = std::vec![0u8; RuntimeAccount::SIZE + 16];
+        let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
+        // SAFETY: backing is sized for the header plus data and outlives
+        // the returned view.
+        unsafe {
+            raw.write(RuntimeAccount {
+                borrow_state: NOT_BORROWED,
+                is_signer: 1,
+                is_writable: 1,
+                executable: 0,
+                resize_delta: 0,
+                address: NativeAddress::new_from_array([seed; 32]),
+                owner: NativeAddress::new_from_array([2; 32]),
+                lamports: 1,
+                data_len: 16,
+            });
+        }
+        // SAFETY: raw points at a fully initialized RuntimeAccount.
+        let backend = unsafe { NativeAccountView::new_unchecked(raw) };
+        let view =
+            // SAFETY: AccountView is repr(transparent) over the native view.
+            unsafe { core::mem::transmute::<NativeAccountView, AccountView>(backend) };
+        (backing, view)
+    }
+
+    #[test]
+    fn borrow_mut_is_raii_not_sticky() {
+        let (_b, account) = make_account(1);
+        let pid = Address::new([9u8; 32]);
+        let accounts = [account];
+
+        PhasedFrame::new(&pid, &accounts, &[])
+            .unwrap()
+            .resolve(1, |_, _| Ok(()))
+            .unwrap()
+            .validate(|_, _| Ok(()))
+            .unwrap()
+            .execute(|ctx| {
+                // First mutable borrow works; a second while the guard
+                // lives fails at the account borrow byte.
+                let first = ctx.borrow_mut(0)?;
+                assert!(ctx.borrow_mut(0).is_err());
+                drop(first);
+                // Pre-fix, the index bit stayed set here and this legal
+                // sequential re-borrow failed for the rest of the phase.
+                let again = ctx.borrow_mut(0)?;
+                drop(again);
+                // Reads never conflict with each other.
+                let r1 = ctx.borrow(0)?;
+                let r2 = ctx.borrow(0)?;
+                drop((r1, r2));
+                Ok(())
+            })
+            .unwrap();
+    }
+
+    #[test]
+    fn duplicate_account_metas_share_one_borrow_byte() {
+        // Two frame slots aliasing the SAME underlying account: the old
+        // per-index bitmask would have allowed both mutable borrows; the
+        // per-account borrow byte must reject the second.
+        let mut backing = std::vec![0u8; RuntimeAccount::SIZE + 16];
+        let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
+        // SAFETY: as in make_account.
+        unsafe {
+            raw.write(RuntimeAccount {
+                borrow_state: NOT_BORROWED,
+                is_signer: 0,
+                is_writable: 1,
+                executable: 0,
+                resize_delta: 0,
+                address: NativeAddress::new_from_array([7; 32]),
+                owner: NativeAddress::new_from_array([2; 32]),
+                lamports: 1,
+                data_len: 16,
+            });
+        }
+        // SAFETY: same initialized header viewed twice — modelling the
+        // loader's duplicate-account-meta case where two instruction
+        // slots point at one account buffer.
+        let v1 = unsafe {
+            core::mem::transmute::<NativeAccountView, AccountView>(
+                NativeAccountView::new_unchecked(raw),
+            )
+        };
+        // SAFETY: as above.
+        let v2 = unsafe {
+            core::mem::transmute::<NativeAccountView, AccountView>(
+                NativeAccountView::new_unchecked(raw),
+            )
+        };
+        let pid = Address::new([9u8; 32]);
+        let accounts = [v1, v2];
+
+        PhasedFrame::new(&pid, &accounts, &[])
+            .unwrap()
+            .resolve(2, |_, _| Ok(()))
+            .unwrap()
+            .validate(|_, _| Ok(()))
+            .unwrap()
+            .execute(|ctx| {
+                let first = ctx.borrow_mut(0)?;
+                assert!(ctx.borrow_mut(1).is_err());
+                drop(first);
+                let second = ctx.borrow_mut(1)?;
+                drop(second);
+                Ok(())
+            })
+            .unwrap();
     }
 }

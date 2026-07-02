@@ -111,20 +111,28 @@ impl<'a, const ACCTS: usize, const DATA: usize> HopperCpi<'a, ACCTS, DATA> {
         {
             use hopper_runtime::instruction::{InstructionAccount, InstructionView, Seed, Signer};
 
-            debug_assert_eq!(self.acct_cursor, ACCTS, "Not all accounts added to CPI");
+            // Real runtime check, not a debug_assert: on SBF (release)
+            // a debug_assert compiles out, and transmuting a partially
+            // initialized array of references is immediate UB.
+            if self.acct_cursor != ACCTS {
+                return Err(ProgramError::NotEnoughAccountKeys);
+            }
 
-            // SAFETY: All ACCTS slots have been initialized via add_account
-            // (enforced by the debug_assert above). We transmute the
-            // MaybeUninit array to the initialized reference array.
+            // SAFETY: exactly ACCTS slots were initialized via
+            // add_account (checked above), and MaybeUninit<&T> has the
+            // same layout as &T.
             let views: &[&hopper_runtime::AccountView<'_>; ACCTS] = unsafe {
                 &*(&self.account_views
                     as *const [MaybeUninit<&hopper_runtime::AccountView<'_>>; ACCTS]
                     as *const [&hopper_runtime::AccountView<'_>; ACCTS])
             };
 
-            // Build InstructionAccount array on the stack
-            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-            let mut ix_accounts: [InstructionAccount; ACCTS] = unsafe { core::mem::zeroed() };
+            // Build the InstructionAccount array from a VALID template —
+            // never `mem::zeroed()`: `InstructionAccount` carries an
+            // `&Address`, and a zeroed (null) reference is UB at the
+            // moment it exists, even if overwritten before use.
+            let mut ix_accounts: [InstructionAccount; ACCTS] =
+                [InstructionAccount::readonly(self.program_id); ACCTS];
             let mut i = 0;
             while i < ACCTS {
                 ix_accounts[i] = InstructionAccount {
@@ -144,16 +152,30 @@ impl<'a, const ACCTS: usize, const DATA: usize> HopperCpi<'a, ACCTS, DATA> {
             if seeds.is_empty() {
                 hopper_runtime::cpi::invoke(&ix, views)
             } else {
-                // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+                // Refuse rather than silently truncate: dropping a
+                // signer or a seed produces a WRONG PDA signature, not a
+                // clean error, so the caller must stay within the
+                // builder's capacity.
+                if seeds.len() > 4 {
+                    return Err(ProgramError::InvalidArgument);
+                }
+                // SAFETY: `Signer`/`Seed` are repr(C) raw-pointer pairs;
+                // all-zero (null pointer, zero length) is a valid — if
+                // unusable — value, and every slot consumed below is
+                // overwritten first.
                 let mut signers_buf: [Signer; 4] = unsafe { core::mem::zeroed() };
-                let signer_count = seeds.len().min(4);
+                let signer_count = seeds.len();
+                // SAFETY: as above.
                 let mut seed_bufs: [[Seed; 16]; 4] = unsafe { core::mem::zeroed() };
                 let mut seed_lens = [0usize; 4];
 
                 let mut s = 0;
                 while s < signer_count {
                     let signer_seeds = seeds[s];
-                    let num_seeds = signer_seeds.len().min(16);
+                    if signer_seeds.len() > 16 {
+                        return Err(ProgramError::MaxSeedLengthExceeded);
+                    }
+                    let num_seeds = signer_seeds.len();
                     let mut sd = 0;
                     while sd < num_seeds {
                         seed_bufs[s][sd] = Seed::from(signer_seeds[sd]);
@@ -252,17 +274,24 @@ impl<'a, const ACCTS: usize, const MAX: usize> HopperCpiBuf<'a, ACCTS, MAX> {
         {
             use hopper_runtime::instruction::{InstructionAccount, InstructionView, Seed, Signer};
 
-            debug_assert_eq!(self.acct_cursor, ACCTS, "Not all accounts added to CPI");
+            // Real runtime check, not a debug_assert (see HopperCpi).
+            if self.acct_cursor != ACCTS {
+                return Err(ProgramError::NotEnoughAccountKeys);
+            }
 
-            // SAFETY: All ACCTS slots initialized via add_account.
+            // SAFETY: exactly ACCTS slots were initialized via
+            // add_account (checked above), and MaybeUninit<&T> has the
+            // same layout as &T.
             let views: &[&hopper_runtime::AccountView<'_>; ACCTS] = unsafe {
                 &*(&self.account_views
                     as *const [MaybeUninit<&hopper_runtime::AccountView<'_>>; ACCTS]
                     as *const [&hopper_runtime::AccountView<'_>; ACCTS])
             };
 
-            // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-            let mut ix_accounts: [InstructionAccount; ACCTS] = unsafe { core::mem::zeroed() };
+            // Valid-template init — never `mem::zeroed()` for reference-
+            // carrying types (see HopperCpi).
+            let mut ix_accounts: [InstructionAccount; ACCTS] =
+                [InstructionAccount::readonly(self.program_id); ACCTS];
             let mut i = 0;
             while i < ACCTS {
                 ix_accounts[i] = InstructionAccount {
@@ -282,16 +311,30 @@ impl<'a, const ACCTS: usize, const MAX: usize> HopperCpiBuf<'a, ACCTS, MAX> {
             if seeds.is_empty() {
                 hopper_runtime::cpi::invoke(&ix, views)
             } else {
-                // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+                // Refuse rather than silently truncate: dropping a
+                // signer or a seed produces a WRONG PDA signature, not a
+                // clean error, so the caller must stay within the
+                // builder's capacity.
+                if seeds.len() > 4 {
+                    return Err(ProgramError::InvalidArgument);
+                }
+                // SAFETY: `Signer`/`Seed` are repr(C) raw-pointer pairs;
+                // all-zero (null pointer, zero length) is a valid — if
+                // unusable — value, and every slot consumed below is
+                // overwritten first.
                 let mut signers_buf: [Signer; 4] = unsafe { core::mem::zeroed() };
-                let signer_count = seeds.len().min(4);
+                let signer_count = seeds.len();
+                // SAFETY: as above.
                 let mut seed_bufs: [[Seed; 16]; 4] = unsafe { core::mem::zeroed() };
                 let mut seed_lens = [0usize; 4];
 
                 let mut s = 0;
                 while s < signer_count {
                     let signer_seeds = seeds[s];
-                    let num_seeds = signer_seeds.len().min(16);
+                    if signer_seeds.len() > 16 {
+                        return Err(ProgramError::MaxSeedLengthExceeded);
+                    }
+                    let num_seeds = signer_seeds.len();
                     let mut sd = 0;
                     while sd < num_seeds {
                         seed_bufs[s][sd] = Seed::from(signer_seeds[sd]);

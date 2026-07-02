@@ -458,10 +458,74 @@ now line-by-line audited.
   auth-fail gap to Pinocchio is the same entrypoint story. Suspects
   (1)–(3) above: all cleared by measurement.
 
-### Batch 3 — hopper-core (69 files, ~18.6k lines)
+### Batch 3 — hopper-core (69 files, ~18.6k lines) — IN PROGRESS
 
-- [ ] manifest.rs, collections/*, account/*, accounts/*, check/*, frame/*,
-      virtual_state/*, segment_map.rs, dispatch/*, cpi/*, remaining files
+Wave 1 (unsafe-dense core, 2026-07-02):
+
+- [x] frame/mod.rs (P2 fixed: shared-provenance write pointers ×2)
+- [x] frame/phase.rs (P2 fixed: sticky borrow bitmask removed)
+- [x] frame/args.rs (verified; updated for the phase.rs field removal)
+- [x] cpi/mod.rs (P1 fixed ×2: release-mode transmute UB, zeroed
+      references; P2 fixed: silent signer/seed truncation)
+- [x] account/pod.rs (verified sound — bounds-checked casts, honest
+      Tier C contracts)
+- [x] account/segment.rs (P3 hardened: MAX_SEGMENTS enforced, checked
+      offset accumulation in init)
+- [ ] abi/* (typed_address, integers, boolean, field_ref), collections/*,
+      account/* remainder (registry, lifecycle, dynamic, verified,
+      realloc_guard, cursor, header, segment_role, reader, overlay),
+      manifest.rs, receipt.rs, check/*, policy.rs, virtual_state/*,
+      diff/*, math/*, segment_map.rs, dispatch/*, accounts/*, event/*,
+      invariant/*, migrate/*, sysvar/*, state/*, time/*, lib.rs
+
+#### Batch 3 Wave 1 findings
+
+- **P1 fixed** `cpi/mod.rs` — both const-generic CPI builders
+  (`HopperCpi`, `HopperCpiBuf`) guarded their MaybeUninit→initialized
+  reference-array transmute with only a `debug_assert`: on SBF
+  (release) the assert compiles out, so an under-filled builder
+  transmuted **uninitialized `&AccountView` references** — validity UB
+  the moment they exist. Now a real runtime check
+  (`NotEnoughAccountKeys`). Second latent UB in the same functions:
+  `core::mem::zeroed()` for `[InstructionAccount; N]` materialized
+  **null `&Address` references** (invalid on creation even though
+  overwritten before use; invisible to host tests because the whole
+  path is `cfg(target_os = "solana")`). Now initialized from a valid
+  template (`InstructionAccount::readonly(program_id)`), removing the
+  unsafe entirely. The `Signer`/`Seed` zeroed arrays stay (raw-pointer
+  pairs — all-zero is a valid value) with honest SAFETY comments.
+- **P2 fixed** `cpi/mod.rs` — PDA signer seeds were **silently
+  truncated** (`.min(4)` signers, `.min(16)` seeds): a dropped seed
+  produces a *wrong PDA signature*, not a clean error. Now refused
+  (`InvalidArgument` / `MaxSeedLengthExceeded`).
+- **P2 fixed** `frame/mod.rs` — `segment_mut` and
+  `segment_mut_unchecked` derived their **write** pointer from a shared
+  reborrow (`(&*data) as *const [u8] as *mut [u8]`): shared-tagged
+  provenance, writes through it are UB under Stacked Borrows — the same
+  class fixed in `borrow.rs::RefMut::from_backend` during Batch 2. Now
+  derived via `RefMut::as_bytes_mut_ptr` (a `&mut [u8]` reborrow) as
+  the final `&mut` use before `project` consumes the guard.
+- **P2 fixed** `frame/phase.rs` — `ExecutionContext::borrow_mut` set a
+  per-index borrow bit that the returned `RefMut` **never cleared on
+  drop** (unlike `FrameAccountMut`, which releases via Drop): legal
+  sequential re-borrows failed for the rest of the execute phase — the
+  sticky-ledger bug class again. The bitmask was also strictly *weaker*
+  than the account borrow byte it duplicated (per-index bits treat
+  Solana duplicate account metas as distinct; the byte is per-account).
+  Removed the redundant layer entirely; the byte-level guard is
+  authoritative. Tests pin both semantics: RAII re-borrow succeeds,
+  duplicate-meta double-borrow is refused.
+- **P3 hardened** `account/segment.rs` — `MAX_SEGMENTS` was declared
+  but never enforced (now checked in both table constructors), and
+  `SegmentTableMut::init`'s u32 offset accumulation could wrap with
+  large specs, placing later segments **on top of** earlier ones
+  (overlapping data regions, silent logical corruption). Now
+  checked-add. Everything else verified sound: descriptor casts are
+  bounds-checked align-1, mutable slice bounds use capacity, swap is
+  byte-wise in-bounds.
+- **verified sound** `account/pod.rs` — length-checked align-1 casts,
+  unaligned read/write copies, Tier C escapes carry real caller
+  contracts.
 
 ### Batch 4 — macros (hopper-macros-proc 15 files ~12.2k + hopper-macros ~1.9k)
 

@@ -127,6 +127,11 @@ impl<'a> SegmentTable<'a> {
     /// Parse a segment table from raw bytes.
     #[inline]
     pub fn from_bytes(data: &'a [u8], count: usize) -> Result<Self, ProgramError> {
+        // Enforce the declared table bound so `count` can never be a
+        // wild header value, and so the size product cannot overflow.
+        if count > MAX_SEGMENTS {
+            return Err(ProgramError::InvalidAccountData);
+        }
         if data.len() < count * SEGMENT_DESC_SIZE {
             return Err(ProgramError::AccountDataTooSmall);
         }
@@ -161,6 +166,10 @@ impl<'a> SegmentTableMut<'a> {
     /// Parse a mutable segment table from raw bytes.
     #[inline]
     pub fn from_bytes_mut(data: &'a mut [u8], count: usize) -> Result<Self, ProgramError> {
+        // Same bound enforcement as `SegmentTable::from_bytes`.
+        if count > MAX_SEGMENTS {
+            return Err(ProgramError::InvalidAccountData);
+        }
         if data.len() < count * SEGMENT_DESC_SIZE {
             return Err(ProgramError::AccountDataTooSmall);
         }
@@ -195,7 +204,13 @@ impl<'a> SegmentTableMut<'a> {
             desc.set_count(count);
             desc.set_capacity(capacity);
             desc.set_element_size(element_size);
-            current_offset += (capacity as u32) * (element_size as u32);
+            // Checked accumulation: a wrapped u32 offset would place a
+            // later segment on top of an earlier one — overlapping data
+            // regions that silently corrupt each other. (The u16×u16
+            // product itself cannot exceed u32, but the running sum can.)
+            current_offset = current_offset
+                .checked_add((capacity as u32) * (element_size as u32))
+                .ok_or(ProgramError::ArithmeticOverflow)?;
         }
         Ok(())
     }

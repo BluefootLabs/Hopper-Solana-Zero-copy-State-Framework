@@ -281,7 +281,7 @@ impl<'a> Frame<'a> {
             return Err(ProgramError::InvalidAccountData);
         }
 
-        let data = view.try_borrow_mut()?;
+        let mut data = view.try_borrow_mut()?;
         let abs_offset = (HEADER_LEN as u32)
             .checked_add(offset)
             .ok_or(ProgramError::ArithmeticOverflow)?;
@@ -298,12 +298,18 @@ impl<'a> Frame<'a> {
             T::SIZE as u32,
         )?;
 
-        // SAFETY: as above; the projected `RefMut<T>` inherits the
-        // byte-slice exclusive borrow, and the lease ensures the
-        // registry entry is swap-removed on drop.
-        let bytes_ptr = (&*data) as *const [u8] as *mut [u8] as *mut u8;
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // The write pointer must carry *mutable* provenance: derive it
+        // through `as_bytes_mut_ptr` (a `&mut [u8]` reborrow), never by
+        // const→mut casting a shared reborrow — writes through a
+        // shared-tagged pointer are UB under Stacked Borrows (same
+        // fix as `borrow.rs::RefMut::from_backend`). This is the final
+        // use of the `&mut` before `project` consumes the guard.
+        let bytes_ptr = data.as_bytes_mut_ptr();
+        // SAFETY: bounds checked above; `T: Pod + FixedLayout` makes any
+        // in-bounds byte pattern a valid `T` at alignment 1.
         let ptr = unsafe { bytes_ptr.add(abs_offset as usize) as *mut T };
+        // SAFETY: `ptr` is in-bounds of the exclusively borrowed bytes and
+        // was derived from the guard's own mutable reborrow.
         let inner: RefMut<'f, T> = unsafe { data.project(ptr) };
         let lease: SegmentLease<'f> =
             // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
@@ -333,7 +339,7 @@ impl<'a> Frame<'a> {
             .accounts
             .get(index)
             .ok_or(ProgramError::NotEnoughAccountKeys)?;
-        let data = view.try_borrow_mut()?;
+        let mut data = view.try_borrow_mut()?;
 
         let abs_offset = (HEADER_LEN as u32)
             .checked_add(offset)
@@ -345,9 +351,12 @@ impl<'a> Frame<'a> {
             return Err(ProgramError::AccountDataTooSmall);
         }
 
-        let bytes_ptr = (&*data) as *const [u8] as *mut [u8] as *mut u8;
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // Mutable-provenance derivation, as in `segment_mut` above.
+        let bytes_ptr = data.as_bytes_mut_ptr();
+        // SAFETY: bounds checked above; `T: Pod + FixedLayout`.
         let ptr = unsafe { bytes_ptr.add(abs_offset as usize) as *mut T };
+        // SAFETY: `ptr` derives from the guard's own mutable reborrow and
+        // stays in-bounds; the caller upholds the no-alias contract.
         Ok(unsafe { data.project(ptr) })
     }
 

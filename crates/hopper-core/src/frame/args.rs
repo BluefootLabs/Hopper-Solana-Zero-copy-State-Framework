@@ -86,7 +86,6 @@ impl<'a, T> ResolvedFrame<'a, T> {
             program_id: self.program_id,
             accounts: self.accounts,
             ix_data: self.ix_data,
-            mutable_borrows: self.mutable_borrows,
             resolved: self.resolved,
         })
     }
@@ -97,7 +96,7 @@ impl<'a, T> ValidatedFrame<'a, T> {
     ///
     /// This is the arg-aware counterpart of `execute()`.
     #[inline]
-    pub fn execute_with_args<A, R, F>(mut self, args: &A, f: F) -> Result<R, ProgramError>
+    pub fn execute_with_args<A, R, F>(self, args: &A, f: F) -> Result<R, ProgramError>
     where
         F: FnOnce(&mut ExecutionContext<'a, '_, T>, &A) -> Result<R, ProgramError>,
     {
@@ -105,7 +104,6 @@ impl<'a, T> ValidatedFrame<'a, T> {
             program_id: self.program_id,
             accounts: self.accounts,
             ix_data: self.ix_data,
-            mutable_borrows: &mut self.mutable_borrows,
             resolved: &self.resolved,
         };
         f(&mut ctx, args)
