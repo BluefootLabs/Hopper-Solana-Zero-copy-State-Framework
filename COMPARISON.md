@@ -48,6 +48,15 @@ runtime it lowers to is in `crates/hopper-runtime/src/` or
 | Instruction touch maps (cumulative per-ix `(account, range, R/W)` footprint) | Yes (`touch-map` feature) | No | No | No | `segment_borrow.rs` touch log; `Context::for_each_touch` / `touch_map_len` / `touch_map_overflowed` |
 | Field-level write policies (declared write-set enforced at borrow acquire) | Yes (`strict_writes`) | No | No | No (Sealevel account-level `writable` only, all frameworks) | `#[hopper::context(strict_writes)]` → `static WritePolicy` installed in `bind()`; runtime gate in `context.rs::check_write_policy` over `write_policy.rs` |
 
+## On-chain zero-copy collections (no competitor ships any)
+
+| Capability | Hopper | Quasar | Anchor zc | Pinocchio | Hopper implements |
+|---|---|---|---|---|---|
+| Zero-copy collections over account bytes (vec, sorted vec, ring, slab, slot map, packed map, journal, bitset) | Yes (8) | No | No | No | `crates/hopper-core/src/collections/*`; compact-tail aliases in `collections/compact_tail.rs` |
+| Corruption-hardened: stored metadata (len/head/count/free lists) validated at construction, rejected when inconsistent | Yes | n/a | n/a | n/a | parse-don't-validate constructors across `collections/*`; slab occupancy/cycle guards |
+| Adversarial property harness (arbitrary account bytes → clean `Err`, never panic/OOB) | Yes | No | No | No | `collections::hostile_metadata_proptests` (proptest, pinned regression seeds) |
+| Element-size honesty proven at compile time (`SIZE == size_of`, non-ZST) | Yes | n/a | n/a | n/a | `FixedLayout::_SIZE_IS_HONEST` (self-proving trait) + `assert_zero_copy_element` |
+
 ## Upgradeable state contracts (no competitor has this first-class)
 
 | Capability | Hopper | Quasar | Anchor zc | Pinocchio | Hopper implements |
