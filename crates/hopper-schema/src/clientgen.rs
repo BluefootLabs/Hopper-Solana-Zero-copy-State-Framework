@@ -114,6 +114,24 @@ pub(crate) fn account_is_auto_pda(acc: &crate::AccountEntry) -> bool {
         })
 }
 
+/// Write a human-readable summary of an account's classified PDA seeds, e.g.
+/// `vault: literal "vault", account authority`. The dependency-free generators
+/// (Go / Python / C, which carry no PDA-derivation crypto) emit this as a
+/// comment so a host using a real Solana SDK knows exactly what to derive.
+pub(crate) fn write_seed_plan(f: &mut fmt::Formatter<'_>, acc: &crate::AccountEntry) -> fmt::Result {
+    write!(f, "{}:", acc.name)?;
+    for (i, seed) in acc.seeds.iter().enumerate() {
+        write!(f, "{}", if i == 0 { " " } else { ", " })?;
+        match crate::classify_seed(seed) {
+            crate::SeedPart::Literal(text) => write!(f, "literal \"{}\"", text)?,
+            crate::SeedPart::Account(name) => write!(f, "account {}", name)?,
+            crate::SeedPart::Arg(name) => write!(f, "arg {}", name)?,
+            crate::SeedPart::Unknown(expr) => write!(f, "expr {}", expr)?,
+        }
+    }
+    Ok(())
+}
+
 fn write_camel(f: &mut fmt::Formatter<'_>, name: &str) -> fmt::Result {
     let mut capitalize_next = false;
     let mut first = true;

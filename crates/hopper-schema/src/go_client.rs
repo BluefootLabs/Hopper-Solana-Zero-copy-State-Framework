@@ -216,6 +216,16 @@ fn write_instruction(f: &mut fmt::Formatter<'_>, ix: &InstructionDescriptor) -> 
         )?;
         offset += arg.size as usize;
     }
+    // Program-derived accounts: this dependency-free client carries no PDA
+    // crypto, so document the seed plan for host-side derivation (e.g.
+    // solana.FindProgramAddress) rather than deriving inline.
+    for account in ix.accounts.iter() {
+        if crate::clientgen::account_is_auto_pda(account) {
+            write!(f, "\t// PDA ")?;
+            crate::clientgen::write_seed_plan(f, account)?;
+            writeln!(f, " (derive host-side via solana.FindProgramAddress)")?;
+        }
+    }
     writeln!(f, "\tmetas := []AccountMeta{{")?;
     for account in ix.accounts.iter() {
         writeln!(
@@ -486,7 +496,7 @@ mod tests {
                 writable: true,
                 signer: false,
                 layout_ref: "vault",
-                seeds: &[],
+                seeds: &["b\"vault\"", "authority.key().as_ref()"],
             },
             AccountEntry {
                 name: "authority",
@@ -550,5 +560,17 @@ mod tests {
         assert!(out.contains("const DepositedEventDataLen = 13"));
         assert!(out.contains("data[0] != DepositedEventTag"));
         assert!(out.contains("out.Amount = binary.LittleEndian.Uint64(data[5:13])"));
+    }
+
+    #[test]
+    fn go_client_documents_pda_seed_plan() {
+        // Go is dependency-free (no PDA crypto), so the classified seed plan is
+        // surfaced as a comment for host-side derivation.
+        let out = GoClientGen(&manifest()).to_string();
+        assert!(out.contains(
+            "// PDA vault: literal \"vault\", account authority (derive host-side via solana.FindProgramAddress)"
+        ));
+        // The account remains caller-provided in the metas.
+        assert!(out.contains("{Pubkey: accounts.Vault, IsSigner: false, IsWritable: true"));
     }
 }

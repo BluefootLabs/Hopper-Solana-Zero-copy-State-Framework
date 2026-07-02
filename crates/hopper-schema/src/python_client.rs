@@ -289,6 +289,15 @@ fn fmt_instruction(f: &mut fmt::Formatter<'_>, ix: &InstructionDescriptor) -> fm
     // Account ordering doc. helpful for consumers since Python has no
     // statically typed AccountMeta.
     if !ix.accounts.is_empty() {
+        // Program-derived accounts: this dependency-free client carries no PDA
+        // crypto, so document the seed plan for host-side derivation.
+        for ae in ix.accounts {
+            if crate::clientgen::account_is_auto_pda(ae) {
+                write!(f, "\n# PDA ")?;
+                crate::clientgen::write_seed_plan(f, ae)?;
+                write!(f, " (derive host-side via solders Pubkey.find_program_address)")?;
+            }
+        }
         writeln!(f, "\nbuild_")?;
         write_snake(f, ix.name)?;
         writeln!(f, ".ACCOUNT_ORDER = (")?;
@@ -526,7 +535,7 @@ mod tests {
             writable: true,
             signer: false,
             layout_ref: "vault",
-            seeds: &[],
+            seeds: &["b\"vault\"", "authority.key().as_ref()"],
         }];
         static ARGS: [ArgDescriptor; 1] = [ArgDescriptor {
             name: "amount",
@@ -616,6 +625,19 @@ mod tests {
         assert!(out.contains("def build_deposit"));
         assert!(out.contains("bytes([3])"));
         assert!(out.contains("amount"));
+    }
+
+    #[test]
+    fn instructions_document_pda_seed_plan() {
+        // Python is dependency-free (no PDA crypto), so the classified seed
+        // plan is surfaced as a comment for host-side derivation.
+        let m = sample_manifest();
+        let out = alloc::format!("{}", PyInstructions(&m));
+        assert!(out.contains(
+            "# PDA vault: literal \"vault\", account authority (derive host-side via solders Pubkey.find_program_address)"
+        ));
+        // The account stays in ACCOUNT_ORDER for the caller.
+        assert!(out.contains("(\"vault\", {\"writable\": True, \"signer\": False"));
     }
 
     #[test]

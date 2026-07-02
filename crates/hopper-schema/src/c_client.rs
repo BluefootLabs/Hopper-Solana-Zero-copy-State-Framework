@@ -213,6 +213,15 @@ fn write_instruction(f: &mut fmt::Formatter<'_>, ix: &InstructionDescriptor) -> 
         writeln!(f)?;
     }
 
+    // Program-derived accounts: this dependency-free client carries no PDA
+    // crypto, so document the seed plan for host-side derivation.
+    for account in ix.accounts.iter() {
+        if crate::clientgen::account_is_auto_pda(account) {
+            write!(f, "/* PDA ")?;
+            crate::clientgen::write_seed_plan(f, account)?;
+            writeln!(f, " (derive host-side) */")?;
+        }
+    }
     writeln!(f, "typedef struct {{")?;
     for account in ix.accounts.iter() {
         writeln!(f, "    HopperPubkey {};", snake_case(account.name))?;
@@ -562,7 +571,7 @@ mod tests {
                 writable: true,
                 signer: false,
                 layout_ref: "vault",
-                seeds: &[],
+                seeds: &["b\"vault\"", "authority.key().as_ref()"],
             },
             AccountEntry {
                 name: "authority",
@@ -626,5 +635,16 @@ mod tests {
         assert!(out.contains("#define HOPPER_DEPOSITED_EVENT_DATA_LEN 13u"));
         assert!(out.contains("data[0] != HOPPER_DEPOSITED_EVENT_TAG"));
         assert!(out.contains("out->amount = hopper_read_le_u64(data + 5);"));
+    }
+
+    #[test]
+    fn c_client_documents_pda_seed_plan() {
+        // C is dependency-free (no PDA crypto), so the classified seed plan is
+        // surfaced as a comment for host-side derivation.
+        let out = CClientGen(&manifest()).to_string();
+        assert!(out
+            .contains("/* PDA vault: literal \"vault\", account authority (derive host-side) */"));
+        // The account remains a caller-supplied struct field.
+        assert!(out.contains("HopperPubkey vault;"));
     }
 }
