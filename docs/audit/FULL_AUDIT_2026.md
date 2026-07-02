@@ -58,6 +58,9 @@ been read line-by-line and its findings logged.
 - [x] zerocopy.rs
 - [x] segment_lease.rs (+ account.rs::split_segments_mut ordering fix)
 - [x] tail.rs
+- [x] layout.rs
+- [x] compact.rs (fully read + extended with `CompactDynamicLayout` and
+      tests during this session's compact-dynamic feature work)
 - [ ] compact.rs, tail.rs, segment_lease.rs, layout.rs,
       account_wrappers.rs, borrow_registry.rs, address.rs, cpi.rs,
       token.rs, crypto.rs, context.rs, policy.rs, native_boundary.rs,
@@ -147,6 +150,19 @@ been read line-by-line and its findings logged.
   prefix over a partial payload — unobservable on-chain (transaction
   atomicity rolls the account back) and only visible to host harnesses that
   ignore the error.
+- **verified sound** `hopper-runtime/layout.rs` — the 16-byte header
+  contract: `HopperHeader` is `repr(C, packed)` (align-1 casts sound;
+  packed fields correctly copied by value, never referenced); every reader
+  (`read_disc/version/flags/layout_id/schema_epoch`) bounds-checks;
+  `write_header_with_epoch` bounds-checks and zeroes flags; the legacy
+  epoch-0 → 1 mapping is applied consistently in `validate_header` and
+  `LayoutInfo::matches`, and non-default-epoch layouts correctly reject
+  legacy-0 accounts (effective 1 ≠ N).
+- **verified sound** `hopper-runtime/compact.rs` — both the exact-length
+  `CompactLayout` validator and the relaxed (`>=` MIN_LEN)
+  `CompactDynamicLayout` validator were read in full and extended under
+  test during this session's compact-dynamic feature work
+  (unit + integration + trybuild coverage).
 
 ### Batch 3 — hopper-core (69 files, ~18.6k lines)
 
