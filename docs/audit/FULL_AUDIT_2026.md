@@ -67,6 +67,9 @@ been read line-by-line and its findings logged.
 - [x] borrow_registry.rs (host global race fixed — see findings)
 - [x] remaining.rs
 - [x] native_boundary.rs
+- [x] crypto.rs
+- [x] syscalls.rs
+- [x] lib.rs
 - [ ] compact.rs, tail.rs, segment_lease.rs, layout.rs,
       account_wrappers.rs, borrow_registry.rs, address.rs, cpi.rs,
       token.rs, crypto.rs, context.rs, policy.rs, native_boundary.rs,
@@ -258,6 +261,22 @@ been read line-by-line and its findings logged.
   as the safe alternative; the entrypoint bridge macro forwards the
   loader contract verbatim. Middle sections (close/zero_data/lamports/
   resize/PDA forwarding) were audited during this session's fixes.
+- **verified sound** `hopper-runtime/crypto.rs` — a uniform, rc-checked
+  syscall-wrapper pattern over fixed-width buffers for the full crypto
+  surface: sha256/keccak/blake3 (slice-descriptor convention), secp256k1
+  recover (+ Ethereum-address derivation), curve25519 validate/group/
+  multiscalar ops (null-output = validate-only documented; `rc == 0` =
+  on-curve), poseidon, and alt_bn128 add/mul/pairing (BE + LE aliases).
+  Innovation note for COMPARISON.md: no competitor wraps this complete
+  crypto syscall surface behind safe typed APIs.
+- **verified sound** `hopper-runtime/syscalls.rs` — extern shims with
+  explicit `link_name`s and host fallbacks; declarations only, same
+  audited pattern as the native syscall table.
+- **verified sound** `hopper-runtime/lib.rs` — crate-wide
+  `deny(unsafe_op_in_unsafe_fn)`; the `hopper_unsafe_region!` macro gives
+  auditors a single greppable name for every raw reinterpretation site
+  (feeds innovation I2's `verify-unsafe` tooling); remainder is
+  re-exports/docs.
 
 ### Batch 3 — hopper-core (69 files, ~18.6k lines)
 
