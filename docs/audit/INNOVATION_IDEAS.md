@@ -106,6 +106,42 @@ Status: `idea` | `spiked` | `planned` | `shipped`.
 - Owner files: `crates/hopper-runtime/src/{context.rs,segment_borrow.rs}`,
   `crates/hopper-core/src/receipt.rs`, `crates/hopper-test/src/trace.rs`.
 
+### I8 — Tuned SBF linker script (close the binary-size gap cheaply)
+
+- **idea.** Impact: high (attacks the one benchmark row Quasar wins).
+  Effort: **low**.
+- Competitor-source study: Quasar ships `link/sbf.ld`, a ~20-line linker
+  script whose `/DISCARD/` drops `.eh_frame*`, `.gnu.hash*`, `.hash*`,
+  `.comment*`, `.symtab`, `.strtab`, and `.debug_*` from the final `.so`.
+  This is very likely most of the 6.27 KiB (Quasar) vs 7.53 KiB (Hopper)
+  vault-binary gap recorded in BENCHMARKS.md — not codegen, just sections.
+- **Surpass:** ship an equivalent (or tighter) script wired through
+  `hopper build` / the workspace `.cargo/config`, measure the delta in the
+  Phase 3 benchmark, and keep `hopper verify`'s `.rodata` layout-id anchor
+  intact (verify the anchor section survives the discard list).
+- Owner files: new `link/sbf.ld` + `tools/hopper-cli` build plumbing;
+  validate with `examples/hopper-parity-vault`.
+
+### I9 — Static DWARF/ELF profiler fused with measured CU
+
+- **idea.** Impact: medium-high (debug/perf DX). Effort: medium.
+- Quasar's `profile/` crate statically attributes binary size per function
+  from DWARF (`(addr, size, name)` symbol table + frame resolution), diffs
+  two builds, and serves a local report UI. Hopper's `hopper profile bench`
+  measures *runtime CU* but has no static attribution and no build diff.
+- **Surpass:** `hopper profile size` with DWARF per-function bytes + stack
+  attribution and `--diff <old.so>`, then fuse with the existing measured
+  CU data into one report (bytes *and* CU per function) — Quasar only has
+  the static half, Anchor/Pinocchio have neither.
+- Owner files: `tools/hopper-cli` (new subcommand; `gimli`/`object` crates
+  host-side only), reuse `hopper profile bench` plumbing.
+
+Minor note from the same study: Quasar's `#[account(dup)]` lets a context
+*declare* an intentional duplicate account and validates it through checked
+borrows (`AccountLoad::check_checked`). Hopper's `require_unique_*` +
+strict remaining-modes cover the safety side; a declared-duplicate field
+attribute would be small ergonomic parity if users ask.
+
 ### I4 — `hopper doctor` as the safety linter no competitor has
 
 - **idea.** Impact: high (DX). Effort: medium.
