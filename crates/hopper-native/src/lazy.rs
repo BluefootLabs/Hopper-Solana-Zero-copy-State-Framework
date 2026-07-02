@@ -70,8 +70,13 @@ pub struct LazyContext<'info> {
     resolved: [AccountView<'info>; 254],
 }
 
-// SAFETY: Single-threaded BPF runtime.
+// SAFETY: On Solana execution is single-threaded, so the raw account/input
+// pointers in `LazyContext` are never shared across threads. Gated to the SVM
+// target (matching `AccountView`) so host tools and fuzzers do not rely on
+// cross-thread sharing of these raw pointers.
+#[cfg(target_os = "solana")]
 unsafe impl<'info> Send for LazyContext<'info> {}
+#[cfg(target_os = "solana")]
 unsafe impl<'info> Sync for LazyContext<'info> {}
 
 impl<'info> LazyContext<'info> {

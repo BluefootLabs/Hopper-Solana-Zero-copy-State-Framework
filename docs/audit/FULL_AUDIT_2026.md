@@ -38,12 +38,13 @@ been read line-by-line and its findings logged.
 - [x] lens.rs (moved up: shares the projection surface)
 - [x] wire.rs
 - [x] pda.rs (+ the runtime pda.rs host fallback it exposed)
-- [ ] cpi.rs
-- [ ] syscalls.rs
+- [x] cpi.rs
+- [x] syscalls.rs
+- [x] lazy.rs (Send/Sync gating fixed)
 - [ ] sha256.rs / hash.rs
 - [ ] batch.rs / budget.rs / capability.rs / error.rs / expert.rs /
-      introspect.rs / lazy.rs / lens.rs / lib.rs / log.rs / return_data.rs /
-      safe.rs / system.rs / sysvar.rs / token.rs / verify.rs
+      introspect.rs / lib.rs / log.rs / return_data.rs / safe.rs / system.rs /
+      sysvar.rs / token.rs / verify.rs
 
 ### Batch 2 — hopper-runtime (46 files, ~20.3k lines)
 
@@ -94,6 +95,24 @@ hopper-sdk (~2k), hopper-manager (~0.9k), hopper-test.
 - **P2 fixed@0061fe0** `hopper-runtime/account.rs::load_cross_program` —
   missing `required_len` guard before pointer cast (defense-in-depth against
   overridden `validate_header`); regression-tested with a lax foreign contract.
+
+### Batch 1 findings (continued in the entries below; latest first within topics)
+
+- **verified sound** `hopper-native/cpi.rs` — the checked `invoke`/
+  `invoke_signed` validate account count, address identity, signer/writable
+  flags, **and borrow compatibility** (writable → `check_borrow_mut`,
+  readonly → `check_borrow`) before the `sol_invoke_signed_c` syscall, so the
+  safe CPI path upholds `invoke_unchecked`'s "no live aliasing borrow"
+  invariant. P3 note: the `MaybeUninit::uninit().assume_init()` array idiom is
+  sound (array-of-`MaybeUninit` is always init) but could modernize to
+  `[const { MaybeUninit::uninit() }; N]`.
+- **verified sound** `hopper-native/syscalls.rs` — 35 `extern "C"` syscall
+  declarations only; signatures match the Solana/Agave SVM ABI. No logic.
+- **P2 fixed (this commit)** `hopper-native/lazy.rs` — `LazyContext`'s
+  `Send`/`Sync` impls were **ungated**, while `AccountView` deliberately gates
+  the identical raw-pointer impls to `target_os = "solana"` so host fuzzers /
+  test harnesses can't share the input-buffer pointers across threads. Gated
+  `LazyContext` to match; on-chain behavior (single-threaded) is unchanged.
 
 ### Batch 1 findings
 
