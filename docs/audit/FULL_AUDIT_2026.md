@@ -57,6 +57,7 @@ been read line-by-line and its findings logged.
 - [x] memory.rs
 - [x] zerocopy.rs
 - [x] segment_lease.rs (+ account.rs::split_segments_mut ordering fix)
+- [x] tail.rs
 - [ ] compact.rs, tail.rs, segment_lease.rs, layout.rs,
       account_wrappers.rs, borrow_registry.rs, address.rs, cpi.rs,
       token.rs, crypto.rs, context.rs, policy.rs, native_boundary.rs,
@@ -129,6 +130,23 @@ been read line-by-line and its findings logged.
   lives. `SegmentsMut::all_mut` hands out N `&mut T` that are pairwise
   disjoint (registry-proven at construction) inside one exclusive byte
   borrow — the generalized `split_at_mut` claim holds.
+- **verified sound** `hopper-runtime/tail.rs` — the dynamic-tail system:
+  every helper (`read_tail_len`, `tail_payload`, `tail_capacity`,
+  `borrow_bounded_str`, `borrow_address_slice`, `read_tail`, `write_tail`,
+  `write_tail_payload`) is bounds- and overflow-checked; `read_tail`
+  enforces exact prefix consumption so trailing bytes are a fail-closed
+  malformed-encoding error; `borrow_address_slice`'s slice cast is
+  layout-safe (`Address` is align-1 `repr(transparent)`, `checked_mul`
+  length); `BoundedString`/`BoundedVec` codecs validate `len ≤ N` on decode
+  and zero removed slots on `pop`/`clear`/`remove_first` (the audit's tail
+  shrink-hygiene ask, delivered at element level). Notes: (1) an external
+  `TailCodec` impl returning `consumed > input.len()` makes the next
+  `BoundedVec` decode iteration panic via slice indexing — safe abort, never
+  UB; worth a line in the trait docs. (2) `write_tail` writes the payload
+  before updating the length prefix, so a mid-encode error leaves the old
+  prefix over a partial payload — unobservable on-chain (transaction
+  atomicity rolls the account back) and only visible to host harnesses that
+  ignore the error.
 
 ### Batch 3 — hopper-core (69 files, ~18.6k lines)
 
