@@ -117,18 +117,14 @@ pub fn require_account_type(
 ///
 /// Useful for "soft close" patterns where you want to mark an account
 /// as consumed but leave it allocated for potential reuse.
+///
+/// Fails with `AccountBorrowFailed` while any data borrow is outstanding
+/// (zeroing would mutate memory a live `Ref`/`RefMut` still points at).
 #[inline]
 pub fn zero_data(account: &AccountView<'_>) -> ProgramResult {
-    let len = account.data_len();
-    if len == 0 {
-        return Ok(());
-    }
-    let data_ptr = account.data_ptr_unchecked();
-    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-    unsafe {
-        core::ptr::write_bytes(data_ptr, 0, len);
-    }
-    Ok(())
+    // Delegate to the borrow-guarded, SVM-memset-optimized helper rather
+    // than duplicating an unguarded byte loop here.
+    crate::mem::zero_account_data(account)
 }
 
 /// Checked realloc that also ensures the account remains rent-exempt

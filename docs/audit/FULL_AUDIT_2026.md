@@ -22,7 +22,7 @@ Disposition: `fixed@<commit>` | `accepted-risk (<why>)` | `open`.
 Order is highest-risk-first. A crate is checked only when every file in it has
 been read line-by-line and its findings logged.
 
-### Batch 1 — hopper-native (33 files, ~9.2k lines) — IN PROGRESS
+### Batch 1 — hopper-native (33 files, ~9.2k lines) — COMPLETE ✅
 
 - [x] raw_input.rs (re-audited post-hardening; see findings)
 - [x] entrypoint.rs
@@ -41,8 +41,8 @@ been read line-by-line and its findings logged.
 - [x] cpi.rs
 - [x] syscalls.rs
 - [x] lazy.rs (Send/Sync gating fixed)
-- [ ] sha256.rs / hash.rs
-- [ ] batch.rs / budget.rs / capability.rs / error.rs / expert.rs /
+- [x] sha256.rs / hash.rs
+- [x] batch.rs / budget.rs / capability.rs / error.rs / expert.rs /
       introspect.rs / lib.rs / log.rs / return_data.rs / safe.rs / system.rs /
       sysvar.rs / token.rs / verify.rs
 
@@ -113,6 +113,36 @@ hopper-sdk (~2k), hopper-manager (~0.9k), hopper-test.
   the identical raw-pointer impls to `target_os = "solana"` so host fuzzers /
   test harnesses can't share the input-buffer pointers across threads. Gated
   `LazyContext` to match; on-chain behavior (single-threaded) is unchanged.
+- **P1 fixed (batch-close commit)** `hopper-native/batch.rs::zero_data` —
+  third instance of the unguarded-memset class: a safe fn `write_bytes`-ing
+  the whole data region with no borrow check (and duplicating, less
+  efficiently, the already-fixed `mem::zero_account_data`). Now delegates to
+  the borrow-guarded, SVM-memset-optimized helper.
+- **P2 open** `hopper-native/system.rs` + `token.rs` CPI helpers — build
+  `CpiAccount`s and call `sol_invoke_signed_c` directly, bypassing the
+  borrow-compatibility validation `cpi::invoke` performs (writable →
+  `check_borrow_mut`, readonly → `check_borrow`). A live data borrow on an
+  account these helpers pass writable is mutated by the callee underneath
+  the borrow. Recommendation: run each helper's account list through
+  `validate_cpi_accounts` (or take borrows) before the syscall, or document
+  the helpers as Tier-C with the aliasing contract.
+- **verified sound (batch-close)** remaining Batch 1 files —
+  `sha256.rs` (FIPS 180-4-correct const implementation; compression, message
+  schedule, and the rem≤55 padding boundary all check out; pinned by
+  known-answer tests), `hash.rs`/`log.rs` (slice-descriptor syscall wrappers,
+  same convention as sol_sha256), `return_data.rs` (`as_type` is bounds- and
+  alignment-checked over a self-owned buffer — no account aliasing),
+  `introspect.rs`, `budget.rs` (honestly documents that its CU "guard" is
+  diagnostic-only), `verify.rs` (raw-pointer FNV over account data — no
+  reference formation, bounds-checked), `sysvar.rs` (`repr(C)` Clock/Rent/
+  EpochSchedule match the runtime ABI; **accepted-risk**:
+  `rent_exempt_minimum` uses hardcoded cluster rent constants — exact for
+  current clusters; use `get_rent()` where exactness matters),
+  `batch.rs` (checked lamport math; transfer-before-resize ordering),
+  `raw.rs`/`safe.rs`/`expert.rs` (re-export tiers), `capability.rs`/
+  `error.rs` (no unsafe), `lib.rs` (crate-wide
+  `deny(unsafe_op_in_unsafe_fn)`), nonce reads in `system.rs`
+  (length-verified align-1 casts).
 
 ### Batch 1 findings
 
