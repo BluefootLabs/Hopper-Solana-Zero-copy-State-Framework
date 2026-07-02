@@ -54,10 +54,12 @@ been read line-by-line and its findings logged.
       audited during this session's fixes — remaining: wrappers/init/realloc
       internals)
 - [x] borrow.rs (host-repr provenance fix — see findings)
-- [ ] compact.rs, tail.rs, segment_lease.rs, layout.rs, zerocopy.rs,
+- [x] memory.rs
+- [x] zerocopy.rs
+- [ ] compact.rs, tail.rs, segment_lease.rs, layout.rs,
       account_wrappers.rs, borrow_registry.rs, address.rs, cpi.rs,
       token.rs, crypto.rs, context.rs, policy.rs, native_boundary.rs,
-      memory.rs, syscalls.rs, lib.rs, foreign.rs, instruction.rs, interop.rs,
+      syscalls.rs, lib.rs, foreign.rs, instruction.rs, interop.rs,
       pod.rs, remaining files
 
 #### Batch 2 findings
@@ -93,6 +95,17 @@ been read line-by-line and its findings logged.
   bounds-checked. **P3 open:** `slice_from` panics (Rust slicing) on
   offset > len rather than returning `Err` — document or route through the
   checked `slice`.
+- **verified sound** `hopper-runtime/memory.rs` — raw syscall wrappers with
+  documented contracts; safe wrappers bounds-check (`copy_bytes`,
+  overflow-checked `move_within` with overlap-safe memmove, `fill_bytes`,
+  length-aware `compare_bytes`); unit-tested.
+- **verified sound** `hopper-runtime/zerocopy.rs` — the sealed unified trait
+  stack: `ZeroCopy: Pod + 'static + HopperZeroCopySealed` with the seal in a
+  doc-hidden module so a hand-rolled `unsafe impl Pod` cannot pick up
+  `ZeroCopy` for free (pinned by the `SneakyBypass` compile-fail test);
+  `WireLayout`/`AccountLayout` blankets coherent; the
+  `LAYOUT_ID → WIRE_FINGERPRINT` LE reinterpretation documented. All unsafe
+  here is trait contracts, not operations.
 
 ### Batch 3 — hopper-core (69 files, ~18.6k lines)
 
