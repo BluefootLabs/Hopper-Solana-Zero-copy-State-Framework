@@ -455,10 +455,14 @@ impl<'a> Context<'a> {
         unsafe { view.raw_mut::<T>() }
     }
 
-    /// Explicit unsafe escape hatch for whole-account typed projection.
+    /// Legacy alias for [`raw_mut`](Self::raw_mut).
     ///
-    /// This bypasses segment borrow tracking. The caller is responsible for
-    /// alias safety and for using a type that matches the account bytes.
+    /// Despite the name, this does **not** bypass borrow tracking: it
+    /// delegates to `raw_mut`, which routes through the checked
+    /// `segment_mut(0, size_of::<T>())` path (bounds, writable, and
+    /// account-level exclusive borrow all enforced). The caller remains
+    /// responsible for using a type that matches the account bytes. For a
+    /// genuinely untracked pointer, use [`as_mut_ptr`](Self::as_mut_ptr).
     #[inline(always)]
     ///
     /// # Safety
@@ -539,9 +543,9 @@ impl<'a> Context<'a> {
         if self.instruction_data.len() < end {
             return Err(ProgramError::InvalidInstructionData);
         }
-        // SAFETY: bounds checked; `T: Pod` guarantees every bit
-        // pattern is valid and the type has no drop glue, so
-        // `read_unaligned` into instruction data is sound.
+        // SAFETY: bounds checked; `T: ValuePod` guarantees every bit
+        // pattern is valid by value and the type has no drop glue, so
+        // `read_unaligned` from instruction data is sound.
         Ok(unsafe {
             core::ptr::read_unaligned(self.instruction_data.as_ptr().add(offset) as *const T)
         })

@@ -63,6 +63,7 @@ been read line-by-line and its findings logged.
       tests during this session's compact-dynamic feature work)
 - [x] account_wrappers.rs
 - [x] cpi.rs
+- [x] context.rs
 - [ ] compact.rs, tail.rs, segment_lease.rs, layout.rs,
       account_wrappers.rs, borrow_registry.rs, address.rs, cpi.rs,
       token.rs, crypto.rs, context.rs, policy.rs, native_boundary.rs,
@@ -191,6 +192,39 @@ been read line-by-line and its findings logged.
   signer/duplicate validation. Innovation note: "the only zero-copy
   framework whose checked CPI proves borrow-compatibility and
   duplicate-writable safety pre-syscall" belongs in COMPARISON.md.
+- **verified sound** `hopper-runtime/context.rs` — the instruction-context
+  core: account access is index-checked; the whole segment family
+  (`segment_ref/mut`, `_const`, `_typed`, `split_segments_mut`) ties guard
+  lifetimes to the ctx borrow through the audited registry path;
+  `as_mut_ptr` requires writable and transfers alias-safety explicitly;
+  `as_ptr` really does run `check_borrow()` (doc claim verified, line 525;
+  the residual TOCTOU is covered by the deref-side unsafe contract);
+  `read_data`/`data_slice` are overflow- and bounds-checked;
+  `ScopedContext` correctly narrows lifetimes so generated contexts cannot
+  widen account references through the raw escape hatch. Duplicate-account
+  audits (`require_unique_writable/signer_accounts`) give one-line
+  Sealevel-attack mitigations (logged as innovation I6).
+- **DOC fixed (this commit)** `hopper-runtime/context.rs::raw_unchecked` —
+  claimed to "bypass segment borrow tracking" but delegates to `raw_mut`
+  → the fully *checked* `segment_mut(0, …)` path. Behavior is safer than
+  documented; doc rewritten as a legacy alias pointing power users at
+  `as_mut_ptr` for genuinely untracked access. Also fixed `read_data`'s
+  SAFETY comment naming `Pod` where the bound is `ValuePod`.
+- **P3 open** `hopper-runtime/context.rs` — `Context.program_id` and
+  `Context.instruction_data` are `pub` fields (accessors already exist)
+  while `accounts` is private. A handler holding `&mut ctx` can reassign
+  `ctx.program_id`, subverting every downstream
+  `check_owned_by(ctx.program_id())` in generated validation.
+  Self-inflicted only (not attacker-controlled), but the asymmetry is a
+  footgun: privatize both fields behind the existing accessors
+  (breaking change — schedule with the next API-break window).
+- **innovation (second pass)** `hopper-runtime/context.rs` — the embedded
+  segment registry doubles as a free **instruction touch map**: by
+  end-of-handler it has recorded every `(account, offset, size, R/W)` the
+  instruction touched, and `for_each` already exposes it. Logged as
+  INNOVATION_IDEAS I7 (wire into receipts + `hopper_test::Trace` +
+  `hopper explain`). Also logged for COMPARISON.md: the four-mode
+  remaining-accounts taxonomy (strict/passthrough/typed/lazy).
 
 ### Batch 3 — hopper-core (69 files, ~18.6k lines)
 
