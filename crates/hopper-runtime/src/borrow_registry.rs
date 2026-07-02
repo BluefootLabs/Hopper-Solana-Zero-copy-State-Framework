@@ -226,15 +226,48 @@ mod imp {
         static REGISTRY: RefCell<BorrowRegistry> = const { RefCell::new(BorrowRegistry::new()) };
     }
 
+    /// Host (non-test) registry cell: an `UnsafeCell` global guarded by a
+    /// `core`-only atomic spinlock so the `Sync` impl below is actually
+    /// justified. The pre-audit version handed out `&`/`&mut` from the
+    /// bare `UnsafeCell` with no synchronization, which is a data race the
+    /// moment a host process (fuzzer, downstream binary) touches accounts
+    /// from two threads. Critical sections here are a handful of array
+    /// scans, so a spinlock is appropriate; a re-entrant call from inside
+    /// the closure now deadlocks loudly instead of aliasing `&mut`.
     #[cfg(not(test))]
-    struct RegistryCell(core::cell::UnsafeCell<BorrowRegistry>);
+    struct RegistryCell {
+        lock: core::sync::atomic::AtomicBool,
+        cell: core::cell::UnsafeCell<BorrowRegistry>,
+    }
 
+    // SAFETY: all access to `cell` goes through `with_lock`, which serializes
+    // via the acquire/release spinlock, so no two threads can observe the
+    // registry concurrently.
     #[cfg(not(test))]
     unsafe impl Sync for RegistryCell {}
 
     #[cfg(not(test))]
-    static REGISTRY: RegistryCell =
-        RegistryCell(core::cell::UnsafeCell::new(BorrowRegistry::new()));
+    static REGISTRY: RegistryCell = RegistryCell {
+        lock: core::sync::atomic::AtomicBool::new(false),
+        cell: core::cell::UnsafeCell::new(BorrowRegistry::new()),
+    };
+
+    #[cfg(not(test))]
+    fn with_lock<R>(f: impl FnOnce(&mut BorrowRegistry) -> R) -> R {
+        use core::sync::atomic::Ordering;
+        while REGISTRY
+            .lock
+            .compare_exchange_weak(false, true, Ordering::Acquire, Ordering::Relaxed)
+            .is_err()
+        {
+            core::hint::spin_loop();
+        }
+        // SAFETY: the spinlock above grants exclusive access to the cell
+        // until the store below releases it.
+        let result = f(unsafe { &mut *REGISTRY.cell.get() });
+        REGISTRY.lock.store(false, Ordering::Release);
+        result
+    }
 
     #[cfg(test)]
     fn with_registry<R>(f: impl FnOnce(&BorrowRegistry) -> R) -> R {
@@ -246,8 +279,7 @@ mod imp {
 
     #[cfg(not(test))]
     fn with_registry<R>(f: impl FnOnce(&BorrowRegistry) -> R) -> R {
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-        unsafe { f(&*REGISTRY.0.get()) }
+        with_lock(|registry| f(registry))
     }
 
     #[cfg(test)]
@@ -260,7 +292,6 @@ mod imp {
 
     #[cfg(not(test))]
     fn with_registry_mut<R>(f: impl FnOnce(&mut BorrowRegistry) -> R) -> R {
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-        unsafe { f(&mut *REGISTRY.0.get()) }
+        with_lock(f)
     }
 }

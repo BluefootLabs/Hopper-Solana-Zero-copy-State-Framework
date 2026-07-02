@@ -64,6 +64,7 @@ been read line-by-line and its findings logged.
 - [x] account_wrappers.rs
 - [x] cpi.rs
 - [x] context.rs
+- [x] borrow_registry.rs (host global race fixed — see findings)
 - [ ] compact.rs, tail.rs, segment_lease.rs, layout.rs,
       account_wrappers.rs, borrow_registry.rs, address.rs, cpi.rs,
       token.rs, crypto.rs, context.rs, policy.rs, native_boundary.rs,
@@ -225,6 +226,18 @@ been read line-by-line and its findings logged.
   INNOVATION_IDEAS I7 (wire into receipts + `hopper_test::Trace` +
   `hopper explain`). Also logged for COMPARISON.md: the four-mode
   remaining-accounts taxonomy (strict/passthrough/typed/lazy).
+- **P2 fixed (this commit)** `hopper-runtime/borrow_registry.rs` — the
+  **non-test host** registry was a `static UnsafeCell` global with a bare
+  `unsafe impl Sync` and *no synchronization*: any multithreaded host
+  process (fuzzer, downstream host binary) touching accounts from two
+  threads raced `&mut` access to the global — the `Sync` claim was
+  unjustified. Now guarded by a `core`-only acquire/release atomic
+  spinlock (`with_lock`), so the `Sync` impl is justified and a re-entrant
+  closure deadlocks loudly instead of aliasing `&mut`. Test builds
+  (thread-local `RefCell`) and on-chain builds (ZST no-ops over the native
+  borrow byte) were already sound. The registry's conflict matrix itself
+  verified correct (shared blocked by mutable, mutable blocked by
+  anything, `checked_add` on the shared count, tolerant release).
 
 ### Batch 3 — hopper-core (69 files, ~18.6k lines)
 
