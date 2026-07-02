@@ -28,8 +28,8 @@ been read line-by-line and its findings logged.
 - [x] entrypoint.rs
 - [x] raw_account.rs
 - [x] address.rs (moved up: needed for entrypoint soundness proof)
-- [ ] instruction.rs (re-audit post-hardening)
-- [ ] account_view.rs
+- [x] instruction.rs (re-audited post-hardening)
+- [x] account_view.rs
 - [ ] raw.rs
 - [ ] borrow.rs
 - [ ] mem.rs
@@ -127,3 +127,44 @@ hopper-sdk (~2k), hopper-manager (~0.9k), hopper-test.
   forward/self-referencing duplicate markers trap via
   `malformed_duplicate_marker` (the pre-audit silent-fallback aliasing bug
   stays fixed).
+- **P1 fixed (this commit)** `hopper-native/account_view.rs::close` — a *safe*
+  fn that memset the entire data region and rewrote the header without
+  checking `borrow_state`. A live `Ref<[u8]>`/`RefMut<[u8]>` from
+  `try_borrow(_mut)` would be mutated underneath — UB reachable from safe
+  code (`close_unchecked` documents exactly this requirement; `close` didn't
+  enforce it). Fix: `close()` now fails with `AccountBorrowFailed` while any
+  data borrow is outstanding. Regression test
+  `close_refuses_while_data_borrow_is_live` (hopper-runtime). Callers
+  (native `batch.rs`, runtime `native_boundary::close`) all propagate
+  `ProgramResult`, so the guard is non-breaking. `zero_data` (the `close_to`
+  path) was already safe — it takes `try_borrow_mut` first.
+- **verified sound** `hopper-native/account_view.rs` borrow tracking —
+  `borrow_state`: 0xFF = free (loader marker), 0 = exclusive, 1..=254 =
+  shared count; increments are capped at 254 so the count can never wrap
+  into either sentinel; `try_borrow`/`try_borrow_mut`/`segment_ref`/
+  `segment_mut` transitions are all guarded. `resize`/`resize_raw` bound
+  growth by `original_len + MAX_PERMITTED_DATA_INCREASE` reconstructed from
+  `resize_delta`; the delta invariant is maintained by the resize family
+  itself. `Send`/`Sync` impls are gated to `target_os = "solana"`
+  (single-threaded SVM).
+- **accepted-risk** `hopper-native/account_view.rs::resize` under live
+  borrows — growth memsets only `[old_len, new_len)`, which cannot overlap a
+  live borrow's `[0, old_len)` slice; shrink only rewrites header fields and
+  leaves the live slice's memory valid (loader realloc reserve). No overlap,
+  no action.
+- **DOC fixed (this commit)** `hopper-native/account_view.rs::
+  segment_ref_unchecked` / `segment_mut_unchecked` — safety contracts listed
+  bounds preconditions but omitted the aliasing one (no overlapping live
+  borrow for the returned lifetime; these methods perform no borrow
+  tracking). Both `# Safety` sections extended.
+- **P3 open** `hopper-native/account_view.rs::raw_ref`/`raw_mut` — declared
+  `unsafe fn` but delegate to the fully-checked `segment_ref`/`segment_mut`;
+  their `# Safety` text is vacuous. Either drop `unsafe` or document the
+  actual (semantic, not memory) invariant.
+- **verified sound** `hopper-native/instruction.rs` — `CpiAccount::from`
+  packed-u32 flag masks are little-endian-dependent (documented; BPF and all
+  supported hosts are LE). `Seed`/`Signer` raw-pointer + `PhantomData`
+  lifetimes match the `sol_invoke_signed_c` ABI and are only constructible
+  from valid slices. P3 note: field pointers use `&(*raw).field as *const _`
+  where `core::ptr::addr_of!` would avoid materializing intermediate
+  references (provenance hygiene; fields are disjoint so not unsound).

@@ -339,6 +339,9 @@ impl<'info> AccountView<'info> {
     /// The caller must have already verified:
     /// - `offset + size_of::<T>()` does not overflow
     /// - `offset + size_of::<T>() <= data_len()`
+    /// - no exclusive borrow overlapping `[offset, offset + size_of::<T>())`
+    ///   is live for the returned reference's lifetime (this method performs
+    ///   no borrow tracking)
     #[inline(always)]
     pub unsafe fn segment_ref_unchecked<T: crate::pod::Pod>(
         &self,
@@ -390,6 +393,9 @@ impl<'info> AccountView<'info> {
     /// - The account is writable
     /// - `offset + size_of::<T>()` does not overflow
     /// - `offset + size_of::<T>() <= data_len()`
+    /// - no other borrow (shared or exclusive) overlapping
+    ///   `[offset, offset + size_of::<T>())` is live for the returned
+    ///   reference's lifetime (this method performs no borrow tracking)
     #[inline(always)]
     pub unsafe fn segment_mut_unchecked<T: crate::pod::Pod>(
         &self,
@@ -511,6 +517,12 @@ impl<'info> AccountView<'info> {
     /// Close the account: zero lamports and data, reassign owner to
     /// the System Program.
     ///
+    /// Fails with `AccountBorrowFailed` if any data borrow (shared or
+    /// exclusive) is outstanding: closing memsets the entire data region,
+    /// which would mutate memory a live `Ref`/`RefMut` still points at.
+    /// Use [`close_unchecked`](Self::close_unchecked) only when the caller
+    /// can prove no borrow is live.
+    ///
     /// # Caveat
     ///
     /// This low-level routine does **not** verify the caller has
@@ -521,8 +533,12 @@ impl<'info> AccountView<'info> {
     /// the safe wrapper.
     #[inline(always)]
     pub fn close(&self) -> ProgramResult {
+        // Zeroing the data region below would mutate bytes a live borrow
+        // still references; refuse rather than invalidate it.
+        self.check_borrow_mut()?;
         self.set_lamports(0);
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: no data borrow is outstanding (checked above); `data_ptr_unchecked`
+        // and `data_len` describe this account's SVM-owned data region.
         unsafe {
             let len = self.data_len();
             if len > 0 {

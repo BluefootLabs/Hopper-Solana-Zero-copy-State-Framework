@@ -1858,6 +1858,25 @@ mod tests {
     }
 
     #[test]
+    fn close_refuses_while_data_borrow_is_live() {
+        // Closing memsets the whole data region; doing that under a live
+        // borrow would mutate memory the Ref still points at. The native
+        // guard must refuse instead.
+        let (_backing, account) = make_account(16, 90);
+        {
+            let _data = account.try_borrow().unwrap();
+            assert_eq!(
+                account.close().unwrap_err(),
+                ProgramError::AccountBorrowFailed
+            );
+        }
+        // Borrow dropped: close now succeeds and zeroes the account.
+        account.close().unwrap();
+        assert_eq!(account.data_len(), 0);
+        assert_eq!(account.lamports(), 0);
+    }
+
+    #[test]
     fn check_owned_by_any_accepts_listed_owner_and_rejects_others() {
         // make_account stores owner = [2; 32].
         let (_backing, account) = make_account(8, 80);
