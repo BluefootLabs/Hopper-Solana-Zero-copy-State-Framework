@@ -671,9 +671,10 @@ Wave 3 (account/* remainder, 2026-07-02):
   bounds-checked; `FixedLayout` simplified to the I15 empty body),
   `account/segment_role.rs` (pure const enum, no unsafe).
 
-Wave 4 (the two big files, 2026-07-02):
+Wave 4 (the two big files + validation core, 2026-07-02):
 
 - [x] receipt.rs (1214), manifest.rs (1806)
+- [x] check/{fast,mod,guards,trust,modifier,graph}.rs, policy.rs (660)
 
 #### Batch 3 Wave 4 findings
 
@@ -698,6 +699,29 @@ Wave 4 (the two big files, 2026-07-02):
   after only a `data.len() < min_size` check — a degenerate
   `min_size == 0` entry passes that on an *empty* account, so the bare
   index would panic. Now `data.first()`.
+- **P2 fixed `check/fast.rs`** — `read_account_header` reinterprets
+  `&AccountView` as `*const *const u8` and dereferences it, sound only
+  because `AccountView` is `#[repr(C)]` with a `*mut RuntimeAccount` as
+  its sole non-ZST field. The module docs claimed a compile-time size
+  assertion "below will fail" if that layout changed, but **none
+  existed**. This is a security-critical fast path (gates
+  signer/writable; a wrong read could false-accept a non-signer), so
+  the missing guard mattered. Added `const _: () =
+  assert!(size_of::<AccountView>() == size_of::<*const u8>())` — a
+  future hopper-native layout change now fails to compile instead of
+  silently reading the wrong bytes.
+- **verified sound** `check/mod.rs` (Tier-1 checks delegate to
+  `AccountView` accessors), `check/guards.rs` (checked lamport
+  conservation, bounds-checked snapshots, one correct align-1
+  `Address→[u8;32]` cast), `check/trust.rs` (every foreign-account
+  header read bounds-checked before indexing; all three trust levels
+  validate owner+size+layout_id), `check/modifier.rs` (thin wrappers
+  delegating to the audited `check::*` / `VerifiedAccount` paths),
+  `check/graph.rs` (`add` bounds-checks against `N`, `run` iterates
+  within `count`, `Option<ValidateFn>` storage — no `MaybeUninit`
+  risk), and `policy.rs` (capability→requirement resolver: `when`
+  const-asserts `count < N`, `resolve` iterates within `count`, pure
+  bitmask logic, no unsafe).
 
 ### Batch 4 — macros (hopper-macros-proc 15 files ~12.2k + hopper-macros ~1.9k)
 

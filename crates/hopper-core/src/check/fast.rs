@@ -19,15 +19,31 @@
 //! ## Safety Model
 //!
 //! The `read_account_header` function relies on hopper-native's `AccountView`
-//! being `#[repr(C)]` with its first field being a `*mut u8` pointing to
-//! the start of the `RuntimeAccount` in the SVM input buffer. This is
-//! verified by hopper-native's own compile-time assertions. If hopper-native changes
-//! its layout, the compile-time size assertion below will fail.
+//! being `#[repr(C)]` with its first (and only non-ZST) field being a
+//! raw pointer to the start of the `RuntimeAccount` in the SVM input
+//! buffer. The `const _: () = assert!(size_of::<AccountView>() ==
+//! size_of::<*const u8>())` immediately below `use` pins that: if
+//! hopper-native changes `AccountView`'s layout, that assertion fails to
+//! compile and this fast path is flagged for review before it can read
+//! the wrong bytes.
 //!
 //! This optimization is **gated to `target_os = "solana"`** only. Off-chain
 //! code uses the safe fallback via `AccountView::is_signer()` etc.
 
 use hopper_runtime::{error::ProgramError, AccountView, ProgramResult};
+
+// The compile-time guard the module docs promise (it was described but
+// never actually written). `read_account_header` reinterprets an
+// `&AccountView` as `*const *const u8` and dereferences it, which is
+// only correct if `AccountView` is exactly a pointer to the
+// `RuntimeAccount` — its sole non-ZST field. If hopper-native ever grows
+// `AccountView` (adds a field, changes the repr), this assertion fails
+// to compile and flags the fast path for review *before* it can silently
+// read the wrong bytes. That matters for security: this path gates
+// signer/writable checks, and a wrong read could false-accept a
+// non-signer.
+const _: () =
+    assert!(core::mem::size_of::<AccountView<'static>>() == core::mem::size_of::<*const u8>());
 
 // -- Precomputed Header Constants ------------------------------------
 
