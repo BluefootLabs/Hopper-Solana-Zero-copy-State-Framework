@@ -111,6 +111,13 @@ pub struct StateReceipt<const SNAP_SIZE: usize> {
     pub invariants_checked: u16,
     /// Whether CPI was invoked during the instruction.
     pub cpi_invoked: bool,
+    /// Whether the before-snapshot was truncated (account larger than
+    /// the receipt's `SNAP_SIZE`). When `true`, the change set this
+    /// receipt reports covers only the captured prefix and may
+    /// **under-report** mutations past the window — an off-chain
+    /// auditor must treat this receipt as inconclusive on completeness.
+    /// Set on `commit`. See the diff engine's `StateDiff::is_complete`.
+    pub snapshot_truncated: bool,
     /// Whether the receipt has been committed (post-mutation data provided).
     committed: bool,
     /// Whether execution hit a failure path.
@@ -306,6 +313,7 @@ impl<const SNAP_SIZE: usize> StateReceipt<SNAP_SIZE> {
             invariants_passed: false,
             invariants_checked: 0,
             cpi_invoked: false,
+            snapshot_truncated: false,
             committed: false,
             had_failure: false,
             failed_error_code: 0,
@@ -333,6 +341,10 @@ impl<const SNAP_SIZE: usize> StateReceipt<SNAP_SIZE> {
         self.changed_bytes = diff.changed_byte_count();
         self.was_resized = diff.was_resized();
         self.new_size = current_data.len();
+        // Record whether the diff could see the whole account. A
+        // truncated capture means the reported change set is a lower
+        // bound, not the truth — the receipt must say so.
+        self.snapshot_truncated = diff.was_truncated();
 
         let regions = diff.changed_regions::<16>();
         self.changed_regions = regions.len();
@@ -576,6 +588,9 @@ impl<const SNAP_SIZE: usize> StateReceipt<SNAP_SIZE> {
         if self.had_failure {
             flags |= 1 << 4;
         }
+        if self.snapshot_truncated {
+            flags |= 1 << 5;
+        }
         out[32] = flags;
         // before_fingerprint
         out[33..41].copy_from_slice(&self.before_fingerprint);
@@ -629,6 +644,10 @@ pub struct DecodedReceipt {
     pub invariants_passed: bool,
     pub cpi_invoked: bool,
     pub committed: bool,
+    /// Whether the before-snapshot was truncated: if `true`, this
+    /// receipt's change set covers only the captured prefix and may
+    /// under-report mutations past the window.
+    pub snapshot_truncated: bool,
     pub before_fingerprint: [u8; 8],
     pub after_fingerprint: [u8; 8],
     pub segment_changed_mask: u16,
@@ -723,6 +742,7 @@ impl DecodedReceipt {
         let cpi_invoked = flags & (1 << 2) != 0;
         let committed = flags & (1 << 3) != 0;
         let had_failure = flags & (1 << 4) != 0;
+        let snapshot_truncated = flags & (1 << 5) != 0;
 
         let mut before_fingerprint = [0u8; 8];
         before_fingerprint.copy_from_slice(&bytes[33..41]);
@@ -762,6 +782,7 @@ impl DecodedReceipt {
             was_resized,
             invariants_passed,
             cpi_invoked,
+            snapshot_truncated,
             committed,
             before_fingerprint,
             after_fingerprint,
@@ -1216,5 +1237,43 @@ impl core::fmt::Display for ReceiptNarrative {
             i += 1;
         }
         write!(f, " [risk: {}]", self.risk_level.name())
+    }
+}
+
+#[cfg(test)]
+mod truncation_tests {
+    use super::*;
+
+    #[test]
+    fn commit_flags_truncation_and_it_survives_the_wire() {
+        // Receipt snapshot buffer is 4 bytes; the account is 16.
+        let account = [1u8; 16];
+        let mut receipt = StateReceipt::<4>::begin(&[7u8; 8], &account);
+        assert!(!receipt.snapshot_truncated);
+
+        // A mutation entirely past the 4-byte window.
+        let mut mutated = account;
+        mutated[10] = 0xAB;
+        receipt.commit(&mutated);
+
+        // The receipt now records that its change set is incomplete.
+        assert!(receipt.snapshot_truncated);
+
+        // And the signal survives serialize -> decode (flag bit 5).
+        let bytes = receipt.to_bytes();
+        let decoded = DecodedReceipt::from_bytes(&bytes).unwrap();
+        assert!(decoded.snapshot_truncated);
+    }
+
+    #[test]
+    fn full_snapshot_receipt_is_not_flagged_truncated() {
+        let account = [1u8; 8];
+        let mut receipt = StateReceipt::<64>::begin(&[7u8; 8], &account);
+        let mut mutated = account;
+        mutated[3] = 9;
+        receipt.commit(&mutated);
+        assert!(!receipt.snapshot_truncated);
+        let decoded = DecodedReceipt::from_bytes(&receipt.to_bytes()).unwrap();
+        assert!(!decoded.snapshot_truncated);
     }
 }

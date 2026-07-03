@@ -723,6 +723,64 @@ Wave 4 (the two big files + validation core, 2026-07-02):
   const-asserts `count < N`, `resolve` iterates within `count`, pure
   bitmask logic, no unsafe).
 
+Wave 5 (diff/receipt engine, virtual_state, math, small files, 2026-07-02):
+
+- [x] diff/mod.rs (393), receipt.rs truncation propagation, math/mod.rs,
+      segment_map.rs, dispatch/mod.rs, virtual_state/mod.rs,
+      accounts/{segmented,hopper_account,program_account,unchecked}.rs,
+      event/mod.rs, and the no-unsafe logic files (invariant, migrate,
+      sysvar, state, time)
+
+#### Batch 3 Wave 5 findings
+
+- **P1 fixed (silent audit-trail hole) `diff/mod.rs` + `receipt.rs`** —
+  the diff engine underpins `StateReceipt` (the I2 "provable
+  audit-trail moat"). `StateSnapshot` carries a `truncated` flag for
+  accounts larger than its stack buffer, but `diff()` **dropped it**:
+  `StateDiff` set `old_full_len` to the *capped* snapshot length, so
+  every downstream query silently operated on only the first `SIZE`
+  bytes. For an account bigger than the window, a mutation confined to
+  the tail made `has_changes()` return **false**, `changed_byte_count()`
+  return 0, and `restore_into()` do a **silent partial rollback** that
+  returned `Ok`. A receipt that misses a mutation is worse than no
+  receipt — this is a soundness hole in the moat. Fixes: (1) `StateDiff`
+  now carries `truncated`, exposes `is_complete()` / `was_truncated()`,
+  and `has_changes()` is conservative (returns `true` when it cannot see
+  the whole account rather than falsely reporting "unchanged"); (2)
+  `restore_into` **refuses** a truncated snapshot (`InvalidAccountData`)
+  with an explicit `restore_head_into` for a deliberate partial restore;
+  (3) `StateReceipt` gains a `snapshot_truncated` flag, set on `commit`
+  and serialized as flag **bit 5** (backward-compatible), decoded into
+  `DecodedReceipt` — so an off-chain auditor can tell a complete receipt
+  from an incomplete one. Also removed a dead always-false branch in
+  `StateDiff::has_changes`. Regression tests pin the once-silent
+  tail-mutation case and the full commit→wire→decode roundtrip.
+- **P2 fixed (div-by-zero) `virtual_state/mod.rs`** —
+  `ShardedAccess::new` accepted an empty `shard_indices`, making
+  `shard_count == 0` and `shard_for_key`'s `hash % self.shard_count` a
+  divide-by-zero panic (DoS). Rejected at construction. Tests added.
+  `VirtualState` itself verified sound (all slot/account accesses
+  bounds-checked; builder methods const-assert `slot < N`).
+- **P3 hardened `diff/mod.rs`** — `range_changed` / `field_changed` /
+  `field_diff_mask` used unchecked `offset + size`; wrapped to
+  `checked_add`, folding overflow into each "out-of-bounds = changed"
+  arm (offsets are layout constants, so latent-not-reachable, hardened
+  for consistency).
+- **verified sound** `math/mod.rs` (every op checked, `c == 0` guarded
+  before both mul-div variants, u128 intermediates, safe narrowing),
+  `segment_map.rs` (compile-time const layout metadata + an
+  `assert_segment_field_alignment` isomorphism check), `dispatch/mod.rs`
+  (all readers bounds-check before slicing; macros guard the event-CPI
+  prefix with `len >= 2`), `accounts/segmented.rs` (the `entry()`
+  unsafe read is bounded by `from_account`'s table-fits validation;
+  `segment_data` checked-adds), `event/mod.rs` (the
+  `MaybeUninit::uninit().assume_init()` is the correct `uninit_array`
+  idiom — `from_raw_parts` exposes only the `count` initialized
+  elements, unlike the cpi/mod.rs bug; `data_len > 1024` guards the
+  copy), and the `accounts/*` `owner()` unsafes (thin delegations to the
+  audited `AccountView` accessor). The no-unsafe logic files
+  (invariant, migrate, sysvar, state, time) are pure composition.
+
 ### Batch 4 — macros (hopper-macros-proc 15 files ~12.2k + hopper-macros ~1.9k)
 
 - [ ] state.rs, context.rs, program.rs, dynamic.rs, declare_program.rs,

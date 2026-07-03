@@ -307,7 +307,10 @@ impl<'a, const SHARDS: usize> ShardedAccess<'a, SHARDS> {
         accounts: &'a [AccountView<'a>],
         shard_indices: &[u8],
     ) -> Result<Self, ProgramError> {
-        if shard_indices.len() > SHARDS {
+        // Reject an empty shard set: `shard_count` would be 0 and
+        // `shard_for_key`'s `hash % self.shard_count` would divide by
+        // zero (panic / DoS). A sharded collection needs ≥ 1 shard.
+        if shard_indices.is_empty() || shard_indices.len() > SHARDS {
             return Err(ProgramError::InvalidArgument);
         }
         let mut indices = [0u8; SHARDS];
@@ -364,5 +367,59 @@ impl<'a, const SHARDS: usize> ShardedAccess<'a, SHARDS> {
     #[inline(always)]
     pub fn shard_count(&self) -> usize {
         self.shard_count
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use hopper_native::{
+        AccountView as NativeAccountView, Address as NativeAddress, RuntimeAccount, NOT_BORROWED,
+    };
+
+    fn make(seed: u8) -> (std::vec::Vec<u8>, AccountView<'static>) {
+        let mut backing = std::vec![0u8; RuntimeAccount::SIZE + 8];
+        let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
+        // SAFETY: backing sized for header + data, outlives the view.
+        unsafe {
+            raw.write(RuntimeAccount {
+                borrow_state: NOT_BORROWED,
+                is_signer: 0,
+                is_writable: 1,
+                executable: 0,
+                resize_delta: 0,
+                address: NativeAddress::new_from_array([seed; 32]),
+                owner: NativeAddress::new_from_array([2; 32]),
+                lamports: 1,
+                data_len: 8,
+            });
+        }
+        // SAFETY: raw points at a fully initialized RuntimeAccount.
+        let backend = unsafe { NativeAccountView::new_unchecked(raw) };
+        // SAFETY: hopper-runtime AccountView is repr(transparent) over the
+        // native view under the native backend (same pattern as the
+        // frame audit tests).
+        let view = unsafe { core::mem::transmute::<NativeAccountView, AccountView>(backend) };
+        (backing, view)
+    }
+
+    #[test]
+    fn empty_shard_set_is_rejected_not_div_by_zero() {
+        let (_b, a) = make(1);
+        let accounts = [a];
+        // Pre-fix, `new(.., &[])` gave shard_count 0 and the first
+        // `shard_for_key` divided by zero. Now it's refused up front.
+        assert!(ShardedAccess::<4>::new(&accounts, &[]).is_err());
+    }
+
+    #[test]
+    fn sharding_routes_keys_within_bounds() {
+        let (_b0, a0) = make(0);
+        let (_b1, a1) = make(1);
+        let accounts = [a0, a1];
+        let sharded = ShardedAccess::<2>::new(&accounts, &[0, 1]).unwrap();
+        for key in [b"alice".as_slice(), b"bob", b"", b"a-very-long-key-value"] {
+            assert!(sharded.shard_for_key(key) < sharded.shard_count());
+        }
     }
 }
