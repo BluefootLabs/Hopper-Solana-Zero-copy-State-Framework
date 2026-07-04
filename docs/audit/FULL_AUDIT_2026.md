@@ -781,10 +781,169 @@ Wave 5 (diff/receipt engine, virtual_state, math, small files, 2026-07-02):
   audited `AccountView` accessor). The no-unsafe logic files
   (invariant, migrate, sysvar, state, time) are pure composition.
 
-### Batch 4 — macros (hopper-macros-proc 15 files ~12.2k + hopper-macros ~1.9k)
+### Batch 4 — macros (hopper-macros-proc 15 files ~12.2k + hopper-macros ~1.9k) — COMPLETE ✅
 
-- [ ] state.rs, context.rs, program.rs, dynamic.rs, declare_program.rs,
-      pod.rs, remaining; audit the *generated* code paths
+- [x] state.rs (headered + compact paths, fingerprint algorithm, tests)
+- [x] pod.rs, init_space.rs, constant.rs (verified sound)
+- [x] error.rs, event.rs, args.rs (all three fixed — see findings)
+- [x] migrate.rs, crank.rs, dynamic.rs (verified sound; crank P3 note)
+- [x] context.rs (the 4.2k-line core — `zero`, close/sweep targets,
+      PDA-init all fixed; full constraint surface read)
+- [x] program.rs (verified sound — dispatch ordering, prefix-shadow,
+      duplicate detection, policy lowering all check out)
+- [x] declare_program.rs (P3 noted), dynamic_account.rs (verified sound)
+- [x] hopper-macros/src/lib.rs (declarative macros; hopper_init! fixed,
+      fingerprint-split DOC finding)
+- [x] hopper-macros-proc/src/lib.rs (entry points + doc examples)
+
+**Validation:** full-workspace `cargo test --workspace --locked` green
+(140 test-result lines, 0 failures) including the receipt wire-format
+change from Batch 3 Wave 5 — the owed workspace confirmation is done.
+Proc-macro crate: 51 unit tests green including new fingerprint pins.
+
+#### Batch 4 findings
+
+- **P0 fixed `args.rs`** — the generated `parse()` cast
+  attacker-controlled instruction bytes to `&Self` with **no
+  compile-time fence at all**: (a) no alignment-1 requirement, so the
+  macro's own doc example (`pub amount: u64`, align 8) produced a
+  misaligned `&Self` whenever the args region follows a 1-byte
+  discriminator — instant UB; (b) no padding check, so `PACKED_SIZE`
+  (sum of field sizes) could be **smaller** than `size_of::<Self>()`
+  and the length check under-validated the buffer → the returned
+  reference spanned out-of-bounds bytes; (c) no per-field Pod proof, so
+  a `bool` field materialized from an arbitrary byte was
+  invalid-value UB. The one macro whose entire job is parsing hostile
+  input was the only overlay-emitting macro without the fence every
+  other path has. Fixed: `#[repr(C)]` requirement + the standard
+  three-assert fence (align-1 / no-padding / non-zero) + per-field
+  `__ArgsFieldPodProof`, and an honest SAFETY comment tied to the
+  fence. No in-tree consumers used native-int args, so nothing broke.
+- **P0-class fixed `event.rs`** — the docs promised "the pod assertion
+  block below compile-errors if the struct violates the Pod contract"
+  and `as_bytes`'s SAFETY comment relied on it, but the emitted
+  "assertion block" was **an empty `const _: () = {}` with a comment
+  inside**. A padded event struct compiled fine and `as_bytes` leaked
+  uninitialized padding bytes into the program log (an info leak, and
+  nondeterministic wire bytes for indexers). Fixed: `#[repr(C)]`
+  requirement + align-1/no-padding asserts + per-field Pod proof;
+  SAFETY comment now true. (Cross-ref: Quasar's `#[event]` carries the
+  size==sum assert and a closed field vocabulary — Hopper now checks
+  strictly more.)
+- **P1 fixed `state.rs::canonical_wire_stem`** — the `hopper:wire:v2`
+  fingerprint stripped **all** generic arguments from path types on the
+  assumption they are phantom-only. True for `TypedAddress<T>`, false
+  in general: a size-bearing generic Pod overlay (`Pack<WireU64,
+  WireU32>` vs `Pack<WireU32, WireU64>` — hand-sealed via the
+  documented `HopperZeroCopySealed` opt-out) produced **identical
+  fingerprints for different wire shapes at identical total size**,
+  defeating exactly the drift-detection the foreign-lens 4-point check
+  (owner+disc+fingerprint+size) exists to provide. Fixed:
+  `TypedAddress` keeps the phantom exemption (fingerprints unchanged
+  for all in-tree layouts); every other generic argument folds its
+  stem (and const args their literal) into the fingerprint.
+  Over-sensitivity for user phantom types is the safe direction — a
+  loud false alarm, never a silent collision. Regression tests pin
+  both directions.
+- **P1 fixed `context.rs` (`zero` was a silent no-op)** — the parser
+  accepted `#[account(zero)]`, stored the flag… and **no emission path
+  ever read it**. The Anchor-parity re-initialization guard the user
+  declared simply did not exist; worse, the typed-layout load emitted
+  for the same field would reject a genuinely zeroed account, making
+  the combination unusable in the one scenario it exists for. Fixed:
+  `zero` now emits a first-byte-is-zero check (every `#[hopper::state]`
+  layout compile-asserts `DISC != 0`, so byte 0 == 0 proves
+  "no layout stamped here"; empty accounts rejected — `zero` means
+  pre-allocated), returns `AccountAlreadyInitialized`, and the typed
+  load is skipped for `zero` fields (owner pin kept).
+- **P1 fixed `context.rs` + `hopper-macros::hopper_init!` (PDA init
+  could never succeed)** — `#[account(init, seeds = [...], bump)]`
+  validated the PDA address and then generated an `init_<field>()`
+  whose System-Program CPI used the **unsigned** `invoke()`. The
+  System Program requires the created (or allocated+assigned) account
+  to sign; a PDA can only do that via `invoke_signed` with its seeds —
+  so every seeded init compiled, validated, and failed at runtime.
+  Latent (no in-tree example uses init+seeds) but fatal for the
+  primary Anchor-porting pattern. Fixed end-to-end: `hopper_init!`
+  gained a `signers = ...` arm threading `invoke_signed` through
+  CreateAccount / Allocate / Assign (unsigned arms delegate with
+  `&[]`, byte-identical behavior); the generated helper builds
+  `[declared seeds…, bump]` signer seeds using `self.bumps.<field>`
+  (gathered during `bind()` before any lifecycle helper can run);
+  instruction args are threaded through seeded init helpers so seed
+  expressions can reference them; and `init` + `seeds::program` is now
+  a compile error (a foreign program's PDA can never sign here).
+- **P2 fixed `error.rs`** — auto-coded variants (no explicit `= N`)
+  got SHA-derived codes in `code()`/`CODE_TABLE`/`From<T> for u32`,
+  but the re-emitted enum kept Rust's sequential discriminants — so
+  the natural `MyError::Variant as u32` silently disagreed with the
+  wire code in `ProgramError::Custom`. Fixed: derived codes are
+  written back as explicit discriminants, so `as u32`, `code()`, and
+  the wire agree by construction, and rustc now rejects a collision
+  between a derived and an explicit code at compile time (previously
+  silent). (Cross-ref: Quasar avoids the class by using `e as u32`
+  directly with sequential codes — consistent but not reorder-stable;
+  Hopper now has both properties.)
+- **P2 fixed `context.rs` (lamport-receiving targets)** — `close =
+  target` and `sweep = target` drain lamports into the target, and the
+  SVM rejects lamport changes on non-writable accounts — but the
+  generated validation never checked the *target's* writability, so a
+  read-only destination failed the whole transaction at commit instead
+  of at validate. Both now emit `check_writable` on the target. Also
+  `sweep`'s documented "implies `mut` on the source" contract was not
+  enforced (the parser did not set `is_mut`) — now it does.
+- **P3 fixed `state.rs` compact path** — `expand_compact` stamped
+  `Zeroable`/`Pod` but not `HopperZeroCopySealed`, so compact layouts
+  (equally macro-authored, with identical field proofs) were excluded
+  from the `ZeroCopy` blanket that headered/`#[hopper::pod]`/
+  `hopper_layout!` types all get. One-line seal added.
+- **DOC/P2 open — fingerprint algorithm split** — declarative
+  `hopper_layout!`/`hopper_interface!` compute `LAYOUT_ID` with the
+  legacy `hopper:v1` stringify-based algorithm (the audit-flagged
+  source-spelling-dependent one; unavoidable in `macro_rules!`, which
+  cannot normalize types), while `#[hopper::state]` uses
+  `hopper:wire:v2` canonical stems. Consequence: a `hopper_interface!`
+  view can **never** match a `#[hopper::state]`-authored account (and
+  vice versa) — cross-path interop silently fails at the layout_id
+  compare with no hint. Within one path everything is consistent.
+  Action queued: doc warnings at both macros, a `hopper doctor` lint
+  (I4), and evaluate a v3 unification (const-eval SHA over canonical
+  descriptors is now feasible since `__sha256_const` exists).
+- **P2 open (mitigated) — compact auto-disc collisions** — compact
+  layouts' only type identity is the 1-byte disc
+  (`validate_compact` = length + disc, documented Tier-1 design), and
+  the auto-derived disc (first non-zero LAYOUT_ID byte) can collide
+  between two same-size compact layouts in one program
+  (birthday-paradox over 255 values). Mitigations exist but are
+  opt-in: `hopper_register_discs!` (compile-time) and `hopper verify`
+  (CLI). Headered layouts are immune (header carries layout_id).
+  Action queued for I4: doctor lint that walks a program's layouts and
+  requires a disc-uniqueness registration when ≥2 compact layouts
+  exist.
+- **P3 open `declare_program.rs`** — a manifest whose `size` disagrees
+  with its `canonical_type` (e.g. `"u64"` with `size: 2`) generates a
+  builder that panics at call time (slice OOB on the const-sized data
+  array) instead of failing at expansion. Hopper-generated manifests
+  are internally consistent, so latent; cheap fix is a macro-time
+  width-vs-size consistency check.
+- **P3 note `crank.rs`** — the zero-value-args rule counts every input
+  after index 0 but never verifies input 0 *is* a context parameter; a
+  handler whose first param is a value arg slips the gate. Cosmetic
+  (dispatch codegen rejects it later).
+- **verified sound** `program.rs` — longest-prefix-first dispatch
+  ordering with exact-duplicate *and* prefix-shadow compile errors
+  (neither Anchor nor Quasar detects shadowing); single-byte fast path
+  preserves the jump-table `match`; `deny(unsafe_code)` lowering for
+  sealed programs; decoder skips exactly `disc_len` bytes and
+  `finish()` enforces full consumption. `dynamic_account.rs` — all
+  tail decode paths delegate to the audited `TailCodec` runtime with
+  checked arithmetic end-to-end; raw-final-tail must be last field,
+  singular; UTF-8 validated on `TailStr` writes. `pod.rs` /
+  `init_space.rs` / `constant.rs` / `migrate.rs` (forward-only edges,
+  fn-pointer-typed migrator) / `dynamic.rs` (metadata-only). The
+  declarative `hopper_layout!` five-tier loader family matches the
+  audited runtime check semantics tier-for-tier; `hopper_accounts!`
+  parses with per-kind checks and correct account-count fencing.
 
 ### Batch 5 — hopper-schema (9 files, ~13.8k lines)
 

@@ -1301,6 +1301,10 @@ fn expand_compact(options: StateOptions, item: TokenStream) -> Result<TokenStrea
 
         unsafe impl ::hopper::__runtime::Zeroable for #name {}
         unsafe impl ::hopper::hopper_core::account::Pod for #name {}
+        // Audit final-API Step 5 seal, same as the headered path: compact
+        // layouts are macro-authored with the identical field-level Pod
+        // proofs, so they participate in the `ZeroCopy` blanket too.
+        unsafe impl ::hopper::__runtime::__sealed::HopperZeroCopySealed for #name {}
 
         // Anchor the layout fingerprint in `.rodata` for `hopper verify`.
         #[allow(unexpected_cfgs)]
@@ -1606,10 +1610,14 @@ fn has_repr_c(attrs: &[Attribute]) -> bool {
 /// each field's type to a **canonical wire stem**:
 ///
 /// - `Type::Path`. the last `::`-separated path segment only
-///   (`foo::bar::WireU64` → `WireU64`), with generic parameters
-///   stripped (`TypedAddress<Authority>` → `TypedAddress`). This
-///   makes path re-exports and phantom-only generic changes ABI-
-///   invisible, which they should be.
+///   (`foo::bar::WireU64` → `WireU64`). `TypedAddress<T>` — the one
+///   framework type whose generic is phantom-only — has its parameter
+///   stripped (`TypedAddress<Authority>` → `TypedAddress`) so
+///   retagging an address stays ABI-invisible. Any other generic
+///   argument is folded into the stem (`Pair<WireU32>` →
+///   `Pair_WireU32`), because a nested generic Pod overlay's
+///   parameters can shift the byte layout; losing them would let two
+///   different wire shapes share a fingerprint.
 /// - `Type::Array`. `arr_<elem_stem>_<len>` so `[u8; 32]` becomes
 ///   `arr_u8_32`. stable against spelling variants.
 /// - Anything else. fall back to the normalized token string so a
@@ -1662,11 +1670,54 @@ fn canonical_wire_stem(ty: &syn::Type) -> String {
     match ty {
         syn::Type::Path(type_path) => {
             if let Some(last) = type_path.path.segments.last() {
-                // `TypedAddress<Authority>` → `TypedAddress`.
-                // Phantom-only generic parameters shouldn't be part
-                // of the wire ABI fingerprint because they don't
-                // affect the byte layout.
-                last.ident.to_string()
+                let stem = last.ident.to_string();
+                // `TypedAddress<T>`'s parameter is phantom-only — the wire
+                // shape is 32 bytes regardless of `T` — so it is deliberately
+                // stripped: retagging an address must not shift the ABI
+                // fingerprint. Every OTHER generic argument is treated as
+                // potentially size-bearing (a nested Pod overlay like
+                // `Pair<WireU32>` vs `Pair<WireU64>` changes the byte
+                // layout), so its stem folds into the fingerprint. Being
+                // over-sensitive here is the safe direction: a phantom-only
+                // user generic produces a spurious fingerprint change (a
+                // loud false alarm), never a silent collision between two
+                // different wire shapes.
+                if stem == "TypedAddress" {
+                    return stem;
+                }
+                match &last.arguments {
+                    syn::PathArguments::None => stem,
+                    syn::PathArguments::AngleBracketed(args) => {
+                        let mut out = stem;
+                        for arg in &args.args {
+                            match arg {
+                                syn::GenericArgument::Type(inner) => {
+                                    out.push('_');
+                                    out.push_str(&canonical_wire_stem(inner));
+                                }
+                                syn::GenericArgument::Const(expr) => {
+                                    out.push('_');
+                                    out.push_str(&strip_int_literal_suffix(
+                                        &expr
+                                            .to_token_stream()
+                                            .to_string()
+                                            .replace(char::is_whitespace, ""),
+                                    ));
+                                }
+                                // Lifetimes and associated-type bindings do
+                                // not shift the wire shape.
+                                _ => {}
+                            }
+                        }
+                        out
+                    }
+                    // `Fn(..)`-style parenthesized arguments cannot appear
+                    // on a Pod field; keep the deterministic fallback.
+                    syn::PathArguments::Parenthesized(_) => ty
+                        .to_token_stream()
+                        .to_string()
+                        .replace(char::is_whitespace, ""),
+                }
             } else {
                 "unknown_path".to_string()
             }
@@ -1775,6 +1826,39 @@ mod fingerprint_tests {
         assert_eq!(
             fp(parse_quote!(TypedAddress<Authority>)),
             fp(parse_quote!(TypedAddress)),
+        );
+    }
+
+    #[test]
+    fn size_bearing_generic_arguments_fold_into_the_stem() {
+        // A generic Pod overlay's parameters can shift the wire shape:
+        // `Pair<WireU32>` and `Pair<WireU64>` are different byte
+        // layouts and MUST produce different stems. (Batch 4 audit
+        // finding: the pre-fix algorithm stripped ALL generic
+        // arguments, so these collided — and `Pack<WireU64, WireU32>`
+        // vs `Pack<WireU32, WireU64>` even collided at equal total
+        // size, defeating the foreign-lens drift check entirely.)
+        assert_ne!(
+            fp(parse_quote!(Pair<WireU32>)),
+            fp(parse_quote!(Pair<WireU64>)),
+        );
+        assert_ne!(
+            fp(parse_quote!(Pack<WireU64, WireU32>)),
+            fp(parse_quote!(Pack<WireU32, WireU64>)),
+        );
+        // Path spelling of the argument stays cosmetic.
+        assert_eq!(
+            fp(parse_quote!(Pair<WireU32>)),
+            fp(parse_quote!(Pair<crate::wire::WireU32>)),
+        );
+        // Const generic arguments are size-bearing too.
+        assert_ne!(
+            fp(parse_quote!(FixedBytes<16>)),
+            fp(parse_quote!(FixedBytes<32>)),
+        );
+        assert_eq!(
+            fp(parse_quote!(FixedBytes<32>)),
+            fp(parse_quote!(FixedBytes<32usize>)),
         );
     }
 

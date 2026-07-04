@@ -36,6 +36,19 @@ fn derived_code_is_stable_and_nonzero() {
 }
 
 #[test]
+fn rust_discriminant_agrees_with_wire_code() {
+    // Batch 4 audit fix: auto-derived codes are written back as enum
+    // discriminants, so the natural `as u32` cast can never disagree
+    // with `code()` / `CODE_TABLE` / `ProgramError::Custom`.
+    assert_eq!(
+        VaultError::MigrationRequired as u32,
+        VaultError::MigrationRequired.code()
+    );
+    assert_eq!(VaultError::InsufficientBalance as u32, 0x1001);
+    assert_eq!(VaultError::Unauthorized as u32, 0x1002);
+}
+
+#[test]
 fn lowers_into_program_error_custom() {
     let err: ProgramError = VaultError::Unauthorized.into();
     assert_eq!(err, ProgramError::Custom(0x1002));

@@ -391,3 +391,61 @@ attribute would be small ergonomic parity if users ask.
 - Owner files: `crates/hopper-runtime/src/proof.rs` (token surface),
   `crates/hopper-macros-proc/src/context.rs` (attachment parsing +
   phase emission), new `hopper-runtime/src/behavior.rs`.
+
+### I17 — One fingerprint algorithm to rule both authoring paths (wire:v3)
+
+- **idea (seeded by Batch 4).** Impact: high (cross-path interop +
+  ABI-identity soundness). Effort: medium.
+- Batch 4 found the two authoring paths compute **incompatible**
+  `LAYOUT_ID`s: `#[hopper::state]` uses `hopper:wire:v2` canonical
+  stems (now hardened against size-bearing generics), while
+  `hopper_layout!`/`hopper_interface!` are stuck on the
+  source-spelling-dependent `hopper:v1` stringify hash because
+  `macro_rules!` cannot normalize type tokens. A declarative
+  `hopper_interface!` view can never verify a proc-macro-authored
+  account. The moat feature (dependency-free cross-program reads
+  pinned by fingerprint) silently doesn't span the framework's own two
+  front doors.
+- **Surpass:** `hopper-core::__sha256_const` already proves const-eval
+  SHA-256 works. A `wire:v3` fingerprint computed **at const-eval time
+  from runtime facts** — field count, per-field `size_of`, offsets from
+  the segment map, plus the macro-normalized name stems — would be (a)
+  identical across both authoring paths by construction, (b) impossible
+  to fool with spelling or phantom-generic drift, and (c) sensitive to
+  every real wire-shape change because the sizes come from the compiler,
+  not from token strings. No competitor has *any* layout fingerprint;
+  Hopper would have one that is provably spelling-independent.
+- Migration: v2/v1 tags stay decodable; layouts opt into v3 with a
+  version bump (`hopper_assert_fingerprint!` pins catch accidental
+  flips). `hopper doctor` lint (I4) flags mixed-path programs until
+  they unify.
+- Owner files: `crates/hopper-macros-proc/src/state.rs`,
+  `crates/hopper-macros/src/lib.rs`, `crates/hopper-core/src/lib.rs`
+  (`__sha256_const`), docs.
+
+### Batch 4 competitor cross-check (2026-07-04)
+
+Read Quasar's derive layer sources directly against Hopper's macro
+fixes this batch (`E:\Frameworks\quasar\derive\src\{error_code,event}.rs`):
+
+- **Error codes.** Quasar assigns sequential codes from 0 and lowers
+  `From<T> for ProgramError` as `e as u32` — enum and wire agree by
+  construction, but codes are *reorder-fragile* (insert a variant,
+  every later code shifts). Hopper's SHA-derived codes are
+  reorder-stable, and after this batch's fix the discriminants are
+  written back so `as u32` agrees too — Hopper now holds **both**
+  properties; no action needed, worth a COMPARISON row.
+- **Events.** Quasar's `#[event]` has the size==sum padding assert and
+  a *closed* field-type vocabulary (primitives + Address only — an
+  allowlist instead of a proof). Hopper's fixed `#[hopper::event]`
+  now asserts align-1 + no-padding + per-field Pod proofs over an
+  *open* vocabulary (any Pod type, including user pods) — strictly
+  more expressive at equal safety. Their `MaybeUninit` log-buffer
+  emission path is CU-tuned but relies on the same fence.
+- **IDL emission.** Quasar collects IDL fragments via
+  `inventory::submit!` behind an `idl-build` feature (linker-section
+  magic, std-only, invisible to the type system). Hopper's
+  `SCHEMA_METADATA` consts are no_std, reflection-free, and reachable
+  at compile time — the better architecture; document it rather than
+  copy theirs.
+

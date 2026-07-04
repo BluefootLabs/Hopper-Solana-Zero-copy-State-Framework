@@ -902,18 +902,34 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                     ctx.account(#idx)?.check_owned_by(ctx.program_id())?;
                 }
             };
+            // `zero` fields are allocated but deliberately NOT yet stamped
+            // with a layout header, so the typed `load` would reject them.
+            // Owner is still pinned; the zero-discriminator check itself is
+            // emitted with the lifecycle preconditions below.
+            let load_check = if cf.attr.zero {
+                TokenStream::new()
+            } else {
+                quote! { let _ = ctx.account(#idx)?.load::<#field_ty>()?; }
+            };
             field_checks.push(quote! {
                 #owner_check
-                let _ = ctx.account(#idx)?.load::<#field_ty>()?;
+                #load_check
             });
-            check_descriptions.push(format!(
-                "accounts[{}] ({}) owner matches, valid {} header",
-                idx,
-                field_name,
-                type_ident(field_ty)
-                    .map(|i| i.to_string())
-                    .unwrap_or_default()
-            ));
+            check_descriptions.push(if cf.attr.zero {
+                format!(
+                    "accounts[{}] ({}) owner matches (layout load deferred: `zero` field is not yet initialized)",
+                    idx, field_name
+                )
+            } else {
+                format!(
+                    "accounts[{}] ({}) owner matches, valid {} header",
+                    idx,
+                    field_name,
+                    type_ident(field_ty)
+                        .map(|i| i.to_string())
+                        .unwrap_or_default()
+                )
+            });
         } else if !has_layout {
             // For raw AccountView fields, still honor an explicit
             // `owner = expr` / `owner_any = [..]` even without a layout header.
@@ -1116,6 +1132,30 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                 idx, field_name
             ));
         }
+        if cf.attr.zero {
+            // `zero` — the account must be allocated but not yet
+            // initialized as any Hopper layout. Every `#[hopper::state]`
+            // layout compile-asserts `DISC != 0`, so a zero first byte
+            // proves "no layout has been stamped here" — the same
+            // re-initialization-attack guard as Anchor's `zero`
+            // (discriminator-is-zero) constraint. An empty account (no
+            // data) is rejected too: `zero` means *pre-allocated* and
+            // zeroed, not absent.
+            field_checks.push(quote! {
+                {
+                    let __hopper_data = ctx.account(#idx)?.try_borrow()?;
+                    if __hopper_data.first().copied() != ::core::option::Option::Some(0u8) {
+                        return ::core::result::Result::Err(
+                            ::hopper::__runtime::ProgramError::AccountAlreadyInitialized
+                        );
+                    }
+                }
+            });
+            check_descriptions.push(format!(
+                "accounts[{}] ({}) must be allocated with a zero discriminator (uninitialized)",
+                idx, field_name
+            ));
+        }
         if cf.attr.close.is_some() {
             field_checks.push(quote! {
                 ctx.account(#idx)?.check_writable()?;
@@ -1124,6 +1164,36 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                 "accounts[{}] ({}) must be writable (close precondition)",
                 idx, field_name
             ));
+            // The close target receives the drained lamports, and the SVM
+            // rejects lamport changes on non-writable accounts — catch a
+            // read-only destination at validate time instead of failing
+            // the whole transaction at commit.
+            if let Some(target) = &cf.attr.close {
+                if let Some(target_idx) = ctx_fields.iter().position(|c| c.name == *target) {
+                    field_checks.push(quote! {
+                        ctx.account(#target_idx)?.check_writable()?;
+                    });
+                    check_descriptions.push(format!(
+                        "accounts[{}] ({}) must be writable (receives lamports from `close = {}`)",
+                        target_idx, target, field_name
+                    ));
+                }
+            }
+        }
+        // `sweep = target`: same lamport-flow reasoning as `close` — the
+        // target must be writable to receive the drained lamports. The
+        // source's own writability is enforced through the `mut`
+        // implication set at parse time.
+        if let Some(target) = &cf.attr.sweep {
+            if let Some(target_idx) = ctx_fields.iter().position(|c| c.name == *target) {
+                field_checks.push(quote! {
+                    ctx.account(#target_idx)?.check_writable()?;
+                });
+                check_descriptions.push(format!(
+                    "accounts[{}] ({}) must be writable (receives lamports from `sweep = {}`)",
+                    target_idx, target, field_name
+                ));
+            }
         }
 
         // -- Stage 5.5: has_one. field value must equal other account's key.
@@ -1995,6 +2065,59 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                 .as_ref()
                 .expect("validate_account_attr guarantees init/init_if_needed has space");
 
+            // ── PDA-aware creation (Batch 4 audit fix) ────────────────
+            //
+            // The System Program requires the created (or allocated +
+            // assigned) account to SIGN. A fresh keypair signs the
+            // transaction itself, but a PDA declared with `seeds = [...]`
+            // can only sign via `invoke_signed` with its derivation
+            // seeds + canonical bump. The pre-fix emission always used
+            // the unsigned `invoke()`, so `#[account(init, seeds = ...)]`
+            // validated the PDA and then failed the CPI at runtime.
+            //
+            // The bump comes from `self.bumps.<field>`: `bind()` gathered
+            // it before any lifecycle helper can run, and for `init` the
+            // attribute grammar guarantees `seeds` implies `bump`.
+            // `seeds_fn` fields keep the unsigned path (their seed count
+            // is not known at expansion time); non-PDA inits are
+            // unaffected (`signers = &[]` is the old behavior).
+            let init_invoke = if let Some(seeds) = &cf.attr.seeds {
+                let seed_exprs: Vec<_> = seeds.iter().collect();
+                quote! {
+                    {
+                        let __hopper_bump: u8 = self.bumps.#field_name;
+                        let __hopper_seeds = [
+                            #( ::hopper::__runtime::Seed::from(
+                                ::core::convert::AsRef::<[u8]>::as_ref(&(#seed_exprs))
+                            ), )*
+                            ::hopper::__runtime::Seed::from(
+                                ::core::slice::from_ref(&__hopper_bump)
+                            ),
+                        ];
+                        ::hopper::hopper_init!(
+                            payer,
+                            account,
+                            system_program,
+                            self.ctx.program_id(),
+                            #field_ty,
+                            #space_expr,
+                            signers = &[::hopper::__runtime::Signer::from(&__hopper_seeds[..])]
+                        )
+                    }
+                }
+            } else {
+                quote! {
+                    ::hopper::hopper_init!(
+                        payer,
+                        account,
+                        system_program,
+                        self.ctx.program_id(),
+                        #field_ty,
+                        #space_expr
+                    )
+                }
+            };
+
             // Two emission shapes:
             //
             //   init            - call hopper_init! to create or allocate+assign
@@ -2017,28 +2140,14 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                     }
                     let payer = self.ctx.account(#payer_idx)?;
                     let system_program = self.ctx.account(#system_program_idx)?;
-                    ::hopper::hopper_init!(
-                        payer,
-                        account,
-                        system_program,
-                        self.ctx.program_id(),
-                        #field_ty,
-                        #space_expr
-                    )
+                    #init_invoke
                 }
             } else {
                 quote! {
                     let payer = self.ctx.account(#payer_idx)?;
                     let account = self.ctx.account(#idx)?;
                     let system_program = self.ctx.account(#system_program_idx)?;
-                    ::hopper::hopper_init!(
-                        payer,
-                        account,
-                        system_program,
-                        self.ctx.program_id(),
-                        #field_ty,
-                        #space_expr
-                    )
+                    #init_invoke
                 }
             };
 
@@ -2051,10 +2160,22 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                   Errors if the account already has data."
             };
 
+            // Seed expressions may reference declared instruction args
+            // (`seeds = [b"vault", nonce.to_le_bytes().as_ref()]`), so a
+            // seeded init helper threads the args through its signature
+            // exactly like the metadata CPI helpers do. Arg-less contexts
+            // and unseeded inits keep the zero-arg shape.
+            let init_arg_fragment = if has_instruction_args && cf.attr.seeds.is_some() {
+                let aps = arg_params.clone();
+                quote! { , #(#aps),* }
+            } else {
+                TokenStream::new()
+            };
+
             accessors.push(quote! {
                 #[doc = #doc]
                 #[inline]
-                #vis fn #init_fn(&self) -> ::core::result::Result<(), ::hopper::__runtime::ProgramError> {
+                #vis fn #init_fn(&self #init_arg_fragment) -> ::core::result::Result<(), ::hopper::__runtime::ProgramError> {
                     #body
                 }
             });
@@ -2636,7 +2757,15 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             let mut calls = Vec::new();
             if cf.attr.init || cf.attr.init_if_needed {
                 let init_fn = format_ident!("init_{}", field_name);
-                calls.push(quote! { __hopper_bound.#init_fn()?; });
+                // Seeded init helpers take the declared instruction args
+                // (their seed expressions may reference them); bind's body
+                // has those bindings in scope as parameters.
+                if has_instruction_args && cf.attr.seeds.is_some() {
+                    let names = arg_names.clone();
+                    calls.push(quote! { __hopper_bound.#init_fn(#(#names),*)?; });
+                } else {
+                    calls.push(quote! { __hopper_bound.#init_fn()?; });
+                }
             }
             if cf.attr.realloc.is_some() {
                 let realloc_fn = format_ident!("realloc_{}", field_name);
@@ -3472,6 +3601,10 @@ fn parse_account_attr(attrs: &[Attribute]) -> Result<AccountAttr> {
                         return Err(meta.error("`sweep` may only be set once per field"));
                     }
                     result.sweep = Some(ident);
+                    // `sweep` drains this account's lamports, which the SVM
+                    // only permits on writable accounts — the documented
+                    // "implies `mut`" contract, enforced.
+                    result.is_mut = true;
                     Ok(())
                 }
                 "owner" => {
@@ -3571,6 +3704,20 @@ fn validate_account_attr(field_name: &Ident, attr: &AccountAttr) -> Result<()> {
                 format!(
                     "#[account({}, seeds = ...)] requires `bump` (inferred) or `bump = <stored_byte>`",
                     kw
+                ),
+            ));
+        }
+        // A PDA of *another* program cannot sign its own creation from
+        // this program, so `init` + `seeds::program` can never succeed
+        // at runtime. Reject at compile time instead.
+        if attr.seeds_program.is_some() {
+            return Err(syn::Error::new_spanned(
+                field_name,
+                format!(
+                    "#[account({}, seeds::program = ...)] cannot be created here: only the owning \
+                     program can sign for its PDA. Create the account through that program's own \
+                     instruction, then reference it without `{}`.",
+                    kw, kw
                 ),
             ));
         }

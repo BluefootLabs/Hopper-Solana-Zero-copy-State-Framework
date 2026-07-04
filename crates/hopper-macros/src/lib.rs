@@ -660,6 +660,9 @@ macro_rules! hopper_require {
 /// ```ignore
 /// hopper_init!(payer, account, system_program, program_id, Vault)?;
 /// hopper_init!(payer, account, system_program, program_id, Vault, Vault::ALLOC_SPACE)?;
+/// // PDA accounts must sign their own creation with seeds:
+/// hopper_init!(payer, account, system_program, program_id, Vault, Vault::LEN,
+///     signers = &[Signer::from(&seeds[..])])?;
 /// ```
 #[macro_export]
 macro_rules! hopper_init {
@@ -674,9 +677,25 @@ macro_rules! hopper_init {
         )
     }};
     ($payer:expr, $account:expr, $system:expr, $program_id:expr, $layout:ty, $space:expr) => {{
+        $crate::hopper_init!(
+            $payer,
+            $account,
+            $system,
+            $program_id,
+            $layout,
+            $space,
+            signers = &[]
+        )
+    }};
+    ($payer:expr, $account:expr, $system:expr, $program_id:expr, $layout:ty, $space:expr, signers = $signers:expr) => {{
         let payer = $payer;
         let account = $account;
         let program_id = $program_id;
+        // PDA signer seeds for the created account. Empty for accounts
+        // that sign the transaction themselves (fresh keypairs); the
+        // System Program requires the created/assigned account to sign,
+        // so a PDA must supply its derivation seeds here.
+        let __hopper_init_signers: &[$crate::hopper_runtime::Signer<'_, '_>] = $signers;
 
         let space = ($space) as usize;
         if space < <$layout>::LEN {
@@ -699,7 +718,7 @@ macro_rules! hopper_init {
                 space,
                 owner: program_id,
             }
-            .invoke()?;
+            .invoke_signed(__hopper_init_signers)?;
         } else {
             if current_lamports < lamports {
                 $crate::hopper_system::Transfer {
@@ -709,12 +728,13 @@ macro_rules! hopper_init {
                 }
                 .invoke()?;
             }
-            $crate::hopper_system::Allocate { account, space }.invoke()?;
+            $crate::hopper_system::Allocate { account, space }
+                .invoke_signed(__hopper_init_signers)?;
             $crate::hopper_system::Assign {
                 account,
                 owner: program_id,
             }
-            .invoke()?;
+            .invoke_signed(__hopper_init_signers)?;
         }
 
         let mut data = account.try_borrow_mut()?;

@@ -59,6 +59,7 @@ pub fn expand(_attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream>
     let mut variant_idents = Vec::with_capacity(input.variants.len());
     let mut variant_names = Vec::with_capacity(input.variants.len());
     let mut variant_codes = Vec::with_capacity(input.variants.len());
+    let mut variant_code_values = Vec::with_capacity(input.variants.len());
     let mut variant_invariants = Vec::with_capacity(input.variants.len());
 
     for v in &input.variants {
@@ -100,13 +101,32 @@ pub fn expand(_attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream>
         variant_idents.push(vname);
         variant_names.push(LitStr::new(&vname_str, input.ident.span()));
         variant_codes.push(LitInt::new(&code.to_string(), input.ident.span()));
+        variant_code_values.push(code);
         variant_invariants.push(LitStr::new(&invariant_name, input.ident.span()));
     }
 
     // Build a cleaned enum that strips #[invariant] attrs (those are
     // hopper-internal) but keeps any explicit `= N` discriminants the user
     // wrote. We regenerate a new ItemEnum to emit the cleaned version.
-    let cleaned = strip_invariant_attrs(input.clone());
+    //
+    // Variants WITHOUT an explicit discriminant get their SHA-derived code
+    // written back as one. Without this, Rust assigns sequential
+    // discriminants (previous + 1), so `MyError::Variant as u32` would
+    // silently disagree with `code()` / `CODE_TABLE` / the wire value in
+    // `ProgramError::Custom` — an audit-trail integrity hole for any
+    // consumer using the natural `as` cast. Writing the code into the enum
+    // also makes rustc reject a collision between a derived code and a
+    // user-explicit one at compile time.
+    let mut cleaned = strip_invariant_attrs(input.clone());
+    for (variant, code) in cleaned.variants.iter_mut().zip(variant_code_values.iter()) {
+        if variant.discriminant.is_none() {
+            let lit = syn::Expr::Lit(syn::ExprLit {
+                attrs: Vec::new(),
+                lit: syn::Lit::Int(LitInt::new(&code.to_string(), variant.ident.span())),
+            });
+            variant.discriminant = Some((<syn::Token![=]>::default(), lit));
+        }
+    }
 
     let idents_for_from = variant_idents.clone();
     let codes_for_from = variant_codes.clone();

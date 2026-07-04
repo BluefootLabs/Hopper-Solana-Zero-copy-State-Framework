@@ -25,11 +25,19 @@
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{
-    parse::Parser, parse2, punctuated::Punctuated, Fields, ItemStruct, LitInt, LitStr, Meta, Token,
+    parse::Parser, parse2, punctuated::Punctuated, Attribute, Fields, ItemStruct, LitInt, LitStr,
+    Meta, Token,
 };
 
 pub fn expand(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> {
     let input: ItemStruct = parse2(item)?;
+
+    if !has_repr_c(&input.attrs) {
+        return Err(syn::Error::new_spanned(
+            &input.ident,
+            "#[hopper::args] requires #[repr(C)] so the zero-copy overlay has a stable layout",
+        ));
+    }
 
     let metas: Punctuated<Meta, Token![,]> = Punctuated::<Meta, Token![,]>::parse_terminated
         .parse2(attr.clone())
@@ -157,8 +165,59 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> 
         TokenStream::new()
     };
 
+    let align_msg = format!(
+        "#[hopper::args] struct `{}` must be alignment-1: instruction data is parsed at \
+         arbitrary byte offsets, so an aligned field type (u64, u32, ...) would make the \
+         generated `parse()` reference misaligned. Use wire types (WireU64, WireU32, ...) \
+         or byte arrays.",
+        name,
+    );
+    let size_msg = format!(
+        "#[hopper::args] struct `{}` has implicit padding: size_of::<Self>() exceeds the \
+         sum of field sizes, so `parse()`'s length check would under-validate the buffer. \
+         Use alignment-1 field types so #[repr(C)] packs exactly.",
+        name,
+    );
+    let nonzero_msg = format!(
+        "#[hopper::args] struct `{}` has zero size; zero-sized argument overlays are rejected.",
+        name,
+    );
+
     let gen = quote! {
         #input
+
+        // ── Compile-time safety fence ──────────────────────────────────
+        // `parse()` reinterprets attacker-controlled instruction bytes as
+        // `&Self`. That cast is sound only if the struct is alignment-1
+        // (no misaligned reference at any input offset), padding-free
+        // (the PACKED_SIZE length check covers every byte the reference
+        // spans), and every field tolerates every bit pattern (Pod). All
+        // three obligations are discharged here, at declaration time.
+        const _: () = {
+            assert!(::core::mem::align_of::<#name>() == 1, #align_msg);
+            assert!(
+                ::core::mem::size_of::<#name>() == (0 #( + ::core::mem::size_of::<#ty_list>() )*),
+                #size_msg,
+            );
+            assert!(::core::mem::size_of::<#name>() > 0, #nonzero_msg);
+        };
+
+        // Field-level Pod proof: every field must satisfy Hopper's
+        // all-bits-valid contract, because `parse()` materializes the
+        // struct from arbitrary caller-supplied bytes. A `bool`, `char`,
+        // reference, or non-`Pod` nested field fails this bound at the
+        // declaration, not as UB at dispatch time.
+        #[doc(hidden)]
+        const _: () = {
+            struct __ArgsFieldPodProof<T: ::hopper::__runtime::Pod>(
+                ::core::marker::PhantomData<T>,
+            );
+            #(
+                #[allow(dead_code)]
+                const _: __ArgsFieldPodProof<#ty_list> =
+                    __ArgsFieldPodProof(::core::marker::PhantomData);
+            )*
+        };
 
         impl #name {
             /// Total on-wire size in bytes.
@@ -187,11 +246,13 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> 
                         }
                     );
                 }
-                // SAFETY: this macro is only applied to `#[repr(C)]` structs
-                // of primitive-sized fields. The PACKED_SIZE check above
-                // guarantees the input covers every field. No alignment
-                // requirement is imposed because we operate over a byte
-                // pointer.
+                // SAFETY: the compile-time fence above proves Self is
+                // #[repr(C)], alignment-1 (a byte pointer at any offset is
+                // correctly aligned), padding-free (PACKED_SIZE ==
+                // size_of::<Self>(), so the length check covers every byte
+                // the reference spans), and all-bits-valid (per-field Pod
+                // proof). Reinterpreting any sufficiently long byte slice
+                // is therefore sound.
                 let r = unsafe { &*(data.as_ptr() as *const Self) };
                 ::core::result::Result::Ok(r)
             }
@@ -228,6 +289,22 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> 
     };
 
     Ok(gen)
+}
+
+fn has_repr_c(attrs: &[Attribute]) -> bool {
+    attrs.iter().any(|attr| {
+        if !attr.path().is_ident("repr") {
+            return false;
+        }
+        let mut has_c = false;
+        let _ = attr.parse_nested_meta(|meta| {
+            if meta.path.is_ident("C") {
+                has_c = true;
+            }
+            Ok(())
+        });
+        has_c
+    })
 }
 
 /// Heuristic: does this type spell `OptionByte<...>`?
