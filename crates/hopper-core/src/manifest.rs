@@ -1233,6 +1233,245 @@ pub struct DescriptorIdlNode {
     pub fingerprint: LayoutFingerprint,
 }
 
+// ══════════════════════════════════════════════════════════════════════
+//  Composite account groups (Nested<T>-style shared validation)
+// ══════════════════════════════════════════════════════════════════════
+
+/// A named, ordered set of [`AccountDescriptor`]s validated as one unit.
+///
+/// This is Hopper's descriptor-native answer to Anchor v2's `Nested<T>`:
+/// instead of copying account-wrapper syntax, a group is a `const` value
+/// that composes several single-source-of-truth descriptors and exposes the
+/// same surfaces they do -- a composite fingerprint, group validation, a
+/// loaded-data-size budget, and an IDL projection -- so an instruction that
+/// touches several accounts can pin and size all of them from one constant.
+///
+/// The group is **positional**: member `i` describes the account at index
+/// `i` in the instruction's account list. The composite fingerprint folds
+/// each member's fingerprint *in order* with a length prefix, so reordering
+/// or adding members changes the group identity (a client embeds the group
+/// fingerprint and fails closed if the program advertises a different
+/// composition).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct DescriptorGroup<'a> {
+    /// Group name (e.g. the instruction or composite-account name).
+    pub name: &'a str,
+    /// Ordered member descriptors; member `i` is account `i`.
+    pub members: &'a [AccountDescriptor],
+}
+
+impl<'a> DescriptorGroup<'a> {
+    /// Build a composite group from an ordered descriptor slice.
+    #[inline]
+    pub const fn new(name: &'a str, members: &'a [AccountDescriptor]) -> Self {
+        Self { name, members }
+    }
+
+    /// Number of member layouts in this group.
+    #[inline]
+    pub const fn len(&self) -> usize {
+        self.members.len()
+    }
+
+    /// Whether the group has no members.
+    #[inline]
+    pub const fn is_empty(&self) -> bool {
+        self.members.is_empty()
+    }
+
+    /// The composite client decode fingerprint over all members, in order.
+    ///
+    /// Folds the group name hash and member count, then chains each member's
+    /// [`AccountDescriptor::fingerprint`] through [`expand_hash`]. `const`,
+    /// so a generated client embeds it and refuses to decode a composite
+    /// account set whose advertised composition differs.
+    pub const fn fingerprint(&self) -> LayoutFingerprint {
+        let nh = name_hash(self.name);
+        let mut acc = [0u8; 16];
+        let mut i = 0;
+        while i < 8 {
+            acc[i] = nh[i];
+            i += 1;
+        }
+        // Length prefix so [A] and [A, A] never collide.
+        acc[8] = self.members.len() as u8;
+        let mut m = 0;
+        while m < self.members.len() {
+            let fp = self.members[m].fingerprint().0;
+            let mut buf = [0u8; 32];
+            let mut j = 0;
+            while j < 16 {
+                buf[j] = acc[j];
+                j += 1;
+            }
+            let mut k = 0;
+            while k < 16 {
+                buf[16 + k] = fp[k];
+                k += 1;
+            }
+            let digest = expand_hash(&buf);
+            let mut x = 0;
+            while x < 16 {
+                acc[x] = digest[x];
+                x += 1;
+            }
+            m += 1;
+        }
+        LayoutFingerprint(acc)
+    }
+
+    /// Hot-path validation of a positional account-data set: each member's
+    /// length + discriminator check against the data at the same index. No
+    /// registry read. Returns the index that failed so the caller can report
+    /// which account in the group is wrong.
+    #[inline]
+    pub fn validate_all(&self, datas: &[&[u8]]) -> Result<(), GroupValidationError> {
+        if datas.len() < self.members.len() {
+            return Err(GroupValidationError {
+                index: datas.len(),
+                error: ProgramError::NotEnoughAccountKeys,
+            });
+        }
+        let mut i = 0;
+        while i < self.members.len() {
+            if let Err(error) = self.members[i].validate(datas[i]) {
+                return Err(GroupValidationError { index: i, error });
+            }
+            i += 1;
+        }
+        Ok(())
+    }
+
+    /// The minimum loaded data size for the whole group (sum of member
+    /// `min_size`s), the floor for `setLoadedAccountsDataSizeLimit`.
+    #[inline]
+    pub fn min_loaded_data_size(&self) -> u64 {
+        min_loaded_data_size(self.members)
+    }
+
+    /// A recommended `setLoadedAccountsDataSizeLimit` for the group: member
+    /// minimums plus `tail_headroom` per dynamic-tail member plus a flat
+    /// `extra` margin. Saturating; the caller clamps to the runtime maximum.
+    #[inline]
+    pub fn recommend_loaded_data_limit(&self, tail_headroom: u32, extra: u32) -> u64 {
+        recommend_loaded_data_limit(self.members, tail_headroom, extra)
+    }
+}
+
+/// A group-validation failure that names the offending member index.
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub struct GroupValidationError {
+    /// Position of the member that failed (or `members.len()` when the
+    /// account list was too short).
+    pub index: usize,
+    /// The underlying per-account error.
+    pub error: ProgramError,
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  Typed account expectation (off-hot-path / manager / client validation)
+// ══════════════════════════════════════════════════════════════════════
+
+/// The full set of identity checks a manager or off-chain client runs over a
+/// fetched account, derived from one [`AccountDescriptor`]: expected owning
+/// program, discriminator, minimum size, and decode fingerprint.
+///
+/// Distinct from [`AccountDescriptor::validate`] (the inlined hot-path
+/// length + disc check): an expectation also pins the owning program and the
+/// wire fingerprint, which a manager or SDK can afford to check off the hot
+/// path before zero-copy-decoding bytes it did not load itself.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct AccountExpectation {
+    /// Expected owning program id (32-byte address).
+    pub owner: [u8; 32],
+    /// Expected discriminator at byte 0.
+    pub disc: u8,
+    /// Minimum account data length.
+    pub min_size: u32,
+    /// Expected wire decode fingerprint.
+    pub fingerprint: LayoutFingerprint,
+}
+
+/// The verdict of checking a fetched account against an [`AccountExpectation`].
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum AccountCheck {
+    /// All checks passed.
+    Ok,
+    /// The account is owned by a different program.
+    WrongOwner,
+    /// The account data is shorter than `min_size`.
+    TooSmall,
+    /// Byte 0 is not the expected discriminator.
+    WrongDiscriminator,
+    /// The program advertises a different wire fingerprint at this disc: the
+    /// layout was redeployed, so the client must not zero-copy-decode.
+    FingerprintMismatch,
+}
+
+impl AccountCheck {
+    /// Whether the account passed every check.
+    #[inline]
+    pub const fn is_ok(self) -> bool {
+        matches!(self, AccountCheck::Ok)
+    }
+}
+
+impl AccountDescriptor {
+    /// Build an [`AccountExpectation`] for an account expected to be owned by
+    /// `owner`. The disc, size, and fingerprint come from this descriptor, so
+    /// a manager/client checks against the same identity the loader enforces.
+    #[inline]
+    pub const fn expect_owned_by(self, owner: [u8; 32]) -> AccountExpectation {
+        AccountExpectation {
+            owner,
+            disc: self.disc,
+            min_size: self.min_size,
+            fingerprint: self.fingerprint(),
+        }
+    }
+}
+
+impl AccountExpectation {
+    /// Run the owner + size + discriminator checks against a fetched account.
+    /// Off-hot-path: the owner comparison is the extra check a manager can
+    /// afford that the inlined loader path deliberately skips.
+    #[inline]
+    pub fn check(&self, owner: &[u8; 32], data: &[u8]) -> AccountCheck {
+        if owner != &self.owner {
+            return AccountCheck::WrongOwner;
+        }
+        if (data.len() as u64) < self.min_size as u64 {
+            return AccountCheck::TooSmall;
+        }
+        if data.is_empty() || data[0] != self.disc {
+            return AccountCheck::WrongDiscriminator;
+        }
+        AccountCheck::Ok
+    }
+
+    /// Run [`check`](Self::check) and, only if it passes, fail closed unless
+    /// the program's advertised fingerprint matches the expected one. This is
+    /// the complete pre-decode guard a generated SDK runs.
+    #[inline]
+    pub fn check_decodable(
+        &self,
+        owner: &[u8; 32],
+        data: &[u8],
+        advertised: LayoutFingerprint,
+    ) -> AccountCheck {
+        match self.check(owner, data) {
+            AccountCheck::Ok => {
+                if advertised == self.fingerprint {
+                    AccountCheck::Ok
+                } else {
+                    AccountCheck::FingerprintMismatch
+                }
+            }
+            other => other,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1771,5 +2010,128 @@ mod tests {
         let dep = AccountDescriptor::compact("Old", 6, 1, 8, [0; 8]).deprecated();
         assert!(dep.idl_node().deprecated);
         assert_eq!(dep.idl_node().kind, LayoutKind::Compact);
+    }
+
+    #[test]
+    fn group_fingerprint_is_order_and_membership_sensitive() {
+        let v = AccountDescriptor::compact("Vault", 1, 1, 40, [1; 8]);
+        let o = AccountDescriptor::headered("Order", 2, 1, 48, [2; 8]);
+
+        let members = [v, o];
+        let g = DescriptorGroup::new("Swap", &members);
+        assert_eq!(g.len(), 2);
+        assert!(!g.is_empty());
+        // Deterministic.
+        assert_eq!(
+            g.fingerprint(),
+            DescriptorGroup::new("Swap", &members).fingerprint()
+        );
+        // Reordering members changes the composite identity.
+        let reordered = [o, v];
+        assert_ne!(
+            g.fingerprint(),
+            DescriptorGroup::new("Swap", &reordered).fingerprint()
+        );
+        // Group name participates.
+        assert_ne!(
+            g.fingerprint(),
+            DescriptorGroup::new("Trade", &members).fingerprint()
+        );
+        // Membership changes the identity (and [v] != [v, v] via the length prefix).
+        let single = [v];
+        let doubled = [v, v];
+        assert_ne!(
+            g.fingerprint(),
+            DescriptorGroup::new("Swap", &single).fingerprint()
+        );
+        assert_ne!(
+            DescriptorGroup::new("X", &single).fingerprint(),
+            DescriptorGroup::new("X", &doubled).fingerprint()
+        );
+    }
+
+    #[test]
+    fn group_validate_all_checks_each_member_positionally() {
+        let v = AccountDescriptor::compact("Vault", 1, 1, 40, [1; 8]); // min 41
+        let o = AccountDescriptor::compact("Order", 2, 1, 24, [2; 8]); // min 25
+        let members = [v, o];
+        let g = DescriptorGroup::new("Swap", &members);
+
+        let mut a = [0u8; 41];
+        a[0] = 1;
+        let mut b = [0u8; 25];
+        b[0] = 2;
+        assert!(g.validate_all(&[&a, &b]).is_ok());
+
+        // Too few accounts -> reports the short index.
+        let err = g.validate_all(&[&a]).unwrap_err();
+        assert_eq!(err.index, 1);
+        assert_eq!(err.error, ProgramError::NotEnoughAccountKeys);
+
+        // Wrong disc on the second account -> reports index 1.
+        b[0] = 9;
+        let err = g.validate_all(&[&a, &b]).unwrap_err();
+        assert_eq!(err.index, 1);
+        assert_eq!(err.error, ProgramError::InvalidAccountData);
+
+        // Too-small first account -> reports index 0.
+        let short = [1u8; 10];
+        let err = g.validate_all(&[&short, &b]).unwrap_err();
+        assert_eq!(err.index, 0);
+        assert_eq!(err.error, ProgramError::AccountDataTooSmall);
+    }
+
+    #[test]
+    fn group_budgets_sum_members() {
+        let v = AccountDescriptor::compact("V", 1, 1, 40, [1; 8]); // 41
+        let tail = AccountDescriptor::headered("Log", 2, 1, 40, [2; 8]).with_dynamic_tail(); // 56
+        let members = [v, tail];
+        let g = DescriptorGroup::new("G", &members);
+        assert_eq!(g.min_loaded_data_size(), 41 + 56);
+        assert_eq!(
+            g.recommend_loaded_data_limit(1024, 128),
+            41 + 56 + 1024 + 128
+        );
+    }
+
+    #[test]
+    fn account_expectation_checks_owner_size_disc_and_fingerprint() {
+        let d = AccountDescriptor::compact("Vault", 7, 1, 40, [0xAB; 8]);
+        let owner = [9u8; 32];
+        let exp = d.expect_owned_by(owner);
+        assert_eq!(exp.disc, 7);
+        assert_eq!(exp.min_size, 41);
+        assert_eq!(exp.fingerprint, d.fingerprint());
+
+        let mut data = [0u8; 41];
+        data[0] = 7;
+        assert_eq!(exp.check(&owner, &data), AccountCheck::Ok);
+        assert!(exp.check(&owner, &data).is_ok());
+
+        // Wrong owner is caught before size/disc.
+        assert_eq!(exp.check(&[1u8; 32], &data), AccountCheck::WrongOwner);
+        // Too small.
+        assert_eq!(exp.check(&owner, &data[..40]), AccountCheck::TooSmall);
+        // Wrong disc.
+        data[0] = 8;
+        assert_eq!(exp.check(&owner, &data), AccountCheck::WrongDiscriminator);
+        data[0] = 7;
+
+        // Fingerprint guard: matching advertised fingerprint decodes.
+        assert_eq!(
+            exp.check_decodable(&owner, &data, d.fingerprint()),
+            AccountCheck::Ok
+        );
+        // A redeploy with a different layout at this disc fails closed.
+        let other = AccountDescriptor::compact("Vault", 7, 2, 40, [0xAB; 8]);
+        assert_eq!(
+            exp.check_decodable(&owner, &data, other.fingerprint()),
+            AccountCheck::FingerprintMismatch
+        );
+        // A prior structural failure dominates the fingerprint check.
+        assert_eq!(
+            exp.check_decodable(&[1u8; 32], &data, d.fingerprint()),
+            AccountCheck::WrongOwner
+        );
     }
 }

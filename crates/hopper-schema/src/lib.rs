@@ -3990,8 +3990,9 @@ impl<'info> AccountSchemaExt for AccountView<'info> {
 // re-export the ones off-chain tooling consumes so a client/IDL generator and
 // the CLI read the exact identity model the on-chain loader enforces.
 pub use hopper_core::manifest::{
-    min_loaded_data_size, recommend_loaded_data_limit, AccountDescriptor, CostLint, CostProfile,
-    DescriptorIdlNode, LayoutKind, SizeClass,
+    min_loaded_data_size, recommend_loaded_data_limit, AccountCheck, AccountDescriptor,
+    AccountExpectation, CostLint, CostProfile, DescriptorGroup, DescriptorIdlNode,
+    GroupValidationError, LayoutKind, SizeClass,
 };
 
 /// A stable, fail-closed decode-metadata record for one account layout.

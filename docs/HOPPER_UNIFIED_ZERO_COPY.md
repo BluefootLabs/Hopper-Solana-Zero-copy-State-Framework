@@ -300,13 +300,82 @@ whole program's accounts plus summed `minLoadedDataSize` /
 `recommendedLoadedDataSize` budgets. Existing headered `SchemaExport` layouts get
 `descriptor()` / `descriptor_metadata()` for free, derived from their manifest.
 
+### Composite account groups (`DescriptorGroup`)
+
+Anchor v2's `Nested<T>` shares validation across a bundle of accounts. Hopper's
+descriptor-native answer is `hopper_core::manifest::DescriptorGroup`: a `const`,
+*ordered* set of `AccountDescriptor`s validated as one unit, with no borrowed
+Anchor syntax.
+
+```rust
+static SETTLE: &[AccountDescriptor] = &[
+    <Vault as LayoutDescriptor>::DESCRIPTOR,
+    <Order as LayoutDescriptor>::DESCRIPTOR,
+];
+let group = DescriptorGroup::new("Settle", SETTLE);
+
+// Positional hot-path validation of the instruction's account data slices.
+group.validate_all(&[vault_data, order_data])?;   // Err names the bad index
+
+// Composite identity: folds each member fingerprint *in order* with a length
+// prefix, so reordering or adding a member changes the group fingerprint. A
+// client embeds it and fails closed if the program advertises a different
+// composition.
+let gfp = group.fingerprint();
+
+// One loaded-data-size budget for the whole bundle.
+let limit = group.recommend_loaded_data_limit(1024, 256);
+```
+
+`hopper_schema::codama::DescriptorGroupJson` serializes a group (name, composite
+`groupFingerprint`, ordered `members`, and summed `minLoadedDataSize` /
+`recommendedLoadedDataSize`) through the same hand-written `no_std` emitters.
+
+### Typed account expectations (`AccountExpectation`)
+
+`AccountDescriptor::validate` is the inlined hot-path len+disc check. Off the hot
+path, a manager or generated client can afford more: `expect_owned_by(owner)`
+projects the descriptor into an `AccountExpectation` (expected owner, disc,
+`min_size`, fingerprint), and `check` / `check_decodable` return an
+`AccountCheck` verdict:
+
+```rust
+let exp = <Vault as LayoutDescriptor>::DESCRIPTOR.expect_owned_by(program_id);
+match exp.check_decodable(&account_owner, &data, advertised_fingerprint) {
+    AccountCheck::Ok => { /* safe to zero-copy-decode */ }
+    AccountCheck::WrongOwner
+    | AccountCheck::TooSmall
+    | AccountCheck::WrongDiscriminator
+    | AccountCheck::FingerprintMismatch => { /* fail closed */ }
+}
+```
+
+The owner check is the piece the hot path deliberately skips; the fingerprint
+check is the same fail-closed guard `decode_allowed` performs, sourced from the
+descriptor the loader enforces.
+
+### CLI fail-closed decode (`manager accounts read`)
+
+`hopper manager accounts read <pubkey>` now closes the loop against a live
+account: it reads the headered account's embedded `layout_id` (bytes 8..16) and
+compares it to the `layoutId` the manifest declares for that discriminator. On a
+mismatch it prints a `FAIL-CLOSED` line and exits non-zero rather than reporting
+a layout the account was not written under — so actual tooling, not just library
+code, refuses a stale/mis-shaped account.
+
 ## Next concrete steps
 
 - `DescriptorIdlNode` now feeds the `hopper-schema` emitter via
-  `DescriptorMetadata` / `DescriptorMetadataJson`, so the off-chain metadata and
-  the on-chain registry derive from one descriptor pass. Next: have the
-  per-language client generators (`rust_client`, `python_client`, …) consume that
-  JSON to embed `fingerprint` and call `recommend_loaded_data_limit` in their
+  `DescriptorMetadata` / `DescriptorMetadataJson`, and composite bundles via
+  `DescriptorGroup` / `DescriptorGroupJson`, so the off-chain metadata and the
+  on-chain registry derive from one descriptor pass. Next: have the per-language
+  client generators (`rust_client`, `python_client`, …) consume that JSON to
+  embed `fingerprint` and call `recommend_loaded_data_limit` in their
   transaction builders.
+- Emit `DescriptorGroup`s from the macro for multi-account instructions so
+  composite fingerprints are generated rather than hand-built.
 - Extend `cost_lint` with per-field hot/cold classification once field-level
   role metadata is threaded through the descriptor.
+
+See [`RESEARCH_COVERAGE.md`](RESEARCH_COVERAGE.md) for the full recommendation →
+implementation audit.

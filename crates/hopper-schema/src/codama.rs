@@ -12,9 +12,10 @@
 use core::fmt;
 
 use crate::{
-    ArgDescriptor, CodamaProjection, CompatibilityPair, DescriptorMetadata, EventDescriptor,
-    FieldDescriptor, IdlAccountEntry, InstructionDescriptor, LayoutFingerprint, LayoutKind,
-    LayoutManifest, MigrationPolicy, PdaSeedHint, PolicyDescriptor, ProgramIdl, ProgramManifest,
+    ArgDescriptor, CodamaProjection, CompatibilityPair, DescriptorGroup, DescriptorMetadata,
+    EventDescriptor, FieldDescriptor, IdlAccountEntry, InstructionDescriptor, LayoutFingerprint,
+    LayoutKind, LayoutManifest, MigrationPolicy, PdaSeedHint, PolicyDescriptor, ProgramIdl,
+    ProgramManifest,
 };
 
 // ---------------------------------------------------------------------------
@@ -1157,6 +1158,91 @@ impl<'a> fmt::Display for DescriptorMetadataSetJson<'a> {
     }
 }
 
+/// Emit one descriptor's identity/shape node as a JSON object at `indent`.
+fn write_group_member_json(
+    f: &mut fmt::Formatter<'_>,
+    member: &hopper_core::manifest::AccountDescriptor,
+    indent: usize,
+) -> fmt::Result {
+    let n = member.idl_node();
+    write_indent(f, indent)?;
+    writeln!(f, "{{")?;
+    write_indent(f, indent + 1)?;
+    write!(f, "\"name\": ")?;
+    write_json_str(f, n.name)?;
+    writeln!(f, ",")?;
+    write_indent(f, indent + 1)?;
+    writeln!(f, "\"disc\": {},", n.disc)?;
+    write_indent(f, indent + 1)?;
+    writeln!(f, "\"version\": {},", n.version)?;
+    write_indent(f, indent + 1)?;
+    writeln!(f, "\"kind\": \"{}\",", layout_kind_str(n.kind))?;
+    write_indent(f, indent + 1)?;
+    writeln!(f, "\"minSize\": {},", n.min_size)?;
+    write_indent(f, indent + 1)?;
+    writeln!(f, "\"hasDynamicTail\": {},", n.has_dynamic_tail)?;
+    write_indent(f, indent + 1)?;
+    write!(f, "\"layoutId\": ")?;
+    write_hex_json(f, &n.layout_id)?;
+    writeln!(f, ",")?;
+    write_indent(f, indent + 1)?;
+    write!(f, "\"fingerprint\": ")?;
+    write_hex_json(f, &n.fingerprint.as_bytes())?;
+    writeln!(f)?;
+    write_indent(f, indent)?;
+    write!(f, "}}")
+}
+
+/// JSON wrapper for a [`DescriptorGroup`] -- a composite, positional set of
+/// account layouts validated as one unit (Hopper's `Nested<T>` analogue).
+///
+/// Emits the group `name`, the composite `groupFingerprint` (hex) that a
+/// client embeds to fail closed if the program advertises a different
+/// composition, an ordered `members` array of per-layout identity nodes, and
+/// the summed `minLoadedDataSize` / `recommendedLoadedDataSize` budgets for a
+/// transaction that touches the whole group. The recommendation uses the same
+/// default margins as [`DescriptorMetadata`].
+pub struct DescriptorGroupJson<'a>(pub &'a DescriptorGroup<'a>);
+
+impl<'a> fmt::Display for DescriptorGroupJson<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let g = self.0;
+        writeln!(f, "{{")?;
+        write!(f, "  \"name\": ")?;
+        write_json_str(f, g.name)?;
+        writeln!(f, ",")?;
+        write!(f, "  \"groupFingerprint\": ")?;
+        write_hex_json(f, &g.fingerprint().as_bytes())?;
+        writeln!(f, ",")?;
+        write!(f, "  \"members\": ")?;
+        if g.members.is_empty() {
+            write!(f, "[]")?;
+        } else {
+            writeln!(f, "[")?;
+            for (i, member) in g.members.iter().enumerate() {
+                write_group_member_json(f, member, 2)?;
+                if i + 1 < g.members.len() {
+                    writeln!(f, ",")?;
+                } else {
+                    writeln!(f)?;
+                }
+            }
+            write!(f, "  ]")?;
+        }
+        writeln!(f, ",")?;
+        writeln!(f, "  \"minLoadedDataSize\": {},", g.min_loaded_data_size())?;
+        writeln!(
+            f,
+            "  \"recommendedLoadedDataSize\": {}",
+            g.recommend_loaded_data_limit(
+                DescriptorMetadata::DEFAULT_TAIL_HEADROOM,
+                DescriptorMetadata::DEFAULT_MARGIN
+            )
+        )?;
+        write!(f, "}}")
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -1559,5 +1645,43 @@ mod tests {
             &d.fingerprint(),
             &bumped.fingerprint()
         ));
+    }
+
+    // -- DescriptorGroup JSON --
+
+    #[test]
+    fn descriptor_group_json_emits_members_and_budgets() {
+        let v = AccountDescriptor::compact("Vault", 1, 1, 40, [0xAB; 8]); // min 41
+        let log = AccountDescriptor::headered("Log", 2, 1, 48, [0x11; 8]).with_dynamic_tail(); // min 64
+        let members = [v, log];
+        let group = DescriptorGroup::new("Settle", &members);
+        let json = format!("{}", DescriptorGroupJson(&group));
+
+        assert!(json.contains("\"name\": \"Settle\""));
+        // Composite fingerprint hex (32 ASCII chars) is present.
+        let gfp = group.fingerprint().to_hex();
+        let gfp_str = core::str::from_utf8(&gfp).unwrap();
+        assert!(json.contains(gfp_str));
+        // Both members appear in order with their identity nodes.
+        assert!(json.contains("\"members\": ["));
+        assert!(json.contains("\"name\": \"Vault\""));
+        assert!(json.contains("\"name\": \"Log\""));
+        assert!(json.contains("\"kind\": \"compact\""));
+        assert!(json.contains("\"kind\": \"headered\""));
+        assert!(json.contains("\"hasDynamicTail\": true"));
+        // Budgets: 41 + 64 = 105 floor; + 1024 tail headroom + 256 margin = 1385.
+        assert!(json.contains("\"minLoadedDataSize\": 105"));
+        assert!(json.contains("\"recommendedLoadedDataSize\": 1385"));
+    }
+
+    #[test]
+    fn descriptor_group_json_empty_members() {
+        let group = DescriptorGroup::new("Empty", &[]);
+        let json = format!("{}", DescriptorGroupJson(&group));
+        assert!(json.contains("\"name\": \"Empty\""));
+        assert!(json.contains("\"members\": []"));
+        assert!(json.contains("\"minLoadedDataSize\": 0"));
+        // No members, but the flat default margin still applies.
+        assert!(json.contains("\"recommendedLoadedDataSize\": 256"));
     }
 }

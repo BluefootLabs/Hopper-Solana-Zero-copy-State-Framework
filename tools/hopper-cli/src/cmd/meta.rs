@@ -395,10 +395,16 @@ pub fn cmd_manager_accounts_read(args: &[String]) {
     }
     let disc = info.data[0];
     println!("disc     : 0x{:02x}", disc);
-    match layout_name_by_disc(&manifest_json, disc) {
-        Some(name) => println!("layout   : {name}"),
+    let layout = layout_by_disc(&manifest_json, disc);
+    match &layout {
+        Some(l) => println!("layout   : {}", l.name),
         None => println!("layout   : (no match in manifest for disc 0x{:02x})", disc),
     }
+
+    // A headered account embeds its layout_id at bytes 8..16. Compare it to
+    // the layout_id the manifest declares for this disc and fail closed on a
+    // mismatch: the on-chain account was written under a different layout than
+    // the manifest describes, so a client must refuse to zero-copy-decode it.
     let (version, layout_id) = if info.data.len() >= 16 {
         let ver = info.data[1];
         let mut id = [0u8; 8];
@@ -411,20 +417,54 @@ pub fn cmd_manager_accounts_read(args: &[String]) {
         println!("version  : {v}");
     }
     if let Some(id) = layout_id {
-        println!(
-            "layout_id: {}",
-            id.iter().map(|b| format!("{:02x}", b)).collect::<String>()
-        );
+        let id_hex = hex8(&id);
+        println!("layout_id: {id_hex}");
+        if let Some(l) = &layout {
+            match &l.layout_id_hex {
+                Some(expected) if *expected == id_hex => {
+                    println!("decode   : ok (layout_id matches manifest)");
+                }
+                Some(expected) => {
+                    println!(
+                        "decode   : FAIL-CLOSED (layout_id {id_hex} != manifest {expected}); \
+                         refusing to decode: on-chain layout differs from the manifest"
+                    );
+                    process::exit(2);
+                }
+                None => {
+                    println!("decode   : (manifest layout has no layoutId to compare)");
+                }
+            }
+        }
     }
 }
 
-fn layout_name_by_disc(manifest_json: &str, disc: u8) -> Option<String> {
+/// A minimal manifest layout row parsed from the JSON manifest.
+struct ManifestLayout {
+    name: String,
+    layout_id_hex: Option<String>,
+}
+
+fn hex8(id: &[u8; 8]) -> String {
+    id.iter().map(|b| format!("{:02x}", b)).collect::<String>()
+}
+
+fn layout_by_disc(manifest_json: &str, disc: u8) -> Option<ManifestLayout> {
     let v: serde_json::Value = serde_json::from_str(manifest_json).ok()?;
     let layouts = v.get("layouts")?.as_array()?;
     for l in layouts {
         let d = l.get("disc").and_then(|x| x.as_u64())? as u8;
         if d == disc {
-            return l.get("name").and_then(|x| x.as_str()).map(String::from);
+            let name = l
+                .get("name")
+                .and_then(|x| x.as_str())
+                .map(String::from)
+                .unwrap_or_default();
+            let layout_id_hex = l.get("layoutId").and_then(|x| x.as_str()).map(String::from);
+            return Some(ManifestLayout {
+                name,
+                layout_id_hex,
+            });
         }
     }
     None
