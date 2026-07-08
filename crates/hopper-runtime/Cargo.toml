@@ -36,6 +36,14 @@ copy = []
 # Default-off: the standard v0..v2 build is unchanged.
 static-syscalls = ["hopper-native/static-syscalls"]
 legacy-token-instructions = []
+# Per-thread host borrow registry (requires std). Downstream crates whose
+# test binaries run many tests in parallel enable this in dev-dependencies
+# so independent tests on different threads cannot cross-talk through the
+# process-global registry (same fake address in two tests would otherwise
+# collide and spuriously return AccountBorrowFailed). Semantically an
+# invocation runs on one thread, so per-thread IS the invocation scope.
+# Never enabled for SBF (single-threaded, separate impl) or by default.
+thread-local-registry = []
 crypto-curve = []
 crypto-poseidon = []
 crypto-bn254 = []

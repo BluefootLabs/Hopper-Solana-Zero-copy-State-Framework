@@ -135,6 +135,16 @@ hopper-macros-proc = { workspace = true, optional = true }
 hopper-builtins = { path = "crates/hopper-builtins", version = "0.2.1", optional = true }
 
 [dev-dependencies]
+# Host execution harness so integration tests can bind proc-macro
+# contexts against real AccountView memory (BLD-I24 strict-writes
+# declared-vs-published-vs-enforced consistency test).
+hopper-svm = { workspace = true }
+# Per-thread borrow registry for the root test binaries (see the same
+# dev-dep in crates/hopper-core/Cargo.toml for the full rationale):
+# parallel test threads must not share the process-global registry, or
+# unrelated tests reusing a fake address can spuriously collide into
+# `AccountBorrowFailed`. Dev-only; `cargo build` / SBF never see it.
+hopper-runtime = { workspace = true, features = ["thread-local-registry"] }
 trybuild = "1"
 
 [features]

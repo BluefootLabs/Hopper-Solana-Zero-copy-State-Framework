@@ -11,7 +11,7 @@
 // silence `clone_on_copy` only in the lane where the type is actually `Copy`.
 #![cfg_attr(feature = "copy", allow(clippy::clone_on_copy))]
 
-#[cfg(test)]
+#[cfg(any(test, feature = "thread-local-registry"))]
 extern crate std;
 
 #[doc(hidden)]

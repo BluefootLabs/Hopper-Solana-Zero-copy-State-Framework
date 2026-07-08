@@ -516,6 +516,7 @@ mod tests {
             receipt_expected: false,
             strict_writes: false,
             write_ranges: &[],
+            cu_estimate: 0,
         }];
         static EVENT_FIELDS: &[FieldDescriptor] = &[FieldDescriptor {
             name: "amount",

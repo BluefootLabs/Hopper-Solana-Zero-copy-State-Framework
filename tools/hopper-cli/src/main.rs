@@ -4045,6 +4045,10 @@ fn to_program_manifest(m: &OwnedProgramManifest) -> ProgramManifest {
                 // real JSON wiring; see followups.
                 strict_writes: false,
                 write_ranges: &[],
+                // BLD-CU: the JSON manifest loader does not yet parse
+                // cuEstimate; default to 0 = unknown (no estimate published)
+                // rather than fabricating a number. JSON wiring is a followup.
+                cu_estimate: 0,
             }
         })
         .collect();
@@ -4134,6 +4138,12 @@ fn to_program_manifest(m: &OwnedProgramManifest) -> ProgramManifest {
                 policies: Box::leak(policies.into_boxed_slice()),
                 receipts_expected: ctx.receipts_expected,
                 mutation_classes: Box::leak(mutation_classes.into_boxed_slice()),
+                // The JSON manifest context schema does not yet carry the
+                // strict-writes range set (BLD-I24 publishes it through the
+                // Rust-side `SCHEMA_METADATA` const); default to the
+                // no-authority form until the JSON schema grows the fields.
+                strict_writes: false,
+                write_ranges: &[],
             }
         })
         .collect();

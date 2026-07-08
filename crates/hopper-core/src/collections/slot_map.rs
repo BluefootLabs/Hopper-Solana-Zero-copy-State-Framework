@@ -55,11 +55,19 @@ impl<'a, T: Pod + FixedLayout> SlotMap<'a, T> {
     /// Overlay a SlotMap on a mutable byte slice.
     ///
     /// **Parse, don't validate.** The stored occupied-slot count comes
-    /// from untrusted account bytes; a header claiming `count > capacity`
-    /// is inconsistent geometry and is rejected here. (Access itself was
-    /// already sound — every `SlotKey` index is bounds-checked against
-    /// `capacity` and the generation counter defeats ABA — so this adds
-    /// consistency, not a missing bound.)
+    /// from untrusted account bytes. Two consistency checks reject a
+    /// corrupt header up front:
+    ///
+    /// 1. `count > capacity` is inconsistent geometry.
+    /// 2. `count` must equal the number of slots whose occupied flag is
+    ///    actually set — the flags are the ground truth every access is
+    ///    gated on, so a disagreeing header is corruption, not state.
+    ///
+    /// The reconciliation scan is O(capacity), one flag byte per slot,
+    /// paid once at construction. (Access itself was already sound —
+    /// every `SlotKey` index is bounds-checked against `capacity` and
+    /// the generation counter defeats ABA — so this adds consistency,
+    /// not a missing bound.)
     #[inline]
     pub fn from_bytes(data: &'a mut [u8]) -> Result<Self, ProgramError> {
         const { super::assert_zero_copy_element::<T>() };
@@ -69,6 +77,19 @@ impl<'a, T: Pod + FixedLayout> SlotMap<'a, T> {
         let capacity = (data.len() - MAP_HEADER) / Self::SLOT_SIZE;
         let count = u32::from_le_bytes([data[0], data[1], data[2], data[3]]) as usize;
         if count > capacity {
+            return Err(ProgramError::InvalidAccountData);
+        }
+        // Reconcile the stored count against the per-slot occupancy
+        // flags (offset +4 within each slot). The flags are what insert/
+        // remove/get are gated on; a header that disagrees with them is
+        // corrupt and is rejected rather than papered over downstream.
+        let mut occupied = 0usize;
+        for i in 0..capacity {
+            if data[MAP_HEADER + i * Self::SLOT_SIZE + 4] != 0 {
+                occupied += 1;
+            }
+        }
+        if occupied != count {
             return Err(ProgramError::InvalidAccountData);
         }
         Ok(Self {
@@ -142,13 +163,12 @@ impl<'a, T: Pod + FixedLayout> SlotMap<'a, T> {
                         value,
                     );
                 }
-                // The stored `count` header is untrusted (account bytes are
-                // attacker-writable) and `from_bytes` does not reconcile it
-                // against the per-slot occupancy flags — slot access is gated
-                // on the flags, not `count`, so `count` is a reporting value
-                // only. Clamp to capacity so a crafted `count == capacity`
-                // with a free slot can never push the reported length past the
-                // real bound.
+                // `from_bytes` now rejects a `count` that disagrees with the
+                // occupancy flags, so a consistent map cannot reach `count ==
+                // capacity` with a free slot. Keep the clamp anyway (defense
+                // in depth): slot access is gated on the flags, not `count`,
+                // so `count` is a reporting value only and clamping can never
+                // hide a real slot.
                 self.set_count(self.count().saturating_add(1).min(cap));
                 return Ok(SlotKey {
                     index: i as u32,
@@ -198,12 +218,13 @@ impl<'a, T: Pod + FixedLayout> SlotMap<'a, T> {
         for byte in &mut self.data[val_off..val_off + T::SIZE] {
             *byte = 0;
         }
-        // Saturating: the stored `count` is untrusted and may not agree with
-        // the occupancy flags this removal is actually gated on. An
-        // unchecked `count - 1` on a crafted `count == 0` underflows —
-        // debug-panics, or in release wraps to `usize::MAX`, bricking the
-        // reported length. `count` is a reporting value only (slot access is
-        // flag-gated), so saturating is both safe and correct.
+        // Saturating (defense in depth): `from_bytes` now rejects a stored
+        // `count` that disagrees with the occupancy flags, so a consistent
+        // map cannot reach `count == 0` here. Should the header still be
+        // corrupted post-construction, an unchecked `count - 1` would
+        // underflow — debug-panic, or wrap to `usize::MAX` in release.
+        // `count` is a reporting value only (slot access is flag-gated), so
+        // saturating is both safe and correct.
         self.set_count(self.count().saturating_sub(1));
         Ok(value)
     }
@@ -260,11 +281,12 @@ mod tests {
 
     #[test]
     fn remove_on_hostile_zero_count_does_not_underflow() {
-        // Account bytes are attacker-writable and `from_bytes` does not
-        // reconcile the stored `count` with the occupancy flags. Craft a
-        // buffer whose slot 0 is occupied (a real element removal succeeds
-        // its flag/generation gate) but whose `count` header is 0, so the
-        // decrement would underflow. It must saturate, not panic or wrap.
+        // `from_bytes` now rejects a count/occupancy mismatch at
+        // construction, so this corruption is injected afterwards
+        // (defense in depth for the mutation-site guard). Slot 0 is
+        // occupied (a real element removal succeeds its flag/generation
+        // gate) but the `count` header is forced to 0, so the decrement
+        // would underflow. It must saturate, not panic or wrap.
         let mut buf = [0u8; 8 + (8 + 8) * 2];
         {
             let mut map = SlotMap::<WireU64>::from_bytes(&mut buf).unwrap();
@@ -281,12 +303,104 @@ mod tests {
 
     #[test]
     fn insert_on_hostile_full_count_clamps_to_capacity() {
-        // A crafted `count == capacity` with a genuinely free slot must not
-        // push the reported length past capacity when that slot is filled.
+        // `from_bytes` now rejects a count/occupancy mismatch at
+        // construction, so this corruption is injected afterwards
+        // (defense in depth for the mutation-site guard). A crafted
+        // `count == capacity` with a genuinely free slot must not push
+        // the reported length past capacity when that slot is filled.
         let mut buf = [0u8; 8 + (8 + 8) * 2]; // capacity 2
         let mut map = SlotMap::<WireU64>::from_bytes(&mut buf).unwrap();
         map.set_count(map.capacity()); // lie: "full", but both slots are free
         let _ = map.insert(WireU64::new(7)).unwrap();
         assert!(map.count() <= map.capacity());
+    }
+
+    /// Capacity-2 WireU64 map: header (8) + 2 slots of (8 overhead + 8).
+    const CAP2_LEN: usize = 8 + (8 + 8) * 2;
+    /// Occupied-flag byte offset of slot `i` (header + i*slot_size + 4).
+    const fn occ_off(i: usize) -> usize {
+        8 + i * 16 + 4
+    }
+
+    #[test]
+    fn from_bytes_rejects_count_higher_than_occupancy() {
+        // count = 1 (<= capacity, so it passes the geometry check) but
+        // no slot has its occupied flag set: corrupt header, rejected.
+        let mut buf = [0u8; CAP2_LEN];
+        buf[0..4].copy_from_slice(&1u32.to_le_bytes());
+        assert!(matches!(
+            SlotMap::<WireU64>::from_bytes(&mut buf),
+            Err(ProgramError::InvalidAccountData)
+        ));
+    }
+
+    #[test]
+    fn from_bytes_rejects_count_lower_than_occupancy() {
+        // count = 0 but slot 1's occupied flag is set: corrupt header,
+        // rejected.
+        let mut buf = [0u8; CAP2_LEN];
+        buf[occ_off(1)] = 1;
+        assert!(matches!(
+            SlotMap::<WireU64>::from_bytes(&mut buf),
+            Err(ProgramError::InvalidAccountData)
+        ));
+    }
+
+    #[test]
+    fn from_bytes_accepts_consistent_count_and_occupancy() {
+        // count = 2 with both occupied flags set: consistent, accepted,
+        // and the parsed map reports the stored count.
+        let mut buf = [0u8; CAP2_LEN];
+        buf[0..4].copy_from_slice(&2u32.to_le_bytes());
+        buf[occ_off(0)] = 1;
+        buf[occ_off(1)] = 1;
+        let map = SlotMap::<WireU64>::from_bytes(&mut buf).unwrap();
+        assert_eq!(map.count(), 2);
+        assert_eq!(map.capacity(), 2);
+
+        // And the empty (all-zero) buffer is consistent too.
+        let mut zeroed = [0u8; CAP2_LEN];
+        let map = SlotMap::<WireU64>::from_bytes(&mut zeroed).unwrap();
+        assert_eq!(map.count(), 0);
+    }
+
+    proptest::proptest! {
+        /// Constructive both-ways property: build a well-formed buffer
+        /// with independently chosen `count` header and occupied-flag
+        /// bytes, and assert `from_bytes` accepts it IFF the stored
+        /// count equals the number of nonzero flags. (A fully random
+        /// byte strategy is vacuous here — a random header matches its
+        /// flag popcount with probability ~2^-32, so the accept branch
+        /// would never execute and deleting the reconciliation loop
+        /// would go unnoticed.)
+        #[test]
+        fn from_bytes_only_accepts_reconciled_counts(
+            capacity in 0usize..8,
+            flags in proptest::collection::vec(proptest::prelude::any::<u8>(), 0..8),
+            count in 0u32..10,
+        ) {
+            // Header (8) + capacity slots of (8 overhead + 8 value).
+            let mut buf = std::vec![0u8; 8 + capacity * 16];
+            buf[0..4].copy_from_slice(&count.to_le_bytes());
+            let mut occupied = 0u32;
+            for i in 0..capacity {
+                let flag = *flags.get(i).unwrap_or(&0);
+                buf[occ_off(i)] = flag;
+                if flag != 0 {
+                    occupied += 1;
+                }
+            }
+            let parsed = SlotMap::<WireU64>::from_bytes(&mut buf);
+            if count == occupied {
+                let map = parsed.expect("consistent header must parse");
+                proptest::prop_assert_eq!(map.count(), occupied as usize);
+                proptest::prop_assert_eq!(map.capacity(), capacity);
+            } else {
+                // Rejected by the count/occupancy reconciliation (or by
+                // the count<=capacity geometry check when count is also
+                // past capacity).
+                proptest::prop_assert!(parsed.is_err());
+            }
+        }
     }
 }

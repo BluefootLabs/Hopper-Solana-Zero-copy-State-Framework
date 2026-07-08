@@ -555,6 +555,7 @@ mod tests {
             receipt_expected: true,
             strict_writes: false,
             write_ranges: &[],
+            cu_estimate: 0,
         }];
         static EV_F: [FieldDescriptor; 1] = [FieldDescriptor {
             name: "amount",

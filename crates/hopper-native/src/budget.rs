@@ -54,12 +54,17 @@ use crate::ProgramResult;
 
 /// Compute-unit budget tracker.
 ///
-/// On BPF, uses `sol_log_compute_units()` to read the remaining budget.
-/// Off-chain, all operations are no-ops that succeed.
+/// On BPF, `sol_log_compute_units()` only *logs* the remaining budget to
+/// the program log — it does not return the value to the program — so this
+/// tracker cannot read the remaining CU. Off-chain, all operations are
+/// no-ops that succeed.
 #[derive(Clone, Copy)]
 pub struct CuBudget {
-    /// CU remaining at the time of the snapshot (0 off-chain).
-    /// Reserved for future use when Solana exposes a `sol_get_remaining_cu` syscall.
+    /// Always 0 today, on-chain and off: `sol_log_compute_units()` cannot
+    /// return the remaining CU to the program, so nothing populates this.
+    /// Solana now exposes a `sol_remaining_compute_units` syscall (SIMD-0049)
+    /// that could, but Hopper's syscall table does not bind it yet; wiring it
+    /// here (making `snapshot`/`require_remaining` real) is a followup.
     #[allow(dead_code)]
     snapshot: u64,
 }
@@ -67,9 +72,11 @@ pub struct CuBudget {
 impl CuBudget {
     /// Take a snapshot of the current compute budget.
     ///
-    /// On BPF this calls `sol_log_compute_units()` and captures the
-    /// remaining CU from the log output. On native (off-chain), the
-    /// snapshot is 0 and all checks pass trivially.
+    /// On BPF this calls `sol_log_compute_units()`, which emits the
+    /// remaining CU to the program log for *off-chain* consumption; the
+    /// value is not returned to the program, so the stored snapshot is
+    /// always 0. On native (off-chain), the snapshot is likewise 0 and all
+    /// checks pass trivially.
     #[inline(always)]
     pub fn snapshot() -> Self {
         #[cfg(target_os = "solana")]
@@ -108,10 +115,10 @@ impl CuBudget {
 
     /// Assert that at least `min_remaining` CU are available.
     ///
-    /// On BPF, this is a conservative check: the Solana runtime does not
-    /// expose a "get remaining CU" syscall, so this method logs the
-    /// current usage and returns Ok. The real enforcement is that the
-    /// runtime itself will abort if CU is exhausted.
+    /// On BPF, this is a conservative check: Hopper's syscall table does
+    /// not yet bind the `sol_remaining_compute_units` syscall (SIMD-0049),
+    /// so this method logs the current usage and returns Ok. The real
+    /// enforcement is that the runtime itself will abort if CU is exhausted.
     ///
     /// The value of this method is that it makes the CU concern VISIBLE
     /// in the code and provides a hook point for future runtime features
@@ -121,8 +128,9 @@ impl CuBudget {
     #[inline(always)]
     pub fn require_remaining(&self, _min_remaining: u64) -> ProgramResult {
         // On BPF: log and rely on the runtime's hard abort.
-        // When Solana adds a `sol_get_remaining_compute_units` syscall,
-        // this method will become a real guard.
+        // Solana's `sol_remaining_compute_units` syscall (SIMD-0049) could
+        // make this a real guard; binding it in Hopper's syscall table and
+        // enforcing here is a followup.
         #[cfg(target_os = "solana")]
         // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {

@@ -2698,8 +2698,25 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
     // range expressions below are the *same* const arithmetic the
     // generated segment accessors use, so a declared accessor can never
     // be refused by the policy compiled from its own declaration.
-    let write_policy_install_stmt: TokenStream = if context_options.strict_writes {
-        let mut range_exprs: Vec<TokenStream> = Vec::new();
+    //
+    // BLD-I24: the range set is emitted ONCE, as a module-level const,
+    // and every consumer reads that const: the runtime `WritePolicy`
+    // installed by `bind()`, the `WRITE_RANGES` associated const, and
+    // `SCHEMA_METADATA.write_ranges`. Routing all three through one
+    // const makes the published (manifest/IDL) write-set byte-identical
+    // to the enforced one by construction — they cannot drift. The
+    // const lives at module scope (not inside `bind()`, not on the
+    // impl) so the function-local `static WritePolicy` can reference it
+    // even when the context struct carries generic lifetimes.
+    let strict_writes_enabled = context_options.strict_writes;
+    // The context name is embedded VERBATIM (not case-folded): struct
+    // idents are unique per module, so the raw name keeps the generated
+    // const collision-free. A screaming-snake fold is lossy (`AbC` and
+    // `Ab_c` both fold to `AB_C`) and would turn two legal context names
+    // into a duplicate-definition error inside hidden macro output.
+    let write_ranges_const_ident = format_ident!("__HOPPER_{}_WRITE_RANGES", name);
+    let mut range_exprs: Vec<TokenStream> = Vec::new();
+    if strict_writes_enabled {
         for cf in &ctx_fields {
             let idx_u8 = cf.index as u8;
             let whole_account = cf.attr.is_mut
@@ -2735,13 +2752,27 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                 });
             }
         }
+    }
+    // Empty (and carrying no authority) unless `strict_writes` is on,
+    // mirroring `InstructionDescriptor.write_ranges` semantics.
+    let write_ranges_const_item = quote! {
+        #[doc(hidden)]
+        // The verbatim context name keeps the ident injective; consts
+        // are conventionally SCREAMING so silence the case lint.
+        #[allow(non_upper_case_globals)]
+        #vis const #write_ranges_const_ident:
+            &[::hopper::__runtime::write_policy::WriteRange] = &[
+                #(#range_exprs),*
+            ];
+    };
+    let write_policy_install_stmt: TokenStream = if strict_writes_enabled {
         quote! {
             {
                 static __HOPPER_WRITE_POLICY:
                     ::hopper::__runtime::write_policy::WritePolicy =
-                    ::hopper::__runtime::write_policy::WritePolicy::new(&[
-                        #(#range_exprs),*
-                    ]);
+                    ::hopper::__runtime::write_policy::WritePolicy::new(
+                        #write_ranges_const_ident,
+                    );
                 ctx.set_write_policy(&__HOPPER_WRITE_POLICY);
             }
         }
@@ -2811,6 +2842,14 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         // Emit the original struct unchanged (attribute macro path only).
         #original_struct
 
+        // Single source of truth for this context's declared byte-range
+        // write-set (BLD-I24). Referenced by the runtime `WritePolicy`
+        // that `bind()` installs under `strict_writes`, by the
+        // `WRITE_RANGES` associated const, and by
+        // `SCHEMA_METADATA.write_ranges`, so the scheduler-legible
+        // published set is byte-identical to the enforced set.
+        #write_ranges_const_item
+
         /// Captured PDA bumps for every `seeds = ...` field in this
         /// context. One `u8` slot per PDA, named after the field. Read
         /// from the bound context as `ctx.bumps().<field>` and hand
@@ -2875,7 +2914,35 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                     policies: &[],
                     receipts_expected: #receipt_expected,
                     mutation_classes: &[],
+                    strict_writes: #strict_writes_enabled,
+                    write_ranges: #write_ranges_const_ident,
                 };
+
+            /// Whether this context was compiled with `strict_writes`.
+            ///
+            /// When `true`, [`WRITE_RANGES`](Self::WRITE_RANGES) is the
+            /// complete, runtime-enforced write surface: `bind()` installs
+            /// a `WritePolicy` built from the very same const, so any
+            /// Context-mediated write outside the set fails at acquisition
+            /// time. When `false`, the range set is empty and carries no
+            /// authority.
+            pub const STRICT_WRITES: bool = #strict_writes_enabled;
+
+            /// Declared byte-range write-set for this context, compiled
+            /// from its `mut` / `mut(seg, ...)` / lifecycle declarations.
+            ///
+            /// This slice, `SCHEMA_METADATA.write_ranges`, and the runtime
+            /// `WritePolicy` installed by `bind()` under `strict_writes`
+            /// all read the same generated const, so what schedulers and
+            /// indexers see published is byte-identical to what the
+            /// runtime enforces. Wire it into a manifest
+            /// `InstructionDescriptor` as
+            /// `write_ranges: MyCtx::WRITE_RANGES` (with
+            /// `strict_writes: MyCtx::STRICT_WRITES`) — no hand-authored
+            /// offsets.
+            pub const WRITE_RANGES:
+                &'static [::hopper::__runtime::write_policy::WriteRange] =
+                #write_ranges_const_ident;
 
             /// Declared instruction-arg bindings for this context, as
             /// `(name, canonical_type)` pairs in the order given to

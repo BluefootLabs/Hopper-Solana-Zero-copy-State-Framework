@@ -31,6 +31,13 @@ hopper-native = { workspace = true }
 # buffers through every collection API and require clean `Err`s, never
 # panics or out-of-bounds access.
 proptest = "1"
+# Per-thread borrow registry for THIS crate's test binary. Without it,
+# hopper-runtime compiles as a plain dependency (its own `cfg(test)` is
+# false here), so all parallel test threads would share one process-global
+# registry and unrelated tests using the same fake address could
+# transiently collide into a spurious `AccountBorrowFailed`. Dev-only:
+# `cargo build` / SBF never see this feature.
+hopper-runtime = { workspace = true, features = ["thread-local-registry"] }
 
 [features]
 default = ["programs", "advanced", "cpi", "collections", "sha2-layout-id", "anchor-compat"]

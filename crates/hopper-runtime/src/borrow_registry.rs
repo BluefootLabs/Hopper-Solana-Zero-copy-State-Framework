@@ -44,7 +44,7 @@ mod imp {
     use super::{Address, ProgramError};
     use crate::MAX_TX_ACCOUNTS;
 
-    #[cfg(test)]
+    #[cfg(any(test, feature = "thread-local-registry"))]
     use std::cell::RefCell;
 
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -221,12 +221,23 @@ mod imp {
         }
     }
 
-    #[cfg(test)]
+    // Per-thread registry: hopper-runtime's own unit tests always get it
+    // (`test`), and downstream test binaries opt in via the
+    // `thread-local-registry` feature in their dev-dependencies. The
+    // `#[cfg(test)]` alone is NOT enough for dependents: when e.g.
+    // hopper-core's test binary builds, hopper-runtime compiles as a
+    // plain dependency (`cfg(test)` false), so without the feature all
+    // of that binary's parallel test threads would share the global
+    // spinlocked registry below — and two unrelated tests using the same
+    // fake address with overlapping ranges would transiently collide
+    // into a spurious `AccountBorrowFailed`.
+    #[cfg(any(test, feature = "thread-local-registry"))]
     std::thread_local! {
         static REGISTRY: RefCell<BorrowRegistry> = const { RefCell::new(BorrowRegistry::new()) };
     }
 
-    /// Host (non-test) registry cell: an `UnsafeCell` global guarded by a
+    /// Host fallback registry cell (no `test`, no `thread-local-registry`
+    /// feature — i.e. `no_std` hosts): an `UnsafeCell` global guarded by a
     /// `core`-only atomic spinlock so the `Sync` impl below is actually
     /// justified. The pre-audit version handed out `&`/`&mut` from the
     /// bare `UnsafeCell` with no synchronization, which is a data race the
@@ -234,7 +245,7 @@ mod imp {
     /// from two threads. Critical sections here are a handful of array
     /// scans, so a spinlock is appropriate; a re-entrant call from inside
     /// the closure now deadlocks loudly instead of aliasing `&mut`.
-    #[cfg(not(test))]
+    #[cfg(not(any(test, feature = "thread-local-registry")))]
     struct RegistryCell {
         lock: core::sync::atomic::AtomicBool,
         cell: core::cell::UnsafeCell<BorrowRegistry>,
@@ -243,16 +254,16 @@ mod imp {
     // SAFETY: all access to `cell` goes through `with_lock`, which serializes
     // via the acquire/release spinlock, so no two threads can observe the
     // registry concurrently.
-    #[cfg(not(test))]
+    #[cfg(not(any(test, feature = "thread-local-registry")))]
     unsafe impl Sync for RegistryCell {}
 
-    #[cfg(not(test))]
+    #[cfg(not(any(test, feature = "thread-local-registry")))]
     static REGISTRY: RegistryCell = RegistryCell {
         lock: core::sync::atomic::AtomicBool::new(false),
         cell: core::cell::UnsafeCell::new(BorrowRegistry::new()),
     };
 
-    #[cfg(not(test))]
+    #[cfg(not(any(test, feature = "thread-local-registry")))]
     fn with_lock<R>(f: impl FnOnce(&mut BorrowRegistry) -> R) -> R {
         use core::sync::atomic::Ordering;
         while REGISTRY
@@ -269,7 +280,7 @@ mod imp {
         result
     }
 
-    #[cfg(test)]
+    #[cfg(any(test, feature = "thread-local-registry"))]
     fn with_registry<R>(f: impl FnOnce(&BorrowRegistry) -> R) -> R {
         REGISTRY.with(|registry| {
             let registry = registry.borrow();
@@ -277,12 +288,12 @@ mod imp {
         })
     }
 
-    #[cfg(not(test))]
+    #[cfg(not(any(test, feature = "thread-local-registry")))]
     fn with_registry<R>(f: impl FnOnce(&BorrowRegistry) -> R) -> R {
         with_lock(|registry| f(registry))
     }
 
-    #[cfg(test)]
+    #[cfg(any(test, feature = "thread-local-registry"))]
     fn with_registry_mut<R>(f: impl FnOnce(&mut BorrowRegistry) -> R) -> R {
         REGISTRY.with(|registry| {
             let mut registry = registry.borrow_mut();
@@ -290,7 +301,7 @@ mod imp {
         })
     }
 
-    #[cfg(not(test))]
+    #[cfg(not(any(test, feature = "thread-local-registry")))]
     fn with_registry_mut<R>(f: impl FnOnce(&mut BorrowRegistry) -> R) -> R {
         with_lock(f)
     }

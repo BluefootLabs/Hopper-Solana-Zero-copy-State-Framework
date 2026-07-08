@@ -2184,6 +2184,7 @@ dependencies = [
  "hopper-schema",
  "hopper-solana",
  "hopper-staking",
+ "hopper-svm",
  "hopper-system",
  "hopper-systems",
  "hopper-token",

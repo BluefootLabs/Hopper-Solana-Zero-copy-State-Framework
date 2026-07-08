@@ -2559,8 +2559,37 @@ pub struct InstructionDescriptor {
     /// enforced `WritePolicy`, published here so tooling and generated clients
     /// can see the byte-granular write surface instead of only the coarse
     /// Sealevel `writable` bit. Empty under a non-`strict_writes` instruction.
+    ///
+    /// Populate with zero manual authoring by referencing the macro's
+    /// generated consts: `strict_writes: MyCtx::STRICT_WRITES,
+    /// write_ranges: MyCtx::WRITE_RANGES` — the same shared const also
+    /// backs `MyCtx::SCHEMA_METADATA.write_ranges`
+    /// ([`accounts::ContextDescriptor::write_ranges`]) and the runtime
+    /// `WritePolicy`, so the published and enforced sets cannot drift.
     pub write_ranges: &'static [WriteRange],
+    /// Author-supplied compute-unit upper bound for this instruction, in CU.
+    /// `0` means unknown (no estimate published).
+    ///
+    /// This is a **measured, conservative** number: the author (or a future
+    /// macro pass that sums validated per-primitive costs from
+    /// `docs/CU_COSTS.md`) asserts the instruction completes within this many
+    /// compute units on its worst-case path. It must NEVER under-estimate —
+    /// a client that sets `SetComputeUnitLimit` below actual consumption
+    /// fails the transaction on chain. Hopper does not fabricate this value:
+    /// nothing in the framework computes it from an unmeasured cost model,
+    /// and every emitter treats `0` as "absent" (the field is omitted from
+    /// the manifest JSON and no compute-budget helper is generated).
+    ///
+    /// The payoff is SIMD-553-era economics: unused *requested* CU still
+    /// bills, so clients that budget tightly from an honest measured bound
+    /// pay the cheapest possible fee. See
+    /// [`cu_budget_with_margin`](InstructionDescriptor::cu_budget_with_margin)
+    /// for the padded value generated clients request.
+    pub cu_estimate: u32,
 }
+
+/// Maximum compute-unit limit a transaction may request (Solana runtime cap).
+pub const MAX_COMPUTE_UNIT_LIMIT: u32 = 1_400_000;
 
 impl InstructionDescriptor {
     /// Whether the account at `account_index` has any declared write range.
@@ -2603,6 +2632,28 @@ impl InstructionDescriptor {
     /// [`account_has_declared_write`] for the raw range query.
     pub fn effective_writable(&self, _account_index: usize, declared_writable: bool) -> bool {
         declared_writable
+    }
+
+    /// The compute-unit limit a generated client should request for this
+    /// instruction: the published [`cu_estimate`] plus a 10% safety margin,
+    /// clamped to [`MAX_COMPUTE_UNIT_LIMIT`]. Returns `None` when no
+    /// estimate is published (`cu_estimate == 0`), in which case generated
+    /// clients emit no compute-budget instruction at all (current behavior).
+    ///
+    /// The margin only ever *raises* the requested limit above the measured
+    /// bound, so an honest estimate stays safe; it never shrinks one.
+    ///
+    /// [`cu_estimate`]: InstructionDescriptor::cu_estimate
+    pub const fn cu_budget_with_margin(&self) -> Option<u32> {
+        if self.cu_estimate == 0 {
+            return None;
+        }
+        let padded = self.cu_estimate.saturating_add(self.cu_estimate / 10);
+        Some(if padded > MAX_COMPUTE_UNIT_LIMIT {
+            MAX_COMPUTE_UNIT_LIMIT
+        } else {
+            padded
+        })
     }
 }
 
@@ -4674,6 +4725,7 @@ mod tests {
             receipt_expected: true,
             strict_writes: false,
             write_ranges: &[],
+            cu_estimate: 0,
         },
         InstructionDescriptor {
             name: "withdraw",
@@ -4685,6 +4737,7 @@ mod tests {
             receipt_expected: true,
             strict_writes: false,
             write_ranges: &[],
+            cu_estimate: 0,
         },
     ];
 
@@ -4837,6 +4890,8 @@ mod tests {
                 policies: &["TREASURY_WRITE"],
                 receipts_expected: true,
                 mutation_classes: &["Financial"],
+                strict_writes: false,
+                write_ranges: &[],
             }];
 
         let resolver = CONTEXTS[0].find_resolver("vault").unwrap();

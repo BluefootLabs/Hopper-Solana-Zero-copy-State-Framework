@@ -231,6 +231,7 @@ mod tests {
             receipt_expected: true,
             strict_writes: false,
             write_ranges: &[],
+            cu_estimate: 0,
         }];
         ProgramManifest {
             name: "test",

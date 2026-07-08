@@ -103,6 +103,47 @@ impl<'a> fmt::Display for RsClientGen<'a> {
         writeln!(f, "/// Byte length of the fingerprint (always 8).")?;
         writeln!(f, "pub const LAYOUT_ID_LENGTH: usize = 8;")?;
         writeln!(f)?;
+
+        // Compute-budget support (BLD-CU): emitted only when at least one
+        // instruction publishes a measured CU estimate, so unmeasured
+        // programs get byte-identical pre-BLD-CU output.
+        if prog.instructions.iter().any(|ix| ix.cu_estimate > 0) {
+            writeln!(
+                f,
+                "/// Solana Compute Budget program (`ComputeBudget111111111111111111111111111111`)."
+            )?;
+            writeln!(
+                f,
+                "pub const COMPUTE_BUDGET_PROGRAM_ID: Pubkey = Pubkey::new_from_array(["
+            )?;
+            writeln!(
+                f,
+                "    3, 6, 70, 111, 229, 33, 23, 50, 255, 236, 173, 186, 114, 195, 155, 231,"
+            )?;
+            writeln!(
+                f,
+                "    188, 140, 229, 187, 197, 247, 18, 107, 44, 67, 155, 58, 64, 0, 0, 0,"
+            )?;
+            writeln!(f, "]);")?;
+            writeln!(f)?;
+            writeln!(
+                f,
+                "/// Build a `SetComputeUnitLimit` instruction requesting `units` CU."
+            )?;
+            writeln!(
+                f,
+                "pub fn set_compute_unit_limit_ix(units: u32) -> Instruction {{"
+            )?;
+            writeln!(f, "    let mut data = vec![2u8, 0, 0, 0, 0];")?;
+            writeln!(f, "    data[1..5].copy_from_slice(&units.to_le_bytes());")?;
+            writeln!(f, "    Instruction {{")?;
+            writeln!(f, "        program_id: COMPUTE_BUDGET_PROGRAM_ID,")?;
+            writeln!(f, "        accounts: vec![],")?;
+            writeln!(f, "        data,")?;
+            writeln!(f, "    }}")?;
+            writeln!(f, "}}")?;
+            writeln!(f)?;
+        }
         writeln!(f, "/// Shared error type for every decoder in this module.")?;
         writeln!(f, "#[derive(Clone, Copy, Debug, PartialEq, Eq)]")?;
         writeln!(f, "pub enum ClientError {{")?;
@@ -606,6 +647,52 @@ fn write_instruction_builder(
     writeln!(f, "    }}")?;
     writeln!(f, "}}")?;
     writeln!(f)?;
+
+    // Compute-budget companion (BLD-CU). Generated only when the descriptor
+    // publishes a measured CU upper bound (cu_estimate > 0); unmeasured
+    // instructions keep the exact pre-BLD-CU output. The requested limit is
+    // the published bound + 10% margin (clamped at the 1.4M runtime cap);
+    // the margin only raises the limit, so an honest estimate stays safe.
+    if let Some(budget) = ix.cu_budget_with_margin() {
+        writeln!(
+            f,
+            "/// Measured CU upper bound for `{}` (author-published, conservative).",
+            snake
+        )?;
+        writeln!(
+            f,
+            "pub const {}_CU_ESTIMATE: u32 = {};",
+            upper, ix.cu_estimate
+        )?;
+        writeln!(f)?;
+        writeln!(
+            f,
+            "/// Like [`{}_ix`], but prepended with a `SetComputeUnitLimit({})`",
+            snake, budget
+        )?;
+        writeln!(
+            f,
+            "/// (estimate + 10% margin) so the transaction requests only the CU"
+        )?;
+        writeln!(f, "/// the instruction was measured to need.")?;
+        writeln!(f, "pub fn {}_ix_with_budget(", snake)?;
+        writeln!(f, "    program_id: &Pubkey,")?;
+        writeln!(f, "    accounts: &{}Accounts,", pascal)?;
+        if !ix.args.is_empty() {
+            writeln!(f, "    args: &{}Args,", pascal)?;
+        }
+        writeln!(f, ") -> [Instruction; 2] {{")?;
+        writeln!(f, "    [")?;
+        writeln!(f, "        set_compute_unit_limit_ix({}),", budget)?;
+        if ix.args.is_empty() {
+            writeln!(f, "        {}_ix(program_id, accounts),", snake)?;
+        } else {
+            writeln!(f, "        {}_ix(program_id, accounts, args),", snake)?;
+        }
+        writeln!(f, "    ]")?;
+        writeln!(f, "}}")?;
+        writeln!(f)?;
+    }
     Ok(())
 }
 
@@ -953,6 +1040,7 @@ mod tests {
             receipt_expected: false,
             strict_writes: false,
             write_ranges: &[],
+            cu_estimate: 0,
         };
         static INSTRUCTIONS: &[InstructionDescriptor] = &[DEPOSIT];
         static EVENT_FIELDS: &[FieldDescriptor] = &[FieldDescriptor {
@@ -1153,6 +1241,7 @@ mod tests {
             receipt_expected: false,
             strict_writes: true,
             write_ranges: WR_RANGES,
+            cu_estimate: 0,
         }];
         static LOOSE_IX: &[InstructionDescriptor] = &[InstructionDescriptor {
             name: "deposit",
@@ -1164,6 +1253,7 @@ mod tests {
             receipt_expected: false,
             strict_writes: false,
             write_ranges: &[],
+            cu_estimate: 0,
         }];
         ProgramManifest {
             name: "vault_program",
@@ -1195,5 +1285,63 @@ mod tests {
         let out = RsClientGen(&wr_manifest(false)).to_string();
         // Non-strict: config keeps its declared writable flag.
         assert!(out.contains("AccountMeta::new(accounts.config, false),"));
+    }
+
+    // -- BLD-CU: compute-budget companion generation --
+
+    fn cu_manifest(with_estimate: bool) -> ProgramManifest {
+        static CU_IX_SET: &[InstructionDescriptor] = &[InstructionDescriptor {
+            name: "deposit",
+            tag: 0,
+            args: &[],
+            accounts: WR_ACCTS,
+            capabilities: &[],
+            policy_pack: "",
+            receipt_expected: false,
+            strict_writes: false,
+            write_ranges: &[],
+            cu_estimate: 10_000,
+        }];
+        ProgramManifest {
+            name: "vault_program",
+            version: "0.1.0",
+            description: "test",
+            layouts: &[],
+            layout_metadata: &[],
+            instructions: if with_estimate {
+                CU_IX_SET
+            } else {
+                // Reuse the loose BLD-WR instruction: cu_estimate is 0 there.
+                &[]
+            },
+            events: &[],
+            policies: &[],
+            compatibility_pairs: &[],
+            tooling_hints: &[],
+            contexts: &[],
+        }
+    }
+
+    #[test]
+    fn rs_cu_estimate_generates_budget_companion() {
+        let out = RsClientGen(&cu_manifest(true)).to_string();
+        // Shared helpers emitted once in the preamble.
+        assert!(out.contains("pub const COMPUTE_BUDGET_PROGRAM_ID: Pubkey"));
+        assert!(out.contains("pub fn set_compute_unit_limit_ix(units: u32) -> Instruction {"));
+        // The raw measured bound is exported verbatim...
+        assert!(out.contains("pub const DEPOSIT_CU_ESTIMATE: u32 = 10000;"));
+        // ...and the companion prepends SetComputeUnitLimit(estimate + 10%).
+        assert!(out.contains("pub fn deposit_ix_with_budget("));
+        assert!(out.contains("set_compute_unit_limit_ix(11000),"));
+        assert!(out.contains("deposit_ix(program_id, accounts),"));
+    }
+
+    #[test]
+    fn rs_unknown_cu_estimate_emits_no_budget_code() {
+        // 0 = unmeasured: output stays byte-identical to pre-BLD-CU behavior.
+        let out = RsClientGen(&wr_manifest(false)).to_string();
+        assert!(!out.contains("CU_ESTIMATE"));
+        assert!(!out.contains("with_budget"));
+        assert!(!out.contains("COMPUTE_BUDGET_PROGRAM_ID"));
     }
 }

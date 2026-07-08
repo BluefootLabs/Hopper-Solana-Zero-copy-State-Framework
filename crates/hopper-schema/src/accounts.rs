@@ -7,6 +7,8 @@
 
 use core::fmt;
 
+use crate::WriteRange;
+
 /// Schema descriptor for a single account field within a context.
 ///
 /// Richer than the basic `AccountEntry` -- captures the full Account DSL
@@ -166,6 +168,24 @@ pub struct ContextDescriptor {
     pub receipts_expected: bool,
     /// Mutation class names (e.g. "Financial", "InPlace").
     pub mutation_classes: &'static [&'static str],
+    /// Whether the context was compiled with
+    /// `#[hopper::context(strict_writes)]`.
+    ///
+    /// When `true`, [`write_ranges`](Self::write_ranges) is the complete
+    /// write surface the runtime `WritePolicy` enforces during `bind()`.
+    /// When `false`, the range set is empty and carries no authority
+    /// (mirroring `InstructionDescriptor::strict_writes`).
+    pub strict_writes: bool,
+    /// Declared byte-range write-set for this context.
+    ///
+    /// Auto-populated by the `#[hopper::context]` macro from the very
+    /// same generated const that backs the runtime `WritePolicy` and the
+    /// context's `WRITE_RANGES` associated const, so the published set
+    /// is byte-identical to the enforced set by construction. Each
+    /// [`WriteRange::account_index`] is the field's position in
+    /// [`accounts`](Self::accounts). Empty unless
+    /// [`strict_writes`](Self::strict_writes) is `true`.
+    pub write_ranges: &'static [WriteRange],
 }
 
 impl ContextDescriptor {
@@ -235,6 +255,20 @@ impl fmt::Display for ContextDescriptor {
                 write!(f, " {}", m)?;
             }
             writeln!(f)?;
+        }
+        if self.strict_writes {
+            writeln!(f, "  Strict writes: {} range(s)", self.write_ranges.len())?;
+            for r in self.write_ranges {
+                if r.size == u32::MAX {
+                    writeln!(f, "    account[{}] whole account", r.account_index)?;
+                } else {
+                    writeln!(
+                        f,
+                        "    account[{}] bytes [{}, +{})",
+                        r.account_index, r.offset, r.size
+                    )?;
+                }
+            }
         }
         Ok(())
     }
@@ -321,6 +355,8 @@ mod tests {
         policies: &["TREASURY_WRITE"],
         receipts_expected: true,
         mutation_classes: &["Financial"],
+        strict_writes: true,
+        write_ranges: &[WriteRange::new(1, 16, 8), WriteRange::whole_account(0)],
     };
 
     #[test]
@@ -356,6 +392,24 @@ mod tests {
         assert!(s.contains("seeds=["));
         assert!(s.contains("Policies: TREASURY_WRITE"));
         assert!(s.contains("Mutations: Financial"));
+        assert!(s.contains("Strict writes: 2 range(s)"));
+        assert!(s.contains("account[1] bytes [16, +8)"));
+        assert!(s.contains("account[0] whole account"));
+    }
+
+    #[test]
+    fn context_descriptor_without_strict_writes_omits_range_section() {
+        static PLAIN: ContextDescriptor = ContextDescriptor {
+            name: "Inspect",
+            accounts: TEST_ACCOUNTS,
+            policies: &[],
+            receipts_expected: false,
+            mutation_classes: &[],
+            strict_writes: false,
+            write_ranges: &[],
+        };
+        let s = format!("{}", PLAIN);
+        assert!(!s.contains("Strict writes"));
     }
 
     #[test]

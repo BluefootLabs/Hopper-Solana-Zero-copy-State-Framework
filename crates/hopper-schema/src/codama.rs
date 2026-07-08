@@ -635,6 +635,15 @@ fn write_instruction_array(
         writeln!(f, ",")?;
         write_indent(f, 3)?;
         writeln!(f, "\"receiptExpected\": {},", ix.receipt_expected)?;
+        // Measured CU upper bound (SIMD-553 play: tight client compute
+        // budgets are the cheapest transactions). Emitted only when the
+        // author published an estimate; 0 means unknown and the key is
+        // omitted entirely so consumers never mistake "unmeasured" for
+        // "costs zero CU".
+        if ix.cu_estimate > 0 {
+            write_indent(f, 3)?;
+            writeln!(f, "\"cuEstimate\": {},", ix.cu_estimate)?;
+        }
         write_indent(f, 3)?;
         writeln!(f, "\"strictWrites\": {},", ix.strict_writes)?;
         write_indent(f, 3)?;
@@ -1410,6 +1419,7 @@ mod tests {
             receipt_expected: true,
             strict_writes: false,
             write_ranges: &[],
+            cu_estimate: 0,
         }];
         let m = ProgramManifest {
             name: "vault_prog",
@@ -1462,6 +1472,7 @@ mod tests {
             receipt_expected: true,
             strict_writes: false,
             write_ranges: &[],
+            cu_estimate: 0,
         }];
         static FIELDS: &[FieldDescriptor] = &[FieldDescriptor {
             name: "balance",
@@ -1645,6 +1656,7 @@ mod tests {
         receipt_expected: true,
         strict_writes: true,
         write_ranges: WR_RANGES,
+        cu_estimate: 0,
     }];
     static WR_LOOSE_IX: &[InstructionDescriptor] = &[InstructionDescriptor {
         name: "deposit",
@@ -1656,6 +1668,7 @@ mod tests {
         receipt_expected: true,
         strict_writes: false,
         write_ranges: &[],
+        cu_estimate: 0,
     }];
 
     fn wr_manifest(instructions: &'static [InstructionDescriptor]) -> ProgramManifest {
@@ -1698,6 +1711,58 @@ mod tests {
         assert!(json.contains("\"writeRanges\": []"));
     }
 
+    // -- BLD-CU: measured per-instruction CU estimate publication --
+
+    #[test]
+    fn manifest_emits_cu_estimate_when_published() {
+        // An author-supplied measured bound is emitted verbatim as cuEstimate.
+        static CU_IX: &[InstructionDescriptor] = &[InstructionDescriptor {
+            name: "deposit",
+            tag: 1,
+            args: &[],
+            accounts: WR_ACCTS,
+            capabilities: &["MutatesState"],
+            policy_pack: "VAULT_WRITE",
+            receipt_expected: true,
+            strict_writes: false,
+            write_ranges: &[],
+            cu_estimate: 4_800,
+        }];
+        let m = wr_manifest(CU_IX);
+        let json = format!("{}", ManifestJson(&m));
+        assert!(json.contains("\"cuEstimate\": 4800"));
+    }
+
+    #[test]
+    fn manifest_omits_cu_estimate_when_unknown() {
+        // cu_estimate == 0 means "unmeasured", not "free": the key must be
+        // absent so no client budgets a transaction from a fabricated zero.
+        let m = wr_manifest(WR_LOOSE_IX);
+        let json = format!("{}", ManifestJson(&m));
+        assert!(!json.contains("cuEstimate"));
+    }
+
+    #[test]
+    fn cu_budget_with_margin_pads_and_clamps() {
+        // Unknown estimate publishes no budget at all.
+        assert_eq!(WR_LOOSE_IX[0].cu_budget_with_margin(), None);
+        // A published estimate gains a 10% margin (never shrinks)...
+        let ix = InstructionDescriptor {
+            cu_estimate: 10_000,
+            ..WR_LOOSE_IX[0]
+        };
+        assert_eq!(ix.cu_budget_with_margin(), Some(11_000));
+        // ...and clamps to the runtime's 1.4M CU transaction cap.
+        let big = InstructionDescriptor {
+            cu_estimate: 1_399_999,
+            ..WR_LOOSE_IX[0]
+        };
+        assert_eq!(
+            big.cu_budget_with_margin(),
+            Some(crate::MAX_COMPUTE_UNIT_LIMIT)
+        );
+    }
+
     #[test]
     fn effective_writable_is_a_sound_passthrough() {
         // Demotion based on data write-ranges alone is unsound (a WriteRange
@@ -1737,6 +1802,7 @@ mod tests {
             receipt_expected: true,
             strict_writes: true,
             write_ranges: &[],
+            cu_estimate: 0,
         }];
         let ix = &UNPOP_IX[0];
         assert!(ix.effective_writable(1, true));

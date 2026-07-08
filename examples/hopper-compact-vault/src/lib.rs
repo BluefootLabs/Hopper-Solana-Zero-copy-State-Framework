@@ -216,6 +216,7 @@ mod tests {
         receipt_expected: false,
         strict_writes: false,
         write_ranges: &[],
+        cu_estimate: 0,
     };
 
     static DEPOSIT_IX: InstructionDescriptor = InstructionDescriptor {
@@ -228,6 +229,7 @@ mod tests {
         receipt_expected: false,
         strict_writes: false,
         write_ranges: &[],
+        cu_estimate: 0,
     };
 
     static INSTRUCTIONS: [InstructionDescriptor; 2] = [INIT_IX, DEPOSIT_IX];

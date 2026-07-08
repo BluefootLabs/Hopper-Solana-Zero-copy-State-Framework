@@ -598,6 +598,73 @@ impl<'a> fmt::Display for TsInstructions<'a> {
             )?;
             writeln!(f, "}}")?;
             writeln!(f)?;
+
+            // Compute-budget companion (BLD-CU). Only generated when the
+            // descriptor publishes a measured CU upper bound; an unknown
+            // estimate (0) emits nothing, so unmeasured programs keep the
+            // exact pre-BLD-CU output. The requested limit is the published
+            // bound plus a 10% margin (clamped to the 1.4M runtime cap) —
+            // the margin only ever raises the limit, never shrinks it, so an
+            // honest estimate cannot fail the transaction.
+            if let Some(budget) = ix.cu_budget_with_margin() {
+                write!(f, "/** Measured CU upper bound for `")?;
+                write_camel(f, ix.name)?;
+                writeln!(f, "` (author-published, conservative). */")?;
+                write!(f, "export const ")?;
+                write_upper_snake(f, ix.name)?;
+                writeln!(f, "_CU_ESTIMATE = {};", ix.cu_estimate)?;
+                writeln!(f)?;
+                write!(f, "/**\n * Like `create")?;
+                write_pascal(f, ix.name)?;
+                writeln!(f, "Instruction`, but prepends a")?;
+                writeln!(
+                    f,
+                    " * `SetComputeUnitLimit({})` (estimate + 10% margin) so the",
+                    budget
+                )?;
+                writeln!(
+                    f,
+                    " * transaction requests only the CU it was measured to need."
+                )?;
+                writeln!(f, " */")?;
+                write!(f, "export function create")?;
+                write_pascal(f, ix.name)?;
+                writeln!(f, "InstructionWithBudget(")?;
+                if !ix.args.is_empty() {
+                    write!(f, "  args: ")?;
+                    write_pascal(f, ix.name)?;
+                    writeln!(f, "Args,")?;
+                }
+                write!(f, "  accounts: ")?;
+                write_pascal(f, ix.name)?;
+                writeln!(f, "Accounts,")?;
+                writeln!(f, "  programId: PublicKey,")?;
+                writeln!(f, "): TransactionInstruction[] {{")?;
+                writeln!(f, "  const budgetData = new Uint8Array(5);")?;
+                writeln!(f, "  budgetData[0] = 2; // SetComputeUnitLimit")?;
+                writeln!(
+                    f,
+                    "  new DataView(budgetData.buffer).setUint32(1, {}, true);",
+                    budget
+                )?;
+                writeln!(f, "  const budgetIx = new TransactionInstruction({{")?;
+                writeln!(f, "    keys: [],")?;
+                writeln!(
+                    f,
+                    "    programId: new PublicKey(\"ComputeBudget111111111111111111111111111111\"),"
+                )?;
+                writeln!(f, "    data: budgetData,")?;
+                writeln!(f, "  }});")?;
+                write!(f, "  return [budgetIx, create")?;
+                write_pascal(f, ix.name)?;
+                if ix.args.is_empty() {
+                    writeln!(f, "Instruction(accounts, programId)];")?;
+                } else {
+                    writeln!(f, "Instruction(args, accounts, programId)];")?;
+                }
+                writeln!(f, "}}")?;
+                writeln!(f)?;
+            }
         }
 
         Ok(())
@@ -1924,6 +1991,7 @@ mod tests {
             receipt_expected: true,
             strict_writes: false,
             write_ranges: &[],
+            cu_estimate: 0,
         }];
 
         static EVENT_FIELDS: &[FieldDescriptor] = &[
@@ -2206,6 +2274,7 @@ mod tests {
             receipt_expected: false,
             strict_writes: false,
             write_ranges: &[],
+            cu_estimate: 0,
         };
         // 1 (disc) + 8 (u64) + 1 (u8) = 10
         assert_eq!(instruction_data_size(&ix), 10);
@@ -2252,6 +2321,7 @@ mod tests {
             receipt_expected: false,
             strict_writes: true,
             write_ranges: WR_RANGES,
+            cu_estimate: 0,
         }];
         static LOOSE_IX: &[InstructionDescriptor] = &[InstructionDescriptor {
             name: "deposit",
@@ -2263,6 +2333,7 @@ mod tests {
             receipt_expected: false,
             strict_writes: false,
             write_ranges: &[],
+            cu_estimate: 0,
         }];
         ProgramManifest {
             name: "vault_prog",
@@ -2296,6 +2367,73 @@ mod tests {
         // declared writable flag (current, pre-BLD-WR behavior).
         let out = TsInstructions(&wr_manifest(false)).to_string();
         assert!(out.contains("pubkey: accounts.config, isSigner: false, isWritable: true"));
+    }
+
+    // -- BLD-CU: compute-budget companion generation --
+
+    fn cu_manifest(estimate: u32) -> ProgramManifest {
+        static CU_IX_SET: &[InstructionDescriptor] = &[InstructionDescriptor {
+            name: "deposit",
+            tag: 0,
+            args: &[],
+            accounts: WR_ACCTS,
+            capabilities: &[],
+            policy_pack: "",
+            receipt_expected: false,
+            strict_writes: false,
+            write_ranges: &[],
+            cu_estimate: 10_000,
+        }];
+        static CU_IX_UNSET: &[InstructionDescriptor] = &[InstructionDescriptor {
+            name: "deposit",
+            tag: 0,
+            args: &[],
+            accounts: WR_ACCTS,
+            capabilities: &[],
+            policy_pack: "",
+            receipt_expected: false,
+            strict_writes: false,
+            write_ranges: &[],
+            cu_estimate: 0,
+        }];
+        ProgramManifest {
+            name: "vault_prog",
+            version: "1.0.0",
+            description: "",
+            layouts: &[],
+            layout_metadata: &[],
+            instructions: if estimate > 0 { CU_IX_SET } else { CU_IX_UNSET },
+            events: &[],
+            policies: &[],
+            compatibility_pairs: &[],
+            tooling_hints: &[],
+            contexts: &[],
+        }
+    }
+
+    #[test]
+    fn ts_cu_estimate_generates_budget_companion() {
+        let out = TsInstructions(&cu_manifest(10_000)).to_string();
+        // The raw measured bound is exported verbatim...
+        assert!(out.contains("export const DEPOSIT_CU_ESTIMATE = 10000;"));
+        // ...and the companion prepends SetComputeUnitLimit(estimate + 10%).
+        assert!(out.contains("export function createDepositInstructionWithBudget("));
+        assert!(out.contains("budgetData[0] = 2; // SetComputeUnitLimit"));
+        assert!(out.contains("new DataView(budgetData.buffer).setUint32(1, 11000, true);"));
+        assert!(out.contains("ComputeBudget111111111111111111111111111111"));
+        assert!(out.contains("return [budgetIx, createDepositInstruction(accounts, programId)];"));
+        // The plain builder is still generated unchanged.
+        assert!(out.contains("export function createDepositInstruction("));
+    }
+
+    #[test]
+    fn ts_unknown_cu_estimate_emits_no_budget_code() {
+        // 0 = unmeasured: output must be byte-identical to pre-BLD-CU
+        // behavior — no constant, no companion, no compute-budget program id.
+        let out = TsInstructions(&cu_manifest(0)).to_string();
+        assert!(!out.contains("CU_ESTIMATE"));
+        assert!(!out.contains("WithBudget"));
+        assert!(!out.contains("ComputeBudget111111111111111111111111111111"));
     }
 
     // -- Kotlin generator tests --
