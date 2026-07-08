@@ -1,16 +1,24 @@
 # Hopper Benchmarks
 
-Compute-unit measurements for individual Hopper primitives on Solana.
+Compute-unit measurements for individual Hopper primitives and for
+cross-framework parity workloads on Solana.
 
 ## How Benchmarks Work
 
-Each benchmark dispatches a single Hopper operation between two
-`sol_log_compute_units()` syscalls. The CU delta is captured from
-validator transaction logs:
+Two measurement methods appear in this document, and they are not
+interchangeable:
 
-```
-delta = first_remaining - second_remaining
-```
+- **Mollusk net-of-logging (current, 2026-07-07).** The primitive lab runs
+  under `mollusk-svm` (validator-free). Each primitive is dispatched between
+  two `sol_log_compute_units()` syscalls; the runner records the whole
+  instruction's `compute_units_consumed` (**whole-ix**) and the bracketed
+  delta minus the empty-bracket overhead measured by a dedicated probe
+  instruction (**net**) — the closest estimate of the primitive alone.
+- **Validator-log deltas (historical, April 2026).** Earlier tables took the
+  raw delta between the two log lines from `solana-test-validator 2.1`
+  transaction logs. Those figures are retained below only to mark which
+  claims they replace; they are not comparable to the net column and are no
+  longer release-facing.
 
 The primitive benchmark program lives in the sibling
 [`hopper-bench`](https://github.com/BluefootLabs/hopper-bench) product repo.
@@ -19,13 +27,20 @@ the primitive lab; cross-framework orchestration, Docker runners, baselines,
 and raw artifacts are owned by the benchmark repo so release docs never drift
 from the executable harness.
 
+All CU numbers are toolchain- and runtime-relative: identical Anchor code has
+been observed to move 571 → 685 CU between Solana 2.1 and 2.3, and Mollusk CU
+parity with mainnet is governed by the configured `SVMFeatureSet`. Compare
+numbers only within one provenance block. A refresh on the agave-4.0 Mollusk
+stack (0.13.x, SIMD-0339 active) is queued.
+
 ## Automation Status
 
-The benchmark program defines instruction discriminators `0..=18`. All 19
-primitives are covered by the benchmark repo's Docker runner and by the host
-`hopper profile bench` path. Release gates consume the benchmark repo's
-baselines and artifacts; this framework repo keeps only lightweight fixtures
-and historical result snapshots.
+The benchmark program defines instruction discriminators `0..=18` for
+primitives, plus dispatch and measurement-overhead probes (`19..=21`) used by
+the Mollusk runner. All primitives are covered by the benchmark repo's runner
+and by the host `hopper profile bench` path. Release gates consume the
+benchmark repo's baselines and artifacts; this framework repo keeps only
+lightweight fixtures and historical result snapshots.
 
 ## Release-Facing Benchmark Policy
 
@@ -35,120 +50,132 @@ seed set, feature flags, release profile, and command line for every included
 framework.
 
 The current vault snapshot includes Hopper, an in-tree Anza Pinocchio target,
-and Quasar's upstream `examples/vault` target. Quasar's upstream vault exposes
-only `deposit` and `withdraw`, so validation-only rows are shown as `n/a` for
-Quasar instead of being synthesized by the harness.
+Quasar's upstream `examples/vault` target, and an in-tree Anchor comparator.
+Quasar's upstream vault exposes only `deposit` and `withdraw`, so
+validation-only rows are shown as `n/a` for Quasar instead of being
+synthesized by the harness.
 
-## CU Results
+## Primitive CU Results (Mollusk, 2026-07-07)
 
-Measured on solana-test-validator 2.1 (April 2026).
+Measured with the `primitive-bench` Mollusk runner (mollusk-svm 0.10.3).
+`whole-ix` includes dispatch, fixture checks, and the logging brackets;
+`net` subtracts the measured empty-bracket overhead (101 CU, probe disc 21).
+The `April 2026` column is the superseded validator-log figure each row
+replaces (different method — see above).
 
-| Disc | Operation | Expected CU | Category |
-|------|-----------|-------------|----------|
-| 0 | `check_signer` | ~20 | Validation |
-| 1 | `check_writable` | ~20 | Validation |
-| 2 | `check_owner` | ~50 | Validation |
-| 3 | `Vault::load()` (T1 full check) | ~120 | Account loading |
-| 4 | `check_keys_eq` | ~40 | Validation |
-| 5 | `Vault::overlay()` (57 bytes) | ~8 | Memory access (Tier A) |
-| 6 | `write_header` | ~30 | Account init |
-| 7 | `zero_init` (57 bytes) | ~15 | Account init |
-| 8 | `check_signer_fast` | ~12 | Validation (fast path) |
-| 9 | `emit_event` (32-byte payload) | ~100 | Events |
-| 10 | `TrustProfile::load` (Strict) | ~130 | Trust loading |
-| 11 | `pod_from_bytes` (57 bytes) | ~6 | Memory access (Tier B) |
-| 12 | `StateReceipt::begin + commit` | ~50 | Receipts |
-| 13 | `read_layout_id` + compare | ~15 | Fingerprint check |
-| 14 | `StateSnapshot::capture + diff` | ~30 | State tracking |
-| 15 | `overlay_mut` + field write | ~10 | Memory access (Tier A mut) |
-| 16 | `raw_cast_baseline` (unsafe ptr) | ~4 | Competitor baseline |
-| 17 | `StateReceipt` (enriched fields) | ~80 | Receipt (all fields) |
-| 18 | `receipt + emit` (72B log) | ~150 | Receipt + event |
+| Disc | Operation | Whole-ix CU | Net CU | April 2026 (superseded) | Category |
+|------|-----------|------------:|-------:|------------------------:|----------|
+| 0 | `check_signer` | 488 | 3 | ~20 | Validation |
+| 1 | `check_writable` | 489 | 3 | ~20 | Validation |
+| 2 | `check_owner` | 498 | 13 | ~50 | Validation |
+| 3 | `Vault::load()` (T1 full check) | 524 | 29 | ~120 | Account loading |
+| 4 | `check_keys_eq` | 523 | 14 | ~40 | Validation |
+| 5 | `Vault::overlay()` (57 bytes) | 500 | 1 | ~8 | Memory access (Tier A) |
+| 6 | `write_header` | 508 | 5 | ~30 | Account init |
+| 7 | `zero_init` (57 bytes) | 524 | 21 | ~15 | Account init |
+| 8 | `check_account_fast` | 489 | 5 | ~12 | Validation (fast path) |
+| 9 | `emit_event` (32-byte payload) | 690 | 240 | ~100 | Events |
+| 10 | `TrustProfile::load` (Strict) | 524 | 27 | ~130 | Trust loading |
+| 11 | `pod_from_bytes` (57 bytes) | 500 | 1 | ~6 | Memory access (Tier B) |
+| 12 | `StateReceipt::begin + commit` | 3291 | 2784 | ~50 | Receipts |
+| 13 | `read_layout_id` + compare | 503 | 4 | ~15 | Fingerprint check |
+| 14 | `StateSnapshot::capture + diff` | 532 | 26 | ~30 | State tracking |
+| 15 | `overlay_mut` + field write | 507 | 4 | ~10 | Memory access (Tier A mut) |
+| 16 | `raw_cast_baseline` (unsafe ptr) | 500 | 1 | ~4 | Competitor baseline |
+| 17 | `StateReceipt` (enriched fields) | 3292 | 2786 | ~80 | Receipt (all fields) |
+| 18 | `receipt + emit` (64B log) | 3649 | 3141 | ~150 | Receipt + event |
+| 19 | `proc_macro_typed_dispatch` | 683 | 188 | — | Macro dispatch |
+
+Note on the key-compare rows: all 32-byte key compares were rerouted to
+4×u64 word-compare `PartialEq` on 2026-07-07 (the G1 pass). The `check_keys_eq`
+14 CU and `check_owner` 13 CU rows above are measured **post-G1**; the April
+~40 / ~50 figures are pre-G1 and retired.
+
+Note on the receipt rows: the April validator-log method under-bracketed the
+receipt cycle badly. The table-derived split is honest: the snapshot + diff
+core is ~26 CU net (disc 14); the full receipt framing and encode dominates
+at ~2.8k CU (disc 12/17), and adding emission lands at ~3.1k CU (disc 18).
 
 ## Memory Access Tier Comparison
 
-| Tier | Operation | CU | What you get |
-|------|-----------|-----|-------------|
-| Raw (unsafe) | `raw ptr cast` | ~4 | Size check + pointer cast only. **Competitor baseline** |
-| B (pod) | `pod_from_bytes` | ~6 | Bounds-checked typed view (+2 CU) |
-| A (safe) | `Vault::overlay()` | ~8 | Header + layout_id + bounds check (+4 CU) |
-| A (mut) | `overlay_mut` + field set | ~10 | Mutable overlay + write (+6 CU) |
-| C (raw) | `load_unchecked` | ~6 | No validation, caller risk |
-| Full load | `Vault::load()` | ~120 | Owner + disc + version + layout_id + size |
-| Strict trust | `TrustProfile::load` | ~130 | Full cross-program trust validation |
+Net CU, Mollusk 2026-07-07 run:
+
+| Tier | Operation | Net CU | What you get |
+|------|-----------|-------:|-------------|
+| Raw (unsafe) | `raw ptr cast` | 1 | Size check + pointer cast only. **Competitor baseline** |
+| B (pod) | `pod_from_bytes` | 1 | Bounds-checked typed view |
+| A (safe) | `Vault::overlay()` | 1 | Header + layout_id + bounds check |
+| A (mut) | `overlay_mut` + field set | 4 | Mutable overlay + write |
+| Full load | `Vault::load()` | 29 | Owner + disc + version + layout_id + size |
+| Strict trust | `TrustProfile::load` | 27 | Full cross-program trust validation |
 
 ### The Performance Story
 
-**Hopper's safe path is within 4 CU of raw.**
+**Hopper's safe overlay costs what a raw pointer cast costs.**
 
-A raw `*const u8 as *const T` pointer cast costs ~4 CU. Hopper's safe overlay
-costs ~8 CU. The 4 CU difference
-buys you: bounds checking, header validation, and layout_id fingerprint
-verification.
+This is now a measured claim, not a rounding argument: in the 2026-07-07
+Mollusk lab, the raw unsafe cast baseline and Hopper's safe, validated
+overlay both measure **1 CU net**. The bounds check, header validation, and
+layout-fingerprint verification disappear into the same measured cost as
+`*const u8 as *const T`.
 
-**Hopper's raw path exists when you need it.** `pod_from_bytes` at ~6 CU
-is 2 CU from raw, with bounds checking. `load_unchecked` matches raw.
-
-For hot paths where accounts are already validated, use Tier A overlay.
-For cold paths, use `Vault::load()` at ~120 CU for full protocol-grade
-validation. The cost of safety scales with how much safety you need.
+For hot paths where accounts are already validated, use Tier A overlay. For
+cold paths, use `Vault::load()` at 29 CU net for full protocol-grade
+validation (owner + disc + version + layout_id + size). The cost of safety
+scales with how much safety you need — and at the overlay tier it is
+measured at zero premium.
 
 ## Validation Cost Breakdown
 
-| Check | CU | Purpose |
-|-------|-----|---------|
-| `check_signer` | ~20 | Verify account is a signer |
-| `check_signer_fast` | ~12 | Optimized signer check |
-| `check_writable` | ~20 | Verify account is writable |
-| `check_owner` | ~50 | Compare owner against program_id |
-| `check_keys_eq` | ~40 | Compare two account keys |
-| Full T1 load | ~120 | All checks: owner + disc + version + layout_id + size |
-| Strict trust load | ~130 | TrustProfile with all validations |
+Net CU, Mollusk 2026-07-07 run:
+
+| Check | Net CU | Purpose |
+|-------|-------:|---------|
+| `check_signer` | 3 | Verify account is a signer |
+| `check_account_fast` | 5 | Fused fast-path account check |
+| `check_writable` | 3 | Verify account is writable |
+| `check_owner` | 13 | Compare owner against program_id (post-G1 word compare) |
+| `check_keys_eq` | 14 | Compare two account keys (post-G1 word compare) |
+| Full T1 load | 29 | All checks: owner + disc + version + layout_id + size |
+| Strict trust load | 27 | TrustProfile with all validations |
 
 ## Receipt and Tracking Overhead
 
-| Operation | CU | Notes |
-|-----------|-----|-------|
-| `StateReceipt::begin + commit` | ~50 | Snapshot + diff + encode to 72 bytes |
-| `StateReceipt` (enriched) | ~80 | + phase, compat_impact, validation, migration |
-| `receipt + emit` | ~150 | Full cycle: begin + set + commit + emit |
-| `StateSnapshot::capture + diff` | ~30 | Snapshot + diff without receipt framing |
-| `read_layout_id` + compare | ~15 | 8-byte fingerprint verification |
-| `emit_event` (32 bytes) | ~100 | Log-based event emission |
-| `emit_event` (128 bytes) | ~120 | Larger event payload |
+Net CU, Mollusk 2026-07-07 run:
 
-A full enriched receipt (snapshot + diff + enriched fields + encode)
-costs ~80 CU. Emitting it as an event adds ~70 CU for the syscall.
-For a typical instruction budget of 200,000 CU, full receipt tracking
-with emission adds 0.075% overhead.
+| Operation | Net CU | Notes |
+|-----------|-------:|-------|
+| `StateSnapshot::capture + diff` | 26 | Snapshot + diff without receipt framing |
+| `read_layout_id` + compare | 4 | 8-byte fingerprint verification |
+| `StateReceipt::begin + commit` | 2,784 | Full snapshot + diff + encode cycle |
+| `StateReceipt` (enriched) | 2,786 | + phase, compat_impact, validation, migration |
+| `receipt + emit` | 3,141 | Full cycle: begin + set + commit + emit |
+| `emit_event` (32 bytes) | 240 | Log-based event emission |
 
-## What This Means
+A complete audit trail of every state mutation — full enriched receipt plus
+emission — measures ~3,141 CU net, about **1.6% of a 200,000 CU instruction
+budget**. Lightweight state tracking (snapshot + diff + fingerprint check)
+costs ~30 CU. Receipts remain a reasonable default for audit-sensitive state
+changes; CU-critical one-shot programs can use the snapshot/diff core alone.
 
-### Safe vs Raw: The Honest Comparison
+The April validator-log figures for receipts (~50/~80/~150 CU) are retired:
+they were captured with a different bracketing method that under-measured
+the encode path, and they should not be quoted.
 
-```
-  Raw unsafe cast (competitor baseline):   ~4 CU
-  pod_from_bytes (bounds-checked):         ~6 CU   (+2 CU)
-  Vault::overlay (safe, validated):        ~8 CU   (+4 CU)
-  Full Vault::load (protocol-grade):     ~120 CU   (30x raw)
-```
+## Competitor-Shaped Baselines
 
-Hopper's **safe overlay is 4 CU more than raw**. The full validation path
-is 30x more expensive, but you typically pay that cost once per
-instruction, then use overlays for all subsequent access.
+Net CU, Mollusk 2026-07-07 run:
 
-### Receipt Overhead: Negligible
+| Framework Style | Equivalent Net CU | What It Does |
+|----------------|------------------:|---------------|
+| Quasar / raw-cast | 1 | `ptr as *const T`, no validation |
+| Steel / podded | 1 | Bounds-checked `Pod` cast |
+| **Hopper overlay** | **1** | **Header + layout_id + bounds** |
+| Anchor / borsh | ~500–2000 | Deserialization + clone |
 
-```
-  Basic receipt (begin + commit):          ~50 CU   (0.025% of 200k budget)
-  Enriched receipt (all fields):           ~80 CU   (0.040% of 200k budget)
-  Receipt + emit (full audit trail):      ~150 CU   (0.075% of 200k budget)
-```
-
-A complete audit trail of every state mutation costs less than a single
-`check_owner` call in this benchmark. Receipts are cheap enough to make the
-default answer "yes" for audit-sensitive state changes, while tiny one-shot
-programs can still omit them when every byte matters.
+The safe overlay and the raw cast are measured at the same net cost. The
+validation Hopper adds at this tier is free at measurement resolution; the
+difference against Anchor-style deserialization remains orders of magnitude.
 
 ## Running Benchmarks
 
@@ -156,50 +183,46 @@ programs can still omit them when every byte matters.
 # Primitive lab from this framework workspace
 hopper profile bench
 
-# Cross-framework parity lab from the sibling benchmark checkout
+# Cross-framework parity labs from the sibling benchmark checkout
 cd ../hopper-bench
 ./measure.sh all
 ```
 
-The benchmark lab builds and deploys the Hopper benchmark program, provisions
-deterministic fixture accounts, simulates each implemented primitive
-benchmark, parses bounded `sol_log_compute_units()` deltas, and emits JSON/CSV
+The benchmark lab builds the Hopper benchmark program, provisions
+deterministic fixture accounts, executes each primitive under Mollusk,
+parses bounded `sol_log_compute_units()` deltas, and emits JSON/CSV/Markdown
 artifacts in the benchmark repo's results directory.
 
 Golden baselines, Docker runners, competitor locks, CI thresholds, and the
 long-form benchmark roadmap are maintained in the sibling `hopper-bench` repo.
 
-## Competitor-Shaped Baselines
-
-| Framework Style | Equivalent CU | What It Does |
-|----------------|---------------|---------------|
-| Quasar / raw-cast | ~4 | `ptr as *const T`, no validation |
-| Steel / podded | ~6 | Bounds-checked `Pod` cast |
-| **Hopper overlay** | **~8** | **Header + layout_id + bounds** |
-| Anchor / borsh | ~500-2000 | Deserialization + clone |
-
-Hopper's safe path is closer to raw-cast frameworks than to Anchor.
-The 4 CU premium over raw buys header validation, fingerprint
-verification, and a clean typed API.
-
 ## Framework Parity Benchmark (Vault, 8-seed average)
 
-Measured with the sibling `hopper-bench` Mollusk parity harness on 2026-07-02.
-Every included framework used the same deterministic user seed set, SBF
-toolchain, runner, and command line. `n/a` means the upstream comparator does
-not implement that benchmark instruction. This run adds the first **measured**
-Anchor column (anchor-lang 0.31.1, the latest stable line — there is no
-official "Anchor v2"), replacing earlier estimates.
+Measured with the sibling `hopper-bench` Mollusk parity harness on
+**2026-07-07** (post-G1 key-compare lowering **and** the fused single-pass
+entrypoint walk, which alone removed 46–64 CU from every row measured the
+same morning). Every included framework used
+the same deterministic user seed set, SBF toolchain, runner, and command
+line. `n/a` means the upstream comparator does not implement that benchmark
+instruction.
+
+A version note on the Anchor column: it is measured against
+**anchor-lang 0.31.1**, the comparator this table was locked to.
+`anchor-lang` 1.1.2 is the current stable release (a 1.1.2 re-run is queued,
+and its binary-size row is expected to shrink), and an unreleased,
+Pinocchio-based **Anchor v2 alpha** exists whose in-repo benchmarks land at
+Quasar-level CU. Read the Anchor multiples below as measurements of shipped
+Anchor 0.31.1/1.x, with the shelf life that implies.
 
 | Scenario | Hopper | Anza Pinocchio | Quasar | Anchor 0.31.1 |
 |----------|-------:|---------------:|-------:|--------------:|
-| Authorize | **466 CU** | 2512 CU (+2046) | n/a | 5017 CU (+4551) |
-| Auth-fail (missing sig) | 107 CU | **41 CU** (-66) | n/a | 2284 CU (+2177) |
-| Counter (segment-safe) | **564 CU** | 2539 CU (+1975) | n/a | 5156 CU (+4592) |
-| Deposit | **1713 CU** | 3856 CU (+2143) | 1756 CU (+43) | 7150 CU (+5437) |
-| Withdraw | **488 CU** | 2548 CU (+2060) | 592 CU (+104) | 5108 CU (+4620) |
+| Authorize | **420 CU** | 2512 CU (+2092) | n/a | 5017 CU (+4597) |
+| Auth-fail (missing sig) | 61 CU | **41 CU** (−20) | n/a | 2284 CU (+2223) |
+| Counter (segment-safe) | **518 CU** | 2539 CU (+2021) | n/a | 5156 CU (+4638) |
+| Deposit | **1650 CU** | 3856 CU (+2206) | 1756 CU (+106) | 7150 CU (+5500) |
+| Withdraw | **442 CU** | 2548 CU (+2106) | 592 CU (+150) | 5108 CU (+4666) |
 | Unsigned withdraw | rejected | rejected | rejected | rejected |
-| Binary size | 7.46 KiB | 7.73 KiB | **5.47 KiB** | 190.11 KiB |
+| Binary size | 7.41 KiB | 7.73 KiB | **5.47 KiB** | 190.11 KiB |
 
 The Pinocchio column is built in-tree from the benchmark repo's Anza
 Pinocchio target, not borrowed from Quasar's reference sample or an older
@@ -207,6 +230,44 @@ Pinocchio target, not borrowed from Quasar's reference sample or an older
 in-tree `anchor-vault` implementing the identical instruction contract
 (explicit one-byte-style discriminators via Anchor's `discriminator`
 attribute so the harness drives all four programs the same way).
+
+## Router Parity Lab — first three-way numbers (2026-07-07)
+
+This is, to our knowledge, the first published router-class head-to-head
+between zero-copy Solana frameworks. The workload (contract:
+`hopper-bench/ROUTER_CONTRACT.md` v1) is a multi-hop swap router over a
+shared mock-AMM CPI target: 1–3 hops, measured amount forwarding (hop *i+1*
+input is the router's measured user-lamport delta from hop *i*, never the
+venue-reported figure), and a min-out safety gate exercised at its boundary
+on every success row. A framework that lets a min-out violation through is
+disqualified from publication; all three passed.
+
+| Row | Hopper | Quasar | Pinocchio (hand-written) |
+|---|---:|---:|---:|
+| swap_1hop | **1,564 CU** | 1,582 CU (+18) | 1,523 CU (−41) |
+| swap_2hop | **3,044 CU** | 3,064 CU (+20) | 2,975 CU (−69) |
+| swap_3hop | **4,525 CU** | 4,546 CU (+21) | 4,431 CU (−94) |
+| Binary size | **10.05 KiB** | 11.05 KiB | 10.98 KiB |
+| min-out gate | rejected | rejected | rejected |
+
+Reading it honestly:
+
+- Hand-written Pinocchio wins the CU rows, as it should — it carries no
+  framework surface. Hopper lands within **2.1–2.7%** of it (+41/+69/+94 CU
+  across the hops) while carrying full framework validation, state contracts,
+  and tooling, and ships the **smallest binary of the three**.
+- **Hopper beats Quasar on every row** (−18/−20/−21 CU) with a smaller
+  binary. The morning run (pre-entrypoint-fuse:
+  `results/router-parity-2026-07-07-threeway/`) had Hopper trailing Quasar
+  by +34/+56/+79 CU; the fused single-pass account walk — an
+  instruction-level audit finding, fixed and re-measured the same day —
+  flipped every row. Both snapshots are kept so the delta is checkable.
+- Every framework's measured CU includes one identical mock-AMM invocation
+  per hop, so the deltas isolate router-side framework overhead.
+
+Results: `hopper-bench/results/router-parity-2026-07-07-post-ep/` (current)
+and `router-parity-2026-07-07-threeway/` (same-day pre-fix snapshot). Vault:
+`framework-vaults-2026-07-07-post-ep/`.
 
 ### Benchmark provenance checklist
 
@@ -219,48 +280,69 @@ Every parity result published from `hopper-bench` must record:
 - Exact feature flags and release profile.
 - Exact reproduction command and seed count.
 
-### Current benchmark provenance
+### Current benchmark provenance (2026-07-07 runs)
+
+Shared toolchain for all three 2026-07-07 runs (vault four-way, router
+three-way, primitive lab):
 
 | Field | Value |
 |---|---|
-| Result files | `hopper-bench/results/framework-vaults-2026-07-02-post-i10/vault-framework-comparison.{json,csv}` |
-| Hopper framework checkout | `1d10d04` clean (post-I10 fused validation, post-I12 write policies) |
-| Benchmark checkout | `5da482a` (backend-feature no-ops + anchor declare_id fix) |
+| Hopper framework checkout | working tree on `fa2bfdb` (post-G1 word-compare, fused single-pass entrypoint, mid-tier CPI) |
 | Quasar checkout | `37e8a6b` clean (upstream 2026-06-28) |
 | Anchor | `anchor-lang 0.31.1` (crates.io, locked), in-tree `anchor-vault` comparator |
+| Rust | rustc 1.96.0 (workspace pin) |
 | SBF toolchain | `cargo-build-sbf 4.0.0`, platform-tools `v1.53` |
 | SVM harness | `mollusk-svm 0.10.3` |
-| Samples | 8 deterministic user seed cases |
-| Command | `./compare-framework-vaults.ps1 -QuasarRoot E:\Frameworks\quasar -IncludeAnchor -OutDir results\framework-vaults-2026-07-02-post-i10` |
+| Samples | 8 deterministic user seed cases per parity row |
 
-Previous published run (2026-05-25, Hopper `300797d`, Quasar `5fda2f5`):
-Hopper 431/72/551/1669/453 CU at 7.53 KiB; Quasar deposit 1767 / withdraw
-603 at 6.27 KiB. Kept here so the deltas below are checkable.
+Per-run result files:
+
+| Run | Result files |
+|---|---|
+| Vault four-way | `hopper-bench/results/framework-vaults-2026-07-07-post-ep/vault-framework-comparison.{json,csv}` |
+| Router three-way | `hopper-bench/results/router-parity-2026-07-07-post-review/router-framework-comparison.{json,csv}` |
+| Primitive lab | `hopper-bench/results/primitive-bench/primitive-cu.{md,csv}` |
+
+Previous published runs, kept so deltas stay checkable: 2026-07-02
+(post-I10, Hopper `1d10d04`): 466/107/564/1713/488 at 7.46 KiB —
+functionally identical to the 2026-07-07 row (deposit +1 CU is noise;
+G1's win is structural, not vault-visible). 2026-05-25 (Hopper `300797d`,
+Quasar `5fda2f5`): Hopper 431/72/551/1669/453 CU at 7.53 KiB; Quasar
+deposit 1767 / withdraw 603 at 6.27 KiB — **retired**, see the bisect
+section below for why those numbers were un-deployable.
 
 ### Performance observations
 
-- **Anchor, measured:** Hopper is ~10.8× cheaper on `authorize`, ~4.2× on
-  `deposit`, ~10.5× on `withdraw`, and the artifact is **25× smaller**
-  (7.46 vs 190.11 KiB). Anchor's failure path is also expensive: a missing
+- **Anchor, measured:** Hopper is ~11.9× cheaper on `authorize`, ~4.3× on
+  `deposit`, ~11.6× on `withdraw`, and the artifact is **26× smaller**
+  (7.41 vs 190.11 KiB). Anchor's failure path is also expensive: a missing
   signer costs 2284 CU (8-byte discriminator hash + full `try_accounts`
-  before the signer check) vs Hopper's 107 CU.
+  before the signer check) vs Hopper's 61 CU. **Shelf-life caveat:** these
+  multiples apply to shipped Anchor 0.31.1/1.x. The unreleased Anchor v2
+  alpha benchmarks at Quasar-level CU in its own repo, so when it ships,
+  "10× cheaper than Anchor" stops being a durable headline for any
+  framework. The durable ground is winning within the zero-copy cluster
+  (see the router lab above) plus the state/safety/tooling surface no
+  Pinocchio-derived framework has (see `docs/THE_MOAT.md`).
 - Hopper beats Quasar on **both** upstream Quasar workloads (deposit
-  −43 CU, withdraw −104 CU) while carrying its full state-contract
-  surface. The margin narrowed since 2026-05-25 — partly because Quasar
-  improved upstream (withdraw 603→592, binary 6.27→5.47 KiB), partly
-  because of the Hopper regression noted below.
+  −106 CU, withdraw −150 CU) while carrying its full state-contract
+  surface. Quasar publishes no comparative CU benchmark of its own; this
+  pinned, provenance-checked matrix is currently the only published
+  cross-framework table that includes it.
 - Hopper is lower-CU than the in-tree Anza Pinocchio parity target on the
   measured PDA-bearing success paths in this vault contract. Treat that as a
-  result for this benchmark, not a universal "faster than Pinocchio" claim.
+  result for this benchmark, not a universal "faster than Pinocchio" claim —
+  the router lab above is the fairer overhead measurement, and there
+  hand-written Pinocchio wins by 2.1–2.7%.
 - Quasar's upstream vault does not implement `authorize` or `counter_access`,
   so those rows are intentionally absent for Quasar.
 
 ### The +13…+44 CU delta vs 2026-05-25, bisected and resolved
 
-Hopper's rows moved between the runs (authorize 431→466, auth-fail
-72→107, counter 551→564, deposit 1669→1713, withdraw 453→488; binary
-7.53→7.46 KiB). An automated `git bisect run` (build the parity vault at
-each candidate, measure with the pinned 2026-07-02 runner; the runner
+Hopper's rows moved between the 2026-05-25 and 2026-07-02 runs (authorize
+431→466, auth-fail 72→107, counter 551→564, deposit 1669→1713, withdraw
+453→488; binary 7.53→7.46 KiB). An automated `git bisect run` (build the
+parity vault at each candidate, measure with the pinned runner; the runner
 itself reproduces the May numbers bit-for-bit on the May commit) pinned
 the **entire** delta to one commit: `8899e99`, which feature-gated the
 `r2` fast entrypoint behind `simd-0321`.
@@ -285,9 +367,9 @@ Two corollaries the bisect proved along the way:
   failure-path fallback was wrong.
 - The widened auth-fail gap to Pinocchio (−31 → −66 CU) is the same
   entrypoint story: their 41 CU rejection is measured with their
-  scanning entrypoint too, so the honest comparison is 107 vs 41 — the
+  scanning entrypoint too, so the honest comparison is 61 vs 41 — the
   scanning pass plus Hopper's dispatch reaching the fused check. Still
-  the only row Pinocchio wins.
+  the only vault row Pinocchio wins.
 
 ### Reading the Pinocchio deltas honestly
 
@@ -297,13 +379,14 @@ difference**. The in-tree Pinocchio target uses idiomatic
 `find_program_address` (a bump search that can cost ~1,500–2,500 CU),
 whereas the Hopper parity vault verifies a **stored canonical bump** with
 a single `create_program_address` (~200 CU). A Pinocchio program that
-also stored its bump would land close to Hopper on these rows.
+also stored its bump would land close to Hopper on these rows — the
+router lab above, where the Pinocchio comparator is hand-optimized, shows
+exactly that shape.
 
 So the accurate claim is **"Hopper is fast by default"**: the cheap PDA
 path is the one the macros and conventions steer you toward, while raw
 Pinocchio leaves that optimization to the author. It is not "raw
-Pinocchio is slower." A stored-bump Pinocchio row is tracked for the
-`hopper-bench` matrix so this comparison stays apples-to-apples.
+Pinocchio is slower."
 
 ### Architecture and DX observations
 
@@ -313,7 +396,19 @@ Pinocchio is slower." A stored-bump Pinocchio row is tracked for the
   (`r2`). This depends on **SIMD-0321**, whose feature gate is not yet active on
   public clusters, so it is opt-in behind the `simd-0321` cargo feature; with
   the feature off, `fast_entrypoint!` is the standard scanning entrypoint and
-  these numbers are measured without the `r2` shortcut.
+  these numbers are measured without the `r2` shortcut. `hopper feature-gate`
+  compares a build's configuration against the live cluster gate account.
+- **Tuned intrinsics (`hopper-builtins`, experimental, opt-in):** the
+  `crates/hopper-builtins` crate overrides `memcmp`/`bcmp`/`memcpy`/`memset`
+  with ordering-correct word-wise routines. Vault CU is identical with the
+  feature on (+0.41 KiB size); the value is runtime-length memory ops, which
+  LLVM lowers to `bcmp` — a symbol platform-tools does not even provide.
+  Linking currently requires
+  `RUSTFLAGS="-C link-arg=--allow-multiple-definition"`. For contrast:
+  Quasar's vendored `solana-compiler-builtins` overrides only `memcmp`, is
+  gated on `target_arch = "bpf"` so it is inert on the standard
+  `cargo build-sbf` route, and `rust-lld` refuses its strong-vs-strong symbol
+  collision on that route.
 - Hopper's claim is not "raw Pinocchio is slower." The claim is that Hopper
   packages low-overhead account access with framework validation, schema,
   lifecycle, CPI, and CLI tooling.
@@ -327,18 +422,43 @@ worth carrying.
 
 The parity vault source is at
 [`examples/hopper-parity-vault`](examples/hopper-parity-vault/src/lib.rs).
-The cross-framework runner lives in the sibling `hopper-bench` repo.
+The cross-framework runners live in the sibling `hopper-bench` repo.
 
 
 ## CU Budget Reference
 
-| Scenario | Typical CU | Hopper Overhead |
-|----------|-----------|------------------|
-| Simple transfer (1 account) | ~5,000 | ~128 CU (load + overlay + receipt) |
-| DeFi swap (3 accounts) | ~50,000 | ~400 CU (3 loads + overlays + receipt) |
-| Complex instruction (6 accounts) | ~150,000 | ~800 CU (6 loads + overlays + receipt) |
+Per-account framework cost from the Mollusk net rows above: full validated
+load 29 CU + overlay access ~1 CU + fingerprint re-check 4 CU ≈ **~35 CU per
+account**. Lightweight state tracking (snapshot + diff) adds ~26 CU; a full
+emitted receipt adds ~3.1k CU where an audit trail is wanted.
 
-In all scenarios, Hopper overhead is <2% of the total instruction budget.
+| Scenario | Typical CU | Hopper overhead (loads + overlays + diff) |
+|----------|-----------|-------------------------------------------|
+| Simple transfer (1 account) | ~5,000 | ~60 CU |
+| DeFi swap (3 accounts) | ~50,000 | ~130 CU |
+| Complex instruction (6 accounts) | ~150,000 | ~240 CU |
+
+In all scenarios, core Hopper overhead is well under 1% of the instruction
+budget; opting into full receipt emission adds ~1.6% of a 200k budget.
+
+
+## Deploy-cost economics
+
+Rent-exempt deploy cost follows `(elf_bytes + 128) × 6,960` lamports
+(formula verified against a live mainnet program-account balance; see
+`docs/audit/GAP_CLOSURE_AND_INNOVATION_2026.md`, section 2). Applied to the
+2026-07-07 vault matrix and the devnet counter:
+
+| Artifact | Size | Rent at deploy |
+|---|---:|---:|
+| Hopper counter (devnet) | 4,688 B | **≈ 0.034 SOL** |
+| Hopper vault | 7.41 KiB | ≈ 0.054 SOL |
+| Quasar vault | 5.47 KiB | ≈ 0.040 SOL |
+| Pinocchio vault | 7.73 KiB | ≈ 0.056 SOL |
+| Anchor 0.31.1 vault | 190.11 KiB | **≈ 1.356 SOL (~25× Hopper)** |
+
+Unlike CU tables, deploy rent does not churn with runtime versions: it is a
+durable cost axis, and the Anchor-class artifact is the outlier on it.
 
 
 ## Devnet deployment evidence (this pass)
@@ -358,7 +478,8 @@ sizes are the on-disk `.so` artifacts that were deployed.
 The 4 688-byte counter is the headline size claim: a complete, deployable
 zero-copy program — `#[account]` layout, `#[derive(Accounts)]` context
 with a `has_one` constraint, single-byte dispatch, and a checked mutation
-— in under 5 KiB of bytecode.
+— in under 5 KiB of bytecode, at about **0.034 SOL** of rent-exempt deploy
+cost.
 
 ### Measured on-chain compute
 

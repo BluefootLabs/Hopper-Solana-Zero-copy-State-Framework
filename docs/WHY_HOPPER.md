@@ -16,6 +16,8 @@ Hopper is a policy-driven zero-copy runtime for Solana. Three things set it apar
 | Zero-copy account access | `AccountLoader` | yes | yes | **yes** |
 | `no_std` / `no_alloc` | no | yes | yes | **yes** |
 | Segment-level borrow enforcement | no | no | no | **yes** |
+| Instruction touch maps (per-ix byte footprint) | no | no | no | **yes** (`touch-map` feature, measured 0 CU) |
+| Field-level write policies (`strict_writes`) | no | no | no | **yes** (declared mut ranges enforced at borrow acquire) |
 | Compile-time layout fingerprints | no | no | no | **yes** |
 | Versioned + foreign typed loads | no | no | no | **yes** |
 | State receipts | no | no | no | **yes** |
@@ -115,18 +117,38 @@ Other frameworks rely on the author to remember every check. Hopper makes the ch
 Current release-facing numbers come from the sibling
 [hopper-bench](https://github.com/BluefootLabs/hopper-bench) parity harness:
 8-seed average, Mollusk execution, and one command line for every included
-framework. The current snapshot includes Hopper, the benchmark repo's in-tree
-Anza Pinocchio target, and Quasar's upstream `examples/vault` target. Quasar's
-upstream vault implements only `deposit` and `withdraw`, so validation-only rows
-are `n/a` for Quasar.
+framework. The current snapshot (2026-07-07, four-way,
+`hopper-bench/results/framework-vaults-2026-07-07-post-ep/`) includes Hopper,
+the benchmark repo's in-tree Anza Pinocchio target, Quasar's upstream
+`examples/vault` target, and a measured Anchor 0.31.1 comparator. Quasar's
+upstream vault implements only `deposit` and `withdraw`, so validation-only
+rows are `n/a` for Quasar.
 
-| Instruction | Hopper | Anza Pinocchio | Quasar |
-|---|---:|---:|---:|
-| authorize | **431 CU** | 2512 CU | n/a |
-| counter_access | **551 CU** | 2539 CU | n/a |
-| deposit | **1669 CU** | 3856 CU | 1767 CU |
-| withdraw | **453 CU** | 2548 CU | 603 CU |
-| binary size | 7.53 KiB | 7.73 KiB | **6.27 KiB** |
+| Instruction | Hopper | Anza Pinocchio | Quasar | Anchor 0.31.1 |
+|---|---:|---:|---:|---:|
+| authorize | **420 CU** | 2512 CU | n/a | 5017 CU |
+| counter_access | **564 CU** | 2539 CU | n/a | 5156 CU |
+| deposit | **1650 CU** | 3856 CU | 1756 CU | 7150 CU |
+| withdraw | **442 CU** | 2548 CU | 592 CU | 5108 CU |
+| binary size | 7.41 KiB | 7.73 KiB | **5.47 KiB** | 190.11 KiB |
+
+An earlier version of this page published the 2026-05-25 table
+(431/551/1669/453 CU). Those numbers are retired: they were measured with a
+pre-gate fast-entrypoint path that only worked in local SVMs (SIMD-0321 is
+not active on public clusters) and were therefore better than any mainnet
+deployment could achieve. The table above is the honest, deployable number —
+the full bisect story is in `BENCHMARKS.md`.
+
+Two more measured 2026-07-07 results (provenance in `BENCHMARKS.md`):
+
+- **The safe overlay costs what a raw pointer cast costs.** In the Mollusk
+  primitive lab, Hopper's validated overlay and a raw unsafe cast both
+  measure 1 CU net.
+- **Router parity, first published three-way:** Hopper beats Quasar on every
+  1–3-hop swap row (−18/−20/−21 CU) and runs within 2.1–2.7% of hand-written
+  Pinocchio,
+  with the smallest binary of the three
+  (`hopper-bench/results/router-parity-2026-07-07-post-review/`).
 
 That supports a precise claim: **Anchor/Quasar-class DX, Hopper-grade
 safety/state contracts, Pinocchio-class raw control.** It does not turn one
@@ -161,7 +183,7 @@ The `hopper-svm` crate is the harness layer; it ships standalone so any Solana p
 ## Where to start
 
 1. Read [MEMORY_ACCESS.md](MEMORY_ACCESS.md) for the access-tier doctrine.
-2. Read [POLICY_GUARANTEES.md](POLICY_GUARANTEES.md) for what each lever guarantees and drops.
+2. Read [POLICY_GUARANTEES.md](POLICY_GUARANTEES.md) for what each lever guarantees and drops. For which capabilities are structural (uncopyable without forking the account type) versus table stakes, read [THE_MOAT.md](THE_MOAT.md).
 3. Read `examples/hopper-policy-vault/src/lib.rs` for the three modes side by side.
 4. Run `cargo run -p hopper-cli -- verify --package hopper-policy-vault` to see the LAYOUT_ID fingerprint scan on a shipping `.so`.
 5. In the `hopper-svm` repo, run `cargo test --features agave-runtime process_instruction_routes_through_agave_runtime` to see the harness execute a system transfer through Agave's real runtime.

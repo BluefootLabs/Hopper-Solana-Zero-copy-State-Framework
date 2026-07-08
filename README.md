@@ -7,6 +7,14 @@ Hopper is a zero-copy Solana program framework. Write programs with the Anchor s
 
 The framework gives you Anchor ergonomics, Quasar direct-state speed, and an escape hatch when you need raw SVM control. One production runtime: direct Solana account memory through Hopper's typed handles, validation layer, and CPI surface.
 
+Hopper is also the only framework in the 2026 low-CU field with its own substrate: Anchor v2 (alpha), Typhoon, and star-frame all build on Pinocchio, and Quasar shares its lineage, while `crates/hopper-native` has zero external dependencies. That one decision is what makes segment-level borrows, touch maps, and field-level write policies possible — see [docs/THE_MOAT.md](docs/THE_MOAT.md). Hopper is published on crates.io (hopper-lang 0.2.1) with a line-by-line audit trail and generated clients in 8 targets.
+
+Three measured facts, provenance in [BENCHMARKS.md](BENCHMARKS.md) (2026-07-07 runs):
+
+- Hopper's safe, validated overlay measures at the same net CU as a raw unsafe pointer cast (1 CU each, Mollusk primitive lab).
+- In the first published router-class three-way (Hopper vs Quasar vs hand-written Pinocchio), Hopper beats Quasar on every CU row, lands within 2.1-2.7% of raw Pinocchio while carrying full framework services, and ships the smallest binary of the three.
+- A complete deployable program fits in 4,688 bytes, about 0.034 SOL of rent-exempt deploy cost; the equivalent Anchor 0.31.1 artifact costs ~1.36 SOL to deploy.
+
 For normal programs, use `hopper-lang` as `hopper`: `use hopper::prelude::*`, `#[account]`, `#[derive(Accounts)]`, `#[program]`, typed wrappers, checked CPI, and SPL helpers. For advanced state work, reach for `hopper::systems::*` to get segment leases, layout manifests, receipts, policies, and low-level state machinery.
 
 ## What's included
@@ -18,6 +26,8 @@ For normal programs, use `hopper-lang` as `hopper`: `use hopper::prelude::*`, `#
 - External account adapters for non-Hopper accounts: typed views, checked lenses, proof tokens, snapshots, lazy remaining parsing, SPL Token adapters.
 - Checked CPI, signed CPI, stored instructions, Token and Token-2022 helpers, ATA, memo, and on-chain crypto.
 - Systems-mode APIs for segmented layouts, dynamic tails, receipt trails, policy checks, schema manifests, migrations.
+- Instruction touch maps (`touch-map` feature): enumerate the exact `(account, offset, size, read/write)` byte footprint an instruction touched, at measured 0 CU (`Context::for_each_touch`).
+- Field-level write policies: `#[hopper::context(strict_writes)]` compiles declared mutable ranges into a static policy enforced at borrow acquisition — beyond Sealevel's account-level `writable` bit.
 - Opt-in 1-byte compact accounts for hot state: exact `[disc][body]` sizing on-chain, with layout fingerprints supplied by the manifest, IDL, registry, and generated SDK constants.
 - CLI, schema, IDL, and code generation tools that understand Hopper layout fingerprints before decoding accounts.
 
@@ -68,7 +78,7 @@ hopper deploy --cluster devnet \
   --program-id target/deploy/my_program-keypair.json
 ```
 
-That's it. The counter example deployed to devnet at D8UGWDX5QRwEkKs2J9Sweabf4zd6hzdLqv7CB11SF91F as a full zero-copy program in 4,688 bytes. To decode a confirmed transaction:
+That's it. The counter example deployed to devnet at D8UGWDX5QRwEkKs2J9Sweabf4zd6hzdLqv7CB11SF91F as a full zero-copy program in 4,688 bytes — about 0.034 SOL of rent-exempt deploy cost at the network's `(bytes + 128) x 6,960` lamport formula, versus ~1.36 SOL for a 190 KiB Anchor-class artifact (see [BENCHMARKS.md](BENCHMARKS.md), deploy-cost economics). To decode a confirmed transaction:
 
 ```sh
 hopper explain <CONFIRMED_SIG> --manifest hopper.manifest.json
@@ -160,6 +170,7 @@ Advanced:
 - [docs/MIGRATION_FROM_ANCHOR.md](docs/MIGRATION_FROM_ANCHOR.md): Anchor to Hopper.
 - [docs/MIGRATION_FROM_QUASAR.md](docs/MIGRATION_FROM_QUASAR.md): Quasar to Hopper.
 - [docs/HOPPER_VS_QUASAR.md](docs/HOPPER_VS_QUASAR.md): Quasar casts vs Hopper checks.
+- [docs/THE_MOAT.md](docs/THE_MOAT.md): what compounds on the borrow ledger and sovereign substrate, and what any competitor can copy in a weekend — every claim cited to file, symbol, and test.
 - [docs/PORT_QUASAR_IN_20_MINUTES.md](docs/PORT_QUASAR_IN_20_MINUTES.md): bounded-tail vault/multisig port guide.
 - [docs/DYNAMIC_TAILS_FROM_QUASAR.md](docs/DYNAMIC_TAILS_FROM_QUASAR.md): Quasar dynamic fields to Hopper fixed-body plus compact tail.
 - [docs/TOKEN_2022_GUIDE.md](docs/TOKEN_2022_GUIDE.md): zero-copy Token-2022 extension policy and constraint syntax.
@@ -270,15 +281,21 @@ The benchmark suite is maintained as a separate product repo:
 Do not copy old benchmark numbers from this README. Regenerate numbers from the
 benchmark repo before publishing performance claims.
 
-The current same-provenance vault snapshot includes Hopper, the in-tree Anza
-Pinocchio target, and Quasar's upstream vault target. Quasar implements only
-the financial `deposit` / `withdraw` rows, so validation-only rows are marked
-`n/a` rather than synthesized. See [BENCHMARKS.md](BENCHMARKS.md) for the table
-and provenance.
+The current same-provenance vault snapshot (2026-07-07, four-way) includes
+Hopper, the in-tree Anza Pinocchio target, Quasar's upstream vault target, and
+a measured Anchor 0.31.1 comparator. Quasar implements only the financial
+`deposit` / `withdraw` rows, so validation-only rows are marked `n/a` rather
+than synthesized. The same repo also carries the first published router-class
+three-way (Hopper / Quasar / hand-written Pinocchio): Hopper beats Quasar on every row, within 2.1-2.7% of
+raw Pinocchio per hop, with the smallest binary of the three. See
+[BENCHMARKS.md](BENCHMARKS.md) for both tables and provenance.
 
-Treat that table as a historical release-candidate vault measurement, not proof
-that Hopper is broadly faster than Quasar. Re-run the benchmark repo at current
-Hopper and Quasar heads before publishing fresh performance language.
+Treat the vault table as a measurement of that vault contract, not a universal
+ranking. Within it, the facts are plain: Hopper won both rows Quasar's own
+upstream vault implements (deposit and withdraw) under one lockfile, toolchain,
+and seed set — and Quasar publishes no comparative CU benchmark of its own.
+Re-run the benchmark repo at current heads before publishing fresh performance
+language.
 
 Current positioning: **Anchor/Quasar-class DX, Hopper-grade safety/state
 contracts, Pinocchio-class raw control.** Treat benchmark rows as measurements
@@ -304,12 +321,22 @@ Hopper uses `unsafe` at the boundary where account bytes become typed views.
 The framework keeps those boundaries small and documented, but this is still a
 zero-copy framework and should be reviewed like one.
 
+Hopper also maintains a competitor-bug-class regression suite: 13 pinned tests
+that turn documented bug classes from other frameworks (CPI return-data UB,
+self-close lamport imbalance, stale migration state, overstated
+remaining-capacity, duplicate-account aliasing) into Hopper regression proofs.
+Authoring that suite found and fixed a real Hopper bug (`safe_close` accepted
+an aliased destination) — the framework audits itself.
+
 See:
 
 - `docs/UNSAFE_INVARIANTS.md`
 - `AUDIT.md`
 - `crates/hopper-core/tests/unsafe_boundary_tests.rs`
 - `crates/hopper-core/tests/overlay_equivalence_tests.rs`
+- `crates/hopper-runtime/tests/competitor_bug_classes.rs` and
+  `crates/hopper-core/tests/competitor_bug_classes.rs`
+- [docs/THE_MOAT.md](docs/THE_MOAT.md) for which guarantees are structural
 
 ## Support
 

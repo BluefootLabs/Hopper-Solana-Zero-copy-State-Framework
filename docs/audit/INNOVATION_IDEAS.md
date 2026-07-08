@@ -14,18 +14,41 @@ Status: `idea` | `spiked` | `planned` | `shipped`.
 
 ### I1 — PDA canonicalization by default (safety moat)
 
-- **idea.** Impact: high. Effort: medium.
+- **auto-lowering attempted 2026-07-07, reverted the same day — needs an
+  explicit opt-in redesign.** Impact: high. Effort: medium (redo).
 - The bump-canonicalization vuln (an attacker-supplied non-canonical bump
   verifying for the same seeds) is a recurring Solana exploit class. Anchor
   makes you write `bump = state.bump` by hand; Quasar/Pinocchio leave it fully
   manual. Hopper already has the cheap primitive (`verify_pda_from_stored_bump`,
   ~200 CU stored-bump verify vs ~1500 CU search).
-- **Surpass:** make `#[account(seeds = [...], bump)]` *automatically* store the
-  canonical bump at init and verify the stored bump on every subsequent load,
-  with no `bump = ...` argument — canonicalization becomes impossible to get
-  wrong. A `hopper doctor` lint flags any hand-rolled PDA check that verifies a
-  caller-supplied bump.
+- **What was tried:** a lowering that made a *bare* `bump` on any layout with a
+  1-byte field named `bump` auto-store the canonical bump at init and
+  auto-verify the stored byte thereafter. Adversarial review found three
+  problems that are all inherent to *auto-detection from a field name*, not
+  fixable by patching:
+  1. **Silent breaking change / bricking (P1):** existing programs with a bare
+     `bump` and an incidental `bump` field that they never populated (or wrote
+     by hand elsewhere) would suddenly verify against an all-zero/garbage
+     stored byte and reject previously-valid accounts.
+  2. **Canonicality regression (P1):** bare `bump` *used to* re-derive the
+     canonical bump every load and reject a non-canonical PDA; trusting a
+     stored byte only proves "this bump derives this address", not "this is the
+     canonical bump" — a program-signed non-canonical PDA whose stored byte
+     re-derives its own address would newly pass. Verifying canonicality
+     cheaply requires the framework to *prove* our own init is the sole writer,
+     which it cannot do for a name-detected field on a possibly-foreign account.
+  3. **Name-only false positives (P2):** any 1-byte field literally named
+     `bump` (a flag, another PDA's bump, `i8`) flips the verification source.
+- **Redesign (next pass):** make the trigger **explicit**, never inferred — a
+  `bump(store)` constraint arg or a `#[bump]` field attribute that carries a
+  semantic `is_pda_bump` tag in the layout metadata (the `FieldMap` has no such
+  tag today). Only the explicit form gets the stored-verify fast path, and only
+  on program-owned accounts; everything else keeps the safe find-based lowering.
+  The CU win remains available today via explicit `bump = state.bump` (the
+  existing stored-bump path). Pair with the `hopper doctor` lint (I4) that flags
+  hand-rolled caller-supplied-bump verification.
 - Owner files: `crates/hopper-macros-proc/src/context.rs` (seeds/bump lowering),
+  `crates/hopper-macros-proc/src/state.rs` (field metadata / `is_pda_bump` tag),
   `crates/hopper-native/src/pda.rs` (primitives exist).
 
 ### I2 — Borrow-sound-by-construction zero-copy (audit-trail moat)
@@ -423,6 +446,143 @@ attribute would be small ergonomic parity if users ask.
   `crates/hopper-macros/src/lib.rs`, `crates/hopper-core/src/lib.rs`
   (`__sha256_const`), docs.
 
+### I18 — `hopper-builtins`: program-wide tuned memory intrinsics
+
+- **shipped (experimental, opt-in) 2026-07-07.** Requires
+  `--allow-multiple-definition` (rust-lld refuses the strong-vs-strong
+  collision — measured) and `#![no_builtins]` (loop-idiom self-recursion,
+  caught by adversarial review). Vault CU neutral, +0.41 KiB; value is
+  runtime-length mem ops. Original entry:
+- **idea (2026-07-07 research pass).** Impact: high (whole-program CU +
+  size). Effort: low-medium.
+- Quasar vendors `solana-compiler-builtins`: `#[no_mangle] extern "C"
+  memcmp` (word-wise inline ≤ 32 bytes, `sol_memcmp` syscall above) —
+  and only memcmp; no memcpy/memset/memmove overrides. Source correction
+  (2026-07-07 re-read): the override is gated `target_arch = "bpf"`,
+  which is false on their default `cargo build-sbf` route (build-sbf sets
+  `target_arch = "sbf"`), so it never links there and their published
+  numbers never included it; it also returns `1` on any mismatch
+  (ordering bug). Note the override would not reprice derived
+  `PartialEq` anyway — LLVM inline-expands fixed-size 32-byte compares;
+  built Hopper `.so` files contain no memcmp symbol for those compares.
+  Hopper's fast
+  compare (`hopper-native/src/mem.rs`, syscall dispatch) fires only on
+  explicit call sites, and `Address` itself is `#[derive(PartialEq)]` over
+  `[u8; 32]` → an inline compare shape LLVM expands (no memcmp call).
+  Our own numbers show the split:
+  token-constraint 32-byte compares ~8 CU (explicit fast path) vs
+  `check_keys_eq` ~40 CU (BENCHMARKS.md / CU_COSTS.md) — the manual
+  `PartialEq` carries that fix, not the intrinsic override.
+- **Match:** manual `PartialEq for Address` (4× `read_unaligned::<u64>`
+  short-circuit compares — align-1 sound); route `require_keys_eq!`,
+  `has_one`, `owner =`, `address =`, dedup checks through it.
+- **Surpass:** opt-in `hopper-builtins` overriding
+  `memcmp`/`bcmp`/`memcpy`/`memset` with the hopper-native thresholds
+  (no `memmove` — the toolchain shim is already the right shape), gated
+  `target_os = "solana"` so it actually fires on the build-sbf route —
+  ground Quasar does not hold. The win is runtime-length call sites
+  (core slice cmp on long `&[u8]`, third-party code) that otherwise pay
+  the ~10 CU `mem_op` base + shim overhead for tiny `n`. Add Quasar's
+  `is_system_program` OR-fold trick; differential-fuzz +
+  Miri (I14) the overrides; smoke-test the duplicate-symbol risk against
+  the GLOBAL toolchain shims; publish the CU model per size class.
+  Re-measure
+  the vault matrix after (expect movement on every validation-heavy row).
+- Owner files: `crates/hopper-runtime/src/address.rs`, new
+  `crates/hopper-builtins`, `crates/hopper-native/src/mem.rs`.
+
+### I19 — CU + binary-size regression CI as a user-facing product
+
+- **idea (2026-07-07).** Impact: high (unowned whitespace, confirmed by
+  external scan). Effort: medium.
+- Nobody ships "fail the PR when CU or bytes regress" for *user programs*:
+  Mollusk's bencher emits deltas but has no thresholds/Action/PR-comment
+  layer; Quasar's regression script is repo-internal; Anchor has nothing.
+  Hopper already owns `cu_baselines.toml` + the bench harness.
+- **Surpass:** `hopper bench compare [--base <ref>]` + a GitHub Action
+  template shipped by `hopper init` that posts the CU/size delta table on
+  PRs and fails past thresholds. Pairs with I3 (compile-time budgets) as
+  the "CU governance" story no competitor has.
+- Owner files: `tools/hopper-cli` (new subcommand), `hopper-bench` runner
+  glue, init templates.
+
+### I20 — Adversarial suite over competitor bug classes
+
+- **shipped 2026-07-07.** 13 pinned tests in two suites; the authoring
+  pass found and fixed a live `safe_close` aliased-destination burn (the
+  exact Quasar #240 shape). Original entry:
+- **idea (2026-07-07).** Impact: medium-high (safety positioning with
+  teeth). Effort: low-medium.
+- Quasar's open tracker (2026-07): CPI-return `assume_init` UB (#238/#234),
+  self-close imbalance (#240), migration stale-state (#239), remaining-
+  accounts capacity overstated (#242), raw-handler duplicate-account
+  aliasing. Hopper's `get_return_data` verified sound against the UB class
+  (2026-07-07); the rest map to existing guards (borrow registry, lifecycle,
+  remaining modes).
+- **Surpass:** encode each class as (a) a regression test proving Hopper
+  can't express the bug, (b) a `hopper doctor` lint (I4), (c) a published
+  "bug class → how Hopper makes it unrepresentable" matrix. Perf rider:
+  drop the 1 KiB zero-fill in `get_return_data` (MaybeUninit + init-prefix
+  slice) — sound *and* fast where Quasar is fast and unsound.
+- Owner files: `crates/hopper-runtime/src/return_data.rs`, doctor lints,
+  new docs page.
+
+### I21 — Fuzz-harness generation from manifests (the Trident gap)
+
+- **idea (2026-07-07).** Impact: high (unowned whitespace; deep moat
+  synergy). Effort: medium-high.
+- Trident, the only Solana fuzzing framework, requires an Anchor IDL —
+  every zero-copy framework is locked out. Hopper manifests already carry
+  layouts, instruction account lists, constraints, and fingerprints.
+- **Surpass:** `hopper fuzz init` generates Mollusk-driven harnesses per
+  instruction: arbitrary account bytes + ix data → clean `Err`, never
+  panic/OOB (I13's hostile-metadata property generalized to user programs),
+  plus declared-vs-actual write-set verification via I7 touch maps + I12
+  policies. Unreplicable without a manifest format *and* a borrow ledger.
+- Owner files: `tools/hopper-cli`, `crates/hopper-test`, schema plumbing.
+
+### I22 — In-place growable zero-copy collections (star-frame answer)
+
+- **idea (2026-07-07).** Impact: medium (real for orderbook/registry state;
+  demand-gated). Effort: high.
+- star-frame's unsized types (`UnsizedList`/`UnsizedMap`, shift-in-place
+  inside a fixed buffer) are the only competitor take on growable zero-copy
+  state — shipped unaudited, Star-Atlas-only. Hopper's bounded tails + 8
+  hardened collections cover most needs; the shift-in-place shape is the
+  remaining piece.
+- **Surpass (if built):** implement over the segment system with leases
+  invalidated on shift, parse-don't-validate constructors, and the I13
+  hostile-metadata harness from day one — growable *and* corruption-fuzzed,
+  which star-frame is not. Evaluate demand before committing.
+- Owner files: `crates/hopper-core/src/collections/`, segment lease
+  integration.
+
+### I23 — sBPF v3 readiness, marketed first
+
+- **idea (2026-07-07).** Impact: medium (credible differentiator, low
+  contention). Effort: low-medium.
+- SIMD-0178/0179 (static syscalls, no relocations) + SIMD-0189 (strict
+  ELF) arrive via toolchain; SIMD-0500 proposes disabling v0–v2 deploys.
+  External scan: *no framework markets v3 readiness.* Hopper already has
+  the cluster-gate precedent (`hopper feature-gate`, SIMD-0321).
+- **Surpass:** extend `hopper feature-gate` to report sBPF-version
+  deployability per cluster; add a v3 build lane to CI and the bench
+  matrix (static syscalls should shrink `.text` — attacks the G2 size gap);
+  publish the readiness story before anyone claims it.
+- Owner files: `tools/hopper-cli/src/cmd/feature_gate.rs`, CI workflows,
+  `hopper-bench` matrix config.
+
+### 2026-07-07 research-pass cross-check
+
+Full synthesis (external landscape, gap ranking G1–G8, router-class
+head-to-head spec, priority roadmap) lives in
+`GAP_CLOSURE_AND_INNOVATION_2026.md`. Headlines: Anchor v2 is a real
+unreleased Pinocchio-based alpha benchmarking at Quasar-level CU (the
+"vs Anchor" multiple has a shelf life); no public router-class framework
+benchmark exists (empty category — §5 of the plan claims it); Quasar
+remains unaudited/v0.0.0 with five open soundness issues; Hopper already
+occupies the "IDL/clients for zero-copy" whitespace the scan ranked #1.
+
 ### Batch 4 competitor cross-check (2026-07-04)
 
 Read Quasar's derive layer sources directly against Hopper's macro
@@ -449,3 +609,39 @@ fixes this batch (`E:\Frameworks\quasar\derive\src\{error_code,event}.rs`):
   at compile time — the better architecture; document it rather than
   copy theirs.
 
+
+### I24 — Scheduler-legible write-sets (shipped: publication; deferred: demotion + macro population)
+
+- **partial-shipped 2026-07-07.** Impact: high (2026 moat — local fee
+  markets / access-list SIMDs price sub-account contention; only Hopper's
+  ledger tracks byte ranges). Effort remaining: medium.
+- **Shipped:** `InstructionDescriptor` carries `strict_writes` +
+  byte-range `write_ranges` (the runtime `WriteRange` type); the manifest
+  emits `strictWrites` + a per-instruction `writeRanges` array. This is
+  the machine-readable contention footprint no account-granular framework
+  can produce — verified from source that Anchor v2's finest tracking is a
+  `MUT_MASK [u64;4]` over account indices and Quasar's is a boolean flag,
+  both bounded by Pinocchio's single per-account borrow byte.
+- **Deferred (found unsound in adversarial review, 2026-07-07):**
+  client-side read-only *demotion* from these ranges. A `WriteRange` is a
+  *data* range, but Sealevel writability also covers *lamport* mutation
+  (close/sweep recipients, transfer targets) that the range model — and
+  the runtime `WritePolicy`, which gates only segment/`load_mut` data-write
+  acquisition — cannot see. Demoting on data-range absence would send a
+  lamport-credited account read-only and fail the transaction.
+  `effective_writable` is a sound passthrough until this is closed.
+- **To make demotion sound:** an instruction must declare its write set
+  *mutation-complete* (data AND lamports). Path: (a) the `strict_writes`
+  macro emits its `WriteRange` set into a manifest-reachable const AND a
+  per-instruction `mutation_complete` assertion it only sets when it can
+  prove the handler's lamport effects are enumerated (or that the account
+  takes no lamport credit); (b) `effective_writable` demotes only when
+  `mutation_complete`. Then draft the field-scoped write-declaration SIMD
+  with Hopper as reference implementation.
+- **Also open:** macro auto-population of `write_ranges` (today they are
+  manifest-author-supplied; the enforced ranges live in a function-local
+  `WritePolicy` static inside `bind()` unreachable from the schema path —
+  see `context.rs` ~2690-2750); the remaining 6 clientgen targets;
+  CLI JSON round-trip of `strictWrites`/`writeRanges`.
+- Owner files: `crates/hopper-schema/src/{lib.rs,codama.rs,clientgen.rs,
+  rust_client.rs}`, `crates/hopper-macros-proc/src/context.rs`.

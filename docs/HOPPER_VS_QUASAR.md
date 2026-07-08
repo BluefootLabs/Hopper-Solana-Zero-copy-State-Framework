@@ -86,9 +86,63 @@ pub struct Note<'a> {
 
 ## Where Hopper Adds More
 
-- Segment leases let systems-mode code borrow disjoint byte ranges instead of whole accounts.
+- Segment leases let systems-mode code borrow disjoint byte ranges instead of whole accounts (`crates/hopper-runtime/src/segment_borrow.rs`).
+- Instruction touch maps enumerate the exact `(account, offset, size, read/write)` footprint an instruction touched, at measured 0 CU (`Context::for_each_touch`, `touch-map` feature).
+- Field-level write policies: `#[hopper::context(strict_writes)]` enforces declared mutable byte ranges at borrow acquisition (`crates/hopper-runtime/src/write_policy.rs`).
+- Behaviors are accountable: `HopperBehavior` plugins contribute their `WRITES` to the write policy and return `BehaviorChecked` proof tokens (`crates/hopper-runtime/src/behavior.rs`). Quasar's `AccountBehavior` is side-effect-only hooks.
+- Foreign lenses read other programs' accounts through a manifest with 4-way ABI-drift detection — owner, discriminator, wire fingerprint, schema-epoch range (`crates/hopper-runtime/src/foreign.rs::ForeignManifest`).
+- Proof-carrying markers let downstream APIs require type-level evidence a check ran (`crates/hopper-runtime/src/proof.rs::AccountProof`).
 - Token-2022 TLV constraints validate extension state without deserializing into owned structs.
 - `hopper solana-check`, `publish-check`, and the SBF workflow keep deployable crate shape and direct-runtime assumptions honest.
 - Actions, mobile, and security-test generators have a manifest-backed foundation for product scaffolding.
+
+See [THE_MOAT.md](THE_MOAT.md) for which of these a Pinocchio-based framework could copy and which it structurally cannot.
+
+## Project maturity and soundness track record
+
+Facts verified 2026-07-07 against public trackers and registries (sources in
+`docs/audit/GAP_CLOSURE_AND_INNOVATION_2026.md`, section 2). This is stated
+factually because readers weighing the two frameworks need it, not as a knock
+on Quasar's engineering, which is real.
+
+- **Release status.** Quasar is v0.0.0 — no tags, no releases, not published
+  on crates.io — and describes itself as "Beta … not audited". It builds only
+  on nightly Rust with a bespoke toolchain. Hopper is published
+  (hopper-lang 0.2.1 on crates.io), builds on stable Rust (pinned 1.96.0),
+  and carries a line-by-line audit trail (`AUDIT.md`,
+  `docs/UNSAFE_INVARIANTS.md`).
+- **Open soundness issues.** Quasar's tracker carries five open
+  unsoundness/correctness issues as of 2026-07:
+  [#238](https://github.com/blueshift-gg/quasar/issues/238) and
+  [#234](https://github.com/blueshift-gg/quasar/issues/234) (CPI return-data
+  `assume_init` over uninitialized bytes — UB),
+  [#240](https://github.com/blueshift-gg/quasar/issues/240) (account
+  self-close imbalance),
+  [#239](https://github.com/blueshift-gg/quasar/issues/239) (migration leaves
+  stale state), and
+  [#242](https://github.com/blueshift-gg/quasar/issues/242)
+  (`Remaining<T,N>` capacity overstated), plus a raw-handler
+  duplicate-account aliasing footgun.
+- **Hopper's posture on the same five classes.** Each class is structurally
+  guarded and regression-pinned: `get_return_data` is
+  `MaybeUninit`-prefix-only on both paths (sound where #238 is UB), the
+  borrow registry rejects duplicate-account aliasing, migration edges zero
+  grown regions and never advance the epoch on failure, remaining-account
+  capacity is reported exactly, and `safe_close` rejects aliased
+  destinations. The pins live in
+  `crates/hopper-runtime/tests/competitor_bug_classes.rs` and
+  `crates/hopper-core/tests/competitor_bug_classes.rs` (13 tests).
+- **The suite bites both ways.** Authoring those tests found a real Hopper
+  bug — `safe_close` previously accepted an aliased destination and silently
+  burned the drained lamports, the exact #240 shape — which was fixed and
+  pinned in the same pass. The framework audits itself.
+- **Benchmark culture.** Quasar publishes no comparative CU benchmark.
+  Hopper's pinned, provenance-checked `hopper-bench` matrix (vault four-way
+  and router three-way, 2026-07-07) is currently the only published
+  cross-framework table that includes Quasar; in it, Hopper wins both rows
+  Quasar's upstream vault implements (deposit −106 CU, withdraw −150 CU) and
+  beats Quasar on every 1–3-hop router row (−18/−20/−21 CU) with a smaller
+  binary. See
+  `BENCHMARKS.md`.
 
 Use Quasar mental models to read Hopper programs. Use Hopper contracts when account bytes, upgrades, and long-lived protocol state need to be auditable.

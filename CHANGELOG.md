@@ -9,6 +9,164 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 
 ### Added
 
+- **Fused lazy entrypoint (pay-as-you-go, no hidden memset).** The lazy
+  entrypoint no longer zero-fills a 2 KB `[AccountView; 254]` on every
+  invocation or pre-scan the whole account region twice: the resolved
+  array is now `[MaybeUninit<AccountView>; 254]` (forward-duplicate
+  markers trap, so uninitialized slots are unreachable), and the
+  instruction-data / program-id tail is found by a *memoized* skip-walk
+  that runs only when first requested — `k` consumed accounts cost
+  exactly `k` parses. Instruction-data-anytime ergonomics preserved (the
+  DX edge over Pinocchio's lazy, which errors if you read data before
+  consuming all accounts). Differential tests pin lazy resolution against
+  the checked parser across 0/1/MAX/MAX+ accounts, duplicates, every
+  `data_len` residue, and data-before/after-consume.
+- **sBPF v3 static-syscall readiness (opt-in `static-syscalls`).** A new
+  `define_syscall!` macro emits today's relocation-based `extern "C"`
+  declaration by default (byte-identical behavior) and a murmur32-hashed
+  static call under `feature = "static-syscalls"` (the SIMD-0178 sBPF v3
+  ABI). All native and runtime syscalls route through it; the `sys_hash`
+  constant is pinned against known Agave dispatch keys. Verified: the
+  counter builds clean for both the v0 and v3 targets. Default builds are
+  unchanged — this is readiness for the loader-v4 / v3 activation window,
+  shipped before it is forced. No competitor except Pinocchio is v3-ready.
+- **SIMD-0339 CPI unlock.** The hard CPI account-info ceiling
+  (`MAX_CPI_ACCOUNTS`) rises 128 → 255 to match SIMD-0339
+  (`increase_cpi_account_info_limit`, live on testnet epoch 883), while
+  the stack-scratch ceiling (`MAX_STATIC_CPI_ACCOUNTS`) stays 64 so no
+  program's frame grows unless it opts into a larger const-generic
+  `MAX_ACCOUNTS`. Under 0339 every distinct account-info carries a CU
+  cost, so `DynCpi` now **deduplicates account-infos by pubkey**
+  (OR-merging `is_writable`/`is_signer` across occurrences) while the
+  callee still sees the full ordered meta list — fewer infos, lower CU,
+  via `invoke_signed_deduped`. `hopper feature-gate` detects the 0339
+  cluster gate alongside 0321.
+- **Byte-range write-sets published to manifests (scheduler-legible
+  programs).** `InstructionDescriptor` now carries `strict_writes` and
+  byte-range `write_ranges` (the runtime's own `WriteRange` type — the
+  same source the `strict_writes` macro compiles), and the manifest emits
+  `strictWrites` + a per-instruction `writeRanges` array: a
+  machine-readable, sub-account contention footprint that future
+  scheduler / local-fee-market / access-list SIMDs will want, and that no
+  account-granular framework can express (verified from source: Anchor
+  v2's finest write-tracking is a `MUT_MASK [u64; 4]` bitmask *over
+  account indices*; Quasar stops at a boolean `writable` flag; both are
+  bounded by Pinocchio's single per-account borrow byte). Client
+  read-only *demotion* from these ranges is intentionally **not** wired
+  up yet: a `WriteRange` is a *data* range, but Sealevel writability also
+  covers *lamport* mutation (close/sweep recipients), so demoting on data-
+  range absence would send a lamport-credited account read-only and fail
+  the transaction. `InstructionDescriptor::effective_writable` is a sound
+  passthrough until write sets can be declared mutation-complete; the
+  published ranges already serve schedulers and indexers.
+- **Write-containment property tests generated for free.** `hopper
+  test-gen` now emits, per `strict_writes` instruction, a hopper-svm test
+  that runs the handler under the touch-map feature and asserts every
+  recorded write touch is contained in the declared `WritePolicy`,
+  surfacing `touch_map_overflowed` explicitly. A declared-vs-actual
+  guarantee only a framework with an instruction-scoped borrow ledger can
+  produce.
+
+- **Fused single-pass account deserialization (the entrypoint CU fix,
+  2026-07-07).** `deserialize_accounts` no longer pre-scans the input
+  region to locate instruction data and then re-walks it to materialize
+  views: one fused walk does both, accounts beyond the caller's `MAX`
+  degrade to skip-only so instruction data is still found, and the
+  per-account `align_offset` recomputation is replaced by a folded
+  integer stride (`next_record_offset`), proven identical because the
+  loader input base is 8-aligned (`MM_INPUT_START`) — differential tests
+  pin the formula equivalence across alignment residues. Effect measured
+  on the benches: every vault row dropped 46–64 CU (auth-fail 107 → 61),
+  the router dropped 52–100 CU per route, and both binaries shrank. This
+  delivers most of the SIMD-0321 fast-entrypoint promise today, on every
+  Hopper program, with the gate still available for more when it
+  activates. 13 new host-side walk tests (duplicates in and beyond the
+  materialize range, alignment residues, 254-clamp, huge `data_len`).
+- **`invoke_borrow_checked` / `invoke_signed_borrow_checked` — the
+  Pinocchio-equivalent CPI tier.** Const-generic fixed-array CPI whose
+  validation is exactly the per-account borrow-state checks (what raw
+  Pinocchio's `invoke` performs), for callers that already validated
+  writability/uniqueness at parse. The default tier is unchanged and
+  still rejects duplicate writable metas; the doc carries the full tier
+  table (`checked` ≥ default > `borrow_checked` > `unchecked`) with CU
+  deltas. The parity router uses this tier — its validation level now
+  matches the hand-written comparator exactly.
+- **Dispatch-table gate.** The tiny-profile fn-pointer dispatch table
+  (contiguous single-byte discriminators) now only engages at ≥ 8
+  instruction arms — instruction-level analysis showed the indirect-call
+  setup regresses smaller programs, where the compare ladder is cheaper.
+- **Word-compare address equality everywhere (G1, 2026-07-07 research pass).**
+  `Address == Address` in both the runtime and native crates now lowers to a
+  4×`u64` `read_unaligned` short-circuit word compare instead of the derived
+  bytewise compare (manual `PartialEq`/`Eq`; derived `PartialOrd`/`Ord` kept —
+  word-equality ⇔ byte-equality so consistency holds). The native
+  `address_eq` — the function under **every** owner check
+  (`check_owner → owned_by`), CPI account validation, precompile
+  introspection, and the PDA bump search — was rewritten from `a.0 == b.0`
+  to the same word compare. New safe wrappers
+  `hopper_runtime::address::{keys_eq, keys_eq_bytes, address_is_zero}` now
+  serve `require_keys_eq!`/`require_keys_neq!`, the `has_one` lowering, five
+  `token::*` preconditions (intermediate 32-byte copies eliminated), nine
+  Token-2022 TLV authority checks, and the host-side system-program check
+  (OR-fold is-zero). `hopper-core`'s instruction-introspection checks and
+  `UntypedAddress` route through the existing `keys_eq_fast`. Equality-matrix
+  and Ord-consistency tests pin the semantics in both crates. Note:
+  `Address` no longer implements `StructuralPartialEq`, so Address-typed
+  consts cannot appear in `match` patterns (none existed; use `==` guards).
+- **`hopper-builtins` (I18, opt-in `builtins` feature).** New zero-dependency
+  `no_std` crate overriding the `memcmp`/`bcmp`/`memcpy`/`memset` intrinsics
+  on the SBF target: word-wise inline for `n ≤ 32` (avoids the ~10 CU
+  `mem_op` syscall base + shim overhead the platform-tools shims pay even
+  for tiny lengths), `sol_mem*` syscalls above. Ordering-correct `memcmp`
+  (the reference implementation in Quasar's tree returns `1` on any
+  mismatch, violating the C contract — ours computes the real sign, with
+  differential tests at every mismatch index). Enabled via
+  `hopper = { features = ["builtins"] }` + linked through
+  `use hopper_builtins as _;`; a `__HOPPER_BUILTINS` marker symbol supports
+  CI verification. Two requirements discovered during verification:
+  programs opting in must build with
+  `RUSTFLAGS="-C link-arg=--allow-multiple-definition"` (rust-lld refuses
+  the strong-vs-strong collision with the toolchain shims outright), and
+  the crate carries `#![no_builtins]` so LLVM loop-idiom recognition
+  cannot rewrite the overrides into self-recursive libcalls (P1 caught
+  and reproduced by the adversarial review pass). Off by default. No `memmove` override (the toolchain shim is already the right
+  shape).
+- **Competitor-bug-class regression suite (I20).** New integration tests
+  (`crates/hopper-runtime/tests/competitor_bug_classes.rs`,
+  `crates/hopper-core/tests/competitor_bug_classes.rs`) pin Hopper's
+  structural immunity to four open competitor bug classes: remaining-accounts
+  capacity honesty, self-close imbalance, duplicate-account aliasing (context
+  audits + segment-borrow registry), and migration stale state (append
+  migrations zero the grown region even over pre-seeded garbage). Each test
+  names the bug class, the Hopper guard, and what it pins.
+- **Router parity lab (first head-to-head scaffold).** New
+  `examples/hopper-router`: a clean-room, autobahn-class multi-hop route
+  executor (measured amount forwarding via balance deltas, per-hop CPI,
+  `min_out` slippage gate) implementing the framework-neutral contract in
+  the sibling benchmark repo (`hopper-bench/ROUTER_CONTRACT.md`, alongside a
+  shared Pinocchio `mock-amm` CPI target, a `pinocchio-router` baseline, and
+  a two-program Mollusk runner). Measurement rows: 1/2/3-hop CU slope plus a
+  mandatory min-out-violation rejection gate.
+
+### Fixed
+
+- **Aliased self-close burned lamports (found by the I20 suite).**
+  `safe_close`/`safe_close_unchecked` accepted a destination aliasing the
+  account being closed: the drained balance was credited to the account
+  being zeroed, silently destroying it in program scope (the transaction
+  only failed later at the runtime's global lamport-sum check, or not at
+  all off-chain). The unchecked close now refuses address-aliased
+  source/destination with `InvalidArgument` before any mutation; pinned
+  through both the checked and sentinel entry points.
+- **`get_return_data` no longer zero-fills 1 KiB per call (G7).** Both
+  return-data snapshots now use a `MaybeUninit` buffer and expose only the
+  syscall-initialized prefix (`data()`/`read_pod`/`copy_to`/`as_type`/
+  `as_u64`/`as_u32` and the new manual `Debug` all read
+  `[..len]` only; `None` is returned before any read when the syscall
+  reports zero bytes). This keeps Hopper immune to the
+  uninitialized-return-data UB class open in Quasar (#238/#234) while
+  removing the fill cost — sound *and* fast.
+
 - **Field-level write policies (`strict_writes`, innovation I12).**
   `#[hopper::context(strict_writes)]` compiles the context's existing
   `mut` / `mut(seg, ...)` / lifecycle declarations into a `static`

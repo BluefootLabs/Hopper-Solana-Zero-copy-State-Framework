@@ -83,7 +83,7 @@ requirements.
 | `crates/hopper-native/src/pda.rs` | 21 | - |
 | `crates/hopper-native/src/project.rs` | 8 | `project_safe_mut`, `project_mut`, `project_hopper_mut` |
 | `crates/hopper-native/src/raw_input.rs` | 33 | `deserialize_accounts`, `deserialize_accounts_fast`, `scan_instruction_frame` |
-| `crates/hopper-native/src/return_data.rs` | 2 | - |
+| `crates/hopper-native/src/return_data.rs` | 3 | - |
 | `crates/hopper-native/src/system.rs` | 1 | - |
 | `crates/hopper-native/src/sysvar.rs` | 3 | - |
 | `crates/hopper-native/src/token.rs` | 1 | - |
@@ -111,7 +111,7 @@ requirements.
 | `crates/hopper-runtime/src/memory.rs` | 8 | `copy_nonoverlapping`, `copy`, `fill`, `compare` |
 | `crates/hopper-runtime/src/option_byte.rs` | 2 | - |
 | `crates/hopper-runtime/src/pda.rs` | 7 | - |
-| `crates/hopper-runtime/src/return_data.rs` | 3 | - |
+| `crates/hopper-runtime/src/return_data.rs` | 4 | - |
 | `crates/hopper-runtime/src/segment_lease.rs` | 1 | `new` |
 | `crates/hopper-runtime/src/syscall.rs` | 2 | - |
 | `crates/hopper-runtime/src/syscalls.rs` | 31 | `sol_log_data`, `sol_sha256`, `sol_keccak256`, `sol_curve_validate_point`, `sol_get_processed_sibling_instruction`, `sol_set_return_data`, `sol_get_return_data`, `sol_memcpy_`, `sol_memmove_`, `sol_memcmp_`, `sol_memset_` |

@@ -10,6 +10,14 @@ narrower than the leading option, or behind a feature gate. **No** = not
 provided by the framework (the dev writes it by hand). **N/A** = out of scope
 for that framework's design.
 
+A note on the comparison targets' status (verified 2026-07-07): Quasar is
+v0.0.0 — no tags, no releases, not on crates.io, self-described "Beta … not
+audited", nightly-only toolchain. Pinocchio is audited (Neodyme and Zellic,
+2025-06) and production-proven. Anchor has years of mainnet mileage. Hopper is
+published (hopper-lang 0.2.1 on crates.io) on stable Rust with a line-by-line
+audit trail (`AUDIT.md`, `docs/UNSAFE_INVARIANTS.md`). Weight the "Yes" cells
+accordingly.
+
 ## Reading the "Hopper implements" column
 
 Symbols are given as `path::Symbol`. Where a capability is delivered by a proc
@@ -37,6 +45,7 @@ runtime it lowers to is in `crates/hopper-runtime/src/` or
 | `_unchecked` hot-path escape hatch, `#[inline(always)]` | Yes | N/A | No | N/A (all manual) | `account.rs::borrow_unchecked` / `borrow_unchecked_mut`; `context.rs::raw_unchecked`; each with a `// SAFETY:` invariant |
 | Compile-time Pod / alignment-1 / non-padded enforcement | Yes | Partial | Partial | No | `crates/hopper-macros-proc/src/pod.rs` (`#[hopper::pod]`), `state.rs`; trybuild guards in `tests/compile_fail/` |
 | Layout fingerprint (`LAYOUT_ID`) to catch shape drift | Yes | No | No | No | `LayoutContract::LAYOUT_ID`; cross-program load checks it in `account.rs` |
+| Proof-carrying account markers (type-level evidence a check ran) | Yes | No | No | No | `crates/hopper-runtime/src/proof.rs::AccountProof<P>` with `OwnerChecked` / `SignerChecked` / `LayoutChecked<T>` markers; downstream APIs can require the proof instead of hoping a macro emitted the check |
 
 ## Segment-level borrows (the differentiator)
 
@@ -65,6 +74,7 @@ runtime it lowers to is in `crates/hopper-runtime/src/` or
 | In-place migration edges | Yes | No | No | No | `crates/hopper-runtime/src/migrate.rs::MigrationEdge`, `LayoutMigration`, `apply_pending_migrations`; `#[hopper::migrate]` macro |
 | Migration composition / chain application | Yes | No | No | No | `apply_pending_migrations` walks edges epoch-by-epoch; `hopper::layout_migrations!` composes them |
 | Manifest-level migration compatibility analysis | Yes | No | No | No | `crates/hopper-schema/src/lib.rs::is_append_compatible` / `requires_migration` / `is_backward_readable` |
+| Manifest-backed foreign (cross-program) lenses with 4-way ABI-drift detection (owner, disc, wire fingerprint, schema-epoch range) | Yes | No | No | No | `crates/hopper-runtime/src/foreign.rs::ForeignManifest`; competitors either version-lock on the foreign crate or read blind offsets |
 
 ## Receipts & policy
 
@@ -73,6 +83,7 @@ runtime it lowers to is in `crates/hopper-runtime/src/` or
 | Structural receipts proving an ix touched a segment/version | Yes | No | No | No | `crates/hopper-core/src/receipt.rs::StateReceipt<SNAP_SIZE>`, `DecodedReceipt` |
 | Receipt decode / explain for off-chain consumers | Yes | No | No | No | `receipt.rs::ReceiptExplain`, `ReceiptNarrative`, `ReceiptIndexRecord` |
 | Declarative policy graph evaluated before dispatch | Yes | No | No | No | `crates/hopper-runtime/src/policy.rs::HopperProgramPolicy`, `HopperInstructionPolicy` |
+| Per-field lifecycle behaviors that contribute write-sets and return proof tokens | Yes | Partial (side-effect hooks only, no accountability) | No | No | `crates/hopper-runtime/src/behavior.rs::HopperBehavior` — `WRITES` feeds the `strict_writes` policy; checks return `BehaviorChecked<B, O>` |
 
 ## Anchor-parity context ergonomics
 
@@ -119,6 +130,20 @@ runtime it lowers to is in `crates/hopper-runtime/src/` or
 | CLI scaffold / manifest gen / inspect / lint / profile | Yes | Partial | Yes (`anchor` CLI) | No | `tools/hopper-cli/src/cmd/*` |
 | Client codegen (TS / Kotlin / Python / Rust) | Yes | Partial | Yes (TS) | No | `crates/hopper-schema/src/{clientgen,rust_client,python_client}.rs` |
 | In-process SVM integration test harness | Yes | Partial | Yes | No | `crates/hopper-test/src/lib.rs::LiteSvmHarness` (mollusk-backed); used by the gated devnet tests |
+
+## Maturity, soundness record, and benchmark culture
+
+Facts verified 2026-07-07 against public trackers and registries; see
+`docs/audit/GAP_CLOSURE_AND_INNOVATION_2026.md` section 2 for sources.
+
+| Capability | Hopper | Quasar | Anchor zc | Pinocchio | Hopper implements / evidence |
+|---|---|---|---|---|---|
+| Published release on crates.io | Yes (0.2.1) | No (v0.0.0, no tags or releases) | Yes | Yes | [crates.io/crates/hopper-lang](https://crates.io/crates/hopper-lang) |
+| Audit posture | Line-by-line internal audit trail | Self-described "Beta … not audited" | Ecosystem audits | Audited (Neodyme, Zellic 2025-06) | `AUDIT.md`, `docs/UNSAFE_INVARIANTS.md` |
+| Builds on stable Rust | Yes (pinned 1.96.0) | No (nightly-only bespoke toolchain) | Yes | Yes | `rust-toolchain.toml` |
+| Open soundness/correctness issues on tracker (2026-07) | None open; classes regression-pinned | 5 (blueshift-gg/quasar #234, #238, #239, #240, #242) | tracked upstream | none open | Hopper pins those classes in `crates/hopper-runtime/tests/competitor_bug_classes.rs` + `crates/hopper-core/tests/competitor_bug_classes.rs` (13 tests) |
+| Competitor-bug-class regression suite (bug class → structural guard → pinned test) | Yes | No | No | No | the two `competitor_bug_classes.rs` suites above; authoring the suite also found and fixed Hopper's own `safe_close` aliased-destination bug |
+| Publishes reproducible cross-framework CU benchmark with pinned provenance | Yes | No (no published numbers) | No (otter-sec/anchor #4355 planned, unpublished) | No | `hopper-bench` results + provenance blocks in `BENCHMARKS.md` |
 
 ---
 
@@ -168,6 +193,10 @@ sysvar; deposit CPIs System `Transfer` and emits a typed event; withdraw
 debits program-owned lamports under a `has_one` check) — see
 `examples/hopper-smoke/README.md` for the confirmed transaction
 signatures. See `BENCHMARKS.md` for sizes and the measured CU figure.
+At the network's `(bytes + 128) × 6,960` lamport rent formula, the
+4,688-byte counter costs about **0.034 SOL** of rent-exempt deploy rent;
+an Anchor-class 190 KiB artifact costs ~1.36 SOL (`BENCHMARKS.md`,
+deploy-cost economics).
 
 ## Honest gaps
 
@@ -175,5 +204,8 @@ signatures. See `BENCHMARKS.md` for sizes and the measured CU figure.
   document. They are only release-grade when tied to the benchmark repository's
   reproducibility envelope (lockfile, raw logs, toolchain). The artifact sizes
   and single-program on-chain CU above were produced directly in this devnet
-  pass; the same-lockfile competitor matrix lives in `hopper-bench`. See
+  pass; the same-lockfile competitor matrix lives in `hopper-bench` — current
+  release-facing runs are the 2026-07-07 vault four-way
+  (`hopper-bench/results/framework-vaults-2026-07-07-post-ep/`) and router
+  three-way (`hopper-bench/results/router-parity-2026-07-07-post-review/`). See
   `BENCHMARKS.md` and `AUDIT.md` R2/RSK-4.

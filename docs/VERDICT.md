@@ -1,5 +1,16 @@
 # Hopper Framework Verdict — 2026-06-12 (updated 2026-06-15)
 
+> **Historical document — 2026-07-07 note.** This is a June 2026 review kept
+> for the record; several items below have since shipped or been superseded.
+> In particular: the Kani-harness proposal shipped (`#[kani::proof]` harnesses
+> in `crates/hopper-runtime/src/segment_borrow.rs` and `tail.rs`), F1/F2 are
+> fixed, the profiler answer moved (measured-CU lab, I9), and the test suite
+> is now 1,295 passing (was 755/759 at review time). For the current verified
+> state — competitive landscape, shipped gap closures, and the 2026-07-07
+> measured results — see
+> [`docs/audit/GAP_CLOSURE_AND_INNOVATION_2026.md`](audit/GAP_CLOSURE_AND_INNOVATION_2026.md),
+> section 7.
+
 Independent crate-by-crate review of Hopper against Pinocchio (anza-xyz),
 Quasar (blueshift-gg), and Anchor zero-copy. Research covered the live
 upstream repos (Pinocchio 0.11.2, Quasar beta master) and every Hopper
