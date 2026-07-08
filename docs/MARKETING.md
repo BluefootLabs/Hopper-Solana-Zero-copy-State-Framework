@@ -81,6 +81,13 @@ coming, measured on the Solana that's here."**
 5. **Migration funnels**: `PORT_QUASAR_IN_20_MINUTES.md` and
    `MIGRATION_FROM_ANCHOR.md` timed to Anchor v2's disruption window (v1→v2
    is a rewrite moment — devs re-evaluating anyway are the cheapest converts).
+6. **"Zero Node dependencies" (developer-ergonomics wedge):** `hopper
+   publish-idl` publishes your Anchor-compatible IDL to the SPL Program
+   Metadata PDA in pure Rust — no `npx`, no `node_modules`, no
+   `@solana-program/program-metadata` shell-out (which is exactly what
+   Anchor's own `anchor idl` does). Explorer interop for free, one binary,
+   no JS toolchain. Small, concrete, and it needles the pain every Rust
+   Solana dev already feels.
 
 ## Claims register (what we may and may not say)
 

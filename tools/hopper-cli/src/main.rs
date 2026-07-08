@@ -16,6 +16,7 @@
 //! hopper verify [<manifest>] [<.so>]                  Confirm manifest layouts are present in the compiled binary
 //! hopper verify --package <name>                      Infer manifest and SBF binary from a workspace package
 //! hopper publish-check --package <name>                Run release/source gates before publishing
+//! hopper publish-idl --manifest <p> --program-id <id> [--dry-run]  Publish Anchor IDL to the metadata PDA (zero Node deps)
 //! hopper solana-check [--all]                          Verify Hopper program crates are SBF-shaped
 //!
 //! hopper inspect <hex-data>                         Decode account header
@@ -181,6 +182,7 @@ fn main() {
         "clean" => cmd::clean::cmd_clean(&args[2..]),
         "verify" => cmd::verify::cmd_verify(&args[2..]),
         "publish-check" => cmd::publish_check::cmd_publish_check(&args[2..]),
+        "publish-idl" => cmd::publish_idl::cmd_publish_idl(&args[2..]),
         "solana-check" => cmd::solana_check::cmd_solana_check(&args[2..]),
 
         // DX and tooling
@@ -2400,6 +2402,8 @@ fn print_usage() {
         "    hopper verify --package <name>         Infer manifest + .so from a workspace package"
     );
     println!("    hopper publish-check --package <name>  Run release docs, feature, client, fuzz, and ABI gates");
+    println!("    hopper publish-idl --manifest <path> --program-id <pubkey> [--dry-run]");
+    println!("                                           Publish the Anchor IDL to the SPL Program Metadata PDA (zero Node deps)");
     println!("    hopper solana-check [--all]            Check SBF crate shape and Hopper entrypoint invariants");
     println!();
     println!("  Schema:");

@@ -11,8 +11,8 @@
 //! following the in-module test pattern in `account/lifecycle.rs`.
 
 use hopper_core::account::{
-    read_layout_id, read_version, safe_close, safe_close_with_sentinel, write_header,
-    CLOSE_SENTINEL,
+    read_layout_id, read_version, safe_close, safe_close_with_sentinel, safe_realloc, write_header,
+    ReallocGuard, CLOSE_SENTINEL,
 };
 use hopper_core::migrate::migrate_append;
 use hopper_native::{
@@ -329,4 +329,94 @@ fn append_migration_refuses_wrong_source_shape_without_touching_state() {
         assert_eq!(&*account.try_borrow().unwrap(), &v1_data[..]);
         assert_eq!(payer.lamports(), rent_needed);
     }
+}
+
+// =====================================================================
+// Anchor coarse-borrow bug class (iii) — realloc payer / min-len edges
+// =====================================================================
+
+/// Anchor bug class: realloc payer / min-len edge cases — a realloc that
+/// grows an account without funding the rent delta, that pays the top-up
+/// from a payer which is not a writable signer, or that chains grows past
+/// a sane budget, slips through because the account-granular borrow model
+/// records *which* accounts an instruction may mutate but not the rent or
+/// size arithmetic of the mutation (their coarse 256-bit MUT_MASK cannot
+/// distinguish; anchor-next open realloc issues). Hopper guards:
+/// `hopper-core/src/account/lifecycle.rs::safe_realloc` — rent, funding,
+/// and payer signer+writable are all preflighted *strictly before* the
+/// account length changes — and
+/// `hopper-core/src/account/realloc_guard.rs::ReallocGuard`, a cumulative
+/// per-instruction growth budget. This test pins, at host level: a grow
+/// whose payer cannot cover the rent delta is `InsufficientFunds` with
+/// the length unchanged; a required top-up payer that is not writable /
+/// not a signer is rejected (`InvalidAccountData` /
+/// `MissingRequiredSignature`) before any resize; a fully-funded writable
+/// signer grows the account; and the growth guard refuses cumulative
+/// growth past its budget through both `check_growth` and the
+/// self-checking `commit_growth`.
+#[test]
+fn realloc_preflights_payer_funding_and_bounds_growth_before_resizing() {
+    const OLD: usize = 16;
+    const NEW: usize = 64;
+    // The account starts with zero lamports, so growing to NEW always
+    // requires a rent top-up from the payer — the edge Anchor's realloc
+    // constraint keeps re-hitting.
+    let rent_new = hopper_runtime::rent::minimum_balance_live(NEW);
+
+    // (a) Underfunded payer: the checked subtraction of the rent deficit
+    // underflows, so the resize never runs and the length is unchanged.
+    let (_a_backing, account) = make_account(1, PROGRAM_BYTES, false, true, 0, &[7u8; OLD], 0);
+    let (_p_backing, payer) = make_account(2, PROGRAM_BYTES, true, true, rent_new - 1, b"", 0);
+    assert_eq!(
+        safe_realloc(&account, NEW, &payer, &program_id()),
+        Err(ProgramError::InsufficientFunds)
+    );
+    assert_eq!(account.data_len(), OLD);
+
+    // (b) A required top-up payer that is not writable: refused before the
+    // resize, length untouched.
+    let (_a_backing, account) = make_account(3, PROGRAM_BYTES, false, true, 0, &[7u8; OLD], 0);
+    let (_p_backing, payer) = make_account(4, PROGRAM_BYTES, true, false, rent_new, b"", 0);
+    assert_eq!(
+        safe_realloc(&account, NEW, &payer, &program_id()),
+        Err(ProgramError::InvalidAccountData)
+    );
+    assert_eq!(account.data_len(), OLD);
+
+    // (c) A required top-up payer that is not a signer: refused before the
+    // resize.
+    let (_a_backing, account) = make_account(5, PROGRAM_BYTES, false, true, 0, &[7u8; OLD], 0);
+    let (_p_backing, payer) = make_account(6, PROGRAM_BYTES, false, true, rent_new, b"", 0);
+    assert_eq!(
+        safe_realloc(&account, NEW, &payer, &program_id()),
+        Err(ProgramError::MissingRequiredSignature)
+    );
+    assert_eq!(account.data_len(), OLD);
+
+    // (d) A fully-funded, writable signer grows the account cleanly.
+    let (_a_backing, account) = make_account(7, PROGRAM_BYTES, false, true, 0, &[7u8; OLD], 0);
+    let (_p_backing, payer) = make_account(8, PROGRAM_BYTES, true, true, rent_new, b"", 0);
+    safe_realloc(&account, NEW, &payer, &program_id()).unwrap();
+    assert_eq!(account.data_len(), NEW);
+
+    // (e) The growth guard bounds a realloc *chain*: two grows that each
+    // fit on their own but together exceed the budget are refused, and
+    // `commit_growth` re-runs the checked accounting so it enforces the
+    // budget even with no preceding `check_growth`.
+    let mut guard = ReallocGuard::<4>::new(64);
+    guard.register(0, OLD).unwrap();
+    // First grow, +48, is within the 64-byte budget.
+    guard.check_growth(0, OLD + 48).unwrap();
+    guard.commit_growth(0, OLD + 48).unwrap();
+    // A further +32 would make cumulative growth 80 > 64: refused by both
+    // the check and the self-checking commit, and nothing is consumed.
+    assert_eq!(
+        guard.check_growth(0, OLD + 48 + 32),
+        Err(ProgramError::InvalidRealloc)
+    );
+    assert_eq!(
+        guard.commit_growth(0, OLD + 48 + 32),
+        Err(ProgramError::InvalidRealloc)
+    );
+    assert_eq!(guard.consumed(), 48);
 }

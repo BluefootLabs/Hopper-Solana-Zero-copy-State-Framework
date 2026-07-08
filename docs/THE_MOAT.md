@@ -130,15 +130,42 @@ ledger → policy → proof token — is the moat.
   own stored metadata (lengths, heads, free lists) as attacker input. The
   methodology is copyable; the accumulated corpus and the discipline are not.
 - **The bug-class regression suite (I20).**
-  13 pinned tests across `crates/hopper-runtime/tests/competitor_bug_classes.rs`
+  16 pinned tests across `crates/hopper-runtime/tests/competitor_bug_classes.rs`
   and `crates/hopper-core/tests/competitor_bug_classes.rs`, each turning a
   competitor bug class (CPI return-data UB, self-close lamport imbalance,
   stale migration state, overstated remaining-capacity, duplicate-account
-  aliasing) into a Hopper regression proof. Authoring the suite found and
-  fixed a real Hopper bug — `safe_close` accepted an aliased destination and
-  silently burned the drained lamports — so the process demonstrably bites
-  both ways. A competitor cannot copy the suite without first admitting each
-  bug class.
+  aliasing, and the three Anchor coarse-borrow classes tabled below) into a
+  Hopper regression proof. Authoring the suite found and fixed a real Hopper
+  bug — `safe_close` accepted an aliased destination and silently burned the
+  drained lamports — so the process demonstrably bites both ways. A competitor
+  cannot copy the suite without first admitting each bug class.
+
+## Anchor's coarse-borrow bug classes, class by class
+
+Anchor v2's finest write-tracking is account-index granular: an account
+context carries a `MUT_MASK` of `[u64; 4]` — a 256-bit bitmask with one bit per
+account *entry*, recording which accounts an instruction may mutate. It has no
+representation for a byte range within an account, nor for "writable at the
+transaction level but read-only in this handler." Three bug classes recur in
+the anchor-next tracker as a direct consequence. The table is factual, not a
+verdict on Anchor's engineering: the coarseness is inherent to tracking writes
+at account granularity, which is the finest granularity a thin layer over
+Pinocchio's single per-account `borrow_state` byte can reach.
+
+| Anchor bug class | Why account-index (`MUT_MASK [u64;4]`) tracking permits it | Hopper mechanism (byte-range) that prevents it | File / symbol | Pinned by (level) |
+|---|---|---|---|---|
+| (i) read-only account gets mutated | The mask records only *which* accounts are writable; an account read-only for this instruction is often transaction-writable for another, so its bit cannot encode the intended write-set, and a handler/CPI write to it is invisible | A declared byte-range write-set is checked at every write acquire; a write to an account absent from the set, to an undeclared range of a partially-writable account, or any write under an empty (read-only) policy is refused with an indexed error | `write_policy.rs::WritePolicy::check_write`, gated in `context.rs::Context::check_write_policy` | `strict_writes_rejects_writes_outside_the_declared_byte_range_set` (host) |
+| (ii) stale account view after CPI | The mask neither binds a borrow to a byte range nor re-checks it across a CPI, so a view taken before a CPI that mutates/reallocs the account can be used after | A live byte-range write lease rejects any conflicting acquire over those bytes (the borrow a CPI-passing helper or later reader would take) until it is released; the account borrow byte enforces the same at whole-account granularity | `segment_borrow.rs::SegmentBorrowRegistry::register`; `hopper-native::AccountView::try_borrow`/`try_borrow_mut` | `a_live_segment_borrow_blocks_the_access_a_stale_view_would_need` (host) |
+| (iii) realloc payer / min-len edges | The mask marks the reallocated account as written but carries none of the rent/size arithmetic, so an underfunded grow, a non-signer/non-writable top-up payer, or a runaway grow-chain is not caught by borrow tracking | Rent, funding, and payer signer+writable are preflighted strictly before the resize; a per-instruction `ReallocGuard` caps cumulative growth | `account/lifecycle.rs::safe_realloc`; `account/realloc_guard.rs::ReallocGuard` | `realloc_preflights_payer_funding_and_bounds_growth_before_resizing` (host) |
+
+Honesty note on levels: all three pins are **host-level** — they exercise the
+guard directly over fabricated `RuntimeAccount` buffers. The `Context` wiring
+that consults `WritePolicy` at each write acquire is separately exercised in
+`context.rs::write_policy_tests`; classes (i) and (ii) are *structurally*
+harder in Hopper because acquisition is centralized through a byte-range ledger
+the runtime owns, but the byte-range enforcement of a realloc that physically
+moves an account's data pointer under a held view is an on-chain effect, not
+reachable in a host unit test (tracked as a `hopper-svm` follow-up).
 
 ## Tier 3 — copyable in a weekend (never lead with these)
 

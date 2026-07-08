@@ -16,6 +16,7 @@ use hopper_native::{
 };
 use hopper_runtime::remaining::{RemainingAccounts, RemainingError, MAX_REMAINING_ACCOUNTS};
 use hopper_runtime::segment_borrow::SegmentBorrowRegistry;
+use hopper_runtime::write_policy::{write_policy_violation, WritePolicy, WriteRange};
 use hopper_runtime::{
     apply_pending_migrations, AccountAudit, AccountView, Address, FieldInfo, FieldMap,
     HopperHeader, LayoutContract, LayoutMigration, MigrationEdge, ProgramError,
@@ -582,4 +583,140 @@ fn failed_migration_edge_never_advances_the_schema_epoch() {
     // semantics the propagated error rolls the body back, and until then
     // no typed V2 load can succeed against the old epoch.
     assert_eq!(&data[12..16], &1u32.to_le_bytes());
+}
+
+// =====================================================================
+// Anchor coarse-borrow bug classes (BLD-ABUG)
+//
+// Anchor's borrow tracker is account-index granular: a 256-bit MUT_MASK
+// (`[u64; 4]`, one bit per account entry) records *which* accounts an
+// instruction may mutate, never *which bytes*. Two recurring open bug
+// classes in the anchor-next tracker follow directly from that
+// coarseness. Hopper's byte-range segment ledger and `strict_writes`
+// write-policy make classes (i) and (ii) structurally harder; the tests
+// below pin the exact host-reachable guard for each and state the level
+// it is pinned at. (Realloc edge class (iii) lives behind hopper-core
+// APIs and is pinned in the companion core suite.)
+// =====================================================================
+
+/// Anchor bug class: read-only-account-gets-mutated — a handler or CPI
+/// writes an account the context declared read-only, and it goes
+/// undetected because the coarse 256-bit MUT_MASK (`[u64; 4]`) tracks
+/// account *indices*, not byte ranges: an account read-only *for this
+/// instruction* is frequently transaction-writable for another, so its
+/// mask bit says nothing about the intended write-set (their coarse
+/// 256-bit MUT_MASK cannot distinguish; anchor-next open issues).
+/// Hopper guard: `hopper-runtime/src/write_policy.rs::WritePolicy::check_write`,
+/// installed on the `Context` by `set_write_policy` and consulted at
+/// every write acquire in `context.rs::Context::check_write_policy`
+/// (`load_mut`, the `segment_mut*` family, and the raw escape hatches).
+/// This test pins: the byte-range write-set rejects (a) a write to an
+/// account absent from the set, (b) a write to an undeclared byte range
+/// of an account that *is* partially writable, and (c) every write under
+/// an empty policy (a machine-checked read-only instruction) — the first
+/// two being distinctions the account-index mask cannot represent.
+/// Pinned at host level (the const policy decision; the `Context` wiring
+/// that calls it is exercised in `context.rs::write_policy_tests`).
+#[test]
+fn strict_writes_rejects_writes_outside_the_declared_byte_range_set() {
+    // A representative declared write-set: the vault (instruction account
+    // 1) may be written only in its balance field `[16, 24)`; account 2
+    // is wholly writable. Account 0 — an authority/config the instruction
+    // only reads — appears nowhere in the set.
+    static POLICY: WritePolicy =
+        WritePolicy::new(&[WriteRange::new(1, 16, 8), WriteRange::whole_account(2)]);
+
+    // (a) Read-only-by-omission: account 0 carries no WriteRange, so every
+    // write to it is refused, the indexed error naming account 0. This is
+    // exactly the case Anchor's mask permits when index 0 happens to be
+    // transaction-writable for an unrelated reason.
+    assert_eq!(POLICY.check_write(0, 0, 8), Err(write_policy_violation(0)));
+    assert_eq!(POLICY.check_write(0, 0, 1), Err(write_policy_violation(0)));
+
+    // (b) Right account, undeclared range: the vault is partially
+    // writable, but a write to any byte outside `[16, 24)` is refused. The
+    // account-index mask sees only "account 1 is writable" and cannot
+    // express this sub-account boundary.
+    assert!(POLICY.check_write(1, 16, 8).is_ok());
+    assert_eq!(POLICY.check_write(1, 0, 8), Err(write_policy_violation(1)));
+    assert_eq!(POLICY.check_write(1, 24, 8), Err(write_policy_violation(1)));
+    // A write straddling the declared range and adjacent bytes is refused
+    // as a whole — there is no partial acceptance of the in-range prefix.
+    assert!(POLICY.check_write(1, 20, 8).is_err());
+
+    // The wholly-writable account still accepts any range: byte-range
+    // tracking is a refinement of the write-set, not a blanket denial.
+    assert!(POLICY.check_write(2, 0, 8).is_ok());
+    assert!(POLICY.check_write(2, 4096, 1024).is_ok());
+
+    // (c) An empty policy is the fully read-only contract: no byte on any
+    // account may be written. Anchor has no account-index encoding for
+    // "writable at the transaction level but read-only in this handler".
+    static READ_ONLY: WritePolicy = WritePolicy::new(&[]);
+    assert_eq!(
+        READ_ONLY.check_write(0, 0, 1),
+        Err(write_policy_violation(0))
+    );
+    assert!(READ_ONLY.check_write(1, 16, 8).is_err());
+}
+
+/// Anchor bug class: stale-account-view-after-CPI — a borrowed data view
+/// is used after a CPI that could have reallocated or mutated the same
+/// account, because the account-granular borrow model neither ties the
+/// borrow to a byte range nor re-checks it across the CPI boundary (their
+/// coarse 256-bit MUT_MASK cannot distinguish; anchor-next open issues).
+/// Hopper guard:
+/// `hopper-runtime/src/segment_borrow.rs::SegmentBorrowRegistry::register`
+/// (byte-range conflict scan, full-address identity) and the
+/// account-level borrow byte behind
+/// `hopper-native::AccountView::try_borrow`/`try_borrow_mut`. This test
+/// pins, at host level: while a write lease over a byte range is live,
+/// any conflicting acquire over those bytes — the exact borrow a
+/// CPI-passing helper or a later reader would take — is rejected with
+/// `AccountBorrowFailed`; the conflict is byte-range precise (a disjoint
+/// range is still allowed); the block lifts only when the lease is
+/// released, so a view can never silently outlive the borrow that
+/// authorized it; and the whole-account borrow byte enforces the same at
+/// account granularity. The on-chain effect of a CPI *reallocating* the
+/// account (its data pointer moving under a held view) is not reachable
+/// host-side and is noted as an on-chain follow-up.
+#[test]
+fn a_live_segment_borrow_blocks_the_access_a_stale_view_would_need() {
+    let vault = Address::new_from_array([51; 32]);
+
+    // A live write lease over `[0, 32)` models a mutable view held across
+    // a mutating operation. A read acquire over the overlapping `[16, 24)`
+    // — a stale view being consumed while the write is in flight — is
+    // rejected. Anchor's account-index bit does not track the range, so it
+    // cannot observe this overlap at all.
+    let mut registry = SegmentBorrowRegistry::new();
+    let lease = registry.register_leased_write(&vault, 0, 32).unwrap();
+    assert_eq!(
+        registry.register_read(&vault, 16, 8).unwrap_err(),
+        ProgramError::AccountBorrowFailed
+    );
+
+    // Byte-range precision: a disjoint range is not a view of the written
+    // bytes, so it is admitted even while the write is live — Hopper does
+    // not over-block, the way an account-granular exclusive lock would.
+    registry.register_read(&vault, 32, 8).unwrap();
+
+    // The block is scoped to the lease: once it releases, the range is
+    // free for a fresh writer. Anchor's mask bit, by contrast, stays set
+    // for the whole instruction.
+    assert!(registry.release(&lease));
+    registry.register_write(&vault, 0, 32).unwrap();
+
+    // Account-level analog: a live mutable whole-account borrow blocks the
+    // re-borrow a CPI (or a second view) would need to read the same
+    // account's data. Solana already provides this coarse guard; Hopper
+    // keeps it *and* adds the byte-range ledger above.
+    let (_backing, account) = make_account([52; 32], DEFAULT_OWNER, false, true, 1, b"payload!");
+    let live_view = account.try_borrow_mut().unwrap();
+    assert_eq!(
+        account.try_borrow().unwrap_err(),
+        ProgramError::AccountBorrowFailed
+    );
+    drop(live_view);
+    assert!(account.try_borrow().is_ok());
 }

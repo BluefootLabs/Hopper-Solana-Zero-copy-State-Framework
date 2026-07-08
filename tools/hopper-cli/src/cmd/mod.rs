@@ -17,6 +17,7 @@ pub mod meta;
 pub mod mobile;
 pub mod profile;
 pub mod publish_check;
+pub mod publish_idl;
 pub mod solana_check;
 pub mod test_gen;
 pub mod tx_explain;
