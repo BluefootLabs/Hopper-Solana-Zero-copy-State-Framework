@@ -2542,11 +2542,15 @@ pub struct InstructionDescriptor {
     /// Whether the instruction's context was compiled with `strict_writes`.
     ///
     /// Under `strict_writes` the declared byte ranges in [`write_ranges`] are
-    /// the *complete, enforced* write surface: any account with no declared
-    /// range is a machine-checked read-only account and clients may safely
-    /// demote it to `writable: false`. When `false`, [`write_ranges`] carries
-    /// no authority and clients keep the account flags exactly as declared
-    /// (the pre-BLD-WR behavior).
+    /// the complete, enforced **data** write surface: any account with no
+    /// declared range is refused every Context-mediated data write. Data
+    /// completeness alone does NOT license read-only demotion — Sealevel
+    /// writability also covers lamport mutation, which this flag says
+    /// nothing about; see
+    /// [`mutation_complete`](InstructionDescriptor::mutation_complete) for
+    /// the both-dimensions claim demotion requires. When `false`,
+    /// [`write_ranges`] carries no authority and clients keep the account
+    /// flags exactly as declared (the pre-BLD-WR behavior).
     ///
     /// [`write_ranges`]: InstructionDescriptor::write_ranges
     pub strict_writes: bool,
@@ -2567,6 +2571,43 @@ pub struct InstructionDescriptor {
     /// ([`accounts::ContextDescriptor::write_ranges`]) and the runtime
     /// `WritePolicy`, so the published and enforced sets cannot drift.
     pub write_ranges: &'static [WriteRange],
+    /// Whether the declared write set covers **both** mutation
+    /// dimensions — data byte ranges AND lamport balances (BLD-MUT).
+    ///
+    /// `true` only when the instruction's context was compiled with
+    /// `#[hopper::context(strict_writes, lamports(...))]`: the macro
+    /// then installs a `WritePolicy` whose lamport dimension is
+    /// declared, and the runtime refuses any lamport mutation
+    /// (`try_set_lamports`, close, realloc top-up, host transfer
+    /// emulation) and any writable CPI hand-off on an account outside
+    /// the declared set. A bare `strict_writes` context is **not**
+    /// mutation-complete: its lamport behavior is undeclared and stays a
+    /// passthrough (the pre-BLD-MUT contract), so this field is `false`
+    /// there — retroactively refusing lamport writes on existing
+    /// `strict_writes` programs would silently change deployed behavior,
+    /// which is why the dimension is opt-in.
+    ///
+    /// When `true`, [`effective_writable`] may soundly demote a
+    /// declared-writable account that has neither a data range nor
+    /// lamport permission. Populate from the macro:
+    /// `mutation_complete: MyCtx::MUTATION_COMPLETE, lamport_accounts:
+    /// MyCtx::LAMPORT_ACCOUNTS`.
+    ///
+    /// [`effective_writable`]: InstructionDescriptor::effective_writable
+    pub mutation_complete: bool,
+    /// Account indices (positions in [`accounts`]) permitted to have
+    /// their lamports mutated, when the lamport dimension was declared.
+    ///
+    /// This is the same generated const the runtime `WritePolicy`
+    /// enforces (explicit `lamports(...)` names plus the macro's implied
+    /// lifecycle set: whole-`mut` accounts, init account + payer, close
+    /// account + destination, realloc account + payer, sweep account +
+    /// target). Empty — and carrying no authority — unless
+    /// [`mutation_complete`](InstructionDescriptor::mutation_complete)
+    /// is `true`.
+    ///
+    /// [`accounts`]: InstructionDescriptor::accounts
+    pub lamport_accounts: &'static [u8],
     /// Author-supplied compute-unit upper bound for this instruction, in CU.
     /// `0` means unknown (no estimate published).
     ///
@@ -2613,25 +2654,51 @@ impl InstructionDescriptor {
     /// Effective `writable` flag a client should emit for the account at
     /// `account_index`, given its declared flag.
     ///
-    /// **Currently a safe passthrough: it never demotes.** Read-only
+    /// **Demotes only under a mutation-complete write set.** Read-only
     /// demotion based on `write_ranges` alone is *unsound*, because a
     /// `WriteRange` describes a **data** byte range while Sealevel
     /// writability also covers **lamport** mutation. An account can be
     /// legitimately writable with zero data ranges — a `close`/`sweep`
-    /// recipient, a transfer target, any lamport-only credit — and the
-    /// runtime `WritePolicy` (which gates segment/`load_mut` *data* write
-    /// acquisition) does not govern those lamport changes either. Demoting
-    /// such an account to read-only would fail the transaction on chain.
+    /// recipient, a transfer target, any lamport-only credit. The
+    /// precise contract (BLD-MUT):
     ///
-    /// Automatic demotion is therefore deferred until an instruction can
-    /// declare its write set **mutation-complete** (data *and* lamports),
-    /// at which point an account absent from the set is provably untouched.
-    /// Until then this returns the declared flag unchanged; the published
-    /// `write_ranges` still serve schedulers and indexers as a
-    /// (data-write) contention footprint. See
-    /// [`account_has_declared_write`] for the raw range query.
-    pub fn effective_writable(&self, _account_index: usize, declared_writable: bool) -> bool {
-        declared_writable
+    /// - `declared_writable == false` → `false`, always (never promotes).
+    /// - [`mutation_complete`] `== false` → the declared flag unchanged
+    ///   (sound passthrough): the instruction declared at most the data
+    ///   dimension, so nothing proves the account's lamports are
+    ///   untouched.
+    /// - [`mutation_complete`] `== true` → `false` iff the account has
+    ///   **no** declared data range *and* **no** lamport permission
+    ///   ([`lamport_accounts`]). Such an account is refused by the
+    ///   runtime on every governed mutation path — Context data writes,
+    ///   the `try_set_lamports`/close funnel, and writable CPI
+    ///   hand-offs — so demoting it cannot break a program that honors
+    ///   its own declaration. (A program reaching around the governed
+    ///   surface via `unsafe`/substrate escape hatches fails its
+    ///   transaction on chain; demotion never puts funds at risk.)
+    ///
+    /// Account indices above `u8::MAX` cannot appear in either declared
+    /// set and are conservatively passed through.
+    ///
+    /// See [`account_has_declared_write`] for the raw range query.
+    ///
+    /// [`mutation_complete`]: InstructionDescriptor::mutation_complete
+    /// [`lamport_accounts`]: InstructionDescriptor::lamport_accounts
+    pub fn effective_writable(&self, account_index: usize, declared_writable: bool) -> bool {
+        if !declared_writable {
+            return false;
+        }
+        if !self.mutation_complete || account_index > u8::MAX as usize {
+            return declared_writable;
+        }
+        let idx = account_index as u8;
+        let has_data_range = self.write_ranges.iter().any(|r| r.account_index == idx);
+        let has_lamport_permission = self.lamport_accounts.contains(&idx);
+        if has_data_range || has_lamport_permission {
+            declared_writable
+        } else {
+            false
+        }
     }
 
     /// The compute-unit limit a generated client should request for this
@@ -4725,6 +4792,8 @@ mod tests {
             receipt_expected: true,
             strict_writes: false,
             write_ranges: &[],
+            mutation_complete: false,
+            lamport_accounts: &[],
             cu_estimate: 0,
         },
         InstructionDescriptor {
@@ -4737,6 +4806,8 @@ mod tests {
             receipt_expected: true,
             strict_writes: false,
             write_ranges: &[],
+            mutation_complete: false,
+            lamport_accounts: &[],
             cu_estimate: 0,
         },
     ];
@@ -4892,6 +4963,8 @@ mod tests {
                 mutation_classes: &["Financial"],
                 strict_writes: false,
                 write_ranges: &[],
+                mutation_complete: false,
+                lamport_accounts: &[],
             }];
 
         let resolver = CONTEXTS[0].find_resolver("vault").unwrap();

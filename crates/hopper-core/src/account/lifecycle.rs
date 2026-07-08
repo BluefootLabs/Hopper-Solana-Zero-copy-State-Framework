@@ -1,4 +1,14 @@
 //! Account lifecycle operations: init, close, realloc.
+//!
+//! Every lamport movement in this module (close drain/credit, realloc
+//! rent top-up) flows through `AccountView::try_set_lamports`, i.e. the
+//! `hopper-runtime` `native_boundary` funnel. Under a `strict_writes`
+//! context that declared its lamport dimension (BLD-MUT,
+//! `lamports(...)`), that funnel refuses mutation on any undeclared
+//! account — the macro's implied permission set (init account + payer,
+//! close account + destination, realloc account + payer, whole-`mut`
+//! and `sweep` accounts) exists precisely so these lifecycle helpers
+//! keep working for declared roles.
 
 use crate::check::{check_owner, check_signer, check_writable};
 use hopper_runtime::{error::ProgramError, AccountView, Address, ProgramResult};
@@ -435,5 +445,79 @@ mod tests {
         assert_eq!(account.data_len(), 32);
         assert_eq!(account.lamports(), needed);
         assert_eq!(payer.lamports(), 0);
+    }
+
+    // ── BLD-MUT: lifecycle lamport moves cross the gated funnel ─────
+
+    use hopper_runtime::write_policy::{
+        install_lamport_gate, write_policy_violation, WritePolicy, WriteRange,
+    };
+
+    #[test]
+    fn safe_close_is_refused_when_the_destination_lacks_lamport_permission() {
+        let (_account_backing, account) = make_account(8, 10, 50);
+        let (_dest_backing, destination) = make_account(0, 5, 51);
+        let accounts = [account, destination];
+
+        // Account 0 (closed) is declared; the destination (index 1) is
+        // not — the credit side of the drain must be refused before any
+        // balance moves.
+        static P: WritePolicy = WritePolicy::with_lamports(&[WriteRange::whole_account(0)], &[0]);
+        let _gate = install_lamport_gate(&accounts, &P);
+
+        let result = safe_close(&accounts[0], &accounts[1], &program_id());
+        assert_eq!(result, Err(write_policy_violation(1)));
+        assert_eq!(accounts[0].lamports(), 10);
+        assert_eq!(accounts[1].lamports(), 5);
+    }
+
+    #[test]
+    fn safe_close_succeeds_when_both_sides_are_declared() {
+        let (_account_backing, account) = make_account(8, 10, 52);
+        let (_dest_backing, destination) = make_account(0, 5, 53);
+        let accounts = [account, destination];
+
+        static P: WritePolicy =
+            WritePolicy::with_lamports(&[WriteRange::whole_account(0)], &[0, 1]);
+        let _gate = install_lamport_gate(&accounts, &P);
+
+        safe_close_with_sentinel(&accounts[0], &accounts[1], &program_id()).unwrap();
+        assert_eq!(accounts[0].lamports(), 0);
+        assert_eq!(accounts[1].lamports(), 15);
+    }
+
+    #[test]
+    fn safe_realloc_top_up_is_refused_when_the_payer_lacks_lamport_permission() {
+        let needed = rent_exempt_min_internal(32).unwrap();
+        let (_account_backing, account) = make_account(16, 0, 54);
+        let (_payer_backing, payer) = make_account(0, needed, 55);
+        let accounts = [account, payer];
+
+        // The resized account (0) is declared; the top-up payer (1) is
+        // not, so the debit is refused at the funnel.
+        static P: WritePolicy = WritePolicy::with_lamports(&[WriteRange::whole_account(0)], &[0]);
+        let _gate = install_lamport_gate(&accounts, &P);
+
+        let result = safe_realloc(&accounts[0], 32, &accounts[1], &program_id());
+        assert_eq!(result, Err(write_policy_violation(1)));
+        assert_eq!(accounts[0].lamports(), 0);
+        assert_eq!(accounts[1].lamports(), needed);
+    }
+
+    #[test]
+    fn safe_realloc_top_up_succeeds_when_both_sides_are_declared() {
+        let needed = rent_exempt_min_internal(32).unwrap();
+        let (_account_backing, account) = make_account(16, 0, 56);
+        let (_payer_backing, payer) = make_account(0, needed, 57);
+        let accounts = [account, payer];
+
+        static P: WritePolicy =
+            WritePolicy::with_lamports(&[WriteRange::whole_account(0)], &[0, 1]);
+        let _gate = install_lamport_gate(&accounts, &P);
+
+        safe_realloc(&accounts[0], 32, &accounts[1], &program_id()).unwrap();
+        assert_eq!(accounts[0].data_len(), 32);
+        assert_eq!(accounts[0].lamports(), needed);
+        assert_eq!(accounts[1].lamports(), 0);
     }
 }

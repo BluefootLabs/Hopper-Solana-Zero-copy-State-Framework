@@ -129,16 +129,29 @@ ledger → policy → proof token — is the moat.
   (8 tests, pinned regression seeds): every zero-copy collection treats its
   own stored metadata (lengths, heads, free lists) as attacker input. The
   methodology is copyable; the accumulated corpus and the discipline are not.
+  Qualifier (2026-07-08): Anchor v2's alpha now ships its first zero-copy
+  collection, `Slab<H, T>` (`lang-v2/src/accounts/slab.rs`), with inline
+  `#[kani::proof]` lemmas over its capacity arithmetic — the first competitor
+  Kani usage observed, so the formal-verification race is on. One Slab with
+  capacity lemmas is not eight collections each fuzzed against hostile stored
+  metadata, but the "no competitor ships on-chain zero-copy collections"
+  sentence now needs the Anchor-v2-alpha qualifier. Its first two fixed bug
+  classes (anchor #4603, #4616) are pinned in the I20 suite below.
 - **The bug-class regression suite (I20).**
-  16 pinned tests across `crates/hopper-runtime/tests/competitor_bug_classes.rs`
+  18 pinned tests across `crates/hopper-runtime/tests/competitor_bug_classes.rs`
   and `crates/hopper-core/tests/competitor_bug_classes.rs`, each turning a
   competitor bug class (CPI return-data UB, self-close lamport imbalance,
   stale migration state, overstated remaining-capacity, duplicate-account
-  aliasing, and the three Anchor coarse-borrow classes tabled below) into a
-  Hopper regression proof. Authoring the suite found and fixed a real Hopper
-  bug — `safe_close` accepted an aliased destination and silently burned the
-  drained lamports — so the process demonstrably bites both ways. A competitor
-  cannot copy the suite without first admitting each bug class.
+  aliasing, the three Anchor coarse-borrow classes tabled below, and the two
+  Anchor v2 Slab-era classes: #4616 read-alias-during-mutable-borrow, refused
+  by the segment ledger and shared borrow byte at every acquire rather than
+  retrofitted per wrapper, and #4603 shrink-then-stale-tail, unrepresentable
+  because Hopper has no serialize-on-exit path and `resize` zero-fills every
+  growth) into a Hopper regression proof. Authoring the suite found and fixed
+  a real Hopper bug — `safe_close` accepted an aliased destination and
+  silently burned the drained lamports — so the process demonstrably bites
+  both ways. A competitor cannot copy the suite without first admitting each
+  bug class.
 
 ## Anchor's coarse-borrow bug classes, class by class
 

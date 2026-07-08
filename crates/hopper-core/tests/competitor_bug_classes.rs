@@ -420,3 +420,103 @@ fn realloc_preflights_payer_funding_and_bounds_growth_before_resizing() {
     );
     assert_eq!(guard.consumed(), 48);
 }
+
+// =====================================================================
+// Anchor v2 Slab/serialized-account bug class (anchor-next, fixed 2026)
+// =====================================================================
+
+/// Anchor v2 bug class: shrink-then-stale-tail — anchor-next #4603
+/// ("Pad shrunken serialized account tails", fixed 2026-05-27). Anchor
+/// v2's `SerializedAccount` re-serializes state on exit; when the value
+/// serialized shorter than it did at load time, the bytes between the
+/// new and old payload lengths kept their stale pre-shrink contents
+/// until the fix `sol_memset` them to zero. Hopper has no
+/// serialize-on-exit path at all — state is mutated zero-copy in place
+/// — so the class maps to the account shrink path, and the sound
+/// behavior is layered:
+/// (1) every checked accessor bounds against the live `data_len`
+///     (`hopper-native/src/account_view.rs::segment_ref` / `try_borrow`),
+///     so bytes past a shrink are unreachable, not stale;
+/// (2) `hopper-native/src/account_view.rs::resize` zero-fills the grown
+///     region on every growth, so a shrink-then-grow inside one
+///     instruction re-exposes zeros, never the pre-shrink tail;
+/// (3) the shrink itself goes through
+///     `hopper-core/src/account/lifecycle.rs::safe_realloc`, which
+///     refuses while any data borrow is live, so no held view spans the
+///     length change.
+/// This test pins all three: after a 64→16 shrink the accessors serve
+/// exactly 16 bytes and refuse past-end and straddling segment reads;
+/// after growing back to 64 the tail reads as zeros — the 0xAB
+/// pre-shrink bytes are never re-exposed — and a shrink is refused
+/// outright while a borrow is outstanding.
+#[test]
+fn anchor_4603_shrunken_tail_is_unreachable_and_zeroed_on_regrow() {
+    use hopper_runtime::segment_borrow::SegmentBorrowRegistry;
+
+    const OLD: usize = 64;
+    const NEW: usize = 16;
+    // Fund the account for its largest size so neither direction needs a
+    // rent top-up; the payer is asserted untouched throughout.
+    let rent_old = hopper_runtime::rent::minimum_balance_live(OLD);
+    let (_a_backing, account) =
+        make_account(50, PROGRAM_BYTES, false, true, rent_old, &[0xAB; OLD], 0xEE);
+    let (_p_backing, payer) = make_account(51, PROGRAM_BYTES, true, true, 1_000, b"", 0);
+
+    // (3) A live borrow refuses the shrink before any length change.
+    {
+        let _hold = account.try_borrow().unwrap();
+        assert_eq!(
+            safe_realloc(&account, NEW, &payer, &program_id()),
+            Err(ProgramError::AccountBorrowFailed)
+        );
+    }
+    assert_eq!(account.data_len(), OLD);
+
+    // Shrink 64 → 16.
+    safe_realloc(&account, NEW, &payer, &program_id()).unwrap();
+    assert_eq!(account.data_len(), NEW);
+
+    // (1) The whole-account borrow serves exactly the new length — the
+    // old tail is not reachable through it.
+    {
+        let data = account.try_borrow().unwrap();
+        assert_eq!(data.len(), NEW);
+        assert!(data.iter().all(|byte| *byte == 0xAB));
+    }
+
+    // (1) Typed segment reads past the new length are refused: fully
+    // past-end and straddling the new boundary alike. An in-bounds read
+    // still works.
+    let mut borrows = SegmentBorrowRegistry::new();
+    assert_eq!(
+        account
+            .segment_ref::<[u8; 8]>(&mut borrows, NEW as u32, 8)
+            .err()
+            .unwrap(),
+        ProgramError::AccountDataTooSmall
+    );
+    assert_eq!(
+        account
+            .segment_ref::<[u8; 8]>(&mut borrows, NEW as u32 - 4, 8)
+            .err()
+            .unwrap(),
+        ProgramError::AccountDataTooSmall
+    );
+    {
+        let in_bounds = account.segment_ref::<[u8; 8]>(&mut borrows, 8, 8).unwrap();
+        assert_eq!(*in_bounds, [0xAB; 8]);
+    }
+
+    // (2) Grow back to the original size: the re-exposed region [16, 64)
+    // is zero-filled by `resize`. The stale 0xAB tail the account
+    // carried before the shrink is never served again.
+    safe_realloc(&account, OLD, &payer, &program_id()).unwrap();
+    assert_eq!(account.data_len(), OLD);
+    let data = account.try_borrow().unwrap();
+    assert!(data[..NEW].iter().all(|byte| *byte == 0xAB));
+    assert!(data[NEW..].iter().all(|byte| *byte == 0));
+
+    // No payer involvement was ever required: both directions were
+    // rent-covered by the account itself.
+    assert_eq!(payer.lamports(), 1_000);
+}

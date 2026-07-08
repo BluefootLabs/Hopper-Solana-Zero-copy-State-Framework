@@ -146,6 +146,140 @@ pub struct SegmentBorrowRegistry {
 #[cfg(feature = "touch-map")]
 pub const MAX_TOUCH_RECORDS: usize = 32;
 
+// ---------------------------------------------------------------------------
+// Touch-map wire format v1 (`touch-map` feature)
+// ---------------------------------------------------------------------------
+//
+// A touch map is emitted as ONE `sol_log_data` segment (it appears in the
+// transaction log as a `Program data: <base64>` line) and is a **public,
+// versioned wire format** — decoders exist in `hopper tx explain`, in the
+// generated TypeScript client (`decodeHopperTouchMap`), and in this module's
+// tests. Any change to the layout below requires bumping
+// [`TOUCH_MAP_VERSION`].
+//
+// ```text
+// byte 0            magic       = 0x7A  (TOUCH_MAP_MAGIC)
+// byte 1            version     = 0x01  (TOUCH_MAP_VERSION)
+// byte 2            flags       bit0 = touch log overflowed (map is partial)
+//                               bit1 = one or more records were skipped by
+//                                      the encoder (unmappable address or
+//                                      offset >= 2^31)
+//                               bits 2-7 reserved, zero in v1
+// byte 3            count       number of records that follow (0..=32)
+// bytes 4..4+9n     records     9 bytes each:
+//   +0              slot        u8 account index into the instruction's
+//                               account list
+//   +1..+5          packed      u32 LE; top bit = write (1) / read (0),
+//                               low 31 bits = byte offset in account data
+//   +5..+9          size        u32 LE byte length of the touched range
+// ```
+//
+// Total length is always exactly `4 + 9 * count` (<= 292 bytes). Decoders
+// MUST verify magic, version, and the exact-length equation; together these
+// make accidental collision with other `Program data:` payloads (e.g.
+// Anchor's 8-byte sha256 event discriminators, whose first byte is
+// uniformly distributed) practically impossible — a colliding payload would
+// need byte0 = 0x7A, byte1 = 0x01, and a total length satisfying the count
+// equation.
+//
+// Honesty rules: a map with flag bit0 set is PARTIAL — the instruction
+// touched more distinct ranges than [`MAX_TOUCH_RECORDS`]; a map with flag
+// bit1 set omitted at least one touched range it could not represent.
+// Consumers must not treat such maps as a complete effect set.
+
+/// Magic byte identifying a touch-map `sol_log_data` record ('z').
+#[cfg(feature = "touch-map")]
+pub const TOUCH_MAP_MAGIC: u8 = 0x7A;
+/// Touch-map wire format version.
+#[cfg(feature = "touch-map")]
+pub const TOUCH_MAP_VERSION: u8 = 0x01;
+/// Flags bit0: the touch log overflowed; the map is partial.
+#[cfg(feature = "touch-map")]
+pub const TOUCH_MAP_FLAG_OVERFLOWED: u8 = 1 << 0;
+/// Flags bit1: the encoder skipped at least one record (address not among
+/// the instruction accounts, slot index above `u8::MAX`, or offset not
+/// representable in 31 bits).
+#[cfg(feature = "touch-map")]
+pub const TOUCH_MAP_FLAG_SKIPPED: u8 = 1 << 1;
+/// Fixed header length (magic, version, flags, count).
+#[cfg(feature = "touch-map")]
+pub const TOUCH_MAP_HEADER_LEN: usize = 4;
+/// Encoded length of one touch record.
+#[cfg(feature = "touch-map")]
+pub const TOUCH_MAP_RECORD_LEN: usize = 9;
+/// Maximum encoded touch-map length (292 bytes).
+#[cfg(feature = "touch-map")]
+pub const TOUCH_MAP_MAX_ENCODED_LEN: usize =
+    TOUCH_MAP_HEADER_LEN + MAX_TOUCH_RECORDS * TOUCH_MAP_RECORD_LEN;
+
+/// One slot-resolved touch record, ready for wire encoding
+/// (`touch-map` feature). Unlike [`SegmentBorrow`], the account is
+/// identified by its index in the instruction's account list, which is
+/// what an off-chain decoder can join against a fetched transaction.
+#[cfg(feature = "touch-map")]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct TouchMapRecord {
+    /// Account slot index into the instruction's account list.
+    pub slot: u8,
+    /// Byte offset within the account data (must fit in 31 bits).
+    pub offset: u32,
+    /// Byte length of the touched range.
+    pub size: u32,
+    /// Write access (`true`) or read access (`false`).
+    pub write: bool,
+}
+
+/// Encode a touch map into the versioned v1 wire format documented above
+/// (`touch-map` feature). Pure function: no syscalls, no allocation —
+/// returns the fixed-capacity buffer plus the number of valid bytes.
+///
+/// `overflowed` must be the touch log's overflow flag so partial maps are
+/// honestly marked. `skipped` must be `true` when the caller dropped any
+/// record while resolving addresses to slots. Records whose `offset` does
+/// not fit in 31 bits are skipped here (impossible for real Solana
+/// accounts, which cap at 10 MiB) and reported via flag bit1 rather than
+/// silently truncated. If more than [`MAX_TOUCH_RECORDS`] records are
+/// passed, the excess is dropped and the overflow flag is set — the
+/// record count byte never lies about the encoded payload.
+#[cfg(feature = "touch-map")]
+pub fn encode_touch_map(
+    records: &[TouchMapRecord],
+    overflowed: bool,
+    skipped: bool,
+) -> ([u8; TOUCH_MAP_MAX_ENCODED_LEN], usize) {
+    let mut buf = [0u8; TOUCH_MAP_MAX_ENCODED_LEN];
+    let mut flags = 0u8;
+    if overflowed {
+        flags |= TOUCH_MAP_FLAG_OVERFLOWED;
+    }
+    if skipped {
+        flags |= TOUCH_MAP_FLAG_SKIPPED;
+    }
+    let mut count = 0usize;
+    let mut pos = TOUCH_MAP_HEADER_LEN;
+    for rec in records {
+        if count >= MAX_TOUCH_RECORDS {
+            flags |= TOUCH_MAP_FLAG_OVERFLOWED;
+            break;
+        }
+        if rec.offset > i32::MAX as u32 {
+            flags |= TOUCH_MAP_FLAG_SKIPPED;
+            continue;
+        }
+        let packed = rec.offset | if rec.write { 0x8000_0000 } else { 0 };
+        buf[pos] = rec.slot;
+        buf[pos + 1..pos + 5].copy_from_slice(&packed.to_le_bytes());
+        buf[pos + 5..pos + 9].copy_from_slice(&rec.size.to_le_bytes());
+        pos += TOUCH_MAP_RECORD_LEN;
+        count += 1;
+    }
+    buf[0] = TOUCH_MAP_MAGIC;
+    buf[1] = TOUCH_MAP_VERSION;
+    buf[2] = flags;
+    buf[3] = count as u8;
+    (buf, pos)
+}
+
 impl Default for SegmentBorrowRegistry {
     #[inline(always)]
     fn default() -> Self {
@@ -1022,6 +1156,39 @@ mod proptests {
     }
 }
 
+/// Host-only decode twin of [`encode_touch_map`], shared by the
+/// round-trip tests here and in `context.rs`. Mirrors the validation an
+/// off-chain consumer must perform: magic, version, and the exact-length
+/// equation `len == 4 + 9 * count`.
+#[cfg(all(test, feature = "touch-map"))]
+pub(crate) fn decode_touch_map_for_tests(
+    bytes: &[u8],
+) -> Option<(u8, std::vec::Vec<TouchMapRecord>)> {
+    if bytes.len() < TOUCH_MAP_HEADER_LEN {
+        return None;
+    }
+    if bytes[0] != TOUCH_MAP_MAGIC || bytes[1] != TOUCH_MAP_VERSION {
+        return None;
+    }
+    let flags = bytes[2];
+    let count = bytes[3] as usize;
+    if bytes.len() != TOUCH_MAP_HEADER_LEN + count * TOUCH_MAP_RECORD_LEN {
+        return None;
+    }
+    let mut records = std::vec::Vec::with_capacity(count);
+    for i in 0..count {
+        let base = TOUCH_MAP_HEADER_LEN + i * TOUCH_MAP_RECORD_LEN;
+        let packed = u32::from_le_bytes(bytes[base + 1..base + 5].try_into().unwrap());
+        records.push(TouchMapRecord {
+            slot: bytes[base],
+            offset: packed & 0x7FFF_FFFF,
+            size: u32::from_le_bytes(bytes[base + 5..base + 9].try_into().unwrap()),
+            write: packed & 0x8000_0000 != 0,
+        });
+    }
+    Some((flags, records))
+}
+
 #[cfg(all(test, feature = "touch-map"))]
 mod touch_map_tests {
     use super::*;
@@ -1105,5 +1272,118 @@ mod touch_map_tests {
         }
         assert_eq!(reg.touch_map_len(), MAX_TOUCH_RECORDS);
         assert!(reg.touch_map_overflowed());
+    }
+
+    #[test]
+    fn touch_map_encoder_round_trips_including_flags() {
+        let records = [
+            TouchMapRecord {
+                slot: 0,
+                offset: 16,
+                size: 8,
+                write: true,
+            },
+            TouchMapRecord {
+                slot: 3,
+                offset: 0,
+                size: 64,
+                write: false,
+            },
+            TouchMapRecord {
+                slot: 255,
+                offset: 0x7FFF_FFFF,
+                size: 1,
+                write: true,
+            },
+        ];
+        let (buf, len) = encode_touch_map(&records, false, false);
+        assert_eq!(len, TOUCH_MAP_HEADER_LEN + 3 * TOUCH_MAP_RECORD_LEN);
+        let (flags, decoded) = decode_touch_map_for_tests(&buf[..len]).unwrap();
+        assert_eq!(flags, 0);
+        assert_eq!(decoded, records);
+
+        // Overflow flag survives the round trip.
+        let (buf, len) = encode_touch_map(&records, true, false);
+        let (flags, decoded) = decode_touch_map_for_tests(&buf[..len]).unwrap();
+        assert_eq!(flags, TOUCH_MAP_FLAG_OVERFLOWED);
+        assert_eq!(decoded, records);
+
+        // Skipped flag survives the round trip.
+        let (buf, len) = encode_touch_map(&records, false, true);
+        let (flags, _) = decode_touch_map_for_tests(&buf[..len]).unwrap();
+        assert_eq!(flags, TOUCH_MAP_FLAG_SKIPPED);
+    }
+
+    #[test]
+    fn touch_map_encoder_skips_unrepresentable_offsets_honestly() {
+        let records = [
+            TouchMapRecord {
+                slot: 0,
+                offset: 8,
+                size: 8,
+                write: false,
+            },
+            TouchMapRecord {
+                slot: 1,
+                offset: 0x8000_0000, // does not fit in 31 bits
+                size: 8,
+                write: true,
+            },
+        ];
+        let (buf, len) = encode_touch_map(&records, false, false);
+        let (flags, decoded) = decode_touch_map_for_tests(&buf[..len]).unwrap();
+        assert_eq!(flags, TOUCH_MAP_FLAG_SKIPPED);
+        assert_eq!(decoded.len(), 1);
+        assert_eq!(decoded[0], records[0]);
+    }
+
+    #[test]
+    fn touch_map_encoder_never_lies_about_record_count() {
+        // Feeding more records than the wire format can carry must mark
+        // the map as overflowed, not overrun or misreport the count.
+        let records = std::vec![
+            TouchMapRecord {
+                slot: 0,
+                offset: 0,
+                size: 1,
+                write: false,
+            };
+            MAX_TOUCH_RECORDS + 2
+        ];
+        let (buf, len) = encode_touch_map(&records, false, false);
+        assert_eq!(
+            len,
+            TOUCH_MAP_HEADER_LEN + MAX_TOUCH_RECORDS * TOUCH_MAP_RECORD_LEN
+        );
+        let (flags, decoded) = decode_touch_map_for_tests(&buf[..len]).unwrap();
+        assert_eq!(flags & TOUCH_MAP_FLAG_OVERFLOWED, TOUCH_MAP_FLAG_OVERFLOWED);
+        assert_eq!(decoded.len(), MAX_TOUCH_RECORDS);
+    }
+
+    #[test]
+    fn touch_map_decoder_rejects_wrong_magic_version_and_length() {
+        let (buf, len) = encode_touch_map(
+            &[TouchMapRecord {
+                slot: 0,
+                offset: 4,
+                size: 4,
+                write: true,
+            }],
+            false,
+            false,
+        );
+        assert!(decode_touch_map_for_tests(&buf[..len]).is_some());
+
+        let mut bad_magic = buf;
+        bad_magic[0] = 0x7B;
+        assert!(decode_touch_map_for_tests(&bad_magic[..len]).is_none());
+
+        let mut bad_version = buf;
+        bad_version[1] = 0x02;
+        assert!(decode_touch_map_for_tests(&bad_version[..len]).is_none());
+
+        // Truncated and over-long payloads violate len == 4 + 9 * count.
+        assert!(decode_touch_map_for_tests(&buf[..len - 1]).is_none());
+        assert!(decode_touch_map_for_tests(&buf[..len + 9]).is_none());
     }
 }

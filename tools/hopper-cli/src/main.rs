@@ -4048,6 +4048,8 @@ fn to_program_manifest(m: &OwnedProgramManifest) -> ProgramManifest {
                 // BLD-CU: the JSON manifest loader does not yet parse
                 // cuEstimate; default to 0 = unknown (no estimate published)
                 // rather than fabricating a number. JSON wiring is a followup.
+                mutation_complete: false,
+                lamport_accounts: &[],
                 cu_estimate: 0,
             }
         })
@@ -4144,6 +4146,11 @@ fn to_program_manifest(m: &OwnedProgramManifest) -> ProgramManifest {
                 // no-authority form until the JSON schema grows the fields.
                 strict_writes: false,
                 write_ranges: &[],
+                // Same reasoning for the BLD-MUT lamport dimension:
+                // absent from the JSON context schema, so never claim
+                // completeness for a JSON-round-tripped context.
+                mutation_complete: false,
+                lamport_accounts: &[],
             }
         })
         .collect();

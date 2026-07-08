@@ -154,6 +154,28 @@ to 0.11.2.**
   code moved 571→685 CU from Solana 2.1→2.3. Our published numbers were
   measured on a 2.1-era stack — §5 step 0 (agave-4.0 Mollusk) is also what
   keeps our own claims honest.
+- **Update 2026-07-08 — anchor-next intel.** lang-v2 now ships `Slab<H, T>`
+  (`lang-v2/src/accounts/slab.rs` + `slab_hooks.rs`), its first zero-copy
+  collection: typed header + length-prefixed Pod tail, capacity derived from
+  live `data_len`, with inline `#[kani::proof]` lemmas over the capacity
+  arithmetic — the first competitor Kani usage we have seen (the verification
+  race is on). Two bug classes were fixed in this surface: #4603 "Pad
+  shrunken serialized account tails" (2026-05-27; stale bytes past a
+  shorter-than-load re-serialization) and #4616 "Prevent Slab read aliases
+  during mutable borrows" (2026-06-02; Slab constructors did not mark
+  pinocchio's `borrow_state`, so a copied view could take a safe
+  `try_borrow_mut` aliasing the Slab's typed refs). Both classes are now
+  pinned in Hopper's competitor suites (`anchor_4616_*` in hopper-runtime,
+  `anchor_4603_*` in hopper-core). The collections claim in COMPARISON.md /
+  THE_MOAT.md now carries the Anchor-v2-alpha qualifier.
+- **Watch item (added 2026-07-08): `asm-v2`.** anchor-next carries an
+  `asm-v2` crate — build-time support for linking hand-written sBPF assembly
+  into Anchor v2 programs via `global_asm!` (a build.rs helper that expands
+  `.include` directives into one combined `.s`, plus an `asm_program!` macro
+  generating typed const operands for error enums and stack-frame structs;
+  requires nightly `asm_experimental_arch`). Today it is an experiment, but
+  it signals Anchor v2 chasing CU below what Rust codegen reaches. No action
+  now; re-check at v2 release and compare against Hopper's measured-CU story.
 
 ### Typhoon (exotic-markets-labs) — the quiet third contender
 

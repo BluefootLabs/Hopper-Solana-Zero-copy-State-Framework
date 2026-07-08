@@ -50,6 +50,23 @@ pub struct Inspect {
     pub ledger: Ledger,
 }
 
+/// BLD-MUT: a mutation-complete context — both dimensions declared.
+/// `ledger` may write only its `balance` field (data dimension);
+/// `fee_sink` is a declared lamport credit target (lamport dimension);
+/// `config` and `authority` may be mutated in NEITHER dimension.
+#[hopper::context(strict_writes, lamports(fee_sink))]
+pub struct Payout {
+    #[account(mut(balance))]
+    pub ledger: Ledger,
+
+    pub fee_sink: AccountView<'static>,
+
+    pub config: AccountView<'static>,
+
+    #[signer]
+    pub authority: AccountView<'static>,
+}
+
 fn expected_ranges() -> [WriteRange; 1] {
     [WriteRange::new(
         0,
@@ -189,6 +206,8 @@ fn manifest_json_publishes_the_context_write_set() {
         receipt_expected: false,
         strict_writes: Credit::STRICT_WRITES,
         write_ranges: Credit::WRITE_RANGES,
+        mutation_complete: Credit::MUTATION_COMPLETE,
+        lamport_accounts: Credit::LAMPORT_ACCOUNTS,
         cu_estimate: 0,
     };
     static INSTRUCTIONS: [InstructionDescriptor; 1] = [CREDIT_IX];
@@ -215,4 +234,324 @@ fn manifest_json_publishes_the_context_write_set() {
         "\"accountIndex\": {}, \"offset\": {}, \"size\": {}",
         expected.account_index, expected.offset, expected.size
     )));
+    // Credit is strict but declared no lamport dimension: the manifest
+    // must NOT claim mutation completeness.
+    assert!(!json.contains("mutationComplete"));
+}
+
+// ── BLD-MUT: lamport dimension + mutation completeness ─────────────
+
+static PAYOUT_ACCOUNTS: [AccountEntry; 4] = [
+    AccountEntry {
+        name: "ledger",
+        writable: true,
+        signer: false,
+        layout_ref: "Ledger",
+        seeds: &[],
+    },
+    AccountEntry {
+        name: "fee_sink",
+        writable: true,
+        signer: false,
+        layout_ref: "",
+        seeds: &[],
+    },
+    // Over-declared by the client: the context mutates config in
+    // neither dimension, so demotion may trim exactly this flag.
+    AccountEntry {
+        name: "config",
+        writable: true,
+        signer: false,
+        layout_ref: "",
+        seeds: &[],
+    },
+    AccountEntry {
+        name: "authority",
+        writable: false,
+        signer: true,
+        layout_ref: "",
+        seeds: &[],
+    },
+];
+
+static PAYOUT_IX: InstructionDescriptor = InstructionDescriptor {
+    name: "payout",
+    tag: 1,
+    args: &[],
+    accounts: &PAYOUT_ACCOUNTS,
+    capabilities: &[],
+    policy_pack: "",
+    receipt_expected: false,
+    strict_writes: Payout::STRICT_WRITES,
+    write_ranges: Payout::WRITE_RANGES,
+    mutation_complete: Payout::MUTATION_COMPLETE,
+    lamport_accounts: Payout::LAMPORT_ACCOUNTS,
+    cu_estimate: 0,
+};
+
+#[test]
+fn lamports_context_publishes_mutation_complete_consts() {
+    // Both dimensions declared: complete. The lamport set is exactly
+    // the explicit `lamports(fee_sink)` (index 1); the `mut(balance)`
+    // field is field-granular, not whole-account, so it carries no
+    // implied lamport permission.
+    assert!(Payout::STRICT_WRITES);
+    assert!(Payout::MUTATION_COMPLETE);
+    assert_eq!(Payout::LAMPORT_ACCOUNTS, &[1u8]);
+    assert!(Payout::SCHEMA_METADATA.mutation_complete);
+    assert_eq!(Payout::SCHEMA_METADATA.lamport_accounts, &[1u8]);
+
+    // A bare strict_writes context stays honest: data dimension only,
+    // lamports undeclared, NOT mutation-complete.
+    assert!(Credit::STRICT_WRITES);
+    assert!(!Credit::MUTATION_COMPLETE);
+    assert!(Credit::LAMPORT_ACCOUNTS.is_empty());
+    assert!(!Credit::SCHEMA_METADATA.mutation_complete);
+
+    // Non-strict: nothing declared, nothing claimed.
+    assert!(!Inspect::MUTATION_COMPLETE);
+    assert!(!Inspect::SCHEMA_METADATA.mutation_complete);
+}
+
+#[test]
+fn manifest_json_publishes_mutation_complete_for_lamports_context() {
+    static INSTRUCTIONS: [InstructionDescriptor; 1] = [PAYOUT_IX];
+    static CONTEXTS: [ContextDescriptor; 1] = [Payout::SCHEMA_METADATA];
+    let manifest = ProgramManifest {
+        name: "bld_mut_it",
+        version: "0.0.1",
+        description: "BLD-MUT mutation-complete publication fixture",
+        layouts: &[],
+        layout_metadata: &[],
+        instructions: &INSTRUCTIONS,
+        events: &[],
+        policies: &[],
+        compatibility_pairs: &[],
+        tooling_hints: &[],
+        contexts: &CONTEXTS,
+    };
+    let json = format!("{}", ManifestJson(&manifest));
+    assert!(json.contains("\"mutationComplete\": true"));
+    assert!(json.contains("\"lamportAccounts\": [1]"));
+}
+
+#[test]
+fn effective_writable_demotes_exactly_the_untouched_account() {
+    // ledger: data range declared — stays writable.
+    assert!(PAYOUT_IX.effective_writable(0, true));
+    // fee_sink: lamport permission, zero data ranges — stays writable
+    // (demoting it would break the declared lamport credit on chain).
+    assert!(PAYOUT_IX.effective_writable(1, true));
+    // config: neither dimension — the over-declared flag is demoted.
+    assert!(!PAYOUT_IX.effective_writable(2, true));
+    // authority: read-only is never promoted.
+    assert!(!PAYOUT_IX.effective_writable(3, false));
+
+    // The same account list under the INCOMPLETE Credit-style contract
+    // must pass through unchanged: no demotion without both dimensions.
+    static INCOMPLETE_IX: InstructionDescriptor = InstructionDescriptor {
+        mutation_complete: false,
+        lamport_accounts: &[],
+        ..PAYOUT_IX
+    };
+    assert!(INCOMPLETE_IX.effective_writable(2, true));
+}
+
+fn payout_handler<'info>(
+    program_id: &'info Address,
+    accounts: &'info [AccountView<'info>],
+    instruction_data: &'info [u8],
+) -> ProgramResult {
+    use hopper_runtime::write_policy::write_policy_violation;
+
+    let mut ctx = Context::new(program_id, accounts, instruction_data);
+    let bound = Payout::bind(&mut ctx)?;
+
+    // While the bound context (and therefore the lamport gate) is live:
+    // the declared lamport target accepts a credit...
+    let sink_before = accounts[1].lamports();
+    accounts[1].try_set_lamports(sink_before + 7)?;
+    assert_eq!(accounts[1].lamports(), sink_before + 7);
+
+    // ...and every undeclared account's lamport mutation is refused
+    // with the indexed policy error, balances untouched.
+    let ledger_before = accounts[0].lamports();
+    assert_eq!(
+        accounts[0].try_set_lamports(0),
+        Err(write_policy_violation(0))
+    );
+    assert_eq!(accounts[0].lamports(), ledger_before);
+    assert_eq!(
+        accounts[2].try_set_lamports(0),
+        Err(write_policy_violation(2))
+    );
+    assert_eq!(
+        accounts[3].try_set_lamports(0),
+        Err(write_policy_violation(3))
+    );
+
+    // Dropping the bound scope uninstalls the gate: lamport access
+    // returns to the ungoverned (pre-BLD-MUT) contract.
+    drop(bound);
+    accounts[2].try_set_lamports(accounts[2].lamports())?;
+    Ok(())
+}
+
+#[test]
+fn runtime_gate_refuses_undeclared_lamport_mutation_for_bound_scope() {
+    let program_id = Address::new_from_array([9u8; 32]);
+
+    let mut ledger_data = vec![0u8; Ledger::LEN];
+    write_header(
+        &mut ledger_data,
+        Ledger::DISC,
+        Ledger::VERSION,
+        &Ledger::LAYOUT_ID,
+    )
+    .unwrap();
+    let ledger = AccountFixture::with_data(
+        Address::new_from_array([1u8; 32]),
+        program_id,
+        1_000_000,
+        ledger_data,
+    )
+    .writable();
+    let fee_sink = AccountFixture::new(
+        Address::new_from_array([2u8; 32]),
+        Address::new_from_array([0u8; 32]),
+        1_000_000,
+        0,
+    )
+    .writable();
+    let config = AccountFixture::new(
+        Address::new_from_array([3u8; 32]),
+        Address::new_from_array([0u8; 32]),
+        1_000_000,
+        0,
+    )
+    .writable();
+    let authority = AccountFixture::new(
+        Address::new_from_array([4u8; 32]),
+        Address::new_from_array([0u8; 32]),
+        1_000_000,
+        0,
+    )
+    .signer();
+
+    let result = HopperSvm::new().process_instruction(
+        program_id,
+        &[],
+        &[ledger, fee_sink, config, authority],
+        payout_handler,
+    );
+    assert!(
+        result.program_result.is_ok(),
+        "bound-scope lamport gate behavior failed: {:?}",
+        result.program_result
+    );
+}
+
+// ── BLD-MUT: `sweep = target` end-to-end under the gate ─────────────
+//
+// The generated sweep helper drains through the runtime lamport funnel
+// (`try_set_lamports`), so a mutation-complete context must imply both
+// sweep roles or its own helper would be refused by its own gate.
+// (This surface previously could not compile at all — the emission
+// called a nonexistent `try_borrow_mut_lamports` — so this test is the
+// first executable proof of the sweep contract.)
+
+/// `lamports()` (empty explicit list) is valid: ONLY the implied
+/// lifecycle roles — here the sweep source + target — may move
+/// lamports.
+#[hopper::context(strict_writes, lamports())]
+pub struct SweepFees {
+    #[account(sweep = treasury)]
+    pub fees: AccountView<'static>,
+
+    pub treasury: AccountView<'static>,
+
+    #[signer]
+    pub authority: AccountView<'static>,
+}
+
+#[test]
+fn sweep_context_implies_exactly_the_sweep_roles() {
+    assert!(SweepFees::STRICT_WRITES);
+    assert!(SweepFees::MUTATION_COMPLETE);
+    // fees (0): sweep source (sweep implies `mut`); treasury (1):
+    // sweep target. authority (2) gets nothing.
+    assert_eq!(SweepFees::LAMPORT_ACCOUNTS, &[0u8, 1u8]);
+    assert_eq!(SweepFees::SCHEMA_METADATA.lamport_accounts, &[0u8, 1u8]);
+}
+
+fn sweep_handler<'info>(
+    program_id: &'info Address,
+    accounts: &'info [AccountView<'info>],
+    instruction_data: &'info [u8],
+) -> ProgramResult {
+    use hopper_runtime::write_policy::write_policy_violation;
+
+    let mut ctx = Context::new(program_id, accounts, instruction_data);
+    let bound = SweepFees::bind(&mut ctx)?;
+
+    let fees_before = accounts[0].lamports();
+    let treasury_before = accounts[1].lamports();
+    assert!(fees_before > 0, "fixture must fund the swept account");
+
+    // The gate is live (lamports() declared): the swept transfer is
+    // admitted because source + target are the implied permission set.
+    let swept = bound.sweep_fees()?;
+    assert_eq!(swept, fees_before);
+    assert_eq!(accounts[0].lamports(), 0);
+    assert_eq!(accounts[1].lamports(), treasury_before + fees_before);
+
+    // Sweeping an already-empty slot is a no-op returning 0.
+    assert_eq!(bound.sweep_fees()?, 0);
+
+    // The sweep succeeded because of the implication, not because the
+    // gate is loose: an account outside the implied set stays refused.
+    assert_eq!(
+        accounts[2].try_set_lamports(0),
+        Err(write_policy_violation(2))
+    );
+    Ok(())
+}
+
+#[test]
+fn sweep_helper_executes_end_to_end_under_the_lamport_gate() {
+    let program_id = Address::new_from_array([9u8; 32]);
+
+    let fees = AccountFixture::new(
+        Address::new_from_array([5u8; 32]),
+        program_id,
+        250_000,
+        0,
+    )
+    .writable();
+    let treasury = AccountFixture::new(
+        Address::new_from_array([6u8; 32]),
+        Address::new_from_array([0u8; 32]),
+        1_000_000,
+        0,
+    )
+    .writable();
+    let authority = AccountFixture::new(
+        Address::new_from_array([7u8; 32]),
+        Address::new_from_array([0u8; 32]),
+        1_000_000,
+        0,
+    )
+    .signer();
+
+    let result = HopperSvm::new().process_instruction(
+        program_id,
+        &[],
+        &[fees, treasury, authority],
+        sweep_handler,
+    );
+    assert!(
+        result.program_result.is_ok(),
+        "sweep under the lamport gate failed: {:?}",
+        result.program_result
+    );
 }

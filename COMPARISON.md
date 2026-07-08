@@ -57,11 +57,22 @@ runtime it lowers to is in `crates/hopper-runtime/src/` or
 | Instruction touch maps (cumulative per-ix `(account, range, R/W)` footprint) | Yes (`touch-map` feature) | No | No | No | `segment_borrow.rs` touch log; `Context::for_each_touch` / `touch_map_len` / `touch_map_overflowed` |
 | Field-level write policies (declared write-set enforced at borrow acquire) | Yes (`strict_writes`) | No | No | No (Sealevel account-level `writable` only, all frameworks) | `#[hopper::context(strict_writes)]` → `static WritePolicy` installed in `bind()`; runtime gate in `context.rs::check_write_policy` over `write_policy.rs` |
 
-## On-chain zero-copy collections (no competitor ships any)
+## On-chain zero-copy collections (no shipped competitor has any)
+
+Update 2026-07-08: Anchor v2 (unreleased alpha, `anchor-next` branch) now
+ships **one** zero-copy collection, `Slab<H, T>`
+(`lang-v2/src/accounts/slab.rs`) — a typed header plus length-prefixed Pod
+tail, with inline `#[kani::proof]` lemmas over its capacity arithmetic. Two
+bug classes were found and fixed in that surface during May–June 2026
+(anchor #4603 "Pad shrunken serialized account tails", 2026-05-27; #4616
+"Prevent Slab read aliases during mutable borrows", 2026-06-02); Hopper's
+competitor suites now pin both classes (`anchor_4616_*`, `anchor_4603_*`
+tests). The shipped Anchor line and every other competitor still have none;
+Hopper ships 8, each hostile-metadata fuzzed.
 
 | Capability | Hopper | Quasar | Anchor zc | Pinocchio | Hopper implements |
 |---|---|---|---|---|---|
-| Zero-copy collections over account bytes (vec, sorted vec, ring, slab, slot map, packed map, journal, bitset) | Yes (8) | No | No | No | `crates/hopper-core/src/collections/*`; compact-tail aliases in `collections/compact_tail.rs` |
+| Zero-copy collections over account bytes (vec, sorted vec, ring, slab, slot map, packed map, journal, bitset) | Yes (8) | No | No shipped (v2 alpha: 1, `Slab`) | No | `crates/hopper-core/src/collections/*`; compact-tail aliases in `collections/compact_tail.rs` |
 | Corruption-hardened: stored metadata (len/head/count/free lists) validated at construction, rejected when inconsistent | Yes | n/a | n/a | n/a | parse-don't-validate constructors across `collections/*`; slab occupancy/cycle guards |
 | Adversarial property harness (arbitrary account bytes → clean `Err`, never panic/OOB) | Yes | No | No | No | `collections::hostile_metadata_proptests` (proptest, pinned regression seeds) |
 | Element-size honesty proven at compile time (`SIZE == size_of`, non-ZST) | Yes | n/a | n/a | n/a | `FixedLayout::_SIZE_IS_HONEST` (self-proving trait) + `assert_zero_copy_element` |
@@ -141,7 +152,7 @@ Facts verified 2026-07-07 against public trackers and registries; see
 | Published release on crates.io | Yes (0.2.1) | No (v0.0.0, no tags or releases) | Yes | Yes | [crates.io/crates/hopper-lang](https://crates.io/crates/hopper-lang) |
 | Audit posture | Line-by-line internal audit trail | Self-described "Beta … not audited" | Ecosystem audits | Audited (Neodyme, Zellic 2025-06) | `AUDIT.md`, `docs/UNSAFE_INVARIANTS.md` |
 | Builds on stable Rust | Yes (pinned 1.96.0) | No (nightly-only bespoke toolchain) | Yes | Yes | `rust-toolchain.toml` |
-| Open soundness/correctness issues on tracker (2026-07) | None open; classes regression-pinned | 5 (blueshift-gg/quasar #234, #238, #239, #240, #242) | tracked upstream | none open | Hopper pins those classes in `crates/hopper-runtime/tests/competitor_bug_classes.rs` + `crates/hopper-core/tests/competitor_bug_classes.rs` (13 tests) |
+| Open soundness/correctness issues on tracker (2026-07) | None open; classes regression-pinned | 5 (blueshift-gg/quasar #234, #238, #239, #240, #242) | tracked upstream; v2 Slab classes #4603/#4616 fixed May–June 2026 | none open | Hopper pins those classes in `crates/hopper-runtime/tests/competitor_bug_classes.rs` + `crates/hopper-core/tests/competitor_bug_classes.rs` (18 tests) |
 | Competitor-bug-class regression suite (bug class → structural guard → pinned test) | Yes | No | No | No | the two `competitor_bug_classes.rs` suites above; authoring the suite also found and fixed Hopper's own `safe_close` aliased-destination bug |
 | Publishes reproducible cross-framework CU benchmark with pinned provenance | Yes | No (no published numbers) | No (otter-sec/anchor #4355 planned, unpublished) | No | `hopper-bench` results + provenance blocks in `BENCHMARKS.md` |
 

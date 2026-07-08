@@ -422,6 +422,8 @@ mod tests {
             receipt_expected: false,
             strict_writes,
             write_ranges,
+            mutation_complete: false,
+            lamport_accounts: &[],
             cu_estimate: 0,
         }
     }

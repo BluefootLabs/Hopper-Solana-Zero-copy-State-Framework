@@ -623,10 +623,11 @@ fn write_instruction_builder(
         } else {
             format!("accounts.{}", snake_case(acc.name))
         };
-        // `effective_writable` is a sound passthrough: it preserves the
-        // declared flag. Data-range absence does not prove an account
-        // read-only (a WriteRange covers data, not lamport-only writes), so
-        // automatic demotion is deferred until write sets are mutation-complete.
+        // `effective_writable` (BLD-MUT contract): passthrough unless the
+        // instruction is `mutation_complete` (strict_writes + declared
+        // lamport dimension); when complete, an account with neither a
+        // data range nor lamport permission is provably untouched and is
+        // demoted to read-only. Never promotes.
         writeln!(
             f,
             "        AccountMeta::{}({}, {}),",
@@ -1040,6 +1041,8 @@ mod tests {
             receipt_expected: false,
             strict_writes: false,
             write_ranges: &[],
+            mutation_complete: false,
+            lamport_accounts: &[],
             cu_estimate: 0,
         };
         static INSTRUCTIONS: &[InstructionDescriptor] = &[DEPOSIT];
@@ -1241,6 +1244,8 @@ mod tests {
             receipt_expected: false,
             strict_writes: true,
             write_ranges: WR_RANGES,
+            mutation_complete: false,
+            lamport_accounts: &[],
             cu_estimate: 0,
         }];
         static LOOSE_IX: &[InstructionDescriptor] = &[InstructionDescriptor {
@@ -1253,6 +1258,8 @@ mod tests {
             receipt_expected: false,
             strict_writes: false,
             write_ranges: &[],
+            mutation_complete: false,
+            lamport_accounts: &[],
             cu_estimate: 0,
         }];
         ProgramManifest {
@@ -1300,6 +1307,8 @@ mod tests {
             receipt_expected: false,
             strict_writes: false,
             write_ranges: &[],
+            mutation_complete: false,
+            lamport_accounts: &[],
             cu_estimate: 10_000,
         }];
         ProgramManifest {

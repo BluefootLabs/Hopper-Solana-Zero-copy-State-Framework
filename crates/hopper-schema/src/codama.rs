@@ -646,6 +646,27 @@ fn write_instruction_array(
         }
         write_indent(f, 3)?;
         writeln!(f, "\"strictWrites\": {},", ix.strict_writes)?;
+        // BLD-MUT: published ONLY when the write set covers both
+        // mutation dimensions (data ranges + lamports). A `false` value
+        // is never emitted — absence means "not mutation-complete", so
+        // a consumer can never mistake an older manifest (which lacks
+        // the key entirely) for a completeness claim. `lamportAccounts`
+        // rides along because a demotion decision needs it: an account
+        // with no data range may still be a declared lamport
+        // credit/debit target and must stay writable.
+        if ix.mutation_complete {
+            write_indent(f, 3)?;
+            writeln!(f, "\"mutationComplete\": true,")?;
+            write_indent(f, 3)?;
+            write!(f, "\"lamportAccounts\": [")?;
+            for (k, idx) in ix.lamport_accounts.iter().enumerate() {
+                if k > 0 {
+                    write!(f, ", ")?;
+                }
+                write!(f, "{}", idx)?;
+            }
+            writeln!(f, "],")?;
+        }
         write_indent(f, 3)?;
         write!(f, "\"writeRanges\": ")?;
         write_write_ranges_json(f, ix, 3)?;
@@ -1419,6 +1440,8 @@ mod tests {
             receipt_expected: true,
             strict_writes: false,
             write_ranges: &[],
+            mutation_complete: false,
+            lamport_accounts: &[],
             cu_estimate: 0,
         }];
         let m = ProgramManifest {
@@ -1472,6 +1495,8 @@ mod tests {
             receipt_expected: true,
             strict_writes: false,
             write_ranges: &[],
+            mutation_complete: false,
+            lamport_accounts: &[],
             cu_estimate: 0,
         }];
         static FIELDS: &[FieldDescriptor] = &[FieldDescriptor {
@@ -1656,6 +1681,8 @@ mod tests {
         receipt_expected: true,
         strict_writes: true,
         write_ranges: WR_RANGES,
+        mutation_complete: false,
+        lamport_accounts: &[],
         cu_estimate: 0,
     }];
     static WR_LOOSE_IX: &[InstructionDescriptor] = &[InstructionDescriptor {
@@ -1668,6 +1695,26 @@ mod tests {
         receipt_expected: true,
         strict_writes: false,
         write_ranges: &[],
+        mutation_complete: false,
+        lamport_accounts: &[],
+        cu_estimate: 0,
+    }];
+    // BLD-MUT: a mutation-complete deposit — both dimensions declared.
+    // vault (1) carries data ranges; authority (0) is a declared lamport
+    // debit target (e.g. a fee payer); config (2) is declared writable
+    // but appears in neither dimension, so it is provably untouched.
+    static WR_COMPLETE_IX: &[InstructionDescriptor] = &[InstructionDescriptor {
+        name: "deposit",
+        tag: 1,
+        args: &[],
+        accounts: WR_ACCTS,
+        capabilities: &["MutatesState"],
+        policy_pack: "VAULT_WRITE",
+        receipt_expected: true,
+        strict_writes: true,
+        write_ranges: WR_RANGES,
+        mutation_complete: true,
+        lamport_accounts: &[0],
         cu_estimate: 0,
     }];
 
@@ -1726,6 +1773,8 @@ mod tests {
             receipt_expected: true,
             strict_writes: false,
             write_ranges: &[],
+            mutation_complete: false,
+            lamport_accounts: &[],
             cu_estimate: 4_800,
         }];
         let m = wr_manifest(CU_IX);
@@ -1748,12 +1797,16 @@ mod tests {
         assert_eq!(WR_LOOSE_IX[0].cu_budget_with_margin(), None);
         // A published estimate gains a 10% margin (never shrinks)...
         let ix = InstructionDescriptor {
+            mutation_complete: false,
+            lamport_accounts: &[],
             cu_estimate: 10_000,
             ..WR_LOOSE_IX[0]
         };
         assert_eq!(ix.cu_budget_with_margin(), Some(11_000));
         // ...and clamps to the runtime's 1.4M CU transaction cap.
         let big = InstructionDescriptor {
+            mutation_complete: false,
+            lamport_accounts: &[],
             cu_estimate: 1_399_999,
             ..WR_LOOSE_IX[0]
         };
@@ -1764,34 +1817,52 @@ mod tests {
     }
 
     #[test]
-    fn effective_writable_is_a_sound_passthrough() {
+    fn effective_writable_passes_through_unless_mutation_complete() {
         // Demotion based on data write-ranges alone is unsound (a WriteRange
         // is a data range; Sealevel writability also covers lamport-only
-        // mutation like close/sweep recipients). Until write sets can be
-        // declared mutation-complete, effective_writable preserves the
-        // declared flag for every account under both strict and non-strict
-        // instructions, and never promotes a read-only account.
+        // mutation like close/sweep recipients). A strict-but-incomplete
+        // instruction therefore preserves the declared flag for every
+        // account, and nothing ever promotes a read-only account.
         let ix = &WR_STRICT_IX[0];
+        assert!(!ix.mutation_complete);
         assert!(!ix.effective_writable(0, false)); // read-only stays read-only
         assert!(ix.effective_writable(1, true)); // writable stays writable
-        assert!(ix.effective_writable(2, true)); // NOT demoted (would be unsound)
+        assert!(ix.effective_writable(2, true)); // NOT demoted (incomplete set)
 
         let loose = &WR_LOOSE_IX[0];
         assert!(loose.effective_writable(2, true));
 
         // account_has_declared_write still answers the raw range query for
-        // schedulers/indexers even though the client no longer demotes on it.
+        // schedulers/indexers independent of demotion.
         assert!(ix.account_has_declared_write(1));
         assert!(!ix.account_has_declared_write(2));
     }
 
     #[test]
-    fn strict_with_empty_ranges_demotes_nothing() {
-        // A strict_writes instruction whose ranges are entirely empty means
-        // "ranges not populated" (the macro does not yet auto-emit them),
-        // NOT "everything is read-only". Demoting here would send a written
-        // account as read-only and fail the transaction on chain. Every
-        // declared-writable account must survive unchanged.
+    fn effective_writable_demotes_exactly_the_untouched_account_when_complete() {
+        // BLD-MUT: under a mutation-complete set, an account in NEITHER
+        // dimension is provably untouched and is demoted; an account in
+        // either dimension survives. Read-only accounts are never promoted.
+        let ix = &WR_COMPLETE_IX[0];
+        assert!(ix.mutation_complete);
+        // authority (0): lamport permission only — stays writable.
+        assert!(ix.effective_writable(0, true));
+        assert!(!ix.effective_writable(0, false)); // never promoted
+                                                   // vault (1): data ranges — stays writable.
+        assert!(ix.effective_writable(1, true));
+        // config (2): neither dimension — demoted.
+        assert!(!ix.effective_writable(2, true));
+        // Out-of-range indices cannot be declared: conservative passthrough.
+        assert!(ix.effective_writable(300, true));
+    }
+
+    #[test]
+    fn strict_with_empty_ranges_demotes_nothing_unless_complete() {
+        // A strict_writes instruction whose ranges are empty and which is
+        // NOT mutation-complete means "data dimension only, nothing
+        // written through Context" — but its lamport behavior is
+        // undeclared, so demoting would be unsound. Every declared-writable
+        // account must survive unchanged.
         static UNPOP_IX: &[InstructionDescriptor] = &[InstructionDescriptor {
             name: "deposit",
             tag: 1,
@@ -1802,6 +1873,8 @@ mod tests {
             receipt_expected: true,
             strict_writes: true,
             write_ranges: &[],
+            mutation_complete: false,
+            lamport_accounts: &[],
             cu_estimate: 0,
         }];
         let ix = &UNPOP_IX[0];
@@ -1809,6 +1882,25 @@ mod tests {
         assert!(ix.effective_writable(2, true));
         // A declared read-only account still stays read-only (never promoted).
         assert!(!ix.effective_writable(0, false));
+    }
+
+    #[test]
+    fn manifest_emits_mutation_complete_and_lamport_accounts_only_when_true() {
+        let m = wr_manifest(WR_COMPLETE_IX);
+        let json = format!("{}", ManifestJson(&m));
+        assert!(json.contains("\"mutationComplete\": true"));
+        assert!(json.contains("\"lamportAccounts\": [0]"));
+
+        // Not mutation-complete: the key must be ABSENT (never `false`),
+        // so absence and older manifests read identically.
+        let strict = wr_manifest(WR_STRICT_IX);
+        let json = format!("{}", ManifestJson(&strict));
+        assert!(!json.contains("mutationComplete"));
+        assert!(!json.contains("lamportAccounts"));
+
+        let loose = wr_manifest(WR_LOOSE_IX);
+        let json = format!("{}", ManifestJson(&loose));
+        assert!(!json.contains("mutationComplete"));
     }
 
     #[test]

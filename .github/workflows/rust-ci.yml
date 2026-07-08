@@ -100,3 +100,20 @@ jobs:
           cargo kani setup
       - name: Run runtime Kani proofs
         run: sh ./scripts/kani-runtime-tail.sh
+
+  kani-native-rawinput-proofs:
+    name: Kani native raw-input proofs
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Install Kani
+        run: |
+          cargo install --locked kani-verifier
+          cargo kani setup
+      - name: Run native raw-input Kani proofs
+        run: sh ./scripts/kani-native-rawinput.sh

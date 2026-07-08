@@ -244,6 +244,11 @@ fn validate_cpi_accounts(
         }
 
         if expected.is_writable {
+            // BLD-MUT: a writable CPI meta delegates unbounded data AND
+            // lamport mutation to the callee. Under an installed lamport
+            // gate the account must carry both a whole-account data
+            // grant and lamport permission; no gate = passthrough.
+            crate::write_policy::check_lamport_delegation(actual.address())?;
             actual.check_borrow_mut()?;
         } else {
             actual.check_borrow()?;
@@ -291,6 +296,12 @@ fn validate_cpi_borrows(
             return Err(ProgramError::InvalidArgument);
         }
         if instruction.accounts[i].is_writable {
+            // BLD-MUT: the lamport gate governs writable hand-offs on
+            // every *safe* tier, including this minimal one — the gate
+            // is only installed by contexts that opted into the lamport
+            // dimension, so programs outside the feature keep this
+            // tier's Pinocchio-parity cost (one None-check).
+            crate::write_policy::check_lamport_delegation(account_views[i].address())?;
             account_views[i].check_borrow_mut()?;
         } else {
             account_views[i].check_borrow()?;
@@ -342,6 +353,11 @@ fn validate_host_system_transfer(
         // host emulation is not *weaker* than the borrow-checked tier it
         // sits above (tier ordering: checked ≥ default > borrow_checked).
         if expected.is_writable {
+            // BLD-MUT: writable hand-off gate, mirroring the on-chain
+            // default tier (the lamport funnel would catch the actual
+            // balance change anyway; refusing here keeps the host
+            // emulation's error surface identical to on-chain).
+            crate::write_policy::check_lamport_delegation(actual.address())?;
             actual.check_borrow_mut()?;
         } else {
             actual.check_borrow()?;
@@ -370,16 +386,39 @@ fn emulate_host_system_transfer(
     ]);
     let from = account_views[0];
     let to = account_views[1];
-    from.set_lamports(
-        from.lamports()
-            .checked_sub(amount)
-            .ok_or(ProgramError::InsufficientFunds)?,
-    )?;
-    to.set_lamports(
-        to.lamports()
-            .checked_add(amount)
-            .ok_or(ProgramError::ArithmeticOverflow)?,
-    )?;
+
+    // BLD-MUT: pre-validate BOTH sides against the lamport gate before
+    // any balance mutation. Relying on the per-account `set_lamports`
+    // funnel alone would debit `from` and then have `to` refused at the
+    // funnel, destroying lamports in host state on the error path — a
+    // transfer must be all-or-nothing.
+    crate::write_policy::check_lamport_mutation(from.address())?;
+    crate::write_policy::check_lamport_mutation(to.address())?;
+
+    // Self-transfer (same address = same underlying account): net zero.
+    // Handled explicitly because the compute-both-then-apply sequence
+    // below would otherwise credit from the pre-debit balance and mint
+    // `amount` out of thin air.
+    if address_eq(from.address(), to.address()) {
+        if from.lamports() < amount {
+            return Err(ProgramError::InsufficientFunds);
+        }
+        return Ok(());
+    }
+
+    // Compute both post-balances before applying either, so an
+    // arithmetic refusal (insufficient funds, overflow) also cannot
+    // half-apply the transfer.
+    let debited = from
+        .lamports()
+        .checked_sub(amount)
+        .ok_or(ProgramError::InsufficientFunds)?;
+    let credited = to
+        .lamports()
+        .checked_add(amount)
+        .ok_or(ProgramError::ArithmeticOverflow)?;
+    from.set_lamports(debited)?;
+    to.set_lamports(credited)?;
     Ok(())
 }
 
@@ -588,6 +627,9 @@ fn validate_cpi_accounts_deduped(
         // writable meta demands exclusive borrowability of that one info,
         // which is exactly the OR-merged requirement dedup must preserve.
         if expected.is_writable {
+            // BLD-MUT: writable hand-off gate over the full meta list —
+            // dedup collapses infos, never the per-meta delegation check.
+            crate::write_policy::check_lamport_delegation(info.address())?;
             info.check_borrow_mut()?;
         } else {
             info.check_borrow()?;
@@ -703,6 +745,14 @@ pub fn invoke_signed_checked<const ACCOUNTS: usize>(
 /// | default | [`invoke`] / [`invoke_signed`] / [`invoke_with_bounds`] / [`invoke_signed_with_bounds`] | Meta↔view address match, required-signer presence (including PDA-seed satisfaction), meta writability vs. account writability, per-account borrow state, **and** duplicate-writable rejection. |
 /// | borrow_checked | `invoke_borrow_checked` / [`invoke_signed_borrow_checked`] | Per-account borrow state only: writable metas must be exclusively borrowable, read-only metas shared-borrowable. |
 /// | unchecked | [`invoke_unchecked`] / [`invoke_signed_unchecked`] (`unsafe`) | Nothing. |
+///
+/// Every **safe** tier additionally consults the BLD-MUT lamport gate
+/// on writable metas: under a `strict_writes` context that declared its
+/// lamport dimension (`lamports(...)`), handing an account to a callee
+/// as writable requires that account to carry a whole-account data
+/// grant *and* lamport permission. Instructions outside the feature pay
+/// one `None`-check. The `unsafe` unchecked tier remains ungated (it is
+/// the documented escape hatch and validates nothing).
 ///
 /// # What this tier is
 ///
@@ -920,6 +970,175 @@ mod tests {
             invoke_signed_borrow_checked::<1>(&instruction, &[&account], &[]),
             Ok(())
         );
+    }
+
+    // -- BLD-MUT lamport gate on writable metas -------------------------
+
+    #[test]
+    fn writable_meta_is_refused_unless_both_dimensions_are_declared() {
+        use crate::write_policy::{
+            install_lamport_gate, write_policy_violation, WritePolicy, WriteRange,
+        };
+
+        let (_b0, delegable) = make_account([31; 32]);
+        let (_b1, lamports_only) = make_account([32; 32]);
+        let (_b2, undeclared) = make_account([33; 32]);
+        let accounts = [delegable, lamports_only, undeclared];
+
+        // Account 0 carries whole-account data + lamports (delegable);
+        // account 1 lamports only; account 2 nothing.
+        static P: WritePolicy =
+            WritePolicy::with_lamports(&[WriteRange::whole_account(0)], &[0, 1]);
+        let _gate = install_lamport_gate(&accounts, &P);
+
+        let program_id = Address::new_from_array([7; 32]);
+
+        // Writable meta on the fully declared account: allowed on the
+        // default AND borrow_checked tiers (off-chain no-op syscall).
+        let metas0 = [InstructionAccount::writable(accounts[0].address())];
+        let ix0 = InstructionView {
+            program_id: &program_id,
+            data: &[0u8],
+            accounts: &metas0,
+        };
+        invoke::<1>(&ix0, &[&accounts[0]]).unwrap();
+        invoke_borrow_checked::<1>(&ix0, &[&accounts[0]]).unwrap();
+
+        // Lamports-only account: a writable hand-off is unbounded DATA
+        // delegation too, so it is refused with the indexed policy error.
+        let metas1 = [InstructionAccount::writable(accounts[1].address())];
+        let ix1 = InstructionView {
+            program_id: &program_id,
+            data: &[0u8],
+            accounts: &metas1,
+        };
+        assert_eq!(
+            invoke::<1>(&ix1, &[&accounts[1]]).unwrap_err(),
+            write_policy_violation(1)
+        );
+        assert_eq!(
+            invoke_borrow_checked::<1>(&ix1, &[&accounts[1]]).unwrap_err(),
+            write_policy_violation(1)
+        );
+
+        // Entirely undeclared account: refused on every safe tier,
+        // including the deduped path.
+        let metas2 = [InstructionAccount::writable(accounts[2].address())];
+        let ix2 = InstructionView {
+            program_id: &program_id,
+            data: &[0u8],
+            accounts: &metas2,
+        };
+        assert_eq!(
+            invoke_signed_deduped::<1>(&ix2, &[&accounts[2]], &[]).unwrap_err(),
+            write_policy_violation(2)
+        );
+
+        // Read-only metas are never lamport-gated.
+        let metas_ro = [InstructionAccount::readonly(accounts[2].address())];
+        let ix_ro = InstructionView {
+            program_id: &program_id,
+            data: &[0u8],
+            accounts: &metas_ro,
+        };
+        invoke::<1>(&ix_ro, &[&accounts[2]]).unwrap();
+    }
+
+    #[test]
+    fn host_system_transfer_is_gated_through_the_lamport_funnel() {
+        use crate::write_policy::{
+            install_lamport_gate, write_policy_violation, WritePolicy, WriteRange,
+        };
+
+        let (_b0, from) = make_account([41; 32]);
+        let (_b1, to) = make_account([42; 32]);
+        let accounts = [from, to];
+
+        // Both sides declared: the emulated transfer succeeds and the
+        // balances actually move.
+        static OPEN: WritePolicy = WritePolicy::with_lamports(
+            &[WriteRange::whole_account(0), WriteRange::whole_account(1)],
+            &[0, 1],
+        );
+        // Only `from` declared: the transfer must be refused before any
+        // balance changes.
+        static HALF: WritePolicy =
+            WritePolicy::with_lamports(&[WriteRange::whole_account(0)], &[0]);
+
+        let system_id = Address::new_from_array([0; 32]);
+        let mut data = [0u8; 12];
+        data[0] = 2; // System Transfer tag
+        data[4..12].copy_from_slice(&1u64.to_le_bytes());
+        let metas = [
+            InstructionAccount::writable(accounts[0].address()),
+            InstructionAccount::writable(accounts[1].address()),
+        ];
+        let ix = InstructionView {
+            program_id: &system_id,
+            data: &data,
+            accounts: &metas,
+        };
+
+        {
+            let _gate = install_lamport_gate(&accounts, &OPEN);
+            invoke::<2>(&ix, &[&accounts[0], &accounts[1]]).unwrap();
+            assert_eq!(accounts[0].lamports(), 0);
+            assert_eq!(accounts[1].lamports(), 2);
+        }
+        {
+            let _gate = install_lamport_gate(&accounts, &HALF);
+            assert_eq!(
+                invoke::<2>(&ix, &[&accounts[0], &accounts[1]]).unwrap_err(),
+                write_policy_violation(1)
+            );
+            // Refused before mutation: balances unchanged.
+            assert_eq!(accounts[0].lamports(), 0);
+            assert_eq!(accounts[1].lamports(), 2);
+        }
+    }
+
+    #[test]
+    fn host_system_transfer_refusal_leaves_both_balances_untouched() {
+        use crate::write_policy::{
+            install_lamport_gate, write_policy_violation, WritePolicy, WriteRange,
+        };
+
+        let (_b0, from) = make_account([43; 32]);
+        let (_b1, to) = make_account([44; 32]);
+        let accounts = [from, to];
+
+        // Only `from` is declared for lamport mutation.
+        static HALF: WritePolicy =
+            WritePolicy::with_lamports(&[WriteRange::whole_account(0)], &[0]);
+        let _gate = install_lamport_gate(&accounts, &HALF);
+
+        let system_id = Address::new_from_array([0; 32]);
+        let mut data = [0u8; 12];
+        data[0] = 2; // System Transfer tag
+        data[4..12].copy_from_slice(&1u64.to_le_bytes());
+        // `to` is deliberately a READ-ONLY meta: the writable-meta
+        // delegation gate then never fires for it, so without the
+        // emulation's own both-sides pre-validation the refusal would
+        // come from the `set_lamports` funnel *after* `from` was
+        // already debited — destroying a lamport in host state.
+        let metas = [
+            InstructionAccount::writable(accounts[0].address()),
+            InstructionAccount::readonly(accounts[1].address()),
+        ];
+        let ix = InstructionView {
+            program_id: &system_id,
+            data: &data,
+            accounts: &metas,
+        };
+
+        assert_eq!(
+            invoke_borrow_checked::<2>(&ix, &[&accounts[0], &accounts[1]]).unwrap_err(),
+            write_policy_violation(1)
+        );
+        // Refused BEFORE any mutation: neither side moved (make_account
+        // seeds each balance with 1 lamport).
+        assert_eq!(accounts[0].lamports(), 1);
+        assert_eq!(accounts[1].lamports(), 1);
     }
 
     #[test]

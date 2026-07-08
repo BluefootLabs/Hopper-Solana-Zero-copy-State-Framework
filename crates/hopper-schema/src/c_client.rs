@@ -591,6 +591,8 @@ mod tests {
             receipt_expected: false,
             strict_writes: false,
             write_ranges: &[],
+            mutation_complete: false,
+            lamport_accounts: &[],
             cu_estimate: 0,
         }];
         static EVENT_FIELDS: &[FieldDescriptor] = &[FieldDescriptor {

@@ -1108,3 +1108,759 @@ mod fused_walk_tests {
         );
     }
 }
+
+// =====================================================================
+// Kani proof harnesses for the fused entrypoint walk.
+// =====================================================================
+//
+// Three harness families, run by `scripts/kani-native-rawinput.{sh,ps1}`
+// (CI job `kani-native-rawinput-proofs`):
+//
+// (a) **Stride lemma** — `next_record_offset` equals the checked
+//     `align_offset`-style formula for *every* offset reachable inside
+//     the SBF input region and every `data_len` up to the loader's
+//     10 MiB bound, never overflows, always lands 8-aligned, and always
+//     makes progress. Pure integer proof over the full bounded range.
+//
+// (b) **Bounded differential** — for frames with N <= 3 accounts,
+//     symbolic marker bytes and bounded symbolic `data_len` fields
+//     (record bodies stay concrete zero to keep CBMC tractable), the
+//     fused walk's materialized slot pointers, count, instruction-data
+//     range, and program id equal what the in-file safe oracle
+//     `parse_instruction_frame_checked` reports. The oracle result is
+//     *asserted* Ok, never assumed, so a builder/stride bug fails the
+//     proof instead of vacuously pruning paths. Because the buffers are
+//     real fixed-size allocations, Kani also model-checks every memory
+//     access inside the unsafe walk on these paths — against the
+//     *allocation* bound: these accept-side buffers retain worst-case
+//     padding slack, so it is the assert-based offset equalities (not
+//     the allocation edge) that pin the walk's accesses to the oracle's
+//     frame layout; the byte-exact frame-boundary memory check lives in
+//     family (c).
+//
+// (c) **Trap-before-OOB** — `#[kani::should_panic]` harnesses over
+//     malformed (self/forward) duplicate markers, with backing buffers
+//     sized *exactly* to the encoded frame (no worst-case padding), so
+//     any access even one byte past the legitimate frame is a CBMC
+//     violation. Precisely, each harness proves two things: the
+//     `malformed_duplicate_marker` panic is reachable (existential),
+//     AND no path in the assumed space has a non-panic failure (OOB
+//     access, invalid write, arithmetic overflow). `should_panic` does
+//     NOT by itself prove every malformed marker traps. Universal
+//     rejection is machine-checked only where stated: the assert-based
+//     `oracle_rejects_exactly_the_malformed_markers` proves the safe
+//     oracle rejects *every* malformed marker, and the concrete-marker
+//     slot-zero sub-harnesses are deterministic (single path), making
+//     their trap verdicts universal for those values. Fused-walk
+//     universal rejection follows only from the combination of (a),
+//     (b), and a structural argument — see the family (c) block comment
+//     for the exact semantics and the residual gap.
+#[cfg(kani)]
+mod kani_proofs {
+    use super::*;
+
+    // ── Model constants ─────────────────────────────────────────────
+
+    /// Base of the SBF input memory region (`solana-sbpf`'s
+    /// `ebpf::MM_INPUT_START` = 0x4_0000_0000). This base is 8-aligned,
+    /// which is the fact `next_record_offset` relies on to fold the
+    /// absolute-address `align_offset` into relative-offset math.
+    const MM_INPUT_START: usize = 0x4_0000_0000;
+
+    /// Loader bound on serialized account data (10 MiB).
+    const LOADER_MAX_DATA_LEN: usize = 10_485_760;
+
+    /// SBF memory regions are 4 GiB apart, so no byte offset inside the
+    /// input region can exceed `u32::MAX`.
+    const MAX_REGION_OFFSET: usize = u32::MAX as usize;
+
+    /// Bound on the symbolic per-account `data_len` in the differential
+    /// harnesses. 8 covers every alignment residue 0..=7 plus one exact
+    /// stride boundary; family (a) covers the full 10 MiB range.
+    const MAX_DL: usize = 8;
+
+    /// Bound on the symbolic instruction-data length.
+    const MAX_IX: usize = 8;
+
+    /// Worst-case bytes one canonical record consumes when
+    /// `data_len <= MAX_DL` (a duplicate slot consumes 8 < this).
+    const RECORD_MAX: usize = next_record_offset(0, MAX_DL);
+
+    /// Buffer bytes covering `n` worst-case records plus the count
+    /// prefix, instruction tail, and program-id trailer.
+    const fn frame_len(n: usize) -> usize {
+        8 + n * RECORD_MAX + 8 + MAX_IX + 32
+    }
+
+    /// Recognizable instruction-data filler.
+    const IX_SENTINEL: [u8; MAX_IX] = [0xA5; MAX_IX];
+    /// Recognizable program-id trailer.
+    const PID_SENTINEL: [u8; 32] = [0xC4; 32];
+
+    /// 8-aligned fixed-size backing buffer, mirroring the loader
+    /// guarantee that the input region starts at the 8-aligned
+    /// `MM_INPUT_START`.
+    #[repr(C, align(8))]
+    struct AlignedBuf<const LEN: usize>([u8; LEN]);
+
+    // ── Kani-friendly symbolic values ───────────────────────────────
+
+    /// Symbolic marker constrained to the loader's well-formed set for
+    /// slot `i`: canonical (0xFF) or a strictly-earlier slot index.
+    fn any_valid_marker(i: usize) -> u8 {
+        let m: u8 = kani::any();
+        kani::assume(m == u8::MAX || (m as usize) < i);
+        m
+    }
+
+    /// Symbolic `data_len` bounded to keep the frame inside `RECORD_MAX`.
+    fn any_bounded_data_len() -> usize {
+        let dl: usize = kani::any();
+        kani::assume(dl <= MAX_DL);
+        dl
+    }
+
+    /// Symbolic instruction-data length bounded by the sentinel size.
+    fn any_bounded_ix_len() -> usize {
+        let n: usize = kani::any();
+        kani::assume(n <= MAX_IX);
+        n
+    }
+
+    // ── Kani-friendly frame builder ─────────────────────────────────
+
+    /// Serialize a loader input frame into `buf` (which must be zeroed):
+    /// concrete account count `N`, symbolic marker bytes, bounded
+    /// symbolic `data_len` fields, concrete-zero record bodies, and
+    /// sentinel instruction-data / program-id bytes. Returns the
+    /// exclusive end offset of the encoded frame (one past the program
+    /// id), which the `trap_frame_layout_is_exact_*` harnesses use to
+    /// prove the trap-family buffers are sized exactly.
+    ///
+    /// Record placement reuses `next_record_offset`, but this is not
+    /// circular: the accept-side harnesses *assert* (never assume) that
+    /// the independent bounds-checked oracle accepts the frame and lands
+    /// on the same offsets, so a stride bug becomes an assertion failure
+    /// rather than a vacuously-pruned path.
+    fn write_frame<const N: usize>(
+        buf: &mut [u8],
+        markers: &[u8; N],
+        data_lens: &[usize; N],
+        ix_len: usize,
+    ) -> usize {
+        buf[0..8].copy_from_slice(&(N as u64).to_le_bytes());
+        let mut pos = 8usize;
+        let mut i = 0;
+        while i < N {
+            buf[pos] = markers[i];
+            if markers[i] == u8::MAX {
+                // Canonical record: `data_len` lives at header offset 80.
+                // Body bytes (data, realloc reserve, padding, rent epoch)
+                // stay concrete zero to keep CBMC tractable.
+                buf[pos + 80..pos + 88].copy_from_slice(&(data_lens[i] as u64).to_le_bytes());
+                pos = next_record_offset(pos, data_lens[i]);
+            } else {
+                // Duplicate slot: marker byte + 7 zero padding bytes.
+                pos += 8;
+            }
+            i += 1;
+        }
+        buf[pos..pos + 8].copy_from_slice(&(ix_len as u64).to_le_bytes());
+        pos += 8;
+        buf[pos..pos + ix_len].copy_from_slice(&IX_SENTINEL[..ix_len]);
+        pos += ix_len;
+        buf[pos..pos + 32].copy_from_slice(&PID_SENTINEL);
+        pos + 32
+    }
+
+    /// Resolve a slot to its canonical record slot by chasing duplicate
+    /// markers. Terminates because well-formed markers strictly decrease.
+    fn resolve_canonical<const N: usize>(markers: &[u8; N], mut i: usize) -> usize {
+        while markers[i] != u8::MAX {
+            i = markers[i] as usize;
+        }
+        i
+    }
+
+    // ── Family (a): stride lemma ────────────────────────────────────
+
+    /// For every offset reachable inside the input region and every
+    /// loader-permitted `data_len`, the folded integer stride equals the
+    /// checked `align_offset`-style formula (computed on the *absolute*
+    /// `MM_INPUT_START`-based address), never overflows, stays 8-aligned,
+    /// and strictly advances. No unwinding concerns: straight-line
+    /// integer math over the full bounded range.
+    #[kani::proof]
+    fn stride_lemma_matches_checked_align_offset_formula() {
+        let offset: usize = kani::any();
+        let data_len: usize = kani::any();
+        kani::assume(offset <= MAX_REGION_OFFSET);
+        kani::assume(data_len <= LOADER_MAX_DATA_LEN);
+
+        // Checked reference: the pre-fusion cursor advance. Every
+        // `checked_add` doubles as the no-overflow proof.
+        let unpadded = offset
+            .checked_add(RuntimeAccount::SIZE)
+            .and_then(|x| x.checked_add(data_len))
+            .and_then(|x| x.checked_add(MAX_PERMITTED_DATA_INCREASE))
+            .expect("pre-alignment cursor must not overflow");
+        // `align_offset`-style padding on the absolute address, exactly
+        // what `scan_instruction_frame` computes via `align_offset` and
+        // `parse_instruction_frame_checked` via `wrapping_neg`.
+        let absolute = MM_INPUT_START
+            .checked_add(unpadded)
+            .expect("absolute address must not overflow");
+        let pad_absolute = absolute.wrapping_neg() & (BPF_ALIGN_OF_U128 - 1);
+        // The 8-aligned-base lemma: relative and absolute padding agree.
+        let pad_relative = unpadded.wrapping_neg() & (BPF_ALIGN_OF_U128 - 1);
+        assert_eq!(pad_absolute, pad_relative);
+        let expected = unpadded
+            .checked_add(pad_absolute)
+            .and_then(|x| x.checked_add(8))
+            .expect("aligned cursor must not overflow");
+
+        // Kani's built-in overflow checks cover the unchecked `+` chain
+        // inside `next_record_offset` itself.
+        let got = next_record_offset(offset, data_len);
+        assert_eq!(got, expected);
+        assert_eq!(got & (BPF_ALIGN_OF_U128 - 1), 0);
+        assert!(got > offset);
+    }
+
+    // ── Family (b): bounded differential vs the safe oracle ────────
+
+    /// Accept-side differential body shared by the `deserialize_accounts`
+    /// harnesses: build a frame with `N` symbolic well-formed slots,
+    /// require the safe oracle to accept it, run the fused walk with
+    /// capacity `MAX`, and assert both parsers agree on every observable.
+    fn check_fused_walk_against_oracle<const N: usize, const MAX: usize, const LEN: usize>() {
+        let mut markers = [0u8; N];
+        let mut data_lens = [0usize; N];
+        let mut i = 0;
+        while i < N {
+            markers[i] = any_valid_marker(i);
+            data_lens[i] = any_bounded_data_len();
+            i += 1;
+        }
+        let ix_len = any_bounded_ix_len();
+
+        let mut backing = AlignedBuf::<LEN>([0u8; LEN]);
+        write_frame::<N>(&mut backing.0, &markers, &data_lens, ix_len);
+
+        // Asserted, not assumed: see `write_frame` docs.
+        let oracle = parse_instruction_frame_checked(&backing.0)
+            .expect("oracle must accept a well-formed loader frame");
+        assert_eq!(oracle.account_count, N);
+        assert_eq!(oracle.instruction_data_range.len(), ix_len);
+
+        let base = backing.0.as_ptr() as usize;
+        // SAFETY: an array of `MaybeUninit` is valid in the uninitialized
+        // state by definition.
+        let mut views: [MaybeUninit<AccountView<'_>>; MAX] =
+            unsafe { MaybeUninit::uninit().assume_init() };
+        // SAFETY: `backing` is an 8-aligned loader-layout buffer built by
+        // `write_frame` and accepted by the bounds-checked oracle above,
+        // satisfying the "valid Solana BPF input buffer" contract; Kani
+        // additionally model-checks every memory access inside the walk.
+        let (pid, count, ix) =
+            unsafe { deserialize_accounts::<MAX>(backing.0.as_mut_ptr(), &mut views) };
+
+        // Count: the fused walk clamps at MAX (the 254 clamp is
+        // unreachable for N <= 3).
+        let expected_count = if N > MAX { MAX } else { N };
+        assert_eq!(count, expected_count);
+
+        // Every materialized slot resolves to exactly the canonical
+        // record offset the oracle reported.
+        let mut s = 0;
+        while s < count {
+            let canon = resolve_canonical::<N>(&markers, s);
+            // SAFETY: slots `0..count` were initialized by the fused walk.
+            let got = unsafe { views[s].assume_init_ref() }.raw_ptr() as usize;
+            assert_eq!(got - base, oracle.slot_offsets[canon]);
+            s += 1;
+        }
+
+        // Instruction-data range agrees (start and length), which also
+        // pins the program-id offset: both parsers read it at the end of
+        // the instruction data.
+        assert_eq!(ix.len(), oracle.instruction_data_range.len());
+        assert_eq!(
+            ix.as_ptr() as usize - base,
+            oracle.instruction_data_range.start
+        );
+        assert_eq!(oracle.program_id_offset, oracle.instruction_data_range.end);
+        assert_eq!(
+            pid.as_array().as_slice(),
+            &backing.0[oracle.program_id_offset..oracle.program_id_offset + 32]
+        );
+    }
+
+    #[kani::proof]
+    // 40 > 33: the oracle-equality `assert_eq!` over 32-byte `[u8; 32]`
+    // program-id / address arrays lowers to a 32-iteration `memcmp`, so
+    // the loop bound must exceed 32 (trap harnesses stay at 10 — they
+    // trap before any address materialization or compare).
+    #[kani::unwind(40)]
+    fn differential_zero_accounts() {
+        check_fused_walk_against_oracle::<0, 4, { frame_len(0) }>();
+    }
+
+    #[kani::proof]
+    #[kani::unwind(40)]
+    fn differential_one_canonical_account() {
+        check_fused_walk_against_oracle::<1, 4, { frame_len(1) }>();
+    }
+
+    #[kani::proof]
+    #[kani::unwind(40)]
+    fn differential_two_accounts_symbolic_markers() {
+        check_fused_walk_against_oracle::<2, 4, { frame_len(2) }>();
+    }
+
+    #[kani::proof]
+    #[kani::unwind(40)]
+    fn differential_three_accounts_symbolic_markers() {
+        check_fused_walk_against_oracle::<3, 4, { frame_len(3) }>();
+    }
+
+    /// Accounts beyond `MAX` take the skip-only tail: the cursor must
+    /// still advance record-exactly so the instruction tail is found.
+    #[kani::proof]
+    #[kani::unwind(40)]
+    fn differential_skip_only_tail_beyond_max() {
+        check_fused_walk_against_oracle::<3, 1, { frame_len(3) }>();
+    }
+
+    /// `deserialize_accounts_fast` shares the stride but never scans the
+    /// tail; its materialized slots must still match the oracle's.
+    #[kani::proof]
+    #[kani::unwind(40)]
+    fn differential_fast_walk_two_accounts() {
+        const N: usize = 2;
+        const LEN: usize = frame_len(N);
+        let markers = [u8::MAX, any_valid_marker(1)];
+        let data_lens = [any_bounded_data_len(), any_bounded_data_len()];
+
+        let mut backing = AlignedBuf::<LEN>([0u8; LEN]);
+        write_frame::<N>(&mut backing.0, &markers, &data_lens, 0);
+
+        let oracle = parse_instruction_frame_checked(&backing.0)
+            .expect("oracle must accept a well-formed loader frame");
+
+        let base = backing.0.as_ptr() as usize;
+        // SAFETY: an array of `MaybeUninit` is valid in the uninitialized
+        // state by definition.
+        let mut views: [MaybeUninit<AccountView<'_>>; 4] =
+            unsafe { MaybeUninit::uninit().assume_init() };
+        static EMPTY_IX: [u8; 0] = [];
+        // SAFETY: same oracle-validated 8-aligned loader-layout buffer
+        // contract as `check_fused_walk_against_oracle`; instruction data
+        // and program id are supplied out of band per the fast-path
+        // contract and are opaque pass-throughs to this walk.
+        let (pid, count, ix) = unsafe {
+            deserialize_accounts_fast::<4>(
+                backing.0.as_mut_ptr(),
+                &mut views,
+                &EMPTY_IX,
+                Address::new_from_array(PID_SENTINEL),
+            )
+        };
+        assert_eq!(count, N);
+        assert_eq!(ix.len(), 0);
+        assert_eq!(pid.as_array(), &PID_SENTINEL);
+
+        let mut s = 0;
+        while s < count {
+            let canon = resolve_canonical::<N>(&markers, s);
+            // SAFETY: slots `0..count` were initialized by the fast walk.
+            let got = unsafe { views[s].assume_init_ref() }.raw_ptr() as usize;
+            assert_eq!(got - base, oracle.slot_offsets[canon]);
+            s += 1;
+        }
+    }
+
+    /// `scan_instruction_frame` (the lazy-path scanner, which still uses
+    /// pointer `align_offset` internally) must locate the same account
+    /// span and instruction tail as the oracle.
+    #[kani::proof]
+    #[kani::unwind(40)]
+    fn differential_scan_frame_two_accounts() {
+        const N: usize = 2;
+        const LEN: usize = frame_len(N);
+        let markers = [u8::MAX, any_valid_marker(1)];
+        let data_lens = [any_bounded_data_len(), any_bounded_data_len()];
+        let ix_len = any_bounded_ix_len();
+
+        let mut backing = AlignedBuf::<LEN>([0u8; LEN]);
+        write_frame::<N>(&mut backing.0, &markers, &data_lens, ix_len);
+
+        let oracle = parse_instruction_frame_checked(&backing.0)
+            .expect("oracle must accept a well-formed loader frame");
+
+        let base = backing.0.as_ptr() as usize;
+        // SAFETY: same oracle-validated 8-aligned loader-layout buffer
+        // contract as `check_fused_walk_against_oracle`.
+        let frame = unsafe { scan_instruction_frame(backing.0.as_mut_ptr()) };
+
+        assert_eq!(frame.account_count, N);
+        assert_eq!(frame.accounts_start as usize - base, 8);
+        assert_eq!(
+            frame.instruction_data.len(),
+            oracle.instruction_data_range.len()
+        );
+        assert_eq!(
+            frame.instruction_data.as_ptr() as usize - base,
+            oracle.instruction_data_range.start
+        );
+        assert_eq!(
+            frame.program_id.as_array().as_slice(),
+            &backing.0[oracle.program_id_offset..oracle.program_id_offset + 32]
+        );
+    }
+
+    // ── Family (c): trap-before-OOB on malformed markers ───────────
+    //
+    // Proof semantics, stated precisely. `#[kani::should_panic]` is
+    // EXISTENTIAL on the panic side: a harness verifies iff
+    //   (1) at least one path in the assumed input space panics, and
+    //   (2) NO path exhibits a non-panic property failure — an
+    //       out-of-bounds read/write, an invalid `accounts[]` write, or
+    //       an arithmetic overflow is a verification FAILURE, because
+    //       those are not panics.
+    // Clause (2) holds on EVERY path; clause (1) alone does NOT prove
+    // that every malformed marker traps — a hypothetical path that
+    // silently *returned* for some malformed marker would still verify.
+    // Universal statements are machine-checked only where noted:
+    //   * `oracle_rejects_exactly_the_malformed_markers` is assert-based
+    //     (no `should_panic`), so it proves the safe oracle rejects
+    //     EVERY malformed marker in the symbolic space;
+    //   * the `trap_slot_zero_marker_*` sub-harnesses each fix one
+    //     CONCRETE marker, making execution deterministic (one path),
+    //     so their `should_panic` verdicts are universal for those
+    //     specific marker values;
+    //   * "the fused walk traps on every malformed marker on every
+    //     path" is NOT established by any single harness here. It
+    //     follows in combination: family (b) pins the accept side to
+    //     the oracle, the oracle harness pins the reject set, the
+    //     stride lemma (a) pins the cursor, and structurally the walk's
+    //     only non-trapping branch for a non-0xFF marker is
+    //     `duplicate_of < slot`, which the harness assumptions exclude.
+    //     That final step is a source-level argument, not a CBMC check.
+    //
+    // Exact allocation — the mechanism every trap harness below uses
+    // (this is what makes clause (2) sharp): each backing buffer is
+    // sized TO THE BYTE of the encoded malformed frame, with no
+    // worst-case padding, so a read or write even one byte past the
+    // legitimate frame is a CBMC violation instead of slack absorbed by
+    // an oversized allocation. The two-slot frame's length depends on
+    // the symbolic `data_len` only through u128 alignment: `dl == 0`
+    // needs one 8-byte padding step fewer than `dl` in `1..=MAX_DL`,
+    // which all encode to the same length (compile-time-checked below).
+    // Each two-slot trap harness is therefore split into exactly two
+    // size classes — `_dl0` (concrete `dl = 0`) and `_dl_nonzero`
+    // (symbolic `dl` in `1..=MAX_DL`) — each with an exactly-sized
+    // buffer; together they cover the same `0..=MAX_DL` space the
+    // padded originals did. The slot-zero frame has no `data_len` at
+    // all, so a single exact size covers it.
+    //
+    // The `trap_frame_layout_is_exact_*` companions prove, assert-based
+    // over the SAME symbolic space, that the builder fills each buffer
+    // exactly (`end == LEN`) and never panics while doing so — so a
+    // `should_panic` trap harness cannot pass vacuously via a builder
+    // panic or leave hidden slack.
+    //
+    // The trap harnesses themselves are deliberately assertion-free: an
+    // `assert!` before the call would itself panic on failure and be
+    // masked by `should_panic`.
+
+    /// Exact encoded length of the canonical-then-malformed two-slot
+    /// trap frame: 8-byte count prefix, canonical record 0 starting at
+    /// offset 8 with `data_len = dl`, 8-byte malformed duplicate slot,
+    /// 8-byte instruction-data length (zero, no data bytes), 32-byte
+    /// program id.
+    const fn trap_frame_len(dl: usize) -> usize {
+        next_record_offset(8, dl) + 8 + 8 + 32
+    }
+
+    /// Two-slot trap frame length for the `dl = 0` size class.
+    const TRAP_LEN_DL0: usize = trap_frame_len(0);
+    /// Two-slot trap frame length shared by every `dl` in `1..=MAX_DL`
+    /// (u128 alignment folds them all to one size).
+    const TRAP_LEN_DL_NONZERO: usize = trap_frame_len(1);
+    /// Exact encoded length of the one-slot slot-zero trap frame:
+    /// count prefix + 8-byte duplicate slot + ix-len prefix + program id.
+    const TRAP_LEN_SLOT_ZERO: usize = 8 + 8 + 8 + 32;
+
+    // Compile-time proof that the two size classes are exhaustive over
+    // `0..=MAX_DL`: every nonzero `dl` encodes to `TRAP_LEN_DL_NONZERO`
+    // and `dl = 0` is strictly its own (smaller) class.
+    const _: () = {
+        let mut dl = 1;
+        while dl <= MAX_DL {
+            assert!(trap_frame_len(dl) == TRAP_LEN_DL_NONZERO);
+            dl += 1;
+        }
+        assert!(TRAP_LEN_DL0 < TRAP_LEN_DL_NONZERO);
+    };
+
+    /// Build the canonical-then-malformed two-slot trap frame: slot 0 is
+    /// canonical with symbolic `data_len` drawn from `dl_min..=dl_max`
+    /// (one exact-size class), slot 1 carries a symbolic malformed
+    /// marker (`!= 0xFF`, `>= 1`, i.e. self or forward reference at
+    /// slot 1). Returns the buffer and the builder's exclusive end
+    /// offset; the `trap_frame_layout_is_exact_*` harnesses assert
+    /// `end == LEN` over this same symbolic space.
+    fn build_two_slot_trap_frame<const LEN: usize>(
+        dl_min: usize,
+        dl_max: usize,
+    ) -> (AlignedBuf<LEN>, usize) {
+        let bad: u8 = kani::any();
+        kani::assume(bad != u8::MAX && bad as usize >= 1);
+        let dl: usize = kani::any();
+        kani::assume(dl >= dl_min && dl <= dl_max);
+
+        let mut backing = AlignedBuf::<LEN>([0u8; LEN]);
+        let end = write_frame::<2>(&mut backing.0, &[u8::MAX, bad], &[dl, 0], 0);
+        (backing, end)
+    }
+
+    /// Build the one-slot slot-zero trap frame whose sole slot carries
+    /// `marker` (symbolic or concrete; the caller guarantees it is not
+    /// 0xFF, so the slot encodes as an 8-byte duplicate slot).
+    fn build_slot_zero_trap_frame(marker: u8) -> (AlignedBuf<TRAP_LEN_SLOT_ZERO>, usize) {
+        let mut backing = AlignedBuf::<TRAP_LEN_SLOT_ZERO>([0u8; TRAP_LEN_SLOT_ZERO]);
+        let end = write_frame::<1>(&mut backing.0, &[marker], &[0], 0);
+        (backing, end)
+    }
+
+    // Assert-based (NOT should_panic) exactness companions: over the
+    // same symbolic space as the trap harnesses, the builder terminates
+    // without panicking and fills the buffer to exactly `LEN` bytes.
+    // These close the two vacuity holes of the trap family: a builder
+    // panic masked by `should_panic`, and hidden slack past the frame.
+
+    #[kani::proof]
+    #[kani::unwind(10)]
+    fn trap_frame_layout_is_exact_dl0() {
+        let (_backing, end) = build_two_slot_trap_frame::<TRAP_LEN_DL0>(0, 0);
+        assert_eq!(end, TRAP_LEN_DL0);
+    }
+
+    #[kani::proof]
+    #[kani::unwind(10)]
+    fn trap_frame_layout_is_exact_dl_nonzero() {
+        let (_backing, end) = build_two_slot_trap_frame::<TRAP_LEN_DL_NONZERO>(1, MAX_DL);
+        assert_eq!(end, TRAP_LEN_DL_NONZERO);
+    }
+
+    #[kani::proof]
+    #[kani::unwind(10)]
+    fn trap_frame_layout_is_exact_slot_zero() {
+        let marker: u8 = kani::any();
+        kani::assume(marker != u8::MAX);
+        let (_backing, end) = build_slot_zero_trap_frame(marker);
+        assert_eq!(end, TRAP_LEN_SLOT_ZERO);
+    }
+
+    /// Shared trap body: run `deserialize_accounts::<MAX>` on one
+    /// exact-size malformed two-slot frame class. `MAX >= 2` puts the
+    /// malformed slot 1 in the materialize range; `MAX = 1` pushes it
+    /// into the skip-only tail loop.
+    fn trap_deserialize_two_slot<const MAX: usize, const LEN: usize>(dl_min: usize, dl_max: usize) {
+        let (mut backing, _end) = build_two_slot_trap_frame::<LEN>(dl_min, dl_max);
+        // SAFETY: an array of `MaybeUninit` is valid in the uninitialized
+        // state by definition.
+        let mut views: [MaybeUninit<AccountView<'_>>; MAX] =
+            unsafe { MaybeUninit::uninit().assume_init() };
+        // SAFETY: 8-aligned loader-layout buffer sized exactly to the
+        // encoded frame (`trap_frame_layout_is_exact_*`); the malformed
+        // marker is the condition under test and must trap before any
+        // access past the frame end — Kani checks every access on every
+        // path of this harness against that exact allocation boundary.
+        let _ = unsafe { deserialize_accounts::<MAX>(backing.0.as_mut_ptr(), &mut views) };
+    }
+
+    #[kani::proof]
+    #[kani::unwind(10)]
+    #[kani::should_panic]
+    fn trap_fires_on_malformed_marker_in_materialize_range_dl0() {
+        trap_deserialize_two_slot::<4, TRAP_LEN_DL0>(0, 0);
+    }
+
+    #[kani::proof]
+    #[kani::unwind(10)]
+    #[kani::should_panic]
+    fn trap_fires_on_malformed_marker_in_materialize_range_dl_nonzero() {
+        trap_deserialize_two_slot::<4, TRAP_LEN_DL_NONZERO>(1, MAX_DL);
+    }
+
+    // MAX = 1, so the malformed slot 1 is handled by the skip-only tail
+    // loop — the trap must fire there exactly as in the materialize
+    // range.
+
+    #[kani::proof]
+    #[kani::unwind(10)]
+    #[kani::should_panic]
+    fn trap_fires_on_malformed_marker_in_skip_only_tail_dl0() {
+        trap_deserialize_two_slot::<1, TRAP_LEN_DL0>(0, 0);
+    }
+
+    #[kani::proof]
+    #[kani::unwind(10)]
+    #[kani::should_panic]
+    fn trap_fires_on_malformed_marker_in_skip_only_tail_dl_nonzero() {
+        trap_deserialize_two_slot::<1, TRAP_LEN_DL_NONZERO>(1, MAX_DL);
+    }
+
+    /// Shared trap body for `deserialize_accounts_fast` on one
+    /// exact-size malformed two-slot frame class.
+    fn trap_fast_walk_two_slot<const LEN: usize>(dl_min: usize, dl_max: usize) {
+        let (mut backing, _end) = build_two_slot_trap_frame::<LEN>(dl_min, dl_max);
+        // SAFETY: an array of `MaybeUninit` is valid in the uninitialized
+        // state by definition.
+        let mut views: [MaybeUninit<AccountView<'_>>; 4] =
+            unsafe { MaybeUninit::uninit().assume_init() };
+        static EMPTY_IX: [u8; 0] = [];
+        // SAFETY: 8-aligned loader-layout buffer sized exactly to the
+        // encoded frame, with out-of-band tail per the fast-path
+        // contract; the malformed marker is the condition under test and
+        // must trap before any access past the frame end — Kani checks
+        // every access on every path against that exact allocation
+        // boundary.
+        let _ = unsafe {
+            deserialize_accounts_fast::<4>(
+                backing.0.as_mut_ptr(),
+                &mut views,
+                &EMPTY_IX,
+                Address::new_from_array(PID_SENTINEL),
+            )
+        };
+    }
+
+    #[kani::proof]
+    #[kani::unwind(10)]
+    #[kani::should_panic]
+    fn trap_fires_in_fast_walk_dl0() {
+        trap_fast_walk_two_slot::<TRAP_LEN_DL0>(0, 0);
+    }
+
+    #[kani::proof]
+    #[kani::unwind(10)]
+    #[kani::should_panic]
+    fn trap_fires_in_fast_walk_dl_nonzero() {
+        trap_fast_walk_two_slot::<TRAP_LEN_DL_NONZERO>(1, MAX_DL);
+    }
+
+    /// Shared trap body for `scan_instruction_frame` on one exact-size
+    /// malformed two-slot frame class.
+    fn trap_scan_frame_two_slot<const LEN: usize>(dl_min: usize, dl_max: usize) {
+        let (mut backing, _end) = build_two_slot_trap_frame::<LEN>(dl_min, dl_max);
+        // SAFETY: 8-aligned loader-layout buffer sized exactly to the
+        // encoded frame; the malformed marker is the condition under test
+        // and must trap before any access past the frame end — Kani
+        // checks every access on every path against that exact
+        // allocation boundary.
+        let _ = unsafe { scan_instruction_frame(backing.0.as_mut_ptr()) };
+    }
+
+    #[kani::proof]
+    #[kani::unwind(10)]
+    #[kani::should_panic]
+    fn trap_fires_in_scan_frame_dl0() {
+        trap_scan_frame_two_slot::<TRAP_LEN_DL0>(0, 0);
+    }
+
+    #[kani::proof]
+    #[kani::unwind(10)]
+    #[kani::should_panic]
+    fn trap_fires_in_scan_frame_dl_nonzero() {
+        trap_scan_frame_two_slot::<TRAP_LEN_DL_NONZERO>(1, MAX_DL);
+    }
+
+    /// Shared body for the slot-zero trap harnesses: slot 0 has no
+    /// earlier slot, so every non-canonical marker value is malformed
+    /// there. Exact-size buffer, no `data_len` dimension at all.
+    fn trap_slot_zero(marker: u8) {
+        let (mut backing, _end) = build_slot_zero_trap_frame(marker);
+        // SAFETY: an array of `MaybeUninit` is valid in the uninitialized
+        // state by definition.
+        let mut views: [MaybeUninit<AccountView<'_>>; 4] =
+            unsafe { MaybeUninit::uninit().assume_init() };
+        // SAFETY: 8-aligned loader-layout buffer sized exactly to the
+        // encoded frame (`trap_frame_layout_is_exact_slot_zero`); the
+        // malformed marker is the condition under test and must trap
+        // before any access past the frame end — Kani checks every
+        // access on every path against that exact allocation boundary.
+        let _ = unsafe { deserialize_accounts::<4>(backing.0.as_mut_ptr(), &mut views) };
+    }
+
+    /// Existential over the full symbolic malformed-marker space at
+    /// slot 0 (see the family (c) comment for exactly what that means).
+    #[kani::proof]
+    #[kani::unwind(10)]
+    #[kani::should_panic]
+    fn trap_fires_on_any_duplicate_marker_at_slot_zero() {
+        let bad: u8 = kani::any();
+        kani::assume(bad != u8::MAX);
+        trap_slot_zero(bad);
+    }
+
+    // Per-concrete-value slot-zero sub-harnesses: with every input byte
+    // concrete, execution is deterministic — a single path — so each
+    // `should_panic` verdict below is UNIVERSAL for that marker value
+    // (the walk provably traps on it), not merely existential.
+
+    #[kani::proof]
+    #[kani::unwind(10)]
+    #[kani::should_panic]
+    fn trap_slot_zero_marker_0x00_self_reference() {
+        trap_slot_zero(0x00);
+    }
+
+    #[kani::proof]
+    #[kani::unwind(10)]
+    #[kani::should_panic]
+    fn trap_slot_zero_marker_0x01_forward_reference() {
+        trap_slot_zero(0x01);
+    }
+
+    #[kani::proof]
+    #[kani::unwind(10)]
+    #[kani::should_panic]
+    fn trap_slot_zero_marker_0xfe_max_forward_reference() {
+        trap_slot_zero(0xFE);
+    }
+
+    /// Oracle side of the rejection story, and the only harness in this
+    /// module that machine-checks a UNIVERSAL rejection property: it is
+    /// assert-based (no `should_panic`), so over *fully* symbolic
+    /// markers for a two-slot frame it proves the safe parser accepts
+    /// iff both markers are well-formed, and every rejection is
+    /// precisely `MalformedDuplicateMarker` — on every path. Combined
+    /// with family (b) (well-formed => both parsers accept, outputs
+    /// equal) and the family (c) trap harnesses (existential trap
+    /// reachability + no memory-safety failure on any assumed path,
+    /// against exact-size buffers), this supports — but note, per the
+    /// family (c) comment, does not single-handedly machine-check —
+    /// "both reject exactly the same inputs" for the marker dimension.
+    #[kani::proof]
+    #[kani::unwind(10)]
+    fn oracle_rejects_exactly_the_malformed_markers() {
+        const LEN: usize = frame_len(2);
+        let m0: u8 = kani::any();
+        let m1: u8 = kani::any();
+        let data_lens = [any_bounded_data_len(), any_bounded_data_len()];
+        let ix_len = any_bounded_ix_len();
+
+        let mut backing = AlignedBuf::<LEN>([0u8; LEN]);
+        write_frame::<2>(&mut backing.0, &[m0, m1], &data_lens, ix_len);
+
+        let result = parse_instruction_frame_checked(&backing.0);
+        let well_formed = m0 == u8::MAX && (m1 == u8::MAX || m1 == 0);
+        assert_eq!(result.is_ok(), well_formed);
+        if let Err(err) = result {
+            assert!(matches!(err, FrameError::MalformedDuplicateMarker { .. }));
+        }
+    }
+}

@@ -349,23 +349,67 @@ struct ContextOptions {
     /// `Custom(0xD000 | account_index)` at acquisition time — Sealevel's
     /// account-level `writable` flag, enforced at byte-range granularity.
     strict_writes: bool,
+    /// BLD-MUT: the declared **lamport dimension** of the write set.
+    ///
+    /// `Some(fields)` when the context carries `lamports(field, ...)`
+    /// (requires `strict_writes`): the named fields — plus the implied
+    /// lifecycle set (whole-`mut` accounts, init account + payer, close
+    /// account + destination, realloc account + payer, sweep account +
+    /// target) — are the ONLY accounts whose lamports the instruction
+    /// may mutate; the runtime refuses everything else at the lamport
+    /// choke points, making the write set mutation-complete.
+    /// `lamports()` (empty list) is valid: only the implied lifecycle
+    /// set may move lamports.
+    ///
+    /// `None` (the default) leaves the dimension undeclared: lamport
+    /// mutation stays ungoverned exactly as before BLD-MUT, and the
+    /// context is NOT mutation-complete. The dimension is opt-in
+    /// because retroactively refusing lamport writes on existing
+    /// `strict_writes` programs would silently change deployed
+    /// behavior on upgrade.
+    lamports: Option<Vec<Ident>>,
+}
+
+/// Parse the field list of a `lamports(field, ...)` option into the
+/// options struct, merging with any previously declared list so the
+/// option composes across the attribute forms. An empty list is valid
+/// (only the implied lifecycle set may move lamports).
+fn merge_lamports_fields(options: &mut ContextOptions, fields: Vec<Ident>) {
+    match &mut options.lamports {
+        Some(existing) => {
+            for f in fields {
+                if !existing.iter().any(|e| *e == f) {
+                    existing.push(f);
+                }
+            }
+        }
+        None => options.lamports = Some(fields),
+    }
 }
 
 fn parse_context_options(attr: TokenStream, attrs: &mut Vec<Attribute>) -> Result<ContextOptions> {
     let mut options = ContextOptions::default();
 
     if !attr.is_empty() {
-        let parsed: Punctuated<Ident, Comma> =
-            Punctuated::<Ident, Comma>::parse_terminated.parse2(attr)?;
-        for ident in parsed {
-            if ident == "auto_lifecycle" {
+        // `lamports(field, ...)` is a list, not a bare ident, so the
+        // option list parses as `Meta` items.
+        let parsed: Punctuated<syn::Meta, Comma> =
+            Punctuated::<syn::Meta, Comma>::parse_terminated.parse2(attr)?;
+        for meta in parsed {
+            if meta.path().is_ident("auto_lifecycle") {
                 options.auto_lifecycle = true;
-            } else if ident == "strict_writes" {
+            } else if meta.path().is_ident("strict_writes") {
                 options.strict_writes = true;
+            } else if meta.path().is_ident("lamports") {
+                let list = meta.require_list()?;
+                let fields: Punctuated<Ident, Comma> =
+                    list.parse_args_with(Punctuated::<Ident, Comma>::parse_terminated)?;
+                merge_lamports_fields(&mut options, fields.into_iter().collect());
             } else {
                 return Err(syn::Error::new_spanned(
-                    ident,
-                    "unknown Hopper context option; supported: `auto_lifecycle`, `strict_writes`",
+                    meta,
+                    "unknown Hopper context option; supported: `auto_lifecycle`, \
+                     `strict_writes`, `lamports(field, ...)`",
                 ));
             }
         }
@@ -381,9 +425,21 @@ fn parse_context_options(attr: TokenStream, attrs: &mut Vec<Attribute>) -> Resul
                 } else if meta.path.is_ident("strict_writes") {
                     options.strict_writes = true;
                     Ok(())
+                } else if meta.path.is_ident("lamports") {
+                    let mut fields = Vec::new();
+                    meta.parse_nested_meta(|inner| match inner.path.get_ident() {
+                        Some(ident) => {
+                            fields.push(ident.clone());
+                            Ok(())
+                        }
+                        None => Err(inner.error("`lamports(...)` takes field names")),
+                    })?;
+                    merge_lamports_fields(&mut options, fields);
+                    Ok(())
                 } else {
                     Err(meta.error(
-                        "unknown #[accounts(...)] option; supported: auto_lifecycle, strict_writes",
+                        "unknown #[accounts(...)] option; supported: auto_lifecycle, \
+                         strict_writes, lamports(field, ...)",
                     ))
                 }
             })?;
@@ -399,6 +455,17 @@ fn parse_context_options(attr: TokenStream, attrs: &mut Vec<Attribute>) -> Resul
                 } else if meta.path.is_ident("strict_writes") {
                     options.strict_writes = true;
                     Ok(())
+                } else if meta.path.is_ident("lamports") {
+                    let mut fields = Vec::new();
+                    meta.parse_nested_meta(|inner| match inner.path.get_ident() {
+                        Some(ident) => {
+                            fields.push(ident.clone());
+                            Ok(())
+                        }
+                        None => Err(inner.error("`lamports(...)` takes field names")),
+                    })?;
+                    merge_lamports_fields(&mut options, fields);
+                    Ok(())
                 } else {
                     only_context_options = false;
                     Ok(())
@@ -412,6 +479,14 @@ fn parse_context_options(attr: TokenStream, attrs: &mut Vec<Attribute>) -> Resul
         retained.push(attr);
     }
     *attrs = retained;
+
+    if options.lamports.is_some() && !options.strict_writes {
+        return Err(syn::Error::new(
+            proc_macro2::Span::call_site(),
+            "`lamports(...)` declares the lamport dimension of a strict write set; \
+             it requires `strict_writes` on the same context",
+        ));
+    }
 
     Ok(options)
 }
@@ -1788,34 +1863,56 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                         ),
                     )
                 })?;
+            // A self-target would credit the drain back into the slot
+            // being drained: the two-step move below computes the
+            // credit from the pre-drain balance, so aliasing source
+            // and target would mint lamports. Statically impossible
+            // is better than a runtime footgun.
+            if target_idx == cf.index {
+                return Err(syn::Error::new_spanned(
+                    target,
+                    format!(
+                        "`sweep = {}` cannot target its own field; name a different sibling",
+                        target
+                    ),
+                ));
+            }
             let sweep_fn = format_ident!("sweep_{}", field_name);
             accessors.push(quote! {
                 /// Drain every lamport from this slot into the declared
                 /// sweep target. Call in the happy path just before
                 /// returning. Returns the drained amount.
                 #[inline]
-                #vis fn #sweep_fn(&mut self)
+                #vis fn #sweep_fn(&self)
                     -> ::core::result::Result<u64, ::hopper::__runtime::ProgramError>
                 {
                     let src = self.ctx.account(#idx)?;
                     let dst = self.ctx.account(#target_idx)?;
+                    // Distinct field indices can still alias one
+                    // account at runtime (duplicate metas). Crediting
+                    // an alias with its own pre-drain balance would
+                    // mint lamports, so refuse aliases outright — the
+                    // same contract as `safe_close_unchecked`.
+                    if src.address() == dst.address() {
+                        return ::core::result::Result::Err(
+                            ::hopper::__runtime::ProgramError::InvalidArgument,
+                        );
+                    }
                     let amount = src.lamports();
                     if amount == 0 {
-                        return Ok(0);
+                        return ::core::result::Result::Ok(0);
                     }
-                    {
-                        let mut src_lamports = src.try_borrow_mut_lamports()?;
-                        *src_lamports = src_lamports
-                            .checked_sub(amount)
-                            .ok_or(::hopper::__runtime::ProgramError::ArithmeticOverflow)?;
-                    }
-                    {
-                        let mut dst_lamports = dst.try_borrow_mut_lamports()?;
-                        *dst_lamports = dst_lamports
-                            .checked_add(amount)
-                            .ok_or(::hopper::__runtime::ProgramError::ArithmeticOverflow)?;
-                    }
-                    Ok(amount)
+                    let new_dst = dst
+                        .lamports()
+                        .checked_add(amount)
+                        .ok_or(::hopper::__runtime::ProgramError::ArithmeticOverflow)?;
+                    // Both writes flow through the runtime lamport
+                    // funnel (`try_set_lamports`), so a BLD-MUT gate
+                    // observes the sweep: source and target are both in
+                    // the macro's implied lamport permission set.
+                    dst.try_set_lamports(new_dst)?;
+                    src.try_set_lamports(0)?;
+                    ::core::result::Result::Ok(amount)
                 }
             });
         }
@@ -2715,7 +2812,19 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
     // `Ab_c` both fold to `AB_C`) and would turn two legal context names
     // into a duplicate-definition error inside hidden macro output.
     let write_ranges_const_ident = format_ident!("__HOPPER_{}_WRITE_RANGES", name);
+    // BLD-MUT: whether the context declared the lamport dimension.
+    // `mutation_complete` is claimed ONLY for `strict_writes` +
+    // `lamports(...)` — a bare `strict_writes` context leaves lamports
+    // ungoverned (the pre-BLD-MUT passthrough) and stays incomplete, so
+    // adopting the framework can never retroactively refuse lamport
+    // writes an already-deployed program performs.
+    let lamports_declared = context_options.lamports.is_some();
+    let mutation_complete = strict_writes_enabled && lamports_declared;
     let mut range_exprs: Vec<TokenStream> = Vec::new();
+    // Indices carrying a whole-account data grant (used for the implied
+    // writable-CPI-meta delegation ranges below: init payer, Metaplex
+    // helper roles).
+    let mut whole_account_indices: Vec<u8> = Vec::new();
     if strict_writes_enabled {
         for cf in &ctx_fields {
             let idx_u8 = cf.index as u8;
@@ -2725,6 +2834,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                 || cf.attr.realloc.is_some()
                 || cf.attr.close.is_some();
             if whole_account {
+                whole_account_indices.push(idx_u8);
                 range_exprs.push(quote! {
                     ::hopper::__runtime::write_policy::WriteRange::whole_account(#idx_u8)
                 });
@@ -2753,6 +2863,146 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             }
         }
     }
+
+    // ── BLD-MUT: lamport permission set ────────────────────────────────
+    //
+    // Explicit `lamports(field, ...)` names PLUS the implied lifecycle
+    // set. The implication mirrors what the generated lifecycle helpers
+    // *actually do* with lamports (so declared helpers keep working
+    // under the gate, and the published set is true, not convenient):
+    //
+    //   - whole-account `mut` / `init` / `realloc` / `close` fields:
+    //     full control of the account includes its balance (init
+    //     credits it, realloc tops it up, close drains it);
+    //   - `init` payer: debited by `CreateAccount` / the top-up
+    //     `Transfer` inside `hopper_init!`;
+    //   - `realloc` payer (`realloc_payer`): debited by
+    //     `safe_realloc`'s rent top-up;
+    //   - `close = target` destination and `sweep = target` target:
+    //     credited with the drained balance;
+    //   - `sweep` source: drained;
+    //   - Metaplex helper roles (`metadata::*` / `master_edition::*`):
+    //     the generated `create_<field>()` methods CPI into Metaplex
+    //     with **writable** metas on the created metadata/edition PDA
+    //     (this field), the payer, and — master edition only — the
+    //     mint. The payer is debited and the created PDA credited by
+    //     the inner System CPI, so all of them move lamports.
+    //
+    // Additionally, every account the macro's own helpers hand
+    // **writable** to a CPI callee (the `init` payer to the System
+    // Program; the Metaplex roles above) is unbounded delegation of
+    // both dimensions — so each also receives a whole-account data
+    // range (published in WRITE_RANGES; the delegation is real, the
+    // set states it; `check_lamport_delegation` demands both). These
+    // extra ranges are emitted only under `lamports(...)`, keeping
+    // bare `strict_writes` output byte-identical to pre-BLD-MUT.
+    let lamport_accounts_const_ident = format_ident!("__HOPPER_{}_LAMPORT_ACCOUNTS", name);
+    let mut lamport_indices: Vec<u8> = Vec::new();
+    if mutation_complete {
+        let push_idx = |v: &mut Vec<u8>, idx: usize| {
+            let idx = idx as u8;
+            if !v.contains(&idx) {
+                v.push(idx);
+            }
+        };
+        if let Some(named) = &context_options.lamports {
+            for ident in named {
+                let idx = sibling_index(&ctx_fields, ident, "lamports")?;
+                push_idx(&mut lamport_indices, idx);
+            }
+        }
+        for cf in &ctx_fields {
+            let whole_account = cf.attr.is_mut
+                || cf.attr.init
+                || cf.attr.init_if_needed
+                || cf.attr.realloc.is_some()
+                || cf.attr.close.is_some();
+            if whole_account {
+                push_idx(&mut lamport_indices, cf.index);
+            }
+            if cf.attr.sweep.is_some() {
+                push_idx(&mut lamport_indices, cf.index);
+            }
+            if (cf.attr.init || cf.attr.init_if_needed) && cf.attr.payer.is_some() {
+                let payer_ident = cf.attr.payer.as_ref().unwrap();
+                let payer_idx = sibling_index(&ctx_fields, payer_ident, "init payer")?;
+                // Writable CPI hand-off to the System Program: the payer
+                // needs lamport permission AND the whole-account data
+                // grant.
+                grant_cpi_delegable(
+                    payer_idx,
+                    &mut lamport_indices,
+                    &mut whole_account_indices,
+                    &mut range_exprs,
+                );
+            }
+            // Generated Metaplex CPI helpers: `create_<field>()` hands
+            // writable metas to Metaplex — CreateMetadataAccountV3
+            // marks the metadata PDA (this field) and the payer
+            // writable; CreateMasterEditionV3 marks the edition PDA
+            // (this field), the mint, and the payer writable (see the
+            // account tables in `hopper-metaplex::instructions`).
+            // Every writable meta is a both-dimension delegation, so
+            // each of these accounts gets lamports + a whole-account
+            // range — otherwise the gate refuses the helper's own CPI
+            // at runtime and the published helper is unusable.
+            if metadata_cpi_helper_declared(&cf.attr) {
+                let payer_ident = cf.attr.metadata_payer.as_ref().unwrap();
+                let payer_idx = sibling_index(&ctx_fields, payer_ident, "metadata::payer")?;
+                for idx in [cf.index, payer_idx] {
+                    grant_cpi_delegable(
+                        idx,
+                        &mut lamport_indices,
+                        &mut whole_account_indices,
+                        &mut range_exprs,
+                    );
+                }
+            }
+            if master_edition_cpi_helper_declared(&cf.attr) {
+                let mint_ident = cf.attr.master_edition_mint.as_ref().unwrap();
+                let mint_idx = sibling_index(&ctx_fields, mint_ident, "master_edition::mint")?;
+                let payer_ident = cf.attr.master_edition_payer.as_ref().unwrap();
+                let payer_idx =
+                    sibling_index(&ctx_fields, payer_ident, "master_edition::payer")?;
+                for idx in [cf.index, mint_idx, payer_idx] {
+                    grant_cpi_delegable(
+                        idx,
+                        &mut lamport_indices,
+                        &mut whole_account_indices,
+                        &mut range_exprs,
+                    );
+                }
+            }
+            if cf.attr.realloc.is_some() {
+                if let Some(payer_ident) = &cf.attr.realloc_payer {
+                    let payer_idx = sibling_index(&ctx_fields, payer_ident, "realloc_payer")?;
+                    push_idx(&mut lamport_indices, payer_idx);
+                }
+            }
+            if let Some(target) = &cf.attr.close {
+                let target_idx = sibling_index(&ctx_fields, target, "close target")?;
+                push_idx(&mut lamport_indices, target_idx);
+            }
+            if let Some(target) = &cf.attr.sweep {
+                let target_idx = sibling_index(&ctx_fields, target, "sweep target")?;
+                push_idx(&mut lamport_indices, target_idx);
+            }
+        }
+        lamport_indices.sort_unstable();
+    }
+    let lamport_index_lits: Vec<TokenStream> =
+        lamport_indices.iter().map(|idx| quote! { #idx }).collect();
+    // Single source of truth for the lamport permission set, mirroring
+    // the write-ranges const: the runtime `WritePolicy`, the
+    // `LAMPORT_ACCOUNTS` associated const, and
+    // `SCHEMA_METADATA.lamport_accounts` all read this one const.
+    let lamport_accounts_const_item = quote! {
+        #[doc(hidden)]
+        #[allow(non_upper_case_globals)]
+        #vis const #lamport_accounts_const_ident: &[u8] = &[
+            #(#lamport_index_lits),*
+        ];
+    };
     // Empty (and carrying no authority) unless `strict_writes` is on,
     // mirroring `InstructionDescriptor.write_ranges` semantics.
     let write_ranges_const_item = quote! {
@@ -2765,7 +3015,31 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                 #(#range_exprs),*
             ];
     };
-    let write_policy_install_stmt: TokenStream = if strict_writes_enabled {
+    // Under the lamport dimension the policy carries both dimensions and
+    // `bind()` additionally installs the instruction-scoped lamport gate;
+    // the returned RAII guard is stored on the bound context so the gate
+    // lives exactly as long as the bound instruction scope. The install
+    // is fallible (gate-store capacity/occupancy, `0xD1__` error page)
+    // and fails the bind loudly via `?` rather than truncating the
+    // governed set or sharing another gate's slot. The `static` is
+    // emitted at function-statement level (no wrapping block) so the
+    // guard binding stays in scope for the bound-struct constructor.
+    let write_policy_install_stmt: TokenStream = if mutation_complete {
+        quote! {
+            static __HOPPER_WRITE_POLICY:
+                ::hopper::__runtime::write_policy::WritePolicy =
+                ::hopper::__runtime::write_policy::WritePolicy::with_lamports(
+                    #write_ranges_const_ident,
+                    #lamport_accounts_const_ident,
+                );
+            ctx.set_write_policy(&__HOPPER_WRITE_POLICY);
+            let __hopper_lamport_gate =
+                ::hopper::__runtime::write_policy::try_install_lamport_gate(
+                    ctx.accounts(),
+                    &__HOPPER_WRITE_POLICY,
+                )?;
+        }
+    } else if strict_writes_enabled {
         quote! {
             {
                 static __HOPPER_WRITE_POLICY:
@@ -2776,6 +3050,22 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                 ctx.set_write_policy(&__HOPPER_WRITE_POLICY);
             }
         }
+    } else {
+        TokenStream::new()
+    };
+    // Bound-struct plumbing for the gate guard (empty unless the lamport
+    // dimension was declared).
+    let lamport_gate_field_decl: TokenStream = if mutation_complete {
+        quote! {
+            #[doc(hidden)]
+            __hopper_lamport_gate:
+                ::hopper::__runtime::write_policy::LamportGateGuard<'a>,
+        }
+    } else {
+        TokenStream::new()
+    };
+    let lamport_gate_bound_field: TokenStream = if mutation_complete {
+        quote! { __hopper_lamport_gate, }
     } else {
         TokenStream::new()
     };
@@ -2850,6 +3140,12 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         // published set is byte-identical to the enforced set.
         #write_ranges_const_item
 
+        // BLD-MUT: single source of truth for the lamport permission
+        // set (explicit `lamports(...)` + implied lifecycle roles).
+        // Backs the runtime `WritePolicy`'s lamport dimension,
+        // `LAMPORT_ACCOUNTS`, and `SCHEMA_METADATA.lamport_accounts`.
+        #lamport_accounts_const_item
+
         /// Captured PDA bumps for every `seeds = ...` field in this
         /// context. One `u8` slot per PDA, named after the field. Read
         /// from the bound context as `ctx.bumps().<field>` and hand
@@ -2877,6 +3173,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         #vis struct #bound_name<'ctx, 'a> {
             ctx: &'ctx mut ::hopper::prelude::Context<'a>,
             #accounts_field_decl
+            #lamport_gate_field_decl
             pub bumps: #bumps_name,
         }
 
@@ -2916,6 +3213,8 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                     mutation_classes: &[],
                     strict_writes: #strict_writes_enabled,
                     write_ranges: #write_ranges_const_ident,
+                    mutation_complete: #mutation_complete,
+                    lamport_accounts: #lamport_accounts_const_ident,
                 };
 
             /// Whether this context was compiled with `strict_writes`.
@@ -2943,6 +3242,31 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             pub const WRITE_RANGES:
                 &'static [::hopper::__runtime::write_policy::WriteRange] =
                 #write_ranges_const_ident;
+
+            /// Whether this context's declared write set covers **both**
+            /// mutation dimensions — data byte ranges AND lamports
+            /// (BLD-MUT). `true` only for `strict_writes` +
+            /// `lamports(...)`: `bind()` then installs a lamport gate and
+            /// the runtime refuses any lamport mutation or writable CPI
+            /// hand-off outside [`LAMPORT_ACCOUNTS`](Self::LAMPORT_ACCOUNTS).
+            /// A bare `strict_writes` context leaves lamports ungoverned
+            /// and is deliberately NOT mutation-complete. Wire into a
+            /// manifest `InstructionDescriptor` as
+            /// `mutation_complete: MyCtx::MUTATION_COMPLETE,
+            /// lamport_accounts: MyCtx::LAMPORT_ACCOUNTS`.
+            pub const MUTATION_COMPLETE: bool = #mutation_complete;
+
+            /// Account indices permitted to have their lamports mutated:
+            /// explicit `lamports(...)` names plus the implied lifecycle
+            /// set (whole-`mut` accounts, init account + payer, close
+            /// account + destination, realloc account + payer, sweep
+            /// account + target, and the writable metas of generated
+            /// Metaplex helpers: created metadata/edition PDA, payer,
+            /// master-edition mint). The same generated const backs the
+            /// enforced `WritePolicy` and `SCHEMA_METADATA`, so published
+            /// and enforced sets cannot drift. Empty (no authority)
+            /// unless [`MUTATION_COMPLETE`](Self::MUTATION_COMPLETE).
+            pub const LAMPORT_ACCOUNTS: &'static [u8] = #lamport_accounts_const_ident;
 
             /// Declared instruction-arg bindings for this context, as
             /// `(name, canonical_type)` pairs in the order given to
@@ -3022,6 +3346,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                 let __hopper_bound = #bound_name {
                     ctx,
                     #accounts_bound_field
+                    #lamport_gate_bound_field
                     bumps: __hopper_bumps,
                 };
                 #(#auto_lifecycle_stmts)*
@@ -3930,6 +4255,63 @@ fn validate_account_attr(field_name: &Ident, attr: &AccountAttr) -> Result<()> {
     Ok(())
 }
 
+/// Whether this field declares the complete `metadata::*` surface that
+/// makes `generate` emit the `create_<field>()` CreateMetadataAccountV3
+/// CPI helper. Must stay in lock-step with the emission tuple in
+/// `generate` and the completeness validation in `validate_account_attr`
+/// — the BLD-MUT implied lamport union keys off this predicate, and a
+/// drift would republish an incomplete (dishonest) permission set.
+fn metadata_cpi_helper_declared(attr: &AccountAttr) -> bool {
+    attr.metadata_name.is_some()
+        && attr.metadata_symbol.is_some()
+        && attr.metadata_uri.is_some()
+        && attr.metadata_seller_fee_basis_points.is_some()
+        && attr.metadata_mint.is_some()
+        && attr.metadata_mint_authority.is_some()
+        && attr.metadata_payer.is_some()
+        && attr.metadata_update_authority.is_some()
+        && attr.metadata_system_program.is_some()
+}
+
+/// Whether this field declares the complete `master_edition::*` surface
+/// that makes `generate` emit the `create_<field>()`
+/// CreateMasterEditionV3 CPI helper. Same lock-step contract as
+/// [`metadata_cpi_helper_declared`].
+fn master_edition_cpi_helper_declared(attr: &AccountAttr) -> bool {
+    attr.master_edition_max_supply.is_some()
+        && attr.master_edition_mint.is_some()
+        && attr.master_edition_metadata.is_some()
+        && attr.master_edition_update_authority.is_some()
+        && attr.master_edition_mint_authority.is_some()
+        && attr.master_edition_payer.is_some()
+        && attr.master_edition_token_program.is_some()
+        && attr.master_edition_system_program.is_some()
+}
+
+/// Grant `idx` the permission pair a **writable CPI meta** requires
+/// under the BLD-MUT gate: lamport permission plus a whole-account
+/// data range. `check_lamport_delegation` demands both, because
+/// handing an account writable to a callee is unbounded delegation of
+/// both mutation dimensions. Dedupes against grants already implied by
+/// lifecycle roles or named explicitly in `lamports(...)`.
+fn grant_cpi_delegable(
+    idx: usize,
+    lamport_indices: &mut Vec<u8>,
+    whole_account_indices: &mut Vec<u8>,
+    range_exprs: &mut Vec<TokenStream>,
+) {
+    let idx_u8 = idx as u8;
+    if !lamport_indices.contains(&idx_u8) {
+        lamport_indices.push(idx_u8);
+    }
+    if !whole_account_indices.contains(&idx_u8) {
+        whole_account_indices.push(idx_u8);
+        range_exprs.push(quote! {
+            ::hopper::__runtime::write_policy::WriteRange::whole_account(#idx_u8)
+        });
+    }
+}
+
 fn sibling_index(ctx_fields: &[ContextField], ident: &Ident, role: &str) -> Result<usize> {
     ctx_fields
         .iter()
@@ -4414,6 +4796,235 @@ mod instruction_arg_tests {
             call_tail.contains("AuditState :: ALLOC_SPACE"),
             "init helper must pass the explicit `space =` expression into hopper_init!: {s}"
         );
+    }
+
+    /// BLD-MUT: the lamport dimension lowers explicit `lamports(...)`
+    /// names PLUS the implied lifecycle roles, and an init payer (handed
+    /// writable to the System Program CPI) additionally receives a
+    /// whole-account data range so the CPI delegation gate admits it.
+    #[test]
+    fn lamports_option_lowers_explicit_and_implied_permission_set() {
+        let attr: TokenStream = quote! { strict_writes, lamports(recipient) };
+        let item: TokenStream = quote! {
+            pub struct Funding<'info> {
+                pub payer: Signer<'info>,
+
+                #[account(init, payer = payer, space = FundState::ALLOC_SPACE)]
+                pub state: InitAccount<'info, FundState>,
+
+                pub recipient: AccountView,
+
+                pub system_program: Program<'info, System>,
+            }
+        };
+        let expanded = expand(attr, item).expect("expand ok");
+        let s = expanded.to_string();
+
+        // Complete: both dimensions declared.
+        assert!(
+            s.contains("MUTATION_COMPLETE : bool = true"),
+            "lamports(...) context must publish MUTATION_COMPLETE = true: {s}"
+        );
+        // Permission set: payer (0, implied by init), state (1, init),
+        // recipient (2, explicit) — sorted, deduped.
+        assert!(
+            s.contains("0u8 , 1u8 , 2u8"),
+            "lamport set must be payer+state+recipient: {s}"
+        );
+        // The init payer is not `mut`, so its whole-account delegation
+        // range is the extra one emitted for the System Program CPI.
+        assert!(
+            s.contains("whole_account (0u8)"),
+            "init payer must receive a whole-account delegation range: {s}"
+        );
+        assert!(
+            s.contains("whole_account (1u8)"),
+            "init account keeps its whole-account range: {s}"
+        );
+        // Both dimensions are wired into one policy + the ambient gate.
+        assert!(
+            s.contains("with_lamports"),
+            "bind must build the two-dimension policy: {s}"
+        );
+        assert!(
+            s.contains("install_lamport_gate"),
+            "bind must install the instruction-scoped lamport gate: {s}"
+        );
+    }
+
+    /// A bare strict_writes context must stay byte-identical to the
+    /// pre-BLD-MUT lowering: no gate install, incomplete, empty set.
+    #[test]
+    fn bare_strict_writes_context_stays_incomplete_and_ungated() {
+        let attr: TokenStream = quote! { strict_writes };
+        let item: TokenStream = quote! {
+            pub struct Plain<'info> {
+                #[account(mut)]
+                pub vault: Account<'info, VaultState>,
+            }
+        };
+        let expanded = expand(attr, item).expect("expand ok");
+        let s = expanded.to_string();
+        assert!(s.contains("MUTATION_COMPLETE : bool = false"), "got: {s}");
+        assert!(!s.contains("install_lamport_gate"), "got: {s}");
+        assert!(!s.contains("with_lamports"), "got: {s}");
+    }
+
+    #[test]
+    fn lamports_without_strict_writes_is_rejected() {
+        let attr: TokenStream = quote! { lamports(payer) };
+        let item: TokenStream = quote! {
+            pub struct Loose<'info> {
+                pub payer: Signer<'info>,
+            }
+        };
+        let err = expand(attr, item).expect_err("lamports requires strict_writes");
+        assert!(err.to_string().contains("strict_writes"), "got: {err}");
+    }
+
+    /// BLD-MUT completeness over the macro's own CPI surface: the
+    /// generated Metaplex helpers hand writable metas to the callee —
+    /// CreateMetadataAccountV3 marks the metadata PDA and the payer
+    /// writable; CreateMasterEditionV3 marks the edition PDA, the mint,
+    /// and the payer writable. A `lamports(...)` context must imply
+    /// lamport permission AND a whole-account delegation range for
+    /// every one of them, or the gate refuses the helper's CPI at
+    /// runtime while the manifest still claims mutation completeness.
+    #[test]
+    fn metaplex_helpers_imply_cpi_delegation_roles() {
+        let attr: TokenStream = quote! { strict_writes, lamports(fee_sink) };
+        let item: TokenStream = quote! {
+            pub struct MintNft<'info> {
+                #[account(signer)]
+                pub authority: AccountView<'static>,
+
+                pub mint: AccountView<'static>,
+
+                #[account(
+                    metadata::mint = mint,
+                    metadata::mint_authority = authority,
+                    metadata::payer = authority,
+                    metadata::update_authority = authority,
+                    metadata::system_program = system_program,
+                    metadata::name = "Name",
+                    metadata::symbol = "SYM",
+                    metadata::uri = "https://example.com/nft.json",
+                    metadata::seller_fee_basis_points = 500,
+                )]
+                pub metadata: AccountView<'static>,
+
+                #[account(
+                    master_edition::mint = mint,
+                    master_edition::metadata = metadata,
+                    master_edition::update_authority = authority,
+                    master_edition::mint_authority = authority,
+                    master_edition::payer = authority,
+                    master_edition::token_program = token_program,
+                    master_edition::system_program = system_program,
+                    master_edition::max_supply = 0u64,
+                )]
+                pub master_edition: AccountView<'static>,
+
+                pub fee_sink: AccountView<'static>,
+                pub token_program: AccountView<'static>,
+                pub system_program: AccountView<'static>,
+            }
+        };
+        let expanded = expand(attr, item).expect("expand ok");
+        let s = expanded.to_string();
+
+        // Lamport set (sorted, deduped): payer/authority (0, writable
+        // meta of both helpers), mint (1, writable meta of the master-
+        // edition helper), metadata (2, created PDA), master_edition
+        // (3, created PDA), fee_sink (4, explicit). token_program and
+        // system_program (5, 6) are read-only metas: NOT implied.
+        assert!(
+            s.contains("0u8 , 1u8 , 2u8 , 3u8 , 4u8"),
+            "lamport set must cover every writable Metaplex CPI meta plus the explicit name: {s}"
+        );
+        // Every writable CPI meta additionally carries the whole-account
+        // delegation range `check_lamport_delegation` demands.
+        for idx in ["0u8", "1u8", "2u8", "3u8"] {
+            assert!(
+                s.contains(&format!("whole_account ({idx})")),
+                "writable Metaplex CPI meta {idx} must receive a whole-account delegation range: {s}"
+            );
+        }
+        // The explicit lamports(...) name is lamports-only: no implied
+        // data grant, and read-only metas get nothing.
+        for idx in ["4u8", "5u8", "6u8"] {
+            assert!(
+                !s.contains(&format!("whole_account ({idx})")),
+                "account {idx} is not a writable CPI meta and must not get a data grant: {s}"
+            );
+        }
+    }
+
+    /// `sweep = target` lowers through the real fallible lamport API
+    /// (`try_set_lamports`, the runtime funnel the BLD-MUT gate hooks)
+    /// — the pre-fix emission called a nonexistent
+    /// `try_borrow_mut_lamports` and could never compile — and both
+    /// sweep roles land in the implied lamport permission set.
+    #[test]
+    fn sweep_helper_lowers_through_the_lamport_funnel() {
+        let attr: TokenStream = quote! { strict_writes, lamports() };
+        let item: TokenStream = quote! {
+            pub struct Cleanup<'info> {
+                #[account(sweep = treasury)]
+                pub fees: AccountView<'static>,
+
+                pub treasury: AccountView<'static>,
+            }
+        };
+        let expanded = expand(attr, item).expect("expand ok");
+        let s = expanded.to_string();
+        assert!(
+            s.contains("sweep_fees"),
+            "sweep field must emit its helper: {s}"
+        );
+        assert!(
+            s.contains("try_set_lamports"),
+            "sweep helper must move lamports through the runtime funnel: {s}"
+        );
+        assert!(
+            !s.contains("try_borrow_mut_lamports"),
+            "sweep helper must not call the nonexistent borrow-lamports API: {s}"
+        );
+        // Implied roles: source (0, sweep implies mut) + target (1).
+        assert!(
+            s.contains("0u8 , 1u8"),
+            "sweep source and target must be in the implied lamport set: {s}"
+        );
+    }
+
+    /// A sweep targeting its own field would credit the drained amount
+    /// back into the slot being drained (minting lamports in the
+    /// two-step move) — rejected at expansion time.
+    #[test]
+    fn sweep_targeting_its_own_field_is_rejected() {
+        let item: TokenStream = quote! {
+            pub struct SelfSweep<'info> {
+                #[account(sweep = fees)]
+                pub fees: AccountView<'static>,
+            }
+        };
+        let err = expand(TokenStream::new(), item).expect_err("self-sweep must be rejected");
+        assert!(
+            err.to_string().contains("cannot target its own field"),
+            "got: {err}"
+        );
+    }
+
+    #[test]
+    fn lamports_naming_an_unknown_field_is_rejected() {
+        let attr: TokenStream = quote! { strict_writes, lamports(ghost) };
+        let item: TokenStream = quote! {
+            pub struct Haunted<'info> {
+                pub payer: Signer<'info>,
+            }
+        };
+        let err = expand(attr, item).expect_err("unknown lamports field");
+        assert!(err.to_string().contains("ghost"), "got: {err}");
     }
 
     #[test]

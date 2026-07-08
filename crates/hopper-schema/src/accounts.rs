@@ -186,6 +186,20 @@ pub struct ContextDescriptor {
     /// [`accounts`](Self::accounts). Empty unless
     /// [`strict_writes`](Self::strict_writes) is `true`.
     pub write_ranges: &'static [WriteRange],
+    /// Whether this context's declared write set covers **both**
+    /// mutation dimensions — data ranges and lamports (BLD-MUT).
+    ///
+    /// `true` only for `#[hopper::context(strict_writes,
+    /// lamports(...))]`; a bare `strict_writes` context leaves its
+    /// lamport behavior undeclared and is not mutation-complete
+    /// (mirroring `InstructionDescriptor::mutation_complete`).
+    pub mutation_complete: bool,
+    /// Account indices permitted to have their lamports mutated —
+    /// explicit `lamports(...)` names plus the macro's implied
+    /// lifecycle set. The same generated const the runtime enforces.
+    /// Empty (and carrying no authority) unless
+    /// [`mutation_complete`](Self::mutation_complete) is `true`.
+    pub lamport_accounts: &'static [u8],
 }
 
 impl ContextDescriptor {
@@ -357,6 +371,8 @@ mod tests {
         mutation_classes: &["Financial"],
         strict_writes: true,
         write_ranges: &[WriteRange::new(1, 16, 8), WriteRange::whole_account(0)],
+        mutation_complete: false,
+        lamport_accounts: &[],
     };
 
     #[test]
@@ -407,6 +423,8 @@ mod tests {
             mutation_classes: &[],
             strict_writes: false,
             write_ranges: &[],
+            mutation_complete: false,
+            lamport_accounts: &[],
         };
         let s = format!("{}", PLAIN);
         assert!(!s.contains("Strict writes"));

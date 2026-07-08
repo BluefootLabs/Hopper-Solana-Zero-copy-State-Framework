@@ -720,3 +720,81 @@ fn a_live_segment_borrow_blocks_the_access_a_stale_view_would_need() {
     drop(live_view);
     assert!(account.try_borrow().is_ok());
 }
+
+// =====================================================================
+// Anchor v2 Slab bug classes (anchor-next, fixed May–June 2026)
+//
+// anchor-next's lang-v2 now ships `Slab<H, T>`, its first zero-copy
+// collection (`lang-v2/src/accounts/slab.rs`). Two bug classes were
+// found and fixed in it: #4616 (read aliases during mutable borrows,
+// fixed 2026-06-02) is pinned here; #4603 (stale bytes past a shrunken
+// tail, fixed 2026-05-27) is pinned in the hopper-core companion suite
+// where the realloc lifecycle APIs live.
+// =====================================================================
+
+/// Anchor v2 bug class: Slab read alias during a mutable borrow —
+/// anchor-next #4616 ("v2: Prevent Slab read aliases during mutable
+/// borrows", fixed 2026-06-02). Before the fix, `Slab::load` /
+/// `load_mut` cached a typed header pointer into account data without
+/// marking pinocchio's per-account `borrow_state`, so a *copied*
+/// `AccountView` could take a safe `try_borrow_mut()` over the same
+/// bytes and alias the Slab's `&H` / `&mut H`; the fix retrofits manual
+/// borrow-state marking into each Slab constructor. Hopper guards (both
+/// centralized, not per-wrapper retrofits):
+/// `hopper-runtime/src/segment_borrow.rs::SegmentBorrowRegistry::register`
+/// — every typed segment acquire (`account.rs::segment_ref` /
+/// `segment_mut`) registers a byte-range lease and conflicting acquires
+/// are refused — and the `borrow_state` byte in
+/// `hopper-native/src/raw_account.rs`, which every view copy shares
+/// because it lives in the account header itself. At the typed-guard
+/// level the alias is additionally unrepresentable in safe code: both
+/// `segment_ref` and `segment_mut` take `&mut SegmentBorrowRegistry`,
+/// so rustc refuses two live guards from one registry. This test pins
+/// the dynamic guards: a shared byte-range acquire overlapping a live
+/// mutable segment lease fails through the ledger, and while a real
+/// `segment_mut` guard is live every whole-account borrow a copied view
+/// could attempt is refused, lifting only when the guard drops.
+#[test]
+fn anchor_4616_shared_read_alias_during_live_mutable_borrow_is_refused() {
+    // Ledger level: a live mutable lease over the Slab-shaped header
+    // region [8, 40) — the `&mut H` a Slab hands out — refuses any
+    // overlapping shared acquire, in the exact-overlap and
+    // partial-overlap shapes, while a disjoint tail read stays legal.
+    let slab = Address::new_from_array([61; 32]);
+    let mut registry = SegmentBorrowRegistry::new();
+    let lease = registry.register_leased_write(&slab, 8, 32).unwrap();
+    assert_eq!(
+        registry.register_read(&slab, 8, 32).unwrap_err(),
+        ProgramError::AccountBorrowFailed
+    );
+    assert_eq!(
+        registry.register_read(&slab, 32, 16).unwrap_err(),
+        ProgramError::AccountBorrowFailed
+    );
+    registry.register_read(&slab, 40, 8).unwrap();
+    // The refusal is tied to the lease lifetime, exactly like a borrow.
+    assert!(registry.release(&lease));
+    registry.register_read(&slab, 8, 32).unwrap();
+
+    // Accessor level: while a real typed mutable segment guard is live,
+    // the whole-account borrows a copied AccountView would take (the
+    // #4616 attack surface) are refused through the shared borrow byte.
+    let (_backing, account) = make_account([62; 32], DEFAULT_OWNER, false, true, 1, &[0u8; 16]);
+    let mut registry = SegmentBorrowRegistry::new();
+    {
+        let mut header = account.segment_mut::<[u8; 8]>(&mut registry, 0, 8).unwrap();
+        *header = [0xA5; 8];
+        assert_eq!(
+            account.try_borrow().unwrap_err(),
+            ProgramError::AccountBorrowFailed
+        );
+        assert_eq!(
+            account.try_borrow_mut().unwrap_err(),
+            ProgramError::AccountBorrowFailed
+        );
+    }
+    // Dropping the guard is a full release: reads work and observe the
+    // committed write.
+    let data = account.try_borrow().unwrap();
+    assert_eq!(&data[..8], &[0xA5; 8]);
+}

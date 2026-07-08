@@ -577,12 +577,12 @@ impl<'a> fmt::Display for TsInstructions<'a> {
                     write!(f, "    {{ pubkey: accounts.")?;
                     write_camel(f, acc.name)?;
                 }
-                // `effective_writable` is a sound passthrough today: it
-                // preserves the declared flag. Data-range absence does not
-                // prove an account read-only (a `WriteRange` covers data, not
-                // lamport-only writes on close/sweep/transfer targets), so
-                // automatic demotion is deferred until write sets can be
-                // declared mutation-complete.
+                // `effective_writable` (BLD-MUT contract): passthrough
+                // unless the instruction is `mutation_complete`
+                // (strict_writes + declared lamport dimension); when
+                // complete, an account with neither a data range nor
+                // lamport permission is provably untouched and is demoted
+                // to read-only. Never promotes.
                 writeln!(
                     f,
                     ", isSigner: {}, isWritable: {} }},",
@@ -689,6 +689,8 @@ impl<'a> fmt::Display for TsEvents<'a> {
         writeln!(f, "import {{ PublicKey }} from \"@solana/web3.js\";")?;
         writeln!(f)?;
 
+        write_ts_touch_map_decoder(f)?;
+
         if prog.events.is_empty() {
             writeln!(f, "// No events defined for this program.")?;
             return Ok(());
@@ -771,6 +773,112 @@ impl<'a> fmt::Display for TsEvents<'a> {
 
         Ok(())
     }
+}
+
+/// Emit the Hopper touch-map decoder into `events.ts`.
+///
+/// Touch maps are the runtime's self-describing state-effect records
+/// (`touch-map` feature): one `sol_log_data` payload per instruction,
+/// wire format v1 as documented in `hopper-runtime/src/segment_borrow.rs`
+/// (magic `0x7A`, version `0x01`, flags, count, then 9-byte records).
+/// The generated helper is a pure function so indexers can decode
+/// `Program data:` payloads without the Hopper CLI; it returns `null`
+/// on wrong magic/version or a length that violates `4 + 9 * count`.
+fn write_ts_touch_map_decoder(f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    writeln!(
+        f,
+        "/** One touched byte range from a Hopper touch map (wire format v1). */"
+    )?;
+    writeln!(f, "export interface HopperTouchRecord {{")?;
+    writeln!(
+        f,
+        "  /** Account index into the emitting instruction's account list. */"
+    )?;
+    writeln!(f, "  slot: number;")?;
+    writeln!(f, "  /** Byte offset within the account data. */")?;
+    writeln!(f, "  offset: number;")?;
+    writeln!(f, "  /** Byte length of the touched range. */")?;
+    writeln!(f, "  size: number;")?;
+    writeln!(f, "  /** True for a write, false for a read. */")?;
+    writeln!(f, "  write: boolean;")?;
+    writeln!(f, "}}")?;
+    writeln!(f)?;
+    writeln!(
+        f,
+        "/** A decoded Hopper touch map: an instruction's self-described state effects. */"
+    )?;
+    writeln!(f, "export interface HopperTouchMap {{")?;
+    writeln!(f, "  version: number;")?;
+    writeln!(
+        f,
+        "  /** True when the on-chain log overflowed: the map is PARTIAL. */"
+    )?;
+    writeln!(f, "  overflowed: boolean;")?;
+    writeln!(
+        f,
+        "  /** True when the encoder skipped a range it could not represent. */"
+    )?;
+    writeln!(f, "  recordsSkipped: boolean;")?;
+    writeln!(f, "  records: HopperTouchRecord[];")?;
+    writeln!(f, "}}")?;
+    writeln!(f)?;
+    writeln!(f, "export const HOPPER_TOUCH_MAP_MAGIC = 0x7a;")?;
+    writeln!(f, "export const HOPPER_TOUCH_MAP_VERSION = 0x01;")?;
+    writeln!(f)?;
+    writeln!(f, "/**")?;
+    writeln!(
+        f,
+        " * Decode a Hopper touch map from a `Program data:` payload."
+    )?;
+    writeln!(f, " *")?;
+    writeln!(
+        f,
+        " * Pure function; returns null unless the magic, version, and exact-length"
+    )?;
+    writeln!(
+        f,
+        " * equation (length === 4 + 9 * count) all hold, so other log payloads"
+    )?;
+    writeln!(
+        f,
+        " * (Anchor events, receipts) are never misread as touch maps."
+    )?;
+    writeln!(f, " */")?;
+    writeln!(
+        f,
+        "export function decodeHopperTouchMap(data: Uint8Array): HopperTouchMap | null {{"
+    )?;
+    writeln!(f, "  if (data.length < 4) return null;")?;
+    writeln!(
+        f,
+        "  if (data[0] !== HOPPER_TOUCH_MAP_MAGIC || data[1] !== HOPPER_TOUCH_MAP_VERSION) return null;"
+    )?;
+    writeln!(f, "  const flags = data[2];")?;
+    writeln!(f, "  const count = data[3];")?;
+    writeln!(f, "  if (data.length !== 4 + count * 9) return null;")?;
+    writeln!(
+        f,
+        "  const view = new DataView(data.buffer, data.byteOffset, data.byteLength);"
+    )?;
+    writeln!(f, "  const records: HopperTouchRecord[] = [];")?;
+    writeln!(f, "  for (let i = 0; i < count; i++) {{")?;
+    writeln!(f, "    const base = 4 + i * 9;")?;
+    writeln!(f, "    const packed = view.getUint32(base + 1, true);")?;
+    writeln!(f, "    records.push({{")?;
+    writeln!(f, "      slot: data[base],")?;
+    writeln!(f, "      offset: packed & 0x7fffffff,")?;
+    writeln!(f, "      size: view.getUint32(base + 5, true),")?;
+    writeln!(f, "      write: (packed & 0x80000000) !== 0,")?;
+    writeln!(f, "    }});")?;
+    writeln!(f, "  }}")?;
+    writeln!(f, "  return {{")?;
+    writeln!(f, "    version: data[1],")?;
+    writeln!(f, "    overflowed: (flags & 0x01) !== 0,")?;
+    writeln!(f, "    recordsSkipped: (flags & 0x02) !== 0,")?;
+    writeln!(f, "    records,")?;
+    writeln!(f, "  }};")?;
+    writeln!(f, "}}")?;
+    writeln!(f)
 }
 
 // ---------------------------------------------------------------------------
@@ -1991,6 +2099,8 @@ mod tests {
             receipt_expected: true,
             strict_writes: false,
             write_ranges: &[],
+            mutation_complete: false,
+            lamport_accounts: &[],
             cu_estimate: 0,
         }];
 
@@ -2159,6 +2269,40 @@ mod tests {
     }
 
     #[test]
+    fn ts_events_emits_touch_map_decoder() {
+        let m = test_manifest();
+        let output = TsEvents(&m).to_string();
+        // Wire-format constants (v1: magic 0x7A, version 0x01).
+        assert!(output.contains("export const HOPPER_TOUCH_MAP_MAGIC = 0x7a;"));
+        assert!(output.contains("export const HOPPER_TOUCH_MAP_VERSION = 0x01;"));
+        // Pure, versioned decoder returning null on any mismatch.
+        assert!(output.contains(
+            "export function decodeHopperTouchMap(data: Uint8Array): HopperTouchMap | null {"
+        ));
+        assert!(output.contains(
+            "if (data[0] !== HOPPER_TOUCH_MAP_MAGIC || data[1] !== HOPPER_TOUCH_MAP_VERSION) return null;"
+        ));
+        // Exact-length equation guards against misreading other payloads.
+        assert!(output.contains("if (data.length !== 4 + count * 9) return null;"));
+        // Record decode: packed u32 LE, top bit = write, low 31 = offset.
+        assert!(output.contains("const packed = view.getUint32(base + 1, true);"));
+        assert!(output.contains("offset: packed & 0x7fffffff,"));
+        assert!(output.contains("write: (packed & 0x80000000) !== 0,"));
+        assert!(output.contains("size: view.getUint32(base + 5, true),"));
+        // Honesty flags surface in the decoded shape.
+        assert!(output.contains("overflowed: (flags & 0x01) !== 0,"));
+        assert!(output.contains("recordsSkipped: (flags & 0x02) !== 0,"));
+    }
+
+    #[test]
+    fn ts_touch_map_decoder_is_emitted_even_without_events() {
+        let m = compact_manifest();
+        let output = TsEvents(&m).to_string();
+        assert!(output.contains("export function decodeHopperTouchMap"));
+        assert!(output.contains("// No events defined for this program."));
+    }
+
+    #[test]
     fn ts_types_generates_header() {
         let m = test_manifest();
         let output = TsTypes(&m).to_string();
@@ -2274,6 +2418,8 @@ mod tests {
             receipt_expected: false,
             strict_writes: false,
             write_ranges: &[],
+            mutation_complete: false,
+            lamport_accounts: &[],
             cu_estimate: 0,
         };
         // 1 (disc) + 8 (u64) + 1 (u8) = 10
@@ -2321,6 +2467,8 @@ mod tests {
             receipt_expected: false,
             strict_writes: true,
             write_ranges: WR_RANGES,
+            mutation_complete: false,
+            lamport_accounts: &[],
             cu_estimate: 0,
         }];
         static LOOSE_IX: &[InstructionDescriptor] = &[InstructionDescriptor {
@@ -2333,6 +2481,8 @@ mod tests {
             receipt_expected: false,
             strict_writes: false,
             write_ranges: &[],
+            mutation_complete: false,
+            lamport_accounts: &[],
             cu_estimate: 0,
         }];
         ProgramManifest {
@@ -2382,6 +2532,8 @@ mod tests {
             receipt_expected: false,
             strict_writes: false,
             write_ranges: &[],
+            mutation_complete: false,
+            lamport_accounts: &[],
             cu_estimate: 10_000,
         }];
         static CU_IX_UNSET: &[InstructionDescriptor] = &[InstructionDescriptor {
@@ -2394,6 +2546,8 @@ mod tests {
             receipt_expected: false,
             strict_writes: false,
             write_ranges: &[],
+            mutation_complete: false,
+            lamport_accounts: &[],
             cu_estimate: 0,
         }];
         ProgramManifest {

@@ -211,6 +211,80 @@ impl<'a> Context<'a> {
         self.segment_borrows.touch_map_overflowed()
     }
 
+    /// Encode this instruction's touch map into the versioned v1 wire
+    /// format (`touch-map` feature). Pure and allocation-free: returns
+    /// the fixed-capacity buffer plus the number of valid bytes. The
+    /// format is documented in [`crate::segment_borrow`] (magic `0x7A`,
+    /// version `0x01`, flags, count, then 9-byte records).
+    ///
+    /// Each touched `(account, offset, size, R/W)` range is resolved to
+    /// the account's slot index in this context's account list. A touch
+    /// whose address is not among the instruction accounts (should be
+    /// impossible — every touch originates from an account in this
+    /// context) or whose slot exceeds `u8::MAX` is skipped and reported
+    /// via flag bit1 rather than mis-attributed. Flag bit0 carries the
+    /// touch log's overflow state so partial maps are honestly marked.
+    #[cfg(feature = "touch-map")]
+    pub fn encode_touch_map(
+        &self,
+    ) -> (
+        [u8; crate::segment_borrow::TOUCH_MAP_MAX_ENCODED_LEN],
+        usize,
+    ) {
+        use crate::segment_borrow::{AccessKind, TouchMapRecord, MAX_TOUCH_RECORDS};
+        let empty = TouchMapRecord {
+            slot: 0,
+            offset: 0,
+            size: 0,
+            write: false,
+        };
+        let mut records = [empty; MAX_TOUCH_RECORDS];
+        let mut n = 0usize;
+        let mut skipped = false;
+        self.segment_borrows.for_each_touch(|t| {
+            let slot = self
+                .accounts
+                .iter()
+                .position(|view| view.address().as_array() == t.key.as_array());
+            match slot {
+                // `n < MAX_TOUCH_RECORDS` always holds: the touch log and
+                // the record array share the same capacity.
+                Some(i) if i <= u8::MAX as usize && n < MAX_TOUCH_RECORDS => {
+                    records[n] = TouchMapRecord {
+                        slot: i as u8,
+                        offset: t.offset,
+                        size: t.size,
+                        write: t.kind == AccessKind::Write,
+                    };
+                    n += 1;
+                }
+                _ => skipped = true,
+            }
+        });
+        crate::segment_borrow::encode_touch_map(
+            &records[..n],
+            self.segment_borrows.touch_map_overflowed(),
+            skipped,
+        )
+    }
+
+    /// Emit this instruction's touch map as a single `sol_log_data`
+    /// record (`touch-map` feature), making the transaction
+    /// self-describing: `hopper tx explain` and the generated TypeScript
+    /// `decodeHopperTouchMap` helper can reconstruct the instruction's
+    /// field-level state effects from the signature alone.
+    ///
+    /// Call at the end of a handler, after the last state access — the
+    /// touch log is cumulative, so this snapshots everything touched so
+    /// far. Off-chain (`cfg(not(target_os = "solana"))`) the syscall is a
+    /// no-op; use [`encode_touch_map`](Self::encode_touch_map) to test
+    /// the encoded bytes.
+    #[cfg(feature = "touch-map")]
+    pub fn emit_touch_map(&self) {
+        let (buf, len) = self.encode_touch_map();
+        hopper_native::log::log_data(&[&buf[..len]]);
+    }
+
     /// Get the remaining accounts starting at `from`.
     #[inline(always)]
     pub fn remaining_accounts(&self, from: usize) -> &'a [AccountView<'a>] {
@@ -1077,5 +1151,91 @@ mod write_policy_tests {
         assert_eq!(seen.len(), 2);
         assert_eq!(seen[0], (BALANCE_OFF, 8, AccessKind::Write));
         assert_eq!(seen[1], (0, DATA_LEN as u32, AccessKind::Write));
+    }
+
+    #[cfg(feature = "touch-map")]
+    #[test]
+    fn touch_map_emission_round_trips_through_the_wire_format() {
+        use crate::segment_borrow::{decode_touch_map_for_tests, AccessKind, TouchMapRecord};
+
+        let (_b0, account0) = make_account(1);
+        let (_b1, account1) = make_account(2);
+        let accounts = [account0, account1];
+        let pid = Address::new([9u8; 32]);
+        let mut ctx = Context::new(&pid, &accounts, &[]);
+
+        // A write and a read on account 1, a read on account 0, and a
+        // whole-account write on account 0 — every touch shape.
+        drop(ctx.segment_mut::<[u8; 8]>(1, BALANCE_OFF).unwrap());
+        drop(ctx.segment_ref::<[u8; 8]>(1, NONCE_OFF).unwrap());
+        drop(ctx.segment_ref::<[u8; 4]>(0, 0).unwrap());
+        {
+            let view = ctx.account(0).unwrap();
+            let (data_len, addr) = (view.data_len() as u32, *view.address());
+            ctx.borrows_mut()
+                .record_account_touch(&addr, data_len, AccessKind::Write);
+        }
+
+        let (buf, len) = ctx.encode_touch_map();
+        let (flags, records) = decode_touch_map_for_tests(&buf[..len]).unwrap();
+        assert_eq!(flags, 0, "complete map must carry no overflow/skip flags");
+        assert_eq!(
+            records,
+            std::vec![
+                TouchMapRecord {
+                    slot: 1,
+                    offset: BALANCE_OFF,
+                    size: 8,
+                    write: true,
+                },
+                TouchMapRecord {
+                    slot: 1,
+                    offset: NONCE_OFF,
+                    size: 8,
+                    write: false,
+                },
+                TouchMapRecord {
+                    slot: 0,
+                    offset: 0,
+                    size: 4,
+                    write: false,
+                },
+                TouchMapRecord {
+                    slot: 0,
+                    offset: 0,
+                    size: DATA_LEN as u32,
+                    write: true,
+                },
+            ]
+        );
+
+        // Off-chain the syscall is a no-op; the call must still be safe.
+        ctx.emit_touch_map();
+    }
+
+    #[cfg(feature = "touch-map")]
+    #[test]
+    fn touch_map_emission_marks_overflow_honestly() {
+        use crate::segment_borrow::{decode_touch_map_for_tests, TOUCH_MAP_FLAG_OVERFLOWED};
+
+        let (_b, account) = make_account(1);
+        let accounts = [account];
+        let pid = Address::new([9u8; 32]);
+        let mut ctx = Context::new(&pid, &accounts, &[]);
+
+        // Touch more distinct ranges than the log capacity.
+        let addr = *ctx.account(0).unwrap().address();
+        let mut i: u32 = 0;
+        while (i as usize) < crate::segment_borrow::MAX_TOUCH_RECORDS + 3 {
+            let b = ctx.borrows_mut().register_leased_read(&addr, i, 1).unwrap();
+            ctx.borrows_mut().release(&b);
+            i += 1;
+        }
+        assert!(ctx.touch_map_overflowed());
+
+        let (buf, len) = ctx.encode_touch_map();
+        let (flags, records) = decode_touch_map_for_tests(&buf[..len]).unwrap();
+        assert_eq!(flags & TOUCH_MAP_FLAG_OVERFLOWED, TOUCH_MAP_FLAG_OVERFLOWED);
+        assert_eq!(records.len(), crate::segment_borrow::MAX_TOUCH_RECORDS);
     }
 }

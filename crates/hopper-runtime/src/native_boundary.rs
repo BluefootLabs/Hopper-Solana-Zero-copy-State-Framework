@@ -93,14 +93,31 @@ pub unsafe fn assign(view: &BackendAccountView<'_>, new_owner: &Address) {
     }
 }
 
+/// Set an account's lamport balance.
+///
+/// This is the funnel **every** safe runtime/`hopper-core` lamport
+/// mutation crosses (`AccountView::{try_set_lamports, set_lamports,
+/// close_to, close_to_unchecked}`, lifecycle close/realloc top-up, the
+/// host System-transfer emulation). When an instruction-scoped lamport
+/// gate is installed (`strict_writes` + declared lamport dimension,
+/// BLD-MUT), mutation on an undeclared account is refused here with
+/// `Custom(0xD000 | index)` before any balance changes. The gate is
+/// consulted by the account's **address value** read from the live
+/// view right here — the gate store holds copied values, no pointers.
 #[inline(always)]
 pub fn try_set_lamports(view: &BackendAccountView<'_>, lamports: u64) -> ProgramResult {
+    crate::write_policy::check_lamport_mutation(account_address(view))?;
     view.set_lamports(lamports);
     Ok(())
 }
 
+/// Close an account at the backend level (drains lamports to zero and
+/// wipes the header), gated by the same lamport gate as
+/// [`try_set_lamports`] — the native close mutates the balance without
+/// crossing the set-lamports funnel, so it must consult the gate itself.
 #[inline(always)]
 pub fn close(view: &BackendAccountView<'_>) -> ProgramResult {
+    crate::write_policy::check_lamport_mutation(account_address(view))?;
     view.close().map_err(ProgramError::from)
 }
 
