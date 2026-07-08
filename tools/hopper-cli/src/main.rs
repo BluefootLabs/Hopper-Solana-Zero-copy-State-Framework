@@ -4034,6 +4034,13 @@ fn to_program_manifest(m: &OwnedProgramManifest) -> ProgramManifest {
                 capabilities: Box::leak(capabilities.into_boxed_slice()),
                 policy_pack: leak_str(&ix.policy_pack),
                 receipt_expected: ix.receipt_expected,
+                // Additive unblock for the concurrent BLD-WR schema change:
+                // the JSON manifest loader does not yet parse strict_writes /
+                // write_ranges, so default to the documented non-strict
+                // behavior (no byte-range write authority). BLD-WR owns the
+                // real JSON wiring; see followups.
+                strict_writes: false,
+                write_ranges: &[],
             }
         })
         .collect();

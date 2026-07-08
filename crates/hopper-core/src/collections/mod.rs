@@ -59,8 +59,9 @@ pub use compact_tail::{CompactTail, TailBitSet, TailRing, TailSlab, TailVec};
 // real wire type `SIZE == size_of` and `> 0`, so conforming code is
 // unaffected.
 #[inline(always)]
-pub(crate) const fn assert_zero_copy_element<T: crate::account::Pod + crate::account::FixedLayout>()
-{
+pub(crate) const fn assert_zero_copy_element<
+    T: crate::account::Pod + crate::account::FixedLayout,
+>() {
     // The `SIZE == size_of` half now lives in the trait itself
     // (`FixedLayout::_SIZE_IS_HONEST`); touching it here forces that
     // trait-level proof to be evaluated for `T`. A dishonest `SIZE`

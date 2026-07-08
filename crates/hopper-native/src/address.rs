@@ -13,10 +13,31 @@ pub const MAX_SEEDS: usize = 16;
 pub const PDA_MARKER: &[u8; 21] = b"ProgramDerivedAddress";
 
 /// A Solana address (public key): 32 bytes, transparent layout.
+///
+/// `PartialEq`/`Eq` are implemented manually (see below) so every
+/// `Address == Address` -- and every owner / program-id check that
+/// funnels through [`address_eq`] -- compiles to a 4 x u64 word
+/// compare instead of a bytewise loop. `PartialOrd`/`Ord` stay
+/// derived: word-equality and byte-equality decide the same pairs
+/// equal, so the derived ordering remains consistent with the manual
+/// equality.
 #[repr(transparent)]
 #[cfg_attr(feature = "copy", derive(Copy))]
-#[derive(Clone, Default, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Default, Ord, PartialOrd)]
 pub struct Address(pub(crate) [u8; 32]);
+
+impl PartialEq for Address {
+    /// Word-compare equality: delegates to [`address_eq`] so the
+    /// `==` operator is exactly as fast as the free function.
+    #[inline(always)]
+    fn eq(&self, other: &Self) -> bool {
+        address_eq(self, other)
+    }
+}
+
+// Word-equality is an equivalence relation: it decides equal exactly
+// when all 32 bytes match, same as the previously-derived impl.
+impl Eq for Address {}
 
 impl Address {
     /// Construct from a raw byte array.
@@ -134,10 +155,25 @@ const fn base58_digit(byte: u8) -> u8 {
     }
 }
 
-/// Address equality over raw bytes.
+/// Address equality over raw bytes: 4 x u64 word comparison.
+///
+/// Short-circuits on the first differing 8-byte chunk. This is the
+/// single equality body behind every backend key check (owner checks,
+/// CPI account validation, instruction introspection, PDA bump
+/// search), so it must stay branch-light and inlinable.
 #[inline(always)]
 pub fn address_eq(a: &Address, b: &Address) -> bool {
-    a.0 == b.0
+    let a_ptr = a.0.as_ptr() as *const u64;
+    let b_ptr = b.0.as_ptr() as *const u64;
+    // SAFETY: Address is #[repr(transparent)] over [u8; 32] = 4 x u64,
+    // so all four reads on each side are in bounds. Use unaligned reads
+    // because Address is only byte-aligned.
+    unsafe {
+        core::ptr::read_unaligned(a_ptr) == core::ptr::read_unaligned(b_ptr)
+            && core::ptr::read_unaligned(a_ptr.add(1)) == core::ptr::read_unaligned(b_ptr.add(1))
+            && core::ptr::read_unaligned(a_ptr.add(2)) == core::ptr::read_unaligned(b_ptr.add(2))
+            && core::ptr::read_unaligned(a_ptr.add(3)) == core::ptr::read_unaligned(b_ptr.add(3))
+    }
 }
 
 /// Compile-time base58 address literal.
@@ -164,5 +200,87 @@ mod tests {
     fn address_macro_uses_local_decoder() {
         const SYSTEM: Address = crate::address!("11111111111111111111111111111111");
         assert_eq!(SYSTEM.to_bytes(), [0u8; 32]);
+    }
+
+    /// Edge patterns exercised by the equality tests below.
+    fn edge_patterns() -> [[u8; 32]; 6] {
+        let mut ramp = [0u8; 32];
+        let mut i = 0;
+        while i < 32 {
+            ramp[i] = i as u8;
+            i += 1;
+        }
+        let mut last_hi = [0u8; 32];
+        last_hi[31] = 0xFF;
+        let mut first_hi = [0u8; 32];
+        first_hi[0] = 0xFF;
+        [
+            [0u8; 32],
+            [0xFFu8; 32],
+            ramp,
+            last_hi,
+            first_hi,
+            [0xA5u8; 32],
+        ]
+    }
+
+    #[test]
+    fn address_eq_matches_bytewise_on_equal_arrays() {
+        for pat in edge_patterns() {
+            let a = Address::new_from_array(pat);
+            let b = Address::new_from_array(pat);
+            assert!(address_eq(&a, &b));
+            assert_eq!(a, b);
+        }
+    }
+
+    #[test]
+    fn address_eq_detects_single_byte_difference_at_every_index() {
+        for base in edge_patterns() {
+            for idx in 0..32 {
+                let mut other = base;
+                other[idx] ^= 0x01;
+                let a = Address::new_from_array(base);
+                let b = Address::new_from_array(other);
+                assert!(!address_eq(&a, &b), "missed diff at byte {idx}");
+                assert_ne!(a, b);
+                // Word compare must agree with bytewise compare.
+                assert_eq!(address_eq(&a, &b), base == other);
+            }
+        }
+    }
+
+    #[test]
+    fn address_eq_differs_only_in_last_byte() {
+        let base = [7u8; 32];
+        let mut other = base;
+        other[31] = 8;
+        let a = Address::new_from_array(base);
+        let b = Address::new_from_array(other);
+        assert!(!address_eq(&a, &b));
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn eq_is_consistent_with_derived_ord() {
+        use core::cmp::Ordering;
+        let patterns = edge_patterns();
+        for a in patterns {
+            for b in patterns {
+                let aa = Address::new_from_array(a);
+                let ab = Address::new_from_array(b);
+                // Manual PartialEq must agree with derived Ord.
+                assert_eq!(aa == ab, aa.cmp(&ab) == Ordering::Equal);
+                // ...and with bytewise equality on the raw arrays.
+                assert_eq!(aa == ab, a == b);
+                for idx in 0..32 {
+                    let mut c = a;
+                    c[idx] = c[idx].wrapping_add(1);
+                    let ac = Address::new_from_array(c);
+                    assert_eq!(aa == ac, aa.cmp(&ac) == Ordering::Equal);
+                    assert_eq!(aa == ac, a == c);
+                }
+            }
+        }
     }
 }

@@ -18,13 +18,34 @@ use crate::rpc;
 /// `simd-0321` cargo feature / `hopper::fast_entrypoint!` fast path.
 pub const SIMD_0321_GATE: &str = "5xXZc66h4UdB6Yq7FzdBxBiRAFMMScMLwHxk2QZDaNZL";
 
+/// SIMD-0339: raise the CPI account-info limit from 64 to 255
+/// (`increase_cpi_account_info_limit`). Under it, each account-info and
+/// instruction-account-meta also carries CU, so passing the fewest infos
+/// per CPI becomes a cost axis — which Hopper's [`DynCpi`] pubkey dedup
+/// exploits. Backs Hopper's raised `MAX_CPI_ACCOUNTS` ceiling.
+///
+/// Gate pubkey taken from agave `feature-set/src/lib.rs`
+/// (`increase_cpi_account_info_limit`); reconfirm against the activation
+/// pubkey for the cluster you target before shipping a build that assumes
+/// >64 account-infos.
+///
+/// [`DynCpi`]: hopper_runtime
+pub const SIMD_0339_GATE: &str = "H6iVbVaDZgDphcPbcZwc5LoznMPWQfnJ1AM7L1xzqvt5";
+
 /// Feature accounts Hopper knows how to reason about, as
 /// `(simd, gate_pubkey, what_it_unlocks)`.
-pub const KNOWN_GATES: &[(&str, &str, &str)] = &[(
-    "SIMD-0321",
-    SIMD_0321_GATE,
-    "r2 instruction-data pointer (hopper::fast_entrypoint! / --features simd-0321)",
-)];
+pub const KNOWN_GATES: &[(&str, &str, &str)] = &[
+    (
+        "SIMD-0321",
+        SIMD_0321_GATE,
+        "r2 instruction-data pointer (hopper::fast_entrypoint! / --features simd-0321)",
+    ),
+    (
+        "SIMD-0339",
+        SIMD_0339_GATE,
+        "CPI account-info limit 64->255 (raised MAX_CPI_ACCOUNTS / DynCpi info dedup)",
+    ),
+];
 
 /// Activation state of a feature gate on a cluster.
 #[derive(Debug, PartialEq, Eq)]
@@ -45,21 +66,27 @@ pub enum GateStatus {
 pub fn gate_status(rpc_url: &str, gate_pubkey: &str) -> Result<GateStatus, String> {
     match rpc::get_account_info(rpc_url, gate_pubkey)? {
         None => Ok(GateStatus::NotPresent),
-        Some(info) => {
-            let data = &info.data;
-            match data.first() {
-                Some(1) if data.len() >= 9 => {
-                    let slot = u64::from_le_bytes([
-                        data[1], data[2], data[3], data[4], data[5], data[6], data[7], data[8],
-                    ]);
-                    Ok(GateStatus::Active(slot))
-                }
-                Some(0) | Some(1) => Ok(GateStatus::Pending),
-                // Account exists but is not a recognizable Feature account
-                // (e.g. zero-length): treat as pending rather than active.
-                _ => Ok(GateStatus::Pending),
-            }
+        Some(info) => Ok(parse_feature_account(&info.data)),
+    }
+}
+
+/// Decode a present Feature account's data into an activation status.
+///
+/// Layout is bincode `Feature { activated_at: Option<u64> }`: a 1-byte
+/// option tag, then (when the tag is `1`) the u64 LE activation slot. A
+/// present-but-unrecognizable account (e.g. zero-length) is treated as
+/// pending rather than active, so a build is never shipped on the strength
+/// of a malformed gate account.
+fn parse_feature_account(data: &[u8]) -> GateStatus {
+    match data.first() {
+        Some(1) if data.len() >= 9 => {
+            let slot = u64::from_le_bytes([
+                data[1], data[2], data[3], data[4], data[5], data[6], data[7], data[8],
+            ]);
+            GateStatus::Active(slot)
         }
+        Some(0) | Some(1) => GateStatus::Pending,
+        _ => GateStatus::Pending,
     }
 }
 
@@ -133,5 +160,51 @@ pub fn cmd_feature_gate(args: &[String]) {
         println!(
             "Build with `--features simd-0321` only when SIMD-0321 shows [active] on your target cluster."
         );
+        println!(
+            "SIMD-0339 raises the CPI account-info limit to 255 (and prices each info); rely on >64-info CPIs only where it shows [active]."
+        );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn known_gates_include_both_simd_0321_and_0339() {
+        let simds: std::vec::Vec<&str> = KNOWN_GATES.iter().map(|(s, _, _)| *s).collect();
+        assert!(simds.contains(&"SIMD-0321"));
+        assert!(simds.contains(&"SIMD-0339"));
+
+        // Each known gate is wired to its declared pubkey constant.
+        let by_simd = |name: &str| {
+            KNOWN_GATES
+                .iter()
+                .find(|(s, _, _)| *s == name)
+                .map(|(_, g, _)| *g)
+        };
+        assert_eq!(by_simd("SIMD-0321"), Some(SIMD_0321_GATE));
+        assert_eq!(by_simd("SIMD-0339"), Some(SIMD_0339_GATE));
+    }
+
+    #[test]
+    fn feature_account_parses_activation_states() {
+        // Tag 0 => staged, not yet activated.
+        assert_eq!(parse_feature_account(&[0]), GateStatus::Pending);
+
+        // Tag 1 + 8-byte LE slot => active at that slot.
+        let mut active = std::vec![1u8];
+        active.extend_from_slice(&1_234_567_u64.to_le_bytes());
+        assert_eq!(
+            parse_feature_account(&active),
+            GateStatus::Active(1_234_567)
+        );
+
+        // Tag 1 but truncated (no full slot) => treated as pending, never
+        // as active — a malformed gate must not green-light a build.
+        assert_eq!(parse_feature_account(&[1, 0, 0]), GateStatus::Pending);
+
+        // Empty / unrecognizable data => pending, not active.
+        assert_eq!(parse_feature_account(&[]), GateStatus::Pending);
     }
 }

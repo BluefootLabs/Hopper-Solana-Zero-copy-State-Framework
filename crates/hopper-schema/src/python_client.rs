@@ -295,7 +295,10 @@ fn fmt_instruction(f: &mut fmt::Formatter<'_>, ix: &InstructionDescriptor) -> fm
             if crate::clientgen::account_is_auto_pda(ae) {
                 write!(f, "\n# PDA ")?;
                 crate::clientgen::write_seed_plan(f, ae)?;
-                write!(f, " (derive host-side via solders Pubkey.find_program_address)")?;
+                write!(
+                    f,
+                    " (derive host-side via solders Pubkey.find_program_address)"
+                )?;
             }
         }
         writeln!(f, "\nbuild_")?;
@@ -550,6 +553,8 @@ mod tests {
             capabilities: &[],
             policy_pack: "",
             receipt_expected: true,
+            strict_writes: false,
+            write_ranges: &[],
         }];
         static EV_F: [FieldDescriptor; 1] = [FieldDescriptor {
             name: "amount",

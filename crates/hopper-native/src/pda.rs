@@ -84,7 +84,9 @@ pub fn find_program_address(seeds: &[&[u8]], program_id: &Address) -> (Address, 
     #[cfg(not(target_os = "solana"))]
     {
         let _ = (seeds, program_id);
-        panic!("hopper: find_program_address requires the SVM sha256 syscall (target_os = \"solana\")");
+        panic!(
+            "hopper: find_program_address requires the SVM sha256 syscall (target_os = \"solana\")"
+        );
     }
 }
 

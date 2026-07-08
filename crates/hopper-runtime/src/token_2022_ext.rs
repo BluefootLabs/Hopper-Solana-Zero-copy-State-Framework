@@ -289,7 +289,7 @@ pub fn require_mint_close_authority(mint: &AccountView<'_>, expected: &Address) 
     if ext.len() < 32 {
         return Err(ProgramError::InvalidAccountData);
     }
-    if &ext[..32] == expected.as_array() {
+    if crate::address::keys_eq_bytes(&ext[..32], expected.as_array()) {
         Ok(())
     } else {
         Err(ProgramError::IncorrectAuthority)
@@ -308,7 +308,7 @@ pub fn require_permanent_delegate(mint: &AccountView<'_>, expected: &Address) ->
     if ext.len() < 32 {
         return Err(ProgramError::InvalidAccountData);
     }
-    if &ext[..32] == expected.as_array() {
+    if crate::address::keys_eq_bytes(&ext[..32], expected.as_array()) {
         Ok(())
     } else {
         Err(ProgramError::IncorrectAuthority)
@@ -330,7 +330,7 @@ pub fn require_transfer_hook_program(mint: &AccountView<'_>, expected: &Address)
     if ext.len() < 64 {
         return Err(ProgramError::InvalidAccountData);
     }
-    if &ext[32..64] == expected.as_array() {
+    if crate::address::keys_eq_bytes(&ext[32..64], expected.as_array()) {
         Ok(())
     } else {
         Err(ProgramError::IncorrectProgramId)
@@ -351,7 +351,7 @@ pub fn require_transfer_hook_authority(
     if ext.len() < 32 {
         return Err(ProgramError::InvalidAccountData);
     }
-    if &ext[..32] == expected.as_array() {
+    if crate::address::keys_eq_bytes(&ext[..32], expected.as_array()) {
         Ok(())
     } else {
         Err(ProgramError::IncorrectAuthority)
@@ -374,7 +374,7 @@ pub fn require_metadata_pointer_address(
     if ext.len() < 64 {
         return Err(ProgramError::InvalidAccountData);
     }
-    if &ext[32..64] == expected.as_array() {
+    if crate::address::keys_eq_bytes(&ext[32..64], expected.as_array()) {
         Ok(())
     } else {
         Err(ProgramError::InvalidAccountData)
@@ -395,7 +395,7 @@ pub fn require_metadata_pointer_authority(
     if ext.len() < 32 {
         return Err(ProgramError::InvalidAccountData);
     }
-    if &ext[..32] == expected.as_array() {
+    if crate::address::keys_eq_bytes(&ext[..32], expected.as_array()) {
         Ok(())
     } else {
         Err(ProgramError::IncorrectAuthority)
@@ -490,7 +490,7 @@ pub fn require_interest_bearing_authority(
     if ext.len() < 32 {
         return Err(ProgramError::InvalidAccountData);
     }
-    if &ext[..32] == expected.as_array() {
+    if crate::address::keys_eq_bytes(&ext[..32], expected.as_array()) {
         Ok(())
     } else {
         Err(ProgramError::IncorrectAuthority)
@@ -514,7 +514,7 @@ pub fn require_transfer_fee_config_authority(
     if ext.len() < 32 {
         return Err(ProgramError::InvalidAccountData);
     }
-    if &ext[..32] == expected.as_array() {
+    if crate::address::keys_eq_bytes(&ext[..32], expected.as_array()) {
         Ok(())
     } else {
         Err(ProgramError::IncorrectAuthority)
@@ -536,7 +536,7 @@ pub fn require_transfer_fee_withdraw_authority(
     if ext.len() < 64 {
         return Err(ProgramError::InvalidAccountData);
     }
-    if &ext[32..64] == expected.as_array() {
+    if crate::address::keys_eq_bytes(&ext[32..64], expected.as_array()) {
         Ok(())
     } else {
         Err(ProgramError::IncorrectAuthority)

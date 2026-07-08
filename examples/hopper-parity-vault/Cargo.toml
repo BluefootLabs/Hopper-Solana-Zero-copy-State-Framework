@@ -13,6 +13,9 @@ hopper = { path = "../..", package = "hopper-lang", default-features = false }
 
 [features]
 default = []
+# Forwarded intrinsic overrides (I18). Off by default: the primary CU
+# baseline is measured without them; a later phase builds the variant.
+builtins = ["hopper/builtins"]
 
 [lints.rust]
 unexpected_cfgs = { level = "allow", check-cfg = ['cfg(target_os, values("solana"))'] }

@@ -731,7 +731,7 @@ pub fn read_program_id_at(sysvar_data: &[u8], index: u16) -> Result<[u8; 32], Pr
 pub fn require_top_level(sysvar_data: &[u8], our_program: &Address) -> ProgramResult {
     let current_idx = current_instruction_index(sysvar_data)?;
     let pid = read_program_id_at(sysvar_data, current_idx)?;
-    if pid != *our_program.as_array() {
+    if !keys_eq_fast(&pid, our_program.as_array()) {
         return Err(ProgramError::InvalidAccountData);
     }
     Ok(())
@@ -756,7 +756,7 @@ pub fn detect_flash_loan_bracket(sysvar_data: &[u8], our_program: &Address) -> P
             continue;
         }
         if let Ok(pid) = read_program_id_at(sysvar_data, i) {
-            if pid == *our_program.as_array() {
+            if keys_eq_fast(&pid, our_program.as_array()) {
                 if i < current_idx {
                     before = true;
                 } else {
@@ -784,7 +784,7 @@ pub fn check_no_subsequent_invocation(sysvar_data: &[u8], our_program: &Address)
     let mut i = current_idx + 1;
     while i < num_ix {
         if let Ok(pid) = read_program_id_at(sysvar_data, i) {
-            if pid == *our_program.as_array() {
+            if keys_eq_fast(&pid, our_program.as_array()) {
                 return Err(ProgramError::InvalidAccountData);
             }
         }

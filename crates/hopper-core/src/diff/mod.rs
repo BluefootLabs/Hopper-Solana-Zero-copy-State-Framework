@@ -506,7 +506,7 @@ mod tests {
         // Full restore is refused: it could not faithfully roll back the tail.
         assert!(snap.restore_into(&mut target).is_err());
         assert_eq!(target, [0u8; 8]); // untouched
-        // Explicit head-only restore is allowed and copies the 4 captured bytes.
+                                      // Explicit head-only restore is allowed and copies the 4 captured bytes.
         snap.restore_head_into(&mut target).unwrap();
         assert_eq!(&target[..4], &[7u8; 4]);
         assert_eq!(&target[4..], &[0u8; 4]);

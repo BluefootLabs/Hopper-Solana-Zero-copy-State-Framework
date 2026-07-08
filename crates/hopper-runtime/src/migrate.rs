@@ -282,8 +282,7 @@ mod tests {
 
         #[test]
         fn overshooting_edge_is_refused_before_writing() {
-            let mut backing =
-                std::vec![0u8; RuntimeAccount::SIZE + HopperHeader::SIZE + 8];
+            let mut backing = std::vec![0u8; RuntimeAccount::SIZE + HopperHeader::SIZE + 8];
             let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
             // SAFETY: backing is sized for the header plus data and
             // outlives the view.

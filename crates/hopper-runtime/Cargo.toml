@@ -30,6 +30,11 @@ touch-map = []
 simd-0321 = ["hopper-native/simd-0321"]
 cpi = []
 copy = []
+# Opt-in sBPF v3 / SIMD-0178 static syscalls. Forwards to hopper-native so the
+# `hopper_native::define_syscall!` invocations in `syscalls.rs` switch from the
+# relocation-based `extern "C"` decl to the murmur32-hashed static-call ABI.
+# Default-off: the standard v0..v2 build is unchanged.
+static-syscalls = ["hopper-native/static-syscalls"]
 legacy-token-instructions = []
 crypto-curve = []
 crypto-poseidon = []

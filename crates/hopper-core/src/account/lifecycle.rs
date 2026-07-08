@@ -62,6 +62,15 @@ pub fn safe_close_unchecked(
     account: &AccountView<'_>,
     destination: &AccountView<'_>,
 ) -> ProgramResult {
+    // A destination aliasing the closed account would credit the lamports to
+    // an account that is drained in the same call: the balance is silently
+    // destroyed inside program scope, and the transaction only fails later at
+    // the runtime's global lamport-sum check (competitor bug class: Quasar
+    // #240). Refuse up front, before any mutation.
+    if account.address() == destination.address() {
+        return Err(ProgramError::InvalidArgument);
+    }
+
     // Fail before moving lamports if outstanding data borrows would prevent
     // zeroing the closed account.
     drop(account.try_borrow_mut()?);

@@ -634,7 +634,13 @@ fn write_instruction_array(
         write_json_str(f, ix.policy_pack)?;
         writeln!(f, ",")?;
         write_indent(f, 3)?;
-        writeln!(f, "\"receiptExpected\": {}", ix.receipt_expected)?;
+        writeln!(f, "\"receiptExpected\": {},", ix.receipt_expected)?;
+        write_indent(f, 3)?;
+        writeln!(f, "\"strictWrites\": {},", ix.strict_writes)?;
+        write_indent(f, 3)?;
+        write!(f, "\"writeRanges\": ")?;
+        write_write_ranges_json(f, ix, 3)?;
+        writeln!(f)?;
         write_indent(f, 2)?;
         write!(f, "}}")?;
         if i + 1 < instrs.len() {
@@ -671,6 +677,49 @@ fn write_account_entry_array(
         }
         write!(f, " }}")?;
         if i + 1 < accounts.len() {
+            writeln!(f, ",")?;
+        } else {
+            writeln!(f)?;
+        }
+    }
+    write_indent(f, indent)?;
+    write!(f, "]")
+}
+
+/// Emit an instruction's declared byte-range write-set as a JSON array.
+///
+/// Each entry is `{ "account": "<name>", "accountIndex": N, "offset": N,
+/// "size": N }`. `accountIndex` is the [`WriteRange::account_index`] the
+/// runtime `WritePolicy` enforces; `account` resolves that index to the
+/// instruction's account name when in range (empty string otherwise, e.g. a
+/// hand-authored manifest whose ranges out-run its account list). Offsets and
+/// sizes are the exact values the `strict_writes` macro compiled, so tooling
+/// sees the same byte surface the runtime enforces.
+fn write_write_ranges_json(
+    f: &mut fmt::Formatter<'_>,
+    ix: &InstructionDescriptor,
+    indent: usize,
+) -> fmt::Result {
+    let ranges = ix.write_ranges;
+    if ranges.is_empty() {
+        return write!(f, "[]");
+    }
+    writeln!(f, "[")?;
+    for (i, r) in ranges.iter().enumerate() {
+        let name = ix
+            .accounts
+            .get(r.account_index as usize)
+            .map(|a| a.name)
+            .unwrap_or("");
+        write_indent(f, indent + 1)?;
+        write!(f, "{{ \"account\": ")?;
+        write_json_str(f, name)?;
+        write!(
+            f,
+            ", \"accountIndex\": {}, \"offset\": {}, \"size\": {} }}",
+            r.account_index, r.offset, r.size
+        )?;
+        if i + 1 < ranges.len() {
             writeln!(f, ",")?;
         } else {
             writeln!(f)?;
@@ -1359,6 +1408,8 @@ mod tests {
             capabilities: &["MutatesState"],
             policy_pack: "TREASURY_WRITE",
             receipt_expected: true,
+            strict_writes: false,
+            write_ranges: &[],
         }];
         let m = ProgramManifest {
             name: "vault_prog",
@@ -1409,6 +1460,8 @@ mod tests {
             capabilities: &["MutatesState"],
             policy_pack: "TREASURY_WRITE",
             receipt_expected: true,
+            strict_writes: false,
+            write_ranges: &[],
         }];
         static FIELDS: &[FieldDescriptor] = &[FieldDescriptor {
             name: "balance",
@@ -1546,6 +1599,150 @@ mod tests {
         assert!(json.contains("\"accounts\": []"));
         assert!(json.contains("\"minLoadedDataSize\": 0"));
         assert!(json.contains("\"recommendedLoadedDataSize\": 0"));
+    }
+
+    // -- BLD-WR: strict_writes byte-range publication --
+
+    // A strict_writes `deposit`: vault (account 1) declares two exact field
+    // ranges; config (account 2) is declared Sealevel-writable but has no
+    // declared byte range, so it is provably read-only under the policy.
+    static WR_ACCTS: &[crate::AccountEntry] = &[
+        crate::AccountEntry {
+            name: "authority",
+            writable: false,
+            signer: true,
+            layout_ref: "",
+            seeds: &[],
+        },
+        crate::AccountEntry {
+            name: "vault",
+            writable: true,
+            signer: false,
+            layout_ref: "Vault",
+            seeds: &[],
+        },
+        crate::AccountEntry {
+            name: "config",
+            writable: true,
+            signer: false,
+            layout_ref: "Config",
+            seeds: &[],
+        },
+    ];
+    // vault balance [16, 24) and nonce [24, 32) — the same values the
+    // strict_writes macro compiles into the enforced WritePolicy.
+    static WR_RANGES: &[crate::WriteRange] = &[
+        crate::WriteRange::new(1, 16, 8),
+        crate::WriteRange::new(1, 24, 8),
+    ];
+    static WR_STRICT_IX: &[InstructionDescriptor] = &[InstructionDescriptor {
+        name: "deposit",
+        tag: 1,
+        args: &[],
+        accounts: WR_ACCTS,
+        capabilities: &["MutatesState"],
+        policy_pack: "VAULT_WRITE",
+        receipt_expected: true,
+        strict_writes: true,
+        write_ranges: WR_RANGES,
+    }];
+    static WR_LOOSE_IX: &[InstructionDescriptor] = &[InstructionDescriptor {
+        name: "deposit",
+        tag: 1,
+        args: &[],
+        accounts: WR_ACCTS,
+        capabilities: &["MutatesState"],
+        policy_pack: "VAULT_WRITE",
+        receipt_expected: true,
+        strict_writes: false,
+        write_ranges: &[],
+    }];
+
+    fn wr_manifest(instructions: &'static [InstructionDescriptor]) -> ProgramManifest {
+        ProgramManifest {
+            name: "vault_prog",
+            version: "1.0.0",
+            description: "A vault",
+            layouts: &[],
+            layout_metadata: &[],
+            instructions,
+            events: &[],
+            policies: &[],
+            compatibility_pairs: &[],
+            tooling_hints: &[],
+            contexts: &[],
+        }
+    }
+
+    #[test]
+    fn manifest_emits_strict_write_ranges_byte_matching_source() {
+        let m = wr_manifest(WR_STRICT_IX);
+        let json = format!("{}", ManifestJson(&m));
+
+        // The instruction is flagged strict and carries the exact byte ranges.
+        assert!(json.contains("\"strictWrites\": true"));
+        // vault's two declared ranges, byte-identical to WR_RANGES.
+        assert!(json
+            .contains("\"account\": \"vault\", \"accountIndex\": 1, \"offset\": 16, \"size\": 8"));
+        assert!(json
+            .contains("\"account\": \"vault\", \"accountIndex\": 1, \"offset\": 24, \"size\": 8"));
+        // config (account 2) declares no range, so it must NOT appear.
+        assert!(!json.contains("\"account\": \"config\""));
+    }
+
+    #[test]
+    fn manifest_non_strict_instruction_emits_empty_write_ranges() {
+        let m = wr_manifest(WR_LOOSE_IX);
+        let json = format!("{}", ManifestJson(&m));
+        assert!(json.contains("\"strictWrites\": false"));
+        assert!(json.contains("\"writeRanges\": []"));
+    }
+
+    #[test]
+    fn effective_writable_is_a_sound_passthrough() {
+        // Demotion based on data write-ranges alone is unsound (a WriteRange
+        // is a data range; Sealevel writability also covers lamport-only
+        // mutation like close/sweep recipients). Until write sets can be
+        // declared mutation-complete, effective_writable preserves the
+        // declared flag for every account under both strict and non-strict
+        // instructions, and never promotes a read-only account.
+        let ix = &WR_STRICT_IX[0];
+        assert!(!ix.effective_writable(0, false)); // read-only stays read-only
+        assert!(ix.effective_writable(1, true)); // writable stays writable
+        assert!(ix.effective_writable(2, true)); // NOT demoted (would be unsound)
+
+        let loose = &WR_LOOSE_IX[0];
+        assert!(loose.effective_writable(2, true));
+
+        // account_has_declared_write still answers the raw range query for
+        // schedulers/indexers even though the client no longer demotes on it.
+        assert!(ix.account_has_declared_write(1));
+        assert!(!ix.account_has_declared_write(2));
+    }
+
+    #[test]
+    fn strict_with_empty_ranges_demotes_nothing() {
+        // A strict_writes instruction whose ranges are entirely empty means
+        // "ranges not populated" (the macro does not yet auto-emit them),
+        // NOT "everything is read-only". Demoting here would send a written
+        // account as read-only and fail the transaction on chain. Every
+        // declared-writable account must survive unchanged.
+        static UNPOP_IX: &[InstructionDescriptor] = &[InstructionDescriptor {
+            name: "deposit",
+            tag: 1,
+            args: &[],
+            accounts: WR_ACCTS,
+            capabilities: &["MutatesState"],
+            policy_pack: "VAULT_WRITE",
+            receipt_expected: true,
+            strict_writes: true,
+            write_ranges: &[],
+        }];
+        let ix = &UNPOP_IX[0];
+        assert!(ix.effective_writable(1, true));
+        assert!(ix.effective_writable(2, true));
+        // A declared read-only account still stays read-only (never promoted).
+        assert!(!ix.effective_writable(0, false));
     }
 
     #[test]

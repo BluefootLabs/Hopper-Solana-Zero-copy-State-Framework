@@ -1205,11 +1205,7 @@ impl<'info> AccountView<'info> {
     /// (`MissingRequiredSignature` vs `Immutable`); the fallback runs only
     /// on the failure path, where compute cost is irrelevant.
     #[inline(always)]
-    pub fn expect_signer_writable(
-        &self,
-        need_signer: bool,
-        need_writable: bool,
-    ) -> ProgramResult {
+    pub fn expect_signer_writable(&self, need_signer: bool, need_writable: bool) -> ProgramResult {
         let mut required: u8 = 0;
         if need_signer {
             required |= 0b0001;
@@ -1617,8 +1613,11 @@ mod tests {
     unsafe impl crate::Zeroable for LaxForeignLayout {}
     unsafe impl crate::Pod for LaxForeignLayout {}
     impl crate::field_map::FieldMap for LaxForeignLayout {
-        const FIELDS: &'static [crate::field_map::FieldInfo] =
-            &[crate::field_map::FieldInfo::new("amount", HopperHeader::SIZE, 8)];
+        const FIELDS: &'static [crate::field_map::FieldInfo] = &[crate::field_map::FieldInfo::new(
+            "amount",
+            HopperHeader::SIZE,
+            8,
+        )];
     }
     impl LayoutContract for LaxForeignLayout {
         const DISC: u8 = 0x5A;
@@ -1858,7 +1857,9 @@ mod tests {
         // The fixed head loads even though the account is far longer than the
         // head -- the *fixed* compact loader would reject this as oversized.
         {
-            let mut head = account.load_compact_dynamic_mut::<CompactDynHead>().unwrap();
+            let mut head = account
+                .load_compact_dynamic_mut::<CompactDynHead>()
+                .unwrap();
             head.owner = [7u8; 32];
             head.count = 5u64.to_le_bytes();
         }

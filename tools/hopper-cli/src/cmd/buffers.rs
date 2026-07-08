@@ -261,7 +261,11 @@ mod tests {
         let cmd = build_close_command(&BuffersClose::One("BuF333".to_string()), &c);
         assert_eq!(
             cmd[0..3],
-            ["program".to_string(), "close".to_string(), "BuF333".to_string()]
+            [
+                "program".to_string(),
+                "close".to_string(),
+                "BuF333".to_string()
+            ]
         );
     }
 

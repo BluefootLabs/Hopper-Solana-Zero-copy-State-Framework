@@ -118,7 +118,10 @@ pub(crate) fn account_is_auto_pda(acc: &crate::AccountEntry) -> bool {
 /// `vault: literal "vault", account authority`. The dependency-free generators
 /// (Go / Python / C, which carry no PDA-derivation crypto) emit this as a
 /// comment so a host using a real Solana SDK knows exactly what to derive.
-pub(crate) fn write_seed_plan(f: &mut fmt::Formatter<'_>, acc: &crate::AccountEntry) -> fmt::Result {
+pub(crate) fn write_seed_plan(
+    f: &mut fmt::Formatter<'_>,
+    acc: &crate::AccountEntry,
+) -> fmt::Result {
     write!(f, "{}:", acc.name)?;
     for (i, seed) in acc.seeds.iter().enumerate() {
         write!(f, "{}", if i == 0 { " " } else { ", " })?;
@@ -529,10 +532,8 @@ impl<'a> fmt::Display for TsInstructions<'a> {
                                 // Reference an already-derived PDA local when the
                                 // seed points at another PDA; otherwise the
                                 // caller-provided account.
-                                let refs_pda = ix
-                                    .accounts
-                                    .iter()
-                                    .any(|a| a.name == name && is_auto_pda(a));
+                                let refs_pda =
+                                    ix.accounts.iter().any(|a| a.name == name && is_auto_pda(a));
                                 if !refs_pda {
                                     write!(f, "accounts.")?;
                                 }
@@ -568,7 +569,7 @@ impl<'a> fmt::Display for TsInstructions<'a> {
             // Build keys array. PDA accounts use their derived local; provided
             // accounts come from the `accounts` argument.
             writeln!(f, "  const keys = [")?;
-            for acc in ix.accounts.iter() {
+            for (idx, acc) in ix.accounts.iter().enumerate() {
                 if is_auto_pda(acc) {
                     write!(f, "    {{ pubkey: ")?;
                     write_camel(f, acc.name)?;
@@ -576,10 +577,14 @@ impl<'a> fmt::Display for TsInstructions<'a> {
                     write!(f, "    {{ pubkey: accounts.")?;
                     write_camel(f, acc.name)?;
                 }
+                // Under a strict_writes instruction, an account with no declared
+                // byte range is provably read-only (the runtime WritePolicy
+                // rejects every write), so demote it to isWritable:false.
                 writeln!(
                     f,
                     ", isSigner: {}, isWritable: {} }},",
-                    acc.signer, acc.writable
+                    acc.signer,
+                    ix.effective_writable(idx, acc.writable)
                 )?;
             }
             writeln!(f, "  ];")?;
@@ -1914,6 +1919,8 @@ mod tests {
             capabilities: &["write"],
             policy_pack: "standard",
             receipt_expected: true,
+            strict_writes: false,
+            write_ranges: &[],
         }];
 
         static EVENT_FIELDS: &[FieldDescriptor] = &[
@@ -2063,8 +2070,7 @@ mod tests {
         // ...and derived in the builder from its on-chain seeds: the literal
         // `b"vault"` and the `authority` account's address.
         assert!(output.contains("const [vault] = PublicKey.findProgramAddressSync("));
-        assert!(output
-            .contains("[Buffer.from(\"vault\"), accounts.authority.toBuffer()],"));
+        assert!(output.contains("[Buffer.from(\"vault\"), accounts.authority.toBuffer()],"));
         assert!(output.contains("    programId,"));
     }
 
@@ -2195,9 +2201,98 @@ mod tests {
             capabilities: &[],
             policy_pack: "",
             receipt_expected: false,
+            strict_writes: false,
+            write_ranges: &[],
         };
         // 1 (disc) + 8 (u64) + 1 (u8) = 10
         assert_eq!(instruction_data_size(&ix), 10);
+    }
+
+    // -- BLD-WR: strict_writes account demotion in the TS builder --
+
+    // Three caller-provided (non-PDA) accounts so each appears verbatim in the
+    // generated `keys` array: authority (read-only signer), vault (written),
+    // config (Sealevel-writable but with no declared byte range).
+    static WR_ACCTS: &[AccountEntry] = &[
+        AccountEntry {
+            name: "authority",
+            writable: false,
+            signer: true,
+            layout_ref: "",
+            seeds: &[],
+        },
+        AccountEntry {
+            name: "vault",
+            writable: true,
+            signer: false,
+            layout_ref: "",
+            seeds: &[],
+        },
+        AccountEntry {
+            name: "config",
+            writable: true,
+            signer: false,
+            layout_ref: "",
+            seeds: &[],
+        },
+    ];
+    static WR_RANGES: &[crate::WriteRange] = &[crate::WriteRange::new(1, 16, 8)];
+
+    fn wr_manifest(strict: bool) -> ProgramManifest {
+        static STRICT_IX: &[InstructionDescriptor] = &[InstructionDescriptor {
+            name: "deposit",
+            tag: 0,
+            args: &[],
+            accounts: WR_ACCTS,
+            capabilities: &[],
+            policy_pack: "",
+            receipt_expected: false,
+            strict_writes: true,
+            write_ranges: WR_RANGES,
+        }];
+        static LOOSE_IX: &[InstructionDescriptor] = &[InstructionDescriptor {
+            name: "deposit",
+            tag: 0,
+            args: &[],
+            accounts: WR_ACCTS,
+            capabilities: &[],
+            policy_pack: "",
+            receipt_expected: false,
+            strict_writes: false,
+            write_ranges: &[],
+        }];
+        ProgramManifest {
+            name: "vault_prog",
+            version: "1.0.0",
+            description: "",
+            layouts: &[],
+            layout_metadata: &[],
+            instructions: if strict { STRICT_IX } else { LOOSE_IX },
+            events: &[],
+            policies: &[],
+            compatibility_pairs: &[],
+            tooling_hints: &[],
+            contexts: &[],
+        }
+    }
+
+    #[test]
+    fn ts_strict_writes_preserves_declared_writability() {
+        // Demotion on data-range absence is unsound (lamport-writable
+        // accounts carry no data range), so the client preserves the
+        // declared flag: a Sealevel-writable account stays writable even
+        // under a strict_writes instruction that declares no range for it.
+        let out = TsInstructions(&wr_manifest(true)).to_string();
+        assert!(out.contains("pubkey: accounts.vault, isSigner: false, isWritable: true"));
+        assert!(out.contains("pubkey: accounts.config, isSigner: false, isWritable: true"));
+    }
+
+    #[test]
+    fn ts_non_strict_instruction_keeps_declared_writable() {
+        // Identical accounts, but a non-strict instruction: config keeps its
+        // declared writable flag (current, pre-BLD-WR behavior).
+        let out = TsInstructions(&wr_manifest(false)).to_string();
+        assert!(out.contains("pubkey: accounts.config, isSigner: false, isWritable: true"));
     }
 
     // -- Kotlin generator tests --

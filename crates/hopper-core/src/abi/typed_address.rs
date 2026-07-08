@@ -206,9 +206,24 @@ impl<T> From<TypedAddress<T>> for [u8; 32] {
 ///
 /// Useful for storing addresses where the account type is not known
 /// at compile time, or when interfacing with raw hopper-native APIs.
-#[derive(Clone, Copy, PartialEq, Eq)]
+///
+/// `PartialEq`/`Eq` are implemented manually (same shape as
+/// [`TypedAddress`]) so `==` compiles to the 4 x u64 word compare in
+/// [`crate::check::keys_eq_fast`] rather than a bytewise loop.
+#[derive(Clone, Copy)]
 #[repr(transparent)]
 pub struct UntypedAddress(pub [u8; 32]);
+
+impl PartialEq for UntypedAddress {
+    #[inline(always)]
+    fn eq(&self, other: &Self) -> bool {
+        crate::check::keys_eq_fast(&self.0, &other.0)
+    }
+}
+
+// Word-equality decides equal exactly when all 32 bytes match, same as
+// the previously-derived impl.
+impl Eq for UntypedAddress {}
 
 const _: () = assert!(core::mem::size_of::<UntypedAddress>() == 32);
 const _: () = assert!(core::mem::align_of::<UntypedAddress>() == 1);

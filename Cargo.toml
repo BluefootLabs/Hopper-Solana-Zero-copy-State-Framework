@@ -12,6 +12,7 @@ members = [
     "crates/hopper-system",
     "crates/hopper-schema",
     "crates/hopper-solana",
+    "crates/hopper-builtins",
     "crates/hopper-spl/hopper-token",
     "crates/hopper-spl/hopper-token-2022",
     "crates/hopper-spl/hopper-associated-token",
@@ -30,6 +31,7 @@ members = [
     "examples/hopper-smoke",
     "examples/hopper-vault",
     "examples/hopper-parity-vault",
+    "examples/hopper-router",
     "examples/hopper-escrow",
     "examples/hopper-showcase",
     "examples/hopper-treasury",
@@ -130,6 +132,7 @@ hopper-macros = { workspace = true }
 hopper-schema = { path = "crates/hopper-schema", version = "0.2.1", default-features = false }
 hopper-solana = { path = "crates/hopper-solana", version = "0.2.1", default-features = false }
 hopper-macros-proc = { workspace = true, optional = true }
+hopper-builtins = { path = "crates/hopper-builtins", version = "0.2.1", optional = true }
 
 [dev-dependencies]
 trybuild = "1"
@@ -144,6 +147,13 @@ proc-macros = ["hopper-macros-proc", "receipt"]
 # update). Optional because not every Hopper program touches Metaplex
 # and the crate adds compile time; opt in with `--features metaplex`.
 metaplex = ["dep:hopper-metaplex"]
+
+# Program-wide tuned memory intrinsics (I18): overrides the C
+# `memcmp`/`bcmp`/`memcpy`/`memset` symbols on the SBF target with an
+# inline-below-32-bytes / syscall-above dispatch. Optional and off by
+# default until the duplicate-symbol smoke phase lands; opt in with
+# `--features builtins`.
+builtins = ["dep:hopper-builtins"]
 finance = ["dep:hopper-finance"]
 lending = ["dep:hopper-lending"]
 staking = ["dep:hopper-staking"]
@@ -179,6 +189,13 @@ touch-map = ["hopper-runtime/touch-map"]
 # on public clusters, so `hopper::fast_entrypoint!` compiles to the
 # standard scanning entrypoint unless this feature is enabled.
 simd-0321 = ["hopper-runtime/simd-0321"]
+
+# Opt-in sBPF v3 / SIMD-0178 static syscalls. SIMD-0178 replaces
+# relocation-based syscall symbols with murmur32-hashed static calls;
+# this flag routes Hopper's syscall decls (hopper-native + hopper-runtime)
+# through the static-call ABI. Off by default so the standard v0..v2 build
+# is byte-identical; enable it (with an sbpfv3 target) for v3 readiness.
+static-syscalls = ["hopper-runtime/static-syscalls"]
 
 [lints.rust]
 unexpected_cfgs = { level = "allow", check-cfg = [

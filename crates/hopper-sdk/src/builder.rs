@@ -229,6 +229,8 @@ mod tests {
             capabilities: &[],
             policy_pack: "",
             receipt_expected: true,
+            strict_writes: false,
+            write_ranges: &[],
         }];
         ProgramManifest {
             name: "test",

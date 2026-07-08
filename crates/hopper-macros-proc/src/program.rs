@@ -334,11 +334,69 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
         })
         .collect::<Result<_>>()?;
 
+    // Fn-pointer-table eligibility: every discriminator is one byte
+    // AND together they form the dense range 0..=N-1. The handlers are
+    // already sorted bytes-ascending within the single-byte length
+    // class (see the sort above), so "index == byte" is a complete
+    // contiguity test: N distinct sorted bytes matching 0..N leave no
+    // gaps and no offset.
+    let contiguous_from_zero = all_single_byte
+        && handlers
+            .iter()
+            .enumerate()
+            .all(|(index, h)| usize::from(h.discriminator[0]) == index);
+
+    // Instruction-level disassembly (CU-path audit, 2026-07-07) showed the
+    // indirect `callx` costs ~7 instructions of setup plus lost inlining —
+    // a small dispatch `match` (2 instructions for N=1) beats the table
+    // until roughly 6-10 arms. Only emit the table when it can win.
+    const MIN_TABLE_DISPATCH_ARMS: usize = 8;
+    let table_worthwhile = handlers.len() >= MIN_TABLE_DISPATCH_ARMS;
+
     // Slow path entries for the multi-byte case. Emitted as an
     // ordered `if data.starts_with(&[...]) { ... } else if ...` chain
     // because `match` in Rust cannot branch on a variable-length slice
     // prefix.
-    let dispatch_body = if all_single_byte {
+    let dispatch_body = if contiguous_from_zero && table_worthwhile && policy.is_tiny_profile() {
+        // `profile = "tiny"` + dense 0..=N-1 discriminators: dispatch
+        // through a static fn-pointer table instead of a `match`. On
+        // sBPF, LLVM lowers the indirect call to a single `callx`
+        // (~5 CU), beating the compare-and-branch ladder the `match`
+        // form can degrade into. The table is a `static`, so it is
+        // const-evaluated into rodata - no lazy init, no_std-safe.
+        //
+        // Error semantics are byte-identical to the `match` form:
+        // empty data and any byte >= N both return
+        // `ProgramError::InvalidInstructionData`. Argument decoding is
+        // untouched because the table holds the exact same
+        // `__hopper_dispatch_*` helpers the match arms call.
+        let table_len = handlers.len();
+        let helper_idents: Vec<&Ident> = dispatch_helpers
+            .iter()
+            .map(|(_, helper, _)| helper)
+            .collect();
+        quote! {
+            if data.is_empty() {
+                return ::core::result::Result::Err(
+                    ::hopper::__runtime::ProgramError::InvalidInstructionData,
+                );
+            }
+            static __HOPPER_DISPATCH_TABLE: [
+                for<'ctx, 'view, 'data> fn(
+                    &'ctx mut ::hopper::prelude::Context<'view>,
+                    &'data [u8],
+                ) -> ::core::result::Result<(), ::hopper::__runtime::ProgramError>;
+                #table_len
+            ] = [ #(#helper_idents),* ];
+            let __hopper_disc = data[0] as usize;
+            if __hopper_disc >= #table_len {
+                return ::core::result::Result::Err(
+                    ::hopper::__runtime::ProgramError::InvalidInstructionData,
+                );
+            }
+            __HOPPER_DISPATCH_TABLE[__hopper_disc](ctx, data)
+        }
+    } else if all_single_byte {
         let match_arms: Vec<TokenStream> = handlers
             .iter()
             .zip(dispatch_helpers.iter())
@@ -1740,6 +1798,277 @@ mod ctx_args_tests {
         assert!(
             out.contains("raw (ctx)"),
             "raw ctx dispatch expected: {out}"
+        );
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Macro-expansion tests for the fn-pointer-table dispatch fast path
+// (`profile = "tiny"` + contiguous single-byte discriminators 0..=N-1).
+// These drive `expand` end-to-end with real module token streams and
+// substring-match the normalized output, so a regression in the
+// eligibility predicate (table emitted for a gappy range, or the match
+// silently replaced outside tiny) fails here before any consumer crate
+// builds.
+// ─────────────────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod dispatch_table_tests {
+    use super::*;
+
+    /// Expand `#[hopper_program(#attr)] mod ...` and normalize the
+    /// token-stream string the same way the ctx_args tests do, so
+    /// substring assertions are stable against `quote`'s spacing.
+    fn expand_normalized(attr: TokenStream, module: TokenStream) -> String {
+        let raw = expand(attr, module)
+            .expect("program expansion should succeed")
+            .to_string();
+        raw.split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ")
+            .replace(" (", "(")
+            .replace("( ", "(")
+            .replace(" )", ")")
+            .replace(") ", ")")
+            .replace(" [", "[")
+            .replace("[ ", "[")
+            .replace(" ]", "]")
+            .replace("] ", "]")
+            .replace(" ,", ",")
+            .replace(", ", ",")
+            .replace(" ::", "::")
+            .replace(":: ", "::")
+            .replace(" .", ".")
+            .replace(". ", ".")
+    }
+
+    #[test]
+    fn contiguous_tiny_emits_fn_pointer_table() {
+        // 8 arms: exactly the MIN_TABLE_DISPATCH_ARMS threshold, where the
+        // indirect-call setup starts beating the compare ladder.
+        let out = expand_normalized(
+            quote!(profile = "tiny", entrypoint = false),
+            quote! {
+                mod vault {
+                    #[instruction(0)]
+                    fn i0(ctx: &mut Context<'_>) -> ProgramResult { Ok(()) }
+                    #[instruction(1)]
+                    fn i1(ctx: &mut Context<'_>) -> ProgramResult { Ok(()) }
+                    #[instruction(2)]
+                    fn i2(ctx: &mut Context<'_>) -> ProgramResult { Ok(()) }
+                    #[instruction(3)]
+                    fn i3(ctx: &mut Context<'_>) -> ProgramResult { Ok(()) }
+                    #[instruction(4)]
+                    fn i4(ctx: &mut Context<'_>) -> ProgramResult { Ok(()) }
+                    #[instruction(5)]
+                    fn i5(ctx: &mut Context<'_>) -> ProgramResult { Ok(()) }
+                    #[instruction(6)]
+                    fn i6(ctx: &mut Context<'_>) -> ProgramResult { Ok(()) }
+                    #[instruction(7)]
+                    fn i7(ctx: &mut Context<'_>) -> ProgramResult { Ok(()) }
+                }
+            },
+        );
+        assert!(
+            out.contains("static __HOPPER_DISPATCH_TABLE"),
+            "contiguous tiny should emit the dispatch table: {out}",
+        );
+        assert!(
+            !out.contains("match data[0"),
+            "contiguous tiny must not fall back to the match ladder: {out}",
+        );
+        // Bounds check + empty-data check preserve error semantics.
+        assert!(
+            out.contains("if data.is_empty()"),
+            "empty-data guard must survive: {out}",
+        );
+        assert!(
+            out.contains("if __hopper_disc >= 8usize"),
+            "unknown-discriminator bounds check must gate the table: {out}",
+        );
+        assert!(
+            out.contains("__HOPPER_DISPATCH_TABLE[__hopper_disc](ctx,data)"),
+            "indirect call through the table expected: {out}",
+        );
+    }
+
+    #[test]
+    fn table_entries_are_ordered_by_discriminator_not_declaration() {
+        // `beta` is declared first but carries discriminator 1;
+        // `alpha` carries 0. Slot i of the table must be disc i.
+        let out = expand_normalized(
+            quote!(profile = "tiny", entrypoint = false),
+            quote! {
+                mod vault {
+                    #[instruction(1)]
+                    fn beta(ctx: &mut Context<'_>) -> ProgramResult { Ok(()) }
+                    #[instruction(0)]
+                    fn alpha(ctx: &mut Context<'_>) -> ProgramResult { Ok(()) }
+                    #[instruction(2)]
+                    fn f2(ctx: &mut Context<'_>) -> ProgramResult { Ok(()) }
+                    #[instruction(3)]
+                    fn f3(ctx: &mut Context<'_>) -> ProgramResult { Ok(()) }
+                    #[instruction(4)]
+                    fn f4(ctx: &mut Context<'_>) -> ProgramResult { Ok(()) }
+                    #[instruction(5)]
+                    fn f5(ctx: &mut Context<'_>) -> ProgramResult { Ok(()) }
+                    #[instruction(6)]
+                    fn f6(ctx: &mut Context<'_>) -> ProgramResult { Ok(()) }
+                    #[instruction(7)]
+                    fn f7(ctx: &mut Context<'_>) -> ProgramResult { Ok(()) }
+                }
+            },
+        );
+        assert!(
+            out.contains("[__hopper_dispatch_alpha,__hopper_dispatch_beta,"),
+            "table slots must follow discriminator order: {out}",
+        );
+    }
+
+    #[test]
+    fn small_dispatch_tiny_keeps_match_below_threshold() {
+        // Below MIN_TABLE_DISPATCH_ARMS the compare ladder is cheaper than
+        // the callx setup (CU-path audit 2026-07-07: predicted +8..13 CU
+        // regression for tiny N), so small programs keep the match.
+        let out = expand_normalized(
+            quote!(profile = "tiny", entrypoint = false),
+            quote! {
+                mod vault {
+                    #[instruction(0)]
+                    fn only(ctx: &mut Context<'_>) -> ProgramResult { Ok(()) }
+                }
+            },
+        );
+        assert!(
+            !out.contains("static __HOPPER_DISPATCH_TABLE"),
+            "N=1 must not pay the fn-pointer table: {out}",
+        );
+    }
+
+    #[test]
+    fn non_contiguous_tiny_falls_back_to_match() {
+        let out = expand_normalized(
+            quote!(profile = "tiny", entrypoint = false),
+            quote! {
+                mod vault {
+                    #[instruction(0)]
+                    fn initialize(ctx: &mut Context<'_>) -> ProgramResult { Ok(()) }
+                    #[instruction(2)]
+                    fn withdraw(ctx: &mut Context<'_>) -> ProgramResult { Ok(()) }
+                }
+            },
+        );
+        assert!(
+            !out.contains("__HOPPER_DISPATCH_TABLE"),
+            "gappy discriminators must not get a table: {out}",
+        );
+        assert!(
+            out.contains("match data[0]"),
+            "gappy tiny keeps the match dispatch: {out}",
+        );
+    }
+
+    #[test]
+    fn tiny_range_not_starting_at_zero_falls_back_to_match() {
+        let out = expand_normalized(
+            quote!(profile = "tiny", entrypoint = false),
+            quote! {
+                mod vault {
+                    #[instruction(1)]
+                    fn first(ctx: &mut Context<'_>) -> ProgramResult { Ok(()) }
+                    #[instruction(2)]
+                    fn second(ctx: &mut Context<'_>) -> ProgramResult { Ok(()) }
+                }
+            },
+        );
+        assert!(
+            !out.contains("__HOPPER_DISPATCH_TABLE"),
+            "range 1..=2 does not start at 0 and must not get a table: {out}",
+        );
+        assert!(
+            out.contains("match data[0]"),
+            "offset tiny range keeps the match dispatch: {out}",
+        );
+    }
+
+    #[test]
+    fn contiguous_non_tiny_profile_keeps_match() {
+        for attr in [
+            quote!(entrypoint = false),
+            quote!(profile = "strict", entrypoint = false),
+            quote!(profile = "audit", entrypoint = false),
+            quote!(profile = "raw", entrypoint = false),
+        ] {
+            let out = expand_normalized(
+                attr,
+                quote! {
+                    mod vault {
+                        #[instruction(0)]
+                        fn initialize(ctx: &mut Context<'_>) -> ProgramResult { Ok(()) }
+                        #[instruction(1)]
+                        fn deposit(ctx: &mut Context<'_>) -> ProgramResult { Ok(()) }
+                    }
+                },
+            );
+            assert!(
+                !out.contains("__HOPPER_DISPATCH_TABLE"),
+                "only profile = \"tiny\" opts into the table: {out}",
+            );
+            assert!(
+                out.contains("match data[0]"),
+                "non-tiny single-byte keeps the match dispatch: {out}",
+            );
+        }
+    }
+
+    #[test]
+    fn multi_byte_non_tiny_keeps_prefix_chain() {
+        // Multi-byte discriminators are rejected under tiny, so the
+        // table interplay only needs checking on the default profile:
+        // the starts_with chain must be untouched.
+        let out = expand_normalized(
+            quote!(entrypoint = false),
+            quote! {
+                mod vault {
+                    #[instruction(discriminator = [0x1a, 0xf4])]
+                    fn ported(ctx: &mut Context<'_>) -> ProgramResult { Ok(()) }
+                    #[instruction(5)]
+                    fn native(ctx: &mut Context<'_>) -> ProgramResult { Ok(()) }
+                }
+            },
+        );
+        assert!(
+            !out.contains("__HOPPER_DISPATCH_TABLE"),
+            "multi-byte programs never get the table: {out}",
+        );
+        assert!(
+            out.contains("data.starts_with"),
+            "multi-byte keeps the prefix chain: {out}",
+        );
+    }
+
+    #[test]
+    fn table_dispatch_preserves_argument_decoding_helpers() {
+        // The table stores the same `__hopper_dispatch_*` helpers the
+        // match arms call, so arg decoding stays inside the helpers.
+        let out = expand_normalized(
+            quote!(profile = "tiny", entrypoint = false),
+            quote! {
+                mod vault {
+                    #[instruction(0)]
+                    fn initialize(ctx: &mut Context<'_>) -> ProgramResult { Ok(()) }
+                    #[instruction(1)]
+                    fn deposit(ctx: &mut Context<'_>, amount: u64) -> ProgramResult { Ok(()) }
+                }
+            },
+        );
+        assert!(
+            out.contains("fn __hopper_dispatch_deposit"),
+            "helper fns must still be emitted: {out}",
+        );
+        assert!(
+            out.contains("DecodeInstructionArg"),
+            "arg decoding must still run inside the helper: {out}",
         );
     }
 }

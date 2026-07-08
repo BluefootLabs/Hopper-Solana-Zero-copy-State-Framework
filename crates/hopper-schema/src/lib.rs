@@ -41,6 +41,13 @@ pub use hopper_core::receipt::{
 #[cfg(feature = "policy")]
 pub use hopper_core::policy::PolicyClass;
 
+// Re-export the runtime's declared-write-set primitive so the manifest can
+// carry the *same* `WriteRange` values the `strict_writes` context macro
+// compiles into its enforced `WritePolicy`. Using the runtime type verbatim
+// keeps the schema-layer projection byte-identical to the enforced source of
+// truth rather than a re-encoded copy (BLD-WR).
+pub use hopper_runtime::write_policy::WriteRange;
+
 // ---------------------------------------------------------------------------
 // On-chain manifest storage constants
 // ---------------------------------------------------------------------------
@@ -2532,6 +2539,71 @@ pub struct InstructionDescriptor {
     pub policy_pack: &'static str,
     /// Whether this instruction emits a receipt.
     pub receipt_expected: bool,
+    /// Whether the instruction's context was compiled with `strict_writes`.
+    ///
+    /// Under `strict_writes` the declared byte ranges in [`write_ranges`] are
+    /// the *complete, enforced* write surface: any account with no declared
+    /// range is a machine-checked read-only account and clients may safely
+    /// demote it to `writable: false`. When `false`, [`write_ranges`] carries
+    /// no authority and clients keep the account flags exactly as declared
+    /// (the pre-BLD-WR behavior).
+    ///
+    /// [`write_ranges`]: InstructionDescriptor::write_ranges
+    pub strict_writes: bool,
+    /// Declared byte-range write-set for this instruction.
+    ///
+    /// Each [`WriteRange::account_index`] is the position of the account in
+    /// [`accounts`](InstructionDescriptor::accounts) (the same index the
+    /// runtime `Context` uses). These are the identical `WriteRange` values
+    /// the `#[hopper::context(strict_writes)]` macro compiles into the
+    /// enforced `WritePolicy`, published here so tooling and generated clients
+    /// can see the byte-granular write surface instead of only the coarse
+    /// Sealevel `writable` bit. Empty under a non-`strict_writes` instruction.
+    pub write_ranges: &'static [WriteRange],
+}
+
+impl InstructionDescriptor {
+    /// Whether the account at `account_index` has any declared write range.
+    ///
+    /// For a **non-`strict_writes`** instruction this is always `true`: the
+    /// write set carries no authority, so no account may be demoted and the
+    /// caller must trust the declared `writable` flag. For a `strict_writes`
+    /// instruction it is `true` iff at least one [`WriteRange`] targets that
+    /// account index; a `false` result means the runtime `WritePolicy` will
+    /// reject every Context-mediated write to the account, so it is provably
+    /// read-only for the duration of the instruction.
+    pub fn account_has_declared_write(&self, account_index: usize) -> bool {
+        if !self.strict_writes {
+            return true;
+        }
+        self.write_ranges
+            .iter()
+            .any(|r| r.account_index as usize == account_index)
+    }
+
+    /// Effective `writable` flag a client should emit for the account at
+    /// `account_index`, given its declared flag.
+    ///
+    /// **Currently a safe passthrough: it never demotes.** Read-only
+    /// demotion based on `write_ranges` alone is *unsound*, because a
+    /// `WriteRange` describes a **data** byte range while Sealevel
+    /// writability also covers **lamport** mutation. An account can be
+    /// legitimately writable with zero data ranges — a `close`/`sweep`
+    /// recipient, a transfer target, any lamport-only credit — and the
+    /// runtime `WritePolicy` (which gates segment/`load_mut` *data* write
+    /// acquisition) does not govern those lamport changes either. Demoting
+    /// such an account to read-only would fail the transaction on chain.
+    ///
+    /// Automatic demotion is therefore deferred until an instruction can
+    /// declare its write set **mutation-complete** (data *and* lamports),
+    /// at which point an account absent from the set is provably untouched.
+    /// Until then this returns the declared flag unchanged; the published
+    /// `write_ranges` still serve schedulers and indexers as a
+    /// (data-write) contention footprint. See
+    /// [`account_has_declared_write`] for the raw range query.
+    pub fn effective_writable(&self, _account_index: usize, declared_writable: bool) -> bool {
+        declared_writable
+    }
 }
 
 /// An event descriptor in a program manifest.
@@ -4600,6 +4672,8 @@ mod tests {
             capabilities: &["MutatesState"],
             policy_pack: "TREASURY_WRITE",
             receipt_expected: true,
+            strict_writes: false,
+            write_ranges: &[],
         },
         InstructionDescriptor {
             name: "withdraw",
@@ -4609,6 +4683,8 @@ mod tests {
             capabilities: &["MutatesState", "TransfersTokens"],
             policy_pack: "TREASURY_WRITE",
             receipt_expected: true,
+            strict_writes: false,
+            write_ranges: &[],
         },
     ];
 
@@ -5714,11 +5790,17 @@ mod tests {
         assert_eq!(classify_seed("id.to_be_bytes()"), SeedPart::Arg("id"));
 
         // Surrounding whitespace is tolerated.
-        assert_eq!(classify_seed("  authority  "), SeedPart::Account("authority"));
+        assert_eq!(
+            classify_seed("  authority  "),
+            SeedPart::Account("authority")
+        );
 
         // Unresolvable expressions are surfaced verbatim, never silently
         // dropped (which would derive a wrong address).
-        assert!(matches!(classify_seed("some_fn(a, b)"), SeedPart::Unknown(_)));
+        assert!(matches!(
+            classify_seed("some_fn(a, b)"),
+            SeedPart::Unknown(_)
+        ));
         assert!(matches!(classify_seed("1 + 2"), SeedPart::Unknown(_)));
     }
 

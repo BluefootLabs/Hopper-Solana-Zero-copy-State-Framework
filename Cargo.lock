@@ -2036,6 +2036,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "hopper-builtins"
+version = "0.2.1"
+
+[[package]]
 name = "hopper-cli"
 version = "0.2.1"
 dependencies = [
@@ -2167,6 +2171,7 @@ version = "0.2.1"
 dependencies = [
  "hopper-anchor",
  "hopper-associated-token",
+ "hopper-builtins",
  "hopper-derive",
  "hopper-distribute",
  "hopper-finance",
@@ -2305,6 +2310,13 @@ dependencies = [
 [[package]]
 name = "hopper-registry"
 version = "0.2.1"
+dependencies = [
+ "hopper-lang",
+]
+
+[[package]]
+name = "hopper-router"
+version = "0.1.0"
 dependencies = [
  "hopper-lang",
 ]

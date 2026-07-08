@@ -514,6 +514,8 @@ mod tests {
             capabilities: &[],
             policy_pack: "",
             receipt_expected: false,
+            strict_writes: false,
+            write_ranges: &[],
         }];
         static EVENT_FIELDS: &[FieldDescriptor] = &[FieldDescriptor {
             name: "amount",

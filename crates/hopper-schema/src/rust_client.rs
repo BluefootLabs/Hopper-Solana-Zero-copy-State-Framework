@@ -531,7 +531,11 @@ fn write_instruction_builder(
         if !crate::clientgen::account_is_auto_pda(acc) {
             continue;
         }
-        writeln!(f, "    let ({}, _) = Pubkey::find_program_address(", snake_case(acc.name))?;
+        writeln!(
+            f,
+            "    let ({}, _) = Pubkey::find_program_address(",
+            snake_case(acc.name)
+        )?;
         write!(f, "        &[")?;
         for (i, seed) in acc.seeds.iter().enumerate() {
             if i > 0 {
@@ -569,7 +573,7 @@ fn write_instruction_builder(
     }
 
     writeln!(f, "    let account_metas = vec![")?;
-    for acc in ix.accounts.iter() {
+    for (idx, acc) in ix.accounts.iter().enumerate() {
         let signer_bool = if acc.signer { "true" } else { "false" };
         // PDA accounts use the derived local; provided accounts come from the
         // `accounts` struct.
@@ -578,10 +582,17 @@ fn write_instruction_builder(
         } else {
             format!("accounts.{}", snake_case(acc.name))
         };
+        // Under a strict_writes instruction, an account with no declared byte
+        // range is provably read-only (the runtime WritePolicy rejects every
+        // write), so emit a read-only AccountMeta.
         writeln!(
             f,
             "        AccountMeta::{}({}, {}),",
-            if acc.writable { "new" } else { "new_readonly" },
+            if ix.effective_writable(idx, acc.writable) {
+                "new"
+            } else {
+                "new_readonly"
+            },
             pubkey_expr,
             signer_bool
         )?;
@@ -939,6 +950,8 @@ mod tests {
             capabilities: &[],
             policy_pack: "",
             receipt_expected: false,
+            strict_writes: false,
+            write_ranges: &[],
         };
         static INSTRUCTIONS: &[InstructionDescriptor] = &[DEPOSIT];
         static EVENT_FIELDS: &[FieldDescriptor] = &[FieldDescriptor {
@@ -1104,5 +1117,82 @@ mod tests {
         assert!(out.contains("pub fn decode_deposit_event_data(data: &[u8])"));
         assert!(out.contains("data[0] != DEPOSIT_EVENT_EVENT_TAG"));
         assert!(out.contains("buf.copy_from_slice(&data[5..13]);"));
+    }
+
+    // -- BLD-WR: strict_writes account demotion in the Rust builder --
+
+    // Caller-provided (non-PDA) accounts so each emits `accounts.<name>`:
+    // vault is written; config is Sealevel-writable with no declared range.
+    static WR_ACCTS: &[AccountEntry] = &[
+        AccountEntry {
+            name: "vault",
+            writable: true,
+            signer: false,
+            layout_ref: "",
+            seeds: &[],
+        },
+        AccountEntry {
+            name: "config",
+            writable: true,
+            signer: false,
+            layout_ref: "",
+            seeds: &[],
+        },
+    ];
+    static WR_RANGES: &[crate::WriteRange] = &[crate::WriteRange::new(0, 16, 8)];
+
+    fn wr_manifest(strict: bool) -> ProgramManifest {
+        static STRICT_IX: &[InstructionDescriptor] = &[InstructionDescriptor {
+            name: "deposit",
+            tag: 0,
+            args: &[],
+            accounts: WR_ACCTS,
+            capabilities: &[],
+            policy_pack: "",
+            receipt_expected: false,
+            strict_writes: true,
+            write_ranges: WR_RANGES,
+        }];
+        static LOOSE_IX: &[InstructionDescriptor] = &[InstructionDescriptor {
+            name: "deposit",
+            tag: 0,
+            args: &[],
+            accounts: WR_ACCTS,
+            capabilities: &[],
+            policy_pack: "",
+            receipt_expected: false,
+            strict_writes: false,
+            write_ranges: &[],
+        }];
+        ProgramManifest {
+            name: "vault_program",
+            version: "0.1.0",
+            description: "test",
+            layouts: &[],
+            layout_metadata: &[],
+            instructions: if strict { STRICT_IX } else { LOOSE_IX },
+            events: &[],
+            policies: &[],
+            compatibility_pairs: &[],
+            tooling_hints: &[],
+            contexts: &[],
+        }
+    }
+
+    #[test]
+    fn rs_strict_writes_preserves_declared_writability() {
+        // Sound passthrough: demotion on data-range absence is unsound for
+        // lamport-writable accounts, so a Sealevel-writable account stays a
+        // writable AccountMeta even under strict_writes with no range for it.
+        let out = RsClientGen(&wr_manifest(true)).to_string();
+        assert!(out.contains("AccountMeta::new(accounts.vault, false),"));
+        assert!(out.contains("AccountMeta::new(accounts.config, false),"));
+    }
+
+    #[test]
+    fn rs_non_strict_instruction_keeps_declared_writable() {
+        let out = RsClientGen(&wr_manifest(false)).to_string();
+        // Non-strict: config keeps its declared writable flag.
+        assert!(out.contains("AccountMeta::new(accounts.config, false),"));
     }
 }

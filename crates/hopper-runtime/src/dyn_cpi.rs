@@ -34,7 +34,12 @@
 use core::mem::MaybeUninit;
 
 use crate::instruction::{InstructionAccount, InstructionView, Signer};
-use crate::{account::AccountView, address::Address, error::ProgramError, result::ProgramResult};
+use crate::{
+    account::AccountView,
+    address::{address_eq, Address},
+    error::ProgramError,
+    result::ProgramResult,
+};
 
 /// Variable-length CPI builder with compile-time stack capacity.
 ///
@@ -47,10 +52,23 @@ use crate::{account::AccountView, address::Address, error::ProgramError, result:
 /// avoids the two bounds entirely.
 pub struct DynCpi<'a, const MAX_ACCTS: usize, const MAX_DATA: usize> {
     program_id: &'a Address,
+    // Per-push (meta) storage: one slot per `push_account`, order and
+    // duplicates preserved — this is the ordered meta list the callee sees.
     accounts: [MaybeUninit<&'a AccountView<'a>>; MAX_ACCTS],
     writable: [bool; MAX_ACCTS],
     signer: [bool; MAX_ACCTS],
     account_count: usize,
+    // SIMD-0339 dedup projection (by pubkey): one entry per *unique*
+    // account. `info_first[k]` is the push index of the first occurrence of
+    // unique account `k` (used to recover its `AccountView`); the writable /
+    // signer flags are the OR across every occurrence, because an account
+    // that is writable (or a signer) in *any* meta must be passed to the
+    // syscall as writable (or signer). `u16` suffices: MAX_ACCTS never
+    // exceeds the 255 SIMD-0339 account ceiling in practice.
+    info_first: [u16; MAX_ACCTS],
+    info_writable: [bool; MAX_ACCTS],
+    info_signer: [bool; MAX_ACCTS],
+    info_count: usize,
     data: [MaybeUninit<u8>; MAX_DATA],
     data_len: usize,
 }
@@ -65,6 +83,10 @@ impl<'a, const MAX_ACCTS: usize, const MAX_DATA: usize> DynCpi<'a, MAX_ACCTS, MA
             writable: [false; MAX_ACCTS],
             signer: [false; MAX_ACCTS],
             account_count: 0,
+            info_first: [0u16; MAX_ACCTS],
+            info_writable: [false; MAX_ACCTS],
+            info_signer: [false; MAX_ACCTS],
+            info_count: 0,
             data: [const { MaybeUninit::uninit() }; MAX_DATA],
             data_len: 0,
         }
@@ -72,6 +94,15 @@ impl<'a, const MAX_ACCTS: usize, const MAX_DATA: usize> DynCpi<'a, MAX_ACCTS, MA
 
     /// Append one account meta. The `writable` and `signer` flags
     /// are carried through to the emitted CPI instruction.
+    ///
+    /// Every call appends one *meta* (order and duplicates preserved — the
+    /// callee reads accounts positionally). In parallel the builder folds
+    /// the account into a deduplicated *info* set keyed by pubkey: pushing
+    /// an address already present does **not** allocate a second info slot,
+    /// it reuses the existing one and OR-merges the writable/signer flags.
+    /// Under SIMD-0339 each distinct account-info costs CU, so N metas of
+    /// the same account collapse to a single info at submit time — a saving
+    /// a one-info-per-meta builder cannot make. See [`Self::info_count`].
     ///
     /// Returns `Err(ProgramError::InvalidArgument)` when the builder
     /// is already at `MAX_ACCTS` capacity. Users pick the capacity
@@ -87,9 +118,34 @@ impl<'a, const MAX_ACCTS: usize, const MAX_DATA: usize> DynCpi<'a, MAX_ACCTS, MA
         if self.account_count >= MAX_ACCTS {
             return Err(ProgramError::InvalidArgument);
         }
-        self.accounts[self.account_count] = MaybeUninit::new(account);
-        self.writable[self.account_count] = writable;
-        self.signer[self.account_count] = signer;
+        let idx = self.account_count;
+        self.accounts[idx] = MaybeUninit::new(account);
+        self.writable[idx] = writable;
+        self.signer[idx] = signer;
+
+        // Fold into the deduped info projection (match by pubkey).
+        let mut k = 0;
+        let mut merged = false;
+        while k < self.info_count {
+            // SAFETY: `info_first[k] < account_count`, so that `accounts`
+            // slot was initialized by an earlier `push_account`.
+            let existing = unsafe { self.accounts[self.info_first[k] as usize].assume_init() };
+            if address_eq(existing.address(), account.address()) {
+                self.info_writable[k] |= writable;
+                self.info_signer[k] |= signer;
+                merged = true;
+                break;
+            }
+            k += 1;
+        }
+        if !merged {
+            let slot = self.info_count;
+            self.info_first[slot] = idx as u16;
+            self.info_writable[slot] = writable;
+            self.info_signer[slot] = signer;
+            self.info_count = self.info_count.wrapping_add(1);
+        }
+
         self.account_count = self.account_count.wrapping_add(1);
         Ok(())
     }
@@ -132,10 +188,39 @@ impl<'a, const MAX_ACCTS: usize, const MAX_DATA: usize> DynCpi<'a, MAX_ACCTS, MA
         self.push_data(address.as_array())
     }
 
-    /// Current account count.
+    /// Current account (meta) count — one per `push_account`, including
+    /// duplicates. This is the length of the ordered meta list the callee
+    /// sees, *not* the deduped info count (see [`Self::info_count`]).
     #[inline(always)]
     pub const fn account_count(&self) -> usize {
         self.account_count
+    }
+
+    /// Number of *unique* account-infos after SIMD-0339 pubkey dedup.
+    ///
+    /// This is `<= account_count()`, and is exactly the count of
+    /// account-infos handed to the syscall at submit time. Pushing the same
+    /// address twice leaves this unchanged.
+    #[inline(always)]
+    pub const fn info_count(&self) -> usize {
+        self.info_count
+    }
+
+    /// The `k`-th deduplicated account-info: its view plus the OR-merged
+    /// `(writable, signer)` privilege across every occurrence. Returns
+    /// `None` for `k >= info_count()`.
+    ///
+    /// Infos are in first-occurrence (push) order, so `dedup_info(0)` is the
+    /// account whose first push came first.
+    #[inline]
+    pub fn dedup_info(&self, k: usize) -> Option<(&'a AccountView<'a>, bool, bool)> {
+        if k >= self.info_count {
+            return None;
+        }
+        // SAFETY: `k < info_count`, so `info_first[k] < account_count` names
+        // an initialized `accounts` slot.
+        let view = unsafe { self.accounts[self.info_first[k] as usize].assume_init() };
+        Some((view, self.info_writable[k], self.info_signer[k]))
     }
 
     /// Program id this dynamic CPI targets.
@@ -183,20 +268,27 @@ impl<'a, const MAX_ACCTS: usize, const MAX_DATA: usize> DynCpi<'a, MAX_ACCTS, MA
 
     /// Submit the built CPI with the given PDA signer seeds.
     ///
-    /// Assembles the pushed `(account, writable, signer)` metas and the
-    /// data buffer into an [`InstructionView`] and routes it through the
-    /// **validated** dynamic-count path
-    /// ([`cpi::invoke_signed_with_bounds`](crate::cpi::invoke_signed_with_bounds)):
-    /// address/flag agreement, PDA-signer resolution, live-borrow
-    /// checks, and duplicate-writable rejection all run before the
-    /// syscall. This is the typed signer threading the module docs
-    /// promise — the builder and the submission are one method chain.
+    /// Assembles the pushed `(account, writable, signer)` metas — the full
+    /// ordered list, duplicates preserved — and the data buffer into an
+    /// [`InstructionView`], then routes it through the **validated,
+    /// dedup-aware** path
+    /// ([`cpi::invoke_signed_deduped`](crate::cpi::invoke_signed_deduped)).
+    /// The metas define what the callee sees positionally; the account-info
+    /// list handed to the syscall is the pubkey-deduplicated set (one info
+    /// per unique account, flags OR-merged), so under SIMD-0339 duplicate
+    /// account-infos cost nothing. Address/flag agreement, PDA-signer
+    /// resolution, live-borrow checks, and duplicate-writable rejection all
+    /// run over the full meta list before the syscall — dedup never weakens
+    /// validation. This is the typed signer threading the module docs
+    /// promise: the builder and the submission are one method chain.
     #[inline]
     pub fn invoke_signed(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
         let count = self.account_count;
+        let views = self.account_views();
+
+        // Full ordered meta list — one meta per push, duplicates kept.
         let mut metas: [MaybeUninit<InstructionAccount<'a>>; MAX_ACCTS] =
             [const { MaybeUninit::uninit() }; MAX_ACCTS];
-        let views = self.account_views();
         let mut i = 0;
         while i < count {
             metas[i] = MaybeUninit::new(InstructionAccount::new(
@@ -215,7 +307,28 @@ impl<'a, const MAX_ACCTS: usize, const MAX_DATA: usize> DynCpi<'a, MAX_ACCTS, MA
             data: self.data(),
             accounts: metas_slice,
         };
-        crate::cpi::invoke_signed_with_bounds::<MAX_ACCTS>(&instruction, views, signers)
+
+        // Deduplicated account-info list — one AccountView per unique
+        // address, in first-occurrence order.
+        let mut infos: [MaybeUninit<&'a AccountView<'a>>; MAX_ACCTS] =
+            [const { MaybeUninit::uninit() }; MAX_ACCTS];
+        let mut k = 0;
+        while k < self.info_count {
+            // SAFETY: `info_first[k] < account_count` names an initialized
+            // `accounts` slot.
+            let view = unsafe { self.accounts[self.info_first[k] as usize].assume_init() };
+            infos[k] = MaybeUninit::new(view);
+            k += 1;
+        }
+        // SAFETY: slots `0..info_count` were initialized by the loop above.
+        let infos_slice = unsafe {
+            core::slice::from_raw_parts(
+                infos.as_ptr() as *const &'a AccountView<'a>,
+                self.info_count,
+            )
+        };
+
+        crate::cpi::invoke_signed_deduped::<MAX_ACCTS>(&instruction, infos_slice, signers)
     }
 }
 
@@ -314,10 +427,7 @@ mod tests {
 
             let mut cpi: DynCpi<2, 4> = DynCpi::new(&program);
             cpi.push_account(&not_signer, false, true).unwrap();
-            assert_eq!(
-                cpi.invoke(),
-                Err(ProgramError::MissingRequiredSignature)
-            );
+            assert_eq!(cpi.invoke(), Err(ProgramError::MissingRequiredSignature));
         }
 
         #[test]
@@ -345,6 +455,129 @@ mod tests {
             assert_eq!(views.len(), 2);
             assert_eq!(views[0].address(), &Address::from([5u8; 32]));
             assert_eq!(views[1].address(), &Address::from([6u8; 32]));
+        }
+
+        // -- SIMD-0339 account-info dedup --------------------------------
+
+        #[test]
+        fn repeated_address_collapses_to_one_info_with_or_merged_flags() {
+            let program = Address::from([9u8; 32]);
+            // One underlying account, pushed twice with complementary flags.
+            let (_b, acct) = make_account(7, true, true);
+
+            let mut cpi: DynCpi<4, 4> = DynCpi::new(&program);
+            cpi.push_account(&acct, true, false).unwrap(); // writable, not signer
+            cpi.push_account(&acct, false, true).unwrap(); // not writable, signer
+
+            // Both pushes are kept as metas...
+            assert_eq!(cpi.account_count(), 2);
+            // ...but collapse to a single deduplicated account-info.
+            assert_eq!(cpi.info_count(), 1);
+
+            let (view, writable, signer) = cpi.dedup_info(0).unwrap();
+            assert_eq!(view.address(), &Address::from([7u8; 32]));
+            // Flags are the OR across occurrences: writable in push #1,
+            // signer in push #2 => the single info is both.
+            assert!(writable, "writable in any meta => info writable");
+            assert!(signer, "signer in any meta => info signer");
+            assert!(cpi.dedup_info(1).is_none());
+        }
+
+        #[test]
+        fn distinct_addresses_stay_distinct_infos() {
+            let program = Address::from([9u8; 32]);
+            let (_b1, a) = make_account(5, false, false);
+            let (_b2, b) = make_account(6, false, false);
+
+            let mut cpi: DynCpi<4, 4> = DynCpi::new(&program);
+            cpi.push_account(&a, false, false).unwrap();
+            cpi.push_account(&b, false, false).unwrap();
+
+            assert_eq!(cpi.account_count(), 2);
+            assert_eq!(cpi.info_count(), 2);
+            assert_eq!(
+                cpi.dedup_info(0).unwrap().0.address(),
+                &Address::from([5u8; 32])
+            );
+            assert_eq!(
+                cpi.dedup_info(1).unwrap().0.address(),
+                &Address::from([6u8; 32])
+            );
+        }
+
+        #[test]
+        fn metas_preserve_order_and_duplicates_while_infos_dedup() {
+            let program = Address::from([9u8; 32]);
+            let (_b1, a) = make_account(5, false, false);
+            let (_b2, b) = make_account(6, false, false);
+
+            // Push order a, b, a: the middle account is distinct, the third
+            // repeats the first.
+            let mut cpi: DynCpi<4, 4> = DynCpi::new(&program);
+            cpi.push_account(&a, false, false).unwrap();
+            cpi.push_account(&b, false, false).unwrap();
+            cpi.push_account(&a, false, false).unwrap();
+
+            // Metas: all three, in push order, duplicate preserved.
+            let metas = cpi.account_views();
+            assert_eq!(metas.len(), 3);
+            assert_eq!(metas[0].address(), &Address::from([5u8; 32]));
+            assert_eq!(metas[1].address(), &Address::from([6u8; 32]));
+            assert_eq!(metas[2].address(), &Address::from([5u8; 32]));
+
+            // Infos: two unique, in first-occurrence order.
+            assert_eq!(cpi.info_count(), 2);
+            assert_eq!(
+                cpi.dedup_info(0).unwrap().0.address(),
+                &Address::from([5u8; 32])
+            );
+            assert_eq!(
+                cpi.dedup_info(1).unwrap().0.address(),
+                &Address::from([6u8; 32])
+            );
+        }
+
+        #[test]
+        fn invoke_submits_deduped_repeated_readonly_account() {
+            let program = Address::from([9u8; 32]);
+            let (_b, acct) = make_account(8, false, false);
+
+            let mut cpi: DynCpi<4, 4> = DynCpi::new(&program);
+            cpi.push_account(&acct, false, false).unwrap();
+            cpi.push_account(&acct, false, false).unwrap();
+            cpi.push_account(&acct, false, false).unwrap();
+
+            // Three read-only metas of one account collapse to one info.
+            assert_eq!(cpi.account_count(), 3);
+            assert_eq!(cpi.info_count(), 1);
+            // Off-chain the syscall is a no-op; Ok proves the dedup-aware
+            // validation pipeline accepted the built instruction.
+            assert_eq!(cpi.invoke(), Ok(()));
+        }
+
+        #[test]
+        fn wide_dyn_cpi_exceeds_legacy_64_account_ceiling() {
+            let program = Address::from([9u8; 32]);
+            // 65 distinct accounts — one past the pre-SIMD-0339 static
+            // ceiling of 64. Keep backings and views alive for the builder.
+            let mut backings: std::vec::Vec<std::vec::Vec<u8>> = std::vec::Vec::new();
+            let mut views: std::vec::Vec<AccountView<'static>> = std::vec::Vec::new();
+            for i in 1..=65u8 {
+                let (b, v) = make_account(i, false, false);
+                backings.push(b);
+                views.push(v);
+            }
+
+            let mut cpi: DynCpi<70, 4> = DynCpi::new(&program);
+            for v in &views {
+                cpi.push_account(v, false, false).unwrap();
+            }
+
+            assert_eq!(cpi.account_count(), 65);
+            // All distinct, so no dedup shrinkage here — but the shape is
+            // accepted, proving >64 account CPIs build and submit.
+            assert_eq!(cpi.info_count(), 65);
+            assert_eq!(cpi.invoke(), Ok(()));
         }
     }
 }

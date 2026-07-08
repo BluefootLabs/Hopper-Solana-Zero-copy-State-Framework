@@ -182,10 +182,8 @@ pub fn require_token_authority(
     if data.len() < 64 {
         return Err(ProgramError::AccountDataTooSmall);
     }
-    let mut owner_bytes = [0u8; 32];
-    owner_bytes.copy_from_slice(&data[32..64]);
-    let authority_bytes: [u8; 32] = *authority.address().as_array();
-    if owner_bytes == authority_bytes {
+    // Word-compare the owner field in place: no 32-byte copy.
+    if crate::address::keys_eq_bytes(&data[32..64], authority.address().as_array()) {
         Ok(())
     } else {
         Err(ProgramError::IncorrectAuthority)
@@ -214,9 +212,8 @@ pub fn require_token_owner_eq(
     if data.len() < 64 {
         return Err(ProgramError::AccountDataTooSmall);
     }
-    let mut actual = [0u8; 32];
-    actual.copy_from_slice(&data[32..64]);
-    if actual == *expected_owner.as_array() {
+    // Word-compare the owner field in place: no 32-byte copy.
+    if crate::address::keys_eq_bytes(&data[32..64], expected_owner.as_array()) {
         Ok(())
     } else {
         Err(ProgramError::IncorrectAuthority)
@@ -252,12 +249,8 @@ pub fn require_token_mint(
     if data.len() < 32 {
         return Err(ProgramError::AccountDataTooSmall);
     }
-    let actual: [u8; 32] = {
-        let mut out = [0u8; 32];
-        out.copy_from_slice(&data[0..32]);
-        out
-    };
-    if actual == *expected_mint.as_array() {
+    // Word-compare the mint field in place: no 32-byte copy.
+    if crate::address::keys_eq_bytes(&data[0..32], expected_mint.as_array()) {
         Ok(())
     } else {
         Err(ProgramError::InvalidAccountData)
@@ -298,9 +291,8 @@ pub fn require_mint_authority(
         // Tag value 0 = None; any other non-one value is malformed.
         return Err(ProgramError::InvalidAccountData);
     }
-    let mut actual = [0u8; 32];
-    actual.copy_from_slice(&data[4..36]);
-    if actual == *expected_authority.as_array() {
+    // Word-compare the authority field in place: no 32-byte copy.
+    if crate::address::keys_eq_bytes(&data[4..36], expected_authority.as_array()) {
         Ok(())
     } else {
         Err(ProgramError::IncorrectAuthority)
@@ -349,9 +341,8 @@ pub fn require_mint_freeze_authority(
     if tag != 1 {
         return Err(ProgramError::InvalidAccountData);
     }
-    let mut actual = [0u8; 32];
-    actual.copy_from_slice(&data[50..82]);
-    if actual == *expected_freeze.as_array() {
+    // Word-compare the freeze-authority field in place: no 32-byte copy.
+    if crate::address::keys_eq_bytes(&data[50..82], expected_freeze.as_array()) {
         Ok(())
     } else {
         Err(ProgramError::IncorrectAuthority)

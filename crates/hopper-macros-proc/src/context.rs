@@ -1227,8 +1227,12 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                     // Convention: the cross-referenced field on the
                     // layout must be named identically to the target
                     // account's field, and must coerce to an `Address`.
-                    if ::core::convert::AsRef::<[u8; 32]>::as_ref(&layout.#target_field_ident)
-                        != ::core::convert::AsRef::<[u8; 32]>::as_ref(expected_key)
+                    // Rewrap the field's bytes as an `Address` so the
+                    // comparison hits the runtime's 4 x u64 word-compare
+                    // `PartialEq` instead of a bytewise slice compare.
+                    if ::hopper::__runtime::Address::new(
+                        *::core::convert::AsRef::<[u8; 32]>::as_ref(&layout.#target_field_ident),
+                    ) != *expected_key
                     {
                         return ::core::result::Result::Err(
                             ::hopper::__runtime::ProgramError::InvalidAccountData

@@ -129,6 +129,15 @@ pub use hopper_system;
 pub use hopper_token;
 pub use hopper_token_2022;
 
+// Program-wide tuned memory intrinsics (opt-in, I18). The anonymous
+// `as _` import forces the hopper-builtins rlib onto the linker command
+// line even though no item is named, so its `#[no_mangle]`
+// memcmp/bcmp/memcpy/memset definitions are pulled from our archive
+// before the platform-tools compiler-builtins archive is searched.
+// SBF-only: on host targets the crate exports nothing to link.
+#[cfg(all(target_os = "solana", feature = "builtins"))]
+use hopper_builtins as _;
+
 /// Beginner-facing account surface.
 ///
 /// This module is the framework-first import path for account roles and typed

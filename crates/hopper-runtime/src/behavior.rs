@@ -234,12 +234,11 @@ mod tests {
     // SAFETY: as above.
     unsafe impl crate::Pod for FeeVault {}
     impl crate::field_map::FieldMap for FeeVault {
-        const FIELDS: &'static [crate::field_map::FieldInfo] =
-            &[crate::field_map::FieldInfo::new(
-                "collected_bps",
-                HopperHeader::SIZE,
-                2,
-            )];
+        const FIELDS: &'static [crate::field_map::FieldInfo] = &[crate::field_map::FieldInfo::new(
+            "collected_bps",
+            HopperHeader::SIZE,
+            2,
+        )];
     }
     impl LayoutContract for FeeVault {
         const DISC: u8 = 42;

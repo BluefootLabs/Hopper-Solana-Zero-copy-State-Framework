@@ -3,29 +3,61 @@
 //! Hopper-owned crates use this module instead of depending on external SDK
 //! syscall paths.
 
+// These runtime-local syscall aliases keep a Rust name distinct from the
+// runtime symbol name (e.g. `syscall_sol_memcpy` -> `sol_memcpy_`) so the public
+// wrappers below can reuse the bare syscall names. Each flows through
+// `hopper_native::define_syscall!`, which is dual-mode:
+//
+//   * default build  -> the historical `extern "C" { #[link_name = ...] }` decl
+//     (byte-identical to before);
+//   * `--features static-syscalls` -> a static murmur32-hashed call taken over
+//     the *symbol* name (the `link_name`, not the Rust alias), matching the
+//     sBPF v3 / SIMD-0178 ABI.
+//
+// The feature is inherited from `hopper-native` via `hopper-runtime`'s own
+// `static-syscalls` feature; the default build is unchanged.
+
 #[cfg(target_os = "solana")]
-extern "C" {
+hopper_native::define_syscall!(
     #[link_name = "sol_set_return_data"]
-    fn syscall_sol_set_return_data(data: *const u8, length: u64);
+    fn syscall_sol_set_return_data(data: *const u8, length: u64)
+);
 
+#[cfg(target_os = "solana")]
+hopper_native::define_syscall!(
     #[link_name = "sol_get_return_data"]
-    fn syscall_sol_get_return_data(data: *mut u8, length: u64, program_id: *mut u8) -> u64;
+    fn syscall_sol_get_return_data(data: *mut u8, length: u64, program_id: *mut u8) -> u64
+);
 
+#[cfg(target_os = "solana")]
+hopper_native::define_syscall!(
     #[link_name = "sol_remaining_compute_units"]
-    fn syscall_sol_remaining_compute_units() -> u64;
+    fn syscall_sol_remaining_compute_units() -> u64
+);
 
+#[cfg(target_os = "solana")]
+hopper_native::define_syscall!(
     #[link_name = "sol_memcpy_"]
-    fn syscall_sol_memcpy(dst: *mut u8, src: *const u8, n: u64);
+    fn syscall_sol_memcpy(dst: *mut u8, src: *const u8, n: u64)
+);
 
+#[cfg(target_os = "solana")]
+hopper_native::define_syscall!(
     #[link_name = "sol_memmove_"]
-    fn syscall_sol_memmove(dst: *mut u8, src: *const u8, n: u64);
+    fn syscall_sol_memmove(dst: *mut u8, src: *const u8, n: u64)
+);
 
+#[cfg(target_os = "solana")]
+hopper_native::define_syscall!(
     #[link_name = "sol_memcmp_"]
-    fn syscall_sol_memcmp(left: *const u8, right: *const u8, n: u64, result: *mut i32);
+    fn syscall_sol_memcmp(left: *const u8, right: *const u8, n: u64, result: *mut i32)
+);
 
+#[cfg(target_os = "solana")]
+hopper_native::define_syscall!(
     #[link_name = "sol_memset_"]
-    fn syscall_sol_memset(dst: *mut u8, byte: u8, n: u64);
-}
+    fn syscall_sol_memset(dst: *mut u8, byte: u8, n: u64)
+);
 
 /// Emit a `sol_log_data` event payload.
 ///

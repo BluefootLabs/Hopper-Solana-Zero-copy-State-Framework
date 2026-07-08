@@ -214,6 +214,8 @@ mod tests {
         capabilities: &["CreatesAccount", "MutatesState"],
         policy_pack: "COMPACT_VAULT_WRITE",
         receipt_expected: false,
+        strict_writes: false,
+        write_ranges: &[],
     };
 
     static DEPOSIT_IX: InstructionDescriptor = InstructionDescriptor {
@@ -224,6 +226,8 @@ mod tests {
         capabilities: &["MutatesState"],
         policy_pack: "COMPACT_VAULT_WRITE",
         receipt_expected: false,
+        strict_writes: false,
+        write_ranges: &[],
     };
 
     static INSTRUCTIONS: [InstructionDescriptor; 2] = [INIT_IX, DEPOSIT_IX];

@@ -9,11 +9,25 @@ use crate::instruction::{CpiAccount, InstructionView, Signer};
 use crate::ProgramResult;
 use core::mem::MaybeUninit;
 
-/// Maximum number of accounts in a static CPI call.
+/// Default stack-sized ceiling for a *static* CPI call.
+///
+/// This is deliberately the low pre-SIMD-0339 value: it sizes the
+/// `MaybeUninit` account/meta scratch arrays that some fixed-shape CPI
+/// helpers stack-allocate, and every SBF call frame is only 4 KiB. Raising
+/// it would grow those arrays for *every* program, including the vast
+/// majority that never approach 64 accounts. Callers that genuinely need a
+/// wider CPI opt in per-call through the const-generic `MAX_ACCOUNTS`
+/// parameter (up to [`MAX_CPI_ACCOUNTS`]), which costs nothing when unused.
 pub const MAX_STATIC_CPI_ACCOUNTS: usize = 64;
 
-/// Maximum number of accounts in any CPI call.
-pub const MAX_CPI_ACCOUNTS: usize = 128;
+/// Hard ceiling on the number of account-infos in any single CPI.
+///
+/// Raised from 128 to 255 for **SIMD-0339** (`increase_cpi_account_info_limit`,
+/// live on testnet epoch 883), which lifts the runtime CPI account-info limit
+/// from 64 to 255. This is a *ceiling* only — it does not size any array, so
+/// widening it does not cost stack for programs that stay small. A per-call
+/// const-generic `MAX_ACCOUNTS` still governs the actual scratch allocation.
+pub const MAX_CPI_ACCOUNTS: usize = 255;
 
 /// Maximum return data size (1 KiB).
 pub const MAX_RETURN_DATA: usize = 1024;

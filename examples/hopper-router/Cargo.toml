@@ -1,0 +1,18 @@
+[package]
+name = "hopper-router"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+hopper = { path = "../..", package = "hopper-lang", default-features = false }
+
+[features]
+default = []
+
+[lints.rust]
+unexpected_cfgs = { level = "allow", check-cfg = ['cfg(target_os, values("solana"))'] }

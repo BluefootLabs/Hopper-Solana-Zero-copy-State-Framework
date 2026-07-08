@@ -927,9 +927,9 @@ mod write_policy_tests {
 
         // Declared ranges work, including disjoint simultaneous writes.
         {
-            let mut segs =
-                ctx.split_segments_mut::<[u8; 8], 2>(0, [(BALANCE_OFF, 8), (NONCE_OFF, 8)])
-                    .unwrap();
+            let mut segs = ctx
+                .split_segments_mut::<[u8; 8], 2>(0, [(BALANCE_OFF, 8), (NONCE_OFF, 8)])
+                .unwrap();
             let [bal, nonce] = segs.all_mut();
             bal[0] = 1;
             nonce[0] = 2;

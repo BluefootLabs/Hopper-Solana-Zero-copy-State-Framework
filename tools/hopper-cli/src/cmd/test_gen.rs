@@ -2,15 +2,53 @@ use std::fs;
 use std::path::PathBuf;
 use std::process;
 
-use hopper_schema::ProgramManifest;
+use hopper_schema::{InstructionDescriptor, ProgramManifest};
 
 pub fn cmd_test_gen(args: &[String]) {
-    if args.first().map(String::as_str) != Some("security") {
-        usage_and_exit();
+    match args.first().map(String::as_str) {
+        Some("security") => run_generator(&args[1..], Generator::Security),
+        // `write-containment` (aliases: `writes`, `containment`) emits the
+        // declared-vs-actual write-containment property tests (BLD-TG).
+        Some("write-containment") | Some("writes") | Some("containment") => {
+            run_generator(&args[1..], Generator::WriteContainment)
+        }
+        _ => usage_and_exit(),
     }
+}
+
+#[derive(Clone, Copy)]
+enum Generator {
+    Security,
+    WriteContainment,
+}
+
+impl Generator {
+    fn default_out(self) -> &'static str {
+        match self {
+            Generator::Security => "tests/hopper_security_matrix.rs",
+            Generator::WriteContainment => "tests/hopper_write_containment.rs",
+        }
+    }
+
+    fn render(self, manifest: &ProgramManifest) -> String {
+        match self {
+            Generator::Security => security_matrix(manifest),
+            Generator::WriteContainment => write_containment_matrix(manifest),
+        }
+    }
+
+    fn label(self) -> &'static str {
+        match self {
+            Generator::Security => "security test matrix",
+            Generator::WriteContainment => "write-containment property tests",
+        }
+    }
+}
+
+fn run_generator(args: &[String], generator: Generator) {
     let mut program_arg = None;
-    let mut out_path = PathBuf::from("tests/hopper_security_matrix.rs");
-    let mut i = 1;
+    let mut out_path = PathBuf::from(generator.default_out());
+    let mut i = 0;
     while i < args.len() {
         match args[i].as_str() {
             "--program" => {
@@ -43,19 +81,24 @@ pub fn cmd_test_gen(args: &[String]) {
             process::exit(1);
         });
     }
-    fs::write(&out_path, security_matrix(&manifest)).unwrap_or_else(|err| {
+    fs::write(&out_path, generator.render(&manifest)).unwrap_or_else(|err| {
         eprintln!("Failed to write {}: {err}", out_path.display());
         process::exit(1);
     });
     println!(
-        "Generated security test matrix for {} at {}",
+        "Generated {} for {} at {}",
+        generator.label(),
         manifest.name,
         out_path.display()
     );
 }
 
 fn usage_and_exit() -> ! {
-    eprintln!("Usage: hopper test-gen security --program <manifest> [--out tests/hopper_security_matrix.rs]");
+    eprintln!("Usage:");
+    eprintln!(
+        "  hopper test-gen security --program <manifest> [--out tests/hopper_security_matrix.rs]"
+    );
+    eprintln!("  hopper test-gen write-containment --program <manifest> [--out tests/hopper_write_containment.rs]");
     process::exit(1);
 }
 
@@ -100,6 +143,250 @@ fn security_matrix(manifest: &ProgramManifest) -> String {
     out
 }
 
+// ─────────────────────────────────────────────────────────────────────────
+// Write-containment property tests (BLD-TG)
+//
+// For each instruction that declares `strict_writes`, emit a hopper-svm
+// property test that drives the handler under the `touch-map` feature and
+// asserts that every recorded write touch `(account, offset, size)` is
+// contained in the instruction's declared `WritePolicy` — the *same* static
+// policy the `strict_writes` macro compiles from the context's `mut` /
+// `mut(seg, ...)` declarations and installs via `ctx.set_write_policy`. The
+// manifest publishes those exact byte ranges in `InstructionDescriptor::
+// write_ranges`; the runtime installs them as the enforced policy. The
+// touch-map ledger is the "actual" footprint; the installed policy is the
+// "declared" set. No competitor can generate this test because none carries
+// the ledger.
+//
+// A partial touch map (`touch_map_overflowed`) is surfaced as INCONCLUSIVE,
+// never silently passed. Instructions that do NOT declare `strict_writes`
+// get no such test, and are enumerated in a trailing comment for the record.
+// ─────────────────────────────────────────────────────────────────────────
+
+/// Reusable oracle + assertion helpers emitted verbatim into every generated
+/// write-containment file. The algorithm here is the textual twin of
+/// [`containment_verdict`] (used by this crate's own tests): keep the two in
+/// lock-step so the in-crate unit test genuinely proves the emitted logic.
+const CONTAINMENT_HELPERS: &str = r#"use hopper::context::Context;
+use hopper::hopper_runtime::segment_borrow::AccessKind;
+
+/// Outcome of folding an instruction's touch-map ledger against its installed
+/// (declared) write policy.
+#[derive(Debug, PartialEq, Eq)]
+enum Containment {
+    /// Every recorded write touch is contained in a declared range.
+    Contained,
+    /// A write touch fell outside every declared range.
+    Violation { account_index: u8, offset: u32, size: u32 },
+    /// The touch map overflowed: the footprint is partial, so containment is
+    /// inconclusive and MUST NOT be treated as a pass.
+    Inconclusive,
+    /// `strict_writes` was expected but no policy was installed on the ctx.
+    NoPolicy,
+}
+
+/// Declared-vs-actual oracle. Reuses the shipped `WritePolicy` (declared) and
+/// the touch-map ledger (actual) — zero instrumentation in the program.
+fn evaluate_containment(ctx: &Context<'_>) -> Containment {
+    // Overflow first: a partial ledger can never certify containment.
+    if ctx.touch_map_overflowed() {
+        return Containment::Inconclusive;
+    }
+    let policy = match ctx.write_policy() {
+        Some(p) => p,
+        None => return Containment::NoPolicy,
+    };
+    let accounts = ctx.accounts();
+    let mut verdict = Containment::Contained;
+    ctx.for_each_touch(|t| {
+        // Reads are never write-policy-gated.
+        if t.kind != AccessKind::Write {
+            return;
+        }
+        // Report the first violation; later touches don't override it.
+        if verdict != Containment::Contained {
+            return;
+        }
+        let touched = t.key.to_bytes();
+        let idx = accounts
+            .iter()
+            .position(|a| a.address().to_bytes() == touched);
+        match idx {
+            Some(i) if i <= u8::MAX as usize => {
+                if !policy.allows_write(i as u8, t.offset, t.size) {
+                    verdict = Containment::Violation {
+                        account_index: i as u8,
+                        offset: t.offset,
+                        size: t.size,
+                    };
+                }
+            }
+            // A write on an account the ctx can't resolve, or beyond the u8
+            // index space, can never be a declared range: it is a violation.
+            _ => {
+                verdict = Containment::Violation {
+                    account_index: u8::MAX,
+                    offset: t.offset,
+                    size: t.size,
+                };
+            }
+        }
+    });
+    verdict
+}
+
+/// Panic with a precise message unless every actual write is contained.
+fn assert_writes_contained(instruction: &str, ctx: &Context<'_>) {
+    match evaluate_containment(ctx) {
+        Containment::Contained => {}
+        Containment::Inconclusive => panic!(
+            "{instruction}: touch map overflowed — write footprint is PARTIAL, so \
+             containment is INCONCLUSIVE (raise MAX_TOUCH_RECORDS or split the \
+             instruction); refusing to report a false pass"
+        ),
+        Containment::NoPolicy => panic!(
+            "{instruction}: no write policy installed — this test was generated for a \
+             `strict_writes` instruction but the bound context installed no policy"
+        ),
+        Containment::Violation {
+            account_index,
+            offset,
+            size,
+        } => panic!(
+            "{instruction}: write [{offset}, {offset}+{size}) on account {account_index} \
+             ESCAPES the declared strict_writes WritePolicy (declared-vs-actual mismatch)"
+        ),
+    }
+}
+"#;
+
+fn write_containment_matrix(manifest: &ProgramManifest) -> String {
+    let mut out = String::new();
+    out.push_str("//! Generated by `hopper test-gen write-containment`.\n");
+    out.push_str("//!\n");
+    out.push_str(
+        "//! Write-containment property tests: every actual write touch recorded by the\n",
+    );
+    out.push_str("//! `touch-map` ledger must be contained in the instruction's declared\n");
+    out.push_str(
+        "//! `strict_writes` `WritePolicy`. The installed policy is the SAME static set\n",
+    );
+    out.push_str(
+        "//! the macro compiles from the context's `mut` / `mut(seg, ...)` declarations\n",
+    );
+    out.push_str(
+        "//! (published byte-for-byte in `InstructionDescriptor::write_ranges`), so this\n",
+    );
+    out.push_str("//! is a true declared-vs-actual guarantee with zero program changes.\n");
+    out.push_str("//!\n");
+    out.push_str(
+        "//! Requires the `touch-map` feature. For each instruction below, implement the\n",
+    );
+    out.push_str("//! `drive_*` fixture hook to build account fixtures, bind the\n");
+    out.push_str(
+        "//! `#[hopper::context(strict_writes)]` context, run the handler, and hand the\n",
+    );
+    out.push_str(
+        "//! resulting raw `hopper::context::Context` to `check`. Tests are `#[ignore]`d\n",
+    );
+    out.push_str("//! until their fixture is wired.\n");
+    out.push_str("#![cfg(feature = \"touch-map\")]\n");
+    out.push_str("#![allow(dead_code)]\n\n");
+    out.push_str(CONTAINMENT_HELPERS);
+    out.push('\n');
+
+    let mut emitted = 0usize;
+    let mut skipped: Vec<&str> = Vec::new();
+    for ix in manifest.instructions {
+        if !instruction_declares_strict_writes(ix) {
+            skipped.push(ix.name);
+            continue;
+        }
+        emitted += 1;
+        out.push_str(&emit_instruction_test(ix));
+    }
+
+    if emitted == 0 {
+        out.push_str(
+            "// No instruction in this manifest declares `strict_writes`, so no\n\
+             // write-containment tests were generated. This is expected: the guarantee\n\
+             // only applies to instructions that opt into byte-range write policies.\n",
+        );
+        out.push_str("#[test]\nfn no_strict_writes_instructions() {\n");
+        out.push_str("    // Placeholder so the generated file has at least one item.\n");
+        out.push_str("}\n\n");
+    }
+
+    // Document the contract: instructions WITHOUT strict_writes get no test.
+    if !skipped.is_empty() {
+        out.push_str("// Instructions WITHOUT `strict_writes` (no containment test emitted):\n");
+        for name in skipped {
+            out.push_str(&format!("//   - {name}\n"));
+        }
+    }
+    out
+}
+
+/// Emit the fixture hook + `#[test]` for one `strict_writes` instruction,
+/// including a doc comment enumerating its declared write ranges (the
+/// manifest's published `WritePolicy`, for the reader's reference — the test
+/// itself checks against the runtime-installed policy).
+fn emit_instruction_test(ix: &InstructionDescriptor) -> String {
+    let base = sanitize(ix.name);
+    let name = ix.name;
+    let mut out = String::new();
+
+    out.push_str(&format!(
+        "/// Drive `{name}` through its bound `strict_writes` context and hand the raw\n"
+    ));
+    out.push_str("/// context (touch map + installed write policy) to `check`.\n");
+    out.push_str("///\n/// Declared write ranges (from the manifest `WritePolicy`):\n");
+    if ix.write_ranges.is_empty() {
+        out.push_str(
+            "///   (none — an empty policy: every Context-mediated write is denied,\n\
+             ///    i.e. a machine-checked read-only instruction)\n",
+        );
+    } else {
+        for r in ix.write_ranges {
+            out.push_str(&format!(
+                "///   - account {}: [{}, {}+{})\n",
+                r.account_index, r.offset, r.offset, r.size
+            ));
+        }
+    }
+    out.push_str(&format!(
+        "///\n/// TODO(fixture): build fixtures, bind the strict_writes context, run the\n\
+         /// `{name}` handler, then call `check(bound.raw())`.\n"
+    ));
+    out.push_str(&format!(
+        "fn drive_{base}(check: impl FnOnce(&Context<'_>)) {{\n"
+    ));
+    out.push_str("    let _ = check;\n");
+    out.push_str(&format!(
+        "    unimplemented!(\"wire the `{name}` strict_writes fixture\");\n"
+    ));
+    out.push_str("}\n\n");
+    out.push_str(&format!(
+        "#[test]\n#[ignore = \"implement drive_{base}(): bind strict_writes ctx, run handler\"]\n"
+    ));
+    out.push_str(&format!("fn write_containment_{base}() {{\n"));
+    out.push_str(&format!(
+        "    drive_{base}(|ctx| assert_writes_contained(\"{name}\", ctx));\n"
+    ));
+    out.push_str("}\n\n");
+    out
+}
+
+/// Whether `ix` opts into byte-range write policies (`strict_writes`).
+///
+/// Reads the manifest's first-class `strict_writes` flag, which the
+/// `#[hopper::context(strict_writes)]` macro sets alongside the published
+/// `write_ranges`. Instructions without it are provably outside the
+/// containment guarantee and get no generated test.
+fn instruction_declares_strict_writes(ix: &InstructionDescriptor) -> bool {
+    ix.strict_writes
+}
+
 fn sanitize(value: &str) -> String {
     value
         .chars()
@@ -111,4 +398,253 @@ fn sanitize(value: &str) -> String {
             }
         })
         .collect()
+}
+
+// ── Tests ────────────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use hopper_schema::{InstructionDescriptor, ProgramManifest, WriteRange};
+
+    const fn ix(
+        name: &'static str,
+        strict_writes: bool,
+        write_ranges: &'static [WriteRange],
+    ) -> InstructionDescriptor {
+        InstructionDescriptor {
+            name,
+            tag: 0,
+            args: &[],
+            accounts: &[],
+            capabilities: &[],
+            policy_pack: "",
+            receipt_expected: false,
+            strict_writes,
+            write_ranges,
+        }
+    }
+
+    const fn manifest(instructions: &'static [InstructionDescriptor]) -> ProgramManifest {
+        ProgramManifest {
+            name: "demo",
+            version: "0.0.0",
+            description: "",
+            layouts: &[],
+            layout_metadata: &[],
+            instructions,
+            events: &[],
+            policies: &[],
+            compatibility_pairs: &[],
+            tooling_hints: &[],
+            contexts: &[],
+        }
+    }
+
+    // ---- gating: strict_writes detection ---------------------------------
+
+    #[test]
+    fn strict_writes_flag_gates_generation() {
+        let strict = ix("deposit", true, &[]);
+        let plain = ix("peek", false, &[]);
+        assert!(instruction_declares_strict_writes(&strict));
+        assert!(!instruction_declares_strict_writes(&plain));
+    }
+
+    // ---- emitted source shape --------------------------------------------
+
+    #[test]
+    fn emitted_source_has_containment_assertions_for_strict_writes_ix() {
+        static RANGES: &[WriteRange] = &[WriteRange::new(1, 16, 8), WriteRange::new(1, 24, 8)];
+        static IXS: &[InstructionDescriptor] =
+            &[ix("deposit", true, RANGES), ix("peek", false, &[])];
+        static M: ProgramManifest = manifest(IXS);
+        let src = write_containment_matrix(&M);
+
+        // The oracle + assertion helpers are present.
+        assert!(src.contains("fn evaluate_containment(ctx: &Context<'_>) -> Containment"));
+        assert!(src.contains("fn assert_writes_contained(instruction: &str, ctx: &Context<'_>)"));
+        assert!(src.contains("policy.allows_write(i as u8, t.offset, t.size)"));
+        // Overflow is surfaced as inconclusive, never a silent pass.
+        assert!(src.contains("touch_map_overflowed()"));
+        assert!(src.contains("INCONCLUSIVE"));
+
+        // A per-instruction test + fixture hook exists for the strict_writes ix.
+        assert!(src.contains("fn write_containment_deposit()"));
+        assert!(src.contains("fn drive_deposit(check: impl FnOnce(&Context<'_>))"));
+        assert!(src.contains("assert_writes_contained(\"deposit\", ctx)"));
+
+        // The declared ranges are documented in the emitted source.
+        assert!(src.contains("account 1: [16, 16+8)"));
+        assert!(src.contains("account 1: [24, 24+8)"));
+
+        // The non-strict_writes instruction gets NO test, and is documented.
+        assert!(!src.contains("fn write_containment_peek()"));
+        assert!(src.contains("Instructions WITHOUT `strict_writes`"));
+        assert!(src.contains("//   - peek"));
+    }
+
+    #[test]
+    fn empty_policy_strict_writes_ix_documents_read_only_contract() {
+        static IXS: &[InstructionDescriptor] = &[ix("freeze", true, &[])];
+        static M: ProgramManifest = manifest(IXS);
+        let src = write_containment_matrix(&M);
+        assert!(src.contains("fn write_containment_freeze()"));
+        assert!(src.contains("machine-checked read-only instruction"));
+    }
+
+    #[test]
+    fn emitted_source_documents_when_no_strict_writes_instructions() {
+        static IXS: &[InstructionDescriptor] = &[ix("peek", false, &[])];
+        static M: ProgramManifest = manifest(IXS);
+        let src = write_containment_matrix(&M);
+        assert!(src.contains("No instruction in this manifest declares `strict_writes`"));
+        assert!(src.contains("fn no_strict_writes_instructions()"));
+        assert!(!src.contains("fn write_containment_"));
+    }
+
+    #[test]
+    fn emitted_source_is_gated_on_touch_map_feature() {
+        static IXS: &[InstructionDescriptor] = &[ix("deposit", true, &[])];
+        static M: ProgramManifest = manifest(IXS);
+        let src = write_containment_matrix(&M);
+        assert!(src.contains("#![cfg(feature = \"touch-map\")]"));
+    }
+
+    // ---- assertion-logic proof (synthesized touch-vs-policy mismatch) ----
+    //
+    // `containment_verdict` is the textual twin of the emitted
+    // `evaluate_containment`: same overflow-first ordering, same "first write
+    // touch not contained in any declared range => Violation", same read-skip.
+    // Testing it here proves the emitted assertion actually catches a
+    // violation, without standing up a full on-chain fixture. The declared
+    // ranges use the REAL `hopper_schema::WriteRange::contains`, so this also
+    // pins the containment predicate the runtime enforces.
+
+    #[derive(Debug, PartialEq, Eq)]
+    enum Verdict {
+        Contained,
+        Violation {
+            account_index: u8,
+            offset: u32,
+            size: u32,
+        },
+        Inconclusive,
+        NoPolicy,
+    }
+
+    /// A recorded touch: (account_index, offset, size, is_write).
+    fn containment_verdict(
+        overflowed: bool,
+        policy: Option<&[WriteRange]>,
+        touches: &[(u8, u32, u32, bool)],
+    ) -> Verdict {
+        if overflowed {
+            return Verdict::Inconclusive;
+        }
+        let ranges = match policy {
+            Some(r) => r,
+            None => return Verdict::NoPolicy,
+        };
+        for &(idx, offset, size, is_write) in touches {
+            if !is_write {
+                continue;
+            }
+            let contained = ranges
+                .iter()
+                .any(|r| r.contains(offset, size) && r.account_index == idx);
+            if !contained {
+                return Verdict::Violation {
+                    account_index: idx,
+                    offset,
+                    size,
+                };
+            }
+        }
+        Verdict::Contained
+    }
+
+    static POLICY: &[WriteRange] = &[WriteRange::new(1, 16, 8), WriteRange::new(1, 24, 8)];
+
+    #[test]
+    fn all_declared_writes_are_contained() {
+        let touches = [(1u8, 16u32, 8u32, true), (1, 24, 8, true), (1, 18, 4, true)];
+        assert_eq!(
+            containment_verdict(false, Some(POLICY), &touches),
+            Verdict::Contained
+        );
+    }
+
+    #[test]
+    fn write_outside_declared_ranges_is_caught_as_violation() {
+        // Writes balance [16,24) — allowed — then a stray write at [0,8).
+        let touches = [(1u8, 16u32, 8u32, true), (1, 0, 8, true)];
+        assert_eq!(
+            containment_verdict(false, Some(POLICY), &touches),
+            Verdict::Violation {
+                account_index: 1,
+                offset: 0,
+                size: 8
+            }
+        );
+    }
+
+    #[test]
+    fn write_straddling_two_adjacent_ranges_is_a_violation() {
+        // [16,32) is covered by the UNION of two ranges but by neither single
+        // declaration — containment is per-declaration, so this is a violation.
+        let touches = [(1u8, 16u32, 16u32, true)];
+        assert_eq!(
+            containment_verdict(false, Some(POLICY), &touches),
+            Verdict::Violation {
+                account_index: 1,
+                offset: 16,
+                size: 16
+            }
+        );
+    }
+
+    #[test]
+    fn read_touches_are_never_policy_violations() {
+        // A read outside every declared range is fine; only writes are gated.
+        let touches = [(1u8, 0u32, 8u32, false), (1, 16, 8, true)];
+        assert_eq!(
+            containment_verdict(false, Some(POLICY), &touches),
+            Verdict::Contained
+        );
+    }
+
+    #[test]
+    fn overflow_is_inconclusive_even_when_a_violation_is_present() {
+        // A partial ledger must never certify containment, nor mask a violation
+        // as a pass: it is reported as INCONCLUSIVE regardless of touches.
+        let touches = [(1u8, 0u32, 8u32, true)];
+        assert_eq!(
+            containment_verdict(true, Some(POLICY), &touches),
+            Verdict::Inconclusive
+        );
+    }
+
+    #[test]
+    fn missing_policy_is_surfaced_not_treated_as_pass() {
+        let touches = [(1u8, 16u32, 8u32, true)];
+        assert_eq!(
+            containment_verdict(false, None, &touches),
+            Verdict::NoPolicy
+        );
+    }
+
+    #[test]
+    fn wrong_account_write_is_a_violation() {
+        // A write on account 2 with no declared range on account 2.
+        let touches = [(2u8, 16u32, 8u32, true)];
+        assert_eq!(
+            containment_verdict(false, Some(POLICY), &touches),
+            Verdict::Violation {
+                account_index: 2,
+                offset: 16,
+                size: 8
+            }
+        );
+    }
 }

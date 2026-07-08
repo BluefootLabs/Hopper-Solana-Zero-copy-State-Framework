@@ -287,16 +287,18 @@ macro_rules! require_neq {
 #[macro_export]
 macro_rules! require_keys_eq {
     ( $left:expr, $right:expr, $err:expr ) => {
-        if ::core::convert::AsRef::<[u8; 32]>::as_ref(&$left)
-            != ::core::convert::AsRef::<[u8; 32]>::as_ref(&$right)
-        {
+        if !$crate::address::keys_eq(
+            ::core::convert::AsRef::<[u8; 32]>::as_ref(&$left),
+            ::core::convert::AsRef::<[u8; 32]>::as_ref(&$right),
+        ) {
             return Err($err);
         }
     };
     ( $left:expr, $right:expr ) => {
-        if ::core::convert::AsRef::<[u8; 32]>::as_ref(&$left)
-            != ::core::convert::AsRef::<[u8; 32]>::as_ref(&$right)
-        {
+        if !$crate::address::keys_eq(
+            ::core::convert::AsRef::<[u8; 32]>::as_ref(&$left),
+            ::core::convert::AsRef::<[u8; 32]>::as_ref(&$right),
+        ) {
             return Err($crate::ProgramError::InvalidAccountData);
         }
     };
@@ -308,16 +310,18 @@ macro_rules! require_keys_eq {
 #[macro_export]
 macro_rules! require_keys_neq {
     ( $left:expr, $right:expr, $err:expr ) => {
-        if ::core::convert::AsRef::<[u8; 32]>::as_ref(&$left)
-            == ::core::convert::AsRef::<[u8; 32]>::as_ref(&$right)
-        {
+        if $crate::address::keys_eq(
+            ::core::convert::AsRef::<[u8; 32]>::as_ref(&$left),
+            ::core::convert::AsRef::<[u8; 32]>::as_ref(&$right),
+        ) {
             return Err($err);
         }
     };
     ( $left:expr, $right:expr ) => {
-        if ::core::convert::AsRef::<[u8; 32]>::as_ref(&$left)
-            == ::core::convert::AsRef::<[u8; 32]>::as_ref(&$right)
-        {
+        if $crate::address::keys_eq(
+            ::core::convert::AsRef::<[u8; 32]>::as_ref(&$left),
+            ::core::convert::AsRef::<[u8; 32]>::as_ref(&$right),
+        ) {
             return Err($crate::ProgramError::InvalidAccountData);
         }
     };
