@@ -197,6 +197,15 @@ define_syscall!(pub fn sol_log_64_(arg1: u64, arg2: u64, arg3: u64, arg4: u64, a
 #[cfg(target_os = "solana")]
 define_syscall!(pub fn sol_log_compute_units_());
 
+/// Remaining compute units for the current invocation (SIMD-0049).
+///
+/// Unlike `sol_log_compute_units_` (which only *logs*), this returns the
+/// value to the program, making real in-program budget guards possible —
+/// see `budget::CuBudget`. Only programs that actually call it reference
+/// the symbol, so binding it here costs nothing for programs that don't.
+#[cfg(target_os = "solana")]
+define_syscall!(pub fn sol_remaining_compute_units() -> u64);
+
 /// Log structured data segments (for events).
 #[cfg(target_os = "solana")]
 define_syscall!(pub fn sol_log_data(data: *const u8, data_len: u64));
