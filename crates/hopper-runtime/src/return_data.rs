@@ -32,14 +32,14 @@ impl ReturnData {
     /// Bytes copied into this snapshot.
     #[inline(always)]
     pub fn data(&self) -> &[u8] {
+        // Fail-closed backstop for the invariant the SAFETY comment relies
+        // on: `data_len` can never exceed the buffer capacity.
+        debug_assert!(self.data_len <= MAX_RETURN_DATA);
         // SAFETY: `sol_get_return_data` initializes exactly
         // `min(actual_len, MAX_RETURN_DATA)` bytes of the buffer it was handed,
         // and `get_return_data` sets `data_len` to that same value (the test
         // constructor likewise writes `data_len` bytes before setting it), so
         // the first `data_len` bytes are always initialized `u8`s.
-        // Fail-closed backstop for the invariant the SAFETY comment relies
-        // on: `data_len` can never exceed the buffer capacity.
-        debug_assert!(self.data_len <= MAX_RETURN_DATA);
         unsafe { core::slice::from_raw_parts(self.data.as_ptr() as *const u8, self.data_len) }
     }
 

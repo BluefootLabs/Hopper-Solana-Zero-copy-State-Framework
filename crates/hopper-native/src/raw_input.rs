@@ -348,6 +348,8 @@ pub unsafe fn scan_instruction_frame(input: *mut u8) -> RawInstructionFrame {
     // first 8 bytes are the account count. `read_unaligned` avoids assuming the
     // pointer is 8-byte aligned.
     let num_accounts = unsafe { core::ptr::read_unaligned(scan as *const u64) as usize };
+    // SAFETY: advancing past the 8-byte account-count prefix keeps `scan`
+    // within the loader input buffer, at the first account record boundary.
     scan = unsafe { scan.add(8) };
     let accounts_start = scan;
 

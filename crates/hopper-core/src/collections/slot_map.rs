@@ -142,7 +142,14 @@ impl<'a, T: Pod + FixedLayout> SlotMap<'a, T> {
                         value,
                     );
                 }
-                self.set_count(self.count() + 1);
+                // The stored `count` header is untrusted (account bytes are
+                // attacker-writable) and `from_bytes` does not reconcile it
+                // against the per-slot occupancy flags — slot access is gated
+                // on the flags, not `count`, so `count` is a reporting value
+                // only. Clamp to capacity so a crafted `count == capacity`
+                // with a free slot can never push the reported length past the
+                // real bound.
+                self.set_count(self.count().saturating_add(1).min(cap));
                 return Ok(SlotKey {
                     index: i as u32,
                     generation: gen,
@@ -191,7 +198,13 @@ impl<'a, T: Pod + FixedLayout> SlotMap<'a, T> {
         for byte in &mut self.data[val_off..val_off + T::SIZE] {
             *byte = 0;
         }
-        self.set_count(self.count() - 1);
+        // Saturating: the stored `count` is untrusted and may not agree with
+        // the occupancy flags this removal is actually gated on. An
+        // unchecked `count - 1` on a crafted `count == 0` underflows —
+        // debug-panics, or in release wraps to `usize::MAX`, bricking the
+        // reported length. `count` is a reporting value only (slot access is
+        // flag-gated), so saturating is both safe and correct.
+        self.set_count(self.count().saturating_sub(1));
         Ok(value)
     }
 
@@ -243,5 +256,37 @@ mod tests {
         // Old key cannot access new value
         assert!(map.get(k1).is_err());
         assert_eq!(map.get(k2).unwrap().get(), 2);
+    }
+
+    #[test]
+    fn remove_on_hostile_zero_count_does_not_underflow() {
+        // Account bytes are attacker-writable and `from_bytes` does not
+        // reconcile the stored `count` with the occupancy flags. Craft a
+        // buffer whose slot 0 is occupied (a real element removal succeeds
+        // its flag/generation gate) but whose `count` header is 0, so the
+        // decrement would underflow. It must saturate, not panic or wrap.
+        let mut buf = [0u8; 8 + (8 + 8) * 2];
+        {
+            let mut map = SlotMap::<WireU64>::from_bytes(&mut buf).unwrap();
+            let k = map.insert(WireU64::new(42)).unwrap();
+            // Corrupt the count header back to 0 while slot 0 stays occupied.
+            map.set_count(0);
+            // The removal is gated on the occupancy flag (still set), so it
+            // proceeds; the count decrement must saturate at 0.
+            let removed = map.remove(k).unwrap();
+            assert_eq!(removed.get(), 42);
+            assert_eq!(map.count(), 0);
+        }
+    }
+
+    #[test]
+    fn insert_on_hostile_full_count_clamps_to_capacity() {
+        // A crafted `count == capacity` with a genuinely free slot must not
+        // push the reported length past capacity when that slot is filled.
+        let mut buf = [0u8; 8 + (8 + 8) * 2]; // capacity 2
+        let mut map = SlotMap::<WireU64>::from_bytes(&mut buf).unwrap();
+        map.set_count(map.capacity()); // lie: "full", but both slots are free
+        let _ = map.insert(WireU64::new(7)).unwrap();
+        assert!(map.count() <= map.capacity());
     }
 }

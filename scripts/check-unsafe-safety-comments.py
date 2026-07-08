@@ -41,9 +41,37 @@ def is_doc_or_comment(line: str) -> bool:
 
 
 def nearby_safety(lines: list[str], index: int, radius: int = 3) -> bool:
+    # Inline window: a `// SAFETY:` on the same line or within `radius` lines
+    # after the block (covers trailing-comment styles).
     start = max(0, index - radius)
     end = min(len(lines), index + radius + 1)
-    return any("SAFETY:" in lines[i] for i in range(start, end))
+    if any("SAFETY:" in lines[i] for i in range(start, end)):
+        return True
+    # Attached-comment-block scan: walk up through the contiguous run of
+    # comment / attribute / blank lines immediately above the `unsafe` block
+    # and accept if any carries a `SAFETY:` tag. This rewards thorough
+    # multi-line SAFETY invariants (which can exceed the fixed radius) while
+    # still requiring the comment to be attached to the block rather than
+    # floating elsewhere in the file.
+    cursor = index - 1
+    while cursor >= 0:
+        stripped = lines[cursor].rstrip()
+        lstripped = stripped.lstrip()
+        if lstripped.startswith("//") or lstripped.startswith("#[") or lstripped == "":
+            if "SAFETY:" in lines[cursor]:
+                return True
+            cursor -= 1
+            continue
+        # Step over an assignment-continuation line: rustfmt breaks a long
+        # `let x: LongType =\n    unsafe { ... }` binding, so the SAFETY
+        # comment documenting the statement sits above the `let`, one line
+        # further up than the `unsafe` token. The `=` suffix is the reliable
+        # marker of exactly this split.
+        if stripped.endswith("="):
+            cursor -= 1
+            continue
+        break
+    return False
 
 
 def doc_block_has_safety(lines: list[str], index: int) -> bool:

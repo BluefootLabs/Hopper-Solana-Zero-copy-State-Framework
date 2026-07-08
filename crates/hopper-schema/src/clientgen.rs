@@ -577,9 +577,12 @@ impl<'a> fmt::Display for TsInstructions<'a> {
                     write!(f, "    {{ pubkey: accounts.")?;
                     write_camel(f, acc.name)?;
                 }
-                // Under a strict_writes instruction, an account with no declared
-                // byte range is provably read-only (the runtime WritePolicy
-                // rejects every write), so demote it to isWritable:false.
+                // `effective_writable` is a sound passthrough today: it
+                // preserves the declared flag. Data-range absence does not
+                // prove an account read-only (a `WriteRange` covers data, not
+                // lamport-only writes on close/sweep/transfer targets), so
+                // automatic demotion is deferred until write sets can be
+                // declared mutation-complete.
                 writeln!(
                     f,
                     ", isSigner: {}, isWritable: {} }},",

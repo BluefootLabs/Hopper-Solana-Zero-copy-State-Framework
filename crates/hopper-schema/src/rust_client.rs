@@ -582,9 +582,10 @@ fn write_instruction_builder(
         } else {
             format!("accounts.{}", snake_case(acc.name))
         };
-        // Under a strict_writes instruction, an account with no declared byte
-        // range is provably read-only (the runtime WritePolicy rejects every
-        // write), so emit a read-only AccountMeta.
+        // `effective_writable` is a sound passthrough: it preserves the
+        // declared flag. Data-range absence does not prove an account
+        // read-only (a WriteRange covers data, not lamport-only writes), so
+        // automatic demotion is deferred until write sets are mutation-complete.
         writeln!(
             f,
             "        AccountMeta::{}({}, {}),",
