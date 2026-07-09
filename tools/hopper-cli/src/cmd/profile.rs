@@ -402,6 +402,22 @@ fn run_inline_attribution(
     let attr = pd::attribute_text(&segments, index.as_ref(), &symbols);
     match index.as_ref() {
         Some(ix) => {
+            // Honesty guard, learned the hard way: platform-tools' `-g`
+            // measurably CHANGES sBPF codegen (a debug=2 rebuild of the
+            // same crate shifted deploy .text by +152 bytes), so a leaf
+            // that is fat here can already be optimized away in the
+            // debug=0 artifact you deploy. Case in point: this table
+            // attributed 880 B to `From<ProgramError> for u64`'s 25-arm
+            // match, yet release .text was bit-identical with the match
+            // deleted — LLVM had already collapsed it without `-g`.
+            println!(
+                "note: attribution reflects THIS debuginfo build. `-g` can change sBPF codegen,"
+            );
+            println!(
+                "      so verify a candidate on your debug=0 deploy artifact (e.g. rebuild with"
+            );
+            println!("      the change and compare `.text` bytes) before crediting a saving.");
+            println!();
             println!(
                 "inline-frame attribution (DWARF: {} unit{}, {} inline PC range{}):",
                 ix.unit_count(),

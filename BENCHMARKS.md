@@ -224,26 +224,32 @@ Anchor 0.31.1/1.x, with the shelf life that implies.
 | Unsigned withdraw | rejected | rejected | rejected | rejected |
 | Binary size | 7.41 KiB ⚠️ | 7.73 KiB | **5.47 KiB** | 190.11 KiB |
 
-> ⚠️ **The Hopper binary-size cell is stale — do not quote it.** (2026-07-09)
+> **Size + CU re-measured 2026-07-09** (mollusk 0.10.3 host runner, Quasar's
+> own prebuilt vault; Anchor column not re-run — 2026-07-02 vintage there).
 >
-> Re-measuring the same benchmark vault at HEAD gives **`.text` = 14,368
-> bytes (14.03 KiB)**, not 7.41 KiB. Batches 5–7 (the lamport gate, write
-> policy, CPI tiers, receipts) regressed `.text` and nothing was watching
-> the number. Two fixes have since landed, both measured on this vault:
+> An earlier revision of this note reported 14.03 KiB by measuring the
+> wrong program (the receipts-exercising `hopper-bench` lab target, not
+> this row's `hopper-parity-vault`). Corrected numbers, same-day artifacts:
 >
-> - the lamport gate's `static mut` was in `.data` rather than `.bss`, so
->   ~32 KiB of zeros were written into **every** program's `.so` (and paid
->   for in deploy rent). Now `.bss`: **−32,768 bytes of `.so`**.
-> - a single unprovable slice index made `panic_bounds_check` /
->   `slice_end_index_len_fail` reachable, and those **format** their
->   arguments — linking ~5.1 KiB of `core::fmt` into a `no_std` program.
->   Now zero formatting symbols: **`.text` 19,504 → 14,368 (−26.3%)**.
+> | | Hopper | Pinocchio | Quasar |
+> |---|---:|---:|---:|
+> | Authorize / Auth-fail / Counter CU | **420** / 61 / **518** | 2512 / **41** / 2539 | n/a |
+> | Deposit / Withdraw CU | **1650** / **486** | 3856 / 2548 | 1756 / 592 |
+> | `.so` file | 8,280 B (8.09 KiB) | 7.73 KiB | **5.47 KiB** |
+> | `.text` | 6,656 B (6.50 KiB) | — | — |
 >
-> The remaining delta versus the recorded 7.41 KiB is real and unclosed;
-> `entrypoint` alone is 10,464 bytes (73% of `.text`). The other three
-> columns were **not** re-run today, so the row is mixed-vintage. It will be
-> restated only after a full four-way re-measurement — we do not publish a
-> size lead we have not measured, and Quasar currently wins this row.
+> Hopper still wins every comparable CU row. Withdraw is 442 → 486 (+44 CU)
+> versus the 07-02 table: that is the lamport gate (mutation-complete
+> write-sets) actually enforcing on the one lamport-moving instruction —
+> a measured safety feature the other columns do not have, and still 18%
+> under Quasar. Size interim: this week a **P0 was found by loading** (the
+> gate's `static mut` made every `lamports(...)` program fail the SBF
+> loader's no-writable-sections rule — fixed by moving the store into the
+> reserved, zero-initialized VM heap), ~5 KiB of accidentally-linked
+> `core::fmt` was eliminated, and the vault now measures **below** the
+> recorded 7.41 KiB. Quasar still wins the size row (8.09 vs 5.47 KiB
+> file); the gap is real, named, and being closed — we do not publish a
+> size lead we have not measured.
 
 The Pinocchio column is built in-tree from the benchmark repo's Anza
 Pinocchio target, not borrowed from Quasar's reference sample or an older
