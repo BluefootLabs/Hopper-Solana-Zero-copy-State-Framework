@@ -1196,6 +1196,13 @@ mod kani_proofs {
     const IX_SENTINEL: [u8; MAX_IX] = [0xA5; MAX_IX];
     /// Recognizable program-id trailer.
     const PID_SENTINEL: [u8; 32] = [0xC4; 32];
+    /// One 8-byte word of [`PID_SENTINEL`]. The program id is written and
+    /// compared a word at a time (see `write_frame` /
+    /// `check_fused_walk_against_oracle`) so the harness never contains a
+    /// 32-byte `memcpy`/`memcmp` loop — such a loop would force the whole
+    /// harness unwind past 32 and blow up the SAT formula. Every real loop
+    /// then fits in `unwind(10)`, matching the trap/stride harnesses.
+    const PID_WORD: [u8; 8] = [0xC4; 8];
 
     /// 8-aligned fixed-size backing buffer, mirroring the loader
     /// guarantee that the input region starts at the 8-aligned
@@ -1269,7 +1276,13 @@ mod kani_proofs {
         pos += 8;
         buf[pos..pos + ix_len].copy_from_slice(&IX_SENTINEL[..ix_len]);
         pos += ix_len;
-        buf[pos..pos + 32].copy_from_slice(&PID_SENTINEL);
+        // Program id written as 4x 8-byte words (never one 32-byte copy):
+        // keeps the harness free of any 32-iteration memcpy loop.
+        let mut w = 0;
+        while w < 4 {
+            buf[pos + w * 8..pos + w * 8 + 8].copy_from_slice(&PID_WORD);
+            w += 1;
+        }
         pos + 32
     }
 
@@ -1390,36 +1403,65 @@ mod kani_proofs {
             oracle.instruction_data_range.start
         );
         assert_eq!(oracle.program_id_offset, oracle.instruction_data_range.end);
-        assert_eq!(
-            pid.as_array().as_slice(),
-            &backing.0[oracle.program_id_offset..oracle.program_id_offset + 32]
-        );
+        // Word-wise program-id equality: four u64 comparisons rather than a
+        // 32-byte slice `==` (which lowers to a `memcmp` loop that would
+        // force the harness unwind past 32). Reads are scalar; no loop
+        // exceeds `unwind(10)`.
+        let pid_bytes = pid.as_array();
+        let poff = oracle.program_id_offset;
+        let mut w = 0;
+        while w < 4 {
+            let o = w * 8;
+            let got = u64::from_le_bytes([
+                pid_bytes[o],
+                pid_bytes[o + 1],
+                pid_bytes[o + 2],
+                pid_bytes[o + 3],
+                pid_bytes[o + 4],
+                pid_bytes[o + 5],
+                pid_bytes[o + 6],
+                pid_bytes[o + 7],
+            ]);
+            let want = u64::from_le_bytes([
+                backing.0[poff + o],
+                backing.0[poff + o + 1],
+                backing.0[poff + o + 2],
+                backing.0[poff + o + 3],
+                backing.0[poff + o + 4],
+                backing.0[poff + o + 5],
+                backing.0[poff + o + 6],
+                backing.0[poff + o + 7],
+            ]);
+            assert_eq!(got, want);
+            w += 1;
+        }
     }
 
     #[kani::proof]
-    // 40 > 33: the oracle-equality `assert_eq!` over 32-byte `[u8; 32]`
-    // program-id / address arrays lowers to a 32-iteration `memcmp`, so
-    // the loop bound must exceed 32 (trap harnesses stay at 10 — they
-    // trap before any address materialization or compare).
-    #[kani::unwind(40)]
+    // 10 suffices: the program id is written and compared a word at a time
+    // (see `PID_WORD`), so the harness contains no 32-byte memcpy/memcmp
+    // loop — every real loop (skip-tail, materialize, 4-word compares) is
+    // <= 9 iterations. A naive 32-byte slice `==` here previously forced
+    // the bound past 32 and blew up the SAT formula.
+    #[kani::unwind(10)]
     fn differential_zero_accounts() {
         check_fused_walk_against_oracle::<0, 4, { frame_len(0) }>();
     }
 
     #[kani::proof]
-    #[kani::unwind(40)]
+    #[kani::unwind(10)]
     fn differential_one_canonical_account() {
         check_fused_walk_against_oracle::<1, 4, { frame_len(1) }>();
     }
 
     #[kani::proof]
-    #[kani::unwind(40)]
+    #[kani::unwind(10)]
     fn differential_two_accounts_symbolic_markers() {
         check_fused_walk_against_oracle::<2, 4, { frame_len(2) }>();
     }
 
     #[kani::proof]
-    #[kani::unwind(40)]
+    #[kani::unwind(10)]
     fn differential_three_accounts_symbolic_markers() {
         check_fused_walk_against_oracle::<3, 4, { frame_len(3) }>();
     }
@@ -1427,7 +1469,7 @@ mod kani_proofs {
     /// Accounts beyond `MAX` take the skip-only tail: the cursor must
     /// still advance record-exactly so the instruction tail is found.
     #[kani::proof]
-    #[kani::unwind(40)]
+    #[kani::unwind(10)]
     fn differential_skip_only_tail_beyond_max() {
         check_fused_walk_against_oracle::<3, 1, { frame_len(3) }>();
     }
@@ -1435,7 +1477,7 @@ mod kani_proofs {
     /// `deserialize_accounts_fast` shares the stride but never scans the
     /// tail; its materialized slots must still match the oracle's.
     #[kani::proof]
-    #[kani::unwind(40)]
+    #[kani::unwind(10)]
     fn differential_fast_walk_two_accounts() {
         const N: usize = 2;
         const LEN: usize = frame_len(N);
@@ -1484,7 +1526,7 @@ mod kani_proofs {
     /// pointer `align_offset` internally) must locate the same account
     /// span and instruction tail as the oracle.
     #[kani::proof]
-    #[kani::unwind(40)]
+    #[kani::unwind(10)]
     fn differential_scan_frame_two_accounts() {
         const N: usize = 2;
         const LEN: usize = frame_len(N);
