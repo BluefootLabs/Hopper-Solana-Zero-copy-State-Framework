@@ -233,23 +233,27 @@ Anchor 0.31.1/1.x, with the shelf life that implies.
 >
 > | | Hopper | Pinocchio | Quasar |
 > |---|---:|---:|---:|
-> | Authorize / Auth-fail / Counter CU | **420** / 61 / **518** | 2512 / **41** / 2539 | n/a |
-> | Deposit / Withdraw CU | **1650** / **486** | 3856 / 2548 | 1756 / 592 |
-> | `.so` file | 8,280 B (8.09 KiB) | 7.73 KiB | **5.47 KiB** |
-> | `.text` | 6,656 B (6.50 KiB) | — | — |
+> | Authorize / Auth-fail / Counter CU | **420** / 66 / **518** | 2512 / **41** / 2539 | n/a |
+> | Deposit / Withdraw CU | **1653** / **494** | 3856 / 2548 | 1756 / 592 |
+> | `.so` file | **7,616 B (7.44 KiB)** | 7.73 KiB | **5.47 KiB** |
+> | `.text` | 5,992 B (5.85 KiB) | — | — |
 >
 > Hopper still wins every comparable CU row. Withdraw is 442 → 486 (+44 CU)
 > versus the 07-02 table: that is the lamport gate (mutation-complete
 > write-sets) actually enforcing on the one lamport-moving instruction —
 > a measured safety feature the other columns do not have, and still 18%
-> under Quasar. Size interim: this week a **P0 was found by loading** (the
+> under Quasar; Deposit/Withdraw/Auth-fail also carry +3/+8/+5 CU from the
+> tag-arithmetic error lowering that bought a 10% `.text` cut (a trade we
+> take: every Quasar-comparable row still wins). Size interim: this week a
+> **P0 was found by loading** (the
 > gate's `static mut` made every `lamports(...)` program fail the SBF
 > loader's no-writable-sections rule — fixed by moving the store into the
 > reserved, zero-initialized VM heap), ~5 KiB of accidentally-linked
 > `core::fmt` was eliminated, and the vault now measures **below** the
-> recorded 7.41 KiB. Quasar still wins the size row (8.09 vs 5.47 KiB
-> file); the gap is real, named, and being closed — we do not publish a
-> size lead we have not measured.
+> recorded 7.41 KiB — and the vault's `.so` is now SMALLER THAN
+> PINOCCHIO'S (7.44 vs 7.73 KiB) on the identical contract. Quasar still
+> wins the size row (7.44 vs 5.47 KiB file); the gap is real, named, and
+> being closed — we do not publish a size lead we have not measured.
 
 The Pinocchio column is built in-tree from the benchmark repo's Anza
 Pinocchio target, not borrowed from Quasar's reference sample or an older
