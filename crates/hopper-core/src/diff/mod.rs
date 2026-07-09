@@ -107,9 +107,16 @@ impl<const SIZE: usize> StateSnapshot<SIZE> {
             self.len
         };
 
+        // NOTE (binary size): `get(..)` rather than `[..compare_len]`. A range
+        // index LLVM cannot statically bound emits `slice_end_index_len_fail`,
+        // which *formats* its arguments and links `Formatter::pad_integral`,
+        // `do_count_chars` and the integer `Display` impls — ~3.7 KiB of
+        // `core::fmt` — into every Hopper program's `.text`. `compare_len` is
+        // the min of both lengths so both ranges resolve; an unresolvable one
+        // would degrade to an empty slice (an empty diff), never a panic.
         StateDiff {
-            old: &self.data[..compare_len],
-            new: &current[..compare_len],
+            old: self.data.get(..compare_len).unwrap_or(&[]),
+            new: current.get(..compare_len).unwrap_or(&[]),
             old_full_len: self.len,
             new_full_len: current.len(),
             // Carry the truncation flag forward: without it, every
