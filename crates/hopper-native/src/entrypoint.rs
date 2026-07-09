@@ -338,6 +338,26 @@ pub const HEAP_START_ADDRESS: usize = 0x3_0000_0000;
 /// Default Solana heap region length (32 KiB).
 pub const HEAP_LENGTH: usize = 32 * 1024;
 
+/// Bytes of the heap's BOTTOM reserved as Hopper runtime scratch, starting
+/// right after the [`BumpAllocator`] cursor word: the byte range
+/// `[HEAP_START + 8, HEAP_START + 8 + HEAP_RUNTIME_RESERVED)`.
+///
+/// Why this exists: deployed SBF programs cannot carry writable sections —
+/// the loader rejects `.bss`/`.data` outright (`WritableSectionNotSupported`),
+/// so a `static mut` is not merely costly, it makes the program FAIL TO
+/// LOAD. The only writable, per-invocation, zero-initialized memory a
+/// program owns is this VM heap region. Hopper's instruction-scoped
+/// runtime state (today: the lamport gate in
+/// `hopper_runtime::write_policy`) therefore lives at the heap bottom,
+/// which works precisely because the VM zeroes the region on every
+/// invocation and every such structure is valid all-zero.
+///
+/// The [`BumpAllocator`] treats this range as out of bounds (its floor sits
+/// above it), so `alloc` can never hand it out. Programs that install a
+/// custom allocator over the heap must honor the same reservation if they
+/// link any hopper-runtime feature that uses it.
+pub const HEAP_RUNTIME_RESERVED: usize = 20 * 1024;
+
 /// A bump allocator over the SVM heap region.
 ///
 /// This is the same single-pass, never-frees design the Solana SDK and
@@ -371,8 +391,11 @@ unsafe impl core::alloc::GlobalAlloc for BumpAllocator {
         }
         pos = pos.saturating_sub(layout.size());
         pos &= !(layout.align().wrapping_sub(1));
-        // Keep the cursor word itself intact.
-        if pos < self.start + core::mem::size_of::<usize>() {
+        // Floor: the cursor word plus the Hopper runtime scratch region
+        // ([`HEAP_RUNTIME_RESERVED`], heap bottom). Bumping into either
+        // would corrupt the allocator state or the instruction-scoped
+        // runtime state (e.g. the lamport gate), so exhaust instead.
+        if pos < self.start + core::mem::size_of::<usize>() + HEAP_RUNTIME_RESERVED {
             return core::ptr::null_mut();
         }
         // SAFETY: `pos_ptr` is the reserved cursor word; single-threaded.

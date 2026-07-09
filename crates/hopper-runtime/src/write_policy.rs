@@ -61,6 +61,16 @@
 //! hatches; they are visible in review and lintable. The Sealevel
 //! `writable` flag is still enforced underneath in all cases.
 //!
+//! For the common no-CPI lamport move the escape hatch has a
+//! first-class **gated** alternative:
+//! [`crate::lamports::transfer_lamports`] (re-exported at the crate
+//! root and through `hopper::prelude`; `lamports(...)` contexts also
+//! expose it as a generated `ctx.transfer_lamports(..)` method) runs
+//! the substrate helper's exact arithmetic through the
+//! `native_boundary` funnel, checking **both** sides against the gate
+//! before any balance changes — so gated programs keep the
+//! mutation-complete guarantee without paying for a System CPI.
+//!
 //! [`AccountView`]: crate::account::AccountView
 
 use crate::address::Address;
@@ -691,37 +701,74 @@ impl SpinlockGateStore {
 
 #[cfg(target_os = "solana")]
 mod gate_store {
-    use super::{GateInstallError, GateStore, WritePolicy, LAMPORT_GATE_DEPTH};
+    use super::{GateInstallError, GateStore, WritePolicy};
     use crate::address::Address;
     use crate::error::ProgramError;
     use crate::ProgramResult;
 
-    /// Per-invocation gate store. SBF execution is single-threaded and
-    /// the program's writable data segment is freshly initialized on
-    /// every invocation (each CPI level runs in its own VM), so a plain
-    /// `static mut` is the cheapest correct store.
-    ///
-    /// Footprint: `DEPTH x (capacity x size_of::<GateEntry>())` ~ 35 KiB.
-    /// [`GateStore::new`] is all-zero, so this lands in `.bss` (`NOBITS`)
-    /// and costs **zero bytes in the `.so`** — only a zeroed data-segment
-    /// reservation at load. Introducing any non-zero field initializer
-    /// would move it to `.data` (`PROGBITS`) and write all ~35 KiB of
-    /// zeros into every program's binary (it once did: `next_token: 1`).
-    static mut STORE: GateStore<LAMPORT_GATE_DEPTH> = GateStore::new();
+    /// Gate nesting depth on SBF. Each CPI level runs in its own VM with
+    /// its own heap, so cross-program nesting never shares this store;
+    /// depth is only consumed by one handler binding multiple
+    /// lamport-declared contexts simultaneously in the SAME instruction.
+    /// Two concurrent binds is already exotic; a third fails loudly with
+    /// [`super::LAMPORT_GATE_DEPTH_EXCEEDED`].
+    const SBF_GATE_DEPTH: usize = 2;
 
-    /// This tier supports full nesting; running out of slots means
-    /// nesting deeper than the Solana invoke-depth budget (or leaking
-    /// guards).
+    /// Byte offset of the gate store inside the VM heap region: right
+    /// after the [`hopper_native::BumpAllocator`] cursor word.
+    const GATE_HEAP_OFFSET: usize = core::mem::size_of::<usize>();
+
+    // The store must fit the reserved runtime scratch at the heap bottom,
+    // and start 8-aligned (GateStore leads with a u64).
+    const _: () = assert!(
+        core::mem::size_of::<GateStore<SBF_GATE_DEPTH>>()
+            <= hopper_native::HEAP_RUNTIME_RESERVED - GATE_HEAP_OFFSET,
+        "GateStore exceeds HEAP_RUNTIME_RESERVED; grow the reservation in \
+         hopper-native/src/entrypoint.rs or shrink the store"
+    );
+    const _: () = assert!((hopper_native::HEAP_START_ADDRESS + GATE_HEAP_OFFSET) % 8 == 0);
+
+    /// This tier supports two simultaneous same-instruction gates;
+    /// running out means a handler bound three lamport-declared contexts
+    /// at once (or leaked guards).
     pub(super) const NO_FREE_SLOT: ProgramError = super::LAMPORT_GATE_DEPTH_EXCEEDED;
 
-    fn with_store<R>(f: impl FnOnce(&mut GateStore<LAMPORT_GATE_DEPTH>) -> R) -> R {
-        // SAFETY: SBF programs execute on a single thread, so no other
-        // thread can alias this static, and none of the store operations
-        // passed as `f` (`install`/`remove`/`check`/`any_active`) call
-        // back into this module, so this exclusive reference is unique
-        // for the duration of `f`. `addr_of_mut!` avoids materializing
-        // a second `&mut` to the `static mut` anywhere else.
-        f(unsafe { &mut *core::ptr::addr_of_mut!(STORE) })
+    /// Per-invocation gate store, living in the RESERVED BOTTOM of the VM
+    /// heap (`[HEAP_START + 8, HEAP_START + 8 + size_of::<GateStore>...)`,
+    /// see [`hopper_native::HEAP_RUNTIME_RESERVED`]).
+    ///
+    /// Why the heap and not a `static`: deployed SBF programs cannot carry
+    /// writable sections AT ALL — the loader's ELF parser rejects
+    /// `.bss`/`.data` (`WritableSectionNotSupported`), so ANY `static mut`
+    /// here makes every program that links the gate fail to load. (Found
+    /// empirically: Mollusk refused the parity vault; the loader is the
+    /// same parser mainnet uses.) The VM heap is the one writable region a
+    /// program owns, and it is **zero-initialized by the VM on every
+    /// invocation** — which composes exactly with two invariants this
+    /// module already pins:
+    ///
+    /// - `GateStore::new()` is ALL-ZERO (`initial_gate_store_is_all_zero_bytes`),
+    ///   so zeroed heap IS the valid empty store; no init code runs at all.
+    /// - Heap freshness per invocation gives instruction scoping for free:
+    ///   state can never leak across transactions or CPI levels (each CPI
+    ///   level is its own VM with its own heap).
+    ///
+    /// The `BumpAllocator`'s floor excludes this range, so allocations can
+    /// never overwrite an installed gate.
+    fn with_store<R>(f: impl FnOnce(&mut GateStore<SBF_GATE_DEPTH>) -> R) -> R {
+        let ptr = (hopper_native::HEAP_START_ADDRESS + GATE_HEAP_OFFSET)
+            as *mut GateStore<SBF_GATE_DEPTH>;
+        // SAFETY: SBF execution is single-threaded and none of the store
+        // operations passed as `f` (`install`/`remove`/`check`/
+        // `any_active`) re-enter this module, so this exclusive reference
+        // is unique for the duration of `f`. The pointee is valid: the VM
+        // maps and ZEROES the heap region for every invocation, all-zero
+        // bytes are a valid `GateStore` (pinned by
+        // `initial_gate_store_is_all_zero_bytes`), the address is 8-aligned
+        // (const-asserted above) and the whole object lies inside
+        // `HEAP_RUNTIME_RESERVED` (const-asserted above), a range the
+        // `BumpAllocator` floor excludes and no other Hopper code touches.
+        f(unsafe { &mut *ptr })
     }
 
     pub(super) fn install(

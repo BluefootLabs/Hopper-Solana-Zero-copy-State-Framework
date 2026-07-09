@@ -114,7 +114,7 @@ pub mod token;
 pub use account_view::AccountView;
 pub use address::Address;
 pub use borrow::{Ref, RefMut};
-pub use entrypoint::{BumpAllocator, HEAP_LENGTH, HEAP_START_ADDRESS};
+pub use entrypoint::{BumpAllocator, HEAP_LENGTH, HEAP_RUNTIME_RESERVED, HEAP_START_ADDRESS};
 pub use error::ProgramError;
 pub use pod::{read_unaligned_value, Pod, ValuePod, Zeroable};
 pub use raw_account::RuntimeAccount;
