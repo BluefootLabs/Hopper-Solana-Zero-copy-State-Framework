@@ -7,7 +7,12 @@
 //! - `profile elf`. Parses a compiled SBF ELF, resolves DWARF function
 //!   names, and emits flamegraph-compatible folded-stack output plus a
 //!   human-readable "top N functions by static size" table. Matches
-//!   Quasar's `quasar profile` command ergonomically.
+//!   Quasar's `quasar profile` command ergonomically. With `--inlines`
+//!   it additionally walks DWARF `DW_TAG_inlined_subroutine` trees (see
+//!   [`crate::cmd::profile_dwarf`]) and attributes every `.text`
+//!   instruction's bytes to its deepest inline frame - the view that makes
+//!   `#[inline(always)]`-heavy programs actionable, where the symbol table
+//!   alone shows one giant entrypoint.
 //!
 //! The flamegraph output is the standard folded-stack format the
 //! Brendan Gregg `FlameGraph.pl` and `inferno-flamegraph` consume:
@@ -127,6 +132,12 @@ fn print_profile_usage() {
         "  --baseline <folded.txt>      Compare symbol sizes against a saved baseline folded file"
     );
     eprintln!("  --sections                   Print ELF section size summary");
+    eprintln!("  --inlines                    DWARF inline-frame attribution: rank .text bytes by");
+    eprintln!("                               deepest inline frame (needs an unstripped .so built");
+    eprintln!(
+        "                               with debug info); folded/HTML output switches to full"
+    );
+    eprintln!("                               inline stacks");
     eprintln!("  --open                       Open the HTML flamegraph in the default browser");
     eprintln!("  --no-demangle                Leave mangled symbol names intact");
 }
@@ -140,6 +151,7 @@ struct ElfArgs<'a> {
     open_html: bool,
     demangle: bool,
     sections: bool,
+    inlines: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -164,6 +176,7 @@ fn parse_elf_args<'a>(args: &'a [String]) -> Result<ElfArgs<'a>, String> {
         open_html: false,
         demangle: true,
         sections: false,
+        inlines: false,
     };
     let mut i = 1;
     while i < args.len() {
@@ -189,6 +202,7 @@ fn parse_elf_args<'a>(args: &'a [String]) -> Result<ElfArgs<'a>, String> {
                 out.baseline = Some(args.get(i).ok_or("`--baseline` requires a path")?.as_str());
             }
             "--sections" => out.sections = true,
+            "--inlines" => out.inlines = true,
             "--open" => out.open_html = true,
             "--no-demangle" => out.demangle = false,
             other => return Err(format!("unknown elf flag: {other}")),
@@ -292,8 +306,21 @@ fn cmd_profile_elf(args: &[String]) -> Result<(), String> {
         }
     }
 
+    // DWARF inline-frame attribution. Behind `--inlines` so the default
+    // output above stays byte-identical; when active it also switches the
+    // folded/HTML emitters below from flat symbols to full inline stacks.
+    let inline_attr: Option<crate::cmd::profile_dwarf::InlineAttribution> = if opts.inlines {
+        println!();
+        Some(run_inline_attribution(&bytes, &opts)?)
+    } else {
+        None
+    };
+
     if let Some(out_path) = opts.folded_out {
-        let folded = render_folded(&ranked);
+        let folded = match inline_attr.as_ref() {
+            Some(attr) => render_folded_stacks(&attr.stacks),
+            None => render_folded(&ranked),
+        };
         fs::write(out_path, folded).map_err(|e| format!("could not write `{}`: {e}", out_path))?;
         println!();
         println!("wrote folded-stack flamegraph input to {}", out_path);
@@ -302,7 +329,22 @@ fn cmd_profile_elf(args: &[String]) -> Result<(), String> {
     }
 
     if let Some(out_path) = opts.html_out {
-        let html = render_html_flamegraph(opts.path, &ranked, byte_total, baseline_map.as_ref());
+        let html = match inline_attr.as_ref() {
+            Some(attr) => {
+                let ranked_stacks: Vec<(&str, u64)> = attr
+                    .stacks
+                    .iter()
+                    .map(|(stack, bytes)| (stack.as_str(), *bytes))
+                    .collect();
+                render_html_flamegraph(
+                    opts.path,
+                    &ranked_stacks,
+                    attr.text_bytes,
+                    baseline_map.as_ref(),
+                )
+            }
+            None => render_html_flamegraph(opts.path, &ranked, byte_total, baseline_map.as_ref()),
+        };
         fs::write(out_path, html).map_err(|e| format!("could not write `{}`: {e}", out_path))?;
         println!();
         println!("wrote interactive HTML flamegraph to {}", out_path);
@@ -318,13 +360,100 @@ fn cmd_profile_elf(args: &[String]) -> Result<(), String> {
     Ok(())
 }
 
+/// Run DWARF inline-frame attribution and print the `--inlines` section:
+/// coverage header plus the ranked leaf-frame fix list. Returns the
+/// attribution so the folded/HTML emitters can reuse the full stacks.
+///
+/// Honesty contract: when the ELF has no DWARF (release builds default to
+/// `debug = 0`; `target/deploy/*.so` is stripped) we print exactly what is
+/// missing and how to get it, then attribute at symbol granularity -
+/// inline frames are never fabricated.
+fn run_inline_attribution(
+    bytes: &[u8],
+    opts: &ElfArgs,
+) -> Result<crate::cmd::profile_dwarf::InlineAttribution, String> {
+    use crate::cmd::profile_dwarf as pd;
+
+    let segments = pd::text_segments(bytes)?;
+    let symbols = pd::parse_symbol_ranges(bytes, opts.demangle)?;
+    let index = match pd::load_inline_index(bytes, opts.demangle) {
+        Ok(pd::DwarfLoad::Index(ix)) => {
+            if ix.inline_range_count() == 0 {
+                println!("{}", pd::no_inline_ranges_note());
+                println!();
+                None
+            } else {
+                Some(ix)
+            }
+        }
+        Ok(pd::DwarfLoad::Missing) => {
+            println!("{}", pd::missing_dwarf_note(opts.path));
+            println!();
+            None
+        }
+        Err(err) => {
+            println!("--inlines: could not read DWARF ({err}).");
+            println!("falling back to symbol-granularity attribution; nothing is fabricated.");
+            println!();
+            None
+        }
+    };
+
+    let attr = pd::attribute_text(&segments, index.as_ref(), &symbols);
+    match index.as_ref() {
+        Some(ix) => {
+            println!(
+                "inline-frame attribution (DWARF: {} unit{}, {} inline PC range{}):",
+                ix.unit_count(),
+                if ix.unit_count() == 1 { "" } else { "s" },
+                ix.inline_range_count(),
+                if ix.inline_range_count() == 1 {
+                    ""
+                } else {
+                    "s"
+                },
+            );
+            let pct = attr.dwarf_bytes as f64 / attr.text_bytes.max(1) as f64 * 100.0;
+            println!(
+                "  DWARF-attributed bytes: {} / {} ({:.1}%)",
+                attr.dwarf_bytes, attr.text_bytes, pct
+            );
+        }
+        None => {
+            println!("inline-frame attribution: symbol granularity (no DWARF inline data):");
+        }
+    }
+    println!("  SBF instructions (LDDW-aware): {}", attr.instructions);
+    println!();
+    print!(
+        "{}",
+        pd::render_inline_table(&attr.leaf_rows, attr.text_bytes, opts.top)
+    );
+    Ok(attr)
+}
+
+/// Render pre-folded inline stacks (`root;mid;leaf` keys, already
+/// frame-sanitized by [`crate::cmd::profile_dwarf::attribute_text`]) in the
+/// same Brendan-Gregg format as [`render_folded`]. Kept separate so the
+/// default path's per-symbol sanitization stays byte-identical.
+fn render_folded_stacks(stacks: &[(String, u64)]) -> String {
+    let mut s = String::new();
+    for (stack, sz) in stacks {
+        s.push_str(stack);
+        s.push(' ');
+        s.push_str(&sz.to_string());
+        s.push('\n');
+    }
+    s
+}
+
 /// Parse .text-region function symbols out of the ELF and return a
 /// `(symbol_name -> bytes)` map plus the total.
 ///
-/// DWARF-based inline expansion is a future enhancement; the symbol
-/// table alone gives a useful first-order map of code footprint,
-/// which is the metric the `quasar profile` output leads with. Names
-/// are demangled via `rustc-demangle` when the flag is set.
+/// This is deliberately symbol-granularity: it is the fast default view
+/// and the one comparable across stripped artifacts. DWARF-based inline
+/// expansion lives behind `--inlines` (see [`crate::cmd::profile_dwarf`]).
+/// Names are demangled via `rustc-demangle` when the flag is set.
 fn parse_symbols(bytes: &[u8], demangle: bool) -> Result<(BTreeMap<String, u64>, u64), String> {
     use object::{Object, ObjectSymbol};
 
@@ -404,9 +533,14 @@ fn print_section_summary(sections: &[SectionSummary]) {
     }
 }
 
-/// SBF/eBPF instructions are 8 bytes wide. Static code bytes therefore give
-/// a useful first-order instruction-count estimate, rounded up for odd section
-/// or symbol sizes that appear after linker/debug transformations.
+/// SBF/eBPF instructions are 8 bytes wide - except `lddw` (opcode 0x18),
+/// which occupies two slots (16 bytes). This size-only estimate counts
+/// every slot, so it is an *upper bound* that over-counts each `lddw` by
+/// one. It survives for call sites that only know a byte size (symbol
+/// sizes, baseline deltas); wherever the actual instruction bytes are
+/// available, the LDDW-aware opcode walk
+/// [`crate::cmd::profile_dwarf::count_sbf_instructions`] replaces it
+/// (`--inlines` reports that exact count).
 fn estimate_sbf_instructions(bytes: u64) -> u64 {
     bytes.saturating_add(7) / 8
 }
@@ -891,5 +1025,40 @@ mod tests {
         let hash = estimate_static_cu("sha256_compress", 80);
         assert!(cpi > hash);
         assert!(hash > plain);
+    }
+
+    #[test]
+    fn elf_args_default_leaves_inlines_off() {
+        let args = vec!["program.so".to_string()];
+        let opts = parse_elf_args(&args).expect("parse");
+        assert!(!opts.inlines, "--inlines must be opt-in");
+        assert!(opts.demangle);
+    }
+
+    #[test]
+    fn elf_args_parse_inlines_alongside_other_flags() {
+        let args: Vec<String> = ["program.so", "--inlines", "--top", "5", "--sections"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+        let opts = parse_elf_args(&args).expect("parse");
+        assert!(opts.inlines);
+        assert!(opts.sections);
+        assert_eq!(opts.top, 5);
+    }
+
+    #[test]
+    fn folded_stacks_render_semicolon_separated_frames() {
+        let stacks = vec![
+            (
+                "entrypoint;hopper_runtime::receipt::commit".to_string(),
+                4096u64,
+            ),
+            ("entrypoint".to_string(), 1024u64),
+        ];
+        assert_eq!(
+            render_folded_stacks(&stacks),
+            "entrypoint;hopper_runtime::receipt::commit 4096\nentrypoint 1024\n"
+        );
     }
 }

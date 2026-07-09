@@ -16,6 +16,7 @@ pub mod manager_invoke;
 pub mod meta;
 pub mod mobile;
 pub mod profile;
+pub mod profile_dwarf;
 pub mod publish_check;
 pub mod publish_idl;
 pub mod solana_check;

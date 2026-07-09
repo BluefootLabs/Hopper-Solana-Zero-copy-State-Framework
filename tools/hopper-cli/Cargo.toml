@@ -66,6 +66,13 @@ dialoguer = "0.11"
 # Global config file location (`~/.hopper/config.toml`)
 dirs = "6"
 
+[dev-dependencies]
+# `write` lets tests synthesize minimal DWARF in-memory for the
+# `profile elf --inlines` walker - no binary fixtures checked in, no
+# external toolchain needed to regenerate them. Dev-only: the shipping
+# binary keeps the read-only gimli above.
+gimli = { version = "0.31", default-features = false, features = ["read", "std", "write"] }
+
 [lints.rust]
 unexpected_cfgs = { level = "allow", check-cfg = [
     'cfg(target_os, values("solana"))',
