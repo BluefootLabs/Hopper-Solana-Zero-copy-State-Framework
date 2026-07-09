@@ -68,30 +68,181 @@ fn require_multisig_signers_direct(multisig_signers: &[&AccountView<'_>]) -> Pro
     Ok(())
 }
 
-#[inline(always)]
-fn encode_set_authority_data(
-    authority_type: TokenAuthorityType,
-    new_authority: Option<&Address>,
-    out: &mut [u8; 35],
-) -> usize {
-    out[0] = 6;
-    out[1] = authority_type as u8;
-    if let Some(new_authority) = new_authority {
-        out[2] = 1;
-        out[3..35].copy_from_slice(new_authority.as_bytes());
-        35
-    } else {
-        out[2] = 0;
-        3
+/// Byte-exact instruction-data encoders for the SPL Token CPI wire format.
+///
+/// # Why this module is `pub`
+///
+/// Every SPL Token builder in this file constructs its instruction-data
+/// buffer by calling exactly one of these functions before handing the bytes
+/// to [`crate::cpi`]. They are the single, **shipped** source of truth for the
+/// SPL Token wire format — the exact bytes that leave the program on a CPI —
+/// not a mirror or a parallel re-implementation.
+///
+/// They are exposed as `#[doc(hidden)] pub` for one reason: so the Kani layout
+/// proofs in the `hopper-token` crate can call the shipped encoders directly
+/// and prove — over fully symbolic inputs — that the bytes the CPI path emits
+/// carry the canonical discriminator, field order/offsets, endianness, and
+/// total length. Proving the shipped functions (rather than a copy of them) is
+/// what lets Hopper claim the encoders themselves are formally verified.
+///
+/// This is deliberately **not** a stability surface: the module is
+/// `#[doc(hidden)]` and may change at any time. Depend on the builder structs
+/// ([`TransferChecked`], [`MintToChecked`], …), never on `encoders`.
+///
+/// Each function is `#[inline(always)]`, so delegating to it from a builder is
+/// zero-cost: the emitted bytes and codegen are identical to the previous
+/// inline construction.
+#[doc(hidden)]
+pub mod encoders {
+    /// `[disc][amount: u64 LE]` — the 9-byte shape shared by the plain
+    /// `Transfer` (3), `Approve` (4), `MintTo` (7), and `Burn` (8)
+    /// instructions.
+    #[inline(always)]
+    fn amount_ix(disc: u8, amount: u64) -> [u8; 9] {
+        let mut data = [0u8; 9];
+        data[0] = disc;
+        data[1..9].copy_from_slice(&amount.to_le_bytes());
+        data
     }
-}
 
-#[inline(always)]
-fn encode_initialize_account_with_owner(discriminator: u8, owner: &Address) -> [u8; 33] {
-    let mut data = [0u8; 33];
-    data[0] = discriminator;
-    data[1..33].copy_from_slice(owner.as_bytes());
-    data
+    /// `[disc][amount: u64 LE][decimals: u8]` — the 10-byte shape shared by
+    /// the `TransferChecked` (12), `ApproveChecked` (13), `MintToChecked`
+    /// (14), and `BurnChecked` (15) instructions.
+    #[inline(always)]
+    fn amount_checked_ix(disc: u8, amount: u64, decimals: u8) -> [u8; 10] {
+        let mut data = [0u8; 10];
+        data[0] = disc;
+        data[1..9].copy_from_slice(&amount.to_le_bytes());
+        data[9] = decimals;
+        data
+    }
+
+    /// SPL Token `Transfer { amount }` — `[3][amount: u64 LE]` (9 bytes).
+    #[inline(always)]
+    pub fn encode_transfer(amount: u64) -> [u8; 9] {
+        amount_ix(3, amount)
+    }
+
+    /// SPL Token `Approve { amount }` — `[4][amount: u64 LE]` (9 bytes).
+    #[inline(always)]
+    pub fn encode_approve(amount: u64) -> [u8; 9] {
+        amount_ix(4, amount)
+    }
+
+    /// SPL Token `MintTo { amount }` — `[7][amount: u64 LE]` (9 bytes).
+    #[inline(always)]
+    pub fn encode_mint_to(amount: u64) -> [u8; 9] {
+        amount_ix(7, amount)
+    }
+
+    /// SPL Token `Burn { amount }` — `[8][amount: u64 LE]` (9 bytes).
+    #[inline(always)]
+    pub fn encode_burn(amount: u64) -> [u8; 9] {
+        amount_ix(8, amount)
+    }
+
+    /// SPL Token `TransferChecked { amount, decimals }` —
+    /// `[12][amount: u64 LE][decimals: u8]` (10 bytes).
+    #[inline(always)]
+    pub fn encode_transfer_checked(amount: u64, decimals: u8) -> [u8; 10] {
+        amount_checked_ix(12, amount, decimals)
+    }
+
+    /// SPL Token `ApproveChecked { amount, decimals }` —
+    /// `[13][amount: u64 LE][decimals: u8]` (10 bytes).
+    #[inline(always)]
+    pub fn encode_approve_checked(amount: u64, decimals: u8) -> [u8; 10] {
+        amount_checked_ix(13, amount, decimals)
+    }
+
+    /// SPL Token `MintToChecked { amount, decimals }` —
+    /// `[14][amount: u64 LE][decimals: u8]` (10 bytes).
+    #[inline(always)]
+    pub fn encode_mint_to_checked(amount: u64, decimals: u8) -> [u8; 10] {
+        amount_checked_ix(14, amount, decimals)
+    }
+
+    /// SPL Token `BurnChecked { amount, decimals }` —
+    /// `[15][amount: u64 LE][decimals: u8]` (10 bytes).
+    #[inline(always)]
+    pub fn encode_burn_checked(amount: u64, decimals: u8) -> [u8; 10] {
+        amount_checked_ix(15, amount, decimals)
+    }
+
+    /// SPL Token `Revoke` — `[5]` (1 byte).
+    #[inline(always)]
+    pub fn encode_revoke() -> [u8; 1] {
+        [5]
+    }
+
+    /// SPL Token `CloseAccount` — `[9]` (1 byte).
+    #[inline(always)]
+    pub fn encode_close_account() -> [u8; 1] {
+        [9]
+    }
+
+    /// SPL Token `FreezeAccount` — `[10]` (1 byte).
+    #[inline(always)]
+    pub fn encode_freeze_account() -> [u8; 1] {
+        [10]
+    }
+
+    /// SPL Token `ThawAccount` — `[11]` (1 byte).
+    #[inline(always)]
+    pub fn encode_thaw_account() -> [u8; 1] {
+        [11]
+    }
+
+    /// SPL Token `SyncNative` — `[17]` (1 byte).
+    #[inline(always)]
+    pub fn encode_sync_native() -> [u8; 1] {
+        [17]
+    }
+
+    /// SPL Token `InitializeAccount` — `[1]` (1 byte). Mint/owner/rent travel
+    /// in the account-meta list, not the instruction data.
+    #[inline(always)]
+    pub fn encode_initialize_account() -> [u8; 1] {
+        [1]
+    }
+
+    /// SPL Token `InitializeAccount2`/`InitializeAccount3 { owner }` —
+    /// `[disc][owner: 32 bytes]` (33 bytes). `disc` is 16 for
+    /// `InitializeAccount2` and 18 for `InitializeAccount3`.
+    #[inline(always)]
+    pub fn encode_initialize_account_with_owner(discriminator: u8, owner: &[u8; 32]) -> [u8; 33] {
+        let mut data = [0u8; 33];
+        data[0] = discriminator;
+        data[1..33].copy_from_slice(owner);
+        data
+    }
+
+    /// SPL Token `SetAuthority { authority_type, new_authority }`.
+    ///
+    /// Layout: `[6][authority_type: u8][COption tag: u8]`, followed by
+    /// `[new_authority: 32 bytes]` when `new_authority` is `Some`. The tag
+    /// byte is 1 (`Some`) or 0 (`None`). Returns the fixed 35-byte buffer and
+    /// the number of meaningful bytes: 35 for `Some`, 3 for `None`.
+    #[inline(always)]
+    pub fn encode_set_authority(
+        authority_type: u8,
+        new_authority: Option<&[u8; 32]>,
+    ) -> ([u8; 35], usize) {
+        let mut data = [0u8; 35];
+        data[0] = 6;
+        data[1] = authority_type;
+        match new_authority {
+            Some(key) => {
+                data[2] = 1;
+                data[3..35].copy_from_slice(key);
+                (data, 35)
+            }
+            None => {
+                data[2] = 0;
+                (data, 3)
+            }
+        }
+    }
 }
 
 #[inline]
@@ -398,9 +549,7 @@ impl Transfer<'_> {
 
     #[inline(always)]
     fn invoke_signed_unchecked(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
-        let mut data = [0u8; 9];
-        data[0] = 3;
-        data[1..9].copy_from_slice(&self.amount.to_le_bytes());
+        let data = encoders::encode_transfer(self.amount);
 
         let accounts = [
             InstructionAccount::writable(self.from.address()),
@@ -446,9 +595,7 @@ impl MintTo<'_> {
 
     #[inline]
     pub fn invoke_signed(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
-        let mut data = [0u8; 9];
-        data[0] = 7;
-        data[1..9].copy_from_slice(&self.amount.to_le_bytes());
+        let data = encoders::encode_mint_to(self.amount);
 
         let accounts = [
             InstructionAccount::writable(self.mint.address()),
@@ -494,9 +641,7 @@ impl Burn<'_> {
 
     #[inline]
     pub fn invoke_signed(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
-        let mut data = [0u8; 9];
-        data[0] = 8;
-        data[1..9].copy_from_slice(&self.amount.to_le_bytes());
+        let data = encoders::encode_burn(self.amount);
 
         let accounts = [
             InstructionAccount::writable(self.account.address()),
@@ -556,7 +701,7 @@ impl CloseAccount<'_> {
         multisig_signers: &[&AccountView<'_>],
         signers: &[Signer<'_, '_>],
     ) -> ProgramResult {
-        let data = [9u8];
+        let data = encoders::encode_close_account();
         let accounts = [
             InstructionAccount::writable(self.account.address()),
             InstructionAccount::writable(self.destination.address()),
@@ -595,9 +740,7 @@ impl Approve<'_> {
 
     #[inline]
     pub fn invoke_signed(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
-        let mut data = [0u8; 9];
-        data[0] = 4;
-        data[1..9].copy_from_slice(&self.amount.to_le_bytes());
+        let data = encoders::encode_approve(self.amount);
 
         let accounts = [
             InstructionAccount::writable(self.source.address()),
@@ -656,7 +799,7 @@ impl Revoke<'_> {
         multisig_signers: &[&AccountView<'_>],
         signers: &[Signer<'_, '_>],
     ) -> ProgramResult {
-        let data = [5u8];
+        let data = encoders::encode_revoke();
         let accounts = [
             InstructionAccount::writable(self.source.address()),
             authority_meta(self.authority, multisig_signers),
@@ -764,10 +907,7 @@ impl TransferChecked<'_> {
         multisig_signers: &[&AccountView<'_>],
         signers: &[Signer<'_, '_>],
     ) -> ProgramResult {
-        let mut data = [0u8; 10];
-        data[0] = 12;
-        data[1..9].copy_from_slice(&self.amount.to_le_bytes());
-        data[9] = self.decimals;
+        let data = encoders::encode_transfer_checked(self.amount, self.decimals);
 
         let accounts = [
             InstructionAccount::writable(self.from.address()),
@@ -832,10 +972,7 @@ impl MintToChecked<'_> {
         multisig_signers: &[&AccountView<'_>],
         signers: &[Signer<'_, '_>],
     ) -> ProgramResult {
-        let mut data = [0u8; 10];
-        data[0] = 14;
-        data[1..9].copy_from_slice(&self.amount.to_le_bytes());
-        data[9] = self.decimals;
+        let data = encoders::encode_mint_to_checked(self.amount, self.decimals);
 
         let accounts = [
             InstructionAccount::writable(self.mint.address()),
@@ -919,10 +1056,7 @@ impl BurnChecked<'_> {
         multisig_signers: &[&AccountView<'_>],
         signers: &[Signer<'_, '_>],
     ) -> ProgramResult {
-        let mut data = [0u8; 10];
-        data[0] = 15;
-        data[1..9].copy_from_slice(&self.amount.to_le_bytes());
-        data[9] = self.decimals;
+        let data = encoders::encode_burn_checked(self.amount, self.decimals);
 
         let accounts = [
             InstructionAccount::writable(self.account.address()),
@@ -1006,10 +1140,7 @@ impl ApproveChecked<'_> {
         multisig_signers: &[&AccountView<'_>],
         signers: &[Signer<'_, '_>],
     ) -> ProgramResult {
-        let mut data = [0u8; 10];
-        data[0] = 13;
-        data[1..9].copy_from_slice(&self.amount.to_le_bytes());
-        data[9] = self.decimals;
+        let data = encoders::encode_approve_checked(self.amount, self.decimals);
 
         let accounts = [
             InstructionAccount::writable(self.source.address()),
@@ -1075,8 +1206,10 @@ impl SetAuthority<'_> {
         multisig_signers: &[&AccountView<'_>],
         signers: &[Signer<'_, '_>],
     ) -> ProgramResult {
-        let mut data = [0u8; 35];
-        let len = encode_set_authority_data(self.authority_type, self.new_authority, &mut data);
+        let (data, len) = encoders::encode_set_authority(
+            self.authority_type as u8,
+            self.new_authority.map(|a| a.as_array()),
+        );
         let accounts = [
             InstructionAccount::writable(self.account.address()),
             authority_meta(self.current_authority, multisig_signers),
@@ -1128,7 +1261,7 @@ impl FreezeAccount<'_> {
         multisig_signers: &[&AccountView<'_>],
         signers: &[Signer<'_, '_>],
     ) -> ProgramResult {
-        let data = [10u8];
+        let data = encoders::encode_freeze_account();
         let accounts = [
             InstructionAccount::writable(self.account.address()),
             InstructionAccount::readonly(self.mint.address()),
@@ -1179,7 +1312,7 @@ impl ThawAccount<'_> {
         multisig_signers: &[&AccountView<'_>],
         signers: &[Signer<'_, '_>],
     ) -> ProgramResult {
-        let data = [11u8];
+        let data = encoders::encode_thaw_account();
         let accounts = [
             InstructionAccount::writable(self.account.address()),
             InstructionAccount::readonly(self.mint.address()),
@@ -1200,7 +1333,7 @@ pub struct SyncNative<'a> {
 impl SyncNative<'_> {
     #[inline]
     pub fn invoke(&self) -> ProgramResult {
-        let data = [17u8];
+        let data = encoders::encode_sync_native();
         let accounts = [InstructionAccount::writable(self.account.address())];
         let views = [self.account];
         invoke_token_signed(&data, accounts, views, &[], &[])
@@ -1220,7 +1353,7 @@ pub struct InitializeAccount<'a> {
 impl InitializeAccount<'_> {
     #[inline]
     pub fn invoke(&self) -> ProgramResult {
-        let data = [1u8];
+        let data = encoders::encode_initialize_account();
         let accounts = [
             InstructionAccount::writable(self.account.address()),
             InstructionAccount::readonly(self.mint.address()),
@@ -1249,7 +1382,7 @@ pub struct InitializeAccount2<'a> {
 impl InitializeAccount2<'_> {
     #[inline]
     pub fn invoke(&self) -> ProgramResult {
-        let data = encode_initialize_account_with_owner(16, self.owner);
+        let data = encoders::encode_initialize_account_with_owner(16, self.owner.as_array());
         let accounts = [
             InstructionAccount::writable(self.account.address()),
             InstructionAccount::readonly(self.mint.address()),
@@ -1270,7 +1403,7 @@ pub struct InitializeAccount3<'a> {
 impl InitializeAccount3<'_> {
     #[inline]
     pub fn invoke(&self) -> ProgramResult {
-        let data = encode_initialize_account_with_owner(18, self.owner);
+        let data = encoders::encode_initialize_account_with_owner(18, self.owner.as_array());
         let accounts = [
             InstructionAccount::writable(self.account.address()),
             InstructionAccount::readonly(self.mint.address()),
@@ -1848,11 +1981,9 @@ mod tests {
     #[test]
     fn authority_and_initialize_encodings_match_spl_token_wire_format() {
         let authority = Address::new_from_array([9; 32]);
-        let mut set_authority = [0u8; 35];
-        let len = encode_set_authority_data(
-            TokenAuthorityType::AccountOwner,
-            Some(&authority),
-            &mut set_authority,
+        let (set_authority, len) = encoders::encode_set_authority(
+            TokenAuthorityType::AccountOwner as u8,
+            Some(authority.as_array()),
         );
         assert_eq!(len, 35);
         assert_eq!(set_authority[0], 6);
@@ -1860,17 +1991,73 @@ mod tests {
         assert_eq!(set_authority[2], 1);
         assert_eq!(&set_authority[3..35], authority.as_bytes());
 
-        let len =
-            encode_set_authority_data(TokenAuthorityType::CloseAccount, None, &mut set_authority);
+        let (set_authority, len) =
+            encoders::encode_set_authority(TokenAuthorityType::CloseAccount as u8, None);
         assert_eq!(len, 3);
         assert_eq!(&set_authority[..3], &[6, 3, 0]);
 
-        let init2 = encode_initialize_account_with_owner(16, &authority);
-        let init3 = encode_initialize_account_with_owner(18, &authority);
+        let init2 = encoders::encode_initialize_account_with_owner(16, authority.as_array());
+        let init3 = encoders::encode_initialize_account_with_owner(18, authority.as_array());
         assert_eq!(init2[0], 16);
         assert_eq!(init3[0], 18);
         assert_eq!(&init2[1..33], authority.as_bytes());
         assert_eq!(&init3[1..33], authority.as_bytes());
+    }
+
+    /// Byte-identity guard for the extracted [`encoders`] module: each
+    /// shipped encoder must reproduce the exact bytes the builders wrote
+    /// inline before the refactor. These literals are the pre-refactor wire
+    /// bytes; if any diverges, a CPI's instruction-data changed.
+    #[test]
+    fn shipped_encoders_match_pre_refactor_golden_bytes() {
+        // amount = 1 → little-endian 01 00 00 00 00 00 00 00.
+        assert_eq!(encoders::encode_transfer(1), [3, 1, 0, 0, 0, 0, 0, 0, 0]);
+        assert_eq!(encoders::encode_approve(1), [4, 1, 0, 0, 0, 0, 0, 0, 0]);
+        assert_eq!(encoders::encode_mint_to(1), [7, 1, 0, 0, 0, 0, 0, 0, 0]);
+        assert_eq!(encoders::encode_burn(1), [8, 1, 0, 0, 0, 0, 0, 0, 0]);
+        assert_eq!(
+            encoders::encode_transfer_checked(1, 9),
+            [12, 1, 0, 0, 0, 0, 0, 0, 0, 9]
+        );
+        assert_eq!(
+            encoders::encode_approve_checked(1, 9),
+            [13, 1, 0, 0, 0, 0, 0, 0, 0, 9]
+        );
+        assert_eq!(
+            encoders::encode_mint_to_checked(1, 9),
+            [14, 1, 0, 0, 0, 0, 0, 0, 0, 9]
+        );
+        assert_eq!(
+            encoders::encode_burn_checked(1, 9),
+            [15, 1, 0, 0, 0, 0, 0, 0, 0, 9]
+        );
+        assert_eq!(encoders::encode_revoke(), [5]);
+        assert_eq!(encoders::encode_close_account(), [9]);
+        assert_eq!(encoders::encode_freeze_account(), [10]);
+        assert_eq!(encoders::encode_thaw_account(), [11]);
+        assert_eq!(encoders::encode_sync_native(), [17]);
+        assert_eq!(encoders::encode_initialize_account(), [1]);
+
+        let owner = [
+            0u8, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
+            24, 25, 26, 27, 28, 29, 30, 31,
+        ];
+        let init2 = encoders::encode_initialize_account_with_owner(16, &owner);
+        assert_eq!(init2[0], 16);
+        assert_eq!(&init2[1..33], &owner);
+        let init3 = encoders::encode_initialize_account_with_owner(18, &owner);
+        assert_eq!(init3[0], 18);
+        assert_eq!(&init3[1..33], &owner);
+
+        let (sa_some, some_len) = encoders::encode_set_authority(2, Some(&owner));
+        assert_eq!(some_len, 35);
+        assert_eq!(sa_some[0], 6);
+        assert_eq!(sa_some[1], 2);
+        assert_eq!(sa_some[2], 1);
+        assert_eq!(&sa_some[3..35], &owner);
+        let (sa_none, none_len) = encoders::encode_set_authority(3, None);
+        assert_eq!(none_len, 3);
+        assert_eq!(&sa_none[..3], &[6, 3, 0]);
     }
 
     // ---------------------------------------------------------------------

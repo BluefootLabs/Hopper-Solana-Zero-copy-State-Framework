@@ -1,62 +1,75 @@
-//! Byte-exact instruction-data encoders for the SPL Token and System
-//! program CPI wire formats, with Kani proofs pinning every field's
-//! canonical byte offset, discriminator, and total length.
+//! Kani proofs and golden-vector tests for the **shipped** SPL Token and
+//! System-program CPI instruction-data encoders.
 //!
-//! ## Why these live here
+//! ## What is proven, and where the bytes come from
 //!
-//! The SPL Token `*Checked` builders and the entire System-program
-//! builder family ([`hopper_runtime::token`], [`hopper_runtime::system`])
-//! build their instruction-data buffer *inline* inside private
-//! `invoke_signed*` methods and pass it straight to
-//! `hopper_runtime::cpi::invoke_signed` — the bytes are never returned,
-//! so they cannot be observed (and therefore cannot be model-checked)
-//! from outside that crate. `hopper-runtime` is not editable in this
-//! change, so the encoders cannot be refactored to expose their output.
+//! The SPL Token builders and the System-program builders in
+//! [`hopper_runtime::token`] / [`hopper_runtime::system`] now construct every
+//! instruction-data buffer by calling a small, pure, `#[inline(always)]`
+//! encoder in `hopper_runtime::{token,system}::encoders`. Those encoders
+//! return the exact bytes that leave the program on a CPI. Because a builder's
+//! `invoke_signed*` path delegates to one of them (instead of building the
+//! buffer inline and dropping it straight into the syscall), the shipped bytes
+//! are directly callable — and therefore directly model-checkable.
 //!
-//! This module reproduces those wire formats as small, pure, **callable**
-//! encoders that `hopper-token` owns, and proves them with Kani. Two
-//! independent anchors keep the reproduction honest:
+//! The `#[cfg(kani)]` proofs below call the shipped
+//! `hopper_runtime::{token,system}::encoders::*` functions **directly** and
+//! pin, over fully symbolic inputs, each field's discriminator, byte offset,
+//! endianness, and the total encoded length. This is the change that retires
+//! the previous batch's caveat: those encoders used to build their buffer
+//! inline inside a private `invoke_signed*` method and never return it, so
+//! from outside `hopper-runtime` they were unobservable and this module could
+//! only prove a hand-written *mirror* of the wire format. The mirror is gone
+//! as the proof target; the proofs now verify the code that actually runs.
 //!
-//! 1. **Golden-vector unit tests** (`#[cfg(test)]`) pin the exact byte
-//!    strings against the SPL Token / System program specification for
-//!    concrete inputs — the same discriminators and field order the
-//!    on-chain programs dispatch on.
-//! 2. Each encoder's doc comment cites the exact `hopper-runtime` source
-//!    line that emits the identical bytes, so the mirror can be checked
-//!    against the shipped builder by inspection.
+//! ## The reference encoders are now a differential oracle
 //!
-//! ### Provenance (runtime source lines at repo HEAD)
+//! The [`spl_token`] and [`system`] modules in this file retain an
+//! independent, second implementation of the same wire formats. They are no
+//! longer the proof target — they serve as a **differential oracle**. The
+//! `*_matches_reference` proofs assert, byte-for-byte over symbolic inputs,
+//! that the shipped encoder equals this independent reference, so the shipped
+//! bytes are pinned from two directions at once: a direct wire-format proof
+//! *and* N-version agreement with a separately-authored encoder. A divergence
+//! in either implementation fails a proof.
 //!
-//! SPL Token — `crates/hopper-runtime/src/token.rs`:
-//! Transfer disc 3 (L401), Approve disc 4 (L599), MintTo disc 7 (L450),
-//! Burn disc 8 (L498), TransferChecked disc 12 (L768), ApproveChecked
-//! disc 13 (L1010), MintToChecked disc 14 (L836), BurnChecked disc 15
-//! (L923), Revoke disc 5 (L659), CloseAccount disc 9 (L559),
-//! FreezeAccount disc 10 (L1131), ThawAccount disc 11 (L1182),
-//! SyncNative disc 17 (L1203), SetAuthority disc 6 (`encode_set_authority_data`,
-//! L72), InitializeAccount2 disc 16 / InitializeAccount3 disc 18
-//! (`encode_initialize_account_with_owner`, L89).
+//! ## CBMC tractability
 //!
-//! System — `crates/hopper-runtime/src/system.rs`:
-//! CreateAccount disc 0 (L45), Transfer disc 2 (L83), Assign disc 1
-//! (L118), Allocate disc 8 (L150). System discriminators are 4-byte
-//! `u32` LE (only the low byte is nonzero for these tags).
+//! Per the `raw_input` `PID_WORD` lesson, scalars are compared as one word
+//! (`u64::from_le_bytes(..)`), never a slice `==`, and a 32-byte pubkey region
+//! is proven with a single symbolic index `i in 0..32` and one assertion —
+//! universal over all offsets, with no 32-iteration `memcmp` loop that would
+//! blow up the SAT formula. The differential proofs use the same discipline
+//! (field-wise / symbolic-index equality between the two fixed-size buffers),
+//! so every harness stays free of large comparison loops.
 //!
-//! ## Followup (requires editing the currently-locked hopper-runtime)
+//! ## Provenance of the shipped encoders (runtime source)
 //!
-//! The runtime builders should delegate to these functions so there is a
-//! single proven source of truth and the proof covers the exact bytes the
-//! CPI path emits. Until then, the "real-path" proofs (where the emitting
-//! builder actually calls the proven encoder) live in the editable
-//! `hopper-token-2022` and `hopper-associated-token` crates; the SPL
-//! Token base wire format (Transfer/MintTo/Burn/Approve) is identical
-//! between those crates and this module.
+//! SPL Token — `crates/hopper-runtime/src/token.rs`, `pub mod encoders`:
+//! Transfer 3, Approve 4, MintTo 7, Burn 8, TransferChecked 12,
+//! ApproveChecked 13, MintToChecked 14, BurnChecked 15, Revoke 5,
+//! CloseAccount 9, FreezeAccount 10, ThawAccount 11, SyncNative 17,
+//! InitializeAccount 1, InitializeAccount2 16 / InitializeAccount3 18
+//! (`encode_initialize_account_with_owner`), SetAuthority 6
+//! (`encode_set_authority`).
+//!
+//! System — `crates/hopper-runtime/src/system.rs`, `pub mod encoders`:
+//! CreateAccount 0, Transfer 2, Assign 1, Allocate 8. System discriminators
+//! are 4-byte `u32` LE (only the low byte is nonzero for these tags).
 
 // =====================================================================
-// SPL Token wire format.
+// Differential-oracle reference encoders (SPL Token wire format).
+//
+// These are an independent second implementation kept only as a proof
+// oracle: the `#[cfg(kani)]` `*_matches_reference` harnesses prove the
+// shipped `hopper_runtime::token::encoders` byte-equal to these for all
+// symbolic inputs. Do not call these from production code — use the
+// builders in `hopper_runtime::token`.
 // =====================================================================
 
-/// SPL Token instruction discriminators (`TokenInstruction` tags).
+/// SPL Token instruction discriminators (`TokenInstruction` tags), plus an
+/// independent reference encoder per instruction used as a differential
+/// oracle for the shipped `hopper_runtime::token::encoders`.
 pub mod spl_token {
     /// `InitializeAccount2` discriminator.
     pub const IX_INITIALIZE_ACCOUNT2: u8 = 16;
@@ -108,99 +121,90 @@ pub mod spl_token {
         data
     }
 
-    /// `Transfer { amount }` — `[3][amount: u64 LE]` (9 bytes).
-    /// Mirrors `token.rs` L401-403.
+    /// Reference `Transfer { amount }` — `[3][amount: u64 LE]` (9 bytes).
     #[inline(always)]
     pub fn encode_transfer(amount: u64) -> [u8; 9] {
         amount_ix(IX_TRANSFER, amount)
     }
 
-    /// `Approve { amount }` — `[4][amount: u64 LE]` (9 bytes).
-    /// Mirrors `token.rs` L598-600.
+    /// Reference `Approve { amount }` — `[4][amount: u64 LE]` (9 bytes).
     #[inline(always)]
     pub fn encode_approve(amount: u64) -> [u8; 9] {
         amount_ix(IX_APPROVE, amount)
     }
 
-    /// `MintTo { amount }` — `[7][amount: u64 LE]` (9 bytes).
-    /// Mirrors `token.rs` L449-451.
+    /// Reference `MintTo { amount }` — `[7][amount: u64 LE]` (9 bytes).
     #[inline(always)]
     pub fn encode_mint_to(amount: u64) -> [u8; 9] {
         amount_ix(IX_MINT_TO, amount)
     }
 
-    /// `Burn { amount }` — `[8][amount: u64 LE]` (9 bytes).
-    /// Mirrors `token.rs` L497-499.
+    /// Reference `Burn { amount }` — `[8][amount: u64 LE]` (9 bytes).
     #[inline(always)]
     pub fn encode_burn(amount: u64) -> [u8; 9] {
         amount_ix(IX_BURN, amount)
     }
 
-    /// `TransferChecked { amount, decimals }` —
+    /// Reference `TransferChecked { amount, decimals }` —
     /// `[12][amount: u64 LE][decimals: u8]` (10 bytes).
-    /// Mirrors `token.rs` L767-770.
     #[inline(always)]
     pub fn encode_transfer_checked(amount: u64, decimals: u8) -> [u8; 10] {
         amount_checked_ix(IX_TRANSFER_CHECKED, amount, decimals)
     }
 
-    /// `ApproveChecked { amount, decimals }` —
+    /// Reference `ApproveChecked { amount, decimals }` —
     /// `[13][amount: u64 LE][decimals: u8]` (10 bytes).
-    /// Mirrors `token.rs` L1009-1012.
     #[inline(always)]
     pub fn encode_approve_checked(amount: u64, decimals: u8) -> [u8; 10] {
         amount_checked_ix(IX_APPROVE_CHECKED, amount, decimals)
     }
 
-    /// `MintToChecked { amount, decimals }` —
+    /// Reference `MintToChecked { amount, decimals }` —
     /// `[14][amount: u64 LE][decimals: u8]` (10 bytes).
-    /// Mirrors `token.rs` L835-838.
     #[inline(always)]
     pub fn encode_mint_to_checked(amount: u64, decimals: u8) -> [u8; 10] {
         amount_checked_ix(IX_MINT_TO_CHECKED, amount, decimals)
     }
 
-    /// `BurnChecked { amount, decimals }` —
+    /// Reference `BurnChecked { amount, decimals }` —
     /// `[15][amount: u64 LE][decimals: u8]` (10 bytes).
-    /// Mirrors `token.rs` L922-925.
     #[inline(always)]
     pub fn encode_burn_checked(amount: u64, decimals: u8) -> [u8; 10] {
         amount_checked_ix(IX_BURN_CHECKED, amount, decimals)
     }
 
-    /// `Revoke` — `[5]` (1 byte). Mirrors `token.rs` L659.
+    /// Reference `Revoke` — `[5]` (1 byte).
     #[inline(always)]
     pub fn encode_revoke() -> [u8; 1] {
         [IX_REVOKE]
     }
 
-    /// `CloseAccount` — `[9]` (1 byte). Mirrors `token.rs` L559.
+    /// Reference `CloseAccount` — `[9]` (1 byte).
     #[inline(always)]
     pub fn encode_close_account() -> [u8; 1] {
         [IX_CLOSE_ACCOUNT]
     }
 
-    /// `FreezeAccount` — `[10]` (1 byte). Mirrors `token.rs` L1131.
+    /// Reference `FreezeAccount` — `[10]` (1 byte).
     #[inline(always)]
     pub fn encode_freeze_account() -> [u8; 1] {
         [IX_FREEZE_ACCOUNT]
     }
 
-    /// `ThawAccount` — `[11]` (1 byte). Mirrors `token.rs` L1182.
+    /// Reference `ThawAccount` — `[11]` (1 byte).
     #[inline(always)]
     pub fn encode_thaw_account() -> [u8; 1] {
         [IX_THAW_ACCOUNT]
     }
 
-    /// `SyncNative` — `[17]` (1 byte). Mirrors `token.rs` L1203.
+    /// Reference `SyncNative` — `[17]` (1 byte).
     #[inline(always)]
     pub fn encode_sync_native() -> [u8; 1] {
         [IX_SYNC_NATIVE]
     }
 
-    /// `InitializeAccount2 { owner }` — `[16][owner: 32 bytes]` (33 bytes).
-    /// Mirrors `encode_initialize_account_with_owner(16, owner)`
-    /// (`token.rs` L89-95, L1252).
+    /// Reference `InitializeAccount2 { owner }` — `[16][owner: 32 bytes]`
+    /// (33 bytes).
     #[inline(always)]
     pub fn encode_initialize_account2(owner: &[u8; 32]) -> [u8; 33] {
         let mut data = [0u8; 33];
@@ -209,9 +213,8 @@ pub mod spl_token {
         data
     }
 
-    /// `InitializeAccount3 { owner }` — `[18][owner: 32 bytes]` (33 bytes).
-    /// Mirrors `encode_initialize_account_with_owner(18, owner)`
-    /// (`token.rs` L89-95, L1273).
+    /// Reference `InitializeAccount3 { owner }` — `[18][owner: 32 bytes]`
+    /// (33 bytes).
     #[inline(always)]
     pub fn encode_initialize_account3(owner: &[u8; 32]) -> [u8; 33] {
         let mut data = [0u8; 33];
@@ -220,13 +223,12 @@ pub mod spl_token {
         data
     }
 
-    /// `SetAuthority { authority_type, new_authority }`.
+    /// Reference `SetAuthority { authority_type, new_authority }`.
     ///
     /// Layout: `[6][authority_type: u8][COption tag: u8]` and, when
-    /// `new_authority` is `Some`, `[new_authority: 32 bytes]`. The tag
-    /// byte is 1 (Some) or 0 (None). Returns the fixed 35-byte buffer
-    /// and the number of meaningful bytes (35 for Some, 3 for None).
-    /// Mirrors `encode_set_authority_data` (`token.rs` L71-87).
+    /// `new_authority` is `Some`, `[new_authority: 32 bytes]`. The tag byte
+    /// is 1 (Some) or 0 (None). Returns the fixed 35-byte buffer and the
+    /// number of meaningful bytes (35 for Some, 3 for None).
     #[inline(always)]
     pub fn encode_set_authority(
         authority_type: u8,
@@ -250,10 +252,12 @@ pub mod spl_token {
 }
 
 // =====================================================================
-// System program wire format. Discriminators are 4-byte u32 LE.
+// Differential-oracle reference encoders (System wire format).
+// Discriminators are 4-byte u32 LE.
 // =====================================================================
 
-/// System program instruction encoders.
+/// System program instruction reference encoders, used as a differential
+/// oracle for the shipped `hopper_runtime::system::encoders`.
 pub mod system {
     /// `CreateAccount` discriminator (u32 LE).
     pub const IX_CREATE_ACCOUNT: u32 = 0;
@@ -264,10 +268,10 @@ pub mod system {
     /// `Allocate` discriminator (u32 LE).
     pub const IX_ALLOCATE: u32 = 8;
 
-    /// `CreateAccount { lamports, space, owner }`.
+    /// Reference `CreateAccount { lamports, space, owner }`.
     ///
     /// Layout: `[disc: u32 LE = 0][lamports: u64 LE][space: u64 LE]
-    /// [owner: 32 bytes]` — 52 bytes. Mirrors `system.rs` L45-49.
+    /// [owner: 32 bytes]` — 52 bytes.
     #[inline(always)]
     pub fn encode_create_account(lamports: u64, space: u64, owner: &[u8; 32]) -> [u8; 52] {
         let mut data = [0u8; 52];
@@ -278,10 +282,9 @@ pub mod system {
         data
     }
 
-    /// `Transfer { lamports }`.
+    /// Reference `Transfer { lamports }`.
     ///
     /// Layout: `[disc: u32 LE = 2][lamports: u64 LE]` — 12 bytes.
-    /// Mirrors `system.rs` L83-85.
     #[inline(always)]
     pub fn encode_transfer(lamports: u64) -> [u8; 12] {
         let mut data = [0u8; 12];
@@ -290,10 +293,9 @@ pub mod system {
         data
     }
 
-    /// `Assign { owner }`.
+    /// Reference `Assign { owner }`.
     ///
     /// Layout: `[disc: u32 LE = 1][owner: 32 bytes]` — 36 bytes.
-    /// Mirrors `system.rs` L118-120.
     #[inline(always)]
     pub fn encode_assign(owner: &[u8; 32]) -> [u8; 36] {
         let mut data = [0u8; 36];
@@ -302,10 +304,9 @@ pub mod system {
         data
     }
 
-    /// `Allocate { space }`.
+    /// Reference `Allocate { space }`.
     ///
     /// Layout: `[disc: u32 LE = 8][space: u64 LE]` — 12 bytes.
-    /// Mirrors `system.rs` L150-152.
     #[inline(always)]
     pub fn encode_allocate(space: u64) -> [u8; 12] {
         let mut data = [0u8; 12];
@@ -313,18 +314,78 @@ pub mod system {
         data[4..12].copy_from_slice(&space.to_le_bytes());
         data
     }
+
+    // ── Durable-nonce family (fixed-size, seed-free) ────────────────
+
+    /// `AdvanceNonceAccount` discriminator (u32 LE).
+    pub const IX_ADVANCE_NONCE: u32 = 4;
+    /// `WithdrawNonceAccount` discriminator (u32 LE).
+    pub const IX_WITHDRAW_NONCE: u32 = 5;
+    /// `InitializeNonceAccount` discriminator (u32 LE).
+    pub const IX_INITIALIZE_NONCE: u32 = 6;
+    /// `AuthorizeNonceAccount` discriminator (u32 LE).
+    pub const IX_AUTHORIZE_NONCE: u32 = 7;
+    /// `UpgradeNonceAccount` discriminator (u32 LE).
+    pub const IX_UPGRADE_NONCE: u32 = 12;
+
+    /// Reference `AdvanceNonceAccount` — `[4u32 LE]` — 4 bytes.
+    #[inline(always)]
+    pub fn encode_advance_nonce_account() -> [u8; 4] {
+        IX_ADVANCE_NONCE.to_le_bytes()
+    }
+
+    /// Reference `WithdrawNonceAccount { lamports }` —
+    /// `[5u32 LE][lamports: u64 LE]` — 12 bytes.
+    #[inline(always)]
+    pub fn encode_withdraw_nonce_account(lamports: u64) -> [u8; 12] {
+        let mut data = [0u8; 12];
+        data[0..4].copy_from_slice(&IX_WITHDRAW_NONCE.to_le_bytes());
+        data[4..12].copy_from_slice(&lamports.to_le_bytes());
+        data
+    }
+
+    /// Reference `InitializeNonceAccount { authority }` —
+    /// `[6u32 LE][authority: 32 bytes]` — 36 bytes.
+    #[inline(always)]
+    pub fn encode_initialize_nonce_account(authority: &[u8; 32]) -> [u8; 36] {
+        let mut data = [0u8; 36];
+        data[0..4].copy_from_slice(&IX_INITIALIZE_NONCE.to_le_bytes());
+        data[4..36].copy_from_slice(authority);
+        data
+    }
+
+    /// Reference `AuthorizeNonceAccount { new_authority }` —
+    /// `[7u32 LE][new_authority: 32 bytes]` — 36 bytes.
+    #[inline(always)]
+    pub fn encode_authorize_nonce_account(new_authority: &[u8; 32]) -> [u8; 36] {
+        let mut data = [0u8; 36];
+        data[0..4].copy_from_slice(&IX_AUTHORIZE_NONCE.to_le_bytes());
+        data[4..36].copy_from_slice(new_authority);
+        data
+    }
+
+    /// Reference `UpgradeNonceAccount` — `[12u32 LE]` — 4 bytes.
+    #[inline(always)]
+    pub fn encode_upgrade_nonce_account() -> [u8; 4] {
+        IX_UPGRADE_NONCE.to_le_bytes()
+    }
 }
 
 // =====================================================================
-// Golden-vector unit tests: pin exact byte strings against the SPL
-// Token / System program specification.
+// Golden-vector unit tests.
+//
+// These pin the exact byte strings the *shipped* encoders emit against the
+// SPL Token / System program specification for concrete inputs, and anchor
+// the differential oracle by asserting the reference encoders agree with the
+// shipped bytes at the same vectors.
 // =====================================================================
 #[cfg(test)]
 extern crate std;
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use hopper_runtime::system::encoders as rt_system;
+    use hopper_runtime::token::encoders as rt_token;
 
     const AMOUNT: u64 = 0x0102_0304_0506_0708;
     const AMOUNT_LE: [u8; 8] = [0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01];
@@ -337,10 +398,10 @@ mod tests {
     #[test]
     fn spl_amount_instructions_golden() {
         for (bytes, disc) in [
-            (spl_token::encode_transfer(AMOUNT), 3u8),
-            (spl_token::encode_approve(AMOUNT), 4),
-            (spl_token::encode_mint_to(AMOUNT), 7),
-            (spl_token::encode_burn(AMOUNT), 8),
+            (rt_token::encode_transfer(AMOUNT), 3u8),
+            (rt_token::encode_approve(AMOUNT), 4),
+            (rt_token::encode_mint_to(AMOUNT), 7),
+            (rt_token::encode_burn(AMOUNT), 8),
         ] {
             assert_eq!(bytes[0], disc);
             assert_eq!(&bytes[1..9], &AMOUNT_LE);
@@ -350,10 +411,10 @@ mod tests {
     #[test]
     fn spl_checked_instructions_golden() {
         for (bytes, disc) in [
-            (spl_token::encode_transfer_checked(AMOUNT, 9), 12u8),
-            (spl_token::encode_approve_checked(AMOUNT, 9), 13),
-            (spl_token::encode_mint_to_checked(AMOUNT, 9), 14),
-            (spl_token::encode_burn_checked(AMOUNT, 9), 15),
+            (rt_token::encode_transfer_checked(AMOUNT, 9), 12u8),
+            (rt_token::encode_approve_checked(AMOUNT, 9), 13),
+            (rt_token::encode_mint_to_checked(AMOUNT, 9), 14),
+            (rt_token::encode_burn_checked(AMOUNT, 9), 15),
         ] {
             assert_eq!(bytes[0], disc);
             assert_eq!(&bytes[1..9], &AMOUNT_LE);
@@ -363,33 +424,34 @@ mod tests {
 
     #[test]
     fn spl_single_byte_instructions_golden() {
-        assert_eq!(spl_token::encode_revoke(), [5]);
-        assert_eq!(spl_token::encode_close_account(), [9]);
-        assert_eq!(spl_token::encode_freeze_account(), [10]);
-        assert_eq!(spl_token::encode_thaw_account(), [11]);
-        assert_eq!(spl_token::encode_sync_native(), [17]);
+        assert_eq!(rt_token::encode_revoke(), [5]);
+        assert_eq!(rt_token::encode_close_account(), [9]);
+        assert_eq!(rt_token::encode_freeze_account(), [10]);
+        assert_eq!(rt_token::encode_thaw_account(), [11]);
+        assert_eq!(rt_token::encode_sync_native(), [17]);
+        assert_eq!(rt_token::encode_initialize_account(), [1]);
     }
 
     #[test]
     fn spl_initialize_account_golden() {
-        let a2 = spl_token::encode_initialize_account2(&OWNER);
+        let a2 = rt_token::encode_initialize_account_with_owner(16, &OWNER);
         assert_eq!(a2[0], 16);
         assert_eq!(&a2[1..33], &OWNER);
-        let a3 = spl_token::encode_initialize_account3(&OWNER);
+        let a3 = rt_token::encode_initialize_account_with_owner(18, &OWNER);
         assert_eq!(a3[0], 18);
         assert_eq!(&a3[1..33], &OWNER);
     }
 
     #[test]
     fn spl_set_authority_golden() {
-        let (some, some_len) = spl_token::encode_set_authority(2, Some(&OWNER));
+        let (some, some_len) = rt_token::encode_set_authority(2, Some(&OWNER));
         assert_eq!(some_len, 35);
         assert_eq!(some[0], 6);
         assert_eq!(some[1], 2);
         assert_eq!(some[2], 1);
         assert_eq!(&some[3..35], &OWNER);
 
-        let (none, none_len) = spl_token::encode_set_authority(3, None);
+        let (none, none_len) = rt_token::encode_set_authority(3, None);
         assert_eq!(none_len, 3);
         assert_eq!(none[0], 6);
         assert_eq!(none[1], 3);
@@ -398,7 +460,7 @@ mod tests {
 
     #[test]
     fn system_create_account_golden() {
-        let d = system::encode_create_account(AMOUNT, 165, &OWNER);
+        let d = rt_system::encode_create_account(AMOUNT, 165, &OWNER);
         assert_eq!(&d[0..4], &[0, 0, 0, 0]);
         assert_eq!(&d[4..12], &AMOUNT_LE);
         assert_eq!(&d[12..20], &165u64.to_le_bytes());
@@ -407,42 +469,177 @@ mod tests {
 
     #[test]
     fn system_transfer_golden() {
-        let d = system::encode_transfer(AMOUNT);
+        let d = rt_system::encode_transfer(AMOUNT);
         assert_eq!(&d[0..4], &[2, 0, 0, 0]);
         assert_eq!(&d[4..12], &AMOUNT_LE);
     }
 
     #[test]
     fn system_assign_golden() {
-        let d = system::encode_assign(&OWNER);
+        let d = rt_system::encode_assign(&OWNER);
         assert_eq!(&d[0..4], &[1, 0, 0, 0]);
         assert_eq!(&d[4..36], &OWNER);
     }
 
     #[test]
     fn system_allocate_golden() {
-        let d = system::encode_allocate(AMOUNT);
+        let d = rt_system::encode_allocate(AMOUNT);
         assert_eq!(&d[0..4], &[8, 0, 0, 0]);
         assert_eq!(&d[4..12], &AMOUNT_LE);
+    }
+
+    #[test]
+    fn system_nonce_family_golden() {
+        assert_eq!(rt_system::encode_advance_nonce_account(), [4, 0, 0, 0]);
+        let w = rt_system::encode_withdraw_nonce_account(AMOUNT);
+        assert_eq!(&w[0..4], &[5, 0, 0, 0]);
+        assert_eq!(&w[4..12], &AMOUNT_LE);
+        let init = rt_system::encode_initialize_nonce_account(&OWNER);
+        assert_eq!(&init[0..4], &[6, 0, 0, 0]);
+        assert_eq!(&init[4..36], &OWNER);
+        let auth = rt_system::encode_authorize_nonce_account(&OWNER);
+        assert_eq!(&auth[0..4], &[7, 0, 0, 0]);
+        assert_eq!(&auth[4..36], &OWNER);
+        assert_eq!(rt_system::encode_upgrade_nonce_account(), [12, 0, 0, 0]);
+    }
+
+    /// Anchor the differential oracle: the independent reference encoders must
+    /// reproduce the shipped bytes at the golden vectors. Combined with the
+    /// symbolic `*_matches_reference` Kani proofs, this pins the oracle both
+    /// concretely and universally.
+    #[test]
+    fn reference_oracle_agrees_with_shipped_at_golden_vectors() {
+        use super::{spl_token, system};
+
+        assert_eq!(
+            spl_token::encode_transfer(AMOUNT),
+            rt_token::encode_transfer(AMOUNT)
+        );
+        assert_eq!(
+            spl_token::encode_approve(AMOUNT),
+            rt_token::encode_approve(AMOUNT)
+        );
+        assert_eq!(
+            spl_token::encode_mint_to(AMOUNT),
+            rt_token::encode_mint_to(AMOUNT)
+        );
+        assert_eq!(
+            spl_token::encode_burn(AMOUNT),
+            rt_token::encode_burn(AMOUNT)
+        );
+        assert_eq!(
+            spl_token::encode_transfer_checked(AMOUNT, 9),
+            rt_token::encode_transfer_checked(AMOUNT, 9)
+        );
+        assert_eq!(
+            spl_token::encode_approve_checked(AMOUNT, 9),
+            rt_token::encode_approve_checked(AMOUNT, 9)
+        );
+        assert_eq!(
+            spl_token::encode_mint_to_checked(AMOUNT, 9),
+            rt_token::encode_mint_to_checked(AMOUNT, 9)
+        );
+        assert_eq!(
+            spl_token::encode_burn_checked(AMOUNT, 9),
+            rt_token::encode_burn_checked(AMOUNT, 9)
+        );
+        assert_eq!(spl_token::encode_revoke(), rt_token::encode_revoke());
+        assert_eq!(
+            spl_token::encode_close_account(),
+            rt_token::encode_close_account()
+        );
+        assert_eq!(
+            spl_token::encode_freeze_account(),
+            rt_token::encode_freeze_account()
+        );
+        assert_eq!(
+            spl_token::encode_thaw_account(),
+            rt_token::encode_thaw_account()
+        );
+        assert_eq!(
+            spl_token::encode_sync_native(),
+            rt_token::encode_sync_native()
+        );
+        assert_eq!(
+            spl_token::encode_initialize_account2(&OWNER),
+            rt_token::encode_initialize_account_with_owner(16, &OWNER)
+        );
+        assert_eq!(
+            spl_token::encode_initialize_account3(&OWNER),
+            rt_token::encode_initialize_account_with_owner(18, &OWNER)
+        );
+        assert_eq!(
+            spl_token::encode_set_authority(2, Some(&OWNER)),
+            rt_token::encode_set_authority(2, Some(&OWNER))
+        );
+        assert_eq!(
+            spl_token::encode_set_authority(3, None),
+            rt_token::encode_set_authority(3, None)
+        );
+        assert_eq!(
+            system::encode_create_account(AMOUNT, 165, &OWNER),
+            rt_system::encode_create_account(AMOUNT, 165, &OWNER)
+        );
+        assert_eq!(
+            system::encode_transfer(AMOUNT),
+            rt_system::encode_transfer(AMOUNT)
+        );
+        assert_eq!(
+            system::encode_assign(&OWNER),
+            rt_system::encode_assign(&OWNER)
+        );
+        assert_eq!(
+            system::encode_allocate(AMOUNT),
+            rt_system::encode_allocate(AMOUNT)
+        );
+        assert_eq!(
+            system::encode_advance_nonce_account(),
+            rt_system::encode_advance_nonce_account()
+        );
+        assert_eq!(
+            system::encode_withdraw_nonce_account(AMOUNT),
+            rt_system::encode_withdraw_nonce_account(AMOUNT)
+        );
+        assert_eq!(
+            system::encode_initialize_nonce_account(&OWNER),
+            rt_system::encode_initialize_nonce_account(&OWNER)
+        );
+        assert_eq!(
+            system::encode_authorize_nonce_account(&OWNER),
+            rt_system::encode_authorize_nonce_account(&OWNER)
+        );
+        assert_eq!(
+            system::encode_upgrade_nonce_account(),
+            rt_system::encode_upgrade_nonce_account()
+        );
     }
 }
 
 // =====================================================================
 // Kani layout proofs.
 //
-// Conventions (per the raw_input PID_WORD lesson):
-//   * scalars are compared as one word (`u64::from_le_bytes(...)`),
-//     never a slice `==`;
-//   * a 32-byte pubkey region is proven with a single symbolic index
-//     `i in 0..32` and one assertion `data[off + i] == owner[i]`, which
-//     universally covers all 32 offsets without a 32-iteration loop.
+// Two families, both driven by the `scripts/kani-spl-layouts.{sh,ps1}` lane
+// (CI lane `kani-spl-layout-proofs`):
 //
-// Run by `scripts/kani-spl-layouts.{sh,ps1}` (CI lane
-// `kani-spl-layout-proofs`).
+//   * `*_layout` — prove the SHIPPED `hopper_runtime::{token,system}::encoders`
+//     directly: correct discriminator, little-endian field offsets, exact
+//     total length, over fully symbolic inputs.
+//   * `*_matches_reference` — differential-oracle proofs: the shipped encoder
+//     is byte-equal to the independent reference encoder in this file for all
+//     symbolic inputs.
+//
+// Conventions (per the raw_input `PID_WORD` lesson):
+//   * scalars are compared as one word (`u64::from_le_bytes(...)`), never a
+//     slice `==`;
+//   * a 32-byte pubkey region is compared with a single symbolic index
+//     `i in 0..32` and one assertion, which universally covers all 32 offsets
+//     without a 32-iteration loop.
 // =====================================================================
 #[cfg(kani)]
 mod kani_proofs {
-    use super::*;
+    use super::{spl_token, system};
+    use hopper_runtime::system::encoders as rt_system;
+    use hopper_runtime::token::encoders as rt_token;
 
     #[inline]
     fn word_at(d: &[u8], off: usize) -> u64 {
@@ -458,8 +655,8 @@ mod kani_proofs {
         ])
     }
 
-    /// Symbolic-index equality over a 32-byte region: universal over all
-    /// offsets, no loop.
+    /// Symbolic-index equality of a byte slice against a 32-byte pubkey:
+    /// universal over all offsets, no loop.
     #[inline]
     fn assert_pubkey_region(d: &[u8], off: usize, owner: &[u8; 32]) {
         let i: usize = kani::any();
@@ -467,12 +664,22 @@ mod kani_proofs {
         assert_eq!(d[off + i], owner[i]);
     }
 
-    // ── SPL Token: amount instructions ──────────────────────────────
+    /// Symbolic-index equality of the 32-byte region at `off` between two
+    /// buffers: universal over all offsets, no loop. Used by the differential
+    /// proofs so shipped == reference is checked without a 32-byte `memcmp`.
+    #[inline]
+    fn assert_regions_eq(a: &[u8], b: &[u8], off: usize) {
+        let i: usize = kani::any();
+        kani::assume(i < 32);
+        assert_eq!(a[off + i], b[off + i]);
+    }
+
+    // ── SPL Token: amount instructions — shipped-encoder layout ─────
 
     #[kani::proof]
     fn spl_transfer_layout() {
         let amount: u64 = kani::any();
-        let d = spl_token::encode_transfer(amount);
+        let d = rt_token::encode_transfer(amount);
         assert_eq!(d.len(), 9);
         assert_eq!(d[0], 3);
         assert_eq!(word_at(&d, 1), amount);
@@ -481,7 +688,7 @@ mod kani_proofs {
     #[kani::proof]
     fn spl_approve_layout() {
         let amount: u64 = kani::any();
-        let d = spl_token::encode_approve(amount);
+        let d = rt_token::encode_approve(amount);
         assert_eq!(d.len(), 9);
         assert_eq!(d[0], 4);
         assert_eq!(word_at(&d, 1), amount);
@@ -490,7 +697,7 @@ mod kani_proofs {
     #[kani::proof]
     fn spl_mint_to_layout() {
         let amount: u64 = kani::any();
-        let d = spl_token::encode_mint_to(amount);
+        let d = rt_token::encode_mint_to(amount);
         assert_eq!(d.len(), 9);
         assert_eq!(d[0], 7);
         assert_eq!(word_at(&d, 1), amount);
@@ -499,19 +706,19 @@ mod kani_proofs {
     #[kani::proof]
     fn spl_burn_layout() {
         let amount: u64 = kani::any();
-        let d = spl_token::encode_burn(amount);
+        let d = rt_token::encode_burn(amount);
         assert_eq!(d.len(), 9);
         assert_eq!(d[0], 8);
         assert_eq!(word_at(&d, 1), amount);
     }
 
-    // ── SPL Token: checked instructions ─────────────────────────────
+    // ── SPL Token: checked instructions — shipped-encoder layout ────
 
     #[kani::proof]
     fn spl_transfer_checked_layout() {
         let amount: u64 = kani::any();
         let decimals: u8 = kani::any();
-        let d = spl_token::encode_transfer_checked(amount, decimals);
+        let d = rt_token::encode_transfer_checked(amount, decimals);
         assert_eq!(d.len(), 10);
         assert_eq!(d[0], 12);
         assert_eq!(word_at(&d, 1), amount);
@@ -522,7 +729,7 @@ mod kani_proofs {
     fn spl_approve_checked_layout() {
         let amount: u64 = kani::any();
         let decimals: u8 = kani::any();
-        let d = spl_token::encode_approve_checked(amount, decimals);
+        let d = rt_token::encode_approve_checked(amount, decimals);
         assert_eq!(d.len(), 10);
         assert_eq!(d[0], 13);
         assert_eq!(word_at(&d, 1), amount);
@@ -533,7 +740,7 @@ mod kani_proofs {
     fn spl_mint_to_checked_layout() {
         let amount: u64 = kani::any();
         let decimals: u8 = kani::any();
-        let d = spl_token::encode_mint_to_checked(amount, decimals);
+        let d = rt_token::encode_mint_to_checked(amount, decimals);
         assert_eq!(d.len(), 10);
         assert_eq!(d[0], 14);
         assert_eq!(word_at(&d, 1), amount);
@@ -544,7 +751,7 @@ mod kani_proofs {
     fn spl_burn_checked_layout() {
         let amount: u64 = kani::any();
         let decimals: u8 = kani::any();
-        let d = spl_token::encode_burn_checked(amount, decimals);
+        let d = rt_token::encode_burn_checked(amount, decimals);
         assert_eq!(d.len(), 10);
         assert_eq!(d[0], 15);
         assert_eq!(word_at(&d, 1), amount);
@@ -555,19 +762,20 @@ mod kani_proofs {
 
     #[kani::proof]
     fn spl_single_byte_discriminators() {
-        assert_eq!(spl_token::encode_revoke(), [5]);
-        assert_eq!(spl_token::encode_close_account(), [9]);
-        assert_eq!(spl_token::encode_freeze_account(), [10]);
-        assert_eq!(spl_token::encode_thaw_account(), [11]);
-        assert_eq!(spl_token::encode_sync_native(), [17]);
+        assert_eq!(rt_token::encode_revoke(), [5]);
+        assert_eq!(rt_token::encode_close_account(), [9]);
+        assert_eq!(rt_token::encode_freeze_account(), [10]);
+        assert_eq!(rt_token::encode_thaw_account(), [11]);
+        assert_eq!(rt_token::encode_sync_native(), [17]);
+        assert_eq!(rt_token::encode_initialize_account(), [1]);
     }
 
-    // ── SPL Token: initialize-account-with-owner ────────────────────
+    // ── SPL Token: initialize-account-with-owner — shipped layout ───
 
     #[kani::proof]
     fn spl_initialize_account2_layout() {
         let owner: [u8; 32] = kani::any();
-        let d = spl_token::encode_initialize_account2(&owner);
+        let d = rt_token::encode_initialize_account_with_owner(16, &owner);
         assert_eq!(d.len(), 33);
         assert_eq!(d[0], 16);
         assert_pubkey_region(&d, 1, &owner);
@@ -576,19 +784,19 @@ mod kani_proofs {
     #[kani::proof]
     fn spl_initialize_account3_layout() {
         let owner: [u8; 32] = kani::any();
-        let d = spl_token::encode_initialize_account3(&owner);
+        let d = rt_token::encode_initialize_account_with_owner(18, &owner);
         assert_eq!(d.len(), 33);
         assert_eq!(d[0], 18);
         assert_pubkey_region(&d, 1, &owner);
     }
 
-    // ── SPL Token: SetAuthority (both COption branches) ─────────────
+    // ── SPL Token: SetAuthority (both COption branches) — shipped ───
 
     #[kani::proof]
     fn spl_set_authority_some_layout() {
         let authority_type: u8 = kani::any();
         let owner: [u8; 32] = kani::any();
-        let (d, len) = spl_token::encode_set_authority(authority_type, Some(&owner));
+        let (d, len) = rt_token::encode_set_authority(authority_type, Some(&owner));
         assert_eq!(len, 35);
         assert_eq!(d[0], 6);
         assert_eq!(d[1], authority_type);
@@ -599,14 +807,14 @@ mod kani_proofs {
     #[kani::proof]
     fn spl_set_authority_none_layout() {
         let authority_type: u8 = kani::any();
-        let (d, len) = spl_token::encode_set_authority(authority_type, None);
+        let (d, len) = rt_token::encode_set_authority(authority_type, None);
         assert_eq!(len, 3);
         assert_eq!(d[0], 6);
         assert_eq!(d[1], authority_type);
         assert_eq!(d[2], 0);
     }
 
-    // ── System program ──────────────────────────────────────────────
+    // ── System program — shipped-encoder layout ─────────────────────
 
     /// The 4-byte u32 discriminator: low byte = tag, high 3 bytes = 0.
     #[inline]
@@ -620,7 +828,7 @@ mod kani_proofs {
     #[kani::proof]
     fn system_transfer_layout() {
         let lamports: u64 = kani::any();
-        let d = system::encode_transfer(lamports);
+        let d = rt_system::encode_transfer(lamports);
         assert_eq!(d.len(), 12);
         assert_system_disc(&d, 2);
         assert_eq!(word_at(&d, 4), lamports);
@@ -629,7 +837,7 @@ mod kani_proofs {
     #[kani::proof]
     fn system_allocate_layout() {
         let space: u64 = kani::any();
-        let d = system::encode_allocate(space);
+        let d = rt_system::encode_allocate(space);
         assert_eq!(d.len(), 12);
         assert_system_disc(&d, 8);
         assert_eq!(word_at(&d, 4), space);
@@ -638,7 +846,7 @@ mod kani_proofs {
     #[kani::proof]
     fn system_assign_layout() {
         let owner: [u8; 32] = kani::any();
-        let d = system::encode_assign(&owner);
+        let d = rt_system::encode_assign(&owner);
         assert_eq!(d.len(), 36);
         assert_system_disc(&d, 1);
         assert_pubkey_region(&d, 4, &owner);
@@ -649,11 +857,290 @@ mod kani_proofs {
         let lamports: u64 = kani::any();
         let space: u64 = kani::any();
         let owner: [u8; 32] = kani::any();
-        let d = system::encode_create_account(lamports, space, &owner);
+        let d = rt_system::encode_create_account(lamports, space, &owner);
         assert_eq!(d.len(), 52);
         assert_system_disc(&d, 0);
         assert_eq!(word_at(&d, 4), lamports);
         assert_eq!(word_at(&d, 12), space);
         assert_pubkey_region(&d, 20, &owner);
+    }
+
+    // ── System durable-nonce family (fixed-size) — shipped layout ───
+
+    #[kani::proof]
+    fn system_advance_nonce_account_layout() {
+        let d = rt_system::encode_advance_nonce_account();
+        assert_eq!(d.len(), 4);
+        assert_system_disc(&d, 4);
+    }
+
+    #[kani::proof]
+    fn system_withdraw_nonce_account_layout() {
+        let lamports: u64 = kani::any();
+        let d = rt_system::encode_withdraw_nonce_account(lamports);
+        assert_eq!(d.len(), 12);
+        assert_system_disc(&d, 5);
+        assert_eq!(word_at(&d, 4), lamports);
+    }
+
+    #[kani::proof]
+    fn system_initialize_nonce_account_layout() {
+        let authority: [u8; 32] = kani::any();
+        let d = rt_system::encode_initialize_nonce_account(&authority);
+        assert_eq!(d.len(), 36);
+        assert_system_disc(&d, 6);
+        assert_pubkey_region(&d, 4, &authority);
+    }
+
+    #[kani::proof]
+    fn system_authorize_nonce_account_layout() {
+        let new_authority: [u8; 32] = kani::any();
+        let d = rt_system::encode_authorize_nonce_account(&new_authority);
+        assert_eq!(d.len(), 36);
+        assert_system_disc(&d, 7);
+        assert_pubkey_region(&d, 4, &new_authority);
+    }
+
+    #[kani::proof]
+    fn system_upgrade_nonce_account_layout() {
+        let d = rt_system::encode_upgrade_nonce_account();
+        assert_eq!(d.len(), 4);
+        assert_system_disc(&d, 12);
+    }
+
+    // ── Differential oracle: shipped encoder == reference encoder ───
+    //
+    // Each proof compares the shipped `rt_*` encoder against the independent
+    // reference in `super::{spl_token, system}`, field-wise / word-wise /
+    // symbolic-index, so equality is proven for all symbolic inputs without a
+    // large `memcmp` loop.
+
+    #[kani::proof]
+    fn spl_transfer_matches_reference() {
+        let amount: u64 = kani::any();
+        let s = rt_token::encode_transfer(amount);
+        let r = spl_token::encode_transfer(amount);
+        assert_eq!(s[0], r[0]);
+        assert_eq!(word_at(&s, 1), word_at(&r, 1));
+    }
+
+    #[kani::proof]
+    fn spl_approve_matches_reference() {
+        let amount: u64 = kani::any();
+        let s = rt_token::encode_approve(amount);
+        let r = spl_token::encode_approve(amount);
+        assert_eq!(s[0], r[0]);
+        assert_eq!(word_at(&s, 1), word_at(&r, 1));
+    }
+
+    #[kani::proof]
+    fn spl_mint_to_matches_reference() {
+        let amount: u64 = kani::any();
+        let s = rt_token::encode_mint_to(amount);
+        let r = spl_token::encode_mint_to(amount);
+        assert_eq!(s[0], r[0]);
+        assert_eq!(word_at(&s, 1), word_at(&r, 1));
+    }
+
+    #[kani::proof]
+    fn spl_burn_matches_reference() {
+        let amount: u64 = kani::any();
+        let s = rt_token::encode_burn(amount);
+        let r = spl_token::encode_burn(amount);
+        assert_eq!(s[0], r[0]);
+        assert_eq!(word_at(&s, 1), word_at(&r, 1));
+    }
+
+    #[kani::proof]
+    fn spl_transfer_checked_matches_reference() {
+        let amount: u64 = kani::any();
+        let decimals: u8 = kani::any();
+        let s = rt_token::encode_transfer_checked(amount, decimals);
+        let r = spl_token::encode_transfer_checked(amount, decimals);
+        assert_eq!(s[0], r[0]);
+        assert_eq!(word_at(&s, 1), word_at(&r, 1));
+        assert_eq!(s[9], r[9]);
+    }
+
+    #[kani::proof]
+    fn spl_approve_checked_matches_reference() {
+        let amount: u64 = kani::any();
+        let decimals: u8 = kani::any();
+        let s = rt_token::encode_approve_checked(amount, decimals);
+        let r = spl_token::encode_approve_checked(amount, decimals);
+        assert_eq!(s[0], r[0]);
+        assert_eq!(word_at(&s, 1), word_at(&r, 1));
+        assert_eq!(s[9], r[9]);
+    }
+
+    #[kani::proof]
+    fn spl_mint_to_checked_matches_reference() {
+        let amount: u64 = kani::any();
+        let decimals: u8 = kani::any();
+        let s = rt_token::encode_mint_to_checked(amount, decimals);
+        let r = spl_token::encode_mint_to_checked(amount, decimals);
+        assert_eq!(s[0], r[0]);
+        assert_eq!(word_at(&s, 1), word_at(&r, 1));
+        assert_eq!(s[9], r[9]);
+    }
+
+    #[kani::proof]
+    fn spl_burn_checked_matches_reference() {
+        let amount: u64 = kani::any();
+        let decimals: u8 = kani::any();
+        let s = rt_token::encode_burn_checked(amount, decimals);
+        let r = spl_token::encode_burn_checked(amount, decimals);
+        assert_eq!(s[0], r[0]);
+        assert_eq!(word_at(&s, 1), word_at(&r, 1));
+        assert_eq!(s[9], r[9]);
+    }
+
+    #[kani::proof]
+    fn spl_single_byte_matches_reference() {
+        assert_eq!(rt_token::encode_revoke(), spl_token::encode_revoke());
+        assert_eq!(
+            rt_token::encode_close_account(),
+            spl_token::encode_close_account()
+        );
+        assert_eq!(
+            rt_token::encode_freeze_account(),
+            spl_token::encode_freeze_account()
+        );
+        assert_eq!(
+            rt_token::encode_thaw_account(),
+            spl_token::encode_thaw_account()
+        );
+        assert_eq!(
+            rt_token::encode_sync_native(),
+            spl_token::encode_sync_native()
+        );
+    }
+
+    #[kani::proof]
+    fn spl_initialize_account2_matches_reference() {
+        let owner: [u8; 32] = kani::any();
+        let s = rt_token::encode_initialize_account_with_owner(16, &owner);
+        let r = spl_token::encode_initialize_account2(&owner);
+        assert_eq!(s[0], r[0]);
+        assert_regions_eq(&s, &r, 1);
+    }
+
+    #[kani::proof]
+    fn spl_initialize_account3_matches_reference() {
+        let owner: [u8; 32] = kani::any();
+        let s = rt_token::encode_initialize_account_with_owner(18, &owner);
+        let r = spl_token::encode_initialize_account3(&owner);
+        assert_eq!(s[0], r[0]);
+        assert_regions_eq(&s, &r, 1);
+    }
+
+    #[kani::proof]
+    fn spl_set_authority_some_matches_reference() {
+        let authority_type: u8 = kani::any();
+        let owner: [u8; 32] = kani::any();
+        let (s, s_len) = rt_token::encode_set_authority(authority_type, Some(&owner));
+        let (r, r_len) = spl_token::encode_set_authority(authority_type, Some(&owner));
+        assert_eq!(s_len, r_len);
+        assert_eq!(s[0], r[0]);
+        assert_eq!(s[1], r[1]);
+        assert_eq!(s[2], r[2]);
+        assert_regions_eq(&s, &r, 3);
+    }
+
+    #[kani::proof]
+    fn spl_set_authority_none_matches_reference() {
+        let authority_type: u8 = kani::any();
+        let (s, s_len) = rt_token::encode_set_authority(authority_type, None);
+        let (r, r_len) = spl_token::encode_set_authority(authority_type, None);
+        assert_eq!(s_len, r_len);
+        assert_eq!(s[0], r[0]);
+        assert_eq!(s[1], r[1]);
+        assert_eq!(s[2], r[2]);
+    }
+
+    #[kani::proof]
+    fn system_transfer_matches_reference() {
+        let lamports: u64 = kani::any();
+        let s = rt_system::encode_transfer(lamports);
+        let r = system::encode_transfer(lamports);
+        assert_eq!(word_at(&s, 0), word_at(&r, 0));
+        assert_eq!(word_at(&s, 4), word_at(&r, 4));
+    }
+
+    #[kani::proof]
+    fn system_allocate_matches_reference() {
+        let space: u64 = kani::any();
+        let s = rt_system::encode_allocate(space);
+        let r = system::encode_allocate(space);
+        assert_eq!(word_at(&s, 0), word_at(&r, 0));
+        assert_eq!(word_at(&s, 4), word_at(&r, 4));
+    }
+
+    #[kani::proof]
+    fn system_assign_matches_reference() {
+        let owner: [u8; 32] = kani::any();
+        let s = rt_system::encode_assign(&owner);
+        let r = system::encode_assign(&owner);
+        assert_eq!(word_at(&s, 0), word_at(&r, 0));
+        assert_regions_eq(&s, &r, 4);
+    }
+
+    #[kani::proof]
+    fn system_create_account_matches_reference() {
+        let lamports: u64 = kani::any();
+        let space: u64 = kani::any();
+        let owner: [u8; 32] = kani::any();
+        let s = rt_system::encode_create_account(lamports, space, &owner);
+        let r = system::encode_create_account(lamports, space, &owner);
+        assert_eq!(word_at(&s, 0), word_at(&r, 0));
+        assert_eq!(word_at(&s, 4), word_at(&r, 4));
+        assert_eq!(word_at(&s, 12), word_at(&r, 12));
+        assert_regions_eq(&s, &r, 20);
+    }
+
+    // ── Differential oracle: durable-nonce family ───────────────────
+
+    #[kani::proof]
+    fn system_advance_nonce_account_matches_reference() {
+        // 4-byte deterministic buffers: direct array equality is 4 elements.
+        assert_eq!(
+            rt_system::encode_advance_nonce_account(),
+            system::encode_advance_nonce_account()
+        );
+    }
+
+    #[kani::proof]
+    fn system_withdraw_nonce_account_matches_reference() {
+        let lamports: u64 = kani::any();
+        let s = rt_system::encode_withdraw_nonce_account(lamports);
+        let r = system::encode_withdraw_nonce_account(lamports);
+        assert_eq!(word_at(&s, 0), word_at(&r, 0));
+        assert_eq!(word_at(&s, 4), word_at(&r, 4));
+    }
+
+    #[kani::proof]
+    fn system_initialize_nonce_account_matches_reference() {
+        let authority: [u8; 32] = kani::any();
+        let s = rt_system::encode_initialize_nonce_account(&authority);
+        let r = system::encode_initialize_nonce_account(&authority);
+        assert_eq!(word_at(&s, 0), word_at(&r, 0));
+        assert_regions_eq(&s, &r, 4);
+    }
+
+    #[kani::proof]
+    fn system_authorize_nonce_account_matches_reference() {
+        let new_authority: [u8; 32] = kani::any();
+        let s = rt_system::encode_authorize_nonce_account(&new_authority);
+        let r = system::encode_authorize_nonce_account(&new_authority);
+        assert_eq!(word_at(&s, 0), word_at(&r, 0));
+        assert_regions_eq(&s, &r, 4);
+    }
+
+    #[kani::proof]
+    fn system_upgrade_nonce_account_matches_reference() {
+        assert_eq!(
+            rt_system::encode_upgrade_nonce_account(),
+            system::encode_upgrade_nonce_account()
+        );
     }
 }
