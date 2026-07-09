@@ -456,15 +456,29 @@ impl GateSlot {
 /// concurrently installed gates the tier supports (see
 /// [`LAMPORT_GATE_DEPTH`]; the host fallback tier uses 1).
 struct GateStore<const DEPTH: usize> {
-    /// Next install token. Starts at 1; 0 is reserved for "free slot".
-    next_token: u64,
+    /// Count of tokens issued so far. The Nth install receives token `N`
+    /// (see [`GateStore::install`]), so `0` means "none issued yet" and
+    /// `0` remains the free-slot sentinel no live slot can hold.
+    ///
+    /// **This field must stay zero in [`GateStore::new`].** The SBF tier
+    /// holds this store in a `static mut`; an all-zero initializer lets
+    /// the linker place it in `.bss` (`NOBITS`, no file bytes), while a
+    /// *single* non-zero byte anywhere in the struct forces it into
+    /// `.data` (`PROGBITS`) and writes the whole
+    /// `DEPTH x capacity x size_of::<GateEntry>()` array — tens of KiB of
+    /// zeros — into every program's `.so`. That is exactly what a
+    /// `next_token: 1` initializer used to do. `initial_gate_store_is_all_zero_bytes`
+    /// pins this.
+    issued: u64,
     slots: [GateSlot; DEPTH],
 }
 
 impl<const DEPTH: usize> GateStore<DEPTH> {
+    /// All-zero by construction — see [`GateStore::issued`]. Do not add a
+    /// non-zero field initializer here without re-reading that doc.
     const fn new() -> Self {
         Self {
-            next_token: 1,
+            issued: 0,
             slots: [GateSlot::FREE; DEPTH],
         }
     }
@@ -536,13 +550,15 @@ impl<const DEPTH: usize> GateStore<DEPTH> {
             i += 1;
         }
         slot.len = len;
-        let token = self.next_token;
-        // 0 is the free-slot sentinel; skip it on the (2^64 installs,
+        // Tokens are 1, 2, 3, ... — `issued` counts up from a zeroed store
+        // (which is what keeps this static in `.bss`; see the field doc).
+        // 0 is the free-slot sentinel, so skip it on the (2^64 installs,
         // practically unreachable) wrap.
-        self.next_token = match self.next_token.wrapping_add(1) {
-            0 => 1,
-            next => next,
-        };
+        self.issued = self.issued.wrapping_add(1);
+        if self.issued == 0 {
+            self.issued = 1;
+        }
+        let token = self.issued;
         slot.token = token;
         Ok(token)
     }
@@ -697,8 +713,14 @@ mod gate_store {
     /// Per-invocation gate store. SBF execution is single-threaded and
     /// the program's writable data segment is freshly initialized on
     /// every invocation (each CPI level runs in its own VM), so a plain
-    /// `static mut` is the cheapest correct store. Note the footprint:
-    /// `DEPTH x (capacity x 35B)` ≈ 35 KiB of zero-initialized .bss.
+    /// `static mut` is the cheapest correct store.
+    ///
+    /// Footprint: `DEPTH x (capacity x size_of::<GateEntry>())` ~ 35 KiB.
+    /// [`GateStore::new`] is all-zero, so this lands in `.bss` (`NOBITS`)
+    /// and costs **zero bytes in the `.so`** — only a zeroed data-segment
+    /// reservation at load. Introducing any non-zero field initializer
+    /// would move it to `.data` (`PROGBITS`) and write all ~35 KiB of
+    /// zeros into every program's binary (it once did: `next_token: 1`).
     static mut STORE: GateStore<LAMPORT_GATE_DEPTH> = GateStore::new();
 
     /// This tier supports full nesting; running out of slots means
@@ -966,6 +988,55 @@ pub(crate) fn check_lamport_delegation(address: &Address) -> ProgramResult {
 }
 
 // ── Tests ────────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod gate_store_layout_tests {
+    use super::*;
+
+    /// The SBF tier holds [`GateStore`] in a `static mut`. The linker puts
+    /// it in `.bss` (`NOBITS`, **zero bytes in the `.so`**) only if its
+    /// initializer is entirely zero; one non-zero byte moves it to `.data`
+    /// (`PROGBITS`) and writes the whole ~35 KiB array of zeros into every
+    /// Hopper program's binary. A `next_token: 1` initializer did exactly
+    /// that, costing 35,656 file bytes — 61% of the vault's `.so`.
+    ///
+    /// This pins every field's initializer at zero. If you add a field to
+    /// `GateStore`/`GateSlot`/`GateEntry`, its zero value must be valid, or
+    /// the binary silently regrows.
+    #[test]
+    fn initial_gate_store_is_all_zero_bytes() {
+        let store = GateStore::<2>::new();
+        assert_eq!(store.issued, 0, "issued must start at 0, not 1");
+        for slot in &store.slots {
+            assert_eq!(slot.token, 0, "free-slot sentinel is 0");
+            assert_eq!(slot.len, 0);
+            for entry in slot.entries.iter() {
+                assert_eq!(*entry.address.as_array(), [0u8; 32]);
+                assert_eq!(entry.index, 0);
+                assert!(!entry.allow_mutation);
+                assert!(!entry.allow_delegation);
+            }
+        }
+    }
+
+    /// Tokens must still be non-zero and monotonic after the zero-init
+    /// change (0 stays the free-slot sentinel), so nesting/shadowing and
+    /// out-of-order drops keep working.
+    #[test]
+    fn issued_counter_hands_out_nonzero_monotonic_tokens() {
+        let mut store = GateStore::<2>::new();
+        store.issued = 0;
+        store.issued = store.issued.wrapping_add(1);
+        assert_eq!(store.issued, 1, "first token is 1, never the 0 sentinel");
+        // Wrap: 2^64 installs must skip the sentinel rather than hand out 0.
+        store.issued = u64::MAX;
+        store.issued = store.issued.wrapping_add(1);
+        if store.issued == 0 {
+            store.issued = 1;
+        }
+        assert_eq!(store.issued, 1, "wrap skips the 0 sentinel");
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -1345,9 +1416,7 @@ mod tests {
         let second_accounts = [a1];
 
         let store = SpinlockGateStore::new();
-        let token = store
-            .with_lock(|s| s.install(&first_accounts, &P))
-            .unwrap();
+        let token = store.with_lock(|s| s.install(&first_accounts, &P)).unwrap();
 
         // Second install while one gate is active: refused loudly (the
         // tier maps NoFreeSlot to LAMPORT_GATE_CONTENDED), never shared
