@@ -212,56 +212,6 @@ fn signer_matches_pda(
     false
 }
 
-/// Validate CPI account views match the instruction's expectations.
-#[inline]
-fn validate_cpi_accounts(
-    instruction: &InstructionView<'_, '_, '_, '_>,
-    account_views: &[&AccountView<'_>],
-    signers_seeds: &[Signer<'_, '_>],
-) -> ProgramResult {
-    if account_views.len() < instruction.accounts.len() {
-        return Err(ProgramError::NotEnoughAccountKeys);
-    }
-
-    let mut i = 0;
-    while i < instruction.accounts.len() {
-        let expected = &instruction.accounts[i];
-        let actual = account_views[i];
-
-        if !address_eq(actual.address(), expected.address) {
-            return Err(ProgramError::InvalidAccountData);
-        }
-
-        if expected.is_signer
-            && !actual.is_signer()
-            && !signer_matches_pda(instruction.program_id, actual.address(), signers_seeds)
-        {
-            return Err(ProgramError::MissingRequiredSignature);
-        }
-
-        if expected.is_writable && !actual.is_writable() {
-            return Err(ProgramError::Immutable);
-        }
-
-        if expected.is_writable {
-            // BLD-MUT: a writable CPI meta delegates unbounded data AND
-            // lamport mutation to the callee. Under an installed lamport
-            // gate the account must carry both a whole-account data
-            // grant and lamport permission; no gate = passthrough.
-            crate::write_policy::check_lamport_delegation(actual.address())?;
-            actual.check_borrow_mut()?;
-        } else {
-            actual.check_borrow()?;
-        }
-
-        i += 1;
-    }
-
-    validate_no_duplicate_writable(instruction, account_views)?;
-
-    Ok(())
-}
-
 /// Per-account meta↔view correspondence + borrow-state validation — the
 /// borrow-checked tier.
 ///
@@ -272,7 +222,7 @@ fn validate_cpi_accounts(
 /// shared-borrowable ([`AccountView::check_borrow`]). This is exactly the
 /// per-account check Pinocchio's safe `invoke` performs before a CPI. No
 /// signer, writability, or duplicate-writable validation happens here —
-/// those belong to the default [`validate_cpi_accounts`] tier.
+/// those belong to the default [`invoke_signed`] tier.
 #[inline]
 fn validate_cpi_borrows(
     instruction: &InstructionView<'_, '_, '_, '_>,
@@ -446,35 +396,111 @@ pub fn invoke_signed<const ACCOUNTS: usize>(
         return emulate_host_system_transfer(instruction, &account_views[..]);
     }
 
-    validate_cpi_accounts(instruction, &account_views[..], signers_seeds)?;
+    let metas_len = instruction.accounts.len();
 
-    dispatch_cpi_fixed::<ACCOUNTS>(instruction, account_views, signers_seeds)
+    // Fused validate+build (default tier). `check_meta` runs the default
+    // tier's per-account contract — address identity, required-signer
+    // presence (including PDA-seed satisfaction), writability coverage, the
+    // BLD-MUT lamport-delegation gate on writable metas, and borrow state —
+    // in the *same* pass that materializes each `CpiAccount` scratch slot.
+    // `post_check` runs the duplicate-writable footgun scan afterward,
+    // exactly as the previous `validate_cpi_accounts` did (per-meta checks
+    // first, then the O(n²) scan, then the syscall).
+    dispatch_cpi_fixed::<ACCOUNTS>(
+        instruction,
+        account_views,
+        signers_seeds,
+        metas_len,
+        |i| {
+            let expected = &instruction.accounts[i];
+            let actual = account_views[i];
+
+            if !address_eq(actual.address(), expected.address) {
+                return Err(ProgramError::InvalidAccountData);
+            }
+
+            if expected.is_signer
+                && !actual.is_signer()
+                && !signer_matches_pda(instruction.program_id, actual.address(), signers_seeds)
+            {
+                return Err(ProgramError::MissingRequiredSignature);
+            }
+
+            if expected.is_writable && !actual.is_writable() {
+                return Err(ProgramError::Immutable);
+            }
+
+            if expected.is_writable {
+                // BLD-MUT: a writable CPI meta delegates unbounded data AND
+                // lamport mutation to the callee. Under an installed lamport
+                // gate the account must carry both a whole-account data
+                // grant and lamport permission; no gate = passthrough.
+                crate::write_policy::check_lamport_delegation(actual.address())?;
+                actual.check_borrow_mut()?;
+            } else {
+                actual.check_borrow()?;
+            }
+
+            Ok(())
+        },
+        || validate_no_duplicate_writable(instruction, &account_views[..]),
+    )
 }
 
-/// Build the fixed-size `CpiAccount` array and perform the CPI syscall
+/// Fused validate-and-build for the fixed-array CPI tiers, plus the syscall
 /// (a no-op off-chain). Shared tail of the fixed-array invoke tiers.
 ///
-/// Validation is the **caller's** responsibility: every caller must have
-/// run at least the borrow-state checks over `account_views` (see
-/// [`invoke_signed`] and [`invoke_signed_borrow_checked`]) before
-/// dispatching, which discharges the `invoke_unchecked` safety contract.
+/// Performs ONE pass over the account array: for each meta index `i` in
+/// `0..metas_len` it runs the tier-specific per-account check (`check_meta`)
+/// AND writes the `CpiAccount` scratch slot in the same iteration, replacing
+/// the previous validate-walk-then-build-walk pair. Slots `metas_len..
+/// ACCOUNTS` (account infos with no corresponding meta) are build-only, as
+/// before. `post_check` runs once after the pass — e.g. the default tier's
+/// duplicate-writable scan, which needs the full meta list — and before the
+/// syscall.
+///
+/// Fusing preserves observable behavior exactly: `check_meta` is invoked in
+/// ascending meta order, so the first failing meta returns the same error at
+/// the same point as the prior split; building a `CpiAccount` has no side
+/// effects and `CpiAccount` is `Copy`, so a `?` early-return from
+/// `check_meta` or `post_check` discards the never-read `MaybeUninit` scratch
+/// with no drop and no observable difference.
+///
+/// Validation is the **caller's** responsibility via the two closures: every
+/// caller must run at least the borrow-state checks over `account_views` (see
+/// [`invoke_signed`] and [`invoke_signed_borrow_checked`]), which discharges
+/// the `invoke_unchecked` safety contract.
 #[inline]
 fn dispatch_cpi_fixed<const ACCOUNTS: usize>(
     instruction: &InstructionView<'_, '_, '_, '_>,
     account_views: &[&AccountView<'_>; ACCOUNTS],
     signers_seeds: &[Signer<'_, '_>],
+    metas_len: usize,
+    check_meta: impl Fn(usize) -> ProgramResult,
+    post_check: impl FnOnce() -> ProgramResult,
 ) -> ProgramResult {
+    if ACCOUNTS < metas_len {
+        return Err(ProgramError::NotEnoughAccountKeys);
+    }
+
     let mut cpi_accounts: [MaybeUninit<CpiAccount<'_>>; ACCOUNTS] =
         // SAFETY: an array of `MaybeUninit<T>` is valid in any initialization
         // state, so materializing it uninitialized is sound; every element is
-        // written by the loop below before it is read.
+        // written by the loop below before it is read, and on an early
+        // `?`-return the array is discarded unread (`CpiAccount` is `Copy`, so
+        // no drop runs on the partially-filled scratch).
         unsafe { MaybeUninit::uninit().assume_init() };
 
     let mut i = 0;
     while i < ACCOUNTS {
+        if i < metas_len {
+            check_meta(i)?;
+        }
         cpi_accounts[i] = MaybeUninit::new(CpiAccount::from(account_views[i]));
         i += 1;
     }
+
+    post_check()?;
 
     // SAFETY: the loop above initialized all `ACCOUNTS` elements, and
     // `MaybeUninit<T>` has the same layout as `T`, so reinterpreting the
@@ -482,11 +508,11 @@ fn dispatch_cpi_fixed<const ACCOUNTS: usize>(
     let accounts: &[CpiAccount<'_>; ACCOUNTS] =
         unsafe { &*(cpi_accounts.as_ptr() as *const [CpiAccount<'_>; ACCOUNTS]) };
 
-    // SAFETY: every caller of this helper has already validated the
-    // borrow state of each account view (writable metas exclusively
-    // borrowable, read-only metas shared-borrowable), so no live borrow
-    // conflicts with the runtime's access during the CPI — exactly the
-    // invariant `invoke_unchecked`/`invoke_signed_unchecked` require.
+    // SAFETY: `check_meta`/`post_check` validated the borrow state of each
+    // account view (writable metas exclusively borrowable, read-only metas
+    // shared-borrowable), so no live borrow conflicts with the runtime's
+    // access during the CPI — exactly the invariant
+    // `invoke_unchecked`/`invoke_signed_unchecked` require.
     unsafe {
         if signers_seeds.is_empty() {
             invoke_unchecked(instruction, accounts.as_slice())
@@ -522,20 +548,61 @@ pub fn invoke_signed_with_bounds<const MAX_ACCOUNTS: usize>(
         return emulate_host_system_transfer(instruction, account_views);
     }
 
-    validate_cpi_accounts(instruction, account_views, signers_seeds)?;
+    let metas_len = instruction.accounts.len();
+    let count = account_views.len();
+    if count < metas_len {
+        return Err(ProgramError::NotEnoughAccountKeys);
+    }
 
     let mut cpi_accounts: [MaybeUninit<CpiAccount<'_>>; MAX_ACCOUNTS] =
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: an array of `MaybeUninit<T>` is valid in any initialization
+        // state; the first `count` slots are written before being read below,
+        // and on an early `?`-return the array is discarded unread
+        // (`CpiAccount` is `Copy`, so no drop runs on the partial scratch).
         unsafe { MaybeUninit::uninit().assume_init() };
 
-    let count = account_views.len();
+    // Fused validate+build (default tier, dynamic): one pass runs the default
+    // per-account contract for each meta AND writes its scratch slot; slots
+    // `metas_len..count` are build-only. The duplicate-writable scan runs
+    // afterward, exactly as `validate_cpi_accounts` ordered it.
     let mut i = 0;
     while i < count {
-        cpi_accounts[i] = MaybeUninit::new(CpiAccount::from(account_views[i]));
+        let actual = account_views[i];
+        if i < metas_len {
+            let expected = &instruction.accounts[i];
+
+            if !address_eq(actual.address(), expected.address) {
+                return Err(ProgramError::InvalidAccountData);
+            }
+
+            if expected.is_signer
+                && !actual.is_signer()
+                && !signer_matches_pda(instruction.program_id, actual.address(), signers_seeds)
+            {
+                return Err(ProgramError::MissingRequiredSignature);
+            }
+
+            if expected.is_writable && !actual.is_writable() {
+                return Err(ProgramError::Immutable);
+            }
+
+            if expected.is_writable {
+                // BLD-MUT: writable hand-off gate (see `invoke_signed`).
+                crate::write_policy::check_lamport_delegation(actual.address())?;
+                actual.check_borrow_mut()?;
+            } else {
+                actual.check_borrow()?;
+            }
+        }
+        cpi_accounts[i] = MaybeUninit::new(CpiAccount::from(actual));
         i += 1;
     }
 
-    // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+    validate_no_duplicate_writable(instruction, account_views)?;
+
+    // SAFETY: the loop above initialized the first `count` slots, and
+    // `MaybeUninit<T>` shares `T`'s layout, so reading exactly that prefix
+    // reads only initialized memory.
     let accounts = unsafe {
         core::slice::from_raw_parts(cpi_accounts.as_ptr() as *const CpiAccount<'_>, count)
     };
@@ -567,7 +634,8 @@ fn find_info(infos: &[&AccountView<'_>], address: &Address) -> Option<usize> {
 
 /// Validate metas against a **deduplicated** info set (matched by pubkey).
 ///
-/// Unlike [`validate_cpi_accounts`], `infos` is *not* positionally aligned
+/// Unlike the default tier's positional validation, `infos` is *not*
+/// positionally aligned
 /// with `instruction.accounts`: it holds exactly one [`AccountView`] per
 /// unique address. Each meta is resolved to its info by address. Signer
 /// presence (including PDA-seed satisfaction), writability coverage,
@@ -818,9 +886,39 @@ pub fn invoke_signed_borrow_checked<const ACCOUNTS: usize>(
         return emulate_host_system_transfer(instruction, &account_views[..]);
     }
 
-    validate_cpi_borrows(instruction, &account_views[..])?;
+    let metas_len = instruction.accounts.len();
 
-    dispatch_cpi_fixed::<ACCOUNTS>(instruction, account_views, signers_seeds)
+    // Fused validate+build (borrow_checked tier). `check_meta` runs exactly
+    // the per-account checks `validate_cpi_borrows` did — meta↔view address
+    // correspondence, the BLD-MUT lamport gate on writable metas, and borrow
+    // state — while the scratch slot is materialized in the same pass. This
+    // tier has no post-pass scan, so `post_check` is a no-op.
+    dispatch_cpi_fixed::<ACCOUNTS>(
+        instruction,
+        account_views,
+        signers_seeds,
+        metas_len,
+        |i| {
+            // The borrow state must be validated against the account the meta
+            // actually names, not whatever view happens to sit at index `i`
+            // (see `validate_cpi_borrows` for why: a mismatched order would
+            // borrow-check the wrong (account, mutability) pair and reach
+            // `invoke_unchecked` with its aliasing contract undischarged).
+            if !address_eq(account_views[i].address(), instruction.accounts[i].address) {
+                return Err(ProgramError::InvalidArgument);
+            }
+            if instruction.accounts[i].is_writable {
+                // BLD-MUT: the lamport gate governs writable hand-offs on
+                // every safe tier, including this minimal one.
+                crate::write_policy::check_lamport_delegation(account_views[i].address())?;
+                account_views[i].check_borrow_mut()?;
+            } else {
+                account_views[i].check_borrow()?;
+            }
+            Ok(())
+        },
+        || Ok(()),
+    )
 }
 
 // ---------------------------------------------------------------------
@@ -1159,5 +1257,213 @@ mod tests {
 
         let err = invoke_borrow_checked::<1>(&instruction, &[&first]).unwrap_err();
         assert_eq!(err, ProgramError::NotEnoughAccountKeys);
+    }
+
+    // -- FUSED-CPI: fused validate+build == prior validate-then-build ------
+
+    /// Serialize the built `CpiAccount` scratch to a stable string. The
+    /// production fused path writes `CpiAccount::from(view)` into each slot;
+    /// its `Debug` (pointers + flags + lengths) is a faithful fingerprint of
+    /// the scratch handed to the syscall.
+    fn scratch_fingerprint(account_views: &[&AccountView<'_>]) -> std::string::String {
+        let mut s = std::string::String::new();
+        let mut i = 0;
+        while i < account_views.len() {
+            s.push_str(&std::format!(
+                "[{}]={:?};",
+                i,
+                CpiAccount::from(account_views[i])
+            ));
+            i += 1;
+        }
+        s
+    }
+
+    /// PRE-fusion default tier: validate the *whole* meta list, THEN build
+    /// the scratch in a second walk. Kept in the test as the byte-for-byte
+    /// oracle the production fused path must match.
+    fn reference_split_default(
+        instruction: &InstructionView<'_, '_, '_, '_>,
+        account_views: &[&AccountView<'_>],
+        signers_seeds: &[Signer<'_, '_>],
+    ) -> Result<std::string::String, ProgramError> {
+        if account_views.len() < instruction.accounts.len() {
+            return Err(ProgramError::NotEnoughAccountKeys);
+        }
+        let mut i = 0;
+        while i < instruction.accounts.len() {
+            let expected = &instruction.accounts[i];
+            let actual = account_views[i];
+            if !address_eq(actual.address(), expected.address) {
+                return Err(ProgramError::InvalidAccountData);
+            }
+            if expected.is_signer
+                && !actual.is_signer()
+                && !signer_matches_pda(instruction.program_id, actual.address(), signers_seeds)
+            {
+                return Err(ProgramError::MissingRequiredSignature);
+            }
+            if expected.is_writable && !actual.is_writable() {
+                return Err(ProgramError::Immutable);
+            }
+            if expected.is_writable {
+                crate::write_policy::check_lamport_delegation(actual.address())?;
+                actual.check_borrow_mut()?;
+            } else {
+                actual.check_borrow()?;
+            }
+            i += 1;
+        }
+        validate_no_duplicate_writable(instruction, account_views)?;
+        // Second (build) walk over the FULL view list.
+        Ok(scratch_fingerprint(account_views))
+    }
+
+    /// The fused default tier reproduced exactly as production `invoke_signed`
+    /// runs it: interleave per-meta validation with the scratch build, then
+    /// run the duplicate-writable scan.
+    fn reference_fused_default(
+        instruction: &InstructionView<'_, '_, '_, '_>,
+        account_views: &[&AccountView<'_>],
+        signers_seeds: &[Signer<'_, '_>],
+    ) -> Result<std::string::String, ProgramError> {
+        let metas_len = instruction.accounts.len();
+        if account_views.len() < metas_len {
+            return Err(ProgramError::NotEnoughAccountKeys);
+        }
+        let mut s = std::string::String::new();
+        let mut i = 0;
+        while i < account_views.len() {
+            let actual = account_views[i];
+            if i < metas_len {
+                let expected = &instruction.accounts[i];
+                if !address_eq(actual.address(), expected.address) {
+                    return Err(ProgramError::InvalidAccountData);
+                }
+                if expected.is_signer
+                    && !actual.is_signer()
+                    && !signer_matches_pda(instruction.program_id, actual.address(), signers_seeds)
+                {
+                    return Err(ProgramError::MissingRequiredSignature);
+                }
+                if expected.is_writable && !actual.is_writable() {
+                    return Err(ProgramError::Immutable);
+                }
+                if expected.is_writable {
+                    crate::write_policy::check_lamport_delegation(actual.address())?;
+                    actual.check_borrow_mut()?;
+                } else {
+                    actual.check_borrow()?;
+                }
+            }
+            s.push_str(&std::format!("[{}]={:?};", i, CpiAccount::from(actual)));
+            i += 1;
+        }
+        validate_no_duplicate_writable(instruction, account_views)?;
+        Ok(s)
+    }
+
+    #[test]
+    fn fused_build_matches_split_build_and_per_tier_errors() {
+        use crate::write_policy::{install_lamport_gate, write_policy_violation, WritePolicy};
+
+        let program_id = Address::new_from_array([7; 32]);
+
+        // (1) Valid multi-account CPI (two distinct writable accounts, no
+        //     gate installed). Fused and split builds must produce the SAME
+        //     scratch, and production `invoke` must accept it.
+        {
+            let (_a, first) = make_account([51; 32]);
+            let (_b, second) = make_account([52; 32]);
+            let metas = [
+                InstructionAccount::writable(first.address()),
+                InstructionAccount::writable(second.address()),
+            ];
+            let ix = InstructionView {
+                program_id: &program_id,
+                data: &[0u8],
+                accounts: &metas,
+            };
+            let views: [&AccountView<'_>; 2] = [&first, &second];
+
+            let split = reference_split_default(&ix, &views[..], &[]);
+            let fused = reference_fused_default(&ix, &views[..], &[]);
+            assert!(split.is_ok());
+            // Same scratch bytes, and same Result overall.
+            assert_eq!(split, fused);
+            // Production fused path accepts the valid CPI (off-chain no-op).
+            assert_eq!(invoke::<2>(&ix, &views), Ok(()));
+        }
+
+        // (2) Signer-missing meta: a required-signer meta over a non-signer
+        //     account. Both builds refuse identically, and production too.
+        {
+            let (_a, acct) = make_account([53; 32]);
+            let metas = [InstructionAccount::readonly_signer(acct.address())];
+            let ix = InstructionView {
+                program_id: &program_id,
+                data: &[0u8],
+                accounts: &metas,
+            };
+            let views: [&AccountView<'_>; 1] = [&acct];
+
+            let split = reference_split_default(&ix, &views[..], &[]);
+            let fused = reference_fused_default(&ix, &views[..], &[]);
+            assert_eq!(split, Err(ProgramError::MissingRequiredSignature));
+            assert_eq!(split, fused);
+            assert_eq!(
+                invoke::<1>(&ix, &views).unwrap_err(),
+                ProgramError::MissingRequiredSignature
+            );
+        }
+
+        // (3) Writable-meta lamport-delegation refusal: an installed gate
+        //     that declares nothing for the account. The refusal must fire on
+        //     the fused build exactly as on the split build (indexed policy
+        //     error), and production must surface the same error.
+        {
+            let (_a, acct) = make_account([54; 32]);
+            let accounts = [acct];
+            static P: WritePolicy = WritePolicy::with_lamports(&[], &[]);
+            let _gate = install_lamport_gate(&accounts, &P);
+
+            let metas = [InstructionAccount::writable(accounts[0].address())];
+            let ix = InstructionView {
+                program_id: &program_id,
+                data: &[0u8],
+                accounts: &metas,
+            };
+            let views: [&AccountView<'_>; 1] = [&accounts[0]];
+
+            let split = reference_split_default(&ix, &views[..], &[]);
+            let fused = reference_fused_default(&ix, &views[..], &[]);
+            assert_eq!(split, Err(write_policy_violation(0)));
+            assert_eq!(split, fused);
+            assert_eq!(
+                invoke::<1>(&ix, &views).unwrap_err(),
+                write_policy_violation(0)
+            );
+        }
+
+        // (4) Deduped (duplicate account) case: two writable metas naming the
+        //     SAME account. The deduped tier (unchanged by fusion) must still
+        //     reject the double-mutation footgun.
+        {
+            let (_a, acct) = make_account([55; 32]);
+            let metas = [
+                InstructionAccount::writable(acct.address()),
+                InstructionAccount::writable(acct.address()),
+            ];
+            let ix = InstructionView {
+                program_id: &program_id,
+                data: &[0u8],
+                accounts: &metas,
+            };
+            // A single deduped info backs both metas.
+            assert_eq!(
+                invoke_signed_deduped::<1>(&ix, &[&acct], &[]).unwrap_err(),
+                ProgramError::AccountBorrowFailed
+            );
+        }
     }
 }

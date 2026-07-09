@@ -170,57 +170,6 @@ pub unsafe fn invoke_signed_unchecked(
 
 // ---------------------------------------------------------------------
 
-/// Validate that CPI account views match the instruction's expectations.
-///
-/// Checks:
-/// - Sufficient number of accounts.
-/// - Address identity (order-dependent matching).
-/// - Signer<'_, '_> requirements.
-/// - Writable requirements.
-/// - Borrow compatibility (writable accounts must not be already borrowed,
-///   read-only accounts must not be exclusively borrowed).
-#[inline]
-fn validate_cpi_accounts(
-    instruction: &InstructionView<'_, '_, '_, '_>,
-    account_views: &[&AccountView<'_>],
-) -> ProgramResult {
-    if account_views.len() < instruction.accounts.len() {
-        return Err(ProgramError::NotEnoughAccountKeys);
-    }
-
-    let mut i = 0;
-    while i < instruction.accounts.len() {
-        let expected = &instruction.accounts[i];
-        let actual = account_views[i];
-
-        if !address_eq(actual.address(), expected.address) {
-            return Err(ProgramError::InvalidAccountData);
-        }
-
-        if expected.is_signer && !actual.is_signer() {
-            return Err(ProgramError::MissingRequiredSignature);
-        }
-
-        if expected.is_writable && !actual.is_writable() {
-            return Err(ProgramError::Immutable);
-        }
-
-        // Borrow compatibility: writable needs exclusive access,
-        // read-only needs at least shared access.
-        if expected.is_writable {
-            actual.check_borrow_mut()?;
-        } else {
-            actual.check_borrow()?;
-        }
-
-        i += 1;
-    }
-
-    Ok(())
-}
-
-// ---------------------------------------------------------------------
-
 /// Invoke a CPI with full validation.
 ///
 /// Validates account count, address identity, Signer<'_, '_>/writable requirements,
@@ -243,16 +192,55 @@ pub fn invoke_signed<const ACCOUNTS: usize>(
     account_views: &[&AccountView<'_>; ACCOUNTS],
     signers_seeds: &[Signer<'_, '_>],
 ) -> ProgramResult {
-    validate_cpi_accounts(instruction, &account_views[..])?;
+    let metas_len = instruction.accounts.len();
+    if ACCOUNTS < metas_len {
+        return Err(ProgramError::NotEnoughAccountKeys);
+    }
 
-    // Build CpiAccount<'_> array on the stack.
+    // Fused validate+build: a SINGLE pass over the account array performs the
+    // per-meta address/signer/writable/borrow checks AND materializes the
+    // `CpiAccount` scratch slot in the same iteration, instead of one
+    // validation walk followed by a separate build walk. The checks run in
+    // the identical order over metas `0..metas_len`; slots `metas_len..
+    // ACCOUNTS` are build-only (there is no meta to check), exactly as
+    // before. Building a `CpiAccount` has no side effects and `CpiAccount` is
+    // `Copy`, so an early `?` return simply discards the partially-filled,
+    // never-read `MaybeUninit` scratch — byte-identical observable behavior
+    // (same error, same failure order) to the prior validate-then-build split.
     let mut cpi_accounts: [MaybeUninit<CpiAccount<'_>>; ACCOUNTS] =
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: an array of `MaybeUninit<T>` is valid in any initialization
+        // state; every slot is written before the array is read as
+        // `[CpiAccount; ACCOUNTS]` below, and on an early return it is
+        // discarded unread (`CpiAccount` is `Copy`, so no drop runs).
         unsafe { MaybeUninit::uninit().assume_init() };
 
     let mut i = 0;
     while i < ACCOUNTS {
-        cpi_accounts[i] = MaybeUninit::new(CpiAccount::from(account_views[i]));
+        let actual = account_views[i];
+        if i < metas_len {
+            let expected = &instruction.accounts[i];
+
+            if !address_eq(actual.address(), expected.address) {
+                return Err(ProgramError::InvalidAccountData);
+            }
+
+            if expected.is_signer && !actual.is_signer() {
+                return Err(ProgramError::MissingRequiredSignature);
+            }
+
+            if expected.is_writable && !actual.is_writable() {
+                return Err(ProgramError::Immutable);
+            }
+
+            // Borrow compatibility: writable needs exclusive access,
+            // read-only needs at least shared access.
+            if expected.is_writable {
+                actual.check_borrow_mut()?;
+            } else {
+                actual.check_borrow()?;
+            }
+        }
+        cpi_accounts[i] = MaybeUninit::new(CpiAccount::from(actual));
         i += 1;
     }
 
@@ -293,16 +281,47 @@ pub fn invoke_signed_with_bounds<const MAX_ACCOUNTS: usize>(
         return Err(ProgramError::InvalidArgument);
     }
 
-    validate_cpi_accounts(instruction, account_views)?;
+    let metas_len = instruction.accounts.len();
+    let count = account_views.len();
+    if count < metas_len {
+        return Err(ProgramError::NotEnoughAccountKeys);
+    }
 
     let mut cpi_accounts: [MaybeUninit<CpiAccount<'_>>; MAX_ACCOUNTS] =
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
+        // SAFETY: an array of `MaybeUninit<T>` is valid in any initialization
+        // state; the first `count` slots are written before being read below,
+        // and on an early return the array is discarded unread (`CpiAccount`
+        // is `Copy`, so no drop runs).
         unsafe { MaybeUninit::uninit().assume_init() };
 
-    let count = account_views.len();
+    // Fused validate+build (see `invoke_signed`): one pass validates each
+    // meta and writes its scratch slot; slots `metas_len..count` are
+    // build-only.
     let mut i = 0;
     while i < count {
-        cpi_accounts[i] = MaybeUninit::new(CpiAccount::from(account_views[i]));
+        let actual = account_views[i];
+        if i < metas_len {
+            let expected = &instruction.accounts[i];
+
+            if !address_eq(actual.address(), expected.address) {
+                return Err(ProgramError::InvalidAccountData);
+            }
+
+            if expected.is_signer && !actual.is_signer() {
+                return Err(ProgramError::MissingRequiredSignature);
+            }
+
+            if expected.is_writable && !actual.is_writable() {
+                return Err(ProgramError::Immutable);
+            }
+
+            if expected.is_writable {
+                actual.check_borrow_mut()?;
+            } else {
+                actual.check_borrow()?;
+            }
+        }
+        cpi_accounts[i] = MaybeUninit::new(CpiAccount::from(actual));
         i += 1;
     }
 

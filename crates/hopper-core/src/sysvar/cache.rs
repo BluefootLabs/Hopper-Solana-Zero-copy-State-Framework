@@ -94,30 +94,63 @@ impl CachedClock {
 }
 
 /// Cached Rent sysvar fields.
+///
+/// Carries the two inputs to the rent-exempt minimum straight from the live
+/// sysvar: `lamports_per_byte_year` and the `exemption_threshold` `f64`. The
+/// earlier form stored only `lamports_per_byte_year` and then *ignored* it in
+/// `exempt_min`, hardcoding `6960` (= 3480 * 2) — which baked in BOTH today's
+/// per-byte cost and a 2.0 threshold. After any rent reprice that
+/// under/over-funds accounts; now both values are read from the bytes.
 pub struct CachedRent {
     pub lamports_per_byte_year: u64,
+    pub exemption_threshold: f64,
 }
 
 impl CachedRent {
     /// Parse Rent sysvar from account data.
+    ///
+    /// Reads `lamports_per_byte_year` (bytes `[0..8]`) and
+    /// `exemption_threshold` (bytes `[8..16]`, a little-endian `f64`). Needs
+    /// at least 16 bytes; a real Rent sysvar is 17 (the trailing byte is
+    /// `burn_percent`, which the exempt-minimum calc does not use).
     #[inline]
     pub fn from_account_data(data: &[u8]) -> Result<Self, ProgramError> {
-        if data.len() < 8 {
+        if data.len() < 16 {
             return Err(ProgramError::InvalidAccountData);
         }
         Ok(Self {
             lamports_per_byte_year: u64::from_le_bytes([
                 data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7],
             ]),
+            exemption_threshold: f64::from_le_bytes([
+                data[8], data[9], data[10], data[11], data[12], data[13], data[14], data[15],
+            ]),
         })
     }
 
-    /// Compute rent-exempt minimum for a given data size.
+    /// Compute the rent-exempt minimum for a given data size.
+    ///
+    /// Byte-matches Solana's `solana_rent::Rent::minimum_balance` (and
+    /// [`super::Rent::minimum_balance`]): the
+    /// `(ACCOUNT_STORAGE_OVERHEAD + data_len) * lamports_per_byte_year`
+    /// product in **integer**, then the single `exemption_threshold` f64
+    /// multiply, then truncate. It is NOT divided by seconds/year — the real
+    /// runtime formula has no such division; the old `/365.25/86400` comment
+    /// described a formula the code never actually ran (it hardcoded `6960`).
+    ///
+    /// The integer product is saturating purely as an overflow guard; for
+    /// every loader-permitted `data_len` (`<= 10 MiB`) and realistic
+    /// `lamports_per_byte_year` it never saturates, so the byte-match with the
+    /// runtime is exact. On today's cluster (lpby=3480, threshold=2.0) this
+    /// equals the prior `(128 + data_len) * 6960`, so the on-cluster result is
+    /// unchanged — only a repriced cluster now gets the correct (larger/
+    /// smaller) value instead of a stale one.
     #[inline(always)]
     pub fn exempt_min(&self, data_len: usize) -> u64 {
-        // Standard formula: (128 + data_len) * lamports_per_byte_year * 2 / 365.25 / 86400
-        // Simplified to the common approximation used by Solana:
-        ((128 + data_len) as u64) * 6960
+        let integer_part = super::ACCOUNT_STORAGE_OVERHEAD
+            .saturating_add(data_len as u64)
+            .saturating_mul(self.lamports_per_byte_year);
+        (integer_part as f64 * self.exemption_threshold) as u64
     }
 }
 
@@ -197,5 +230,96 @@ impl SysvarContext {
 impl Default for SysvarContext {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const LOADER_MAX_DATA_LEN: usize = 10_485_760;
+
+    /// Solana's reference `Rent::minimum_balance`.
+    fn solana_reference_exempt_min(data_len: usize, lpby: u64, threshold: f64) -> u64 {
+        (((super::super::ACCOUNT_STORAGE_OVERHEAD + data_len as u64) * lpby) as f64 * threshold)
+            as u64
+    }
+
+    fn rent_bytes(lpby: u64, threshold: f64) -> [u8; 17] {
+        let mut buf = [0u8; 17];
+        buf[0..8].copy_from_slice(&lpby.to_le_bytes());
+        buf[8..16].copy_from_slice(&threshold.to_le_bytes());
+        buf
+    }
+
+    /// `CachedRent` must read the stored threshold, not a hardcoded 2.0.
+    #[test]
+    fn cached_rent_reads_stored_threshold() {
+        let cr = CachedRent::from_account_data(&rent_bytes(3_480, 2.5)).unwrap();
+        assert_eq!(cr.lamports_per_byte_year, 3_480);
+        assert_eq!(cr.exemption_threshold, 2.5);
+    }
+
+    /// Needs 16 bytes; the old 8-byte inputs no longer parse (they lack the
+    /// threshold), a real 17-byte sysvar does.
+    #[test]
+    fn cached_rent_length_check() {
+        assert!(CachedRent::from_account_data(&[0u8; 15]).is_err());
+        assert!(CachedRent::from_account_data(&rent_bytes(3_480, 2.0)).is_ok());
+    }
+
+    /// `exempt_min` byte-matches Solana across sizes/reprices, and still
+    /// equals the old `(128 + data_len) * 6960` on today's config.
+    #[test]
+    fn exempt_min_byte_matches_solana_reference() {
+        let cases: &[(usize, u64, f64)] = &[
+            (0, 3_480, 2.0),
+            (56, 3_480, 2.0),
+            (165, 3_480, 2.0),
+            (10_240, 3_480, 2.0),
+            (1_000_000, 6_960, 2.0),
+            (500_000, 3_480, 2.5),
+            (10_485_760, 3_480, 2.0),
+        ];
+        for &(dl, lpby, threshold) in cases {
+            let cr = CachedRent::from_account_data(&rent_bytes(lpby, threshold)).unwrap();
+            assert_eq!(
+                cr.exempt_min(dl),
+                solana_reference_exempt_min(dl, lpby, threshold),
+                "exempt_min != Solana reference at dl={dl}, lpby={lpby}, threshold={threshold}"
+            );
+        }
+    }
+
+    /// On today's cluster config `exempt_min` reproduces the prior
+    /// `(128 + data_len) * 6960` exactly — the on-cluster path is unchanged.
+    #[test]
+    fn exempt_min_backward_compatible_on_current_config() {
+        let cr = CachedRent::from_account_data(&rent_bytes(3_480, 2.0)).unwrap();
+        for &dl in &[0usize, 56, 128, 1024, 10_240, 1_000_000] {
+            assert_eq!(cr.exempt_min(dl), ((128 + dl) as u64) * 6960);
+        }
+    }
+
+    /// No overflow/panic at a wildly repriced per-byte cost and max size.
+    #[test]
+    fn exempt_min_no_overflow_at_extremes() {
+        let cr = CachedRent::from_account_data(&rent_bytes(1u64 << 40, 2.0)).unwrap();
+        let _ = cr.exempt_min(LOADER_MAX_DATA_LEN);
+        assert_eq!(
+            cr.exempt_min(0),
+            solana_reference_exempt_min(0, 1u64 << 40, 2.0)
+        );
+    }
+
+    /// The cache path threads the live threshold through `with_rent`.
+    #[test]
+    fn context_with_rent_exposes_repriced_threshold() {
+        let ctx = SysvarContext::new()
+            .with_rent(&rent_bytes(3_480, 2.5))
+            .unwrap();
+        let cr = ctx.rent().unwrap();
+        assert_eq!(cr.exemption_threshold, 2.5);
+        assert_eq!(cr.exempt_min(0), solana_reference_exempt_min(0, 3_480, 2.5));
     }
 }
