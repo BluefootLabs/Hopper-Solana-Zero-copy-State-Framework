@@ -188,6 +188,15 @@ pub fn verify_pda_strict(
 ///
 // ---------------------------------------------------------------------
 /// Returns the matching bump on success.
+///
+/// `#[inline(always)]` is deliberate and MEASURED — do not "fix" the
+/// duplication: outlining this (`inline(never)`) was tried on 2026-07-09
+/// and saved only 88 bytes of release `.text` while costing **+44..+73
+/// CU on every benched vault row** (Authorize 420→464, Counter 518→591,
+/// Deposit 1653→1697, Withdraw 494→541) — the call boundary defeats
+/// LLVM's per-call-site specialization of the seed-list build and bump
+/// loop, and the syscall does NOT dominate at that point. Size-per-CU,
+/// the inlined copies win decisively.
 #[cfg(target_os = "solana")]
 #[inline(always)]
 fn verify_pda_sha256_loop(
