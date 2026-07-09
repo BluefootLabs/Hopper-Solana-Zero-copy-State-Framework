@@ -101,3 +101,12 @@ coming, measured on the Solana that's here."**
 | "Only byte-range framework" | ✅ source-verified vs Anchor v2 / Quasar / Pinocchio |
 | "Audited" | ✅ internal line-by-line trail; ❌ do not imply third-party audit |
 | "check_keys_eq ~40 CU" and April primitive figures | ❌ retired — superseded by Mollusk numbers |
+| "Smallest binary" | ⚠️ **router-scoped only.** Quasar wins the vault (5.47 vs 7.41 KiB, `BENCHMARKS.md`). Never claim a general size lead until the ~36% `.text` gap is attributed and closed |
+| "Kani-proves its SPL/System CPI encoders" | ⚠️ say **"reference encoders"** — the 46 harnesses prove *mirror* encoders anchored to the shipped bytes by golden vectors + source-line citations; the shipped inline encoders are not yet directly proven |
+| "Native `publish-idl`, no Node" | ✅ real signed on-chain send (fresh inline / Allocate + chunked Write + Initialize / `--overwrite` SetData). No JS toolchain. ⚠️ not yet devnet-battle-tested |
+| "The CLI publishes the program's byte-range write-set" | ✅ the manifest loader now carries `writeRanges` / `strictWrites` / `mutationComplete` / `lamportAccounts` / `cuEstimate` end-to-end |
+| "Anchor constraint-DSL parity" | ✅ incl. `@ CustomError` binding and the `realloc::payer` / `realloc::zero` spelling. ❌ still missing optional (`Option<Account<T>>`) and composite/nested contexts — call those catch-up, never "innovation" |
+| "Rent-exempt math is reprice-safe" | ✅ `Rent::minimum_balance` reads the live sysvar and byte-matches Solana. ⚠️ the `const` fast path is explicitly NOT reaping-safe — say so |
+| "`mutation_complete` means complete" | ⚠️ **scoped**: substrate escape hatches (`substrate::batch::transfer_lamports`, the `unsafe` unchecked CPI tier) sit outside the gate. Sealevel's `writable` bit still enforces underneath, so the failure mode is a failed tx, never fund loss |
+| "Every Hopper tx explains its own state effects" | ❌ not yet — the touch log, wire encoder, and `hopper tx explain` decoder all exist, but no shipped example emits one. Do not claim this until an example opts in |
+| "Single-pass checked CPI" | ✅ fused validate+build, adversarially reviewed clean. ⚠️ the CU delta is **estimated** (one array traversal's control-flow removed); never fabricate a number |
