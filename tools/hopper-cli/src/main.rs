@@ -111,6 +111,7 @@ use hopper_schema::{
     ProgramManifest,
     SegmentMigrationReport,
     SegmentRoleHint,
+    WriteRange,
 };
 use std::env;
 use std::path::PathBuf;
@@ -2591,15 +2592,32 @@ fn parse_manifest_json(json: &str) -> Result<ParsedManifest, String> {
     })
 }
 
-fn extract_string(json: &str, key: &str) -> Result<String, String> {
+/// Position the parser at the VALUE following a genuine `"key":` token.
+///
+/// The manifest parser is substring-based, so a naive `find("\"key\"")`
+/// also matches a string *value* that merely equals `key` — e.g. an
+/// account legitimately named `"offset"` inside
+/// `{ "account": "offset", "offset": 16, ... }` would shadow the real
+/// `offset` key and make the whole load fail. This scans every `"key"`
+/// occurrence and returns the trimmed slice after the first one actually
+/// followed by `:`, so a value can never shadow a key. `None` when no
+/// genuine key occurrence exists.
+fn find_after_key<'a>(json: &'a str, key: &str) -> Option<&'a str> {
     let pattern = format!("\"{}\"", key);
-    let pos = json
-        .find(&pattern)
-        .ok_or_else(|| format!("Missing key: {}", key))?;
-    let after = &json[pos + pattern.len()..];
-    // Skip : and whitespace
-    let after = after.trim_start().strip_prefix(':').ok_or("Expected :")?;
-    let after = after.trim_start();
+    let mut from = 0;
+    while let Some(rel) = json[from..].find(&pattern) {
+        let after_pat = from + rel + pattern.len();
+        let rest = json[after_pat..].trim_start();
+        if let Some(value) = rest.strip_prefix(':') {
+            return Some(value.trim_start());
+        }
+        from = after_pat;
+    }
+    None
+}
+
+fn extract_string(json: &str, key: &str) -> Result<String, String> {
+    let after = find_after_key(json, key).ok_or_else(|| format!("Missing key: {}", key))?;
     if !after.starts_with('"') {
         return Err(format!("Expected string value for {}", key));
     }
@@ -2609,13 +2627,7 @@ fn extract_string(json: &str, key: &str) -> Result<String, String> {
 }
 
 fn extract_number(json: &str, key: &str) -> Result<u64, String> {
-    let pattern = format!("\"{}\"", key);
-    let pos = json
-        .find(&pattern)
-        .ok_or_else(|| format!("Missing key: {}", key))?;
-    let after = &json[pos + pattern.len()..];
-    let after = after.trim_start().strip_prefix(':').ok_or("Expected :")?;
-    let after = after.trim_start();
+    let after = find_after_key(json, key).ok_or_else(|| format!("Missing key: {}", key))?;
     let end = after
         .find(|c: char| !c.is_ascii_digit())
         .unwrap_or(after.len());
@@ -2625,13 +2637,7 @@ fn extract_number(json: &str, key: &str) -> Result<u64, String> {
 }
 
 fn extract_array_u8(json: &str, key: &str) -> Result<Vec<u8>, String> {
-    let pattern = format!("\"{}\"", key);
-    let pos = json
-        .find(&pattern)
-        .ok_or_else(|| format!("Missing key: {}", key))?;
-    let after = &json[pos + pattern.len()..];
-    let after = after.trim_start().strip_prefix(':').ok_or("Expected :")?;
-    let after = after.trim_start();
+    let after = find_after_key(json, key).ok_or_else(|| format!("Missing key: {}", key))?;
     let start = after.find('[').ok_or("Expected [")?;
     let end = after.find(']').ok_or("Expected ]")?;
     let inner = &after[start + 1..end];
@@ -3673,6 +3679,28 @@ struct OwnedInstruction {
     capabilities: Vec<String>,
     policy_pack: String,
     receipt_expected: bool,
+    // ── BLD-WR / BLD-MUT / BLD-CU: byte-range write authority ─────────
+    // Carried verbatim from the manifest so the CLI-loaded descriptor
+    // matches the compiled program's declared write surface. Round-trips
+    // with codama's emitter (crates/hopper-schema/src/codama.rs:643-672):
+    // strictWrites / writeRanges / cuEstimate / mutationComplete /
+    // lamportAccounts. Defaults (false / empty / 0) reproduce the
+    // pre-BLD-WR behavior for older manifests that omit these keys.
+    strict_writes: bool,
+    write_ranges: Vec<OwnedWriteRange>,
+    mutation_complete: bool,
+    lamport_accounts: Vec<u8>,
+    cu_estimate: u32,
+}
+
+/// One declared byte-range write on one instruction account, parsed from a
+/// manifest `writeRanges` entry. Mirrors [`hopper_schema::WriteRange`]; the
+/// `account` name string codama also emits is derived and intentionally
+/// ignored here (the index is authoritative).
+struct OwnedWriteRange {
+    account_index: u8,
+    offset: u32,
+    size: u32,
 }
 
 struct OwnedArg {
@@ -3708,6 +3736,10 @@ struct OwnedContext {
     policies: Vec<String>,
     receipts_expected: bool,
     mutation_classes: Vec<String>,
+    // Context-level strict-write surface, same round-trip contract as the
+    // instruction fields above. Absent from legacy manifests -> defaults.
+    strict_writes: bool,
+    write_ranges: Vec<OwnedWriteRange>,
 }
 
 struct OwnedContextAccount {
@@ -3842,19 +3874,38 @@ fn extract_string_array(json: &str, key: &str) -> Result<Vec<String>, String> {
 
 /// Extract a boolean value from JSON.
 fn extract_bool(json: &str, key: &str) -> Result<bool, String> {
-    let pattern = format!("\"{}\"", key);
-    let pos = match json.find(&pattern) {
-        Some(p) => p,
-        None => return Ok(false),
-    };
-    let after = &json[pos + pattern.len()..];
-    let after = after.trim_start().strip_prefix(':').ok_or("Expected :")?;
-    let after = after.trim_start();
-    if after.starts_with("true") {
-        Ok(true)
-    } else {
-        Ok(false)
+    // Absent key defaults to false (codama omits false/unset booleans).
+    match find_after_key(json, key) {
+        Some(after) => Ok(after.starts_with("true")),
+        None => Ok(false),
     }
+}
+
+/// Parse a `writeRanges` array — objects of the shape codama emits:
+/// `{ "account": str, "accountIndex": N, "offset": N, "size": N }`. The
+/// `account` name is derived (index is authoritative) and ignored here.
+/// Absent key -> empty vec (older manifests declare no byte-range surface).
+fn extract_write_ranges(json: &str, key: &str) -> Result<Vec<OwnedWriteRange>, String> {
+    let objects = extract_object_array(json, key)?;
+    let mut ranges = Vec::with_capacity(objects.len());
+    for obj in &objects {
+        ranges.push(OwnedWriteRange {
+            account_index: extract_number(obj, "accountIndex")? as u8,
+            offset: extract_number(obj, "offset")? as u32,
+            size: extract_number(obj, "size")? as u32,
+        });
+    }
+    Ok(ranges)
+}
+
+/// Parse a `lamportAccounts` u8 array, defaulting to empty when the key is
+/// absent (older manifests) or the array is empty. codama emits this key
+/// only alongside `mutationComplete`.
+fn extract_lamport_accounts(json: &str, key: &str) -> Vec<u8> {
+    // `extract_array_u8` errors on a missing key and on an empty `[]`
+    // (its comma-split yields one empty token); both cases mean "no
+    // declared lamport targets", so collapse them to an empty vec.
+    extract_array_u8(json, key).unwrap_or_default()
 }
 
 fn parse_program_manifest_json(json: &str) -> Result<OwnedProgramManifest, String> {
@@ -3908,6 +3959,15 @@ fn parse_program_manifest_json(json: &str) -> Result<OwnedProgramManifest, Strin
             });
         }
 
+        // BLD-WR / BLD-MUT / BLD-CU write-set authority. Keys match
+        // codama's emitter exactly; each defaults to the pre-BLD-WR
+        // value when absent so an OLD manifest loads identically.
+        let strict_writes = extract_bool(obj, "strictWrites")?;
+        let write_ranges = extract_write_ranges(obj, "writeRanges")?;
+        let mutation_complete = extract_bool(obj, "mutationComplete")?;
+        let lamport_accounts = extract_lamport_accounts(obj, "lamportAccounts");
+        let cu_estimate = extract_number(obj, "cuEstimate").unwrap_or(0) as u32;
+
         instructions.push(OwnedInstruction {
             name: ix_name,
             tag,
@@ -3916,6 +3976,11 @@ fn parse_program_manifest_json(json: &str) -> Result<OwnedProgramManifest, Strin
             capabilities,
             policy_pack,
             receipt_expected,
+            strict_writes,
+            write_ranges,
+            mutation_complete,
+            lamport_accounts,
+            cu_estimate,
         });
     }
 
@@ -3983,6 +4048,10 @@ fn parse_program_manifest_json(json: &str) -> Result<OwnedProgramManifest, Strin
             policies: extract_string_array(obj, "policies")?,
             receipts_expected: extract_bool(obj, "receipts_expected")?,
             mutation_classes: extract_string_array(obj, "mutation_classes")?,
+            // Context-level strict-write surface (same keys/defaults as the
+            // instruction parse above). Absent from legacy manifests.
+            strict_writes: extract_bool(obj, "strictWrites")?,
+            write_ranges: extract_write_ranges(obj, "writeRanges")?,
         });
     }
 
@@ -4030,6 +4099,17 @@ fn to_program_manifest(m: &OwnedProgramManifest) -> ProgramManifest {
                 .collect();
             let capabilities: Vec<&'static str> =
                 ix.capabilities.iter().map(|c| leak_str(c)).collect();
+            // Carry the parsed write-set through verbatim. This is the exact
+            // round-trip of codama's emitter: what codama serialized (byte
+            // ranges, strict-write flag, lamport targets, CU estimate) is what
+            // the loaded InstructionDescriptor now declares, so the CLI and the
+            // compiled program can no longer disagree on the write authority.
+            let write_ranges: Vec<WriteRange> = ix
+                .write_ranges
+                .iter()
+                .map(|r| WriteRange::new(r.account_index, r.offset, r.size))
+                .collect();
+            let lamport_accounts: Vec<u8> = ix.lamport_accounts.clone();
             InstructionDescriptor {
                 name: leak_str(&ix.name),
                 tag: ix.tag,
@@ -4038,19 +4118,11 @@ fn to_program_manifest(m: &OwnedProgramManifest) -> ProgramManifest {
                 capabilities: Box::leak(capabilities.into_boxed_slice()),
                 policy_pack: leak_str(&ix.policy_pack),
                 receipt_expected: ix.receipt_expected,
-                // Additive unblock for the concurrent BLD-WR schema change:
-                // the JSON manifest loader does not yet parse strict_writes /
-                // write_ranges, so default to the documented non-strict
-                // behavior (no byte-range write authority). BLD-WR owns the
-                // real JSON wiring; see followups.
-                strict_writes: false,
-                write_ranges: &[],
-                // BLD-CU: the JSON manifest loader does not yet parse
-                // cuEstimate; default to 0 = unknown (no estimate published)
-                // rather than fabricating a number. JSON wiring is a followup.
-                mutation_complete: false,
-                lamport_accounts: &[],
-                cu_estimate: 0,
+                strict_writes: ix.strict_writes,
+                write_ranges: Box::leak(write_ranges.into_boxed_slice()),
+                mutation_complete: ix.mutation_complete,
+                lamport_accounts: Box::leak(lamport_accounts.into_boxed_slice()),
+                cu_estimate: ix.cu_estimate,
             }
         })
         .collect();
@@ -4134,21 +4206,24 @@ fn to_program_manifest(m: &OwnedProgramManifest) -> ProgramManifest {
                 .map(|class_name| leak_str(class_name))
                 .collect();
 
+            let ctx_write_ranges: Vec<WriteRange> = ctx
+                .write_ranges
+                .iter()
+                .map(|r| WriteRange::new(r.account_index, r.offset, r.size))
+                .collect();
             ContextDescriptor {
                 name: leak_str(&ctx.name),
                 accounts: Box::leak(accounts.into_boxed_slice()),
                 policies: Box::leak(policies.into_boxed_slice()),
                 receipts_expected: ctx.receipts_expected,
                 mutation_classes: Box::leak(mutation_classes.into_boxed_slice()),
-                // The JSON manifest context schema does not yet carry the
-                // strict-writes range set (BLD-I24 publishes it through the
-                // Rust-side `SCHEMA_METADATA` const); default to the
-                // no-authority form until the JSON schema grows the fields.
-                strict_writes: false,
-                write_ranges: &[],
-                // Same reasoning for the BLD-MUT lamport dimension:
-                // absent from the JSON context schema, so never claim
-                // completeness for a JSON-round-tripped context.
+                // Round-trip the context strict-write surface parsed from the
+                // manifest (same fidelity contract as the instruction path).
+                strict_writes: ctx.strict_writes,
+                write_ranges: Box::leak(ctx_write_ranges.into_boxed_slice()),
+                // The JSON context schema carries no separate lamport /
+                // mutation-completeness dimension, so leave those at the
+                // no-claim defaults (a context never asserts completeness).
                 mutation_complete: false,
                 lamport_accounts: &[],
             }
@@ -5532,4 +5607,192 @@ fn leak_str(s: &str) -> &'static str {
 /// Leak a vec to get a 'static slice reference.
 fn leak_slice(v: &[FieldDescriptor]) -> &'static [FieldDescriptor] {
     Box::leak(v.to_vec().into_boxed_slice())
+}
+
+#[cfg(test)]
+mod loader_write_set_tests {
+    //! CLI-LOADER round-trip coverage: the JSON manifest loader must carry
+    //! the write-set / lamport / CU authority into the descriptors it builds,
+    //! and a manifest that omits those keys must load with the documented
+    //! defaults (no regression for older manifests).
+    use super::*;
+
+    /// A codama-shaped manifest carrying every write-set field: strictWrites,
+    /// writeRanges (with the derived `account` name codama also emits and the
+    /// loader ignores), cuEstimate, mutationComplete, lamportAccounts — plus a
+    /// context that carries strictWrites + writeRanges. Mirrors the exact
+    /// key/shape codama serializes (crates/hopper-schema/src/codama.rs).
+    const MANIFEST_WITH_WRITE_SET: &str = r#"{
+      "name": "TestProgram",
+      "version": "1.2.3",
+      "instructions": [
+        {
+          "name": "deposit",
+          "tag": 3,
+          "args": [],
+          "accounts": [
+            { "name": "vault", "writable": true, "signer": false, "layout_ref": "Vault" },
+            { "name": "authority", "writable": false, "signer": true, "layout_ref": "" }
+          ],
+          "capabilities": ["MutatesState"],
+          "policy_pack": "VAULT_WRITE",
+          "receipt_expected": true,
+          "cuEstimate": 4200,
+          "strictWrites": true,
+          "mutationComplete": true,
+          "lamportAccounts": [0, 1],
+          "writeRanges": [
+            { "account": "vault", "accountIndex": 0, "offset": 16, "size": 8 },
+            { "account": "vault", "accountIndex": 0, "offset": 40, "size": 32 }
+          ]
+        }
+      ],
+      "contexts": [
+        {
+          "name": "Deposit",
+          "accounts": [
+            { "name": "vault", "kind": "HopperAccount", "writable": true, "signer": false, "layout_ref": "Vault", "policy_ref": "VAULT_WRITE", "seeds": [], "optional": false }
+          ],
+          "policies": ["VAULT_WRITE"],
+          "receipts_expected": true,
+          "mutation_classes": ["StateTransition"],
+          "strictWrites": true,
+          "writeRanges": [
+            { "account": "vault", "accountIndex": 0, "offset": 16, "size": 8 }
+          ]
+        }
+      ]
+    }"#;
+
+    /// The same program WITHOUT any of the write-set keys — an "old" manifest
+    /// predating BLD-WR/BLD-MUT/BLD-CU. It must load with defaults.
+    const MANIFEST_WITHOUT_WRITE_SET: &str = r#"{
+      "name": "TestProgram",
+      "version": "1.2.3",
+      "instructions": [
+        {
+          "name": "deposit",
+          "tag": 3,
+          "args": [],
+          "accounts": [
+            { "name": "vault", "writable": true, "signer": false, "layout_ref": "Vault" }
+          ],
+          "capabilities": ["MutatesState"],
+          "policy_pack": "VAULT_WRITE",
+          "receipt_expected": true
+        }
+      ],
+      "contexts": [
+        {
+          "name": "Deposit",
+          "accounts": [
+            { "name": "vault", "kind": "HopperAccount", "writable": true, "signer": false, "layout_ref": "Vault", "policy_ref": "", "seeds": [], "optional": false }
+          ],
+          "policies": [],
+          "receipts_expected": false,
+          "mutation_classes": []
+        }
+      ]
+    }"#;
+
+    #[test]
+    fn loader_carries_instruction_write_set_verbatim() {
+        let owned = parse_program_manifest_json(MANIFEST_WITH_WRITE_SET)
+            .expect("manifest with write set should parse");
+        let prog = to_program_manifest(&owned);
+        let ix = &prog.instructions[0];
+
+        assert_eq!(ix.name, "deposit");
+        // strict_writes MUST NOT be zeroed away by the loader.
+        assert!(ix.strict_writes, "strict_writes should round-trip as true");
+        assert!(
+            ix.mutation_complete,
+            "mutation_complete should round-trip as true"
+        );
+        assert_eq!(ix.cu_estimate, 4200, "cu_estimate should round-trip");
+        assert_eq!(
+            ix.lamport_accounts,
+            &[0u8, 1u8],
+            "lamport_accounts should round-trip"
+        );
+
+        // The byte-range write surface, index/offset/size preserved and in order.
+        assert_eq!(ix.write_ranges.len(), 2, "both write ranges carried");
+        assert_eq!(ix.write_ranges[0].account_index, 0);
+        assert_eq!(ix.write_ranges[0].offset, 16);
+        assert_eq!(ix.write_ranges[0].size, 8);
+        assert_eq!(ix.write_ranges[1].account_index, 0);
+        assert_eq!(ix.write_ranges[1].offset, 40);
+        assert_eq!(ix.write_ranges[1].size, 32);
+    }
+
+    #[test]
+    fn parser_key_matcher_skips_string_values_that_equal_a_key() {
+        // Regression: an account legitimately named "offset" / "size" /
+        // "accountIndex" must not shadow the real key. The pre-fix
+        // substring matcher matched the string VALUE first, hit ',' where
+        // it expected ':', and failed the entire manifest load.
+        let range = r#"{ "account": "offset", "accountIndex": 3, "offset": 16, "size": 8 }"#;
+        assert_eq!(extract_number(range, "offset").unwrap(), 16);
+        assert_eq!(extract_number(range, "accountIndex").unwrap(), 3);
+        assert_eq!(extract_number(range, "size").unwrap(), 8);
+        assert_eq!(extract_string(range, "account").unwrap(), "offset");
+        // A string value equal to a boolean key must not be read as the key.
+        let ix = r#"{ "policy_pack": "strictWrites", "strictWrites": true }"#;
+        assert!(extract_bool(ix, "strictWrites").unwrap());
+        assert_eq!(extract_string(ix, "policy_pack").unwrap(), "strictWrites");
+    }
+
+    #[test]
+    fn loader_carries_context_write_set_verbatim() {
+        let owned = parse_program_manifest_json(MANIFEST_WITH_WRITE_SET)
+            .expect("manifest with write set should parse");
+        let prog = to_program_manifest(&owned);
+        let ctx = &prog.contexts[0];
+
+        assert_eq!(ctx.name, "Deposit");
+        assert!(ctx.strict_writes, "context strict_writes should round-trip");
+        assert_eq!(ctx.write_ranges.len(), 1);
+        assert_eq!(ctx.write_ranges[0].account_index, 0);
+        assert_eq!(ctx.write_ranges[0].offset, 16);
+        assert_eq!(ctx.write_ranges[0].size, 8);
+    }
+
+    #[test]
+    fn old_manifest_loads_with_documented_defaults() {
+        let owned = parse_program_manifest_json(MANIFEST_WITHOUT_WRITE_SET)
+            .expect("legacy manifest should still parse");
+        let prog = to_program_manifest(&owned);
+        let ix = &prog.instructions[0];
+
+        // Missing keys => the exact pre-BLD-WR values (no fabricated authority).
+        assert!(!ix.strict_writes);
+        assert!(ix.write_ranges.is_empty());
+        assert!(!ix.mutation_complete);
+        assert!(ix.lamport_accounts.is_empty());
+        assert_eq!(ix.cu_estimate, 0);
+
+        let ctx = &prog.contexts[0];
+        assert!(!ctx.strict_writes);
+        assert!(ctx.write_ranges.is_empty());
+    }
+
+    #[test]
+    fn golden_counter_manifest_loads_without_write_set() {
+        // The shipped counter fixture predates the write-set keys; it must
+        // load cleanly with defaults (guards against a parse regression on
+        // real, checked-in manifests).
+        const COUNTER: &str = include_str!("../../../examples/hopper-counter/hopper.manifest.json");
+        let owned =
+            parse_program_manifest_json(COUNTER).expect("golden counter manifest should parse");
+        let prog = to_program_manifest(&owned);
+        assert!(!prog.instructions.is_empty());
+        for ix in prog.instructions.iter() {
+            assert!(!ix.strict_writes);
+            assert!(ix.write_ranges.is_empty());
+            assert!(!ix.mutation_complete);
+            assert!(ix.lamport_accounts.is_empty());
+            assert_eq!(ix.cu_estimate, 0);
+        }
+    }
 }

@@ -7,6 +7,7 @@
 #![deny(unsafe_op_in_unsafe_fn)]
 
 pub mod hook;
+pub mod layout;
 pub use hook::{
     extra_account_metas_pda, ExtraAccountMeta, ExtraAccountMetaList, HookAccountBuf, HookError,
     ResolvedHookAccount, EXTRA_ACCOUNT_METAS_SEED,
@@ -54,9 +55,7 @@ impl Transfer<'_> {
 
     #[inline]
     pub fn invoke_signed(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
-        let mut data = [0u8; 9];
-        data[0] = 3;
-        data[1..9].copy_from_slice(&self.amount.to_le_bytes());
+        let data = layout::encode_transfer(self.amount);
 
         let accounts = [
             InstructionAccount::writable(self.from.address()),
@@ -90,9 +89,7 @@ impl MintTo<'_> {
 
     #[inline]
     pub fn invoke_signed(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
-        let mut data = [0u8; 9];
-        data[0] = 7;
-        data[1..9].copy_from_slice(&self.amount.to_le_bytes());
+        let data = layout::encode_mint_to(self.amount);
 
         let accounts = [
             InstructionAccount::writable(self.mint.address()),
@@ -126,9 +123,7 @@ impl Burn<'_> {
 
     #[inline]
     pub fn invoke_signed(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
-        let mut data = [0u8; 9];
-        data[0] = 8;
-        data[1..9].copy_from_slice(&self.amount.to_le_bytes());
+        let data = layout::encode_burn(self.amount);
 
         let accounts = [
             InstructionAccount::writable(self.account.address()),
@@ -161,7 +156,7 @@ impl CloseAccount<'_> {
 
     #[inline]
     pub fn invoke_signed(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
-        let data = [9u8];
+        let data = layout::encode_close_account();
         let accounts = [
             InstructionAccount::writable(self.account.address()),
             InstructionAccount::writable(self.destination.address()),
@@ -194,9 +189,7 @@ impl Approve<'_> {
 
     #[inline]
     pub fn invoke_signed(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
-        let mut data = [0u8; 9];
-        data[0] = 4;
-        data[1..9].copy_from_slice(&self.amount.to_le_bytes());
+        let data = layout::encode_approve(self.amount);
 
         let accounts = [
             InstructionAccount::writable(self.source.address()),
@@ -228,7 +221,7 @@ impl Revoke<'_> {
 
     #[inline]
     pub fn invoke_signed(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
-        let data = [5u8];
+        let data = layout::encode_revoke();
         let accounts = [
             InstructionAccount::writable(self.source.address()),
             InstructionAccount::readonly_signer(self.authority.address()),
@@ -255,7 +248,7 @@ pub struct InitializeAccount<'a> {
 impl InitializeAccount<'_> {
     #[inline]
     pub fn invoke(&self) -> ProgramResult {
-        let data = [1u8];
+        let data = layout::encode_initialize_account();
         let accounts = [
             InstructionAccount::writable(self.account.address()),
             InstructionAccount::readonly(self.mint.address()),

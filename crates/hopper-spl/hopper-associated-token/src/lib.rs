@@ -6,6 +6,8 @@
 #![no_std]
 #![deny(unsafe_op_in_unsafe_fn)]
 
+pub mod layout;
+
 use hopper_runtime::instruction::{InstructionAccount, InstructionView, Signer};
 use hopper_runtime::{AccountView, ProgramResult};
 
@@ -35,7 +37,7 @@ impl Create<'_> {
 
     #[inline]
     pub fn invoke_signed(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
-        let data = [0u8];
+        let data = layout::encode_create();
         let accounts = [
             InstructionAccount::writable_signer(self.payer.address()),
             InstructionAccount::writable(self.associated_account.address()),
@@ -80,7 +82,7 @@ impl CreateIdempotent<'_> {
 
     #[inline]
     pub fn invoke_signed(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
-        let data = [1u8];
+        let data = layout::encode_create_idempotent();
         let accounts = [
             InstructionAccount::writable_signer(self.payer.address()),
             InstructionAccount::writable(self.associated_account.address()),
@@ -126,7 +128,7 @@ impl RecoverNested<'_> {
 
     #[inline]
     pub fn invoke_signed(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
-        let data = [2u8];
+        let data = layout::encode_recover_nested();
         let accounts = [
             InstructionAccount::writable(self.nested_associated_account.address()),
             InstructionAccount::readonly(self.nested_token_mint.address()),

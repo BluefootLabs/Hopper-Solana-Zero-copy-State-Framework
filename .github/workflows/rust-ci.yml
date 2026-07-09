@@ -117,3 +117,20 @@ jobs:
           cargo kani setup
       - name: Run native raw-input Kani proofs
         run: sh ./scripts/kani-native-rawinput.sh
+
+  kani-spl-layout-proofs:
+    name: Kani SPL/System CPI layout proofs
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Install Kani
+        run: |
+          cargo install --locked kani-verifier
+          cargo kani setup
+      - name: Run SPL/System CPI layout Kani proofs
+        run: sh ./scripts/kani-spl-layouts.sh

@@ -1206,14 +1206,15 @@ impl<'info> AccountView<'info> {
     /// on the failure path, where compute cost is irrelevant.
     #[inline(always)]
     pub fn expect_signer_writable(&self, need_signer: bool, need_writable: bool) -> ProgramResult {
-        let mut required: u8 = 0;
-        if need_signer {
-            required |= 0b0001;
-        }
-        if need_writable {
-            required |= 0b0010;
-        }
-        if self.flags() & required == required {
+        // Fast path: one packed-header read + one masked compare on the native
+        // backend, never touching `data_len` (unlike `flags()`, which also
+        // computes the has-data bit). `need_signer`/`need_writable` are
+        // compile-time literals here, so the mask/expected pair fold to
+        // constants.
+        if self
+            .backend()
+            .is_signer_writable(need_signer, need_writable)
+        {
             return Ok(());
         }
         // Failure path: re-check individually for the precise error.
@@ -1687,6 +1688,77 @@ mod tests {
         let backend = unsafe { NativeAccountView::new_unchecked(raw) };
         let account = AccountView::from_backend(backend);
         (backing, account)
+    }
+
+    /// Build a zero-data account with explicit signer/writable header bytes so
+    /// the fused masked `expect_signer_writable` path can be exercised across
+    /// every flag combination.
+    fn make_flagged_account(
+        is_signer: u8,
+        is_writable: u8,
+    ) -> (std::vec::Vec<u8>, AccountView<'static>) {
+        let mut backing = std::vec![0u8; RuntimeAccount::SIZE];
+        let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
+        // SAFETY: `backing` is a fresh RuntimeAccount-sized allocation; we write
+        // a fully-initialized header into it before constructing any view.
+        unsafe {
+            raw.write(RuntimeAccount {
+                borrow_state: NOT_BORROWED,
+                is_signer,
+                is_writable,
+                executable: 0,
+                resize_delta: 0,
+                address: NativeAddress::new_from_array([9; 32]),
+                owner: NativeAddress::new_from_array([2; 32]),
+                lamports: 0,
+                data_len: 0,
+            });
+        }
+        // SAFETY: `raw` points at the initialized RuntimeAccount above.
+        let backend = unsafe { NativeAccountView::new_unchecked(raw) };
+        (backing, AccountView::from_backend(backend))
+    }
+
+    #[test]
+    fn expect_signer_writable_keeps_distinct_errors_and_passes_valid() {
+        // Fully valid: signer + writable -> Ok (fast masked compare succeeds).
+        let (_b, both) = make_flagged_account(1, 1);
+        assert!(both.expect_signer_writable(true, true).is_ok());
+
+        // Signer missing must still yield MissingRequiredSignature, NOT Immutable.
+        let (_b, no_signer) = make_flagged_account(0, 1);
+        assert!(matches!(
+            no_signer.expect_signer_writable(true, true),
+            Err(ProgramError::MissingRequiredSignature)
+        ));
+
+        // Writable missing must still yield Immutable, NOT MissingRequiredSignature.
+        let (_b, no_writable) = make_flagged_account(1, 0);
+        assert!(matches!(
+            no_writable.expect_signer_writable(true, true),
+            Err(ProgramError::Immutable)
+        ));
+
+        // Only-signer / only-writable requirements ignore the other bit.
+        let (_b, signer_only) = make_flagged_account(1, 0);
+        assert!(signer_only.expect_signer_writable(true, false).is_ok());
+        let (_b, writable_only) = make_flagged_account(0, 1);
+        assert!(writable_only.expect_signer_writable(false, true).is_ok());
+
+        // Requiring nothing always passes, regardless of flags.
+        let (_b, neither) = make_flagged_account(0, 0);
+        assert!(neither.expect_signer_writable(false, false).is_ok());
+
+        // Requiring signer when absent (writable not required) -> signer error.
+        assert!(matches!(
+            neither.expect_signer_writable(true, false),
+            Err(ProgramError::MissingRequiredSignature)
+        ));
+        // Requiring writable when absent (signer not required) -> Immutable.
+        assert!(matches!(
+            neither.expect_signer_writable(false, true),
+            Err(ProgramError::Immutable)
+        ));
     }
 
     #[test]

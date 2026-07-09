@@ -64,10 +64,48 @@ pub fn transfer_lamports(
     Ok(())
 }
 
-/// Verify that an account is rent-exempt under Solana's current rent constants.
+/// Verify that an account is rent-exempt using the **hardcoded** current
+/// rent constants (the fast, syscall-free path).
+///
+/// # SAFETY-CRITICAL caveat
+///
+/// This gates on [`crate::sysvar::rent_exempt_minimum`], which cannot see a
+/// rent *reprice*. If the cluster has raised rent, this can report an account
+/// as rent-exempt when the runtime would reap it. For any decision where a
+/// wrong "exempt" answer risks data loss, prefer
+/// [`require_rent_exempt_with`], which reads the live [`Rent`] sysvar.
 #[inline]
 pub fn require_rent_exempt(account: &AccountView<'_>) -> ProgramResult {
     let min = crate::sysvar::rent_exempt_minimum(account.data_len());
+    if account.lamports() >= min {
+        Ok(())
+    } else {
+        Err(ProgramError::AccountNotRentExempt)
+    }
+}
+
+/// Verify that an account is rent-exempt against a live [`Rent`] sysvar
+/// (RECOMMENDED for reaping-relevant checks).
+///
+/// The caller reads the sysvar once (`Rent::get()`) and passes it in, so this
+/// function adds no syscall of its own — the cost stays where the caller can
+/// see it — while using the cluster's *actual* rent parameters. This is the
+/// correct form when the cluster may have repriced rent since the constants
+/// baked into [`require_rent_exempt`] were set: it uses
+/// [`Rent::minimum_balance`], which byte-matches the runtime.
+///
+/// # Example
+///
+/// ```ignore
+/// let rent = hopper::sysvar::Rent::get()?;
+/// hopper::batch::require_rent_exempt_with(&rent, account)?;
+/// ```
+#[inline]
+pub fn require_rent_exempt_with(
+    rent: &crate::sysvar::Rent,
+    account: &AccountView<'_>,
+) -> ProgramResult {
+    let min = rent.minimum_balance(account.data_len());
     if account.lamports() >= min {
         Ok(())
     } else {
@@ -132,6 +170,15 @@ pub fn zero_data(account: &AccountView<'_>) -> ProgramResult {
 ///
 /// This is the safe version of `account.resize()` -- it verifies that
 /// the account has enough lamports to cover rent at the new data length.
+///
+/// # Reaping caveat
+///
+/// The top-up target comes from the hardcoded
+/// [`crate::sysvar::rent_exempt_minimum`] const, so it cannot see a rent
+/// reprice. If the cluster ever raises the rent parameters this
+/// UNDER-funds the account, leaving it reapable (data loss). Any resize
+/// whose safety must survive a reprice should call
+/// [`realloc_checked_with`] with a freshly read [`crate::sysvar::Rent`].
 #[inline]
 pub fn realloc_checked(
     account: &AccountView<'_>,
@@ -155,5 +202,47 @@ pub fn realloc_checked(
     }
 
     // Now resize -- the account already has enough lamports.
+    account.resize(new_len)
+}
+
+/// Reaping-safe `realloc_checked`: tops the account up to rent-exemption
+/// using the **live [`Rent`] sysvar**, so it stays correct after a rent
+/// reprice.
+///
+/// [`realloc_checked`] computes its top-up from the hardcoded
+/// [`crate::sysvar::rent_exempt_minimum`] const, which cannot see a
+/// reprice and would UNDER-fund the account (leaving it reapable, data
+/// lost) if the cluster ever raised `lamports_per_byte_year` or the
+/// exemption threshold. Any resize whose correctness must survive a
+/// reprice should call this variant with a freshly read sysvar:
+///
+/// ```ignore
+/// let rent = hopper::sysvar::Rent::get()?;
+/// hopper::batch::realloc_checked_with(&rent, account, new_len, Some(payer))?;
+/// ```
+///
+/// [`Rent`]: crate::sysvar::Rent
+#[inline]
+pub fn realloc_checked_with(
+    rent: &crate::sysvar::Rent,
+    account: &AccountView<'_>,
+    new_len: usize,
+    payer: Option<&AccountView<'_>>,
+) -> ProgramResult {
+    // Top-up computed from the live sysvar, not the const snapshot.
+    // Check rent BEFORE resizing so a failed payer transfer leaves the
+    // account's data length unchanged (same ordering as realloc_checked).
+    let min = rent.minimum_balance(new_len);
+    let current = account.lamports();
+
+    if current < min {
+        if let Some(payer) = payer {
+            let deficit = min - current;
+            transfer_lamports(payer, account, deficit)?;
+        } else {
+            return Err(ProgramError::AccountNotRentExempt);
+        }
+    }
+
     account.resize(new_len)
 }

@@ -193,3 +193,148 @@ mod tests {
         assert_eq!(len, 1);
     }
 }
+
+// =====================================================================
+// Kani layout proofs for the Borsh tape writer.
+//
+// Metaplex instruction data is Borsh-encoded and `BorshTape` is the sole
+// mechanism the builders in `instructions.rs` use to lay it out. These
+// proofs pin, over symbolic scalar inputs, that each `write_*` primitive
+// lands its value little-endian at the current cursor, advances the
+// cursor by exactly the value's width, and (for the `Option`/`bool`
+// tags) writes the canonical Borsh tag byte. Scalars are compared
+// word-/field-wise (never a slice `==`), matching the raw_input PID_WORD
+// lesson that keeps harnesses free of memcmp loops.
+//
+// Run by `scripts/kani-spl-layouts.{sh,ps1}` (CI lane
+// `kani-spl-layout-proofs`).
+// =====================================================================
+#[cfg(kani)]
+mod kani_proofs {
+    use super::*;
+
+    #[kani::proof]
+    fn write_u8_lands_at_cursor_and_advances_one() {
+        let v: u8 = kani::any();
+        let mut buf = [0u8; 4];
+        let mut tape = BorshTape::new(&mut buf);
+        tape.write_u8(v).unwrap();
+        assert_eq!(tape.len(), 1);
+        assert_eq!(buf[0], v);
+    }
+
+    #[kani::proof]
+    fn write_disc_is_write_u8() {
+        let v: u8 = kani::any();
+        let mut buf = [0u8; 4];
+        let mut tape = BorshTape::new(&mut buf);
+        tape.write_disc(v).unwrap();
+        assert_eq!(tape.len(), 1);
+        assert_eq!(buf[0], v);
+    }
+
+    #[kani::proof]
+    fn write_u16_le_lands_le_and_advances_two() {
+        let v: u16 = kani::any();
+        let mut buf = [0u8; 4];
+        let mut tape = BorshTape::new(&mut buf);
+        tape.write_u16_le(v).unwrap();
+        assert_eq!(tape.len(), 2);
+        assert_eq!(u16::from_le_bytes([buf[0], buf[1]]), v);
+    }
+
+    #[kani::proof]
+    fn write_u32_le_lands_le_and_advances_four() {
+        let v: u32 = kani::any();
+        let mut buf = [0u8; 8];
+        let mut tape = BorshTape::new(&mut buf);
+        tape.write_u32_le(v).unwrap();
+        assert_eq!(tape.len(), 4);
+        assert_eq!(u32::from_le_bytes([buf[0], buf[1], buf[2], buf[3]]), v);
+    }
+
+    #[kani::proof]
+    fn write_u64_le_lands_le_and_advances_eight() {
+        let v: u64 = kani::any();
+        let mut buf = [0u8; 12];
+        let mut tape = BorshTape::new(&mut buf);
+        tape.write_u64_le(v).unwrap();
+        assert_eq!(tape.len(), 8);
+        let got = u64::from_le_bytes([
+            buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7],
+        ]);
+        assert_eq!(got, v);
+    }
+
+    #[kani::proof]
+    fn write_bool_is_zero_or_one() {
+        let v: bool = kani::any();
+        let mut buf = [0u8; 4];
+        let mut tape = BorshTape::new(&mut buf);
+        tape.write_bool(v).unwrap();
+        assert_eq!(tape.len(), 1);
+        assert_eq!(buf[0], if v { 1 } else { 0 });
+    }
+
+    #[kani::proof]
+    fn write_option_none_is_zero_tag() {
+        let mut buf = [0u8; 4];
+        let mut tape = BorshTape::new(&mut buf);
+        tape.write_option_none().unwrap();
+        assert_eq!(tape.len(), 1);
+        assert_eq!(buf[0], 0);
+    }
+
+    #[kani::proof]
+    fn write_option_some_tag_is_one_tag() {
+        let mut buf = [0u8; 4];
+        let mut tape = BorshTape::new(&mut buf);
+        tape.write_option_some_tag().unwrap();
+        assert_eq!(tape.len(), 1);
+        assert_eq!(buf[0], 1);
+    }
+
+    #[kani::proof]
+    fn write_option_u64_none_is_single_zero_byte() {
+        let mut buf = [0u8; 12];
+        let mut tape = BorshTape::new(&mut buf);
+        tape.write_option_u64_le(None).unwrap();
+        assert_eq!(tape.len(), 1);
+        assert_eq!(buf[0], 0);
+    }
+
+    #[kani::proof]
+    fn write_option_u64_some_is_tag_then_le_value() {
+        let v: u64 = kani::any();
+        let mut buf = [0u8; 12];
+        let mut tape = BorshTape::new(&mut buf);
+        tape.write_option_u64_le(Some(v)).unwrap();
+        assert_eq!(tape.len(), 9);
+        assert_eq!(buf[0], 1);
+        let got = u64::from_le_bytes([
+            buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7], buf[8],
+        ]);
+        assert_eq!(got, v);
+    }
+
+    // A Borsh `String` is `[u32 LE length][bytes]`. Prove the 4-byte
+    // length prefix over a symbolic length: the prefix equals the byte
+    // count and the cursor advances by `4 + len`. A concrete two-byte
+    // ASCII string exercises the body placement (see the `writes_borsh_
+    // string_with_length_prefix` unit test); here the emphasis is the
+    // symbolic length-prefix contract.
+    #[kani::proof]
+    fn write_str_length_prefix_is_u32_le() {
+        let s = "hi";
+        let mut buf = [0u8; 16];
+        let mut tape = BorshTape::new(&mut buf);
+        tape.write_str(s).unwrap();
+        assert_eq!(tape.len(), 4 + s.len());
+        assert_eq!(
+            u32::from_le_bytes([buf[0], buf[1], buf[2], buf[3]]),
+            s.len() as u32
+        );
+        assert_eq!(buf[4], b'h');
+        assert_eq!(buf[5], b'i');
+    }
+}

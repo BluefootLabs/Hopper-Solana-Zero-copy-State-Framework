@@ -9,6 +9,23 @@ use core::mem::MaybeUninit;
 
 use crate::account_view::AccountView;
 use crate::address::Address;
+use crate::error::ProgramError;
+
+/// Convert a handler's `ProgramError` into the Solana runtime's u64 return code.
+///
+/// Outlined `#[cold] #[inline(never)]` so an entrypoint's success tail lowers to
+/// a bare `return SUCCESS` and the `ProgramError -> u64` mapping (the 25-arm
+/// `From<ProgramError> for u64` match) is never inlined into the hot frame,
+/// where it would add code size and stack traffic that every successful
+/// invocation pays for. This mirrors Pinocchio's cold error outline.
+///
+/// The conversion is exactly `Into::<u64>::into(e)`, byte-for-byte identical to
+/// the previous inline `error.into()`, so the runtime error codes are unchanged.
+#[cold]
+#[inline(never)]
+pub fn err_to_u64(e: ProgramError) -> u64 {
+    e.into()
+}
 
 /// Process the BPF entrypoint input.
 ///
@@ -43,7 +60,7 @@ pub unsafe fn process_entrypoint<const MAX: usize>(
 
     match process_instruction(&program_id, account_slice, instruction_data) {
         Ok(()) => crate::SUCCESS,
-        Err(error) => error.into(),
+        Err(error) => err_to_u64(error),
     }
 }
 
@@ -99,7 +116,7 @@ macro_rules! hopper_program_entrypoint {
                 instruction_data,
             ) {
                 Ok(()) => $crate::SUCCESS,
-                Err(error) => error.into(),
+                Err(error) => $crate::entrypoint::err_to_u64(error),
             }
         }
     };
@@ -227,7 +244,7 @@ macro_rules! hopper_fast_entrypoint {
                 instruction_data,
             ) {
                 Ok(()) => $crate::SUCCESS,
-                Err(error) => error.into(),
+                Err(error) => $crate::entrypoint::err_to_u64(error),
             }
         }
     };
@@ -273,7 +290,7 @@ macro_rules! hopper_lazy_entrypoint {
             let mut ctx = unsafe { $crate::lazy::lazy_deserialize(input) };
             match $process(&mut ctx) {
                 Ok(()) => $crate::SUCCESS,
-                Err(error) => error.into(),
+                Err(error) => $crate::entrypoint::err_to_u64(error),
             }
         }
     };
@@ -403,4 +420,106 @@ macro_rules! nostd_panic_handler {
             unsafe { core::arch::asm!("mov r0, 1", "exit", options(noreturn)) };
         }
     };
+}
+
+#[cfg(test)]
+mod entrypoint_tail_tests {
+    extern crate std;
+
+    use std::vec;
+    use std::vec::Vec;
+
+    use super::*;
+
+    /// Serialize a zero-account loader frame: `u64` account count (0), then the
+    /// `u64` ix-data length prefix, the ix-data bytes, and the 32-byte program
+    /// id. Returns an 8-aligned `u64` backing (matching `MM_INPUT_START`).
+    fn build_zero_account_frame(ix_data: &[u8], program_id: [u8; 32]) -> Vec<u64> {
+        let mut buf: Vec<u8> = Vec::new();
+        buf.extend_from_slice(&0u64.to_le_bytes()); // account_count = 0
+        buf.extend_from_slice(&(ix_data.len() as u64).to_le_bytes());
+        buf.extend_from_slice(ix_data);
+        buf.extend_from_slice(&program_id);
+        let mut words = vec![0u64; buf.len().div_ceil(8)];
+        // SAFETY: `words` has at least `buf.len()` bytes of capacity and the
+        // regions do not overlap.
+        unsafe {
+            core::ptr::copy_nonoverlapping(buf.as_ptr(), words.as_mut_ptr() as *mut u8, buf.len());
+        }
+        words
+    }
+
+    fn ok_handler<'a>(
+        _: &'a Address,
+        _: &'a [AccountView<'a>],
+        _: &'a [u8],
+    ) -> crate::ProgramResult {
+        Ok(())
+    }
+
+    fn custom_err_handler<'a>(
+        _: &'a Address,
+        _: &'a [AccountView<'a>],
+        _: &'a [u8],
+    ) -> crate::ProgramResult {
+        Err(ProgramError::Custom(4242))
+    }
+
+    fn builtin_err_handler<'a>(
+        _: &'a Address,
+        _: &'a [AccountView<'a>],
+        _: &'a [u8],
+    ) -> crate::ProgramResult {
+        Err(ProgramError::MissingRequiredSignature)
+    }
+
+    #[test]
+    fn ok_returns_bare_success_zero() {
+        let mut frame = build_zero_account_frame(&[1, 2, 3], [7u8; 32]);
+        // SAFETY: `frame` is a well-formed, 8-aligned zero-account loader frame.
+        let code = unsafe { process_entrypoint::<4>(frame.as_mut_ptr() as *mut u8, ok_handler) };
+        assert_eq!(code, 0);
+        assert_eq!(code, crate::SUCCESS);
+    }
+
+    #[test]
+    fn custom_err_maps_through_cold_outline_unchanged() {
+        let mut frame = build_zero_account_frame(&[], [0u8; 32]);
+        // SAFETY: well-formed, 8-aligned zero-account loader frame.
+        let code =
+            unsafe { process_entrypoint::<4>(frame.as_mut_ptr() as *mut u8, custom_err_handler) };
+        // Cold outline must equal the direct `From<ProgramError> for u64` mapping.
+        assert_eq!(code, u64::from(ProgramError::Custom(4242)));
+        assert_eq!(code, err_to_u64(ProgramError::Custom(4242)));
+        assert_eq!(code, 4242);
+    }
+
+    #[test]
+    fn builtin_err_maps_through_cold_outline_unchanged() {
+        let mut frame = build_zero_account_frame(&[], [0u8; 32]);
+        // SAFETY: well-formed, 8-aligned zero-account loader frame.
+        let code =
+            unsafe { process_entrypoint::<4>(frame.as_mut_ptr() as *mut u8, builtin_err_handler) };
+        assert_eq!(code, u64::from(ProgramError::MissingRequiredSignature));
+        assert_eq!(code, err_to_u64(ProgramError::MissingRequiredSignature));
+    }
+
+    /// The cold outline is a byte-for-byte alias of `From<ProgramError> for u64`
+    /// across the full variant space (custom-zero, custom, and builtins).
+    #[test]
+    fn err_to_u64_matches_from_impl_for_all_variants() {
+        let cases = [
+            ProgramError::Custom(0),
+            ProgramError::Custom(1),
+            ProgramError::Custom(u32::MAX),
+            ProgramError::InvalidArgument,
+            ProgramError::MissingRequiredSignature,
+            ProgramError::AccountBorrowFailed,
+            ProgramError::ArithmeticOverflow,
+            ProgramError::IncorrectAuthority,
+        ];
+        for e in cases {
+            assert_eq!(err_to_u64(e.clone()), u64::from(e));
+        }
+    }
 }

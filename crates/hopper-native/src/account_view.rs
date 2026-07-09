@@ -873,6 +873,41 @@ impl<'info> AccountView<'info> {
             Err(ProgramError::InvalidArgument)
         }
     }
+
+    /// Fast fused signer/writable predicate over the packed header word.
+    ///
+    /// Answers "are the requested signer/writable bytes both set" with a
+    /// single 4-byte header read and one masked compare
+    /// (`(header_u32 & mask) == expected`), never touching `data_len` — unlike
+    /// [`flags`](Self::flags), which also folds in the has-data bit via
+    /// `is_data_empty()`. `need_signer`/`need_writable` are compile-time
+    /// literals at every call site and this is `#[inline(always)]`, so `mask`
+    /// and `expected` fold to constants and the whole check is one `and` plus
+    /// one `cmp`.
+    ///
+    /// Behaviourally identical to today's `flags()`-based signer/writable
+    /// gate: the loader serializes `is_signer`/`is_writable` as exactly `0` or
+    /// `1`, so for those bytes "equals the expected `1` pattern" and
+    /// "byte non-zero" coincide. Callers that need the precise per-condition
+    /// error must fall back to `require_signer`/`require_writable` on a `false`
+    /// return (see `hopper_runtime::AccountView::expect_signer_writable`).
+    #[inline(always)]
+    pub fn is_signer_writable(&self, need_signer: bool, need_writable: bool) -> bool {
+        let h = self.header_u32();
+        let mut mask: u32 = 0;
+        let mut expected: u32 = 0;
+        if need_signer {
+            // is_signer occupies bits 8..16 (little-endian byte 1).
+            mask |= 0x0000_FF00;
+            expected |= 0x0000_0100;
+        }
+        if need_writable {
+            // is_writable occupies bits 16..24 (little-endian byte 2).
+            mask |= 0x00FF_0000;
+            expected |= 0x0001_0000;
+        }
+        (h & mask) == expected
+    }
 }
 
 impl<'info> core::fmt::Debug for AccountView<'info> {

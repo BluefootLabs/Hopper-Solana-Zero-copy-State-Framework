@@ -86,9 +86,17 @@ struct AccountAttr {
     /// `has_one = other_field`. require `self.field == other.key()`
     /// after layout load. Can appear multiple times.
     has_one: Vec<Ident>,
+    /// Parallel to `has_one`: the optional Anchor-style `@ CustomError`
+    /// override for each `has_one` entry. `has_one_errs[i]` is the error
+    /// named by `has_one = field @ Err`; `None` when that constraint
+    /// used no `@`, in which case the generic error is emitted unchanged.
+    has_one_errs: Vec<Option<Expr>>,
     /// `owner = expr`. require the account's owner equal `expr`.
     /// Default for layout fields is `ctx.program_id()`.
     owner: Option<Expr>,
+    /// Optional `@ CustomError` for `owner = expr @ Err`. `None` keeps
+    /// the generic owner-mismatch error unchanged.
+    owner_err: Option<Expr>,
     /// `owner_any = [expr, ...]`. require the account's owner to equal *one of*
     /// the listed program ids. The motivating case is accepting an account from
     /// either SPL Token or Token-2022:
@@ -97,9 +105,17 @@ struct AccountAttr {
     owner_any: Vec<Expr>,
     /// `address = expr`. require the account's key equal `expr`.
     address: Option<Expr>,
+    /// Optional `@ CustomError` for `address = expr @ Err`. `None` keeps
+    /// the generic `InvalidAccountData` error unchanged.
+    address_err: Option<Expr>,
     /// `constraint = expr`. arbitrary boolean guard, evaluated as the
     /// last step of validation.
     constraint: Vec<Expr>,
+    /// Parallel to `constraint`: the optional Anchor-style `@ CustomError`
+    /// override for each guard. `constraint_errs[i]` is the error named
+    /// by `constraint = expr @ Err`; `None` keeps the generic
+    /// `Custom(0xC000 | idx)` error for that guard unchanged.
+    constraint_errs: Vec<Option<Expr>>,
 
     // ── Anchor SPL parity (audit ST2: "make Hopper the best of three") ──
     //
@@ -115,9 +131,15 @@ struct AccountAttr {
     /// `token::mint = expr`. require this SPL TokenAccount's bytes
     /// `[0..32]` equal the pubkey produced by `expr`.
     token_mint: Option<Expr>,
+    /// Optional `@ CustomError` for `token::mint = expr @ Err`. `None`
+    /// keeps the generic `require_token_mint` error unchanged.
+    token_mint_err: Option<Expr>,
     /// `token::authority = expr`. require this SPL TokenAccount's
     /// bytes `[32..64]` equal the pubkey produced by `expr`.
     token_authority: Option<Expr>,
+    /// Optional `@ CustomError` for `token::authority = expr @ Err`.
+    /// `None` keeps the generic `require_token_owner_eq` error unchanged.
+    token_authority_err: Option<Expr>,
     /// `token::token_program = expr`. require this account's Solana
     /// owner-program equals `expr`. The usual case is pointing at
     /// Token-2022 instead of the default SPL Token program, so the
@@ -886,11 +908,16 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             }
         }
         if let Some(addr_expr) = &cf.attr.address {
+            // `address = k @ MyError::X`: an @-named error resolves to
+            // `(#err).into()` (feeding #[hopper::error_code] invariant
+            // metadata); without `@` the generic error is unchanged.
+            let addr_err = match &cf.attr.address_err {
+                Some(e) => quote! { (#e).into() },
+                None => quote! { ::hopper::__runtime::ProgramError::InvalidAccountData },
+            };
             field_checks.push(quote! {
                 if ctx.account(#idx)?.address() != &(#addr_expr) {
-                    return ::core::result::Result::Err(
-                        ::hopper::__runtime::ProgramError::InvalidAccountData
-                    );
+                    return ::core::result::Result::Err(#addr_err);
                 }
             });
             check_descriptions.push(format!(
@@ -900,6 +927,10 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         }
         let owner_expr = cf.attr.owner.clone();
         let owner_any = cf.attr.owner_any.clone();
+        // Optional Anchor `owner = expr @ Err` override. When present the
+        // owner check returns `(#err).into()` on mismatch; when absent the
+        // generic `?`-propagated error path is emitted byte-unchanged.
+        let owner_err = cf.attr.owner_err.clone();
         // Wrapper-aware layout handling:
         //   Account<'info, T>     → layout = T, has_layout = true
         //   InitAccount<'info, T> → has_layout = false at validate time
@@ -938,8 +969,15 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                     __hopper_account.check_owned_by_any(&[ #(#ids),* ])?;
                 }
             } else if let Some(expr) = &owner_expr {
-                quote! {
-                    __hopper_account.check_owned_by(&(#expr))?;
+                match &owner_err {
+                    Some(e) => quote! {
+                        if __hopper_account.check_owned_by(&(#expr)).is_err() {
+                            return ::core::result::Result::Err((#e).into());
+                        }
+                    },
+                    None => quote! {
+                        __hopper_account.check_owned_by(&(#expr))?;
+                    },
                 }
             } else {
                 quote! {
@@ -969,8 +1007,15 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                     ctx.account(#idx)?.check_owned_by_any(&[ #(#ids),* ])?;
                 }
             } else if let Some(expr) = &owner_expr {
-                quote! {
-                    ctx.account(#idx)?.check_owned_by(&(#expr))?;
+                match &owner_err {
+                    Some(e) => quote! {
+                        if ctx.account(#idx)?.check_owned_by(&(#expr)).is_err() {
+                            return ::core::result::Result::Err((#e).into());
+                        }
+                    },
+                    None => quote! {
+                        ctx.account(#idx)?.check_owned_by(&(#expr))?;
+                    },
                 }
             } else {
                 quote! {
@@ -1018,8 +1063,15 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                     idx, field_name
                 ));
             } else if let Some(expr) = &owner_expr {
-                field_checks.push(quote! {
-                    ctx.account(#idx)?.check_owned_by(&(#expr))?;
+                field_checks.push(match &owner_err {
+                    Some(e) => quote! {
+                        if ctx.account(#idx)?.check_owned_by(&(#expr)).is_err() {
+                            return ::core::result::Result::Err((#e).into());
+                        }
+                    },
+                    None => quote! {
+                        ctx.account(#idx)?.check_owned_by(&(#expr))?;
+                    },
                 });
                 check_descriptions.push(format!(
                     "accounts[{}] ({}) owner must match `owner = ...`",
@@ -1273,7 +1325,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
 
         // -- Stage 5.5: has_one. field value must equal other account's key.
         // Runs after layout load so we can read the struct field.
-        for target_ident in &cf.attr.has_one {
+        for (hi, target_ident) in cf.attr.has_one.iter().enumerate() {
             let target_name = target_ident.to_string();
             let target_idx = ctx_fields
                 .iter()
@@ -1294,6 +1346,13 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                 )
             })?;
             let target_field_ident = target_ident.clone();
+            // `has_one = field @ MyError::X`: the @-named error replaces
+            // the generic `InvalidAccountData`; without `@` the generic
+            // error is emitted byte-unchanged.
+            let has_one_err = match cf.attr.has_one_errs.get(hi).cloned().flatten() {
+                Some(e) => quote! { (#e).into() },
+                None => quote! { ::hopper::__runtime::ProgramError::InvalidAccountData },
+            };
             field_checks.push(quote! {
                 {
                     let view = ctx.account(#idx)?;
@@ -1309,9 +1368,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                         *::core::convert::AsRef::<[u8; 32]>::as_ref(&layout.#target_field_ident),
                     ) != *expected_key
                     {
-                        return ::core::result::Result::Err(
-                            ::hopper::__runtime::ProgramError::InvalidAccountData
-                        );
+                        return ::core::result::Result::Err(#has_one_err);
                     }
                 }
             });
@@ -1323,11 +1380,18 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
 
         // -- Stage 6: arbitrary `constraint = expr` -----------------------
         for (i, expr) in cf.attr.constraint.iter().enumerate() {
+            // `constraint = expr @ MyError::X`: the @-named error replaces
+            // the generic `Custom(0xC000 | idx)`; without `@` the generic
+            // error is emitted byte-unchanged.
+            let constraint_err = match cf.attr.constraint_errs.get(i).cloned().flatten() {
+                Some(e) => quote! { (#e).into() },
+                None => {
+                    quote! { ::hopper::__runtime::ProgramError::Custom(0xc0_00 | (#idx as u32)) }
+                }
+            };
             field_checks.push(quote! {
                 if !({ #expr }) {
-                    return ::core::result::Result::Err(
-                        ::hopper::__runtime::ProgramError::Custom(0xc0_00 | (#idx as u32))
-                    );
+                    return ::core::result::Result::Err(#constraint_err);
                 }
             });
             check_descriptions.push(format!(
@@ -1382,11 +1446,24 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         }
 
         if let Some(expected_mint) = &cf.attr.token_mint {
-            field_checks.push(quote! {
-                ::hopper::__runtime::token::require_token_mint(
-                    ctx.account(#idx)?,
-                    &(#expected_mint),
-                )?;
+            // `token::mint = m @ MyError::X`: the @-named error replaces
+            // the generic `require_token_mint` error; without `@` the
+            // original `?`-propagated call is emitted byte-unchanged.
+            field_checks.push(match &cf.attr.token_mint_err {
+                Some(e) => quote! {
+                    if ::hopper::__runtime::token::require_token_mint(
+                        ctx.account(#idx)?,
+                        &(#expected_mint),
+                    ).is_err() {
+                        return ::core::result::Result::Err((#e).into());
+                    }
+                },
+                None => quote! {
+                    ::hopper::__runtime::token::require_token_mint(
+                        ctx.account(#idx)?,
+                        &(#expected_mint),
+                    )?;
+                },
             });
             check_descriptions.push(format!(
                 "accounts[{}] ({}) is a token account for the declared mint",
@@ -1394,11 +1471,21 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             ));
         }
         if let Some(expected_authority) = &cf.attr.token_authority {
-            field_checks.push(quote! {
-                ::hopper::__runtime::token::require_token_owner_eq(
-                    ctx.account(#idx)?,
-                    &(#expected_authority),
-                )?;
+            field_checks.push(match &cf.attr.token_authority_err {
+                Some(e) => quote! {
+                    if ::hopper::__runtime::token::require_token_owner_eq(
+                        ctx.account(#idx)?,
+                        &(#expected_authority),
+                    ).is_err() {
+                        return ::core::result::Result::Err((#e).into());
+                    }
+                },
+                None => quote! {
+                    ::hopper::__runtime::token::require_token_owner_eq(
+                        ctx.account(#idx)?,
+                        &(#expected_authority),
+                    )?;
+                },
             });
             check_descriptions.push(format!(
                 "accounts[{}] ({}) token account authority matches declared authority",
@@ -2962,8 +3049,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                 let mint_ident = cf.attr.master_edition_mint.as_ref().unwrap();
                 let mint_idx = sibling_index(&ctx_fields, mint_ident, "master_edition::mint")?;
                 let payer_ident = cf.attr.master_edition_payer.as_ref().unwrap();
-                let payer_idx =
-                    sibling_index(&ctx_fields, payer_ident, "master_edition::payer")?;
+                let payer_idx = sibling_index(&ctx_fields, payer_ident, "master_edition::payer")?;
                 for idx in [cf.index, mint_idx, payer_idx] {
                     grant_cpi_delegable(
                         idx,
@@ -3518,6 +3604,27 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
 ///
 /// After parsing, `validate_account_attr` runs cross-attribute
 /// consistency rules (e.g. `init` requires `payer` + `space`).
+/// After a constraint's value has been parsed, peek for Anchor's
+/// `@ CustomError` error-override token and, if present, consume the
+/// `@` and parse the trailing error expression.
+///
+/// Anchor spells a per-constraint error as
+/// `has_one = authority @ MyError::WrongAuth`,
+/// `constraint = x == y @ MyError::Bad`, `address = k @ MyError::BadAddr`,
+/// etc. `@` (`Token![@]`) is never a valid continuation of an
+/// expression, so the preceding `Expr`/`Ident` parse always stops exactly
+/// before it — leaving `input` positioned on the `@` for this peek.
+/// Returns `None` when no `@` follows, so callers keep their existing
+/// generic error path byte-for-byte unchanged.
+fn parse_opt_at_error(input: ParseStream) -> Result<Option<Expr>> {
+    if input.peek(Token![@]) {
+        let _at: Token![@] = input.parse()?;
+        Ok(Some(input.parse()?))
+    } else {
+        Ok(None)
+    }
+}
+
 fn parse_account_attr(attrs: &[Attribute]) -> Result<AccountAttr> {
     let mut result = AccountAttr::default();
 
@@ -3622,11 +3729,13 @@ fn parse_account_attr(attrs: &[Attribute]) -> Result<AccountAttr> {
                     ("token", "mint") => {
                         let expr: Expr = meta.value()?.parse()?;
                         result.token_mint = Some(expr);
+                        result.token_mint_err = parse_opt_at_error(meta.input)?;
                         Ok(())
                     }
                     ("token", "authority") => {
                         let expr: Expr = meta.value()?.parse()?;
                         result.token_authority = Some(expr);
+                        result.token_authority_err = parse_opt_at_error(meta.input)?;
                         Ok(())
                     }
                     ("token", "token_program") => {
@@ -3806,6 +3915,27 @@ fn parse_account_attr(attrs: &[Attribute]) -> Result<AccountAttr> {
                         result.seeds_program = Some(expr);
                         Ok(())
                     }
+                    // Anchor colon spelling `realloc::payer = p`. Pure
+                    // alias of the underscore `realloc_payer = p` field;
+                    // both spellings resolve to the same slot so an Anchor
+                    // program ports mechanically without a rewrite.
+                    ("realloc", "payer") => {
+                        let ident: Ident = meta.value()?.parse()?;
+                        result.realloc_payer = Some(ident);
+                        Ok(())
+                    }
+                    // Anchor colon spelling `realloc::zero = true`. Alias
+                    // of the underscore `realloc_zero`; accepts the bare
+                    // form (meaning true) exactly like its sibling.
+                    ("realloc", "zero") => {
+                        if meta.input.peek(Token![=]) {
+                            let lit: syn::LitBool = meta.value()?.parse()?;
+                            result.realloc_zero = lit.value;
+                        } else {
+                            result.realloc_zero = true;
+                        }
+                        Ok(())
+                    }
                     // Token-2022 extension constraints. Three-segment
                     // paths (extensions::foo::bar) are routed via the
                     // fall-through below; two-segment `extensions::foo`
@@ -3841,7 +3971,7 @@ fn parse_account_attr(attrs: &[Attribute]) -> Result<AccountAttr> {
                          associated_token::{{mint,authority,token_program}}, \
                          metadata::{{name,symbol,uri,seller_fee_basis_points,is_mutable,mint,mint_authority,payer,update_authority,system_program,rent}}, \
                          master_edition::{{max_supply,mint,metadata,update_authority,mint_authority,payer,token_program,system_program,rent}}, \
-                         seeds::{{program}}",
+                         seeds::{{program}}, realloc::{{payer,zero}}",
                     ))),
                 };
             }
@@ -3981,6 +4111,9 @@ fn parse_account_attr(attrs: &[Attribute]) -> Result<AccountAttr> {
                 "has_one" => {
                     let ident: Ident = meta.value()?.parse()?;
                     result.has_one.push(ident);
+                    // Anchor `has_one = field @ Err`: capture the optional
+                    // per-constraint error, kept parallel to `has_one`.
+                    result.has_one_errs.push(parse_opt_at_error(meta.input)?);
                     Ok(())
                 }
                 "dup" => {
@@ -4006,6 +4139,7 @@ fn parse_account_attr(attrs: &[Attribute]) -> Result<AccountAttr> {
                 "owner" => {
                     let expr: Expr = meta.value()?.parse()?;
                     result.owner = Some(expr);
+                    result.owner_err = parse_opt_at_error(meta.input)?;
                     Ok(())
                 }
                 "owner_any" => {
@@ -4021,11 +4155,17 @@ fn parse_account_attr(attrs: &[Attribute]) -> Result<AccountAttr> {
                 "address" => {
                     let expr: Expr = meta.value()?.parse()?;
                     result.address = Some(expr);
+                    result.address_err = parse_opt_at_error(meta.input)?;
                     Ok(())
                 }
                 "constraint" => {
                     let expr: Expr = meta.value()?.parse()?;
                     result.constraint.push(expr);
+                    // Anchor `constraint = expr @ Err`: capture the optional
+                    // per-guard error, kept parallel to `constraint`.
+                    result
+                        .constraint_errs
+                        .push(parse_opt_at_error(meta.input)?);
                     Ok(())
                 }
                 "executable" => {
@@ -5191,5 +5331,210 @@ mod instruction_arg_tests {
         // The underlying syn error comes from the `:` parser failing
         // once it consumes the type without finding a colon.
         let _ = err;
+    }
+
+    // ── DX-CONSTRAINTS Finding 1: `@ CustomError` on constraints ────────
+    //
+    // Anchor lets a constraint name the error it raises:
+    // `has_one = authority @ MyError::WrongAuth`,
+    // `constraint = x == y @ MyError::Bad`, `address = k @ MyError::BadAddr`,
+    // `owner = p @ MyError::BadOwner`, `token::mint = m @ MyError::BadMint`.
+    // Hopper captures the trailing error and lowers it through `.into()`,
+    // so an @-named error resolves against `#[hopper::error_code]`
+    // invariant metadata instead of a generic Custom/InvalidAccountData
+    // code.
+
+    /// (a) `has_one` / `constraint` / `address` / `owner` / `token::mint`
+    /// with `@ MyError::X` each emit that error path. We assert the
+    /// generated tokens reference the named error and lower through
+    /// `.into()`, and that the generic `Custom(0xC000)` fallback is gone
+    /// for the guard that named its own error.
+    #[test]
+    fn at_error_binds_custom_errors_on_constraints() {
+        let item: TokenStream = quote! {
+            #[derive(Accounts)]
+            pub struct WithErrors<'info> {
+                #[account(address = EXPECTED @ MyError::BadAddr)]
+                pub cfg: AccountView<'info>,
+
+                #[account(owner = ORACLE_OWNER @ MyError::BadOwner)]
+                pub oracle: AccountView<'info>,
+
+                #[account(token::mint = MINT @ MyError::BadMint)]
+                pub token_acct: AccountView<'info>,
+
+                #[account(
+                    has_one = authority @ MyError::WrongAuth,
+                    constraint = layout_ok @ MyError::Disabled,
+                )]
+                pub vault: Account<'info, VaultState>,
+
+                pub authority: AccountView<'info>,
+            }
+        };
+        let s = expand_for_derive(item)
+            .expect("derive expand ok")
+            .to_string();
+
+        assert!(
+            s.contains("MyError :: BadAddr"),
+            "address @-error must be emitted: {s}"
+        );
+        assert!(
+            s.contains("MyError :: BadOwner"),
+            "owner @-error must be emitted: {s}"
+        );
+        assert!(
+            s.contains("MyError :: BadMint"),
+            "token::mint @-error must be emitted: {s}"
+        );
+        assert!(
+            s.contains("MyError :: WrongAuth"),
+            "has_one @-error must be emitted: {s}"
+        );
+        assert!(
+            s.contains("MyError :: Disabled"),
+            "constraint @-error must be emitted: {s}"
+        );
+        // Every @-error resolves through `.into()` so it can carry
+        // invariant-tagged error_code metadata.
+        assert!(
+            s.contains(". into ()"),
+            "@-errors must lower through .into(): {s}"
+        );
+        // The only `constraint` guard named its own error, so the generic
+        // Custom fallback must not appear for it.
+        assert!(
+            !s.contains("Custom (0xc0_00"),
+            "an @-named constraint replaces the generic Custom code: {s}"
+        );
+    }
+
+    /// (b) Without `@`, the generic error paths are emitted byte-for-byte
+    /// as before: `InvalidAccountData` for address/has_one, the
+    /// `Custom(0xC000 | idx)` code for constraint, and never an
+    /// `.into()`-bound custom error.
+    #[test]
+    fn constraints_without_at_keep_generic_errors_unchanged() {
+        let item: TokenStream = quote! {
+            #[derive(Accounts)]
+            pub struct NoErrors<'info> {
+                #[account(address = EXPECTED)]
+                pub cfg: AccountView<'info>,
+
+                #[account(
+                    has_one = authority,
+                    constraint = layout_ok,
+                )]
+                pub vault: Account<'info, VaultState>,
+
+                pub authority: AccountView<'info>,
+            }
+        };
+        let s = expand_for_derive(item)
+            .expect("derive expand ok")
+            .to_string();
+
+        assert!(
+            s.contains(":: hopper :: __runtime :: ProgramError :: InvalidAccountData"),
+            "address/has_one without @ keep the generic InvalidAccountData: {s}"
+        );
+        assert!(
+            s.contains("Custom (0xc0_00"),
+            "constraint without @ keeps the generic Custom(0xC000 | idx) code: {s}"
+        );
+        // No @-error anywhere means no custom-error binding leaked in.
+        assert!(
+            !s.contains("MyError"),
+            "a constraint set with no @ must not reference any custom error: {s}"
+        );
+    }
+
+    // ── DX-CONSTRAINTS Finding 2: `realloc::payer` / `realloc::zero` ────
+
+    /// (c) The Anchor colon spelling `realloc::payer` / `realloc::zero`
+    /// parses identically to the underscore `realloc_payer` /
+    /// `realloc_zero`: the two contexts expand byte-for-byte the same.
+    #[test]
+    fn realloc_colon_matches_underscore_spelling() {
+        let underscore: TokenStream = quote! {
+            #[derive(Accounts)]
+            pub struct Grow<'info> {
+                #[account(mut)]
+                pub payer: Signer<'info>,
+
+                #[account(realloc = NEW_LEN, realloc_payer = payer, realloc_zero = true)]
+                pub data: AccountView<'info>,
+            }
+        };
+        let colon: TokenStream = quote! {
+            #[derive(Accounts)]
+            pub struct Grow<'info> {
+                #[account(mut)]
+                pub payer: Signer<'info>,
+
+                #[account(realloc = NEW_LEN, realloc::payer = payer, realloc::zero = true)]
+                pub data: AccountView<'info>,
+            }
+        };
+        let a = expand_for_derive(underscore)
+            .expect("underscore realloc expand ok")
+            .to_string();
+        let b = expand_for_derive(colon)
+            .expect("colon realloc expand ok")
+            .to_string();
+        assert_eq!(
+            a, b,
+            "realloc::payer / realloc::zero must expand identically to realloc_payer / realloc_zero"
+        );
+    }
+
+    /// (d) A full, pre-existing context that uses none of the new syntax
+    /// still expands successfully and keeps every generic error path
+    /// intact — the additive changes leave existing programs unchanged.
+    #[test]
+    fn existing_full_context_expands_unchanged() {
+        let item: TokenStream = quote! {
+            #[derive(Accounts)]
+            pub struct Settle<'info> {
+                #[account(mut, signer)]
+                pub authority: Signer<'info>,
+
+                #[account(
+                    mut,
+                    has_one = authority,
+                    constraint = layout_ok,
+                    owner = PROGRAM_ID,
+                )]
+                pub vault: Account<'info, VaultState>,
+
+                #[account(address = TREASURY)]
+                pub treasury: AccountView<'info>,
+
+                pub system_program: Program<'info, System>,
+            }
+        };
+        let s = expand_for_derive(item)
+            .expect("derive expand ok")
+            .to_string();
+
+        // Generic error surfaces are all present and no custom-error
+        // binding was introduced.
+        assert!(
+            s.contains(":: hopper :: __runtime :: ProgramError :: InvalidAccountData"),
+            "generic InvalidAccountData path must remain: {s}"
+        );
+        assert!(
+            s.contains("Custom (0xc0_00"),
+            "generic Custom constraint code must remain: {s}"
+        );
+        assert!(
+            s.contains("check_owned_by (& (PROGRAM_ID)) ?"),
+            "owner check without @ must stay a plain `?` propagation: {s}"
+        );
+        assert!(
+            !s.contains("MyError") && !s.contains(". into ()"),
+            "a context with no @ must not gain any custom-error binding: {s}"
+        );
     }
 }

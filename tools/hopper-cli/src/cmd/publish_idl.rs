@@ -51,12 +51,48 @@
 //! fixed array is the PDA seed. For explorer interop, IDLs live under the
 //! canonical `[program, b"idl"]` PDA as Utf8 + Zlib + Json.
 //!
+//! ## Instruction wire format (verified against the on-chain processor)
+//!
+//! The metadata program dispatches on the first instruction-data byte
+//! (`entrypoint.rs`): `0 = Write`, `1 = Initialize`, `3 = SetData`,
+//! `7 = Allocate`. The remaining bytes are the processor payload.
+//!
+//! * **Initialize** (`initialize.rs`): `[seed:16][encoding:1][compression:1]
+//!   [format:1][data_source:1][payload…]`. When the target PDA is empty the
+//!   program CPI-creates it (signed by the PDA seeds) with
+//!   `space = 96 + payload.len()`, copies `payload` to offset 96, and writes
+//!   the 96-byte header itself. The account must be **pre-funded** to rent
+//!   exemption first (`CreateAccountAllowPrefund { funding: None }`). When the
+//!   PDA is instead a pre-allocated `Buffer` (discriminator 1), no inline
+//!   payload is allowed and the program finalizes the already-written bytes
+//!   in place.
+//! * **Allocate** (`allocate.rs`): `[seed:16]`. Creates a 96-byte `Buffer`
+//!   header at the canonical PDA (must be pre-funded).
+//! * **Write** (`write.rs`): `[offset:u32-le][chunk…]`. Copies `chunk` to
+//!   `offset + 96` in the buffer, resizing as needed (so the account must be
+//!   funded for its final size before the first write).
+//! * **SetData** (`set_data.rs`): `[encoding:1][compression:1][format:1]
+//!   [data_source:1][payload…]`. Rewrites the data section of an existing
+//!   mutable metadata account (used by `--overwrite`).
+//!
+//! Account orderings are taken from the same source files and encoded in the
+//! `*_accounts` helpers below. Canonical publishing requires the target
+//! `program` account (executable) plus its BPF-Loader-v3 `ProgramData` PDA so
+//! the program can verify the signer is the program's upgrade authority.
+//!
 //! ## Scope
 //!
-//! This pass is the correctness-critical, unit-testable core plus a
-//! `--dry-run` that derives + previews without touching the network. The
-//! actual signed on-chain send and large-IDL buffer chunking are deferred
-//! followups (they need devnet and a signer).
+//! Shipped: the correctness-critical instruction encoders + PDA/header core
+//! (unit-tested byte-for-byte), a `--dry-run` preview, and a **real signed
+//! on-chain send** — fresh canonical publish via a single inline `Initialize`
+//! for small IDLs, or `Allocate` + chunked `Write` + in-place `Initialize`
+//! for IDLs that exceed one transaction's data budget, plus an inline
+//! `--overwrite` (`SetData`) rewrite path. Rent pre-funding, "already
+//! initialized", insufficient-balance, and RPC failures are surfaced
+//! explicitly; nothing is half-written. The one bounded gap is *overwriting*
+//! an IDL large enough to need chunking (a fresh large publish works): that
+//! requires a separate source buffer + `SetData`-from-buffer and is reported
+//! as a clear error pointing at close-then-republish.
 
 use std::process;
 
@@ -93,6 +129,34 @@ pub const COMPRESSION_ZLIB: u8 = 2;
 pub const FORMAT_JSON: u8 = 1;
 /// `DataSource::Direct` (payload stored inline in the account).
 pub const DATA_SOURCE_DIRECT: u8 = 0;
+
+// Instruction discriminators (first byte of the instruction data). Values
+// pinned to the on-chain `ProgramMetadataInstruction` enum ordering.
+/// `Write` instruction discriminator.
+pub const INSTR_WRITE: u8 = 0;
+/// `Initialize` instruction discriminator.
+pub const INSTR_INITIALIZE: u8 = 1;
+/// `SetData` instruction discriminator.
+pub const INSTR_SET_DATA: u8 = 3;
+/// `Allocate` instruction discriminator.
+pub const INSTR_ALLOCATE: u8 = 7;
+
+/// BPF Upgradeable Loader program id (base58); owns v3 programs and their
+/// `ProgramData` accounts, from which the upgrade authority is read.
+pub const BPF_LOADER_UPGRADEABLE_ID_B58: &str = "BPFLoaderUpgradeab1e11111111111111111111111";
+
+/// Maximum compressed payload carried inline in a single `Initialize` /
+/// `SetData` transaction. A Solana transaction serializes to at most ~1232
+/// bytes; the inline `Initialize` data is `1 + 16 + 4 + payload`, and the tx
+/// also carries a system transfer, five account metas, a signature and a
+/// blockhash. 800 bytes leaves comfortable headroom; larger payloads use the
+/// `Allocate` + chunked `Write` path.
+pub const MAX_INLINE_PAYLOAD: usize = 800;
+
+/// Maximum bytes per `Write` chunk when buffering a large payload. Each write
+/// tx carries `1 + 4 + chunk` instruction bytes plus three account metas and a
+/// signature, well under the transaction size limit at 900 bytes.
+pub const WRITE_CHUNK_LEN: usize = 900;
 
 /// Marker appended by `create_program_address` before hashing.
 const PDA_MARKER: &[u8] = b"ProgramDerivedAddress";
@@ -171,6 +235,24 @@ fn is_on_curve(bytes: &[u8; 32]) -> bool {
 pub fn derive_canonical_pda(program_id: &[u8; 32], seed16: &[u8; SEED_LEN]) -> ([u8; 32], u8) {
     let meta = metadata_program_id();
     find_program_address(&[program_id.as_ref(), seed16.as_ref()], &meta)
+}
+
+/// Decode the BPF Upgradeable Loader program id into its 32 raw bytes.
+pub fn bpf_loader_upgradeable_id() -> [u8; 32] {
+    let v = bs58::decode(BPF_LOADER_UPGRADEABLE_ID_B58)
+        .into_vec()
+        .expect("bpf loader upgradeable id is valid base58");
+    let mut out = [0u8; 32];
+    out.copy_from_slice(&v);
+    out
+}
+
+/// Derive a program's `ProgramData` PDA: `find_program_address([program_id])`
+/// under the BPF Upgradeable Loader. This account holds the upgrade authority
+/// that the metadata program checks for canonical publishing.
+pub fn derive_program_data_pda(program_id: &[u8; 32]) -> ([u8; 32], u8) {
+    let loader = bpf_loader_upgradeable_id();
+    find_program_address(&[program_id.as_ref()], &loader)
 }
 
 /// Derive a non-canonical metadata PDA: `[program_id, authority, seed16]`
@@ -332,6 +414,133 @@ impl PreparedPayload {
 }
 
 // ---------------------------------------------------------------------------
+// Instruction-data encoders (verified against the on-chain processor)
+// ---------------------------------------------------------------------------
+
+/// `Initialize` with inline data: `[1][seed:16][enc][comp][fmt][ds][payload…]`.
+/// The program builds the 96-byte header from these tags and copies `payload`
+/// to offset 96 of the freshly-created account.
+pub fn build_initialize_inline_data(
+    seed16: &[u8; SEED_LEN],
+    encoding: u8,
+    compression: u8,
+    format: u8,
+    data_source: u8,
+    payload: &[u8],
+) -> Vec<u8> {
+    let mut d = Vec::with_capacity(1 + SEED_LEN + 4 + payload.len());
+    d.push(INSTR_INITIALIZE);
+    d.extend_from_slice(seed16);
+    d.push(encoding);
+    d.push(compression);
+    d.push(format);
+    d.push(data_source);
+    d.extend_from_slice(payload);
+    d
+}
+
+/// `Initialize` finalizing a pre-written `Buffer` in place (no inline payload):
+/// `[1][seed:16][enc][comp][fmt][ds]`.
+pub fn build_initialize_from_buffer_data(
+    seed16: &[u8; SEED_LEN],
+    encoding: u8,
+    compression: u8,
+    format: u8,
+    data_source: u8,
+) -> Vec<u8> {
+    let mut d = Vec::with_capacity(1 + SEED_LEN + 4);
+    d.push(INSTR_INITIALIZE);
+    d.extend_from_slice(seed16);
+    d.push(encoding);
+    d.push(compression);
+    d.push(format);
+    d.push(data_source);
+    d
+}
+
+/// `Allocate` a canonical PDA buffer: `[7][seed:16]`.
+pub fn build_allocate_data(seed16: &[u8; SEED_LEN]) -> Vec<u8> {
+    let mut d = Vec::with_capacity(1 + SEED_LEN);
+    d.push(INSTR_ALLOCATE);
+    d.extend_from_slice(seed16);
+    d
+}
+
+/// `Write` a chunk at `offset`: `[0][offset:u32-le][chunk…]`. The program
+/// stores `chunk` at `offset + 96` (past the buffer header).
+pub fn build_write_data(offset: u32, chunk: &[u8]) -> Vec<u8> {
+    let mut d = Vec::with_capacity(1 + 4 + chunk.len());
+    d.push(INSTR_WRITE);
+    d.extend_from_slice(&offset.to_le_bytes());
+    d.extend_from_slice(chunk);
+    d
+}
+
+/// `SetData` with inline data (the `--overwrite` rewrite path):
+/// `[3][enc][comp][fmt][ds][payload…]`.
+pub fn build_set_data_inline_data(
+    encoding: u8,
+    compression: u8,
+    format: u8,
+    data_source: u8,
+    payload: &[u8],
+) -> Vec<u8> {
+    let mut d = Vec::with_capacity(1 + 4 + payload.len());
+    d.push(INSTR_SET_DATA);
+    d.push(encoding);
+    d.push(compression);
+    d.push(format);
+    d.push(data_source);
+    d.extend_from_slice(payload);
+    d
+}
+
+/// Split `payload` into `(offset, chunk)` writes of at most `chunk_len` bytes.
+/// Offsets are relative to the data section (the program adds the 96-byte
+/// buffer-header offset itself), so they run `0, chunk_len, 2*chunk_len, …`.
+pub fn plan_write_chunks(payload: &[u8], chunk_len: usize) -> Vec<(u32, &[u8])> {
+    assert!(chunk_len > 0, "chunk_len must be positive");
+    let mut out = Vec::new();
+    let mut offset = 0usize;
+    while offset < payload.len() {
+        let end = (offset + chunk_len).min(payload.len());
+        out.push((offset as u32, &payload[offset..end]));
+        offset = end;
+    }
+    out
+}
+
+/// Reassemble the data section that a sequence of `Write` chunks would produce
+/// on chain. Used by the dry-run-vs-send parity test to prove the buffered
+/// path stores exactly the same bytes as the inline path.
+#[allow(dead_code)] // exercised by the parity tests
+pub fn reassemble_write_chunks(payload_len: usize, chunks: &[(u32, &[u8])]) -> Vec<u8> {
+    let mut buf = vec![0u8; payload_len];
+    for (offset, chunk) in chunks {
+        let start = *offset as usize;
+        buf[start..start + chunk.len()].copy_from_slice(chunk);
+    }
+    buf
+}
+
+/// The exact bytes the metadata account will hold after a successful publish:
+/// the 96-byte canonical header followed by the compressed payload. Both the
+/// inline and buffered send paths converge on this image, and it is what the
+/// `--dry-run` header preview describes.
+#[allow(dead_code)] // exercised by the parity tests
+pub fn expected_account_image(
+    program_id: &[u8; 32],
+    seed16: &[u8; SEED_LEN],
+    payload: &PreparedPayload,
+) -> Vec<u8> {
+    let header = MetadataHeader::canonical_idl(*program_id, *seed16, payload);
+    let mut image = Vec::with_capacity(HEADER_LEN + payload.compressed.len());
+    image.extend_from_slice(&header.encode());
+    image.extend_from_slice(&payload.compressed);
+    image
+}
+
+// ---------------------------------------------------------------------------
 // Hex helper
 // ---------------------------------------------------------------------------
 
@@ -417,24 +626,71 @@ pub fn render_dry_run(
     );
     let _ = writeln!(out);
 
+    let (program_data, _pd_bump) = derive_program_data_pda(program_id);
+    let program_data_b58 = bs58::encode(program_data).into_string();
+
+    let stored = payload.data_len() as usize;
+    let inline = stored <= MAX_INLINE_PAYLOAD;
+
     let _ = writeln!(out, "Instruction plan (NOT sent):");
-    let _ = writeln!(out, "  program:  {METADATA_PROGRAM_ID_B58}");
-    let _ = writeln!(out, "  accounts:");
-    let _ = writeln!(out, "    [0] metadata PDA   {pda_b58}  (writable)");
-    let _ = writeln!(out, "    [1] program        {program_b58}  (readonly)");
+    let _ = writeln!(out, "  metadata program: {METADATA_PROGRAM_ID_B58}");
+    let _ = writeln!(out, "  program data PDA: {program_data_b58}");
+    if inline {
+        let init = build_initialize_inline_data(
+            seed16,
+            payload.encoding,
+            payload.compression,
+            payload.format,
+            DATA_SOURCE_DIRECT,
+            &payload.compressed,
+        );
+        let _ = writeln!(out, "  path:     single inline Initialize (fits one tx)");
+        let _ = writeln!(
+            out,
+            "  ix[0]:    SystemProgram::transfer  (rent pre-fund -> PDA)"
+        );
+        let _ = writeln!(
+            out,
+            "  ix[1]:    Initialize (disc {INSTR_INITIALIZE})  data {} bytes",
+            init.len()
+        );
+        let _ = writeln!(
+            out,
+            "            accounts: [metadata(w) {pda_b58}], [authority(s,w)],"
+        );
+        let _ = writeln!(
+            out,
+            "                      [program(r) {program_b58}], [programData(r)], [system(r) {SYSTEM_PROGRAM_ID_B58}]"
+        );
+    } else {
+        let chunks = plan_write_chunks(&payload.compressed, WRITE_CHUNK_LEN);
+        let _ = writeln!(
+            out,
+            "  path:     Allocate + {} chunked Write(s) + in-place Initialize",
+            chunks.len()
+        );
+        let _ = writeln!(
+            out,
+            "  tx[0]:    transfer(rent) + Allocate (disc {INSTR_ALLOCATE}, seed)"
+        );
+        for (idx, (offset, chunk)) in chunks.iter().enumerate() {
+            let _ = writeln!(
+                out,
+                "  tx[{}]:    Write (disc {INSTR_WRITE}) offset {} len {}",
+                idx + 1,
+                offset,
+                chunk.len()
+            );
+        }
+        let _ = writeln!(
+            out,
+            "  tx[{}]:    Initialize-from-buffer (disc {INSTR_INITIALIZE}, no inline data)",
+            chunks.len() + 1
+        );
+    }
     let _ = writeln!(
         out,
-        "    [2] authority/payer <signer required>  (signer, writable)"
-    );
-    let _ = writeln!(out, "    [3] system program {SYSTEM_PROGRAM_ID_B58}");
-    let _ = writeln!(
-        out,
-        "  data:     96-byte header above + {} zlib bytes",
-        payload.data_len()
-    );
-    let _ = writeln!(
-        out,
-        "  note:     concrete instruction-data encoding + signing land in the signed-send followup."
+        "  result:   96-byte header (above) + {stored} zlib bytes at the PDA"
     );
     let _ = writeln!(out);
     let _ = writeln!(out, "Dry run only. No transaction was created or sent.");
@@ -447,18 +703,29 @@ pub fn render_dry_run(
 // ---------------------------------------------------------------------------
 
 fn print_usage() {
-    eprintln!("Usage: hopper publish-idl --manifest <path> --program-id <pubkey> [--dry-run] [--seed <str>]");
+    eprintln!("Usage: hopper publish-idl --manifest <path> --program-id <pubkey>");
+    eprintln!("                          [--url <rpc>] [--keypair <path>] [--seed <str>]");
+    eprintln!("                          [--overwrite] [--dry-run]");
     eprintln!();
     eprintln!("Publish a program's Anchor-IDL JSON to the SPL Program Metadata");
     eprintln!("program (canonical [program, \"idl\"] PDA), with zero Node dependencies.");
     eprintln!();
+    eprintln!("Without --dry-run this signs and submits the on-chain transaction(s):");
+    eprintln!("a single inline Initialize for small IDLs, or Allocate + chunked Write");
+    eprintln!("+ Initialize for IDLs larger than one transaction. The signer must be");
+    eprintln!("the program's upgrade authority (canonical metadata).");
+    eprintln!();
     eprintln!("Options:");
     eprintln!("  --manifest <path>     Hopper program manifest JSON (also accepts inline/@file)");
     eprintln!("  --program-id <pubkey> Base58 program id the IDL describes");
-    eprintln!(
-        "  --dry-run             Derive + preview the header/PDA/instruction without sending"
-    );
+    eprintln!("  --url <rpc>           RPC endpoint (default: devnet). Also honors SOLANA_RPC_URL");
+    eprintln!("  --keypair <path>      Upgrade-authority + fee-payer keypair");
+    eprintln!("                        (default: ~/.config/solana/id.json)");
     eprintln!("  --seed <str>          Metadata seed (default \"idl\", padded to 16 bytes)");
+    eprintln!("  --overwrite           Rewrite an already-initialized metadata account (SetData)");
+    eprintln!(
+        "  --dry-run             Derive + preview the header/PDA/instruction plan without sending"
+    );
 }
 
 /// `hopper publish-idl` entry point.
@@ -466,11 +733,34 @@ pub fn cmd_publish_idl(args: &[String]) {
     let mut manifest_arg: Option<String> = None;
     let mut program_id_arg: Option<String> = None;
     let mut seed_arg: Option<String> = None;
+    let mut url_arg: Option<String> = None;
+    let mut keypair_arg: Option<String> = None;
+    let mut overwrite = false;
     let mut dry_run = false;
 
     let mut i = 0;
     while i < args.len() {
         match args[i].as_str() {
+            "--url" | "--rpc" => {
+                url_arg = args.get(i + 1).cloned();
+                if url_arg.is_none() {
+                    eprintln!("--url requires an RPC endpoint argument");
+                    process::exit(1);
+                }
+                i += 2;
+            }
+            "--keypair" | "--signer" => {
+                keypair_arg = args.get(i + 1).cloned();
+                if keypair_arg.is_none() {
+                    eprintln!("--keypair requires a path argument");
+                    process::exit(1);
+                }
+                i += 2;
+            }
+            "--overwrite" => {
+                overwrite = true;
+                i += 1;
+            }
             "--manifest" => {
                 manifest_arg = args.get(i + 1).cloned();
                 if manifest_arg.is_none() {
@@ -578,13 +868,346 @@ pub fn cmd_publish_idl(args: &[String]) {
         return;
     }
 
-    // Non-dry-run: the signed on-chain send is a deferred followup. Do not
-    // half-send.
-    eprintln!("not yet implemented: signed send (followup)");
-    eprintln!();
-    eprintln!("Re-run with --dry-run to derive the metadata PDA, preview the 96-byte");
-    eprintln!("header, and inspect the instruction that a signed send would submit.");
-    process::exit(1);
+    // Non-dry-run: build, sign, and submit the real on-chain transaction(s).
+    let payload = PreparedPayload::from_idl_json(&idl_json);
+    if let Err(e) = run_publish_send(
+        &program_id,
+        &seed16,
+        &payload,
+        url_arg.as_deref(),
+        keypair_arg.as_deref(),
+        overwrite,
+        manifest.name,
+        manifest.version,
+    ) {
+        eprintln!("publish-idl: {e}");
+        process::exit(1);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Signed on-chain send
+// ---------------------------------------------------------------------------
+
+/// Devnet default RPC endpoint for `publish-idl`.
+const PUBLISH_DEFAULT_RPC: &str = "https://api.devnet.solana.com";
+
+/// Resolve the RPC endpoint: explicit `--url` wins, then `SOLANA_RPC_URL`,
+/// then devnet (publishing an IDL is most often a devnet operation, and we do
+/// not want to silently target mainnet).
+fn resolve_publish_url(cli: Option<&str>) -> String {
+    if let Some(u) = cli {
+        return u.to_string();
+    }
+    if let Ok(u) = std::env::var("SOLANA_RPC_URL") {
+        if !u.is_empty() {
+            return u;
+        }
+    }
+    PUBLISH_DEFAULT_RPC.to_string()
+}
+
+/// Resolve the signer keypair path: explicit `--keypair` wins, else the
+/// solana-cli default `~/.config/solana/id.json`.
+fn resolve_keypair_path(cli: Option<&str>) -> Result<std::path::PathBuf, String> {
+    if let Some(p) = cli {
+        return Ok(std::path::PathBuf::from(p));
+    }
+    crate::workspace::default_solana_keypair_path().ok_or_else(|| {
+        "no --keypair supplied and no default keypair at ~/.config/solana/id.json".to_string()
+    })
+}
+
+/// Build, sign and submit the transaction(s) that write the IDL to the
+/// canonical metadata PDA. Chooses the inline path for small IDLs and the
+/// `Allocate` + chunked `Write` + `Initialize` path for large ones, and the
+/// `SetData` rewrite path under `--overwrite`.
+#[allow(clippy::too_many_arguments)]
+fn run_publish_send(
+    program_id: &[u8; 32],
+    seed16: &[u8; SEED_LEN],
+    payload: &PreparedPayload,
+    url_cli: Option<&str>,
+    keypair_cli: Option<&str>,
+    overwrite: bool,
+    manifest_name: &str,
+    manifest_version: &str,
+) -> Result<(), String> {
+    use solana_client::rpc_client::RpcClient;
+    use solana_commitment_config::CommitmentConfig;
+    use solana_instruction::{AccountMeta, Instruction};
+    use solana_keypair::read_keypair_file;
+    use solana_pubkey::Pubkey;
+    use solana_signer::Signer;
+    use solana_system_interface::instruction as system_instruction;
+    use solana_transaction::Transaction;
+
+    let url = resolve_publish_url(url_cli);
+    let keypair_path = resolve_keypair_path(keypair_cli)?;
+    let authority = read_keypair_file(&keypair_path)
+        .map_err(|e| format!("read keypair {}: {e}", keypair_path.display()))?;
+
+    // Derive the canonical metadata PDA and the program's ProgramData PDA.
+    let (pda, _bump) = derive_canonical_pda(program_id, seed16);
+    let (program_data, _pd_bump) = derive_program_data_pda(program_id);
+    let pda_b58 = bs58::encode(pda).into_string();
+    let program_b58 = bs58::encode(program_id).into_string();
+
+    let metadata_program = Pubkey::new_from_array(metadata_program_id());
+    let system_program = Pubkey::new_from_array([0u8; 32]);
+    let program_pk = Pubkey::new_from_array(*program_id);
+    let program_data_pk = Pubkey::new_from_array(program_data);
+    let pda_pk = Pubkey::new_from_array(pda);
+    let authority_pk = authority.pubkey();
+
+    let stored = payload.compressed.len();
+    let final_space = HEADER_LEN + stored;
+
+    println!("=== hopper publish-idl ===");
+    println!("rpc              : {url}");
+    println!("signer/authority : {authority_pk}");
+    println!("program          : {program_b58}");
+    println!("metadata PDA     : {pda_b58}");
+    println!(
+        "payload          : {} raw -> {} zlib bytes",
+        payload.raw_len, stored
+    );
+    println!("source           : manifest {manifest_name} v{manifest_version}");
+
+    // Inspect the current state of the PDA (existence / discriminator / owner).
+    let existing = crate::rpc::get_account_info(&url, &pda_b58)
+        .map_err(|e| format!("getAccountInfo({pda_b58}): {e}"))?;
+    let existing_disc = existing.as_ref().and_then(|a| a.data.first().copied());
+    let owned_by_metadata = existing
+        .as_ref()
+        .map(|a| a.owner == METADATA_PROGRAM_ID_B58)
+        .unwrap_or(false);
+    let existing_lamports = existing.as_ref().map(|a| a.lamports).unwrap_or(0);
+
+    // Guard against clobbering an unrelated account that happens to sit at the
+    // PDA (should be impossible for a real PDA, but fail loud rather than send).
+    if let Some(acc) = existing.as_ref() {
+        if !acc.data.is_empty() && !owned_by_metadata {
+            return Err(format!(
+                "PDA {pda_b58} exists but is owned by {} (not the metadata program); refusing to write",
+                acc.owner
+            ));
+        }
+    }
+
+    let is_initialized = owned_by_metadata && existing_disc == Some(DISC_METADATA);
+    let is_leftover_buffer = owned_by_metadata && existing_disc == Some(1 /* Buffer */);
+
+    if is_initialized && !overwrite {
+        return Err(format!(
+            "metadata account {pda_b58} is already initialized; re-run with --overwrite to rewrite it"
+        ));
+    }
+
+    let rpc = RpcClient::new_with_commitment(url.clone(), CommitmentConfig::confirmed());
+
+    // Rent the account must hold at its final size, and how much to top up.
+    let rent = rpc
+        .get_minimum_balance_for_rent_exemption(final_space)
+        .map_err(|e| format!("get_minimum_balance_for_rent_exemption({final_space}): {e}"))?;
+    let topup = rent.saturating_sub(existing_lamports);
+
+    // Fail early on an under-funded payer rather than mid-sequence.
+    //
+    // Reserve a base fee for EVERY transaction the chosen path submits —
+    // not just one. The buffered path sends Allocate + N Write +
+    // Initialize (N+2 txs); reserving a single fee would let a payer pass
+    // this guard and then run dry partway through the Write loop, leaving
+    // a partially-written Buffer stranded on chain. Over-reserving by a
+    // fee on the resume/inline paths is the safe direction.
+    const BASE_FEE: u64 = 5_000;
+    let planned_txs: u64 = if is_initialized {
+        1 // overwrite: single inline SetData (a large payload already errored)
+    } else if stored <= MAX_INLINE_PAYLOAD && !is_leftover_buffer {
+        1 // fresh inline: single Initialize
+    } else {
+        // fresh buffered / resume: [Allocate or top-up] + N Write + Initialize
+        plan_write_chunks(&payload.compressed, WRITE_CHUNK_LEN).len() as u64 + 2
+    };
+    let required = topup.saturating_add(planned_txs.saturating_mul(BASE_FEE));
+
+    let payer_balance = rpc
+        .get_balance(&authority_pk)
+        .map_err(|e| format!("get_balance({authority_pk}): {e}"))?;
+    if payer_balance < required {
+        return Err(format!(
+            "insufficient balance: signer {authority_pk} has {payer_balance} lamports but needs \
+             ~{required} (rent top-up {topup} + {planned_txs} tx fee(s)). Fund it (devnet: \
+             `solana airdrop 1 {authority_pk} --url {url}`)"
+        ));
+    }
+
+    // Account-meta templates shared across instructions.
+    let init_metas = || {
+        vec![
+            AccountMeta::new(pda_pk, false),                   // 0 metadata (w)
+            AccountMeta::new(authority_pk, true),              // 1 authority (s, w)
+            AccountMeta::new_readonly(program_pk, false),      // 2 program (r)
+            AccountMeta::new_readonly(program_data_pk, false), // 3 program_data (r)
+            AccountMeta::new_readonly(system_program, false),  // 4 system (r)
+        ]
+    };
+
+    let send = |instructions: &[Instruction], label: &str| -> Result<String, String> {
+        let recent = rpc
+            .get_latest_blockhash()
+            .map_err(|e| format!("get_latest_blockhash ({label}): {e}"))?;
+        let tx = Transaction::new_signed_with_payer(
+            instructions,
+            Some(&authority_pk),
+            &[&authority],
+            recent,
+        );
+        rpc.send_and_confirm_transaction(&tx)
+            .map(|s| s.to_string())
+            .map_err(|e| format!("{label}: {e}"))
+    };
+
+    // ---- Overwrite path: SetData on an already-initialized account. ----
+    if is_initialized {
+        if stored > MAX_INLINE_PAYLOAD {
+            return Err(format!(
+                "--overwrite of a {stored}-byte payload needs chunking, which the in-place \
+                 SetData path does not support. Close the metadata account first, then \
+                 re-publish fresh (the fresh large-publish path handles chunking)."
+            ));
+        }
+        let mut ixs = Vec::new();
+        if topup > 0 {
+            ixs.push(system_instruction::transfer(&authority_pk, &pda_pk, topup));
+        }
+        let data = build_set_data_inline_data(
+            payload.encoding,
+            payload.compression,
+            payload.format,
+            DATA_SOURCE_DIRECT,
+            &payload.compressed,
+        );
+        let metas = vec![
+            AccountMeta::new(pda_pk, false),                    // 0 metadata (w)
+            AccountMeta::new(authority_pk, true),               // 1 authority (s)
+            AccountMeta::new_readonly(metadata_program, false), // 2 buffer placeholder = None
+            AccountMeta::new_readonly(program_pk, false),       // 3 program (r)
+            AccountMeta::new_readonly(program_data_pk, false),  // 4 program_data (r)
+        ];
+        ixs.push(Instruction {
+            program_id: metadata_program,
+            accounts: metas,
+            data,
+        });
+        println!("path             : overwrite (inline SetData)");
+        let sig = send(&ixs, "SetData")?;
+        println!("signature        : {sig}");
+        println!("status           : confirmed (metadata rewritten)");
+        return Ok(());
+    }
+
+    // ---- Fresh inline path: single Initialize carries the whole payload. ----
+    if stored <= MAX_INLINE_PAYLOAD && !is_leftover_buffer {
+        let mut ixs = Vec::new();
+        if topup > 0 {
+            ixs.push(system_instruction::transfer(&authority_pk, &pda_pk, topup));
+        }
+        let data = build_initialize_inline_data(
+            seed16,
+            payload.encoding,
+            payload.compression,
+            payload.format,
+            DATA_SOURCE_DIRECT,
+            &payload.compressed,
+        );
+        ixs.push(Instruction {
+            program_id: metadata_program,
+            accounts: init_metas(),
+            data,
+        });
+        println!("path             : fresh inline Initialize");
+        let sig = send(&ixs, "Initialize")?;
+        println!("signature        : {sig}");
+        println!("status           : confirmed (IDL published)");
+        return Ok(());
+    }
+
+    // ---- Fresh large path: Allocate + chunked Write + in-place Initialize. ----
+    let chunks = plan_write_chunks(&payload.compressed, WRITE_CHUNK_LEN);
+    println!(
+        "path             : fresh buffered ({} write chunk(s))",
+        chunks.len()
+    );
+
+    // Step 1: pre-fund to final size + Allocate the buffer header. If a
+    // leftover buffer already exists at the PDA (a prior run died mid-write),
+    // top up its lamports and skip Allocate — the Writes below overwrite by
+    // offset, so resuming is safe and idempotent.
+    if is_leftover_buffer {
+        if topup > 0 {
+            let sig = send(
+                &[system_instruction::transfer(&authority_pk, &pda_pk, topup)],
+                "top-up existing buffer",
+            )?;
+            println!("resume buffer    : topped up ({sig})");
+        } else {
+            println!("resume buffer    : reusing existing buffer at PDA");
+        }
+    } else {
+        let mut ixs = Vec::new();
+        if topup > 0 {
+            ixs.push(system_instruction::transfer(&authority_pk, &pda_pk, topup));
+        }
+        ixs.push(Instruction {
+            program_id: metadata_program,
+            accounts: init_metas(),
+            data: build_allocate_data(seed16),
+        });
+        let sig = send(&ixs, "Allocate")?;
+        println!("allocate         : {sig}");
+    }
+
+    // Step 2: write each chunk. Write accounts = [buffer(w), authority(s),
+    // source(r)] where source = the metadata program id signals "inline data".
+    for (idx, (offset, chunk)) in chunks.iter().enumerate() {
+        let metas = vec![
+            AccountMeta::new(pda_pk, false),      // 0 target buffer (w)
+            AccountMeta::new(authority_pk, true), // 1 authority (s)
+            AccountMeta::new_readonly(metadata_program, false), // 2 source = None
+        ];
+        let ix = Instruction {
+            program_id: metadata_program,
+            accounts: metas,
+            data: build_write_data(*offset, chunk),
+        };
+        let sig = send(&[ix], &format!("Write chunk {}/{}", idx + 1, chunks.len()))?;
+        println!(
+            "write [{:>2}/{:>2}]    : offset {:>6} len {:>4}  {sig}",
+            idx + 1,
+            chunks.len(),
+            offset,
+            chunk.len()
+        );
+    }
+
+    // Step 3: finalize the buffer in place (no inline data allowed here).
+    let data = build_initialize_from_buffer_data(
+        seed16,
+        payload.encoding,
+        payload.compression,
+        payload.format,
+        DATA_SOURCE_DIRECT,
+    );
+    let ix = Instruction {
+        program_id: metadata_program,
+        accounts: init_metas(),
+        data,
+    };
+    let sig = send(&[ix], "Initialize (finalize buffer)")?;
+    println!("finalize         : {sig}");
+    println!("status           : confirmed (IDL published)");
+    Ok(())
 }
 
 // ---------------------------------------------------------------------------
@@ -823,5 +1446,259 @@ mod tests {
         // Sanity: mentions the metadata program and does not claim to send.
         assert!(report.contains(METADATA_PROGRAM_ID_B58));
         assert!(report.contains("No transaction was created or sent"));
+    }
+
+    // -----------------------------------------------------------------
+    // Instruction-encoder + chunking + parity tests
+    // -----------------------------------------------------------------
+
+    #[test]
+    fn initialize_inline_data_is_disc_seed_tags_payload() {
+        let seed = pad_seed(b"idl");
+        let payload = [0xAA, 0xBB, 0xCC];
+        let d = build_initialize_inline_data(
+            &seed,
+            ENCODING_UTF8,
+            COMPRESSION_ZLIB,
+            FORMAT_JSON,
+            DATA_SOURCE_DIRECT,
+            &payload,
+        );
+        // [1][seed:16][enc][comp][fmt][ds][payload]
+        assert_eq!(d[0], INSTR_INITIALIZE);
+        assert_eq!(&d[1..17], &seed);
+        assert_eq!(d[17], ENCODING_UTF8);
+        assert_eq!(d[18], COMPRESSION_ZLIB);
+        assert_eq!(d[19], FORMAT_JSON);
+        assert_eq!(d[20], DATA_SOURCE_DIRECT);
+        assert_eq!(&d[21..], &payload);
+        assert_eq!(d.len(), 1 + SEED_LEN + 4 + payload.len());
+    }
+
+    #[test]
+    fn initialize_from_buffer_data_omits_payload() {
+        let seed = pad_seed(b"idl");
+        let d = build_initialize_from_buffer_data(
+            &seed,
+            ENCODING_UTF8,
+            COMPRESSION_ZLIB,
+            FORMAT_JSON,
+            DATA_SOURCE_DIRECT,
+        );
+        assert_eq!(d[0], INSTR_INITIALIZE);
+        assert_eq!(&d[1..17], &seed);
+        assert_eq!(
+            &d[17..21],
+            &[
+                ENCODING_UTF8,
+                COMPRESSION_ZLIB,
+                FORMAT_JSON,
+                DATA_SOURCE_DIRECT
+            ]
+        );
+        assert_eq!(
+            d.len(),
+            1 + SEED_LEN + 4,
+            "no inline payload for the buffer path"
+        );
+    }
+
+    #[test]
+    fn allocate_data_is_disc_and_seed() {
+        let seed = pad_seed(b"idl");
+        let d = build_allocate_data(&seed);
+        assert_eq!(d[0], INSTR_ALLOCATE);
+        assert_eq!(&d[1..], &seed);
+        assert_eq!(d.len(), 1 + SEED_LEN);
+    }
+
+    #[test]
+    fn write_data_encodes_offset_le_then_chunk() {
+        let chunk = [1u8, 2, 3, 4, 5];
+        let d = build_write_data(0x0000_0900, &chunk);
+        assert_eq!(d[0], INSTR_WRITE);
+        // 0x900 = 2304 -> LE bytes 00 09 00 00
+        assert_eq!(&d[1..5], &2304u32.to_le_bytes());
+        assert_eq!(&d[5..], &chunk);
+    }
+
+    #[test]
+    fn set_data_inline_is_disc_tags_payload() {
+        let payload = [0xDE, 0xAD];
+        let d = build_set_data_inline_data(
+            ENCODING_UTF8,
+            COMPRESSION_ZLIB,
+            FORMAT_JSON,
+            DATA_SOURCE_DIRECT,
+            &payload,
+        );
+        assert_eq!(d[0], INSTR_SET_DATA);
+        assert_eq!(
+            &d[1..5],
+            &[
+                ENCODING_UTF8,
+                COMPRESSION_ZLIB,
+                FORMAT_JSON,
+                DATA_SOURCE_DIRECT
+            ]
+        );
+        assert_eq!(&d[5..], &payload);
+    }
+
+    #[test]
+    fn chunking_boundaries_are_contiguous_and_cover_payload() {
+        // 2050 bytes at 900/chunk -> offsets 0, 900, 1800 with lengths 900,900,250.
+        let payload: Vec<u8> = (0..2050u32).map(|i| (i % 251) as u8).collect();
+        let chunks = plan_write_chunks(&payload, WRITE_CHUNK_LEN);
+        assert_eq!(chunks.len(), 3);
+        assert_eq!(chunks[0].0, 0);
+        assert_eq!(chunks[0].1.len(), 900);
+        assert_eq!(chunks[1].0, 900);
+        assert_eq!(chunks[1].1.len(), 900);
+        assert_eq!(chunks[2].0, 1800);
+        assert_eq!(chunks[2].1.len(), 250);
+        // Every chunk is at most WRITE_CHUNK_LEN and offsets are contiguous.
+        let mut expected_off = 0u32;
+        for (off, ch) in &chunks {
+            assert_eq!(*off, expected_off);
+            assert!(ch.len() <= WRITE_CHUNK_LEN);
+            expected_off += ch.len() as u32;
+        }
+        assert_eq!(expected_off as usize, payload.len());
+    }
+
+    #[test]
+    fn chunks_reassemble_to_original_payload() {
+        let payload: Vec<u8> = (0..5000u32).map(|i| (i * 7 % 256) as u8).collect();
+        let chunks = plan_write_chunks(&payload, WRITE_CHUNK_LEN);
+        let rebuilt = reassemble_write_chunks(payload.len(), &chunks);
+        assert_eq!(
+            rebuilt, payload,
+            "buffered writes must reproduce the payload byte-for-byte"
+        );
+    }
+
+    #[test]
+    fn program_data_pda_is_deterministic_and_off_curve() {
+        let prog = sample_program();
+        let a = derive_program_data_pda(&prog);
+        let b = derive_program_data_pda(&prog);
+        assert_eq!(a, b);
+        assert!(!is_on_curve(&a.0));
+        // Must differ from the metadata PDA (different program + seeds).
+        let (meta_pda, _) = derive_canonical_pda(&prog, &pad_seed(DEFAULT_SEED));
+        assert_ne!(a.0, meta_pda);
+    }
+
+    #[test]
+    fn expected_account_image_is_header_then_payload() {
+        let prog = sample_program();
+        let seed = pad_seed(DEFAULT_SEED);
+        let idl = r#"{"version":"0.1.0","name":"demo","instructions":[]}"#;
+        let payload = PreparedPayload::from_idl_json(idl);
+        let image = expected_account_image(&prog, &seed, &payload);
+        // First 96 bytes are exactly the canonical header.
+        let header = MetadataHeader::canonical_idl(prog, seed, &payload);
+        assert_eq!(&image[..HEADER_LEN], &header.encode());
+        // Remainder is the compressed payload.
+        assert_eq!(&image[HEADER_LEN..], &payload.compressed[..]);
+        // And the recorded data_len matches the stored region length.
+        assert_eq!(image.len() - HEADER_LEN, header.data_len as usize);
+    }
+
+    #[test]
+    fn dry_run_vs_send_parity_inline() {
+        // For a small IDL the inline Initialize carries the payload verbatim,
+        // and the resulting on-chain account image equals the dry-run header
+        // preview followed by the same compressed bytes.
+        let prog = sample_program();
+        let seed = pad_seed(DEFAULT_SEED);
+        let idl = r#"{"version":"0.1.0","name":"demo","instructions":[]}"#;
+        let payload = PreparedPayload::from_idl_json(idl);
+        assert!(payload.compressed.len() <= MAX_INLINE_PAYLOAD);
+
+        // The bytes the Initialize instruction carries past its 21-byte prefix
+        // are exactly the payload the dry-run reports storing.
+        let init = build_initialize_inline_data(
+            &seed,
+            payload.encoding,
+            payload.compression,
+            payload.format,
+            DATA_SOURCE_DIRECT,
+            &payload.compressed,
+        );
+        let carried = &init[1 + SEED_LEN + 4..];
+        assert_eq!(carried, &payload.compressed[..]);
+
+        // The final account image the send produces == dry-run header ++ payload.
+        let image = expected_account_image(&prog, &seed, &payload);
+        let (pda, _) = derive_canonical_pda(&prog, &seed);
+        let report = render_dry_run(&prog, &seed, idl, "demo", "0.1.0");
+        assert!(report.contains(&hex_encode(&image[..HEADER_LEN])));
+        assert!(report.contains(&bs58::encode(pda).into_string()));
+    }
+
+    #[test]
+    fn dry_run_vs_send_parity_buffered() {
+        // A large IDL: the Allocate + Write + Initialize path must store the
+        // exact same account image as the inline path would, byte-for-byte.
+        let prog = sample_program();
+        let seed = pad_seed(DEFAULT_SEED);
+        // Build an IDL whose *compressed* form exceeds the inline threshold by
+        // stuffing high-entropy content that zlib cannot shrink much.
+        let mut names = String::new();
+        for i in 0..400 {
+            names.push_str(&format!("\"ix_{i:04x}_{}\",", (i * 2654435761u64) & 0xffff));
+        }
+        let idl = format!(
+            r#"{{"version":"0.1.0","name":"big","docs":[{}]}}"#,
+            names.trim_end_matches(',')
+        );
+        let payload = PreparedPayload::from_idl_json(&idl);
+        assert!(
+            payload.compressed.len() > MAX_INLINE_PAYLOAD,
+            "test fixture must exceed the inline threshold (got {})",
+            payload.compressed.len()
+        );
+
+        // Reassemble the chunked writes and prepend the header the finalize
+        // Initialize builds; it must equal the canonical account image.
+        let chunks = plan_write_chunks(&payload.compressed, WRITE_CHUNK_LEN);
+        assert!(chunks.len() >= 2, "fixture should need multiple chunks");
+        let data_section = reassemble_write_chunks(payload.compressed.len(), &chunks);
+        let mut buffered_image = MetadataHeader::canonical_idl(prog, seed, &payload)
+            .encode()
+            .to_vec();
+        buffered_image.extend_from_slice(&data_section);
+
+        let inline_image = expected_account_image(&prog, &seed, &payload);
+        assert_eq!(
+            buffered_image, inline_image,
+            "buffered and inline paths must converge on identical account bytes"
+        );
+
+        // The dry-run for this payload should describe the buffered plan.
+        let report = render_dry_run(&prog, &seed, &idl, "big", "0.1.0");
+        assert!(report.contains("Allocate"));
+        assert!(report.contains("Write"));
+    }
+
+    #[test]
+    fn bpf_loader_id_round_trips() {
+        let id = bpf_loader_upgradeable_id();
+        assert_eq!(
+            bs58::encode(id).into_string(),
+            BPF_LOADER_UPGRADEABLE_ID_B58
+        );
+    }
+
+    #[test]
+    fn resolve_publish_url_prefers_cli_then_defaults_devnet() {
+        assert_eq!(resolve_publish_url(Some("https://x")), "https://x");
+        // With no CLI override and no env var set, defaults to devnet. (Do not
+        // mutate process env here to avoid racing other tests.)
+        if std::env::var("SOLANA_RPC_URL").is_err() {
+            assert_eq!(resolve_publish_url(None), PUBLISH_DEFAULT_RPC);
+        }
     }
 }

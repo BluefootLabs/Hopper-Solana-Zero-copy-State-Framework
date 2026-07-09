@@ -62,15 +62,49 @@ pub struct Rent {
 }
 
 /// Lamports charged per byte of account storage per year.
+///
+/// This is the value baked into the current Solana cluster's genesis rent
+/// config. It is a *snapshot* of a runtime-owned parameter: if the cluster
+/// reprices rent (a future SIMD), the live [`Rent`] sysvar carries the new
+/// value while this constant does not. Reaping-relevant decisions must read
+/// the sysvar (see [`Rent::minimum_balance`]), not this constant.
 pub const LAMPORTS_PER_BYTE_YEAR: u64 = 3_480;
 
 /// Years of rent an account must prepay to be rent-exempt.
+///
+/// Snapshot of the runtime's `exemption_threshold` (a `2.0` float in the
+/// live sysvar). Same caveat as [`LAMPORTS_PER_BYTE_YEAR`]: authoritative
+/// only for the current cluster config.
 pub const EXEMPTION_THRESHOLD_YEARS: u64 = 2;
 
 /// Fixed per-account storage overhead charged by the cluster.
 pub const ACCOUNT_STORAGE_OVERHEAD: u64 = 128;
 
-/// Minimum balance for rent exemption under the current Solana cluster constants.
+/// Minimum balance for rent exemption **assuming the current cluster rent
+/// constants** ([`LAMPORTS_PER_BYTE_YEAR`], [`EXEMPTION_THRESHOLD_YEARS`],
+/// [`ACCOUNT_STORAGE_OVERHEAD`]).
+///
+/// This is the fast, allocation-free, syscall-free path: pure `const`
+/// integer arithmetic over hardcoded constants. It is exact **for a cluster
+/// running today's rent config** and byte-matches [`Rent::minimum_balance`]
+/// when the live sysvar carries those same constants.
+///
+/// # SAFETY-CRITICAL caveat — do NOT gate reaping on this
+///
+/// Because the constants are hardcoded, this function cannot see a rent
+/// *reprice*. If the cluster ever raises `lamports_per_byte_year` or the
+/// exemption threshold (a future SIMD / rent change), this UNDER-estimates
+/// the true rent-exempt minimum. Any code path that decides whether an
+/// account is safe from reaping — topping an account up to exemption, or
+/// gating a resize on it — must NOT use this value when the cluster may
+/// have repriced rent: under-funding leaves the account reapable and its
+/// data can be lost.
+///
+/// For those paths read the live [`Rent`] sysvar and call
+/// [`Rent::minimum_balance`] (see [`crate::batch::require_rent_exempt_with`]
+/// and [`crate::batch::realloc_checked_with`]). Keep this const form only
+/// where an under-estimate is harmless (e.g. a cheap pre-filter, or a
+/// program that explicitly accepts today's constants as fixed).
 #[inline]
 pub const fn rent_exempt_minimum(data_len: usize) -> u64 {
     (data_len as u64 + ACCOUNT_STORAGE_OVERHEAD)
@@ -106,11 +140,38 @@ impl Rent {
         get_rent()
     }
 
-    /// Calculate the minimum lamports for rent exemption at the given data size.
+    /// Minimum lamports for rent exemption at `data_len`, computed from the
+    /// **live sysvar** values — the correct source for reaping-relevant
+    /// decisions after a rent reprice.
+    ///
+    /// This byte-matches Solana's own `solana_rent::Rent::minimum_balance`:
+    ///
+    /// ```text
+    /// (((ACCOUNT_STORAGE_OVERHEAD + data_len) * lamports_per_byte_year) as f64
+    ///     * exemption_threshold) as u64
+    /// ```
+    ///
+    /// The runtime does the `(overhead + bytes) * lamports_per_byte_year`
+    /// product in **integer** and applies the fractional `exemption_threshold`
+    /// (a `2.0` float today) as the *only* f64 step, then truncates. We
+    /// replicate that exact sequence so our result equals the runtime's for
+    /// every input the runtime accepts — an account funded to this value is
+    /// rent-exempt by the runtime's own arithmetic, not a float-rounded
+    /// approximation of it. (The earlier form multiplied all three factors in
+    /// f64, which could disagree with the runtime by a lamport at large sizes
+    /// once `lamports_per_byte_year` exceeds f64's 53-bit exact-integer range.)
+    ///
+    /// The integer product uses saturating ops purely as an overflow guard;
+    /// for every loader-permitted `data_len` (`<= 10_485_760`) and realistic
+    /// `lamports_per_byte_year` it never saturates, so the byte-match with the
+    /// runtime is exact (proven in the Kani harnesses below).
     #[inline]
     pub fn minimum_balance(&self, data_len: usize) -> u64 {
-        let total_size = (data_len as u64).saturating_add(ACCOUNT_STORAGE_OVERHEAD);
-        (total_size as f64 * self.lamports_per_byte_year as f64 * self.exemption_threshold) as u64
+        let bytes = data_len as u64;
+        let integer_part = ACCOUNT_STORAGE_OVERHEAD
+            .saturating_add(bytes)
+            .saturating_mul(self.lamports_per_byte_year);
+        (integer_part as f64 * self.exemption_threshold) as u64
     }
 }
 
@@ -590,5 +651,232 @@ mod abi_tests {
         let er = get_epoch_rewards().unwrap();
         assert_eq!(er, EpochRewards::default());
         assert!(!er.active);
+    }
+}
+
+#[cfg(test)]
+mod rent_tests {
+    use super::*;
+
+    /// Loader bound on serialized account data (10 MiB) — the largest
+    /// `data_len` any rent calculation ever sees on-chain.
+    const LOADER_MAX_DATA_LEN: usize = 10_485_760;
+
+    /// Byte-for-byte transcription of Solana's `Rent::minimum_balance`
+    /// (`solana_rent::Rent::minimum_balance`): the `(overhead + bytes) *
+    /// lamports_per_byte_year` product in integer, then the *only* f64 step
+    /// is the `exemption_threshold` multiply, then truncate. The test asserts
+    /// our method equals this reference on the nose.
+    fn solana_reference_minimum_balance(data_len: usize, lpby: u64, threshold: f64) -> u64 {
+        let bytes = data_len as u64;
+        (((ACCOUNT_STORAGE_OVERHEAD + bytes) * lpby) as f64 * threshold) as u64
+    }
+
+    fn rent_with(lpby: u64, threshold: f64) -> Rent {
+        Rent {
+            lamports_per_byte_year: lpby,
+            exemption_threshold: threshold,
+            burn_percent: 0,
+        }
+    }
+
+    /// The const fast-path must not overflow or panic at the data-length
+    /// extremes the loader permits (0 and 10 MiB).
+    #[test]
+    fn const_rent_exempt_minimum_no_overflow_at_extremes() {
+        assert_eq!(
+            rent_exempt_minimum(0),
+            ACCOUNT_STORAGE_OVERHEAD * LAMPORTS_PER_BYTE_YEAR * EXEMPTION_THRESHOLD_YEARS
+        );
+        let max = rent_exempt_minimum(LOADER_MAX_DATA_LEN);
+        let expected = (LOADER_MAX_DATA_LEN as u64 + ACCOUNT_STORAGE_OVERHEAD)
+            * LAMPORTS_PER_BYTE_YEAR
+            * EXEMPTION_THRESHOLD_YEARS;
+        assert_eq!(max, expected);
+        // Sanity: comfortably inside u64.
+        assert!(max < u64::MAX / 2);
+    }
+
+    /// The sysvar path must not overflow or panic even with a wildly
+    /// repriced `lamports_per_byte_year` at the maximum data length: the
+    /// saturating integer product keeps the arithmetic safe.
+    #[test]
+    fn sysvar_minimum_balance_no_overflow_at_extremes() {
+        // ~300x today's value, far past any realistic reprice.
+        let rent = rent_with(1u64 << 40, 2.0);
+        let _ = rent.minimum_balance(LOADER_MAX_DATA_LEN);
+        // data_len = 0 lower extreme.
+        assert_eq!(
+            rent.minimum_balance(0),
+            solana_reference_minimum_balance(0, 1u64 << 40, 2.0)
+        );
+    }
+
+    /// The const path and the sysvar path must AGREE when the live sysvar
+    /// carries today's cluster constants — the const path is just the fast
+    /// specialization of the general formula at those values.
+    #[test]
+    fn const_and_sysvar_agree_at_current_constants() {
+        let rent = rent_with(LAMPORTS_PER_BYTE_YEAR, EXEMPTION_THRESHOLD_YEARS as f64);
+        for &dl in &[
+            0usize,
+            1,
+            127,
+            128,
+            1024,
+            10_240,
+            1_000_000,
+            LOADER_MAX_DATA_LEN,
+        ] {
+            assert_eq!(
+                rent_exempt_minimum(dl),
+                rent.minimum_balance(dl),
+                "const vs sysvar mismatch at data_len={dl}"
+            );
+        }
+    }
+
+    /// The sysvar path must byte-match Solana's runtime formula across a
+    /// range of data sizes, repriced per-byte costs, and fractional
+    /// thresholds — including a `lamports_per_byte_year` past f64's 53-bit
+    /// exact-integer range, where the old all-f64 form could drift.
+    #[test]
+    fn sysvar_minimum_balance_byte_matches_solana_reference() {
+        let cases: &[(usize, u64, f64)] = &[
+            (0, 3_480, 2.0),
+            (165, 3_480, 2.0),
+            (10_240, 3_480, 2.0),
+            (1_000_000, 6_960, 2.0),  // hypothetical 2x reprice
+            (500_000, 3_480, 2.5),    // fractional threshold
+            (10_485_760, 3_480, 2.0), // max size
+            // `lpby` just past f64's 2^53 exact-integer range — the case
+            // that motivates the integer product + single f64 step (an
+            // all-f64 formula would lose a lamport here). `data_len` is
+            // kept small so the *integer* product stays inside u64: at
+            // this `lpby`, (overhead + data_len) must be < ~2044 or the
+            // product overflows u64 entirely (a regime Solana itself
+            // never reaches — `lpby` is a fixed cluster constant).
+            (1_024, 9_007_199_254_740_993, 2.0),
+        ];
+        for &(dl, lpby, threshold) in cases {
+            let rent = rent_with(lpby, threshold);
+            assert_eq!(
+                rent.minimum_balance(dl),
+                solana_reference_minimum_balance(dl, lpby, threshold),
+                "sysvar minimum_balance != Solana reference at dl={dl}, lpby={lpby}, threshold={threshold}"
+            );
+        }
+    }
+
+    /// The correctness gap the safety work closes: after an UPWARD rent
+    /// reprice the live sysvar demands strictly more than the const path,
+    /// so gating reaping on the const would under-fund.
+    #[test]
+    fn repriced_sysvar_exceeds_const_underestimate() {
+        let dl = 4_096;
+        let const_min = rent_exempt_minimum(dl);
+        // Cluster doubled the per-byte cost.
+        let repriced = rent_with(LAMPORTS_PER_BYTE_YEAR * 2, EXEMPTION_THRESHOLD_YEARS as f64);
+        let sysvar_min = repriced.minimum_balance(dl);
+        assert!(
+            sysvar_min > const_min,
+            "expected repriced sysvar minimum ({sysvar_min}) > const minimum ({const_min})"
+        );
+        assert_eq!(sysvar_min, const_min * 2);
+    }
+}
+
+// =====================================================================
+// Kani proof harnesses for the rent arithmetic.
+// =====================================================================
+//
+// These mirror the existing native Kani conventions (see
+// `raw_input.rs::kani_proofs`): a `#[cfg(kani)]` module of `#[kani::proof]`
+// harnesses over symbolic inputs bounded by the loader's limits, run by
+// `cargo kani -p hopper-native`. They discharge the three safety claims the
+// SAFETY-RENT work rests on:
+//
+//   (1) the const fast path cannot overflow for any loader-permitted
+//       `data_len`;
+//   (2) the sysvar path's integer product cannot overflow for any
+//       loader-permitted `data_len` and any realistic (repriced)
+//       `lamports_per_byte_year`, and its saturating ops never actually
+//       saturate in that range (so the byte-match with the runtime is
+//       exact); and
+//   (3) the const and sysvar forms AGREE when the live sysvar carries the
+//       current cluster constants.
+#[cfg(kani)]
+mod kani_rent_proofs {
+    use super::*;
+
+    /// Loader bound on serialized account data (10 MiB).
+    const LOADER_MAX_DATA_LEN: usize = 10_485_760;
+
+    /// Generous upper bound on a repriced `lamports_per_byte_year`: 2^40 is
+    /// ~1.1e12, ~300x today's 3,480 and far past any realistic rent change,
+    /// yet the integer product still provably cannot overflow u64.
+    const MAX_LAMPORTS_PER_BYTE_YEAR: u64 = 1 << 40;
+
+    /// The const path's integer arithmetic never overflows for any
+    /// loader-permitted `data_len`, and the function returns exactly the
+    /// checked value.
+    #[kani::proof]
+    fn const_rent_exempt_minimum_never_overflows() {
+        let data_len: usize = kani::any();
+        kani::assume(data_len <= LOADER_MAX_DATA_LEN);
+
+        // Each `checked_*` doubles as the no-overflow proof for the `*`/`+`
+        // in `rent_exempt_minimum`.
+        let sum = (data_len as u64)
+            .checked_add(ACCOUNT_STORAGE_OVERHEAD)
+            .unwrap();
+        let per_year = sum.checked_mul(LAMPORTS_PER_BYTE_YEAR).unwrap();
+        let total = per_year.checked_mul(EXEMPTION_THRESHOLD_YEARS).unwrap();
+
+        assert_eq!(rent_exempt_minimum(data_len), total);
+    }
+
+    /// The sysvar path's integer product never overflows for any
+    /// loader-permitted `data_len` and any realistic `lamports_per_byte_year`,
+    /// and its saturating ops equal the checked ops (never saturate) in that
+    /// range.
+    #[kani::proof]
+    fn sysvar_minimum_balance_integer_part_never_overflows() {
+        let data_len: usize = kani::any();
+        let lpby: u64 = kani::any();
+        kani::assume(data_len <= LOADER_MAX_DATA_LEN);
+        kani::assume(lpby <= MAX_LAMPORTS_PER_BYTE_YEAR);
+
+        let bytes = data_len as u64;
+        let checked = ACCOUNT_STORAGE_OVERHEAD
+            .checked_add(bytes)
+            .and_then(|s| s.checked_mul(lpby));
+        assert!(checked.is_some());
+
+        let saturating = ACCOUNT_STORAGE_OVERHEAD
+            .saturating_add(bytes)
+            .saturating_mul(lpby);
+        assert_eq!(saturating, checked.unwrap());
+    }
+
+    /// Const and sysvar forms agree when the live sysvar carries the current
+    /// cluster constants. At those values the integer product stays well
+    /// under f64's 53-bit exact-integer range, so the `* 2.0` truncation is
+    /// exact and equals the const path's `* EXEMPTION_THRESHOLD_YEARS`.
+    #[kani::proof]
+    fn const_and_sysvar_agree_at_current_constants() {
+        let data_len: usize = kani::any();
+        kani::assume(data_len <= LOADER_MAX_DATA_LEN);
+
+        let rent = Rent {
+            lamports_per_byte_year: LAMPORTS_PER_BYTE_YEAR,
+            exemption_threshold: EXEMPTION_THRESHOLD_YEARS as f64,
+            burn_percent: 0,
+        };
+
+        assert_eq!(
+            rent_exempt_minimum(data_len),
+            rent.minimum_balance(data_len)
+        );
     }
 }

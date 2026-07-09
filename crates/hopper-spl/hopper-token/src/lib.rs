@@ -7,6 +7,8 @@
 #![no_std]
 #![deny(unsafe_op_in_unsafe_fn)]
 
+pub mod layout;
+
 pub use hopper_runtime::token::{
     ApproveChecked, BurnChecked, CheckedMintDecimals, CheckedTokenAuthority, CheckedTokenMint,
     CloseAccount, FreezeAccount, InitializeAccount, InitializeAccount2, InitializeAccount3,
