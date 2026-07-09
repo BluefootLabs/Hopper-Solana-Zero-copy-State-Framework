@@ -850,15 +850,26 @@ fn handler_invocation(handler: &Handler) -> TokenStream {
     let fn_name = &handler.fn_name;
     let ctx_args = handler.instruction_policy.ctx_args as usize;
 
-    // Fast path: no instruction args at all, and the context (if any)
-    // is bound via the legacy `bind(ctx)?`. preserve byte-for-byte the
-    // prior codegen shape so existing programs see no regression.
+    // Fast path: no instruction args at all.
     if handler.arg_types.is_empty() {
-        let ctx_expr = match &handler.binding {
-            ContextBinding::Raw => quote! { ctx },
-            ContextBinding::Typed { spec } => quote! { #spec::bind(ctx)? },
+        return match &handler.binding {
+            // Raw `&mut Context<'_>` handlers have no typed context spec
+            // to name, so there is no `EMIT_TOUCH_MAP` const to consult
+            // and this form never emits a touch map (documented). Keep
+            // the prior codegen shape byte-for-byte.
+            ContextBinding::Raw => quote! { #fn_name(ctx) },
+            // Typed context, args-less: bind, run the handler, and on the
+            // Ok path only, const-guard the self-describing touch-map
+            // emit (I7). See `ok_path_touch_map_emit` for the rationale.
+            ContextBinding::Typed { spec } => {
+                let emit = ok_path_touch_map_emit(spec);
+                quote! {{
+                    #fn_name(#spec::bind(ctx)?)?;
+                    #emit
+                    ::core::result::Result::Ok(())
+                }}
+            }
         };
-        return quote! { #fn_name(#ctx_expr) };
     }
 
     let arg_idents: Vec<Ident> = (0..handler.arg_types.len())
@@ -884,13 +895,34 @@ fn handler_invocation(handler: &Handler) -> TokenStream {
     // values are *also* reused as handler arguments, so the pattern
     // matches Anchor's "seeds refer to an arg the handler also sees"
     // ergonomics but with real typed bindings.
-    let ctx_expr = match (&handler.binding, ctx_args) {
-        (ContextBinding::Raw, _) => quote! { ctx },
-        (ContextBinding::Typed { spec }, 0) => quote! { #spec::bind(ctx)? },
+    //
+    // `emit` is the Ok-path, const-guarded touch-map finish call (I7);
+    // it is empty for raw contexts, which have no typed spec to name.
+    let (ctx_expr, emit) = match (&handler.binding, ctx_args) {
+        (ContextBinding::Raw, _) => (quote! { ctx }, TokenStream::new()),
+        (ContextBinding::Typed { spec }, 0) => {
+            (quote! { #spec::bind(ctx)? }, ok_path_touch_map_emit(spec))
+        }
         (ContextBinding::Typed { spec }, k) => {
             let binder_args = &arg_idents[..k];
-            quote! { #spec::bind_with_args(ctx, #(#binder_args),*)? }
+            (
+                quote! { #spec::bind_with_args(ctx, #(#binder_args),*)? },
+                ok_path_touch_map_emit(spec),
+            )
         }
+    };
+
+    // Raw contexts keep the exact prior tail expression (`handler(ctx,
+    // args)`); typed contexts split it so the touch-map emit lands on the
+    // Ok path only. `emit` is empty for the raw case, so its branch is
+    // still `handler(...)` with no epilogue.
+    let call = match &handler.binding {
+        ContextBinding::Raw => quote! { #fn_name(#ctx_expr, #(#arg_idents),*) },
+        ContextBinding::Typed { .. } => quote! {
+            #fn_name(#ctx_expr, #(#arg_idents),*)?;
+            #emit
+            ::core::result::Result::Ok(())
+        },
     };
 
     // Skip the discriminator prefix so the arg decoder starts at the
@@ -902,8 +934,35 @@ fn handler_invocation(handler: &Handler) -> TokenStream {
         let mut __hopper_decoder = ::hopper::__macro_support::Decoder::new(&data[#disc_len..]);
         #(#decode_stmts)*
         __hopper_decoder.finish()?;
-        #fn_name(#ctx_expr, #(#arg_idents),*)
+        #call
     }}
+}
+
+/// Innovation I7: the Ok-path, const-guarded self-describing touch-map
+/// emit that a dispatch helper runs after its typed handler returns Ok.
+///
+/// `<Spec>::EMIT_TOUCH_MAP` is a `const bool` the `#[hopper::context]`
+/// macro emits on the spec type: `true` only when the author opted in
+/// via `#[hopper::context(emit_touch_map)]`, `false` otherwise. Because
+/// the guard is a `const`, the compiler dead-code-eliminates the whole
+/// `if` (zero instructions) for every context that did not opt in, so
+/// this taxes nobody on the golden path.
+///
+/// It runs ONLY on the Ok path — the dispatch helper places it after
+/// `handler(...)?`, so any `Err` (via `?`, `require!`, a failed
+/// invariant, an access-control gate) short-circuits before reaching it.
+/// A failed, rolled-back instruction therefore never emits a
+/// self-describing record advertising Write ranges it did not keep. This
+/// is the fix for the CONFIRMED P2 where a `Drop`-based emit fired on
+/// every scope exit, including error returns. `ctx` is borrowable here
+/// because the bound context (which reborrowed `&mut ctx`) was moved into
+/// the handler and dropped when it returned, so the reborrow has ended.
+fn ok_path_touch_map_emit(spec: &Path) -> TokenStream {
+    quote! {
+        if #spec::EMIT_TOUCH_MAP {
+            ctx.finish_with_touch_map();
+        }
+    }
 }
 
 fn classify_context_binding(arg: &mut FnArg) -> Result<ContextBinding> {
@@ -1799,6 +1858,108 @@ mod ctx_args_tests {
             out.contains("raw (ctx)"),
             "raw ctx dispatch expected: {out}"
         );
+    }
+
+    /// Token-per-space normalization so structural assertions are stable
+    /// against `quote`'s pretty-printer spacing.
+    fn tokens(ts: TokenStream) -> String {
+        ts.to_string()
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ")
+    }
+
+    /// I7 regression (CONFIRMED P2 fix): an args-less TYPED handler emits
+    /// the self-describing touch-map finish call on the **Ok path only**.
+    /// The generated shape runs `handler(Spec::bind(ctx)?)?` first, so any
+    /// `Err` short-circuits via `?` BEFORE the const-guarded
+    /// `finish_with_touch_map()` — a failed instruction emits nothing.
+    /// The guard is `if Spec::EMIT_TOUCH_MAP { ... }`, a `const` the
+    /// compiler dead-code-eliminates when the context did not opt in.
+    #[test]
+    fn handler_invocation_argless_typed_emits_ok_only_touch_map() {
+        let h = Handler {
+            discriminator: vec![0u8],
+            fn_name: format_ident!("report"),
+            binding: ContextBinding::Typed {
+                spec: parse_quote!(Report),
+            },
+            arg_types: vec![],
+            instruction_policy: InstructionPolicyArgs::default(),
+        };
+        let out = tokens(handler_invocation(&h));
+        // One substring pins the whole ordering: the handler's `?`
+        // (Err short-circuit) precedes the const-guarded finish, which
+        // precedes the final `Ok(())`.
+        assert!(
+            out.contains(
+                "? ; if Report :: EMIT_TOUCH_MAP { ctx . finish_with_touch_map () ; } \
+                 :: core :: result :: Result :: Ok (())"
+            ),
+            "args-less typed handler must emit the Ok-only, const-guarded touch map: {out}",
+        );
+    }
+
+    /// The same Ok-only shape for the args + `bind_with_args` form (the
+    /// typed-context sugar with `ctx_args`): the finish call still lands
+    /// after `handler(...)?`, guarded by the const, before `Ok(())`.
+    #[test]
+    fn handler_invocation_with_args_emits_ok_only_touch_map() {
+        let h = Handler {
+            discriminator: vec![0u8],
+            fn_name: format_ident!("swap"),
+            binding: ContextBinding::Typed {
+                spec: parse_quote!(Swap),
+            },
+            arg_types: vec![parse_quote!(u64), parse_quote!(u8)],
+            instruction_policy: InstructionPolicyArgs {
+                unsafe_memory: false,
+                skip_token_checks: false,
+                allow_arbitrary_cpi: false,
+                ctx_args: 2,
+            },
+        };
+        let out = tokens(handler_invocation(&h));
+        assert!(
+            out.contains(
+                ") ? ; if Swap :: EMIT_TOUCH_MAP { ctx . finish_with_touch_map () ; } \
+                 :: core :: result :: Result :: Ok (())"
+            ),
+            "with-args typed handler must emit the Ok-only, const-guarded touch map: {out}",
+        );
+    }
+
+    /// A RAW `&mut Context<'_>` handler has no typed context spec to name,
+    /// so it can consult no `EMIT_TOUCH_MAP` const and must emit no touch
+    /// map — this form simply never self-describes. Its codegen also stays
+    /// byte-for-byte the prior tail expression.
+    #[test]
+    fn handler_invocation_raw_never_emits_touch_map() {
+        let argless = Handler {
+            discriminator: vec![0u8],
+            fn_name: format_ident!("raw0"),
+            binding: ContextBinding::Raw,
+            arg_types: vec![],
+            instruction_policy: InstructionPolicyArgs::default(),
+        };
+        let with_args = Handler {
+            discriminator: vec![0u8],
+            fn_name: format_ident!("raw1"),
+            binding: ContextBinding::Raw,
+            arg_types: vec![parse_quote!(u64)],
+            instruction_policy: InstructionPolicyArgs::default(),
+        };
+        for h in [argless, with_args] {
+            let out = handler_invocation(&h).to_string();
+            assert!(
+                !out.contains("EMIT_TOUCH_MAP"),
+                "raw ctx handler must not consult a touch-map const: {out}",
+            );
+            assert!(
+                !out.contains("finish_with_touch_map"),
+                "raw ctx handler must not emit a touch map: {out}",
+            );
+        }
     }
 }
 

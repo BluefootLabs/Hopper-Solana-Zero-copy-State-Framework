@@ -285,6 +285,57 @@ impl<'a> Context<'a> {
         hopper_native::log::log_data(&[&buf[..len]]);
     }
 
+    /// Opt-in post-handler epilogue: finalize a successful instruction by
+    /// emitting its touch map, making the transaction self-describing
+    /// (innovation I7).
+    ///
+    /// This is the single hook the `#[hopper::context(emit_touch_map)]`
+    /// opt-in drives, so a developer gets the self-describing touch-map
+    /// record on the golden path without hand-writing the `sol_log_data`
+    /// syscall. The generated **dispatcher** — which alone sees the
+    /// handler's `Result` — calls this on the handler's **Ok** path only,
+    /// guarded by the context's `EMIT_TOUCH_MAP` const:
+    ///
+    /// ```ignore
+    /// handler(Ctx::bind(&mut ctx)?, ..)?;      // Err short-circuits here
+    /// if Ctx::EMIT_TOUCH_MAP { ctx.finish_with_touch_map(); }
+    /// Ok(())
+    /// ```
+    ///
+    /// It is deliberately NOT called from a `Drop` for the bound context:
+    /// Rust runs drop glue on every scope exit — including `?`/`Err`
+    /// returns — and a `Drop` cannot observe the handler's `Result`, so it
+    /// would emit a misleading record advertising Write ranges for a
+    /// failed, rolled-back instruction (adversarial review, CONFIRMED P2).
+    /// Routing on the Ok path makes the record fire exclusively on
+    /// success. It is also deliberately routed through a runtime helper
+    /// (rather than a macro-emitted `#[cfg]`) so the **feature gate lives
+    /// here**: the macro always emits the same call, and this method's two
+    /// `cfg` bodies decide whether it does anything.
+    ///
+    /// With the `touch-map` feature **on** it forwards to
+    /// [`emit_touch_map`](Self::emit_touch_map) — one `sol_log_data`
+    /// record on-chain, a no-op off-chain. With the feature **off** the
+    /// [zero-cost sibling](#method.finish_with_touch_map) is compiled
+    /// instead, so the generated call emits nothing and costs nothing.
+    #[cfg(feature = "touch-map")]
+    #[inline]
+    pub fn finish_with_touch_map(&self) {
+        self.emit_touch_map();
+    }
+
+    /// Zero-cost sibling of
+    /// [`finish_with_touch_map`](Self::finish_with_touch_map), compiled
+    /// when the `touch-map` feature is off.
+    ///
+    /// Keeps the macro-generated opt-in epilogue call compiling on builds
+    /// that never enabled the touch-map machinery, and emits nothing.
+    /// This is what makes "opt-in present but feature off" produce no
+    /// `sol_log_data` record and pay no compute for it.
+    #[cfg(not(feature = "touch-map"))]
+    #[inline(always)]
+    pub fn finish_with_touch_map(&self) {}
+
     /// Get the remaining accounts starting at `from`.
     #[inline(always)]
     pub fn remaining_accounts(&self, from: usize) -> &'a [AccountView<'a>] {
@@ -1237,5 +1288,191 @@ mod write_policy_tests {
         let (flags, records) = decode_touch_map_for_tests(&buf[..len]).unwrap();
         assert_eq!(flags & TOUCH_MAP_FLAG_OVERFLOWED, TOUCH_MAP_FLAG_OVERFLOWED);
         assert_eq!(records.len(), crate::segment_borrow::MAX_TOUCH_RECORDS);
+    }
+
+    /// The opt-in epilogue helper the generated dispatcher calls on the
+    /// handler's Ok path when the context declared
+    /// `#[hopper::context(emit_touch_map)]`. With the `touch-map` feature
+    /// on it must finalize the instruction exactly like a hand-written
+    /// `emit_touch_map`: snapshot the cumulative touch log and hand the
+    /// same wire bytes the encoder produces to `sol_log_data`. Off-chain
+    /// the syscall is a no-op, so we prove the record is decodable via the
+    /// shared encoder and that calling the helper is safe.
+    #[cfg(feature = "touch-map")]
+    #[test]
+    fn finish_with_touch_map_finalizes_a_decodable_record() {
+        use crate::segment_borrow::{decode_touch_map_for_tests, TouchMapRecord};
+
+        let (_b, account) = make_account(1);
+        let accounts = [account];
+        let pid = Address::new([9u8; 32]);
+        let mut ctx = Context::new(&pid, &accounts, &[]);
+
+        // A bound handler with the opt-in touches state, then the
+        // dispatcher calls `finish_with_touch_map()` on the Ok path.
+        drop(ctx.segment_mut::<[u8; 8]>(0, BALANCE_OFF).unwrap());
+        drop(ctx.segment_ref::<[u8; 8]>(0, NONCE_OFF).unwrap());
+
+        // The record the epilogue emits is byte-identical to the encoder's
+        // output (what `emit_touch_map` / `finish_with_touch_map` send).
+        let (buf, len) = ctx.encode_touch_map();
+        let (flags, records) = decode_touch_map_for_tests(&buf[..len]).unwrap();
+        assert_eq!(flags, 0, "complete map carries no overflow/skip flags");
+        assert_eq!(
+            records,
+            std::vec![
+                TouchMapRecord {
+                    slot: 0,
+                    offset: BALANCE_OFF,
+                    size: 8,
+                    write: true,
+                },
+                TouchMapRecord {
+                    slot: 0,
+                    offset: NONCE_OFF,
+                    size: 8,
+                    write: false,
+                },
+            ]
+        );
+
+        // The helper the dispatcher calls on the Ok path: off-chain
+        // no-op, must be safe and must not disturb the recorded footprint.
+        ctx.finish_with_touch_map();
+    }
+
+    /// The mirror of the opt-in: a context that touched nothing (a handler
+    /// that did no state access, or one whose context did NOT opt in and
+    /// so whose dispatcher never calls the helper) has an empty footprint
+    /// — the epilogue would emit a header-only record with zero touch
+    /// entries. This pins "without the opt-in / without touches, produces
+    /// none".
+    #[cfg(feature = "touch-map")]
+    #[test]
+    fn untouched_context_finish_emits_no_touch_records() {
+        use crate::segment_borrow::decode_touch_map_for_tests;
+
+        let (_b, account) = make_account(1);
+        let accounts = [account];
+        let pid = Address::new([9u8; 32]);
+        let ctx = Context::new(&pid, &accounts, &[]);
+
+        assert_eq!(ctx.touch_map_len(), 0);
+        let (buf, len) = ctx.encode_touch_map();
+        let (flags, records) = decode_touch_map_for_tests(&buf[..len]).unwrap();
+        assert_eq!(flags, 0, "empty map carries no flags");
+        assert!(
+            records.is_empty(),
+            "no touches means no records: {records:?}"
+        );
+
+        // Safe to finalize even with nothing to report.
+        ctx.finish_with_touch_map();
+    }
+
+    /// CONFIRMED P2 regression: the touch-map record must be emitted on
+    /// the handler's **Ok** path ONLY, never on `Err`. This reconstructs
+    /// the exact shape the dispatcher generates for an opted-in typed
+    /// context —
+    ///
+    /// ```ignore
+    /// handler(Ctx::bind(&mut ctx)?, ..)?;              // Err short-circuits
+    /// if Ctx::EMIT_TOUCH_MAP { ctx.finish_with_touch_map(); }
+    /// Ok(())
+    /// ```
+    ///
+    /// — and drives it with a handler that returns `Err` and the same
+    /// handler that returns `Ok`. The old `Drop`-based emit fired on both
+    /// paths (drop glue runs on every scope exit) and so leaked a
+    /// misleading record for the rolled-back instruction; the Ok-only
+    /// dispatch emits nothing on `Err` and exactly one decodable record on
+    /// `Ok`. Off-chain the real syscall is a no-op, so the finish point is
+    /// made observable by snapshotting the same wire bytes
+    /// `finish_with_touch_map` would send.
+    #[cfg(feature = "touch-map")]
+    #[test]
+    fn dispatch_emits_touch_map_on_ok_path_only() {
+        use crate::segment_borrow::decode_touch_map_for_tests;
+
+        // The context opted in, so its `EMIT_TOUCH_MAP` const is `true`.
+        const EMIT_TOUCH_MAP: bool = true;
+
+        // Faithful reconstruction of the generated dispatch helper body.
+        // `emitted` captures each record the Ok-path finish point would
+        // send — its length is the number of touch-map records emitted.
+        fn generated_dispatch(
+            ctx: &mut Context<'_>,
+            handler: impl FnOnce(&mut Context<'_>) -> ProgramResult,
+            emitted: &mut std::vec::Vec<std::vec::Vec<u8>>,
+        ) -> ProgramResult {
+            // `handler(Ctx::bind(&mut ctx)?, ..)?` — an `Err` here
+            // short-circuits before the emit below, exactly as `?` does
+            // after a real bound handler returns.
+            handler(ctx)?;
+            // `if Ctx::EMIT_TOUCH_MAP { ctx.finish_with_touch_map(); }` —
+            // reached only on the Ok path. Off-chain the syscall is a
+            // no-op, so snapshot the identical bytes to observe the emit.
+            if EMIT_TOUCH_MAP {
+                let (buf, len) = ctx.encode_touch_map();
+                emitted.push(buf[..len].to_vec());
+                ctx.finish_with_touch_map();
+            }
+            Ok(())
+        }
+
+        // A handler that touches state, then fails (as `require!`/`?`
+        // would). The touch log is populated, but the instruction rolls
+        // back — so NO self-describing record may be emitted.
+        let (_b, account) = make_account(1);
+        let accounts = [account];
+        let pid = Address::new([9u8; 32]);
+        let mut ctx = Context::new(&pid, &accounts, &[]);
+        let mut emitted = std::vec::Vec::new();
+        let err = generated_dispatch(
+            &mut ctx,
+            |c| {
+                drop(c.segment_mut::<[u8; 8]>(0, BALANCE_OFF).unwrap());
+                Err(ProgramError::Custom(7))
+            },
+            &mut emitted,
+        );
+        assert_eq!(
+            err,
+            Err(ProgramError::Custom(7)),
+            "handler error must propagate"
+        );
+        assert!(
+            emitted.is_empty(),
+            "a failed instruction must emit NO touch-map record: {emitted:?}",
+        );
+
+        // The same handler shape, now returning Ok, must emit exactly one
+        // decodable record describing what it touched.
+        let (_b2, account2) = make_account(1);
+        let accounts2 = [account2];
+        let mut ctx_ok = Context::new(&pid, &accounts2, &[]);
+        let mut emitted_ok = std::vec::Vec::new();
+        let ok = generated_dispatch(
+            &mut ctx_ok,
+            |c| {
+                drop(c.segment_mut::<[u8; 8]>(0, BALANCE_OFF).unwrap());
+                Ok(())
+            },
+            &mut emitted_ok,
+        );
+        assert_eq!(ok, Ok(()), "successful handler returns Ok");
+        assert_eq!(
+            emitted_ok.len(),
+            1,
+            "a successful instruction must emit exactly one touch-map record",
+        );
+        let (_flags, records) = decode_touch_map_for_tests(&emitted_ok[0]).unwrap();
+        assert_eq!(
+            records.len(),
+            1,
+            "the record must describe the one touched range"
+        );
+        assert_eq!(records[0].offset, BALANCE_OFF);
+        assert!(records[0].write, "the touched range was a write");
     }
 }

@@ -390,6 +390,29 @@ struct ContextOptions {
     /// `strict_writes` programs would silently change deployed
     /// behavior on upgrade.
     lamports: Option<Vec<Ident>>,
+    /// Innovation I7: opt-in self-describing transactions. When `true`
+    /// (the context carries `emit_touch_map`) the context advertises
+    /// `EMIT_TOUCH_MAP = true` as a public associated const. The
+    /// generated dispatcher reads that const on the handler's **Ok** path
+    /// and, only then, calls `Context::finish_with_touch_map()`, which
+    /// emits the instruction's cumulative touch map as a single
+    /// `sol_log_data` record — **only** when the downstream build also
+    /// enables hopper-runtime's `touch-map` feature; with the feature off
+    /// the helper is a no-op, so the generated call emits nothing.
+    ///
+    /// The emit is routed through the dispatcher (not a `Drop`) precisely
+    /// because only the dispatcher can see the handler's `Result`: a
+    /// `Drop` would run on every scope exit — including `?`/`Err` returns —
+    /// and would emit a misleading record advertising Write ranges for a
+    /// failed, rolled-back instruction (CONFIRMED P2). Routing on the Ok
+    /// path makes the record fire exclusively on success.
+    ///
+    /// `false` (the default) sets `EMIT_TOUCH_MAP = false`, so the
+    /// dispatcher's `const`-guarded call is dead-code-eliminated to zero
+    /// instructions and nothing is ever emitted. Opt-in because each emit
+    /// costs a `sol_log_data` record (compute + log budget) and must not
+    /// tax handlers that did not ask for it.
+    emit_touch_map: bool,
 }
 
 /// Parse the field list of a `lamports(field, ...)` option into the
@@ -422,6 +445,8 @@ fn parse_context_options(attr: TokenStream, attrs: &mut Vec<Attribute>) -> Resul
                 options.auto_lifecycle = true;
             } else if meta.path().is_ident("strict_writes") {
                 options.strict_writes = true;
+            } else if meta.path().is_ident("emit_touch_map") {
+                options.emit_touch_map = true;
             } else if meta.path().is_ident("lamports") {
                 let list = meta.require_list()?;
                 let fields: Punctuated<Ident, Comma> =
@@ -431,7 +456,7 @@ fn parse_context_options(attr: TokenStream, attrs: &mut Vec<Attribute>) -> Resul
                 return Err(syn::Error::new_spanned(
                     meta,
                     "unknown Hopper context option; supported: `auto_lifecycle`, \
-                     `strict_writes`, `lamports(field, ...)`",
+                     `strict_writes`, `emit_touch_map`, `lamports(field, ...)`",
                 ));
             }
         }
@@ -447,6 +472,9 @@ fn parse_context_options(attr: TokenStream, attrs: &mut Vec<Attribute>) -> Resul
                 } else if meta.path.is_ident("strict_writes") {
                     options.strict_writes = true;
                     Ok(())
+                } else if meta.path.is_ident("emit_touch_map") {
+                    options.emit_touch_map = true;
+                    Ok(())
                 } else if meta.path.is_ident("lamports") {
                     let mut fields = Vec::new();
                     meta.parse_nested_meta(|inner| match inner.path.get_ident() {
@@ -461,7 +489,7 @@ fn parse_context_options(attr: TokenStream, attrs: &mut Vec<Attribute>) -> Resul
                 } else {
                     Err(meta.error(
                         "unknown #[accounts(...)] option; supported: auto_lifecycle, \
-                         strict_writes, lamports(field, ...)",
+                         strict_writes, emit_touch_map, lamports(field, ...)",
                     ))
                 }
             })?;
@@ -476,6 +504,9 @@ fn parse_context_options(attr: TokenStream, attrs: &mut Vec<Attribute>) -> Resul
                     Ok(())
                 } else if meta.path.is_ident("strict_writes") {
                     options.strict_writes = true;
+                    Ok(())
+                } else if meta.path.is_ident("emit_touch_map") {
+                    options.emit_touch_map = true;
                     Ok(())
                 } else if meta.path.is_ident("lamports") {
                     let mut fields = Vec::new();
@@ -3214,6 +3245,34 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         TokenStream::new()
     };
 
+    // ── Innovation I7: opt-in self-describing transactions ────────────
+    //
+    // Under `emit_touch_map` this context advertises `EMIT_TOUCH_MAP =
+    // true` as a public associated const (emitted below on the spec
+    // type). The DISPATCHER — which alone can see the handler's `Result`
+    // — reads that const on the Ok path and, only then, calls
+    // `Context::finish_with_touch_map()` to emit the instruction's
+    // cumulative touch map as one `sol_log_data` record. That is what
+    // makes the emit fire ONLY on success: a handler that returns `Err`
+    // (via `?`, `require!`, a failed invariant, an access-control gate,
+    // …) short-circuits before the dispatcher reaches the finish call, so
+    // a failed, rolled-back instruction never advertises Write ranges for
+    // state it did not keep.
+    //
+    // A `Drop` would be wrong here: Rust runs drop glue on EVERY scope
+    // exit — the Ok return AND every early `?`/`Err` return — and a Drop
+    // hook cannot observe the handler's `Result`, so it could not be
+    // Ok-only (adversarial review, CONFIRMED P2).
+    //
+    // The dispatcher spells the call as a `const`-guarded `if`, so for
+    // every context whose `EMIT_TOUCH_MAP` is `false` (the default) the
+    // call is dead-code-eliminated to zero instructions. The runtime
+    // helper additionally no-ops when hopper-runtime's `touch-map`
+    // feature is off, so even an opted-in context pays nothing on a build
+    // without that feature (the feature gate lives in the runtime helper,
+    // not in macro-emitted `#[cfg]`).
+    let emit_touch_map_flag: bool = context_options.emit_touch_map;
+
     let expanded = quote! {
         // Emit the original struct unchanged (attribute macro path only).
         #original_struct
@@ -3272,6 +3331,20 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             pub const ACCOUNT_COUNT: usize = #account_count;
             pub const RECEIPT_EXPECTED: bool = #receipt_expected;
             pub const MUTABLE_ACCOUNT_COUNT: usize = #mutable_account_count;
+
+            /// Innovation I7: whether this context opts into
+            /// self-describing transactions (`#[hopper::context(emit_touch_map)]`).
+            ///
+            /// `true` only when the author opted in. The generated
+            /// dispatcher reads this const on the handler's **Ok** path
+            /// and, only then, calls `Context::finish_with_touch_map()` —
+            /// so the touch-map `sol_log_data` record is emitted
+            /// exclusively on success, never on an `Err`/rolled-back
+            /// instruction. `false` (the default) makes the dispatcher's
+            /// `const`-guarded call dead-code-eliminate to zero
+            /// instructions, so a context that did not opt in pays
+            /// nothing.
+            pub const EMIT_TOUCH_MAP: bool = #emit_touch_map_flag;
 
             /// Number of individual validation checks performed.
             pub const VALIDATION_CHECK_COUNT: usize = #check_count;
@@ -5020,6 +5093,116 @@ mod instruction_arg_tests {
         };
         let err = expand(attr, item).expect_err("lamports requires strict_writes");
         assert!(err.to_string().contains("strict_writes"), "got: {err}");
+    }
+
+    /// I7 opt-in: `emit_touch_map` advertises `EMIT_TOUCH_MAP = true` as
+    /// a public associated const on the spec type. The dispatcher reads
+    /// that const on the handler's Ok path to decide whether to emit the
+    /// touch-map record — the const is the whole macro-side surface now.
+    /// Crucially, the CONTEXT macro must NOT generate a `Drop` (that
+    /// would emit on every scope exit, including `?`/`Err` returns — the
+    /// CONFIRMED P2) and must NOT itself call `finish_with_touch_map`;
+    /// the finish call lives in the dispatcher (program.rs) on the Ok
+    /// path only.
+    #[test]
+    fn emit_touch_map_opt_in_advertises_the_const_and_no_drop() {
+        let attr: TokenStream = quote! { emit_touch_map };
+        let item: TokenStream = quote! {
+            pub struct Report<'info> {
+                #[account(mut)]
+                pub vault: Account<'info, VaultState>,
+            }
+        };
+        let expanded = expand(attr, item).expect("expand ok");
+        let s = expanded.to_string();
+        assert!(
+            s.contains("const EMIT_TOUCH_MAP : bool = true"),
+            "opt-in must advertise EMIT_TOUCH_MAP = true: {s}"
+        );
+        assert!(
+            !s.contains(":: core :: ops :: Drop for ReportCtx"),
+            "opt-in must NOT generate a Drop (P2: Drop fires on Err too): {s}"
+        );
+        // The actual finish CALL (`ctx.finish_with_touch_map()`) belongs
+        // in the dispatcher, not the context macro. The const's doc
+        // comment names `Context::finish_with_touch_map()` in prose, so
+        // match the call's receiver form to avoid tripping on the doc.
+        assert!(
+            !s.contains("ctx . finish_with_touch_map"),
+            "the finish call belongs in the dispatcher, not the context macro: {s}"
+        );
+    }
+
+    /// I7 opt-in composes with `strict_writes` and, like every other
+    /// context option, is accepted in the same attribute list — still via
+    /// the const, still no `Drop`.
+    #[test]
+    fn emit_touch_map_composes_with_strict_writes() {
+        let attr: TokenStream = quote! { strict_writes, emit_touch_map };
+        let item: TokenStream = quote! {
+            pub struct ReportStrict<'info> {
+                #[account(mut)]
+                pub vault: Account<'info, VaultState>,
+            }
+        };
+        let expanded = expand(attr, item).expect("expand ok");
+        let s = expanded.to_string();
+        assert!(
+            s.contains("const EMIT_TOUCH_MAP : bool = true"),
+            "emit_touch_map must still advertise the const alongside strict_writes: {s}"
+        );
+        assert!(
+            !s.contains(":: core :: ops :: Drop for ReportStrictCtx"),
+            "no Drop must be generated under strict_writes either: {s}"
+        );
+    }
+
+    /// Without the opt-in, the const is `false` (so the dispatcher's
+    /// const-guarded call dead-code-eliminates), and NOTHING else
+    /// touch-map-related is generated: no `Drop`, no `finish` call. This
+    /// pins the "did not opt in pays nothing" guarantee for every context.
+    #[test]
+    fn no_emit_touch_map_opt_in_defaults_const_false_and_no_drop() {
+        let item: TokenStream = quote! {
+            pub struct Plain<'info> {
+                #[account(mut)]
+                pub vault: Account<'info, VaultState>,
+            }
+        };
+        let expanded = expand(TokenStream::new(), item).expect("expand ok");
+        let s = expanded.to_string();
+        assert!(
+            s.contains("const EMIT_TOUCH_MAP : bool = false"),
+            "no opt-in must default EMIT_TOUCH_MAP = false: {s}"
+        );
+        // No actual finish CALL in the context macro (the const's doc
+        // names the method in prose; match the call's receiver form).
+        assert!(
+            !s.contains("ctx . finish_with_touch_map"),
+            "no opt-in must emit no touch-map finish call: {s}"
+        );
+        assert!(
+            !s.contains("Drop for PlainCtx"),
+            "no opt-in must generate no Drop for the bound context: {s}"
+        );
+    }
+
+    /// An unknown context option is still rejected, and the error text
+    /// advertises `emit_touch_map` as a supported option so a typo points
+    /// the author at the real name.
+    #[test]
+    fn unknown_option_error_lists_emit_touch_map() {
+        let attr: TokenStream = quote! { emit_touchmap };
+        let item: TokenStream = quote! {
+            pub struct Typo<'info> {
+                pub payer: Signer<'info>,
+            }
+        };
+        let err = expand(attr, item).expect_err("unknown option must be rejected");
+        assert!(
+            err.to_string().contains("emit_touch_map"),
+            "error must advertise the emit_touch_map option: {err}"
+        );
     }
 
     /// BLD-MUT completeness over the macro's own CPI surface: the
