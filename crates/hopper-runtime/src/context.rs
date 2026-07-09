@@ -337,13 +337,18 @@ impl<'a> Context<'a> {
     pub fn finish_with_touch_map(&self) {}
 
     /// Get the remaining accounts starting at `from`.
+    ///
+    /// NOTE (binary size): the slicing below goes through `get(..)`, never
+    /// `self.accounts[from..]`. A range index LLVM cannot statically bound
+    /// emits `slice_end_index_len_fail`, which *formats* its arguments and
+    /// links `Formatter::pad_integral`, `do_count_chars` and the integer
+    /// `Display` impls — ~3.7 KiB of `core::fmt` — into every Hopper
+    /// program's `.text`. These are `#[inline(always)]` hot-path helpers,
+    /// so one panicking index here taxes every program. Keep them `get`-based.
     #[inline(always)]
     pub fn remaining_accounts(&self, from: usize) -> &'a [AccountView<'a>] {
-        if from >= self.accounts.len() {
-            &[]
-        } else {
-            &self.accounts[from..]
-        }
+        let accounts: &'a [AccountView<'a>] = self.accounts;
+        accounts.get(from..).unwrap_or(&[])
     }
 
     /// Get remaining accounts in strict duplicate-rejecting mode.
@@ -352,9 +357,10 @@ impl<'a> Context<'a> {
         &self,
         from: usize,
     ) -> crate::remaining::RemainingAccounts<'a> {
-        let declared_end = from.min(self.accounts.len());
+        let accounts: &'a [AccountView<'a>] = self.accounts;
+        let declared_end = from.min(accounts.len());
         crate::remaining::RemainingAccounts::strict(
-            &self.accounts[..declared_end],
+            accounts.get(..declared_end).unwrap_or(&[]),
             self.remaining_accounts(from),
         )
     }
@@ -365,9 +371,10 @@ impl<'a> Context<'a> {
         &self,
         from: usize,
     ) -> crate::remaining::RemainingAccounts<'a> {
-        let declared_end = from.min(self.accounts.len());
+        let accounts: &'a [AccountView<'a>] = self.accounts;
+        let declared_end = from.min(accounts.len());
         crate::remaining::RemainingAccounts::passthrough(
-            &self.accounts[..declared_end],
+            accounts.get(..declared_end).unwrap_or(&[]),
             self.remaining_accounts(from),
         )
     }

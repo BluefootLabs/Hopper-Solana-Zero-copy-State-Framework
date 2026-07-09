@@ -51,10 +51,25 @@ fn fast_fingerprint(data: &[u8]) -> [u8; 8] {
     let mut lo = 0x243f_6a88_u32 ^ len;
     let mut hi = 0x85a3_08d3_u32 ^ len.rotate_left(16);
 
+    // NOTE (binary size): every read below goes through `get(..)` into a
+    // fixed-size `[u8; 8]`, never `data[i + k]`. An index LLVM cannot
+    // statically bound emits `core::panicking::panic_bounds_check`, which
+    // *formats* its arguments — linking `Formatter::pad_integral`,
+    // `do_count_chars` and the integer `Display` impls, ~5 KiB of
+    // `core::fmt`, into every Hopper program's `.text`. Indexing a
+    // statically-sized array (`w[0]`, `tail[3]`) is provable and free.
+    // The hashed bytes and the zero-padded tail are unchanged.
     let mut i = 0usize;
     while i + 8 <= data.len() {
-        let a = u32::from_le_bytes([data[i], data[i + 1], data[i + 2], data[i + 3]]);
-        let b = u32::from_le_bytes([data[i + 4], data[i + 5], data[i + 6], data[i + 7]]);
+        let Some(chunk) = data.get(i..i + 8) else {
+            break;
+        };
+        let mut w = [0u8; 8];
+        for (dst, src) in w.iter_mut().zip(chunk) {
+            *dst = *src;
+        }
+        let a = u32::from_le_bytes([w[0], w[1], w[2], w[3]]);
+        let b = u32::from_le_bytes([w[4], w[5], w[6], w[7]]);
         lo = (lo.rotate_left(5) ^ a).wrapping_add(0x9e37_79b9);
         hi = (hi.rotate_left(7) ^ b).wrapping_add(0x7f4a_7c15);
         i += 8;
@@ -62,11 +77,11 @@ fn fast_fingerprint(data: &[u8]) -> [u8; 8] {
 
     if i < data.len() {
         let mut tail = [0u8; 8];
-        let mut tail_i = 0usize;
-        while i < data.len() {
-            tail[tail_i] = data[i];
-            tail_i += 1;
-            i += 1;
+        // `zip` stops at the shorter side, so the fewer-than-8 remaining
+        // bytes land at the front and the rest stay zero — byte-for-byte
+        // the same tail the indexed loop produced.
+        for (dst, src) in tail.iter_mut().zip(data.get(i..).unwrap_or(&[])) {
+            *dst = *src;
         }
         let a = u32::from_le_bytes([tail[0], tail[1], tail[2], tail[3]]);
         let b = u32::from_le_bytes([tail[4], tail[5], tail[6], tail[7]]);
@@ -389,8 +404,20 @@ impl<const SNAP_SIZE: usize> StateReceipt<SNAP_SIZE> {
             // handled by the fall-through arms.
             match offset.checked_add(size) {
                 Some(end) if end <= compare_len => {
-                    if snap_data[offset..end] != current_data[offset..end] {
-                        mask |= 1 << i;
+                    // `get(offset..end)` rather than `[offset..end]`: a range
+                    // index LLVM cannot bound emits `slice_end_index_len_fail`,
+                    // another formatting panic that links `core::fmt`. Both
+                    // ranges resolve because `end <= compare_len`; a `None`
+                    // could only mean the segment runs past the buffer, which
+                    // takes the same conservative "changed" arm as below
+                    // (and is a panic in the old indexed form).
+                    match (snap_data.get(offset..end), current_data.get(offset..end)) {
+                        (Some(snap_seg), Some(cur_seg)) => {
+                            if snap_seg != cur_seg {
+                                mask |= 1 << i;
+                            }
+                        }
+                        _ => mask |= 1 << i,
                     }
                 }
                 // Partial overlap, or a spec that runs past the compared

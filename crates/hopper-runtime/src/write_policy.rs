@@ -495,25 +495,25 @@ impl<const DEPTH: usize> GateStore<DEPTH> {
         if accounts.len() > LAMPORT_GATE_CAPACITY {
             return Err(GateInstallError::TooManyAccounts);
         }
-        let mut slot_idx = usize::MAX;
-        let mut s = 0;
-        while s < DEPTH {
-            if self.slots[s].token == 0 {
-                slot_idx = s;
-                break;
-            }
-            s += 1;
-        }
-        if slot_idx == usize::MAX {
-            return Err(GateInstallError::NoFreeSlot);
-        }
-        let slot = &mut self.slots[slot_idx];
-        let mut len = 0;
-        let mut i = 0;
-        while i < accounts.len() {
+        // NOTE (binary size): every index in this function is derived from a
+        // value LLVM cannot statically bound (a `usize::MAX` sentinel, or the
+        // stored `len`). A `slice[i]` it cannot prove in-bounds emits
+        // `panic_bounds_check`, which *formats* its arguments — dragging
+        // `core::fmt` (Formatter::pad_integral, do_count_chars, the integer
+        // Display impls) into `.text`. One such site costs ~5 KiB in every
+        // Hopper program. So this whole path uses iterators / `get`/`get_mut`,
+        // which are provably panic-free. Keep it that way.
+        let slot = self
+            .slots
+            .iter_mut()
+            .find(|s| s.token == 0)
+            .ok_or(GateInstallError::NoFreeSlot)?;
+
+        let mut len = 0usize;
+        for (i, view) in accounts.iter().enumerate() {
             // Reading `address()` here is an always-safe read of a live
             // reference the caller just gave us; only the VALUE is kept.
-            let address = *accounts[i].address();
+            let address = *view.address();
             // Indices above u8::MAX can never have been declared (the
             // policy wire format is u8): permissionless. Unreachable
             // while LAMPORT_GATE_CAPACITY <= 255, kept for honesty.
@@ -527,19 +527,23 @@ impl<const DEPTH: usize> GateStore<DEPTH> {
             // Duplicate addresses name the same underlying account, so
             // their permissions OR-merge into one entry (first index
             // kept for the refusal error code).
-            let mut j = 0;
-            let mut merged = false;
-            while j < len {
-                if slot.entries[j].address == address {
-                    slot.entries[j].allow_mutation |= allow_mutation;
-                    slot.entries[j].allow_delegation |= allow_delegation;
-                    merged = true;
-                    break;
-                }
-                j += 1;
-            }
+            let merged = slot
+                .entries
+                .get_mut(..len)
+                .and_then(|seen| seen.iter_mut().find(|e| e.address == address))
+                .map(|e| {
+                    e.allow_mutation |= allow_mutation;
+                    e.allow_delegation |= allow_delegation;
+                })
+                .is_some();
             if !merged {
-                slot.entries[len] = GateEntry {
+                // `len < accounts.len() <= LAMPORT_GATE_CAPACITY == entries.len()`,
+                // so this never yields `None`; saying it with `get_mut` states
+                // the bound to LLVM instead of leaving a panicking index.
+                let Some(entry) = slot.entries.get_mut(len) else {
+                    return Err(GateInstallError::TooManyAccounts);
+                };
+                *entry = GateEntry {
                     address,
                     index,
                     allow_mutation,
@@ -547,7 +551,6 @@ impl<const DEPTH: usize> GateStore<DEPTH> {
                 };
                 len += 1;
             }
-            i += 1;
         }
         slot.len = len;
         // Tokens are 1, 2, 3, ... — `issued` counts up from a zeroed store
@@ -567,14 +570,9 @@ impl<const DEPTH: usize> GateStore<DEPTH> {
     /// token is not present — e.g. an inert guard). A guard can only
     /// ever clear its own slot, never another gate's.
     fn remove(&mut self, token: u64) {
-        let mut s = 0;
-        while s < DEPTH {
-            if self.slots[s].token == token {
-                self.slots[s].token = 0;
-                self.slots[s].len = 0;
-                return;
-            }
-            s += 1;
+        if let Some(slot) = self.slots.iter_mut().find(|s| s.token == token) {
+            slot.token = 0;
+            slot.len = 0;
         }
     }
 
@@ -583,19 +581,12 @@ impl<const DEPTH: usize> GateStore<DEPTH> {
     /// shadow outer gates while alive; when the inner guard drops, the
     /// outer gate resumes governing.
     fn active_slot(&self) -> Option<&GateSlot> {
-        let mut best: Option<&GateSlot> = None;
-        let mut s = 0;
-        while s < DEPTH {
-            let slot = &self.slots[s];
-            if slot.token != 0 {
-                best = match best {
-                    Some(current) if current.token >= slot.token => Some(current),
-                    _ => Some(slot),
-                };
-            }
-            s += 1;
-        }
-        best
+        // Tokens are unique and monotonic, so "highest token" is exactly
+        // "most recently installed".
+        self.slots
+            .iter()
+            .filter(|s| s.token != 0)
+            .max_by_key(|s| s.token)
     }
 
     /// Match `address` against the governing gate's stored values.
@@ -606,9 +597,12 @@ impl<const DEPTH: usize> GateStore<DEPTH> {
         let Some(slot) = self.active_slot() else {
             return Ok(());
         };
-        let mut i = 0;
-        while i < slot.len {
-            let entry = &slot.entries[i];
+        // `get(..len)` rather than `entries[i]`: `len` is a stored field, so
+        // LLVM cannot prove an index derived from it is in bounds and would
+        // emit a formatting `panic_bounds_check` (~5 KiB of `core::fmt`).
+        // A corrupt `len` degrades to an empty slice, i.e. fail closed.
+        let seen = slot.entries.get(..slot.len).unwrap_or(&[]);
+        for entry in seen {
             if entry.address == *address {
                 let allowed = if delegation {
                     entry.allow_delegation
@@ -620,21 +614,13 @@ impl<const DEPTH: usize> GateStore<DEPTH> {
                 }
                 return Err(write_policy_violation(entry.index));
             }
-            i += 1;
         }
         Err(write_policy_violation(u8::MAX))
     }
 
     /// Whether any gate (governing or shadowed) is installed.
     fn any_active(&self) -> bool {
-        let mut s = 0;
-        while s < DEPTH {
-            if self.slots[s].token != 0 {
-                return true;
-            }
-            s += 1;
-        }
-        false
+        self.slots.iter().any(|s| s.token != 0)
     }
 }
 
