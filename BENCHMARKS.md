@@ -222,7 +222,28 @@ Anchor 0.31.1/1.x, with the shelf life that implies.
 | Deposit | **1650 CU** | 3856 CU (+2206) | 1756 CU (+106) | 7150 CU (+5500) |
 | Withdraw | **442 CU** | 2548 CU (+2106) | 592 CU (+150) | 5108 CU (+4666) |
 | Unsigned withdraw | rejected | rejected | rejected | rejected |
-| Binary size | 7.41 KiB | 7.73 KiB | **5.47 KiB** | 190.11 KiB |
+| Binary size | 7.41 KiB ⚠️ | 7.73 KiB | **5.47 KiB** | 190.11 KiB |
+
+> ⚠️ **The Hopper binary-size cell is stale — do not quote it.** (2026-07-09)
+>
+> Re-measuring the same benchmark vault at HEAD gives **`.text` = 14,368
+> bytes (14.03 KiB)**, not 7.41 KiB. Batches 5–7 (the lamport gate, write
+> policy, CPI tiers, receipts) regressed `.text` and nothing was watching
+> the number. Two fixes have since landed, both measured on this vault:
+>
+> - the lamport gate's `static mut` was in `.data` rather than `.bss`, so
+>   ~32 KiB of zeros were written into **every** program's `.so` (and paid
+>   for in deploy rent). Now `.bss`: **−32,768 bytes of `.so`**.
+> - a single unprovable slice index made `panic_bounds_check` /
+>   `slice_end_index_len_fail` reachable, and those **format** their
+>   arguments — linking ~5.1 KiB of `core::fmt` into a `no_std` program.
+>   Now zero formatting symbols: **`.text` 19,504 → 14,368 (−26.3%)**.
+>
+> The remaining delta versus the recorded 7.41 KiB is real and unclosed;
+> `entrypoint` alone is 10,464 bytes (73% of `.text`). The other three
+> columns were **not** re-run today, so the row is mixed-vintage. It will be
+> restated only after a full four-way re-measurement — we do not publish a
+> size lead we have not measured, and Quasar currently wins this row.
 
 The Pinocchio column is built in-tree from the benchmark repo's Anza
 Pinocchio target, not borrowed from Quasar's reference sample or an older
