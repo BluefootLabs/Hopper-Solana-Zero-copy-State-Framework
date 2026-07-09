@@ -919,14 +919,15 @@ pub mod __runtime {
     pub use hopper_runtime::token_2022_ext;
     pub use hopper_runtime::{
         apply_pending_migrations, borrow_address_slice, borrow_bounded_str, read_tail,
-        read_tail_len, tail_capacity, tail_payload, write_tail, write_tail_payload, Account,
-        AccountLayout, AccountView, Address, BoundedString, BoundedVec, Context, FieldInfo,
-        FieldMap, HopperHeader, HopperInstructionPolicy, HopperProgramPolicy, HopperProgramProfile,
-        HopperSigner, HopperString, HopperVec, InitAccount, InstructionAccount, InstructionView,
-        Interface, InterfaceAccount, InterfaceAccountLayout, InterfaceAccountResolve,
-        InterfaceSpec, LayoutContract, LayoutInfo, LayoutMigration, MigrationEdge, Pod, Program,
-        ProgramError, ProgramId, Ref, RefMut, SegRef, SegRefMut, SegmentLease, SystemAccount,
-        SystemId, TailBytes, TailCodec, TailElement, TailStr, UncheckedAccount, Zeroable,
+        read_tail_len, tail_capacity, tail_payload, transfer_lamports, write_tail,
+        write_tail_payload, Account, AccountLayout, AccountView, Address, BoundedString,
+        BoundedVec, Context, FieldInfo, FieldMap, HopperHeader, HopperInstructionPolicy,
+        HopperProgramPolicy, HopperProgramProfile, HopperSigner, HopperString, HopperVec,
+        InitAccount, InstructionAccount, InstructionView, Interface, InterfaceAccount,
+        InterfaceAccountLayout, InterfaceAccountResolve, InterfaceSpec, LayoutContract, LayoutInfo,
+        LayoutMigration, MigrationEdge, Pod, Program, ProgramError, ProgramId, Ref, RefMut, SegRef,
+        SegRefMut, SegmentLease, SystemAccount, SystemId, TailBytes, TailCodec, TailElement,
+        TailStr, UncheckedAccount, Zeroable,
     };
 
     // Crank marker type plus dynamic-CPI builder, emitted by

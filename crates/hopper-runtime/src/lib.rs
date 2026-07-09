@@ -35,6 +35,7 @@ pub mod error;
 pub mod field_map;
 pub mod foreign;
 pub mod interop;
+pub mod lamports;
 pub mod log;
 pub mod memory;
 pub mod migrate;
@@ -108,6 +109,7 @@ pub use foreign::{
     ForeignManifest,
 };
 pub use interop::TransparentAddress;
+pub use lamports::transfer_lamports;
 pub use migrate::{apply_pending_migrations, LayoutMigration, MigrationEdge};
 pub use policy::{HopperInstructionPolicy, HopperProgramPolicy, HopperProgramProfile};
 pub use proof::{

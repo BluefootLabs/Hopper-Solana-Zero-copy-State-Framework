@@ -98,7 +98,9 @@ pub unsafe fn assign(view: &BackendAccountView<'_>, new_owner: &Address) {
 /// This is the funnel **every** safe runtime/`hopper-core` lamport
 /// mutation crosses (`AccountView::{try_set_lamports, set_lamports,
 /// close_to, close_to_unchecked}`, lifecycle close/realloc top-up, the
-/// host System-transfer emulation). When an instruction-scoped lamport
+/// host System-transfer emulation, and the gated
+/// [`lamports::transfer_lamports`](crate::lamports::transfer_lamports)
+/// helper). When an instruction-scoped lamport
 /// gate is installed (`strict_writes` + declared lamport dimension,
 /// BLD-MUT), mutation on an undeclared account is refused here with
 /// `Custom(0xD000 | index)` before any balance changes. The gate is

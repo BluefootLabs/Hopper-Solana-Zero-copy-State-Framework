@@ -44,6 +44,19 @@ pub fn close_and_transfer(
 /// For accounts owned by the current program, direct lamport
 /// manipulation is cheaper than a system program CPI transfer.
 /// This method checks for sufficient balance and overflow.
+///
+/// # Gated programs (`strict_writes` + `lamports(...)`)
+///
+/// This substrate helper writes balances directly at the native layer
+/// and **bypasses the runtime's lamport gate by design** — it is the
+/// cheap no-CPI path and sits outside hopper-runtime's governed
+/// surface. Under a context that declares `strict_writes` +
+/// `lamports(...)` (the mutation-complete contract), use
+/// `hopper_runtime::transfer_lamports` instead — also reachable via
+/// `hopper::prelude` and as the generated `ctx.transfer_lamports(..)`
+/// bound-context method: identical arithmetic, but both sides cross
+/// the gated `native_boundary` funnel, so the mutation-complete
+/// guarantee covers the move.
 #[inline]
 pub fn transfer_lamports(
     from: &AccountView<'_>,

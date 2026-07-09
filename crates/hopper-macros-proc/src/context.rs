@@ -3186,6 +3186,46 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
     } else {
         TokenStream::new()
     };
+    // BLD-MUT steering: a mutation-complete context exposes the GATED
+    // lamport transfer as a first-class bound-context method, so the
+    // discoverable spelling under `lamports(...)` is the one whose
+    // mutation the gate can see. No new codegen surface style: it is a
+    // fixed-name thin delegation like the unconditional `account()` /
+    // `program_id()` methods, emitted conditionally exactly like the
+    // gate-guard field above. It delegates to
+    // `hopper_runtime::transfer_lamports`, which runs the substrate
+    // helper's arithmetic through the gated `native_boundary` funnel
+    // (both sides checked BEFORE any balance change). The generated
+    // lifecycle helpers already route through that same funnel:
+    // `sweep_*` calls `try_set_lamports` directly, `close_*` goes via
+    // `safe_close_with_sentinel` -> `move_all_lamports`, and
+    // `realloc_*` via `safe_realloc` — all `try_set_lamports` inside.
+    let gated_transfer_method: TokenStream = if mutation_complete {
+        quote! {
+            /// Gate-checked lamport transfer between two accounts of
+            /// this instruction (BLD-MUT). Delegates to
+            /// `hopper_runtime::transfer_lamports`: both sides are
+            /// checked against this context's declared lamport set
+            /// **before** any balance changes (refusal is
+            /// `Custom(0xD000 | account_index)`), insufficient funds /
+            /// overflow are checked before either side is applied, and
+            /// a same-address transfer is a balance-checked net zero.
+            /// Prefer this over the substrate
+            /// `batch::transfer_lamports`, which bypasses the lamport
+            /// gate by design.
+            #[inline]
+            #vis fn transfer_lamports(
+                &self,
+                from: &::hopper::prelude::AccountView<'_>,
+                to: &::hopper::prelude::AccountView<'_>,
+                amount: u64,
+            ) -> ::core::result::Result<(), ::hopper::__runtime::ProgramError> {
+                ::hopper::__runtime::transfer_lamports(from, to, amount)
+            }
+        }
+    } else {
+        TokenStream::new()
+    };
 
     let auto_lifecycle_stmts: Vec<TokenStream> = ctx_fields
         .iter()
@@ -3657,6 +3697,8 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             #vis fn remaining_accounts_raw(&self) -> &[::hopper::prelude::AccountView<'_>] {
                 self.ctx.remaining_accounts(#account_count)
             }
+
+            #gated_transfer_method
 
             // --- Generated segment accessors ---
             #(#accessors)*

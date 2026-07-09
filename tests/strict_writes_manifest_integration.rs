@@ -521,13 +521,8 @@ fn sweep_handler<'info>(
 fn sweep_helper_executes_end_to_end_under_the_lamport_gate() {
     let program_id = Address::new_from_array([9u8; 32]);
 
-    let fees = AccountFixture::new(
-        Address::new_from_array([5u8; 32]),
-        program_id,
-        250_000,
-        0,
-    )
-    .writable();
+    let fees =
+        AccountFixture::new(Address::new_from_array([5u8; 32]), program_id, 250_000, 0).writable();
     let treasury = AccountFixture::new(
         Address::new_from_array([6u8; 32]),
         Address::new_from_array([0u8; 32]),
@@ -552,6 +547,133 @@ fn sweep_helper_executes_end_to_end_under_the_lamport_gate() {
     assert!(
         result.program_result.is_ok(),
         "sweep under the lamport gate failed: {:?}",
+        result.program_result
+    );
+}
+
+// ── BLD-MUT: the gated transfer on the bound context ────────────────
+//
+// A mutation-complete context exposes `ctx.transfer_lamports(..)`,
+// delegating to `hopper_runtime::transfer_lamports` — the substrate
+// helper's arithmetic run through the gated funnel. These tests prove
+// the generated method end-to-end: declared→declared moves exact
+// balances; a transfer touching an undeclared account is refused with
+// the indexed policy error BEFORE any balance changes, in both
+// orderings; and the free function is reachable via the prelude.
+
+#[hopper::context(strict_writes, lamports(payer_slot, fee_sink))]
+pub struct Toll {
+    pub payer_slot: AccountView<'static>,
+
+    pub fee_sink: AccountView<'static>,
+
+    pub config: AccountView<'static>,
+
+    #[signer]
+    pub authority: AccountView<'static>,
+}
+
+#[test]
+fn toll_context_declares_exactly_the_transfer_roles() {
+    assert!(Toll::STRICT_WRITES);
+    assert!(Toll::MUTATION_COMPLETE);
+    assert_eq!(Toll::LAMPORT_ACCOUNTS, &[0u8, 1u8]);
+}
+
+fn toll_handler<'info>(
+    program_id: &'info Address,
+    accounts: &'info [AccountView<'info>],
+    instruction_data: &'info [u8],
+) -> ProgramResult {
+    use hopper_runtime::write_policy::write_policy_violation;
+
+    let mut ctx = Context::new(program_id, accounts, instruction_data);
+    let bound = Toll::bind(&mut ctx)?;
+
+    let payer_before = accounts[0].lamports();
+    let sink_before = accounts[1].lamports();
+    let config_before = accounts[2].lamports();
+
+    // Declared -> declared: admitted by the gate, balances move exactly.
+    bound.transfer_lamports(
+        bound.payer_slot_account()?,
+        bound.fee_sink_account()?,
+        40_000,
+    )?;
+    assert_eq!(accounts[0].lamports(), payer_before - 40_000);
+    assert_eq!(accounts[1].lamports(), sink_before + 40_000);
+
+    // From-undeclared: refused with the indexed policy error before any
+    // balance changes.
+    assert_eq!(
+        bound.transfer_lamports(bound.config_account()?, bound.fee_sink_account()?, 1),
+        Err(write_policy_violation(2))
+    );
+    // To-undeclared: same refusal shape — and crucially the DECLARED
+    // debit side must not have been half-applied.
+    assert_eq!(
+        bound.transfer_lamports(bound.payer_slot_account()?, bound.config_account()?, 1),
+        Err(write_policy_violation(2))
+    );
+    assert_eq!(accounts[0].lamports(), payer_before - 40_000);
+    assert_eq!(accounts[1].lamports(), sink_before + 40_000);
+    assert_eq!(accounts[2].lamports(), config_before);
+
+    // The prelude free function is the same gated funnel (item 4:
+    // `use hopper::prelude::*` reaches it).
+    transfer_lamports(&accounts[1], &accounts[0], 40_000)?;
+    assert_eq!(accounts[0].lamports(), payer_before);
+    assert_eq!(accounts[1].lamports(), sink_before);
+
+    // Gated self-transfer on a declared account: balance-checked net
+    // zero.
+    bound.transfer_lamports(
+        bound.payer_slot_account()?,
+        bound.payer_slot_account()?,
+        payer_before,
+    )?;
+    assert_eq!(accounts[0].lamports(), payer_before);
+
+    Ok(())
+}
+
+#[test]
+fn bound_context_transfer_lamports_is_gated_end_to_end() {
+    let program_id = Address::new_from_array([9u8; 32]);
+
+    let payer_slot =
+        AccountFixture::new(Address::new_from_array([10u8; 32]), program_id, 500_000, 0).writable();
+    let fee_sink = AccountFixture::new(
+        Address::new_from_array([11u8; 32]),
+        Address::new_from_array([0u8; 32]),
+        1_000_000,
+        0,
+    )
+    .writable();
+    let config = AccountFixture::new(
+        Address::new_from_array([12u8; 32]),
+        Address::new_from_array([0u8; 32]),
+        1_000_000,
+        0,
+    )
+    .writable();
+    let authority = AccountFixture::new(
+        Address::new_from_array([13u8; 32]),
+        Address::new_from_array([0u8; 32]),
+        1_000_000,
+        0,
+    )
+    .signer();
+
+    let result = HopperSvm::new().process_instruction(
+        program_id,
+        &[],
+        &[payer_slot, fee_sink, config, authority],
+        toll_handler,
+    );
+    assert!(
+        result.program_result.is_ok(),
+        "gated bound-context transfer failed: {:?}",
         result.program_result
     );
 }
