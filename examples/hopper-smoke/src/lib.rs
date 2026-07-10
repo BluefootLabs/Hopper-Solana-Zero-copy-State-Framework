@@ -13,11 +13,15 @@
 //! - A typed, zero-alloc event emitted through `sol_log_data`
 //! - Checked arithmetic everywhere (no silent overflow)
 //! - `safe_close` semantics via the `close` constraint
+//! - Self-describing transactions (innovation I7): the `Withdraw`
+//!   context opts in via `emit_touch_map`, so every successful
+//!   withdraw emits its touch map as one `sol_log_data` record that
+//!   `hopper tx explain` decodes into field-level state effects
 //!
 //! Instructions:
 //! - `0` = Initialize (creates the vault account, stamps the clock)
 //! - `1` = Deposit     (signer transfers SOL in, count++)
-//! - `2` = Withdraw    (authority pulls SOL out, checked)
+//! - `2` = Withdraw    (authority pulls SOL out, checked, self-describing)
 //! - `3` = Close       (authority closes the vault, lamports refunded)
 
 #![cfg_attr(target_os = "solana", no_std)]
@@ -100,12 +104,30 @@ pub struct Deposit<'info> {
     pub system_program: Program<'info, System>,
 }
 
+/// The self-describing context (innovation I7). Two opt-ins compose:
+///
+/// - `strict_writes`: the `mut(balance)` declaration below is compiled
+///   into a static write policy, so any Context-mediated write outside
+///   `vault.balance` fails at acquisition time.
+/// - `emit_touch_map`: on the handler's **Ok** path (and only then) the
+///   generated dispatcher emits the instruction's cumulative touch map
+///   as a single `sol_log_data` record — magic `0x7A`, version `0x01`,
+///   then `(slot, offset, size, R/W)` entries. `hopper tx explain`
+///   decodes it from the transaction's log stream, so a successful
+///   withdraw advertises exactly which bytes of which account it wrote.
+///   A failed withdraw emits nothing: the dispatcher short-circuits on
+///   `Err` before the emit, so a rolled-back instruction never
+///   advertises effects it did not keep.
+///
+/// The emission only compiles in because this crate enables the
+/// `touch-map` feature; without it the opt-in is a no-op.
 #[derive(Accounts)]
+#[accounts(strict_writes, emit_touch_map)]
 pub struct Withdraw<'info> {
     #[account(mut)]
     pub authority: Signer<'info>,
 
-    #[account(mut, has_one = authority)]
+    #[account(mut(balance), has_one = authority)]
     pub vault: Account<'info, Vault>,
 }
 
@@ -137,7 +159,22 @@ mod smoke_program {
 
     #[instruction(2)]
     pub fn withdraw(ctx: Ctx<Withdraw>, amount: u64) -> ProgramResult {
-        ctx.accounts.withdraw(amount)
+        hopper::hopper_require!(amount > 0, ZeroAmount);
+
+        // Balance update through the segment lease declared by
+        // `mut(balance)`: the write registers in the instruction's
+        // segment registry, which is exactly what the Ok-path touch-map
+        // emission snapshots — the on-chain record will carry one
+        // `W vault [balance..balance+8)` entry for this write.
+        {
+            let mut balance = ctx.vault_balance_mut()?;
+            if balance.get() < amount {
+                return Err(InsufficientBalance.into());
+            }
+            balance.checked_sub_assign(amount)?;
+        }
+
+        ctx.accounts.settle_withdraw_lamports(amount)
     }
 
     #[instruction(3)]
@@ -204,17 +241,10 @@ impl<'info> Deposit<'info> {
 }
 
 impl<'info> Withdraw<'info> {
-    pub fn withdraw(&self, amount: u64) -> ProgramResult {
-        hopper::hopper_require!(amount > 0, ZeroAmount);
-
-        {
-            let mut vault = self.vault.get_mut()?;
-            if vault.balance.get() < amount {
-                return Err(InsufficientBalance.into());
-            }
-            vault.balance.checked_sub_assign(amount)?;
-        }
-
+    /// Move the withdrawn lamports out. The balance-field update happens
+    /// in the handler through the `mut(balance)` segment lease (so it is
+    /// captured by the touch map); this settles the actual funds.
+    pub fn settle_withdraw_lamports(&self, amount: u64) -> ProgramResult {
         // The vault is program-owned, so debit lamports directly after
         // Hopper has validated authority (`has_one`) and layout.
         let authority = self.authority.as_account();

@@ -27,12 +27,15 @@
 
 extern crate std;
 
+use std::cell::RefCell;
 use std::path::Path;
+use std::rc::Rc;
 
 use mollusk_svm::{result::InstructionResult, Mollusk};
 use solana_account::Account;
 use solana_instruction::Instruction;
 use solana_pubkey::Pubkey;
+use solana_svm_log_collector::LogCollector;
 
 pub mod trace;
 pub use trace::{AccountDelta, Trace};
@@ -41,6 +44,11 @@ pub use trace::{AccountDelta, Trace};
 pub struct LiteSvmHarness {
     program_id: Pubkey,
     mollusk: Mollusk,
+    /// Present after [`Self::capture_logs`]: the collector Mollusk feeds
+    /// with the execution's log stream (the same `Program ... invoke` /
+    /// `Program log:` / `Program data:` lines an RPC `getTransaction`
+    /// would return in `logMessages`).
+    logs: Option<Rc<RefCell<LogCollector>>>,
 }
 
 impl LiteSvmHarness {
@@ -57,6 +65,7 @@ impl LiteSvmHarness {
         Some(Self {
             program_id: *program_id,
             mollusk: Mollusk::new(program_id, elf_path_stem),
+            logs: None,
         })
     }
 
@@ -69,6 +78,29 @@ impl LiteSvmHarness {
     /// setup (sysvars, warping the clock, adding extra programs).
     pub fn mollusk_mut(&mut self) -> &mut Mollusk {
         &mut self.mollusk
+    }
+
+    /// Start (or restart) log capture: installs a **fresh** collector, so
+    /// the next [`Self::process`] call's log stream is readable via
+    /// [`Self::logs`] without lines from earlier executions. Call before
+    /// each instruction whose logs the test asserts on.
+    pub fn capture_logs(&mut self) {
+        let collector = LogCollector::new_ref();
+        self.mollusk.logger = Some(Rc::clone(&collector));
+        self.logs = Some(collector);
+    }
+
+    /// Snapshot of the captured log lines (empty when
+    /// [`Self::capture_logs`] was never called). Lines look exactly like
+    /// an RPC transaction's `logMessages`: `Program <id> invoke [1]`,
+    /// `Program log: ...`, `Program data: <base64>`, `Program <id>
+    /// success` / `failed ...` — so log-stream decoders (touch maps,
+    /// events) can be exercised against real execution output.
+    pub fn logs(&self) -> Vec<String> {
+        self.logs
+            .as_ref()
+            .map(|collector| collector.borrow().get_recorded_content().to_vec())
+            .unwrap_or_default()
     }
 
     /// Create a system-owned, lamport-funded account (a fee payer or

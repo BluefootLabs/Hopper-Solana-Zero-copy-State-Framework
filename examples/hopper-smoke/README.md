@@ -18,13 +18,43 @@ framework end-to-end and is verified live on devnet. It is the
 | Checked arithmetic (no silent overflow) | all handlers |
 | Program-owned lamport debit | `withdraw` |
 | `close` constraint (zero data, refund lamports) | `close` |
+| `strict_writes` static write policy from `mut(balance)` | `Withdraw` |
+| Self-describing tx: Ok-only `emit_touch_map` opt-in (I7) | `Withdraw` |
 
 Instructions: `0` initialize, `1` deposit, `2` withdraw, `3` close.
 
 ## Build
 
 ```sh
-cargo build-sbf            # emits target/deploy/hopper_smoke.so (~20 KiB)
+cargo build-sbf            # emits target/deploy/hopper_smoke.so (~27 KiB)
+```
+
+The binary carries the opt-in touch-map machinery (`touch-map` feature +
+segment-lease write policy), which is why it is larger than the earlier
+20 KiB build — the emission is per-context opt-in precisely so programs
+that do not ask for it never pay this size or the per-record CU.
+
+## Self-describing withdraw (touch map)
+
+`Withdraw` opts in via `#[accounts(strict_writes, emit_touch_map)]`. On
+every **successful** withdraw the generated dispatcher emits the
+instruction's touch map as one `sol_log_data` record (`Program data:`
+log line, magic `0x7A`, version `0x01`): `W slot 1 [48..56)` — a Write
+of the vault's `balance` field bytes, which is exactly what the handler
+does through the `mut(balance)` segment lease. A **failed** withdraw
+emits nothing (the emit is routed on the handler's Ok path only), so a
+rolled-back instruction never advertises effects it did not keep.
+`hopper tx explain <signature>` decodes the record from the transaction
+log stream with field-level joins.
+
+The loop is proven end-to-end by `tests/touch_map_e2e.rs`, which runs
+the compiled `.so` in an in-process SVM (Mollusk via `hopper-test`),
+captures the log stream, and decodes it the way `hopper tx explain`
+does:
+
+```sh
+cargo build-sbf                 # build the artifact first
+cargo test -p hopper-smoke      # e2e: one record on Ok, zero on Err
 ```
 
 ## Live devnet evidence
