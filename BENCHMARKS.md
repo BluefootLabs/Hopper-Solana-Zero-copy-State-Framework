@@ -481,17 +481,26 @@ artifacts, surprising rows confirmed by a second identical run
 
 | Disc | Instruction | Touched | Eager CU | Lazy CU | Delta | Delta% |
 |---|---|---|---:|---:|---:|---:|
-| 0 | ping | 0/8 | 119 | 97 | −22 | −18.5% |
-| 1 | get_balance | 1/8 | 124 | 110 | −14 | −11.3% |
-| 2 | authorize | 2/8 | 128 | 115 | −13 | −10.2% |
-| 3 | counter | 2/8 | 195 | 200 | +5 | +2.6% |
-| 4 | deposit | 3/8 | 123 | 156 | +33 | +26.8% |
-| 5 | withdraw | 2/8 | 129 | 116 | −13 | −10.1% |
-| 6 | sweep | 8/8 | 123 | 321 | +198 | +161.0% |
-| 7 | flush | 8/8 | 124 | 322 | +198 | +159.7% |
+| 0 | ping | 0/8 | 119 | 98 | −21 | −17.6% |
+| 1 | get_balance | 1/8 | 124 | 111 | −13 | −10.5% |
+| 2 | authorize | 2/8 | 128 | 116 | −12 | −9.4% |
+| 3 | counter | 2/8 | 195 | 201 | +6 | +3.1% |
+| 4 | deposit | 3/8 | 123 | 158 | +35 | +28.5% |
+| 5 | withdraw | 2/8 | 129 | 117 | −12 | −9.3% |
+| 6 | sweep | 8/8 | 123 | 323 | +200 | +162.6% |
+| 7 | flush | 8/8 | 124 | 324 | +200 | +161.3% |
 
-Binary size: eager 3,496 B (3.41 KiB), lazy 9,920 B (9.69 KiB) — lazy is
+Binary size: eager 3,496 B (3.41 KiB), lazy 9,960 B (9.73 KiB) — lazy is
 2.8× larger (the 254-slot resolved-array machinery).
+
+Numbers above are the 2026-07-10 re-run AFTER the runtime-typed lazy
+bridge landed (the DX fix that made `hopper_lazy_entrypoint!` hand out
+runtime types like the eager macro always did): the bridge costs the
+lazy side **+1–2 CU per instruction and +40 B** versus the first run
+earlier the same day (ping 97→98, sweep 321→323 …), while the eager
+column is bit-identical. Measured, disclosed, and worth it — lazy
+handlers now compile against `hopper::prelude::LazyContext` with zero
+hand-written substrate glue.
 
 **The honest headline is about the EAGER path.** The measured bound on
 Hopper's fused eager parse is ~2.75 CU per account (eager ping at 119 vs

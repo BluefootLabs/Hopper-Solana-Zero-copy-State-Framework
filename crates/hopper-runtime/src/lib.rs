@@ -36,6 +36,7 @@ pub mod field_map;
 pub mod foreign;
 pub mod interop;
 pub mod lamports;
+pub mod lazy;
 pub mod log;
 pub mod memory;
 pub mod migrate;
@@ -110,6 +111,7 @@ pub use foreign::{
 };
 pub use interop::TransparentAddress;
 pub use lamports::transfer_lamports;
+pub use lazy::LazyContext;
 pub use migrate::{apply_pending_migrations, migrate_layout, LayoutMigration, MigrationEdge};
 pub use policy::{HopperInstructionPolicy, HopperProgramPolicy, HopperProgramProfile};
 pub use proof::{
@@ -779,11 +781,31 @@ macro_rules! fast_entrypoint {
     };
 }
 
-/// Declare the Hopper lazy entrypoint.
+/// Declare the Hopper lazy entrypoint — RUNTIME-typed, matching the
+/// eager `hopper_fast_entrypoint!`'s layering.
+///
+/// The handler receives `&mut hopper_runtime::lazy::LazyContext` (also
+/// in the facade prelude) and returns the runtime `ProgramResult`; the
+/// expansion bridges to the substrate lazy parser and maps errors
+/// through the layout-twin glue at the boundary. Substrate authors who
+/// want the native-typed context use the substrate layer's own
+/// `hopper_lazy_entrypoint!` directly, exactly as with the eager pair.
 #[macro_export]
 macro_rules! hopper_lazy_entrypoint {
     ( $process:expr ) => {
-        $crate::__hopper_native::hopper_lazy_entrypoint!($process);
+        $crate::__hopper_native::hopper_lazy_entrypoint!(
+            |__hopper_native_ctx: &mut $crate::__hopper_native::LazyContext|
+                -> ::core::result::Result<(), $crate::__hopper_native::error::ProgramError> {
+                let mut __hopper_ctx =
+                    $crate::lazy::LazyContext::from_native(__hopper_native_ctx);
+                match $process(&mut __hopper_ctx) {
+                    ::core::result::Result::Ok(()) => ::core::result::Result::Ok(()),
+                    ::core::result::Result::Err(e) => {
+                        ::core::result::Result::Err(::core::convert::From::from(e))
+                    }
+                }
+            }
+        );
     };
 }
 

@@ -100,8 +100,10 @@ impl<'info> PartialEq for AccountView<'info> {
 impl<'info> Eq for AccountView<'info> {}
 
 impl<'info> AccountView<'info> {
+    // Crate-visible: the lazy bridge (`crate::lazy`) wraps substrate
+    // views it receives one at a time from the native parser.
     #[inline(always)]
-    fn from_inner(inner: BackendAccountView<'info>) -> Self {
+    pub(crate) fn from_inner(inner: BackendAccountView<'info>) -> Self {
         Self { inner }
     }
 
