@@ -468,6 +468,54 @@ The parity vault source is at
 The cross-framework runners live in the sibling `hopper-bench` repo.
 
 
+## Lazy vs Eager Dispatch Lab (R3, 2026-07-10) — Hopper vs Hopper
+
+**This is a one-framework lab**: the same eight-instruction dispatch vault
+built twice, once with the standard eager `fast_entrypoint!` and once with
+`hopper_lazy_entrypoint!` (on-demand account parsing). It is NOT a
+cross-framework comparison. First measured run: 2026-07-10, Mollusk 0.10.3,
+whole-instruction CU, identical 8-account fixtures for every cell, debug=0
+artifacts, surprising rows confirmed by a second identical run
+(deterministic). Harness: `lazy-dispatch-bench` in the sibling
+`hopper-bench` repo.
+
+| Disc | Instruction | Touched | Eager CU | Lazy CU | Delta | Delta% |
+|---|---|---|---:|---:|---:|---:|
+| 0 | ping | 0/8 | 119 | 97 | −22 | −18.5% |
+| 1 | get_balance | 1/8 | 124 | 110 | −14 | −11.3% |
+| 2 | authorize | 2/8 | 128 | 115 | −13 | −10.2% |
+| 3 | counter | 2/8 | 195 | 200 | +5 | +2.6% |
+| 4 | deposit | 3/8 | 123 | 156 | +33 | +26.8% |
+| 5 | withdraw | 2/8 | 129 | 116 | −13 | −10.1% |
+| 6 | sweep | 8/8 | 123 | 321 | +198 | +161.0% |
+| 7 | flush | 8/8 | 124 | 322 | +198 | +159.7% |
+
+Binary size: eager 3,496 B (3.41 KiB), lazy 9,920 B (9.69 KiB) — lazy is
+2.8× larger (the 254-slot resolved-array machinery).
+
+**The honest headline is about the EAGER path.** The measured bound on
+Hopper's fused eager parse is ~2.75 CU per account (eager ping at 119 vs
+lazy ping at 97 brackets the entire 8-account parse at ~22 CU), while
+lazy's on-demand `next_account()` costs ~28 CU per touched account
+((321−97)/8) — roughly 10× the eager batch rate. Consequences, measured:
+
+- Lazy wins only on 0–2-account dispatch paths (−13 to −22 CU) and is
+  already a loss at 3 touched accounts (deposit +33). Break-even sits
+  around 2–3 touched accounts — LOWER than this lab's own pre-measurement
+  doc comment guessed, which is why we measure.
+- Touch-everything variants pay ~2.6× (sweep/flush +198 CU).
+- Verdict for users: the lazy entrypoint is a niche tool for ping-like
+  admin/probe instructions in accounts-heavy programs. For everything
+  else, Hopper's eager fused parse is already near-free — that cheapness
+  is the durable result of this lab.
+
+Lab notes: the eager baseline is `fast_entrypoint!` without the
+`simd-0321` feature (today's-cluster configuration, see above). The R3
+target's lazy build did not compile against the framework until this run
+(the lazy macro hands out substrate-layer types; the vault needed an
+explicit bridge) — the DX gap is tracked as follow-up work, and the
+harness now pins both configurations compiling and running.
+
 ## CU Budget Reference
 
 Per-account framework cost from the Mollusk net rows above: full validated
