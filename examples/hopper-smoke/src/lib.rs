@@ -27,6 +27,10 @@
 //!   state receipt as an authenticated self-CPI — the `event_cpi`
 //!   demo: indexers read it from inner-instruction metadata, which RPC
 //!   nodes never truncate, unlike the log-based event on Deposit)
+//! - `5` = BumpWholeVault (authority bumps the counter through the
+//!   WRAPPER accessor `vault.get_mut()` — the whole-account borrow the
+//!   touch map used to be blind to; its emitted map carries one
+//!   full-account write record from the instruction-ambient touch log)
 
 #![cfg_attr(target_os = "solana", no_std)]
 #![allow(dead_code, unused_variables)]
@@ -160,6 +164,23 @@ pub struct CloseVault<'info> {
     pub vault: Account<'info, Vault>,
 }
 
+/// Self-describing through the WRAPPER path: this context opts into
+/// `emit_touch_map` but its handler writes via `vault.get_mut()` — a
+/// whole-account borrow with no segment lease and no `Context` at the
+/// borrow site. The instruction-AMBIENT touch log (same reserved-heap
+/// scheme as the lamport gate store) is what makes that borrow visible:
+/// the emitted map carries one full-account `W` record. Contrast with
+/// `Withdraw` above, whose `mut(balance)` segment lease produces a
+/// field-precise 8-byte record.
+#[derive(Accounts)]
+#[accounts(emit_touch_map)]
+pub struct BumpWholeVault<'info> {
+    pub authority: Signer<'info>,
+
+    #[account(mut, has_one = authority)]
+    pub vault: Account<'info, Vault>,
+}
+
 /// The `event_cpi` context: the option auto-appends two TRAILING
 /// account slots the struct does not declare — the event-authority PDA
 /// (seeds `[b"__hopper_event_authority"]`, verified at bind on-chain
@@ -241,6 +262,16 @@ mod smoke_program {
             balance: WireU64::new(balance),
             deposit_count: WireU32::new(count),
         })
+    }
+
+    /// The wrapper-borrow demo: the SAME state change as a segment
+    /// path would make, but through `get_mut()` — and the Ok-path
+    /// touch map still describes it (one whole-account write record).
+    #[instruction(5)]
+    pub fn bump_whole_vault(ctx: Ctx<BumpWholeVault>) -> ProgramResult {
+        let mut vault = ctx.accounts.vault.get_mut()?;
+        vault.deposit_count.checked_add_assign(1)?;
+        Ok(())
     }
 }
 

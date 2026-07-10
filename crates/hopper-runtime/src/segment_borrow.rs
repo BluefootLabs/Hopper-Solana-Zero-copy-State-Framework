@@ -128,18 +128,14 @@ const fn ranges_overlap(a_off: u32, a_size: u32, b_off: u32, b_size: u32) -> boo
 pub struct SegmentBorrowRegistry {
     entries: [MaybeUninit<SegmentBorrow>; MAX_SEGMENT_BORROWS],
     len: u8,
-    /// Append-only touch log (innovation I7): unlike `entries`, which
-    /// empties as RAII leases release, this records every distinct
-    /// `(account, offset, size, kind)` the instruction ever registered,
-    /// so end-of-handler introspection can emit an instruction touch map.
-    #[cfg(feature = "touch-map")]
-    touches: [MaybeUninit<SegmentBorrow>; MAX_TOUCH_RECORDS],
-    #[cfg(feature = "touch-map")]
-    touch_len: u8,
-    /// Set when more distinct ranges were touched than the log can hold;
-    /// consumers must treat the map as partial.
-    #[cfg(feature = "touch-map")]
-    touch_overflow: bool,
+    // The touch LOG does not live here. It records every distinct
+    // `(account, offset, size, kind)` the instruction ever touched —
+    // including whole-account borrows taken straight off an
+    // `AccountView` with no `Context` (wrapper `get_mut`, raw
+    // `load_mut`) — so its storage is instruction-ambient (see
+    // [`touch_log`]), the same three-tier scheme as the lamport gate
+    // store. The registry keeps the recording/introspection API and
+    // delegates.
 }
 
 /// Capacity of the instruction touch log (`touch-map` feature).
@@ -280,6 +276,260 @@ pub fn encode_touch_map(
     (buf, pos)
 }
 
+/// Instruction-ambient touch log (`touch-map` feature).
+///
+/// The log used to live inside [`SegmentBorrowRegistry`] — which meant
+/// only `Context`-mediated borrows could record, and whole-account
+/// borrows taken straight off an `AccountView` (wrapper `get_mut`, raw
+/// `load_mut`) were a disclosed blind spot in the emitted touch map.
+/// Moving the storage to the same instruction-ambient scheme as the
+/// lamport gate store closes that: `AccountView::try_borrow_mut`
+/// records its own footprint with no `Context` in reach, so EVERY
+/// mutable data borrow — segment lease, typed load, wrapper accessor,
+/// lifecycle write — lands in the same log.
+///
+/// Storage tiers mirror `write_policy::gate_store` exactly:
+///
+/// - **SBF**: the reserved bottom of the VM heap, right after the gate
+///   store. Deployed programs cannot carry writable sections at all
+///   (the loader rejects `.bss`/`.data`), and the VM zeroes the heap
+///   on every invocation — and an all-zero [`TouchLog`] IS the valid
+///   empty log (pinned by a test), so instruction scoping is free and
+///   no init code runs. Each CPI level is its own VM with its own
+///   heap, so levels never share a log.
+/// - **Host, `test`/`thread-local-registry`**: per-thread storage, so
+///   parallel test threads never observe each other's logs.
+/// - **Host fallback** (`no_std` hosts without the feature): one
+///   process-global spinlocked log. Cross-thread sharing means
+///   concurrent instructions pollute each other's MAPS (never memory
+///   safety) — the same documented imprecision as the fallback borrow
+///   registry. [`Context::new`](crate::context::Context::new) resets
+///   the log, which keeps single-threaded hosts exact.
+#[cfg(feature = "touch-map")]
+pub(crate) mod touch_log {
+    use super::{address_fingerprint, borrow_eq, AccessKind, SegmentBorrow, MAX_TOUCH_RECORDS};
+    use crate::address::Address;
+
+    /// The ambient log: an append-only, deduplicated record array.
+    ///
+    /// INVARIANT (load-bearing on SBF): the all-zero byte pattern is a
+    /// valid, EMPTY log — `len = 0`, `overflow = 0`, entries ignored.
+    /// The SBF tier materializes this struct over zeroed VM heap with
+    /// no initialization whatsoever.
+    #[repr(C)]
+    pub(crate) struct TouchLog {
+        len: u8,
+        overflow: u8,
+        _pad: [u8; 6],
+        entries: [SegmentBorrow; MAX_TOUCH_RECORDS],
+    }
+
+    impl TouchLog {
+        pub(crate) const fn new() -> Self {
+            const ZERO: SegmentBorrow = SegmentBorrow {
+                key_fp: 0,
+                key: Address::new_from_array([0u8; 32]),
+                offset: 0,
+                size: 0,
+                kind: AccessKind::Read,
+            };
+            Self {
+                len: 0,
+                overflow: 0,
+                _pad: [0; 6],
+                entries: [ZERO; MAX_TOUCH_RECORDS],
+            }
+        }
+
+        fn record(&mut self, borrow: &SegmentBorrow) {
+            let len = self.len as usize;
+            let mut i = 0;
+            while i < len {
+                // Slots below `len` were written by this method.
+                if borrow_eq(&self.entries[i], borrow) {
+                    return;
+                }
+                i += 1;
+            }
+            if len >= MAX_TOUCH_RECORDS {
+                self.overflow = 1;
+                return;
+            }
+            self.entries[len] = *borrow;
+            self.len = (len + 1) as u8;
+        }
+
+        fn for_each<F: FnMut(&SegmentBorrow)>(&self, mut f: F) {
+            let len = self.len as usize;
+            let mut i = 0;
+            while i < len {
+                f(&self.entries[i]);
+                i += 1;
+            }
+        }
+
+        fn reset(&mut self) {
+            self.len = 0;
+            self.overflow = 0;
+        }
+    }
+
+    /// Record one touch (deduplicated by exact identity).
+    #[inline]
+    pub(crate) fn record(borrow: &SegmentBorrow) {
+        with_log(|log| log.record(borrow));
+    }
+
+    /// Record a whole-account footprint as a `(0, data_len)` entry.
+    #[inline]
+    pub(crate) fn record_account(key: &Address, data_len: u32, kind: AccessKind) {
+        let borrow = SegmentBorrow {
+            key_fp: address_fingerprint(key),
+            key: *key,
+            offset: 0,
+            size: data_len,
+            kind,
+        };
+        record(&borrow);
+    }
+
+    /// Visit every distinct recorded range, first-touch order.
+    #[inline]
+    pub(crate) fn for_each<F: FnMut(&SegmentBorrow)>(f: F) {
+        with_log(|log| log.for_each(f));
+    }
+
+    /// Number of distinct records captured.
+    #[inline]
+    pub(crate) fn len() -> usize {
+        with_log(|log| log.len as usize)
+    }
+
+    /// Whether the log overflowed [`MAX_TOUCH_RECORDS`] and is partial.
+    #[inline]
+    pub(crate) fn overflowed() -> bool {
+        with_log(|log| log.overflow != 0)
+    }
+
+    /// Clear the log — the start-of-instruction reset `Context::new`
+    /// performs. On SBF this is redundant with per-invocation heap
+    /// zeroing (kept because it is two byte-writes and makes the
+    /// contract independent of who created how many contexts); on hosts
+    /// it is what scopes the ambient log to an instruction.
+    #[inline]
+    pub(crate) fn reset() {
+        with_log(|log| log.reset());
+    }
+
+    #[cfg(target_os = "solana")]
+    mod store {
+        use super::TouchLog;
+
+        /// Byte offset of the touch log inside the VM heap region:
+        /// right after the lamport gate store (which itself sits after
+        /// the `BumpAllocator` cursor word), rounded up to 8.
+        const TOUCH_HEAP_OFFSET: usize = (crate::write_policy::SBF_GATE_HEAP_END + 7) & !7;
+
+        // The log must fit the reserved runtime scratch alongside the
+        // gate store, and start 8-aligned (SegmentBorrow leads with a
+        // u64, so TouchLog is 8-aligned).
+        const _: () = assert!(
+            TOUCH_HEAP_OFFSET + core::mem::size_of::<TouchLog>()
+                <= hopper_native::HEAP_RUNTIME_RESERVED,
+            "TouchLog exceeds HEAP_RUNTIME_RESERVED; grow the reservation in \
+             hopper-native/src/entrypoint.rs or shrink MAX_TOUCH_RECORDS"
+        );
+        const _: () = assert!((hopper_native::HEAP_START_ADDRESS + TOUCH_HEAP_OFFSET) % 8 == 0);
+
+        /// Same argument as `write_policy::gate_store::with_store`,
+        /// verbatim: single-threaded SBF, the closures never re-enter
+        /// this module, the VM maps AND ZEROES this heap range per
+        /// invocation, all-zero is a valid empty `TouchLog` (pinned by
+        /// `initial_touch_log_is_all_zero_bytes`), the address is
+        /// 8-aligned and the whole object lies inside
+        /// `HEAP_RUNTIME_RESERVED`, which the `BumpAllocator` floor
+        /// excludes and no other Hopper code touches (the gate store
+        /// ends where this offset begins, const-asserted there).
+        pub(super) fn with_log<R>(f: impl FnOnce(&mut TouchLog) -> R) -> R {
+            let ptr = (hopper_native::HEAP_START_ADDRESS + TOUCH_HEAP_OFFSET) as *mut TouchLog;
+            // SAFETY: see the doc comment above — unique access
+            // (single-threaded, non-reentrant closures), valid pointee
+            // (zeroed per invocation = valid empty log), 8-aligned,
+            // in-bounds of the reserved region (both const-asserted).
+            f(unsafe { &mut *ptr })
+        }
+    }
+
+    #[cfg(all(
+        not(target_os = "solana"),
+        any(test, feature = "thread-local-registry")
+    ))]
+    mod store {
+        use super::TouchLog;
+        use std::cell::RefCell;
+
+        // Per-thread log: this crate's unit tests get it via `test`;
+        // downstream test binaries opt in through the same
+        // `thread-local-registry` feature the borrow registry and gate
+        // store use, so parallel test threads never observe each
+        // other's touches.
+        std::thread_local! {
+            static LOG: RefCell<TouchLog> = const { RefCell::new(TouchLog::new()) };
+        }
+
+        pub(super) fn with_log<R>(f: impl FnOnce(&mut TouchLog) -> R) -> R {
+            LOG.with(|cell| f(&mut cell.borrow_mut()))
+        }
+    }
+
+    #[cfg(all(
+        not(target_os = "solana"),
+        not(any(test, feature = "thread-local-registry"))
+    ))]
+    mod store {
+        use super::TouchLog;
+        use core::cell::UnsafeCell;
+        use core::sync::atomic::{AtomicBool, Ordering};
+
+        /// Host fallback tier (`no_std` hosts without the thread-local
+        /// feature): one process-global spinlocked log — the same shape
+        /// as `write_policy::SpinlockGateStore`. Cross-thread sharing
+        /// pollutes MAPS, never memory: the lock serializes access.
+        struct SpinlockTouchLog {
+            lock: AtomicBool,
+            cell: UnsafeCell<TouchLog>,
+        }
+
+        // SAFETY: all access to `cell` goes through the `lock`
+        // acquire/release pair in `with_log`, so no two threads ever
+        // hold the interior reference at once.
+        unsafe impl Sync for SpinlockTouchLog {}
+
+        static LOG: SpinlockTouchLog = SpinlockTouchLog {
+            lock: AtomicBool::new(false),
+            cell: UnsafeCell::new(TouchLog::new()),
+        };
+
+        pub(super) fn with_log<R>(f: impl FnOnce(&mut TouchLog) -> R) -> R {
+            while LOG
+                .lock
+                .compare_exchange_weak(false, true, Ordering::Acquire, Ordering::Relaxed)
+                .is_err()
+            {
+                core::hint::spin_loop();
+            }
+            // SAFETY: the acquire CAS above grants exclusive access
+            // until the release store below; the closures passed here
+            // never re-enter this module.
+            let result = f(unsafe { &mut *LOG.cell.get() });
+            LOG.lock.store(false, Ordering::Release);
+            result
+        }
+    }
+
+    use store::with_log;
+}
+
 impl Default for SegmentBorrowRegistry {
     #[inline(always)]
     fn default() -> Self {
@@ -295,39 +545,17 @@ impl SegmentBorrowRegistry {
         Self {
             entries: [EMPTY; MAX_SEGMENT_BORROWS],
             len: 0,
-            #[cfg(feature = "touch-map")]
-            touches: [EMPTY; MAX_TOUCH_RECORDS],
-            #[cfg(feature = "touch-map")]
-            touch_len: 0,
-            #[cfg(feature = "touch-map")]
-            touch_overflow: false,
         }
     }
 
-    /// Record `borrow` in the append-only touch log, deduplicating by
-    /// exact `(key, offset, size, kind)` identity so repeated sequential
+    /// Record `borrow` in the instruction-ambient touch log (see
+    /// [`touch_log`]), deduplicating by exact
+    /// `(key, offset, size, kind)` identity so repeated sequential
     /// leases of the same range appear once.
     #[cfg(feature = "touch-map")]
     #[inline]
     fn record_touch(&mut self, borrow: &SegmentBorrow) {
-        let len = self.touch_len as usize;
-        let mut i = 0;
-        while i < len {
-            // SAFETY: `i < touch_len`, and every slot below `touch_len` was
-            // initialized by this method before `touch_len` advanced.
-            let existing = unsafe { self.touches.get_unchecked(i).assume_init_ref() };
-            if borrow_eq(existing, borrow) {
-                return;
-            }
-            i += 1;
-        }
-        if len >= MAX_TOUCH_RECORDS {
-            self.touch_overflow = true;
-            return;
-        }
-        // SAFETY: `len < MAX_TOUCH_RECORDS`, an in-bounds uninitialized slot.
-        unsafe { self.touches.get_unchecked_mut(len).write(*borrow) };
-        self.touch_len = (len + 1) as u8;
+        touch_log::record(borrow);
     }
 
     /// Record a whole-account borrow as a `(0, data_len)` entry in the
@@ -339,20 +567,14 @@ impl SegmentBorrowRegistry {
     /// mutually excludes live segment leases (segment acquires take
     /// shared account borrows; the whole-account path takes the
     /// exclusive one). Their *liveness* therefore never belongs in this
-    /// registry — only their cumulative footprint does. This closes the
-    /// I7 blind spot where the most common access path was invisible to
-    /// the touch map.
+    /// registry — only their cumulative footprint does. Since the log
+    /// moved to ambient storage, `AccountView::try_borrow_mut` records
+    /// this footprint itself; the method remains for callers that hold
+    /// a registry and want to stamp a footprint explicitly.
     #[cfg(feature = "touch-map")]
     #[inline]
     pub fn record_account_touch(&mut self, key: &Address, data_len: u32, kind: AccessKind) {
-        let borrow = SegmentBorrow {
-            key_fp: address_fingerprint(key),
-            key: *key,
-            offset: 0,
-            size: data_len,
-            kind,
-        };
-        self.record_touch(&borrow);
+        touch_log::record_account(key, data_len, kind);
     }
 
     /// Visit every distinct range this instruction has touched so far
@@ -361,29 +583,23 @@ impl SegmentBorrowRegistry {
     /// partial log.
     #[cfg(feature = "touch-map")]
     #[inline]
-    pub fn for_each_touch<F: FnMut(&SegmentBorrow)>(&self, mut f: F) {
-        let len = self.touch_len as usize;
-        let mut i = 0;
-        while i < len {
-            // SAFETY: `i < touch_len`; slots below `touch_len` are initialized.
-            f(unsafe { self.touches.get_unchecked(i).assume_init_ref() });
-            i += 1;
-        }
+    pub fn for_each_touch<F: FnMut(&SegmentBorrow)>(&self, f: F) {
+        touch_log::for_each(f);
     }
 
     /// Number of distinct touch records captured (`touch-map` feature).
     #[cfg(feature = "touch-map")]
     #[inline(always)]
-    pub const fn touch_map_len(&self) -> usize {
-        self.touch_len as usize
+    pub fn touch_map_len(&self) -> usize {
+        touch_log::len()
     }
 
     /// Whether the touch log overflowed [`MAX_TOUCH_RECORDS`] and is
     /// therefore partial (`touch-map` feature).
     #[cfg(feature = "touch-map")]
     #[inline(always)]
-    pub const fn touch_map_overflowed(&self) -> bool {
-        self.touch_overflow
+    pub fn touch_map_overflowed(&self) -> bool {
+        touch_log::overflowed()
     }
 
     /// Number of active borrows.
@@ -1385,5 +1601,122 @@ mod touch_map_tests {
         // Truncated and over-long payloads violate len == 4 + 9 * count.
         assert!(decode_touch_map_for_tests(&buf[..len - 1]).is_none());
         assert!(decode_touch_map_for_tests(&buf[..len + 9]).is_none());
+    }
+
+    /// The SBF tier materializes [`touch_log::TouchLog`] over the VM's
+    /// ZEROED heap with no initialization at all, so the all-zero byte
+    /// pattern being the valid EMPTY log is load-bearing — same pin as
+    /// `initial_gate_store_is_all_zero_bytes` for the gate store.
+    #[cfg(feature = "touch-map")]
+    #[test]
+    fn initial_touch_log_is_all_zero_bytes() {
+        let log = touch_log::TouchLog::new();
+        let bytes = unsafe {
+            // SAFETY: TouchLog is repr(C) plain data (integers, byte
+            // arrays, a field-less-payload enum with explicit
+            // discriminants); viewing its bytes is well-defined.
+            core::slice::from_raw_parts(
+                &log as *const touch_log::TouchLog as *const u8,
+                core::mem::size_of::<touch_log::TouchLog>(),
+            )
+        };
+        assert!(
+            bytes.iter().all(|&b| b == 0),
+            "an all-zero TouchLog must be the valid empty log (SBF heap-tier invariant)"
+        );
+    }
+
+    /// The gap this ambient move closes: a typed mutable load taken
+    /// straight off an `AccountView` — NO `Context` anywhere — must
+    /// land in the instruction touch log, because that is exactly what
+    /// wrapper accessors (`Account::get_mut`) do under the hood.
+    #[cfg(feature = "touch-map")]
+    #[test]
+    fn bare_account_view_load_mut_records_ambiently() {
+        use crate::layout::{write_header, HopperHeader, LayoutContract};
+        use hopper_native::{
+            AccountView as NativeAccountView, Address as NativeAddress, RuntimeAccount,
+            NOT_BORROWED,
+        };
+
+        #[repr(C)]
+        #[derive(Clone, Copy)]
+        struct Blob {
+            v: [u8; 8],
+        }
+        // SAFETY: repr(C), byte-array field — every bit pattern valid,
+        // align 1, no padding.
+        unsafe impl crate::Zeroable for Blob {}
+        // SAFETY: as above.
+        unsafe impl crate::Pod for Blob {}
+        // SAFETY: test-local layout upholding the sealed overlay contract.
+        unsafe impl crate::zerocopy::__sealed::HopperZeroCopySealed for Blob {}
+        impl crate::field_map::FieldMap for Blob {
+            const FIELDS: &'static [crate::field_map::FieldInfo] =
+                &[crate::field_map::FieldInfo::new("v", HopperHeader::SIZE, 8)];
+        }
+        impl LayoutContract for Blob {
+            const DISC: u8 = 55;
+            const VERSION: u8 = 1;
+            const LAYOUT_ID: [u8; 8] = [0x55; 8];
+            const SIZE: usize = HopperHeader::SIZE + core::mem::size_of::<Self>();
+        }
+
+        const DATA_LEN: usize = HopperHeader::SIZE + 8;
+        let mut backing = std::vec![0u8; RuntimeAccount::SIZE + DATA_LEN];
+        let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
+        // SAFETY: backing is sized for the header plus DATA_LEN bytes
+        // and outlives the view (this frame holds the Vec).
+        unsafe {
+            raw.write(RuntimeAccount {
+                borrow_state: NOT_BORROWED,
+                is_signer: 0,
+                is_writable: 1,
+                executable: 0,
+                resize_delta: 0,
+                address: NativeAddress::new_from_array([3; 32]),
+                owner: NativeAddress::new_from_array([4; 32]),
+                lamports: 1,
+                data_len: DATA_LEN as u64,
+            });
+        }
+        // SAFETY: raw points at a fully initialized RuntimeAccount.
+        let backend = unsafe { NativeAccountView::new_unchecked(raw) };
+        let account = crate::AccountView::from_backend(backend);
+        {
+            let mut data = account.try_borrow_mut().unwrap();
+            write_header(
+                &mut data,
+                <Blob as LayoutContract>::DISC,
+                <Blob as LayoutContract>::VERSION,
+                &<Blob as LayoutContract>::LAYOUT_ID,
+            )
+            .unwrap();
+        }
+
+        touch_log::reset();
+        // Raw byte borrows (the fixture write above) do NOT record —
+        // only typed mutable loads do.
+        assert_eq!(touch_log::len(), 0, "raw try_borrow_mut must not record");
+
+        drop(account.load_mut::<Blob>().unwrap());
+
+        let mut seen = std::vec::Vec::new();
+        touch_log::for_each(|t| seen.push((t.key, t.offset, t.size, t.kind)));
+        assert_eq!(
+            seen,
+            std::vec![(*account.address(), 0, DATA_LEN as u32, AccessKind::Write)],
+            "a Context-less typed load_mut must land in the ambient log"
+        );
+
+        // And a fresh Context scopes the log to a new instruction.
+        let pid = crate::address::Address::new([9u8; 32]);
+        let accounts: [crate::AccountView<'_>; 0] = [];
+        let _ctx = crate::context::Context::new(&pid, &accounts, &[]);
+        assert_eq!(
+            touch_log::len(),
+            0,
+            "Context::new must reset the ambient log"
+        );
     }
 }

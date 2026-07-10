@@ -155,9 +155,17 @@ the number is that instruction's total, not a net-of-harness primitive):
 
 | Operation | CU | Notes |
 | --- | ---: | --- |
-| `emit_receipt` total (whole instruction) | 3,534 | bind (4 accounts incl. one PDA verify) + one counter write + self-CPI + generated sink |
+| `emit_receipt` total (whole instruction) | 3,586 | bind (4 accounts incl. one PDA verify) + one counter write + self-CPI + generated sink |
 | inner sink execution alone | 279 | entrypoint + dispatch + signer check + PDA address pin |
 | top-level forgery refusal | 112 | marker instruction with an unsigned authority dies at the signer check |
+
+The total moved 3,534 → 3,586 (+52) later on 2026-07-10 when the
+instruction-ambient touch log landed: hopper-smoke enables the
+`touch-map` feature crate-wide, so this instruction's one `get_mut`
+records its write footprint (plus the per-context log reset) even
+though the context never emits a map. That +52 is the measured price of
+write-observability in a touch-map-enabled crate; programs that do not
+enable the feature pay none of it.
 
 Two structural notes, both disclosed wherever the feature is claimed:
 

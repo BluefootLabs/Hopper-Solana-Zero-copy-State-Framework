@@ -259,6 +259,81 @@ fn ok_withdraw_emits_exactly_one_touch_map_matching_the_balance_write() {
     assert_eq!(result.lamports(0), 1_000_000_000 + withdraw_amount);
 }
 
+/// The wrapper path, on-chain: `bump_whole_vault` (instruction 5)
+/// writes through `vault.get_mut()` — a whole-account borrow with no
+/// segment lease — under `#[accounts(emit_touch_map)]`. Before the
+/// instruction-ambient touch log, this exact shape was the touch map's
+/// disclosed blind spot (wrapper borrows never reached the
+/// Context-owned registry). Now the emitted map must carry exactly one
+/// record: a full-account write of the vault (slot 1, `[0..Vault::LEN)`),
+/// captured from inside `AccountView::load_mut` on the compiled SBF
+/// artifact where the log lives in the reserved VM heap.
+#[test]
+fn wrapper_get_mut_write_lands_in_the_on_chain_touch_map() {
+    let program_id = Pubkey::new_unique();
+    let Some(mut svm) = harness(&program_id) else {
+        return;
+    };
+
+    let authority = Pubkey::new_unique();
+    let vault = Pubkey::new_unique();
+
+    svm.capture_logs();
+    let result = svm.process(
+        // `[disc = 5]` — bump_whole_vault takes no args.
+        &Instruction::new_with_bytes(
+            program_id,
+            &[5u8],
+            vec![
+                AccountMeta::new_readonly(authority, true),
+                AccountMeta::new(vault, false),
+            ],
+        ),
+        &[
+            (
+                authority,
+                Account::new(1_000_000_000, 0, &Pubkey::default()),
+            ),
+            (vault, seeded_vault(&program_id, &authority)),
+        ],
+    );
+    let logs = svm.logs();
+    assert!(
+        result.succeeded(),
+        "bump_whole_vault must succeed; logs: {logs:#?}"
+    );
+
+    // The counter really bumped (the write the map describes).
+    let count_off = Vault::DEPOSIT_COUNT_ABS_OFFSET as usize;
+    let post_count = u32::from_le_bytes(
+        result.account(1).data[count_off..count_off + 4]
+            .try_into()
+            .unwrap(),
+    );
+    assert_eq!(post_count, 1, "counter bump must persist");
+
+    // Exactly one decodable map, whose single record is the
+    // whole-account write the wrapper borrow performed.
+    let maps = extract_touch_maps(&logs);
+    assert_eq!(
+        maps.len(),
+        1,
+        "the opted-in wrapper write must emit exactly one touch map; logs: {logs:#?}"
+    );
+    let (_, flags, records) = &maps[0];
+    assert_eq!(*flags, 0, "map must be complete");
+    assert_eq!(
+        *records,
+        vec![TouchMapRecord {
+            slot: 1,
+            offset: 0,
+            size: Vault::LEN as u32,
+            write: true,
+        }],
+        "a get_mut borrow must appear as one full-account write record"
+    );
+}
+
 /// Err path: the SAME handler touches the balance segment first and
 /// THEN fails (insufficient balance), so a `Drop`-based emit would have
 /// fired here — the dispatcher's Ok-only routing must emit nothing for

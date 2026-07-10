@@ -67,6 +67,13 @@ impl<'a> Context<'a> {
         accounts: &'a [AccountView<'a>],
         instruction_data: &'a [u8],
     ) -> Self {
+        // Start-of-instruction reset for the instruction-AMBIENT touch
+        // log (it lives outside this struct so `AccountView`-level
+        // borrows record with no Context in reach). On SBF this is
+        // redundant with per-invocation heap zeroing; on hosts it is
+        // what scopes the log to this instruction.
+        #[cfg(feature = "touch-map")]
+        crate::segment_borrow::touch_log::reset();
         Self {
             program_id,
             accounts,
@@ -464,17 +471,10 @@ impl<'a> Context<'a> {
         let view = self.account(index)?;
         let data_len = view.data_len() as u32;
         self.check_write_policy(index, 0, data_len)?;
-        let guard = view.load_mut::<T>()?;
-        // Whole-account borrows are governed live by the account borrow
-        // byte, not the segment registry; only their footprint is
-        // recorded (I7 blind-spot closure).
-        #[cfg(feature = "touch-map")]
-        self.segment_borrows.record_account_touch(
-            view.address(),
-            data_len,
-            crate::segment_borrow::AccessKind::Write,
-        );
-        Ok(guard)
+        // The touch-map footprint records inside `try_borrow_mut` (the
+        // choke point every mutable data borrow crosses), so this path
+        // no longer stamps it explicitly — one source of truth.
+        view.load_mut::<T>()
     }
 
     /// Cross-program load: validate ABI fingerprint without ownership check.

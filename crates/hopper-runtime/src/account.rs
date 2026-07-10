@@ -216,6 +216,13 @@ impl<'info> AccountView<'info> {
     }
 
     /// Try to obtain an exclusive (mutable) borrow of the account data.
+    ///
+    /// Touch-map note: this RAW byte surface does not stamp the touch
+    /// log — segment leases route their exclusive borrows through here
+    /// and would smear every narrow lease into a whole-account record,
+    /// destroying the map's field precision. The TYPED whole-account
+    /// surfaces ([`load_mut`](Self::load_mut) /
+    /// [`load_compact_mut`](Self::load_compact_mut)) record instead.
     #[inline(always)]
     pub fn try_borrow_mut(&self) -> Result<RefMut<'_, [u8]>, ProgramError> {
         let token = BorrowToken::mutable(self.address())?;
@@ -631,6 +638,18 @@ impl<'info> AccountView<'info> {
         if data.len() < T::required_len() {
             return ProgramError::err_data_too_small();
         }
+        // Typed whole-account write borrows stamp the instruction-
+        // AMBIENT touch log directly (no Context in reach here), which
+        // is what makes wrapper `get_mut` / raw `load_mut` visible to
+        // emitted touch maps. Footprint only — liveness stays with the
+        // account borrow byte. Reads are not recorded (validators read
+        // every account; the map's job is write containment).
+        #[cfg(feature = "touch-map")]
+        crate::segment_borrow::touch_log::record_account(
+            self.address(),
+            data.len() as u32,
+            crate::segment_borrow::AccessKind::Write,
+        );
         // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let ptr = unsafe { data.as_bytes_mut_ptr().add(T::TYPE_OFFSET) as *mut T };
         // SAFETY: Header and length validated above. `ptr` points into the borrowed bytes.
@@ -681,6 +700,13 @@ impl<'info> AccountView<'info> {
     pub fn load_compact_mut<T: crate::CompactLayout>(&self) -> Result<RefMut<'_, T>, ProgramError> {
         let mut data = self.try_borrow_mut()?;
         T::validate_compact(&data)?;
+        // Same ambient stamp as `load_mut`: typed whole-account write.
+        #[cfg(feature = "touch-map")]
+        crate::segment_borrow::touch_log::record_account(
+            self.address(),
+            data.len() as u32,
+            crate::segment_borrow::AccessKind::Write,
+        );
         // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         let ptr = unsafe {
             data.as_bytes_mut_ptr()

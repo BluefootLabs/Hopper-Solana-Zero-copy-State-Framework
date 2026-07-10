@@ -725,20 +725,31 @@ impl SpinlockGateStore {
     }
 }
 
+/// Gate nesting depth on SBF. Each CPI level runs in its own VM with
+/// its own heap, so cross-program nesting never shares this store;
+/// depth is only consumed by one handler binding multiple
+/// lamport-declared contexts simultaneously in the SAME instruction.
+/// Two concurrent binds is already exotic; a third fails loudly with
+/// [`LAMPORT_GATE_DEPTH_EXCEEDED`].
+#[cfg(target_os = "solana")]
+pub(crate) const SBF_GATE_DEPTH: usize = 2;
+
+/// End offset (exclusive) of the lamport gate store inside the reserved
+/// VM-heap scratch (`hopper_native::HEAP_RUNTIME_RESERVED`) — i.e. the
+/// first byte a LATER ambient consumer may claim. The touch log
+/// (`segment_borrow::touch_log`) starts at this offset rounded up to 8.
+/// Anyone adding a third consumer extends from THAT module's end the
+/// same way, keeping the reserved-scratch layout a single linear chain.
+#[cfg(target_os = "solana")]
+pub(crate) const SBF_GATE_HEAP_END: usize =
+    core::mem::size_of::<usize>() + core::mem::size_of::<GateStore<SBF_GATE_DEPTH>>();
+
 #[cfg(target_os = "solana")]
 mod gate_store {
-    use super::{GateInstallError, GateStore, WritePolicy};
+    use super::{GateInstallError, GateStore, WritePolicy, SBF_GATE_DEPTH};
     use crate::address::Address;
     use crate::error::ProgramError;
     use crate::ProgramResult;
-
-    /// Gate nesting depth on SBF. Each CPI level runs in its own VM with
-    /// its own heap, so cross-program nesting never shares this store;
-    /// depth is only consumed by one handler binding multiple
-    /// lamport-declared contexts simultaneously in the SAME instruction.
-    /// Two concurrent binds is already exotic; a third fails loudly with
-    /// [`super::LAMPORT_GATE_DEPTH_EXCEEDED`].
-    const SBF_GATE_DEPTH: usize = 2;
 
     /// Byte offset of the gate store inside the VM heap region: right
     /// after the [`hopper_native::BumpAllocator`] cursor word.
