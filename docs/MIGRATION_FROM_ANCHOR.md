@@ -158,6 +158,67 @@ cannot be `Option<..>` or carry its own `#[account(...)]` constraints,
 and a composite context cannot yet combine with `strict_writes`,
 `lamports(...)`, `emit_touch_map`, `event_cpi`, or `auto_lifecycle`.
 
+### Lazy migration at bind
+
+anchor-next's borsh `Migration<A, B>` design stops at a dedicated
+migration instruction. Hopper goes one step further: declare the
+previous layout version on the field, and EVERY instruction that binds
+the context becomes a migration crank — accounts upgrade as they are
+touched, no dedicated instruction, no separate rollout:
+
+```rust
+fn v1_to_v2(old: &VaultV1, new: &mut VaultV2) -> Result<(), ProgramError> {
+    new.authority = old.authority;
+    new.total = WireU64::new(old.total_u32.get() as u64); // widen
+    Ok(())                     // unset V2 fields default to zeroed bytes
+}
+
+#[derive(Accounts)]
+pub struct Touch<'info> {
+    pub authority: Signer<'info>,
+    #[account(mut, migrate(from = VaultV1, with = v1_to_v2))]
+    pub vault: Account<'info, VaultV2>,
+}
+```
+
+`bind()` probes the slot for a **fully-valid** `VaultV1` header (the
+complete disc/version/layout-id/epoch identity, never a sniff) and only
+then runs `hopper::migration::migrate_layout::<VaultV1, VaultV2, _>` —
+typed on both sides, in place, header re-stamped LAST with account
+flags preserved — before any validator runs. An already-migrated
+account skips the probe; any other header fails with the normal
+`VaultV2` validation error, unchanged. The standalone read-only
+`validate()` accepts either version without writing: its layout-header
+check for the field becomes "valid `VaultV2`, or fully-valid `VaultV1`
+whose allocation already fits `VaultV2`" — the same sets `bind()`
+accepts. A migration error fails the instruction, so the runtime rolls
+every byte back (the same transaction-abort atomicity the runtime
+migration helpers document).
+
+v1 restrictions, plainly:
+
+- `migrate(...)` requires `mut` on the same field, and is a compile
+  error combined with `init` / `init_if_needed` / `zero` / `close` /
+  `realloc` / `sweep`, on `Option<..>` fields, on `#[composite]`
+  fields, or with `from` naming the field's own layout.
+- In-place only: the new shape must already fit the existing
+  allocation. Too-small V1 accounts are refused by both `bind()` and
+  `validate()`; `realloc` in a prior instruction when V2 is wider.
+- A context carrying a migrate field is **not embeddable** as a
+  `#[composite]` inner (compile error at the embedding site): the
+  pre-step lives in that context's own `bind()`, which an outer
+  composite bind never invokes, so embedding would silently stop the
+  crank — Hopper refuses instead. Using it as the OUTER container (or
+  standalone) is fine.
+- Only the field's layout-header check is version-widened. Constraints
+  that read *through* the layout (`has_one`, custom `constraint`
+  expressions) still evaluate against the NEW shape, so standalone
+  `validate()` on a not-yet-migrated account can fail such a
+  constraint even though `bind()` (which migrates first) succeeds.
+- One `from` version per field: chains (V1→V2→V3) mean the field
+  declares only the immediately-previous version; older accounts need
+  the intermediate crank first.
+
 ## Handler
 
 ```rust

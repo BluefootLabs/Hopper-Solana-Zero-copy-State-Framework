@@ -259,6 +259,38 @@ struct AccountAttr {
     /// patterns. Implies `mut` on both the source and target.
     sweep: Option<Ident>,
 
+    /// `migrate(from = OldLayout, with = path::to::transform)`. Lazy
+    /// migration at bind: every instruction that touches this account
+    /// becomes a migration crank. `(old_type, transform_path)`.
+    ///
+    /// `bind()` first checks — on a scoped read borrow — whether the
+    /// slot still holds a **fully-valid** `OldLayout` header
+    /// (`LayoutContract::validate_header`, the complete disc / version /
+    /// layout_id / epoch identity, never a partial sniff). If it does,
+    /// `::hopper::migration::migrate_layout::<Old, New, _>` rewrites the
+    /// account in place through the typed transform BEFORE any context
+    /// validator runs, so the normal New-layout validation sees the
+    /// upgraded account. An already-current account skips the call; any
+    /// other header falls through to the normal New-layout validation
+    /// error, unchanged. `validate()` (the read-only standalone surface)
+    /// accepts EITHER version without writing: the field's layout-header
+    /// check becomes "valid New, or fully-valid Old that already fits
+    /// the New shape" — exactly the sets `bind()` accepts.
+    ///
+    /// v1 restrictions (all compile errors): requires `mut` on the same
+    /// field (a migration writes); not combinable with `init` /
+    /// `init_if_needed` / `zero` / `close` / `realloc` / `sweep`, with
+    /// `Option<..>` fields, or with `#[composite]` fields; `from` must
+    /// name a different layout than the field's own. Because the
+    /// pre-step lives in this context's own `bind()` — an outer
+    /// `#[composite]` bind runs inner *validators*, never inner bind
+    /// pre-steps — a context carrying a migrate field is NOT embeddable:
+    /// it advertises `__HOPPER_EMBEDDABLE = false`, and embedding it is
+    /// refused at compile time rather than silently skipping the
+    /// migration. Resizing is out of scope: the New shape must already
+    /// fit the existing allocation (`realloc` first when it does not).
+    migrate: Option<(Type, syn::Path)>,
+
     /// `executable`. Anchor-parity keyword. Requires the account's
     /// `executable` flag to be true - i.e. it must be a deployed BPF
     /// program. Hopper's `Program<P>` wrapper type already implies
@@ -785,6 +817,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         } else {
             validate_account_attr(&field_name, &attr)?;
             validate_optional_field(&field_name, &field_ty, &attr)?;
+            validate_migrate_field(&field_name, &field_ty, &attr)?;
             if (!attr.mut_segments.is_empty() || !attr.read_segments.is_empty())
                 && skips_layout_validation(&field_ty)
             {
@@ -983,6 +1016,11 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
     let mut bind_validation_stmts = Vec::new();
     let mut per_field_validators = Vec::new();
     let mut check_descriptions: Vec<String> = Vec::new();
+    // Lazy-migration pre-steps (`migrate(from = Old, with = path)`), one
+    // per migrate field in declaration order. Spliced into `bind()` BEFORE
+    // its validation fragment — never into `validate()` (read-only) —
+    // so the account is upgraded in place before any validator sees it.
+    let mut migration_stmts: Vec<TokenStream> = Vec::new();
 
     // Bumps captured during the PDA-derivation pass. Each entry is
     // `(field_ident, derive_expr)` where `derive_expr` evaluates to a
@@ -1406,8 +1444,40 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             // with a layout header, so the typed `load` would reject them.
             // Owner is still pinned; the zero-discriminator check itself is
             // emitted with the lifecycle preconditions below.
+            //
+            // `migrate(from = Old, ...)` fields widen the header check to
+            // EITHER version — "would bind accept this set?" semantics for
+            // the read-only `validate()` surface. Each arm is the FULL
+            // `validate_header` identity (disc / version / layout_id /
+            // epoch), never a partial sniff, and the Old arm additionally
+            // requires the allocation to already fit the New shape (the
+            // same `required_len` gate `migrate_layout` enforces during
+            // bind, since resizing is `realloc`'s job). Anything that is
+            // neither version surfaces the New layout's own validation
+            // error, unchanged.
             let load_check = if cf.attr.zero {
                 TokenStream::new()
+            } else if let Some((from_ty, _)) = &cf.attr.migrate {
+                quote! {
+                    {
+                        let __hopper_migrate_data = ctx.account(#slot)?.try_borrow()?;
+                        if let ::core::result::Result::Err(__hopper_new_err) =
+                            <#field_ty as ::hopper::__runtime::LayoutContract>::validate_header(
+                                &__hopper_migrate_data,
+                            )
+                        {
+                            if <#from_ty as ::hopper::__runtime::LayoutContract>::validate_header(
+                                &__hopper_migrate_data,
+                            )
+                            .is_err()
+                                || __hopper_migrate_data.len()
+                                    < <#field_ty as ::hopper::__runtime::LayoutContract>::required_len()
+                            {
+                                return ::core::result::Result::Err(__hopper_new_err);
+                            }
+                        }
+                    }
+                }
             } else {
                 quote! { let _ = ctx.account(#slot)?.load::<#field_ty>()?; }
             };
@@ -1419,6 +1489,23 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                 format!(
                     "accounts[{}] ({}) owner matches (layout load deferred: `zero` field is not yet initialized)",
                     idx, field_name
+                )
+            } else if let Some((from_ty, _)) = &cf.attr.migrate {
+                format!(
+                    "accounts[{}] ({}) owner matches; header is a valid {} — or a fully-valid {} \
+                     lazy-migration source whose allocation already fits {} (bind migrates it in \
+                     place before validation)",
+                    idx,
+                    field_name,
+                    type_ident(field_ty)
+                        .map(|i| i.to_string())
+                        .unwrap_or_default(),
+                    type_ident(from_ty)
+                        .map(|i| i.to_string())
+                        .unwrap_or_default(),
+                    type_ident(field_ty)
+                        .map(|i| i.to_string())
+                        .unwrap_or_default()
                 )
             } else {
                 format!(
@@ -1458,6 +1545,48 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                     idx, field_name
                 ));
             }
+        }
+
+        // -- Stage 3.5: lazy migration at bind (`migrate(from = Old, with = f)`) --
+        //
+        // Emitted into `bind()`'s pre-validation prologue (see
+        // `migration_stmts`), NOT into this field's validator: `validate()`
+        // is the read-only surface and must never write. The pre-step
+        // checks — on a scoped read borrow, released before the migrate
+        // call takes its own exclusive borrow — whether the slot still
+        // holds a fully-valid OLD-layout header, and only then runs the
+        // typed in-place `migrate_layout` (which re-verifies the Old
+        // identity under its own borrow, checks the New shape fits, and
+        // re-stamps the header LAST with flags preserved). An
+        // already-migrated account fails the Old header check and skips
+        // the call; anything else falls through to the normal New-layout
+        // validation error below. `#slot` is the composite-aware absolute
+        // slot (`__HOPPER_BASE + local_offset`), the same expression the
+        // validators use, so a migrate leaf inside a composite CONTAINER
+        // cranks at its flattened offset. (A migrate context can never be
+        // the EMBEDDED side: it advertises `__HOPPER_EMBEDDABLE = false`,
+        // because an outer bind runs inner validators, not inner bind
+        // pre-steps.)
+        if let Some((from_ty, with_path)) = &cf.attr.migrate {
+            let field_ty = layout_ty.as_ref().unwrap_or(&cf.ty);
+            migration_stmts.push(quote! {
+                {
+                    let __hopper_migrate_view = ctx.account(#slot)?;
+                    let __hopper_migrate_is_old = {
+                        let __hopper_migrate_data = __hopper_migrate_view.try_borrow()?;
+                        <#from_ty as ::hopper::__runtime::LayoutContract>::validate_header(
+                            &__hopper_migrate_data,
+                        )
+                        .is_ok()
+                    };
+                    if __hopper_migrate_is_old {
+                        ::hopper::migration::migrate_layout::<#from_ty, #field_ty, _>(
+                            __hopper_migrate_view,
+                            #with_path,
+                        )?;
+                    }
+                }
+            });
         }
 
         // -- Stage 4a: typed-seeds sugar (`seeds_fn = Type::seeds(...)`) --
@@ -4046,10 +4175,13 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
     // args (they can't be threaded through the outer's bind), no
     // `strict_writes` / `lamports(...)` / `emit_touch_map` / `event_cpi`
     // (their static write-set / synthetic slots key on absolute indices),
-    // no lifecycle or Metaplex-CPI helpers (they mutate account state and
-    // are not yet offset-safe), and — because nesting is single-level in
-    // v1 — no `#[composite]` field of its own. Others assert this const
-    // before embedding, so a non-embeddable inner is a clean compile error.
+    // no lifecycle / lazy-migration / Metaplex-CPI helpers (they mutate
+    // account state and are not yet offset-safe — and a `migrate(...)`
+    // pre-step only runs in its own context's `bind()`, which an outer
+    // composite bind never invokes, so embedding one would silently stop
+    // the crank), and — because nesting is single-level in v1 — no
+    // `#[composite]` field of its own. Others assert this const before
+    // embedding, so a non-embeddable inner is a clean compile error.
     let has_lifecycle = ctx_fields.iter().any(|cf| {
         cf.attr.init
             || cf.attr.init_if_needed
@@ -4057,6 +4189,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             || cf.attr.close.is_some()
             || cf.attr.realloc.is_some()
             || cf.attr.sweep.is_some()
+            || cf.attr.migrate.is_some()
             || metadata_cpi_helper_declared(&cf.attr)
             || master_edition_cpi_helper_declared(&cf.attr)
     });
@@ -4113,8 +4246,9 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
              `#[composite]` inner context must be a plain validation context — no \
              `#[instruction(...)]` args, no `strict_writes` / `lamports(...)` / `emit_touch_map` \
              / `event_cpi` options, no `init` / `init_if_needed` / `zero` / `close` / `realloc` \
-             / `sweep` (or Metaplex-CPI) lifecycle, and no nested `#[composite]` field of its \
-             own. Flatten it into the outer context, or split it into a separate instruction.",
+             / `sweep` / `migrate` (or Metaplex-CPI) lifecycle, and no nested `#[composite]` \
+             field of its own. Flatten it into the outer context, or split it into a separate \
+             instruction.",
             field_name, inner_str
         );
         composite_embeddable_asserts.push(quote! {
@@ -4132,8 +4266,10 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
     // inside another is rejected via `__HOPPER_EMBEDDABLE`.
     // `bumps_gather_stmts` is interpolated twice in the embeddable arm
     // (`bind_at` and `__hopper_gather_bumps_at`); quote consumes a `Vec`
-    // repetition, so clone one copy for the second site.
+    // repetition, so clone one copy for the second site. Same for the
+    // lazy-migration pre-steps, spliced into whichever bind arm is built.
     let bumps_gather_stmts_hook = bumps_gather_stmts.clone();
+    let migration_stmts_at = migration_stmts.clone();
     // Only EMBEDDABLE contexts get the base-parametric `_at` surface and the
     // embed hooks. A non-embeddable context — a composite container, or one
     // that opted into args / strict_writes / event_cpi / lifecycle — stays
@@ -4191,6 +4327,12 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                 #bound_name<'ctx, 'a, __HOPPER_BASE>,
                 ::hopper::__runtime::ProgramError,
             > {
+                // Lazy-migration pre-steps run BEFORE the validation
+                // fragment so validators see the upgraded account. Empty
+                // by construction today (a migrate field forces the
+                // non-embeddable arm); spliced here so "bind migrates
+                // before validating" holds structurally in every arm.
+                #(#migration_stmts_at)*
                 #bind_validation_body
                 #write_policy_install_stmt
                 let mut __hopper_bumps = <#bumps_name as ::core::default::Default>::default();
@@ -4284,6 +4426,14 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                 #top_arg_param_fragment
             ) -> ::core::result::Result<#bound_name<'ctx, 'a>, ::hopper::__runtime::ProgramError> {
                 const __HOPPER_BASE: usize = 0;
+                // Lazy-migration pre-steps (`migrate(from = Old, with = f)`)
+                // fire BEFORE the validation fragment: a slot still holding
+                // a fully-valid OLD-layout header is migrated in place, so
+                // the New-layout validators below see the upgraded account.
+                // A migration error propagates as the instruction error
+                // (the runtime then rolls the transaction back), matching
+                // `migrate_layout`'s atomicity contract.
+                #(#migration_stmts)*
                 #bind_validate_fragment
                 #write_policy_install_stmt
                 let mut __hopper_bumps = <#bumps_name as ::core::default::Default>::default();
@@ -5243,6 +5393,70 @@ fn parse_account_attr(attrs: &[Attribute]) -> Result<AccountAttr> {
                     result.is_mut = true;
                     Ok(())
                 }
+                "migrate" => {
+                    // `migrate(from = OldLayout, with = path::to::transform)`.
+                    // Both keys are mandatory; every malformed spelling names
+                    // the expected shape so the fix is copy-pasteable.
+                    const MIGRATE_SHAPE: &str =
+                        "expected `migrate(from = OldLayout, with = path::to::transform)`";
+                    if result.migrate.is_some() {
+                        return Err(meta.error("`migrate(...)` may only be set once per field"));
+                    }
+                    if !meta.input.peek(syn::token::Paren) {
+                        return Err(meta.error(format!(
+                            "malformed `migrate` attribute: {MIGRATE_SHAPE}"
+                        )));
+                    }
+                    let content;
+                    syn::parenthesized!(content in meta.input);
+                    let mut from_ty: Option<Type> = None;
+                    let mut with_path: Option<syn::Path> = None;
+                    while !content.is_empty() {
+                        let key: Ident = content.parse()?;
+                        let _: Token![=] = content.parse()?;
+                        match key.to_string().as_str() {
+                            "from" => {
+                                if from_ty.is_some() {
+                                    return Err(syn::Error::new_spanned(
+                                        key,
+                                        format!("`migrate(...)` sets `from` twice: {MIGRATE_SHAPE}"),
+                                    ));
+                                }
+                                from_ty = Some(content.parse()?);
+                            }
+                            "with" => {
+                                if with_path.is_some() {
+                                    return Err(syn::Error::new_spanned(
+                                        key,
+                                        format!("`migrate(...)` sets `with` twice: {MIGRATE_SHAPE}"),
+                                    ));
+                                }
+                                with_path = Some(content.parse()?);
+                            }
+                            other => {
+                                return Err(syn::Error::new_spanned(
+                                    key,
+                                    format!("unknown `migrate` key `{other}`: {MIGRATE_SHAPE}"),
+                                ));
+                            }
+                        }
+                        if content.peek(Token![,]) {
+                            let _: Token![,] = content.parse()?;
+                        }
+                    }
+                    let Some(from_ty) = from_ty else {
+                        return Err(meta.error(format!(
+                            "`migrate(...)` is missing `from = OldLayout`: {MIGRATE_SHAPE}"
+                        )));
+                    };
+                    let Some(with_path) = with_path else {
+                        return Err(meta.error(format!(
+                            "`migrate(...)` is missing `with = path::to::transform`: {MIGRATE_SHAPE}"
+                        )));
+                    };
+                    result.migrate = Some((from_ty, with_path));
+                    Ok(())
+                }
                 "owner" => {
                     let expr: Expr = meta.value()?.parse()?;
                     result.owner = Some(expr);
@@ -5912,6 +6126,121 @@ fn validate_optional_field(field_name: &Ident, ty: &Type, attr: &AccountAttr) ->
                 "`mut(...)`/`read(...)` segment lists are not supported on the optional \
                  account `{field_name}`; use whole-account `mut` and access the layout \
                  through the bound `Option` field."
+            ),
+        ));
+    }
+    Ok(())
+}
+
+/// Expansion-time legality of `migrate(from = ..., with = ...)` fields
+/// (lazy migration at bind).
+///
+/// A migration is a bind-time WRITE that rewrites an existing account of
+/// the old layout into the field's (new) layout, so it composes only
+/// with fields that (a) are writable, (b) unconditionally present, and
+/// (c) carry a Hopper layout to migrate INTO. Every violation is a
+/// compile error with the fix spelled out; none degrade to a runtime
+/// surprise.
+fn validate_migrate_field(field_name: &Ident, ty: &Type, attr: &AccountAttr) -> Result<()> {
+    let Some((from_ty, _)) = &attr.migrate else {
+        return Ok(());
+    };
+    // Optional accounts: an absent slot has nothing to migrate, and the
+    // pre-step (like every lifecycle write) assumes unconditional
+    // presence. Same restriction class as init/close/realloc.
+    if option_inner_type(ty).is_some() {
+        return Err(syn::Error::new_spanned(
+            field_name,
+            format!(
+                "`migrate(...)` cannot target the optional account `{field_name}`: an absent \
+                 slot has nothing to migrate. Make the field required."
+            ),
+        ));
+    }
+    // Lifecycle combos: those attrs create/resize/drain/zero-check the
+    // slot, while a migration rewrites an EXISTING account of the OLD
+    // layout — the two contracts are mutually exclusive on one field.
+    let lifecycle = [
+        (attr.init, "init"),
+        (attr.init_if_needed, "init_if_needed"),
+        (attr.zero, "zero"),
+        (attr.close.is_some(), "close"),
+        (attr.realloc.is_some(), "realloc"),
+        (attr.sweep.is_some(), "sweep"),
+    ];
+    if let Some((_, kw)) = lifecycle.iter().find(|(on, _)| *on) {
+        return Err(syn::Error::new_spanned(
+            field_name,
+            format!(
+                "`migrate(...)` cannot be combined with `{kw}` on `{field_name}`: lifecycle \
+                 attributes create/resize/drain the slot, while a lazy migration rewrites an \
+                 EXISTING account of the old layout. Declare the migration on a plain \
+                 `#[account(mut, migrate(...))]` field."
+            ),
+        ));
+    }
+    // Resolve the layout the field migrates INTO. `InitAccount` is the
+    // type-directed `init` spelling (rejected for the same reason as the
+    // attr); every other wrapper carries no migratable Hopper layout.
+    let layout_ty: Type = match classify_wrapper(ty) {
+        Some(WrapperKind::Account { inner }) => inner,
+        Some(WrapperKind::InitAccount { .. }) => {
+            return Err(syn::Error::new_spanned(
+                field_name,
+                format!(
+                    "`migrate(...)` cannot target `InitAccount<..>` `{field_name}`: a \
+                     freshly-created account starts at the new layout and has nothing to \
+                     migrate. Use `Account<'info, NewLayout>`."
+                ),
+            ));
+        }
+        Some(_) => {
+            return Err(syn::Error::new_spanned(
+                field_name,
+                format!(
+                    "`migrate(...)` on `{field_name}` requires a Hopper layout field: declare \
+                     the field as `Account<'info, NewLayout>` or as a plain `#[hopper::state]` \
+                     layout type."
+                ),
+            ));
+        }
+        None => {
+            if skips_layout_validation(ty) {
+                return Err(syn::Error::new_spanned(
+                    field_name,
+                    format!(
+                        "`migrate(...)` on `{field_name}` requires a Hopper layout field: \
+                         declare the field as `Account<'info, NewLayout>` or as a plain \
+                         `#[hopper::state]` layout type."
+                    ),
+                ));
+            }
+            ty.clone()
+        }
+    };
+    // Writability: the migration rewrites the account bytes at bind.
+    // Required explicitly (never implied) so the context's declared
+    // write set stays an honest description of what bind may touch.
+    if !attr.is_mut {
+        return Err(syn::Error::new_spanned(
+            field_name,
+            format!(
+                "`migrate(...)` requires `mut` on `{field_name}`: a lazy migration rewrites \
+                 the account bytes at bind. Add `mut` to the same `#[account(...)]` list."
+            ),
+        ));
+    }
+    // Same-spelling source/target is the compile-catchable form of a
+    // non-forward migration (the runtime's `New::VERSION > Old::VERSION`
+    // guard would refuse it on every bind at runtime; differently-spelled
+    // paths to the same type still fall through to that guard).
+    if quote!(#from_ty).to_string() == quote!(#layout_ty).to_string() {
+        return Err(syn::Error::new_spanned(
+            field_name,
+            format!(
+                "`migrate(from = ...)` on `{field_name}`: migration source must be a different \
+                 layout version — `from` names the OLD layout, the field's type is the NEW one \
+                 (e.g. `migrate(from = VaultV1, with = ...)` on `Account<'info, VaultV2>`)."
             ),
         ));
     }
@@ -7670,6 +7999,421 @@ mod instruction_arg_tests {
         assert!(
             s.contains("optional : false"),
             "required fields keep optional: false: {s}"
+        );
+    }
+}
+
+// ── Lazy migration at bind (`migrate(from = Old, with = path)`) ────────
+//
+// Expansion-level pins for the typed cross-version migration crank: the
+// parsed attribute emits the bind pre-step (and ONLY into bind — the
+// read-only `validate()` never writes), `validate()`'s layout-header
+// check lowers to the either-version form, and every illegal spelling /
+// combination is a compile error with an actionable message.
+#[cfg(test)]
+mod migrate_attr_tests {
+    use super::*;
+
+    /// Slice the expanded output down to one generated fn's body: from
+    /// `fn <name>` to the next `fn ` occurrence (same helper shape as the
+    /// optional-accounts tests above).
+    fn fn_window<'a>(s: &'a str, fn_name: &str) -> &'a str {
+        let needle = format!("fn {fn_name}");
+        let start = s
+            .find(&needle)
+            .unwrap_or_else(|| panic!("missing `{needle}` in: {s}"));
+        let tail = &s[start + needle.len()..];
+        let end = tail.find("fn ").unwrap_or(tail.len());
+        &s[start..start + needle.len() + end]
+    }
+
+    /// The canonical migrating context used across these tests.
+    fn touch_item() -> TokenStream {
+        quote! {
+            pub struct Touch<'info> {
+                pub authority: Signer<'info>,
+
+                #[account(mut, migrate(from = VaultV1, with = crate::migrations::v1_to_v2))]
+                pub vault: Account<'info, VaultV2>,
+            }
+        }
+    }
+
+    /// `bind()` gains the pre-step — old-header probe on a scoped read
+    /// borrow, then the typed in-place `migrate_layout` — spliced BEFORE
+    /// the validation fragment, so validators see the upgraded account.
+    /// `validate()` and the per-field validators never contain the
+    /// migrate call: the read-only surface never writes.
+    #[test]
+    fn migrate_emits_the_bind_pre_step_before_validation() {
+        let s = expand(TokenStream::new(), touch_item())
+            .expect("expand ok")
+            .to_string();
+
+        let w = fn_window(&s, "bind");
+        let migrate_at = w
+            .find("migrate_layout :: < VaultV1 , VaultV2 , _ >")
+            .unwrap_or_else(|| {
+                panic!("bind must call the typed in-place migrate for (Old, New): {w}")
+            });
+        let validate_at = w
+            .find("Self :: validate (ctx) ?")
+            .unwrap_or_else(|| panic!("bind must still delegate to validate(): {w}"));
+        assert!(
+            migrate_at < validate_at,
+            "the migration pre-step must run BEFORE bind's validation fragment: {w}"
+        );
+        // The probe is the FULL Old identity on a read borrow that is
+        // scoped (inner block) so it drops before migrate_layout takes
+        // its own exclusive borrow.
+        assert!(
+            w.contains("try_borrow ()"),
+            "the old-header probe must use a read borrow: {w}"
+        );
+        assert!(
+            w.contains(
+                "< VaultV1 as :: hopper :: __runtime :: LayoutContract > :: validate_header"
+            ),
+            "the probe must be the FULL Old validate_header, never a partial sniff: {w}"
+        );
+        // Exactly one migrate call in the whole expansion: bind's
+        // pre-step. Neither validate() nor any per-field validator may
+        // carry it (they are the read-only surface).
+        assert_eq!(
+            s.matches("migrate_layout").count(),
+            1,
+            "migrate_layout must appear exactly once (bind's pre-step): {s}"
+        );
+        assert!(
+            !fn_window(&s, "validate (").contains("migrate_layout"),
+            "validate() must never write: {s}"
+        );
+    }
+
+    /// `validate()`'s layout-header check for the migrate field lowers to
+    /// the either-version form: valid New, or fully-valid Old that
+    /// already fits the New shape ("would bind accept this set?"). Both
+    /// arms are the complete `validate_header`; the plain `load::<New>`
+    /// is replaced; the owner pin stays; anything that is neither
+    /// version surfaces the New layout's own error.
+    #[test]
+    fn migrate_validate_lowers_the_either_version_header_check() {
+        let s = expand(TokenStream::new(), touch_item())
+            .expect("expand ok")
+            .to_string();
+
+        let w = fn_window(&s, "validate_vault");
+        assert!(
+            w.contains(
+                "< VaultV2 as :: hopper :: __runtime :: LayoutContract > :: validate_header"
+            ),
+            "the New arm must be the full validate_header: {w}"
+        );
+        assert!(
+            w.contains(
+                "< VaultV1 as :: hopper :: __runtime :: LayoutContract > :: validate_header"
+            ),
+            "the Old arm must be the full validate_header: {w}"
+        );
+        assert!(
+            w.contains("< VaultV2 as :: hopper :: __runtime :: LayoutContract > :: required_len"),
+            "the Old arm must also require the allocation to fit the New shape: {w}"
+        );
+        assert!(
+            w.contains("Err (__hopper_new_err)"),
+            "neither-version accounts must surface the New layout's own error, unchanged: {w}"
+        );
+        assert!(
+            !w.contains("load :: < VaultV2 >"),
+            "the plain New-only load must be replaced by the either-version check: {w}"
+        );
+        assert!(
+            w.contains("check_owned_by"),
+            "the owner pin is unchanged for migrate fields: {w}"
+        );
+        // The published check description documents the crank honestly.
+        assert!(
+            s.contains("lazy-migration source"),
+            "VALIDATION_CHECKS must document the either-version acceptance: {s}"
+        );
+    }
+
+    /// Both attribute forms — `#[hopper::context]` and
+    /// `#[derive(Accounts)]` — share the expansion path, so both emit the
+    /// pre-step and the either-version lowering.
+    #[test]
+    fn migrate_expands_in_both_attribute_forms() {
+        let attr_form = expand(TokenStream::new(), touch_item())
+            .expect("attr expand ok")
+            .to_string();
+        let derive_form = expand_for_derive(touch_item())
+            .expect("derive expand ok")
+            .to_string();
+        for s in [&attr_form, &derive_form] {
+            assert!(
+                s.contains("migrate_layout :: < VaultV1 , VaultV2 , _ >"),
+                "both forms must emit the bind pre-step: {s}"
+            );
+            assert!(
+                s.contains(
+                    "< VaultV1 as :: hopper :: __runtime :: LayoutContract > :: validate_header"
+                ),
+                "both forms must emit the either-version validate lowering: {s}"
+            );
+        }
+    }
+
+    /// A migrate context is NOT embeddable: the pre-step only runs in its
+    /// own `bind()`, which an outer `#[composite]` bind never invokes, so
+    /// embedding is refused at compile time (via the existing
+    /// `__HOPPER_EMBEDDABLE` assertion) instead of silently skipping the
+    /// crank.
+    #[test]
+    fn migrate_context_advertises_not_embeddable() {
+        let s = expand(TokenStream::new(), touch_item())
+            .expect("expand ok")
+            .to_string();
+        assert!(
+            s.contains("__HOPPER_EMBEDDABLE : bool = false"),
+            "a migrate context must refuse composite embedding: {s}"
+        );
+    }
+
+    /// A migrate LEAF inside a composite CONTAINER is legal and cranks at
+    /// its composite-aware flattened slot (`__HOPPER_BASE + const-sum`),
+    /// the same expression the validators use.
+    #[test]
+    fn migrate_leaf_in_a_composite_container_uses_the_flattened_slot() {
+        let item: TokenStream = quote! {
+            pub struct Operate<'info> {
+                pub payer: Signer<'info>,
+
+                #[composite]
+                pub check: VaultCheck<'info>,
+
+                #[account(mut, migrate(from = VaultV1, with = crate::migrations::v1_to_v2))]
+                pub vault: Account<'info, VaultV2>,
+            }
+        };
+        let s = expand(TokenStream::new(), item)
+            .expect("expand ok")
+            .to_string();
+        let w = fn_window(&s, "bind");
+        assert!(
+            w.contains("migrate_layout :: < VaultV1 , VaultV2 , _ >"),
+            "the container's bind must carry the leaf's pre-step: {w}"
+        );
+        assert!(
+            w.contains("account (__HOPPER_BASE + 1usize + VaultCheck :: ACCOUNT_COUNT)"),
+            "the pre-step must address the composite-aware flattened slot: {w}"
+        );
+    }
+
+    // ── Compile-error paths (every one actionable) ──────────────────────
+
+    /// `migrate(...)` without `mut` on the same field is rejected: a
+    /// migration writes.
+    #[test]
+    fn migrate_without_mut_is_rejected() {
+        let item: TokenStream = quote! {
+            pub struct Touch<'info> {
+                #[account(migrate(from = VaultV1, with = crate::migrations::v1_to_v2))]
+                pub vault: Account<'info, VaultV2>,
+            }
+        };
+        let err = expand(TokenStream::new(), item).expect_err("migrate requires mut");
+        let msg = err.to_string();
+        assert!(msg.contains("requires `mut`"), "got: {msg}");
+        assert!(msg.contains("rewrites the account bytes"), "got: {msg}");
+    }
+
+    /// Every lifecycle keyword is mutually exclusive with `migrate(...)`
+    /// on one field: lifecycle attrs create/resize/drain the slot, a
+    /// migration rewrites an existing old-layout account.
+    #[test]
+    fn migrate_lifecycle_combos_are_rejected() {
+        let cases: [(TokenStream, &str); 6] = [
+            (
+                quote! { #[account(init, payer = payer, space = VaultV2::LEN, migrate(from = VaultV1, with = m))] },
+                "init",
+            ),
+            (
+                quote! { #[account(init_if_needed, payer = payer, space = VaultV2::LEN, migrate(from = VaultV1, with = m))] },
+                "init_if_needed",
+            ),
+            (
+                quote! { #[account(mut, zero, migrate(from = VaultV1, with = m))] },
+                "zero",
+            ),
+            (
+                quote! { #[account(mut, close = payer, migrate(from = VaultV1, with = m))] },
+                "close",
+            ),
+            (
+                quote! { #[account(mut, realloc = VaultV2::LEN, realloc_payer = payer, realloc_zero = true, migrate(from = VaultV1, with = m))] },
+                "realloc",
+            ),
+            (
+                quote! { #[account(mut, sweep = payer, migrate(from = VaultV1, with = m))] },
+                "sweep",
+            ),
+        ];
+        for (account_attr, kw) in cases {
+            let item: TokenStream = quote! {
+                pub struct Touch<'info> {
+                    #[account(mut)]
+                    pub payer: Signer<'info>,
+
+                    #account_attr
+                    pub vault: Account<'info, VaultV2>,
+
+                    pub system_program: Program<'info, System>,
+                }
+            };
+            let err = expand(TokenStream::new(), item)
+                .expect_err(&format!("`{kw}` + migrate must be rejected"));
+            let msg = err.to_string();
+            assert!(
+                msg.contains(&format!("cannot be combined with `{kw}`")),
+                "{kw}: got {msg}"
+            );
+        }
+    }
+
+    /// `Option<..>` fields cannot migrate: an absent slot has nothing to
+    /// rewrite.
+    #[test]
+    fn migrate_on_an_optional_field_is_rejected() {
+        let item: TokenStream = quote! {
+            pub struct Touch<'info> {
+                #[account(mut, migrate(from = VaultV1, with = crate::migrations::v1_to_v2))]
+                pub vault: Option<Account<'info, VaultV2>>,
+            }
+        };
+        let err = expand(TokenStream::new(), item).expect_err("optional migrate must be rejected");
+        let msg = err.to_string();
+        assert!(
+            msg.contains("cannot target the optional account"),
+            "got: {msg}"
+        );
+    }
+
+    /// A `#[composite]` field is a nested context, not an account slot:
+    /// it cannot carry `migrate(...)` (or any `#[account(...)]`
+    /// constraint) — the existing composite guard fires.
+    #[test]
+    fn migrate_on_a_composite_field_is_rejected() {
+        let item: TokenStream = quote! {
+            pub struct Touch<'info> {
+                #[composite]
+                #[account(mut, migrate(from = VaultV1, with = crate::migrations::v1_to_v2))]
+                pub check: VaultCheck<'info>,
+            }
+        };
+        let err = expand(TokenStream::new(), item).expect_err("composite migrate must be rejected");
+        let msg = err.to_string();
+        assert!(msg.contains("cannot carry `#[account(...)]`"), "got: {msg}");
+    }
+
+    /// `InitAccount<..>` is the type-directed `init` spelling and is
+    /// rejected like the attribute form.
+    #[test]
+    fn migrate_on_an_init_account_wrapper_is_rejected() {
+        let item: TokenStream = quote! {
+            pub struct Touch<'info> {
+                #[account(mut, migrate(from = VaultV1, with = crate::migrations::v1_to_v2))]
+                pub vault: InitAccount<'info, VaultV2>,
+            }
+        };
+        let err =
+            expand(TokenStream::new(), item).expect_err("InitAccount migrate must be rejected");
+        let msg = err.to_string();
+        assert!(
+            msg.contains("cannot target `InitAccount<..>`"),
+            "got: {msg}"
+        );
+    }
+
+    /// Migration needs a Hopper layout to migrate INTO: role wrappers and
+    /// raw views are rejected with the `Account<'info, NewLayout>` hint.
+    #[test]
+    fn migrate_on_a_non_layout_field_is_rejected() {
+        for field_ty in [quote! { Signer<'info> }, quote! { AccountView }] {
+            let item: TokenStream = quote! {
+                pub struct Touch<'info> {
+                    #[account(mut, migrate(from = VaultV1, with = crate::migrations::v1_to_v2))]
+                    pub vault: #field_ty,
+                }
+            };
+            let err =
+                expand(TokenStream::new(), item).expect_err("non-layout migrate must be rejected");
+            let msg = err.to_string();
+            assert!(msg.contains("requires a Hopper layout field"), "got: {msg}");
+        }
+    }
+
+    /// `from` naming the field's own layout is the compile-catchable form
+    /// of a non-forward migration.
+    #[test]
+    fn migrate_from_the_same_layout_is_rejected() {
+        let item: TokenStream = quote! {
+            pub struct Touch<'info> {
+                #[account(mut, migrate(from = VaultV2, with = crate::migrations::v1_to_v2))]
+                pub vault: Account<'info, VaultV2>,
+            }
+        };
+        let err = expand(TokenStream::new(), item).expect_err("same-type migrate must be rejected");
+        let msg = err.to_string();
+        assert!(
+            msg.contains("migration source must be a different layout version"),
+            "got: {msg}"
+        );
+    }
+
+    /// Every malformed spelling names the expected shape so the fix is
+    /// copy-pasteable.
+    #[test]
+    fn migrate_malformed_spellings_are_rejected_naming_the_shape() {
+        let cases: [TokenStream; 5] = [
+            // Missing `with`.
+            quote! { #[account(mut, migrate(from = VaultV1))] },
+            // Missing `from`.
+            quote! { #[account(mut, migrate(with = crate::migrations::v1_to_v2))] },
+            // Empty list.
+            quote! { #[account(mut, migrate())] },
+            // Bare word.
+            quote! { #[account(mut, migrate)] },
+            // Unknown key.
+            quote! { #[account(mut, migrate(source = VaultV1, with = m))] },
+        ];
+        for account_attr in cases {
+            let item: TokenStream = quote! {
+                pub struct Touch<'info> {
+                    #account_attr
+                    pub vault: Account<'info, VaultV2>,
+                }
+            };
+            let err = expand(TokenStream::new(), item)
+                .expect_err("malformed migrate spelling must be rejected");
+            let msg = err.to_string();
+            assert!(
+                msg.contains("migrate(from = OldLayout, with = path::to::transform)"),
+                "the error must name the expected shape, got: {msg}"
+            );
+        }
+        // `migrate = path` (name-value instead of a list) is also refused.
+        let item: TokenStream = quote! {
+            pub struct Touch<'info> {
+                #[account(mut, migrate = v1_to_v2)]
+                pub vault: Account<'info, VaultV2>,
+            }
+        };
+        let err =
+            expand(TokenStream::new(), item).expect_err("name-value migrate must be rejected");
+        assert!(
+            err.to_string()
+                .contains("migrate(from = OldLayout, with = path::to::transform)"),
+            "got: {err}"
         );
     }
 }
