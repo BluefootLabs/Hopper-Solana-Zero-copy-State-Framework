@@ -39,8 +39,7 @@ const TOKEN_2022_PROGRAM_ID: Pubkey =
 /// Decode an SPL token account's `amount` (a `u64` LE at byte offset 64) when
 /// `account` is owned by a token program and long enough to carry the field.
 fn token_amount(account: &Account) -> Option<u64> {
-    let is_token =
-        account.owner == TOKEN_PROGRAM_ID || account.owner == TOKEN_2022_PROGRAM_ID;
+    let is_token = account.owner == TOKEN_PROGRAM_ID || account.owner == TOKEN_2022_PROGRAM_ID;
     if !is_token || account.data.len() < 72 {
         return None;
     }
@@ -189,11 +188,7 @@ impl Trace {
                     );
                 }
                 None => {
-                    let _ = writeln!(
-                        s,
-                        "      \"ownerChanged\": {}",
-                        a.pre_owner != a.post_owner
-                    );
+                    let _ = writeln!(s, "      \"ownerChanged\": {}", a.pre_owner != a.post_owner);
                 }
             }
             let _ = writeln!(s, "    }}{}", comma);
