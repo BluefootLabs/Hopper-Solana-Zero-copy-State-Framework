@@ -703,6 +703,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         reject_reference_wrapped_account(&field_name, &field_ty)?;
         let attr = parse_account_attr(&field.attrs)?;
         validate_account_attr(&field_name, &attr)?;
+        validate_optional_field(&field_name, &field_ty, &attr)?;
         if (!attr.mut_segments.is_empty() || !attr.read_segments.is_empty())
             && skips_layout_validation(&field_ty)
         {
@@ -750,6 +751,9 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         let field_name = &cf.name;
         let validate_fn = format_ident!("validate_{}", field_name);
         let mut field_checks = Vec::new();
+        // Where this field's check descriptions begin, so the optional
+        // gate below can prepend its own entry after the fact.
+        let desc_start = check_descriptions.len();
 
         // ── Audit page 12: deterministic validation ordering ──────────
         //
@@ -771,7 +775,23 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         // wrapper-specific checks first. Attribute-based constraints
         // layer on top of the wrapper-derived defaults. both paths
         // compose, neither overrides.
-        let wrapper = classify_wrapper(&cf.ty);
+        //
+        // ── Optional accounts (Anchor ≥ 0.26 parity) ───────────────────
+        //
+        // An `Option<W>` field follows Anchor's optional-account calling
+        // convention: an ABSENT account is passed as the executing
+        // program's own id in that slot. Classification and check
+        // emission below run against the INNER type `W`, and the wrap
+        // just before validator assembly gates every accumulated check
+        // for the field behind one `slot address != program id` compare.
+        // `validate_optional_field` already rejected illegal shapes
+        // (nested `Option`, lifecycle targets, segment lists,
+        // non-wrapper inners), so `effective_ty` is a plain wrapper or
+        // `AccountView` here.
+        let option_inner = option_inner_type(&cf.ty);
+        let is_optional = option_inner.is_some();
+        let effective_ty: &Type = option_inner.unwrap_or(&cf.ty);
+        let wrapper = classify_wrapper(effective_ty);
         let wrapper_is_signer = matches!(wrapper, Some(WrapperKind::Signer));
         let wrapper_is_init = matches!(wrapper, Some(WrapperKind::InitAccount { .. }));
         // The has_layout / layout_ty computation below resolves
@@ -780,7 +800,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         if let Some(WrapperKind::Program) = &wrapper {
             // Program<'info, P>. require address == P::ID + executable.
             // P is the last type arg of the path.
-            if let Type::Path(TypePath { path, .. }) = &cf.ty {
+            if let Type::Path(TypePath { path, .. }) = effective_ty {
                 if let Some(segment) = path.segments.last() {
                     if let syn::PathArguments::AngleBracketed(args) = &segment.arguments {
                         if let Some(program_ty) = args.args.iter().find_map(|arg| {
@@ -977,9 +997,16 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             | Some(WrapperKind::ExternalAccount { .. })
             | Some(WrapperKind::UncheckedAccount)
             | Some(WrapperKind::SystemAccount) => (false, None),
+            // Unreachable: `wrapper` classifies `effective_ty`, which is
+            // already the unwrapped inner type for `Option<..>` fields.
+            Some(WrapperKind::Optional { .. }) => (false, None),
             None => {
-                let h = !skips_layout_validation(&cf.ty);
-                (h, if h { Some(cf.ty.clone()) } else { None })
+                // `effective_ty` (not `cf.ty`) so an `Option<AccountView>`
+                // field resolves like the raw view it wraps instead of
+                // an opaque layout named `Option`. Required fields are
+                // unchanged: `effective_ty` aliases `cf.ty` for them.
+                let h = !skips_layout_validation(effective_ty);
+                (h, if h { Some(effective_ty.clone()) } else { None })
             }
         };
 
@@ -1901,6 +1928,41 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             ));
         }
 
+        // ── Optional gate: absent ⇒ zero checks ────────────────────────
+        //
+        // Wrap EVERY check accumulated for an `Option<W>` field —
+        // wrapper-derived role checks, signer/mut flags, owner + layout
+        // load, PDA derivation, has_one, token::*/mint::* shapes,
+        // custom constraints — in one presence test. Absence (slot
+        // address == executing program id, Anchor's optional-account
+        // convention) short-circuits before any of them runs; presence
+        // runs the exact token-for-token checks the required form
+        // emits. One address compare is the entire cost of absence.
+        //
+        // Bind-time bookkeeping deliberately stays OUTSIDE the gate:
+        // the slot still counts toward ACCOUNT_COUNT, a declared `mut`
+        // still publishes its (static) strict_writes WriteRange and
+        // lamport-set entry, and `seeds = ...` bump gathering still
+        // derives from the seed exprs (a pure computation that never
+        // touches the account).
+        if is_optional && !field_checks.is_empty() {
+            let gated = ::core::mem::take(&mut field_checks);
+            field_checks.push(quote! {
+                if ctx.account(#idx)?.address() != ctx.program_id() {
+                    #(#gated)*
+                }
+            });
+            check_descriptions.insert(
+                desc_start,
+                format!(
+                    "accounts[{}] ({}) is optional: when the slot carries the executing \
+                     program's id it binds `None` and every following check for this field \
+                     is skipped; when present, all of them run",
+                    idx, field_name
+                ),
+            );
+        }
+
         if !field_checks.is_empty() {
             // When the user declared `#[instruction(...)]` at the struct
             // level, every per-field validator threads the declared
@@ -2048,6 +2110,36 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                 self.ctx.account(#idx)
             }
         });
+
+        // Presence-aware accessor for `Option<...>` fields, so contexts
+        // that do not qualify for the typed `accounts` facade (mixed
+        // wrapper / layout / raw-view fields) still get a first-class
+        // `None`-vs-`Some` read on the bound context.
+        if option_inner_type(&cf.ty).is_some() {
+            let account_opt_fn = format_ident!("{}_account_opt", field_name);
+            accessors.push(quote! {
+                /// Presence-aware raw view of the optional `#field_name`
+                /// slot. Anchor's optional-account convention: an absent
+                /// optional is passed as the executing program's own id,
+                /// so this returns `None` exactly when `bind()` bound
+                /// `None`. The unconditional `<field>_account()` accessor
+                /// still returns the raw slot view either way.
+                #[inline(always)]
+                #vis fn #account_opt_fn(
+                    &self,
+                ) -> ::core::result::Result<
+                    ::core::option::Option<&::hopper::prelude::AccountView<'_>>,
+                    ::hopper::__runtime::ProgramError,
+                > {
+                    let view = self.ctx.account(#idx)?;
+                    if view.address() == self.ctx.program_id() {
+                        ::core::result::Result::Ok(::core::option::Option::None)
+                    } else {
+                        ::core::result::Result::Ok(::core::option::Option::Some(view))
+                    }
+                }
+            });
+        }
 
         if let Some(field_ty) = layout_ty.as_ref() {
             let load_fn = format_ident!("{}_load", field_name);
@@ -2748,7 +2840,14 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         .map(|cf| {
             let name_lit = cf.name.to_string();
             let layout_ty = layout_type_for_field(cf);
-            let display_ty = layout_ty.as_ref().unwrap_or(&cf.ty);
+            // `Option<W>` publishes the INNER wrapper's name as its
+            // kind (`Signer`, `Program`, ... or the layout type for
+            // `Option<Account<'info, T>>`) plus `optional: true`, so
+            // manifest consumers see the role, not the literal
+            // `Option` ident.
+            let display_ty: &Type = layout_ty
+                .as_ref()
+                .unwrap_or_else(|| option_inner_type(&cf.ty).unwrap_or(&cf.ty));
             let kind_lit = type_ident(display_ty)
                 .map(|i| i.to_string())
                 .unwrap_or_else(|_| "AccountView".to_string());
@@ -2759,7 +2858,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             };
             let writable = cf.attr.is_mut || !cf.attr.mut_segments.is_empty();
             let signer = cf.attr.is_signer;
-            let optional = false;
+            let optional = option_inner_type(&cf.ty).is_some();
             let seeds_lits: Vec<String> = cf
                 .attr
                 .seeds
@@ -4651,6 +4750,10 @@ fn reject_reference_wrapped_account(field_name: &Ident, ty: &Type) -> Result<()>
             ty,
             "Hopper account wrappers are value role wrappers; remove `&` or `&mut` from this field type and put mutability in `#[account(...)]` attributes.",
         )),
+        WrapperKind::Optional { .. } => Err(syn::Error::new_spanned(
+            ty,
+            "Hopper optional accounts are value fields; remove `&` or `&mut` and declare the field as a plain `Option<Wrapper>`.",
+        )),
     }
 }
 
@@ -4708,6 +4811,20 @@ enum WrapperKind {
     /// `ExternalAccount<'info, T>`. emit adapter validation without Hopper
     /// header validation.
     ExternalAccount { inner: Type },
+    /// `Option<W>` where `W` is a supported wrapper. Anchor's
+    /// optional-account convention (Anchor ≥ 0.26): an ABSENT optional
+    /// is passed as the executing program's own id in that slot. Bind
+    /// yields `None` for that field and skips every check attached to
+    /// it; a PRESENT slot runs the inner wrapper's full checks and
+    /// binds `Some(inner)`. Absence costs one address compare.
+    ///
+    /// Duplicate-address note: only fields *declared* `Option<..>` take
+    /// this branch. A required `Program<'info, Self>`-style field whose
+    /// pinned address happens to equal the executing program id binds
+    /// exactly as before — the presence test never runs for required
+    /// fields, so the program's own id in a required slot cannot be
+    /// mistaken for absence.
+    Optional { inner: Box<WrapperKind> },
 }
 
 /// Recognize typed wrapper types (`Signer<'info>`, `Account<'info, T>`,
@@ -4763,8 +4880,149 @@ fn classify_wrapper(ty: &Type) -> Option<WrapperKind> {
                 Some(WrapperKind::InterfaceAccount { inner })
             }
         }
+        "Option" => {
+            // `Option<W>` — Anchor-parity optional account. Classify
+            // the inner wrapper form; the expansion entry point has
+            // already rejected illegal shapes (nested Option, lifecycle
+            // targets, non-wrapper inners) with targeted errors via
+            // `validate_optional_field`, so consumers of this kind only
+            // ever see a legal inner. `Option<AccountView>` returns
+            // `None` here on purpose: raw views are not role wrappers
+            // and never participate in the typed `accounts` facade —
+            // their attribute checks are still presence-gated through
+            // `option_inner_type` in the main expansion loop.
+            let inner_ty = option_inner_type(ty)?;
+            let inner = classify_wrapper(inner_ty)?;
+            Some(WrapperKind::Optional {
+                inner: Box::new(inner),
+            })
+        }
         _ => None,
     }
+}
+
+/// Extract `T` from an `Option<T>` context-field type. Returns `None`
+/// for every non-`Option` type. Matches on the last path segment so the
+/// `core::option::Option<T>` / `std::option::Option<T>` spellings work
+/// the same as the bare `Option<T>` prelude form.
+fn option_inner_type(ty: &Type) -> Option<&Type> {
+    let Type::Path(TypePath { qself: None, path }) = ty else {
+        return None;
+    };
+    let segment = path.segments.last()?;
+    if segment.ident != "Option" {
+        return None;
+    }
+    let syn::PathArguments::AngleBracketed(args) = &segment.arguments else {
+        return None;
+    };
+    args.args.iter().find_map(|arg| {
+        if let syn::GenericArgument::Type(ty) = arg {
+            Some(ty)
+        } else {
+            None
+        }
+    })
+}
+
+/// Whether the type is a raw `AccountView` (the only supported
+/// non-wrapper inner for `Option<...>` context fields).
+fn is_account_view(ty: &Type) -> bool {
+    match ty {
+        Type::Path(TypePath { path, .. }) => path
+            .segments
+            .last()
+            .map(|segment| segment.ident == "AccountView")
+            .unwrap_or(false),
+        _ => false,
+    }
+}
+
+/// Expansion-time legality of `Option<...>` context fields (Anchor's
+/// optional-accounts convention).
+///
+/// Accepts `Option<W>` where `W` is a supported role wrapper
+/// (`Account<'info, T>`, `Signer<'info>`, `UncheckedAccount<'info>`,
+/// `SystemAccount<'info>`, `Program<'info, P>`, `Interface<'info, I>`,
+/// `InterfaceAccount<'info, T>`, `ExternalAccount<'info, T>`) or a raw
+/// `AccountView<'info>`. Everything else is rejected here with an
+/// actionable message instead of falling through to the opaque-layout
+/// path (the pre-optional failure mode: `Option<T>` silently bound as a
+/// layout type named `Option`).
+fn validate_optional_field(field_name: &Ident, ty: &Type, attr: &AccountAttr) -> Result<()> {
+    let Some(inner) = option_inner_type(ty) else {
+        return Ok(());
+    };
+    if option_inner_type(inner).is_some() {
+        return Err(syn::Error::new_spanned(
+            ty,
+            "nested `Option<Option<...>>` is not supported: an account slot is either present \
+             or absent. Declare the field as a single `Option<Wrapper>`.",
+        ));
+    }
+    match classify_wrapper(inner) {
+        Some(WrapperKind::InitAccount { .. }) => {
+            return Err(syn::Error::new_spanned(
+                ty,
+                "`Option<InitAccount<...>>` is not supported: optional accounts cannot be \
+                 lifecycle targets. Make the field required, or declare it \
+                 `Option<Account<'info, T>>` and create the account in a separate instruction.",
+            ));
+        }
+        Some(_) => {}
+        None if is_account_view(inner) => {}
+        None => {
+            return Err(syn::Error::new_spanned(
+                ty,
+                "unsupported `Option<...>` context field: optional accounts support \
+                 `Option<Account<'info, T>>`, `Option<Signer<'info>>`, \
+                 `Option<UncheckedAccount<'info>>`, `Option<SystemAccount<'info>>`, \
+                 `Option<Program<'info, P>>`, `Option<Interface<'info, I>>`, \
+                 `Option<InterfaceAccount<'info, T>>`, `Option<ExternalAccount<'info, T>>`, \
+                 and `Option<AccountView<'info>>`. For a Hopper layout type, wrap it as \
+                 `Option<Account<'info, T>>`.",
+            ));
+        }
+    }
+    // Lifecycle attributes rewrite the slot (create / resize / drain /
+    // zero-check), and the generated helpers assume the account is
+    // unconditionally present. Reject the combination at expansion time
+    // rather than fail the CPI at runtime — Anchor 1.x restricts several
+    // of these combos on optional accounts the same way.
+    let lifecycle = [
+        (attr.init, "init"),
+        (attr.init_if_needed, "init_if_needed"),
+        (attr.zero, "zero"),
+        (attr.close.is_some(), "close"),
+        (attr.realloc.is_some(), "realloc"),
+        (attr.sweep.is_some(), "sweep"),
+    ];
+    if let Some((_, kw)) = lifecycle.iter().find(|(on, _)| *on) {
+        return Err(syn::Error::new_spanned(
+            field_name,
+            format!(
+                "`{kw}` cannot target the optional account `{field_name}`: lifecycle \
+                 operations (init / init_if_needed / zero / close / realloc / sweep) require \
+                 the account to be unconditionally present. Make the field required."
+            ),
+        ));
+    }
+    // Segment accessors project const offsets through the layout type
+    // and are emitted unconditionally on the bound context; an absent
+    // slot has no layout bytes to project. Whole-account `mut` remains
+    // supported (the strict_writes range set is static; an absent
+    // account simply never writes).
+    if !attr.mut_segments.is_empty() || !attr.read_segments.is_empty() {
+        return Err(syn::Error::new_spanned(
+            field_name,
+            format!(
+                "`mut(...)`/`read(...)` segment lists are not supported on the optional \
+                 account `{field_name}`; use whole-account `mut` and access the layout \
+                 through the bound `Option` field."
+            ),
+        ));
+    }
+    Ok(())
 }
 
 fn accounts_binding_fragments(
@@ -4798,45 +5056,8 @@ fn accounts_binding_fragments(
     let field_inits = ctx_fields.iter().map(|field| {
         let field_name = &field.name;
         let idx = field.index;
-        match classify_wrapper(&field.ty).expect("checked above") {
-            WrapperKind::Signer => quote! {
-                #field_name: ::hopper::prelude::Signer::try_new(ctx.account(#idx)?)?
-            },
-            WrapperKind::Program => quote! {
-                #field_name: ::hopper::prelude::Program::try_new(ctx.account(#idx)?)?
-            },
-            WrapperKind::Interface { spec } => quote! {
-                #field_name: ::hopper::prelude::Interface::<#spec>::try_new(ctx.account(#idx)?)?
-            },
-            WrapperKind::UncheckedAccount => quote! {
-                #field_name: unsafe {
-                    ::hopper::prelude::UncheckedAccount::new_unchecked(ctx.account(#idx)?)
-                }
-            },
-            WrapperKind::SystemAccount => quote! {
-                #field_name: ::hopper::prelude::SystemAccount::try_new(ctx.account(#idx)?)?
-            },
-            WrapperKind::Account { .. } => quote! {
-                #field_name: unsafe {
-                    ::hopper::prelude::Account::new_unchecked(ctx.account(#idx)?)
-                }
-            },
-            WrapperKind::InitAccount { .. } => quote! {
-                #field_name: unsafe {
-                    ::hopper::prelude::InitAccount::new_unchecked(ctx.account(#idx)?)
-                }
-            },
-            WrapperKind::InterfaceAccount { .. } => quote! {
-                #field_name: unsafe {
-                    ::hopper::prelude::InterfaceAccount::new_unchecked(ctx.account(#idx)?)
-                }
-            },
-            WrapperKind::ExternalAccount { .. } => quote! {
-                #field_name: unsafe {
-                    ::hopper::prelude::ExternalAccount::new_unchecked(ctx.account(#idx)?)
-                }
-            },
-        }
+        let expr = wrapper_init_expr(&classify_wrapper(&field.ty).expect("checked above"), idx);
+        quote! { #field_name: #expr }
     });
 
     AccountsBindingFragments {
@@ -4850,11 +5071,83 @@ fn accounts_binding_fragments(
     }
 }
 
+/// The construction expression for one bound wrapper field. `bind()`
+/// runs strictly AFTER `validate()`, so `try_new` constructors re-verify
+/// only cheap role invariants and `new_unchecked` constructors rely on
+/// the per-field validator having already proven owner + layout.
+fn wrapper_init_expr(kind: &WrapperKind, idx: usize) -> TokenStream {
+    match kind {
+        WrapperKind::Signer => quote! {
+            ::hopper::prelude::Signer::try_new(ctx.account(#idx)?)?
+        },
+        WrapperKind::Program => quote! {
+            ::hopper::prelude::Program::try_new(ctx.account(#idx)?)?
+        },
+        WrapperKind::Interface { spec } => quote! {
+            ::hopper::prelude::Interface::<#spec>::try_new(ctx.account(#idx)?)?
+        },
+        WrapperKind::UncheckedAccount => quote! {
+            unsafe {
+                ::hopper::prelude::UncheckedAccount::new_unchecked(ctx.account(#idx)?)
+            }
+        },
+        WrapperKind::SystemAccount => quote! {
+            ::hopper::prelude::SystemAccount::try_new(ctx.account(#idx)?)?
+        },
+        WrapperKind::Account { .. } => quote! {
+            unsafe {
+                ::hopper::prelude::Account::new_unchecked(ctx.account(#idx)?)
+            }
+        },
+        WrapperKind::InitAccount { .. } => quote! {
+            unsafe {
+                ::hopper::prelude::InitAccount::new_unchecked(ctx.account(#idx)?)
+            }
+        },
+        WrapperKind::InterfaceAccount { .. } => quote! {
+            unsafe {
+                ::hopper::prelude::InterfaceAccount::new_unchecked(ctx.account(#idx)?)
+            }
+        },
+        WrapperKind::ExternalAccount { .. } => quote! {
+            unsafe {
+                ::hopper::prelude::ExternalAccount::new_unchecked(ctx.account(#idx)?)
+            }
+        },
+        WrapperKind::Optional { inner } => {
+            let inner_expr = wrapper_init_expr(inner, idx);
+            // Anchor optional-account convention: an absent optional is
+            // passed as the executing program's own id in the slot. One
+            // address compare selects `None`; anything else takes the
+            // exact construction path the required form emits.
+            // `validate()` gated this field's checks behind the same
+            // compare, so a present slot has already passed every check
+            // by the time this runs.
+            quote! {
+                if ctx.account(#idx)?.address() == ctx.program_id() {
+                    ::core::option::Option::None
+                } else {
+                    ::core::option::Option::Some(#inner_expr)
+                }
+            }
+        }
+    }
+}
+
 fn layout_type_for_field(field: &ContextField) -> Option<Type> {
     match classify_wrapper(&field.ty) {
         Some(WrapperKind::Account { inner }) | Some(WrapperKind::InitAccount { inner }) => {
             Some(inner)
         }
+        // `Option<Account<'info, T>>` resolves to `T` so `has_one`
+        // sources, typed accessors, and the schema `layout_ref` see the
+        // real layout; the emitted checks and loads stay fallible /
+        // presence-gated. Non-layout optional wrappers carry no layout,
+        // exactly like their required forms.
+        Some(WrapperKind::Optional { inner }) => match *inner {
+            WrapperKind::Account { inner } | WrapperKind::InitAccount { inner } => Some(inner),
+            _ => None,
+        },
         Some(WrapperKind::Signer)
         | Some(WrapperKind::Program)
         | Some(WrapperKind::Interface { .. })
@@ -4863,7 +5156,10 @@ fn layout_type_for_field(field: &ContextField) -> Option<Type> {
         | Some(WrapperKind::UncheckedAccount)
         | Some(WrapperKind::SystemAccount) => None,
         None => {
-            if skips_layout_validation(&field.ty) {
+            // `Option<AccountView>` classifies as no wrapper but must
+            // not fall through to the opaque-layout path: a raw view
+            // (optional or not) has no Hopper layout.
+            if option_inner_type(&field.ty).is_some() || skips_layout_validation(&field.ty) {
                 None
             } else {
                 Some(field.ty.clone())
@@ -5760,6 +6056,397 @@ mod instruction_arg_tests {
         assert!(
             !s.contains("MyError") && !s.contains(". into ()"),
             "a context with no @ must not gain any custom-error binding: {s}"
+        );
+    }
+
+    // ── Optional accounts (Anchor ≥ 0.26 `Option<...>` parity) ──────────
+    //
+    // Semantics under test: an absent optional account is passed as THE
+    // PROGRAM'S OWN ID in its slot. Binding then yields `None` and skips
+    // every check attached to the field; a present slot runs the exact
+    // checks the required form emits and binds `Some(inner)`.
+
+    /// Slice the expanded output down to one generated fn's body: from
+    /// `fn <name>` to the next `fn ` occurrence. Scopes the containment
+    /// assertions below to the validator under test instead of the whole
+    /// expansion.
+    fn fn_window<'a>(s: &'a str, fn_name: &str) -> &'a str {
+        let needle = format!("fn {fn_name}");
+        let start = s
+            .find(&needle)
+            .unwrap_or_else(|| panic!("missing `{needle}` in: {s}"));
+        let tail = &s[start + needle.len()..];
+        let end = tail.find("fn ").unwrap_or(tail.len());
+        &s[start..start + needle.len() + end]
+    }
+
+    /// Every supported `Option<W>` wrapper form is recognized: the typed
+    /// facade binds each optional slot through the one-address-compare
+    /// presence gate (None when the slot carries the program id, Some
+    /// otherwise), required fields never gain a gate, and the
+    /// presence-aware accessor is emitted for optional fields only.
+    #[test]
+    fn optional_wrapper_forms_bind_none_or_some_per_slot_address() {
+        let item: TokenStream = quote! {
+            #[derive(Accounts)]
+            pub struct Route<'info> {
+                pub payer: Signer<'info>,
+                pub a: Option<Account<'info, VaultState>>,
+                pub b: Option<Signer<'info>>,
+                pub c: Option<UncheckedAccount<'info>>,
+                pub d: Option<SystemAccount<'info>>,
+                pub e: Option<Program<'info, System>>,
+                pub f: Option<InterfaceAccount<'info, VaultState>>,
+                pub g: Option<Interface<'info, VaultSpec>>,
+                pub h: Option<ExternalAccount<'info, PythPrice>>,
+            }
+        };
+        let s = expand_for_derive(item)
+            .expect("derive expand ok")
+            .to_string();
+
+        for idx in 1..=8usize {
+            let gate =
+                format!("if ctx . account ({idx}usize) ? . address () == ctx . program_id ()");
+            assert!(
+                s.contains(&gate),
+                "missing facade presence gate for optional slot {idx}: {s}"
+            );
+        }
+        assert!(
+            s.contains("Option :: None"),
+            "facade must bind None for an absent optional: {s}"
+        );
+        assert!(
+            s.contains("Option :: Some"),
+            "facade must bind Some for a present optional: {s}"
+        );
+        // The required signer at slot 0 must never be presence-gated.
+        assert!(
+            !s.contains("if ctx . account (0usize) ? . address () == ctx . program_id ()"),
+            "required fields must not be presence-gated: {s}"
+        );
+        // Presence-aware accessor: optional fields only.
+        assert!(
+            s.contains("fn a_account_opt") && s.contains("fn h_account_opt"),
+            "optional fields must get a `<field>_account_opt` accessor: {s}"
+        );
+        assert!(
+            !s.contains("fn payer_account_opt"),
+            "required fields must not get a `<field>_account_opt` accessor: {s}"
+        );
+    }
+
+    /// The load-bearing guarantee: EVERY check attached to an optional
+    /// field (mut, owner, layout load, PDA seeds, has_one, constraint)
+    /// lives INSIDE the presence gate — an absent optional performs one
+    /// address compare and ZERO checks, a present one performs ALL of
+    /// them — while the required sibling's validator carries the same
+    /// checks with no gate.
+    #[test]
+    fn absent_optional_skips_every_check_present_runs_all_inside_the_gate() {
+        let item: TokenStream = quote! {
+            #[derive(Accounts)]
+            pub struct TipRoute<'info> {
+                pub payer: Signer<'info>,
+
+                #[account(
+                    mut,
+                    has_one = payer,
+                    constraint = referral_enabled,
+                    seeds = [b"referral"],
+                    bump,
+                )]
+                pub referral: Option<Account<'info, RefState>>,
+
+                #[account(mut, has_one = payer, constraint = referral_enabled)]
+                pub vault: Account<'info, RefState>,
+            }
+        };
+        let s = expand_for_derive(item)
+            .expect("derive expand ok")
+            .to_string();
+
+        let gate = "if ctx . account (1usize) ? . address () != ctx . program_id ()";
+        let w = fn_window(&s, "validate_referral");
+        let gate_at = w
+            .find(gate)
+            .unwrap_or_else(|| panic!("optional validator missing the presence gate: {w}"));
+        assert_eq!(
+            w.matches(gate).count(),
+            1,
+            "absence must cost exactly one address compare: {w}"
+        );
+        for check in [
+            "expect_signer_writable", // mut
+            "check_owned_by",         // default owner pin
+            "load :: < RefState >",   // layout header load
+            "find_program_address",   // PDA derivation (seeds + bump)
+            "InvalidSeeds",           // PDA mismatch error path
+            "layout . payer",         // has_one field read
+            "referral_enabled",       // custom constraint expr
+        ] {
+            let at = w
+                .find(check)
+                .unwrap_or_else(|| panic!("optional validator missing `{check}`: {w}"));
+            assert!(
+                at > gate_at,
+                "`{check}` must be INSIDE the presence gate: {w}"
+            );
+        }
+
+        // The required sibling runs the same checks with no gate.
+        let wv = fn_window(&s, "validate_vault");
+        assert!(
+            !wv.contains("!= ctx . program_id ()"),
+            "required field must not be presence-gated: {wv}"
+        );
+        for check in [
+            "expect_signer_writable",
+            "check_owned_by",
+            "load :: < RefState >",
+            "layout . payer",
+            "referral_enabled",
+        ] {
+            assert!(
+                wv.contains(check),
+                "required validator missing `{check}`: {wv}"
+            );
+        }
+
+        // The PDA bump is still gathered for the Bumps struct (a pure
+        // seed-derivation that never touches the account, so it stays
+        // outside the gate), and the docs const names the skip contract.
+        assert!(
+            s.contains("__hopper_bumps . referral ="),
+            "optional PDA fields still gather their bump: {s}"
+        );
+        assert!(
+            s.contains("is optional: when the slot carries"),
+            "VALIDATION_CHECKS must document the optional skip contract: {s}"
+        );
+    }
+
+    /// `Option<AccountView>` — the raw-view spelling — is supported on
+    /// the attribute/accessor path: its attribute checks are
+    /// presence-gated and the presence-aware accessor is emitted. Raw
+    /// views never participate in the typed `accounts` facade,
+    /// optional or not.
+    #[test]
+    fn optional_raw_account_view_gates_attribute_checks() {
+        let item: TokenStream = quote! {
+            #[derive(Accounts)]
+            pub struct Raw<'info> {
+                #[account(mut, owner = FEE_OWNER)]
+                pub fee_sink: Option<AccountView<'info>>,
+
+                #[signer]
+                pub authority: AccountView<'info>,
+            }
+        };
+        let s = expand_for_derive(item)
+            .expect("derive expand ok")
+            .to_string();
+
+        let w = fn_window(&s, "validate_fee_sink");
+        let gate = "if ctx . account (0usize) ? . address () != ctx . program_id ()";
+        let gate_at = w
+            .find(gate)
+            .unwrap_or_else(|| panic!("raw-view optional missing the presence gate: {w}"));
+        for check in ["expect_signer_writable", "check_owned_by (& (FEE_OWNER))"] {
+            let at = w
+                .find(check)
+                .unwrap_or_else(|| panic!("raw-view optional missing `{check}`: {w}"));
+            assert!(
+                at > gate_at,
+                "`{check}` must be INSIDE the presence gate: {w}"
+            );
+        }
+        assert!(
+            s.contains("fn fee_sink_account_opt"),
+            "raw-view optional must get the presence-aware accessor: {s}"
+        );
+        // No opaque-layout misbinding: nothing loads a layout named
+        // `Option`, and raw views never form the typed facade.
+        assert!(
+            !s.contains("load :: < Option"),
+            "Option<AccountView> must not be treated as a layout type: {s}"
+        );
+        assert!(
+            !s.contains("__hopper_accounts"),
+            "raw-view fields never form the typed accounts facade: {s}"
+        );
+    }
+
+    /// Nested `Option<Option<..>>` is a compile error with a clear
+    /// message — a slot is either present or absent.
+    #[test]
+    fn nested_option_option_is_rejected() {
+        let item: TokenStream = quote! {
+            #[derive(Accounts)]
+            pub struct Bad<'info> {
+                pub x: Option<Option<Signer<'info>>>,
+            }
+        };
+        let err = expand_for_derive(item).expect_err("nested Option must be rejected");
+        let msg = err.to_string();
+        assert!(msg.contains("nested `Option<Option<...>>`"), "got: {msg}");
+    }
+
+    /// Optional fields cannot be lifecycle targets this pass: every
+    /// lifecycle keyword is rejected at expansion time with an error
+    /// naming the limitation.
+    #[test]
+    fn optional_lifecycle_targets_are_rejected() {
+        let cases: [(TokenStream, &str); 6] = [
+            (
+                quote! { #[account(init, payer = payer, space = RefState::LEN)] },
+                "init",
+            ),
+            (
+                quote! { #[account(init_if_needed, payer = payer, space = RefState::LEN)] },
+                "init_if_needed",
+            ),
+            (quote! { #[account(zero)] }, "zero"),
+            (quote! { #[account(mut, close = payer)] }, "close"),
+            (
+                quote! { #[account(realloc = RefState::LEN, realloc_payer = payer, realloc_zero = true)] },
+                "realloc",
+            ),
+            (quote! { #[account(sweep = payer)] }, "sweep"),
+        ];
+        for (account_attr, kw) in cases {
+            let item: TokenStream = quote! {
+                #[derive(Accounts)]
+                pub struct Bad<'info> {
+                    #[account(mut)]
+                    pub payer: Signer<'info>,
+
+                    #account_attr
+                    pub target: Option<Account<'info, RefState>>,
+
+                    pub system_program: Program<'info, System>,
+                }
+            };
+            let err = expand_for_derive(item)
+                .expect_err(&format!("`{kw}` on an optional account must be rejected"));
+            let msg = err.to_string();
+            assert!(
+                msg.contains(&format!("`{kw}` cannot target the optional account")),
+                "{kw}: got {msg}"
+            );
+        }
+    }
+
+    /// `Option<InitAccount<...>>` is the type-directed spelling of a
+    /// lifecycle target and is rejected the same way.
+    #[test]
+    fn optional_init_account_wrapper_is_rejected() {
+        let item: TokenStream = quote! {
+            #[derive(Accounts)]
+            pub struct Bad<'info> {
+                pub target: Option<InitAccount<'info, RefState>>,
+            }
+        };
+        let err = expand_for_derive(item).expect_err("Option<InitAccount> must be rejected");
+        let msg = err.to_string();
+        assert!(
+            msg.contains("`Option<InitAccount<...>>` is not supported"),
+            "got: {msg}"
+        );
+    }
+
+    /// A plain layout type inside `Option<...>` is rejected with the
+    /// actionable `Option<Account<'info, T>>` suggestion instead of
+    /// silently binding as an opaque layout named `Option` (the
+    /// pre-optional failure mode).
+    #[test]
+    fn optional_plain_layout_field_is_rejected() {
+        let item: TokenStream = quote! {
+            #[derive(Accounts)]
+            pub struct Bad<'info> {
+                pub jar: Option<RefState>,
+            }
+        };
+        let err = expand_for_derive(item).expect_err("Option<PlainLayout> must be rejected");
+        let msg = err.to_string();
+        assert!(
+            msg.contains("unsupported `Option<...>` context field")
+                && msg.contains("Option<Account<'info, T>>"),
+            "got: {msg}"
+        );
+    }
+
+    /// Segment lists project const offsets unconditionally; on an
+    /// optional field they are rejected in favor of whole-account `mut`.
+    #[test]
+    fn optional_segment_lists_are_rejected() {
+        let item: TokenStream = quote! {
+            #[derive(Accounts)]
+            pub struct Bad<'info> {
+                #[account(mut(balance))]
+                pub jar: Option<Account<'info, RefState>>,
+            }
+        };
+        let err = expand_for_derive(item).expect_err("segment lists on optional must be rejected");
+        let msg = err.to_string();
+        assert!(
+            msg.contains("segment lists are not supported on the optional"),
+            "got: {msg}"
+        );
+    }
+
+    /// Interaction rules that must stay STATIC in the face of runtime
+    /// absence: an optional `mut` field still declares its strict_writes
+    /// WriteRange and its lamport-set entry (the policy is compiled, not
+    /// negotiated per-transaction; an absent account simply never
+    /// writes), and the schema publishes `optional: true` with the INNER
+    /// wrapper kind.
+    #[test]
+    fn optional_mut_keeps_static_write_set_and_publishes_schema_optionality() {
+        let attr: TokenStream = quote! { strict_writes, lamports(referral) };
+        let item: TokenStream = quote! {
+            pub struct Pay<'info> {
+                #[account(mut)]
+                pub referral: Option<Account<'info, RefState>>,
+
+                pub tipper: Option<Signer<'info>>,
+
+                pub payer: Signer<'info>,
+            }
+        };
+        let s = expand(attr, item).expect("expand ok").to_string();
+
+        // strict_writes: the optional mut field's whole-account range is
+        // still DECLARED at its slot index.
+        assert!(
+            s.contains("WriteRange :: whole_account (0u8)"),
+            "optional mut field must still declare its static WriteRange: {s}"
+        );
+        // lamports(referral) + the whole-account `mut` implication both
+        // resolve to slot 0 in the static lamport set.
+        assert!(
+            s.contains("__HOPPER_Pay_LAMPORT_ACCOUNTS : & [u8] = & [0u8]"),
+            "optional field named in lamports(...) must stay in the static set: {s}"
+        );
+        // Schema: inner kind + optional: true for both wrapper shapes;
+        // the required field publishes optional: false.
+        assert!(
+            s.contains("name : \"referral\" , kind : \"RefState\""),
+            "Option<Account<T>> must publish the layout kind: {s}"
+        );
+        assert!(
+            s.contains("name : \"tipper\" , kind : \"Signer\""),
+            "Option<Signer> must publish the inner wrapper kind: {s}"
+        );
+        assert_eq!(
+            s.matches("optional : true").count(),
+            2,
+            "exactly the two Option fields publish optional: true: {s}"
+        );
+        assert!(
+            s.contains("optional : false"),
+            "required fields keep optional: false: {s}"
         );
     }
 }
