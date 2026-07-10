@@ -58,6 +58,7 @@
 //! hopper lint zc                                     Run zero-copy source diagnostics
 //! hopper expand                                      Show lowered macro output
 //! hopper tx explain <signature>                       Fetch and explain an on-chain transaction
+//! hopper tx send --program <id> --account ... --data <hex>  Generic instruction sender (no Node)
 //! hopper tx simulate|submit <tx-base64>                Pre-built transaction helpers
 //! hopper doctor                                      Check toolchain and workspace health
 //! hopper completions <shell>                          Emit shell completions
@@ -4256,12 +4257,15 @@ fn cmd_tx_family(args: &[String]) {
         eprintln!("Subcommands:");
         eprintln!("  explain <signature>        Decode a confirmed transaction against");
         eprintln!("                             every touched Hopper program's manifest");
+        eprintln!("  send --program <id> ...    Send one instruction with explicit metas");
+        eprintln!("                             and hex data, signed locally (no Node)");
         eprintln!("  simulate <tx-base64>       Simulate a pre-built transaction");
         eprintln!("  submit <tx-base64>         Submit a pre-built transaction");
         return;
     }
     match args[0].as_str() {
         "explain" => cmd::tx_explain::cmd_tx_explain(&args[1..]),
+        "send" => cmd::tx_send::cmd_tx_send(&args[1..]),
         "simulate" => cmd::meta::cmd_tx_simulate(&args[1..]),
         "submit" => cmd::meta::cmd_tx_submit(&args[1..]),
         other => {

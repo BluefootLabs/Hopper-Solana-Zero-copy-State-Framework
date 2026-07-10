@@ -583,6 +583,43 @@ via the `init` lifecycle, then writes four typed fields) consumed
 **1 761 CU** on devnet, decoded from the confirmed transaction by
 `hopper explain` against the checked-in escrow manifest.
 
+### Live self-describing transactions (devnet, 2026-07-10)
+
+The upgraded `hopper-smoke` (`2YPBvKJ8h37bUEFBrmytzNuKfUJ5Q2o2tkTiqRCZdjme`,
+programdata extended to 42 520 B, now carrying the `event_cpi` and
+whole-account-touch instructions) ran the full loop live. Every
+instruction was fired with `hopper tx send` (the new no-Node generic
+instruction sender) and decoded back with `hopper tx explain` — pure
+Rust on both sides, no JS toolchain anywhere:
+
+| Instruction | Live CU | Signature (devnet) |
+|---|---:|---|
+| initialize | 1,839 | `4R2WDJzr9ftZzJL2Qj2tjr4Ke1DRwZb1jE8CLwKHAFJzRQsFKyicKQ5ZvzfMmyYTtqc1NqMzDWaJqxroeJb3QKyS` |
+| deposit | 2,221 | `4Jnp43Hg7B5V1dUajjURJrriVcoNY3PdgTDfjdkt4vVhRcAth9WMEgDt3BcfL3fchd5XZ38MYrbdbEwKmQ6tXGAV` |
+| withdraw | 892 | `4uc6v9hCR6R2tRxGFJYgFbyPxnhWQZV4cL6VCfLnWNbPe2qAK79aX7HgkhuVfJaS4w6FjSoV7hDit6bn51SzKnfP` |
+| bump_whole_vault | 762 | `4yTv8gKBktSAg4sNiZgCwEnh6CkgHA89NA1r2ZrEAcNamak1xsu8u4veTYJ88wMQMaPmwsyx6jJnnmce9R2oyXMB` |
+| emit_receipt (event_cpi) | 3,586 | `3XbEB9QqajTjtM5tgNQAAQCYUsDa245YkzMuvc9gkBoi3eB9yWXq6LnU74TmygQsKuhKSfAez3dJuWc69Rn2zqrT` |
+
+Three decode receipts from those confirmed transactions:
+
+- **Field-level touch map, live**: the withdraw decodes to
+  `W slot 1 (vault) [48..56) -> Vault.balance` — the transaction names
+  the exact field it wrote.
+- **Whole-account wrapper capture, live**: `bump_whole_vault` (a
+  `get_mut` write, the path that was the touch map's blind spot until
+  2026-07-10) decodes to `W slot 1 [0..76)` — the ambient-log capture
+  works on a real cluster, not just in Mollusk.
+- **Named event from inner-instruction metadata, live**: the
+  `emit_receipt` transaction decodes to
+  `event: DepositReceipt (tag 0x02) { balance: 1500000, deposit_count: 3 }`
+  with the sink-authentication provenance line — and both values
+  cross-check against the known state sequence (2 000 000 deposited −
+  500 000 withdrawn = 1 500 000; count = deposit + bump + receipt = 3).
+
+The live `emit_receipt` cost — 3,586 CU — matches the Mollusk
+measurement in `docs/CU_COSTS.md` exactly, which is the strongest
+possible validation of the in-process numbers this page is built on.
+
 ### Bytecode size vs the competitor sources
 
 Compared against the extracted competitor trees at

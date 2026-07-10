@@ -103,7 +103,7 @@ fn print_usage() {
 /// object. We request `jsonParsed` + `maxSupportedTransactionVersion: 0`
 /// so versioned (v0) deploy/upgrade transactions are returned rather
 /// than erroring.
-fn rpc_get_transaction(rpc_url: &str, signature: &str) -> Result<Value, String> {
+pub(crate) fn rpc_get_transaction(rpc_url: &str, signature: &str) -> Result<Value, String> {
     let body = serde_json::json!({
         "jsonrpc": "2.0",
         "id": 1,
@@ -291,6 +291,32 @@ fn run_explain(
         }
     }
 
+    // Self-CPI events: scan the transaction's INNER instructions for
+    // the reserved Hopper event marker. Events ride inner-instruction
+    // metadata (which RPC nodes never truncate, unlike logs), so this
+    // is the indexer-grade read path — and with the program's manifest
+    // it renders named, field-decoded events, not hex.
+    if let Some(meta) = meta {
+        let events = extract_cpi_events(meta, &top_level);
+        if !events.is_empty() {
+            println!();
+            println!("events (self-CPI, from inner-instruction metadata):");
+            for ev in &events {
+                let manifest = manifest_cache
+                    .get(&ev.target_program)
+                    .and_then(|m| m.as_deref())
+                    .or(local_manifest);
+                println!(
+                    "  [instruction {}] program {}",
+                    ev.top_ix, ev.target_program
+                );
+                for line in render_event(ev, manifest) {
+                    println!("    {line}");
+                }
+            }
+        }
+    }
+
     if show_raw_logs {
         if let Some(logs) = meta
             .and_then(|m| m.get("logMessages"))
@@ -307,6 +333,205 @@ fn run_explain(
     }
 
     Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Hopper self-CPI event decoding
+// ---------------------------------------------------------------------------
+//
+// `#[hopper::context(event_cpi)]` + `ctx.emit_event_cpi(&event)` emit
+// events as a self-CPI whose instruction data is the versioned wire
+// `[0xE0, 0x1E, tag, payload]` (constants replicated from
+// `hopper-runtime/src/cpi_event.rs`, a lib this bin does not link).
+// The payload lands in `meta.innerInstructions`, so it survives log
+// truncation — this decoder is the same read an indexer performs.
+//
+// Authenticity is judged honestly: on-chain, the generated sink only
+// accepts marker instructions whose event-authority PDA signed, and a
+// PDA can only be signed by its own program's `invoke_signed`. So a
+// marker inner instruction whose TARGET equals the program that was
+// executing (a self-CPI in a SUCCESSFUL transaction) has been
+// sink-authenticated on-chain. A marker-shaped CPI to a DIFFERENT
+// program proves nothing and is labeled as exactly that.
+
+/// First wire byte of the reserved Hopper CPI-event marker.
+const CPI_EVENT_MARKER_0: u8 = 0xE0;
+/// Second wire byte of the reserved Hopper CPI-event marker.
+const CPI_EVENT_MARKER_1: u8 = 0x1E;
+
+/// One decoded self-CPI event candidate.
+#[derive(Debug, PartialEq, Eq)]
+struct ExtractedEvent {
+    /// Index of the enclosing top-level instruction.
+    top_ix: usize,
+    /// The inner instruction's target program.
+    target_program: String,
+    /// Whether the target equals the enclosing top-level program (a
+    /// true self-CPI, sink-authenticated in a successful transaction).
+    self_cpi: bool,
+    /// The 1-byte event tag.
+    tag: u8,
+    /// The event payload (bytes after marker + tag).
+    payload: Vec<u8>,
+}
+
+/// Scan `meta.innerInstructions` for marker-prefixed instruction data.
+fn extract_cpi_events(meta: &Value, top_level: &[(String, Vec<String>)]) -> Vec<ExtractedEvent> {
+    let mut out = Vec::new();
+    let Some(groups) = meta.get("innerInstructions").and_then(Value::as_array) else {
+        return out;
+    };
+    for group in groups {
+        let Some(top_ix) = group.get("index").and_then(Value::as_u64) else {
+            continue;
+        };
+        let top_ix = top_ix as usize;
+        let parent_program = top_level.get(top_ix).map(|(p, _)| p.as_str());
+        let Some(inners) = group.get("instructions").and_then(Value::as_array) else {
+            continue;
+        };
+        for inner in inners {
+            // Marker CPIs target a Hopper program, which the RPC cannot
+            // json-parse, so they arrive in the partially-decoded shape
+            // with base58 `data`. (`parsed` system/SPL inners cannot be
+            // Hopper events by construction.)
+            let Some(data_b58) = inner.get("data").and_then(Value::as_str) else {
+                continue;
+            };
+            let Ok(bytes) = bs58::decode(data_b58).into_vec() else {
+                continue;
+            };
+            if bytes.len() < 3 || bytes[0] != CPI_EVENT_MARKER_0 || bytes[1] != CPI_EVENT_MARKER_1 {
+                continue;
+            }
+            let target_program = inner
+                .get("programId")
+                .and_then(Value::as_str)
+                .unwrap_or("?")
+                .to_string();
+            out.push(ExtractedEvent {
+                top_ix,
+                self_cpi: parent_program == Some(target_program.as_str()),
+                target_program,
+                tag: bytes[2],
+                payload: bytes[3..].to_vec(),
+            });
+        }
+    }
+    out
+}
+
+/// Render one event: authenticity line, then either a manifest-joined
+/// `Name { field: value, .. }` decode or an honest tag+hex fallback.
+fn render_event(ev: &ExtractedEvent, manifest_json: Option<&str>) -> Vec<String> {
+    let mut out = Vec::new();
+    if ev.self_cpi {
+        out.push(
+            "self-CPI (sink-authenticated on-chain: only this program's invoke_signed \
+             can sign its event authority)"
+                .to_string(),
+        );
+    } else {
+        out.push(
+            "marker-shaped CPI to a FOREIGN program — NOT a Hopper-authenticated event".to_string(),
+        );
+    }
+    let joined = manifest_json.and_then(|m| render_event_fields(m, ev.tag, &ev.payload));
+    match joined {
+        Some(lines) => out.extend(lines),
+        None => {
+            out.push(format!(
+                "tag 0x{:02x}, payload {} bytes: {}",
+                ev.tag,
+                ev.payload.len(),
+                hex_of(&ev.payload)
+            ));
+        }
+    }
+    out
+}
+
+/// Join an event tag + payload against the manifest's `events` table.
+/// Returns `None` when the manifest has no matching tag (callers fall
+/// back to hex) — and renders honestly when field spans exceed the
+/// payload (a manifest/payload mismatch is reported, not padded over).
+fn render_event_fields(manifest_json: &str, tag: u8, payload: &[u8]) -> Option<Vec<String>> {
+    let value: Value = serde_json::from_str(manifest_json).ok()?;
+    let events = value.get("events").and_then(Value::as_array)?;
+    let event = events
+        .iter()
+        .find(|e| e.get("tag").and_then(Value::as_u64) == Some(tag as u64))?;
+    let name = event.get("name").and_then(Value::as_str).unwrap_or("?");
+    let mut lines = vec![format!("event: {name} (tag 0x{tag:02x})")];
+    let Some(fields) = event.get("fields").and_then(Value::as_array) else {
+        lines.push(format!(
+            "payload {} bytes: {}",
+            payload.len(),
+            hex_of(payload)
+        ));
+        return Some(lines);
+    };
+    for field in fields {
+        let f_name = field.get("name").and_then(Value::as_str).unwrap_or("?");
+        let f_type = field.get("type").and_then(Value::as_str).unwrap_or("?");
+        let (Some(off), Some(size)) = (
+            field.get("offset").and_then(Value::as_u64),
+            field.get("size").and_then(Value::as_u64),
+        ) else {
+            continue;
+        };
+        let (off, size) = (off as usize, size as usize);
+        match payload.get(off..off + size) {
+            Some(bytes) => lines.push(format!(
+                "  {f_name}: {} ({f_type})",
+                render_scalar(f_type, bytes)
+            )),
+            None => lines.push(format!(
+                "  {f_name}: <manifest declares [{off}..{}) but payload is {} bytes>",
+                off + size,
+                payload.len()
+            )),
+        }
+    }
+    Some(lines)
+}
+
+/// Render a field's bytes by declared wire type: little-endian integers
+/// for the `WireU*`/`WireI*` family (and bare `u*`/`i*` spellings),
+/// hex for everything else.
+fn render_scalar(f_type: &str, bytes: &[u8]) -> String {
+    let t = f_type.trim_start_matches("Wire").to_ascii_lowercase();
+    macro_rules! le {
+        ($ty:ty, $n:expr) => {{
+            let mut buf = [0u8; $n];
+            if bytes.len() == $n {
+                buf.copy_from_slice(bytes);
+                return <$ty>::from_le_bytes(buf).to_string();
+            }
+        }};
+    }
+    let render = || -> String {
+        match t.as_str() {
+            "u64" => le!(u64, 8),
+            "u32" => le!(u32, 4),
+            "u16" => le!(u16, 2),
+            "u8" => le!(u8, 1),
+            "i64" => le!(i64, 8),
+            "i32" => le!(i32, 4),
+            "u128" => le!(u128, 16),
+            _ => {}
+        }
+        format!("0x{}", hex_of_inner(bytes))
+    };
+    render()
+}
+
+fn hex_of_inner(bytes: &[u8]) -> String {
+    bytes.iter().map(|b| format!("{b:02x}")).collect()
+}
+
+fn hex_of(bytes: &[u8]) -> String {
+    format!("0x{}", hex_of_inner(bytes))
 }
 
 fn explain_partial(
@@ -655,6 +880,131 @@ fn render_touch_map_entry(
             out
         }
         None => render_touch_map(&entry.map, accounts, manifest_json),
+    }
+}
+
+#[cfg(test)]
+mod cpi_event_tests {
+    use super::*;
+
+    const EVENT_MANIFEST: &str = r#"{
+        "events": [
+            {
+                "name": "DepositReceipt",
+                "tag": 2,
+                "fields": [
+                    { "name": "balance", "type": "WireU64", "size": 8, "offset": 0 },
+                    { "name": "deposit_count", "type": "WireU32", "size": 4, "offset": 8 }
+                ]
+            }
+        ]
+    }"#;
+
+    /// Wire bytes for tag 2, balance = 5_000_000, count = 42.
+    fn sample_wire() -> Vec<u8> {
+        let mut b = vec![CPI_EVENT_MARKER_0, CPI_EVENT_MARKER_1, 0x02];
+        b.extend_from_slice(&5_000_000u64.to_le_bytes());
+        b.extend_from_slice(&42u32.to_le_bytes());
+        b
+    }
+
+    fn meta_with_inner(target: &str, data: &[u8]) -> Value {
+        serde_json::json!({
+            "innerInstructions": [
+                {
+                    "index": 0,
+                    "instructions": [
+                        {
+                            "programId": target,
+                            "accounts": ["Auth1111"],
+                            "data": bs58::encode(data).into_string()
+                        }
+                    ]
+                }
+            ]
+        })
+    }
+
+    #[test]
+    fn extracts_and_authenticates_a_self_cpi_event() {
+        let meta = meta_with_inner("Prog1111", &sample_wire());
+        let top = vec![("Prog1111".to_string(), vec![])];
+        let events = extract_cpi_events(&meta, &top);
+        assert_eq!(events.len(), 1);
+        assert!(events[0].self_cpi, "target == parent must read as self-CPI");
+        assert_eq!(events[0].tag, 0x02);
+        assert_eq!(events[0].payload.len(), 12);
+
+        let lines = render_event(&events[0], Some(EVENT_MANIFEST));
+        assert!(lines[0].contains("sink-authenticated"));
+        assert_eq!(lines[1], "event: DepositReceipt (tag 0x02)");
+        assert_eq!(lines[2], "  balance: 5000000 (WireU64)");
+        assert_eq!(lines[3], "  deposit_count: 42 (WireU32)");
+    }
+
+    #[test]
+    fn foreign_target_marker_is_labeled_not_authenticated() {
+        let meta = meta_with_inner("Other2222", &sample_wire());
+        let top = vec![("Prog1111".to_string(), vec![])];
+        let events = extract_cpi_events(&meta, &top);
+        assert_eq!(events.len(), 1);
+        assert!(!events[0].self_cpi);
+        let lines = render_event(&events[0], None);
+        assert!(lines[0].contains("FOREIGN"));
+        assert!(
+            lines[1].starts_with("tag 0x02, payload 12 bytes: 0x"),
+            "no manifest: honest hex fallback; got {}",
+            lines[1]
+        );
+    }
+
+    #[test]
+    fn non_marker_and_short_inner_data_are_ignored() {
+        // Wrong second byte.
+        let meta = meta_with_inner("Prog1111", &[0xE0, 0x77, 0x02, 1, 2]);
+        let top = vec![("Prog1111".to_string(), vec![])];
+        assert!(extract_cpi_events(&meta, &top).is_empty());
+        // Marker but no tag byte.
+        let meta = meta_with_inner("Prog1111", &[0xE0, 0x1E]);
+        assert!(extract_cpi_events(&meta, &top).is_empty());
+    }
+
+    #[test]
+    fn manifest_payload_mismatch_is_reported_not_padded() {
+        // Payload shorter than the manifest's field spans.
+        let mut wire = vec![CPI_EVENT_MARKER_0, CPI_EVENT_MARKER_1, 0x02];
+        wire.extend_from_slice(&[1, 2, 3]);
+        let meta = meta_with_inner("Prog1111", &wire);
+        let top = vec![("Prog1111".to_string(), vec![])];
+        let events = extract_cpi_events(&meta, &top);
+        let lines = render_event(&events[0], Some(EVENT_MANIFEST));
+        assert!(
+            lines[2].contains("but payload is 3 bytes"),
+            "mismatch must be explicit; got {}",
+            lines[2]
+        );
+    }
+
+    #[test]
+    fn unknown_tag_falls_back_to_hex() {
+        let mut wire = vec![CPI_EVENT_MARKER_0, CPI_EVENT_MARKER_1, 0x77];
+        wire.extend_from_slice(&[0xAB, 0xCD]);
+        let meta = meta_with_inner("Prog1111", &wire);
+        let top = vec![("Prog1111".to_string(), vec![])];
+        let events = extract_cpi_events(&meta, &top);
+        let lines = render_event(&events[0], Some(EVENT_MANIFEST));
+        assert_eq!(lines[1], "tag 0x77, payload 2 bytes: 0xabcd");
+    }
+
+    #[test]
+    fn scalar_renderer_handles_wire_ints_and_falls_back_to_hex() {
+        assert_eq!(render_scalar("WireU64", &7u64.to_le_bytes()), "7");
+        assert_eq!(render_scalar("WireU32", &42u32.to_le_bytes()), "42");
+        assert_eq!(render_scalar("WireI64", &(-3i64).to_le_bytes()), "-3");
+        assert_eq!(render_scalar("u16", &513u16.to_le_bytes()), "513");
+        // Unknown type or size mismatch: hex, never a guess.
+        assert_eq!(render_scalar("[u8; 2]", &[0xDE, 0xAD]), "0xdead");
+        assert_eq!(render_scalar("WireU64", &[1, 2]), "0x0102", "size mismatch");
     }
 }
 

@@ -22,5 +22,6 @@ pub mod publish_idl;
 pub mod solana_check;
 pub mod test_gen;
 pub mod tx_explain;
+pub mod tx_send;
 pub mod verify;
 pub mod watch;
