@@ -199,9 +199,10 @@ long-form benchmark roadmap are maintained in the sibling `hopper-bench` repo.
 ## Framework Parity Benchmark (Vault, 8-seed average)
 
 Measured with the sibling `hopper-bench` Mollusk parity harness on
-**2026-07-07** (post-G1 key-compare lowering **and** the fused single-pass
-entrypoint walk, which alone removed 46–64 CU from every row measured the
-same morning). Every included framework used
+**2026-07-09** (post-G1 key-compare lowering, the fused single-pass
+entrypoint walk, the mutation-complete lamport gate, and the
+tag-arithmetic error lowering — see the provenance note under the table
+for what each recent change costs or saves). Every included framework used
 the same deterministic user seed set, SBF toolchain, runner, and command
 line. `n/a` means the upstream comparator does not implement that benchmark
 instruction.
@@ -217,43 +218,38 @@ Anchor 0.31.1/1.x, with the shelf life that implies.
 | Scenario | Hopper | Anza Pinocchio | Quasar | Anchor 0.31.1 |
 |----------|-------:|---------------:|-------:|--------------:|
 | Authorize | **420 CU** | 2512 CU (+2092) | n/a | 5017 CU (+4597) |
-| Auth-fail (missing sig) | 61 CU | **41 CU** (−20) | n/a | 2284 CU (+2223) |
+| Auth-fail (missing sig) | 66 CU | **41 CU** (−25) | n/a | 2284 CU (+2218) |
 | Counter (segment-safe) | **518 CU** | 2539 CU (+2021) | n/a | 5156 CU (+4638) |
-| Deposit | **1650 CU** | 3856 CU (+2206) | 1756 CU (+106) | 7150 CU (+5500) |
-| Withdraw | **442 CU** | 2548 CU (+2106) | 592 CU (+150) | 5108 CU (+4666) |
+| Deposit | **1653 CU** | 3856 CU (+2203) | 1756 CU (+103) | 7150 CU (+5497) |
+| Withdraw | **494 CU** | 2548 CU (+2054) | 592 CU (+98) | 5108 CU (+4614) |
 | Unsigned withdraw | rejected | rejected | rejected | rejected |
-| Binary size | 7.41 KiB ⚠️ | 7.73 KiB | **5.47 KiB** | 190.11 KiB |
+| Binary size (`.so`) | 7.44 KiB | 7.73 KiB | **5.47 KiB** | 190.11 KiB |
 
-> **Size + CU re-measured 2026-07-09** (mollusk 0.10.3 host runner, Quasar's
-> own prebuilt vault; Anchor column not re-run — 2026-07-02 vintage there).
+> **Full four-way re-measured 2026-07-09** — every column through the same
+> mollusk 0.10.3 host runner in one run: Hopper at HEAD, the in-tree Anza
+> Pinocchio target, Quasar's own prebuilt vault, and the anchor-lang 0.31
+> comparator rebuilt from the same pinned lockfile (its rows reproduced the
+> 07-02 values exactly, confirming runner stability). Hopper `.text` is
+> 5,992 B (5.85 KiB) of the 7.44 KiB file.
 >
-> An earlier revision of this note reported 14.03 KiB by measuring the
-> wrong program (the receipts-exercising `hopper-bench` lab target, not
-> this row's `hopper-parity-vault`). Corrected numbers, same-day artifacts:
+> Deltas vs the 2026-07-02 Hopper column, each one a priced decision:
+> Withdraw 442 → 494: **+44 CU is the lamport gate (mutation-complete
+> write-sets) actually enforcing** on the one lamport-moving instruction —
+> a measured safety feature no other column has — and +8 (with Deposit's
+> +3 and Auth-fail's +5) from the tag-arithmetic error lowering that bought
+> a 10% `.text` cut. Every Quasar-comparable row still wins.
 >
-> | | Hopper | Pinocchio | Quasar |
-> |---|---:|---:|---:|
-> | Authorize / Auth-fail / Counter CU | **420** / 66 / **518** | 2512 / **41** / 2539 | n/a |
-> | Deposit / Withdraw CU | **1653** / **494** | 3856 / 2548 | 1756 / 592 |
-> | `.so` file | **7,616 B (7.44 KiB)** | 7.73 KiB | **5.47 KiB** |
-> | `.text` | 5,992 B (5.85 KiB) | — | — |
->
-> Hopper still wins every comparable CU row. Withdraw is 442 → 486 (+44 CU)
-> versus the 07-02 table: that is the lamport gate (mutation-complete
-> write-sets) actually enforcing on the one lamport-moving instruction —
-> a measured safety feature the other columns do not have, and still 18%
-> under Quasar; Deposit/Withdraw/Auth-fail also carry +3/+8/+5 CU from the
-> tag-arithmetic error lowering that bought a 10% `.text` cut (a trade we
-> take: every Quasar-comparable row still wins). Size interim: this week a
-> **P0 was found by loading** (the
-> gate's `static mut` made every `lamports(...)` program fail the SBF
-> loader's no-writable-sections rule — fixed by moving the store into the
-> reserved, zero-initialized VM heap), ~5 KiB of accidentally-linked
-> `core::fmt` was eliminated, and the vault now measures **below** the
-> recorded 7.41 KiB — and the vault's `.so` is now SMALLER THAN
-> PINOCCHIO'S (7.44 vs 7.73 KiB) on the identical contract. Quasar still
-> wins the size row (7.44 vs 5.47 KiB file); the gap is real, named, and
-> being closed — we do not publish a size lead we have not measured.
+> Size: this week a **P0 was found by loading, not building** — the gate's
+> `static mut` made every `lamports(...)` program fail the SBF loader's
+> no-writable-sections rule; it now lives in the reserved, zero-initialized
+> VM heap and Hopper programs carry **zero writable sections**. With ~5 KiB
+> of accidentally-linked `core::fmt` also eliminated, the vault's `.so` is
+> now **smaller than Pinocchio's (7.44 vs 7.73 KiB) on the identical
+> contract**. Quasar's 5.47 KiB still wins this row; the remaining delta is
+> increasingly *paid-for* structure (receipts, the byte-range ledger, the
+> lamport gate — outlining experiments that "saved" bytes cost +44..+73 CU
+> and were rejected; see the in-source measurement notes). We do not
+> publish a size lead we have not measured.
 
 The Pinocchio column is built in-tree from the benchmark repo's Anza
 Pinocchio target, not borrowed from Quasar's reference sample or an older
