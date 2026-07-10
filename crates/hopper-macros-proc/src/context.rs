@@ -305,12 +305,38 @@ enum BumpSpec {
     Stored(Expr),
 }
 
+/// Role of a macro-synthesized (auto-appended) context field.
+///
+/// `#[hopper::context(event_cpi)]` appends the two Anchor-parity
+/// trailing accounts without the author declaring them. Synthetic
+/// fields are real account slots — they count toward `ACCOUNT_COUNT`,
+/// get per-field validators, accessors, schema entries, and (for the
+/// authority) a `Bumps` slot — but they are NOT fields of the user's
+/// struct, so the typed `accounts` facade must skip them.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum SyntheticFieldRole {
+    /// The event-authority PDA (seeds `[b"__hopper_event_authority"]`).
+    /// Verified at bind via the runtime's sha256 verify loop (on-chain);
+    /// its bump lands on the generated `Bumps` struct so
+    /// `emit_event_cpi` signs the self-CPI with a stored bump.
+    EventAuthority,
+    /// The program's own account (`address == ctx.program_id()`),
+    /// required in the instruction so the runtime can resolve the
+    /// self-CPI target. Validated with the plain `address = ...`
+    /// lowering.
+    EventProgram,
+}
+
 /// Parsed context field.
 struct ContextField {
     name: Ident,
     ty: Type,
     attr: AccountAttr,
     index: usize,
+    /// `Some(role)` when this field was auto-appended by a context
+    /// option rather than declared by the author. See
+    /// [`SyntheticFieldRole`].
+    synthetic: Option<SyntheticFieldRole>,
 }
 
 struct AccountsBindingFragments {
@@ -413,6 +439,27 @@ struct ContextOptions {
     /// costs a `sol_log_data` record (compute + log budget) and must not
     /// tax handlers that did not ask for it.
     emit_touch_map: bool,
+    /// Self-CPI events with Anchor's `#[event_cpi]` ergonomics. When
+    /// `true` the macro auto-appends two trailing account slots — the
+    /// event-authority PDA (seeds `[b"__hopper_event_authority"]`,
+    /// verified at bind via the runtime sha256 verify loop, bump
+    /// captured on the `Bumps` struct) and the program's own account
+    /// (`address == ctx.program_id()`) — WITHOUT the author declaring
+    /// them: `ACCOUNT_COUNT` grows by 2, both slots get validators,
+    /// accessors, and schema entries, and the bound context gains
+    /// `emit_event_cpi(&event)`, which encodes
+    /// `[0xE0, 0x1E, tag, payload]` and self-invokes with the
+    /// event-authority signer seeds.
+    ///
+    /// The spec type also advertises `EVENT_CPI = true` as a public
+    /// associated const; the `#[hopper::program]` dispatcher ORs that
+    /// const across its typed contexts to decide (at compile time)
+    /// whether the reserved `[0xE0, 0x1E]` sink arm is live.
+    ///
+    /// `false` (the default) appends nothing, emits no method, and sets
+    /// `EVENT_CPI = false`, so the dispatcher's sink guard
+    /// dead-code-eliminates and non-participating programs pay zero.
+    event_cpi: bool,
 }
 
 /// Parse the field list of a `lamports(field, ...)` option into the
@@ -447,6 +494,8 @@ fn parse_context_options(attr: TokenStream, attrs: &mut Vec<Attribute>) -> Resul
                 options.strict_writes = true;
             } else if meta.path().is_ident("emit_touch_map") {
                 options.emit_touch_map = true;
+            } else if meta.path().is_ident("event_cpi") {
+                options.event_cpi = true;
             } else if meta.path().is_ident("lamports") {
                 let list = meta.require_list()?;
                 let fields: Punctuated<Ident, Comma> =
@@ -456,7 +505,7 @@ fn parse_context_options(attr: TokenStream, attrs: &mut Vec<Attribute>) -> Resul
                 return Err(syn::Error::new_spanned(
                     meta,
                     "unknown Hopper context option; supported: `auto_lifecycle`, \
-                     `strict_writes`, `emit_touch_map`, `lamports(field, ...)`",
+                     `strict_writes`, `emit_touch_map`, `event_cpi`, `lamports(field, ...)`",
                 ));
             }
         }
@@ -475,6 +524,9 @@ fn parse_context_options(attr: TokenStream, attrs: &mut Vec<Attribute>) -> Resul
                 } else if meta.path.is_ident("emit_touch_map") {
                     options.emit_touch_map = true;
                     Ok(())
+                } else if meta.path.is_ident("event_cpi") {
+                    options.event_cpi = true;
+                    Ok(())
                 } else if meta.path.is_ident("lamports") {
                     let mut fields = Vec::new();
                     meta.parse_nested_meta(|inner| match inner.path.get_ident() {
@@ -489,7 +541,7 @@ fn parse_context_options(attr: TokenStream, attrs: &mut Vec<Attribute>) -> Resul
                 } else {
                     Err(meta.error(
                         "unknown #[accounts(...)] option; supported: auto_lifecycle, \
-                         strict_writes, emit_touch_map, lamports(field, ...)",
+                         strict_writes, emit_touch_map, event_cpi, lamports(field, ...)",
                     ))
                 }
             })?;
@@ -507,6 +559,9 @@ fn parse_context_options(attr: TokenStream, attrs: &mut Vec<Attribute>) -> Resul
                     Ok(())
                 } else if meta.path.is_ident("emit_touch_map") {
                     options.emit_touch_map = true;
+                    Ok(())
+                } else if meta.path.is_ident("event_cpi") {
+                    options.event_cpi = true;
                     Ok(())
                 } else if meta.path.is_ident("lamports") {
                     let mut fields = Vec::new();
@@ -720,8 +775,66 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             ty: field_ty,
             attr,
             index: i,
+            synthetic: None,
         });
     }
+
+    // ── event_cpi: auto-append the two Anchor-parity trailing slots ──
+    //
+    // The author declares NOTHING: the macro appends the event-authority
+    // PDA and the program's own account as real trailing account slots
+    // (Anchor's `#[event_cpi]` appends the same two). They count toward
+    // `ACCOUNT_COUNT`, are validated at bind (authority: PDA verify via
+    // the runtime sha256 loop + bump capture; program: address pin to
+    // `ctx.program_id()`), gain `_account()` accessors and schema
+    // entries — but they are NOT struct fields, so the typed `accounts`
+    // facade skips them (see `accounts_binding_fragments`). Appended
+    // last so every user-declared field keeps its index.
+    if context_options.event_cpi {
+        for reserved in ["event_authority", "event_program"] {
+            if ctx_fields.iter().any(|cf| cf.name == reserved) {
+                return Err(syn::Error::new_spanned(
+                    name,
+                    format!(
+                        "`event_cpi` auto-appends a trailing `{reserved}` account slot; \
+                         rename the declared `{reserved}` field (the macro provides it)"
+                    ),
+                ));
+            }
+        }
+        // The seed expression is carried on the attr for SCHEMA display
+        // only (`bump` stays `None`, so the generic seeds+bump lowering
+        // never fires); the actual verification is the dedicated
+        // `verify_event_authority` check emitted in the validator loop,
+        // which works on-chain (sha256 verify loop) and degrades
+        // documented-ly on hosts (no sha256 syscall off-chain).
+        ctx_fields.push(ContextField {
+            name: format_ident!("event_authority"),
+            ty: syn::parse_quote!(AccountView),
+            attr: AccountAttr {
+                seeds: Some(vec![syn::parse_quote!(
+                    ::hopper::__runtime::cpi_event::EVENT_AUTHORITY_SEED
+                )]),
+                ..AccountAttr::default()
+            },
+            index: ctx_fields.len(),
+            synthetic: Some(SyntheticFieldRole::EventAuthority),
+        });
+        // `address = *ctx.program_id()` reuses the plain stage-2 address
+        // lowering: one compare, and the runtime needs this account in
+        // the instruction to resolve the self-CPI target.
+        ctx_fields.push(ContextField {
+            name: format_ident!("event_program"),
+            ty: syn::parse_quote!(AccountView),
+            attr: AccountAttr {
+                address: Some(syn::parse_quote!(*ctx.program_id())),
+                ..AccountAttr::default()
+            },
+            index: ctx_fields.len(),
+            synthetic: Some(SyntheticFieldRole::EventProgram),
+        });
+    }
+
     let accounts_binding = accounts_binding_fragments(name, &input.generics, &ctx_fields);
     let accounts_field_decl = accounts_binding.field_decl;
     let accounts_init_stmt = accounts_binding.init_stmt;
@@ -754,6 +867,43 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         // Where this field's check descriptions begin, so the optional
         // gate below can prepend its own entry after the fact.
         let desc_start = check_descriptions.len();
+
+        // ── event_cpi synthetic authority (auto-appended) ──────────────
+        //
+        // The event-authority slot verifies against the PDA of
+        // `EVENT_AUTHORITY_SEED` under the executing program id and
+        // yields its bump. Verification runs through the dedicated
+        // runtime helper rather than the generic `seeds`+`bump` lowering
+        // because (a) on-chain the helper uses the sha256-only verify
+        // loop (`find_and_verify_pda`, ~200 CU at bump 255 — the
+        // cheapest verify path in the repo, no `create_program_address`
+        // syscalls) and (b) the generic lowering's
+        // `::hopper::pda::find_program_address` does not exist on host
+        // targets, which would make every `event_cpi` context
+        // host-uncompilable. The same helper backs the `Bumps` gather,
+        // so `emit_event_cpi` signs with a stored bump.
+        if cf.synthetic == Some(SyntheticFieldRole::EventAuthority) {
+            field_checks.push(quote! {
+                let _ = ::hopper::__runtime::cpi_event::verify_event_authority(
+                    ctx.account(#idx)?,
+                    ctx.program_id(),
+                )?;
+            });
+            check_descriptions.push(format!(
+                "accounts[{}] ({}) must be the event-authority PDA \
+                 (seeds [b\"__hopper_event_authority\"], sha256 verify loop on-chain)",
+                idx, field_name
+            ));
+            bump_entries.push((
+                field_name.clone(),
+                quote! {
+                    ::hopper::__runtime::cpi_event::verify_event_authority(
+                        ctx.account(#idx)?,
+                        ctx.program_id(),
+                    )?
+                },
+            ));
+        }
 
         // ── Audit page 12: deterministic validation ordering ──────────
         //
@@ -3412,6 +3562,65 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
     // not in macro-emitted `#[cfg]`).
     let emit_touch_map_flag: bool = context_options.emit_touch_map;
 
+    // ── Self-CPI events: the bound-context one-liner ───────────────────
+    //
+    // Under `event_cpi`, the bound context gains the fixed-name
+    // `emit_event_cpi(&event)` delegation (the same conditional
+    // fixed-name pattern as the BLD-MUT `transfer_lamports` method):
+    // encode `[0xE0, 0x1E, tag, payload]` via the runtime's zero-alloc
+    // encoder, then self-invoke through the checked `invoke_signed`
+    // tier with the event-authority signer seeds. The bump comes from
+    // `self.bumps.event_authority` — gathered once at bind by the same
+    // verify call that validated the PDA — so the emit itself derives
+    // nothing.
+    let emit_event_cpi_method: TokenStream = if context_options.event_cpi {
+        // The synthetic fields are the two trailing slots.
+        let authority_idx = account_count - 2;
+        quote! {
+            /// Emit a `#[hopper::event]` as an authenticated self-CPI so
+            /// indexers read it from the transaction's inner-instruction
+            /// metadata (which RPC nodes do not truncate, unlike logs).
+            ///
+            /// Wire format: `[0xE0, 0x1E, tag, payload]` — 3 bytes of
+            /// instruction-data overhead per event vs Anchor
+            /// `emit_cpi!`'s 16 (8-byte instruction tag + 8-byte event
+            /// discriminator). The self-CPI is signed by this context's
+            /// auto-appended event-authority PDA using the bump captured
+            /// at bind; the generated program dispatcher authenticates
+            /// the event in the reserved `[0xE0, 0x1E]` sink before
+            /// accepting it.
+            #[inline]
+            #vis fn emit_event_cpi<E: ::hopper::__runtime::cpi_event::CpiEvent>(
+                &self,
+                event: &E,
+            ) -> ::core::result::Result<(), ::hopper::__runtime::ProgramError> {
+                let __hopper_authority = self.ctx.account(#authority_idx)?;
+                let mut __hopper_buf =
+                    [0u8; 3 + ::hopper::__runtime::cpi_event::MAX_EVENT_PAYLOAD];
+                let __hopper_len = ::hopper::__runtime::cpi_event::encode_event_cpi(
+                    <E as ::hopper::__runtime::cpi_event::CpiEvent>::TAG,
+                    ::hopper::__runtime::cpi_event::CpiEvent::payload_bytes(event),
+                    &mut __hopper_buf,
+                )
+                .ok_or(::hopper::__runtime::ProgramError::InvalidInstructionData)?;
+                let __hopper_bump: [u8; 1] = [self.bumps.event_authority];
+                let __hopper_seeds: [&[u8]; 2] = [
+                    ::hopper::__runtime::cpi_event::EVENT_AUTHORITY_SEED,
+                    &__hopper_bump,
+                ];
+                ::hopper::__runtime::cpi_event::invoke_event_cpi(
+                    self.ctx.program_id(),
+                    __hopper_authority,
+                    &__hopper_buf[..__hopper_len],
+                    &__hopper_seeds,
+                )
+            }
+        }
+    } else {
+        TokenStream::new()
+    };
+    let event_cpi_flag: bool = context_options.event_cpi;
+
     let expanded = quote! {
         // Emit the original struct unchanged (attribute macro path only).
         #original_struct
@@ -3484,6 +3693,20 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             /// instructions, so a context that did not opt in pays
             /// nothing.
             pub const EMIT_TOUCH_MAP: bool = #emit_touch_map_flag;
+
+            /// Whether this context opts into self-CPI events
+            /// (`#[hopper::context(event_cpi)]`).
+            ///
+            /// `true` only when the author opted in: the two trailing
+            /// event accounts are then auto-appended (they are the last
+            /// two of [`ACCOUNT_COUNT`](Self::ACCOUNT_COUNT)) and the
+            /// bound context exposes `emit_event_cpi(&event)`. The
+            /// generated `#[hopper::program]` dispatcher ORs this const
+            /// across its typed contexts to decide — at compile time —
+            /// whether the reserved `[0xE0, 0x1E]` event-sink arm is
+            /// live; `false` everywhere makes that guard dead-code-
+            /// eliminate, so programs without the feature pay nothing.
+            pub const EVENT_CPI: bool = #event_cpi_flag;
 
             /// Number of individual validation checks performed.
             pub const VALIDATION_CHECK_COUNT: usize = #check_count;
@@ -3798,6 +4021,8 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             }
 
             #gated_transfer_method
+
+            #emit_event_cpi_method
 
             // --- Generated segment accessors ---
             #(#accessors)*
@@ -5034,11 +5259,21 @@ fn accounts_binding_fragments(
         .params
         .iter()
         .all(|param| matches!(param, GenericParam::Lifetime(_)));
-    let all_fields_are_wrappers = ctx_fields
+    // Synthetic (auto-appended) fields are account slots, not struct
+    // fields: the facade constructs the USER's struct, so only
+    // author-declared fields participate — both in the all-wrappers
+    // eligibility test and in the constructor. A context whose declared
+    // fields are all wrappers keeps its facade when `event_cpi` appends
+    // the two raw trailing slots.
+    let user_fields: Vec<&ContextField> = ctx_fields
+        .iter()
+        .filter(|field| field.synthetic.is_none())
+        .collect();
+    let all_fields_are_wrappers = user_fields
         .iter()
         .all(|field| classify_wrapper(&field.ty).is_some());
 
-    if ctx_fields.is_empty() || !has_only_lifetime_generics || !all_fields_are_wrappers {
+    if user_fields.is_empty() || !has_only_lifetime_generics || !all_fields_are_wrappers {
         return AccountsBindingFragments {
             field_decl: TokenStream::new(),
             init_stmt: TokenStream::new(),
@@ -5053,7 +5288,7 @@ fn accounts_binding_fragments(
         quote! { #name<#(#generic_args),*> }
     };
 
-    let field_inits = ctx_fields.iter().map(|field| {
+    let field_inits = user_fields.iter().map(|field| {
         let field_name = &field.name;
         let idx = field.index;
         let expr = wrapper_init_expr(&classify_wrapper(&field.ty).expect("checked above"), idx);
@@ -5522,6 +5757,212 @@ mod instruction_arg_tests {
         assert!(
             !s.contains("Drop for PlainCtx"),
             "no opt-in must generate no Drop for the bound context: {s}"
+        );
+    }
+
+    /// `event_cpi` appends the two Anchor-parity trailing account slots
+    /// WITHOUT the author declaring them: `ACCOUNT_COUNT` grows by 2,
+    /// both slots get per-field validators (authority: PDA verify via
+    /// the runtime helper; program: `address == ctx.program_id()` pin),
+    /// the authority's bump lands on the `Bumps` struct, both get
+    /// `_account()` accessors, the spec advertises `EVENT_CPI = true`,
+    /// and the bound context gains the `emit_event_cpi` one-liner.
+    #[test]
+    fn event_cpi_appends_validates_and_exposes_the_two_trailing_accounts() {
+        let attr: TokenStream = quote! { event_cpi };
+        let item: TokenStream = quote! {
+            pub struct Deposit<'info> {
+                #[account(mut)]
+                pub vault: Account<'info, VaultState>,
+            }
+        };
+        let expanded = expand(attr, item).expect("expand ok");
+        let s = expanded.to_string();
+
+        // One user field + two appended slots.
+        assert!(
+            s.contains("ACCOUNT_COUNT : usize = 3"),
+            "event_cpi must append two trailing account slots: {s}"
+        );
+        assert!(
+            s.contains("const EVENT_CPI : bool = true"),
+            "opt-in must advertise EVENT_CPI = true: {s}"
+        );
+
+        // Both slots are validated at bind.
+        assert!(
+            s.contains("fn validate_event_authority"),
+            "the appended authority slot must get a validator: {s}"
+        );
+        assert!(
+            s.contains("verify_event_authority"),
+            "authority validation must run the runtime PDA verify helper: {s}"
+        );
+        assert!(
+            s.contains("fn validate_event_program"),
+            "the appended program slot must get a validator: {s}"
+        );
+        assert!(
+            s.contains("(* ctx . program_id ())"),
+            "the program slot must be pinned to ctx.program_id(): {s}"
+        );
+
+        // The authority bump is captured at bind for the CPI signer.
+        assert!(
+            s.contains("__hopper_bumps . event_authority ="),
+            "the authority bump must be gathered onto the Bumps struct: {s}"
+        );
+
+        // Both slots are exposed for the emit call.
+        assert!(
+            s.contains("fn event_authority_account"),
+            "the authority slot must get an accessor: {s}"
+        );
+        assert!(
+            s.contains("fn event_program_account"),
+            "the program slot must get an accessor: {s}"
+        );
+
+        // The one-liner: encode + stored-bump self-invoke.
+        assert!(
+            s.contains("fn emit_event_cpi"),
+            "the bound context must expose emit_event_cpi: {s}"
+        );
+        assert!(
+            s.contains("encode_event_cpi") && s.contains("invoke_event_cpi"),
+            "emit_event_cpi must encode the wire format and self-invoke: {s}"
+        );
+        assert!(
+            s.contains("self . bumps . event_authority"),
+            "emit_event_cpi must sign with the bind-captured bump: {s}"
+        );
+    }
+
+    /// A context whose declared fields are all wrapper types keeps its
+    /// typed `accounts` facade when `event_cpi` appends the two raw
+    /// trailing slots: the facade mirrors the USER's struct only, so the
+    /// synthetic slots must be skipped by the constructor, not counted
+    /// against wrapper-eligibility.
+    #[test]
+    fn event_cpi_keeps_the_wrapper_accounts_facade() {
+        let attr: TokenStream = quote! { event_cpi };
+        let item: TokenStream = quote! {
+            pub struct Ping<'info> {
+                pub payer: Signer<'info>,
+            }
+        };
+        let expanded = expand(attr, item).expect("expand ok");
+        let s = expanded.to_string();
+        assert!(
+            s.contains("pub accounts :"),
+            "the all-wrappers facade must survive the appended raw slots: {s}"
+        );
+        // The facade constructor mirrors the USER's struct only: slice
+        // the `= Ping { ... }` initializer out of the expansion and
+        // require it to construct `payer` but neither synthetic slot.
+        let ctor_start = s.find("= Ping {").expect("facade constructor present");
+        let ctor = &s[ctor_start..];
+        let ctor = &ctor[..ctor.find('}').expect("constructor closes")];
+        assert!(
+            ctor.contains("payer"),
+            "the facade constructor must build the declared field: {ctor}"
+        );
+        assert!(
+            !ctor.contains("event_authority") && !ctor.contains("event_program"),
+            "the facade constructor must not name the synthetic slots: {ctor}"
+        );
+        assert!(
+            s.contains("ACCOUNT_COUNT : usize = 3"),
+            "the two slots still count toward ACCOUNT_COUNT: {s}"
+        );
+    }
+
+    /// Without the opt-in, nothing event-related is generated: the const
+    /// defaults to `false`, no accounts are appended, and no emit method
+    /// or event validators exist. This pins the "did not opt in pays
+    /// nothing" guarantee.
+    #[test]
+    fn no_event_cpi_opt_in_appends_nothing() {
+        let item: TokenStream = quote! {
+            pub struct Plain<'info> {
+                #[account(mut)]
+                pub vault: Account<'info, VaultState>,
+            }
+        };
+        let expanded = expand(TokenStream::new(), item).expect("expand ok");
+        let s = expanded.to_string();
+        assert!(
+            s.contains("const EVENT_CPI : bool = false"),
+            "no opt-in must default EVENT_CPI = false: {s}"
+        );
+        assert!(
+            s.contains("ACCOUNT_COUNT : usize = 1"),
+            "no opt-in must not append account slots: {s}"
+        );
+        // The EVENT_CPI const's doc prose names the method and the
+        // dispatcher marker, so match generated CODE forms only: the
+        // method definition, the appended validators/accessors, and the
+        // bump gather must all be absent.
+        assert!(
+            !s.contains("fn emit_event_cpi"),
+            "no opt-in must not emit the event-CPI method: {s}"
+        );
+        assert!(
+            !s.contains("fn validate_event_authority") && !s.contains("fn validate_event_program"),
+            "no opt-in must not append event-account validators: {s}"
+        );
+        assert!(
+            !s.contains("__hopper_bumps . event_authority"),
+            "no opt-in must not gather an event-authority bump: {s}"
+        );
+        assert!(
+            !s.contains("verify_event_authority"),
+            "no opt-in must not call the event-authority verifier: {s}"
+        );
+    }
+
+    /// `event_cpi` composes with the other context options; the appended
+    /// slots are read-only so a strict write set is unchanged.
+    #[test]
+    fn event_cpi_composes_with_strict_writes() {
+        let attr: TokenStream = quote! { strict_writes, event_cpi };
+        let item: TokenStream = quote! {
+            pub struct Report<'info> {
+                #[account(mut)]
+                pub vault: Account<'info, VaultState>,
+            }
+        };
+        let expanded = expand(attr, item).expect("expand ok");
+        let s = expanded.to_string();
+        assert!(
+            s.contains("const EVENT_CPI : bool = true"),
+            "event_cpi must compose with strict_writes: {s}"
+        );
+        assert!(
+            s.contains("const STRICT_WRITES : bool = true"),
+            "strict_writes must survive the composition: {s}"
+        );
+        assert!(
+            s.contains("ACCOUNT_COUNT : usize = 3"),
+            "the appended slots must still count: {s}"
+        );
+    }
+
+    /// A declared field named like a reserved auto-appended slot is
+    /// rejected with an error that names the collision, instead of
+    /// silently generating duplicate accessors/validators.
+    #[test]
+    fn event_cpi_rejects_reserved_field_names() {
+        let attr: TokenStream = quote! { event_cpi };
+        let item: TokenStream = quote! {
+            pub struct Clash<'info> {
+                pub event_authority: AccountView<'info>,
+            }
+        };
+        let err = expand(attr, item).expect_err("reserved name must be rejected");
+        assert!(
+            err.to_string().contains("event_authority"),
+            "error must name the colliding reserved field: {err}"
         );
     }
 

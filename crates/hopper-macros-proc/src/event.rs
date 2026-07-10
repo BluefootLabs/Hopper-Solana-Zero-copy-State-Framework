@@ -170,6 +170,19 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> 
                 }
             }
         }
+
+        // Self-CPI emission contract: the same tag + byte view exposed
+        // through the runtime's `CpiEvent` trait, so
+        // `ctx.emit_event_cpi(&event)` (from `#[hopper::context(event_cpi)]`)
+        // and `hopper_emit_cpi!` accept this event with no extra glue.
+        impl ::hopper::__runtime::cpi_event::CpiEvent for #ident {
+            const TAG: u8 = #tag_lit;
+
+            #[inline(always)]
+            fn payload_bytes(&self) -> &[u8] {
+                self.as_bytes()
+            }
+        }
     };
 
     // Accept but ignore unknown attr syntax for now.

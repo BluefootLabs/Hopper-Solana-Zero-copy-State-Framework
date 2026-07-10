@@ -310,6 +310,59 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
         }
     }
 
+    // ── Self-CPI event sink (`event_cpi`) ──────────────────────────────
+    //
+    // `#[hopper::context(event_cpi)]` advertises `EVENT_CPI = true` on
+    // the spec type (the same const-advertisement shape as
+    // `EMIT_TOUCH_MAP`). The dispatcher cannot know at MACRO time
+    // whether any bound context opted in — contexts are usually
+    // declared outside the module — so it emits a module const
+    // `__HOPPER_EVENT_CPI_ENABLED` that ORs `EVENT_CPI` across every
+    // typed context spec referenced by a handler, and guards the
+    // reserved `[0xE0, 0x1E]` event sink behind it. The OR resolves at
+    // type-check time and const-folds:
+    //
+    // - some bound context opted in → marker-prefixed instruction data
+    //   routes to the runtime's authenticated `handle_event_sink`
+    //   (marker + signer + on-chain PDA pin), so the author writes no
+    //   sentinel handler at all;
+    // - no context opted in → the guard folds to `false`, the sink
+    //   helper collapses to the same `InvalidInstructionData` the
+    //   fallthrough arm returns, and the dispatch hot path is
+    //   untouched (unknown-discriminator semantics are preserved
+    //   byte-for-byte).
+    //
+    // Programs with ONLY raw `&mut Context<'_>` handlers have no typed
+    // spec to consult, so nothing is emitted and their expansion stays
+    // byte-identical; raw handlers keep the documented manual-sentinel
+    // path (the same exclusion the touch-map emit documents).
+    let mut typed_specs: Vec<Path> = Vec::new();
+    for handler in &handlers {
+        if let ContextBinding::Typed { spec } = &handler.binding {
+            if !typed_specs
+                .iter()
+                .any(|seen| quote!(#seen).to_string() == quote!(#spec).to_string())
+            {
+                typed_specs.push(spec.clone());
+            }
+        }
+    }
+    // A user discriminator that collides with the reserved marker —
+    // exactly `[0xE0]` (which would shadow every marker-prefixed
+    // payload) or anything starting `[0xE0, 0x1E]` (which would shadow
+    // specific events) — cannot coexist with a live sink. Whether any
+    // context opted in is unknowable here, so the collision lowers to a
+    // const-assert on `__HOPPER_EVENT_CPI_ENABLED` that fails the
+    // downstream build ONLY when both the colliding discriminator and
+    // an opted-in context exist; the sink arm itself is withheld.
+    let marker_conflict = handlers.iter().any(|h| {
+        h.discriminator.as_slice() == [0xE0]
+            || (h.discriminator.len() >= 2
+                && h.discriminator[0] == 0xE0
+                && h.discriminator[1] == 0x1E)
+    });
+    let event_sink_live = !typed_specs.is_empty() && !marker_conflict;
+
     // Fast path: every discriminator is exactly one byte. Emit the
     // dense `match data[0] { b => handler, ... }` form so the compiler
     // keeps the jump-table optimization. Anchor programs that never
@@ -375,6 +428,21 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
             .iter()
             .map(|(_, helper, _)| helper)
             .collect();
+        // Sink integration for the table form: the marker's first byte
+        // (0xE0 = 224) is out of the dense 0..N range whenever the
+        // table is sink-eligible (a table covering 224 means a handler
+        // OWNS `[0xE0]`, which `marker_conflict` catches), so the check
+        // lives inside the existing >= bounds-miss branch — zero cost
+        // for every real instruction.
+        let table_sink_check: TokenStream = if event_sink_live {
+            quote! {
+                if __hopper_disc == 0xE0usize {
+                    return __hopper_dispatch_event_sink(ctx, data);
+                }
+            }
+        } else {
+            TokenStream::new()
+        };
         quote! {
             if data.is_empty() {
                 return ::core::result::Result::Err(
@@ -390,6 +458,7 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
             ] = [ #(#helper_idents),* ];
             let __hopper_disc = data[0] as usize;
             if __hopper_disc >= #table_len {
+                #table_sink_check
                 return ::core::result::Result::Err(
                     ::hopper::__runtime::ProgramError::InvalidInstructionData,
                 );
@@ -405,6 +474,16 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
                 quote! { #byte => #helper(ctx, data), }
             })
             .collect();
+        // Sink integration for the match form: one more literal arm on
+        // the marker's first byte, before the fallthrough. The arm is a
+        // plain helper call like every other, so the jump-table shape
+        // survives; the helper itself validates the second marker byte.
+        // `marker_conflict` guarantees no user arm already claims 0xE0.
+        let match_sink_arm: TokenStream = if event_sink_live {
+            quote! { 0xE0u8 => __hopper_dispatch_event_sink(ctx, data), }
+        } else {
+            TokenStream::new()
+        };
         quote! {
             if data.is_empty() {
                 return ::core::result::Result::Err(
@@ -413,6 +492,7 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
             }
             match data[0] {
                 #(#match_arms)*
+                #match_sink_arm
                 _ => ::core::result::Result::Err(
                     ::hopper::__runtime::ProgramError::InvalidInstructionData,
                 ),
@@ -433,8 +513,23 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
                 }
             })
             .collect();
+        // Sink integration for the chain form: one more prefix test
+        // after every user arm (order is safe: `marker_conflict` bars
+        // any user discriminator that is `[0xE0]` or `[0xE0, 0x1E, ..]`,
+        // so no earlier arm can shadow the marker and the marker cannot
+        // shadow any user arm).
+        let chain_sink_check: TokenStream = if event_sink_live {
+            quote! {
+                if data.starts_with(&[0xE0u8, 0x1Eu8]) {
+                    return __hopper_dispatch_event_sink(ctx, data);
+                }
+            }
+        } else {
+            TokenStream::new()
+        };
         quote! {
             #(#arms)*
+            #chain_sink_check
             ::core::result::Result::Err(
                 ::hopper::__runtime::ProgramError::InvalidInstructionData,
             )
@@ -511,6 +606,75 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
         pub const HOPPER_PROGRAM_MANIFEST_PROFILE: ::hopper::manifest::ManifestProfile =
             #manifest_profile;
     });
+
+    // Self-CPI event sink plumbing (only when a typed spec exists to
+    // consult; raw-only programs emit nothing and stay byte-identical).
+    if !typed_specs.is_empty() {
+        // `false || A::EVENT_CPI || B::EVENT_CPI || ...` — built by
+        // folding rather than a `quote!` separator so the expression is
+        // a plain const-evaluable OR chain over the deduplicated specs.
+        let mut event_cpi_or: TokenStream = quote! { false };
+        for spec in &typed_specs {
+            event_cpi_or = quote! { #event_cpi_or || #spec::EVENT_CPI };
+        }
+        items.push(syn::parse_quote! {
+            /// Whether any typed context bound by this program's
+            /// handlers opted into `#[hopper::context(event_cpi)]`.
+            ///
+            /// Resolved at type-check time by ORing each spec's
+            /// `EVENT_CPI` const, then const-folded: `true` arms the
+            /// reserved `[0xE0, 0x1E]` event sink in the dispatcher;
+            /// `false` collapses the sink to the ordinary
+            /// unknown-discriminator error, costing nothing.
+            #[doc(hidden)]
+            #[allow(dead_code)]
+            pub const __HOPPER_EVENT_CPI_ENABLED: bool = #event_cpi_or;
+        });
+
+        if marker_conflict {
+            // The colliding discriminator is only fatal when a context
+            // actually opted in; a program that never uses event_cpi
+            // keeps its 0xE0-prefixed instruction untouched.
+            items.push(syn::parse_quote! {
+                const _: () = assert!(
+                    !__HOPPER_EVENT_CPI_ENABLED,
+                    "an instruction discriminator collides with the reserved Hopper \
+                     CPI-event marker [0xE0, 0x1E] while a #[hopper::context(event_cpi)] \
+                     context is bound by this program; renumber the instruction (any \
+                     discriminator that is exactly [0xE0] or starts with [0xE0, 0x1E]) \
+                     or drop the event_cpi option"
+                );
+            });
+        }
+
+        if event_sink_live {
+            items.push(syn::parse_quote! {
+                /// Reserved `[0xE0, 0x1E]` self-CPI event sink.
+                ///
+                /// Const-guarded: when no bound context opted into
+                /// `event_cpi` this collapses to the same
+                /// `InvalidInstructionData` the dispatcher's fallthrough
+                /// arm returns (and the arm that calls it is
+                /// dead-code-eliminated). When live, it delegates to the
+                /// runtime's authenticated sink: full marker check,
+                /// event-authority signer requirement, and the on-chain
+                /// PDA address pin.
+                #[inline(never)]
+                #[allow(dead_code)]
+                fn __hopper_dispatch_event_sink(
+                    ctx: &mut ::hopper::prelude::Context<'_>,
+                    data: &[u8],
+                ) -> ::core::result::Result<(), ::hopper::__runtime::ProgramError> {
+                    if !__HOPPER_EVENT_CPI_ENABLED {
+                        return ::core::result::Result::Err(
+                            ::hopper::__runtime::ProgramError::InvalidInstructionData,
+                        );
+                    }
+                    ::hopper::__runtime::cpi_event::handle_event_sink(ctx, data)
+                }
+            });
+        }
+    }
 
     for (_, _, helper) in dispatch_helpers {
         items.push(helper);
@@ -2230,6 +2394,197 @@ mod dispatch_table_tests {
         assert!(
             out.contains("DecodeInstructionArg"),
             "arg decoding must still run inside the helper: {out}",
+        );
+    }
+
+    // ── Self-CPI event sink (`event_cpi`) dispatch integration ─────────
+
+    /// A program with typed handlers arms the const-guarded event sink:
+    /// the `__HOPPER_EVENT_CPI_ENABLED` OR over its context specs, the
+    /// sink helper delegating to the runtime's authenticated
+    /// `handle_event_sink`, and a `0xE0` match arm ahead of the
+    /// fallthrough. The user arms are untouched.
+    #[test]
+    fn typed_handler_program_arms_the_event_sink_in_the_match_form() {
+        let out = expand_normalized(
+            quote!(entrypoint = false),
+            quote! {
+                mod vault {
+                    #[instruction(0)]
+                    fn init(ctx: Context<Init>) -> ProgramResult { Ok(()) }
+                    #[instruction(1)]
+                    fn poke(ctx: &mut Context<'_>) -> ProgramResult { Ok(()) }
+                }
+            },
+        );
+        assert!(
+            out.contains("pub const __HOPPER_EVENT_CPI_ENABLED : bool = false || Init::EVENT_CPI"),
+            "the enable const must OR the typed specs' EVENT_CPI: {out}",
+        );
+        assert!(
+            out.contains("fn __hopper_dispatch_event_sink"),
+            "the sink helper must be emitted: {out}",
+        );
+        assert!(
+            out.contains("0xE0u8 => __hopper_dispatch_event_sink(ctx,data)"),
+            "the match form must gain the marker arm: {out}",
+        );
+        assert!(
+            out.contains("cpi_event::handle_event_sink(ctx,data)"),
+            "the sink must delegate to the runtime's authenticated handler: {out}",
+        );
+        assert!(
+            out.contains("if ! __HOPPER_EVENT_CPI_ENABLED"),
+            "the sink must be const-guarded so non-participating programs fold it away: {out}",
+        );
+    }
+
+    /// A program whose handlers are all raw `&mut Context<'_>` has no
+    /// typed spec to consult: NOTHING event-sink-related is emitted and
+    /// the dispatch output stays byte-identical to the pre-feature
+    /// shape (raw programs keep the documented manual-sentinel path).
+    #[test]
+    fn raw_only_program_emits_no_event_sink_plumbing() {
+        let out = expand_normalized(
+            quote!(entrypoint = false),
+            quote! {
+                mod vault {
+                    #[instruction(0)]
+                    fn initialize(ctx: &mut Context<'_>) -> ProgramResult { Ok(()) }
+                    #[instruction(1)]
+                    fn deposit(ctx: &mut Context<'_>, amount: u64) -> ProgramResult { Ok(()) }
+                }
+            },
+        );
+        assert!(
+            !out.contains("__HOPPER_EVENT_CPI_ENABLED"),
+            "raw-only programs must not emit the enable const: {out}",
+        );
+        assert!(
+            !out.contains("event_sink") && !out.contains("0xE0"),
+            "raw-only programs must not emit any sink arm or helper: {out}",
+        );
+    }
+
+    /// Two handlers binding the same context spec consult its
+    /// `EVENT_CPI` const exactly once in the OR chain.
+    #[test]
+    fn shared_context_spec_is_consulted_once() {
+        let out = expand_normalized(
+            quote!(entrypoint = false),
+            quote! {
+                mod vault {
+                    #[instruction(0)]
+                    fn first(ctx: Context<Shared>) -> ProgramResult { Ok(()) }
+                    #[instruction(1)]
+                    fn second(ctx: Context<Shared>) -> ProgramResult { Ok(()) }
+                }
+            },
+        );
+        assert_eq!(
+            out.matches("Shared::EVENT_CPI").count(),
+            1,
+            "a spec bound by several handlers must appear once in the OR: {out}",
+        );
+    }
+
+    /// The tiny fn-pointer table keeps its shape; the marker check rides
+    /// the existing bounds-miss branch (0xE0 = 224 is always >= a
+    /// sink-eligible table's length), so real instructions pay nothing.
+    #[test]
+    fn tiny_table_program_checks_the_marker_in_the_bounds_miss_branch() {
+        let out = expand_normalized(
+            quote!(profile = "tiny", entrypoint = false),
+            quote! {
+                mod vault {
+                    #[instruction(0)]
+                    fn i0(ctx: Context<Init>) -> ProgramResult { Ok(()) }
+                    #[instruction(1)]
+                    fn i1(ctx: Context<Init>) -> ProgramResult { Ok(()) }
+                    #[instruction(2)]
+                    fn i2(ctx: Context<Init>) -> ProgramResult { Ok(()) }
+                    #[instruction(3)]
+                    fn i3(ctx: Context<Init>) -> ProgramResult { Ok(()) }
+                    #[instruction(4)]
+                    fn i4(ctx: Context<Init>) -> ProgramResult { Ok(()) }
+                    #[instruction(5)]
+                    fn i5(ctx: Context<Init>) -> ProgramResult { Ok(()) }
+                    #[instruction(6)]
+                    fn i6(ctx: Context<Init>) -> ProgramResult { Ok(()) }
+                    #[instruction(7)]
+                    fn i7(ctx: Context<Init>) -> ProgramResult { Ok(()) }
+                }
+            },
+        );
+        assert!(
+            out.contains("static __HOPPER_DISPATCH_TABLE"),
+            "the fn-pointer table must survive the sink integration: {out}",
+        );
+        assert!(
+            out.contains(
+                "if __hopper_disc == 0xE0usize { return __hopper_dispatch_event_sink(ctx,data); }"
+            ),
+            "the marker check must live inside the >= bounds-miss branch: {out}",
+        );
+    }
+
+    /// Multi-byte programs get the sink as one more prefix test after
+    /// every user arm in the starts_with chain.
+    #[test]
+    fn multi_byte_typed_program_appends_the_chain_sink() {
+        let out = expand_normalized(
+            quote!(entrypoint = false),
+            quote! {
+                mod vault {
+                    #[instruction(discriminator = [0x1a, 0xf4])]
+                    fn ported(ctx: Context<Ported>) -> ProgramResult { Ok(()) }
+                    #[instruction(5)]
+                    fn native(ctx: &mut Context<'_>) -> ProgramResult { Ok(()) }
+                }
+            },
+        );
+        assert!(
+            out.contains("if data.starts_with(&[0xE0u8,0x1Eu8])"),
+            "the chain form must append the marker prefix test: {out}",
+        );
+        assert!(
+            out.contains("fn __hopper_dispatch_event_sink"),
+            "the sink helper must be emitted for the chain form: {out}",
+        );
+    }
+
+    /// A user discriminator colliding with the reserved marker lowers to
+    /// a const-assert that fires only when a bound context actually
+    /// opted in; the sink arm itself is withheld so the user's
+    /// instruction keeps its bytes when nothing opted in.
+    #[test]
+    fn marker_colliding_discriminator_lowers_to_a_const_assert() {
+        let out = expand_normalized(
+            quote!(entrypoint = false),
+            quote! {
+                mod vault {
+                    #[instruction(0)]
+                    fn init(ctx: Context<Init>) -> ProgramResult { Ok(()) }
+                    #[instruction(224)]
+                    fn legacy(ctx: &mut Context<'_>) -> ProgramResult { Ok(()) }
+                }
+            },
+        );
+        assert!(
+            out.contains("__HOPPER_EVENT_CPI_ENABLED"),
+            "the enable const must still be emitted for the assert to consult: {out}",
+        );
+        assert!(
+            out.contains("renumber the instruction"),
+            "the collision must lower to a const-assert with a pointed message: {out}",
+        );
+        assert!(
+            !out.contains("fn __hopper_dispatch_event_sink"),
+            "a colliding program must not emit the (shadowed) sink helper: {out}",
+        );
+        assert!(
+            !out.contains("0xE0u8 => "),
+            "a colliding program must not gain a marker arm: {out}",
         );
     }
 }

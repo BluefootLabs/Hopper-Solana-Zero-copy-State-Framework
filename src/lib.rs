@@ -963,4 +963,12 @@ pub mod __runtime {
     // from the context's `mut` / `mut(seg, ...)` declarations and
     // installs it on the raw context during `bind()`.
     pub use hopper_runtime::write_policy;
+
+    // Self-CPI events: `#[hopper::context(event_cpi)]` emits
+    // `::hopper::__runtime::cpi_event::verify_event_authority(...)` at
+    // bind and an `emit_event_cpi` method on the bound context;
+    // `#[hopper::event]` implements `cpi_event::CpiEvent`; and the
+    // `#[hopper::program]` dispatcher routes the reserved
+    // `[0xE0, 0x1E]` marker to `cpi_event::handle_event_sink`.
+    pub use hopper_runtime::cpi_event;
 }

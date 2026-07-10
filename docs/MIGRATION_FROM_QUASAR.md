@@ -11,7 +11,7 @@ If you have a Quasar program, the mechanical port is smaller than the Anchor por
 | `#[derive(Accounts)]` | `#[derive(Accounts)]` |
 | `#[instruction(discriminator = [0x1])]` | `#[instruction(discriminator = [0x1])]` or `#[instruction(1)]` |
 | `#[derive(QuasarSerialize)]` | `#[hopper::args]` |
-| `emit_event_cpi!` | `hopper_emit_cpi!` |
+| `emit_event_cpi!` | `ctx.emit_event_cpi(&..)` via `#[hopper::context(event_cpi)]` (manual: `hopper_emit_cpi!`) |
 | `Ctx<'info, T>` | `Ctx<T>` in handlers |
 | `ctx.accounts.field` | `ctx.accounts.field` |
 | `Pod` primitives in `quasar-pod` | Wire types in `hopper-runtime` |
@@ -234,16 +234,26 @@ pub struct SwapArgs {
 // Quasar
 emit_event_cpi!(ctx, Deposited { amount, depositor });
 
-// Hopper
+// Hopper: add `event_cpi` to the context...
+#[hopper::context(event_cpi)]
+pub struct Deposit { /* ... */ }
+
+// ...and the bound context carries the one-liner.
+ctx.emit_event_cpi(&Deposited { amount, depositor })?;
+```
+
+The `event_cpi` option auto-appends the event-authority PDA and the program account as trailing slots (validated at bind), and the `#[hopper::program]` dispatcher generates the authenticated `[0xE0, 0x1E]` sink — nothing else to declare. For raw handlers or custom sinks, the explicit form remains:
+
+```rust
 hopper_emit_cpi!(
     ctx.program_id(),
     ctx.event_authority_account()?,
-    bumps.event_authority,
+    ctx.bumps().event_authority,
     Deposited { amount, depositor },
 );
 ```
 
-Hopper takes the signer seeds explicitly so the macro does not need to know about a canonical event-authority account layout at expansion time. Conceptually the same invoke_signed pattern; Hopper exposes the moving parts.
+Hopper's manual macro takes the signer seeds explicitly so it does not need to know about a canonical event-authority account layout at expansion time. Conceptually the same invoke_signed pattern; Hopper exposes the moving parts.
 
 ## Errors
 
@@ -331,6 +341,6 @@ Things Quasar does not have that your port gets for free:
 5. Rename `QuasarSerialize` to `hopper::args`. Swap `OptionZc` for `OptionByte` (or `Option` where you want the niche-optimized form).
 6. Replace `seeds = Type::seeds(...)` with `seeds_fn = Type::seeds(...)`.
 7. Move `RemainingAccounts` field references to `ctx.remaining_accounts()` on the bound context.
-8. Rename `emit_event_cpi!` to `hopper_emit_cpi!` and thread the event-authority pubkey plus stored bump through.
+8. Add `event_cpi` to each emitting context and call `ctx.emit_event_cpi(&event)` (or, for raw handlers, use `hopper_emit_cpi!` and thread the event-authority account plus stored bump through yourself).
 9. Run `hopper build`. Fix whatever compiler errors surface. They will mostly be naming.
 10. Read the `docs/TOKEN_2022_GUIDE.md` if your program touches Token-2022; Hopper's constraint surface is a clear superset of what you were using before.

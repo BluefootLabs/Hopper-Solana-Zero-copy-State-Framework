@@ -480,29 +480,41 @@ macro_rules! msg {
     }};
 }
 
-/// Emit a Hopper event via self-CPI for reliable indexing.
+/// Emit a Hopper event via self-CPI for reliable indexing — the
+/// manual-wiring form.
+///
+/// Most programs should not call this directly: `#[hopper::context(event_cpi)]`
+/// plus `ctx.emit_event_cpi(&event)` wires the same emission (accounts,
+/// bump, sink) with zero hand-written plumbing. Reach for this macro
+/// only when the context macro is out of the picture (raw handlers,
+/// hand-rolled account handling, a custom sink).
 ///
 /// Wraps [`cpi_event::encode_event_cpi`] and a call into the active
 /// backend's `invoke_signed` so indexers see the event as an inner
 /// instruction in the transaction metadata. Log output is size-capped; inner
 /// instructions are retained. Anchor's `emit_cpi!` solves the same problem
 /// with the same trick; Hopper's lives in pure Rust so it works under
-/// `no_std` and any of the three backends.
+/// `no_std` and any of the three backends — and its wire format is
+/// 3 bytes of overhead (2-byte marker + 1-byte tag) against Anchor's 16
+/// (8-byte instruction tag + 8-byte event discriminator).
 ///
-/// ## Required program plumbing
+/// ## Required program plumbing (manual form only)
 ///
-/// The caller must declare a sentinel handler so the runtime routes
-/// the self-CPI somewhere:
+/// The caller must declare a sentinel handler so the dispatcher routes
+/// the self-CPI somewhere — and should authenticate it rather than
+/// no-op, or forged events become possible:
 ///
 /// ```ignore
 /// #[instruction(discriminator = [0xE0, 0x1E])]
-/// fn __hopper_event_sink(_ctx: &mut Context<'_>) -> ProgramResult {
-///     Ok(())
+/// fn __hopper_event_sink(ctx: &mut Context<'_>) -> ProgramResult {
+///     hopper_runtime::cpi_event::handle_event_sink(ctx, ctx.instruction_data())
 /// }
 /// ```
 ///
-/// And a PDA named `event_authority` seeded with
-/// `[b"__hopper_event_authority"]` so the CPI has a signer.
+/// And a PDA account seeded with [`cpi_event::EVENT_AUTHORITY_SEED`]
+/// (`b"__hopper_event_authority"`) so the CPI has a signer, plus the
+/// program's own account in the instruction so the runtime can resolve
+/// the self-CPI target.
 ///
 /// ## Usage
 ///
@@ -515,26 +527,27 @@ macro_rules! msg {
 /// );
 /// ```
 ///
-/// Expands to: build instruction bytes, invoke_signed with the
-/// event_authority PDA as the signer. One CPI, bounded stack
-/// allocation, zero heap.
+/// `$event` must be a `#[hopper::event]` type (anything implementing
+/// [`cpi_event::CpiEvent`]). Expands to: build instruction bytes,
+/// invoke_signed with the event_authority PDA as the signer. One CPI,
+/// bounded stack allocation, zero heap.
 #[macro_export]
 macro_rules! hopper_emit_cpi {
     ( $program_id:expr, $event_authority:expr, $bump:expr, $event:expr ) => {{
-        // Build the wire format into a stack buffer. 512 payload bytes
-        // fits every sensibly-sized event; callers with larger events
-        // should grow the buffer at the call site or use `emit!` with
-        // the log-based path.
+        // Build the wire format into a stack buffer. MAX_EVENT_PAYLOAD
+        // (512) bytes fits every sensibly-sized event; callers with
+        // larger events should grow the buffer at the call site or use
+        // `emit!` with the log-based path.
         let __ev = $event;
-        let __tag: u8 = ::core::convert::Into::<u8>::into(__ev.tag());
-        let __payload: &[u8] = __ev.as_bytes();
-        let mut __buf = [0u8; 2 + 1 + 512];
+        let __tag: u8 = $crate::cpi_event::CpiEvent::tag(&__ev);
+        let __payload: &[u8] = $crate::cpi_event::CpiEvent::payload_bytes(&__ev);
+        let mut __buf = [0u8; 2 + 1 + $crate::cpi_event::MAX_EVENT_PAYLOAD];
         let __n = $crate::cpi_event::encode_event_cpi(__tag, __payload, &mut __buf[..])
             .ok_or($crate::ProgramError::InvalidInstructionData)?;
         // Signer seeds for the event-authority PDA. The caller
         // derived and cached `$bump` so this is a stored-bump CPI.
         let __bump_byte: [u8; 1] = [$bump];
-        let __seed_slices: [&[u8]; 2] = [b"__hopper_event_authority", &__bump_byte[..]];
+        let __seed_slices: [&[u8]; 2] = [$crate::cpi_event::EVENT_AUTHORITY_SEED, &__bump_byte[..]];
         $crate::cpi_event::invoke_event_cpi(
             $program_id,
             $event_authority,

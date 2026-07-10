@@ -196,7 +196,31 @@ emit!(Deposited { amount, depositor });
 emit!(Deposited { amount, depositor });
 ```
 
-Identical call site. For self-CPI events (what Anchor spells `emit_cpi!`), Hopper's path is `hopper_emit_cpi!`. Same contract, same reliability guarantee.
+Identical call site. Self-CPI events (what Anchor spells `#[event_cpi]` + `emit_cpi!`) are the same shape in Hopper — one attribute option, one call:
+
+```rust
+// Anchor
+#[event_cpi]
+#[derive(Accounts)]
+pub struct Deposit<'info> { /* ... */ }
+
+pub fn deposit(ctx: Context<Deposit>, amount: u64) -> Result<()> {
+    emit_cpi!(Deposited { amount });
+    Ok(())
+}
+
+// Hopper
+#[hopper::context(event_cpi)]
+pub struct Deposit { /* ... */ }
+
+#[instruction(0)]
+fn deposit(ctx: Context<Deposit>, amount: u64) -> ProgramResult {
+    ctx.emit_event_cpi(&Deposited { amount: WireU64::new(amount) })?;
+    Ok(())
+}
+```
+
+Both append the same two trailing accounts (event-authority PDA + the program account) and both authenticate the self-CPI in the dispatcher, so ported clients pass the same account shape. Differences worth knowing: Hopper's wire is `[0xE0, 0x1E, tag, payload]` — 3 bytes of instruction-data overhead per event against Anchor's 16 (8-byte instruction tag + 8-byte event discriminator) — and the event-authority seed is `b"__hopper_event_authority"` (not Anchor's `b"__event_authority"`), so indexers must derive the Hopper PDA. Anchor pins the authority against a compile-time constant; Hopper has no compile-time program id, so bind and the sink verify at runtime via a sha256-only compare loop (~200 CU at bump 255). The manual escape hatch `hopper_emit_cpi!` remains for raw handlers.
 
 ## Token-2022
 
