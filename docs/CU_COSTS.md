@@ -146,6 +146,36 @@ got ~29% cheaper at this commit). Receipts remain a reasonable default for
 audit-sensitive state changes; CU-critical one-shot programs can stay on
 the load/overlay/fingerprint tier and skip receipts entirely.
 
+### Self-CPI events (`event_cpi`)
+
+Measured separately (2026-07-10, Mollusk 0.10.3, `examples/hopper-smoke`
+instruction 4 on a **pinned** program id so the event-authority bump — and
+therefore the sha256 verify-loop attempt count — is identical across runs;
+the number is that instruction's total, not a net-of-harness primitive):
+
+| Operation | CU | Notes |
+| --- | ---: | --- |
+| `emit_receipt` total (whole instruction) | 3,534 | bind (4 accounts incl. one PDA verify) + one counter write + self-CPI + generated sink |
+| inner sink execution alone | 279 | entrypoint + dispatch + signer check + PDA address pin |
+| top-level forgery refusal | 112 | marker instruction with an unsigned authority dies at the signer check |
+
+Two structural notes, both disclosed wherever the feature is claimed:
+
+- The dominant cost is the **CPI itself** (the ~1k-CU-class invoke plus the
+  nested entrypoint), which every self-CPI event scheme pays — Anchor's
+  `emit_cpi!` included. The log-based `emit_event` (240 CU) remains the
+  cheap tier when log truncation is acceptable.
+- Hopper has no compile-time program id, so the event-authority PDA is
+  verified **at runtime** by the sha256 compare loop: ~148 CU per attempt
+  (the 256-attempt exhaustion below ÷ 256), attempt count = 256 − bump.
+  This smoke program's authority sits at the first attempt and its verify
+  measures 171 CU. Anchor v0.31+ pins the authority against a compile-time
+  constant for ~free — a real, stated disadvantage. `bind()` fuses
+  validation and bump capture into exactly ONE derivation (measured: the
+  fuse took this instruction from 3,705 to 3,534 CU). A failed bind with a
+  wrong authority address exhausts the loop: ~37.9k CU on the failing
+  (attacker-paid) transaction.
+
 ## Budgeting rule of thumb
 
 From the rows above: full validated load (33) + overlay access (2) +

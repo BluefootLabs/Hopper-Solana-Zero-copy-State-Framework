@@ -842,6 +842,18 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
 
     // Generate per-field validation functions and collect check descriptions.
     let mut validation_stmts = Vec::new();
+    // `bind()`'s copy of the validation sequence. Identical per-field
+    // validator CALLS (no code duplication — the same fns `validate()`
+    // composes), except the synthetic event-authority slot, whose call
+    // is swapped for a direct `verify_event_authority` that BINDS the
+    // bump into a local. `validate()` and `bind()` would otherwise each
+    // run the sha256 verify loop — ~200+ CU per attempt on-chain, paid
+    // twice per event-emitting instruction — and unlike user PDA fields
+    // there is no `bump = expr` spelling to store it, so the fuse is the
+    // only way an `event_cpi` bind pays for exactly one derivation.
+    // Only consulted when an event authority exists; every other
+    // context's `bind()` keeps delegating to `validate()`.
+    let mut bind_validation_stmts = Vec::new();
     let mut per_field_validators = Vec::new();
     let mut check_descriptions: Vec<String> = Vec::new();
 
@@ -894,15 +906,13 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                  (seeds [b\"__hopper_event_authority\"], sha256 verify loop on-chain)",
                 idx, field_name
             ));
-            bump_entries.push((
-                field_name.clone(),
-                quote! {
-                    ::hopper::__runtime::cpi_event::verify_event_authority(
-                        ctx.account(#idx)?,
-                        ctx.program_id(),
-                    )?
-                },
-            ));
+            // The gather expression is a LOCAL read: `bind()`'s fused
+            // validation sequence (see `bind_validation_stmts`) already
+            // ran the one-and-only `verify_event_authority` and bound
+            // its bump to this local, so the `Bumps` struct costs no
+            // second derivation. (Bump gathers only ever appear inside
+            // `bind()`, where the local is in scope.)
+            bump_entries.push((field_name.clone(), quote! { __hopper_event_authority_bump }));
         }
 
         // ── Audit page 12: deterministic validation ordering ──────────
@@ -2156,6 +2166,24 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             validation_stmts.push(quote! {
                 Self::#validate_fn(ctx #arg_name_fragment)?;
             });
+            // `bind()`'s sequence: same call — EXCEPT the synthetic
+            // event authority, where the single fused verify replaces
+            // the validator call and captures the bump for the `Bumps`
+            // gather (same check, same helper, same error, same slot in
+            // the ordering; just not run twice).
+            if cf.synthetic == Some(SyntheticFieldRole::EventAuthority) {
+                bind_validation_stmts.push(quote! {
+                    let __hopper_event_authority_bump: u8 =
+                        ::hopper::__runtime::cpi_event::verify_event_authority(
+                            ctx.account(#idx)?,
+                            ctx.program_id(),
+                        )?;
+                });
+            } else {
+                bind_validation_stmts.push(quote! {
+                    Self::#validate_fn(ctx #arg_name_fragment)?;
+                });
+            }
         }
     }
 
@@ -3094,6 +3122,31 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         TokenStream::new()
     };
 
+    // ── bind()'s validation entry ──────────────────────────────────────
+    //
+    // Almost every context binds by delegating to `validate()`. The
+    // exception is `event_cpi`: its synthetic authority slot needs a
+    // bump that only the sha256 verify loop can produce, and running
+    // that loop inside `validate()` AND again in the bump gather would
+    // charge every event-emitting instruction twice (~200+ CU per
+    // attempt on-chain). So an event-authority context's `bind()` runs
+    // the SAME per-field validators in the SAME order — no duplicated
+    // check bodies, no reordered error precedence — with the authority's
+    // call swapped for one fused verify that binds the bump to a local
+    // the gather then reads. `validate()` itself is untouched, so
+    // standalone validate-only callers still get every check.
+    let has_event_authority = ctx_fields
+        .iter()
+        .any(|cf| cf.synthetic == Some(SyntheticFieldRole::EventAuthority));
+    let bind_validate_fragment: TokenStream = if has_event_authority {
+        quote! {
+            ctx.require_accounts(Self::ACCOUNT_COUNT)?;
+            #(#bind_validation_stmts)*
+        }
+    } else {
+        quote! { Self::#top_validate_ident(ctx #top_arg_name_fragment)?; }
+    };
+
     // ── Tooling surface for declared instruction args ─────────────────
     //
     // Expose the declared arg list as `(name, canonical_type)` pairs
@@ -3851,7 +3904,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                 ctx: &'ctx mut ::hopper::prelude::Context<'a>
                 #top_arg_param_fragment
             ) -> ::core::result::Result<#bound_name<'ctx, 'a>, ::hopper::__runtime::ProgramError> {
-                Self::#top_validate_ident(ctx #top_arg_name_fragment)?;
+                #bind_validate_fragment
                 #write_policy_install_stmt
                 // `validate` already proved every PDA matches its seeds,
                 // so each gather expression can assume the derivation
@@ -3860,7 +3913,10 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                 // `find_program_address` call, which is the cost of
                 // handing the caller a ready-to-use bump without
                 // them re-deriving it at the CPI site. Stored bumps
-                // are the recommended path in hot handlers.
+                // are the recommended path in hot handlers. (The
+                // synthetic event authority is the exception: its verify
+                // above already bound the bump to a local, so its gather
+                // is a register read.)
                 let mut __hopper_bumps = <#bumps_name as ::core::default::Default>::default();
                 #( #bumps_gather_stmts )*
                 #accounts_init_stmt
