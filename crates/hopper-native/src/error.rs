@@ -122,6 +122,11 @@ const BUILTIN_BIT_SHIFT: usize = 32;
 const CUSTOM_ZERO: u64 = 1_u64 << BUILTIN_BIT_SHIFT;
 const BUILTIN_LOW_MASK: u64 = (1_u64 << BUILTIN_BIT_SHIFT) - 1;
 
+/// Reference builtin encoding, kept ONLY as the test oracle: the
+/// shipped conversion reads the enum tag directly, and the golden
+/// tests below re-derive every variant's code through this original
+/// arithmetic to pin the two forever equal.
+#[cfg(test)]
 #[inline(always)]
 const fn to_builtin(index: u64) -> u64 {
     (index + 2) << BUILTIN_BIT_SHIFT
