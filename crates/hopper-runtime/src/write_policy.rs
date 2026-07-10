@@ -480,6 +480,19 @@ struct GateStore<const DEPTH: usize> {
     /// `next_token: 1` initializer used to do. `initial_gate_store_is_all_zero_bytes`
     /// pins this.
     issued: u64,
+    /// Number of CURRENTLY installed (unremoved) gates, `0..=DEPTH`.
+    ///
+    /// This is the hot-path fast-out: `check_lamport_mutation` /
+    /// `check_lamport_delegation` run on EVERY runtime lamport write and
+    /// EVERY writable CPI meta — including in the vast majority of
+    /// programs that never declare `lamports(...)`. Without this counter
+    /// the no-gate path still walked the `DEPTH` slots per call, and the
+    /// router bench measured that dead scanning at ~+44 CU **per hop**
+    /// (2026-07-09: swap rows regressed 1564/3044/4525 → 1610/3136/4663,
+    /// flipping every row behind Quasar). `installed == 0` must make
+    /// `check` a single load + branch. Zero when zeroed (the all-zero
+    /// invariant below).
+    installed: u64,
     slots: [GateSlot; DEPTH],
 }
 
@@ -489,6 +502,7 @@ impl<const DEPTH: usize> GateStore<DEPTH> {
     const fn new() -> Self {
         Self {
             issued: 0,
+            installed: 0,
             slots: [GateSlot::FREE; DEPTH],
         }
     }
@@ -573,6 +587,7 @@ impl<const DEPTH: usize> GateStore<DEPTH> {
         }
         let token = self.issued;
         slot.token = token;
+        self.installed += 1;
         Ok(token)
     }
 
@@ -583,6 +598,10 @@ impl<const DEPTH: usize> GateStore<DEPTH> {
         if let Some(slot) = self.slots.iter_mut().find(|s| s.token == token) {
             slot.token = 0;
             slot.len = 0;
+            // Saturating: a stale/forged token cannot reach here (the
+            // find above gates on a live token), but keep the counter
+            // incapable of wrapping regardless.
+            self.installed = self.installed.saturating_sub(1);
         }
     }
 
@@ -604,6 +623,13 @@ impl<const DEPTH: usize> GateStore<DEPTH> {
     /// error, `u8::MAX` for addresses foreign to the gated instruction)
     /// otherwise.
     fn check(&self, address: &Address, delegation: bool) -> ProgramResult {
+        // Hot-path fast-out: programs that never declare `lamports(...)`
+        // pay ONE load + branch here, not a slot walk. This check runs on
+        // every lamport write and every writable CPI meta, so the walk
+        // was measured at ~+44 CU per router hop before this guard.
+        if self.installed == 0 {
+            return Ok(());
+        }
         let Some(slot) = self.active_slot() else {
             return Ok(());
         };
@@ -630,7 +656,7 @@ impl<const DEPTH: usize> GateStore<DEPTH> {
 
     /// Whether any gate (governing or shadowed) is installed.
     fn any_active(&self) -> bool {
-        self.slots.iter().any(|s| s.token != 0)
+        self.installed != 0
     }
 }
 
@@ -1040,6 +1066,7 @@ mod gate_store_layout_tests {
     fn initial_gate_store_is_all_zero_bytes() {
         let store = GateStore::<2>::new();
         assert_eq!(store.issued, 0, "issued must start at 0, not 1");
+        assert_eq!(store.installed, 0, "installed count must start at 0");
         for slot in &store.slots {
             assert_eq!(slot.token, 0, "free-slot sentinel is 0");
             assert_eq!(slot.len, 0);
