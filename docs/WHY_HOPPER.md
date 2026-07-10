@@ -155,7 +155,7 @@ Two more measured 2026-07-07 results (provenance in `BENCHMARKS.md`):
   primitive lab, Hopper's validated overlay and a raw unsafe cast both
   measure 1 CU net.
 - **Router parity, first published three-way:** Hopper beats Quasar on every
-  1–3-hop swap row (−18/−20/−21 CU) and runs within 2.1–2.7% of hand-written
+  1–3-hop swap row (−23/−29/−34 CU, 2026-07-09) and runs within 1.8–2.4% of hand-written
   Pinocchio,
   with the smallest binary of the three
   (`hopper-bench/results/router-parity-2026-07-07-post-review/`).

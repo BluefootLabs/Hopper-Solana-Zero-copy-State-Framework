@@ -272,19 +272,27 @@ disqualified from publication; all three passed.
 
 | Row | Hopper | Quasar | Pinocchio (hand-written) |
 |---|---:|---:|---:|
-| swap_1hop | **1,564 CU** | 1,582 CU (+18) | 1,523 CU (−41) |
-| swap_2hop | **3,044 CU** | 3,064 CU (+20) | 2,975 CU (−69) |
-| swap_3hop | **4,525 CU** | 4,546 CU (+21) | 4,431 CU (−94) |
-| Binary size | **10.05 KiB** | 11.05 KiB | 10.98 KiB |
+| swap_1hop | **1,559 CU** | 1,582 CU (+23) | 1,523 CU (−36) |
+| swap_2hop | **3,035 CU** | 3,064 CU (+29) | 2,975 CU (−60) |
+| swap_3hop | **4,512 CU** | 4,546 CU (+34) | 4,431 CU (−81) |
+| Binary size | **10.74 KiB** | 11.05 KiB | 10.98 KiB |
 | min-out gate | rejected | rejected | rejected |
+
+Rows re-measured **2026-07-09** after a same-day suspend-bisect-fix cycle:
+a routine re-run caught a Batch-6 regression (+52 CU/hop — gate-machinery
+calls reachable from the per-meta CPI closure forced spill-heavy codegen),
+the claim was suspended, a per-commit bisect attributed every CU, and the
+once-per-CPI delegation-sweep fix landed the rows BETTER than the 07-07
+originals (1,564/3,044/4,525). The full audit trail is in the claims
+register and commit c50d83c.
 
 Reading it honestly:
 
 - Hand-written Pinocchio wins the CU rows, as it should — it carries no
-  framework surface. Hopper lands within **2.1–2.7%** of it (+41/+69/+94 CU
+  framework surface. Hopper lands within **1.8–2.4%** of it (+36/+60/+81 CU
   across the hops) while carrying full framework validation, state contracts,
   and tooling, and ships the **smallest binary of the three**.
-- **Hopper beats Quasar on every row** (−18/−20/−21 CU) with a smaller
+- **Hopper beats Quasar on every row** (−23/−29/−34 CU) with a smaller
   binary. The morning run (pre-entrypoint-fuse:
   `results/router-parity-2026-07-07-threeway/`) had Hopper trailing Quasar
   by +34/+56/+79 CU; the fused single-pass account walk — an
@@ -361,7 +369,7 @@ section below for why those numbers were un-deployable.
   measured PDA-bearing success paths in this vault contract. Treat that as a
   result for this benchmark, not a universal "faster than Pinocchio" claim —
   the router lab above is the fairer overhead measurement, and there
-  hand-written Pinocchio wins by 2.1–2.7%.
+  hand-written Pinocchio wins by 1.8–2.4%.
 - Quasar's upstream vault does not implement `authorize` or `counter_access`,
   so those rows are intentionally absent for Quasar.
 

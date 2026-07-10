@@ -12,7 +12,7 @@ Hopper is also the only framework in the 2026 low-CU field with its own substrat
 Three measured facts, provenance in [BENCHMARKS.md](BENCHMARKS.md) (2026-07-07 runs; vault four-way re-measured 2026-07-09):
 
 - Hopper's safe, validated overlay measures at the same net CU as a raw unsafe pointer cast (1 CU each, Mollusk primitive lab).
-- In the first published router-class three-way (Hopper vs Quasar vs hand-written Pinocchio), Hopper beats Quasar on every CU row, lands within 2.1-2.7% of raw Pinocchio while carrying full framework services, and ships the smallest binary of the three.
+- In the first published router-class three-way (Hopper vs Quasar vs hand-written Pinocchio), Hopper beats Quasar on every CU row (1,559/3,035/4,512 vs 1,582/3,064/4,546, 2026-07-09), lands within 1.8-2.4% of raw Pinocchio while carrying full framework services, and ships the smallest binary of the three.
 - A complete deployable program fits in 3,736 bytes (2026-07-09 build of the counter example; the artifact deployed to devnet on 2026-07-07 was 4,688 bytes), about 0.027 SOL of rent-exempt deploy cost; the equivalent Anchor 0.31.1 artifact costs ~1.36 SOL to deploy.
 
 For normal programs, use `hopper-lang` as `hopper`: `use hopper::prelude::*`, `#[account]`, `#[derive(Accounts)]`, `#[program]`, typed wrappers, checked CPI, and SPL helpers. For advanced state work, reach for `hopper::systems::*` to get segment leases, layout manifests, receipts, policies, and low-level state machinery.
@@ -289,7 +289,7 @@ rather than synthesized. In that run the Hopper vault `.so` also measures
 smaller than Pinocchio's on the identical contract (7.46 vs 7.73 KiB);
 Quasar's 5.47 KiB is still the smallest vault artifact. The same repo also
 carries the first published router-class
-three-way (Hopper / Quasar / hand-written Pinocchio, 2026-07-07): Hopper beats Quasar on every row, within 2.1-2.7% of
+three-way (Hopper / Quasar / hand-written Pinocchio, 2026-07-09): Hopper beats Quasar on every row, within 1.8-2.4% of
 raw Pinocchio per hop, with the smallest binary of the three. See
 [BENCHMARKS.md](BENCHMARKS.md) for both tables and provenance.
 
