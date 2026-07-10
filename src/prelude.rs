@@ -260,5 +260,15 @@ pub use hopper_runtime::{
     require_neq,
 };
 
+// Entrypoint plumbing: every no_std SBF program declares an entrypoint,
+// an allocator stance, and a panic handler, so the prelude carries the
+// whole family — `use hopper::prelude::*;` + `no_allocator!();` must
+// just work (it previously required the qualified `hopper::` spelling,
+// a paper cut our own bench targets tripped on).
+pub use hopper_runtime::{
+    default_allocator, fast_entrypoint, hopper_entrypoint, hopper_fast_entrypoint,
+    hopper_lazy_entrypoint, lazy_entrypoint, no_allocator, nostd_panic_handler, program_entrypoint,
+};
+
 #[cfg(feature = "proc-macros")]
 pub use crate::{account, accounts, args, error_code, event, program, Accounts, HopperInitSpace};
