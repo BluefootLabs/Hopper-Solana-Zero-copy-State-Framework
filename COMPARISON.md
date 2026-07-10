@@ -205,9 +205,10 @@ debits program-owned lamports under a `has_one` check) — see
 `examples/hopper-smoke/README.md` for the confirmed transaction
 signatures. See `BENCHMARKS.md` for sizes and the measured CU figure.
 At the network's `(bytes + 128) × 6,960` lamport rent formula, the
-4,688-byte counter costs about **0.034 SOL** of rent-exempt deploy rent;
-an Anchor-class 190 KiB artifact costs ~1.36 SOL (`BENCHMARKS.md`,
-deploy-cost economics).
+deployed 4,688-byte counter cost about **0.034 SOL** of rent-exempt deploy
+rent; today's tree (2026-07-09, after the writable-sections fix) builds the
+same example at **3,736 bytes ≈ 0.027 SOL**. An Anchor-class 190 KiB
+artifact costs ~1.36 SOL (`BENCHMARKS.md`, deploy-cost economics).
 
 ## Honest gaps
 
@@ -216,7 +217,7 @@ deploy-cost economics).
   reproducibility envelope (lockfile, raw logs, toolchain). The artifact sizes
   and single-program on-chain CU above were produced directly in this devnet
   pass; the same-lockfile competitor matrix lives in `hopper-bench` — current
-  release-facing runs are the 2026-07-07 vault four-way
-  (`hopper-bench/results/framework-vaults-2026-07-07-post-ep/`) and router
+  release-facing runs are the vault four-way re-measured 2026-07-09
+  (`hopper-bench/bench/results/framework-vaults/`) and the 2026-07-07 router
   three-way (`hopper-bench/results/router-parity-2026-07-07-post-review/`). See
   `BENCHMARKS.md` and `AUDIT.md` R2/RSK-4.

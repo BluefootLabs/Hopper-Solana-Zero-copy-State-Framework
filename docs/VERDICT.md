@@ -5,7 +5,7 @@
 > In particular: the Kani-harness proposal shipped (`#[kani::proof]` harnesses
 > in `crates/hopper-runtime/src/segment_borrow.rs` and `tail.rs`), F1/F2 are
 > fixed, the profiler answer moved (measured-CU lab, I9), and the test suite
-> is now 1,295 passing (was 755/759 at review time). For the current verified
+> is now 1,570 passing as of 2026-07-09 (was 755/759 at review time). For the current verified
 > state — competitive landscape, shipped gap closures, and the 2026-07-07
 > measured results — see
 > [`docs/audit/GAP_CLOSURE_AND_INNOVATION_2026.md`](audit/GAP_CLOSURE_AND_INNOVATION_2026.md),

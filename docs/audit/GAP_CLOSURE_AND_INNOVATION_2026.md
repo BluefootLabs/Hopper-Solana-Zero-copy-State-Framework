@@ -749,7 +749,9 @@ findings fixed, 3 refuted), and measured the same day. Workspace suite:
   identical with the feature on; size +0.41 KiB; value is runtime-length
   mem ops (LLVM lowers those to `bcmp` — which platform-tools doesn't
   even provide).
-- **I20 shipped.** 13 pinned tests across two suites, and the authoring
+- **I20 shipped.** 13 pinned tests across two suites at shipping (18 as of
+  2026-07-08, after the Anchor v2 Slab classes #4603/#4616 and the
+  coarse-borrow classes landed), and the authoring
   pass found + fixed a real bug: `safe_close` accepted an aliased
   destination and silently burned the drained lamports (the exact Quasar
   #240 shape). Guard + pin test landed.

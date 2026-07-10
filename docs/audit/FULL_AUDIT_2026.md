@@ -623,9 +623,14 @@ Wave 2 (abi/* + collections/*, 2026-07-02):
   `fixed_vec`/`sorted_vec`/`packed_map`/`slot_map` (currently
   clamp-on-read, which is memory-safe but silently tolerates corrupt
   headers instead of refusing them).
-- **Competitor note:** Quasar/Anchor/Pinocchio ship **no** on-chain
-  zero-copy collections at all — this whole surface is Hopper-only, now
-  corruption-fuzzed. Quasar's one discipline worth importing here: an
+- **Competitor note:** shipped Quasar/Anchor/Pinocchio carry **no** on-chain
+  zero-copy collections — this surface is Hopper-only among shipped
+  frameworks, now corruption-fuzzed. [Qualifier 2026-07-08: the unreleased
+  Anchor v2 alpha now ships one, `Slab<H, T>`
+  (`lang-v2/src/accounts/slab.rs`), with Kani capacity lemmas but no
+  hostile-metadata fuzzing; its first two bug classes (#4603, #4616) are
+  pinned in Hopper's competitor suites.] Quasar's one discipline worth
+  importing here: an
   adversarial Miri suite (`lang/tests/miri.rs`, Tree-Borrows flags, a
   documented findings table) — logged as I14.
 

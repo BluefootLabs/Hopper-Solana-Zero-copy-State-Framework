@@ -325,9 +325,12 @@ attribute would be small ergonomic parity if users ask.
   never panics, never leaves bounds. It earned its keep immediately by
   catching a ring-buffer `get` underflow the manual point-fixes had
   missed.
-- **Surpass:** no competitor ships on-chain zero-copy collections at all
-  (Anchor/Quasar/Pinocchio have none), so this is Hopper-only ground —
-  now corruption-fuzzed. COMPARISON.md row queued.
+- **Surpass:** no shipped competitor has on-chain zero-copy collections
+  (shipped Anchor/Quasar/Pinocchio have none; qualifier 2026-07-08: the
+  unreleased Anchor v2 alpha now carries one, `Slab<H, T>` in
+  `lang-v2/src/accounts/slab.rs`), versus Hopper's 8 — each
+  corruption-fuzzed, which the Slab is not. COMPARISON.md row updated with
+  the same qualifier.
 
 ### I14 — Adversarial Miri suite for the unsafe overlay paths
 
@@ -508,9 +511,12 @@ attribute would be small ergonomic parity if users ask.
 
 ### I20 — Adversarial suite over competitor bug classes
 
-- **shipped 2026-07-07.** 13 pinned tests in two suites; the authoring
-  pass found and fixed a live `safe_close` aliased-destination burn (the
-  exact Quasar #240 shape). Original entry:
+- **shipped 2026-07-07.** 13 pinned tests in two suites at shipping; the
+  authoring pass found and fixed a live `safe_close` aliased-destination
+  burn (the exact Quasar #240 shape). [Update 2026-07-08: the suites now
+  hold 18 pinned tests after the Anchor v2 Slab classes (#4603, #4616) and
+  the coarse-borrow classes landed — see COMPARISON.md and THE_MOAT.md.]
+  Original entry:
 - **idea (2026-07-07).** Impact: medium-high (safety positioning with
   teeth). Effort: low-medium.
 - Quasar's open tracker (2026-07): CPI-return `assume_init` UB (#238/#234),

@@ -320,19 +320,22 @@ every mutation passed its correctness checks.
 
 ## Collections
 
-Hopper ships 8 zero-copy collections that live directly in account data:
+Hopper ships 8 zero-copy collections that live directly in account data
+(`crates/hopper-core/src/collections/`):
 
 - **FixedVec** -- fixed-capacity vector
-- **CircularBuffer** -- ring buffer with wrap-around
+- **RingBuffer** -- ring buffer with wrap-around
 - **PackedMap** -- key-value map in contiguous bytes
 - **SortedVec** -- always-sorted vector
-- **Bitfield** -- compact bit flags
-- **SlabAllocator** -- fixed-size block allocator
+- **BitSet** -- compact bit flags
+- **Slab** -- fixed-size block allocator with free-list
 - **Journal** -- append-only log with circular wrap
-- **VersionedField** -- field with version tag
+- **SlotMap** -- generation-tagged slot storage (ABA-safe keys)
 
-All collections are `no_std`, `no_alloc`, and operate on `&[u8]` /
-`&mut [u8]` slices.
+All collections are `no_std`, `no_alloc`, operate on `&[u8]` /
+`&mut [u8]` slices, validate their own stored metadata at construction,
+and are fuzzed against hostile metadata
+(`collections::hostile_metadata_proptests`).
 
 ## CLI Tooling
 

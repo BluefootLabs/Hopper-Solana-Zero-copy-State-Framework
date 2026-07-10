@@ -11,6 +11,7 @@ This is the side-by-side. If you know Anchor, you can port a program in an after
 | `#[derive(Accounts)] pub struct Deposit<'info> { ... }` | `#[derive(Accounts)] pub struct Deposit<'info> { ... }` |
 | `AccountLoader<'info, Vault>` | `Account<'info, Vault>` |
 | `#[account(mut)] pub vault: Account<'info, Vault>` | `#[account(mut)] pub vault: Account<'info, Vault>` |
+| `pub referral: Option<Account<'info, Vault>>` | `pub referral: Option<Account<'info, Vault>>` (same absence convention: pass the program's own id in the slot; clients port unchanged) |
 | `ctx.accounts.vault.load_mut()?.balance` | `ctx.accounts.vault.get_mut()?.balance` |
 | `ctx.bumps.vault` | `ctx.bumps.vault` |
 | `emit!(Event { .. })` | `emit!(Event { .. })` |

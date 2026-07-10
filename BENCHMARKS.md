@@ -340,11 +340,11 @@ section below for why those numbers were un-deployable.
 
 ### Performance observations
 
-- **Anchor, measured:** Hopper is ~11.9× cheaper on `authorize`, ~4.3× on
-  `deposit`, ~11.6× on `withdraw`, and the artifact is **26× smaller**
-  (7.41 vs 190.11 KiB). Anchor's failure path is also expensive: a missing
-  signer costs 2284 CU (8-byte discriminator hash + full `try_accounts`
-  before the signer check) vs Hopper's 61 CU. **Shelf-life caveat:** these
+- **Anchor, measured (2026-07-09):** Hopper is ~11.9× cheaper on
+  `authorize`, ~4.3× on `deposit`, ~10.3× on `withdraw`, and the artifact
+  is **26× smaller** (7.44 vs 190.11 KiB). Anchor's failure path is also
+  expensive: a missing signer costs 2284 CU (8-byte discriminator hash +
+  full `try_accounts` before the signer check) vs Hopper's 66 CU. **Shelf-life caveat:** these
   multiples apply to shipped Anchor 0.31.1/1.x. The unreleased Anchor v2
   alpha benchmarks at Quasar-level CU in its own repo, so when it ships,
   "10× cheaper than Anchor" stops being a durable headline for any
@@ -394,9 +394,10 @@ Two corollaries the bisect proved along the way:
   failure-path fallback was wrong.
 - The widened auth-fail gap to Pinocchio (−31 → −66 CU) is the same
   entrypoint story: their 41 CU rejection is measured with their
-  scanning entrypoint too, so the honest comparison is 61 vs 41 — the
-  scanning pass plus Hopper's dispatch reaching the fused check. Still
-  the only vault row Pinocchio wins.
+  scanning entrypoint too, so the honest comparison is 66 vs 41 (as of
+  2026-07-09; 61 pre-error-lowering) — the scanning pass plus Hopper's
+  dispatch reaching the fused check. Still the only vault row Pinocchio
+  wins.
 
 ### Reading the Pinocchio deltas honestly
 
@@ -478,8 +479,9 @@ Rent-exempt deploy cost follows `(elf_bytes + 128) × 6,960` lamports
 
 | Artifact | Size | Rent at deploy |
 |---|---:|---:|
-| Hopper counter (devnet) | 4,688 B | **≈ 0.034 SOL** |
-| Hopper vault | 7.41 KiB | ≈ 0.054 SOL |
+| Hopper counter (2026-07-09 build) | 3,736 B | **≈ 0.027 SOL** |
+| Hopper counter (devnet artifact, 07-07) | 4,688 B | ≈ 0.034 SOL |
+| Hopper vault (2026-07-09) | 7.44 KiB | ≈ 0.054 SOL |
 | Quasar vault | 5.47 KiB | ≈ 0.040 SOL |
 | Pinocchio vault | 7.73 KiB | ≈ 0.056 SOL |
 | Anchor 0.31.1 vault | 190.11 KiB | **≈ 1.356 SOL (~25× Hopper)** |
@@ -502,11 +504,14 @@ sizes are the on-disk `.so` artifacts that were deployed.
 | orderbook | 18 408 | `CK3XYYsbFducx9UEEWWLGAVnSAhGkMtM1TKLe8PDP6dJ` |
 | virtual-state | 23 240 | `6MmtjcdZuGZyceETKB2pstfSZ8Pv5r72U7dZrBCzgehz` |
 
-The 4 688-byte counter is the headline size claim: a complete, deployable
-zero-copy program — `#[account]` layout, `#[derive(Accounts)]` context
-with a `has_one` constraint, single-byte dispatch, and a checked mutation
-— in under 5 KiB of bytecode, at about **0.034 SOL** of rent-exempt deploy
-cost.
+The 4 688-byte counter was the headline size claim as deployed; the same
+example rebuilt at HEAD (2026-07-09, after the writable-section P0 fix and
+the `core::fmt`/error-lowering size work) measures **3,736 bytes ≈ 0.027
+SOL** — a complete, deployable zero-copy program — `#[account]` layout,
+`#[derive(Accounts)]` context with a `has_one` constraint, single-byte
+dispatch, and a checked mutation — in under 4 KiB of bytecode. The devnet
+program id above still runs the 4,688-byte 07-07 artifact until
+redeployed.
 
 ### Measured on-chain compute
 

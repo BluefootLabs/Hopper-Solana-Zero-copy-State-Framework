@@ -131,16 +131,18 @@ on Quasar's engineering, which is real.
   capacity is reported exactly, and `safe_close` rejects aliased
   destinations. The pins live in
   `crates/hopper-runtime/tests/competitor_bug_classes.rs` and
-  `crates/hopper-core/tests/competitor_bug_classes.rs` (13 tests).
+  `crates/hopper-core/tests/competitor_bug_classes.rs` (18 tests, including
+  the Anchor v2 Slab classes #4603/#4616).
 - **The suite bites both ways.** Authoring those tests found a real Hopper
   bug — `safe_close` previously accepted an aliased destination and silently
   burned the drained lamports, the exact #240 shape — which was fixed and
   pinned in the same pass. The framework audits itself.
 - **Benchmark culture.** Quasar publishes no comparative CU benchmark.
   Hopper's pinned, provenance-checked `hopper-bench` matrix (vault four-way
-  and router three-way, 2026-07-07) is currently the only published
-  cross-framework table that includes Quasar; in it, Hopper wins both rows
-  Quasar's upstream vault implements (deposit −106 CU, withdraw −150 CU) and
+  re-measured 2026-07-09, router three-way 2026-07-07) is currently the only
+  published cross-framework table that includes Quasar; in it, Hopper wins
+  both rows Quasar's upstream vault implements (deposit −103 CU, withdraw
+  −98 CU) and
   beats Quasar on every 1–3-hop router row (−18/−20/−21 CU) with a smaller
   binary. See
   `BENCHMARKS.md`.

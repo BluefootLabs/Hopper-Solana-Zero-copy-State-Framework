@@ -24,7 +24,7 @@ Hopper is a policy-driven zero-copy runtime for Solana. Three things set it apar
 | Policy-driven safety levers | no | no | no | **yes** |
 | Selective per-instruction unsafe | no | no | no | **yes** |
 | Proc macros optional (not required) | required | yes | no | **yes** |
-| Compile-fail safety proofs | no | no | no | **yes** (21 compile-fail fixtures + 2 pass guards) |
+| Compile-fail safety proofs | no | no | no | **yes** (24 compile-fail fixtures + 6 pass guards) |
 
 ## The three modes you can ship
 
@@ -117,8 +117,8 @@ Other frameworks rely on the author to remember every check. Hopper makes the ch
 Current release-facing numbers come from the sibling
 [hopper-bench](https://github.com/BluefootLabs/hopper-bench) parity harness:
 8-seed average, Mollusk execution, and one command line for every included
-framework. The current snapshot (2026-07-07, four-way,
-`hopper-bench/results/framework-vaults-2026-07-07-post-ep/`) includes Hopper,
+framework. The current snapshot (re-measured 2026-07-09, four-way,
+`hopper-bench/bench/results/framework-vaults/`) includes Hopper,
 the benchmark repo's in-tree Anza Pinocchio target, Quasar's upstream
 `examples/vault` target, and a measured Anchor 0.31.1 comparator. Quasar's
 upstream vault implements only `deposit` and `withdraw`, so validation-only
@@ -127,10 +127,20 @@ rows are `n/a` for Quasar.
 | Instruction | Hopper | Anza Pinocchio | Quasar | Anchor 0.31.1 |
 |---|---:|---:|---:|---:|
 | authorize | **420 CU** | 2512 CU | n/a | 5017 CU |
-| counter_access | **564 CU** | 2539 CU | n/a | 5156 CU |
-| deposit | **1650 CU** | 3856 CU | 1756 CU | 7150 CU |
-| withdraw | **442 CU** | 2548 CU | 592 CU | 5108 CU |
-| binary size | 7.41 KiB | 7.73 KiB | **5.47 KiB** | 190.11 KiB |
+| counter_access | **518 CU** | 2539 CU | n/a | 5156 CU |
+| deposit | **1653 CU** | 3856 CU | 1756 CU | 7150 CU |
+| withdraw | **494 CU** | 2548 CU | 592 CU | 5108 CU |
+| binary size | 7.44 KiB | 7.73 KiB | **5.47 KiB** | 190.11 KiB |
+
+Two honest notes on the 2026-07-09 row set. Withdraw moved 442 → 494 CU
+versus the previous published table: +44 CU is the mutation-complete
+lamport gate actually enforcing on the one lamport-moving instruction — a
+measured safety feature no other column carries — and the remainder is the
+tag-arithmetic error lowering that bought a 10% `.text` cut. Every
+Quasar-comparable row still wins. On size, the Hopper vault `.so` now
+measures **smaller than Pinocchio's on the identical contract** (7.44 vs
+7.73 KiB, zero writable sections); Quasar's 5.47 KiB still wins that row —
+we do not publish a size lead we have not measured.
 
 An earlier version of this page published the 2026-05-25 table
 (431/551/1669/453 CU). Those numbers are retired: they were measured with a

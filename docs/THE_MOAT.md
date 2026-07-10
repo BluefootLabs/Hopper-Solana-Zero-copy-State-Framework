@@ -36,7 +36,7 @@ syscalls (`mem.rs`), an owned const SHA-256 (`sha256.rs`), and — the piece the
 rest of the stack stands on — the in-account `borrow_state` byte on
 `RuntimeAccount` (`raw_account.rs`), Hopper's own on-chain borrow primitive.
 A Pinocchio-based framework cannot add any of this without forking upstream.
-Pinned by the workspace suite (1,295 tests green as of 2026-07-07) and
+Pinned by the workspace suite (1,570 tests green as of 2026-07-09) and
 `#![deny(unsafe_op_in_unsafe_fn)]` across the crate.
 
 ### 1b. The segment borrow ledger
@@ -51,7 +51,7 @@ disjoint typed `&mut` views into one account
 
 Pinned by: `cargo test -p hopper-runtime --lib segment_borrow` (20 tests), a
 proptest disjointness invariant, and `#[kani::proof]` harnesses in
-`segment_borrow.rs` (three) and `tail.rs` (three).
+`segment_borrow.rs` (five) and `tail.rs` (three).
 
 **Why the Pinocchio-based field cannot follow (read from their source,
 2026-07-07).** Pinocchio exposes a single per-account `borrow_state` byte, so

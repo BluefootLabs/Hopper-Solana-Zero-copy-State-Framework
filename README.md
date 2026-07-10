@@ -9,11 +9,11 @@ The framework gives you Anchor ergonomics, Quasar direct-state speed, and an esc
 
 Hopper is also the only framework in the 2026 low-CU field with its own substrate: Anchor v2 (alpha), Typhoon, and star-frame all build on Pinocchio, and Quasar shares its lineage, while `crates/hopper-native` has zero external dependencies. That one decision is what makes segment-level borrows, touch maps, and field-level write policies possible — see [docs/THE_MOAT.md](docs/THE_MOAT.md). Hopper is published on crates.io (hopper-lang 0.2.1) with a line-by-line audit trail and generated clients in 8 targets.
 
-Three measured facts, provenance in [BENCHMARKS.md](BENCHMARKS.md) (2026-07-07 runs):
+Three measured facts, provenance in [BENCHMARKS.md](BENCHMARKS.md) (2026-07-07 runs; vault four-way re-measured 2026-07-09):
 
 - Hopper's safe, validated overlay measures at the same net CU as a raw unsafe pointer cast (1 CU each, Mollusk primitive lab).
 - In the first published router-class three-way (Hopper vs Quasar vs hand-written Pinocchio), Hopper beats Quasar on every CU row, lands within 2.1-2.7% of raw Pinocchio while carrying full framework services, and ships the smallest binary of the three.
-- A complete deployable program fits in 4,688 bytes, about 0.034 SOL of rent-exempt deploy cost; the equivalent Anchor 0.31.1 artifact costs ~1.36 SOL to deploy.
+- A complete deployable program fits in 3,736 bytes (2026-07-09 build of the counter example; the artifact deployed to devnet on 2026-07-07 was 4,688 bytes), about 0.027 SOL of rent-exempt deploy cost; the equivalent Anchor 0.31.1 artifact costs ~1.36 SOL to deploy.
 
 For normal programs, use `hopper-lang` as `hopper`: `use hopper::prelude::*`, `#[account]`, `#[derive(Accounts)]`, `#[program]`, typed wrappers, checked CPI, and SPL helpers. For advanced state work, reach for `hopper::systems::*` to get segment leases, layout manifests, receipts, policies, and low-level state machinery.
 
@@ -78,7 +78,7 @@ hopper deploy --cluster devnet \
   --program-id target/deploy/my_program-keypair.json
 ```
 
-That's it. The counter example deployed to devnet at D8UGWDX5QRwEkKs2J9Sweabf4zd6hzdLqv7CB11SF91F as a full zero-copy program in 4,688 bytes — about 0.034 SOL of rent-exempt deploy cost at the network's `(bytes + 128) x 6,960` lamport formula, versus ~1.36 SOL for a 190 KiB Anchor-class artifact (see [BENCHMARKS.md](BENCHMARKS.md), deploy-cost economics). To decode a confirmed transaction:
+That's it. The counter example deployed to devnet at D8UGWDX5QRwEkKs2J9Sweabf4zd6hzdLqv7CB11SF91F as a full zero-copy program in 4,688 bytes; today's tree (2026-07-09, after the writable-sections fix) builds the same example at 3,736 bytes — about 0.027 SOL of rent-exempt deploy cost at the network's `(bytes + 128) x 6,960` lamport formula (the deployed 4,688-byte artifact was ~0.034 SOL), versus ~1.36 SOL for a 190 KiB Anchor-class artifact (see [BENCHMARKS.md](BENCHMARKS.md), deploy-cost economics). To decode a confirmed transaction:
 
 ```sh
 hopper explain <CONFIRMED_SIG> --manifest hopper.manifest.json
@@ -281,12 +281,15 @@ The benchmark suite is maintained as a separate product repo:
 Do not copy old benchmark numbers from this README. Regenerate numbers from the
 benchmark repo before publishing performance claims.
 
-The current same-provenance vault snapshot (2026-07-07, four-way) includes
-Hopper, the in-tree Anza Pinocchio target, Quasar's upstream vault target, and
-a measured Anchor 0.31.1 comparator. Quasar implements only the financial
-`deposit` / `withdraw` rows, so validation-only rows are marked `n/a` rather
-than synthesized. The same repo also carries the first published router-class
-three-way (Hopper / Quasar / hand-written Pinocchio): Hopper beats Quasar on every row, within 2.1-2.7% of
+The current same-provenance vault snapshot (re-measured 2026-07-09, four-way)
+includes Hopper, the in-tree Anza Pinocchio target, Quasar's upstream vault
+target, and a measured Anchor 0.31.1 comparator. Quasar implements only the
+financial `deposit` / `withdraw` rows, so validation-only rows are marked `n/a`
+rather than synthesized. In that run the Hopper vault `.so` also measures
+smaller than Pinocchio's on the identical contract (7.44 vs 7.73 KiB);
+Quasar's 5.47 KiB is still the smallest vault artifact. The same repo also
+carries the first published router-class
+three-way (Hopper / Quasar / hand-written Pinocchio, 2026-07-07): Hopper beats Quasar on every row, within 2.1-2.7% of
 raw Pinocchio per hop, with the smallest binary of the three. See
 [BENCHMARKS.md](BENCHMARKS.md) for both tables and provenance.
 
@@ -321,10 +324,11 @@ Hopper uses `unsafe` at the boundary where account bytes become typed views.
 The framework keeps those boundaries small and documented, but this is still a
 zero-copy framework and should be reviewed like one.
 
-Hopper also maintains a competitor-bug-class regression suite: 13 pinned tests
+Hopper also maintains a competitor-bug-class regression suite: 18 pinned tests
 that turn documented bug classes from other frameworks (CPI return-data UB,
 self-close lamport imbalance, stale migration state, overstated
-remaining-capacity, duplicate-account aliasing) into Hopper regression proofs.
+remaining-capacity, duplicate-account aliasing, and the two Anchor v2
+alpha Slab classes, #4603 and #4616) into Hopper regression proofs.
 Authoring that suite found and fixed a real Hopper bug (`safe_close` accepted
 an aliased destination) — the framework audits itself.
 
