@@ -276,6 +276,21 @@ struct AccountAttr {
     /// When unset (the default), no check is emitted and the caller
     /// is responsible for rent safety.
     rent_exempt: Option<RentExemptPolicy>,
+
+    /// `#[composite]` (bare marker). This field is a NESTED context: its
+    /// type is another `#[derive(Accounts)]` / `#[hopper::context]` struct
+    /// whose account slots flatten into this one in declaration order
+    /// (Anchor's composite-accounts feature). The field is NOT a single
+    /// account slot; it consumes `<Inner>::ACCOUNT_COUNT` slots. A
+    /// composite field carries no per-account constraints of its own — its
+    /// validation is the inner context's, run at the flattened offset.
+    ///
+    /// Detection is an explicit marker (not Anchor's auto-detect-by-
+    /// non-wrapper) because Hopper already assigns meaning to a bare layout
+    /// type in a context field ("an account of this layout"), so
+    /// "not a known wrapper" is ambiguous here. The explicit marker keeps
+    /// every existing layout-typed field valid and makes nesting opt-in.
+    composite: bool,
 }
 
 /// Policy for the `rent_exempt` field keyword.
@@ -757,19 +772,33 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         let field_ty = field.ty.clone();
         reject_reference_wrapped_account(&field_name, &field_ty)?;
         let attr = parse_account_attr(&field.attrs)?;
-        validate_account_attr(&field_name, &attr)?;
-        validate_optional_field(&field_name, &field_ty, &attr)?;
-        if (!attr.mut_segments.is_empty() || !attr.read_segments.is_empty())
-            && skips_layout_validation(&field_ty)
-        {
-            return Err(syn::Error::new_spanned(
-                &field.ty,
-                "segment accessors require a Hopper layout type, not a raw account view",
-            ));
+        if attr.composite {
+            // A composite field is a nested context, not a single account
+            // slot: it must not also carry `#[account(...)]` / `#[signer]`
+            // constraints. Those belong on the inner context's own fields
+            // and would be silently dropped here.
+            let has_slot_attrs = field
+                .attrs
+                .iter()
+                .any(|a| a.path().is_ident("account") || a.path().is_ident("signer"));
+            validate_composite_field(&field_name, &field_ty, has_slot_attrs)?;
+        } else {
+            validate_account_attr(&field_name, &attr)?;
+            validate_optional_field(&field_name, &field_ty, &attr)?;
+            if (!attr.mut_segments.is_empty() || !attr.read_segments.is_empty())
+                && skips_layout_validation(&field_ty)
+            {
+                return Err(syn::Error::new_spanned(
+                    &field.ty,
+                    "segment accessors require a Hopper layout type, not a raw account view",
+                ));
+            }
         }
-        field
-            .attrs
-            .retain(|attr| !attr.path().is_ident("account") && !attr.path().is_ident("signer"));
+        field.attrs.retain(|attr| {
+            !attr.path().is_ident("account")
+                && !attr.path().is_ident("signer")
+                && !attr.path().is_ident("composite")
+        });
         ctx_fields.push(ContextField {
             name: field_name,
             ty: field_ty,
@@ -777,6 +806,43 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             index: i,
             synthetic: None,
         });
+    }
+
+    // ── Composite (nested) contexts: option-combination gate ──────────
+    //
+    // A context that embeds a `#[composite]` field flattens the inner
+    // context's slots in place. v1 does NOT compose composites with the
+    // options that bake absolute account indices into static consts or
+    // append synthetic trailing slots — their correct rebasing across the
+    // nesting boundary is not yet implemented, and silently dropping the
+    // coverage would be worse than a clear error. Reject up front.
+    let has_composite = ctx_fields.iter().any(|cf| cf.attr.composite);
+    if has_composite {
+        let bad_option = if context_options.event_cpi {
+            Some("event_cpi")
+        } else if context_options.strict_writes {
+            Some("strict_writes")
+        } else if context_options.lamports.is_some() {
+            Some("lamports(...)")
+        } else if context_options.emit_touch_map {
+            Some("emit_touch_map")
+        } else if context_options.auto_lifecycle {
+            Some("auto_lifecycle")
+        } else {
+            None
+        };
+        if let Some(opt) = bad_option {
+            return Err(syn::Error::new_spanned(
+                name,
+                format!(
+                    "`{opt}` is not supported on a context that embeds a `#[composite]` \
+                     field (v1): the option compiles a static write-set / synthetic slots / \
+                     lifecycle sweep keyed to absolute account indices that cannot yet be \
+                     rebased across the nesting boundary. Flatten the nested context into \
+                     this one, or drop `{opt}`."
+                ),
+            ));
+        }
     }
 
     // ── event_cpi: auto-append the two Anchor-parity trailing slots ──
@@ -840,6 +906,67 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
     let accounts_init_stmt = accounts_binding.init_stmt;
     let accounts_bound_field = accounts_binding.bound_field;
 
+    // ── Flattened slot offsets (composite / nested contexts) ──────────
+    //
+    // `local_offsets[i]` is the base-0 flattened start slot of field `i`
+    // WITHIN this context: a leaf field occupies one slot, a `#[composite]`
+    // field occupies `<Inner>::ACCOUNT_COUNT` slots. For a composite-FREE
+    // context every offset is the plain `usize` literal `cf.index`, so the
+    // lowering below is byte-identical to the pre-composite one. Once a
+    // composite appears, the following offsets become const expressions
+    // (`1usize + <Inner>::ACCOUNT_COUNT + ...`) that const-fold at compile
+    // time. `account_count_expr` is the matching flattened total.
+    //
+    // The RUNTIME absolute slot used inside per-field validators and bound
+    // accessors is `__HOPPER_BASE + local_offset`, where `__HOPPER_BASE` is
+    // a `const` generic that is `0` at the top level (so `0 + k` folds to
+    // `k`, preserving the zero-cost top-level lowering) and a concrete
+    // literal offset when this context is embedded. `__slot(i)` builds it.
+    let hopper_base = format_ident!("__HOPPER_BASE");
+    let (local_offsets, account_count_expr): (Vec<TokenStream>, TokenStream) = if !has_composite {
+        let offsets = ctx_fields
+            .iter()
+            .map(|cf| {
+                let i = cf.index;
+                quote! { #i }
+            })
+            .collect();
+        let len = ctx_fields.len();
+        (offsets, quote! { #len })
+    } else {
+        let mut offsets = Vec::with_capacity(ctx_fields.len());
+        let mut terms: Vec<TokenStream> = Vec::new();
+        for cf in &ctx_fields {
+            offsets.push(if terms.is_empty() {
+                quote! { 0usize }
+            } else {
+                quote! { #(#terms)+* }
+            });
+            if cf.attr.composite {
+                // Path form with generic args dropped: the outer's `'info`
+                // is not in scope where these const expressions land
+                // (`ACCOUNT_COUNT`, the flattened offsets, the delegation
+                // turbofishes), so the lifetime must be elided.
+                let inner_spec = composite_spec_ty(&cf.ty)?;
+                terms.push(quote! { #inner_spec::ACCOUNT_COUNT });
+            } else {
+                terms.push(quote! { 1usize });
+            }
+        }
+        let total = if terms.is_empty() {
+            quote! { 0usize }
+        } else {
+            quote! { #(#terms)+* }
+        };
+        (offsets, total)
+    };
+    // Absolute runtime slot for the field at `ctx_fields` position `pos`
+    // inside a `__HOPPER_BASE`-parametric scope (validators / accessors).
+    let slot_abs = |pos: usize| -> TokenStream {
+        let local = &local_offsets[pos];
+        quote! { #hopper_base + #local }
+    };
+
     // Generate per-field validation functions and collect check descriptions.
     let mut validation_stmts = Vec::new();
     // `bind()`'s copy of the validation sequence. Identical per-field
@@ -870,9 +997,44 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
     // readers to assume every slot had a meaning, and writing `0` for
     // non-PDAs is worse than omitting them.
     let mut bump_entries: Vec<(Ident, TokenStream)> = Vec::new();
+    // Composite (nested) fields, collected in declaration order. Each is
+    // lowered into: (1) an inner-context validation delegation at its
+    // flattened offset (pushed into `validation_stmts` / `bind_validation_stmts`
+    // right here so error precedence follows field order), (2) a nested
+    // `Bumps` slot, (3) an inner-access method on the bound context, and
+    // (4) a compile-time embeddability assertion. `(field, offset_expr)`.
+    let mut composite_fields: Vec<(&ContextField, TokenStream)> = Vec::new();
 
     for cf in &ctx_fields {
+        // Composite (nested) fields are not individual account slots: they
+        // delegate to the inner context's own validators at the flattened
+        // offset. `<Inner>::validate_at::<{offset}>(ctx)` runs the inner's
+        // full validation with every slot rebased. A composite-container is
+        // always top-level (base 0 — nesting a container inside another is
+        // rejected via `__HOPPER_EMBEDDABLE`), so the offset is a concrete
+        // const expression and the turbofish needs no `generic_const_exprs`.
+        if cf.attr.composite {
+            let inner_spec = composite_spec_ty(&cf.ty)?;
+            let local = &local_offsets[cf.index];
+            let offset_expr = quote! { #hopper_base + #local };
+            composite_fields.push((cf, offset_expr.clone()));
+            validation_stmts.push(quote! {
+                #inner_spec::validate_at::<{ #offset_expr }>(ctx)?;
+            });
+            bind_validation_stmts.push(quote! {
+                #inner_spec::validate_at::<{ #offset_expr }>(ctx)?;
+            });
+            continue;
+        }
         let idx = cf.index;
+        // Absolute runtime slot inside the `__HOPPER_BASE`-parametric
+        // per-field validator: `__HOPPER_BASE + <flattened local offset>`.
+        // `idx` (a plain `usize`) stays the base-0 field index used only in
+        // human-readable descriptions and the `constraint` error code.
+        // `let _ = &slot;` pins it as used even for a checkless raw-view
+        // field, which emits an empty validator body.
+        let slot = slot_abs(cf.index);
+        let _ = &slot;
         let field_name = &cf.name;
         let validate_fn = format_ident!("validate_{}", field_name);
         let mut field_checks = Vec::new();
@@ -897,7 +1059,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         if cf.synthetic == Some(SyntheticFieldRole::EventAuthority) {
             field_checks.push(quote! {
                 let _ = ::hopper::__runtime::cpi_event::verify_event_authority(
-                    ctx.account(#idx)?,
+                    ctx.account(#slot)?,
                     ctx.program_id(),
                 )?;
             });
@@ -971,14 +1133,14 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                             }
                         }) {
                             field_checks.push(quote! {
-                                if ctx.account(#idx)?.address()
+                                if ctx.account(#slot)?.address()
                                     != &<#program_ty as ::hopper::__runtime::ProgramId>::ID
                                 {
                                     return ::core::result::Result::Err(
                                         ::hopper::__runtime::ProgramError::IncorrectProgramId
                                     );
                                 }
-                                if !ctx.account(#idx)?.executable() {
+                                if !ctx.account(#slot)?.executable() {
                                     return ::core::result::Result::Err(
                                         ::hopper::__runtime::ProgramError::InvalidAccountData
                                     );
@@ -996,13 +1158,13 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         if let Some(WrapperKind::Interface { spec }) = &wrapper {
             field_checks.push(quote! {
                 if !<#spec as ::hopper::__runtime::InterfaceSpec>::contains(
-                    ctx.account(#idx)?.address()
+                    ctx.account(#slot)?.address()
                 ) {
                     return ::core::result::Result::Err(
                         ::hopper::__runtime::ProgramError::IncorrectProgramId
                     );
                 }
-                if !ctx.account(#idx)?.executable() {
+                if !ctx.account(#slot)?.executable() {
                     return ::core::result::Result::Err(
                         ::hopper::__runtime::ProgramError::InvalidAccountData
                     );
@@ -1016,7 +1178,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         if let Some(WrapperKind::InterfaceAccount { inner }) = &wrapper {
             field_checks.push(quote! {
                 let _ = ::hopper::prelude::InterfaceAccount::<#inner>::try_new(
-                    ctx.account(#idx)?
+                    ctx.account(#slot)?
                 )?;
             });
             check_descriptions.push(format!(
@@ -1027,7 +1189,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         if let Some(WrapperKind::ExternalAccount { inner }) = &wrapper {
             field_checks.push(quote! {
                 let _ = ::hopper::prelude::ExternalAccount::<#inner>::try_new(
-                    ctx.account(#idx)?
+                    ctx.account(#slot)?
                 )?;
             });
             check_descriptions.push(format!(
@@ -1037,7 +1199,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         }
         if let Some(WrapperKind::SystemAccount) = &wrapper {
             field_checks.push(quote! {
-                ctx.account(#idx)?.check_owned_by(&::hopper::prelude::SystemId::ID)?;
+                ctx.account(#slot)?.check_owned_by(&::hopper::prelude::SystemId::ID)?;
             });
             check_descriptions.push(format!(
                 "accounts[{}] ({}) must be owned by the System Program",
@@ -1060,7 +1222,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         let needs_writable = cf.attr.is_mut || !cf.attr.mut_segments.is_empty();
         if needs_signer || needs_writable {
             field_checks.push(quote! {
-                ctx.account(#idx)?.expect_signer_writable(#needs_signer, #needs_writable)?;
+                ctx.account(#slot)?.expect_signer_writable(#needs_signer, #needs_writable)?;
             });
             if needs_signer {
                 check_descriptions.push(format!(
@@ -1081,7 +1243,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             // when the `executable` flag on the loader-provided
             // account header is unset.
             field_checks.push(quote! {
-                ctx.account(#idx)?.check_executable()?;
+                ctx.account(#slot)?.check_executable()?;
             });
             check_descriptions.push(format!(
                 "accounts[{}] ({}) must be executable (deployed BPF program)",
@@ -1098,7 +1260,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                     // heuristic.
                     field_checks.push(quote! {
                         ::hopper::hopper_runtime::rent::check_rent_exempt(
-                            ctx.account(#idx)?,
+                            ctx.account(#slot)?,
                         )?;
                     });
                     check_descriptions.push(format!(
@@ -1127,7 +1289,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                 None => quote! { ::hopper::__runtime::ProgramError::InvalidAccountData },
             };
             field_checks.push(quote! {
-                if ctx.account(#idx)?.address() != &(#addr_expr) {
+                if ctx.account(#slot)?.address() != &(#addr_expr) {
                     return ::core::result::Result::Err(#addr_err);
                 }
             });
@@ -1203,7 +1365,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                 }
             };
             field_checks.push(quote! {
-                let __hopper_account = ctx.account(#idx)?;
+                let __hopper_account = ctx.account(#slot)?;
                 if __hopper_account.data_len() > 0 {
                     #owner_check
                     let _ = __hopper_account.load::<#field_ty>()?;
@@ -1222,22 +1384,22 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             let owner_check = if !owner_any.is_empty() {
                 let ids = owner_any.iter().map(|expr| quote! { &(#expr) });
                 quote! {
-                    ctx.account(#idx)?.check_owned_by_any(&[ #(#ids),* ])?;
+                    ctx.account(#slot)?.check_owned_by_any(&[ #(#ids),* ])?;
                 }
             } else if let Some(expr) = &owner_expr {
                 match &owner_err {
                     Some(e) => quote! {
-                        if ctx.account(#idx)?.check_owned_by(&(#expr)).is_err() {
+                        if ctx.account(#slot)?.check_owned_by(&(#expr)).is_err() {
                             return ::core::result::Result::Err((#e).into());
                         }
                     },
                     None => quote! {
-                        ctx.account(#idx)?.check_owned_by(&(#expr))?;
+                        ctx.account(#slot)?.check_owned_by(&(#expr))?;
                     },
                 }
             } else {
                 quote! {
-                    ctx.account(#idx)?.check_owned_by(ctx.program_id())?;
+                    ctx.account(#slot)?.check_owned_by(ctx.program_id())?;
                 }
             };
             // `zero` fields are allocated but deliberately NOT yet stamped
@@ -1247,7 +1409,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             let load_check = if cf.attr.zero {
                 TokenStream::new()
             } else {
-                quote! { let _ = ctx.account(#idx)?.load::<#field_ty>()?; }
+                quote! { let _ = ctx.account(#slot)?.load::<#field_ty>()?; }
             };
             field_checks.push(quote! {
                 #owner_check
@@ -1274,7 +1436,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             if !owner_any.is_empty() {
                 let ids = owner_any.iter().map(|expr| quote! { &(#expr) });
                 field_checks.push(quote! {
-                    ctx.account(#idx)?.check_owned_by_any(&[ #(#ids),* ])?;
+                    ctx.account(#slot)?.check_owned_by_any(&[ #(#ids),* ])?;
                 });
                 check_descriptions.push(format!(
                     "accounts[{}] ({}) owner must match one of `owner_any = [..]`",
@@ -1283,12 +1445,12 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             } else if let Some(expr) = &owner_expr {
                 field_checks.push(match &owner_err {
                     Some(e) => quote! {
-                        if ctx.account(#idx)?.check_owned_by(&(#expr)).is_err() {
+                        if ctx.account(#slot)?.check_owned_by(&(#expr)).is_err() {
                             return ::core::result::Result::Err((#e).into());
                         }
                     },
                     None => quote! {
-                        ctx.account(#idx)?.check_owned_by(&(#expr))?;
+                        ctx.account(#slot)?.check_owned_by(&(#expr))?;
                     },
                 });
                 check_descriptions.push(format!(
@@ -1330,7 +1492,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                         __seed_slices,
                         #pda_program_expr,
                     );
-                    if ctx.account(#idx)?.address() != &expected {
+                    if ctx.account(#slot)?.address() != &expected {
                         return ::core::result::Result::Err(
                             ::hopper::__runtime::ProgramError::InvalidSeeds
                         );
@@ -1378,7 +1540,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                             &[ #( AsRef::<[u8]>::as_ref(&(#seed_exprs)) ),* ],
                             #pda_program_expr,
                         );
-                        if ctx.account(#idx)?.address() != &expected {
+                        if ctx.account(#slot)?.address() != &expected {
                             return ::core::result::Result::Err(
                                 ::hopper::__runtime::ProgramError::InvalidSeeds
                             );
@@ -1396,7 +1558,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                             seeds_with_bump,
                             #pda_program_expr,
                         )?;
-                        if ctx.account(#idx)?.address() != &expected {
+                        if ctx.account(#slot)?.address() != &expected {
                             return ::core::result::Result::Err(
                                 ::hopper::__runtime::ProgramError::InvalidSeeds
                             );
@@ -1456,7 +1618,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             // For `init_if_needed`, nonempty slots have already taken
             // the owner+layout validation path above.
             field_checks.push(quote! {
-                ctx.account(#idx)?.check_writable()?;
+                ctx.account(#slot)?.check_writable()?;
             });
             let lifecycle = if cf.attr.init_if_needed {
                 "init_if_needed"
@@ -1470,7 +1632,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         }
         if cf.attr.realloc.is_some() {
             field_checks.push(quote! {
-                ctx.account(#idx)?.check_writable()?;
+                ctx.account(#slot)?.check_writable()?;
             });
             check_descriptions.push(format!(
                 "accounts[{}] ({}) must be writable (realloc precondition)",
@@ -1488,7 +1650,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             // zeroed, not absent.
             field_checks.push(quote! {
                 {
-                    let __hopper_data = ctx.account(#idx)?.try_borrow()?;
+                    let __hopper_data = ctx.account(#slot)?.try_borrow()?;
                     if __hopper_data.first().copied() != ::core::option::Option::Some(0u8) {
                         return ::core::result::Result::Err(
                             ::hopper::__runtime::ProgramError::AccountAlreadyInitialized
@@ -1503,7 +1665,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         }
         if cf.attr.close.is_some() {
             field_checks.push(quote! {
-                ctx.account(#idx)?.check_writable()?;
+                ctx.account(#slot)?.check_writable()?;
             });
             check_descriptions.push(format!(
                 "accounts[{}] ({}) must be writable (close precondition)",
@@ -1557,6 +1719,10 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                         ),
                     )
                 })?;
+            // `has_one` is a plain constraint (not lifecycle), so it can
+            // appear on an embeddable context: the referenced sibling must
+            // be resolved at the flattened, base-parametric slot.
+            let target_slot = slot_abs(target_idx);
             let field_ty = layout_type_for_field(cf).ok_or_else(|| {
                 syn::Error::new_spanned(
                     &cf.ty,
@@ -1573,9 +1739,9 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             };
             field_checks.push(quote! {
                 {
-                    let view = ctx.account(#idx)?;
+                    let view = ctx.account(#slot)?;
                     let layout = view.load::<#field_ty>()?;
-                    let expected_key = ctx.account(#target_idx)?.address();
+                    let expected_key = ctx.account(#target_slot)?.address();
                     // Convention: the cross-referenced field on the
                     // layout must be named identically to the target
                     // account's field, and must coerce to an `Address`.
@@ -1649,7 +1815,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                 quote! { &::hopper::__runtime::token::TOKEN_PROGRAM_ID }
             };
             field_checks.push(quote! {
-                ctx.account(#idx)?.check_owned_by(#prog_expr)?;
+                ctx.account(#slot)?.check_owned_by(#prog_expr)?;
             });
             check_descriptions.push(format!(
                 "accounts[{}] ({}) is owned by the declared token program{}",
@@ -1670,7 +1836,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             field_checks.push(match &cf.attr.token_mint_err {
                 Some(e) => quote! {
                     if ::hopper::__runtime::token::require_token_mint(
-                        ctx.account(#idx)?,
+                        ctx.account(#slot)?,
                         &(#expected_mint),
                     ).is_err() {
                         return ::core::result::Result::Err((#e).into());
@@ -1678,7 +1844,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                 },
                 None => quote! {
                     ::hopper::__runtime::token::require_token_mint(
-                        ctx.account(#idx)?,
+                        ctx.account(#slot)?,
                         &(#expected_mint),
                     )?;
                 },
@@ -1692,7 +1858,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             field_checks.push(match &cf.attr.token_authority_err {
                 Some(e) => quote! {
                     if ::hopper::__runtime::token::require_token_owner_eq(
-                        ctx.account(#idx)?,
+                        ctx.account(#slot)?,
                         &(#expected_authority),
                     ).is_err() {
                         return ::core::result::Result::Err((#e).into());
@@ -1700,7 +1866,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                 },
                 None => quote! {
                     ::hopper::__runtime::token::require_token_owner_eq(
-                        ctx.account(#idx)?,
+                        ctx.account(#slot)?,
                         &(#expected_authority),
                     )?;
                 },
@@ -1725,7 +1891,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                 quote! { &::hopper::__runtime::token::TOKEN_PROGRAM_ID }
             };
             field_checks.push(quote! {
-                ctx.account(#idx)?.check_owned_by(#prog_expr)?;
+                ctx.account(#slot)?.check_owned_by(#prog_expr)?;
             });
             check_descriptions.push(format!(
                 "accounts[{}] ({}) is a mint owned by the declared token program{}",
@@ -1742,7 +1908,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         if let Some(expected_mint_authority) = &cf.attr.mint_authority {
             field_checks.push(quote! {
                 ::hopper::__runtime::token::require_mint_authority(
-                    ctx.account(#idx)?,
+                    ctx.account(#slot)?,
                     &(#expected_mint_authority),
                 )?;
             });
@@ -1754,7 +1920,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         if let Some(decimals_expr) = &cf.attr.mint_decimals {
             field_checks.push(quote! {
                 ::hopper::__runtime::token::require_mint_decimals(
-                    ctx.account(#idx)?,
+                    ctx.account(#slot)?,
                     (#decimals_expr) as u8,
                 )?;
             });
@@ -1766,7 +1932,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         if let Some(expected_freeze) = &cf.attr.mint_freeze_authority {
             field_checks.push(quote! {
                 ::hopper::__runtime::token::require_mint_freeze_authority(
-                    ctx.account(#idx)?,
+                    ctx.account(#slot)?,
                     &(#expected_freeze),
                 )?;
             });
@@ -1786,7 +1952,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         if cf.attr.ext_non_transferable {
             field_checks.push(quote! {
                 ::hopper::__runtime::token_2022_ext::require_non_transferable(
-                    ctx.account(#idx)?,
+                    ctx.account(#slot)?,
                 )?;
             });
             check_descriptions.push(format!(
@@ -1797,7 +1963,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         if cf.attr.ext_immutable_owner {
             field_checks.push(quote! {
                 ::hopper::__runtime::token_2022_ext::require_immutable_owner(
-                    ctx.account(#idx)?,
+                    ctx.account(#slot)?,
                 )?;
             });
             check_descriptions.push(format!(
@@ -1808,7 +1974,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         if cf.attr.ext_cpi_guard {
             field_checks.push(quote! {
                 ::hopper::__runtime::token_2022_ext::require_cpi_guard(
-                    ctx.account(#idx)?,
+                    ctx.account(#slot)?,
                 )?;
             });
             check_descriptions.push(format!(
@@ -1819,7 +1985,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         if cf.attr.ext_confidential_transfer_mint {
             field_checks.push(quote! {
                 ::hopper::__runtime::token_2022_ext::require_confidential_transfer_mint(
-                    ctx.account(#idx)?,
+                    ctx.account(#slot)?,
                 )?;
             });
             check_descriptions.push(format!(
@@ -1830,7 +1996,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         if cf.attr.ext_confidential_transfer_account {
             field_checks.push(quote! {
                 ::hopper::__runtime::token_2022_ext::require_confidential_transfer_account(
-                    ctx.account(#idx)?,
+                    ctx.account(#slot)?,
                 )?;
             });
             check_descriptions.push(format!(
@@ -1841,7 +2007,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         if cf.attr.ext_scaled_ui_amount_config {
             field_checks.push(quote! {
                 ::hopper::__runtime::token_2022_ext::require_scaled_ui_amount_config(
-                    ctx.account(#idx)?,
+                    ctx.account(#slot)?,
                 )?;
             });
             check_descriptions.push(format!(
@@ -1852,7 +2018,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         if let Some(expected) = &cf.attr.ext_mint_close_authority {
             field_checks.push(quote! {
                 ::hopper::__runtime::token_2022_ext::require_mint_close_authority(
-                    ctx.account(#idx)?,
+                    ctx.account(#slot)?,
                     &(#expected),
                 )?;
             });
@@ -1864,7 +2030,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         if let Some(expected) = &cf.attr.ext_permanent_delegate {
             field_checks.push(quote! {
                 ::hopper::__runtime::token_2022_ext::require_permanent_delegate(
-                    ctx.account(#idx)?,
+                    ctx.account(#slot)?,
                     &(#expected),
                 )?;
             });
@@ -1876,7 +2042,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         if let Some(expected) = &cf.attr.ext_transfer_hook_authority {
             field_checks.push(quote! {
                 ::hopper::__runtime::token_2022_ext::require_transfer_hook_authority(
-                    ctx.account(#idx)?,
+                    ctx.account(#slot)?,
                     &(#expected),
                 )?;
             });
@@ -1888,7 +2054,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         if let Some(expected) = &cf.attr.ext_transfer_hook_program {
             field_checks.push(quote! {
                 ::hopper::__runtime::token_2022_ext::require_transfer_hook_program(
-                    ctx.account(#idx)?,
+                    ctx.account(#slot)?,
                     &(#expected),
                 )?;
             });
@@ -1900,7 +2066,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         if let Some(expected) = &cf.attr.ext_metadata_pointer_authority {
             field_checks.push(quote! {
                 ::hopper::__runtime::token_2022_ext::require_metadata_pointer_authority(
-                    ctx.account(#idx)?,
+                    ctx.account(#slot)?,
                     &(#expected),
                 )?;
             });
@@ -1912,7 +2078,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         if let Some(expected) = &cf.attr.ext_metadata_pointer_address {
             field_checks.push(quote! {
                 ::hopper::__runtime::token_2022_ext::require_metadata_pointer_address(
-                    ctx.account(#idx)?,
+                    ctx.account(#slot)?,
                     &(#expected),
                 )?;
             });
@@ -1924,7 +2090,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         if let Some(expected) = &cf.attr.ext_default_account_state {
             field_checks.push(quote! {
                 ::hopper::__runtime::token_2022_ext::require_default_account_state(
-                    ctx.account(#idx)?,
+                    ctx.account(#slot)?,
                     (#expected) as u8,
                 )?;
             });
@@ -1936,7 +2102,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         if let Some(expected) = &cf.attr.ext_interest_bearing_authority {
             field_checks.push(quote! {
                 ::hopper::__runtime::token_2022_ext::require_interest_bearing_authority(
-                    ctx.account(#idx)?,
+                    ctx.account(#slot)?,
                     &(#expected),
                 )?;
             });
@@ -1948,7 +2114,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         if let Some(expected) = &cf.attr.ext_transfer_fee_config_authority {
             field_checks.push(quote! {
                 ::hopper::__runtime::token_2022_ext::require_transfer_fee_config_authority(
-                    ctx.account(#idx)?,
+                    ctx.account(#slot)?,
                     &(#expected),
                 )?;
             });
@@ -1960,7 +2126,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         if let Some(expected) = &cf.attr.ext_transfer_fee_withdraw_authority {
             field_checks.push(quote! {
                 ::hopper::__runtime::token_2022_ext::require_transfer_fee_withdraw_authority(
-                    ctx.account(#idx)?,
+                    ctx.account(#slot)?,
                     &(#expected),
                 )?;
             });
@@ -2025,8 +2191,11 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                         ),
                     )
                 })?;
+            // `dup` is a plain constraint (not lifecycle), so the aliased
+            // sibling resolves at the flattened, base-parametric slot.
+            let other_slot = slot_abs(other_idx);
             field_checks.push(quote! {
-                if ctx.account(#idx)?.address() != ctx.account(#other_idx)?.address() {
+                if ctx.account(#slot)?.address() != ctx.account(#other_slot)?.address() {
                     return ::core::result::Result::Err(
                         ::hopper::__runtime::ProgramError::InvalidAccountData
                     );
@@ -2074,7 +2243,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                                 &(#ata_mint),
                                 #token_program_expr,
                             );
-                        if ctx.account(#idx)?.address() != &expected {
+                        if ctx.account(#slot)?.address() != &expected {
                             return ::core::result::Result::Err(
                                 ::hopper::__runtime::ProgramError::InvalidSeeds
                             );
@@ -2108,7 +2277,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         if is_optional && !field_checks.is_empty() {
             let gated = ::core::mem::take(&mut field_checks);
             field_checks.push(quote! {
-                if ctx.account(#idx)?.address() != ctx.program_id() {
+                if ctx.account(#slot)?.address() != ctx.program_id() {
                     #(#gated)*
                 }
             });
@@ -2150,8 +2319,15 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             };
             per_field_validators.push(quote! {
                 /// Validate the `#field_name` account (index #idx).
+                ///
+                /// Generic over `__HOPPER_BASE`, the flattened slot offset
+                /// of the enclosing context. `0` at the top level (where
+                /// `__HOPPER_BASE + idx` const-folds back to `idx`, so the
+                /// lowering is byte-identical to a non-composite context)
+                /// and a concrete offset when this context is embedded as a
+                /// `#[composite]` field of another.
                 #[inline(always)]
-                #vis fn #validate_fn(
+                #vis fn #validate_fn<const __HOPPER_BASE: usize>(
                     ctx: &::hopper::prelude::Context<'_>
                     #arg_param_fragment
                 ) -> ::core::result::Result<(), ::hopper::__runtime::ProgramError> {
@@ -2163,8 +2339,12 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             // Monolithic `validate` / `validate_with_args` composition.
             // Forwards whatever args were declared at the struct level
             // so each per-field validator sees the same typed bindings.
+            // The base is threaded through as the const generic argument:
+            // `__HOPPER_BASE` resolves to the generic param inside
+            // `validate_at`, and to a `const __HOPPER_BASE: usize = 0` local
+            // inside a composite-container's base-0 `validate`.
             validation_stmts.push(quote! {
-                Self::#validate_fn(ctx #arg_name_fragment)?;
+                Self::#validate_fn::<#hopper_base>(ctx #arg_name_fragment)?;
             });
             // `bind()`'s sequence: same call — EXCEPT the synthetic
             // event authority, where the single fused verify replaces
@@ -2175,13 +2355,13 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                 bind_validation_stmts.push(quote! {
                     let __hopper_event_authority_bump: u8 =
                         ::hopper::__runtime::cpi_event::verify_event_authority(
-                            ctx.account(#idx)?,
+                            ctx.account(#slot)?,
                             ctx.program_id(),
                         )?;
                 });
             } else {
                 bind_validation_stmts.push(quote! {
-                    Self::#validate_fn(ctx #arg_name_fragment)?;
+                    Self::#validate_fn::<#hopper_base>(ctx #arg_name_fragment)?;
                 });
             }
         }
@@ -2194,8 +2374,16 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
     let mut accessors = Vec::new();
 
     for cf in &ctx_fields {
+        // Composite fields expose the inner bound context through a
+        // dedicated accessor emitted below, not the per-field slot
+        // accessors.
+        if cf.attr.composite {
+            continue;
+        }
         let field_name = &cf.name;
-        let idx = cf.index;
+        // Base-parametric slot for accessors on the bound context (which
+        // carries the `__HOPPER_BASE` const generic).
+        let slot = slot_abs(cf.index);
         let layout_ty = layout_type_for_field(cf);
         let display_ty = layout_ty.as_ref().unwrap_or(&cf.ty);
         let type_ident = type_ident(display_ty)?;
@@ -2244,7 +2432,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                 #vis fn #sweep_fn(&self)
                     -> ::core::result::Result<u64, ::hopper::__runtime::ProgramError>
                 {
-                    let src = self.ctx.account(#idx)?;
+                    let src = self.ctx.account(#slot)?;
                     let dst = self.ctx.account(#target_idx)?;
                     // Distinct field indices can still alias one
                     // account at runtime (duplicate metas). Crediting
@@ -2285,7 +2473,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                 &::hopper::prelude::AccountView<'_>,
                 ::hopper::__runtime::ProgramError,
             > {
-                self.ctx.account(#idx)
+                self.ctx.account(#slot)
             }
         });
 
@@ -2309,7 +2497,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                     ::core::option::Option<&::hopper::prelude::AccountView<'_>>,
                     ::hopper::__runtime::ProgramError,
                 > {
-                    let view = self.ctx.account(#idx)?;
+                    let view = self.ctx.account(#slot)?;
                     if view.address() == self.ctx.program_id() {
                         ::core::result::Result::Ok(::core::option::Option::None)
                     } else {
@@ -2332,7 +2520,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                     ::hopper::__runtime::Ref<'_, #field_ty>,
                     ::hopper::__runtime::ProgramError,
                 > {
-                    self.ctx.account(#idx)?.load::<#field_ty>()
+                    self.ctx.account(#slot)?.load::<#field_ty>()
                 }
             });
 
@@ -2345,7 +2533,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                     ::hopper::__runtime::Ref<'_, #field_ty>,
                     ::hopper::__runtime::ProgramError,
                 > {
-                    unsafe { self.ctx.account(#idx)?.raw_ref::<#field_ty>() }
+                    unsafe { self.ctx.account(#slot)?.raw_ref::<#field_ty>() }
                 }
             });
 
@@ -2364,7 +2552,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                         ::hopper::__runtime::RefMut<'_, #field_ty>,
                         ::hopper::__runtime::ProgramError,
                     > {
-                        self.ctx.account(#idx)?.load_mut::<#field_ty>()
+                        self.ctx.account(#slot)?.load_mut::<#field_ty>()
                     }
                 });
 
@@ -2377,7 +2565,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                         ::hopper::__runtime::RefMut<'_, #field_ty>,
                         ::hopper::__runtime::ProgramError,
                     > {
-                        unsafe { self.ctx.account(#idx)?.raw_mut::<#field_ty>() }
+                        unsafe { self.ctx.account(#slot)?.raw_mut::<#field_ty>() }
                     }
                 });
 
@@ -2402,7 +2590,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                         ::hopper::__runtime::SegRefMut<'_, __SegT>,
                         ::hopper::__runtime::ProgramError,
                     > {
-                        self.ctx.segment_mut::<__SegT>(#idx, abs_offset)
+                        self.ctx.segment_mut::<__SegT>(#slot, abs_offset)
                     }
                 });
 
@@ -2424,7 +2612,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                         ::hopper::__runtime::SegRef<'_, __SegT>,
                         ::hopper::__runtime::ProgramError,
                     > {
-                        self.ctx.segment_ref::<__SegT>(#idx, abs_offset)
+                        self.ctx.segment_ref::<__SegT>(#slot, abs_offset)
                     }
                 });
             }
@@ -2461,7 +2649,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                         // single immediate add over `data_ptr` on Solana SBF.
                         const ABS_OFFSET: u32 =
                             ::hopper::hopper_core::account::HEADER_LEN as u32 + <#field_ty>::#assoc_offset;
-                        self.ctx.segment_mut::<#type_alias>(#idx, ABS_OFFSET)
+                        self.ctx.segment_mut::<#type_alias>(#slot, ABS_OFFSET)
                     }
                 });
             }
@@ -2491,7 +2679,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                     > {
                         const ABS_OFFSET: u32 =
                             ::hopper::hopper_core::account::HEADER_LEN as u32 + <#field_ty>::#assoc_offset;
-                        self.ctx.segment_ref::<#type_alias>(#idx, ABS_OFFSET)
+                        self.ctx.segment_ref::<#type_alias>(#slot, ABS_OFFSET)
                     }
                 });
             }
@@ -2512,10 +2700,19 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
     // lifecycle flows honor whatever policy those declarative macros
     // enforce (rent-exempt minimum, sentinel-protected close, etc.).
     for cf in &ctx_fields {
+        if cf.attr.composite {
+            continue;
+        }
         let field_name = &cf.name;
         let layout_ty = layout_type_for_field(cf);
         let field_ty = layout_ty.as_ref().unwrap_or(&cf.ty);
-        let idx = cf.index;
+        // Base-parametric slot for lifecycle helpers on the bound context.
+        // Lifecycle features make a context non-embeddable (base is always
+        // 0), so `__HOPPER_BASE + idx` folds to `idx`; the slot keeps the
+        // codegen uniform. `let _ = &slot;` pins it for fields with no
+        // lifecycle attrs.
+        let slot = slot_abs(cf.index);
+        let _ = &slot;
 
         if cf.attr.init || cf.attr.init_if_needed {
             let is_if_needed = cf.attr.init_if_needed;
@@ -2620,7 +2817,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             //                     the existing layout separately.
             let body = if is_if_needed {
                 quote! {
-                    let account = self.ctx.account(#idx)?;
+                    let account = self.ctx.account(#slot)?;
                     if account.data_len() > 0 {
                         // Already allocated; nothing to do. Caller
                         // should still validate the layout via
@@ -2634,7 +2831,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             } else {
                 quote! {
                     let payer = self.ctx.account(#payer_idx)?;
-                    let account = self.ctx.account(#idx)?;
+                    let account = self.ctx.account(#slot)?;
                     let system_program = self.ctx.account(#system_program_idx)?;
                     #init_invoke
                 }
@@ -2736,7 +2933,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                     #method_arg_fragment
                 ) -> ::core::result::Result<(), ::hopper::__runtime::ProgramError> {
                     ::hopper::hopper_metaplex::CreateMetadataAccountV3 {
-                        metadata: self.ctx.account(#idx)?,
+                        metadata: self.ctx.account(#slot)?,
                         mint: self.ctx.account(#mint_idx)?,
                         mint_authority: self.ctx.account(#mint_authority_idx)?,
                         payer: self.ctx.account(#payer_idx)?,
@@ -2826,7 +3023,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                             #max_supply_expr
                         );
                     ::hopper::hopper_metaplex::CreateMasterEditionV3 {
-                        edition: self.ctx.account(#idx)?,
+                        edition: self.ctx.account(#slot)?,
                         mint: self.ctx.account(#mint_idx)?,
                         update_authority: self.ctx.account(#update_authority_idx)?,
                         mint_authority: self.ctx.account(#mint_authority_idx)?,
@@ -2863,7 +3060,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                 /// silently zeroing a reused account.
                 #[inline]
                 #vis fn #close_fn(&self) -> ::core::result::Result<(), ::hopper::__runtime::ProgramError> {
-                    let account = self.ctx.account(#idx)?;
+                    let account = self.ctx.account(#slot)?;
                     let destination = self.ctx.account(#close_target_idx)?;
                     ::hopper::hopper_close!(account, destination, self.ctx.program_id())
                 }
@@ -2902,7 +3099,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                 /// any newly-appended bytes per `realloc_zero` policy.
                 #[inline]
                 #vis fn #realloc_fn(&self) -> ::core::result::Result<(), ::hopper::__runtime::ProgramError> {
-                    let account = self.ctx.account(#idx)?;
+                    let account = self.ctx.account(#slot)?;
                     let new_len: usize = (#realloc_expr) as usize;
                     let old_len = account.data_len() as usize;
                     let payer = #payer_path.ok_or(::hopper::__runtime::ProgramError::InvalidArgument)?;
@@ -2929,6 +3126,9 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
     let mut receipt_finish_blocks = Vec::new();
 
     for cf in &ctx_fields {
+        if cf.attr.composite {
+            continue;
+        }
         let Some(field_ty) = layout_type_for_field(cf) else {
             continue;
         };
@@ -2937,7 +3137,10 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         }
 
         let field_name = &cf.name;
-        let idx = cf.index;
+        // Receipt scopes run at the top level (base 0); the flattened
+        // local offset IS the absolute slot. `begin_receipt_scope` /
+        // `finish` are not `__HOPPER_BASE`-parametric.
+        let slot = local_offsets[cf.index].clone();
         let receipt_field_name = format_ident!("{}_receipt", field_name);
         let layout_ident = type_ident(&field_ty)?;
 
@@ -2947,7 +3150,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
 
         receipt_begin_inits.push(quote! {
             #receipt_field_name: {
-                let account = ctx.account(#idx)?;
+                let account = ctx.account(#slot)?;
                 let data = account.try_borrow()?;
                 ::hopper::receipt::StateReceipt::<SNAP>::begin(
                     &<#field_ty as ::hopper::hopper_runtime::LayoutContract>::LAYOUT_ID,
@@ -2985,7 +3188,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
 
         receipt_finish_blocks.push(quote! {
             {
-                let account = ctx.account(#idx)?;
+                let account = ctx.account(#slot)?;
                 let data = account.try_borrow()?;
                 self.#receipt_field_name.commit_with_segments(&data, &[#(#segment_pairs),*]);
                 self.#receipt_field_name.set_invariants(invariants_passed, invariants_checked);
@@ -3013,9 +3216,36 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
     // consume the full picture without re-parsing the source. The
     // same data is available at runtime via
     // `Deposit::SCHEMA_METADATA` and at compile time as a `const`.
-    let account_schema_entries: Vec<TokenStream> = ctx_fields
-        .iter()
-        .map(|cf| {
+    //
+    // A `#[composite]` field is NOT one account: it is
+    // `<Inner>::ACCOUNT_COUNT` flattened slots. Its schema entry is
+    // therefore not a literal descriptor but a SPLICE of the inner
+    // context's own `SCHEMA_METADATA.accounts` (evaluated at compile
+    // time below), so the published descriptor list stays exactly one
+    // entry per flattened slot — audit-grade coverage never drops to a
+    // single opaque row. Inner descriptors are spliced VERBATIM: their
+    // `name`s are the inner context's field names (slot order, not
+    // name, is the descriptor key; tooling that wants the grouping
+    // recurses via the inner context's own SCHEMA_METADATA).
+    enum SchemaEntry {
+        /// One leaf slot: a ready descriptor literal.
+        Leaf(TokenStream),
+        /// A nested context occupying `<Inner>::ACCOUNT_COUNT` slots;
+        /// carries the generics-dropped spec path (`composite_spec_ty`),
+        /// usable in const positions where the outer `'info` is absent.
+        Composite(TokenStream),
+    }
+    let mut account_schema_entries: Vec<SchemaEntry> = Vec::with_capacity(ctx_fields.len());
+    for cf in &ctx_fields {
+        if cf.attr.composite {
+            account_schema_entries.push(SchemaEntry::Composite(composite_spec_ty(&cf.ty)?));
+            continue;
+        }
+        account_schema_entries.push(build_leaf_schema_entry(cf));
+    }
+
+    fn build_leaf_schema_entry(cf: &ContextField) -> SchemaEntry {
+        {
             let name_lit = cf.name.to_string();
             let layout_ty = layout_type_for_field(cf);
             // `Option<W>` publishes the INNER wrapper's name as its
@@ -3081,7 +3311,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                 .map(|e| quote!(#e).to_string())
                 .unwrap_or_default();
 
-            quote! {
+            SchemaEntry::Leaf(quote! {
                 ::hopper::hopper_schema::accounts::ContextAccountDescriptor {
                     name: #name_lit,
                     kind: #kind_lit,
@@ -3098,9 +3328,126 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                     expected_address: #expected_address_lit,
                     expected_owner: #expected_owner_lit,
                 }
-            }
-        })
-        .collect();
+            })
+        }
+    }
+
+    // Composite-free contexts publish the inline literal slice —
+    // byte-identical to the pre-composite emission. A context with a
+    // composite field publishes a compile-time-COMPOSED array instead:
+    // one descriptor per flattened slot, leaves as literals, each
+    // composite spliced from the inner context's SCHEMA_METADATA, with
+    // a const assert pinning the composed length to ACCOUNT_COUNT so a
+    // descriptor/slot mismatch can never ship again.
+    let has_composite_schema = account_schema_entries
+        .iter()
+        .any(|e| matches!(e, SchemaEntry::Composite(_)));
+    // Length lives at MODULE level (mangled like `__HOPPER_{Name}_WRITE_RANGES`)
+    // because an array length is an anonymous const, where neither `Self`
+    // nor the outer `'info` may appear; the spec paths inside it are
+    // generics-dropped, so the const is fully concrete.
+    let schema_accounts_len_ident = format_ident!("__HOPPER_{}_SCHEMA_ACCOUNTS_LEN", name);
+    let (schema_len_module_item, schema_support_items, schema_accounts_expr): (
+        TokenStream,
+        TokenStream,
+        TokenStream,
+    ) = if !has_composite_schema {
+        let lits: Vec<&TokenStream> = account_schema_entries
+            .iter()
+            .map(|e| match e {
+                SchemaEntry::Leaf(lit) => lit,
+                SchemaEntry::Composite(_) => unreachable!("guarded by has_composite_schema"),
+            })
+            .collect();
+        (
+            TokenStream::new(),
+            TokenStream::new(),
+            quote! { &[ #( #lits ),* ] },
+        )
+    } else {
+        let len_terms: Vec<TokenStream> = account_schema_entries
+            .iter()
+            .map(|e| match e {
+                SchemaEntry::Leaf(_) => quote! { 1usize },
+                SchemaEntry::Composite(spec) => quote! {
+                    #spec::SCHEMA_METADATA.accounts.len()
+                },
+            })
+            .collect();
+        let fill_stmts: Vec<TokenStream> = account_schema_entries
+            .iter()
+            .map(|e| match e {
+                SchemaEntry::Leaf(lit) => quote! {
+                    __out[__n] = #lit;
+                    __n += 1;
+                },
+                SchemaEntry::Composite(spec) => quote! {
+                    {
+                        let __inner = #spec::SCHEMA_METADATA.accounts;
+                        let mut __i = 0;
+                        while __i < __inner.len() {
+                            __out[__n] = __inner[__i];
+                            __n += 1;
+                            __i += 1;
+                        }
+                    }
+                },
+            })
+            .collect();
+        let module_item = quote! {
+            /// Number of flattened account slots described by the
+            /// context's `SCHEMA_METADATA` — leaves count one,
+            /// `#[composite]` fields count the inner context's full
+            /// descriptor set.
+            #[doc(hidden)]
+            #[allow(non_upper_case_globals)]
+            #vis const #schema_accounts_len_ident: usize = 0 #( + #len_terms )*;
+        };
+        let impl_item = quote! {
+            /// Compile-time-composed per-slot descriptors: leaf
+            /// literals in declaration order with each composite
+            /// field spliced (verbatim) from the inner context's
+            /// own `SCHEMA_METADATA.accounts`.
+            #[doc(hidden)]
+            pub const __HOPPER_SCHEMA_ACCOUNTS: [::hopper::hopper_schema::accounts::ContextAccountDescriptor;
+                #schema_accounts_len_ident] = {
+                // Descriptor count and flattened slot count are the
+                // same contract; a mismatch is a macro bug and must
+                // fail the build, not ship a lying manifest.
+                assert!(
+                    #schema_accounts_len_ident == Self::ACCOUNT_COUNT,
+                    "composite SCHEMA_METADATA slot count must equal ACCOUNT_COUNT"
+                );
+                const __EMPTY: ::hopper::hopper_schema::accounts::ContextAccountDescriptor =
+                    ::hopper::hopper_schema::accounts::ContextAccountDescriptor {
+                        name: "",
+                        kind: "",
+                        writable: false,
+                        signer: false,
+                        layout_ref: "",
+                        policy_ref: "",
+                        seeds: &[],
+                        optional: false,
+                        lifecycle: ::hopper::hopper_schema::accounts::AccountLifecycle::Existing,
+                        payer: "",
+                        init_space: 0u32,
+                        has_one: &[],
+                        expected_address: "",
+                        expected_owner: "",
+                    };
+                let mut __out = [__EMPTY; #schema_accounts_len_ident];
+                let mut __n = 0;
+                #( #fill_stmts )*
+                let _ = __n;
+                __out
+            };
+        };
+        (
+            module_item,
+            impl_item,
+            quote! { &Self::__HOPPER_SCHEMA_ACCOUNTS },
+        )
+    };
 
     let ctx_name_lit = name.to_string();
 
@@ -3188,21 +3535,38 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
     // empty-fields struct still derives them cleanly, so emit both
     // paths identically for simplicity).
     let bumps_name = format_ident!("{}Bumps", name);
-    let bumps_field_defs: Vec<TokenStream> = bump_entries
+    let mut bumps_field_defs: Vec<TokenStream> = bump_entries
         .iter()
         .map(|(ident, _)| quote! { pub #ident: u8, })
         .collect();
-    let bumps_gather_stmts: Vec<TokenStream> = bump_entries
+    let mut bumps_gather_stmts: Vec<TokenStream> = bump_entries
         .iter()
         .map(|(ident, expr)| quote! { __hopper_bumps.#ident = #expr; })
         .collect();
-    let bumps_registry_entries: Vec<TokenStream> = bump_entries
+    let mut bumps_registry_entries: Vec<TokenStream> = bump_entries
         .iter()
         .map(|(ident, _)| {
             let s = ident.to_string();
             quote! { #s }
         })
         .collect();
+    // Nested bumps for `#[composite]` fields (Anchor parity: the outer
+    // `Bumps` struct carries the inner context's `Bumps` as a field, so
+    // `ctx.bumps().<inner>.<leaf>` reads a nested PDA bump). The inner's
+    // bumps are gathered at the flattened offset by its generated
+    // `__hopper_gather_bumps_at` (only emitted on embeddable contexts).
+    for (cf, offset_expr) in &composite_fields {
+        let field_name = &cf.name;
+        let inner_spec = composite_spec_ty(&cf.ty)?;
+        let inner_bumps_ty = composite_bumps_ty(&cf.ty)?;
+        let s = field_name.to_string();
+        bumps_field_defs.push(quote! { pub #field_name: #inner_bumps_ty, });
+        bumps_gather_stmts.push(quote! {
+            __hopper_bumps.#field_name =
+                #inner_spec::__hopper_gather_bumps_at::<{ #offset_expr }>(ctx)?;
+        });
+        bumps_registry_entries.push(quote! { #s });
+    }
 
     // ── Innovation I12: strict_writes → static WritePolicy ────────────
     //
@@ -3647,7 +4011,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                 &self,
                 event: &E,
             ) -> ::core::result::Result<(), ::hopper::__runtime::ProgramError> {
-                let __hopper_authority = self.ctx.account(#authority_idx)?;
+                let __hopper_authority = self.ctx.account(__HOPPER_BASE + #authority_idx)?;
                 let mut __hopper_buf =
                     [0u8; 3 + ::hopper::__runtime::cpi_event::MAX_EVENT_PAYLOAD];
                 let __hopper_len = ::hopper::__runtime::cpi_event::encode_event_cpi(
@@ -3674,6 +4038,270 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
     };
     let event_cpi_flag: bool = context_options.event_cpi;
 
+    // ── Composite (nested) contexts: embeddability + base-parametric API ──
+    //
+    // A context is EMBEDDABLE (can be a `#[composite]` field of another)
+    // only when its account slots can be rebased to an arbitrary flattened
+    // offset with no other machinery to relocate: no `#[instruction(...)]`
+    // args (they can't be threaded through the outer's bind), no
+    // `strict_writes` / `lamports(...)` / `emit_touch_map` / `event_cpi`
+    // (their static write-set / synthetic slots key on absolute indices),
+    // no lifecycle or Metaplex-CPI helpers (they mutate account state and
+    // are not yet offset-safe), and — because nesting is single-level in
+    // v1 — no `#[composite]` field of its own. Others assert this const
+    // before embedding, so a non-embeddable inner is a clean compile error.
+    let has_lifecycle = ctx_fields.iter().any(|cf| {
+        cf.attr.init
+            || cf.attr.init_if_needed
+            || cf.attr.zero
+            || cf.attr.close.is_some()
+            || cf.attr.realloc.is_some()
+            || cf.attr.sweep.is_some()
+            || metadata_cpi_helper_declared(&cf.attr)
+            || master_edition_cpi_helper_declared(&cf.attr)
+    });
+    let embeddable = !has_composite
+        && !has_instruction_args
+        && !context_options.strict_writes
+        && context_options.lamports.is_none()
+        && !context_options.emit_touch_map
+        && !context_options.event_cpi
+        && !context_options.auto_lifecycle
+        && !has_lifecycle;
+
+    // Inner-access methods on the bound context: one per `#[composite]`
+    // field, returning the inner context's bound view rebased to its
+    // flattened slot offset. The outer is always top-level (base 0 — a
+    // container is not itself embeddable), so the offset is the concrete
+    // `local_offsets[..]` and the turbofish is a concrete const expression.
+    // The view is reconstructed WITHOUT re-validation (the outer bind
+    // already validated the inner) by reborrowing the raw context.
+    let mut composite_access_methods: Vec<TokenStream> = Vec::new();
+    let mut composite_embeddable_asserts: Vec<TokenStream> = Vec::new();
+    for (cf, _offset_expr) in &composite_fields {
+        let field_name = &cf.name;
+        let inner_spec = composite_spec_ty(&cf.ty)?;
+        let inner_bound_ty = composite_bound_ty(&cf.ty)?;
+        let local = &local_offsets[cf.index];
+        let doc = format!(
+            "Access the embedded `{}` context (a `#[composite]` nested context) as its own \
+             bound context, rebased to its flattened slot offset. Reborrows the raw context, \
+             so the returned view is tied to this `&mut` borrow; read nested PDA bumps through \
+             `self.bumps().{}`.",
+            field_name, field_name
+        );
+        composite_access_methods.push(quote! {
+            #[doc = #doc]
+            #[inline(always)]
+            #vis fn #field_name(
+                &mut self,
+            ) -> ::core::result::Result<
+                #inner_bound_ty<'_, 'a, { #local }>,
+                ::hopper::__runtime::ProgramError,
+            > {
+                #inner_spec::__hopper_view_at::<{ #local }>(
+                    &mut *self.ctx,
+                    self.bumps.#field_name,
+                )
+            }
+        });
+        let inner_str = type_ident(&cf.ty)
+            .map(|i| i.to_string())
+            .unwrap_or_else(|_| quote!(#inner_spec).to_string());
+        let msg = format!(
+            "composite field `{}`: the inner context `{}` is not embeddable in Hopper v1. A \
+             `#[composite]` inner context must be a plain validation context — no \
+             `#[instruction(...)]` args, no `strict_writes` / `lamports(...)` / `emit_touch_map` \
+             / `event_cpi` options, no `init` / `init_if_needed` / `zero` / `close` / `realloc` \
+             / `sweep` (or Metaplex-CPI) lifecycle, and no nested `#[composite]` field of its \
+             own. Flatten it into the outer context, or split it into a separate instruction.",
+            field_name, inner_str
+        );
+        composite_embeddable_asserts.push(quote! {
+            const _: () = ::core::assert!(#inner_spec::__HOPPER_EMBEDDABLE, #msg);
+        });
+    }
+
+    // The top-level validate/bind surface. Composite-free contexts expose
+    // a base-parametric `validate_at` / `bind_at` (real logic) plus zero-cost
+    // base-0 forwarders under the public `validate` / `bind` names, and the
+    // `__hopper_gather_bumps_at` / `__hopper_view_at` hooks an outer uses to
+    // embed them. A composite CONTAINER stays base-0 (a `const __HOPPER_BASE:
+    // usize = 0` puts the base in scope for the per-field turbofishes and the
+    // inner delegations) and emits no `_at` surface — nesting a container
+    // inside another is rejected via `__HOPPER_EMBEDDABLE`.
+    // `bumps_gather_stmts` is interpolated twice in the embeddable arm
+    // (`bind_at` and `__hopper_gather_bumps_at`); quote consumes a `Vec`
+    // repetition, so clone one copy for the second site.
+    let bumps_gather_stmts_hook = bumps_gather_stmts.clone();
+    // Only EMBEDDABLE contexts get the base-parametric `_at` surface and the
+    // embed hooks. A non-embeddable context — a composite container, or one
+    // that opted into args / strict_writes / event_cpi / lifecycle — stays
+    // base-0: those features bind bind-local state (`__hopper_lamport_gate`,
+    // the fused event-authority bump) that only the full `bind` establishes,
+    // so a stripped-down `__hopper_view_at` / `__hopper_gather_bumps_at`
+    // could not reference it. Nesting such a context is refused by the
+    // `__HOPPER_EMBEDDABLE` assertion at the outer's expansion.
+    let validate_bind_fns: TokenStream = if embeddable {
+        let bind_validation_body: TokenStream = if has_event_authority {
+            quote! {
+                ctx.require_accounts(__HOPPER_BASE + Self::ACCOUNT_COUNT)?;
+                #(#bind_validation_stmts)*
+            }
+        } else {
+            quote! { Self::validate_at::<__HOPPER_BASE>(ctx #top_arg_name_fragment)?; }
+        };
+        quote! {
+            #(#per_field_validators)*
+
+            /// Validate this context's accounts at a flattened base offset.
+            ///
+            /// `__HOPPER_BASE` is `0` at the top level (and every
+            /// `__HOPPER_BASE + idx` const-folds back to `idx`, so the
+            /// lowering is byte-identical to a non-composite context) and a
+            /// concrete offset when this context is embedded as a
+            /// `#[composite]` field of another. The public `validate` /
+            /// `validate_with_args` forwards here with `0`.
+            #[inline]
+            pub fn validate_at<const __HOPPER_BASE: usize>(
+                ctx: &::hopper::prelude::Context<'_>
+                #top_arg_param_fragment
+            ) -> ::core::result::Result<(), ::hopper::__runtime::ProgramError> {
+                ctx.require_accounts(__HOPPER_BASE + Self::ACCOUNT_COUNT)?;
+                #(#validation_stmts)*
+                Ok(())
+            }
+
+            #[inline(always)]
+            pub fn #top_validate_ident(
+                ctx: &::hopper::prelude::Context<'_>
+                #top_arg_param_fragment
+            ) -> ::core::result::Result<(), ::hopper::__runtime::ProgramError> {
+                Self::validate_at::<0>(ctx #top_arg_name_fragment)
+            }
+
+            /// Bind this context at a flattened base offset (see
+            /// [`validate_at`](Self::validate_at)). The public `bind` /
+            /// `bind_with_args` forwards here with `0`.
+            #[inline]
+            pub fn bind_at<'ctx, 'a, const __HOPPER_BASE: usize>(
+                ctx: &'ctx mut ::hopper::prelude::Context<'a>
+                #top_arg_param_fragment
+            ) -> ::core::result::Result<
+                #bound_name<'ctx, 'a, __HOPPER_BASE>,
+                ::hopper::__runtime::ProgramError,
+            > {
+                #bind_validation_body
+                #write_policy_install_stmt
+                let mut __hopper_bumps = <#bumps_name as ::core::default::Default>::default();
+                #( #bumps_gather_stmts )*
+                #accounts_init_stmt
+                let __hopper_bound = #bound_name {
+                    ctx,
+                    #accounts_bound_field
+                    #lamport_gate_bound_field
+                    bumps: __hopper_bumps,
+                };
+                #(#auto_lifecycle_stmts)*
+                #user_validate_call
+                Ok(__hopper_bound)
+            }
+
+            #[inline(always)]
+            pub fn #top_bind_ident<'ctx, 'a>(
+                ctx: &'ctx mut ::hopper::prelude::Context<'a>
+                #top_arg_param_fragment
+            ) -> ::core::result::Result<#bound_name<'ctx, 'a>, ::hopper::__runtime::ProgramError> {
+                Self::bind_at::<0>(ctx #top_arg_name_fragment)
+            }
+
+            /// Gather this context's PDA bumps at a flattened base offset
+            /// WITHOUT re-validation, so an outer context can populate the
+            /// nested `Bumps` slot of a `#[composite]` field after the inner
+            /// has already been validated during the outer's `validate`.
+            #[doc(hidden)]
+            #[inline]
+            pub fn __hopper_gather_bumps_at<const __HOPPER_BASE: usize>(
+                ctx: &::hopper::prelude::Context<'_>,
+            ) -> ::core::result::Result<#bumps_name, ::hopper::__runtime::ProgramError> {
+                // `ctx` is unused when this context declares no PDA seeds.
+                let _ = &ctx;
+                let mut __hopper_bumps = <#bumps_name as ::core::default::Default>::default();
+                #( #bumps_gather_stmts_hook )*
+                Ok(__hopper_bumps)
+            }
+
+            /// Reconstruct the bound context at a flattened base offset
+            /// WITHOUT re-running the full validation (already validated
+            /// during the outer bind). The inner bumps are supplied by the
+            /// caller. Fallible only because rebuilding the typed `accounts`
+            /// facade re-runs the cheap wrapper role checks (`try_new`).
+            #[doc(hidden)]
+            #[inline]
+            pub fn __hopper_view_at<'ctx, 'a, const __HOPPER_BASE: usize>(
+                ctx: &'ctx mut ::hopper::prelude::Context<'a>,
+                __hopper_bumps: #bumps_name,
+            ) -> ::core::result::Result<
+                #bound_name<'ctx, 'a, __HOPPER_BASE>,
+                ::hopper::__runtime::ProgramError,
+            > {
+                #accounts_init_stmt
+                ::core::result::Result::Ok(#bound_name {
+                    ctx,
+                    #accounts_bound_field
+                    #lamport_gate_bound_field
+                    bumps: __hopper_bumps,
+                })
+            }
+        }
+    } else {
+        quote! {
+            #(#per_field_validators)*
+
+            /// Validate the account slice against this context spec.
+            ///
+            /// Runs each per-field validator and each `#[composite]` inner
+            /// context's `validate_at` at the flattened offset, in
+            /// declaration order (so error precedence follows field order).
+            #[inline]
+            pub fn #top_validate_ident(
+                ctx: &::hopper::prelude::Context<'_>
+                #top_arg_param_fragment
+            ) -> ::core::result::Result<(), ::hopper::__runtime::ProgramError> {
+                // A composite container is always top-level; the `const`
+                // puts the base in scope for the per-field turbofishes and
+                // the inner-context delegations (all concrete const exprs).
+                const __HOPPER_BASE: usize = 0;
+                ctx.require_accounts(Self::ACCOUNT_COUNT)?;
+                #(#validation_stmts)*
+                Ok(())
+            }
+
+            /// Bind a raw Hopper context into the typed proc-macro wrapper.
+            #[inline]
+            pub fn #top_bind_ident<'ctx, 'a>(
+                ctx: &'ctx mut ::hopper::prelude::Context<'a>
+                #top_arg_param_fragment
+            ) -> ::core::result::Result<#bound_name<'ctx, 'a>, ::hopper::__runtime::ProgramError> {
+                const __HOPPER_BASE: usize = 0;
+                #bind_validate_fragment
+                #write_policy_install_stmt
+                let mut __hopper_bumps = <#bumps_name as ::core::default::Default>::default();
+                #( #bumps_gather_stmts )*
+                #accounts_init_stmt
+                let __hopper_bound = #bound_name {
+                    ctx,
+                    #accounts_bound_field
+                    #lamport_gate_bound_field
+                    bumps: __hopper_bumps,
+                };
+                #(#auto_lifecycle_stmts)*
+                #user_validate_call
+                Ok(__hopper_bound)
+            }
+        }
+    };
+
     let expanded = quote! {
         // Emit the original struct unchanged (attribute macro path only).
         #original_struct
@@ -3685,6 +4313,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         // `SCHEMA_METADATA.write_ranges`, so the scheduler-legible
         // published set is byte-identical to the enforced set.
         #write_ranges_const_item
+        #schema_len_module_item
 
         // BLD-MUT: single source of truth for the lamport permission
         // set (explicit `lamports(...)` + implied lifecycle roles).
@@ -3716,7 +4345,16 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             ];
         }
 
-        #vis struct #bound_name<'ctx, 'a> {
+        // The bound context is generic over `__HOPPER_BASE`, the flattened
+        // slot offset of the fields this context owns within the whole
+        // instruction. It defaults to `0` — the top-level case — so every
+        // existing spelling `#bound_name<'ctx, 'a>` keeps working and every
+        // accessor's `__HOPPER_BASE + idx` const-folds back to `idx` (the
+        // pre-composite, zero-cost lowering). When this context is embedded
+        // as a `#[composite]` field, the outer binds it at a concrete
+        // offset and `__HOPPER_BASE + idx` folds to the correct absolute
+        // slot at monomorphization — no runtime add.
+        #vis struct #bound_name<'ctx, 'a, const __HOPPER_BASE: usize = 0> {
             ctx: &'ctx mut ::hopper::prelude::Context<'a>,
             #accounts_field_decl
             #lamport_gate_field_decl
@@ -3729,7 +4367,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
 
         impl #impl_generics #name #ty_generics #where_clause {
             /// Number of accounts this context requires.
-            pub const ACCOUNT_COUNT: usize = #account_count;
+            pub const ACCOUNT_COUNT: usize = #account_count_expr;
             pub const RECEIPT_EXPECTED: bool = #receipt_expected;
             pub const MUTABLE_ACCOUNT_COUNT: usize = #mutable_account_count;
 
@@ -3772,16 +4410,22 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                 #(#check_desc_literals),*
             ];
 
+            #schema_support_items
+
             /// Full Anchor-grade schema metadata: lifecycle role, PDA
             /// seeds, `has_one` edges, `payer`/`space` for init,
             /// `address`/`owner` pins. everything the audit's
             /// Stage 2.5 closure asks client generators and IDL tools
             /// to consume without re-parsing source. The `const`
-            /// guarantees it's available at compile time too.
+            /// guarantees it's available at compile time too. For a
+            /// context embedding `#[composite]` fields the descriptor
+            /// list is compile-time-composed to one entry per FLATTENED
+            /// slot (inner contexts spliced verbatim), length-pinned to
+            /// `ACCOUNT_COUNT` by a const assert.
             pub const SCHEMA_METADATA: ::hopper::hopper_schema::accounts::ContextDescriptor =
                 ::hopper::hopper_schema::accounts::ContextDescriptor {
                     name: #ctx_name_lit,
-                    accounts: &[ #( #account_schema_entries ),* ],
+                    accounts: #schema_accounts_expr,
                     policies: &[],
                     receipts_expected: #receipt_expected,
                     mutation_classes: &[],
@@ -3856,80 +4500,23 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                 #( #context_arg_entries ),*
             ];
 
-            // ── Per-field validators ─────────────────────────────────
+            // ── Per-field validators + top-level validate/bind ───────────
             //
-            // Each field gets its own `validate_{name}()` so the checks
-            // are individually callable, testable, and visible in
-            // `hopper compile --emit rust` output.
-            //
-            // When the struct declares `#[instruction(...)]`, each
-            // per-field validator takes the declared args as ordinary
-            // parameters. the same mechanism Anchor users expect,
-            // but threaded through *typed* Rust bindings rather than
-            // free identifiers that happen to resolve to the right
-            // thing.
-            #(#per_field_validators)*
+            // Composite-free contexts get a base-parametric `validate_at` /
+            // `bind_at` plus zero-cost base-0 forwarders (`validate` /
+            // `bind`, or the `_with_args` variants) and the embed hooks
+            // `__hopper_gather_bumps_at` / `__hopper_view_at`. A composite
+            // CONTAINER stays base-0 and delegates to each inner context's
+            // `validate_at` at the flattened offset. Built above so the two
+            // shapes share the per-field validators without duplication.
+            #validate_bind_fns
 
-            /// Validate the account slice against this context spec.
-            ///
-            /// This calls each per-field validator in order. Every check
-            /// is also available as a standalone `validate_{field}()` method
-            /// for fine-grained control and testing.
-            ///
-            /// When the struct declares `#[instruction(...)]`, this
-            /// entry point is renamed to `validate_with_args(...)` and
-            /// carries the declared typed args as additional
-            /// parameters. the args-less `validate(...)` is **not**
-            /// emitted in that case, because any seed / constraint
-            /// expression referencing an instruction arg would not
-            /// compile without the binding in scope.
-            #[inline]
-            pub fn #top_validate_ident(
-                ctx: &::hopper::prelude::Context<'_>
-                #top_arg_param_fragment
-            ) -> ::core::result::Result<(), ::hopper::__runtime::ProgramError> {
-                ctx.require_accounts(Self::ACCOUNT_COUNT)?;
-                #(#validation_stmts)*
-                Ok(())
-            }
-
-            /// Bind a raw Hopper context into the typed proc-macro wrapper.
-            ///
-            /// Mirrors `validate`: when `#[instruction(...)]` is
-            /// declared at the struct level, this becomes
-            /// `bind_with_args(ctx, arg0, arg1, ...)` and the args-less
-            /// variant is omitted.
-            #[inline]
-            pub fn #top_bind_ident<'ctx, 'a>(
-                ctx: &'ctx mut ::hopper::prelude::Context<'a>
-                #top_arg_param_fragment
-            ) -> ::core::result::Result<#bound_name<'ctx, 'a>, ::hopper::__runtime::ProgramError> {
-                #bind_validate_fragment
-                #write_policy_install_stmt
-                // `validate` already proved every PDA matches its seeds,
-                // so each gather expression can assume the derivation
-                // will produce the same pubkey. For stored bumps this
-                // is a byte read; for inferred bumps it is a second
-                // `find_program_address` call, which is the cost of
-                // handing the caller a ready-to-use bump without
-                // them re-deriving it at the CPI site. Stored bumps
-                // are the recommended path in hot handlers. (The
-                // synthetic event authority is the exception: its verify
-                // above already bound the bump to a local, so its gather
-                // is a register read.)
-                let mut __hopper_bumps = <#bumps_name as ::core::default::Default>::default();
-                #( #bumps_gather_stmts )*
-                #accounts_init_stmt
-                let __hopper_bound = #bound_name {
-                    ctx,
-                    #accounts_bound_field
-                    #lamport_gate_bound_field
-                    bumps: __hopper_bumps,
-                };
-                #(#auto_lifecycle_stmts)*
-                #user_validate_call
-                Ok(__hopper_bound)
-            }
+            /// Whether this context may be embedded as a `#[composite]`
+            /// field of another (see the embeddability rules on
+            /// `#[composite]`). Others assert this before nesting, so a
+            /// non-embeddable inner is a clean compile-time error.
+            #[doc(hidden)]
+            pub const __HOPPER_EMBEDDABLE: bool = #embeddable;
 
             #[inline]
             pub fn begin_receipt_scope<const SNAP: usize>(
@@ -3967,7 +4554,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             }
         }
 
-        impl<'ctx, 'a> #bound_name<'ctx, 'a> {
+        impl<'ctx, 'a, const __HOPPER_BASE: usize> #bound_name<'ctx, 'a, __HOPPER_BASE> {
             /// Borrow-scoped access to the underlying raw Hopper context.
             ///
             /// Account references returned through this value are tied to the
@@ -4047,42 +4634,50 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             #vis fn remaining_accounts(
                 &self,
             ) -> ::hopper::hopper_runtime::remaining::RemainingAccounts<'_> {
-                self.ctx.remaining_accounts_strict(#account_count)
+                self.ctx.remaining_accounts_strict(#account_count_expr)
             }
 
             #[inline(always)]
             #vis fn remaining_accounts_passthrough(
                 &self,
             ) -> ::hopper::hopper_runtime::remaining::RemainingAccounts<'_> {
-                self.ctx.remaining_accounts_passthrough(#account_count)
+                self.ctx.remaining_accounts_passthrough(#account_count_expr)
             }
 
             #[inline(always)]
             #vis fn remaining_typed(
                 &self,
             ) -> ::hopper::hopper_runtime::remaining::RemainingTyped<'_> {
-                self.ctx.remaining_accounts_typed(#account_count)
+                self.ctx.remaining_accounts_typed(#account_count_expr)
             }
 
             #[inline(always)]
             #vis fn remaining_lazy(
                 &self,
             ) -> ::hopper::hopper_runtime::remaining::RemainingLazy<'_> {
-                self.ctx.remaining_accounts_lazy(#account_count)
+                self.ctx.remaining_accounts_lazy(#account_count_expr)
             }
 
             #[inline(always)]
             #vis fn remaining_accounts_raw(&self) -> &[::hopper::prelude::AccountView<'_>] {
-                self.ctx.remaining_accounts(#account_count)
+                self.ctx.remaining_accounts(#account_count_expr)
             }
 
             #gated_transfer_method
 
             #emit_event_cpi_method
 
+            // --- Composite (nested) context accessors ---
+            #(#composite_access_methods)*
+
             // --- Generated segment accessors ---
             #(#accessors)*
         }
+
+        // Compile-time embeddability guard for each `#[composite]` field:
+        // a non-embeddable inner context fails HERE with an actionable
+        // message rather than deeper in the generated delegation.
+        #(#composite_embeddable_asserts)*
     };
 
     Ok(expanded)
@@ -4126,6 +4721,23 @@ fn parse_account_attr(attrs: &[Attribute]) -> Result<AccountAttr> {
     for attr in attrs {
         if attr.path().is_ident("signer") {
             result.is_signer = true;
+            continue;
+        }
+
+        // `#[composite]` bare marker (parallel to `#[signer]`): the field
+        // is a nested context. It must be a `Meta::Path` (no argument
+        // list); `#[composite(...)]` is rejected so the surface stays
+        // exactly the Anchor-adjacent bare form.
+        if attr.path().is_ident("composite") {
+            if !matches!(attr.meta, syn::Meta::Path(_)) {
+                return Err(syn::Error::new_spanned(
+                    attr,
+                    "`#[composite]` is a bare marker and takes no arguments; \
+                     the nested context's own `#[account(...)]` constraints live \
+                     on its fields, not on the composite field",
+                ));
+            }
+            result.composite = true;
             continue;
         }
 
@@ -5306,6 +5918,115 @@ fn validate_optional_field(field_name: &Ident, ty: &Type, attr: &AccountAttr) ->
     Ok(())
 }
 
+/// Expansion-time legality of a `#[composite]` field (nested context).
+///
+/// A composite field's type must be another context struct
+/// (`#[derive(Accounts)]` / `#[hopper::context]`), embedded so its account
+/// slots flatten in place. v1 rejects, with actionable messages:
+/// - `Option<Inner>` composites (an inner context is present-or-absent as a
+///   unit — out of v1 scope),
+/// - `#[account(...)]` / `#[signer]` constraints on the composite field
+///   itself (they belong on the inner context's fields),
+/// - wrapper types (`Account<..>`, `Signer`, `Program<..>`, …) and raw
+///   `AccountView`: those are single account slots, not nested contexts.
+fn validate_composite_field(field_name: &Ident, ty: &Type, has_slot_attrs: bool) -> Result<()> {
+    if option_inner_type(ty).is_some() {
+        return Err(syn::Error::new_spanned(
+            ty,
+            "`Option<..>` composite contexts are not supported in v1: a nested context is \
+             embedded as a fixed block of account slots, not an optional one. Make the \
+             composite field required, or gate presence with a separate instruction.",
+        ));
+    }
+    if has_slot_attrs {
+        return Err(syn::Error::new_spanned(
+            field_name,
+            format!(
+                "the composite field `{field_name}` is a nested context, not a single \
+                 account slot: it cannot carry `#[account(...)]` or `#[signer]` \
+                 constraints. Move those constraints onto the inner context's own fields."
+            ),
+        ));
+    }
+    if classify_wrapper(ty).is_some() || is_account_view(ty) {
+        return Err(syn::Error::new_spanned(
+            ty,
+            "a `#[composite]` field's type must be another context struct \
+             (`#[derive(Accounts)]` / `#[hopper::context]`), not a role wrapper \
+             (`Account<..>`, `Signer`, `Program<..>`, …) or a raw `AccountView`. \
+             A single account slot needs no `#[composite]` marker.",
+        ));
+    }
+    Ok(())
+}
+
+/// Build the inner context's generated `Bumps` type path for a
+/// `#[composite]` field. `Foo<'info>` → `FooBumps`, `crate::m::Bar` →
+/// `crate::m::BarBumps` (module qualification preserved, generic args
+/// dropped — the `Bumps` struct is non-generic). The nested context type
+/// is already validated to be a plain path by `validate_composite_field`.
+fn composite_bumps_ty(ty: &Type) -> Result<TokenStream> {
+    match ty {
+        Type::Path(TypePath { qself: None, path }) => {
+            let mut path = path.clone();
+            let last = path.segments.last_mut().ok_or_else(|| {
+                syn::Error::new_spanned(ty, "composite context type must be a named path")
+            })?;
+            last.ident = format_ident!("{}Bumps", last.ident);
+            last.arguments = syn::PathArguments::None;
+            Ok(quote! { #path })
+        }
+        _ => Err(syn::Error::new_spanned(
+            ty,
+            "composite context type must be a named path (e.g. `Inner` or `module::Inner`)",
+        )),
+    }
+}
+
+/// Build the inner context's spec-type PATH (generic args dropped) for a
+/// `#[composite]` field, e.g. `Foo<'info>` → `Foo`. Used to call the
+/// generated associated fns (`Foo::validate_at::<{..}>(ctx)`) in path form
+/// so the elided lifetime is inferred — the outer's `'info` is not in scope
+/// inside the generated `validate` / `bind`.
+fn composite_spec_ty(ty: &Type) -> Result<TokenStream> {
+    match ty {
+        Type::Path(TypePath { qself: None, path }) => {
+            let mut path = path.clone();
+            let last = path.segments.last_mut().ok_or_else(|| {
+                syn::Error::new_spanned(ty, "composite context type must be a named path")
+            })?;
+            last.arguments = syn::PathArguments::None;
+            Ok(quote! { #path })
+        }
+        _ => Err(syn::Error::new_spanned(
+            ty,
+            "composite context type must be a named path (e.g. `Inner` or `module::Inner`)",
+        )),
+    }
+}
+
+/// Build the inner context's generated bound-context type path for a
+/// `#[composite]` field. `Foo<'info>` → `FooCtx`, `crate::m::Bar` →
+/// `crate::m::BarCtx` (module qualification preserved, generic args
+/// dropped — the caller re-applies the `<'_, 'a, { OFFSET }>` arguments).
+fn composite_bound_ty(ty: &Type) -> Result<TokenStream> {
+    match ty {
+        Type::Path(TypePath { qself: None, path }) => {
+            let mut path = path.clone();
+            let last = path.segments.last_mut().ok_or_else(|| {
+                syn::Error::new_spanned(ty, "composite context type must be a named path")
+            })?;
+            last.ident = format_ident!("{}Ctx", last.ident);
+            last.arguments = syn::PathArguments::None;
+            Ok(quote! { #path })
+        }
+        _ => Err(syn::Error::new_spanned(
+            ty,
+            "composite context type must be a named path (e.g. `Inner` or `module::Inner`)",
+        )),
+    }
+}
+
 fn accounts_binding_fragments(
     name: &Ident,
     generics: &syn::Generics,
@@ -5369,40 +6090,40 @@ fn accounts_binding_fragments(
 fn wrapper_init_expr(kind: &WrapperKind, idx: usize) -> TokenStream {
     match kind {
         WrapperKind::Signer => quote! {
-            ::hopper::prelude::Signer::try_new(ctx.account(#idx)?)?
+            ::hopper::prelude::Signer::try_new(ctx.account(__HOPPER_BASE + #idx)?)?
         },
         WrapperKind::Program => quote! {
-            ::hopper::prelude::Program::try_new(ctx.account(#idx)?)?
+            ::hopper::prelude::Program::try_new(ctx.account(__HOPPER_BASE + #idx)?)?
         },
         WrapperKind::Interface { spec } => quote! {
-            ::hopper::prelude::Interface::<#spec>::try_new(ctx.account(#idx)?)?
+            ::hopper::prelude::Interface::<#spec>::try_new(ctx.account(__HOPPER_BASE + #idx)?)?
         },
         WrapperKind::UncheckedAccount => quote! {
             unsafe {
-                ::hopper::prelude::UncheckedAccount::new_unchecked(ctx.account(#idx)?)
+                ::hopper::prelude::UncheckedAccount::new_unchecked(ctx.account(__HOPPER_BASE + #idx)?)
             }
         },
         WrapperKind::SystemAccount => quote! {
-            ::hopper::prelude::SystemAccount::try_new(ctx.account(#idx)?)?
+            ::hopper::prelude::SystemAccount::try_new(ctx.account(__HOPPER_BASE + #idx)?)?
         },
         WrapperKind::Account { .. } => quote! {
             unsafe {
-                ::hopper::prelude::Account::new_unchecked(ctx.account(#idx)?)
+                ::hopper::prelude::Account::new_unchecked(ctx.account(__HOPPER_BASE + #idx)?)
             }
         },
         WrapperKind::InitAccount { .. } => quote! {
             unsafe {
-                ::hopper::prelude::InitAccount::new_unchecked(ctx.account(#idx)?)
+                ::hopper::prelude::InitAccount::new_unchecked(ctx.account(__HOPPER_BASE + #idx)?)
             }
         },
         WrapperKind::InterfaceAccount { .. } => quote! {
             unsafe {
-                ::hopper::prelude::InterfaceAccount::new_unchecked(ctx.account(#idx)?)
+                ::hopper::prelude::InterfaceAccount::new_unchecked(ctx.account(__HOPPER_BASE + #idx)?)
             }
         },
         WrapperKind::ExternalAccount { .. } => quote! {
             unsafe {
-                ::hopper::prelude::ExternalAccount::new_unchecked(ctx.account(#idx)?)
+                ::hopper::prelude::ExternalAccount::new_unchecked(ctx.account(__HOPPER_BASE + #idx)?)
             }
         },
         WrapperKind::Optional { inner } => {
@@ -5415,7 +6136,7 @@ fn wrapper_init_expr(kind: &WrapperKind, idx: usize) -> TokenStream {
             // compare, so a present slot has already passed every check
             // by the time this runs.
             quote! {
-                if ctx.account(#idx)?.address() == ctx.program_id() {
+                if ctx.account(__HOPPER_BASE + #idx)?.address() == ctx.program_id() {
                     ::core::option::Option::None
                 } else {
                     ::core::option::Option::Some(#inner_expr)
@@ -6603,8 +7324,9 @@ mod instruction_arg_tests {
             .to_string();
 
         for idx in 1..=8usize {
-            let gate =
-                format!("if ctx . account ({idx}usize) ? . address () == ctx . program_id ()");
+            let gate = format!(
+                "if ctx . account (__HOPPER_BASE + {idx}usize) ? . address () == ctx . program_id ()"
+            );
             assert!(
                 s.contains(&gate),
                 "missing facade presence gate for optional slot {idx}: {s}"
@@ -6620,7 +7342,9 @@ mod instruction_arg_tests {
         );
         // The required signer at slot 0 must never be presence-gated.
         assert!(
-            !s.contains("if ctx . account (0usize) ? . address () == ctx . program_id ()"),
+            !s.contains(
+                "if ctx . account (__HOPPER_BASE + 0usize) ? . address () == ctx . program_id ()"
+            ),
             "required fields must not be presence-gated: {s}"
         );
         // Presence-aware accessor: optional fields only.
@@ -6664,7 +7388,8 @@ mod instruction_arg_tests {
             .expect("derive expand ok")
             .to_string();
 
-        let gate = "if ctx . account (1usize) ? . address () != ctx . program_id ()";
+        let gate =
+            "if ctx . account (__HOPPER_BASE + 1usize) ? . address () != ctx . program_id ()";
         let w = fn_window(&s, "validate_referral");
         let gate_at = w
             .find(gate)
@@ -6746,7 +7471,8 @@ mod instruction_arg_tests {
             .to_string();
 
         let w = fn_window(&s, "validate_fee_sink");
-        let gate = "if ctx . account (0usize) ? . address () != ctx . program_id ()";
+        let gate =
+            "if ctx . account (__HOPPER_BASE + 0usize) ? . address () != ctx . program_id ()";
         let gate_at = w
             .find(gate)
             .unwrap_or_else(|| panic!("raw-view optional missing the presence gate: {w}"));

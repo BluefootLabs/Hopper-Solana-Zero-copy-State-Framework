@@ -123,6 +123,41 @@ Three differences:
 2. `load_mut()` becomes `get_mut()` on Hopper's wrapper, returning the same zero-copy borrow.
 3. `System` is a Hopper marker for the canonical System Program ID.
 
+### Composite (nested) accounts structs
+
+Anchor lets one accounts struct embed another; Hopper spells the same
+thing with an explicit `#[composite]` marker (Anchor infers it from any
+non-wrapper field type — Hopper refuses to guess):
+
+```rust
+// Anchor
+#[derive(Accounts)]
+pub struct Operate<'info> {
+    pub payer: Signer<'info>,
+    pub check: VaultCheck<'info>,      // composite, inferred
+    #[account(mut)]
+    pub tail: Account<'info, Vault>,
+}
+
+// Hopper
+#[derive(Accounts)]
+pub struct Operate<'info> {
+    pub payer: Signer<'info>,
+    #[composite]
+    pub check: VaultCheck<'info>,      // composite, declared
+    #[account(mut)]
+    pub tail: Account<'info, Vault>,
+}
+```
+
+Slots flatten in declaration order exactly like Anchor
+(`payer, check.authority, check.vault, tail`), `ctx.bumps.check` nests
+the inner context's bumps, and clients pass the same flat account list.
+v1 restrictions (compile errors, not silent gaps): the composite field
+cannot be `Option<..>` or carry its own `#[account(...)]` constraints,
+and a composite context cannot yet combine with `strict_writes`,
+`lamports(...)`, `emit_touch_map`, `event_cpi`, or `auto_lifecycle`.
+
 ## Handler
 
 ```rust

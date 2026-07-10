@@ -219,7 +219,10 @@ pub fn accounts(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// The generated code is identical to `#[hopper::context]` on the same
 /// struct - same binder type, same accessors, same constraint validation
 /// pipeline. No runtime difference between the two spellings.
-#[proc_macro_derive(Accounts, attributes(account, accounts, signer, instruction, validate))]
+#[proc_macro_derive(
+    Accounts,
+    attributes(account, accounts, signer, instruction, validate, composite)
+)]
 pub fn derive_accounts(input: TokenStream) -> TokenStream {
     context::expand_for_derive(input.into())
         .unwrap_or_else(|e| e.to_compile_error())
