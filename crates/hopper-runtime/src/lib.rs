@@ -110,7 +110,7 @@ pub use foreign::{
 };
 pub use interop::TransparentAddress;
 pub use lamports::transfer_lamports;
-pub use migrate::{apply_pending_migrations, LayoutMigration, MigrationEdge};
+pub use migrate::{apply_pending_migrations, migrate_layout, LayoutMigration, MigrationEdge};
 pub use policy::{HopperInstructionPolicy, HopperProgramPolicy, HopperProgramProfile};
 pub use proof::{
     AccountProof, ExecutableChecked, HasOneChecked, LayoutChecked, OwnerChecked, SeedsChecked,
