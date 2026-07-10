@@ -129,16 +129,16 @@ rows are `n/a` for Quasar.
 | authorize | **420 CU** | 2512 CU | n/a | 5017 CU |
 | counter_access | **518 CU** | 2539 CU | n/a | 5156 CU |
 | deposit | **1653 CU** | 3856 CU | 1756 CU | 7150 CU |
-| withdraw | **494 CU** | 2548 CU | 592 CU | 5108 CU |
-| binary size | 7.44 KiB | 7.73 KiB | **5.47 KiB** | 190.11 KiB |
+| withdraw | **486 CU** | 2548 CU | 592 CU | 5108 CU |
+| binary size | 7.46 KiB | 7.73 KiB | **5.47 KiB** | 190.11 KiB |
 
-Two honest notes on the 2026-07-09 row set. Withdraw moved 442 → 494 CU
+Two honest notes on the 2026-07-09 row set. Withdraw moved 442 → 486 CU
 versus the previous published table: +44 CU is the mutation-complete
 lamport gate actually enforcing on the one lamport-moving instruction — a
 measured safety feature no other column carries — and the remainder is the
 tag-arithmetic error lowering that bought a 10% `.text` cut. Every
 Quasar-comparable row still wins. On size, the Hopper vault `.so` now
-measures **smaller than Pinocchio's on the identical contract** (7.44 vs
+measures **smaller than Pinocchio's on the identical contract** (7.46 vs
 7.73 KiB, zero writable sections); Quasar's 5.47 KiB still wins that row —
 we do not publish a size lead we have not measured.
 

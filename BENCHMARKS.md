@@ -221,30 +221,31 @@ Anchor 0.31.1/1.x, with the shelf life that implies.
 | Auth-fail (missing sig) | 66 CU | **41 CU** (−25) | n/a | 2284 CU (+2218) |
 | Counter (segment-safe) | **518 CU** | 2539 CU (+2021) | n/a | 5156 CU (+4638) |
 | Deposit | **1653 CU** | 3856 CU (+2203) | 1756 CU (+103) | 7150 CU (+5497) |
-| Withdraw | **494 CU** | 2548 CU (+2054) | 592 CU (+98) | 5108 CU (+4614) |
+| Withdraw | **486 CU** | 2548 CU (+2062) | 592 CU (+106) | 5108 CU (+4622) |
 | Unsigned withdraw | rejected | rejected | rejected | rejected |
-| Binary size (`.so`) | 7.44 KiB | 7.73 KiB | **5.47 KiB** | 190.11 KiB |
+| Binary size (`.so`) | 7.46 KiB | 7.73 KiB | **5.47 KiB** | 190.11 KiB |
 
 > **Full four-way re-measured 2026-07-09** — every column through the same
 > mollusk 0.10.3 host runner in one run: Hopper at HEAD, the in-tree Anza
 > Pinocchio target, Quasar's own prebuilt vault, and the anchor-lang 0.31
 > comparator rebuilt from the same pinned lockfile (its rows reproduced the
 > 07-02 values exactly, confirming runner stability). Hopper `.text` is
-> 5,992 B (5.85 KiB) of the 7.44 KiB file.
+> 6,016 B (5.88 KiB) of the 7.46 KiB file.
 >
 > Deltas vs the 2026-07-02 Hopper column, each one a priced decision:
-> Withdraw 442 → 494: **+44 CU is the lamport gate (mutation-complete
+> Withdraw 442 → 486: **+44 CU is the lamport gate (mutation-complete
 > write-sets) actually enforcing** on the one lamport-moving instruction —
-> a measured safety feature no other column has — and +8 (with Deposit's
-> +3 and Auth-fail's +5) from the tag-arithmetic error lowering that bought
-> a 10% `.text` cut. Every Quasar-comparable row still wins.
+> a measured safety feature no other column has (the error-lowering's +8
+> was recovered by the gate-check fast-out; Deposit's +3 and Auth-fail's
+> +5 remain, the price of the 10% `.text` cut). Every Quasar-comparable
+> row still wins.
 >
 > Size: this week a **P0 was found by loading, not building** — the gate's
 > `static mut` made every `lamports(...)` program fail the SBF loader's
 > no-writable-sections rule; it now lives in the reserved, zero-initialized
 > VM heap and Hopper programs carry **zero writable sections**. With ~5 KiB
 > of accidentally-linked `core::fmt` also eliminated, the vault's `.so` is
-> now **smaller than Pinocchio's (7.44 vs 7.73 KiB) on the identical
+> now **smaller than Pinocchio's (7.46 vs 7.73 KiB) on the identical
 > contract**. Quasar's 5.47 KiB still wins this row; the remaining delta is
 > increasingly *paid-for* structure (receipts, the byte-range ledger, the
 > lamport gate — outlining experiments that "saved" bytes cost +44..+73 CU
@@ -341,8 +342,8 @@ section below for why those numbers were un-deployable.
 ### Performance observations
 
 - **Anchor, measured (2026-07-09):** Hopper is ~11.9× cheaper on
-  `authorize`, ~4.3× on `deposit`, ~10.3× on `withdraw`, and the artifact
-  is **26× smaller** (7.44 vs 190.11 KiB). Anchor's failure path is also
+  `authorize`, ~4.3× on `deposit`, ~10.5× on `withdraw`, and the artifact
+  is **26× smaller** (7.46 vs 190.11 KiB). Anchor's failure path is also
   expensive: a missing signer costs 2284 CU (8-byte discriminator hash +
   full `try_accounts` before the signer check) vs Hopper's 66 CU. **Shelf-life caveat:** these
   multiples apply to shipped Anchor 0.31.1/1.x. The unreleased Anchor v2
@@ -481,7 +482,7 @@ Rent-exempt deploy cost follows `(elf_bytes + 128) × 6,960` lamports
 |---|---:|---:|
 | Hopper counter (2026-07-09 build) | 3,736 B | **≈ 0.027 SOL** |
 | Hopper counter (devnet artifact, 07-07) | 4,688 B | ≈ 0.034 SOL |
-| Hopper vault (2026-07-09) | 7.44 KiB | ≈ 0.054 SOL |
+| Hopper vault (2026-07-09) | 7.46 KiB | ≈ 0.054 SOL |
 | Quasar vault | 5.47 KiB | ≈ 0.040 SOL |
 | Pinocchio vault | 7.73 KiB | ≈ 0.056 SOL |
 | Anchor 0.31.1 vault | 190.11 KiB | **≈ 1.356 SOL (~25× Hopper)** |

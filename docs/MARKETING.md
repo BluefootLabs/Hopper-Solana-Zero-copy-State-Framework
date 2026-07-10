@@ -33,7 +33,7 @@ while beating the other zero-copy frameworks on the benchmarks they compete on.
    **0.027 SOL** of rent (2026-07-09 build; the 2026-07-07 devnet artifact
    was 4,688 bytes ≈ 0.034 SOL); an Anchor-class artifact ≈ 1.36 SOL. ~50×
    cheaper to deploy on the counter, and the vault artifact is 26× smaller
-   (7.44 vs 190.11 KiB).
+   (7.46 vs 190.11 KiB).
 4. **The moat is structural, verified from their source.** Every 2026
    framework (Anchor v2 alpha, Typhoon, star-frame, Quasar-adjacent) builds on
    Pinocchio's single per-account borrow byte — account-granular forever.
@@ -51,12 +51,12 @@ while beating the other zero-copy frameworks on the benchmarks they compete on.
 ## Positioning vs each competitor (factual, never sneering)
 
 - **vs Anchor (1.x):** 4–12× CU (2026-07-09 vault: authorize 11.9×, deposit
-  4.3×, withdraw 10.3×), 26× smaller, ~50× cheaper deploys — but say
+  4.3×, withdraw 10.5×), 26× smaller, ~50× cheaper deploys — but say
   the shelf-life caveat before anyone else does: Anchor v2 alpha reaches
   Quasar-level CU. Then pivot: v2 is account-granular by construction; the
   moat features don't transfer.
 - **vs Quasar:** we beat them on their own axis (CU) on their vault
-  (2026-07-09: 1,653 vs 1,756 deposit, 494 vs 592 withdraw); the router-lab
+  (2026-07-09: 1,653 vs 1,756 deposit, 486 vs 592 withdraw); the router-lab
   win is ⚠️ suspended pending the 07-09 regression fix (see register). We're
   published on crates.io with an audit trail (they're v0.0.0, unaudited,
   nightly-only, five open soundness bugs), and our benchmark harness is
@@ -111,9 +111,9 @@ coming, measured on the Solana that's here."**
 | "Only byte-range framework" | ✅ source-verified vs Anchor v2 / Quasar / Pinocchio |
 | "Audited" | ✅ internal line-by-line trail; ❌ do not imply third-party audit |
 | "check_keys_eq ~40 CU" and April primitive figures | ❌ retired — superseded by Mollusk numbers |
-| "Smallest binary" | ⚠️ **router-scoped only.** Quasar still wins the vault (5.47 vs 7.44 KiB, re-measured 2026-07-09, `BENCHMARKS.md`). New claimable fact from that run: the Hopper vault `.so` is **smaller than Pinocchio's** on the identical contract (7.44 vs 7.73 KiB, zero writable sections). Never claim a general size lead; the remaining Quasar delta is paid-for structure (receipts, ledger, lamport gate) |
+| "Smallest binary" | ⚠️ **router-scoped only.** Quasar still wins the vault (5.47 vs 7.46 KiB, re-measured 2026-07-09, `BENCHMARKS.md`). New claimable fact from that run: the Hopper vault `.so` is **smaller than Pinocchio's** on the identical contract (7.46 vs 7.73 KiB, zero writable sections). Never claim a general size lead; the remaining Quasar delta is paid-for structure (receipts, ledger, lamport gate) |
 | "Kani-proves the SHIPPED SPL/System CPI encoders" | ✅ the harnesses now call the shipped `hopper_runtime::{token,system}::encoders::*` directly (22 wire-format + 22 differential-oracle vs an independent reference as of 2026-07-09, up from 17+17), byte-identical to what the CPI emits. ⚠️ scope: the **fixed-size** instruction set. The System `*WithSeed` family splices a runtime seed slice and is NOT proven — never imply it is |
-| "Smallest binary" (again) | ✅ resolved 2026-07-09: the Batch-5–7 `.text` regression (14.03 KiB) was clawed back — the re-run measures the vault at `.so` 7,616 B (7.44 KiB), `.text` 5,992 B, zero writable sections after the SBF-loader P0 fix. The size row is quotable again, with the row scoping above |
+| "Smallest binary" (again) | ✅ resolved 2026-07-09: the Batch-5–7 `.text` regression (14.03 KiB) was clawed back — the re-run measures the vault at `.so` 7,640 B (7.46 KiB), `.text` 6,016 B, zero writable sections after the SBF-loader P0 fix. The size row is quotable again, with the row scoping above |
 | "Native `publish-idl`, no Node" | ✅ real signed on-chain send (fresh inline / Allocate + chunked Write + Initialize / `--overwrite` SetData). No JS toolchain. ⚠️ not yet devnet-battle-tested |
 | "The CLI publishes the program's byte-range write-set" | ✅ the manifest loader now carries `writeRanges` / `strictWrites` / `mutationComplete` / `lamportAccounts` / `cuEstimate` end-to-end |
 | "Anchor constraint-DSL parity" | ✅ incl. `@ CustomError` binding, the `realloc::payer` / `realloc::zero` spelling, and — as of 2026-07-09 — optional accounts (`Option<Account<T>>` / `Option<Signer>` / every role wrapper + `AccountView`, Anchor's program-id-in-slot absence convention, absent = one address compare + zero checks, present = the full required-form checks; proven by expansion tests + a hopper-svm both-arms integration suite). ⚠️ scope: an optional field cannot be an `init`/`init_if_needed`/`zero`/`close`/`realloc`/`sweep` lifecycle target or carry `mut(seg)` lists (compile errors, like Anchor's own combo restrictions). ❌ still missing composite/nested contexts — call that catch-up, never "innovation" |

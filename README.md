@@ -286,7 +286,7 @@ includes Hopper, the in-tree Anza Pinocchio target, Quasar's upstream vault
 target, and a measured Anchor 0.31.1 comparator. Quasar implements only the
 financial `deposit` / `withdraw` rows, so validation-only rows are marked `n/a`
 rather than synthesized. In that run the Hopper vault `.so` also measures
-smaller than Pinocchio's on the identical contract (7.44 vs 7.73 KiB);
+smaller than Pinocchio's on the identical contract (7.46 vs 7.73 KiB);
 Quasar's 5.47 KiB is still the smallest vault artifact. The same repo also
 carries the first published router-class
 three-way (Hopper / Quasar / hand-written Pinocchio, 2026-07-07): Hopper beats Quasar on every row, within 2.1-2.7% of
