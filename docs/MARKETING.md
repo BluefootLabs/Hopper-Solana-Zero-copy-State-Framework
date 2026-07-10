@@ -18,8 +18,11 @@ while beating the other zero-copy frameworks on the benchmarks they compete on.
 ## The five proof points (lead with these, in this order)
 
 1. **Safety is free, measured.** Hopper's safe validated overlay costs
-   **1 CU — identical to a raw unsafe pointer cast** (Mollusk, net of
-   logging). The "safety tax" argument against frameworks dies here.
+   **exactly what a raw unsafe pointer cast costs — 2 CU net, the same
+   number** (Mollusk, 2026-07-09, net of logging). The equality is the
+   claim; quote both sides together. The "safety tax" argument against
+   frameworks dies here. Bonus from the same run: the receipt engine got
+   ~31% cheaper this week (full receipt+emit = 1.1% of a 200k budget).
 2. **We win our class on a real workload.** First published router-class
    three-way (multi-hop swaps, dynamic accounts, min-out gate): Hopper beats
    Quasar on **every** CU row (2026-07-09: 1,559/3,035/4,512 vs
@@ -83,7 +86,7 @@ coming, measured on the Solana that's here."**
    Anchor to submit rows — openness is the flex.
 2. **`THE_MOAT.md` as a standalone essay**: why byte-range vs account-granular
    is the 2026 dividing line, with the `MUT_MASK` receipt.
-3. **"1 CU = 1 CU" micro-content**: the safe-overlay-equals-raw-cast chart.
+3. **"Safe = raw, same number" micro-content**: the safe-overlay-equals-raw-cast chart (2 = 2 CU net, 2026-07-09).
 4. **Solana Foundation surface area**: verified builds, formal-verification
    flywheel (Kani/Certora), and the write-set SIMD draft with Hopper as
    reference implementation — the standards play that makes Hopper the
@@ -104,7 +107,7 @@ coming, measured on the Solana that's here."**
 | Claim | Status |
 |---|---|
 | "Beats Quasar on every router row" | ✅ **re-earned 2026-07-09** — 1,559/3,035/4,512 vs Quasar's 1,582/3,064/4,546 (margins 23/29/34), BETTER than the 07-07 win (1,564/3,044/4,525). The claim was suspended for ~6 hours the same day when a re-run caught a Batch-6 regression (+52 CU/hop: gate-machinery calls reachable from the per-meta CPI closure forced spill-heavy codegen); a full bisect attributed every CU, and the fix (once-per-CPI delegation sweep behind a liveness branch) landed measured. Tell that story — the suspension IS the brand. Smallest binary holds (10.74 vs P 10.98 / Q 11.05 KiB) |
-| "Safe overlay = raw cast (1 CU)" | ✅ measured, primitive-bench |
+| "Safe overlay = raw cast" | ✅ measured EQUAL, 2 CU net each (2026-07-09 primitive lab; the 07-07 run measured both at 1 — the equality is the durable claim, never quote the absolute alone) |
 | "~2% from hand-written Pinocchio" | ✅ 1.8–2.4% (2026-07-09 router lab; was 2.1–2.7%) |
 | "Faster than Pinocchio" | ❌ never — one auth-fail row only, say "fast by default" |
 | "~50× cheaper deploys than Anchor" | ✅ vs 0.31.1 artifact (counter 3,736 B ≈ 0.027 SOL, 2026-07-09 build, vs 1.356 SOL); the retired "40×" figure was the 4,688-B devnet artifact; add v2 caveat |

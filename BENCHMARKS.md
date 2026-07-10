@@ -55,9 +55,12 @@ Quasar's upstream vault exposes only `deposit` and `withdraw`, so
 validation-only rows are shown as `n/a` for Quasar instead of being
 synthesized by the harness.
 
-## Primitive CU Results (Mollusk, 2026-07-07)
+## Primitive CU Results (Mollusk, 2026-07-09)
 
-Measured with the `primitive-bench` Mollusk runner (mollusk-svm 0.10.3).
+Measured with the `primitive-bench` Mollusk runner (mollusk-svm 0.10.3),
+re-baselined 2026-07-09 at framework HEAD (prior 07-07 artifacts preserved
+in the bench repo's `results/primitive-bench/`; fresh run in
+`results/primitive-bench-2026-07-09/`).
 `whole-ix` includes dispatch, fixture checks, and the logging brackets;
 `net` subtracts the measured empty-bracket overhead (101 CU, probe disc 21).
 The `April 2026` column is the superseded validator-log figure each row
@@ -65,95 +68,98 @@ replaces (different method — see above).
 
 | Disc | Operation | Whole-ix CU | Net CU | April 2026 (superseded) | Category |
 |------|-----------|------------:|-------:|------------------------:|----------|
-| 0 | `check_signer` | 488 | 3 | ~20 | Validation |
-| 1 | `check_writable` | 489 | 3 | ~20 | Validation |
-| 2 | `check_owner` | 498 | 13 | ~50 | Validation |
-| 3 | `Vault::load()` (T1 full check) | 524 | 29 | ~120 | Account loading |
-| 4 | `check_keys_eq` | 523 | 14 | ~40 | Validation |
-| 5 | `Vault::overlay()` (57 bytes) | 500 | 1 | ~8 | Memory access (Tier A) |
-| 6 | `write_header` | 508 | 5 | ~30 | Account init |
-| 7 | `zero_init` (57 bytes) | 524 | 21 | ~15 | Account init |
-| 8 | `check_account_fast` | 489 | 5 | ~12 | Validation (fast path) |
-| 9 | `emit_event` (32-byte payload) | 690 | 240 | ~100 | Events |
-| 10 | `TrustProfile::load` (Strict) | 524 | 27 | ~130 | Trust loading |
-| 11 | `pod_from_bytes` (57 bytes) | 500 | 1 | ~6 | Memory access (Tier B) |
-| 12 | `StateReceipt::begin + commit` | 3291 | 2784 | ~50 | Receipts |
-| 13 | `read_layout_id` + compare | 503 | 4 | ~15 | Fingerprint check |
-| 14 | `StateSnapshot::capture + diff` | 532 | 26 | ~30 | State tracking |
-| 15 | `overlay_mut` + field write | 507 | 4 | ~10 | Memory access (Tier A mut) |
-| 16 | `raw_cast_baseline` (unsafe ptr) | 500 | 1 | ~4 | Competitor baseline |
-| 17 | `StateReceipt` (enriched fields) | 3292 | 2786 | ~80 | Receipt (all fields) |
-| 18 | `receipt + emit` (64B log) | 3649 | 3141 | ~150 | Receipt + event |
-| 19 | `proc_macro_typed_dispatch` | 683 | 188 | — | Macro dispatch |
+| 0 | `check_signer` | 461 | 3 | ~20 | Validation |
+| 1 | `check_writable` | 462 | 3 | ~20 | Validation |
+| 2 | `check_owner` | 472 | 14 | ~50 | Validation |
+| 3 | `Vault::load()` (T1 full check) | 495 | 33 | ~120 | Account loading |
+| 4 | `check_keys_eq` | 491 | 15 | ~40 | Validation |
+| 5 | `Vault::overlay()` (57 bytes) | 475 | 2 | ~8 | Memory access (Tier A) |
+| 6 | `write_header` | 483 | 6 | ~30 | Account init |
+| 7 | `zero_init` (57 bytes) | 498 | 21 | ~15 | Account init |
+| 8 | `check_account_fast` | 462 | 5 | ~12 | Validation (fast path) |
+| 9 | `emit_event` (32-byte payload) | 688 | 240 | ~100 | Events |
+| 10 | `TrustProfile::load` (Strict) | 493 | 29 | ~130 | Trust loading |
+| 11 | `pod_from_bytes` (57 bytes) | 475 | 2 | ~6 | Memory access (Tier B) |
+| 12 | `StateReceipt::begin + commit` | 2395 | 1915 | ~50 | Receipts |
+| 13 | `read_layout_id` + compare | 479 | 6 | ~15 | Fingerprint check |
+| 14 | `StateSnapshot::capture + diff` | 476 | 0* | ~30 | State tracking |
+| 15 | `overlay_mut` + field write | 482 | 4 | ~10 | Memory access (Tier A mut) |
+| 16 | `raw_cast_baseline` (unsafe ptr) | 475 | 2 | ~4 | Competitor baseline |
+| 17 | `StateReceipt` (enriched fields) | 2396 | 1917 | ~80 | Receipt (all fields) |
+| 18 | `receipt + emit` (64B log) | 2711 | 2231 | ~150 | Receipt + event |
+| 19 | `proc_macro_typed_dispatch` | 651 | 183 | — | Macro dispatch |
 
 Note on the key-compare rows: all 32-byte key compares were rerouted to
 4×u64 word-compare `PartialEq` on 2026-07-07 (the G1 pass). The `check_keys_eq`
 14 CU and `check_owner` 13 CU rows above are measured **post-G1**; the April
 ~40 / ~50 figures are pre-G1 and retired.
 
-Note on the receipt rows: the April validator-log method under-bracketed the
-receipt cycle badly. The table-derived split is honest: the snapshot + diff
-core is ~26 CU net (disc 14); the full receipt framing and encode dominates
-at ~2.8k CU (disc 12/17), and adding emission lands at ~3.1k CU (disc 18).
+Note on the receipt rows: the 2026-07-09 re-baseline measured the receipt
+engine **~31% cheaper than 07-07** (begin+commit 2,784 -> 1,915 net;
++emit 3,141 -> 2,231) — the same panic-formatting elimination that removed
+~5 KiB of `core::fmt` also un-pessimized the fingerprint/diff hot loops.
+*Disc 14's 0 is a measurement artifact, not a win: the probe discards its
+result on an unchanged account and the compiler now dead-code-eliminates
+the sequence; budget snapshot+diff from the receipt rows instead.
 
 ## Memory Access Tier Comparison
 
-Net CU, Mollusk 2026-07-07 run:
+Net CU, Mollusk 2026-07-09 run:
 
 | Tier | Operation | Net CU | What you get |
 |------|-----------|-------:|-------------|
-| Raw (unsafe) | `raw ptr cast` | 1 | Size check + pointer cast only. **Competitor baseline** |
-| B (pod) | `pod_from_bytes` | 1 | Bounds-checked typed view |
-| A (safe) | `Vault::overlay()` | 1 | Header + layout_id + bounds check |
+| Raw (unsafe) | `raw ptr cast` | 2 | Size check + pointer cast only. **Competitor baseline** |
+| B (pod) | `pod_from_bytes` | 2 | Bounds-checked typed view |
+| A (safe) | `Vault::overlay()` | 2 | Header + layout_id + bounds check |
 | A (mut) | `overlay_mut` + field set | 4 | Mutable overlay + write |
-| Full load | `Vault::load()` | 29 | Owner + disc + version + layout_id + size |
-| Strict trust | `TrustProfile::load` | 27 | Full cross-program trust validation |
+| Full load | `Vault::load()` | 33 | Owner + disc + version + layout_id + size |
+| Strict trust | `TrustProfile::load` | 29 | Full cross-program trust validation |
 
 ### The Performance Story
 
 **Hopper's safe overlay costs what a raw pointer cast costs.**
 
-This is now a measured claim, not a rounding argument: in the 2026-07-07
+This is now a measured claim, not a rounding argument: in the 2026-07-09
 Mollusk lab, the raw unsafe cast baseline and Hopper's safe, validated
-overlay both measure **1 CU net**. The bounds check, header validation, and
+overlay both measure **2 CU net — the same number**. The bounds check, header validation, and
 layout-fingerprint verification disappear into the same measured cost as
 `*const u8 as *const T`.
 
 For hot paths where accounts are already validated, use Tier A overlay. For
-cold paths, use `Vault::load()` at 29 CU net for full protocol-grade
+cold paths, use `Vault::load()` at 33 CU net for full protocol-grade
 validation (owner + disc + version + layout_id + size). The cost of safety
 scales with how much safety you need — and at the overlay tier it is
 measured at zero premium.
 
 ## Validation Cost Breakdown
 
-Net CU, Mollusk 2026-07-07 run:
+Net CU, Mollusk 2026-07-09 run:
 
 | Check | Net CU | Purpose |
 |-------|-------:|---------|
 | `check_signer` | 3 | Verify account is a signer |
 | `check_account_fast` | 5 | Fused fast-path account check |
 | `check_writable` | 3 | Verify account is writable |
-| `check_owner` | 13 | Compare owner against program_id (post-G1 word compare) |
-| `check_keys_eq` | 14 | Compare two account keys (post-G1 word compare) |
-| Full T1 load | 29 | All checks: owner + disc + version + layout_id + size |
-| Strict trust load | 27 | TrustProfile with all validations |
+| `check_owner` | 14 | Compare owner against program_id (post-G1 word compare) |
+| `check_keys_eq` | 15 | Compare two account keys (post-G1 word compare) |
+| Full T1 load | 33 | All checks: owner + disc + version + layout_id + size |
+| Strict trust load | 29 | TrustProfile with all validations |
 
 ## Receipt and Tracking Overhead
 
-Net CU, Mollusk 2026-07-07 run:
+Net CU, Mollusk 2026-07-09 run:
 
 | Operation | Net CU | Notes |
 |-----------|-------:|-------|
-| `StateSnapshot::capture + diff` | 26 | Snapshot + diff without receipt framing |
+| `StateSnapshot::capture + diff` | 0* | *DCE artifact on a discarded, unchanged diff — see the receipt-row note |
 | `read_layout_id` + compare | 4 | 8-byte fingerprint verification |
-| `StateReceipt::begin + commit` | 2,784 | Full snapshot + diff + encode cycle |
-| `StateReceipt` (enriched) | 2,786 | + phase, compat_impact, validation, migration |
-| `receipt + emit` | 3,141 | Full cycle: begin + set + commit + emit |
+| `StateReceipt::begin + commit` | 1,915 | Full snapshot + diff + encode cycle (−31% vs 07-07) |
+| `StateReceipt` (enriched) | 1,917 | + phase, compat_impact, validation, migration |
+| `receipt + emit` | 2,231 | Full cycle: begin + set + commit + emit |
 | `emit_event` (32 bytes) | 240 | Log-based event emission |
 
 A complete audit trail of every state mutation — full enriched receipt plus
-emission — measures ~3,141 CU net, about **1.6% of a 200,000 CU instruction
+emission — measures ~2,231 CU net, about **1.1% of a 200,000 CU instruction
 budget**. Lightweight state tracking (snapshot + diff + fingerprint check)
 costs ~30 CU. Receipts remain a reasonable default for audit-sensitive state
 changes; CU-critical one-shot programs can use the snapshot/diff core alone.
@@ -164,7 +170,7 @@ the encode path, and they should not be quoted.
 
 ## Competitor-Shaped Baselines
 
-Net CU, Mollusk 2026-07-07 run:
+Net CU, Mollusk 2026-07-09 run:
 
 | Framework Style | Equivalent Net CU | What It Does |
 |----------------|------------------:|---------------|
@@ -465,7 +471,7 @@ The cross-framework runners live in the sibling `hopper-bench` repo.
 ## CU Budget Reference
 
 Per-account framework cost from the Mollusk net rows above: full validated
-load 29 CU + overlay access ~1 CU + fingerprint re-check 4 CU ≈ **~35 CU per
+load 33 CU + overlay access ~2 CU + fingerprint re-check 6 CU ≈ **~41 CU per
 account**. Lightweight state tracking (snapshot + diff) adds ~26 CU; a full
 emitted receipt adds ~3.1k CU where an audit trail is wanted.
 
@@ -476,7 +482,7 @@ emitted receipt adds ~3.1k CU where an audit trail is wanted.
 | Complex instruction (6 accounts) | ~150,000 | ~240 CU |
 
 In all scenarios, core Hopper overhead is well under 1% of the instruction
-budget; opting into full receipt emission adds ~1.6% of a 200k budget.
+budget; opting into full receipt emission adds ~1.1% of a 200k budget.
 
 
 ## Deploy-cost economics
