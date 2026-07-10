@@ -119,6 +119,22 @@ impl LiteSvmHarness {
         Account::new(lamports, space, &self.program_id)
     }
 
+    /// The loaded program's own account, as an instruction fixture.
+    ///
+    /// Any instruction that CPIs into the executing program must carry
+    /// the program's account in its account list (a self-CPI target has
+    /// to be a transaction account) — Hopper's `event_cpi` contexts and
+    /// Anchor's `#[event_cpi]` both append it for exactly this reason.
+    /// The fixture matches [`Self::load`]'s registration (Mollusk's
+    /// default upgradeable-loader entry), so the runtime resolves the
+    /// inner invoke against the already-loaded ELF.
+    pub fn own_program_account(&self) -> (Pubkey, Account) {
+        (
+            self.program_id,
+            mollusk_svm::program::create_program_account_loader_v3(&self.program_id),
+        )
+    }
+
     /// Process a single instruction against the given account seeds.
     pub fn process(
         &self,

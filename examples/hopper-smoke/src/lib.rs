@@ -23,6 +23,10 @@
 //! - `1` = Deposit     (signer transfers SOL in, count++)
 //! - `2` = Withdraw    (authority pulls SOL out, checked, self-describing)
 //! - `3` = Close       (authority closes the vault, lamports refunded)
+//! - `4` = EmitReceipt (authority bumps the touch counter and emits a
+//!   state receipt as an authenticated self-CPI — the `event_cpi`
+//!   demo: indexers read it from inner-instruction metadata, which RPC
+//!   nodes never truncate, unlike the log-based event on Deposit)
 
 #![cfg_attr(target_os = "solana", no_std)]
 #![allow(dead_code, unused_variables)]
@@ -68,6 +72,22 @@ pub struct DepositEvent {
     pub new_balance: WireU64,
     pub deposit_count: WireU32,
     pub slot: WireU64,
+}
+
+/// Emitted by `EmitReceipt` as an authenticated self-CPI
+/// (`#[accounts(event_cpi)]` + `ctx.emit_event_cpi`). Unlike
+/// [`DepositEvent`] above — which rides `sol_log_data` and can be
+/// truncated out of RPC logs — this lands in the transaction's
+/// inner-instruction metadata. Wire: `[0xE0, 0x1E, 0x02, payload]`,
+/// 3 bytes of overhead vs Anchor `emit_cpi!`'s 16.
+#[hopper::event(tag = 2)]
+#[derive(Clone, Copy)]
+#[repr(C)]
+pub struct DepositReceipt {
+    /// Vault state balance at emission time.
+    pub balance: WireU64,
+    /// Deposit/touch counter after the bump.
+    pub deposit_count: WireU32,
 }
 
 // --- Errors ---------------------------------------------------------
@@ -140,6 +160,24 @@ pub struct CloseVault<'info> {
     pub vault: Account<'info, Vault>,
 }
 
+/// The `event_cpi` context: the option auto-appends two TRAILING
+/// account slots the struct does not declare — the event-authority PDA
+/// (seeds `[b"__hopper_event_authority"]`, verified at bind on-chain
+/// via the sha256 compare loop) and this program's own account (pinned
+/// to `ctx.program_id()`; a self-CPI target must be a transaction
+/// account) — so the instruction's account shape is
+/// `[authority, vault, event_authority, program]`, exactly the two
+/// extras Anchor's `#[event_cpi]` appends. The bound context gains
+/// `emit_event_cpi(&event)`.
+#[derive(Accounts)]
+#[accounts(event_cpi)]
+pub struct EmitReceipt<'info> {
+    pub authority: Signer<'info>,
+
+    #[account(mut, has_one = authority)]
+    pub vault: Account<'info, Vault>,
+}
+
 // --- Program --------------------------------------------------------
 
 #[program]
@@ -183,6 +221,26 @@ mod smoke_program {
         // revival sentinel, and refunds lamports to the authority. Nothing
         // else to do in the body.
         Ok(())
+    }
+
+    /// The `event_cpi` one-liner demo: bump the vault's touch counter,
+    /// then emit the post-state as an authenticated self-CPI receipt.
+    /// The dispatcher's generated `[0xE0, 0x1E]` sink (armed because
+    /// `EmitReceipt` opted in) authenticates the inner instruction:
+    /// event-authority signer + on-chain PDA address pin, so a foreign
+    /// program cannot plant forged receipts in this program's
+    /// inner-instruction list.
+    #[instruction(4)]
+    pub fn emit_receipt(ctx: Ctx<EmitReceipt>) -> ProgramResult {
+        let (balance, count) = {
+            let mut vault = ctx.accounts.vault.get_mut()?;
+            vault.deposit_count.checked_add_assign(1)?;
+            (vault.balance.get(), vault.deposit_count.get())
+        };
+        ctx.emit_event_cpi(&DepositReceipt {
+            balance: WireU64::new(balance),
+            deposit_count: WireU32::new(count),
+        })
     }
 }
 
