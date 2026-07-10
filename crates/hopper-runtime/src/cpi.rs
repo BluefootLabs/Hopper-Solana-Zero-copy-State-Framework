@@ -246,17 +246,25 @@ fn validate_cpi_borrows(
             return Err(ProgramError::InvalidArgument);
         }
         if instruction.accounts[i].is_writable {
-            // BLD-MUT: the lamport gate governs writable hand-offs on
-            // every *safe* tier, including this minimal one — the gate
-            // is only installed by contexts that opted into the lamport
-            // dimension, so programs outside the feature keep this
-            // tier's Pinocchio-parity cost (one None-check).
-            crate::write_policy::check_lamport_delegation(account_views[i].address())?;
             account_views[i].check_borrow_mut()?;
         } else {
             account_views[i].check_borrow()?;
         }
         i += 1;
+    }
+
+    // BLD-MUT writable hand-off gate: swept once per CPI behind the
+    // liveness branch, never reachable from the per-meta loop (the
+    // 2026-07-09 bisect measured closure-reachable gate machinery at
+    // ~+52 CU per router hop for ungated programs; see invoke_signed).
+    if crate::write_policy::lamport_gate_active() {
+        let mut m = 0;
+        while m < instruction.accounts.len() {
+            if instruction.accounts[m].is_writable {
+                crate::write_policy::check_lamport_delegation(account_views[m].address())?;
+            }
+            m += 1;
+        }
     }
 
     Ok(())
@@ -303,17 +311,26 @@ fn validate_host_system_transfer(
         // host emulation is not *weaker* than the borrow-checked tier it
         // sits above (tier ordering: checked ≥ default > borrow_checked).
         if expected.is_writable {
-            // BLD-MUT: writable hand-off gate, mirroring the on-chain
-            // default tier (the lamport funnel would catch the actual
-            // balance change anyway; refusing here keeps the host
-            // emulation's error surface identical to on-chain).
-            crate::write_policy::check_lamport_delegation(actual.address())?;
             actual.check_borrow_mut()?;
         } else {
             actual.check_borrow()?;
         }
 
         i += 1;
+    }
+
+    // BLD-MUT writable hand-off gate — post-loop sweep, mirroring the
+    // on-chain tiers' once-per-CPI placement so the host emulation's
+    // error surface (including the borrow-before-delegation precedence)
+    // stays identical to on-chain.
+    if crate::write_policy::lamport_gate_active() {
+        let mut m = 0;
+        while m < instruction.accounts.len() {
+            if instruction.accounts[m].is_writable {
+                crate::write_policy::check_lamport_delegation(account_views[m].address())?;
+            }
+            m += 1;
+        }
     }
 
     validate_no_duplicate_writable(instruction, account_views)
@@ -400,12 +417,12 @@ pub fn invoke_signed<const ACCOUNTS: usize>(
 
     // Fused validate+build (default tier). `check_meta` runs the default
     // tier's per-account contract — address identity, required-signer
-    // presence (including PDA-seed satisfaction), writability coverage, the
-    // BLD-MUT lamport-delegation gate on writable metas, and borrow state —
-    // in the *same* pass that materializes each `CpiAccount` scratch slot.
-    // `post_check` runs the duplicate-writable footgun scan afterward,
-    // exactly as the previous `validate_cpi_accounts` did (per-meta checks
-    // first, then the O(n²) scan, then the syscall).
+    // presence (including PDA-seed satisfaction), writability coverage,
+    // and borrow state — in the *same* pass that materializes each
+    // `CpiAccount` scratch slot. `post_check` then runs the BLD-MUT
+    // lamport-delegation sweep (once per CPI, gate-liveness-guarded; see
+    // the note at the sweep) and the duplicate-writable footgun scan,
+    // then the syscall.
     dispatch_cpi_fixed::<ACCOUNTS>(
         instruction,
         account_views,
@@ -431,11 +448,6 @@ pub fn invoke_signed<const ACCOUNTS: usize>(
             }
 
             if expected.is_writable {
-                // BLD-MUT: a writable CPI meta delegates unbounded data AND
-                // lamport mutation to the callee. Under an installed lamport
-                // gate the account must carry both a whole-account data
-                // grant and lamport permission; no gate = passthrough.
-                crate::write_policy::check_lamport_delegation(actual.address())?;
                 actual.check_borrow_mut()?;
             } else {
                 actual.check_borrow()?;
@@ -443,7 +455,25 @@ pub fn invoke_signed<const ACCOUNTS: usize>(
 
             Ok(())
         },
-        || validate_no_duplicate_writable(instruction, &account_views[..]),
+        || {
+            // BLD-MUT: a writable CPI meta delegates unbounded data AND
+            // lamport mutation to the callee. The delegation sweep runs
+            // ONCE per CPI here (not per meta) behind a liveness branch:
+            // keeping gate machinery reachable from the per-meta closure
+            // was measured to force spill-heavy codegen costing ~+52 CU
+            // per router hop for ungated programs (2026-07-09 bisect).
+            // Gated programs are still refused before the syscall.
+            if crate::write_policy::lamport_gate_active() {
+                let mut i = 0;
+                while i < metas_len {
+                    if instruction.accounts[i].is_writable {
+                        crate::write_policy::check_lamport_delegation(account_views[i].address())?;
+                    }
+                    i += 1;
+                }
+            }
+            validate_no_duplicate_writable(instruction, &account_views[..])
+        },
     )
 }
 
@@ -587,8 +617,6 @@ pub fn invoke_signed_with_bounds<const MAX_ACCOUNTS: usize>(
             }
 
             if expected.is_writable {
-                // BLD-MUT: writable hand-off gate (see `invoke_signed`).
-                crate::write_policy::check_lamport_delegation(actual.address())?;
                 actual.check_borrow_mut()?;
             } else {
                 actual.check_borrow()?;
@@ -596,6 +624,19 @@ pub fn invoke_signed_with_bounds<const MAX_ACCOUNTS: usize>(
         }
         cpi_accounts[i] = MaybeUninit::new(CpiAccount::from(actual));
         i += 1;
+    }
+
+    // BLD-MUT writable hand-off gate, swept once per CPI behind the
+    // liveness branch (never reachable from the hot per-meta loop; see
+    // the 2026-07-09 bisect note in `invoke_signed`'s sweep).
+    if crate::write_policy::lamport_gate_active() {
+        let mut m = 0;
+        while m < instruction.accounts.len() {
+            if instruction.accounts[m].is_writable {
+                crate::write_policy::check_lamport_delegation(account_views[m].address())?;
+            }
+            m += 1;
+        }
     }
 
     validate_no_duplicate_writable(instruction, account_views)?;
@@ -695,14 +736,28 @@ fn validate_cpi_accounts_deduped(
         // writable meta demands exclusive borrowability of that one info,
         // which is exactly the OR-merged requirement dedup must preserve.
         if expected.is_writable {
-            // BLD-MUT: writable hand-off gate over the full meta list —
-            // dedup collapses infos, never the per-meta delegation check.
-            crate::write_policy::check_lamport_delegation(info.address())?;
             info.check_borrow_mut()?;
         } else {
             info.check_borrow()?;
         }
         i += 1;
+    }
+
+    // BLD-MUT writable hand-off gate over the FULL un-deduplicated meta
+    // list (dedup collapses infos, never the delegation requirement),
+    // swept once per CPI behind the liveness branch — never reachable
+    // from the per-meta loop (2026-07-09 bisect; see invoke_signed).
+    if crate::write_policy::lamport_gate_active() {
+        let mut m = 0;
+        while m < instruction.accounts.len() {
+            let expected = &instruction.accounts[m];
+            if expected.is_writable {
+                if let Some(idx) = find_info(infos, expected.address) {
+                    crate::write_policy::check_lamport_delegation(infos[idx].address())?;
+                }
+            }
+            m += 1;
+        }
     }
 
     Ok(())
@@ -888,11 +943,21 @@ pub fn invoke_signed_borrow_checked<const ACCOUNTS: usize>(
 
     let metas_len = instruction.accounts.len();
 
-    // Fused validate+build (borrow_checked tier). `check_meta` runs exactly
-    // the per-account checks `validate_cpi_borrows` did — meta↔view address
-    // correspondence, the BLD-MUT lamport gate on writable metas, and borrow
-    // state — while the scratch slot is materialized in the same pass. This
-    // tier has no post-pass scan, so `post_check` is a no-op.
+    // Fused validate+build (borrow_checked tier). `check_meta` runs the
+    // per-account checks `validate_cpi_borrows` did — meta↔view address
+    // correspondence and borrow state — while the scratch slot is
+    // materialized in the same pass. The BLD-MUT lamport-delegation scan
+    // runs ONCE per CPI in `post_check`, NOT per meta: the 2026-07-09
+    // router bisect measured that any *reachable* gate-machinery call
+    // inside this per-meta closure forces it into an outlined,
+    // spill-heavy shape costing ~+52 CU per hop for programs that never
+    // installed a gate (branch-inside variants only recovered to ~+21;
+    // machinery-unreachable-from-the-closure recovered fully:
+    // 1,564/3,044/4,525 → 1,559/3,035/4,512 measured). Gated programs
+    // keep full enforcement — the sweep still refuses before the syscall
+    // hand-off in `dispatch_cpi_fixed` — with one documented precedence
+    // shift: in a multi-fault instruction, borrow errors now surface
+    // before delegation errors (both are pre-syscall refusals).
     dispatch_cpi_fixed::<ACCOUNTS>(
         instruction,
         account_views,
@@ -908,16 +973,24 @@ pub fn invoke_signed_borrow_checked<const ACCOUNTS: usize>(
                 return Err(ProgramError::InvalidArgument);
             }
             if instruction.accounts[i].is_writable {
-                // BLD-MUT: the lamport gate governs writable hand-offs on
-                // every safe tier, including this minimal one.
-                crate::write_policy::check_lamport_delegation(account_views[i].address())?;
                 account_views[i].check_borrow_mut()?;
             } else {
                 account_views[i].check_borrow()?;
             }
             Ok(())
         },
-        || Ok(()),
+        || {
+            if crate::write_policy::lamport_gate_active() {
+                let mut i = 0;
+                while i < metas_len {
+                    if instruction.accounts[i].is_writable {
+                        crate::write_policy::check_lamport_delegation(account_views[i].address())?;
+                    }
+                    i += 1;
+                }
+            }
+            Ok(())
+        },
     )
 }
 
@@ -1307,12 +1380,22 @@ mod tests {
                 return Err(ProgramError::Immutable);
             }
             if expected.is_writable {
-                crate::write_policy::check_lamport_delegation(actual.address())?;
                 actual.check_borrow_mut()?;
             } else {
                 actual.check_borrow()?;
             }
             i += 1;
+        }
+        // Mirrors production: the delegation sweep runs once per CPI
+        // after the per-meta pass (borrow-before-delegation precedence).
+        if crate::write_policy::lamport_gate_active() {
+            let mut m = 0;
+            while m < instruction.accounts.len() {
+                if instruction.accounts[m].is_writable {
+                    crate::write_policy::check_lamport_delegation(account_views[m].address())?;
+                }
+                m += 1;
+            }
         }
         validate_no_duplicate_writable(instruction, account_views)?;
         // Second (build) walk over the FULL view list.
@@ -1350,7 +1433,6 @@ mod tests {
                     return Err(ProgramError::Immutable);
                 }
                 if expected.is_writable {
-                    crate::write_policy::check_lamport_delegation(actual.address())?;
                     actual.check_borrow_mut()?;
                 } else {
                     actual.check_borrow()?;
@@ -1358,6 +1440,16 @@ mod tests {
             }
             s.push_str(&std::format!("[{}]={:?};", i, CpiAccount::from(actual)));
             i += 1;
+        }
+        // Mirrors production's once-per-CPI delegation sweep placement.
+        if crate::write_policy::lamport_gate_active() {
+            let mut m = 0;
+            while m < metas_len {
+                if instruction.accounts[m].is_writable {
+                    crate::write_policy::check_lamport_delegation(account_views[m].address())?;
+                }
+                m += 1;
+            }
         }
         validate_no_duplicate_writable(instruction, account_views)?;
         Ok(s)

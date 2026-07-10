@@ -21,14 +21,14 @@ while beating the other zero-copy frameworks on the benchmarks they compete on.
    **1 CU — identical to a raw unsafe pointer cast** (Mollusk, net of
    logging). The "safety tax" argument against frameworks dies here.
 2. **We win our class on a real workload.** First published router-class
-   three-way (multi-hop swaps, dynamic accounts, min-out gate): as measured
-   2026-07-07, Hopper beat Quasar on **every** CU row (1,564/3,044/4,525 vs
-   1,582/3,064/4,546), within **2.1–2.7%** of hand-written Pinocchio, with
-   the **smallest binary**. Both same-day snapshots published — including
-   the morning we were losing. ⚠️ 2026-07-09: a re-run at HEAD shows a
-   ~+38 CU/hop regression (1,602/3,120/4,639) that currently flips the
-   Quasar rows — DO NOT run this play until the regression lands fixed;
-   see the claims register.
+   three-way (multi-hop swaps, dynamic accounts, min-out gate): Hopper beats
+   Quasar on **every** CU row (2026-07-09: 1,559/3,035/4,512 vs
+   1,582/3,064/4,546), within **1.8–2.4%** of hand-written Pinocchio, with
+   the **smallest binary** (10.74 KiB). And the meta-story is even better:
+   a same-day re-run caught a regression that flipped these rows, we
+   SUSPENDED the claim in public, bisected every CU, fixed it, and
+   re-earned the win a few hours later measurably better than before.
+   Nobody else's benchmark culture can even express that sentence.
 3. **Cheapest to ship.** A complete deployable program in 3,736 bytes ≈
    **0.027 SOL** of rent (2026-07-09 build; the 2026-07-07 devnet artifact
    was 4,688 bytes ≈ 0.034 SOL); an Anchor-class artifact ≈ 1.36 SOL. ~50×
@@ -56,8 +56,8 @@ while beating the other zero-copy frameworks on the benchmarks they compete on.
   Quasar-level CU. Then pivot: v2 is account-granular by construction; the
   moat features don't transfer.
 - **vs Quasar:** we beat them on their own axis (CU) on their vault
-  (2026-07-09: 1,653 vs 1,756 deposit, 486 vs 592 withdraw); the router-lab
-  win is ⚠️ suspended pending the 07-09 regression fix (see register). We're
+  (2026-07-09: 1,653 vs 1,756 deposit, 486 vs 592 withdraw) AND the router
+  lab (1,559/3,035/4,512 vs 1,582/3,064/4,546, re-earned same day). We're
   published on crates.io with an audit trail (they're v0.0.0, unaudited,
   nightly-only, five open soundness bugs), and our benchmark harness is
   public and reproducible (theirs publishes nothing).
@@ -103,9 +103,9 @@ coming, measured on the Solana that's here."**
 
 | Claim | Status |
 |---|---|
-| "Beats Quasar on every router row" | ⚠️ **suspended 2026-07-09** — true as measured 2026-07-07 (1,564/3,044/4,525 vs 1,582/3,064/4,546), but a re-run at HEAD measures 1,602/3,120/4,639: Batch-5–7 changes regressed the router ~+38 CU/hop and it currently TRAILS Quasar on all three hops. Do not quote the win until the regression is bisected and fixed (in progress). The router "smallest binary" fact still holds (10.79 vs P 10.98 / Q 11.05 KiB, 07-09) |
+| "Beats Quasar on every router row" | ✅ **re-earned 2026-07-09** — 1,559/3,035/4,512 vs Quasar's 1,582/3,064/4,546 (margins 23/29/34), BETTER than the 07-07 win (1,564/3,044/4,525). The claim was suspended for ~6 hours the same day when a re-run caught a Batch-6 regression (+52 CU/hop: gate-machinery calls reachable from the per-meta CPI closure forced spill-heavy codegen); a full bisect attributed every CU, and the fix (once-per-CPI delegation sweep behind a liveness branch) landed measured. Tell that story — the suspension IS the brand. Smallest binary holds (10.74 vs P 10.98 / Q 11.05 KiB) |
 | "Safe overlay = raw cast (1 CU)" | ✅ measured, primitive-bench |
-| "~2% from hand-written Pinocchio" | ✅ 2.1–2.7%, router lab |
+| "~2% from hand-written Pinocchio" | ✅ 1.8–2.4% (2026-07-09 router lab; was 2.1–2.7%) |
 | "Faster than Pinocchio" | ❌ never — one auth-fail row only, say "fast by default" |
 | "~50× cheaper deploys than Anchor" | ✅ vs 0.31.1 artifact (counter 3,736 B ≈ 0.027 SOL, 2026-07-09 build, vs 1.356 SOL); the retired "40×" figure was the 4,688-B devnet artifact; add v2 caveat |
 | "Only byte-range framework" | ✅ source-verified vs Anchor v2 / Quasar / Pinocchio |
