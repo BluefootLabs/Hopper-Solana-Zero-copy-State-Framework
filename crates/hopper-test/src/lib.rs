@@ -119,6 +119,13 @@ impl LiteSvmHarness {
         Account::new(lamports, space, &self.program_id)
     }
 
+    /// The System Program's keyed account, as an instruction fixture —
+    /// required whenever the tested instruction CPIs into the System
+    /// Program (init lifecycles, transfers).
+    pub fn system_program_account() -> (Pubkey, Account) {
+        mollusk_svm::program::keyed_account_for_system_program()
+    }
+
     /// The loaded program's own account, as an instruction fixture.
     ///
     /// Any instruction that CPIs into the executing program must carry

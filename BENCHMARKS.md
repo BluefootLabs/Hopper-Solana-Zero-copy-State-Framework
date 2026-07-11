@@ -629,6 +629,30 @@ The live `emit_receipt` cost — 3,586 CU — matches the Mollusk
 measurement in `docs/CU_COSTS.md` exactly, which is the strongest
 possible validation of the in-process numbers this page is built on.
 
+### Live lazy migration (devnet, 2026-07-11)
+
+The migrate-at-bind crank ran against a real account. Instruction 6
+created a version-1 `Note` (`B2ZyGAUw9CVqdL2tiv9yG32HwuPbpeaofTBig6UkFQrL`,
+header verified live: disc 8, version 1, tag `0xBEEF` as a u32); the
+first instruction-7 touch migrated it in place and the second bound it
+steady-state:
+
+| Step | Live CU | Signature (devnet) |
+|---|---:|---|
+| init_note (creates V1) | 1,656 | `4iiEejiGZxvEnTuJsabnN2w7y7A4j3jCGV2zUq5P1cHpxrpHEDM8GApg6TP644BjA2z4z6iMVehJUvim35rZX8Mm` |
+| touch_note — MIGRATING touch | 280 | `4HTk16eVSby5r8r68A7AaCr1ZKGRThZgS9tAbVFiQzvnHX82Jvpqz5T1imEsGPHt1osUa968J9xXoNWJajSHfcaH` |
+| touch_note — steady-state | 251 | `4ggJLgKPhRZZ4xbwpXuAv4Mi3TsqFr2uoNkQmaVNtWaXpNWrdQoh4X9YMPPueGKVQp4FxS3JANukASi6vPPN9GMG` |
+
+Post-state read back live: **version 2**, tag widened to u64 with the
+value preserved (`0xBEEF`), `touches = 2`. The one-time migration
+premium is **29 CU** — the full typed in-place upgrade (V1 identity
+probe, transform, header re-stamp) — and BOTH live numbers match the
+Mollusk e2e (`examples/hopper-smoke/tests/note_migration_sbf_e2e.rs`)
+exactly: the second consecutive lab-to-cluster exact match in this
+document. The demo layouts also model the recommended forward-compat
+pattern: V1 carries reserved padding that V2 claims, so both versions
+fit one allocation and no realloc is ever needed.
+
 ### Bytecode size vs the competitor sources
 
 Compared against the extracted competitor trees at

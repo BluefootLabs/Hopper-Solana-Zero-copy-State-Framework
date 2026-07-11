@@ -31,6 +31,13 @@
 //!   WRAPPER accessor `vault.get_mut()` — the whole-account borrow the
 //!   touch map used to be blind to; its emitted map carries one
 //!   full-account write record from the instruction-ambient touch log)
+//! - `6` = InitNote (creates a `NoteV1` — the OLD layout version, with
+//!   forward-compat reserved padding sized so V2 fits without realloc)
+//! - `7` = TouchNote (the lazy-migration demo: the context declares
+//!   `migrate(from = NoteV1, ...)`, so binding against a V1 note
+//!   upgrades it in place — typed transform, header re-stamped v1→v2 —
+//!   before the handler runs; an already-V2 note binds untouched, so
+//!   repeat touches just increment the counter)
 
 #![cfg_attr(target_os = "solana", no_std)]
 #![allow(dead_code, unused_variables)]
@@ -62,6 +69,43 @@ pub struct Vault {
     pub created_at: WireI64,
     /// Last slot a deposit landed.
     pub last_deposit_slot: WireU64,
+}
+
+/// The OLD note layout (version 1): a narrow tag plus RESERVED
+/// forward-compat padding — the pattern that makes in-place layout
+/// upgrades possible: V2 (below) claims the reserved bytes, so the
+/// same allocation fits both versions and no realloc is ever needed.
+#[derive(Clone, Copy)]
+#[repr(C)]
+#[account(discriminator = 8, version = 1)]
+pub struct NoteV1 {
+    /// Narrow V1 tag (widens to u64 in V2).
+    pub tag: WireU32,
+    /// Forward-compat reserve V2 claims.
+    pub reserved: [u8; 12],
+}
+
+/// The NEW note layout (version 2, same discriminator): the tag widened
+/// to u64 and a touch counter carved from V1's reserve. Body size is
+/// identical to V1 by construction (16 bytes), so `migrate_layout`'s
+/// in-place contract always holds.
+#[derive(Clone, Copy)]
+#[repr(C)]
+#[account(discriminator = 8, version = 2)]
+pub struct NoteV2 {
+    /// The V1 tag, widened.
+    pub tag: WireU64,
+    /// Touches since migration (V2-only field; zeroed by default).
+    pub touches: WireU32,
+    /// Still-unclaimed reserve.
+    pub reserved: [u8; 4],
+}
+
+/// The typed upgrade `migrate(from = NoteV1, ...)` runs at bind: widen
+/// the tag, let every other V2 field keep its zeroed default.
+fn note_v1_to_v2(old: &NoteV1, new: &mut NoteV2) -> core::result::Result<(), ProgramError> {
+    new.tag = WireU64::new(old.tag.get() as u64);
+    Ok(())
 }
 
 // --- Event ----------------------------------------------------------
@@ -181,6 +225,31 @@ pub struct BumpWholeVault<'info> {
     pub vault: Account<'info, Vault>,
 }
 
+/// Creates a NoteV1 — deliberately the OLD version, so a later
+/// `TouchNote` demonstrates the lazy migration live.
+#[derive(Accounts)]
+pub struct InitNote<'info> {
+    #[account(mut)]
+    pub payer: Signer<'info>,
+
+    #[account(init, payer = payer, space = NoteV1::INIT_SPACE)]
+    pub note: InitAccount<'info, NoteV1>,
+
+    pub system_program: Program<'info, System>,
+}
+
+/// The lazy-migration demo context: binding against a NoteV1 upgrades
+/// it in place (typed transform, header re-stamped v1→v2, account
+/// flags preserved) BEFORE the handler runs; a NoteV2 binds untouched.
+/// Every instruction using this context is therefore a migration crank.
+#[derive(Accounts)]
+pub struct TouchNote<'info> {
+    pub authority: Signer<'info>,
+
+    #[account(mut, migrate(from = NoteV1, with = note_v1_to_v2))]
+    pub note: Account<'info, NoteV2>,
+}
+
 /// The `event_cpi` context: the option auto-appends two TRAILING
 /// account slots the struct does not declare — the event-authority PDA
 /// (seeds `[b"__hopper_event_authority"]`, verified at bind on-chain
@@ -271,6 +340,25 @@ mod smoke_program {
     pub fn bump_whole_vault(ctx: Ctx<BumpWholeVault>) -> ProgramResult {
         let mut vault = ctx.accounts.vault.get_mut()?;
         vault.deposit_count.checked_add_assign(1)?;
+        Ok(())
+    }
+
+    /// Create a NoteV1 with the given tag — the old shape, on purpose.
+    #[instruction(6)]
+    pub fn init_note(ctx: Ctx<InitNote>, tag: u32) -> ProgramResult {
+        ctx.init_note()?;
+        let mut note = ctx.accounts.note.get_mut_after_init()?;
+        note.tag = WireU32::new(tag);
+        Ok(())
+    }
+
+    /// The migration crank: a V1 note is upgraded at bind (before this
+    /// body runs), so the handler only ever sees V2 — it just counts
+    /// the touch.
+    #[instruction(7)]
+    pub fn touch_note(ctx: Ctx<TouchNote>) -> ProgramResult {
+        let mut note = ctx.accounts.note.get_mut()?;
+        note.touches.checked_add_assign(1)?;
         Ok(())
     }
 }
