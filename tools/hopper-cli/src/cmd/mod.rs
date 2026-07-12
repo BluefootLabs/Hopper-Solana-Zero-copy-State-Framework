@@ -6,6 +6,7 @@ pub mod clean;
 pub mod cluster;
 pub mod config;
 pub mod doctor;
+pub mod emit_manifest;
 pub mod expand;
 pub mod feature_gate;
 pub mod keys;

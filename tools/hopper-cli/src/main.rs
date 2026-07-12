@@ -459,7 +459,8 @@ fn cmd_compile(args: &[String]) {
         eprintln!("  rust-client   Off-chain Rust client (solana-sdk types)");
         eprintln!("  idl           Anchor-style IDL JSON");
         eprintln!("  codama        Codama-flavored JSON");
-        eprintln!("  schema        Hopper program manifest JSON");
+        eprintln!("  schema        Hopper program manifest JSON (from an existing manifest)");
+        eprintln!("  manifest      GENERATE hopper.manifest.json from the package source");
         eprintln!();
         eprintln!("See `hopper compile --help` for the full option set.");
         process::exit(1);
@@ -474,6 +475,35 @@ fn cmd_compile(args: &[String]) {
         eprintln!("hopper compile failed: {err}");
         process::exit(1);
     });
+    // `--emit manifest` PRODUCES the manifest (from the package's exported
+    // PROGRAM_MANIFEST static) that every other target consumes.
+    if target == "manifest" {
+        let package = match &options.source {
+            CompileManifestSource::Package(name) => name.clone(),
+            _ => {
+                eprintln!(
+                    "hopper compile --emit manifest requires --package <name> (the manifest                      is generated FROM that package's source)"
+                );
+                process::exit(1);
+            }
+        };
+        let out = options.out.as_deref().map(std::path::Path::new);
+        match cmd::emit_manifest::emit_manifest_from_source(&package, out, &cwd) {
+            Ok(path) => {
+                println!("wrote {}", path.display());
+                println!(
+                    "every emit target can now consume it, e.g. `hopper compile --emit ts                      --package {package}` or `hopper tx explain <sig> --manifest {}`",
+                    path.display()
+                );
+                return;
+            }
+            Err(err) => {
+                eprintln!("hopper compile failed: {err}");
+                process::exit(1);
+            }
+        }
+    }
+
     let prog = load_compile_manifest(&options.source, &cwd).unwrap_or_else(|err| {
         eprintln!("hopper compile failed: {err}");
         process::exit(1);
@@ -2572,14 +2602,33 @@ fn parse_manifest_json(json: &str) -> Result<ParsedManifest, String> {
     let name = extract_string(json, "name")?;
     let disc = extract_number(json, "disc")? as u8;
     let version = extract_number(json, "version")? as u8;
-    let total_size = extract_number(json, "total_size")? as usize;
-    let layout_id = extract_array_u8(json, "layout_id")?;
-
+    // Two manifest dialects exist in the wild: the hand-written files
+    // (snake_case, `layout_id` as a byte array) and `ManifestJson`'s
+    // rendered output (camelCase, `layoutId` as a hex string) — the
+    // shape `hopper compile --emit manifest` now generates. Accept both.
+    let total_size =
+        extract_number(json, "total_size").or_else(|_| extract_number(json, "totalSize"))? as usize;
     let mut lid = [0u8; 8];
-    if layout_id.len() != 8 {
-        return Err("layout_id must be exactly 8 bytes".to_string());
+    match extract_array_u8(json, "layout_id") {
+        Ok(layout_id) => {
+            if layout_id.len() != 8 {
+                return Err("layout_id must be exactly 8 bytes".to_string());
+            }
+            lid.copy_from_slice(&layout_id);
+        }
+        Err(_) => {
+            let hex = extract_string(json, "layoutId")
+                .map_err(|_| "Missing key: layout_id (or layoutId)".to_string())?;
+            if hex.len() != 16 {
+                return Err("layoutId hex string must be 16 chars (8 bytes)".to_string());
+            }
+            for (i, chunk) in hex.as_bytes().chunks(2).enumerate() {
+                let s = std::str::from_utf8(chunk).map_err(|_| "layoutId not UTF-8")?;
+                lid[i] =
+                    u8::from_str_radix(s, 16).map_err(|e| format!("layoutId hex parse: {e}"))?;
+            }
+        }
     }
-    lid.copy_from_slice(&layout_id);
 
     let fields = extract_fields(json)?;
 
