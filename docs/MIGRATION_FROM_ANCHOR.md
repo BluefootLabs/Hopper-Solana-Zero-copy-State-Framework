@@ -153,10 +153,23 @@ pub struct Operate<'info> {
 Slots flatten in declaration order exactly like Anchor
 (`payer, check.authority, check.vault, tail`), `ctx.bumps.check` nests
 the inner context's bumps, and clients pass the same flat account list.
-v1 restrictions (compile errors, not silent gaps): the composite field
-cannot be `Option<..>` or carry its own `#[account(...)]` constraints,
-and a composite context cannot yet combine with `strict_writes`,
-`lamports(...)`, `emit_touch_map`, `event_cpi`, or `auto_lifecycle`.
+
+Since composite v2 the CONTAINER's options compose across the nesting
+boundary: `strict_writes` (and its `lamports(...)` dimension) splice the
+inner context's declared `mut` / `mut(seg)` ranges into the outer's
+enforced write-set at compile time with account indices rebased to the
+flattened slots; `event_cpi`'s two auto-appended slots trail the
+flattened set; `emit_touch_map` and `auto_lifecycle` work unchanged.
+
+Remaining restrictions (compile errors, not silent gaps): the composite
+field cannot be `Option<..>` or carry its own `#[account(...)]`
+constraints; the INNER context must stay a plain validation context (no
+`#[instruction(...)]` args, no `strict_writes` / `lamports(...)` /
+`emit_touch_map` / `event_cpi` options, no lifecycle or `migrate(...)`,
+no nested `#[composite]` of its own); and `lamports(...)` on the outer
+can only name the outer's own leaf fields — an account inside an
+embedded context cannot be granted lamport permission from the outer
+(flatten the inner context if one of its accounts must move lamports).
 
 ### Lazy migration at bind
 

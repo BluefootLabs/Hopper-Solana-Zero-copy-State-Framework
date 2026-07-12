@@ -841,42 +841,26 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         });
     }
 
-    // ── Composite (nested) contexts: option-combination gate ──────────
+    // ── Composite (nested) contexts: options compose (v2) ─────────────
     //
     // A context that embeds a `#[composite]` field flattens the inner
-    // context's slots in place. v1 does NOT compose composites with the
-    // options that bake absolute account indices into static consts or
-    // append synthetic trailing slots — their correct rebasing across the
-    // nesting boundary is not yet implemented, and silently dropping the
-    // coverage would be worse than a clear error. Reject up front.
+    // context's slots in place. Since composite v2 the CONTAINER's
+    // options compose across the nesting boundary instead of being
+    // rejected (the v1 gate): `strict_writes` / `lamports(...)` compose
+    // the authority write-set at const time — outer leaves at their
+    // flattened const-expr offsets, each inner context's declared ranges
+    // spliced with rebased indices (see the write-ranges emission below);
+    // `event_cpi`'s two synthetic slots trail the flattened total at
+    // const-expr indices; `emit_touch_map` needs no rebasing at all (the
+    // emission is dispatcher-side and the touch log already records
+    // flattened instruction slots by construction); and `auto_lifecycle`
+    // drives the outer's own leaf helpers, whose slots — including every
+    // sibling-role lookup (payer, system_program, close/sweep targets,
+    // Metaplex roles) — are `__HOPPER_BASE + flattened-offset`
+    // expressions. What stays restricted is the INNER side: an embedded
+    // context must still be a plain validation context (no options, no
+    // args, no lifecycle — see `__HOPPER_EMBEDDABLE` below).
     let has_composite = ctx_fields.iter().any(|cf| cf.attr.composite);
-    if has_composite {
-        let bad_option = if context_options.event_cpi {
-            Some("event_cpi")
-        } else if context_options.strict_writes {
-            Some("strict_writes")
-        } else if context_options.lamports.is_some() {
-            Some("lamports(...)")
-        } else if context_options.emit_touch_map {
-            Some("emit_touch_map")
-        } else if context_options.auto_lifecycle {
-            Some("auto_lifecycle")
-        } else {
-            None
-        };
-        if let Some(opt) = bad_option {
-            return Err(syn::Error::new_spanned(
-                name,
-                format!(
-                    "`{opt}` is not supported on a context that embeds a `#[composite]` \
-                     field (v1): the option compiles a static write-set / synthetic slots / \
-                     lifecycle sweep keyed to absolute account indices that cannot yet be \
-                     rebased across the nesting boundary. Flatten the nested context into \
-                     this one, or drop `{opt}`."
-                ),
-            ));
-        }
-    }
 
     // ── event_cpi: auto-append the two Anchor-parity trailing slots ──
     //
@@ -1803,11 +1787,13 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             // The close target receives the drained lamports, and the SVM
             // rejects lamport changes on non-writable accounts — catch a
             // read-only destination at validate time instead of failing
-            // the whole transaction at commit.
+            // the whole transaction at commit. The sibling resolves at
+            // its flattened, base-parametric slot (composite-aware).
             if let Some(target) = &cf.attr.close {
                 if let Some(target_idx) = ctx_fields.iter().position(|c| c.name == *target) {
+                    let target_slot = slot_abs(target_idx);
                     field_checks.push(quote! {
-                        ctx.account(#target_idx)?.check_writable()?;
+                        ctx.account(#target_slot)?.check_writable()?;
                     });
                     check_descriptions.push(format!(
                         "accounts[{}] ({}) must be writable (receives lamports from `close = {}`)",
@@ -1819,11 +1805,13 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         // `sweep = target`: same lamport-flow reasoning as `close` — the
         // target must be writable to receive the drained lamports. The
         // source's own writability is enforced through the `mut`
-        // implication set at parse time.
+        // implication set at parse time. Flattened, base-parametric slot
+        // (composite-aware), like every sibling-role lookup.
         if let Some(target) = &cf.attr.sweep {
             if let Some(target_idx) = ctx_fields.iter().position(|c| c.name == *target) {
+                let target_slot = slot_abs(target_idx);
                 field_checks.push(quote! {
-                    ctx.account(#target_idx)?.check_writable()?;
+                    ctx.account(#target_slot)?.check_writable()?;
                 });
                 check_descriptions.push(format!(
                     "accounts[{}] ({}) must be writable (receives lamports from `sweep = {}`)",
@@ -2553,6 +2541,10 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                 ));
             }
             let sweep_fn = format_ident!("sweep_{}", field_name);
+            // Sibling-role lookup at the flattened, base-parametric slot
+            // (composite-aware): a target declared after a `#[composite]`
+            // field lives past the inner context's flattened block.
+            let target_slot = slot_abs(target_idx);
             accessors.push(quote! {
                 /// Drain every lamport from this slot into the declared
                 /// sweep target. Call in the happy path just before
@@ -2562,7 +2554,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                     -> ::core::result::Result<u64, ::hopper::__runtime::ProgramError>
                 {
                     let src = self.ctx.account(#slot)?;
-                    let dst = self.ctx.account(#target_idx)?;
+                    let dst = self.ctx.account(#target_slot)?;
                     // Distinct field indices can still alias one
                     // account at runtime (duplicate metas). Crediting
                     // an alias with its own pre-drain balance would
@@ -2879,6 +2871,13 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                 .space
                 .as_ref()
                 .expect("validate_account_attr guarantees init/init_if_needed has space");
+            // Sibling-role lookups at their flattened, base-parametric
+            // slots (composite-aware): a payer / system_program declared
+            // after a `#[composite]` field lives past the inner
+            // context's flattened block, so the raw field position would
+            // read the wrong account there.
+            let payer_slot = slot_abs(payer_idx);
+            let system_program_slot = slot_abs(system_program_idx);
 
             // ── PDA-aware creation (Batch 4 audit fix) ────────────────
             //
@@ -2953,15 +2952,15 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                         // `<ctx>_load()` or equivalent.
                         return ::core::result::Result::Ok(());
                     }
-                    let payer = self.ctx.account(#payer_idx)?;
-                    let system_program = self.ctx.account(#system_program_idx)?;
+                    let payer = self.ctx.account(#payer_slot)?;
+                    let system_program = self.ctx.account(#system_program_slot)?;
                     #init_invoke
                 }
             } else {
                 quote! {
-                    let payer = self.ctx.account(#payer_idx)?;
+                    let payer = self.ctx.account(#payer_slot)?;
                     let account = self.ctx.account(#slot)?;
-                    let system_program = self.ctx.account(#system_program_idx)?;
+                    let system_program = self.ctx.account(#system_program_slot)?;
                     #init_invoke
                 }
             };
@@ -3035,9 +3034,17 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                 system_program_ident,
                 "metadata::system_program",
             )?;
+            // Every sibling role resolves at its flattened,
+            // base-parametric slot (composite-aware).
+            let mint_slot = slot_abs(mint_idx);
+            let mint_authority_slot = slot_abs(mint_authority_idx);
+            let payer_slot = slot_abs(payer_idx);
+            let update_authority_slot = slot_abs(update_authority_idx);
+            let system_program_slot = slot_abs(system_program_idx);
             let rent_expr = if let Some(rent_ident) = &cf.attr.metadata_rent {
                 let rent_idx = sibling_index(&ctx_fields, rent_ident, "metadata::rent")?;
-                quote! { ::core::option::Option::Some(self.ctx.account(#rent_idx)?) }
+                let rent_slot = slot_abs(rent_idx);
+                quote! { ::core::option::Option::Some(self.ctx.account(#rent_slot)?) }
             } else {
                 quote! { ::core::option::Option::None }
             };
@@ -3063,11 +3070,11 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                 ) -> ::core::result::Result<(), ::hopper::__runtime::ProgramError> {
                     ::hopper::hopper_metaplex::CreateMetadataAccountV3 {
                         metadata: self.ctx.account(#slot)?,
-                        mint: self.ctx.account(#mint_idx)?,
-                        mint_authority: self.ctx.account(#mint_authority_idx)?,
-                        payer: self.ctx.account(#payer_idx)?,
-                        update_authority: self.ctx.account(#update_authority_idx)?,
-                        system_program: self.ctx.account(#system_program_idx)?,
+                        mint: self.ctx.account(#mint_slot)?,
+                        mint_authority: self.ctx.account(#mint_authority_slot)?,
+                        payer: self.ctx.account(#payer_slot)?,
+                        update_authority: self.ctx.account(#update_authority_slot)?,
+                        system_program: self.ctx.account(#system_program_slot)?,
                         rent: #rent_expr,
                         data: ::hopper::hopper_metaplex::DataV2::simple(
                             #name_expr,
@@ -3125,9 +3132,19 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                 system_program_ident,
                 "master_edition::system_program",
             )?;
+            // Every sibling role resolves at its flattened,
+            // base-parametric slot (composite-aware).
+            let mint_slot = slot_abs(mint_idx);
+            let metadata_slot = slot_abs(metadata_idx);
+            let update_authority_slot = slot_abs(update_authority_idx);
+            let mint_authority_slot = slot_abs(mint_authority_idx);
+            let payer_slot = slot_abs(payer_idx);
+            let token_program_slot = slot_abs(token_program_idx);
+            let system_program_slot = slot_abs(system_program_idx);
             let rent_expr = if let Some(rent_ident) = &cf.attr.master_edition_rent {
                 let rent_idx = sibling_index(&ctx_fields, rent_ident, "master_edition::rent")?;
-                quote! { ::core::option::Option::Some(self.ctx.account(#rent_idx)?) }
+                let rent_slot = slot_abs(rent_idx);
+                quote! { ::core::option::Option::Some(self.ctx.account(#rent_slot)?) }
             } else {
                 quote! { ::core::option::Option::None }
             };
@@ -3153,13 +3170,13 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                         );
                     ::hopper::hopper_metaplex::CreateMasterEditionV3 {
                         edition: self.ctx.account(#slot)?,
-                        mint: self.ctx.account(#mint_idx)?,
-                        update_authority: self.ctx.account(#update_authority_idx)?,
-                        mint_authority: self.ctx.account(#mint_authority_idx)?,
-                        payer: self.ctx.account(#payer_idx)?,
-                        metadata: self.ctx.account(#metadata_idx)?,
-                        token_program: self.ctx.account(#token_program_idx)?,
-                        system_program: self.ctx.account(#system_program_idx)?,
+                        mint: self.ctx.account(#mint_slot)?,
+                        update_authority: self.ctx.account(#update_authority_slot)?,
+                        mint_authority: self.ctx.account(#mint_authority_slot)?,
+                        payer: self.ctx.account(#payer_slot)?,
+                        metadata: self.ctx.account(#metadata_slot)?,
+                        token_program: self.ctx.account(#token_program_slot)?,
+                        system_program: self.ctx.account(#system_program_slot)?,
                         rent: #rent_expr,
                         max_supply: __max_supply,
                     }.invoke()
@@ -3181,6 +3198,9 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                         ),
                     )
                 })?;
+            // Sibling-role lookup at the flattened, base-parametric slot
+            // (composite-aware).
+            let close_target_slot = slot_abs(close_target_idx);
             accessors.push(quote! {
                 /// Drain lamports from `#field_name` into the declared
                 /// close target and mark the data for reclaim. Uses the
@@ -3190,7 +3210,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                 #[inline]
                 #vis fn #close_fn(&self) -> ::core::result::Result<(), ::hopper::__runtime::ProgramError> {
                     let account = self.ctx.account(#slot)?;
-                    let destination = self.ctx.account(#close_target_idx)?;
+                    let destination = self.ctx.account(#close_target_slot)?;
                     ::hopper::hopper_close!(account, destination, self.ctx.program_id())
                 }
             });
@@ -3216,7 +3236,9 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                                 ),
                             )
                         })?;
-                    Ok::<_, syn::Error>(quote! { Some(self.ctx.account(#p_idx)?) })
+                    // Flattened, base-parametric slot (composite-aware).
+                    let p_slot = slot_abs(p_idx);
+                    Ok::<_, syn::Error>(quote! { Some(self.ctx.account(#p_slot)?) })
                 })
                 .transpose()?
                 .unwrap_or_else(|| quote! { None });
@@ -3733,49 +3755,172 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
     // writes an already-deployed program performs.
     let lamports_declared = context_options.lamports.is_some();
     let mutation_complete = strict_writes_enabled && lamports_declared;
-    let mut range_exprs: Vec<TokenStream> = Vec::new();
-    // Indices carrying a whole-account data grant (used for the implied
-    // writable-CPI-meta delegation ranges below: init payer, Metaplex
-    // helper roles).
-    let mut whole_account_indices: Vec<u8> = Vec::new();
-    if strict_writes_enabled {
-        for cf in &ctx_fields {
-            let idx_u8 = cf.index as u8;
-            let whole_account = cf.attr.is_mut
-                || cf.attr.init
-                || cf.attr.init_if_needed
-                || cf.attr.realloc.is_some()
-                || cf.attr.close.is_some();
-            if whole_account {
-                whole_account_indices.push(idx_u8);
-                range_exprs.push(quote! {
-                    ::hopper::__runtime::write_policy::WriteRange::whole_account(#idx_u8)
-                });
-                continue;
-            }
-            if cf.attr.mut_segments.is_empty() {
-                continue;
-            }
-            // `mut(seg, ...)`-only fields: one exact range per declared
-            // segment, resolved through the `#[hopper::state]` constants.
-            let field_ty = layout_type_for_field(cf).unwrap_or_else(|| cf.ty.clone());
-            let type_ident = type_ident(&field_ty)?;
-            let type_upper = to_screaming_snake(&type_ident.to_string());
-            for seg_name in &cf.attr.mut_segments {
-                let seg_upper = to_screaming_snake(seg_name);
-                let assoc_offset = format_ident!("{}_OFFSET", seg_upper);
-                let type_alias = format_ident!("{}_{}_TYPE", type_upper, seg_upper);
-                range_exprs.push(quote! {
-                    ::hopper::__runtime::write_policy::WriteRange::new(
-                        #idx_u8,
-                        ::hopper::hopper_core::account::HEADER_LEN as u32
-                            + <#field_ty>::#assoc_offset,
-                        ::core::mem::size_of::<#type_alias>() as u32,
-                    )
-                });
-            }
+
+    // ── Declared-range classification (composite v2) ───────────────────
+    //
+    // The context's `mut` / `mut(seg, ...)` / lifecycle declarations are
+    // classified ONCE into position-keyed entries, then rendered into
+    // whichever token shape each consumer needs:
+    //
+    //   1. the hidden `__HOPPER_DECLARED_WRITE_RANGES` associated const —
+    //      emitted on every composite-FREE context regardless of
+    //      `strict_writes`, because an embedding OUTER's `strict_writes`
+    //      must be able to splice the inner's declared structure at const
+    //      time even though an embeddable inner can never enable
+    //      `strict_writes` itself (the const carries NO authority; only
+    //      the outer's opt-in confers it);
+    //   2. the composite-free `strict_writes` authority const — the
+    //      legacy `#idx_u8`-literal lowering, byte-identical to the
+    //      pre-composite emission;
+    //   3. the composite container's compile-time-COMPOSED authority
+    //      array — outer leaves at const-expr flattened offsets, each
+    //      inner context's declared const spliced with rebased indices.
+    enum DeclaredRange {
+        /// Whole-account grant (plain `mut` or an init / init_if_needed /
+        /// realloc / close lifecycle rewrite) on the field at this
+        /// `ctx_fields` position.
+        Whole(usize),
+        /// One exact `mut(seg)` range on the field at this position,
+        /// resolved through the `#[hopper::state]` constants.
+        Segment {
+            pos: usize,
+            field_ty: Type,
+            seg_name: String,
+        },
+    }
+    let mut declared_ranges: Vec<DeclaredRange> = Vec::new();
+    // Field positions carrying a whole-account data grant (used to dedupe
+    // the implied writable-CPI-meta delegation grants below: init payer,
+    // Metaplex helper roles).
+    let mut whole_account_positions: Vec<usize> = Vec::new();
+    for cf in &ctx_fields {
+        if cf.attr.composite {
+            continue;
+        }
+        let whole_account = cf.attr.is_mut
+            || cf.attr.init
+            || cf.attr.init_if_needed
+            || cf.attr.realloc.is_some()
+            || cf.attr.close.is_some();
+        if whole_account {
+            whole_account_positions.push(cf.index);
+            declared_ranges.push(DeclaredRange::Whole(cf.index));
+            continue;
+        }
+        if cf.attr.mut_segments.is_empty() {
+            continue;
+        }
+        // `mut(seg, ...)`-only fields: one exact range per declared
+        // segment, resolved through the `#[hopper::state]` constants.
+        let field_ty = layout_type_for_field(cf).unwrap_or_else(|| cf.ty.clone());
+        for seg_name in &cf.attr.mut_segments {
+            declared_ranges.push(DeclaredRange::Segment {
+                pos: cf.index,
+                field_ty: field_ty.clone(),
+                seg_name: seg_name.clone(),
+            });
         }
     }
+
+    // Consumer 2: the composite-free authority ranges, byte-identical to
+    // the pre-composite lowering (`#idx_u8` literals, alias-typed sizes).
+    // The writable-CPI delegation extras are appended after the lamport
+    // scan below, in grant order, exactly as before.
+    let mut range_exprs: Vec<TokenStream> = Vec::new();
+    if strict_writes_enabled && !has_composite {
+        for dr in &declared_ranges {
+            range_exprs.push(match dr {
+                DeclaredRange::Whole(pos) => {
+                    let idx_u8 = *pos as u8;
+                    quote! {
+                        ::hopper::__runtime::write_policy::WriteRange::whole_account(#idx_u8)
+                    }
+                }
+                DeclaredRange::Segment {
+                    pos,
+                    field_ty,
+                    seg_name,
+                } => {
+                    let idx_u8 = *pos as u8;
+                    let type_ident = type_ident(field_ty)?;
+                    let type_upper = to_screaming_snake(&type_ident.to_string());
+                    let seg_upper = to_screaming_snake(seg_name);
+                    let assoc_offset = format_ident!("{}_OFFSET", seg_upper);
+                    let type_alias = format_ident!("{}_{}_TYPE", type_upper, seg_upper);
+                    quote! {
+                        ::hopper::__runtime::write_policy::WriteRange::new(
+                            #idx_u8,
+                            ::hopper::hopper_core::account::HEADER_LEN as u32
+                                + <#field_ty>::#assoc_offset,
+                            ::core::mem::size_of::<#type_alias>() as u32,
+                        )
+                    }
+                }
+            });
+        }
+    }
+
+    // Consumer 1: the always-on hidden declared-range const. Assoc-const
+    // spellings only (`<Ty>::SEG_OFFSET` / `<Ty>::SEG_SIZE`) so the const
+    // resolves wherever the field type resolves — unlike the legacy
+    // alias-typed spelling above, it must not impose a name-in-scope
+    // requirement on contexts that never asked for `strict_writes`.
+    // Values are identical (`{SEG}_SIZE` is `size_of` of the same field
+    // type). Indices are LOCAL (base-0 within this context): the
+    // embedding outer rebases them by the composite's flattened offset.
+    let declared_write_ranges_item: TokenStream = if has_composite {
+        // A composite CONTAINER cannot itself be embedded (nesting is
+        // single-level, refused via `__HOPPER_EMBEDDABLE`), so nothing
+        // ever splices its declared set — skip the const instead of
+        // emitting a second composed array nobody can reference.
+        TokenStream::new()
+    } else {
+        let mut declared_lits: Vec<TokenStream> = Vec::new();
+        for dr in &declared_ranges {
+            declared_lits.push(match dr {
+                DeclaredRange::Whole(pos) => {
+                    let idx_u8 = *pos as u8;
+                    quote! {
+                        ::hopper::__runtime::write_policy::WriteRange::whole_account(#idx_u8)
+                    }
+                }
+                DeclaredRange::Segment {
+                    pos,
+                    field_ty,
+                    seg_name,
+                } => {
+                    let idx_u8 = *pos as u8;
+                    let seg_upper = to_screaming_snake(seg_name);
+                    let assoc_offset = format_ident!("{}_OFFSET", seg_upper);
+                    let assoc_size = format_ident!("{}_SIZE", seg_upper);
+                    quote! {
+                        ::hopper::__runtime::write_policy::WriteRange::new(
+                            #idx_u8,
+                            ::hopper::hopper_core::account::HEADER_LEN as u32
+                                + <#field_ty>::#assoc_offset,
+                            <#field_ty>::#assoc_size
+                        )
+                    }
+                }
+            });
+        }
+        quote! {
+            /// Raw declared write-range structure of this context — the
+            /// ranges its `mut` / `mut(seg, ...)` / lifecycle
+            /// declarations describe, at LOCAL (base-0) account indices,
+            /// emitted regardless of `strict_writes` and carrying **no
+            /// authority** on their own (`WRITE_RANGES` stays empty
+            /// without the opt-in). Exists so a `strict_writes` context
+            /// embedding this one as a `#[composite]` field can splice
+            /// the inner structure into its composed policy at const
+            /// time with each index rebased by the flattened offset.
+            #[doc(hidden)]
+            pub const __HOPPER_DECLARED_WRITE_RANGES:
+                &'static [::hopper::__runtime::write_policy::WriteRange] = &[
+                    #(#declared_lits),*
+                ];
+        }
+    };
 
     // ── BLD-MUT: lamport permission set ────────────────────────────────
     //
@@ -3810,18 +3955,38 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
     // extra ranges are emitted only under `lamports(...)`, keeping
     // bare `strict_writes` output byte-identical to pre-BLD-MUT.
     let lamport_accounts_const_ident = format_ident!("__HOPPER_{}_LAMPORT_ACCOUNTS", name);
-    let mut lamport_indices: Vec<u8> = Vec::new();
+    // Both sets are collected as FIELD POSITIONS (not `u8` indices) so
+    // one scan serves both renderings: `u8` literals composite-free
+    // (byte-identical to the pre-composite lowering — positions ARE the
+    // indices there), const-expr flattened offsets in a container.
+    let mut lamport_positions: Vec<usize> = Vec::new();
+    // Writable-CPI-meta delegation extras (init payer, Metaplex roles):
+    // whole-account ranges appended AFTER the declared set, in grant
+    // order, exactly like the pre-composite lowering.
+    let mut delegable_extra_positions: Vec<usize> = Vec::new();
     if mutation_complete {
-        let push_idx = |v: &mut Vec<u8>, idx: usize| {
-            let idx = idx as u8;
-            if !v.contains(&idx) {
-                v.push(idx);
+        let push_pos = |v: &mut Vec<usize>, pos: usize| {
+            if !v.contains(&pos) {
+                v.push(pos);
             }
         };
         if let Some(named) = &context_options.lamports {
             for ident in named {
                 let idx = sibling_index(&ctx_fields, ident, "lamports")?;
-                push_idx(&mut lamport_indices, idx);
+                if ctx_fields[idx].attr.composite {
+                    return Err(syn::Error::new_spanned(
+                        ident,
+                        format!(
+                            "`lamports({ident})` names a `#[composite]` field: the lamport \
+                             dimension grants only the outer context's own account fields. An \
+                             account inside an embedded context cannot be granted lamport \
+                             permission from the outer (an embeddable inner carries no \
+                             lifecycle or `lamports(...)` of its own) — flatten the inner \
+                             context into this one if one of its accounts must move lamports."
+                        ),
+                    ));
+                }
+                push_pos(&mut lamport_positions, idx);
             }
         }
         for cf in &ctx_fields {
@@ -3831,10 +3996,10 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                 || cf.attr.realloc.is_some()
                 || cf.attr.close.is_some();
             if whole_account {
-                push_idx(&mut lamport_indices, cf.index);
+                push_pos(&mut lamport_positions, cf.index);
             }
             if cf.attr.sweep.is_some() {
-                push_idx(&mut lamport_indices, cf.index);
+                push_pos(&mut lamport_positions, cf.index);
             }
             if (cf.attr.init || cf.attr.init_if_needed) && cf.attr.payer.is_some() {
                 let payer_ident = cf.attr.payer.as_ref().unwrap();
@@ -3844,9 +4009,9 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                 // grant.
                 grant_cpi_delegable(
                     payer_idx,
-                    &mut lamport_indices,
-                    &mut whole_account_indices,
-                    &mut range_exprs,
+                    &mut lamport_positions,
+                    &mut whole_account_positions,
+                    &mut delegable_extra_positions,
                 );
             }
             // Generated Metaplex CPI helpers: `create_<field>()` hands
@@ -3865,9 +4030,9 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                 for idx in [cf.index, payer_idx] {
                     grant_cpi_delegable(
                         idx,
-                        &mut lamport_indices,
-                        &mut whole_account_indices,
-                        &mut range_exprs,
+                        &mut lamport_positions,
+                        &mut whole_account_positions,
+                        &mut delegable_extra_positions,
                     );
                 }
             }
@@ -3879,31 +4044,58 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                 for idx in [cf.index, mint_idx, payer_idx] {
                     grant_cpi_delegable(
                         idx,
-                        &mut lamport_indices,
-                        &mut whole_account_indices,
-                        &mut range_exprs,
+                        &mut lamport_positions,
+                        &mut whole_account_positions,
+                        &mut delegable_extra_positions,
                     );
                 }
             }
             if cf.attr.realloc.is_some() {
                 if let Some(payer_ident) = &cf.attr.realloc_payer {
                     let payer_idx = sibling_index(&ctx_fields, payer_ident, "realloc_payer")?;
-                    push_idx(&mut lamport_indices, payer_idx);
+                    push_pos(&mut lamport_positions, payer_idx);
                 }
             }
             if let Some(target) = &cf.attr.close {
                 let target_idx = sibling_index(&ctx_fields, target, "close target")?;
-                push_idx(&mut lamport_indices, target_idx);
+                push_pos(&mut lamport_positions, target_idx);
             }
             if let Some(target) = &cf.attr.sweep {
                 let target_idx = sibling_index(&ctx_fields, target, "sweep target")?;
-                push_idx(&mut lamport_indices, target_idx);
+                push_pos(&mut lamport_positions, target_idx);
             }
         }
-        lamport_indices.sort_unstable();
+        // Field positions are monotone in flattened offset, so sorting
+        // positions sorts the published indices in both renderings.
+        lamport_positions.sort_unstable();
     }
-    let lamport_index_lits: Vec<TokenStream> =
-        lamport_indices.iter().map(|idx| quote! { #idx }).collect();
+    // The composite-free delegation extras join the authority ranges
+    // AFTER the declared set, in grant order (the pre-composite shape).
+    if strict_writes_enabled && !has_composite {
+        for pos in &delegable_extra_positions {
+            let idx_u8 = *pos as u8;
+            range_exprs.push(quote! {
+                ::hopper::__runtime::write_policy::WriteRange::whole_account(#idx_u8)
+            });
+        }
+    }
+    let lamport_index_lits: Vec<TokenStream> = lamport_positions
+        .iter()
+        .map(|&pos| {
+            if has_composite {
+                // Flattened local offset, a const expression. The `as u8`
+                // is bounded by the composed array's `<= 256` assert —
+                // `mutation_complete` implies `strict_writes`, so the
+                // composed array (and its eagerly-evaluated assert)
+                // always exists alongside this list.
+                let local = &local_offsets[pos];
+                quote! { (#local) as u8 }
+            } else {
+                let idx = pos as u8;
+                quote! { #idx }
+            }
+        })
+        .collect();
     // Single source of truth for the lamport permission set, mirroring
     // the write-ranges const: the runtime `WritePolicy`, the
     // `LAMPORT_ACCOUNTS` associated const, and
@@ -3915,17 +4107,167 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             #(#lamport_index_lits),*
         ];
     };
+    // Consumer 3: the composite container's authority set under
+    // `strict_writes` is a compile-time-COMPOSED module-level array —
+    // the same const-eval copy-loop pattern as `__HOPPER_SCHEMA_ACCOUNTS`
+    // (outer leaves in declaration order, each `#[composite]` field
+    // spliced from the inner context's `__HOPPER_DECLARED_WRITE_RANGES`
+    // with every account index rebased by the composite's flattened base
+    // offset, delegation extras appended last). Module level (not on the
+    // impl) because `bind()`'s function-local `static WritePolicy` must
+    // reference the result with no generics in scope; every path inside
+    // is generics-dropped, so the consts are fully concrete.
+    let write_ranges_len_ident = format_ident!("__HOPPER_{}_WRITE_RANGES_LEN", name);
+    let write_ranges_arr_ident = format_ident!("__HOPPER_{}_WRITE_RANGES_ARR", name);
+    let (composed_write_ranges_items, write_ranges_value): (TokenStream, TokenStream) =
+        if !(strict_writes_enabled && has_composite) {
+            (TokenStream::new(), quote! { &[ #(#range_exprs),* ] })
+        } else {
+            let mut len_terms: Vec<TokenStream> = Vec::new();
+            let mut fill_stmts: Vec<TokenStream> = Vec::new();
+            for cf in &ctx_fields {
+                let local = &local_offsets[cf.index];
+                if cf.attr.composite {
+                    let inner_spec = composite_spec_ty(&cf.ty)?;
+                    len_terms.push(quote! {
+                        #inner_spec::__HOPPER_DECLARED_WRITE_RANGES.len()
+                    });
+                    fill_stmts.push(quote! {
+                        {
+                            // Inner context spliced with every account
+                            // index rebased by the composite's flattened
+                            // base offset. The inner's offsets/sizes are
+                            // copied VERBATIM — an inner `mut(seg)` lease
+                            // is enforceable from the outer gate exactly
+                            // as it would be standalone.
+                            let __inner = #inner_spec::__HOPPER_DECLARED_WRITE_RANGES;
+                            let __base: usize = #local;
+                            let mut __i = 0;
+                            while __i < __inner.len() {
+                                let mut __r = __inner[__i];
+                                let __abs = __base + __r.account_index as usize;
+                                ::core::assert!(
+                                    __abs < 256,
+                                    "composite write-range rebase exceeds the u8 \
+                                     account-index space of WritePolicy"
+                                );
+                                __r.account_index = __abs as u8;
+                                __out[__n] = __r;
+                                __n += 1;
+                                __i += 1;
+                            }
+                        }
+                    });
+                    continue;
+                }
+                let whole_account = cf.attr.is_mut
+                    || cf.attr.init
+                    || cf.attr.init_if_needed
+                    || cf.attr.realloc.is_some()
+                    || cf.attr.close.is_some();
+                if whole_account {
+                    len_terms.push(quote! { 1usize });
+                    fill_stmts.push(quote! {
+                        __out[__n] =
+                            ::hopper::__runtime::write_policy::WriteRange::whole_account(
+                                (#local) as u8
+                            );
+                        __n += 1;
+                    });
+                    continue;
+                }
+                if cf.attr.mut_segments.is_empty() {
+                    continue;
+                }
+                // Assoc-const spellings (like the declared const above):
+                // the composed array lives at module scope, where only
+                // path-resolved constants are guaranteed to be in scope.
+                let field_ty = layout_type_for_field(cf).unwrap_or_else(|| cf.ty.clone());
+                for seg_name in &cf.attr.mut_segments {
+                    let seg_upper = to_screaming_snake(seg_name);
+                    let assoc_offset = format_ident!("{}_OFFSET", seg_upper);
+                    let assoc_size = format_ident!("{}_SIZE", seg_upper);
+                    len_terms.push(quote! { 1usize });
+                    fill_stmts.push(quote! {
+                        __out[__n] = ::hopper::__runtime::write_policy::WriteRange::new(
+                            (#local) as u8,
+                            ::hopper::hopper_core::account::HEADER_LEN as u32
+                                + <#field_ty>::#assoc_offset,
+                            <#field_ty>::#assoc_size
+                        );
+                        __n += 1;
+                    });
+                }
+            }
+            // Writable-CPI delegation extras, appended after the declared
+            // set in grant order — same shape as the composite-free path.
+            for pos in &delegable_extra_positions {
+                let local = &local_offsets[*pos];
+                len_terms.push(quote! { 1usize });
+                fill_stmts.push(quote! {
+                    __out[__n] = ::hopper::__runtime::write_policy::WriteRange::whole_account(
+                        (#local) as u8
+                    );
+                    __n += 1;
+                });
+            }
+            let items = quote! {
+                /// Number of composed write ranges: one per outer leaf
+                /// grant plus each inner context's full declared set.
+                #[doc(hidden)]
+                #[allow(non_upper_case_globals)]
+                #vis const #write_ranges_len_ident: usize = 0usize #( + #len_terms )*;
+
+                /// Compile-time-composed write-range set for a composite
+                /// container under `strict_writes`: outer leaves at their
+                /// flattened const-expr indices, inner contexts spliced
+                /// from `__HOPPER_DECLARED_WRITE_RANGES` with rebased
+                /// indices, delegation extras last. Referenced by the
+                /// module-level authority slice below (and through it by
+                /// the installed `WritePolicy`, `WRITE_RANGES`, and
+                /// `SCHEMA_METADATA`), so published == enforced holds in
+                /// the composed world too.
+                #[doc(hidden)]
+                #[allow(non_upper_case_globals)]
+                #vis const #write_ranges_arr_ident:
+                    [::hopper::__runtime::write_policy::WriteRange; #write_ranges_len_ident] = {
+                    // WritePolicy addresses accounts with `u8`; a
+                    // flattened context wider than that index space
+                    // cannot be strictly gated. This assert also bounds
+                    // every `(offset) as u8` cast in the fill below and
+                    // in the composed lamport list (module consts are
+                    // evaluated eagerly, so it can never be skipped).
+                    ::core::assert!(
+                        (#account_count_expr) <= 256,
+                        "composite context exceeds the u8 account-index space of WritePolicy"
+                    );
+                    let mut __out =
+                        [::hopper::__runtime::write_policy::WriteRange::new(0, 0, 0);
+                            #write_ranges_len_ident];
+                    let mut __n = 0usize;
+                    #(#fill_stmts)*
+                    ::core::assert!(
+                        __n == #write_ranges_len_ident,
+                        "composed write-range fill must cover the declared length"
+                    );
+                    __out
+                };
+            };
+            (items, quote! { &#write_ranges_arr_ident })
+        };
+
     // Empty (and carrying no authority) unless `strict_writes` is on,
-    // mirroring `InstructionDescriptor.write_ranges` semantics.
+    // mirroring `InstructionDescriptor.write_ranges` semantics. With a
+    // `#[composite]` field the strict set is the composed array above;
+    // composite-free output stays byte-identical to the pre-composite
+    // inline-literal lowering.
     let write_ranges_const_item = quote! {
         #[doc(hidden)]
         // The verbatim context name keeps the ident injective; consts
         // are conventionally SCREAMING so silence the case lint.
         #[allow(non_upper_case_globals)]
         #vis const #write_ranges_const_ident:
-            &[::hopper::__runtime::write_policy::WriteRange] = &[
-                #(#range_exprs),*
-            ];
+            &[::hopper::__runtime::write_policy::WriteRange] = #write_ranges_value;
     };
     // Under the lamport dimension the policy carries both dimensions and
     // `bind()` additionally installs the instruction-scoped lamport gate;
@@ -4120,8 +4462,12 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
     // verify call that validated the PDA — so the emit itself derives
     // nothing.
     let emit_event_cpi_method: TokenStream = if context_options.event_cpi {
-        // The synthetic fields are the two trailing slots.
-        let authority_idx = account_count - 2;
+        // The synthetic fields are the two trailing slots. The authority
+        // resolves at its FLATTENED local offset — the plain field index
+        // composite-free (byte-identical to the pre-composite lowering),
+        // a const-expr sum past a `#[composite]` field — so the emit
+        // reads the correct trailing slot in both worlds.
+        let authority_idx = &local_offsets[account_count - 2];
         quote! {
             /// Emit a `#[hopper::event]` as an authenticated self-CPI so
             /// indexers read it from the transaction's inner-instruction
@@ -4170,18 +4516,21 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
     // ── Composite (nested) contexts: embeddability + base-parametric API ──
     //
     // A context is EMBEDDABLE (can be a `#[composite]` field of another)
-    // only when its account slots can be rebased to an arbitrary flattened
-    // offset with no other machinery to relocate: no `#[instruction(...)]`
-    // args (they can't be threaded through the outer's bind), no
-    // `strict_writes` / `lamports(...)` / `emit_touch_map` / `event_cpi`
-    // (their static write-set / synthetic slots key on absolute indices),
-    // no lifecycle / lazy-migration / Metaplex-CPI helpers (they mutate
-    // account state and are not yet offset-safe — and a `migrate(...)`
-    // pre-step only runs in its own context's `bind()`, which an outer
-    // composite bind never invokes, so embedding one would silently stop
-    // the crank), and — because nesting is single-level in v1 — no
-    // `#[composite]` field of its own. Others assert this const before
-    // embedding, so a non-embeddable inner is a clean compile error.
+    // only when validating it is the WHOLE of binding it: no
+    // `#[instruction(...)]` args (they can't be threaded through the
+    // outer's bind), no `strict_writes` / `lamports(...)` /
+    // `emit_touch_map` / `event_cpi` (an outer composite bind runs the
+    // inner's validators only — it would never install the inner's
+    // policy/gate, run its fused authority verify, or reach its
+    // dispatcher consts, so an inner opt-in would be silently inert;
+    // note the OUTER may declare all of these since composite v2 — they
+    // compose across the boundary), no lifecycle / lazy-migration /
+    // Metaplex-CPI helpers (bind-time writes and CPI surfaces live in
+    // the inner's own `bind()`, which an outer composite bind never
+    // invokes, so embedding one would silently stop e.g. the migrate
+    // crank), and — because nesting is single-level — no `#[composite]`
+    // field of its own. Others assert this const before embedding, so a
+    // non-embeddable inner is a clean compile error.
     let has_lifecycle = ctx_fields.iter().any(|cf| {
         cf.attr.init
             || cf.attr.init_if_needed
@@ -4461,8 +4810,11 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         // that `bind()` installs under `strict_writes`, by the
         // `WRITE_RANGES` associated const, and by
         // `SCHEMA_METADATA.write_ranges`, so the scheduler-legible
-        // published set is byte-identical to the enforced set.
+        // published set is byte-identical to the enforced set. For a
+        // composite container under `strict_writes` the slice points at
+        // the compile-time-composed array emitted just below it.
         #write_ranges_const_item
+        #composed_write_ranges_items
         #schema_len_module_item
 
         // BLD-MUT: single source of truth for the lamport permission
@@ -4610,6 +4962,8 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             pub const WRITE_RANGES:
                 &'static [::hopper::__runtime::write_policy::WriteRange] =
                 #write_ranges_const_ident;
+
+            #declared_write_ranges_item
 
             /// Whether this context's declared write set covers **both**
             /// mutation dimensions — data byte ranges AND lamports
@@ -5749,27 +6103,29 @@ fn master_edition_cpi_helper_declared(attr: &AccountAttr) -> bool {
         && attr.master_edition_system_program.is_some()
 }
 
-/// Grant `idx` the permission pair a **writable CPI meta** requires
-/// under the BLD-MUT gate: lamport permission plus a whole-account
-/// data range. `check_lamport_delegation` demands both, because
-/// handing an account writable to a callee is unbounded delegation of
-/// both mutation dimensions. Dedupes against grants already implied by
-/// lifecycle roles or named explicitly in `lamports(...)`.
+/// Grant the field at `pos` the permission pair a **writable CPI meta**
+/// requires under the BLD-MUT gate: lamport permission plus a
+/// whole-account data range. `check_lamport_delegation` demands both,
+/// because handing an account writable to a callee is unbounded
+/// delegation of both mutation dimensions. Dedupes against grants
+/// already implied by lifecycle roles or named explicitly in
+/// `lamports(...)`. Operates on FIELD POSITIONS (not `u8` indices) so
+/// the caller can render the resulting extra whole-account ranges —
+/// recorded in grant order in `delegable_extra_positions` — in either
+/// token shape: `u8` literals composite-free, const-expr flattened
+/// offsets in a composite container.
 fn grant_cpi_delegable(
-    idx: usize,
-    lamport_indices: &mut Vec<u8>,
-    whole_account_indices: &mut Vec<u8>,
-    range_exprs: &mut Vec<TokenStream>,
+    pos: usize,
+    lamport_positions: &mut Vec<usize>,
+    whole_account_positions: &mut Vec<usize>,
+    delegable_extra_positions: &mut Vec<usize>,
 ) {
-    let idx_u8 = idx as u8;
-    if !lamport_indices.contains(&idx_u8) {
-        lamport_indices.push(idx_u8);
+    if !lamport_positions.contains(&pos) {
+        lamport_positions.push(pos);
     }
-    if !whole_account_indices.contains(&idx_u8) {
-        whole_account_indices.push(idx_u8);
-        range_exprs.push(quote! {
-            ::hopper::__runtime::write_policy::WriteRange::whole_account(#idx_u8)
-        });
+    if !whole_account_positions.contains(&pos) {
+        whole_account_positions.push(pos);
+        delegable_extra_positions.push(pos);
     }
 }
 
@@ -8414,6 +8770,351 @@ mod migrate_attr_tests {
             err.to_string()
                 .contains("migrate(from = OldLayout, with = path::to::transform)"),
             "got: {err}"
+        );
+    }
+}
+
+#[cfg(test)]
+mod composite_v2_tests {
+    //! Composite v2: the container's options compose across the nesting
+    //! boundary. These tests pin the composed lowering — rebased write
+    //! ranges, const-expr synthetic slots, the spliced schema — and that
+    //! the formerly-gated option combinations now expand.
+
+    use super::*;
+
+    /// Slice the expanded output down to one generated fn's body: from
+    /// `fn <name>` to the next `fn ` occurrence.
+    fn fn_window<'a>(s: &'a str, fn_name: &str) -> &'a str {
+        let needle = format!("fn {fn_name}");
+        let start = s
+            .find(&needle)
+            .unwrap_or_else(|| panic!("missing `{needle}` in: {s}"));
+        let tail = &s[start + needle.len()..];
+        let end = tail.find("fn ").unwrap_or(tail.len());
+        &s[start..start + needle.len() + end]
+    }
+
+    /// Every composite-free context now publishes the hidden
+    /// `__HOPPER_DECLARED_WRITE_RANGES` const — the splice source for an
+    /// embedding outer — with LOCAL indices and assoc-const spellings,
+    /// independent of `strict_writes` (no authority implied: the
+    /// authority const stays empty without the opt-in).
+    #[test]
+    fn composite_free_context_publishes_declared_ranges_without_strict_writes() {
+        let item: TokenStream = quote! {
+            pub struct VaultCheck<'info> {
+                pub authority: Signer<'info>,
+
+                #[account(mut(balance))]
+                pub vault: Account<'info, Vault>,
+            }
+        };
+        let s = expand(TokenStream::new(), item)
+            .expect("expand ok")
+            .to_string();
+        assert!(
+            s.contains("pub const __HOPPER_DECLARED_WRITE_RANGES"),
+            "the declared const must be emitted without strict_writes: {s}"
+        );
+        assert!(
+            s.contains(
+                "WriteRange :: new (1u8 , :: hopper :: hopper_core :: account :: HEADER_LEN \
+                 as u32 + < Vault > :: BALANCE_OFFSET , < Vault > :: BALANCE_SIZE)"
+            ),
+            "the declared range must use local indices + assoc-const spellings: {s}"
+        );
+        // No strict_writes: the authority const stays empty and no
+        // policy is installed.
+        assert!(
+            s.contains("__HOPPER_VaultCheck_WRITE_RANGES : & [:: hopper :: __runtime :: write_policy :: WriteRange] = & [] ;"),
+            "without strict_writes the authority const must stay empty: {s}"
+        );
+        assert!(
+            !s.contains("set_write_policy"),
+            "no policy install without strict_writes: {s}"
+        );
+    }
+
+    /// The v1 gate is gone: `strict_writes` on a composite container
+    /// expands, and the authority const is the compile-time-composed
+    /// array — outer leaves at flattened const-expr indices, the inner
+    /// context spliced from its declared const with rebased indices.
+    #[test]
+    fn composite_strict_writes_composes_rebased_write_ranges() {
+        let attr: TokenStream = quote! { strict_writes };
+        let item: TokenStream = quote! {
+            pub struct Guarded<'info> {
+                #[account(mut)]
+                pub ledger: Account<'info, Ledger>,
+
+                #[composite]
+                pub check: VaultCheck<'info>,
+
+                #[account(mut(balance))]
+                pub tail: Account<'info, Vault>,
+            }
+        };
+        let s = expand(attr, item).expect("expand ok").to_string();
+
+        // Length composes: outer leaf grants count 1 each, the composite
+        // contributes the inner's full declared set.
+        assert!(
+            s.contains(
+                "const __HOPPER_Guarded_WRITE_RANGES_LEN : usize = 0usize + 1usize \
+                 + VaultCheck :: __HOPPER_DECLARED_WRITE_RANGES . len () + 1usize"
+            ),
+            "composed length must sum leaves and the inner declared set: {s}"
+        );
+        // Outer leaf BEFORE the composite keeps its flattened (== plain)
+        // index as a const-expr cast.
+        assert!(
+            s.contains("WriteRange :: whole_account ((0usize) as u8)"),
+            "pre-composite leaf must keep its flattened index: {s}"
+        );
+        // Outer leaf AFTER the composite is rebased past the inner block:
+        // exact token match on the composed const-expr index.
+        assert!(
+            s.contains(
+                "WriteRange :: new ((1usize + VaultCheck :: ACCOUNT_COUNT) as u8 , \
+                 :: hopper :: hopper_core :: account :: HEADER_LEN as u32 \
+                 + < Vault > :: BALANCE_OFFSET , < Vault > :: BALANCE_SIZE)"
+            ),
+            "post-composite leaf range must carry the rebased const-expr index: {s}"
+        );
+        // The splice loop rebases the inner's indices by the composite's
+        // flattened base offset.
+        assert!(
+            s.contains("let __inner = VaultCheck :: __HOPPER_DECLARED_WRITE_RANGES"),
+            "the inner declared const must be spliced: {s}"
+        );
+        assert!(
+            s.contains("let __base : usize = 1usize")
+                && s.contains("__r . account_index = __abs as u8"),
+            "the splice must rebase inner indices by the flattened base: {s}"
+        );
+        // The installed policy reads the composed const (same single
+        // source of truth as composite-free contexts; the trailing comma
+        // is the install stmt's long-standing token shape).
+        assert!(
+            s.contains("WritePolicy :: new (__HOPPER_Guarded_WRITE_RANGES ,)"),
+            "bind must install the composed set: {s}"
+        );
+        assert!(
+            s.contains("= & __HOPPER_Guarded_WRITE_RANGES_ARR"),
+            "the authority slice must point at the composed array: {s}"
+        );
+        // A container is not itself embeddable, so it publishes no
+        // declared const of its own.
+        assert!(
+            !s.contains("__HOPPER_DECLARED_WRITE_RANGES :"),
+            "a container must not publish a declared const: {s}"
+        );
+    }
+
+    /// `strict_writes, lamports(...)` on a container: the lamport list is
+    /// rendered at flattened const-expr indices and the two-dimension
+    /// policy + gate install survive the composition.
+    #[test]
+    fn composite_lamports_renders_flattened_const_expr_indices() {
+        let attr: TokenStream = quote! { strict_writes, lamports(fee_sink) };
+        let item: TokenStream = quote! {
+            pub struct Funded<'info> {
+                pub payer: Signer<'info>,
+
+                #[composite]
+                pub check: VaultCheck<'info>,
+
+                #[account(mut)]
+                pub vault: Account<'info, Vault>,
+
+                pub fee_sink: AccountView,
+            }
+        };
+        let s = expand(attr, item).expect("expand ok").to_string();
+        assert!(
+            s.contains("MUTATION_COMPLETE : bool = true"),
+            "the composed context must stay mutation-complete: {s}"
+        );
+        // vault (mut, position 2) and fee_sink (explicit, position 3)
+        // both sit past the composite: their published indices are the
+        // flattened const exprs, sorted by field position.
+        assert!(
+            s.contains(
+                "(1usize + VaultCheck :: ACCOUNT_COUNT) as u8 , \
+                 (1usize + VaultCheck :: ACCOUNT_COUNT + 1usize) as u8"
+            ),
+            "the lamport set must carry rebased const-expr indices: {s}"
+        );
+        assert!(
+            s.contains("with_lamports") && s.contains("try_install_lamport_gate"),
+            "the two-dimension policy and gate install must survive: {s}"
+        );
+    }
+
+    /// `lamports(...)` cannot name the composite field itself — the
+    /// dimension grants outer leaves only, and the refusal says what to
+    /// do instead.
+    #[test]
+    fn lamports_naming_a_composite_field_is_rejected() {
+        let attr: TokenStream = quote! { strict_writes, lamports(check) };
+        let item: TokenStream = quote! {
+            pub struct Funded<'info> {
+                pub payer: Signer<'info>,
+
+                #[composite]
+                pub check: VaultCheck<'info>,
+            }
+        };
+        let err = expand(attr, item).expect_err("lamports(composite) must be rejected");
+        let msg = err.to_string();
+        assert!(msg.contains("names a `#[composite]` field"), "got: {msg}");
+        assert!(msg.contains("flatten the inner context"), "got: {msg}");
+    }
+
+    /// `event_cpi` on a container: the two synthetic slots trail the
+    /// FLATTENED set at const-expr indices — the fused bind verify, the
+    /// emit method, and `ACCOUNT_COUNT` all use the composed expressions.
+    #[test]
+    fn composite_event_cpi_places_synthetic_slots_at_const_expr_trailing_indices() {
+        let attr: TokenStream = quote! { event_cpi };
+        let item: TokenStream = quote! {
+            pub struct Emitting<'info> {
+                pub payer: Signer<'info>,
+
+                #[composite]
+                pub check: VaultCheck<'info>,
+            }
+        };
+        let s = expand(attr, item).expect("expand ok").to_string();
+        // Flattened total: payer + inner + the two trailing synthetics.
+        assert!(
+            s.contains(
+                "ACCOUNT_COUNT : usize = 1usize + VaultCheck :: ACCOUNT_COUNT + 1usize + 1usize"
+            ),
+            "the synthetic slots must extend the flattened total: {s}"
+        );
+        // The fused bind-time verify addresses the authority at its
+        // const-expr trailing offset.
+        let bind = fn_window(&s, "bind");
+        assert!(
+            bind.contains(
+                "verify_event_authority (ctx . account \
+                 (__HOPPER_BASE + 1usize + VaultCheck :: ACCOUNT_COUNT) ?"
+            ),
+            "bind's fused verify must use the const-expr trailing slot: {bind}"
+        );
+        // The emit one-liner reads the same const-expr slot.
+        let emit = fn_window(&s, "emit_event_cpi");
+        assert!(
+            emit.contains("account (__HOPPER_BASE + 1usize + VaultCheck :: ACCOUNT_COUNT)"),
+            "emit_event_cpi must address the const-expr trailing slot: {emit}"
+        );
+        // The schema splice covers the synthetics per flattened slot.
+        assert!(
+            s.contains("__HOPPER_Emitting_SCHEMA_ACCOUNTS_LEN"),
+            "the composed schema length const must exist: {s}"
+        );
+        assert!(
+            s.contains("name : \"event_authority\"") && s.contains("name : \"event_program\""),
+            "the schema splice must include both synthetic slots: {s}"
+        );
+    }
+
+    /// `emit_touch_map` and `auto_lifecycle` on a container now expand:
+    /// the const is advertised, and bind auto-runs the outer leaf's
+    /// lifecycle helper (whose slots are composite-aware).
+    #[test]
+    fn composite_emit_touch_map_and_auto_lifecycle_expand() {
+        let attr: TokenStream = quote! { emit_touch_map };
+        let item: TokenStream = quote! {
+            pub struct Traced<'info> {
+                #[composite]
+                pub check: VaultCheck<'info>,
+
+                #[account(mut)]
+                pub tail: Account<'info, Vault>,
+            }
+        };
+        let s = expand(attr, item).expect("expand ok").to_string();
+        assert!(
+            s.contains("EMIT_TOUCH_MAP : bool = true"),
+            "the touch-map const must be advertised on a container: {s}"
+        );
+
+        let attr: TokenStream = quote! { auto_lifecycle };
+        let item: TokenStream = quote! {
+            pub struct AutoRun<'info> {
+                #[account(mut)]
+                pub payer: Signer<'info>,
+
+                #[composite]
+                pub check: VaultCheck<'info>,
+
+                #[account(init, payer = payer, space = Vault::LEN)]
+                pub vault: InitAccount<'info, Vault>,
+
+                pub system_program: Program<'info, System>,
+            }
+        };
+        let s = expand(attr, item).expect("expand ok").to_string();
+        let bind = fn_window(&s, "bind");
+        assert!(
+            bind.contains("__hopper_bound . init_vault () ? ;"),
+            "auto_lifecycle must call the leaf's init helper from bind: {bind}"
+        );
+        // The helper's sibling-role lookups are composite-aware: the
+        // created account and the system_program sit past the composite,
+        // at rebased const-expr slots.
+        let init = fn_window(&s, "init_vault");
+        assert!(
+            init.contains("account (__HOPPER_BASE + 1usize + VaultCheck :: ACCOUNT_COUNT)"),
+            "the init helper must address the flattened account slot: {init}"
+        );
+        assert!(
+            init.contains(
+                "account (__HOPPER_BASE + 1usize + VaultCheck :: ACCOUNT_COUNT + 1usize)"
+            ),
+            "the init helper must address the flattened system_program slot: {init}"
+        );
+    }
+
+    /// The inner-side rules did NOT loosen: an inner context carrying an
+    /// option still advertises `__HOPPER_EMBEDDABLE = false` (the
+    /// embedding site's assert then refuses it); the plain validation
+    /// context stays embeddable.
+    #[test]
+    fn inner_side_embeddability_rules_are_unchanged() {
+        for attr in [
+            quote! { strict_writes },
+            quote! { emit_touch_map },
+            quote! { event_cpi },
+        ] {
+            let item: TokenStream = quote! {
+                pub struct Inner<'info> {
+                    #[account(mut)]
+                    pub vault: Account<'info, Vault>,
+                }
+            };
+            let s = expand(attr, item).expect("expand ok").to_string();
+            assert!(
+                s.contains("__HOPPER_EMBEDDABLE : bool = false"),
+                "an option-carrying context must stay non-embeddable: {s}"
+            );
+        }
+        // Control: the plain validation context stays embeddable.
+        let item: TokenStream = quote! {
+            pub struct Inner<'info> {
+                #[account(mut)]
+                pub vault: Account<'info, Vault>,
+            }
+        };
+        let s = expand(TokenStream::new(), item)
+            .expect("expand ok")
+            .to_string();
+        assert!(
+            s.contains("__HOPPER_EMBEDDABLE : bool = true"),
+            "a plain validation context must stay embeddable: {s}"
         );
     }
 }
