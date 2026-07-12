@@ -653,6 +653,33 @@ document. The demo layouts also model the recommended forward-compat
 pattern: V1 carries reserved padding that V2 claims, so both versions
 fit one allocation and no realloc is ever needed.
 
+### Live IDL publish (devnet, 2026-07-12)
+
+`hopper publish-idl` battle-tested on a real cluster for the first
+time: `examples/hopper-smoke`'s manifest-generated Anchor IDL (the same
+`hopper.manifest.json` the manifest Phase A/B work checked in) sent to
+the canonical SPL Program Metadata PDA in one signed transaction, zero
+Node/JS anywhere in the path.
+
+| Field | Value |
+|---|---|
+| Program | `2YPBvKJ8h37bUEFBrmytzNuKfUJ5Q2o2tkTiqRCZdjme` |
+| Metadata PDA | `5EQGsgPAkY4Sf6v89GDhDxXSzHve1SfkEJEDcqXZ9j2x` (bump 254) |
+| Payload | 4,476 raw → 727 zlib bytes (Utf8/Zlib/Json) |
+| Path | fresh inline `Initialize` (fits one transaction) |
+| Signature | `D8XRoTR4SLmaPJzpTETmHTz4J2LrDHtQjkHpcHUrnK3KVtqXv6deGd2hBx7DBj2MCnNhyo5F8KVEFrrFZUBiVhb` |
+
+Verified by an independent read-back (not just a confirmed signature):
+fetched the account, confirmed its owner is the metadata program,
+zlib-decompressed the stored payload, parsed it as JSON, and matched
+`name: "hopper-smoke"`, `version: "0.2.1"`, and all 8 instruction names
+(`initialize, deposit, withdraw, close, emit_receipt, bump_whole_vault,
+init_note, touch_note`) — the full manifest → IDL → on-chain → decode
+loop, not just the send. The chunked multi-transaction path (for IDLs
+too large for one transaction) and the `--overwrite` `SetData` rewrite
+remain unit-tested only; this run exercised the fresh single-transaction
+path.
+
 ### Bytecode size vs the competitor sources
 
 Compared against the extracted competitor trees at
