@@ -1,0 +1,229 @@
+{
+  "name": "hopper-smoke",
+  "version": "0.2.1",
+  "description": "End-to-end Hopper smoke-test program: init/CPI/sysvar/event/close exercised on devnet.",
+  "layouts": [
+    {
+      "name": "Vault",
+      "disc": 7,
+      "version": 1,
+      "layoutId": "606267a6bbe318f7",
+      "totalSize": 76,
+      "fieldCount": 5,
+      "fields": [
+        { "name": "authority", "type": "Address", "size": 32, "offset": 16, "intent": "custom" },
+        { "name": "balance", "type": "WireU64", "size": 8, "offset": 48, "intent": "custom" },
+        { "name": "deposit_count", "type": "WireU32", "size": 4, "offset": 56, "intent": "custom" },
+        { "name": "created_at", "type": "WireI64", "size": 8, "offset": 60, "intent": "custom" },
+        { "name": "last_deposit_slot", "type": "WireU64", "size": 8, "offset": 68, "intent": "custom" }
+      ],
+      "semanticFingerprint": "3e28d83a4e81c714"
+    },
+    {
+      "name": "NoteV1",
+      "disc": 8,
+      "version": 1,
+      "layoutId": "5c98bb09efe909ab",
+      "totalSize": 32,
+      "fieldCount": 2,
+      "fields": [
+        { "name": "tag", "type": "WireU32", "size": 4, "offset": 16, "intent": "custom" },
+        { "name": "reserved", "type": "[u8;12]", "size": 12, "offset": 20, "intent": "custom" }
+      ],
+      "semanticFingerprint": "73186806cdb568b4"
+    },
+    {
+      "name": "NoteV2",
+      "disc": 8,
+      "version": 2,
+      "layoutId": "2e10394d1eb62b3e",
+      "totalSize": 32,
+      "fieldCount": 3,
+      "fields": [
+        { "name": "tag", "type": "WireU64", "size": 8, "offset": 16, "intent": "custom" },
+        { "name": "touches", "type": "WireU32", "size": 4, "offset": 24, "intent": "custom" },
+        { "name": "reserved", "type": "[u8;4]", "size": 4, "offset": 28, "intent": "custom" }
+      ],
+      "semanticFingerprint": "302b2d4223f64e84"
+    }
+  ],
+  "instructions": [
+    {
+      "name": "initialize",
+      "tag": 0,
+      "args": [],
+      "accounts": [
+        { "name": "payer", "writable": true, "signer": true },
+        { "name": "vault", "writable": true, "signer": false, "layoutRef": "Vault" },
+        { "name": "system_program", "writable": false, "signer": false }
+      ],
+      "capabilities": [],
+      "policyPack": "",
+      "receiptExpected": false,
+      "strictWrites": false,
+      "writeRanges": []
+    },
+    {
+      "name": "deposit",
+      "tag": 1,
+      "args": [
+        { "name": "amount", "type": "u64", "size": 8 }
+      ],
+      "accounts": [
+        { "name": "authority", "writable": true, "signer": true },
+        { "name": "vault", "writable": true, "signer": false, "layoutRef": "Vault" },
+        { "name": "system_program", "writable": false, "signer": false }
+      ],
+      "capabilities": [],
+      "policyPack": "",
+      "receiptExpected": false,
+      "strictWrites": false,
+      "writeRanges": []
+    },
+    {
+      "name": "withdraw",
+      "tag": 2,
+      "args": [
+        { "name": "amount", "type": "u64", "size": 8 }
+      ],
+      "accounts": [
+        { "name": "authority", "writable": true, "signer": true },
+        { "name": "vault", "writable": true, "signer": false, "layoutRef": "Vault" }
+      ],
+      "capabilities": [],
+      "policyPack": "",
+      "receiptExpected": false,
+      "strictWrites": true,
+      "writeRanges": [
+        { "account": "authority", "accountIndex": 0, "offset": 0, "size": 4294967295 },
+        { "account": "vault", "accountIndex": 1, "offset": 48, "size": 8 }
+      ]
+    },
+    {
+      "name": "close",
+      "tag": 3,
+      "args": [],
+      "accounts": [
+        { "name": "authority", "writable": true, "signer": true },
+        { "name": "vault", "writable": true, "signer": false, "layoutRef": "Vault" }
+      ],
+      "capabilities": [],
+      "policyPack": "",
+      "receiptExpected": false,
+      "strictWrites": false,
+      "writeRanges": []
+    },
+    {
+      "name": "emit_receipt",
+      "tag": 4,
+      "args": [],
+      "accounts": [
+        { "name": "authority", "writable": false, "signer": true },
+        { "name": "vault", "writable": true, "signer": false, "layoutRef": "Vault" },
+        { "name": "event_authority", "writable": false, "signer": false },
+        { "name": "event_program", "writable": false, "signer": false }
+      ],
+      "capabilities": [],
+      "policyPack": "",
+      "receiptExpected": false,
+      "strictWrites": false,
+      "writeRanges": []
+    },
+    {
+      "name": "bump_whole_vault",
+      "tag": 5,
+      "args": [],
+      "accounts": [
+        { "name": "authority", "writable": false, "signer": true },
+        { "name": "vault", "writable": true, "signer": false, "layoutRef": "Vault" }
+      ],
+      "capabilities": [],
+      "policyPack": "",
+      "receiptExpected": false,
+      "strictWrites": false,
+      "writeRanges": []
+    },
+    {
+      "name": "init_note",
+      "tag": 6,
+      "args": [
+        { "name": "tag", "type": "u32", "size": 4 }
+      ],
+      "accounts": [
+        { "name": "payer", "writable": true, "signer": true },
+        { "name": "note", "writable": true, "signer": false, "layoutRef": "NoteV1" },
+        { "name": "system_program", "writable": false, "signer": false }
+      ],
+      "capabilities": [],
+      "policyPack": "",
+      "receiptExpected": false,
+      "strictWrites": false,
+      "writeRanges": []
+    },
+    {
+      "name": "touch_note",
+      "tag": 7,
+      "args": [],
+      "accounts": [
+        { "name": "authority", "writable": false, "signer": true },
+        { "name": "note", "writable": true, "signer": false, "layoutRef": "NoteV2" }
+      ],
+      "capabilities": [],
+      "policyPack": "",
+      "receiptExpected": false,
+      "strictWrites": false,
+      "writeRanges": []
+    }
+  ],
+  "events": [
+    {
+      "name": "DepositEvent",
+      "tag": 1,
+      "fields": [
+        { "name": "amount", "type": "WireU64", "size": 8, "offset": 0, "intent": "custom" },
+        { "name": "new_balance", "type": "WireU64", "size": 8, "offset": 8, "intent": "custom" },
+        { "name": "deposit_count", "type": "WireU32", "size": 4, "offset": 16, "intent": "custom" },
+        { "name": "slot", "type": "WireU64", "size": 8, "offset": 20, "intent": "custom" }
+      ]
+    },
+    {
+      "name": "DepositReceipt",
+      "tag": 2,
+      "fields": [
+        { "name": "balance", "type": "WireU64", "size": 8, "offset": 0, "intent": "custom" },
+        { "name": "deposit_count", "type": "WireU32", "size": 4, "offset": 8, "intent": "custom" }
+      ]
+    }
+  ],
+  "policies": [],
+  "compatRules": [],
+  "receiptSchema": {
+    "size": 72,
+    "legacySize": 64,
+    "fields": [
+      { "name": "layout_id", "type": "bytes", "offset": 0, "size": 8 },
+      { "name": "changed_fields", "type": "u64", "offset": 8, "size": 8 },
+      { "name": "changed_bytes", "type": "u32", "offset": 16, "size": 4 },
+      { "name": "changed_regions", "type": "u16", "offset": 20, "size": 2 },
+      { "name": "old_size", "type": "u32", "offset": 22, "size": 4 },
+      { "name": "new_size", "type": "u32", "offset": 26, "size": 4 },
+      { "name": "invariants_checked", "type": "u16", "offset": 30, "size": 2 },
+      { "name": "flags", "type": "u8", "offset": 32, "size": 1 },
+      { "name": "before_fingerprint", "type": "bytes", "offset": 33, "size": 8 },
+      { "name": "after_fingerprint", "type": "bytes", "offset": 41, "size": 8 },
+      { "name": "segment_changed_mask", "type": "u16", "offset": 49, "size": 2 },
+      { "name": "policy_flags", "type": "u32", "offset": 51, "size": 4 },
+      { "name": "journal_appends", "type": "u16", "offset": 55, "size": 2 },
+      { "name": "cpi_count", "type": "u8", "offset": 57, "size": 1 },
+      { "name": "phase", "type": "u8", "offset": 58, "size": 1 },
+      { "name": "validation_bundle_id", "type": "u16", "offset": 59, "size": 2 },
+      { "name": "compat_impact", "type": "u8", "offset": 61, "size": 1 },
+      { "name": "migration_flags", "type": "u8", "offset": 62, "size": 1 },
+      { "name": "failed_invariant_idx", "type": "u8", "offset": 63, "size": 1 },
+      { "name": "failed_error_code", "type": "u32", "offset": 64, "size": 4 },
+      { "name": "failure_stage", "type": "u8", "offset": 68, "size": 1 },
+      { "name": "reserved", "type": "bytes", "offset": 69, "size": 3 }
+    ]
+  },
+  "toolingHints": []
+}

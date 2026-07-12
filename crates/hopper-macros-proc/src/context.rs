@@ -3416,7 +3416,16 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                 String::new()
             };
             let writable = cf.attr.is_mut || !cf.attr.mut_segments.is_empty();
-            let signer = cf.attr.is_signer;
+            // Signer-ness must match what `validate()` actually enforces:
+            // the `#[signer]` / `#[account(signer)]` attribute OR the
+            // type-level `Signer<'info>` wrapper (the fused
+            // `expect_signer_writable` check treats both identically).
+            // Publishing only the attribute form under-reported every
+            // wrapper-declared signer in SCHEMA_METADATA — and through
+            // it in every generated manifest row.
+            let effective_ty: &Type = option_inner_type(&cf.ty).unwrap_or(&cf.ty);
+            let signer = cf.attr.is_signer
+                || matches!(classify_wrapper(effective_ty), Some(WrapperKind::Signer));
             let optional = option_inner_type(&cf.ty).is_some();
             let seeds_lits: Vec<String> = cf
                 .attr

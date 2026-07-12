@@ -564,6 +564,68 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
 
             #dynamic_tail_methods
 
+            /// Compile-time layout manifest for this account type.
+            ///
+            /// One `const` carries the full schema row — name, disc,
+            /// version, 8-byte layout fingerprint, total size (header +
+            /// body), and a per-field descriptor table with the REAL
+            /// authored types and header-relative offsets the macro
+            /// already computes. Field intents come from the declared
+            /// `#[role = "..."]` attributes (`Custom` when undeclared —
+            /// nothing is guessed). `hopper::program_manifest!` lists
+            /// layouts as `MyLayout::LAYOUT_MANIFEST`, and
+            /// `SchemaExport::layout_manifest()` returns this same
+            /// const, so the published schema cannot drift from the
+            /// compiled layout.
+            pub const LAYOUT_MANIFEST: ::hopper::hopper_schema::LayoutManifest = {
+                const FIELD_COUNT: usize = #field_count;
+                const NAMES: [&str; FIELD_COUNT] = [#(#field_name_literals),*];
+                const TYPES: [&str; FIELD_COUNT] = [#(#field_type_literals),*];
+                const SIZES: [u16; FIELD_COUNT] = [#(core::mem::size_of::<#field_types>() as u16),*];
+                // Per-field declared intents, parsed from `#[role = "..."]`
+                // field attributes at proc-macro expansion time. Fields
+                // without a role attribute default to `Custom`. their
+                // position in this table still keeps the slice
+                // `FIELD_COUNT`-sized so downstream code never needs a
+                // branch on presence.
+                const INTENTS: [::hopper::hopper_schema::FieldIntent; FIELD_COUNT] = [
+                    #(#field_intent_tokens),*
+                ];
+                const FIELDS: [::hopper::hopper_schema::FieldDescriptor; FIELD_COUNT] = {
+                    let mut result = [::hopper::hopper_schema::FieldDescriptor {
+                        name: "",
+                        canonical_type: "",
+                        size: 0,
+                        offset: 0,
+                        intent: ::hopper::hopper_schema::FieldIntent::Custom,
+                    }; FIELD_COUNT];
+                    let mut offset = ::hopper::hopper_core::account::HEADER_LEN as u16;
+                    let mut index = 0;
+                    while index < FIELD_COUNT {
+                        result[index] = ::hopper::hopper_schema::FieldDescriptor {
+                            name: NAMES[index],
+                            canonical_type: TYPES[index],
+                            size: SIZES[index],
+                            offset,
+                            intent: INTENTS[index],
+                        };
+                        offset += SIZES[index];
+                        index += 1;
+                    }
+                    result
+                };
+
+                ::hopper::hopper_schema::LayoutManifest {
+                    name: stringify!(#name),
+                    version: #name::VERSION,
+                    disc: #name::DISC,
+                    layout_id: #name::LAYOUT_ID,
+                    total_size: #name::LEN,
+                    field_count: FIELD_COUNT,
+                    fields: &FIELDS,
+                }
+            };
+
             // ── Field-level metadata registries ──────────────────────────
             //
             // These two tables are the structural twin of the `CODE_TABLE`
@@ -701,52 +763,11 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
 
         impl ::hopper::hopper_schema::SchemaExport for #name {
             fn layout_manifest() -> ::hopper::hopper_schema::LayoutManifest {
-                const FIELD_COUNT: usize = #field_count;
-                const NAMES: [&str; FIELD_COUNT] = [#(#field_name_literals),*];
-                const TYPES: [&str; FIELD_COUNT] = [#(#field_type_literals),*];
-                const SIZES: [u16; FIELD_COUNT] = [#(core::mem::size_of::<#field_types>() as u16),*];
-                // Per-field declared intents, parsed from `#[role = "..."]`
-                // field attributes at proc-macro expansion time. Fields
-                // without a role attribute default to `Custom`. their
-                // position in this table still keeps the slice
-                // `FIELD_COUNT`-sized so downstream code never needs a
-                // branch on presence.
-                const INTENTS: [::hopper::hopper_schema::FieldIntent; FIELD_COUNT] = [
-                    #(#field_intent_tokens),*
-                ];
-                const FIELDS: [::hopper::hopper_schema::FieldDescriptor; FIELD_COUNT] = {
-                    let mut result = [::hopper::hopper_schema::FieldDescriptor {
-                        name: "",
-                        canonical_type: "",
-                        size: 0,
-                        offset: 0,
-                        intent: ::hopper::hopper_schema::FieldIntent::Custom,
-                    }; FIELD_COUNT];
-                    let mut offset = ::hopper::hopper_core::account::HEADER_LEN as u16;
-                    let mut index = 0;
-                    while index < FIELD_COUNT {
-                        result[index] = ::hopper::hopper_schema::FieldDescriptor {
-                            name: NAMES[index],
-                            canonical_type: TYPES[index],
-                            size: SIZES[index],
-                            offset,
-                            intent: INTENTS[index],
-                        };
-                        offset += SIZES[index];
-                        index += 1;
-                    }
-                    result
-                };
-
-                ::hopper::hopper_schema::LayoutManifest {
-                    name: stringify!(#name),
-                    version: #name::VERSION,
-                    disc: #name::DISC,
-                    layout_id: #name::LAYOUT_ID,
-                    total_size: #name::LEN,
-                    field_count: FIELD_COUNT,
-                    fields: &FIELDS,
-                }
+                // One source of truth: the inherent `LAYOUT_MANIFEST`
+                // const above carries the identical field table, so the
+                // trait surface and the manifest-glue surface can never
+                // disagree.
+                #name::LAYOUT_MANIFEST
             }
         }
 
@@ -830,7 +851,9 @@ fn expand_compact(options: StateOptions, item: TokenStream) -> Result<TokenStrea
     let mut inherent_items = Vec::new();
     let mut segment_entries = Vec::new();
     let mut field_name_literals = Vec::new();
+    let mut field_type_literals = Vec::new();
     let mut field_types = Vec::new();
+    let mut field_intent_tokens: Vec<TokenStream> = Vec::new();
     let mut field_role_literals: Vec<LitStr> = Vec::new();
     let mut field_invariant_literals: Vec<LitStr> = Vec::new();
     let mut running_offset = quote! { 0u32 };
@@ -843,7 +866,12 @@ fn expand_compact(options: StateOptions, item: TokenStream) -> Result<TokenStrea
         let current_offset = running_offset.clone();
 
         field_name_literals.push(LitStr::new(&field_name_str, field_name.span()));
+        field_type_literals.push(LitStr::new(
+            &field_ty.to_token_stream().to_string().replace(' ', ""),
+            field_name.span(),
+        ));
         field_types.push(field_ty.clone());
+        field_intent_tokens.push(role_to_intent_tokens(&meta.role, field_name.span())?);
         field_role_literals.push(LitStr::new(&meta.role, field_name.span()));
         field_invariant_literals.push(LitStr::new(&meta.invariant, field_name.span()));
 
@@ -887,6 +915,7 @@ fn expand_compact(options: StateOptions, item: TokenStream) -> Result<TokenStrea
     }
 
     let body_size = running_offset.clone();
+    let compact_field_count = field_name_literals.len();
     let version = options.version;
     // A compact-dynamic tail is part of the layout's identity: two layouts
     // with the same fixed head but different tail types are different wire
@@ -1273,6 +1302,57 @@ fn expand_compact(options: StateOptions, item: TokenStream) -> Result<TokenStrea
             pub const FIELD_INVARIANTS: &'static [(&'static str, &'static str)] = &[
                 #( (#field_name_literals, #field_invariant_literals) ),*
             ];
+
+            /// Compile-time layout manifest for this compact account type.
+            ///
+            /// Same shape as the headered emission, honest to the compact
+            /// wire format: `total_size` is [`Self::COMPACT_LEN`]
+            /// (`[disc:u8][body]`, no 16-byte header) and field offsets
+            /// fold in the single discriminator byte. Field intents come
+            /// from declared `#[role = "..."]` attributes (`Custom` when
+            /// undeclared — nothing is guessed).
+            pub const LAYOUT_MANIFEST: ::hopper::hopper_schema::LayoutManifest = {
+                const FIELD_COUNT: usize = #compact_field_count;
+                const NAMES: [&str; FIELD_COUNT] = [#(#field_name_literals),*];
+                const TYPES: [&str; FIELD_COUNT] = [#(#field_type_literals),*];
+                const SIZES: [u16; FIELD_COUNT] = [#(core::mem::size_of::<#field_types>() as u16),*];
+                const INTENTS: [::hopper::hopper_schema::FieldIntent; FIELD_COUNT] = [
+                    #(#field_intent_tokens),*
+                ];
+                const FIELDS: [::hopper::hopper_schema::FieldDescriptor; FIELD_COUNT] = {
+                    let mut result = [::hopper::hopper_schema::FieldDescriptor {
+                        name: "",
+                        canonical_type: "",
+                        size: 0,
+                        offset: 0,
+                        intent: ::hopper::hopper_schema::FieldIntent::Custom,
+                    }; FIELD_COUNT];
+                    let mut offset = ::hopper::account::COMPACT_BODY_OFFSET as u16;
+                    let mut index = 0;
+                    while index < FIELD_COUNT {
+                        result[index] = ::hopper::hopper_schema::FieldDescriptor {
+                            name: NAMES[index],
+                            canonical_type: TYPES[index],
+                            size: SIZES[index],
+                            offset,
+                            intent: INTENTS[index],
+                        };
+                        offset += SIZES[index];
+                        index += 1;
+                    }
+                    result
+                };
+
+                ::hopper::hopper_schema::LayoutManifest {
+                    name: stringify!(#name),
+                    version: #name::VERSION,
+                    disc: #name::DISC,
+                    layout_id: #name::LAYOUT_ID,
+                    total_size: #name::COMPACT_LEN,
+                    field_count: FIELD_COUNT,
+                    fields: &FIELDS,
+                }
+            };
         }
 
         // Copy proof: the canonical Pod contract is `Copy + Sized`.
@@ -2067,4 +2147,139 @@ fn to_screaming_snake(s: &str) -> String {
         result.push(c.to_ascii_uppercase());
     }
     result
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Macro-expansion tests for `LAYOUT_MANIFEST` (manifest Phase B). Pins
+// match the space-stripped expansion, per house style.
+// ─────────────────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod layout_manifest_tests {
+    use super::*;
+    use quote::quote;
+
+    /// Space-stripped expansion: exact-token pins without `quote`
+    /// pretty-printer spacing noise.
+    fn expand_spaceless(attr: TokenStream, item: TokenStream) -> String {
+        expand(attr, item)
+            .expect("state expansion should succeed")
+            .to_string()
+            .replace(char::is_whitespace, "")
+    }
+
+    fn ledger() -> String {
+        expand_spaceless(
+            quote!(disc = 42, version = 1),
+            quote! {
+                #[repr(C)]
+                pub struct Ledger {
+                    pub authority: Address,
+                    #[role = "balance"]
+                    pub balance: WireU64,
+                }
+            },
+        )
+    }
+
+    #[test]
+    fn headered_layout_emits_the_layout_manifest_const() {
+        let out = ledger();
+        assert!(
+            out.contains("pubconstLAYOUT_MANIFEST:::hopper::hopper_schema::LayoutManifest="),
+            "LAYOUT_MANIFEST const expected: {out}",
+        );
+        // The literal wires the layout's own contract consts — nothing
+        // is restated by hand.
+        for wired in [
+            "name:stringify!(Ledger)",
+            "version:Ledger::VERSION",
+            "disc:Ledger::DISC",
+            "layout_id:Ledger::LAYOUT_ID",
+            "total_size:Ledger::LEN",
+            "field_count:FIELD_COUNT",
+            "fields:&FIELDS",
+        ] {
+            assert!(
+                out.contains(wired),
+                "manifest literal must wire `{wired}`: {out}",
+            );
+        }
+    }
+
+    #[test]
+    fn fields_carry_real_types_header_offsets_and_declared_intents() {
+        let out = ledger();
+        assert!(
+            out.contains("constNAMES:[&str;FIELD_COUNT]=[\"authority\",\"balance\"];"),
+            "field names table expected: {out}",
+        );
+        // REAL canonical types, stringified from the authored field
+        // types — no lookup table, no guessing.
+        assert!(
+            out.contains("constTYPES:[&str;FIELD_COUNT]=[\"Address\",\"WireU64\"];"),
+            "canonical type table expected: {out}",
+        );
+        // Intents come from declared `#[role]` attrs; undeclared fields
+        // stay `Custom`.
+        assert!(
+            out.contains(
+                "constINTENTS:[::hopper::hopper_schema::FieldIntent;FIELD_COUNT]=\
+                 [::hopper::hopper_schema::FieldIntent::Custom,\
+                 ::hopper::hopper_schema::FieldIntent::Balance];"
+            ),
+            "declared-role intent table expected: {out}",
+        );
+        // Offsets are header-relative: the copy loop starts at
+        // HEADER_LEN, exactly like the runtime's FieldMap.
+        assert!(
+            out.contains("letmutoffset=::hopper::hopper_core::account::HEADER_LENasu16;"),
+            "headered offsets must start at HEADER_LEN: {out}",
+        );
+    }
+
+    #[test]
+    fn schema_export_delegates_to_the_single_const() {
+        let out = ledger();
+        assert!(
+            out.contains(
+                "impl::hopper::hopper_schema::SchemaExportforLedger{\
+                 fnlayout_manifest()->::hopper::hopper_schema::LayoutManifest{\
+                 Ledger::LAYOUT_MANIFEST}}"
+            ),
+            "SchemaExport must return the same LAYOUT_MANIFEST const: {out}",
+        );
+    }
+
+    #[test]
+    fn compact_layout_manifest_is_honest_to_the_compact_wire_shape() {
+        let out = expand_spaceless(
+            quote!(compact, disc = 9),
+            quote! {
+                #[repr(C)]
+                pub struct Tally {
+                    pub count: WireU32,
+                }
+            },
+        );
+        assert!(
+            out.contains("pubconstLAYOUT_MANIFEST:::hopper::hopper_schema::LayoutManifest="),
+            "compact layouts must also publish LAYOUT_MANIFEST: {out}",
+        );
+        // Compact accounts are `[disc:u8][body]`: total size is
+        // COMPACT_LEN and offsets fold in the single discriminator
+        // byte, not the 16-byte header.
+        assert!(
+            out.contains("total_size:Tally::COMPACT_LEN"),
+            "compact total_size must be COMPACT_LEN: {out}",
+        );
+        assert!(
+            out.contains("letmutoffset=::hopper::account::COMPACT_BODY_OFFSETasu16;"),
+            "compact offsets must start at COMPACT_BODY_OFFSET: {out}",
+        );
+        assert!(
+            !out.contains("HEADER_LENasu16"),
+            "compact manifests must not assume the 16-byte header: {out}",
+        );
+    }
 }

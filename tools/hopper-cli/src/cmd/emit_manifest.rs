@@ -13,10 +13,11 @@
 //! Node/JS leg.
 //!
 //! The target package must export a `pub static PROGRAM_MANIFEST:
-//! hopper_schema::ProgramManifest` (see `examples/hopper-counter` for
-//! the hand-assembled shape; `#[program]` is slated to emit it
-//! automatically, at which point every Hopper program gets this for
-//! free).
+//! hopper_schema::ProgramManifest`. One `hopper::program_manifest! {
+//! program = <mod>, layouts = [...], events = [...] }` block at the
+//! crate root does it (see `examples/hopper-counter`): `#[program]` /
+//! `#[account]` / `#[hopper::event]` emit all the deep metadata, so
+//! the block only names the module and the layout/event types.
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -131,9 +132,11 @@ pub fn emit_manifest_from_source(
         if stderr.contains("PROGRAM_MANIFEST") {
             return Err(format!(
                 "`{package}` does not export `pub static PROGRAM_MANIFEST: \
-                 hopper_schema::ProgramManifest`. Add one (see \
-                 examples/hopper-counter/src/lib.rs for the shape built from the \
-                 macro-generated consts) and re-run.\n\nharness build output:\n{stderr}"
+                 hopper_schema::ProgramManifest`. Add one line at the crate root — \
+                 `hopper::program_manifest! {{ program = <your_program_mod>, \
+                 layouts = [...], events = [...] }}` (see \
+                 examples/hopper-counter/src/lib.rs) — and re-run.\n\nharness build \
+                 output:\n{stderr}"
             ));
         }
         return Err(format!("manifest harness failed to build/run:\n{stderr}"));

@@ -15,7 +15,7 @@
 //! keyed indexes for free.
 
 use proc_macro2::TokenStream;
-use quote::quote;
+use quote::{quote, ToTokens};
 use sha2::{Digest, Sha256};
 use syn::{
     parse::Parser, parse2, punctuated::Punctuated, Attribute, ItemStruct, LitInt, LitStr, Meta,
@@ -88,6 +88,29 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> 
     let field_count = input.fields.len();
     let field_count_lit = LitInt::new(&field_count.to_string(), ident.span());
     let field_types: Vec<syn::Type> = input.fields.iter().map(|f| f.ty.clone()).collect();
+    // Descriptor tables for `EVENT_DESCRIPTOR`: real authored names
+    // (tuple structs fall back to the positional index) and the real
+    // canonical type spelling, whitespace-normalized exactly like the
+    // `#[hopper::state]` field tables.
+    let field_name_literals: Vec<LitStr> = input
+        .fields
+        .iter()
+        .enumerate()
+        .map(|(index, f)| match &f.ident {
+            Some(name) => LitStr::new(&name.to_string(), name.span()),
+            None => LitStr::new(&index.to_string(), ident.span()),
+        })
+        .collect();
+    let field_type_literals: Vec<LitStr> = input
+        .fields
+        .iter()
+        .map(|f| {
+            LitStr::new(
+                &f.ty.to_token_stream().to_string().replace(' ', ""),
+                ident.span(),
+            )
+        })
+        .collect();
 
     let sum_sizes = if field_types.is_empty() {
         quote! { 0usize }
@@ -152,6 +175,54 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> 
             pub const SEGMENT_SOURCE: ::core::option::Option<u8> = #segment_expr;
             /// Number of named fields in the event payload.
             pub const FIELD_COUNT: usize = #field_count_lit;
+
+            /// Manifest descriptor for this event: name, stable tag byte,
+            /// and a per-field table with the REAL authored types.
+            ///
+            /// Field offsets are **payload-relative** (offset 0 is the
+            /// first byte after the tag), matching what `as_bytes` /
+            /// `CpiEvent::payload_bytes` emit and what `hopper tx explain`
+            /// slices when it joins a decoded event payload against the
+            /// manifest's `events` table. Intents are `Custom` — events
+            /// carry no `#[role]` vocabulary (nothing is guessed).
+            /// `hopper::program_manifest!` lists events as
+            /// `MyEvent::EVENT_DESCRIPTOR`.
+            pub const EVENT_DESCRIPTOR: ::hopper::hopper_schema::EventDescriptor = {
+                const FIELD_COUNT: usize = #field_count_lit;
+                const NAMES: [&str; FIELD_COUNT] = [#(#field_name_literals),*];
+                const TYPES: [&str; FIELD_COUNT] = [#(#field_type_literals),*];
+                const SIZES: [u16; FIELD_COUNT] =
+                    [#(::core::mem::size_of::<#field_types>() as u16),*];
+                const FIELDS: [::hopper::hopper_schema::FieldDescriptor; FIELD_COUNT] = {
+                    let mut result = [::hopper::hopper_schema::FieldDescriptor {
+                        name: "",
+                        canonical_type: "",
+                        size: 0,
+                        offset: 0,
+                        intent: ::hopper::hopper_schema::FieldIntent::Custom,
+                    }; FIELD_COUNT];
+                    let mut offset: u16 = 0;
+                    let mut index = 0;
+                    while index < FIELD_COUNT {
+                        result[index] = ::hopper::hopper_schema::FieldDescriptor {
+                            name: NAMES[index],
+                            canonical_type: TYPES[index],
+                            size: SIZES[index],
+                            offset,
+                            intent: ::hopper::hopper_schema::FieldIntent::Custom,
+                        };
+                        offset += SIZES[index];
+                        index += 1;
+                    }
+                    result
+                };
+
+                ::hopper::hopper_schema::EventDescriptor {
+                    name: #name_lit,
+                    tag: #tag_lit,
+                    fields: &FIELDS,
+                }
+            };
 
             /// Returns a borrowed byte slice view of the event for log
             /// emission. The caller is responsible for prepending the
@@ -221,4 +292,123 @@ fn has_repr_c(attrs: &[Attribute]) -> bool {
         });
         has_c
     })
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Macro-expansion tests for `EVENT_DESCRIPTOR` (manifest Phase B).
+// Pins match the space-stripped expansion, per house style.
+// ─────────────────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod event_descriptor_tests {
+    use super::*;
+
+    /// Space-stripped expansion: exact-token pins without `quote`
+    /// pretty-printer spacing noise.
+    fn expand_spaceless(attr: TokenStream, item: TokenStream) -> String {
+        expand(attr, item)
+            .expect("event expansion should succeed")
+            .to_string()
+            .replace(char::is_whitespace, "")
+    }
+
+    fn deposit_receipt() -> String {
+        expand_spaceless(
+            quote!(tag = 2),
+            quote! {
+                #[repr(C)]
+                pub struct DepositReceipt {
+                    pub balance: WireU64,
+                    pub deposit_count: WireU32,
+                }
+            },
+        )
+    }
+
+    #[test]
+    fn event_descriptor_const_is_emitted_with_name_and_tag() {
+        let out = deposit_receipt();
+        assert!(
+            out.contains("pubconstEVENT_DESCRIPTOR:::hopper::hopper_schema::EventDescriptor="),
+            "EVENT_DESCRIPTOR const expected: {out}",
+        );
+        assert!(
+            out.contains(
+                "::hopper::hopper_schema::EventDescriptor{\
+                 name:\"DepositReceipt\",tag:2,fields:&FIELDS,}"
+            ),
+            "descriptor literal must carry name/tag/fields: {out}",
+        );
+    }
+
+    #[test]
+    fn fields_carry_real_types_and_payload_relative_offsets() {
+        let out = deposit_receipt();
+        // Real authored names and canonical types feed the tables...
+        assert!(
+            out.contains("constNAMES:[&str;FIELD_COUNT]=[\"balance\",\"deposit_count\"];"),
+            "field names table expected: {out}",
+        );
+        assert!(
+            out.contains("constTYPES:[&str;FIELD_COUNT]=[\"WireU64\",\"WireU32\"];"),
+            "canonical type table expected: {out}",
+        );
+        assert!(
+            out.contains(
+                "constSIZES:[u16;FIELD_COUNT]=\
+                 [::core::mem::size_of::<WireU64>()asu16,::core::mem::size_of::<WireU32>()asu16];"
+            ),
+            "sizes must come from size_of over the real types: {out}",
+        );
+        // ...and the copy loop starts at offset 0: descriptors are
+        // PAYLOAD-relative (the tag byte is not part of `as_bytes`).
+        assert!(
+            out.contains("letmutoffset:u16=0;"),
+            "event field offsets must start at 0 (payload-relative): {out}",
+        );
+        assert!(
+            out.contains("intent:::hopper::hopper_schema::FieldIntent::Custom"),
+            "event fields carry Custom intent (no role vocabulary): {out}",
+        );
+    }
+
+    #[test]
+    fn derived_tag_flows_into_the_descriptor() {
+        // No explicit tag: the sha256-derived byte backs EVENT_TAG and
+        // EVENT_DESCRIPTOR alike (same literal), so the two can never
+        // disagree.
+        let out = expand_spaceless(
+            TokenStream::new(),
+            quote! {
+                #[repr(C)]
+                pub struct Poked {
+                    pub count: WireU32,
+                }
+            },
+        );
+        let expected_tag = derive_tag("Poked");
+        assert!(
+            out.contains(&format!("pubconstEVENT_TAG:u8={expected_tag};")),
+            "derived EVENT_TAG expected: {out}",
+        );
+        assert!(
+            out.contains(&format!("name:\"Poked\",tag:{expected_tag},fields:&FIELDS")),
+            "descriptor must reuse the derived tag: {out}",
+        );
+    }
+
+    #[test]
+    fn tuple_struct_fields_fall_back_to_positional_names() {
+        let out = expand_spaceless(
+            quote!(tag = 9),
+            quote! {
+                #[repr(C)]
+                pub struct Pair(pub WireU64, pub WireU32);
+            },
+        );
+        assert!(
+            out.contains("constNAMES:[&str;FIELD_COUNT]=[\"0\",\"1\"];"),
+            "tuple fields publish positional names: {out}",
+        );
+    }
 }

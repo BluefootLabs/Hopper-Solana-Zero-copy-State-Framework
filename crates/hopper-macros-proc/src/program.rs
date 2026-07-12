@@ -23,7 +23,7 @@
 //! ```
 
 use proc_macro2::TokenStream;
-use quote::{format_ident, quote};
+use quote::{format_ident, quote, ToTokens};
 use syn::{
     parse2, punctuated::Punctuated, spanned::Spanned, Attribute, Expr, ExprLit, FnArg,
     GenericArgument, Ident, Item, ItemFn, ItemMod, Lit, Meta, Pat, Path, PathArguments, Result,
@@ -43,7 +43,17 @@ struct Handler {
     discriminator: Vec<u8>,
     fn_name: Ident,
     binding: ContextBinding,
+    /// Authored value-argument names, parallel to `arg_types`. A
+    /// non-identifier pattern (destructuring, `_`) falls back to the
+    /// positional `arg{i}` so the manifest row is always well-formed.
+    arg_names: Vec<String>,
     arg_types: Vec<Type>,
+    /// Whether the handler carries the `#[receipt]` modifier — the
+    /// per-instruction truth behind the manifest's `receipt_expected`
+    /// column (a receipt is emitted on the Ok path iff the author
+    /// opted in; the context-level `RECEIPT_EXPECTED` const only says
+    /// the context is receipt-scope *capable*).
+    receipt: bool,
     instruction_policy: InstructionPolicyArgs,
 }
 
@@ -607,6 +617,162 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
             #manifest_profile;
     });
 
+    // ── Manifest schema statics (Phase B) ──────────────────────────────
+    //
+    // Everything `hopper::program_manifest!` needs from the program side,
+    // emitted with zero authoring:
+    //
+    // - `__HOPPER_INSTRUCTION_DESCRIPTORS`: one `InstructionDescriptor`
+    //   row per TYPED handler (`ctx: Ctx<Spec>` / `Context<Spec>`), in
+    //   dispatch order. RAW `&mut Context<'_>` handlers are skipped —
+    //   their account shape is opaque to the schema layer (no spec type
+    //   to consult), the same exclusion the touch-map/event-sink emits
+    //   document. A multi-byte discriminator publishes its byte 0 as
+    //   `tag` (`InstructionDescriptor.tag` is a single byte; the full
+    //   prefix stays visible in `hopper compile --emit rust`).
+    // - per-row account lists CONVERTED at const-eval from the spec's
+    //   `SCHEMA_METADATA.accounts` through the module-level LEN-const
+    //   copy-loop pattern (`__HOPPER_SCHEMA_ACCOUNTS`'s shape), so
+    //   composed/optional/event_cpi contexts of ANY flattened length
+    //   convert without small-literal assumptions and the published
+    //   list can never drift from the enforced one.
+    // - `__HOPPER_CONTEXT_DESCRIPTORS`: each distinct bound spec's
+    //   `SCHEMA_METADATA`, verbatim.
+    //
+    // Columns the macro cannot know are never fabricated: `args` sizes
+    // come from a fixed wire-size table (`0` = unknown), `capabilities`
+    // / `policy_pack` stay empty, and `cu_estimate` stays `0` (see the
+    // field's contract in hopper-schema).
+    let mut instruction_rows: Vec<TokenStream> = Vec::new();
+    for handler in &handlers {
+        let ContextBinding::Typed { spec } = &handler.binding else {
+            continue;
+        };
+        let fn_name = &handler.fn_name;
+        let fn_name_str = fn_name.to_string();
+        let tag_byte = handler.discriminator[0];
+        let accounts_len_ident = format_ident!("__HOPPER_IX_{}_ACCOUNTS_LEN", fn_name);
+        let accounts_arr_ident = format_ident!("__HOPPER_IX_{}_ACCOUNTS", fn_name);
+
+        // Length lives at MODULE level (same rationale as the context
+        // macro's `__HOPPER_{Name}_WRITE_RANGES_LEN`): an array length is
+        // an anonymous const, and routing it through a named const keeps
+        // the copy-loop below fully concrete for any account count.
+        items.push(syn::parse_quote! {
+            #[doc(hidden)]
+            #[allow(non_upper_case_globals, dead_code)]
+            pub const #accounts_len_ident: usize =
+                #spec::SCHEMA_METADATA.accounts.len();
+        });
+        items.push(syn::parse_quote! {
+            /// Manifest `AccountEntry` rows for one typed handler,
+            /// converted at const-eval from the bound context's
+            /// `SCHEMA_METADATA.accounts`. `name` / `writable` /
+            /// `signer` / `layout_ref` carry over verbatim; `seeds`
+            /// stay empty in this pass (the full seed expressions
+            /// remain published on the `ContextDescriptor`).
+            #[doc(hidden)]
+            #[allow(non_upper_case_globals, dead_code)]
+            pub const #accounts_arr_ident:
+                [::hopper::hopper_schema::AccountEntry; #accounts_len_ident] = {
+                let __src = #spec::SCHEMA_METADATA.accounts;
+                // Descriptor count and the module-level length const are
+                // the same contract; a mismatch is a macro bug and must
+                // fail the build, not ship a lying manifest.
+                assert!(
+                    __src.len() == #accounts_len_ident,
+                    "instruction account conversion must cover the context's full descriptor set"
+                );
+                let mut __out =
+                    [::hopper::hopper_schema::AccountEntry::PROVIDED; #accounts_len_ident];
+                let mut __i = 0;
+                while __i < __src.len() {
+                    __out[__i] = ::hopper::hopper_schema::AccountEntry {
+                        name: __src[__i].name,
+                        writable: __src[__i].writable,
+                        signer: __src[__i].signer,
+                        layout_ref: __src[__i].layout_ref,
+                        seeds: &[],
+                    };
+                    __i += 1;
+                }
+                __out
+            };
+        });
+
+        let arg_rows: Vec<TokenStream> = handler
+            .arg_names
+            .iter()
+            .zip(handler.arg_types.iter())
+            .map(|(arg_name, arg_ty)| {
+                let canonical = arg_ty.to_token_stream().to_string().replace(' ', "");
+                let size = arg_wire_size(arg_ty);
+                quote! {
+                    ::hopper::hopper_schema::ArgDescriptor {
+                        name: #arg_name,
+                        canonical_type: #canonical,
+                        size: #size,
+                    }
+                }
+            })
+            .collect();
+
+        // `receipt_expected` is the HANDLER's `#[receipt]` opt-in, not
+        // the context's `RECEIPT_EXPECTED` const: the latter only says
+        // the context is receipt-scope capable (it is `true` for any
+        // context with a mutable account), while a receipt is actually
+        // emitted iff the author put `#[receipt]` on this handler.
+        let receipt_flag = handler.receipt;
+
+        instruction_rows.push(quote! {
+            ::hopper::hopper_schema::InstructionDescriptor {
+                name: #fn_name_str,
+                tag: #tag_byte,
+                args: &[ #(#arg_rows),* ],
+                accounts: &#accounts_arr_ident,
+                capabilities: &[],
+                policy_pack: "",
+                receipt_expected: #receipt_flag,
+                strict_writes: #spec::STRICT_WRITES,
+                write_ranges: #spec::WRITE_RANGES,
+                mutation_complete: #spec::MUTATION_COMPLETE,
+                lamport_accounts: #spec::LAMPORT_ACCOUNTS,
+                cu_estimate: 0,
+            }
+        });
+    }
+    items.push(syn::parse_quote! {
+        /// Instruction rows for `hopper::program_manifest!` — one per
+        /// typed handler, wired from the same generated consts the
+        /// runtime enforces (`SCHEMA_METADATA`, `STRICT_WRITES`,
+        /// `WRITE_RANGES`, `MUTATION_COMPLETE`, `LAMPORT_ACCOUNTS`)
+        /// plus the handler's own `#[receipt]` opt-in. Raw
+        /// `&mut Context<'_>` handlers publish no row (their shape is
+        /// opaque); multi-byte discriminators publish byte 0 as `tag`;
+        /// `cu_estimate` stays 0 (never fabricated).
+        #[doc(hidden)]
+        #[allow(dead_code)]
+        pub static __HOPPER_INSTRUCTION_DESCRIPTORS:
+            &[::hopper::hopper_schema::InstructionDescriptor] = &[
+            #(#instruction_rows),*
+        ];
+    });
+    let context_rows: Vec<TokenStream> = typed_specs
+        .iter()
+        .map(|spec| quote! { #spec::SCHEMA_METADATA })
+        .collect();
+    items.push(syn::parse_quote! {
+        /// Context descriptors for `hopper::program_manifest!` — each
+        /// distinct typed spec's `SCHEMA_METADATA`, verbatim, in first-
+        /// bound order.
+        #[doc(hidden)]
+        #[allow(dead_code)]
+        pub static __HOPPER_CONTEXT_DESCRIPTORS:
+            &[::hopper::hopper_schema::accounts::ContextDescriptor] = &[
+            #(#context_rows),*
+        ];
+    });
+
     // Self-CPI event sink plumbing (only when a typed spec exists to
     // consult; raw-only programs emit nothing and stay byte-identical).
     if !typed_specs.is_empty() {
@@ -926,6 +1092,50 @@ fn expect_u8_lit(expr: &Expr) -> Result<u8> {
     }
 }
 
+/// Best-effort wire size in bytes for one typed handler argument,
+/// resolved from a fixed table over the type's last path segment.
+///
+/// This feeds `ArgDescriptor.size` in the generated manifest rows. The
+/// table covers exactly the fixed-size `DecodeInstructionArg`
+/// implementations (primitives, their `Wire*` twins, 32-byte address
+/// types, and `[u8; N]`-style arrays with literal lengths). Anything
+/// else — variable-length args (`&[u8]`, `BoundedString`,
+/// `BoundedVec`), const-generic lengths, unknown user types — returns
+/// `0`, the documented "unknown" sentinel: a size is never fabricated.
+fn arg_wire_size(ty: &Type) -> u16 {
+    match ty {
+        // `&[u8; N]` decodes as a borrowed fixed array: same wire size
+        // as the owned form. (`&[u8]` recurses into `Type::Slice`,
+        // which falls through to 0 — its length is caller-defined.)
+        Type::Reference(reference) => arg_wire_size(&reference.elem),
+        Type::Array(array) => {
+            let elem = arg_wire_size(&array.elem);
+            let len = match &array.len {
+                Expr::Lit(ExprLit {
+                    lit: Lit::Int(int), ..
+                }) => int.base10_parse::<u16>().unwrap_or(0),
+                _ => 0,
+            };
+            elem.saturating_mul(len)
+        }
+        Type::Path(TypePath { path, .. }) => {
+            let Some(last) = path.segments.last() else {
+                return 0;
+            };
+            match last.ident.to_string().as_str() {
+                "u8" | "i8" | "bool" | "WireBool" => 1,
+                "u16" | "i16" | "WireU16" | "WireI16" => 2,
+                "u32" | "i32" | "WireU32" | "WireI32" => 4,
+                "u64" | "i64" | "WireU64" | "WireI64" => 8,
+                "u128" | "i128" | "WireU128" | "WireI128" => 16,
+                "Address" | "Pubkey" | "TypedAddress" | "UntypedAddress" => 32,
+                _ => 0,
+            }
+        }
+        _ => 0,
+    }
+}
+
 fn prepare_handler(function: &mut ItemFn, tiny_profile: bool) -> Result<Option<Handler>> {
     if !function
         .attrs
@@ -962,10 +1172,17 @@ fn prepare_handler(function: &mut ItemFn, tiny_profile: bool) -> Result<Option<H
     let first = inputs.next().expect("checked above");
     let binding = classify_context_binding(first)?;
 
+    let mut arg_names = Vec::new();
     let mut arg_types = Vec::new();
-    for input in inputs {
+    for (index, input) in inputs.enumerate() {
         match input {
-            FnArg::Typed(pat_type) => arg_types.push((*pat_type.ty).clone()),
+            FnArg::Typed(pat_type) => {
+                arg_names.push(match pat_type.pat.as_ref() {
+                    Pat::Ident(pat_ident) => pat_ident.ident.to_string(),
+                    _ => format!("arg{index}"),
+                });
+                arg_types.push((*pat_type.ty).clone());
+            }
             FnArg::Receiver(receiver) => {
                 return Err(syn::Error::new_spanned(
                     receiver,
@@ -1005,7 +1222,9 @@ fn prepare_handler(function: &mut ItemFn, tiny_profile: bool) -> Result<Option<H
         discriminator,
         fn_name: function.sig.ident.clone(),
         binding,
+        arg_names,
         arg_types,
+        receipt: modifiers.receipt,
         instruction_policy,
     }))
 }
@@ -1921,11 +2140,13 @@ mod ctx_args_tests {
             binding: ContextBinding::Typed {
                 spec: parse_quote!(Swap),
             },
+            arg_names: vec!["amount".into(), "nonce".into(), "flag".into()],
             arg_types: vec![
                 parse_quote!(u64),
                 parse_quote!(u8),
                 parse_quote!(::core::primitive::bool),
             ],
+            receipt: false,
             instruction_policy: InstructionPolicyArgs {
                 unsafe_memory: false,
                 skip_token_checks: false,
@@ -1978,7 +2199,9 @@ mod ctx_args_tests {
             binding: ContextBinding::Typed {
                 spec: parse_quote!(Deposit),
             },
+            arg_names: vec!["amount".into()],
             arg_types: vec![parse_quote!(u64)],
+            receipt: false,
             instruction_policy: InstructionPolicyArgs::default(),
         };
         let raw = handler_invocation(&h).to_string();
@@ -2010,7 +2233,9 @@ mod ctx_args_tests {
             discriminator: vec![0u8],
             fn_name: format_ident!("raw"),
             binding: ContextBinding::Raw,
+            arg_names: vec![],
             arg_types: vec![],
+            receipt: false,
             instruction_policy: InstructionPolicyArgs::default(),
         };
         let out = handler_invocation(&h).to_string();
@@ -2048,7 +2273,9 @@ mod ctx_args_tests {
             binding: ContextBinding::Typed {
                 spec: parse_quote!(Report),
             },
+            arg_names: vec![],
             arg_types: vec![],
+            receipt: false,
             instruction_policy: InstructionPolicyArgs::default(),
         };
         let out = tokens(handler_invocation(&h));
@@ -2075,7 +2302,9 @@ mod ctx_args_tests {
             binding: ContextBinding::Typed {
                 spec: parse_quote!(Swap),
             },
+            arg_names: vec!["amount".into(), "nonce".into()],
             arg_types: vec![parse_quote!(u64), parse_quote!(u8)],
+            receipt: false,
             instruction_policy: InstructionPolicyArgs {
                 unsafe_memory: false,
                 skip_token_checks: false,
@@ -2103,14 +2332,18 @@ mod ctx_args_tests {
             discriminator: vec![0u8],
             fn_name: format_ident!("raw0"),
             binding: ContextBinding::Raw,
+            arg_names: vec![],
             arg_types: vec![],
+            receipt: false,
             instruction_policy: InstructionPolicyArgs::default(),
         };
         let with_args = Handler {
             discriminator: vec![0u8],
             fn_name: format_ident!("raw1"),
             binding: ContextBinding::Raw,
+            arg_names: vec!["amount".into()],
             arg_types: vec![parse_quote!(u64)],
+            receipt: false,
             instruction_policy: InstructionPolicyArgs::default(),
         };
         for h in [argless, with_args] {
@@ -2586,5 +2819,332 @@ mod dispatch_table_tests {
             !out.contains("0xE0u8 => "),
             "a colliding program must not gain a marker arm: {out}",
         );
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Macro-expansion tests for the manifest schema statics (Phase B):
+// `__HOPPER_INSTRUCTION_DESCRIPTORS` / `__HOPPER_CONTEXT_DESCRIPTORS`
+// plus the per-handler const-eval account conversion. Pins match the
+// space-stripped expansion (the same normalization the state-macro
+// tests use), so a regression in the emission shape fails here before
+// any consumer crate builds.
+// ─────────────────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod manifest_statics_tests {
+    use super::*;
+
+    /// Space-stripped expansion: exact-token pins without `quote`
+    /// pretty-printer spacing noise.
+    fn expand_spaceless(attr: TokenStream, module: TokenStream) -> String {
+        expand(attr, module)
+            .expect("program expansion should succeed")
+            .to_string()
+            .replace(char::is_whitespace, "")
+    }
+
+    fn two_handler_program() -> String {
+        expand_spaceless(
+            quote!(entrypoint = false),
+            quote! {
+                mod vault {
+                    #[instruction(0)]
+                    fn initialize(ctx: Ctx<Initialize>) -> ProgramResult { Ok(()) }
+                    #[instruction(1)]
+                    fn deposit(ctx: Ctx<Deposit>, amount: u64) -> ProgramResult { Ok(()) }
+                }
+            },
+        )
+    }
+
+    #[test]
+    fn typed_handlers_emit_one_instruction_row_each_in_tag_order() {
+        let out = two_handler_program();
+        assert!(
+            out.contains(
+                "pubstatic__HOPPER_INSTRUCTION_DESCRIPTORS:\
+                 &[::hopper::hopper_schema::InstructionDescriptor]=&["
+            ),
+            "the instruction static must be emitted: {out}",
+        );
+        let init_pos = out
+            .find("name:\"initialize\",tag:0u8")
+            .expect("initialize row present");
+        let deposit_pos = out
+            .find("name:\"deposit\",tag:1u8")
+            .expect("deposit row present");
+        assert!(
+            init_pos < deposit_pos,
+            "instruction rows must be in dispatch (tag) order: {out}",
+        );
+    }
+
+    #[test]
+    fn account_conversion_uses_the_module_level_len_const_copy_loop() {
+        let out = two_handler_program();
+        // Length const at module level, fed by the spec's own
+        // SCHEMA_METADATA — no small-literal assumptions anywhere, so
+        // composed/optional/event_cpi contexts of any flattened length
+        // convert unchanged.
+        assert!(
+            out.contains(
+                "pubconst__HOPPER_IX_initialize_ACCOUNTS_LEN:usize=\
+                 Initialize::SCHEMA_METADATA.accounts.len();"
+            ),
+            "module-level LEN const expected: {out}",
+        );
+        // The converted array is sized by that const and filled by a
+        // const-eval while-loop copying name/writable/signer/layout_ref
+        // with seeds pinned empty.
+        assert!(
+            out.contains(
+                "[::hopper::hopper_schema::AccountEntry;__HOPPER_IX_initialize_ACCOUNTS_LEN]"
+            ),
+            "array length must route through the LEN const: {out}",
+        );
+        assert!(
+            out.contains("::hopper::hopper_schema::AccountEntry::PROVIDED"),
+            "fill seed must be the PROVIDED constructor: {out}",
+        );
+        for column in [
+            "name:__src[__i].name",
+            "writable:__src[__i].writable",
+            "signer:__src[__i].signer",
+            "layout_ref:__src[__i].layout_ref",
+            "seeds:&[]",
+        ] {
+            assert!(
+                out.contains(column),
+                "conversion loop must carry `{column}`: {out}",
+            );
+        }
+        assert!(
+            out.contains("while__i<__src.len()"),
+            "conversion must be a const-eval copy loop: {out}",
+        );
+    }
+
+    #[test]
+    fn instruction_rows_wire_spec_consts_and_never_fabricate() {
+        let out = two_handler_program();
+        for wired in [
+            "receipt_expected:false",
+            "strict_writes:Deposit::STRICT_WRITES",
+            "write_ranges:Deposit::WRITE_RANGES",
+            "mutation_complete:Deposit::MUTATION_COMPLETE",
+            "lamport_accounts:Deposit::LAMPORT_ACCOUNTS",
+            "cu_estimate:0",
+            "capabilities:&[]",
+            "policy_pack:\"\"",
+        ] {
+            assert!(
+                out.contains(wired),
+                "instruction row must wire `{wired}`: {out}",
+            );
+        }
+    }
+
+    /// `receipt_expected` is the HANDLER's `#[receipt]` opt-in — the
+    /// context-level `RECEIPT_EXPECTED` const (true for any context
+    /// with a mutable account) must NOT back the column, or every
+    /// mutating instruction would falsely claim a receipt.
+    #[test]
+    fn handler_receipt_modifier_publishes_receipt_expected_true() {
+        let out = expand_spaceless(
+            quote!(entrypoint = false),
+            quote! {
+                mod vault {
+                    #[instruction(0)]
+                    #[receipt]
+                    fn settle(ctx: Ctx<Settle>) -> ProgramResult { Ok(()) }
+                }
+            },
+        );
+        assert!(
+            out.contains("name:\"settle\",tag:0u8"),
+            "settle row expected: {out}",
+        );
+        assert!(
+            out.contains("receipt_expected:true"),
+            "#[receipt] handlers must publish receipt_expected = true: {out}",
+        );
+        assert!(
+            !out.contains("RECEIPT_EXPECTED"),
+            "the context-level capability const must not back the column: {out}",
+        );
+    }
+
+    #[test]
+    fn typed_args_publish_real_names_types_and_table_sizes() {
+        let out = expand_spaceless(
+            quote!(entrypoint = false),
+            quote! {
+                mod vault {
+                    #[instruction(0)]
+                    fn swap(
+                        ctx: Ctx<Swap>,
+                        amount: u64,
+                        memo: [u8; 12],
+                        blob: &[u8],
+                    ) -> ProgramResult { Ok(()) }
+                }
+            },
+        );
+        assert!(
+            out.contains(
+                "::hopper::hopper_schema::ArgDescriptor{\
+                 name:\"amount\",canonical_type:\"u64\",size:8u16,}"
+            ),
+            "u64 arg must carry its table size: {out}",
+        );
+        assert!(
+            out.contains("name:\"memo\",canonical_type:\"[u8;12]\",size:12u16"),
+            "byte-array arg must resolve its literal length: {out}",
+        );
+        // Variable-length args are UNKNOWN: size 0, never fabricated.
+        assert!(
+            out.contains("name:\"blob\",canonical_type:\"&[u8]\",size:0u16"),
+            "variable-length arg must publish size 0: {out}",
+        );
+    }
+
+    #[test]
+    fn raw_handlers_publish_no_instruction_row() {
+        let out = expand_spaceless(
+            quote!(entrypoint = false),
+            quote! {
+                mod vault {
+                    #[instruction(0)]
+                    fn typed(ctx: Ctx<Typed>) -> ProgramResult { Ok(()) }
+                    #[instruction(1)]
+                    fn raw(ctx: &mut Context<'_>) -> ProgramResult { Ok(()) }
+                }
+            },
+        );
+        assert!(
+            out.contains("name:\"typed\""),
+            "typed handler row expected: {out}",
+        );
+        assert!(
+            !out.contains("name:\"raw\""),
+            "raw handlers are opaque and must publish no row: {out}",
+        );
+        // Exactly three consultations of the typed spec's metadata: the
+        // LEN const, the copy-loop source, and the context static. The
+        // raw handler contributes none.
+        assert_eq!(
+            out.matches("Typed::SCHEMA_METADATA").count(),
+            3,
+            "only the typed spec's SCHEMA_METADATA may be consulted: {out}",
+        );
+    }
+
+    #[test]
+    fn context_descriptors_deduplicate_shared_specs() {
+        let out = expand_spaceless(
+            quote!(entrypoint = false),
+            quote! {
+                mod vault {
+                    #[instruction(0)]
+                    fn first(ctx: Ctx<Shared>) -> ProgramResult { Ok(()) }
+                    #[instruction(1)]
+                    fn second(ctx: Ctx<Shared>) -> ProgramResult { Ok(()) }
+                }
+            },
+        );
+        assert!(
+            out.contains(
+                "pubstatic__HOPPER_CONTEXT_DESCRIPTORS:\
+                 &[::hopper::hopper_schema::accounts::ContextDescriptor]=\
+                 &[Shared::SCHEMA_METADATA];"
+            ),
+            "shared spec must appear exactly once in the context static: {out}",
+        );
+    }
+
+    #[test]
+    fn multi_byte_discriminator_publishes_byte_zero_as_tag() {
+        let out = expand_spaceless(
+            quote!(entrypoint = false),
+            quote! {
+                mod vault {
+                    #[instruction(discriminator = [0x1a, 0xf4])]
+                    fn ported(ctx: Ctx<Ported>) -> ProgramResult { Ok(()) }
+                }
+            },
+        );
+        assert!(
+            out.contains("name:\"ported\",tag:26u8"),
+            "multi-byte disc must publish byte 0 (0x1a = 26) as tag: {out}",
+        );
+    }
+
+    #[test]
+    fn raw_only_program_still_exports_empty_statics() {
+        let out = expand_spaceless(
+            quote!(entrypoint = false),
+            quote! {
+                mod vault {
+                    #[instruction(0)]
+                    fn only(ctx: &mut Context<'_>) -> ProgramResult { Ok(()) }
+                }
+            },
+        );
+        assert!(
+            out.contains(
+                "pubstatic__HOPPER_INSTRUCTION_DESCRIPTORS:\
+                 &[::hopper::hopper_schema::InstructionDescriptor]=&[];"
+            ),
+            "raw-only programs export an empty instruction table: {out}",
+        );
+        assert!(
+            out.contains(
+                "pubstatic__HOPPER_CONTEXT_DESCRIPTORS:\
+                 &[::hopper::hopper_schema::accounts::ContextDescriptor]=&[];"
+            ),
+            "raw-only programs export an empty context table: {out}",
+        );
+    }
+
+    #[test]
+    fn arg_wire_size_table_is_honest() {
+        // Fixed-size entries.
+        for (ty, size) in [
+            (quote!(u8), 1u16),
+            (quote!(bool), 1),
+            (quote!(WireBool), 1),
+            (quote!(i16), 2),
+            (quote!(u32), 4),
+            (quote!(WireI32), 4),
+            (quote!(u64), 8),
+            (quote!(WireU64), 8),
+            (quote!(u128), 16),
+            (quote!(Address), 32),
+            (quote!(Pubkey), 32),
+            (quote!(hopper::prelude::Address), 32),
+            (quote!(TypedAddress<Authority>), 32),
+            (quote!([u8; 32]), 32),
+            (quote!(&[u8; 12]), 12),
+            (quote!([u16; 4]), 8),
+        ] {
+            let parsed: Type = syn::parse2(ty.clone()).unwrap();
+            assert_eq!(
+                arg_wire_size(&parsed),
+                size,
+                "wire size for `{ty}` must be {size}",
+            );
+        }
+        // Unknown / variable-length entries stay 0 — never fabricated.
+        for ty in [
+            quote!(&[u8]),
+            quote!(BoundedString<16>),
+            quote!(BoundedVec<u16, 4>),
+            quote!(MyCustomArgs),
+            quote!([u8; LEN]),
+        ] {
+            let parsed: Type = syn::parse2(ty.clone()).unwrap();
+            assert_eq!(arg_wire_size(&parsed), 0, "`{ty}` must publish size 0");
+        }
     }
 }

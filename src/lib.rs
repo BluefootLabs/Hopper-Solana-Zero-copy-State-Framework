@@ -906,6 +906,90 @@ macro_rules! program_dispatch {
     };
 }
 
+/// `(user tokens or default)` selector for `program_manifest!`'s
+/// optional keys: expands to the user-supplied expression when present,
+/// the default otherwise.
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __hopper_manifest_default {
+    (() ($($default:tt)*)) => { $($default)* };
+    (($value:expr) ($($default:tt)*)) => { $value };
+}
+
+/// Export the program-wide schema manifest with near-zero authoring.
+///
+/// Expands to `pub static PROGRAM_MANIFEST: hopper_schema::ProgramManifest`
+/// — the export `hopper compile --emit manifest --package <name>` renders
+/// to `hopper.manifest.json`. Everything deep is pulled from macro-
+/// generated metadata, so the published schema is built from the SAME
+/// consts the runtime enforces and cannot drift from the code:
+///
+/// - **instructions / contexts** come from the named `#[hopper::program]`
+///   module's `__HOPPER_INSTRUCTION_DESCRIPTORS` /
+///   `__HOPPER_CONTEXT_DESCRIPTORS` statics (one instruction row per
+///   typed handler, wired to each context's `SCHEMA_METADATA`,
+///   `STRICT_WRITES`, `WRITE_RANGES`, `MUTATION_COMPLETE`,
+///   `LAMPORT_ACCOUNTS`, `RECEIPT_EXPECTED`);
+/// - **layouts** are each listed type's macro-generated
+///   `LAYOUT_MANIFEST` (`#[account]` / `#[hopper::state]`);
+/// - **events** are each listed type's `EVENT_DESCRIPTOR`
+///   (`#[hopper::event]`);
+/// - **name / version / description** default to the crate's
+///   `CARGO_PKG_*` values; pass `name = ...`, `version = ...`, or
+///   `description = ...` to override.
+///
+/// The author writes one short block naming the program module and the
+/// layout/event types (Rust has no sound compile-time type registry, so
+/// the explicit lists are the honest v1). Invoke at crate root — the
+/// manifest exporter resolves `<crate>::PROGRAM_MANIFEST`:
+///
+/// ```ignore
+/// hopper::program_manifest! {
+///     program = counter_program,
+///     layouts = [Counter],
+///     events = [Deposited],
+/// }
+/// ```
+#[macro_export]
+macro_rules! program_manifest {
+    (
+        program = $program_mod:ident
+        $(, name = $name:expr)?
+        $(, version = $version:expr)?
+        $(, description = $description:expr)?
+        $(, layouts = [ $($layout:ty),* $(,)? ])?
+        $(, events = [ $($event:ty),* $(,)? ])?
+        $(,)?
+    ) => {
+        /// Program-wide schema manifest (exported by
+        /// [`hopper::program_manifest!`](macro@hopper::program_manifest)).
+        ///
+        /// `hopper compile --emit manifest` renders this static — built
+        /// from the same macro-generated consts the runtime enforces —
+        /// to `hopper.manifest.json`.
+        pub static PROGRAM_MANIFEST: $crate::hopper_schema::ProgramManifest =
+            $crate::hopper_schema::ProgramManifest {
+                name: $crate::__hopper_manifest_default!(
+                    ($($name)?) (env!("CARGO_PKG_NAME"))
+                ),
+                version: $crate::__hopper_manifest_default!(
+                    ($($version)?) (env!("CARGO_PKG_VERSION"))
+                ),
+                description: $crate::__hopper_manifest_default!(
+                    ($($description)?) (env!("CARGO_PKG_DESCRIPTION"))
+                ),
+                layouts: &[ $($( <$layout>::LAYOUT_MANIFEST ),*)? ],
+                layout_metadata: &[],
+                instructions: $program_mod::__HOPPER_INSTRUCTION_DESCRIPTORS,
+                events: &[ $($( <$event>::EVENT_DESCRIPTOR ),*)? ],
+                policies: &[],
+                compatibility_pairs: &[],
+                tooling_hints: &[],
+                contexts: $program_mod::__HOPPER_CONTEXT_DESCRIPTORS,
+            };
+    };
+}
+
 // Optional proc macro re-exports (enabled with `proc-macros` feature)
 #[cfg(feature = "proc-macros")]
 pub use hopper_macros_proc::{

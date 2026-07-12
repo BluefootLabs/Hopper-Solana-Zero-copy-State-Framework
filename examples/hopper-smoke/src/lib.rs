@@ -111,8 +111,13 @@ fn note_v1_to_v2(old: &NoteV1, new: &mut NoteV2) -> core::result::Result<(), Pro
 // --- Event ----------------------------------------------------------
 
 /// Emitted on every deposit. Align-1 wire types only, so it is a valid
-/// zero-copy `Pod` payload for `emit_event`.
+/// zero-copy `Pod` payload for `emit_event`. The two attributes stack:
+/// `#[hopper::pod]` supplies the `Pod + FixedLayout` contract
+/// `emit_event_tagged` needs, and `#[hopper::event(tag = 1)]` publishes
+/// the schema row (`EVENT_DESCRIPTOR`, tag 1 — the same tag the
+/// `emit_event_tagged(1, ...)` call below writes on the wire).
 #[hopper::pod]
+#[hopper::event(tag = 1)]
 #[derive(Clone, Copy)]
 #[repr(C)]
 pub struct DepositEvent {
@@ -415,6 +420,20 @@ impl<'info> Deposit<'info> {
         hopper::systems::emit_event_tagged(1, &event)?;
         Ok(())
     }
+}
+
+// --- Program manifest (exported schema) ------------------------------
+//
+// `hopper compile --emit manifest --package hopper-smoke` renders this
+// export to `hopper.manifest.json` from the SAME macro-generated consts
+// the runtime enforces. `hopper tx explain` joins decoded self-CPI
+// events and touch maps against the published `events` / `layouts`
+// tables (tags, field names, offsets, sizes).
+
+hopper::program_manifest! {
+    program = smoke_program,
+    layouts = [Vault, NoteV1, NoteV2],
+    events = [DepositEvent, DepositReceipt],
 }
 
 impl<'info> Withdraw<'info> {
