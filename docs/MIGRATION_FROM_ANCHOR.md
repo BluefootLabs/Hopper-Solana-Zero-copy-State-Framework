@@ -368,7 +368,15 @@ Every extension listed in the final zero-copy matrix has an equivalent constrain
 
 ## What does not translate
 
-1. `init_if_needed` has no Hopper equivalent. The reinitialization-attack surface is wide enough that we chose to make users be explicit. Use `init` plus an explicit branch on the account's existing-account flag if you really need the pattern.
+1. `init_if_needed` DOES translate — same spelling, same shape
+   (`#[account(init_if_needed, payer = ..., space = ...)]`): an empty
+   slot takes the full init lifecycle CPI; a nonempty slot skips the
+   CPI and must already pass the owner + layout-header checks, so a
+   foreign or half-written account is refused rather than adopted. The
+   security posture carries over from Anchor's own feature-gate
+   warning: the reinitialization-attack surface is yours to reason
+   about — prefer plain `init` unless the create-or-open pattern is
+   genuinely required.
 2. Anchor's `#[derive(Accounts)]` struct-level `validate(&self)` hook is spelled `#[validate]` in Hopper with the same semantic. You opt in at the struct level; the bound context then calls your method after every built-in constraint passes.
 3. Anchor's Borsh-backed SPL `InterfaceAccount<T>` path splits in Hopper: use `InterfaceAccount<'info, T>` for Hopper-header layouts owned by a declared program set, and use `TokenProgramKind`, `InterfaceTokenAccount`, `InterfaceMint`, or direct TLV readers for SPL Token and Token-2022 bytes.
 
