@@ -121,7 +121,18 @@ struct BackingAccount {
 
 impl BackingAccount {
     fn new(account: &AccountFixture) -> Self {
-        let byte_len = RuntimeAccount::SIZE + account.data.len();
+        // Reserve `MAX_PERMITTED_DATA_INCREASE` bytes of realloc headroom
+        // after the account's initial data, mirroring the real BPF loader's
+        // input buffer layout (see `hopper_native::lazy::non_dup_stride`,
+        // which folds the identical reserve into its account stride).
+        // Without this slack, any in-instruction growth of the account —
+        // `AccountView::resize`/`resize_raw`, and by extension the
+        // System Program's `CreateAccount` (host-emulated in
+        // `hopper_runtime::cpi`, which the `init`/`init_if_needed`
+        // lifecycle CPIs through) — would write past this backing
+        // buffer's actual allocation.
+        let byte_len =
+            RuntimeAccount::SIZE + account.data.len() + hopper_native::MAX_PERMITTED_DATA_INCREASE;
         let word_len = byte_len.div_ceil(core::mem::size_of::<u64>());
         let mut backing = Self {
             words: vec![0; word_len],

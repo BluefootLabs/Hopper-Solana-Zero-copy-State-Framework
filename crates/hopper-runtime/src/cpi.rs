@@ -280,6 +280,11 @@ fn is_host_system_transfer(instruction: &InstructionView<'_, '_, '_, '_>) -> boo
         && instruction.data[0..4] == [2, 0, 0, 0]
 }
 
+// This validator only walks `instruction.accounts` (address/signer/
+// writable/borrow checks) — it never inspects `instruction.data` — so it
+// is not actually Transfer-specific. `emulate_host_system_create_account`
+// below reuses it verbatim for the CreateAccount host emulation instead
+// of duplicating the same four checks under a second name.
 #[cfg(not(target_os = "solana"))]
 fn validate_host_system_transfer(
     instruction: &InstructionView<'_, '_, '_, '_>,
@@ -389,6 +394,86 @@ fn emulate_host_system_transfer(
     Ok(())
 }
 
+#[cfg(not(target_os = "solana"))]
+fn is_host_system_create_account(instruction: &InstructionView<'_, '_, '_, '_>) -> bool {
+    // `CreateAccount { lamports, space, owner }` —
+    // `[0u32 LE][lamports: u64 LE][space: u64 LE][owner: 32 bytes]`
+    // (52 bytes). See `hopper_system::encoders::encode_create_account`.
+    crate::address::address_is_zero(instruction.program_id)
+        && instruction.data.len() == 52
+        && instruction.data[0..4] == [0, 0, 0, 0]
+}
+
+/// Host-only emulation of the System Program's `CreateAccount`.
+///
+/// `init` / `init_if_needed`'s empty-branch lifecycle (`hopper_init!` in
+/// `hopper-macros`) reaches this exact CPI, via
+/// [`crate::system::CreateAccount`], to fund + allocate + assign a
+/// brand-new account before writing the Hopper layout header into it.
+/// Off-chain, the raw syscall wrappers ([`invoke_unchecked`] /
+/// [`invoke_signed_unchecked`]) are no-ops by design (there is no runtime
+/// to service the syscall) — without this emulation the account is left
+/// at its pre-CPI zero-length state and the header write that immediately
+/// follows fails with `AccountDataTooSmall`, making every `init` /
+/// `init_if_needed` context untestable end-to-end through a host harness.
+/// This reproduces the System Program's own observable effect: debit
+/// `from`, credit `to`, resize `to` to `space` (zero-filling the new
+/// region, mirroring [`AccountView::resize`]'s on-chain growth
+/// semantics), and assign `to`'s owner.
+#[cfg(not(target_os = "solana"))]
+fn emulate_host_system_create_account(
+    instruction: &InstructionView<'_, '_, '_, '_>,
+    account_views: &[&AccountView<'_>],
+) -> ProgramResult {
+    let lamports = u64::from_le_bytes(instruction.data[4..12].try_into().unwrap());
+    let space = u64::from_le_bytes(instruction.data[12..20].try_into().unwrap()) as usize;
+    let mut owner_bytes = [0u8; 32];
+    owner_bytes.copy_from_slice(&instruction.data[20..52]);
+    let owner = Address::new_from_array(owner_bytes);
+
+    let from = account_views[0];
+    let to = account_views[1];
+
+    // The System Program refuses to create over an account that already
+    // carries lamports or data. `hopper_init!` only issues this CPI once
+    // it has already checked `to.data_len() == 0` itself, but the guard
+    // is repeated here so a `CreateAccount` CPI built directly (bypassing
+    // `hopper_init!`) gets the same off-chain refusal it would get
+    // on-chain.
+    if to.lamports() != 0 || to.data_len() != 0 {
+        return Err(ProgramError::AccountAlreadyInitialized);
+    }
+
+    // BLD-MUT: pre-validate BOTH sides against the lamport gate before any
+    // balance mutation — see the identical note on
+    // `emulate_host_system_transfer`.
+    crate::write_policy::check_lamport_mutation(from.address())?;
+    crate::write_policy::check_lamport_mutation(to.address())?;
+
+    let debited = from
+        .lamports()
+        .checked_sub(lamports)
+        .ok_or(ProgramError::InsufficientFunds)?;
+    let credited = to
+        .lamports()
+        .checked_add(lamports)
+        .ok_or(ProgramError::ArithmeticOverflow)?;
+    from.set_lamports(debited)?;
+    to.set_lamports(credited)?;
+
+    to.resize(space)?;
+    // SAFETY: `to` was validated writable by `validate_host_system_transfer`
+    // (the generic meta-check reused above) before this point, and this
+    // function stands in for the System Program's own CreateAccount
+    // handler — the one caller the real runtime authorizes to assign a
+    // fresh (System-owned, empty) account's owner.
+    unsafe {
+        to.assign(&owner);
+    }
+
+    Ok(())
+}
+
 // ---------------------------------------------------------------------
 
 /// Invoke a CPI with full validation.
@@ -411,6 +496,11 @@ pub fn invoke_signed<const ACCOUNTS: usize>(
     if is_host_system_transfer(instruction) {
         validate_host_system_transfer(instruction, &account_views[..], signers_seeds)?;
         return emulate_host_system_transfer(instruction, &account_views[..]);
+    }
+    #[cfg(not(target_os = "solana"))]
+    if is_host_system_create_account(instruction) {
+        validate_host_system_transfer(instruction, &account_views[..], signers_seeds)?;
+        return emulate_host_system_create_account(instruction, &account_views[..]);
     }
 
     let metas_len = instruction.accounts.len();
