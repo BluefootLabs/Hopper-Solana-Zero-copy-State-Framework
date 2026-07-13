@@ -24,7 +24,13 @@
 //! 5. composite v2 lifted the v1 restriction that refused any lifecycle
 //!    attribute on a context embedding `#[composite]` — but only for the
 //!    OUTER container. This proves the outer side actually runs, not
-//!    just expands.
+//!    just expands;
+//! 6. pre-funded + unallocated → bind succeeds via `hopper_init!`'s OTHER
+//!    create branch (Transfer-shortfall + Allocate + Assign — CreateAccount
+//!    refuses an account that already carries lamports): the payer is
+//!    debited exactly the shortfall (exactly zero when the slot already
+//!    holds the rent-exempt minimum), and the account still ends
+//!    allocated, assigned, and header-written.
 
 #![cfg(feature = "proc-macros")]
 
@@ -190,6 +196,24 @@ fn empty_fixture(addr_byte: u8) -> AccountFixture {
     .signer()
 }
 
+/// The pre-funded-but-unallocated shape: someone already sent lamports to
+/// the address (an airdrop, a prior partial flow) but no data was ever
+/// allocated. `CreateAccount` refuses an account that already carries
+/// lamports, so `hopper_init!` must take its OTHER branch here —
+/// Transfer-shortfall + Allocate + Assign. Writable AND signer: the
+/// System Program requires the allocated/assigned account itself to
+/// consent (sign), exactly as for `CreateAccount`.
+fn prefunded_fixture(addr_byte: u8, lamports: u64) -> AccountFixture {
+    AccountFixture::new(
+        Address::new_from_array([addr_byte; 32]),
+        Address::new_from_array([0u8; 32]),
+        lamports,
+        0,
+    )
+    .writable()
+    .signer()
+}
+
 fn ledger_fixture(addr_byte: u8, value: u64) -> AccountFixture {
     ledger_fixture_owned_by(addr_byte, PROGRAM_ID, value)
 }
@@ -269,6 +293,27 @@ fn empty_slot_binds_and_runs_the_full_init_cpi_lifecycle() {
         "the account is usable immediately after bind: zero-initialized then mutated by the handler"
     );
 
+    // The Hopper layout header, pinned at the byte level (wire format:
+    // disc at byte 0, version at byte 1, layout fingerprint at bytes
+    // 4..12) — direct assertions on the init lifecycle's own header
+    // write, not merely transitive trust in `with_mut`'s re-validation
+    // having accepted it above.
+    assert_eq!(
+        ledger.data[0],
+        Ledger::DISC,
+        "header byte 0 must be the layout discriminator"
+    );
+    assert_eq!(
+        ledger.data[1],
+        Ledger::VERSION,
+        "header byte 1 must be the layout version"
+    );
+    assert_eq!(
+        &ledger.data[4..12],
+        &Ledger::LAYOUT_ID,
+        "header bytes 4..12 must be the layout fingerprint"
+    );
+
     // The payer paid for it — the create CPI actually moved lamports,
     // it did not merely flip a flag.
     let payer = &result.resulting_accounts[0];
@@ -283,9 +328,11 @@ fn empty_slot_binds_and_runs_the_full_init_cpi_lifecycle() {
 
 #[test]
 fn nonempty_valid_slot_binds_without_recreating_and_preserves_state() {
+    let ledger_before = ledger_fixture(0x22, 41);
+    let pre_bytes = ledger_before.data.clone();
     let accounts = [
         payer_fixture(0x21, 10_000_000_000),
-        ledger_fixture(0x22, 41),
+        ledger_before,
         system_program_fixture(),
     ];
     let result = HopperSvm::new().process_instruction(PROGRAM_ID, &[], &accounts, upsert_handler);
@@ -308,6 +355,35 @@ fn nonempty_valid_slot_binds_without_recreating_and_preserves_state() {
         ledger_total(&result.resulting_accounts[1]),
         42,
         "preexisting state must be preserved, then usable by the handler"
+    );
+
+    // Structural preservation: the handler mutates exactly ONE range —
+    // the 8-byte `total` field at HEADER_LEN..HEADER_LEN + 8 — so every
+    // other byte must survive verbatim. The ranges around the mutated
+    // field are compared explicitly (not via a value-level spot check) so
+    // a future multi-field Ledger cannot hide corruption of an untouched
+    // field behind an accidentally-correct `total`.
+    let post_bytes = &result.resulting_accounts[1].data;
+    assert_eq!(
+        post_bytes.len(),
+        pre_bytes.len(),
+        "binding a nonempty slot must not resize it"
+    );
+    assert_eq!(
+        &post_bytes[..HEADER_LEN],
+        &pre_bytes[..HEADER_LEN],
+        "the header bytes must survive a nonempty bind byte-for-byte"
+    );
+    assert_eq!(
+        &post_bytes[HEADER_LEN..HEADER_LEN + 8],
+        &42u64.to_le_bytes(),
+        "the total field is the only mutated range, by exactly the handler's +1"
+    );
+    assert_eq!(
+        &post_bytes[HEADER_LEN + 8..],
+        &pre_bytes[HEADER_LEN + 8..],
+        "every byte after the mutated total field must survive byte-for-byte \
+         (empty today; load-bearing the day Ledger grows a second field)"
     );
 }
 
@@ -383,6 +459,116 @@ fn composite_v2_lets_the_outer_container_use_init_if_needed() {
         result.program_result
     );
     assert_eq!(result.resulting_accounts[1].data.len(), Ledger::LEN);
+}
+
+// ── Arm 6: pre-funded + unallocated → Transfer + Allocate + Assign ──
+
+#[test]
+fn prefunded_below_minimum_allocates_assigns_and_debits_exactly_the_shortfall() {
+    let rent_min = hopper::hopper_core::check::rent_exempt_min(Ledger::LEN);
+    // Strictly between 0 and the rent-exempt minimum, so the branch must
+    // BOTH top the account up (Transfer of the shortfall) AND still
+    // allocate + assign it.
+    let prefunded = rent_min / 2;
+    assert!(0 < prefunded && prefunded < rent_min);
+
+    let accounts = [
+        payer_fixture(0x61, 10_000_000_000),
+        prefunded_fixture(0x62, prefunded),
+        system_program_fixture(),
+    ];
+    let result = HopperSvm::new().process_instruction(PROGRAM_ID, &[], &accounts, upsert_handler);
+    assert!(
+        result.program_result.is_ok(),
+        "a pre-funded unallocated slot must bind and init successfully: {:?}",
+        result.program_result
+    );
+
+    // (a) Allocated, assigned, header-written, and immediately usable —
+    // the same end state the CreateAccount arm proves, reached through
+    // the other branch.
+    let ledger = &result.resulting_accounts[1];
+    assert_eq!(
+        ledger.data.len(),
+        Ledger::LEN,
+        "Allocate must size the account to exactly `space` bytes"
+    );
+    assert_eq!(
+        ledger.owner, PROGRAM_ID,
+        "Assign must hand the account to the program"
+    );
+    assert_eq!(
+        ledger.data[0],
+        Ledger::DISC,
+        "header byte 0 must be the layout discriminator"
+    );
+    assert_eq!(
+        ledger.data[1],
+        Ledger::VERSION,
+        "header byte 1 must be the layout version"
+    );
+    assert_eq!(
+        &ledger.data[4..12],
+        &Ledger::LAYOUT_ID,
+        "header bytes 4..12 must be the layout fingerprint"
+    );
+    assert_eq!(
+        ledger_total(ledger),
+        1,
+        "the account is usable immediately after bind: zero-initialized then mutated by the handler"
+    );
+
+    // (b) The payer was debited EXACTLY the shortfall — this pins the
+    // Transfer+Allocate+Assign path as DISTINCT from CreateAccount, which
+    // would have debited the full rent-exempt minimum.
+    let payer = &result.resulting_accounts[0];
+    let shortfall = rent_min - prefunded;
+    assert_eq!(
+        payer.lamports,
+        10_000_000_000 - shortfall,
+        "the payer must be debited exactly rent_min - prefunded, not the full minimum"
+    );
+    assert_eq!(
+        ledger.lamports, rent_min,
+        "the account must end topped up to exactly the rent-exempt minimum"
+    );
+    // Lamport conservation: everything in the post-state is exactly what
+    // the two fixtures brought in — nothing minted, nothing destroyed.
+    assert_eq!(payer.lamports + ledger.lamports, 10_000_000_000 + prefunded);
+}
+
+#[test]
+fn prefunded_at_minimum_debits_the_payer_nothing_but_still_allocates_and_assigns() {
+    let rent_min = hopper::hopper_core::check::rent_exempt_min(Ledger::LEN);
+
+    let accounts = [
+        payer_fixture(0x71, 10_000_000_000),
+        prefunded_fixture(0x72, rent_min),
+        system_program_fixture(),
+    ];
+    let result = HopperSvm::new().process_instruction(PROGRAM_ID, &[], &accounts, upsert_handler);
+    assert!(
+        result.program_result.is_ok(),
+        "a fully pre-funded unallocated slot must bind and init successfully: {:?}",
+        result.program_result
+    );
+
+    // No Transfer fires at all: `current_lamports < rent_min` is strictly
+    // false at equality, so the payer is debited exactly 0.
+    assert_eq!(
+        result.resulting_accounts[0].lamports, 10_000_000_000,
+        "at/above the minimum the shortfall Transfer must not fire — the payer is debited exactly 0"
+    );
+
+    // ... but Allocate + Assign still ran, and the account is usable.
+    let ledger = &result.resulting_accounts[1];
+    assert_eq!(ledger.data.len(), Ledger::LEN);
+    assert_eq!(ledger.owner, PROGRAM_ID);
+    assert_eq!(
+        ledger.lamports, rent_min,
+        "the account keeps exactly its pre-funding — no top-up, no refund"
+    );
+    assert_eq!(ledger_total(ledger), 1);
 }
 
 // ── Published surface: slots, schema, docs ─────────────────────────

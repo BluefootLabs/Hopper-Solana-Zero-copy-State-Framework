@@ -282,16 +282,21 @@ fn is_host_system_transfer(instruction: &InstructionView<'_, '_, '_, '_>) -> boo
 
 // This validator only walks `instruction.accounts` (address/signer/
 // writable/borrow checks) — it never inspects `instruction.data` — so it
-// is not actually Transfer-specific. `emulate_host_system_create_account`
-// below reuses it verbatim for the CreateAccount host emulation instead
-// of duplicating the same four checks under a second name.
+// is not actually Transfer-specific. `emulate_host_system_create_account`,
+// `emulate_host_system_allocate`, and `emulate_host_system_assign` below
+// reuse it verbatim for their host emulations instead of duplicating the
+// same four checks under a second name. `min_views` is each instruction's
+// account arity (2 for Transfer/CreateAccount, 1 for Allocate/Assign): the
+// emulations index `account_views[..min_views]` directly, so the guard
+// must refuse a shorter hand-built view list before they do.
 #[cfg(not(target_os = "solana"))]
 fn validate_host_system_transfer(
     instruction: &InstructionView<'_, '_, '_, '_>,
     account_views: &[&AccountView<'_>],
     signers_seeds: &[Signer<'_, '_>],
+    min_views: usize,
 ) -> ProgramResult {
-    if account_views.len() < instruction.accounts.len() || account_views.len() < 2 {
+    if account_views.len() < instruction.accounts.len() || account_views.len() < min_views {
         return Err(ProgramError::NotEnoughAccountKeys);
     }
 
@@ -474,6 +479,97 @@ fn emulate_host_system_create_account(
     Ok(())
 }
 
+#[cfg(not(target_os = "solana"))]
+fn is_host_system_allocate(instruction: &InstructionView<'_, '_, '_, '_>) -> bool {
+    // `Allocate { space }` — `[8u32 LE][space: u64 LE]` (12 bytes).
+    // See `hopper_system::encoders::encode_allocate`.
+    crate::address::address_is_zero(instruction.program_id)
+        && instruction.data.len() == 12
+        && instruction.data[0..4] == [8, 0, 0, 0]
+}
+
+/// Host-only emulation of the System Program's `Allocate`.
+///
+/// `hopper_init!`'s PRE-FUNDED branch (`current_lamports > 0 &&
+/// data_len == 0`) reaches this CPI, via [`crate::system::Allocate`],
+/// after topping the account up to the rent-exempt minimum with a
+/// `Transfer` — instead of `CreateAccount`, which refuses an account
+/// that already carries lamports. Off-chain the raw syscall wrappers are
+/// no-ops, so without this emulation that branch silently leaves the
+/// account at zero length and the header write that follows fails with
+/// `AccountDataTooSmall`. This reproduces the System Program's own
+/// observable effect: resize the account to `space`, zero-filling the
+/// new region (mirroring [`AccountView::resize`]'s on-chain growth
+/// semantics). No lamports move in an `Allocate`, so — unlike the
+/// Transfer/CreateAccount emulations — there is deliberately no BLD-MUT
+/// lamport-mutation precheck here; the shared validator's
+/// writable/borrow/delegation sweep is the whole gate, exactly as for
+/// the real instruction.
+#[cfg(not(target_os = "solana"))]
+fn emulate_host_system_allocate(
+    instruction: &InstructionView<'_, '_, '_, '_>,
+    account_views: &[&AccountView<'_>],
+) -> ProgramResult {
+    let space = u64::from_le_bytes(instruction.data[4..12].try_into().unwrap()) as usize;
+    let target = account_views[0];
+
+    // The System Program refuses to allocate an account that already
+    // carries data (the "account already in use" class of refusal).
+    // `hopper_init!` only issues this CPI once it has already checked
+    // `data_len() == 0` itself, but the guard is repeated here so an
+    // `Allocate` CPI built directly (bypassing `hopper_init!`) gets the
+    // same off-chain refusal it would get on-chain.
+    if target.data_len() != 0 {
+        return Err(ProgramError::AccountAlreadyInitialized);
+    }
+
+    target.resize(space)
+}
+
+#[cfg(not(target_os = "solana"))]
+fn is_host_system_assign(instruction: &InstructionView<'_, '_, '_, '_>) -> bool {
+    // `Assign { owner }` — `[1u32 LE][owner: 32 bytes]` (36 bytes).
+    // See `hopper_system::encoders::encode_assign`.
+    crate::address::address_is_zero(instruction.program_id)
+        && instruction.data.len() == 36
+        && instruction.data[0..4] == [1, 0, 0, 0]
+}
+
+/// Host-only emulation of the System Program's `Assign`.
+///
+/// The third leg of `hopper_init!`'s PRE-FUNDED branch (Transfer-shortfall
+/// → `Allocate` → `Assign`), via [`crate::system::Assign`] — see
+/// [`emulate_host_system_allocate`] for why the branch needs host
+/// emulation at all. This reproduces the System Program's own observable
+/// effect: set the account's owner. Like the real `Assign`, it moves no
+/// lamports, so there is deliberately no BLD-MUT lamport-mutation
+/// precheck; the shared validator's writable/borrow/delegation sweep is
+/// the whole gate.
+#[cfg(not(target_os = "solana"))]
+fn emulate_host_system_assign(
+    instruction: &InstructionView<'_, '_, '_, '_>,
+    account_views: &[&AccountView<'_>],
+) -> ProgramResult {
+    let mut owner_bytes = [0u8; 32];
+    owner_bytes.copy_from_slice(&instruction.data[4..36]);
+    let owner = Address::new_from_array(owner_bytes);
+
+    let target = account_views[0];
+
+    // SAFETY: `target` was validated writable by
+    // `validate_host_system_transfer` (the generic meta-check reused at
+    // the dispatch site) before this point, and this function stands in
+    // for the System Program's own Assign handler — the one caller the
+    // real runtime authorizes to reassign a System-owned account's owner
+    // (with the assignee's signature, which the same validator checked
+    // against the builder's writable_signer meta).
+    unsafe {
+        target.assign(&owner);
+    }
+
+    Ok(())
+}
+
 // ---------------------------------------------------------------------
 
 /// Invoke a CPI with full validation.
@@ -494,13 +590,23 @@ pub fn invoke_signed<const ACCOUNTS: usize>(
 ) -> ProgramResult {
     #[cfg(not(target_os = "solana"))]
     if is_host_system_transfer(instruction) {
-        validate_host_system_transfer(instruction, &account_views[..], signers_seeds)?;
+        validate_host_system_transfer(instruction, &account_views[..], signers_seeds, 2)?;
         return emulate_host_system_transfer(instruction, &account_views[..]);
     }
     #[cfg(not(target_os = "solana"))]
     if is_host_system_create_account(instruction) {
-        validate_host_system_transfer(instruction, &account_views[..], signers_seeds)?;
+        validate_host_system_transfer(instruction, &account_views[..], signers_seeds, 2)?;
         return emulate_host_system_create_account(instruction, &account_views[..]);
+    }
+    #[cfg(not(target_os = "solana"))]
+    if is_host_system_allocate(instruction) {
+        validate_host_system_transfer(instruction, &account_views[..], signers_seeds, 1)?;
+        return emulate_host_system_allocate(instruction, &account_views[..]);
+    }
+    #[cfg(not(target_os = "solana"))]
+    if is_host_system_assign(instruction) {
+        validate_host_system_transfer(instruction, &account_views[..], signers_seeds, 1)?;
+        return emulate_host_system_assign(instruction, &account_views[..]);
     }
 
     let metas_len = instruction.accounts.len();
@@ -664,7 +770,7 @@ pub fn invoke_signed_with_bounds<const MAX_ACCOUNTS: usize>(
 
     #[cfg(not(target_os = "solana"))]
     if is_host_system_transfer(instruction) {
-        validate_host_system_transfer(instruction, account_views, signers_seeds)?;
+        validate_host_system_transfer(instruction, account_views, signers_seeds, 2)?;
         return emulate_host_system_transfer(instruction, account_views);
     }
 
