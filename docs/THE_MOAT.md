@@ -7,17 +7,27 @@ scan in `docs/audit/GAP_CLOSURE_AND_INNOVATION_2026.md` (section 2).
 
 ## The one structural fact
 
-As of July 2026, every other low-CU Solana framework builds on Pinocchio as
-its substrate: Anchor v2 (unreleased alpha) is built on pinocchio 0.11,
-Typhoon and star-frame are Pinocchio-based, and Quasar shares the lineage
-(Pinocchio's author contributes to both). Hopper is the only framework in the
-cluster with its own substrate: `crates/hopper-native` has **zero external
-dependencies** — its `[dependencies]` section in `Cargo.toml` is literally
+As of July 2026, every other low-CU Solana framework builds on an account type
+it **does not own**: Anza's upstream `solana-account-view::AccountView`. Pinocchio
+re-exports it (`pinocchio/sdk/src/lib.rs`: `solana_account_view::{self as account,
+AccountView}`); Quasar's every account wrapper is `#[repr(transparent)]` over it
+(`quasar/lang/src/account_load.rs`); Anchor v2 loads through it; Typhoon and
+star-frame sit on the same lineage. (The older "everyone builds on Pinocchio"
+framing was imprecise — Quasar has no Pinocchio dependency at all; it and
+Pinocchio are *siblings* on the same upstream crate.) Hopper is the only framework
+in the cluster with its own account type: `crates/hopper-native` has **zero
+external dependencies** — its `[dependencies]` section in `Cargo.toml` is literally
 empty.
 
-That is not a purity flex. It is the design decision everything else in this
-document compounds on. A framework that sits on someone else's account type
-cannot change what an account access *is*. Hopper can, and did.
+That is not a purity flex, and it is a stronger fact than the old one. `AccountView`
+is `#[repr(C)] { raw: *mut RuntimeAccount }` whose `borrow_state` is a **single
+`u8`** (reusing the SVM's duplicate-flag byte, `solana-account-view/src/lib.rs`),
+and whose `borrow_unchecked()` / `data_mut_ptr()` are **public API on a crate none
+of these frameworks maintain**. They obtain their `&mut` by casting through it; the
+unchecked accessors they cannot remove without forking upstream. A framework that
+sits on someone else's account type cannot change what an account access *is*.
+Hopper can, and did — that is the design decision everything else in this document
+compounds on.
 
 ## Tier 1 — uncopyable without forking the account type
 
@@ -53,17 +63,42 @@ Pinned by: `cargo test -p hopper-runtime --lib segment_borrow` (20 tests), a
 proptest disjointness invariant, and `#[kani::proof]` harnesses in
 `segment_borrow.rs` (five) and `tail.rs` (three).
 
-**Why the Pinocchio-based field cannot follow (read from their source,
-2026-07-07).** Pinocchio exposes a single per-account `borrow_state` byte, so
-every framework built on it tracks writes at *account* granularity. Anchor v2's
-account context carries a `MUT_MASK` of `[u64; 4]` — a bitmask **over account
-indices**, its finest possible write-tracking. Quasar's schema stops at a
-boolean `writable` flag. None of them can name a byte range within an account,
-which is the unit Hopper's ledger operates on and the unit the 2026 scheduler /
-local-fee-market SIMDs price. Expressing sub-account contention requires a
-centralized borrow-acquisition point over a byte-range registry — i.e. forking
-the account type and routing every accessor through it, the one thing a thin
-layer on someone else's account primitive cannot retrofit.
+**Why the field cannot follow (read from their source, 2026-07-13).** The shared
+upstream `RuntimeAccount` exposes a single per-account `borrow_state` byte, so a
+framework built on it tracks writes at *account* granularity at best. It is worth
+being precise about how coarse each one actually is, because the honest picture is
+**worse for them** than the flattering one:
+
+- **Anchor v1** `Account<T>` deserializes an *owned copy*, mutates it, and
+  re-serializes the **entire struct** on exit (`anchor/lang/src/accounts/account.rs`:
+  `try_serialize` into a `BpfWriter` from offset 0). Its byte-level write-set is
+  *definitionally* the whole account, on every mutable instruction — byte-range
+  enforcement isn't unimplemented, it is *semantically void* in a copy-in/copy-out
+  model.
+- **Anchor v2** has a **256-bit mutable-field mask** — but per its own docs
+  (`anchor/docs-v2/.../account-validation.mdx`) it is a **duplicate-alias detector**
+  ("if two mutable fields point at the same address, validation returns
+  `ConstraintDuplicateMutableAccount`"), fired once at load. It is *not* a write-set
+  and enforces nothing about which bytes change; v2's exit is a documented no-op, so
+  after the cast there is no interposition point left. (Earlier drafts of this file
+  called the mask Anchor's "finest write-tracking" and printed it as `[u64;4]` — both
+  were wrong: it tracks *no* write-set at any granularity, and the concrete type is
+  not stated in a source we can cite.)
+- **Quasar** casts `#[repr(transparent)]` to the typed account and `Deref`s to a raw
+  `&mut T` (`quasar/lang/src/accounts/account.rs`); its default path calls
+  `borrow_unchecked()` deliberately. Runtime write tracking on the typed path: none.
+  Its schema stops at the `is_writable` bit.
+
+None of them can name a byte range within an account, which is the unit Hopper's
+ledger operates on. Expressing sub-account contention requires a centralized
+borrow-acquisition point over a byte-range registry — i.e. forking the account type
+and routing *every* accessor through it. The side-table registry itself is not
+privileged (Hopper's lives in `Context`/the VM heap, not the account) — a competitor
+*could* build the data structure. What they cannot obtain is *authoritative
+enforcement*: a ledger is worthless unless every path to account bytes goes through
+it, and all three get their `&mut` by casting through an upstream account type whose
+`borrow_unchecked()` / `data_mut_ptr()` are public API they do not control. That is
+the retrofit a thin layer on someone else's account primitive cannot make.
 
 ### 1c. Instruction touch maps
 
@@ -155,17 +190,19 @@ ledger → policy → proof token — is the moat.
 
 ## Anchor's coarse-borrow bug classes, class by class
 
-Anchor v2's finest write-tracking is account-index granular: an account
-context carries a `MUT_MASK` of `[u64; 4]` — a 256-bit bitmask with one bit per
-account *entry*, recording which accounts an instruction may mutate. It has no
-representation for a byte range within an account, nor for "writable at the
-transaction level but read-only in this handler." Three bug classes recur in
-the anchor-next tracker as a direct consequence. The table is factual, not a
-verdict on Anchor's engineering: the coarseness is inherent to tracking writes
-at account granularity, which is the finest granularity a thin layer over
-Pinocchio's single per-account `borrow_state` byte can reach.
+Anchor v2 has **no write-set enforcement at any granularity**. Its 256-bit
+mutable-field mask is a *duplicate-alias detector* (per `docs-v2`,
+`account-validation.mdx`): it answers "do two `mut` fields resolve to the same
+address?", fired once at load — not "which bytes may this handler write?". It has
+no representation for a byte range within an account, nor for "writable at the
+transaction level but read-only in this handler," and its exit is a no-op, so there
+is no point at which a stray write could even be inspected. Three bug classes recur
+in the anchor-next tracker as a direct consequence. The table is factual, not a
+verdict on Anchor's engineering: the coarseness is inherent to tracking access at
+account granularity — the finest a framework can reach when it obtains its `&mut` by
+casting through the upstream account type's single per-account `borrow_state` byte.
 
-| Anchor bug class | Why account-index (`MUT_MASK [u64;4]`) tracking permits it | Hopper mechanism (byte-range) that prevents it | File / symbol | Pinned by (level) |
+| Anchor bug class | Why account-level tracking permits it | Hopper mechanism (byte-range) that prevents it | File / symbol | Pinned by (level) |
 |---|---|---|---|---|
 | (i) read-only account gets mutated | The mask records only *which* accounts are writable; an account read-only for this instruction is often transaction-writable for another, so its bit cannot encode the intended write-set, and a handler/CPI write to it is invisible | A declared byte-range write-set is checked at every write acquire; a write to an account absent from the set, to an undeclared range of a partially-writable account, or any write under an empty (read-only) policy is refused with an indexed error | `write_policy.rs::WritePolicy::check_write`, gated in `context.rs::Context::check_write_policy` | `strict_writes_rejects_writes_outside_the_declared_byte_range_set` (host) |
 | (ii) stale account view after CPI | The mask neither binds a borrow to a byte range nor re-checks it across a CPI, so a view taken before a CPI that mutates/reallocs the account can be used after | A live byte-range write lease rejects any conflicting acquire over those bytes (the borrow a CPI-passing helper or later reader would take) until it is released; the account borrow byte enforces the same at whole-account granularity | `segment_borrow.rs::SegmentBorrowRegistry::register`; `hopper-native::AccountView::try_borrow`/`try_borrow_mut` | `a_live_segment_borrow_blocks_the_access_a_stale_view_would_need` (host) |

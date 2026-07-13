@@ -625,9 +625,11 @@ fixes this batch (`E:\Frameworks\quasar\derive\src\{error_code,event}.rs`):
   byte-range `write_ranges` (the runtime `WriteRange` type); the manifest
   emits `strictWrites` + a per-instruction `writeRanges` array. This is
   the machine-readable contention footprint no account-granular framework
-  can produce — verified from source that Anchor v2's finest tracking is a
-  `MUT_MASK [u64;4]` over account indices and Quasar's is a boolean flag,
-  both bounded by Pinocchio's single per-account borrow byte.
+  can produce — verified from source that Anchor v2 enforces **no write-set
+  at any granularity** (its 256-bit mask is a duplicate-alias detector) and
+  Quasar's schema stops at a boolean `writable` flag, both bounded by the
+  single per-account borrow byte of the upstream `solana-account-view` account
+  type they build on.
 - **Deferred (found unsound in adversarial review, 2026-07-07):**
   client-side read-only *demotion* from these ranges. A `WriteRange` is a
   *data* range, but Sealevel writability also covers *lamport* mutation

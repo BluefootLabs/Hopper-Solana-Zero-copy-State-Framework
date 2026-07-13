@@ -36,14 +36,24 @@ while beating the other zero-copy frameworks on the benchmarks they compete on.
    **0.027 SOL** of rent (2026-07-09 build; the 2026-07-07 devnet artifact
    was 4,688 bytes ≈ 0.034 SOL); an Anchor-class artifact ≈ 1.36 SOL. ~50×
    cheaper to deploy on the counter, and the vault artifact is 26× smaller
-   (7.46 vs 190.11 KiB).
+   (7.46 vs 190.11 KiB). Shelf-life caveat, say it first: SIMD-0437 (Idea)
+   cuts `lamports_per_byte` 6960→696, so the *absolute* SOL headline shrinks
+   ~10× if it lands — the **26× size ratio** is the durable claim, quote that.
 4. **The moat is structural, verified from their source.** Every 2026
-   framework (Anchor v2 alpha, Typhoon, star-frame, Quasar-adjacent) builds on
-   Pinocchio's single per-account borrow byte — account-granular forever.
-   Anchor v2's finest write tracking is a `MUT_MASK [u64;4]` over account
-   *indices*. Hopper's ledger names **byte ranges**, which is the granularity
-   Solana 2026 prices (SIMD-0339 per-info CPI costs, local fee markets on
-   write locks). They cannot retrofit this without forking their substrate.
+   framework (Anchor v2 alpha, Typhoon, star-frame, Quasar) builds on an
+   account type it does not own — Anza's upstream `solana-account-view`, whose
+   `borrow_state` is a single per-account byte and whose unchecked accessors are
+   public API. Account-granular at best, forever. Anchor v2's 256-bit mask is a
+   *duplicate-alias detector*, not write tracking — it enforces no write-set at
+   any granularity; Quasar `Deref`s to a raw `&mut T`; Anchor v1 rewrites the
+   whole struct on exit. Hopper's ledger names **byte ranges**. Solana does not
+   yet *price* sub-account contention (no SIMD proposes it; the scheduler keys on
+   `HashMap<Pubkey,…>`) — but it charges a flat 300 CU per writable account and
+   prices loaded account bytes (SIMD-0186, Accepted), so **declaring less is
+   already rewarded**, and Hopper is the only framework that can prove an account
+   safe to *demote* (`effective_writable`) — dropping a write lock and 300 CU of
+   block cost. They cannot retrofit byte-range enforcement without forking their
+   substrate.
 5. **The framework that audits itself — and its competitors.** 1,735 tests
    (2026-07-12), line-by-line audit trail, Kani harnesses, and a published
    bug-class suite (18 pinned tests) pinning Hopper's immunity to
@@ -76,12 +86,35 @@ while beating the other zero-copy frameworks on the benchmarks they compete on.
 
 ## The 2026 story (where the puck is going)
 
-Solana is repricing exactly what Hopper already does: SIMD-0339 charges per
-account-info (we dedup), local fee markets price write locks (we publish
-byte-range write-sets — "scheduler-legible programs"), SIMD-553 bills unused
-CU (measured-CU manifests next), sBPF v3 static syscalls (we're ready,
-default-off). Tagline for this thread: **"Built for the Solana that's
-coming, measured on the Solana that's here."**
+Solana is not moving toward byte-range *pricing* — no SIMD proposes conflict
+detection or pricing finer than a whole account (the write-lock-pricing SIMDs
+0016/0061/0110 all closed unmerged; the scheduler's domain is
+`HashMap<Pubkey,…>`). What it **is** doing is rewarding *declaring less and
+proving more*, which is exactly Hopper's axis:
+
+- Solana already charges a **flat 300 CU per writable account** (Agave
+  `WRITE_LOCK_UNITS`) and prices **loaded account bytes** (SIMD-0186, Accepted);
+  `SetLoadedAccountsDataSizeLimit` lets a tx bill a *lower* declared footprint
+  today. Hopper's `effective_writable` + `mutation_complete` is the only way to
+  prove an account safe to demote from writable → read-only, dropping the lock
+  and its 300 CU. (SIMD-0339 charging per account-info is real but tiny — ~0.32
+  CU/info, and the SIMD disclaims dedup credit; do not lead with it.)
+- The SVM lead's ABI-v2 draft (SIMD-0177, Idea) states the philosophy outright:
+  *"programs should only have to pay for what they use… work should be lazy."*
+  That is a protocol endorsement of zero-copy, byte-level, lazy state access.
+- The IDL the Foundation is standardizing (`solana-foundation/idl-spec`) covers
+  instructions/accounts/types/events/errors and **stops short of byte layouts** —
+  the open extension point Hopper's manifest already fills.
+- After the $270M Drift exploit the Foundation is **funding formal verification**
+  for protocols over $100M TVL — our Kani/Miri lanes are a budget line item, not
+  a nerd flex. SIMD-0553 (a **Draft** PR, independent author) would burn fees on
+  *requested* resources, another lever for declaring tightly.
+
+Shelf-life honesty: SIMD-0437 (Idea) cuts rent `lamports_per_byte` 6960→696, so
+the *absolute* deploy-cost headline shrinks 10×; the size *ratio* survives.
+SIMD-0449 will narrow the entrypoint gap for everyone — lead with the ledger, not
+the entrypoint. Tagline: **"Solana rewards declaring less and proving more; we're
+the only ones who can supply the byte-level declaration."**
 
 ## Channels & sequencing
 
@@ -115,8 +148,10 @@ coming, measured on the Solana that's here."**
 | "Safe overlay = raw cast" | ✅ measured EQUAL, 2 CU net each (2026-07-09 primitive lab; the 07-07 run measured both at 1 — the equality is the durable claim, never quote the absolute alone) |
 | "~2% from hand-written Pinocchio" | ✅ 1.8–2.4% (2026-07-09 router lab; was 2.1–2.7%) |
 | "Faster than Pinocchio" | ❌ never — one auth-fail row only, say "fast by default" |
-| "~50× cheaper deploys than Anchor" | ✅ vs 0.31.1 artifact (counter 3,736 B ≈ 0.027 SOL, 2026-07-09 build, vs 1.356 SOL); the retired "40×" figure was the 4,688-B devnet artifact; add v2 caveat |
-| "Only byte-range framework" | ✅ source-verified vs Anchor v2 / Quasar / Pinocchio |
+| "~50× cheaper deploys than Anchor" | ✅ vs 0.31.1 artifact (counter 3,736 B ≈ 0.027 SOL, 2026-07-09 build, vs 1.356 SOL); the retired "40×" figure was the 4,688-B devnet artifact; add v2 caveat. ⚠️ **shelf-life**: SIMD-0437 (Idea) cuts rent `lamports_per_byte` 6960→696, shrinking the *absolute* SOL gap ~10×. Quote the **26× size ratio** as the durable claim, not the SOL number |
+| "Only byte-range framework" | ✅ source-verified vs Anchor v2 / Quasar / Pinocchio (2026-07-13): Anchor v1 rewrites the whole struct on exit; Anchor v2's 256-bit mask is a **duplicate-alias detector, not write tracking** (enforces no write-set at any granularity); Quasar `Deref`s to a raw `&mut T`. All three cast through Anza's `solana-account-view` — **an account type none of them own** — whose `borrow_unchecked`/`data_mut_ptr` are public API they can't remove without forking upstream. ❌ do NOT print `MUT_MASK [u64;4]` (unverifiable literal) or "everyone builds on Pinocchio" (Quasar has no Pinocchio dep) |
+| "Migration is a Hopper differentiator" | ⚠️ **scoped — Quasar has in-place typed migration too** (`Migration<From,To>`, and it can grow/shrink via realloc, which Hopper's `migrate_layout` cannot yet). Our real edges are the schema-epoch **migration graph** (multi-hop chains), the `layout_id` fingerprint, the separate version byte, the can't-forget bind crank, and typed named transforms — none of which Quasar has. Claim THOSE, not "migration" flatly. (Parity+ work to close the resize gap is planned) |
+| "Byte-range write refusal, proven" | ⚠️ **as of 2026-07-13 pinned only at HOST level** (`tests/composite_options_integration.rs` on `hopper-svm`, no SBF VM). Compiled-SBF and devnet proof are the Sentinel showcase deliverable — until those land, say "enforced at borrow acquisition (host-verified)", never imply an on-chain demonstration exists |
 | "Audited" | ✅ internal line-by-line trail; ❌ do not imply third-party audit |
 | "check_keys_eq ~40 CU" and April primitive figures | ❌ retired — superseded by Mollusk numbers |
 | "Smallest binary" | ⚠️ **router-scoped only.** Quasar still wins the vault (5.47 vs 7.46 KiB, re-measured 2026-07-09, `BENCHMARKS.md`). New claimable fact from that run: the Hopper vault `.so` is **smaller than Pinocchio's** on the identical contract (7.46 vs 7.73 KiB, zero writable sections). Never claim a general size lead; the remaining Quasar delta is paid-for structure (receipts, ledger, lamport gate) |
