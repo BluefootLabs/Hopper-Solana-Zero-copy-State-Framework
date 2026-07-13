@@ -44,12 +44,17 @@ while beating the other zero-copy frameworks on the benchmarks they compete on.
    *indices*. Hopper's ledger names **byte ranges**, which is the granularity
    Solana 2026 prices (SIMD-0339 per-info CPI costs, local fee markets on
    write locks). They cannot retrofit this without forking their substrate.
-5. **The framework that audits itself — and its competitors.** 1,570 tests
-   (2026-07-09), line-by-line audit trail, Kani harnesses, and a published
+5. **The framework that audits itself — and its competitors.** 1,735 tests
+   (2026-07-12), line-by-line audit trail, Kani harnesses, and a published
    bug-class suite (18 pinned tests) pinning Hopper's immunity to
    competitors' open soundness issues (Quasar has
    five, unfixed since June). Our own suite found and fixed a real Hopper bug
    the same day — say that out loud; honesty converts better than perfection.
+   The habit compounds: writing `init_if_needed`'s missing coverage
+   (2026-07-12) surfaced that the host harness had NEVER been able to run
+   any program's account-creation path, and the adversarial pass on THAT
+   fix named a second uncovered branch, which the next commit closed. Each
+   test we wrote found the gap the last one hid.
 
 ## Positioning vs each competitor (factual, never sneering)
 
