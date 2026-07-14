@@ -29,6 +29,7 @@ members = [
     "examples/hopper-counter",
     "examples/hopper-compact-vault",
     "examples/hopper-smoke",
+    "examples/hopper-sentinel",
     "examples/hopper-vault",
     "examples/hopper-parity-vault",
     "examples/hopper-router",

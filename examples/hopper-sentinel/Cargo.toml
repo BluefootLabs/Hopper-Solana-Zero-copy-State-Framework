@@ -1,0 +1,35 @@
+[package]
+name = "hopper-sentinel"
+version = "0.2.1"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+description = "SENTINEL: a compromised privileged handler that writes outside its declared byte segment is refused by the framework, before any byte changes — proven on compiled SBF bytecode."
+
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+# `touch-map` (forwarded by the facade to hopper-runtime/touch-map) arms the
+# self-describing-transaction emission the flagship `Pause` context opts into
+# via `emit_touch_map`. Enabled here — for this example only — because the
+# emission is per-context opt-in; nothing else in the workspace pays for it.
+hopper = { workspace = true, features = ["proc-macros", "touch-map"] }
+
+[dev-dependencies]
+# Host execution harness: binds the generated dispatcher against real
+# AccountView memory so the refusal is proven with borrow tracking on the host.
+hopper-svm = { workspace = true }
+# Per-thread borrow registry so parallel host-test threads never share the
+# process-global segment registry (see MEMORY borrow-registry-test-flake note).
+hopper-runtime = { workspace = true, features = ["thread-local-registry"] }
+# In-process SVM (Mollusk) so the refusal is proven END-TO-END against the
+# compiled SBF `.so`: run `cargo build-sbf` in this directory first.
+hopper-test = { path = "../../crates/hopper-test" }
+base64 = "0.22"
+solana-account = "3.2.0"
+solana-instruction = "3.0"
+solana-pubkey = "4.1.0"
+
+[lints]
+workspace = true

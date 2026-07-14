@@ -2347,6 +2347,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "hopper-sentinel"
+version = "0.2.1"
+dependencies = [
+ "base64 0.22.1",
+ "hopper-lang",
+ "hopper-runtime",
+ "hopper-svm",
+ "hopper-test",
+ "solana-account 3.4.0",
+ "solana-instruction 3.4.0",
+ "solana-pubkey 4.2.0",
+]
+
+[[package]]
 name = "hopper-showcase"
 version = "0.2.1"
 dependencies = [
