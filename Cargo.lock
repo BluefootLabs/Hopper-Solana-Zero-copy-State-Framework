@@ -1937,6 +1937,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "grillo-manifest"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "grillo-verifier"
+version = "0.1.0"
+dependencies = [
+ "grillo-manifest",
+ "hopper-lang",
+ "hopper-runtime",
+ "hopper-sentinel",
+ "hopper-svm",
+]
+
+[[package]]
 name = "group"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

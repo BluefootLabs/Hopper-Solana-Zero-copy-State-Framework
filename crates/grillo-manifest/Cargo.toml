@@ -1,0 +1,21 @@
+[package]
+name = "grillo-manifest"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "GRILLO: parse the mutation contract (byte-range write set + lamport permissions) out of a Hopper program manifest, and commit to it with a stable SHA-256."
+# Not published yet: GRILLO is a new ecosystem layer over Hopper's
+# byte-range primitive and its wire/JSON interop is still stabilizing.
+publish = false
+
+[dependencies]
+# The manifest is JSON; nothing else is needed. Grillo keeps its
+# dependency surface to serde/serde_json on purpose — the commitment
+# hash uses a small vendored SHA-256 (see `src/sha256.rs`) rather than
+# pull a crypto crate or drag the framework's no_std const impl (which
+# lives in hopper-native) into a host-only tool crate.
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[dev-dependencies]
+serde_json = "1"

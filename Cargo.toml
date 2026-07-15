@@ -60,6 +60,8 @@ members = [
     "crates/hopper-manager",
     "crates/hopper-sdk",
     "crates/hopper-test",
+    "crates/grillo-manifest",
+    "crates/grillo-verifier",
     "tools/hopper-cli",
 ]
 resolver = "2"

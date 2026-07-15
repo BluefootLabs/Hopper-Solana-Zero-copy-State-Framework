@@ -1,0 +1,29 @@
+[package]
+name = "grillo-verifier"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "GRILLO: an INDEPENDENT verifier that checks a transaction's actual byte changes against a Hopper program's published mutation contract — changed ⊆ acquired ⊆ authorized."
+# Not published yet: pairs with the still-stabilizing grillo-manifest.
+publish = false
+
+[dependencies]
+# The parsed mutation contract (the `authorized` set) comes from here. No
+# other runtime deps: the verifier is pure byte/interval arithmetic over the
+# touch map (`acquired`) and pre/post snapshots (`changed`).
+grillo-manifest = { path = "../grillo-manifest", version = "0.1.0" }
+
+[dev-dependencies]
+# The end-to-end proof drives examples/hopper-sentinel through the Hopper
+# host harness and captures the REAL touch map — mirroring the dev-dep set
+# examples/hopper-sentinel/tests/flagship_host.rs uses.
+#
+# `hopper` brings the touch-map API (`Context::encode_touch_map`) and the
+# generated `Pause` context; `hopper-runtime`'s thread-local-registry keeps
+# parallel host-test threads from sharing the process-global segment/touch
+# registries (see MEMORY borrow-registry-test-flake note); `hopper-svm`
+# binds the generated dispatcher against real AccountView memory.
+hopper = { workspace = true, features = ["proc-macros", "touch-map"] }
+hopper-runtime = { workspace = true, features = ["thread-local-registry"] }
+hopper-svm = { workspace = true }
+hopper-sentinel = { path = "../../examples/hopper-sentinel" }
