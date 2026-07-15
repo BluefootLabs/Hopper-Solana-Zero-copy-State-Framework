@@ -1281,11 +1281,18 @@ mod write_policy_tests {
         let pid = Address::new([9u8; 32]);
         let mut ctx = Context::new(&pid, &accounts, &[]);
 
-        // Touch more distinct ranges than the log capacity.
+        // Touch more distinct ranges than the log capacity. The stride
+        // leaves a one-byte gap between consecutive ranges so no exact
+        // union exists — coalescing (which keeps contiguous workloads
+        // complete) cannot save this map, and the honest outcome is the
+        // wire-visible overflow flag.
         let addr = *ctx.account(0).unwrap().address();
         let mut i: u32 = 0;
         while (i as usize) < crate::segment_borrow::MAX_TOUCH_RECORDS + 3 {
-            let b = ctx.borrows_mut().register_leased_read(&addr, i, 1).unwrap();
+            let b = ctx
+                .borrows_mut()
+                .register_leased_read(&addr, i * 2, 1)
+                .unwrap();
             ctx.borrows_mut().release(&b);
             i += 1;
         }

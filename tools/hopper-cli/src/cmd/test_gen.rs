@@ -159,7 +159,11 @@ fn security_matrix(manifest: &ProgramManifest) -> String {
 // the ledger.
 //
 // A partial touch map (`touch_map_overflowed`) is surfaced as INCONCLUSIVE,
-// never silently passed. Instructions that do NOT declare `strict_writes`
+// never silently passed. Containment is judged per BYTE against the UNION of
+// the declared ranges — not per-declaration — because the ledger coalesces
+// adjacent touch records under capacity pressure: one record may be the
+// exact union of several individually-gated acquires and so may span two
+// adjacent declarations. Instructions that do NOT declare `strict_writes`
 // get no such test, and are enumerated in a trailing comment for the record.
 // ─────────────────────────────────────────────────────────────────────────
 
@@ -169,20 +173,58 @@ fn security_matrix(manifest: &ProgramManifest) -> String {
 /// lock-step so the in-crate unit test genuinely proves the emitted logic.
 const CONTAINMENT_HELPERS: &str = r#"use hopper::context::Context;
 use hopper::hopper_runtime::segment_borrow::AccessKind;
+use hopper::hopper_runtime::write_policy::WriteRange;
 
 /// Outcome of folding an instruction's touch-map ledger against its installed
 /// (declared) write policy.
 #[derive(Debug, PartialEq, Eq)]
 enum Containment {
-    /// Every recorded write touch is contained in a declared range.
+    /// Every byte of every recorded write touch is covered by the union of
+    /// the declared ranges.
     Contained,
-    /// A write touch fell outside every declared range.
+    /// A write touch put at least one byte outside every declared range.
     Violation { account_index: u8, offset: u32, size: u32 },
     /// The touch map overflowed: the footprint is partial, so containment is
     /// inconclusive and MUST NOT be treated as a pass.
     Inconclusive,
     /// `strict_writes` was expected but no policy was installed on the ctx.
     NoPolicy,
+}
+
+/// First byte in `[start, end)` not covered by any declared range on
+/// `account_index`, or `None` when the union of declared ranges covers the
+/// whole span. Coverage is judged per BYTE against the UNION — not
+/// per-declaration containment — because the touch ledger coalesces adjacent
+/// records under capacity pressure: one record may be the exact union of
+/// several individually-gated acquires and so may legitimately span two
+/// adjacent declarations. Every cursor step jumps to the end of a covering
+/// range, so the walk is O(ranges²), never O(bytes).
+fn first_uncovered_byte(
+    ranges: &[WriteRange],
+    account_index: u8,
+    start: u64,
+    end: u64,
+) -> Option<u64> {
+    let mut cursor = start;
+    while cursor < end {
+        let mut advanced = false;
+        for r in ranges {
+            if r.account_index != account_index {
+                continue;
+            }
+            let r_start = r.offset as u64;
+            let r_end = r.offset as u64 + r.size as u64;
+            if r_start <= cursor && cursor < r_end {
+                cursor = r_end;
+                advanced = true;
+                break;
+            }
+        }
+        if !advanced {
+            return Some(cursor);
+        }
+    }
+    None
 }
 
 /// Declared-vs-actual oracle. Reuses the shipped `WritePolicy` (declared) and
@@ -213,7 +255,9 @@ fn evaluate_containment(ctx: &Context<'_>) -> Containment {
             .position(|a| a.address().to_bytes() == touched);
         match idx {
             Some(i) if i <= u8::MAX as usize => {
-                if !policy.allows_write(i as u8, t.offset, t.size) {
+                let start = t.offset as u64;
+                let end = t.offset as u64 + t.size as u64;
+                if first_uncovered_byte(policy.allows, i as u8, start, end).is_some() {
                     verdict = Containment::Violation {
                         account_index: i as u8,
                         offset: t.offset,
@@ -240,9 +284,11 @@ fn assert_writes_contained(instruction: &str, ctx: &Context<'_>) {
     match evaluate_containment(ctx) {
         Containment::Contained => {}
         Containment::Inconclusive => panic!(
-            "{instruction}: touch map overflowed — write footprint is PARTIAL, so \
-             containment is INCONCLUSIVE (raise MAX_TOUCH_RECORDS or split the \
-             instruction); refusing to report a false pass"
+            "{instruction}: touch map overflowed — the instruction touched more than \
+             MAX_TOUCH_RECORDS pairwise-unmergeable byte ranges (contiguous ranges \
+             coalesce automatically, so this means genuinely scattered access), the \
+             write footprint is PARTIAL, and containment is INCONCLUSIVE; split the \
+             instruction rather than accept a false pass"
         ),
         Containment::NoPolicy => panic!(
             "{instruction}: no write policy installed — this test was generated for a \
@@ -464,10 +510,12 @@ mod tests {
         static M: ProgramManifest = manifest(IXS);
         let src = write_containment_matrix(&M);
 
-        // The oracle + assertion helpers are present.
+        // The oracle + assertion helpers are present. Coverage is judged per
+        // byte against the union of declared ranges (coalesced touch records
+        // may legitimately span adjacent declarations).
         assert!(src.contains("fn evaluate_containment(ctx: &Context<'_>) -> Containment"));
         assert!(src.contains("fn assert_writes_contained(instruction: &str, ctx: &Context<'_>)"));
-        assert!(src.contains("policy.allows_write(i as u8, t.offset, t.size)"));
+        assert!(src.contains("first_uncovered_byte(policy.allows, i as u8, start, end)"));
         // Overflow is surfaced as inconclusive, never a silent pass.
         assert!(src.contains("touch_map_overflowed()"));
         assert!(src.contains("INCONCLUSIVE"));
@@ -517,12 +565,14 @@ mod tests {
     // ---- assertion-logic proof (synthesized touch-vs-policy mismatch) ----
     //
     // `containment_verdict` is the textual twin of the emitted
-    // `evaluate_containment`: same overflow-first ordering, same "first write
-    // touch not contained in any declared range => Violation", same read-skip.
-    // Testing it here proves the emitted assertion actually catches a
-    // violation, without standing up a full on-chain fixture. The declared
-    // ranges use the REAL `hopper_schema::WriteRange::contains`, so this also
-    // pins the containment predicate the runtime enforces.
+    // `evaluate_containment`: same overflow-first ordering, same per-byte
+    // union-coverage judgement ("first write touch with an uncovered byte =>
+    // Violation"), same read-skip. Testing it here proves the emitted
+    // assertion actually catches a violation, without standing up a full
+    // on-chain fixture. Coverage is against the UNION of the declared
+    // ranges, not per-declaration containment, because the touch ledger
+    // coalesces adjacent records under capacity pressure: one record may be
+    // the exact union of several individually-gated acquires.
 
     #[derive(Debug, PartialEq, Eq)]
     enum Verdict {
@@ -534,6 +584,37 @@ mod tests {
         },
         Inconclusive,
         NoPolicy,
+    }
+
+    /// Textual twin of the emitted `first_uncovered_byte` (kept in
+    /// lock-step), over `hopper_schema::WriteRange` — the same shape the
+    /// manifest publishes.
+    fn first_uncovered_byte(
+        ranges: &[WriteRange],
+        account_index: u8,
+        start: u64,
+        end: u64,
+    ) -> Option<u64> {
+        let mut cursor = start;
+        while cursor < end {
+            let mut advanced = false;
+            for r in ranges {
+                if r.account_index != account_index {
+                    continue;
+                }
+                let r_start = r.offset as u64;
+                let r_end = r.offset as u64 + r.size as u64;
+                if r_start <= cursor && cursor < r_end {
+                    cursor = r_end;
+                    advanced = true;
+                    break;
+                }
+            }
+            if !advanced {
+                return Some(cursor);
+            }
+        }
+        None
     }
 
     /// A recorded touch: (account_index, offset, size, is_write).
@@ -553,10 +634,9 @@ mod tests {
             if !is_write {
                 continue;
             }
-            let contained = ranges
-                .iter()
-                .any(|r| r.contains(offset, size) && r.account_index == idx);
-            if !contained {
+            let start = offset as u64;
+            let end = offset as u64 + size as u64;
+            if first_uncovered_byte(ranges, idx, start, end).is_some() {
                 return Verdict::Violation {
                     account_index: idx,
                     offset,
@@ -593,16 +673,33 @@ mod tests {
     }
 
     #[test]
-    fn write_straddling_two_adjacent_ranges_is_a_violation() {
-        // [16,32) is covered by the UNION of two ranges but by neither single
-        // declaration — containment is per-declaration, so this is a violation.
+    fn write_straddling_two_adjacent_ranges_is_covered_by_their_union() {
+        // [16,32) is covered by the UNION of the two adjacent declarations.
+        // The runtime gate still refuses a straddling ACQUIRE (per-range
+        // `check_write`), but a straddling touch RECORD is legitimate: the
+        // ledger coalesces adjacent records under pressure, so this record
+        // may be the exact union of two individually-gated acquires. The
+        // oracle audits bytes, and every byte here is declared.
         let touches = [(1u8, 16u32, 16u32, true)];
         assert_eq!(
             containment_verdict(false, Some(POLICY), &touches),
+            Verdict::Contained
+        );
+    }
+
+    #[test]
+    fn write_spanning_a_gap_between_declarations_is_a_violation() {
+        // The declarations leave [32, 40) undeclared; a touch running from
+        // inside the declared span across that gap has uncovered bytes —
+        // union coverage still catches every genuine escape.
+        static GAPPED: &[WriteRange] = &[WriteRange::new(1, 16, 16), WriteRange::new(1, 40, 8)];
+        let touches = [(1u8, 24u32, 20u32, true)];
+        assert_eq!(
+            containment_verdict(false, Some(GAPPED), &touches),
             Verdict::Violation {
                 account_index: 1,
-                offset: 16,
-                size: 16
+                offset: 24,
+                size: 20
             }
         );
     }

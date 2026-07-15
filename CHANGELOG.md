@@ -9,6 +9,26 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 
 ### Added
 
+- **Touch maps that stay complete under pressure (adaptive exact-union
+  coalescing).** The instruction touch log no longer truncates when an
+  instruction touches more than `MAX_TOUCH_RECORDS` (32) distinct byte
+  ranges. At capacity it now coalesces records whose union is exactly
+  the touched byte set — same account and kind, overlapping or adjacent
+  (a gap never bridges: that would claim untouched bytes); or a read
+  wholly contained in a write (a write is never widened by a read) —
+  trading granularity for completeness. Contiguous workloads (columnar
+  array writes, sequence pushes) of ANY size now emit a complete,
+  unflagged map instead of a partial one, so downstream verification
+  (Grillo's `changed ⊆ acquired ⊆ authorized`, `hopper test-gen`'s
+  write-containment oracle) stays conclusive; the wire format is
+  unchanged and the overflow flag now means genuinely scattered access
+  (33+ pairwise-unmergeable ranges). The generated write-containment
+  oracle judges coverage per byte against the UNION of declared ranges,
+  since a coalesced record may legitimately span two adjacent
+  declarations (each acquire was still gated individually — the runtime
+  refusal path is untouched). Mutation-disciplined: gap-bridging,
+  cross-kind widening, and silent-drop mutants are each killed by a
+  dedicated test.
 - **Fused lazy entrypoint (pay-as-you-go, no hidden memset).** The lazy
   entrypoint no longer zero-fills a 2 KB `[AccountView; 254]` on every
   invocation or pre-scan the whole account region twice: the resolved

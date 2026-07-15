@@ -139,6 +139,13 @@ pub struct SegmentBorrowRegistry {
 }
 
 /// Capacity of the instruction touch log (`touch-map` feature).
+///
+/// This caps *slots*, not coverage: at capacity the log coalesces
+/// records whose union is exactly the touched byte set (see
+/// [`touch_log`]), so contiguous workloads of any size — columnar array
+/// writes, sequence pushes — still produce a COMPLETE map. Overflow (a
+/// partial map, flagged on the wire) now requires more than this many
+/// *pairwise-unmergeable* ranges in one instruction.
 #[cfg(feature = "touch-map")]
 pub const MAX_TOUCH_RECORDS: usize = 32;
 
@@ -179,9 +186,11 @@ pub const MAX_TOUCH_RECORDS: usize = 32;
 // equation.
 //
 // Honesty rules: a map with flag bit0 set is PARTIAL — the instruction
-// touched more distinct ranges than [`MAX_TOUCH_RECORDS`]; a map with flag
-// bit1 set omitted at least one touched range it could not represent.
-// Consumers must not treat such maps as a complete effect set.
+// touched more than [`MAX_TOUCH_RECORDS`] pairwise-unmergeable ranges (the
+// log coalesces exact unions under pressure before ever declaring a map
+// partial; see [`touch_log`]); a map with flag bit1 set omitted at least
+// one touched range it could not represent. Consumers must not treat such
+// maps as a complete effect set.
 
 /// Magic byte identifying a touch-map `sol_log_data` record ('z').
 #[cfg(feature = "touch-map")]
@@ -305,12 +314,87 @@ pub fn encode_touch_map(
 ///   safety) — the same documented imprecision as the fallback borrow
 ///   registry. [`Context::new`](crate::context::Context::new) resets
 ///   the log, which keeps single-threaded hosts exact.
+///
+/// ## Degradation ladder (honesty under pressure)
+///
+/// Below capacity the log is **granular**: one record per distinct
+/// `(account, offset, size, kind)`, which is what lets `hopper tx
+/// explain` name individual fields. At capacity it **coalesces**:
+/// records whose union is exactly the touched byte set merge
+/// ([`merge_exact`]) — granularity degrades, coverage stays exact and
+/// complete, and the map carries no flag because it is not partial.
+/// Only when an incoming range cannot be absorbed AND no pair of
+/// records is mergeable does the log set `overflow` — a PARTIAL map,
+/// flagged as such on the wire. Contiguous large workloads therefore
+/// never produce a partial map; only more than [`MAX_TOUCH_RECORDS`]
+/// pairwise-unmergeable scattered ranges do.
 #[cfg(feature = "touch-map")]
 pub(crate) mod touch_log {
-    use super::{address_fingerprint, borrow_eq, AccessKind, SegmentBorrow, MAX_TOUCH_RECORDS};
+    use super::{
+        address_eq, address_fingerprint, borrow_eq, AccessKind, SegmentBorrow, MAX_TOUCH_RECORDS,
+    };
     use crate::address::Address;
 
-    /// The ambient log: an append-only, deduplicated record array.
+    /// Merge two touch records when their union is EXACTLY the byte set
+    /// the pair touched — the rule that lets a full log trade
+    /// granularity for completeness instead of declaring a partial map.
+    ///
+    /// Two records merge only when they name the same account and:
+    ///
+    /// - **same kind, overlapping or adjacent** → the union range. A gap
+    ///   never bridges: the union would claim bytes the instruction
+    ///   never touched.
+    /// - **a read wholly contained in a write** → the write record,
+    ///   unchanged. The write already claims strictly more access than
+    ///   the read, so dropping the narrower read loses no coverage. A
+    ///   write is NEVER widened by a read — that would claim write
+    ///   access to bytes that were only read.
+    ///
+    /// A same-kind union whose size exceeds `u32` is refused (both
+    /// records stay) rather than truncated — unreachable for real
+    /// accounts (10 MiB cap) but the guard keeps the function total.
+    pub(crate) fn merge_exact(a: &SegmentBorrow, b: &SegmentBorrow) -> Option<SegmentBorrow> {
+        if a.key_fp != b.key_fp || !address_eq(&a.key, &b.key) {
+            return None;
+        }
+        let a_end = a.offset as u64 + a.size as u64;
+        let b_end = b.offset as u64 + b.size as u64;
+        if a.kind == b.kind {
+            if b.offset as u64 > a_end || a.offset as u64 > b_end {
+                return None;
+            }
+            let offset = if a.offset < b.offset {
+                a.offset
+            } else {
+                b.offset
+            };
+            let end = if a_end > b_end { a_end } else { b_end };
+            let size = end - offset as u64;
+            if size > u32::MAX as u64 {
+                return None;
+            }
+            let mut merged = *a;
+            merged.offset = offset;
+            merged.size = size as u32;
+            return Some(merged);
+        }
+        // Kinds differ, so exactly one of the pair is the write.
+        let (read, write) = if a.kind == AccessKind::Write {
+            (b, a)
+        } else {
+            (a, b)
+        };
+        let read_end = read.offset as u64 + read.size as u64;
+        let write_end = write.offset as u64 + write.size as u64;
+        if write.offset <= read.offset && read_end <= write_end {
+            return Some(*write);
+        }
+        None
+    }
+
+    /// The ambient log: a deduplicated record array that releases never
+    /// shrink (the instruction's cumulative footprint) and that
+    /// coalesces exact unions under capacity pressure ([`merge_exact`]).
     ///
     /// INVARIANT (load-bearing on SBF): the all-zero byte pattern is a
     /// valid, EMPTY log — `len = 0`, `overflow = 0`, entries ignored.
@@ -352,11 +436,94 @@ pub(crate) mod touch_log {
                 i += 1;
             }
             if len >= MAX_TOUCH_RECORDS {
-                self.overflow = 1;
+                self.record_under_pressure(borrow);
                 return;
             }
             self.entries[len] = *borrow;
             self.len = (len + 1) as u8;
+        }
+
+        /// Full-log path: degrade GRANULARITY, never coverage.
+        ///
+        /// 1. **Absorb** — merge the incoming range into an existing
+        ///    record when the union is exactly the touched byte set
+        ///    ([`merge_exact`]). The backward scan hits the hot case —
+        ///    a loop extending the most recently recorded range
+        ///    (columnar writes, sequence pushes) — in one step.
+        /// 2. **Compact** — coalesce the log itself; a freed slot takes
+        ///    the incoming record verbatim.
+        /// 3. **Overflow** — only when the instruction has touched more
+        ///    than [`MAX_TOUCH_RECORDS`] pairwise-unmergeable ranges is
+        ///    the map declared partial.
+        ///
+        /// Once `overflow` is set the log is partial for good — a
+        /// dropped range cannot be un-dropped — so later records still
+        /// absorb (coverage keeps improving for free) but the
+        /// quadratic compaction is not retried.
+        fn record_under_pressure(&mut self, borrow: &SegmentBorrow) {
+            let len = self.len as usize;
+            let mut i = len;
+            while i > 0 {
+                i -= 1;
+                if let Some(merged) = merge_exact(&self.entries[i], borrow) {
+                    self.entries[i] = merged;
+                    return;
+                }
+            }
+            if self.overflow != 0 {
+                return;
+            }
+            if self.compact() {
+                let len = self.len as usize;
+                self.entries[len] = *borrow;
+                self.len = (len + 1) as u8;
+                return;
+            }
+            self.overflow = 1;
+        }
+
+        /// Coalesce every exact-mergeable pair to a fixpoint, preserving
+        /// first-touch order (a merged record keeps the slot of its
+        /// earliest constituent). Returns whether at least one slot was
+        /// freed. Bounded: each merging pass shrinks the log by at least
+        /// one record, so the outer loop runs at most
+        /// [`MAX_TOUCH_RECORDS`] times.
+        fn compact(&mut self) -> bool {
+            let before = self.len;
+            loop {
+                let mut merged_any = false;
+                let mut i = 0;
+                while i < self.len as usize {
+                    let mut j = i + 1;
+                    while j < self.len as usize {
+                        if let Some(merged) = merge_exact(&self.entries[i], &self.entries[j]) {
+                            self.entries[i] = merged;
+                            self.remove_at(j);
+                            merged_any = true;
+                            // The removal shifted the next candidate
+                            // into slot `j` — do not advance.
+                        } else {
+                            j += 1;
+                        }
+                    }
+                    i += 1;
+                }
+                if !merged_any {
+                    return self.len < before;
+                }
+            }
+        }
+
+        /// Remove `entries[idx]`, shifting the tail left so first-touch
+        /// order survives (a swap-remove would not preserve it).
+        fn remove_at(&mut self, idx: usize) {
+            let len = self.len as usize;
+            let mut k = idx;
+            while k + 1 < len {
+                self.entries[k] = self.entries[k + 1];
+                k += 1;
+            }
+            self.len = (len - 1) as u8;
         }
 
         fn for_each<F: FnMut(&SegmentBorrow)>(&self, mut f: F) {
@@ -374,7 +541,8 @@ pub(crate) mod touch_log {
         }
     }
 
-    /// Record one touch (deduplicated by exact identity).
+    /// Record one touch (deduplicated by exact identity; coalesced by
+    /// exact union once the log is full).
     #[inline]
     pub(crate) fn record(borrow: &SegmentBorrow) {
         with_log(|log| log.record(borrow));
@@ -393,7 +561,9 @@ pub(crate) mod touch_log {
         record(&borrow);
     }
 
-    /// Visit every distinct recorded range, first-touch order.
+    /// Visit every recorded range, first-touch order (a record
+    /// coalesced under pressure keeps the slot of its earliest
+    /// constituent).
     #[inline]
     pub(crate) fn for_each<F: FnMut(&SegmentBorrow)>(f: F) {
         with_log(|log| log.for_each(f));
@@ -405,7 +575,8 @@ pub(crate) mod touch_log {
         with_log(|log| log.len as usize)
     }
 
-    /// Whether the log overflowed [`MAX_TOUCH_RECORDS`] and is partial.
+    /// Whether the log dropped a range it could neither store, absorb,
+    /// nor make room for by compaction — the map is partial.
     #[inline]
     pub(crate) fn overflowed() -> bool {
         with_log(|log| log.overflow != 0)
@@ -551,7 +722,9 @@ impl SegmentBorrowRegistry {
     /// Record `borrow` in the instruction-ambient touch log (see
     /// [`touch_log`]), deduplicating by exact
     /// `(key, offset, size, kind)` identity so repeated sequential
-    /// leases of the same range appear once.
+    /// leases of the same range appear once. Once the log is full it
+    /// coalesces exact unions instead of truncating, so completeness
+    /// outlives granularity.
     #[cfg(feature = "touch-map")]
     #[inline]
     fn record_touch(&mut self, borrow: &SegmentBorrow) {
@@ -594,8 +767,10 @@ impl SegmentBorrowRegistry {
         touch_log::len()
     }
 
-    /// Whether the touch log overflowed [`MAX_TOUCH_RECORDS`] and is
-    /// therefore partial (`touch-map` feature).
+    /// Whether the touch log dropped a range — more than
+    /// [`MAX_TOUCH_RECORDS`] pairwise-unmergeable ranges were touched —
+    /// and the map is therefore partial (`touch-map` feature). Full
+    /// logs coalesce exact unions before ever reporting `true` here.
     #[cfg(feature = "touch-map")]
     #[inline(always)]
     pub fn touch_map_overflowed(&self) -> bool {
@@ -1480,6 +1655,9 @@ mod touch_map_tests {
         let mut reg = SegmentBorrowRegistry::new();
         // Touch more distinct ranges than the log holds. Register/release
         // pairs keep the live ledger small while the touch log accumulates.
+        // The stride leaves an 8-byte gap between consecutive ranges, so no
+        // exact union exists and coalescing cannot save the map — the
+        // honest outcome is a flagged partial log.
         let mut i: u32 = 0;
         while (i as usize) < MAX_TOUCH_RECORDS + 3 {
             let b = reg.register_leased_read(&key(9), i * 16, 8).unwrap();
@@ -1488,6 +1666,197 @@ mod touch_map_tests {
         }
         assert_eq!(reg.touch_map_len(), MAX_TOUCH_RECORDS);
         assert!(reg.touch_map_overflowed());
+    }
+
+    /// The columnar pattern (Sentinel's `record_entry`, `Seq` pushes) at
+    /// a scale the granular log cannot hold: contiguous cells must
+    /// coalesce into exact unions — a COMPLETE, unflagged map — instead
+    /// of truncating into a partial one.
+    #[test]
+    fn columnar_contiguous_writes_coalesce_instead_of_overflowing() {
+        let mut reg = SegmentBorrowRegistry::new();
+        let cells = MAX_TOUCH_RECORDS * 4;
+        let mut i: u32 = 0;
+        while (i as usize) < cells {
+            let b = reg.register_leased_write(&key(7), i * 8, 8).unwrap();
+            reg.release(&b);
+            i += 1;
+        }
+        // Granularity degraded, coverage did not: no overflow flag, and
+        // the records' union is exactly [0, cells * 8) — no gap (nothing
+        // touched went missing) and no byte beyond it (nothing untouched
+        // was claimed).
+        assert!(!reg.touch_map_overflowed());
+        assert!(reg.touch_map_len() <= MAX_TOUCH_RECORDS);
+        let total = cells as u64 * 8;
+        let mut ranges = std::vec::Vec::new();
+        reg.for_each_touch(|t| {
+            assert_eq!(t.kind, AccessKind::Write);
+            assert_eq!(t.key, key(7));
+            let end = t.offset as u64 + t.size as u64;
+            assert!(end <= total, "coalesced record claims untouched bytes");
+            ranges.push((t.offset as u64, end));
+        });
+        ranges.sort_unstable();
+        let mut covered_to = 0u64;
+        for (start, end) in ranges {
+            assert!(
+                start <= covered_to,
+                "gap in coalesced coverage at {covered_to}"
+            );
+            if end > covered_to {
+                covered_to = end;
+            }
+        }
+        assert_eq!(covered_to, total);
+    }
+
+    /// Under pressure, a read wholly inside an existing write is
+    /// absorbed (the write already claims strictly more access), while a
+    /// read poking OUTSIDE the write must never vanish into it — that
+    /// union would fake write access to bytes that were only read. With
+    /// every slot pairwise-unmergeable, the honest outcome for the
+    /// poking read is the overflow flag.
+    #[test]
+    fn pressure_absorbs_contained_reads_but_never_widens_a_write() {
+        let mut reg = SegmentBorrowRegistry::new();
+        let w = reg.register_leased_write(&key(1), 0, 64).unwrap();
+        reg.release(&w);
+        // Fill the remaining slots with gap-separated reads on another
+        // account so nothing same-kind can merge.
+        let mut i: u32 = 0;
+        while (i as usize) < MAX_TOUCH_RECORDS - 1 {
+            let b = reg.register_leased_read(&key(2), i * 16, 8).unwrap();
+            reg.release(&b);
+            i += 1;
+        }
+        assert_eq!(reg.touch_map_len(), MAX_TOUCH_RECORDS);
+        assert!(!reg.touch_map_overflowed());
+
+        // Contained read: absorbed, still complete.
+        let r = reg.register_leased_read(&key(1), 4, 4).unwrap();
+        reg.release(&r);
+        assert_eq!(reg.touch_map_len(), MAX_TOUCH_RECORDS);
+        assert!(!reg.touch_map_overflowed());
+
+        // Read straddling the write's end: not absorbable, not
+        // compactable — flagged partial, and the write stays EXACTLY as
+        // acquired.
+        let r2 = reg.register_leased_read(&key(1), 60, 8).unwrap();
+        reg.release(&r2);
+        assert!(reg.touch_map_overflowed());
+        reg.for_each_touch(|t| {
+            if t.kind == AccessKind::Write {
+                assert_eq!((t.key, t.offset, t.size), (key(1), 0, 64));
+            }
+        });
+    }
+
+    /// The reverse absorption: a write covering an already-recorded read
+    /// upgrades that slot to the write — a kind that genuinely occurred,
+    /// over a superset of the bytes — instead of overflowing.
+    #[test]
+    fn pressure_upgrades_contained_read_to_the_covering_write() {
+        let mut reg = SegmentBorrowRegistry::new();
+        let r = reg.register_leased_read(&key(1), 4, 4).unwrap();
+        reg.release(&r);
+        let mut i: u32 = 0;
+        while (i as usize) < MAX_TOUCH_RECORDS - 1 {
+            let b = reg.register_leased_read(&key(2), i * 16, 8).unwrap();
+            reg.release(&b);
+            i += 1;
+        }
+        assert_eq!(reg.touch_map_len(), MAX_TOUCH_RECORDS);
+
+        let w = reg.register_leased_write(&key(1), 0, 64).unwrap();
+        reg.release(&w);
+        assert!(!reg.touch_map_overflowed());
+        assert_eq!(reg.touch_map_len(), MAX_TOUCH_RECORDS);
+        let mut key1_records = std::vec::Vec::new();
+        reg.for_each_touch(|t| {
+            if t.key == key(1) {
+                key1_records.push((t.offset, t.size, t.kind));
+            }
+        });
+        assert_eq!(key1_records, [(0, 64, AccessKind::Write)]);
+    }
+
+    /// When the incoming range cannot be absorbed anywhere, compaction
+    /// folds mergeable neighbors to free a slot — and first-touch order
+    /// survives (the merged record keeps its earliest constituent's
+    /// slot; the newcomer appends after).
+    #[test]
+    fn pressure_compaction_reclaims_slots_from_mergeable_neighbors() {
+        let mut reg = SegmentBorrowRegistry::new();
+        // 32 pairwise-ADJACENT reads: below capacity they stay granular.
+        let mut i: u32 = 0;
+        while (i as usize) < MAX_TOUCH_RECORDS {
+            let b = reg.register_leased_read(&key(5), i * 8, 8).unwrap();
+            reg.release(&b);
+            i += 1;
+        }
+        assert_eq!(reg.touch_map_len(), MAX_TOUCH_RECORDS);
+        assert!(!reg.touch_map_overflowed());
+
+        // A range on another account absorbs nowhere; compaction folds
+        // the adjacent reads into one exact-union record and the
+        // newcomer takes a freed slot. No overflow.
+        let b = reg.register_leased_write(&key(6), 0, 8).unwrap();
+        reg.release(&b);
+        assert!(!reg.touch_map_overflowed());
+        assert_eq!(reg.touch_map_len(), 2);
+        let mut seen = std::vec::Vec::new();
+        reg.for_each_touch(|t| seen.push((t.key, t.offset, t.size, t.kind)));
+        assert_eq!(
+            seen[0],
+            (key(5), 0, MAX_TOUCH_RECORDS as u32 * 8, AccessKind::Read)
+        );
+        assert_eq!(seen[1], (key(6), 0, 8, AccessKind::Write));
+    }
+
+    /// The merge rule itself, pinned edge by edge: exact unions only.
+    #[test]
+    fn merge_exact_rules_are_exact_union_only() {
+        use super::touch_log::merge_exact;
+        let mk = |offset: u32, size: u32, kind: AccessKind| SegmentBorrow {
+            key_fp: address_fingerprint(&key(1)),
+            key: key(1),
+            offset,
+            size,
+            kind,
+        };
+        // Same kind: adjacency and overlap merge to the exact union.
+        let m = merge_exact(&mk(0, 8, AccessKind::Write), &mk(8, 8, AccessKind::Write)).unwrap();
+        assert_eq!((m.offset, m.size, m.kind), (0, 16, AccessKind::Write));
+        let m = merge_exact(&mk(4, 8, AccessKind::Read), &mk(0, 6, AccessKind::Read)).unwrap();
+        assert_eq!((m.offset, m.size, m.kind), (0, 12, AccessKind::Read));
+        // A gap never bridges — the union would claim untouched bytes.
+        assert!(merge_exact(&mk(0, 8, AccessKind::Write), &mk(9, 8, AccessKind::Write)).is_none());
+        // Different accounts never merge.
+        let other = SegmentBorrow {
+            key_fp: address_fingerprint(&key(2)),
+            key: key(2),
+            offset: 8,
+            size: 8,
+            kind: AccessKind::Write,
+        };
+        assert!(merge_exact(&mk(0, 8, AccessKind::Write), &other).is_none());
+        // Cross-kind: a contained read is absorbed by the write,
+        // unchanged, in either argument order...
+        let m = merge_exact(&mk(4, 4, AccessKind::Read), &mk(0, 64, AccessKind::Write)).unwrap();
+        assert_eq!((m.offset, m.size, m.kind), (0, 64, AccessKind::Write));
+        let m = merge_exact(&mk(0, 64, AccessKind::Write), &mk(4, 4, AccessKind::Read)).unwrap();
+        assert_eq!((m.offset, m.size, m.kind), (0, 64, AccessKind::Write));
+        // ...but a read poking outside the write must NOT merge — the
+        // union would fake write access to read-only bytes.
+        assert!(merge_exact(&mk(60, 8, AccessKind::Read), &mk(0, 64, AccessKind::Write)).is_none());
+        assert!(merge_exact(&mk(0, 64, AccessKind::Write), &mk(60, 8, AccessKind::Read)).is_none());
+        // A same-kind union too large for u32 is refused, not truncated.
+        assert!(merge_exact(
+            &mk(0, u32::MAX, AccessKind::Write),
+            &mk(u32::MAX - 1, 2, AccessKind::Write),
+        )
+        .is_none());
     }
 
     #[test]

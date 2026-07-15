@@ -94,6 +94,11 @@ pub enum InconclusiveReason {
     /// The touch map is partial (`overflowed` and/or `skipped`). It does not
     /// enumerate the instruction's complete effect set, so byte attribution
     /// is impossible — Grillo returns this rather than risk a false PASS.
+    /// Rare by construction: the runtime coalesces exact unions under
+    /// capacity pressure, so `overflowed` requires more than
+    /// [`MAX_TOUCH_RECORDS`](crate::MAX_TOUCH_RECORDS) pairwise-unmergeable
+    /// ranges in one instruction, and `skipped` requires an offset beyond
+    /// 2³¹ (unreachable for real accounts, which cap at 10 MiB).
     PartialTouchMap { overflowed: bool, skipped: bool },
 }
 
