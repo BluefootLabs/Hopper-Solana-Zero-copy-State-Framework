@@ -1,0 +1,197 @@
+{
+  "name": "hopper-sentinel",
+  "version": "0.2.1",
+  "description": "SENTINEL: a compromised privileged handler that writes outside its declared byte segment is refused by the framework, before any byte changes — proven on compiled SBF bytecode.",
+  "layouts": [
+    {
+      "name": "Config",
+      "disc": 1,
+      "version": 1,
+      "layoutId": "e4f62369402dfdc9",
+      "totalSize": 144,
+      "fieldCount": 7,
+      "fields": [
+        { "name": "admin", "type": "Address", "size": 32, "offset": 16, "intent": "custom" },
+        { "name": "pending_admin", "type": "Address", "size": 32, "offset": 48, "intent": "custom" },
+        { "name": "withdraw_authority", "type": "Address", "size": 32, "offset": 80, "intent": "custom" },
+        { "name": "fee_bps", "type": "WireU16", "size": 2, "offset": 112, "intent": "custom" },
+        { "name": "paused", "type": "u8", "size": 1, "offset": 114, "intent": "custom" },
+        { "name": "revision", "type": "WireU64", "size": 8, "offset": 115, "intent": "custom" },
+        { "name": "reserved", "type": "[u8;21]", "size": 21, "offset": 123, "intent": "custom" }
+      ],
+      "semanticFingerprint": "b6cadafc943a7ff2"
+    },
+    {
+      "name": "Ledger",
+      "disc": 2,
+      "version": 1,
+      "layoutId": "1d387d0a863239a1",
+      "totalSize": 9620,
+      "fieldCount": 2,
+      "fields": [
+        { "name": "count", "type": "WireU32", "size": 4, "offset": 16, "intent": "custom" },
+        { "name": "entries", "type": "[LedgerEntry;LEDGER_CAPACITY]", "size": 9600, "offset": 20, "intent": "custom" }
+      ],
+      "semanticFingerprint": "93c38cf42d64896b"
+    }
+  ],
+  "instructions": [
+    {
+      "name": "initialize_config",
+      "tag": 0,
+      "args": [
+        { "name": "fee_bps", "type": "u16", "size": 2 }
+      ],
+      "accounts": [
+        { "name": "payer", "writable": true, "signer": true },
+        { "name": "config", "writable": true, "signer": false, "layoutRef": "Config" },
+        { "name": "system_program", "writable": false, "signer": false }
+      ],
+      "capabilities": [],
+      "policyPack": "",
+      "receiptExpected": false,
+      "strictWrites": false,
+      "writeRanges": []
+    },
+    {
+      "name": "honest_pause",
+      "tag": 1,
+      "args": [],
+      "accounts": [
+        { "name": "admin", "writable": false, "signer": true },
+        { "name": "config", "writable": true, "signer": false, "layoutRef": "Config" }
+      ],
+      "capabilities": [],
+      "policyPack": "",
+      "receiptExpected": false,
+      "strictWrites": true,
+      "writeRanges": [
+        { "account": "config", "accountIndex": 1, "offset": 114, "size": 1 },
+        { "account": "config", "accountIndex": 1, "offset": 115, "size": 8 }
+      ]
+    },
+    {
+      "name": "unpause",
+      "tag": 3,
+      "args": [],
+      "accounts": [
+        { "name": "admin", "writable": false, "signer": true },
+        { "name": "config", "writable": true, "signer": false, "layoutRef": "Config" }
+      ],
+      "capabilities": [],
+      "policyPack": "",
+      "receiptExpected": false,
+      "strictWrites": true,
+      "writeRanges": [
+        { "account": "config", "accountIndex": 1, "offset": 114, "size": 1 },
+        { "account": "config", "accountIndex": 1, "offset": 115, "size": 8 }
+      ]
+    },
+    {
+      "name": "initialize_ledger",
+      "tag": 4,
+      "args": [],
+      "accounts": [
+        { "name": "payer", "writable": true, "signer": true },
+        { "name": "ledger", "writable": true, "signer": false, "layoutRef": "Ledger" },
+        { "name": "system_program", "writable": false, "signer": false }
+      ],
+      "capabilities": [],
+      "policyPack": "",
+      "receiptExpected": false,
+      "strictWrites": false,
+      "writeRanges": []
+    },
+    {
+      "name": "begin_admin_transfer",
+      "tag": 6,
+      "args": [
+        { "name": "new_admin", "type": "Address", "size": 32 }
+      ],
+      "accounts": [
+        { "name": "admin", "writable": false, "signer": true },
+        { "name": "config", "writable": true, "signer": false, "layoutRef": "Config" }
+      ],
+      "capabilities": [],
+      "policyPack": "",
+      "receiptExpected": false,
+      "strictWrites": true,
+      "writeRanges": [
+        { "account": "config", "accountIndex": 1, "offset": 48, "size": 32 },
+        { "account": "config", "accountIndex": 1, "offset": 115, "size": 8 }
+      ]
+    },
+    {
+      "name": "accept_admin_transfer",
+      "tag": 7,
+      "args": [],
+      "accounts": [
+        { "name": "pending_admin", "writable": false, "signer": true },
+        { "name": "config", "writable": true, "signer": false, "layoutRef": "Config" }
+      ],
+      "capabilities": [],
+      "policyPack": "",
+      "receiptExpected": false,
+      "strictWrites": true,
+      "writeRanges": [
+        { "account": "config", "accountIndex": 1, "offset": 16, "size": 32 },
+        { "account": "config", "accountIndex": 1, "offset": 48, "size": 32 },
+        { "account": "config", "accountIndex": 1, "offset": 115, "size": 8 }
+      ]
+    },
+    {
+      "name": "collect_fees",
+      "tag": 8,
+      "args": [
+        { "name": "_amount", "type": "u64", "size": 8 }
+      ],
+      "accounts": [
+        { "name": "config", "writable": true, "signer": false, "layoutRef": "Config" },
+        { "name": "fee_sink", "writable": false, "signer": false },
+        { "name": "treasury", "writable": false, "signer": false },
+        { "name": "admin", "writable": false, "signer": true }
+      ],
+      "capabilities": [],
+      "policyPack": "",
+      "receiptExpected": false,
+      "strictWrites": true,
+      "mutationComplete": true,
+      "lamportAccounts": [1],
+      "writeRanges": [
+        { "account": "config", "accountIndex": 0, "offset": 115, "size": 8 }
+      ]
+    }
+  ],
+  "events": [],
+  "policies": [],
+  "compatRules": [],
+  "receiptSchema": {
+    "size": 72,
+    "legacySize": 64,
+    "fields": [
+      { "name": "layout_id", "type": "bytes", "offset": 0, "size": 8 },
+      { "name": "changed_fields", "type": "u64", "offset": 8, "size": 8 },
+      { "name": "changed_bytes", "type": "u32", "offset": 16, "size": 4 },
+      { "name": "changed_regions", "type": "u16", "offset": 20, "size": 2 },
+      { "name": "old_size", "type": "u32", "offset": 22, "size": 4 },
+      { "name": "new_size", "type": "u32", "offset": 26, "size": 4 },
+      { "name": "invariants_checked", "type": "u16", "offset": 30, "size": 2 },
+      { "name": "flags", "type": "u8", "offset": 32, "size": 1 },
+      { "name": "before_fingerprint", "type": "bytes", "offset": 33, "size": 8 },
+      { "name": "after_fingerprint", "type": "bytes", "offset": 41, "size": 8 },
+      { "name": "segment_changed_mask", "type": "u16", "offset": 49, "size": 2 },
+      { "name": "policy_flags", "type": "u32", "offset": 51, "size": 4 },
+      { "name": "journal_appends", "type": "u16", "offset": 55, "size": 2 },
+      { "name": "cpi_count", "type": "u8", "offset": 57, "size": 1 },
+      { "name": "phase", "type": "u8", "offset": 58, "size": 1 },
+      { "name": "validation_bundle_id", "type": "u16", "offset": 59, "size": 2 },
+      { "name": "compat_impact", "type": "u8", "offset": 61, "size": 1 },
+      { "name": "migration_flags", "type": "u8", "offset": 62, "size": 1 },
+      { "name": "failed_invariant_idx", "type": "u8", "offset": 63, "size": 1 },
+      { "name": "failed_error_code", "type": "u32", "offset": 64, "size": 4 },
+      { "name": "failure_stage", "type": "u8", "offset": 68, "size": 1 },
+      { "name": "reserved", "type": "bytes", "offset": 69, "size": 3 }
+    ]
+  },
+  "toolingHints": []
+}

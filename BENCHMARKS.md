@@ -680,6 +680,52 @@ too large for one transaction) and the `--overwrite` `SetData` rewrite
 remain unit-tested only; this run exercised the fresh single-transaction
 path.
 
+### Sentinel: the byte-range refusal, live (devnet, 2026-07-14)
+
+The flagship moat claim — an out-of-policy byte write is refused by the
+framework with `Custom(0xD000 | account_index)` at borrow acquisition,
+before any byte changes — proven for the first time beyond the host
+harness, at all three levels in one day: hopper-svm (host), Mollusk on
+the compiled `.so` (SBF), and a live devnet cluster.
+`examples/hopper-sentinel` is the program; its `Pause` context declares
+`mut(paused, revision)` and its `malicious_pause` handler is the
+Drift-class tamper: the same honest writes, then an admin-key rotation
+through the governed `ctx.segment_mut` path.
+
+| Field | Value |
+|---|---|
+| Program | `CqkFhE8UVHRTJZLirEBVS1xcsZNtuNop8HniRRDWVJFC` |
+| Config account | `13G2wXZ9kbX9rjcS184nGafSkddPnqq9cpjX3HkBzS5s` |
+| Deploy | `394VyGZSKPLFWWq7P2PgVWtJGWyPpjDqryzdMhPdpQuvpm6qJ9pMG396RWZWaMzcgvfucZbZxbzo4PzLoMM4i8uk` |
+| `initialize_config` | `o3SoGa3FJtqbBWv9jV4U4E1homnShPnmSbt46Rxr78okwvbAX1BR3aS2cvk6cEFfU1yjWsAJ7YUxoKF4psy3Q7f` — 1,724 CU |
+| `honest_pause` (Ok) | `yrowCoAHkd1BsTj3vRgFomExU7YBTvkr6GpqZc3JaZLC24ShYqtc3xTcz8N1yvWbHEHbe9atEokb2uABj4uxZnY` — **1,203 CU, exactly the Mollusk figure** |
+| `malicious_pause` (REFUSED) | `TszXg6YGWNGfzrfbd2ekCMcN2BzjcTKxkPEmWo8dMWjcu4qHXSkJS6QSq8fhGZU77e4zk6HJBaaFVM47fEx6X9Z` — `Custom(53249)` = `0xD001`, **616 CU, exactly the Mollusk figure** |
+
+Landing a transaction the program is going to refuse requires skipping
+preflight simulation; `hopper tx send --allow-failure` (added for this
+run) does that and reports the on-chain error as data. Post-refusal
+state verified by fetching the account: `paused = 1`, `revision = 1`
+(the honest writes), and the admin field byte-for-byte equal to the
+original authority — not the attacker constant the tampered handler
+tried to write. The honest transaction is self-describing: `hopper tx
+explain <sig> --manifest <from-source manifest>` names the instruction
+(`honest_pause`) and decodes its live touch map to exactly the declared
+ranges, `W [114..115) → Config.paused` and `W [115..123) →
+Config.revision`. These are the third and fourth consecutive exact
+lab==live CU matches in this document (after the event and migration
+rows), now including a *refusal* path. Decoder nit worth recording:
+`tx explain` lists field-name candidates from every layout in the
+manifest (the range annotation shows `Config.paused, Ledger.entries`)
+rather than disambiguating by the account's disc byte — cosmetic,
+tracked as a CLI follow-up.
+
+Adversarial verification (mutation discipline, pre-deploy): widening
+the declaration to `mut(admin, paused, revision)` made the malicious
+write *succeed* on both host and compiled SBF (830 CU success vs 616
+CU refusal), then reverting restored the refusal — pinning the
+refusal's only possible source as the framework write policy compiled
+from the declaration.
+
 ### Bytecode size vs the competitor sources
 
 Compared against the extracted competitor trees at

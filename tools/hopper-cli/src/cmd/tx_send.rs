@@ -22,6 +22,11 @@
 //!   keypair; the send is refused BEFORE the RPC round-trip otherwise.
 //! - `--data <hex>` is the raw instruction data (optional `0x` prefix;
 //!   empty/omitted sends zero bytes).
+//! - `--allow-failure` skips preflight simulation and lands the
+//!   transaction even when the program will refuse it, then reports the
+//!   on-chain error as data. This is how you put a *refusal* on the
+//!   record: a strict-writes violation (`Custom(0xD0__)`) only becomes
+//!   a citable signature if the RPC is not allowed to reject it first.
 //! - `--dry-run` prints the exact instruction plan and signer coverage
 //!   without touching the network — same preview discipline as
 //!   `publish-idl`.
@@ -122,7 +127,7 @@ fn print_usage() {
     eprintln!("Usage: hopper tx send --program <pubkey> [--data <hex>]");
     eprintln!("           --account <pubkey|payer>[:s][:w] ...   (ordered; repeat per slot)");
     eprintln!("           --keypair <path> [--signer <path>]... [--rpc <url>]");
-    eprintln!("           [--compute-limit <units>] [--dry-run]");
+    eprintln!("           [--compute-limit <units>] [--allow-failure] [--dry-run]");
     eprintln!();
     eprintln!("Send one instruction with explicit account metas and raw hex data,");
     eprintln!("signed locally — the generic instruction sender the stock tooling");
@@ -146,6 +151,7 @@ pub fn cmd_tx_send(args: &[String]) {
     let mut extra_signer_paths: Vec<String> = Vec::new();
     let mut rpc: Option<String> = None;
     let mut compute_limit: Option<u32> = None;
+    let mut allow_failure = false;
     let mut dry_run = false;
 
     let mut i = 0;
@@ -191,6 +197,7 @@ pub fn cmd_tx_send(args: &[String]) {
                 i += 1;
                 compute_limit = args.get(i).and_then(|v| v.parse().ok());
             }
+            "--allow-failure" => allow_failure = true,
             "--dry-run" => dry_run = true,
             other => {
                 eprintln!("unknown arg: {other}");
@@ -209,6 +216,7 @@ pub fn cmd_tx_send(args: &[String]) {
         &extra_signer_paths,
         rpc.as_deref(),
         compute_limit,
+        allow_failure,
         dry_run,
     ) {
         eprintln!("hopper tx send failed: {e}");
@@ -225,6 +233,7 @@ fn run_send(
     extra_signer_paths: &[String],
     rpc: Option<&str>,
     compute_limit: Option<u32>,
+    allow_failure: bool,
     dry_run: bool,
 ) -> Result<(), String> {
     let program_id = program
@@ -322,6 +331,9 @@ fn run_send(
     if let Some(cu) = compute_limit {
         println!("cu limit  : {cu}");
     }
+    if allow_failure {
+        println!("preflight : skipped (--allow-failure; an on-chain refusal will land)");
+    }
     if dry_run {
         println!();
         println!("dry run: nothing sent.");
@@ -354,9 +366,45 @@ fn run_send(
         &all_signers,
         blockhash,
     );
-    let signature = client
-        .send_and_confirm_transaction(&tx)
-        .map_err(|e| format!("send_and_confirm failed: {e}"))?;
+    let signature = if allow_failure {
+        // Preflight simulation would reject a tx the program is going to
+        // refuse — but landing that refusal IS the goal here. Send raw,
+        // then poll for a commitment-level status ourselves, treating
+        // "confirmed with a program error" as a successful LANDING.
+        use solana_client::rpc_config::RpcSendTransactionConfig;
+        let sig = client
+            .send_transaction_with_config(
+                &tx,
+                RpcSendTransactionConfig {
+                    skip_preflight: true,
+                    ..RpcSendTransactionConfig::default()
+                },
+            )
+            .map_err(|e| format!("send (skip-preflight) failed: {e}"))?;
+        let mut landed = false;
+        for _ in 0..30 {
+            std::thread::sleep(std::time::Duration::from_secs(2));
+            if let Ok(resp) = client.get_signature_statuses(&[sig]) {
+                if let Some(Some(status)) = resp.value.first() {
+                    if status.confirmation_status.is_some() {
+                        landed = true;
+                        break;
+                    }
+                }
+            }
+        }
+        if !landed {
+            return Err(format!(
+                "transaction {sig} was sent but did not reach confirmed commitment within \
+                 60s; check the explorer before retrying"
+            ));
+        }
+        sig
+    } else {
+        client
+            .send_and_confirm_transaction(&tx)
+            .map_err(|e| format!("send_and_confirm failed: {e}"))?
+    };
     println!();
     println!("signature : {signature}");
     println!("confirmed : yes");
@@ -365,6 +413,14 @@ fn run_send(
     // effort: a lagging RPC must not turn a landed tx into an error.
     match super::tx_explain::rpc_get_transaction(&rpc_url, &signature.to_string()) {
         Ok(result) => {
+            match result.get("meta").and_then(|m| m.get("err")) {
+                Some(err) if !err.is_null() => {
+                    // The refusal, on the record: report it as data, not
+                    // as a tool failure — the send did exactly its job.
+                    println!("program   : REFUSED — {err}");
+                }
+                _ => println!("program   : Ok"),
+            }
             if let Some(cu) = result
                 .get("meta")
                 .and_then(|m| m.get("computeUnitsConsumed"))

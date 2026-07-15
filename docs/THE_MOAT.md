@@ -208,14 +208,20 @@ casting through the upstream account type's single per-account `borrow_state` by
 | (ii) stale account view after CPI | The mask neither binds a borrow to a byte range nor re-checks it across a CPI, so a view taken before a CPI that mutates/reallocs the account can be used after | A live byte-range write lease rejects any conflicting acquire over those bytes (the borrow a CPI-passing helper or later reader would take) until it is released; the account borrow byte enforces the same at whole-account granularity | `segment_borrow.rs::SegmentBorrowRegistry::register`; `hopper-native::AccountView::try_borrow`/`try_borrow_mut` | `a_live_segment_borrow_blocks_the_access_a_stale_view_would_need` (host) |
 | (iii) realloc payer / min-len edges | The mask marks the reallocated account as written but carries none of the rent/size arithmetic, so an underfunded grow, a non-signer/non-writable top-up payer, or a runaway grow-chain is not caught by borrow tracking | Rent, funding, and payer signer+writable are preflighted strictly before the resize; a per-instruction `ReallocGuard` caps cumulative growth | `account/lifecycle.rs::safe_realloc`; `account/realloc_guard.rs::ReallocGuard` | `realloc_preflights_payer_funding_and_bounds_growth_before_resizing` (host) |
 
-Honesty note on levels: all three pins are **host-level** — they exercise the
-guard directly over fabricated `RuntimeAccount` buffers. The `Context` wiring
-that consults `WritePolicy` at each write acquire is separately exercised in
-`context.rs::write_policy_tests`; classes (i) and (ii) are *structurally*
-harder in Hopper because acquisition is centralized through a byte-range ledger
-the runtime owns, but the byte-range enforcement of a realloc that physically
-moves an account's data pointer under a held view is an on-chain effect, not
-reachable in a host unit test (tracked as a `hopper-svm` follow-up).
+Honesty note on levels: the three *bug-class pins above* are **host-level** —
+they exercise the guard directly over fabricated `RuntimeAccount` buffers, and
+the byte-range enforcement of a realloc that physically moves an account's data
+pointer under a held view remains an on-chain effect not reachable in a host
+unit test (tracked as a `hopper-svm` follow-up). **The core refusal itself is
+no longer host-only.** As of 2026-07-14 it is proven at all three levels:
+host (`hopper-svm`), compiled SBF (Mollusk executing the real
+`hopper_sentinel.so`), and a **live devnet transaction** — program
+`CqkFhE8UVHRTJZLirEBVS1xcsZNtuNop8HniRRDWVJFC`, refusal signature
+`TszXg6YGWNGfzrfbd2ekCMcN2BzjcTKxkPEmWo8dMWjcu4qHXSkJS6QSq8fhGZU77e4zk6HJBaaFVM47fEx6X9Z`
+(`Custom(0xD001)` at 616 CU, exactly the Mollusk figure; post-refusal admin
+bytes fetched and verified unchanged). The demo is mutation-tested: widening
+the declared write-set made the same attack succeed, and reverting restored
+the refusal (`examples/hopper-sentinel`, BENCHMARKS "Sentinel" section).
 
 ## Tier 3 — copyable in a weekend (never lead with these)
 

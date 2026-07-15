@@ -140,21 +140,36 @@ cell. (`Ledger` is sized so the whole account — 9,620 bytes — fits a single
 
 ## Proven vs deferred
 
-**Proven now (host + compiled SBF):**
+**Proven now (host + compiled SBF + LIVE DEVNET):**
 
 - the refusal, on real bytecode, with the exact `Custom(0xD000 | account_index)`
   error and the admin bytes provably unchanged;
 - published == enforced (one const, three surfaces);
-- the Ok-path touch map, exact ranges, on host and SBF;
+- the Ok-path touch map, exact ranges, on host and SBF — and decoded from the
+  live transaction with `hopper tx explain` + the from-source manifest;
 - writable → read-only demotion via `effective_writable`;
 - the columnar per-record write and the two-step admin transfer.
 
-**Deferred to the devnet orchestrator follow-up:**
+## Live on devnet (2026-07-14)
 
-- the identical refusal in a real transaction against a live cluster
-  (Mollusk is a faithful in-process SVM — same loader, same compute meter, same
-  transaction result — so the on-chain behavior is already exercised; devnet
-  adds a real fee payer, a real slot, and a signature you can look up).
+| Field | Value |
+|---|---|
+| Program | `CqkFhE8UVHRTJZLirEBVS1xcsZNtuNop8HniRRDWVJFC` |
+| Config account | `13G2wXZ9kbX9rjcS184nGafSkddPnqq9cpjX3HkBzS5s` |
+| `initialize_config` | `o3SoGa3FJtqbBWv9jV4U4E1homnShPnmSbt46Rxr78okwvbAX1BR3aS2cvk6cEFfU1yjWsAJ7YUxoKF4psy3Q7f` — 1,724 CU |
+| `honest_pause` (Ok) | `yrowCoAHkd1BsTj3vRgFomExU7YBTvkr6GpqZc3JaZLC24ShYqtc3xTcz8N1yvWbHEHbe9atEokb2uABj4uxZnY` — **1,203 CU, exactly the Mollusk figure** |
+| `malicious_pause` (REFUSED) | `TszXg6YGWNGfzrfbd2ekCMcN2BzjcTKxkPEmWo8dMWjcu4qHXSkJS6QSq8fhGZU77e4zk6HJBaaFVM47fEx6X9Z` — `Custom(53249)` = `0xD001`, **616 CU, exactly the Mollusk figure** |
+
+The refusal landed on-chain via `hopper tx send --allow-failure` (skips
+preflight so a transaction the program is going to refuse can reach the
+cluster and become citable). Post-refusal state, fetched from devnet:
+`paused = 1`, `revision = 1` (the honest writes), admin byte-for-byte equal
+to `HoppRy1HbNcHus9rmubDdXejDqAmhi55AURiCrq6tvxT` — not the `0xAA…AA`
+attacker constant the tampered handler tried to write. The honest
+transaction names itself: `hopper tx explain <sig> --manifest
+hopper.manifest.json` matches `honest_pause (tag 1)` and decodes the live
+touch map to exactly `W [114..115) → Config.paused` and
+`W [115..123) → Config.revision`.
 
 ## The honest boundary
 
