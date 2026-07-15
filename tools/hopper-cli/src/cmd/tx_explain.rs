@@ -35,6 +35,7 @@ pub fn cmd_tx_explain(args: &[String]) {
     let mut signature: Option<String> = None;
     let mut rpc: Option<String> = None;
     let mut show_raw_logs = false;
+    let mut show_tree = false;
     let mut manifest_path: Option<String> = None;
     let mut i = 0;
     while i < args.len() {
@@ -48,6 +49,7 @@ pub fn cmd_tx_explain(args: &[String]) {
                 manifest_path = args.get(i).cloned();
             }
             "--raw-logs" => show_raw_logs = true,
+            "--tree" => show_tree = true,
             other if !other.starts_with("--") && signature.is_none() => {
                 signature = Some(other.to_string());
             }
@@ -79,6 +81,7 @@ pub fn cmd_tx_explain(args: &[String]) {
         &rpc_url,
         &signature,
         show_raw_logs,
+        show_tree,
         local_manifest.as_deref(),
     ) {
         eprintln!("hopper tx explain failed: {e}");
@@ -87,7 +90,7 @@ pub fn cmd_tx_explain(args: &[String]) {
 }
 
 fn print_usage() {
-    eprintln!("Usage: hopper tx explain <signature> [--rpc <url>] [--raw-logs]");
+    eprintln!("Usage: hopper tx explain <signature> [--rpc <url>] [--tree] [--raw-logs]");
     eprintln!();
     eprintln!("Fetch a confirmed transaction by signature and decode every");
     eprintln!("instruction against the target Hopper program's on-chain manifest.");
@@ -96,6 +99,9 @@ fn print_usage() {
     eprintln!("  --rpc <url>        RPC endpoint (default from config / env)");
     eprintln!("  --manifest <file> Local manifest used to map disc bytes to instruction");
     eprintln!("                    names when the program has no on-chain manifest");
+    eprintln!("  --tree             Render the CPI call tree (per-frame CU + the touch");
+    eprintln!("                     maps each frame emitted) — the call graph annotated");
+    eprintln!("                     with byte-level state effects");
     eprintln!("  --raw-logs         Print the full Program-log stream verbatim");
 }
 
@@ -148,6 +154,7 @@ fn run_explain(
     rpc_url: &str,
     signature: &str,
     show_raw_logs: bool,
+    show_tree: bool,
     local_manifest: Option<&str>,
 ) -> Result<(), String> {
     // Validate the signature is base58 before we spend a round-trip.
@@ -312,6 +319,30 @@ fn run_explain(
                 );
                 for line in render_event(ev, manifest) {
                     println!("    {line}");
+                }
+            }
+        }
+    }
+
+    // The CPI call tree: who called whom, per-frame CU, and the touch
+    // maps each frame emitted. Opt-in (`--tree`) because a flat
+    // single-program transaction reads fine without it; it earns its
+    // place the moment a transaction chains through more than one program.
+    if show_tree {
+        if let Some(logs) = meta
+            .and_then(|m| m.get("logMessages"))
+            .and_then(Value::as_array)
+        {
+            let log_lines: Vec<&str> = logs.iter().filter_map(Value::as_str).collect();
+            let tree = build_cpi_tree(&log_lines);
+            if tree.is_empty() {
+                println!();
+                println!("cpi call tree: (no program frames in the log stream)");
+            } else {
+                println!();
+                println!("cpi call tree (depth, outcome, CU, and per-frame state effects):");
+                for line in render_cpi_tree(&tree) {
+                    println!("  {line}");
                 }
             }
         }
@@ -771,6 +802,221 @@ fn extract_touch_maps(log_lines: &[&str]) -> Vec<ExtractedTouchMap> {
                 }
             }
         }
+    }
+    out
+}
+
+// ---------------------------------------------------------------------------
+// CPI call tree
+// ---------------------------------------------------------------------------
+//
+// LiteSVM 0.14's `litesvm-cpi-tree` reconstructs the invocation chain
+// from a transaction's flat log stream — which program called which, at
+// what depth, and where each frame succeeded or failed. Hopper renders
+// the same tree from the same runtime-structural lines, and then does
+// the thing only a byte-range framework can: it hangs each frame's
+// decoded touch-map records (its declared state effects) off that node.
+// The result is not just "who called whom" but "who called whom, and
+// exactly which bytes each frame wrote" — the call graph annotated with
+// the self-describing state effects, read straight from a confirmed
+// transaction with no extra dependency.
+//
+// Attribution is spoof-proof for the same reason touch-map attribution
+// is: frames advance ONLY on `Program <id> invoke [n]` / `success` /
+// `failed` / `consumed` lines whose program token is base58 (a program
+// cannot forge one via `msg!`, whose payload sits behind a `log:` /
+// `data:` token). A touch map is attributed to the frame on top of the
+// invoke stack when its `Program data:` line appears.
+
+/// How a CPI frame terminated.
+#[derive(Debug, PartialEq, Eq)]
+enum FrameOutcome {
+    Success,
+    /// `failed: <reason>` — the runtime's failure text.
+    Failed(String),
+    /// The stream ended (or was truncated) before this frame closed.
+    Unterminated,
+}
+
+/// One node in the reconstructed CPI call tree.
+#[derive(Debug, PartialEq, Eq)]
+struct CpiTreeNode {
+    /// The program id executing in this frame.
+    program: String,
+    /// Invoke depth as the runtime reported it (`invoke [n]`).
+    depth: usize,
+    /// How the frame terminated.
+    outcome: FrameOutcome,
+    /// `consumed N of M compute units`, if the runtime logged it.
+    cu_consumed: Option<u64>,
+    /// Decoded Hopper touch maps this exact frame emitted (its declared
+    /// state effects). Empty for a frame that emitted none.
+    touch_maps: Vec<TouchMap>,
+    /// Nested frames this frame invoked, in order.
+    children: Vec<CpiTreeNode>,
+}
+
+/// Parse the `consumed N of M compute units` tail of a `Program <id> …`
+/// line, returning `N`.
+fn parse_consumed_cu(tail: &str) -> Option<u64> {
+    tail.strip_prefix("consumed ")
+        .and_then(|t| t.split_whitespace().next())
+        .and_then(|n| n.parse().ok())
+}
+
+/// Reconstruct the CPI call tree from a transaction's log stream. Roots
+/// are the depth-1 (top-level) frames, in execution order. This is a
+/// standalone parser (not `parse_structural_line`, which the
+/// security-sensitive touch-map attribution relies on) so it can read
+/// the fuller `consumed` / `failed: <reason>` vocabulary the tree wants
+/// without perturbing that path. The base58 program-token guard is the
+/// same, so frame state is equally unspoofable.
+fn build_cpi_tree(log_lines: &[&str]) -> Vec<CpiTreeNode> {
+    let mut roots: Vec<CpiTreeNode> = Vec::new();
+    // Open frames, outermost first; the last is the current top of stack.
+    let mut stack: Vec<CpiTreeNode> = Vec::new();
+
+    // Attach a finished node to its parent (or the roots if it was
+    // top-level).
+    fn attach(node: CpiTreeNode, stack: &mut Vec<CpiTreeNode>, roots: &mut Vec<CpiTreeNode>) {
+        match stack.last_mut() {
+            Some(parent) => parent.children.push(node),
+            None => roots.push(node),
+        }
+    }
+
+    for line in log_lines {
+        let Some(rest) = line.strip_prefix("Program ") else {
+            continue;
+        };
+        let Some((program, tail)) = rest.split_once(' ') else {
+            continue;
+        };
+        // Touch-map data lines: attribute to the current top frame. These
+        // do NOT carry a base58 program token (the prefix is `data:`), so
+        // they are handled before the program-token guard rejects them.
+        if program == "data:" {
+            for seg in tail.split_whitespace() {
+                if let Ok(bytes) =
+                    base64::Engine::decode(&base64::engine::general_purpose::STANDARD, seg)
+                {
+                    if let Some(map) = decode_touch_map(&bytes) {
+                        if let Some(top) = stack.last_mut() {
+                            top.touch_maps.push(map);
+                        }
+                    }
+                }
+            }
+            continue;
+        }
+        if program.is_empty() || !program.bytes().all(is_base58_byte) {
+            continue;
+        }
+        if let Some(n) = tail
+            .strip_prefix("invoke [")
+            .and_then(|t| t.strip_suffix(']'))
+        {
+            let depth: usize = match n.parse() {
+                Ok(d) => d,
+                Err(_) => continue,
+            };
+            stack.push(CpiTreeNode {
+                program: program.to_string(),
+                depth,
+                outcome: FrameOutcome::Unterminated,
+                cu_consumed: None,
+                touch_maps: Vec::new(),
+                children: Vec::new(),
+            });
+        } else if let Some(cu) = parse_consumed_cu(tail) {
+            // `consumed` names the frame about to close (top of stack).
+            if let Some(top) = stack.last_mut() {
+                top.cu_consumed = Some(cu);
+            }
+        } else if tail == "success" {
+            if let Some(mut node) = stack.pop() {
+                node.outcome = FrameOutcome::Success;
+                attach(node, &mut stack, &mut roots);
+            }
+        } else if let Some(reason) = tail.strip_prefix("failed") {
+            if let Some(mut node) = stack.pop() {
+                let reason = reason.trim_start_matches([':', ' ']).to_string();
+                node.outcome = FrameOutcome::Failed(reason);
+                attach(node, &mut stack, &mut roots);
+            }
+        }
+    }
+
+    // Any frames still open (truncated stream) unwind as Unterminated,
+    // innermost first, so the tree is still well-formed.
+    while let Some(node) = stack.pop() {
+        attach(node, &mut stack, &mut roots);
+    }
+    roots
+}
+
+/// Render one CPI tree node and its subtree as indented lines. `prefix`
+/// is the running indent; `is_last` controls the branch glyph.
+fn render_cpi_node(node: &CpiTreeNode, prefix: &str, is_last: bool, out: &mut Vec<String>) {
+    let branch = if is_last { "└─ " } else { "├─ " };
+    let outcome = match &node.outcome {
+        FrameOutcome::Success => "ok".to_string(),
+        FrameOutcome::Failed(reason) if reason.is_empty() => "FAILED".to_string(),
+        FrameOutcome::Failed(reason) => format!("FAILED: {reason}"),
+        FrameOutcome::Unterminated => "(unterminated)".to_string(),
+    };
+    let cu = node
+        .cu_consumed
+        .map(|c| format!(", {c} CU"))
+        .unwrap_or_default();
+    out.push(format!(
+        "{prefix}{branch}{} [{}] {outcome}{cu}",
+        node.program, node.depth
+    ));
+    // The indent inherited by this node's own children.
+    let child_prefix = format!("{prefix}{}", if is_last { "   " } else { "│  " });
+    // A frame's decoded state effects hang directly under it.
+    for map in &node.touch_maps {
+        let writes = map.records.iter().filter(|r| r.write).count();
+        let reads = map.records.len() - writes;
+        let mut note = format!(
+            "{child_prefix}   ↳ touch map: {} write{}, {} read{}",
+            writes,
+            if writes == 1 { "" } else { "s" },
+            reads,
+            if reads == 1 { "" } else { "s" }
+        );
+        if map.overflowed || map.skipped {
+            note.push_str(" (partial: ");
+            note.push_str(match (map.overflowed, map.skipped) {
+                (true, true) => "overflowed + skipped",
+                (true, false) => "overflowed",
+                _ => "skipped",
+            });
+            note.push(')');
+        }
+        out.push(note);
+        for r in &map.records {
+            out.push(format!(
+                "{child_prefix}      {} slot {} [{}..{})",
+                if r.write { "W" } else { "R" },
+                r.slot,
+                r.offset,
+                r.offset + r.size
+            ));
+        }
+    }
+    for (i, child) in node.children.iter().enumerate() {
+        let last = i + 1 == node.children.len();
+        render_cpi_node(child, &child_prefix, last, out);
+    }
+}
+
+/// Render the whole forest of top-level frames as a call tree.
+fn render_cpi_tree(roots: &[CpiTreeNode]) -> Vec<String> {
+    let mut out = Vec::new();
+    for (i, root) in roots.iter().enumerate() {
+        render_cpi_node(root, "", i + 1 == roots.len(), &mut out);
     }
     out
 }
@@ -1269,5 +1515,117 @@ mod touch_map_tests {
         assert_eq!(lines[0], "R slot 0 [16..48) -> Vault.authority");
         assert!(lines[1].contains("...map truncated at 32 records"));
         assert!(lines[2].contains("skipped at least one touched range"));
+    }
+
+    /// A `Program data:` log line carrying a base64 touch map, exactly as
+    /// the runtime emits it.
+    fn data_line(records: &[(u8, u32, u32, bool)]) -> String {
+        let b64 = base64::Engine::encode(
+            &base64::engine::general_purpose::STANDARD,
+            encode(records, 0),
+        );
+        format!("Program data: {b64}")
+    }
+
+    #[test]
+    fn cpi_tree_reconstructs_a_nested_chain_with_per_frame_cu() {
+        let logs = vec![
+            "Program Aaa invoke [1]",
+            "Program log: outer",
+            "Program Bbb invoke [2]",
+            "Program Bbb consumed 400 of 200000 compute units",
+            "Program Bbb success",
+            "Program Aaa consumed 1203 of 200000 compute units",
+            "Program Aaa success",
+        ];
+        let tree = build_cpi_tree(&logs);
+        assert_eq!(tree.len(), 1, "one top-level frame");
+        let root = &tree[0];
+        assert_eq!(root.program, "Aaa");
+        assert_eq!(root.depth, 1);
+        assert_eq!(root.outcome, FrameOutcome::Success);
+        assert_eq!(root.cu_consumed, Some(1203));
+        assert_eq!(root.children.len(), 1, "one nested callee");
+        let child = &root.children[0];
+        assert_eq!(child.program, "Bbb");
+        assert_eq!(child.depth, 2);
+        assert_eq!(child.cu_consumed, Some(400));
+        assert_eq!(child.outcome, FrameOutcome::Success);
+    }
+
+    #[test]
+    fn cpi_tree_captures_the_failure_reason_on_the_refused_frame() {
+        // The exact shape of the live Sentinel refusal. (The fake id must
+        // be base58-clean — lowercase `l` is not in the alphabet, which
+        // the structural-line guard rightly enforces.)
+        let logs = vec![
+            "Program SentineL1111 invoke [1]",
+            "Program SentineL1111 consumed 616 of 1400000 compute units",
+            "Program SentineL1111 failed: custom program error: 0xd001",
+        ];
+        let tree = build_cpi_tree(&logs);
+        assert_eq!(tree.len(), 1);
+        assert_eq!(
+            tree[0].outcome,
+            FrameOutcome::Failed("custom program error: 0xd001".to_string())
+        );
+        assert_eq!(tree[0].cu_consumed, Some(616));
+        let rendered = render_cpi_tree(&tree).join("\n");
+        assert!(rendered.contains("FAILED: custom program error: 0xd001"));
+        assert!(rendered.contains("616 CU"));
+    }
+
+    #[test]
+    fn cpi_tree_attaches_touch_maps_to_the_exact_emitting_frame() {
+        // The callee Bbb emits a touch map; the parent Aaa does not. The
+        // map must hang under Bbb, not Aaa.
+        let map_line = data_line(&[(1, 114, 1, true), (1, 115, 8, true)]);
+        let logs = vec![
+            "Program Aaa invoke [1]",
+            "Program Bbb invoke [2]",
+            map_line.as_str(),
+            "Program Bbb success",
+            "Program Aaa success",
+        ];
+        let tree = build_cpi_tree(&logs);
+        assert!(tree[0].touch_maps.is_empty(), "parent emitted none");
+        let child = &tree[0].children[0];
+        assert_eq!(child.touch_maps.len(), 1, "callee emitted one");
+        assert_eq!(child.touch_maps[0].records.len(), 2);
+        let rendered = render_cpi_tree(&tree).join("\n");
+        assert!(rendered.contains("touch map: 2 writes, 0 reads"));
+        assert!(rendered.contains("W slot 1 [114..115)"));
+        assert!(rendered.contains("W slot 1 [115..123)"));
+    }
+
+    #[test]
+    fn cpi_tree_frame_state_cannot_be_spoofed_by_program_logs() {
+        // A program logs text that mimics a structural invoke line. It
+        // arrives behind `log:` (not a base58 program token), so it must
+        // NOT open a phantom frame.
+        let logs = vec![
+            "Program Aaa invoke [1]",
+            "Program log: Program Zzz invoke [2]",
+            "Program log: Program Zzz success",
+            "Program Aaa success",
+        ];
+        let tree = build_cpi_tree(&logs);
+        assert_eq!(tree.len(), 1);
+        assert!(
+            tree[0].children.is_empty(),
+            "the spoofed invoke text must not create a child frame"
+        );
+    }
+
+    #[test]
+    fn cpi_tree_unwinds_a_truncated_stream_as_unterminated() {
+        // A log stream cut off mid-CPI (RPC truncation) still yields a
+        // well-formed tree; the open frames are marked Unterminated.
+        let logs = vec!["Program Aaa invoke [1]", "Program Bbb invoke [2]"];
+        let tree = build_cpi_tree(&logs);
+        assert_eq!(tree.len(), 1);
+        assert_eq!(tree[0].outcome, FrameOutcome::Unterminated);
+        assert_eq!(tree[0].children.len(), 1);
+        assert_eq!(tree[0].children[0].outcome, FrameOutcome::Unterminated);
     }
 }
