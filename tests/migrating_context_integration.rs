@@ -383,3 +383,118 @@ fn undersized_v1_allocation_is_rejected_by_both_surfaces() {
         "validate() must mirror bind's acceptance set for undersized V1 accounts"
     );
 }
+
+// ── Arm 6: `resize = grow, payer = ...` — the resizing crank ────────
+
+/// The resizing variant: the same crank, but an undersized V1
+/// allocation GROWS to fit V2 at bind, with the rent-exempt deficit
+/// debited from the declared payer (`migrate_layout_resizing`).
+#[derive(hopper::Accounts)]
+pub struct TouchResizing<'info> {
+    pub authority: Signer<'info>,
+
+    #[account(
+        mut,
+        migrate(from = CounterV1, with = v1_to_v2, resize = grow, payer = authority)
+    )]
+    pub counter: Account<'info, CounterV2>,
+}
+
+fn touch_resizing_handler<'info>(
+    program_id: &'info Address,
+    accounts: &'info [AccountView<'info>],
+    instruction_data: &'info [u8],
+) -> ProgramResult {
+    let mut ctx = Context::new(program_id, accounts, instruction_data);
+    let bound = TouchResizing::bind(&mut ctx)?;
+    let counter = bound.counter_load()?;
+    if counter.hits.get() != 1007 {
+        return Err(ProgramError::Custom(0xBAD1));
+    }
+    Ok(())
+}
+
+fn validate_resizing_handler<'info>(
+    program_id: &'info Address,
+    accounts: &'info [AccountView<'info>],
+    instruction_data: &'info [u8],
+) -> ProgramResult {
+    let ctx = Context::new(program_id, accounts, instruction_data);
+    TouchResizing::validate(&ctx)
+}
+
+/// A writable signer with a healthy balance: the rent top-up debits it.
+fn payer_fixture(addr_byte: u8) -> AccountFixture {
+    AccountFixture::new(
+        Address::new_from_array([addr_byte; 32]),
+        Address::new_from_array([0u8; 32]),
+        1_000_000_000,
+        0,
+    )
+    .signer()
+    .writable()
+}
+
+#[test]
+fn undersized_v1_grows_at_bind_with_a_payer_funded_rent_top_up() {
+    // Sized for V1 exactly (V2 does not fit) and funded with a single
+    // lamport, so BOTH the resize and the payer-funded top-up must run.
+    let mut counter = v1_fixture_with_len(0x5B, CounterV1::LEN);
+    counter.lamports = 1;
+    let accounts = [payer_fixture(0x51), counter];
+    let payer_before = accounts[0].lamports;
+
+    let result =
+        HopperSvm::new().process_instruction(PROGRAM_ID, &[], &accounts, touch_resizing_handler);
+    assert!(
+        result.program_result.is_ok(),
+        "resize = grow must grow the allocation and migrate at bind: {:?}",
+        result.program_result
+    );
+
+    let counter_after = &result.resulting_accounts[1];
+    assert_eq!(
+        counter_after.data.len(),
+        CounterV2::LEN,
+        "the allocation grew to fit the V2 shape"
+    );
+    assert_eq!(counter_after.data[1], CounterV2::VERSION);
+    assert_eq!(
+        &counter_after.data[HEADER_LEN..HEADER_LEN + 8],
+        &1007u64.to_le_bytes(),
+        "the typed transform ran after the grow"
+    );
+
+    // The lamport accounting: the account was topped up to exactly the
+    // grown rent minimum, funded by the payer — no more, no less.
+    let deficit = counter_after.lamports - 1;
+    assert!(deficit > 0, "a 1-lamport account required a top-up");
+    assert_eq!(
+        result.resulting_accounts[0].lamports,
+        payer_before - deficit,
+        "the payer paid exactly the rent deficit"
+    );
+}
+
+/// With `resize = grow`, validate() (the read-only "would bind accept
+/// this set?" surface) accepts the undersized V1 set bind can now grow —
+/// would-bind parity in the other direction from Arm 5.
+#[test]
+fn validate_accepts_undersized_v1_when_the_context_declares_resize() {
+    let accounts = [
+        payer_fixture(0x51),
+        v1_fixture_with_len(0x5C, CounterV1::LEN),
+    ];
+    let before = accounts[1].data.clone();
+    let result =
+        HopperSvm::new().process_instruction(PROGRAM_ID, &[], &accounts, validate_resizing_handler);
+    assert!(
+        result.program_result.is_ok(),
+        "validate() must accept what a resizing bind accepts: {:?}",
+        result.program_result
+    );
+    assert_eq!(
+        result.resulting_accounts[1].data, before,
+        "validate() stays read-only"
+    );
+}

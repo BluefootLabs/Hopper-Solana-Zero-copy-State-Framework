@@ -297,6 +297,16 @@ struct AccountAttr {
     /// migration. Resizing is out of scope: the New shape must already
     /// fit the existing allocation (`realloc` first when it does not).
     migrate: Option<(Type, syn::Path)>,
+    /// `migrate(..., resize = grow|fit, payer = <field>)`: the bind-time
+    /// migration crank calls `migrate_layout_resizing` instead of the
+    /// in-place `migrate_layout` — growing the allocation to fit the New
+    /// shape with a rent top-up debited from `payer`, and for `fit` also
+    /// shrinking afterwards with the freed rent DELTA (never the surplus;
+    /// deposits stay put) refunded to `payer`. `Some(false)` = grow,
+    /// `Some(true)` = fit (grow + shrink), `None` = in-place only.
+    migrate_resize_fit: Option<bool>,
+    /// Payer/refund counterparty field for `migrate(resize = ...)`.
+    migrate_resize_payer: Option<Ident>,
 
     /// `executable`. Anchor-parity keyword. Requires the account's
     /// `executable` flag to be true - i.e. it must be a deployed BPF
@@ -1452,6 +1462,19 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             let load_check = if cf.attr.zero {
                 TokenStream::new()
             } else if let Some((from_ty, _)) = &cf.attr.migrate {
+                // With `resize = grow|fit`, bind's crank grows the
+                // allocation itself, so the read-only "would bind accept
+                // this set?" surface must not demand that the Old
+                // allocation already fits New. Without resize, it must
+                // (in-place migration cannot grow).
+                let fit_clause = if cf.attr.migrate_resize_fit.is_some() {
+                    quote! { false }
+                } else {
+                    quote! {
+                        __hopper_migrate_data.len()
+                            < <#field_ty as ::hopper::__runtime::LayoutContract>::required_len()
+                    }
+                };
                 quote! {
                     {
                         let __hopper_migrate_data = ctx.account(#slot)?.try_borrow()?;
@@ -1464,8 +1487,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                                 &__hopper_migrate_data,
                             )
                             .is_err()
-                                || __hopper_migrate_data.len()
-                                    < <#field_ty as ::hopper::__runtime::LayoutContract>::required_len()
+                                || #fit_clause
                             {
                                 return ::core::result::Result::Err(__hopper_new_err);
                             }
@@ -1563,6 +1585,49 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         // pre-steps.)
         if let Some((from_ty, with_path)) = &cf.attr.migrate {
             let field_ty = layout_ty.as_ref().unwrap_or(&cf.ty);
+            // The migrate call is owner+writable-gated INSIDE the runtime
+            // (`check_migratable`): the crank runs before the per-field
+            // validators, so the runtime entry point is the first
+            // authority to look at the account — a foreign-owned or
+            // read-only account is refused before the user transform
+            // reads a byte.
+            let migrate_call = if let Some(shrink) = cf.attr.migrate_resize_fit {
+                let payer_ident = cf
+                    .attr
+                    .migrate_resize_payer
+                    .as_ref()
+                    .expect("parser enforces resize/payer pairing");
+                let p_idx = ctx_fields
+                    .iter()
+                    .position(|c| c.name == *payer_ident)
+                    .ok_or_else(|| {
+                        syn::Error::new_spanned(
+                            payer_ident,
+                            format!(
+                                "migrate payer `{payer_ident}`: no field named \
+                                 `{payer_ident}` in this context"
+                            ),
+                        )
+                    })?;
+                let p_slot = slot_abs(p_idx);
+                quote! {
+                    ::hopper::migration::migrate_layout_resizing::<#from_ty, #field_ty, _>(
+                        __hopper_migrate_view,
+                        ctx.account(#p_slot)?,
+                        ctx.program_id(),
+                        #shrink,
+                        #with_path,
+                    )?;
+                }
+            } else {
+                quote! {
+                    ::hopper::migration::migrate_layout::<#from_ty, #field_ty, _>(
+                        __hopper_migrate_view,
+                        ctx.program_id(),
+                        #with_path,
+                    )?;
+                }
+            };
             migration_stmts.push(quote! {
                 {
                     let __hopper_migrate_view = ctx.account(#slot)?;
@@ -1574,10 +1639,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                         .is_ok()
                     };
                     if __hopper_migrate_is_old {
-                        ::hopper::migration::migrate_layout::<#from_ty, #field_ty, _>(
-                            __hopper_migrate_view,
-                            #with_path,
-                        )?;
+                        #migrate_call
                     }
                 }
             });
@@ -5896,11 +5958,15 @@ fn parse_account_attr(attrs: &[Attribute]) -> Result<AccountAttr> {
                     Ok(())
                 }
                 "migrate" => {
-                    // `migrate(from = OldLayout, with = path::to::transform)`.
-                    // Both keys are mandatory; every malformed spelling names
-                    // the expected shape so the fix is copy-pasteable.
+                    // `migrate(from = OldLayout, with = path::to::transform)`,
+                    // optionally `resize = grow|fit, payer = <field>` to let
+                    // bind's crank resize the allocation to fit the New shape
+                    // (rent top-up from / freed-rent-delta refund to `payer`).
+                    // Every malformed spelling names the expected shape so the
+                    // fix is copy-pasteable.
                     const MIGRATE_SHAPE: &str =
-                        "expected `migrate(from = OldLayout, with = path::to::transform)`";
+                        "expected `migrate(from = OldLayout, with = path::to::transform)` \
+                         (optionally `, resize = grow|fit, payer = <payer_field>`)";
                     if result.migrate.is_some() {
                         return Err(meta.error("`migrate(...)` may only be set once per field"));
                     }
@@ -5913,6 +5979,8 @@ fn parse_account_attr(attrs: &[Attribute]) -> Result<AccountAttr> {
                     syn::parenthesized!(content in meta.input);
                     let mut from_ty: Option<Type> = None;
                     let mut with_path: Option<syn::Path> = None;
+                    let mut resize_fit: Option<bool> = None;
+                    let mut resize_payer: Option<Ident> = None;
                     while !content.is_empty() {
                         let key: Ident = content.parse()?;
                         let _: Token![=] = content.parse()?;
@@ -5935,6 +6003,44 @@ fn parse_account_attr(attrs: &[Attribute]) -> Result<AccountAttr> {
                                 }
                                 with_path = Some(content.parse()?);
                             }
+                            "resize" => {
+                                if resize_fit.is_some() {
+                                    return Err(syn::Error::new_spanned(
+                                        key,
+                                        format!("`migrate(...)` sets `resize` twice: {MIGRATE_SHAPE}"),
+                                    ));
+                                }
+                                let mode: Ident = content.parse()?;
+                                resize_fit = Some(match mode.to_string().as_str() {
+                                    "grow" => false,
+                                    // `fit` = grow + shrink-to-fit. The shrink
+                                    // refunds ONLY the freed rent delta; NEVER
+                                    // use it on a layout with a dynamic tail
+                                    // (the tail lives past `required_len` and
+                                    // would be truncated).
+                                    "fit" => true,
+                                    other => {
+                                        return Err(syn::Error::new_spanned(
+                                            mode,
+                                            format!(
+                                                "unknown `resize` mode `{other}` — expected \
+                                                 `grow` (grow-only) or `fit` (grow + \
+                                                 shrink-to-fit; unsafe for dynamic-tail \
+                                                 layouts): {MIGRATE_SHAPE}"
+                                            ),
+                                        ));
+                                    }
+                                });
+                            }
+                            "payer" => {
+                                if resize_payer.is_some() {
+                                    return Err(syn::Error::new_spanned(
+                                        key,
+                                        format!("`migrate(...)` sets `payer` twice: {MIGRATE_SHAPE}"),
+                                    ));
+                                }
+                                resize_payer = Some(content.parse()?);
+                            }
                             other => {
                                 return Err(syn::Error::new_spanned(
                                     key,
@@ -5956,7 +6062,27 @@ fn parse_account_attr(attrs: &[Attribute]) -> Result<AccountAttr> {
                             "`migrate(...)` is missing `with = path::to::transform`: {MIGRATE_SHAPE}"
                         )));
                     };
+                    // `resize` and `payer` come as a pair: a resize with no
+                    // funding source cannot top up rent, and a payer with
+                    // nothing to pay for is a typo.
+                    match (&resize_fit, &resize_payer) {
+                        (Some(_), None) => {
+                            return Err(meta.error(format!(
+                                "`migrate(resize = ...)` requires `payer = <payer_field>` \
+                                 (the rent top-up / refund counterparty): {MIGRATE_SHAPE}"
+                            )));
+                        }
+                        (None, Some(_)) => {
+                            return Err(meta.error(format!(
+                                "`migrate(payer = ...)` without `resize = grow|fit` has no \
+                                 effect: {MIGRATE_SHAPE}"
+                            )));
+                        }
+                        _ => {}
+                    }
                     result.migrate = Some((from_ty, with_path));
+                    result.migrate_resize_fit = resize_fit;
+                    result.migrate_resize_payer = resize_payer;
                     Ok(())
                 }
                 "owner" => {

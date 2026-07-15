@@ -348,7 +348,8 @@ pub mod migration {
     #[cfg(feature = "migrate")]
     pub use hopper_core::migrate::*;
     pub use hopper_runtime::{
-        apply_pending_migrations, migrate_layout, LayoutMigration, MigrationEdge,
+        apply_pending_migrations, migrate_layout, migrate_layout_resizing, LayoutMigration,
+        MigrationEdge,
     };
 }
 

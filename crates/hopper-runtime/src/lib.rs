@@ -112,7 +112,10 @@ pub use foreign::{
 pub use interop::TransparentAddress;
 pub use lamports::transfer_lamports;
 pub use lazy::LazyContext;
-pub use migrate::{apply_pending_migrations, migrate_layout, LayoutMigration, MigrationEdge};
+pub use migrate::{
+    apply_pending_migrations, migrate_layout, migrate_layout_resizing, LayoutMigration,
+    MigrationEdge,
+};
 pub use policy::{HopperInstructionPolicy, HopperProgramPolicy, HopperProgramProfile};
 pub use proof::{
     AccountProof, ExecutableChecked, HasOneChecked, LayoutChecked, OwnerChecked, SeedsChecked,

@@ -9,6 +9,39 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 
 ### Added
 
+- **Resizing migrations (`migrate_layout_resizing` + `migrate(resize =
+  grow|fit, payer = ...)`) — and the migration security gate.** The one
+  migration capability Quasar had that Hopper lacked: resize during a
+  typed cross-version migration, with a payer-funded rent top-up. The
+  new runtime entry grows the allocation to fit the New shape BEFORE
+  the transform (debiting the payer exactly the rent-exempt deficit —
+  a well-funded account needs no payer signature at all) and, only
+  with `fit`, shrinks AFTER it, refunding exactly the freed
+  rent-exemption delta, doubly capped. That cap is the point: Quasar's
+  `Migration` normalizes the balance to rent-min and pays the WHOLE
+  surplus to the payer (`quasar account.rs:117-125`) — run it on a PDA
+  holding user deposits and the deposits leave with the payer. Hopper's
+  shrink is opt-in (`fit`) because a dynamic-tail layout stores live
+  data past `required_len` — shrinking to fit would truncate it — and
+  the anti-drain rule is pinned by a test a Quasar-style refund fails.
+  The context attr composes with the existing crank:
+  `migrate(from = V1, with = f, resize = grow, payer = payer)`, and
+  `validate()` (would-bind parity) accepts undersized old accounts
+  exactly when bind can grow them.
+- **Fixed: the migration crank ran user transforms on unvalidated
+  accounts.** Bind's lazy-migration pre-step runs BEFORE the per-field
+  validators (so validators see the upgraded account) — which meant a
+  foreign-owned or read-only account whose bytes parsed as a valid Old
+  header would have the user transform executed over it with no
+  authority having looked at the account. Every migration entry point
+  (`migrate_layout`, `migrate_layout_resizing`,
+  `apply_pending_migrations`) now takes the executing `program_id` and
+  refuses non-writable (`InvalidAccountData`) and foreign-owned
+  (`IncorrectProgramId`) accounts before the transform reads a byte —
+  baked into the runtime so systems-mode callers are protected too,
+  not just the macro crank. Mutation-disciplined: disabling the gate
+  breaks the two dedicated refusal tests; the Quasar-style drain
+  refund breaks the deposit-protection test.
 - **`Seq<T>` — the growable typed sequence tail (the dynamic-data gap,
   closed).** A `Seq<'a, T>` tail (`#[tail(seq<T>)]` in systems mode) is
   an open-ended, growable list whose capacity is a property of the

@@ -27,9 +27,34 @@
 // ---------------------------------------------------------------------
 
 use crate::account::AccountView;
+use crate::address::Address;
 use crate::error::ProgramError;
 use crate::layout::{HopperHeader, LayoutContract};
 use crate::zerocopy::AccountLayout;
+
+/// The migration security gate: every migration entry point checks the
+/// account is **writable** and **owned by the executing program** before
+/// a user transform reads a byte.
+///
+/// Rationale (the crank-before-validators fix): the context macro runs
+/// lazy-migration pre-steps in `bind()` BEFORE the per-field validators
+/// so the validators see the upgraded account. That ordering is correct,
+/// but it means the migration used to execute a user transform over an
+/// account nobody had checked yet — a foreign-owned account whose bytes
+/// happen to validate as an `Old` header would have its transform run
+/// (and, if the caller swallowed the eventual bind error, its writes
+/// kept). Baking the check into the runtime entry points protects every
+/// caller, systems-mode included, not just the macro crank.
+#[inline(always)]
+fn check_migratable(account: &AccountView<'_>, program_id: &Address) -> Result<(), ProgramError> {
+    if !account.is_writable() {
+        return Err(ProgramError::InvalidAccountData);
+    }
+    if !account.owned_by(program_id) {
+        return Err(ProgramError::IncorrectProgramId);
+    }
+    Ok(())
+}
 
 /// One step in a layout's migration chain.
 ///
@@ -97,11 +122,13 @@ pub trait LayoutMigration {
 #[inline]
 pub fn apply_pending_migrations<T>(
     account: &AccountView<'_>,
+    program_id: &Address,
     current_epoch: u32,
 ) -> Result<u32, ProgramError>
 where
     T: AccountLayout + LayoutContract + LayoutMigration,
 {
+    check_migratable(account, program_id)?;
     let target_epoch = <T as AccountLayout>::SCHEMA_EPOCH;
     if current_epoch == target_epoch {
         return Ok(0);
@@ -163,6 +190,7 @@ where
 /// ```ignore
 /// hopper_runtime::migrate::migrate_layout::<VaultV1, VaultV2, _>(
 ///     account,
+///     program_id,
 ///     |old, new| {
 ///         new.authority = old.authority;
 ///         // Widen the counter; every other V2 field keeps its
@@ -208,9 +236,16 @@ where
 ///   check folds away when it passes.
 /// * `New::VERSION > Old::VERSION` — versions only move forward
 ///   (also const-folded).
+/// * The account is **writable** and **owned by `program_id`** — the
+///   crank runs at bind BEFORE the per-field validators (so validators
+///   see the upgraded account), which means this function is the first
+///   authority to look at the account. A user transform must never run
+///   over another program's bytes, however plausibly they parse as
+///   `Old`.
 #[inline]
 pub fn migrate_layout<Old, New, F>(
     account: &AccountView<'_>,
+    program_id: &Address,
     transform: F,
 ) -> Result<(), ProgramError>
 where
@@ -228,6 +263,7 @@ where
     if New::VERSION <= Old::VERSION {
         return Err(ProgramError::InvalidAccountData);
     }
+    check_migratable(account, program_id)?;
 
     let mut data = account.try_borrow_mut()?;
     Old::validate_header(&data)?;
@@ -271,6 +307,130 @@ where
         New::SCHEMA_EPOCH,
     )?;
     data[2..4].copy_from_slice(&flags.to_le_bytes());
+    Ok(())
+}
+
+/// [`migrate_layout`] that **resizes the account to fit the new shape**,
+/// with a payer-funded rent top-up — the one migration capability the
+/// in-place form defers to a separate `realloc`.
+///
+/// # Sequence
+///
+/// 1. The same const direction guards and the writable+owner gate.
+/// 2. **Grow first** (when the allocation is smaller than
+///    `New::required_len()`): compute the rent-exempt minimum for the
+///    grown size from the LIVE rent sysvar, and when the account's
+///    balance falls short, debit exactly the deficit from `payer`
+///    (which must then be writable and a signer — a well-funded account
+///    needs no payer at all). Growth is capped by Solana's
+///    `MAX_PERMITTED_DATA_INCREASE` (10,240 bytes per instruction),
+///    enforced by `resize`.
+/// 3. The typed in-place migration ([`migrate_layout`]), which
+///    re-verifies the `Old` identity under its own borrow.
+/// 4. **Shrink last, opt-in** (`shrink_to_fit`, when the allocation
+///    exceeds `New::required_len()` after migrating): resize down and
+///    refund **exactly the freed rent-exemption delta** to `payer`,
+///    doubly capped — never more than
+///    `minimum_balance(old_len) - minimum_balance(new_len)`, and never
+///    taking the account below its new minimum.
+///
+/// # The refund rule (why the cap is the point)
+///
+/// Quasar's `Migration<From, To>` normalizes the migrated account's
+/// balance to the new rent minimum and pays the WHOLE difference to the
+/// payer (`quasar account.rs:117-125`) — run it on a PDA that holds user
+/// deposits and the deposits leave with the payer. Hopper refunds only
+/// the rent requirement the shrink actually freed; every other lamport
+/// stays where it was.
+///
+/// # The shrink hazard (why it is opt-in)
+///
+/// `New::required_len()` covers the fixed shape. A layout with a dynamic
+/// tail (`raw_tail`, `Seq<T>`, `TailStr`/`TailBytes`) stores live data
+/// PAST that length — shrinking to fit would truncate it. Pass
+/// `shrink_to_fit = false` (the context macro's default; `resize = fit`
+/// opts in) unless the layout is tail-free.
+#[inline]
+pub fn migrate_layout_resizing<Old, New, F>(
+    account: &AccountView<'_>,
+    payer: &AccountView<'_>,
+    program_id: &Address,
+    shrink_to_fit: bool,
+    transform: F,
+) -> Result<(), ProgramError>
+where
+    Old: LayoutContract + crate::Pod,
+    New: LayoutContract + crate::Pod,
+    F: FnOnce(&Old, &mut New) -> Result<(), ProgramError>,
+{
+    if New::DISC != Old::DISC {
+        return Err(ProgramError::InvalidAccountData);
+    }
+    if New::VERSION <= Old::VERSION {
+        return Err(ProgramError::InvalidAccountData);
+    }
+    check_migratable(account, program_id)?;
+
+    let new_required = New::required_len();
+
+    // Grow BEFORE migrating: the Old body must stay intact for the
+    // transform, and migrate_layout refuses a too-small New span.
+    if account.data_len() < new_required {
+        let rent_needed = crate::rent::minimum_balance_live(new_required);
+        let deficit = rent_needed.saturating_sub(account.lamports());
+        if deficit > 0 {
+            if !payer.is_writable() {
+                return Err(ProgramError::InvalidAccountData);
+            }
+            if !payer.is_signer() {
+                return Err(ProgramError::MissingRequiredSignature);
+            }
+        }
+        // Fail fast on outstanding data borrows before the length moves.
+        drop(account.try_borrow_mut()?);
+        account.resize(new_required)?;
+        if deficit > 0 {
+            let payer_after = payer
+                .lamports()
+                .checked_sub(deficit)
+                .ok_or(ProgramError::InsufficientFunds)?;
+            let account_after = account
+                .lamports()
+                .checked_add(deficit)
+                .ok_or(ProgramError::ArithmeticOverflow)?;
+            payer.try_set_lamports(payer_after)?;
+            account.try_set_lamports(account_after)?;
+        }
+    }
+
+    migrate_layout::<Old, New, F>(account, program_id, transform)?;
+
+    // Shrink AFTER migrating (never before the transform reads Old).
+    if shrink_to_fit && account.data_len() > new_required {
+        let min_old = crate::rent::minimum_balance_live(account.data_len());
+        let min_new = crate::rent::minimum_balance_live(new_required);
+        drop(account.try_borrow_mut()?);
+        account.resize(new_required)?;
+        // Refund exactly the freed rent delta — see the refund rule in
+        // the doc above. Both caps matter: `delta` keeps deposits and
+        // surplus with the account; `above_min` keeps an under-funded
+        // account from being drained below its new minimum.
+        let delta = min_old.saturating_sub(min_new);
+        let above_min = account.lamports().saturating_sub(min_new);
+        let refund = if delta < above_min { delta } else { above_min };
+        if refund > 0 {
+            if !payer.is_writable() {
+                return Err(ProgramError::InvalidAccountData);
+            }
+            let account_after = account.lamports() - refund;
+            let payer_after = payer
+                .lamports()
+                .checked_add(refund)
+                .ok_or(ProgramError::ArithmeticOverflow)?;
+            account.try_set_lamports(account_after)?;
+            payer.try_set_lamports(payer_after)?;
+        }
+    }
     Ok(())
 }
 
@@ -403,6 +563,40 @@ mod tests {
             }];
         }
 
+        /// The epoch chain is gated identically to the typed migration:
+        /// a foreign-owned account is refused before any edge runs.
+        #[test]
+        fn foreign_owned_account_is_refused_before_any_edge_runs() {
+            let mut backing = std::vec![0u8; RuntimeAccount::SIZE + HopperHeader::SIZE + 8];
+            let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
+            // SAFETY: backing is sized for the header plus data and
+            // outlives the view.
+            unsafe {
+                raw.write(RuntimeAccount {
+                    borrow_state: NOT_BORROWED,
+                    is_signer: 0,
+                    is_writable: 1,
+                    executable: 0,
+                    resize_delta: 0,
+                    address: NativeAddress::new_from_array([5; 32]),
+                    owner: NativeAddress::new_from_array([9; 32]),
+                    lamports: 1,
+                    data_len: (HopperHeader::SIZE + 8) as u64,
+                });
+            }
+            // SAFETY: raw points at a fully initialized RuntimeAccount.
+            let backend = unsafe { NativeAccountView::new_unchecked(raw) };
+            let account = crate::AccountView::from_backend(backend);
+            assert_eq!(
+                apply_pending_migrations::<EpochTwo>(
+                    &account,
+                    &Address::new_from_array([6; 32]),
+                    1
+                ),
+                Err(ProgramError::IncorrectProgramId)
+            );
+        }
+
         #[test]
         fn overshooting_edge_is_refused_before_writing() {
             let mut backing = std::vec![0u8; RuntimeAccount::SIZE + HopperHeader::SIZE + 8];
@@ -430,7 +624,11 @@ mod tests {
             // must refuse instead of silently marking the account as
             // from the future.
             assert_eq!(
-                apply_pending_migrations::<EpochTwo>(&account, 1),
+                apply_pending_migrations::<EpochTwo>(
+                    &account,
+                    &Address::new_from_array([6; 32]),
+                    1
+                ),
                 Err(ProgramError::InvalidAccountData)
             );
             let _ = <EpochTwo as AccountLayout>::SCHEMA_EPOCH;
@@ -562,46 +760,70 @@ mod tests {
             const SIZE: usize = HopperHeader::SIZE + core::mem::size_of::<Self>();
         }
 
-        /// Build a writable account of `data_len` bytes seeded as a
-        /// valid VaultV1 (count = 7, legacy = [1,2,3,4], flags =
-        /// 0x0102 to prove flag preservation).
-        fn seeded_v1(data_len: usize) -> (std::vec::Vec<u8>, crate::AccountView<'static>) {
-            let mut backing = std::vec![0u8; RuntimeAccount::SIZE + data_len];
+        /// The executing program: the owner the fixtures stamp.
+        fn pid() -> crate::address::Address {
+            crate::address::Address::new_from_array([6; 32])
+        }
+
+        /// Raw account builder: `data_len` bytes plus the loader's
+        /// `MAX_PERMITTED_DATA_INCREASE` growth headroom (so `resize`
+        /// behaves exactly as on-chain), with the given balance, flags,
+        /// and owner.
+        fn raw_account(
+            data_len: usize,
+            lamports: u64,
+            is_writable: bool,
+            is_signer: bool,
+            owner: [u8; 32],
+        ) -> (std::vec::Vec<u8>, crate::AccountView<'static>) {
+            use hopper_native::MAX_PERMITTED_DATA_INCREASE;
+            let mut backing =
+                std::vec![0u8; RuntimeAccount::SIZE + data_len + MAX_PERMITTED_DATA_INCREASE];
             let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
             // SAFETY: backing is sized for the runtime header plus
-            // `data_len` bytes and outlives the returned view (the
-            // caller holds the Vec).
+            // `data_len` bytes plus the loader growth reserve, and
+            // outlives the returned view (the caller holds the Vec).
             unsafe {
                 raw.write(RuntimeAccount {
                     borrow_state: NOT_BORROWED,
-                    is_signer: 0,
-                    is_writable: 1,
+                    is_signer: is_signer as u8,
+                    is_writable: is_writable as u8,
                     executable: 0,
                     resize_delta: 0,
                     address: NativeAddress::new_from_array([5; 32]),
-                    owner: NativeAddress::new_from_array([6; 32]),
-                    lamports: 1,
+                    owner: NativeAddress::new_from_array(owner),
+                    lamports,
                     data_len: data_len as u64,
                 });
             }
             // SAFETY: raw points at a fully initialized RuntimeAccount
             // with its data region in the same allocation.
             let backend = unsafe { NativeAccountView::new_unchecked(raw) };
-            let account = crate::AccountView::from_backend(backend);
-            {
-                let mut data = account.try_borrow_mut().expect("fixture borrow");
-                write_header(
-                    &mut data,
-                    <VaultV1 as LayoutContract>::DISC,
-                    <VaultV1 as LayoutContract>::VERSION,
-                    &<VaultV1 as LayoutContract>::LAYOUT_ID,
-                )
-                .expect("fixture header");
-                // Account-state flags a migration must carry across.
-                data[2..4].copy_from_slice(&0x0102u16.to_le_bytes());
-                data[16..20].copy_from_slice(&7u32.to_le_bytes());
-                data[20..24].copy_from_slice(&[1, 2, 3, 4]);
-            }
+            (backing, crate::AccountView::from_backend(backend))
+        }
+
+        /// Stamp a valid VaultV1 (count = 7, legacy = [1,2,3,4], flags =
+        /// 0x0102 to prove flag preservation) into an account.
+        fn stamp_v1(account: &crate::AccountView<'_>) {
+            let mut data = account.try_borrow_mut().expect("fixture borrow");
+            write_header(
+                &mut data,
+                <VaultV1 as LayoutContract>::DISC,
+                <VaultV1 as LayoutContract>::VERSION,
+                &<VaultV1 as LayoutContract>::LAYOUT_ID,
+            )
+            .expect("fixture header");
+            // Account-state flags a migration must carry across.
+            data[2..4].copy_from_slice(&0x0102u16.to_le_bytes());
+            data[16..20].copy_from_slice(&7u32.to_le_bytes());
+            data[20..24].copy_from_slice(&[1, 2, 3, 4]);
+        }
+
+        /// Build a writable account of `data_len` bytes seeded as a
+        /// valid VaultV1, owned by [`pid`].
+        fn seeded_v1(data_len: usize) -> (std::vec::Vec<u8>, crate::AccountView<'static>) {
+            let (backing, account) = raw_account(data_len, 1, true, false, [6; 32]);
+            stamp_v1(&account);
             (backing, account)
         }
 
@@ -618,7 +840,7 @@ mod tests {
             // rule for larger shapes is exercised separately below).
             let (_b, account) = seeded_v1(HopperHeader::SIZE + 16);
 
-            migrate_layout::<VaultV1, VaultV2, _>(&account, widen).expect("migrates");
+            migrate_layout::<VaultV1, VaultV2, _>(&account, &pid(), widen).expect("migrates");
 
             let data = account.try_borrow().expect("read back");
             // Header: New identity, OLD flags.
@@ -642,11 +864,11 @@ mod tests {
         #[test]
         fn migrated_account_refuses_a_second_migration() {
             let (_b, account) = seeded_v1(HopperHeader::SIZE + 16);
-            migrate_layout::<VaultV1, VaultV2, _>(&account, widen).expect("first migrates");
+            migrate_layout::<VaultV1, VaultV2, _>(&account, &pid(), widen).expect("first migrates");
             // The header now reads V2: it is no longer a valid VaultV1,
             // so the identity check refuses — migrate exactly once.
             assert_eq!(
-                migrate_layout::<VaultV1, VaultV2, _>(&account, widen),
+                migrate_layout::<VaultV1, VaultV2, _>(&account, &pid(), widen),
                 Err(ProgramError::InvalidAccountData)
             );
         }
@@ -654,7 +876,7 @@ mod tests {
         #[test]
         fn transform_error_leaves_the_header_on_the_old_layout() {
             let (_b, account) = seeded_v1(HopperHeader::SIZE + 16);
-            let result = migrate_layout::<VaultV1, VaultV2, _>(&account, |_, _| {
+            let result = migrate_layout::<VaultV1, VaultV2, _>(&account, &pid(), |_, _| {
                 Err(ProgramError::Custom(9))
             });
             assert_eq!(result, Err(ProgramError::Custom(9)));
@@ -671,7 +893,7 @@ mod tests {
             // Allocation fits V1 exactly (24 bytes); V2 needs 28.
             let (_b, account) = seeded_v1(HopperHeader::SIZE + 8);
             assert_eq!(
-                migrate_layout::<VaultV1, VaultV2, _>(&account, widen),
+                migrate_layout::<VaultV1, VaultV2, _>(&account, &pid(), widen),
                 Err(ProgramError::AccountDataTooSmall)
             );
             let data = account.try_borrow().expect("read back");
@@ -685,7 +907,7 @@ mod tests {
             // OtherKind::DISC != VaultV1::DISC: repurposing the account
             // kind is not a migration.
             assert_eq!(
-                migrate_layout::<VaultV1, OtherKind, _>(&account, |_, _| Ok(())),
+                migrate_layout::<VaultV1, OtherKind, _>(&account, &pid(), |_, _| Ok(())),
                 Err(ProgramError::InvalidAccountData)
             );
         }
@@ -696,14 +918,187 @@ mod tests {
             // Same version (1 → 1): not forward, refused before any
             // borrow or write.
             assert_eq!(
-                migrate_layout::<VaultV1, VaultV1b, _>(&account, |_, _| Ok(())),
+                migrate_layout::<VaultV1, VaultV1b, _>(&account, &pid(), |_, _| Ok(())),
                 Err(ProgramError::InvalidAccountData)
             );
             // And backward (2 → 1) likewise.
             assert_eq!(
-                migrate_layout::<VaultV2, VaultV1b, _>(&account, |_, _| Ok(())),
+                migrate_layout::<VaultV2, VaultV1b, _>(&account, &pid(), |_, _| Ok(())),
                 Err(ProgramError::InvalidAccountData)
             );
+        }
+
+        /// The crank-before-validators fix: a foreign-owned account whose
+        /// bytes parse as a perfect Old header must be refused BEFORE the
+        /// user transform reads a byte — the macro crank runs at bind
+        /// ahead of the per-field validators, so this gate is the first
+        /// authority to look at the account.
+        #[test]
+        fn foreign_owned_account_is_refused_before_the_transform_runs() {
+            let (_b, account) = raw_account(HopperHeader::SIZE + 16, 1, true, false, [9; 32]);
+            stamp_v1(&account);
+            let mut transform_ran = false;
+            let result = migrate_layout::<VaultV1, VaultV2, _>(&account, &pid(), |old, new| {
+                transform_ran = true;
+                widen(old, new)
+            });
+            assert_eq!(result, Err(ProgramError::IncorrectProgramId));
+            assert!(
+                !transform_ran,
+                "the user transform must never run over another program's bytes"
+            );
+            let data = account.try_borrow().expect("read back");
+            assert_eq!(read_version(&data), Some(1), "nothing was written");
+        }
+
+        /// Same gate, writability dimension.
+        #[test]
+        fn non_writable_account_is_refused_before_the_transform_runs() {
+            let (_b, account) = raw_account(HopperHeader::SIZE + 16, 1, false, false, [6; 32]);
+            stamp_v1(&account);
+            assert_eq!(
+                migrate_layout::<VaultV1, VaultV2, _>(&account, &pid(), widen),
+                Err(ProgramError::InvalidAccountData)
+            );
+        }
+
+        /// The resizing variant grows the allocation to fit New and tops
+        /// up the rent-exempt minimum from the payer — exactly the
+        /// deficit, nothing more.
+        #[test]
+        fn resizing_migration_grows_and_tops_up_exactly_the_deficit() {
+            use crate::rent::minimum_balance_live;
+            // Allocation fits V1 exactly (24 B); V2 needs 28. The account
+            // holds 1 lamport, far below the grown minimum.
+            let (_b, account) = raw_account(HopperHeader::SIZE + 8, 1, true, false, [6; 32]);
+            stamp_v1(&account);
+            let payer_start = 1_000_000_000u64;
+            let (_pb, payer) = raw_account(0, payer_start, true, true, [0; 32]);
+
+            migrate_layout_resizing::<VaultV1, VaultV2, _>(&account, &payer, &pid(), false, widen)
+                .expect("grow + migrate");
+
+            let min_new = minimum_balance_live(HopperHeader::SIZE + 12);
+            assert_eq!(account.data_len(), HopperHeader::SIZE + 12);
+            assert_eq!(account.lamports(), min_new, "topped up to the minimum");
+            assert_eq!(
+                payer.lamports(),
+                payer_start - (min_new - 1),
+                "payer debited exactly the deficit"
+            );
+            let data = account.try_borrow().expect("read back");
+            assert_eq!(read_version(&data), Some(2));
+            assert_eq!(&data[16..24], &7u64.to_le_bytes());
+        }
+
+        /// A well-funded account grows without touching (or requiring a
+        /// signature from) the payer at all.
+        #[test]
+        fn resizing_migration_needs_no_payer_when_already_funded() {
+            use crate::rent::minimum_balance_live;
+            let funded = minimum_balance_live(HopperHeader::SIZE + 12) + 777;
+            let (_b, account) = raw_account(HopperHeader::SIZE + 8, funded, true, false, [6; 32]);
+            stamp_v1(&account);
+            // The payer is NOT a signer and NOT writable: must not matter.
+            let (_pb, payer) = raw_account(0, 5, false, false, [0; 32]);
+
+            migrate_layout_resizing::<VaultV1, VaultV2, _>(&account, &payer, &pid(), false, widen)
+                .expect("grow without payer");
+            assert_eq!(account.lamports(), funded, "balance untouched");
+            assert_eq!(payer.lamports(), 5, "payer untouched");
+        }
+
+        /// Version 3: narrows back to a 4-byte body — SMALLER than V2 —
+        /// to exercise the shrink path.
+        #[repr(C)]
+        #[derive(Clone, Copy)]
+        struct VaultV3 {
+            count: [u8; 4],
+        }
+        // SAFETY: repr(C), byte-array field — every bit pattern valid,
+        // align 1, no padding.
+        unsafe impl crate::Zeroable for VaultV3 {}
+        // SAFETY: as above.
+        unsafe impl crate::Pod for VaultV3 {}
+        // SAFETY: test-local layout upholding the sealed overlay contract.
+        unsafe impl crate::zerocopy::__sealed::HopperZeroCopySealed for VaultV3 {}
+        impl crate::field_map::FieldMap for VaultV3 {
+            const FIELDS: &'static [crate::field_map::FieldInfo] =
+                &[crate::field_map::FieldInfo::new(
+                    "count",
+                    HopperHeader::SIZE,
+                    4,
+                )];
+        }
+        impl LayoutContract for VaultV3 {
+            const DISC: u8 = KIND;
+            const VERSION: u8 = 3;
+            const LAYOUT_ID: [u8; 8] = [0x55; 8];
+            const SIZE: usize = HopperHeader::SIZE + core::mem::size_of::<Self>();
+        }
+
+        fn narrow(old: &VaultV2, new: &mut VaultV3) -> Result<(), ProgramError> {
+            let count = u64::from_le_bytes(old.count) as u32;
+            new.count = count.to_le_bytes();
+            Ok(())
+        }
+
+        /// Migrate a V1 fixture up to V2 so shrink tests have a V2 start.
+        fn seeded_v2(lamports: u64) -> (std::vec::Vec<u8>, crate::AccountView<'static>) {
+            let (backing, account) = raw_account(HopperHeader::SIZE + 12, 1, true, false, [6; 32]);
+            stamp_v1(&account);
+            migrate_layout::<VaultV1, VaultV2, _>(&account, &pid(), widen).expect("to V2");
+            account.try_set_lamports(lamports).expect("fund fixture");
+            (backing, account)
+        }
+
+        /// THE anti-drain proof (Quasar `account.rs:117-125` normalizes
+        /// the balance to rent-min and pays the whole difference to the
+        /// payer — deposits leave with it). Hopper's shrink refunds
+        /// EXACTLY the freed rent delta; a surplus deposit riding on the
+        /// account stays on the account.
+        #[test]
+        fn shrink_refunds_only_the_rent_delta_and_never_touches_deposits() {
+            use crate::rent::minimum_balance_live;
+            let min_old = minimum_balance_live(HopperHeader::SIZE + 12);
+            let min_new = minimum_balance_live(HopperHeader::SIZE + 4);
+            let deposit = 500_000u64;
+            let (_b, account) = seeded_v2(min_old + deposit);
+            let (_pb, payer) = raw_account(0, 10, true, false, [0; 32]);
+
+            migrate_layout_resizing::<VaultV2, VaultV3, _>(&account, &payer, &pid(), true, narrow)
+                .expect("migrate + shrink");
+
+            assert_eq!(account.data_len(), HopperHeader::SIZE + 4);
+            assert_eq!(
+                account.lamports(),
+                min_new + deposit,
+                "the deposit MUST stay on the account — only the freed \
+                 rent requirement is refunded"
+            );
+            assert_eq!(
+                payer.lamports(),
+                10 + (min_old - min_new),
+                "payer receives exactly the rent delta"
+            );
+        }
+
+        /// Shrink is opt-in: with `shrink_to_fit = false` the allocation
+        /// keeps its size and no lamport moves (dynamic-tail layouts
+        /// depend on this default — shrinking to `required_len` would
+        /// truncate their tail).
+        #[test]
+        fn shrink_is_opt_in_and_off_by_default_in_the_macro() {
+            use crate::rent::minimum_balance_live;
+            let min_old = minimum_balance_live(HopperHeader::SIZE + 12);
+            let (_b, account) = seeded_v2(min_old);
+            let (_pb, payer) = raw_account(0, 10, true, false, [0; 32]);
+
+            migrate_layout_resizing::<VaultV2, VaultV3, _>(&account, &payer, &pid(), false, narrow)
+                .expect("migrate without shrink");
+            assert_eq!(account.data_len(), HopperHeader::SIZE + 12, "size kept");
+            assert_eq!(account.lamports(), min_old, "no refund");
+            assert_eq!(payer.lamports(), 10);
         }
     }
 }

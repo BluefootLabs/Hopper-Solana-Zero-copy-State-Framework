@@ -486,7 +486,9 @@ fn make_v1_counter_account(address_byte: u8) -> (Vec<u64>, AccountView<'static>)
 fn migration_edge_that_grows_the_layout_leaves_no_stale_bytes() {
     let (_backing, account) = make_v1_counter_account(30);
 
-    let applied = apply_pending_migrations::<CounterV2>(&account, 1).unwrap();
+    let applied =
+        apply_pending_migrations::<CounterV2>(&account, &Address::new_from_array(DEFAULT_OWNER), 1)
+            .unwrap();
     assert_eq!(applied, 1);
 
     {
@@ -508,11 +510,14 @@ fn migration_edge_that_grows_the_layout_leaves_no_stale_bytes() {
 
     // Idempotence: the account is now at the target epoch, so the chain
     // applies zero edges and rewrites nothing.
-    assert_eq!(apply_pending_migrations::<CounterV2>(&account, 2), Ok(0));
+    assert_eq!(
+        apply_pending_migrations::<CounterV2>(&account, &Address::new_from_array(DEFAULT_OWNER), 2),
+        Ok(0)
+    );
 
     // From-the-future accounts are refused outright, never "migrated".
     assert_eq!(
-        apply_pending_migrations::<CounterV2>(&account, 3),
+        apply_pending_migrations::<CounterV2>(&account, &Address::new_from_array(DEFAULT_OWNER), 3),
         Err(ProgramError::InvalidAccountData)
     );
 }
@@ -574,7 +579,7 @@ fn failed_migration_edge_never_advances_the_schema_epoch() {
     let (_backing, account) = make_account([31; 32], DEFAULT_OWNER, false, true, 1, &data);
 
     assert_eq!(
-        apply_pending_migrations::<PoisonV2>(&account, 1),
+        apply_pending_migrations::<PoisonV2>(&account, &Address::new_from_array(DEFAULT_OWNER), 1),
         Err(ProgramError::Custom(0xDEAD))
     );
 
