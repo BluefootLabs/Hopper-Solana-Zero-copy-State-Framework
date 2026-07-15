@@ -36,6 +36,13 @@ struct AccountAttr {
     mut_segments: Vec<String>,
     /// Specific read-only segment names (from `read(field1, field2)`).
     read_segments: Vec<String>,
+    /// Growable `Seq<T>` tail segment names (from `tail(field)`). Each
+    /// lowers to an OPEN-ENDED `WriteRange::tail_from` grant: the whole
+    /// tail region is writable and growable, while the fixed head stays
+    /// byte-protected and CPI writable-meta delegation stays refused
+    /// (an open tail range starting past the head is not a whole-account
+    /// grant). A tail-declared field is writable and may carry `realloc`.
+    tail_segments: Vec<String>,
 
     // ── Anchor-grade declarative constraints (audit ST2) ────────────
     /// `init`. account must be created fresh this instruction.
@@ -818,12 +825,14 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             validate_account_attr(&field_name, &attr)?;
             validate_optional_field(&field_name, &field_ty, &attr)?;
             validate_migrate_field(&field_name, &field_ty, &attr)?;
-            if (!attr.mut_segments.is_empty() || !attr.read_segments.is_empty())
+            if (!attr.mut_segments.is_empty()
+                || !attr.read_segments.is_empty()
+                || !attr.tail_segments.is_empty())
                 && skips_layout_validation(&field_ty)
             {
                 return Err(syn::Error::new_spanned(
                     &field.ty,
-                    "segment accessors require a Hopper layout type, not a raw account view",
+                    "segment/tail accessors require a Hopper layout type, not a raw account view",
                 ));
             }
         }
@@ -1241,7 +1250,8 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         // shape competitor derives use, plus exact error codes.)
 
         let needs_signer = cf.attr.is_signer || wrapper_is_signer;
-        let needs_writable = cf.attr.is_mut || !cf.attr.mut_segments.is_empty();
+        let needs_writable =
+            cf.attr.is_mut || !cf.attr.mut_segments.is_empty() || !cf.attr.tail_segments.is_empty();
         if needs_signer || needs_writable {
             field_checks.push(quote! {
                 ctx.account(#slot)?.expect_signer_writable(#needs_signer, #needs_writable)?;
@@ -3415,7 +3425,9 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             } else {
                 String::new()
             };
-            let writable = cf.attr.is_mut || !cf.attr.mut_segments.is_empty();
+            let writable = cf.attr.is_mut
+                || !cf.attr.mut_segments.is_empty()
+                || !cf.attr.tail_segments.is_empty();
             // Signer-ness must match what `validate()` actually enforces:
             // the `#[signer]` / `#[account(signer)]` attribute OR the
             // type-level `Signer<'info>` wrapper (the fused
@@ -3796,6 +3808,19 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             field_ty: Type,
             seg_name: String,
         },
+        /// An OPEN-ENDED growable `Seq<T>` tail range (from `tail(seg)`) on
+        /// the field at this position: `[HEADER_LEN + <Ty>::SEG_OFFSET,
+        /// +inf)`. Lowers to `WriteRange::tail_from`, so the whole tail
+        /// region is writable and grows without re-declaration, while the
+        /// fixed head stays protected (an open tail range starting past the
+        /// head is not a whole-account grant, so CPI delegation stays
+        /// refused). Composes with Feature 1's realloc carve-out: the same
+        /// field carries `realloc` to grow the tail.
+        Tail {
+            pos: usize,
+            field_ty: Type,
+            seg_name: String,
+        },
     }
     let mut declared_ranges: Vec<DeclaredRange> = Vec::new();
     // Field positions carrying a whole-account data grant (used to dedupe
@@ -3806,24 +3831,63 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         if cf.attr.composite {
             continue;
         }
-        let whole_account = cf.attr.is_mut
-            || cf.attr.init
-            || cf.attr.init_if_needed
-            || cf.attr.realloc.is_some()
-            || cf.attr.close.is_some();
+        // A field combining `realloc` with explicit `mut(seg, ...)`
+        // segments is NOT a whole-account handler grant. `realloc` is a
+        // BIND-time lifecycle: it resizes the account and tops up rent
+        // lamports, both of which happen OUTSIDE the handler's governed
+        // write surface -- `safe_realloc` resizes and moves lamports
+        // without crossing the `Context` byte-range gate, and the
+        // implied-lamport scan below keeps the account in the lamport set
+        // by keying off `realloc.is_some()` directly (not this
+        // classification). The declared `mut(seg)` ranges are what the
+        // HANDLER may write. Classifying such a field `Whole` here would
+        // silently widen its enforced/published surface to the entire
+        // account and discard the segment scoping -- the strict_writes +
+        // realloc silent-degrade bug. So a realloc'd field that ALSO
+        // declares segments falls through to the `Segment` arm; `realloc`
+        // ALONE (no `mut(seg)`) keeps `Whole`, carrying `mut` semantics on
+        // its own.
+        //
+        // NOTE (parser reality): `realloc = ...` sets `is_mut = true` at
+        // parse time (a realloc'd account is writable), so `is_mut` cannot
+        // distinguish a *bare* `mut` from the realloc-implied one -- a
+        // realloc field always presents `is_mut == true`. We therefore
+        // special-case realloc explicitly rather than subtracting it from
+        // the `is_mut` term. `init` / `init_if_needed` / `close` keep
+        // `Whole` even alongside segments: those lifecycles (re)write or
+        // destroy the entire account at bind, so scoping the handler
+        // surface to a segment would be meaningless there.
+        // `tail(seg)` also scopes the field: a growable-tail grant is an
+        // open-ended range past the head, never whole-account.
+        let has_scoped_segments =
+            !cf.attr.mut_segments.is_empty() || !cf.attr.tail_segments.is_empty();
+        let realloc_scoped_by_segments = cf.attr.realloc.is_some() && has_scoped_segments;
+        let whole_account = !realloc_scoped_by_segments
+            && (cf.attr.is_mut
+                || cf.attr.init
+                || cf.attr.init_if_needed
+                || cf.attr.realloc.is_some()
+                || cf.attr.close.is_some());
         if whole_account {
             whole_account_positions.push(cf.index);
             declared_ranges.push(DeclaredRange::Whole(cf.index));
             continue;
         }
-        if cf.attr.mut_segments.is_empty() {
+        if !has_scoped_segments {
             continue;
         }
-        // `mut(seg, ...)`-only fields: one exact range per declared
+        // `mut(seg, ...)` / `tail(seg)` fields: one range per declared
         // segment, resolved through the `#[hopper::state]` constants.
         let field_ty = layout_type_for_field(cf).unwrap_or_else(|| cf.ty.clone());
         for seg_name in &cf.attr.mut_segments {
             declared_ranges.push(DeclaredRange::Segment {
+                pos: cf.index,
+                field_ty: field_ty.clone(),
+                seg_name: seg_name.clone(),
+            });
+        }
+        for seg_name in &cf.attr.tail_segments {
+            declared_ranges.push(DeclaredRange::Tail {
                 pos: cf.index,
                 field_ty: field_ty.clone(),
                 seg_name: seg_name.clone(),
@@ -3862,6 +3926,22 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                             ::hopper::hopper_core::account::HEADER_LEN as u32
                                 + <#field_ty>::#assoc_offset,
                             ::core::mem::size_of::<#type_alias>() as u32,
+                        )
+                    }
+                }
+                DeclaredRange::Tail {
+                    pos,
+                    field_ty,
+                    seg_name,
+                } => {
+                    let idx_u8 = *pos as u8;
+                    let seg_upper = to_screaming_snake(seg_name);
+                    let assoc_offset = format_ident!("{}_OFFSET", seg_upper);
+                    quote! {
+                        ::hopper::__runtime::write_policy::WriteRange::tail_from(
+                            #idx_u8,
+                            ::hopper::hopper_core::account::HEADER_LEN as u32
+                                + <#field_ty>::#assoc_offset,
                         )
                     }
                 }
@@ -3908,6 +3988,22 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                             ::hopper::hopper_core::account::HEADER_LEN as u32
                                 + <#field_ty>::#assoc_offset,
                             <#field_ty>::#assoc_size
+                        )
+                    }
+                }
+                DeclaredRange::Tail {
+                    pos,
+                    field_ty,
+                    seg_name,
+                } => {
+                    let idx_u8 = *pos as u8;
+                    let seg_upper = to_screaming_snake(seg_name);
+                    let assoc_offset = format_ident!("{}_OFFSET", seg_upper);
+                    quote! {
+                        ::hopper::__runtime::write_policy::WriteRange::tail_from(
+                            #idx_u8,
+                            ::hopper::hopper_core::account::HEADER_LEN as u32
+                                + <#field_ty>::#assoc_offset,
                         )
                     }
                 }
@@ -4169,11 +4265,21 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                     });
                     continue;
                 }
-                let whole_account = cf.attr.is_mut
-                    || cf.attr.init
-                    || cf.attr.init_if_needed
-                    || cf.attr.realloc.is_some()
-                    || cf.attr.close.is_some();
+                // Same realloc+segments carve-out as the composite-free
+                // classification above (see the long note there): a
+                // realloc'd field that also declares `mut(seg)` is scoped
+                // to its segments, not whole-account. `realloc` sets
+                // `is_mut` at parse time, so it must be special-cased
+                // explicitly.
+                let has_scoped_segments =
+                    !cf.attr.mut_segments.is_empty() || !cf.attr.tail_segments.is_empty();
+                let realloc_scoped_by_segments = cf.attr.realloc.is_some() && has_scoped_segments;
+                let whole_account = !realloc_scoped_by_segments
+                    && (cf.attr.is_mut
+                        || cf.attr.init
+                        || cf.attr.init_if_needed
+                        || cf.attr.realloc.is_some()
+                        || cf.attr.close.is_some());
                 if whole_account {
                     len_terms.push(quote! { 1usize });
                     fill_stmts.push(quote! {
@@ -4185,7 +4291,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                     });
                     continue;
                 }
-                if cf.attr.mut_segments.is_empty() {
+                if !has_scoped_segments {
                     continue;
                 }
                 // Assoc-const spellings (like the declared const above):
@@ -4203,6 +4309,19 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                             ::hopper::hopper_core::account::HEADER_LEN as u32
                                 + <#field_ty>::#assoc_offset,
                             <#field_ty>::#assoc_size
+                        );
+                        __n += 1;
+                    });
+                }
+                for seg_name in &cf.attr.tail_segments {
+                    let seg_upper = to_screaming_snake(seg_name);
+                    let assoc_offset = format_ident!("{}_OFFSET", seg_upper);
+                    len_terms.push(quote! { 1usize });
+                    fill_stmts.push(quote! {
+                        __out[__n] = ::hopper::__runtime::write_policy::WriteRange::tail_from(
+                            (#local) as u8,
+                            ::hopper::hopper_core::account::HEADER_LEN as u32
+                                + <#field_ty>::#assoc_offset,
                         );
                         __n += 1;
                     });
@@ -5631,6 +5750,26 @@ fn parse_account_attr(attrs: &[Attribute]) -> Result<AccountAttr> {
                     }
                     Ok(())
                 }
+                "tail" => {
+                    // `tail(seq_field)` — declare a growable `Seq<T>` tail
+                    // as writable via an open-ended `tail_from` range. Marks
+                    // the field writable (like `mut(seg)`); pair with
+                    // `realloc` to grow it.
+                    if meta.input.peek(syn::token::Paren) {
+                        let content;
+                        syn::parenthesized!(content in meta.input);
+                        let segments: Punctuated<Ident, Comma> =
+                            content.parse_terminated(Ident::parse, Token![,])?;
+                        for seg in segments {
+                            result.tail_segments.push(seg.to_string());
+                        }
+                    } else {
+                        return Err(meta.error(
+                            "`tail` requires a named tail segment, for example `tail(members)`",
+                        ));
+                    }
+                    Ok(())
+                }
                 "init" => {
                     result.init = true;
                     // `init` implies `mut`. the lifecycle helper must
@@ -6484,12 +6623,15 @@ fn validate_optional_field(field_name: &Ident, ty: &Type, attr: &AccountAttr) ->
     // slot has no layout bytes to project. Whole-account `mut` remains
     // supported (the strict_writes range set is static; an absent
     // account simply never writes).
-    if !attr.mut_segments.is_empty() || !attr.read_segments.is_empty() {
+    if !attr.mut_segments.is_empty()
+        || !attr.read_segments.is_empty()
+        || !attr.tail_segments.is_empty()
+    {
         return Err(syn::Error::new_spanned(
             field_name,
             format!(
-                "`mut(...)`/`read(...)` segment lists are not supported on the optional \
-                 account `{field_name}`; use whole-account `mut` and access the layout \
+                "`mut(...)`/`read(...)`/`tail(...)` segment lists are not supported on the \
+                 optional account `{field_name}`; use whole-account `mut` and access the layout \
                  through the bound `Option` field."
             ),
         ));

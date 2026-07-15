@@ -273,3 +273,103 @@ Use extension segments when:
     only in handlers that need dynamic data.
 5. Move to extension segments if tail updates become too large or need separate
     borrow leases.
+
+## `Seq<T>` — the growable typed sequence tail
+
+`String<'a, N>` and `Vec<'a, T, N>` are **bounded**: their capacity `N` is part
+of the account type (it is in the layout id), so growing the collection means
+migrating to a new layout. When you want an **open-ended, growable** list whose
+capacity is a property of the *account length* rather than the *account type*,
+spell the tail as `Seq<'a, T>`:
+
+```rust
+use hopper::prelude::*;
+
+#[hopper::account(disc = 55, version = 1)]
+pub struct Roster<'a> {
+    pub admin: WireU64,          // fixed, zero-copy head
+    pub epoch: WireU64,
+    pub members: Seq<'a, Address>, // growable tail — NO capacity in the type
+}
+```
+
+The systems-mode spelling is `#[tail(seq<T>)]` inside `#[hopper::dynamic_account]`.
+
+### Wire format and the one-growable-tail-per-account rule
+
+A `Seq<T>` tail region is:
+
+```text
+[ fixed Hopper body ][ count: u32 LE ][ elem_0 ][ elem_1 ] ...
+```
+
+Every element occupies a **fixed `T::STRIDE` bytes** (element `i` lives at
+`TAIL_PREFIX_OFFSET + 4 + i*STRIDE`), so `push` is O(1) — write one element,
+bump the count — and access never materializes a `[T; N]`. Elements must be
+fixed-stride `SeqElement`s: the wire primitives (`u8..=u128`, `i16..=i128`,
+`bool`) and `Address`. Variable-length encoders (`Option<T>`, `BoundedString`,
+`BoundedVec`) stay on the owned-decode `Vec<'a, T, N>` path.
+
+Because a `Seq` reframes the whole tail as `[count][elems]` (incompatible with
+the bounded `[byte_len][payload]` framing), **a `Seq` must be the ONLY tail of
+its account** — one growable tail per account. Put other dynamic data in the
+fixed head or a separate account.
+
+### Capacity is account-length-derived; the layout id is capacity-free
+
+The generated schema string is `seq<T>` with **no `N`**, so the layout id is
+**capacity-independent by design**: two `Roster` accounts of different byte
+lengths are the *same account type*. The live capacity is
+`(region_len - 4) / STRIDE`, read from the account's current length:
+
+```rust
+let space = Roster::space_for(8); // fixed head + 4 + 8*STRIDE
+// ... allocate `space` bytes; grow later with realloc + a larger space_for(n).
+Roster::MIN_SPACE; // fixed head + 4 (an empty sequence)
+```
+
+### Streaming cursors (never a `[T; N]`)
+
+```rust
+let mut seq = Roster::members_mut(&mut data)?; // TailSeqMut<Address>
+seq.push(addr)?;             // O(1); AccountDataTooSmall at capacity
+let n = seq.len();           // from the u32 count prefix
+let first = seq.get(0)?;     // decode ONE element
+seq.set(0, other)?;
+seq.swap_remove(0)?;
+let read = Roster::members(&data)?; // TailSeq<Address>: len/get/iter
+```
+
+### Growth cap (10,240 B per instruction)
+
+Growing a `Seq` is a plain `realloc`, so it inherits Solana's
+`MAX_PERMITTED_DATA_INCREASE` of **10,240 bytes per instruction**. Push until
+`push` returns `AccountDataTooSmall`, then `realloc` to a larger `space_for(n)`
+(at most +10,240 B per instruction) and push again.
+
+### Under `strict_writes`: the open-ended tail range
+
+Declare the growable tail in a context with `tail(<field>)` (not `mut(...)`):
+
+```rust
+#[hopper::context(strict_writes)]
+pub struct AddMember<'info> {
+    #[account(tail(members), realloc = Roster::space_for(8),
+              realloc_payer = payer, realloc_zero = true)]
+    pub roster: Account<'info, Roster>,
+    pub payer: Signer<'info>,
+}
+```
+
+`tail(members)` lowers to a single **open-ended `WriteRange::tail_from`** grant
+covering `[TAIL_PREFIX_OFFSET, +inf)`. Inside the handler, acquire the gated
+cursor with `ctx.tail_seq_mut::<T>(index, Roster::TAIL_PREFIX_OFFSET as u32)`
+(or `tail_seq_ref` for reads). See `POLICY_GUARANTEES.md` for the exact
+head-protection and delegation-refusal guarantees, and the honest limit on
+per-element isolation.
+
+> Why `tail(...)` and not `mut(...)`? The context proc-macro cannot introspect a
+> layout type to tell a `Seq` tail from a fixed segment, so the growable-tail
+> grant is spelled explicitly. It composes with Feature-1 semantics: the same
+> field carries `realloc` to grow the tail, and the declared segment ranges (not
+> a whole-account grant) govern the handler surface.

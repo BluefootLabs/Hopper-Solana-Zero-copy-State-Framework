@@ -593,6 +593,93 @@ impl<'a> Context<'a> {
         )
     }
 
+    /// Acquire a growable `Seq<T>` tail for **writing** at `body_end`
+    /// (the layout's `TAIL_PREFIX_OFFSET`), returning a
+    /// [`SeqTailWrite`](crate::tail::SeqTailWrite) guard whose
+    /// [`seq_mut`](crate::tail::SeqTailWrite::seq_mut) yields the O(1)
+    /// streaming cursor.
+    ///
+    /// The tail region is `[body_end, data_len)` — the whole account past
+    /// the fixed head. Under an installed [write policy](Self::set_write_policy)
+    /// this whole region must be granted (a `mut(<seq_field>)` declaration
+    /// compiles to an open-ended [`tail_from`](crate::write_policy::WriteRange::tail_from)
+    /// range), so the fixed head stays protected. Exactly ONE segment
+    /// lease is registered — covering the entire tail region, NOT one per
+    /// element — so overlap detection and the touch map see a single
+    /// tail-region write record regardless of how many elements are
+    /// pushed.
+    #[inline]
+    pub fn tail_seq_mut<'b, T: crate::tail::SeqElement>(
+        &'b mut self,
+        index: usize,
+        body_end: u32,
+    ) -> Result<crate::tail::SeqTailWrite<'b, T>, ProgramError> {
+        let view = self
+            .accounts
+            .get(index)
+            .ok_or(ProgramError::NotEnoughAccountKeys)?;
+        view.check_writable()?;
+        let region_len = (view.data_len() as u32)
+            .checked_sub(body_end)
+            .ok_or(ProgramError::AccountDataTooSmall)?;
+        // The whole tail region must be a granted write range (the
+        // open-ended `tail_from` range contains it; a fixed head range
+        // would refuse a grown region — exactly the protection intended).
+        self.check_write_policy(index, body_end, region_len)?;
+        // ONE write lease over the whole tail region (one touch record).
+        let borrow =
+            self.segment_borrows
+                .register_leased_write(view.address(), body_end, region_len)?;
+        let data = match view.try_borrow_mut() {
+            Ok(d) => d,
+            Err(e) => {
+                self.segment_borrows.release(&borrow);
+                return Err(e);
+            }
+        };
+        let region = data.slice_from(body_end as usize);
+        // SAFETY: `borrow` was just registered in `self.segment_borrows`;
+        // the lease releases exactly that entry on drop.
+        let lease = unsafe { crate::SegmentLease::new(&mut self.segment_borrows, borrow) };
+        Ok(crate::tail::SeqTailWrite::new(region, lease))
+    }
+
+    /// Acquire a `Seq<T>` tail for **reading** at `body_end`, returning a
+    /// [`SeqTailRead`](crate::tail::SeqTailRead) guard whose
+    /// [`seq`](crate::tail::SeqTailRead::seq) yields the streaming read
+    /// cursor. Registers one shared tail-region lease (reads are not
+    /// gated by the write policy, but the lease still powers overlap
+    /// detection against concurrent writers).
+    #[inline]
+    pub fn tail_seq_ref<'b, T: crate::tail::SeqElement>(
+        &'b mut self,
+        index: usize,
+        body_end: u32,
+    ) -> Result<crate::tail::SeqTailRead<'b, T>, ProgramError> {
+        let view = self
+            .accounts
+            .get(index)
+            .ok_or(ProgramError::NotEnoughAccountKeys)?;
+        let region_len = (view.data_len() as u32)
+            .checked_sub(body_end)
+            .ok_or(ProgramError::AccountDataTooSmall)?;
+        let borrow =
+            self.segment_borrows
+                .register_leased_read(view.address(), body_end, region_len)?;
+        let data = match view.try_borrow() {
+            Ok(d) => d,
+            Err(e) => {
+                self.segment_borrows.release(&borrow);
+                return Err(e);
+            }
+        };
+        let region = data.slice_from(body_end as usize);
+        // SAFETY: `borrow` was just registered in `self.segment_borrows`;
+        // the lease releases exactly that entry on drop.
+        let lease = unsafe { crate::SegmentLease::new(&mut self.segment_borrows, borrow) };
+        Ok(crate::tail::SeqTailRead::new(region, lease))
+    }
+
     /// Const-driven segment read: pass a compile-time [`Segment`] and the
     /// account index. Lowers to the same pointer-plus-const-offset shape
     /// as `segment_ref` but without the caller hand-rolling the offset +

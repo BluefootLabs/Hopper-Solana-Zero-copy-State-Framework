@@ -34,6 +34,14 @@ enum TailKind {
         cap: LitInt,
         borrowed_slice: bool,
     },
+    /// Growable typed sequence: `Seq<'a, T>` (no capacity). Backed by the
+    /// runtime `[count:u32][T; ..]` fixed-stride cursors. It is the SOLE,
+    /// final tail of its account (one growable tail per account) and its
+    /// on-wire layout — hence the layout id — carries NO capacity, so
+    /// growing the account never changes the account type.
+    Seq {
+        ty: Type,
+    },
     TailStr,
     TailBytes,
 }
@@ -41,6 +49,10 @@ enum TailKind {
 impl TailKind {
     fn is_raw_final(&self) -> bool {
         matches!(self, Self::TailStr | Self::TailBytes)
+    }
+
+    fn is_seq(&self) -> bool {
+        matches!(self, Self::Seq { .. })
     }
 }
 
@@ -95,9 +107,18 @@ impl Parse for TailSpec {
             });
         }
 
+        if keyword == "seq" {
+            // `seq<T>` — a growable typed sequence, NO capacity.
+            let ty: Type = input.parse()?;
+            input.parse::<Token![>]>()?;
+            return Ok(Self {
+                kind: TailKind::Seq { ty },
+            });
+        }
+
         Err(syn::Error::new_spanned(
             keyword,
-            "unsupported #[tail(...)] spec; expected `string<N>`, `vec<T, N>`, `str`, or `bytes`",
+            "unsupported #[tail(...)] spec; expected `string<N>`, `vec<T, N>`, `seq<T>`, `str`, or `bytes`",
         ))
     }
 }
@@ -251,7 +272,7 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
         .unwrap_or_else(|| LitInt::new("1", Span::call_site()));
 
     let mut state_args = Vec::new();
-    if let Some(disc) = options.disc {
+    if let Some(disc) = &options.disc {
         state_args.push(quote! { disc = #disc });
     }
     state_args.push(quote! { version = #version });
@@ -267,6 +288,31 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
         .into_iter()
         .filter(|attr| !attr.path().is_ident("derive") && !attr.path().is_ident("repr"))
         .collect();
+
+    // ── Growable `Seq<T>` tail: the sole, capacity-free final tail ────
+    //
+    // A `Seq<T>` tail carries nothing bounded to materialize, so it skips
+    // the owned-decode machinery entirely. It emits the fixed head as a
+    // `#[hopper::state(raw_tail)]` layout PLUS streaming-cursor accessors
+    // over the `[count:u32][T; ..]` tail region, and MIN_SPACE / space_for
+    // instead of a fixed ALLOC_SPACE. The layout id comes from the
+    // capacity-free `seq<T>` schema string, so growing the account (adding
+    // capacity via `realloc`) never changes the account type.
+    if tail_fields.iter().any(|field| field.kind.is_seq()) {
+        return expand_seq_account(
+            &name,
+            &vis,
+            &tail_fields,
+            &fixed_fields,
+            &fixed_getters,
+            &fixed_new_params,
+            &fixed_new_inits,
+            &outer_attrs,
+            options.disc.as_ref(),
+            &version,
+            &tail_schema_lit,
+        );
+    }
 
     let tail_view_methods: Vec<_> = tail_fields
         .iter()
@@ -633,6 +679,165 @@ fn strip_authoring_lifetime_generics(input: &mut ItemStruct) -> Result<()> {
     Ok(())
 }
 
+/// Emit a `Seq<T>`-tail dynamic account: the fixed head as a
+/// `#[hopper::state(raw_tail)]` layout plus streaming-cursor accessors
+/// over the `[count:u32][T; ..]` tail region, with capacity-free sizing.
+#[allow(clippy::too_many_arguments)]
+fn expand_seq_account(
+    name: &Ident,
+    vis: &Visibility,
+    tail_fields: &[TailField],
+    fixed_fields: &[TokenStream],
+    fixed_getters: &[TokenStream],
+    fixed_new_params: &[TokenStream],
+    fixed_new_inits: &[TokenStream],
+    outer_attrs: &[Attribute],
+    disc: Option<&LitInt>,
+    version: &LitInt,
+    tail_schema_lit: &LitStr,
+) -> Result<TokenStream> {
+    // "One growable tail per account": a `Seq` framing (`[count][elems]`)
+    // is incompatible with the bounded `[byte_len][payload]` framing, so
+    // it must be the sole tail.
+    if tail_fields.len() != 1 {
+        return Err(syn::Error::new_spanned(
+            name,
+            "a `Seq<'a, T>` tail must be the ONLY tail field of its account \
+             (one growable tail per account); move other dynamic fields into \
+             the fixed head or a separate account",
+        ));
+    }
+    let seq_field = &tail_fields[0];
+    let TailKind::Seq { ty: elem_ty } = &seq_field.kind else {
+        unreachable!("caller guarantees a Seq tail");
+    };
+    let seq_ident = seq_field.ident.clone();
+    let seq_mut_ident = format_ident!("{}_mut", seq_ident);
+    let seq_init_ident = format_ident!("{}_init", seq_ident);
+    let seg_upper = seq_ident.to_string().to_uppercase();
+    let offset_const = format_ident!("{}_OFFSET", seg_upper);
+    let abs_offset_const = format_ident!("{}_ABS_OFFSET", seg_upper);
+    let size_const = format_ident!("{}_SIZE", seg_upper);
+
+    let mut state_args: Vec<TokenStream> = Vec::new();
+    if let Some(disc) = disc {
+        state_args.push(quote! { disc = #disc });
+    }
+    state_args.push(quote! { version = #version });
+    // `raw_tail` gives us `HAS_DYNAMIC_TAIL` + `TAIL_PREFIX_OFFSET = LEN`
+    // (the tail region start); the `seq<T>` schema string makes the layout
+    // id capacity-independent.
+    state_args.push(quote! { raw_tail = true });
+    state_args.push(quote! { dynamic_tail_schema = #tail_schema_lit });
+
+    Ok(quote! {
+        // Seq elements must be fixed-stride `SeqElement`s; variable-length
+        // encoders stay on the bounded `Vec<T, N>` owned-decode path.
+        const _: () = {
+            fn __hopper_assert_seq_element<__T: ::hopper::__runtime::SeqElement>() {}
+            let _ = __hopper_assert_seq_element::<#elem_ty>;
+        };
+
+        #(#outer_attrs)*
+        #[doc = "Hopper dynamic account with a growable `Seq<T>` tail."]
+        #[doc = "The fixed head stays zero-copy; the tail is a `[u32 count][T; ..]`"]
+        #[doc = "region of fixed-stride elements, grown via `realloc`."]
+        #[doc = concat!("Tail schema: ", #tail_schema_lit)]
+        #[derive(Clone, Copy)]
+        #[repr(C)]
+        #[hopper::state(#(#state_args),*)]
+        #vis struct #name {
+            #(#fixed_fields,)*
+        }
+
+        impl #name {
+            /// Construct the fixed head. The `Seq` tail is written
+            /// separately through the streaming cursor accessors.
+            #[allow(clippy::too_many_arguments)]
+            #[inline(always)]
+            #vis fn new(#(#fixed_new_params),*) -> Self {
+                Self {
+                    #(#fixed_new_inits,)*
+                }
+            }
+
+            #(#fixed_getters)*
+
+            /// Minimum allocation: fixed head + the 4-byte `Seq` count
+            /// prefix (an empty sequence). Grow past this via `space_for`.
+            #vis const MIN_SPACE: usize = Self::LEN + ::hopper::__runtime::SEQ_LEN_PREFIX;
+
+            /// Account allocation for a `Seq` of `count` elements: fixed
+            /// head + `4 + count * STRIDE`.
+            #[inline(always)]
+            #vis const fn space_for(count: usize) -> usize {
+                Self::LEN + ::hopper::__runtime::seq_region_bytes_for::<#elem_ty>(count)
+            }
+
+            /// Body-relative offset of the `Seq` tail region (its `u32`
+            /// count prefix). A `#[hopper::context]` `tail(...)`
+            /// declaration lowers to an open-ended write range at
+            /// `HEADER_LEN + this`.
+            #vis const #offset_const: u32 = Self::BODY_SIZE as u32;
+            /// Absolute offset of the `Seq` tail region (== `TAIL_PREFIX_OFFSET`).
+            #vis const #abs_offset_const: u32 = Self::TAIL_PREFIX_OFFSET as u32;
+            /// Open-ended declared write size: the tail grows without
+            /// bound, so its range is `u32::MAX` (an open tail — never a
+            /// whole-account grant, since it starts past the head).
+            #vis const #size_const: u32 = u32::MAX;
+
+            /// Zero the `Seq` count prefix (empty sequence). A freshly
+            /// allocated, zeroed account already reads empty; use this only
+            /// to reset an existing tail.
+            #[inline]
+            #vis fn #seq_init_ident(
+                data: &mut [u8],
+            ) -> ::core::result::Result<(), ::hopper::__runtime::ProgramError> {
+                let region = data
+                    .get_mut(Self::TAIL_PREFIX_OFFSET..)
+                    .ok_or(::hopper::__runtime::ProgramError::AccountDataTooSmall)?;
+                if region.len() < ::hopper::__runtime::SEQ_LEN_PREFIX {
+                    return ::core::result::Result::Err(
+                        ::hopper::__runtime::ProgramError::AccountDataTooSmall,
+                    );
+                }
+                region[..::hopper::__runtime::SEQ_LEN_PREFIX].copy_from_slice(&0u32.to_le_bytes());
+                ::core::result::Result::Ok(())
+            }
+
+            /// Streaming READ cursor over the `Seq` tail (decodes one
+            /// element per access; never materializes `[T; N]`).
+            #[inline]
+            #vis fn #seq_ident(
+                data: &[u8],
+            ) -> ::core::result::Result<
+                ::hopper::__runtime::TailSeq<'_, #elem_ty>,
+                ::hopper::__runtime::ProgramError,
+            > {
+                let region = data
+                    .get(Self::TAIL_PREFIX_OFFSET..)
+                    .ok_or(::hopper::__runtime::ProgramError::AccountDataTooSmall)?;
+                ::hopper::__runtime::TailSeq::from_region(region)
+            }
+
+            /// Streaming WRITE cursor over the `Seq` tail (O(1) `push`,
+            /// `set`, `swap_remove`; capacity from the live account length).
+            #[inline]
+            #vis fn #seq_mut_ident(
+                data: &mut [u8],
+            ) -> ::core::result::Result<
+                ::hopper::__runtime::TailSeqMut<'_, #elem_ty>,
+                ::hopper::__runtime::ProgramError,
+            > {
+                let region = data
+                    .get_mut(Self::TAIL_PREFIX_OFFSET..)
+                    .ok_or(::hopper::__runtime::ProgramError::AccountDataTooSmall)?;
+                ::hopper::__runtime::TailSeqMut::from_region(region)
+            }
+        }
+    })
+}
+
 fn parse_options(attr: TokenStream) -> Result<Options> {
     if attr.is_empty() {
         return Ok(Options::default());
@@ -754,6 +959,25 @@ fn parse_pretty_tail_type(ty: &Type) -> Result<Option<TailKind>> {
         }));
     }
 
+    if ident == "Seq" {
+        // `Seq<'a, T>` or `Seq<T>` — a growable typed sequence, no capacity.
+        let args = angle_args(&segment.arguments, ty)?;
+        let (_, ty_index) = leading_lifetime_index(args);
+        let ty_arg = type_arg(
+            args,
+            ty_index,
+            ty,
+            "Seq expects `Seq<'a, T>` (a single element type, no capacity)",
+        )?;
+        if args.len() != ty_index + 1 {
+            return Err(syn::Error::new_spanned(
+                ty,
+                "Seq is capacity-free and takes exactly one element type after the optional lifetime, for example `Seq<'a, Address>`",
+            ));
+        }
+        return Ok(Some(TailKind::Seq { ty: ty_arg }));
+    }
+
     Ok(None)
 }
 
@@ -817,7 +1041,7 @@ fn is_dynamic_authoring_type(ty: &Type) -> bool {
         .map(|ident| {
             matches!(
                 ident.as_str(),
-                "String" | "Text" | "Vec" | "List" | "TailStr" | "TailBytes"
+                "String" | "Text" | "Vec" | "List" | "Seq" | "TailStr" | "TailBytes"
             )
         })
         .unwrap_or(false)
@@ -919,7 +1143,9 @@ fn tail_struct_field(field: &TailField) -> TokenStream {
     match &field.kind {
         TailKind::String { cap } => quote! { #ident: string<#cap>, },
         TailKind::Vec { ty, cap, .. } => quote! { #ident: vec<#ty, #cap>, },
-        TailKind::TailStr | TailKind::TailBytes => TokenStream::new(),
+        // `Seq` tails never reach the owned-decode tail struct — they are
+        // handled by `expand_seq_account`.
+        TailKind::Seq { .. } | TailKind::TailStr | TailKind::TailBytes => TokenStream::new(),
     }
 }
 
@@ -932,6 +1158,8 @@ fn tail_value_field(field: &TailField) -> TokenStream {
         }
         TailKind::TailStr => quote! { pub #ident: ::hopper::__runtime::TailStr<'a>, },
         TailKind::TailBytes => quote! { pub #ident: ::hopper::__runtime::TailBytes<'a>, },
+        // `Seq` tails do not participate in the owned tail value struct.
+        TailKind::Seq { .. } => TokenStream::new(),
     }
 }
 
@@ -944,7 +1172,8 @@ fn tail_element_assertion(field: &TailField) -> Option<TokenStream> {
                 let _ = __hopper_assert_tail_element::<#ty>;
             };
         }),
-        TailKind::TailStr | TailKind::TailBytes => None,
+        // `Seq` elements are asserted `SeqElement` inside `expand_seq_account`.
+        TailKind::Seq { .. } | TailKind::TailStr | TailKind::TailBytes => None,
     }
 }
 
@@ -967,6 +1196,13 @@ fn tail_schema(fields: &[TailField]) -> String {
                 out.push_str(&ty.to_token_stream().to_string().replace(' ', ""));
                 out.push(',');
                 out.push_str(&cap.base10_digits().replace('_', ""));
+                out.push('>');
+            }
+            TailKind::Seq { ty } => {
+                // NO capacity in the schema — the layout id stays
+                // capacity-independent, so growing never changes the type.
+                out.push_str("seq<");
+                out.push_str(&ty.to_token_stream().to_string().replace(' ', ""));
                 out.push('>');
             }
             TailKind::TailStr => out.push_str("tail_str"),
@@ -1000,7 +1236,9 @@ fn tail_skip_tokens(previous: &[TailField]) -> Vec<TokenStream> {
                 let (_, __consumed) = <::hopper::__runtime::HopperVec<#ty, #cap> as ::hopper::__runtime::TailCodec>::decode(__cursor)?;
                 __cursor = &__cursor[__consumed..];
             },
-            TailKind::TailStr | TailKind::TailBytes => TokenStream::new(),
+            // `Seq` is always the sole tail, so it never appears as a
+            // `previous` field to skip over.
+            TailKind::Seq { .. } | TailKind::TailStr | TailKind::TailBytes => TokenStream::new(),
         })
         .collect()
 }
@@ -1060,6 +1298,9 @@ fn tail_view_method(field: &TailField, previous: &[TailField]) -> TokenStream {
                 Ok(::hopper::__runtime::TailBytes::new(__cursor))
             }
         },
+        // `Seq` tails are handled by `expand_seq_account` and never reach
+        // the owned tail-view surface.
+        TailKind::Seq { .. } => TokenStream::new(),
     }
 }
 
@@ -1144,6 +1385,8 @@ fn tail_editor_methods(
                 }
             }
         }
+        // `Seq` tails are handled by `expand_seq_account`; no owned editor.
+        TailKind::Seq { .. } => TokenStream::new(),
     }
 }
 
@@ -1258,6 +1501,8 @@ fn account_tail_methods(field: &TailField, vis: &Visibility, has_raw_tail: bool)
                 }
             }
         }
+        // `Seq` tails emit their own accessors in `expand_seq_account`.
+        TailKind::Seq { .. } => TokenStream::new(),
     }
 }
 
@@ -1283,7 +1528,7 @@ fn account_wrapper_trait_methods(field: &TailField) -> TokenStream {
                 fn #remove(&self, value: &#ty) -> ::core::result::Result<bool, ::hopper::__runtime::ProgramError>;
             }
         }
-        TailKind::TailStr | TailKind::TailBytes => TokenStream::new(),
+        TailKind::Seq { .. } | TailKind::TailStr | TailKind::TailBytes => TokenStream::new(),
     }
 }
 
@@ -1351,7 +1596,7 @@ fn account_wrapper_impl_methods(
                 }
             }
         }
-        TailKind::TailStr | TailKind::TailBytes => TokenStream::new(),
+        TailKind::Seq { .. } | TailKind::TailStr | TailKind::TailBytes => TokenStream::new(),
     }
 }
 

@@ -34,7 +34,11 @@
 //! custom structs) implement `TailCodec` themselves; the framework does not
 //! force a derive or pull `Vec` / `String` into the no-alloc runtime surface.
 
+use core::marker::PhantomData;
+
+use crate::borrow::{Ref, RefMut};
 use crate::error::ProgramError;
+use crate::segment_lease::SegmentLease;
 
 /// Canonical serializer for dynamic-tail payloads.
 ///
@@ -695,6 +699,455 @@ impl TailCodec for crate::address::Address {
     }
 }
 
+// ══════════════════════════════════════════════════════════════════════
+//  Seq<T> — the growable typed sequence (O(1) push, open-ended tail)
+// ══════════════════════════════════════════════════════════════════════
+//
+// A `Seq<T>` tail stores `[ count: u32 LE ][ elem_0 ][ elem_1 ] ...` where
+// every element occupies a FIXED `T::STRIDE` bytes. Because the stride is
+// constant, element `i` lives at a computable offset
+// `SEQ_LEN_PREFIX + i*STRIDE` with no scan, `push` is O(1) (write one
+// element, bump the count), and the streaming cursors below NEVER
+// materialize a `[T; N]` array — they decode/encode ONE element at a time,
+// directly over the account bytes.
+//
+// Unlike `BoundedVec<T, N>` (which owns a `[T; N]` and decodes the whole
+// tail), a `Seq<T>` carries NO compile-time capacity: the live capacity is
+// `(region_len - 4) / STRIDE`, computed from the account's current length.
+// Growing the account (via `realloc`) raises the capacity WITHOUT changing
+// the account type — the layout id is capacity-independent by design.
+//
+// Variable-stride types (`Option<T>`, `BoundedString`, `BoundedVec`) do
+// NOT implement `SeqElement` and stay on the owned-decode `BoundedVec`
+// path; only fixed-stride elements can back a `Seq`.
+
+/// Byte width of the `Seq<T>` count prefix (`u32` LE element count).
+pub const SEQ_LEN_PREFIX: usize = 4;
+
+/// A [`TailElement`] whose encoding has a **fixed stride**: every value
+/// encodes to exactly [`STRIDE`](Self::STRIDE) bytes
+/// (`STRIDE == MAX_ENCODED_LEN`, and `encode` always writes `STRIDE`).
+///
+/// This fixed width is what lets a `Seq<T>` address element `i` at
+/// `SEQ_LEN_PREFIX + i*STRIDE` with no per-element scan. Implemented for
+/// the fixed-width wire primitives (`u8..=u128`, `i16..=i128`, `bool`),
+/// `[u8; N]`, and [`Address`](crate::address::Address). Variable-length
+/// encoders (`Option<T>`, `BoundedString<N>`, `BoundedVec<T, N>`) are
+/// deliberately NOT `SeqElement`; they stay on the owned-decode path.
+pub trait SeqElement: TailElement {
+    /// Fixed on-wire stride in bytes. MUST equal the exact number of
+    /// bytes every value of this type encodes to (and decodes from).
+    const STRIDE: usize;
+}
+
+macro_rules! seq_element_fixed {
+    ( $( $ty:ty ),+ $(,)? ) => {
+        $(
+            impl SeqElement for $ty {
+                const STRIDE: usize = <$ty as TailCodec>::MAX_ENCODED_LEN;
+            }
+        )+
+    };
+}
+
+// Fixed-width wire primitives: their `MAX_ENCODED_LEN` IS their exact
+// encoded length (see the `tail_codec_int!` / `u8` / `bool` impls above).
+seq_element_fixed!(u8, u16, u32, u64, u128, i16, i32, i64, i128, bool);
+
+// `Address`: `repr(transparent)` over `[u8; 32]`, stride 32.
+impl SeqElement for crate::address::Address {
+    const STRIDE: usize = 32;
+}
+
+// NOTE: `[u8; N]` is intentionally NOT a blanket `SeqElement`. `TailElement`
+// requires `Default`, and `[T; N]` implements `Default` only for `N <= 32`
+// (there is no const-generic `Default` for arrays), so a blanket impl would
+// not type-check. Programs needing a fixed-width byte element use
+// `Address` (32 bytes) or implement `SeqElement` for their own concrete
+// `[u8; K]` (any `K <= 32`).
+
+/// Live capacity (max element count) of a `Seq<T>` tail region of
+/// `region_len` bytes: `(region_len - 4) / STRIDE`. Zero if the region
+/// cannot even hold the count prefix.
+#[inline(always)]
+pub const fn seq_capacity_for<T: SeqElement>(region_len: usize) -> usize {
+    if region_len < SEQ_LEN_PREFIX {
+        return 0;
+    }
+    (region_len - SEQ_LEN_PREFIX) / T::STRIDE
+}
+
+/// Account allocation (tail region bytes) needed for a `Seq<T>` of
+/// capacity `n`: `4 + n*STRIDE`.
+#[inline(always)]
+pub const fn seq_region_bytes_for<T: SeqElement>(n: usize) -> usize {
+    SEQ_LEN_PREFIX + n * T::STRIDE
+}
+
+// -- Read cursor ------------------------------------------------------
+
+/// Streaming **read** cursor over a `Seq<T>` tail region.
+///
+/// Borrows the tail-region bytes (`[count:u32][elems...]`) and decodes ONE
+/// element per [`get`](Self::get) / iterator step — it never builds a
+/// `[T; N]`. Cheap to construct and copy.
+#[derive(Clone, Copy)]
+pub struct TailSeq<'a, T: SeqElement> {
+    /// Tail region: `region[0..4]` is the count, elements follow.
+    region: &'a [u8],
+    _marker: PhantomData<T>,
+}
+
+impl<'a, T: SeqElement> TailSeq<'a, T> {
+    /// Overlay a read cursor on `region` (the tail bytes starting at the
+    /// count prefix). Rejects a region too small for the prefix, or a
+    /// stored count exceeding the region's capacity (corrupt tail).
+    #[inline]
+    pub fn from_region(region: &'a [u8]) -> Result<Self, ProgramError> {
+        if region.len() < SEQ_LEN_PREFIX {
+            return Err(ProgramError::AccountDataTooSmall);
+        }
+        let this = Self {
+            region,
+            _marker: PhantomData,
+        };
+        if this.len() as usize > this.capacity() {
+            return Err(ProgramError::InvalidAccountData);
+        }
+        Ok(this)
+    }
+
+    /// Number of live elements (the `u32` count prefix).
+    #[inline]
+    pub fn len(&self) -> u32 {
+        let mut bytes = [0u8; 4];
+        bytes.copy_from_slice(&self.region[..SEQ_LEN_PREFIX]);
+        u32::from_le_bytes(bytes)
+    }
+
+    /// Whether the sequence is empty.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// Live element capacity from the region length: `(len - 4) / STRIDE`.
+    #[inline]
+    pub fn capacity(&self) -> usize {
+        seq_capacity_for::<T>(self.region.len())
+    }
+
+    /// Decode the element at `index` (one element, no full-tail decode).
+    #[inline]
+    pub fn get(&self, index: usize) -> Result<T, ProgramError> {
+        if index >= self.len() as usize {
+            return Err(ProgramError::InvalidArgument);
+        }
+        let start = SEQ_LEN_PREFIX + index * T::STRIDE;
+        let end = start + T::STRIDE;
+        let bytes = self
+            .region
+            .get(start..end)
+            .ok_or(ProgramError::InvalidAccountData)?;
+        let (value, _consumed) = T::decode(bytes)?;
+        Ok(value)
+    }
+
+    /// Iterate the live elements, decoding one at a time. Each item is a
+    /// `Result` because a corrupt slot can fail to decode (e.g. a `bool`
+    /// byte outside `{0, 1}`); a well-formed `Seq` yields only `Ok`.
+    #[inline]
+    pub fn iter(&self) -> TailSeqIter<'a, T> {
+        TailSeqIter {
+            region: self.region,
+            len: self.len() as usize,
+            pos: 0,
+            _marker: PhantomData,
+        }
+    }
+}
+
+/// Iterator over a [`TailSeq`], yielding one decoded element per step.
+pub struct TailSeqIter<'a, T: SeqElement> {
+    region: &'a [u8],
+    len: usize,
+    pos: usize,
+    _marker: PhantomData<T>,
+}
+
+impl<T: SeqElement> Iterator for TailSeqIter<'_, T> {
+    type Item = Result<T, ProgramError>;
+
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.pos >= self.len {
+            return None;
+        }
+        let start = SEQ_LEN_PREFIX + self.pos * T::STRIDE;
+        let end = start + T::STRIDE;
+        self.pos += 1;
+        let item = match self.region.get(start..end) {
+            Some(bytes) => T::decode(bytes).map(|(value, _)| value),
+            None => Err(ProgramError::InvalidAccountData),
+        };
+        Some(item)
+    }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let remaining = self.len - self.pos;
+        (remaining, Some(remaining))
+    }
+}
+
+// -- Write cursor -----------------------------------------------------
+
+/// Streaming **write** cursor over a `Seq<T>` tail region.
+///
+/// Encodes/decodes ONE element at a time directly over the account bytes;
+/// [`push`](Self::push) is O(1) (write one element at the tail, bump the
+/// count). The capacity is derived from the LIVE region length, so a tail
+/// that was grown via `realloc` can hold more elements with no type
+/// change. `push` returns [`AccountDataTooSmall`](ProgramError::AccountDataTooSmall)
+/// when the region is full — grow the account first.
+pub struct TailSeqMut<'a, T: SeqElement> {
+    /// Tail region: `region[0..4]` is the count, elements follow.
+    region: &'a mut [u8],
+    _marker: PhantomData<T>,
+}
+
+impl<'a, T: SeqElement> TailSeqMut<'a, T> {
+    /// Overlay a write cursor on `region` (the tail bytes starting at the
+    /// count prefix). Rejects a region too small for the prefix, or a
+    /// stored count exceeding the region's capacity (corrupt tail).
+    #[inline]
+    pub fn from_region(region: &'a mut [u8]) -> Result<Self, ProgramError> {
+        if region.len() < SEQ_LEN_PREFIX {
+            return Err(ProgramError::AccountDataTooSmall);
+        }
+        let this = Self {
+            region,
+            _marker: PhantomData,
+        };
+        if this.len() as usize > this.capacity() {
+            return Err(ProgramError::InvalidAccountData);
+        }
+        Ok(this)
+    }
+
+    /// Number of live elements (the `u32` count prefix).
+    #[inline]
+    pub fn len(&self) -> u32 {
+        let mut bytes = [0u8; 4];
+        bytes.copy_from_slice(&self.region[..SEQ_LEN_PREFIX]);
+        u32::from_le_bytes(bytes)
+    }
+
+    /// Whether the sequence is empty.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// Live element capacity from the region length: `(len - 4) / STRIDE`.
+    #[inline]
+    pub fn capacity(&self) -> usize {
+        seq_capacity_for::<T>(self.region.len())
+    }
+
+    /// Whether the sequence has reached its live capacity.
+    #[inline]
+    pub fn is_full(&self) -> bool {
+        self.len() as usize >= self.capacity()
+    }
+
+    /// Remaining element slots before a grow is required.
+    #[inline]
+    pub fn remaining_capacity(&self) -> usize {
+        self.capacity().saturating_sub(self.len() as usize)
+    }
+
+    /// Decode the element at `index` (one element, no full-tail decode).
+    #[inline]
+    pub fn get(&self, index: usize) -> Result<T, ProgramError> {
+        if index >= self.len() as usize {
+            return Err(ProgramError::InvalidArgument);
+        }
+        let start = SEQ_LEN_PREFIX + index * T::STRIDE;
+        let end = start + T::STRIDE;
+        let bytes = self
+            .region
+            .get(start..end)
+            .ok_or(ProgramError::InvalidAccountData)?;
+        let (value, _consumed) = T::decode(bytes)?;
+        Ok(value)
+    }
+
+    /// Overwrite the element at `index` in place. `index` must be `<
+    /// len`.
+    #[inline]
+    pub fn set(&mut self, index: usize, value: T) -> Result<(), ProgramError> {
+        if index >= self.len() as usize {
+            return Err(ProgramError::InvalidArgument);
+        }
+        let start = SEQ_LEN_PREFIX + index * T::STRIDE;
+        let end = start + T::STRIDE;
+        let slot = self
+            .region
+            .get_mut(start..end)
+            .ok_or(ProgramError::AccountDataTooSmall)?;
+        let _ = value.encode(slot)?;
+        Ok(())
+    }
+
+    /// Append `value` at the tail and bump the count — O(1). Returns
+    /// [`AccountDataTooSmall`](ProgramError::AccountDataTooSmall) when the
+    /// region is at capacity (grow the account, then push again).
+    #[inline]
+    pub fn push(&mut self, value: T) -> Result<(), ProgramError> {
+        let len = self.len() as usize;
+        if len >= self.capacity() {
+            return Err(ProgramError::AccountDataTooSmall);
+        }
+        let start = SEQ_LEN_PREFIX + len * T::STRIDE;
+        let end = start + T::STRIDE;
+        let slot = self
+            .region
+            .get_mut(start..end)
+            .ok_or(ProgramError::AccountDataTooSmall)?;
+        let _ = value.encode(slot)?;
+        // Bump the count LAST, so a mid-encode failure above leaves the
+        // stored length pointing only at fully-written elements.
+        let new_len = (len as u32) + 1;
+        self.region[..SEQ_LEN_PREFIX].copy_from_slice(&new_len.to_le_bytes());
+        Ok(())
+    }
+
+    /// Remove the element at `index`, moving the last element into its
+    /// slot (O(1), does not preserve order). Returns the removed value.
+    #[inline]
+    pub fn swap_remove(&mut self, index: usize) -> Result<T, ProgramError> {
+        let len = self.len() as usize;
+        if index >= len {
+            return Err(ProgramError::InvalidArgument);
+        }
+        let removed = self.get(index)?;
+        let last = len - 1;
+        let last_start = SEQ_LEN_PREFIX + last * T::STRIDE;
+        if index != last {
+            let idx_start = SEQ_LEN_PREFIX + index * T::STRIDE;
+            // Disjoint ranges (index != last), so copy_within is well
+            // defined; it moves the last element's bytes over the removed
+            // slot.
+            self.region
+                .copy_within(last_start..last_start + T::STRIDE, idx_start);
+        }
+        // Zero the now-unused final slot so stale bytes never masquerade
+        // as a live element after a later grow.
+        if let Some(tail) = self.region.get_mut(last_start..last_start + T::STRIDE) {
+            for byte in tail.iter_mut() {
+                *byte = 0;
+            }
+        }
+        self.region[..SEQ_LEN_PREFIX].copy_from_slice(&(last as u32).to_le_bytes());
+        Ok(removed)
+    }
+
+    /// Borrow this cursor as a read cursor (shared reborrow).
+    #[inline]
+    pub fn as_seq(&self) -> TailSeq<'_, T> {
+        TailSeq {
+            region: self.region,
+            _marker: PhantomData,
+        }
+    }
+}
+
+// -- Borrow-registry-integrated guards --------------------------------
+//
+// A `TailSeq`/`TailSeqMut` cursor borrows the tail bytes, but under a
+// `Context` those bytes come from an account borrow that must be held
+// (and a segment-registry lease that must stay registered) for as long as
+// the cursor lives. These guards OWN the account byte borrow (narrowed to
+// the tail region) plus the one segment lease covering the tail range, and
+// hand out the cursor via `seq()` / `seq_mut()` — the same
+// guard-owns-the-borrow, method-yields-the-view shape as
+// [`SegmentsMut`](crate::SegmentsMut). Dropping a guard releases both the
+// byte borrow and the single registry lease. `Context::tail_seq_ref` /
+// `Context::tail_seq_mut` construct them.
+
+/// Read guard over a `Seq<T>` tail acquired through a `Context`: owns the
+/// shared account byte borrow (narrowed to the tail region) and the
+/// segment-registry lease, yielding a [`TailSeq`] cursor via
+/// [`seq`](Self::seq).
+pub struct SeqTailRead<'a, T: SeqElement> {
+    region: Ref<'a, [u8]>,
+    _lease: SegmentLease<'a>,
+    _marker: PhantomData<T>,
+}
+
+impl<'a, T: SeqElement> SeqTailRead<'a, T> {
+    /// Assemble from a region-narrowed shared byte borrow and its lease.
+    ///
+    /// `#[doc(hidden)]` cross-crate constructor; user code reaches for
+    /// `Context::tail_seq_ref` / the generated `<field>()` accessor.
+    #[doc(hidden)]
+    #[inline]
+    pub fn new(region: Ref<'a, [u8]>, lease: SegmentLease<'a>) -> Self {
+        Self {
+            region,
+            _lease: lease,
+            _marker: PhantomData,
+        }
+    }
+
+    /// Borrow the tail as a streaming read cursor.
+    #[inline]
+    pub fn seq(&self) -> Result<TailSeq<'_, T>, ProgramError> {
+        TailSeq::from_region(&self.region)
+    }
+}
+
+/// Write guard over a `Seq<T>` tail acquired through a `Context`: owns the
+/// exclusive account byte borrow (narrowed to the tail region) and the
+/// segment-registry lease, yielding a [`TailSeqMut`] cursor via
+/// [`seq_mut`](Self::seq_mut).
+pub struct SeqTailWrite<'a, T: SeqElement> {
+    region: RefMut<'a, [u8]>,
+    _lease: SegmentLease<'a>,
+    _marker: PhantomData<T>,
+}
+
+impl<'a, T: SeqElement> SeqTailWrite<'a, T> {
+    /// Assemble from a region-narrowed exclusive byte borrow and its
+    /// lease.
+    ///
+    /// `#[doc(hidden)]` cross-crate constructor; user code reaches for
+    /// `Context::tail_seq_mut` / the generated `<field>_mut()` accessor.
+    #[doc(hidden)]
+    #[inline]
+    pub fn new(region: RefMut<'a, [u8]>, lease: SegmentLease<'a>) -> Self {
+        Self {
+            region,
+            _lease: lease,
+            _marker: PhantomData,
+        }
+    }
+
+    /// Borrow the tail as a streaming write cursor (O(1) `push`, `set`,
+    /// `swap_remove`, capacity from the live region length).
+    #[inline]
+    pub fn seq_mut(&mut self) -> Result<TailSeqMut<'_, T>, ProgramError> {
+        TailSeqMut::from_region(&mut self.region)
+    }
+
+    /// Borrow the tail as a streaming read cursor.
+    #[inline]
+    pub fn seq(&self) -> Result<TailSeq<'_, T>, ProgramError> {
+        TailSeq::from_region(&self.region)
+    }
+}
+
 // ── Framework helpers used by `#[hopper::state(dynamic_tail = T)]` ──
 
 /// Read the tail's u32-LE length prefix.
@@ -1052,6 +1505,123 @@ mod tests {
         assert_eq!(vec.as_slice(), &[7]);
         vec.clear();
         assert!(vec.is_empty());
+    }
+
+    // ── Seq<T> streaming cursors ─────────────────────────────────────
+
+    use crate::address::Address;
+
+    #[test]
+    fn seq_element_stride_matches_encoded_len() {
+        assert_eq!(<u8 as SeqElement>::STRIDE, 1);
+        assert_eq!(<u16 as SeqElement>::STRIDE, 2);
+        assert_eq!(<u32 as SeqElement>::STRIDE, 4);
+        assert_eq!(<u64 as SeqElement>::STRIDE, 8);
+        assert_eq!(<bool as SeqElement>::STRIDE, 1);
+        assert_eq!(<Address as SeqElement>::STRIDE, 32);
+    }
+
+    #[test]
+    fn seq_capacity_is_region_derived() {
+        // 4-byte prefix + room for elements; capacity = (len - 4) / STRIDE.
+        assert_eq!(seq_capacity_for::<u64>(4 + 8 * 3), 3);
+        assert_eq!(seq_capacity_for::<u64>(4 + 8 * 3 + 5), 3); // partial slot ignored
+        assert_eq!(seq_capacity_for::<u64>(4), 0);
+        assert_eq!(seq_capacity_for::<u64>(0), 0); // too small for prefix
+        assert_eq!(seq_region_bytes_for::<Address>(10), 4 + 32 * 10);
+    }
+
+    #[test]
+    fn seq_push_get_iter_roundtrip() {
+        // Region for 4 u64 elements.
+        let mut region = [0u8; 4 + 8 * 4];
+        let mut seq = TailSeqMut::<u64>::from_region(&mut region).unwrap();
+        assert_eq!(seq.capacity(), 4);
+        assert_eq!(seq.len(), 0);
+        assert!(seq.is_empty());
+        assert_eq!(seq.remaining_capacity(), 4);
+
+        seq.push(10).unwrap();
+        seq.push(20).unwrap();
+        seq.push(30).unwrap();
+        assert_eq!(seq.len(), 3);
+        assert_eq!(seq.remaining_capacity(), 1);
+        assert_eq!(seq.get(0).unwrap(), 10);
+        assert_eq!(seq.get(2).unwrap(), 30);
+        assert!(seq.get(3).is_err()); // out of live range
+
+        // set overwrites in place.
+        seq.set(1, 99).unwrap();
+        assert_eq!(seq.get(1).unwrap(), 99);
+        assert!(seq.set(3, 1).is_err()); // index >= len
+
+        // A read cursor over the same bytes sees the same elements.
+        let read = TailSeq::<u64>::from_region(&region).unwrap();
+        assert_eq!(read.len(), 3);
+        let collected: Result<std::vec::Vec<u64>, _> = read.iter().collect();
+        assert_eq!(collected.unwrap(), std::vec![10, 99, 30]);
+    }
+
+    #[test]
+    fn seq_push_at_capacity_is_account_data_too_small() {
+        let mut region = [0u8; 4 + 8 * 2]; // capacity 2
+        let mut seq = TailSeqMut::<u64>::from_region(&mut region).unwrap();
+        seq.push(1).unwrap();
+        seq.push(2).unwrap();
+        assert!(seq.is_full());
+        assert_eq!(seq.remaining_capacity(), 0);
+        assert_eq!(seq.push(3), Err(ProgramError::AccountDataTooSmall));
+        // The rejected push left the count and bytes untouched.
+        assert_eq!(seq.len(), 2);
+        assert_eq!(seq.get(0).unwrap(), 1);
+        assert_eq!(seq.get(1).unwrap(), 2);
+    }
+
+    #[test]
+    fn seq_swap_remove_moves_last_into_hole() {
+        let mut region = [0u8; 4 + 8 * 4];
+        let mut seq = TailSeqMut::<u64>::from_region(&mut region).unwrap();
+        for v in [10u64, 20, 30, 40] {
+            seq.push(v).unwrap();
+        }
+        // Remove the middle: last (40) fills the hole, order not preserved.
+        assert_eq!(seq.swap_remove(1).unwrap(), 20);
+        assert_eq!(seq.len(), 3);
+        assert_eq!(seq.get(0).unwrap(), 10);
+        assert_eq!(seq.get(1).unwrap(), 40);
+        assert_eq!(seq.get(2).unwrap(), 30);
+        // Removing the last element is a pure truncation.
+        assert_eq!(seq.swap_remove(2).unwrap(), 30);
+        assert_eq!(seq.len(), 2);
+        // The freed slot was zeroed, and pushing reuses it cleanly.
+        seq.push(50).unwrap();
+        assert_eq!(seq.get(2).unwrap(), 50);
+        assert!(seq.swap_remove(9).is_err());
+    }
+
+    #[test]
+    fn seq_of_addresses_roundtrips() {
+        let mut region = [0u8; 4 + 32 * 3];
+        let mut seq = TailSeqMut::<Address>::from_region(&mut region).unwrap();
+        let a = Address::new([7u8; 32]);
+        let b = Address::new([9u8; 32]);
+        seq.push(a).unwrap();
+        seq.push(b).unwrap();
+        assert_eq!(seq.get(0).unwrap(), a);
+        assert_eq!(seq.get(1).unwrap(), b);
+        assert_eq!(seq.capacity(), 3);
+    }
+
+    #[test]
+    fn seq_from_region_rejects_corrupt_count_and_tiny_region() {
+        // Region too small for the 4-byte prefix.
+        let mut tiny = [0u8; 2];
+        assert!(TailSeqMut::<u64>::from_region(&mut tiny).is_err());
+        // Stored count exceeds capacity -> corrupt.
+        let mut region = [0u8; 4 + 8 * 2];
+        region[..4].copy_from_slice(&9999u32.to_le_bytes());
+        assert!(TailSeqMut::<u64>::from_region(&mut region).is_err());
+        assert!(TailSeq::<u64>::from_region(&region).is_err());
     }
 }
 

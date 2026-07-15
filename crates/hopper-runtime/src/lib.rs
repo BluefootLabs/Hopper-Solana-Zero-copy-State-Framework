@@ -126,9 +126,10 @@ pub use remaining::{
 };
 pub use return_data::{get_return_data, set_return_data, try_set_return_data, ReturnData};
 pub use tail::{
-    borrow_address_slice, borrow_bounded_str, read_tail, read_tail_len, tail_capacity,
-    tail_payload, write_tail, write_tail_payload, BoundedString, BoundedVec, HopperString,
-    HopperVec, TailBytes, TailCodec, TailElement, TailStr,
+    borrow_address_slice, borrow_bounded_str, read_tail, read_tail_len, seq_capacity_for,
+    seq_region_bytes_for, tail_capacity, tail_payload, write_tail, write_tail_payload,
+    BoundedString, BoundedVec, HopperString, HopperVec, SeqElement, SeqTailRead, SeqTailWrite,
+    TailBytes, TailCodec, TailElement, TailSeq, TailSeqIter, TailSeqMut, TailStr, SEQ_LEN_PREFIX,
 };
 
 /// Compose a layout's `LayoutMigration::MIGRATIONS` chain from a list

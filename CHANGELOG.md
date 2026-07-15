@@ -9,6 +9,43 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 
 ### Added
 
+- **`Seq<T>` — the growable typed sequence tail (the dynamic-data gap,
+  closed).** A `Seq<'a, T>` tail (`#[tail(seq<T>)]` in systems mode) is
+  an open-ended, growable list whose capacity is a property of the
+  ACCOUNT LENGTH, not the account type: the `seq<T>` schema string
+  carries no capacity, so the layout id is capacity-independent and
+  growing via `realloc` never changes the account type. The wire format
+  is `[count: u32 LE][T; ..]` with a fixed per-element stride, so `push`
+  is O(1) (write one element, bump the count — the count bumps LAST so a
+  mid-encode failure never exposes a half-written element) and the
+  streaming cursors (`TailSeq`/`TailSeqMut`: `get`/`set`/`push`/
+  `swap_remove`/`iter`) never materialize a `[T; N]` — where Anchor's
+  `Vec<T>` pays a full deserialize + reserialize every instruction.
+  Under `strict_writes` the new `tail(<field>)` context declaration
+  lowers to ONE open-ended `WriteRange::tail_from` grant: the tail is
+  writable and growable at any account length while the fixed HEAD stays
+  byte-protected (`Custom(0xD000 | idx)` on head writes), and — because
+  the range starts past the head — it is NOT a whole-account grant, so
+  CPI writable-meta delegation stays refused. Acquiring the gated cursor
+  (`Context::tail_seq_mut`/`tail_seq_ref`) registers exactly one
+  tail-region segment lease, so touch maps stay one record per acquire
+  regardless of element count. One growable tail per account; elements
+  must be fixed-stride (`SeqElement`: wire ints, `bool`, `Address`).
+  Mutation-disciplined end to end: lowering the tail grant to a
+  whole-account range, or reverting the realloc carve-out below, each
+  breaks dedicated integration assertions.
+- **Fixed: `strict_writes` + `realloc` silently degraded to a
+  whole-account grant.** A field combining `realloc = ...` with
+  `mut(seg, ...)` used to be classified as a whole-account write range —
+  the segment scoping was silently discarded, so a program believed it
+  had byte-range protection while publishing (and enforcing) a
+  whole-account grant. Now the declared segments govern the handler
+  surface; `realloc` stays a bind-time lifecycle (resize + rent top-up
+  never cross the byte-range gate, and the account stays in the implied
+  lamport set). `init`/`init_if_needed`/`close` intentionally keep
+  whole-account semantics — those lifecycles (re)write or destroy the
+  entire account. Regression-tested with published-vs-enforced and
+  runtime-refusal assertions that fail against the old classification.
 - **Touch maps that stay complete under pressure (adaptive exact-union
   coalescing).** The instruction touch log no longer truncates when an
   instruction touches more than `MAX_TOUCH_RECORDS` (32) distinct byte

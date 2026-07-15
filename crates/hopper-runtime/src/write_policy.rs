@@ -132,6 +132,29 @@ impl WriteRange {
         }
     }
 
+    /// Allow writes to the **open-ended tail** `[offset, +inf)` on
+    /// `account_index` — the grant a growable `Seq<T>` tail needs.
+    ///
+    /// `size` is `u32::MAX`, so [`contains`](Self::contains) admits any
+    /// sub-range starting at or after `offset` regardless of how large the
+    /// account grows (the account data cap is far below 4 GiB, and
+    /// `contains` widens to `u64` so `offset + u32::MAX` cannot wrap).
+    ///
+    /// Crucially this is **not** a whole-account grant when `offset != 0`:
+    /// [`allows_whole_account_write`](WritePolicy::allows_whole_account_write)
+    /// requires a range containing `[0, u32::MAX)`, and a tail range that
+    /// starts past the fixed head fails that test. So the fixed head stays
+    /// byte-protected and CPI writable-meta delegation stays refused, while
+    /// the tail region past `offset` remains freely writable and growable.
+    #[inline(always)]
+    pub const fn tail_from(account_index: u8, offset: u32) -> Self {
+        Self {
+            account_index,
+            offset,
+            size: u32::MAX,
+        }
+    }
+
     /// Whether `[offset, offset + size)` is fully contained in this
     /// range. Widened to `u64` so `offset + size` cannot wrap.
     #[inline(always)]
@@ -1161,6 +1184,41 @@ mod tests {
         static READ_ONLY: WritePolicy = WritePolicy::new(&[]);
         assert!(READ_ONLY.check_write(0, 0, 1).is_err());
         assert!(READ_ONLY.check_write(255, 0, 0).is_err());
+    }
+
+    #[test]
+    fn open_ended_tail_range_allows_tail_refuses_head_and_is_not_whole_account() {
+        // A `Seq<T>` tail on account 1 whose fixed head occupies `[0, 24)`
+        // (16-byte Hopper header + an 8-byte head field): the tail region
+        // starts at offset 24 and is open-ended.
+        const TAIL_OFF: u32 = 24;
+        static P: WritePolicy = WritePolicy::new(&[WriteRange::tail_from(1, TAIL_OFF)]);
+
+        // Any sub-range at or past the tail offset is admitted, no matter
+        // how large the account grows — the size is u32::MAX and `contains`
+        // widens to u64 so `TAIL_OFF + u32::MAX` cannot wrap.
+        assert!(P.check_write(1, TAIL_OFF, 4).is_ok()); // the u32 count prefix
+        assert!(P.check_write(1, TAIL_OFF + 4, 32).is_ok()); // first element
+        assert!(P.check_write(1, TAIL_OFF, 10 * 1024 * 1024).is_ok()); // grown far
+        assert!(P.check_write(1, TAIL_OFF + 1_000_000, 32).is_ok());
+
+        // Every byte of the fixed head is refused with the indexed error —
+        // the open-ended tail range does NOT leak backwards onto the head.
+        assert_eq!(P.check_write(1, 0, 8), Err(write_policy_violation(1)));
+        assert_eq!(P.check_write(1, 16, 8), Err(write_policy_violation(1)));
+        // A write straddling the head/tail boundary is refused (it is not
+        // fully contained in the tail range).
+        assert!(P.check_write(1, TAIL_OFF - 1, 8).is_err());
+
+        // The load-bearing property: a tail range with `offset != 0` is
+        // NOT a whole-account grant. CPI writable-meta delegation demands
+        // `contains(0, u32::MAX)`, which starts at 0 and this range does
+        // not — so delegation stays refused and the head stays protected.
+        assert!(!P.allows_whole_account_write(1));
+        // A tail range anchored at 0 (a degenerate "whole tail from the
+        // start") IS a whole-account grant, by the same rule.
+        static P0: WritePolicy = WritePolicy::new(&[WriteRange::tail_from(1, 0)]);
+        assert!(P0.allows_whole_account_write(1));
     }
 
     #[test]
