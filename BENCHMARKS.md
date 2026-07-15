@@ -726,6 +726,27 @@ CU refusal), then reverting restored the refusal — pinning the
 refusal's only possible source as the framework write policy compiled
 from the declaration.
 
+Harness-fidelity note (prompted by LiteSVM v0.14.0, 2026-07-13, which
+syncs that harness to Agave 4.1 so its CU costs track mainnet). Hopper's
+compiled-SBF numbers come from Mollusk (`mollusk-svm 0.10.3`), a
+different in-process SVM — but the fidelity guarantee here does not rest
+on a harness *version* matching mainnet. It rests on the lab number
+matching the *live cluster* directly: four consecutive exact
+Mollusk==devnet matches now stand in this document (event 3,586;
+migration 280/251; and today `honest_pause` 1,203 and the `0xD001`
+refusal 616). A harness that tracks the validator release is a proxy for
+cluster fidelity; an exact match against the cluster itself is the thing
+the proxy stands in for. When a repricing SIMD (e.g. the p-memo / ATA
+Pinocchio rewrites that shipped in 4.1) moves a builtin's cost, a
+re-measure against devnet catches it regardless of the harness version —
+which is why every CU claim in this file is provenance-stamped to a
+single-day Mollusk run and, where it matters, cross-checked live. The
+`hopper tx explain --tree` CPI call tree (added the same day as this
+section) reconstructs the invocation hierarchy the way LiteSVM's new
+`litesvm-cpi-tree` does, and additionally hangs each frame's decoded
+touch map off its node — proven on the live self-CPI above (`2YPBv…`
+`[1] ok, 3,586 CU` → `[2] ok, 283 CU`).
+
 ### Bytecode size vs the competitor sources
 
 Compared against the extracted competitor trees at
