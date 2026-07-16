@@ -9,6 +9,25 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 
 ### Added
 
+- **`hopper lint --deny-escapes` — the policy-escape audit.** The
+  borrow ledger, touch log, and `strict_writes` gate govern the
+  `Context` surface; the raw `AccountView` escape hatches
+  (`borrow_unchecked{,_mut}`, `segment_{ref,mut}_unchecked`,
+  `raw_ref`/`raw_mut`, `resize_unchecked`, `close_unchecked`,
+  `data_ptr_unchecked`, `assign`) are deliberate systems-mode bypasses.
+  `hopper lint` now surfaces every bypass call in program source —
+  Warn by default (systems mode is legal), Error under
+  `--deny-escapes` — turning "every write in this program routes
+  through the governed surface" from a code-review hope into a
+  machine-checked CI property. This is the precise form of the claim:
+  Hopper's safe path is MEDIATED and the bypasses are grep-able and
+  CI-deniable, where a competitor's DEFAULT path is the unmediated
+  one. Validated three ways: unit fixtures detect all ten patterns
+  (comments skipped, mediated accessors silent, deny promotes to
+  Error); `hopper-sentinel` passes `--deny-escapes` clean — the
+  flagship's "no bypasses" claim is now machine-checked, not
+  grep-by-hand; and pointing the scan at hopper-runtime's own
+  internals yields 18 findings, proving it bites on real trees.
 - **SIMD-0449 readiness: O(1) account resolution from the pre-computed
   pointer table (`simd-0449`, opt-in).** SIMD-0449 has the runtime
   append a pre-deduplicated `[u64; n]` array of canonical

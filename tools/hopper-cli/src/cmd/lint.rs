@@ -53,6 +53,7 @@ pub fn cmd_lint(args: &[String]) {
     let mut project = PathBuf::from(".");
     let mut format = OutputFormat::Ascii;
     let mut fail_on_warn = false;
+    let mut deny_escapes = false;
     let mut i = 0;
     while i < args.len() {
         match args[i].as_str() {
@@ -79,6 +80,7 @@ pub fn cmd_lint(args: &[String]) {
                 };
             }
             "--fail-on-warn" => fail_on_warn = true,
+            "--deny-escapes" => deny_escapes = true,
             other => {
                 eprintln!("unknown lint flag: {other}");
                 print_usage();
@@ -88,13 +90,21 @@ pub fn cmd_lint(args: &[String]) {
         i += 1;
     }
 
-    let report = match lint_project(&project) {
+    let mut report = match lint_project(&project) {
         Ok(r) => r,
         Err(e) => {
             eprintln!("hopper lint failed: {e}");
             process::exit(1);
         }
     };
+
+    // Policy-escape audit: every ledger-bypassing accessor in program
+    // source is surfaced — Warn by default (systems mode is legal),
+    // Error under --deny-escapes (CI: the safe path is provably the
+    // only path taken).
+    report
+        .diagnostics
+        .extend(scan_policy_escapes(&project, deny_escapes));
 
     match format {
         OutputFormat::Ascii => render_ascii(&report),
@@ -116,6 +126,7 @@ pub fn cmd_lint(args: &[String]) {
 
 fn print_usage() {
     eprintln!("Usage: hopper lint [options]");
+    eprintln!("       hopper lint --deny-escapes   # policy-escape audit as errors (CI)");
     eprintln!("       hopper lint zc [--project <path>] [--fail-on-warn]");
     eprintln!("       hopper lint svm [--project <path>] [--fail-on-warn]  # compatibility alias");
     eprintln!();
@@ -214,6 +225,112 @@ fn cmd_lint_zc(args: &[String]) {
     }
 }
 
+/// The ledger-bypassing accessor inventory: every `hopper-native`
+/// `AccountView` entry point that reaches account bytes WITHOUT the
+/// account borrow byte, the segment borrow ledger, the touch log, or
+/// the `strict_writes` gate seeing it. Each is a deliberate,
+/// documented systems-mode escape hatch — `unsafe fn` (or raw-pointer
+/// returning) by construction — and each is what makes the honest
+/// claim precise: Hopper's safe path is MEDIATED, and the bypasses are
+/// grep-able and CI-deniable, where a competitor's DEFAULT path is the
+/// unmediated one.
+///
+/// Method-call syntax (leading `.`) keeps definitions and doc comments
+/// out of scope. The unsafe raw `owner()` getter is deliberately NOT
+/// listed: its name collides with the safe `owner()` getters used
+/// everywhere, and it grants read-only access — not a write-path
+/// escape.
+const ESCAPE_PATTERNS: &[(&str, &str)] = &[
+    (
+        ".borrow_unchecked(",
+        "reads account bytes without the borrow byte or the touch log",
+    ),
+    (
+        ".borrow_unchecked_mut(",
+        "hands out &mut account bytes past the borrow byte, the segment ledger, the touch log, AND the strict_writes gate",
+    ),
+    (
+        ".segment_ref_unchecked",
+        "segment read without a ledger lease",
+    ),
+    (
+        ".segment_mut_unchecked",
+        "segment write without a ledger lease or the strict_writes gate",
+    ),
+    // No trailing paren: these are generic and usually turbofished
+    // (`.raw_ref::<T>()`).
+    (
+        ".raw_ref",
+        "raw typed overlay with no borrow or policy mediation",
+    ),
+    (
+        ".raw_mut",
+        "raw mutable typed overlay with no borrow or policy mediation",
+    ),
+    (
+        ".resize_unchecked(",
+        "resizes without the borrow-liveness or rent checks safe_realloc performs",
+    ),
+    (
+        ".close_unchecked(",
+        "closes without owner/writable checks or the lamport gate",
+    ),
+    (
+        ".data_ptr_unchecked(",
+        "leaks the raw data pointer; every later access is invisible to the ledger",
+    ),
+    (
+        ".assign(",
+        "rewrites the account OWNER with no lifecycle checks (AccountView::assign)",
+    ),
+];
+
+/// Scan the project's program source for ledger-bypassing accessor
+/// calls (see [`ESCAPE_PATTERNS`]). Comment lines are skipped; every
+/// hit names the pattern, the reason it is an escape, and the mediated
+/// alternative. `deny` promotes the findings to [`Level::Error`] so a
+/// CI invocation (`hopper lint --deny-escapes`) fails the build —
+/// making "every write in this program routes through the governed
+/// surface" a machine-checked property instead of a code-review hope.
+fn scan_policy_escapes(project: &Path, deny: bool) -> Vec<Diagnostic> {
+    let mut files = Vec::new();
+    collect_rs_files(&project.join("src"), &mut files);
+    collect_rs_files(&project.join("programs"), &mut files);
+
+    let level = if deny { Level::Error } else { Level::Warn };
+    let mut diagnostics = Vec::new();
+    for file in files {
+        let Ok(text) = fs::read_to_string(&file) else {
+            continue;
+        };
+        for (idx, line) in text.lines().enumerate() {
+            let trimmed = line.trim_start();
+            if trimmed.starts_with("//") || trimmed.starts_with("///") || trimmed.starts_with("//!")
+            {
+                continue;
+            }
+            for (pattern, why) in ESCAPE_PATTERNS {
+                if trimmed.contains(pattern) {
+                    diagnostics.push(Diagnostic {
+                        level,
+                        context: format!("{}:{}", file.display(), idx + 1),
+                        field: None,
+                        message: format!(
+                            "policy escape `{}`: {why}. Route through Context \
+                             (`segment_mut`, typed accessors, `load_mut`) so the borrow \
+                             ledger, touch map, and strict_writes gate govern the access — \
+                             or keep it deliberately and drop `--deny-escapes`.",
+                            pattern.trim_end_matches('(')
+                        ),
+                        source_file: file.clone(),
+                    });
+                }
+            }
+        }
+    }
+    diagnostics
+}
+
 /// Result of an inline lint pass: the count of error- and warn-level
 /// diagnostics, plus the formatted lines themselves so callers can
 /// print them in their own output stream.
@@ -301,7 +418,7 @@ struct Diagnostic {
     source_file: PathBuf,
 }
 
-#[derive(Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
 enum Level {
     Error,
     Warn,
@@ -1069,6 +1186,72 @@ fn _map_anchor(_m: BTreeMap<String, String>) {}
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Scratch project with one src/lib.rs of the given content.
+    fn escape_fixture(label: &str, source: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!(
+            "hopper-lint-escapes-{label}-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(dir.join("src")).expect("fixture dir");
+        fs::write(dir.join("src").join("lib.rs"), source).expect("fixture source");
+        dir
+    }
+
+    #[test]
+    fn escape_scan_flags_every_bypass_and_skips_comments() {
+        let source = r#"
+// .borrow_unchecked_mut( in a comment must NOT be flagged
+/// nor in docs: .raw_mut(
+fn systems_mode(view: &AccountView) {
+    let bytes = unsafe { view.borrow_unchecked() };
+    let all = unsafe { view.borrow_unchecked_mut() };
+    let s = unsafe { view.segment_ref_unchecked::<u64>(8) };
+    let m = unsafe { view.segment_mut_unchecked::<u64>(8) };
+    let r = unsafe { view.raw_ref::<State>() };
+    let w = unsafe { view.raw_mut::<State>() };
+    unsafe { view.resize_unchecked(64) };
+    unsafe { view.close_unchecked() };
+    let p = view.data_ptr_unchecked();
+    unsafe { view.assign(&other_program) };
+}
+"#;
+        let dir = escape_fixture("all", source);
+        let warns = scan_policy_escapes(&dir, false);
+        assert_eq!(
+            warns.len(),
+            ESCAPE_PATTERNS.len(),
+            "one finding per bypass, comments excluded (got {})",
+            warns.len()
+        );
+        assert!(warns.iter().all(|d| d.level == Level::Warn));
+
+        // --deny-escapes promotes the same findings to errors.
+        let errors = scan_policy_escapes(&dir, true);
+        assert_eq!(errors.len(), ESCAPE_PATTERNS.len());
+        assert!(errors.iter().all(|d| d.level == Level::Error));
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn escape_scan_stays_silent_on_mediated_code() {
+        let source = r#"
+fn governed(ctx: &mut Context) -> ProgramResult {
+    let mut fee = ctx.segment_mut::<[u8; 2]>(0, 16)?;
+    let state = ctx.load_mut::<State>(1)?;
+    let data = view.try_borrow_mut()?;
+    let owner = view.owner(); // the safe getter is not an escape
+    Ok(())
+}
+"#;
+        let dir = escape_fixture("clean", source);
+        assert!(
+            scan_policy_escapes(&dir, true).is_empty(),
+            "mediated accessors must never be flagged"
+        );
+        let _ = fs::remove_dir_all(&dir);
+    }
 
     fn empty_field(name: &str) -> FieldInfo {
         FieldInfo {
