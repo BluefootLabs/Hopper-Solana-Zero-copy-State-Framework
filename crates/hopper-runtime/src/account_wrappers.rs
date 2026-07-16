@@ -949,8 +949,8 @@ mod resolver_tests {
     fn make_account(
         total_data_len: usize,
         owner: Address,
-    ) -> (std::vec::Vec<u8>, AccountView<'static>) {
-        let mut backing = std::vec![0u8; RuntimeAccount::SIZE + total_data_len];
+    ) -> (std::vec::Vec<u64>, AccountView<'static>) {
+        let mut backing = std::vec![0u64; (RuntimeAccount::SIZE + total_data_len).div_ceil(8)];
         let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
         // SAFETY: The test owns `backing`, writes one RuntimeAccount header,
         // and keeps the buffer alive for the returned AccountView.

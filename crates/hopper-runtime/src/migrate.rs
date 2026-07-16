@@ -730,7 +730,8 @@ mod tests {
         /// a foreign-owned account is refused before any edge runs.
         #[test]
         fn foreign_owned_account_is_refused_before_any_edge_runs() {
-            let mut backing = std::vec![0u8; RuntimeAccount::SIZE + HopperHeader::SIZE + 8];
+            let mut backing =
+                std::vec![0u64; (RuntimeAccount::SIZE + HopperHeader::SIZE + 8).div_ceil(8)];
             let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
             // SAFETY: backing is sized for the header plus data and
             // outlives the view.
@@ -762,7 +763,8 @@ mod tests {
 
         #[test]
         fn overshooting_edge_is_refused_before_writing() {
-            let mut backing = std::vec![0u8; RuntimeAccount::SIZE + HopperHeader::SIZE + 8];
+            let mut backing =
+                std::vec![0u64; (RuntimeAccount::SIZE + HopperHeader::SIZE + 8).div_ceil(8)];
             let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
             // SAFETY: backing is sized for the header plus data and
             // outlives the view.
@@ -938,10 +940,9 @@ mod tests {
             is_writable: bool,
             is_signer: bool,
             owner: [u8; 32],
-        ) -> (std::vec::Vec<u8>, crate::AccountView<'static>) {
+        ) -> (std::vec::Vec<u64>, crate::AccountView<'static>) {
             use hopper_native::MAX_PERMITTED_DATA_INCREASE;
-            let mut backing =
-                std::vec![0u8; RuntimeAccount::SIZE + data_len + MAX_PERMITTED_DATA_INCREASE];
+            let mut backing = std::vec![0u64; (RuntimeAccount::SIZE + data_len + MAX_PERMITTED_DATA_INCREASE).div_ceil(8)];
             let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
             // SAFETY: backing is sized for the runtime header plus
             // `data_len` bytes plus the loader growth reserve, and
@@ -984,7 +985,7 @@ mod tests {
 
         /// Build a writable account of `data_len` bytes seeded as a
         /// valid VaultV1, owned by [`pid`].
-        fn seeded_v1(data_len: usize) -> (std::vec::Vec<u8>, crate::AccountView<'static>) {
+        fn seeded_v1(data_len: usize) -> (std::vec::Vec<u64>, crate::AccountView<'static>) {
             let (backing, account) = raw_account(data_len, 1, true, false, [6; 32]);
             stamp_v1(&account);
             (backing, account)
@@ -1207,7 +1208,7 @@ mod tests {
         }
 
         /// Migrate a V1 fixture up to V2 so shrink tests have a V2 start.
-        fn seeded_v2(lamports: u64) -> (std::vec::Vec<u8>, crate::AccountView<'static>) {
+        fn seeded_v2(lamports: u64) -> (std::vec::Vec<u64>, crate::AccountView<'static>) {
             let (backing, account) = raw_account(HopperHeader::SIZE + 12, 1, true, false, [6; 32]);
             stamp_v1(&account);
             migrate_layout::<VaultV1, VaultV2, _>(&account, &pid(), widen).expect("to V2");

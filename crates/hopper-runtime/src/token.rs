@@ -1783,8 +1783,8 @@ mod tests {
     use hopper_native::{
         AccountView as NativeAccountView, Address as NativeAddress, RuntimeAccount, NOT_BORROWED,
     };
-    fn make_account(owner: Address, data: &[u8]) -> (std::vec::Vec<u8>, AccountView<'static>) {
-        let mut backing = std::vec![0u8; RuntimeAccount::SIZE + data.len()];
+    fn make_account(owner: Address, data: &[u8]) -> (std::vec::Vec<u64>, AccountView<'static>) {
+        let mut backing = std::vec![0u64; (RuntimeAccount::SIZE + data.len()).div_ceil(8)];
         let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
         // SAFETY: Test helper writes a valid RuntimeAccount header and copies
         // payload bytes into owned backing memory.
@@ -1800,7 +1800,7 @@ mod tests {
                 lamports: 1,
                 data_len: data.len() as u64,
             });
-            let data_ptr = backing.as_mut_ptr().add(RuntimeAccount::SIZE);
+            let data_ptr = (backing.as_mut_ptr() as *mut u8).add(RuntimeAccount::SIZE);
             core::ptr::copy_nonoverlapping(data.as_ptr(), data_ptr, data.len());
         }
         // SAFETY: `raw` points at the initialized RuntimeAccount header.
@@ -1881,7 +1881,13 @@ mod tests {
         );
 
         let before = token.amount_snapshot().unwrap();
-        backing[RuntimeAccount::SIZE + 64..RuntimeAccount::SIZE + 72]
+        // Byte view over the word-aligned backing (the fixture keeps the
+        // allocation 8-aligned for the RuntimeAccount header).
+        // SAFETY: `backing` owns these bytes; u8 has no alignment demands.
+        let backing_bytes = unsafe {
+            core::slice::from_raw_parts_mut(backing.as_mut_ptr() as *mut u8, backing.len() * 8)
+        };
+        backing_bytes[RuntimeAccount::SIZE + 64..RuntimeAccount::SIZE + 72]
             .copy_from_slice(&150u64.to_le_bytes());
         token.assert_amount_delta(before, 50).unwrap();
         assert_eq!(
@@ -2071,8 +2077,8 @@ mod tests {
         authority_bytes: [u8; 32],
         token_owner_bytes: [u8; 32],
     ) -> (
-        std::vec::Vec<u8>,
-        std::vec::Vec<u8>,
+        std::vec::Vec<u64>,
+        std::vec::Vec<u64>,
         crate::account::AccountView<'static>,
         crate::account::AccountView<'static>,
     ) {
@@ -2086,7 +2092,8 @@ mod tests {
         // slot for `require_token_authority`, but size the buffer at
         // 165 so it looks like a real TokenAccount.
         let token_data_len = 165;
-        let mut token_backing = std::vec![0u8; RuntimeAccount::SIZE + token_data_len];
+        let mut token_backing =
+            std::vec![0u64; (RuntimeAccount::SIZE + token_data_len).div_ceil(8)];
         let token_raw = token_backing.as_mut_ptr() as *mut RuntimeAccount;
         // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {
@@ -2110,7 +2117,7 @@ mod tests {
         let token_view = crate::account::AccountView::from_backend(token_backend);
 
         // Authority: no data needed, just an address field.
-        let mut auth_backing = std::vec![0u8; RuntimeAccount::SIZE];
+        let mut auth_backing = std::vec![0u64; (RuntimeAccount::SIZE).div_ceil(8)];
         let auth_raw = auth_backing.as_mut_ptr() as *mut RuntimeAccount;
         // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {
@@ -2160,7 +2167,7 @@ mod tests {
         // SPL TokenAccount (owner field starts at byte 32 and runs
         // through byte 63, so a 50-byte buffer is short).
         let data_len = 50;
-        let mut backing = std::vec![0u8; RuntimeAccount::SIZE + data_len];
+        let mut backing = std::vec![0u64; (RuntimeAccount::SIZE + data_len).div_ceil(8)];
         let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
         // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {
@@ -2199,14 +2206,14 @@ mod tests {
     fn make_token_with_mint_and_owner(
         mint_bytes: [u8; 32],
         owner_bytes: [u8; 32],
-    ) -> (std::vec::Vec<u8>, crate::account::AccountView<'static>) {
+    ) -> (std::vec::Vec<u64>, crate::account::AccountView<'static>) {
         use hopper_native::{
             AccountView as NativeAccountView, Address as NativeAddress, RuntimeAccount,
             NOT_BORROWED,
         };
 
         let token_data_len = 165;
-        let mut backing = std::vec![0u8; RuntimeAccount::SIZE + token_data_len];
+        let mut backing = std::vec![0u64; (RuntimeAccount::SIZE + token_data_len).div_ceil(8)];
         let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
         // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {
@@ -2237,14 +2244,14 @@ mod tests {
     fn make_mint_with_authority_decimals(
         mint_authority: [u8; 32],
         decimals: u8,
-    ) -> (std::vec::Vec<u8>, crate::account::AccountView<'static>) {
+    ) -> (std::vec::Vec<u64>, crate::account::AccountView<'static>) {
         use hopper_native::{
             AccountView as NativeAccountView, Address as NativeAddress, RuntimeAccount,
             NOT_BORROWED,
         };
 
         let mint_data_len = 82;
-        let mut backing = std::vec![0u8; RuntimeAccount::SIZE + mint_data_len];
+        let mut backing = std::vec![0u64; (RuntimeAccount::SIZE + mint_data_len).div_ceil(8)];
         let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
         // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {

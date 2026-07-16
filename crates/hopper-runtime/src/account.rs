@@ -1695,8 +1695,8 @@ mod tests {
     fn make_account(
         total_data_len: usize,
         address_byte: u8,
-    ) -> (std::vec::Vec<u8>, AccountView<'static>) {
-        let mut backing = std::vec![0u8; RuntimeAccount::SIZE + total_data_len];
+    ) -> (std::vec::Vec<u64>, AccountView<'static>) {
+        let mut backing = std::vec![0u64; (RuntimeAccount::SIZE + total_data_len).div_ceil(8)];
         let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
         // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
         unsafe {
@@ -1724,8 +1724,8 @@ mod tests {
     fn make_flagged_account(
         is_signer: u8,
         is_writable: u8,
-    ) -> (std::vec::Vec<u8>, AccountView<'static>) {
-        let mut backing = std::vec![0u8; RuntimeAccount::SIZE];
+    ) -> (std::vec::Vec<u64>, AccountView<'static>) {
+        let mut backing = std::vec![0u64; (RuntimeAccount::SIZE).div_ceil(8)];
         let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
         // SAFETY: `backing` is a fresh RuntimeAccount-sized allocation; we write
         // a fully-initialized header into it before constructing any view.

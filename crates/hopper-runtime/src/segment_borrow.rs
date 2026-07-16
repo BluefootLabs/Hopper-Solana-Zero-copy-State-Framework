@@ -541,6 +541,43 @@ pub(crate) mod touch_log {
         }
     }
 
+    /// Test hook for the SBF heap-tier invariant, in BOTH directions
+    /// and without ever reading a padding byte (a byte-view of the
+    /// struct reads uninitialized padding — UB the Miri lane caught in
+    /// the previous form of this pin):
+    ///
+    /// 1. an all-zero, 8-aligned region overlays as a VALID, EMPTY log
+    ///    (exactly how the VM heap tier materializes it, no init code);
+    /// 2. `TouchLog::new()`'s initialized fields are field-for-field
+    ///    the all-zero pattern, so the host tiers and the heap tier
+    ///    start from the same state.
+    #[cfg(test)]
+    pub(crate) fn assert_all_zero_is_the_valid_empty_log(zeroed_backing: &[u64]) {
+        assert!(zeroed_backing.len() * 8 >= core::mem::size_of::<TouchLog>());
+        assert!(zeroed_backing.iter().all(|&w| w == 0));
+        // SAFETY: `zeroed_backing` is 8-aligned (u64 slice), fully
+        // initialized, and at least `size_of::<TouchLog>()` bytes; the
+        // all-zero pattern is exactly the claimed-valid pattern under
+        // test (repr(C), integers + byte arrays + a fieldless enum
+        // whose 0 discriminant is `AccessKind::Read`).
+        let overlaid = unsafe { &*(zeroed_backing.as_ptr() as *const TouchLog) };
+        assert_eq!(overlaid.len, 0, "zeroed heap must read as the empty log");
+        assert_eq!(overlaid.overflow, 0);
+
+        let fresh = TouchLog::new();
+        assert_eq!(fresh.len, 0);
+        assert_eq!(fresh.overflow, 0);
+        assert!(fresh._pad.iter().all(|&b| b == 0));
+        let mut i = 0;
+        while i < MAX_TOUCH_RECORDS {
+            let e = &fresh.entries[i];
+            assert!(e.key_fp == 0 && e.offset == 0 && e.size == 0);
+            assert!(matches!(e.kind, AccessKind::Read), "0 must decode as Read");
+            assert!(e.key.as_array().iter().all(|&b| b == 0));
+            i += 1;
+        }
+    }
+
     /// Record one touch (deduplicated by exact identity; coalesced by
     /// exact union once the log is full).
     #[inline]
@@ -1976,23 +2013,15 @@ mod touch_map_tests {
     /// ZEROED heap with no initialization at all, so the all-zero byte
     /// pattern being the valid EMPTY log is load-bearing — same pin as
     /// `initial_gate_store_is_all_zero_bytes` for the gate store.
+    /// Checked field-wise in both directions (zeroed-overlay reads
+    /// empty; `new()` is field-for-field zero): a whole-struct byte
+    /// view would read uninitialized PADDING bytes — UB the Miri Tree
+    /// Borrows lane caught in the previous form of this test.
     #[cfg(feature = "touch-map")]
     #[test]
     fn initial_touch_log_is_all_zero_bytes() {
-        let log = touch_log::TouchLog::new();
-        let bytes = unsafe {
-            // SAFETY: TouchLog is repr(C) plain data (integers, byte
-            // arrays, a field-less-payload enum with explicit
-            // discriminants); viewing its bytes is well-defined.
-            core::slice::from_raw_parts(
-                &log as *const touch_log::TouchLog as *const u8,
-                core::mem::size_of::<touch_log::TouchLog>(),
-            )
-        };
-        assert!(
-            bytes.iter().all(|&b| b == 0),
-            "an all-zero TouchLog must be the valid empty log (SBF heap-tier invariant)"
-        );
+        let zeroed = std::vec![0u64; core::mem::size_of::<touch_log::TouchLog>().div_ceil(8)];
+        touch_log::assert_all_zero_is_the_valid_empty_log(&zeroed);
     }
 
     /// The gap this ambient move closes: a typed mutable load taken
@@ -2032,7 +2061,7 @@ mod touch_map_tests {
         }
 
         const DATA_LEN: usize = HopperHeader::SIZE + 8;
-        let mut backing = std::vec![0u8; RuntimeAccount::SIZE + DATA_LEN];
+        let mut backing = std::vec![0u64; (RuntimeAccount::SIZE + DATA_LEN).div_ceil(8)];
         let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
         // SAFETY: backing is sized for the header plus DATA_LEN bytes
         // and outlives the view (this frame holds the Vec).

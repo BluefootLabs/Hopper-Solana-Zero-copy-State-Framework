@@ -786,8 +786,8 @@ mod tests {
     fn make_external_account(
         owner: Address,
         data: &[u8],
-    ) -> (std::vec::Vec<u8>, AccountView<'static>) {
-        let mut backing = std::vec![0u8; RuntimeAccount::SIZE + data.len()];
+    ) -> (std::vec::Vec<u64>, AccountView<'static>) {
+        let mut backing = std::vec![0u64; (RuntimeAccount::SIZE + data.len()).div_ceil(8)];
         let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
         // SAFETY: Test helper initializes a valid RuntimeAccount header and
         // copies `data` into the owned backing buffer at the payload offset.
@@ -803,7 +803,7 @@ mod tests {
                 lamports: 1,
                 data_len: data.len() as u64,
             });
-            let data_ptr = backing.as_mut_ptr().add(RuntimeAccount::SIZE);
+            let data_ptr = (backing.as_mut_ptr() as *mut u8).add(RuntimeAccount::SIZE);
             core::ptr::copy_nonoverlapping(data.as_ptr(), data_ptr, data.len());
         }
         // SAFETY: `raw` points at the RuntimeAccount header initialized above.

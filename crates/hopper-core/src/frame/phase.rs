@@ -282,8 +282,8 @@ mod tests {
         AccountView as NativeAccountView, Address as NativeAddress, RuntimeAccount, NOT_BORROWED,
     };
 
-    fn make_account(seed: u8) -> (std::vec::Vec<u8>, AccountView<'static>) {
-        let mut backing = std::vec![0u8; RuntimeAccount::SIZE + 16];
+    fn make_account(seed: u8) -> (std::vec::Vec<u64>, AccountView<'static>) {
+        let mut backing = std::vec![0u64; (RuntimeAccount::SIZE + 16).div_ceil(8)];
         let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
         // SAFETY: backing is sized for the header plus data and outlives
         // the returned view.
@@ -344,7 +344,7 @@ mod tests {
         // Two frame slots aliasing the SAME underlying account: the old
         // per-index bitmask would have allowed both mutable borrows; the
         // per-account borrow byte must reject the second.
-        let mut backing = std::vec![0u8; RuntimeAccount::SIZE + 16];
+        let mut backing = std::vec![0u64; (RuntimeAccount::SIZE + 16).div_ceil(8)];
         let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
         // SAFETY: as in make_account.
         unsafe {

@@ -234,14 +234,13 @@ mod tests {
         owner: [u8; 32],
         is_writable: bool,
         is_signer: bool,
-    ) -> (std::vec::Vec<u8>, AccountView<'static>) {
+    ) -> (std::vec::Vec<u64>, AccountView<'static>) {
         // The Solana loader always reserves `MAX_PERMITTED_DATA_INCREASE` bytes
         // of growth capacity after the account data (see `raw_input` parsing).
         // `resize` zero-fills into that reserve, so the test backing buffer must
         // include it; otherwise a realloc growth writes past the allocation and
         // corrupts the host heap.
-        let mut backing =
-            std::vec![0u8; RuntimeAccount::SIZE + data_len + MAX_PERMITTED_DATA_INCREASE];
+        let mut backing = std::vec![0u64; (RuntimeAccount::SIZE + data_len + MAX_PERMITTED_DATA_INCREASE).div_ceil(8)];
         let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
         // SAFETY: The test owns `backing`, writes one valid RuntimeAccount header,
         // and keeps the backing buffer alive for the returned AccountView.
@@ -270,7 +269,7 @@ mod tests {
         data_len: usize,
         lamports: u64,
         seed: u8,
-    ) -> (std::vec::Vec<u8>, AccountView<'static>) {
+    ) -> (std::vec::Vec<u64>, AccountView<'static>) {
         make_account_with_flags(data_len, lamports, seed, PROGRAM_BYTES, true, true)
     }
 

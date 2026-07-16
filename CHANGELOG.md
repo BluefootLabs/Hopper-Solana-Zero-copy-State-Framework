@@ -9,6 +9,28 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 
 ### Added
 
+- **Miri lane under Tree Borrows (`scripts/miri-core.{sh,ps1}`) — and
+  the two real UB classes it caught on arrival.** "We verify, they
+  don't" was false while Quasar ran a Miri lane and Hopper had zero
+  Miri references; now the aliasing core — the segment borrow ledger
+  and instruction-ambient touch log, the write-policy gate and its
+  ambient lamport store, the native-boundary transmutes, and the
+  account borrow registry — runs under `cargo +nightly miri test` with
+  `-Zmiri-tree-borrows` (the same aliasing model Quasar's lane uses;
+  62 deterministic tests, ~20 s steady-state). The lane paid for
+  itself before it landed: (1) twenty-seven test fixtures across
+  eighteen files backed `RuntimeAccount` (align 8) with `Vec<u8>`
+  (align 1) — writing the header through the under-aligned pointer is
+  UB by spec even where the allocator happens to over-align; all now
+  use word-sized backing, the same fix the competitor-bug-class
+  fixtures received in the 2026-07-07 adversarial review; (2) the
+  touch-log all-zero pin read the struct as raw bytes, which reads
+  uninitialized PADDING — rewritten field-wise in BOTH directions
+  (a zeroed 8-aligned overlay reads as the valid empty log, exactly
+  how the SBF heap tier materializes it, and `new()` is
+  field-for-field zero). Proptest modules are excluded from the lane
+  (their failure-persistence writes files, which Miri isolation
+  correctly refuses) and run at full case counts in the normal lanes.
 - **`hopper lint --deny-escapes` — the policy-escape audit.** The
   borrow ledger, touch log, and `strict_writes` gate govern the
   `Context` surface; the raw `AccountView` escape hatches

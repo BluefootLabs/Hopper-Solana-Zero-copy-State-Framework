@@ -1093,11 +1093,19 @@ mod write_policy_tests {
     const BALANCE_OFF: u32 = 16;
     const NONCE_OFF: u32 = 24;
 
-    fn make_account(address_byte: u8) -> (std::vec::Vec<u8>, AccountView<'static>) {
-        let mut backing = std::vec![0u8; RuntimeAccount::SIZE + DATA_LEN];
+    fn make_account(address_byte: u8) -> (std::vec::Vec<u64>, AccountView<'static>) {
+        // Word-sized backing: `RuntimeAccount` has u64 fields (align 8) and a
+        // `Vec<u8>` allocation only guarantees alignment 1 — writing the
+        // header through an under-aligned pointer is UB by spec even where
+        // the system allocator happens to over-align. Caught by the Miri
+        // Tree Borrows lane (`scripts/miri-core.*`); same fix as the
+        // competitor_bug_classes fixtures (adversarial review 2026-07-07).
+        let total = RuntimeAccount::SIZE + DATA_LEN;
+        let mut backing = std::vec![0u64; total.div_ceil(8)];
         let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
-        // SAFETY: `backing` is sized for the header plus DATA_LEN bytes and
-        // outlives the returned view (the caller holds the Vec).
+        // SAFETY: `backing` is sized for the header plus DATA_LEN bytes,
+        // 8-aligned by construction, and outlives the returned view (the
+        // caller holds the Vec).
         unsafe {
             raw.write(RuntimeAccount {
                 borrow_state: NOT_BORROWED,

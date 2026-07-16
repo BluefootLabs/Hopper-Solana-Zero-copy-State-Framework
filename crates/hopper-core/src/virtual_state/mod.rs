@@ -377,8 +377,8 @@ mod tests {
         AccountView as NativeAccountView, Address as NativeAddress, RuntimeAccount, NOT_BORROWED,
     };
 
-    fn make(seed: u8) -> (std::vec::Vec<u8>, AccountView<'static>) {
-        let mut backing = std::vec![0u8; RuntimeAccount::SIZE + 8];
+    fn make(seed: u8) -> (std::vec::Vec<u64>, AccountView<'static>) {
+        let mut backing = std::vec![0u64; (RuntimeAccount::SIZE + 8).div_ceil(8)];
         let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
         // SAFETY: backing sized for header + data, outlives the view.
         unsafe {

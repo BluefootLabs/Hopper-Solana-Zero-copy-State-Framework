@@ -461,9 +461,9 @@ mod tests {
     fn make_account(
         address_byte: u8,
         is_signer: bool,
-    ) -> (std::vec::Vec<u8>, AccountView<'static>) {
+    ) -> (std::vec::Vec<u64>, AccountView<'static>) {
         const DATA_LEN: usize = 8;
-        let mut backing = std::vec![0u8; RuntimeAccount::SIZE + DATA_LEN];
+        let mut backing = std::vec![0u64; (RuntimeAccount::SIZE + DATA_LEN).div_ceil(8)];
         let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
         // SAFETY: `backing` is sized for the header plus DATA_LEN bytes and
         // outlives the returned view (the caller holds the Vec).

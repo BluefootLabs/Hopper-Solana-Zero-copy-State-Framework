@@ -375,8 +375,8 @@ mod tests {
             address_byte: u8,
             is_signer: bool,
             is_writable: bool,
-        ) -> (std::vec::Vec<u8>, AccountView<'static>) {
-            let mut backing = std::vec![0u8; RuntimeAccount::SIZE + 8];
+        ) -> (std::vec::Vec<u64>, AccountView<'static>) {
+            let mut backing = std::vec![0u64; (RuntimeAccount::SIZE + 8).div_ceil(8)];
             let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
             // SAFETY: backing is sized for the header plus data and
             // outlives the returned view.
@@ -560,7 +560,7 @@ mod tests {
             let program = Address::from([9u8; 32]);
             // 65 distinct accounts — one past the pre-SIMD-0339 static
             // ceiling of 64. Keep backings and views alive for the builder.
-            let mut backings: std::vec::Vec<std::vec::Vec<u8>> = std::vec::Vec::new();
+            let mut backings: std::vec::Vec<std::vec::Vec<u64>> = std::vec::Vec::new();
             let mut views: std::vec::Vec<AccountView<'static>> = std::vec::Vec::new();
             for i in 1..=65u8 {
                 let (b, v) = make_account(i, false, false);

@@ -288,9 +288,9 @@ mod tests {
         }
     }
 
-    fn make_vault(bps: u16) -> (std::vec::Vec<u8>, AccountView<'static>) {
+    fn make_vault(bps: u16) -> (std::vec::Vec<u64>, AccountView<'static>) {
         let data_len = FeeVault::SIZE;
-        let mut backing = std::vec![0u8; RuntimeAccount::SIZE + data_len];
+        let mut backing = std::vec![0u64; (RuntimeAccount::SIZE + data_len).div_ceil(8)];
         let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
         // SAFETY: backing is sized for header + data and outlives the view.
         unsafe {

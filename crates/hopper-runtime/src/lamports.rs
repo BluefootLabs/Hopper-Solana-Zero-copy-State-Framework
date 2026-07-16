@@ -116,8 +116,8 @@ mod tests {
         AccountView as NativeAccountView, Address as NativeAddress, RuntimeAccount, NOT_BORROWED,
     };
 
-    fn make_backend(seed: u8, lamports: u64) -> (std::vec::Vec<u8>, NativeAccountView<'static>) {
-        let mut backing = std::vec![0u8; RuntimeAccount::SIZE + 32];
+    fn make_backend(seed: u8, lamports: u64) -> (std::vec::Vec<u64>, NativeAccountView<'static>) {
+        let mut backing = std::vec![0u64; (RuntimeAccount::SIZE + 32).div_ceil(8)];
         let raw = backing.as_mut_ptr() as *mut RuntimeAccount;
         // SAFETY: the test owns `backing`, writes one valid RuntimeAccount
         // header, and keeps the buffer alive for the returned view.
@@ -139,7 +139,7 @@ mod tests {
         (backing, backend)
     }
 
-    fn make_account(seed: u8, lamports: u64) -> (std::vec::Vec<u8>, AccountView<'static>) {
+    fn make_account(seed: u8, lamports: u64) -> (std::vec::Vec<u64>, AccountView<'static>) {
         let (backing, backend) = make_backend(seed, lamports);
         (backing, AccountView::from_backend(backend))
     }
