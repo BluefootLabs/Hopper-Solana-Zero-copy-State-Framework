@@ -30,6 +30,17 @@ static-syscalls = []
 # on public clusters; without this feature `hopper_fast_entrypoint!`
 # compiles to the standard scanning entrypoint so programs stay sound.
 simd-0321 = []
+# Opt-in for the SIMD-0449 pre-computed account-pointer table: the
+# runtime appends a pre-deduplicated `[u64; n]` array of canonical
+# account-record pointers after the instruction tail, making account
+# resolution O(1) — no stride walk, no duplicate resolution. Requires
+# `simd-0321` (the table is located relative to the r2 instruction-data
+# pointer). The SIMD's runtime feature gate has NO assigned pubkey yet
+# and is activated nowhere; enabling this before cluster activation
+# reads garbage. `hopper feature-gate` detection lands once the pubkey
+# is assigned. Readiness only — off by default, scanning stays the
+# default path.
+simd-0449 = ["simd-0321"]
 # `legacy-projectable` exposes the `Projectable` / `SafeProjectable`
 # cross-program lens traits. The Hopper Safety Audit asked these be
 # gated behind a feature and marked Tier-C so new code reaches for

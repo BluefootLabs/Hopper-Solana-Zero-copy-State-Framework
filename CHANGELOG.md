@@ -9,6 +9,30 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 
 ### Added
 
+- **SIMD-0449 readiness: O(1) account resolution from the pre-computed
+  pointer table (`simd-0449`, opt-in).** SIMD-0449 has the runtime
+  append a pre-deduplicated `[u64; n]` array of canonical
+  account-record pointers after the instruction tail — and Hopper is
+  uniquely shaped to consume it: `AccountView` is one raw
+  `*mut RuntimeAccount` (now const-asserted 8 bytes/8-aligned), so the
+  SIMD's array IS a valid `[AccountView]` via a single
+  `from_raw_parts`, where an SDK `AccountInfo` (`Rc<RefCell<…>>`) must
+  still loop to construct each element. `deserialize_accounts_0449`
+  overlays the table (no stride walk, no duplicate resolution);
+  `hopper_fast_entrypoint!` selects it through a const the `simd-0449`
+  cargo feature flips (implies `simd-0321` — the table is located off
+  the r2 instruction-data pointer), so the untaken branch folds away
+  and scanning stays the default. Honest boundary: the SIMD's runtime
+  feature gate has NO assigned pubkey and no cluster serializes the
+  table yet — enabling the feature today reads garbage, exactly like
+  shipping `simd-0321` before its activation; `hopper feature-gate`
+  detection lands with the pubkey. Shipped WITH a substrate
+  conformance suite that runs on every default lane: byte-exact loader
+  frames pin the stride math across every data_len alignment residue
+  (the drift alarm for upstream layout changes), and the table path is
+  proven view-for-view identical to the scanning walk — the
+  equivalence test catches a dropped alignment round-up by panicking
+  on the misaligned cast.
 - **The epoch machinery, fully wired: `schema_epoch = N` on
   `#[hopper::state]`, `#[account(epoch_migrate)]`, and
   `migrate_chain!`.** Three gaps closed in one pass. (1) Layouts could

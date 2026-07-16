@@ -202,6 +202,12 @@ touch-map = ["hopper-runtime/touch-map"]
 # on public clusters, so `hopper::fast_entrypoint!` compiles to the
 # standard scanning entrypoint unless this feature is enabled.
 simd-0321 = ["hopper-runtime/simd-0321"]
+# SIMD-0449 pre-computed account-pointer table (implies simd-0321).
+# Readiness only: the SIMD's runtime feature gate has no assigned
+# pubkey and no cluster serializes the table yet — enabling this today
+# ships an entrypoint that reads garbage. The scanning path stays the
+# default; `hopper feature-gate` detection lands with the pubkey.
+simd-0449 = ["hopper-runtime/simd-0449", "simd-0321"]
 
 # Opt-in sBPF v3 / SIMD-0178 static syscalls. SIMD-0178 replaces
 # relocation-based syscall symbols with murmur32-hashed static calls;

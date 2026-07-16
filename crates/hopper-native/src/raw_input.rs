@@ -331,6 +331,114 @@ pub unsafe fn deserialize_accounts_fast<'info, const MAX: usize>(
     (program_id, count, instruction_data)
 }
 
+// ── SIMD-0449: the pre-computed account-pointer table ────────────────
+//
+// SIMD-0449 has the runtime append a `[u64; num_accounts]` array of
+// account-record pointers to the input, after the instruction tail,
+// "regardless of whether it is read or not" and fully backwards
+// compatible — programs that keep scanning simply keep paying O(n).
+// Each entry is the address of a CANONICAL `RuntimeAccount` record,
+// pre-deduplicated by the runtime (a duplicate slot carries the same
+// pointer value as the slot it duplicates), so consuming it needs no
+// stride walk and no duplicate-marker resolution.
+//
+// Hopper is uniquely positioned to consume it: `AccountView` is one
+// raw `*mut RuntimeAccount` (const-asserted below), so the SIMD's
+// `[u64]` array IS a valid `[AccountView]` — resolution becomes a
+// single `from_raw_parts`, where an SDK `AccountInfo`
+// (`Rc<RefCell<…>>`) must still loop to construct each element.
+//
+// Table location (per the SIMD, relative to the SIMD-0321 r2
+// instruction-data pointer): the instruction tail is
+// `[ix_data][program_id: 32]`, and the table starts at the next
+// 8-aligned byte after it. The account COUNT stays where it always
+// was — the input buffer's first u64.
+//
+// The runtime feature gate for SIMD-0449 has NO assigned pubkey yet;
+// nothing on any cluster serializes this table today. These functions
+// are compiled unconditionally (they are inert unless called); the
+// `simd-0449` cargo feature only flips [`SIMD_0449_TABLE_ENABLED`],
+// which `hopper_fast_entrypoint!` consults to select the table path —
+// a `const`, so the untaken branch folds away entirely.
+
+/// Whether this build trusts the SIMD-0449 account-pointer table
+/// (`feature = "simd-0449"`). Enabling it before the SIMD activates on
+/// the target cluster reads garbage — ship it only alongside the
+/// cluster gate, exactly like `simd-0321`.
+pub const SIMD_0449_TABLE_ENABLED: bool = cfg!(feature = "simd-0449");
+
+// Layout precondition for the table cast, checked at compile time: an
+// `AccountView` must be exactly one 8-byte pointer for `[u64; n]` to
+// reinterpret as `[AccountView; n]`.
+const _: () = assert!(
+    core::mem::size_of::<AccountView<'static>>() == 8
+        && core::mem::align_of::<AccountView<'static>>() == 8,
+    "AccountView must stay a single 8-byte pointer for the SIMD-0449 table cast"
+);
+
+/// SIMD-0449 O(1) account resolution: overlay the runtime's appended
+/// account-pointer table as a borrowed `[AccountView]` — one bounds
+/// computation and one `from_raw_parts`, regardless of account count.
+///
+/// # Safety
+///
+/// * `input` must point to a valid Solana BPF input buffer.
+/// * `instruction_data` must be the loader-serialized instruction data
+///   for this invocation (as delivered via the SIMD-0321 `r2`
+///   register), with the 32-byte program id trailing it.
+/// * The SIMD-0449 table MUST actually be present — i.e. the SIMD is
+///   active on the executing cluster. Calling this where the runtime
+///   did not serialize the table reads unrelated bytes past the
+///   program id.
+#[inline(always)]
+pub unsafe fn deserialize_accounts_0449<'info>(
+    input: *mut u8,
+    instruction_data: &'info [u8],
+) -> &'info [AccountView<'info>] {
+    // SAFETY: the input buffer's first 8 bytes are the account count,
+    // unchanged by SIMD-0449.
+    let num_accounts = unsafe { core::ptr::read_unaligned(input as *const u64) as usize };
+    // Table start: first 8-aligned byte after `[ix_data][program_id]`.
+    let tail_end = instruction_data.as_ptr() as usize + instruction_data.len() + 32;
+    let table = ((tail_end + (BPF_ALIGN_OF_U128 - 1)) & !(BPF_ALIGN_OF_U128 - 1))
+        as *const AccountView<'info>;
+    // SAFETY: with the SIMD active, the runtime serialized exactly
+    // `num_accounts` pre-deduplicated canonical record pointers at
+    // `table`; the layout const-assert above proves `AccountView` is
+    // pointer-shaped, and the buffer outlives `'info`.
+    unsafe { core::slice::from_raw_parts(table, num_accounts) }
+}
+
+/// Adapter matching the `deserialize_accounts_fast` shape: copy up to
+/// `MAX` table entries into the caller's array (8 bytes per account —
+/// a pointer copy, not a record parse) so the existing entrypoint
+/// plumbing consumes the table without changing its account storage.
+///
+/// # Safety
+///
+/// Same contract as [`deserialize_accounts_0449`]; additionally
+/// `program_id` must be the correct program id for this invocation.
+#[inline(always)]
+pub unsafe fn deserialize_accounts_0449_into<'info, const MAX: usize>(
+    input: *mut u8,
+    accounts: &mut [MaybeUninit<AccountView<'info>>; MAX],
+    instruction_data: &'info [u8],
+    program_id: Address,
+) -> (Address, usize, &'info [u8]) {
+    // SAFETY: forwarded caller contract.
+    let table = unsafe { deserialize_accounts_0449(input, instruction_data) };
+    let count = if table.len() > MAX { MAX } else { table.len() };
+    let mut slot = 0usize;
+    while slot < count {
+        // SAFETY: `slot < count <= MAX` and `slot < table.len()`.
+        unsafe {
+            *accounts.get_unchecked_mut(slot) = MaybeUninit::new(table.get_unchecked(slot).clone());
+        }
+        slot += 1;
+    }
+    (program_id, count, instruction_data)
+}
+
 /// Parse just the instruction tail and account span from the loader input.
 ///
 /// This supports both eager entrypoint parsing and lazy account iteration.

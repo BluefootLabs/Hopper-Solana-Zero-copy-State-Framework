@@ -219,15 +219,35 @@ macro_rules! hopper_fast_entrypoint {
                 let program_id =
                     unsafe { core::ptr::read(ix_data.add(ix_len) as *const $crate::Address) };
 
-                // SAFETY: `input` is the loader input buffer; account-slot
-                // framing is validated by `deserialize_accounts_fast`.
-                unsafe {
-                    $crate::raw_input::deserialize_accounts_fast::<$maximum>(
-                        input,
-                        &mut accounts,
-                        instruction_data,
-                        program_id,
-                    )
+                if $crate::raw_input::SIMD_0449_TABLE_ENABLED {
+                    // SIMD-0449 build: consume the runtime's appended
+                    // pre-deduplicated account-pointer table — O(1)
+                    // resolution plus one pointer copy per account. The
+                    // gate is a `const`, so the untaken branch folds
+                    // away entirely.
+                    // SAFETY: the `simd-0449` feature asserts the SIMD
+                    // is active on the target cluster (table present);
+                    // `instruction_data`/`program_id` were derived from
+                    // the SIMD-0321 r2 register above.
+                    unsafe {
+                        $crate::raw_input::deserialize_accounts_0449_into::<$maximum>(
+                            input,
+                            &mut accounts,
+                            instruction_data,
+                            program_id,
+                        )
+                    }
+                } else {
+                    // SAFETY: `input` is the loader input buffer; account-slot
+                    // framing is validated by `deserialize_accounts_fast`.
+                    unsafe {
+                        $crate::raw_input::deserialize_accounts_fast::<$maximum>(
+                            input,
+                            &mut accounts,
+                            instruction_data,
+                            program_id,
+                        )
+                    }
                 }
             };
 

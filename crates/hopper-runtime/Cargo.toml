@@ -28,6 +28,10 @@ touch-map = []
 # feature of the same name; without it `hopper_fast_entrypoint!` is an
 # alias for the standard scanning entrypoint.
 simd-0321 = ["hopper-native/simd-0321"]
+# SIMD-0449 pre-computed account-pointer table (implies simd-0321; see
+# hopper-native's feature docs — readiness only, no cluster activates
+# the SIMD yet).
+simd-0449 = ["hopper-native/simd-0449", "simd-0321"]
 cpi = []
 copy = []
 # Opt-in sBPF v3 / SIMD-0178 static syscalls. Forwards to hopper-native so the
