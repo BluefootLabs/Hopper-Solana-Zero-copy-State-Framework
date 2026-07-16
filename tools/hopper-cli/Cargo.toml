@@ -1,13 +1,13 @@
 [package]
 name = "hopper-cli"
-version = "0.2.1"
+version = "0.3.0"
 edition = "2021"
 license = "Apache-2.0"
 description = "Command-line tooling for Hopper account inspection, schema export, and migration planning"
 authors = ["BluefootLabs <contact@bluefootlabs.com>", "MoonManQuark"]
 repository = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework"
 homepage = "https://hopperzero.dev"
-documentation = "https://docs.rs/crate/hopper-cli/0.2.1"
+documentation = "https://docs.rs/crate/hopper-cli/0.3.0"
 readme = "README.md"
 keywords = ["solana", "zero-copy", "cli", "schema", "accounts"]
 categories = ["command-line-utilities", "development-tools"]

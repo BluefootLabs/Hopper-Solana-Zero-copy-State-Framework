@@ -7,7 +7,7 @@ Hopper is a zero-copy Solana program framework. Write programs with the Anchor s
 
 The framework gives you Anchor ergonomics, Quasar direct-state speed, and an escape hatch when you need raw SVM control. One production runtime: direct Solana account memory through Hopper's typed handles, validation layer, and CPI surface.
 
-Hopper is also the only framework in the 2026 low-CU field with its own substrate: Anchor v2 (alpha), Typhoon, and star-frame all build on Pinocchio, and Quasar shares its lineage, while `crates/hopper-native` has zero external dependencies. That one decision is what makes segment-level borrows, touch maps, and field-level write policies possible — see [docs/THE_MOAT.md](docs/THE_MOAT.md). Hopper is published on crates.io (hopper-lang 0.2.1) with a line-by-line audit trail and generated clients in 8 targets.
+Hopper is also the only framework in the 2026 low-CU field with its own substrate: Anchor v2 (alpha), Typhoon, and star-frame all build on Pinocchio, and Quasar shares its lineage, while `crates/hopper-native` has zero external dependencies. That one decision is what makes segment-level borrows, touch maps, and field-level write policies possible — see [docs/THE_MOAT.md](docs/THE_MOAT.md). Hopper is published on crates.io (hopper-lang 0.3.0) with a line-by-line audit trail and generated clients in 8 targets.
 
 Three measured facts, provenance in [BENCHMARKS.md](BENCHMARKS.md) (2026-07-07 runs; vault four-way re-measured 2026-07-09):
 
@@ -38,11 +38,11 @@ For normal programs, use `hopper-lang` as `hopper`: `use hopper::prelude::*`, `#
 
 ## Current Release
 
-Main framework: hopper-lang 0.2.1, imported as hopper. [Docs at docs.rs](https://docs.rs/crate/hopper-lang/0.2.1).
+Main framework: hopper-lang 0.3.0, imported as hopper. [Docs at docs.rs](https://docs.rs/crate/hopper-lang/0.3.0).
 
 Install the CLI: `cargo install hopper-cli`.
 
-All companion crates target 0.2.1: hopper-runtime, hopper-systems, hopper-derive, hopper-schema, hopper-native, hopper-solana, hopper-token, hopper-token-2022, hopper-associated-token, hopper-system, hopper-memo, hopper-finance, hopper-lending, hopper-staking, hopper-vesting, hopper-distribute, hopper-multisig, hopper-anchor, hopper-manager, hopper-sdk.
+All companion crates target 0.3.0: hopper-runtime, hopper-systems, hopper-derive, hopper-schema, hopper-native, hopper-solana, hopper-token, hopper-token-2022, hopper-associated-token, hopper-system, hopper-memo, hopper-finance, hopper-lending, hopper-staking, hopper-vesting, hopper-distribute, hopper-multisig, hopper-anchor, hopper-manager, hopper-sdk.
 
 Benchmark snapshot: [BENCHMARKS.md](BENCHMARKS.md). Regenerate from the separate [hopper-bench](https://github.com/BluefootLabs/hopper-bench) repo before changing benchmark claims.
 
@@ -101,7 +101,7 @@ Or in Cargo.toml:
 
 ```toml
 [dependencies]
-hopper = { package = "hopper-lang", version = "0.2.1", features = ["proc-macros"] }
+hopper = { package = "hopper-lang", version = "0.3.0", features = ["proc-macros"] }
 ```
 
 For development inside this repo:
@@ -114,7 +114,7 @@ hopper = { path = "../Hopper-Solana-Zero-copy-State-Framework", package = "hoppe
 Public links:
 
 - Framework crate: [crates.io/hopper-lang](https://crates.io/crates/hopper-lang)
-- Docs: [docs.rs/hopper-lang](https://docs.rs/crate/hopper-lang/0.2.1)
+- Docs: [docs.rs/hopper-lang](https://docs.rs/crate/hopper-lang/0.3.0)
 - CLI crate: [crates.io/hopper-cli](https://crates.io/crates/hopper-cli)
 - Website: [hopperzero.dev](https://hopperzero.dev)
 

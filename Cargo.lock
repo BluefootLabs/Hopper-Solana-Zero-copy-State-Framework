@@ -2035,21 +2035,21 @@ dependencies = [
 
 [[package]]
 name = "hopper-anchor"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "hopper-runtime",
 ]
 
 [[package]]
 name = "hopper-argus-guard"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "hopper-lang",
 ]
 
 [[package]]
 name = "hopper-associated-token"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "hopper-runtime",
  "hopper-solana",
@@ -2057,11 +2057,11 @@ dependencies = [
 
 [[package]]
 name = "hopper-builtins"
-version = "0.2.1"
+version = "0.3.0"
 
 [[package]]
 name = "hopper-cli"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "base64 0.22.1",
  "bincode",
@@ -2102,7 +2102,7 @@ dependencies = [
 
 [[package]]
 name = "hopper-compact-vault"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "hopper-lang",
  "hopper-schema",
@@ -2118,14 +2118,14 @@ dependencies = [
 
 [[package]]
 name = "hopper-counter"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "hopper-lang",
 ]
 
 [[package]]
 name = "hopper-derive"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2136,7 +2136,7 @@ dependencies = [
 
 [[package]]
 name = "hopper-devnet-audit"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "hopper-lang",
  "solana-client",
@@ -2150,14 +2150,14 @@ dependencies = [
 
 [[package]]
 name = "hopper-distribute"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "hopper-runtime",
 ]
 
 [[package]]
 name = "hopper-escrow"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "hopper-lang",
  "solana-client",
@@ -2172,14 +2172,14 @@ dependencies = [
 
 [[package]]
 name = "hopper-external-oracle"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "hopper-lang",
 ]
 
 [[package]]
 name = "hopper-finance"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "hopper-runtime",
  "hopper-systems",
@@ -2187,7 +2187,7 @@ dependencies = [
 
 [[package]]
 name = "hopper-lang"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "hopper-anchor",
  "hopper-associated-token",
@@ -2215,14 +2215,14 @@ dependencies = [
 
 [[package]]
 name = "hopper-lending"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "hopper-runtime",
 ]
 
 [[package]]
 name = "hopper-macros"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "hopper-runtime",
  "hopper-schema",
@@ -2232,28 +2232,28 @@ dependencies = [
 
 [[package]]
 name = "hopper-manager"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "hopper-schema",
 ]
 
 [[package]]
 name = "hopper-memo"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "hopper-runtime",
 ]
 
 [[package]]
 name = "hopper-metaplex"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "hopper-runtime",
 ]
 
 [[package]]
 name = "hopper-migration"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "hopper-lang",
  "hopper-schema",
@@ -2269,25 +2269,25 @@ dependencies = [
 
 [[package]]
 name = "hopper-multisig"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "hopper-runtime",
 ]
 
 [[package]]
 name = "hopper-native"
-version = "0.2.1"
+version = "0.3.0"
 
 [[package]]
 name = "hopper-nft-mint"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "hopper-lang",
 ]
 
 [[package]]
 name = "hopper-orderbook"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "hopper-lang",
  "solana-client",
@@ -2302,35 +2302,35 @@ dependencies = [
 
 [[package]]
 name = "hopper-parity-vault"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "hopper-lang",
 ]
 
 [[package]]
 name = "hopper-policy-vault"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "hopper-lang",
 ]
 
 [[package]]
 name = "hopper-proc-vault"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "hopper-lang",
 ]
 
 [[package]]
 name = "hopper-quasar-port-20-min"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "hopper-lang",
 ]
 
 [[package]]
 name = "hopper-registry"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "hopper-lang",
 ]
@@ -2344,7 +2344,7 @@ dependencies = [
 
 [[package]]
 name = "hopper-runtime"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "hopper-native",
  "proptest",
@@ -2352,7 +2352,7 @@ dependencies = [
 
 [[package]]
 name = "hopper-schema"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "hopper-runtime",
  "hopper-systems",
@@ -2360,14 +2360,14 @@ dependencies = [
 
 [[package]]
 name = "hopper-sdk"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "hopper-schema",
 ]
 
 [[package]]
 name = "hopper-sentinel"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "base64 0.22.1",
  "hopper-lang",
@@ -2381,14 +2381,14 @@ dependencies = [
 
 [[package]]
 name = "hopper-showcase"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "hopper-lang",
 ]
 
 [[package]]
 name = "hopper-smoke"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "base64 0.22.1",
  "hopper-lang",
@@ -2400,7 +2400,7 @@ dependencies = [
 
 [[package]]
 name = "hopper-solana"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "hopper-runtime",
  "hopper-system",
@@ -2410,28 +2410,28 @@ dependencies = [
 
 [[package]]
 name = "hopper-stablecoin-memo-pay"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "hopper-lang",
 ]
 
 [[package]]
 name = "hopper-staking"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "hopper-runtime",
 ]
 
 [[package]]
 name = "hopper-styx-ferry"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "hopper-lang",
 ]
 
 [[package]]
 name = "hopper-svm"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "hopper-native",
  "hopper-runtime",
@@ -2439,14 +2439,14 @@ dependencies = [
 
 [[package]]
 name = "hopper-system"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "hopper-runtime",
 ]
 
 [[package]]
 name = "hopper-systems"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "hopper-native",
  "hopper-runtime",
@@ -2455,14 +2455,14 @@ dependencies = [
 
 [[package]]
 name = "hopper-tail-lab"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "hopper-lang",
 ]
 
 [[package]]
 name = "hopper-test"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "mollusk-svm",
  "solana-account 3.4.0",
@@ -2473,14 +2473,14 @@ dependencies = [
 
 [[package]]
 name = "hopper-token"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "hopper-runtime",
 ]
 
 [[package]]
 name = "hopper-token-2022"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "hopper-runtime",
  "hopper-solana",
@@ -2488,35 +2488,35 @@ dependencies = [
 
 [[package]]
 name = "hopper-token-2022-ata"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "hopper-lang",
 ]
 
 [[package]]
 name = "hopper-token-2022-transfer-hook"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "hopper-lang",
 ]
 
 [[package]]
 name = "hopper-token-2022-vault"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "hopper-lang",
 ]
 
 [[package]]
 name = "hopper-treasury"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "hopper-lang",
 ]
 
 [[package]]
 name = "hopper-trybuild"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "hopper-lang",
  "trybuild",
@@ -2524,7 +2524,7 @@ dependencies = [
 
 [[package]]
 name = "hopper-vault"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "hopper-lang",
  "hopper-svm",
@@ -2532,21 +2532,21 @@ dependencies = [
 
 [[package]]
 name = "hopper-vesting"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "hopper-runtime",
 ]
 
 [[package]]
 name = "hopper-virtual-state"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "hopper-lang",
 ]
 
 [[package]]
 name = "hopper-xp-devnet-runner"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "hopper-lang",
  "hopper-xp-program-a",
@@ -2561,14 +2561,14 @@ dependencies = [
 
 [[package]]
 name = "hopper-xp-program-a"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "hopper-lang",
 ]
 
 [[package]]
 name = "hopper-xp-program-b"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "hopper-lang",
 ]

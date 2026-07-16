@@ -7,6 +7,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 
 ## [Unreleased]
 
+(nothing yet)
+
+## [0.3.0] - 2026-07-16
+
 ### Added
 
 - **Miri lane under Tree Borrows (`scripts/miri-core.{sh,ps1}`) — and

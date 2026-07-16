@@ -1,13 +1,13 @@
 [package]
 name = "hopper-token-2022"
-version = "0.2.1"
+version = "0.3.0"
 edition = "2021"
 license = "Apache-2.0"
 authors = ["BluefootLabs <contact@bluefootlabs.com>", "MoonManQuark"]
 description = "Hopper-owned Token-2022 builder and screening surface. Thin, no_std instruction builders over Hopper Runtime."
 repository = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework"
 homepage = "https://hopperzero.dev"
-documentation = "https://docs.rs/crate/hopper-token-2022/0.2.1"
+documentation = "https://docs.rs/crate/hopper-token-2022/0.3.0"
 readme = "README.md"
 keywords = ["solana", "token-2022", "cpi", "zero-copy", "hopper"]
 categories = ["no-std"]
