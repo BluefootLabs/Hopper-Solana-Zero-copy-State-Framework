@@ -375,33 +375,7 @@ where
 
     // Grow BEFORE migrating: the Old body must stay intact for the
     // transform, and migrate_layout refuses a too-small New span.
-    if account.data_len() < new_required {
-        let rent_needed = crate::rent::minimum_balance_live(new_required);
-        let deficit = rent_needed.saturating_sub(account.lamports());
-        if deficit > 0 {
-            if !payer.is_writable() {
-                return Err(ProgramError::InvalidAccountData);
-            }
-            if !payer.is_signer() {
-                return Err(ProgramError::MissingRequiredSignature);
-            }
-        }
-        // Fail fast on outstanding data borrows before the length moves.
-        drop(account.try_borrow_mut()?);
-        account.resize(new_required)?;
-        if deficit > 0 {
-            let payer_after = payer
-                .lamports()
-                .checked_sub(deficit)
-                .ok_or(ProgramError::InsufficientFunds)?;
-            let account_after = account
-                .lamports()
-                .checked_add(deficit)
-                .ok_or(ProgramError::ArithmeticOverflow)?;
-            payer.try_set_lamports(payer_after)?;
-            account.try_set_lamports(account_after)?;
-        }
-    }
+    ensure_fits_with_rent(account, payer, program_id, new_required)?;
 
     migrate_layout::<Old, New, F>(account, program_id, transform)?;
 
@@ -432,6 +406,195 @@ where
         }
     }
     Ok(())
+}
+
+/// Grow `account` to at least `min_len` bytes, topping up the
+/// rent-exempt minimum (from the LIVE rent sysvar) out of `payer` when
+/// the account's balance falls short — the payer must then be writable
+/// and a signer; a well-funded account needs no payer at all. A no-op
+/// when the allocation already fits. Growth is capped by Solana's
+/// `MAX_PERMITTED_DATA_INCREASE`, enforced by `resize`.
+///
+/// The building block behind [`migrate_layout_resizing`]'s grow phase
+/// and [`migrate_chain!`](crate::migrate_chain)'s single up-front grow.
+pub fn ensure_fits_with_rent(
+    account: &AccountView<'_>,
+    payer: &AccountView<'_>,
+    program_id: &Address,
+    min_len: usize,
+) -> Result<(), ProgramError> {
+    check_migratable(account, program_id)?;
+    if account.data_len() >= min_len {
+        return Ok(());
+    }
+    let rent_needed = crate::rent::minimum_balance_live(min_len);
+    let deficit = rent_needed.saturating_sub(account.lamports());
+    if deficit > 0 {
+        if !payer.is_writable() {
+            return Err(ProgramError::InvalidAccountData);
+        }
+        if !payer.is_signer() {
+            return Err(ProgramError::MissingRequiredSignature);
+        }
+    }
+    // Fail fast on outstanding data borrows before the length moves.
+    drop(account.try_borrow_mut()?);
+    account.resize(min_len)?;
+    if deficit > 0 {
+        let payer_after = payer
+            .lamports()
+            .checked_sub(deficit)
+            .ok_or(ProgramError::InsufficientFunds)?;
+        let account_after = account
+            .lamports()
+            .checked_add(deficit)
+            .ok_or(ProgramError::ArithmeticOverflow)?;
+        payer.try_set_lamports(payer_after)?;
+        account.try_set_lamports(account_after)?;
+    }
+    Ok(())
+}
+
+/// Header identity check for an **epoch-migration candidate**: disc,
+/// version, and layout id must match `T` exactly and the allocation
+/// must fit `T`, while the stored schema epoch may LAG
+/// `T::SCHEMA_EPOCH` — that lag is exactly what the epoch chain heals —
+/// but may never exceed it (a from-the-future account is refused, never
+/// "migrated"). Returns the stored EFFECTIVE epoch (a pre-epoch zero
+/// header reads as epoch 1).
+///
+/// This is the shared acceptance predicate behind
+/// `#[account(epoch_migrate)]`: the read-only `validate()` surface uses
+/// it to accept a stale-epoch account that `bind()` can heal, and
+/// bind's crank uses it to decide whether to run
+/// [`apply_pending_migrations`] — one function, two surfaces, so the
+/// would-bind parity can never drift.
+pub fn validate_header_for_epoch_migration<T: LayoutContract>(
+    data: &[u8],
+) -> Result<u32, ProgramError> {
+    use crate::layout::{
+        effective_schema_epoch, read_disc, read_layout_id, read_schema_epoch, read_version,
+    };
+    if data.len() < T::required_len() {
+        return Err(ProgramError::AccountDataTooSmall);
+    }
+    if read_disc(data) != Some(T::DISC)
+        || read_version(data) != Some(T::VERSION)
+        || read_layout_id(data) != Some(&T::LAYOUT_ID)
+    {
+        return Err(ProgramError::InvalidAccountData);
+    }
+    let stored = read_schema_epoch(data).ok_or(ProgramError::InvalidAccountData)?;
+    let effective = effective_schema_epoch(stored);
+    if effective > T::SCHEMA_EPOCH {
+        return Err(ProgramError::InvalidAccountData);
+    }
+    Ok(effective)
+}
+
+/// Typed multi-hop layout migration: probe-and-migrate each declared
+/// hop in declaration order, so ONE call heals an account from ANY
+/// declared starting version to the newest — the chain Quasar's
+/// pairwise `Migration<From, To>` cannot express in one instruction.
+///
+/// ```ignore
+/// // In place (every hop's target must already fit the allocation):
+/// let hops = hopper::migrate_chain!(account, ctx.program_id(), {
+///     VaultV1 => VaultV2: widen,
+///     VaultV2 => VaultV3: add_flag,
+/// });
+///
+/// // With ONE up-front grow to the largest hop target, rent topped up
+/// // from `payer` (see `ensure_fits_with_rent`):
+/// let hops = hopper::migrate_chain!(account, ctx.program_id(), payer = payer_view, {
+///     VaultV1 => VaultV2: widen,
+///     VaultV2 => VaultV3: add_flag,
+/// });
+/// ```
+///
+/// Each hop probes the header for a fully-valid `$old` identity and,
+/// only then, runs [`migrate_layout`] (which re-verifies under its own
+/// borrow and carries the owner+writable security gate). An account
+/// already at a later hop's source version simply skips the earlier
+/// hops; an account matching NO hop is left untouched and the chain
+/// returns `0` — the caller's subsequent typed load rejects foreign
+/// layouts exactly as before, so the chain is a healing pass, not a
+/// validator. Evaluates to the number of hops applied (`u32`).
+///
+/// The expansion uses `?`, so the surrounding function must return
+/// `Result<_, ProgramError>` (or a compatible error).
+#[macro_export]
+macro_rules! migrate_chain {
+    ($account:expr, $program_id:expr, { $($old:ty => $new:ty : $f:expr),+ $(,)? }) => {{
+        let __hopper_chain_view = $account;
+        let __hopper_chain_pid = $program_id;
+        let mut __hopper_chain_hops: u32 = 0;
+        $(
+            {
+                let __hopper_chain_is_old = {
+                    let __hopper_chain_data = __hopper_chain_view.try_borrow()?;
+                    <$old as $crate::LayoutContract>::validate_header(
+                        &__hopper_chain_data,
+                    )
+                    .is_ok()
+                };
+                if __hopper_chain_is_old {
+                    $crate::migrate_layout::<$old, $new, _>(
+                        __hopper_chain_view,
+                        __hopper_chain_pid,
+                        $f,
+                    )?;
+                    __hopper_chain_hops += 1;
+                }
+            }
+        )+
+        __hopper_chain_hops
+    }};
+    ($account:expr, $program_id:expr, payer = $payer:expr,
+     { $($old:ty => $new:ty : $f:expr),+ $(,)? }) => {{
+        let __hopper_chain_view = $account;
+        let __hopper_chain_pid = $program_id;
+        // ONE grow, sized to the LARGEST hop target (not merely the
+        // final one: a middle hop may be the widest shape the chain
+        // passes through).
+        let mut __hopper_chain_max: usize = 0;
+        $(
+            {
+                let __hopper_chain_len =
+                    <$new as $crate::LayoutContract>::required_len();
+                if __hopper_chain_len > __hopper_chain_max {
+                    __hopper_chain_max = __hopper_chain_len;
+                }
+            }
+        )+
+        $crate::ensure_fits_with_rent(
+            __hopper_chain_view,
+            $payer,
+            __hopper_chain_pid,
+            __hopper_chain_max,
+        )?;
+        let mut __hopper_chain_hops: u32 = 0;
+        $(
+            {
+                let __hopper_chain_is_old = {
+                    let __hopper_chain_data = __hopper_chain_view.try_borrow()?;
+                    <$old as $crate::LayoutContract>::validate_header(
+                        &__hopper_chain_data,
+                    )
+                    .is_ok()
+                };
+                if __hopper_chain_is_old {
+                    $crate::migrate_layout::<$old, $new, _>(
+                        __hopper_chain_view,
+                        __hopper_chain_pid,
+                        $f,
+                    )?;
+                    __hopper_chain_hops += 1;
+                }
+            }
+        )+
+        __hopper_chain_hops
+    }};
 }
 
 /// Locate the edge whose `from_epoch == epoch`. Returns an
@@ -1081,6 +1244,154 @@ mod tests {
                 10 + (min_old - min_new),
                 "payer receives exactly the rent delta"
             );
+        }
+
+        /// One `migrate_chain!` call heals an account from ANY declared
+        /// starting version: V1 walks both hops, V2 only the second,
+        /// V3 none, and a foreign layout is untouched with 0 hops.
+        #[test]
+        fn migrate_chain_heals_from_any_starting_version() {
+            fn run_chain(account: &crate::AccountView<'_>) -> Result<u32, ProgramError> {
+                Ok(crate::migrate_chain!(account, &pid(), {
+                    VaultV1 => VaultV2: widen,
+                    VaultV2 => VaultV3: narrow,
+                }))
+            }
+
+            // V1 start: both hops fire; the value threads through both
+            // transforms (7 widened, then narrowed back to u32).
+            let (_b, v1) = seeded_v1(HopperHeader::SIZE + 16);
+            assert_eq!(run_chain(&v1), Ok(2));
+            {
+                let data = v1.try_borrow().unwrap();
+                assert_eq!(read_version(&data), Some(3));
+                assert_eq!(&data[16..20], &7u32.to_le_bytes());
+            }
+
+            // V2 start: only the second hop fires.
+            let (_b2, v2) = seeded_v2(1);
+            assert_eq!(run_chain(&v2), Ok(1));
+            assert_eq!(read_version(&v2.try_borrow().unwrap()), Some(3));
+
+            // Already-V3: zero hops, byte-identical.
+            assert_eq!(run_chain(&v2), Ok(0));
+
+            // Foreign layout: untouched, zero hops (the chain is a
+            // healing pass; the caller's typed load still rejects it).
+            let (_b3, other) = raw_account(HopperHeader::SIZE + 16, 1, true, false, [6; 32]);
+            {
+                let mut data = other.try_borrow_mut().unwrap();
+                write_header(
+                    &mut data,
+                    <OtherKind as LayoutContract>::DISC,
+                    <OtherKind as LayoutContract>::VERSION,
+                    &<OtherKind as LayoutContract>::LAYOUT_ID,
+                )
+                .unwrap();
+            }
+            assert_eq!(run_chain(&other), Ok(0));
+            assert_eq!(
+                read_disc(&other.try_borrow().unwrap()),
+                Some(<OtherKind as LayoutContract>::DISC)
+            );
+        }
+
+        /// The resizing chain grows ONCE, to the LARGEST hop target (the
+        /// middle V2 shape here, 28 B — not the smaller final V3), with
+        /// the rent deficit debited from the payer.
+        #[test]
+        fn migrate_chain_with_payer_grows_once_to_the_largest_hop() {
+            fn run_chain<'a>(
+                account: &crate::AccountView<'a>,
+                payer: &crate::AccountView<'a>,
+            ) -> Result<u32, ProgramError> {
+                Ok(crate::migrate_chain!(account, &pid(), payer = payer, {
+                    VaultV1 => VaultV2: widen,
+                    VaultV2 => VaultV3: narrow,
+                }))
+            }
+
+            // Sized for V1 only (24 B) with 1 lamport: the V2 hop (28 B)
+            // cannot run without the up-front grow + top-up.
+            let (_b, account) = raw_account(HopperHeader::SIZE + 8, 1, true, false, [6; 32]);
+            stamp_v1(&account);
+            let payer_start = 1_000_000_000u64;
+            let (_pb, payer) = raw_account(0, payer_start, true, true, [0; 32]);
+
+            assert_eq!(run_chain(&account, &payer), Ok(2));
+            // Grown to the LARGEST hop (V2's 28), never shrunk (the
+            // chain has no shrink phase — that is `resize = fit`'s job).
+            assert_eq!(account.data_len(), HopperHeader::SIZE + 12);
+            let data = account.try_borrow().unwrap();
+            assert_eq!(read_version(&data), Some(3));
+            assert_eq!(&data[16..20], &7u32.to_le_bytes());
+            assert!(payer.lamports() < payer_start, "payer funded the grow");
+        }
+
+        /// The shared acceptance predicate behind `epoch_migrate`:
+        /// identity must match exactly, the epoch may lag but never
+        /// lead, and pre-epoch zero headers read as epoch 1.
+        #[test]
+        fn epoch_migration_header_predicate_accepts_lag_refuses_lead() {
+            use crate::layout::write_header_with_epoch;
+
+            #[repr(C)]
+            #[derive(Clone, Copy)]
+            struct EpochThree {
+                v: [u8; 8],
+            }
+            // SAFETY: repr(C), byte-array field — every bit pattern
+            // valid, align 1, no padding.
+            unsafe impl crate::Zeroable for EpochThree {}
+            // SAFETY: as above.
+            unsafe impl crate::Pod for EpochThree {}
+            // SAFETY: test-local layout upholding the sealed overlay
+            // contract.
+            unsafe impl crate::zerocopy::__sealed::HopperZeroCopySealed for EpochThree {}
+            impl crate::field_map::FieldMap for EpochThree {
+                const FIELDS: &'static [crate::field_map::FieldInfo] =
+                    &[crate::field_map::FieldInfo::new("v", HopperHeader::SIZE, 8)];
+            }
+            impl LayoutContract for EpochThree {
+                const DISC: u8 = 93;
+                const VERSION: u8 = 1;
+                const LAYOUT_ID: [u8; 8] = [0x93; 8];
+                const SIZE: usize = HopperHeader::SIZE + 8;
+                const SCHEMA_EPOCH: u32 = 3;
+            }
+
+            let mut data = std::vec![0u8; HopperHeader::SIZE + 8];
+            // Stale epoch (1): accepted, effective epoch returned.
+            write_header_with_epoch(&mut data, 93, 1, &[0x93; 8], 1).unwrap();
+            assert_eq!(
+                validate_header_for_epoch_migration::<EpochThree>(&data),
+                Ok(1)
+            );
+            // Current epoch (3): accepted (the crank then no-ops).
+            write_header_with_epoch(&mut data, 93, 1, &[0x93; 8], 3).unwrap();
+            assert_eq!(
+                validate_header_for_epoch_migration::<EpochThree>(&data),
+                Ok(3)
+            );
+            // Future epoch (4): refused — never "migrated" down.
+            write_header_with_epoch(&mut data, 93, 1, &[0x93; 8], 4).unwrap();
+            assert!(validate_header_for_epoch_migration::<EpochThree>(&data).is_err());
+            // Pre-epoch zero header reads as effective epoch 1.
+            write_header_with_epoch(&mut data, 93, 1, &[0x93; 8], 0).unwrap();
+            assert_eq!(
+                validate_header_for_epoch_migration::<EpochThree>(&data),
+                Ok(1)
+            );
+            // Identity mismatches refuse regardless of epoch.
+            write_header_with_epoch(&mut data, 94, 1, &[0x93; 8], 1).unwrap();
+            assert!(validate_header_for_epoch_migration::<EpochThree>(&data).is_err());
+            write_header_with_epoch(&mut data, 93, 2, &[0x93; 8], 1).unwrap();
+            assert!(validate_header_for_epoch_migration::<EpochThree>(&data).is_err());
+            write_header_with_epoch(&mut data, 93, 1, &[0x44; 8], 1).unwrap();
+            assert!(validate_header_for_epoch_migration::<EpochThree>(&data).is_err());
+            // Undersized allocation refused.
+            let tiny = std::vec![0u8; HopperHeader::SIZE + 4];
+            assert!(validate_header_for_epoch_migration::<EpochThree>(&tiny).is_err());
         }
 
         /// Shrink is opt-in: with `shrink_to_fit = false` the allocation

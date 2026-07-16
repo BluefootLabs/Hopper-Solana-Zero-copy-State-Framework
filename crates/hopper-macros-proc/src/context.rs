@@ -307,6 +307,14 @@ struct AccountAttr {
     migrate_resize_fit: Option<bool>,
     /// Payer/refund counterparty field for `migrate(resize = ...)`.
     migrate_resize_payer: Option<Ident>,
+    /// `epoch_migrate`: bind's crank heals a stale `schema_epoch` by
+    /// running the layout's declared `LayoutMigration` chain
+    /// (`apply_pending_migrations`) in place. The field's layout type
+    /// must implement `LayoutMigration` (edges via `#[hopper::migrate]`
+    /// + `layout_migrations!`) and declare its target epoch
+    /// (`#[hopper::state(schema_epoch = N)]`). `validate()` widens to
+    /// accept any healable (lagging, never leading) epoch.
+    epoch_migrate: bool,
 
     /// `executable`. Anchor-parity keyword. Requires the account's
     /// `executable` flag to be true - i.e. it must be a deployed BPF
@@ -845,6 +853,18 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                     "segment/tail accessors require a Hopper layout type, not a raw account view",
                 ));
             }
+            if attr.epoch_migrate && skips_layout_validation(&field_ty) {
+                return Err(syn::Error::new_spanned(
+                    &field.ty,
+                    "`epoch_migrate` requires a Hopper layout type (the epoch chain is                      declared on the layout via `LayoutMigration`), not a raw account view",
+                ));
+            }
+            if attr.epoch_migrate && attr.migrate.is_some() {
+                return Err(syn::Error::new_spanned(
+                    &field.ty,
+                    "`epoch_migrate` cannot combine with `migrate(...)` on one field: the                      cross-version migration stamps the NEW layout's schema epoch directly,                      leaving no pending epoch edges to heal — pick one",
+                ));
+            }
         }
         field.attrs.retain(|attr| {
             !attr.path().is_ident("account")
@@ -1260,8 +1280,10 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         // shape competitor derives use, plus exact error codes.)
 
         let needs_signer = cf.attr.is_signer || wrapper_is_signer;
-        let needs_writable =
-            cf.attr.is_mut || !cf.attr.mut_segments.is_empty() || !cf.attr.tail_segments.is_empty();
+        let needs_writable = cf.attr.is_mut
+            || !cf.attr.mut_segments.is_empty()
+            || !cf.attr.tail_segments.is_empty()
+            || cf.attr.epoch_migrate;
         if needs_signer || needs_writable {
             field_checks.push(quote! {
                 ctx.account(#slot)?.expect_signer_writable(#needs_signer, #needs_writable)?;
@@ -1494,6 +1516,30 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                         }
                     }
                 }
+            } else if cf.attr.epoch_migrate {
+                // Widened header check, "would bind accept this set?"
+                // semantics: a stale-but-healable epoch (exact identity,
+                // lagging epoch — the SAME shared predicate bind's crank
+                // uses) is accepted read-only; everything else surfaces
+                // the layout's own validation error, unchanged.
+                quote! {
+                    {
+                        let __hopper_epoch_data = ctx.account(#slot)?.try_borrow()?;
+                        if let ::core::result::Result::Err(__hopper_epoch_err) =
+                            <#field_ty as ::hopper::__runtime::LayoutContract>::validate_header(
+                                &__hopper_epoch_data,
+                            )
+                        {
+                            if ::hopper::migration::validate_header_for_epoch_migration::<#field_ty>(
+                                &__hopper_epoch_data,
+                            )
+                            .is_err()
+                            {
+                                return ::core::result::Result::Err(__hopper_epoch_err);
+                            }
+                        }
+                    }
+                }
             } else {
                 quote! { let _ = ctx.account(#slot)?.load::<#field_ty>()?; }
             };
@@ -1519,6 +1565,15 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                     type_ident(from_ty)
                         .map(|i| i.to_string())
                         .unwrap_or_default(),
+                    type_ident(field_ty)
+                        .map(|i| i.to_string())
+                        .unwrap_or_default()
+                )
+            } else if cf.attr.epoch_migrate {
+                format!(
+                    "accounts[{}] ({}) owner matches; header is a valid {} — or the same                      identity at a LAGGING schema epoch (bind heals it through the declared                      LayoutMigration chain before validation; leading epochs are refused)",
+                    idx,
+                    field_name,
                     type_ident(field_ty)
                         .map(|i| i.to_string())
                         .unwrap_or_default()
@@ -1640,6 +1695,38 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                     };
                     if __hopper_migrate_is_old {
                         #migrate_call
+                    }
+                }
+            });
+        }
+
+        // -- Stage 3.6: epoch-chain healing at bind (`epoch_migrate`) --
+        //
+        // Same crank slot and same security posture as Stage 3.5: the
+        // probe uses the SHARED acceptance predicate
+        // (`validate_header_for_epoch_migration` — exact identity,
+        // lagging epoch only), and `apply_pending_migrations` carries
+        // the runtime owner+writable gate plus a no-op fast path when
+        // the epoch is already current, so binding a healthy account
+        // costs one header parse.
+        if cf.attr.epoch_migrate {
+            let field_ty = layout_ty.as_ref().unwrap_or(&cf.ty);
+            migration_stmts.push(quote! {
+                {
+                    let __hopper_epoch_view = ctx.account(#slot)?;
+                    let __hopper_epoch_stored = {
+                        let __hopper_epoch_data = __hopper_epoch_view.try_borrow()?;
+                        ::hopper::migration::validate_header_for_epoch_migration::<#field_ty>(
+                            &__hopper_epoch_data,
+                        )
+                        .ok()
+                    };
+                    if let ::core::option::Option::Some(__hopper_epoch) = __hopper_epoch_stored {
+                        ::hopper::migration::apply_pending_migrations::<#field_ty>(
+                            __hopper_epoch_view,
+                            ctx.program_id(),
+                            __hopper_epoch,
+                        )?;
                     }
                 }
             });
@@ -3489,7 +3576,8 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             };
             let writable = cf.attr.is_mut
                 || !cf.attr.mut_segments.is_empty()
-                || !cf.attr.tail_segments.is_empty();
+                || !cf.attr.tail_segments.is_empty()
+                || cf.attr.epoch_migrate;
             // Signer-ness must match what `validate()` actually enforces:
             // the `#[signer]` / `#[account(signer)]` attribute OR the
             // type-level `Signer<'info>` wrapper (the fused
@@ -5857,6 +5945,10 @@ fn parse_account_attr(attrs: &[Attribute]) -> Result<AccountAttr> {
                 }
                 "zero" => {
                     result.zero = true;
+                    Ok(())
+                }
+                "epoch_migrate" => {
+                    result.epoch_migrate = true;
                     Ok(())
                 }
                 "close" => {

@@ -9,6 +9,34 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 
 ### Added
 
+- **The epoch machinery, fully wired: `schema_epoch = N` on
+  `#[hopper::state]`, `#[account(epoch_migrate)]`, and
+  `migrate_chain!`.** Three gaps closed in one pass. (1) Layouts could
+  never DECLARE a target schema epoch from the pretty path —
+  `LayoutContract::SCHEMA_EPOCH` only had its trait default of 1, so
+  the whole epoch-migration runtime was unreachable; `#[hopper::state]`
+  now takes `schema_epoch = N` (0 refused: it reads as the pre-epoch
+  default). (2) `apply_pending_migrations` had zero production callers;
+  `#[account(epoch_migrate)]` wires it into bind's crank slot: a
+  stale-epoch account heals through the layout's declared
+  `LayoutMigration` chain before any validator runs, an
+  already-current account costs one header parse, and `validate()`
+  widens through the SAME shared predicate
+  (`validate_header_for_epoch_migration` — exact identity, LAGGING
+  epoch only, future epochs refused, never "migrated" down) so the two
+  surfaces cannot drift. Combining it with `migrate(...)` on one field
+  is a compile error (the cross-version migration stamps the new
+  epoch directly — nothing left to heal). (3) `migrate_chain!` runs a
+  typed multi-hop version chain (`V1 => V2: f, V2 => V3: g`) —
+  probe-and-migrate per hop, so ONE call heals an account from ANY
+  declared starting version, with an optional `payer = ...` arm that
+  grows ONCE, up front, to the LARGEST hop target (not merely the
+  final one — a middle hop may be the widest shape) via the new
+  `ensure_fits_with_rent` building block. Quasar's pairwise
+  `Migration<From, To>` structurally cannot express either the
+  multi-hop or the single-grow. Mutation-disciplined: disabling the
+  epoch crank breaks the heal test; accepting future epochs breaks the
+  predicate unit test AND the validate-parity integration test.
 - **Resizing migrations (`migrate_layout_resizing` + `migrate(resize =
   grow|fit, payer = ...)`) — and the migration security gate.** The one
   migration capability Quasar had that Hopper lacked: resize during a

@@ -311,7 +311,10 @@ pub mod layout {
         write_header, AccountHeader, AccountReader, FixedLayout, HEADER_FORMAT, HEADER_LEN,
     };
     pub use hopper_core::field_map::{FieldInfo, FieldMap};
-    pub use hopper_runtime::layout::{init_header, HopperHeader, LayoutContract, LayoutInfo};
+    pub use hopper_runtime::layout::{
+        effective_schema_epoch, init_header, read_schema_epoch, write_header_with_epoch,
+        HopperHeader, LayoutContract, LayoutInfo,
+    };
     pub use hopper_runtime::{AccountLayout, Pod, WireLayout, ZeroCopy};
 }
 
@@ -348,8 +351,8 @@ pub mod migration {
     #[cfg(feature = "migrate")]
     pub use hopper_core::migrate::*;
     pub use hopper_runtime::{
-        apply_pending_migrations, migrate_layout, migrate_layout_resizing, LayoutMigration,
-        MigrationEdge,
+        apply_pending_migrations, ensure_fits_with_rent, migrate_layout, migrate_layout_resizing,
+        validate_header_for_epoch_migration, LayoutMigration, MigrationEdge,
     };
 }
 
@@ -541,6 +544,8 @@ pub use hopper_macros::{
 // user-facing path `hopper::layout_migrations!` requires an explicit
 // re-export here.
 pub use hopper_runtime::layout_migrations;
+// Typed multi-hop migration chain (same re-export rationale as above).
+pub use hopper_runtime::migrate_chain;
 
 /// Destructuring sugar for raw-dispatch handlers.
 ///

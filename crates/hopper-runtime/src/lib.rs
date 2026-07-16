@@ -113,8 +113,8 @@ pub use interop::TransparentAddress;
 pub use lamports::transfer_lamports;
 pub use lazy::LazyContext;
 pub use migrate::{
-    apply_pending_migrations, migrate_layout, migrate_layout_resizing, LayoutMigration,
-    MigrationEdge,
+    apply_pending_migrations, ensure_fits_with_rent, migrate_layout, migrate_layout_resizing,
+    validate_header_for_epoch_migration, LayoutMigration, MigrationEdge,
 };
 pub use policy::{HopperInstructionPolicy, HopperProgramPolicy, HopperProgramProfile};
 pub use proof::{

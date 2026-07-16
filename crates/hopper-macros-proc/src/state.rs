@@ -14,6 +14,12 @@ use syn::{parse::Parser, parse2, Attribute, Field, Fields, ItemStruct, LitInt, L
 struct StateOptions {
     disc: Option<u8>,
     version: u8,
+    /// Target schema epoch (`LayoutContract::SCHEMA_EPOCH`), the version
+    /// the in-place epoch-migration chain heals accounts up to. Defaults
+    /// to 1 (`DEFAULT_SCHEMA_EPOCH`); set it when the layout declares
+    /// `LayoutMigration` edges (`#[hopper::migrate]` +
+    /// `layout_migrations!`) so `#[account(epoch_migrate)]` has a target.
+    schema_epoch: u32,
     /// Audit innovation I5 (hybrid serialization). When set, the
     /// layout emits tail-access helpers that read/write a
     /// length-prefixed dynamic payload at offset
@@ -44,6 +50,7 @@ impl Default for StateOptions {
         Self {
             disc: None,
             version: 1,
+            schema_epoch: 1,
             dynamic_tail: None,
             dynamic_tail_schema: None,
             raw_tail: false,
@@ -242,6 +249,7 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
 
     let body_size = running_offset.clone();
     let version = options.version;
+    let schema_epoch = options.schema_epoch;
     let dynamic_tail_fingerprint = options
         .dynamic_tail_schema
         .as_deref()
@@ -752,6 +760,7 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
             const VERSION: u8 = #name::VERSION;
             const LAYOUT_ID: [u8; 8] = #name::LAYOUT_ID;
             const SIZE: usize = #name::LEN;
+            const SCHEMA_EPOCH: u32 = #schema_epoch;
         }
 
         impl ::hopper::hopper_core::check::modifier::HopperLayout for #name {
@@ -1622,6 +1631,16 @@ fn parse_state_options(attr: TokenStream) -> Result<StateOptions> {
             options.version = value.base10_parse()?;
             return Ok(());
         }
+        if meta.path.is_ident("schema_epoch") {
+            let value: LitInt = meta.value()?.parse()?;
+            options.schema_epoch = value.base10_parse()?;
+            if options.schema_epoch == 0 {
+                return Err(
+                    meta.error("schema_epoch starts at 1 (0 is read as the pre-epoch default)")
+                );
+            }
+            return Ok(());
+        }
         if meta.path.is_ident("dynamic_tail") {
             let ty: syn::Type = meta.value()?.parse()?;
             options.dynamic_tail = Some(ty);
@@ -1653,7 +1672,7 @@ fn parse_state_options(attr: TokenStream) -> Result<StateOptions> {
             options.dynamic_tail_schema = Some(value.value());
             return Ok(());
         }
-        Err(meta.error("unsupported hopper_state option; expected `disc = N`, `discriminator = N`, `version = N`, `compact`, `dynamic`, `dynamic_tail = T`, `raw_tail = true`, or `dynamic_tail_schema = \"...\"`"))
+        Err(meta.error("unsupported hopper_state option; expected `disc = N`, `discriminator = N`, `version = N`, `schema_epoch = N`, `compact`, `dynamic`, `dynamic_tail = T`, `raw_tail = true`, or `dynamic_tail_schema = \"...\"`"))
     });
 
     parser.parse2(attr)?;
