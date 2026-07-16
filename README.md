@@ -26,8 +26,13 @@ For normal programs, use `hopper-lang` as `hopper`: `use hopper::prelude::*`, `#
 - External account adapters for non-Hopper accounts: typed views, checked lenses, proof tokens, snapshots, lazy remaining parsing, SPL Token adapters.
 - Checked CPI, signed CPI, stored instructions, Token and Token-2022 helpers, ATA, memo, and on-chain crypto.
 - Systems-mode APIs for segmented layouts, dynamic tails, receipt trails, policy checks, schema manifests, migrations.
-- Instruction touch maps (`touch-map` feature): enumerate the exact `(account, offset, size, read/write)` byte footprint an instruction touched, at measured 0 CU (`Context::for_each_touch`).
-- Field-level write policies: `#[hopper::context(strict_writes)]` compiles declared mutable ranges into a static policy enforced at borrow acquisition — beyond Sealevel's account-level `writable` bit.
+- Instruction touch maps (`touch-map` feature): enumerate the exact `(account, offset, size, read/write)` byte footprint an instruction touched, at measured 0 CU (`Context::for_each_touch`). Under capacity pressure the log coalesces exact unions instead of truncating, so contiguous workloads of any size emit a complete, verifier-conclusive map.
+- Field-level write policies: `#[hopper::context(strict_writes)]` compiles declared mutable ranges into a static policy enforced at borrow acquisition — beyond Sealevel's account-level `writable` bit. Proven on compiled SBF bytecode and live devnet: a tampered handler's out-of-range write is refused with `Custom(0xD000 | idx)` before any byte changes ([examples/hopper-sentinel](examples/hopper-sentinel/README.md), signatures in the README).
+- `Seq<'a, T>` growable typed sequence tails: O(1) push over a `[count][elems]` wire, capacity derived from the account length (the layout id never changes as it grows), declared under `strict_writes` as one open-ended `tail(...)` range that protects the fixed head and still refuses whole-account CPI delegation — where Anchor's `Vec<T>` pays a full deserialize + reserialize every instruction.
+- The full migration suite: typed in-place `migrate_layout` with owner/writable gating baked into the runtime, `migrate(resize = grow|fit, payer = ...)` for payer-funded resizing (shrink refunds exactly the freed rent delta — never the deposits), `#[hopper::state(schema_epoch = N)]` + `#[account(epoch_migrate)]` for in-place epoch chains healed at bind, and `migrate_chain!` for typed multi-hop version chains with one up-front grow.
+- Grillo: an independent byte-diff verifier (`grillo-manifest` + `grillo-verifier`) proving `changed ⊆ acquired ⊆ authorized` for any transaction against the program's published manifest and emitted touch map.
+- `hopper lint --deny-escapes`: a CI-deniable audit that every account write in a program routes through the governed `Context` surface — the raw escape hatches are grep-able and machine-refused.
+- Runtime-direction readiness, compile-gated until cluster activation: `simd-0321` (r2 instruction-data entrypoint) and `simd-0449` (O(1) account resolution from the pre-computed pointer table — one `from_raw_parts`, no stride walk).
 - Opt-in 1-byte compact accounts for hot state: exact `[disc][body]` sizing on-chain, with layout fingerprints supplied by the manifest, IDL, registry, and generated SDK constants.
 - CLI, schema, IDL, and code generation tools that understand Hopper layout fingerprints before decoding accounts.
 
@@ -331,6 +336,13 @@ remaining-capacity, duplicate-account aliasing, and the two Anchor v2
 alpha Slab classes, #4603 and #4616) into Hopper regression proofs.
 Authoring that suite found and fixed a real Hopper bug (`safe_close` accepted
 an aliased destination) — the framework audits itself.
+
+Verification lanes beyond the test matrix: Kani proofs over the raw-input
+parser and tail codecs (`scripts/kani-*.sh`), and a Miri lane under Tree
+Borrows over the aliasing core — the segment borrow ledger, write-policy
+gate, native-boundary transmutes, and borrow registry
+(`scripts/miri-core.sh`). The Miri lane caught and fixed two real
+UB classes in test fixtures on its first run; that is what it is for.
 
 See:
 
