@@ -26,7 +26,10 @@ use core::fmt;
 
 extern crate alloc;
 
-use crate::{EventDescriptor, InstructionDescriptor, LayoutManifest, ProgramManifest};
+use crate::{
+    ArgDescriptor, ArgEncoding, EventDescriptor, InstructionDescriptor, LayoutManifest,
+    ProgramManifest,
+};
 
 const HOPPER_HEADER_SIZE: usize = 16;
 
@@ -48,6 +51,36 @@ fn ts_type(canonical: &str) -> &str {
         "Pubkey" => "PublicKey",
         // `[u8; N]` byte arrays and any unknown type both map to `Uint8Array`.
         _ => "Uint8Array",
+    }
+}
+
+fn bounded_vec_element_type(canonical: &str) -> Option<&str> {
+    let start = canonical.find('<')? + 1;
+    let rest = &canonical[start..];
+    let mut depth = 0usize;
+    for (index, byte) in rest.bytes().enumerate() {
+        match byte {
+            b'<' | b'[' | b'(' => depth += 1,
+            b'>' | b']' | b')' => depth = depth.saturating_sub(1),
+            b',' if depth == 0 => return Some(&rest[..index]),
+            _ => {}
+        }
+    }
+    None
+}
+
+fn write_ts_arg_type(f: &mut fmt::Formatter<'_>, arg: &ArgDescriptor) -> fmt::Result {
+    match arg.encoding {
+        ArgEncoding::BoundedString { .. } => write!(f, "string"),
+        ArgEncoding::BoundedVec { .. } => {
+            let element = bounded_vec_element_type(arg.canonical_type).unwrap_or("u8");
+            if element == "u8" {
+                write!(f, "Uint8Array")
+            } else {
+                write!(f, "readonly {}[]", ts_type(element))
+            }
+        }
+        ArgEncoding::Fixed => write!(f, "{}", ts_type(arg.canonical_type)),
     }
 }
 
@@ -447,7 +480,7 @@ impl<'a> fmt::Display for TsInstructions<'a> {
         writeln!(f)?;
         writeln!(
             f,
-            "import {{ PublicKey, TransactionInstruction }} from \"@solana/web3.js\";"
+            "import {{ AccountMeta, PublicKey, TransactionInstruction }} from \"@solana/web3.js\";"
         )?;
         writeln!(f)?;
 
@@ -460,7 +493,9 @@ impl<'a> fmt::Display for TsInstructions<'a> {
                 for arg in ix.args.iter() {
                     write!(f, "  ")?;
                     write_camel(f, arg.name)?;
-                    writeln!(f, ": {};", ts_type(arg.canonical_type))?;
+                    write!(f, ": ")?;
+                    write_ts_arg_type(f, arg)?;
+                    writeln!(f, ";")?;
                 }
                 writeln!(f, "}}")?;
                 writeln!(f)?;
@@ -501,7 +536,20 @@ impl<'a> fmt::Display for TsInstructions<'a> {
             write_pascal(f, ix.name)?;
             writeln!(f, "Accounts,")?;
             writeln!(f, "  programId: PublicKey,")?;
+            if ix.remaining_accounts.is_some() {
+                writeln!(f, "  remainingAccounts: readonly AccountMeta[] = [],")?;
+            }
             writeln!(f, "): TransactionInstruction {{")?;
+
+            if let Some(remaining) = ix.remaining_accounts {
+                writeln!(
+                    f,
+                    "  if (remainingAccounts.length > {}) throw new Error(\"{} accepts at most {} remaining accounts\");",
+                    remaining.max,
+                    ix.name,
+                    remaining.max,
+                )?;
+            }
 
             // Resolve program-derived addresses from their on-chain seeds, so
             // the caller supplies only the accounts it actually owns.
@@ -553,15 +601,88 @@ impl<'a> fmt::Display for TsInstructions<'a> {
             }
 
             // Build instruction data
-            let data_size = instruction_data_size(ix);
-            writeln!(f, "  const data = new Uint8Array({});", data_size)?;
-            writeln!(f, "  const view = new DataView(data.buffer);")?;
-            writeln!(f, "  data[0] = {}; // instruction discriminator", ix.tag)?;
+            if ix.args.iter().any(|arg| arg.fixed_size().is_none()) {
+                for arg in ix.args.iter() {
+                    match arg.encoding {
+                        ArgEncoding::BoundedVec {
+                            max_len,
+                            element_size,
+                        } => {
+                            write!(f, "  if (args.")?;
+                            write_camel(f, arg.name)?;
+                            writeln!(f, ".length > {}) throw new Error(\"{} exceeds its bounded capacity of {}\");", max_len, arg.name, max_len)?;
+                            if bounded_vec_element_type(arg.canonical_type).unwrap_or("u8") != "u8"
+                            {
+                                write!(f, "  for (const value of args.")?;
+                                write_camel(f, arg.name)?;
+                                writeln!(f, ") {{")?;
+                                let element =
+                                    bounded_vec_element_type(arg.canonical_type).unwrap_or("");
+                                if !matches!(
+                                    element,
+                                    "u16"
+                                        | "i16"
+                                        | "u32"
+                                        | "i32"
+                                        | "u64"
+                                        | "i64"
+                                        | "u128"
+                                        | "i128"
+                                        | "bool"
+                                        | "Pubkey"
+                                ) {
+                                    writeln!(f, "    if (value.length !== {}) throw new Error(\"{} element has the wrong encoded size\");", element_size, arg.name)?;
+                                }
+                                writeln!(f, "  }}")?;
+                            }
+                        }
+                        ArgEncoding::BoundedString { max_len } => {
+                            write!(f, "  const ")?;
+                            write_camel(f, arg.name)?;
+                            write!(f, "Bytes = new TextEncoder().encode(args.")?;
+                            write_camel(f, arg.name)?;
+                            writeln!(f, ");")?;
+                            write!(f, "  if (")?;
+                            write_camel(f, arg.name)?;
+                            writeln!(f, "Bytes.length > {}) throw new Error(\"{} exceeds its bounded UTF-8 capacity of {} bytes\");", max_len, arg.name, max_len)?;
+                        }
+                        ArgEncoding::Fixed => {}
+                    }
+                }
+                write!(f, "  const data = new Uint8Array(1")?;
+                for arg in ix.args.iter() {
+                    match arg.encoding {
+                        ArgEncoding::Fixed => write!(f, " + {}", arg.size)?,
+                        ArgEncoding::BoundedVec { element_size, .. } => {
+                            write!(f, " + 2 + args.")?;
+                            write_camel(f, arg.name)?;
+                            write!(f, ".length * {}", element_size)?;
+                        }
+                        ArgEncoding::BoundedString { .. } => {
+                            write!(f, " + 2 + ")?;
+                            write_camel(f, arg.name)?;
+                            write!(f, "Bytes.length")?;
+                        }
+                    }
+                }
+                writeln!(f, ");")?;
+                writeln!(f, "  const view = new DataView(data.buffer);")?;
+                writeln!(f, "  data[0] = {}; // instruction discriminator", ix.tag)?;
+                writeln!(f, "  let offset = 1;")?;
+                for arg in ix.args.iter() {
+                    write_encode_dynamic_expr(f, arg)?;
+                }
+            } else {
+                let data_size = instruction_data_size(ix);
+                writeln!(f, "  const data = new Uint8Array({});", data_size)?;
+                writeln!(f, "  const view = new DataView(data.buffer);")?;
+                writeln!(f, "  data[0] = {}; // instruction discriminator", ix.tag)?;
 
-            let mut offset = 1usize; // first byte is tag
-            for arg in ix.args.iter() {
-                write_encode_expr(f, arg.canonical_type, arg.name, offset)?;
-                offset += arg.size as usize;
+                let mut offset = 1usize; // first byte is tag
+                for arg in ix.args.iter() {
+                    write_encode_expr(f, arg.canonical_type, arg.name, offset)?;
+                    offset += arg.size as usize;
+                }
             }
 
             writeln!(f)?;
@@ -591,6 +712,9 @@ impl<'a> fmt::Display for TsInstructions<'a> {
                 )?;
             }
             writeln!(f, "  ];")?;
+            if ix.remaining_accounts.is_some() {
+                writeln!(f, "  keys.push(...remainingAccounts);")?;
+            }
             writeln!(f)?;
             writeln!(
                 f,
@@ -1151,6 +1275,99 @@ fn write_encode_expr(
             write!(f, "  data.set(args.")?;
             write_camel(f, name)?;
             writeln!(f, ", {});", offset)
+        }
+    }
+}
+
+fn write_encode_dynamic_expr(f: &mut fmt::Formatter<'_>, arg: &ArgDescriptor) -> fmt::Result {
+    let mut arg_ref = alloc::string::String::from("args.");
+    // `write_camel` writes to a formatter, not a String. Argument names emitted
+    // by the program macro are Rust identifiers today, so snake_case -> camel
+    // is reproduced locally for cursor-based expressions.
+    let mut upper = false;
+    for ch in arg.name.chars() {
+        if ch == '_' || ch == '-' {
+            upper = true;
+        } else if upper {
+            arg_ref.extend(ch.to_uppercase());
+            upper = false;
+        } else {
+            arg_ref.push(ch);
+        }
+    }
+
+    match arg.encoding {
+        ArgEncoding::BoundedString { .. } => {
+            let bytes = &arg_ref[5..];
+            writeln!(f, "  view.setUint16(offset, {}Bytes.length, true);", bytes)?;
+            writeln!(f, "  offset += 2;")?;
+            writeln!(f, "  data.set({}Bytes, offset);", bytes)?;
+            writeln!(f, "  offset += {}Bytes.length;", bytes)
+        }
+        ArgEncoding::BoundedVec { element_size, .. } => {
+            let element = bounded_vec_element_type(arg.canonical_type).unwrap_or("u8");
+            writeln!(f, "  view.setUint16(offset, {}.length, true);", arg_ref)?;
+            writeln!(f, "  offset += 2;")?;
+            if element == "u8" {
+                writeln!(f, "  data.set({}, offset);", arg_ref)?;
+                return writeln!(f, "  offset += {}.length;", arg_ref);
+            }
+            writeln!(f, "  for (const value of {}) {{", arg_ref)?;
+            match element {
+                "u16" => writeln!(f, "    view.setUint16(offset, value, true);")?,
+                "i16" => writeln!(f, "    view.setInt16(offset, value, true);")?,
+                "u32" => writeln!(f, "    view.setUint32(offset, value, true);")?,
+                "i32" => writeln!(f, "    view.setInt32(offset, value, true);")?,
+                "u64" => writeln!(f, "    view.setBigUint64(offset, value, true);")?,
+                "i64" => writeln!(f, "    view.setBigInt64(offset, value, true);")?,
+                "u128" => {
+                    writeln!(
+                        f,
+                        "    view.setBigUint64(offset, value & 0xFFFFFFFFFFFFFFFFn, true);"
+                    )?;
+                    writeln!(f, "    view.setBigUint64(offset + 8, value >> 64n, true);")?;
+                }
+                "i128" => {
+                    writeln!(
+                        f,
+                        "    view.setBigUint64(offset, value & 0xFFFFFFFFFFFFFFFFn, true);"
+                    )?;
+                    writeln!(f, "    view.setBigInt64(offset + 8, value >> 64n, true);")?;
+                }
+                "bool" => writeln!(f, "    data[offset] = value ? 1 : 0;")?,
+                "Pubkey" => writeln!(f, "    data.set(value.toBytes(), offset);")?,
+                _ => writeln!(f, "    data.set(value, offset);")?,
+            }
+            writeln!(f, "    offset += {};", element_size)?;
+            writeln!(f, "  }}")
+        }
+        ArgEncoding::Fixed => {
+            match arg.canonical_type {
+                "u8" => writeln!(f, "  data[offset] = {};", arg_ref)?,
+                "i8" => writeln!(f, "  view.setInt8(offset, {});", arg_ref)?,
+                "u16" => writeln!(f, "  view.setUint16(offset, {}, true);", arg_ref)?,
+                "i16" => writeln!(f, "  view.setInt16(offset, {}, true);", arg_ref)?,
+                "u32" => writeln!(f, "  view.setUint32(offset, {}, true);", arg_ref)?,
+                "i32" => writeln!(f, "  view.setInt32(offset, {}, true);", arg_ref)?,
+                "u64" => writeln!(f, "  view.setBigUint64(offset, {}, true);", arg_ref)?,
+                "i64" => writeln!(f, "  view.setBigInt64(offset, {}, true);", arg_ref)?,
+                "u128" => {
+                    writeln!(
+                        f,
+                        "  view.setBigUint64(offset, {} & 0xFFFFFFFFFFFFFFFFn, true);",
+                        arg_ref
+                    )?;
+                    writeln!(
+                        f,
+                        "  view.setBigUint64(offset + 8, {} >> 64n, true);",
+                        arg_ref
+                    )?;
+                }
+                "bool" => writeln!(f, "  data[offset] = {} ? 1 : 0;", arg_ref)?,
+                "Pubkey" => writeln!(f, "  data.set({}.toBytes(), offset);", arg_ref)?,
+                _ => writeln!(f, "  data.set({}, offset);", arg_ref)?,
+            }
+            writeln!(f, "  offset += {};", arg.size)
         }
     }
 }
@@ -2070,6 +2287,7 @@ mod tests {
             name: "amount",
             canonical_type: "u64",
             size: 8,
+            encoding: crate::ArgEncoding::Fixed,
         }];
 
         static ACCOUNTS: &[AccountEntry] = &[
@@ -2094,11 +2312,13 @@ mod tests {
             tag: 0,
             args: ARGS,
             accounts: ACCOUNTS,
+            remaining_accounts: None,
             capabilities: &["write"],
             policy_pack: "standard",
             receipt_expected: true,
             strict_writes: false,
             write_ranges: &[],
+            parametric_write_ranges: &[],
             mutation_complete: false,
             lamport_accounts: &[],
             cu_estimate: 0,
@@ -2401,11 +2621,13 @@ mod tests {
                 name: "amount",
                 canonical_type: "u64",
                 size: 8,
+                encoding: crate::ArgEncoding::Fixed,
             },
             ArgDescriptor {
                 name: "bump",
                 canonical_type: "u8",
                 size: 1,
+                encoding: crate::ArgEncoding::Fixed,
             },
         ];
         let ix = InstructionDescriptor {
@@ -2413,17 +2635,67 @@ mod tests {
             tag: 0,
             args: ARGS,
             accounts: &[],
+            remaining_accounts: None,
             capabilities: &[],
             policy_pack: "",
             receipt_expected: false,
             strict_writes: false,
             write_ranges: &[],
+            parametric_write_ranges: &[],
             mutation_complete: false,
             lamport_accounts: &[],
             cu_estimate: 0,
         };
         // 1 (disc) + 8 (u64) + 1 (u8) = 10
         assert_eq!(instruction_data_size(&ix), 10);
+    }
+
+    #[test]
+    fn ts_bounded_vector_and_remaining_accounts_are_encoded_exactly() {
+        static ARGS: &[ArgDescriptor] = &[
+            ArgDescriptor {
+                name: "route_data",
+                canonical_type: "HopperVec<u8,MAX_ROUTE_DATA>",
+                size: 514,
+                encoding: crate::ArgEncoding::BoundedVec {
+                    max_len: 512,
+                    element_size: 1,
+                },
+            },
+            ArgDescriptor {
+                name: "route_meta_flags",
+                canonical_type: "[u8;MAX_ROUTE_ACCOUNTS]",
+                size: 32,
+                encoding: crate::ArgEncoding::Fixed,
+            },
+        ];
+        static IX: &[InstructionDescriptor] = &[InstructionDescriptor {
+            name: "execute_intent",
+            tag: 6,
+            args: ARGS,
+            accounts: &[],
+            remaining_accounts: Some(crate::RemainingAccountsDescriptor { max: 32 }),
+            capabilities: &[],
+            policy_pack: "",
+            receipt_expected: false,
+            strict_writes: false,
+            write_ranges: &[],
+            parametric_write_ranges: &[],
+            mutation_complete: false,
+            lamport_accounts: &[],
+            cu_estimate: 0,
+        }];
+        let mut manifest = test_manifest();
+        manifest.instructions = IX;
+        let output = TsInstructions(&manifest).to_string();
+
+        assert!(output.contains("remainingAccounts: readonly AccountMeta[] = []"));
+        assert!(output.contains("remainingAccounts.length > 32"));
+        assert!(output.contains("keys.push(...remainingAccounts)"));
+        assert!(output.contains("args.routeData.length > 512"));
+        assert!(output.contains("1 + 2 + args.routeData.length * 1 + 32"));
+        assert!(output.contains("view.setUint16(offset, args.routeData.length, true)"));
+        assert!(output.contains("data.set(args.routeMetaFlags, offset)"));
     }
 
     // -- BLD-WR: strict_writes account demotion in the TS builder --
@@ -2462,11 +2734,13 @@ mod tests {
             tag: 0,
             args: &[],
             accounts: WR_ACCTS,
+            remaining_accounts: None,
             capabilities: &[],
             policy_pack: "",
             receipt_expected: false,
             strict_writes: true,
             write_ranges: WR_RANGES,
+            parametric_write_ranges: &[],
             mutation_complete: false,
             lamport_accounts: &[],
             cu_estimate: 0,
@@ -2476,11 +2750,13 @@ mod tests {
             tag: 0,
             args: &[],
             accounts: WR_ACCTS,
+            remaining_accounts: None,
             capabilities: &[],
             policy_pack: "",
             receipt_expected: false,
             strict_writes: false,
             write_ranges: &[],
+            parametric_write_ranges: &[],
             mutation_complete: false,
             lamport_accounts: &[],
             cu_estimate: 0,
@@ -2527,11 +2803,13 @@ mod tests {
             tag: 0,
             args: &[],
             accounts: WR_ACCTS,
+            remaining_accounts: None,
             capabilities: &[],
             policy_pack: "",
             receipt_expected: false,
             strict_writes: false,
             write_ranges: &[],
+            parametric_write_ranges: &[],
             mutation_complete: false,
             lamport_accounts: &[],
             cu_estimate: 10_000,
@@ -2541,11 +2819,13 @@ mod tests {
             tag: 0,
             args: &[],
             accounts: WR_ACCTS,
+            remaining_accounts: None,
             capabilities: &[],
             policy_pack: "",
             receipt_expected: false,
             strict_writes: false,
             write_ranges: &[],
+            parametric_write_ranges: &[],
             mutation_complete: false,
             lamport_accounts: &[],
             cu_estimate: 0,

@@ -247,6 +247,31 @@ pub fn interface_transfer_checked<'a>(
     interface_transfer_checked_signed(source, mint, destination, authority, amount, decimals, &[])
 }
 
+/// Polymorphic `TransferChecked` with an explicit executable token-program
+/// account. Prefer this form when the enclosing instruction does not already
+/// carry the selected SPL Token or Token-2022 program for another CPI.
+#[inline]
+pub fn interface_transfer_checked_with_program<'a>(
+    source: &'a AccountView<'a>,
+    mint: &'a AccountView<'a>,
+    destination: &'a AccountView<'a>,
+    authority: &'a AccountView<'a>,
+    token_program: &'a AccountView<'a>,
+    amount: u64,
+    decimals: u8,
+) -> ProgramResult {
+    interface_transfer_checked_signed_with_program(
+        source,
+        mint,
+        destination,
+        authority,
+        token_program,
+        amount,
+        decimals,
+        &[],
+    )
+}
+
 /// PDA-signing variant of [`interface_transfer_checked`].
 #[inline]
 pub fn interface_transfer_checked_signed<'a>(
@@ -258,7 +283,64 @@ pub fn interface_transfer_checked_signed<'a>(
     decimals: u8,
     signers: &[Signer<'_, '_>],
 ) -> ProgramResult {
+    interface_transfer_checked_signed_impl(
+        source,
+        mint,
+        destination,
+        authority,
+        None,
+        amount,
+        decimals,
+        signers,
+    )
+}
+
+/// PDA-signing polymorphic transfer with an explicit executable token-program
+/// account. The account must match the program that owns `source`.
+#[inline]
+#[allow(clippy::too_many_arguments)]
+pub fn interface_transfer_checked_signed_with_program<'a>(
+    source: &'a AccountView<'a>,
+    mint: &'a AccountView<'a>,
+    destination: &'a AccountView<'a>,
+    authority: &'a AccountView<'a>,
+    token_program: &'a AccountView<'a>,
+    amount: u64,
+    decimals: u8,
+    signers: &[Signer<'_, '_>],
+) -> ProgramResult {
+    interface_transfer_checked_signed_impl(
+        source,
+        mint,
+        destination,
+        authority,
+        Some(token_program),
+        amount,
+        decimals,
+        signers,
+    )
+}
+
+#[inline]
+#[allow(clippy::too_many_arguments)]
+fn interface_transfer_checked_signed_impl<'a>(
+    source: &'a AccountView<'a>,
+    mint: &'a AccountView<'a>,
+    destination: &'a AccountView<'a>,
+    authority: &'a AccountView<'a>,
+    token_program: Option<&'a AccountView<'a>>,
+    amount: u64,
+    decimals: u8,
+    signers: &[Signer<'_, '_>],
+) -> ProgramResult {
     let kind = TokenProgramKind::for_account(source)?;
+
+    if let Some(program) = token_program {
+        if program.address() != kind.program_id() {
+            return Err(ProgramError::IncorrectProgramId);
+        }
+        program.check_executable()?;
+    }
 
     let mut data = [0u8; 10];
     data[0] = 12; // TransferChecked discriminator (shared between Token and Token-2022)
@@ -271,14 +353,19 @@ pub fn interface_transfer_checked_signed<'a>(
         InstructionAccount::writable(destination.address()),
         InstructionAccount::readonly_signer(authority.address()),
     ];
-    let views = [source, mint, destination, authority];
     let instruction = InstructionView {
         program_id: kind.program_id(),
         data: &data,
         accounts: &accounts,
     };
 
-    hopper_runtime::cpi::invoke_signed(&instruction, &views, signers)
+    if let Some(program) = token_program {
+        let views = [source, mint, destination, authority, program];
+        hopper_runtime::cpi::invoke_signed(&instruction, &views, signers)
+    } else {
+        let views = [source, mint, destination, authority];
+        hopper_runtime::cpi::invoke_signed(&instruction, &views, signers)
+    }
 }
 
 #[cfg(test)]

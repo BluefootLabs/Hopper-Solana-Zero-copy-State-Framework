@@ -18,7 +18,7 @@
 //! These tests drive a real `#[hopper::program]` dispatcher through the
 //! hopper-svm host harness. Off-chain there is no ledger to record
 //! inner instructions, so the runtime's host CPI emulation validates
-//! the self-CPI's metas (address identity + the signer dimension) and
+//! the self-CPI's address/privilege shape and supplied PDA authority,
 //! then captures the would-be inner instruction — program id, authority
 //! address, and the EXACT instruction-data bytes — via
 //! `cpi_event::take_host_captured_event_cpis()`. The captured bytes are
@@ -135,9 +135,9 @@ fn vault_fixture(program_id: Address) -> AccountFixture {
 /// The event-authority fixture. Off-chain no sha256 syscall exists, so
 /// the PDA address cannot be derived host-side (bind accepts the slot
 /// and reports the placeholder bump; see
-/// `cpi_event::HOST_EVENT_AUTHORITY_BUMP`), and — exactly like host
-/// tests of PDA-signed system transfers — the fixture itself must carry
-/// the signer flag for the host CPI emulation's signer check to pass.
+/// `cpi_event::HOST_EVENT_AUTHORITY_BUMP`). A real event authority is not a
+/// transaction signer: `invoke_signed` grants that privilege to the inner
+/// instruction from the generated PDA seeds.
 fn authority_fixture(signer: bool) -> AccountFixture {
     let fixture = AccountFixture::new(
         Address::new_from_array(AUTHORITY_ADDR),
@@ -300,11 +300,11 @@ fn emit_one_liner_produces_the_exact_wire_bytes() {
     );
 }
 
-/// The emit is authenticated even off-chain along the signer dimension:
-/// an authority slot that cannot sign makes the self-CPI fail, which
-/// fails the whole instruction — and nothing is captured.
+/// The outer event-authority account does not need transaction-signer
+/// privilege. Hopper supplies its PDA seeds to the self-CPI; the SVM verifies
+/// and grants signer privilege to the inner instruction.
 #[test]
-fn emit_with_unsigned_authority_fails_and_captures_nothing() {
+fn emit_with_unsigned_outer_pda_authority_uses_supplied_seeds() {
     let _ = take_host_captured_event_cpis();
     let program_id = Address::new_from_array(PROGRAM_ID);
 
@@ -318,15 +318,8 @@ fn emit_with_unsigned_authority_fails_and_captures_nothing() {
         ],
         drive_event,
     );
-    assert_eq!(
-        result.program_result,
-        Err(ProgramError::MissingRequiredSignature),
-        "the self-CPI must refuse an authority that cannot sign"
-    );
-    assert!(
-        take_host_captured_event_cpis().is_empty(),
-        "a refused emit must capture nothing"
-    );
+    assert_eq!(result.program_result, Ok(()));
+    assert_eq!(take_host_captured_event_cpis().len(), 1);
 }
 
 /// The appended program slot is pinned at bind: passing anything other

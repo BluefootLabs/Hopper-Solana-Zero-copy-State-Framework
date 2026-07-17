@@ -46,7 +46,7 @@ pub use hopper_core::policy::PolicyClass;
 // compiles into its enforced `WritePolicy`. Using the runtime type verbatim
 // keeps the schema-layer projection byte-identical to the enforced source of
 // truth rather than a re-encoded copy (BLD-WR).
-pub use hopper_runtime::write_policy::WriteRange;
+pub use hopper_runtime::write_policy::{ParametricWriteRange, WriteRange};
 
 // ---------------------------------------------------------------------------
 // On-chain manifest storage constants
@@ -2076,8 +2076,53 @@ pub struct ArgDescriptor {
     pub name: &'static str,
     /// Canonical type name.
     pub canonical_type: &'static str,
-    /// Byte size.
+    /// Maximum encoded byte size.
+    ///
+    /// Fixed-width arguments always consume exactly this many bytes. Bounded
+    /// arguments publish their maximum so clients can validate input without
+    /// having to resolve the Rust const expression in [`canonical_type`].
     pub size: u16,
+    /// Wire encoding shape. This disambiguates a zero-sized fixed value from a
+    /// bounded/variable value and gives generators the resolved const-generic
+    /// limits they need.
+    pub encoding: ArgEncoding,
+}
+
+/// Instruction-argument wire encoding.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ArgEncoding {
+    /// A value that consumes exactly [`ArgDescriptor::size`] bytes.
+    Fixed,
+    /// A `u16` element count followed by `len` encoded elements.
+    BoundedVec {
+        /// Maximum number of elements accepted on chain.
+        max_len: u16,
+        /// Maximum encoded size of one element.
+        element_size: u16,
+    },
+    /// A `u16` byte count followed by bounded UTF-8 bytes.
+    BoundedString {
+        /// Maximum UTF-8 byte length accepted on chain.
+        max_len: u16,
+    },
+}
+
+impl ArgDescriptor {
+    /// Exact size for fixed values, or `None` for bounded values.
+    #[inline]
+    pub const fn fixed_size(&self) -> Option<u16> {
+        match self.encoding {
+            ArgEncoding::Fixed => Some(self.size),
+            ArgEncoding::BoundedVec { .. } | ArgEncoding::BoundedString { .. } => None,
+        }
+    }
+}
+
+/// Contract for the variadic account suffix consumed by an instruction.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct RemainingAccountsDescriptor {
+    /// Maximum number of suffix accounts accepted by the handler.
+    pub max: u16,
 }
 
 /// How an instruction account is resolved before invocation.
@@ -2533,6 +2578,12 @@ pub struct InstructionDescriptor {
     pub args: &'static [ArgDescriptor],
     /// Accounts.
     pub accounts: &'static [AccountEntry],
+    /// Optional ordered variadic account suffix.
+    ///
+    /// Generated clients append these metas after every declared account,
+    /// preserve caller-supplied signer/writable flags, and enforce `max`
+    /// before constructing an instruction.
+    pub remaining_accounts: Option<RemainingAccountsDescriptor>,
     /// Capability names.
     pub capabilities: &'static [&'static str],
     /// Policy pack name (empty if custom).
@@ -2571,6 +2622,9 @@ pub struct InstructionDescriptor {
     /// ([`accounts::ContextDescriptor::write_ranges`]) and the runtime
     /// `WritePolicy`, so the published and enforced sets cannot drift.
     pub write_ranges: &'static [WriteRange],
+    /// Invocation-parametric rules that narrow static array-column ranges to
+    /// exact cells selected by decoded instruction arguments.
+    pub parametric_write_ranges: &'static [ParametricWriteRange],
     /// Whether the declared write set covers **both** mutation
     /// dimensions — data byte ranges AND lamport balances (BLD-MUT).
     ///
@@ -4787,11 +4841,13 @@ mod tests {
             tag: 1,
             args: &[],
             accounts: &[],
+            remaining_accounts: None,
             capabilities: &["MutatesState"],
             policy_pack: "TREASURY_WRITE",
             receipt_expected: true,
             strict_writes: false,
             write_ranges: &[],
+            parametric_write_ranges: &[],
             mutation_complete: false,
             lamport_accounts: &[],
             cu_estimate: 0,
@@ -4801,11 +4857,13 @@ mod tests {
             tag: 2,
             args: &[],
             accounts: &[],
+            remaining_accounts: None,
             capabilities: &["MutatesState", "TransfersTokens"],
             policy_pack: "TREASURY_WRITE",
             receipt_expected: true,
             strict_writes: false,
             write_ranges: &[],
+            parametric_write_ranges: &[],
             mutation_complete: false,
             lamport_accounts: &[],
             cu_estimate: 0,
@@ -4963,6 +5021,7 @@ mod tests {
                 mutation_classes: &["Financial"],
                 strict_writes: false,
                 write_ranges: &[],
+                parametric_write_ranges: &[],
                 mutation_complete: false,
                 lamport_accounts: &[],
             }];

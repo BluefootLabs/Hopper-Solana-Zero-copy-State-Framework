@@ -133,7 +133,24 @@ fn write_args_json(
         write_json_str(f, arg.name)?;
         write!(f, ", \"type\": ")?;
         write_json_str(f, arg.canonical_type)?;
-        write!(f, ", \"size\": {} }}", arg.size)?;
+        write!(f, ", \"size\": {}", arg.size)?;
+        match arg.encoding {
+            crate::ArgEncoding::Fixed => write!(f, ", \"encoding\": \"fixed\"")?,
+            crate::ArgEncoding::BoundedVec {
+                max_len,
+                element_size,
+            } => write!(
+                f,
+                ", \"encoding\": \"boundedVec\", \"maxLen\": {}, \"elementSize\": {}",
+                max_len, element_size
+            )?,
+            crate::ArgEncoding::BoundedString { max_len } => write!(
+                f,
+                ", \"encoding\": \"boundedString\", \"maxLen\": {}",
+                max_len
+            )?,
+        }
+        write!(f, " }}")?;
         if i + 1 < args.len() {
             writeln!(f, ",")?;
         } else {
@@ -625,6 +642,10 @@ fn write_instruction_array(
         write!(f, "\"accounts\": ")?;
         write_account_entry_array(f, ix.accounts, 3)?;
         writeln!(f, ",")?;
+        if let Some(remaining) = ix.remaining_accounts {
+            write_indent(f, 3)?;
+            writeln!(f, "\"remainingAccountsMax\": {},", remaining.max)?;
+        }
         write_indent(f, 3)?;
         write!(f, "\"capabilities\": ")?;
         write_str_array(f, ix.capabilities, 3)?;
@@ -670,6 +691,10 @@ fn write_instruction_array(
         write_indent(f, 3)?;
         write!(f, "\"writeRanges\": ")?;
         write_write_ranges_json(f, ix, 3)?;
+        writeln!(f, ",")?;
+        write_indent(f, 3)?;
+        write!(f, "\"parametricWriteRanges\": ")?;
+        write_parametric_write_ranges_json(f, ix.parametric_write_ranges, 3)?;
         writeln!(f)?;
         write_indent(f, 2)?;
         write!(f, "}}")?;
@@ -680,6 +705,41 @@ fn write_instruction_array(
         }
     }
     write_indent(f, 1)?;
+    write!(f, "]")
+}
+
+fn write_parametric_write_ranges_json(
+    f: &mut fmt::Formatter<'_>,
+    ranges: &[crate::ParametricWriteRange],
+    indent: usize,
+) -> fmt::Result {
+    if ranges.is_empty() {
+        return write!(f, "[]");
+    }
+    writeln!(f, "[")?;
+    for (index, range) in ranges.iter().enumerate() {
+        write_indent(f, indent + 1)?;
+        write!(
+            f,
+            "{{ \"accountIndex\": {}, \"baseOffset\": {}, \"stride\": {}, \"cellSize\": {}, \"count\": {}, \"argumentIndex\": {}, \"argument\": ",
+            range.account_index,
+            range.base_offset,
+            range.stride,
+            range.cell_size,
+            range.count,
+            range.argument_index,
+        )?;
+        write_json_str(f, range.argument_name)?;
+        write!(f, ", \"segment\": ")?;
+        write_json_str(f, range.segment_name)?;
+        write!(f, " }}")?;
+        if index + 1 < ranges.len() {
+            writeln!(f, ",")?;
+        } else {
+            writeln!(f)?;
+        }
+    }
+    write_indent(f, indent)?;
     write!(f, "]")
 }
 
@@ -1289,6 +1349,7 @@ mod tests {
             name: "amount",
             canonical_type: "WireU64",
             size: 8,
+            encoding: crate::ArgEncoding::Fixed,
         }];
         static ACCOUNTS: &[IdlAccountEntry] = &[IdlAccountEntry {
             name: "vault",
@@ -1422,6 +1483,7 @@ mod tests {
             name: "amount",
             canonical_type: "WireU64",
             size: 8,
+            encoding: crate::ArgEncoding::Fixed,
         }];
         static ACCTS: &[crate::AccountEntry] = &[crate::AccountEntry {
             name: "vault",
@@ -1435,11 +1497,13 @@ mod tests {
             tag: 1,
             args: ARGS,
             accounts: ACCTS,
+            remaining_accounts: None,
             capabilities: &["MutatesState"],
             policy_pack: "TREASURY_WRITE",
             receipt_expected: true,
             strict_writes: false,
             write_ranges: &[],
+            parametric_write_ranges: &[],
             mutation_complete: false,
             lamport_accounts: &[],
             cu_estimate: 0,
@@ -1477,6 +1541,7 @@ mod tests {
             name: "amount",
             canonical_type: "WireU64",
             size: 8,
+            encoding: crate::ArgEncoding::Fixed,
         }];
         static ACCTS: &[crate::AccountEntry] = &[crate::AccountEntry {
             name: "vault",
@@ -1490,11 +1555,13 @@ mod tests {
             tag: 1,
             args: ARGS,
             accounts: ACCTS,
+            remaining_accounts: None,
             capabilities: &["MutatesState"],
             policy_pack: "TREASURY_WRITE",
             receipt_expected: true,
             strict_writes: false,
             write_ranges: &[],
+            parametric_write_ranges: &[],
             mutation_complete: false,
             lamport_accounts: &[],
             cu_estimate: 0,
@@ -1676,11 +1743,13 @@ mod tests {
         tag: 1,
         args: &[],
         accounts: WR_ACCTS,
+        remaining_accounts: None,
         capabilities: &["MutatesState"],
         policy_pack: "VAULT_WRITE",
         receipt_expected: true,
         strict_writes: true,
         write_ranges: WR_RANGES,
+        parametric_write_ranges: &[],
         mutation_complete: false,
         lamport_accounts: &[],
         cu_estimate: 0,
@@ -1690,11 +1759,13 @@ mod tests {
         tag: 1,
         args: &[],
         accounts: WR_ACCTS,
+        remaining_accounts: None,
         capabilities: &["MutatesState"],
         policy_pack: "VAULT_WRITE",
         receipt_expected: true,
         strict_writes: false,
         write_ranges: &[],
+        parametric_write_ranges: &[],
         mutation_complete: false,
         lamport_accounts: &[],
         cu_estimate: 0,
@@ -1708,11 +1779,13 @@ mod tests {
         tag: 1,
         args: &[],
         accounts: WR_ACCTS,
+        remaining_accounts: None,
         capabilities: &["MutatesState"],
         policy_pack: "VAULT_WRITE",
         receipt_expected: true,
         strict_writes: true,
         write_ranges: WR_RANGES,
+        parametric_write_ranges: &[],
         mutation_complete: true,
         lamport_accounts: &[0],
         cu_estimate: 0,
@@ -1768,11 +1841,13 @@ mod tests {
             tag: 1,
             args: &[],
             accounts: WR_ACCTS,
+            remaining_accounts: None,
             capabilities: &["MutatesState"],
             policy_pack: "VAULT_WRITE",
             receipt_expected: true,
             strict_writes: false,
             write_ranges: &[],
+            parametric_write_ranges: &[],
             mutation_complete: false,
             lamport_accounts: &[],
             cu_estimate: 4_800,
@@ -1868,11 +1943,13 @@ mod tests {
             tag: 1,
             args: &[],
             accounts: WR_ACCTS,
+            remaining_accounts: None,
             capabilities: &["MutatesState"],
             policy_pack: "VAULT_WRITE",
             receipt_expected: true,
             strict_writes: true,
             write_ranges: &[],
+            parametric_write_ranges: &[],
             mutation_complete: false,
             lamport_accounts: &[],
             cu_estimate: 0,

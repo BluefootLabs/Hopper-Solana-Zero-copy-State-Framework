@@ -260,8 +260,9 @@ pub fn handle_event_sink(
 /// hands it to Hopper's checked `invoke_signed`, so the emit rides the
 /// cheapest safe invoke tier: on-chain that is the fused
 /// validate+build pass over one account followed by the CPI syscall;
-/// off-chain the same call runs the host emulation's meta/signer/borrow
-/// validation, then records the would-be inner instruction for test
+/// off-chain the same call runs address/writability/borrow validation and
+/// verifies that PDA authority was supplied, then records the would-be inner
+/// instruction for test
 /// harnesses (under `test` or the `thread-local-registry` feature) so
 /// end-to-end tests can assert the exact wire bytes.
 ///
@@ -554,7 +555,7 @@ mod tests {
     }
 
     #[test]
-    fn host_invoke_validates_the_signer_and_captures_the_wire_bytes() {
+    fn host_invoke_accepts_supplied_pda_authority_and_captures_the_wire_bytes() {
         let _ = take_host_captured_event_cpis();
 
         let pid = Address::new([9u8; 32]);
@@ -564,18 +565,21 @@ mod tests {
         let mut buf = [0u8; 3 + MAX_EVENT_PAYLOAD];
         let len = encode_event_cpi(0x42, &[7, 7, 7], &mut buf).unwrap();
 
-        // Unsigned authority: the host CPI emulation refuses the emit
-        // (off-chain, PDA-seed satisfaction cannot be derived, so the
-        // fixture itself must carry the signer flag) and captures nothing.
+        // A real PDA authority is unsigned in the outer instruction. Host
+        // preflight cannot derive it without the caller id, so it verifies
+        // that signer authority was supplied and leaves the cryptographic
+        // match to the on-chain invoke_signed syscall.
         let (_b0, unsigned) = make_account(4, false);
         assert_eq!(
             invoke_event_cpi(&pid, &unsigned, &buf[..len], &seeds),
-            Err(ProgramError::MissingRequiredSignature)
+            Ok(())
         );
-        assert!(take_host_captured_event_cpis().is_empty());
+        let captured = take_host_captured_event_cpis();
+        assert_eq!(captured.len(), 1);
+        assert_eq!(captured[0].authority, *unsigned.address());
+        assert_eq!(captured[0].data, &buf[..len]);
 
-        // Signed authority: the emit validates and the exact wire bytes
-        // are captured for the harness.
+        // A transaction signer remains valid too.
         let (_b1, signed) = make_account(5, true);
         assert_eq!(invoke_event_cpi(&pid, &signed, &buf[..len], &seeds), Ok(()));
         let captured = take_host_captured_event_cpis();

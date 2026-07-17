@@ -108,6 +108,7 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> 
                 name: #fname,
                 canonical_type: #canonical,
                 size: ::core::mem::size_of::<#ty>() as u16,
+                encoding: ::hopper::hopper_schema::ArgEncoding::Fixed,
             }
         });
     }

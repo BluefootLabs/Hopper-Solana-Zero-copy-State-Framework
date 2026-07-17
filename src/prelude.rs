@@ -238,8 +238,9 @@ pub use crate::sysvar::{Clock, Rent};
 pub use hopper_associated_token::ATA_PROGRAM_ID;
 pub use hopper_memo::{Memo, MAX_MEMO_SIGNERS, MEMO_PROGRAM_ID};
 pub use hopper_solana::interface::{
-    interface_transfer_checked, interface_transfer_checked_signed, InterfaceMint,
-    InterfaceTokenAccount, TokenProgramKind,
+    interface_transfer_checked, interface_transfer_checked_signed,
+    interface_transfer_checked_signed_with_program, interface_transfer_checked_with_program,
+    InterfaceMint, InterfaceTokenAccount, TokenProgramKind,
 };
 pub use hopper_system::SYSTEM_PROGRAM_ID;
 pub use hopper_token::TOKEN_PROGRAM_ID;

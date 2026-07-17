@@ -7,7 +7,7 @@
 
 use core::fmt;
 
-use crate::WriteRange;
+use crate::{ParametricWriteRange, WriteRange};
 
 /// Schema descriptor for a single account field within a context.
 ///
@@ -186,6 +186,8 @@ pub struct ContextDescriptor {
     /// [`accounts`](Self::accounts). Empty unless
     /// [`strict_writes`](Self::strict_writes) is `true`.
     pub write_ranges: &'static [WriteRange],
+    /// Exact-cell narrowing rules enforced with invocation arguments.
+    pub parametric_write_ranges: &'static [ParametricWriteRange],
     /// Whether this context's declared write set covers **both**
     /// mutation dimensions — data ranges and lamports (BLD-MUT).
     ///
@@ -371,6 +373,7 @@ mod tests {
         mutation_classes: &["Financial"],
         strict_writes: true,
         write_ranges: &[WriteRange::new(1, 16, 8), WriteRange::whole_account(0)],
+        parametric_write_ranges: &[],
         mutation_complete: false,
         lamport_accounts: &[],
     };
@@ -423,6 +426,7 @@ mod tests {
             mutation_classes: &[],
             strict_writes: false,
             write_ranges: &[],
+            parametric_write_ranges: &[],
             mutation_complete: false,
             lamport_accounts: &[],
         };

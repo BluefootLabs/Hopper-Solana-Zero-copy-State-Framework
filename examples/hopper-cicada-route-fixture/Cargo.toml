@@ -1,0 +1,19 @@
+[package]
+name = "hopper-cicada-route-fixture"
+version = "0.3.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+description = "Compiled adversarial route/token fixture for Cicada SVM lifecycle tests."
+
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+hopper = { path = "../..", package = "hopper-lang", default-features = false }
+
+[features]
+default = []
+
+[lints]
+workspace = true

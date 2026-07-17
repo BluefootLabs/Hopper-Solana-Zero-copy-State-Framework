@@ -50,6 +50,23 @@ jobs:
         run: cargo build-sbf -- -p hopper-migration
       - name: Build orderbook SBF
         run: cargo build-sbf -- -p hopper-orderbook
+      - name: Build Cicada SBF
+        run: cargo build-sbf -- -p hopper-cicada
+      - name: Build Cicada hostile-route fixture SBF
+        run: cargo build-sbf -- -p hopper-cicada-route-fixture
+      - name: Test Cicada
+        run: cargo test -p hopper-cicada
+      - name: Test policy-gated scoped segments
+        run: cargo test -p hopper-runtime scoped_context_runtime_segments_preserve_write_policy
+      - name: Deny Cicada policy escapes
+        run: |
+          cargo run -p hopper-cli -- lint --project examples/hopper-cicada --deny-escapes
+      - name: Deny Cicada whole-account mutation wrappers
+        run: |
+          if rg '\.(get_mut|load_mut|with_mut)\(' examples/hopper-cicada/src/lib.rs; then
+            echo "Cicada shared state must mutate through policy-gated segment access"
+            exit 1
+          fi
       - name: Install Hopper CLI
         run: cargo install --path tools/hopper-cli --locked
       - name: Solana shape and SBF scan

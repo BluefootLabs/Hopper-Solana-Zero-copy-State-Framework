@@ -16,6 +16,8 @@ use crate::layout::LayoutContract;
 use crate::segment_borrow::SegmentBorrowRegistry;
 use crate::ProgramResult;
 
+const MAX_PARAMETRIC_WRITE_ARGS: usize = 8;
+
 /// Execution context for a Hopper instruction handler.
 ///
 /// Wraps the program_id, account slice, and instruction data into a single
@@ -57,6 +59,10 @@ pub struct Context<'a> {
     /// borrow system alone, with zero added cost beyond one pointer
     /// compare per write acquire.
     write_policy: Option<&'static crate::write_policy::WritePolicy>,
+    /// Small invocation-local values used to resolve parametric cell rules.
+    /// Kept inline to avoid heap allocation and large SBF stack copies.
+    parametric_write_args: [u32; MAX_PARAMETRIC_WRITE_ARGS],
+    parametric_write_arg_count: u8,
 }
 
 impl<'a> Context<'a> {
@@ -80,6 +86,8 @@ impl<'a> Context<'a> {
             instruction_data,
             segment_borrows: SegmentBorrowRegistry::new(),
             write_policy: None,
+            parametric_write_args: [0; MAX_PARAMETRIC_WRITE_ARGS],
+            parametric_write_arg_count: 0,
         }
     }
 
@@ -104,6 +112,24 @@ impl<'a> Context<'a> {
     #[inline(always)]
     pub fn set_write_policy(&mut self, policy: &'static crate::write_policy::WritePolicy) {
         self.write_policy = Some(policy);
+        self.parametric_write_arg_count = 0;
+    }
+
+    /// Install a declared write policy and bind the invocation values used by
+    /// its [`ParametricWriteRange`](crate::write_policy::ParametricWriteRange)s.
+    #[inline]
+    pub fn set_parametric_write_policy(
+        &mut self,
+        policy: &'static crate::write_policy::WritePolicy,
+        args: &[u32],
+    ) -> ProgramResult {
+        if args.len() > MAX_PARAMETRIC_WRITE_ARGS {
+            return Err(ProgramError::InvalidInstructionData);
+        }
+        self.write_policy = Some(policy);
+        self.parametric_write_args[..args.len()].copy_from_slice(args);
+        self.parametric_write_arg_count = args.len() as u8;
+        Ok(())
     }
 
     /// The installed write policy, if any.
@@ -123,7 +149,12 @@ impl<'a> Context<'a> {
             if index > u8::MAX as usize {
                 return Err(crate::write_policy::write_policy_violation(u8::MAX));
             }
-            policy.check_write(index as u8, offset, size)?;
+            policy.check_write_with_args(
+                index as u8,
+                offset,
+                size,
+                &self.parametric_write_args[..self.parametric_write_arg_count as usize],
+            )?;
         }
         Ok(())
     }
@@ -963,6 +994,50 @@ impl<'ctx, 'a> ScopedContext<'ctx, 'a> {
         self.inner.accounts
     }
 
+    /// Borrow one runtime-selected typed byte range for reading.
+    ///
+    /// This is the safe bridge for generated typed contexts whose semantic
+    /// column is known statically but whose cell offset is selected at runtime
+    /// (for example, a slot in a column-oriented intent shard). The returned
+    /// guard remains tied to this scoped context borrow and participates in the
+    /// instruction segment-borrow ledger.
+    #[inline(always)]
+    pub fn segment_ref<'b, T: crate::Pod>(
+        &'b mut self,
+        index: usize,
+        abs_offset: u32,
+    ) -> Result<crate::SegRef<'b, T>, ProgramError> {
+        self.inner.segment_ref::<T>(index, abs_offset)
+    }
+
+    /// Borrow one runtime-selected typed byte range for mutation.
+    ///
+    /// The underlying [`Context::segment_mut`] performs the active
+    /// `strict_writes` containment check before registering the exclusive
+    /// segment lease, so exposing this method does not create a policy escape.
+    /// It lets typed handlers keep their generated manifest/IDL metadata while
+    /// selecting an exact cell inside a declared column at runtime.
+    #[inline(always)]
+    pub fn segment_mut<'b, T: crate::Pod>(
+        &'b mut self,
+        index: usize,
+        abs_offset: u32,
+    ) -> Result<crate::SegRefMut<'b, T>, ProgramError> {
+        self.inner.segment_mut::<T>(index, abs_offset)
+    }
+
+    /// Borrow several disjoint runtime-selected typed ranges for mutation.
+    /// Every range is checked against the active write policy before any lease
+    /// is granted.
+    #[inline(always)]
+    pub fn split_segments_mut<'b, T: crate::Pod, const N: usize>(
+        &'b mut self,
+        index: usize,
+        ranges: [(u32, u32); N],
+    ) -> Result<crate::SegmentsMut<'b, T, N>, ProgramError> {
+        self.inner.split_segments_mut::<T, N>(index, ranges)
+    }
+
     /// Access the instruction-scoped segment borrow registry.
     #[inline(always)]
     pub fn borrows(&self) -> &SegmentBorrowRegistry {
@@ -1178,6 +1253,32 @@ mod write_policy_tests {
 
         // Reads are never policy-gated.
         assert!(ctx.segment_ref::<[u8; 8]>(0, BALANCE_OFF).is_ok());
+    }
+
+    #[test]
+    fn scoped_context_runtime_segments_preserve_write_policy() {
+        let (_b, account) = make_account(1);
+        let accounts = [account];
+        let pid = Address::new([9u8; 32]);
+        let mut ctx = Context::new(&pid, &accounts, &[]);
+        ctx.set_write_policy(&FIELD_POLICY);
+
+        {
+            let mut scoped = ScopedContext::new(&mut ctx);
+            let mut balance = scoped
+                .segment_mut::<[u8; 8]>(0, BALANCE_OFF)
+                .expect("declared runtime-selected range must be writable");
+            balance[0] = 7;
+        }
+
+        {
+            let mut scoped = ScopedContext::new(&mut ctx);
+            assert_eq!(
+                scoped.segment_mut::<[u8; 8]>(0, 0).unwrap_err(),
+                crate::write_policy::write_policy_violation(0),
+            );
+            assert!(scoped.segment_ref::<[u8; 8]>(0, 0).is_ok());
+        }
     }
 
     #[test]

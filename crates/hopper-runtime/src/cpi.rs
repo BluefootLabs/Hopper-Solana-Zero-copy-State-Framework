@@ -174,42 +174,19 @@ fn validate_no_duplicate_writable(
 }
 
 #[inline]
-fn signer_matches_pda(
-    program_id: &Address,
-    account: &Address,
-    signers_seeds: &[Signer<'_, '_>],
-) -> bool {
-    let mut i = 0;
-    while i < signers_seeds.len() {
-        let signer = &signers_seeds[i];
-        // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-        let seeds = unsafe { core::slice::from_raw_parts(signer.seeds, signer.len as usize) };
-
-        if seeds.len() <= crate::address::MAX_SEEDS {
-            let mut seed_refs: [&[u8]; crate::address::MAX_SEEDS] =
-                [&[]; crate::address::MAX_SEEDS];
-            let mut j = 0;
-            while j < seeds.len() {
-                // SAFETY: This block is part of Hopper's audited zero-copy/backend boundary; surrounding checks and caller contracts uphold the required raw-pointer, layout, and aliasing invariants.
-                seed_refs[j] =
-                    unsafe { core::slice::from_raw_parts(seeds[j].seed, seeds[j].len as usize) };
-                j += 1;
-            }
-
-            if let Ok(derived) = crate::native_boundary::create_program_address(
-                &seed_refs[..seeds.len()],
-                program_id,
-            ) {
-                if address_eq(&derived, account) {
-                    return true;
-                }
-            }
-        }
-
-        i += 1;
-    }
-
-    false
+fn signer_authority_supplied(signers_seeds: &[Signer<'_, '_>]) -> bool {
+    // PDA signer addresses are derived with the *calling* program id. A CPI
+    // instruction only carries the callee id, so this layer cannot reproduce
+    // that derivation without accidentally checking against the wrong
+    // program. The SVM's `sol_invoke_signed` syscall performs the
+    // authoritative seed validation and required-signer match. Preflight can
+    // safely reject the unambiguous no-authority case and otherwise defer the
+    // cryptographic check to the runtime.
+    //
+    // Host System-program emulation follows the same rule. It cannot know the
+    // caller id either, so signed host tests should validate their PDA inputs
+    // separately when caller-id correctness is the subject of the test.
+    !signers_seeds.is_empty()
 }
 
 /// Per-account meta↔view correspondence + borrow-state validation — the
@@ -308,10 +285,7 @@ fn validate_host_system_transfer(
         if !address_eq(actual.address(), expected.address) {
             return Err(ProgramError::InvalidAccountData);
         }
-        if expected.is_signer
-            && !actual.is_signer()
-            && !signer_matches_pda(instruction.program_id, actual.address(), signers_seeds)
-        {
+        if expected.is_signer && !actual.is_signer() && !signer_authority_supplied(signers_seeds) {
             return Err(ProgramError::MissingRequiredSignature);
         }
         if expected.is_writable && !actual.is_writable() {
@@ -613,7 +587,7 @@ pub fn invoke_signed<const ACCOUNTS: usize>(
 
     // Fused validate+build (default tier). `check_meta` runs the default
     // tier's per-account contract — address identity, required-signer
-    // presence (including PDA-seed satisfaction), writability coverage,
+    // presence (or supplied PDA authority), writability coverage,
     // and borrow state — in the *same* pass that materializes each
     // `CpiAccount` scratch slot. `post_check` then runs the BLD-MUT
     // lamport-delegation sweep (once per CPI, gate-liveness-guarded; see
@@ -634,7 +608,7 @@ pub fn invoke_signed<const ACCOUNTS: usize>(
 
             if expected.is_signer
                 && !actual.is_signer()
-                && !signer_matches_pda(instruction.program_id, actual.address(), signers_seeds)
+                && !signer_authority_supplied(signers_seeds)
             {
                 return Err(ProgramError::MissingRequiredSignature);
             }
@@ -803,7 +777,7 @@ pub fn invoke_signed_with_bounds<const MAX_ACCOUNTS: usize>(
 
             if expected.is_signer
                 && !actual.is_signer()
-                && !signer_matches_pda(instruction.program_id, actual.address(), signers_seeds)
+                && !signer_authority_supplied(signers_seeds)
             {
                 return Err(ProgramError::MissingRequiredSignature);
             }
@@ -875,7 +849,7 @@ fn find_info(infos: &[&AccountView<'_>], address: &Address) -> Option<usize> {
 /// positionally aligned
 /// with `instruction.accounts`: it holds exactly one [`AccountView`] per
 /// unique address. Each meta is resolved to its info by address. Signer
-/// presence (including PDA-seed satisfaction), writability coverage,
+/// presence (or supplied PDA authority), writability coverage,
 /// per-account borrow state, and the duplicate-writable footgun are all
 /// enforced over the full (un-deduplicated) meta list, so collapsing the
 /// info list never weakens what the default tier checks.
@@ -917,10 +891,7 @@ fn validate_cpi_accounts_deduped(
             None => return Err(ProgramError::NotEnoughAccountKeys),
         };
 
-        if expected.is_signer
-            && !info.is_signer()
-            && !signer_matches_pda(instruction.program_id, info.address(), signers_seeds)
-        {
+        if expected.is_signer && !info.is_signer() && !signer_authority_supplied(signers_seeds) {
             return Err(ProgramError::MissingRequiredSignature);
         }
         if expected.is_writable && !info.is_writable() {
@@ -1061,7 +1032,7 @@ pub fn invoke_signed_checked<const ACCOUNTS: usize>(
 /// | Tier | Functions | Validates before the syscall |
 /// |------|-----------|------------------------------|
 /// | checked | [`invoke_checked`] / [`invoke_signed_checked`] | Explicit-by-name aliases of the default tier (same checks). |
-/// | default | [`invoke`] / [`invoke_signed`] / [`invoke_with_bounds`] / [`invoke_signed_with_bounds`] | Meta↔view address match, required-signer presence (including PDA-seed satisfaction), meta writability vs. account writability, per-account borrow state, **and** duplicate-writable rejection. |
+/// | default | [`invoke`] / [`invoke_signed`] / [`invoke_with_bounds`] / [`invoke_signed_with_bounds`] | Meta↔view address match, required transaction signer or supplied PDA authority, meta writability vs. account writability, per-account borrow state, **and** duplicate-writable rejection. The SVM syscall authoritatively derives and matches PDA signers with the caller id. |
 /// | borrow_checked | `invoke_borrow_checked` / [`invoke_signed_borrow_checked`] | Per-account borrow state only: writable metas must be exclusively borrowable, read-only metas shared-borrowable. |
 /// | unchecked | [`invoke_unchecked`] / [`invoke_signed_unchecked`] (`unsafe`) | Nothing. |
 ///
@@ -1119,7 +1090,7 @@ pub fn invoke_borrow_checked<const ACCOUNTS: usize>(
 /// tier validates (and deliberately does not), and when opting down
 /// from the default tier is appropriate. `signers_seeds` are passed
 /// straight through to the syscall; unlike [`invoke_signed`], no
-/// PDA-derivation check is performed against required-signer metas.
+/// required-signer/PDA-authority preflight is performed before the syscall.
 #[inline]
 pub fn invoke_signed_borrow_checked<const ACCOUNTS: usize>(
     instruction: &InstructionView<'_, '_, '_, '_>,
@@ -1568,7 +1539,7 @@ mod tests {
             }
             if expected.is_signer
                 && !actual.is_signer()
-                && !signer_matches_pda(instruction.program_id, actual.address(), signers_seeds)
+                && !signer_authority_supplied(signers_seeds)
             {
                 return Err(ProgramError::MissingRequiredSignature);
             }
@@ -1621,7 +1592,7 @@ mod tests {
                 }
                 if expected.is_signer
                     && !actual.is_signer()
-                    && !signer_matches_pda(instruction.program_id, actual.address(), signers_seeds)
+                    && !signer_authority_supplied(signers_seeds)
                 {
                     return Err(ProgramError::MissingRequiredSignature);
                 }
@@ -1649,6 +1620,32 @@ mod tests {
         }
         validate_no_duplicate_writable(instruction, account_views)?;
         Ok(s)
+    }
+
+    #[test]
+    fn signed_preflight_defers_pda_derivation_to_the_svm() {
+        let (_backing, account) = make_account([50; 32]);
+        let callee = Address::new_from_array([7; 32]);
+        let metas = [InstructionAccount::readonly_signer(account.address())];
+        let instruction = InstructionView {
+            program_id: &callee,
+            data: &[0u8],
+            accounts: &metas,
+        };
+        let views = [&account];
+        let seed_bytes = [9u8];
+        let seeds = [Seed::from(&seed_bytes)];
+        let signers = [Signer::from(&seeds)];
+
+        // The callee id is not the caller id and therefore cannot be used to
+        // derive the PDA here. Host invocation is a no-op after preflight;
+        // on SVM the invoke_signed syscall validates the same seed group
+        // against the actual caller before granting signer privilege.
+        assert_eq!(invoke_signed(&instruction, &views, &signers), Ok(()));
+        assert_eq!(
+            invoke_signed(&instruction, &views, &[]),
+            Err(ProgramError::MissingRequiredSignature)
+        );
     }
 
     #[test]

@@ -32,6 +32,75 @@ pub struct RangeContract {
     pub size: u32,
 }
 
+/// One invocation-parametric byte-range rule from a Hopper manifest.
+///
+/// The rule narrows the conservative static column envelope to exactly one
+/// fixed-size cell selected by an instruction argument.  The runtime enforces
+/// the same formula before granting a write lease:
+///
+/// ```text
+/// selected_start = base_offset + selector * stride
+/// selected_range = [selected_start, selected_start + cell_size)
+/// ```
+///
+/// Grillo must resolve these rules for the concrete invocation before it can
+/// issue a byte-precise verdict.  Treating the static envelope as authority
+/// would silently authorize neighboring cells that the program itself denies.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ParametricRangeContract {
+    /// Position of the governed account in the instruction account list.
+    #[serde(rename = "accountIndex")]
+    pub account_index: u8,
+    /// Absolute byte offset of cell zero.
+    #[serde(rename = "baseOffset")]
+    pub base_offset: u32,
+    /// Byte distance between consecutive cells.
+    pub stride: u32,
+    /// Writable byte length of the selected cell.
+    #[serde(rename = "cellSize")]
+    pub cell_size: u32,
+    /// Number of selectable cells.
+    pub count: u32,
+    /// Compact selector position used by the runtime policy.
+    #[serde(rename = "argumentIndex")]
+    pub argument_index: u8,
+    /// Stable instruction-argument name used by framework-neutral resolvers.
+    #[serde(rename = "argument")]
+    pub argument_name: String,
+    /// Stable layout segment/field name for diagnostics.
+    #[serde(rename = "segment")]
+    pub segment_name: String,
+}
+
+impl ParametricRangeContract {
+    /// Exclusive end of the entire governed column envelope.
+    pub fn envelope_end(&self) -> Option<u64> {
+        let last = self.stride as u64 * self.count.checked_sub(1)? as u64;
+        (self.base_offset as u64)
+            .checked_add(last)?
+            .checked_add(self.cell_size as u64)
+    }
+
+    /// Resolve the selected cell, returning `None` for an invalid selector or
+    /// arithmetic overflow.
+    pub fn selected_range(&self, selector: u32) -> Option<RangeContract> {
+        if selector >= self.count || self.cell_size == 0 {
+            return None;
+        }
+        let offset = (self.base_offset as u64)
+            .checked_add((self.stride as u64).checked_mul(selector as u64)?)?;
+        let end = offset.checked_add(self.cell_size as u64)?;
+        if offset > u32::MAX as u64 || end > u32::MAX as u64 {
+            return None;
+        }
+        Some(RangeContract {
+            account_index: self.account_index,
+            offset: offset as u32,
+            size: self.cell_size,
+        })
+    }
+}
+
 impl RangeContract {
     /// Exclusive end offset, widened to `u64` so a `u32::MAX`-sized
     /// whole-account range cannot overflow.
@@ -83,6 +152,13 @@ pub struct InstructionContract {
     /// The authorized byte-range write set (manifest key `writeRanges`).
     #[serde(rename = "writeRanges", default)]
     pub authorized: Vec<RangeContract>,
+    /// Invocation-parametric exact-cell rules (manifest key
+    /// `parametricWriteRanges`).  A non-empty set MUST be resolved against the
+    /// concrete instruction arguments before verification; the static
+    /// [`authorized`](Self::authorized) ranges are only conservative column
+    /// envelopes in those regions.
+    #[serde(rename = "parametricWriteRanges", default)]
+    pub parametric: Vec<ParametricRangeContract>,
     /// Account indices permitted to have their lamports mutated. Carries
     /// authority only when [`mutation_complete`](Self::mutation_complete)
     /// is `true`.
@@ -91,6 +167,45 @@ pub struct InstructionContract {
     /// The instruction's positional account list.
     #[serde(default)]
     pub accounts: Vec<AccountRole>,
+}
+
+/// Read-only view shared by unresolved and invocation-resolved effect
+/// contracts.
+///
+/// Keeping the verifier generic over this trait prevents a caller from having
+/// to copy a resolved contract back into the manifest's unresolved shape.
+pub trait MutationContractView {
+    /// Whether the byte-range contract is complete and enforced.
+    fn strict_writes(&self) -> bool;
+    /// Whether the lamport dimension is also complete.
+    fn mutation_complete(&self) -> bool;
+    /// Effective authorized byte ranges.
+    fn authorized_ranges(&self) -> &[RangeContract];
+    /// Account indices permitted to mutate lamports.
+    fn lamport_accounts(&self) -> &[u8];
+
+    /// Whether `account_index` is authorized to mutate lamports.
+    fn authorizes_lamports(&self, account_index: u8) -> bool {
+        self.mutation_complete() && self.lamport_accounts().contains(&account_index)
+    }
+}
+
+impl MutationContractView for InstructionContract {
+    fn strict_writes(&self) -> bool {
+        self.strict_writes
+    }
+
+    fn mutation_complete(&self) -> bool {
+        self.mutation_complete
+    }
+
+    fn authorized_ranges(&self) -> &[RangeContract] {
+        &self.authorized
+    }
+
+    fn lamport_accounts(&self) -> &[u8] {
+        &self.lamport_accounts
+    }
 }
 
 impl InstructionContract {

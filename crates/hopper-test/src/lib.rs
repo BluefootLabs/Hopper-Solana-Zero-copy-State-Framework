@@ -142,6 +142,26 @@ impl LiteSvmHarness {
         )
     }
 
+    /// Register an additional compiled program for CPI and return the
+    /// executable account fixture callers should include in instruction
+    /// account seeds. Returns `false` when the ELF is absent.
+    pub fn add_program(&mut self, program_id: &Pubkey, elf_path_stem: &str) -> bool {
+        let so = format!("{elf_path_stem}.so");
+        if !Path::new(&so).exists() {
+            return false;
+        }
+        self.mollusk.add_program(program_id, elf_path_stem);
+        true
+    }
+
+    /// Upgradeable-loader account for a program registered with Mollusk.
+    pub fn executable_program_account(program_id: &Pubkey) -> (Pubkey, Account) {
+        (
+            *program_id,
+            mollusk_svm::program::create_program_account_loader_v3(program_id),
+        )
+    }
+
     /// Process a single instruction against the given account seeds.
     pub fn process(
         &self,

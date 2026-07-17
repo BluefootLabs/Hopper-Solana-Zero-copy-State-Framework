@@ -63,7 +63,10 @@ fn market_head_is_one_byte_disc_plus_fixed_head() {
     assert_eq!(Market::COMPACT_LEN, 33);
     // The tail region begins at 33 -- right after the 1-byte disc + head, NOT
     // after a 16-byte header.
-    assert_eq!(<Market as hopper::account::CompactDynamicLayout>::TAIL_OFFSET, 33);
+    assert_eq!(
+        <Market as hopper::account::CompactDynamicLayout>::TAIL_OFFSET,
+        33
+    );
 }
 
 #[test]

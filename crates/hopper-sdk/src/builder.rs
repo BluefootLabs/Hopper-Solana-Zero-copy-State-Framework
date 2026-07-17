@@ -198,11 +198,13 @@ mod tests {
                 name: "amount",
                 canonical_type: "u64",
                 size: 8,
+                encoding: hopper_schema::ArgEncoding::Fixed,
             },
             ArgDescriptor {
                 name: "bump",
                 canonical_type: "u8",
                 size: 1,
+                encoding: hopper_schema::ArgEncoding::Fixed,
             },
         ];
         static ACCTS: [AccountEntry; 2] = [
@@ -226,11 +228,13 @@ mod tests {
             tag: 3,
             args: &ARGS,
             accounts: &ACCTS,
+            remaining_accounts: None,
             capabilities: &[],
             policy_pack: "",
             receipt_expected: true,
             strict_writes: false,
             write_ranges: &[],
+            parametric_write_ranges: &[],
             mutation_complete: false,
             lamport_accounts: &[],
             cu_estimate: 0,

@@ -43,6 +43,10 @@ struct AccountAttr {
     /// (an open tail range starting past the head is not a whole-account
     /// grant). A tail-declared field is writable and may carry `realloc`.
     tail_segments: Vec<String>,
+    /// Runtime-selected array cells. Each group also contributes its segments
+    /// to `mut_segments`, preserving the existing static write envelope while
+    /// adding an invocation-parametric narrowing rule.
+    cell_groups: Vec<CellGroup>,
 
     // ── Anchor-grade declarative constraints (audit ST2) ────────────
     /// `init`. account must be created fresh this instruction.
@@ -348,6 +352,12 @@ struct AccountAttr {
     /// "not a known wrapper" is ambiguous here. The explicit marker keeps
     /// every existing layout-typed field valid and makes nesting opt-in.
     composite: bool,
+}
+
+#[derive(Clone)]
+struct CellGroup {
+    selector: Ident,
+    segments: Vec<String>,
 }
 
 /// Policy for the `rent_exempt` field keyword.
@@ -740,6 +750,34 @@ pub fn expand_for_derive(item: TokenStream) -> Result<TokenStream> {
     expand_inner(TokenStream::new(), item, /* emit_struct */ false)
 }
 
+/// Collect, in first-appearance order, the context fields referenced by
+/// name anywhere in `tokens` (recursing into delimited groups). This is
+/// what lets a `seeds = [...]`, `bump = ...`, or `constraint = ...`
+/// expression name a sibling account the Anchor way (`vault.address()`,
+/// `config.load::<T>()?.bump`) instead of hand-writing `ctx.account(i)`.
+/// Each hit is returned once as `(ident, field_index)`.
+fn collect_field_refs(
+    tokens: TokenStream,
+    ctx_fields: &[ContextField],
+    out: &mut Vec<(Ident, usize)>,
+) {
+    for tt in tokens {
+        match tt {
+            proc_macro2::TokenTree::Ident(id) => {
+                if let Some(cf) = ctx_fields.iter().find(|c| c.name == id) {
+                    if !out.iter().any(|(name, _)| *name == id) {
+                        out.push((id.clone(), cf.index));
+                    }
+                }
+            }
+            proc_macro2::TokenTree::Group(g) => {
+                collect_field_refs(g.stream(), ctx_fields, out);
+            }
+            _ => {}
+        }
+    }
+}
+
 fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Result<TokenStream> {
     let mut input: ItemStruct = parse2(item)?;
     let context_options = parse_context_options(attr, &mut input.attrs)?;
@@ -1021,6 +1059,27 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
     let slot_abs = |pos: usize| -> TokenStream {
         let local = &local_offsets[pos];
         quote! { #hopper_base + #local }
+    };
+
+    // Anchor-parity sibling binding: given the seed/bump/constraint
+    // expressions of ONE field, emit `let <name> = <ctx>.account(<slot>)?;`
+    // for every sibling account they reference by name, so those
+    // expressions resolve against a borrowed `&AccountView` (supporting
+    // `.address()`, `.load::<T>()`, `.is_signer()`, …). Bindings are shared
+    // `ctx.account(...)` borrows, so several referenced fields — or a field
+    // referencing itself in its own stored-bump expression — never
+    // conflict. `ctx_access` is the base path (`ctx` inside a validator,
+    // `self.ctx` inside a bind-time lifecycle block).
+    let sibling_binds = |exprs: &[TokenStream], ctx_access: &TokenStream| -> TokenStream {
+        let mut refs: Vec<(Ident, usize)> = Vec::new();
+        for e in exprs {
+            collect_field_refs(e.clone(), &ctx_fields, &mut refs);
+        }
+        let binds = refs.iter().map(|(name, index)| {
+            let slot = slot_abs(*index);
+            quote! { let #name = #ctx_access.account(#slot)?; }
+        });
+        quote! { #(#binds)* }
     };
 
     // Generate per-field validation functions and collect check descriptions.
@@ -1805,9 +1864,19 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             } else {
                 quote! { ctx.program_id() }
             };
+            // Bind any sibling accounts the seeds / stored-bump name so
+            // they resolve as `&AccountView` locals (Anchor parity).
+            let ctx_ref = quote! { ctx };
+            let mut ref_exprs: Vec<TokenStream> =
+                seed_exprs.iter().map(|e| quote! { #e }).collect();
+            if let BumpSpec::Stored(bump_expr) = bump {
+                ref_exprs.push(quote! { #bump_expr });
+            }
+            let seed_binds = sibling_binds(&ref_exprs, &ctx_ref);
             let verify_call = match bump {
                 BumpSpec::Inferred => quote! {
                     {
+                        #seed_binds
                         let (expected, _bump) = ::hopper::pda::find_program_address(
                             &[ #( AsRef::<[u8]>::as_ref(&(#seed_exprs)) ),* ],
                             #pda_program_expr,
@@ -1821,13 +1890,18 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                 },
                 BumpSpec::Stored(bump_expr) => quote! {
                     {
+                        #seed_binds
                         let bump: u8 = #bump_expr;
-                        let seeds_with_bump: &[&[u8]] = &[
-                            #( AsRef::<[u8]>::as_ref(&(#seed_exprs)) ),*,
-                            ::core::slice::from_ref(&bump),
-                        ];
+                        // The seed slice is built INLINE as the argument (not
+                        // a separate `let`), so the `&(expr)` temporaries live
+                        // until the end of this call — a separate binding would
+                        // drop them first (E0716) whenever a seed evaluates to
+                        // an owned value or a borrow like `&[u8; 32]`.
                         let expected = ::hopper::pda::create_program_address(
-                            seeds_with_bump,
+                            &[
+                                #( AsRef::<[u8]>::as_ref(&(#seed_exprs)) ),*,
+                                ::core::slice::from_ref(&bump),
+                            ],
                             #pda_program_expr,
                         )?;
                         if ctx.account(#slot)?.address() != &expected {
@@ -1860,18 +1934,25 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             // the work in a CPI signer-seeds block one line later.
             // Stored bumps cost zero CU.
             let bump_gather_expr: TokenStream = match bump {
-                BumpSpec::Stored(bump_expr) => quote! {
-                    { let __b: u8 = #bump_expr; __b }
-                },
-                BumpSpec::Inferred => quote! {
-                    {
-                        let (_, __b) = ::hopper::pda::find_program_address(
-                            &[ #( AsRef::<[u8]>::as_ref(&(#seed_exprs)) ),* ],
-                            #pda_program_expr,
-                        );
-                        __b
+                BumpSpec::Stored(bump_expr) => {
+                    let gather_binds = sibling_binds(&[quote! { #bump_expr }], &ctx_ref);
+                    quote! {
+                        { #gather_binds let __b: u8 = #bump_expr; __b }
                     }
-                },
+                }
+                BumpSpec::Inferred => {
+                    let gather_binds = sibling_binds(&ref_exprs, &ctx_ref);
+                    quote! {
+                        {
+                            #gather_binds
+                            let (_, __b) = ::hopper::pda::find_program_address(
+                                &[ #( AsRef::<[u8]>::as_ref(&(#seed_exprs)) ),* ],
+                                #pda_program_expr,
+                            );
+                            __b
+                        }
+                    }
+                }
             };
             bump_entries.push((field_name.clone(), bump_gather_expr));
         }
@@ -2593,6 +2674,12 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             } else {
                 TokenStream::new()
             };
+            let arg_use_stmt = if has_instruction_args {
+                let ans = arg_names.clone();
+                quote! { #(let _ = &#ans;)* }
+            } else {
+                TokenStream::new()
+            };
             per_field_validators.push(quote! {
                 /// Validate the `#field_name` account (index #idx).
                 ///
@@ -2607,6 +2694,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                     ctx: &::hopper::prelude::Context<'_>
                     #arg_param_fragment
                 ) -> ::core::result::Result<(), ::hopper::__runtime::ProgramError> {
+                    #arg_use_stmt
                     #(#field_checks)*
                     Ok(())
                 }
@@ -3056,12 +3144,33 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             // unaffected (`signers = &[]` is the old behavior).
             let init_invoke = if let Some(seeds) = &cf.attr.seeds {
                 let seed_exprs: Vec<_> = seeds.iter().collect();
+                // Sibling accounts named by the PDA-init seeds resolve as
+                // `&AccountView` locals bound off `self.ctx` (Anchor
+                // parity), the same as the validator path above.
+                let self_ctx_ref = quote! { self.ctx };
+                let init_seed_exprs: Vec<TokenStream> =
+                    seed_exprs.iter().map(|e| quote! { #e }).collect();
+                let init_seed_binds = sibling_binds(&init_seed_exprs, &self_ctx_ref);
+                // Bind each seed to a lifetime-extended local BEFORE building
+                // the `Seed` array. `let s = &(expr);` extends an owned seed's
+                // temporary to the block scope (a `&(expr)` buried in the
+                // `Seed::from(..)` call arg would not extend, so the array
+                // would dangle across the `hopper_init!` CPI — E0716).
+                let seed_locals: Vec<Ident> = (0..seed_exprs.len())
+                    .map(|i| format_ident!("__hopper_seed_{}", i))
+                    .collect();
+                let seed_local_bindings = seed_locals
+                    .iter()
+                    .zip(seed_exprs.iter())
+                    .map(|(local, expr)| quote! { let #local = &(#expr); });
                 quote! {
                     {
+                        #init_seed_binds
+                        #(#seed_local_bindings)*
                         let __hopper_bump: u8 = self.bumps.#field_name;
                         let __hopper_seeds = [
                             #( ::hopper::__runtime::Seed::from(
-                                ::core::convert::AsRef::<[u8]>::as_ref(&(#seed_exprs))
+                                ::core::convert::AsRef::<[u8]>::as_ref(#seed_locals)
                             ), )*
                             ::hopper::__runtime::Seed::from(
                                 ::core::slice::from_ref(&__hopper_bump)
@@ -3918,6 +4027,8 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
     // `Ab_c` both fold to `AB_C`) and would turn two legal context names
     // into a duplicate-definition error inside hidden macro output.
     let write_ranges_const_ident = format_ident!("__HOPPER_{}_WRITE_RANGES", name);
+    let parametric_write_ranges_const_ident =
+        format_ident!("__HOPPER_{}_PARAMETRIC_WRITE_RANGES", name);
     // BLD-MUT: whether the context declared the lamport dimension.
     // `mutation_complete` is claimed ONLY for `strict_writes` +
     // `lamports(...)` — a bare `strict_writes` context leaves lamports
@@ -4044,6 +4155,95 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             });
         }
     }
+
+    // Exact-cell rules layer runtime argument selection over the conservative
+    // static column ranges above. The selector list is deduplicated so the
+    // Context stores only values actually used by policy rules (bounded at
+    // eight by the runtime), and each rule records the corresponding compact
+    // index plus stable names for schema consumers.
+    let mut parametric_selector_names: Vec<Ident> = Vec::new();
+    let mut parametric_range_exprs: Vec<TokenStream> = Vec::new();
+    for cf in &ctx_fields {
+        if cf.attr.cell_groups.is_empty() {
+            continue;
+        }
+        if !strict_writes_enabled {
+            return Err(syn::Error::new_spanned(
+                &cf.name,
+                "cells(...) requires #[accounts(strict_writes)]",
+            ));
+        }
+        if cf.attr.composite || has_composite {
+            return Err(syn::Error::new_spanned(
+                &cf.name,
+                "cells(...) is not yet supported through composite contexts",
+            ));
+        }
+        let field_ty = layout_type_for_field(cf).unwrap_or_else(|| cf.ty.clone());
+        for group in &cf.attr.cell_groups {
+            if !instruction_args
+                .iter()
+                .any(|arg| arg.name == group.selector)
+            {
+                return Err(syn::Error::new_spanned(
+                    &group.selector,
+                    "cells selector must be declared by #[instruction(selector: Type)] on the context",
+                ));
+            }
+            let argument_index = match parametric_selector_names
+                .iter()
+                .position(|name| *name == group.selector)
+            {
+                Some(index) => index,
+                None => {
+                    parametric_selector_names.push(group.selector.clone());
+                    parametric_selector_names.len() - 1
+                }
+            };
+            if argument_index > u8::MAX as usize {
+                return Err(syn::Error::new_spanned(
+                    &group.selector,
+                    "too many parametric write selectors",
+                ));
+            }
+            let idx_u8 = cf.index as u8;
+            let argument_index = argument_index as u8;
+            let argument_name = group.selector.to_string();
+            for segment in &group.segments {
+                let segment_upper = to_screaming_snake(segment);
+                let assoc_abs_offset = format_ident!("{}_ABS_OFFSET", segment_upper);
+                let assoc_element_size = format_ident!("{}_ELEMENT_SIZE", segment_upper);
+                let assoc_element_count = format_ident!("{}_ELEMENT_COUNT", segment_upper);
+                parametric_range_exprs.push(quote! {
+                    ::hopper::__runtime::write_policy::ParametricWriteRange::new(
+                        #idx_u8,
+                        <#field_ty>::#assoc_abs_offset,
+                        <#field_ty>::#assoc_element_size,
+                        <#field_ty>::#assoc_element_size,
+                        <#field_ty>::#assoc_element_count,
+                        #argument_index,
+                        #argument_name,
+                        #segment,
+                    )
+                });
+            }
+        }
+    }
+    if parametric_selector_names.len() > 8 {
+        return Err(syn::Error::new_spanned(
+            &name,
+            "a context may bind at most eight distinct cells(...) selectors",
+        ));
+    }
+    let has_parametric_writes = !parametric_range_exprs.is_empty();
+    let parametric_write_ranges_item = quote! {
+        #[doc(hidden)]
+        #[allow(non_upper_case_globals)]
+        #vis const #parametric_write_ranges_const_ident:
+            &[::hopper::__runtime::write_policy::ParametricWriteRange] = &[
+                #(#parametric_range_exprs),*
+            ];
+    };
 
     // Consumer 2: the composite-free authority ranges, byte-identical to
     // the pre-composite lowering (`#idx_u8` literals, alias-typed sizes).
@@ -4556,7 +4756,29 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
     // governed set or sharing another gate's slot. The `static` is
     // emitted at function-statement level (no wrapping block) so the
     // guard binding stays in scope for the bound-struct constructor.
-    let write_policy_install_stmt: TokenStream = if mutation_complete {
+    let parametric_arg_values = parametric_selector_names.iter().map(|selector| {
+        quote! { (#selector) as u32 }
+    });
+    let write_policy_install_stmt: TokenStream = if mutation_complete && has_parametric_writes {
+        quote! {
+            static __HOPPER_WRITE_POLICY:
+                ::hopper::__runtime::write_policy::WritePolicy =
+                ::hopper::__runtime::write_policy::WritePolicy::with_parametric_and_lamports(
+                    #write_ranges_const_ident,
+                    #parametric_write_ranges_const_ident,
+                    #lamport_accounts_const_ident,
+                );
+            ctx.set_parametric_write_policy(
+                &__HOPPER_WRITE_POLICY,
+                &[#(#parametric_arg_values),*],
+            )?;
+            let __hopper_lamport_gate =
+                ::hopper::__runtime::write_policy::try_install_lamport_gate(
+                    ctx.accounts(),
+                    &__HOPPER_WRITE_POLICY,
+                )?;
+        }
+    } else if mutation_complete {
         quote! {
             static __HOPPER_WRITE_POLICY:
                 ::hopper::__runtime::write_policy::WritePolicy =
@@ -4570,6 +4792,21 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                     ctx.accounts(),
                     &__HOPPER_WRITE_POLICY,
                 )?;
+        }
+    } else if strict_writes_enabled && has_parametric_writes {
+        quote! {
+            {
+                static __HOPPER_WRITE_POLICY:
+                    ::hopper::__runtime::write_policy::WritePolicy =
+                    ::hopper::__runtime::write_policy::WritePolicy::with_parametric(
+                        #write_ranges_const_ident,
+                        #parametric_write_ranges_const_ident,
+                    );
+                ctx.set_parametric_write_policy(
+                    &__HOPPER_WRITE_POLICY,
+                    &[#(#parametric_arg_values),*],
+                )?;
+            }
         }
     } else if strict_writes_enabled {
         quote! {
@@ -5092,6 +5329,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         // composite container under `strict_writes` the slice points at
         // the compile-time-composed array emitted just below it.
         #write_ranges_const_item
+        #parametric_write_ranges_item
         #composed_write_ranges_items
         #schema_len_module_item
 
@@ -5211,6 +5449,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                     mutation_classes: &[],
                     strict_writes: #strict_writes_enabled,
                     write_ranges: #write_ranges_const_ident,
+                    parametric_write_ranges: #parametric_write_ranges_const_ident,
                     mutation_complete: #mutation_complete,
                     lamport_accounts: #lamport_accounts_const_ident,
                 };
@@ -5240,6 +5479,12 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             pub const WRITE_RANGES:
                 &'static [::hopper::__runtime::write_policy::WriteRange] =
                 #write_ranges_const_ident;
+
+            /// Invocation-parametric rules that narrow array-column entries in
+            /// [`WRITE_RANGES`](Self::WRITE_RANGES) to exact selected cells.
+            pub const PARAMETRIC_WRITE_RANGES:
+                &'static [::hopper::__runtime::write_policy::ParametricWriteRange] =
+                #parametric_write_ranges_const_ident;
 
             #declared_write_ranges_item
 
@@ -5918,6 +6163,47 @@ fn parse_account_attr(attrs: &[Attribute]) -> Result<AccountAttr> {
                             "`tail` requires a named tail segment, for example `tail(members)`",
                         ));
                     }
+                    Ok(())
+                }
+                "cells" => {
+                    // `cells(slot; statuses, claimants)` declares the same
+                    // static columns as `mut(statuses, claimants)`, then
+                    // narrows each column to the cell selected by the named
+                    // `#[instruction(...)]` argument for this invocation.
+                    if !meta.input.peek(syn::token::Paren) {
+                        return Err(meta.error(
+                            "`cells` requires `cells(selector; field, ...)`",
+                        ));
+                    }
+                    let content;
+                    syn::parenthesized!(content in meta.input);
+                    let selector: Ident = content.parse()?;
+                    let _: Token![;] = content.parse().map_err(|_| {
+                        syn::Error::new(
+                            content.span(),
+                            "expected `;` after the cells selector",
+                        )
+                    })?;
+                    let segments: Punctuated<Ident, Comma> =
+                        content.parse_terminated(Ident::parse, Token![,])?;
+                    if segments.is_empty() {
+                        return Err(syn::Error::new(
+                            content.span(),
+                            "cells requires at least one array field",
+                        ));
+                    }
+                    let mut names = Vec::with_capacity(segments.len());
+                    for segment in segments {
+                        let name = segment.to_string();
+                        if !result.mut_segments.iter().any(|existing| existing == &name) {
+                            result.mut_segments.push(name.clone());
+                        }
+                        names.push(name);
+                    }
+                    result.cell_groups.push(CellGroup {
+                        selector,
+                        segments: names,
+                    });
                     Ok(())
                 }
                 "init" => {

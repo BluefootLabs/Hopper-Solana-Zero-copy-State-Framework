@@ -179,7 +179,9 @@ pub use segment::{
 };
 pub use segment_borrow::{AccessKind, SegmentBorrow, SegmentBorrowGuard, SegmentBorrowRegistry};
 pub use segment_lease::{SegRef, SegRefMut, SegmentLease, SegmentsMut};
-pub use write_policy::{WritePolicy, WriteRange, WRITE_POLICY_VIOLATION_PAGE};
+pub use write_policy::{
+    ParametricWriteRange, WritePolicy, WriteRange, WRITE_POLICY_VIOLATION_PAGE,
+};
 pub use zerocopy::{AccountLayout, WireLayout, ZeroCopy};
 
 pub const MAX_TX_ACCOUNTS: usize = native_boundary::BACKEND_MAX_TX_ACCOUNTS;

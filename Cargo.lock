@@ -2060,6 +2060,25 @@ name = "hopper-builtins"
 version = "0.3.0"
 
 [[package]]
+name = "hopper-cicada"
+version = "0.3.0"
+dependencies = [
+ "hopper-lang",
+ "hopper-runtime",
+ "hopper-test",
+ "solana-account 3.4.0",
+ "solana-instruction 3.4.0",
+ "solana-pubkey 4.2.0",
+]
+
+[[package]]
+name = "hopper-cicada-route-fixture"
+version = "0.3.0"
+dependencies = [
+ "hopper-lang",
+]
+
+[[package]]
 name = "hopper-cli"
 version = "0.3.0"
 dependencies = [

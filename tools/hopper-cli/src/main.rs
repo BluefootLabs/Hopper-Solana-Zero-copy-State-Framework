@@ -3726,6 +3726,7 @@ struct OwnedInstruction {
     tag: u8,
     args: Vec<OwnedArg>,
     accounts: Vec<OwnedAccount>,
+    remaining_accounts_max: Option<u16>,
     capabilities: Vec<String>,
     policy_pack: String,
     receipt_expected: bool,
@@ -3738,6 +3739,7 @@ struct OwnedInstruction {
     // pre-BLD-WR behavior for older manifests that omit these keys.
     strict_writes: bool,
     write_ranges: Vec<OwnedWriteRange>,
+    parametric_write_ranges: Vec<OwnedParametricWriteRange>,
     mutation_complete: bool,
     lamport_accounts: Vec<u8>,
     cu_estimate: u32,
@@ -3753,10 +3755,24 @@ struct OwnedWriteRange {
     size: u32,
 }
 
+struct OwnedParametricWriteRange {
+    account_index: u8,
+    base_offset: u32,
+    stride: u32,
+    cell_size: u32,
+    count: u32,
+    argument_index: u8,
+    argument: String,
+    segment: String,
+}
+
 struct OwnedArg {
     name: String,
     canonical_type: String,
     size: u16,
+    encoding: String,
+    max_len: u16,
+    element_size: u16,
 }
 
 struct OwnedAccount {
@@ -3994,6 +4010,9 @@ fn parse_program_manifest_json(json: &str) -> Result<OwnedProgramManifest, Strin
                 name: extract_string(aobj, "name")?,
                 canonical_type: extract_string(aobj, "type")?,
                 size: extract_number(aobj, "size")? as u16,
+                encoding: extract_string(aobj, "encoding").unwrap_or_else(|_| "fixed".to_string()),
+                max_len: extract_number(aobj, "maxLen").unwrap_or(0) as u16,
+                element_size: extract_number(aobj, "elementSize").unwrap_or(0) as u16,
             });
         }
 
@@ -4014,20 +4033,40 @@ fn parse_program_manifest_json(json: &str) -> Result<OwnedProgramManifest, Strin
         // value when absent so an OLD manifest loads identically.
         let strict_writes = extract_bool(obj, "strictWrites")?;
         let write_ranges = extract_write_ranges(obj, "writeRanges")?;
+        let parametric_write_ranges = extract_object_array(obj, "parametricWriteRanges")?
+            .iter()
+            .map(|range| {
+                Ok(OwnedParametricWriteRange {
+                    account_index: extract_number(range, "accountIndex")? as u8,
+                    base_offset: extract_number(range, "baseOffset")? as u32,
+                    stride: extract_number(range, "stride")? as u32,
+                    cell_size: extract_number(range, "cellSize")? as u32,
+                    count: extract_number(range, "count")? as u32,
+                    argument_index: extract_number(range, "argumentIndex")? as u8,
+                    argument: extract_string(range, "argument")?,
+                    segment: extract_string(range, "segment")?,
+                })
+            })
+            .collect::<Result<Vec<_>, String>>()?;
         let mutation_complete = extract_bool(obj, "mutationComplete")?;
         let lamport_accounts = extract_lamport_accounts(obj, "lamportAccounts");
         let cu_estimate = extract_number(obj, "cuEstimate").unwrap_or(0) as u32;
+        let remaining_accounts_max = extract_number(obj, "remainingAccountsMax")
+            .ok()
+            .map(|max| max as u16);
 
         instructions.push(OwnedInstruction {
             name: ix_name,
             tag,
             args,
             accounts,
+            remaining_accounts_max,
             capabilities,
             policy_pack,
             receipt_expected,
             strict_writes,
             write_ranges,
+            parametric_write_ranges,
             mutation_complete,
             lamport_accounts,
             cu_estimate,
@@ -4132,6 +4171,16 @@ fn to_program_manifest(m: &OwnedProgramManifest) -> ProgramManifest {
                     name: leak_str(&a.name),
                     canonical_type: leak_str(&a.canonical_type),
                     size: a.size,
+                    encoding: match a.encoding.as_str() {
+                        "boundedVec" => hopper_schema::ArgEncoding::BoundedVec {
+                            max_len: a.max_len,
+                            element_size: a.element_size,
+                        },
+                        "boundedString" => {
+                            hopper_schema::ArgEncoding::BoundedString { max_len: a.max_len }
+                        }
+                        _ => hopper_schema::ArgEncoding::Fixed,
+                    },
                 })
                 .collect();
             let accounts: Vec<AccountEntry> = ix
@@ -4160,16 +4209,36 @@ fn to_program_manifest(m: &OwnedProgramManifest) -> ProgramManifest {
                 .map(|r| WriteRange::new(r.account_index, r.offset, r.size))
                 .collect();
             let lamport_accounts: Vec<u8> = ix.lamport_accounts.clone();
+            let parametric_write_ranges: Vec<hopper_schema::ParametricWriteRange> = ix
+                .parametric_write_ranges
+                .iter()
+                .map(|range| {
+                    hopper_schema::ParametricWriteRange::new(
+                        range.account_index,
+                        range.base_offset,
+                        range.stride,
+                        range.cell_size,
+                        range.count,
+                        range.argument_index,
+                        leak_str(&range.argument),
+                        leak_str(&range.segment),
+                    )
+                })
+                .collect();
             InstructionDescriptor {
                 name: leak_str(&ix.name),
                 tag: ix.tag,
                 args: Box::leak(args.into_boxed_slice()),
                 accounts: Box::leak(accounts.into_boxed_slice()),
+                remaining_accounts: ix
+                    .remaining_accounts_max
+                    .map(|max| hopper_schema::RemainingAccountsDescriptor { max }),
                 capabilities: Box::leak(capabilities.into_boxed_slice()),
                 policy_pack: leak_str(&ix.policy_pack),
                 receipt_expected: ix.receipt_expected,
                 strict_writes: ix.strict_writes,
                 write_ranges: Box::leak(write_ranges.into_boxed_slice()),
+                parametric_write_ranges: Box::leak(parametric_write_ranges.into_boxed_slice()),
                 mutation_complete: ix.mutation_complete,
                 lamport_accounts: Box::leak(lamport_accounts.into_boxed_slice()),
                 cu_estimate: ix.cu_estimate,
@@ -4271,6 +4340,7 @@ fn to_program_manifest(m: &OwnedProgramManifest) -> ProgramManifest {
                 // manifest (same fidelity contract as the instruction path).
                 strict_writes: ctx.strict_writes,
                 write_ranges: Box::leak(ctx_write_ranges.into_boxed_slice()),
+                parametric_write_ranges: &[],
                 // The JSON context schema carries no separate lamport /
                 // mutation-completeness dimension, so leave those at the
                 // no-claim defaults (a context never asserts completeness).

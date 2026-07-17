@@ -199,6 +199,7 @@ pub mod cpi {
     pub use hopper_runtime::cpi::{
         invoke_signed_unchecked, invoke_signed_with_bounds, invoke_unchecked, invoke_with_bounds,
     };
+    pub use hopper_runtime::dyn_cpi::DynCpi;
     pub use hopper_runtime::return_data::{
         get_return_data, set_return_data, try_set_return_data, ReturnData, MAX_RETURN_DATA,
     };
@@ -264,8 +265,9 @@ pub mod system {
 pub mod token {
     pub use hopper_runtime::token::*;
     pub use hopper_solana::interface::{
-        interface_transfer_checked, interface_transfer_checked_signed, InterfaceMint,
-        InterfaceTokenAccount, TokenProgramKind,
+        interface_transfer_checked, interface_transfer_checked_signed,
+        interface_transfer_checked_signed_with_program, interface_transfer_checked_with_program,
+        InterfaceMint, InterfaceTokenAccount, TokenProgramKind,
     };
     pub use hopper_token::instructions::*;
     pub use hopper_token::TOKEN_PROGRAM_ID;
@@ -544,6 +546,11 @@ pub use hopper_macros::{
 // user-facing path `hopper::layout_migrations!` requires an explicit
 // re-export here.
 pub use hopper_runtime::layout_migrations;
+
+// PDA signer-seed array builder (`hopper::seeds!`). Same re-export
+// rationale as above: a `#[macro_export]` macro anchored in hopper-native,
+// surfaced through the runtime, needs an explicit facade re-export.
+pub use hopper_runtime::seeds;
 // Typed multi-hop migration chain (same re-export rationale as above).
 pub use hopper_runtime::migrate_chain;
 
@@ -1018,9 +1025,10 @@ pub mod __runtime {
         HopperString, HopperVec, InitAccount, InstructionAccount, InstructionView, Interface,
         InterfaceAccount, InterfaceAccountLayout, InterfaceAccountResolve, InterfaceSpec,
         LayoutContract, LayoutInfo, LayoutMigration, MigrationEdge, Pod, Program, ProgramError,
-        ProgramId, Ref, RefMut, SegRef, SegRefMut, SegmentLease, SeqElement, SeqTailRead,
-        SeqTailWrite, SystemAccount, SystemId, TailBytes, TailCodec, TailElement, TailSeq,
-        TailSeqIter, TailSeqMut, TailStr, UncheckedAccount, Zeroable, SEQ_LEN_PREFIX,
+        ProgramId, Ref, RefMut, Seed, SegRef, SegRefMut, SegmentLease, SegmentsMut, SeqElement,
+        SeqTailRead, SeqTailWrite, Signer, SystemAccount, SystemId, TailBytes, TailCodec,
+        TailElement, TailSeq, TailSeqIter, TailSeqMut, TailStr, UncheckedAccount, Zeroable,
+        SEQ_LEN_PREFIX,
     };
 
     // Crank marker type plus dynamic-CPI builder, emitted by

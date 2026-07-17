@@ -7,7 +7,44 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 
 ## [Unreleased]
 
-(nothing yet)
+### Added
+
+- **Anchor-parity sibling-account references in `seeds` / `bump`.** A
+  `#[account(seeds = [...], bump = ...)]` (or a PDA `#[account(init, seeds
+  = ...)]`) may now name sibling context accounts by field name —
+  `seeds = [b"vault", owner.address().as_array(), source.address().as_array()]`,
+  `bump = config.load::<Config>()?.bump` — and the context macro binds each
+  referenced field as a borrowed `&AccountView` in the seed/bump expression
+  scope. Previously only instruction args and `ctx` were in scope, so a
+  cross-account PDA had to be verified by hand. Fixed alongside it: the
+  `hopper::pda` facade now re-exports `find_program_address` /
+  `create_program_address` on host targets (they were `cfg(target_os =
+  "solana")`-gated, which made any host build of a seeds-bearing context
+  fail to resolve them), and two latent PDA-seed lifetime bugs in the
+  macro's stored-bump and PDA-init lowerings (the seed byte-slice
+  temporaries were dropped before the derivation used them — E0716) are
+  fixed by inlining the derivation array and lifetime-extending the seed
+  locals. `Seed` / `Signer` / `SegmentsMut` and the `hopper::seeds!` macro
+  are now reachable from the facade.
+- **Cicada protected-execution intent vertical slice.** Adds a production-shaped
+  Hopper example with column-oriented shared state, exact-cell `strict_writes`,
+  isolated owner-bound per-source-vault PDA authority, global cross-shard source leases,
+  bounded dynamic route CPI, exact route-envelope commitments, token-account
+  and mint-policy immutability checks, atomic permissionless execution,
+  actual-delta settlement, refunds, custody-authority return on reclaim, touch maps, manifest assertions, and SBF/escape
+  CI gates. Includes a compiled-SBF adversarial suite (`lifecycle_sbf_e2e`
+  driving the real `.so` against a hostile route-program fixture): the full
+  lifecycle settles, a route that mutates token/mint policy is rolled back,
+  and a route that spoofs output without spending input is refused. The
+  `occupied` slot bitmap is a `u32`, so a compile-time assert pins
+  `INTENTS_PER_SHARD <= 32` — a larger shard would silently shift out of the
+  bitmap and corrupt occupancy tracking.
+- **Policy-gated runtime segment projection from generated typed contexts.**
+  `ScopedContext::{segment_ref,segment_mut,split_segments_mut}` now forwards to
+  the underlying Context borrow ledger and write policy, allowing a typed
+  manifest-producing handler to select one cell inside a declared column at
+  runtime without dropping to an unscoped raw Context. `hopper::cpi::DynCpi`
+  and the Token-2022 safe-mint screen are also available from the public facade.
 
 ## [0.3.0] - 2026-07-16
 

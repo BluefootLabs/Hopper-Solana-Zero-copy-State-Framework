@@ -8,7 +8,9 @@
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote, ToTokens};
 use sha2::{Digest, Sha256};
-use syn::{parse::Parser, parse2, Attribute, Field, Fields, ItemStruct, LitInt, LitStr, Result};
+use syn::{
+    parse::Parser, parse2, Attribute, Field, Fields, ItemStruct, LitInt, LitStr, Result, Type,
+};
 
 #[derive(Clone)]
 struct StateOptions {
@@ -241,6 +243,31 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
                 ::hopper::hopper_core::account::HEADER_LEN as u32 + #current_offset;
             #vis const #assoc_size_name: u32 = core::mem::size_of::<#field_ty>() as u32;
         });
+
+        // Array-column geometry used by parametric exact-cell write policies.
+        // These consts are emitted only for real arrays, so applying
+        // `cells(selector; field)` to a scalar fails with a clear missing-const
+        // type error instead of silently inventing a stride.
+        if let Type::Array(array) = field_ty {
+            let element_ty = &array.elem;
+            let element_count = &array.len;
+            let const_element_size_name =
+                format_ident!("{}_{}_ELEMENT_SIZE", struct_name_upper, field_name_upper);
+            let const_element_count_name =
+                format_ident!("{}_{}_ELEMENT_COUNT", struct_name_upper, field_name_upper);
+            let assoc_element_size_name = format_ident!("{}_ELEMENT_SIZE", field_name_upper);
+            let assoc_element_count_name = format_ident!("{}_ELEMENT_COUNT", field_name_upper);
+            module_items.push(quote! {
+                #vis const #const_element_size_name: u32 =
+                    core::mem::size_of::<#element_ty>() as u32;
+                #vis const #const_element_count_name: u32 = (#element_count) as u32;
+            });
+            inherent_items.push(quote! {
+                #vis const #assoc_element_size_name: u32 =
+                    core::mem::size_of::<#element_ty>() as u32;
+                #vis const #assoc_element_count_name: u32 = (#element_count) as u32;
+            });
+        }
 
         running_offset = quote! {
             #current_offset + core::mem::size_of::<#field_ty>() as u32

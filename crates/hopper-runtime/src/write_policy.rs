@@ -110,6 +110,80 @@ pub struct WriteRange {
     pub size: u32,
 }
 
+/// A runtime-selected fixed-size cell inside a statically declared column.
+///
+/// The static [`WriteRange`] remains the conservative envelope used by
+/// tooling. This descriptor narrows that envelope for one invocation to
+/// `base_offset + args[argument_index] * stride .. + cell_size`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ParametricWriteRange {
+    /// Instruction account-list index this column belongs to.
+    pub account_index: u8,
+    /// Absolute offset of element zero.
+    pub base_offset: u32,
+    /// Byte distance between consecutive elements.
+    pub stride: u32,
+    /// Writable bytes in the selected element.
+    pub cell_size: u32,
+    /// Number of cells in the column.
+    pub count: u32,
+    /// Index into the invocation's bound `u32` policy arguments.
+    pub argument_index: u8,
+    /// Stable instruction-argument name for manifests and diagnostics.
+    pub argument_name: &'static str,
+    /// Stable state segment/field name for manifests and diagnostics.
+    pub segment_name: &'static str,
+}
+
+impl ParametricWriteRange {
+    /// Build one parametric column rule.
+    #[inline(always)]
+    pub const fn new(
+        account_index: u8,
+        base_offset: u32,
+        stride: u32,
+        cell_size: u32,
+        count: u32,
+        argument_index: u8,
+        argument_name: &'static str,
+        segment_name: &'static str,
+    ) -> Self {
+        Self {
+            account_index,
+            base_offset,
+            stride,
+            cell_size,
+            count,
+            argument_index,
+            argument_name,
+            segment_name,
+        }
+    }
+
+    #[inline(always)]
+    fn envelope_overlaps(&self, offset: u32, size: u32) -> bool {
+        let envelope_start = self.base_offset as u64;
+        let envelope_end = envelope_start
+            + self.stride as u64 * self.count.saturating_sub(1) as u64
+            + self.cell_size as u64;
+        let request_start = offset as u64;
+        let request_end = request_start + size as u64;
+        request_start < envelope_end && request_end > envelope_start
+    }
+
+    #[inline(always)]
+    fn selected_contains(&self, selected: u32, offset: u32, size: u32) -> bool {
+        if selected >= self.count {
+            return false;
+        }
+        let start = self.base_offset as u64 + self.stride as u64 * selected as u64;
+        let end = start + self.cell_size as u64;
+        let request_start = offset as u64;
+        let request_end = request_start + size as u64;
+        request_start >= start && request_end <= end
+    }
+}
+
 impl WriteRange {
     /// Allow writes to `[offset, offset + size)` on `account_index`.
     #[inline(always)]
@@ -207,6 +281,8 @@ pub struct WritePolicy {
     /// handful of ranges, so a bounded scan beats any lookup structure
     /// at Solana scale.
     pub allows: &'static [WriteRange],
+    /// Invocation-parametric rules that narrow selected static envelopes.
+    pub parametric: &'static [ParametricWriteRange],
     /// Declared lamport-write permission set (BLD-MUT). See
     /// [`LamportPolicy`] for the exact semantics of each variant.
     pub lamports: LamportPolicy,
@@ -222,6 +298,7 @@ impl WritePolicy {
     pub const fn new(allows: &'static [WriteRange]) -> Self {
         Self {
             allows,
+            parametric: &[],
             lamports: LamportPolicy::Undeclared,
         }
     }
@@ -235,6 +312,34 @@ impl WritePolicy {
     ) -> Self {
         Self {
             allows,
+            parametric: &[],
+            lamports: LamportPolicy::Declared(lamport_accounts),
+        }
+    }
+
+    /// Build a data policy with invocation-parametric cell narrowing.
+    #[inline(always)]
+    pub const fn with_parametric(
+        allows: &'static [WriteRange],
+        parametric: &'static [ParametricWriteRange],
+    ) -> Self {
+        Self {
+            allows,
+            parametric,
+            lamports: LamportPolicy::Undeclared,
+        }
+    }
+
+    /// Build a mutation-complete policy with parametric cell narrowing.
+    #[inline(always)]
+    pub const fn with_parametric_and_lamports(
+        allows: &'static [WriteRange],
+        parametric: &'static [ParametricWriteRange],
+        lamport_accounts: &'static [u8],
+    ) -> Self {
+        Self {
+            allows,
+            parametric,
             lamports: LamportPolicy::Declared(lamport_accounts),
         }
     }
@@ -309,6 +414,35 @@ impl WritePolicy {
             i += 1;
         }
         Err(write_policy_violation(account_index))
+    }
+
+    /// Parametric form of [`check_write`](Self::check_write). A request that
+    /// touches a governed column must fit the invocation-selected cell; other
+    /// requests fall back to the ordinary static policy.
+    #[inline(always)]
+    pub fn check_write_with_args(
+        &self,
+        account_index: u8,
+        offset: u32,
+        size: u32,
+        args: &[u32],
+    ) -> Result<(), ProgramError> {
+        let mut i = 0;
+        while i < self.parametric.len() {
+            let rule = &self.parametric[i];
+            if rule.account_index == account_index && rule.envelope_overlaps(offset, size) {
+                let argument = args.get(rule.argument_index as usize).copied();
+                if argument
+                    .map(|selected| rule.selected_contains(selected, offset, size))
+                    .unwrap_or(false)
+                {
+                    return Ok(());
+                }
+                return Err(write_policy_violation(account_index));
+            }
+            i += 1;
+        }
+        self.check_write(account_index, offset, size)
     }
 
     /// Non-erroring form of [`check_write`](Self::check_write).
@@ -1151,6 +1285,24 @@ mod tests {
         assert!(POLICY.check_write(1, 18, 4).is_ok());
         // Zero-size request inside a range is trivially contained.
         assert!(POLICY.check_write(1, 20, 0).is_ok());
+    }
+
+    #[test]
+    fn parametric_column_allows_only_the_selected_cell() {
+        static PARAMETRIC: &[ParametricWriteRange] = &[ParametricWriteRange::new(
+            1, 100, 8, 8, 20, 0, "slot", "balances",
+        )];
+        static P: WritePolicy =
+            WritePolicy::with_parametric(&[WriteRange::new(1, 100, 20 * 8)], PARAMETRIC);
+
+        assert!(P.check_write_with_args(1, 100 + 7 * 8, 8, &[7]).is_ok());
+        assert!(P.check_write_with_args(1, 100 + 7 * 8 + 2, 4, &[7]).is_ok());
+        assert_eq!(
+            P.check_write_with_args(1, 100 + 8 * 8, 8, &[7]),
+            Err(ProgramError::Custom(0xD0_01)),
+        );
+        assert!(P.check_write_with_args(1, 100 + 19 * 8, 8, &[20]).is_err());
+        assert!(P.check_write_with_args(1, 100 + 7 * 8, 8, &[]).is_err());
     }
 
     #[test]

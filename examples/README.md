@@ -81,6 +81,11 @@ the full showcase once the basics are familiar.
    non-Hopper oracle bytes through `ExternalAccount<T>`, typed zero-copy views,
    checked lenses, snapshot hashes, and normal Hopper-owned state updates.
 
+17. **[hopper-cicada](hopper-cicada/README.md)** - Transport-neutral protected
+   execution intents. Demonstrates column-oriented shared state, exact-cell
+   `strict_writes`, isolated owner-bound per-vault PDA capabilities, dynamic route CPI,
+   immutable token-account policy, and actual-delta settlement.
+
 ### Tier 3: Escape Hatch
 
 Every example uses the standard Hopper path. When you need to go lower, the

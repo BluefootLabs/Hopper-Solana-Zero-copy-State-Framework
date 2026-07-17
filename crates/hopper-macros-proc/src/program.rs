@@ -54,6 +54,8 @@ struct Handler {
     /// opted in; the context-level `RECEIPT_EXPECTED` const only says
     /// the context is receipt-scope *capable*).
     receipt: bool,
+    /// Maximum ordered account suffix accepted by this handler.
+    remaining_accounts_max: Option<Expr>,
     instruction_policy: InstructionPolicyArgs,
 }
 
@@ -70,6 +72,7 @@ struct HandlerModifiers {
     /// unless the user wraps the call in a manual `require!(expr, err)`.
     /// Multiple attributes are ANDed in declaration order.
     access_control: Vec<Expr>,
+    remaining_accounts_max: Option<Expr>,
 }
 
 /// A single `#[invariant(...)]` attribute on a handler.
@@ -706,16 +709,28 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
             .zip(handler.arg_types.iter())
             .map(|(arg_name, arg_ty)| {
                 let canonical = arg_ty.to_token_stream().to_string().replace(' ', "");
-                let size = arg_wire_size(arg_ty);
+                let (size, encoding) = arg_wire_metadata(arg_ty);
                 quote! {
                     ::hopper::hopper_schema::ArgDescriptor {
                         name: #arg_name,
                         canonical_type: #canonical,
                         size: #size,
+                        encoding: #encoding,
                     }
                 }
             })
             .collect();
+
+        let remaining_accounts = match &handler.remaining_accounts_max {
+            Some(max) => quote! {
+                ::core::option::Option::Some(
+                    ::hopper::hopper_schema::RemainingAccountsDescriptor {
+                        max: (#max) as u16,
+                    }
+                )
+            },
+            None => quote! { ::core::option::Option::None },
+        };
 
         // `receipt_expected` is the HANDLER's `#[receipt]` opt-in, not
         // the context's `RECEIPT_EXPECTED` const: the latter only says
@@ -730,11 +745,13 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
                 tag: #tag_byte,
                 args: &[ #(#arg_rows),* ],
                 accounts: &#accounts_arr_ident,
+                remaining_accounts: #remaining_accounts,
                 capabilities: &[],
                 policy_pack: "",
                 receipt_expected: #receipt_flag,
                 strict_writes: #spec::STRICT_WRITES,
                 write_ranges: #spec::WRITE_RANGES,
+                parametric_write_ranges: #spec::PARAMETRIC_WRITE_RANGES,
                 mutation_complete: #spec::MUTATION_COMPLETE,
                 lamport_accounts: #spec::LAMPORT_ACCOUNTS,
                 cu_estimate: 0,
@@ -1136,6 +1153,70 @@ fn arg_wire_size(ty: &Type) -> u16 {
     }
 }
 
+/// Publish both the resolved maximum size and the encoding shape. Unlike the
+/// legacy `arg_wire_size` table, the returned tokens are evaluated in the
+/// program crate, so const-generic capacities such as `MAX_ROUTE_DATA` remain
+/// exact instead of collapsing to zero in the proc-macro process.
+fn arg_wire_metadata(ty: &Type) -> (TokenStream, TokenStream) {
+    let unwrapped = match ty {
+        Type::Reference(reference) => &*reference.elem,
+        other => other,
+    };
+
+    if let Type::Path(type_path) = unwrapped {
+        if let Some(segment) = type_path.path.segments.last() {
+            let name = segment.ident.to_string();
+            if name == "BoundedVec" || name == "HopperVec" {
+                if let PathArguments::AngleBracketed(args) = &segment.arguments {
+                    let mut generic_args = args.args.iter();
+                    let element = generic_args.next();
+                    let capacity = generic_args.next();
+                    if let (Some(GenericArgument::Type(element)), Some(capacity)) =
+                        (element, capacity)
+                    {
+                        return (
+                            quote! {
+                                <#unwrapped as ::hopper::hopper_runtime::TailCodec>::MAX_ENCODED_LEN as u16
+                            },
+                            quote! {
+                                ::hopper::hopper_schema::ArgEncoding::BoundedVec {
+                                    max_len: (#capacity) as u16,
+                                    element_size:
+                                        <#element as ::hopper::hopper_runtime::TailCodec>::MAX_ENCODED_LEN as u16,
+                                }
+                            },
+                        );
+                    }
+                }
+            }
+            if name == "BoundedString" || name == "HopperString" {
+                if let PathArguments::AngleBracketed(args) = &segment.arguments {
+                    if let Some(capacity) = args.args.first() {
+                        return (
+                            quote! {
+                                <#unwrapped as ::hopper::hopper_runtime::TailCodec>::MAX_ENCODED_LEN as u16
+                            },
+                            quote! {
+                                ::hopper::hopper_schema::ArgEncoding::BoundedString {
+                                    max_len: (#capacity) as u16,
+                                }
+                            },
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    let legacy_size = arg_wire_size(unwrapped);
+    let size = if matches!(unwrapped, Type::Array(_)) {
+        quote! { ::core::mem::size_of::<#unwrapped>() as u16 }
+    } else {
+        quote! { #legacy_size }
+    };
+    (size, quote! { ::hopper::hopper_schema::ArgEncoding::Fixed })
+}
+
 fn prepare_handler(function: &mut ItemFn, tiny_profile: bool) -> Result<Option<Handler>> {
     if !function
         .attrs
@@ -1225,6 +1306,7 @@ fn prepare_handler(function: &mut ItemFn, tiny_profile: bool) -> Result<Option<H
         arg_names,
         arg_types,
         receipt: modifiers.receipt,
+        remaining_accounts_max: modifiers.remaining_accounts_max,
         instruction_policy,
     }))
 }
@@ -1455,6 +1537,39 @@ fn extract_handler_modifiers(attrs: &mut Vec<Attribute>) -> Result<HandlerModifi
                 )
             })?;
             modifiers.access_control.push(expr);
+            continue;
+        }
+        if attr_has_name(&attr, "remaining_accounts") {
+            if modifiers.remaining_accounts_max.is_some() {
+                return Err(syn::Error::new_spanned(
+                    attr,
+                    "#[remaining_accounts(...)] may only be declared once",
+                ));
+            }
+            let entries = attr.parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated)?;
+            let mut max = None;
+            for entry in entries {
+                match entry {
+                    Meta::NameValue(value) if value.path.is_ident("max") => {
+                        if max.is_some() {
+                            return Err(syn::Error::new_spanned(
+                                value,
+                                "remaining_accounts max may only be set once",
+                            ));
+                        }
+                        max = Some(value.value);
+                    }
+                    other => {
+                        return Err(syn::Error::new_spanned(
+                            other,
+                            "expected #[remaining_accounts(max = CONST)]",
+                        ));
+                    }
+                }
+            }
+            modifiers.remaining_accounts_max = Some(max.ok_or_else(|| {
+                syn::Error::new_spanned(&attr, "remaining_accounts requires `max = CONST`")
+            })?);
             continue;
         }
         retained.push(attr);
@@ -2147,6 +2262,7 @@ mod ctx_args_tests {
                 parse_quote!(::core::primitive::bool),
             ],
             receipt: false,
+            remaining_accounts_max: None,
             instruction_policy: InstructionPolicyArgs {
                 unsafe_memory: false,
                 skip_token_checks: false,
@@ -2202,6 +2318,7 @@ mod ctx_args_tests {
             arg_names: vec!["amount".into()],
             arg_types: vec![parse_quote!(u64)],
             receipt: false,
+            remaining_accounts_max: None,
             instruction_policy: InstructionPolicyArgs::default(),
         };
         let raw = handler_invocation(&h).to_string();
@@ -2236,6 +2353,7 @@ mod ctx_args_tests {
             arg_names: vec![],
             arg_types: vec![],
             receipt: false,
+            remaining_accounts_max: None,
             instruction_policy: InstructionPolicyArgs::default(),
         };
         let out = handler_invocation(&h).to_string();
@@ -2276,6 +2394,7 @@ mod ctx_args_tests {
             arg_names: vec![],
             arg_types: vec![],
             receipt: false,
+            remaining_accounts_max: None,
             instruction_policy: InstructionPolicyArgs::default(),
         };
         let out = tokens(handler_invocation(&h));
@@ -2305,6 +2424,7 @@ mod ctx_args_tests {
             arg_names: vec!["amount".into(), "nonce".into()],
             arg_types: vec![parse_quote!(u64), parse_quote!(u8)],
             receipt: false,
+            remaining_accounts_max: None,
             instruction_policy: InstructionPolicyArgs {
                 unsafe_memory: false,
                 skip_token_checks: false,
@@ -2335,6 +2455,7 @@ mod ctx_args_tests {
             arg_names: vec![],
             arg_types: vec![],
             receipt: false,
+            remaining_accounts_max: None,
             instruction_policy: InstructionPolicyArgs::default(),
         };
         let with_args = Handler {
@@ -2344,6 +2465,7 @@ mod ctx_args_tests {
             arg_names: vec!["amount".into()],
             arg_types: vec![parse_quote!(u64)],
             receipt: false,
+            remaining_accounts_max: None,
             instruction_policy: InstructionPolicyArgs::default(),
         };
         for h in [argless, with_args] {
@@ -2994,17 +3116,25 @@ mod manifest_statics_tests {
         assert!(
             out.contains(
                 "::hopper::hopper_schema::ArgDescriptor{\
-                 name:\"amount\",canonical_type:\"u64\",size:8u16,}"
+                 name:\"amount\",canonical_type:\"u64\",size:8u16,\
+                 encoding:::hopper::hopper_schema::ArgEncoding::Fixed,}"
             ),
             "u64 arg must carry its table size: {out}",
         );
         assert!(
-            out.contains("name:\"memo\",canonical_type:\"[u8;12]\",size:12u16"),
+            out.contains(
+                "name:\"memo\",canonical_type:\"[u8;12]\",\
+                 size:::core::mem::size_of::<[u8;12]>()asu16,\
+                 encoding:::hopper::hopper_schema::ArgEncoding::Fixed"
+            ),
             "byte-array arg must resolve its literal length: {out}",
         );
         // Variable-length args are UNKNOWN: size 0, never fabricated.
         assert!(
-            out.contains("name:\"blob\",canonical_type:\"&[u8]\",size:0u16"),
+            out.contains(
+                "name:\"blob\",canonical_type:\"&[u8]\",size:0u16,\
+                 encoding:::hopper::hopper_schema::ArgEncoding::Fixed"
+            ),
             "variable-length arg must publish size 0: {out}",
         );
     }
