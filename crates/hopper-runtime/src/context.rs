@@ -138,6 +138,35 @@ impl<'a> Context<'a> {
         self.write_policy
     }
 
+    /// Return the first byte of a recorded write touch that falls outside the
+    /// installed invocation-resolved policy.
+    ///
+    /// This is the audit counterpart to the acquire-time gate. It checks the
+    /// union of static ranges and selected parametric cells because the touch
+    /// ledger may coalesce adjacent authorized acquires. With no installed
+    /// policy, or an account index that cannot be represented on the wire, it
+    /// fails closed by returning the touch's first byte.
+    #[inline]
+    pub fn first_unauthorized_write_byte(
+        &self,
+        index: usize,
+        offset: u32,
+        size: u32,
+    ) -> Option<u64> {
+        let Some(policy) = self.write_policy else {
+            return Some(offset as u64);
+        };
+        if index > u8::MAX as usize {
+            return Some(offset as u64);
+        }
+        policy.first_unauthorized_byte_with_args(
+            index as u8,
+            offset,
+            size,
+            &self.parametric_write_args[..self.parametric_write_arg_count as usize],
+        )
+    }
+
     /// Gate a proposed write acquire behind the installed policy.
     /// No policy installed = allowed (one branch on a `None`).
     #[inline(always)]

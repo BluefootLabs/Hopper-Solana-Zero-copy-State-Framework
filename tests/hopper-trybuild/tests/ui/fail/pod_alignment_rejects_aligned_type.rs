@@ -1,8 +1,8 @@
-//! R5 audit closure: the `const_assert_pod!` macro must reject any
-//! type whose alignment is greater than 1, even if the user hand-rolls
-//! an `unsafe impl Pod`. This is the compile-time gate that closes the
-//! "hand-written `unsafe impl Pod` on an aligned type" hole flagged in
-//! AUDIT.md.
+//! The `const_assert_pod!` macro must reject any type whose alignment
+//! is greater than 1, even if the user hand-rolls an `unsafe impl Pod`.
+//! This is the compile-time gate that closes the "hand-written
+//! `unsafe impl Pod` on an aligned type" hole that would otherwise let
+//! an aligned type masquerade as a zero-copy Pod.
 //!
 //! A misaligned Pod would produce UB if cast from `&[u8]` via
 //! `pod_from_bytes`, because the underlying pointer is only guaranteed

@@ -149,11 +149,11 @@ fn security_matrix(manifest: &ProgramManifest) -> String {
 // For each instruction that declares `strict_writes`, emit a hopper-svm
 // property test that drives the handler under the `touch-map` feature and
 // asserts that every recorded write touch `(account, offset, size)` is
-// contained in the instruction's declared `WritePolicy` — the *same* static
-// policy the `strict_writes` macro compiles from the context's `mut` /
-// `mut(seg, ...)` declarations and installs via `ctx.set_write_policy`. The
-// manifest publishes those exact byte ranges in `InstructionDescriptor::
-// write_ranges`; the runtime installs them as the enforced policy. The
+// contained in the instruction's invocation-resolved `WritePolicy` — the same
+// static envelopes and parametric cell rules the `strict_writes` macro
+// compiles and installs. The manifest publishes both surfaces in
+// `write_ranges` and `parametric_write_ranges`; the runtime binds selectors
+// from the real invocation. The
 // touch-map ledger is the "actual" footprint; the installed policy is the
 // "declared" set. No competitor can generate this test because none carries
 // the ledger.
@@ -168,12 +168,11 @@ fn security_matrix(manifest: &ProgramManifest) -> String {
 // ─────────────────────────────────────────────────────────────────────────
 
 /// Reusable oracle + assertion helpers emitted verbatim into every generated
-/// write-containment file. The algorithm here is the textual twin of
-/// [`containment_verdict`] (used by this crate's own tests): keep the two in
-/// lock-step so the in-crate unit test genuinely proves the emitted logic.
+/// write-containment file. Byte-union and exact-cell resolution live in the
+/// shipped Context API; [`containment_verdict`] independently mirrors that
+/// algorithm in this crate's tests.
 const CONTAINMENT_HELPERS: &str = r#"use hopper::context::Context;
 use hopper::hopper_runtime::segment_borrow::AccessKind;
-use hopper::hopper_runtime::write_policy::WriteRange;
 
 /// Outcome of folding an instruction's touch-map ledger against its installed
 /// (declared) write policy.
@@ -191,53 +190,18 @@ enum Containment {
     NoPolicy,
 }
 
-/// First byte in `[start, end)` not covered by any declared range on
-/// `account_index`, or `None` when the union of declared ranges covers the
-/// whole span. Coverage is judged per BYTE against the UNION — not
-/// per-declaration containment — because the touch ledger coalesces adjacent
-/// records under capacity pressure: one record may be the exact union of
-/// several individually-gated acquires and so may legitimately span two
-/// adjacent declarations. Every cursor step jumps to the end of a covering
-/// range, so the walk is O(ranges²), never O(bytes).
-fn first_uncovered_byte(
-    ranges: &[WriteRange],
-    account_index: u8,
-    start: u64,
-    end: u64,
-) -> Option<u64> {
-    let mut cursor = start;
-    while cursor < end {
-        let mut advanced = false;
-        for r in ranges {
-            if r.account_index != account_index {
-                continue;
-            }
-            let r_start = r.offset as u64;
-            let r_end = r.offset as u64 + r.size as u64;
-            if r_start <= cursor && cursor < r_end {
-                cursor = r_end;
-                advanced = true;
-                break;
-            }
-        }
-        if !advanced {
-            return Some(cursor);
-        }
-    }
-    None
-}
-
 /// Declared-vs-actual oracle. Reuses the shipped `WritePolicy` (declared) and
-/// the touch-map ledger (actual) — zero instrumentation in the program.
+/// the touch-map ledger (actual) — zero instrumentation in the program. The
+/// Context folds static ranges together with the invocation-selected exact
+/// cells using the selector values bound by the runtime gate.
 fn evaluate_containment(ctx: &Context<'_>) -> Containment {
     // Overflow first: a partial ledger can never certify containment.
     if ctx.touch_map_overflowed() {
         return Containment::Inconclusive;
     }
-    let policy = match ctx.write_policy() {
-        Some(p) => p,
-        None => return Containment::NoPolicy,
-    };
+    if ctx.write_policy().is_none() {
+        return Containment::NoPolicy;
+    }
     let accounts = ctx.accounts();
     let mut verdict = Containment::Contained;
     ctx.for_each_touch(|t| {
@@ -255,9 +219,10 @@ fn evaluate_containment(ctx: &Context<'_>) -> Containment {
             .position(|a| a.address().to_bytes() == touched);
         match idx {
             Some(i) if i <= u8::MAX as usize => {
-                let start = t.offset as u64;
-                let end = t.offset as u64 + t.size as u64;
-                if first_uncovered_byte(policy.allows, i as u8, start, end).is_some() {
+                if ctx
+                    .first_unauthorized_write_byte(i, t.offset, t.size)
+                    .is_some()
+                {
                     verdict = Containment::Violation {
                         account_index: i as u8,
                         offset: t.offset,
@@ -314,16 +279,14 @@ fn write_containment_matrix(manifest: &ProgramManifest) -> String {
         "//! Write-containment property tests: every actual write touch recorded by the\n",
     );
     out.push_str("//! `touch-map` ledger must be contained in the instruction's declared\n");
+    out.push_str("//! `strict_writes` `WritePolicy`. The installed policy is the SAME static\n");
     out.push_str(
-        "//! `strict_writes` `WritePolicy`. The installed policy is the SAME static set\n",
+        "//! envelopes plus invocation-selected exact cells the macro compiles from the\n",
     );
+    out.push_str("//! context declarations (published in `write_ranges` and\n");
     out.push_str(
-        "//! the macro compiles from the context's `mut` / `mut(seg, ...)` declarations\n",
+        "//! `parametric_write_ranges`), so this is a true declared-vs-actual guarantee.\n",
     );
-    out.push_str(
-        "//! (published byte-for-byte in `InstructionDescriptor::write_ranges`), so this\n",
-    );
-    out.push_str("//! is a true declared-vs-actual guarantee with zero program changes.\n");
     out.push_str("//!\n");
     out.push_str(
         "//! Requires the `touch-map` feature. For each instruction below, implement the\n",
@@ -400,6 +363,22 @@ fn emit_instruction_test(ix: &InstructionDescriptor) -> String {
             ));
         }
     }
+    if !ix.parametric_write_ranges.is_empty() {
+        out.push_str("///\n/// Invocation-parametric exact-cell rules:\n");
+        for rule in ix.parametric_write_ranges {
+            out.push_str(&format!(
+                "///   - account {} segment `{}`: base={}, stride={}, size={}, count={}, selector `{}`[{}]\n",
+                rule.account_index,
+                rule.segment_name,
+                rule.base_offset,
+                rule.stride,
+                rule.cell_size,
+                rule.count,
+                rule.argument_name,
+                rule.argument_index,
+            ));
+        }
+    }
     out.push_str(&format!(
         "///\n/// TODO(fixture): build fixtures, bind the strict_writes context, run the\n\
          /// `{name}` handler, then call `check(bound.raw())`.\n"
@@ -451,16 +430,26 @@ fn sanitize(value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use hopper_schema::{InstructionDescriptor, ProgramManifest, WriteRange};
+    use hopper_schema::{InstructionDescriptor, ParametricWriteRange, ProgramManifest, WriteRange};
 
     const fn ix(
         name: &'static str,
         strict_writes: bool,
         write_ranges: &'static [WriteRange],
     ) -> InstructionDescriptor {
+        ix_with_parametric(name, strict_writes, write_ranges, &[])
+    }
+
+    const fn ix_with_parametric(
+        name: &'static str,
+        strict_writes: bool,
+        write_ranges: &'static [WriteRange],
+        parametric_write_ranges: &'static [ParametricWriteRange],
+    ) -> InstructionDescriptor {
         InstructionDescriptor {
             name,
             tag: 0,
+            discriminator: &[0],
             args: &[],
             accounts: &[],
             remaining_accounts: None,
@@ -469,7 +458,7 @@ mod tests {
             receipt_expected: false,
             strict_writes,
             write_ranges,
-            parametric_write_ranges: &[],
+            parametric_write_ranges,
             mutation_complete: false,
             lamport_accounts: &[],
             cu_estimate: 0,
@@ -517,7 +506,7 @@ mod tests {
         // may legitimately span adjacent declarations).
         assert!(src.contains("fn evaluate_containment(ctx: &Context<'_>) -> Containment"));
         assert!(src.contains("fn assert_writes_contained(instruction: &str, ctx: &Context<'_>)"));
-        assert!(src.contains("first_uncovered_byte(policy.allows, i as u8, start, end)"));
+        assert!(src.contains("first_unauthorized_write_byte(i, t.offset, t.size)"));
         // Overflow is surfaced as inconclusive, never a silent pass.
         assert!(src.contains("touch_map_overflowed()"));
         assert!(src.contains("INCONCLUSIVE"));
@@ -535,6 +524,23 @@ mod tests {
         assert!(!src.contains("fn write_containment_peek()"));
         assert!(src.contains("Instructions WITHOUT `strict_writes`"));
         assert!(src.contains("//   - peek"));
+    }
+
+    #[test]
+    fn emitted_oracle_uses_bound_parametric_selectors() {
+        static RANGES: &[WriteRange] = &[WriteRange::new(1, 100, 20 * 8)];
+        static PARAMETRIC: &[ParametricWriteRange] = &[ParametricWriteRange::new(
+            1, 100, 8, 8, 20, 0, "slot", "balances",
+        )];
+        static IXS: &[InstructionDescriptor] =
+            &[ix_with_parametric("claim", true, RANGES, PARAMETRIC)];
+        static M: ProgramManifest = manifest(IXS);
+        let src = write_containment_matrix(&M);
+
+        assert!(src.contains("first_unauthorized_write_byte(i, t.offset, t.size)"));
+        assert!(!src.contains("first_uncovered_byte(policy.allows"));
+        assert!(src.contains("segment `balances`: base=100, stride=8, size=8, count=20"));
+        assert!(src.contains("selector `slot`[0]"));
     }
 
     #[test]
@@ -588,18 +594,49 @@ mod tests {
         NoPolicy,
     }
 
-    /// Textual twin of the emitted `first_uncovered_byte` (kept in
-    /// lock-step), over `hopper_schema::WriteRange` — the same shape the
-    /// manifest publishes.
+    /// Independent twin of the runtime's invocation-resolved containment
+    /// walk, over the same range/rule shapes the manifest publishes.
     fn first_uncovered_byte(
         ranges: &[WriteRange],
+        parametric: &[ParametricWriteRange],
+        args: &[u32],
         account_index: u8,
         start: u64,
         end: u64,
     ) -> Option<u64> {
         let mut cursor = start;
         while cursor < end {
-            let mut advanced = false;
+            let mut governing_rule = None;
+            for rule in parametric {
+                if rule.account_index != account_index {
+                    continue;
+                }
+                let envelope_start = rule.base_offset as u64;
+                let envelope_end = envelope_start
+                    + rule.stride as u64 * rule.count.saturating_sub(1) as u64
+                    + rule.cell_size as u64;
+                if envelope_start <= cursor && cursor < envelope_end {
+                    governing_rule = Some(rule);
+                    break;
+                }
+            }
+            if let Some(rule) = governing_rule {
+                let Some(selected) = args.get(rule.argument_index as usize).copied() else {
+                    return Some(cursor);
+                };
+                if selected >= rule.count {
+                    return Some(cursor);
+                }
+                let selected_start = rule.base_offset as u64 + rule.stride as u64 * selected as u64;
+                let selected_end = selected_start + rule.cell_size as u64;
+                if selected_start <= cursor && cursor < selected_end {
+                    cursor = selected_end.min(end);
+                    continue;
+                }
+                return Some(cursor);
+            }
+
+            let mut covered_until = cursor;
             for r in ranges {
                 if r.account_index != account_index {
                     continue;
@@ -607,14 +644,22 @@ mod tests {
                 let r_start = r.offset as u64;
                 let r_end = r.offset as u64 + r.size as u64;
                 if r_start <= cursor && cursor < r_end {
-                    cursor = r_end;
-                    advanced = true;
-                    break;
+                    covered_until = covered_until.max(r_end);
                 }
             }
-            if !advanced {
+            if covered_until == cursor {
                 return Some(cursor);
             }
+            for rule in parametric {
+                let envelope_start = rule.base_offset as u64;
+                if rule.account_index == account_index
+                    && cursor < envelope_start
+                    && envelope_start < covered_until
+                {
+                    covered_until = envelope_start;
+                }
+            }
+            cursor = covered_until.min(end);
         }
         None
     }
@@ -623,6 +668,16 @@ mod tests {
     fn containment_verdict(
         overflowed: bool,
         policy: Option<&[WriteRange]>,
+        touches: &[(u8, u32, u32, bool)],
+    ) -> Verdict {
+        containment_verdict_with_args(overflowed, policy, &[], &[], touches)
+    }
+
+    fn containment_verdict_with_args(
+        overflowed: bool,
+        policy: Option<&[WriteRange]>,
+        parametric: &[ParametricWriteRange],
+        args: &[u32],
         touches: &[(u8, u32, u32, bool)],
     ) -> Verdict {
         if overflowed {
@@ -638,7 +693,7 @@ mod tests {
             }
             let start = offset as u64;
             let end = offset as u64 + size as u64;
-            if first_uncovered_byte(ranges, idx, start, end).is_some() {
+            if first_uncovered_byte(ranges, parametric, args, idx, start, end).is_some() {
                 return Verdict::Violation {
                     account_index: idx,
                     offset,
@@ -650,6 +705,57 @@ mod tests {
     }
 
     static POLICY: &[WriteRange] = &[WriteRange::new(1, 16, 8), WriteRange::new(1, 24, 8)];
+
+    static PARAMETRIC_POLICY: &[WriteRange] = &[WriteRange::new(1, 100, 20 * 8)];
+    static PARAMETRIC_RULES: &[ParametricWriteRange] = &[ParametricWriteRange::new(
+        1, 100, 8, 8, 20, 0, "slot", "balances",
+    )];
+
+    #[test]
+    fn invocation_selected_cell_is_contained_but_its_neighbor_is_not() {
+        let selected = [(1u8, 100 + 7 * 8, 8u32, true)];
+        assert_eq!(
+            containment_verdict_with_args(
+                false,
+                Some(PARAMETRIC_POLICY),
+                PARAMETRIC_RULES,
+                &[7],
+                &selected,
+            ),
+            Verdict::Contained
+        );
+
+        let neighbor = [(1u8, 100 + 8 * 8, 8u32, true)];
+        assert_eq!(
+            containment_verdict_with_args(
+                false,
+                Some(PARAMETRIC_POLICY),
+                PARAMETRIC_RULES,
+                &[7],
+                &neighbor,
+            ),
+            Verdict::Violation {
+                account_index: 1,
+                offset: 100 + 8 * 8,
+                size: 8,
+            }
+        );
+
+        assert_eq!(
+            containment_verdict_with_args(
+                false,
+                Some(PARAMETRIC_POLICY),
+                PARAMETRIC_RULES,
+                &[],
+                &selected,
+            ),
+            Verdict::Violation {
+                account_index: 1,
+                offset: 100 + 7 * 8,
+                size: 8,
+            }
+        );
+    }
 
     #[test]
     fn all_declared_writes_are_contained() {

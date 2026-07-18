@@ -128,6 +128,47 @@ pub struct AccountRole {
     pub signer: bool,
 }
 
+/// Wire encoding of one instruction argument, narrowed from Hopper's
+/// manifest descriptor.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ArgEncodingContract {
+    /// Exactly `size` bytes.
+    Fixed,
+    /// A little-endian `u16` element count followed by encoded elements.
+    BoundedVec,
+    /// A little-endian `u16` byte count followed by UTF-8 bytes.
+    BoundedString,
+}
+
+impl Default for ArgEncodingContract {
+    fn default() -> Self {
+        Self::Fixed
+    }
+}
+
+/// Instruction-argument metadata needed to decode parametric selectors from
+/// the real invocation payload.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ArgContract {
+    /// Stable argument name.
+    pub name: String,
+    /// Canonical Hopper/Rust type spelling.
+    #[serde(rename = "type")]
+    pub canonical_type: String,
+    /// Fixed size or maximum encoded size, depending on [`encoding`](Self::encoding).
+    pub size: u16,
+    /// Wire encoding shape.
+    #[serde(default)]
+    pub encoding: ArgEncodingContract,
+    /// Maximum element/byte count for bounded encodings.
+    #[serde(rename = "maxLen", default)]
+    pub max_len: Option<u16>,
+    /// Encoded byte size of one bounded-vector element.
+    #[serde(rename = "elementSize", default)]
+    pub element_size: Option<u16>,
+}
+
 /// The mutation contract for one instruction.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct InstructionContract {
@@ -164,6 +205,11 @@ pub struct InstructionContract {
     /// is `true`.
     #[serde(rename = "lamportAccounts", default)]
     pub lamport_accounts: Vec<u8>,
+    /// Ordered wire arguments.  Grillo uses these descriptors to locate and
+    /// decode exact-cell selectors from the actual invocation payload rather
+    /// than trusting caller-supplied values.
+    #[serde(default)]
+    pub args: Vec<ArgContract>,
     /// The instruction's positional account list.
     #[serde(default)]
     pub accounts: Vec<AccountRole>,
@@ -183,6 +229,11 @@ pub trait MutationContractView {
     fn authorized_ranges(&self) -> &[RangeContract];
     /// Account indices permitted to mutate lamports.
     fn lamport_accounts(&self) -> &[u8];
+    /// Whether this is still a conservative contract that must be resolved
+    /// against invocation arguments before it can authorize bytes.
+    fn requires_resolution(&self) -> bool {
+        false
+    }
 
     /// Whether `account_index` is authorized to mutate lamports.
     fn authorizes_lamports(&self, account_index: u8) -> bool {
@@ -205,6 +256,10 @@ impl MutationContractView for InstructionContract {
 
     fn lamport_accounts(&self) -> &[u8] {
         &self.lamport_accounts
+    }
+
+    fn requires_resolution(&self) -> bool {
+        !self.parametric.is_empty()
     }
 }
 
@@ -431,6 +486,44 @@ mod tests {
             !ix.authorizes_lamports(1),
             "not mutation-complete => no lamport authority"
         );
+    }
+
+    #[test]
+    fn parses_parametric_rules_and_selector_wire_metadata() {
+        let json = r#"{
+            "name": "p",
+            "version": "1.0.0",
+            "instructions": [{
+                "name": "claim",
+                "tag": 4,
+                "args": [
+                    { "name": "slot", "type": "u16", "size": 2, "encoding": "fixed" }
+                ],
+                "accounts": [
+                    { "name": "shard", "writable": true, "signer": false }
+                ],
+                "strictWrites": true,
+                "writeRanges": [
+                    { "accountIndex": 0, "offset": 100, "size": 20 }
+                ],
+                "parametricWriteRanges": [{
+                    "accountIndex": 0,
+                    "baseOffset": 100,
+                    "stride": 1,
+                    "cellSize": 1,
+                    "count": 20,
+                    "argumentIndex": 0,
+                    "argument": "slot",
+                    "segment": "statuses"
+                }]
+            }]
+        }"#;
+        let manifest = MutationManifest::from_json(json).unwrap();
+        let claim = manifest.instruction("claim").unwrap();
+        assert_eq!(claim.args[0].encoding, ArgEncodingContract::Fixed);
+        assert_eq!(claim.parametric.len(), 1);
+        assert_eq!(claim.parametric[0].argument_name, "slot");
+        assert_eq!(claim.parametric[0].envelope_end(), Some(120));
     }
 
     #[test]

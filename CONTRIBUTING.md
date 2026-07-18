@@ -9,16 +9,15 @@ from PRs and how to land one cleanly.
 
 - **Website**: [hopperzero.dev](https://hopperzero.dev)
 - **Issues**: [github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/issues](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/issues)
-- **Audit**: [AUDIT.md](AUDIT.md) - full feature audit and parity findings vs Pinocchio, Quasar, Anchor.
+- **Comparison**: [COMPARISON.md](COMPARISON.md) - full feature comparison and parity findings vs Pinocchio, Quasar, Anchor.
 - **Architecture**: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - **Unsafe inventory**: [docs/UNSAFE_INVARIANTS.md](docs/UNSAFE_INVARIANTS.md)
 
 ## What to work on
 
 Open issues labelled `good-first-issue` are scoped for newcomers. The
-[AUDIT.md](AUDIT.md) gap list at the end of the document is the
-authoritative roadmap for parity additions; pick something marked
-"deferred" and open an issue to claim it.
+parity matrix in [COMPARISON.md](COMPARISON.md) is the authoritative
+reference for parity additions; pick a gap and open an issue to claim it.
 
 We particularly welcome:
 

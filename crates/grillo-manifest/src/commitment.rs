@@ -3,19 +3,20 @@
 //! The commitment is `SHA-256` over a canonical, deterministic byte
 //! encoding of the mutation contract (stable field order, little-endian
 //! integers). Two manifests with an identical mutation contract hash equal;
-//! ANY change to a range, a flag, a lamport permission, or an instruction's
-//! identity changes the hash. It is deliberately independent of manifest
-//! cosmetics — account display names, argument lists, layouts, program
-//! description — so a commitment pins exactly "what bytes and lamports this
-//! program may move," and nothing else.
+//! ANY change to a range, a parametric selector rule, its wire-decoding
+//! metadata, a flag, a lamport permission, or an instruction's identity
+//! changes the hash. It is deliberately independent of manifest
+//! cosmetics — account display names/roles, layouts, and program description
+//! — so a commitment pins exactly the identity and wire inputs needed to
+//! resolve "what bytes and lamports this program may move."
 
-use crate::manifest::{InstructionContract, MutationManifest};
+use crate::manifest::{ArgEncodingContract, InstructionContract, MutationManifest};
 use crate::sha256::sha256;
 
 /// Domain-separation tag + version for the canonical encoding. Bump the
 /// trailing version if the encoding ever changes so commitments produced by
 /// different encoders can never silently collide.
-const COMMIT_DOMAIN: &[u8] = b"grillo.mutation-contract.v1";
+const COMMIT_DOMAIN: &[u8] = b"grillo.mutation-contract.v2";
 
 impl InstructionContract {
     /// Append this instruction's canonical mutation-contract encoding to
@@ -28,8 +29,12 @@ impl InstructionContract {
     /// u8   tag
     /// u8   strict_writes    (0/1)
     /// u8   mutation_complete (0/1)
+    /// u32  argument descriptor count
+    ///   repeated: name | canonical type | size | encoding | bounded metadata
     /// u32  authorized range count
     ///   repeated: u8 account_index | u32 offset | u32 size
+    /// u32  parametric rule count
+    ///   repeated: every numeric field | argument name | segment name
     /// u32  lamport account count
     ///   repeated: u8 account_index
     /// ```
@@ -40,11 +45,37 @@ impl InstructionContract {
         out.push(self.strict_writes as u8);
         out.push(self.mutation_complete as u8);
 
+        out.extend_from_slice(&(self.args.len() as u32).to_le_bytes());
+        for arg in &self.args {
+            encode_string(out, &arg.name);
+            encode_string(out, &arg.canonical_type);
+            out.extend_from_slice(&arg.size.to_le_bytes());
+            out.push(match arg.encoding {
+                ArgEncodingContract::Fixed => 0,
+                ArgEncodingContract::BoundedVec => 1,
+                ArgEncodingContract::BoundedString => 2,
+            });
+            encode_optional_u16(out, arg.max_len);
+            encode_optional_u16(out, arg.element_size);
+        }
+
         out.extend_from_slice(&(self.authorized.len() as u32).to_le_bytes());
         for r in &self.authorized {
             out.push(r.account_index);
             out.extend_from_slice(&r.offset.to_le_bytes());
             out.extend_from_slice(&r.size.to_le_bytes());
+        }
+
+        out.extend_from_slice(&(self.parametric.len() as u32).to_le_bytes());
+        for rule in &self.parametric {
+            out.push(rule.account_index);
+            out.extend_from_slice(&rule.base_offset.to_le_bytes());
+            out.extend_from_slice(&rule.stride.to_le_bytes());
+            out.extend_from_slice(&rule.cell_size.to_le_bytes());
+            out.extend_from_slice(&rule.count.to_le_bytes());
+            out.push(rule.argument_index);
+            encode_string(out, &rule.argument_name);
+            encode_string(out, &rule.segment_name);
         }
 
         out.extend_from_slice(&(self.lamport_accounts.len() as u32).to_le_bytes());
@@ -61,6 +92,21 @@ impl InstructionContract {
         out.extend_from_slice(b".instruction");
         self.encode_canonical(&mut out);
         sha256(&out)
+    }
+}
+
+fn encode_string(out: &mut Vec<u8>, value: &str) {
+    out.extend_from_slice(&(value.len() as u32).to_le_bytes());
+    out.extend_from_slice(value.as_bytes());
+}
+
+fn encode_optional_u16(out: &mut Vec<u8>, value: Option<u16>) {
+    match value {
+        Some(value) => {
+            out.push(1);
+            out.extend_from_slice(&value.to_le_bytes());
+        }
+        None => out.push(0),
     }
 }
 
@@ -88,7 +134,9 @@ impl MutationManifest {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::manifest::{AccountRole, RangeContract};
+    use crate::manifest::{
+        AccountRole, ArgContract, ArgEncodingContract, ParametricRangeContract, RangeContract,
+    };
 
     fn sample() -> MutationManifest {
         MutationManifest {
@@ -111,7 +159,25 @@ mod tests {
                         size: 8,
                     },
                 ],
+                parametric: vec![ParametricRangeContract {
+                    account_index: 1,
+                    base_offset: 115,
+                    stride: 8,
+                    cell_size: 8,
+                    count: 1,
+                    argument_index: 0,
+                    argument_name: "slot".to_string(),
+                    segment_name: "revision".to_string(),
+                }],
                 lamport_accounts: vec![],
+                args: vec![ArgContract {
+                    name: "slot".to_string(),
+                    canonical_type: "u16".to_string(),
+                    size: 2,
+                    encoding: ArgEncodingContract::Fixed,
+                    max_len: None,
+                    element_size: None,
+                }],
                 accounts: vec![
                     AccountRole {
                         name: "admin".to_string(),
@@ -171,6 +237,32 @@ mod tests {
         let mut m = sample();
         m.instructions[0].lamport_accounts.push(1);
         assert_ne!(base, m.commitment());
+    }
+
+    #[test]
+    fn changing_any_parametric_rule_field_changes_the_commitment() {
+        let base = sample().commitment();
+
+        let mut changed = sample();
+        changed.instructions[0].parametric[0].stride += 1;
+        assert_ne!(base, changed.commitment());
+
+        let mut changed = sample();
+        changed.instructions[0].parametric[0].argument_name = "other".to_string();
+        assert_ne!(base, changed.commitment());
+
+        let mut changed = sample();
+        changed.instructions[0].parametric[0].segment_name = "other".to_string();
+        assert_ne!(base, changed.commitment());
+    }
+
+    #[test]
+    fn changing_selector_wire_metadata_changes_the_commitment() {
+        let base = sample().commitment();
+        let mut changed = sample();
+        changed.instructions[0].args[0].canonical_type = "u32".to_string();
+        changed.instructions[0].args[0].size = 4;
+        assert_ne!(base, changed.commitment());
     }
 
     #[test]

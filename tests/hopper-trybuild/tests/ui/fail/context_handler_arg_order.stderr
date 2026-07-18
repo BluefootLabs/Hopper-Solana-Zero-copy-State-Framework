@@ -1,0 +1,5 @@
+error[E0080]: evaluation panicked: handler/context instruction arguments must have identical names and order
+  --> tests/ui/fail/context_handler_arg_order.rs:18:1
+   |
+18 | #[hopper::program(entrypoint = false)]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ evaluation of `bad_order::_` failed here

@@ -17,7 +17,7 @@ let vested = vested_amount(total, start, cliff, end, now);
 let to_send = claimable(vested, already_claimed);
 ```
 
-Docs: <https://docs.rs/crate/hopper-vesting/0.2.1>
+Docs: <https://docs.rs/crate/hopper-vesting/0.3.0>
 
 Support: `solanadevdao.sol` / `F42ZovBoRJZU4av5MiESVwJWnEx8ZQVFkc1RM29zMxNT`.
 

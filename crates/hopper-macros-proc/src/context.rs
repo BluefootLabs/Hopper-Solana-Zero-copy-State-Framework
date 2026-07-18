@@ -4161,7 +4161,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
     // Context stores only values actually used by policy rules (bounded at
     // eight by the runtime), and each rule records the corresponding compact
     // index plus stable names for schema consumers.
-    let mut parametric_selector_names: Vec<Ident> = Vec::new();
+    let mut parametric_selectors: Vec<(Ident, Type, u16)> = Vec::new();
     let mut parametric_range_exprs: Vec<TokenStream> = Vec::new();
     for cf in &ctx_fields {
         if cf.attr.cell_groups.is_empty() {
@@ -4181,23 +4181,31 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         }
         let field_ty = layout_type_for_field(cf).unwrap_or_else(|| cf.ty.clone());
         for group in &cf.attr.cell_groups {
-            if !instruction_args
+            let selector_arg = instruction_args
                 .iter()
-                .any(|arg| arg.name == group.selector)
-            {
-                return Err(syn::Error::new_spanned(
+                .find(|arg| arg.name == group.selector)
+                .ok_or_else(|| syn::Error::new_spanned(
                     &group.selector,
                     "cells selector must be declared by #[instruction(selector: Type)] on the context",
+                ))?;
+            let Some(selector_wire_size) = exact_cell_selector_wire_size(&selector_arg.ty) else {
+                return Err(syn::Error::new_spanned(
+                    &selector_arg.ty,
+                    "cells selector type must be u8, u16, or u32; signed and wider integers would make runtime and manifest resolution diverge",
                 ));
-            }
-            let argument_index = match parametric_selector_names
+            };
+            let argument_index = match parametric_selectors
                 .iter()
-                .position(|name| *name == group.selector)
+                .position(|(name, _, _)| *name == group.selector)
             {
                 Some(index) => index,
                 None => {
-                    parametric_selector_names.push(group.selector.clone());
-                    parametric_selector_names.len() - 1
+                    parametric_selectors.push((
+                        group.selector.clone(),
+                        selector_arg.ty.clone(),
+                        selector_wire_size,
+                    ));
+                    parametric_selectors.len() - 1
                 }
             };
             if argument_index > u8::MAX as usize {
@@ -4229,20 +4237,69 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             }
         }
     }
-    if parametric_selector_names.len() > 8 {
+    if parametric_selectors.len() > 8 {
         return Err(syn::Error::new_spanned(
             &name,
             "a context may bind at most eight distinct cells(...) selectors",
         ));
     }
     let has_parametric_writes = !parametric_range_exprs.is_empty();
+    let parametric_selector_type_asserts = parametric_selectors.iter().map(
+        |(_, selector_ty, authored_wire_size)| {
+            quote! {
+                const _: () = ::core::assert!(
+                    <#selector_ty as ::hopper::__runtime::write_policy::ExactCellSelector>::WIRE_SIZE
+                        == #authored_wire_size,
+                    "cells selector primitive spelling does not match its semantic wire width",
+                );
+            }
+        },
+    );
     let parametric_write_ranges_item = quote! {
+        #(#parametric_selector_type_asserts)*
+
         #[doc(hidden)]
         #[allow(non_upper_case_globals)]
         #vis const #parametric_write_ranges_const_ident:
             &[::hopper::__runtime::write_policy::ParametricWriteRange] = &[
                 #(#parametric_range_exprs),*
             ];
+
+        // Grillo and other independent consumers resolve parametric policies
+        // as an unordered set of governed envelopes.  Reject order-dependent
+        // overlap at compile time so that view is byte-identical to the
+        // runtime's first-matching-rule scan.
+        const _: () = {
+            let __rules = #parametric_write_ranges_const_ident;
+            let mut __i = 0usize;
+            while __i < __rules.len() {
+                let __left = &__rules[__i];
+                ::core::assert!(__left.count > 0, "cells rule count must be non-zero");
+                ::core::assert!(__left.cell_size > 0, "cells rule size must be non-zero");
+                ::core::assert!(
+                    __left.count <= 1 || __left.stride >= __left.cell_size,
+                    "cells rule stride must not overlap adjacent cells",
+                );
+                let __left_end = __left.base_offset as u64
+                    + __left.stride as u64 * (__left.count - 1) as u64
+                    + __left.cell_size as u64;
+                let mut __j = __i + 1;
+                while __j < __rules.len() {
+                    let __right = &__rules[__j];
+                    let __right_end = __right.base_offset as u64
+                        + __right.stride as u64 * (__right.count - 1) as u64
+                        + __right.cell_size as u64;
+                    ::core::assert!(
+                        __left.account_index != __right.account_index
+                            || __left_end <= __right.base_offset as u64
+                            || __right_end <= __left.base_offset as u64,
+                        "cells rules on one account must have disjoint envelopes",
+                    );
+                    __j += 1;
+                }
+                __i += 1;
+            }
+        };
     };
 
     // Consumer 2: the composite-free authority ranges, byte-identical to
@@ -4756,9 +4813,15 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
     // governed set or sharing another gate's slot. The `static` is
     // emitted at function-statement level (no wrapping block) so the
     // guard binding stays in scope for the bound-struct constructor.
-    let parametric_arg_values = parametric_selector_names.iter().map(|selector| {
-        quote! { (#selector) as u32 }
-    });
+    let parametric_arg_values = parametric_selectors
+        .iter()
+        .map(|(selector, selector_ty, _)| {
+            quote! {
+                <#selector_ty as ::hopper::__runtime::write_policy::ExactCellSelector>::to_u32(
+                    #selector,
+                )
+            }
+        });
     let write_policy_install_stmt: TokenStream = if mutation_complete && has_parametric_writes {
         quote! {
             static __HOPPER_WRITE_POLICY:
@@ -6807,6 +6870,28 @@ fn type_ident(ty: &Type) -> Result<Ident> {
             ty,
             "hopper_context segment accessors require path types such as `Vault`",
         )),
+    }
+}
+
+/// Exact-cell selectors are serialized and published as unsigned values that
+/// Grillo can recover losslessly from instruction bytes.  Keep this list in
+/// lockstep with `grillo_manifest::resolve::decode_unsigned_selector`.
+fn exact_cell_selector_wire_size(ty: &Type) -> Option<u16> {
+    let Type::Path(path) = ty else {
+        return None;
+    };
+    if path.qself.is_some() || path.path.segments.len() != 1 {
+        return None;
+    }
+    let segment = &path.path.segments[0];
+    if !matches!(&segment.arguments, syn::PathArguments::None) {
+        return None;
+    }
+    match segment.ident.to_string().as_str() {
+        "u8" => Some(1),
+        "u16" => Some(2),
+        "u32" => Some(4),
+        _ => None,
     }
 }
 

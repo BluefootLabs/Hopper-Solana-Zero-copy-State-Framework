@@ -2,9 +2,12 @@
 //! violation shape, the acquired-but-unchanged note, and the two
 //! INCONCLUSIVE gates (no byte contract / partial map).
 
-use grillo_manifest::{InstructionContract, RangeContract};
+use grillo_manifest::{
+    ArgContract, ArgEncodingContract, InstructionContract, ParametricRangeContract, RangeContract,
+};
 use grillo_verifier::{
-    verify, AccountDelta, InconclusiveReason, TouchMap, TouchRecord, Verdict, Violation,
+    verify, verify_invocation, AccountDelta, InconclusiveReason, TouchMap, TouchRecord, Verdict,
+    Violation,
 };
 
 // ── builders ────────────────────────────────────────────────────────────
@@ -21,7 +24,9 @@ fn contract(
         strict_writes,
         mutation_complete,
         authorized,
+        parametric: vec![],
         lamport_accounts,
+        args: vec![],
         accounts: vec![],
     }
 }
@@ -73,6 +78,8 @@ fn pass_when_changed_within_acquired_within_authorized() {
 
     match verify(&c, &[AccountDelta::new(1, &pre, &post)], &map) {
         Verdict::Pass(ev) => {
+            assert_eq!(ev.observed_data_accounts, vec![1]);
+            assert!(ev.observed_lamport_accounts.is_empty());
             assert_eq!(ev.changed_bytes, 2);
             assert_eq!(ev.changed, vec![rng(1, 114, 2)]);
             assert!(ev.acquired_unchanged.is_empty());
@@ -237,6 +244,23 @@ fn lamport_delta_is_ignored_when_not_mutation_complete() {
     assert!(verify(&c, &deltas, &map).is_pass());
 }
 
+#[test]
+fn pass_evidence_distinguishes_observed_and_unobserved_lamports() {
+    let c = contract(true, true, vec![], vec![1]);
+    let empty: &[u8] = &[];
+    let deltas = [
+        AccountDelta::new(0, empty, empty),
+        AccountDelta::new(1, empty, empty).with_lamports(0, 0),
+    ];
+    match verify(&c, &deltas, &complete_map(vec![])) {
+        Verdict::Pass(ev) => {
+            assert_eq!(ev.observed_data_accounts, vec![0, 1]);
+            assert_eq!(ev.observed_lamport_accounts, vec![1]);
+        }
+        other => panic!("expected scoped PASS, got:\n{}", other.render()),
+    }
+}
+
 // ── INCONCLUSIVE ──────────────────────────────────────────────────────────
 
 #[test]
@@ -292,6 +316,62 @@ fn a_partial_map_is_inconclusive_never_a_false_pass() {
 // ── render ────────────────────────────────────────────────────────────────
 
 #[test]
+fn parametric_contract_requires_wire_resolution_and_rejects_neighbor_cell() {
+    let mut c = contract(true, false, vec![rng(1, 100, 10)], vec![]);
+    c.args.push(ArgContract {
+        name: "slot".to_string(),
+        canonical_type: "u16".to_string(),
+        size: 2,
+        encoding: ArgEncodingContract::Fixed,
+        max_len: None,
+        element_size: None,
+    });
+    c.parametric.push(ParametricRangeContract {
+        account_index: 1,
+        base_offset: 100,
+        stride: 1,
+        cell_size: 1,
+        count: 10,
+        argument_index: 0,
+        argument_name: "slot".to_string(),
+        segment_name: "statuses".to_string(),
+    });
+
+    let pre = vec![0u8; 120];
+    let mut selected_post = pre.clone();
+    selected_post[103] = 1;
+    assert_eq!(
+        verify(
+            &c,
+            &[AccountDelta::new(1, &pre, &selected_post)],
+            &complete_map(vec![write(1, 103, 1)]),
+        ),
+        Verdict::Inconclusive(InconclusiveReason::ParametricArgumentsRequired)
+    );
+    assert!(verify_invocation(
+        &c,
+        &3u16.to_le_bytes(),
+        &[AccountDelta::new(1, &pre, &selected_post)],
+        &complete_map(vec![write(1, 103, 1)]),
+    )
+    .unwrap()
+    .is_pass());
+
+    let mut neighbor_post = pre.clone();
+    neighbor_post[104] = 1;
+    assert!(matches!(
+        verify_invocation(
+            &c,
+            &3u16.to_le_bytes(),
+            &[AccountDelta::new(1, &pre, &neighbor_post)],
+            &complete_map(vec![write(1, 104, 1)]),
+        )
+        .unwrap(),
+        Verdict::Violation(_)
+    ));
+}
+
+#[test]
 fn render_reports_each_verdict_shape() {
     let c = contract(true, false, vec![rng(1, 114, 1)], vec![]);
     let pre = vec![0u8; 200];
@@ -303,7 +383,9 @@ fn render_reports_each_verdict_shape() {
         &[AccountDelta::new(1, &pre, &post)],
         &complete_map(vec![write(1, 114, 1)]),
     );
-    assert!(pass.render().contains("PASS"));
+    let rendered = pass.render();
+    assert!(rendered.contains("SCOPED PASS"));
+    assert!(rendered.contains("observed data accounts: [1]"));
 
     let mut bad = post.clone();
     bad[16] = 9;

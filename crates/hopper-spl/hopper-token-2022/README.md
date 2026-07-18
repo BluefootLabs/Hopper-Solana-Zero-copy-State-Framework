@@ -4,7 +4,7 @@ Hopper-owned Token-2022 builders plus extension screening helpers. The
 extension-aware companion to [`hopper-token`](../hopper-token).
 
 [![Crates.io](https://img.shields.io/crates/v/hopper-token-2022.svg)](https://crates.io/crates/hopper-token-2022)
-[![Docs.rs](https://img.shields.io/docsrs/hopper-token-2022)](https://docs.rs/crate/hopper-token-2022/0.2.1)
+[![Docs.rs](https://img.shields.io/docsrs/hopper-token-2022)](https://docs.rs/crate/hopper-token-2022/0.3.0)
 
 Part of the **[Hopper](https://hopperzero.dev)** framework.
 
@@ -39,7 +39,7 @@ hopper::hopper_token_2022::check_safe_token_2022_mint(&mint_data)?;
 See [`examples/hopper-token-2022-transfer-hook`](../../examples/hopper-token-2022-transfer-hook/src/lib.rs)
 for an end-to-end transfer-hook validation pattern.
 
-Docs: <https://docs.rs/crate/hopper-token-2022/0.2.1>
+Docs: <https://docs.rs/crate/hopper-token-2022/0.3.0>
 
 Support: `solanadevdao.sol` / `F42ZovBoRJZU4av5MiESVwJWnEx8ZQVFkc1RM29zMxNT`.
 

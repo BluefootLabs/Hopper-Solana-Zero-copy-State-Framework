@@ -365,7 +365,7 @@ section below for why those numbers were un-deployable.
   "10× cheaper than Anchor" stops being a durable headline for any
   framework. The durable ground is winning within the zero-copy cluster
   (see the router lab above) plus the state/safety/tooling surface no
-  Pinocchio-derived framework has (see `docs/THE_MOAT.md`).
+  Pinocchio-derived framework has (see `COMPARISON.md`).
 - Hopper beats Quasar on **both** upstream Quasar workloads (deposit
   −106 CU, withdraw −150 CU) while carrying its full state-contract
   surface. Quasar publishes no comparative CU benchmark of its own; this
@@ -545,8 +545,7 @@ budget; opting into full receipt emission adds ~1.1% of a 200k budget.
 ## Deploy-cost economics
 
 Rent-exempt deploy cost follows `(elf_bytes + 128) × 6,960` lamports
-(formula verified against a live mainnet program-account balance; see
-`docs/audit/GAP_CLOSURE_AND_INNOVATION_2026.md`, section 2). Applied to the
+(formula verified against a live mainnet program-account balance). Applied to the
 2026-07-07 vault matrix and the devnet counter:
 
 | Artifact | Size | Rent at deploy |

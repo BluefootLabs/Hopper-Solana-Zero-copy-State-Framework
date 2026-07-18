@@ -175,9 +175,10 @@ pub struct HopperInstructionPolicy {
     /// constraint evaluation. which is the legacy shape and matches
     /// Anchor's non-`#[instruction]` accounts struct. When a context
     /// was declared with `#[instruction(name: Type, ...)]`, the handler
-    /// must set `ctx_args` ≥ the number of declared args so that every
-    /// arg referenced by a seed / constraint resolves to a real typed
-    /// binding inside `bind_with_args`.
+    /// must set `ctx_args` equal to the number of declared args. Generated
+    /// code also pins identical names and order, so every seed, constraint,
+    /// and exact-cell selector resolves to the same wire value off chain and
+    /// on chain.
     pub ctx_args: u8,
 }
 

@@ -96,12 +96,11 @@ pub struct Note<'a> {
 - `hopper solana-check`, `publish-check`, and the SBF workflow keep deployable crate shape and direct-runtime assumptions honest.
 - Actions, mobile, and security-test generators have a manifest-backed foundation for product scaffolding.
 
-See [THE_MOAT.md](THE_MOAT.md) for which of these a Pinocchio-based framework could copy and which it structurally cannot.
+See [COMPARISON.md](../COMPARISON.md) for which of these a Pinocchio-based framework could copy and which it structurally cannot.
 
 ## Project maturity and soundness track record
 
-Facts verified 2026-07-07 against public trackers and registries (sources in
-`docs/audit/GAP_CLOSURE_AND_INNOVATION_2026.md`, section 2). This is stated
+Facts verified 2026-07-07 against public trackers and registries. This is stated
 factually because readers weighing the two frameworks need it, not as a knock
 on Quasar's engineering, which is real.
 
@@ -109,8 +108,8 @@ on Quasar's engineering, which is real.
   on crates.io — and describes itself as "Beta … not audited". It builds only
   on nightly Rust with a bespoke toolchain. Hopper is published
   (hopper-lang 0.2.1 on crates.io), builds on stable Rust (pinned 1.96.0),
-  and carries a line-by-line audit trail (`AUDIT.md`,
-  `docs/UNSAFE_INVARIANTS.md`).
+  and carries a line-by-line audit trail
+  (`docs/UNSAFE_INVARIANTS.md`).
 - **Open soundness issues.** Quasar's tracker carries five open
   unsoundness/correctness issues as of 2026-07:
   [#238](https://github.com/blueshift-gg/quasar/issues/238) and

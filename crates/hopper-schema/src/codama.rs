@@ -635,6 +635,15 @@ fn write_instruction_array(
         write_indent(f, 3)?;
         writeln!(f, "\"tag\": {},", ix.tag)?;
         write_indent(f, 3)?;
+        write!(f, "\"discriminatorBytes\": [")?;
+        for (d, byte) in ix.discriminator.iter().enumerate() {
+            if d > 0 {
+                write!(f, ", ")?;
+            }
+            write!(f, "{}", byte)?;
+        }
+        writeln!(f, "],")?;
+        write_indent(f, 3)?;
         write!(f, "\"args\": ")?;
         write_args_json(f, ix.args, 3)?;
         writeln!(f, ",")?;
@@ -1495,6 +1504,7 @@ mod tests {
         static IX: &[InstructionDescriptor] = &[InstructionDescriptor {
             name: "deposit",
             tag: 1,
+            discriminator: &[1],
             args: ARGS,
             accounts: ACCTS,
             remaining_accounts: None,
@@ -1553,6 +1563,7 @@ mod tests {
         static IX: &[InstructionDescriptor] = &[InstructionDescriptor {
             name: "deposit",
             tag: 1,
+            discriminator: &[1],
             args: ARGS,
             accounts: ACCTS,
             remaining_accounts: None,
@@ -1741,6 +1752,7 @@ mod tests {
     static WR_STRICT_IX: &[InstructionDescriptor] = &[InstructionDescriptor {
         name: "deposit",
         tag: 1,
+        discriminator: &[1],
         args: &[],
         accounts: WR_ACCTS,
         remaining_accounts: None,
@@ -1757,6 +1769,7 @@ mod tests {
     static WR_LOOSE_IX: &[InstructionDescriptor] = &[InstructionDescriptor {
         name: "deposit",
         tag: 1,
+        discriminator: &[1],
         args: &[],
         accounts: WR_ACCTS,
         remaining_accounts: None,
@@ -1777,6 +1790,7 @@ mod tests {
     static WR_COMPLETE_IX: &[InstructionDescriptor] = &[InstructionDescriptor {
         name: "deposit",
         tag: 1,
+        discriminator: &[1],
         args: &[],
         accounts: WR_ACCTS,
         remaining_accounts: None,
@@ -1839,6 +1853,7 @@ mod tests {
         static CU_IX: &[InstructionDescriptor] = &[InstructionDescriptor {
             name: "deposit",
             tag: 1,
+            discriminator: &[1],
             args: &[],
             accounts: WR_ACCTS,
             remaining_accounts: None,
@@ -1941,6 +1956,7 @@ mod tests {
         static UNPOP_IX: &[InstructionDescriptor] = &[InstructionDescriptor {
             name: "deposit",
             tag: 1,
+            discriminator: &[1],
             args: &[],
             accounts: WR_ACCTS,
             remaining_accounts: None,

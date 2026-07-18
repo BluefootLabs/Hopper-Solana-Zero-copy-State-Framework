@@ -110,10 +110,10 @@ the layout fingerprint as `tail_str` or `tail_bytes`.
 
 ```toml
 [dependencies]
-hopper = { package = "hopper-lang", version = "0.2.1", features = ["proc-macros"] }
+hopper = { package = "hopper-lang", version = "0.3.0", features = ["proc-macros"] }
 ```
 
-Docs: <https://docs.rs/crate/hopper-derive/0.2.1>
+Docs: <https://docs.rs/crate/hopper-derive/0.3.0>
 
 Support: `solanadevdao.sol` / `F42ZovBoRJZU4av5MiESVwJWnEx8ZQVFkc1RM29zMxNT`.
 

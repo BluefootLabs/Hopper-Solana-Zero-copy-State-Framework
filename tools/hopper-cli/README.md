@@ -25,8 +25,9 @@ cargo run -p hopper-cli -- help
 
 ```
 Compile
-  hopper compile --emit <rust|ts|kt|py|go|c|rust-client|idl|codama|schema> [<manifest>|--package <name>|--program-id ...]
+  hopper compile --emit <rust|ts|kt|py|go|c|rust-client|idl|codama|schema|manifest> [<manifest>|--package <name>|--program-id ...]
                                       Emit lowered Rust, client SDKs, IDL JSON, Codama, or manifest
+  hopper compile --emit manifest --package <name>  Generate hopper.manifest.json (the Effect ABI carrier) from package source
 
 Verify
   hopper verify [<manifest>] [<.so>]        Confirm manifest layouts are present in the compiled binary
@@ -95,6 +96,7 @@ Profiling
 Project Health
   hopper lint                        Run Hopper project diagnostics
   hopper lint zc                     Scan typed-context sources for zero-copy footguns
+  hopper lint --deny-escapes         Policy-escape audit as CI errors (flags ledger-bypassing accessors)
   hopper solana-check [--all]        Check SBF crate shape and Hopper entrypoint invariants
   hopper expand                      Show lowered macro output for the current project
   hopper doctor                      Check toolchain and workspace health
@@ -153,7 +155,7 @@ and a successful `cargo build-sbf` for each program crate. Actions, mobile, and
 security-test commands are manifest-backed scaffolds unless a project extends
 the generated files into a production workflow.
 
-Docs: <https://docs.rs/crate/hopper-cli/0.2.1>
+Docs: <https://docs.rs/crate/hopper-cli/0.3.0>
 
 ## Support
 

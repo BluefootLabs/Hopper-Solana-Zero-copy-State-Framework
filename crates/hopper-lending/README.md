@@ -22,7 +22,7 @@ let max_repay = max_liquidation_amount(debt_value, close_factor_bps)?;
 let seized = liquidation_seize_amount(max_repay, bonus_bps)?;
 ```
 
-Docs: <https://docs.rs/crate/hopper-lending/0.2.1>
+Docs: <https://docs.rs/crate/hopper-lending/0.3.0>
 
 Support: `solanadevdao.sol` / `F42ZovBoRJZU4av5MiESVwJWnEx8ZQVFkc1RM29zMxNT`.
 

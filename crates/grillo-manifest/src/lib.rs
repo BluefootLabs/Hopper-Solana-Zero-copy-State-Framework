@@ -49,8 +49,22 @@
 //! ```
 
 mod commitment;
+mod effect_v2;
 mod manifest;
+mod resolve;
 mod sha256;
 
-pub use manifest::{AccountRole, InstructionContract, MutationManifest, ParseError, RangeContract};
+pub use manifest::{
+    AccountRole, ArgContract, ArgEncodingContract, InstructionContract, MutationContractView,
+    MutationManifest, ParametricRangeContract, ParseError, RangeContract,
+};
+pub use resolve::{ResolveError, ResolvedInstructionContract, ResolvedSelector};
 pub use sha256::sha256;
+pub use effect_v2::{
+    AccountRoleContractV2, AddressConstraintV2, ContractCompletenessV2, CpiAccountBindingV2,
+    CpiEnvelopeV2, CpiPolicyV2, DataPolicyV2, DataRangeV2, DeploymentBindingV2,
+    DuplicatePolicyV2, EffectContractV2, EffectContractV2Error, ExecutablePolicyV2,
+    InstructionEffectContractV2, LamportPolicyV2, LengthPolicyV2, OwnerPolicyV2,
+    OwnerTargetV2, PresencePolicyV2, PrivilegeRequirementV2, RemainingAccountsContractV2,
+    RemainingGroupV2, TransitionPolicyV2, EFFECT_ABI_V2,
+};

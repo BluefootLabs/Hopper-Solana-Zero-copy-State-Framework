@@ -367,6 +367,209 @@ pub unsafe fn deserialize_accounts_fast<'info, const MAX: usize>(
 /// cluster gate, exactly like `simd-0321`.
 pub const SIMD_0449_TABLE_ENABLED: bool = cfg!(feature = "simd-0449");
 
+/// Failure reported by the host/replay SIMD-0449 conformance decoder.
+///
+/// The on-chain fast path deliberately trusts the loader: the SVM constructs
+/// the pointer table and a program cannot alter it before entry. Replay tools,
+/// alternate SVMs, fuzzers, and fixture consumers do not get that trust for
+/// free, so [`deserialize_accounts_0449_checked`] validates the complete
+/// account walk and requires every table entry to equal the canonical record
+/// pointer the legacy ABI walk derives.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DirectMappingError {
+    /// The input pointer was null.
+    NullInput,
+    /// Integer arithmetic over the supplied frame bounds overflowed.
+    ArithmeticOverflow,
+    /// The supplied byte length ends in the middle of an ABI component.
+    TruncatedInput,
+    /// The frame contains more accounts than the caller-provided output.
+    TooManyAccounts {
+        count: usize,
+        capacity: usize,
+    },
+    /// A duplicate marker did not refer to a strictly earlier slot.
+    MalformedDuplicate { slot: usize, duplicate_of: usize },
+    /// The caller's instruction-data slice is not the exact slice in `input`.
+    InstructionDataMismatch,
+    /// The computed pointer table is not aligned to an eight-byte boundary.
+    PointerTableMisaligned,
+    /// A table entry points outside the supplied input frame.
+    PointerOutOfBounds { slot: usize },
+    /// A table entry is not aligned like a canonical account record.
+    PointerMisaligned { slot: usize },
+    /// A table entry is in-bounds but does not name this slot's canonical
+    /// account record (including duplicate-slot canonicalization).
+    NonCanonicalPointer { slot: usize },
+}
+
+#[inline(always)]
+fn checked_end(offset: usize, size: usize, input_len: usize) -> Result<usize, DirectMappingError> {
+    let end = offset
+        .checked_add(size)
+        .ok_or(DirectMappingError::ArithmeticOverflow)?;
+    if end > input_len {
+        return Err(DirectMappingError::TruncatedInput);
+    }
+    Ok(end)
+}
+
+/// Validate and consume a SIMD-0449 account-pointer table.
+///
+/// This is the conformance/replay companion to
+/// [`deserialize_accounts_0449_into`]. It independently walks the legacy
+/// account section, validates every record boundary and duplicate marker,
+/// pins the caller-provided instruction-data slice to the frame, then checks
+/// every direct pointer against the canonical address derived by that walk.
+/// Only after all entries pass are `AccountView`s materialized into `accounts`.
+///
+/// The function is allocation-free and therefore usable by alternate SVM
+/// harnesses as well as ordinary host tests. It is intentionally not selected
+/// by the on-chain entrypoint: repeating the O(n) walk would erase SIMD-0449's
+/// constant-entrypoint benefit.
+///
+/// # Safety
+///
+/// `input..input + input_len` must be readable for the duration of the call.
+/// `instruction_data` must either point into that same allocation or the
+/// function returns [`DirectMappingError::InstructionDataMismatch`].
+pub unsafe fn deserialize_accounts_0449_checked<'info, const MAX: usize>(
+    input: *mut u8,
+    input_len: usize,
+    accounts: &mut [MaybeUninit<AccountView<'info>>; MAX],
+    instruction_data: &'info [u8],
+) -> Result<(Address, usize, &'info [u8]), DirectMappingError> {
+    if input.is_null() {
+        return Err(DirectMappingError::NullInput);
+    }
+    checked_end(0, 8, input_len)?;
+
+    let base = input as usize;
+    // SAFETY: the first eight bytes were checked above and the caller grants
+    // readability for the supplied frame.
+    let num_accounts = unsafe { core::ptr::read_unaligned(input as *const u64) as usize };
+    if num_accounts > MAX {
+        return Err(DirectMappingError::TooManyAccounts {
+            count: num_accounts,
+            capacity: MAX,
+        });
+    }
+
+    // One canonical byte offset per loader slot. A duplicate copies the
+    // offset of the earlier slot it names.
+    let mut canonical_offsets = [0usize; MAX];
+    let mut offset = 8usize;
+    let mut slot = 0usize;
+    while slot < num_accounts {
+        checked_end(offset, 1, input_len)?;
+        // SAFETY: the marker byte is within the validated frame.
+        let marker = unsafe { *input.add(offset) };
+        if marker == u8::MAX {
+            checked_end(offset, RuntimeAccount::SIZE, input_len)?;
+            canonical_offsets[slot] = offset;
+            // `data_len` is the final u64 in the 88-byte runtime header.
+            // SAFETY: the full header was bounds-checked above.
+            let data_len = unsafe {
+                core::ptr::read_unaligned(input.add(offset + 80) as *const u64) as usize
+            };
+            let body_end = offset
+                .checked_add(RuntimeAccount::SIZE)
+                .and_then(|v| v.checked_add(data_len))
+                .and_then(|v| v.checked_add(MAX_PERMITTED_DATA_INCREASE))
+                .ok_or(DirectMappingError::ArithmeticOverflow)?;
+            // Canonical records carry padding to eight bytes and an eight-byte
+            // rent epoch. Express the alignment without pointer arithmetic so
+            // an adversarial length cannot create UB before it is rejected.
+            let aligned = body_end
+                .checked_add(BPF_ALIGN_OF_U128 - 1)
+                .ok_or(DirectMappingError::ArithmeticOverflow)?
+                & !(BPF_ALIGN_OF_U128 - 1);
+            offset = checked_end(aligned, 8, input_len)?;
+        } else {
+            let duplicate_of = marker as usize;
+            if duplicate_of >= slot {
+                return Err(DirectMappingError::MalformedDuplicate { slot, duplicate_of });
+            }
+            canonical_offsets[slot] = canonical_offsets[duplicate_of];
+            offset = checked_end(offset, 8, input_len)?;
+        }
+        slot += 1;
+    }
+
+    // Pin the instruction tail exactly. Supplying an equal byte string from a
+    // different allocation is insufficient: the table location is derived
+    // from the in-frame r2 slice under SIMD-0321/0449.
+    let ix_len_end = checked_end(offset, 8, input_len)?;
+    // SAFETY: the length prefix is inside the frame.
+    let ix_len = unsafe { core::ptr::read_unaligned(input.add(offset) as *const u64) as usize };
+    let ix_offset = ix_len_end;
+    let ix_end = checked_end(ix_offset, ix_len, input_len)?;
+    if instruction_data.as_ptr() as usize != base + ix_offset || instruction_data.len() != ix_len {
+        return Err(DirectMappingError::InstructionDataMismatch);
+    }
+
+    let program_end = checked_end(ix_end, 32, input_len)?;
+    // SAFETY: the complete 32-byte program id was bounds-checked.
+    let program_id = Address::new_from_array(unsafe {
+        core::ptr::read_unaligned(input.add(ix_end) as *const [u8; 32])
+    });
+    let table_offset = program_end
+        .checked_add(BPF_ALIGN_OF_U128 - 1)
+        .ok_or(DirectMappingError::ArithmeticOverflow)?
+        & !(BPF_ALIGN_OF_U128 - 1);
+    if (base + table_offset) % BPF_ALIGN_OF_U128 != 0 {
+        return Err(DirectMappingError::PointerTableMisaligned);
+    }
+    let table_bytes = num_accounts
+        .checked_mul(core::mem::size_of::<u64>())
+        .ok_or(DirectMappingError::ArithmeticOverflow)?;
+    checked_end(table_offset, table_bytes, input_len)?;
+
+    let frame_end = base
+        .checked_add(input_len)
+        .ok_or(DirectMappingError::ArithmeticOverflow)?;
+    slot = 0;
+    while slot < num_accounts {
+        // SAFETY: the whole table was checked above; read_unaligned keeps the
+        // conformance path correct even when the containing allocation has a
+        // weaker alignment than the real SVM mapping.
+        let pointer = unsafe {
+            core::ptr::read_unaligned(input.add(table_offset + slot * 8) as *const u64) as usize
+        };
+        let pointer_end = pointer
+            .checked_add(RuntimeAccount::SIZE)
+            .ok_or(DirectMappingError::ArithmeticOverflow)?;
+        if pointer < base || pointer_end > frame_end {
+            return Err(DirectMappingError::PointerOutOfBounds { slot });
+        }
+        if pointer % BPF_ALIGN_OF_U128 != 0 {
+            return Err(DirectMappingError::PointerMisaligned { slot });
+        }
+        let expected = base
+            .checked_add(canonical_offsets[slot])
+            .ok_or(DirectMappingError::ArithmeticOverflow)?;
+        if pointer != expected {
+            return Err(DirectMappingError::NonCanonicalPointer { slot });
+        }
+        slot += 1;
+    }
+
+    // Materialize only after the full table validates, so a failure never
+    // leaves a partially trusted output slice.
+    slot = 0;
+    while slot < num_accounts {
+        let pointer = base + canonical_offsets[slot];
+        // SAFETY: this pointer was derived from a bounds-checked canonical
+        // header and its corresponding table entry matched exactly.
+        accounts[slot] = MaybeUninit::new(unsafe {
+            AccountView::new_unchecked(pointer as *mut RuntimeAccount)
+        });
+        slot += 1;
+    }
+
+    Ok((program_id, num_accounts, instruction_data))
+}
+
 // Layout precondition for the table cast, checked at compile time: an
 // `AccountView` must be exactly one 8-byte pointer for `[u64; n]` to
 // reinterpret as `[AccountView; n]`.

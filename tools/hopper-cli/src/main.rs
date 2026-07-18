@@ -3724,6 +3724,7 @@ struct OwnedProgramManifest {
 struct OwnedInstruction {
     name: String,
     tag: u8,
+    discriminator: Vec<u8>,
     args: Vec<OwnedArg>,
     accounts: Vec<OwnedAccount>,
     remaining_accounts_max: Option<u16>,
@@ -4054,10 +4055,18 @@ fn parse_program_manifest_json(json: &str) -> Result<OwnedProgramManifest, Strin
         let remaining_accounts_max = extract_number(obj, "remainingAccountsMax")
             .ok()
             .map(|max| max as u16);
+        let discriminator = extract_array_u8(obj, "discriminatorBytes")
+            .unwrap_or_else(|_| vec![tag]);
+        if discriminator.is_empty() || discriminator.len() > 8 || discriminator[0] != tag {
+            return Err(format!(
+                "instruction `{ix_name}` has invalid discriminatorBytes: expected 1..=8 bytes beginning with tag {tag}"
+            ));
+        }
 
         instructions.push(OwnedInstruction {
             name: ix_name,
             tag,
+            discriminator,
             args,
             accounts,
             remaining_accounts_max,
@@ -4228,6 +4237,7 @@ fn to_program_manifest(m: &OwnedProgramManifest) -> ProgramManifest {
             InstructionDescriptor {
                 name: leak_str(&ix.name),
                 tag: ix.tag,
+                discriminator: Box::leak(ix.discriminator.clone().into_boxed_slice()),
                 args: Box::leak(args.into_boxed_slice()),
                 accounts: Box::leak(accounts.into_boxed_slice()),
                 remaining_accounts: ix

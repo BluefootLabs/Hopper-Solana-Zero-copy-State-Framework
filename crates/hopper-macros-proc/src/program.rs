@@ -630,9 +630,8 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
     //   dispatch order. RAW `&mut Context<'_>` handlers are skipped —
     //   their account shape is opaque to the schema layer (no spec type
     //   to consult), the same exclusion the touch-map/event-sink emits
-    //   document. A multi-byte discriminator publishes its byte 0 as
-    //   `tag` (`InstructionDescriptor.tag` is a single byte; the full
-    //   prefix stays visible in `hopper compile --emit rust`).
+    //   document. `tag` remains byte zero for compact/legacy lookup while
+    //   `discriminator` publishes the exact 1..=8-byte dispatch prefix.
     // - per-row account lists CONVERTED at const-eval from the spec's
     //   `SCHEMA_METADATA.accounts` through the module-level LEN-const
     //   copy-loop pattern (`__HOPPER_SCHEMA_ACCOUNTS`'s shape), so
@@ -654,6 +653,7 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
         let fn_name = &handler.fn_name;
         let fn_name_str = fn_name.to_string();
         let tag_byte = handler.discriminator[0];
+        let discriminator = &handler.discriminator;
         let accounts_len_ident = format_ident!("__HOPPER_IX_{}_ACCOUNTS_LEN", fn_name);
         let accounts_arr_ident = format_ident!("__HOPPER_IX_{}_ACCOUNTS", fn_name);
 
@@ -703,6 +703,36 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
             };
         });
 
+        // The context binder receives the first `ctx_args` decoded handler
+        // values by position, while parametric Effect ABI rules identify
+        // selectors by their context argument names. Pin both views together
+        // at const-eval so reordering `(b, a)` in a handler cannot make the
+        // runtime authorize one cell while an independent verifier resolves
+        // another.
+        let ctx_args = handler.instruction_policy.ctx_args as usize;
+        let bound_arg_names = &handler.arg_names[..ctx_args];
+        items.push(syn::parse_quote! {
+            const _: () = {
+                let __context_args = #spec::CONTEXT_ARGS;
+                let __handler_args: &[&str] = &[#(#bound_arg_names),*];
+                assert!(
+                    __context_args.len() == __handler_args.len(),
+                    "ctx_args must equal the typed context's declared instruction-argument count",
+                );
+                let mut __i = 0usize;
+                while __i < __context_args.len() {
+                    assert!(
+                        ::hopper::hopper_schema::const_str_eq(
+                            __context_args[__i].0,
+                            __handler_args[__i],
+                        ),
+                        "handler/context instruction arguments must have identical names and order",
+                    );
+                    __i += 1;
+                }
+            };
+        });
+
         let arg_rows: Vec<TokenStream> = handler
             .arg_names
             .iter()
@@ -743,6 +773,7 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
             ::hopper::hopper_schema::InstructionDescriptor {
                 name: #fn_name_str,
                 tag: #tag_byte,
+                discriminator: &[#(#discriminator),*],
                 args: &[ #(#arg_rows),* ],
                 accounts: &#accounts_arr_ident,
                 remaining_accounts: #remaining_accounts,
@@ -765,7 +796,8 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
         /// `WRITE_RANGES`, `MUTATION_COMPLETE`, `LAMPORT_ACCOUNTS`)
         /// plus the handler's own `#[receipt]` opt-in. Raw
         /// `&mut Context<'_>` handlers publish no row (their shape is
-        /// opaque); multi-byte discriminators publish byte 0 as `tag`;
+        /// opaque); multi-byte discriminators publish byte 0 as legacy `tag`
+        /// and the complete prefix as `discriminator`;
         /// `cu_estimate` stays 0 (never fabricated).
         #[doc(hidden)]
         #[allow(dead_code)]

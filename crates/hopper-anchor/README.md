@@ -18,7 +18,7 @@ For emitting an Anchor-shaped IDL from a Hopper manifest, see
 `hopper schema export --anchor-idl` in [`hopper-cli`](../../tools/hopper-cli)
 (implemented in [`hopper-schema`](../hopper-schema/src/anchor_idl.rs)).
 
-Docs: <https://docs.rs/crate/hopper-anchor/0.2.1>
+Docs: <https://docs.rs/crate/hopper-anchor/0.3.0>
 
 Support: `solanadevdao.sol` / `F42ZovBoRJZU4av5MiESVwJWnEx8ZQVFkc1RM29zMxNT`.
 

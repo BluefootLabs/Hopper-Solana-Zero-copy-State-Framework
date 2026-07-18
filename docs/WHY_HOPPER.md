@@ -193,7 +193,7 @@ The `hopper-svm` crate is the harness layer; it ships standalone so any Solana p
 ## Where to start
 
 1. Read [MEMORY_ACCESS.md](MEMORY_ACCESS.md) for the access-tier doctrine.
-2. Read [POLICY_GUARANTEES.md](POLICY_GUARANTEES.md) for what each lever guarantees and drops. For which capabilities are structural (uncopyable without forking the account type) versus table stakes, read [THE_MOAT.md](THE_MOAT.md).
+2. Read [POLICY_GUARANTEES.md](POLICY_GUARANTEES.md) for what each lever guarantees and drops. For which capabilities are structural (uncopyable without forking the account type) versus table stakes, read [COMPARISON.md](../COMPARISON.md).
 3. Read `examples/hopper-policy-vault/src/lib.rs` for the three modes side by side.
 4. Run `cargo run -p hopper-cli -- verify --package hopper-policy-vault` to see the LAYOUT_ID fingerprint scan on a shipping `.so`.
 5. In the `hopper-svm` repo, run `cargo test --features agave-runtime process_instruction_routes_through_agave_runtime` to see the harness execute a system transfer through Agave's real runtime.

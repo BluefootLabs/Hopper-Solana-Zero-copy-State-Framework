@@ -256,13 +256,11 @@ fn scan_release_docs(root: &Path) -> Result<(), String> {
     let docs = [
         "README.md",
         "BENCHMARKS.md",
-        "AUDIT.md",
         "docs/WHY_HOPPER.md",
         "docs/HOPPER_NATIVE_ENHANCEMENTS.md",
         "docs/UNSAFE_INVARIANTS.md",
         "docs/POLICY_GUARANTEES.md",
         "docs/CLI_REFERENCE.md",
-        "docs/PUBLICATION_AUDIT.md",
     ];
     let banned = [
         ("re-run pending", "pending benchmark placeholder"),

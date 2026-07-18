@@ -2165,6 +2165,10 @@ hopper::program_manifest! {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use grillo_manifest::MutationManifest;
+    use grillo_verifier::{
+        verify, verify_invocation, AccountDelta, InconclusiveReason, TouchMap, TouchRecord, Verdict,
+    };
     use hopper::hopper_runtime::write_policy::{WritePolicy, WriteRange};
 
     fn test_intent() -> IntentSnapshot {
@@ -2276,6 +2280,107 @@ mod tests {
         assert!(policy
             .check_write_with_args(ClaimIntent::SHARD_INDEX as u8, selected + 1, 1, &[7])
             .is_err());
+    }
+
+    #[test]
+    fn grillo_resolves_real_cicada_manifest_to_the_selected_cell() {
+        let json = hopper::hopper_schema::codama::ManifestJson(&PROGRAM_MANIFEST).to_string();
+        let manifest = MutationManifest::from_json(&json).expect("real Cicada manifest parses");
+        let claim = manifest
+            .instruction("claim_intent")
+            .expect("claim mutation contract");
+        assert_eq!(claim.parametric.len(), 4);
+
+        // The unresolved static column envelope may never be treated as an
+        // invocation contract: doing so would authorize every neighboring
+        // slot in the column.
+        assert!(matches!(
+            verify(
+                claim,
+                &[],
+                &TouchMap {
+                    overflowed: false,
+                    skipped: false,
+                    records: vec![],
+                }
+            ),
+            Verdict::Inconclusive(InconclusiveReason::ParametricArgumentsRequired)
+        ));
+
+        let slot = 7u16;
+        let mut payload = slot.to_le_bytes().to_vec();
+        payload.extend_from_slice(&5u64.to_le_bytes());
+        let status_rule = claim
+            .parametric
+            .iter()
+            .find(|rule| rule.segment_name == "statuses")
+            .expect("statuses rule");
+        let selected = status_rule.base_offset + slot as u32 * status_rule.stride;
+        let neighbor = selected + status_rule.stride;
+
+        let data_len = IntentShard::INIT_SPACE;
+        let pre = vec![0u8; data_len];
+        let mut selected_post = pre.clone();
+        let mut selected_records = std::vec::Vec::new();
+        for (index, rule) in claim.parametric.iter().enumerate() {
+            let offset = rule.base_offset + slot as u32 * rule.stride;
+            // Each handler write acquires the complete selected cell. A
+            // representative changed byte in every one of claim_intent's
+            // four columns makes the synthetic delta exercise the complete
+            // parametric effect, not only the one-byte status column.
+            selected_post[offset as usize] = (index as u8) + 1;
+            selected_records.push(TouchRecord {
+                slot: ClaimIntent::SHARD_INDEX as u8,
+                offset,
+                size: rule.cell_size,
+                write: true,
+            });
+        }
+        selected_post[selected as usize] = STATUS_CLAIMED;
+        let selected_map = TouchMap {
+            overflowed: false,
+            skipped: false,
+            records: selected_records,
+        };
+        assert!(verify_invocation(
+            claim,
+            &payload,
+            &[AccountDelta::new(
+                ClaimIntent::SHARD_INDEX as u8,
+                &pre,
+                &selected_post,
+            )],
+            &selected_map,
+        )
+        .expect("real invocation resolves")
+        .is_pass());
+
+        let mut neighbor_post = pre.clone();
+        neighbor_post[neighbor as usize] = STATUS_CLAIMED;
+        let neighbor_map = TouchMap {
+            overflowed: false,
+            skipped: false,
+            records: vec![TouchRecord {
+                slot: ClaimIntent::SHARD_INDEX as u8,
+                offset: neighbor,
+                size: 1,
+                write: true,
+            }],
+        };
+        assert!(matches!(
+            verify_invocation(
+                claim,
+                &payload,
+                &[AccountDelta::new(
+                    ClaimIntent::SHARD_INDEX as u8,
+                    &pre,
+                    &neighbor_post,
+                )],
+                &neighbor_map,
+            )
+            .expect("hostile invocation still resolves"),
+            Verdict::Violation(_)
+        ));
     }
 
     #[test]

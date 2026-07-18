@@ -64,6 +64,7 @@ members = [
     "crates/hopper-test",
     "crates/grillo-manifest",
     "crates/grillo-verifier",
+    "crates/hopper-topology",
     "tools/hopper-cli",
 ]
 resolver = "2"
@@ -236,9 +237,9 @@ unexpected_cfgs = { level = "allow", check-cfg = [
 overflow-checks = true
 
 # The audited substrate opts back out: its arithmetic is explicitly
-# checked/widened where it matters (see docs/audit/FULL_AUDIT_2026.md)
-# and its parsing loops are bounds-guarded by construction, so the flag
-# only adds flat CU there. User program crates and the domain crates
+# checked/widened where it matters and its parsing loops are bounds-guarded
+# by construction, so the flag only adds flat CU there. User program crates
+# and the domain crates
 # keep full checking.
 [profile.release.package.hopper-native]
 overflow-checks = false

@@ -31,7 +31,7 @@ cargo build-sbf            # emits target/deploy/hopper_smoke.so (~27 KiB)
 
 The binary carries the opt-in touch-map machinery (`touch-map` feature +
 segment-lease write policy), which is why it is larger than the earlier
-20 KiB build — the emission is per-context opt-in precisely so programs
+20 KiB build. The emission is per-context opt-in precisely so programs
 that do not ask for it never pay this size or the per-record CU.
 
 ## Self-describing withdraw (touch map)
@@ -39,7 +39,7 @@ that do not ask for it never pay this size or the per-record CU.
 `Withdraw` opts in via `#[accounts(strict_writes, emit_touch_map)]`. On
 every **successful** withdraw the generated dispatcher emits the
 instruction's touch map as one `sol_log_data` record (`Program data:`
-log line, magic `0x7A`, version `0x01`): `W slot 1 [48..56)` — a Write
+log line, magic `0x7A`, version `0x01`): `W slot 1 [48..56)`, a Write
 of the vault's `balance` field bytes, which is exactly what the handler
 does through the `mut(balance)` segment lease. A **failed** withdraw
 emits nothing (the emit is routed on the handler's Ok path only), so a

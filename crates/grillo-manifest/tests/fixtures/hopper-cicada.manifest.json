@@ -1,0 +1,473 @@
+{
+  "name": "hopper-cicada",
+  "version": "0.3.0",
+  "description": "Cicada transport-neutral execution intents with Hopper byte-scoped state authority.",
+  "layouts": [
+    {
+      "name": "CicadaConfig",
+      "disc": 80,
+      "version": 1,
+      "layoutId": "ff3ad975e746c159",
+      "totalSize": 112,
+      "fieldCount": 7,
+      "fields": [
+        { "name": "admin", "type": "Address", "size": 32, "offset": 16, "intent": "custom" },
+        { "name": "emergency_authority", "type": "Address", "size": 32, "offset": 48, "intent": "custom" },
+        { "name": "default_claim_ttl", "type": "WireU64", "size": 8, "offset": 80, "intent": "custom" },
+        { "name": "paused", "type": "u8", "size": 1, "offset": 88, "intent": "custom" },
+        { "name": "bump", "type": "u8", "size": 1, "offset": 89, "intent": "custom" },
+        { "name": "revision", "type": "WireU64", "size": 8, "offset": 90, "intent": "custom" },
+        { "name": "reserved", "type": "[u8;14]", "size": 14, "offset": 98, "intent": "custom" }
+      ],
+      "semanticFingerprint": "a45f58223570c5f7"
+    },
+    {
+      "name": "SourceLease",
+      "disc": 82,
+      "version": 1,
+      "layoutId": "ebb203c495778eef",
+      "totalSize": 128,
+      "fieldCount": 7,
+      "fields": [
+        { "name": "source_token", "type": "Address", "size": 32, "offset": 16, "intent": "custom" },
+        { "name": "shard", "type": "Address", "size": 32, "offset": 48, "intent": "custom" },
+        { "name": "owner", "type": "Address", "size": 32, "offset": 80, "intent": "custom" },
+        { "name": "slot", "type": "WireU16", "size": 2, "offset": 112, "intent": "custom" },
+        { "name": "sequence", "type": "WireU64", "size": 8, "offset": 114, "intent": "custom" },
+        { "name": "bump", "type": "u8", "size": 1, "offset": 122, "intent": "custom" },
+        { "name": "reserved", "type": "[u8;5]", "size": 5, "offset": 123, "intent": "custom" }
+      ],
+      "semanticFingerprint": "ed55ffe18bc753c3"
+    },
+    {
+      "name": "IntentShard",
+      "disc": 81,
+      "version": 1,
+      "layoutId": "656adbfbf12ba453",
+      "totalSize": 9080,
+      "fieldCount": 28,
+      "fields": [
+        { "name": "config", "type": "Address", "size": 32, "offset": 16, "intent": "custom" },
+        { "name": "shard_id", "type": "WireU32", "size": 4, "offset": 48, "intent": "custom" },
+        { "name": "occupied", "type": "WireU32", "size": 4, "offset": 52, "intent": "custom" },
+        { "name": "occupied_count", "type": "WireU16", "size": 2, "offset": 56, "intent": "custom" },
+        { "name": "next_sequence", "type": "WireU64", "size": 8, "offset": 58, "intent": "custom" },
+        { "name": "reserved_header", "type": "[u8;14]", "size": 14, "offset": 66, "intent": "custom" },
+        { "name": "owners", "type": "[Address;INTENTS_PER_SHARD]", "size": 640, "offset": 80, "intent": "custom" },
+        { "name": "source_tokens", "type": "[Address;INTENTS_PER_SHARD]", "size": 640, "offset": 720, "intent": "custom" },
+        { "name": "vault_authorities", "type": "[Address;INTENTS_PER_SHARD]", "size": 640, "offset": 1360, "intent": "custom" },
+        { "name": "refund_tokens", "type": "[Address;INTENTS_PER_SHARD]", "size": 640, "offset": 2000, "intent": "custom" },
+        { "name": "destination_tokens", "type": "[Address;INTENTS_PER_SHARD]", "size": 640, "offset": 2640, "intent": "custom" },
+        { "name": "input_mints", "type": "[Address;INTENTS_PER_SHARD]", "size": 640, "offset": 3280, "intent": "custom" },
+        { "name": "output_mints", "type": "[Address;INTENTS_PER_SHARD]", "size": 640, "offset": 3920, "intent": "custom" },
+        { "name": "max_inputs", "type": "[WireU64;INTENTS_PER_SHARD]", "size": 160, "offset": 4560, "intent": "custom" },
+        { "name": "min_outputs", "type": "[WireU64;INTENTS_PER_SHARD]", "size": 160, "offset": 4720, "intent": "custom" },
+        { "name": "expiries", "type": "[WireU64;INTENTS_PER_SHARD]", "size": 160, "offset": 4880, "intent": "custom" },
+        { "name": "allowed_executors", "type": "[Address;INTENTS_PER_SHARD]", "size": 640, "offset": 5040, "intent": "custom" },
+        { "name": "route_programs", "type": "[Address;INTENTS_PER_SHARD]", "size": 640, "offset": 5680, "intent": "custom" },
+        { "name": "route_commitments", "type": "[[u8;32];INTENTS_PER_SHARD]", "size": 640, "offset": 6320, "intent": "custom" },
+        { "name": "route_modes", "type": "[u8;INTENTS_PER_SHARD]", "size": 20, "offset": 6960, "intent": "custom" },
+        { "name": "sequences", "type": "[WireU64;INTENTS_PER_SHARD]", "size": 160, "offset": 6980, "intent": "custom" },
+        { "name": "statuses", "type": "[u8;INTENTS_PER_SHARD]", "size": 20, "offset": 7140, "intent": "custom" },
+        { "name": "claimants", "type": "[Address;INTENTS_PER_SHARD]", "size": 640, "offset": 7160, "intent": "custom" },
+        { "name": "claim_expiries", "type": "[WireU64;INTENTS_PER_SHARD]", "size": 160, "offset": 7800, "intent": "custom" },
+        { "name": "settled_inputs", "type": "[WireU64;INTENTS_PER_SHARD]", "size": 160, "offset": 7960, "intent": "custom" },
+        { "name": "settled_outputs", "type": "[WireU64;INTENTS_PER_SHARD]", "size": 160, "offset": 8120, "intent": "custom" },
+        { "name": "settlement_hashes", "type": "[[u8;32];INTENTS_PER_SHARD]", "size": 640, "offset": 8280, "intent": "custom" },
+        { "name": "revisions", "type": "[WireU64;INTENTS_PER_SHARD]", "size": 160, "offset": 8920, "intent": "custom" }
+      ],
+      "semanticFingerprint": "38497a537449a093"
+    }
+  ],
+  "instructions": [
+    {
+      "name": "initialize_config",
+      "tag": 0,
+      "discriminatorBytes": [0],
+      "args": [
+        { "name": "emergency_authority", "type": "Address", "size": 32, "encoding": "fixed" },
+        { "name": "default_claim_ttl", "type": "u64", "size": 8, "encoding": "fixed" }
+      ],
+      "accounts": [
+        { "name": "payer", "writable": true, "signer": true },
+        { "name": "config", "writable": true, "signer": false, "layoutRef": "CicadaConfig" },
+        { "name": "system_program", "writable": false, "signer": false }
+      ],
+      "capabilities": [],
+      "policyPack": "",
+      "receiptExpected": false,
+      "strictWrites": false,
+      "writeRanges": [],
+      "parametricWriteRanges": []
+    },
+    {
+      "name": "initialize_shard",
+      "tag": 1,
+      "discriminatorBytes": [1],
+      "args": [
+        { "name": "shard_id", "type": "u32", "size": 4, "encoding": "fixed" }
+      ],
+      "accounts": [
+        { "name": "admin", "writable": true, "signer": true },
+        { "name": "config", "writable": false, "signer": false, "layoutRef": "CicadaConfig" },
+        { "name": "shard", "writable": true, "signer": false, "layoutRef": "IntentShard" },
+        { "name": "system_program", "writable": false, "signer": false }
+      ],
+      "capabilities": [],
+      "policyPack": "",
+      "receiptExpected": false,
+      "strictWrites": false,
+      "writeRanges": [],
+      "parametricWriteRanges": []
+    },
+    {
+      "name": "create_intent",
+      "tag": 2,
+      "discriminatorBytes": [2],
+      "args": [
+        { "name": "max_input", "type": "u64", "size": 8, "encoding": "fixed" },
+        { "name": "min_output", "type": "u64", "size": 8, "encoding": "fixed" },
+        { "name": "expiry_slot", "type": "u64", "size": 8, "encoding": "fixed" },
+        { "name": "allowed_executor", "type": "Address", "size": 32, "encoding": "fixed" },
+        { "name": "route_mode", "type": "u8", "size": 1, "encoding": "fixed" },
+        { "name": "route_commitment", "type": "[u8;32]", "size": 32, "encoding": "fixed" }
+      ],
+      "accounts": [
+        { "name": "owner", "writable": true, "signer": true },
+        { "name": "config", "writable": false, "signer": false, "layoutRef": "CicadaConfig" },
+        { "name": "shard", "writable": true, "signer": false, "layoutRef": "IntentShard" },
+        { "name": "source_token", "writable": false, "signer": false },
+        { "name": "vault_authority", "writable": false, "signer": false },
+        { "name": "refund_token", "writable": false, "signer": false },
+        { "name": "destination_token", "writable": false, "signer": false },
+        { "name": "input_mint", "writable": false, "signer": false },
+        { "name": "output_mint", "writable": false, "signer": false },
+        { "name": "route_program", "writable": false, "signer": false },
+        { "name": "source_lease", "writable": true, "signer": false, "layoutRef": "SourceLease" },
+        { "name": "system_program", "writable": false, "signer": false }
+      ],
+      "capabilities": [],
+      "policyPack": "",
+      "receiptExpected": false,
+      "strictWrites": true,
+      "writeRanges": [
+        { "account": "owner", "accountIndex": 0, "offset": 0, "size": 4294967295 },
+        { "account": "shard", "accountIndex": 2, "offset": 52, "size": 4 },
+        { "account": "shard", "accountIndex": 2, "offset": 56, "size": 2 },
+        { "account": "shard", "accountIndex": 2, "offset": 58, "size": 8 },
+        { "account": "shard", "accountIndex": 2, "offset": 80, "size": 640 },
+        { "account": "shard", "accountIndex": 2, "offset": 720, "size": 640 },
+        { "account": "shard", "accountIndex": 2, "offset": 1360, "size": 640 },
+        { "account": "shard", "accountIndex": 2, "offset": 2000, "size": 640 },
+        { "account": "shard", "accountIndex": 2, "offset": 2640, "size": 640 },
+        { "account": "shard", "accountIndex": 2, "offset": 3280, "size": 640 },
+        { "account": "shard", "accountIndex": 2, "offset": 3920, "size": 640 },
+        { "account": "shard", "accountIndex": 2, "offset": 4560, "size": 160 },
+        { "account": "shard", "accountIndex": 2, "offset": 4720, "size": 160 },
+        { "account": "shard", "accountIndex": 2, "offset": 4880, "size": 160 },
+        { "account": "shard", "accountIndex": 2, "offset": 5040, "size": 640 },
+        { "account": "shard", "accountIndex": 2, "offset": 5680, "size": 640 },
+        { "account": "shard", "accountIndex": 2, "offset": 6320, "size": 640 },
+        { "account": "shard", "accountIndex": 2, "offset": 6960, "size": 20 },
+        { "account": "shard", "accountIndex": 2, "offset": 6980, "size": 160 },
+        { "account": "shard", "accountIndex": 2, "offset": 7140, "size": 20 },
+        { "account": "shard", "accountIndex": 2, "offset": 7160, "size": 640 },
+        { "account": "shard", "accountIndex": 2, "offset": 7800, "size": 160 },
+        { "account": "shard", "accountIndex": 2, "offset": 7960, "size": 160 },
+        { "account": "shard", "accountIndex": 2, "offset": 8120, "size": 160 },
+        { "account": "shard", "accountIndex": 2, "offset": 8280, "size": 640 },
+        { "account": "shard", "accountIndex": 2, "offset": 8920, "size": 160 },
+        { "account": "source_lease", "accountIndex": 10, "offset": 0, "size": 4294967295 }
+      ],
+      "parametricWriteRanges": []
+    },
+    {
+      "name": "claim_intent",
+      "tag": 3,
+      "discriminatorBytes": [3],
+      "args": [
+        { "name": "slot", "type": "u16", "size": 2, "encoding": "fixed" },
+        { "name": "requested_lease_slots", "type": "u64", "size": 8, "encoding": "fixed" }
+      ],
+      "accounts": [
+        { "name": "executor", "writable": false, "signer": true },
+        { "name": "config", "writable": false, "signer": false, "layoutRef": "CicadaConfig" },
+        { "name": "shard", "writable": true, "signer": false, "layoutRef": "IntentShard" }
+      ],
+      "capabilities": [],
+      "policyPack": "",
+      "receiptExpected": false,
+      "strictWrites": true,
+      "writeRanges": [
+        { "account": "shard", "accountIndex": 2, "offset": 7140, "size": 20 },
+        { "account": "shard", "accountIndex": 2, "offset": 7160, "size": 640 },
+        { "account": "shard", "accountIndex": 2, "offset": 7800, "size": 160 },
+        { "account": "shard", "accountIndex": 2, "offset": 8920, "size": 160 }
+      ],
+      "parametricWriteRanges": [
+        { "accountIndex": 2, "baseOffset": 7140, "stride": 1, "cellSize": 1, "count": 20, "argumentIndex": 0, "argument": "slot", "segment": "statuses" },
+        { "accountIndex": 2, "baseOffset": 7160, "stride": 32, "cellSize": 32, "count": 20, "argumentIndex": 0, "argument": "slot", "segment": "claimants" },
+        { "accountIndex": 2, "baseOffset": 7800, "stride": 8, "cellSize": 8, "count": 20, "argumentIndex": 0, "argument": "slot", "segment": "claim_expiries" },
+        { "accountIndex": 2, "baseOffset": 8920, "stride": 8, "cellSize": 8, "count": 20, "argumentIndex": 0, "argument": "slot", "segment": "revisions" }
+      ]
+    },
+    {
+      "name": "release_claim",
+      "tag": 4,
+      "discriminatorBytes": [4],
+      "args": [
+        { "name": "slot", "type": "u16", "size": 2, "encoding": "fixed" }
+      ],
+      "accounts": [
+        { "name": "config", "writable": false, "signer": false, "layoutRef": "CicadaConfig" },
+        { "name": "shard", "writable": true, "signer": false, "layoutRef": "IntentShard" }
+      ],
+      "capabilities": [],
+      "policyPack": "",
+      "receiptExpected": false,
+      "strictWrites": true,
+      "writeRanges": [
+        { "account": "shard", "accountIndex": 1, "offset": 7140, "size": 20 },
+        { "account": "shard", "accountIndex": 1, "offset": 7160, "size": 640 },
+        { "account": "shard", "accountIndex": 1, "offset": 7800, "size": 160 },
+        { "account": "shard", "accountIndex": 1, "offset": 8920, "size": 160 }
+      ],
+      "parametricWriteRanges": [
+        { "accountIndex": 1, "baseOffset": 7140, "stride": 1, "cellSize": 1, "count": 20, "argumentIndex": 0, "argument": "slot", "segment": "statuses" },
+        { "accountIndex": 1, "baseOffset": 7160, "stride": 32, "cellSize": 32, "count": 20, "argumentIndex": 0, "argument": "slot", "segment": "claimants" },
+        { "accountIndex": 1, "baseOffset": 7800, "stride": 8, "cellSize": 8, "count": 20, "argumentIndex": 0, "argument": "slot", "segment": "claim_expiries" },
+        { "accountIndex": 1, "baseOffset": 8920, "stride": 8, "cellSize": 8, "count": 20, "argumentIndex": 0, "argument": "slot", "segment": "revisions" }
+      ]
+    },
+    {
+      "name": "cancel_intent",
+      "tag": 5,
+      "discriminatorBytes": [5],
+      "args": [
+        { "name": "slot", "type": "u16", "size": 2, "encoding": "fixed" }
+      ],
+      "accounts": [
+        { "name": "owner", "writable": false, "signer": true },
+        { "name": "config", "writable": false, "signer": false, "layoutRef": "CicadaConfig" },
+        { "name": "shard", "writable": true, "signer": false, "layoutRef": "IntentShard" },
+        { "name": "source_token", "writable": true, "signer": false },
+        { "name": "vault_authority", "writable": false, "signer": false },
+        { "name": "refund_token", "writable": true, "signer": false },
+        { "name": "input_mint", "writable": false, "signer": false },
+        { "name": "token_program", "writable": false, "signer": false }
+      ],
+      "capabilities": [],
+      "policyPack": "",
+      "receiptExpected": false,
+      "strictWrites": true,
+      "writeRanges": [
+        { "account": "shard", "accountIndex": 2, "offset": 7140, "size": 20 },
+        { "account": "shard", "accountIndex": 2, "offset": 7160, "size": 640 },
+        { "account": "shard", "accountIndex": 2, "offset": 7800, "size": 160 },
+        { "account": "shard", "accountIndex": 2, "offset": 8920, "size": 160 },
+        { "account": "source_token", "accountIndex": 3, "offset": 0, "size": 4294967295 },
+        { "account": "refund_token", "accountIndex": 5, "offset": 0, "size": 4294967295 }
+      ],
+      "parametricWriteRanges": [
+        { "accountIndex": 2, "baseOffset": 7140, "stride": 1, "cellSize": 1, "count": 20, "argumentIndex": 0, "argument": "slot", "segment": "statuses" },
+        { "accountIndex": 2, "baseOffset": 7160, "stride": 32, "cellSize": 32, "count": 20, "argumentIndex": 0, "argument": "slot", "segment": "claimants" },
+        { "accountIndex": 2, "baseOffset": 7800, "stride": 8, "cellSize": 8, "count": 20, "argumentIndex": 0, "argument": "slot", "segment": "claim_expiries" },
+        { "accountIndex": 2, "baseOffset": 8920, "stride": 8, "cellSize": 8, "count": 20, "argumentIndex": 0, "argument": "slot", "segment": "revisions" }
+      ]
+    },
+    {
+      "name": "execute_intent",
+      "tag": 6,
+      "discriminatorBytes": [6],
+      "args": [
+        { "name": "slot", "type": "u16", "size": 2, "encoding": "fixed" },
+        { "name": "route_data", "type": "HopperVec<u8,MAX_ROUTE_DATA>", "size": 514, "encoding": "boundedVec", "maxLen": 512, "elementSize": 1 },
+        { "name": "route_meta_flags", "type": "[u8;MAX_ROUTE_ACCOUNTS]", "size": 32, "encoding": "fixed" }
+      ],
+      "accounts": [
+        { "name": "executor", "writable": false, "signer": true },
+        { "name": "config", "writable": false, "signer": false, "layoutRef": "CicadaConfig" },
+        { "name": "shard", "writable": true, "signer": false, "layoutRef": "IntentShard" },
+        { "name": "intent_owner", "writable": false, "signer": false },
+        { "name": "source_token", "writable": true, "signer": false },
+        { "name": "vault_authority", "writable": false, "signer": false },
+        { "name": "refund_token", "writable": true, "signer": false },
+        { "name": "destination_token", "writable": true, "signer": false },
+        { "name": "input_mint", "writable": false, "signer": false },
+        { "name": "output_mint", "writable": false, "signer": false },
+        { "name": "token_program", "writable": false, "signer": false },
+        { "name": "route_program", "writable": false, "signer": false }
+      ],
+      "remainingAccountsMax": 32,
+      "capabilities": [],
+      "policyPack": "",
+      "receiptExpected": false,
+      "strictWrites": true,
+      "writeRanges": [
+        { "account": "shard", "accountIndex": 2, "offset": 7140, "size": 20 },
+        { "account": "shard", "accountIndex": 2, "offset": 7160, "size": 640 },
+        { "account": "shard", "accountIndex": 2, "offset": 7800, "size": 160 },
+        { "account": "shard", "accountIndex": 2, "offset": 7960, "size": 160 },
+        { "account": "shard", "accountIndex": 2, "offset": 8120, "size": 160 },
+        { "account": "shard", "accountIndex": 2, "offset": 8280, "size": 640 },
+        { "account": "shard", "accountIndex": 2, "offset": 8920, "size": 160 },
+        { "account": "source_token", "accountIndex": 4, "offset": 0, "size": 4294967295 },
+        { "account": "refund_token", "accountIndex": 6, "offset": 0, "size": 4294967295 },
+        { "account": "destination_token", "accountIndex": 7, "offset": 0, "size": 4294967295 }
+      ],
+      "parametricWriteRanges": [
+        { "accountIndex": 2, "baseOffset": 7140, "stride": 1, "cellSize": 1, "count": 20, "argumentIndex": 0, "argument": "slot", "segment": "statuses" },
+        { "accountIndex": 2, "baseOffset": 7160, "stride": 32, "cellSize": 32, "count": 20, "argumentIndex": 0, "argument": "slot", "segment": "claimants" },
+        { "accountIndex": 2, "baseOffset": 7800, "stride": 8, "cellSize": 8, "count": 20, "argumentIndex": 0, "argument": "slot", "segment": "claim_expiries" },
+        { "accountIndex": 2, "baseOffset": 7960, "stride": 8, "cellSize": 8, "count": 20, "argumentIndex": 0, "argument": "slot", "segment": "settled_inputs" },
+        { "accountIndex": 2, "baseOffset": 8120, "stride": 8, "cellSize": 8, "count": 20, "argumentIndex": 0, "argument": "slot", "segment": "settled_outputs" },
+        { "accountIndex": 2, "baseOffset": 8280, "stride": 32, "cellSize": 32, "count": 20, "argumentIndex": 0, "argument": "slot", "segment": "settlement_hashes" },
+        { "accountIndex": 2, "baseOffset": 8920, "stride": 8, "cellSize": 8, "count": 20, "argumentIndex": 0, "argument": "slot", "segment": "revisions" }
+      ]
+    },
+    {
+      "name": "reclaim_intent",
+      "tag": 7,
+      "discriminatorBytes": [7],
+      "args": [
+        { "name": "slot", "type": "u16", "size": 2, "encoding": "fixed" }
+      ],
+      "accounts": [
+        { "name": "owner", "writable": true, "signer": true },
+        { "name": "config", "writable": false, "signer": false, "layoutRef": "CicadaConfig" },
+        { "name": "shard", "writable": true, "signer": false, "layoutRef": "IntentShard" },
+        { "name": "source_token", "writable": true, "signer": false },
+        { "name": "vault_authority", "writable": false, "signer": false },
+        { "name": "token_program", "writable": false, "signer": false },
+        { "name": "source_lease", "writable": true, "signer": false, "layoutRef": "SourceLease" }
+      ],
+      "capabilities": [],
+      "policyPack": "",
+      "receiptExpected": false,
+      "strictWrites": true,
+      "writeRanges": [
+        { "account": "owner", "accountIndex": 0, "offset": 0, "size": 4294967295 },
+        { "account": "shard", "accountIndex": 2, "offset": 52, "size": 4 },
+        { "account": "shard", "accountIndex": 2, "offset": 56, "size": 2 },
+        { "account": "shard", "accountIndex": 2, "offset": 80, "size": 640 },
+        { "account": "shard", "accountIndex": 2, "offset": 720, "size": 640 },
+        { "account": "shard", "accountIndex": 2, "offset": 1360, "size": 640 },
+        { "account": "shard", "accountIndex": 2, "offset": 2000, "size": 640 },
+        { "account": "shard", "accountIndex": 2, "offset": 2640, "size": 640 },
+        { "account": "shard", "accountIndex": 2, "offset": 3280, "size": 640 },
+        { "account": "shard", "accountIndex": 2, "offset": 3920, "size": 640 },
+        { "account": "shard", "accountIndex": 2, "offset": 4560, "size": 160 },
+        { "account": "shard", "accountIndex": 2, "offset": 4720, "size": 160 },
+        { "account": "shard", "accountIndex": 2, "offset": 4880, "size": 160 },
+        { "account": "shard", "accountIndex": 2, "offset": 5040, "size": 640 },
+        { "account": "shard", "accountIndex": 2, "offset": 5680, "size": 640 },
+        { "account": "shard", "accountIndex": 2, "offset": 6320, "size": 640 },
+        { "account": "shard", "accountIndex": 2, "offset": 6960, "size": 20 },
+        { "account": "shard", "accountIndex": 2, "offset": 6980, "size": 160 },
+        { "account": "shard", "accountIndex": 2, "offset": 7140, "size": 20 },
+        { "account": "shard", "accountIndex": 2, "offset": 7160, "size": 640 },
+        { "account": "shard", "accountIndex": 2, "offset": 7800, "size": 160 },
+        { "account": "shard", "accountIndex": 2, "offset": 7960, "size": 160 },
+        { "account": "shard", "accountIndex": 2, "offset": 8120, "size": 160 },
+        { "account": "shard", "accountIndex": 2, "offset": 8280, "size": 640 },
+        { "account": "shard", "accountIndex": 2, "offset": 8920, "size": 160 },
+        { "account": "source_token", "accountIndex": 3, "offset": 0, "size": 4294967295 },
+        { "account": "source_lease", "accountIndex": 6, "offset": 0, "size": 4294967295 }
+      ],
+      "parametricWriteRanges": [
+        { "accountIndex": 2, "baseOffset": 80, "stride": 32, "cellSize": 32, "count": 20, "argumentIndex": 0, "argument": "slot", "segment": "owners" },
+        { "accountIndex": 2, "baseOffset": 720, "stride": 32, "cellSize": 32, "count": 20, "argumentIndex": 0, "argument": "slot", "segment": "source_tokens" },
+        { "accountIndex": 2, "baseOffset": 1360, "stride": 32, "cellSize": 32, "count": 20, "argumentIndex": 0, "argument": "slot", "segment": "vault_authorities" },
+        { "accountIndex": 2, "baseOffset": 2000, "stride": 32, "cellSize": 32, "count": 20, "argumentIndex": 0, "argument": "slot", "segment": "refund_tokens" },
+        { "accountIndex": 2, "baseOffset": 2640, "stride": 32, "cellSize": 32, "count": 20, "argumentIndex": 0, "argument": "slot", "segment": "destination_tokens" },
+        { "accountIndex": 2, "baseOffset": 3280, "stride": 32, "cellSize": 32, "count": 20, "argumentIndex": 0, "argument": "slot", "segment": "input_mints" },
+        { "accountIndex": 2, "baseOffset": 3920, "stride": 32, "cellSize": 32, "count": 20, "argumentIndex": 0, "argument": "slot", "segment": "output_mints" },
+        { "accountIndex": 2, "baseOffset": 4560, "stride": 8, "cellSize": 8, "count": 20, "argumentIndex": 0, "argument": "slot", "segment": "max_inputs" },
+        { "accountIndex": 2, "baseOffset": 4720, "stride": 8, "cellSize": 8, "count": 20, "argumentIndex": 0, "argument": "slot", "segment": "min_outputs" },
+        { "accountIndex": 2, "baseOffset": 4880, "stride": 8, "cellSize": 8, "count": 20, "argumentIndex": 0, "argument": "slot", "segment": "expiries" },
+        { "accountIndex": 2, "baseOffset": 5040, "stride": 32, "cellSize": 32, "count": 20, "argumentIndex": 0, "argument": "slot", "segment": "allowed_executors" },
+        { "accountIndex": 2, "baseOffset": 5680, "stride": 32, "cellSize": 32, "count": 20, "argumentIndex": 0, "argument": "slot", "segment": "route_programs" },
+        { "accountIndex": 2, "baseOffset": 6320, "stride": 32, "cellSize": 32, "count": 20, "argumentIndex": 0, "argument": "slot", "segment": "route_commitments" },
+        { "accountIndex": 2, "baseOffset": 6960, "stride": 1, "cellSize": 1, "count": 20, "argumentIndex": 0, "argument": "slot", "segment": "route_modes" },
+        { "accountIndex": 2, "baseOffset": 6980, "stride": 8, "cellSize": 8, "count": 20, "argumentIndex": 0, "argument": "slot", "segment": "sequences" },
+        { "accountIndex": 2, "baseOffset": 7140, "stride": 1, "cellSize": 1, "count": 20, "argumentIndex": 0, "argument": "slot", "segment": "statuses" },
+        { "accountIndex": 2, "baseOffset": 7160, "stride": 32, "cellSize": 32, "count": 20, "argumentIndex": 0, "argument": "slot", "segment": "claimants" },
+        { "accountIndex": 2, "baseOffset": 7800, "stride": 8, "cellSize": 8, "count": 20, "argumentIndex": 0, "argument": "slot", "segment": "claim_expiries" },
+        { "accountIndex": 2, "baseOffset": 7960, "stride": 8, "cellSize": 8, "count": 20, "argumentIndex": 0, "argument": "slot", "segment": "settled_inputs" },
+        { "accountIndex": 2, "baseOffset": 8120, "stride": 8, "cellSize": 8, "count": 20, "argumentIndex": 0, "argument": "slot", "segment": "settled_outputs" },
+        { "accountIndex": 2, "baseOffset": 8280, "stride": 32, "cellSize": 32, "count": 20, "argumentIndex": 0, "argument": "slot", "segment": "settlement_hashes" },
+        { "accountIndex": 2, "baseOffset": 8920, "stride": 8, "cellSize": 8, "count": 20, "argumentIndex": 0, "argument": "slot", "segment": "revisions" }
+      ]
+    },
+    {
+      "name": "pause",
+      "tag": 8,
+      "discriminatorBytes": [8],
+      "args": [],
+      "accounts": [
+        { "name": "emergency_authority", "writable": false, "signer": true },
+        { "name": "config", "writable": true, "signer": false, "layoutRef": "CicadaConfig" }
+      ],
+      "capabilities": [],
+      "policyPack": "",
+      "receiptExpected": false,
+      "strictWrites": true,
+      "writeRanges": [
+        { "account": "config", "accountIndex": 1, "offset": 88, "size": 1 },
+        { "account": "config", "accountIndex": 1, "offset": 90, "size": 8 }
+      ],
+      "parametricWriteRanges": []
+    },
+    {
+      "name": "unpause",
+      "tag": 9,
+      "discriminatorBytes": [9],
+      "args": [],
+      "accounts": [
+        { "name": "emergency_authority", "writable": false, "signer": true },
+        { "name": "config", "writable": true, "signer": false, "layoutRef": "CicadaConfig" }
+      ],
+      "capabilities": [],
+      "policyPack": "",
+      "receiptExpected": false,
+      "strictWrites": true,
+      "writeRanges": [
+        { "account": "config", "accountIndex": 1, "offset": 88, "size": 1 },
+        { "account": "config", "accountIndex": 1, "offset": 90, "size": 8 }
+      ],
+      "parametricWriteRanges": []
+    }
+  ],
+  "events": [],
+  "policies": [],
+  "compatRules": [],
+  "receiptSchema": {
+    "size": 72,
+    "legacySize": 64,
+    "fields": [
+      { "name": "layout_id", "type": "bytes", "offset": 0, "size": 8 },
+      { "name": "changed_fields", "type": "u64", "offset": 8, "size": 8 },
+      { "name": "changed_bytes", "type": "u32", "offset": 16, "size": 4 },
+      { "name": "changed_regions", "type": "u16", "offset": 20, "size": 2 },
+      { "name": "old_size", "type": "u32", "offset": 22, "size": 4 },
+      { "name": "new_size", "type": "u32", "offset": 26, "size": 4 },
+      { "name": "invariants_checked", "type": "u16", "offset": 30, "size": 2 },
+      { "name": "flags", "type": "u8", "offset": 32, "size": 1 },
+      { "name": "before_fingerprint", "type": "bytes", "offset": 33, "size": 8 },
+      { "name": "after_fingerprint", "type": "bytes", "offset": 41, "size": 8 },
+      { "name": "segment_changed_mask", "type": "u16", "offset": 49, "size": 2 },
+      { "name": "policy_flags", "type": "u32", "offset": 51, "size": 4 },
+      { "name": "journal_appends", "type": "u16", "offset": 55, "size": 2 },
+      { "name": "cpi_count", "type": "u8", "offset": 57, "size": 1 },
+      { "name": "phase", "type": "u8", "offset": 58, "size": 1 },
+      { "name": "validation_bundle_id", "type": "u16", "offset": 59, "size": 2 },
+      { "name": "compat_impact", "type": "u8", "offset": 61, "size": 1 },
+      { "name": "migration_flags", "type": "u8", "offset": 62, "size": 1 },
+      { "name": "failed_invariant_idx", "type": "u8", "offset": 63, "size": 1 },
+      { "name": "failed_error_code", "type": "u32", "offset": 64, "size": 4 },
+      { "name": "failure_stage", "type": "u8", "offset": 68, "size": 1 },
+      { "name": "reserved", "type": "bytes", "offset": 69, "size": 3 }
+    ]
+  },
+  "toolingHints": []
+}

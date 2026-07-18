@@ -20,7 +20,10 @@
 
 use core::mem::MaybeUninit;
 
-use hopper_native::raw_input::{deserialize_accounts, deserialize_accounts_0449};
+use hopper_native::raw_input::{
+    deserialize_accounts, deserialize_accounts_0449, deserialize_accounts_0449_checked,
+    DirectMappingError,
+};
 use hopper_native::{AccountView, RuntimeAccount, MAX_PERMITTED_DATA_INCREASE};
 
 const ALIGN: usize = 8;
@@ -154,6 +157,22 @@ fn walk<const MAX: usize>(frame: &mut Frame) -> (Vec<AccountView<'static>>, Vec<
     (views, ix.to_vec(), *program_id.as_array())
 }
 
+/// Locate the exact in-frame instruction-data slice and the SIMD-0449 table.
+/// Raw addresses are returned so tests can keep using the frame while the
+/// borrowed instruction slice is live.
+fn locate_0449_tail(frame: &mut Frame, ix: &[u8], program_id: [u8; 32]) -> (*mut u8, usize, usize) {
+    let base = frame.as_mut_ptr();
+    let len = frame.words.len() * 8;
+    // SAFETY: `words` owns `len` readable bytes.
+    let bytes = unsafe { core::slice::from_raw_parts(base as *const u8, len) };
+    let ix_offset = bytes
+        .windows(ix.len() + 32)
+        .position(|w| w[..ix.len()] == *ix && w[ix.len()..] == program_id)
+        .expect("instruction tail present exactly once");
+    let table_address = (base as usize + ix_offset + ix.len() + 32 + 7) & !7usize;
+    (base, ix_offset, table_address - base as usize)
+}
+
 // ── 0. Entrypoint expansion compile-proof ───────────────────────────
 //
 // `hopper_fast_entrypoint!` gates its account resolution on the
@@ -283,4 +302,249 @@ fn simd_0449_table_resolves_to_exactly_the_stride_walk_views() {
     }
     // Duplicate pre-deduplication: slot 2's table entry IS slot 1's.
     assert_eq!(table_views[2], table_views[1]);
+}
+
+// -- 3. Checked conformance decoder -----------------------------------------
+
+#[test]
+fn checked_0449_decoder_matches_the_stride_walk_for_every_alignment_residue() {
+    for residue in 0..=16usize {
+        let ix = [0x31, residue as u8, 0x7F];
+        let pid = [0x42; 32];
+        let slots = [
+            Slot::Fresh {
+                data_len: residue,
+                lamports: 10,
+            },
+            Slot::Dup(0),
+            Slot::Fresh {
+                data_len: 33 + residue,
+                lamports: 20,
+            },
+        ];
+        let mut frame = build_frame(&slots, &ix, pid, true);
+        let (base, ix_offset, _) = locate_0449_tail(&mut frame, &ix, pid);
+        let input_len = frame.words.len() * 8;
+        // SAFETY: `ix_offset..ix_offset + ix.len()` is the located in-frame
+        // instruction payload and the frame remains alive for the call.
+        let ix_in_frame = unsafe { core::slice::from_raw_parts(base.add(ix_offset), ix.len()) };
+        const UNINIT: MaybeUninit<AccountView<'static>> = MaybeUninit::uninit();
+        let mut out = [UNINIT; 8];
+        // SAFETY: the fixture is a complete loader frame with a canonical
+        // pointer table, and `input_len` covers its word-aligned backing.
+        let (got_pid, count, got_ix) = unsafe {
+            deserialize_accounts_0449_checked(base, input_len, &mut out, ix_in_frame)
+        }
+        .expect("canonical table validates");
+        assert_eq!(count, 3, "residue {residue}");
+        assert_eq!(got_pid.as_array(), &pid);
+        assert_eq!(got_ix, ix);
+        let first = unsafe { out[0].assume_init_ref() };
+        let duplicate = unsafe { out[1].assume_init_ref() };
+        let last = unsafe { out[2].assume_init_ref() };
+        assert_eq!(first, duplicate, "residue {residue}: duplicate aliases");
+        assert_eq!(first.data_len(), residue);
+        assert_eq!(last.data_len(), 33 + residue);
+    }
+}
+
+#[test]
+fn checked_0449_decoder_rejects_equal_but_out_of_frame_instruction_bytes() {
+    let ix = [1, 2, 3];
+    let pid = [7; 32];
+    let mut frame = build_frame(
+        &[Slot::Fresh {
+            data_len: 8,
+            lamports: 1,
+        }],
+        &ix,
+        pid,
+        true,
+    );
+    let base = frame.as_mut_ptr();
+    let input_len = frame.words.len() * 8;
+    const UNINIT: MaybeUninit<AccountView<'static>> = MaybeUninit::uninit();
+    let mut out = [UNINIT; 2];
+    let foreign = ix;
+    let err = unsafe {
+        deserialize_accounts_0449_checked(base, input_len, &mut out, &foreign)
+    }
+    .unwrap_err();
+    assert_eq!(err, DirectMappingError::InstructionDataMismatch);
+}
+
+#[test]
+fn checked_0449_decoder_rejects_out_of_region_and_noncanonical_pointers() {
+    let ix = [9, 9];
+    let pid = [8; 32];
+    let slots = [
+        Slot::Fresh {
+            data_len: 4,
+            lamports: 1,
+        },
+        Slot::Fresh {
+            data_len: 5,
+            lamports: 2,
+        },
+        Slot::Dup(0),
+    ];
+
+    // An arbitrary external address is rejected before any AccountView is
+    // materialized.
+    let mut frame = build_frame(&slots, &ix, pid, true);
+    let (base, ix_offset, table_offset) = locate_0449_tail(&mut frame, &ix, pid);
+    let input_len = frame.words.len() * 8;
+    unsafe {
+        core::ptr::write_unaligned(base.add(table_offset) as *mut u64, 0);
+    }
+    let ix_in_frame = unsafe { core::slice::from_raw_parts(base.add(ix_offset), ix.len()) };
+    const UNINIT: MaybeUninit<AccountView<'static>> = MaybeUninit::uninit();
+    let mut out = [UNINIT; 4];
+    let err = unsafe {
+        deserialize_accounts_0449_checked(base, input_len, &mut out, ix_in_frame)
+    }
+    .unwrap_err();
+    assert_eq!(err, DirectMappingError::PointerOutOfBounds { slot: 0 });
+
+    // A valid canonical pointer for the WRONG slot is in-bounds and aligned,
+    // but still rejected. This pins identity, not merely pointer hygiene.
+    let mut frame = build_frame(&slots, &ix, pid, true);
+    let (base, ix_offset, table_offset) = locate_0449_tail(&mut frame, &ix, pid);
+    let input_len = frame.words.len() * 8;
+    let wrong = base as usize + frame.canonical_offsets[1];
+    unsafe {
+        core::ptr::write_unaligned(base.add(table_offset) as *mut u64, wrong as u64);
+    }
+    let ix_in_frame = unsafe { core::slice::from_raw_parts(base.add(ix_offset), ix.len()) };
+    let mut out = [UNINIT; 4];
+    let err = unsafe {
+        deserialize_accounts_0449_checked(base, input_len, &mut out, ix_in_frame)
+    }
+    .unwrap_err();
+    assert_eq!(err, DirectMappingError::NonCanonicalPointer { slot: 0 });
+
+    // A duplicate slot must point to its canonical earlier record, never to
+    // another in-frame canonical account.
+    let mut frame = build_frame(&slots, &ix, pid, true);
+    let (base, ix_offset, table_offset) = locate_0449_tail(&mut frame, &ix, pid);
+    let input_len = frame.words.len() * 8;
+    let wrong = base as usize + frame.canonical_offsets[1];
+    unsafe {
+        core::ptr::write_unaligned(
+            base.add(table_offset + 2 * core::mem::size_of::<u64>()) as *mut u64,
+            wrong as u64,
+        );
+    }
+    let ix_in_frame = unsafe { core::slice::from_raw_parts(base.add(ix_offset), ix.len()) };
+    let mut out = [UNINIT; 4];
+    let err = unsafe {
+        deserialize_accounts_0449_checked(base, input_len, &mut out, ix_in_frame)
+    }
+    .unwrap_err();
+    assert_eq!(err, DirectMappingError::NonCanonicalPointer { slot: 2 });
+}
+
+#[test]
+fn checked_0449_decoder_rejects_malformed_duplicates_and_truncation() {
+    let ix = [5];
+    let pid = [6; 32];
+    let mut frame = build_frame(
+        &[Slot::Fresh {
+            data_len: 0,
+            lamports: 1,
+        }],
+        &ix,
+        pid,
+        true,
+    );
+    let (base, ix_offset, _) = locate_0449_tail(&mut frame, &ix, pid);
+    let input_len = frame.words.len() * 8;
+    // Slot zero cannot be a duplicate of slot zero.
+    unsafe {
+        *base.add(8) = 0;
+    }
+    let ix_in_frame = unsafe { core::slice::from_raw_parts(base.add(ix_offset), ix.len()) };
+    const UNINIT: MaybeUninit<AccountView<'static>> = MaybeUninit::uninit();
+    let mut out = [UNINIT; 2];
+    let err = unsafe {
+        deserialize_accounts_0449_checked(base, input_len, &mut out, ix_in_frame)
+    }
+    .unwrap_err();
+    assert_eq!(
+        err,
+        DirectMappingError::MalformedDuplicate {
+            slot: 0,
+            duplicate_of: 0
+        }
+    );
+
+    let mut frame = build_frame(
+        &[Slot::Fresh {
+            data_len: 0,
+            lamports: 1,
+        }],
+        &ix,
+        pid,
+        true,
+    );
+    let (base, ix_offset, table_offset) = locate_0449_tail(&mut frame, &ix, pid);
+    let ix_in_frame = unsafe { core::slice::from_raw_parts(base.add(ix_offset), ix.len()) };
+    let mut out = [UNINIT; 2];
+    let err = unsafe {
+        deserialize_accounts_0449_checked(base, table_offset, &mut out, ix_in_frame)
+    }
+    .unwrap_err();
+    assert_eq!(err, DirectMappingError::TruncatedInput);
+}
+
+#[test]
+fn checked_table_and_stride_views_have_identical_mutation_semantics() {
+    let ix = [0xA4, 0x01];
+    let pid = [0x91; 32];
+    let mut frame = build_frame(
+        &[
+            Slot::Fresh {
+                data_len: 32,
+                lamports: 50,
+            },
+            Slot::Dup(0),
+        ],
+        &ix,
+        pid,
+        true,
+    );
+    let (walk_views, _, _) = walk::<4>(&mut frame);
+    let (base, ix_offset, _) = locate_0449_tail(&mut frame, &ix, pid);
+    let input_len = frame.words.len() * 8;
+    let ix_in_frame = unsafe { core::slice::from_raw_parts(base.add(ix_offset), ix.len()) };
+    const UNINIT: MaybeUninit<AccountView<'static>> = MaybeUninit::uninit();
+    let mut out = [UNINIT; 4];
+    let (_, count, _) = unsafe {
+        deserialize_accounts_0449_checked(base, input_len, &mut out, ix_in_frame)
+    }
+    .unwrap();
+    assert_eq!(count, 2);
+    let table_first = unsafe { out[0].assume_init_ref() };
+    let table_duplicate = unsafe { out[1].assume_init_ref() };
+
+    // Last-byte write through the table path is visible through both the
+    // legacy-walk view and the duplicate. This pins payload alias semantics,
+    // not just header pointer equality.
+    {
+        let mut byte = table_first.segment_mut::<u8>(31, 1).unwrap();
+        *byte = 0xCD;
+    }
+    assert_eq!(walk_views[0].try_borrow().unwrap()[31], 0xCD);
+    assert_eq!(table_duplicate.try_borrow().unwrap()[31], 0xCD);
+
+    // Header transitions also share one canonical RuntimeAccount.
+    walk_views[0].resize(16).unwrap();
+    assert_eq!(table_first.data_len(), 16);
+    table_duplicate.set_lamports(77);
+    assert_eq!(walk_views[0].lamports(), 77);
+    let new_owner = hopper_native::Address::new_from_array([0xE1; 32]);
+    unsafe {
+        table_first.assign(&new_owner);
+    }
+    assert_eq!(walk_views[0].read_owner(), new_owner);
 }

@@ -2,7 +2,7 @@
 
 Showcases **segment-level borrows on a large (>100 KB) zero-copy
 account**. A central limit orderbook keeps three independent regions
-inside one account — `bids`, `asks`, and an `events` ring — and each
+inside one account (`bids`, `asks`, and an `events` ring) and each
 instruction borrows only the byte range it needs. Posting a bid touches
 *only* the bids segment; matching touches asks + events; the crank reads
 only events. The runtime `SegmentBorrowRegistry` rejects any accidental

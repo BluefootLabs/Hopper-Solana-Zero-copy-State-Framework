@@ -209,6 +209,7 @@ mod tests {
     static INIT_IX: InstructionDescriptor = InstructionDescriptor {
         name: "initialize",
         tag: IX_INIT,
+        discriminator: &[IX_INIT],
         args: &[],
         accounts: &[],
         remaining_accounts: None,
@@ -226,6 +227,7 @@ mod tests {
     static DEPOSIT_IX: InstructionDescriptor = InstructionDescriptor {
         name: "deposit",
         tag: IX_DEPOSIT,
+        discriminator: &[IX_DEPOSIT],
         args: &[],
         accounts: &[],
         remaining_accounts: None,

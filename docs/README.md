@@ -17,3 +17,5 @@ Start here for the current Hopper framework surface:
 - [../examples/hopper-devnet-audit/README.md](../examples/hopper-devnet-audit/README.md) - devnet audit program for dynamic tails, segments, and substrate probes.
 - [PROFILING.md](PROFILING.md) - `hopper profile elf`, binary profile artifacts, and reproducible benchmark commands.
 - [PROTOCOL_GRADE_EXAMPLES.md](PROTOCOL_GRADE_EXAMPLES.md) - receipt indexing, compatibility reports, migration plans, typed cross-program reads, and segment leases.
+- [EFFECT_ABI_V0_1.md](EFFECT_ABI_V0_1.md) - framework-neutral static and invocation-parametric write effects, Grillo verification, and the exact v0.1 nonclaims.
+- [EFFECT_ABI_V0_2.md](EFFECT_ABI_V0_2.md) - full account-state transition contracts, deployment binding, CPI envelopes, the fail-closed invocation-frame binding, and the shared manifest-commitment that threads runtime containment, verification, and placement.

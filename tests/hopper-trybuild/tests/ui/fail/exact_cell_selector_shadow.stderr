@@ -1,0 +1,21 @@
+error[E0080]: evaluation panicked: cells selector primitive spelling does not match its semantic wire width
+  --> tests/ui/fail/exact_cell_selector_shadow.rs:20:14
+   |
+20 |     #[derive(Accounts)]
+   |              ^^^^^^^^ evaluation of `shadowed::_` failed here
+
+error[E0308]: mismatched types
+  --> tests/ui/fail/exact_cell_selector_shadow.rs:20:14
+   |
+20 |     #[derive(Accounts)]
+   |              ^^^^^^^^
+   |              |
+   |              expected `u16`, found `u8`
+   |              arguments to this method are incorrect
+   |
+note: method defined here
+  --> $WORKSPACE/crates/hopper-core/src/receipt.rs
+   |
+   |     pub fn set_invariants(&mut self, passed: bool, checked: u16) {
+   |            ^^^^^^^^^^^^^^
+   = note: this error originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)

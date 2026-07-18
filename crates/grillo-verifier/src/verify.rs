@@ -15,16 +15,19 @@
 //! record that changed none of its bytes is surfaced as a note on a PASS,
 //! never a violation.
 
-use grillo_manifest::{InstructionContract, RangeContract};
+use grillo_manifest::{
+    InstructionContract, MutationContractView, RangeContract, ResolveError,
+    ResolvedInstructionContract,
+};
 
 use crate::touch_map::TouchMap;
 
 /// A pre/post snapshot of one account in the instruction — its bytes and,
 /// optionally, its lamport balance.
 ///
-/// Lamports default to `0`/`0` (no delta), so a caller that only cares
-/// about the data dimension can ignore them; the lamport check only fires
-/// when a delta is present AND the instruction is mutation-complete.
+/// Lamports are explicitly marked observed by [`with_lamports`](Self::with_lamports),
+/// so an omitted balance snapshot can never be confused with an observed
+/// `0 -> 0` balance.
 #[derive(Clone, Debug)]
 pub struct AccountDelta<'a> {
     /// The account's index in the instruction's account list (matches a
@@ -38,6 +41,8 @@ pub struct AccountDelta<'a> {
     pub pre_lamports: u64,
     /// Lamport balance after the instruction.
     pub post_lamports: u64,
+    /// Whether both lamport balances came from real snapshots.
+    pub lamports_observed: bool,
 }
 
 impl<'a> AccountDelta<'a> {
@@ -49,6 +54,7 @@ impl<'a> AccountDelta<'a> {
             post,
             pre_lamports: 0,
             post_lamports: 0,
+            lamports_observed: false,
         }
     }
 
@@ -56,6 +62,7 @@ impl<'a> AccountDelta<'a> {
     pub fn with_lamports(mut self, pre_lamports: u64, post_lamports: u64) -> Self {
         self.pre_lamports = pre_lamports;
         self.post_lamports = post_lamports;
+        self.lamports_observed = true;
         self
     }
 }
@@ -91,6 +98,12 @@ pub enum InconclusiveReason {
     /// (`strict_writes = false`). Its `authorized` set carries no authority,
     /// so there is no byte contract to check `changed`/`acquired` against.
     NoByteContract,
+    /// The manifest contains invocation-parametric exact-cell rules, but the
+    /// caller used the unresolved verification API.  Verifying against the
+    /// conservative static column envelope could produce a false PASS, so
+    /// Grillo requires the raw argument payload (or an already-resolved
+    /// contract) instead.
+    ParametricArgumentsRequired,
     /// The touch map is partial (`overflowed` and/or `skipped`). It does not
     /// enumerate the instruction's complete effect set, so byte attribution
     /// is impossible — Grillo returns this rather than risk a false PASS.
@@ -105,6 +118,11 @@ pub enum InconclusiveReason {
 /// Evidence backing a PASS.
 #[derive(Clone, Debug, PartialEq, Eq, Default)]
 pub struct PassEvidence {
+    /// Account indices for which pre/post data snapshots were inspected.
+    /// An empty list is an empty-scope proof, not a transaction-complete one.
+    pub observed_data_accounts: Vec<u8>,
+    /// Account indices for which pre/post lamport snapshots were inspected.
+    pub observed_lamport_accounts: Vec<u8>,
     /// Coalesced changed byte ranges across all accounts, in account/offset
     /// order.
     pub changed: Vec<RangeContract>,
@@ -118,8 +136,9 @@ pub struct PassEvidence {
 /// The verdict of a verification.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Verdict {
-    /// `changed ⊆ acquired ⊆ authorized` held (and lamports stayed within
-    /// the declared set). Carries the byte-precise evidence.
+    /// `changed ⊆ acquired ⊆ authorized` held for the supplied snapshot
+    /// scope (and observed lamports stayed within the declared set). Carries
+    /// the byte-precise evidence and the exact observed account indices.
     Pass(PassEvidence),
     /// One or more contract violations, each with byte-precise evidence.
     Violation(Vec<Violation>),
@@ -128,7 +147,7 @@ pub enum Verdict {
 }
 
 impl Verdict {
-    /// Whether this verdict is a definitive PASS.
+    /// Whether this verdict is a scoped PASS.
     pub fn is_pass(&self) -> bool {
         matches!(self, Verdict::Pass(_))
     }
@@ -139,8 +158,16 @@ impl Verdict {
         match self {
             Verdict::Pass(ev) => {
                 let mut s = String::from(
-                    "GRILLO VERDICT: PASS  (changed \u{2286} acquired \u{2286} authorized)\n",
+                    "GRILLO VERDICT: SCOPED PASS  (changed \u{2286} acquired \u{2286} authorized)\n",
                 );
+                s.push_str(&format!(
+                    "  observed data accounts: {:?}\n",
+                    ev.observed_data_accounts
+                ));
+                s.push_str(&format!(
+                    "  observed lamport accounts: {:?}\n",
+                    ev.observed_lamport_accounts
+                ));
                 s.push_str(&format!(
                     "  changed: {} byte(s) in {} range(s)\n",
                     ev.changed_bytes,
@@ -211,6 +238,10 @@ impl Verdict {
                     "GRILLO VERDICT: INCONCLUSIVE - the instruction declares no byte-range write \
                      contract (strict_writes = false); nothing to verify against\n",
                 ),
+                InconclusiveReason::ParametricArgumentsRequired => String::from(
+                    "GRILLO VERDICT: INCONCLUSIVE - this instruction has parametric exact-cell \
+                     rules; resolve the concrete invocation arguments before verification\n",
+                ),
                 InconclusiveReason::PartialTouchMap {
                     overflowed,
                     skipped,
@@ -235,9 +266,45 @@ pub fn verify(
     deltas: &[AccountDelta<'_>],
     touch_map: &TouchMap,
 ) -> Verdict {
+    if contract.requires_resolution() {
+        return Verdict::Inconclusive(InconclusiveReason::ParametricArgumentsRequired);
+    }
+    verify_contract(contract, deltas, touch_map)
+}
+
+/// Resolve a parametric instruction from its real post-discriminator argument
+/// payload, then verify its concrete effects.
+///
+/// Resolution errors are returned separately and can never be mistaken for a
+/// PASS.  See [`InstructionContract::resolve_effects`] for the fail-closed wire
+/// decoding rules.
+pub fn verify_invocation(
+    contract: &InstructionContract,
+    argument_payload: &[u8],
+    deltas: &[AccountDelta<'_>],
+    touch_map: &TouchMap,
+) -> Result<Verdict, ResolveError> {
+    let resolved = contract.resolve_effects(argument_payload)?;
+    Ok(verify_resolved(&resolved, deltas, touch_map))
+}
+
+/// Verify against an already invocation-resolved effect contract.
+pub fn verify_resolved(
+    contract: &ResolvedInstructionContract,
+    deltas: &[AccountDelta<'_>],
+    touch_map: &TouchMap,
+) -> Verdict {
+    verify_contract(contract, deltas, touch_map)
+}
+
+fn verify_contract<C: MutationContractView + ?Sized>(
+    contract: &C,
+    deltas: &[AccountDelta<'_>],
+    touch_map: &TouchMap,
+) -> Verdict {
     // A non-strict-writes instruction publishes no enforced byte contract,
     // so there is nothing to hold `changed`/`acquired` to.
-    if !contract.strict_writes {
+    if !contract.strict_writes() {
         return Verdict::Inconclusive(InconclusiveReason::NoByteContract);
     }
 
@@ -295,7 +362,9 @@ pub fn verify(
     // modification, and need no authorization.)
     for rec in touch_map.records.iter().filter(|r| r.write) {
         let authorized: Vec<(u64, u64)> = contract
-            .authorized_for(rec.slot)
+            .authorized_ranges()
+            .iter()
+            .filter(|range| range.account_index == rec.slot)
             .map(|r| (r.offset as u64, r.size as u64))
             .collect();
         if first_gap(rec.offset as u64, rec.end(), &authorized).is_some() {
@@ -311,9 +380,10 @@ pub fn verify(
     //
     // Only meaningful when the contract is mutation-complete (otherwise the
     // lamport dimension is undeclared and stays a passthrough).
-    if contract.mutation_complete {
+    if contract.mutation_complete() {
         for delta in deltas {
-            if delta.pre_lamports != delta.post_lamports
+            if delta.lamports_observed
+                && delta.pre_lamports != delta.post_lamports
                 && !contract.authorizes_lamports(delta.account_index)
             {
                 violations.push(Violation::UnauthorizedLamportDelta {
@@ -358,7 +428,21 @@ pub fn verify(
         }
     }
 
+    let mut observed_data_accounts: Vec<u8> =
+        deltas.iter().map(|delta| delta.account_index).collect();
+    observed_data_accounts.sort_unstable();
+    observed_data_accounts.dedup();
+    let mut observed_lamport_accounts: Vec<u8> = deltas
+        .iter()
+        .filter(|delta| delta.lamports_observed)
+        .map(|delta| delta.account_index)
+        .collect();
+    observed_lamport_accounts.sort_unstable();
+    observed_lamport_accounts.dedup();
+
     Verdict::Pass(PassEvidence {
+        observed_data_accounts,
+        observed_lamport_accounts,
         changed: changed_all,
         acquired_unchanged,
         changed_bytes,

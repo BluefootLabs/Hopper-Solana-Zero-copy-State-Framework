@@ -13,12 +13,16 @@ mutation-completeness), and computes a SHA-256 commitment over the
 canonicalized contract so a verifier can pin the exact contract it verified
 against.
 
+The framework-neutral semantics, invocation-resolution rules, commitment
+domains, and explicit nonclaims are specified in
+[`docs/EFFECT_ABI_V0_1.md`](../../docs/EFFECT_ABI_V0_1.md).
+
 The *verdict* half lives in [`grillo-verifier`](../grillo-verifier), which
 takes pre/post account snapshots plus the instruction's emitted touch map and
 proves `changed ⊆ acquired ⊆ authorized`.
 
-Manifests are produced by `hopper emit-manifest` from the program source —
-published == enforced, one const, three surfaces (authored `WRITE_RANGES`,
+Manifests are produced by `hopper compile --emit manifest` from the program source.
+Published == enforced, one const, three surfaces (authored `WRITE_RANGES`,
 manifest `writeRanges`, installed runtime `WritePolicy`).
 
 Not published to crates.io yet (`publish = false`); part of the Hopper

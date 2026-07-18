@@ -1327,9 +1327,10 @@ impl<const N: usize> ManifestRegistry<N> {
 
 // -- Helpers --
 
-/// String equality check without std.
+/// Const string equality used by generated cross-macro contract assertions.
 #[inline]
-fn const_str_eq(a: &str, b: &str) -> bool {
+#[doc(hidden)]
+pub const fn const_str_eq(a: &str, b: &str) -> bool {
     let a = a.as_bytes();
     let b = b.as_bytes();
     if a.len() != b.len() {
@@ -2572,8 +2573,21 @@ impl ErrorRegistry {
 pub struct InstructionDescriptor {
     /// Instruction name.
     pub name: &'static str,
-    /// Discriminator tag.
+    /// Legacy one-byte discriminator tag.
+    ///
+    /// This remains for compact lookup/display compatibility. Consumers that
+    /// construct or bind an instruction must use [`discriminator`](Self::discriminator),
+    /// which preserves the complete 1..=8-byte prefix accepted by Hopper's
+    /// dispatcher.
     pub tag: u8,
+    /// Exact instruction discriminator prefix in dispatch order.
+    ///
+    /// Hopper supports one through eight bytes. Publishing only `tag` made two
+    /// multi-byte handlers with the same first byte indistinguishable to
+    /// clients, effect contracts, workload profiles, and invocation proofs.
+    /// The program macro now emits the original prefix verbatim; hand-built
+    /// descriptors should normally use `&[tag]` for legacy one-byte handlers.
+    pub discriminator: &'static [u8],
     /// Arguments.
     pub args: &'static [ArgDescriptor],
     /// Accounts.
@@ -2687,6 +2701,12 @@ pub struct InstructionDescriptor {
 pub const MAX_COMPUTE_UNIT_LIMIT: u32 = 1_400_000;
 
 impl InstructionDescriptor {
+    /// Exact discriminator bytes clients must prepend and verifiers must bind.
+    #[inline(always)]
+    pub const fn discriminator_bytes(&self) -> &'static [u8] {
+        self.discriminator
+    }
+
     /// Whether the account at `account_index` has any declared write range.
     ///
     /// For a **non-`strict_writes`** instruction this is always `true`: the
@@ -4839,6 +4859,7 @@ mod tests {
         InstructionDescriptor {
             name: "deposit",
             tag: 1,
+            discriminator: &[1],
             args: &[],
             accounts: &[],
             remaining_accounts: None,
@@ -4855,6 +4876,7 @@ mod tests {
         InstructionDescriptor {
             name: "withdraw",
             tag: 2,
+            discriminator: &[2],
             args: &[],
             accounts: &[],
             remaining_accounts: None,

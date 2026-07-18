@@ -1,8 +1,7 @@
 //! # Anchor IDL Emitter
 //!
 //! Emits an Anchor-compatible IDL (`idl.json`) from a `ProgramManifest`
-//! or `ProgramIdl`. Closes audit recommendation R8 from
-//! [`../../../AUDIT.md`](../../../AUDIT.md).
+//! or `ProgramIdl`.
 //!
 //! ## Why this exists
 //!

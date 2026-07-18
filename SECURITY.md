@@ -49,7 +49,8 @@ note and the [`CHANGELOG.md`](CHANGELOG.md) entry.
 
 ## Hardening status
 
-The full audit posture is documented in [`AUDIT.md`](AUDIT.md). Hopper's
+The full audit posture is documented below and in
+[`docs/UNSAFE_INVARIANTS.md`](docs/UNSAFE_INVARIANTS.md). Hopper's
 security model rests on:
 
 - **No `unsafe` without a documented invariant.** The unsafe inventory

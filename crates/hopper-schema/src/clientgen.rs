@@ -2310,6 +2310,7 @@ mod tests {
         static INSTRUCTIONS: &[InstructionDescriptor] = &[InstructionDescriptor {
             name: "deposit",
             tag: 0,
+            discriminator: &[0],
             args: ARGS,
             accounts: ACCOUNTS,
             remaining_accounts: None,
@@ -2633,6 +2634,7 @@ mod tests {
         let ix = InstructionDescriptor {
             name: "test",
             tag: 0,
+            discriminator: &[0],
             args: ARGS,
             accounts: &[],
             remaining_accounts: None,
@@ -2672,6 +2674,7 @@ mod tests {
         static IX: &[InstructionDescriptor] = &[InstructionDescriptor {
             name: "execute_intent",
             tag: 6,
+            discriminator: &[6],
             args: ARGS,
             accounts: &[],
             remaining_accounts: Some(crate::RemainingAccountsDescriptor { max: 32 }),
@@ -2732,6 +2735,7 @@ mod tests {
         static STRICT_IX: &[InstructionDescriptor] = &[InstructionDescriptor {
             name: "deposit",
             tag: 0,
+            discriminator: &[0],
             args: &[],
             accounts: WR_ACCTS,
             remaining_accounts: None,
@@ -2748,6 +2752,7 @@ mod tests {
         static LOOSE_IX: &[InstructionDescriptor] = &[InstructionDescriptor {
             name: "deposit",
             tag: 0,
+            discriminator: &[0],
             args: &[],
             accounts: WR_ACCTS,
             remaining_accounts: None,
@@ -2801,6 +2806,7 @@ mod tests {
         static CU_IX_SET: &[InstructionDescriptor] = &[InstructionDescriptor {
             name: "deposit",
             tag: 0,
+            discriminator: &[0],
             args: &[],
             accounts: WR_ACCTS,
             remaining_accounts: None,
@@ -2817,6 +2823,7 @@ mod tests {
         static CU_IX_UNSET: &[InstructionDescriptor] = &[InstructionDescriptor {
             name: "deposit",
             tag: 0,
+            discriminator: &[0],
             args: &[],
             accounts: WR_ACCTS,
             remaining_accounts: None,

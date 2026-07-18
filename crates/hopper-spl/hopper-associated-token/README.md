@@ -5,7 +5,7 @@ Hopper-owned Associated Token Account (ATA) builders. `Create`,
 the runtime.
 
 [![Crates.io](https://img.shields.io/crates/v/hopper-associated-token.svg)](https://crates.io/crates/hopper-associated-token)
-[![Docs.rs](https://img.shields.io/docsrs/hopper-associated-token)](https://docs.rs/crate/hopper-associated-token/0.2.1)
+[![Docs.rs](https://img.shields.io/docsrs/hopper-associated-token)](https://docs.rs/crate/hopper-associated-token/0.3.0)
 
 Part of the **[Hopper](https://hopperzero.dev)** framework.
 
@@ -26,7 +26,7 @@ hopper_associated_token::instructions::CreateIdempotent {
 Works against both legacy SPL Token and Token-2022 mints; pass the
 `token_program` account that matches the mint.
 
-Docs: <https://docs.rs/crate/hopper-associated-token/0.2.1>
+Docs: <https://docs.rs/crate/hopper-associated-token/0.3.0>
 
 Support: `solanadevdao.sol` / `F42ZovBoRJZU4av5MiESVwJWnEx8ZQVFkc1RM29zMxNT`.
 

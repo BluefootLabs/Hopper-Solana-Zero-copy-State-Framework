@@ -22,7 +22,7 @@ let amount_out = constant_product_out(
 check_slippage(amount_out, minimum_out)?;
 ```
 
-Docs: <https://docs.rs/crate/hopper-finance/0.2.1>
+Docs: <https://docs.rs/crate/hopper-finance/0.3.0>
 
 Support: `solanadevdao.sol` / `F42ZovBoRJZU4av5MiESVwJWnEx8ZQVFkc1RM29zMxNT`.
 

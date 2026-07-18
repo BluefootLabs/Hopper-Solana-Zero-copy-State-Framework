@@ -46,7 +46,7 @@ check_secp256k1_instruction_at(instructions, secp_ix, 0, eth_address, message)?;
 The full shipped/planned crypto matrix lives in
 [`docs/CRYPTO_CAPABILITIES.md`](../../docs/CRYPTO_CAPABILITIES.md).
 
-Docs: <https://docs.rs/crate/hopper-solana/0.2.1>
+Docs: <https://docs.rs/crate/hopper-solana/0.3.0>
 
 ## Support
 

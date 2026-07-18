@@ -7,7 +7,7 @@ Hopper is a zero-copy Solana program framework. Write programs with the Anchor s
 
 The framework gives you Anchor ergonomics, Quasar direct-state speed, and an escape hatch when you need raw SVM control. One production runtime: direct Solana account memory through Hopper's typed handles, validation layer, and CPI surface.
 
-Hopper is also the only framework in the 2026 low-CU field with its own substrate: Anchor v2 (alpha), Typhoon, and star-frame all build on Pinocchio, and Quasar shares its lineage, while `crates/hopper-native` has zero external dependencies. That one decision is what makes segment-level borrows, touch maps, and field-level write policies possible — see [docs/THE_MOAT.md](docs/THE_MOAT.md). Hopper is published on crates.io (hopper-lang 0.3.0) with a line-by-line audit trail and generated clients in 8 targets.
+Hopper is also the only framework in the 2026 low-CU field with its own substrate: Anchor v2 (alpha), Typhoon, and star-frame all build on Pinocchio, and Quasar shares its lineage, while `crates/hopper-native` has zero external dependencies. That one decision is what makes segment-level borrows, touch maps, and field-level write policies possible. Hopper is published on crates.io (hopper-lang 0.3.0) with a line-by-line audit trail and generated clients in 8 targets.
 
 Three measured facts, provenance in [BENCHMARKS.md](BENCHMARKS.md) (2026-07-07 runs; vault four-way re-measured 2026-07-09):
 
@@ -27,12 +27,12 @@ For normal programs, use `hopper-lang` as `hopper`: `use hopper::prelude::*`, `#
 - Checked CPI, signed CPI, stored instructions, Token and Token-2022 helpers, ATA, memo, and on-chain crypto.
 - Systems-mode APIs for segmented layouts, dynamic tails, receipt trails, policy checks, schema manifests, migrations.
 - Instruction touch maps (`touch-map` feature): enumerate the exact `(account, offset, size, read/write)` byte footprint an instruction touched, at measured 0 CU (`Context::for_each_touch`). Under capacity pressure the log coalesces exact unions instead of truncating, so contiguous workloads of any size emit a complete, verifier-conclusive map.
-- Field-level write policies: `#[hopper::context(strict_writes)]` compiles declared mutable ranges into a static policy enforced at borrow acquisition — beyond Sealevel's account-level `writable` bit. Proven on compiled SBF bytecode and live devnet: a tampered handler's out-of-range write is refused with `Custom(0xD000 | idx)` before any byte changes ([examples/hopper-sentinel](examples/hopper-sentinel/README.md), signatures in the README).
-- `Seq<'a, T>` growable typed sequence tails: O(1) push over a `[count][elems]` wire, capacity derived from the account length (the layout id never changes as it grows), declared under `strict_writes` as one open-ended `tail(...)` range that protects the fixed head and still refuses whole-account CPI delegation — where Anchor's `Vec<T>` pays a full deserialize + reserialize every instruction.
-- The full migration suite: typed in-place `migrate_layout` with owner/writable gating baked into the runtime, `migrate(resize = grow|fit, payer = ...)` for payer-funded resizing (shrink refunds exactly the freed rent delta — never the deposits), `#[hopper::state(schema_epoch = N)]` + `#[account(epoch_migrate)]` for in-place epoch chains healed at bind, and `migrate_chain!` for typed multi-hop version chains with one up-front grow.
+- Field-level write policies: `#[hopper::context(strict_writes)]` compiles declared mutable ranges into a static policy enforced at borrow acquisition, beyond Sealevel's account-level `writable` bit. Proven on compiled SBF bytecode and live devnet: a tampered handler's out-of-range write is refused with `Custom(0xD000 | idx)` before any byte changes ([examples/hopper-sentinel](examples/hopper-sentinel/README.md), signatures in the README).
+- `Seq<'a, T>` growable typed sequence tails: O(1) push over a `[count][elems]` wire, capacity derived from the account length (the layout id never changes as it grows), declared under `strict_writes` as one open-ended `tail(...)` range that protects the fixed head and still refuses whole-account CPI delegation, where Anchor's `Vec<T>` pays a full deserialize + reserialize every instruction.
+- The full migration suite: typed in-place `migrate_layout` with owner/writable gating baked into the runtime, `migrate(resize = grow|fit, payer = ...)` for payer-funded resizing (shrink refunds exactly the freed rent delta, never the deposits), `#[hopper::state(schema_epoch = N)]` + `#[account(epoch_migrate)]` for in-place epoch chains healed at bind, and `migrate_chain!` for typed multi-hop version chains with one up-front grow.
 - Grillo: an independent byte-diff verifier (`grillo-manifest` + `grillo-verifier`) proving `changed ⊆ acquired ⊆ authorized` for any transaction against the program's published manifest and emitted touch map.
-- `hopper lint --deny-escapes`: a CI-deniable audit that every account write in a program routes through the governed `Context` surface — the raw escape hatches are grep-able and machine-refused.
-- Runtime-direction readiness, compile-gated until cluster activation: `simd-0321` (r2 instruction-data entrypoint) and `simd-0449` (O(1) account resolution from the pre-computed pointer table — one `from_raw_parts`, no stride walk).
+- `hopper lint --deny-escapes`: a CI-deniable audit that every account write in a program routes through the governed `Context` surface, the raw escape hatches are grep-able and machine-refused.
+- Runtime-direction readiness, compile-gated until cluster activation: `simd-0321` (r2 instruction-data entrypoint) and `simd-0449` (O(1) account resolution from the pre-computed pointer table, one `from_raw_parts`, no stride walk).
 - Opt-in 1-byte compact accounts for hot state: exact `[disc][body]` sizing on-chain, with layout fingerprints supplied by the manifest, IDL, registry, and generated SDK constants.
 - CLI, schema, IDL, and code generation tools that understand Hopper layout fingerprints before decoding accounts.
 
@@ -42,13 +42,13 @@ Main framework: hopper-lang 0.3.0, imported as hopper. [Docs at docs.rs](https:/
 
 Install the CLI: `cargo install hopper-cli`.
 
-All companion crates target 0.3.0: hopper-runtime, hopper-systems, hopper-derive, hopper-schema, hopper-native, hopper-solana, hopper-token, hopper-token-2022, hopper-associated-token, hopper-system, hopper-memo, hopper-finance, hopper-lending, hopper-staking, hopper-vesting, hopper-distribute, hopper-multisig, hopper-anchor, hopper-manager, hopper-sdk.
+All companion crates target 0.3.0: hopper-runtime, hopper-systems, hopper-derive, hopper-macros, hopper-schema, hopper-native, hopper-solana, hopper-token, hopper-token-2022, hopper-associated-token, hopper-metaplex, hopper-system, hopper-memo, hopper-builtins, hopper-finance, hopper-lending, hopper-staking, hopper-vesting, hopper-distribute, hopper-multisig, hopper-anchor, hopper-manager, hopper-sdk, hopper-svm.
 
 Benchmark snapshot: [BENCHMARKS.md](BENCHMARKS.md). Regenerate from the separate [hopper-bench](https://github.com/BluefootLabs/hopper-bench) repo before changing benchmark claims.
 
 Generated clients: TypeScript, Kotlin, Python, Go, C header-only, off-chain Rust, Codama JSON, Anchor IDL JSON. Headered readers assert Hopper layout IDs from bytes `4..12` before decode; compact readers assert exact size plus discriminator and expose the layout fingerprint from manifest/IDL metadata. See [examples/hopper-compact-vault](examples/hopper-compact-vault/README.md).
 
-Security users should review [AUDIT.md](AUDIT.md) and [docs/UNSAFE_INVARIANTS.md](docs/UNSAFE_INVARIANTS.md).
+Security users should review [SECURITY.md](SECURITY.md) and [docs/UNSAFE_INVARIANTS.md](docs/UNSAFE_INVARIANTS.md).
 
 ## Hopper in 30 seconds
 
@@ -83,7 +83,7 @@ hopper deploy --cluster devnet \
   --program-id target/deploy/my_program-keypair.json
 ```
 
-That's it. The counter example deployed to devnet at D8UGWDX5QRwEkKs2J9Sweabf4zd6hzdLqv7CB11SF91F as a full zero-copy program in 4,688 bytes; today's tree (2026-07-09, after the writable-sections fix) builds the same example at 3,736 bytes — about 0.027 SOL of rent-exempt deploy cost at the network's `(bytes + 128) x 6,960` lamport formula (the deployed 4,688-byte artifact was ~0.034 SOL), versus ~1.36 SOL for a 190 KiB Anchor-class artifact (see [BENCHMARKS.md](BENCHMARKS.md), deploy-cost economics). To decode a confirmed transaction:
+That's it. The counter example deployed to devnet at D8UGWDX5QRwEkKs2J9Sweabf4zd6hzdLqv7CB11SF91F as a full zero-copy program in 4,688 bytes; today's tree (2026-07-09, after the writable-sections fix) builds the same example at 3,736 bytes, about 0.027 SOL of rent-exempt deploy cost at the network's `(bytes + 128) x 6,960` lamport formula (the deployed 4,688-byte artifact was ~0.034 SOL), versus ~1.36 SOL for a 190 KiB Anchor-class artifact (see [BENCHMARKS.md](BENCHMARKS.md), deploy-cost economics). To decode a confirmed transaction:
 
 ```sh
 hopper explain <CONFIRMED_SIG> --manifest hopper.manifest.json
@@ -175,7 +175,7 @@ Advanced:
 - [docs/MIGRATION_FROM_ANCHOR.md](docs/MIGRATION_FROM_ANCHOR.md): Anchor to Hopper.
 - [docs/MIGRATION_FROM_QUASAR.md](docs/MIGRATION_FROM_QUASAR.md): Quasar to Hopper.
 - [docs/HOPPER_VS_QUASAR.md](docs/HOPPER_VS_QUASAR.md): Quasar casts vs Hopper checks.
-- [docs/THE_MOAT.md](docs/THE_MOAT.md): what compounds on the borrow ledger and sovereign substrate, and what any competitor can copy in a weekend — every claim cited to file, symbol, and test.
+- [docs/EFFECT_ABI_V0_1.md](docs/EFFECT_ABI_V0_1.md) and [docs/EFFECT_ABI_V0_2.md](docs/EFFECT_ABI_V0_2.md): the framework-neutral effect ABI, Grillo verification, and the proof-carrying binding.
 - [docs/PORT_QUASAR_IN_20_MINUTES.md](docs/PORT_QUASAR_IN_20_MINUTES.md): bounded-tail vault/multisig port guide.
 - [docs/DYNAMIC_TAILS_FROM_QUASAR.md](docs/DYNAMIC_TAILS_FROM_QUASAR.md): Quasar dynamic fields to Hopper fixed-body plus compact tail.
 - [docs/TOKEN_2022_GUIDE.md](docs/TOKEN_2022_GUIDE.md): zero-copy Token-2022 extension policy and constraint syntax.
@@ -232,17 +232,26 @@ Handlers with variable tails use generated remaining-account accessors: ctx.rema
 | crates/hopper-system | System-program helpers. |
 | crates/hopper-solana | Solana interop. |
 | crates/hopper-spl | Token, Token-2022, ATA, Metaplex helpers. |
+| crates/hopper-builtins | Built-in program IDs and dispatch helpers. |
+| crates/hopper-memo | SPL Memo helpers. |
+| crates/hopper-anchor | Anchor-compat interop surface. |
+| crates/hopper-finance, -lending, -staking, -vesting, -distribute, -multisig | Domain crates: AMM math, lending health, staking rewards, vesting schedules, distribution splits, multisig thresholds. |
 | crates/hopper-manager | Manifest-driven account inspection. |
 | crates/hopper-sdk | Client-side SDK surface. |
+| crates/hopper-svm | In-process host execution harness for tests. |
+| crates/hopper-test | Test helpers and trace utilities (not published). |
+| crates/hopper-topology | Hopper Loom: account-topology analysis and deterministic placement plans. |
+| crates/grillo-manifest, crates/grillo-verifier | Grillo: mutation-manifest model and the independent byte-diff verifier. |
 | tools/hopper-cli | hopper CLI: linting, schema export, inspect, profile. |
 | examples | Example programs. |
-| docs | Design notes, unsafe invariants, audit/recovery. |
+| docs | Design notes, unsafe invariants, and the Effect ABI specs. |
 
 The old split repos were folded back with subtree history preserved, then archived.
 
 Companion repos:
 - [hopper-bench](https://github.com/BluefootLabs/hopper-bench): benchmark harness and CU lab.
-- [hopper-svm](https://github.com/BluefootLabs/hopper-svm): in-process Solana execution harness.
+
+The in-process execution harness `hopper-svm` now lives in-tree at `crates/hopper-svm`.
 
 ## Tools and commands
 
@@ -276,7 +285,7 @@ Raw and benchmark examples:
 - [examples/hopper-parity-vault](examples/hopper-parity-vault): apples-to-apples benchmark target with intentionally low-level lamport mutation.
 - [examples/hopper-token-2022-vault](examples/hopper-token-2022-vault) and [examples/hopper-token-2022-ata](examples/hopper-token-2022-ata): Token-2022 low-level validation and CPI examples.
 
-For in-process tests, use the sibling [hopper-svm](https://github.com/BluefootLabs/hopper-svm) repo as a dev-dependency.
+For in-process tests, use the in-tree `crates/hopper-svm` crate as a dev-dependency.
 
 ## Benchmarks
 
@@ -301,7 +310,7 @@ raw Pinocchio per hop, with the smallest binary of the three. See
 Treat the vault table as a measurement of that vault contract, not a universal
 ranking. Within it, the facts are plain: Hopper won both rows Quasar's own
 upstream vault implements (deposit and withdraw) under one lockfile, toolchain,
-and seed set — and Quasar publishes no comparative CU benchmark of its own.
+and seed set, and Quasar publishes no comparative CU benchmark of its own.
 Re-run the benchmark repo at current heads before publishing fresh performance
 language.
 
@@ -335,11 +344,11 @@ self-close lamport imbalance, stale migration state, overstated
 remaining-capacity, duplicate-account aliasing, and the two Anchor v2
 alpha Slab classes, #4603 and #4616) into Hopper regression proofs.
 Authoring that suite found and fixed a real Hopper bug (`safe_close` accepted
-an aliased destination) — the framework audits itself.
+an aliased destination), the framework audits itself.
 
 Verification lanes beyond the test matrix: Kani proofs over the raw-input
 parser and tail codecs (`scripts/kani-*.sh`), and a Miri lane under Tree
-Borrows over the aliasing core — the segment borrow ledger, write-policy
+Borrows over the aliasing core, the segment borrow ledger, write-policy
 gate, native-boundary transmutes, and borrow registry
 (`scripts/miri-core.sh`). The Miri lane caught and fixed two real
 UB classes in test fixtures on its first run; that is what it is for.
@@ -347,12 +356,11 @@ UB classes in test fixtures on its first run; that is what it is for.
 See:
 
 - `docs/UNSAFE_INVARIANTS.md`
-- `AUDIT.md`
 - `crates/hopper-core/tests/unsafe_boundary_tests.rs`
 - `crates/hopper-core/tests/overlay_equivalence_tests.rs`
 - `crates/hopper-runtime/tests/competitor_bug_classes.rs` and
   `crates/hopper-core/tests/competitor_bug_classes.rs`
-- [docs/THE_MOAT.md](docs/THE_MOAT.md) for which guarantees are structural
+- [COMPARISON.md](COMPARISON.md) for which guarantees are structural
 
 ## Support
 

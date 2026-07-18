@@ -9,12 +9,14 @@
 use std::collections::BTreeMap;
 
 use hopper_cicada::{
-    IntentShard, CONFIG_SEED, INTENTS_PER_SHARD, MAX_ROUTE_ACCOUNTS, SOURCE_LEASE_SEED,
-    STATUS_CLAIMED, STATUS_EMPTY, STATUS_OPEN, STATUS_SETTLED, VAULT_AUTHORITY_SEED,
+    ClaimStillActive, DestinationTokenPolicyChanged, EmptySettlement, IntentShard,
+    ProtectedAccountDelegation, CONFIG_SEED, INTENTS_PER_SHARD, MAX_ROUTE_ACCOUNTS,
+    SOURCE_LEASE_SEED, STATUS_CANCELLED, STATUS_CLAIMED, STATUS_OPEN, STATUS_SETTLED,
+    VAULT_AUTHORITY_SEED,
 };
 use hopper_test::{HarnessResult, LiteSvmHarness};
 use solana_account::Account;
-use solana_instruction::{AccountMeta, Instruction};
+use solana_instruction::{error::InstructionError, AccountMeta, Instruction};
 use solana_pubkey::Pubkey;
 
 const CICADA_ELF: &str = "../../target/deploy/hopper_cicada";
@@ -97,6 +99,53 @@ fn token_authority(account: &Account) -> Pubkey {
 
 fn account_bytes<'a>(account: &'a Account, offset: u32, size: usize) -> &'a [u8] {
     &account.data[offset as usize..offset as usize + size]
+}
+
+fn account_u64(account: &Account, offset: u32) -> u64 {
+    u64::from_le_bytes(account_bytes(account, offset, 8).try_into().unwrap())
+}
+
+fn instruction_snapshot(fixture: &Fixture, instruction: &Instruction) -> Bank {
+    instruction
+        .accounts
+        .iter()
+        .map(|meta| {
+            (
+                meta.pubkey,
+                fixture
+                    .bank
+                    .get(&meta.pubkey)
+                    .unwrap_or_else(|| panic!("missing fixture account {}", meta.pubkey))
+                    .clone(),
+            )
+        })
+        .collect()
+}
+
+/// A failed Solana instruction is atomic across the entire account envelope.
+/// Assert against Mollusk's returned accounts, not only `Fixture::bank`: the
+/// latter deliberately commits results only on success and would otherwise
+/// make a rollback assertion tautological.
+fn assert_instruction_rolled_back(result: &HarnessResult, before: &Bank) {
+    assert!(
+        !result.succeeded(),
+        "rollback assertion needs a failed result"
+    );
+    for (key, expected) in before {
+        let actual = result
+            .raw()
+            .get_account(key)
+            .unwrap_or_else(|| panic!("result omitted instruction account {key}"));
+        assert_eq!(actual, expected, "failed instruction changed account {key}");
+    }
+}
+
+fn assert_custom_error(result: &HarnessResult, code: u32) {
+    assert_eq!(
+        result.raw().raw_result,
+        Err(InstructionError::Custom(code)),
+        "unexpected compiled-program refusal",
+    );
 }
 
 fn process(fixture: &mut Fixture, instruction: &Instruction) -> HarnessResult {
@@ -330,32 +379,38 @@ fn execute_ix(f: &Fixture, command: u8) -> Instruction {
     )
 }
 
-#[test]
-fn compiled_full_lifecycle_initializes_creates_claims_executes_and_reclaims() {
-    let Some(mut f) = setup_open_intent() else {
-        eprintln!("SKIPPED: build Cicada SBF artifacts first");
-        return;
-    };
+fn release_ix(f: &Fixture) -> Instruction {
+    ix(
+        f.program_id,
+        4,
+        &0u16.to_le_bytes(),
+        vec![
+            AccountMeta::new_readonly(f.config, false),
+            AccountMeta::new(f.shard, false),
+        ],
+    )
+}
 
-    let claim = claim_ix(&f);
-    assert!(process(&mut f, &claim).succeeded(), "claim failed");
-    assert_eq!(
-        f.bank[&f.shard].data[IntentShard::STATUSES_ABS_OFFSET as usize],
-        STATUS_CLAIMED
-    );
+fn cancel_ix(f: &Fixture) -> Instruction {
+    ix(
+        f.program_id,
+        5,
+        &0u16.to_le_bytes(),
+        vec![
+            AccountMeta::new_readonly(f.owner, true),
+            AccountMeta::new_readonly(f.config, false),
+            AccountMeta::new(f.shard, false),
+            AccountMeta::new(f.source, false),
+            AccountMeta::new_readonly(f.vault, false),
+            AccountMeta::new(f.refund, false),
+            AccountMeta::new_readonly(f.input_mint, false),
+            AccountMeta::new_readonly(f.token_program, false),
+        ],
+    )
+}
 
-    let execute = execute_ix(&f, ROUTE_HONEST);
-    let result = process(&mut f, &execute);
-    assert!(result.succeeded(), "execute failed: {:#?}", f.svm.logs());
-    assert_eq!(
-        f.bank[&f.shard].data[IntentShard::STATUSES_ABS_OFFSET as usize],
-        STATUS_SETTLED
-    );
-    assert_eq!(token_amount(&f.bank[&f.source]), 0);
-    assert_eq!(token_amount(&f.bank[&f.refund]), 40);
-    assert_eq!(token_amount(&f.bank[&f.destination]), 95);
-
-    let reclaim = ix(
+fn reclaim_ix(f: &Fixture) -> Instruction {
+    ix(
         f.program_id,
         7,
         &0u16.to_le_bytes(),
@@ -368,13 +423,44 @@ fn compiled_full_lifecycle_initializes_creates_claims_executes_and_reclaims() {
             AccountMeta::new_readonly(f.token_program, false),
             AccountMeta::new(f.source_lease, false),
         ],
-    );
-    let result = process(&mut f, &reclaim);
-    assert!(result.succeeded(), "reclaim failed: {:#?}", f.svm.logs());
-    assert_eq!(
-        f.bank[&f.shard].data[IntentShard::STATUSES_ABS_OFFSET as usize],
-        STATUS_EMPTY
-    );
+    )
+}
+
+fn assert_slot_zeroed(shard: &Account) {
+    for (offset, size) in [
+        (IntentShard::OWNERS_ABS_OFFSET, 32),
+        (IntentShard::SOURCE_TOKENS_ABS_OFFSET, 32),
+        (IntentShard::VAULT_AUTHORITIES_ABS_OFFSET, 32),
+        (IntentShard::REFUND_TOKENS_ABS_OFFSET, 32),
+        (IntentShard::DESTINATION_TOKENS_ABS_OFFSET, 32),
+        (IntentShard::INPUT_MINTS_ABS_OFFSET, 32),
+        (IntentShard::OUTPUT_MINTS_ABS_OFFSET, 32),
+        (IntentShard::MAX_INPUTS_ABS_OFFSET, 8),
+        (IntentShard::MIN_OUTPUTS_ABS_OFFSET, 8),
+        (IntentShard::EXPIRIES_ABS_OFFSET, 8),
+        (IntentShard::ALLOWED_EXECUTORS_ABS_OFFSET, 32),
+        (IntentShard::ROUTE_PROGRAMS_ABS_OFFSET, 32),
+        (IntentShard::ROUTE_COMMITMENTS_ABS_OFFSET, 32),
+        (IntentShard::ROUTE_MODES_ABS_OFFSET, 1),
+        (IntentShard::SEQUENCES_ABS_OFFSET, 8),
+        (IntentShard::STATUSES_ABS_OFFSET, 1),
+        (IntentShard::CLAIMANTS_ABS_OFFSET, 32),
+        (IntentShard::CLAIM_EXPIRIES_ABS_OFFSET, 8),
+        (IntentShard::SETTLED_INPUTS_ABS_OFFSET, 8),
+        (IntentShard::SETTLED_OUTPUTS_ABS_OFFSET, 8),
+        (IntentShard::SETTLEMENT_HASHES_ABS_OFFSET, 32),
+        (IntentShard::REVISIONS_ABS_OFFSET, 8),
+    ] {
+        assert!(
+            account_bytes(shard, offset, size)
+                .iter()
+                .all(|byte| *byte == 0),
+            "reclaim left slot-zero data at offset {offset}",
+        );
+    }
+}
+
+fn assert_reclaimed(f: &Fixture) {
     assert_eq!(token_authority(&f.bank[&f.source]), f.owner);
     assert_eq!(f.bank[&f.source_lease].lamports, 0);
     assert_eq!(f.bank[&f.source_lease].data[0], 0xFF); // CLOSE_SENTINEL
@@ -390,9 +476,165 @@ fn compiled_full_lifecycle_initializes_creates_claims_executes_and_reclaims() {
         0,
     );
     assert_eq!(
+        u32::from_le_bytes(
+            account_bytes(&f.bank[&f.shard], IntentShard::OCCUPIED_ABS_OFFSET, 4)
+                .try_into()
+                .unwrap(),
+        ),
+        0,
+    );
+    assert_slot_zeroed(&f.bank[&f.shard]);
+}
+
+#[test]
+fn compiled_full_lifecycle_initializes_creates_claims_executes_and_reclaims() {
+    let Some(mut f) = setup_open_intent() else {
+        eprintln!("SKIPPED: build Cicada SBF artifacts first");
+        return;
+    };
+
+    let claim = claim_ix(&f);
+    assert!(process(&mut f, &claim).succeeded(), "claim failed");
+    assert_eq!(
+        f.bank[&f.shard].data[IntentShard::STATUSES_ABS_OFFSET as usize],
+        STATUS_CLAIMED
+    );
+    assert_eq!(
+        account_bytes(&f.bank[&f.shard], IntentShard::CLAIMANTS_ABS_OFFSET, 32),
+        f.executor.as_ref(),
+    );
+    assert_eq!(
+        account_u64(&f.bank[&f.shard], IntentShard::CLAIM_EXPIRIES_ABS_OFFSET),
+        5,
+    );
+    assert_eq!(
+        account_u64(&f.bank[&f.shard], IntentShard::REVISIONS_ABS_OFFSET),
+        2,
+    );
+
+    let execute = execute_ix(&f, ROUTE_HONEST);
+    let result = process(&mut f, &execute);
+    assert!(result.succeeded(), "execute failed: {:#?}", f.svm.logs());
+    assert_eq!(
+        f.bank[&f.shard].data[IntentShard::STATUSES_ABS_OFFSET as usize],
+        STATUS_SETTLED
+    );
+    assert_eq!(token_amount(&f.bank[&f.source]), 0);
+    assert_eq!(token_amount(&f.bank[&f.refund]), 40);
+    assert_eq!(token_amount(&f.bank[&f.destination]), 95);
+    assert_eq!(
+        account_u64(&f.bank[&f.shard], IntentShard::SETTLED_INPUTS_ABS_OFFSET),
+        60,
+    );
+    assert_eq!(
+        account_u64(&f.bank[&f.shard], IntentShard::SETTLED_OUTPUTS_ABS_OFFSET),
+        95,
+    );
+    assert_eq!(
+        account_u64(&f.bank[&f.shard], IntentShard::CLAIM_EXPIRIES_ABS_OFFSET),
+        0,
+    );
+    assert_eq!(
+        account_u64(&f.bank[&f.shard], IntentShard::REVISIONS_ABS_OFFSET),
+        3,
+    );
+    assert!(account_bytes(
+        &f.bank[&f.shard],
+        IntentShard::SETTLEMENT_HASHES_ABS_OFFSET,
+        32,
+    )
+    .iter()
+    .any(|byte| *byte != 0));
+
+    let reclaim = reclaim_ix(&f);
+    let result = process(&mut f, &reclaim);
+    assert!(result.succeeded(), "reclaim failed: {:#?}", f.svm.logs());
+    assert_reclaimed(&f);
+    assert_eq!(
         IntentShard::STATUSES_ELEMENT_COUNT as usize,
         INTENTS_PER_SHARD
     );
+}
+
+#[test]
+fn compiled_claim_release_cancel_and_reclaim_lifecycle() {
+    let Some(mut f) = setup_open_intent() else {
+        eprintln!("SKIPPED: build Cicada SBF artifacts first");
+        return;
+    };
+
+    let claim = claim_ix(&f);
+    assert!(process(&mut f, &claim).succeeded(), "claim failed");
+    assert_eq!(
+        f.bank[&f.shard].data[IntentShard::STATUSES_ABS_OFFSET as usize],
+        STATUS_CLAIMED,
+    );
+
+    // An active reservation cannot be cleared early. Prove both the typed
+    // rejection and transaction-wide rollback from the compiled program.
+    let release = release_ix(&f);
+    let before_release = instruction_snapshot(&f, &release);
+    let result = process(&mut f, &release);
+    assert_custom_error(&result, ClaimStillActive::CODE);
+    assert_instruction_rolled_back(&result, &before_release);
+
+    // The claim was created at slot 0 with a five-slot lease. Hopper must use
+    // the real Clock sysvar in the SBF frame before releasing it at slot 6.
+    f.svm.mollusk_mut().warp_to_slot(6);
+    let result = process(&mut f, &release);
+    assert!(
+        result.succeeded(),
+        "expired release failed: {:#?}",
+        f.svm.logs()
+    );
+    assert_eq!(
+        f.bank[&f.shard].data[IntentShard::STATUSES_ABS_OFFSET as usize],
+        STATUS_OPEN,
+    );
+    assert!(
+        account_bytes(&f.bank[&f.shard], IntentShard::CLAIMANTS_ABS_OFFSET, 32)
+            .iter()
+            .all(|byte| *byte == 0)
+    );
+    assert_eq!(
+        account_u64(&f.bank[&f.shard], IntentShard::CLAIM_EXPIRIES_ABS_OFFSET),
+        0,
+    );
+    assert_eq!(
+        account_u64(&f.bank[&f.shard], IntentShard::REVISIONS_ABS_OFFSET),
+        3,
+    );
+
+    let cancel = cancel_ix(&f);
+    let result = process(&mut f, &cancel);
+    assert!(result.succeeded(), "cancel failed: {:#?}", f.svm.logs());
+    assert_eq!(
+        f.bank[&f.shard].data[IntentShard::STATUSES_ABS_OFFSET as usize],
+        STATUS_CANCELLED,
+    );
+    assert_eq!(token_amount(&f.bank[&f.source]), 0);
+    assert_eq!(token_amount(&f.bank[&f.refund]), 100);
+    assert_eq!(token_amount(&f.bank[&f.destination]), 0);
+    assert_eq!(
+        account_u64(&f.bank[&f.shard], IntentShard::REVISIONS_ABS_OFFSET),
+        4,
+    );
+
+    let owner_lamports = f.bank[&f.owner].lamports;
+    let lease_lamports = f.bank[&f.source_lease].lamports;
+    let reclaim = reclaim_ix(&f);
+    let result = process(&mut f, &reclaim);
+    assert!(
+        result.succeeded(),
+        "cancelled reclaim failed: {:#?}",
+        f.svm.logs(),
+    );
+    assert_eq!(
+        f.bank[&f.owner].lamports,
+        owner_lamports + lease_lamports,
+        "closing the source lease must refund its rent to the owner",
+    );
+    assert_reclaimed(&f);
 }
 
 #[test]
@@ -401,23 +643,34 @@ fn compiled_hostile_route_policy_mutation_is_rolled_back() {
         eprintln!("SKIPPED: build Cicada SBF artifacts first");
         return;
     };
-    let before_source = f.bank[&f.source].clone();
-    let before_destination = f.bank[&f.destination].clone();
     f.svm.capture_logs();
     let execute = execute_ix(&f, ROUTE_MUTATE_POLICY);
+    let before = instruction_snapshot(&f, &execute);
     let result = process(&mut f, &execute);
     let logs = f.svm.logs();
-    assert!(!result.succeeded(), "hostile route must be refused");
+    assert_custom_error(&result, DestinationTokenPolicyChanged::CODE);
     assert!(
         logs.iter()
-            .any(|line| line.contains("custom program error")),
-        "expected Cicada typed refusal in logs: {logs:#?}",
+            .any(|line| line == &format!("Program {} invoke [2]", f.token_program)),
+        "the hostile route must actually execute in a nested SBF frame: {logs:#?}",
     );
-    assert_eq!(f.bank[&f.source].data, before_source.data);
-    assert_eq!(f.bank[&f.destination].data, before_destination.data);
+    assert_instruction_rolled_back(&result, &before);
+
+    // A refused callee cannot poison the account bank or consume the intent.
+    // The identical intent remains executable through an honest route.
+    let honest = execute_ix(&f, ROUTE_HONEST);
+    let result = process(&mut f, &honest);
+    assert!(
+        result.succeeded(),
+        "honest retry failed: {:#?}",
+        f.svm.logs()
+    );
+    assert_eq!(token_amount(&f.bank[&f.source]), 0);
+    assert_eq!(token_amount(&f.bank[&f.refund]), 40);
+    assert_eq!(token_amount(&f.bank[&f.destination]), 95);
     assert_eq!(
         f.bank[&f.shard].data[IntentShard::STATUSES_ABS_OFFSET as usize],
-        STATUS_OPEN
+        STATUS_SETTLED,
     );
 }
 
@@ -427,16 +680,32 @@ fn compiled_hostile_route_cannot_spoof_output_without_spending_input() {
         eprintln!("SKIPPED: build Cicada SBF artifacts first");
         return;
     };
-    let before_source = f.bank[&f.source].clone();
-    let before_destination = f.bank[&f.destination].clone();
-    let before_shard = f.bank[&f.shard].clone();
 
     f.svm.capture_logs();
     let execute = execute_ix(&f, ROUTE_SPOOF_OUTPUT);
+    let before = instruction_snapshot(&f, &execute);
     let result = process(&mut f, &execute);
 
-    assert!(!result.succeeded(), "spoofed settlement must be refused");
-    assert_eq!(f.bank[&f.source].data, before_source.data);
-    assert_eq!(f.bank[&f.destination].data, before_destination.data);
-    assert_eq!(f.bank[&f.shard].data, before_shard.data);
+    assert_custom_error(&result, EmptySettlement::CODE);
+    assert_instruction_rolled_back(&result, &before);
+}
+
+#[test]
+fn compiled_hostile_route_cannot_delegate_cicada_state() {
+    let Some(mut f) = setup_open_intent() else {
+        eprintln!("SKIPPED: build Cicada SBF artifacts first");
+        return;
+    };
+
+    let mut execute = execute_ix(&f, ROUTE_HONEST);
+    // Replace the route's first dynamic account with the shard itself while
+    // retaining the writable route flag. The duplicate transaction meta is a
+    // realistic account-smuggling attempt; Cicada must reject it before CPI.
+    let first_remaining = execute.accounts.len() - 3;
+    execute.accounts[first_remaining] = AccountMeta::new(f.shard, false);
+    let before = instruction_snapshot(&f, &execute);
+    let result = process(&mut f, &execute);
+
+    assert_custom_error(&result, ProtectedAccountDelegation::CODE);
+    assert_instruction_rolled_back(&result, &before);
 }

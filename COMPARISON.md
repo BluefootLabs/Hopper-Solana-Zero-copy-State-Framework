@@ -15,7 +15,7 @@ v0.0.0 — no tags, no releases, not on crates.io, self-described "Beta … not
 audited", nightly-only toolchain. Pinocchio is audited (Neodyme and Zellic,
 2025-06) and production-proven. Anchor has years of mainnet mileage. Hopper is
 published (hopper-lang 0.2.1 on crates.io) on stable Rust with a line-by-line
-audit trail (`AUDIT.md`, `docs/UNSAFE_INVARIANTS.md`). Weight the "Yes" cells
+audit trail (`docs/UNSAFE_INVARIANTS.md`). Weight the "Yes" cells
 accordingly.
 
 ## Reading the "Hopper implements" column
@@ -144,13 +144,12 @@ Hopper ships 8, each hostile-metadata fuzzed.
 
 ## Maturity, soundness record, and benchmark culture
 
-Facts verified 2026-07-07 against public trackers and registries; see
-`docs/audit/GAP_CLOSURE_AND_INNOVATION_2026.md` section 2 for sources.
+Facts verified 2026-07-07 against public trackers and registries.
 
 | Capability | Hopper | Quasar | Anchor zc | Pinocchio | Hopper implements / evidence |
 |---|---|---|---|---|---|
 | Published release on crates.io | Yes (0.2.1) | No (v0.0.0, no tags or releases) | Yes | Yes | [crates.io/crates/hopper-lang](https://crates.io/crates/hopper-lang) |
-| Audit posture | Line-by-line internal audit trail | Self-described "Beta … not audited" | Ecosystem audits | Audited (Neodyme, Zellic 2025-06) | `AUDIT.md`, `docs/UNSAFE_INVARIANTS.md` |
+| Audit posture | Line-by-line internal audit trail | Self-described "Beta … not audited" | Ecosystem audits | Audited (Neodyme, Zellic 2025-06) | `docs/UNSAFE_INVARIANTS.md` |
 | Builds on stable Rust | Yes (pinned 1.96.0) | No (nightly-only bespoke toolchain) | Yes | Yes | `rust-toolchain.toml` |
 | Open soundness/correctness issues on tracker (2026-07) | None open; classes regression-pinned | 5 (blueshift-gg/quasar #234, #238, #239, #240, #242) | tracked upstream; v2 Slab classes #4603/#4616 fixed May–June 2026 | none open | Hopper pins those classes in `crates/hopper-runtime/tests/competitor_bug_classes.rs` + `crates/hopper-core/tests/competitor_bug_classes.rs` (18 tests) |
 | Competitor-bug-class regression suite (bug class → structural guard → pinned test) | Yes | No | No | No | the two `competitor_bug_classes.rs` suites above; authoring the suite also found and fixed Hopper's own `safe_close` aliased-destination bug |
@@ -220,4 +219,4 @@ artifact costs ~1.36 SOL (`BENCHMARKS.md`, deploy-cost economics).
   release-facing runs are the vault four-way re-measured 2026-07-09
   (`hopper-bench/bench/results/framework-vaults/`) and the 2026-07-07 router
   three-way (`hopper-bench/results/router-parity-2026-07-07-post-review/`). See
-  `BENCHMARKS.md` and `AUDIT.md` R2/RSK-4.
+  `BENCHMARKS.md`.

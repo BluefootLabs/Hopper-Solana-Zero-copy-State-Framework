@@ -21,7 +21,7 @@ planning between layout versions.
 - **Schema diff** - Field-level diffing between layout versions.
 - **Compatibility classification** - Identical, WireCompatible, AppendSafe, MigrationRequired, or Incompatible.
 - **Migration planner** - Segment-role-aware migration steps between layout versions.
-- **Client generation** - TypeScript, Kotlin (`org.sol4k`), Python, and Rust SDK generators from program manifests.
+- **Client generation** - TypeScript, Kotlin (`org.sol4k`), Python, Rust, Go, and C generators from program manifests.
 - **Field intents** - Semantic annotations such as Balance, Authority, Timestamp, and Counter.
 - **Account decoding** - Header and field-level decode from raw bytes using manifest metadata.
 
@@ -39,7 +39,7 @@ CodamaProjection     Ecosystem interop (Codama-shaped for client generators)
 
 Code is the source of truth. Schema is always derived, never hand-written.
 
-Docs: <https://docs.rs/crate/hopper-schema/0.2.1>
+Docs: <https://docs.rs/crate/hopper-schema/0.3.0>
 
 ## Support
 

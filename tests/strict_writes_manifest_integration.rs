@@ -199,6 +199,7 @@ fn manifest_json_publishes_the_context_write_set() {
     static CREDIT_IX: InstructionDescriptor = InstructionDescriptor {
         name: "credit",
         tag: 0,
+        discriminator: &[0],
         args: &[],
         accounts: &CREDIT_ACCOUNTS,
         remaining_accounts: None,
@@ -279,6 +280,7 @@ static PAYOUT_ACCOUNTS: [AccountEntry; 4] = [
 static PAYOUT_IX: InstructionDescriptor = InstructionDescriptor {
     name: "payout",
     tag: 1,
+    discriminator: &[1],
     args: &[],
     accounts: &PAYOUT_ACCOUNTS,
     remaining_accounts: None,

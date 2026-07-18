@@ -585,6 +585,7 @@ mod tests {
         static IXS: &[InstructionDescriptor] = &[InstructionDescriptor {
             name: "deposit",
             tag: 3,
+            discriminator: &[3],
             args: ARGS,
             accounts: ACCOUNTS,
             remaining_accounts: None,

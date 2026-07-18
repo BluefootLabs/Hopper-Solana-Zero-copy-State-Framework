@@ -549,6 +549,7 @@ mod tests {
         static IX: [InstructionDescriptor; 1] = [InstructionDescriptor {
             name: "deposit",
             tag: 3,
+            discriminator: &[3],
             args: &ARGS,
             accounts: &ACCTS,
             remaining_accounts: None,

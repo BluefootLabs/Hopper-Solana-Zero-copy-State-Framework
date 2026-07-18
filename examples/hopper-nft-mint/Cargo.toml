@@ -4,7 +4,7 @@ version = "0.3.0"
 edition = "2021"
 license = "Apache-2.0"
 publish = false
-description = "Reference Hopper NFT-mint program. Demonstrates the Metaplex Token Metadata builders (CreateMetadataAccountV3 + CreateMasterEditionV3) on top of an SPL mint, end to end. Closes the Quasar-parity Metaplex gap from AUDIT.md."
+description = "Reference Hopper NFT-mint program. Demonstrates the Metaplex Token Metadata builders (CreateMetadataAccountV3 + CreateMasterEditionV3) on top of an SPL mint, end to end. Closes the Quasar-parity Metaplex gap."
 
 [lib]
 crate-type = ["cdylib", "lib"]

@@ -88,6 +88,16 @@ TODO.md
 NOTES.md
 SCRATCH.md
 
+# Local-only internal planning / audit / strategy docs (kept on disk, never shipped)
+docs/audit/
+docs/VERDICT.md
+docs/PUBLICATION_AUDIT.md
+docs/*COMPETITIVE_AUDIT*
+docs/MARKETING.md
+docs/THE_MOAT.md
+AUDIT.md
+ROADMAP.md
+
 # Third-party source drops
 quasar-master/
 quasar-master.zip

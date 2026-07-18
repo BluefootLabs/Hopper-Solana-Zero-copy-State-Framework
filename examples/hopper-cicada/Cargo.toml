@@ -13,6 +13,8 @@ crate-type = ["cdylib", "lib"]
 hopper = { path = "../..", package = "hopper-lang", default-features = false, features = ["proc-macros", "touch-map"] }
 
 [dev-dependencies]
+grillo-manifest = { path = "../../crates/grillo-manifest" }
+grillo-verifier = { path = "../../crates/grillo-verifier" }
 hopper-runtime = { path = "../../crates/hopper-runtime", features = ["thread-local-registry"] }
 hopper-test = { path = "../../crates/hopper-test" }
 solana-account = "3.2.0"

@@ -1035,6 +1035,7 @@ mod tests {
         static DEPOSIT: InstructionDescriptor = InstructionDescriptor {
             name: "deposit",
             tag: 0,
+            discriminator: &[0],
             args: DEPOSIT_ARGS,
             accounts: DEPOSIT_ACCTS,
             remaining_accounts: None,
@@ -1240,6 +1241,7 @@ mod tests {
         static STRICT_IX: &[InstructionDescriptor] = &[InstructionDescriptor {
             name: "deposit",
             tag: 0,
+            discriminator: &[0],
             args: &[],
             accounts: WR_ACCTS,
             remaining_accounts: None,
@@ -1256,6 +1258,7 @@ mod tests {
         static LOOSE_IX: &[InstructionDescriptor] = &[InstructionDescriptor {
             name: "deposit",
             tag: 0,
+            discriminator: &[0],
             args: &[],
             accounts: WR_ACCTS,
             remaining_accounts: None,
@@ -1307,6 +1310,7 @@ mod tests {
         static CU_IX_SET: &[InstructionDescriptor] = &[InstructionDescriptor {
             name: "deposit",
             tag: 0,
+            discriminator: &[0],
             args: &[],
             accounts: WR_ACCTS,
             remaining_accounts: None,
