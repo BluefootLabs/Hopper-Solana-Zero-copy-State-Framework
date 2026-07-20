@@ -10,6 +10,7 @@ use quote::{format_ident, quote, ToTokens};
 use sha2::{Digest, Sha256};
 use syn::{
     parse::Parser, parse2, Attribute, Field, Fields, ItemStruct, LitInt, LitStr, Result, Type,
+    TypePath,
 };
 
 #[derive(Clone)]
@@ -86,6 +87,10 @@ struct FieldMeta {
     /// Invariant name this field is guarded by (e.g. `"balance_nonzero"`).
     /// Empty when the field has no declared invariant.
     invariant: String,
+    /// `#[bump]`: this u8 field holds the canonical PDA bump the program
+    /// stored at init. Drives the `CANONICAL_BUMP_ABS_OFFSET` const that
+    /// `#[account(seeds = [...], bump = stored)]` verifies against.
+    bump: bool,
 }
 
 pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
@@ -158,6 +163,8 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
     let mut field_role_literals: Vec<LitStr> = Vec::new();
     let mut field_invariant_literals: Vec<LitStr> = Vec::new();
     let mut running_offset = quote! { 0u32 };
+    // Offset tokens of the single `#[bump]`-marked field, when present.
+    let mut canonical_bump_offset: Option<TokenStream> = None;
 
     let struct_name_upper = to_screaming_snake(&name.to_string());
 
@@ -191,6 +198,28 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
         let field_ty = &field.ty;
         let field_name_upper = to_screaming_snake(&field_name_str);
         let current_offset = running_offset.clone();
+
+        if meta.bump {
+            // Soundness gates for `bump = stored`: exactly one marked
+            // field, and it must be a literal `u8` (the bump wire type).
+            if canonical_bump_offset.is_some() {
+                return Err(syn::Error::new(
+                    field_name.span(),
+                    "#[bump] may be marked on at most one field per state struct",
+                ));
+            }
+            let is_u8 = matches!(
+                field_ty,
+                Type::Path(TypePath { qself: None, path }) if path.is_ident("u8")
+            );
+            if !is_u8 {
+                return Err(syn::Error::new(
+                    field_name.span(),
+                    "#[bump] must mark a `u8` field (the canonical PDA bump byte)",
+                ));
+            }
+            canonical_bump_offset = Some(current_offset.clone());
+        }
 
         field_name_literals.push(syn::LitStr::new(&field_name_str, field_name.span()));
         field_type_literals.push(syn::LitStr::new(
@@ -272,6 +301,20 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
         running_offset = quote! {
             #current_offset + core::mem::size_of::<#field_ty>() as u32
         };
+    }
+
+    // `#[bump]` marker: emit the account-absolute offset of the canonical
+    // bump byte so `#[account(seeds = [...], bump = stored)]` can verify
+    // the PDA with one `create_program_address` hash. Absent marker means
+    // absent const, so `bump = stored` on an unmarked type is a clean
+    // missing-associated-item compile error.
+    if let Some(bump_offset) = &canonical_bump_offset {
+        inherent_items.push(quote! {
+            /// Account-absolute byte offset of the `#[bump]`-marked field:
+            /// the canonical PDA bump this program stored at init.
+            #vis const CANONICAL_BUMP_ABS_OFFSET: u32 =
+                ::hopper::hopper_core::account::HEADER_LEN as u32 + #bump_offset;
+        });
     }
 
     let body_size = running_offset.clone();
@@ -1520,6 +1563,23 @@ fn parse_field_meta(field: &Field) -> Result<FieldMeta> {
                 "unsupported #[role] form; use #[role = \"balance\"] or #[role(balance)]",
             ));
         }
+        if attr.path().is_ident("bump") {
+            // `#[bump]`: mark THIS field as the canonical PDA bump the
+            // program stored at init. The macro emits
+            // `CANONICAL_BUMP_ABS_OFFSET` so `#[account(seeds = [...],
+            // bump = stored)]` can verify the PDA with one
+            // `create_program_address` hash instead of a
+            // `find_program_address` search. Explicit by design: a field
+            // merely NAMED `bump` is never auto-detected.
+            if !matches!(attr.meta, syn::Meta::Path(_)) {
+                return Err(syn::Error::new_spanned(
+                    attr,
+                    "#[bump] takes no arguments; mark the single u8 field holding the canonical PDA bump",
+                ));
+            }
+            meta.bump = true;
+            continue;
+        }
         if attr.path().is_ident("invariant") {
             let nv = attr.meta.require_name_value().map_err(|_| {
                 syn::Error::new_spanned(
@@ -1549,9 +1609,9 @@ fn parse_field_meta(field: &Field) -> Result<FieldMeta> {
 /// in place would cause rustc to reject the struct because those
 /// attribute names are not registered with the compiler.
 fn strip_hopper_field_attrs(field: &mut Field) {
-    field
-        .attrs
-        .retain(|a| !a.path().is_ident("role") && !a.path().is_ident("invariant"));
+    field.attrs.retain(|a| {
+        !a.path().is_ident("role") && !a.path().is_ident("invariant") && !a.path().is_ident("bump")
+    });
 }
 
 /// Map a role string to a `FieldIntent` variant path token stream.

@@ -123,6 +123,34 @@ Three differences:
 2. `load_mut()` becomes `get_mut()` on Hopper's wrapper, returning the same zero-copy borrow.
 3. `System` is a Hopper marker for the canonical System Program ID.
 
+Hopper also ships a golden path that removes the `vault.load()?.bump`
+expression entirely. Mark the canonical-bump field on the state type once,
+then ask for it by name in every context:
+
+```rust
+#[hopper::state(disc = 7, version = 1)]
+pub struct Vault {
+    pub authority: Address,
+    #[bump]
+    pub bump: u8,
+    pub reserved: [u8; 7],
+}
+
+#[derive(Accounts)]
+pub struct Deposit<'info> {
+    #[account(mut, seeds = [b"vault", authority_key.as_ref()], bump = stored)]
+    pub vault: Account<'info, Vault>,
+}
+```
+
+`bump = stored` reads the `#[bump]`-marked byte from the already-validated
+layout and verifies the PDA with one `create_program_address` hash, the
+same cost as the explicit expression form and far below a
+`find_program_address` search. It is explicit twice over: the state author
+marked the field and the context author asked for it. A field merely NAMED
+`bump` is never auto-detected, and `bump = stored` on an unmarked type is
+a compile error.
+
 ### Composite (nested) accounts structs
 
 Anchor lets one accounts struct embed another; Hopper spells the same

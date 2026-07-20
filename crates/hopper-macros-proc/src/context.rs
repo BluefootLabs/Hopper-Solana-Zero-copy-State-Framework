@@ -385,6 +385,13 @@ enum BumpSpec {
     /// verification. Matches the on-chain-PDA cache pattern from
     /// `hopper_verify_pda!`.
     Stored(Expr),
+    /// `bump = stored`. the golden path: read the bump byte from THIS
+    /// account's own `#[bump]`-marked state field
+    /// (`<T>::CANONICAL_BUMP_ABS_OFFSET`) and verify with one
+    /// `create_program_address` hash. Explicit twice over — the state
+    /// author marked the field, the context author asked for it — so
+    /// there is no name-based auto-detection anywhere.
+    StoredField,
 }
 
 /// Role of a macro-synthesized (auto-appended) context field.
@@ -1911,6 +1918,51 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                         }
                     }
                 },
+                // `bump = stored`: read the canonical bump from THIS
+                // account's `#[bump]`-marked field. This runs in Stage 4,
+                // AFTER the wrapper validated owner / discriminator /
+                // layout identity, so the byte is read from an
+                // already-authenticated layout. One create_program_address
+                // hash replaces the find_program_address search.
+                BumpSpec::StoredField => match &layout_ty {
+                    Some(bump_ty) => quote! {
+                        {
+                            #seed_binds
+                            let bump: u8 = {
+                                let __bump_data = ctx.account(#slot)?.try_borrow()?;
+                                match __bump_data.get(
+                                    <#bump_ty>::CANONICAL_BUMP_ABS_OFFSET as usize,
+                                ) {
+                                    ::core::option::Option::Some(__b) => *__b,
+                                    ::core::option::Option::None => {
+                                        return ::core::result::Result::Err(
+                                            ::hopper::__runtime::ProgramError::AccountDataTooSmall
+                                        );
+                                    }
+                                }
+                            };
+                            let expected = ::hopper::pda::create_program_address(
+                                &[
+                                    #( AsRef::<[u8]>::as_ref(&(#seed_exprs)) ),*,
+                                    ::core::slice::from_ref(&bump),
+                                ],
+                                #pda_program_expr,
+                            )?;
+                            if ctx.account(#slot)?.address() != &expected {
+                                return ::core::result::Result::Err(
+                                    ::hopper::__runtime::ProgramError::InvalidSeeds
+                                );
+                            }
+                        }
+                    },
+                    None => syn::Error::new_spanned(
+                        &cf.name,
+                        "`bump = stored` requires a typed `Account<'info, T>` wrapper whose \
+                         `T` marks its canonical-bump field with `#[bump]` (the marker emits \
+                         `T::CANONICAL_BUMP_ABS_OFFSET`)",
+                    )
+                    .to_compile_error(),
+                },
             };
             field_checks.push(verify_call);
             check_descriptions.push(format!(
@@ -1940,6 +1992,29 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                         { #gather_binds let __b: u8 = #bump_expr; __b }
                     }
                 }
+                // `bump = stored`: re-read the already-verified byte. Zero
+                // hashes; the verify in Stage 4 has bound it to the
+                // account address, so the gather is a plain field read.
+                BumpSpec::StoredField => match &layout_ty {
+                    Some(bump_ty) => quote! {
+                        {
+                            let __bump_data = ctx.account(#slot)?.try_borrow()?;
+                            match __bump_data.get(
+                                <#bump_ty>::CANONICAL_BUMP_ABS_OFFSET as usize,
+                            ) {
+                                ::core::option::Option::Some(__b) => *__b,
+                                ::core::option::Option::None => {
+                                    return ::core::result::Result::Err(
+                                        ::hopper::__runtime::ProgramError::AccountDataTooSmall
+                                    );
+                                }
+                            }
+                        }
+                    },
+                    // The verify arm already emitted the compile error for
+                    // a missing typed wrapper; keep the gather well-formed.
+                    None => quote! { 0u8 },
+                },
                 BumpSpec::Inferred => {
                     let gather_binds = sibling_binds(&ref_exprs, &ctx_ref);
                     quote! {
@@ -6361,10 +6436,23 @@ fn parse_account_attr(attrs: &[Attribute]) -> Result<AccountAttr> {
                     Ok(())
                 }
                 "bump" => {
-                    // `bump` (inferred) or `bump = stored_expr`.
+                    // `bump` (inferred), `bump = stored` (read the byte
+                    // from this account's `#[bump]`-marked field), or
+                    // `bump = stored_expr` (caller-supplied byte).
                     if meta.input.peek(Token![=]) {
                         let expr: Expr = meta.value()?.parse()?;
-                        result.bump = Some(BumpSpec::Stored(expr));
+                        let is_bare_stored = matches!(
+                            &expr,
+                            Expr::Path(p)
+                                if p.qself.is_none()
+                                    && p.attrs.is_empty()
+                                    && p.path.is_ident("stored")
+                        );
+                        result.bump = Some(if is_bare_stored {
+                            BumpSpec::StoredField
+                        } else {
+                            BumpSpec::Stored(expr)
+                        });
                     } else {
                         result.bump = Some(BumpSpec::Inferred);
                     }

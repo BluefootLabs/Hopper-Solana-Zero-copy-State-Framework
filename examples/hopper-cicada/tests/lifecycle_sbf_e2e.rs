@@ -9,7 +9,7 @@
 use std::collections::BTreeMap;
 
 use hopper_cicada::{
-    ClaimStillActive, DestinationTokenPolicyChanged, EmptySettlement, IntentShard,
+    CicadaConfig, ClaimStillActive, DestinationTokenPolicyChanged, EmptySettlement, IntentShard,
     ProtectedAccountDelegation, CONFIG_SEED, INTENTS_PER_SHARD, MAX_ROUTE_ACCOUNTS,
     SOURCE_LEASE_SEED, STATUS_CANCELLED, STATUS_CLAIMED, STATUS_OPEN, STATUS_SETTLED,
     VAULT_AUTHORITY_SEED,
@@ -708,4 +708,39 @@ fn compiled_hostile_route_cannot_delegate_cicada_state() {
 
     assert_custom_error(&result, ProtectedAccountDelegation::CODE);
     assert_instruction_rolled_back(&result, &before);
+}
+
+/// `bump = stored` behavioral proof on compiled SBF: corrupting the
+/// `#[bump]`-marked byte in `CicadaConfig` makes every stored-bump context
+/// refuse to bind (the one-hash verify no longer derives the account's own
+/// address), and restoring the byte heals the same instruction — pinning
+/// the refusal to exactly the stored canonical bump.
+#[test]
+fn compiled_tampered_stored_bump_byte_refuses_the_bind() {
+    let Some(mut f) = setup_open_intent() else {
+        eprintln!("SKIPPED: build Cicada SBF artifacts first");
+        return;
+    };
+    let bump_off = CicadaConfig::CANONICAL_BUMP_ABS_OFFSET as usize;
+
+    // Tamper: the stored byte no longer derives the config address.
+    let real = f.bank.get(&f.config).unwrap().data[bump_off];
+    f.bank.get_mut(&f.config).unwrap().data[bump_off] = real.wrapping_add(1);
+    let claim = claim_ix(&f);
+    let result = process(&mut f, &claim);
+    assert!(
+        !result.succeeded(),
+        "a tampered stored bump must refuse the claim bind: {:#?}",
+        f.svm.logs(),
+    );
+
+    // Heal: byte restored, the identical instruction binds and claims.
+    f.bank.get_mut(&f.config).unwrap().data[bump_off] = real;
+    let claim = claim_ix(&f);
+    let result = process(&mut f, &claim);
+    assert!(
+        result.succeeded(),
+        "the restored canonical bump must claim: {:#?}",
+        f.svm.logs(),
+    );
 }

@@ -86,6 +86,7 @@ pub struct CicadaConfig {
     pub emergency_authority: Address,
     pub default_claim_ttl: WireU64,
     pub paused: u8,
+    #[bump]
     pub bump: u8,
     pub revision: WireU64,
     pub reserved: [u8; 14],
@@ -265,7 +266,7 @@ pub struct InitializeShard<'info> {
     #[account(
         has_one = admin,
         seeds = [CONFIG_SEED],
-        bump = config.load::<CicadaConfig>()?.bump,
+        bump = stored,
     )]
     pub config: Account<'info, CicadaConfig>,
 
@@ -281,7 +282,7 @@ pub struct CreateIntent<'info> {
     #[account(mut)]
     pub owner: Signer<'info>,
 
-    #[account(seeds = [CONFIG_SEED], bump = config.load::<CicadaConfig>()?.bump)]
+    #[account(seeds = [CONFIG_SEED], bump = stored)]
     pub config: Account<'info, CicadaConfig>,
 
     #[account(
@@ -352,7 +353,7 @@ pub struct CreateIntent<'info> {
 pub struct ClaimIntent<'info> {
     pub executor: Signer<'info>,
 
-    #[account(seeds = [CONFIG_SEED], bump = config.load::<CicadaConfig>()?.bump)]
+    #[account(seeds = [CONFIG_SEED], bump = stored)]
     pub config: Account<'info, CicadaConfig>,
 
     #[account(
@@ -366,7 +367,7 @@ pub struct ClaimIntent<'info> {
 #[accounts(strict_writes, emit_touch_map)]
 #[instruction(slot: u16)]
 pub struct ReleaseClaim<'info> {
-    #[account(seeds = [CONFIG_SEED], bump = config.load::<CicadaConfig>()?.bump)]
+    #[account(seeds = [CONFIG_SEED], bump = stored)]
     pub config: Account<'info, CicadaConfig>,
 
     #[account(
@@ -382,7 +383,7 @@ pub struct ReleaseClaim<'info> {
 pub struct CancelIntent<'info> {
     pub owner: Signer<'info>,
 
-    #[account(seeds = [CONFIG_SEED], bump = config.load::<CicadaConfig>()?.bump)]
+    #[account(seeds = [CONFIG_SEED], bump = stored)]
     pub config: Account<'info, CicadaConfig>,
 
     #[account(
@@ -416,7 +417,7 @@ pub struct CancelIntent<'info> {
 pub struct ExecuteIntent<'info> {
     pub executor: Signer<'info>,
 
-    #[account(seeds = [CONFIG_SEED], bump = config.load::<CicadaConfig>()?.bump)]
+    #[account(seeds = [CONFIG_SEED], bump = stored)]
     pub config: Account<'info, CicadaConfig>,
 
     #[account(
@@ -468,7 +469,7 @@ pub struct ReclaimIntent<'info> {
     #[account(mut)]
     pub owner: Signer<'info>,
 
-    #[account(seeds = [CONFIG_SEED], bump = config.load::<CicadaConfig>()?.bump)]
+    #[account(seeds = [CONFIG_SEED], bump = stored)]
     pub config: Account<'info, CicadaConfig>,
 
     #[account(
@@ -540,7 +541,7 @@ pub struct SetPause<'info> {
         mut(paused, revision),
         has_one = emergency_authority,
         seeds = [CONFIG_SEED],
-        bump = config.load::<CicadaConfig>()?.bump,
+        bump = stored,
     )]
     pub config: Account<'info, CicadaConfig>,
 }
