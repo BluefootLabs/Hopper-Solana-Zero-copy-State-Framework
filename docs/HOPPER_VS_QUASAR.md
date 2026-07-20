@@ -107,7 +107,7 @@ on Quasar's engineering, which is real.
 - **Release status.** Quasar is v0.0.0 — no tags, no releases, not published
   on crates.io — and describes itself as "Beta … not audited". It builds only
   on nightly Rust with a bespoke toolchain. Hopper is published
-  (hopper-lang 0.2.1 on crates.io), builds on stable Rust (pinned 1.96.0),
+  (hopper-lang 0.3.0 on crates.io), builds on stable Rust (pinned 1.96.0),
   and carries a line-by-line audit trail
   (`docs/UNSAFE_INVARIANTS.md`).
 - **Open soundness issues.** Quasar's tracker carries five open

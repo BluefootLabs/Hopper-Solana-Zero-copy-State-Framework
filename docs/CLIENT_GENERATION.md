@@ -7,7 +7,7 @@
 > - `hopper client gen --c <manifest.json>` -> C header-only client
 > - `hopper compile --emit rust-client <manifest.json>` -> Rust off-chain SDK
 
-Hopper `0.2.1` generates TypeScript, Kotlin, Python, Go, C header-only, and
+Hopper `0.3.0` generates TypeScript, Kotlin, Python, Go, C header-only, and
 off-chain Rust clients, plus Codama-shaped JSON and Anchor-shaped IDL JSON for
 downstream tooling. Account readers in every generated language assert the
 8-byte Hopper `LAYOUT_ID` fingerprint before decoding fields.

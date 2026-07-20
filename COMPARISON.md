@@ -14,7 +14,7 @@ A note on the comparison targets' status (verified 2026-07-07): Quasar is
 v0.0.0 — no tags, no releases, not on crates.io, self-described "Beta … not
 audited", nightly-only toolchain. Pinocchio is audited (Neodyme and Zellic,
 2025-06) and production-proven. Anchor has years of mainnet mileage. Hopper is
-published (hopper-lang 0.2.1 on crates.io) on stable Rust with a line-by-line
+published (hopper-lang 0.3.0 on crates.io) on stable Rust with a line-by-line
 audit trail (`docs/UNSAFE_INVARIANTS.md`). Weight the "Yes" cells
 accordingly.
 
@@ -148,7 +148,7 @@ Facts verified 2026-07-07 against public trackers and registries.
 
 | Capability | Hopper | Quasar | Anchor zc | Pinocchio | Hopper implements / evidence |
 |---|---|---|---|---|---|
-| Published release on crates.io | Yes (0.2.1) | No (v0.0.0, no tags or releases) | Yes | Yes | [crates.io/crates/hopper-lang](https://crates.io/crates/hopper-lang) |
+| Published release on crates.io | Yes (0.3.0) | No (v0.0.0, no tags or releases) | Yes | Yes | [crates.io/crates/hopper-lang](https://crates.io/crates/hopper-lang) |
 | Audit posture | Line-by-line internal audit trail | Self-described "Beta … not audited" | Ecosystem audits | Audited (Neodyme, Zellic 2025-06) | `docs/UNSAFE_INVARIANTS.md` |
 | Builds on stable Rust | Yes (pinned 1.96.0) | No (nightly-only bespoke toolchain) | Yes | Yes | `rust-toolchain.toml` |
 | Open soundness/correctness issues on tracker (2026-07) | None open; classes regression-pinned | 5 (blueshift-gg/quasar #234, #238, #239, #240, #242) | tracked upstream; v2 Slab classes #4603/#4616 fixed May–June 2026 | none open | Hopper pins those classes in `crates/hopper-runtime/tests/competitor_bug_classes.rs` + `crates/hopper-core/tests/competitor_bug_classes.rs` (18 tests) |

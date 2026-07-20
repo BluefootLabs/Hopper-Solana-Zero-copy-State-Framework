@@ -700,6 +700,16 @@ through the governed `ctx.segment_mut` path.
 | `honest_pause` (Ok) | `yrowCoAHkd1BsTj3vRgFomExU7YBTvkr6GpqZc3JaZLC24ShYqtc3xTcz8N1yvWbHEHbe9atEokb2uABj4uxZnY` — **1,203 CU, exactly the Mollusk figure** |
 | `malicious_pause` (REFUSED) | `TszXg6YGWNGfzrfbd2ekCMcN2BzjcTKxkPEmWo8dMWjcu4qHXSkJS6QSq8fhGZU77e4zk6HJBaaFVM47fEx6X9Z` — `Custom(53249)` = `0xD001`, **616 CU, exactly the Mollusk figure** |
 
+Raw-surface guard update (2026-07-20): the ambient write gate now also
+governs the raw `AccountView` surfaces — whole-account borrows, direct
+segment access outside a `Context`, and resize/close transitions —
+closing the documented `strict_writes` bypass. That enforcement costs
+roughly 21–24 CU on strict-writes instructions that touch those
+surfaces: the current Mollusk figures are `honest_pause` **1,227 CU**
+and the `0xD001` refusal **659 CU**. The devnet rows above remain exact
+records of the pre-guard build they measured; the next devnet deploy
+re-verifies lab==live at the new figures.
+
 Landing a transaction the program is going to refuse requires skipping
 preflight simulation; `hopper tx send --allow-failure` (added for this
 run) does that and reports the on-chain error as data. Post-refusal

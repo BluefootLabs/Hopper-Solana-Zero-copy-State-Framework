@@ -225,8 +225,33 @@ impl<'info> AccountView<'info> {
     /// destroying the map's field precision. The TYPED whole-account
     /// surfaces ([`load_mut`](Self::load_mut) /
     /// [`load_compact_mut`](Self::load_compact_mut)) record instead.
+    ///
+    /// Ambient-gate note: under a bound `strict_writes` context this raw
+    /// whole-account write borrow is governed — the instruction-ambient
+    /// gate refuses it unless the declared policy covers the full data
+    /// range, closing the historical "raw borrow bypasses the write
+    /// policy" surface. With no gate installed the check is one load and
+    /// branch. Segment leases and the Context/migration layers use the
+    /// crate-internal ungated variant because they gate the exact range
+    /// (or the same policy) themselves.
     #[inline(always)]
     pub fn try_borrow_mut(&self) -> Result<RefMut<'_, [u8]>, ProgramError> {
+        let len = self.data_len();
+        if len > 0 {
+            crate::write_policy::check_data_mutation(self.address(), 0, len as u32)?;
+        }
+        self.try_borrow_mut_ungated()
+    }
+
+    /// Ungated exclusive borrow: the borrow-registry token and backend
+    /// borrow WITHOUT the instruction-ambient write-gate check. Only for
+    /// crate-internal plumbing whose caller already enforces a precise
+    /// gate (segment leases gate the exact range; Context and the
+    /// migration crank enforce the same installed policy before
+    /// delegating). Never expose publicly: doing so would reopen the raw
+    /// bypass this split closes.
+    #[inline(always)]
+    pub(crate) fn try_borrow_mut_ungated(&self) -> Result<RefMut<'_, [u8]>, ProgramError> {
         let token = BorrowToken::mutable(self.address())?;
         match self.backend().try_borrow_mut() {
             Ok(data) => Ok(RefMut::from_backend(data, token)),
@@ -322,8 +347,29 @@ impl<'info> AccountView<'info> {
     /// returned [`SegRefMut<T>`](crate::SegRefMut) carries both the
     /// account-level exclusive borrow guard and the segment-registry
     /// lease, so dropping it is a full release, no lingering entries.
+    ///
+    /// Under a bound `strict_writes` context the instruction-ambient gate
+    /// checks this EXACT byte range against the declared write policy, so
+    /// direct segment access outside a `Context` is governed too (the
+    /// `Context` methods enforce the same installed policy before
+    /// delegating to the ungated internal variant, paying the check once).
     #[inline(always)]
     pub fn segment_mut<'a, T: crate::Pod>(
+        &'a self,
+        borrows: &'a mut SegmentBorrowRegistry,
+        abs_offset: u32,
+        size: u32,
+    ) -> Result<crate::SegRefMut<'a, T>, ProgramError> {
+        crate::write_policy::check_data_mutation(self.address(), abs_offset, size)?;
+        self.segment_mut_ungated::<T>(borrows, abs_offset, size)
+    }
+
+    /// Ungated mirror of [`segment_mut`](Self::segment_mut) for
+    /// crate-internal callers (`Context`) that already enforced the same
+    /// installed policy for this exact range. See
+    /// [`try_borrow_mut_ungated`](Self::try_borrow_mut_ungated).
+    #[inline(always)]
+    pub(crate) fn segment_mut_ungated<'a, T: crate::Pod>(
         &'a self,
         borrows: &'a mut SegmentBorrowRegistry,
         abs_offset: u32,
@@ -361,7 +407,7 @@ impl<'info> AccountView<'info> {
         };
         #[cfg(not(target_os = "solana"))]
         let inner: RefMut<'_, T> = {
-            let mut data = match self.try_borrow_mut() {
+            let mut data = match self.try_borrow_mut_ungated() {
                 Ok(d) => d,
                 Err(e) => {
                     borrows.release(&borrow);
@@ -405,6 +451,25 @@ impl<'info> AccountView<'info> {
     /// nonce.set(nonce.get() + 1);
     /// ```
     pub fn split_segments_mut<'a, T: crate::Pod, const N: usize>(
+        &'a self,
+        borrows: &'a mut SegmentBorrowRegistry,
+        ranges: [(u32, u32); N],
+    ) -> Result<crate::SegmentsMut<'a, T, N>, ProgramError> {
+        // Under a bound `strict_writes` context, every requested range is
+        // checked against the instruction-ambient write gate — the same
+        // exact-range rule as `segment_mut` — so the batch surface cannot
+        // be used to bypass the declared policy from outside a `Context`.
+        for (off, size) in ranges {
+            crate::write_policy::check_data_mutation(self.address(), off, size)?;
+        }
+        self.split_segments_mut_ungated::<T, N>(borrows, ranges)
+    }
+
+    /// Ungated mirror of [`split_segments_mut`](Self::split_segments_mut)
+    /// for crate-internal callers (`Context`) that already enforced the
+    /// installed policy per range. See
+    /// [`try_borrow_mut_ungated`](Self::try_borrow_mut_ungated).
+    pub(crate) fn split_segments_mut_ungated<'a, T: crate::Pod, const N: usize>(
         &'a self,
         borrows: &'a mut SegmentBorrowRegistry,
         ranges: [(u32, u32); N],
@@ -459,7 +524,9 @@ impl<'info> AccountView<'info> {
         // One exclusive byte borrow of the whole account backs every
         // typed view; the registry leases prove the ranges are disjoint,
         // so handing out N `&mut T` from this single borrow is sound.
-        let data = match self.try_borrow_mut() {
+        // Ungated: the per-range ambient checks already ran (public
+        // wrapper) or the Context enforced the policy per range.
+        let data = match self.try_borrow_mut_ungated() {
             Ok(d) => d,
             Err(e) => {
                 // SAFETY: all N entries were registered in phase 1.
@@ -886,7 +953,11 @@ impl<'info> AccountView<'info> {
     /// Caller must uphold the invariants documented for this unsafe API before invoking it.
     pub unsafe fn raw_mut<T: crate::Pod>(&self) -> Result<RefMut<'_, T>, ProgramError> {
         self.check_writable()?;
-        let mut data = self.try_borrow_mut()?;
+        // Deliberately ungated: `raw_mut` is one of the documented `unsafe`
+        // escape hatches (`hopper lint --deny-escapes` refuses it in program
+        // code). The ambient write gate governs the SAFE surfaces; the
+        // unsafe tier remains an explicit, grep-able opt-out.
+        let mut data = self.try_borrow_mut_ungated()?;
         if core::mem::size_of::<T>() > data.len() {
             return Err(ProgramError::AccountDataTooSmall);
         }
@@ -990,10 +1061,23 @@ impl<'info> AccountView<'info> {
     #[inline(always)]
     pub fn extension_bytes_mut<T: LayoutContract>(&self) -> Result<RefMut<'_, [u8]>, ProgramError> {
         let offset = T::EXTENSION_OFFSET.ok_or(ProgramError::InvalidArgument)?;
-        let data = self.try_borrow_mut()?;
-        if data.len() < offset {
+        let len = self.data_len();
+        if len < offset {
             return Err(ProgramError::AccountDataTooSmall);
         }
+        // Ambient gate: the mutable grant is exactly the extension region
+        // `[offset, len)`, so a tail-declared policy (open-ended range) or a
+        // whole-account grant authorizes it, while a head-only declaration
+        // refuses it. Empty extension regions grant nothing and skip the
+        // check.
+        if len > offset {
+            crate::write_policy::check_data_mutation(
+                self.address(),
+                offset as u32,
+                (len - offset) as u32,
+            )?;
+        }
+        let data = self.try_borrow_mut_ungated()?;
         Ok(data.slice_from(offset))
     }
 
@@ -1266,12 +1350,18 @@ impl<'info> AccountView<'info> {
     /// hot path when the caller overwrites the grown region in full.
     #[inline]
     pub fn resize(&self, new_len: usize) -> ProgramResult {
+        // Ambient gate: a data-length transition on a gated instruction is
+        // permitted only for accounts carrying declared write authority
+        // (`GateCheck::Transition`); foreign accounts fail closed.
+        crate::write_policy::check_account_transition(self.address())?;
         native_boundary::resize(self.backend(), new_len)
     }
 
     /// Resize the account data without zero-filling the grown region.
     #[inline]
     pub fn resize_raw(&self, new_len: usize) -> ProgramResult {
+        // Same transition gate as [`resize`](Self::resize).
+        crate::write_policy::check_account_transition(self.address())?;
         native_boundary::resize_raw(self.backend(), new_len)
     }
 
@@ -1292,6 +1382,9 @@ impl<'info> AccountView<'info> {
     /// Close the account: zero lamports and data.
     #[inline]
     pub fn close(&self) -> ProgramResult {
+        // Ambient gate: closing is a presence transition; on a gated
+        // instruction only accounts with declared write authority may close.
+        crate::write_policy::check_account_transition(self.address())?;
         native_boundary::close(self.backend())
     }
 
@@ -1325,6 +1418,10 @@ impl<'info> AccountView<'info> {
     /// should surface the violation at call time.
     #[inline]
     pub fn close_to(&self, destination: &AccountView<'_>, program_id: &Address) -> ProgramResult {
+        // Ambient gate: same presence-transition rule as [`close`](Self::close).
+        // The lamport credit to `destination` is separately governed by the
+        // gated `try_set_lamports` calls below.
+        crate::write_policy::check_account_transition(self.address())?;
         self.require_writable()?;
         self.require_owned_by(program_id)?;
         destination.require_writable()?;

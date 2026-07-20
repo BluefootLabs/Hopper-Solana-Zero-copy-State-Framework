@@ -622,7 +622,7 @@ impl<'a> Context<'a> {
             .accounts
             .get(index)
             .ok_or(ProgramError::NotEnoughAccountKeys)?;
-        view.split_segments_mut::<T, N>(&mut self.segment_borrows, ranges)
+        view.split_segments_mut_ungated::<T, N>(&mut self.segment_borrows, ranges)
     }
 
     /// Register a write borrow for a segment of an account.
@@ -646,7 +646,7 @@ impl<'a> Context<'a> {
             .accounts
             .get(index)
             .ok_or(ProgramError::NotEnoughAccountKeys)?;
-        view.segment_mut::<T>(
+        view.segment_mut_ungated::<T>(
             &mut self.segment_borrows,
             abs_offset,
             core::mem::size_of::<T>() as u32,
@@ -690,7 +690,7 @@ impl<'a> Context<'a> {
         let borrow =
             self.segment_borrows
                 .register_leased_write(view.address(), body_end, region_len)?;
-        let data = match view.try_borrow_mut() {
+        let data = match view.try_borrow_mut_ungated() {
             Ok(d) => d,
             Err(e) => {
                 self.segment_borrows.release(&borrow);
@@ -770,7 +770,7 @@ impl<'a> Context<'a> {
             .accounts
             .get(index)
             .ok_or(ProgramError::NotEnoughAccountKeys)?;
-        view.segment_mut_const::<T>(&mut self.segment_borrows, segment)
+        view.segment_mut_ungated::<T>(&mut self.segment_borrows, segment.offset, segment.size)
     }
 
     /// Typed-segment read: the type and offset are both compile-time
@@ -794,14 +794,18 @@ impl<'a> Context<'a> {
     pub fn segment_mut_typed<'b, T: crate::Pod, const OFFSET: u32>(
         &'b mut self,
         index: usize,
-        segment: crate::TypedSegment<T, OFFSET>,
+        _segment: crate::TypedSegment<T, OFFSET>,
     ) -> Result<crate::SegRefMut<'b, T>, ProgramError> {
         self.check_write_policy(index, OFFSET, core::mem::size_of::<T>() as u32)?;
         let view = self
             .accounts
             .get(index)
             .ok_or(ProgramError::NotEnoughAccountKeys)?;
-        view.segment_mut_typed::<T, OFFSET>(&mut self.segment_borrows, segment)
+        view.segment_mut_ungated::<T>(
+            &mut self.segment_borrows,
+            OFFSET,
+            core::mem::size_of::<T>() as u32,
+        )
     }
 
     /// Explicit unsafe whole-account typed read.

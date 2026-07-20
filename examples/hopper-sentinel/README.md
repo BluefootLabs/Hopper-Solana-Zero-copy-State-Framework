@@ -89,9 +89,15 @@ Runs the real `hopper_sentinel.so` bytecode. **The refusal has never been
 proven on compiled bytecode before.**
 
 ```
-MEASURED honest_pause:    1203 CU  (SUCCEEDS; touch map = paused + revision)
-MEASURED malicious_pause:  616 CU  (REFUSED with Custom(0xD001); admin unchanged)
+MEASURED honest_pause:    1227 CU  (SUCCEEDS; touch map = paused + revision)
+MEASURED malicious_pause:  659 CU  (REFUSED with Custom(0xD001); admin unchanged)
 ```
+
+(Figures re-measured 2026-07-20 after the ambient write gate began
+governing the raw `AccountView` surfaces too — the guard that closes the
+documented `strict_writes` bypass costs roughly 21-24 CU on
+strict-writes instructions. The pre-guard build measured 1,203 / 616,
+which is what the dated devnet run below recorded exactly.)
 
 - `honest_pause_succeeds_on_chain_and_emits_the_declared_touch_map`: real
   execution succeeds; the touch map is decoded from the `Program data:` log
@@ -157,8 +163,12 @@ cell. (`Ledger` is sized so the whole account, 9,620 bytes, fits a single
 | Program | `CqkFhE8UVHRTJZLirEBVS1xcsZNtuNop8HniRRDWVJFC` |
 | Config account | `13G2wXZ9kbX9rjcS184nGafSkddPnqq9cpjX3HkBzS5s` |
 | `initialize_config` | `o3SoGa3FJtqbBWv9jV4U4E1homnShPnmSbt46Rxr78okwvbAX1BR3aS2cvk6cEFfU1yjWsAJ7YUxoKF4psy3Q7f`, 1,724 CU |
-| `honest_pause` (Ok) | `yrowCoAHkd1BsTj3vRgFomExU7YBTvkr6GpqZc3JaZLC24ShYqtc3xTcz8N1yvWbHEHbe9atEokb2uABj4uxZnY`, **1,203 CU, exactly the Mollusk figure** |
-| `malicious_pause` (REFUSED) | `TszXg6YGWNGfzrfbd2ekCMcN2BzjcTKxkPEmWo8dMWjcu4qHXSkJS6QSq8fhGZU77e4zk6HJBaaFVM47fEx6X9Z`, `Custom(53249)` = `0xD001`, **616 CU, exactly the Mollusk figure** |
+| `honest_pause` (Ok) | `yrowCoAHkd1BsTj3vRgFomExU7YBTvkr6GpqZc3JaZLC24ShYqtc3xTcz8N1yvWbHEHbe9atEokb2uABj4uxZnY`, **1,203 CU, exactly that build's Mollusk figure** |
+| `malicious_pause` (REFUSED) | `TszXg6YGWNGfzrfbd2ekCMcN2BzjcTKxkPEmWo8dMWjcu4qHXSkJS6QSq8fhGZU77e4zk6HJBaaFVM47fEx6X9Z`, `Custom(53249)` = `0xD001`, **616 CU, exactly that build's Mollusk figure** |
+
+(The 2026-07-14 run recorded the pre-guard build lab-exact. The current
+lab figures after the 2026-07-20 raw-surface guard are 1,227 / 659; the
+next devnet deploy re-verifies lab==live at those figures.)
 
 The refusal landed on-chain via `hopper tx send --allow-failure` (skips
 preflight so a transaction the program is going to refuse can reach the

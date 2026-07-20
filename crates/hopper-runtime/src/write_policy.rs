@@ -859,6 +859,16 @@ struct GateStore<const DEPTH: usize> {
     /// `check` a single load + branch. Zero when zeroed (the all-zero
     /// invariant below).
     installed: u64,
+    /// Token of the CURRENT governing gate (highest live token), `0` when
+    /// none. Maintained on install (the fresh token is always the max)
+    /// and on remove (rescan only when the governing gate itself is
+    /// removed), so [`active_slot`](Self::active_slot) is O(1) instead of
+    /// a DEPTH-slot scan on every gated check. Zero when zeroed (the
+    /// all-zero invariant below).
+    top_token: u64,
+    /// Slot index holding [`top_token`](Self::top_token); meaningless
+    /// while `top_token == 0`. Zero when zeroed.
+    top_idx: u8,
     slots: [GateSlot; DEPTH],
 }
 
@@ -869,6 +879,8 @@ impl<const DEPTH: usize> GateStore<DEPTH> {
         Self {
             issued: 0,
             installed: 0,
+            top_token: 0,
+            top_idx: 0,
             slots: [GateSlot::FREE; DEPTH],
         }
     }
@@ -877,14 +889,6 @@ impl<const DEPTH: usize> GateStore<DEPTH> {
     /// slot and return that slot's unique token. Fails closed (no state
     /// change) when the accounts outnumber the capacity or no slot is
     /// free.
-    fn install(
-        &mut self,
-        accounts: &[crate::account::AccountView<'_>],
-        policy: &'static WritePolicy,
-    ) -> Result<u64, GateInstallError> {
-        self.install_with_args(accounts, policy, &[])
-    }
-
     fn install_with_args(
         &mut self,
         accounts: &[crate::account::AccountView<'_>],
@@ -905,10 +909,11 @@ impl<const DEPTH: usize> GateStore<DEPTH> {
         // Display impls) into `.text`. One such site costs ~5 KiB in every
         // Hopper program. So this whole path uses iterators / `get`/`get_mut`,
         // which are provably panic-free. Keep it that way.
-        let slot = self
+        let (slot_idx, slot) = self
             .slots
             .iter_mut()
-            .find(|s| s.token == 0)
+            .enumerate()
+            .find(|(_, s)| s.token == 0)
             .ok_or(GateInstallError::NoFreeSlot)?;
 
         let mut len = 0usize;
@@ -963,14 +968,20 @@ impl<const DEPTH: usize> GateStore<DEPTH> {
         }
         let token = self.issued;
         slot.token = token;
+        // The fresh token is strictly the highest live token, so it is
+        // always the new governing gate.
+        self.top_token = token;
+        self.top_idx = slot_idx as u8;
         self.installed += 1;
         Ok(token)
     }
 
     /// Free exactly the slot installed under `token` (no-op when the
     /// token is not present — e.g. an inert guard). A guard can only
-    /// ever clear its own slot, never another gate's.
-    fn remove(&mut self, token: u64) {
+    /// ever clear its own slot, never another gate's. Returns whether a
+    /// live slot was actually freed, so tier wrappers can maintain their
+    /// fast-path liveness flag.
+    fn remove(&mut self, token: u64) -> bool {
         if let Some(slot) = self.slots.iter_mut().find(|s| s.token == token) {
             slot.token = 0;
             slot.len = 0;
@@ -980,6 +991,25 @@ impl<const DEPTH: usize> GateStore<DEPTH> {
             // find above gates on a live token), but keep the counter
             // incapable of wrapping regardless.
             self.installed = self.installed.saturating_sub(1);
+            // Removing the governing gate resumes the next-highest live
+            // one: rescan (rare path — only when the INNER of a nested
+            // pair drops, never on ordinary single-gate teardown after
+            // the counter already hit zero).
+            if token == self.top_token {
+                let mut best_token = 0u64;
+                let mut best_idx = 0u8;
+                for (i, s) in self.slots.iter().enumerate() {
+                    if s.token > best_token {
+                        best_token = s.token;
+                        best_idx = i as u8;
+                    }
+                }
+                self.top_token = best_token;
+                self.top_idx = best_idx;
+            }
+            true
+        } else {
+            false
         }
     }
 
@@ -989,11 +1019,15 @@ impl<const DEPTH: usize> GateStore<DEPTH> {
     /// outer gate resumes governing.
     fn active_slot(&self) -> Option<&GateSlot> {
         // Tokens are unique and monotonic, so "highest token" is exactly
-        // "most recently installed".
-        self.slots
-            .iter()
-            .filter(|s| s.token != 0)
-            .max_by_key(|s| s.token)
+        // "most recently installed" — maintained as `top_token`/`top_idx`
+        // by install/remove, making this a two-load lookup instead of a
+        // DEPTH-slot scan on every gated check. `get` (not indexing)
+        // keeps the path provably panic-free (see the binary-size note in
+        // `install_with_args`).
+        if self.top_token == 0 {
+            return None;
+        }
+        self.slots.get(self.top_idx as usize)
     }
 
     /// Match `address` against the governing gate's stored values.
@@ -1206,13 +1240,6 @@ mod gate_store {
         f(unsafe { &mut *ptr })
     }
 
-    pub(super) fn install(
-        accounts: &[crate::account::AccountView<'_>],
-        policy: &'static WritePolicy,
-    ) -> Result<u64, GateInstallError> {
-        with_store(|store| store.install(accounts, policy))
-    }
-
     pub(super) fn install_with_args(
         accounts: &[crate::account::AccountView<'_>],
         policy: &'static WritePolicy,
@@ -1263,13 +1290,6 @@ mod gate_store {
         STORE.with(|cell| f(&mut cell.borrow_mut()))
     }
 
-    pub(super) fn install(
-        accounts: &[crate::account::AccountView<'_>],
-        policy: &'static WritePolicy,
-    ) -> Result<u64, GateInstallError> {
-        with_store(|store| store.install(accounts, policy))
-    }
-
     pub(super) fn install_with_args(
         accounts: &[crate::account::AccountView<'_>],
         policy: &'static WritePolicy,
@@ -1315,13 +1335,6 @@ mod gate_store {
     /// Single-slot occupancy: a second concurrent install is contention,
     /// refused loudly instead of shared or corrupted.
     pub(super) const NO_FREE_SLOT: ProgramError = super::LAMPORT_GATE_CONTENDED;
-
-    pub(super) fn install(
-        accounts: &[crate::account::AccountView<'_>],
-        policy: &'static WritePolicy,
-    ) -> Result<u64, GateInstallError> {
-        STORE.with_lock(|store| store.install(accounts, policy))
-    }
 
     pub(super) fn install_with_args(
         accounts: &[crate::account::AccountView<'_>],
@@ -1848,6 +1861,57 @@ mod tests {
     }
 
     #[test]
+    fn public_raw_surfaces_are_governed_by_the_ambient_gate() {
+        // The historical `strict_writes` bypass: raw `AccountView` writes
+        // outside a `Context`. With the gate wired into the public
+        // surfaces, a bound policy governs them too.
+        let (_b0, a0) = make_account(90);
+        let (_bf, foreign) = make_account(91);
+        let accounts = [a0];
+        // Account 0 may write ONLY bytes [8, 16) of its 32-byte data.
+        static P: WritePolicy = WritePolicy::new(&[WriteRange::new(0, 8, 8)]);
+
+        // Without a gate every surface passes through untouched.
+        {
+            let mut reg = crate::segment_borrow::SegmentBorrowRegistry::new();
+            assert!(accounts[0].try_borrow_mut().is_ok());
+            assert!(accounts[0].segment_mut::<[u8; 8]>(&mut reg, 20, 8).is_ok());
+        }
+
+        let _gate = install_lamport_gate(&accounts, &P);
+
+        // Raw whole-account borrow: the narrow declaration does not cover
+        // the full data range, so the former bypass is refused with the
+        // account's indexed policy error.
+        assert_eq!(
+            accounts[0].try_borrow_mut().map(|_| ()),
+            Err(write_policy_violation(0)),
+        );
+        // A foreign account fails closed at u8::MAX.
+        assert_eq!(
+            foreign.try_borrow_mut().map(|_| ()),
+            Err(write_policy_violation(u8::MAX)),
+        );
+
+        // Direct segment access outside a `Context`: the declared cell is
+        // allowed; a range shifted one byte past it is refused.
+        let mut reg = crate::segment_borrow::SegmentBorrowRegistry::new();
+        assert!(accounts[0].segment_mut::<[u8; 8]>(&mut reg, 8, 8).is_ok());
+        let mut reg2 = crate::segment_borrow::SegmentBorrowRegistry::new();
+        assert_eq!(
+            accounts[0]
+                .segment_mut::<[u8; 8]>(&mut reg2, 9, 8)
+                .map(|_| ()),
+            Err(write_policy_violation(0)),
+        );
+
+        // Data-length / presence transitions on a foreign account are
+        // refused before any native-boundary work happens.
+        assert_eq!(foreign.resize(16), Err(write_policy_violation(u8::MAX)));
+        assert_eq!(foreign.close(), Err(write_policy_violation(u8::MAX)));
+    }
+
+    #[test]
     fn data_only_policy_governs_ambient_data_but_passes_lamports() {
         // A data-only `strict_writes` policy (no `lamports(...)`) still installs
         // the instruction-ambient gate: raw data mutation, writable CPI
@@ -2070,14 +2134,16 @@ mod tests {
         let second_accounts = [a1];
 
         let store = SpinlockGateStore::new();
-        let token = store.with_lock(|s| s.install(&first_accounts, &P)).unwrap();
+        let token = store
+            .with_lock(|s| s.install_with_args(&first_accounts, &P, &[]))
+            .unwrap();
 
         // Second install while one gate is active: refused loudly (the
         // tier maps NoFreeSlot to LAMPORT_GATE_CONTENDED), never shared
         // and never corrupting the first gate.
         assert_eq!(
             store
-                .with_lock(|s| s.install(&second_accounts, &P))
+                .with_lock(|s| s.install_with_args(&second_accounts, &P, &[]))
                 .unwrap_err(),
             GateInstallError::NoFreeSlot
         );
@@ -2095,6 +2161,8 @@ mod tests {
 
         // Releasing the first gate frees the slot for the next install.
         store.with_lock(|s| s.remove(token));
-        assert!(store.with_lock(|s| s.install(&second_accounts, &P)).is_ok());
+        assert!(store
+            .with_lock(|s| s.install_with_args(&second_accounts, &P, &[]))
+            .is_ok());
     }
 }

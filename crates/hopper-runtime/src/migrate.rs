@@ -147,7 +147,7 @@ where
     // Single mutable borrow across the whole chain. atomicity per
     // edge is maintained by rewriting the header's schema_epoch byte
     // range before the borrow is released.
-    let mut data = account.try_borrow_mut()?;
+    let mut data = account.try_borrow_mut_ungated()?;
     let header_len = core::mem::size_of::<HopperHeader>();
     if data.len() < header_len {
         return Err(ProgramError::AccountDataTooSmall);
@@ -265,7 +265,7 @@ where
     }
     check_migratable(account, program_id)?;
 
-    let mut data = account.try_borrow_mut()?;
+    let mut data = account.try_borrow_mut_ungated()?;
     Old::validate_header(&data)?;
     if data.len() < New::required_len() {
         // In-place only: a larger New needs `realloc` FIRST. Refusing
@@ -383,7 +383,7 @@ where
     if shrink_to_fit && account.data_len() > new_required {
         let min_old = crate::rent::minimum_balance_live(account.data_len());
         let min_new = crate::rent::minimum_balance_live(new_required);
-        drop(account.try_borrow_mut()?);
+        drop(account.try_borrow_mut_ungated()?);
         account.resize(new_required)?;
         // Refund exactly the freed rent delta — see the refund rule in
         // the doc above. Both caps matter: `delta` keeps deposits and
@@ -438,7 +438,7 @@ pub fn ensure_fits_with_rent(
         }
     }
     // Fail fast on outstanding data borrows before the length moves.
-    drop(account.try_borrow_mut()?);
+    drop(account.try_borrow_mut_ungated()?);
     account.resize(min_len)?;
     if deficit > 0 {
         let payer_after = payer
