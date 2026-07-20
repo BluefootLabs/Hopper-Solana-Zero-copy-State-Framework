@@ -235,6 +235,20 @@ unexpected_cfgs = { level = "allow", check-cfg = [
 # recorded in BENCHMARKS.md alongside this flag.
 [profile.release]
 overflow-checks = true
+# Ecosystem-standard on-chain size/perf profile, matching `anchor init`, Quasar,
+# and the Solana performance guide. `codegen-units = 1` is the real free win
+# (better cross-unit optimization, no CU cost). `lto = "fat"` is conventional but
+# a near-no-op under `cargo build-sbf`: LLD already runs `--gc-sections`, and
+# `core` ships as a prebuilt bitcode-free sysroot rlib LTO cannot reach. opt-level
+# stays at 3 to preserve the measured CU story; `opt-level = "z"/"s"` would trade
+# roughly 50% more CU for ~5% size and is deliberately not taken.
+lto = "fat"
+codegen-units = 1
+
+[profile.release.build-override]
+opt-level = 3
+incremental = false
+codegen-units = 1
 
 # The audited substrate opts back out: its arithmetic is explicitly
 # checked/widened where it matters and its parsing loops are bounds-guarded

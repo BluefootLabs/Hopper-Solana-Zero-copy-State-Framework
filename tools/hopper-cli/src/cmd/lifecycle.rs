@@ -1357,7 +1357,7 @@ fn render_template_lib_rs(template: Template) -> String {
 
 fn render_cargo_toml(crate_name: &str, dependency: &str) -> String {
     format!(
-        "[package]\nname = \"{crate_name}\"\nversion = \"0.1.0\"\nedition = \"2021\"\nlicense = \"Apache-2.0\"\npublish = false\ndescription = \"Hopper program scaffold\"\n\n[lib]\ncrate-type = [\"cdylib\", \"lib\"]\n\n[dependencies]\n{dependency}\n\n[lints.rust]\nunexpected_cfgs = {{ level = \"allow\", check-cfg = ['cfg(target_os, values(\"solana\"))'] }}\n"
+        "[package]\nname = \"{crate_name}\"\nversion = \"0.1.0\"\nedition = \"2021\"\nlicense = \"Apache-2.0\"\npublish = false\ndescription = \"Hopper program scaffold\"\n\n[lib]\ncrate-type = [\"cdylib\", \"lib\"]\n\n[dependencies]\n{dependency}\n\n[lints.rust]\nunexpected_cfgs = {{ level = \"allow\", check-cfg = ['cfg(target_os, values(\"solana\"))'] }}\n\n# Ecosystem-standard on-chain release profile (matches anchor init, Quasar, and\n# the Solana performance guide). codegen-units = 1 is the free optimization win.\n[profile.release]\noverflow-checks = true\nlto = \"fat\"\ncodegen-units = 1\n\n[profile.release.build-override]\nopt-level = 3\nincremental = false\ncodegen-units = 1\n"
     )
 }
 
