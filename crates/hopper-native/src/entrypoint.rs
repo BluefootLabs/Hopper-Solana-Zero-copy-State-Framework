@@ -143,9 +143,12 @@ macro_rules! program_entrypoint {
 ///
 /// # Feature gating (`simd-0321`)
 ///
-/// SIMD-0321 is **not yet activated** on public clusters (feature gate
-/// `5xXZc66h4UdB6Yq7FzdBxBiRAFMMScMLwHxk2QZDaNZL`). Without the
-/// activation, `r2` carries no instruction-data pointer at entry.
+/// SIMD-0321 is **activated on all three public clusters** (feature gate
+/// `5xXZc66h4UdB6Yq7FzdBxBiRAFMMScMLwHxk2QZDaNZL`; mainnet-beta at slot
+/// 410,400,000, 2026-04-01). Current agave sets `r2` unconditionally, so
+/// builds may enable the feature for any cluster target; on a runtime
+/// that ever leaves `r2` zero, the null-check below still falls back to
+/// the scanning parse.
 ///
 /// - **Default (feature off):** this macro expands to the standard
 ///   scanning entrypoint ([`hopper_program_entrypoint!`]). Identical

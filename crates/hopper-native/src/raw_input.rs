@@ -354,12 +354,18 @@ pub unsafe fn deserialize_accounts_fast<'info, const MAX: usize>(
 // 8-aligned byte after it. The account COUNT stays where it always
 // was — the input buffer's first u64.
 //
-// The runtime feature gate for SIMD-0449 has NO assigned pubkey yet;
-// nothing on any cluster serializes this table today. These functions
-// are compiled unconditionally (they are inert unless called); the
-// `simd-0449` cargo feature only flips [`SIMD_0449_TABLE_ENABLED`],
-// which `hopper_fast_entrypoint!` consults to select the table path —
-// a `const`, so the untaken branch folds away entirely.
+// The runtime feature gate is `ptr9umikaeAS7ZBBp2fsfRhie16F1V2jCKA2y6gXNAK`
+// (agave `direct_account_pointers_in_program_input`; NOTE the 2026-04-15
+// rekey in agave PR #11934 — the original `ptrXWLk…` gate is dead, and the
+// same PR pinned each table entry to the account RECORD start, i.e. the
+// dup-marker/borrow byte where `RuntimeAccount` begins, which is exactly
+// what the overlay below casts). Activated on testnet and devnet; pending
+// mainnet-beta (min agave v4.1.0-beta.0) — check `hopper feature-gate`.
+// These functions are compiled unconditionally (they are inert unless
+// called); the `simd-0449` cargo feature only flips
+// [`SIMD_0449_TABLE_ENABLED`], which `hopper_fast_entrypoint!` consults to
+// select the table path — a `const`, so the untaken branch folds away
+// entirely.
 
 /// Whether this build trusts the SIMD-0449 account-pointer table
 /// (`feature = "simd-0449"`). Enabling it before the SIMD activates on
@@ -384,10 +390,7 @@ pub enum DirectMappingError {
     /// The supplied byte length ends in the middle of an ABI component.
     TruncatedInput,
     /// The frame contains more accounts than the caller-provided output.
-    TooManyAccounts {
-        count: usize,
-        capacity: usize,
-    },
+    TooManyAccounts { count: usize, capacity: usize },
     /// A duplicate marker did not refer to a strictly earlier slot.
     MalformedDuplicate { slot: usize, duplicate_of: usize },
     /// The caller's instruction-data slice is not the exact slice in `input`.
@@ -469,9 +472,8 @@ pub unsafe fn deserialize_accounts_0449_checked<'info, const MAX: usize>(
             canonical_offsets[slot] = offset;
             // `data_len` is the final u64 in the 88-byte runtime header.
             // SAFETY: the full header was bounds-checked above.
-            let data_len = unsafe {
-                core::ptr::read_unaligned(input.add(offset + 80) as *const u64) as usize
-            };
+            let data_len =
+                unsafe { core::ptr::read_unaligned(input.add(offset + 80) as *const u64) as usize };
             let body_end = offset
                 .checked_add(RuntimeAccount::SIZE)
                 .and_then(|v| v.checked_add(data_len))
@@ -561,9 +563,8 @@ pub unsafe fn deserialize_accounts_0449_checked<'info, const MAX: usize>(
         let pointer = base + canonical_offsets[slot];
         // SAFETY: this pointer was derived from a bounds-checked canonical
         // header and its corresponding table entry matched exactly.
-        accounts[slot] = MaybeUninit::new(unsafe {
-            AccountView::new_unchecked(pointer as *mut RuntimeAccount)
-        });
+        accounts[slot] =
+            MaybeUninit::new(unsafe { AccountView::new_unchecked(pointer as *mut RuntimeAccount) });
         slot += 1;
     }
 

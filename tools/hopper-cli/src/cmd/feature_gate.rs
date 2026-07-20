@@ -16,7 +16,29 @@ use crate::rpc;
 
 /// SIMD-0321: VM `r2` instruction-data pointer at entrypoint. Backs the
 /// `simd-0321` cargo feature / `hopper::fast_entrypoint!` fast path.
+///
+/// ACTIVATED on all three public clusters — mainnet-beta at slot
+/// 410,400,000 (2026-04-01), testnet and devnet earlier. Agave `master`
+/// now sets `r2` unconditionally (the value is an absolute VM pointer to
+/// the first instruction-data byte, despite the agave mod name saying
+/// "offset"). Builds may enable `simd-0321` for any cluster target.
 pub const SIMD_0321_GATE: &str = "5xXZc66h4UdB6Yq7FzdBxBiRAFMMScMLwHxk2QZDaNZL";
+
+/// SIMD-0449: direct account pointers in program input — the appended
+/// `[u64; num_accounts]` table of account-record pointers that backs the
+/// `simd-0449` cargo feature (`deserialize_accounts_0449`, O(1) account
+/// resolution).
+///
+/// Gate pubkey from agave `feature-set/src/lib.rs`
+/// (`direct_account_pointers_in_program_input`). NOTE the 2026-04-15
+/// rekey (agave PR #11934): the original gate
+/// `ptrXWLkSDMZZmZN8GAT6W5yW4EvYByfw6cRRHbXwQNS` is dead — the same PR
+/// fixed each table entry to point at the account RECORD start (the
+/// dup-marker/borrow byte), which is exactly the `RuntimeAccount` head
+/// Hopper's table overlay expects. Activated on testnet (epoch 981) and
+/// devnet (epoch 1099); pending mainnet-beta activation (min agave
+/// v4.1.0-beta.0).
+pub const SIMD_0449_GATE: &str = "ptr9umikaeAS7ZBBp2fsfRhie16F1V2jCKA2y6gXNAK";
 
 /// SIMD-0339: raise the CPI account-info limit from 64 to 255
 /// (`increase_cpi_account_info_limit`). Under it, each account-info and
@@ -44,6 +66,11 @@ pub const KNOWN_GATES: &[(&str, &str, &str)] = &[
         "SIMD-0339",
         SIMD_0339_GATE,
         "CPI account-info limit 64->255 (raised MAX_CPI_ACCOUNTS / DynCpi info dedup)",
+    ),
+    (
+        "SIMD-0449",
+        SIMD_0449_GATE,
+        "direct account-pointer table (deserialize_accounts_0449 / --features simd-0449)",
     ),
 ];
 

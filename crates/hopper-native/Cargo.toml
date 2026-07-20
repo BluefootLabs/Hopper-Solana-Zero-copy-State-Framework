@@ -26,20 +26,24 @@ cu-trace = []
 static-syscalls = []
 # Opt-in for the SIMD-0321 two-argument entrypoint (`r2` carries a
 # direct instruction-data pointer). The SIMD's feature gate
-# (5xXZc66h4UdB6Yq7FzdBxBiRAFMMScMLwHxk2QZDaNZL) is not yet activated
-# on public clusters; without this feature `hopper_fast_entrypoint!`
-# compiles to the standard scanning entrypoint so programs stay sound.
+# (5xXZc66h4UdB6Yq7FzdBxBiRAFMMScMLwHxk2QZDaNZL) is ACTIVATED on all
+# three public clusters (mainnet-beta 2026-04-01), so builds may enable
+# this for any cluster target; the r2 null-check still falls back to the
+# scanning parse defensively. Off by default pending the measured CU
+# re-baseline; without this feature `hopper_fast_entrypoint!` compiles
+# to the standard scanning entrypoint.
 simd-0321 = []
 # Opt-in for the SIMD-0449 pre-computed account-pointer table: the
 # runtime appends a pre-deduplicated `[u64; n]` array of canonical
 # account-record pointers after the instruction tail, making account
 # resolution O(1) — no stride walk, no duplicate resolution. Requires
 # `simd-0321` (the table is located relative to the r2 instruction-data
-# pointer). The SIMD's runtime feature gate has NO assigned pubkey yet
-# and is activated nowhere; enabling this before cluster activation
-# reads garbage. `hopper feature-gate` detection lands once the pubkey
-# is assigned. Readiness only — off by default, scanning stays the
-# default path.
+# pointer). Runtime gate: ptr9umikaeAS7ZBBp2fsfRhie16F1V2jCKA2y6gXNAK
+# (rekeyed 2026-04-15, agave PR #11934; the original ptrXWLk… gate is
+# dead). Activated on testnet + devnet, pending mainnet-beta — enable
+# only for clusters where `hopper feature-gate` reports it active;
+# elsewhere the table is absent and this path reads garbage. Off by
+# default, scanning stays the default path.
 simd-0449 = ["simd-0321"]
 # `legacy-projectable` exposes the `Projectable` / `SafeProjectable`
 # cross-program lens traits. The Hopper Safety Audit asked these be
