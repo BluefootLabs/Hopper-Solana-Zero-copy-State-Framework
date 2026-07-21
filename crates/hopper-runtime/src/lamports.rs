@@ -338,7 +338,11 @@ mod tests {
 
     /// A realistic mutation-complete policy carries data ranges AND the
     /// lamport set; the transfer consults only the lamport dimension.
+    // Guarded-tier semantics: installs a data-declaring policy, which the
+    // `unguarded-raw-surfaces` fence refuses at install (covered by its
+    // own explicit test in that shape).
     #[test]
+    #[cfg(not(feature = "unguarded-raw-surfaces"))]
     fn gated_transfer_composes_with_data_ranges() {
         let (_b0, from) = make_account(55, 10);
         let (_b1, to) = make_account(56, 10);

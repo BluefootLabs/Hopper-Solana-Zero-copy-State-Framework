@@ -257,6 +257,21 @@ Anchor 0.31.1/1.x, with the shelf life that implies.
 > lamport gate — outlining experiments that "saved" bytes cost +44..+73 CU
 > and were rejected; see the in-source measurement notes). We do not
 > publish a size lead we have not measured.
+>
+> Raw-surface guard note (2026-07-20): when the ambient gate began
+> governing the public raw `AccountView` surfaces, its check machinery
+> (~1.5 KiB of `.text`) became linked into every program using those
+> surfaces, including raw-tier ones that never install a gate — this
+> vault measured 9,128 B at that commit (8,976 B after the CPI staging
+> fix). The `unguarded-raw-surfaces` opt-out provably unlinks it; the
+> benchmarked parity artifact is built with
+> `cargo build-sbf -- --features unguarded-raw-surfaces` (a raw-tier
+> program with no strict-writes context) and measures 7,656 B
+> (`.text` 6,032), byte-adjacent to the figure above. The feature is
+> never a default — workspace feature unification would otherwise
+> disable the guard for unrelated strict programs — and it cannot be
+> combined with `strict_writes`: the codegen const-asserts the guard,
+> so the combination is a compile error, never a silent bypass.
 
 The Pinocchio column is built in-tree from the benchmark repo's Anza
 Pinocchio target, not borrowed from Quasar's reference sample or an older

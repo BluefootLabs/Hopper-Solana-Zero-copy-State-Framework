@@ -4960,6 +4960,23 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
     } else {
         TokenStream::new()
     };
+    // Soundness fence: a strict-writes context relies on the ambient gate
+    // governing the PUBLIC raw AccountView surfaces too (the closed
+    // bypass). The `unguarded-raw-surfaces` size opt-out exists only for
+    // raw-tier programs that never bind a strict context, so combining
+    // the two must be a compile error, never a silent hole.
+    let write_policy_install_stmt: TokenStream = if strict_writes_enabled || mutation_complete {
+        quote! {
+            const _: () = assert!(
+                ::hopper::__runtime::write_policy::RAW_SURFACES_GUARDED,
+                "strict_writes requires the guarded raw account surfaces; remove the \
+                 `unguarded-raw-surfaces` feature from this build"
+            );
+            #write_policy_install_stmt
+        }
+    } else {
+        write_policy_install_stmt
+    };
     // Bound-struct plumbing for the gate guard (empty unless the lamport
     // dimension was declared).
     let lamport_gate_field_decl: TokenStream = if mutation_complete {

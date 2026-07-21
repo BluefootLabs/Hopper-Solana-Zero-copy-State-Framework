@@ -34,6 +34,16 @@ simd-0321 = ["hopper-native/simd-0321"]
 simd-0449 = ["hopper-native/simd-0449", "simd-0321"]
 cpi = []
 copy = []
+# OPT-OUT of the ambient write gate on the PUBLIC raw AccountView
+# surfaces (raw whole-account borrows, direct segment access outside a
+# Context, resize/close transitions). The guard is ON by default; this
+# feature exists for raw-tier programs that never bind a `strict_writes`
+# context and want the ~1.7 KiB gate-check code provably unlinked.
+# Soundness fence, both tiers: `strict_writes` codegen const-asserts the
+# guard (compile error), and hand-rolled installs of a data-declaring
+# policy are refused at install time with AMBIENT_GATE_UNGUARDED_BUILD —
+# never a silent bypass on any tier.
+unguarded-raw-surfaces = []
 # Opt-in sBPF v3 / SIMD-0178 static syscalls. Forwards to hopper-native so the
 # `hopper_native::define_syscall!` invocations in `syscalls.rs` switch from the
 # relocation-based `extern "C"` decl to the murmur32-hashed static-call ABI.

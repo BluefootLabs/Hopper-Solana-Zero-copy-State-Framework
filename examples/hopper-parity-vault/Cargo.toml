@@ -12,6 +12,11 @@ crate-type = ["cdylib", "lib"]
 hopper = { path = "../..", package = "hopper-lang", default-features = false }
 
 [features]
+# Raw-tier size opt-out for the BENCHMARKED artifact only: build with
+# `cargo build-sbf -- --features unguarded-raw-surfaces`. Never a default,
+# so workspace feature unification cannot disable the guard for the
+# strict-writes programs sharing this workspace.
+unguarded-raw-surfaces = ["hopper/unguarded-raw-surfaces"]
 default = []
 # Forwarded intrinsic overrides (I18). Off by default: the primary CU
 # baseline is measured without them; a later phase builds the variant.

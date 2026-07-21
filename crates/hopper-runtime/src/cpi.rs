@@ -1312,7 +1312,11 @@ mod tests {
 
     // -- BLD-MUT lamport gate on writable metas -------------------------
 
+    // Guarded-tier semantics: installs a data-declaring policy, which the
+    // `unguarded-raw-surfaces` fence refuses at install (covered by its
+    // own explicit test in that shape).
     #[test]
+    #[cfg(not(feature = "unguarded-raw-surfaces"))]
     fn writable_meta_is_refused_unless_both_dimensions_are_declared() {
         use crate::write_policy::{
             install_lamport_gate, write_policy_violation, WritePolicy, WriteRange,
@@ -1382,7 +1386,11 @@ mod tests {
         invoke::<1>(&ix_ro, &[&accounts[2]]).unwrap();
     }
 
+    // Guarded-tier semantics: installs a data-declaring policy, which the
+    // `unguarded-raw-surfaces` fence refuses at install (covered by its
+    // own explicit test in that shape).
     #[test]
+    #[cfg(not(feature = "unguarded-raw-surfaces"))]
     fn host_system_transfer_is_gated_through_the_lamport_funnel() {
         use crate::write_policy::{
             install_lamport_gate, write_policy_violation, WritePolicy, WriteRange,
@@ -1435,7 +1443,11 @@ mod tests {
         }
     }
 
+    // Guarded-tier semantics: installs a data-declaring policy, which the
+    // `unguarded-raw-surfaces` fence refuses at install (covered by its
+    // own explicit test in that shape).
     #[test]
+    #[cfg(not(feature = "unguarded-raw-surfaces"))]
     fn host_system_transfer_refusal_leaves_both_balances_untouched() {
         use crate::write_policy::{
             install_lamport_gate, write_policy_violation, WritePolicy, WriteRange,

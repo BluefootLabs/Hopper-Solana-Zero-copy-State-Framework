@@ -72,6 +72,13 @@ pub fn create_program_address(
 /// Silently returning a placeholder here would hand callers the all-zero
 /// address — the System Program — as if it were their PDA. Use
 /// [`based_try_find_program_address`] for the fallible variant.
+///
+/// `#[inline(always)]` is deliberate: outlining the sibling
+/// `verify_pda_sha256_loop` was measured on 2026-07-09 at only −88 bytes
+/// of release `.text` for +44..+73 CU on every benched vault row — the
+/// call boundary defeats LLVM's per-call-site specialization of the seed
+/// staging and bump loop. The size answer to PDA duplication is
+/// `bump = stored` (one hash, no search), not outlining the search.
 #[inline(always)]
 pub fn find_program_address(seeds: &[&[u8]], program_id: &Address) -> (Address, u8) {
     #[cfg(target_os = "solana")]

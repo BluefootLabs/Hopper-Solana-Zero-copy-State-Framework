@@ -717,6 +717,16 @@ pub const LAMPORT_GATE_CONTENDED: ProgramError =
 pub const AMBIENT_GATE_TOO_MANY_ARGUMENTS: ProgramError =
     ProgramError::Custom(LAMPORT_GATE_INSTALL_ERROR_PAGE | 0x04);
 
+/// Install refused: this build carries the `unguarded-raw-surfaces` size
+/// opt-out, but the policy declares data write ranges (fixed or
+/// parametric) — governance the opt-out build cannot enforce on the raw
+/// `AccountView` surfaces. Refusing at install keeps the bypass loud on
+/// EVERY tier: macro-bound strict contexts are already a compile error in
+/// such builds, and this is the runtime fence for hand-rolled installs.
+/// Lamports-only policies still install (their dimensions stay enforced).
+pub const AMBIENT_GATE_UNGUARDED_BUILD: ProgramError =
+    ProgramError::Custom(LAMPORT_GATE_INSTALL_ERROR_PAGE | 0x05);
+
 /// Per-gate account capacity: the runtime's transaction account bound.
 /// An instruction can never carry more accounts than the transaction
 /// that contains it, so a gate over one instruction's slice always
@@ -777,6 +787,7 @@ struct GateEntry {
     /// transitions are account-level effects whose newly exposed bytes do
     /// not yet have an ordinary range, so this is the bounded transition
     /// capability.
+    #[cfg_attr(feature = "unguarded-raw-surfaces", allow(dead_code))]
     allow_transition: bool,
 }
 
@@ -823,7 +834,15 @@ impl GateSlot {
 #[derive(Clone, Copy)]
 enum GateCheck {
     Lamports,
-    Data { offset: u32, size: u32 },
+    // Constructed only by the raw-surface guard wrappers; compiled out
+    // under the `unguarded-raw-surfaces` size opt-out so the variants do
+    // not read as dead code there.
+    #[cfg(not(feature = "unguarded-raw-surfaces"))]
+    Data {
+        offset: u32,
+        size: u32,
+    },
+    #[cfg(not(feature = "unguarded-raw-surfaces"))]
     Transition,
     Delegation,
 }
@@ -1034,6 +1053,7 @@ impl<const DEPTH: usize> GateStore<DEPTH> {
     /// Passthrough when no gate is installed; fail closed (indexed
     /// error, `u8::MAX` for addresses foreign to the gated instruction)
     /// otherwise.
+    #[cfg_attr(feature = "unguarded-raw-surfaces", allow(unused_variables))]
     fn check(&self, address: &Address, check: GateCheck) -> ProgramResult {
         // Hot-path fast-out: programs that never declare `lamports(...)`
         // pay ONE load + branch here, not a slot walk. This check runs on
@@ -1070,9 +1090,11 @@ impl<const DEPTH: usize> GateStore<DEPTH> {
                 }
                 let allowed = match check {
                     GateCheck::Lamports => entry.allow_mutation,
+                    #[cfg(not(feature = "unguarded-raw-surfaces"))]
                     GateCheck::Data { offset, size } => policy
                         .check_write_with_args(entry.index, offset, size, args)
                         .is_ok(),
+                    #[cfg(not(feature = "unguarded-raw-surfaces"))]
                     GateCheck::Transition => entry.allow_transition,
                     GateCheck::Delegation => entry.allow_delegation,
                 };
@@ -1430,12 +1452,29 @@ pub fn try_install_lamport_gate<'accounts>(
 /// policy still preserves undeclared-lamport passthrough, but raw data
 /// mutation, account transitions, writable CPI delegation, and accounts
 /// outside the declared write-set are governed for the guard's lifetime.
+///
+/// Under the `unguarded-raw-surfaces` size opt-out, installing a policy
+/// that declares data write ranges is refused with
+/// [`AMBIENT_GATE_UNGUARDED_BUILD`] — that build cannot enforce the raw
+/// surfaces, and a silently half-enforced gate is worse than a loud
+/// refusal. Lamports-only policies still install and stay enforced.
 #[inline]
 pub fn try_install_ambient_gate_with_args<'accounts>(
     accounts: &'accounts [crate::account::AccountView<'accounts>],
     policy: &'static WritePolicy,
     args: &[u32],
 ) -> Result<LamportGateGuard<'accounts>, ProgramError> {
+    // Runtime fence for the `unguarded-raw-surfaces` size opt-out: a
+    // policy that declares data write ranges is asking for governance
+    // this build cannot enforce on the raw `AccountView` surfaces, so
+    // the install refuses loudly instead of degrading silently. The
+    // macro tier can never reach this (strict contexts are a compile
+    // error under the opt-out); this catches hand-rolled installs, and
+    // costs nothing on default builds.
+    #[cfg(feature = "unguarded-raw-surfaces")]
+    if !policy.allows.is_empty() || !policy.parametric.is_empty() {
+        return Err(AMBIENT_GATE_UNGUARDED_BUILD);
+    }
     match gate_store::install_with_args(accounts, policy, args) {
         Ok(token) => Ok(LamportGateGuard {
             token,
@@ -1498,7 +1537,20 @@ pub(crate) fn check_lamport_mutation(address: &Address) -> ProgramResult {
 /// exact range, so parametric cells remain enforceable outside `Context`.
 #[inline]
 pub(crate) fn check_data_mutation(address: &Address, offset: u32, size: u32) -> ProgramResult {
-    gate_store::check(address, GateCheck::Data { offset, size })
+    #[cfg(not(feature = "unguarded-raw-surfaces"))]
+    {
+        gate_store::check(address, GateCheck::Data { offset, size })
+    }
+    #[cfg(feature = "unguarded-raw-surfaces")]
+    {
+        // Raw-tier opt-out: the raw-surface guard is compiled out, which
+        // also unlinks the gate-check machinery from programs that never
+        // install a gate. `strict_writes` codegen const-asserts
+        // [`RAW_SURFACES_GUARDED`], so this branch cannot coexist with a
+        // bound strict context.
+        let _ = (address, offset, size);
+        Ok(())
+    }
 }
 
 /// Gate a data-length/presence transition on an account. Any declared data
@@ -1506,8 +1558,23 @@ pub(crate) fn check_data_mutation(address: &Address, offset: u32, size: u32) -> 
 /// accounts fail closed.
 #[inline]
 pub(crate) fn check_account_transition(address: &Address) -> ProgramResult {
-    gate_store::check(address, GateCheck::Transition)
+    #[cfg(not(feature = "unguarded-raw-surfaces"))]
+    {
+        gate_store::check(address, GateCheck::Transition)
+    }
+    #[cfg(feature = "unguarded-raw-surfaces")]
+    {
+        let _ = address;
+        Ok(())
+    }
 }
+
+/// Whether the public raw `AccountView` surfaces are governed by the
+/// ambient write gate in this build (the default). `false` only under the
+/// `unguarded-raw-surfaces` opt-out; `strict_writes` codegen const-asserts
+/// this is `true`, making the opt-out impossible to combine with a bound
+/// strict context.
+pub const RAW_SURFACES_GUARDED: bool = !cfg!(feature = "unguarded-raw-surfaces");
 
 /// Gate a CPI **writable meta** on the account with `address`. A
 /// writable hand-off delegates unbounded data AND lamport mutation to
@@ -1798,7 +1865,11 @@ mod tests {
         (backing, AccountView::from_backend(backend))
     }
 
+    // Guarded-tier semantics: installs a data-declaring policy, which the
+    // `unguarded-raw-surfaces` fence refuses at install (covered by its
+    // own explicit test in that shape).
     #[test]
+    #[cfg(not(feature = "unguarded-raw-surfaces"))]
     fn gate_refuses_undeclared_and_allows_declared_lamport_mutation() {
         let (_b0, a0) = make_account(10);
         let (_b1, a1) = make_account(11);
@@ -1832,7 +1903,11 @@ mod tests {
         assert!(check_lamport_mutation(accounts[1].address()).is_ok());
     }
 
+    // Guarded-tier semantics: installs a data-declaring policy, which the
+    // `unguarded-raw-surfaces` fence refuses at install (covered by its
+    // own explicit test in that shape).
     #[test]
+    #[cfg(not(feature = "unguarded-raw-surfaces"))]
     fn gate_delegation_requires_both_dimensions() {
         let (_b0, a0) = make_account(20);
         let (_b1, a1) = make_account(21);
@@ -1860,7 +1935,38 @@ mod tests {
         assert!(check_lamport_mutation(accounts[1].address()).is_ok());
     }
 
+    /// The runtime fence for hand-rolled installs under the size opt-out:
+    /// a data-declaring policy is REFUSED at install (never a silently
+    /// half-enforced gate), while a lamports-only policy installs and its
+    /// dimensions stay fully enforced.
     #[test]
+    #[cfg(feature = "unguarded-raw-surfaces")]
+    fn unguarded_build_refuses_data_declaring_installs_loudly() {
+        let (_b0, a0) = make_account(95);
+        let accounts = [a0];
+
+        // Data-declaring policy: refused with the dedicated install error.
+        static DATA: WritePolicy = WritePolicy::new(&[WriteRange::whole_account(0)]);
+        assert_eq!(
+            try_install_lamport_gate(&accounts, &DATA).map(|_| ()),
+            Err(AMBIENT_GATE_UNGUARDED_BUILD),
+        );
+        assert!(!lamport_gate_active(), "a refused install leaves no gate");
+
+        // Lamports-only policy: installs, and the lamport dimension still
+        // enforces (declared account 0 passes, a foreign account fails).
+        static LAMPORTS_ONLY: WritePolicy = WritePolicy::with_lamports(&[], &[0]);
+        let _gate = install_lamport_gate(&accounts, &LAMPORTS_ONLY);
+        let (_bf, foreign) = make_account(96);
+        assert!(check_lamport_mutation(accounts[0].address()).is_ok());
+        assert_eq!(
+            check_lamport_mutation(foreign.address()),
+            Err(write_policy_violation(u8::MAX)),
+        );
+    }
+
+    #[test]
+    #[cfg(not(feature = "unguarded-raw-surfaces"))]
     fn public_raw_surfaces_are_governed_by_the_ambient_gate() {
         // The historical `strict_writes` bypass: raw `AccountView` writes
         // outside a `Context`. With the gate wired into the public
@@ -1912,6 +2018,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(feature = "unguarded-raw-surfaces"))]
     fn data_only_policy_governs_ambient_data_but_passes_lamports() {
         // A data-only `strict_writes` policy (no `lamports(...)`) still installs
         // the instruction-ambient gate: raw data mutation, writable CPI
@@ -1985,7 +2092,11 @@ mod tests {
 
     // ── Redesign regression tests (value store, tokens, fail-closed) ─
 
+    // Guarded-tier semantics: installs a data-declaring policy, which the
+    // `unguarded-raw-surfaces` fence refuses at install (covered by its
+    // own explicit test in that shape).
     #[test]
+    #[cfg(not(feature = "unguarded-raw-surfaces"))]
     fn forgotten_guard_leaves_stale_value_policy_never_ub() {
         static P: WritePolicy = WritePolicy::with_lamports(&[WriteRange::whole_account(0)], &[0]);
         let stale_address;

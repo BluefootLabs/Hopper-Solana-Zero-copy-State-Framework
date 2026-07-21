@@ -164,6 +164,12 @@ proc-macros = ["hopper-macros-proc", "receipt"]
 # and the crate adds compile time; opt in with `--features metaplex`.
 metaplex = ["dep:hopper-metaplex"]
 
+# OPT-OUT of the ambient write gate on the public raw AccountView
+# surfaces, for raw-tier programs that never bind a `strict_writes`
+# context (the strict codegen const-asserts the guard, so combining the
+# two is a compile error). See hopper-runtime's feature of the same name.
+unguarded-raw-surfaces = ["hopper-runtime/unguarded-raw-surfaces"]
+
 # Program-wide tuned memory intrinsics (I18): overrides the C
 # `memcmp`/`bcmp`/`memcpy`/`memset` symbols on the SBF target with an
 # inline-below-32-bytes / syscall-above dispatch. Optional and off by
