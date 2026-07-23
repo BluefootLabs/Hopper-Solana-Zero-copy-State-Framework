@@ -32,6 +32,9 @@ Compile
 Verify
   hopper verify [<manifest>] [<.so>]        Confirm manifest layouts are present in the compiled binary
   hopper verify --package <name>            Infer manifest and SBF binary from a workspace package
+  hopper verify --effects <bundle|dir>      Effect gate: verify evidence bundles against the manifest's
+                                            published write contract (changed ⊆ acquired ⊆ authorized,
+                                            via the independent Grillo verifier); any violation fails
   hopper publish-check --package <name>     Run release docs, feature, client, fuzz, and ABI gates
 
 Schema

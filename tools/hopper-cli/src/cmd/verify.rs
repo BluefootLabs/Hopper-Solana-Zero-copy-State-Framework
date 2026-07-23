@@ -87,6 +87,30 @@ pub fn cmd_verify(args: &[String]) {
     }
     println!("  OK: unique disc, unique layout_id, non-zero bytes, valid names.");
 
+    // ── Stage 1.5: effect gate (C7, opt-in via --effects) ──────────
+    //
+    // Composes the three shipped layers into one release check: the
+    // program's emitted touch map (acquired) is verified against the
+    // manifest's published write ranges (authorized) and the observed
+    // byte diff (changed), independently, per `changed ⊆ acquired ⊆
+    // authorized`. Any bundle that violates fails the command — the gate
+    // goes red the moment a handler writes outside its declared set.
+    if let Some(effects_path) = &opts.effects {
+        println!();
+        println!("Effect gate: {effects_path}");
+        let effect_failures =
+            run_effect_gate(&manifest_json, effects_path, opts.allow_inconclusive);
+        if effect_failures > 0 {
+            eprintln!();
+            eprintln!(
+                "FAIL: {effect_failures} evidence bundle(s) did not verify against the published \
+                 write contract."
+            );
+            process::exit(1);
+        }
+        println!("  OK: every bundle's actual writes are within its declared authorization.");
+    }
+
     // ── Stage 2: binary presence scan (optional without --strict) ──
     //
     // The `#[hopper::state]` proc macro emits a `#[used]` anchor per
@@ -232,6 +256,15 @@ struct VerifyOptions {
     /// Release profile: requires a binary and treats missing layout anchors as
     /// fatal. This is the public-launch/publish gate.
     release: bool,
+    /// Effect gate (C7): a single evidence bundle or a directory of `*.json`
+    /// bundles to verify against the manifest's published write contract
+    /// (`changed ⊆ acquired ⊆ authorized`, via the independent Grillo
+    /// verifier). Any VIOLATION fails the command.
+    effects: Option<String>,
+    /// Treat a Grillo INCONCLUSIVE bundle as a pass (default: inconclusive is
+    /// fatal in the effect gate, since a corpus that cannot be verified is not
+    /// a corpus that verified).
+    allow_inconclusive: bool,
 }
 
 impl VerifyOptions {
@@ -257,6 +290,8 @@ fn parse_verify_options(args: &[String]) -> Result<VerifyOptions, String> {
     let mut so = None;
     let mut strict = false;
     let mut release = false;
+    let mut effects = None;
+    let mut allow_inconclusive = false;
     let mut positional_taken = false;
     let mut i = 0;
     while i < args.len() {
@@ -284,6 +319,18 @@ fn parse_verify_options(args: &[String]) -> Result<VerifyOptions, String> {
                     return Err("--so requires a path".to_string());
                 }
                 so = Some(args[i].clone());
+                i += 1;
+            }
+            "--effects" => {
+                i += 1;
+                if i >= args.len() {
+                    return Err("--effects requires a bundle file or directory".to_string());
+                }
+                effects = Some(args[i].clone());
+                i += 1;
+            }
+            "--allow-inconclusive" => {
+                allow_inconclusive = true;
                 i += 1;
             }
             "--strict" => {
@@ -321,7 +368,124 @@ fn parse_verify_options(args: &[String]) -> Result<VerifyOptions, String> {
         so,
         strict,
         release,
+        effects,
+        allow_inconclusive,
     })
+}
+
+/// The C7 effect gate: verify every evidence bundle in `path` (a single
+/// `*.json` bundle or a directory of them) against the manifest's published
+/// mutation contract, using the independent Grillo verifier. Returns the
+/// number of bundles that did NOT pass (violations, plus inconclusives
+/// unless `--allow-inconclusive`), so the caller can gate on it.
+fn run_effect_gate(manifest_json: &str, path: &str, allow_inconclusive: bool) -> u32 {
+    use grillo_verifier::{parse_bundle, verify_bundle, MutationManifest, Verdict};
+
+    let manifest = match MutationManifest::from_json(manifest_json) {
+        Ok(m) => m,
+        Err(err) => {
+            eprintln!("  effect gate: manifest is not a mutation contract: {err}");
+            return 1;
+        }
+    };
+
+    // Collect the bundle files: one path, or every *.json in a directory
+    // (sorted for deterministic output).
+    let p = Path::new(path);
+    let mut bundles: Vec<PathBuf> = if p.is_dir() {
+        match fs::read_dir(p) {
+            Ok(entries) => {
+                let mut v: Vec<PathBuf> = entries
+                    .flatten()
+                    .map(|e| e.path())
+                    .filter(|q| q.extension().is_some_and(|x| x == "json"))
+                    .collect();
+                v.sort();
+                v
+            }
+            Err(err) => {
+                eprintln!("  effect gate: cannot read directory {path}: {err}");
+                return 1;
+            }
+        }
+    } else {
+        vec![p.to_path_buf()]
+    };
+    if bundles.is_empty() {
+        eprintln!("  effect gate: no *.json evidence bundles found under {path}");
+        return 1;
+    }
+    bundles.sort();
+
+    println!("{:<36} {:<12} Detail", "Bundle", "Verdict");
+    println!("{}", "-".repeat(80));
+
+    let mut failures = 0u32;
+    for bundle_path in &bundles {
+        let name = bundle_path
+            .file_name()
+            .map(|s| s.to_string_lossy().into_owned())
+            .unwrap_or_else(|| bundle_path.display().to_string());
+        let json = match fs::read_to_string(bundle_path) {
+            Ok(j) => j,
+            Err(err) => {
+                println!("{name:<36} {:<12} read error: {err}", "ERROR");
+                failures += 1;
+                continue;
+            }
+        };
+        let bundle = match parse_bundle(&json) {
+            Ok(b) => b,
+            Err(err) => {
+                println!("{name:<36} {:<12} {err}", "ERROR");
+                failures += 1;
+                continue;
+            }
+        };
+        match verify_bundle(&manifest, &bundle) {
+            Ok(Verdict::Pass(ev)) => {
+                println!(
+                    "{name:<36} {:<12} {} byte(s) changed, all authorized",
+                    "PASS", ev.changed_bytes
+                );
+            }
+            Ok(Verdict::Violation(v)) => {
+                println!("{name:<36} {:<12} {} finding(s)", "VIOLATION", v.len());
+                for finding in &v {
+                    println!("    - {finding:?}");
+                }
+                failures += 1;
+            }
+            Ok(Verdict::Inconclusive(reason)) => {
+                let tag = if allow_inconclusive {
+                    "INCONCLUSIVE"
+                } else {
+                    "INCONCLUSIVE*"
+                };
+                println!("{name:<36} {tag:<12} {reason:?}");
+                if !allow_inconclusive {
+                    failures += 1;
+                }
+            }
+            Err(err) => {
+                println!("{name:<36} {:<12} {err}", "ERROR");
+                failures += 1;
+            }
+        }
+    }
+    println!("{}", "-".repeat(80));
+    println!(
+        "  {} bundle(s) checked, {} passing, {} not passing{}",
+        bundles.len(),
+        bundles.len() as u32 - failures,
+        failures,
+        if allow_inconclusive {
+            " (inconclusive allowed)"
+        } else {
+            " (inconclusive is fatal; --allow-inconclusive to relax)"
+        }
+    );
+    failures
 }
 
 fn resolve_manifest_path(opts: &VerifyOptions, cwd: &Path) -> Result<PathBuf, String> {
@@ -390,12 +554,19 @@ fn print_verify_usage() {
     eprintln!("  --binary <path>     Alias for --so");
     eprintln!("  --strict            Fail when a manifest layout is not anchored in the binary");
     eprintln!("  --release           Require a binary and run strict release verification");
+    eprintln!("  --effects <path>    Effect gate: verify an evidence bundle (or a directory");
+    eprintln!("                      of *.json bundles) against the manifest's published");
+    eprintln!("                      write contract via the independent Grillo verifier");
+    eprintln!("                      (changed \u{2286} acquired \u{2286} authorized). Any violation fails.");
+    eprintln!("  --allow-inconclusive  Treat a Grillo INCONCLUSIVE bundle as a pass in the");
+    eprintln!("                      effect gate (default: inconclusive is fatal)");
     eprintln!();
     eprintln!("Examples:");
     eprintln!("  hopper verify examples/hopper-token-2022-vault/hopper.manifest.json \\");
     eprintln!("                target/deploy/hopper_token_2022_vault.so");
     eprintln!("  hopper verify --package hopper-token-2022-vault");
     eprintln!("  hopper verify @hopper.manifest.json --so target/deploy/program.so");
+    eprintln!("  hopper verify --manifest hopper.manifest.json --effects tests/bundles/");
 }
 
 struct ManifestLayout {
@@ -661,5 +832,81 @@ mod tests {
         }
         "#;
         assert!(extract_layouts_from_manifest(json).is_err());
+    }
+
+    // ── C7 effect gate ─────────────────────────────────────────────
+
+    const GATE_MANIFEST: &str = r#"{
+        "name": "p", "version": "1.0.0",
+        "instructions": [
+            { "name": "pause", "tag": 1, "strictWrites": true,
+              "writeRanges": [ { "accountIndex": 1, "offset": 114, "size": 1 } ],
+              "accounts": [ { "name": "admin" }, { "name": "config" } ] }
+        ]
+    }"#;
+
+    /// A pause bundle writing `paused` (byte 114): honest -> in range,
+    /// tampered -> the neighbor byte 115 -> out of the declared set.
+    fn pause_bundle(offset: usize) -> String {
+        let mut pre = vec![0u8; 200];
+        pre[114] = 0;
+        let mut post = pre.clone();
+        post[offset] = 1;
+        let hex = |b: &[u8]| b.iter().map(|x| format!("{x:02x}")).collect::<String>();
+        // touch map: one write record of (offset, 1) on account slot 1.
+        let mut map = vec![0x7a, 0x01, 0x00, 0x01, 0x01];
+        map.extend_from_slice(&((offset as u32) | 0x8000_0000).to_le_bytes());
+        map.extend_from_slice(&1u32.to_le_bytes());
+        format!(
+            r#"{{ "instruction": "pause", "touchMap": "{}",
+                 "accounts": [ {{ "index": 1, "pre": "{}", "post": "{}" }} ] }}"#,
+            hex(&map),
+            hex(&pre),
+            hex(&post),
+        )
+    }
+
+    fn write_bundle_dir(files: &[(&str, String)]) -> std::path::PathBuf {
+        // A unique temp dir without pulling `Math.random`: derive from the
+        // process id + the file set length.
+        let mut dir = std::env::temp_dir();
+        dir.push(format!(
+            "hopper-effect-gate-{}-{}",
+            std::process::id(),
+            files.len()
+        ));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        for (name, body) in files {
+            fs::write(dir.join(name), body).unwrap();
+        }
+        dir
+    }
+
+    #[test]
+    fn effect_gate_passes_an_honest_corpus() {
+        let dir = write_bundle_dir(&[("ok.json", pause_bundle(114))]);
+        let failures = run_effect_gate(GATE_MANIFEST, dir.to_str().unwrap(), false);
+        let _ = fs::remove_dir_all(&dir);
+        assert_eq!(failures, 0, "an in-range write must pass the gate");
+    }
+
+    #[test]
+    fn effect_gate_fails_on_an_out_of_range_write() {
+        let dir = write_bundle_dir(&[
+            ("ok.json", pause_bundle(114)),
+            ("bad.json", pause_bundle(115)), // neighbor byte, undeclared
+        ]);
+        let failures = run_effect_gate(GATE_MANIFEST, dir.to_str().unwrap(), false);
+        let _ = fs::remove_dir_all(&dir);
+        assert_eq!(failures, 1, "one bundle wrote outside its declared range");
+    }
+
+    #[test]
+    fn effect_gate_reports_empty_corpus_as_a_failure() {
+        let dir = write_bundle_dir(&[]);
+        let failures = run_effect_gate(GATE_MANIFEST, dir.to_str().unwrap(), false);
+        let _ = fs::remove_dir_all(&dir);
+        assert_eq!(failures, 1, "no bundles is not a corpus that verified");
     }
 }
