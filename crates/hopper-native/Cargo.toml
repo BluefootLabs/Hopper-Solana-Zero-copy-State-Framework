@@ -29,9 +29,11 @@ static-syscalls = []
 # (5xXZc66h4UdB6Yq7FzdBxBiRAFMMScMLwHxk2QZDaNZL) is ACTIVATED on all
 # three public clusters (mainnet-beta 2026-04-01), so builds may enable
 # this for any cluster target; the r2 null-check still falls back to the
-# scanning parse defensively. Off by default pending the measured CU
-# re-baseline; without this feature `hopper_fast_entrypoint!` compiles
-# to the standard scanning entrypoint.
+# scanning parse defensively. Off by default by MEASURED choice
+# (2026-07-21): post-fusion A/Bs are CU-neutral (+/- 2) for ~368 B of
+# dual-path text; the feature is the base of the simd-0449 table path.
+# Without it `hopper_fast_entrypoint!` compiles to the scanning
+# entrypoint.
 simd-0321 = []
 # Opt-in for the SIMD-0449 pre-computed account-pointer table: the
 # runtime appends a pre-deduplicated `[u64; n]` array of canonical

@@ -135,11 +135,18 @@ macro_rules! program_entrypoint {
 
 /// Declare a fast two-argument Hopper Native program entrypoint.
 ///
-/// Uses the SVM's second entrypoint register (`r2`), which — once
-/// [SIMD-0321] is activated — carries a direct pointer to instruction
-/// data, eliminating the full account-scanning pass that the
-/// single-argument entrypoint requires. Saves ~30-40 CU per instruction
-/// invocation.
+/// Uses the SVM's second entrypoint register (`r2`), which carries a
+/// direct pointer to instruction data under [SIMD-0321], letting the
+/// entrypoint skip locating the instruction tail. Measured honestly
+/// (2026-07-21, post the 2026-07-07 fused single-pass walk): the fused
+/// scanning entrypoint already hops records by their `data_len` headers
+/// without touching account data, so on programs whose accounts fit the
+/// declared maximum the r2 path is CU-neutral (+/- 2 CU in controlled
+/// A/Bs) and costs ~368 bytes for carrying both paths. The historical
+/// "~30-40 CU" figure described the pre-fusion two-pass scanner. The r2
+/// path earns its keep as the base of the SIMD-0449 O(1) account-pointer
+/// table, and for instructions whose transaction carries many more
+/// accounts than the program materializes.
 ///
 /// # Feature gating (`simd-0321`)
 ///

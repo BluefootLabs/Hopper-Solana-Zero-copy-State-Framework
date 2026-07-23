@@ -415,6 +415,24 @@ Today's table is the honest, deployable number; the delta is exactly
 the account-scanning pass the sound entrypoint performs, and it comes
 back the day the SIMD-0321 gate activates (rebuild with the feature).
 
+**2026-07-21 closure of that promise:** the gate DID activate
+(mainnet-beta 2026-04-01, all three clusters), and the trade was
+re-measured — with a surprise ending. The 2026-07-07 fused single-pass
+walk had already recovered the win from the scanning side (auth-fail
+107 → 61 pre-error-lowering, beating even the May r2 figure of 72):
+the fused scanner hops records by their `data_len` headers without
+touching account data, so controlled A/Bs of the r2 entrypoint against
+it are CU-neutral on in-repo programs (smoke 1,942 → 1,944; sentinel
+1,227/659 → 1,228/660; cicada claim 4,417 flat) while carrying ~368
+bytes of dual-path `.text`. `simd-0321` therefore stays opt-in on
+size-per-CU grounds; `#[hopper::program]` now emits the feature-aware
+`fast_entrypoint!` (previously the macro hardcoded the scanning
+entrypoint and silently ignored the feature), and the in-process
+harness moved to mollusk-svm 0.13.4, whose default feature set
+populates r2, so both entrypoint paths are exercised by the suite. The
+r2 register remains the foundation the SIMD-0449 O(1) account-pointer
+table locates itself against.
+
 Two corollaries the bisect proved along the way:
 
 - **I10 (fused signer/writable validation), I7 (touch maps), and I12

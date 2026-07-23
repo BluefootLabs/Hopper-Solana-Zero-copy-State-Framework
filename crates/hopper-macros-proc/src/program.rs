@@ -907,9 +907,19 @@ pub fn expand(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
 
     let program_mod = input.ident.clone();
     let bridge_fn = format_ident!("__hopper_process_instruction_{}", program_mod);
+    // `fast_entrypoint!` is feature-aware: without `simd-0321` it is an
+    // exact alias for the scanning `program_entrypoint!` (byte-identical
+    // default builds); with the feature it emits the r2 two-argument
+    // entrypoint, null-checked back to the scanning parse on any runtime
+    // that leaves r2 zero. Emitting it here (fixed 2026-07-21) is what
+    // makes the `simd-0321` feature reach macro programs at all — the
+    // previous hardcoded `program_entrypoint!` silently ignored it. The
+    // feature stays opt-in: post-fusion A/Bs measured the r2 path
+    // CU-neutral (+/- 2) on in-repo programs for ~368 bytes of dual-path
+    // `.text`; its real value is as the base of the SIMD-0449 table path.
     let entrypoint_macro = match policy.max_accounts() {
-        Some(max_accounts) => quote! { ::hopper::program_entrypoint!(#bridge_fn, #max_accounts); },
-        None => quote! { ::hopper::program_entrypoint!(#bridge_fn); },
+        Some(max_accounts) => quote! { ::hopper::fast_entrypoint!(#bridge_fn, #max_accounts); },
+        None => quote! { ::hopper::fast_entrypoint!(#bridge_fn); },
     };
     let entrypoint_bridge = if policy.entrypoint() {
         quote! {

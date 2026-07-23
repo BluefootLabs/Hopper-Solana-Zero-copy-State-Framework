@@ -154,6 +154,17 @@ hopper-runtime = { workspace = true, features = ["thread-local-registry"] }
 trybuild = "1"
 
 [features]
+# `simd-0321` stays OPT-IN by deliberate, measured choice (2026-07-21).
+# The gate activated on every public cluster (mainnet-beta 2026-04-01)
+# and the flip was trialed as a default — but the 2026-07-07 fused
+# single-pass scanning walk already banked the win the r2 entrypoint
+# promises: controlled A/Bs measured smoke 1,942 -> 1,944 CU, sentinel
+# 1,227/659 -> 1,228/660, cicada claim 4,417 -> 4,417, while the dual
+# (r2 + fallback) entrypoint costs ~368 bytes of `.text`. Size for no
+# CU is a losing default. The feature now genuinely reaches macro
+# programs (`#[hopper::program]` emits the feature-aware
+# `fast_entrypoint!`), and it remains the foundation SIMD-0449's O(1)
+# account table builds on — opt in when targeting that path.
 default = []
 framework = []
 systems = ["advanced", "collections"]

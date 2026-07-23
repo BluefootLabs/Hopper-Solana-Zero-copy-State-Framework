@@ -675,9 +675,12 @@ macro_rules! program_entrypoint {
 /// Declare the fast two-argument Hopper entrypoint.
 ///
 /// Uses the SVM's second register (`r2`) to receive instruction data
-/// directly, eliminating the full account-scanning pass (~30-40 CU per
-/// instruction). The `r2` instruction-data pointer is [SIMD-0321], whose
-/// feature gate is **not yet activated** on public clusters.
+/// directly under [SIMD-0321], whose gate is active on all public
+/// clusters (mainnet-beta since 2026-04-01). Post the 2026-07-07 fused
+/// single-pass walk this is CU-neutral (+/- 2, measured 2026-07-21) on
+/// programs whose accounts fit the declared maximum — the fused scanner
+/// already banks the old "~30-40 CU" saving — so the feature stays
+/// opt-in; it is the foundation of the SIMD-0449 table path.
 ///
 /// Without the `simd-0321` cargo feature this macro expands to the
 /// standard scanning entrypoint — identical semantics, sound everywhere
