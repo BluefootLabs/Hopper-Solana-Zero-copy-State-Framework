@@ -42,5 +42,43 @@ Verified end-to-end against the deployed
 pause PASSes with exactly its declared ranges; the tampered handler's
 refused write never reaches the snapshots.
 
-Not published to crates.io yet (`publish = false`); part of the Hopper
-workspace.
+## The `grillo` command
+
+Anyone — an indexer, an auditor, a security desk with no Rust in their
+stack — can reproduce a byte-precise verdict offline from a manifest and an
+evidence bundle, trusting nothing but the evidence:
+
+```sh
+cargo install grillo-verifier --features cli   # installs the `grillo` binary
+
+grillo commit hopper.manifest.json             # per-instruction contract commitments
+grillo verify hopper.manifest.json bundle.json # changed ⊆ acquired ⊆ authorized
+```
+
+Exit codes make it a CI gate: `0` scoped PASS, `2` VIOLATION, `3`
+INCONCLUSIVE, `1` malformed input.
+
+An evidence bundle is dependency-free JSON — the post-discriminator
+argument payload (hex, for parametric instructions), the program's emitted
+touch-map blob (hex, as `hopper tx explain` prints it), and per-account
+pre/post data (hex) with optional lamport pairs:
+
+```json
+{
+  "instruction": "execute_intent",
+  "argumentPayload": "0300",
+  "touchMap": "7a0100...",
+  "accounts": [ { "index": 2, "pre": "…", "post": "…" } ]
+}
+```
+
+The verifier CORE (this crate without `--features cli`) stays pure
+byte/interval arithmetic with a single dependency (`grillo-manifest`), so
+embedding it in another tool never pulls serde. The bundle format and the
+`grillo` binary live behind the `cli` feature.
+
+## Publishing
+
+`grillo-manifest` and `grillo-verifier` are versioned for crates.io. The
+core is `no`-network, `no`-RPC, and framework-neutral by design: it verifies
+any producer that emits a Hopper-shaped mutation contract, not only Hopper.

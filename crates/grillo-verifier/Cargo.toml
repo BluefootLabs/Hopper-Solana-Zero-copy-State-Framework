@@ -3,15 +3,34 @@ name = "grillo-verifier"
 version = "0.1.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
+repository = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework"
+documentation = "https://docs.rs/grillo-verifier"
+readme = "README.md"
+keywords = ["solana", "verification", "mutation", "effects", "audit"]
+categories = ["cryptography::cryptocurrencies", "command-line-utilities"]
 description = "GRILLO: an INDEPENDENT verifier that checks a transaction's actual byte changes against a Hopper program's published mutation contract — changed ⊆ acquired ⊆ authorized."
-# Not published yet: pairs with the still-stabilizing grillo-manifest.
-publish = false
 
 [dependencies]
-# The parsed mutation contract (the `authorized` set) comes from here. No
-# other runtime deps: the verifier is pure byte/interval arithmetic over the
-# touch map (`acquired`) and pre/post snapshots (`changed`).
+# The parsed mutation contract (the `authorized` set) comes from here. The
+# verifier CORE stays pure byte/interval arithmetic over the touch map
+# (`acquired`) and pre/post snapshots (`changed`) — an embedder (indexer,
+# security desk) links it with zero extra deps.
 grillo-manifest = { path = "../grillo-manifest", version = "0.1.0" }
+# JSON evidence-bundle parsing lives ONLY behind the `cli` feature (the
+# `grillo` binary), so embedding the core never forces serde.
+serde = { version = "1", features = ["derive"], optional = true }
+serde_json = { version = "1", optional = true }
+
+[features]
+default = []
+# The `grillo` command: offline evidence-bundle parsing + verdict CLI.
+cli = ["dep:serde", "dep:serde_json"]
+
+# The independent `grillo` verifier binary. `required-features` keeps the
+# pure-core `cargo build -p grillo-verifier` from pulling serde.
+[[bin]]
+name = "grillo"
+required-features = ["cli"]
 
 [dev-dependencies]
 # The end-to-end proof drives examples/hopper-sentinel through the Hopper

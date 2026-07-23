@@ -55,10 +55,15 @@
 //! assert!(verdict.is_pass());
 //! ```
 
+#[cfg(feature = "cli")]
+mod bundle;
 mod touch_map;
 mod verify;
 mod frame_v2;
 mod verify_v2;
+
+#[cfg(feature = "cli")]
+pub use bundle::{parse_bundle, verify_bundle, BundleAccount, BundleError, EvidenceBundle};
 
 pub use touch_map::{
     decode_touch_map, DecodeError, TouchMap, TouchRecord, MAX_TOUCH_RECORDS,

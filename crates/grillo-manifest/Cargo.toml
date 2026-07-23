@@ -3,10 +3,12 @@ name = "grillo-manifest"
 version = "0.1.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
+repository = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework"
+documentation = "https://docs.rs/grillo-manifest"
+readme = "README.md"
+keywords = ["solana", "verification", "mutation", "effects", "audit"]
+categories = ["cryptography::cryptocurrencies", "development-tools"]
 description = "GRILLO: parse the mutation contract (byte-range write set + lamport permissions) out of a Hopper program manifest, and commit to it with a stable SHA-256."
-# Not published yet: GRILLO is a new ecosystem layer over Hopper's
-# byte-range primitive and its wire/JSON interop is still stabilizing.
-publish = false
 
 [dependencies]
 # The manifest is JSON; nothing else is needed. Grillo keeps its
