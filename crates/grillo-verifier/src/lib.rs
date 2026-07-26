@@ -57,14 +57,20 @@
 
 #[cfg(feature = "cli")]
 mod bundle;
+mod frame_v2;
 mod touch_map;
 mod verify;
-mod frame_v2;
 mod verify_v2;
 
 #[cfg(feature = "cli")]
 pub use bundle::{parse_bundle, verify_bundle, BundleAccount, BundleError, EvidenceBundle};
 
+pub use frame_v2::{
+    bind_invocation_v2, AccountStateV2, AccountTransitionV2, BindErrorV2, BoundInvocationV2,
+    DeploymentIdentityV2, EvidenceCompletenessV2, EvidenceProvenanceV2, InvocationAccountRefV2,
+    InvocationFrameV2, InvocationOutcomeV2, NetworkIdentityV2, ObservationBoundaryV2,
+    ResolvedAccountRoleV2, TouchEvidenceV2, TransactionIdentityV2, UnverifiedAuthenticityV2,
+};
 pub use touch_map::{
     decode_touch_map, DecodeError, TouchMap, TouchRecord, MAX_TOUCH_RECORDS,
     TOUCH_MAP_FLAG_OVERFLOWED, TOUCH_MAP_FLAG_SKIPPED, TOUCH_MAP_HEADER_LEN, TOUCH_MAP_MAGIC,
@@ -74,28 +80,21 @@ pub use verify::{
     verify, verify_invocation, verify_resolved, AccountDelta, InconclusiveReason, PassEvidence,
     Verdict, Violation,
 };
-pub use frame_v2::{
-    bind_invocation_v2, AccountStateV2, AccountTransitionV2, BindErrorV2, BoundInvocationV2,
-    DeploymentIdentityV2, EvidenceCompletenessV2, EvidenceProvenanceV2, InvocationAccountRefV2,
-    InvocationFrameV2, InvocationOutcomeV2, NetworkIdentityV2, ObservationBoundaryV2,
-    ResolvedAccountRoleV2, TouchEvidenceV2, TransactionIdentityV2, UnverifiedAuthenticityV2,
-};
 pub use verify_v2::{
-    verify_bound_invocation_v2, EffectVerdictV2, InconclusiveReasonV2, PassEvidenceV2,
-    ViolationV2,
+    verify_bound_invocation_v2, EffectVerdictV2, InconclusiveReasonV2, PassEvidenceV2, ViolationV2,
 };
 
 // Re-exported so downstream users get the contract types without a second
 // `use` of the sibling crate.
 pub use grillo_manifest::{
-    InstructionContract, MutationManifest, ParametricRangeContract, RangeContract, ResolveError,
-    ResolvedInstructionContract,
+    AccountRoleContractV2, AddressConstraintV2, ContractCompletenessV2, CpiAccountBindingV2,
+    CpiEnvelopeV2, CpiPolicyV2, DataPolicyV2, DataRangeV2, DeploymentBindingV2, DuplicatePolicyV2,
+    EffectContractV2, EffectContractV2Error, ExecutablePolicyV2, InstructionEffectContractV2,
+    LamportPolicyV2, LengthPolicyV2, OwnerPolicyV2, OwnerTargetV2, PresencePolicyV2,
+    PrivilegeRequirementV2, RemainingAccountsContractV2, RemainingGroupV2, TransitionPolicyV2,
+    EFFECT_ABI_V2,
 };
 pub use grillo_manifest::{
-    AccountRoleContractV2, AddressConstraintV2, ContractCompletenessV2, CpiAccountBindingV2,
-    CpiEnvelopeV2, CpiPolicyV2, DataPolicyV2, DataRangeV2, DeploymentBindingV2,
-    DuplicatePolicyV2, EffectContractV2, EffectContractV2Error, ExecutablePolicyV2,
-    InstructionEffectContractV2, LamportPolicyV2, LengthPolicyV2, OwnerPolicyV2,
-    OwnerTargetV2, PresencePolicyV2, PrivilegeRequirementV2, RemainingAccountsContractV2,
-    RemainingGroupV2, TransitionPolicyV2, EFFECT_ABI_V2,
+    InstructionContract, MutationManifest, ParametricRangeContract, RangeContract, ResolveError,
+    ResolvedInstructionContract,
 };

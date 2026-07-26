@@ -7,8 +7,7 @@ use grillo_manifest::{
 
 use crate::frame_v2::{
     AccountStateV2, AccountTransitionV2, BoundInvocationV2, EvidenceCompletenessV2,
-    EvidenceProvenanceV2, InvocationOutcomeV2, ObservationBoundaryV2,
-    UnverifiedAuthenticityV2,
+    EvidenceProvenanceV2, InvocationOutcomeV2, ObservationBoundaryV2, UnverifiedAuthenticityV2,
 };
 
 /// One precise v0.2 transition violation.
@@ -25,15 +24,24 @@ pub enum ViolationV2 {
         pre: u64,
         post: u64,
     },
-    OwnerTransition { role: String, position: u16 },
+    OwnerTransition {
+        role: String,
+        position: u16,
+    },
     DataLengthTransition {
         role: String,
         position: u16,
         pre: u32,
         post: u32,
     },
-    PresenceTransition { role: String, position: u16 },
-    ExecutableTransition { role: String, position: u16 },
+    PresenceTransition {
+        role: String,
+        position: u16,
+    },
+    ExecutableTransition {
+        role: String,
+        position: u16,
+    },
 }
 
 /// Why a privately bound frame still cannot support a complete verdict.
@@ -81,14 +89,14 @@ pub fn verify_bound_invocation_v2(bound: &BoundInvocationV2) -> EffectVerdictV2 
         return EffectVerdictV2::Inconclusive(InconclusiveReasonV2::InvocationDidNotSucceed);
     }
     if let Some(dimension) = first_incomplete_contract(instruction.completeness) {
-        return EffectVerdictV2::Inconclusive(
-            InconclusiveReasonV2::ContractDimensionIncomplete(dimension),
-        );
+        return EffectVerdictV2::Inconclusive(InconclusiveReasonV2::ContractDimensionIncomplete(
+            dimension,
+        ));
     }
     if let Some(dimension) = first_incomplete_evidence(frame.evidence) {
-        return EffectVerdictV2::Inconclusive(
-            InconclusiveReasonV2::EvidenceDimensionIncomplete(dimension),
-        );
+        return EffectVerdictV2::Inconclusive(InconclusiveReasonV2::EvidenceDimensionIncomplete(
+            dimension,
+        ));
     }
     if !frame.children.is_empty()
         && matches!(instruction.cpi, CpiPolicyV2::Declared { .. })
@@ -220,7 +228,12 @@ fn verify_role(
         });
     }
 
-    if !owner_transition_ok(&contract.transition.owner, &state.pre, &state.post, program_id) {
+    if !owner_transition_ok(
+        &contract.transition.owner,
+        &state.pre,
+        &state.post,
+        program_id,
+    ) {
         violations.push(ViolationV2::OwnerTransition {
             role: role_name.to_string(),
             position,
@@ -244,11 +257,7 @@ fn verify_role(
         });
     }
 
-    if !executable_transition_ok(
-        &contract.transition.executable,
-        &state.pre,
-        &state.post,
-    ) {
+    if !executable_transition_ok(&contract.transition.executable, &state.pre, &state.post) {
         violations.push(ViolationV2::ExecutableTransition {
             role: role_name.to_string(),
             position,

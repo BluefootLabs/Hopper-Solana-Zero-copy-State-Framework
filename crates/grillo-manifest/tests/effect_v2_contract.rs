@@ -1,9 +1,9 @@
 use grillo_manifest::{
-    AccountRoleContractV2, AddressConstraintV2, ContractCompletenessV2, CpiPolicyV2,
-    DataPolicyV2, DataRangeV2, DeploymentBindingV2, DuplicatePolicyV2, EffectContractV2,
-    EffectContractV2Error, ExecutablePolicyV2, InstructionEffectContractV2, LamportPolicyV2,
-    LengthPolicyV2, OwnerPolicyV2, PresencePolicyV2, PrivilegeRequirementV2,
-    RemainingAccountsContractV2, RemainingGroupV2, TransitionPolicyV2, EFFECT_ABI_V2,
+    AccountRoleContractV2, AddressConstraintV2, ContractCompletenessV2, CpiPolicyV2, DataPolicyV2,
+    DataRangeV2, DeploymentBindingV2, DuplicatePolicyV2, EffectContractV2, EffectContractV2Error,
+    ExecutablePolicyV2, InstructionEffectContractV2, LamportPolicyV2, LengthPolicyV2,
+    OwnerPolicyV2, PresencePolicyV2, PrivilegeRequirementV2, RemainingAccountsContractV2,
+    RemainingGroupV2, TransitionPolicyV2, EFFECT_ABI_V2,
 };
 
 fn transition() -> TransitionPolicyV2 {

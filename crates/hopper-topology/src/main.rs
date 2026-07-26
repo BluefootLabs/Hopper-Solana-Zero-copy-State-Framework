@@ -59,9 +59,7 @@ fn run() -> Result<(), String> {
                         index += 1;
                     }
                     "--out" => {
-                        let value = args
-                            .get(index + 1)
-                            .ok_or("--out requires a path")?;
+                        let value = args.get(index + 1).ok_or("--out requires a path")?;
                         out = Some(PathBuf::from(value));
                         index += 2;
                     }

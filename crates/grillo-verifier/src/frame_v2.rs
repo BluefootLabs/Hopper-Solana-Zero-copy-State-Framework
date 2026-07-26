@@ -10,8 +10,7 @@ use core::fmt;
 
 use grillo_manifest::{
     sha256, AddressConstraintV2, CpiEnvelopeV2, CpiPolicyV2, DeploymentBindingV2,
-    DuplicatePolicyV2, EffectContractV2, InstructionEffectContractV2,
-    PrivilegeRequirementV2,
+    DuplicatePolicyV2, EffectContractV2, InstructionEffectContractV2, PrivilegeRequirementV2,
 };
 
 /// Cluster identity for replay separation.
@@ -131,8 +130,12 @@ pub enum ObservationBoundaryV2 {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum EvidenceProvenanceV2 {
     Fixture,
-    RpcObserved { endpoint: String },
-    ReplayClaimed { source: String },
+    RpcObserved {
+        endpoint: String,
+    },
+    ReplayClaimed {
+        source: String,
+    },
     ProviderClaimed {
         provider: [u8; 32],
         signature: [u8; 64],
@@ -271,23 +274,62 @@ impl BoundInvocationV2 {
 pub enum BindErrorV2 {
     InvalidContract(String),
     InstructionNotFound,
-    DeploymentMismatch { field: &'static str },
+    DeploymentMismatch {
+        field: &'static str,
+    },
     ManifestCommitmentMismatch,
-    AccountCount { expected: usize, actual: usize },
-    AccountPosition { expected: u16, actual: u16 },
-    PrivilegeMismatch { position: u16, privilege: &'static str },
-    AddressMismatch { position: u16 },
-    DuplicateAccount { first: u16, second: u16 },
-    DuplicateState { pubkey: [u8; 32] },
-    MissingState { pubkey: [u8; 32] },
-    ExtraState { pubkey: [u8; 32] },
+    AccountCount {
+        expected: usize,
+        actual: usize,
+    },
+    AccountPosition {
+        expected: u16,
+        actual: u16,
+    },
+    PrivilegeMismatch {
+        position: u16,
+        privilege: &'static str,
+    },
+    AddressMismatch {
+        position: u16,
+    },
+    DuplicateAccount {
+        first: u16,
+        second: u16,
+    },
+    DuplicateState {
+        pubkey: [u8; 32],
+    },
+    MissingState {
+        pubkey: [u8; 32],
+    },
+    ExtraState {
+        pubkey: [u8; 32],
+    },
     ForbiddenCpi,
-    UndeclaredCpi { child_index: usize },
-    CpiCount { envelope: String, min: u16, max: u16, actual: u16 },
-    CpiAccountMismatch { child_index: usize, child_position: u16 },
-    CpiRollbackForbidden { child_index: usize },
-    IncompleteRollbackEvidence { child_index: usize },
-    RolledBackMutation { child_index: usize, pubkey: [u8; 32] },
+    UndeclaredCpi {
+        child_index: usize,
+    },
+    CpiCount {
+        envelope: String,
+        min: u16,
+        max: u16,
+        actual: u16,
+    },
+    CpiAccountMismatch {
+        child_index: usize,
+        child_position: u16,
+    },
+    CpiRollbackForbidden {
+        child_index: usize,
+    },
+    IncompleteRollbackEvidence {
+        child_index: usize,
+    },
+    RolledBackMutation {
+        child_index: usize,
+        pubkey: [u8; 32],
+    },
     InvalidFrame(String),
 }
 
@@ -323,7 +365,9 @@ pub fn bind_invocation_v2(
             executable_digest,
         } => {
             if &frame.deployment.program_id != program_id {
-                return Err(BindErrorV2::DeploymentMismatch { field: "program_id" });
+                return Err(BindErrorV2::DeploymentMismatch {
+                    field: "program_id",
+                });
             }
             if &frame.deployment.loader_id != loader_id {
                 return Err(BindErrorV2::DeploymentMismatch { field: "loader_id" });
@@ -357,7 +401,12 @@ pub fn bind_invocation_v2(
     let mut roles = Vec::with_capacity(expanded.len());
     for (index, ((name, role), account)) in expanded.iter().zip(&frame.accounts).enumerate() {
         validate_privilege(role.signer, account.signer, account.position, "signer")?;
-        validate_privilege(role.writable, account.writable, account.position, "writable")?;
+        validate_privilege(
+            role.writable,
+            account.writable,
+            account.position,
+            "writable",
+        )?;
         let address_ok = match &role.address {
             AddressConstraintV2::Any => true,
             AddressConstraintV2::Exact { address } => account.pubkey == *address,
@@ -421,15 +470,27 @@ fn validate_frame_shape(
             .iter()
             .any(|other| other.pubkey == state.pubkey)
         {
-            return Err(BindErrorV2::DuplicateState { pubkey: state.pubkey });
+            return Err(BindErrorV2::DuplicateState {
+                pubkey: state.pubkey,
+            });
         }
-        if !frame.accounts.iter().any(|account| account.pubkey == state.pubkey) {
-            return Err(BindErrorV2::ExtraState { pubkey: state.pubkey });
+        if !frame
+            .accounts
+            .iter()
+            .any(|account| account.pubkey == state.pubkey)
+        {
+            return Err(BindErrorV2::ExtraState {
+                pubkey: state.pubkey,
+            });
         }
     }
     if frame.evidence.accounts {
         for account in &frame.accounts {
-            if !frame.states.iter().any(|state| state.pubkey == account.pubkey) {
+            if !frame
+                .states
+                .iter()
+                .any(|state| state.pubkey == account.pubkey)
+            {
                 return Err(BindErrorV2::MissingState {
                     pubkey: account.pubkey,
                 });
@@ -470,7 +531,10 @@ fn validate_privilege(
     if valid {
         Ok(())
     } else {
-        Err(BindErrorV2::PrivilegeMismatch { position, privilege })
+        Err(BindErrorV2::PrivilegeMismatch {
+            position,
+            privilege,
+        })
     }
 }
 

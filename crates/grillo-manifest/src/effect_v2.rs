@@ -119,7 +119,9 @@ pub enum PrivilegeRequirementV2 {
 #[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
 pub enum AddressConstraintV2 {
     Any,
-    Exact { address: [u8; 32] },
+    Exact {
+        address: [u8; 32],
+    },
     /// The executing program address from the concrete frame.
     ProgramId,
 }
@@ -325,8 +327,8 @@ impl std::error::Error for EffectContractV2Error {}
 impl EffectContractV2 {
     /// Parse a strict Effect ABI v0.2 JSON document.
     pub fn from_json(json: &str) -> Result<Self, EffectContractV2Error> {
-        let contract: Self =
-            serde_json::from_str(json).map_err(|error| EffectContractV2Error::Json(error.to_string()))?;
+        let contract: Self = serde_json::from_str(json)
+            .map_err(|error| EffectContractV2Error::Json(error.to_string()))?;
         contract.validate()?;
         Ok(contract)
     }
@@ -346,10 +348,7 @@ impl EffectContractV2 {
             validate_instruction(instruction)?;
             for other in &self.instructions[index + 1..] {
                 if instruction.name == other.name {
-                    return invalid(format!(
-                        "duplicate instruction name `{}`",
-                        instruction.name
-                    ));
+                    return invalid(format!("duplicate instruction name `{}`", instruction.name));
                 }
                 if is_prefix(&instruction.discriminator, &other.discriminator)
                     || is_prefix(&other.discriminator, &instruction.discriminator)
@@ -445,7 +444,10 @@ fn validate_instruction(
     }
 
     let mut total = instruction.accounts.len();
-    validate_role_names(&instruction.accounts, &format!("instruction `{}`", instruction.name))?;
+    validate_role_names(
+        &instruction.accounts,
+        &format!("instruction `{}`", instruction.name),
+    )?;
     for role in &instruction.accounts {
         validate_role(role)?;
     }
@@ -538,7 +540,10 @@ fn validate_cpi(
             ));
         }
         if call.min_calls > call.max_calls || call.max_calls == 0 {
-            return invalid(format!("CPI envelope `{}` has invalid call bounds", call.id));
+            return invalid(format!(
+                "CPI envelope `{}` has invalid call bounds",
+                call.id
+            ));
         }
         for other in &calls[index + 1..] {
             if call.id == other.id {
@@ -607,7 +612,9 @@ fn encode_instruction(out: &mut Vec<u8>, instruction: &InstructionEffectContract
     }
     out.push(instruction.remaining_accounts.complete as u8);
     out.push(instruction.remaining_accounts.allow_trailing as u8);
-    out.push(duplicate_tag(instruction.remaining_accounts.duplicate_policy));
+    out.push(duplicate_tag(
+        instruction.remaining_accounts.duplicate_policy,
+    ));
     encode_len(out, instruction.remaining_accounts.groups.len());
     for group in &instruction.remaining_accounts.groups {
         encode_string(out, &group.name);

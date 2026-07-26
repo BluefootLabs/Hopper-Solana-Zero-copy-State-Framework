@@ -4055,8 +4055,8 @@ fn parse_program_manifest_json(json: &str) -> Result<OwnedProgramManifest, Strin
         let remaining_accounts_max = extract_number(obj, "remainingAccountsMax")
             .ok()
             .map(|max| max as u16);
-        let discriminator = extract_array_u8(obj, "discriminatorBytes")
-            .unwrap_or_else(|_| vec![tag]);
+        let discriminator =
+            extract_array_u8(obj, "discriminatorBytes").unwrap_or_else(|_| vec![tag]);
         if discriminator.is_empty() || discriminator.len() > 8 || discriminator[0] != tag {
             return Err(format!(
                 "instruction `{ix_name}` has invalid discriminatorBytes: expected 1..=8 bytes beginning with tag {tag}"

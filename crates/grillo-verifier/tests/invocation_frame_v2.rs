@@ -1,10 +1,9 @@
 use grillo_manifest::{
     AccountRoleContractV2, AddressConstraintV2, ContractCompletenessV2, CpiAccountBindingV2,
-    CpiEnvelopeV2, CpiPolicyV2, DataPolicyV2, DataRangeV2, DeploymentBindingV2,
-    DuplicatePolicyV2, EffectContractV2, ExecutablePolicyV2, InstructionEffectContractV2,
-    LamportPolicyV2, LengthPolicyV2, OwnerPolicyV2, PresencePolicyV2,
-    PrivilegeRequirementV2, RemainingAccountsContractV2, RemainingGroupV2, TransitionPolicyV2,
-    EFFECT_ABI_V2,
+    CpiEnvelopeV2, CpiPolicyV2, DataPolicyV2, DataRangeV2, DeploymentBindingV2, DuplicatePolicyV2,
+    EffectContractV2, ExecutablePolicyV2, InstructionEffectContractV2, LamportPolicyV2,
+    LengthPolicyV2, OwnerPolicyV2, PresencePolicyV2, PrivilegeRequirementV2,
+    RemainingAccountsContractV2, RemainingGroupV2, TransitionPolicyV2, EFFECT_ABI_V2,
 };
 use grillo_verifier::{
     bind_invocation_v2, verify_bound_invocation_v2, AccountStateV2, AccountTransitionV2,
@@ -258,14 +257,18 @@ fn deployment_manifest_and_full_discriminator_are_bound() {
     wrong.deployment.program_id[0] ^= 1;
     assert!(matches!(
         bind_invocation_v2(&contract, &wrong),
-        Err(BindErrorV2::DeploymentMismatch { field: "program_id" })
+        Err(BindErrorV2::DeploymentMismatch {
+            field: "program_id"
+        })
     ));
 
     let mut wrong = frame(&contract);
     wrong.deployment.executable_digest[0] ^= 1;
     assert!(matches!(
         bind_invocation_v2(&contract, &wrong),
-        Err(BindErrorV2::DeploymentMismatch { field: "executable_digest" })
+        Err(BindErrorV2::DeploymentMismatch {
+            field: "executable_digest"
+        })
     ));
 
     let mut wrong = frame(&contract);
@@ -299,7 +302,10 @@ fn fixed_and_remaining_roles_reject_reorder_and_omission() {
     omitted.states.pop();
     assert!(matches!(
         bind_invocation_v2(&contract, &omitted),
-        Err(BindErrorV2::AccountCount { expected: 4, actual: 3 })
+        Err(BindErrorV2::AccountCount {
+            expected: 4,
+            actual: 3
+        })
     ));
 }
 
@@ -311,7 +317,10 @@ fn writable_duplicate_alias_is_rejected_before_verification() {
     aliased.states.pop(); // one unique state for the duplicate address
     assert!(matches!(
         bind_invocation_v2(&contract, &aliased),
-        Err(BindErrorV2::DuplicateAccount { first: 1, second: 3 })
+        Err(BindErrorV2::DuplicateAccount {
+            first: 1,
+            second: 3
+        })
     ));
 }
 

@@ -332,10 +332,9 @@ fn checked_0449_decoder_matches_the_stride_walk_for_every_alignment_residue() {
         let mut out = [UNINIT; 8];
         // SAFETY: the fixture is a complete loader frame with a canonical
         // pointer table, and `input_len` covers its word-aligned backing.
-        let (got_pid, count, got_ix) = unsafe {
-            deserialize_accounts_0449_checked(base, input_len, &mut out, ix_in_frame)
-        }
-        .expect("canonical table validates");
+        let (got_pid, count, got_ix) =
+            unsafe { deserialize_accounts_0449_checked(base, input_len, &mut out, ix_in_frame) }
+                .expect("canonical table validates");
         assert_eq!(count, 3, "residue {residue}");
         assert_eq!(got_pid.as_array(), &pid);
         assert_eq!(got_ix, ix);
@@ -366,10 +365,8 @@ fn checked_0449_decoder_rejects_equal_but_out_of_frame_instruction_bytes() {
     const UNINIT: MaybeUninit<AccountView<'static>> = MaybeUninit::uninit();
     let mut out = [UNINIT; 2];
     let foreign = ix;
-    let err = unsafe {
-        deserialize_accounts_0449_checked(base, input_len, &mut out, &foreign)
-    }
-    .unwrap_err();
+    let err = unsafe { deserialize_accounts_0449_checked(base, input_len, &mut out, &foreign) }
+        .unwrap_err();
     assert_eq!(err, DirectMappingError::InstructionDataMismatch);
 }
 
@@ -400,10 +397,8 @@ fn checked_0449_decoder_rejects_out_of_region_and_noncanonical_pointers() {
     let ix_in_frame = unsafe { core::slice::from_raw_parts(base.add(ix_offset), ix.len()) };
     const UNINIT: MaybeUninit<AccountView<'static>> = MaybeUninit::uninit();
     let mut out = [UNINIT; 4];
-    let err = unsafe {
-        deserialize_accounts_0449_checked(base, input_len, &mut out, ix_in_frame)
-    }
-    .unwrap_err();
+    let err = unsafe { deserialize_accounts_0449_checked(base, input_len, &mut out, ix_in_frame) }
+        .unwrap_err();
     assert_eq!(err, DirectMappingError::PointerOutOfBounds { slot: 0 });
 
     // A valid canonical pointer for the WRONG slot is in-bounds and aligned,
@@ -417,10 +412,8 @@ fn checked_0449_decoder_rejects_out_of_region_and_noncanonical_pointers() {
     }
     let ix_in_frame = unsafe { core::slice::from_raw_parts(base.add(ix_offset), ix.len()) };
     let mut out = [UNINIT; 4];
-    let err = unsafe {
-        deserialize_accounts_0449_checked(base, input_len, &mut out, ix_in_frame)
-    }
-    .unwrap_err();
+    let err = unsafe { deserialize_accounts_0449_checked(base, input_len, &mut out, ix_in_frame) }
+        .unwrap_err();
     assert_eq!(err, DirectMappingError::NonCanonicalPointer { slot: 0 });
 
     // A duplicate slot must point to its canonical earlier record, never to
@@ -437,10 +430,8 @@ fn checked_0449_decoder_rejects_out_of_region_and_noncanonical_pointers() {
     }
     let ix_in_frame = unsafe { core::slice::from_raw_parts(base.add(ix_offset), ix.len()) };
     let mut out = [UNINIT; 4];
-    let err = unsafe {
-        deserialize_accounts_0449_checked(base, input_len, &mut out, ix_in_frame)
-    }
-    .unwrap_err();
+    let err = unsafe { deserialize_accounts_0449_checked(base, input_len, &mut out, ix_in_frame) }
+        .unwrap_err();
     assert_eq!(err, DirectMappingError::NonCanonicalPointer { slot: 2 });
 }
 
@@ -466,10 +457,8 @@ fn checked_0449_decoder_rejects_malformed_duplicates_and_truncation() {
     let ix_in_frame = unsafe { core::slice::from_raw_parts(base.add(ix_offset), ix.len()) };
     const UNINIT: MaybeUninit<AccountView<'static>> = MaybeUninit::uninit();
     let mut out = [UNINIT; 2];
-    let err = unsafe {
-        deserialize_accounts_0449_checked(base, input_len, &mut out, ix_in_frame)
-    }
-    .unwrap_err();
+    let err = unsafe { deserialize_accounts_0449_checked(base, input_len, &mut out, ix_in_frame) }
+        .unwrap_err();
     assert_eq!(
         err,
         DirectMappingError::MalformedDuplicate {
@@ -490,10 +479,9 @@ fn checked_0449_decoder_rejects_malformed_duplicates_and_truncation() {
     let (base, ix_offset, table_offset) = locate_0449_tail(&mut frame, &ix, pid);
     let ix_in_frame = unsafe { core::slice::from_raw_parts(base.add(ix_offset), ix.len()) };
     let mut out = [UNINIT; 2];
-    let err = unsafe {
-        deserialize_accounts_0449_checked(base, table_offset, &mut out, ix_in_frame)
-    }
-    .unwrap_err();
+    let err =
+        unsafe { deserialize_accounts_0449_checked(base, table_offset, &mut out, ix_in_frame) }
+            .unwrap_err();
     assert_eq!(err, DirectMappingError::TruncatedInput);
 }
 
@@ -519,10 +507,9 @@ fn checked_table_and_stride_views_have_identical_mutation_semantics() {
     let ix_in_frame = unsafe { core::slice::from_raw_parts(base.add(ix_offset), ix.len()) };
     const UNINIT: MaybeUninit<AccountView<'static>> = MaybeUninit::uninit();
     let mut out = [UNINIT; 4];
-    let (_, count, _) = unsafe {
-        deserialize_accounts_0449_checked(base, input_len, &mut out, ix_in_frame)
-    }
-    .unwrap();
+    let (_, count, _) =
+        unsafe { deserialize_accounts_0449_checked(base, input_len, &mut out, ix_in_frame) }
+            .unwrap();
     assert_eq!(count, 2);
     let table_first = unsafe { out[0].assume_init_ref() };
     let table_duplicate = unsafe { out[1].assume_init_ref() };
