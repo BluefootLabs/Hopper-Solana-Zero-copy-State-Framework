@@ -8,7 +8,7 @@ program. The lower-level `#[hopper::context]` spelling remains supported for
 older migration code.
 
 [![Crates.io](https://img.shields.io/crates/v/hopper-metaplex.svg)](https://crates.io/crates/hopper-metaplex)
-[![Docs.rs](https://img.shields.io/docsrs/hopper-metaplex)](https://docs.rs/crate/hopper-metaplex/0.3.0)
+[![Docs.rs](https://img.shields.io/docsrs/hopper-metaplex)](https://docs.rs/crate/hopper-metaplex)
 
 Part of the **[Hopper](https://hopperzero.dev)** framework.
 
@@ -93,7 +93,7 @@ hopper = { package = "hopper-lang", version = "0.3.0", features = ["metaplex"] }
 Each of these is mechanical given the existing `BorshTape` encoder. Open an
 issue if you want one prioritised.
 
-Docs: <https://docs.rs/crate/hopper-metaplex/0.3.0>
+Docs: <https://docs.rs/crate/hopper-metaplex>
 
 ## Support
 

@@ -29,8 +29,10 @@ touch-map = []
 # alias for the standard scanning entrypoint.
 simd-0321 = ["hopper-native/simd-0321"]
 # SIMD-0449 pre-computed account-pointer table (implies simd-0321; see
-# hopper-native's feature docs — readiness only, no cluster activates
-# the SIMD yet).
+# hopper-native's feature docs). The gate is active on testnet and devnet,
+# pending mainnet-beta; the runtime `hopper_fast_entrypoint!` consumes the
+# table on the same terms as the native entrypoint. Enable only when
+# targeting a cluster where the SIMD is active.
 simd-0449 = ["hopper-native/simd-0449", "simd-0321"]
 cpi = []
 copy = []

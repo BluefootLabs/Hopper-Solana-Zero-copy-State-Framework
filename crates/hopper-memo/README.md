@@ -44,7 +44,7 @@ to invoke v1.
 
 Pinocchio parity: `pinocchio-memo`. Quasar omits a memo helper.
 
-Docs: <https://docs.rs/crate/hopper-memo/0.3.0>
+Docs: <https://docs.rs/crate/hopper-memo>
 
 Support: `solanadevdao.sol` / `F42ZovBoRJZU4av5MiESVwJWnEx8ZQVFkc1RM29zMxNT`.
 

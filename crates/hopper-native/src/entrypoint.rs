@@ -281,10 +281,12 @@ macro_rules! hopper_fast_entrypoint {
 }
 
 /// Without the `simd-0321` feature the "fast" entrypoint is an alias for
-/// the standard scanning entrypoint. See the feature-gated definition
-/// above for the rationale: SIMD-0321 has not been activated, so the
-/// two-argument form would read an uninitialized register on today's
-/// clusters.
+/// the standard scanning entrypoint. The SIMD-0321 gate is live on every
+/// public cluster (mainnet-beta 2026-04-01); the r2 form is sound to build
+/// and stays opt-in only because it measured CU-neutral against the fused
+/// scanning walk for ~368 bytes of extra `.text`. The two-argument r2 form
+/// also null-checks the register and falls back to scanning, so it is safe
+/// even where the gate is somehow inactive.
 #[cfg(not(feature = "simd-0321"))]
 #[macro_export]
 macro_rules! hopper_fast_entrypoint {

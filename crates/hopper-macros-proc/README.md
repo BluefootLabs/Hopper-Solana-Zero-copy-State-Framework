@@ -113,7 +113,7 @@ the layout fingerprint as `tail_str` or `tail_bytes`.
 hopper = { package = "hopper-lang", version = "0.3.0", features = ["proc-macros"] }
 ```
 
-Docs: <https://docs.rs/crate/hopper-derive/0.3.0>
+Docs: <https://docs.rs/crate/hopper-derive>
 
 Support: `solanadevdao.sol` / `F42ZovBoRJZU4av5MiESVwJWnEx8ZQVFkc1RM29zMxNT`.
 

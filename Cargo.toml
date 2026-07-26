@@ -218,15 +218,21 @@ cu-trace = ["hopper-runtime/cu-trace"]
 touch-map = ["hopper-runtime/touch-map"]
 
 # Opt-in SIMD-0321 two-argument fast entrypoint (r2 instruction-data
-# pointer). Off by default: the SIMD's feature gate is not yet activated
-# on public clusters, so `hopper::fast_entrypoint!` compiles to the
-# standard scanning entrypoint unless this feature is enabled.
+# pointer). Kept opt-in by measured choice, not by gate status: the gate
+# (`5xXZc66h4UdB6Yq7FzdBxBiRAFMMScMLwHxk2QZDaNZL`) activated on every
+# public cluster (mainnet-beta 2026-04-01), but the r2 path measured
+# CU-neutral against the 2026-07-07 fused scanning walk for ~368 bytes of
+# extra `.text` (see the `[features]` header note above).
+# `hopper::fast_entrypoint!` compiles to the standard scanning entrypoint
+# unless this feature is enabled.
 simd-0321 = ["hopper-runtime/simd-0321"]
-# SIMD-0449 pre-computed account-pointer table (implies simd-0321).
-# Readiness only: the SIMD's runtime feature gate has no assigned
-# pubkey and no cluster serializes the table yet — enabling this today
-# ships an entrypoint that reads garbage. The scanning path stays the
-# default; `hopper feature-gate` detection lands with the pubkey.
+# SIMD-0449 pre-computed account-pointer table (implies simd-0321). Gate
+# `ptr9umikaeAS7ZBBp2fsfRhie16F1V2jCKA2y6gXNAK` (rekeyed 2026-04-15) is
+# active on testnet and devnet, pending mainnet-beta; `hopper
+# feature-gate` reports its per-cluster status. Enable ONLY when targeting
+# a cluster where the SIMD is active — a build that reads the appended
+# table where the runtime does not serialize it reads past the input. The
+# scanning path stays the default.
 simd-0449 = ["hopper-runtime/simd-0449", "simd-0321"]
 
 # Opt-in sBPF v3 / SIMD-0178 static syscalls. SIMD-0178 replaces

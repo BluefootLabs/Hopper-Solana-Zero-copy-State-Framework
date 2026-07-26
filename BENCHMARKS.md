@@ -424,14 +424,22 @@ the fused scanner hops records by their `data_len` headers without
 touching account data, so controlled A/Bs of the r2 entrypoint against
 it are CU-neutral on in-repo programs (smoke 1,942 → 1,944; sentinel
 1,227/659 → 1,228/660; cicada claim 4,417 flat) while carrying ~368
-bytes of dual-path `.text`. `simd-0321` therefore stays opt-in on
+bytes of dual-path `.text`. (Those absolute figures are the 2026-07-21
+`strict_writes` baselines; the 2026-07-24 bare-strict ambient gate below
+shifts every `strict_writes` context up ~+265 CU — the sentinel row is
+re-baselined there, and the r2-vs-scanning A/B stays CU-neutral around
+the new baseline.) `simd-0321` therefore stays opt-in on
 size-per-CU grounds; `#[hopper::program]` now emits the feature-aware
 `fast_entrypoint!` (previously the macro hardcoded the scanning
 entrypoint and silently ignored the feature), and the in-process
-harness moved to mollusk-svm 0.13.4, whose default feature set
-populates r2, so both entrypoint paths are exercised by the suite. The
-r2 register remains the foundation the SIMD-0449 O(1) account-pointer
-table locates itself against.
+harness moved to mollusk-svm 0.13.4, whose default feature set populates
+r2. The workspace suite builds its programs with default features, which
+select the scanning entrypoint (that arm never reads r2, so mollusk
+populating it changes nothing for them); the r2 expansion itself is
+compiled only under an explicit `--features simd-0321` build, exercised
+by the `loader_input_conformance` native compile check. The r2 register
+remains the foundation the SIMD-0449 O(1) account-pointer table locates
+itself against.
 
 Two corollaries the bisect proved along the way:
 
@@ -469,11 +477,13 @@ Pinocchio is slower."
 - Verify-only PDA avoids `sol_curve_validate_point` by comparing hashes directly
   against the known PDA address. This is the stored-bump path described above.
 - The fast entrypoint receives instruction data via the second SVM register
-  (`r2`). This depends on **SIMD-0321**, whose feature gate is not yet active on
-  public clusters, so it is opt-in behind the `simd-0321` cargo feature; with
-  the feature off, `fast_entrypoint!` is the standard scanning entrypoint and
-  these numbers are measured without the `r2` shortcut. `hopper feature-gate`
-  compares a build's configuration against the live cluster gate account.
+  (`r2`). This depends on **SIMD-0321**, whose gate is live on every public
+  cluster (mainnet-beta 2026-04-01); it is opt-in behind the `simd-0321` cargo
+  feature on size-per-CU grounds (see the 2026-07-21 closure above), not
+  because the gate is inactive. With the feature off, `fast_entrypoint!` is the
+  standard scanning entrypoint and these numbers are measured without the `r2`
+  shortcut. `hopper feature-gate` compares a build's configuration against the
+  live cluster gate account.
 - **Tuned intrinsics (`hopper-builtins`, experimental, opt-in):** the
   `crates/hopper-builtins` crate overrides `memcmp`/`bcmp`/`memcpy`/`memset`
   with ordering-correct word-wise routines. Vault CU is identical with the
@@ -733,13 +743,30 @@ through the governed `ctx.segment_mut` path.
 | `honest_pause` (Ok) | `yrowCoAHkd1BsTj3vRgFomExU7YBTvkr6GpqZc3JaZLC24ShYqtc3xTcz8N1yvWbHEHbe9atEokb2uABj4uxZnY` — **1,203 CU, exactly the Mollusk figure** |
 | `malicious_pause` (REFUSED) | `TszXg6YGWNGfzrfbd2ekCMcN2BzjcTKxkPEmWo8dMWjcu4qHXSkJS6QSq8fhGZU77e4zk6HJBaaFVM47fEx6X9Z` — `Custom(53249)` = `0xD001`, **616 CU, exactly the Mollusk figure** |
 
-Raw-surface guard update (2026-07-20): the ambient write gate now also
-governs the raw `AccountView` surfaces — whole-account borrows, direct
-segment access outside a `Context`, and resize/close transitions —
-closing the documented `strict_writes` bypass. That enforcement costs
-roughly 21–24 CU on strict-writes instructions that touch those
-surfaces: the current Mollusk figures are `honest_pause` **1,227 CU**
-and the `0xD001` refusal **659 CU**. The devnet rows above remain exact
+Raw-surface guard update (2026-07-20): the ambient write gate governs
+the raw `AccountView` surfaces — whole-account borrows, direct segment
+access outside a `Context`, and resize/close transitions. Under a
+`mutation_complete` context (`strict_writes` + `lamports(...)`) the gate
+was already installed for the lamport dimension, so this governance was
+free there; the first cut added only the raw-surface CHECK to programs
+that never installed a gate (`honest_pause` 1,203 -> 1,227, refusal
+616 -> 659: +24 / +43 for the check's fast-out).
+
+Bare-`strict_writes` gate (2026-07-24): a bare `strict_writes` context
+(no `lamports(...)`) previously installed NO ambient gate, so the raw
+`AccountView` surfaces bypassed its policy — the Context surface was
+governed, the raw surfaces were not. That is now closed: a bare strict
+context installs a DATA-ONLY ambient gate (data writes, transitions, and
+out-of-set accounts governed; direct lamport arithmetic and writable-CPI
+delegation stay passthrough for backward compatibility). The flagship
+"enforced at borrow acquisition" claim now holds on **every** surface,
+not just the mediated one. Measured cost on the sentinel (2026-07-24
+`cargo build-sbf` + Mollusk): `honest_pause` **1,494 CU** (from 1,227),
+`0xD001` refusal **918 CU** (from 659) — roughly +265 CU, the gate
+install + RAII teardown. This cost is borne ONLY by `strict_writes`
+contexts, which are an opt-in security surface; the CU-headline
+comparisons above (the router lab and the parity vault) declare no
+`strict_writes` and are unaffected. The devnet rows above remain exact
 records of the pre-guard build they measured; the next devnet deploy
 re-verifies lab==live at the new figures.
 

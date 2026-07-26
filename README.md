@@ -7,7 +7,7 @@ Hopper is a zero-copy Solana program framework. Write programs with the Anchor s
 
 The framework gives you Anchor ergonomics, Quasar direct-state speed, and an escape hatch when you need raw SVM control. One production runtime: direct Solana account memory through Hopper's typed handles, validation layer, and CPI surface.
 
-Hopper is also the only framework in the 2026 low-CU field with its own substrate: Anchor v2 (alpha), Typhoon, and star-frame all build on Pinocchio, and Quasar shares its lineage, while `crates/hopper-native` has zero external dependencies. That one decision is what makes segment-level borrows, touch maps, and field-level write policies possible. Hopper is published on crates.io (hopper-lang 0.3.0) with a line-by-line audit trail and generated clients in 8 targets.
+Hopper is also the only framework in the 2026 low-CU field with its own substrate: Anchor v2 (alpha), Typhoon, and star-frame all build on Pinocchio, and Quasar shares its lineage, while `crates/hopper-native` has zero external dependencies. That one decision is what makes segment-level borrows, touch maps, and field-level write policies possible. Hopper is open source, versioned 0.3.0 across the workspace (0.2.1 is the current crates.io release), with a line-by-line audit trail and generated clients in 8 targets.
 
 Three measured facts, provenance in [BENCHMARKS.md](BENCHMARKS.md) (2026-07-07 runs; vault four-way re-measured 2026-07-09):
 
@@ -30,19 +30,19 @@ For normal programs, use `hopper-lang` as `hopper`: `use hopper::prelude::*`, `#
 - Field-level write policies: `#[hopper::context(strict_writes)]` compiles declared mutable ranges into a static policy enforced at borrow acquisition, beyond Sealevel's account-level `writable` bit. Proven on compiled SBF bytecode and live devnet: a tampered handler's out-of-range write is refused with `Custom(0xD000 | idx)` before any byte changes ([examples/hopper-sentinel](examples/hopper-sentinel/README.md), signatures in the README).
 - `Seq<'a, T>` growable typed sequence tails: O(1) push over a `[count][elems]` wire, capacity derived from the account length (the layout id never changes as it grows), declared under `strict_writes` as one open-ended `tail(...)` range that protects the fixed head and still refuses whole-account CPI delegation, where Anchor's `Vec<T>` pays a full deserialize + reserialize every instruction.
 - The full migration suite: typed in-place `migrate_layout` with owner/writable gating baked into the runtime, `migrate(resize = grow|fit, payer = ...)` for payer-funded resizing (shrink refunds exactly the freed rent delta, never the deposits), `#[hopper::state(schema_epoch = N)]` + `#[account(epoch_migrate)]` for in-place epoch chains healed at bind, and `migrate_chain!` for typed multi-hop version chains with one up-front grow.
-- Grillo: an independent byte-diff verifier (`grillo-manifest` + `grillo-verifier`) proving `changed ⊆ acquired ⊆ authorized` for any transaction against the program's published manifest and emitted touch map. The `grillo` CLI (`cargo install grillo-verifier --features cli`) reproduces a byte-precise verdict offline from a manifest and an evidence bundle, no RPC and no Rust required of the caller: `grillo verify m.json bundle.json` exits 0 PASS / 2 VIOLATION / 3 INCONCLUSIVE.
+- Grillo: an independent byte-diff verifier (`grillo-manifest` + `grillo-verifier`) proving `changed ⊆ acquired ⊆ authorized` for any transaction against the program's published manifest and emitted touch map. The `grillo` CLI (built from the workspace with `cargo install --path crates/grillo-verifier --features cli`) reproduces a byte-precise verdict offline from a manifest and an evidence bundle, no RPC required of the caller: `grillo verify m.json bundle.json` exits 0 PASS / 2 VIOLATION / 3 INCONCLUSIVE.
 - `hopper lint --deny-escapes`: a CI-deniable audit that every account write in a program routes through the governed `Context` surface, the raw escape hatches are grep-able and machine-refused.
-- Runtime-direction readiness, compile-gated until cluster activation: `simd-0321` (r2 instruction-data entrypoint) and `simd-0449` (O(1) account resolution from the pre-computed pointer table, one `from_raw_parts`, no stride walk).
+- Runtime-direction readiness as opt-in Cargo features: `simd-0321` (r2 instruction-data entrypoint; gate live on all clusters since 2026-04-01, kept opt-in because the r2 path measured CU-neutral for +368 bytes of `.text`) and `simd-0449` (O(1) account resolution from the pre-computed pointer table, one `from_raw_parts`, no stride walk; gate active on testnet and devnet, pending mainnet-beta).
 - Opt-in 1-byte compact accounts for hot state: exact `[disc][body]` sizing on-chain, with layout fingerprints supplied by the manifest, IDL, registry, and generated SDK constants.
 - CLI, schema, IDL, and code generation tools that understand Hopper layout fingerprints before decoding accounts.
 
-## Current Release
+## Versioning
 
-Main framework: hopper-lang 0.3.0, imported as hopper. [Docs at docs.rs](https://docs.rs/crate/hopper-lang/0.3.0).
+Main framework: hopper-lang, imported as hopper. The workspace is versioned 0.3.0; the current crates.io release is 0.2.1 (the 0.3.0 release is prepared, not yet published). [Docs at docs.rs](https://docs.rs/crate/hopper-lang).
 
-Install the CLI: `cargo install hopper-cli`.
+Install the published CLI: `cargo install hopper-cli` (0.2.1). Build the workspace HEAD (with the latest commands, e.g. `hopper verify --effects`) from a checkout: `cargo install --path tools/hopper-cli`.
 
-All companion crates target 0.3.0: hopper-runtime, hopper-systems, hopper-derive, hopper-macros, hopper-schema, hopper-native, hopper-solana, hopper-token, hopper-token-2022, hopper-associated-token, hopper-metaplex, hopper-system, hopper-memo, hopper-builtins, hopper-finance, hopper-lending, hopper-staking, hopper-vesting, hopper-distribute, hopper-multisig, hopper-anchor, hopper-manager, hopper-sdk, hopper-svm.
+All companion crates are versioned 0.3.0 in the workspace: hopper-runtime, hopper-systems, hopper-derive, hopper-macros, hopper-schema, hopper-native, hopper-solana, hopper-token, hopper-token-2022, hopper-associated-token, hopper-metaplex, hopper-system, hopper-memo, hopper-builtins, hopper-finance, hopper-lending, hopper-staking, hopper-vesting, hopper-distribute, hopper-multisig, hopper-anchor, hopper-manager, hopper-sdk, hopper-svm.
 
 Benchmark snapshot: [BENCHMARKS.md](BENCHMARKS.md). Regenerate from the separate [hopper-bench](https://github.com/BluefootLabs/hopper-bench) repo before changing benchmark claims.
 
@@ -114,7 +114,7 @@ hopper = { path = "../Hopper-Solana-Zero-copy-State-Framework", package = "hoppe
 Public links:
 
 - Framework crate: [crates.io/hopper-lang](https://crates.io/crates/hopper-lang)
-- Docs: [docs.rs/hopper-lang](https://docs.rs/crate/hopper-lang/0.3.0)
+- Docs: [docs.rs/hopper-lang](https://docs.rs/crate/hopper-lang)
 - CLI crate: [crates.io/hopper-cli](https://crates.io/crates/hopper-cli)
 - Website: [hopperzero.dev](https://hopperzero.dev)
 

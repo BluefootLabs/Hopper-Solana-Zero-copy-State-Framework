@@ -15,7 +15,7 @@ use hopper_multisig::check_threshold;
 check_threshold(&[admin_a, admin_b, admin_c], 2)?;
 ```
 
-Docs: <https://docs.rs/crate/hopper-multisig/0.3.0>
+Docs: <https://docs.rs/crate/hopper-multisig>
 
 Support: `solanadevdao.sol` / `F42ZovBoRJZU4av5MiESVwJWnEx8ZQVFkc1RM29zMxNT`.
 

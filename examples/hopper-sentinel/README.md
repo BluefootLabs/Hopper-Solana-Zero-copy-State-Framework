@@ -183,13 +183,22 @@ touch map to exactly `W [114..115) → Config.paused` and
 
 ## The honest boundary
 
-- **`strict_writes` governs the `Context` surface only.**
-  `AccountView::get_mut` / `try_borrow_mut` **bypass** the policy. They are the
-  documented systems-mode escape hatches. SENTINEL never uses them: every write
-  routes through `ctx.config_*_mut()` or `ctx.segment_mut(...)`. The bypasses
-  are grep-able (`grep -rn 'get_mut\|unsafe' src/` finds only the sanctioned
-  `get_mut_after_init` init-lifecycle write and doc-comment references). A demo
-  that bypassed the policy would prove nothing, so this one doesn't.
+- **`strict_writes` governs both the `Context` surface AND the raw
+  `AccountView` surfaces.** A bound strict context installs an instruction-scoped
+  ambient gate, so `try_borrow_mut`, `segment_mut`, `resize`, and `close` on a
+  governed account are all refused when they fall outside the declared write-set
+  — the historical "raw borrow bypasses the policy" surface is closed. The only
+  paths that remain outside the gate are the `*_unchecked` escape hatches
+  (`unsafe`/`_unchecked`-named, and flagged by `hopper lint --deny-escapes`) and
+  the whole-layout `migrate` crank (governed by its own owner+writable check).
+  SENTINEL uses none of them: every write routes through `ctx.config_*_mut()` or
+  `ctx.segment_mut(...)`, and `hopper lint --deny-escapes` passes clean.
+- **The lamport dimension stays passthrough under bare `strict_writes`.** The
+  gate a `mut(...)`-only context installs governs DATA writes; direct lamport
+  moves and writable-CPI delegation are only tightened when the context also
+  declares `lamports(...)` (a `mutation_complete` context, like `collect_fees`).
+  That split is deliberate: it lets a data-strict handler keep performing
+  ordinary writable CPIs without retroactively refusing lamport moves.
 - **Touch maps record *access*, not *modification*.** A record says "this range
   was borrowed writably," which is the honest and useful thing to log; it does
   not diff bytes.

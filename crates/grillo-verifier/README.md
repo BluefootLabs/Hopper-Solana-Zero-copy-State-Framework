@@ -44,12 +44,14 @@ refused write never reaches the snapshots.
 
 ## The `grillo` command
 
-Anyone — an indexer, an auditor, a security desk with no Rust in their
-stack — can reproduce a byte-precise verdict offline from a manifest and an
-evidence bundle, trusting nothing but the evidence:
+Anyone — an indexer, an auditor, a security desk — can reproduce a
+byte-precise verdict offline from a manifest and an evidence bundle,
+trusting nothing but the evidence. Build the `grillo` binary from a
+checkout of the Hopper workspace (crates.io publish follows the workspace
+release):
 
 ```sh
-cargo install grillo-verifier --features cli   # installs the `grillo` binary
+cargo install --path crates/grillo-verifier --features cli   # builds the `grillo` binary
 
 grillo commit hopper.manifest.json             # per-instruction contract commitments
 grillo verify hopper.manifest.json bundle.json # changed ⊆ acquired ⊆ authorized

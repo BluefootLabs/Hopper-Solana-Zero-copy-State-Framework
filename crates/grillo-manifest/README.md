@@ -25,5 +25,6 @@ Manifests are produced by `hopper compile --emit manifest` from the program sour
 Published == enforced, one const, three surfaces (authored `WRITE_RANGES`,
 manifest `writeRanges`, installed runtime `WritePolicy`).
 
-Not published to crates.io yet (`publish = false`); part of the Hopper
-workspace.
+Not yet published to crates.io; part of the Hopper workspace and packaged
+for the workspace release (dependency-first publish order: `grillo-manifest`
+precedes `grillo-verifier`).

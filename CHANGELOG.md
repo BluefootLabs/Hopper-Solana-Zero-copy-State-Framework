@@ -104,11 +104,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   `hopper_fast_entrypoint!` selects it through a const the `simd-0449`
   cargo feature flips (implies `simd-0321` — the table is located off
   the r2 instruction-data pointer), so the untaken branch folds away
-  and scanning stays the default. Honest boundary: the SIMD's runtime
-  feature gate has NO assigned pubkey and no cluster serializes the
-  table yet — enabling the feature today reads garbage, exactly like
-  shipping `simd-0321` before its activation; `hopper feature-gate`
-  detection lands with the pubkey. Shipped WITH a substrate
+  and scanning stays the default. Honest boundary (corrected
+  2026-07-24; this entry originally understated activation): the gate
+  `ptr9umikaeAS7ZBBp2fsfRhie16F1V2jCKA2y6gXNAK` was assigned and
+  rekeyed 2026-04-15 and is active on testnet and devnet, pending
+  mainnet-beta; `hopper feature-gate` reports its per-cluster status.
+  Enable the feature only for clusters where the SIMD is active — a
+  table-reading build where the runtime does not serialize the table
+  reads past the input. Shipped WITH a substrate
   conformance suite that runs on every default lane: byte-exact loader
   frames pin the stride math across every data_len alignment residue
   (the drift alarm for upstream layout changes), and the table path is

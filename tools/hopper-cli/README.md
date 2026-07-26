@@ -9,16 +9,18 @@ offline by default, with optional RPC connectivity for live account fetching.
 
 ## Install
 
-Install from crates.io:
+Install the published release (0.2.1) from crates.io:
 
 ```bash
 cargo install hopper-cli
 ```
 
-For local development inside this workspace:
+The newest commands (e.g. `hopper verify --effects`) track the workspace
+HEAD, which is versioned 0.3.0 and not yet published. Build HEAD from a
+checkout:
 
 ```bash
-cargo run -p hopper-cli -- help
+cargo install --path tools/hopper-cli   # or: cargo run -p hopper-cli -- help
 ```
 
 ## Commands
@@ -158,7 +160,7 @@ and a successful `cargo build-sbf` for each program crate. Actions, mobile, and
 security-test commands are manifest-backed scaffolds unless a project extends
 the generated files into a production workflow.
 
-Docs: <https://docs.rs/crate/hopper-cli/0.3.0>
+Docs: <https://docs.rs/crate/hopper-cli>
 
 ## Support
 
