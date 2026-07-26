@@ -936,6 +936,9 @@ fn expand_compact(options: StateOptions, item: TokenStream) -> Result<TokenStrea
     let mut field_role_literals: Vec<LitStr> = Vec::new();
     let mut field_invariant_literals: Vec<LitStr> = Vec::new();
     let mut running_offset = quote! { 0u32 };
+    // Offset tokens of the single `#[bump]`-marked field, when present —
+    // same contract as the headered walk: at most one marker, `u8` only.
+    let mut canonical_bump_offset: Option<TokenStream> = None;
 
     for (field, meta) in fields.iter().zip(field_metas.iter()) {
         let field_name = field.ident.as_ref().unwrap();
@@ -943,6 +946,32 @@ fn expand_compact(options: StateOptions, item: TokenStream) -> Result<TokenStrea
         let field_ty = &field.ty;
         let field_name_upper = to_screaming_snake(&field_name_str);
         let current_offset = running_offset.clone();
+
+        if meta.bump {
+            // Soundness gates for `bump = stored`, mirrored from the
+            // headered walk so the marker's documented contract (exactly
+            // one marked field, literal `u8`) holds on EVERY layout tier —
+            // a silently-swallowed marker here previously compiled to
+            // nothing and surfaced later as a confusing missing-const
+            // error at the `bump = stored` use site.
+            if canonical_bump_offset.is_some() {
+                return Err(syn::Error::new(
+                    field_name.span(),
+                    "#[bump] may be marked on at most one field per state struct",
+                ));
+            }
+            let is_u8 = matches!(
+                field_ty,
+                Type::Path(TypePath { qself: None, path }) if path.is_ident("u8")
+            );
+            if !is_u8 {
+                return Err(syn::Error::new(
+                    field_name.span(),
+                    "#[bump] must mark a `u8` field (the canonical PDA bump byte)",
+                ));
+            }
+            canonical_bump_offset = Some(current_offset.clone());
+        }
 
         field_name_literals.push(LitStr::new(&field_name_str, field_name.span()));
         field_type_literals.push(LitStr::new(
@@ -991,6 +1020,19 @@ fn expand_compact(options: StateOptions, item: TokenStream) -> Result<TokenStrea
         running_offset = quote! {
             #current_offset + core::mem::size_of::<#field_ty>() as u32
         };
+    }
+
+    // `#[bump]` marker on a compact layout: the account-absolute offset
+    // folds in the single compact discriminator byte, not the headered
+    // `HEADER_LEN`. Same absent-marker contract as the headered path: no
+    // marker, no const, and `bump = stored` is a clean missing-item error.
+    if let Some(bump_offset) = &canonical_bump_offset {
+        inherent_items.push(quote! {
+            /// Account-absolute byte offset of the `#[bump]`-marked field:
+            /// the canonical PDA bump this program stored at init.
+            #vis const CANONICAL_BUMP_ABS_OFFSET: u32 =
+                ::hopper::account::COMPACT_BODY_OFFSET as u32 + #bump_offset;
+        });
     }
 
     let body_size = running_offset.clone();
@@ -1566,11 +1608,15 @@ fn parse_field_meta(field: &Field) -> Result<FieldMeta> {
         if attr.path().is_ident("bump") {
             // `#[bump]`: mark THIS field as the canonical PDA bump the
             // program stored at init. The macro emits
-            // `CANONICAL_BUMP_ABS_OFFSET` so `#[account(seeds = [...],
-            // bump = stored)]` can verify the PDA with one
-            // `create_program_address` hash instead of a
+            // `CANONICAL_BUMP_ABS_OFFSET` (headered AND compact walks) so
+            // `#[account(seeds = [...], bump = stored)]` can verify the
+            // PDA with one `create_program_address` hash instead of a
             // `find_program_address` search. Explicit by design: a field
-            // merely NAMED `bump` is never auto-detected.
+            // merely NAMED `bump` is never auto-detected. The bare
+            // identifier `stored` is reserved in `bump = ...` position;
+            // an instruction ARGUMENT named `stored` must be spelled
+            // `bump = (stored)` (and the context macro refuses the
+            // ambiguous combination outright).
             if !matches!(attr.meta, syn::Meta::Path(_)) {
                 return Err(syn::Error::new_spanned(
                     attr,

@@ -276,6 +276,10 @@ const ESCAPE_PATTERNS: &[(&str, &str)] = &[
         "closes without owner/writable checks or the lamport gate",
     ),
     (
+        ".close_to_unchecked(",
+        "closes to a destination without owner/writable checks (the ambient transition gate and lamport funnel still apply)",
+    ),
+    (
         ".data_ptr_unchecked(",
         "leaks the raw data pointer; every later access is invisible to the ledger",
     ),
@@ -1213,6 +1217,7 @@ fn systems_mode(view: &AccountView) {
     let w = unsafe { view.raw_mut::<State>() };
     unsafe { view.resize_unchecked(64) };
     unsafe { view.close_unchecked() };
+    unsafe { view.close_to_unchecked(&dest) };
     let p = view.data_ptr_unchecked();
     unsafe { view.assign(&other_program) };
 }

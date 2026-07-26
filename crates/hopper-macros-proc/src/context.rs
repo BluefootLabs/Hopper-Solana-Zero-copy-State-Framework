@@ -925,6 +925,28 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         });
     }
 
+    // The bare identifier `stored` is RESERVED in `bump = ...` position
+    // (it selects the account's `#[bump]`-marked field). A declared
+    // `#[instruction(stored: u8)]` argument would previously have been
+    // captured there as a caller-supplied byte, so the reservation
+    // silently changes that context's meaning. Refuse the collision
+    // loudly instead: the author must rename the argument or spell the
+    // argument form as `bump = (stored)` (a parenthesized expression is
+    // never the reserved keyword).
+    if instruction_args.iter().any(|a| a.name == "stored") {
+        for cf in &ctx_fields {
+            if matches!(cf.attr.bump, Some(BumpSpec::StoredField)) {
+                return Err(syn::Error::new_spanned(
+                    &cf.name,
+                    "`bump = stored` is ambiguous here: this context also declares an \
+                     `#[instruction(stored: ...)]` argument. The bare identifier `stored` \
+                     is reserved for the account's `#[bump]`-marked field; write \
+                     `bump = (stored)` to use the instruction argument, or rename it",
+                ));
+            }
+        }
+    }
+
     // ── Composite (nested) contexts: options compose (v2) ─────────────
     //
     // A context that embeds a `#[composite]` field flattens the inner
@@ -3604,10 +3626,17 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                         self.ctx.program_id(),
                     )?;
                     if #zero && new_len > old_len {
-                        let mut data = account.try_borrow_mut()?;
-                        for byte in data[old_len..new_len].iter_mut() {
-                            *byte = 0;
-                        }
+                        // Zero EXACTLY the bytes the grow appended, under
+                        // the transition authority the resize already
+                        // required. `realloc` is a bind-time lifecycle,
+                        // outside the handler's governed byte-range surface
+                        // (see the DeclaredRange classification note): the
+                        // appended bytes did not exist when the policy was
+                        // declared, so demanding a declared range over them
+                        // would refuse every narrow grant — `mut(seg)` +
+                        // `realloc`, or a `tail(seq)` growing its own tail —
+                        // while protecting nothing.
+                        account.zero_appended(old_len)?;
                     }
                     ::core::result::Result::Ok(())
                 }
@@ -4888,7 +4917,11 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
     // governed set or sharing another gate's slot. The `static` is
     // emitted at function-statement level (no wrapping block) so the
     // guard binding stays in scope for the bound-struct constructor.
-    let parametric_arg_values = parametric_selectors
+    // Collected (not a lazy Map): the parametric argument values are
+    // interpolated more than once — into `set_parametric_write_policy`
+    // AND into the ambient gate install below — so the sequence must be
+    // re-iterable.
+    let parametric_arg_values: Vec<TokenStream> = parametric_selectors
         .iter()
         .map(|(selector, selector_ty, _)| {
             quote! {
@@ -4896,7 +4929,8 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                     #selector,
                 )
             }
-        });
+        })
+        .collect();
     let write_policy_install_stmt: TokenStream = if mutation_complete && has_parametric_writes {
         quote! {
             static __HOPPER_WRITE_POLICY:
@@ -4932,30 +4966,50 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
                 )?;
         }
     } else if strict_writes_enabled && has_parametric_writes {
+        // Bare `strict_writes` (no `lamports(...)`), parametric cells. A
+        // data-only ambient gate is installed just like the
+        // mutation-complete case, so the raw `AccountView` surfaces are
+        // governed too — the lamport dimension stays passthrough (the
+        // documented backward-compat carve-out; see `mutation_complete`).
+        // The install is emitted at statement level (no wrapping block) so
+        // the guard escapes into the bound-struct constructor. Args are
+        // forwarded so parametric cells resolve on the raw surfaces.
         quote! {
-            {
-                static __HOPPER_WRITE_POLICY:
-                    ::hopper::__runtime::write_policy::WritePolicy =
-                    ::hopper::__runtime::write_policy::WritePolicy::with_parametric(
-                        #write_ranges_const_ident,
-                        #parametric_write_ranges_const_ident,
-                    );
-                ctx.set_parametric_write_policy(
+            static __HOPPER_WRITE_POLICY:
+                ::hopper::__runtime::write_policy::WritePolicy =
+                ::hopper::__runtime::write_policy::WritePolicy::with_parametric(
+                    #write_ranges_const_ident,
+                    #parametric_write_ranges_const_ident,
+                );
+            ctx.set_parametric_write_policy(
+                &__HOPPER_WRITE_POLICY,
+                &[#(#parametric_arg_values),*],
+            )?;
+            let __hopper_lamport_gate =
+                ::hopper::__runtime::write_policy::try_install_ambient_gate_with_args(
+                    ctx.accounts(),
                     &__HOPPER_WRITE_POLICY,
                     &[#(#parametric_arg_values),*],
                 )?;
-            }
         }
     } else if strict_writes_enabled {
+        // Bare `strict_writes`, no parametric cells. Same data-only
+        // ambient gate: raw data mutation, account transitions, writable
+        // CPI delegation, and out-of-set accounts are governed; direct
+        // lamport arithmetic stays passthrough (data-only carve-out).
         quote! {
-            {
-                static __HOPPER_WRITE_POLICY:
-                    ::hopper::__runtime::write_policy::WritePolicy =
-                    ::hopper::__runtime::write_policy::WritePolicy::new(
-                        #write_ranges_const_ident,
-                    );
-                ctx.set_write_policy(&__HOPPER_WRITE_POLICY);
-            }
+            static __HOPPER_WRITE_POLICY:
+                ::hopper::__runtime::write_policy::WritePolicy =
+                ::hopper::__runtime::write_policy::WritePolicy::new(
+                    #write_ranges_const_ident,
+                );
+            ctx.set_write_policy(&__HOPPER_WRITE_POLICY);
+            let __hopper_lamport_gate =
+                ::hopper::__runtime::write_policy::try_install_ambient_gate_with_args(
+                    ctx.accounts(),
+                    &__HOPPER_WRITE_POLICY,
+                    &[],
+                )?;
         }
     } else {
         TokenStream::new()
@@ -4977,9 +5031,14 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
     } else {
         write_policy_install_stmt
     };
-    // Bound-struct plumbing for the gate guard (empty unless the lamport
-    // dimension was declared).
-    let lamport_gate_field_decl: TokenStream = if mutation_complete {
+    // Bound-struct plumbing for the ambient gate guard. Present whenever
+    // the install statement above created a guard — i.e. for ANY bound
+    // strict context (bare `strict_writes` installs a data-only gate;
+    // `mutation_complete` a full data+lamport gate) — so the guard lives
+    // exactly as long as the bound instruction scope. The guard type is
+    // the same regardless of the declared dimensions.
+    let installs_ambient_gate = strict_writes_enabled || mutation_complete;
+    let lamport_gate_field_decl: TokenStream = if installs_ambient_gate {
         quote! {
             #[doc(hidden)]
             __hopper_lamport_gate:
@@ -4988,7 +5047,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
     } else {
         TokenStream::new()
     };
-    let lamport_gate_bound_field: TokenStream = if mutation_complete {
+    let lamport_gate_bound_field: TokenStream = if installs_ambient_gate {
         quote! { __hopper_lamport_gate, }
     } else {
         TokenStream::new()
@@ -6787,6 +6846,26 @@ fn validate_account_attr(field_name: &Ident, attr: &AccountAttr) -> Result<()> {
             "#[account(seeds::program = ...)] requires `seeds = [...]`",
         ));
     }
+    // `bump = stored` reads the canonical bump byte from THIS account's
+    // already-initialized data (Stage 4 runs before the init lifecycle
+    // helpers execute). On a creation lifecycle the account is empty (or
+    // all-zero for `zero`) at verify time, so the bind can never succeed —
+    // the instruction that is supposed to create the account would brick
+    // with AccountDataTooSmall / InvalidSeeds on every invocation. Refuse
+    // at compile time; creation flows must pass the bump explicitly
+    // (`bump` inferred, or `bump = <expr>` from an instruction argument).
+    if matches!(attr.bump, Some(BumpSpec::StoredField))
+        && (attr.init || attr.init_if_needed || attr.zero)
+    {
+        return Err(syn::Error::new_spanned(
+            field_name,
+            "`bump = stored` cannot be combined with `init`, `init_if_needed`, or `zero`: \
+             the stored bump byte does not exist until AFTER the account is created, so \
+             this bind would fail on every invocation. Use inferred `bump` (or \
+             `bump = <expr>`) on the creation instruction and `bump = stored` on the \
+             instructions that read the account back",
+        ));
+    }
     // Associated-token pair coherence. the mint/authority inputs are
     // joint input to the ATA PDA derivation and declaring just one
     // would produce an ATA derivation with a missing dimension.
@@ -7945,10 +8024,14 @@ mod instruction_arg_tests {
         );
     }
 
-    /// A bare strict_writes context must stay byte-identical to the
-    /// pre-BLD-MUT lowering: no gate install, incomplete, empty set.
+    /// A bare `strict_writes` context (no `lamports(...)`) installs the
+    /// ambient gate as a DATA-ONLY policy: the raw `AccountView` surfaces
+    /// are governed too, closing the historical raw-borrow bypass. It is
+    /// still not `mutation_complete` (the lamport dimension is undeclared
+    /// and stays passthrough), and it builds a `WritePolicy::new` (data
+    /// ranges only), never `with_lamports`.
     #[test]
-    fn bare_strict_writes_context_stays_incomplete_and_ungated() {
+    fn bare_strict_writes_installs_a_data_only_ambient_gate() {
         let attr: TokenStream = quote! { strict_writes };
         let item: TokenStream = quote! {
             pub struct Plain<'info> {
@@ -7958,9 +8041,22 @@ mod instruction_arg_tests {
         };
         let expanded = expand(attr, item).expect("expand ok");
         let s = expanded.to_string();
+        // Not mutation-complete: the lamport dimension was never declared.
         assert!(s.contains("MUTATION_COMPLETE : bool = false"), "got: {s}");
-        assert!(!s.contains("install_lamport_gate"), "got: {s}");
+        // The ambient gate IS installed (data-only), so raw surfaces are
+        // governed — the whole point of closing the bypass.
+        assert!(
+            s.contains("try_install_ambient_gate_with_args"),
+            "bare strict_writes must install the data-only ambient gate: {s}"
+        );
+        // Data-only policy: no lamport dimension.
         assert!(!s.contains("with_lamports"), "got: {s}");
+        // The RAII guard is stored on the bound context so it lives for the
+        // instruction scope.
+        assert!(
+            s.contains("__hopper_lamport_gate"),
+            "the ambient gate guard must be stored on the bound context: {s}"
+        );
     }
 
     #[test]

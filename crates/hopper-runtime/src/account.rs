@@ -231,9 +231,11 @@ impl<'info> AccountView<'info> {
     /// gate refuses it unless the declared policy covers the full data
     /// range, closing the historical "raw borrow bypasses the write
     /// policy" surface. With no gate installed the check is one load and
-    /// branch. Segment leases and the Context/migration layers use the
-    /// crate-internal ungated variant because they gate the exact range
-    /// (or the same policy) themselves.
+    /// branch. Segment leases use the crate-internal ungated variant
+    /// because they gate the exact range themselves; the migration crank
+    /// uses it under its own `check_migratable` authorization (a
+    /// whole-layout transform, distinct from the byte-range gate — see
+    /// [`try_borrow_mut_ungated`](Self::try_borrow_mut_ungated)).
     #[inline(always)]
     pub fn try_borrow_mut(&self) -> Result<RefMut<'_, [u8]>, ProgramError> {
         let len = self.data_len();
@@ -245,11 +247,24 @@ impl<'info> AccountView<'info> {
 
     /// Ungated exclusive borrow: the borrow-registry token and backend
     /// borrow WITHOUT the instruction-ambient write-gate check. Only for
-    /// crate-internal plumbing whose caller already enforces a precise
-    /// gate (segment leases gate the exact range; Context and the
-    /// migration crank enforce the same installed policy before
-    /// delegating). Never expose publicly: doing so would reopen the raw
-    /// bypass this split closes.
+    /// crate-internal plumbing whose caller supplies its OWN
+    /// authorization before delegating:
+    ///
+    /// - Segment leases gate the exact requested range against the
+    ///   installed byte-range policy, then take the ungated borrow.
+    /// - The migration crank ([`crate::migrate`]) does not consult the
+    ///   byte-range gate at all — a layout migration rewrites the whole
+    ///   body by construction, which no byte-range policy would permit.
+    ///   It is governed instead by its own `check_migratable`
+    ///   authorization (the account must be writable and owned by the
+    ///   executing program) run before this borrow. That is a DISTINCT
+    ///   authorization from the `strict_writes` gate, not "the same
+    ///   installed policy": a strict handler that also calls
+    ///   `hopper::migration::*` is explicitly invoking a whole-layout
+    ///   transform, not smuggling a byte write past its own declaration.
+    ///
+    /// Never expose publicly: doing so would reopen the raw bypass the
+    /// gated [`try_borrow_mut`](Self::try_borrow_mut) split closes.
     #[inline(always)]
     pub(crate) fn try_borrow_mut_ungated(&self) -> Result<RefMut<'_, [u8]>, ProgramError> {
         let token = BorrowToken::mutable(self.address())?;
@@ -1081,6 +1096,77 @@ impl<'info> AccountView<'info> {
         Ok(data.slice_from(offset))
     }
 
+    /// Zero the byte range `[start, start + len)`, checked against the
+    /// instruction-ambient write policy over **exactly that range**.
+    ///
+    /// This is the precise-authority spelling of "clear these bytes." The
+    /// naive alternative — take a whole-account `try_borrow_mut` and slice
+    /// — demands authority over every byte of the account, so a narrow but
+    /// entirely legitimate declaration (a `tail(seq)` grant zero-filling
+    /// the tail it just grew) would be refused by its own policy. Gating
+    /// the exact range keeps the refusal honest: it fires when the bytes
+    /// being cleared are outside the declaration, and not before.
+    ///
+    /// An empty range is a no-op and requires no authority.
+    #[inline]
+    pub fn zero_range(&self, start: usize, len: usize) -> ProgramResult {
+        if len == 0 {
+            return Ok(());
+        }
+        let end = start
+            .checked_add(len)
+            .ok_or(ProgramError::ArithmeticOverflow)?;
+        if end > self.data_len() {
+            return Err(ProgramError::AccountDataTooSmall);
+        }
+        let offset_u32 = u32::try_from(start).map_err(|_| ProgramError::ArithmeticOverflow)?;
+        let len_u32 = u32::try_from(len).map_err(|_| ProgramError::ArithmeticOverflow)?;
+        crate::write_policy::check_data_mutation(self.address(), offset_u32, len_u32)?;
+        let mut data = self.try_borrow_mut_ungated()?;
+        for byte in data[start..end].iter_mut() {
+            *byte = 0;
+        }
+        Ok(())
+    }
+
+    /// Zero the bytes a grow just appended: `[previous_len, data_len)`.
+    ///
+    /// Authorized by the **transition** dimension, not the byte-range one
+    /// — deliberately, and this is the whole reason it is a separate
+    /// method from [`zero_range`](Self::zero_range):
+    ///
+    /// - The bytes did not exist when the policy was declared. Clearing
+    ///   them cannot destroy, reveal, or corrupt any state a byte-range
+    ///   declaration protects, so requiring a declared range over them
+    ///   would refuse the framework's own `realloc_zero` lifecycle on
+    ///   every narrow declaration (`mut(seg)` + `realloc`) while
+    ///   protecting nothing.
+    /// - The authority to create them was already checked: `resize`
+    ///   consults [`check_account_transition`], and an account carrying no
+    ///   declared data authority cannot resize in the first place. Same
+    ///   check here, so this method can never reach an account the
+    ///   instruction has no data authority over.
+    /// - It is strictly narrower than the pre-existing body: a caller
+    ///   cannot name an offset, only "whatever the grow added."
+    ///
+    /// Writes into the PRE-EXISTING body remain governed by the byte-range
+    /// policy through every other surface.
+    ///
+    /// [`check_account_transition`]: crate::write_policy
+    #[inline]
+    pub fn zero_appended(&self, previous_len: usize) -> ProgramResult {
+        let len = self.data_len();
+        if previous_len >= len {
+            return Ok(());
+        }
+        crate::write_policy::check_account_transition(self.address())?;
+        let mut data = self.try_borrow_mut_ungated()?;
+        for byte in data[previous_len..len].iter_mut() {
+            *byte = 0;
+        }
+        Ok(())
+    }
+
     /// Initialize an account with the given layout contract header.
     ///
     /// Writes the disc, version, layout_id, and zeroes flags/reserved.
@@ -1444,8 +1530,17 @@ impl<'info> AccountView<'info> {
     /// preconditions (e.g. inside a validated `#[hopper::context]`
     /// binding). **Does not** check writable or owner, so only use it
     /// when the preconditions are guaranteed by the surrounding code.
+    ///
+    /// "Unchecked" waives only those two PREconditions. The ambient
+    /// write gate is not a precondition a caller can pre-verify — it is
+    /// the instruction's installed policy, and closing an account both
+    /// zeroes its data and ends its presence, so the same transition
+    /// rule as [`close`](Self::close) / [`close_to`](Self::close_to)
+    /// applies here (the lamport moves are separately governed by the
+    /// gated `try_set_lamports` funnel below).
     #[inline]
     pub fn close_to_unchecked(&self, destination: &AccountView<'_>) -> ProgramResult {
+        crate::write_policy::check_account_transition(self.address())?;
         let lamports = self.lamports();
         let dest_lamports = destination.lamports();
         destination.try_set_lamports(
@@ -2633,5 +2728,188 @@ mod tests {
         // Segment borrow released, load_mut should now succeed.
         let view = account.load::<TestLayout>().unwrap();
         assert_eq!(from_le_u64(view.a), 42);
+    }
+
+    /// `zero_range` demands authority over EXACTLY the bytes it clears,
+    /// not the whole account. This is what lets a narrow declaration
+    /// zero-fill inside its own grant (the `realloc_zero` lifecycle on a
+    /// `tail(seq)` account); a whole-account borrow would be refused by
+    /// the account's own tail-only policy.
+    #[test]
+    #[cfg(not(feature = "unguarded-raw-surfaces"))]
+    fn zero_range_is_gated_over_exactly_the_cleared_bytes() {
+        use crate::write_policy::{
+            install_lamport_gate, write_policy_violation, WritePolicy, WriteRange,
+        };
+
+        let (_b0, a0) = make_account(32, 70);
+        let accounts = [a0];
+        // Tail-only grant: bytes [16, +inf) are writable, the head is not.
+        static TAIL: WritePolicy = WritePolicy::new(&[WriteRange::tail_from(0, 16)]);
+
+        {
+            let mut data = accounts[0].try_borrow_mut().unwrap();
+            for byte in data.iter_mut() {
+                *byte = 0xAA;
+            }
+        }
+
+        let _gate = install_lamport_gate(&accounts, &TAIL);
+
+        // Inside the grant: permitted, and it really clears those bytes.
+        assert!(accounts[0].zero_range(16, 16).is_ok());
+        // Straddling the head boundary: refused (bytes 8..16 are undeclared).
+        assert_eq!(
+            accounts[0].zero_range(8, 16),
+            Err(write_policy_violation(0)),
+        );
+        // Entirely in the head: refused.
+        assert_eq!(accounts[0].zero_range(0, 8), Err(write_policy_violation(0)));
+        // Empty range: no authority required, no-op.
+        assert!(accounts[0].zero_range(0, 0).is_ok());
+        // Past the end: bounds error, never a silent truncation.
+        assert_eq!(
+            accounts[0].zero_range(24, 16),
+            Err(ProgramError::AccountDataTooSmall),
+        );
+
+        drop(_gate);
+        let data = accounts[0].try_borrow().unwrap();
+        assert!(
+            data[16..32].iter().all(|b| *b == 0),
+            "the authorized range was actually cleared"
+        );
+        assert!(
+            data[0..16].iter().all(|b| *b == 0xAA),
+            "refused ranges left the head untouched"
+        );
+    }
+
+    /// `zero_appended` clears only bytes a grow created, under the same
+    /// TRANSITION authority the resize required — so the `realloc_zero`
+    /// lifecycle works under a narrow `mut(seg)` grant (whose ranges
+    /// cannot cover bytes that did not exist when it was written), while
+    /// an account the instruction has no data authority over is still
+    /// refused. Pins the boundary: it must not become a whole-account
+    /// write hatch.
+    #[test]
+    #[cfg(not(feature = "unguarded-raw-surfaces"))]
+    fn zero_appended_rides_the_transition_authority_not_the_byte_ranges() {
+        use crate::write_policy::{
+            install_lamport_gate, write_policy_violation, WritePolicy, WriteRange,
+        };
+
+        let (_b0, a0) = make_account(32, 72);
+        let (_bf, foreign) = make_account(32, 73);
+        let accounts = [a0];
+        // A NARROW head-only grant: bytes [0,8) only. Nothing declares the
+        // region past 16 — exactly the realloc-appended shape.
+        static NARROW: WritePolicy = WritePolicy::new(&[WriteRange::new(0, 0, 8)]);
+
+        {
+            let mut data = accounts[0].try_borrow_mut().unwrap();
+            for byte in data.iter_mut() {
+                *byte = 0xCC;
+            }
+        }
+
+        let _gate = install_lamport_gate(&accounts, &NARROW);
+
+        // Treat bytes [16, 32) as "just appended": permitted, because the
+        // account carries declared data authority (so it could transition),
+        // even though NO declared range covers those bytes.
+        assert!(accounts[0].zero_appended(16).is_ok());
+
+        // A foreign account carries no data authority at all -> refused,
+        // fail-closed, before touching a byte.
+        assert_eq!(
+            foreign.zero_appended(16),
+            Err(write_policy_violation(u8::MAX)),
+        );
+
+        // Not a whole-account hatch: a caller cannot name an offset below
+        // the current length to clear pre-existing bytes it never grew...
+        // the API only accepts "previous length", and a previous length at
+        // or past the current one is a no-op.
+        assert!(accounts[0].zero_appended(32).is_ok());
+        assert!(accounts[0].zero_appended(64).is_ok());
+
+        drop(_gate);
+        let data = accounts[0].try_borrow().unwrap();
+        assert!(
+            data[16..32].iter().all(|b| *b == 0),
+            "the appended region was cleared"
+        );
+        assert!(
+            data[0..16].iter().all(|b| *b == 0xCC),
+            "the pre-existing body was untouched"
+        );
+    }
+
+    /// The extension-region borrow is checked against the installed
+    /// ambient write policy over its EXACT range `[EXTENSION_OFFSET,
+    /// data_len)`: a head-only declaration refuses it, a `tail_from`
+    /// declaration (the open-ended `tail(seg)` lowering) and a
+    /// whole-account grant both authorize it. Pins the 34c7a60 gate
+    /// wiring — a revert to the pre-guard body (plain `try_borrow_mut`)
+    /// or a widened check range `(0, len)` goes red here.
+    #[test]
+    #[cfg(not(feature = "unguarded-raw-surfaces"))]
+    fn extension_bytes_mut_is_governed_over_its_exact_range() {
+        use crate::write_policy::{
+            install_lamport_gate, write_policy_violation, WritePolicy, WriteRange,
+        };
+
+        const EXT_LEN: usize = 8;
+        let (_backing, account) = make_account(TestLayout::SIZE + EXT_LEN, 60);
+        {
+            let mut data = account.try_borrow_mut().unwrap();
+            crate::layout::init_header::<TestLayout>(&mut data).unwrap();
+        }
+        let accounts = [account];
+
+        // Ungated: the borrow succeeds and covers exactly the extension.
+        {
+            let ext = accounts[0].extension_bytes_mut::<TestLayout>().unwrap();
+            assert_eq!(ext.len(), EXT_LEN);
+        }
+
+        // Head-only declaration: the extension range is outside the
+        // declared set, so the borrow is refused with the account's
+        // indexed policy error BEFORE any borrow is taken.
+        {
+            static HEAD_ONLY: WritePolicy = WritePolicy::new(&[WriteRange::new(0, 0, 8)]);
+            let _gate = install_lamport_gate(&accounts, &HEAD_ONLY);
+            assert_eq!(
+                accounts[0].extension_bytes_mut::<TestLayout>().map(|_| ()),
+                Err(write_policy_violation(0)),
+            );
+        }
+
+        // Open-ended tail declaration from the extension offset (the
+        // `tail(seg)` lowering): authorized.
+        {
+            static TAIL: WritePolicy =
+                WritePolicy::new(&[WriteRange::tail_from(0, TestLayout::SIZE as u32)]);
+            let _gate = install_lamport_gate(&accounts, &TAIL);
+            let ext = accounts[0].extension_bytes_mut::<TestLayout>().unwrap();
+            assert_eq!(ext.len(), EXT_LEN);
+        }
+
+        // Whole-account grant: authorized.
+        {
+            static WHOLE: WritePolicy = WritePolicy::new(&[WriteRange::whole_account(0)]);
+            let _gate = install_lamport_gate(&accounts, &WHOLE);
+            assert!(accounts[0].extension_bytes_mut::<TestLayout>().is_ok());
+        }
+
+        // Pre-existing ungated bound: an account shorter than the layout's
+        // extension offset refuses with AccountDataTooSmall regardless of
+        // any gate.
+        let (_short_backing, short) = make_account(TestLayout::SIZE - 1, 61);
+        assert_eq!(
+            short.extension_bytes_mut::<TestLayout>().map(|_| ()),
+            Err(ProgramError::AccountDataTooSmall),
+        );
     }
 }

@@ -733,15 +733,37 @@ macro_rules! hopper_fast_entrypoint {
                     core::ptr::read(ix_data.add(ix_len) as *const $crate::__hopper_native::Address)
                 };
 
-                // SAFETY: `input` is the loader input buffer; account-slot
-                // framing is validated by `deserialize_accounts_fast`.
-                unsafe {
-                    $crate::__hopper_native::raw_input::deserialize_accounts_fast::<$maximum>(
-                        input,
-                        &mut accounts,
-                        instruction_data,
-                        program_id,
-                    )
+                if $crate::__hopper_native::raw_input::SIMD_0449_TABLE_ENABLED {
+                    // SIMD-0449 build: consume the runtime's appended
+                    // pre-deduplicated account-pointer table — O(1)
+                    // resolution plus one pointer copy per account. The gate
+                    // is a `const`, so the untaken branch folds away entirely.
+                    // Macro programs reach this arm the same way the native
+                    // entrypoint does, so `hopper/simd-0449` is not a no-op
+                    // one tier up.
+                    // SAFETY: the `simd-0449` feature asserts the SIMD is
+                    // active on the target cluster (table present);
+                    // `instruction_data`/`program_id` were derived from the
+                    // SIMD-0321 r2 register above.
+                    unsafe {
+                        $crate::__hopper_native::raw_input::deserialize_accounts_0449_into::<$maximum>(
+                            input,
+                            &mut accounts,
+                            instruction_data,
+                            program_id,
+                        )
+                    }
+                } else {
+                    // SAFETY: `input` is the loader input buffer; account-slot
+                    // framing is validated by `deserialize_accounts_fast`.
+                    unsafe {
+                        $crate::__hopper_native::raw_input::deserialize_accounts_fast::<$maximum>(
+                            input,
+                            &mut accounts,
+                            instruction_data,
+                            program_id,
+                        )
+                    }
                 }
             };
 
@@ -765,9 +787,12 @@ macro_rules! hopper_fast_entrypoint {
 }
 
 /// Without the `simd-0321` feature the "fast" entrypoint is an alias for
-/// the standard scanning entrypoint: SIMD-0321 has not been activated, so
-/// the two-argument form would read an uninitialized register on today's
-/// clusters. Rebuild with `--features simd-0321` once the gate activates.
+/// the standard scanning entrypoint. The SIMD-0321 gate is live on every
+/// public cluster (mainnet-beta 2026-04-01), so the two-argument form is
+/// sound to build; it stays opt-in because the r2 path measured CU-neutral
+/// against the fused scanning walk for ~368 bytes of extra `.text` (see the
+/// `simd-0321` feature note in the workspace `Cargo.toml`). Build with
+/// `--features simd-0321` to select the r2 entrypoint.
 #[cfg(not(feature = "simd-0321"))]
 #[macro_export]
 macro_rules! hopper_fast_entrypoint {

@@ -1070,10 +1070,21 @@ impl<const DEPTH: usize> GateStore<DEPTH> {
             // ambient state. Refuse it as a foreign-account mutation.
             return Err(write_policy_violation(u8::MAX));
         };
-        // A data-only strict policy intentionally leaves direct lamport
-        // arithmetic ungoverned for backward compatibility. Other ambient
-        // effects remain governed, including writable CPI delegation.
-        if matches!(check, GateCheck::Lamports) && !policy.lamports_declared() {
+        // A data-only strict policy (bare `strict_writes`, no
+        // `lamports(...)`) intentionally leaves the LAMPORT dimension
+        // ungoverned for backward compatibility: direct lamport
+        // arithmetic AND writable-CPI delegation both pass through. Both
+        // hand lamports to another party — delegation is a strict superset
+        // of a direct debit — so a policy that carries no lamport
+        // authority cannot govern either without retroactively refusing
+        // lamport moves an already-deployed program performs. The DATA
+        // dimension (raw data mutation, account transitions, out-of-set
+        // accounts) stays fully governed. `mutation_complete` policies
+        // declare `lamports(...)`, so neither carve-out fires for them and
+        // delegation is refused as before.
+        if !policy.lamports_declared()
+            && matches!(check, GateCheck::Lamports | GateCheck::Delegation)
+        {
             return Ok(());
         }
         // `get(..len)` rather than `entries[i]`: `len` is a stored field, so
@@ -1457,7 +1468,14 @@ pub fn try_install_lamport_gate<'accounts>(
 /// that declares data write ranges is refused with
 /// [`AMBIENT_GATE_UNGUARDED_BUILD`] — that build cannot enforce the raw
 /// surfaces, and a silently half-enforced gate is worse than a loud
-/// refusal. Lamports-only policies still install and stay enforced.
+/// refusal. Lamports-only policies still install, with EXACTLY this
+/// enforcement split (pinned by the opt-out-shape tests): the direct
+/// lamport funnel ([`check_lamport_mutation`]) and writable-CPI
+/// delegation ([`check_lamport_delegation`]) stay enforced; raw DATA
+/// borrows and resize/close TRANSITIONS are compiled out with the rest
+/// of the raw-surface guard, so a lamports-only gate on this build
+/// refuses neither. A program that needs the data or transition
+/// dimensions governed must not enable the opt-out.
 #[inline]
 pub fn try_install_ambient_gate_with_args<'accounts>(
     accounts: &'accounts [crate::account::AccountView<'accounts>],
@@ -1963,6 +1981,26 @@ mod tests {
             check_lamport_mutation(foreign.address()),
             Err(write_policy_violation(u8::MAX)),
         );
+        // Writable-CPI delegation is the other dimension that SURVIVES
+        // the opt-out: account 0 has lamport permission but no
+        // whole-account data grant, so delegation refuses it; a foreign
+        // account fails closed.
+        assert_eq!(
+            check_lamport_delegation(accounts[0].address()),
+            Err(write_policy_violation(0)),
+        );
+        assert_eq!(
+            check_lamport_delegation(foreign.address()),
+            Err(write_policy_violation(u8::MAX)),
+        );
+        // The DATA and TRANSITION dimensions are compiled out with the
+        // raw-surface guard in this build shape — the documented,
+        // deliberate enforcement split (on the default build the same
+        // install refuses BOTH of these on a foreign account; see
+        // `public_raw_surfaces_are_governed_by_the_ambient_gate`). Pinned
+        // so the split is loud, not an accident of cfg.
+        assert!(check_data_mutation(foreign.address(), 0, 1).is_ok());
+        assert!(check_account_transition(foreign.address()).is_ok());
     }
 
     #[test]
@@ -2015,16 +2053,27 @@ mod tests {
         // refused before any native-boundary work happens.
         assert_eq!(foreign.resize(16), Err(write_policy_violation(u8::MAX)));
         assert_eq!(foreign.close(), Err(write_policy_violation(u8::MAX)));
+        // The `close_to_unchecked` escape waives owner/writable
+        // PREconditions but not the installed policy: the same transition
+        // rule refuses it before any lamport moves or data zeroing.
+        assert_eq!(
+            foreign.close_to_unchecked(&accounts[0]),
+            Err(write_policy_violation(u8::MAX)),
+        );
     }
 
     #[test]
     #[cfg(not(feature = "unguarded-raw-surfaces"))]
-    fn data_only_policy_governs_ambient_data_but_passes_lamports() {
-        // A data-only `strict_writes` policy (no `lamports(...)`) still installs
-        // the instruction-ambient gate: raw data mutation, writable CPI
-        // delegation, and accounts outside the declared write-set are governed
-        // for the guard's lifetime. Only DIRECT lamport arithmetic stays
-        // passthrough — the documented backward-compatibility carve-out.
+    fn data_only_policy_governs_data_but_passes_the_lamport_dimension() {
+        // A data-only `strict_writes` policy (no `lamports(...)`) — the shape
+        // a BARE `strict_writes` context installs — governs the DATA
+        // dimension (raw data mutation, transitions, out-of-set accounts)
+        // while leaving the whole LAMPORT dimension passthrough: both direct
+        // lamport arithmetic AND writable-CPI delegation. That carve-out is
+        // what lets a bare-strict program keep performing writable CPIs
+        // (System CreateAccount, Token transfer) after the gate is installed
+        // — governing delegation would refuse every one of them, since a
+        // data-only policy declares no lamport authority to hand a callee.
         let (_b0, a0) = make_account(30);
         let accounts = [a0];
         static P: WritePolicy = WritePolicy::new(&[WriteRange::whole_account(0)]);
@@ -2036,11 +2085,16 @@ mod tests {
 
         let (_bf, foreign) = make_account(31);
 
-        // Lamport dimension: undeclared, so BOTH the declared account and a
-        // foreign one pass through. The gate never tightens direct lamport
-        // arithmetic for a data-only policy.
+        // Lamport dimension (arithmetic): undeclared, so BOTH the declared
+        // account and a foreign one pass through.
         assert!(check_lamport_mutation(accounts[0].address()).is_ok());
         assert!(check_lamport_mutation(foreign.address()).is_ok());
+
+        // Lamport dimension (writable-CPI delegation): also passthrough for a
+        // data-only policy — the backward-compat carve-out, so bare-strict
+        // programs can still delegate accounts to CPI callees.
+        assert!(check_lamport_delegation(accounts[0].address()).is_ok());
+        assert!(check_lamport_delegation(foreign.address()).is_ok());
 
         // Data dimension IS governed: the declared whole-account write is
         // permitted, but a foreign account's data write is refused fail-closed.
@@ -2049,15 +2103,41 @@ mod tests {
             check_data_mutation(foreign.address(), 0, 1),
             Err(write_policy_violation(u8::MAX)),
         );
-
-        // Writable CPI delegation is refused even for the DECLARED account: a
-        // data-only policy carries no lamport authority to hand a callee, so
-        // delegation of account 0 fails with its own index, and a foreign
-        // account fails closed at u8::MAX.
+        // Transitions on a foreign account are refused; on the declared
+        // (whole-account) one, permitted.
+        assert!(check_account_transition(accounts[0].address()).is_ok());
         assert_eq!(
-            check_lamport_delegation(accounts[0].address()),
-            Err(write_policy_violation(0)),
+            check_account_transition(foreign.address()),
+            Err(write_policy_violation(u8::MAX)),
         );
+    }
+
+    #[test]
+    #[cfg(not(feature = "unguarded-raw-surfaces"))]
+    fn mutation_complete_policy_still_governs_delegation() {
+        // The delegation carve-out is scoped to data-only policies by
+        // `!lamports_declared()`. A `mutation_complete` policy DECLARES the
+        // lamport dimension, so delegation stays governed: the declared
+        // whole-account+lamport account is permitted, a lamport-but-not-data
+        // account is refused, and a foreign one fails closed.
+        let (_b0, a0) = make_account(32); // whole-account data + lamport
+        let (_b1, a1) = make_account(33); // lamport only, no data grant
+        let accounts = [a0, a1];
+        static P: WritePolicy =
+            WritePolicy::with_lamports(&[WriteRange::whole_account(0)], &[0, 1]);
+        let _gate = install_lamport_gate(&accounts, &P);
+
+        let (_bf, foreign) = make_account(34);
+        // Account 0: lamport-declared AND whole-account data grant -> may be
+        // delegated.
+        assert!(check_lamport_delegation(accounts[0].address()).is_ok());
+        // Account 1: lamport-declared but no whole-account data grant ->
+        // delegation refused with its own index.
+        assert_eq!(
+            check_lamport_delegation(accounts[1].address()),
+            Err(write_policy_violation(1)),
+        );
+        // Foreign: fails closed.
         assert_eq!(
             check_lamport_delegation(foreign.address()),
             Err(write_policy_violation(u8::MAX)),

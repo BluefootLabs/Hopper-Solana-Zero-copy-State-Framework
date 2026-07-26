@@ -1,0 +1,5 @@
+error: `bump = stored` cannot be combined with `init`, `init_if_needed`, or `zero`: the stored bump byte does not exist until AFTER the account is created, so this bind would fail on every invocation. Use inferred `bump` (or `bump = <expr>`) on the creation instruction and `bump = stored` on the instructions that read the account back
+  --> tests/ui/fail/stored_bump_on_init.rs:31:9
+   |
+31 |     pub config: InitAccount<'info, Config>,
+   |         ^^^^^^

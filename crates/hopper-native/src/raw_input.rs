@@ -276,7 +276,18 @@ pub unsafe fn deserialize_accounts_fast<'info, const MAX: usize>(
     // assuming 8-byte pointer alignment, so this stays sound even if the loader
     // ever hands us an unaligned buffer.
     let num_accounts = unsafe { core::ptr::read_unaligned(input as *const u64) as usize };
-    let count = num_accounts.min(MAX);
+    // Same 254 materialization clamp as `deserialize_accounts`: this fast
+    // path is the r2 arm of ONE entrypoint whose null-check fallback is the
+    // scanning walk, so the two must report an identical `count` for the
+    // same input — with `MAX >= 255` an unclamped min(MAX) would surface
+    // slot 254 here while the fallback drops it, making the same binary's
+    // observable accounts.len() depend on which arm ran.
+    let addressable = if num_accounts > 254 {
+        254
+    } else {
+        num_accounts
+    };
+    let count = addressable.min(MAX);
     let mut offset = 8usize;
 
     let mut slot = 0usize;
@@ -631,7 +642,11 @@ pub unsafe fn deserialize_accounts_0449_into<'info, const MAX: usize>(
 ) -> (Address, usize, &'info [u8]) {
     // SAFETY: forwarded caller contract.
     let table = unsafe { deserialize_accounts_0449(input, instruction_data) };
-    let count = if table.len() > MAX { MAX } else { table.len() };
+    // Same 254 materialization clamp as the scanning walk and the r2 fast
+    // path: all three are arms of one entrypoint and must report the same
+    // `count` for the same input (see `deserialize_accounts_fast`).
+    let addressable = if table.len() > 254 { 254 } else { table.len() };
+    let count = addressable.min(MAX);
     let mut slot = 0usize;
     while slot < count {
         // SAFETY: `slot < count <= MAX` and `slot < table.len()`.

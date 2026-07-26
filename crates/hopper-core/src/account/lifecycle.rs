@@ -188,7 +188,16 @@ pub fn safe_realloc_unchecked(
     };
 
     // Fail fast on outstanding data borrows before changing data length.
-    drop(account.try_borrow_mut()?);
+    //
+    // This is a LIVENESS probe, not a write: it asks "could an exclusive
+    // borrow be taken right now?" and wants no authority over the bytes.
+    // Acquiring a real whole-account borrow here would demand whole-account
+    // write authority from the instruction-ambient write gate, which a
+    // legitimately narrow declaration does not grant — a `tail(seq)` grant
+    // that resizes its own tail would be refused by its own policy. The
+    // length transition itself is governed, separately and precisely, by
+    // `resize` -> `check_account_transition` on the next line.
+    account.check_borrow_mut()?;
 
     account.resize(new_size)?;
 

@@ -1,0 +1,29 @@
+error: #[bump] may be marked on at most one field per state struct
+  --> tests/ui/fail/stored_bump_compact_misuse.rs:15:9
+   |
+15 |     pub bump_b: u8,
+   |         ^^^^^^
+
+error: #[bump] must mark a `u8` field (the canonical PDA bump byte)
+  --> tests/ui/fail/stored_bump_compact_misuse.rs:24:9
+   |
+24 |     pub bump: WireU64,
+   |         ^^^^
+
+error[E0206]: the trait `Copy` cannot be implemented for this type
+  --> tests/ui/fail/stored_bump_compact_misuse.rs:11:12
+   |
+ 8 | #[derive(Clone, Copy)]
+   |                 ---- in this derive macro expansion
+...
+11 | pub struct CompactTwoMarkers {
+   |            ^^^^^^^^^^^^^^^^^ type is not a structure or enumeration
+
+error[E0206]: the trait `Copy` cannot be implemented for this type
+  --> tests/ui/fail/stored_bump_compact_misuse.rs:22:12
+   |
+19 | #[derive(Clone, Copy)]
+   |                 ---- in this derive macro expansion
+...
+22 | pub struct CompactWideMarker {
+   |            ^^^^^^^^^^^^^^^^^ type is not a structure or enumeration

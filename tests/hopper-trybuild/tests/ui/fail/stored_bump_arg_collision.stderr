@@ -1,0 +1,5 @@
+error: `bump = stored` is ambiguous here: this context also declares an `#[instruction(stored: ...)]` argument. The bare identifier `stored` is reserved for the account's `#[bump]`-marked field; write `bump = (stored)` to use the instruction argument, or rename it
+  --> tests/ui/fail/stored_bump_arg_collision.rs:23:9
+   |
+23 |     pub config: Account<'info, Config>,
+   |         ^^^^^^

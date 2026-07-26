@@ -108,7 +108,17 @@ pub fn cmd_verify(args: &[String]) {
             );
             process::exit(1);
         }
-        println!("  OK: every bundle's actual writes are within its declared authorization.");
+        if opts.allow_inconclusive {
+            // With the waiver active, an INCONCLUSIVE bundle contributes no
+            // failure but was never byte-checked — the success line must
+            // claim only what was verified.
+            println!(
+                "  OK: no violations; every VERIFIED bundle's writes are within its declared \
+                 authorization (INCONCLUSIVE rows above, if any, were waived, not verified)."
+            );
+        } else {
+            println!("  OK: every bundle's actual writes are within its declared authorization.");
+        }
     }
 
     // ── Stage 2: binary presence scan (optional without --strict) ──
@@ -390,16 +400,37 @@ fn run_effect_gate(manifest_json: &str, path: &str, allow_inconclusive: bool) ->
     };
 
     // Collect the bundle files: one path, or every *.json in a directory
-    // (sorted for deterministic output).
+    // (sorted for deterministic output). Fail-closed throughout: an entry
+    // the directory scan cannot read counts as a failure — a bundle that
+    // may exist but could not be enumerated is a bundle that did not
+    // verify. The extension match is ASCII-case-insensitive so a
+    // `REGRESSION.JSON` dropped in by a Windows tool is verified, not
+    // silently skipped.
+    let mut failures = 0u32;
     let p = Path::new(path);
     let mut bundles: Vec<PathBuf> = if p.is_dir() {
         match fs::read_dir(p) {
             Ok(entries) => {
-                let mut v: Vec<PathBuf> = entries
-                    .flatten()
-                    .map(|e| e.path())
-                    .filter(|q| q.extension().is_some_and(|x| x == "json"))
-                    .collect();
+                let mut v: Vec<PathBuf> = Vec::new();
+                for entry in entries {
+                    match entry {
+                        Ok(e) => {
+                            let q = e.path();
+                            let is_json = q.extension().is_some_and(|x| {
+                                x.to_str().is_some_and(|s| s.eq_ignore_ascii_case("json"))
+                            });
+                            if is_json {
+                                v.push(q);
+                            }
+                        }
+                        Err(err) => {
+                            eprintln!(
+                                "  effect gate: unreadable directory entry under {path}: {err}"
+                            );
+                            failures += 1;
+                        }
+                    }
+                }
                 v.sort();
                 v
             }
@@ -411,7 +442,7 @@ fn run_effect_gate(manifest_json: &str, path: &str, allow_inconclusive: bool) ->
     } else {
         vec![p.to_path_buf()]
     };
-    if bundles.is_empty() {
+    if bundles.is_empty() && failures == 0 {
         eprintln!("  effect gate: no *.json evidence bundles found under {path}");
         return 1;
     }
@@ -420,7 +451,8 @@ fn run_effect_gate(manifest_json: &str, path: &str, allow_inconclusive: bool) ->
     println!("{:<36} {:<12} Detail", "Bundle", "Verdict");
     println!("{}", "-".repeat(80));
 
-    let mut failures = 0u32;
+    let mut verified_pass = 0u32;
+    let mut waived_inconclusive = 0u32;
     for bundle_path in &bundles {
         let name = bundle_path
             .file_name()
@@ -448,6 +480,7 @@ fn run_effect_gate(manifest_json: &str, path: &str, allow_inconclusive: bool) ->
                     "{name:<36} {:<12} {} byte(s) changed, all authorized",
                     "PASS", ev.changed_bytes
                 );
+                verified_pass += 1;
             }
             Ok(Verdict::Violation(v)) => {
                 println!("{name:<36} {:<12} {} finding(s)", "VIOLATION", v.len());
@@ -463,7 +496,12 @@ fn run_effect_gate(manifest_json: &str, path: &str, allow_inconclusive: bool) ->
                     "INCONCLUSIVE*"
                 };
                 println!("{name:<36} {tag:<12} {reason:?}");
-                if !allow_inconclusive {
+                if allow_inconclusive {
+                    // Waived is NOT verified: the bundle's writes were never
+                    // checked against the contract, and the summary must
+                    // never fold it into the passing count.
+                    waived_inconclusive += 1;
+                } else {
                     failures += 1;
                 }
             }
@@ -475,12 +513,13 @@ fn run_effect_gate(manifest_json: &str, path: &str, allow_inconclusive: bool) ->
     }
     println!("{}", "-".repeat(80));
     println!(
-        "  {} bundle(s) checked, {} passing, {} not passing{}",
+        "  {} bundle(s) checked, {} verified passing, {} waived inconclusive, {} not passing{}",
         bundles.len(),
-        bundles.len() as u32 - failures,
+        verified_pass,
+        waived_inconclusive,
         failures,
         if allow_inconclusive {
-            " (inconclusive allowed)"
+            " (inconclusive waived, NOT verified)"
         } else {
             " (inconclusive is fatal; --allow-inconclusive to relax)"
         }
@@ -866,15 +905,12 @@ mod tests {
         )
     }
 
-    fn write_bundle_dir(files: &[(&str, String)]) -> std::path::PathBuf {
-        // A unique temp dir without pulling `Math.random`: derive from the
-        // process id + the file set length.
+    fn write_bundle_dir(tag: &str, files: &[(&str, String)]) -> std::path::PathBuf {
+        // A unique temp dir per test: process id + a caller tag (tests run
+        // in parallel threads of ONE process, so a length-derived name
+        // would collide between two tests with equal file counts).
         let mut dir = std::env::temp_dir();
-        dir.push(format!(
-            "hopper-effect-gate-{}-{}",
-            std::process::id(),
-            files.len()
-        ));
+        dir.push(format!("hopper-effect-gate-{}-{}", std::process::id(), tag));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
         for (name, body) in files {
@@ -885,7 +921,7 @@ mod tests {
 
     #[test]
     fn effect_gate_passes_an_honest_corpus() {
-        let dir = write_bundle_dir(&[("ok.json", pause_bundle(114))]);
+        let dir = write_bundle_dir("honest", &[("ok.json", pause_bundle(114))]);
         let failures = run_effect_gate(GATE_MANIFEST, dir.to_str().unwrap(), false);
         let _ = fs::remove_dir_all(&dir);
         assert_eq!(failures, 0, "an in-range write must pass the gate");
@@ -893,10 +929,13 @@ mod tests {
 
     #[test]
     fn effect_gate_fails_on_an_out_of_range_write() {
-        let dir = write_bundle_dir(&[
-            ("ok.json", pause_bundle(114)),
-            ("bad.json", pause_bundle(115)), // neighbor byte, undeclared
-        ]);
+        let dir = write_bundle_dir(
+            "oob",
+            &[
+                ("ok.json", pause_bundle(114)),
+                ("bad.json", pause_bundle(115)), // neighbor byte, undeclared
+            ],
+        );
         let failures = run_effect_gate(GATE_MANIFEST, dir.to_str().unwrap(), false);
         let _ = fs::remove_dir_all(&dir);
         assert_eq!(failures, 1, "one bundle wrote outside its declared range");
@@ -904,9 +943,29 @@ mod tests {
 
     #[test]
     fn effect_gate_reports_empty_corpus_as_a_failure() {
-        let dir = write_bundle_dir(&[]);
+        let dir = write_bundle_dir("empty", &[]);
         let failures = run_effect_gate(GATE_MANIFEST, dir.to_str().unwrap(), false);
         let _ = fs::remove_dir_all(&dir);
         assert_eq!(failures, 1, "no bundles is not a corpus that verified");
+    }
+
+    #[test]
+    fn effect_gate_collects_uppercase_json_bundles() {
+        // A violating bundle named `.JSON` (the Windows-capture shape) must
+        // be collected and verified — silent case-sensitive exclusion would
+        // let the release gate go green around it.
+        let dir = write_bundle_dir(
+            "case",
+            &[
+                ("ok.json", pause_bundle(114)),
+                ("REGRESSION.JSON", pause_bundle(115)),
+            ],
+        );
+        let failures = run_effect_gate(GATE_MANIFEST, dir.to_str().unwrap(), false);
+        let _ = fs::remove_dir_all(&dir);
+        assert_eq!(
+            failures, 1,
+            "an uppercase .JSON bundle must be verified, not skipped"
+        );
     }
 }
