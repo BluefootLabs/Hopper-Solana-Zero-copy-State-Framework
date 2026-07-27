@@ -5,6 +5,7 @@ pub mod buffers;
 pub mod clean;
 pub mod cluster;
 pub mod config;
+pub mod contention;
 pub mod doctor;
 pub mod emit_manifest;
 pub mod expand;

@@ -4227,12 +4227,26 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
         let has_scoped_segments =
             !cf.attr.mut_segments.is_empty() || !cf.attr.tail_segments.is_empty();
         let realloc_scoped_by_segments = cf.attr.realloc.is_some() && has_scoped_segments;
+        // `epoch_migrate` belongs here for the same reason the other
+        // lifecycles do: bind's Stage-3.6 crank calls
+        // `apply_pending_migrations`, which REWRITES the account body. The
+        // attribute already implies writability everywhere else — it is in
+        // the runtime `expect_signer_writable` check and in the published
+        // `writable` flag — so omitting it from the declared range left the
+        // write set claiming an account is never written while bind writes
+        // it. That inconsistency is not cosmetic: `effective_writable`
+        // demotes an account with no declared range under a
+        // mutation-complete set, so generated clients sent an
+        // `epoch_migrate` account read-only and every such instruction
+        // failed its own writability check. Data dimension only — the
+        // epoch crank heals in place and moves no lamports.
         let whole_account = !realloc_scoped_by_segments
             && (cf.attr.is_mut
                 || cf.attr.init
                 || cf.attr.init_if_needed
                 || cf.attr.realloc.is_some()
-                || cf.attr.close.is_some());
+                || cf.attr.close.is_some()
+                || cf.attr.epoch_migrate);
         if whole_account {
             whole_account_positions.push(cf.index);
             declared_ranges.push(DeclaredRange::Whole(cf.index));
@@ -8031,6 +8045,36 @@ mod instruction_arg_tests {
     /// and stays passthrough), and it builds a `WritePolicy::new` (data
     /// ranges only), never `with_lamports`.
     #[test]
+    /// `epoch_migrate` must DECLARE the range its bind-time crank writes.
+    ///
+    /// The attribute already implies writability in the runtime check and
+    /// in the published `writable` flag, and Stage 3.6 calls
+    /// `apply_pending_migrations`, which rewrites the account body. Leaving
+    /// it out of the declared ranges made the write set claim the account
+    /// is never written — which under a mutation-complete set causes
+    /// `effective_writable` to DEMOTE it, so generated clients sent it
+    /// read-only and the instruction failed its own writability check.
+    #[test]
+    fn epoch_migrate_declares_the_range_its_bind_crank_rewrites() {
+        let attr: TokenStream = quote! { strict_writes, lamports(fee_sink) };
+        let item: TokenStream = quote! {
+            pub struct Crank<'info> {
+                #[account(epoch_migrate)]
+                pub config: Account<'info, ConfigLayout>,
+                pub fee_sink: UncheckedAccount<'info>,
+                pub cranker: Signer<'info>,
+            }
+        };
+        let expanded = expand(attr, item).expect("expand ok");
+        let s = expanded.to_string();
+        // Slot 0 (the epoch-migrated account) carries a whole-account
+        // range, so nothing downstream can conclude it is untouched.
+        assert!(
+            s.contains("whole_account (0u8)"),
+            "epoch_migrate must declare a whole-account range: {s}"
+        );
+    }
+
     fn bare_strict_writes_installs_a_data_only_ambient_gate() {
         let attr: TokenStream = quote! { strict_writes };
         let item: TokenStream = quote! {

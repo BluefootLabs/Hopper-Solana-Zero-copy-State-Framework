@@ -186,6 +186,37 @@ usually the safer path. The lint stays conservative and treats raw
 remaining-account checks as review items, not hard errors unless
 `--fail-on-warn` is set. `hopper lint svm` remains as a compatibility alias.
 
+## Contention
+
+### `hopper contention <manifest> [--max-block-cost <CU>]`
+
+Report the write-lock and signature footprint each instruction *declares*,
+computed from the manifest's account list plus the same `writeRanges` /
+`lamportAccounts` the runtime enforces. Nothing is measured, so the output is
+exact, offline, and reproducible.
+
+Columns are `W` (accounts declared writable), `W-eff` (still writable after
+sound demotion), `Sigs`, `Lock CU` (write locks after demotion, plus
+signatures), `Saved` (write-lock CU demotion removed), `Proven RO` — the
+non-signer accounts a mutation-complete write set proves are never mutated —
+and `Rem`, the ceiling on caller-supplied remaining accounts. A client that
+marks a `Proven RO` account writable pays a flat 300 CU write lock and
+serializes on it for nothing. Signers are excluded because the fee payer must
+stay writable at the transaction level.
+
+`--max-block-cost <CU>` turns it into a CI gate: exit 1 if any instruction's
+`Lock CU` exceeds the ceiling. It fails closed — a zero-instruction manifest,
+two positional manifests, a repeated ceiling flag, and a missing path are all
+refused rather than silently passing.
+
+`Lock CU` is the **declaration's share** of a leader's price, not a
+transaction's block cost: Agave also charges the requested compute limit
+(200,000 CU by default and usually the largest term), the requested
+loaded-data limit, instruction bytes, and the fee payer's own lock. Nor is it
+the compute a handler burns — Hopper never fabricates that. See
+[CONTENTION.md](CONTENTION.md) for the full cost model, the constants, and
+their sources.
+
 ## Inspection
 
 ### `hopper inspect <hex-data>`

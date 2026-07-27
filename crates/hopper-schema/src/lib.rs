@@ -2700,6 +2700,247 @@ pub struct InstructionDescriptor {
 /// Maximum compute-unit limit a transaction may request (Solana runtime cap).
 pub const MAX_COMPUTE_UNIT_LIMIT: u32 = 1_400_000;
 
+/// Agave cost-model constants — the prices a leader charges a transaction
+/// against the block and per-account limits.
+///
+/// # What the full cost actually is
+///
+/// `calculate_transaction_cost` sums **five** terms into the number
+/// charged against [`MAX_BLOCK_UNITS`] and [`MAX_WRITABLE_ACCOUNT_UNITS`]:
+///
+/// ```text
+/// signature_cost + write_lock_cost + data_bytes_cost
+///   + programs_execution_cost + loaded_accounts_data_size_cost
+/// ```
+///
+/// `programs_execution_cost` is the transaction's **requested** compute
+/// limit (`compute_unit_limit`), not what it burns — so the CU dimension
+/// is very much part of the leader's price, and it is usually the largest
+/// term by an order of magnitude. A one-instruction transaction that sets
+/// no `ComputeBudget` instruction is charged
+/// [`DEFAULT_INSTRUCTION_COMPUTE_UNIT_LIMIT`] for it, dwarfing its locks
+/// and signatures.
+///
+/// Hopper computes only the two terms a **declaration** fixes — write
+/// locks and signatures (see [`ContentionProfile`]). The other three are
+/// caller choices (requested CU limit, requested loaded-data limit,
+/// instruction-data length), not properties of the program, so no static
+/// analysis of a manifest can supply them. Read any figure from this
+/// module as "the part of the leader's price your declaration determines",
+/// never as the transaction's block cost.
+///
+/// Values verified against `anza-xyz/agave` master (Agave 4.x, mid-2026).
+/// Each carries its upstream source so a repricing SIMD is a one-line
+/// audit here rather than an archaeology exercise.
+pub mod cost_model {
+    /// CU charged per **writable account lock**, per transaction.
+    /// `block_cost_limits.rs:18` (`WRITE_LOCK_UNITS = 30 * 10`).
+    ///
+    /// Charged for every writable account, including ones the runtime
+    /// demotes internally — so removing a writable account from a
+    /// transaction removes exactly this much block cost.
+    pub const WRITE_LOCK_UNITS: u64 = 300;
+
+    /// CU charged per transaction signature. `block_cost_limits.rs:10`
+    /// (`SIGNATURE_COST = 30 * 24`).
+    pub const SIGNATURE_COST: u64 = 720;
+
+    /// Loaded-accounts-data cost is charged per 32 KiB page.
+    /// `cost_model.rs:24` (`ACCOUNT_DATA_COST_PAGE_SIZE = 32 * 1024`).
+    pub const ACCOUNT_DATA_COST_PAGE_SIZE: u64 = 32 * 1024;
+
+    /// CU per loaded-accounts-data page. `execution_budget.rs:30`
+    /// (`DEFAULT_HEAP_COST = 8`). SIMD-0186 (Accepted) fixed how the size
+    /// is *measured* — `data_len + 64` of metadata per loaded account —
+    /// not this rate.
+    pub const HEAP_COST_PER_PAGE: u64 = 8;
+
+    /// Per-account metadata counted toward loaded data size (SIMD-0186).
+    pub const LOADED_ACCOUNT_METADATA_BYTES: u64 = 64;
+
+    /// Instruction-data cost divisor: `len / 4`. `cost_model.rs:183`
+    /// (`INSTRUCTION_DATA_BYTES_COST = 140 / 30`).
+    pub const INSTRUCTION_DATA_COST_DIVISOR: u64 = 4;
+
+    /// CU charged for execution when a transaction requests no explicit
+    /// compute limit: the per-instruction default.
+    /// `program-runtime/src/execution_budget.rs`
+    /// (`DEFAULT_INSTRUCTION_COMPUTE_UNIT_LIMIT`).
+    ///
+    /// This is charged as `programs_execution_cost` — the *requested*
+    /// limit, not the burn — and is typically the dominant term of a
+    /// transaction's block cost. A client lowers it with
+    /// `SetComputeUnitLimit`; nothing in a program's declaration can.
+    pub const DEFAULT_INSTRUCTION_COMPUTE_UNIT_LIMIT: u64 = 200_000;
+
+    /// Hard per-transaction compute ceiling
+    /// (`MAX_COMPUTE_UNIT_LIMIT`), for reference alongside the default.
+    pub const MAX_REQUESTABLE_COMPUTE_UNITS: u64 = 1_400_000;
+
+    /// Loaded-accounts-data cost charged when a transaction requests no
+    /// explicit limit: the 64 MiB default ceiling, i.e. 2048 pages * 8 CU.
+    /// Lowered with `SetLoadedAccountsDataSizeLimit`.
+    pub const DEFAULT_LOADED_ACCOUNTS_DATA_COST: u64 = 16_384;
+
+    /// Live mainnet-beta block CU limit (SIMD-0256, activated epoch 822,
+    /// ~2025-07-15). `block_cost_limits.rs:26-27`. SIMD-0286 raises this
+    /// to 100,000,000 but is merged-not-activated as of this writing.
+    pub const MAX_BLOCK_UNITS: u64 = 60_000_000;
+
+    /// Per-writable-account block CU cap: one hot account can absorb at
+    /// most this much of a block. `block_cost_limits.rs:33`
+    /// (`MAX_WRITABLE_ACCOUNT_UNITS`, raised from 12M to 24M).
+    ///
+    /// This is the real "local fee market": there is no per-account base
+    /// fee (SIMD-0110 is unactivated), only this cap plus priority fees.
+    pub const MAX_WRITABLE_ACCOUNT_UNITS: u64 = 24_000_000;
+
+    /// Loaded-accounts-data cost for `bytes` of account data, rounded up
+    /// to whole pages exactly as the cost model does.
+    pub const fn loaded_data_cost(bytes: u64) -> u64 {
+        let pages = bytes.div_ceil(ACCOUNT_DATA_COST_PAGE_SIZE);
+        pages * HEAP_COST_PER_PAGE
+    }
+}
+
+/// The block-cost contribution an instruction makes purely by virtue of
+/// **what it declares** — computed from the same `WriteRange` consts the
+/// runtime enforces and the manifest publishes.
+///
+/// Every field here is exact and static: no measurement, no model, no
+/// estimate. What it deliberately does **not** include is the program's
+/// own compute consumption, which cannot be derived from a declaration and
+/// which Hopper never fabricates (see
+/// [`cu_estimate`](InstructionDescriptor::cu_estimate)).
+///
+/// # Why this is Hopper-specific
+///
+/// [`effective_writable`](InstructionDescriptor::effective_writable) can
+/// demote a declared-writable account to read-only when the instruction's
+/// write set proves it is never mutated. Each demotion removes a real
+/// write lock: [`cost_model::WRITE_LOCK_UNITS`] of block cost, and one
+/// account the transaction no longer serializes against. A framework
+/// without a proven, enforced write set cannot demote soundly, so it must
+/// charge every declared-writable account in full.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ContentionProfile {
+    /// Accounts the instruction declares writable.
+    pub declared_writable: u32,
+    /// Accounts still writable after sound demotion.
+    pub effective_writable: u32,
+    /// Signers the instruction requires.
+    pub signers: u32,
+    /// Non-signer accounts the write set proves are **never mutated** — in
+    /// either dimension — for the whole instruction, whatever flag a caller
+    /// happens to send.
+    ///
+    /// This is the number a client author acts on. A correct Hopper
+    /// manifest already marks these read-only, so they cost nothing; the
+    /// figure matters because a hand-rolled client (or a naive port from
+    /// another framework, where "when in doubt, mark it writable" is the
+    /// safe default) that marks one writable pays a full write lock and
+    /// serializes every transaction touching that account, for a byte it
+    /// provably cannot write. Non-zero only under a mutation-complete
+    /// write set, because only then is "never mutated" provable.
+    ///
+    /// **Signers are deliberately excluded even when the write set clears
+    /// them.** Writability is a transaction-level flag and the fee payer —
+    /// a signer — must be writable to be debited, whatever any single
+    /// instruction declares. Counting signers here would turn a costing
+    /// hint into advice that breaks transactions.
+    pub provably_read_only: u32,
+    /// Whether demotion was even permitted (requires `mutation_complete`).
+    pub demotion_available: bool,
+    /// Declared ceiling on caller-supplied suffix accounts
+    /// (`remaining_accounts`), or 0 when the instruction accepts none.
+    ///
+    /// Every one of these may arrive writable — clients preserve
+    /// caller-supplied flags — and the write set says nothing about them,
+    /// so they are an unbounded-by-declaration addition to the lock
+    /// footprint up to this ceiling. Reported separately rather than
+    /// folded into the cost figures: the *declared* cost is exact, and
+    /// pretending the worst case is the expected case would be its own
+    /// dishonesty.
+    pub remaining_accounts_max: u16,
+}
+
+impl ContentionProfile {
+    /// Writable accounts demotion removes (`declared - effective`).
+    pub const fn demoted(&self) -> u32 {
+        self.declared_writable - self.effective_writable
+    }
+
+    /// What ONE needlessly-writable account costs: a flat write lock.
+    ///
+    /// Not scaled by [`provably_read_only`](Self::provably_read_only) —
+    /// the leader charges [`cost_model::WRITE_LOCK_UNITS`] per *unique
+    /// writable key in a transaction*, so multiplying by a count of
+    /// declaration slots would answer a question nobody asked (an account
+    /// named by ten instructions is still one lock in a transaction that
+    /// touches it once).
+    pub const fn cost_per_over_marked_account() -> u64 {
+        cost_model::WRITE_LOCK_UNITS
+    }
+
+    /// Write-lock cost of the declared writable set, before demotion.
+    pub const fn declared_write_lock_cost(&self) -> u64 {
+        self.declared_writable as u64 * cost_model::WRITE_LOCK_UNITS
+    }
+
+    /// Write-lock cost of the accounts a client must still send writable.
+    pub const fn effective_write_lock_cost(&self) -> u64 {
+        self.effective_writable as u64 * cost_model::WRITE_LOCK_UNITS
+    }
+
+    /// Write-lock cost removed by demotion — the payoff of a proven set.
+    pub const fn write_lock_cost_saved(&self) -> u64 {
+        self.declared_write_lock_cost() - self.effective_write_lock_cost()
+    }
+
+    /// Signature component this instruction's declaration implies.
+    pub const fn signature_cost(&self) -> u64 {
+        self.signers as u64 * cost_model::SIGNATURE_COST
+    }
+
+    /// The part of the leader's price this **declaration** fixes: write
+    /// locks (after demotion) plus signatures.
+    ///
+    /// This is deliberately NOT "the transaction's block cost", and the
+    /// difference is large. Agave charges three further terms (see
+    /// [`cost_model`]): the requested compute limit — usually dominant,
+    /// [`cost_model::DEFAULT_INSTRUCTION_COMPUTE_UNIT_LIMIT`] when a
+    /// client sets none — the requested loaded-data limit, and instruction
+    /// data length. All three are caller choices, not declaration
+    /// properties. Two further caveats keep this an instruction-scoped
+    /// figure rather than a transaction one:
+    ///
+    /// - The **fee payer** is always a writable signing account of the
+    ///   message. When it is not already among this instruction's declared
+    ///   writable accounts, a real transaction pays one more write lock
+    ///   (and, if the instruction declares no signer, one more signature)
+    ///   than this reports.
+    /// - Locks and signatures are charged **once per transaction** over
+    ///   deduplicated keys. Summing this across instructions that share an
+    ///   account double-counts.
+    ///
+    /// Use it to compare declarations and to gate declaration drift, not
+    /// to predict a fee or a block share.
+    pub const fn declared_lock_and_signature_cost(&self) -> u64 {
+        self.effective_write_lock_cost() + self.signature_cost()
+    }
+
+    /// Additional write-lock cost if every accepted `remaining_accounts`
+    /// slot arrives writable — the declared worst case, `0` when the
+    /// instruction accepts none.
+    ///
+    /// Kept out of [`declared_lock_and_signature_cost`] on purpose: that
+    /// figure is what the declaration *fixes*, while this is what a caller
+    /// may add on top of it and the write set cannot constrain.
+    pub const fn remaining_accounts_worst_case_lock_cost(&self) -> u64 {
+        self.remaining_accounts_max as u64 * cost_model::WRITE_LOCK_UNITS
+    }
+}
+
 impl InstructionDescriptor {
     /// Exact discriminator bytes clients must prepend and verifiers must bind.
     #[inline(always)]
@@ -2762,7 +3003,15 @@ impl InstructionDescriptor {
         if !declared_writable {
             return false;
         }
-        if !self.mutation_complete || account_index > u8::MAX as usize {
+        // `mutation_complete` without `strict_writes` carries no authority:
+        // the byte ranges were never enforced, so "no declared range" proves
+        // nothing. The macro can only produce `mutation_complete =
+        // strict_writes && lamports_declared`, but a manifest is just JSON —
+        // a hand-written or third-party one can set `mutationComplete` with
+        // `strictWrites` absent (both default permissively), and demoting on
+        // that would tell a client to send genuinely-written accounts
+        // read-only. Same refusal-to-claim as `account_has_declared_write`.
+        if !self.strict_writes || !self.mutation_complete || account_index > u8::MAX as usize {
             return declared_writable;
         }
         let idx = account_index as u8;
@@ -2772,6 +3021,61 @@ impl InstructionDescriptor {
             declared_writable
         } else {
             false
+        }
+    }
+
+    /// The instruction's declared contention footprint: how many write
+    /// locks it takes, how many of those a proven write set lets a client
+    /// drop, and what that is worth in block cost.
+    ///
+    /// Derived entirely from the declaration — the account list plus the
+    /// same [`write_ranges`]/[`lamport_accounts`] consts the runtime
+    /// enforces — so it is exact at compile time and needs no measurement.
+    /// See [`ContentionProfile`] for what it deliberately excludes.
+    ///
+    /// [`write_ranges`]: InstructionDescriptor::write_ranges
+    /// [`lamport_accounts`]: InstructionDescriptor::lamport_accounts
+    pub fn contention_profile(&self) -> ContentionProfile {
+        let mut declared_writable = 0u32;
+        let mut effective_writable = 0u32;
+        let mut signers = 0u32;
+        let mut provably_read_only = 0u32;
+        for (index, entry) in self.accounts.iter().enumerate() {
+            if entry.signer {
+                signers += 1;
+            }
+            // `effective_writable(index, true)` asks the demotion rule the
+            // hypothetical question "if a caller marked THIS account
+            // writable, would it stay writable?" — so a `false` answer is
+            // exactly "the write set proves this account is never
+            // mutated," independent of the flag the manifest declares.
+            let stays_writable_if_marked = self.effective_writable(index, true);
+            // Signers excluded: the fee payer must be writable at the
+            // transaction level regardless of this instruction's ranges
+            // (see the field docs).
+            if !stays_writable_if_marked && !entry.signer {
+                provably_read_only += 1;
+            }
+            if entry.writable {
+                declared_writable += 1;
+                if stays_writable_if_marked {
+                    effective_writable += 1;
+                }
+            }
+        }
+        ContentionProfile {
+            declared_writable,
+            effective_writable,
+            signers,
+            provably_read_only,
+            // Demotion needs BOTH dimensions declared AND the byte ranges
+            // actually enforced; `effective_writable` applies the same
+            // pair, so the advertised availability cannot outrun it.
+            demotion_available: self.mutation_complete && self.strict_writes,
+            remaining_accounts_max: match self.remaining_accounts {
+                Some(descriptor) => descriptor.max,
+                None => 0,
+            },
         }
     }
 
@@ -6032,5 +6336,198 @@ mod tests {
         assert!(!provided.is_pda());
         assert!(pda.is_pda());
         assert!(!AccountEntry::PROVIDED.is_pda());
+    }
+
+    // -----------------------------------------------------------------------
+    // Contention profile (C4)
+    // -----------------------------------------------------------------------
+
+    /// admin (signer, ro) / config (writable, has a declared byte range) /
+    /// fee_sink (writable, lamport permission only) / treasury (writable,
+    /// NEITHER — the demotable one) / clock (ro).
+    static CONTENTION_ACCOUNTS: &[AccountEntry] = &[
+        AccountEntry {
+            name: "admin",
+            writable: false,
+            signer: true,
+            layout_ref: "",
+            seeds: &[],
+        },
+        AccountEntry {
+            name: "config",
+            writable: true,
+            signer: false,
+            layout_ref: "Config",
+            seeds: &[],
+        },
+        AccountEntry {
+            name: "fee_sink",
+            writable: true,
+            signer: false,
+            layout_ref: "",
+            seeds: &[],
+        },
+        AccountEntry {
+            name: "treasury",
+            writable: true,
+            signer: false,
+            layout_ref: "",
+            seeds: &[],
+        },
+        AccountEntry {
+            name: "clock",
+            writable: false,
+            signer: false,
+            layout_ref: "",
+            seeds: &[],
+        },
+    ];
+
+    fn contention_descriptor(mutation_complete: bool) -> InstructionDescriptor {
+        InstructionDescriptor {
+            name: "collect_fees",
+            tag: 7,
+            discriminator: &[7],
+            args: &[],
+            accounts: CONTENTION_ACCOUNTS,
+            remaining_accounts: None,
+            capabilities: &[],
+            policy_pack: "",
+            receipt_expected: false,
+            strict_writes: true,
+            // Only `config` (index 1) carries a declared data range.
+            write_ranges: &[WriteRange {
+                account_index: 1,
+                offset: 16,
+                size: 8,
+            }],
+            parametric_write_ranges: &[],
+            mutation_complete,
+            // Only `fee_sink` (index 2) carries lamport permission.
+            lamport_accounts: &[2],
+            cu_estimate: 0,
+        }
+    }
+
+    #[test]
+    fn contention_profile_counts_locks_and_demotions() {
+        let profile = contention_descriptor(true).contention_profile();
+        assert_eq!(profile.declared_writable, 3, "config, fee_sink, treasury");
+        // `treasury` has no data range and no lamport permission, so a
+        // mutation-complete write set proves it is never mutated.
+        assert_eq!(profile.effective_writable, 2);
+        assert_eq!(profile.demoted(), 1);
+        assert_eq!(profile.signers, 1);
+        assert!(profile.demotion_available);
+        // Provably read-only spans every NON-SIGNER account the write set
+        // clears, whatever flag the manifest declares: `treasury` and
+        // `clock`. `config` (data range) and `fee_sink` (lamport
+        // permission) are not provable; `admin` is excluded as a signer
+        // even though nothing in the write set touches it, because the fee
+        // payer must stay writable at the transaction level.
+        assert_eq!(profile.provably_read_only, 2);
+        // Over-marking costs ONE flat lock per account — never that count
+        // multiplied by how many slots happen to be provable, since the
+        // leader charges per unique writable key in a transaction.
+        assert_eq!(
+            ContentionProfile::cost_per_over_marked_account(),
+            cost_model::WRITE_LOCK_UNITS
+        );
+
+        // The demotion is worth exactly one write lock.
+        assert_eq!(profile.declared_write_lock_cost(), 900); // 3 * 300
+        assert_eq!(profile.effective_write_lock_cost(), 600); // 2 * 300
+        assert_eq!(
+            profile.write_lock_cost_saved(),
+            cost_model::WRITE_LOCK_UNITS
+        );
+        assert_eq!(profile.signature_cost(), 720);
+        assert_eq!(profile.declared_lock_and_signature_cost(), 600 + 720);
+        // This fixture accepts no caller-supplied suffix accounts.
+        assert_eq!(profile.remaining_accounts_max, 0);
+        assert_eq!(profile.remaining_accounts_worst_case_lock_cost(), 0);
+    }
+
+    /// `mutation_complete` without `strict_writes` carries no authority:
+    /// the byte ranges were never enforced. A manifest is just JSON and
+    /// both keys default permissively, so a hand-written one can claim the
+    /// former without the latter — demoting on it would tell a client to
+    /// send genuinely-written accounts read-only.
+    #[test]
+    fn a_complete_claim_without_enforcement_demotes_nothing() {
+        let mut descriptor = contention_descriptor(true);
+        descriptor.strict_writes = false;
+        let profile = descriptor.contention_profile();
+        assert_eq!(profile.declared_writable, 3);
+        assert_eq!(
+            profile.effective_writable, 3,
+            "unenforced ranges prove nothing"
+        );
+        assert_eq!(profile.provably_read_only, 0);
+        assert!(!profile.demotion_available);
+        // And the per-account rule agrees.
+        assert!(
+            descriptor.effective_writable(3, true),
+            "treasury stays writable"
+        );
+    }
+
+    #[test]
+    fn contention_profile_never_demotes_without_a_complete_write_set() {
+        // Same accounts and ranges, but the lamport dimension was not
+        // declared: demotion is unsound (an undeclared account could still
+        // legitimately receive lamports), so every declared lock is charged.
+        let profile = contention_descriptor(false).contention_profile();
+        assert_eq!(profile.declared_writable, 3);
+        assert_eq!(profile.effective_writable, 3, "no demotion without proof");
+        assert_eq!(profile.demoted(), 0);
+        assert_eq!(profile.write_lock_cost_saved(), 0);
+        assert!(!profile.demotion_available);
+        // Nothing is PROVABLY read-only either: without the lamport
+        // dimension the write set cannot rule out a lamport-only mutation.
+        assert_eq!(profile.provably_read_only, 0);
+    }
+
+    /// The profile's per-account demotion decisions must be exactly the
+    /// ones `effective_writable` hands generated clients — the profile is
+    /// a summary of that rule, never a second implementation of it. A
+    /// published contention figure that disagreed with the account flags
+    /// the client actually emits would be worse than no figure at all.
+    #[test]
+    fn profile_counts_match_the_per_account_demotion_rule() {
+        for mutation_complete in [false, true] {
+            let descriptor = contention_descriptor(mutation_complete);
+            let profile = descriptor.contention_profile();
+
+            let mut declared = 0u32;
+            let mut effective = 0u32;
+            let mut signers = 0u32;
+            for (index, account) in descriptor.accounts.iter().enumerate() {
+                if account.signer {
+                    signers += 1;
+                }
+                if account.writable {
+                    declared += 1;
+                    if descriptor.effective_writable(index, true) {
+                        effective += 1;
+                    }
+                }
+            }
+            assert_eq!(profile.declared_writable, declared);
+            assert_eq!(profile.effective_writable, effective);
+            assert_eq!(profile.signers, signers);
+            assert_eq!(profile.demotion_available, mutation_complete);
+        }
+    }
+
+    #[test]
+    fn loaded_data_cost_rounds_up_to_whole_pages() {
+        // 8 CU per 32 KiB page, ceil — matching the cost model exactly.
+        assert_eq!(cost_model::loaded_data_cost(0), 0);
+        assert_eq!(cost_model::loaded_data_cost(1), 8);
+        assert_eq!(cost_model::loaded_data_cost(32 * 1024), 8);
+        assert_eq!(cost_model::loaded_data_cost(32 * 1024 + 1), 16);
+        // The 64 MiB loaded-data ceiling costs 2048 pages * 8.
+        assert_eq!(cost_model::loaded_data_cost(64 * 1024 * 1024), 16_384);
     }
 }

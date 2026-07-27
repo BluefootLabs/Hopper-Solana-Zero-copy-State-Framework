@@ -98,6 +98,15 @@ Profiling
   hopper profile bench               Run the primitive benchmark lab and emit JSON/CSV artifacts
   hopper profile elf <program.so>    Static SBF symbols, CU-ish estimates, sections, flamegraph export
 
+Contention
+  hopper contention <manifest>       Per-instruction write-lock and signature footprint the
+                                     declaration fixes (no measurement), plus the accounts a
+                                     proven write set shows are read-only
+  hopper contention <manifest> --max-block-cost <CU>   Fail (exit 1) over a ceiling: a CI gate
+                                     on declared lock footprint. Not a transaction's block
+                                     cost (the requested CU limit dominates that) and not
+                                     the compute a handler burns
+
 Project Health
   hopper lint                        Run Hopper project diagnostics
   hopper lint zc                     Scan typed-context sources for zero-copy footguns

@@ -56,6 +56,7 @@
 //! hopper config get|set|list|reset|path               Global configuration store
 //! hopper lint                                        Run Hopper project diagnostics
 //! hopper lint zc                                     Run zero-copy source diagnostics
+//! hopper contention <manifest>                       Declared write-lock and signature footprint
 //! hopper expand                                      Show lowered macro output
 //! hopper tx explain <signature>                       Fetch and explain an on-chain transaction
 //! hopper tx send --program <id> --account ... --data <hex>  Generic instruction sender (no Node)
@@ -191,6 +192,7 @@ fn main() {
         "keys" => cmd::keys::cmd_keys(&args[2..]),
         "config" => cmd::config::cmd_config(&args[2..]),
         "lint" => cmd::lint::cmd_lint(&args[2..]),
+        "contention" => cmd::contention::cmd_contention(&args[2..], load_program_manifest),
         "expand" => cmd::expand::cmd_expand(&args[2..]),
         "tx" => cmd_tx_family(&args[2..]),
         "doctor" => cmd::doctor::cmd_doctor(&args[2..]),
@@ -2437,6 +2439,8 @@ fn print_usage() {
     println!("    hopper publish-idl --manifest <path> --program-id <pubkey> [--dry-run]");
     println!("                                           Publish the Anchor IDL to the SPL Program Metadata PDA (zero Node deps)");
     println!("    hopper solana-check [--all]            Check SBF crate shape and Hopper entrypoint invariants");
+    println!("    hopper contention <manifest>           Declared write-lock/signature footprint per instruction");
+    println!("                                           (--max-block-cost <CU> gates it in CI)");
     println!();
     println!("  Schema:");
     println!("    hopper schema export               Schema format reference");
