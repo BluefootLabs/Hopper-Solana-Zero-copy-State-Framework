@@ -103,6 +103,7 @@ Contention
                                      declaration fixes (no measurement), plus the accounts a
                                      proven write set shows are read-only
   hopper contention <manifest> --max-block-cost <CU>   Fail (exit 1) over a ceiling: a CI gate
+  hopper audit-check [--strict]       Verify content-addressed audit evidence, freshness, and blockers
                                      on declared lock footprint. Not a transaction's block
                                      cost (the requested CU limit dominates that) and not
                                      the compute a handler burns
@@ -114,6 +115,15 @@ Project Health
   hopper solana-check [--all]        Check SBF crate shape and Hopper entrypoint invariants
   hopper expand                      Show lowered macro output for the current project
   hopper doctor                      Check toolchain and workspace health
+
+Adversarial Testing
+  hopper fuzz generate --program <manifest> [--out <plan>] [--corpus <dir>]
+                                     Generate deterministic seeded cases and invariant hooks
+  hopper fuzz check --program <manifest> [--plan <plan>]
+                                     Fail when a committed case plan is stale
+  hopper fuzz run --program <manifest> --adapter <executable> [--plan <plan>]
+                                     Execute cases through an application adapter; fail closed on
+                                     missing results, skips, failures, or unchecked invariants
 
 Direct aliases
   hopper decode <hex>                Alias for inspect

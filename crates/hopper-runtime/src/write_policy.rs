@@ -190,6 +190,10 @@ pub struct ParametricWriteRange {
 impl ParametricWriteRange {
     /// Build one parametric column rule.
     #[inline(always)]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "the constructor mirrors the eight independent manifest selector fields"
+    )]
     pub const fn new(
         account_index: u8,
         base_offset: u32,
@@ -792,6 +796,7 @@ struct GateEntry {
 }
 
 impl GateEntry {
+    #[cfg_attr(target_os = "solana", allow(dead_code))]
     const EMPTY: Self = Self {
         address: Address::new([0; 32]),
         index: 0,
@@ -821,6 +826,7 @@ struct GateSlot {
 }
 
 impl GateSlot {
+    #[cfg_attr(target_os = "solana", allow(dead_code))]
     const FREE: Self = Self {
         token: 0,
         len: 0,
@@ -894,6 +900,7 @@ struct GateStore<const DEPTH: usize> {
 impl<const DEPTH: usize> GateStore<DEPTH> {
     /// All-zero by construction — see [`GateStore::issued`]. Do not add a
     /// non-zero field initializer here without re-reading that doc.
+    #[cfg_attr(target_os = "solana", allow(dead_code))]
     const fn new() -> Self {
         Self {
             issued: 0,
@@ -1206,6 +1213,7 @@ pub(crate) const SBF_GATE_DEPTH: usize = 2;
 /// Anyone adding a third consumer extends from THAT module's end the
 /// same way, keeping the reserved-scratch layout a single linear chain.
 #[cfg(target_os = "solana")]
+#[allow(dead_code)]
 pub(crate) const SBF_GATE_HEAP_END: usize =
     core::mem::size_of::<usize>() + core::mem::size_of::<GateStore<SBF_GATE_DEPTH>>();
 

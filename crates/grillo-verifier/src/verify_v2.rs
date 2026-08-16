@@ -68,6 +68,10 @@ pub struct PassEvidenceV2 {
 
 /// Behavioral verdict. No variant claims ledger or provider authenticity.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[expect(
+    clippy::large_enum_variant,
+    reason = "boxing Pass would needlessly break the public verdict API"
+)]
 pub enum EffectVerdictV2 {
     Pass(PassEvidenceV2),
     Violation(Vec<ViolationV2>),

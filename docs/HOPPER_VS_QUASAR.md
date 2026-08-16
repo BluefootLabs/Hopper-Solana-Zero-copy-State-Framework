@@ -87,7 +87,7 @@ pub struct Note<'a> {
 ## Where Hopper Adds More
 
 - Segment leases let systems-mode code borrow disjoint byte ranges instead of whole accounts (`crates/hopper-runtime/src/segment_borrow.rs`).
-- Instruction touch maps enumerate the exact `(account, offset, size, read/write)` footprint an instruction touched, at measured 0 CU (`Context::for_each_touch`, `touch-map` feature).
+- Instruction touch maps enumerate the exact `(account, offset, size, read/write)` footprint an instruction touched (`Context::for_each_touch`, `touch-map` feature). The documented touch-map-enabled smoke case measured +52 CU; disabled programs pay none of that feature cost.
 - Field-level write policies: `#[hopper::context(strict_writes)]` enforces declared mutable byte ranges at borrow acquisition (`crates/hopper-runtime/src/write_policy.rs`).
 - Behaviors are accountable: `HopperBehavior` plugins contribute their `WRITES` to the write policy and return `BehaviorChecked` proof tokens (`crates/hopper-runtime/src/behavior.rs`). Quasar's `AccountBehavior` is side-effect-only hooks.
 - Foreign lenses read other programs' accounts through a manifest with 4-way ABI-drift detection — owner, discriminator, wire fingerprint, schema-epoch range (`crates/hopper-runtime/src/foreign.rs::ForeignManifest`).
@@ -100,18 +100,24 @@ See [COMPARISON.md](../COMPARISON.md) for which of these a Pinocchio-based frame
 
 ## Project maturity and soundness track record
 
-Facts verified 2026-07-07 against public trackers and registries. This is stated
+Snapshot refreshed 2026-08-15 against public source and official docs. This is stated
 factually because readers weighing the two frameworks need it, not as a knock
 on Quasar's engineering, which is real.
 
-- **Release status.** Quasar is v0.0.0 — no tags, no releases, not published
-  on crates.io — and describes itself as "Beta … not audited". It builds only
-  on nightly Rust with a bespoke toolchain. Hopper is published
-  (hopper-lang 0.3.0 on crates.io), builds on stable Rust (pinned 1.96.0),
-  and carries a line-by-line audit trail
-  (`docs/UNSAFE_INVARIANTS.md`).
-- **Open soundness issues.** Quasar's tracker carries five open
-  unsoundness/correctness issues as of 2026-07:
+- **Release status.** Quasar's default branch and crates.io package remain
+  0.0.0. Its active `0.1.0-release` branch is substantially ahead: typed
+  grow/shrink migrations, wire IDL/ABI hashing, expanded clients and CLI,
+  QuasarSVM, Kani/Miri/fuzz lanes, and CU budget work. It still describes the
+  0.1 line as beta and unaudited, and had no public 0.1 tag/release at this
+  snapshot.
+  Hopper's public crates.io release is 0.2.1; this source workspace is the
+  unpublished 0.3.0 line. Hopper builds on stable Rust (pinned 1.96.0) and
+  carries an internal line-by-line audit trail (`docs/UNSAFE_INVARIANTS.md`),
+  but neither internal review nor documentation is a third-party audit.
+- **Soundness history and current work.** The five 2026-07 issue classes below
+  are retained as historical regression provenance, not asserted as the
+  current open-issue count. Current 0.1 release-line work includes CPI
+  return-data handling and optional mutable-account duplicate coverage.
   [#238](https://github.com/blueshift-gg/quasar/issues/238) and
   [#234](https://github.com/blueshift-gg/quasar/issues/234) (CPI return-data
   `assume_init` over uninitialized bytes — UB),
@@ -136,14 +142,18 @@ on Quasar's engineering, which is real.
   bug — `safe_close` previously accepted an aliased destination and silently
   burned the drained lamports, the exact #240 shape — which was fixed and
   pinned in the same pass. The framework audits itself.
-- **Benchmark culture.** Quasar publishes no comparative CU benchmark.
-  Hopper's pinned, provenance-checked `hopper-bench` matrix (vault four-way
-  re-measured 2026-07-09, router three-way 2026-07-07) is currently the only
-  published cross-framework table that includes Quasar; in it, Hopper wins
-  both rows Quasar's upstream vault implements (deposit −103 CU, withdraw
-  −98 CU) and
-  beats Quasar on every 1–3-hop router row (−18/−20/−21 CU) with a smaller
-  binary. See
-  `BENCHMARKS.md`.
+- **Benchmark culture.** Quasar's cross-framework benchmark work is currently
+  an open draft ([#497](https://github.com/blueshift-gg/quasar/pull/497)), not
+  a released result. Hopper's older pinned matrix remains a dated measurement,
+  not evidence about Quasar's current release branch.
+  Hopper's older `hopper-bench` matrix (vault four-way re-measured
+  2026-07-09, router three-way 2026-07-07) includes Quasar and measured Hopper
+  lower on the Quasar-implemented vault rows and the 1–3-hop router rows. It
+  is historical fixture evidence, not a current release-line ranking. Do not
+  repeat its deltas until the clean, same-behavior five-way archive is
+  committed. See `BENCHMARKS.md` for the dated rows and provenance caveats.
+
+For the pinned release-branch audit, peer matrix, and Cicada validation, see
+[the 2026-08-15 zero-copy framework audit](ZERO_COPY_FRAMEWORK_AUDIT_2026-08-15.md).
 
 Use Quasar mental models to read Hopper programs. Use Hopper contracts when account bytes, upgrades, and long-lived protocol state need to be auditable.

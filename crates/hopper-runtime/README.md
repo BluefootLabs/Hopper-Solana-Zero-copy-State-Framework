@@ -31,4 +31,4 @@ Most users touch this crate transitively through hopper::prelude::*. Reach for h
 
 ## License
 
-Apache-2.0. See [LICENSE](../../LICENSE).
+Apache-2.0. See [LICENSE](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/LICENSE).

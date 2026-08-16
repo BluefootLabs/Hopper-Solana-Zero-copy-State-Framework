@@ -262,6 +262,7 @@ fn run_invoke(opts: &InvokeOpts) -> Result<(), String> {
         .map_err(|e| format!("get_latest_blockhash: {e}"))?;
     let mut tx = Transaction::new_with_payer(&instructions, Some(&payer.pubkey()));
     tx.sign(&[&payer], recent);
+    super::transaction_limits::ensure_legacy_transaction_size(&tx, "hopper manager invoke")?;
 
     if opts.dry_run {
         // Simulation round-trip: hit simulateTransaction, print the
@@ -839,6 +840,7 @@ fn crank_tick(
         .map_err(|e| format!("get_latest_blockhash: {e}"))?;
     let mut tx = Transaction::new_with_payer(&instructions, Some(&payer.pubkey()));
     tx.sign(&[&payer], recent);
+    super::transaction_limits::ensure_legacy_transaction_size(&tx, "hopper manager crank")?;
 
     if dry_run {
         let sim_config = RpcSimulateTransactionConfig {

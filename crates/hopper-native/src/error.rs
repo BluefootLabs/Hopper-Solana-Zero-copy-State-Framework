@@ -132,6 +132,45 @@ const fn to_builtin(index: u64) -> u64 {
     (index + 2) << BUILTIN_BIT_SHIFT
 }
 
+impl core::fmt::Display for ProgramError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            ProgramError::Custom(code) => write!(f, "Custom({code})"),
+            ProgramError::InvalidArgument => write!(f, "InvalidArgument"),
+            ProgramError::InvalidInstructionData => write!(f, "InvalidInstructionData"),
+            ProgramError::InvalidAccountData => write!(f, "InvalidAccountData"),
+            ProgramError::AccountDataTooSmall => write!(f, "AccountDataTooSmall"),
+            ProgramError::InsufficientFunds => write!(f, "InsufficientFunds"),
+            ProgramError::IncorrectProgramId => write!(f, "IncorrectProgramId"),
+            ProgramError::MissingRequiredSignature => write!(f, "MissingRequiredSignature"),
+            ProgramError::AccountAlreadyInitialized => write!(f, "AccountAlreadyInitialized"),
+            ProgramError::UninitializedAccount => write!(f, "UninitializedAccount"),
+            ProgramError::NotEnoughAccountKeys => write!(f, "NotEnoughAccountKeys"),
+            ProgramError::AccountBorrowFailed => write!(f, "AccountBorrowFailed"),
+            ProgramError::MaxSeedLengthExceeded => write!(f, "MaxSeedLengthExceeded"),
+            ProgramError::InvalidSeeds => write!(f, "InvalidSeeds"),
+            ProgramError::BorshIoError => write!(f, "BorshIoError"),
+            ProgramError::AccountNotRentExempt => write!(f, "AccountNotRentExempt"),
+            ProgramError::UnsupportedSysvar => write!(f, "UnsupportedSysvar"),
+            ProgramError::IllegalOwner => write!(f, "IllegalOwner"),
+            ProgramError::MaxAccountsDataAllocationsExceeded => {
+                write!(f, "MaxAccountsDataAllocationsExceeded")
+            }
+            ProgramError::InvalidRealloc => write!(f, "InvalidRealloc"),
+            ProgramError::MaxInstructionTraceLengthExceeded => {
+                write!(f, "MaxInstructionTraceLengthExceeded")
+            }
+            ProgramError::BuiltinProgramsMustConsumeComputeUnits => {
+                write!(f, "BuiltinProgramsMustConsumeComputeUnits")
+            }
+            ProgramError::InvalidAccountOwner => write!(f, "InvalidAccountOwner"),
+            ProgramError::ArithmeticOverflow => write!(f, "ArithmeticOverflow"),
+            ProgramError::Immutable => write!(f, "Immutable"),
+            ProgramError::IncorrectAuthority => write!(f, "IncorrectAuthority"),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -213,45 +252,6 @@ mod tests {
             // And the reverse mapping still round-trips builtins and
             // the custom sentinel exactly as before.
             assert_eq!(ProgramError::from(want), err, "roundtrip for {err:?}");
-        }
-    }
-}
-
-impl core::fmt::Display for ProgramError {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match self {
-            ProgramError::Custom(code) => write!(f, "Custom({code})"),
-            ProgramError::InvalidArgument => write!(f, "InvalidArgument"),
-            ProgramError::InvalidInstructionData => write!(f, "InvalidInstructionData"),
-            ProgramError::InvalidAccountData => write!(f, "InvalidAccountData"),
-            ProgramError::AccountDataTooSmall => write!(f, "AccountDataTooSmall"),
-            ProgramError::InsufficientFunds => write!(f, "InsufficientFunds"),
-            ProgramError::IncorrectProgramId => write!(f, "IncorrectProgramId"),
-            ProgramError::MissingRequiredSignature => write!(f, "MissingRequiredSignature"),
-            ProgramError::AccountAlreadyInitialized => write!(f, "AccountAlreadyInitialized"),
-            ProgramError::UninitializedAccount => write!(f, "UninitializedAccount"),
-            ProgramError::NotEnoughAccountKeys => write!(f, "NotEnoughAccountKeys"),
-            ProgramError::AccountBorrowFailed => write!(f, "AccountBorrowFailed"),
-            ProgramError::MaxSeedLengthExceeded => write!(f, "MaxSeedLengthExceeded"),
-            ProgramError::InvalidSeeds => write!(f, "InvalidSeeds"),
-            ProgramError::BorshIoError => write!(f, "BorshIoError"),
-            ProgramError::AccountNotRentExempt => write!(f, "AccountNotRentExempt"),
-            ProgramError::UnsupportedSysvar => write!(f, "UnsupportedSysvar"),
-            ProgramError::IllegalOwner => write!(f, "IllegalOwner"),
-            ProgramError::MaxAccountsDataAllocationsExceeded => {
-                write!(f, "MaxAccountsDataAllocationsExceeded")
-            }
-            ProgramError::InvalidRealloc => write!(f, "InvalidRealloc"),
-            ProgramError::MaxInstructionTraceLengthExceeded => {
-                write!(f, "MaxInstructionTraceLengthExceeded")
-            }
-            ProgramError::BuiltinProgramsMustConsumeComputeUnits => {
-                write!(f, "BuiltinProgramsMustConsumeComputeUnits")
-            }
-            ProgramError::InvalidAccountOwner => write!(f, "InvalidAccountOwner"),
-            ProgramError::ArithmeticOverflow => write!(f, "ArithmeticOverflow"),
-            ProgramError::Immutable => write!(f, "Immutable"),
-            ProgramError::IncorrectAuthority => write!(f, "IncorrectAuthority"),
         }
     }
 }

@@ -27,6 +27,12 @@
 //! constants are pinned by host tests against known Agave values (e.g.
 //! `sol_memcmp_` → `0x5FDC_DE31`).
 
+// Rustdoc cannot attach outer doc comments to a declarative-macro invocation,
+// even though `define_syscall!` forwards attributes to the emitted function.
+// Keep the call-site documentation readable in source and suppress only that
+// target-specific compiler artifact.
+#![cfg_attr(target_os = "solana", allow(unused_doc_comments))]
+
 /// murmur3 (32-bit) hash of a syscall name, seed `0`.
 ///
 /// This is the exact construction the Agave sBPF loader and the reference

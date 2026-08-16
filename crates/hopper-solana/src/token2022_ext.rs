@@ -57,16 +57,41 @@ pub const EXT_INTEREST_BEARING: u16 = 10;
 pub const EXT_CPI_GUARD: u16 = 11;
 /// Permanent Delegate extension (mint).
 pub const EXT_PERMANENT_DELEGATE: u16 = 12;
+/// Non-transferable account marker (token account).
+pub const EXT_NON_TRANSFERABLE_ACCOUNT: u16 = 13;
 /// Transfer Hook extension (mint).
 pub const EXT_TRANSFER_HOOK: u16 = 14;
+/// Transfer Hook account marker (token account).
+pub const EXT_TRANSFER_HOOK_ACCOUNT: u16 = 15;
+/// Confidential transfer fee configuration (mint).
+pub const EXT_CONFIDENTIAL_TRANSFER_FEE_CONFIG: u16 = 16;
+/// Confidential transfer fee amount (token account).
+pub const EXT_CONFIDENTIAL_TRANSFER_FEE_AMOUNT: u16 = 17;
 /// Metadata Pointer extension (mint).
 pub const EXT_METADATA_POINTER: u16 = 18;
 /// Token Metadata extension (mint).
 pub const EXT_TOKEN_METADATA: u16 = 19;
 /// Group Pointer extension (mint).
 pub const EXT_GROUP_POINTER: u16 = 20;
+/// Token Group extension (mint).
+pub const EXT_TOKEN_GROUP: u16 = 21;
 /// Group Member Pointer extension (mint).
 pub const EXT_GROUP_MEMBER_POINTER: u16 = 22;
+/// Token Group Member extension (mint).
+pub const EXT_TOKEN_GROUP_MEMBER: u16 = 23;
+/// Confidential mint and burn extension (mint).
+pub const EXT_CONFIDENTIAL_MINT_BURN: u16 = 24;
+/// Scaled UI amount configuration (mint).
+pub const EXT_SCALED_UI_AMOUNT: u16 = 25;
+/// Pausable configuration (mint).
+pub const EXT_PAUSABLE: u16 = 26;
+/// Pausable account marker (token account).
+pub const EXT_PAUSABLE_ACCOUNT: u16 = 27;
+/// Permissioned burn configuration (mint).
+pub const EXT_PERMISSIONED_BURN: u16 = 28;
+
+/// Highest Token-2022 extension discriminator reviewed by this release.
+pub const MAX_KNOWN_EXTENSION_TYPE: u16 = EXT_PERMISSIONED_BURN;
 
 /// Base mint account data size (before extensions).
 pub const MINT_BASE_SIZE: usize = 82;
@@ -76,6 +101,13 @@ pub const MINT_BASE_SIZE: usize = 82;
 /// length so its AccountType discriminator lives at the same offset
 /// as on an extended token account.
 pub const TOKEN_ACCOUNT_BASE_SIZE: usize = 165;
+
+/// Canonical SPL Token / Token-2022 multisig account size.
+///
+/// Token-2022 pads any extensible mint or token account that would otherwise
+/// have this length, so a 355-byte body is always multisig-shaped and must not
+/// be parsed as an extension-bearing mint or token account.
+pub const TOKEN_MULTISIG_SIZE: usize = 355;
 
 /// Offset of the `AccountType` discriminator on any extended
 /// Token-2022 account (mint or token account).
@@ -115,7 +147,7 @@ pub const ACCOUNT_TYPE_TOKEN: u8 = 2;
 pub fn find_extension_data(data: &[u8], base_size: usize, ext_type: u16) -> Option<&[u8]> {
     // Must be long enough to hold at least the AccountType byte and
     // the start of the TLV region.
-    if data.len() <= TLV_OFFSET {
+    if data.len() <= TLV_OFFSET || data.len() == TOKEN_MULTISIG_SIZE {
         return None;
     }
 
@@ -174,6 +206,31 @@ pub fn token_has_extension(token_data: &[u8], ext_type: u16) -> bool {
     find_extension_data(token_data, TOKEN_ACCOUNT_BASE_SIZE, ext_type).is_some()
 }
 
+/// Validate a finalized mint's extension envelope before applying policy.
+///
+/// Plain 82-byte mints have no TLV region. Extended mints must use the exact
+/// Token-2022 mint discriminator, preserve the zero padding between the base
+/// mint and the shared account-type offset, and contain a structurally valid
+/// TLV stream. Presence readers remain intentionally best-effort; security
+/// gates should call this function or [`check_safe_token_2022_mint`]. The
+/// caller must separately verify the account owner and base-mint initialized
+/// flag; this module screens extension bytes, not the whole account contract.
+pub fn validate_token_2022_mint_extensions(mint_data: &[u8]) -> Result<(), ProgramError> {
+    if mint_data.len() == MINT_BASE_SIZE {
+        return Ok(());
+    }
+    if mint_data.len() <= TLV_OFFSET
+        || mint_data.len() == TOKEN_MULTISIG_SIZE
+        || mint_data[ACCOUNT_TYPE_OFFSET] != ACCOUNT_TYPE_MINT
+        || mint_data[MINT_BASE_SIZE..ACCOUNT_TYPE_OFFSET]
+            .iter()
+            .any(|byte| *byte != 0)
+    {
+        return Err(ProgramError::InvalidAccountData);
+    }
+    hopper_runtime::token_2022_ext::validate_tlv_structure(&mint_data[TLV_OFFSET..])
+}
+
 // ── Safety Checks ────────────────────────────────────────────────────────────
 
 /// Reject mints that have a Transfer Fee Config extension.
@@ -182,6 +239,7 @@ pub fn token_has_extension(token_data: &[u8], ext_type: u16) -> bool {
 /// invariants, lending health checks, and distribution math.
 #[inline(always)]
 pub fn check_no_transfer_fee(mint_data: &[u8]) -> Result<(), ProgramError> {
+    validate_token_2022_mint_extensions(mint_data)?;
     if mint_has_extension(mint_data, EXT_TRANSFER_FEE_CONFIG) {
         return Err(ProgramError::InvalidAccountData);
     }
@@ -194,6 +252,7 @@ pub fn check_no_transfer_fee(mint_data: &[u8]) -> Result<(), ProgramError> {
 /// any time, making escrow and collateral positions unsafe.
 #[inline(always)]
 pub fn check_no_permanent_delegate(mint_data: &[u8]) -> Result<(), ProgramError> {
+    validate_token_2022_mint_extensions(mint_data)?;
     if mint_has_extension(mint_data, EXT_PERMANENT_DELEGATE) {
         return Err(ProgramError::InvalidAccountData);
     }
@@ -206,6 +265,7 @@ pub fn check_no_permanent_delegate(mint_data: &[u8]) -> Result<(), ProgramError>
 /// AMM invariants, and distribution correctness.
 #[inline(always)]
 pub fn check_no_confidential_transfer(mint_data: &[u8]) -> Result<(), ProgramError> {
+    validate_token_2022_mint_extensions(mint_data)?;
     if mint_has_extension(mint_data, EXT_CONFIDENTIAL_TRANSFER_MINT) {
         return Err(ProgramError::InvalidAccountData);
     }
@@ -215,6 +275,7 @@ pub fn check_no_confidential_transfer(mint_data: &[u8]) -> Result<(), ProgramErr
 /// Reject non-transferable (soul-bound) mints.
 #[inline(always)]
 pub fn check_transferable(mint_data: &[u8]) -> Result<(), ProgramError> {
+    validate_token_2022_mint_extensions(mint_data)?;
     if mint_has_extension(mint_data, EXT_NON_TRANSFERABLE) {
         return Err(ProgramError::InvalidAccountData);
     }
@@ -227,27 +288,37 @@ pub fn check_transferable(mint_data: &[u8]) -> Result<(), ProgramError> {
 /// may re-enter or add unbounded CU cost.
 #[inline(always)]
 pub fn check_no_transfer_hook(mint_data: &[u8]) -> Result<(), ProgramError> {
+    validate_token_2022_mint_extensions(mint_data)?;
     if mint_has_extension(mint_data, EXT_TRANSFER_HOOK) {
         return Err(ProgramError::InvalidAccountData);
     }
     Ok(())
 }
 
-/// Blanket safety check: reject mints with any DeFi-unsafe extension.
+/// Blanket safety check with a fail-closed extension allowlist.
 ///
-/// Rejects: transfer fee, permanent delegate, confidential transfer,
-/// non-transferable, transfer hook.
+/// Pure metadata and group-description extensions are accepted. Every
+/// extension that can affect balances, authority, transfer behavior, burn
+/// behavior, account state, or displayed amount is rejected. Unknown future
+/// discriminators, duplicate entries, and malformed TLVs are also rejected.
 ///
 /// This is the recommended default for AMM pools, lending markets, and
 /// staking programs.
 #[inline(always)]
 pub fn check_safe_token_2022_mint(mint_data: &[u8]) -> Result<(), ProgramError> {
-    check_no_transfer_fee(mint_data)?;
-    check_no_permanent_delegate(mint_data)?;
-    check_no_confidential_transfer(mint_data)?;
-    check_transferable(mint_data)?;
-    check_no_transfer_hook(mint_data)?;
-    Ok(())
+    validate_token_2022_mint_extensions(mint_data)?;
+    if mint_data.len() == MINT_BASE_SIZE {
+        return Ok(());
+    }
+    const ALLOWED: &[u16] = &[
+        EXT_METADATA_POINTER,
+        EXT_TOKEN_METADATA,
+        EXT_GROUP_POINTER,
+        EXT_TOKEN_GROUP,
+        EXT_GROUP_MEMBER_POINTER,
+        EXT_TOKEN_GROUP_MEMBER,
+    ];
+    hopper_runtime::token_2022_ext::validate_extension_allowlist(&mint_data[TLV_OFFSET..], ALLOWED)
 }
 
 // ── Transfer Fee Reader ──────────────────────────────────────────────────────
@@ -280,6 +351,7 @@ pub struct TransferFeeConfig {
 /// exact fee for the current slot.
 #[inline(always)]
 pub fn read_transfer_fee_config(mint_data: &[u8]) -> Result<TransferFeeConfig, ProgramError> {
+    validate_token_2022_mint_extensions(mint_data)?;
     let ext = find_extension_data(mint_data, MINT_BASE_SIZE, EXT_TRANSFER_FEE_CONFIG)
         .ok_or(ProgramError::InvalidAccountData)?;
 
@@ -332,6 +404,7 @@ pub struct TransferHook<'a> {
 /// malformed (length < 64, or the underlying TLV is truncated).
 #[inline(always)]
 pub fn read_transfer_hook(mint_data: &[u8]) -> Result<Option<TransferHook<'_>>, ProgramError> {
+    validate_token_2022_mint_extensions(mint_data)?;
     let Some(ext) = find_extension_data(mint_data, MINT_BASE_SIZE, EXT_TRANSFER_HOOK) else {
         return Ok(None);
     };
@@ -407,10 +480,18 @@ mod tests {
     fn offset_constants_match_authoritative_spec() {
         assert_eq!(MINT_BASE_SIZE, 82);
         assert_eq!(TOKEN_ACCOUNT_BASE_SIZE, 165);
+        assert_eq!(TOKEN_MULTISIG_SIZE, 355);
         assert_eq!(ACCOUNT_TYPE_OFFSET, 165);
         assert_eq!(TLV_OFFSET, 166);
         assert_eq!(ACCOUNT_TYPE_MINT, 1);
         assert_eq!(ACCOUNT_TYPE_TOKEN, 2);
+        assert_eq!(EXT_NON_TRANSFERABLE_ACCOUNT, 13);
+        assert_eq!(EXT_TRANSFER_HOOK_ACCOUNT, 15);
+        assert_eq!(EXT_CONFIDENTIAL_MINT_BURN, 24);
+        assert_eq!(EXT_SCALED_UI_AMOUNT, 25);
+        assert_eq!(EXT_PAUSABLE, 26);
+        assert_eq!(EXT_PAUSABLE_ACCOUNT, 27);
+        assert_eq!(EXT_PERMISSIONED_BURN, 28);
     }
 
     #[test]
@@ -478,6 +559,52 @@ mod tests {
             (EXT_TOKEN_METADATA, &[0u8; 100]),
         ]);
         assert!(check_safe_token_2022_mint(&data).is_ok());
+    }
+
+    #[test]
+    fn safe_check_rejects_new_unknown_duplicate_and_malformed_extensions() {
+        for ext_type in [
+            EXT_CONFIDENTIAL_MINT_BURN,
+            EXT_SCALED_UI_AMOUNT,
+            EXT_PAUSABLE,
+            EXT_PERMISSIONED_BURN,
+            MAX_KNOWN_EXTENSION_TYPE + 1,
+        ] {
+            let data = sample_mint_with_extension(ext_type, &[]);
+            assert!(
+                check_safe_token_2022_mint(&data).is_err(),
+                "extension {ext_type} must fail closed",
+            );
+        }
+
+        let duplicate = sample_mint_with_extensions(&[
+            (EXT_METADATA_POINTER, &[0u8; 64]),
+            (EXT_METADATA_POINTER, &[0u8; 64]),
+        ]);
+        assert!(check_safe_token_2022_mint(&duplicate).is_err());
+
+        let mut malformed = sample_mint_with_extension(EXT_METADATA_POINTER, &[0u8; 2]);
+        malformed[TLV_OFFSET + 2..TLV_OFFSET + 4].copy_from_slice(&999u16.to_le_bytes());
+        assert!(check_safe_token_2022_mint(&malformed).is_err());
+    }
+
+    #[test]
+    fn safe_check_requires_canonical_extended_mint_envelope() {
+        let mut wrong_kind = sample_mint_with_extension(EXT_METADATA_POINTER, &[0u8; 64]);
+        wrong_kind[ACCOUNT_TYPE_OFFSET] = ACCOUNT_TYPE_TOKEN;
+        assert!(check_safe_token_2022_mint(&wrong_kind).is_err());
+
+        let mut dirty_padding = sample_mint_with_extension(EXT_METADATA_POINTER, &[0u8; 64]);
+        dirty_padding[MINT_BASE_SIZE] = 1;
+        assert!(check_safe_token_2022_mint(&dirty_padding).is_err());
+
+        let mut multisig_collision = vec![0u8; TOKEN_MULTISIG_SIZE];
+        multisig_collision[ACCOUNT_TYPE_OFFSET] = ACCOUNT_TYPE_MINT;
+        assert!(
+            find_extension_data(&multisig_collision, MINT_BASE_SIZE, EXT_METADATA_POINTER,)
+                .is_none()
+        );
+        assert!(check_safe_token_2022_mint(&multisig_collision).is_err());
     }
 
     #[test]

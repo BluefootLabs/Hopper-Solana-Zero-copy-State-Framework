@@ -1,4 +1,4 @@
-//! END-TO-END: drive `examples/hopper-sentinel` through the Hopper host
+//! END-TO-END: drive this `hopper-sentinel` showcase through the Hopper host
 //! harness, capture the REAL touch map + pre/post bytes, and run the Grillo
 //! verifier against the REAL manifest.
 //!
@@ -37,10 +37,9 @@ use std::vec::Vec;
 use hopper_sentinel::{Config, Pause};
 use hopper_svm::{AccountFixture, HopperSvm};
 
-/// The REAL manifest, generated from source (see
-/// `crates/grillo-manifest/tests/fixtures`).
-const SENTINEL_MANIFEST: &str =
-    include_str!("../../grillo-manifest/tests/fixtures/hopper-sentinel.manifest.json");
+/// The real manifest generated from this package's source and shipped beside
+/// the program, so the proof is self-contained inside the private showcase.
+const SENTINEL_MANIFEST: &str = include_str!("../hopper.manifest.json");
 
 fn sentinel_manifest() -> MutationManifest {
     MutationManifest::from_json(SENTINEL_MANIFEST).expect("real sentinel manifest parses")

@@ -5,20 +5,26 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   lint:
     name: fmt + clippy
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
       CARGO_TERM_COLOR: always
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
       # Pin to the channel in rust-toolchain.toml so fmt/clippy diagnostics are
       # deterministic (H-6). Keep this version in sync with that file.
       - name: Install Rust (pinned, rustfmt + clippy)
-        uses: dtolnay/rust-toolchain@1.96.0
+        uses: dtolnay/rust-toolchain@01ba1edad32c6f80dbcce879d3e0fa5a00b2a84e
         with:
+          toolchain: 1.96.0
           components: rustfmt, clippy
       - name: rustfmt
         run: cargo fmt --all --check
@@ -32,25 +38,50 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-24.04, windows-latest]
     env:
       CARGO_TERM_COLOR: always
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@01ba1edad32c6f80dbcce879d3e0fa5a00b2a84e
+        with:
+          toolchain: stable
       - name: Check workspace all targets
         run: cargo check --workspace --all-targets --locked
 
+  workspace-tests:
+    name: workspace tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@01ba1edad32c6f80dbcce879d3e0fa5a00b2a84e
+        with:
+          toolchain: 1.96.0
+      - name: Run the complete host workspace suite
+        run: cargo test --workspace --locked --no-fail-fast
+
   focused-audit:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
       CARGO_TERM_COLOR: always
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@01ba1edad32c6f80dbcce879d3e0fa5a00b2a84e
+        with:
+          toolchain: stable
       - name: Run focused audit tests
         run: |
           cargo test -p hopper-systems --test trust_tests --locked
@@ -60,24 +91,69 @@ jobs:
           # Grillo is the independent effect verifier: its fail-closed
           # guard rails (neighbor-cell VIOLATION, malformed-hex refusal,
           # parametric INCONCLUSIVE) must EXECUTE in CI, not merely
-          # compile — an always-PASS regression is invisible to check/clippy.
+          # compile; an always-PASS regression is invisible to check/clippy.
           cargo test -p grillo-verifier --features cli --locked
           cargo test -p hopper-cli --locked verify::
+          cargo test -p hopper-cli --locked cmd::fuzz::tests
+          cargo test -p hopper-cli --test fuzz_adapter_process_e2e --locked
+      - name: Verify manifest-derived Cicada fuzz plan
+        run: |
+          cargo run -p hopper-cli --locked -- compile --emit manifest --package hopper-cicada --out target/hopper/fuzz/cicada.manifest.json --force
+          cargo run -p hopper-cli --locked -- fuzz check --program target/hopper/fuzz/cicada.manifest.json --plan fuzz/plans/hopper-cicada.plan.json
+          cargo build -p hopper-cicada-fuzz-adapter --locked
+          cargo run -p hopper-cli --locked -- fuzz run --program target/hopper/fuzz/cicada.manifest.json --plan fuzz/plans/hopper-cicada.plan.json --adapter target/debug/hopper-cicada-fuzz-adapter --require-invariant cicada-business-semantics --report target/hopper/fuzz/cicada-semantic-report.json
+      - name: Upload Cicada semantic fuzz evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: hopper-cicada-semantic-fuzz
+          if-no-files-found: error
+          path: target/hopper/fuzz/cicada-semantic-report.json
       - name: Check unsafe safety comments
         run: python3 scripts/check-unsafe-safety-comments.py
 
+  publication-train:
+    name: 29-crate publication train
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@01ba1edad32c6f80dbcce879d3e0fa5a00b2a84e
+        with:
+          toolchain: 1.96.0
+      - name: Validate topology, metadata, and packaged file sets
+        run: |
+          python3 scripts/check-publish-train.py --self-test
+          python3 scripts/check-publish-train.py --out target/hopper/release/publish-train.json
+      - name: Upload publication-train attestation
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: hopper-publish-train
+          if-no-files-found: error
+          path: target/hopper/release/publish-train.json
+
   fuzz-smoke:
     name: fuzz smoke
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
       CARGO_TERM_COLOR: always
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
       - name: Install nightly Rust
-        uses: dtolnay/rust-toolchain@nightly
+        uses: dtolnay/rust-toolchain@01ba1edad32c6f80dbcce879d3e0fa5a00b2a84e
+        with:
+          toolchain: nightly
       - name: Install stable Rust for cargo-fuzz
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@01ba1edad32c6f80dbcce879d3e0fa5a00b2a84e
+        with:
+          toolchain: stable
       - name: Install cargo-fuzz
         run: cargo +stable install cargo-fuzz --locked
       - name: Run fuzz smoke targets
@@ -92,14 +168,18 @@ jobs:
 
   kani-runtime-proofs:
     name: Kani runtime proofs
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 75
     env:
       CARGO_TERM_COLOR: always
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@01ba1edad32c6f80dbcce879d3e0fa5a00b2a84e
+        with:
+          toolchain: stable
       - name: Install Kani
         run: |
           cargo install --locked kani-verifier
@@ -109,14 +189,18 @@ jobs:
 
   kani-native-rawinput-proofs:
     name: Kani native raw-input proofs
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 75
     env:
       CARGO_TERM_COLOR: always
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@01ba1edad32c6f80dbcce879d3e0fa5a00b2a84e
+        with:
+          toolchain: stable
       - name: Install Kani
         run: |
           cargo install --locked kani-verifier
@@ -126,14 +210,18 @@ jobs:
 
   kani-spl-layout-proofs:
     name: Kani SPL/System CPI layout proofs
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 75
     env:
       CARGO_TERM_COLOR: always
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@01ba1edad32c6f80dbcce879d3e0fa5a00b2a84e
+        with:
+          toolchain: stable
       - name: Install Kani
         run: |
           cargo install --locked kani-verifier

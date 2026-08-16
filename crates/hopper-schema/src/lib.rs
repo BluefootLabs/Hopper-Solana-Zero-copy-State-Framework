@@ -2782,18 +2782,18 @@ pub mod cost_model {
     /// Lowered with `SetLoadedAccountsDataSizeLimit`.
     pub const DEFAULT_LOADED_ACCOUNTS_DATA_COST: u64 = 16_384;
 
-    /// Live mainnet-beta block CU limit (SIMD-0256, activated epoch 822,
-    /// ~2025-07-15). `block_cost_limits.rs:26-27`. SIMD-0286 raises this
-    /// to 100,000,000 but is merged-not-activated as of this writing.
-    pub const MAX_BLOCK_UNITS: u64 = 60_000_000;
+    /// Live mainnet-beta block CU limit. SIMD-0286 raised the limit from
+    /// 60,000,000 to 100,000,000; Mainnet activation completed 2026-07-29.
+    pub const MAX_BLOCK_UNITS: u64 = 100_000_000;
 
     /// Per-writable-account block CU cap: one hot account can absorb at
     /// most this much of a block. `block_cost_limits.rs:33`
-    /// (`MAX_WRITABLE_ACCOUNT_UNITS`, raised from 12M to 24M).
+    /// (`MAX_WRITABLE_ACCOUNT_UNITS`). This remains 12M after the 100M
+    /// block-limit activation.
     ///
     /// This is the real "local fee market": there is no per-account base
     /// fee (SIMD-0110 is unactivated), only this cap plus priority fees.
-    pub const MAX_WRITABLE_ACCOUNT_UNITS: u64 = 24_000_000;
+    pub const MAX_WRITABLE_ACCOUNT_UNITS: u64 = 12_000_000;
 
     /// Loaded-accounts-data cost for `bytes` of account data, rounded up
     /// to whole pages exactly as the cost model does.
@@ -2807,8 +2807,14 @@ pub mod cost_model {
 /// **what it declares** — computed from the same `WriteRange` consts the
 /// runtime enforces and the manifest publishes.
 ///
-/// Every field here is exact and static: no measurement, no model, no
-/// estimate. What it deliberately does **not** include is the program's
+/// Every count here is an exact, static count of manifest **role slots**:
+/// no measurement or execution model is involved. The corresponding CU
+/// products are upper bounds for one invocation because Agave charges unique
+/// present Pubkeys, while optional roles may be absent and `dup` roles may
+/// resolve to the same key. The manifest account surface does not retain
+/// enough runtime identity to deduplicate those cases offline.
+///
+/// What it deliberately does **not** include is the program's
 /// own compute consumption, which cannot be derived from a declaration and
 /// which Hopper never fabricates (see
 /// [`cu_estimate`](InstructionDescriptor::cu_estimate)).
@@ -2858,7 +2864,7 @@ pub struct ContentionProfile {
     /// caller-supplied flags — and the write set says nothing about them,
     /// so they are an unbounded-by-declaration addition to the lock
     /// footprint up to this ceiling. Reported separately rather than
-    /// folded into the cost figures: the *declared* cost is exact, and
+    /// folded into the cost figures: the fixed-role bound is deterministic, and
     /// pretending the worst case is the expected case would be its own
     /// dishonesty.
     pub remaining_accounts_max: u16,
@@ -2882,12 +2888,12 @@ impl ContentionProfile {
         cost_model::WRITE_LOCK_UNITS
     }
 
-    /// Write-lock cost of the declared writable set, before demotion.
+    /// Fixed-role write-lock upper bound before demotion.
     pub const fn declared_write_lock_cost(&self) -> u64 {
         self.declared_writable as u64 * cost_model::WRITE_LOCK_UNITS
     }
 
-    /// Write-lock cost of the accounts a client must still send writable.
+    /// Fixed-role write-lock upper bound after demotion.
     pub const fn effective_write_lock_cost(&self) -> u64 {
         self.effective_writable as u64 * cost_model::WRITE_LOCK_UNITS
     }
@@ -2897,13 +2903,13 @@ impl ContentionProfile {
         self.declared_write_lock_cost() - self.effective_write_lock_cost()
     }
 
-    /// Signature component this instruction's declaration implies.
+    /// Fixed-role signature upper bound this declaration implies.
     pub const fn signature_cost(&self) -> u64 {
         self.signers as u64 * cost_model::SIGNATURE_COST
     }
 
-    /// The part of the leader's price this **declaration** fixes: write
-    /// locks (after demotion) plus signatures.
+    /// Fixed-role upper bound on the part of the leader's price this
+    /// declaration determines: write locks (after demotion) plus signatures.
     ///
     /// This is deliberately NOT "the transaction's block cost", and the
     /// difference is large. Agave charges three further terms (see
@@ -2920,8 +2926,9 @@ impl ContentionProfile {
     ///   (and, if the instruction declares no signer, one more signature)
     ///   than this reports.
     /// - Locks and signatures are charged **once per transaction** over
-    ///   deduplicated keys. Summing this across instructions that share an
-    ///   account double-counts.
+    ///   deduplicated keys. Optional roles may be absent and `dup` roles may
+    ///   alias even within this instruction, so this role-slot product is an
+    ///   upper bound; summing across instructions can double-count further.
     ///
     /// Use it to compare declarations and to gate declaration drift, not
     /// to predict a fee or a block share.
@@ -2934,7 +2941,7 @@ impl ContentionProfile {
     /// instruction accepts none.
     ///
     /// Kept out of [`declared_lock_and_signature_cost`] on purpose: that
-    /// figure is what the declaration *fixes*, while this is what a caller
+    /// figure is the fixed-role bound, while this is what a caller
     /// may add on top of it and the write set cannot constrain.
     pub const fn remaining_accounts_worst_case_lock_cost(&self) -> u64 {
         self.remaining_accounts_max as u64 * cost_model::WRITE_LOCK_UNITS
@@ -3030,7 +3037,9 @@ impl InstructionDescriptor {
     ///
     /// Derived entirely from the declaration — the account list plus the
     /// same [`write_ranges`]/[`lamport_accounts`] consts the runtime
-    /// enforces — so it is exact at compile time and needs no measurement.
+    /// enforces — so its role counts are exact at compile time and need no
+    /// measurement. CU products are fixed-role upper bounds; see
+    /// [`ContentionProfile`] for optional and duplicate-key caveats.
     /// See [`ContentionProfile`] for what it deliberately excludes.
     ///
     /// [`write_ranges`]: InstructionDescriptor::write_ranges
@@ -6341,6 +6350,12 @@ mod tests {
     // -----------------------------------------------------------------------
     // Contention profile (C4)
     // -----------------------------------------------------------------------
+
+    #[test]
+    fn contention_reference_limits_match_mainnet_after_simd_0286() {
+        assert_eq!(cost_model::MAX_BLOCK_UNITS, 100_000_000);
+        assert_eq!(cost_model::MAX_WRITABLE_ACCOUNT_UNITS, 12_000_000);
+    }
 
     /// admin (signer, ro) / config (writable, has a declared byte range) /
     /// fee_sink (writable, lamport permission only) / treasury (writable,

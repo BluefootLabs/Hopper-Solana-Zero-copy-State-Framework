@@ -1,3 +1,5 @@
+#![allow(clippy::assertions_on_constants)]
+
 //! BLD-I24: `strict_writes` write-sets are scheduler-legible with zero
 //! manual authoring.
 //!

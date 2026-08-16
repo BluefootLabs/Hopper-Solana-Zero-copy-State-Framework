@@ -74,10 +74,12 @@ const TOP_LEVEL: &[&str] = &[
     "migrate",
     "dump",
     "verify",
+    "audit-check",
     "solana-check",
     "keys",
     "config",
     "lint",
+    "fuzz",
     "expand",
     "tx",
     "manager",
@@ -94,7 +96,7 @@ const BASH_COMPLETION: &str = r#"_hopper() {
     local cur prev words cword
     _init_completion || return
     if [ "$cword" -eq 1 ]; then
-        COMPREPLY=($(compgen -W "schema compile inspect explain client profile fetch init build test deploy upgrade close migrate dump verify solana-check keys config lint expand tx manager doctor actions mobile test-gen completions version help" -- "$cur"))
+        COMPREPLY=($(compgen -W "schema compile inspect explain client profile fetch init build test deploy upgrade close migrate dump verify audit-check solana-check keys config lint fuzz expand tx manager doctor actions mobile test-gen completions version help" -- "$cur"))
         return
     fi
     case "${words[1]}" in
@@ -106,6 +108,7 @@ const BASH_COMPLETION: &str = r#"_hopper() {
         actions) COMPREPLY=($(compgen -W "gen" -- "$cur")) ;;
         mobile) COMPREPLY=($(compgen -W "gen" -- "$cur")) ;;
         test-gen) COMPREPLY=($(compgen -W "security" -- "$cur")) ;;
+        fuzz) COMPREPLY=($(compgen -W "generate check run" -- "$cur")) ;;
         schema) COMPREPLY=($(compgen -W "export validate diff" -- "$cur")) ;;
         completions) COMPREPLY=($(compgen -W "bash zsh fish" -- "$cur")) ;;
     esac
@@ -133,10 +136,12 @@ _hopper() {
         'migrate:run a layout migration upgrade'
         'dump:disassemble .so'
         'verify:ABI fingerprint check'
+        'audit-check:audit-readiness evidence gate'
         'solana-check:SBF crate shape gate'
         'keys:key + PDA helpers'
         'config:global config store'
         'lint:account-relationship checker'
+        'fuzz:manifest-derived adversarial corpus'
         'expand:macro expansion'
         'tx:on-chain transaction helpers'
         'manager:on-chain introspection + invoke + crank'
@@ -170,10 +175,12 @@ complete -c hopper -n '__fish_use_subcommand' -a 'close' -d 'close a program or 
 complete -c hopper -n '__fish_use_subcommand' -a 'migrate' -d 'run a layout migration upgrade'
 complete -c hopper -n '__fish_use_subcommand' -a 'dump' -d 'disassemble .so'
 complete -c hopper -n '__fish_use_subcommand' -a 'verify' -d 'ABI fingerprint check'
+complete -c hopper -n '__fish_use_subcommand' -a 'audit-check' -d 'audit-readiness evidence gate'
 complete -c hopper -n '__fish_use_subcommand' -a 'solana-check' -d 'SBF crate shape gate'
 complete -c hopper -n '__fish_use_subcommand' -a 'keys' -d 'key + PDA helpers'
 complete -c hopper -n '__fish_use_subcommand' -a 'config' -d 'global config store'
 complete -c hopper -n '__fish_use_subcommand' -a 'lint' -d 'account-relationship checker'
+complete -c hopper -n '__fish_use_subcommand' -a 'fuzz' -d 'manifest-derived adversarial corpus'
 complete -c hopper -n '__fish_use_subcommand' -a 'expand' -d 'macro expansion'
 complete -c hopper -n '__fish_use_subcommand' -a 'tx' -d 'on-chain transaction helpers'
 complete -c hopper -n '__fish_use_subcommand' -a 'manager' -d 'on-chain introspection + invoke + crank'
@@ -190,7 +197,7 @@ const POWERSHELL_COMPLETION: &str = r#"Register-ArgumentCompleter -Native -Comma
     param($wordToComplete, $commandAst, $cursorPosition)
 
     $words = @($commandAst.CommandElements | ForEach-Object { $_.ToString() })
-    $top = @('schema','compile','inspect','explain','client','profile','fetch','init','build','test','deploy','upgrade','close','migrate','dump','verify','solana-check','keys','config','lint','expand','tx','manager','doctor','actions','mobile','test-gen','completions','version','help')
+    $top = @('schema','compile','inspect','explain','client','profile','fetch','init','build','test','deploy','upgrade','close','migrate','dump','verify','audit-check','solana-check','keys','config','lint','fuzz','expand','tx','manager','doctor','actions','mobile','test-gen','completions','version','help')
     $nested = @{
         keys = @('new','list','print','pda','sync')
         config = @('get','set','list','reset','path')
@@ -200,6 +207,7 @@ const POWERSHELL_COMPLETION: &str = r#"Register-ArgumentCompleter -Native -Comma
         actions = @('gen')
         mobile = @('gen')
         'test-gen' = @('security')
+        fuzz = @('generate','check','run')
         schema = @('export','validate','diff')
         completions = @('bash','zsh','fish','powershell')
     }

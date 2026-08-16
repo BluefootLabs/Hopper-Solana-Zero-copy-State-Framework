@@ -319,18 +319,34 @@ rem.assert_sorted_by(|account| Ok(account.address().as_bytes()[0]))?;
 
 `hopper build --watch` and `hopper test --watch` match Quasar's `--watch` flags.
 
-## What Hopper adds on top of Quasar
+## What changes when moving from Quasar's 0.1 release line
 
-Things Quasar does not have that your port gets for free:
+Quasar's pinned `0.1.0-release` source already includes typed same-size,
+grow, and shrink migrations; wire IDL and an ABI hash; `declare_program`;
+stable Rust, Kit, and Web3 clients; preview Python, Go, and C clients; a broad
+CLI; QuasarSVM; and Kani/Miri/fuzz workflows. Do not sell a port by claiming
+those surfaces are absent. Hopper's additional or differently scoped pieces
+are:
 
-1. Schema-epoch migrations (`#[hopper::migrate(from = 1, to = 2)]`).
-2. Provable `StateReceipt` wire format with invariant-linked error codes and failure-stage indices.
-3. Compile-time layout compatibility (`hopper_assert_compatible!`) and fingerprint pinning (`hopper_assert_fingerprint!`).
-4. Full Token-2022 extension constraint block (`extensions::transfer_hook::*`, `metadata_pointer::*`, `permanent_delegate`, `non_transferable`, `immutable_owner`, `mint_close_authority`, `transfer_fee_config::*`, `interest_bearing::*`, `default_account_state`).
-5. Segment-level mutable and read-only borrows on the same account.
-6. Policy levers (`strict`, `sealed`, `raw`) at the program and per-handler grain.
-7. Python and Kotlin client generators in addition to TypeScript.
-8. Manifest, IDL, Codama, and client-generation tooling from the same layout metadata.
+1. A schema-epoch and fingerprint graph with typed multi-hop chains,
+   bind-time epoch migration, payer-funded grow/fit modes, zero-fill, and a
+   shrink policy that refunds only freed rent rather than unrelated deposits.
+2. A `StateReceipt` wire format with invariant-linked error codes and
+   failure-stage indices.
+3. Compile-time compatibility and fingerprint pins connected to the on-chain
+   header and generated decoders, not only an off-chain ABI hash.
+4. Hopper's reviewed Token-2022 extension constraint block
+   (`extensions::transfer_hook::*`, `metadata_pointer::*`,
+   `permanent_delegate`, `non_transferable`, `immutable_owner`,
+   `mint_close_authority`, `transfer_fee_config::*`, `interest_bearing::*`,
+   `default_account_state`). Compare instruction-by-instruction before making
+   a broader SPL parity claim.
+5. Segment-level mutable and read-only leases within one account.
+6. A manifest-linked byte-write contract: authored ranges, runtime gate,
+   generated metas, touch evidence, contention analysis, and offline
+   containment verification over the same declaration.
+7. Eight generated outputs in total: TypeScript, Kotlin, Python, Go, C,
+   off-chain Rust, Codama JSON, and Anchor IDL JSON.
 
 ## Checklist for the port
 

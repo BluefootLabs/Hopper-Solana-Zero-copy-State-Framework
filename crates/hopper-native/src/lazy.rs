@@ -521,7 +521,7 @@ mod tests {
                     buf.extend_from_slice(&header);
                     buf.extend_from_slice(&vec![0xABu8; *data_len]);
                     buf.extend_from_slice(&vec![0u8; MAX_PERMITTED_DATA_INCREASE]);
-                    while buf.len() % BPF_ALIGN_OF_U128 != 0 {
+                    while !buf.len().is_multiple_of(BPF_ALIGN_OF_U128) {
                         buf.push(0);
                     }
                     buf.extend_from_slice(&u64::MAX.to_le_bytes()); // rent epoch

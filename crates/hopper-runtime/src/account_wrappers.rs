@@ -632,6 +632,15 @@ impl<'info, T: InterfaceAccountLayout> Clone for InterfaceAccount<'info, T> {
 impl<'info, T: InterfaceAccountLayout> Copy for InterfaceAccount<'info, T> {}
 
 impl<'info, T: InterfaceAccountLayout> InterfaceAccount<'info, T> {
+    #[inline(always)]
+    fn revalidate(&self) -> Result<(), crate::error::ProgramError> {
+        let owner = self.inner.read_owner();
+        if !<T::Interface as InterfaceSpec>::contains(&owner) {
+            return Err(crate::error::ProgramError::IncorrectProgramId);
+        }
+        T::validate_interface_account(self.inner)
+    }
+
     /// Wrap an already-validated interface-owned layout account.
     #[inline(always)]
     ///
@@ -683,6 +692,7 @@ impl<'info, T: InterfaceAccountLayout> InterfaceAccount<'info, T> {
     where
         T: crate::Pod,
     {
+        self.revalidate()?;
         self.inner.load_cross_program::<T>()
     }
 
@@ -718,6 +728,8 @@ impl<'info, T: InterfaceAccountLayout> InterfaceAccount<'info, T> {
         U: InterfaceAccountLayout<Interface = <T as InterfaceAccountLayout>::Interface>
             + crate::Pod,
     {
+        self.revalidate()?;
+        U::validate_interface_account(self.inner)?;
         self.inner.load_cross_program::<U>()
     }
 
@@ -751,9 +763,11 @@ impl<'info, T: InterfaceAccountLayout> InterfaceAccount<'info, T> {
         U: InterfaceAccountLayout<Interface = <T as InterfaceAccountLayout>::Interface>
             + crate::Pod,
     {
-        self.inner
-            .layout_info()
-            .is_some_and(|info| info.matches::<U>())
+        self.revalidate().is_ok()
+            && self
+                .inner
+                .layout_info()
+                .is_some_and(|info| info.matches::<U>())
     }
 
     /// Resolve a marker interface account to one of its concrete variants.
@@ -762,6 +776,7 @@ impl<'info, T: InterfaceAccountLayout> InterfaceAccount<'info, T> {
     where
         T: InterfaceAccountResolve,
     {
+        self.revalidate()?;
         T::resolve(self.inner)
     }
 }
@@ -1038,5 +1053,56 @@ mod resolver_tests {
             bad_layout_result,
             Err(crate::error::ProgramError::InvalidAccountData)
         ));
+    }
+
+    #[test]
+    fn interface_account_revalidates_owner_after_binding() {
+        let (_backing, account) = make_account(VaultV1::SIZE, PROGRAM_A);
+        {
+            let mut data = account.try_borrow_mut().unwrap();
+            crate::layout::init_header::<VaultV1>(&mut data).unwrap();
+        }
+        let vault = InterfaceAccount::<AnyVault>::try_new(&account).unwrap();
+
+        // Model a writable CPI to the original owner reassigning the account.
+        // SAFETY: this test owns the synthetic RuntimeAccount backing and is
+        // deliberately exercising the post-CPI owner-change boundary.
+        unsafe {
+            account.assign(&OTHER_PROGRAM);
+        }
+
+        assert!(matches!(
+            vault.load_as::<VaultV1>(),
+            Err(crate::error::ProgramError::IncorrectProgramId)
+        ));
+        assert!(matches!(
+            vault.resolve(),
+            Err(crate::error::ProgramError::IncorrectProgramId)
+        ));
+        assert!(!vault.is::<VaultV1>());
+    }
+
+    #[test]
+    fn interface_account_revalidates_layout_after_binding() {
+        // Leave enough capacity for either layout so the failure proves type
+        // identity was rechecked, rather than merely tripping a length guard.
+        let (_backing, account) = make_account(VaultV2::SIZE, PROGRAM_A);
+        {
+            let mut data = account.try_borrow_mut().unwrap();
+            crate::layout::init_header::<VaultV1>(&mut data).unwrap();
+        }
+        let vault = InterfaceAccount::<VaultV1>::try_new(&account).unwrap();
+
+        // Model the owning program changing the account variant during CPI.
+        {
+            let mut data = account.try_borrow_mut().unwrap();
+            crate::layout::init_header::<VaultV2>(&mut data).unwrap();
+        }
+
+        assert!(matches!(
+            vault.load(),
+            Err(crate::error::ProgramError::InvalidAccountData)
+        ));
+        assert!(!vault.is::<VaultV1>());
     }
 }

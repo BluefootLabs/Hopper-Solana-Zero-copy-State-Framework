@@ -47,4 +47,4 @@ Instruction-routing macros such as hopper_dispatch!, hopper_dispatch_lazy!, and 
 
 ## License
 
-Apache-2.0. See [LICENSE](../../LICENSE).
+Apache-2.0. See [LICENSE](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/LICENSE).

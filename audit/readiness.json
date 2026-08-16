@@ -1,0 +1,219 @@
+{
+  "schemaVersion": 1,
+  "reviewedOn": "2026-08-16",
+  "maxReviewAgeDays": 30,
+  "externalAudit": {
+    "status": "preparation-in-progress",
+    "phase": "scope-and-evidence-preparation",
+    "startedOn": "2026-08-16",
+    "scope": "audit/EXTERNAL_AUDIT_SCOPE.md",
+    "provider": null,
+    "report": null
+  },
+  "evidence": [
+    {
+      "id": "external-audit-scope",
+      "path": "audit/EXTERNAL_AUDIT_SCOPE.md",
+      "sha256": "b250ac117b32dd2c5e7cf966a35d561f13c1d6170b6660572cf8a6e666d05090",
+      "required": true,
+      "description": "independent review scope, objectives, invariants, and handoff requirements"
+    },
+    {
+      "id": "security-policy",
+      "path": "SECURITY.md",
+      "sha256": "136da3451f0507cd541c9805430fc180b84fbf3e0965c8d25c676bd56498d7ee",
+      "required": true,
+      "description": "vulnerability reporting and support policy"
+    },
+    {
+      "id": "unsafe-invariants",
+      "path": "docs/UNSAFE_INVARIANTS.md",
+      "sha256": "409280ce80d6a63ded480ee1b1533aff028296a45b11ff90ba4845cfdad40386",
+      "required": true,
+      "description": "unsafe-code inventory and proof obligations"
+    },
+    {
+      "id": "dependency-audit",
+      "path": "docs/DEPENDENCY_AUDIT.md",
+      "sha256": "f20c7cce6782502adb5dc5e541dce99395a4fbde8907d180f4ca077a246687fc",
+      "required": true,
+      "description": "dependency advisory snapshot and disposition"
+    },
+    {
+      "id": "architecture",
+      "path": "docs/ARCHITECTURE.md",
+      "sha256": "d145ba49f882b9245182bdea1ca1646355d08dc65a94973056a424f7daef1e13",
+      "required": true,
+      "description": "trust boundaries and component architecture"
+    },
+    {
+      "id": "release-evidence",
+      "path": "docs/RELEASE_EVIDENCE.md",
+      "sha256": "819fdb21885c2cc16ab50cf775e7c636fc50927ec7f18d432f4a2a4cd848519f",
+      "required": true,
+      "description": "binary, fuzz, publication-train, and benchmark evidence boundaries"
+    },
+    {
+      "id": "benchmark-method",
+      "path": "BENCHMARKS.md",
+      "sha256": "25d00ce13bc1420415f5eeb99087b5f1b1fcf6de6062ef9068d7fbabb9570ed2",
+      "required": true,
+      "description": "benchmark method and claim boundaries"
+    },
+    {
+      "id": "network-baseline",
+      "path": "docs/SOLANA_NETWORK_BASELINE_2026-08-15.md",
+      "sha256": "e5eaa88f1ac428fb30a8d754cf766a3f830e1558f5d688049eb92318b22a0c19",
+      "required": true,
+      "description": "dated Mainnet and upcoming protocol assumptions"
+    },
+    {
+      "id": "readiness-dossier",
+      "path": "docs/AUDIT_READINESS_DOSSIER_2026-08-15.md",
+      "sha256": "4ecf2b6ed1b520e98a5b4ae4610a34953167e0949ecb8d2708d21dcc23519cd0",
+      "required": true,
+      "description": "scope, peer parity, gaps, and audit handoff"
+    },
+    {
+      "id": "zero-copy-peer-audit",
+      "path": "docs/ZERO_COPY_FRAMEWORK_AUDIT_2026-08-15.md",
+      "sha256": "be5f24dc03849dab5ee24921fec0fe1c10207e4f302d90eba0d91dda34fdf26c",
+      "required": true,
+      "description": "pinned zero-copy peers, release status, parity gates, and flagship validation"
+    },
+    {
+      "id": "cicada-manifest",
+      "path": "crates/grillo-manifest/tests/fixtures/hopper-cicada.manifest.json",
+      "sha256": "dae0e7817bcf9e60a22fe900c1900dcca85afa8e68d0a74a9c27718a1398105d",
+      "required": true,
+      "description": "checked-in Cicada contract manifest used by independent parser and verifier tests"
+    },
+    {
+      "id": "cicada-fuzz-plan",
+      "path": "fuzz/plans/hopper-cicada.plan.json",
+      "sha256": "0871104f230cc9af0639aab8cdf77162e9e4682f23e7219a4e08f40682f47a4f",
+      "required": true,
+      "description": "manifest-derived no-skip Cicada host-semantic plan and commitment"
+    },
+    {
+      "id": "publish-order",
+      "path": "release/publish-order.toml",
+      "sha256": "55dbf01e1318f2b0eefe1079f9578332e10444a5c3e88e38b0c3536a04c003ab",
+      "required": true,
+      "description": "dependency-ordered public crate publication train"
+    },
+    {
+      "id": "sbf-attestation-tool",
+      "path": "scripts/attest-sbf-release.py",
+      "sha256": "4df5e73bd2ea5ff0d73263252a06a778b822ef1d4ac70d46e3b71fdf26a801eb",
+      "required": true,
+      "description": "clean-tree binary, manifest, and publish-check attestation generator"
+    },
+    {
+      "id": "publish-train-tool",
+      "path": "scripts/check-publish-train.py",
+      "sha256": "8ec01f0004284ae97ec57a2780dd695512a3411c9f55137110a3982ebb8a9273",
+      "required": true,
+      "description": "package-order and crates.io index readiness verifier"
+    },
+    {
+      "id": "dependency-lock",
+      "path": "Cargo.lock",
+      "sha256": "7c5ed05f61c57b2470f02d0af406eebea5493542f8eb87fbab9a32a33107cf5d",
+      "required": true,
+      "description": "resolved Rust dependency graph"
+    },
+    {
+      "id": "toolchain",
+      "path": "rust-toolchain.toml",
+      "sha256": "8d42a14b71fab8480a3f7c95b0ca43144061fbb1ba834304faef685e185d7ae6",
+      "required": true,
+      "description": "reproducible Rust toolchain"
+    },
+    {
+      "id": "rust-ci",
+      "path": ".github/workflows/rust-ci.yml",
+      "sha256": "3f93fc0e8dcd574982bfe8fbe6e30f6eefbafd14618d77ad44f708775c1e4e6a",
+      "required": true,
+      "description": "host checks, tests, fuzz smoke and Kani lanes"
+    },
+    {
+      "id": "sbf-ci",
+      "path": ".github/workflows/solana-sbf.yml",
+      "sha256": "e4558b2bc6860dfe4ffee58ffcde9a26f31670e9951551ae3cdeae16b95a5311",
+      "required": true,
+      "description": "Solana SBF build and test lane"
+    },
+    {
+      "id": "unsafe-ci",
+      "path": ".github/workflows/unsafe-safety.yml",
+      "sha256": "69d746f55488ef3400b50d56862e3234f3981b556626bf12aef491f4ad85d6da",
+      "required": true,
+      "description": "unsafe inventory drift gate"
+    }
+  ],
+  "qualityGates": [
+    {
+      "id": "fmt",
+      "command": "cargo fmt --all -- --check",
+      "lastRunOn": "2026-08-16",
+      "status": "passed",
+      "maxAgeDays": 14,
+      "required": true
+    },
+    {
+      "id": "clippy",
+      "command": "cargo clippy --workspace --all-targets --locked -- -D warnings",
+      "lastRunOn": "2026-08-16",
+      "status": "passed",
+      "maxAgeDays": 14,
+      "required": true
+    },
+    {
+      "id": "workspace-tests",
+      "command": "cargo test --workspace --locked --no-fail-fast",
+      "lastRunOn": "2026-08-16",
+      "status": "passed",
+      "maxAgeDays": 14,
+      "required": true
+    },
+    {
+      "id": "dependency-audit",
+      "command": "cargo audit --no-fetch",
+      "lastRunOn": "2026-08-16",
+      "status": "passed",
+      "maxAgeDays": 30,
+      "required": true
+    }
+  ],
+  "knownBlockers": [
+    {
+      "id": "peer-benchmark",
+      "severity": "high",
+      "status": "open",
+      "releaseBlocking": true,
+      "description": "same-fixture Hopper, Anchor v2, Quasar, Pinocchio and Star Frame harness passes diagnostically; clean committed results are not yet archived"
+    },
+    {
+      "id": "sbf-clean-attestation",
+      "severity": "medium",
+      "status": "open",
+      "releaseBlocking": true,
+      "description": "pinned Agave v2.3.13 and Agave v4.2.1-forward SBF lanes are implemented; exact clean committed CI runs, artifacts, and attestations are not yet archived"
+    },
+    {
+      "id": "publication-train",
+      "severity": "high",
+      "status": "open",
+      "releaseBlocking": true,
+      "description": "the 29 public packages in the 0.3 release train (26 at 0.3.0 and three tools at 0.1.0) must be published in dependency order and each dependency allowed to index before dependent package verification"
+    },
+    {
+      "id": "transaction-v1",
+      "severity": "medium",
+      "status": "tracked",
+      "releaseBlocking": false,
+      "description": "Hopper emits legacy transactions and must add finalized v1 support after the Mainnet feature is active"
+    }
+  ]
+}

@@ -99,7 +99,7 @@ fn layout_id_is_capacity_independent() {
 
 #[test]
 fn tail_context_publishes_a_single_open_ended_tail_range() {
-    assert!(AddMember::STRICT_WRITES);
+    const { assert!(AddMember::STRICT_WRITES) };
     // Exactly one declared range: the open-ended tail. NOT whole-account.
     assert_eq!(AddMember::WRITE_RANGES.len(), 1);
     let r = AddMember::WRITE_RANGES[0];

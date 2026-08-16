@@ -9,6 +9,7 @@
 use hopper::hopper_runtime::SegmentBorrowRegistry;
 use hopper::prelude::{AccountView, WireU64};
 
+#[allow(dead_code)]
 fn ok(account: &AccountView<'_>, borrows: &mut SegmentBorrowRegistry) {
     let _ = account.segment_ref::<WireU64>(borrows, 0, 8);
     let _ = account.segment_ref::<[u8; 8]>(borrows, 0, 8);

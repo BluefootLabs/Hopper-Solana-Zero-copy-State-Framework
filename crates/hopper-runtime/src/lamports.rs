@@ -109,9 +109,7 @@ pub fn transfer_lamports(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::write_policy::{
-        install_lamport_gate, write_policy_violation, WritePolicy, WriteRange,
-    };
+    use crate::write_policy::{install_lamport_gate, write_policy_violation, WritePolicy};
     use hopper_native::{
         AccountView as NativeAccountView, Address as NativeAddress, RuntimeAccount, NOT_BORROWED,
     };
@@ -347,8 +345,10 @@ mod tests {
         let (_b0, from) = make_account(55, 10);
         let (_b1, to) = make_account(56, 10);
         let accounts = [from, to];
-        static P: WritePolicy =
-            WritePolicy::with_lamports(&[WriteRange::whole_account(0)], &[0, 1]);
+        static P: WritePolicy = WritePolicy::with_lamports(
+            &[crate::write_policy::WriteRange::whole_account(0)],
+            &[0, 1],
+        );
         let _gate = install_lamport_gate(&accounts, &P);
         transfer_lamports(&accounts[0], &accounts[1], 10).unwrap();
         assert_eq!(accounts[0].lamports(), 0);

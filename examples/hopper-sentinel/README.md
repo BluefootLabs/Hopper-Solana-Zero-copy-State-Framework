@@ -83,6 +83,11 @@ Drives the **real generated dispatcher** against live `AccountView` memory:
 | `collect_fees_context_demotes_the_over_declared_treasury` | the demotion payoff (below) |
 | `initialize_config_runs_the_real_init_lifecycle` | the real `#[account(init)]` CreateAccount CPI |
 
+`tests/grillo_e2e.rs` adds four package-local host proofs that feed the real
+touch map, snapshots, and shipped Sentinel manifest into the independent
+Grillo verifier. They cover the honest PASS, an untracked snapshot mutation,
+a forged unauthorized acquisition, and an unauthorized lamport delta.
+
 ### Level 2: compiled SBF (`tests/refusal_sbf_e2e.rs`, Mollusk), 2/2 pass (**THE NEW EVIDENCE**)
 
 Runs the real `hopper_sentinel.so` bytecode. **The refusal has never been
@@ -216,6 +221,7 @@ examples/hopper-sentinel/
 ├── src/lib.rs                    # state, contexts, #[hopper::program] (9 instructions)
 └── tests/
     ├── flagship_host.rs          # 8 host proofs (hopper-svm)
+    ├── grillo_e2e.rs             # 4 host-to-Grillo contract proofs
     └── refusal_sbf_e2e.rs        # 2 compiled-SBF proofs (Mollusk), the new evidence
 ```
 

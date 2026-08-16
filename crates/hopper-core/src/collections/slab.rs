@@ -175,10 +175,33 @@ impl<'a, T: Pod + FixedLayout> Slab<'a, T> {
         u32::from_le_bytes([self.data[0], self.data[1], self.data[2], self.data[3]])
     }
 
+    /// Number of allocated slots, using the collection-style `usize` type.
+    ///
+    /// [`count`](Self::count) remains available when the exact wire `u32` is
+    /// useful. `len` makes generic collection code read like `Vec` or
+    /// Hopper's dynamic `Seq`.
+    #[inline(always)]
+    pub fn len(&self) -> usize {
+        self.count() as usize
+    }
+
+    /// Whether the slab contains no allocated slots.
+    #[inline(always)]
+    pub fn is_empty(&self) -> bool {
+        self.count() == 0
+    }
+
     /// Total slot capacity.
     #[inline(always)]
     pub fn capacity(&self) -> usize {
         self.capacity
+    }
+
+    /// Number of slots available before allocation returns
+    /// [`AccountDataTooSmall`](ProgramError::AccountDataTooSmall).
+    #[inline(always)]
+    pub fn remaining_capacity(&self) -> usize {
+        self.capacity.saturating_sub(self.len())
     }
 
     /// Index of the first free slot.
@@ -412,9 +435,16 @@ mod tests {
         let mut buf = make(4);
         let mut slab = Slab::<Entry>::from_bytes_mut(&mut buf).unwrap();
 
+        assert!(slab.is_empty());
+        assert_eq!(slab.len(), 0);
+        assert_eq!(slab.remaining_capacity(), 4);
+
         let a = slab.alloc(e(10)).unwrap();
         let b = slab.alloc(e(20)).unwrap();
         assert_eq!(slab.count(), 2);
+        assert_eq!(slab.len(), 2);
+        assert!(!slab.is_empty());
+        assert_eq!(slab.remaining_capacity(), 2);
         assert_eq!(slab.get(a).unwrap(), e(10));
         assert_eq!(slab.get(b).unwrap(), e(20));
 

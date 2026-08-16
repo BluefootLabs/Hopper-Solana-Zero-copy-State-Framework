@@ -105,7 +105,7 @@ impl std::error::Error for BundleError {}
 
 fn decode_hex(field: &str, s: &str) -> Result<Vec<u8>, BundleError> {
     let s = s.trim();
-    if s.len() % 2 != 0 {
+    if !s.len().is_multiple_of(2) {
         return Err(BundleError::Hex {
             field: field.to_string(),
             message: "odd number of hex digits".to_string(),
@@ -154,8 +154,8 @@ pub fn verify_bundle(
         decode_touch_map(&map_bytes).map_err(|e| BundleError::TouchMap(format!("{e:?}")))?;
 
     // Decode account evidence up front so deltas can borrow the buffers.
-    let mut decoded: Vec<(u8, Vec<u8>, Vec<u8>, Option<(u64, u64)>)> =
-        Vec::with_capacity(bundle.accounts.len());
+    type DecodedAccount = (u8, Vec<u8>, Vec<u8>, Option<(u64, u64)>);
+    let mut decoded: Vec<DecodedAccount> = Vec::with_capacity(bundle.accounts.len());
     for account in &bundle.accounts {
         let pre = decode_hex(&format!("accounts[{}].pre", account.index), &account.pre)?;
         let post = decode_hex(&format!("accounts[{}].post", account.index), &account.post)?;

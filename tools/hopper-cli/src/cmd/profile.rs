@@ -107,6 +107,7 @@ fn print_profile_usage() {
     eprintln!("  -w, --watch                   Re-run on source change (Ctrl-C to exit)");
     eprintln!();
     eprintln!("`profile bench` options:");
+    eprintln!("  --bench-root <dir>           hopper-bench checkout (auto-detects sibling repo)");
     eprintln!(
         "  --rpc <url>                   RPC endpoint (default: SOLANA_RPC_URL or localhost)"
     );

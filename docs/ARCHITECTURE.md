@@ -410,7 +410,9 @@ tags. The `hopper_dispatch!` macro generates the match statement.
 
 ### Events (`event/`)
 
-`emit_event<T: Pod>()` serializes a Pod type via `sol_log_data` syscall (~100 CU).
+`emit_event<T: Pod>()` emits a Pod type via `sol_log_data`. A 32-byte payload
+measured 240 CU net in the dated 2026-07-09 primitive fixture; treat that as a
+fixture/toolchain result, not a universal syscall constant.
 `emit_event_tagged()` prepends a discriminator byte. `emit_slices()` emits raw
 byte slices. Zero allocation.
 

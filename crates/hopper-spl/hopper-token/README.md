@@ -30,7 +30,7 @@ feature only for migration tests against legacy SPL Token programs that cannot
 use the checked instructions.
 
 For Token-2022 mints with extension awareness, see
-[`hopper-token-2022`](../hopper-token-2022).
+[`hopper-token-2022`](https://crates.io/crates/hopper-token-2022).
 
 Docs: <https://docs.rs/crate/hopper-token>
 

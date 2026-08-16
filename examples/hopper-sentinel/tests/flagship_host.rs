@@ -1,3 +1,5 @@
+#![allow(clippy::assertions_on_constants)]
+
 //! SENTINEL host proofs (hopper-svm).
 //!
 //! Every test drives the REAL generated dispatcher

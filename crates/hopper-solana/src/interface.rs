@@ -10,13 +10,11 @@
 //! - [`InterfaceMint`] - mint-shaped overlay for either program.
 //! - [`TokenProgramKind`] - discriminates which program owns the account.
 //!
-//! The first 165 bytes of an SPL Token Account and the first 165 bytes
-//! of a Token-2022 token account share the same on-disk layout (mint,
-// ---------------------------------------------------------------------
-//! readers in [`crate::token`] and [`crate::mint`] work for both. This
-// ---------------------------------------------------------------------
-//! a polymorphic `transfer_checked` CPI helper that dispatches to the
-//! correct program.
+//! SPL Token and Token-2022 share the same base layouts: 165 bytes for a
+//! token account and 82 bytes for a mint. The zero-copy readers in
+//! [`crate::token`] and [`crate::mint`] therefore work for both programs.
+//! This module also provides a polymorphic `transfer_checked` CPI helper
+//! that dispatches to the correct program.
 
 use hopper_runtime::account::AccountView;
 use hopper_runtime::address::Address;
@@ -25,6 +23,40 @@ use hopper_runtime::instruction::{InstructionAccount, InstructionView, Signer};
 use hopper_runtime::ProgramResult;
 
 use crate::constants::{TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID};
+
+fn validate_interface_shape(
+    data: &[u8],
+    kind: TokenProgramKind,
+    base_len: usize,
+    extended_account_type: u8,
+) -> Result<(), ProgramError> {
+    match kind {
+        TokenProgramKind::Spl => {
+            if data.len() != base_len {
+                return Err(ProgramError::InvalidAccountData);
+            }
+        }
+        TokenProgramKind::Token2022 => {
+            if data.len() == base_len {
+                return Ok(());
+            }
+            if data.len() == crate::token2022_ext::TOKEN_MULTISIG_SIZE
+                || data.len() < crate::token2022_ext::TLV_OFFSET
+                || data[crate::token2022_ext::ACCOUNT_TYPE_OFFSET] != extended_account_type
+            {
+                return Err(ProgramError::InvalidAccountData);
+            }
+            if base_len == crate::token2022_ext::MINT_BASE_SIZE
+                && data[base_len..crate::token2022_ext::ACCOUNT_TYPE_OFFSET]
+                    .iter()
+                    .any(|byte| *byte != 0)
+            {
+                return Err(ProgramError::InvalidAccountData);
+            }
+        }
+    }
+    Ok(())
+}
 
 /// Which token program owns this account.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -80,8 +112,10 @@ impl TokenProgramKind {
 ///
 /// Construct via [`InterfaceTokenAccount::from_data`] using a borrowed
 /// view of an account body that has already been ownership-checked
-/// via [`TokenProgramKind::for_account`]. The constructor validates
-/// the body is at least [`crate::token::TOKEN_ACCOUNT_LEN`] (165) bytes.
+/// via [`TokenProgramKind::for_account`]. The constructor mirrors the
+/// canonical program's base-shape checks: legacy SPL accounts must be exactly
+/// 165 bytes, while Token-2022 accounts may be base or correctly-discriminated
+/// extended shapes and may never collide with the 355-byte multisig layout.
 ///
 /// The reader methods delegate to [`crate::token`], which is correct
 /// for both programs because the first 165 bytes of a Token-2022
@@ -108,9 +142,12 @@ impl<'a> InterfaceTokenAccount<'a> {
     /// account's actual owner - usually by calling
     /// [`TokenProgramKind::for_account`] beforehand.
     pub fn from_data(data: &'a [u8], kind: TokenProgramKind) -> Result<Self, ProgramError> {
-        if data.len() < crate::token::TOKEN_ACCOUNT_LEN {
-            return Err(ProgramError::InvalidAccountData);
-        }
+        validate_interface_shape(
+            data,
+            kind,
+            crate::token::TOKEN_ACCOUNT_LEN,
+            crate::token2022_ext::ACCOUNT_TYPE_TOKEN,
+        )?;
         Ok(Self { data, kind })
     }
 
@@ -182,9 +219,12 @@ impl<'a> InterfaceMint<'a> {
     /// Wrap a previously-borrowed mint body. Caller verifies `kind`
     /// using [`TokenProgramKind::for_account`].
     pub fn from_data(data: &'a [u8], kind: TokenProgramKind) -> Result<Self, ProgramError> {
-        if data.len() < crate::mint::MINT_LEN {
-            return Err(ProgramError::InvalidAccountData);
-        }
+        validate_interface_shape(
+            data,
+            kind,
+            crate::mint::MINT_LEN,
+            crate::token2022_ext::ACCOUNT_TYPE_MINT,
+        )?;
         Ok(Self { data, kind })
     }
 
@@ -371,6 +411,58 @@ fn interface_transfer_checked_signed_impl<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn interface_shapes_match_canonical_token_unpackers() {
+        let spl_token = [0u8; crate::token::TOKEN_ACCOUNT_LEN];
+        let spl_mint = [0u8; crate::mint::MINT_LEN];
+        assert!(InterfaceTokenAccount::from_data(&spl_token, TokenProgramKind::Spl).is_ok());
+        assert!(InterfaceMint::from_data(&spl_mint, TokenProgramKind::Spl).is_ok());
+
+        let oversized_spl_token = [0u8; crate::token::TOKEN_ACCOUNT_LEN + 1];
+        let oversized_spl_mint = [0u8; crate::mint::MINT_LEN + 1];
+        assert_eq!(
+            InterfaceTokenAccount::from_data(&oversized_spl_token, TokenProgramKind::Spl)
+                .unwrap_err(),
+            ProgramError::InvalidAccountData,
+        );
+        assert_eq!(
+            InterfaceMint::from_data(&oversized_spl_mint, TokenProgramKind::Spl).unwrap_err(),
+            ProgramError::InvalidAccountData,
+        );
+
+        let multisig_collision = [0u8; crate::token2022_ext::TOKEN_MULTISIG_SIZE];
+        assert_eq!(
+            InterfaceTokenAccount::from_data(&multisig_collision, TokenProgramKind::Token2022,)
+                .unwrap_err(),
+            ProgramError::InvalidAccountData,
+        );
+        assert_eq!(
+            InterfaceMint::from_data(&multisig_collision, TokenProgramKind::Token2022).unwrap_err(),
+            ProgramError::InvalidAccountData,
+        );
+    }
+
+    #[test]
+    fn token_2022_extended_shapes_require_discriminator_and_zero_mint_padding() {
+        let mut token = [0u8; crate::token2022_ext::TLV_OFFSET];
+        token[crate::token2022_ext::ACCOUNT_TYPE_OFFSET] = crate::token2022_ext::ACCOUNT_TYPE_TOKEN;
+        assert!(InterfaceTokenAccount::from_data(&token, TokenProgramKind::Token2022).is_ok());
+        token[crate::token2022_ext::ACCOUNT_TYPE_OFFSET] = crate::token2022_ext::ACCOUNT_TYPE_MINT;
+        assert_eq!(
+            InterfaceTokenAccount::from_data(&token, TokenProgramKind::Token2022).unwrap_err(),
+            ProgramError::InvalidAccountData,
+        );
+
+        let mut mint = [0u8; crate::token2022_ext::TLV_OFFSET];
+        mint[crate::token2022_ext::ACCOUNT_TYPE_OFFSET] = crate::token2022_ext::ACCOUNT_TYPE_MINT;
+        assert!(InterfaceMint::from_data(&mint, TokenProgramKind::Token2022).is_ok());
+        mint[crate::token2022_ext::MINT_BASE_SIZE] = 1;
+        assert_eq!(
+            InterfaceMint::from_data(&mint, TokenProgramKind::Token2022).unwrap_err(),
+            ProgramError::InvalidAccountData,
+        );
+    }
 
     #[test]
     fn token_program_kind_from_owner_matches_known_programs() {

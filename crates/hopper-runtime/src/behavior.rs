@@ -352,6 +352,6 @@ mod tests {
             <FeeCap as HopperBehavior<FeeVault>>::WRITES,
             &[BehaviorWrite::new(HopperHeader::SIZE as u32, 2)]
         );
-        assert!(<FeeCap as HopperBehavior<FeeVault>>::REQUIRES_MUT);
+        const { assert!(<FeeCap as HopperBehavior<FeeVault>>::REQUIRES_MUT) };
     }
 }

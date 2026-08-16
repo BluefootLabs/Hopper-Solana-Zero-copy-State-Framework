@@ -5,17 +5,26 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   sbf:
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
+    name: Pinned SBF compatibility (Agave v2.3.13)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
     env:
       AGAVE_VERSION: v2.3.13
       HOPPER_COUNTER_MAX_BYTES: 16384
+      SBF_RELEASE_DIR: target/hopper/release/agave-v2.3.13
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@01ba1edad32c6f80dbcce879d3e0fa5a00b2a84e
+        with:
+          toolchain: stable
       - name: Install Agave SBF tools
         run: sh -c "$(curl -sSfL https://release.anza.xyz/${AGAVE_VERSION}/install)"
       - name: Add Agave tools to PATH
@@ -26,7 +35,9 @@ jobs:
           cargo build-sbf --version
       - name: Build tiny counter and enforce size budget
         run: |
-          cargo build-sbf -- -p hopper-counter
+          cargo build-sbf \
+            --manifest-path examples/hopper-counter/Cargo.toml \
+            -- --locked
           program=$(find target -type f -name hopper_counter.so -print -quit)
           if [ -z "${program}" ]; then
             echo "hopper_counter.so was not found under target/"
@@ -41,21 +52,62 @@ jobs:
             exit 1
           fi
       - name: Build vault SBF
-        run: cargo build-sbf -- -p hopper-vault
+        run: |
+          cargo build-sbf \
+            --manifest-path examples/hopper-vault/Cargo.toml \
+            -- --locked
       - name: Build Quasar port SBF
-        run: cargo build-sbf -- -p hopper-quasar-port-20-min
+        run: |
+          cargo build-sbf \
+            --manifest-path examples/quasar-port-20-min/Cargo.toml \
+            -- --locked
       - name: Build escrow SBF
-        run: cargo build-sbf -- -p hopper-escrow
+        run: |
+          cargo build-sbf \
+            --manifest-path examples/hopper-escrow/Cargo.toml \
+            -- --locked
       - name: Build versioned-state (migration) SBF
-        run: cargo build-sbf -- -p hopper-migration
+        run: |
+          cargo build-sbf \
+            --manifest-path examples/hopper-migration/Cargo.toml \
+            -- --locked
       - name: Build orderbook SBF
-        run: cargo build-sbf -- -p hopper-orderbook
+        run: |
+          cargo build-sbf \
+            --manifest-path examples/hopper-orderbook/Cargo.toml \
+            -- --locked
+      - name: Mark release-candidate build start
+        run: |
+          test ! -e "${SBF_RELEASE_DIR}"
+          mkdir -p "${SBF_RELEASE_DIR}"
+          printf '%s\n' '{"schema":"hopper.sbf-build-marker.v1","binary":"target/hopper/release/agave-v2.3.13/sbf/hopper_cicada.so","outputDirectory":"target/hopper/release/agave-v2.3.13/sbf","binaryAbsent":true,"outputDirectoryAbsent":true}' > "${SBF_RELEASE_DIR}/build.started"
       - name: Build Cicada SBF
-        run: cargo build-sbf -- -p hopper-cicada
+        run: |
+          cargo build-sbf \
+            --manifest-path examples/hopper-cicada/Cargo.toml \
+            --sbf-out-dir "${SBF_RELEASE_DIR}/sbf" \
+            -- --locked
       - name: Build Cicada hostile-route fixture SBF
-        run: cargo build-sbf -- -p hopper-cicada-route-fixture
+        run: |
+          cargo build-sbf \
+            --manifest-path examples/hopper-cicada-route-fixture/Cargo.toml \
+            -- --locked
+      - name: Build Cicada canonical-route fixture SBF
+        run: |
+          cargo build-sbf \
+            --manifest-path examples/hopper-cicada-canonical-route-fixture/Cargo.toml \
+            -- --locked
+      - name: Stage and require every Cicada test program
+        run: |
+          mkdir -p target/deploy
+          cp "${SBF_RELEASE_DIR}/sbf/hopper_cicada.so" target/deploy/hopper_cicada.so
+          test -f target/deploy/hopper_cicada.so
+          test -f target/deploy/hopper_cicada_route_fixture.so
+          test -f target/deploy/hopper_cicada_canonical_route_fixture.so
       - name: Test Cicada
-        run: cargo test -p hopper-cicada
+        env:
+          HOPPER_REQUIRE_CICADA_SBF: "1"
+        run: cargo test -p hopper-cicada --locked
       - name: Test policy-gated scoped segments
         run: cargo test -p hopper-runtime scoped_context_runtime_segments_preserve_write_policy
       - name: Deny Cicada policy escapes
@@ -71,3 +123,101 @@ jobs:
         run: cargo install --path tools/hopper-cli --locked
       - name: Solana shape and SBF scan
         run: hopper solana-check --all --build-sbf
+      - name: Verify and attest fresh Cicada release artifact
+        run: |
+          hopper compile --emit manifest --package hopper-cicada --out "${SBF_RELEASE_DIR}/hopper-cicada.manifest.json" --force
+          hopper publish-check --full --manifest "${SBF_RELEASE_DIR}/hopper-cicada.manifest.json" --so "${SBF_RELEASE_DIR}/sbf/hopper_cicada.so"
+          python3 scripts/attest-sbf-release.py \
+            --package hopper-cicada \
+            --manifest "${SBF_RELEASE_DIR}/hopper-cicada.manifest.json" \
+            --binary "${SBF_RELEASE_DIR}/sbf/hopper_cicada.so" \
+            --built-after "${SBF_RELEASE_DIR}/build.started" \
+            --require-clean \
+            --out "${SBF_RELEASE_DIR}/hopper-cicada.sbf-attestation.json"
+      - name: Upload pinned SBF release evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: hopper-cicada-sbf-agave-v2.3.13
+          if-no-files-found: error
+          path: |
+            target/hopper/release/agave-v2.3.13/sbf/hopper_cicada.so
+            target/hopper/release/agave-v2.3.13/hopper-cicada.manifest.json
+            target/hopper/release/agave-v2.3.13/hopper-cicada.sbf-attestation.json
+            target/hopper/release/agave-v2.3.13/build.started
+
+  sbf-agave-4-2-forward:
+    name: Agave 4.2.1 forward SBF (SBPF v0 + v3)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      AGAVE_FORWARD_VERSION: v4.2.1
+      CARGO_BUILD_SBF_VERSION: 4.1.0
+      SBF_RELEASE_DIR: target/hopper/release/agave-v4.2.1
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@01ba1edad32c6f80dbcce879d3e0fa5a00b2a84e
+        with:
+          toolchain: 1.96.0
+      - name: Require a clean source checkout
+        run: test -z "$(git status --porcelain --untracked-files=all)"
+      - name: Install current Agave 4.2 stable release
+        run: sh -c "$(curl -sSfL https://release.anza.xyz/${AGAVE_FORWARD_VERSION}/install)"
+      - name: Add Agave tools to PATH
+        run: echo "$HOME/.local/share/solana/install/active_release/bin" >> "$GITHUB_PATH"
+      # Agave 4.1+ no longer bundles the SBF SDK in the validator tarball.
+      # Pin the independently released builder rather than accidentally using
+      # whichever cargo-build-sbf happens to be first on PATH.
+      - name: Install standalone forward SBF builder
+        run: cargo install --locked cargo-build-sbf --version "${CARGO_BUILD_SBF_VERSION}" --force
+      - name: Forward toolchain versions
+        run: |
+          solana --version
+          "$HOME/.cargo/bin/cargo-build-sbf" --version
+          rustc --version
+      - name: Mark release-candidate build start
+        run: |
+          test ! -e "${SBF_RELEASE_DIR}"
+          mkdir -p "${SBF_RELEASE_DIR}"
+          printf '%s\n' '{"schema":"hopper.sbf-build-marker.v1","binary":"target/hopper/release/agave-v4.2.1/sbf/hopper_cicada.so","outputDirectory":"target/hopper/release/agave-v4.2.1/sbf","binaryAbsent":true,"outputDirectoryAbsent":true}' > "${SBF_RELEASE_DIR}/build.started"
+      - name: Build safety-heavy programs with the Agave 4.2 forward toolchain
+        run: |
+          "$HOME/.cargo/bin/cargo-build-sbf" \
+            --manifest-path examples/hopper-cicada/Cargo.toml \
+            --sbf-out-dir "${SBF_RELEASE_DIR}/sbf" \
+            -- --locked
+          "$HOME/.cargo/bin/cargo-build-sbf" \
+            --manifest-path examples/hopper-migration/Cargo.toml \
+            --sbf-out-dir "${SBF_RELEASE_DIR}/migration-sbpf-v0" \
+            -- --locked
+          "$HOME/.cargo/bin/cargo-build-sbf" \
+            --arch v3 \
+            --manifest-path examples/hopper-counter/Cargo.toml \
+            --sbf-out-dir "${SBF_RELEASE_DIR}/counter-sbpf-v3" \
+            -- --locked
+      - name: Install Hopper CLI
+        run: cargo install --path tools/hopper-cli --locked
+      - name: Verify and attest the fresh forward Cicada artifact
+        run: |
+          hopper compile --emit manifest --package hopper-cicada --out "${SBF_RELEASE_DIR}/hopper-cicada.manifest.json" --force
+          hopper publish-check --full --manifest "${SBF_RELEASE_DIR}/hopper-cicada.manifest.json" --so "${SBF_RELEASE_DIR}/sbf/hopper_cicada.so"
+          python3 scripts/attest-sbf-release.py \
+            --package hopper-cicada \
+            --manifest "${SBF_RELEASE_DIR}/hopper-cicada.manifest.json" \
+            --binary "${SBF_RELEASE_DIR}/sbf/hopper_cicada.so" \
+            --built-after "${SBF_RELEASE_DIR}/build.started" \
+            --build-tool "$HOME/.cargo/bin/cargo-build-sbf" \
+            --require-clean \
+            --out "${SBF_RELEASE_DIR}/hopper-cicada.sbf-attestation.json"
+      - name: Upload Agave 4.2 forward SBF evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: hopper-cicada-sbf-agave-v4.2.1
+          if-no-files-found: error
+          path: |
+            target/hopper/release/agave-v4.2.1/sbf/hopper_cicada.so
+            target/hopper/release/agave-v4.2.1/hopper-cicada.manifest.json
+            target/hopper/release/agave-v4.2.1/hopper-cicada.sbf-attestation.json
+            target/hopper/release/agave-v4.2.1/build.started

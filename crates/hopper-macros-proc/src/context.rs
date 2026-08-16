@@ -316,8 +316,8 @@ struct AccountAttr {
     /// (`apply_pending_migrations`) in place. The field's layout type
     /// must implement `LayoutMigration` (edges via `#[hopper::migrate]`
     /// + `layout_migrations!`) and declare its target epoch
-    /// (`#[hopper::state(schema_epoch = N)]`). `validate()` widens to
-    /// accept any healable (lagging, never leading) epoch.
+    ///   (`#[hopper::state(schema_epoch = N)]`). `validate()` widens to
+    ///   accept any healable (lagging, never leading) epoch.
     epoch_migrate: bool,
 
     /// `executable`. Anchor-parity keyword. Requires the account's
@@ -559,7 +559,7 @@ fn merge_lamports_fields(options: &mut ContextOptions, fields: Vec<Ident>) {
     match &mut options.lamports {
         Some(existing) => {
             for f in fields {
-                if !existing.iter().any(|e| *e == f) {
+                if !existing.contains(&f) {
                     existing.push(f);
                 }
             }
@@ -4357,7 +4357,7 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
     }
     if parametric_selectors.len() > 8 {
         return Err(syn::Error::new_spanned(
-            &name,
+            name,
             "a context may bind at most eight distinct cells(...) selectors",
         ));
     }
@@ -4631,8 +4631,10 @@ fn expand_inner(attr: TokenStream, item: TokenStream, emit_struct: bool) -> Resu
             if cf.attr.sweep.is_some() {
                 push_pos(&mut lamport_positions, cf.index);
             }
-            if (cf.attr.init || cf.attr.init_if_needed) && cf.attr.payer.is_some() {
-                let payer_ident = cf.attr.payer.as_ref().unwrap();
+            if let (true, Some(payer_ident)) = (
+                cf.attr.init || cf.attr.init_if_needed,
+                cf.attr.payer.as_ref(),
+            ) {
                 let payer_idx = sibling_index(&ctx_fields, payer_ident, "init payer")?;
                 // Writable CPI hand-off to the System Program: the payer
                 // needs lamport permission AND the whole-account data
@@ -8044,7 +8046,6 @@ mod instruction_arg_tests {
     /// still not `mutation_complete` (the lamport dimension is undeclared
     /// and stays passthrough), and it builds a `WritePolicy::new` (data
     /// ranges only), never `with_lamports`.
-    #[test]
     /// `epoch_migrate` must DECLARE the range its bind-time crank writes.
     ///
     /// The attribute already implies writability in the runtime check and
@@ -8075,6 +8076,7 @@ mod instruction_arg_tests {
         );
     }
 
+    #[test]
     fn bare_strict_writes_installs_a_data_only_ambient_gate() {
         let attr: TokenStream = quote! { strict_writes };
         let item: TokenStream = quote! {

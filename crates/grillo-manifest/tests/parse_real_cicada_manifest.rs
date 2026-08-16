@@ -29,6 +29,46 @@ fn manifest() -> MutationManifest {
 }
 
 #[test]
+fn checked_in_fixture_contains_the_complete_emitted_surface() {
+    let value: serde_json::Value =
+        serde_json::from_str(CICADA_MANIFEST).expect("real cicada manifest is valid JSON");
+    assert!(
+        value
+            .get("layoutMetadata")
+            .is_some_and(|value| value.is_array()),
+        "the fixture must retain the emitter's layoutMetadata field even when empty"
+    );
+    let contexts = value
+        .get("contexts")
+        .and_then(serde_json::Value::as_array)
+        .expect("the fixture must retain emitted contexts");
+    let names: Vec<&str> = contexts
+        .iter()
+        .map(|context| {
+            context
+                .get("name")
+                .and_then(serde_json::Value::as_str)
+                .expect("every emitted context has a name")
+        })
+        .collect();
+    assert_eq!(
+        names,
+        [
+            "InitializeConfig",
+            "InitializeShard",
+            "CreateIntent",
+            "ClaimIntent",
+            "ReleaseClaim",
+            "CancelIntent",
+            "ExecuteIntent",
+            "ReclaimIntent",
+            "SetPause",
+        ],
+        "a missing context means the checked-in fixture is not the full current emitter output"
+    );
+}
+
+#[test]
 fn cicada_manifest_parses_with_parametric_instructions() {
     let m = manifest();
     assert_eq!(m.program_name, "hopper-cicada");
@@ -49,6 +89,54 @@ fn cicada_manifest_parses_with_parametric_instructions() {
         assert!(
             parametric.contains(&expected),
             "expected parametric rules on {expected}"
+        );
+    }
+}
+
+/// The checked-in fixture must track Cicada's security-critical account ABI.
+/// These assertions catch a stale manifest that would otherwise describe the
+/// pre-adoption create flow or the former first-caller-wins initializer.
+#[test]
+fn cicada_manifest_tracks_custody_and_initializer_accounts() {
+    let m = manifest();
+
+    let initialize = m
+        .instruction("initialize_config")
+        .expect("initialize_config is published");
+    let initialize_accounts: Vec<&str> = initialize
+        .accounts
+        .iter()
+        .map(|account| account.name.as_str())
+        .collect();
+    assert_eq!(
+        initialize_accounts,
+        [
+            "payer",
+            "config",
+            "program",
+            "program_data",
+            "system_program",
+        ]
+    );
+
+    let create = m
+        .instruction("create_intent")
+        .expect("create_intent is published");
+    assert_eq!(create.accounts[3].name, "source_token");
+    assert!(
+        create.accounts[3].writable,
+        "atomic custody adoption requires a writable source token account"
+    );
+    assert_eq!(create.accounts[9].name, "token_program");
+    assert_eq!(create.accounts[11].name, "source_lease");
+    assert!(create.accounts[11].writable);
+
+    for account_index in [3, 11] {
+        assert!(
+            create.authorized.iter().any(|range| {
+                range.account_index == account_index && range.offset == 0 && range.size == u32::MAX
+            }),
+            "create must publish its whole-account write for account index {account_index}"
         );
     }
 }

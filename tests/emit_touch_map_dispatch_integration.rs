@@ -116,14 +116,16 @@ fn dispatch(disc: u8) -> Result<(), ProgramError> {
 
 #[test]
 fn opt_in_advertises_the_const_control_does_not() {
-    assert!(
-        Bump::EMIT_TOUCH_MAP,
-        "the emit_touch_map context must advertise EMIT_TOUCH_MAP = true"
-    );
-    assert!(
-        !Peek::EMIT_TOUCH_MAP,
-        "a context without the opt-in must default EMIT_TOUCH_MAP = false"
-    );
+    const {
+        assert!(
+            Bump::EMIT_TOUCH_MAP,
+            "the emit_touch_map context must advertise EMIT_TOUCH_MAP = true"
+        );
+        assert!(
+            !Peek::EMIT_TOUCH_MAP,
+            "a context without the opt-in must default EMIT_TOUCH_MAP = false"
+        );
+    }
 }
 
 #[test]

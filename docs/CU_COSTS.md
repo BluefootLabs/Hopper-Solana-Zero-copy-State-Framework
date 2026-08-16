@@ -43,8 +43,10 @@ CU costs are toolchain- and runtime-relative (identical code has been
 observed to move between Solana runtime versions), so compare numbers only
 within one provenance block. The prior run of this same lab (2026-07-07,
 same harness and toolchain, framework commit `fa2bfdb`) is retained at
-`hopper-bench/results/primitive-bench/` so deltas stay checkable. A refresh
-on the agave-4.0 Mollusk stack (0.13.x) is queued.
+`hopper-bench/results/primitive-bench/` so deltas stay checkable. The next
+clean refresh targets the Agave 4.2.1 / Mollusk 0.15.x transition and must pin
+the exact resolved versions in its archive; the older Agave 4.0 / Mollusk
+0.13 queue is no longer the release target.
 
 ## Per-primitive costs (Mollusk, 2026-07-09)
 

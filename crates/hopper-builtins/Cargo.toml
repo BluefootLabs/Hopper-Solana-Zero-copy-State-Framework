@@ -8,6 +8,7 @@ description = "Tuned memory-intrinsic overrides for Solana SBF programs. memcmp/
 repository = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework"
 homepage = "https://hopperzero.dev"
 documentation = "https://docs.rs/crate/hopper-builtins/0.3.0"
+readme = "README.md"
 keywords = ["solana", "sbf", "intrinsics", "memcmp", "no-std"]
 categories = ["no-std", "embedded"]
 

@@ -840,7 +840,7 @@ fn dominates(left: &CandidateMetrics, right: &CandidateMetrics) -> bool {
             .cmp(&right.migration_bytes_upper_bound),
     ];
     dimensions.iter().all(|order| *order != Ordering::Greater)
-        && dimensions.iter().any(|order| *order == Ordering::Less)
+        && dimensions.contains(&Ordering::Less)
 }
 
 fn pareto_frontier(candidates: &[CandidatePlan]) -> Vec<String> {

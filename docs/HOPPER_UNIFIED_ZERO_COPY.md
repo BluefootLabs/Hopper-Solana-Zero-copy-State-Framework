@@ -107,7 +107,7 @@ no crate cycle: `hopper-core` owns the type, the macro emits the impl. This is
 purely additive — the existing `CompactLayout`, `LayoutContract`, and
 `SchemaExport` surfaces are untouched.
 
-## Hot path: zero manifest reads, zero CU regression
+## Hot path: no manifest reads and an unchanged compact validation path
 
 `validate_hot` (and the `AccountDescriptor::validate` it delegates to) is
 `#[inline(always)]` and does exactly two checks:
@@ -149,7 +149,8 @@ advertises fails closed at the upgrade instruction, not in production.
 ## Why this matters now (2026 landscape)
 
 The unification is grounded in where Solana zero-copy is actually heading
-(full analysis in `HOPPER_UNIFIED_RESEARCH.md`):
+(full analysis in
+[`ZERO_COPY_FRAMEWORK_AUDIT_2026-08-15.md`](ZERO_COPY_FRAMEWORK_AUDIT_2026-08-15.md)):
 
 - **Anchor v2 is Pinocchio-backed and zero-copy-by-default.** The historical
   "Anchor is slow / heavy" wedge is gone. Hopper's durable advantage is *not*

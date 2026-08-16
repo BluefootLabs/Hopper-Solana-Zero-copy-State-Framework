@@ -175,6 +175,53 @@ Generate a security test matrix with per-instruction cases for missing signer,
 wrong owner, wrong PDA, wrong layout, non-writable mutable accounts, and token
 extension mistakes when token capabilities are present.
 
+### `hopper fuzz generate --program <manifest> [--out <plan.json>] [--corpus <dir>]`
+
+Derive a deterministic adversarial plan from the supported contracts published
+in the manifest. Coverage includes layout identity and truncation, every field
+edge, declared compatibility policy and backward readability, bounded
+arguments, signer and writable roles, Accounts-derived typed, PDA, lifecycle,
+has-one, explicit owner/address, and optional-account constraints, policy
+requirements and invariants, every duplicate-account pair, static and
+parametric write boundaries, declared lamport permissions, and
+remaining-account limits. Every case includes a stable 128-bit seed and
+required invariant hooks.
+`--corpus` writes one JSON adapter seed record per case; these records are not
+raw libFuzzer byte inputs.
+
+### `hopper fuzz check --program <manifest> [--plan <plan.json>]`
+
+Regenerate the plan in memory and compare its complete structured content with
+the committed contract plan. CI fails when source changes add or alter a layout,
+instruction, context constraint, compatibility pair, policy, layout metadata,
+account role, or effect declaration without updating the fuzz surface.
+Hopper's Cicada gate first emits the manifest from source, so stale
+checked-in manifests cannot make this check pass.
+
+### `hopper fuzz run --program <manifest> --adapter <executable> [options]`
+
+Execute generated cases through an application-owned SVM or program-test
+adapter. The runner writes one `hopper.manifest-fuzz-request.v1` JSON object to
+adapter stdin and requires one strict `hopper.manifest-fuzz-response.v1` JSON
+object on stdout. Diagnostics belong on stderr.
+
+Useful options are `--plan <plan.json>` to require a current committed plan,
+repeatable `--case <exact-id>` for replay, repeatable `--adapter-arg <value>`,
+repeatable `--require-invariant <hook>` for application properties, and
+`--report <report.json>` for an archived result. Missing, duplicate, unknown,
+failed, or skipped cases and missing invariant confirmations fail by default.
+`--allow-skips` is intended only for local adapter bring-up. The complete
+protocol and an example are in `fuzz/README.md`.
+
+The manifest derives hostile mutations, seeds, and structural hooks. The
+adapter supplies valid business-state fixtures and executes either the real
+program path or an explicitly identified host-equivalent enforced primitive
+when a production instruction cannot request the hostile operation. Therefore
+`generate` plus `check` is coverage planning, while `run` plus a no-skip adapter
+is execution evidence only at the level the adapter reports. Cicada's 698-case
+adapter is host semantic evidence paired with a separate compiled-SBF lifecycle
+suite; it is not evidence of 698 SBF transactions.
+
 ## Project linting
 
 ### `hopper lint zc [--project <path>] [--fail-on-warn]`
@@ -192,24 +239,29 @@ remaining-account checks as review items, not hard errors unless
 
 Report the write-lock and signature footprint each instruction *declares*,
 computed from the manifest's account list plus the same `writeRanges` /
-`lamportAccounts` the runtime enforces. Nothing is measured, so the output is
-exact, offline, and reproducible.
+`lamportAccounts` the runtime enforces. Role counts are exact, offline, and
+reproducible; their CU product is a fixed-role upper bound because optional
+roles may be absent and duplicate roles may share one Pubkey.
 
 Columns are `W` (accounts declared writable), `W-eff` (still writable after
-sound demotion), `Sigs`, `Lock CU` (write locks after demotion, plus
+sound demotion), `Sigs`, `Fixed max` (fixed-role write locks after demotion,
+plus
 signatures), `Saved` (write-lock CU demotion removed), `Proven RO` — the
-non-signer accounts a mutation-complete write set proves are never mutated —
-and `Rem`, the ceiling on caller-supplied remaining accounts. A client that
-marks a `Proven RO` account writable pays a flat 300 CU write lock and
-serializes on it for nothing. Signers are excluded because the fee payer must
-stay writable at the transaction level.
+non-signer accounts a mutation-complete write set makes read-only across
+Hopper's supported governed APIs — and `Rem`, the ceiling on caller-supplied
+remaining accounts. A client that marks such an account writable pays a flat
+300 CU write lock and serializes on it for nothing. This result does not cover
+arbitrary unsafe, FFI, dependency, direct Hopper Native, or unchecked-CPI
+paths; hand-written clients must review those escapes before demotion. Signers
+are excluded because the fee payer must stay writable at the transaction
+level.
 
 `--max-block-cost <CU>` turns it into a CI gate: exit 1 if any instruction's
-`Lock CU` exceeds the ceiling. It fails closed — a zero-instruction manifest,
+`Fixed max` exceeds the ceiling. It fails closed — a zero-instruction manifest,
 two positional manifests, a repeated ceiling flag, and a missing path are all
 refused rather than silently passing.
 
-`Lock CU` is the **declaration's share** of a leader's price, not a
+`Fixed max` is an **upper bound on the declaration's fixed-role share** of a leader's price, not a
 transaction's block cost: Agave also charges the requested compute limit
 (200,000 CU by default and usually the largest term), the requested
 loaded-data limit, instruction bytes, and the fee payer's own lock. Nor is it

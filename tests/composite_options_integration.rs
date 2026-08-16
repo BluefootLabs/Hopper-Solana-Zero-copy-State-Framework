@@ -125,12 +125,12 @@ fn composed_write_ranges_splice_the_inner_segment_rebased() {
     );
     // The inner's own authority stays empty: declared structure confers
     // no enforcement without the (outer's) strict_writes opt-in.
-    assert!(!VaultCheck::STRICT_WRITES);
+    const { assert!(!VaultCheck::STRICT_WRITES) };
     assert!(VaultCheck::WRITE_RANGES.is_empty());
 
     // The outer's composed set: inner spliced at flattened slot 2, the
     // post-composite leaf at flattened slot 3.
-    assert!(OperateStrict::STRICT_WRITES);
+    const { assert!(OperateStrict::STRICT_WRITES) };
     assert_eq!(
         OperateStrict::WRITE_RANGES,
         &[
@@ -150,8 +150,10 @@ fn composed_write_ranges_splice_the_inner_segment_rebased() {
     );
     // Composite containers still refuse embedding (inner rules did not
     // loosen with the v2 lift).
-    assert!(VaultCheck::__HOPPER_EMBEDDABLE);
-    assert!(!OperateStrict::__HOPPER_EMBEDDABLE);
+    const {
+        assert!(VaultCheck::__HOPPER_EMBEDDABLE);
+        assert!(!OperateStrict::__HOPPER_EMBEDDABLE);
+    }
 }
 
 fn strict_handler<'info>(
@@ -357,9 +359,11 @@ fn event_cpi_appends_after_the_flattened_set_and_control_is_unchanged() {
         3,
         "the control composite context keeps the pre-feature shape"
     );
-    assert!(OperateEvents::EVENT_CPI);
-    assert!(!OperatePlain::EVENT_CPI);
-    assert!(composite_event_prog::__HOPPER_EVENT_CPI_ENABLED);
+    const {
+        assert!(OperateEvents::EVENT_CPI);
+        assert!(!OperatePlain::EVENT_CPI);
+        assert!(composite_event_prog::__HOPPER_EVENT_CPI_ENABLED);
+    }
 
     // The schema splice covers every flattened slot AND the synthetics,
     // in slot order, length-pinned to ACCOUNT_COUNT.
@@ -536,10 +540,12 @@ fn traced_accounts() -> [AccountFixture; 4] {
 /// still short-circuits before the emit.
 #[test]
 fn composite_dispatcher_emits_on_ok_and_not_on_err() {
-    assert!(
-        OperateTraced::EMIT_TOUCH_MAP,
-        "the container must advertise EMIT_TOUCH_MAP = true"
-    );
+    const {
+        assert!(
+            OperateTraced::EMIT_TOUCH_MAP,
+            "the container must advertise EMIT_TOUCH_MAP = true"
+        );
+    }
     let ok =
         HopperSvm::new().process_instruction(PROGRAM_ID, &[0u8], &traced_accounts(), drive_traced);
     assert_eq!(ok.program_result, Ok(()), "the Ok handler must dispatch");

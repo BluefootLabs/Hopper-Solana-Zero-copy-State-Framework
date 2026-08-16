@@ -97,7 +97,7 @@ fn parse_hex_data(hex: &str) -> Result<Vec<u8>, String> {
     if hex.is_empty() {
         return Ok(Vec::new());
     }
-    if hex.len() % 2 != 0 {
+    if !hex.len().is_multiple_of(2) {
         return Err(format!(
             "--data hex must have an even number of digits (got {})",
             hex.len()
@@ -334,12 +334,6 @@ fn run_send(
     if allow_failure {
         println!("preflight : skipped (--allow-failure; an on-chain refusal will land)");
     }
-    if dry_run {
-        println!();
-        println!("dry run: nothing sent.");
-        return Ok(());
-    }
-
     let mut instructions: Vec<Instruction> = Vec::new();
     if let Some(units) = compute_limit {
         instructions.push(
@@ -354,18 +348,40 @@ fn run_send(
         data,
     });
 
+    // Sign a byte-for-byte-size-equivalent preview before any RPC round trip.
+    // Signature and blockhash values are fixed-width, so a default blockhash
+    // has the same serialized length as the live one fetched below.
+    let mut all_signers: Vec<&Keypair> = vec![&payer];
+    all_signers.extend(signers.iter());
+    let preview_tx = Transaction::new_signed_with_payer(
+        &instructions,
+        Some(&payer.pubkey()),
+        &all_signers,
+        Default::default(),
+    );
+    let wire_bytes =
+        super::transaction_limits::ensure_legacy_transaction_size(&preview_tx, "hopper tx send")?;
+    println!(
+        "wire      : {wire_bytes}/{} bytes (legacy)",
+        super::transaction_limits::LEGACY_V0_MAX_BYTES
+    );
+    if dry_run {
+        println!();
+        println!("dry run: nothing sent.");
+        return Ok(());
+    }
+
     let client = RpcClient::new_with_commitment(rpc_url.clone(), CommitmentConfig::confirmed());
     let blockhash = client
         .get_latest_blockhash()
         .map_err(|e| format!("get_latest_blockhash failed: {e}"))?;
-    let mut all_signers: Vec<&Keypair> = vec![&payer];
-    all_signers.extend(signers.iter());
     let tx = Transaction::new_signed_with_payer(
         &instructions,
         Some(&payer.pubkey()),
         &all_signers,
         blockhash,
     );
+    super::transaction_limits::ensure_legacy_transaction_size(&tx, "hopper tx send")?;
     let signature = if allow_failure {
         // Preflight simulation would reject a tx the program is going to
         // refuse — but landing that refusal IS the goal here. Send raw,

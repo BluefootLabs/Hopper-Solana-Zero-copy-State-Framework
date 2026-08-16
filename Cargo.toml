@@ -32,6 +32,8 @@ members = [
     "examples/hopper-sentinel",
     "examples/hopper-cicada",
     "examples/hopper-cicada-route-fixture",
+    "examples/hopper-cicada-canonical-route-fixture",
+    "examples/hopper-cicada-fuzz-adapter",
     "examples/hopper-vault",
     "examples/hopper-parity-vault",
     "examples/hopper-router",
@@ -114,6 +116,7 @@ documentation = "https://docs.rs/crate/hopper-lang/0.3.0"
 readme = "README.md"
 keywords = ["solana", "zero-copy", "framework", "state", "no-std"]
 categories = ["no-std", "embedded"]
+exclude = ["tests/dx_parity_docs.rs"]
 
 [lib]
 name = "hopper"

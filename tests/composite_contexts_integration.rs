@@ -1,3 +1,5 @@
+#![allow(clippy::assertions_on_constants)]
+
 //! Composite (nested) account contexts, end to end.
 //!
 //! Anchor's composite-accounts feature: a context struct embeds another

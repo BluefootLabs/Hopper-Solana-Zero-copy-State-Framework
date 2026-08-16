@@ -75,7 +75,7 @@ fn expected_fee_bps_range() -> WriteRange {
 
 #[test]
 fn realloc_plus_segment_publishes_only_the_segment_range() {
-    assert!(AdjustFee::STRICT_WRITES);
+    const { assert!(AdjustFee::STRICT_WRITES) };
 
     // Exactly one declared range: the `fee_bps` segment. Before the fix
     // this slice was `[WriteRange::whole_account(0)]` instead.

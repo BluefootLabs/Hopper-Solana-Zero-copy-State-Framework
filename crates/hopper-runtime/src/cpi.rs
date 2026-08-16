@@ -201,6 +201,7 @@ fn signer_authority_supplied(signers_seeds: &[Signer<'_, '_>]) -> bool {
 /// signer, writability, or duplicate-writable validation happens here —
 /// those belong to the default [`invoke_signed`] tier.
 #[inline]
+#[cfg_attr(target_os = "solana", allow(dead_code))]
 fn validate_cpi_borrows(
     instruction: &InstructionView<'_, '_, '_, '_>,
     account_views: &[&AccountView<'_>],

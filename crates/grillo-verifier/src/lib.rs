@@ -18,7 +18,7 @@
 //! Acquired-but-unchanged is LEGAL — access is not modification — and is
 //! surfaced as a note on a scoped [PASS](Verdict::Pass), never a violation.
 //!
-//! Crucially, the verifier is *independent*: it re-derives `changed` from
+//! Crucially, the verifier is computationally separate from the runtime: it re-derives `changed` from
 //! raw bytes rather than trusting the program's self-report. A program that
 //! lies in its touch map (claims a write it did not make, or omits one it
 //! did) is caught — an omitted real write shows up as an

@@ -8,7 +8,7 @@ cross-framework parity workloads on Solana.
 Two measurement methods appear in this document, and they are not
 interchangeable:
 
-- **Mollusk net-of-logging (current, 2026-07-07).** The primitive lab runs
+- **Mollusk net-of-logging (historical primitive lab, 2026-07-07).** The primitive lab runs
   under `mollusk-svm` (validator-free). Each primitive is dispatched between
   two `sol_log_compute_units()` syscalls; the runner records the whole
   instruction's `compute_units_consumed` (**whole-ix**) and the bracketed
@@ -30,8 +30,9 @@ from the executable harness.
 All CU numbers are toolchain- and runtime-relative: identical Anchor code has
 been observed to move 571 → 685 CU between Solana 2.1 and 2.3, and Mollusk CU
 parity with mainnet is governed by the configured `SVMFeatureSet`. Compare
-numbers only within one provenance block. A refresh on the agave-4.0 Mollusk
-stack (0.13.x, SIMD-0339 active) is queued.
+numbers only within one provenance block. A primitive-lab refresh on the
+Agave 4.2.1 / Mollusk 0.15 stack is still required before those historical
+primitive rows can be called current.
 
 ## Automation Status
 
@@ -49,11 +50,42 @@ Release-facing comparison tables in this repository must come from one
 seed set, feature flags, release profile, and command line for every included
 framework.
 
-The current vault snapshot includes Hopper, an in-tree Anza Pinocchio target,
-Quasar's upstream `examples/vault` target, and an in-tree Anchor comparator.
-Quasar's upstream vault exposes only `deposit` and `withdraw`, so
-validation-only rows are shown as `n/a` for Quasar instead of being
-synthesized by the harness.
+The current required matrix includes Hopper, crates.io Pinocchio 0.11.2,
+Quasar's pinned 0.1 release-line snapshot, Anchor v2's pinned unpublished alpha
+snapshot, and Star Frame's pinned snapshot. Deposit and withdraw are the only
+five-way workloads. Hopper and raw Pinocchio also expose authorize,
+missing-signature authorize, and counter-access rows; the other fixtures report
+those as `n/a` rather than synthesizing different behavior.
+
+The repaired runner uses one shared program id and hard-fails unsigned deposit,
+unsigned withdraw, wrong-PDA deposit, wrong-PDA withdraw, substituted-system-
+program deposit, or rollback divergence for every framework. It also verifies
+Git repository/revision, package name/version, Cargo lock resolution, registry
+checksums, release-profile equality, source cleanliness, artifact freshness,
+and archive hashes.
+
+### Current source diagnostic, not release evidence
+
+A fresh local diagnostic run on 2026-08-16 produced the rows below with Rust
+1.96, Mollusk 0.15.0 backed by Agave/SVM 4.2.1 execution crates, and
+`cargo-build-sbf 4.0.0`. Both source trees were dirty and the run reused
+pre-existing SBF artifacts, so these numbers must not be copied into release
+marketing. They demonstrate that the corrected current-runtime harness
+executes all five fixtures and parity gates; only a clean committed CI archive
+can replace the release-facing snapshot. Moving the host runner from Mollusk
+0.10.3 to 0.15.0 left every row unchanged in this diagnostic.
+
+| Framework | Deposit CU | Withdraw CU | Binary bytes |
+|---|---:|---:|---:|
+| Hopper | 1,573 | 432 | 8,992 |
+| Quasar 0.1 snapshot | 1,754 | 585 | 5,736 |
+| Anchor v2 alpha snapshot | 1,785 | 606 | 6,344 |
+| Pinocchio 0.11.2 | 3,697 | 2,542 | 7,512 |
+| Star Frame snapshot | 3,835 | 2,605 | 83,024 |
+
+The diagnostic archive is owned by `hopper-bench`; it is not a publishable
+artifact. The clean runner must report `publishable: true` and retain its ZIP
+and checksum before Hopper makes a current comparative performance claim.
 
 ## Primitive CU Results (Mollusk, 2026-07-09)
 
@@ -216,9 +248,11 @@ instruction.
 A version note on the Anchor column: it is measured against
 **anchor-lang 0.31.1**, the comparator this table was locked to.
 `anchor-lang` 1.1.2 is the current stable release (a 1.1.2 re-run is queued,
-and its binary-size row is expected to shrink), and an unreleased,
-Pinocchio-based **Anchor v2 alpha** exists whose in-repo benchmarks land at
-Quasar-level CU. Read the Anchor multiples below as measurements of shipped
+and its binary-size row is expected to shrink), and an unpublished,
+Pinocchio-based **Anchor v2 alpha** exists on `anchor-next` whose in-repo
+benchmarks land at Quasar-level CU. Its own materials say alpha, unaudited, and
+not on crates.io. Read the Anchor
+multiples below as measurements of shipped
 Anchor 0.31.1/1.x, with the shelf life that implies.
 
 | Scenario | Hopper | Anza Pinocchio | Quasar | Anchor 0.31.1 |
@@ -280,9 +314,9 @@ in-tree `anchor-vault` implementing the identical instruction contract
 (explicit one-byte-style discriminators via Anchor's `discriminator`
 attribute so the harness drives all four programs the same way).
 
-## Router Parity Lab — first three-way numbers (2026-07-07)
+## Router Parity Lab — initial dated three-way (2026-07-07)
 
-This is, to our knowledge, the first published router-class head-to-head
+This is a published router-class head-to-head
 between zero-copy Solana frameworks. The workload (contract:
 `hopper-bench/ROUTER_CONTRACT.md` v1) is a multi-hop swap router over a
 shared mock-AMM CPI target: 1–3 hops, measured amount forwarding (hop *i+1*
@@ -337,7 +371,7 @@ Every parity result published from `hopper-bench` must record:
 - Exact feature flags and release profile.
 - Exact reproduction command and seed count.
 
-### Current benchmark provenance (2026-07-07 runs)
+### Historical benchmark provenance (2026-07-07 runs)
 
 Shared toolchain for all three 2026-07-07 runs (vault four-way, router
 three-way, primitive lab):
@@ -375,17 +409,17 @@ section below for why those numbers were un-deployable.
   is **26× smaller** (7.46 vs 190.11 KiB). Anchor's failure path is also
   expensive: a missing signer costs 2284 CU (8-byte discriminator hash +
   full `try_accounts` before the signer check) vs Hopper's 66 CU. **Shelf-life caveat:** these
-  multiples apply to shipped Anchor 0.31.1/1.x. The unreleased Anchor v2
-  alpha benchmarks at Quasar-level CU in its own repo, so when it ships,
+  multiples apply to shipped Anchor 0.31.1/1.x. The unpublished Anchor v2
+  alpha benchmarks at Quasar-level CU in its own repo, so if and when
+  v2 becomes stable,
   "10× cheaper than Anchor" stops being a durable headline for any
   framework. The durable ground is winning within the zero-copy cluster
-  (see the router lab above) plus the state/safety/tooling surface no
-  Pinocchio-derived framework has (see `COMPARISON.md`).
-- Hopper beats Quasar on **both** upstream Quasar workloads (deposit
-  −106 CU, withdraw −150 CU) while carrying its full state-contract
-  surface. Quasar publishes no comparative CU benchmark of its own; this
-  pinned, provenance-checked matrix is currently the only published
-  cross-framework table that includes it.
+  (see the router lab above) plus the state/safety/tooling surface not found in
+  the pinned peer snapshots (see `COMPARISON.md`).
+- In this dated fixture, Hopper beats Quasar on both implemented workloads
+  (deposit −103 CU, withdraw −106 CU) while carrying its full state-contract
+  surface. This is a result for the pinned 2026-07-09 snapshots, not a claim
+  about every current program or framework release.
 - Hopper is lower-CU than the in-tree Anza Pinocchio parity target on the
   measured PDA-bearing success paths in this vault contract. Treat that as a
   result for this benchmark, not a universal "faster than Pinocchio" claim —
@@ -443,11 +477,13 @@ itself against.
 
 Two corollaries the bisect proved along the way:
 
-- **I10 (fused signer/writable validation), I7 (touch maps), and I12
-  (write policies) cost 0 CU** — the parity vault measures identically
-  at the pre-I10 commit `411790f` and at current head, across all five
-  scenarios and binary size. The earlier suspicion of I10's
-  failure-path fallback was wrong.
+- **Historical parity-vault A/B:** I10 (fused signer/writable validation),
+  I7 (touch maps), and the then-current I12 write-policy path produced no
+  measurable change on that fixture between `411790f` and the compared head.
+  This is not a current universal 0-CU claim. Later ambient observability and
+  raw-surface enforcement changed the measured feature cost: the smoke case
+  records +52 CU for touch-map observability, and the bare-`strict_writes`
+  Sentinel case below records roughly +265 CU for gate install/teardown.
 - The widened auth-fail gap to Pinocchio (−31 → −66 CU) is the same
   entrypoint story: their 41 CU rejection is measured with their
   scanning entrypoint too, so the honest comparison is 66 vs 41 (as of
@@ -573,7 +609,7 @@ harness now pins both configurations compiling and running.
 Per-account framework cost from the Mollusk net rows above: full validated
 load 33 CU + overlay access ~2 CU + fingerprint re-check 6 CU ≈ **~41 CU per
 account**. Lightweight state tracking (snapshot + diff) adds ~26 CU; a full
-emitted receipt adds ~3.1k CU where an audit trail is wanted.
+emitted receipt adds ~2.2k CU where an audit trail is wanted.
 
 | Scenario | Typical CU | Hopper overhead (loads + overlays + diff) |
 |----------|-----------|-------------------------------------------|
@@ -667,9 +703,11 @@ Three decode receipts from those confirmed transactions:
   cross-check against the known state sequence (2 000 000 deposited −
   500 000 withdrawn = 1 500 000; count = deposit + bump + receipt = 3).
 
-The live `emit_receipt` cost — 3,586 CU — matches the Mollusk
-measurement in `docs/CU_COSTS.md` exactly, which is the strongest
-possible validation of the in-process numbers this page is built on.
+The live `emit_receipt` instruction consumed 3,586 CU. The primitive fixture
+measures 2,231 net CU for receipt creation and emission after subtracting its
+empty bracket. Those are consistent evidence for the same expensive path, but
+they are not a like-for-like equality: the live instruction also includes its
+entrypoint, dispatch, account validation, and event-CPI context.
 
 ### Live lazy migration (devnet, 2026-07-11)
 

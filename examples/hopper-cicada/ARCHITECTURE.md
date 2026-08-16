@@ -19,6 +19,14 @@ settlement policy.
 ### `CicadaConfig`
 
 Global administration and emergency pause. It is not a custody authority.
+Creation is bound on chain to the executing program's live deployment
+authority. Loader-v3 validates the exact ProgramData link and upgrade authority;
+loader-v4 validates the authority embedded in the deployed executable. An
+immutable or finalized deployment must therefore initialize this singleton
+before authority revocation or finalization. An arbitrary first caller cannot
+claim administration.
+The emergency authority must be nonzero because V1 does not expose an authority
+rotation instruction that could recover an unreachable pause key.
 
 ### `IntentShard`
 
@@ -44,10 +52,13 @@ Each source account is controlled by:
 [b"cicada-vault", owner, source_token]
 ```
 
-The owner creates or prepares a token account, derives this PDA, transfers the
-token-account authority to it, funds the account, and creates the intent.
-Binding the PDA to both owner and source prevents a later user from adopting an
-abandoned or refilled custody account.
+The owner creates and funds a token account that remains under the owner's token
+authority, then submits `create_intent`. Cicada validates the source's complete
+custody surface and atomically transfers token-account authority to this PDA
+through the canonical SPL Token or Token-2022 program. If any later create step
+fails, transaction rollback restores the original authority. Binding the PDA to
+both owner and source prevents a later user from adopting an abandoned or
+refilled custody account.
 
 ## Lifecycle
 
@@ -64,12 +75,25 @@ EMPTY
 Permissionless intents do not enter `CLAIMED`; they execute atomically from
 `OPEN`, preventing reservation griefing.
 
+Reclaim is dust-safe. It revalidates the committed source, token program, and
+vault PDA, then restores owner authority even if someone deposited tokens after
+the record became final. `SetAuthority(AccountOwner)` is balance-independent,
+so the late balance stays in the user's original source account. After
+re-reading the restored authority, Cicada clears the shard cell and closes the
+source lease. Public token-account credits therefore cannot pin a final record
+or consume a shard slot permanently, and reclaim does not depend on the refund
+account still being live.
+
 ## Route policy
 
 ### Exact mode
 
 Commits to the target program, route bytes, account order, duplicates, and
 writable/signer flags.
+
+Duplicate positions must carry identical flags. The SVM unions privileges for
+duplicate Pubkeys, so mixed flags would make the apparent per-position envelope
+weaker than the privilege the callee actually receives.
 
 ### Program mode
 
@@ -90,7 +114,12 @@ delegation of:
 - the config or intent shard;
 - any Cicada-owned account;
 - the refund token account;
+- either committed input or output mint;
 - another token account controlled by the same vault PDA.
+
+Committed mints may still appear as read-only route aliases. Rejecting writable
+aliases before CPI closes supply-neutral MintTo-plus-Burn sequences that would
+restore every mint byte before an end-state hash could observe them.
 
 The dynamic CPI call runs in a separate non-inlined stack frame so its bounded
 meta and account-info scratch buffers do not share one SBF frame with the intent
@@ -98,9 +127,10 @@ snapshot and policy commitments.
 
 ## Settlement invariants
 
-Before CPI, Cicada snapshots source and destination amounts and hashes token
-account policy excluding only the amount bytes. It hashes mint policy excluding
-only supply. After CPI:
+Before CPI, Cicada denies writable route aliases to either committed mint,
+snapshots source and destination amounts and lamports, records wrapped-SOL
+status, and hashes token-account policy excluding only the amount bytes. It
+hashes every mint byte, including supply. After CPI:
 
 ```text
 source_policy_after      == source_policy_before
@@ -111,9 +141,29 @@ spent                    = source_before - source_after
 received                 = destination_after - destination_before
 0 < spent <= max_input
 received >= min_output
+non-native source lamports      >= source lamports before
+native source lamports          >= source lamports before - spent
+non-native destination lamports >= destination lamports before
+native destination lamports     >= destination lamports before + received
 ```
 
+Those native-aware floors close a canonical close-and-recreate path in which a
+route that can sign for a token-account address restores the same token bytes
+but diverts rent or excess SOL. The compiled hostile-route matrix verifies that
+the debit is detected and the complete instruction rolls back.
+
 Every remaining source token is refunded before the record becomes final.
+Source custody admits only exactly initialized accounts with no delegate or
+delegated balance. Every bound token account must have no separate close
+authority, preventing an additional actor from deleting an empty refund or
+destination before finalization. Token-2022 TLV parsing is complete and fail
+closed: malformed, duplicate, unknown, wrong-shape, and unsupported extensions
+are rejected. This prevents an admitted extension from blocking the refund or
+the final authority restoration.
+Legacy SPL shapes are exact (82-byte mint, 165-byte token account), and
+Token-2022's canonical 355-byte multisig collision is rejected before overlay
+reads. A multisig cannot masquerade as an immutable settlement account that the
+canonical transfer program would later refuse.
 
 ## Hopper-specific guarantees
 
@@ -138,22 +188,29 @@ broad authority to the chosen route over the accounts the caller supplies.
 Cicada protects its custody capability, its own state, token/mint policy, and
 the user's economic result.
 
+Cicada also does not neutralize an asset issuer between lifecycle
+instructions. A retained legacy mint or freeze authority can change supply or
+freeze source/refund accounts after creation. Writable-mint containment keeps
+the route CPI from changing either committed mint, and the full mint hash checks
+for persistent changes as defense in depth. These controls do not replace an
+asset allowlist or a creation-time policy commitment.
+
 The Hopper mutation manifest describes Cicada-owned writes and declared fixed
 accounts. Dynamic downstream route effects require validator/RPC account-delta
 capture and Grillo attribution.
 
 ## Highest-value next work
 
-1. **Expand compiled-SBF adversarial coverage.** The current fixture proves
-   token-policy mutation and output-without-input spoofing roll back. Add mint
-   mutation, source inflation, account closure, signer escalation, and
-   duplicate-meta edge cases against canonical SPL deployments.
+1. **Devnet and replay evidence.** Archive the same full legacy SPL Token and
+   Token-2022 lifecycle against deployed programs, then capture complete
+   account deltas from validator replay. The current proofs are deterministic
+   Mollusk SVM executions, not public-cluster evidence.
 2. **Immutable final receipts.** Persist settlement/cancellation evidence in a
    sequence-derived receipt PDA so shard slots can be garbage-collected without
    losing history.
-3. **One-transaction custody setup.** Add a helper that creates an owner-bound
-   vault token account and transfers funds atomically rather than requiring
-   manual preparation.
+3. **One-transaction account funding.** Add a client helper that creates and
+   funds the owner-controlled source account immediately before Cicada's atomic
+   custody adoption, without requiring manual setup transactions.
 4. **Grillo deployment binding.** Let exact/program intents require a verified
    binary or deployment revision, protecting users from same-address upgrades.
 5. **Solver compensation.** Add bounded executor fees and optional tip ceilings
@@ -171,12 +228,22 @@ capture and Grillo attribution.
 The repository workflow now requires:
 
 ```bash
-cargo build-sbf -- -p hopper-cicada
-cargo build-sbf -- -p hopper-cicada-route-fixture
-cargo test -p hopper-cicada
+cargo build-sbf --manifest-path examples/hopper-cicada/Cargo.toml -- --locked
+cargo build-sbf --manifest-path examples/hopper-cicada-route-fixture/Cargo.toml -- --locked
+cargo build-sbf --manifest-path examples/hopper-cicada-canonical-route-fixture/Cargo.toml -- --locked
+HOPPER_REQUIRE_CICADA_SBF=1 cargo test -p hopper-cicada
+cargo test -p hopper-cicada-canonical-route-fixture
 cargo test -p hopper-runtime scoped_context_runtime_segments_preserve_write_policy
 cargo run -p hopper-cli -- lint --project examples/hopper-cicada --deny-escapes
 ```
+
+The current proof set is 22 compiled Cicada lifecycle/adversarial tests plus 21
+host policy and manifest tests. The compiled suite loads all three repository
+ELFs and Mollusk's canonical SPL Token and Token-2022 programs. CI requires the
+ELFs to exist, so missing compiled coverage fails closed rather than skipping.
+The canonical matrix includes both processors' native wrapped-SOL accounts,
+with exact source, destination, reserve, and refund lamport coupling, plus an
+atomic rollback proof for a modeled under-backed close/reinitialize end state.
 
 It also rejects `get_mut`, `load_mut`, and `with_mut` calls in the Cicada source
 so shared state cannot accidentally move from exact segment access to a safe

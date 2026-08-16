@@ -79,9 +79,18 @@ pub const EXT_GROUP_POINTER: u16 = 20;
 pub const EXT_TOKEN_GROUP: u16 = 21;
 pub const EXT_GROUP_MEMBER_POINTER: u16 = 22;
 pub const EXT_TOKEN_GROUP_MEMBER: u16 = 23;
-pub const EXT_SCALED_UI_AMOUNT_CONFIG: u16 = 24;
-pub const EXT_PAUSABLE_CONFIG: u16 = 25;
-pub const EXT_PAUSABLE_ACCOUNT: u16 = 26;
+pub const EXT_CONFIDENTIAL_MINT_BURN: u16 = 24;
+pub const EXT_SCALED_UI_AMOUNT_CONFIG: u16 = 25;
+pub const EXT_PAUSABLE_CONFIG: u16 = 26;
+pub const EXT_PAUSABLE_ACCOUNT: u16 = 27;
+pub const EXT_PERMISSIONED_BURN: u16 = 28;
+
+/// Highest Token-2022 extension discriminator understood by this release.
+///
+/// Allowlist policies deliberately reject larger values. A newly deployed
+/// extension must be reviewed and added explicitly instead of silently
+/// inheriting assumptions written for an older Token-2022 program.
+pub const MAX_KNOWN_EXTENSION_TYPE: u16 = EXT_PERMISSIONED_BURN;
 
 /// Account-type byte: Mint.
 pub const ACCOUNT_TYPE_MINT: u8 = 0x01;
@@ -101,6 +110,11 @@ pub const BASE_MINT_LEN: usize = 82;
 /// up to this length so that the AccountType discriminator sits at
 /// the same offset as on an extended token account.
 pub const BASE_TOKEN_LEN: usize = 165;
+/// Canonical SPL Token / Token-2022 multisig account length.
+///
+/// Token-2022's allocator deliberately pads extensible state away from this
+/// exact size, so it is never a valid mint or token-account TLV envelope.
+pub const TOKEN_MULTISIG_LEN: usize = 355;
 /// Offset of the `AccountType` discriminator on any extended
 /// Token-2022 account (mint or token account).
 pub const ACCOUNT_TYPE_OFFSET: usize = BASE_TOKEN_LEN;
@@ -155,16 +169,95 @@ pub fn find_extension(tlv_bytes: &[u8], ext_type: u16) -> Option<&[u8]> {
     None
 }
 
+/// Validate a TLV stream without allocating or interpreting extension data.
+///
+/// Unlike [`find_extension`], this function distinguishes a missing extension
+/// from malformed bytes. Unknown non-zero type values remain structurally
+/// valid here so generic readers stay forward-compatible. Security policies
+/// that must fail closed on new extension semantics should use
+/// [`validate_extension_allowlist`].
+pub fn validate_tlv_structure(tlv_bytes: &[u8]) -> ProgramResult {
+    let mut cursor = 0usize;
+    while cursor < tlv_bytes.len() {
+        // Token-2022 permits one trailing allocation byte during realloc.
+        if tlv_bytes.len() - cursor < 2 {
+            return Ok(());
+        }
+
+        let ext_type = u16::from_le_bytes([tlv_bytes[cursor], tlv_bytes[cursor + 1]]);
+        if ext_type == EXT_UNINITIALIZED {
+            return Ok(());
+        }
+        if tlv_bytes.len() - cursor < 4 {
+            return Err(ProgramError::InvalidAccountData);
+        }
+
+        let len = u16::from_le_bytes([tlv_bytes[cursor + 2], tlv_bytes[cursor + 3]]) as usize;
+        cursor = cursor
+            .checked_add(4)
+            .and_then(|start| start.checked_add(len))
+            .ok_or(ProgramError::InvalidAccountData)?;
+        if cursor > tlv_bytes.len() {
+            return Err(ProgramError::InvalidAccountData);
+        }
+    }
+    Ok(())
+}
+
+/// Require every initialized TLV entry to be known, unique, and allowlisted.
+///
+/// This is the fail-closed counterpart to the presence readers. It is suited
+/// to custody and settlement code where an unknown future extension must not
+/// be treated as harmless merely because an older denylist did not name it.
+pub fn validate_extension_allowlist(tlv_bytes: &[u8], allowed: &[u16]) -> ProgramResult {
+    let mut cursor = 0usize;
+    let mut seen = 0u32;
+    while cursor < tlv_bytes.len() {
+        if tlv_bytes.len() - cursor < 2 {
+            return Ok(());
+        }
+
+        let ext_type = u16::from_le_bytes([tlv_bytes[cursor], tlv_bytes[cursor + 1]]);
+        if ext_type == EXT_UNINITIALIZED {
+            return Ok(());
+        }
+        if ext_type > MAX_KNOWN_EXTENSION_TYPE || !allowed.contains(&ext_type) {
+            return Err(ProgramError::InvalidAccountData);
+        }
+        let bit = 1u32
+            .checked_shl(ext_type as u32)
+            .ok_or(ProgramError::InvalidAccountData)?;
+        if seen & bit != 0 {
+            return Err(ProgramError::InvalidAccountData);
+        }
+        seen |= bit;
+
+        if tlv_bytes.len() - cursor < 4 {
+            return Err(ProgramError::InvalidAccountData);
+        }
+        let len = u16::from_le_bytes([tlv_bytes[cursor + 2], tlv_bytes[cursor + 3]]) as usize;
+        cursor = cursor
+            .checked_add(4)
+            .and_then(|start| start.checked_add(len))
+            .ok_or(ProgramError::InvalidAccountData)?;
+        if cursor > tlv_bytes.len() {
+            return Err(ProgramError::InvalidAccountData);
+        }
+    }
+    Ok(())
+}
+
 /// Slice the TLV region out of a mint account's data.
 ///
 /// Returns `None` if the account is too short to be an *extended*
 /// Token-2022 mint (length must be strictly greater than
 /// [`TLV_OFFSET`]; a plain 82-byte legacy mint has no TLV region).
 ///
-/// Performs three validations:
+/// Performs four validations:
 /// 1. Account length is large enough to contain at least the TLV
 ///    header offset (`> TLV_OFFSET`, i.e. >= 166).
-/// 2. The `AccountType` discriminator at [`ACCOUNT_TYPE_OFFSET`]
+/// 2. The length is not the canonical 355-byte multisig shape.
+/// 3. The `AccountType` discriminator at [`ACCOUNT_TYPE_OFFSET`]
 ///    is either [`ACCOUNT_TYPE_MINT`] (0x01) or `0x00`. We accept
 ///    `0x00` for a just-reallocated mint before the Token-2022 program
 ///    stamps its account type; every subsequent extension initializer
@@ -172,18 +265,25 @@ pub fn find_extension(tlv_bytes: &[u8], ext_type: u16) -> Option<&[u8]> {
 ///    all-zero region by hitting `EXT_UNINITIALIZED` on the first
 ///    header read. This matches `spl-token-2022`'s permissive init
 ///    sequencing.
-/// 3. Returns the tail slice beginning at [`TLV_OFFSET`] (166).
+/// 4. The mint equalization padding is zero, then the tail slice begins at
+///    [`TLV_OFFSET`] (166).
 ///
 /// The bytes in `[BASE_MINT_LEN..ACCOUNT_TYPE_OFFSET]` (82..165) are
-/// Token-2022's equalization padding and are intentionally skipped
-/// over; they are not part of the TLV stream.
+/// Token-2022's equalization padding. They are not part of the TLV stream, but
+/// canonical unpacking requires them to remain zero.
 #[inline]
 pub fn mint_tlv_region(data: &[u8]) -> Option<&[u8]> {
-    if data.len() <= TLV_OFFSET {
+    if data.len() <= TLV_OFFSET || data.len() == TOKEN_MULTISIG_LEN {
         return None;
     }
     let kind = data[ACCOUNT_TYPE_OFFSET];
     if kind != ACCOUNT_TYPE_MINT && kind != 0 {
+        return None;
+    }
+    if data[MINT_EXTENSION_PADDING_START..MINT_EXTENSION_PADDING_END]
+        .iter()
+        .any(|byte| *byte != 0)
+    {
         return None;
     }
     Some(&data[TLV_OFFSET..])
@@ -198,7 +298,7 @@ pub fn mint_tlv_region(data: &[u8]) -> Option<&[u8]> {
 /// `0x00`. TLV data is read from [`TLV_OFFSET`] (166).
 #[inline]
 pub fn token_account_tlv_region(data: &[u8]) -> Option<&[u8]> {
-    if data.len() <= TLV_OFFSET {
+    if data.len() <= TLV_OFFSET || data.len() == TOKEN_MULTISIG_LEN {
         return None;
     }
     let kind = data[ACCOUNT_TYPE_OFFSET];
@@ -232,6 +332,7 @@ impl<'a> ExtensionPolicy<'a> {
 
 #[inline]
 pub fn require_extension(tlv: &[u8], ext_type: u16) -> ProgramResult {
+    validate_tlv_structure(tlv)?;
     if find_extension(tlv, ext_type).is_some() {
         Ok(())
     } else {
@@ -241,6 +342,7 @@ pub fn require_extension(tlv: &[u8], ext_type: u16) -> ProgramResult {
 
 #[inline]
 pub fn forbid_extension(tlv: &[u8], ext_type: u16) -> ProgramResult {
+    validate_tlv_structure(tlv)?;
     if find_extension(tlv, ext_type).is_none() {
         Ok(())
     } else {
@@ -250,11 +352,16 @@ pub fn forbid_extension(tlv: &[u8], ext_type: u16) -> ProgramResult {
 
 #[inline]
 pub fn validate_extension_policy(tlv: &[u8], policy: &ExtensionPolicy<'_>) -> ProgramResult {
+    validate_tlv_structure(tlv)?;
     for ext_type in policy.required {
-        require_extension(tlv, *ext_type)?;
+        if find_extension(tlv, *ext_type).is_none() {
+            return Err(ProgramError::InvalidAccountData);
+        }
     }
     for ext_type in policy.forbidden {
-        forbid_extension(tlv, *ext_type)?;
+        if find_extension(tlv, *ext_type).is_some() {
+            return Err(ProgramError::InvalidAccountData);
+        }
     }
     Ok(())
 }
@@ -602,8 +709,14 @@ mod tests {
         assert_eq!(TLV_OFFSET, 166);
         assert_eq!(MINT_EXTENSION_PADDING_START, 82);
         assert_eq!(MINT_EXTENSION_PADDING_END, 165);
+        assert_eq!(TOKEN_MULTISIG_LEN, 355);
         assert_eq!(ACCOUNT_TYPE_MINT, 0x01);
         assert_eq!(ACCOUNT_TYPE_TOKEN, 0x02);
+        assert_eq!(EXT_CONFIDENTIAL_MINT_BURN, 24);
+        assert_eq!(EXT_SCALED_UI_AMOUNT_CONFIG, 25);
+        assert_eq!(EXT_PAUSABLE_CONFIG, 26);
+        assert_eq!(EXT_PAUSABLE_ACCOUNT, 27);
+        assert_eq!(EXT_PERMISSIONED_BURN, 28);
     }
 
     #[test]
@@ -659,6 +772,39 @@ mod tests {
         data.extend_from_slice(&999u16.to_le_bytes());
         let tlv = mint_tlv_region(&data).unwrap();
         assert!(find_extension(tlv, EXT_TRANSFER_HOOK).is_none());
+        assert_eq!(
+            forbid_extension(tlv, EXT_TRANSFER_HOOK),
+            Err(ProgramError::InvalidAccountData),
+            "a malformed forbidden extension must not look absent",
+        );
+    }
+
+    #[test]
+    fn allowlist_rejects_unknown_duplicate_and_truncated_entries() {
+        let allowed = [EXT_METADATA_POINTER];
+        let known = mint_with_exts(&[(EXT_METADATA_POINTER, &[0u8; 64])]);
+        validate_extension_allowlist(mint_tlv_region(&known).unwrap(), &allowed).unwrap();
+
+        let unknown = mint_with_exts(&[(MAX_KNOWN_EXTENSION_TYPE + 1, &[])]);
+        assert_eq!(
+            validate_extension_allowlist(mint_tlv_region(&unknown).unwrap(), &allowed),
+            Err(ProgramError::InvalidAccountData),
+        );
+
+        let duplicate = mint_with_exts(&[
+            (EXT_METADATA_POINTER, &[0u8; 64]),
+            (EXT_METADATA_POINTER, &[0u8; 64]),
+        ]);
+        assert_eq!(
+            validate_extension_allowlist(mint_tlv_region(&duplicate).unwrap(), &allowed),
+            Err(ProgramError::InvalidAccountData),
+        );
+
+        let truncated = [EXT_METADATA_POINTER as u8, 0, 4, 0, 1];
+        assert_eq!(
+            validate_extension_allowlist(&truncated, &allowed),
+            Err(ProgramError::InvalidAccountData),
+        );
     }
 
     #[test]
@@ -730,6 +876,19 @@ mod tests {
         data.push(ACCOUNT_TYPE_TOKEN);
         data.push(0); // make length > TLV_OFFSET
         assert!(mint_tlv_region(&data).is_none());
+    }
+
+    #[test]
+    fn tlv_regions_reject_multisig_collision_and_dirty_mint_padding() {
+        let mut multisig = alloc::vec![0u8; TOKEN_MULTISIG_LEN];
+        multisig[ACCOUNT_TYPE_OFFSET] = ACCOUNT_TYPE_MINT;
+        assert!(mint_tlv_region(&multisig).is_none());
+        multisig[ACCOUNT_TYPE_OFFSET] = ACCOUNT_TYPE_TOKEN;
+        assert!(token_account_tlv_region(&multisig).is_none());
+
+        let mut dirty_mint = one_ext_mint(EXT_NON_TRANSFERABLE, &[]);
+        dirty_mint[MINT_EXTENSION_PADDING_START] = 1;
+        assert!(mint_tlv_region(&dirty_mint).is_none());
     }
 
     #[test]

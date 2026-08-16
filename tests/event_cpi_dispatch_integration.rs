@@ -1,3 +1,5 @@
+#![allow(clippy::assertions_on_constants)]
+
 //! Self-CPI events (`event_cpi`), end to end: one attribute + one call.
 //!
 //! Anchor spells this `#[event_cpi]` on the accounts struct plus

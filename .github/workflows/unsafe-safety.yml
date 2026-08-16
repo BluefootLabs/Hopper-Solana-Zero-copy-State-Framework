@@ -5,17 +5,21 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   unsafe-safety:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
       - name: Check unsafe safety comments and inventory
         run: python3 scripts/check-unsafe-safety-comments.py --inventory-out unsafe-inventory.md
       - name: Upload unsafe inventory
         if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: unsafe-inventory
           path: unsafe-inventory.md
-        

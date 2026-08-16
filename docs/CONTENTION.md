@@ -9,7 +9,7 @@ hopper contention examples/hopper-sentinel/hopper.manifest.json
 ```
 
 ```text
-Instruction                 W  W-eff  Sigs  Lock CU   Saved  Proven RO   Rem
+Instruction                 W  W-eff  Sigs Fixed max   Saved  Proven RO   Rem
 --------------------------------------------------------------------------------
 initialize_config           2      2     1     1320       -          -     -
 honest_pause                1      1     1     1020       -          -     -
@@ -23,12 +23,14 @@ collect_fees                1      1     1     1020       -          1     -
 
 Everything in that table is derived from the declaration — the account
 list plus the same `writeRanges` / `lamportAccounts` the runtime enforces
-and the manifest publishes. Nothing is measured, so the output is exact,
-offline, and reproducible.
+and the manifest publishes. Role counts are exact, offline, and
+reproducible. `Fixed max` is a deterministic upper bound: optional account
+roles may be absent and `dup` roles may resolve to one Pubkey, while Agave
+charges each unique present key once.
 
-## Read `Lock CU` for what it is
+## Read `Fixed max` for what it is
 
-**`Lock CU` is not a transaction's block cost.** Agave's
+**`Fixed max` is not a transaction's block cost.** Agave's
 `calculate_transaction_cost` sums five terms:
 
 ```text
@@ -59,7 +61,7 @@ Two more scope limits, both real:
   deduplicated keys. The per-instruction rows do not add up to a
   transaction's cost, and the tool says so in its own summary.
 
-Use `Lock CU` to compare declarations and to gate declaration drift — not
+Use `Fixed max` to compare declarations and to gate declaration drift — not
 to predict a fee or a block share.
 
 ## The constants
@@ -74,15 +76,15 @@ here rather than archaeology. Verified against `anza-xyz/agave` master:
 | Loaded account data | **8 CU per 32 KiB page** | `program-runtime/src/execution_budget.rs` (`DEFAULT_HEAP_COST`) |
 | Instruction data | **len / 4** | `cost_model.rs` (`INSTRUCTION_DATA_BYTES_COST`) |
 | Default requested CU | **200,000** | `execution_budget.rs` (`DEFAULT_INSTRUCTION_COMPUTE_UNIT_LIMIT`) |
-| Block limit | **60,000,000 CU** | `block_cost_limits.rs` (SIMD-0256, live since epoch 822) |
-| Per-account cap | **24,000,000 CU** | same (`MAX_WRITABLE_ACCOUNT_UNITS`) |
+| Block limit | **100,000,000 CU** | SIMD-0286; Mainnet activation completed 2026-07-29 |
+| Per-account cap | **12,000,000 CU** | `MAX_WRITABLE_ACCOUNT_UNITS`; unchanged by SIMD-0286 |
 
 Two consequences worth internalizing:
 
 - **Write locks are counted, not priced by contention.** There is no
   per-account base fee: SIMD-0110 (per-account fee markets) is not
   activated. What exists is the flat 300 CU per writable account plus the
-  24M per-account cap, and the scheduler's per-`Pubkey` serialization.
+  12M per-account cap, and the scheduler's per-`Pubkey` serialization.
   "Local fee markets" today are an emergent effect of that cap and
   priority fees, not a price on the account.
 - **The scheduler serializes on whole accounts.** Agave's greedy
@@ -95,17 +97,18 @@ Two consequences worth internalizing:
 ## `Proven RO`: the column a real write set makes possible
 
 Under a **mutation-complete** context (`strict_writes` + `lamports(...)`),
-both mutation dimensions are declared and enforced, so for any non-signer
-account with no declared byte range and no lamport permission the
-framework can *prove* the instruction never mutates it. Marking such an
-account writable buys nothing: it costs a flat 300 CU write lock and makes
-every transaction touching that account serialize against yours.
+both mutation dimensions are declared and enforced across Hopper's supported
+governed APIs. For a non-signer account with no declared byte range and no
+lamport permission, `Proven RO` means that those APIs cannot mutate it.
+Marking such an account writable buys nothing on that governed surface: it
+costs a flat 300 CU write lock and makes every transaction touching that
+account serialize against yours.
 
 In the sentinel, `collect_fees` declares `mut(revision)` on `config` and
 `lamports(fee_sink)`. `treasury` appears in neither dimension, so it is
-provably read-only and the tool reports it. A framework whose write set is
-advisory cannot make that claim: it has no way to rule out a write it
-never enforced.
+read-only under the installed Hopper policy and the tool reports it. This is
+stronger than an advisory write set, but it is not whole-program proof against
+arbitrary Rust, FFI, dependency, direct-substrate, or unchecked-CPI paths.
 
 Note what the sentinel row does **not** show: a `Saved` figure. Demotion
 only produces a saving when a manifest declares an account writable that
@@ -121,10 +124,11 @@ doubt, mark it writable" is the safe default.
 non-signer account with no declared byte range and no lamport permission,
 under a mutation-complete context:
 
-- **Direct data writes** are refused by the ambient write gate. A bound
-  strict context installs it, and it governs the `Context` surface *and*
-  the raw `AccountView` surfaces (`try_borrow_mut`, `segment_mut`,
-  `resize`, `close`, the extension region).
+- **Supported data writes** are refused by the ambient write gate. A bound
+  strict context installs it, and it governs the `Context` surface plus the
+  runtime `AccountView` paths documented as policy-aware (`segment_mut`,
+  `resize`, `close`, and the extension region). Direct calls into the raw
+  Hopper Native backend are outside this boundary.
 - **Lamport moves** are refused by the same gate's lamport dimension,
   which a mutation-complete context declares.
 - **Writable CPI hand-offs** are refused by `check_lamport_delegation`,
@@ -139,10 +143,13 @@ under a mutation-complete context:
   `epoch_migrate_declares_the_range_its_bind_crank_rewrites` and
   `migrate_without_mut_is_rejected` in the context macro's tests.
 
-The residual surface is the documented `*_unchecked` escape tier, which is
-`unsafe`/`_unchecked`-named by construction and machine-refused by
-`hopper lint --deny-escapes`. A program that passes that lint and declares
-a mutation-complete context has no path left to mutate the account.
+The residual surface includes the documented `*_unchecked` tier, direct
+Hopper Native access, arbitrary unsafe or FFI code, dependencies, and other
+ways to avoid the supported runtime surface. `hopper lint --deny-escapes`
+rejects known ledger-bypassing accessor spellings in scanned project source;
+it is a textual review aid, not semantic whole-program analysis. Treat
+`Proven RO` as a governed-surface result and require explicit review before
+using it to demote hand-written client metas.
 
 Signers are excluded from `Proven RO` even when the write set clears them.
 Writability is a transaction-level flag and the fee payer is a signer that
@@ -160,8 +167,9 @@ declared: a manifest is JSON, and `mutationComplete` without
 An instruction that accepts `remaining_accounts` takes caller-supplied
 suffix accounts whose writable flags the client chooses. Each writable one
 is a real 300 CU lock the declaration cannot constrain, so the ceiling is
-reported in its own column and deliberately left out of `Lock CU` — the
-gated figure stays the part that is exact.
+reported in its own column and deliberately left out of `Fixed max` — the
+gated figure stays deterministic without pretending caller-selected keys
+are known.
 
 ## Using it as a CI gate
 
@@ -169,8 +177,8 @@ gated figure stays the part that is exact.
 hopper contention hopper.manifest.json --max-block-cost 2000
 ```
 
-Exits 1 if any instruction's `Lock CU` exceeds the ceiling. It gates the
-part of the cost a declaration fixes, so it is deterministic: it cannot
+Exits 1 if any instruction's `Fixed max` exceeds the ceiling. It gates a
+fixed-role upper bound, so it is deterministic: it cannot
 flake, and it moves only when someone changes the account set or the write
 declaration.
 

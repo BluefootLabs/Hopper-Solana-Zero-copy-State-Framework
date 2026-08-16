@@ -1,6 +1,14 @@
 # Migrating from Anchor to Hopper
 
-This is the side-by-side. If you know Anchor, you can port a program in an afternoon. The macro spelling is almost identical; the mental model is different in two specific ways (zero-copy throughout, and segment-level borrow tracking), and knowing that up front saves the "why won't my `Account<T>` compile" moment.
+This guide targets published Anchor 1.x authoring, including its opt-in
+`AccountLoader` zero-copy path. Anchor v2 is a separate, unpublished
+`anchor-next` alpha: it is Pinocchio-backed, `no_std`, zero-copy by default,
+and has `Slab`/`PodVec` plus evolving typed CPI and verification tooling. Do
+not use this 1.x porting table as a comparison claim about v2.
+
+For the 1.x path, the macro spelling is deliberately familiar; the main
+mental-model differences are Hopper's mapped-state defaults and segment-level
+borrow tracking.
 
 ## The 30-second summary
 

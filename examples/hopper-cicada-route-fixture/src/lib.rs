@@ -1,10 +1,12 @@
 //! Compiled route fixture for Cicada's SVM suite.
 //!
-//! The test loads this ELF under the canonical SPL Token program id. It
-//! implements the two token instructions Cicada uses (`TransferChecked` and
-//! `SetAuthority`) plus deliberately hostile route commands. That makes the
-//! test exercise real cross-program SBF frames without depending on a host
-//! mock or a second token-program implementation.
+//! The adversarial tests load this ELF under the SPL Token address so one
+//! compiled callee can emulate the two token instructions Cicada uses
+//! (`TransferChecked` and `SetAuthority`) and expose deliberately hostile
+//! route commands. This proves nested SBF rollback and policy checks, but it is
+//! not the canonical SPL processor. The Cicada suite has a separate lane that
+//! registers Mollusk's vendored canonical SPL Token ELF for refund and
+//! authority-restoration compatibility.
 
 #![cfg_attr(target_os = "solana", no_std)]
 
@@ -30,6 +32,8 @@ pub const ROUTE_HONEST: u8 = 0xA0;
 pub const ROUTE_MUTATE_POLICY: u8 = 0xA1;
 /// Fixture route command: mint-like destination credit with no source debit.
 pub const ROUTE_SPOOF_OUTPUT: u8 = 0xA2;
+/// Fixture route command: valid token deltas plus an undeclared source-lamport debit.
+pub const ROUTE_DRAIN_SOURCE_LAMPORT: u8 = 0xA3;
 
 pub fn process_instruction(
     _program_id: &Address,
@@ -42,7 +46,9 @@ pub fn process_instruction(
         12 => transfer_checked(accounts, data),
         // SPL Token SetAuthority(AccountOwner, Some(pubkey)).
         6 => set_authority(accounts, data),
-        ROUTE_HONEST | ROUTE_MUTATE_POLICY | ROUTE_SPOOF_OUTPUT => route(accounts, data, command),
+        ROUTE_HONEST | ROUTE_MUTATE_POLICY | ROUTE_SPOOF_OUTPUT | ROUTE_DRAIN_SOURCE_LAMPORT => {
+            route(accounts, data, command)
+        }
         _ => Err(ProgramError::InvalidInstructionData),
     }
 }
@@ -80,6 +86,24 @@ fn route(accounts: &[AccountView<'_>], data: &[u8], command: u8) -> ProgramResul
             return Err(ProgramError::InvalidAccountData);
         }
         bytes[CLOSE_AUTHORITY_OPTION_OFFSET] ^= 1;
+    }
+    if command == ROUTE_DRAIN_SOURCE_LAMPORT {
+        // This fixture is loaded under the token-program address, so the
+        // runtime permits it to debit these token-owned accounts. It models
+        // the end state of a canonical close/reinitialize sequence without
+        // weakening the production token processor used by the separate lane.
+        let source_lamports = accounts[0].lamports();
+        let destination_lamports = accounts[1].lamports();
+        accounts[0].set_lamports(
+            source_lamports
+                .checked_sub(1)
+                .ok_or(ProgramError::InsufficientFunds)?,
+        )?;
+        accounts[1].set_lamports(
+            destination_lamports
+                .checked_add(1)
+                .ok_or(ProgramError::ArithmeticOverflow)?,
+        )?;
     }
     Ok(())
 }

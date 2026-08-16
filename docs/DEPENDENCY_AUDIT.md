@@ -4,7 +4,9 @@ This file records the dependency freshness decisions that should be easy to re-c
 
 ## Advisory policy
 
-Run this from the workspace root before any public release:
+Run this from the workspace root before any public release. The installed
+`cargo-audit` version does not accept Cargo's `--locked` flag; it scans
+`Cargo.lock` by default:
 
 ```powershell
 cargo audit --json --no-fetch
@@ -20,37 +22,76 @@ Do not add a RustSec ignore without a row in this file. The row must name the Ru
 
 ## Current decisions
 
-- Solana host crates in `hopper-cli` resolve to Agave `2.3.13` in `Cargo.lock`, matching the local `solana-cli 2.3.13` toolchain used for devnet validation.
+- Solana host RPC/signing crates resolve to Agave `4.2.1`. Direct SDK types are
+  pinned to the coherent versions selected by that release instead of loose
+  same-major ranges: `solana-instruction 3.4.0`, `solana-pubkey 4.2.1`,
+  `solana-transaction 4.1.4`, and `solana-system-interface 3.2.0`.
+- The in-process validator lane uses `mollusk-svm 0.15.0` and Agave `4.2.1`.
+  Keeping the client and validator graphs aligned prevents Cargo from selecting
+  incompatible same-major Solana SDK leaf crates.
 - `pinocchio` is kept on the current `0.11` line with `pinocchio-system 0.6` and `pinocchio-token 0.6`.
-- `five8_const` stays on `0.1` because `solana-pubkey 2.4.0` requires `^0.1.3`; `five8_const 1.0.0` is not compatible with the current Solana crate line.
+- `five8`, `five8_const`, and `five8_core` resolve together at `1.0.0`. This
+  avoids the invalid `five8 1.0.0` to `five8_core 0.1.2` lock resolution that
+  fails to compile `solana-keypair 3.1.2`.
 - `ureq 2`, `object 0.36`, and `gimli 0.31` remain pinned because they are host tooling dependencies and changing them does not improve on-chain safety or SBF output.
 
 ## Current RustSec ledger
 
-Last checked: 2026-05-25 with `cargo audit --json --no-fetch`.
+Last checked: 2026-08-16 with `cargo audit --json --no-fetch` against the local RustSec cache.
 
-The current audit gate exits non-zero with 5 vulnerability advisories, 5 unmaintained advisories, and 1 unsound advisory. None of the listed advisories are direct dependencies of `hopper-runtime`, `hopper-systems`, or the default SBF authoring path. They are still release-tracked because host tooling, devnet runners, and Solana SDK compatibility crates are part of the public repository.
+The audit gate exits successfully with **0 vulnerability advisories, 4
+unmaintained informational advisories, and 0 unsound advisories**. None of the
+remaining informational packages are dependencies of `hopper-runtime`,
+`hopper-systems`, or the default deployable SBF authoring path. They are still
+tracked because the host CLI and validator-class test harness are part of the
+public repository.
 
-| Advisory | Package | Lane | Current dependency path | Reachability and mitigation | Retirement condition |
+### Vulnerabilities removed on 2026-08-16
+
+The five former blockers all came from the Agave 2.3 host graph. They were not
+reachable from a Hopper SBF program, but they were reachable in public CLI,
+RPC, signing, or devnet workflows and therefore were fixed rather than ignored.
+
+| Advisory | Previous package and path | Previous lane | Resolution |
+| --- | --- | --- | --- |
+| `RUSTSEC-2024-0344` | `curve25519-dalek 3.2.0` through `ed25519-dalek 1.0.1` -> `solana-keypair` / `solana-signature` -> `hopper-cli`, the cross-program devnet runner, and example dev dependencies | Host signing and RPC clients; no SBF reachability | Agave `4.2.1` selects `ed25519-dalek 2.2.0` and patched `curve25519-dalek 4.1.3`. The vulnerable 3.2 package is absent from `Cargo.lock`. |
+| `RUSTSEC-2022-0093` | `ed25519-dalek 1.0.1` through `solana-keypair 2.2.3` and `solana-signature 2.3.0` | Host keypair loading, signing, CLI, and devnet runners; no SBF reachability | The signing graph now uses `solana-keypair 3.1.2`, `solana-signature 3.4.1`, and `ed25519-dalek 2.2.0`. The vulnerable 1.0 package is absent from `Cargo.lock`. |
+| `RUSTSEC-2026-0098`, `RUSTSEC-2026-0099`, `RUSTSEC-2026-0104` | `rustls-webpki 0.101.7` through `rustls 0.21` / `tokio-tungstenite 0.20` -> `solana-pubsub-client 2.3.13` -> `solana-client` | Host RPC WebSocket TLS only; no SBF reachability. Hopper did not call CRL parsing directly, but RPC certificate handling remained exposed. | Agave `4.2.1` selects `rustls 0.23.43`, `tokio-tungstenite 0.28.0`, and patched `rustls-webpki 0.103.13`. The vulnerable 0.101 package is absent from `Cargo.lock`. |
+
+The same graph refresh removed `rand 0.7.3` and its
+`RUSTSEC-2026-0097` unsoundness warning, and replaced unmaintained
+`number_prefix 0.4.0` with `unit-prefix 0.5.2`.
+
+The 2026-08-15 refresh also found and immediately removed four newly disclosed
+issues whose patched versions fit the existing dependency constraints:
+
+| Advisory | Resolution |
+| --- | --- |
+| `RUSTSEC-2026-0204` (`crossbeam-epoch 0.9.18`) | Lockfile updated to `0.9.20`. |
+| `RUSTSEC-2026-0185` (`quinn-proto 0.11.14`) | Lockfile updated to `0.11.15`. |
+| `RUSTSEC-2026-0190` (`anyhow 1.0.102`) | Lockfile updated to `1.0.103`. |
+| `RUSTSEC-2026-0221` (`event-listener 5.4.1`) | Lockfile updated to patched `5.4.2`; affected path was host-only `async-lock` / Solana QUIC client code. |
+
+### Remaining informational advisories
+
+| Advisory | Package | Lane | Current dependency path | Reachability and disposition | Retirement condition |
 | --- | --- | --- | --- | --- | --- |
-| `RUSTSEC-2024-0344` | `curve25519-dalek 3.2.0` | Host signing / Solana SDK | `ed25519-dalek 1.0.1` -> `solana-keypair` / `solana-signature` -> `hopper-cli`, devnet runner, Solana client stack | Not in Hopper's on-chain runtime path. Hopper does not implement custom scalar arithmetic or expose this as an on-chain signing oracle; affected use is through Solana host signing/client crates. Keep release notes honest that this is Solana SDK advisory debt, not a Hopper zero-copy runtime dependency. | Solana/Agave host crates move to patched `ed25519-dalek` / `curve25519-dalek`, or Hopper isolates CLI/devnet signing behind a separately audited tool crate. |
-| `RUSTSEC-2022-0093` | `ed25519-dalek 1.0.1` | Host signing / Solana SDK | `solana-keypair` / `solana-signature` -> `hopper-cli`, devnet runner, Solana client stack | Not in the SBF runtime. Hopper uses Solana SDK keypair/signature APIs for host CLI/devnet workflows and must not expose APIs that accept attacker-controlled public keys for signing. | Solana/Agave host crates migrate to `ed25519-dalek >= 2`, or Hopper removes the affected host signing path. |
-| `RUSTSEC-2026-0098`, `RUSTSEC-2026-0099`, `RUSTSEC-2026-0104` | `rustls-webpki 0.101.7` | Host RPC/TLS | `rustls 0.21` / `tungstenite` / `tokio-tungstenite` -> `solana-pubsub-client` -> `solana-client` -> `hopper-cli`, devnet runner | Host-only RPC/TLS dependency. No on-chain reachability and Hopper does not call CRL parsing APIs directly. The risk is confined to CLI/devnet network clients until Solana's client stack updates its TLS graph. | Solana client stack upgrades to patched `rustls-webpki >= 0.103.13` or Hopper removes the affected pubsub/TLS path. |
-| `RUSTSEC-2025-0141` | `bincode 1.3.3` | Host CLI / Solana SDK / dev-test | Direct in `hopper-cli` for transaction decode plus Solana/Mollusk transitive paths | Unmaintained, not a known memory-safety vulnerability. Hopper CLI uses it only for explicit user-supplied transaction bytes in `tx simulate` / `tx submit`; on-chain Hopper code does not deserialize with `bincode`. | Replace direct CLI use with the Solana SDK's supported transaction codec or another maintained format, and inherit Solana SDK migration when available. |
-| `RUSTSEC-2024-0388` | `derivative 2.2.0` | Build-time Solana ZK/Ark graph | `ark-*` / `light-poseidon` / `solana-poseidon` | Build-time proc-macro dependency through Solana ZK proof support. No direct Hopper runtime API depends on `derivative`. | Solana/Ark graph removes `derivative` or moves to a maintained derive helper. |
-| `RUSTSEC-2025-0161` | `libsecp256k1 0.6.0` | Solana compatibility / dev-test SVM | `solana-secp256k1-recover` / `solana-program` and `agave-syscalls` / `mollusk-svm` | Hopper does not implement custom secp256k1 verification. The dependency is inherited from Solana compatibility and Mollusk test lanes. | Solana/Agave replaces `libsecp256k1` or Hopper gates the affected compatibility/dev-test lane separately. |
-| `RUSTSEC-2025-0119` | `number_prefix 0.4.0` | Host CLI progress output | `indicatif` -> `solana-client` -> `hopper-cli`, devnet runner | Unmaintained formatting helper used through host progress/client tooling only. No SBF reachability. | Solana client stack or `indicatif` removes `number_prefix`. |
-| `RUSTSEC-2024-0436` | `paste 1.0.15` | Build-time Solana ZK/Ark graph | `ark-*` / `light-poseidon` / `solana-bn254` / `solana-poseidon` | Build-time proc-macro dependency inherited through Solana ZK proof support. Hopper's own macro crates do not depend on `paste`. | Upstream Solana/Ark graph migrates to `pastey`, `with_builtin_macros`, or no paste-style helper. |
-| `RUSTSEC-2026-0097` | `rand 0.7.3` | Host signing / Solana SDK / dev-test | `ed25519-dalek`, `libsecp256k1`, `solana-keypair` | Unsound only under the documented custom-logger + `thread_rng`/`rng` reentry conditions. Hopper does not install a custom logger that calls `rand::thread_rng`/`rand::rng`. Keep that as a CLI logging invariant. | Solana/Agave host crates leave `rand 0.7`, or Hopper removes the affected host signing/dev-test paths. |
+| `RUSTSEC-2025-0141` | `bincode 1.3.3` | Host CLI, Agave client, and dev/test harness | Direct `hopper-cli` transaction decoding plus `solana-client 4.2.1`, `solana-account 4.3.1`, and `mollusk-svm 0.15.0` | Unmaintained, with no published vulnerability. It is absent from Hopper's deployable runtime crates. Legacy transaction wire compatibility still requires upstream bincode surfaces in Agave 4.2. | Migrate Hopper's direct decoding and sizing to the supported wincode/versioned-transaction APIs, then remove the warning when Agave and Mollusk no longer require bincode. |
+| `RUSTSEC-2024-0388` | `derivative 2.2.0` | Build-time host validator graph | `ark-* 0.4` -> `light-poseidon 0.2` / `solana-poseidon 4.0` -> `solana-syscalls 4.2.1` -> Mollusk and the host BPF loader | Proc macro used while compiling the validator-class test stack. It is not linked into Hopper SBF programs. | Agave's Poseidon/Ark 0.4 compatibility graph removes `derivative` or migrates to a maintained derive helper. |
+| `RUSTSEC-2025-0161` | `libsecp256k1 0.7.2` | Host validator execution | `solana-syscalls 4.2.1` -> `mollusk-svm 0.15.0` / `solana-bpf-loader-program 4.2.1` | Used by the host SVM to emulate Solana secp256k1 behavior. Hopper does not expose or link this crate in its deployable runtime. | Agave replaces the syscall implementation with `k256` or another maintained implementation. |
+| `RUSTSEC-2024-0436` | `paste 1.0.15` | Build-time host validator graph | `ark-* 0.4/0.5` -> `light-poseidon` / `solana-bn254` / `solana-poseidon` -> `solana-syscalls 4.2.1` | Proc macro inherited by the host validator and cryptography build graph. Hopper's macro crates do not depend on it. | Upstream Ark/Solana graph migrates to `pastey`, another maintained helper, or no paste-style macro. |
 
 ## Re-check commands
 
 ```powershell
 cargo audit --json --no-fetch
-cargo tree --workspace -i curve25519-dalek@3.2.0 --locked --depth 5
-cargo tree --workspace -i rustls-webpki@0.101.7 --locked --depth 4
+cargo tree --workspace -i curve25519-dalek@4.1.3 --locked --depth 5
+cargo tree --workspace -i ed25519-dalek@2.2.0 --locked --depth 5
+cargo tree --workspace -i rustls-webpki@0.103.13 --locked --depth 5
 cargo tree --workspace -i bincode@1.3.3 --locked --depth 4
-cargo tree --workspace -i libsecp256k1@0.6.0 --locked --depth 4
+cargo tree --workspace -i derivative@2.2.0 --locked --depth 6
+cargo tree --workspace -i libsecp256k1@0.7.2 --locked --depth 6
+cargo tree --workspace -i paste@1.0.15 --locked --depth 6
 cargo tree -p hopper-cli --depth 1
 cargo tree -p hopper-runtime --depth 1
 cargo search solana-client --limit 3

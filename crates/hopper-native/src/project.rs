@@ -374,9 +374,11 @@ mod tests {
     }
 
     fn make_backing() -> Backing {
-        let mut header = RuntimeAccount::default();
-        header.borrow_state = NOT_BORROWED;
-        header.data_len = 16;
+        let header = RuntimeAccount {
+            borrow_state: NOT_BORROWED,
+            data_len: 16,
+            ..RuntimeAccount::default()
+        };
         Backing {
             header,
             data: [7u8; 16],

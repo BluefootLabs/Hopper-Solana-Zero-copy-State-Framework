@@ -13,14 +13,14 @@ hopper = { path = "../..", package = "hopper-lang", default-features = false }
 hopper-schema = { path = "../../crates/hopper-schema" }
 
 [dev-dependencies]
-solana-client = "2.1"
-solana-keypair = "2.1"
-solana-pubkey = "2.1"
-solana-signer = "2.1"
-solana-instruction = "2.1"
-solana-transaction = { version = "2.1", features = ["bincode"] }
-solana-system-interface = { version = "1.0.0", features = ["bincode"] }
-solana-commitment-config = "2.1"
+solana-client = "=4.2.1"
+solana-keypair = "=3.1.2"
+solana-pubkey = "=4.2.1"
+solana-signer = "=3.0.1"
+solana-instruction = "=3.4.0"
+solana-transaction = { version = "=4.1.4", features = ["serde", "wincode"] }
+solana-system-interface = { version = "=3.2.0", features = ["bincode"] }
+solana-commitment-config = "=3.1.1"
 
 [features]
 default = ["migrate"]

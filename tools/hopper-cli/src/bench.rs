@@ -220,6 +220,7 @@ const BENCHMARK_CASES: &[BenchmarkCase] = &[
 
 #[derive(Default)]
 struct PrimitiveBenchOptions {
+    bench_root: Option<PathBuf>,
     rpc_url: Option<String>,
     keypair_path: Option<PathBuf>,
     out_dir: Option<PathBuf>,
@@ -244,6 +245,7 @@ struct BaselineSet {
 struct BenchMetadata {
     generated_at_unix_seconds: u64,
     workspace_root: String,
+    benchmark_root: String,
     rpc_url: String,
     program_id: String,
     solana_core_version: String,
@@ -283,7 +285,8 @@ pub fn run_primitive_bench(args: &[String]) -> Result<(), String> {
     let cwd = workspace::current_dir()?;
     let workspace_root = workspace::find_workspace_root(&cwd)?;
     let options = parse_options(args, &workspace_root)?;
-    let baselines = load_baselines(&workspace_root.join("bench").join("cu_baselines.toml"))?;
+    let bench_root = resolve_bench_root(&workspace_root, options.bench_root.as_deref())?;
+    let baselines = load_baselines(&bench_root.join("cu_baselines.toml"))?;
     let fail_on_regression_percent = options
         .fail_on_regression_percent
         .unwrap_or(baselines.tolerance_percent);
@@ -293,8 +296,7 @@ pub fn run_primitive_bench(args: &[String]) -> Result<(), String> {
         let build_args = vec![
             "build-sbf".to_string(),
             "--manifest-path".to_string(),
-            workspace_root
-                .join("bench")
+            bench_root
                 .join("hopper-bench")
                 .join("Cargo.toml")
                 .display()
@@ -302,7 +304,7 @@ pub fn run_primitive_bench(args: &[String]) -> Result<(), String> {
             "--".to_string(),
             "--ignore-rust-version".to_string(),
         ];
-        let status = workspace::run_status("cargo", &build_args, &workspace_root)?;
+        let status = workspace::run_status("cargo", &build_args, &bench_root)?;
         if !status.success() {
             return Err("cargo build-sbf --manifest-path bench/hopper-bench/Cargo.toml -- --ignore-rust-version failed".to_string());
         }
@@ -337,7 +339,7 @@ pub fn run_primitive_bench(args: &[String]) -> Result<(), String> {
         if options.no_deploy {
             return Err("--no-deploy requires --program-id".to_string());
         }
-        deploy_bench_program(&workspace_root, &rpc_url, &keypair_path)?
+        deploy_bench_program(&bench_root, &rpc_url, &keypair_path)?
     };
     wait_for_program_visibility(&client, &program_id)?;
     let measurement_overhead_cu = measure_compute_log_overhead(&client, &payer, &program_id)?;
@@ -434,6 +436,7 @@ pub fn run_primitive_bench(args: &[String]) -> Result<(), String> {
             .unwrap_or_default()
             .as_secs(),
         workspace_root: workspace_root.display().to_string(),
+        benchmark_root: bench_root.display().to_string(),
         rpc_url,
         program_id: program_id.to_string(),
         solana_core_version: version,
@@ -453,7 +456,7 @@ pub fn run_primitive_bench(args: &[String]) -> Result<(), String> {
     let out_dir = options
         .out_dir
         .clone()
-        .unwrap_or_else(|| workspace_root.join("bench").join("results"));
+        .unwrap_or_else(|| bench_root.join("results"));
     fs::create_dir_all(&out_dir).map_err(|err| {
         format!(
             "Failed to create output directory {}: {err}",
@@ -484,6 +487,13 @@ fn parse_options(args: &[String], workspace_root: &Path) -> Result<PrimitiveBenc
     let mut i = 0;
     while i < args.len() {
         match args[i].as_str() {
+            "--bench-root" => {
+                let value = args
+                    .get(i + 1)
+                    .ok_or_else(|| "--bench-root requires a path".to_string())?;
+                options.bench_root = Some(resolve_path(workspace_root, value));
+                i += 2;
+            }
             "--rpc" => {
                 let value = args
                     .get(i + 1)
@@ -559,6 +569,31 @@ fn resolve_path(workspace_root: &Path, value: &str) -> PathBuf {
     } else {
         workspace_root.join(candidate)
     }
+}
+
+fn resolve_bench_root(workspace_root: &Path, explicit: Option<&Path>) -> Result<PathBuf, String> {
+    let env_root = std::env::var_os("HOPPER_BENCH_ROOT").map(PathBuf::from);
+    let legacy = workspace_root.join("bench");
+    let sibling = workspace_root
+        .parent()
+        .map(|parent| parent.join("hopper-bench"));
+    let candidates = explicit
+        .map(Path::to_path_buf)
+        .into_iter()
+        .chain(env_root)
+        .chain([legacy])
+        .chain(sibling)
+        .collect::<Vec<_>>();
+
+    candidates
+        .into_iter()
+        .find(|candidate| {
+            candidate.join("cu_baselines.toml").is_file()
+                && candidate.join("hopper-bench/Cargo.toml").is_file()
+        })
+        .ok_or_else(|| {
+            "Could not locate the hopper-bench product. Pass --bench-root <path> or set HOPPER_BENCH_ROOT; the root must contain cu_baselines.toml and hopper-bench/Cargo.toml".to_string()
+        })
 }
 
 fn load_baselines(path: &Path) -> Result<BaselineSet, String> {
@@ -650,11 +685,11 @@ fn wait_for_program_visibility(client: &RpcClient, program_id: &Pubkey) -> Resul
 }
 
 fn deploy_bench_program(
-    workspace_root: &Path,
+    bench_root: &Path,
     rpc_url: &str,
     keypair_path: &Path,
 ) -> Result<Pubkey, String> {
-    let so_path = resolve_bench_program_path(workspace_root)?;
+    let so_path = resolve_bench_program_path(bench_root)?;
     let args = vec![
         "program".to_string(),
         "deploy".to_string(),
@@ -668,7 +703,7 @@ fn deploy_bench_program(
         keypair_path.display().to_string(),
     ];
 
-    let output = workspace::run_output("solana", &args, workspace_root)?;
+    let output = workspace::run_output("solana", &args, bench_root)?;
     if !output.status.success() {
         return Err(format!(
             "solana program deploy failed: {}",
@@ -688,14 +723,13 @@ fn deploy_bench_program(
         .map_err(|err| format!("Invalid programId from deploy output: {err}"))
 }
 
-fn resolve_bench_program_path(workspace_root: &Path) -> Result<PathBuf, String> {
+fn resolve_bench_program_path(bench_root: &Path) -> Result<PathBuf, String> {
     let candidates = [
-        workspace_root
+        bench_root
             .join("target")
             .join("deploy")
             .join("hopper_bench.so"),
-        workspace_root
-            .join("bench")
+        bench_root
             .join("hopper-bench")
             .join("target")
             .join("deploy")
@@ -708,7 +742,7 @@ fn resolve_bench_program_path(workspace_root: &Path) -> Result<PathBuf, String> 
         .ok_or_else(|| {
             format!(
                 "Could not find hopper_bench.so under {} after build-sbf",
-                workspace_root.display()
+                bench_root.display()
             )
         })
 }
@@ -882,9 +916,12 @@ fn simulate_instruction(
     }
 }
 
-fn is_transient_simulation_error(error: Option<&TransactionError>) -> bool {
+fn is_transient_simulation_error(
+    error: Option<&solana_client::rpc_response::UiTransactionError>,
+) -> bool {
+    let error = error.cloned().map(TransactionError::from);
     matches!(
-        error,
+        error.as_ref(),
         Some(TransactionError::InstructionError(
             _,
             InstructionError::UnsupportedProgramId

@@ -12,7 +12,7 @@
 //! `hopper.manifest.json` emitted by `hopper compile --emit manifest`
 //! (renderer: `hopper_schema::codama::ManifestJson`) into a
 //! [`MutationManifest`] and can [commit](MutationManifest::commitment) to
-//! that contract with a stable `SHA-256`. The independent *verifier* half —
+//! that contract with a stable `SHA-256`. The separately runnable *verifier* half —
 //! which checks a transaction's actual byte changes against this contract —
 //! lives in the sibling `grillo-verifier` crate.
 //!

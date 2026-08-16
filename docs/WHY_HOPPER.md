@@ -4,33 +4,43 @@
 
 Hopper is a policy-driven zero-copy runtime for Solana. Three things set it apart:
 
-1. **Segment-level borrow tracking.** When one instruction mutates a vault's `balance` field, Hopper locks exactly those 8 bytes. A parallel read of `authority` on the same account? No conflict. Every other framework locks the whole account.
+1. **Segment-level borrow tracking.** Within one Hopper invocation, a write lease over a vault's `balance` bytes can coexist with a disjoint read of `authority`. This is an in-program safety and observability model; Solana's scheduler still locks the whole Pubkey.
 2. **One access model, five explicit tiers.** Generated field accessors / `segment_ref_typed` are the default hot path; `load::<T>()` is validated whole-layout access; const/dynamic segment APIs are advanced; `raw_ref` / `raw_mut` are typed escape hatches; `unsafe { as_mut_ptr() }` is full raw access. Same pipeline, different guarantees.
-3. **Policy-driven enforcement.** `#[hopper::program(strict)]`, `(sealed)`, or `(raw)` at the module level; `#[instruction(N, unsafe_memory, skip_token_checks)]` per handler. Every safety lever is a compile-time const the user toggles in one line.
+3. **Policy-driven enforcement.** `#[hopper::program(strict)]`, `(sealed)`, or `(raw)` records the module posture; `#[instruction(N, unsafe_memory, skip_token_checks)]` records per-handler exceptions. Typed contexts and supported governed APIs perform the enforcement. Policy constants do not semantically inspect arbitrary Rust, FFI, dependencies, or direct-substrate calls.
 
 ## Where Hopper sits
 
-| | Anchor | Quasar | Pinocchio | **Hopper** |
-|---|---|---|---|---|
-| Raw entrypoint ownership | no | yes | yes | **yes** |
-| Zero-copy account access | `AccountLoader` | yes | yes | **yes** |
-| `no_std` / `no_alloc` | no | yes | yes | **yes** |
-| Segment-level borrow enforcement | no | no | no | **yes** |
-| Instruction touch maps (per-ix byte footprint) | no | no | no | **yes** (`touch-map` feature, measured 0 CU) |
-| Field-level write policies (`strict_writes`) | no | no | no | **yes** (declared mut ranges enforced at borrow acquire) |
-| Compile-time layout fingerprints | no | no | no | **yes** |
-| Versioned + foreign typed loads | no | no | no | **yes** |
-| State receipts | no | no | no | **yes** |
-| Policy-driven safety levers | no | no | no | **yes** |
-| Selective per-instruction unsafe | no | no | no | **yes** |
-| Proc macros optional (not required) | required | yes | no | **yes** |
-| Compile-fail safety proofs | no | no | no | **yes** (24 compile-fail fixtures + 6 pass guards) |
+This dated summary uses the source pins in
+[`ZERO_COPY_FRAMEWORK_AUDIT_2026-08-15.md`](ZERO_COPY_FRAMEWORK_AUDIT_2026-08-15.md).
+Anchor stable and the unpublished Anchor v2 alpha are separate targets;
+Quasar means its active `0.1.0-release` source line, not the older default
+branch.
+
+| Capability | Anchor 1.1.2 | Anchor v2 alpha | Quasar 0.1 release line | Pinocchio 0.11.2 | **Hopper 0.3 workspace** |
+|---|---|---|---|---|---|
+| Zero-copy account access | opt-in `AccountLoader` | default mapped accounts | yes | raw substrate primitives | **yes** |
+| `no_std` / no-allocation program path | no | yes | yes | yes | **yes** |
+| Typed dynamic zero-copy collections | no direct mapped `Vec`/`String` | `Slab`, `PodVec` | bounded fields and migration views | bring your own | **bounded fields, `Seq`, `Slab`, and other account-byte collections** |
+| Typed same/grow/shrink migration | app-authored | app-level / evolving alpha APIs | yes | bring your own | **yes, plus schema epochs, fingerprints, chains, and deposit-preserving fit shrink** |
+| IDL and generated clients | mature IDL/TS ecosystem | evolving alpha toolchain | wire IDL, ABI hash, stable Rust/Kit/Web3 plus preview Python/Go/C | no framework layer | **8 outputs from one manifest contract** |
+| Kani/Miri/fuzz workflow | ecosystem-dependent | substantial Miri/fuzz/Kani sources; Kani CI disabled at the pin | yes | substrate-specific | **yes, plus manifest-generated cases and compiled-SBF flagship lanes** |
+| Manifest-linked runtime byte-write policy | no | no equivalent found | no equivalent found | no | **yes (`strict_writes`)** |
+| On-chain per-instruction touch evidence | no | no equivalent found | test-SVM byte diffs, not the same contract | no | **yes, opt-in** |
+| Schema fingerprint/evolution graph tied to client decoding | no comparable graph | no comparable graph at the pin | narrower ABI hash plus typed migration | no | **yes** |
+
+This is a source-snapshot comparison, not a permanent ranking. Anchor leads in
+ecosystem maturity, while Anchor v2 and Quasar contain serious zero-copy,
+collection, migration, client, and verification work.
 
 ## The three modes you can ship
 
 ### `STRICT`
 
-Every lever on. Typed contexts, auto-bind, constraint gauntlet, `enforce_token_checks`, `unsafe` allowed but isolated to explicit `hopper_unsafe_region!` blocks.
+Typed contexts auto-bind and run the constraint gauntlet. The module also
+publishes the `enforce_token_checks` promise: authored token CPIs are expected
+to use Hopper's strict helpers. The policy does not rewrite arbitrary CPI code,
+so review remains required for direct or dependency CPI calls. `unsafe` is
+allowed but should remain isolated to explicit reviewed regions.
 
 ```rust
 #[derive(Accounts)]
@@ -83,7 +93,11 @@ Reach for this when writing code that goes to external audit.
 
 ### `RAW`
 
-Pinocchio parity. Strict off, token checks off, unsafe on. Handlers take `&mut Context<'_>` directly. Author is responsible for every invariant.
+Raw-authoring posture: the module may use `&mut Context<'_>` handlers, does not
+promise strict token helpers, and permits unsafe code. Typed `Ctx<T>` handlers
+still bind even in a RAW module, and calls to validated Hopper accessors still
+perform their documented checks. The author owns every invariant omitted by a
+hand-written path.
 
 ```rust
 #[hopper::program(raw)]
@@ -98,7 +112,8 @@ pub mod vault {
 }
 ```
 
-Reach for this when every CU counts and the author has already validated the invariants by hand.
+Reach for this only when the author has explicitly implemented and tested the
+invariants that the chosen raw path omits.
 
 ## Why this matters
 
@@ -110,93 +125,70 @@ Three classes of Solana exploits map directly onto the levers:
 | Layout drift between on-chain program and client | `LAYOUT_ID` fingerprint enforced in `load::<T>()` + TS / Kotlin / Rust client `assertLayoutId` |
 | Aliasing bug in a multi-segment write | `SegmentBorrowRegistry` rejects overlapping mutable borrows at runtime, compile-fail fixture `ref_only_rejects_raw_ref.rs` proves raw `&mut` cannot satisfy `HopperRefOnly` |
 
-Other frameworks rely on the author to remember every check. Hopper makes the check the default and lets you opt out explicitly.
+Anchor and Quasar also generate standard signer, owner, PDA, and account
+constraints. Hopper's additional claim is narrower: its typed contexts make
+those checks the default, while its manifest can connect declared byte writes,
+runtime gates, generated client metas, touch evidence, contention analysis,
+and offline containment verification. Raw and unchecked paths remain explicit
+review boundaries rather than disappearing from the threat model.
 
 ## Benchmark, not claims
 
-Current release-facing numbers come from the sibling
-[hopper-bench](https://github.com/BluefootLabs/hopper-bench) parity harness:
-8-seed average, Mollusk execution, and one command line for every included
-framework. The current snapshot (re-measured 2026-07-09, four-way,
-`hopper-bench/bench/results/framework-vaults/`) includes Hopper,
-the benchmark repo's in-tree Anza Pinocchio target, Quasar's upstream
-`examples/vault` target, and a measured Anchor 0.31.1 comparator. Quasar's
-upstream vault implements only `deposit` and `withdraw`, so validation-only
-rows are `n/a` for Quasar.
+Release-facing numbers must come from the current same-behavior five-way
+matrix in the sibling
+[hopper-bench](https://github.com/BluefootLabs/hopper-bench) repository. Its
+required targets are Hopper, Pinocchio 0.11.2, Quasar's pinned 0.1 release-line
+snapshot, Anchor v2's pinned alpha snapshot, and Star Frame's pinned snapshot.
+All five use the same program id, instruction contract, account state, seeds,
+release profile, SBF toolchain, and Mollusk runner.
 
-| Instruction | Hopper | Anza Pinocchio | Quasar | Anchor 0.31.1 |
-|---|---:|---:|---:|---:|
-| authorize | **420 CU** | 2512 CU | n/a | 5017 CU |
-| counter_access | **518 CU** | 2539 CU | n/a | 5156 CU |
-| deposit | **1653 CU** | 3856 CU | 1756 CU | 7150 CU |
-| withdraw | **486 CU** | 2548 CU | 592 CU | 5108 CU |
-| binary size | 7.46 KiB | 7.73 KiB | **5.47 KiB** | 190.11 KiB |
+The runner hard-fails on successful-state divergence, unsigned deposit or
+withdraw, wrong-PDA deposit or withdraw, a pin/lock mismatch, nonempty strict
+build output, or a dirty source tree. A release artifact snapshots the exact
+sources and lockfiles and carries its own ZIP checksum. This page intentionally
+does not repeat the older four-way or three-way numbers: the five-way harness
+must first be run from clean committed Hopper and benchmark trees and its
+archive retained. Until that artifact exists, the honest result is “benchmark
+implementation complete; publication evidence pending.”
 
-Two honest notes on the 2026-07-09 row set. Withdraw moved 442 → 486 CU
-versus the previous published table: +44 CU is the mutation-complete
-lamport gate actually enforcing on the one lamport-moving instruction — a
-measured safety feature no other column carries — and the remainder is the
-tag-arithmetic error lowering that bought a 10% `.text` cut. Every
-Quasar-comparable row still wins. On size, the Hopper vault `.so` now
-measures **smaller than Pinocchio's on the identical contract** (7.46 vs
-7.73 KiB, zero writable sections); Quasar's 5.47 KiB still wins that row —
-we do not publish a size lead we have not measured.
-
-An earlier version of this page published the 2026-05-25 table
-(431/551/1669/453 CU). Those numbers are retired: they were measured with a
-pre-gate fast-entrypoint path that only worked in local SVMs (SIMD-0321 is
-not active on public clusters) and were therefore better than any mainnet
-deployment could achieve. The table above is the honest, deployable number —
-the full bisect story is in `BENCHMARKS.md`.
-
-Two more measured 2026-07-07 results (provenance in `BENCHMARKS.md`):
-
-- **The safe overlay costs what a raw pointer cast costs.** In the Mollusk
-  primitive lab, Hopper's validated overlay and a raw unsafe cast both
-  measure 1 CU net.
-- **Router parity, first published three-way:** Hopper beats Quasar on every
-  1–3-hop swap row (−23/−29/−34 CU, 2026-07-09) and runs within 1.8–2.4% of hand-written
-  Pinocchio,
-  with the smallest binary of the three
-  (`hopper-bench/results/router-parity-2026-07-07-post-review/`).
-
-That supports a precise claim: **Anchor/Quasar-class DX, Hopper-grade
-safety/state contracts, Pinocchio-class raw control.** It does not turn one
-vault benchmark into a universal "faster than Pinocchio" statement.
-
-Methodology lives in the sibling
-[hopper-bench](https://github.com/BluefootLabs/hopper-bench) product repo. Re-run
-from that checkout:
-
-```powershell
-.\compare-framework-vaults.ps1 -HopperRoot ..\Hopper-Solana-Zero-copy-State-Framework -QuasarRoot <path-to-quasar> -OutDir results\framework-vaults
-```
+Historical primitive, vault, router, and public-cluster measurements remain in
+`BENCHMARKS.md` with their dates and methods. They can motivate engineering
+work, but they do not establish that Hopper is universally faster, cheaper, or
+smaller than another framework.
 
 ## In-process testing - `hopper-svm`
 
-Hopper ships its own validator-class harness so tests don't need a live `solana-test-validator`. Three layered execution modes:
-
-- **Default features** - inline Rust simulators for the system program plus user-registered builtins. Fast unit tests, no validator dep, full Quasar-parity verb surface (`simulate_instruction`, `process_instruction_chain`, `warp_to_slot` / `warp_to_timestamp`, stateful overlay with `airdrop` / `set_token_balance` / `snapshot_accounts` / `restore_accounts`).
-- **`bpf-execution`** - direct `solana-sbpf` interpretation of `.so` bytes when you need real BPF execution but want the lean dep tree.
-- **`agave-runtime`** - the mainnet-fidelity path. Replaces inline simulators with the actual Agave validator stack (`solana-program-runtime` + `solana-bpf-loader-program` + `solana-system-program`). After `HopperSvm::new().with_agave_runtime()`, every `process_instruction` routes through `InvokeContext::process_instruction` against Agave's program cache. Behaviour matches mainnet because it IS the validator's code.
+The in-tree `hopper-svm` crate is a deliberately small host harness. It
+fabricates aligned Hopper Native account buffers and calls the host bridge
+generated by `#[hopper::program]`, preserving Hopper account-view memory,
+borrow tracking, resulting bytes, owners, and lamports. It is useful for fast
+framework and business-logic tests without a validator process.
 
 ```rust
-let svm = HopperSvm::new().with_agave_runtime();
-let result = svm.process_instruction(&transfer_ix, &[alice, bob]);
-result.assert_success();
-// Agave's system program reports its real CU baseline.
-assert!(result.compute_units_consumed() >= 150);
+let result = HopperSvm::new().process_instruction(
+    program_id,
+    &instruction_data,
+    &[vault_fixture],
+    process_instruction,
+);
+assert!(result.program_result.is_ok());
 ```
 
-The `hopper-svm` crate is the harness layer; it ships standalone so any Solana program (Hopper or otherwise) can pull it in as a dev-dependency. See the sibling [hopper-svm](https://github.com/BluefootLabs/hopper-svm) repo for the full surface and its `programs/README.md` for sourcing SPL Token / Token-2022 / ATA `.so` bytes when you need real CPI tests.
+This host path does not execute an SBF ELF, reproduce validator syscalls, or
+measure CU; `compute_units_consumed` is currently reported as zero. Use the
+workspace's Mollusk/compiled-SBF lanes for canonical SPL CPI behavior, rollback,
+and CU evidence, and a public cluster or validator-replay lane for deployment
+evidence. Calling `hopper-svm` “Mainnet-fidelity” would overstate its contract.
 
 ## Where to start
 
 1. Read [MEMORY_ACCESS.md](MEMORY_ACCESS.md) for the access-tier doctrine.
-2. Read [POLICY_GUARANTEES.md](POLICY_GUARANTEES.md) for what each lever guarantees and drops. For which capabilities are structural (uncopyable without forking the account type) versus table stakes, read [COMPARISON.md](../COMPARISON.md).
+2. Read [POLICY_GUARANTEES.md](POLICY_GUARANTEES.md) for what each lever guarantees and drops. For which capabilities require an account-access architectural retrofit versus ordinary feature work, read [COMPARISON.md](../COMPARISON.md).
 3. Read `examples/hopper-policy-vault/src/lib.rs` for the three modes side by side.
 4. Run `cargo run -p hopper-cli -- verify --package hopper-policy-vault` to see the LAYOUT_ID fingerprint scan on a shipping `.so`.
-5. In the `hopper-svm` repo, run `cargo test --features agave-runtime process_instruction_routes_through_agave_runtime` to see the harness execute a system transfer through Agave's real runtime.
+5. Run `cargo test -p hopper-svm --locked` for the host-dispatch harness, then
+   use the compiled-SBF commands in `examples/hopper-cicada/README.md` when you
+   need runtime-backed CPI evidence.
 
 ## What Hopper doesn't promise
 

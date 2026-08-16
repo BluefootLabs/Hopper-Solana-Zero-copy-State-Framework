@@ -3,7 +3,7 @@
 Hopper-owned Metaplex Token Metadata builders, PDA helpers, and a stack-buffer
 Borsh encoder. Powers the `metadata::*` / `master_edition::*` field keywords on
 `#[derive(Accounts)]` contexts and the
-[`hopper-nft-mint`](../../examples/hopper-nft-mint/src/lib.rs) reference
+[`hopper-nft-mint`](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/examples/hopper-nft-mint/src/lib.rs) reference
 program. The lower-level `#[hopper::context]` spelling remains supported for
 older migration code.
 
@@ -102,4 +102,4 @@ Public-goods support and donations can be sent to `solanadevdao.sol` /
 
 ## License
 
-Apache-2.0. See [LICENSE](../../LICENSE).
+Apache-2.0. See [LICENSE](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/LICENSE).

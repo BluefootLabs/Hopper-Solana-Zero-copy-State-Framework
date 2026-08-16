@@ -10,13 +10,19 @@ narrower than the leading option, or behind a feature gate. **No** = not
 provided by the framework (the dev writes it by hand). **N/A** = out of scope
 for that framework's design.
 
-A note on the comparison targets' status (verified 2026-07-07): Quasar is
-v0.0.0 — no tags, no releases, not on crates.io, self-described "Beta … not
-audited", nightly-only toolchain. Pinocchio is audited (Neodyme and Zellic,
-2025-06) and production-proven. Anchor has years of mainnet mileage. Hopper is
-published (hopper-lang 0.3.0 on crates.io) on stable Rust with a line-by-line
-audit trail (`docs/UNSAFE_INVARIANTS.md`). Weight the "Yes" cells
-accordingly.
+A note on target status: the original matrix was verified 2026-07-07 and the
+peer cells below were corrected against the pinned 2026-08-15 source audit.
+Quasar's default branch/crate was still v0.0.0, but its active
+`0.1.0-release` branch is substantially ahead, uses stable Rust, and remains
+self-described beta/unaudited. Hopper's current public release is 0.2.1; this
+0.3.0 workspace is unreleased. Anchor v2 remains an `anchor-next` alpha whose
+official README says unaudited and not on crates.io; Anchor 1.1.2 is the
+published stable line. Use the pinned
+[2026-08-15 audit](docs/ZERO_COPY_FRAMEWORK_AUDIT_2026-08-15.md) rather than
+repeating this dated matrix as a permanent ranking. In the tables, “Anchor
+1.x / v2” deliberately separates the published stable behavior from the
+unpublished alpha; an unqualified statement about “Anchor” is not evidence
+about both.
 
 ## Reading the "Hopper implements" column
 
@@ -29,27 +35,27 @@ runtime it lowers to is in `crates/hopper-runtime/src/` or
 
 ## Core model
 
-| Capability | Hopper | Quasar | Anchor zc | Pinocchio | Hopper implements |
+| Capability | Hopper | Quasar 0.1 release line | Anchor 1.x / v2 alpha | Pinocchio | Hopper implements |
 |---|---|---|---|---|---|
-| `no_std`, no heap on hot path | Yes | Yes | No | Yes | `crates/hopper-runtime` default features = `[]`; verified by `cargo check -p hopper-runtime --no-default-features` |
-| No `solana-program` dependency in runtime hot path | Yes | Yes | No | Yes | `crates/hopper-runtime/Cargo.toml` (raw input parsing in `raw_input.rs`-equivalent native backend) |
-| Pointer-cast account access (no Borsh, no copies) | Yes | Yes | Yes (marked accounts only) | Yes | `crates/hopper-runtime/src/account.rs::AccountView::load` |
+| `no_std`, no heap on hot path | Yes | Yes | 1.x: No; v2: Yes | Yes | `crates/hopper-runtime` default features = `[]`; verified by `cargo check -p hopper-runtime --no-default-features` |
+| No `solana-program` dependency in runtime hot path | Yes | Yes | 1.x: No; v2: Pinocchio-backed | Yes | `crates/hopper-runtime/Cargo.toml` (raw input parsing in `raw_input.rs`-equivalent native backend) |
+| Pointer-cast account access (no Borsh, no copies) | Yes | Yes | 1.x: opt-in `AccountLoader`; v2: default mapped accounts | Yes | `crates/hopper-runtime/src/account.rs::AccountView::load` |
 | Single-byte instruction discriminator | Yes (1 byte default, multi-byte opt-in) | Yes | No (8-byte sighash) | Yes | `crates/hopper-macros-proc/src/program.rs` dispatch; `profile = "tiny"` enforces 1-byte |
 | Accounts up to 10 MB | Yes | Yes | Yes | Yes | zero-copy path is size-agnostic; no per-byte deserialize |
 
 ## Casting & verification
 
-| Capability | Hopper | Quasar | Anchor zc | Pinocchio | Hopper implements |
+| Capability | Hopper | Quasar 0.1 release line | Anchor 1.x / v2 alpha | Pinocchio | Hopper implements |
 |---|---|---|---|---|---|
-| Verified cast (layout + header + disc + version checked before typed ref) | Yes | Codegen-time only | Pod + disc only | No (manual) | `crates/hopper-runtime/src/account.rs::AccountView::load` / `load_mut`, validated via `LayoutContract` (`layout.rs`) |
-| `_unchecked` hot-path escape hatch, `#[inline(always)]` | Yes | N/A | No | N/A (all manual) | `account.rs::borrow_unchecked` / `borrow_unchecked_mut`; `context.rs::raw_unchecked`; each with a `// SAFETY:` invariant |
+| Verified cast (layout + header + disc + version checked before typed ref) | Yes | Generated account validation around direct views; no Hopper header fingerprint | 1.x/v2 validate owner/discriminator around their mapped account forms, not Hopper's version/layout header | No (manual) | `crates/hopper-runtime/src/account.rs::AccountView::load` / `load_mut`, validated via `LayoutContract` (`layout.rs`) |
+| Explicit unchecked/raw hot-path boundary | Yes | Direct-view and internal unchecked boundaries differ from Hopper's tier names | Anchor exposes distinct zero-copy/unsafe or guardrail choices by version | N/A (manual substrate) | Hopper escape symbols are documented in `account.rs`, `context.rs`, and the unsafe ledger; compare guarantees, not matching method names |
 | Compile-time Pod / alignment-1 / non-padded enforcement | Yes | Partial | Partial | No | `crates/hopper-macros-proc/src/pod.rs` (`#[hopper::pod]`), `state.rs`; trybuild guards in `tests/compile_fail/` |
-| Layout fingerprint (`LAYOUT_ID`) to catch shape drift | Yes | No | No | No | `LayoutContract::LAYOUT_ID`; cross-program load checks it in `account.rs` |
+| Layout fingerprint (`LAYOUT_ID`) to catch shape drift | Yes | ABI hash in wire tooling, not Hopper's account-header ID | Account discriminator, not a shape fingerprint | No | `LayoutContract::LAYOUT_ID`; cross-program load checks it in `account.rs` |
 | Proof-carrying account markers (type-level evidence a check ran) | Yes | No | No | No | `crates/hopper-runtime/src/proof.rs::AccountProof<P>` with `OwnerChecked` / `SignerChecked` / `LayoutChecked<T>` markers; downstream APIs can require the proof instead of hoping a macro emitted the check |
 
 ## Segment-level borrows (the differentiator)
 
-| Capability | Hopper | Quasar | Anchor zc | Pinocchio | Hopper implements |
+| Capability | Hopper | Quasar 0.1 release line | Anchor 1.x / v2 alpha | Pinocchio | Hopper implements |
 |---|---|---|---|---|---|
 | Borrow disjoint byte ranges of one account as independent typed refs | Yes | No | No (whole-account only) | No (manual) | `crates/hopper-runtime/src/account.rs::segment_ref` / `segment_mut` / `segment_ref_typed` |
 | Runtime aliasing guard across segment borrows | Yes | N/A | N/A | No | segment borrow registry (`crates/hopper-runtime/src/segment_borrow.rs`, `segment_lease.rs`); conflict tests cover overlap/adjacent/release |
@@ -57,39 +63,40 @@ runtime it lowers to is in `crates/hopper-runtime/src/` or
 | Instruction touch maps (cumulative per-ix `(account, range, R/W)` footprint) | Yes (`touch-map` feature) | No | No | No | `segment_borrow.rs` touch log; `Context::for_each_touch` / `touch_map_len` / `touch_map_overflowed` |
 | Field-level write policies (declared write-set enforced at borrow acquire) | Yes (`strict_writes`) | No | No | No (Sealevel account-level `writable` only, all frameworks) | `#[hopper::context(strict_writes)]` → `static WritePolicy` installed in `bind()`; runtime gate in `context.rs::check_write_policy` over `write_policy.rs` |
 
-## On-chain zero-copy collections (no shipped competitor has any)
+## On-chain zero-copy collections
 
-Update 2026-07-08: Anchor v2 (unreleased alpha, `anchor-next` branch) now
-ships **one** zero-copy collection, `Slab<H, T>`
-(`lang-v2/src/accounts/slab.rs`) — a typed header plus length-prefixed Pod
-tail, with inline `#[kani::proof]` lemmas over its capacity arithmetic. Two
+Update 2026-08-15: Anchor v2 (the unpublished, self-described
+alpha/unaudited `anchor-next` line) now
+ships `Slab<H, T>` — a typed header plus length-prefixed Pod tail — and
+bounded `PodVec<T, MAX>`, with `#[kani::proof]` coverage over relevant
+capacity arithmetic. Two
 bug classes were found and fixed in that surface during May–June 2026
 (anchor #4603 "Pad shrunken serialized account tails", 2026-05-27; #4616
 "Prevent Slab read aliases during mutable borrows", 2026-06-02); Hopper's
 competitor suites now pin both classes (`anchor_4616_*`, `anchor_4603_*`
-tests). The shipped Anchor line and every other competitor still have none;
-Hopper ships 8, each hostile-metadata fuzzed.
+tests). Hopper ships a broader set of eight collection types, each with
+hostile-metadata fuzz coverage; breadth is the claim, not exclusivity.
 
-| Capability | Hopper | Quasar | Anchor zc | Pinocchio | Hopper implements |
+| Capability | Hopper | Quasar 0.1 release line | Anchor 1.x / v2 alpha | Pinocchio | Hopper implements |
 |---|---|---|---|---|---|
-| Zero-copy collections over account bytes (vec, sorted vec, ring, slab, slot map, packed map, journal, bitset) | Yes (8) | No | No shipped (v2 alpha: 1, `Slab`) | No | `crates/hopper-core/src/collections/*`; compact-tail aliases in `collections/compact_tail.rs` |
+| Zero-copy collections over account bytes (vec, sorted vec, ring, slab, slot map, packed map, journal, bitset) | Yes (8 families) | Bounded fields and migration views; dynamic mutation repacks its compact tail | 1.x: fixed mapped body; v2: `Slab` and `PodVec` | No | `crates/hopper-core/src/collections/*`; compact-tail aliases in `collections/compact_tail.rs` |
 | Corruption-hardened: stored metadata (len/head/count/free lists) validated at construction, rejected when inconsistent | Yes | n/a | n/a | n/a | parse-don't-validate constructors across `collections/*`; slab occupancy/cycle guards |
-| Adversarial property harness (arbitrary account bytes → clean `Err`, never panic/OOB) | Yes | No | No | No | `collections::hostile_metadata_proptests` (proptest, pinned regression seeds) |
+| Adversarial property harness (arbitrary account bytes → clean `Err`, never panic/OOB) | Yes | Kani/Miri/fuzz workflow; not the same collection-specific claim | v2 has Miri/fuzz/Kani sources; Kani CI disabled at the pin | No framework layer | `collections::hostile_metadata_proptests` (proptest, pinned regression seeds) |
 | Element-size honesty proven at compile time (`SIZE == size_of`, non-ZST) | Yes | n/a | n/a | n/a | `FixedLayout::_SIZE_IS_HONEST` (self-proving trait) + `assert_zero_copy_element` |
 
-## Upgradeable state contracts (no competitor has this first-class)
+## Upgradeable state contracts in the pinned comparison
 
-| Capability | Hopper | Quasar | Anchor zc | Pinocchio | Hopper implements |
+| Capability | Hopper | Quasar 0.1 release line | Anchor 1.x / v2 alpha | Pinocchio | Hopper implements |
 |---|---|---|---|---|---|
-| Schema-versioned accounts (`VERSION` / schema epoch in header) | Yes | No | No | No | `LayoutContract::VERSION` + `SCHEMA_EPOCH` (`layout.rs`); 16-byte header written by `write_header_with_epoch` |
-| In-place migration edges | Yes | No | No | No | `crates/hopper-runtime/src/migrate.rs::MigrationEdge`, `LayoutMigration`, `apply_pending_migrations`; `#[hopper::migrate]` macro |
+| Schema-versioned accounts (`VERSION` / schema epoch in header) | Yes | Partial: typed migration identity, narrower than Hopper's epoch/fingerprint header | No comparable graph at the pin | No | `LayoutContract::VERSION` + `SCHEMA_EPOCH` (`layout.rs`); 16-byte header written by `write_header_with_epoch` |
+| In-place migration edges | Yes | Yes: typed same-size, grow, and shrink migration | App-level; v2 APIs are evolving | No | `crates/hopper-runtime/src/migrate.rs::MigrationEdge`, `LayoutMigration`, `apply_pending_migrations`; `#[hopper::migrate]` macro |
 | Migration composition / chain application | Yes | No | No | No | `apply_pending_migrations` walks edges epoch-by-epoch; `hopper::layout_migrations!` composes them |
-| Manifest-level migration compatibility analysis | Yes | No | No | No | `crates/hopper-schema/src/lib.rs::is_append_compatible` / `requires_migration` / `is_backward_readable` |
+| Manifest-level migration compatibility analysis | Yes | Partial: wire IDL plus ABI hash | IDL/discriminators, no comparable evolution graph | No | `crates/hopper-schema/src/lib.rs::is_append_compatible` / `requires_migration` / `is_backward_readable` |
 | Manifest-backed foreign (cross-program) lenses with 4-way ABI-drift detection (owner, disc, wire fingerprint, schema-epoch range) | Yes | No | No | No | `crates/hopper-runtime/src/foreign.rs::ForeignManifest`; competitors either version-lock on the foreign crate or read blind offsets |
 
 ## Receipts & policy
 
-| Capability | Hopper | Quasar | Anchor zc | Pinocchio | Hopper implements |
+| Capability | Hopper | Quasar 0.1 release line | Anchor 1.x / v2 alpha | Pinocchio | Hopper implements |
 |---|---|---|---|---|---|
 | Structural receipts proving an ix touched a segment/version | Yes | No | No | No | `crates/hopper-core/src/receipt.rs::StateReceipt<SNAP_SIZE>`, `DecodedReceipt` |
 | Receipt decode / explain for off-chain consumers | Yes | No | No | No | `receipt.rs::ReceiptExplain`, `ReceiptNarrative`, `ReceiptIndexRecord` |
@@ -98,7 +105,7 @@ Hopper ships 8, each hostile-metadata fuzzed.
 
 ## Anchor-parity context ergonomics
 
-| Capability | Hopper | Quasar | Anchor zc | Pinocchio | Hopper implements |
+| Capability | Hopper | Quasar 0.1 release line | Anchor 1.x / v2 alpha | Pinocchio | Hopper implements |
 |---|---|---|---|---|---|
 | `#[derive(Accounts)]` analogue | Yes | Yes | Yes | No | `crates/hopper-macros-proc/src/lib.rs::derive_accounts` → `context.rs::expand_for_derive` |
 | Constraints: `init`, `mut`, `signer`, `seeds`, `bump`, `has_one`, `owner=`, `address=`, `realloc`, `close`, `constraint` | Yes | Yes | Yes | No | `crates/hopper-macros-proc/src/context.rs` constraint lowering |
@@ -107,16 +114,16 @@ Hopper ships 8, each hostile-metadata fuzzed.
 
 ## CPI
 
-| Capability | Hopper | Quasar | Anchor zc | Pinocchio | Hopper implements |
+| Capability | Hopper | Quasar 0.1 release line | Anchor 1.x / v2 alpha | Pinocchio | Hopper implements |
 |---|---|---|---|---|---|
-| Heap-free CPI with const-generic max accounts | Yes | Yes | No | Yes | `crates/hopper-runtime/src/cpi.rs::invoke_with_bounds::<MAX_ACCOUNTS>` / `invoke_signed_with_bounds` (stack `MaybeUninit` array) |
+| Heap-free CPI with const-generic max accounts | Yes | Yes | 1.x: No; v2: typed Pinocchio-backed CPI handles | Yes | `crates/hopper-runtime/src/cpi.rs::invoke_with_bounds::<MAX_ACCOUNTS>` / `invoke_signed_with_bounds` (stack `MaybeUninit` array) |
 | Checked CPI wrappers | Yes | Partial | Yes | No | `cpi.rs::invoke_checked` / `invoke_signed_checked` |
 | `_unchecked` CPI for hot paths with documented invariants | Yes | N/A | No | Manual | `cpi.rs::invoke_unchecked` / `invoke_signed_unchecked` |
-| Typed CPI surface generated from a manifest | Yes | No | Yes (IDL) | No | `crates/hopper-macros-proc/src/declare_program.rs` (`hopper::declare_program!`) |
+| Typed CPI surface generated from a manifest | Yes | Yes (`declare_program` from wire IDL) | Yes (IDL) | No | `crates/hopper-macros-proc/src/declare_program.rs` (`hopper::declare_program!`) |
 
 ## Native substrate surface
 
-| Capability | Hopper | Quasar | Anchor zc | Pinocchio | Hopper implements |
+| Capability | Hopper | Quasar 0.1 release line | Anchor 1.x / v2 alpha | Pinocchio | Hopper implements |
 |---|---|---|---|---|---|
 | Full System program incl. `*WithSeed` + durable-nonce family | Yes | Partial | Via SDK | Yes | `crates/hopper-native/src/system.rs` (`CreateAccountWithSeed`, `TransferWithSeed`, `Advance/Withdraw/Initialize/Authorize/UpgradeNonceAccount`, typed `NonceState`) |
 | Generalized sysvar access (`sol_get_sysvar`, SlotHashes, StakeHistory) | Yes | Partial | Via SDK | Partial | `crates/hopper-native/src/sysvar.rs` (`get_sysvar_into`, `slot_hashes_latest`, `stake_history_latest`, `get_epoch_stake`) |
@@ -127,39 +134,42 @@ Hopper ships 8, each hostile-metadata fuzzed.
 
 ## Schema / IDL
 
-| Capability | Hopper | Quasar | Anchor zc | Pinocchio | Hopper implements |
+| Capability | Hopper | Quasar 0.1 release line | Anchor 1.x / v2 alpha | Pinocchio | Hopper implements |
 |---|---|---|---|---|---|
-| Machine-readable schema manifest (superset of Anchor IDL) | Yes | No | Yes (IDL only) | No | `crates/hopper-schema/src/lib.rs::LayoutManifest`, `ProgramManifest`, `ProgramIdl` |
-| Covers zero-copy layouts, segment maps, upgrade chains, errors, constants | Yes | No | No | No | `LayoutManifest` + `ManifestRegistry`; constants via `#[hopper::constant]` |
-| Anchor-compatible IDL emission | Yes | No | Yes | No | `clientgen.rs` / `rust_client.rs` / `python_client.rs` emitters |
+| Machine-readable schema manifest (superset of Anchor IDL) | Yes | Yes (wire IDL plus ABI hash) | Yes (IDL) | No | `crates/hopper-schema/src/lib.rs::LayoutManifest`, `ProgramManifest`, `ProgramIdl` |
+| Covers zero-copy layouts, segment maps, upgrade chains, errors, constants | Yes | Partial: wire layouts, ABI, CPI/client metadata; no Hopper-equivalent segment/evolution graph | Anchor IDL covers program/account API, not Hopper's graph | No | `LayoutManifest` + `ManifestRegistry`; constants via `#[hopper::constant]` |
+| Anchor-compatible IDL emission | Yes | Own wire IDL/ABI format | Yes | No | `anchor_idl.rs`; other client emitters use the same manifest source |
 | On-chain schema publication (manifest stored in account) | Yes | No | No | No | `hopper-schema/src/lib.rs` manifest account format (header + JSON payload, optional zlib) |
 
 ## Tooling
 
-| Capability | Hopper | Quasar | Anchor zc | Pinocchio | Hopper implements |
+| Capability | Hopper | Quasar 0.1 release line | Anchor 1.x / v2 alpha | Pinocchio | Hopper implements |
 |---|---|---|---|---|---|
-| CLI scaffold / manifest gen / inspect / lint / profile | Yes | Partial | Yes (`anchor` CLI) | No | `tools/hopper-cli/src/cmd/*` |
-| Client codegen (TS / Kotlin / Python / Rust) | Yes | Partial | Yes (TS) | No | `crates/hopper-schema/src/{clientgen,rust_client,python_client}.rs` |
-| In-process SVM integration test harness | Yes | Partial | Yes | No | `crates/hopper-test/src/lib.rs::LiteSvmHarness` (mollusk-backed); used by the gated devnet tests |
+| CLI scaffold / manifest gen / inspect / lint / profile | Yes | Yes: init/build/test/deploy/verify/lint/profile/IDL/client surface | Yes (`anchor` CLI) | No framework CLI | `tools/hopper-cli/src/cmd/*` |
+| Client codegen | Yes: 8 manifest-derived outputs | Stable Rust/Kit/Web3 plus preview Python/Go/C at the pin | Mature IDL/TS ecosystem; v2 evolving | No | `crates/hopper-schema/src/*client*.rs`, Codama and Anchor-IDL emitters |
+| In-process SVM integration test harness | Yes | Yes: QuasarSVM Rust/Node/Python | Anchor test tooling; v2 runtime lanes | No framework harness | `crates/hopper-svm`; compiled-SBF lanes are separate evidence |
 
 ## Maturity, soundness record, and benchmark culture
 
-Facts verified 2026-07-07 against public trackers and registries.
+Release signals below were verified in the pinned 2026-08-15 audit. Recheck
+registries and upstream status before using them in release copy.
 
-| Capability | Hopper | Quasar | Anchor zc | Pinocchio | Hopper implements / evidence |
+| Capability | Hopper | Quasar 0.1 release line | Anchor 1.x / v2 alpha | Pinocchio | Hopper implements / evidence |
 |---|---|---|---|---|---|
-| Published release on crates.io | Yes (0.3.0) | No (v0.0.0, no tags or releases) | Yes | Yes | [crates.io/crates/hopper-lang](https://crates.io/crates/hopper-lang) |
-| Audit posture | Line-by-line internal audit trail | Self-described "Beta … not audited" | Ecosystem audits | Audited (Neodyme, Zellic 2025-06) | `docs/UNSAFE_INVARIANTS.md` |
-| Builds on stable Rust | Yes (pinned 1.96.0) | No (nightly-only bespoke toolchain) | Yes | Yes | `rust-toolchain.toml` |
-| Open soundness/correctness issues on tracker (2026-07) | None open; classes regression-pinned | 5 (blueshift-gg/quasar #234, #238, #239, #240, #242) | tracked upstream; v2 Slab classes #4603/#4616 fixed May–June 2026 | none open | Hopper pins those classes in `crates/hopper-runtime/tests/competitor_bug_classes.rs` + `crates/hopper-core/tests/competitor_bug_classes.rs` (18 tests) |
+| Published release on crates.io | Yes (0.2.1; this 0.3.0 workspace is unreleased) | Default package v0.0.0; 0.1 release branch not tagged/released at 2026-08-15 | Yes (stable 1.x); v2 alpha is source-only | Yes | [crates.io/crates/hopper-lang](https://crates.io/crates/hopper-lang) |
+| Audit posture | Internal review and executable evidence trail; no completed independent framework audit | Self-described "Beta … not audited" | Ecosystem audits; scope varies by version/component | Published Neodyme and Zellic review records | `docs/UNSAFE_INVARIANTS.md` and `audit/readiness.json`; external-audit preparation is not an independent review |
+| Builds on stable Rust | Yes (pinned 1.96.0) | Yes on the 0.1 release line (Rust 1.89) | Yes | Yes | `rust-toolchain.toml` |
+| Soundness/correctness record | Hopper's internally found classes are regression-pinned | The July snapshot recorded #234, #238, #239, #240, and #242; consult the pinned current audit for disposition | v2 Slab classes #4603/#4616 were fixed May–June 2026; active remediation continued at the pinned snapshot | Consult the pinned upstream review records | Hopper pins named classes in `crates/hopper-runtime/tests/competitor_bug_classes.rs` + `crates/hopper-core/tests/competitor_bug_classes.rs`; this row is not a claim that any live tracker has zero issues |
 | Competitor-bug-class regression suite (bug class → structural guard → pinned test) | Yes | No | No | No | the two `competitor_bug_classes.rs` suites above; authoring the suite also found and fixed Hopper's own `safe_close` aliased-destination bug |
-| Publishes reproducible cross-framework CU benchmark with pinned provenance | Yes | No (no published numbers) | No (otter-sec/anchor #4355 planned, unpublished) | No | `hopper-bench` results + provenance blocks in `BENCHMARKS.md` |
+| Reproducible cross-framework CU benchmark with pinned provenance | Historical Hopper fixtures are published; the current five-way rerun is diagnostic until both trees are clean | No comparative artifact found in the pinned snapshot | Planned work was not published at the pinned snapshot | No framework comparison artifact found in the pinned snapshot | `hopper-bench` results + provenance blocks in `BENCHMARKS.md`; do not publish replacement numbers before the clean archive exists |
 
 ---
 
-## Where Hopper wins outright
+## Where Hopper is differentiated in the pinned comparison
 
-The four rows no competitor offers first-class are the thesis of the framework:
+The following four first-class capabilities were not found in the pinned peer
+snapshots. This is a dated comparison, not a claim about every framework or a
+claim that the ideas cannot be copied:
 
 1. **Segment-level borrows** — disjoint typed `&mut` views into one account.
    Anchor zero-copy only hands you the whole account; Pinocchio leaves it to

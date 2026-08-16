@@ -36,6 +36,17 @@
 use core::mem::size_of;
 
 use hopper::cpi::{DynCpi, InstructionAccount, InstructionView};
+use hopper::hopper_solana::constants::BPF_LOADER_UPGRADEABLE_ID;
+use hopper::hopper_solana::token2022_ext::{
+    ACCOUNT_TYPE_MINT as TOKEN_2022_ACCOUNT_TYPE_MINT,
+    ACCOUNT_TYPE_OFFSET as TOKEN_2022_ACCOUNT_TYPE_OFFSET,
+    ACCOUNT_TYPE_TOKEN as TOKEN_2022_ACCOUNT_TYPE_TOKEN, EXT_CPI_GUARD, EXT_DEFAULT_ACCOUNT_STATE,
+    EXT_GROUP_MEMBER_POINTER, EXT_GROUP_POINTER, EXT_IMMUTABLE_OWNER, EXT_MEMO_TRANSFER,
+    EXT_METADATA_POINTER, EXT_MINT_CLOSE_AUTHORITY, EXT_TOKEN_METADATA,
+    MAX_KNOWN_EXTENSION_TYPE as TOKEN_2022_LATEST_EXTENSION_TYPE,
+    MINT_BASE_SIZE as TOKEN_MINT_BASE_SIZE, TLV_OFFSET as TOKEN_2022_TLV_OFFSET,
+    TOKEN_ACCOUNT_BASE_SIZE, TOKEN_MULTISIG_SIZE,
+};
 use hopper::prelude::*;
 
 #[cfg(target_os = "solana")]
@@ -70,6 +81,9 @@ pub const STATUS_CANCELLED: u8 = 4;
 
 const ZERO_ADDRESS: Address = Address::new_from_array([0u8; 32]);
 const ZERO_HASH: [u8; 32] = [0u8; 32];
+const BPF_LOADER_V4_ID: Address = Address::new_from_array(
+    hopper::hopper_runtime::__decode_base58_32("LoaderV411111111111111111111111111111111111"),
+);
 
 // ── State ───────────────────────────────────────────────────────────
 
@@ -237,6 +251,21 @@ hopper::hopper_error! {
     RefundNotEmpty,
     SourceNotEmpty,
     IntentNotFinal,
+    // Append-only error ABI. New production gates stay after every published
+    // V1 code so existing clients keep decoding the original numeric values.
+    InvalidTokenState,
+    SourceDelegatePresent,
+    SourceCloseAuthorityPresent,
+    SourceLeaseMismatch,
+    SettlementCloseAuthorityPresent,
+    InvalidProgramAccount,
+    UnsupportedProgramLoader,
+    InvalidProgramData,
+    UnauthorizedInitializer,
+    ConflictingDuplicateRouteMeta,
+    EmptyEmergencyAuthority,
+    SourceLamportsDecreased,
+    DestinationLamportsShortfall,
 }
 
 // ── Contexts ────────────────────────────────────────────────────────
@@ -254,6 +283,15 @@ pub struct InitializeConfig<'info> {
         bump,
     )]
     pub config: InitAccount<'info, CicadaConfig>,
+
+    /// The currently executing Cicada program account. Initialization binds
+    /// the payer to this deployment's real loader authority.
+    pub program: UncheckedAccount<'info>,
+
+    /// Loader-v3 ProgramData account. For loader-v4 deployments this is the
+    /// program account repeated in the second position because v4 stores its
+    /// authority in the executable account itself.
+    pub program_data: UncheckedAccount<'info>,
 
     pub system_program: Program<'info, System>,
 }
@@ -317,6 +355,7 @@ pub struct CreateIntent<'info> {
     )]
     pub shard: Account<'info, IntentShard>,
 
+    #[account(mut)]
     pub source_token: UncheckedAccount<'info>,
 
     #[account(
@@ -333,6 +372,7 @@ pub struct CreateIntent<'info> {
     pub destination_token: UncheckedAccount<'info>,
     pub input_mint: UncheckedAccount<'info>,
     pub output_mint: UncheckedAccount<'info>,
+    pub token_program: UncheckedAccount<'info>,
     pub route_program: UncheckedAccount<'info>,
 
     #[account(
@@ -558,7 +598,13 @@ pub mod cicada_program {
         emergency_authority: Address,
         default_claim_ttl: u64,
     ) -> ProgramResult {
-        hopper::hopper_require!(default_claim_ttl > 0, InvalidClaimTtl);
+        validate_config_initialization_args(&emergency_authority, default_claim_ttl)?;
+        verify_initialization_authority(
+            ctx.program_id(),
+            ctx.accounts.payer.key(),
+            ctx.accounts.program.as_account(),
+            ctx.accounts.program_data.as_account(),
+        )?;
         ctx.init_config()?;
 
         let mut config = ctx.accounts.config.get_mut_after_init()?;
@@ -615,6 +661,29 @@ pub mod cicada_program {
         );
         verify_create_token_accounts(&ctx.accounts, max_input)?;
 
+        // Custody entry is one atomic state transition. The source starts
+        // under the transaction-signing owner, and Cicada moves its token
+        // authority to the per-vault PDA in this instruction. If any later
+        // lease or shard write fails, Solana rolls this CPI back with the rest
+        // of the instruction, so a failed create cannot orphan a pre-adopted
+        // token account behind an otherwise unreachable PDA.
+        let owner_key = *ctx.accounts.owner.key();
+        let source_key = *ctx.accounts.source_token.key();
+        let vault_key = *ctx.accounts.vault_authority.key();
+        interface_set_account_owner_signed(
+            ctx.accounts.source_token.as_account(),
+            ctx.accounts.owner.as_account(),
+            ctx.accounts.token_program.as_account(),
+            &vault_key,
+            &[],
+        )?;
+        verify_token_account(
+            ctx.accounts.source_token.as_account(),
+            ctx.accounts.input_mint.key(),
+            &vault_key,
+            TokenAccountRole::CustodySource,
+        )?;
+
         let (
             slot,
             sequence,
@@ -637,9 +706,9 @@ pub mod cicada_program {
                 shard.next_sequence.get(),
                 shard.occupied.get(),
                 shard.occupied_count.get(),
-                *ctx.accounts.owner.key(),
-                *ctx.accounts.source_token.key(),
-                *ctx.accounts.vault_authority.key(),
+                owner_key,
+                source_key,
+                vault_key,
                 *ctx.accounts.refund_token.key(),
                 *ctx.accounts.destination_token.key(),
                 *ctx.accounts.input_mint.key(),
@@ -879,6 +948,10 @@ pub mod cicada_program {
 
         let pre_source = token_amount(ctx.accounts.source_token.as_account())?;
         let pre_destination = token_amount(ctx.accounts.destination_token.as_account())?;
+        let pre_source_lamports = ctx.accounts.source_token.as_account().lamports();
+        let pre_destination_lamports = ctx.accounts.destination_token.as_account().lamports();
+        let source_is_native = token_is_native(ctx.accounts.source_token.as_account())?;
+        let destination_is_native = token_is_native(ctx.accounts.destination_token.as_account())?;
         let pre_source_policy = token_policy_hash(ctx.accounts.source_token.as_account())?;
         let pre_destination_policy =
             token_policy_hash(ctx.accounts.destination_token.as_account())?;
@@ -896,6 +969,8 @@ pub mod cicada_program {
             ctx.accounts.source_token.key(),
             ctx.accounts.vault_authority.key(),
             ctx.accounts.refund_token.key(),
+            ctx.accounts.input_mint.key(),
+            ctx.accounts.output_mint.key(),
             &remaining,
             &route_meta_flags,
         )?;
@@ -964,6 +1039,16 @@ pub mod cicada_program {
         hopper::hopper_require!(spent > 0 && received > 0, EmptySettlement);
         hopper::hopper_require!(spent <= intent.max_input, MaximumInputExceeded);
         hopper::hopper_require!(received >= intent.min_output, MinimumOutputNotMet);
+        validate_route_lamport_floors(
+            pre_source_lamports,
+            ctx.accounts.source_token.as_account().lamports(),
+            pre_destination_lamports,
+            ctx.accounts.destination_token.as_account().lamports(),
+            spent,
+            received,
+            source_is_native,
+            destination_is_native,
+        )?;
 
         // Refund every unused source token before state becomes final.
         if route_post_source > 0 {
@@ -982,10 +1067,6 @@ pub mod cicada_program {
             token_amount(ctx.accounts.source_token.as_account())? == 0,
             RefundNotEmpty
         );
-
-        // Drop the borrowed remaining-account set before acquiring shard
-        // mutation leases through the generated typed context.
-        drop(remaining);
 
         let settlement_hash = compute_settlement_hash(
             &intent,
@@ -1072,20 +1153,24 @@ pub mod cicada_program {
             *ctx.accounts.vault_authority.key() == intent.vault_authority,
             TokenAuthorityMismatch
         );
+        {
+            let lease = ctx.accounts.source_lease.get()?;
+            hopper::hopper_require!(
+                lease.slot.get() == slot && lease.sequence.get() == intent.sequence,
+                SourceLeaseMismatch
+            );
+        }
+        verify_token_program_account(
+            ctx.accounts.source_token.as_account(),
+            ctx.accounts.token_program.as_account(),
+        )?;
         verify_token_account(
             ctx.accounts.source_token.as_account(),
             &intent.input_mint,
             &intent.vault_authority,
+            TokenAccountRole::CustodySource,
         )?;
-        hopper::hopper_require!(
-            token_amount(ctx.accounts.source_token.as_account())? == 0,
-            SourceNotEmpty
-        );
 
-        // Return custody of the now-empty source token account before the
-        // record and its global uniqueness lease disappear. This prevents an
-        // otherwise successful Cicada lifecycle from leaving the user's token
-        // account permanently controlled by an unreachable PDA.
         let owner_key = intent.owner;
         let source_key = intent.source_token;
         let bump_bytes = [ctx.bumps.vault_authority];
@@ -1096,6 +1181,12 @@ pub mod cicada_program {
             &bump_bytes
         );
         let signers = [hopper::cpi::Signer::from(&seeds)];
+
+        // Settlement and cancellation prove the source empty before marking
+        // the record final, but token accounts remain publicly creditable. A
+        // later unsolicited deposit must not pin the shard slot forever:
+        // SetAuthority is balance-independent, so restore custody with any
+        // post-final dust still in the user's original source account.
         interface_set_account_owner_signed(
             ctx.accounts.source_token.as_account(),
             ctx.accounts.vault_authority.as_account(),
@@ -1103,10 +1194,15 @@ pub mod cicada_program {
             &intent.owner,
             &signers,
         )?;
+        verify_token_account(
+            ctx.accounts.source_token.as_account(),
+            &intent.input_mint,
+            &intent.owner,
+            TokenAccountRole::CustodySource,
+        )?;
 
         let mut raw = ctx.raw();
         clear_intent_cells(&mut raw, slot, occupied, occupied_count)?;
-        drop(raw);
 
         // Release the source-vault uniqueness marker only after custody is
         // restored and the record is final. `close = owner` generates this
@@ -1169,6 +1265,151 @@ impl<'info> ExecuteIntent<'info> {
 
 impl<'info> ReclaimIntent<'info> {
     const SHARD_INDEX: usize = 2;
+}
+
+// Deployment authority helpers
+
+const LOADER_V3_PROGRAM_STATE_LEN: usize = 36;
+const LOADER_V3_PROGRAM_DATA_METADATA_LEN: usize = 45;
+const LOADER_V3_PROGRAM_TAG: u32 = 2;
+const LOADER_V3_PROGRAM_DATA_TAG: u32 = 3;
+const LOADER_V4_STATE_LEN: usize = 48;
+const LOADER_V4_AUTHORITY_OFFSET: usize = 8;
+const LOADER_V4_STATUS_OFFSET: usize = 40;
+const LOADER_V4_STATUS_DEPLOYED: u64 = 1;
+
+fn validate_config_initialization_args(
+    emergency_authority: &Address,
+    default_claim_ttl: u64,
+) -> ProgramResult {
+    hopper::hopper_require!(default_claim_ttl > 0, InvalidClaimTtl);
+    hopper::hopper_require!(
+        !address::address_is_zero(emergency_authority),
+        EmptyEmergencyAuthority
+    );
+    Ok(())
+}
+
+#[inline]
+fn bytes_match_address(bytes: &[u8], address: &Address) -> bool {
+    bytes.len() == 32 && bytes == address.as_array()
+}
+
+fn verify_loader_v3_initialization_authority(
+    program_state: &[u8],
+    program_data_address: &Address,
+    program_data_state: &[u8],
+    initializer: &Address,
+) -> ProgramResult {
+    hopper::hopper_require!(
+        program_state.len() == LOADER_V3_PROGRAM_STATE_LEN,
+        InvalidProgramData
+    );
+    let program_tag = u32::from_le_bytes([
+        program_state[0],
+        program_state[1],
+        program_state[2],
+        program_state[3],
+    ]);
+    hopper::hopper_require!(program_tag == LOADER_V3_PROGRAM_TAG, InvalidProgramData);
+    hopper::hopper_require!(
+        bytes_match_address(&program_state[4..36], program_data_address),
+        InvalidProgramData
+    );
+
+    hopper::hopper_require!(
+        program_data_state.len() >= LOADER_V3_PROGRAM_DATA_METADATA_LEN,
+        InvalidProgramData
+    );
+    let program_data_tag = u32::from_le_bytes([
+        program_data_state[0],
+        program_data_state[1],
+        program_data_state[2],
+        program_data_state[3],
+    ]);
+    hopper::hopper_require!(
+        program_data_tag == LOADER_V3_PROGRAM_DATA_TAG,
+        InvalidProgramData
+    );
+    match program_data_state[12] {
+        1 => {
+            hopper::hopper_require!(
+                bytes_match_address(&program_data_state[13..45], initializer),
+                UnauthorizedInitializer
+            );
+            Ok(())
+        }
+        0 => Err(UnauthorizedInitializer.into()),
+        _ => Err(InvalidProgramData.into()),
+    }
+}
+
+fn verify_loader_v4_initialization_authority(
+    program_state: &[u8],
+    initializer: &Address,
+) -> ProgramResult {
+    hopper::hopper_require!(
+        program_state.len() >= LOADER_V4_STATE_LEN,
+        InvalidProgramData
+    );
+    let status = u64::from_le_bytes([
+        program_state[LOADER_V4_STATUS_OFFSET],
+        program_state[LOADER_V4_STATUS_OFFSET + 1],
+        program_state[LOADER_V4_STATUS_OFFSET + 2],
+        program_state[LOADER_V4_STATUS_OFFSET + 3],
+        program_state[LOADER_V4_STATUS_OFFSET + 4],
+        program_state[LOADER_V4_STATUS_OFFSET + 5],
+        program_state[LOADER_V4_STATUS_OFFSET + 6],
+        program_state[LOADER_V4_STATUS_OFFSET + 7],
+    ]);
+    hopper::hopper_require!(status == LOADER_V4_STATUS_DEPLOYED, UnauthorizedInitializer);
+    hopper::hopper_require!(
+        bytes_match_address(
+            &program_state[LOADER_V4_AUTHORITY_OFFSET..LOADER_V4_STATUS_OFFSET],
+            initializer,
+        ),
+        UnauthorizedInitializer
+    );
+    Ok(())
+}
+
+fn verify_initialization_authority(
+    executing_program_id: &Address,
+    initializer: &Address,
+    program: &AccountView<'_>,
+    program_data: &AccountView<'_>,
+) -> ProgramResult {
+    hopper::hopper_require!(
+        program.address() == executing_program_id,
+        InvalidProgramAccount
+    );
+    program.check_executable()?;
+
+    if program.owned_by(&BPF_LOADER_UPGRADEABLE_ID) {
+        hopper::hopper_require!(
+            program_data.owned_by(&BPF_LOADER_UPGRADEABLE_ID) && !program_data.executable(),
+            InvalidProgramData
+        );
+        let program_state = program.try_borrow()?;
+        let program_data_state = program_data.try_borrow()?;
+        verify_loader_v3_initialization_authority(
+            &program_state,
+            program_data.address(),
+            &program_data_state,
+            initializer,
+        )
+    } else if program.owned_by(&BPF_LOADER_V4_ID) {
+        // Loader-v4 keeps authority and code in one account. Requiring the
+        // repeated key makes the fixed ABI unambiguous across both loaders.
+        hopper::hopper_require!(
+            program_data.address() == program.address(),
+            InvalidProgramData
+        );
+        let program_state = program.try_borrow()?;
+        verify_loader_v4_initialization_authority(&program_state, initializer)
+    } else {
+        Err(UnsupportedProgramLoader.into())
+    }
 }
 
 // ── State helpers ───────────────────────────────────────────────────
@@ -1670,6 +1911,237 @@ fn clear_intent_cells(
 
 // ── Token and route verification ────────────────────────────────────
 
+const TOKEN_STATE_INITIALIZED: u8 = 1;
+const TOKEN_DELEGATE_OPTION_OFFSET: usize = 72;
+const TOKEN_IS_NATIVE_OPTION_OFFSET: usize = 109;
+const TOKEN_DELEGATED_AMOUNT_OFFSET: usize = 121;
+const TOKEN_CLOSE_AUTHORITY_OPTION_OFFSET: usize = 129;
+
+// Cicada shares the framework's reviewed Token-2022 wire constants, then
+// applies a narrower role-specific policy with exact value-length checks.
+// Unknown future types stay rejected until both layers are updated together.
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum TokenAccountRole {
+    CustodySource,
+    SettlementDestination,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Token2022Shape {
+    Mint,
+    Token,
+}
+
+#[inline]
+fn coption_is_some(data: &[u8], offset: usize) -> Result<bool> {
+    let end = offset
+        .checked_add(4)
+        .ok_or(ProgramError::ArithmeticOverflow)?;
+    let tag = data
+        .get(offset..end)
+        .ok_or(ProgramError::InvalidAccountData)?;
+    match u32::from_le_bytes([tag[0], tag[1], tag[2], tag[3]]) {
+        0 => Ok(false),
+        1 => Ok(true),
+        _ => Err(ProgramError::InvalidAccountData),
+    }
+}
+
+fn verify_source_authority_surface(data: &[u8]) -> ProgramResult {
+    hopper::hopper_require!(
+        !coption_is_some(data, TOKEN_DELEGATE_OPTION_OFFSET)?,
+        SourceDelegatePresent
+    );
+    let delegated_end = TOKEN_DELEGATED_AMOUNT_OFFSET
+        .checked_add(8)
+        .ok_or(ProgramError::ArithmeticOverflow)?;
+    let delegated = data
+        .get(TOKEN_DELEGATED_AMOUNT_OFFSET..delegated_end)
+        .ok_or(ProgramError::InvalidAccountData)?;
+    let delegated_amount = u64::from_le_bytes([
+        delegated[0],
+        delegated[1],
+        delegated[2],
+        delegated[3],
+        delegated[4],
+        delegated[5],
+        delegated[6],
+        delegated[7],
+    ]);
+    hopper::hopper_require!(delegated_amount == 0, SourceDelegatePresent);
+    hopper::hopper_require!(
+        !coption_is_some(data, TOKEN_CLOSE_AUTHORITY_OPTION_OFFSET)?,
+        SourceCloseAuthorityPresent
+    );
+    Ok(())
+}
+
+fn verify_settlement_authority_surface(data: &[u8]) -> ProgramResult {
+    // A distinct close authority could delete an empty refund or destination
+    // account after creation and prevent both execution and cancellation. The
+    // token owner can still manage its own accounts, but no additional actor
+    // is admitted into Cicada's liveness boundary.
+    hopper::hopper_require!(
+        !coption_is_some(data, TOKEN_CLOSE_AUTHORITY_OPTION_OFFSET)?,
+        SettlementCloseAuthorityPresent
+    );
+    Ok(())
+}
+
+#[inline]
+fn token_2022_extension_shape(extension_type: u16) -> Option<Token2022Shape> {
+    match extension_type {
+        // Mint extensions in the current canonical Token-2022 interface.
+        1 | 3 | 4 | 6 | 9 | 10 | 12 | 14 | 16 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 28 => {
+            Some(Token2022Shape::Mint)
+        }
+        // Token-account extensions in the current canonical interface.
+        2 | 5 | 7 | 8 | 11 | 13 | 15 | 17 | 27 => Some(Token2022Shape::Token),
+        _ => None,
+    }
+}
+
+fn verify_token_2022_extension(
+    shape: Token2022Shape,
+    role: TokenAccountRole,
+    extension_type: u16,
+    value: &[u8],
+) -> ProgramResult {
+    hopper::hopper_require!(
+        extension_type <= TOKEN_2022_LATEST_EXTENSION_TYPE
+            && token_2022_extension_shape(extension_type) == Some(shape),
+        UnsafeTokenExtension
+    );
+
+    match shape {
+        Token2022Shape::Mint => match extension_type {
+            // These extensions do not change raw transfer amounts or grant a
+            // transfer/burn capability. Their bytes are frozen across route
+            // CPI by `mint_policy_hash`.
+            EXT_MINT_CLOSE_AUTHORITY => {
+                hopper::hopper_require!(value.len() == 32, UnsafeTokenExtension);
+                Ok(())
+            }
+            EXT_DEFAULT_ACCOUNT_STATE => {
+                hopper::hopper_require!(value.len() == 1, UnsafeTokenExtension);
+                Ok(())
+            }
+            EXT_METADATA_POINTER | EXT_GROUP_POINTER | EXT_GROUP_MEMBER_POINTER => {
+                hopper::hopper_require!(value.len() == 64, UnsafeTokenExtension);
+                Ok(())
+            }
+            // TokenMetadata is variable length. The TLV walker still proves
+            // its envelope is bounded and non-overlapping; the canonical token
+            // program owns and validates the serialized value itself.
+            EXT_TOKEN_METADATA => Ok(()),
+            // Transfer fees, delegates, hooks, confidential balances,
+            // non-transferability, UI-denomination changes, pause controls,
+            // permissioned burns, embedded group state, and every future type
+            // are unsupported by Cicada's raw-amount V1 settlement contract.
+            _ => Err(UnsafeTokenExtension.into()),
+        },
+        Token2022Shape::Token => match extension_type {
+            // Immutable owner is safe for recipient accounts, but a source
+            // carrying it can never satisfy Cicada's owner-restoration
+            // postcondition.
+            EXT_IMMUTABLE_OWNER if role == TokenAccountRole::SettlementDestination => {
+                hopper::hopper_require!(value.is_empty(), UnsafeTokenExtension);
+                Ok(())
+            }
+            // Disabled policy bits are inert. Enabled MemoTransfer can block
+            // Cicada's refund CPI, while enabled CpiGuard blocks owner changes
+            // through CPI, so neither is admitted.
+            EXT_MEMO_TRANSFER | EXT_CPI_GUARD => {
+                hopper::hopper_require!(value.len() == 1, UnsafeTokenExtension);
+                hopper::hopper_require!(value[0] == 0, UnsafeTokenExtension);
+                Ok(())
+            }
+            _ => Err(UnsafeTokenExtension.into()),
+        },
+    }
+}
+
+/// Validate the complete current Token-2022 TLV envelope without allocation.
+///
+/// Unlike a sequence of `has_extension` probes, this walk cannot turn a
+/// malformed or future extension into "not present". It validates the account
+/// shape, mint padding, every type/length boundary, duplicate types, and the
+/// explicit Cicada allowlist. Unknown extensions fail closed until reviewed.
+fn verify_token_2022_tlv(
+    data: &[u8],
+    shape: Token2022Shape,
+    role: TokenAccountRole,
+) -> ProgramResult {
+    // Canonical StateWithExtensions rejects this exact length because it is
+    // indistinguishable from the Token/Token-2022 Multisig body. Cicada must
+    // not accept a multisig whose attacker-chosen signer bytes happen to
+    // satisfy a token-account or mint overlay.
+    hopper::hopper_require!(data.len() != TOKEN_MULTISIG_SIZE, UnsafeTokenExtension);
+    let base_len = match shape {
+        Token2022Shape::Mint => TOKEN_MINT_BASE_SIZE,
+        Token2022Shape::Token => TOKEN_ACCOUNT_BASE_SIZE,
+    };
+    if data.len() == base_len {
+        return Ok(());
+    }
+    hopper::hopper_require!(data.len() >= TOKEN_2022_TLV_OFFSET, UnsafeTokenExtension);
+    if shape == Token2022Shape::Mint {
+        hopper::hopper_require!(
+            data[TOKEN_MINT_BASE_SIZE..TOKEN_2022_ACCOUNT_TYPE_OFFSET]
+                .iter()
+                .all(|byte| *byte == 0),
+            UnsafeTokenExtension
+        );
+    }
+    let expected_type = match shape {
+        Token2022Shape::Mint => TOKEN_2022_ACCOUNT_TYPE_MINT,
+        Token2022Shape::Token => TOKEN_2022_ACCOUNT_TYPE_TOKEN,
+    };
+    hopper::hopper_require!(
+        data[TOKEN_2022_ACCOUNT_TYPE_OFFSET] == expected_type,
+        UnsafeTokenExtension
+    );
+
+    let mut seen = 0u32;
+    let mut cursor = TOKEN_2022_TLV_OFFSET;
+    while cursor < data.len() {
+        let remaining = data.len() - cursor;
+        if remaining < 2 {
+            hopper::hopper_require!(
+                data[cursor..].iter().all(|byte| *byte == 0),
+                UnsafeTokenExtension
+            );
+            break;
+        }
+        let extension_type = u16::from_le_bytes([data[cursor], data[cursor + 1]]);
+        if extension_type == 0 {
+            hopper::hopper_require!(
+                data[cursor..].iter().all(|byte| *byte == 0),
+                UnsafeTokenExtension
+            );
+            break;
+        }
+        hopper::hopper_require!(remaining >= 4, UnsafeTokenExtension);
+        let value_len = u16::from_le_bytes([data[cursor + 2], data[cursor + 3]]) as usize;
+        let value_start = cursor
+            .checked_add(4)
+            .ok_or(ProgramError::ArithmeticOverflow)?;
+        let value_end = value_start
+            .checked_add(value_len)
+            .ok_or(ProgramError::ArithmeticOverflow)?;
+        hopper::hopper_require!(value_end <= data.len(), UnsafeTokenExtension);
+        let bit = 1u32
+            .checked_shl(extension_type as u32)
+            .ok_or_else(|| ProgramError::from(UnsafeTokenExtension))?;
+        hopper::hopper_require!(seen & bit == 0, UnsafeTokenExtension);
+        seen |= bit;
+        verify_token_2022_extension(shape, role, extension_type, &data[value_start..value_end])?;
+        cursor = value_end;
+    }
+    Ok(())
+}
+
 /// Return an SPL Token or Token-2022 account's owner authority.
 ///
 /// Both token programs share SetAuthority's wire layout. Resolving the target
@@ -1715,6 +2187,13 @@ fn token_amount(account: &AccountView<'_>) -> Result<u64> {
     token.amount()
 }
 
+fn token_is_native(account: &AccountView<'_>) -> Result<bool> {
+    let kind = TokenProgramKind::for_account(account)?;
+    let data = account.try_borrow()?;
+    let _ = InterfaceTokenAccount::from_data(&data, kind)?;
+    coption_is_some(&data, TOKEN_IS_NATIVE_OPTION_OFFSET)
+}
+
 /// Verify a mint and return its decimals. Token-2022 mints are accepted only
 /// when their extensions preserve Cicada's amount-only settlement model.
 fn verified_mint_decimals(account: &AccountView<'_>) -> Result<u8> {
@@ -1723,8 +2202,11 @@ fn verified_mint_decimals(account: &AccountView<'_>) -> Result<u8> {
     let mint = InterfaceMint::from_data(&data, kind)?;
     mint.assert_initialized()?;
     if matches!(kind, TokenProgramKind::Token2022) {
-        hopper::token_2022::check_safe_token_2022_mint(&data)
-            .map_err(|_| ProgramError::from(UnsafeTokenExtension))?;
+        verify_token_2022_tlv(
+            &data,
+            Token2022Shape::Mint,
+            TokenAccountRole::SettlementDestination,
+        )?;
     }
     mint.decimals()
 }
@@ -1758,23 +2240,32 @@ fn verify_token_account(
     account: &AccountView<'_>,
     mint: &Address,
     authority: &Address,
+    role: TokenAccountRole,
 ) -> ProgramResult {
     let kind = TokenProgramKind::for_account(account)?;
     let data = account.try_borrow()?;
     let token = InterfaceTokenAccount::from_data(&data, kind)?;
-    token.assert_initialized()?;
+    hopper::hopper_require!(token.state()? == TOKEN_STATE_INITIALIZED, InvalidTokenState);
+    let _ = coption_is_some(&data, TOKEN_IS_NATIVE_OPTION_OFFSET)?;
+    if matches!(kind, TokenProgramKind::Token2022) {
+        verify_token_2022_tlv(&data, Token2022Shape::Token, role)?;
+    }
     if token.mint()? != mint {
         return Err(TokenMintMismatch.into());
     }
     if token.owner()? != authority {
         return Err(TokenAuthorityMismatch.into());
     }
+    if role == TokenAccountRole::CustodySource {
+        verify_source_authority_surface(&data)?;
+    } else {
+        verify_settlement_authority_surface(&data)?;
+    }
     Ok(())
 }
 
 fn verify_create_token_accounts(accounts: &CreateIntent<'_>, max_input: u64) -> ProgramResult {
     let owner = *accounts.owner.key();
-    let vault_authority = *accounts.vault_authority.key();
     let source_token = *accounts.source_token.key();
     let refund_token = *accounts.refund_token.key();
     let destination_token = *accounts.destination_token.key();
@@ -1802,16 +2293,27 @@ fn verify_create_token_accounts(accounts: &CreateIntent<'_>, max_input: u64) -> 
         accounts.destination_token.as_account(),
         accounts.output_mint.as_account(),
     )?;
+    verify_token_program_account(
+        accounts.source_token.as_account(),
+        accounts.token_program.as_account(),
+    )?;
     verify_token_account(
         accounts.source_token.as_account(),
         &input_mint,
-        &vault_authority,
+        &owner,
+        TokenAccountRole::CustodySource,
     )?;
-    verify_token_account(accounts.refund_token.as_account(), &input_mint, &owner)?;
+    verify_token_account(
+        accounts.refund_token.as_account(),
+        &input_mint,
+        &owner,
+        TokenAccountRole::SettlementDestination,
+    )?;
     verify_token_account(
         accounts.destination_token.as_account(),
         &output_mint,
         &owner,
+        TokenAccountRole::SettlementDestination,
     )?;
     hopper::hopper_require!(
         token_amount(accounts.source_token.as_account())? >= max_input,
@@ -1855,11 +2357,13 @@ fn verify_refund_accounts(accounts: &CancelIntent<'_>, intent: &IntentSnapshot) 
         accounts.source_token.as_account(),
         &intent.input_mint,
         &intent.vault_authority,
+        TokenAccountRole::CustodySource,
     )?;
     verify_token_account(
         accounts.refund_token.as_account(),
         &intent.input_mint,
         &intent.owner,
+        TokenAccountRole::SettlementDestination,
     )?;
     Ok(decimals)
 }
@@ -1920,16 +2424,19 @@ fn verify_execute_accounts(accounts: &ExecuteIntent<'_>, intent: &IntentSnapshot
         accounts.source_token.as_account(),
         &intent.input_mint,
         &intent.vault_authority,
+        TokenAccountRole::CustodySource,
     )?;
     verify_token_account(
         accounts.refund_token.as_account(),
         &intent.input_mint,
         &intent.owner,
+        TokenAccountRole::SettlementDestination,
     )?;
     verify_token_account(
         accounts.destination_token.as_account(),
         &intent.output_mint,
         &intent.owner,
+        TokenAccountRole::SettlementDestination,
     )?;
     Ok(input_decimals)
 }
@@ -1940,23 +2447,80 @@ fn verify_execute_accounts(accounts: &ExecuteIntent<'_>, intent: &IntentSnapshot
 /// policy remain byte-identical.
 fn token_policy_hash(account: &AccountView<'_>) -> Result<[u8; 32]> {
     let data = account.try_borrow()?;
-    if data.len() < 165 {
+    if data.len() < TOKEN_ACCOUNT_BASE_SIZE {
         return Err(ProgramError::InvalidAccountData);
     }
     crypto::sha256(&[b"cicada-token-policy-v1", &data[..64], &data[72..]])
 }
 
-/// Commit to mint policy while permitting ordinary mint/burn supply changes.
+/// Commit to the complete mint body, including supply.
 ///
-/// SPL Mint stores `supply` at bytes 36..44. Cicada excludes only that field;
-/// mint authority, decimals, initialization, freeze authority, and all
-/// Token-2022 extension bytes must remain identical across the route CPI.
+/// A route that can mint its promised output is not evidence of a real swap.
+/// This end-state commitment catches persistent mint changes. The separate
+/// pre-CPI writable-mint gate also prevents supply-neutral MintTo-plus-Burn
+/// sequences that could restore every byte before this hash is checked.
 fn mint_policy_hash(account: &AccountView<'_>) -> Result<[u8; 32]> {
     let data = account.try_borrow()?;
-    if data.len() < 82 {
+    mint_policy_hash_bytes(&data)
+}
+
+fn mint_policy_hash_bytes(data: &[u8]) -> Result<[u8; 32]> {
+    let (before_supply, supply, after_supply) = mint_policy_parts(data)?;
+    crypto::sha256(&[
+        b"cicada-mint-policy-v2",
+        before_supply,
+        supply,
+        after_supply,
+    ])
+}
+
+fn mint_policy_parts(data: &[u8]) -> Result<(&[u8], &[u8], &[u8])> {
+    if data.len() < TOKEN_MINT_BASE_SIZE {
         return Err(ProgramError::InvalidAccountData);
     }
-    crypto::sha256(&[b"cicada-mint-policy-v1", &data[..36], &data[44..]])
+    Ok((&data[..36], &data[36..44], &data[44..]))
+}
+
+#[allow(clippy::too_many_arguments)]
+fn validate_route_lamport_floors(
+    pre_source_lamports: u64,
+    post_source_lamports: u64,
+    pre_destination_lamports: u64,
+    post_destination_lamports: u64,
+    spent: u64,
+    received: u64,
+    source_is_native: bool,
+    destination_is_native: bool,
+) -> ProgramResult {
+    // A non-native token transfer never debits account lamports. Wrapped SOL
+    // debits exactly the token amount transferred. These lower bounds preserve
+    // any excess lamports even if a route can sign for the token-account
+    // address, closes it through the canonical token program, and recreates a
+    // byte-identical account before returning.
+    let source_floor = if source_is_native {
+        pre_source_lamports
+            .checked_sub(spent)
+            .ok_or(ProgramError::ArithmeticOverflow)?
+    } else {
+        pre_source_lamports
+    };
+    hopper::hopper_require!(
+        post_source_lamports >= source_floor,
+        SourceLamportsDecreased
+    );
+
+    let destination_floor = if destination_is_native {
+        pre_destination_lamports
+            .checked_add(received)
+            .ok_or(ProgramError::ArithmeticOverflow)?
+    } else {
+        pre_destination_lamports
+    };
+    hopper::hopper_require!(
+        post_destination_lamports >= destination_floor,
+        DestinationLamportsShortfall
+    );
+    Ok(())
 }
 
 fn validate_unused_route_flags(
@@ -1975,6 +2539,34 @@ fn validate_unused_route_flags(
     Ok(())
 }
 
+#[inline]
+fn validate_duplicate_route_meta(
+    address: &Address,
+    flags: u8,
+    prior_address: &Address,
+    prior_flags: u8,
+) -> ProgramResult {
+    hopper::hopper_require!(
+        address != prior_address || flags == prior_flags,
+        ConflictingDuplicateRouteMeta
+    );
+    Ok(())
+}
+
+#[inline]
+fn validate_route_mint_delegation(
+    address: &Address,
+    writable: bool,
+    input_mint: &Address,
+    output_mint: &Address,
+) -> ProgramResult {
+    hopper::hopper_require!(
+        !writable || (address != input_mint && address != output_mint),
+        ProtectedAccountDelegation
+    );
+    Ok(())
+}
+
 #[allow(clippy::too_many_arguments)]
 fn validate_route_accounts<const N: usize>(
     cicada_program: &Address,
@@ -1983,6 +2575,8 @@ fn validate_route_accounts<const N: usize>(
     source_token: &Address,
     vault_authority: &Address,
     refund_token: &Address,
+    input_mint: &Address,
+    output_mint: &Address,
     accounts: &hopper::hopper_runtime::RemainingAccountViews<'_, N>,
     flags: &[u8; MAX_ROUTE_ACCOUNTS],
 ) -> ProgramResult {
@@ -1994,8 +2588,31 @@ fn validate_route_accounts<const N: usize>(
         let meta = flags[index];
         hopper::hopper_require!(meta & !ROUTE_META_KNOWN_FLAGS == 0, InvalidRouteMetaFlags);
 
+        // Solana collapses duplicate Pubkeys for CPI and unions their
+        // privileges. Requiring identical flags on every alias keeps the
+        // committed per-position envelope equal to the effective runtime
+        // privilege set while still preserving ordered duplicate positions.
+        let mut prior_index = 0usize;
+        while prior_index < index {
+            let prior = accounts
+                .get(prior_index)
+                .ok_or_else(|| ProgramError::from(RouteAccountCountMismatch))?;
+            validate_duplicate_route_meta(
+                account.address(),
+                meta,
+                prior.address(),
+                flags[prior_index],
+            )?;
+            prior_index += 1;
+        }
+
         let writable = meta & ROUTE_META_WRITABLE != 0;
         let signer = meta & ROUTE_META_SIGNER != 0;
+        // End-state mint hashing detects persistent policy/supply changes, but
+        // a mint authority could otherwise perform a supply-neutral MintTo
+        // plus Burn inside one route CPI. A route may inspect either committed
+        // mint, but Cicada never delegates writable access to it.
+        validate_route_mint_delegation(account.address(), writable, input_mint, output_mint)?;
         if writable {
             hopper::hopper_require!(account.is_writable(), RouteMetaPrivilegeEscalation);
         }
@@ -2163,6 +2780,266 @@ hopper::program_manifest! {
     layouts = [CicadaConfig, SourceLease, IntentShard],
 }
 
+/// Host-only application probes for the manifest-derived C3 adapter.
+///
+/// This module deliberately has no on-chain build path. It lets the separate,
+/// non-publish adapter exercise Cicada's actual private authorization and
+/// route-safety helpers for every structural manifest case without exposing a
+/// callable program instruction or pretending that host semantics are an SBF
+/// transaction execution.
+#[doc(hidden)]
+#[cfg(not(target_os = "solana"))]
+pub mod fuzz_semantics {
+    use super::*;
+
+    /// Execute the core Cicada business gates against both valid and hostile
+    /// seeded reference states. Every `Err` identifies a probe that stopped
+    /// distinguishing the accepted path from the rejected path.
+    pub fn exercise_business_guards(seed: [u8; 16]) -> Result<(), &'static str> {
+        let now = 1_000u64 + u64::from(seed[0]);
+        let executor = nonzero_address(seed[1], 0x31);
+        let other_executor = nonzero_address(seed[2], 0xA7);
+        let mut intent = reference_intent(now, executor, seed);
+
+        must_accept(
+            validate_claim_access(&intent, &executor, now),
+            "valid allowlisted claim was rejected",
+        )?;
+        must_reject(
+            validate_claim_access(&intent, &other_executor, now),
+            "claim accepted the wrong executor",
+        )?;
+
+        intent.allowed_executor = ZERO_ADDRESS;
+        must_reject(
+            validate_claim_access(&intent, &executor, now),
+            "permissionless intent accepted a pre-claim",
+        )?;
+        must_accept(
+            validate_execution_access(&intent, &executor, now),
+            "permissionless open execution was rejected",
+        )?;
+
+        intent.allowed_executor = executor;
+        intent.status = STATUS_CLAIMED;
+        intent.claimant = executor;
+        intent.claim_expiry = now + 2;
+        must_accept(
+            validate_execution_access(&intent, &executor, now),
+            "valid claimed execution was rejected",
+        )?;
+        intent.claimant = other_executor;
+        must_reject(
+            validate_execution_access(&intent, &executor, now),
+            "claimed execution accepted a different claimant",
+        )?;
+        intent.claimant = executor;
+        intent.claim_expiry = now.saturating_sub(1);
+        must_reject(
+            validate_execution_access(&intent, &executor, now),
+            "expired claim lease was accepted",
+        )?;
+        intent.claim_expiry = now + 2;
+        intent.expiry = now;
+        must_reject(
+            validate_execution_access(&intent, &executor, now),
+            "expired intent was executable",
+        )?;
+
+        exercise_route_lamport_guards(seed)?;
+        exercise_route_meta_guards(seed)?;
+        Ok(())
+    }
+
+    fn exercise_route_lamport_guards(seed: [u8; 16]) -> Result<(), &'static str> {
+        let source = 10_000u64 + u64::from(seed[3]);
+        let destination = 20_000u64 + u64::from(seed[4]);
+        let spent = 10u64 + u64::from(seed[5] % 32);
+        let received = 7u64 + u64::from(seed[6] % 32);
+
+        must_accept(
+            validate_route_lamport_floors(
+                source,
+                source,
+                destination,
+                destination,
+                spent,
+                received,
+                false,
+                false,
+            ),
+            "valid non-native lamport floors were rejected",
+        )?;
+        must_reject(
+            validate_route_lamport_floors(
+                source,
+                source - 1,
+                destination,
+                destination,
+                spent,
+                received,
+                false,
+                false,
+            ),
+            "non-native source lamport drain was accepted",
+        )?;
+        must_reject(
+            validate_route_lamport_floors(
+                source,
+                source,
+                destination,
+                destination - 1,
+                spent,
+                received,
+                false,
+                false,
+            ),
+            "non-native destination lamport drain was accepted",
+        )?;
+        must_accept(
+            validate_route_lamport_floors(
+                source,
+                source - spent,
+                destination,
+                destination + received,
+                spent,
+                received,
+                true,
+                true,
+            ),
+            "valid native-token lamport movement was rejected",
+        )?;
+        must_reject(
+            validate_route_lamport_floors(
+                source,
+                source - spent - 1,
+                destination,
+                destination + received,
+                spent,
+                received,
+                true,
+                true,
+            ),
+            "native source moved below token backing",
+        )?;
+        must_reject(
+            validate_route_lamport_floors(
+                source,
+                source - spent,
+                destination,
+                destination + received - 1,
+                spent,
+                received,
+                true,
+                true,
+            ),
+            "native destination missed received token backing",
+        )?;
+        Ok(())
+    }
+
+    fn exercise_route_meta_guards(seed: [u8; 16]) -> Result<(), &'static str> {
+        let account = nonzero_address(seed[7], 0x19);
+        let other = nonzero_address(seed[8], 0xD3);
+        let input_mint = nonzero_address(seed[9], 0x41);
+        let output_mint = nonzero_address(seed[10], 0x52);
+
+        let mut flags = [0u8; MAX_ROUTE_ACCOUNTS];
+        flags[0] = ROUTE_META_WRITABLE;
+        must_accept(
+            validate_unused_route_flags(1, &flags),
+            "canonical used route flag was rejected",
+        )?;
+        flags[1] = ROUTE_META_SIGNER;
+        must_reject(
+            validate_unused_route_flags(1, &flags),
+            "nonzero unused route flag was accepted",
+        )?;
+        must_reject(
+            validate_unused_route_flags(MAX_ROUTE_ACCOUNTS + 1, &flags),
+            "oversized route-account set was accepted",
+        )?;
+
+        must_accept(
+            validate_duplicate_route_meta(
+                &account,
+                ROUTE_META_WRITABLE,
+                &account,
+                ROUTE_META_WRITABLE,
+            ),
+            "identical duplicate route metadata was rejected",
+        )?;
+        must_reject(
+            validate_duplicate_route_meta(&account, ROUTE_META_WRITABLE, &account, 0),
+            "conflicting duplicate route metadata was accepted",
+        )?;
+        must_accept(
+            validate_duplicate_route_meta(&account, ROUTE_META_WRITABLE, &other, 0),
+            "distinct route accounts were treated as aliases",
+        )?;
+
+        must_accept(
+            validate_route_mint_delegation(&input_mint, false, &input_mint, &output_mint),
+            "readonly committed mint was rejected",
+        )?;
+        must_reject(
+            validate_route_mint_delegation(&input_mint, true, &input_mint, &output_mint),
+            "writable input mint delegation was accepted",
+        )?;
+        must_reject(
+            validate_route_mint_delegation(&output_mint, true, &input_mint, &output_mint),
+            "writable output mint delegation was accepted",
+        )?;
+        Ok(())
+    }
+
+    fn reference_intent(now: u64, executor: Address, seed: [u8; 16]) -> IntentSnapshot {
+        IntentSnapshot {
+            owner: nonzero_address(seed[11], 1),
+            source_token: nonzero_address(seed[12], 2),
+            vault_authority: nonzero_address(seed[13], 3),
+            refund_token: nonzero_address(seed[14], 4),
+            destination_token: nonzero_address(seed[15], 5),
+            input_mint: nonzero_address(seed[0], 6),
+            output_mint: nonzero_address(seed[1], 7),
+            max_input: 100,
+            min_output: 90,
+            expiry: now + 10,
+            allowed_executor: executor,
+            route_program: nonzero_address(seed[2], 8),
+            route_commitment: ZERO_HASH,
+            route_mode: ROUTE_MODE_PROGRAM,
+            sequence: 1 + u64::from(seed[3]),
+            status: STATUS_OPEN,
+            claimant: ZERO_ADDRESS,
+            claim_expiry: 0,
+            revision: 1,
+        }
+    }
+
+    fn nonzero_address(variable: u8, domain: u8) -> Address {
+        let mut bytes = [domain; 32];
+        bytes[0] = variable.wrapping_add(1);
+        Address::new(bytes)
+    }
+
+    fn must_accept(result: ProgramResult, message: &'static str) -> Result<(), &'static str> {
+        if result.is_ok() {
+            Ok(())
+        } else {
+            Err(message)
+        }
+    }
+
+    fn must_reject(result: ProgramResult, message: &'static str) -> Result<(), &'static str> {
+        if result.is_err() {
+            Ok(())
+        } else {
+            Err(message)
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2207,7 +3084,7 @@ mod tests {
 
     #[test]
     fn shard_fits_single_instruction_initialization_limit() {
-        assert!(IntentShard::LEN <= 10_240);
+        const { assert!(IntentShard::LEN <= 10_240) };
         assert_eq!(INTENTS_PER_SHARD, 20);
     }
 
@@ -2448,6 +3325,351 @@ mod tests {
         );
     }
 
+    fn extended_token_2022(shape: Token2022Shape, entries: &[(u16, &[u8])]) -> std::vec::Vec<u8> {
+        let mut data = vec![0u8; TOKEN_2022_TLV_OFFSET];
+        data[TOKEN_2022_ACCOUNT_TYPE_OFFSET] = match shape {
+            Token2022Shape::Mint => TOKEN_2022_ACCOUNT_TYPE_MINT,
+            Token2022Shape::Token => TOKEN_2022_ACCOUNT_TYPE_TOKEN,
+        };
+        for (extension_type, value) in entries {
+            data.extend_from_slice(&extension_type.to_le_bytes());
+            data.extend_from_slice(&(value.len() as u16).to_le_bytes());
+            data.extend_from_slice(value);
+        }
+        data
+    }
+
+    #[test]
+    fn config_initialization_rejects_unrecoverable_authority_inputs() {
+        let authority = Address::new([40u8; 32]);
+        assert_eq!(validate_config_initialization_args(&authority, 1), Ok(()));
+        assert_eq!(
+            validate_config_initialization_args(&authority, 0),
+            Err(ProgramError::from(InvalidClaimTtl))
+        );
+        assert_eq!(
+            validate_config_initialization_args(&ZERO_ADDRESS, 1),
+            Err(ProgramError::from(EmptyEmergencyAuthority))
+        );
+    }
+
+    #[test]
+    fn token_shapes_reject_oversized_spl_and_multisig_collisions() {
+        assert_eq!(
+            InterfaceMint::from_data(&[0u8; TOKEN_MINT_BASE_SIZE], TokenProgramKind::Spl)
+                .map(|_| ()),
+            Ok(()),
+        );
+        assert_eq!(
+            InterfaceMint::from_data(&[0u8; TOKEN_MINT_BASE_SIZE + 1], TokenProgramKind::Spl)
+                .map(|_| ()),
+            Err(ProgramError::InvalidAccountData)
+        );
+        assert_eq!(
+            InterfaceTokenAccount::from_data(
+                &[0u8; TOKEN_ACCOUNT_BASE_SIZE],
+                TokenProgramKind::Spl,
+            )
+            .map(|_| ()),
+            Ok(())
+        );
+        assert_eq!(
+            InterfaceTokenAccount::from_data(
+                &[0u8; TOKEN_ACCOUNT_BASE_SIZE + 1],
+                TokenProgramKind::Spl,
+            )
+            .map(|_| ()),
+            Err(ProgramError::InvalidAccountData)
+        );
+
+        let multisig = [0u8; TOKEN_MULTISIG_SIZE];
+        assert_eq!(
+            InterfaceMint::from_data(&multisig, TokenProgramKind::Token2022).map(|_| ()),
+            Err(ProgramError::InvalidAccountData)
+        );
+        assert_eq!(
+            InterfaceTokenAccount::from_data(&multisig, TokenProgramKind::Token2022).map(|_| ()),
+            Err(ProgramError::InvalidAccountData)
+        );
+        assert_eq!(
+            verify_token_2022_tlv(
+                &multisig,
+                Token2022Shape::Token,
+                TokenAccountRole::SettlementDestination,
+            ),
+            Err(ProgramError::from(UnsafeTokenExtension))
+        );
+    }
+
+    #[test]
+    fn loader_v3_initialization_is_bound_to_upgrade_authority() {
+        let program_data_address = Address::new([41u8; 32]);
+        let authority = Address::new([42u8; 32]);
+        let impostor = Address::new([43u8; 32]);
+        let mut program = [0u8; LOADER_V3_PROGRAM_STATE_LEN];
+        program[..4].copy_from_slice(&LOADER_V3_PROGRAM_TAG.to_le_bytes());
+        program[4..].copy_from_slice(program_data_address.as_array());
+        let mut program_data = [0u8; LOADER_V3_PROGRAM_DATA_METADATA_LEN];
+        program_data[..4].copy_from_slice(&LOADER_V3_PROGRAM_DATA_TAG.to_le_bytes());
+        program_data[12] = 1;
+        program_data[13..45].copy_from_slice(authority.as_array());
+
+        assert_eq!(
+            verify_loader_v3_initialization_authority(
+                &program,
+                &program_data_address,
+                &program_data,
+                &authority,
+            ),
+            Ok(())
+        );
+        assert_eq!(
+            verify_loader_v3_initialization_authority(
+                &program,
+                &program_data_address,
+                &program_data,
+                &impostor,
+            ),
+            Err(ProgramError::from(UnauthorizedInitializer))
+        );
+
+        program_data[12] = 0;
+        assert_eq!(
+            verify_loader_v3_initialization_authority(
+                &program,
+                &program_data_address,
+                &program_data,
+                &authority,
+            ),
+            Err(ProgramError::from(UnauthorizedInitializer))
+        );
+    }
+
+    #[test]
+    fn loader_v4_initialization_requires_live_deployed_authority() {
+        let authority = Address::new([51u8; 32]);
+        let impostor = Address::new([52u8; 32]);
+        let mut state = [0u8; LOADER_V4_STATE_LEN];
+        state[LOADER_V4_AUTHORITY_OFFSET..LOADER_V4_STATUS_OFFSET]
+            .copy_from_slice(authority.as_array());
+        state[LOADER_V4_STATUS_OFFSET..LOADER_V4_STATE_LEN]
+            .copy_from_slice(&LOADER_V4_STATUS_DEPLOYED.to_le_bytes());
+
+        assert_eq!(
+            verify_loader_v4_initialization_authority(&state, &authority),
+            Ok(())
+        );
+        assert_eq!(
+            verify_loader_v4_initialization_authority(&state, &impostor),
+            Err(ProgramError::from(UnauthorizedInitializer))
+        );
+
+        state[LOADER_V4_STATUS_OFFSET..LOADER_V4_STATE_LEN].copy_from_slice(&2u64.to_le_bytes());
+        assert_eq!(
+            verify_loader_v4_initialization_authority(&state, &authority),
+            Err(ProgramError::from(UnauthorizedInitializer))
+        );
+    }
+
+    #[test]
+    fn cicada_token_2022_policy_is_complete_and_fails_closed() {
+        assert_eq!(
+            verify_token_2022_tlv(
+                &[0u8; 82],
+                Token2022Shape::Mint,
+                TokenAccountRole::SettlementDestination,
+            ),
+            Ok(())
+        );
+        assert_eq!(
+            verify_token_2022_tlv(
+                &[0u8; 165],
+                Token2022Shape::Token,
+                TokenAccountRole::CustodySource,
+            ),
+            Ok(())
+        );
+
+        let metadata_pointer =
+            extended_token_2022(Token2022Shape::Mint, &[(EXT_METADATA_POINTER, &[0u8; 64])]);
+        assert_eq!(
+            verify_token_2022_tlv(
+                &metadata_pointer,
+                Token2022Shape::Mint,
+                TokenAccountRole::SettlementDestination,
+            ),
+            Ok(())
+        );
+
+        // Transfer fees are a known amount-changing extension, and type 29 is
+        // deliberately beyond the current canonical ExtensionType surface.
+        for mint in [
+            extended_token_2022(Token2022Shape::Mint, &[(1, &[0u8; 108])]),
+            extended_token_2022(Token2022Shape::Mint, &[(29, &[])]),
+        ] {
+            assert_eq!(
+                verify_token_2022_tlv(
+                    &mint,
+                    Token2022Shape::Mint,
+                    TokenAccountRole::SettlementDestination,
+                ),
+                Err(ProgramError::from(UnsafeTokenExtension))
+            );
+        }
+
+        let mut truncated = extended_token_2022(Token2022Shape::Mint, &[]);
+        truncated.extend_from_slice(&EXT_METADATA_POINTER.to_le_bytes());
+        truncated.extend_from_slice(&64u16.to_le_bytes());
+        truncated.extend_from_slice(&[0u8; 8]);
+        assert_eq!(
+            verify_token_2022_tlv(
+                &truncated,
+                Token2022Shape::Mint,
+                TokenAccountRole::SettlementDestination,
+            ),
+            Err(ProgramError::from(UnsafeTokenExtension))
+        );
+
+        let duplicate = extended_token_2022(
+            Token2022Shape::Mint,
+            &[
+                (EXT_METADATA_POINTER, &[0u8; 64]),
+                (EXT_METADATA_POINTER, &[0u8; 64]),
+            ],
+        );
+        assert_eq!(
+            verify_token_2022_tlv(
+                &duplicate,
+                Token2022Shape::Mint,
+                TokenAccountRole::SettlementDestination,
+            ),
+            Err(ProgramError::from(UnsafeTokenExtension))
+        );
+    }
+
+    #[test]
+    fn token_2022_custody_rejects_unrestorable_or_blocking_account_extensions() {
+        let immutable = extended_token_2022(Token2022Shape::Token, &[(EXT_IMMUTABLE_OWNER, &[])]);
+        assert_eq!(
+            verify_token_2022_tlv(
+                &immutable,
+                Token2022Shape::Token,
+                TokenAccountRole::CustodySource,
+            ),
+            Err(ProgramError::from(UnsafeTokenExtension))
+        );
+        assert_eq!(
+            verify_token_2022_tlv(
+                &immutable,
+                Token2022Shape::Token,
+                TokenAccountRole::SettlementDestination,
+            ),
+            Ok(())
+        );
+
+        for extension_type in [EXT_MEMO_TRANSFER, EXT_CPI_GUARD] {
+            let enabled = extended_token_2022(Token2022Shape::Token, &[(extension_type, &[1])]);
+            assert_eq!(
+                verify_token_2022_tlv(
+                    &enabled,
+                    Token2022Shape::Token,
+                    TokenAccountRole::CustodySource,
+                ),
+                Err(ProgramError::from(UnsafeTokenExtension))
+            );
+            let disabled = extended_token_2022(Token2022Shape::Token, &[(extension_type, &[0])]);
+            assert_eq!(
+                verify_token_2022_tlv(
+                    &disabled,
+                    Token2022Shape::Token,
+                    TokenAccountRole::CustodySource,
+                ),
+                Ok(())
+            );
+        }
+    }
+
+    #[test]
+    fn source_authority_surface_rejects_delegate_and_close_authority() {
+        let mut source = [0u8; TOKEN_ACCOUNT_BASE_SIZE];
+        assert_eq!(verify_source_authority_surface(&source), Ok(()));
+
+        source[TOKEN_DELEGATE_OPTION_OFFSET..TOKEN_DELEGATE_OPTION_OFFSET + 4]
+            .copy_from_slice(&1u32.to_le_bytes());
+        assert_eq!(
+            verify_source_authority_surface(&source),
+            Err(ProgramError::from(SourceDelegatePresent))
+        );
+        source[TOKEN_DELEGATE_OPTION_OFFSET..TOKEN_DELEGATE_OPTION_OFFSET + 4].fill(0);
+        source[TOKEN_DELEGATED_AMOUNT_OFFSET] = 1;
+        assert_eq!(
+            verify_source_authority_surface(&source),
+            Err(ProgramError::from(SourceDelegatePresent))
+        );
+        source[TOKEN_DELEGATED_AMOUNT_OFFSET] = 0;
+        source[TOKEN_CLOSE_AUTHORITY_OPTION_OFFSET..TOKEN_CLOSE_AUTHORITY_OPTION_OFFSET + 4]
+            .copy_from_slice(&1u32.to_le_bytes());
+        assert_eq!(
+            verify_source_authority_surface(&source),
+            Err(ProgramError::from(SourceCloseAuthorityPresent))
+        );
+    }
+
+    #[test]
+    fn settlement_accounts_reject_a_distinct_close_authority() {
+        let mut settlement = [0u8; TOKEN_ACCOUNT_BASE_SIZE];
+        assert_eq!(verify_settlement_authority_surface(&settlement), Ok(()));
+
+        settlement[TOKEN_CLOSE_AUTHORITY_OPTION_OFFSET..TOKEN_CLOSE_AUTHORITY_OPTION_OFFSET + 4]
+            .copy_from_slice(&1u32.to_le_bytes());
+        assert_eq!(
+            verify_settlement_authority_surface(&settlement),
+            Err(ProgramError::from(SettlementCloseAuthorityPresent))
+        );
+    }
+
+    #[test]
+    fn mint_policy_preimage_commits_supply_bytes() {
+        let mint = [0u8; TOKEN_MINT_BASE_SIZE];
+        let mut inflated = mint;
+        inflated[36..44].copy_from_slice(&1u64.to_le_bytes());
+        let (before, supply, after) = mint_policy_parts(&mint).unwrap();
+        let (inflated_before, inflated_supply, inflated_after) =
+            mint_policy_parts(&inflated).unwrap();
+        assert_eq!(before, inflated_before);
+        assert_ne!(supply, inflated_supply);
+        assert_eq!(after, inflated_after);
+        assert_eq!(before.len() + supply.len() + after.len(), mint.len());
+    }
+
+    #[test]
+    fn route_lamport_floors_preserve_excess_sol_and_native_backing() {
+        assert_eq!(
+            validate_route_lamport_floors(100, 100, 200, 200, 20, 30, false, false),
+            Ok(())
+        );
+        assert_eq!(
+            validate_route_lamport_floors(100, 99, 200, 200, 20, 30, false, false),
+            Err(ProgramError::from(SourceLamportsDecreased))
+        );
+        assert_eq!(
+            validate_route_lamport_floors(100, 80, 200, 230, 20, 30, true, true),
+            Ok(())
+        );
+        assert_eq!(
+            validate_route_lamport_floors(100, 79, 200, 230, 20, 30, true, true),
+            Err(ProgramError::from(SourceLamportsDecreased))
+        );
+        assert_eq!(
+            validate_route_lamport_floors(100, 80, 200, 229, 20, 30, true, true),
+            Err(ProgramError::from(DestinationLamportsShortfall))
+        );
+        assert_eq!(
+            validate_route_lamport_floors(100, 100, u64::MAX, u64::MAX, 20, 1, false, true,),
+            Err(ProgramError::ArithmeticOverflow)
+        );
+    }
+
     #[test]
     fn route_flag_tail_must_be_canonical() {
         let mut flags = [0u8; MAX_ROUTE_ACCOUNTS];
@@ -2458,5 +3680,50 @@ mod tests {
         );
         flags[3] = 0;
         assert_eq!(validate_unused_route_flags(3, &flags), Ok(()));
+    }
+
+    #[test]
+    fn duplicate_route_pubkeys_require_identical_flags() {
+        let duplicate = Address::new([61u8; 32]);
+        let other = Address::new([62u8; 32]);
+        assert_eq!(
+            validate_duplicate_route_meta(
+                &duplicate,
+                ROUTE_META_WRITABLE,
+                &duplicate,
+                ROUTE_META_WRITABLE,
+            ),
+            Ok(())
+        );
+        assert_eq!(
+            validate_duplicate_route_meta(&duplicate, ROUTE_META_WRITABLE, &other, 0),
+            Ok(())
+        );
+        assert_eq!(
+            validate_duplicate_route_meta(&duplicate, ROUTE_META_WRITABLE, &duplicate, 0),
+            Err(ProgramError::from(ConflictingDuplicateRouteMeta))
+        );
+    }
+
+    #[test]
+    fn committed_mints_may_only_be_duplicated_readonly() {
+        let input_mint = Address::new([63u8; 32]);
+        let output_mint = Address::new([64u8; 32]);
+        let other = Address::new([65u8; 32]);
+
+        for mint in [&input_mint, &output_mint] {
+            assert_eq!(
+                validate_route_mint_delegation(mint, true, &input_mint, &output_mint),
+                Err(ProgramError::from(ProtectedAccountDelegation))
+            );
+            assert_eq!(
+                validate_route_mint_delegation(mint, false, &input_mint, &output_mint),
+                Ok(())
+            );
+        }
+        assert_eq!(
+            validate_route_mint_delegation(&other, true, &input_mint, &output_mint),
+            Ok(())
+        );
     }
 }

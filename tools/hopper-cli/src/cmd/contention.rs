@@ -3,7 +3,7 @@
 //!
 //! Every number here comes from the declaration, not a measurement: the
 //! account list plus the same `writeRanges` / `lamportAccounts` the
-//! runtime enforces. That makes the output exact and reproducible offline,
+//! runtime enforces. That makes the role counts exact and reproducible offline,
 //! and it is why the demotion column exists at all — an account declared
 //! writable that a *mutation-complete* write set proves is never mutated
 //! can be sent read-only, which removes a real write lock
@@ -17,8 +17,10 @@
 //! usually the dominant term, 200,000 CU by default), and the requested
 //! loaded-data limit. Only the first two are fixed by a declaration; the
 //! rest are caller choices no manifest analysis can supply. So the
-//! `Lock CU` column is the declaration's share of the leader's price, not
-//! the price. Two further scope limits, both real:
+//! `Fixed max` column is the fixed-role upper bound on the declaration's
+//! share of the leader's price, not the price. Optional roles can be absent
+//! and duplicate roles can resolve to one Pubkey, so realized cost may be
+//! lower. Two further scope limits, both real:
 //!
 //! - the **fee payer**'s write lock is not counted (it is a property of
 //!   the message, not of any instruction), and
@@ -41,8 +43,8 @@ pub fn report(manifest: &ProgramManifest, max_block_cost: Option<u64>) -> u32 {
     println!("  program: {} v{}", manifest.name, manifest.version);
     println!();
     println!(
-        "{:<24} {:>4} {:>6} {:>5} {:>8} {:>7} {:>10} {:>5}",
-        "Instruction", "W", "W-eff", "Sigs", "Lock CU", "Saved", "Proven RO", "Rem"
+        "{:<24} {:>4} {:>6} {:>5} {:>9} {:>7} {:>10} {:>5}",
+        "Instruction", "W", "W-eff", "Sigs", "Fixed max", "Saved", "Proven RO", "Rem"
     );
     println!("{}", "-".repeat(80));
 
@@ -78,7 +80,7 @@ pub fn report(manifest: &ProgramManifest, max_block_cost: Option<u64>) -> u32 {
             over_budget += 1;
         }
         println!(
-            "{:<24} {:>4} {:>6} {:>5} {:>8} {:>7} {:>10} {:>5}{}",
+            "{:<24} {:>4} {:>6} {:>5} {:>9} {:>7} {:>10} {:>5}{}",
             instruction.name,
             profile.declared_writable,
             profile.effective_writable,
@@ -136,8 +138,8 @@ pub fn report(manifest: &ProgramManifest, max_block_cost: Option<u64>) -> u32 {
     if remaining_capable > 0 {
         println!(
             "  {remaining_capable} instruction(s) accept caller-supplied remaining accounts (Rem \
-             column). Those arrive with caller-chosen flags, so each writable one adds {} CU \
-             beyond the figures above — the declaration cannot bound it.",
+             column). Those arrive with caller-chosen flags, so each distinct writable key adds \
+             up to {} CU beyond the figures above — the fixed declaration cannot predict it.",
             cost_model::WRITE_LOCK_UNITS,
         );
     }
@@ -150,8 +152,9 @@ pub fn report(manifest: &ProgramManifest, max_block_cost: Option<u64>) -> u32 {
         cost_model::MAX_WRITABLE_ACCOUNT_UNITS,
     );
     println!(
-        "  scope: Lock CU is the DECLARATION's share of a transaction's block cost, not the \
-         whole of it. Agave also charges the requested compute limit ({} CU by default, usually \
+        "  scope: Fixed max is a fixed-role UPPER BOUND, not a transaction's block cost. \
+         Optional roles may be absent and duplicate roles may alias one Pubkey. Agave also \
+         charges the requested compute limit ({} CU by default, usually \
          the largest term), the requested loaded-data limit ({} CU by default), and \
          instruction-data bytes — all caller choices — plus the fee payer's own write lock.",
         cost_model::DEFAULT_INSTRUCTION_COMPUTE_UNIT_LIMIT,
@@ -197,11 +200,10 @@ pub fn cmd_contention(args: &[String], load: impl FnOnce(&str) -> ProgramManifes
                 // Refuse a second positional rather than silently letting
                 // the last one win: in CI that reads as "the gate ran on
                 // the manifest I named", when it ran on a different one.
-                if manifest_arg.is_some() {
+                if let Some(first_manifest) = manifest_arg {
                     eprintln!(
                         "hopper contention: more than one manifest given ({} and {})",
-                        manifest_arg.unwrap(),
-                        args[index],
+                        first_manifest, args[index],
                     );
                     process::exit(1);
                 }
@@ -307,14 +309,14 @@ fn print_usage() {
     eprintln!("payer's own lock) and NOT the compute a handler burns.");
     eprintln!();
     eprintln!("Options:");
-    eprintln!("  --max-block-cost <CU>   Fail (exit 1) if any instruction's Lock CU exceeds this");
+    eprintln!("  --max-block-cost <CU>   Fail if an instruction's fixed-role bound exceeds this");
     eprintln!("                          ceiling. A CI gate on declared lock footprint.");
     eprintln!();
     eprintln!("Columns:");
     eprintln!("  W         accounts declared writable");
     eprintln!("  W-eff     still writable after sound demotion");
     eprintln!("  Sigs      required signers");
-    eprintln!("  Lock CU   write locks (after demotion) + signatures");
+    eprintln!("  Fixed max fixed-role write locks (after demotion) + signatures; upper bound");
     eprintln!("  Saved     write-lock CU removed by demotion");
     eprintln!("  Proven RO non-signer accounts the write set proves are never mutated — a");
     eprintln!("            client must send these read-only or waste a lock on each");

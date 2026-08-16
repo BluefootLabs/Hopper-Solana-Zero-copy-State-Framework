@@ -55,6 +55,9 @@
 //! hopper keys new|sync|pda|list|print                 Keypair and PDA helpers
 //! hopper config get|set|list|reset|path               Global configuration store
 //! hopper lint                                        Run Hopper project diagnostics
+//! hopper fuzz generate --program <manifest>          Generate seeded adversarial cases
+//! hopper fuzz check --program <manifest>             Fail when cases drift from the manifest
+//! hopper fuzz run --program <manifest> --adapter <exe> Execute cases through a program adapter
 //! hopper lint zc                                     Run zero-copy source diagnostics
 //! hopper contention <manifest>                       Declared write-lock and signature footprint
 //! hopper expand                                      Show lowered macro output
@@ -95,6 +98,7 @@ use hopper_schema::{
     ArgDescriptor,
     // Receipt types (re-exported from hopper-core)
     CompatImpact,
+    CompatibilityPair,
     CompatibilityVerdict,
     DecodedHeader,
     DecodedReceipt,
@@ -105,6 +109,7 @@ use hopper_schema::{
     InstructionDescriptor,
     LayoutFingerprint,
     LayoutManifest,
+    LayoutMetadata,
     MigrationAction,
     MigrationPlan,
     MigrationPolicy,
@@ -185,6 +190,7 @@ fn main() {
         "clean" => cmd::clean::cmd_clean(&args[2..]),
         "verify" => cmd::verify::cmd_verify(&args[2..]),
         "publish-check" => cmd::publish_check::cmd_publish_check(&args[2..]),
+        "audit-check" => cmd::audit_check::cmd_audit_check(&args[2..]),
         "publish-idl" => cmd::publish_idl::cmd_publish_idl(&args[2..]),
         "solana-check" => cmd::solana_check::cmd_solana_check(&args[2..]),
 
@@ -192,6 +198,7 @@ fn main() {
         "keys" => cmd::keys::cmd_keys(&args[2..]),
         "config" => cmd::config::cmd_config(&args[2..]),
         "lint" => cmd::lint::cmd_lint(&args[2..]),
+        "fuzz" => cmd::fuzz::cmd_fuzz(&args[2..], load_program_manifest),
         "contention" => cmd::contention::cmd_contention(&args[2..], load_program_manifest),
         "expand" => cmd::expand::cmd_expand(&args[2..]),
         "tx" => cmd_tx_family(&args[2..]),
@@ -2436,11 +2443,26 @@ fn print_usage() {
         "    hopper verify --package <name>         Infer manifest + .so from a workspace package"
     );
     println!("    hopper publish-check --package <name>  Run release docs, feature, client, fuzz, and ABI gates");
+    println!(
+        "    hopper audit-check [--strict] [--json] Verify audit evidence, freshness, and blockers"
+    );
     println!("    hopper publish-idl --manifest <path> --program-id <pubkey> [--dry-run]");
     println!("                                           Publish the Anchor IDL to the SPL Program Metadata PDA (zero Node deps)");
     println!("    hopper solana-check [--all]            Check SBF crate shape and Hopper entrypoint invariants");
     println!("    hopper contention <manifest>           Declared write-lock/signature footprint per instruction");
     println!("                                           (--max-block-cost <CU> gates it in CI)");
+    println!("    hopper fuzz generate --program <manifest> [--out <plan.json>] [--corpus <dir>]");
+    println!("                                           Derive seeded cases from every declared contract");
+    println!("    hopper fuzz check --program <manifest> [--plan <plan.json>]");
+    println!(
+        "                                           Fail CI when the committed fuzz plan drifts"
+    );
+    println!(
+        "    hopper fuzz run --program <manifest> --adapter <executable> [--plan <plan.json>]"
+    );
+    println!(
+        "                                           Execute cases and required invariant hooks"
+    );
     println!();
     println!("  Schema:");
     println!("    hopper schema export               Schema format reference");
@@ -2764,6 +2786,7 @@ struct OwnedManifest {
     version: u8,
     layout_id: [u8; 8],
     total_size: usize,
+    field_count: usize,
     fields: Vec<OwnedField>,
 }
 
@@ -2772,6 +2795,7 @@ struct OwnedField {
     canonical_type: String,
     size: u16,
     offset: u16,
+    intent: FieldIntent,
 }
 
 impl From<ParsedManifest> for OwnedManifest {
@@ -2782,6 +2806,7 @@ impl From<ParsedManifest> for OwnedManifest {
             version: p.version,
             layout_id: p.layout_id,
             total_size: p.total_size,
+            field_count: p.fields.len(),
             fields: p
                 .fields
                 .into_iter()
@@ -2790,6 +2815,7 @@ impl From<ParsedManifest> for OwnedManifest {
                     canonical_type: f.canonical_type,
                     size: f.size,
                     offset: f.offset,
+                    intent: FieldIntent::Custom,
                 })
                 .collect(),
         }
@@ -3722,6 +3748,9 @@ struct OwnedProgramManifest {
     instructions: Vec<OwnedInstruction>,
     events: Vec<OwnedEvent>,
     policies: Vec<OwnedPolicy>,
+    layout_metadata: Vec<OwnedLayoutMetadata>,
+    compatibility_pairs: Vec<OwnedCompatibilityPair>,
+    tooling_hints: Vec<String>,
     contexts: Vec<OwnedContext>,
 }
 
@@ -3785,6 +3814,7 @@ struct OwnedAccount {
     writable: bool,
     signer: bool,
     layout_ref: String,
+    seeds: Vec<String>,
 }
 
 struct OwnedEvent {
@@ -3801,6 +3831,29 @@ struct OwnedPolicy {
     receipt_profile: String,
 }
 
+struct OwnedLayoutMetadata {
+    name: String,
+    segment_roles: Vec<String>,
+    append_safe: bool,
+    migration_required: bool,
+    rebuildable: bool,
+    policy_pack: String,
+    invariant_pack: Vec<String>,
+    receipt_profile: String,
+    phase_requirements: Vec<String>,
+    trust_profile: String,
+    manager_hints: Vec<String>,
+}
+
+struct OwnedCompatibilityPair {
+    from_layout: String,
+    from_version: u8,
+    to_layout: String,
+    to_version: u8,
+    policy: MigrationPolicy,
+    backward_readable: bool,
+}
+
 struct OwnedContext {
     name: String,
     accounts: Vec<OwnedContextAccount>,
@@ -3811,6 +3864,9 @@ struct OwnedContext {
     // instruction fields above. Absent from legacy manifests -> defaults.
     strict_writes: bool,
     write_ranges: Vec<OwnedWriteRange>,
+    parametric_write_ranges: Vec<OwnedParametricWriteRange>,
+    mutation_complete: bool,
+    lamport_accounts: Vec<u8>,
 }
 
 struct OwnedContextAccount {
@@ -3831,242 +3887,290 @@ struct OwnedContextAccount {
     expected_owner: String,
 }
 
-/// Find the matching closing bracket, handling nesting.
-fn find_matching_bracket(s: &str, open: char, close: char) -> Option<usize> {
-    let mut depth = 0i32;
-    let mut in_string = false;
-    let mut escape = false;
-    for (i, c) in s.char_indices() {
-        if escape {
-            escape = false;
-            continue;
-        }
-        if c == '\\' && in_string {
-            escape = true;
-            continue;
-        }
-        if c == '"' {
-            in_string = !in_string;
-            continue;
-        }
-        if in_string {
-            continue;
-        }
-        if c == open {
-            depth += 1;
-        } else if c == close {
-            depth -= 1;
-            if depth == 0 {
-                return Some(i);
-            }
-        }
-    }
-    None
-}
-
-/// Extract an array of objects from JSON. Returns the raw JSON objects as strings.
-fn extract_object_array(json: &str, key: &str) -> Result<Vec<String>, String> {
-    let pattern = format!("\"{}\"", key);
-    let pos = match json.find(&pattern) {
-        Some(p) => p,
-        None => return Ok(Vec::new()), // Key not present = empty array
-    };
-    let after = &json[pos + pattern.len()..];
-    let after = after.trim_start().strip_prefix(':').ok_or("Expected :")?;
-    let after = after.trim_start();
-    if !after.starts_with('[') {
-        return Err(format!("Expected array for {}", key));
-    }
-    let end = find_matching_bracket(after, '[', ']')
-        .ok_or_else(|| format!("Unterminated array for {}", key))?;
-    let inner = &after[1..end];
-
-    let mut objects = Vec::new();
-    let mut remaining = inner;
-    loop {
-        remaining = remaining.trim_start();
-        if remaining.is_empty() {
-            break;
-        }
-        if remaining.starts_with(',') {
-            remaining = &remaining[1..];
-            continue;
-        }
-        if !remaining.starts_with('{') {
-            break;
-        }
-        let obj_end =
-            find_matching_bracket(remaining, '{', '}').ok_or("Unterminated object in array")?;
-        objects.push(remaining[..=obj_end].to_string());
-        remaining = &remaining[obj_end + 1..];
-    }
-    Ok(objects)
-}
-
-/// Extract a string array from JSON (e.g. "capabilities":["A","B"]).
-fn extract_string_array(json: &str, key: &str) -> Result<Vec<String>, String> {
-    let pattern = format!("\"{}\"", key);
-    let pos = match json.find(&pattern) {
-        Some(p) => p,
-        None => return Ok(Vec::new()),
-    };
-    let after = &json[pos + pattern.len()..];
-    let after = after.trim_start().strip_prefix(':').ok_or("Expected :")?;
-    let after = after.trim_start();
-    if !after.starts_with('[') {
-        return Err(format!("Expected array for {}", key));
-    }
-    let end = find_matching_bracket(after, '[', ']')
-        .ok_or_else(|| format!("Unterminated array for {}", key))?;
-    let inner = &after[1..end];
-
-    let mut values = Vec::new();
-    let mut remaining = inner;
-    loop {
-        remaining = remaining.trim_start();
-        if remaining.is_empty() {
-            break;
-        }
-        if remaining.starts_with(',') {
-            remaining = &remaining[1..];
-            continue;
-        }
-        if remaining.starts_with('"') {
-            let s = &remaining[1..];
-            let q_end = s.find('"').ok_or("Unterminated string in array")?;
-            values.push(s[..q_end].to_string());
-            remaining = &s[q_end + 1..];
-        } else {
-            break;
-        }
-    }
-    Ok(values)
-}
-
-/// Extract a boolean value from JSON.
-fn extract_bool(json: &str, key: &str) -> Result<bool, String> {
-    // Absent key defaults to false (codama omits false/unset booleans).
-    match find_after_key(json, key) {
-        Some(after) => Ok(after.starts_with("true")),
-        None => Ok(false),
-    }
-}
-
-/// Parse a `writeRanges` array — objects of the shape codama emits:
-/// `{ "account": str, "accountIndex": N, "offset": N, "size": N }`. The
-/// `account` name is derived (index is authoritative) and ignored here.
-/// Absent key -> empty vec (older manifests declare no byte-range surface).
-fn extract_write_ranges(json: &str, key: &str) -> Result<Vec<OwnedWriteRange>, String> {
-    let objects = extract_object_array(json, key)?;
-    let mut ranges = Vec::with_capacity(objects.len());
-    for obj in &objects {
-        ranges.push(OwnedWriteRange {
-            account_index: extract_number(obj, "accountIndex")? as u8,
-            offset: extract_number(obj, "offset")? as u32,
-            size: extract_number(obj, "size")? as u32,
-        });
-    }
-    Ok(ranges)
-}
-
-/// Parse a `lamportAccounts` u8 array, defaulting to empty when the key is
-/// absent (older manifests) or the array is empty. codama emits this key
-/// only alongside `mutationComplete`.
-fn extract_lamport_accounts(json: &str, key: &str) -> Vec<u8> {
-    // `extract_array_u8` errors on a missing key and on an empty `[]`
-    // (its comma-split yields one empty token); both cases mean "no
-    // declared lamport targets", so collapse them to an empty vec.
-    extract_array_u8(json, key).unwrap_or_default()
-}
-
+/// Parse the canonical rich manifest JSON emitted by `ManifestJson`.
+///
+/// Legacy snake_case aliases remain accepted, but conversion is typed and
+/// range-checked so contract metadata cannot disappear through substring
+/// parsing or integer truncation.
 fn parse_program_manifest_json(json: &str) -> Result<OwnedProgramManifest, String> {
-    let json = json.trim();
-    if !json.starts_with('{') || !json.ends_with('}') {
-        return Err("Expected JSON object".to_string());
+    use serde_json::{Map, Value};
+
+    fn object<'a>(value: &'a Value, label: &str) -> Result<&'a Map<String, Value>, String> {
+        value
+            .as_object()
+            .ok_or_else(|| format!("{label} must be a JSON object"))
     }
-
-    let name = extract_string(json, "name")?;
-    let version = extract_string(json, "version").unwrap_or_else(|_| "0.1.0".to_string());
-    let description = extract_string(json, "description").unwrap_or_default();
-
-    // Parse layouts
-    let layout_objects = extract_object_array(json, "layouts")?;
-    let mut layouts = Vec::with_capacity(layout_objects.len());
-    for obj in &layout_objects {
-        let pm = parse_manifest_json(obj)?;
-        layouts.push(OwnedManifest::from(pm));
+    fn value_for<'a>(obj: &'a Map<String, Value>, keys: &[&str]) -> Option<&'a Value> {
+        keys.iter().find_map(|key| obj.get(*key))
     }
-
-    // Parse instructions
-    let ix_objects = extract_object_array(json, "instructions")?;
-    let mut instructions = Vec::with_capacity(ix_objects.len());
-    for obj in &ix_objects {
-        let ix_name = extract_string(obj, "name")?;
-        let tag = extract_number(obj, "tag")? as u8;
-        let capabilities = extract_string_array(obj, "capabilities")?;
-        let policy_pack = extract_string(obj, "policy_pack").unwrap_or_default();
-        let receipt_expected = extract_bool(obj, "receipt_expected")?;
-
-        // Parse args
-        let arg_objects = extract_object_array(obj, "args")?;
-        let mut args = Vec::with_capacity(arg_objects.len());
-        for aobj in &arg_objects {
-            args.push(OwnedArg {
-                name: extract_string(aobj, "name")?,
-                canonical_type: extract_string(aobj, "type")?,
-                size: extract_number(aobj, "size")? as u16,
-                encoding: extract_string(aobj, "encoding").unwrap_or_else(|_| "fixed".to_string()),
-                max_len: extract_number(aobj, "maxLen").unwrap_or(0) as u16,
-                element_size: extract_number(aobj, "elementSize").unwrap_or(0) as u16,
-            });
+    fn string(obj: &Map<String, Value>, keys: &[&str], default: &str) -> Result<String, String> {
+        match value_for(obj, keys) {
+            Some(value) => value
+                .as_str()
+                .map(str::to_string)
+                .ok_or_else(|| format!("{} must be a string", keys[0])),
+            None => Ok(default.to_string()),
         }
-
-        // Parse accounts
-        let acct_objects = extract_object_array(obj, "accounts")?;
-        let mut accounts = Vec::with_capacity(acct_objects.len());
-        for aobj in &acct_objects {
-            accounts.push(OwnedAccount {
-                name: extract_string(aobj, "name")?,
-                writable: extract_bool(aobj, "writable")?,
-                signer: extract_bool(aobj, "signer")?,
-                layout_ref: extract_string(aobj, "layout_ref").unwrap_or_default(),
-            });
+    }
+    fn required_string(obj: &Map<String, Value>, keys: &[&str]) -> Result<String, String> {
+        let value = string(obj, keys, "")?;
+        if value.is_empty() {
+            Err(format!("missing required string {}", keys[0]))
+        } else {
+            Ok(value)
         }
-
-        // BLD-WR / BLD-MUT / BLD-CU write-set authority. Keys match
-        // codama's emitter exactly; each defaults to the pre-BLD-WR
-        // value when absent so an OLD manifest loads identically.
-        let strict_writes = extract_bool(obj, "strictWrites")?;
-        let write_ranges = extract_write_ranges(obj, "writeRanges")?;
-        let parametric_write_ranges = extract_object_array(obj, "parametricWriteRanges")?
+    }
+    fn number(obj: &Map<String, Value>, keys: &[&str], default: u64) -> Result<u64, String> {
+        match value_for(obj, keys) {
+            Some(value) => value
+                .as_u64()
+                .ok_or_else(|| format!("{} must be an unsigned integer", keys[0])),
+            None => Ok(default),
+        }
+    }
+    fn boolean(obj: &Map<String, Value>, keys: &[&str], default: bool) -> Result<bool, String> {
+        match value_for(obj, keys) {
+            Some(value) => value
+                .as_bool()
+                .ok_or_else(|| format!("{} must be a boolean", keys[0])),
+            None => Ok(default),
+        }
+    }
+    fn array<'a>(obj: &'a Map<String, Value>, keys: &[&str]) -> Result<&'a [Value], String> {
+        match value_for(obj, keys) {
+            Some(value) => value
+                .as_array()
+                .map(Vec::as_slice)
+                .ok_or_else(|| format!("{} must be an array", keys[0])),
+            None => Ok(&[]),
+        }
+    }
+    fn strings(obj: &Map<String, Value>, keys: &[&str]) -> Result<Vec<String>, String> {
+        array(obj, keys)?
             .iter()
-            .map(|range| {
-                Ok(OwnedParametricWriteRange {
-                    account_index: extract_number(range, "accountIndex")? as u8,
-                    base_offset: extract_number(range, "baseOffset")? as u32,
-                    stride: extract_number(range, "stride")? as u32,
-                    cell_size: extract_number(range, "cellSize")? as u32,
-                    count: extract_number(range, "count")? as u32,
-                    argument_index: extract_number(range, "argumentIndex")? as u8,
-                    argument: extract_string(range, "argument")?,
-                    segment: extract_string(range, "segment")?,
+            .map(|value| {
+                value
+                    .as_str()
+                    .map(str::to_string)
+                    .ok_or_else(|| format!("{} entries must be strings", keys[0]))
+            })
+            .collect()
+    }
+    fn as_u8(value: u64, label: &str) -> Result<u8, String> {
+        u8::try_from(value).map_err(|_| format!("{label} exceeds u8"))
+    }
+    fn as_u16(value: u64, label: &str) -> Result<u16, String> {
+        u16::try_from(value).map_err(|_| format!("{label} exceeds u16"))
+    }
+    fn as_u32(value: u64, label: &str) -> Result<u32, String> {
+        u32::try_from(value).map_err(|_| format!("{label} exceeds u32"))
+    }
+    fn byte_array(obj: &Map<String, Value>, keys: &[&str]) -> Result<Vec<u8>, String> {
+        array(obj, keys)?
+            .iter()
+            .map(|value| {
+                value
+                    .as_u64()
+                    .ok_or_else(|| format!("{} entries must be bytes", keys[0]))
+                    .and_then(|value| as_u8(value, keys[0]))
+            })
+            .collect()
+    }
+    fn layout_id(obj: &Map<String, Value>) -> Result<[u8; 8], String> {
+        if let Some(value) = value_for(obj, &["layoutId"]) {
+            let hex = value
+                .as_str()
+                .ok_or_else(|| "layoutId must be a hex string".to_string())?;
+            if hex.len() != 16 {
+                return Err("layoutId must contain exactly 8 bytes".to_string());
+            }
+            let mut out = [0u8; 8];
+            for (index, chunk) in hex.as_bytes().chunks_exact(2).enumerate() {
+                let pair = std::str::from_utf8(chunk).map_err(|_| "layoutId is not UTF-8")?;
+                out[index] = u8::from_str_radix(pair, 16)
+                    .map_err(|error| format!("invalid layoutId: {error}"))?;
+            }
+            return Ok(out);
+        }
+        let bytes = byte_array(obj, &["layout_id"])?;
+        bytes
+            .try_into()
+            .map_err(|_| "layout_id must contain exactly 8 bytes".to_string())
+    }
+    fn field_intent(value: &str) -> FieldIntent {
+        match value {
+            "balance" => FieldIntent::Balance,
+            "authority" => FieldIntent::Authority,
+            "timestamp" => FieldIntent::Timestamp,
+            "counter" => FieldIntent::Counter,
+            "index" => FieldIntent::Index,
+            "basis_points" => FieldIntent::BasisPoints,
+            "flag" => FieldIntent::Flag,
+            "address" => FieldIntent::Address,
+            "hash" => FieldIntent::Hash,
+            "pda_seed" => FieldIntent::PDASeed,
+            "version" => FieldIntent::Version,
+            "bump" => FieldIntent::Bump,
+            "nonce" => FieldIntent::Nonce,
+            "supply" => FieldIntent::Supply,
+            "limit" => FieldIntent::Limit,
+            "threshold" => FieldIntent::Threshold,
+            "owner" => FieldIntent::Owner,
+            "delegate" => FieldIntent::Delegate,
+            "status" => FieldIntent::Status,
+            _ => FieldIntent::Custom,
+        }
+    }
+    fn write_ranges(
+        obj: &Map<String, Value>,
+        keys: &[&str],
+    ) -> Result<Vec<OwnedWriteRange>, String> {
+        array(obj, keys)?
+            .iter()
+            .map(|value| {
+                let range = object(value, "write range")?;
+                Ok(OwnedWriteRange {
+                    account_index: as_u8(
+                        number(range, &["accountIndex", "account_index"], 0)?,
+                        "accountIndex",
+                    )?,
+                    offset: as_u32(number(range, &["offset"], 0)?, "offset")?,
+                    size: as_u32(number(range, &["size"], 0)?, "size")?,
                 })
             })
-            .collect::<Result<Vec<_>, String>>()?;
-        let mutation_complete = extract_bool(obj, "mutationComplete")?;
-        let lamport_accounts = extract_lamport_accounts(obj, "lamportAccounts");
-        let cu_estimate = extract_number(obj, "cuEstimate").unwrap_or(0) as u32;
-        let remaining_accounts_max = extract_number(obj, "remainingAccountsMax")
-            .ok()
-            .map(|max| max as u16);
-        let discriminator =
-            extract_array_u8(obj, "discriminatorBytes").unwrap_or_else(|_| vec![tag]);
-        if discriminator.is_empty() || discriminator.len() > 8 || discriminator[0] != tag {
+            .collect()
+    }
+    fn parametric_ranges(
+        obj: &Map<String, Value>,
+        keys: &[&str],
+    ) -> Result<Vec<OwnedParametricWriteRange>, String> {
+        array(obj, keys)?
+            .iter()
+            .map(|value| {
+                let range = object(value, "parametric write range")?;
+                Ok(OwnedParametricWriteRange {
+                    account_index: as_u8(
+                        number(range, &["accountIndex", "account_index"], 0)?,
+                        "accountIndex",
+                    )?,
+                    base_offset: as_u32(
+                        number(range, &["baseOffset", "base_offset"], 0)?,
+                        "baseOffset",
+                    )?,
+                    stride: as_u32(number(range, &["stride"], 0)?, "stride")?,
+                    cell_size: as_u32(number(range, &["cellSize", "cell_size"], 0)?, "cellSize")?,
+                    count: as_u32(number(range, &["count"], 0)?, "count")?,
+                    argument_index: as_u8(
+                        number(range, &["argumentIndex", "argument_index"], 0)?,
+                        "argumentIndex",
+                    )?,
+                    argument: required_string(
+                        range,
+                        &["argument", "argumentName", "argument_name"],
+                    )?,
+                    segment: required_string(range, &["segment", "segmentName", "segment_name"])?,
+                })
+            })
+            .collect()
+    }
+
+    let root: Value = serde_json::from_str(json)
+        .map_err(|error| format!("invalid program manifest JSON: {error}"))?;
+    let root = object(&root, "program manifest")?;
+    let name = required_string(root, &["name"])?;
+    let version = string(root, &["version"], "0.1.0")?;
+    let description = string(root, &["description"], "")?;
+
+    let mut layouts = Vec::new();
+    for value in array(root, &["layouts"])? {
+        let layout = object(value, "layout")?;
+        let mut fields = Vec::new();
+        for value in array(layout, &["fields"])? {
+            let field = object(value, "layout field")?;
+            fields.push(OwnedField {
+                name: required_string(field, &["name"])?,
+                canonical_type: required_string(
+                    field,
+                    &["type", "canonicalType", "canonical_type"],
+                )?,
+                size: as_u16(number(field, &["size"], 0)?, "field size")?,
+                offset: as_u16(number(field, &["offset"], 0)?, "field offset")?,
+                intent: field_intent(&string(field, &["intent"], "custom")?),
+            });
+        }
+        let field_count = usize::try_from(number(
+            layout,
+            &["fieldCount", "field_count"],
+            fields.len() as u64,
+        )?)
+        .map_err(|_| "fieldCount exceeds usize".to_string())?;
+        layouts.push(OwnedManifest {
+            name: required_string(layout, &["name"])?,
+            disc: as_u8(number(layout, &["disc"], 0)?, "layout disc")?,
+            version: as_u8(number(layout, &["version"], 0)?, "layout version")?,
+            layout_id: layout_id(layout)?,
+            total_size: usize::try_from(number(layout, &["totalSize", "total_size"], 0)?)
+                .map_err(|_| "totalSize exceeds usize".to_string())?,
+            field_count,
+            fields,
+        });
+    }
+
+    let mut instructions = Vec::new();
+    for value in array(root, &["instructions"])? {
+        let instruction = object(value, "instruction")?;
+        let ix_name = required_string(instruction, &["name"])?;
+        let tag = as_u8(number(instruction, &["tag"], 0)?, "instruction tag")?;
+        let mut args = Vec::new();
+        for value in array(instruction, &["args"])? {
+            let arg = object(value, "instruction argument")?;
+            args.push(OwnedArg {
+                name: required_string(arg, &["name"])?,
+                canonical_type: required_string(arg, &["type", "canonicalType", "canonical_type"])?,
+                size: as_u16(number(arg, &["size"], 0)?, "argument size")?,
+                encoding: string(arg, &["encoding"], "fixed")?,
+                max_len: as_u16(number(arg, &["maxLen", "max_len"], 0)?, "maxLen")?,
+                element_size: as_u16(
+                    number(arg, &["elementSize", "element_size"], 0)?,
+                    "elementSize",
+                )?,
+            });
+        }
+        let mut accounts = Vec::new();
+        for value in array(instruction, &["accounts"])? {
+            let account = object(value, "instruction account")?;
+            accounts.push(OwnedAccount {
+                name: required_string(account, &["name"])?,
+                writable: boolean(account, &["writable"], false)?,
+                signer: boolean(account, &["signer"], false)?,
+                layout_ref: string(account, &["layoutRef", "layout_ref"], "")?,
+                seeds: strings(account, &["seeds"])?,
+            });
+        }
+        let mut discriminator =
+            byte_array(instruction, &["discriminatorBytes", "discriminator_bytes"])?;
+        if discriminator.is_empty() {
+            discriminator.push(tag);
+        }
+        if discriminator.len() > 8 || discriminator[0] != tag {
             return Err(format!(
                 "instruction `{ix_name}` has invalid discriminatorBytes: expected 1..=8 bytes beginning with tag {tag}"
             ));
         }
-
+        let remaining_accounts_max = value_for(
+            instruction,
+            &["remainingAccountsMax", "remaining_accounts_max"],
+        )
+        .map(|_| {
+            number(
+                instruction,
+                &["remainingAccountsMax", "remaining_accounts_max"],
+                0,
+            )
+        })
+        .transpose()?
+        .map(|value| as_u16(value, "remainingAccountsMax"))
+        .transpose()?;
         instructions.push(OwnedInstruction {
             name: ix_name,
             tag,
@@ -4074,86 +4178,153 @@ fn parse_program_manifest_json(json: &str) -> Result<OwnedProgramManifest, Strin
             args,
             accounts,
             remaining_accounts_max,
-            capabilities,
-            policy_pack,
-            receipt_expected,
-            strict_writes,
-            write_ranges,
-            parametric_write_ranges,
-            mutation_complete,
-            lamport_accounts,
-            cu_estimate,
+            capabilities: strings(instruction, &["capabilities"])?,
+            policy_pack: string(instruction, &["policyPack", "policy_pack"], "")?,
+            receipt_expected: boolean(
+                instruction,
+                &["receiptExpected", "receipt_expected"],
+                false,
+            )?,
+            strict_writes: boolean(instruction, &["strictWrites", "strict_writes"], false)?,
+            write_ranges: write_ranges(instruction, &["writeRanges", "write_ranges"])?,
+            parametric_write_ranges: parametric_ranges(
+                instruction,
+                &["parametricWriteRanges", "parametric_write_ranges"],
+            )?,
+            mutation_complete: boolean(
+                instruction,
+                &["mutationComplete", "mutation_complete"],
+                false,
+            )?,
+            lamport_accounts: byte_array(instruction, &["lamportAccounts", "lamport_accounts"])?,
+            cu_estimate: as_u32(
+                number(instruction, &["cuEstimate", "cu_estimate"], 0)?,
+                "cuEstimate",
+            )?,
         });
     }
 
-    // Parse events
-    let event_objects = extract_object_array(json, "events")?;
-    let mut events = Vec::with_capacity(event_objects.len());
-    for obj in &event_objects {
-        let ev_name = extract_string(obj, "name")?;
-        let tag = extract_number(obj, "tag")? as u8;
-        let fields = extract_fields(obj).unwrap_or_default();
+    let mut events = Vec::new();
+    for value in array(root, &["events"])? {
+        let event = object(value, "event")?;
+        let mut fields = Vec::new();
+        for value in array(event, &["fields"])? {
+            let field = object(value, "event field")?;
+            fields.push(ParsedField {
+                name: required_string(field, &["name"])?,
+                canonical_type: required_string(field, &["type"])?,
+                size: as_u16(number(field, &["size"], 0)?, "event field size")?,
+                offset: as_u16(number(field, &["offset"], 0)?, "event field offset")?,
+            });
+        }
         events.push(OwnedEvent {
-            name: ev_name,
-            tag,
+            name: required_string(event, &["name"])?,
+            tag: as_u8(number(event, &["tag"], 0)?, "event tag")?,
             fields,
         });
     }
 
-    // Parse policies
-    let policy_objects = extract_object_array(json, "policies")?;
-    let mut policies = Vec::with_capacity(policy_objects.len());
-    for obj in &policy_objects {
+    let mut policies = Vec::new();
+    for value in array(root, &["policies"])? {
+        let policy = object(value, "policy")?;
         policies.push(OwnedPolicy {
-            name: extract_string(obj, "name")?,
-            capabilities: extract_string_array(obj, "capabilities")?,
-            requirements: extract_string_array(obj, "requirements")?,
-            invariants: extract_string_array(obj, "invariants").unwrap_or_default(),
-            receipt_profile: extract_string(obj, "receipt_profile").unwrap_or_default(),
+            name: required_string(policy, &["name"])?,
+            capabilities: strings(policy, &["capabilities"])?,
+            requirements: strings(policy, &["requirements"])?,
+            invariants: strings(policy, &["invariants"])?,
+            receipt_profile: string(policy, &["receiptProfile", "receipt_profile"], "")?,
         });
     }
 
-    // Parse contexts
-    let context_objects = extract_object_array(json, "contexts")?;
-    let mut contexts = Vec::with_capacity(context_objects.len());
-    for obj in &context_objects {
-        let account_objects = extract_object_array(obj, "accounts")?;
-        let mut accounts = Vec::with_capacity(account_objects.len());
-        for aobj in &account_objects {
+    let mut layout_metadata = Vec::new();
+    for value in array(root, &["layoutMetadata", "layout_metadata"])? {
+        let metadata = object(value, "layout metadata")?;
+        layout_metadata.push(OwnedLayoutMetadata {
+            name: required_string(metadata, &["name"])?,
+            segment_roles: strings(metadata, &["segmentRoles", "segment_roles"])?,
+            append_safe: boolean(metadata, &["appendSafe", "append_safe"], false)?,
+            migration_required: boolean(
+                metadata,
+                &["migrationRequired", "migration_required"],
+                false,
+            )?,
+            rebuildable: boolean(metadata, &["rebuildable"], false)?,
+            policy_pack: string(metadata, &["policyPack", "policy_pack"], "")?,
+            invariant_pack: strings(metadata, &["invariantPack", "invariant_pack"])?,
+            receipt_profile: string(metadata, &["receiptProfile", "receipt_profile"], "")?,
+            phase_requirements: strings(metadata, &["phaseRequirements", "phase_requirements"])?,
+            trust_profile: string(metadata, &["trustProfile", "trust_profile"], "")?,
+            manager_hints: strings(metadata, &["managerHints", "manager_hints"])?,
+        });
+    }
+
+    let mut compatibility_pairs = Vec::new();
+    for value in array(
+        root,
+        &["compatRules", "compatibilityPairs", "compatibility_pairs"],
+    )? {
+        let pair = object(value, "compatibility rule")?;
+        let policy_name = required_string(pair, &["policy"])?;
+        let policy = match policy_name.as_str() {
+            "noop" | "no-op" => MigrationPolicy::NoOp,
+            "append-only" | "append_only" => MigrationPolicy::AppendOnly,
+            "requires-migration" | "requires_migration" => MigrationPolicy::RequiresMigration,
+            "incompatible" => MigrationPolicy::Incompatible,
+            _ => return Err(format!("unknown migration policy `{policy_name}`")),
+        };
+        compatibility_pairs.push(OwnedCompatibilityPair {
+            from_layout: required_string(pair, &["from", "fromLayout", "from_layout"])?,
+            from_version: as_u8(
+                number(pair, &["fromVersion", "from_version"], 0)?,
+                "fromVersion",
+            )?,
+            to_layout: required_string(pair, &["to", "toLayout", "to_layout"])?,
+            to_version: as_u8(number(pair, &["toVersion", "to_version"], 0)?, "toVersion")?,
+            policy,
+            backward_readable: boolean(pair, &["backwardReadable", "backward_readable"], false)?,
+        });
+    }
+
+    let mut contexts = Vec::new();
+    for value in array(root, &["contexts"])? {
+        let context = object(value, "context")?;
+        let mut accounts = Vec::new();
+        for value in array(context, &["accounts"])? {
+            let account = object(value, "context account")?;
             accounts.push(OwnedContextAccount {
-                name: extract_string(aobj, "name")?,
-                kind: extract_string(aobj, "kind").unwrap_or_else(|_| "AccountView".to_string()),
-                writable: extract_bool(aobj, "writable")?,
-                signer: extract_bool(aobj, "signer")?,
-                layout_ref: extract_string(aobj, "layout_ref").unwrap_or_default(),
-                policy_ref: extract_string(aobj, "policy_ref").unwrap_or_default(),
-                seeds: extract_string_array(aobj, "seeds").unwrap_or_default(),
-                optional: extract_bool(aobj, "optional")?,
-                // Stage 2.5 constraint-metadata fields. Absent from
-                // legacy manifests. defaults mean "existing account,
-                // no Anchor-grade lifecycle declared". A manifest
-                // emitted by an updated `#[hopper::context]` carries
-                // the real values.
-                lifecycle: extract_string(aobj, "lifecycle")
-                    .unwrap_or_else(|_| "existing".to_string()),
-                payer: extract_string(aobj, "payer").unwrap_or_default(),
-                init_space: extract_number(aobj, "init_space").unwrap_or(0) as u32,
-                has_one: extract_string_array(aobj, "has_one").unwrap_or_default(),
-                expected_address: extract_string(aobj, "expected_address").unwrap_or_default(),
-                expected_owner: extract_string(aobj, "expected_owner").unwrap_or_default(),
+                name: required_string(account, &["name"])?,
+                kind: string(account, &["kind"], "AccountView")?,
+                writable: boolean(account, &["writable"], false)?,
+                signer: boolean(account, &["signer"], false)?,
+                layout_ref: string(account, &["layoutRef", "layout_ref"], "")?,
+                policy_ref: string(account, &["policyRef", "policy_ref"], "")?,
+                seeds: strings(account, &["seeds"])?,
+                optional: boolean(account, &["optional"], false)?,
+                lifecycle: string(account, &["lifecycle"], "existing")?,
+                payer: string(account, &["payer"], "")?,
+                init_space: as_u32(
+                    number(account, &["initSpace", "init_space"], 0)?,
+                    "initSpace",
+                )?,
+                has_one: strings(account, &["hasOne", "has_one"])?,
+                expected_address: string(account, &["expectedAddress", "expected_address"], "")?,
+                expected_owner: string(account, &["expectedOwner", "expected_owner"], "")?,
             });
         }
-
         contexts.push(OwnedContext {
-            name: extract_string(obj, "name")?,
+            name: required_string(context, &["name"])?,
             accounts,
-            policies: extract_string_array(obj, "policies")?,
-            receipts_expected: extract_bool(obj, "receipts_expected")?,
-            mutation_classes: extract_string_array(obj, "mutation_classes")?,
-            // Context-level strict-write surface (same keys/defaults as the
-            // instruction parse above). Absent from legacy manifests.
-            strict_writes: extract_bool(obj, "strictWrites")?,
-            write_ranges: extract_write_ranges(obj, "writeRanges")?,
+            policies: strings(context, &["policies"])?,
+            receipts_expected: boolean(context, &["receiptsExpected", "receipts_expected"], false)?,
+            mutation_classes: strings(context, &["mutationClasses", "mutation_classes"])?,
+            strict_writes: boolean(context, &["strictWrites", "strict_writes"], false)?,
+            write_ranges: write_ranges(context, &["writeRanges", "write_ranges"])?,
+            parametric_write_ranges: parametric_ranges(
+                context,
+                &["parametricWriteRanges", "parametric_write_ranges"],
+            )?,
+            mutation_complete: boolean(context, &["mutationComplete", "mutation_complete"], false)?,
+            lamport_accounts: byte_array(context, &["lamportAccounts", "lamport_accounts"])?,
         });
     }
 
@@ -4165,6 +4336,9 @@ fn parse_program_manifest_json(json: &str) -> Result<OwnedProgramManifest, Strin
         instructions,
         events,
         policies,
+        layout_metadata,
+        compatibility_pairs,
+        tooling_hints: strings(root, &["toolingHints", "tooling_hints"])?,
         contexts,
     })
 }
@@ -4177,6 +4351,11 @@ fn to_program_manifest(m: &OwnedProgramManifest) -> ProgramManifest {
         .instructions
         .iter()
         .map(|ix| {
+            // Program-macro instruction summaries intentionally stay compact.
+            // The Accounts-derived context is the authoritative source for
+            // PDA and constraint metadata, so recover it by the ordered
+            // account contract when a JSON manifest is loaded.
+            let context = matching_owned_context(ix, &m.contexts);
             let args: Vec<ArgDescriptor> = ix
                 .args
                 .iter()
@@ -4199,14 +4378,32 @@ fn to_program_manifest(m: &OwnedProgramManifest) -> ProgramManifest {
             let accounts: Vec<AccountEntry> = ix
                 .accounts
                 .iter()
-                .map(|a| AccountEntry {
-                    name: leak_str(&a.name),
-                    writable: a.writable,
-                    signer: a.signer,
-                    layout_ref: leak_str(&a.layout_ref),
-                    // The explain/manager path decodes existing transactions; it
-                    // does not resolve PDAs, so seed metadata is not needed here.
-                    seeds: &[],
+                .enumerate()
+                .map(|(account_index, account)| {
+                    let context_account =
+                        context.and_then(|context| context.accounts.get(account_index));
+                    let layout_ref = if account.layout_ref.is_empty() {
+                        context_account.map_or("", |context| context.layout_ref.as_str())
+                    } else {
+                        account.layout_ref.as_str()
+                    };
+                    let source_seeds = if account.seeds.is_empty() {
+                        context_account.map(|context| context.seeds.as_slice())
+                    } else {
+                        Some(account.seeds.as_slice())
+                    };
+                    let seeds: Vec<&'static str> = source_seeds
+                        .unwrap_or_default()
+                        .iter()
+                        .map(|seed| leak_str(seed))
+                        .collect();
+                    AccountEntry {
+                        name: leak_str(&account.name),
+                        writable: account.writable,
+                        signer: account.signer,
+                        layout_ref: leak_str(layout_ref),
+                        seeds: Box::leak(seeds.into_boxed_slice()),
+                    }
                 })
                 .collect();
             let capabilities: Vec<&'static str> =
@@ -4344,6 +4541,23 @@ fn to_program_manifest(m: &OwnedProgramManifest) -> ProgramManifest {
                 .iter()
                 .map(|r| WriteRange::new(r.account_index, r.offset, r.size))
                 .collect();
+            let ctx_parametric_write_ranges: Vec<hopper_schema::ParametricWriteRange> = ctx
+                .parametric_write_ranges
+                .iter()
+                .map(|range| {
+                    hopper_schema::ParametricWriteRange::new(
+                        range.account_index,
+                        range.base_offset,
+                        range.stride,
+                        range.cell_size,
+                        range.count,
+                        range.argument_index,
+                        leak_str(&range.argument),
+                        leak_str(&range.segment),
+                    )
+                })
+                .collect();
+            let lamport_accounts = ctx.lamport_accounts.clone();
             ContextDescriptor {
                 name: leak_str(&ctx.name),
                 accounts: Box::leak(accounts.into_boxed_slice()),
@@ -4354,15 +4568,66 @@ fn to_program_manifest(m: &OwnedProgramManifest) -> ProgramManifest {
                 // manifest (same fidelity contract as the instruction path).
                 strict_writes: ctx.strict_writes,
                 write_ranges: Box::leak(ctx_write_ranges.into_boxed_slice()),
-                parametric_write_ranges: &[],
-                // The JSON context schema carries no separate lamport /
-                // mutation-completeness dimension, so leave those at the
-                // no-claim defaults (a context never asserts completeness).
-                mutation_complete: false,
-                lamport_accounts: &[],
+                parametric_write_ranges: Box::leak(ctx_parametric_write_ranges.into_boxed_slice()),
+                mutation_complete: ctx.mutation_complete,
+                lamport_accounts: Box::leak(lamport_accounts.into_boxed_slice()),
             }
         })
         .collect();
+
+    let layout_metadata: Vec<LayoutMetadata> = m
+        .layout_metadata
+        .iter()
+        .map(|metadata| {
+            let segment_roles: Vec<&'static str> = metadata
+                .segment_roles
+                .iter()
+                .map(|value| leak_str(value))
+                .collect();
+            let invariant_pack: Vec<&'static str> = metadata
+                .invariant_pack
+                .iter()
+                .map(|value| leak_str(value))
+                .collect();
+            let phase_requirements: Vec<&'static str> = metadata
+                .phase_requirements
+                .iter()
+                .map(|value| leak_str(value))
+                .collect();
+            let manager_hints: Vec<&'static str> = metadata
+                .manager_hints
+                .iter()
+                .map(|value| leak_str(value))
+                .collect();
+            LayoutMetadata {
+                name: leak_str(&metadata.name),
+                segment_roles: Box::leak(segment_roles.into_boxed_slice()),
+                append_safe: metadata.append_safe,
+                migration_required: metadata.migration_required,
+                rebuildable: metadata.rebuildable,
+                policy_pack: leak_str(&metadata.policy_pack),
+                invariant_pack: Box::leak(invariant_pack.into_boxed_slice()),
+                receipt_profile: leak_str(&metadata.receipt_profile),
+                phase_requirements: Box::leak(phase_requirements.into_boxed_slice()),
+                trust_profile: leak_str(&metadata.trust_profile),
+                manager_hints: Box::leak(manager_hints.into_boxed_slice()),
+            }
+        })
+        .collect();
+    let compatibility_pairs: Vec<CompatibilityPair> = m
+        .compatibility_pairs
+        .iter()
+        .map(|pair| CompatibilityPair {
+            from_layout: leak_str(&pair.from_layout),
+            from_version: pair.from_version,
+            to_layout: leak_str(&pair.to_layout),
+            to_version: pair.to_version,
+            policy: pair.policy,
+            backward_readable: pair.backward_readable,
+        })
+        .collect();
+    let tooling_hints: Vec<&'static str> =
+        m.tooling_hints.iter().map(|hint| leak_str(hint)).collect();
 
     ProgramManifest {
         name: leak_str(&m.name),
@@ -4372,11 +4637,55 @@ fn to_program_manifest(m: &OwnedProgramManifest) -> ProgramManifest {
         instructions: Box::leak(instructions.into_boxed_slice()),
         events: Box::leak(events.into_boxed_slice()),
         policies: Box::leak(policies.into_boxed_slice()),
-        layout_metadata: &[],
-        compatibility_pairs: &[],
-        tooling_hints: &[],
+        layout_metadata: Box::leak(layout_metadata.into_boxed_slice()),
+        compatibility_pairs: Box::leak(compatibility_pairs.into_boxed_slice()),
+        tooling_hints: Box::leak(tooling_hints.into_boxed_slice()),
         contexts: Box::leak(contexts.into_boxed_slice()),
     }
+}
+
+fn matching_owned_context<'a>(
+    instruction: &OwnedInstruction,
+    contexts: &'a [OwnedContext],
+) -> Option<&'a OwnedContext> {
+    let instruction_name = canonical_manifest_name(&instruction.name);
+    if let Some(named) = contexts
+        .iter()
+        .filter(|context| owned_context_matches_instruction(instruction, context))
+        .find(|context| canonical_manifest_name(&context.name) == instruction_name)
+    {
+        return Some(named);
+    }
+    let mut candidates = contexts
+        .iter()
+        .filter(|context| owned_context_matches_instruction(instruction, context));
+    let only = candidates.next()?;
+    candidates.next().is_none().then_some(only)
+}
+
+fn owned_context_matches_instruction(
+    instruction: &OwnedInstruction,
+    context: &OwnedContext,
+) -> bool {
+    context.accounts.len() == instruction.accounts.len()
+        && instruction.accounts.iter().zip(&context.accounts).all(
+            |(instruction_account, context_account)| {
+                instruction_account.name == context_account.name
+                    && instruction_account.writable == context_account.writable
+                    && instruction_account.signer == context_account.signer
+                    && (instruction_account.layout_ref.is_empty()
+                        || context_account.layout_ref.is_empty()
+                        || instruction_account.layout_ref == context_account.layout_ref)
+            },
+        )
+}
+
+fn canonical_manifest_name(value: &str) -> String {
+    value
+        .bytes()
+        .filter(u8::is_ascii_alphanumeric)
+        .map(|byte| byte.to_ascii_lowercase() as char)
+        .collect()
 }
 
 // ---------------------------------------------------------------------------
@@ -4632,7 +4941,14 @@ fn cmd_interactive(args: &[String]) {
 }
 
 fn load_program_manifest(arg: &str) -> ProgramManifest {
-    let resolved = resolve_manifest_arg(arg);
+    let resolved = if std::path::Path::new(arg).is_file() {
+        std::fs::read_to_string(arg).unwrap_or_else(|error| {
+            eprintln!("Could not read manifest file '{arg}': {error}");
+            process::exit(1);
+        })
+    } else {
+        resolve_manifest_arg(arg)
+    };
     load_program_manifest_from_json(&resolved)
 }
 
@@ -5717,7 +6033,7 @@ fn to_manifest(m: &OwnedManifest) -> (LayoutManifest, Vec<FieldDescriptor>) {
             canonical_type: leak_str(&f.canonical_type),
             size: f.size,
             offset: f.offset,
-            intent: FieldIntent::Custom,
+            intent: f.intent,
         })
         .collect();
 
@@ -5727,7 +6043,7 @@ fn to_manifest(m: &OwnedManifest) -> (LayoutManifest, Vec<FieldDescriptor>) {
         version: m.version,
         layout_id: m.layout_id,
         total_size: m.total_size,
-        field_count: fields.len(),
+        field_count: m.field_count,
         fields: leak_slice(&fields),
     };
 
@@ -5833,6 +6149,168 @@ mod loader_write_set_tests {
     }"#;
 
     #[test]
+    fn emitted_manifest_round_trips_rich_context_and_upgrade_contract() {
+        use hopper_schema::accounts::AccountLifecycle;
+        use hopper_schema::codama::ManifestJson;
+
+        static INSTRUCTION_ACCOUNTS: &[AccountEntry] = &[
+            AccountEntry {
+                name: "payer",
+                writable: true,
+                signer: true,
+                layout_ref: "",
+                seeds: &[],
+            },
+            AccountEntry {
+                name: "state",
+                writable: true,
+                signer: false,
+                layout_ref: "StateV2",
+                seeds: &[],
+            },
+        ];
+        static INSTRUCTIONS: &[InstructionDescriptor] = &[InstructionDescriptor {
+            name: "initialize",
+            tag: 1,
+            discriminator: &[1],
+            args: &[],
+            accounts: INSTRUCTION_ACCOUNTS,
+            remaining_accounts: None,
+            capabilities: &["MutatesState"],
+            policy_pack: "StatePolicy",
+            receipt_expected: true,
+            strict_writes: false,
+            write_ranges: &[],
+            parametric_write_ranges: &[],
+            mutation_complete: false,
+            lamport_accounts: &[],
+            cu_estimate: 3_000,
+        }];
+        static CONTEXT_ACCOUNTS: &[ContextAccountDescriptor] = &[
+            ContextAccountDescriptor {
+                name: "payer",
+                kind: "Signer",
+                writable: true,
+                signer: true,
+                layout_ref: "",
+                policy_ref: "",
+                seeds: &[],
+                optional: false,
+                lifecycle: AccountLifecycle::Existing,
+                payer: "",
+                init_space: 0,
+                has_one: &[],
+                expected_address: "",
+                expected_owner: "",
+            },
+            ContextAccountDescriptor {
+                name: "state",
+                kind: "InitAccount",
+                writable: true,
+                signer: false,
+                layout_ref: "StateV2",
+                policy_ref: "StatePolicy",
+                seeds: &["b\"state\"", "payer.address()"],
+                optional: true,
+                lifecycle: AccountLifecycle::Init,
+                payer: "payer",
+                init_space: 64,
+                has_one: &["payer"],
+                expected_address: "state-address",
+                expected_owner: "state-owner",
+            },
+        ];
+        static CONTEXT_RANGES: &[WriteRange] = &[WriteRange::new(1, 16, 8)];
+        static CONTEXT_PARAMETRIC: &[hopper_schema::ParametricWriteRange] =
+            &[hopper_schema::ParametricWriteRange::new(
+                1, 24, 8, 8, 4, 0, "slot", "cells",
+            )];
+        static CONTEXTS: &[ContextDescriptor] = &[ContextDescriptor {
+            name: "Initialize",
+            accounts: CONTEXT_ACCOUNTS,
+            policies: &["StatePolicy"],
+            receipts_expected: true,
+            mutation_classes: &["Initialization"],
+            strict_writes: true,
+            write_ranges: CONTEXT_RANGES,
+            parametric_write_ranges: CONTEXT_PARAMETRIC,
+            mutation_complete: true,
+            lamport_accounts: &[0, 1],
+        }];
+        static METADATA: &[LayoutMetadata] = &[LayoutMetadata {
+            name: "StateV2",
+            segment_roles: &["core", "cells"],
+            append_safe: true,
+            migration_required: false,
+            rebuildable: true,
+            policy_pack: "StatePolicy",
+            invariant_pack: &["StateValid"],
+            receipt_profile: "StateReceipt",
+            phase_requirements: &["Update"],
+            trust_profile: "verified",
+            manager_hints: &["show-cells"],
+        }];
+        static COMPATIBILITY: &[CompatibilityPair] = &[CompatibilityPair {
+            from_layout: "StateV1",
+            from_version: 1,
+            to_layout: "StateV2",
+            to_version: 2,
+            policy: MigrationPolicy::AppendOnly,
+            backward_readable: true,
+        }];
+        static POLICIES: &[PolicyDescriptor] = &[PolicyDescriptor {
+            name: "StatePolicy",
+            capabilities: &["MutatesState"],
+            requirements: &["SignerAuthority"],
+            invariants: &["StateValid"],
+            receipt_profile: "StateReceipt",
+        }];
+        let source = ProgramManifest {
+            name: "roundtrip",
+            version: "1.0.0",
+            description: "rich manifest",
+            layouts: &[],
+            layout_metadata: METADATA,
+            instructions: INSTRUCTIONS,
+            events: &[],
+            policies: POLICIES,
+            compatibility_pairs: COMPATIBILITY,
+            tooling_hints: &["lossless"],
+            contexts: CONTEXTS,
+        };
+
+        let json = format!("{}", ManifestJson(&source));
+        let owned = parse_program_manifest_json(&json).expect("emitted manifest parses");
+        let loaded = to_program_manifest(&owned);
+
+        assert_eq!(loaded.instructions[0].policy_pack, "StatePolicy");
+        assert!(loaded.instructions[0].receipt_expected);
+        assert_eq!(
+            loaded.instructions[0].accounts[1].seeds,
+            &["b\"state\"", "payer.address()"]
+        );
+        assert_eq!(loaded.layout_metadata.len(), 1);
+        assert_eq!(loaded.layout_metadata[0].segment_roles, &["core", "cells"]);
+        assert_eq!(loaded.layout_metadata[0].invariant_pack, &["StateValid"]);
+        assert_eq!(loaded.compatibility_pairs.len(), 1);
+        assert_eq!(
+            loaded.compatibility_pairs[0].policy,
+            MigrationPolicy::AppendOnly
+        );
+        assert!(loaded.compatibility_pairs[0].backward_readable);
+        assert_eq!(loaded.contexts.len(), 1);
+        assert_eq!(
+            loaded.contexts[0].accounts[1].lifecycle,
+            AccountLifecycle::Init
+        );
+        assert_eq!(loaded.contexts[0].accounts[1].has_one, &["payer"]);
+        assert_eq!(loaded.contexts[0].parametric_write_ranges.len(), 1);
+        assert!(loaded.contexts[0].mutation_complete);
+        assert_eq!(loaded.contexts[0].lamport_accounts, &[0, 1]);
+        assert_eq!(loaded.tooling_hints, &["lossless"]);
+    }
+
+    #[test]
     fn loader_carries_instruction_write_set_verbatim() {
         let owned = parse_program_manifest_json(MANIFEST_WITH_WRITE_SET)
             .expect("manifest with write set should parse");
@@ -5876,7 +6354,9 @@ mod loader_write_set_tests {
         assert_eq!(extract_string(range, "account").unwrap(), "offset");
         // A string value equal to a boolean key must not be read as the key.
         let ix = r#"{ "policy_pack": "strictWrites", "strictWrites": true }"#;
-        assert!(extract_bool(ix, "strictWrites").unwrap());
+        assert!(find_after_key(ix, "strictWrites")
+            .expect("strictWrites key")
+            .starts_with("true"));
         assert_eq!(extract_string(ix, "policy_pack").unwrap(), "strictWrites");
     }
 
@@ -5919,7 +6399,7 @@ mod loader_write_set_tests {
         // The shipped counter fixture predates the write-set keys; it must
         // load cleanly with defaults (guards against a parse regression on
         // real, checked-in manifests).
-        const COUNTER: &str = include_str!("../../../examples/hopper-counter/hopper.manifest.json");
+        const COUNTER: &str = include_str!("../tests/fixtures/hopper-counter.manifest.json");
         let owned =
             parse_program_manifest_json(COUNTER).expect("golden counter manifest should parse");
         let prog = to_program_manifest(&owned);

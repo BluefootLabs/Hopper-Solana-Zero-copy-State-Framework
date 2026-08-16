@@ -8,7 +8,7 @@ without pulling framework code into the raw substrate.
 
 Hopper's hash wrappers reject too many segments instead of silently dropping
 bytes. The public crypto matrix is maintained in
-[`docs/CRYPTO_CAPABILITIES.md`](../../docs/CRYPTO_CAPABILITIES.md).
+[`docs/CRYPTO_CAPABILITIES.md`](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/docs/CRYPTO_CAPABILITIES.md).
 
 Part of the **[Hopper](https://hopperzero.dev)** framework.
 
@@ -18,20 +18,23 @@ Part of the **[Hopper](https://hopperzero.dev)** framework.
   eager parse. Stack-allocates `[MaybeUninit<AccountView>; MAX]`, scans the
   whole input up front for low-overhead account access.
 - **`hopper_fast_entrypoint!`** (alias `fast_entrypoint!`) - uses the SVM
-  two-argument entrypoint register; reads instruction data directly. Saves
-  roughly 30 to 40 CU per call vs the eager variant.
+  two-argument entrypoint register and reads instruction data directly when
+  the `simd-0321` feature is enabled. Controlled Hopper fixtures measured the
+  current dual path as CU-neutral while adding about 368 bytes of `.text`, so
+  it remains an explicit size/toolchain choice rather than a claimed CU win.
 - **`hopper_lazy_entrypoint!`** (alias `lazy_entrypoint!`) - defers account
-  parsing entirely. Returns a `LazyContext` that materialises accounts on
-  demand. Substantial CU win on dispatch-heavy programs where most variants
-  touch a subset of supplied accounts.
+  parsing and returns a `LazyContext` that materialises accounts on demand.
+  It can reduce parsing work when an instruction touches only a subset of the
+  supplied accounts; measure the actual program because the result is shape-
+  and dispatch-dependent.
 
 ## Safety posture
 
-The audited unsafe surface is enforced by
-[`scripts/check-unsafe-safety-comments.py`](../../scripts/check-unsafe-safety-comments.py):
+The internally inventoried unsafe surface is enforced by
+[`scripts/check-unsafe-safety-comments.py`](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/scripts/check-unsafe-safety-comments.py):
 every `unsafe` block needs a nearby `SAFETY:` comment, and every public unsafe
 function needs a rustdoc `# Safety` section. The full inventory is at
-[`docs/UNSAFE_INVARIANTS.md`](../../docs/UNSAFE_INVARIANTS.md).
+[`docs/UNSAFE_INVARIANTS.md`](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/docs/UNSAFE_INVARIANTS.md).
 
 The duplicate-account marker handler traps on forward references, self-loops,
 or any invalid offset rather than silently falling through to account zero
@@ -47,4 +50,4 @@ Public-goods support and donations can be sent to `solanadevdao.sol` /
 
 ## License
 
-Apache-2.0. See [LICENSE](../../LICENSE).
+Apache-2.0. See [LICENSE](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/LICENSE).

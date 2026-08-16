@@ -142,7 +142,7 @@ pub struct SegmentBorrowRegistry {
 ///
 /// This caps *slots*, not coverage: at capacity the log coalesces
 /// records whose union is exactly the touched byte set (see
-/// [`touch_log`]), so contiguous workloads of any size — columnar array
+/// [`touch_log`]), so contiguous same-kind workloads of any size — columnar
 /// writes, sequence pushes — still produce a COMPLETE map. Overflow (a
 /// partial map, flagged on the wire) now requires more than this many
 /// *pairwise-unmergeable* ranges in one instruction.
@@ -327,7 +327,7 @@ pub fn encode_touch_map(
 /// records is mergeable does the log set `overflow` — a PARTIAL map,
 /// flagged as such on the wire. Contiguous large workloads therefore
 /// never produce a partial map; only more than [`MAX_TOUCH_RECORDS`]
-/// pairwise-unmergeable scattered ranges do.
+/// pairwise-unmergeable ranges (including alternating read/write ranges) do.
 #[cfg(feature = "touch-map")]
 pub(crate) mod touch_log {
     use super::{
@@ -409,6 +409,7 @@ pub(crate) mod touch_log {
     }
 
     impl TouchLog {
+        #[cfg_attr(target_os = "solana", allow(dead_code))]
         pub(crate) const fn new() -> Self {
             const ZERO: SegmentBorrow = SegmentBorrow {
                 key_fp: 0,

@@ -90,10 +90,12 @@ let vault = pod_from_bytes::<Vault>(data)?;
 let vault = unsafe { Vault::load_unchecked(data) };
 ```
 
-The cast itself costs ~8 CU in each case. The difference is what validation
-runs before the cast and what tracking runs after it. Most programs use the
-validated path. Direct typed slices are for already-proven data. Raw access is
-the explicit unsafe escape hatch.
+In the dated 2026-07-09 primitive fixture, the checked Pod cast and raw cast
+each measured 2 CU net, at the harness's measurement resolution. That is not a
+universal cast cost: toolchain, surrounding validation, and tracking determine
+the full instruction cost. Most programs use the validated path. Direct typed
+slices are for already-proven data. Raw access is the explicit unsafe escape
+hatch.
 
 See [MEMORY_ACCESS.md](MEMORY_ACCESS.md) for the full doctrine.
 

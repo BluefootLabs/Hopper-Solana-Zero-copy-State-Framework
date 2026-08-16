@@ -878,7 +878,7 @@ fn build_cpi_tree(log_lines: &[&str]) -> Vec<CpiTreeNode> {
 
     // Attach a finished node to its parent (or the roots if it was
     // top-level).
-    fn attach(node: CpiTreeNode, stack: &mut Vec<CpiTreeNode>, roots: &mut Vec<CpiTreeNode>) {
+    fn attach(node: CpiTreeNode, stack: &mut [CpiTreeNode], roots: &mut Vec<CpiTreeNode>) {
         match stack.last_mut() {
             Some(parent) => parent.children.push(node),
             None => roots.push(node),

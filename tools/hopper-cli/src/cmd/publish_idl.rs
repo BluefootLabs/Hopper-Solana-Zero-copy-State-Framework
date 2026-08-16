@@ -1021,14 +1021,13 @@ fn run_publish_send(
     // a partially-written Buffer stranded on chain. Over-reserving by a
     // fee on the resume/inline paths is the safe direction.
     const BASE_FEE: u64 = 5_000;
-    let planned_txs: u64 = if is_initialized {
-        1 // overwrite: single inline SetData (a large payload already errored)
-    } else if stored <= MAX_INLINE_PAYLOAD && !is_leftover_buffer {
-        1 // fresh inline: single Initialize
-    } else {
-        // fresh buffered / resume: [Allocate or top-up] + N Write + Initialize
-        plan_write_chunks(&payload.compressed, WRITE_CHUNK_LEN).len() as u64 + 2
-    };
+    let planned_txs: u64 =
+        if is_initialized || (stored <= MAX_INLINE_PAYLOAD && !is_leftover_buffer) {
+            1 // overwrite SetData or fresh inline Initialize
+        } else {
+            // fresh buffered / resume: [Allocate or top-up] + N Write + Initialize
+            plan_write_chunks(&payload.compressed, WRITE_CHUNK_LEN).len() as u64 + 2
+        };
     let required = topup.saturating_add(planned_txs.saturating_mul(BASE_FEE));
 
     let payer_balance = rpc
@@ -1063,6 +1062,10 @@ fn run_publish_send(
             &[&authority],
             recent,
         );
+        super::transaction_limits::ensure_legacy_transaction_size(
+            &tx,
+            &format!("hopper publish-idl {label}"),
+        )?;
         rpc.send_and_confirm_transaction(&tx)
             .map(|s| s.to_string())
             .map_err(|e| format!("{label}: {e}"))

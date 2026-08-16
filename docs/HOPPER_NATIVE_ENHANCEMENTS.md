@@ -2,9 +2,10 @@
 
 Hopper Native is the sovereign substrate. It already owns loader parsing,
 syscalls, eager + lazy entrypoints, duplicate-account resolution, and
-`AccountView`. This document is the source of record for what we absorb
-from Pinocchio and Quasar's substrates, what we deliberately do not,
-and the priority order.
+`AccountView`. This is a dated roadmap snapshot for what Hopper considered
+absorbing from Pinocchio and Quasar's substrates. The current source, crate
+API documentation, and release evidence are authoritative when a status below
+ages.
 
 > **Pinocchio is the Pareto frontier for raw substrate efficiency.
 > Quasar is the Pareto frontier for substrate-plus-DX integration.**
@@ -30,7 +31,10 @@ Only coherent standalone products remain public siblings:
 |------|---------|
 | [Hopper-Solana-Zero-copy-State-Framework](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework) | Main framework workspace. |
 | [hopper-bench](https://github.com/BluefootLabs/hopper-bench) | Cross-framework benchmark harness and CU regression lab. |
-| [hopper-svm](https://github.com/BluefootLabs/hopper-svm) | In-process Solana execution harness for tests. |
+
+`hopper-svm` is no longer a sibling product. Its current source and release
+contract live in-tree at `crates/hopper-svm` so the host harness stays locked to
+the account-view/runtime versions it exercises.
 
 ## Status
 
@@ -44,9 +48,9 @@ Only coherent standalone products remain public siblings:
 | 1.6 | Anza modular SDK 2.x audit | ⏳ planned |
 | 2.1 | Wire integer arithmetic convenience | ✅ shipped on all `Wire*` integer types (`+`, `-`, `*`, `+=`, `-=`, `*=`) |
 | 2.2 | Wrapping in release / panic in debug | ✅ matches Rust default for direct operators; checked helpers stay explicit |
-| 2.3 | Compile-time discriminator dispatch | ⏳ planned substrate audit item; not part of current release claims |
-| 2.4 | Self-CPI event emission | ⏳ planned |
-| 2.5 | `init_if_needed`, `realloc`, `close` parity | ⏳ planned Anchor-keyword parity audit; current release documents only shipped keywords |
+| 2.3 | Compile-time discriminator dispatch | ✅ shipped at the framework macro layer: `crates/hopper-macros-proc/src/program.rs` emits deterministic match dispatch and a dense tiny-profile function table, with expansion tests. Further substrate tuning remains benchmark work. |
+| 2.4 | Self-CPI event emission | ✅ shipped: `#[hopper::context(event_cpi)]`, `Context::emit_event_cpi`, and the authenticated event-sink dispatcher are implemented and tested. |
+| 2.5 | `init_if_needed`, `realloc`, `close` parity | ✅ shipped in `crates/hopper-macros-proc/src/context.rs`, including generated lifecycle helpers and constraint validation. Combination restrictions remain compile-time errors documented by the context macro. |
 
 ## Tier 3 - explicitly not porting
 
@@ -58,10 +62,11 @@ Only coherent standalone products remain public siblings:
 - Pinocchio-style "zero deps" minimalism for the whole framework. We
   keep `bytemuck`, `sha2-const-stable`, `five8_const`.
 
-## Priority order for the next quarter
+## Remaining roadmap items in this snapshot
 
-1. `hopper-log` crate (1.4)
-2. Self-CPI event pattern (2.4)
-3. Anza modular SDK 2.x migration audit (1.6)
-4. Compile-time dispatch table audit (2.3)
-5. Anchor-keyword parity audit (2.5)
+1. `hopper-log` crate (1.4).
+2. Anza modular SDK 2.x migration audit (1.6).
+
+Compile-time dispatch, self-CPI events, and the listed lifecycle keywords are
+shipped surfaces, so follow-up work there is measurement, hardening, and
+same-behavior DX review rather than initial implementation.

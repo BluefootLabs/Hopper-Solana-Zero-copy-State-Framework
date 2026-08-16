@@ -1,7 +1,7 @@
 # hopper-systems
 
-[![Crates.io](https://img.shields.io/crates/v/hopper-core.svg)](https://crates.io/crates/hopper-core)
-[![Docs.rs](https://img.shields.io/docsrs/hopper-core)](https://docs.rs/hopper-core)
+[![Crates.io](https://img.shields.io/crates/v/hopper-systems.svg)](https://crates.io/crates/hopper-systems)
+[![Docs.rs](https://img.shields.io/docsrs/hopper-systems)](https://docs.rs/hopper-systems)
 
 Core engine for the Hopper zero-copy state framework on Solana. This is what everything else sits on.
 
@@ -25,7 +25,7 @@ SegmentMap: Compile-time field-to-offset mapping. SegmentMap::segment("balance")
 
 Segment borrows: SegmentBorrowRegistry enforces that no two mutable references overlap the same byte range. Read authority while writing balance on the same account. Fine. Write balance twice. Caught.
 
-Collections: FixedVec, RingBuffer, SlotMap, BitSet, Journal, Slab, PackedMap, SortedVec. All zero-copy, all operate directly on account bytes.
+Collections: FixedVec, RingBuffer, SlotMap, BitSet, Journal, Slab, PackedMap, SortedVec. All zero-copy, all operate directly on account bytes. `Slab` provides stable slot IDs, O(1) allocation/free, collection-style capacity helpers, a bitmap that refuses access to freed slots, double-free checks, and hostile free-list guards. Use `TailSlab` through `CompactTail` when the slab occupies an account's dynamic tail.
 
 Policy: Declare what capabilities an instruction needs. Auto-resolve validation requirements.
 

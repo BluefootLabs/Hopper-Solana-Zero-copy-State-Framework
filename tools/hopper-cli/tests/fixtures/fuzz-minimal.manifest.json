@@ -1,0 +1,19 @@
+{
+  "name": "fuzz-process-fixture",
+  "version": "0.0.1",
+  "description": "Process-boundary fixture for hopper fuzz run.",
+  "layouts": [
+    {
+      "name": "FixtureState",
+      "disc": 1,
+      "version": 1,
+      "layoutId": "0102030405060708",
+      "totalSize": 16,
+      "fieldCount": 0,
+      "fields": []
+    }
+  ],
+  "instructions": [],
+  "events": [],
+  "policies": []
+}

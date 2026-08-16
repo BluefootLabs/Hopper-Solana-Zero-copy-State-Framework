@@ -40,7 +40,7 @@ pub const TOUCH_MAP_HEADER_LEN: usize = 4;
 pub const TOUCH_MAP_RECORD_LEN: usize = 9;
 /// Capacity of the on-chain touch log. This caps *slots*, not coverage:
 /// at capacity the runtime coalesces records whose union is exactly the
-/// touched byte set (contiguous workloads stay complete and unflagged);
+/// touched byte set (contiguous same-kind workloads stay complete and unflagged);
 /// the overflow flag means the instruction touched more than this many
 /// pairwise-unmergeable ranges and the map is genuinely partial.
 pub const MAX_TOUCH_RECORDS: usize = 32;

@@ -91,6 +91,14 @@ External adapters can add proof-carrying validation with `ExternalProof` and
 `ExternalChecked`. A proof is a focused validation result that downstream APIs
 can require instead of accepting any adapter-checked account.
 
+`ExternalAccount` and `InterfaceAccount` repeat their live base owner,
+discriminator/type, length, and layout checks before safe typed access and
+before issuing a checked proof. Proof-specific business facts such as mint,
+authority, decimals, or oracle freshness are point-in-time evidence. Do not
+carry those facts across a CPI that can mutate the proven account: drop any
+borrow-held lens before CPI and run `checked()` again afterward. Raw views and
+unchecked CPI cannot enforce this rule for the caller.
+
 ```rust
 let checked = ctx.accounts.oracle.checked::<FreshPythPrice>()?;
 risk_engine.update_price(checked.proof())?;

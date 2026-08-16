@@ -80,7 +80,7 @@ fn build_frame(slots: &[Slot], ix_data: &[u8], program_id: [u8; 32], with_0449: 
                 buf.extend_from_slice(&header);
                 buf.extend_from_slice(&vec![0xABu8; *data_len]);
                 buf.extend_from_slice(&vec![0u8; MAX_PERMITTED_DATA_INCREASE]);
-                while buf.len() % ALIGN != 0 {
+                while !buf.len().is_multiple_of(ALIGN) {
                     buf.push(0);
                 }
                 buf.extend_from_slice(&u64::MAX.to_le_bytes()); // rent epoch
@@ -103,7 +103,7 @@ fn build_frame(slots: &[Slot], ix_data: &[u8], program_id: [u8; 32], with_0449: 
     // space now; patch real addresses once the backing is final.
     let mut table_offset = None;
     if with_0449 {
-        while buf.len() % ALIGN != 0 {
+        while !buf.len().is_multiple_of(ALIGN) {
             buf.push(0);
         }
         table_offset = Some(buf.len());
@@ -152,7 +152,7 @@ fn walk<const MAX: usize>(frame: &mut Frame) -> (Vec<AccountView<'static>>, Vec<
     let views = accounts[..count]
         .iter()
         // SAFETY: slots below `count` were initialized by the parser.
-        .map(|slot| unsafe { slot.assume_init_ref() }.clone())
+        .map(|slot| unsafe { slot.assume_init_ref() }.to_owned())
         .collect();
     (views, ix.to_vec(), *program_id.as_array())
 }

@@ -1,9 +1,13 @@
-# hopper-macros-proc
+# hopper-derive
 
-[![Crates.io](https://img.shields.io/crates/v/hopper-macros-proc.svg)](https://crates.io/crates/hopper-macros-proc)
-[![Docs.rs](https://img.shields.io/docsrs/hopper-macros-proc)](https://docs.rs/hopper-macros-proc)
+[![Crates.io](https://img.shields.io/crates/v/hopper-derive.svg)](https://crates.io/crates/hopper-derive)
+[![Docs.rs](https://img.shields.io/docsrs/hopper-derive)](https://docs.rs/hopper-derive)
 
-Optional proc macro DX layer for [Hopper](https://hopperzero.dev). It generates parsing, validation, and dispatch code for the #[hopper::state], #[derive(Accounts)], and #[hopper::program] authoring path.
+Optional proc-macro DX layer, published as `hopper-derive`, for
+[Hopper](https://hopperzero.dev). Its source lives in the
+`crates/hopper-macros-proc` workspace directory. It generates parsing,
+validation, and dispatch code for the `#[hopper::state]`,
+`#[derive(Accounts)]`, and `#[hopper::program]` authoring path.
 
 Every feature these macros provide is achievable through Hopper's declarative macro_rules! macros in hopper-macros or hand-written code. They exist for developer velocity. Generated code lowers to Hopper's typed pointer and validation surface.
 

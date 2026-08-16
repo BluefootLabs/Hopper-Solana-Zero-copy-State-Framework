@@ -10,6 +10,8 @@ Cargo.lock.bak
 # Fuzz / trybuild scratch
 wip/
 /fuzz/target/
+__pycache__/
+*.py[cod]
 /fuzz/corpus/
 /fuzz/artifacts/
 /fuzz/coverage/

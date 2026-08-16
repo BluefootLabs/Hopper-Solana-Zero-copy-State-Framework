@@ -58,9 +58,10 @@ Record the following next to any public benchmark claim:
 - `hopper profile elf` JSON.
 - Live CU logs when the claim depends on runtime execution.
 
-The current same-provenance vault benchmark snapshot remains in
-[../BENCHMARKS.md](../BENCHMARKS.md). Regenerate it before changing launch or
-benchmark claims.
+The dated same-provenance vault benchmark snapshot remains in
+[../BENCHMARKS.md](../BENCHMARKS.md). It is historical fixture evidence;
+regenerate and archive the clean same-behavior five-way run before changing
+launch or current-framework benchmark claims.
 
 ## Release checks
 

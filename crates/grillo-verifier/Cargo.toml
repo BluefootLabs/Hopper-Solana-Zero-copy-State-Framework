@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework"
+homepage = "https://hopperzero.dev"
 documentation = "https://docs.rs/grillo-verifier"
 readme = "README.md"
 keywords = ["solana", "verification", "mutation", "effects", "audit"]
@@ -26,23 +27,8 @@ default = []
 # The `grillo` command: offline evidence-bundle parsing + verdict CLI.
 cli = ["dep:serde", "dep:serde_json"]
 
-# The independent `grillo` verifier binary. `required-features` keeps the
+# The separately runnable `grillo` verifier binary. `required-features` keeps the
 # pure-core `cargo build -p grillo-verifier` from pulling serde.
 [[bin]]
 name = "grillo"
 required-features = ["cli"]
-
-[dev-dependencies]
-# The end-to-end proof drives examples/hopper-sentinel through the Hopper
-# host harness and captures the REAL touch map — mirroring the dev-dep set
-# examples/hopper-sentinel/tests/flagship_host.rs uses.
-#
-# `hopper` brings the touch-map API (`Context::encode_touch_map`) and the
-# generated `Pause` context; `hopper-runtime`'s thread-local-registry keeps
-# parallel host-test threads from sharing the process-global segment/touch
-# registries (see MEMORY borrow-registry-test-flake note); `hopper-svm`
-# binds the generated dispatcher against real AccountView memory.
-hopper = { workspace = true, features = ["proc-macros", "touch-map"] }
-hopper-runtime = { workspace = true, features = ["thread-local-registry"] }
-hopper-svm = { workspace = true }
-hopper-sentinel = { path = "../../examples/hopper-sentinel" }

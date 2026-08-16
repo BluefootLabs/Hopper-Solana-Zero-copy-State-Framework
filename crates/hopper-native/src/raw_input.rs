@@ -530,7 +530,7 @@ pub unsafe fn deserialize_accounts_0449_checked<'info, const MAX: usize>(
         .checked_add(BPF_ALIGN_OF_U128 - 1)
         .ok_or(DirectMappingError::ArithmeticOverflow)?
         & !(BPF_ALIGN_OF_U128 - 1);
-    if (base + table_offset) % BPF_ALIGN_OF_U128 != 0 {
+    if !(base + table_offset).is_multiple_of(BPF_ALIGN_OF_U128) {
         return Err(DirectMappingError::PointerTableMisaligned);
     }
     let table_bytes = num_accounts
@@ -1127,7 +1127,7 @@ mod fused_walk_tests {
                     // Pad to the next 8-byte boundary. The base is 8-aligned,
                     // so padding the relative length equals padding the
                     // absolute address — this is the loader's ground truth.
-                    while buf.len() % BPF_ALIGN_OF_U128 != 0 {
+                    while !buf.len().is_multiple_of(BPF_ALIGN_OF_U128) {
                         buf.push(0);
                     }
                     // rent epoch
@@ -1198,9 +1198,9 @@ mod fused_walk_tests {
         // SAFETY: well-formed 8-aligned loader-layout fixture.
         let (pid, count, ix) = unsafe { deserialize_accounts::<4>(frame.as_mut_ptr(), &mut views) };
         assert_eq!(count, 4);
-        for i in 0..4 {
+        for (i, view) in views.iter().enumerate() {
             // SAFETY: slots 0..count were initialized by the parser.
-            let view = unsafe { views[i].assume_init_ref() };
+            let view = unsafe { view.assume_init_ref() };
             assert_eq!(view.data_len(), i * 3 + 1);
             assert_eq!(view.lamports(), 100 + i as u64);
         }
@@ -1218,9 +1218,9 @@ mod fused_walk_tests {
         // SAFETY: well-formed 8-aligned loader-layout fixture.
         let (pid, count, ix) = unsafe { deserialize_accounts::<4>(frame.as_mut_ptr(), &mut views) };
         assert_eq!(count, 4);
-        for i in 0..4 {
+        for (i, view) in views.iter().enumerate() {
             // SAFETY: slots 0..count were initialized by the parser.
-            let view = unsafe { views[i].assume_init_ref() };
+            let view = unsafe { view.assume_init_ref() };
             assert_eq!(view.data_len(), i * 5 + 2);
         }
         assert_eq!(ix, &[0xD1, 0xD2]);
@@ -1279,9 +1279,9 @@ mod fused_walk_tests {
             let (pid, count, ix) =
                 unsafe { deserialize_accounts::<8>(frame.as_mut_ptr(), &mut views) };
             assert_eq!(count, 8);
-            for r in 0..8 {
+            for (r, view) in views.iter().enumerate() {
                 // SAFETY: slots 0..count were initialized by the parser.
-                let view = unsafe { views[r].assume_init_ref() };
+                let view = unsafe { view.assume_init_ref() };
                 assert_eq!(view.data_len(), base + r);
             }
             assert_eq!(ix, &[0x42; 9]);

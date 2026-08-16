@@ -36,6 +36,25 @@ The first slice implements:
 - successful-instruction touch maps;
 - final record reclamation with source-token authority returned to the owner.
 
+## Deployment initialization authority
+
+The singleton config is not first-caller-wins. `initialize_config` verifies the
+currently executing program account and permits only its live deployment
+authority to initialize it:
+
+- loader-v3 deployments pass the executable program plus its exact ProgramData
+  account, whose `Some(upgrade_authority)` must equal the signing payer;
+- loader-v4 deployments repeat the executable program in the ProgramData slot,
+  and its embedded authority must equal the payer while status is `Deployed`.
+
+Legacy-loader programs, immutable loader-v3 ProgramData, and finalized
+loader-v4 programs cannot initialize Cicada. Deployment tooling must initialize
+the config before revoking the upgrade authority or finalizing a loader-v4
+deployment. This is enforced on chain and removes the public mempool race in
+which an arbitrary signer could otherwise seize the singleton config.
+The emergency authority must also be nonzero because V1 has no authority
+rotation path that could repair a permanently unreachable pause key.
+
 ## Why the state is column-oriented
 
 `IntentShard` stores twenty records in one account, but authority is split by
@@ -85,10 +104,14 @@ marker PDA at:
 ```
 
 The marker binds the source account to the shard, slot, sequence, and owner. A
-second intent using that vault cannot initialize its marker. After settlement or
-cancellation, only the intent owner may reclaim the record. Reclaim first returns
-the empty source token account's owner authority from the Cicada PDA to the user,
-then clears the record and closes the marker back to that user.
+second intent using that vault cannot initialize its marker. Reclaim checks the
+marker slot and sequence against the live record, so a stale marker cannot release
+a reused shard slot. After settlement or cancellation, only the intent owner may
+reclaim the record. Because anyone can credit a token account, reclaim permits a
+post-finalization balance and returns that balance with the original source
+account when it restores authority from the Cicada PDA to the user. It verifies
+the authority change from account data, clears the record, and closes the marker
+back to that user.
 
 ## Isolated signer capability
 
@@ -101,7 +124,13 @@ Each source token account has an authority PDA bound to both the intent owner an
 [b"cicada-vault", owner_address, source_token_address]
 ```
 
-The owner prepares a token account whose token authority is this PDA, then funds it before creating the intent. Binding the PDA to the owner prevents an abandoned or later-refilled vault from being adopted by a different user after the previous record is reclaimed.
+The owner prepares and funds a token account that is still controlled by the
+owner. `create_intent` rejects a source with a delegate, delegated balance, close
+authority, frozen state, or unsupported Token-2022 extension, then atomically
+moves its token authority to this PDA through the canonical token program. Any
+later create failure rolls that authority change back with the instruction.
+Binding the PDA to the owner prevents an abandoned or later-refilled vault from
+being adopted by a different user after the previous record is reclaimed.
 
 A route therefore receives signer authority over one isolated source vault,
 not every Cicada vault. The route-account validator also refuses:
@@ -132,6 +161,11 @@ route commitment. The commitment identifies the call envelope, not the target
 program's deployed bytecode; an upgradeable route program can still change
 behavior at the same address. A production deployment should optionally bind
 activation to a Grillo-verified binary/deployment commitment.
+
+Ordered duplicate accounts remain supported only when every occurrence uses
+identical signer and writable flags. Solana unions privileges across duplicate
+Pubkeys during CPI, so conflicting flags are rejected rather than allowing the
+committed per-position envelope to understate the callee's effective privilege.
 
 ### Trusted program
 
@@ -168,9 +202,14 @@ Before route CPI, Cicada records:
 
 - source amount;
 - destination amount;
+- source and destination lamports plus each account's wrapped-SOL status;
 - a hash of every source token-account byte except `amount`;
 - a hash of every destination token-account byte except `amount`;
-- hashes of both mint accounts excluding only the mutable `supply` field.
+- hashes of every byte in both mint accounts, including `supply`.
+
+The route may duplicate either committed mint only as read-only. Cicada rejects
+any writable input-mint or output-mint alias before CPI, preventing a route
+from hiding a supply-neutral mint/burn sequence behind an unchanged end state.
 
 After CPI it requires:
 
@@ -185,15 +224,62 @@ spent > 0
 received > 0
 spent <= max_input
 received >= min_output
+non-native source lamports >= their pre-route value
+native source lamports >= pre-route lamports - spent
+non-native destination lamports >= their pre-route value
+native destination lamports >= pre-route lamports + received
 ```
+
+The lamport floors prevent a signer-capable route from closing and recreating a
+byte-identical token account while diverting its rent or excess SOL. Native SPL
+accounts use amount-adjusted floors because canonical wrapped-SOL transfers
+move the corresponding lamports with the token amount.
 
 It then refunds the complete remaining source balance and refuses to settle
 unless the source vault is empty.
 
-Token-2022 mints are screened with Hopper's DeFi-safe extension policy. V1
-rejects transfer fees, permanent delegates, confidential transfer,
-non-transferable tokens, and transfer hooks because those extensions violate
-the amount-only settlement model or require additional refund semantics.
+That zero-balance postcondition is proved when the record becomes final. A
+third party may deposit tokens after settlement or cancellation, but cannot use
+that public credit path to pin the record. SPL `SetAuthority(AccountOwner)` is
+balance-independent, so reclaim restores the original owner with any late
+tokens still in the original source account and releases the source lease
+without another transfer dependency.
+
+All admitted token accounts must be exactly initialized, not frozen, and have
+no separate close authority. This removes an additional actor that could delete
+an empty refund or destination account and block the lifecycle. Cicada
+walks the complete Token-2022 TLV envelope, rejects malformed, duplicate,
+wrong-account-shape, unknown, and not-yet-reviewed extension types, and applies a
+narrow explicit allowlist. V1 accepts base Token-2022 assets plus metadata-only
+mint policy. It rejects transfer fees, permanent delegates, confidential
+transfer, non-transferable tokens, transfer hooks, scaled UI amounts, pausable
+tokens, permissioned burns, and other extensions that change transfer or
+settlement semantics. A custody source also rejects `ImmutableOwner` and enabled
+`CpiGuard` or `MemoTransfer`, because those policies can prevent authority
+restoration or the mandatory refund CPI.
+
+Writable-mint containment makes minting or burning during the route
+unsupported, even when a balancing operation would restore the final supply.
+The full mint hash remains defense in depth for persistent mint changes.
+Token-2022 support is therefore fail closed: a new extension remains
+unsupported until its wire layout and lifecycle effects are reviewed and added
+deliberately.
+
+Legacy SPL mints and token accounts must use their exact canonical 82-byte and
+165-byte shapes. Token-2022 rejects the canonical 355-byte multisig collision
+before applying any mint or token-account overlay. These shape gates prevent a
+multisig body with attacker-selected signer bytes from being admitted as an
+immutable refund or destination that canonical `TransferChecked` would later
+refuse.
+
+Cicada does not remove issuer authority risk between lifecycle instructions. A
+legacy mint or freeze authority can change supply or freeze an account after
+intent creation; a frozen source or refund cannot progress until the issuer
+thaws it. During route CPI, writable-mint containment prevents the route from
+changing either committed mint, while full mint hashing checks the end state as
+defense in depth. Neither control applies between lifecycle instructions.
+Deployments that require stronger asset trust should allowlist mints with
+revoked authorities or add a creation-time mint-policy commitment.
 
 ## Mutation-contract boundary
 
@@ -214,26 +300,47 @@ account envelope and attribute observed downstream effects separately.
 
 ## Compiled lifecycle proof
 
-The SVM suite loads two real SBF ELFs: Cicada and a deliberately adversarial
-route/token fixture. It proves the initialize → create → claim → execute →
-reclaim path, including custody restoration and sentinel-protected source-lease
-close. Separate hostile routes attempt to mutate token policy and to credit
-output without spending input; Cicada refuses both and the SVM rolls every
-account back.
+The current SVM suite runs 22 compiled tests against three repository-built
+ELFs: Cicada, the deliberately hostile route/token fixture, and a separate
+canonical route fixture that never mutates token-owned data directly. Mollusk
+also registers its vendored canonical SPL Token and Token-2022 processors.
+
+The suite proves authorized initialization, atomic custody adoption, create,
+claim, two-leg route execution, unused-input refund, cancellation, and reclaim.
+Both legacy SPL Token and extension-free Token-2022 complete the real
+execute/refund/reclaim path through their canonical processors. Compiled
+negative cases cover unauthorized and finalized-deployment initialization,
+noncanonical token-account shapes, token-policy mutation, writable-mint
+delegation, underpayment, output without input, protected-account delegation,
+stored-bump tampering, and complete SVM rollback. Conflicting privileges on
+duplicate route Pubkeys are also rejected. Real canonical transfers also prove
+that post-final dust cannot block reclaim after settlement or cancellation:
+authority returns to the owner with the dust still in the original source.
+The native-account matrix uses each processor's canonical wrapped-SOL mint and
+proves exact source debit, destination credit, and refund lamport coupling. A
+modeled close/reinitialize shortfall is rejected and rolled back atomically.
+Another 21 host tests cover policy parsing and manifest behavior.
+
+CI sets `HOPPER_REQUIRE_CICADA_SBF=1`, so a missing Cicada or route ELF fails
+the job instead of turning compiled coverage into a skipped success. These are
+deterministic SVM proofs, not a substitute for devnet evidence or an external
+security audit.
 
 ## Build and test
 
 ```bash
-cargo build-sbf -- -p hopper-cicada
-cargo build-sbf -- -p hopper-cicada-route-fixture
-cargo test -p hopper-cicada
+cargo build-sbf --manifest-path examples/hopper-cicada/Cargo.toml -- --locked
+cargo build-sbf --manifest-path examples/hopper-cicada-route-fixture/Cargo.toml -- --locked
+cargo build-sbf --manifest-path examples/hopper-cicada-canonical-route-fixture/Cargo.toml -- --locked
+HOPPER_REQUIRE_CICADA_SBF=1 cargo test -p hopper-cicada
+cargo test -p hopper-cicada-canonical-route-fixture
 hopper lint --project examples/hopper-cicada --deny-escapes
 ```
 
 The detailed threat model, account lifecycle, and prioritized next work are in
 [ARCHITECTURE.md](ARCHITECTURE.md).
 
-The program is a first vertical slice, not yet an audited mainnet release.
-Before custody or significant value, add fuzzed account-envelope tests, devnet
-execution evidence against the canonical SPL programs, and an external audit
-focused on route delegation and token settlement.
+The program is a production-shaped vertical slice, not an audited mainnet
+release. Before custody or significant value, archive devnet execution evidence
+against deployed canonical token programs and complete an independent audit
+focused on initialization, route delegation, and token settlement.

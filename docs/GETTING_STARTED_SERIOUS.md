@@ -19,7 +19,7 @@ but they are not where a new Hopper program should begin.
 For a new program, install the published CLI and scaffold from crates.io:
 
 ```bash
-cargo install hopper-cli
+cargo install hopper-cli --version 0.2.1
 hopper init my-vault --template minimal --yes
 cd my-vault
 ```
@@ -29,7 +29,7 @@ crate `hopper`:
 
 ```toml
 [dependencies]
-hopper = { package = "hopper-lang", version = "0.3.0", default-features = false, features = ["proc-macros"] }
+hopper = { package = "hopper-lang", version = "0.2.1", default-features = false, features = ["proc-macros"] }
 ```
 
 The package is named `hopper-lang` on crates.io because the `hopper` package
@@ -39,6 +39,9 @@ name is already occupied by an unrelated crate. The library crate is still
 ```rust
 use hopper::prelude::*;
 ```
+
+This repository's workspace is preparing 0.3.0, but that version is not yet
+published. Use the local-path form below when testing the unreleased workspace.
 
 When developing against a local framework checkout, use the CLI flag instead of
 editing the generated file by hand:

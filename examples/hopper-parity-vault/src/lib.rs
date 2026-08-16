@@ -76,32 +76,6 @@ fn validate_writable(account: &AccountView) -> ProgramResult {
     Ok(())
 }
 
-#[inline(always)]
-fn transfer_unchecked(from: &AccountView, to: &AccountView, lamports: u64) -> ProgramResult {
-    // One 8-byte copy instead of a per-byte store battery: LLVM lowers the
-    // fixed-size copy to a single load/store pair (SBF permits unaligned
-    // access), trimming ~190 bytes of .text versus element-wise moves.
-    let mut data = [0u8; 12];
-    data[0] = 2; // SystemInstruction::Transfer
-    data[4..12].copy_from_slice(&lamports.to_le_bytes());
-
-    let accounts = [
-        InstructionAccount::writable_signer(from.address()),
-        InstructionAccount::writable(to.address()),
-    ];
-    let cpi_accounts = [
-        hopper::hopper_runtime::CpiAccount::from(from),
-        hopper::hopper_runtime::CpiAccount::from(to),
-    ];
-    let instruction = InstructionView {
-        program_id: &SYSTEM_PROGRAM_ID,
-        data: &data,
-        accounts: &accounts,
-    };
-
-    unsafe { hopper::hopper_runtime::cpi::invoke_unchecked(&instruction, &cpi_accounts) }
-}
-
 fn process_deposit(program_id: &Address, accounts: &[AccountView], data: &[u8]) -> ProgramResult {
     let [user, vault, system_program, ..] = accounts else {
         return Err(ProgramError::NotEnoughAccountKeys);
@@ -126,7 +100,12 @@ fn process_deposit_accounts(
     }
     verify_vault_pda(user, vault, program_id)?;
 
-    transfer_unchecked(user, vault, amount)
+    hopper::system::Transfer {
+        from: user,
+        to: vault,
+        lamports: amount,
+    }
+    .invoke()
 }
 
 fn process_withdraw(program_id: &Address, accounts: &[AccountView], data: &[u8]) -> ProgramResult {

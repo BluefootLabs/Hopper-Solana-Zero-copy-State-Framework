@@ -153,7 +153,11 @@ pub trait ExternalResolve {
 /// Proof implementations should perform one focused validation step, such as
 /// "this token account has the expected mint" or "this oracle price is fresh".
 /// The returned proof token can be carried into downstream APIs that should not
-/// accept a merely raw or adapter-checked account.
+/// accept a merely raw or adapter-checked account. The token proves the bytes
+/// observed when [`ExternalProof::verify`] ran; it must not be carried across a
+/// CPI that can mutate the account. Re-run [`ExternalAccount::checked`] after
+/// such a CPI. Basic adapter validation is independently repeated by every
+/// subsequent safe data/view/resolve/explain access.
 pub trait ExternalProof<T: ExternalZeroCopy> {
     /// Proof token produced by this verifier.
     type Proof<'a>;
@@ -162,7 +166,7 @@ pub trait ExternalProof<T: ExternalZeroCopy> {
     fn verify<'a>(account: ExternalAccount<'a, T>) -> Result<Self::Proof<'a>, ProgramError>;
 }
 
-/// External account paired with an adapter-specific proof token.
+/// External account paired with an adapter-specific point-in-time proof token.
 pub struct ExternalChecked<'info, T, P>
 where
     T: ExternalZeroCopy,
@@ -378,6 +382,11 @@ impl<T: ExternalZeroCopy> core::fmt::Debug for ExternalAccount<'_, T> {
 }
 
 impl<'info, T: ExternalZeroCopy> ExternalAccount<'info, T> {
+    #[inline(always)]
+    fn revalidate(&self) -> ProgramResult {
+        T::validate(self.inner)
+    }
+
     /// Wrap an account that has already been validated by `T`.
     #[inline(always)]
     ///
@@ -428,6 +437,7 @@ impl<'info, T: ExternalZeroCopy> ExternalAccount<'info, T> {
     /// Borrow the external account bytes after adapter validation.
     #[inline(always)]
     pub fn data(&self) -> Result<Ref<'info, [u8]>, ProgramError> {
+        self.revalidate()?;
         self.inner.try_borrow()
     }
 
@@ -462,6 +472,11 @@ impl<'info, T: ExternalZeroCopy> ExternalAccount<'info, T> {
     where
         P: ExternalProof<T>,
     {
+        // A proof adapter may intentionally verify only one focused business
+        // invariant and need not borrow the typed view itself. Re-establish the
+        // base owner/discriminator/layout contract here so even such a narrow
+        // verifier cannot mint a capability from a handle invalidated by CPI.
+        self.revalidate()?;
         let proof = P::verify(self)?;
         Ok(ExternalChecked {
             account: self,
@@ -522,6 +537,7 @@ where
     /// Emit structured external explain fields through the supplied sink.
     #[inline]
     pub fn explain<S: ExternalExplainSink>(&self, sink: &mut S) -> ProgramResult {
+        self.revalidate()?;
         T::explain(self.inner, sink)
     }
 }
@@ -533,6 +549,7 @@ where
     /// Resolve this external account into an owner-selected view family.
     #[inline]
     pub fn resolve(&self) -> Result<T::Resolved<'info>, ProgramError> {
+        self.revalidate()?;
         T::resolve(self.inner)
     }
 }
@@ -739,8 +756,18 @@ mod tests {
         }
     }
     struct SampleValueProof;
+    struct BlindProof;
     struct SampleValueChecked {
         value: u16,
+    }
+    impl ExternalProof<SampleExternal> for BlindProof {
+        type Proof<'a> = ();
+
+        fn verify<'a>(
+            _account: ExternalAccount<'a, SampleExternal>,
+        ) -> Result<Self::Proof<'a>, ProgramError> {
+            Ok(())
+        }
     }
     impl ExternalProof<SampleExternal> for SampleValueProof {
         type Proof<'a> = SampleValueChecked;
@@ -893,5 +920,49 @@ mod tests {
             ExternalAccount::<SampleExternal>::try_new(&short).unwrap_err(),
             ProgramError::AccountDataTooSmall
         );
+    }
+
+    #[test]
+    fn external_account_revalidates_owner_and_discriminator_after_binding() {
+        let (_owner_backing, owner_changed) = make_external_account(EXTERNAL_OWNER, b"PX12");
+        let external = ExternalAccount::<SampleExternal>::try_new(&owner_changed).unwrap();
+        let checked = external.checked::<BlindProof>().unwrap();
+        // SAFETY: this test owns the synthetic account and models its original
+        // owner reassigning it during a writable CPI.
+        unsafe {
+            owner_changed.assign(&Address::new_from_array([8; 32]));
+        }
+        assert!(matches!(
+            external.view(),
+            Err(ProgramError::IncorrectProgramId)
+        ));
+        assert!(matches!(
+            checked.view(),
+            Err(ProgramError::IncorrectProgramId)
+        ));
+        assert!(matches!(
+            external.checked::<BlindProof>(),
+            Err(ProgramError::IncorrectProgramId)
+        ));
+
+        let (_disc_backing, discriminator_changed) = make_external_account(EXTERNAL_OWNER, b"PX12");
+        let external = ExternalAccount::<SampleExternal>::try_new(&discriminator_changed).unwrap();
+        let checked = external.checked::<BlindProof>().unwrap();
+        {
+            let mut data = discriminator_changed.try_borrow_mut().unwrap();
+            data[..2].copy_from_slice(b"NO");
+        }
+        assert!(matches!(
+            external.view(),
+            Err(ProgramError::InvalidAccountData)
+        ));
+        assert!(matches!(
+            checked.view(),
+            Err(ProgramError::InvalidAccountData)
+        ));
+        assert!(matches!(
+            external.checked::<BlindProof>(),
+            Err(ProgramError::InvalidAccountData)
+        ));
     }
 }

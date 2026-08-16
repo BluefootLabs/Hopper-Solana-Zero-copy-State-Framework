@@ -1,4 +1,4 @@
-//! `grillo` — the independent effect verifier, as a command.
+//! `grillo` — the separately runnable offline effect verifier, as a command.
 //!
 //! Everything is offline and reproducible: a manifest, an evidence
 //! bundle, byte arithmetic, a verdict. No RPC, no trust in the producer.
@@ -16,7 +16,7 @@ use std::process::ExitCode;
 use grillo_verifier::{parse_bundle, verify_bundle, MutationManifest, Verdict};
 
 fn usage() {
-    eprintln!("grillo — independent byte-effect verifier for Hopper mutation contracts");
+    eprintln!("grillo — offline byte-effect verifier for Hopper mutation contracts");
     eprintln!();
     eprintln!("Usage:");
     eprintln!("  grillo commit <hopper.manifest.json>");

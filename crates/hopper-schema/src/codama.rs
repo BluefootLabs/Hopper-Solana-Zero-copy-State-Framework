@@ -552,6 +552,17 @@ impl<'a> fmt::Display for ManifestJson<'a> {
         write_policy_array(f, p.policies)?;
         writeln!(f, ",")?;
 
+        // Operational layout metadata and typed context contracts are part of
+        // the rich manifest. Omitting them made a source-emitted manifest lose
+        // PDA, lifecycle, owner, address, parametric-write, and lamport rules
+        // when the CLI loaded it again.
+        write!(f, "  \"layoutMetadata\": ")?;
+        write_layout_metadata_array(f, p.layout_metadata)?;
+        writeln!(f, ",")?;
+        write!(f, "  \"contexts\": ")?;
+        write_context_array(f, p.contexts)?;
+        writeln!(f, ",")?;
+
         // Compatibility rules
         write!(f, "  \"compatRules\": ")?;
         write_compat_pair_array(f, p.compatibility_pairs)?;
@@ -774,6 +785,10 @@ fn write_account_entry_array(
             write!(f, ", \"layoutRef\": ")?;
             write_json_str(f, a.layout_ref)?;
         }
+        if !a.seeds.is_empty() {
+            write!(f, ", \"seeds\": ")?;
+            write_str_array(f, a.seeds, indent + 1)?;
+        }
         write!(f, " }}")?;
         if i + 1 < accounts.len() {
             writeln!(f, ",")?;
@@ -895,6 +910,224 @@ fn write_policy_array(f: &mut fmt::Formatter<'_>, policies: &[PolicyDescriptor])
         }
     }
     write_indent(f, 1)?;
+    write!(f, "]")
+}
+
+fn write_layout_metadata_array(
+    f: &mut fmt::Formatter<'_>,
+    metadata: &[crate::LayoutMetadata],
+) -> fmt::Result {
+    if metadata.is_empty() {
+        return write!(f, "[]");
+    }
+    writeln!(f, "[")?;
+    for (index, layout) in metadata.iter().enumerate() {
+        write_indent(f, 2)?;
+        writeln!(f, "{{")?;
+        write_indent(f, 3)?;
+        write!(f, "\"name\": ")?;
+        write_json_str(f, layout.name)?;
+        writeln!(f, ",")?;
+        write_indent(f, 3)?;
+        write!(f, "\"segmentRoles\": ")?;
+        write_str_array(f, layout.segment_roles, 3)?;
+        writeln!(f, ",")?;
+        write_indent(f, 3)?;
+        writeln!(f, "\"appendSafe\": {},", layout.append_safe)?;
+        write_indent(f, 3)?;
+        writeln!(f, "\"migrationRequired\": {},", layout.migration_required)?;
+        write_indent(f, 3)?;
+        writeln!(f, "\"rebuildable\": {},", layout.rebuildable)?;
+        write_indent(f, 3)?;
+        write!(f, "\"policyPack\": ")?;
+        write_json_str(f, layout.policy_pack)?;
+        writeln!(f, ",")?;
+        write_indent(f, 3)?;
+        write!(f, "\"invariantPack\": ")?;
+        write_str_array(f, layout.invariant_pack, 3)?;
+        writeln!(f, ",")?;
+        write_indent(f, 3)?;
+        write!(f, "\"receiptProfile\": ")?;
+        write_json_str(f, layout.receipt_profile)?;
+        writeln!(f, ",")?;
+        write_indent(f, 3)?;
+        write!(f, "\"phaseRequirements\": ")?;
+        write_str_array(f, layout.phase_requirements, 3)?;
+        writeln!(f, ",")?;
+        write_indent(f, 3)?;
+        write!(f, "\"trustProfile\": ")?;
+        write_json_str(f, layout.trust_profile)?;
+        writeln!(f, ",")?;
+        write_indent(f, 3)?;
+        write!(f, "\"managerHints\": ")?;
+        write_str_array(f, layout.manager_hints, 3)?;
+        writeln!(f)?;
+        write_indent(f, 2)?;
+        write!(f, "}}")?;
+        if index + 1 < metadata.len() {
+            writeln!(f, ",")?;
+        } else {
+            writeln!(f)?;
+        }
+    }
+    write_indent(f, 1)?;
+    write!(f, "]")
+}
+
+fn write_context_array(
+    f: &mut fmt::Formatter<'_>,
+    contexts: &[crate::accounts::ContextDescriptor],
+) -> fmt::Result {
+    if contexts.is_empty() {
+        return write!(f, "[]");
+    }
+    writeln!(f, "[")?;
+    for (context_index, context) in contexts.iter().enumerate() {
+        write_indent(f, 2)?;
+        writeln!(f, "{{")?;
+        write_indent(f, 3)?;
+        write!(f, "\"name\": ")?;
+        write_json_str(f, context.name)?;
+        writeln!(f, ",")?;
+        write_indent(f, 3)?;
+        write!(f, "\"accounts\": ")?;
+        write_context_accounts(f, context.accounts, 3)?;
+        writeln!(f, ",")?;
+        write_indent(f, 3)?;
+        write!(f, "\"policies\": ")?;
+        write_str_array(f, context.policies, 3)?;
+        writeln!(f, ",")?;
+        write_indent(f, 3)?;
+        writeln!(f, "\"receiptsExpected\": {},", context.receipts_expected)?;
+        write_indent(f, 3)?;
+        write!(f, "\"mutationClasses\": ")?;
+        write_str_array(f, context.mutation_classes, 3)?;
+        writeln!(f, ",")?;
+        write_indent(f, 3)?;
+        writeln!(f, "\"strictWrites\": {},", context.strict_writes)?;
+        if context.mutation_complete {
+            write_indent(f, 3)?;
+            writeln!(f, "\"mutationComplete\": true,")?;
+            write_indent(f, 3)?;
+            write!(f, "\"lamportAccounts\": [")?;
+            for (index, account) in context.lamport_accounts.iter().enumerate() {
+                if index > 0 {
+                    write!(f, ", ")?;
+                }
+                write!(f, "{}", account)?;
+            }
+            writeln!(f, "],")?;
+        }
+        write_indent(f, 3)?;
+        write!(f, "\"writeRanges\": ")?;
+        write_context_write_ranges(f, context.write_ranges, context.accounts, 3)?;
+        writeln!(f, ",")?;
+        write_indent(f, 3)?;
+        write!(f, "\"parametricWriteRanges\": ")?;
+        write_parametric_write_ranges_json(f, context.parametric_write_ranges, 3)?;
+        writeln!(f)?;
+        write_indent(f, 2)?;
+        write!(f, "}}")?;
+        if context_index + 1 < contexts.len() {
+            writeln!(f, ",")?;
+        } else {
+            writeln!(f)?;
+        }
+    }
+    write_indent(f, 1)?;
+    write!(f, "]")
+}
+
+fn write_context_accounts(
+    f: &mut fmt::Formatter<'_>,
+    accounts: &[crate::accounts::ContextAccountDescriptor],
+    indent: usize,
+) -> fmt::Result {
+    if accounts.is_empty() {
+        return write!(f, "[]");
+    }
+    writeln!(f, "[")?;
+    for (index, account) in accounts.iter().enumerate() {
+        write_indent(f, indent + 1)?;
+        write!(f, "{{ \"name\": ")?;
+        write_json_str(f, account.name)?;
+        write!(f, ", \"kind\": ")?;
+        write_json_str(f, account.kind)?;
+        write!(
+            f,
+            ", \"writable\": {}, \"signer\": {}",
+            account.writable, account.signer
+        )?;
+        if !account.layout_ref.is_empty() {
+            write!(f, ", \"layoutRef\": ")?;
+            write_json_str(f, account.layout_ref)?;
+        }
+        if !account.policy_ref.is_empty() {
+            write!(f, ", \"policyRef\": ")?;
+            write_json_str(f, account.policy_ref)?;
+        }
+        write!(f, ", \"seeds\": ")?;
+        write_str_array(f, account.seeds, indent + 1)?;
+        write!(f, ", \"optional\": {}, \"lifecycle\": ", account.optional)?;
+        write_json_str(f, account.lifecycle.as_str())?;
+        if !account.payer.is_empty() {
+            write!(f, ", \"payer\": ")?;
+            write_json_str(f, account.payer)?;
+        }
+        if account.init_space > 0 {
+            write!(f, ", \"initSpace\": {}", account.init_space)?;
+        }
+        write!(f, ", \"hasOne\": ")?;
+        write_str_array(f, account.has_one, indent + 1)?;
+        if !account.expected_address.is_empty() {
+            write!(f, ", \"expectedAddress\": ")?;
+            write_json_str(f, account.expected_address)?;
+        }
+        if !account.expected_owner.is_empty() {
+            write!(f, ", \"expectedOwner\": ")?;
+            write_json_str(f, account.expected_owner)?;
+        }
+        write!(f, " }}")?;
+        if index + 1 < accounts.len() {
+            writeln!(f, ",")?;
+        } else {
+            writeln!(f)?;
+        }
+    }
+    write_indent(f, indent)?;
+    write!(f, "]")
+}
+
+fn write_context_write_ranges(
+    f: &mut fmt::Formatter<'_>,
+    ranges: &[crate::WriteRange],
+    accounts: &[crate::accounts::ContextAccountDescriptor],
+    indent: usize,
+) -> fmt::Result {
+    if ranges.is_empty() {
+        return write!(f, "[]");
+    }
+    writeln!(f, "[")?;
+    for (index, range) in ranges.iter().enumerate() {
+        let account = accounts
+            .get(range.account_index as usize)
+            .map(|account| account.name)
+            .unwrap_or("");
+        write_indent(f, indent + 1)?;
+        write!(f, "{{ \"account\": ")?;
+        write_json_str(f, account)?;
+        write!(
+            f,
+            ", \"accountIndex\": {}, \"offset\": {}, \"size\": {} }}",
+            range.account_index, range.offset, range.size
+        )?;
+        if index + 1 < ranges.len() {
+            writeln!(f, ",")?;
+        } else {
+            writeln!(f)?;
+        }
+    }
+    write_indent(f, indent)?;
     write!(f, "]")
 }
 

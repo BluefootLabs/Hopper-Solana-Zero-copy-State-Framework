@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework"
+homepage = "https://hopperzero.dev"
 documentation = "https://docs.rs/grillo-manifest"
 readme = "README.md"
 keywords = ["solana", "verification", "mutation", "effects", "audit"]

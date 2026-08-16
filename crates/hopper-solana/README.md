@@ -44,7 +44,7 @@ check_secp256k1_instruction_at(instructions, secp_ix, 0, eth_address, message)?;
 ```
 
 The full shipped/planned crypto matrix lives in
-[`docs/CRYPTO_CAPABILITIES.md`](../../docs/CRYPTO_CAPABILITIES.md).
+[`docs/CRYPTO_CAPABILITIES.md`](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/docs/CRYPTO_CAPABILITIES.md).
 
 Docs: <https://docs.rs/crate/hopper-solana>
 

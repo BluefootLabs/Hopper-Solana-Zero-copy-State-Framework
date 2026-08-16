@@ -9,13 +9,13 @@ description = "Devnet runner for the Hopper cross-program read proof."
 [dependencies]
 hopper = { path = "../../..", package = "hopper-lang", default-features = false }
 hopper-xp-program-a = { path = "../program-a" }
-solana-client = { version = "2.1" }
-solana-commitment-config = { version = "2.1" }
-solana-instruction = { version = "2.1" }
-solana-keypair = { version = "2.1" }
-solana-pubkey = { version = "2.1" }
-solana-signer = { version = "2.1" }
-solana-transaction = { version = "2.1", features = ["bincode"] }
+solana-client = { version = "=4.2.1" }
+solana-commitment-config = { version = "=3.1.1" }
+solana-instruction = { version = "=3.4.0" }
+solana-keypair = { version = "=3.1.2" }
+solana-pubkey = { version = "=4.2.1" }
+solana-signer = { version = "=3.0.1" }
+solana-transaction = { version = "=4.1.4", features = ["serde", "wincode"] }
 
 [lints]
 workspace = true

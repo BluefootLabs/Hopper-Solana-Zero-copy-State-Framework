@@ -1,6 +1,11 @@
 # Writing Token-2022 programs in Hopper
 
-Anchor's zero-copy path does not cover Token-2022 extensions: every `extensions::*` constraint routes through Borsh-deserialized `InterfaceAccount<Mint>`. Quasar has base-layout readers but no TLV helpers. Hopper ships zero-copy TLV validators for every commonly-used extension, spelled declaratively in your accounts struct.
+Anchor stable has a genuine zero-copy `AccountLoader<T>` path for user-defined
+accounts. Its Token-2022 extension constraints use the typed token-interface
+path instead. Hopper provides allocation-free TLV readers, a declarative
+subset of extension checks, and fail-closed policy helpers for the current
+official extension discriminators 0 through 28. Quasar's pinned release has
+base-layout token readers but no comparable TLV policy layer.
 
 This guide is the reference for using them.
 
@@ -86,7 +91,21 @@ validate_extension_policy(
 )?;
 ```
 
-This is useful for generated policy packs and devnet probes: the same scan can require the extensions a product relies on and reject extensions the product has not audited.
+This is useful for generated policy packs and devnet probes. The required and
+forbidden policy first validates TLV structure, so truncated bytes cannot make
+a forbidden extension look absent.
+
+Custody and settlement code should normally use an explicit allowlist:
+
+```rust
+use hopper_runtime::token_2022_ext::validate_extension_allowlist;
+
+// Empty means this program has accepted no extension semantics.
+validate_extension_allowlist(tlv, &[])?;
+```
+
+The allowlist rejects unknown future discriminators, duplicate entries,
+truncation, and every extension not explicitly named by the program.
 
 ## The raw TLV reader
 
@@ -108,7 +127,10 @@ let authority: [u8; 32] = group[0..32].try_into().unwrap();
 let group_address: [u8; 32] = group[32..64].try_into().unwrap();
 ```
 
-The reader works on any extension type. The extension-code constants are in `hopper_runtime::token_2022_ext` with `EXT_*` names.
+The presence reader is intentionally best-effort and works on any extension
+type. Do not interpret `None` as a complete safety decision. Validate TLV
+structure or an explicit allowlist first. Current extension-code constants are
+in `hopper_runtime::token_2022_ext` with `EXT_*` names.
 
 ## End-to-end: a capped-supply mint program
 
@@ -161,7 +183,9 @@ mod capped_mint {
 }
 ```
 
-The zero-copy path carries every extension check without ever leaving the pointer-cast world. The compile output is fewer CU than Anchor's equivalent InterfaceAccount<Mint> version, because there is no Borsh pass.
+The zero-copy path carries these extension checks without a whole-account
+deserialize pass. CU claims belong to the pinned benchmark suite; this guide
+does not infer a universal cost ranking from implementation style.
 
 ## What to reach for when
 
@@ -177,7 +201,7 @@ The zero-copy path carries every extension check without ever leaving the pointe
 | Require confidential transfer account support | `extensions::confidential_transfer::account` |
 | Require scaled UI amount config | `extensions::scaled_ui_amount::config` |
 | Pin transfer-fee authorities | `extensions::transfer_fee_config::authority = X` |
-| Read an extension Hopper does not cover yet | `find_extension(tlv, EXT_<NAME>)` directly |
+| Inspect an extension outside the declarative subset | validate policy first, then use `find_extension(tlv, EXT_<NAME>)` |
 
 ## What still needs a separate CPI
 
@@ -224,8 +248,8 @@ silently mis-built.
 
 1. Extension constraints fire BEFORE the TLV scan confirms the account is Token-2022. Always pair an `extensions::*` check with a `token::token_program = TOKEN_2022_PROGRAM_ID` or `mint::token_program = TOKEN_2022_PROGRAM_ID` in the same field declaration, or the scan fails with `InvalidAccountData` when the account turns out to be legacy SPL.
 2. `default_account_state` is validated as an integer byte, not as a named enum. Use `0`, `1`, or `2` directly.
-3. A just-extended mint's account-type byte may be `0` instead of `ACCOUNT_TYPE_MINT` (`0x01`). The TLV reader accepts both to keep init sequencing permissive; do not assume the byte is always `0x01` if you are writing a raw scan by hand.
-4. Extensions past the declared list (GroupPointer, GroupMemberPointer, Pausable, transfer-hook account data, and future Token-2022 additions) have `EXT_*` constants registered and are available through `find_extension` plus a byte-level compare.
+3. Low-level presence readers accept an account-type byte of `0` during init sequencing. The strict mint safety gate requires the finalized `ACCOUNT_TYPE_MINT` (`0x01`) envelope.
+4. Hopper defines the current official extension IDs through `PermissionedBurn` (`28`). A future unknown ID is inspectable as raw TLV data but is rejected by fail-closed allowlists until Hopper and the application explicitly review it.
 
 ## Worked example in the repo
 

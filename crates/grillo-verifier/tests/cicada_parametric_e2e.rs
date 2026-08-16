@@ -15,10 +15,10 @@ use grillo_verifier::{
     TouchRecord, Verdict, Violation,
 };
 
-/// The fixture is owned by the sibling crate's test tree; both crates read the
-/// one canonical emitted manifest so a field-name drift fails in both.
-const CICADA_MANIFEST: &str =
-    include_str!("../../grillo-manifest/tests/fixtures/hopper-cicada.manifest.json");
+/// Package-local copy of the canonical emitted Cicada manifest. Keeping the
+/// fixture inside this crate makes the published archive independently
+/// compilable while retaining the producer-to-JSON integration coverage.
+const CICADA_MANIFEST: &str = include_str!("fixtures/hopper-cicada.manifest.json");
 
 /// The `IntentShard` is instruction account index 2 in every lifecycle handler.
 const SHARD: u8 = 2;
@@ -195,8 +195,8 @@ fn execute_intent_cannot_touch_an_immutable_user_column() {
     let pre = vec![0u8; SHARD_LEN];
     let mut post = pre.clone();
     // owners column base 80, stride 32 → slot-3 owner cell [176, 208).
-    for b in 176..208 {
-        post[b] = 1;
+    for byte in post.iter_mut().take(208).skip(176) {
+        *byte = 1;
     }
 
     let verdict = verify_invocation(

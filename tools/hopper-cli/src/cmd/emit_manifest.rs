@@ -83,8 +83,7 @@ fn locate_dirs(package: &str, cwd: &Path) -> Result<(PathBuf, PathBuf), String> 
             if p.get("name").and_then(serde_json::Value::as_str) == Some(name) {
                 p.get("manifest_path")
                     .and_then(serde_json::Value::as_str)
-                    .map(|m| PathBuf::from(m).parent().map(Path::to_path_buf))
-                    .flatten()
+                    .and_then(|m| PathBuf::from(m).parent().map(Path::to_path_buf))
             } else {
                 None
             }
@@ -153,6 +152,10 @@ pub fn emit_manifest_from_source(
     let out_path = out
         .map(Path::to_path_buf)
         .unwrap_or_else(|| pkg_dir.join("hopper.manifest.json"));
+    if let Some(parent) = out_path.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|e| format!("creating {}: {e}", parent.display()))?;
+    }
     std::fs::write(&out_path, &json).map_err(|e| format!("writing {}: {e}", out_path.display()))?;
     Ok(out_path)
 }

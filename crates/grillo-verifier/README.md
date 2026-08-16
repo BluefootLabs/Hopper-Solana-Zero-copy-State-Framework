@@ -1,9 +1,11 @@
 # grillo-verifier
 
-The independent **byte-diff verifier** for Hopper's behavioural contract:
+A separately runnable offline **byte-diff verifier** for Hopper's behavioural
+contract. Grillo is maintained in the Hopper workspace; "separate" describes
+its recomputation boundary, not third-party organizational independence:
 given an instruction's pre/post account snapshots, its emitted touch map
 (decoded from the `Program data:` log line), and the program's published
-mutation manifest ([`grillo-manifest`](../grillo-manifest)), compute the
+mutation manifest ([`grillo-manifest`](https://crates.io/crates/grillo-manifest)), compute the
 verdict
 
 > **changed ⊆ acquired ⊆ authorized**
@@ -33,22 +35,26 @@ Violations carry byte-precise evidence (`UntrackedWrite`,
 `UnauthorizedAcquisition`, `UnauthorizedLamportDelta`: account index,
 offset, size).
 
-See [`docs/EFFECT_ABI_V0_1.md`](../../docs/EFFECT_ABI_V0_1.md) for the
+See [`docs/EFFECT_ABI_V0_1.md`](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/docs/EFFECT_ABI_V0_1.md) for the
 framework-neutral contract, invocation-parametric resolution rules, and the
 limits of a v0.1 scoped PASS.
 
 Verified end-to-end against the deployed
-[`hopper-sentinel`](../../examples/hopper-sentinel) showcase: the honest
+[`hopper-sentinel`](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/tree/main/examples/hopper-sentinel) showcase: the honest
 pause PASSes with exactly its declared ranges; the tampered handler's
 refused write never reaches the snapshots.
 
 ## The `grillo` command
 
 Anyone — an indexer, an auditor, a security desk — can reproduce a
-byte-precise verdict offline from a manifest and an evidence bundle,
-trusting nothing but the evidence. Build the `grillo` binary from a
-checkout of the Hopper workspace (crates.io publish follows the workspace
-release):
+byte-precise verdict offline from a manifest and an evidence bundle. In the
+v0.1 bundle, the snapshots, instruction name/payload, and touch map are
+caller-supplied facts: Grillo recomputes containment but does not authenticate
+their producer, verify a transaction signature, or bind them to a ledger
+message or program deployment. Full supplied snapshot/lamport scope is also
+required before a PASS can be described as transaction-complete. Build the
+`grillo` binary from a checkout of the Hopper workspace (crates.io publish
+follows the workspace release):
 
 ```sh
 cargo install --path crates/grillo-verifier --features cli   # builds the `grillo` binary

@@ -110,19 +110,22 @@ prove correctness through other means.
 
 The cost difference between guarantee levels:
 
-| Operation | Approx CU | Notes |
-|-----------|-----------|-------|
-| Overlay cast (Tier A, after validation) | ~8 | Pointer arithmetic only |
-| Pod cast (Tier B) | ~8 | Same underlying mechanism |
-| Raw cast (Tier C) | ~8 | Same underlying mechanism |
-| Full Tier A load with validation | ~120 | Owner + disc + version + layout_id + size |
-| Header write | ~30 | One-time per init |
-| Receipt begin + commit | ~40-60 | Depends on snapshot size |
+| Operation | Measured net CU | Notes |
+|-----------|----------------:|-------|
+| Overlay cast (Tier A, after validation) | 2 | Pointer arithmetic only |
+| Pod cast (Tier B) | 2 | Same underlying mechanism |
+| Raw cast (Tier C) | 2 | Same underlying mechanism |
+| Full Tier A load with validation | 33 | Owner + disc + version + layout_id + size |
+| Header write | 6 | One-time per init |
+| Receipt begin + commit | 1,915 | Full snapshot + diff + encode cycle |
 
 The cast itself is the same cost in every case. The difference is what
 validation you run before the cast and what tracking you run after mutation.
-For most programs, the ~120 CU per account load is noise compared to CPI
-costs (thousands of CU).
+These are the 2026-07-09 primitive-bench Mollusk net measurements documented
+in `BENCHMARKS.md` and `docs/CU_COSTS.md`, not universal costs. In the same
+fixture, a full load plus overlay access and a fingerprint re-check totals
+about 41 CU per account. Program-level cost still depends on dispatch,
+account shape, features, and business logic.
 
 ## Pointer-Cast Performance, Civilized
 
@@ -155,9 +158,10 @@ are using and why.
 
 **Tier A is the default and recommended Hopper path.**
 
-Use it for every account load in normal program flow. The ~120 CU overhead
-is negligible compared to CPI costs and provides full auditability through
-receipts and CLI inspection.
+Use it for every account load in normal program flow. In the dated primitive
+fixture, the core load, overlay, and fingerprint path totals about 41 CU per
+account. Receipts are a separate opt-in cost and must not be folded into that
+number.
 
 **Tier B is for validated hot paths.**
 

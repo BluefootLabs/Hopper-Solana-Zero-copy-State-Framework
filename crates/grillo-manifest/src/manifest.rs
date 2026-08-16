@@ -130,21 +130,16 @@ pub struct AccountRole {
 
 /// Wire encoding of one instruction argument, narrowed from Hopper's
 /// manifest descriptor.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum ArgEncodingContract {
     /// Exactly `size` bytes.
+    #[default]
     Fixed,
     /// A little-endian `u16` element count followed by encoded elements.
     BoundedVec,
     /// A little-endian `u16` byte count followed by UTF-8 bytes.
     BoundedString,
-}
-
-impl Default for ArgEncodingContract {
-    fn default() -> Self {
-        Self::Fixed
-    }
 }
 
 /// Instruction-argument metadata needed to decode parametric selectors from

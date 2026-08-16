@@ -1,0 +1,71 @@
+# Solana network baseline — reviewed 2026-08-16
+
+This file is a dated compatibility baseline, not a prediction. “Live” means the
+Solana Foundation or the on-chain feature account confirms Mainnet activation.
+Targets and schedules remain “upcoming” until that happens.
+
+## Confirmed Mainnet state
+
+| Change | Status on 2026-08-16 | Hopper consequence |
+|---|---|---|
+| 100M CU blocks (SIMD-0286) | **Live** since 2026-07-29, epoch 1009 | `hopper contention` uses 100M as the block ceiling. The per-writable-account ceiling remains 12M CU. |
+| Optimized Token Program / p-token (SIMD-0266) | **Live** | Existing token instructions remain compatible. Hopper must benchmark against the optimized program before publishing comparative CU claims. |
+| BLS pubkey registration (SIMD-0387) | **Live** | Validator-facing; it does not activate Alpenglow or change Hopper program execution semantics. |
+
+The 100M change raised only the total block CU ceiling. It did **not** raise the
+12M writable-account CU ceiling or the 100MB block account-data delta ceiling.
+That distinction is why Hopper reports both block capacity and hot-account
+contention instead of presenting 100M as an instruction budget.
+
+Agave v4.2.1 is the latest stable validator release as of this review. Hopper's
+host-side Solana dependencies and forward SBF lane are aligned to that release.
+The existence of a stable validator release still does not prove that every
+feature implemented in its source is active on Mainnet.
+
+## Proposed or scheduled work, not transaction-v1 activation
+
+| Change | Current official status | Hopper position |
+|---|---|---|
+| 4,096-byte transactions (SIMD-0296 + SIMD-0385) | Both SIMDs remain **Review** at official snapshot `fc519fb3`; neither names an activated feature. Agave contains an `enable_tx_v1` feature id, but the feature tracker has no transaction-v1 activation entry. Finalized feature-account queries returned `null` on Mainnet, devnet, and testnet at this review. | Hopper's upgraded Agave 4.2.1 host stack still emits legacy transactions. Those remain capped at 1,232 bytes. Hopper must not advertise, submit, or silently assume the proposed 4,096-byte v1 envelope. |
+| Reduced rent (SIMD-0437) | Agave 4.2 feature-gated rollout | Re-run account creation/rent examples after each Mainnet feature activation; do not bake projected 90% savings into current cost claims. |
+| Reduced slot times (SIMD-0525) | Agave 4.2 staged rollout from 400ms toward 200ms | Treat latency as cluster state, not a framework guarantee. |
+| Alpenglow (SIMD-0326) | Not activating in Agave 4.2; currently targeted for Agave 4.3 | No current program API change. Avoid equating BLS/VAT prerequisites with Alpenglow being live. |
+
+## Transaction v1 details that affect Hopper
+
+The proposed 4,096-byte limit belongs only to the v1 envelope. Legacy and v0
+remain unchanged at 1,232 bytes. The reviewed proposal permits up to 12
+signatures and 64 addresses/instructions, uses leading version byte 129, does
+not support address lookup tables, and carries compute configuration in a
+header mask rather than Compute Budget Program instructions. These are proposal
+details, not live acceptance rules. Raw-transaction indexers would need a new
+decoder after finalization and activation.
+
+Hopper's readiness rule is:
+
+1. Fail early when a Hopper-built legacy transaction exceeds 1,232 serialized
+   bytes.
+2. Keep legacy/v0 support after v1 activation.
+3. Add v1 construction only after the SDK exposes the finalized type and the
+   Mainnet feature is queryable/active.
+4. Add golden wire fixtures and RPC/indexer decoding tests before claiming v1
+   support.
+
+The Agave 4.2 schedule's week-of-2026-08-17 window is a generic, tentative
+feature-activation window. It is not a confirmed transaction-v1 activation
+date. Presence of the `enable_tx_v1` id in Agave source is implementation
+evidence only.
+
+## Primary sources
+
+- [Solana Foundation: 100M CU Blocks](https://solana.com/upgrades/100m-cu-blocks)
+- [Solana Foundation: Larger Transaction Sizes](https://solana.com/upgrades/larger-transaction-sizes)
+- [Solana Foundation: Agave 4.2 Release Overview](https://solana.com/upgrades/agave-4-2-release-overview)
+- [SIMD-0296: Larger Transactions](https://github.com/solana-foundation/solana-improvement-documents/blob/fc519fb3d1ef0f7624b6232bda958438feba09ce/proposals/0296-larger-transactions.md)
+- [SIMD-0385: Transaction v1](https://github.com/solana-foundation/solana-improvement-documents/blob/fc519fb3d1ef0f7624b6232bda958438feba09ce/proposals/0385-transaction-v1.md)
+- [Anza: Agave 4.2 release schedule](https://github.com/anza-xyz/agave/wiki/v4.2-Release-Schedule)
+- [Anza: feature-gate tracker](https://github.com/anza-xyz/agave/wiki/Feature-Gate-Tracker-Schedule)
+- [Anza: transaction-v1 feature id](https://github.com/anza-xyz/agave/blob/12b5c7e4df705927b2f7f579f3aa606aa4bde1c0/feature-set/src/lib.rs)
+- [Solana Foundation: Optimized Token Program](https://solana.com/upgrades/p-token)
+- [Anza: Agave releases](https://github.com/anza-xyz/agave/releases)
+- [Anza: Agave changelog](https://github.com/anza-xyz/agave/blob/master/CHANGELOG.md)

@@ -1,0 +1,52 @@
+{
+  "name": "hopper_counter",
+  "version": "0.2.1",
+  "description": "Minimal macro-first Hopper counter example.",
+  "layouts": [
+    {
+      "name": "Counter",
+      "disc": 1,
+      "version": 1,
+      "layout_id": [231, 238, 49, 237, 215, 229, 82, 156],
+      "total_size": 56,
+      "fields": [
+        {"name": "authority", "type": "Address", "size": 32, "offset": 16},
+        {"name": "value", "type": "WireU64", "size": 8, "offset": 48}
+      ]
+    }
+  ],
+  "instructions": [
+    {
+      "name": "increment",
+      "tag": 0,
+      "args": [],
+      "accounts": [
+        {"name": "counter", "writable": true, "signer": false, "layout_ref": "Counter"},
+        {"name": "authority", "writable": false, "signer": true, "layout_ref": ""}
+      ],
+      "capabilities": ["MutatesState"],
+      "policy_pack": "COUNTER_WRITE",
+      "receipt_expected": false
+    }
+  ],
+  "contexts": [
+    {
+      "name": "Increment",
+      "accounts": [
+        {"name": "counter", "kind": "HopperAccount", "writable": true, "signer": false, "layout_ref": "Counter", "policy_ref": "COUNTER_WRITE", "seeds": [], "optional": false, "lifecycle": "existing", "payer": "", "init_space": 0, "has_one": ["authority"], "expected_address": "", "expected_owner": ""},
+        {"name": "authority", "kind": "Signer", "writable": false, "signer": true, "layout_ref": "", "policy_ref": "", "seeds": [], "optional": false, "lifecycle": "existing", "payer": "", "init_space": 0, "has_one": [], "expected_address": "", "expected_owner": ""}
+      ],
+      "policies": ["COUNTER_WRITE"],
+      "receipts_expected": false,
+      "mutation_classes": ["StateTransition"]
+    }
+  ],
+  "events": [],
+  "policies": [
+    {
+      "name": "COUNTER_WRITE",
+      "capabilities": ["MutatesState"],
+      "requirements": ["SignerAuthority"]
+    }
+  ]
+}

@@ -9,8 +9,7 @@
 
 use grillo_verifier::{parse_bundle, verify_bundle, MutationManifest, Verdict, Violation};
 
-const CICADA_MANIFEST: &str =
-    include_str!("../../grillo-manifest/tests/fixtures/hopper-cicada.manifest.json");
+const CICADA_MANIFEST: &str = include_str!("fixtures/hopper-cicada.manifest.json");
 
 const SHARD: u8 = 2;
 const SHARD_LEN: usize = 9_216;
@@ -110,8 +109,8 @@ fn a_neighbor_slot_write_bundle_is_a_violation() {
 fn an_immutable_user_column_write_bundle_is_a_violation() {
     let pre = vec![0u8; SHARD_LEN];
     let mut post = pre.clone();
-    for b in 176..208 {
-        post[b] = 1; // owners slot-3 cell — execute has no authority there
+    for byte in post.iter_mut().take(208).skip(176) {
+        *byte = 1; // owners slot-3 cell — execute has no authority there
     }
     let json = bundle_json(3, &pre, &post, &[(176, 32)]);
     let bundle = parse_bundle(&json).expect("parses");

@@ -44,7 +44,8 @@ Flipping to `strict = false` is an intent marker: the author plans to use raw `&
 
 ### `enforce_token_checks`
 
-Promise that every SPL token CPI in the module uses `*_strict` or `*_signed_strict` invoke variants. Those helpers pre-verify:
+Author-maintained promise that every SPL token CPI in the module uses
+`*_strict` or `*_signed_strict` invoke variants. Those helpers pre-verify:
 
 | Check | Helper | Where |
 |---|---|---|
@@ -52,6 +53,11 @@ Promise that every SPL token CPI in the module uses `*_strict` or `*_signed_stri
 | Token account's `owner` field matches authority | `require_token_authority` | same file |
 
 The SPL Token program itself re-validates both checks. Hopper's pre-check surfaces a Hopper-branded `ProgramError::IncorrectAuthority` or `MissingRequiredSignature` before the CPI so a misrouted signer or mismatched owner fails with a specific error instead of an opaque SPL failure. This closes the exploit class "attacker passes correct pubkey but wrong signer".
+
+The policy constant does not rewrite or statically inspect arbitrary CPI code.
+Calls that bypass the strict helpers are outside this promise and require code
+review; `#[instruction(..., skip_token_checks)]` records an intentional
+per-handler exception.
 
 Flipping to `enforce_token_checks = false` drops the pre-check promise. The SPL program's checks still run. Only reach for this when the program has its own validation flow that makes the pre-check redundant.
 
@@ -73,7 +79,13 @@ When false, the program macro emits `#[deny(unsafe_code)]` on every handler that
 
 ## Zero-cost property
 
-Every lever is a compile-time `bool` on a `Copy + const` struct. Readers call `HOPPER_PROGRAM_POLICY.<lever>` in `const` context; the branches fold to a single code path during codegen when the lever is known. There is no runtime state, no thread-local, no syscall. A program compiled with `HopperProgramPolicy::RAW` pays zero CU for Hopper's safety envelope.
+Every lever is a compile-time `bool` on a `Copy + const` struct. Readers call
+`HOPPER_PROGRAM_POLICY.<lever>` in `const` context; branches that actually
+consult a lever can fold to one code path during codegen. The policy value has
+no runtime state, thread-local, or syscall. `RAW` does not remove validation
+from a typed `Ctx<T>` handler: typed handlers still bind. A raw `&mut Context`
+handler that deliberately omits Hopper validation can avoid that validation
+cost, while the author assumes every omitted invariant.
 
 ## Grep receipts
 
