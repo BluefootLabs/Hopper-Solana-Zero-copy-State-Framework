@@ -49,9 +49,16 @@
     {
       "id": "release-evidence",
       "path": "docs/RELEASE_EVIDENCE.md",
-      "sha256": "5c793ef67ca5d99eb542ec0e05f62e99fc6ede08abd26fd6c6593fef1cebdd3a",
+      "sha256": "c0cfc2507e879d76b2bb547a2b6d0a88365b0da8927a26b6fa8174212a837253",
       "required": true,
       "description": "binary, fuzz, publication-train, and benchmark evidence boundaries"
+    },
+    {
+      "id": "cicada-sbf-local-attestation",
+      "path": "audit/cicada-sbf-attestation-2026-08-16.json",
+      "sha256": "941eb3e868b96de331522566483241b19355758bdf5a1fec199de041d2beae81",
+      "required": true,
+      "description": "clean committed local Cicada binary freshness and full publish-check attestation"
     },
     {
       "id": "benchmark-method",
@@ -77,7 +84,7 @@
     {
       "id": "readiness-dossier",
       "path": "docs/AUDIT_READINESS_DOSSIER_2026-08-15.md",
-      "sha256": "88bd203dd3961545ca4bb1a7bfb9585b6637cebf65275f949bee373ad26769f1",
+      "sha256": "269d26ae41d03b65f8b8c50f15a7e359cba84377057ca544a09c141c09ea4561",
       "required": true,
       "description": "scope, peer parity, gaps, and audit handoff"
     },
@@ -206,7 +213,7 @@
       "severity": "medium",
       "status": "open",
       "releaseBlocking": true,
-      "description": "pinned Agave v2.3.13 and Agave v4.2.1-forward SBF lanes are implemented; exact clean committed CI runs, artifacts, and attestations are not yet archived"
+      "description": "current Cicada source has a clean committed local 4.1.0/v1.54 full binary attestation; the implemented pinned Agave v2.3.13 and Agave v4.2.1-forward CI lanes still need exact runs with their artifacts and attestations archived"
     },
     {
       "id": "publication-train",

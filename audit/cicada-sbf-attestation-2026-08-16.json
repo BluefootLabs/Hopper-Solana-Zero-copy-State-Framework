@@ -1,0 +1,42 @@
+{
+  "schema": "hopper.sbf-release-attestation.v1",
+  "generatedAt": "2026-08-16T13:33:28.155313+00:00",
+  "package": "hopper-cicada",
+  "program": "hopper-cicada",
+  "source": {
+    "commit": "3dfceba4a8f7b98ff0e355aa1965e7e9509023b2",
+    "treeCleanAtStart": true,
+    "treeCleanAtEnd": true
+  },
+  "toolchain": {
+    "cargoBuildSbf": "cargo-build-sbf 4.1.0\nplatform-tools v1.54",
+    "rustc": "rustc 1.96.0 (ac68faa20 2026-05-25)",
+    "cargo": "cargo 1.96.0 (30a34c682 2026-05-25)"
+  },
+  "freshness": {
+    "marker": "target/hopper/release/clean-3dfceba-20260816/build.started",
+    "markerSha256": "4e2a8c5d56e17dacb979e8ecdf8033bfcdd0af4c5d29175cfc74ac29f0e744ed",
+    "markerModifiedAt": "2026-08-16T13:29:13.646950+00:00",
+    "isolatedOutputDirectory": "target/hopper/release/clean-3dfceba-20260816/sbf",
+    "outputDirectoryAbsentBeforeBuild": true,
+    "binaryAbsentBeforeBuild": true,
+    "binaryBuiltAfterMarker": true,
+    "manifestGeneratedAfterMarker": true
+  },
+  "publishCheck": {
+    "passed": true,
+    "mode": "release-with-binary-full",
+    "outputSha256": "29059354bc96a8e0a563267a36319b6594a2d0af9a049c51fcd3d0504b0c2f71"
+  },
+  "manifest": {
+    "path": "target/hopper/release/clean-3dfceba-20260816/hopper-cicada.manifest.json",
+    "bytes": 56457,
+    "sha256": "dae0e7817bcf9e60a22fe900c1900dcca85afa8e68d0a74a9c27718a1398105d"
+  },
+  "binary": {
+    "path": "target/hopper/release/clean-3dfceba-20260816/sbf/hopper_cicada.so",
+    "bytes": 167680,
+    "sha256": "ac8ec1d76b4f85a5515dc446536bafccabe1c62b8ff46a13a662971b785da0e9",
+    "format": "ELF"
+  }
+}

@@ -59,20 +59,29 @@ current binary, manifest, and attestation together.
 `lib` crate types preclude LTO; the recorded artifact is release-optimized but
 must not be described as an LTO build.
 
-### Current source-frozen local diagnostic
+### Current clean local attestation
 
-After the repeated-writable-route-alias closure, a fresh local
-`cargo-build-sbf 4.1.0` build produced a 167,680-byte Cicada ELF with SHA-256
-`ac8ec1d76b4f85a5515dc446536bafccabe1c62b8ff46a13a662971b785da0e9`.
-The source-frozen run passed 21 of 21 host tests, 22 of 22 strict compiled-SBF
-lifecycle/adversarial tests, targeted all-target clippy with warnings denied,
-and the full binary-backed `hopper publish-check --full`: all 3 layout anchors,
-program-shape, documentation, feature, token, client, fuzz, artifact, Solana
-shape, 160 systems tests, and trybuild gates passed.
+After the repeated-writable-route-alias closure was committed at
+`3dfceba4a8f7b98ff0e355aa1965e7e9509023b2`, a separate clean checkout built
+Cicada with `cargo-build-sbf 4.1.0` and platform-tools v1.54 into an isolated
+output directory proven absent before the build. The resulting 167,680-byte ELF
+has SHA-256
+`ac8ec1d76b4f85a5515dc446536bafccabe1c62b8ff46a13a662971b785da0e9`,
+and the generated 56,457-byte manifest has SHA-256
+`dae0e7817bcf9e60a22fe900c1900dcca85afa8e68d0a74a9c27718a1398105d`.
+The attestation records a clean tree before and after the full binary-backed
+`hopper publish-check --full`; all 3 layout anchors, program-shape,
+documentation, feature, token, client, fuzz, artifact, Solana-shape, 160
+systems-test, and trybuild gates passed. The same source passed 21 of 21 host
+tests, 22 of 22 strict compiled-SBF lifecycle/adversarial tests, and targeted
+all-target clippy with warnings denied before the clean build.
 
-This is current local diagnostic evidence, not a clean-checkout CI attestation.
-The required pinned and forward SBF lanes must still rebuild from the committed
-source and upload the ELF, manifest, and attestation together before release.
+The normalized attestation is retained at
+[`audit/cicada-sbf-attestation-2026-08-16.json`](../audit/cicada-sbf-attestation-2026-08-16.json).
+This closes the current local binary freshness and ABI proof. It is not a
+substitute for the required pinned Agave v2.3.13 and Agave v4.2.1-forward CI
+artifact uploads, which must still rebuild and retain their ELF, manifest, and
+attestation together before release.
 
 ## Cicada manifest-fuzz evidence
 
@@ -154,11 +163,11 @@ duplicating benchmark binaries.
 
 This closes the clean committed peer-benchmark blocker for these exact pins.
 It is fixture-specific benchmark evidence, not a universal performance
-ranking, an independent audit, a clean Cicada SBF release attestation, crate
-publication, Mainnet readiness, or transaction-v1 activation. Diagnostic runs
-remain available with `-Diagnostic`, and `-NoBuild` remains restricted to
-diagnostic mode. Any measured framework source, dependency, toolchain,
-fixture, or runner change requires a new clean archive.
+ranking, an independent audit, a pinned CI SBF artifact run, crate publication,
+Mainnet readiness, or transaction-v1 activation. Diagnostic runs remain
+available with `-Diagnostic`, and `-NoBuild` remains restricted to diagnostic
+mode. Any measured framework source, dependency, toolchain, fixture, or runner
+change requires a new clean archive.
 
 The manual benchmark workflow can reproduce and upload the same archive class
 from fresh checkouts, but this local clean result must not be described as a CI
