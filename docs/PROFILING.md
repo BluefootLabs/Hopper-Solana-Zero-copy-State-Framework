@@ -58,10 +58,12 @@ Record the following next to any public benchmark claim:
 - `hopper profile elf` JSON.
 - Live CU logs when the claim depends on runtime execution.
 
-The dated same-provenance vault benchmark snapshot remains in
-[../BENCHMARKS.md](../BENCHMARKS.md). It is historical fixture evidence;
-regenerate and archive the clean same-behavior five-way run before changing
-launch or current-framework benchmark claims.
+The current clean same-provenance five-way vault snapshot is recorded in
+[../BENCHMARKS.md](../BENCHMARKS.md) and content-addressed by
+[`audit/framework-matrix-2026-08-16.json`](../audit/framework-matrix-2026-08-16.json).
+It is fixture evidence for its exact source and toolchain pins. Regenerate and
+archive a new clean run before changing current-framework claims after any pin
+changes.
 
 ## Release checks
 

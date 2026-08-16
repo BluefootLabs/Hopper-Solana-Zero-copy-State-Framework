@@ -299,38 +299,37 @@ For in-process tests, use the in-tree `crates/hopper-svm` crate as a dev-depende
 The benchmark suite is maintained as a separate product repo:
 [hopper-bench](https://github.com/BluefootLabs/hopper-bench)
 
-Do not copy old benchmark numbers from this README. Regenerate numbers from the
-benchmark repo before publishing performance claims.
+The current release-facing comparison is the clean 2026-08-16 same-behavior
+vault matrix. It pins Hopper, Pinocchio 0.11.2, Quasar 0.1, the unpublished
+Anchor v2 alpha, and Star Frame 0.30 to one program id, account state, seed
+set, release profile, SBF toolchain, and Mollusk runner:
 
-The dated same-provenance vault snapshot (re-measured 2026-07-09, four-way)
-includes Hopper, the in-tree Anza Pinocchio target, Quasar's upstream vault
-target, and a measured Anchor 0.31.1 comparator. Quasar implements only the
-financial `deposit` / `withdraw` rows, so validation-only rows are marked `n/a`
-rather than synthesized. In that run the Hopper vault `.so` also measures
-smaller than Pinocchio's on the identical contract (7.46 vs 7.73 KiB);
-Quasar's 5.47 KiB is still the smallest vault artifact. The same repo also
-carries a published router-class
-three-way (Hopper / Quasar / hand-written Pinocchio, 2026-07-09): Hopper beats Quasar on every row, within 1.8-2.4% of
-raw Pinocchio per hop, with the smallest binary of the three. See
-[BENCHMARKS.md](BENCHMARKS.md) for both tables and provenance.
+| Framework | Deposit CU | Withdraw CU | Binary bytes |
+|---|---:|---:|---:|
+| Hopper | 1,578 | 424 | 9,032 |
+| Quasar 0.1 snapshot | 1,755 | 593 | 5,784 |
+| Anchor v2 alpha snapshot | 1,785 | 615 | 6,432 |
+| Pinocchio 0.11.2 | 3,697 | 2,542 | 7,512 |
+| Star Frame 0.30 snapshot | 3,837 | 2,624 | 83,216 |
 
-Treat the vault table as a measurement of that vault contract, not a universal
-ranking. Within it, the facts are plain: Hopper won both rows Quasar's own
-upstream vault implements (deposit and withdraw) under one lockfile, toolchain,
-and seed set. No comparable Quasar artifact was found in the pinned source
-snapshot.
-Re-run the benchmark repo at current heads before publishing fresh performance
-language.
+The strict run used clean Hopper
+`8696640aad613b081c66e77f13ff679c6d4d1967` and benchmark
+`af5bc95961a8a8b807a194a7d9fd1cd1249393c5`, required fresh artifacts,
+used 8 samples, and passed all 30 rejection gates. Its evidence ZIP SHA-256 is
+`c64af2460bcbfc0a9a3b8e5a7d8ecdbaa73ff34b7b5d20b0f17e89e44a84f747`.
+The content-addressed summary is
+[`audit/framework-matrix-2026-08-16.json`](audit/framework-matrix-2026-08-16.json).
+
+This is a measurement of one vault contract, not a universal ranking. Quasar
+has the smallest binary in the matrix, and Pinocchio is cheaper on the
+separate missing-signature failure row. Historical primitive, four-way vault,
+and router tables remain in [BENCHMARKS.md](BENCHMARKS.md) with their dates;
+they are not the current five-way release evidence.
 
 Current positioning: **Anchor/Quasar-class DX, Hopper-grade safety/state
-contracts, Pinocchio-class raw control.** Treat benchmark rows as measurements
-of that vault contract, not a universal raw-substrate ranking.
-
-The five-way fixture now carries exact Anchor v2 alpha, Quasar 0.1, Star Frame
-0.30, and Pinocchio 0.11 source pins. Its first behavior-complete run is
-diagnostic because these changes are not committed yet. Publish replacement
-numbers only after both repositories are clean and the provenance file confirms
-every required fixture:
+contracts, Pinocchio-class raw control.** Re-run the strict matrix whenever a
+measured framework source, dependency, toolchain, fixture, or runner pin
+changes:
 
 ```powershell
 cd ../hopper-bench

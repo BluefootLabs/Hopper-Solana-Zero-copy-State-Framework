@@ -2547,7 +2547,7 @@ fn validate_duplicate_route_meta(
     prior_flags: u8,
 ) -> ProgramResult {
     hopper::hopper_require!(
-        address != prior_address || flags == prior_flags,
+        address != prior_address || (flags == prior_flags && flags & ROUTE_META_WRITABLE == 0),
         ConflictingDuplicateRouteMeta
     );
     Ok(())
@@ -2589,9 +2589,11 @@ fn validate_route_accounts<const N: usize>(
         hopper::hopper_require!(meta & !ROUTE_META_KNOWN_FLAGS == 0, InvalidRouteMetaFlags);
 
         // Solana collapses duplicate Pubkeys for CPI and unions their
-        // privileges. Requiring identical flags on every alias keeps the
-        // committed per-position envelope equal to the effective runtime
-        // privilege set while still preserving ordered duplicate positions.
+        // privileges. Hopper's safe deduplicated CPI tier deliberately
+        // rejects repeated writable metas because one unique AccountView
+        // cannot safely represent several mutable positions. Reject those
+        // routes here, before commitment acceptance or CPI. Ordered duplicate
+        // read-only positions remain valid only with identical flags.
         let mut prior_index = 0usize;
         while prior_index < index {
             let prior = accounts
@@ -2961,13 +2963,17 @@ pub mod fuzz_semantics {
         )?;
 
         must_accept(
+            validate_duplicate_route_meta(&account, 0, &account, 0),
+            "identical read-only duplicate route metadata was rejected",
+        )?;
+        must_reject(
             validate_duplicate_route_meta(
                 &account,
                 ROUTE_META_WRITABLE,
                 &account,
                 ROUTE_META_WRITABLE,
             ),
-            "identical duplicate route metadata was rejected",
+            "duplicate writable route metadata was accepted",
         )?;
         must_reject(
             validate_duplicate_route_meta(&account, ROUTE_META_WRITABLE, &account, 0),
@@ -3683,7 +3689,7 @@ mod tests {
     }
 
     #[test]
-    fn duplicate_route_pubkeys_require_identical_flags() {
+    fn duplicate_route_pubkeys_must_be_readonly_with_identical_flags() {
         let duplicate = Address::new([61u8; 32]);
         let other = Address::new([62u8; 32]);
         assert_eq!(
@@ -3693,6 +3699,10 @@ mod tests {
                 &duplicate,
                 ROUTE_META_WRITABLE,
             ),
+            Err(ProgramError::from(ConflictingDuplicateRouteMeta))
+        );
+        assert_eq!(
+            validate_duplicate_route_meta(&duplicate, 0, &duplicate, 0),
             Ok(())
         );
         assert_eq!(

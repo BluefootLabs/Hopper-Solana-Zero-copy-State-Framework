@@ -1735,14 +1735,36 @@ fn compiled_hostile_route_cannot_delegate_cicada_state() {
 }
 
 #[test]
-fn compiled_conflicting_duplicate_route_meta_is_rejected() {
+fn compiled_writable_or_conflicting_duplicate_route_meta_is_rejected() {
     let Some(mut f) = setup_open_intent() else {
         eprintln!("SKIPPED: build Cicada SBF artifacts first");
         return;
     };
 
+    // Repeating the source in the route's first two dynamic positions makes
+    // both occurrences writable. Cicada must reject this before the safe
+    // deduplicated CPI tier sees a shape that it deliberately cannot execute.
+    f.svm.capture_logs();
+    let mut writable_duplicate = execute_ix(&f, ROUTE_HONEST);
+    let first_remaining = writable_duplicate.accounts.len() - 3;
+    writable_duplicate.accounts[first_remaining + 1] = AccountMeta::new(f.source, false);
+    let before = instruction_snapshot(&f, &writable_duplicate);
+    let result = process(&mut f, &writable_duplicate);
+    let logs = f.svm.logs();
+
+    assert_custom_error(&result, ConflictingDuplicateRouteMeta::CODE);
+    assert!(
+        !logs
+            .iter()
+            .any(|line| line == &format!("Program {} invoke [2]", f.route_program)),
+        "a duplicate writable route must be rejected before route CPI: {logs:#?}",
+    );
+    assert_instruction_rolled_back(&result, &before);
+
+    // Conflicting read-only/writable flags remain rejected for the separate
+    // privilege-union reason: the committed per-position flags would not
+    // describe the callee's effective privilege.
     let mut execute = execute_ix(&f, ROUTE_HONEST);
-    let first_remaining = execute.accounts.len() - 3;
     execute.accounts[first_remaining + 1] = AccountMeta::new_readonly(f.source, false);
 
     // Execute data is tag, intent index, route-data length, 17-byte route

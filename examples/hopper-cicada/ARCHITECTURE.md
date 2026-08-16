@@ -91,9 +91,12 @@ account still being live.
 Commits to the target program, route bytes, account order, duplicates, and
 writable/signer flags.
 
-Duplicate positions must carry identical flags. The SVM unions privileges for
-duplicate Pubkeys, so mixed flags would make the apparent per-position envelope
-weaker than the privilege the callee actually receives.
+Duplicate positions must be read-only and carry identical signer flags. The SVM
+unions privileges for duplicate Pubkeys, so mixed flags would make the apparent
+per-position envelope weaker than the privilege the callee actually receives.
+Hopper's safe deduplicated CPI tier also rejects repeated writable metas, so
+Cicada rejects them during route validation instead of admitting a route that
+cannot execute.
 
 ### Program mode
 

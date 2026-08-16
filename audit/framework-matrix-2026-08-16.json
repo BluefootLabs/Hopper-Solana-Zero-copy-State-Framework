@@ -1,0 +1,123 @@
+{
+  "schema": "hopper.framework-matrix-reference.v1",
+  "recordedOn": "2026-08-16",
+  "evidenceClass": "clean local same-behavior benchmark archive",
+  "source": {
+    "hopper": {
+      "repository": "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework",
+      "commit": "8696640aad613b081c66e77f13ff679c6d4d1967",
+      "clean": true
+    },
+    "hopperBench": {
+      "repository": "https://github.com/BluefootLabs/hopper-bench",
+      "commit": "af5bc95961a8a8b807a194a7d9fd1cd1249393c5",
+      "clean": true,
+      "evidenceCarrierCommit": "7ab6a3ef6a5ecb2d3a9787f846151ace13d336b2",
+      "evidenceSet": "framework-vaults-current-2026-08-16",
+      "trackedEvidencePath": "evidence/framework-vaults-current-2026-08-16"
+    }
+  },
+  "runner": {
+    "publishable": true,
+    "diagnostic": false,
+    "freshBuildRequired": true,
+    "artifactsAbsentBeforeBuild": true,
+    "sampleCount": 8,
+    "successfulStateParity": true,
+    "rejectionGatesPassed": 30,
+    "rejectionGatesTotal": 30,
+    "sharedProgramId": "33333333333333333333333333333333333333333333"
+  },
+  "toolchain": {
+    "hostRust": "1.96.0",
+    "cargoBuildSbf": "4.1.0",
+    "platformTools": "v1.54",
+    "sbfRustc": "1.89.0-dev",
+    "molluskSvm": "0.15.0",
+    "agaveExecutionCoreCrates": "4.2.1"
+  },
+  "frameworks": [
+    {
+      "name": "Hopper",
+      "source": "8696640aad613b081c66e77f13ff679c6d4d1967",
+      "depositCu": 1578,
+      "depositDeltaVsHopper": 0,
+      "withdrawCu": 424,
+      "withdrawDeltaVsHopper": 0,
+      "binaryBytes": 9032
+    },
+    {
+      "name": "Pinocchio",
+      "version": "0.11.2",
+      "registryChecksumSha256": "a6cababcb62a2e739c7078ae16eda02789a6e3edd21bbdded864e85c38a7914d",
+      "pinocchioSystemVersion": "0.6.1",
+      "pinocchioSystemRegistryChecksumSha256": "f3ae2ee67b42e2ac797dd88312da473c895660e270d8093e0ba2749b885b5778",
+      "depositCu": 3697,
+      "depositDeltaVsHopper": 2119,
+      "withdrawCu": 2542,
+      "withdrawDeltaVsHopper": 2118,
+      "binaryBytes": 7512
+    },
+    {
+      "name": "Quasar",
+      "version": "0.1.0 snapshot",
+      "source": "03617018c2665340abc63dc9f7becda55a25ce48",
+      "depositCu": 1755,
+      "depositDeltaVsHopper": 177,
+      "withdrawCu": 593,
+      "withdrawDeltaVsHopper": 169,
+      "binaryBytes": 5784
+    },
+    {
+      "name": "Anchor v2",
+      "version": "2.0.0-rc.1 unpublished alpha snapshot",
+      "source": "e8d0e47d3ad3825982a399ef9d2769bc1f124259",
+      "depositCu": 1785,
+      "depositDeltaVsHopper": 207,
+      "withdrawCu": 615,
+      "withdrawDeltaVsHopper": 191,
+      "binaryBytes": 6432
+    },
+    {
+      "name": "Star Frame",
+      "version": "0.30.0 snapshot",
+      "source": "6936d582a942760b67728059be651473645ee099",
+      "depositCu": 3837,
+      "depositDeltaVsHopper": 2259,
+      "withdrawCu": 2624,
+      "withdrawDeltaVsHopper": 2200,
+      "binaryBytes": 83216
+    }
+  ],
+  "twoWayRows": [
+    {
+      "name": "Hopper",
+      "authorizeCu": 359,
+      "missingSignatureCu": 67,
+      "counterAccessCu": 481
+    },
+    {
+      "name": "Pinocchio",
+      "authorizeCu": 2507,
+      "missingSignatureCu": 48,
+      "counterAccessCu": 2535
+    }
+  ],
+  "hashes": {
+    "archiveSha256": "c64af2460bcbfc0a9a3b8e5a7d8ecdbaa73ff34b7b5d20b0f17e89e44a84f747",
+    "provenanceSha256": "79348c2b4e5faded9d97445e1706ede6277e274022932df35ba87815cf8b8a4b",
+    "reportJsonSha256": "a79cf75ce8cdfd6fe7ae12b70b03a9242e11fa59b5029bd02318c770d6acbabe",
+    "reportCsvSha256": "44bee32e3d009dbcb494f1f22a653382597adcaf9a65dd47fca6c776a3830eb5"
+  },
+  "claimBoundary": {
+    "supports": "fixture-specific CU and binary-size comparisons for the recorded deposit, withdraw, authorize, missing-signature, and counter-access workloads",
+    "doesNotSupport": [
+      "a universal framework performance ranking",
+      "an independent security audit",
+      "a clean Cicada SBF release attestation",
+      "Mainnet readiness",
+      "crate publication",
+      "transaction-v1 activation"
+    ]
+  }
+}

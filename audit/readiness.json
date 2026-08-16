@@ -28,7 +28,7 @@
     {
       "id": "unsafe-invariants",
       "path": "docs/UNSAFE_INVARIANTS.md",
-      "sha256": "409280ce80d6a63ded480ee1b1533aff028296a45b11ff90ba4845cfdad40386",
+      "sha256": "f4a2b45c4db9ac7c3828c41b036270215afb0222b175c3a97bcd69bb0f08d37a",
       "required": true,
       "description": "unsafe-code inventory and proof obligations"
     },
@@ -49,16 +49,23 @@
     {
       "id": "release-evidence",
       "path": "docs/RELEASE_EVIDENCE.md",
-      "sha256": "819fdb21885c2cc16ab50cf775e7c636fc50927ec7f18d432f4a2a4cd848519f",
+      "sha256": "5c793ef67ca5d99eb542ec0e05f62e99fc6ede08abd26fd6c6593fef1cebdd3a",
       "required": true,
       "description": "binary, fuzz, publication-train, and benchmark evidence boundaries"
     },
     {
       "id": "benchmark-method",
       "path": "BENCHMARKS.md",
-      "sha256": "25d00ce13bc1420415f5eeb99087b5f1b1fcf6de6062ef9068d7fbabb9570ed2",
+      "sha256": "5c748d8eaee3a552f0c0718cfd99d04b89e9efb14ae553ab794397bc0b391b0b",
       "required": true,
-      "description": "benchmark method and claim boundaries"
+      "description": "benchmark method, clean pinned measurements, and claim boundaries"
+    },
+    {
+      "id": "framework-matrix-current",
+      "path": "audit/framework-matrix-2026-08-16.json",
+      "sha256": "45537af0ae81e1700b5f23fa4dfd80f306aada4d63767f098e2fdd533579ee56",
+      "required": true,
+      "description": "content-addressed reference to the clean five-framework benchmark archive"
     },
     {
       "id": "network-baseline",
@@ -70,14 +77,14 @@
     {
       "id": "readiness-dossier",
       "path": "docs/AUDIT_READINESS_DOSSIER_2026-08-15.md",
-      "sha256": "4ecf2b6ed1b520e98a5b4ae4610a34953167e0949ecb8d2708d21dcc23519cd0",
+      "sha256": "88bd203dd3961545ca4bb1a7bfb9585b6637cebf65275f949bee373ad26769f1",
       "required": true,
       "description": "scope, peer parity, gaps, and audit handoff"
     },
     {
       "id": "zero-copy-peer-audit",
       "path": "docs/ZERO_COPY_FRAMEWORK_AUDIT_2026-08-15.md",
-      "sha256": "be5f24dc03849dab5ee24921fec0fe1c10207e4f302d90eba0d91dda34fdf26c",
+      "sha256": "929145dfc8501519e6c87b159778ed2f24ffc61b21163278283f80f3cd30d59b",
       "required": true,
       "description": "pinned zero-copy peers, release status, parity gates, and flagship validation"
     },
@@ -190,9 +197,9 @@
     {
       "id": "peer-benchmark",
       "severity": "high",
-      "status": "open",
+      "status": "closed",
       "releaseBlocking": true,
-      "description": "same-fixture Hopper, Anchor v2, Quasar, Pinocchio and Star Frame harness passes diagnostically; clean committed results are not yet archived"
+      "description": "clean same-fixture Hopper, Anchor v2, Quasar, Pinocchio and Star Frame evidence is retained for Hopper 8696640 and benchmark source af5bc95 at benchmark evidence-carrier commit 7ab6a3e; all 30 rejection gates passed and the archive ZIP SHA-256 is c64af2460bcbfc0a9a3b8e5a7d8ecdbaa73ff34b7b5d20b0f17e89e44a84f747"
     },
     {
       "id": "sbf-clean-attestation",

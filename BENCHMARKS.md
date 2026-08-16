@@ -64,28 +64,52 @@ Git repository/revision, package name/version, Cargo lock resolution, registry
 checksums, release-profile equality, source cleanliness, artifact freshness,
 and archive hashes.
 
-### Current source diagnostic, not release evidence
+### Current clean five-framework evidence (2026-08-16)
 
-A fresh local diagnostic run on 2026-08-16 produced the rows below with Rust
-1.96, Mollusk 0.15.0 backed by Agave/SVM 4.2.1 execution crates, and
-`cargo-build-sbf 4.0.0`. Both source trees were dirty and the run reused
-pre-existing SBF artifacts, so these numbers must not be copied into release
-marketing. They demonstrate that the corrected current-runtime harness
-executes all five fixtures and parity gates; only a clean committed CI archive
-can replace the release-facing snapshot. Moving the host runner from Mollusk
-0.10.3 to 0.15.0 left every row unchanged in this diagnostic.
+The strict runner completed from clean committed source at Hopper
+`8696640aad613b081c66e77f13ff679c6d4d1967` and `hopper-bench`
+`af5bc95961a8a8b807a194a7d9fd1cd1249393c5`. Provenance records
+`publishable: true`, `diagnostic: false`, a required fresh build, and an empty
+artifact set before the build. All 30 of 30 cross-framework rejection gates
+passed under the shared program id and the report used 8 samples.
 
-| Framework | Deposit CU | Withdraw CU | Binary bytes |
+The run used host Rust 1.96.0, `cargo-build-sbf 4.1.0`, platform-tools v1.54,
+SBF rustc 1.89.0-dev, Mollusk 0.15.0, and Agave/SVM execution-core crates at
+4.2.1. Deposit and withdraw are the behavior-identical five-way rows:
+
+| Framework | Deposit CU | Δ vs Hopper | Withdraw CU | Δ vs Hopper | Binary bytes |
+|---|---:|---:|---:|---:|---:|
+| Hopper | 1,578 | 0 | 424 | 0 | 9,032 |
+| Quasar 0.1 snapshot | 1,755 | +177 | 593 | +169 | 5,784 |
+| Anchor v2 alpha snapshot | 1,785 | +207 | 615 | +191 | 6,432 |
+| Pinocchio 0.11.2 | 3,697 | +2,119 | 2,542 | +2,118 | 7,512 |
+| Star Frame 0.30 snapshot | 3,837 | +2,259 | 2,624 | +2,200 | 83,216 |
+
+The fixture also has three behavior-identical two-way rows. They remain
+two-way because the other three programs do not implement those operations:
+
+| Framework | Authorize CU | Missing-signature CU | Counter-access CU |
 |---|---:|---:|---:|
-| Hopper | 1,573 | 432 | 8,992 |
-| Quasar 0.1 snapshot | 1,754 | 585 | 5,736 |
-| Anchor v2 alpha snapshot | 1,785 | 606 | 6,344 |
-| Pinocchio 0.11.2 | 3,697 | 2,542 | 7,512 |
-| Star Frame snapshot | 3,835 | 2,605 | 83,024 |
+| Hopper | 359 | 67 | 481 |
+| Pinocchio 0.11.2 | 2,507 | 48 | 2,535 |
 
-The diagnostic archive is owned by `hopper-bench`; it is not a publishable
-artifact. The clean runner must report `publishable: true` and retain its ZIP
-and checksum before Hopper makes a current comparative performance claim.
+The benchmark repository retains the evidence set
+`framework-vaults-current-2026-08-16` at evidence-carrier commit
+`7ab6a3ef6a5ecb2d3a9787f846151ace13d336b2`. This carrier commit is distinct
+from the clean benchmark source pin recorded above. Its ZIP SHA-256 is
+`c64af2460bcbfc0a9a3b8e5a7d8ecdbaa73ff34b7b5d20b0f17e89e44a84f747`;
+the provenance, JSON report, and CSV report hashes are recorded in
+[`audit/framework-matrix-2026-08-16.json`](audit/framework-matrix-2026-08-16.json).
+
+This closes the clean peer-benchmark evidence gap for these exact source,
+toolchain, and fixture pins. It does not establish a universal framework
+ranking: Quasar is the smallest binary in this matrix, Pinocchio is cheaper
+on the missing-signature failure row, and every number is workload-specific.
+A benchmark-relevant framework source, dependency, toolchain, fixture, or
+runner change requires a new clean archive. The archive is benchmark evidence,
+not an independent audit,
+a Cicada SBF release attestation, crate publication, Mainnet readiness, or
+transaction-v1 activation.
 
 ## Primitive CU Results (Mollusk, 2026-07-09)
 

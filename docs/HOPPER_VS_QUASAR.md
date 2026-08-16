@@ -144,14 +144,15 @@ on Quasar's engineering, which is real.
   pinned in the same pass. The framework audits itself.
 - **Benchmark culture.** Quasar's cross-framework benchmark work is currently
   an open draft ([#497](https://github.com/blueshift-gg/quasar/pull/497)), not
-  a released result. Hopper's older pinned matrix remains a dated measurement,
-  not evidence about Quasar's current release branch.
-  Hopper's older `hopper-bench` matrix (vault four-way re-measured
-  2026-07-09, router three-way 2026-07-07) includes Quasar and measured Hopper
-  lower on the Quasar-implemented vault rows and the 1–3-hop router rows. It
-  is historical fixture evidence, not a current release-line ranking. Do not
-  repeat its deltas until the clean, same-behavior five-way archive is
-  committed. See `BENCHMARKS.md` for the dated rows and provenance caveats.
+  a released result. Hopper's clean 2026-08-16 five-way fixture pins Quasar's
+  `0361701` 0.1 snapshot and reports Hopper/Quasar deposit at 1,578/1,755 CU,
+  withdraw at 424/593 CU, and binaries at 9,032/5,784 bytes. All 30 parity
+  gates passed from clean commits. That is fixture-specific evidence: Hopper
+  is lower-CU on these two rows, while Quasar has the smaller binary. See
+  `BENCHMARKS.md` and
+  [`audit/framework-matrix-2026-08-16.json`](../audit/framework-matrix-2026-08-16.json)
+  for complete pins and provenance. The older four-way and router rows remain
+  historical evidence, not current release-line rankings.
 
 For the pinned release-branch audit, peer matrix, and Cicada validation, see
 [the 2026-08-15 zero-copy framework audit](ZERO_COPY_FRAMEWORK_AUDIT_2026-08-15.md).

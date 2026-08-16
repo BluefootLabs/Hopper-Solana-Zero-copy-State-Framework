@@ -144,12 +144,14 @@ release profile, SBF toolchain, and Mollusk runner.
 
 The runner hard-fails on successful-state divergence, unsigned deposit or
 withdraw, wrong-PDA deposit or withdraw, a pin/lock mismatch, nonempty strict
-build output, or a dirty source tree. A release artifact snapshots the exact
-sources and lockfiles and carries its own ZIP checksum. This page intentionally
-does not repeat the older four-way or three-way numbers: the five-way harness
-must first be run from clean committed Hopper and benchmark trees and its
-archive retained. Until that artifact exists, the honest result is “benchmark
-implementation complete; publication evidence pending.”
+build output, or a dirty source tree. The clean 2026-08-16 run retained the
+required artifact from Hopper `8696640` and benchmark source `af5bc95`:
+successful-state parity checks and all 30 rejection gates passed, with Hopper
+at 1,578 deposit CU, 424 withdraw CU, and 9,032 binary bytes. The complete
+five-way rows, two-way rows, toolchain, and archive SHA are bound in
+[`audit/framework-matrix-2026-08-16.json`](../audit/framework-matrix-2026-08-16.json).
+This closes the clean peer-benchmark evidence gap for that fixture only; it is
+not a universal speed, cost, or binary-size ranking.
 
 Historical primitive, vault, router, and public-cluster measurements remain in
 `BENCHMARKS.md` with their dates and methods. They can motivate engineering

@@ -162,10 +162,12 @@ program's deployed bytecode; an upgradeable route program can still change
 behavior at the same address. A production deployment should optionally bind
 activation to a Grillo-verified binary/deployment commitment.
 
-Ordered duplicate accounts remain supported only when every occurrence uses
-identical signer and writable flags. Solana unions privileges across duplicate
-Pubkeys during CPI, so conflicting flags are rejected rather than allowing the
-committed per-position envelope to understate the callee's effective privilege.
+Ordered duplicate accounts remain supported only when every occurrence is
+read-only and uses identical signer flags. Solana unions privileges across
+duplicate Pubkeys during CPI, while Hopper's safe deduplicated CPI tier rejects
+repeated writable metas. Cicada therefore rejects both conflicting aliases and
+all writable aliases before CPI instead of accepting an envelope that is unsafe
+or cannot execute.
 
 ### Trusted program
 

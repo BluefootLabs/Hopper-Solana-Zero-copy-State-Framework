@@ -161,7 +161,28 @@ registries and upstream status before using them in release copy.
 | Builds on stable Rust | Yes (pinned 1.96.0) | Yes on the 0.1 release line (Rust 1.89) | Yes | Yes | `rust-toolchain.toml` |
 | Soundness/correctness record | Hopper's internally found classes are regression-pinned | The July snapshot recorded #234, #238, #239, #240, and #242; consult the pinned current audit for disposition | v2 Slab classes #4603/#4616 were fixed May–June 2026; active remediation continued at the pinned snapshot | Consult the pinned upstream review records | Hopper pins named classes in `crates/hopper-runtime/tests/competitor_bug_classes.rs` + `crates/hopper-core/tests/competitor_bug_classes.rs`; this row is not a claim that any live tracker has zero issues |
 | Competitor-bug-class regression suite (bug class → structural guard → pinned test) | Yes | No | No | No | the two `competitor_bug_classes.rs` suites above; authoring the suite also found and fixed Hopper's own `safe_close` aliased-destination bug |
-| Reproducible cross-framework CU benchmark with pinned provenance | Historical Hopper fixtures are published; the current five-way rerun is diagnostic until both trees are clean | No comparative artifact found in the pinned snapshot | Planned work was not published at the pinned snapshot | No framework comparison artifact found in the pinned snapshot | `hopper-bench` results + provenance blocks in `BENCHMARKS.md`; do not publish replacement numbers before the clean archive exists |
+| Reproducible cross-framework CU benchmark with pinned provenance | Yes: clean five-way same-behavior archive for Hopper `8696640` and benchmark source `af5bc95` | Included as the pinned 0.1 snapshot; no upstream comparative artifact was found at the audit pin | Anchor v2 alpha is included; its own planned comparison was not published at the audit pin | Pinocchio 0.11.2 is included; no upstream framework comparison artifact was found at the audit pin | [`audit/framework-matrix-2026-08-16.json`](audit/framework-matrix-2026-08-16.json) + `BENCHMARKS.md`; fixture-specific evidence, not a universal ranking |
+
+### Clean same-behavior benchmark snapshot
+
+The 2026-08-16 strict run used clean committed Hopper and benchmark trees,
+fresh SBF artifacts, one program id, one state/seed contract, 8 samples, and
+passed all 30 rejection gates. The five-way rows are:
+
+| Framework | Deposit CU | Withdraw CU | Binary bytes |
+|---|---:|---:|---:|
+| Hopper | 1,578 | 424 | 9,032 |
+| Quasar 0.1 snapshot | 1,755 | 593 | 5,784 |
+| Anchor v2 alpha snapshot | 1,785 | 615 | 6,432 |
+| Pinocchio 0.11.2 | 3,697 | 2,542 | 7,512 |
+| Star Frame 0.30 snapshot | 3,837 | 2,624 | 83,216 |
+
+The archive SHA-256 is
+`c64af2460bcbfc0a9a3b8e5a7d8ecdbaa73ff34b7b5d20b0f17e89e44a84f747`.
+These numbers describe this vault fixture only. Quasar emits the smallest
+binary in the matrix, and the separate Hopper/Pinocchio missing-signature row
+is 67/48 CU. See `BENCHMARKS.md` for the complete method, two-way rows, source
+pins, and claim boundary.
 
 ---
 

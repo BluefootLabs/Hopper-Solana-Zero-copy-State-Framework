@@ -31,7 +31,7 @@ path in the marker. The workflow then uploads the `.so`, manifest, and
 attestation together. A previous `target/deploy` artifact cannot enter this
 gate, including when a reproducible rebuild is byte-identical to it.
 
-### Current working-tree diagnostic
+### Historical working-tree diagnostic
 
 On 2026-08-16, the post-hardening and post-CPI-revalidation source was built
 twice with local `cargo-build-sbf 4.0.0` / platform-tools 1.53 into the isolated
@@ -49,13 +49,30 @@ program-shape gate, 160 systems tests, and trybuild after the writable-mint,
 native-aware lamport, and typed external/interface post-CPI revalidation
 closures.
 
-This remains diagnostic evidence because the source tree is uncommitted. The
-local host also lacks a Python runtime, so it did not create the JSON
-attestation. The required clean-checkout CI lanes must still regenerate and
-upload the binary, manifest, and attestation together. `cargo-build-sbf` also
-reports that Cicada's combined `cdylib` and host-test `lib` crate types preclude
-LTO; the recorded artifact is release-optimized but must not be described as an
-LTO build.
+This is retained only as historical diagnostic evidence. It predates the later
+Cicada repeated-writable-route-alias admission fix and was not built from a
+clean committed checkout, so it does not attest the current source. The local
+host also lacked a Python runtime, so it did not create the JSON attestation.
+The required clean-checkout CI lanes must still regenerate and upload the
+current binary, manifest, and attestation together.
+`cargo-build-sbf` also reported that Cicada's combined `cdylib` and host-test
+`lib` crate types preclude LTO; the recorded artifact is release-optimized but
+must not be described as an LTO build.
+
+### Current source-frozen local diagnostic
+
+After the repeated-writable-route-alias closure, a fresh local
+`cargo-build-sbf 4.1.0` build produced a 167,680-byte Cicada ELF with SHA-256
+`ac8ec1d76b4f85a5515dc446536bafccabe1c62b8ff46a13a662971b785da0e9`.
+The source-frozen run passed 21 of 21 host tests, 22 of 22 strict compiled-SBF
+lifecycle/adversarial tests, targeted all-target clippy with warnings denied,
+and the full binary-backed `hopper publish-check --full`: all 3 layout anchors,
+program-shape, documentation, feature, token, client, fuzz, artifact, Solana
+shape, 160 systems tests, and trybuild gates passed.
+
+This is current local diagnostic evidence, not a clean-checkout CI attestation.
+The required pinned and forward SBF lanes must still rebuild from the committed
+source and upload the ELF, manifest, and attestation together before release.
 
 ## Cicada manifest-fuzz evidence
 
@@ -81,11 +98,8 @@ states. Unknown or modified cases and invariant names fail closed.
 
 This report is host semantic evidence, not 698 compiled-SBF transactions. The
 compiled-SBF Cicada lifecycle suite remains the transaction/runtime evidence
-lane. The doc-hidden host probe module is excluded from Solana builds. The
-current post-CPI-revalidation production ELF is the 176,832-byte artifact and
-SHA-256
-`c21e02caafb4346a402b8f8cf86535790af448411c6fa7d12133b478bbf64150`
-recorded above; C3 does not require an alternate feature-built program.
+lane. The doc-hidden host probe module is excluded from Solana builds. C3 does
+not require an alternate feature-built program.
 
 ## Publication train evidence
 
@@ -112,11 +126,40 @@ later with `--start-at <package>`.
 
 ## Cross-framework benchmark evidence
 
-The sibling `hopper-bench` repository's `run-current-matrix.ps1` now refuses a
-dirty Hopper tree, a dirty benchmark tree, and cached-only binaries by default.
-Its successful strict run creates a hash manifest and compressed evidence
-archive. The manual benchmark workflow runs from fresh checkouts and uploads the
-archive only after provenance reports `publishable: true`.
+The sibling `hopper-bench` repository's strict runner completed on 2026-08-16
+from clean committed Hopper
+`8696640aad613b081c66e77f13ff679c6d4d1967` and benchmark source
+`af5bc95961a8a8b807a194a7d9fd1cd1249393c5`. Provenance reports
+`publishable: true`, `diagnostic: false`, `freshBuildRequired: true`, and
+`artifactsAbsentBeforeBuild: true`. The run used one program id, 8 samples,
+passed successful-state parity checks, and passed all 30 rejection gates.
 
-Diagnostic runs remain available with `-Diagnostic`. `-NoBuild` is deliberately
-restricted to diagnostic mode so a cached `.so` cannot become release evidence.
+| Framework | Deposit CU | Withdraw CU | Binary bytes |
+|---|---:|---:|---:|
+| Hopper | 1,578 | 424 | 9,032 |
+| Quasar 0.1 snapshot | 1,755 | 593 | 5,784 |
+| Anchor v2 alpha snapshot | 1,785 | 615 | 6,432 |
+| Pinocchio 0.11.2 | 3,697 | 2,542 | 7,512 |
+| Star Frame 0.30 snapshot | 3,837 | 2,624 | 83,216 |
+
+The evidence ZIP SHA-256 is
+`c64af2460bcbfc0a9a3b8e5a7d8ecdbaa73ff34b7b5d20b0f17e89e44a84f747`.
+The provenance, JSON report, and CSV report hashes are bound in
+[`audit/framework-matrix-2026-08-16.json`](../audit/framework-matrix-2026-08-16.json).
+The full archive is tracked by `hopper-bench` at evidence-carrier commit
+`7ab6a3ef6a5ecb2d3a9787f846151ace13d336b2`; that carrier is distinct from
+the clean benchmark source pin. This repository tracks the small
+content-addressed reference so readiness checks can bind the result without
+duplicating benchmark binaries.
+
+This closes the clean committed peer-benchmark blocker for these exact pins.
+It is fixture-specific benchmark evidence, not a universal performance
+ranking, an independent audit, a clean Cicada SBF release attestation, crate
+publication, Mainnet readiness, or transaction-v1 activation. Diagnostic runs
+remain available with `-Diagnostic`, and `-NoBuild` remains restricted to
+diagnostic mode. Any measured framework source, dependency, toolchain,
+fixture, or runner change requires a new clean archive.
+
+The manual benchmark workflow can reproduce and upload the same archive class
+from fresh checkouts, but this local clean result must not be described as a CI
+run or a CI SBF attestation.

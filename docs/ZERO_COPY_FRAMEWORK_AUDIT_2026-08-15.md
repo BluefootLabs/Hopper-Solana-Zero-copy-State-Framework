@@ -19,8 +19,10 @@ turn an upstream benchmark into a Hopper measurement.
   differentiated, machine-enforced write/effect contract and broader state
   evolution model. Anchor leads in ecosystem maturity; Anchor v2 and Quasar
   have important zero-copy/DX ideas Hopper must measure and, where useful,
-  match. Hopper still needs an independent audit and current same-fixture peer
-  benchmarks.
+  match. A 2026-08-16 clean five-way archive now supplies the current
+  same-fixture benchmark for the pinned vault contract. Hopper still needs an
+  independent audit, and the benchmark does not establish universal
+  superiority.
 - **The internal Cicada review found and fixed concrete correctness defects.**
   The working tree now closes custody-adoption, Token-2022 restore, token-shape,
   mint-mutation, loader-authority, finalized-vault dusting, duplicate-meta, and
@@ -243,7 +245,7 @@ SDKs, macros, or to LiteSVM.
 | CPI safety | Strong declared policies plus canonical SPL Token and Token-2022 Cicada lifecycle/hostile-route checks | Keep the canonical rollback matrix release-blocking; add validator/RPC attribution for dynamic downstream effects |
 | IDL/clients | Broad target count and parity checks | Compile generated outputs continuously and add ABI-hash compatibility fixtures |
 | Testing/formal | Broad tests plus Kani/Miri/fuzz lanes and manifest-derived seeded plans | Cicada executes its corrected 698-case plan through a no-skip host semantic adapter; preserve the separate compiled-SBF transaction lane and expand the same truthful adapter/provenance model to other programs |
-| Profiling | Bench/profile/contention tools plus stable baseline budgets/diffs and a behavior-gated five-way fixture | Produce a clean committed benchmark artifact; keep byte ranges out of protocol-parallelism claims |
+| Profiling | Bench/profile/contention tools plus stable baseline budgets/diffs and a behavior-gated five-way fixture | The clean Hopper `8696640` / benchmark `af5bc95` archive is retained and content-addressed in [`audit/framework-matrix-2026-08-16.json`](../audit/framework-matrix-2026-08-16.json); rerun when a pin changes and keep byte ranges out of protocol-parallelism claims |
 | Release/security | Internal unsafe inventory and executable dossier | Independent audit, public remediation record, SBOM/advisory closure, reproducible 0.3 release |
 
 ## Cicada and Sentinel validation
@@ -265,8 +267,9 @@ code:
   `ImmutableOwner`, and enabled CPI Guard states are rejected at custody entry;
 - full mint bytes, including supply, are stable across route CPI;
 - signer/writable privilege escalation is rejected, with only the vault PDA
-  eligible as an added signer, conflicting duplicate metas rejected, and both
-  committed mints protected from writable remaining-account aliases;
+  eligible as an added signer, conflicting duplicate metas and every repeated
+  writable route address rejected, and both committed mints protected from
+  writable remaining-account aliases;
 - source and destination lamports obey native-aware floors across route CPI,
   preventing a signer-capable route from restoring token bytes after diverting
   rent or excess SOL through close-and-recreate;
@@ -293,7 +296,7 @@ code:
 | `cargo test -p hopper-sentinel` | 8 host flagship tests and 2 compiled-SBF refusal tests passed |
 | Grillo Sentinel suite | 4 passed |
 | `cargo test --workspace --locked --no-fail-fast` | passed in the encompassing 2026-08-15 audit run; this exercises workspace host tests but is not evidence that every example has a compiled-SBF adversarial suite |
-| Full binary-backed Cicada publish check | passed all 3 layout anchors, program-shape gates, 160 systems tests, and trybuild against two byte-identical isolated builds of the 176,832-byte ELF (`sha256:c21e02caafb4346a402b8f8cf86535790af448411c6fa7d12133b478bbf64150`) |
+| Full binary-backed Cicada publish check | passed all 3 layout anchors and every program-shape, documentation, feature, token, client, fuzz, artifact, Solana-shape, 160 systems, and trybuild gate against the current local 167,680-byte `cargo-build-sbf 4.1.0` ELF (`sha256:ac8ec1d76b4f85a5515dc446536bafccabe1c62b8ff46a13a662971b785da0e9`); this is source-frozen local evidence, not a clean CI attestation |
 
 The repository contains many demonstration programs beyond Cicada and
 Sentinel. Their workspace tests are green, but only the named flagship paths
@@ -327,9 +330,10 @@ not prove arbitrary downstream programs or issuers safe.
    actual host business-guard probes are not compiled-SBF transactions.
 3. Keep the closed Cicada canonical SPL/Token-2022 and hostile rollback matrix
    green, then archive public-cluster and validator-replay evidence.
-4. Commit both source trees and rerun the completed behavior-gated Hopper,
-   Anchor v2 alpha snapshot, Quasar 0.1, Star Frame, and Pinocchio matrix so the CU/binary
-   artifact records clean provenance.
+4. Keep the completed clean Hopper, Anchor v2 alpha snapshot, Quasar 0.1,
+   Star Frame, and Pinocchio matrix current. The 2026-08-16 archive closes the
+   evidence gap for its exact pins; rerun after source, dependency, toolchain,
+   fixture, or runner changes.
 5. Keep safe grow/fit migration and stable CU baseline/diff gates green; both
    parity items are implemented in this working tree.
 6. Keep C6 account-set based. Solana schedules by Pubkey today; byte-disjoint
