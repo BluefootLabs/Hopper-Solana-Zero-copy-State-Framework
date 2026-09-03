@@ -1,10 +1,11 @@
 # Migrating from Anchor to Hopper
 
-This guide targets published Anchor 1.x authoring, including its opt-in
-`AccountLoader` zero-copy path. Anchor v2 is a separate, unpublished
-`anchor-next` alpha: it is Pinocchio-backed, `no_std`, zero-copy by default,
-and has `Slab`/`PodVec` plus evolving typed CPI and verification tooling. Do
-not use this 1.x porting table as a comparison claim about v2.
+This guide targets stable Anchor 1.x authoring, including its opt-in
+`AccountLoader` zero-copy path. Anchor v2 is a separate line, published as
+`anchor-lang` 2.0.0-rc.1 but still self-described Alpha/unaudited: it is
+Pinocchio-backed, `no_std`, zero-copy by default, and has `Slab`/`PodVec`
+plus evolving typed CPI and verification tooling. Do not use this 1.x porting
+table as a comparison claim about v2.
 
 For the 1.x path, the macro spelling is deliberately familiar; the main
 mental-model differences are Hopper's mapped-state defaults and segment-level

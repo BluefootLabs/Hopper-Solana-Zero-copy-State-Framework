@@ -76,15 +76,39 @@ here rather than archaeology. Verified against `anza-xyz/agave` master:
 | Loaded account data | **8 CU per 32 KiB page** | `program-runtime/src/execution_budget.rs` (`DEFAULT_HEAP_COST`) |
 | Instruction data | **len / 4** | `cost_model.rs` (`INSTRUCTION_DATA_BYTES_COST`) |
 | Default requested CU | **200,000** | `execution_budget.rs` (`DEFAULT_INSTRUCTION_COMPUTE_UNIT_LIMIT`) |
-| Block limit | **100,000,000 CU** | SIMD-0286; Mainnet activation completed 2026-07-29 |
-| Per-account cap | **12,000,000 CU** | `MAX_WRITABLE_ACCOUNT_UNITS`; unchanged by SIMD-0286 |
+| Block limit (observed 2026-09-03) | **75,000,000 CU** | 300 ms regime × SIMD-0286 gate; see below |
+| Per-account cap (observed 2026-09-03) | **30,000,000 CU** | same derivation |
+
+**These two ceilings are not constants.**
+[SIMD-0525](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0525-reduce-slot-times.md)
+steps mainnet slot time down, and
+[Agave v4.2.2](https://github.com/anza-xyz/agave/blob/v4.2.2/runtime/src/slot_params.rs)
+rescales both ceilings with it so CU-per-second stays fixed at 250M. The static figures in
+`block_cost_limits.rs` (24M account / 60M block) are the **400 ms baseline**;
+the
+[SIMD-0286](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0286-raise-block-limits-to-100M.md)
+gate then scales both by 100/60:
+
+| Regime | base account / block | with the 100M gate |
+| --- | --- | --- |
+| 400 ms | 24M / 60M | 40M / 100M |
+| 350 ms (mainnet 2026-08-21) | 21M / 52.5M | 35M / 87.5M |
+| **300 ms (mainnet 2026-08-28, current)** | 18M / 45M | **30M / 75M** |
+| 250 ms | 15M / 37.5M | 25M / 62.5M |
+| 200 ms | 12M / 30M | 20M / 50M |
+
+So "100M blocks" is the 400 ms figure and was superseded a week after it
+activated. Hopper derives both ceilings from `SlotTimeRegime` and records the
+observed mainnet regime with a date (`MAINNET_OBSERVED_REGIME` /
+`MAINNET_OBSERVED_ON`) rather than hardcoding a number that silently rots.
 
 Two consequences worth internalizing:
 
 - **Write locks are counted, not priced by contention.** There is no
   per-account base fee: SIMD-0110 (per-account fee markets) is not
-  activated. What exists is the flat 300 CU per writable account plus the
-  12M per-account cap, and the scheduler's per-`Pubkey` serialization.
+  activated (SIMD-0110 was CLOSED unmerged, 2025-01-14). What exists is the
+  flat 300 CU per writable account plus the per-account cap (30M today), and
+  the scheduler's per-`Pubkey` serialization.
   "Local fee markets" today are an emergent effect of that cap and
   priority fees, not a price on the account.
 - **The scheduler serializes on whole accounts.** Agave's greedy

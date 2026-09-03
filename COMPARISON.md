@@ -14,15 +14,15 @@ A note on target status: the original matrix was verified 2026-07-07 and the
 peer cells below were corrected against the pinned 2026-08-15 source audit.
 Quasar's default branch/crate was still v0.0.0, but its active
 `0.1.0-release` branch is substantially ahead, uses stable Rust, and remains
-self-described beta/unaudited. Hopper's current public release is 0.2.1; this
-0.3.0 workspace is unreleased. Anchor v2 remains an `anchor-next` alpha whose
-official README says unaudited and not on crates.io; Anchor 1.1.2 is the
-published stable line. Use the pinned
+self-described beta/unaudited. This Hopper tree is the 0.3.0 release source;
+registry availability remains a release-time check. Anchor v2 remains
+self-described Alpha/unaudited, but `anchor-lang` 2.0.0-rc.1 and tag
+`v2.0.0-rc.1` were published 2026-08-12; Anchor 1.1.2 is the stable line.
+Use the pinned
 [2026-08-15 audit](docs/ZERO_COPY_FRAMEWORK_AUDIT_2026-08-15.md) rather than
 repeating this dated matrix as a permanent ranking. In the tables, “Anchor
-1.x / v2” deliberately separates the published stable behavior from the
-unpublished alpha; an unqualified statement about “Anchor” is not evidence
-about both.
+1.x / v2” deliberately separates stable 1.x behavior from the v2 release
+candidate; an unqualified statement about “Anchor” is not evidence about both.
 
 ## Reading the "Hopper implements" column
 
@@ -65,9 +65,9 @@ runtime it lowers to is in `crates/hopper-runtime/src/` or
 
 ## On-chain zero-copy collections
 
-Update 2026-08-15: Anchor v2 (the unpublished, self-described
-alpha/unaudited `anchor-next` line) now
-ships `Slab<H, T>` — a typed header plus length-prefixed Pod tail — and
+Update 2026-09-03: Anchor v2 (published as `anchor-lang` 2.0.0-rc.1, still
+self-described Alpha/unaudited) now
+ships `Slab<H, T>`, a typed header plus length-prefixed Pod tail, and
 bounded `PodVec<T, MAX>`, with `#[kani::proof]` coverage over relevant
 capacity arithmetic. Two
 bug classes were found and fixed in that surface during May–June 2026
@@ -156,7 +156,7 @@ registries and upstream status before using them in release copy.
 
 | Capability | Hopper | Quasar 0.1 release line | Anchor 1.x / v2 alpha | Pinocchio | Hopper implements / evidence |
 |---|---|---|---|---|---|
-| Published release on crates.io | Yes (0.2.1; this 0.3.0 workspace is unreleased) | Default package v0.0.0; 0.1 release branch not tagged/released at 2026-08-15 | Yes (stable 1.x); v2 alpha is source-only | Yes | [crates.io/crates/hopper-lang](https://crates.io/crates/hopper-lang) |
+| Release package | 0.3.0 source; confirm registry indexing at release time | Default package v0.0.0; 0.1 release branch not tagged/released at 2026-09-03 | Stable 1.x is published; v2 has `anchor-lang` 2.0.0-rc.1 | Published | [crates.io/crates/hopper-lang](https://crates.io/crates/hopper-lang) |
 | Audit posture | Internal review and executable evidence trail; no completed independent framework audit | Self-described "Beta … not audited" | Ecosystem audits; scope varies by version/component | Published Neodyme and Zellic review records | `docs/UNSAFE_INVARIANTS.md` and `audit/readiness.json`; external-audit preparation is not an independent review |
 | Builds on stable Rust | Yes (pinned 1.96.0) | Yes on the 0.1 release line (Rust 1.89) | Yes | Yes | `rust-toolchain.toml` |
 | Soundness/correctness record | Hopper's internally found classes are regression-pinned | The July snapshot recorded #234, #238, #239, #240, and #242; consult the pinned current audit for disposition | v2 Slab classes #4603/#4616 were fixed May–June 2026; active remediation continued at the pinned snapshot | Consult the pinned upstream review records | Hopper pins named classes in `crates/hopper-runtime/tests/competitor_bug_classes.rs` + `crates/hopper-core/tests/competitor_bug_classes.rs`; this row is not a claim that any live tracker has zero issues |

@@ -51,8 +51,10 @@ seed set, feature flags, release profile, and command line for every included
 framework.
 
 The current required matrix includes Hopper, crates.io Pinocchio 0.11.2,
-Quasar's pinned 0.1 release-line snapshot, Anchor v2's pinned unpublished alpha
-snapshot, and Star Frame's pinned snapshot. Deposit and withdraw are the only
+Quasar's pinned 0.1 release-line snapshot, a pinned pre-RC Anchor v2 alpha
+snapshot, and Star Frame's pinned snapshot. Anchor subsequently published
+`anchor-lang` 2.0.0-rc.1; that does not change what this archive measured.
+Deposit and withdraw are the only
 five-way workloads. Hopper and raw Pinocchio also expose authorize,
 missing-signature authorize, and counter-access rows; the other fixtures report
 those as `n/a` rather than synthesizing different behavior.
@@ -272,10 +274,10 @@ instruction.
 A version note on the Anchor column: it is measured against
 **anchor-lang 0.31.1**, the comparator this table was locked to.
 `anchor-lang` 1.1.2 is the current stable release (a 1.1.2 re-run is queued,
-and its binary-size row is expected to shrink), and an unpublished,
-Pinocchio-based **Anchor v2 alpha** exists on `anchor-next` whose in-repo
-benchmarks land at Quasar-level CU. Its own materials say alpha, unaudited, and
-not on crates.io. Read the Anchor
+and its binary-size row is expected to shrink). The Pinocchio-based
+**Anchor v2** line published `anchor-lang` 2.0.0-rc.1 on 2026-08-12; its
+materials still say Alpha/unaudited, and its in-repo benchmarks land at
+Quasar-level CU. Read the Anchor
 multiples below as measurements of shipped
 Anchor 0.31.1/1.x, with the shelf life that implies.
 
@@ -433,8 +435,8 @@ section below for why those numbers were un-deployable.
   is **26× smaller** (7.46 vs 190.11 KiB). Anchor's failure path is also
   expensive: a missing signer costs 2284 CU (8-byte discriminator hash +
   full `try_accounts` before the signer check) vs Hopper's 66 CU. **Shelf-life caveat:** these
-  multiples apply to shipped Anchor 0.31.1/1.x. The unpublished Anchor v2
-  alpha benchmarks at Quasar-level CU in its own repo, so if and when
+  multiples apply to shipped Anchor 0.31.1/1.x. The Anchor v2 release
+  candidate benchmarks at Quasar-level CU in its own repo, so if and when
   v2 becomes stable,
   "10× cheaper than Anchor" stops being a durable headline for any
   framework. The durable ground is winning within the zero-copy cluster

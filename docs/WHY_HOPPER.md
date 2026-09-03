@@ -11,8 +11,11 @@ Hopper is a policy-driven zero-copy runtime for Solana. Three things set it apar
 ## Where Hopper sits
 
 This dated summary uses the source pins in
-[`ZERO_COPY_FRAMEWORK_AUDIT_2026-08-15.md`](ZERO_COPY_FRAMEWORK_AUDIT_2026-08-15.md).
-Anchor stable and the unpublished Anchor v2 alpha are separate targets;
+[`ZERO_COPY_FRAMEWORK_AUDIT_2026-08-15.md`](ZERO_COPY_FRAMEWORK_AUDIT_2026-08-15.md)
+and the
+[`COMPETITIVE_REFRESH_2026-09-02.md`](COMPETITIVE_REFRESH_2026-09-02.md)
+correction. Anchor stable and the published Anchor v2 release candidate are
+separate targets;
 Quasar means its active `0.1.0-release` source line, not the older default
 branch.
 

@@ -5,13 +5,20 @@ unreleased Hopper 0.3.0 workspace at `c539bb6` plus the follow-up corrections
 in the working tree with the upstream default branches and official docs
 available on 2026-08-03.
 
-> **2026-08-15 update:** Anchor v2 is active on `anchor-next` but remains an
-> unpublished, unaudited alpha, and
+> **2026-08-15 update, corrected 2026-09-03:** Anchor v2 is active on
+> `anchor-next`, published as `anchor-lang` 2.0.0-rc.1, and remains a
+> self-described unaudited Alpha;
 > Quasar's active `0.1.0-release` branch is substantially ahead of its default
 > `0.0.0` branch. See the pinned
 > [zero-copy framework audit](ZERO_COPY_FRAMEWORK_AUDIT_2026-08-15.md). The
 > original dated findings below are retained where they describe the 08-03
 > snapshot.
+>
+> **2026-09-03 correction:** Anchor published `anchor-lang` 2.0.0-rc.1 and
+> tag `v2.0.0-rc.1` on 2026-08-12. Mainnet's current slot-derived cost
+> ceilings are 75M block / 30M per writable account, not the 100M/12M pair
+> asserted below. See
+> [COMPETITIVE_REFRESH_2026-09-02.md](COMPETITIVE_REFRESH_2026-09-02.md).
 
 ## Executive verdict
 
@@ -72,11 +79,12 @@ test command passes," not "190 suites," unless the counting method is defined.
 
 ### Corrections required
 
-1. `MAX_BLOCK_UNITS` was 60M, but SIMD-0286 activated on Mainnet on
-   2026-07-29 and raised it to 100M. `MAX_WRITABLE_ACCOUNT_UNITS` was recorded
-   as 24M; the live limit is 12M and did not change. The constants, docs, CLI
-   reference line, and a regression test now use 100M/12M. See the official
-   [100M CU Blocks upgrade](https://solana.com/upgrades/100m-cu-blocks).
+1. SIMD-0286 activated on Mainnet on 2026-07-29, but SIMD-0525 subsequently
+   made both ceilings slot-time-derived. At the 300 ms regime reverified
+   2026-09-03, `MAX_BLOCK_UNITS` is 75M and
+   `MAX_WRITABLE_ACCOUNT_UNITS` is 30M. Hopper now derives both from
+   `SlotTimeRegime`; see the
+   [reverified refresh](COMPETITIVE_REFRESH_2026-09-02.md).
 2. Agave bills unique present Pubkeys. Hopper's profile counts manifest role
    slots. Optional roles can be absent and `dup` roles can alias one key, but
    the contention account surface does not preserve enough runtime identity to
@@ -105,7 +113,7 @@ Versions are source snapshots, not claims about crates.io publication:
 | Hopper | workspace 0.3.0; public release 0.2.1 | Owned zero-dependency substrate plus macro/schema/client/verifier contract |
 | Quasar | default/crates 0.0.0; active `0.1.0-release` branch is beta/unaudited | Direct account views, capability wrappers, resize migrations, ABI/client/test/profiler tooling |
 | Pinocchio | source 0.11.x | Minimal `no_std` Solana SDK replacement and zero-copy entrypoint primitives |
-| Anchor | stable 1.1.2; unpublished `anchor-next` v2 alpha | Full-stack ecosystem; v2 adds default zero-copy state, Slab/PodVec, typed CPI borrows, and formal/adversarial lanes |
+| Anchor | stable 1.1.2; `anchor-lang` 2.0.0-rc.1 is published but still self-described Alpha/unaudited | Full-stack ecosystem; v2 adds default zero-copy state, Slab/PodVec, typed CPI borrows, and formal/adversarial lanes |
 | Star Frame | source 0.30.0 | Pinocchio-backed modular traits, zero-copy unsized types, IDL/Codama tooling |
 | Steel | source 4.0.9 | Lightweight macros/helpers and CLI over a smaller, explicitly unaudited surface |
 
@@ -212,11 +220,11 @@ The transaction-size upgrade is **not Mainnet-live as of 2026-08-03**.
   [SIMD-0296](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0296-larger-transactions.md)
   and [SIMD-0385](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0385-transaction-v1.md).
 
-The newly live Mainnet upgrade is different: SIMD-0286 raised the **block CU
-limit** from 60M to 100M on 2026-07-29. It did not change transaction bytes,
-the 12M writable-account CU cap, or the 100MB block account-data delta. Any
-statement that "Mainnet raised transaction size" currently conflates these two
-upgrades.
+SIMD-0286 activated on 2026-07-29, but Agave now composes that gate with
+SIMD-0525's slot-time table. At the 300 ms regime reverified 2026-09-03, the
+effective ceilings are **75M block / 30M per writable account**. This still did
+not change transaction bytes or the 100 MB block account-data delta. A
+statement that “Mainnet raised transaction size” conflates separate upgrades.
 
 ## Decision on the backlog
 

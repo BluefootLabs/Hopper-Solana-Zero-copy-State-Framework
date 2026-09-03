@@ -45,14 +45,13 @@ programs = []
 log = []
 cpi = ["hopper-runtime/cpi"]
 
-# SHA-256 backed layout_id generation. ON by default and powered by Hopper's
-# owned const SHA-256 implementation in hopper-native. Spartan programs turn
-# this off; `hopper_layout!` then hashes via the const FNV-1a-64 fallback below.
+# Compatibility feature retained for downstream manifests. Layout IDs always
+# use Hopper's const SHA-256 implementation: persisted ABI fingerprints must
+# not change when Cargo unifies a different feature set.
 sha2-layout-id = []
 
 # Anchor discriminator compat helpers (`anchor_discriminator`,
-# `anchor_account_discriminator`). These require SHA-256 by definition, so they
-# implicitly enable Hopper's SHA-256 layout-id path.
+# `anchor_account_discriminator`).
 # Drop them to shave the last bit of Anchor-adjacent surface.
 anchor-compat = ["sha2-layout-id"]
 

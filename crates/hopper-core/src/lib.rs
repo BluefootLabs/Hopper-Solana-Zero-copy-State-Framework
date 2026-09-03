@@ -100,57 +100,13 @@ pub use hopper_runtime as __runtime;
 
 /// Const SHA-256 helper for `hopper_layout!` layout ID generation.
 ///
-/// When the `sha2-layout-id` feature is off (i.e. under `spartan`), this
-/// falls back to a 32-byte buffer whose first 8 bytes are an FNV-1a-64
-/// digest of the input. The remaining 24 bytes are derived by repeatedly
-/// re-folding the same seed so macro sites that read beyond index 7 still
-/// see a well-defined, deterministic value. This keeps the `hopper_layout!`
-/// call site type-stable across feature flags.
+/// Layout IDs are persisted in account headers and manifests, so their hash
+/// algorithm must not depend on Cargo feature unification. The const SHA-256
+/// implementation is compile-time-only at macro call sites and therefore
+/// does not add hashing code to a program's runtime hot path.
 #[doc(hidden)]
 pub const fn __sha256_const(data: &[u8]) -> [u8; 32] {
-    #[cfg(feature = "sha2-layout-id")]
-    {
-        hopper_runtime::sha256::sha256(data)
-    }
-    #[cfg(not(feature = "sha2-layout-id"))]
-    {
-        __fnv_expand_const(data)
-    }
-}
-
-/// FNV-1a-64 const implementation used under `spartan`. Returns 32 bytes so
-/// the macro surface is unchanged: bytes[0..8] carry the primary digest,
-/// bytes[8..32] carry re-folded digests of the same input with a
-/// differentiating byte mixed in per block. This preserves "32 bytes of
-/// output" invariance without pretending the hash function is SHA-256.
-#[doc(hidden)]
-#[cfg(not(feature = "sha2-layout-id"))]
-pub const fn __fnv_expand_const(data: &[u8]) -> [u8; 32] {
-    const FNV_OFFSET: u64 = 0xcbf2_9ce4_8422_2325;
-    const FNV_PRIME: u64 = 0x0000_0100_0000_01b3;
-    let mut out = [0u8; 32];
-    let mut block: u8 = 0;
-    while block < 4 {
-        let mut h: u64 = FNV_OFFSET ^ (block as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15);
-        let mut i = 0;
-        while i < data.len() {
-            h ^= data[i] as u64;
-            h = h.wrapping_mul(FNV_PRIME);
-            i += 1;
-        }
-        let le = h.to_le_bytes();
-        let base = (block as usize) * 8;
-        out[base] = le[0];
-        out[base + 1] = le[1];
-        out[base + 2] = le[2];
-        out[base + 3] = le[3];
-        out[base + 4] = le[4];
-        out[base + 5] = le[5];
-        out[base + 6] = le[6];
-        out[base + 7] = le[7];
-        block += 1;
-    }
-    out
+    hopper_runtime::sha256::sha256(data)
 }
 
 /// Const string equality helper for BUMP_OFFSET field scanning.

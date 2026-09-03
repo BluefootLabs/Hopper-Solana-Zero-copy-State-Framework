@@ -2782,18 +2782,102 @@ pub mod cost_model {
     /// Lowered with `SetLoadedAccountsDataSizeLimit`.
     pub const DEFAULT_LOADED_ACCOUNTS_DATA_COST: u64 = 16_384;
 
-    /// Live mainnet-beta block CU limit. SIMD-0286 raised the limit from
-    /// 60,000,000 to 100,000,000; Mainnet activation completed 2026-07-29.
-    pub const MAX_BLOCK_UNITS: u64 = 100_000_000;
+    /// Slot-time regimes, and why the block/account ceilings are NOT
+    /// constants.
+    ///
+    /// SIMD-0525 reduces mainnet slot time in steps, and Agave rescales the
+    /// cost ceilings with it so CU-per-second stays fixed
+    /// (`runtime/src/slot_params.rs`, `SLOT_PARAMS_*`). A framework that
+    /// hardcodes one pair of numbers is wrong the moment the next step
+    /// activates — and was wrong before, if it copied the wrong regime.
+    ///
+    /// The static `block_cost_limits.rs` figures (24M account / 60M block)
+    /// are the **400 ms baseline**, not the live ceiling. On top of the
+    /// regime, the SIMD-0286 gate scales BOTH by 100/60
+    /// (`SlotParams::cost_limits(raise_block_limits_to_100m)`).
+    ///
+    /// | Regime | base account / block | with the 100M gate |
+    /// |---|---|---|
+    /// | 400 ms | 24M / 60M | 40M / 100M |
+    /// | 350 ms | 21M / 52.5M | 35M / 87.5M |
+    /// | 300 ms | 18M / 45M | **30M / 75M** |
+    /// | 250 ms | 15M / 37.5M | 25M / 62.5M |
+    /// | 200 ms | 12M / 30M | 20M / 50M |
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    pub enum SlotTimeRegime {
+        /// Genesis baseline, 400 ms slots.
+        Ms400,
+        /// SIMD-0525 step 1.
+        Ms350,
+        /// SIMD-0525 step 2.
+        Ms300,
+        /// SIMD-0525 step 3.
+        Ms250,
+        /// SIMD-0525 step 4.
+        Ms200,
+    }
 
-    /// Per-writable-account block CU cap: one hot account can absorb at
-    /// most this much of a block. `block_cost_limits.rs:33`
-    /// (`MAX_WRITABLE_ACCOUNT_UNITS`). This remains 12M after the 100M
-    /// block-limit activation.
+    impl SlotTimeRegime {
+        /// Base `(account_cost, block_cost)` before the SIMD-0286 scaling,
+        /// mirroring Agave's `SLOT_PARAMS_*` tables exactly.
+        pub const fn base_cost_limits(self) -> (u64, u64) {
+            match self {
+                Self::Ms400 => (24_000_000, 60_000_000),
+                Self::Ms350 => (21_000_000, 52_500_000),
+                Self::Ms300 => (18_000_000, 45_000_000),
+                Self::Ms250 => (15_000_000, 37_500_000),
+                Self::Ms200 => (12_000_000, 30_000_000),
+            }
+        }
+
+        /// Live `(per_writable_account_cu, block_cu)` for this regime.
+        ///
+        /// `raise_block_limits_to_100m` is the SIMD-0286 gate; when active
+        /// both figures scale by 100/60, exactly as
+        /// `SlotParams::cost_limits` does.
+        pub const fn cost_limits(self, raise_block_limits_to_100m: bool) -> (u64, u64) {
+            let (account, block) = self.base_cost_limits();
+            if raise_block_limits_to_100m {
+                (account * 100 / 60, block * 100 / 60)
+            } else {
+                (account, block)
+            }
+        }
+    }
+
+    /// The mainnet-beta slot-time regime this crate was last checked
+    /// against, and the date of that check.
+    ///
+    /// Dated on purpose: this is an OBSERVATION, not a protocol constant.
+    /// `reduce_slot_time_to_300ms` activated in epoch 1023 and took effect
+    /// at the first slot of epoch 1024 (2026-08-28); the next step
+    /// (`reduce_slot_time_to_250ms`) is live on testnet/devnet and not
+    /// staged on mainnet. Re-check with `hopper feature-gate` before
+    /// relying on the derived ceilings.
+    pub const MAINNET_OBSERVED_REGIME: SlotTimeRegime = SlotTimeRegime::Ms300;
+    /// ISO date of the [`MAINNET_OBSERVED_REGIME`] observation.
+    pub const MAINNET_OBSERVED_ON: &str = "2026-09-03";
+    /// Whether the SIMD-0286 100M gate was active at that observation.
+    pub const MAINNET_OBSERVED_100M_GATE: bool = true;
+
+    /// Block CU ceiling observed on mainnet-beta at
+    /// [`MAINNET_OBSERVED_ON`] — 75,000,000 under the 300 ms regime.
+    ///
+    /// NOT the 100,000,000 headline figure: that is the 400 ms regime's
+    /// scaled value, and mainnet left 400 ms on 2026-08-21.
+    pub const MAX_BLOCK_UNITS: u64 = MAINNET_OBSERVED_REGIME
+        .cost_limits(MAINNET_OBSERVED_100M_GATE)
+        .1;
+
+    /// Per-writable-account CU ceiling observed on mainnet-beta at
+    /// [`MAINNET_OBSERVED_ON`] — 30,000,000 under the 300 ms regime.
     ///
     /// This is the real "local fee market": there is no per-account base
-    /// fee (SIMD-0110 is unactivated), only this cap plus priority fees.
-    pub const MAX_WRITABLE_ACCOUNT_UNITS: u64 = 12_000_000;
+    /// fee (SIMD-0110 was closed unmerged), only this cap plus priority
+    /// fees. Note it moves with the slot regime like everything else.
+    pub const MAX_WRITABLE_ACCOUNT_UNITS: u64 = MAINNET_OBSERVED_REGIME
+        .cost_limits(MAINNET_OBSERVED_100M_GATE)
+        .0;
 
     /// Loaded-accounts-data cost for `bytes` of account data, rounded up
     /// to whole pages exactly as the cost model does.
@@ -6351,10 +6435,20 @@ mod tests {
     // Contention profile (C4)
     // -----------------------------------------------------------------------
 
+    /// Superseded 2026-09-03. This test used to assert 100M/12M, which was
+    /// wrong on BOTH terms: SIMD-0286's 100M is the 400 ms regime's scaled
+    /// block ceiling, and 12M is the 200 ms regime's UNSCALED account
+    /// ceiling — a pair that has never been live together. Mainnet moved to
+    /// 350 ms (2026-08-21) then 300 ms (2026-08-28), and SIMD-0525 rescales
+    /// both ceilings with slot time. The live pair is 30M/75M; the
+    /// derivation is pinned by `slot_regime_cost_limits_match_agave`.
     #[test]
-    fn contention_reference_limits_match_mainnet_after_simd_0286() {
-        assert_eq!(cost_model::MAX_BLOCK_UNITS, 100_000_000);
-        assert_eq!(cost_model::MAX_WRITABLE_ACCOUNT_UNITS, 12_000_000);
+    fn contention_reference_limits_match_mainnet_after_simd_0525() {
+        let (account, block) =
+            cost_model::MAINNET_OBSERVED_REGIME.cost_limits(cost_model::MAINNET_OBSERVED_100M_GATE);
+        assert_eq!(cost_model::MAX_BLOCK_UNITS, block);
+        assert_eq!(cost_model::MAX_WRITABLE_ACCOUNT_UNITS, account);
+        assert_eq!((account, block), (30_000_000, 75_000_000));
     }
 
     /// admin (signer, ro) / config (writable, has a declared byte range) /
@@ -6533,6 +6627,59 @@ mod tests {
             assert_eq!(profile.signers, signers);
             assert_eq!(profile.demotion_available, mutation_complete);
         }
+    }
+
+    /// The slot-regime table must mirror Agave's `SLOT_PARAMS_*` exactly,
+    /// including the SIMD-0286 100/60 scaling. Agave pins this itself with
+    /// `test_cost_limits_scaling_matches_simd_0525`; this is our copy of
+    /// that invariant, because getting it wrong publishes a false ceiling.
+    #[test]
+    fn slot_regime_cost_limits_match_agave() {
+        use cost_model::SlotTimeRegime as R;
+        // Base tables: (account, block) per regime, ungated.
+        assert_eq!(R::Ms400.base_cost_limits(), (24_000_000, 60_000_000));
+        assert_eq!(R::Ms350.base_cost_limits(), (21_000_000, 52_500_000));
+        assert_eq!(R::Ms300.base_cost_limits(), (18_000_000, 45_000_000));
+        assert_eq!(R::Ms250.base_cost_limits(), (15_000_000, 37_500_000));
+        assert_eq!(R::Ms200.base_cost_limits(), (12_000_000, 30_000_000));
+
+        // With the SIMD-0286 gate, both terms scale by 100/60.
+        assert_eq!(R::Ms400.cost_limits(true), (40_000_000, 100_000_000));
+        assert_eq!(R::Ms350.cost_limits(true), (35_000_000, 87_500_000));
+        assert_eq!(R::Ms300.cost_limits(true), (30_000_000, 75_000_000));
+        assert_eq!(R::Ms250.cost_limits(true), (25_000_000, 62_500_000));
+        assert_eq!(R::Ms200.cost_limits(true), (20_000_000, 50_000_000));
+
+        // CU/second is the invariant the rescaling preserves: every gated
+        // block ceiling divided by its slot time is 250M CU/s.
+        for (regime, ms) in [
+            (R::Ms400, 400u64),
+            (R::Ms350, 350),
+            (R::Ms300, 300),
+            (R::Ms250, 250),
+            (R::Ms200, 200),
+        ] {
+            let block = regime.cost_limits(true).1;
+            assert_eq!(block * 1000 / ms, 250_000_000, "regime {ms}ms");
+        }
+    }
+
+    /// The published ceilings are the OBSERVED mainnet regime's, not the
+    /// 400 ms headline numbers. 100,000,000 / 12,000,000 would both be
+    /// wrong: the first is the 400 ms gated block ceiling (mainnet left
+    /// 400 ms on 2026-08-21), the second is the 200 ms base account
+    /// ceiling (never live).
+    #[test]
+    fn published_ceilings_track_the_observed_mainnet_regime() {
+        assert_eq!(
+            cost_model::MAINNET_OBSERVED_REGIME,
+            cost_model::SlotTimeRegime::Ms300
+        );
+        assert!(cost_model::MAINNET_OBSERVED_100M_GATE);
+        assert_eq!(cost_model::MAX_BLOCK_UNITS, 75_000_000);
+        assert_eq!(cost_model::MAX_WRITABLE_ACCOUNT_UNITS, 30_000_000);
+        assert_ne!(cost_model::MAX_BLOCK_UNITS, 100_000_000);
+        assert_ne!(cost_model::MAX_WRITABLE_ACCOUNT_UNITS, 12_000_000);
     }
 
     #[test]

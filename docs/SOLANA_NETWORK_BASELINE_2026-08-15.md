@@ -1,24 +1,34 @@
-# Solana network baseline — reviewed 2026-08-16
+# Solana network baseline, reviewed 2026-08-17; corrected 2026-09-03
 
 This file is a dated compatibility baseline, not a prediction. “Live” means the
 Solana Foundation or the on-chain feature account confirms Mainnet activation.
 Targets and schedules remain “upcoming” until that happens.
 
+> **2026-09-03 correction:** SIMD-0525 made the block and per-account CU
+> ceilings slot-time-dependent. Mainnet is now in the 300 ms regime, so the
+> SIMD-0286-scaled ceilings are **75M block / 30M per writable account**, not
+> 100M/12M. See the
+> [reverified refresh](COMPETITIVE_REFRESH_2026-09-02.md) for the full table and
+> live feature observations.
+
 ## Confirmed Mainnet state
 
-| Change | Status on 2026-08-16 | Hopper consequence |
+| Change | Status reverified 2026-09-03 | Hopper consequence |
 |---|---|---|
-| 100M CU blocks (SIMD-0286) | **Live** since 2026-07-29, epoch 1009 | `hopper contention` uses 100M as the block ceiling. The per-writable-account ceiling remains 12M CU. |
+| SIMD-0286 cost-limit scaling | **Live** since 2026-07-29, epoch 1009; composed with the current 300 ms slot regime | `hopper contention` derives the observed **75M block / 30M per-account** ceilings from the regime and gate. |
 | Optimized Token Program / p-token (SIMD-0266) | **Live** | Existing token instructions remain compatible. Hopper must benchmark against the optimized program before publishing comparative CU claims. |
 | BLS pubkey registration (SIMD-0387) | **Live** | Validator-facing; it does not activate Alpenglow or change Hopper program execution semantics. |
 
-The 100M change raised only the total block CU ceiling. It did **not** raise the
-12M writable-account CU ceiling or the 100MB block account-data delta ceiling.
-That distinction is why Hopper reports both block capacity and hot-account
-contention instead of presenting 100M as an instruction budget.
+Agave composes its
+[slot-time parameters](https://github.com/anza-xyz/agave/blob/v4.2.2/runtime/src/slot_params.rs)
+with the SIMD-0286 feature. At 300 ms the base 18M-account/45M-block pair is
+scaled by 100/60 to 30M/75M. The separate 100 MB block account-data delta
+ceiling is unchanged. Hopper reports both compute ceilings and does not present
+the old 100M headline as an instruction budget.
 
-Agave v4.2.1 is the latest stable validator release as of this review. Hopper's
-host-side Solana dependencies and forward SBF lane are aligned to that release.
+Agave v4.2.2 is the stable validator pin used for the 2026-09-03 correction.
+Hopper's host-side Solana dependencies and forward SBF lane were aligned to
+v4.2.1 at the original review.
 The existence of a stable validator release still does not prove that every
 feature implemented in its source is active on Mainnet.
 

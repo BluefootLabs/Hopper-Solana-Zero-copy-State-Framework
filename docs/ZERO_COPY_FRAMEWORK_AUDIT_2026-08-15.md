@@ -5,12 +5,17 @@ Blueshift Quasar, Anza Pinocchio, Star Frame, Steel, and Hopper's Cicada and
 Sentinel flagship programs. It is not an external security audit and does not
 turn an upstream benchmark into a Hopper measurement.
 
+> **Reverified 2026-09-03:** Anchor published `anchor-lang` 2.0.0-rc.1 and
+> tag `v2.0.0-rc.1` on 2026-08-12. The pinned source findings remain useful,
+> but the original “not published” packaging claim was already stale. Current
+> competitor and network findings are in
+> [COMPETITIVE_REFRESH_2026-09-02.md](COMPETITIVE_REFRESH_2026-09-02.md).
+
 ## Executive result
 
-- **Anchor v2 is real but not published.** The `anchor-lang-v2` source exists
-  on `anchor-next`, but its official README says alpha, unaudited, not on
-  crates.io, and subject to breaking changes. Anchor's published stable line is
-  1.1.2, and the repository has no v2 release tag at this snapshot.
+- **Anchor v2 is published as a release candidate.** `anchor-lang`
+  2.0.0-rc.1 and tag `v2.0.0-rc.1` exist; its official README still labels
+  the line Alpha/unaudited and presents Anchor 1.1.2 as stable.
 - **Quasar's meaningful target is its `0.1.0-release` branch.** The default
   branch and crates.io package remain `0.0.0`, but evaluating only that branch
   misses its current CLI, client, migration, profiler, ABI, testing, and formal
@@ -34,7 +39,7 @@ turn an upstream benchmark into a Hopper measurement.
 | Project | Snapshot inspected | Release signal |
 |---|---|---|
 | Anchor stable | [`06d776a`](https://github.com/otter-sec/anchor/commit/06d776a2380885259558e3d2ff95f69842705d6a) | GitHub release `v1.1.2` |
-| Anchor v2 | [`e8d0e47`](https://github.com/otter-sec/anchor/commit/e8d0e47d3ad3825982a399ef9d2769bc1f124259) on `anchor-next` | Alpha/unaudited source only; `anchor-lang-v2` is not on crates.io and no v2 tag is present |
+| Anchor v2 | [`e8d0e47`](https://github.com/otter-sec/anchor/commit/e8d0e47d3ad3825982a399ef9d2769bc1f124259) on `anchor-next` | Pinned source snapshot; `anchor-lang` 2.0.0-rc.1 and tag `v2.0.0-rc.1` were published 2026-08-12; still Alpha/unaudited |
 | Quasar default | [`b0de7db`](https://github.com/blueshift-gg/quasar/commit/b0de7db4cd271654a2dcf78807dd865e98e0b339) | `0.0.0`, beta/unaudited |
 | Quasar release line | [`0361701`](https://github.com/blueshift-gg/quasar/commit/03617018c2665340abc63dc9f7becda55a25ce48) on [`0.1.0-release`](https://github.com/blueshift-gg/quasar/tree/0.1.0-release) | Source version `0.1.0`, beta/unaudited; no public tag/release at inspection time |
 | Pinocchio | [`adbd48d`](https://github.com/anza-xyz/pinocchio/commit/adbd48d12229ffa30d6fb3d3a8ff777fdb053b80) | Current crates.io line `0.11.2` |
