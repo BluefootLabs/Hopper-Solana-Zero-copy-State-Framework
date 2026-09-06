@@ -16,7 +16,7 @@
 //! hopper verify [<manifest>] [<.so>]                  Verify manifest integrity and ELF interface binding
 //! hopper verify --package <name>                      Infer manifest and SBF binary from a workspace package
 //! hopper publish-check --package <name>                Run release/source gates before publishing
-//! hopper publish-idl --manifest <p> --program-id <id> [--dry-run]  Publish Anchor IDL to the metadata PDA (zero Node deps)
+//! hopper publish-idl --manifest <p> --program-id <id> [--dry-run]  Publish Solana IDL v0.1.0 to the metadata PDA
 //! hopper solana-check [--all]                          Verify Hopper program crates are SBF-shaped
 //!
 //! hopper inspect <hex-data>                         Decode account header
@@ -376,8 +376,8 @@ fn cmd_explain_program_onchain(args: &[String]) {
         Err(e) => {
             eprintln!("hopper explain {program_id}: no on-chain Hopper manifest found ({e})");
             eprintln!();
-            eprintln!("Hint: publish a manifest with `hopper manager publish`, or pass a");
-            eprintln!("manifest file directly: `hopper explain program <manifest.json>`.");
+            eprintln!("Hint: Hopper has no generic publisher for the legacy manifest PDA.");
+            eprintln!("Pass a local manifest: `hopper explain program <manifest.json>`.");
             process::exit(1);
         }
     }
@@ -466,7 +466,7 @@ fn cmd_compile(args: &[String]) {
         eprintln!("  go            Go client SDK");
         eprintln!("  c             C client header");
         eprintln!("  rust-client   Off-chain Rust client (solana-sdk types)");
-        eprintln!("  idl           Anchor-style IDL JSON");
+        eprintln!("  idl           Hopper public IDL JSON");
         eprintln!("  codama        Codama-flavored JSON");
         eprintln!("  schema        Hopper program manifest JSON (from an existing manifest)");
         eprintln!("  manifest      GENERATE hopper.manifest.json from the package source");
@@ -537,7 +537,7 @@ fn cmd_compile(args: &[String]) {
         ),
         "idl" => (
             format!("{}", hopper_schema::codama::IdlJsonFromManifest(&prog)),
-            "Anchor-style IDL JSON",
+            "Hopper public IDL JSON",
         ),
         "codama" => (
             format!("{}", hopper_schema::codama::CodamaJsonFromManifest(&prog)),
@@ -2397,7 +2397,7 @@ fn print_compile_usage() {
     eprintln!("  go      Go client SDK");
     eprintln!("  c       C client header");
     eprintln!("  rust-client  Off-chain Rust client SDK");
-    eprintln!("  idl     Anchor-style IDL JSON");
+    eprintln!("  idl     Hopper public IDL JSON");
     eprintln!("  codama  Codama-flavored JSON");
     eprintln!("  schema  Hopper program manifest JSON");
     eprintln!();
@@ -2447,7 +2447,7 @@ fn print_usage() {
         "    hopper audit-check [--strict] [--json] Verify audit evidence, freshness, and blockers"
     );
     println!("    hopper publish-idl --manifest <path> --program-id <pubkey> [--dry-run]");
-    println!("                                           Publish the Anchor IDL through Program Metadata (zero Node deps)");
+    println!("                                           Publish Solana IDL v0.1.0 through Program Metadata (zero Node deps)");
     println!("    hopper solana-check [--all]            Check SBF crate shape and Hopper entrypoint invariants");
     println!("    hopper contention <manifest>           Declared write-lock/signature footprint per instruction");
     println!("                                           (--max-block-cost <CU> gates it in CI)");
@@ -2524,7 +2524,7 @@ fn print_usage() {
     println!("    hopper add [-i|-s|-e <name>]       Scaffold an instruction, state, or error into the current project");
     println!("    hopper build [--host|--sbf]        Build the current project (default: SBF)");
     println!("    hopper test                        Run the current project's host-side tests");
-    println!("    hopper deploy [--cluster <c>] [--keypair <p>] [--no-build]  Build and deploy the current SBF program");
+    println!("    hopper deploy [--dry-run] [--cluster <c>] [--keypair <p>] [--no-build]  Quote or deploy the current SBF program");
     println!(
         "    hopper upgrade --program-id <id> [--cluster <c>]  Upgrade a deployed program in place"
     );
@@ -3335,12 +3335,20 @@ fn cmd_receipt(args: &[String]) {
 }
 
 fn cmd_compat(args: &[String]) {
-    if args.len() < 2 {
-        eprintln!("Usage: hopper compat <v1-json> <v2-json>");
+    let (why, operands) = match args.first().map(String::as_str) {
+        Some("--why") => (true, &args[1..]),
+        _ => (false, args),
+    };
+    if operands.len() != 2 {
+        eprintln!("Usage: hopper compat [--why] <v1-json> <v2-json>");
         process::exit(1);
     }
-    let v1 = parse_or_exit(&args[0]);
-    let v2 = parse_or_exit(&args[1]);
+    if why {
+        cmd_explain_compat(operands);
+        return;
+    }
+    let v1 = parse_or_exit(&operands[0]);
+    let v2 = parse_or_exit(&operands[1]);
 
     let (m1, _f1) = to_manifest(&v1);
     let (m2, _f2) = to_manifest(&v2);
@@ -3582,7 +3590,7 @@ fn cmd_schema_export_family(args: &[String]) {
                 address: program_id,
             };
             if let Err(error) = projection.validate() {
-                eprintln!("cannot export a complete Anchor IDL: {error}");
+                eprintln!("cannot export a complete Solana IDL v0.1.0: {error}");
                 process::exit(1);
             }
             println!("{projection}");
@@ -4897,7 +4905,8 @@ fn fetch_manifest_json(program_id_str: &str, rpc_override: Option<&str>) -> Stri
                 "The program {} does not have an on-chain Hopper manifest.",
                 program_id_str
             );
-            eprintln!("To publish a manifest, use the hopper_manifest!() macro in your program.");
+            eprintln!("Hopper has no generic publisher for this legacy manifest PDA.");
+            eprintln!("Use an application-specific publisher, or pass a local manifest file.");
             process::exit(1);
         }
         Err(e) => {

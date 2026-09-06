@@ -94,6 +94,7 @@
 //! requires a separate source buffer + `SetData`-from-buffer and is reported
 //! as a clear error pointing at close-then-republish.
 
+use std::io::{self, Write};
 use std::process;
 
 use bs58;
@@ -600,7 +601,7 @@ pub fn render_dry_run(
     let _ = writeln!(out, "Payload:");
     let _ = writeln!(
         out,
-        "  Source:           Anchor IDL JSON (projected from manifest {manifest_name} v{manifest_version})"
+        "  Source:           Solana IDL v0.1.0 (projected from manifest {manifest_name} v{manifest_version})"
     );
     let _ = writeln!(out, "  Raw size:         {} bytes", payload.raw_len);
     let _ = writeln!(
@@ -704,10 +705,10 @@ pub fn render_dry_run(
 
 fn print_usage() {
     eprintln!("Usage: hopper publish-idl --manifest <path> --program-id <pubkey>");
-    eprintln!("                          [--url <rpc>] [--keypair <path>] [--seed <str>]");
-    eprintln!("                          [--overwrite] [--dry-run]");
+    eprintln!("                          [--cluster <name> | --url <rpc>] [--keypair <path>]");
+    eprintln!("                          [--seed <str>] [--overwrite] [--yes] [--dry-run]");
     eprintln!();
-    eprintln!("Publish a program's Anchor-IDL JSON to the SPL Program Metadata");
+    eprintln!("Publish a program's Solana IDL v0.1.0 through Program Metadata");
     eprintln!("program (canonical [program, \"idl\"] PDA), with zero Node dependencies.");
     eprintln!();
     eprintln!("Without --dry-run this signs and submits the on-chain transaction(s):");
@@ -718,14 +719,15 @@ fn print_usage() {
     eprintln!("Options:");
     eprintln!("  --manifest <path>     Hopper program manifest JSON (also accepts inline/@file)");
     eprintln!("  --program-id <pubkey> Base58 program id the IDL describes");
-    eprintln!("  --url <rpc>           RPC endpoint (default: devnet). Also honors SOLANA_RPC_URL");
+    eprintln!("  --cluster <name>      devnet (default), testnet, mainnet-beta, or localnet");
+    eprintln!("  --url, --rpc <rpc>    Custom RPC endpoint; treated as potentially mainnet");
+    eprintln!("                        SOLANA_RPC_URL is the guarded fallback when set");
     eprintln!("  --keypair <path>      Upgrade-authority + fee-payer keypair");
     eprintln!("                        (default: ~/.config/solana/id.json)");
     eprintln!("  --seed <str>          Metadata seed (default \"idl\", padded to 16 bytes)");
     eprintln!("  --overwrite           Rewrite an already-initialized metadata account (SetData)");
-    eprintln!(
-        "  --dry-run             Derive + preview the header/PDA/instruction plan without sending"
-    );
+    eprintln!("  --yes, -y             Skip mainnet/custom-RPC confirmation");
+    eprintln!("  --dry-run             Preview the header/PDA/plan; no network access or prompt");
 }
 
 /// `hopper publish-idl` entry point.
@@ -734,17 +736,27 @@ pub fn cmd_publish_idl(args: &[String]) {
     let mut program_id_arg: Option<String> = None;
     let mut seed_arg: Option<String> = None;
     let mut url_arg: Option<String> = None;
+    let mut cluster_arg: Option<String> = None;
     let mut keypair_arg: Option<String> = None;
     let mut overwrite = false;
     let mut dry_run = false;
+    let mut yes = false;
 
     let mut i = 0;
     while i < args.len() {
         match args[i].as_str() {
-            "--url" | "--rpc" => {
+            "--url" | "--rpc" | "-u" => {
                 url_arg = args.get(i + 1).cloned();
                 if url_arg.is_none() {
-                    eprintln!("--url requires an RPC endpoint argument");
+                    eprintln!("{} requires an RPC endpoint argument", args[i]);
+                    process::exit(1);
+                }
+                i += 2;
+            }
+            "--cluster" => {
+                cluster_arg = args.get(i + 1).cloned();
+                if cluster_arg.is_none() {
+                    eprintln!("--cluster requires a cluster moniker argument");
                     process::exit(1);
                 }
                 i += 2;
@@ -787,6 +799,10 @@ pub fn cmd_publish_idl(args: &[String]) {
             }
             "--dry-run" => {
                 dry_run = true;
+                i += 1;
+            }
+            "--yes" | "-y" => {
+                yes = true;
                 i += 1;
             }
             "--help" | "-h" => {
@@ -840,7 +856,7 @@ pub fn cmd_publish_idl(args: &[String]) {
     }
     let seed16 = pad_seed(&seed_bytes);
 
-    // Load the manifest and project it into Anchor-IDL JSON. `--manifest`
+    // Load the manifest and project it into Solana IDL v0.1.0 JSON. `--manifest`
     // is a path; `@`-prefix and inline JSON are also accepted via the
     // shared resolver.
     let load_arg = if manifest_arg.starts_with('@') || manifest_arg.trim_start().starts_with('{') {
@@ -854,7 +870,7 @@ pub fn cmd_publish_idl(args: &[String]) {
         address: &program_id_arg,
     };
     if let Err(error) = projection.validate() {
-        eprintln!("cannot publish a complete Anchor IDL: {error}");
+        eprintln!("cannot publish a complete Solana IDL v0.1.0: {error}");
         process::exit(1);
     }
     let idl_json = format!("{projection}");
@@ -880,8 +896,10 @@ pub fn cmd_publish_idl(args: &[String]) {
         &seed16,
         &payload,
         url_arg.as_deref(),
+        cluster_arg.as_deref(),
         keypair_arg.as_deref(),
         overwrite,
+        yes,
         manifest.name,
         manifest.version,
     ) {
@@ -897,19 +915,128 @@ pub fn cmd_publish_idl(args: &[String]) {
 /// Devnet default RPC endpoint for `publish-idl`.
 const PUBLISH_DEFAULT_RPC: &str = "https://api.devnet.solana.com";
 
-/// Resolve the RPC endpoint: explicit `--url` wins, then `SOLANA_RPC_URL`,
-/// then devnet (publishing an IDL is most often a devnet operation, and we do
-/// not want to silently target mainnet).
-fn resolve_publish_url(cli: Option<&str>) -> String {
-    if let Some(u) = cli {
-        return u.to_string();
+/// A resolved publish destination. Only named non-mainnet clusters are
+/// considered safe without confirmation. Raw URLs cannot prove which Solana
+/// cluster they proxy, so every custom or environment-derived endpoint is
+/// conservatively treated as potentially mainnet.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct PublishTarget {
+    url: String,
+    label: String,
+    requires_confirmation: bool,
+}
+
+impl PublishTarget {
+    fn display_url(&self) -> String {
+        crate::cmd::cluster::redact_rpc_url(&self.url)
     }
-    if let Ok(u) = std::env::var("SOLANA_RPC_URL") {
-        if !u.is_empty() {
-            return u;
+
+    fn destination_label(&self) -> &'static str {
+        if self.label == "mainnet-beta" {
+            "MAINNET-BETA"
+        } else {
+            "A CUSTOM CLUSTER (POTENTIALLY MAINNET-BETA)"
         }
     }
-    PUBLISH_DEFAULT_RPC.to_string()
+}
+
+fn custom_publish_target(url: &str) -> Result<PublishTarget, String> {
+    let trimmed = url.trim();
+    if trimmed.chars().any(char::is_control) {
+        return Err("RPC endpoint must not contain control characters".to_string());
+    }
+    let lower = trimmed.to_ascii_lowercase();
+    if !(lower.starts_with("http://") || lower.starts_with("https://")) {
+        return Err("RPC endpoint must start with http:// or https://".to_string());
+    }
+    Ok(PublishTarget {
+        url: trimmed.to_string(),
+        label: "custom".to_string(),
+        requires_confirmation: true,
+    })
+}
+
+fn named_publish_target(moniker: &str) -> Result<PublishTarget, String> {
+    if moniker.chars().any(char::is_control) {
+        return Err("cluster target must not contain control characters".to_string());
+    }
+    let (url, label, requires_confirmation) = crate::cmd::cluster::cluster_url(moniker)
+        .ok_or_else(|| {
+            format!(
+                "unknown cluster moniker or RPC URL: {}",
+                crate::cmd::cluster::redact_rpc_url(moniker)
+            )
+        })?;
+    Ok(PublishTarget {
+        url,
+        label,
+        requires_confirmation,
+    })
+}
+
+/// Resolve a publish target without consulting global state. This makes the
+/// safety precedence directly testable: explicit endpoint or cluster, then an
+/// environment endpoint, then a safe devnet default.
+fn resolve_publish_target(
+    cli_url: Option<&str>,
+    cli_cluster: Option<&str>,
+    env_url: Option<&str>,
+) -> Result<PublishTarget, String> {
+    if cli_url.is_some() && cli_cluster.is_some() {
+        return Err("use either --cluster or --url/--rpc, not both".to_string());
+    }
+    if let Some(url) = cli_url {
+        return custom_publish_target(url);
+    }
+    if let Some(cluster) = cli_cluster {
+        return named_publish_target(cluster);
+    }
+    if let Some(url) = env_url.filter(|url| !url.trim().is_empty()) {
+        return custom_publish_target(url);
+    }
+    Ok(PublishTarget {
+        url: PUBLISH_DEFAULT_RPC.to_string(),
+        label: "devnet".to_string(),
+        requires_confirmation: false,
+    })
+}
+
+fn confirm_publish_target(
+    target: &PublishTarget,
+    yes: bool,
+    overwrite: bool,
+    program_id: &str,
+) -> Result<(), String> {
+    if !target.requires_confirmation || yes {
+        return Ok(());
+    }
+    let action = if overwrite {
+        "overwrite the published IDL"
+    } else {
+        "publish an IDL"
+    };
+    eprint!(
+        "About to {action} for {program_id} on {} ({}). This submits signed transactions. Type 'yes' to continue: ",
+        target.destination_label(),
+        target.display_url()
+    );
+    io::stderr()
+        .flush()
+        .map_err(|e| format!("flush confirmation prompt: {e}"))?;
+    let mut line = String::new();
+    io::stdin()
+        .read_line(&mut line)
+        .map_err(|e| format!("read confirmation: {e}"))?;
+    if line.trim() != "yes" {
+        return Err("aborted".to_string());
+    }
+    Ok(())
+}
+
+fn redact_rpc_error(target: &PublishTarget, error: impl ToString) -> String {
+    error
+        .to_string()
+        .replace(&target.url, &target.display_url())
 }
 
 /// Resolve the signer keypair path: explicit `--keypair` wins, else the
@@ -933,8 +1060,10 @@ fn run_publish_send(
     seed16: &[u8; SEED_LEN],
     payload: &PreparedPayload,
     url_cli: Option<&str>,
+    cluster_cli: Option<&str>,
     keypair_cli: Option<&str>,
     overwrite: bool,
+    yes: bool,
     manifest_name: &str,
     manifest_version: &str,
 ) -> Result<(), String> {
@@ -947,7 +1076,12 @@ fn run_publish_send(
     use solana_system_interface::instruction as system_instruction;
     use solana_transaction::Transaction;
 
-    let url = resolve_publish_url(url_cli);
+    let env_url = std::env::var("SOLANA_RPC_URL").ok();
+    let target = resolve_publish_target(url_cli, cluster_cli, env_url.as_deref())?;
+    let program_b58 = bs58::encode(program_id).into_string();
+    confirm_publish_target(&target, yes, overwrite, &program_b58)?;
+    let display_url = target.display_url();
+    let url = target.url.clone();
     let keypair_path = resolve_keypair_path(keypair_cli)?;
     let authority = read_keypair_file(&keypair_path)
         .map_err(|e| format!("read keypair {}: {e}", keypair_path.display()))?;
@@ -956,7 +1090,6 @@ fn run_publish_send(
     let (pda, _bump) = derive_canonical_pda(program_id, seed16);
     let (program_data, _pd_bump) = derive_program_data_pda(program_id);
     let pda_b58 = bs58::encode(pda).into_string();
-    let program_b58 = bs58::encode(program_id).into_string();
 
     let metadata_program = Pubkey::new_from_array(metadata_program_id());
     let system_program = Pubkey::new_from_array([0u8; 32]);
@@ -969,7 +1102,7 @@ fn run_publish_send(
     let final_space = HEADER_LEN + stored;
 
     println!("=== hopper publish-idl ===");
-    println!("rpc              : {url}");
+    println!("rpc              : {display_url}");
     println!("signer/authority : {authority_pk}");
     println!("program          : {program_b58}");
     println!("metadata PDA     : {pda_b58}");
@@ -980,8 +1113,12 @@ fn run_publish_send(
     println!("source           : manifest {manifest_name} v{manifest_version}");
 
     // Inspect the current state of the PDA (existence / discriminator / owner).
-    let existing = crate::rpc::get_account_info(&url, &pda_b58)
-        .map_err(|e| format!("getAccountInfo({pda_b58}): {e}"))?;
+    let existing = crate::rpc::get_account_info(&url, &pda_b58).map_err(|e| {
+        format!(
+            "getAccountInfo({pda_b58}): {}",
+            redact_rpc_error(&target, e)
+        )
+    })?;
     let existing_disc = existing.as_ref().and_then(|a| a.data.first().copied());
     let owned_by_metadata = existing
         .as_ref()
@@ -1014,7 +1151,12 @@ fn run_publish_send(
     // Rent the account must hold at its final size, and how much to top up.
     let rent = rpc
         .get_minimum_balance_for_rent_exemption(final_space)
-        .map_err(|e| format!("get_minimum_balance_for_rent_exemption({final_space}): {e}"))?;
+        .map_err(|e| {
+            format!(
+                "get_minimum_balance_for_rent_exemption({final_space}): {}",
+                redact_rpc_error(&target, e)
+            )
+        })?;
     let topup = rent.saturating_sub(existing_lamports);
 
     // Fail early on an under-funded payer rather than mid-sequence.
@@ -1035,14 +1177,21 @@ fn run_publish_send(
         };
     let required = topup.saturating_add(planned_txs.saturating_mul(BASE_FEE));
 
-    let payer_balance = rpc
-        .get_balance(&authority_pk)
-        .map_err(|e| format!("get_balance({authority_pk}): {e}"))?;
+    let payer_balance = rpc.get_balance(&authority_pk).map_err(|e| {
+        format!(
+            "get_balance({authority_pk}): {}",
+            redact_rpc_error(&target, e)
+        )
+    })?;
     if payer_balance < required {
+        let funding_hint = if target.label == "devnet" {
+            format!("Try `solana airdrop 1 {authority_pk} --url {display_url}`.")
+        } else {
+            format!("Fund it on the selected target ({display_url}).")
+        };
         return Err(format!(
             "insufficient balance: signer {authority_pk} has {payer_balance} lamports but needs \
-             ~{required} (rent top-up {topup} + {planned_txs} tx fee(s)). Fund it (devnet: \
-             `solana airdrop 1 {authority_pk} --url {url}`)"
+             ~{required} (rent top-up {topup} + {planned_txs} tx fee(s)). {funding_hint}"
         ));
     }
 
@@ -1058,9 +1207,12 @@ fn run_publish_send(
     };
 
     let send = |instructions: &[Instruction], label: &str| -> Result<String, String> {
-        let recent = rpc
-            .get_latest_blockhash()
-            .map_err(|e| format!("get_latest_blockhash ({label}): {e}"))?;
+        let recent = rpc.get_latest_blockhash().map_err(|e| {
+            format!(
+                "get_latest_blockhash ({label}): {}",
+                redact_rpc_error(&target, e)
+            )
+        })?;
         let tx = Transaction::new_signed_with_payer(
             instructions,
             Some(&authority_pk),
@@ -1073,7 +1225,7 @@ fn run_publish_send(
         )?;
         rpc.send_and_confirm_transaction(&tx)
             .map(|s| s.to_string())
-            .map_err(|e| format!("{label}: {e}"))
+            .map_err(|e| format!("{label}: {}", redact_rpc_error(&target, e)))
     };
 
     // ---- Overwrite path: SetData on an already-initialized account. ----
@@ -1701,12 +1853,96 @@ mod tests {
     }
 
     #[test]
-    fn resolve_publish_url_prefers_cli_then_defaults_devnet() {
-        assert_eq!(resolve_publish_url(Some("https://x")), "https://x");
-        // With no CLI override and no env var set, defaults to devnet. (Do not
-        // mutate process env here to avoid racing other tests.)
-        if std::env::var("SOLANA_RPC_URL").is_err() {
-            assert_eq!(resolve_publish_url(None), PUBLISH_DEFAULT_RPC);
+    fn publish_target_defaults_to_named_devnet() {
+        let target = resolve_publish_target(None, None, None).unwrap();
+        assert_eq!(target.url, PUBLISH_DEFAULT_RPC);
+        assert_eq!(target.label, "devnet");
+        assert!(!target.requires_confirmation);
+    }
+
+    #[test]
+    fn named_clusters_have_conservative_confirmation_classes() {
+        for name in ["devnet", "testnet", "localnet"] {
+            let target = resolve_publish_target(None, Some(name), None).unwrap();
+            assert_eq!(target.label, name);
+            assert!(!target.requires_confirmation, "{name} should not prompt");
         }
+
+        let mainnet = resolve_publish_target(None, Some("mainnet-beta"), None).unwrap();
+        assert_eq!(mainnet.label, "mainnet-beta");
+        assert!(mainnet.requires_confirmation);
+    }
+
+    #[test]
+    fn every_raw_rpc_url_is_treated_as_potentially_mainnet() {
+        let devnet_url =
+            resolve_publish_target(Some("https://api.devnet.solana.com"), None, None).unwrap();
+        assert_eq!(devnet_url.label, "custom");
+        assert!(devnet_url.requires_confirmation);
+
+        let custom_via_cluster =
+            resolve_publish_target(None, Some("https://rpc.example.invalid/project"), None)
+                .unwrap();
+        assert_eq!(custom_via_cluster.label, "custom");
+        assert!(custom_via_cluster.requires_confirmation);
+    }
+
+    #[test]
+    fn environment_rpc_cannot_silently_bypass_guard() {
+        let target =
+            resolve_publish_target(None, None, Some("https://api.mainnet-beta.solana.com"))
+                .unwrap();
+        assert_eq!(target.label, "custom");
+        assert!(target.requires_confirmation);
+
+        let named_cli =
+            resolve_publish_target(None, Some("devnet"), Some("https://mainnet.invalid")).unwrap();
+        assert_eq!(named_cli.label, "devnet");
+        assert!(!named_cli.requires_confirmation);
+    }
+
+    #[test]
+    fn publish_target_rejects_ambiguous_or_invalid_overrides() {
+        assert!(
+            resolve_publish_target(Some("https://rpc.example.invalid"), Some("devnet"), None)
+                .is_err()
+        );
+        assert!(resolve_publish_target(Some("devnet"), None, None).is_err());
+        assert!(resolve_publish_target(
+            Some("https://rpc.example.invalid/\nterminal-injection"),
+            None,
+            None
+        )
+        .is_err());
+        assert!(resolve_publish_target(
+            None,
+            Some("https://rpc.example.invalid/\nterminal-injection"),
+            None
+        )
+        .is_err());
+        assert!(resolve_publish_target(None, Some("unknown"), None).is_err());
+    }
+
+    #[test]
+    fn publish_target_display_redacts_credentials_and_query() {
+        let target = resolve_publish_target(
+            Some("https://user:secret@rpc.example.invalid/path?api-key=secret"),
+            None,
+            None,
+        )
+        .unwrap();
+        assert_eq!(
+            target.display_url(),
+            "https://<redacted>@rpc.example.invalid/path?<redacted>"
+        );
+
+        let rendered_error = redact_rpc_error(&target, format!("request to {} failed", target.url));
+        assert!(!rendered_error.contains("secret"));
+        assert!(rendered_error.contains(&target.display_url()));
+
+        let invalid =
+            named_publish_target("ftp://user:secret@rpc.example.invalid/path?api-key=secret")
+                .unwrap_err();
+        assert!(!invalid.contains("secret"));
     }
 }
