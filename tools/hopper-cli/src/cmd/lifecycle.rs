@@ -5,9 +5,15 @@ use std::process::{self, Command};
 
 use crate::config::{GlobalConfig, HopperToml};
 use crate::workspace;
+use solana_client::rpc_client::RpcClient;
+use solana_commitment_config::CommitmentConfig;
 use toml::Value;
 
 const TEMPLATE_CHOICES: &str = "minimal | nft-mint | token-2022-vault | defi-vault | quasar-port";
+const UPGRADEABLE_PROGRAM_ACCOUNT_LEN: usize = 36;
+const PROGRAMDATA_METADATA_LEN: usize = 45;
+const BUFFER_METADATA_LEN: usize = 37;
+const MAX_PERMITTED_ACCOUNT_DATA_LEN: usize = 10 * 1024 * 1024;
 
 /// Project template. Picked interactively or via `--template <name>`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -608,10 +614,16 @@ pub fn cmd_deploy(args: &[String]) {
         process::exit(1);
     });
 
-    let (common, rest) = parse_lifecycle_args(args).unwrap_or_else(|err| {
+    let (common, mut rest) = parse_lifecycle_args(args).unwrap_or_else(|err| {
         eprintln!("hopper deploy failed: {err}");
         process::exit(1);
     });
+    let dry_run_count = take_bare_flags(&mut rest, &["--dry-run"]);
+    if dry_run_count > 1 {
+        eprintln!("hopper deploy failed: --dry-run may only be passed once");
+        process::exit(1);
+    }
+    let dry_run = dry_run_count == 1;
     let cluster = crate::cmd::cluster::parse_cluster_args(&rest).unwrap_or_else(|err| {
         eprintln!("hopper deploy failed: {err}");
         process::exit(1);
@@ -626,6 +638,37 @@ pub fn cmd_deploy(args: &[String]) {
             eprintln!("hopper deploy failed: {err}");
             process::exit(1);
         });
+
+    if dry_run {
+        let artifact_len = fs::metadata(&artifact)
+            .and_then(|metadata| usize::try_from(metadata.len()).map_err(std::io::Error::other))
+            .unwrap_or_else(|err| {
+                eprintln!(
+                    "hopper deploy failed: could not read {}: {err}",
+                    artifact.display()
+                );
+                process::exit(1);
+            });
+        let max_len =
+            parse_deploy_max_len(&cluster.passthrough, artifact_len).unwrap_or_else(|err| {
+                eprintln!("hopper deploy failed: {err}");
+                process::exit(1);
+            });
+        let sizes = DeployAllocationSizes::new(artifact_len, max_len).unwrap_or_else(|err| {
+            eprintln!("hopper deploy failed: {err}");
+            process::exit(1);
+        });
+        let quote = fetch_deploy_cost_quote(&cluster.url, cluster.commitment.as_deref(), sizes)
+            .unwrap_or_else(|err| {
+                eprintln!("hopper deploy failed: {err}");
+                process::exit(1);
+            });
+        print_deploy_cost_quote(&cluster, &artifact, quote).unwrap_or_else(|err| {
+            eprintln!("hopper deploy failed: {err}");
+            process::exit(1);
+        });
+        return;
+    }
 
     cluster.confirm_destructive("deploy a program", &cluster.label);
 
@@ -972,6 +1015,195 @@ fn run_cargo_command(project_root: &Path, args: &[String]) {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct DeployAllocationSizes {
+    artifact: usize,
+    max_len: usize,
+    program: usize,
+    programdata: usize,
+    buffer: usize,
+}
+
+impl DeployAllocationSizes {
+    fn new(artifact: usize, max_len: usize) -> Result<Self, String> {
+        if max_len < artifact {
+            return Err(format!(
+                "--max-len {max_len} is smaller than the {artifact}-byte SBF artifact"
+            ));
+        }
+        let programdata = PROGRAMDATA_METADATA_LEN
+            .checked_add(max_len)
+            .ok_or_else(|| "ProgramData allocation length overflowed usize".to_string())?;
+        let buffer = BUFFER_METADATA_LEN
+            .checked_add(artifact)
+            .ok_or_else(|| "buffer allocation length overflowed usize".to_string())?;
+        if programdata > MAX_PERMITTED_ACCOUNT_DATA_LEN {
+            return Err(format!(
+                "ProgramData would require {programdata} bytes, above Solana's {}-byte account-data limit",
+                MAX_PERMITTED_ACCOUNT_DATA_LEN
+            ));
+        }
+        if buffer > MAX_PERMITTED_ACCOUNT_DATA_LEN {
+            return Err(format!(
+                "deployment buffer would require {buffer} bytes, above Solana's {}-byte account-data limit",
+                MAX_PERMITTED_ACCOUNT_DATA_LEN
+            ));
+        }
+        Ok(Self {
+            artifact,
+            max_len,
+            program: UPGRADEABLE_PROGRAM_ACCOUNT_LEN,
+            programdata,
+            buffer,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct DeployCostQuote {
+    slot: u64,
+    sizes: DeployAllocationSizes,
+    program_rent: u64,
+    programdata_rent: u64,
+    buffer_rent_floor: u64,
+}
+
+impl DeployCostQuote {
+    fn permanent_rent(self) -> Result<u64, String> {
+        self.program_rent
+            .checked_add(self.programdata_rent)
+            .ok_or_else(|| "permanent deployment rent overflowed u64".to_string())
+    }
+}
+
+fn parse_deploy_max_len(args: &[String], artifact_len: usize) -> Result<usize, String> {
+    let mut found = None;
+    let mut i = 0;
+    while i < args.len() {
+        let arg = &args[i];
+        let raw = if arg == "--max-len" {
+            i += 1;
+            args.get(i)
+                .ok_or_else(|| "--max-len requires a byte length".to_string())?
+                .as_str()
+        } else if let Some(raw) = arg.strip_prefix("--max-len=") {
+            raw
+        } else {
+            i += 1;
+            continue;
+        };
+        if found.is_some() {
+            return Err("--max-len may only be passed once".to_string());
+        }
+        found = Some(
+            raw.parse::<usize>()
+                .map_err(|_| format!("invalid --max-len byte length: {raw}"))?,
+        );
+        i += 1;
+    }
+    Ok(found.unwrap_or(artifact_len))
+}
+
+fn fetch_deploy_cost_quote(
+    rpc_url: &str,
+    commitment: Option<&str>,
+    sizes: DeployAllocationSizes,
+) -> Result<DeployCostQuote, String> {
+    let commitment = parse_deploy_quote_commitment(commitment)?;
+    let rpc = RpcClient::new_with_commitment(rpc_url.to_string(), commitment);
+    let slot = rpc
+        .get_slot()
+        .map_err(|err| format!("could not read the cluster slot: {err}"))?;
+    let rent = |size| {
+        rpc.get_minimum_balance_for_rent_exemption(size)
+            .map_err(|err| format!("getMinimumBalanceForRentExemption({size}) failed: {err}"))
+    };
+    Ok(DeployCostQuote {
+        slot,
+        sizes,
+        program_rent: rent(sizes.program)?,
+        programdata_rent: rent(sizes.programdata)?,
+        buffer_rent_floor: rent(sizes.buffer)?,
+    })
+}
+
+fn parse_deploy_quote_commitment(value: Option<&str>) -> Result<CommitmentConfig, String> {
+    match value.unwrap_or("confirmed") {
+        "processed" => Ok(CommitmentConfig::processed()),
+        "confirmed" => Ok(CommitmentConfig::confirmed()),
+        "finalized" => Ok(CommitmentConfig::finalized()),
+        other => Err(format!(
+            "unsupported --commitment for a deploy quote: {other} (expected processed, confirmed, or finalized)"
+        )),
+    }
+}
+
+fn format_sol(lamports: u64) -> String {
+    format!(
+        "{}.{:09} SOL",
+        lamports / 1_000_000_000,
+        lamports % 1_000_000_000
+    )
+}
+
+fn print_deploy_cost_quote(
+    cluster: &crate::cmd::cluster::ClusterArgs,
+    artifact: &Path,
+    quote: DeployCostQuote,
+) -> Result<(), String> {
+    let permanent = quote.permanent_rent()?;
+    println!("Hopper loader-v3 deploy cost (read-only; no transaction sent)");
+    println!(
+        "  cluster:      {} ({}) ({} commitment; RPC reads started at slot {})",
+        cluster.label,
+        cluster.display_url(),
+        cluster.commitment.as_deref().unwrap_or("confirmed"),
+        quote.slot
+    );
+    println!(
+        "  artifact:     {} ({} bytes)",
+        artifact.display(),
+        quote.sizes.artifact
+    );
+    println!("  max_len:      {} bytes", quote.sizes.max_len);
+    println!("  permanent locked rent:");
+    println!(
+        "    Program     {:>10} bytes  {:>12} lamports  ({})",
+        quote.sizes.program,
+        quote.program_rent,
+        format_sol(quote.program_rent)
+    );
+    println!(
+        "    ProgramData {:>10} bytes  {:>12} lamports  ({})",
+        quote.sizes.programdata,
+        quote.programdata_rent,
+        format_sol(quote.programdata_rent)
+    );
+    println!(
+        "    total                    {:>12} lamports  ({})",
+        permanent,
+        format_sol(permanent)
+    );
+    println!("  transient deployment buffer (stock Solana CLI):");
+    println!(
+        "    Buffer      {:>10} bytes  {:>12} lamports funded  ({})",
+        quote.sizes.buffer,
+        quote.programdata_rent,
+        format_sol(quote.programdata_rent)
+    );
+    println!(
+        "    rent floor for that Buffer account: {} lamports ({})",
+        quote.buffer_rent_floor,
+        format_sol(quote.buffer_rent_floor)
+    );
+    println!("    The CLI funds the buffer at the ProgramData requirement. Loader v3 returns");
+    println!("    the full balance to the payer before ProgramData allocation, so it is");
+    println!("    recycled working capital, not additional permanent rent.");
+    println!("  excluded: transaction fees and optional priority fees (cluster/load dependent)");
+    println!("  scope: fresh loader-v3 allocation; existing-program upgrades may only fund growth");
+    Ok(())
+}
+
 pub(crate) fn run_external_command(program: &str, cwd: &Path, args: &[String]) {
     let display = workspace::display_command(program, args);
     let status = workspace::run_status(program, args, cwd).unwrap_or_else(|err| {
@@ -1074,15 +1306,26 @@ fn parse_dump_args(args: &[String]) -> Result<(CommonLifecycleOptions, DumpOptio
 }
 
 fn build_sbf(project_root: &Path, workspace_root: &Path, package: Option<&str>) {
-    let package_args: Vec<String> = package
-        .map(|package| vec!["--package".to_string(), package.to_string()])
-        .unwrap_or_default();
-    let command_args = normalize_sbf_build_args(project_root, workspace_root, &package_args)
-        .unwrap_or_else(|err| {
+    let command_args =
+        locked_sbf_build_args(project_root, workspace_root, package).unwrap_or_else(|err| {
             eprintln!("hopper build failed: {err}");
             process::exit(1);
         });
     run_cargo_command(workspace_root, &command_args);
+}
+
+fn locked_sbf_build_args(
+    project_root: &Path,
+    workspace_root: &Path,
+    package: Option<&str>,
+) -> Result<Vec<String>, String> {
+    let package_args: Vec<String> = package
+        .map(|package| vec!["--package".to_string(), package.to_string()])
+        .unwrap_or_default();
+    let mut command_args = normalize_sbf_build_args(project_root, workspace_root, &package_args)?;
+    command_args.push("--".to_string());
+    command_args.push("--locked".to_string());
+    Ok(command_args)
 }
 
 fn normalize_sbf_build_args(
@@ -1357,7 +1600,7 @@ fn render_template_lib_rs(template: Template) -> String {
 
 fn render_cargo_toml(crate_name: &str, dependency: &str) -> String {
     format!(
-        "[package]\nname = \"{crate_name}\"\nversion = \"0.1.0\"\nedition = \"2021\"\nlicense = \"Apache-2.0\"\npublish = false\ndescription = \"Hopper program scaffold\"\n\n[lib]\ncrate-type = [\"cdylib\", \"lib\"]\n\n[dependencies]\n{dependency}\n\n[lints.rust]\nunexpected_cfgs = {{ level = \"allow\", check-cfg = ['cfg(target_os, values(\"solana\"))'] }}\n\n# Ecosystem-standard on-chain release profile (matches anchor init, Quasar, and\n# the Solana performance guide). codegen-units = 1 is the free optimization win.\n[profile.release]\noverflow-checks = true\nlto = \"fat\"\ncodegen-units = 1\n\n[profile.release.build-override]\nopt-level = 3\nincremental = false\ncodegen-units = 1\n\n# The audited Hopper substrate opts back out of overflow checks: its\n# arithmetic is explicitly checked/widened where it matters and its parsing\n# loops are bounds-guarded by construction, so the flag only adds flat CU\n# there. YOUR program crate keeps full checking. This mirrors the Hopper\n# workspace's own release profile — the configuration its published CU\n# figures are measured under.\n[profile.release.package.hopper-native]\noverflow-checks = false\n[profile.release.package.hopper-runtime]\noverflow-checks = false\n[profile.release.package.hopper-lang]\noverflow-checks = false\n"
+        "[package]\nname = \"{crate_name}\"\nversion = \"0.1.0\"\nedition = \"2021\"\nlicense = \"Apache-2.0\"\npublish = false\ndescription = \"Hopper program scaffold\"\n\n[lib]\ncrate-type = [\"cdylib\", \"lib\"]\n\n[dependencies]\n{dependency}\n\n[lints.rust]\nunexpected_cfgs = {{ level = \"allow\", check-cfg = ['cfg(target_os, values(\"solana\"))'] }}\n\n# Ecosystem-standard on-chain release profile (matches anchor init, Quasar, and\n# the Solana performance guide). codegen-units = 1 is the free optimization win.\n[profile.release]\noverflow-checks = true\nlto = \"fat\"\ncodegen-units = 1\n\n[profile.release.build-override]\nopt-level = 3\nincremental = false\ncodegen-units = 1\n\n# The reviewed Hopper substrate opts back out of overflow checks: its\n# arithmetic is explicitly checked/widened where it matters and its parsing\n# loops are bounds-guarded by construction, so the flag only adds flat CU\n# there. YOUR program crate keeps full checking. This mirrors the Hopper\n# workspace's own release profile, which is the configuration used for its\n# published CU figures.\n[profile.release.package.hopper-native]\noverflow-checks = false\n[profile.release.package.hopper-runtime]\noverflow-checks = false\n[profile.release.package.hopper-lang]\noverflow-checks = false\n"
     )
 }
 
@@ -1946,10 +2189,18 @@ fn print_test_usage() {
 
 fn print_deploy_usage() {
     eprintln!(
-        "Usage: hopper deploy [--no-build] [-p|--package <crate>] [solana program deploy args]"
+        "Usage: hopper deploy [--dry-run] [--no-build] [-p|--package <crate>] [solana program deploy args]"
     );
     eprintln!();
     eprintln!("Build the current Hopper SBF program if needed, then run `solana program deploy`.");
+    eprintln!();
+    eprintln!("Options:");
+    eprintln!(
+        "  --dry-run           Query live rent for the exact artifact and send no transaction."
+    );
+    eprintln!("  --no-build          Reuse the existing target/deploy artifact.");
+    eprintln!("  -p, --package       Select a workspace package.");
+    eprintln!("  --max-len <bytes>   Reserve ProgramData headroom (forwarded to Solana CLI).");
 }
 
 fn print_dump_usage() {
@@ -1981,6 +2232,22 @@ mod tests {
             "my_hopper_program"
         );
         assert_eq!(normalize_crate_name("hopper-vault"), "hopper_vault");
+    }
+
+    #[test]
+    fn lifecycle_sbf_builds_are_lockfile_pinned() {
+        let root = Path::new("workspace");
+        let args = locked_sbf_build_args(root, root, None).unwrap();
+        assert_eq!(
+            args,
+            vec![
+                "build-sbf".to_string(),
+                "--manifest-path".to_string(),
+                root.join("Cargo.toml").display().to_string(),
+                "--".to_string(),
+                "--locked".to_string(),
+            ]
+        );
     }
 
     #[test]
@@ -2100,6 +2367,87 @@ mod tests {
         assert!(parsed.0.no_build);
         assert_eq!(parsed.0.package.as_deref(), Some("hopper-vault"));
         assert_eq!(parsed.1, vec!["--url", "http://localhost:8899"]);
+    }
+
+    #[test]
+    fn deploy_cost_sizes_match_loader_v3_state_layouts() {
+        let sizes = DeployAllocationSizes::new(167_784, 167_784).unwrap();
+        assert_eq!(sizes.program, 36);
+        assert_eq!(sizes.programdata, 167_829);
+        assert_eq!(sizes.buffer, 167_821);
+        assert!(DeployAllocationSizes::new(167_784, 167_783).is_err());
+        assert!(DeployAllocationSizes::new(
+            MAX_PERMITTED_ACCOUNT_DATA_LEN,
+            MAX_PERMITTED_ACCOUNT_DATA_LEN
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn deploy_max_len_defaults_to_artifact_and_accepts_both_flag_forms() {
+        assert_eq!(parse_deploy_max_len(&[], 123).unwrap(), 123);
+        assert_eq!(
+            parse_deploy_max_len(&["--max-len".to_string(), "456".to_string()], 123).unwrap(),
+            456
+        );
+        assert_eq!(
+            parse_deploy_max_len(&["--max-len=789".to_string()], 123).unwrap(),
+            789
+        );
+        assert!(parse_deploy_max_len(&["--max-len".to_string()], 123).is_err());
+        assert!(parse_deploy_max_len(
+            &["--max-len=456".to_string(), "--max-len=789".to_string()],
+            123
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn deploy_cost_quote_keeps_recycled_buffer_out_of_permanent_total() {
+        let quote = DeployCostQuote {
+            slot: 444_761_169,
+            sizes: DeployAllocationSizes::new(167_784, 167_784).unwrap(),
+            program_rent: 1_038_612,
+            programdata_rent: 1_063_671_681,
+            buffer_rent_floor: 1_063_621_017,
+        };
+        assert_eq!(quote.permanent_rent().unwrap(), 1_064_710_293);
+        assert_eq!(
+            format_sol(quote.permanent_rent().unwrap()),
+            "1.064710293 SOL"
+        );
+    }
+
+    #[test]
+    fn deploy_cost_quote_rejects_total_rent_overflow() {
+        let quote = DeployCostQuote {
+            slot: 1,
+            sizes: DeployAllocationSizes::new(1, 1).unwrap(),
+            program_rent: u64::MAX,
+            programdata_rent: 1,
+            buffer_rent_floor: 1,
+        };
+        assert_eq!(
+            quote.permanent_rent(),
+            Err("permanent deployment rent overflowed u64".to_string())
+        );
+    }
+
+    #[test]
+    fn deploy_quote_honors_supported_commitment_levels() {
+        assert_eq!(
+            parse_deploy_quote_commitment(None).unwrap(),
+            CommitmentConfig::confirmed()
+        );
+        assert_eq!(
+            parse_deploy_quote_commitment(Some("processed")).unwrap(),
+            CommitmentConfig::processed()
+        );
+        assert_eq!(
+            parse_deploy_quote_commitment(Some("finalized")).unwrap(),
+            CommitmentConfig::finalized()
+        );
+        assert!(parse_deploy_quote_commitment(Some("root")).is_err());
     }
 
     #[test]

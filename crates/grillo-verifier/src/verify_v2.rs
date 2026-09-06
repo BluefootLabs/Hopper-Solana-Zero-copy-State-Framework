@@ -1,8 +1,8 @@
 //! Transition verification for a privately bound Effect ABI v0.2 frame.
 
 use grillo_manifest::{
-    sha256, ContractCompletenessV2, CpiPolicyV2, ExecutablePolicyV2, LamportPolicyV2,
-    LengthPolicyV2, OwnerPolicyV2, OwnerTargetV2, PresencePolicyV2,
+    sha256, ContractCompletenessV2, ExecutablePolicyV2, LamportPolicyV2, LengthPolicyV2,
+    OwnerPolicyV2, OwnerTargetV2, PresencePolicyV2,
 };
 
 use crate::frame_v2::{
@@ -50,7 +50,7 @@ pub enum InconclusiveReasonV2 {
     ContractDimensionIncomplete(&'static str),
     EvidenceDimensionIncomplete(&'static str),
     InvocationDidNotSucceed,
-    NestedCpiRequiresInvocationBoundary,
+    InvocationBoundaryRequired,
 }
 
 /// Evidence returned by an unauthenticated behavioral PASS.
@@ -102,17 +102,17 @@ pub fn verify_bound_invocation_v2(bound: &BoundInvocationV2) -> EffectVerdictV2 
             dimension,
         ));
     }
-    if !frame.children.is_empty()
-        && matches!(instruction.cpi, CpiPolicyV2::Declared { .. })
-        && frame.boundary != ObservationBoundaryV2::InvocationEntryExit
-    {
-        return EffectVerdictV2::Inconclusive(
-            InconclusiveReasonV2::NestedCpiRequiresInvocationBoundary,
-        );
+    if frame.boundary != ObservationBoundaryV2::InvocationEntryExit {
+        return EffectVerdictV2::Inconclusive(InconclusiveReasonV2::InvocationBoundaryRequired);
     }
 
     let mut violations = Vec::new();
-    let mut changed_data_bytes = 0u64;
+    // `states` is unique by pubkey after binding. Count physical byte changes
+    // from that set exactly once; duplicate roles may legitimately alias one
+    // state under `DuplicatePolicyV2::Allow` and must not inflate evidence.
+    let changed_data_bytes = frame.states.iter().fold(0u64, |total, state| {
+        total.saturating_add(changed_bytes(state))
+    });
     for role in bound.roles() {
         let state = frame
             .states
@@ -125,7 +125,6 @@ pub fn verify_bound_invocation_v2(bound: &BoundInvocationV2) -> EffectVerdictV2 
             role.contract(),
             state,
             &frame.deployment.program_id,
-            &mut changed_data_bytes,
             &mut violations,
         );
     }
@@ -136,7 +135,7 @@ pub fn verify_bound_invocation_v2(bound: &BoundInvocationV2) -> EffectVerdictV2 
     let mut observed_accounts: Vec<[u8; 32]> = frame.states.iter().map(|s| s.pubkey).collect();
     observed_accounts.sort_unstable();
     let mut verdict_bytes = Vec::new();
-    verdict_bytes.extend_from_slice(b"grillo.effect-verdict.v0.2.c1");
+    verdict_bytes.extend_from_slice(b"grillo.effect-verdict.v0.2.c2");
     verdict_bytes.extend_from_slice(&bound.commitment());
     verdict_bytes.push(0); // PASS
     verdict_bytes.extend_from_slice(&changed_data_bytes.to_le_bytes());
@@ -194,7 +193,6 @@ fn verify_role(
     contract: &grillo_manifest::AccountRoleContractV2,
     state: &AccountTransitionV2,
     program_id: &[u8; 32],
-    changed_data_bytes: &mut u64,
     violations: &mut Vec<ViolationV2>,
 ) {
     let pre_present = state.pre.is_present();
@@ -277,7 +275,6 @@ fn verify_role(
         if pre_data.get(offset) == post_data.get(offset) {
             continue;
         }
-        *changed_data_bytes += 1;
         let authorized = contract
             .transition
             .data
@@ -292,6 +289,14 @@ fn verify_role(
             });
         }
     }
+}
+
+fn changed_bytes(state: &AccountTransitionV2) -> u64 {
+    let pre_data = data_or_empty(&state.pre);
+    let post_data = data_or_empty(&state.post);
+    (0..pre_data.len().max(post_data.len()))
+        .filter(|offset| pre_data.get(*offset) != post_data.get(*offset))
+        .fold(0u64, |count, _| count.saturating_add(1))
 }
 
 fn owner_transition_ok(

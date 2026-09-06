@@ -8,9 +8,9 @@ use grillo_manifest::{
 use grillo_verifier::{
     bind_invocation_v2, verify_bound_invocation_v2, AccountStateV2, AccountTransitionV2,
     BindErrorV2, DeploymentIdentityV2, EffectVerdictV2, EvidenceCompletenessV2,
-    EvidenceProvenanceV2, InvocationAccountRefV2, InvocationFrameV2, InvocationOutcomeV2,
-    NetworkIdentityV2, ObservationBoundaryV2, TouchEvidenceV2, TransactionIdentityV2,
-    UnverifiedAuthenticityV2, ViolationV2,
+    EvidenceProvenanceV2, InconclusiveReasonV2, InvocationAccountRefV2, InvocationFrameV2,
+    InvocationOutcomeV2, NetworkIdentityV2, ObservationBoundaryV2, TouchEvidenceV2,
+    TransactionIdentityV2, UnverifiedAuthenticityV2, ViolationV2,
 };
 
 const PROGRAM: [u8; 32] = [9; 32];
@@ -313,6 +313,7 @@ fn fixed_and_remaining_roles_reject_reorder_and_omission() {
 fn writable_duplicate_alias_is_rejected_before_verification() {
     let contract = contract();
     let mut aliased = frame(&contract);
+    aliased.accounts[3].transaction_index = aliased.accounts[1].transaction_index;
     aliased.accounts[3].pubkey = [2; 32];
     aliased.states.pop(); // one unique state for the duplicate address
     assert!(matches!(
@@ -320,6 +321,132 @@ fn writable_duplicate_alias_is_rejected_before_verification() {
         Err(BindErrorV2::DuplicateAccount {
             first: 1,
             second: 3
+        })
+    ));
+}
+
+#[test]
+fn allowed_alias_counts_one_physical_transition_once() {
+    let mut contract = contract();
+    contract.instructions[0].remaining_accounts.duplicate_policy = DuplicatePolicyV2::Allow;
+    contract.instructions[0].remaining_accounts.groups[0].roles[1]
+        .transition
+        .data
+        .ranges = vec![DataRangeV2 { offset: 1, size: 1 }];
+
+    let mut aliased = frame(&contract);
+    aliased.accounts[3].transaction_index = aliased.accounts[1].transaction_index;
+    aliased.accounts[3].pubkey = aliased.accounts[1].pubkey;
+    aliased.states.retain(|state| state.pubkey != [4; 32]);
+
+    let bound = bind_invocation_v2(&contract, &aliased).unwrap();
+    match verify_bound_invocation_v2(&bound) {
+        EffectVerdictV2::Pass(evidence) => {
+            assert_eq!(evidence.changed_data_bytes, 1);
+            assert_eq!(evidence.observed_accounts.len(), 3);
+        }
+        other => panic!("expected pass, got {other:?}"),
+    }
+}
+
+#[test]
+fn changed_data_bytes_counts_growth_and_shrink_symmetrically() {
+    let mut contract = contract();
+    contract.instructions[0].accounts[1].transition.data_length = LengthPolicyV2::MayChange;
+    contract.instructions[0].accounts[1].transition.data.ranges =
+        vec![DataRangeV2 { offset: 1, size: 2 }];
+
+    for (pre, post) in [
+        (&[0u8][..], &[0u8, 1, 2][..]),
+        (&[0u8, 1, 2][..], &[0u8][..]),
+    ] {
+        let mut resized = frame(&contract);
+        let transition = state_mut(&mut resized, 2);
+        transition.pre = present(22, pre);
+        transition.post = present(22, post);
+
+        let bound = bind_invocation_v2(&contract, &resized).unwrap();
+        match verify_bound_invocation_v2(&bound) {
+            EffectVerdictV2::Pass(evidence) => assert_eq!(evidence.changed_data_bytes, 2),
+            other => panic!("expected pass, got {other:?}"),
+        }
+    }
+}
+
+#[test]
+fn allowed_alias_counts_a_shrunk_physical_transition_once() {
+    let mut contract = contract();
+    contract.instructions[0].remaining_accounts.duplicate_policy = DuplicatePolicyV2::Allow;
+    contract.instructions[0].accounts[1].transition.data_length = LengthPolicyV2::MayChange;
+    contract.instructions[0].remaining_accounts.groups[0].roles[1]
+        .transition
+        .data_length = LengthPolicyV2::MayChange;
+
+    let mut aliased = frame(&contract);
+    aliased.accounts[3].transaction_index = aliased.accounts[1].transaction_index;
+    aliased.accounts[3].pubkey = aliased.accounts[1].pubkey;
+    aliased.states.retain(|state| state.pubkey != [4; 32]);
+    let transition = state_mut(&mut aliased, 2);
+    transition.pre = present(22, &[0, 1, 2]);
+    transition.post = present(22, &[0]);
+
+    let bound = bind_invocation_v2(&contract, &aliased).unwrap();
+    match verify_bound_invocation_v2(&bound) {
+        EffectVerdictV2::Pass(evidence) => {
+            assert_eq!(evidence.changed_data_bytes, 2);
+            assert_eq!(evidence.observed_accounts.len(), 3);
+        }
+        other => panic!("expected pass, got {other:?}"),
+    }
+}
+
+#[test]
+fn transaction_index_and_pubkey_mapping_must_be_consistent() {
+    let contract = contract();
+    let mut inconsistent = frame(&contract);
+    inconsistent.accounts[3].transaction_index = inconsistent.accounts[1].transaction_index;
+    assert!(matches!(
+        bind_invocation_v2(&contract, &inconsistent),
+        Err(BindErrorV2::TransactionAccountMismatch {
+            first: 1,
+            second: 3
+        })
+    ));
+}
+
+#[test]
+fn impossible_frame_limits_and_future_deployments_are_rejected() {
+    let contract = contract();
+
+    let mut oversized = frame(&contract);
+    oversized.instruction_data = vec![0; 10_241];
+    assert!(matches!(
+        bind_invocation_v2(&contract, &oversized),
+        Err(BindErrorV2::FrameLimitExceeded {
+            resource: "instruction data bytes",
+            max: 10_240,
+            actual: 10_241
+        })
+    ));
+
+    let mut too_deep = frame(&contract);
+    too_deep.transaction.invocation_path = vec![0; 9];
+    assert!(matches!(
+        bind_invocation_v2(&contract, &too_deep),
+        Err(BindErrorV2::FrameLimitExceeded {
+            resource: "invocation path depth",
+            max: 8,
+            actual: 9
+        })
+    ));
+
+    let mut from_the_future = frame(&contract);
+    from_the_future.deployment.deployment_slot = Some(43);
+    assert!(matches!(
+        bind_invocation_v2(&contract, &from_the_future),
+        Err(BindErrorV2::DeploymentSlotAfterInvocation {
+            deployment_slot: 43,
+            bank_slot: 42
         })
     ));
 }
@@ -370,6 +497,18 @@ fn verifier_catches_each_state_dimension() {
         verify_bound_invocation_v2(&bind_invocation_v2(&contract, &changed).unwrap()),
         EffectVerdictV2::Violation(v) if v.iter().any(|v| matches!(v, ViolationV2::PresenceTransition { .. }))
     ));
+}
+
+#[test]
+fn transaction_wide_snapshots_cannot_produce_an_invocation_pass() {
+    let contract = contract();
+    let mut transaction_snapshot = frame(&contract);
+    transaction_snapshot.boundary = ObservationBoundaryV2::TransactionPrePost;
+    let bound = bind_invocation_v2(&contract, &transaction_snapshot).unwrap();
+    assert_eq!(
+        verify_bound_invocation_v2(&bound),
+        EffectVerdictV2::Inconclusive(InconclusiveReasonV2::InvocationBoundaryRequired)
+    );
 }
 
 fn child_frame(parent_contract: &EffectContractV2, rolled_back: bool) -> InvocationFrameV2 {
@@ -448,6 +587,105 @@ fn forbidden_and_undeclared_cpi_are_rejected() {
 }
 
 #[test]
+fn cpi_children_are_bound_to_the_same_transaction_and_exact_call_path() {
+    let contract = declared_cpi_contract();
+
+    type ContextMutation = (&'static str, fn(&mut InvocationFrameV2));
+    let context_mutations: [ContextMutation; 5] = [
+        ("genesis_hash", |child| child.network.genesis_hash[0] ^= 1),
+        ("signature", |child| child.transaction.signature[0] ^= 1),
+        ("message_hash", |child| {
+            child.transaction.message_hash[0] ^= 1
+        }),
+        ("bank_slot", |child| child.transaction.bank_slot += 1),
+        ("outer_instruction_index", |child| {
+            child.transaction.outer_instruction_index += 1
+        }),
+    ];
+    for (expected_field, mutate) in context_mutations {
+        let mut parent = frame(&contract);
+        let mut child = child_frame(&contract, false);
+        mutate(&mut child);
+        parent.children.push(child);
+        assert!(matches!(
+            bind_invocation_v2(&contract, &parent),
+            Err(BindErrorV2::CpiContextMismatch {
+                child_index: 0,
+                field
+            }) if field == expected_field
+        ));
+    }
+
+    let mut wrong_path = frame(&contract);
+    let mut child = child_frame(&contract, false);
+    child.transaction.invocation_path = vec![1];
+    wrong_path.children.push(child);
+    assert!(matches!(
+        bind_invocation_v2(&contract, &wrong_path),
+        Err(BindErrorV2::CpiContextMismatch {
+            child_index: 0,
+            field: "invocation_path"
+        })
+    ));
+
+    let mut wrong_boundary = frame(&contract);
+    let mut child = child_frame(&contract, false);
+    child.boundary = ObservationBoundaryV2::TransactionPrePost;
+    wrong_boundary.children.push(child);
+    assert!(matches!(
+        bind_invocation_v2(&contract, &wrong_boundary),
+        Err(BindErrorV2::CpiContextMismatch {
+            child_index: 0,
+            field: "observation_boundary"
+        })
+    ));
+}
+
+#[test]
+fn cpi_children_cannot_invent_accounts_or_escalate_writability() {
+    let contract = declared_cpi_contract();
+
+    let mut invented = frame(&contract);
+    let mut child = child_frame(&contract, false);
+    child.accounts[0].transaction_index = 99;
+    invented.children.push(child);
+    assert!(matches!(
+        bind_invocation_v2(&contract, &invented),
+        Err(BindErrorV2::CpiAccountNotVisible {
+            child_index: 0,
+            child_position: 0
+        })
+    ));
+
+    let mut escalated = frame(&contract);
+    escalated.accounts[1].writable = false;
+    escalated.children.push(child_frame(&contract, false));
+    assert!(matches!(
+        bind_invocation_v2(&contract, &escalated),
+        Err(BindErrorV2::CpiPrivilegeEscalation {
+            child_index: 0,
+            child_position: 0,
+            privilege: "writable"
+        })
+    ));
+
+    let mut invoke_signed_contract = declared_cpi_contract();
+    let CpiPolicyV2::Declared { calls, .. } = &mut invoke_signed_contract.instructions[0].cpi
+    else {
+        unreachable!()
+    };
+    calls[0].accounts[0].signer = PrivilegeRequirementV2::Required;
+    let mut invoke_signed = frame(&invoke_signed_contract);
+    let mut child = child_frame(&invoke_signed_contract, false);
+    child.accounts[0].signer = true;
+    invoke_signed.children.push(child);
+    assert!(
+        bind_invocation_v2(&invoke_signed_contract, &invoke_signed).is_ok(),
+        "invoke_signed may elevate a parent-visible PDA to signer"
+    );
+}
+
+#[test]
 fn rolled_back_child_must_have_complete_unchanged_state() {
     let contract = declared_cpi_contract();
     let mut parent = frame(&contract);
@@ -457,6 +695,52 @@ fn rolled_back_child_must_have_complete_unchanged_state() {
 
     let mut mutated = frame(&contract);
     let mut child = child_frame(&contract, true);
+    if let AccountStateV2::Present { data, .. } = &mut child.states[0].post {
+        data[0] ^= 1;
+    }
+    mutated.children.push(child);
+    assert!(matches!(
+        bind_invocation_v2(&contract, &mutated),
+        Err(BindErrorV2::RolledBackMutation { child_index: 0, .. })
+    ));
+}
+
+#[test]
+fn failed_child_is_an_unsuccessful_rollback_path_for_cpi_policy() {
+    let mut contract = declared_cpi_contract();
+    let CpiPolicyV2::Declared { calls, .. } = &mut contract.instructions[0].cpi else {
+        unreachable!()
+    };
+    calls[0].allow_rollback = false;
+
+    let mut parent = frame(&contract);
+    let mut child = child_frame(&contract, false);
+    child.outcome = InvocationOutcomeV2::Failed;
+    parent.children.push(child);
+
+    assert!(matches!(
+        bind_invocation_v2(&contract, &parent),
+        Err(BindErrorV2::CpiRollbackForbidden { child_index: 0 })
+    ));
+}
+
+#[test]
+fn failed_child_must_have_complete_unchanged_state() {
+    let contract = declared_cpi_contract();
+
+    let mut incomplete = frame(&contract);
+    let mut child = child_frame(&contract, false);
+    child.outcome = InvocationOutcomeV2::Failed;
+    child.evidence.data = false;
+    incomplete.children.push(child);
+    assert!(matches!(
+        bind_invocation_v2(&contract, &incomplete),
+        Err(BindErrorV2::IncompleteRollbackEvidence { child_index: 0 })
+    ));
+
+    let mut mutated = frame(&contract);
+    let mut child = child_frame(&contract, false);
+    child.outcome = InvocationOutcomeV2::Failed;
     if let AccountStateV2::Present { data, .. } = &mut child.states[0].post {
         data[0] ^= 1;
     }

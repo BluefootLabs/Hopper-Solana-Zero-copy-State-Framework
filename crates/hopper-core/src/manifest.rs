@@ -1,7 +1,8 @@
 //! Tier 2 of the three-tier metadata model: the on-chain program
 //! registry.
 //!
-//! See [`docs/THREE_TIER_METADATA.md`](../../../docs/THREE_TIER_METADATA.md)
+//! See the repository's
+//! [three-tier metadata design](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/docs/THREE_TIER_METADATA.md)
 //! for the full picture. In short:
 //!
 //! - **Tier 1** is the hot path: compact accounts `[disc:u8][body]`
@@ -63,10 +64,10 @@ pub const ENTRY_FLAG_DEPRECATED: u32 = 1 << 3;
 //  Deterministic FNV-1a-64 hashing (feature-independent)
 // ══════════════════════════════════════════════════════════════════════
 //
-// The crate-level `__fnv_expand_const` is gated to the non-`sha2` build.
-// The registry needs a hash that is identical across feature flags (it is
-// written on-chain and verified by foreign readers), so it carries its own
-// small FNV-1a-64 implementation with the same block-expansion scheme.
+// This FNV hash is the registry's compact name/key hash; it is not an account
+// layout ID. `hopper_layout!` layout IDs use Hopper's feature-independent const
+// SHA-256 implementation. The registry keeps this owned FNV implementation so
+// its name hashes are likewise identical across feature sets.
 
 const FNV_OFFSET: u64 = 0xcbf2_9ce4_8422_2325;
 const FNV_PRIME: u64 = 0x0000_0100_0000_01b3;
@@ -186,8 +187,8 @@ impl AccountLayoutEntry {
 // SAFETY: all fields are alignment-1, every bit pattern valid, no padding.
 unsafe impl Zeroable for AccountLayoutEntry {}
 unsafe impl Pod for AccountLayoutEntry {}
-// SIZE defaults to size_of::<Self>() == 31, proven by the trait (I15);
-// the wire size stays pinned by the const asserts above.
+// FixedLayout::SIZE defaults to size_of::<Self>(); the const asserts above pin
+// the wire size to 31.
 impl FixedLayout for AccountLayoutEntry {}
 
 // ══════════════════════════════════════════════════════════════════════
@@ -244,8 +245,8 @@ impl ProgramManifestHeader {
 // SAFETY: all fields are alignment-1, every bit pattern valid, no padding.
 unsafe impl Zeroable for ProgramManifestHeader {}
 unsafe impl Pod for ProgramManifestHeader {}
-// SIZE defaults to size_of::<Self>() == 80, proven by the trait (I15);
-// the wire size stays pinned by the const asserts above.
+// FixedLayout::SIZE defaults to size_of::<Self>(); the const asserts above pin
+// the wire size to 80.
 impl FixedLayout for ProgramManifestHeader {}
 
 /// Required byte length for a registry with `count` entries.

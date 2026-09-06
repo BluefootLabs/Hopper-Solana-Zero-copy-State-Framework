@@ -6675,7 +6675,7 @@ mod tests {
             cost_model::MAINNET_OBSERVED_REGIME,
             cost_model::SlotTimeRegime::Ms300
         );
-        assert!(cost_model::MAINNET_OBSERVED_100M_GATE);
+        const { assert!(cost_model::MAINNET_OBSERVED_100M_GATE) };
         assert_eq!(cost_model::MAX_BLOCK_UNITS, 75_000_000);
         assert_eq!(cost_model::MAX_WRITABLE_ACCOUNT_UNITS, 30_000_000);
         assert_ne!(cost_model::MAX_BLOCK_UNITS, 100_000_000);

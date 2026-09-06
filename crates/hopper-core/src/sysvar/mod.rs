@@ -52,13 +52,11 @@ pub const ACCOUNT_STORAGE_OVERHEAD: u64 = 128;
 /// Rent sysvar fields.
 ///
 /// Mirrors Solana's `solana_rent::Rent` (and `hopper-native`'s `Rent`): the
-/// on-wire sysvar stores `exemption_threshold` as an `f64`, so we carry it
-/// as an `f64` here too rather than hardcoding a rational. If the cluster
-/// ever reprices the exemption threshold (a future SIMD), [`read_rent`]
-/// surfaces the live value and [`Rent::minimum_balance`] charges the correct
-/// amount — the earlier `exemption_threshold_num:2 / _den:1` form silently
-/// ignored the stored bytes and would under/over-fund accounts after a
-/// reprice, risking reaping and data loss.
+/// on-wire sysvar retains eight threshold bytes for compatibility, so we carry
+/// them as an `f64` here. SIMD-0194 deprecated their economic meaning and set
+/// them to `1.0`; the first field now carries the effective per-byte rate.
+/// Reading all 17 bytes still preserves compatibility with legacy/custom
+/// configurations instead of silently assuming a threshold.
 #[derive(Clone, Copy)]
 pub struct Rent {
     pub lamports_per_byte_year: u64,
@@ -71,7 +69,7 @@ pub struct Rent {
 /// The Rent sysvar is bincode-serialized in field order with no padding:
 /// `[lamports_per_byte_year:u64][exemption_threshold:f64][burn_percent:u8]`
 /// = 17 bytes. The `exemption_threshold` at bytes `[8..16]` is a little-
-/// endian `f64` (`2.0` on today's cluster); we read it verbatim via
+/// endian `f64` (`1.0` on current Mainnet after SIMD-0194); we read it verbatim via
 /// `f64::from_le_bytes` rather than assuming a value, so a reprice is
 /// honored. (The prior reader demanded 25 bytes and then discarded the
 /// stored threshold entirely, hardcoding 2/1 — both are fixed here.)
@@ -96,19 +94,19 @@ impl Rent {
     /// **live sysvar** values — the correct source for reaping-relevant
     /// decisions after a rent reprice.
     ///
-    /// Byte-matches Solana's own `solana_rent::Rent::minimum_balance`:
+    /// Follows Solana's own `solana_rent::Rent::minimum_balance`:
     ///
     /// ```text
-    /// (((ACCOUNT_STORAGE_OVERHEAD + data_len) * lamports_per_byte_year) as f64
-    ///     * exemption_threshold) as u64
+    /// integer_part = (ACCOUNT_STORAGE_OVERHEAD + data_len) * rate
+    /// threshold 1.0 => integer_part
+    /// threshold 2.0 => integer_part * 2
+    /// otherwise     => (integer_part as f64 * threshold) as u64
     /// ```
     ///
-    /// The runtime does the `(overhead + bytes) * lamports_per_byte_year`
-    /// product in **integer** and applies the fractional `exemption_threshold`
-    /// (a `2.0` float today) as the *only* f64 step, then truncates. We
-    /// replicate that exact sequence so our result equals the runtime's for
-    /// every input it accepts. The integer product uses saturating ops purely
-    /// as an overflow guard; for every loader-permitted `data_len`
+    /// The `1.0` SIMD-0194 marker and legacy `2.0` value stay on integer paths;
+    /// only other historical/custom thresholds use floating point. The integer
+    /// product uses saturating ops purely as an overflow guard; for every
+    /// loader-permitted `data_len`
     /// (`<= 10_485_760`) and realistic `lamports_per_byte_year` it never
     /// saturates, so the byte-match is exact. This mirrors
     /// `hopper_native::sysvar::Rent::minimum_balance` field-for-field.
@@ -118,7 +116,13 @@ impl Rent {
         let integer_part = ACCOUNT_STORAGE_OVERHEAD
             .saturating_add(bytes)
             .saturating_mul(self.lamports_per_byte_year);
-        (integer_part as f64 * self.exemption_threshold) as u64
+        if self.exemption_threshold == 1.0 {
+            integer_part
+        } else if self.exemption_threshold == 2.0 {
+            integer_part.saturating_mul(2)
+        } else {
+            (integer_part as f64 * self.exemption_threshold) as u64
+        }
     }
 }
 
@@ -130,12 +134,18 @@ mod tests {
     /// `data_len` any rent calculation ever sees on-chain.
     const LOADER_MAX_DATA_LEN: usize = 10_485_760;
 
-    /// Byte-for-byte transcription of Solana's `Rent::minimum_balance`:
-    /// integer `(overhead + bytes) * lpby`, then the single f64
-    /// `exemption_threshold` multiply, then truncate.
+    /// Transcription of Solana's `Rent::minimum_balance_unchecked`, including
+    /// the SIMD-0194 `1.0` and legacy `2.0` integer fast paths.
     fn solana_reference_minimum_balance(data_len: usize, lpby: u64, threshold: f64) -> u64 {
         let bytes = data_len as u64;
-        (((ACCOUNT_STORAGE_OVERHEAD + bytes) * lpby) as f64 * threshold) as u64
+        let integer_part = (ACCOUNT_STORAGE_OVERHEAD + bytes).saturating_mul(lpby);
+        if threshold == 1.0 {
+            integer_part
+        } else if threshold == 2.0 {
+            integer_part.saturating_mul(2)
+        } else {
+            (integer_part as f64 * threshold) as u64
+        }
     }
 
     /// Build a canonical 17-byte Rent sysvar image.
@@ -183,6 +193,8 @@ mod tests {
     #[test]
     fn minimum_balance_byte_matches_solana_reference() {
         let cases: &[(usize, u64, f64)] = &[
+            (0, 6_333, 1.0),
+            (167_829, 6_333, 1.0),
             (0, 3_480, 2.0),
             (165, 3_480, 2.0),
             (10_240, 3_480, 2.0),
@@ -208,16 +220,16 @@ mod tests {
         }
     }
 
-    /// On today's cluster config (lpby=3480, threshold=2.0) the empty-account
-    /// minimum is the well-known 890_880 lamports.
+    /// The first SIMD-0437 Mainnet step uses rate=6333 and the SIMD-0194
+    /// threshold marker 1.0, so an empty account requires 810,624 lamports.
     #[test]
-    fn minimum_balance_matches_mainnet_empty_account() {
+    fn minimum_balance_matches_mainnet_2026_09_03_empty_account() {
         let rent = Rent {
-            lamports_per_byte_year: 3_480,
-            exemption_threshold: 2.0,
+            lamports_per_byte_year: 6_333,
+            exemption_threshold: 1.0,
             burn_percent: 0,
         };
-        assert_eq!(rent.minimum_balance(0), 890_880);
+        assert_eq!(rent.minimum_balance(0), 810_624);
     }
 
     /// The saturating integer product must not overflow or panic even with a
@@ -225,7 +237,7 @@ mod tests {
     #[test]
     fn minimum_balance_no_overflow_at_extremes() {
         let rent = Rent {
-            lamports_per_byte_year: 1u64 << 40, // ~300x today's value
+            lamports_per_byte_year: 1u64 << 40, // far past any realistic rate
             exemption_threshold: 2.0,
             burn_percent: 0,
         };

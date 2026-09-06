@@ -1,7 +1,7 @@
 //! Schema-epoch in-place migration runtime.
 //!
-//! Closes the Hopper Safety Audit's innovation item I4 ("Schema epoch
-//! with in-place migration helpers"). The header's `schema_epoch: u32`
+//! Schema epochs and in-place migration helpers use the header's
+//! `schema_epoch: u32`, which
 //! lets accounts self-identify the ABI version they were written in.
 //! When a program later loads an account written at an older epoch,
 //! the runtime consults a declared migration chain, applies each edge
@@ -13,11 +13,11 @@
 //! * **In-place**. no allocation, no CPI. Migration rewrites the
 //!   account body (within its existing byte range) and the 16-byte
 //!   Hopper header.
-//! * **Atomic per edge — under transaction-abort semantics.** Each
+//! * **Atomic per edge under transaction-abort semantics.** Each
 //!   edge bumps the header's `schema_epoch` only after its body
 //!   mutation fully succeeded, so a *completed* edge is always
 //!   consistent. A migrator that errors after partially writing the
-//!   body, however, leaves a hybrid body under the old epoch — the
+//!   body, however, leaves a hybrid body under the old epoch. The
 //!   returned error **must** propagate to instruction failure (the
 //!   Solana runtime then rolls every byte back). Callers must not
 //!   swallow migration errors and continue using the account.
@@ -381,8 +381,8 @@ where
 
     // Shrink AFTER migrating (never before the transform reads Old).
     if shrink_to_fit && account.data_len() > new_required {
-        let min_old = crate::rent::minimum_balance_live(account.data_len());
-        let min_new = crate::rent::minimum_balance_live(new_required);
+        let min_old = crate::rent::minimum_balance_live(account.data_len())?;
+        let min_new = crate::rent::minimum_balance_live(new_required)?;
         drop(account.try_borrow_mut_ungated()?);
         account.resize(new_required)?;
         // Refund exactly the freed rent delta — see the refund rule in
@@ -427,7 +427,7 @@ pub fn ensure_fits_with_rent(
     if account.data_len() >= min_len {
         return Ok(());
     }
-    let rent_needed = crate::rent::minimum_balance_live(min_len);
+    let rent_needed = crate::rent::minimum_balance_live(min_len)?;
     let deficit = rent_needed.saturating_sub(account.lamports());
     if deficit > 0 {
         if !payer.is_writable() {
@@ -1142,7 +1142,7 @@ mod tests {
             migrate_layout_resizing::<VaultV1, VaultV2, _>(&account, &payer, &pid(), false, widen)
                 .expect("grow + migrate");
 
-            let min_new = minimum_balance_live(HopperHeader::SIZE + 12);
+            let min_new = minimum_balance_live(HopperHeader::SIZE + 12).expect("host rent");
             assert_eq!(account.data_len(), HopperHeader::SIZE + 12);
             assert_eq!(account.lamports(), min_new, "topped up to the minimum");
             assert_eq!(
@@ -1160,7 +1160,7 @@ mod tests {
         #[test]
         fn resizing_migration_needs_no_payer_when_already_funded() {
             use crate::rent::minimum_balance_live;
-            let funded = minimum_balance_live(HopperHeader::SIZE + 12) + 777;
+            let funded = minimum_balance_live(HopperHeader::SIZE + 12).expect("host rent") + 777;
             let (_b, account) = raw_account(HopperHeader::SIZE + 8, funded, true, false, [6; 32]);
             stamp_v1(&account);
             // The payer is NOT a signer and NOT writable: must not matter.
@@ -1224,8 +1224,8 @@ mod tests {
         #[test]
         fn shrink_refunds_only_the_rent_delta_and_never_touches_deposits() {
             use crate::rent::minimum_balance_live;
-            let min_old = minimum_balance_live(HopperHeader::SIZE + 12);
-            let min_new = minimum_balance_live(HopperHeader::SIZE + 4);
+            let min_old = minimum_balance_live(HopperHeader::SIZE + 12).expect("host rent");
+            let min_new = minimum_balance_live(HopperHeader::SIZE + 4).expect("host rent");
             let deposit = 500_000u64;
             let (_b, account) = seeded_v2(min_old + deposit);
             let (_pb, payer) = raw_account(0, 10, true, false, [0; 32]);
@@ -1402,7 +1402,7 @@ mod tests {
         #[test]
         fn shrink_is_opt_in_and_off_by_default_in_the_macro() {
             use crate::rent::minimum_balance_live;
-            let min_old = minimum_balance_live(HopperHeader::SIZE + 12);
+            let min_old = minimum_balance_live(HopperHeader::SIZE + 12).expect("host rent");
             let (_b, account) = seeded_v2(min_old);
             let (_pb, payer) = raw_account(0, 10, true, false, [0; 32]);
 

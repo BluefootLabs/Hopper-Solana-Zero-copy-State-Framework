@@ -5,7 +5,7 @@
 //! accounts — and the official CLI has no generic instruction sender,
 //! so out comes a scratch TypeScript file and a `node_modules` tree.
 //! `hopper tx send` is that missing primitive in pure Rust, riding the
-//! same signed-send stack `hopper publish-idl` already battle-tests:
+//! same signed-send stack previously exercised by `hopper publish-idl`:
 //!
 //! ```text
 //! hopper tx send --program <pubkey> \

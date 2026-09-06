@@ -13,6 +13,15 @@ use grillo_manifest::{
     DuplicatePolicyV2, EffectContractV2, InstructionEffectContractV2, PrivilegeRequirementV2,
 };
 
+/// Runtime-informed defensive verifier limits. Binding fails closed when a
+/// frame exceeds them; a larger trace is never mislabeled as a violation.
+pub const MAX_INVOCATION_PATH_DEPTH_V2: usize = 8;
+pub const MAX_INVOCATION_NODES_V2: usize = 64;
+pub const MAX_INSTRUCTION_DATA_BYTES_V2: usize = 10_240;
+pub const MAX_ACCOUNTS_PER_FRAME_V2: usize = 256;
+pub const MAX_ACCOUNT_DATA_BYTES_V2: usize = 10 * 1024 * 1024;
+pub const MAX_LOADED_ACCOUNT_DATA_BYTES_V2: usize = 64 * 1024 * 1024;
+
 /// Cluster identity for replay separation.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct NetworkIdentityV2 {
@@ -156,11 +165,14 @@ pub struct TouchEvidenceV2 {
     pub digest: Option<[u8; 32]>,
 }
 
-/// Whether a call returned normally or was rolled back.
+/// Whether an invocation's effects survived its observed execution boundary.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum InvocationOutcomeV2 {
+    /// The invocation returned successfully and its effects survived.
     Succeeded,
+    /// The invocation returned an error, so its effects were discarded.
     Failed,
+    /// The invocation returned but its effects were discarded by rollback.
     RolledBack,
 }
 
@@ -185,6 +197,11 @@ pub struct InvocationFrameV2 {
 impl InvocationFrameV2 {
     /// Stable digest over all frame fields. This commits caller-supplied
     /// provenance but does not authenticate it.
+    ///
+    /// This infallible low-level helper assumes a locally constructed or
+    /// already shape-checked frame. Untrusted frames should be passed directly
+    /// to [`bind_invocation_v2`], which enforces depth, node, and byte quotas
+    /// before invoking the recursive encoder.
     pub fn commitment(&self) -> [u8; 32] {
         let mut out = Vec::new();
         out.extend_from_slice(b"grillo.invocation-frame.v0.2.c1");
@@ -286,6 +303,19 @@ pub enum BindErrorV2 {
         expected: u16,
         actual: u16,
     },
+    TransactionAccountMismatch {
+        first: u16,
+        second: u16,
+    },
+    DeploymentSlotAfterInvocation {
+        deployment_slot: u64,
+        bank_slot: u64,
+    },
+    FrameLimitExceeded {
+        resource: &'static str,
+        max: usize,
+        actual: usize,
+    },
     PrivilegeMismatch {
         position: u16,
         privilege: &'static str,
@@ -314,11 +344,24 @@ pub enum BindErrorV2 {
         envelope: String,
         min: u16,
         max: u16,
-        actual: u16,
+        actual: usize,
     },
     CpiAccountMismatch {
         child_index: usize,
         child_position: u16,
+    },
+    CpiContextMismatch {
+        child_index: usize,
+        field: &'static str,
+    },
+    CpiAccountNotVisible {
+        child_index: usize,
+        child_position: u16,
+    },
+    CpiPrivilegeEscalation {
+        child_index: usize,
+        child_position: u16,
+        privilege: &'static str,
     },
     CpiRollbackForbidden {
         child_index: usize,
@@ -350,7 +393,8 @@ pub fn bind_invocation_v2(
     contract
         .validate()
         .map_err(|error| BindErrorV2::InvalidContract(error.to_string()))?;
-    validate_frame_shape(frame, None)?;
+    let mut usage = FrameShapeUsage::default();
+    validate_frame_shape(frame, None, None, &mut usage)?;
 
     let contract_commitment = contract
         .commitment()
@@ -456,7 +500,34 @@ pub fn bind_invocation_v2(
 fn validate_frame_shape(
     frame: &InvocationFrameV2,
     child_index: Option<usize>,
+    parent: Option<&InvocationFrameV2>,
+    usage: &mut FrameShapeUsage,
 ) -> Result<(), BindErrorV2> {
+    usage.nodes = usage.nodes.saturating_add(1);
+    check_frame_limit("invocation nodes", MAX_INVOCATION_NODES_V2, usage.nodes)?;
+    check_frame_limit(
+        "invocation path depth",
+        MAX_INVOCATION_PATH_DEPTH_V2,
+        frame.transaction.invocation_path.len(),
+    )?;
+    check_frame_limit(
+        "instruction data bytes",
+        MAX_INSTRUCTION_DATA_BYTES_V2,
+        frame.instruction_data.len(),
+    )?;
+    check_frame_limit(
+        "accounts per frame",
+        MAX_ACCOUNTS_PER_FRAME_V2,
+        frame.accounts.len(),
+    )?;
+    if let Some(deployment_slot) = frame.deployment.deployment_slot {
+        if deployment_slot > frame.transaction.bank_slot {
+            return Err(BindErrorV2::DeploymentSlotAfterInvocation {
+                deployment_slot,
+                bank_slot: frame.transaction.bank_slot,
+            });
+        }
+    }
     for (index, account) in frame.accounts.iter().enumerate() {
         if account.position as usize != index {
             return Err(BindErrorV2::AccountPosition {
@@ -465,7 +536,34 @@ fn validate_frame_shape(
             });
         }
     }
+    for (index, left) in frame.accounts.iter().enumerate() {
+        for right in &frame.accounts[index + 1..] {
+            let index_reused_for_another_key =
+                left.transaction_index == right.transaction_index && left.pubkey != right.pubkey;
+            let key_reused_at_another_index =
+                left.pubkey == right.pubkey && left.transaction_index != right.transaction_index;
+            if index_reused_for_another_key || key_reused_at_another_index {
+                return Err(BindErrorV2::TransactionAccountMismatch {
+                    first: left.position,
+                    second: right.position,
+                });
+            }
+        }
+    }
+    if let (Some(parent), Some(child_index)) = (parent, child_index) {
+        validate_child_context(parent, frame, child_index)?;
+    }
     for (index, state) in frame.states.iter().enumerate() {
+        charge_state_data(
+            &mut usage.pre_state_data_bytes,
+            &state.pre,
+            "pre-state data bytes",
+        )?;
+        charge_state_data(
+            &mut usage.post_state_data_bytes,
+            &state.post,
+            "post-state data bytes",
+        )?;
         if frame.states[index + 1..]
             .iter()
             .any(|other| other.pubkey == state.pubkey)
@@ -497,7 +595,10 @@ fn validate_frame_shape(
             }
         }
     }
-    if frame.outcome == InvocationOutcomeV2::RolledBack {
+    // A failed CPI and an explicitly rolled-back CPI have the same effective
+    // state invariant: neither may leave a mutation behind. Keep the two
+    // outcome labels for provenance, but bind both fail closed.
+    if frame.outcome != InvocationOutcomeV2::Succeeded {
         let index = child_index.unwrap_or(0);
         if !frame.evidence.all_state_dimensions() {
             return Err(BindErrorV2::IncompleteRollbackEvidence { child_index: index });
@@ -512,7 +613,121 @@ fn validate_frame_shape(
         }
     }
     for (index, child) in frame.children.iter().enumerate() {
-        validate_frame_shape(child, Some(index))?;
+        validate_frame_shape(child, Some(index), Some(frame), usage)?;
+    }
+    Ok(())
+}
+
+#[derive(Default)]
+struct FrameShapeUsage {
+    nodes: usize,
+    pre_state_data_bytes: usize,
+    post_state_data_bytes: usize,
+}
+
+fn check_frame_limit(resource: &'static str, max: usize, actual: usize) -> Result<(), BindErrorV2> {
+    if actual <= max {
+        Ok(())
+    } else {
+        Err(BindErrorV2::FrameLimitExceeded {
+            resource,
+            max,
+            actual,
+        })
+    }
+}
+
+fn charge_state_data(
+    total: &mut usize,
+    state: &AccountStateV2,
+    resource: &'static str,
+) -> Result<(), BindErrorV2> {
+    let len = state.data_len();
+    check_frame_limit("account data bytes", MAX_ACCOUNT_DATA_BYTES_V2, len)?;
+    *total = total.saturating_add(len);
+    check_frame_limit(resource, MAX_LOADED_ACCOUNT_DATA_BYTES_V2, *total)
+}
+
+fn validate_child_context(
+    parent: &InvocationFrameV2,
+    child: &InvocationFrameV2,
+    child_index: usize,
+) -> Result<(), BindErrorV2> {
+    if child.boundary != ObservationBoundaryV2::InvocationEntryExit {
+        return Err(BindErrorV2::CpiContextMismatch {
+            child_index,
+            field: "observation_boundary",
+        });
+    }
+    let context_matches = [
+        (
+            "genesis_hash",
+            parent.network.genesis_hash == child.network.genesis_hash,
+        ),
+        (
+            "signature",
+            parent.transaction.signature == child.transaction.signature,
+        ),
+        (
+            "message_hash",
+            parent.transaction.message_hash == child.transaction.message_hash,
+        ),
+        (
+            "bank_slot",
+            parent.transaction.bank_slot == child.transaction.bank_slot,
+        ),
+        (
+            "outer_instruction_index",
+            parent.transaction.outer_instruction_index == child.transaction.outer_instruction_index,
+        ),
+    ];
+    for (field, matches) in context_matches {
+        if !matches {
+            return Err(BindErrorV2::CpiContextMismatch { child_index, field });
+        }
+    }
+
+    let ordinal = u16::try_from(child_index)
+        .map_err(|_| BindErrorV2::InvalidFrame("CPI child ordinal exceeds u16::MAX".to_string()))?;
+    let mut expected_path = parent.transaction.invocation_path.clone();
+    expected_path.push(ordinal);
+    if child.transaction.invocation_path != expected_path {
+        return Err(BindErrorV2::CpiContextMismatch {
+            child_index,
+            field: "invocation_path",
+        });
+    }
+
+    for child_account in &child.accounts {
+        let visible_parent_accounts: Vec<&InvocationAccountRefV2> = parent
+            .accounts
+            .iter()
+            .filter(|parent_account| {
+                parent_account.transaction_index == child_account.transaction_index
+                    && parent_account.pubkey == child_account.pubkey
+            })
+            .collect();
+        if visible_parent_accounts.is_empty() {
+            return Err(BindErrorV2::CpiAccountNotVisible {
+                child_index,
+                child_position: child_account.position,
+            });
+        }
+        if child_account.writable
+            && !visible_parent_accounts
+                .iter()
+                .any(|parent_account| parent_account.writable)
+        {
+            return Err(BindErrorV2::CpiPrivilegeEscalation {
+                child_index,
+                child_position: child_account.position,
+                privilege: "writable",
+            });
+        }
+        // A CPI signer may be elevated by invoke_signed for a PDA. Without a
+        // captured signer-seed proof, treating that elevation as impossible
+        // would reject valid call trees, so only writable escalation is
+        // checked here.
     }
     Ok(())
 }
@@ -577,7 +792,7 @@ fn validate_cpi_policy(
             }
         }
         CpiPolicyV2::Declared { calls, .. } => {
-            let mut counts = vec![0u16; calls.len()];
+            let mut counts = vec![0usize; calls.len()];
             for (child_index, child) in frame.children.iter().enumerate() {
                 let Some((call_index, call)) = calls.iter().enumerate().find(|(_, call)| {
                     child.deployment.program_id == call.program_id
@@ -590,13 +805,13 @@ fn validate_cpi_policy(
                 {
                     return Err(BindErrorV2::UndeclaredCpi { child_index });
                 }
-                counts[call_index] = counts[call_index].saturating_add(1);
+                counts[call_index] += 1;
                 validate_cpi_child(frame, child, child_index, call)?;
             }
             for (index, call) in calls.iter().enumerate() {
                 let actual = counts[index];
-                let below_min = frame.evidence.cpi && actual < call.min_calls;
-                if below_min || actual > call.max_calls {
+                let below_min = frame.evidence.cpi && actual < usize::from(call.min_calls);
+                if below_min || actual > usize::from(call.max_calls) {
                     return Err(BindErrorV2::CpiCount {
                         envelope: call.id.clone(),
                         min: call.min_calls,
@@ -616,7 +831,7 @@ fn validate_cpi_child(
     child_index: usize,
     call: &CpiEnvelopeV2,
 ) -> Result<(), BindErrorV2> {
-    if child.outcome == InvocationOutcomeV2::RolledBack && !call.allow_rollback {
+    if child.outcome != InvocationOutcomeV2::Succeeded && !call.allow_rollback {
         return Err(BindErrorV2::CpiRollbackForbidden { child_index });
     }
     if !call.allow_extra_accounts && child.accounts.len() != call.accounts.len() {

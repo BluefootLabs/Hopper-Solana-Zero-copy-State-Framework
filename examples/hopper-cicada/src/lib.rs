@@ -73,6 +73,47 @@ pub const ROUTE_META_KNOWN_FLAGS: u8 = ROUTE_META_WRITABLE | ROUTE_META_SIGNER;
 pub const ROUTE_MODE_EXACT: u8 = 0;
 pub const ROUTE_MODE_PROGRAM: u8 = 1;
 
+/// One ordered account record in an exact-route commitment.
+///
+/// `writable` and `signer` are encoded with the same bit assignments accepted
+/// by [`cicada_program::execute_intent`]. Constructing records from booleans
+/// keeps host clients from committing unknown flag bits that the program will
+/// reject before CPI.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct RouteCommitmentAccount {
+    address: [u8; 32],
+    writable: bool,
+    signer: bool,
+}
+
+impl RouteCommitmentAccount {
+    /// Create one route account record. Positional order and duplicates are
+    /// preserved by [`compute_route_commitment_records`].
+    pub const fn new(address: [u8; 32], writable: bool, signer: bool) -> Self {
+        Self {
+            address,
+            writable,
+            signer,
+        }
+    }
+
+    pub const fn address(&self) -> &[u8; 32] {
+        &self.address
+    }
+
+    pub const fn is_writable(&self) -> bool {
+        self.writable
+    }
+
+    pub const fn is_signer(&self) -> bool {
+        self.signer
+    }
+
+    const fn flags(&self) -> u8 {
+        ((self.writable as u8) * ROUTE_META_WRITABLE) | ((self.signer as u8) * ROUTE_META_SIGNER)
+    }
+}
+
 pub const STATUS_EMPTY: u8 = 0;
 pub const STATUS_OPEN: u8 = 1;
 pub const STATUS_CLAIMED: u8 = 2;
@@ -645,7 +686,7 @@ pub mod cicada_program {
         if route_mode == ROUTE_MODE_EXACT {
             hopper::hopper_require!(route_commitment != ZERO_HASH, EmptyRouteCommitment);
         } else {
-            // Program-trust mode intentionally does not carry a dead, unaudited
+            // Program-trust mode intentionally does not carry a dead, unreviewed
             // commitment field. Requiring zero keeps the intent canonical and
             // prevents clients from disagreeing about whether it matters.
             hopper::hopper_require!(route_commitment == ZERO_HASH, UnexpectedRouteCommitment);
@@ -773,6 +814,7 @@ pub mod cicada_program {
             let lease = core::cmp::min(now.saturating_add(requested), intent.expiry);
             (intent, executor, lease)
         };
+        let next_revision = next_revision(intent.revision)?;
 
         let mut raw = ctx.raw();
         write_cell(
@@ -801,7 +843,7 @@ pub mod cicada_program {
             ClaimIntent::SHARD_INDEX,
             IntentShard::REVISIONS_ABS_OFFSET,
             slot,
-            WireU64::new(intent.revision.saturating_add(1)),
+            WireU64::new(next_revision),
         )
     }
 
@@ -815,6 +857,7 @@ pub mod cicada_program {
             hopper::hopper_require!(now > intent.claim_expiry, ClaimStillActive);
             intent
         };
+        let next_revision = next_revision(intent.revision)?;
 
         let mut raw = ctx.raw();
         write_cell(
@@ -843,7 +886,7 @@ pub mod cicada_program {
             ReleaseClaim::SHARD_INDEX,
             IntentShard::REVISIONS_ABS_OFFSET,
             slot,
-            WireU64::new(intent.revision.saturating_add(1)),
+            WireU64::new(next_revision),
         )
     }
 
@@ -863,6 +906,7 @@ pub mod cicada_program {
                 || (intent.status == STATUS_CLAIMED && now > intent.claim_expiry),
             InvalidIntentStatus
         );
+        let next_revision = next_revision(intent.revision)?;
 
         let input_decimals = verify_refund_accounts(&ctx.accounts, &intent)?;
         let amount = token_amount(ctx.accounts.source_token.as_account())?;
@@ -920,7 +964,7 @@ pub mod cicada_program {
             CancelIntent::SHARD_INDEX,
             IntentShard::REVISIONS_ABS_OFFSET,
             slot,
-            WireU64::new(intent.revision.saturating_add(1)),
+            WireU64::new(next_revision),
         )
     }
 
@@ -945,6 +989,7 @@ pub mod cicada_program {
             let input_decimals = verify_execute_accounts(&ctx.accounts, &intent)?;
             (intent, executor, input_decimals)
         };
+        let next_revision = next_revision(intent.revision)?;
 
         let pre_source = token_amount(ctx.accounts.source_token.as_account())?;
         let pre_destination = token_amount(ctx.accounts.destination_token.as_account())?;
@@ -1126,7 +1171,7 @@ pub mod cicada_program {
             ExecuteIntent::SHARD_INDEX,
             IntentShard::REVISIONS_ABS_OFFSET,
             slot,
-            WireU64::new(intent.revision.saturating_add(1)),
+            WireU64::new(next_revision),
         )
     }
 
@@ -1478,6 +1523,13 @@ fn snapshot(shard: &IntentShard, slot: usize) -> Result<IntentSnapshot> {
         claim_expiry: shard.claim_expiries[slot].get(),
         revision: shard.revisions[slot].get(),
     })
+}
+
+#[inline]
+fn next_revision(revision: u64) -> Result<u64> {
+    revision
+        .checked_add(1)
+        .ok_or(ProgramError::ArithmeticOverflow)
 }
 
 fn validate_claim_access(intent: &IntentSnapshot, executor: &Address, now: u64) -> ProgramResult {
@@ -2708,45 +2760,105 @@ pub fn compute_route_commitment<const N: usize>(
     accounts: &hopper::hopper_runtime::RemainingAccountViews<'_, N>,
     flags: &[u8; MAX_ROUTE_ACCOUNTS],
 ) -> Result<[u8; 32]> {
+    compute_route_commitment_from(
+        route_program.as_array(),
+        route_data,
+        accounts.len(),
+        |index| {
+            let account = accounts
+                .get(index)
+                .ok_or_else(|| ProgramError::from(RouteAccountCountMismatch))?;
+            let flags = flags[index];
+            Ok(RouteCommitmentAccount::new(
+                *account.address().as_array(),
+                flags & ROUTE_META_WRITABLE != 0,
+                flags & ROUTE_META_SIGNER != 0,
+            ))
+        },
+    )
+}
+
+/// Compute Cicada's exact-route commitment from host-friendly account records.
+///
+/// This is the same allocation-free implementation used by the on-chain
+/// adapter. It rejects envelopes that cannot be submitted to Cicada: more than
+/// [`MAX_ROUTE_ACCOUNTS`] ordered records or more than [`MAX_ROUTE_DATA`] bytes
+/// of instruction data. Duplicate addresses remain distinct records and order
+/// is commitment-significant.
+pub fn compute_route_commitment_records(
+    route_program: &[u8; 32],
+    route_data: &[u8],
+    accounts: &[RouteCommitmentAccount],
+) -> Result<[u8; 32]> {
+    compute_route_commitment_from(route_program, route_data, accounts.len(), |index| {
+        Ok(accounts[index])
+    })
+}
+
+fn compute_route_commitment_from<F>(
+    route_program: &[u8; 32],
+    route_data: &[u8],
+    account_count: usize,
+    mut account_at: F,
+) -> Result<[u8; 32]>
+where
+    F: FnMut(usize) -> Result<RouteCommitmentAccount>,
+{
     hopper::hopper_require!(
-        accounts.len() <= MAX_ROUTE_ACCOUNTS,
+        account_count <= MAX_ROUTE_ACCOUNTS,
         RouteAccountCountMismatch
     );
-    let data_hash = crypto::sha256_single(route_data)?;
+    if route_data.len() > MAX_ROUTE_DATA {
+        return Err(ProgramError::InvalidInstructionData);
+    }
+    let data_hash = route_sha256(route_data)?;
     let mut chunk_hashes = [[0u8; 32]; ROUTE_HASH_CHUNKS];
     let mut chunk_count = 0usize;
     let mut cursor = 0usize;
 
-    while cursor < accounts.len() {
-        let take = core::cmp::min(8, accounts.len() - cursor);
+    while cursor < account_count {
+        let take = core::cmp::min(8, account_count - cursor);
         let mut chunk = [0u8; 8 * 33];
         let mut index = 0usize;
         while index < take {
-            let account = accounts
-                .get(cursor + index)
-                .ok_or_else(|| ProgramError::from(RouteAccountCountMismatch))?;
+            let account = account_at(cursor + index)?;
             let base = index * 33;
-            chunk[base..base + 32].copy_from_slice(account.address().as_array());
-            chunk[base + 32] = flags[cursor + index];
+            chunk[base..base + 32].copy_from_slice(account.address());
+            chunk[base + 32] = account.flags();
             index += 1;
         }
-        chunk_hashes[chunk_count] = crypto::sha256_single(&chunk[..take * 33])?;
+        chunk_hashes[chunk_count] = route_sha256(&chunk[..take * 33])?;
         chunk_count += 1;
         cursor += take;
     }
 
     let mut final_bytes = [0u8; 16 + 32 + 32 + 1 + ROUTE_HASH_CHUNKS * 32];
     final_bytes[..16].copy_from_slice(b"cicada-route-v1!");
-    final_bytes[16..48].copy_from_slice(route_program.as_array());
+    final_bytes[16..48].copy_from_slice(route_program);
     final_bytes[48..80].copy_from_slice(&data_hash);
-    final_bytes[80] = accounts.len() as u8;
+    final_bytes[80] = account_count as u8;
     let mut index = 0usize;
     while index < chunk_count {
         let base = 81 + index * 32;
         final_bytes[base..base + 32].copy_from_slice(&chunk_hashes[index]);
         index += 1;
     }
-    crypto::sha256_single(&final_bytes[..81 + chunk_count * 32])
+    route_sha256(&final_bytes[..81 + chunk_count * 32])
+}
+
+#[inline]
+fn route_sha256(input: &[u8]) -> Result<[u8; 32]> {
+    #[cfg(target_os = "solana")]
+    {
+        crypto::sha256_single(input)
+    }
+    #[cfg(not(target_os = "solana"))]
+    {
+        // Runtime syscall shims intentionally return zeroes off chain. Use
+        // Hopper's allocation-free software implementation so host-generated
+        // commitments are byte-identical to the SBF syscall result.
+        Ok(hopper::hopper_runtime::sha256::sha256(input))
+    }
 }
 
 fn compute_settlement_hash(
@@ -3077,6 +3189,107 @@ mod tests {
             claim_expiry: 0,
             revision: 1,
         }
+    }
+
+    #[test]
+    fn revision_increment_fails_instead_of_reusing_u64_max() {
+        assert_eq!(next_revision(41), Ok(42));
+        assert_eq!(
+            next_revision(u64::MAX),
+            Err(ProgramError::ArithmeticOverflow)
+        );
+    }
+
+    fn decode_hash(value: &str) -> [u8; 32] {
+        assert_eq!(value.len(), 64);
+        let mut hash = [0u8; 32];
+        for (index, byte) in hash.iter_mut().enumerate() {
+            *byte = u8::from_str_radix(&value[index * 2..index * 2 + 2], 16).unwrap();
+        }
+        hash
+    }
+
+    fn route_commitment_accounts(count: usize) -> std::vec::Vec<RouteCommitmentAccount> {
+        (0..count)
+            .map(|index| {
+                RouteCommitmentAccount::new([(index + 1) as u8; 32], index % 2 == 0, index % 3 == 0)
+            })
+            .collect()
+    }
+
+    #[test]
+    fn route_commitment_host_helper_matches_boundary_golden_vectors() {
+        let route_program = [0xa5; 32];
+        let route_data = [0xde, 0xad, 0xbe, 0xef];
+        let expected = [
+            (
+                0,
+                "093da7ebbe1bdb5732f15079e860b1fb91fcb8a7ee85cc22cef54b5a7a0858d1",
+            ),
+            (
+                1,
+                "34e047f9040faab3f87b4c394d3c238bd5ca19f2de715415fd2e57ecea9ae899",
+            ),
+            (
+                8,
+                "a34d9315f1234b29e5b4946f8c61586df8ec91e3e70fa7cfae949203e73169b6",
+            ),
+            (
+                9,
+                "2b9067b8be54dfa80fd70a50d67571505de5bca324be1380f4bff852695accce",
+            ),
+        ];
+
+        for (count, expected_hash) in expected {
+            let accounts = route_commitment_accounts(count);
+            assert_eq!(
+                compute_route_commitment_records(&route_program, &route_data, &accounts).unwrap(),
+                decode_hash(expected_hash),
+                "golden vector for {count} records changed"
+            );
+        }
+    }
+
+    #[test]
+    fn route_commitment_preserves_duplicates_and_order() {
+        let route_program = [0xa5; 32];
+        let route_data = [0xde, 0xad, 0xbe, 0xef];
+        let a = RouteCommitmentAccount::new([0x11; 32], false, false);
+        let b = RouteCommitmentAccount::new([0x22; 32], true, false);
+
+        let ab = compute_route_commitment_records(&route_program, &route_data, &[a, b]).unwrap();
+        let ba = compute_route_commitment_records(&route_program, &route_data, &[b, a]).unwrap();
+        let aa = compute_route_commitment_records(&route_program, &route_data, &[a, a]).unwrap();
+
+        assert_eq!(
+            ab,
+            decode_hash("f1ce9c9505ebe372d3e6180259024f7c99e1ca6b161daed32b736ebe989d510b")
+        );
+        assert_eq!(
+            ba,
+            decode_hash("1da171417add120ef80f77c1fbd929eca6d649b4fc57a5e7860e0d2ccbb994c0")
+        );
+        assert_eq!(
+            aa,
+            decode_hash("567aac32b6a658b33d25fdfe5be449c0751c5818003713fef09f4b5385b13ea9")
+        );
+        assert_ne!(ab, ba, "ordered route records must not commute");
+        assert_ne!(ab, aa, "duplicate positions must remain committed");
+    }
+
+    #[test]
+    fn route_commitment_rejects_unexecutable_host_envelopes() {
+        let route_program = [0xa5; 32];
+        let too_many_accounts = route_commitment_accounts(48);
+        assert_eq!(
+            compute_route_commitment_records(&route_program, &[], &too_many_accounts),
+            Err(ProgramError::from(RouteAccountCountMismatch))
+        );
+        let oversized_route_data = [0u8; MAX_ROUTE_DATA + 1];
+        assert_eq!(
+            compute_route_commitment_records(&route_program, &oversized_route_data, &[]),
+            Err(ProgramError::InvalidInstructionData)
+        );
     }
 
     fn range_covers(ranges: &[WriteRange], account: usize, offset: u32, len: u32) -> bool {

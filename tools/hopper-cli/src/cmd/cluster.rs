@@ -57,10 +57,11 @@ pub fn cluster_url(moniker: &str) -> Option<(String, String, bool)> {
             false,
         )),
         other if other.starts_with("http://") || other.starts_with("https://") => {
-            // A raw URL. Flag it as mainnet only if it obviously points
-            // at mainnet, so a custom mainnet RPC still trips the guard.
-            let is_mainnet = other.contains("mainnet");
-            Some((moniker.to_string(), "custom".to_string(), is_mainnet))
+            // A provider URL does not reliably encode the Solana cluster in
+            // its hostname. Treat every custom endpoint as potentially
+            // mainnet so a branded URL cannot bypass the destructive-action
+            // confirmation guard.
+            Some((moniker.to_string(), "custom".to_string(), true))
         }
         _ => None,
     }
@@ -193,8 +194,13 @@ impl ClusterArgs {
         if !self.is_mainnet || self.yes {
             return;
         }
+        let destination = if self.label == "mainnet-beta" {
+            "MAINNET-BETA"
+        } else {
+            "A CUSTOM CLUSTER (POTENTIALLY MAINNET-BETA)"
+        };
         eprint!(
-            "About to {action} on MAINNET-BETA ({target}). This is irreversible. Type 'yes' to continue: "
+            "About to {action} on {destination} ({target}). This is irreversible. Type 'yes' to continue: "
         );
         let _ = io::stderr().flush();
         let mut line = String::new();
@@ -223,5 +229,21 @@ mod tests {
             redact_rpc_url("https://api.devnet.solana.com"),
             "https://api.devnet.solana.com"
         );
+    }
+
+    #[test]
+    fn custom_rpc_urls_cannot_bypass_the_destructive_confirmation_guard() {
+        let (_, label, guarded) =
+            cluster_url("https://example-rpc-provider.invalid/project").unwrap();
+        assert_eq!(label, "custom");
+        assert!(guarded);
+
+        let args = vec![
+            "--url".to_string(),
+            "https://example-rpc-provider.invalid/project".to_string(),
+        ];
+        let parsed = parse_cluster_args(&args).unwrap();
+        assert!(parsed.is_mainnet);
+        assert_eq!(parsed.label, "custom");
     }
 }

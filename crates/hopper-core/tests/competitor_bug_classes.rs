@@ -1,4 +1,4 @@
-//! # Competitor-bug-class regression suite (I20) — core lifecycle pins
+//! # Competitor-bug-class regression suite: core lifecycle pins
 //!
 //! Companion to `hopper-runtime/tests/competitor_bug_classes.rs`. The
 //! account self-close class (Quasar issue #240) and the append-migration
@@ -250,7 +250,7 @@ fn append_migration_zeroes_the_grown_region() {
         make_account(11, PROGRAM_BYTES, false, true, 0, &v1_data, 0xAA);
 
     // Rent-funded payer for the realloc delta.
-    let rent_needed = hopper_runtime::rent::minimum_balance_live(NEW_SIZE);
+    let rent_needed = hopper_runtime::rent::minimum_balance_live(NEW_SIZE).expect("host rent");
     let (_payer_backing, payer) = make_account(12, PROGRAM_BYTES, true, true, rent_needed, b"", 0);
 
     migrate_append(
@@ -296,7 +296,7 @@ fn append_migration_refuses_wrong_source_shape_without_touching_state() {
     write_header(&mut v1_data, 7, 1, &OLD_LAYOUT_ID).unwrap();
     v1_data[16] = 0x55;
 
-    let rent_needed = hopper_runtime::rent::minimum_balance_live(48);
+    let rent_needed = hopper_runtime::rent::minimum_balance_live(48).expect("host rent");
     let cases: [(&[u8; 8], u8, usize, ProgramError); 3] = [
         // Wrong source layout_id.
         (&NEW_LAYOUT_ID, 2, 48, ProgramError::InvalidAccountData),
@@ -361,7 +361,7 @@ fn realloc_preflights_payer_funding_and_bounds_growth_before_resizing() {
     // The account starts with zero lamports, so growing to NEW always
     // requires a rent top-up from the payer — the edge Anchor's realloc
     // constraint keeps re-hitting.
-    let rent_new = hopper_runtime::rent::minimum_balance_live(NEW);
+    let rent_new = hopper_runtime::rent::minimum_balance_live(NEW).expect("host rent");
 
     // (a) Underfunded payer: the checked subtraction of the rent deficit
     // underflows, so the resize never runs and the length is unchanged.
@@ -457,7 +457,7 @@ fn anchor_4603_shrunken_tail_is_unreachable_and_zeroed_on_regrow() {
     const NEW: usize = 16;
     // Fund the account for its largest size so neither direction needs a
     // rent top-up; the payer is asserted untouched throughout.
-    let rent_old = hopper_runtime::rent::minimum_balance_live(OLD);
+    let rent_old = hopper_runtime::rent::minimum_balance_live(OLD).expect("host rent");
     let (_a_backing, account) =
         make_account(50, PROGRAM_BYTES, false, true, rent_old, &[0xAB; OLD], 0xEE);
     let (_p_backing, payer) = make_account(51, PROGRAM_BYTES, true, true, 1_000, b"", 0);

@@ -10,11 +10,13 @@
 use std::collections::BTreeMap;
 
 use hopper_cicada::{
-    CicadaConfig, ClaimStillActive, ConflictingDuplicateRouteMeta, DestinationLamportsShortfall,
-    DestinationTokenPolicyChanged, EmptySettlement, IntentShard, MinimumOutputNotMet,
-    ProtectedAccountDelegation, SourceLamportsDecreased, SourceTokenPolicyChanged,
-    UnauthorizedInitializer, CONFIG_SEED, INTENTS_PER_SHARD, MAX_ROUTE_ACCOUNTS, SOURCE_LEASE_SEED,
-    STATUS_CANCELLED, STATUS_CLAIMED, STATUS_OPEN, STATUS_SETTLED, VAULT_AUTHORITY_SEED,
+    compute_route_commitment_records, CicadaConfig, ClaimStillActive,
+    ConflictingDuplicateRouteMeta, DestinationLamportsShortfall, DestinationTokenPolicyChanged,
+    EmptySettlement, IntentShard, MinimumOutputNotMet, ProtectedAccountDelegation,
+    RouteCommitmentAccount, SourceLamportsDecreased, SourceTokenPolicyChanged,
+    UnauthorizedInitializer, CONFIG_SEED, INTENTS_PER_SHARD, MAX_ROUTE_ACCOUNTS, ROUTE_MODE_EXACT,
+    SOURCE_LEASE_SEED, STATUS_CANCELLED, STATUS_CLAIMED, STATUS_OPEN, STATUS_SETTLED,
+    VAULT_AUTHORITY_SEED,
 };
 use hopper_test::{HarnessResult, LiteSvmHarness};
 use solana_account::Account;
@@ -1015,6 +1017,43 @@ fn compiled_full_lifecycle_initializes_creates_claims_executes_and_reclaims() {
     assert_eq!(
         IntentShard::STATUSES_ELEMENT_COUNT as usize,
         INTENTS_PER_SHARD
+    );
+}
+
+#[test]
+fn compiled_exact_route_accepts_host_generated_commitment() {
+    let Some(mut f) = setup_open_intent() else {
+        eprintln!("SKIPPED: build Cicada SBF artifacts first");
+        return;
+    };
+
+    let mut route_data = vec![ROUTE_HONEST];
+    route_data.extend_from_slice(&60u64.to_le_bytes());
+    route_data.extend_from_slice(&95u64.to_le_bytes());
+    let route_accounts = [
+        RouteCommitmentAccount::new(f.source.to_bytes(), true, false),
+        RouteCommitmentAccount::new(f.destination.to_bytes(), true, false),
+        RouteCommitmentAccount::new(f.vault.to_bytes(), false, true),
+    ];
+    let commitment =
+        compute_route_commitment_records(&f.route_program.to_bytes(), &route_data, &route_accounts)
+            .unwrap();
+    let shard = f.bank.get_mut(&f.shard).unwrap();
+    shard.data[IntentShard::ROUTE_MODES_ABS_OFFSET as usize] = ROUTE_MODE_EXACT;
+    shard.data[IntentShard::ROUTE_COMMITMENTS_ABS_OFFSET as usize
+        ..IntentShard::ROUTE_COMMITMENTS_ABS_OFFSET as usize + 32]
+        .copy_from_slice(&commitment);
+
+    let execute = execute_ix(&f, ROUTE_HONEST);
+    let result = process(&mut f, &execute);
+    assert!(
+        result.succeeded(),
+        "host and SBF route commitments diverged: {:#?}",
+        f.svm.logs()
+    );
+    assert_eq!(
+        f.bank[&f.shard].data[IntentShard::STATUSES_ABS_OFFSET as usize],
+        STATUS_SETTLED
     );
 }
 

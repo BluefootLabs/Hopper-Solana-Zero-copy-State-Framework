@@ -175,8 +175,12 @@ JSON canonicalization scheme.
   frame, including its untrusted provenance label.
 - Bound, domain `grillo.bound-invocation.v0.2.c1`: the contract commitment and
   the frame commitment together.
-- Verdict, domain `grillo.effect-verdict.v0.2.c1`: the bound commitment, the
+- Verdict, domain `grillo.effect-verdict.v0.2.c2`: the bound commitment, the
   PASS marker, the changed data-byte count, and the sorted observed account set.
+  Revision `c2` counts each unique account transition once when multiple roles
+  intentionally alias it and measures differences across the longer pre/post
+  length, so newly added and removed tail bytes both count. `c1` counted the
+  same physical bytes once per role and omitted removed tail bytes.
 
 The contract commitment is computed only after validation. Program display
 metadata that is not part of the authoritative contract does not affect it.
@@ -211,6 +215,14 @@ InvocationFrameV2
 Absence is explicit. When the `accounts` evidence dimension is claimed, the
 frame carries exactly one state per unique account pubkey.
 
+`Succeeded` means the invocation returned successfully and its effects survived
+the observed boundary. `Failed` means the invocation returned an error;
+`RolledBack` means the collector separately identified a discarded execution.
+Both unsuccessful outcomes have the same fail-closed state rule: every modeled
+state dimension must be complete and pre-state must equal post-state. For CPI
+policy, `allowRollback: false` rejects either unsuccessful outcome; `Failed`
+cannot be used as a second spelling that bypasses the rollback gate.
+
 `bind_invocation_v2(contract, frame)` is the fail-closed binding step. It
 validates the contract, validates the frame shape, and then requires all of the
 following before it will construct a `BoundInvocationV2`:
@@ -225,8 +237,18 @@ following before it will construct a `BoundInvocationV2`:
 - duplicate accounts are consistent with `duplicatePolicy`;
 - exactly one modeled state exists per role pubkey when the accounts dimension
   is claimed; and
-- observed CPI children match the declared envelopes in identity, count bounds,
-  account bindings, and rollback rules.
+- each CPI child shares the parent's genesis hash and transaction identity, sits
+  at the exact next call-path ordinal, uses only parent-visible transaction
+  accounts, and never escalates writability;
+- deployment slots cannot postdate the observed bank slot, and
+  runtime-informed defensive bounds cap call depth, trace nodes, instruction
+  bytes, accounts, and loaded pre/post data before recursive commitment work.
+  A larger frame is rejected at binding; it is never reported as a behavioral
+  violation;
+- observed CPI children match the declared envelopes in deployment identity,
+  count bounds, account bindings, and rollback rules. A failed or rolled-back
+  child requires complete, unchanged state evidence, and either outcome is
+  rejected when its envelope sets `allowRollback: false`.
 
 The manifest-commitment check is the proof-carrying property: a frame cannot be
 verified against any contract it does not name by commitment.
@@ -243,12 +265,12 @@ authenticity as `Unauthenticated`.
 
 - `Inconclusive` when the invocation did not succeed, when any contract
   completeness dimension is false, when any evidence completeness dimension is
-  false, or when nested CPI children are present under a declared CPI policy but
-  the observation boundary is not invocation entry and exit;
+  false, or when the observation boundary is not invocation entry and exit;
 - `Violation` with one precise entry per broken dimension; or
 - `Pass` with contract, frame, bound, and verdict commitments, the untrusted
   provenance and unauthenticated authenticity, the sorted observed accounts, and
-  the changed data-byte count.
+  the changed data-byte count. Physical byte changes are counted once per unique
+  account transition even when an allowed alias fills more than one role.
 
 For each expanded role, the verifier checks the six transition dimensions
 independently:
@@ -292,6 +314,9 @@ v0.2 does not model or prove:
 - authenticity of the invocation frame. Provenance is an untrusted label; the
   crate performs no signature, ledger, or replay validation, and reports
   `Unauthenticated` on every result;
+- attribution from transaction-wide snapshots. A PASS requires invocation-entry
+  and invocation-exit state so sibling instructions cannot hide a forbidden
+  write by reversing it later in the transaction;
 - read sets or read/write conflict freedom for a single invocation;
 - return data, logs, compute-unit consumption, or fee effects;
 - rent-economic outcomes or account lifecycle beyond the modeled presence,

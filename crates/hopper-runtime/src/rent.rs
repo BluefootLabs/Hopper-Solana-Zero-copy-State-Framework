@@ -8,32 +8,22 @@
 //!
 //! This module exposes two things:
 //!
-//! 1. [`minimum_balance`] - a pure function computing the rent-exempt
-//!    threshold for a given `data_len`, using the cluster constants
-//!    that have been in effect on Solana mainnet since launch
-//!    (`lamports_per_byte_year = 3480`, `exemption_threshold = 2 years`,
-//!    `account_storage_overhead = 128 bytes`). These values are
-//!    governed on-chain but have never been changed. If the cluster
-//!    ever re-governs them, the check will be conservative
-//!    (strictly requiring at least the pre-governance threshold) -
-//!    still safe, just not tight.
+//! 1. [`minimum_balance`] - a pure snapshot calculation using the launch-era
+//!    constants (`lamports_per_byte_year = 3480`, `exemption_threshold = 2
+//!    years`, `account_storage_overhead = 128 bytes`). It is useful for host
+//!    tests and fixed-config calculations, but is not authoritative after an
+//!    on-chain rent reprice.
 //!
 //! 2. [`check_rent_exempt`] - the runtime guard backing the
 //!    `#[account(rent_exempt = enforce)]` field keyword emitted by
-//!    `#[hopper::context]`. Compares `account.lamports()` to
-//!    `minimum_balance(account.data_len())` and returns
+//!    `#[hopper::context]`. Compares `account.lamports()` to the live Rent
+//!    sysvar minimum and returns
 //!    `ProgramError::AccountNotRentExempt` (a builtin variant mapping
 //!    to Solana's canonical code) on failure.
 //!
-//! ## Why not use `sol_get_rent_sysvar`?
-//!
-//! The syscall is ~100 CU and returns the same values this module
-//! hard-codes. Using the constants inline lets the check run at
-//! zero additional CU beyond the comparison. Programs that need to
-//! read the live Rent sysvar for other reasons (rent-collection
-//! scheduling, etc.) can still invoke the syscall directly; this
-//! helper is specifically for the rent-exemption gate where the
-//! constants suffice.
+//! The enforcement path deliberately reads `sol_get_rent_sysvar`. Rent is a
+//! runtime-owned parameter, so a safety gate must fail closed if that read
+//! fails rather than accepting an account against stale constants.
 
 use crate::account::AccountView;
 use crate::error::ProgramError;
@@ -41,24 +31,24 @@ use crate::ProgramResult;
 
 /// Lamports charged per byte of account storage per year.
 ///
-/// Fixed at 3480 since Solana mainnet launch and unchanged through
-/// 2026. The value is governed on-chain via the Rent sysvar but no
-/// cluster vote has ever modified it.
+/// Launch-era snapshot. SIMD-0194 moved the full effective price into the
+/// first Rent-sysvar field, and SIMD-0437 began repricing it in September
+/// 2026. Runtime decisions must use [`minimum_balance_live`].
 pub const LAMPORTS_PER_BYTE_YEAR: u64 = 3_480;
 
 /// Years of rent an account must prepay to be exempt.
 ///
-/// Fixed at 2.0 since launch. Represented as an integer here because
-/// the multiplication always lands on an integer result for the
-/// given `LAMPORTS_PER_BYTE_YEAR`.
+/// Launch-era snapshot. SIMD-0194 deprecated the threshold and changed its
+/// live wire marker to `1.0`; this constant exists only for the paired legacy
+/// calculation below.
 pub const EXEMPTION_THRESHOLD_YEARS: u64 = 2;
 
 /// Fixed per-account storage overhead the cluster charges on top of
 /// user data. 128 bytes (header + metadata).
 pub const ACCOUNT_STORAGE_OVERHEAD: u64 = 128;
 
-/// Minimum lamport balance for an account with `data_len` bytes of
-/// data to be rent-exempt under the current Solana cluster constants.
+/// Minimum lamport balance for an account with `data_len` bytes of data under
+/// Solana's launch-era rent snapshot.
 ///
 /// `(data_len + 128) * 3480 * 2` - constant-folded at the call site
 /// when `data_len` is a `const`.
@@ -69,25 +59,25 @@ pub const fn minimum_balance(data_len: usize) -> u64 {
         * EXEMPTION_THRESHOLD_YEARS
 }
 
-/// Rent-exempt minimum read from the **live** Rent sysvar on-chain,
-/// falling back to the compile-time constants off-chain (host tests) or
-/// if the syscall fails.
+/// Rent-exempt minimum read from the **live** Rent sysvar on-chain.
+/// Host tests use the compile-time snapshot because no runtime sysvar exists.
 ///
 /// Use this for value-bearing decisions — funding a new account, the
 /// realloc top-up — so that if the cluster ever re-governs the rent
 /// parameters, Hopper charges the live amount rather than a stale
-/// hard-coded one. The pure [`minimum_balance`] remains the right choice
-/// for the zero-CU `rent_exempt` *gate*, where being conservative
-/// against the launch constants is acceptable.
+/// hard-coded one. An on-chain sysvar read failure is returned to the caller;
+/// value-bearing checks must not silently fall back to stale constants.
 #[inline]
-pub fn minimum_balance_live(data_len: usize) -> u64 {
+pub fn minimum_balance_live(data_len: usize) -> Result<u64, ProgramError> {
     #[cfg(target_os = "solana")]
     {
-        if let Ok(rent) = hopper_native::sysvar::get_rent() {
-            return rent.minimum_balance(data_len);
-        }
+        let rent = hopper_native::sysvar::get_rent()?;
+        Ok(rent.minimum_balance(data_len))
     }
-    minimum_balance(data_len)
+    #[cfg(not(target_os = "solana"))]
+    {
+        Ok(minimum_balance(data_len))
+    }
 }
 
 /// Assert that `account` holds enough lamports to be rent-exempt for
@@ -100,7 +90,7 @@ pub fn minimum_balance_live(data_len: usize) -> u64 {
 #[inline]
 pub fn check_rent_exempt(account: &AccountView<'_>) -> ProgramResult {
     let data_len = account.data_len();
-    let required = minimum_balance(data_len);
+    let required = minimum_balance_live(data_len)?;
     if account.lamports() >= required {
         Ok(())
     } else {
@@ -113,11 +103,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn minimum_balance_matches_mainnet_constants() {
-        // A 0-byte account: (0 + 128) * 3480 * 2 = 890,880 lamports.
-        // This is the well-known "empty account rent-exempt minimum"
-        // every Solana developer internalises; the constant must
-        // match.
+    fn minimum_balance_matches_launch_snapshot() {
+        // Historical empty-account minimum before SIMD-0437:
+        // (0 + 128) * 3480 * 2 = 890,880 lamports.
         assert_eq!(minimum_balance(0), 890_880);
     }
 
@@ -137,5 +125,10 @@ mod tests {
         // used by the parity vault and the transfer-hook vault).
         // (56 + 128) * 3480 * 2 = 1_280_640 lamports = ~0.00128 SOL.
         assert_eq!(minimum_balance(56), 1_280_640);
+    }
+
+    #[test]
+    fn host_live_minimum_uses_the_documented_snapshot() {
+        assert_eq!(minimum_balance_live(56), Ok(minimum_balance(56)));
     }
 }

@@ -98,9 +98,8 @@ impl CachedClock {
 /// Carries the two inputs to the rent-exempt minimum straight from the live
 /// sysvar: `lamports_per_byte_year` and the `exemption_threshold` `f64`. The
 /// earlier form stored only `lamports_per_byte_year` and then *ignored* it in
-/// `exempt_min`, hardcoding `6960` (= 3480 * 2) — which baked in BOTH today's
-/// per-byte cost and a 2.0 threshold. After any rent reprice that
-/// under/over-funds accounts; now both values are read from the bytes.
+/// `exempt_min`, hardcoding `6960` (= 3480 * 2), which baked in both parts of
+/// the legacy rent regime. Both values are now read from the bytes.
 pub struct CachedRent {
     pub lamports_per_byte_year: u64,
     pub exemption_threshold: f64,
@@ -131,26 +130,30 @@ impl CachedRent {
     /// Compute the rent-exempt minimum for a given data size.
     ///
     /// Byte-matches Solana's `solana_rent::Rent::minimum_balance` (and
-    /// [`super::Rent::minimum_balance`]): the
-    /// `(ACCOUNT_STORAGE_OVERHEAD + data_len) * lamports_per_byte_year`
-    /// product in **integer**, then the single `exemption_threshold` f64
-    /// multiply, then truncate. It is NOT divided by seconds/year — the real
-    /// runtime formula has no such division; the old `/365.25/86400` comment
-    /// described a formula the code never actually ran (it hardcoded `6960`).
+    /// [`super::Rent::minimum_balance`]): compute
+    /// `(ACCOUNT_STORAGE_OVERHEAD + data_len) * lamports_per_byte_year` in
+    /// integer arithmetic, then apply the threshold. Solana special-cases the
+    /// wire-compatible `1.0` and legacy `2.0` thresholds to avoid floating
+    /// point; uncommon thresholds retain the historical multiply-and-truncate
+    /// behavior. It is not divided by seconds/year.
     ///
     /// The integer product is saturating purely as an overflow guard; for
     /// every loader-permitted `data_len` (`<= 10 MiB`) and realistic
     /// `lamports_per_byte_year` it never saturates, so the byte-match with the
-    /// runtime is exact. On today's cluster (lpby=3480, threshold=2.0) this
-    /// equals the prior `(128 + data_len) * 6960`, so the on-cluster result is
-    /// unchanged — only a repriced cluster now gets the correct (larger/
-    /// smaller) value instead of a stale one.
+    /// runtime is exact. Mainnet's 2026-09-03 SIMD-0437 regime uses
+    /// `lpby=6333` and the SIMD-0194 wire threshold marker `1.0`.
     #[inline(always)]
     pub fn exempt_min(&self, data_len: usize) -> u64 {
         let integer_part = super::ACCOUNT_STORAGE_OVERHEAD
             .saturating_add(data_len as u64)
             .saturating_mul(self.lamports_per_byte_year);
-        (integer_part as f64 * self.exemption_threshold) as u64
+        if self.exemption_threshold == 1.0 {
+            integer_part
+        } else if self.exemption_threshold == 2.0 {
+            integer_part.saturating_mul(2)
+        } else {
+            (integer_part as f64 * self.exemption_threshold) as u64
+        }
     }
 }
 
@@ -239,10 +242,18 @@ mod tests {
 
     const LOADER_MAX_DATA_LEN: usize = 10_485_760;
 
-    /// Solana's reference `Rent::minimum_balance`.
+    /// Solana's reference `Rent::minimum_balance`, including its exact integer
+    /// fast paths for the wire-compatible 1.0 and legacy 2.0 thresholds.
     fn solana_reference_exempt_min(data_len: usize, lpby: u64, threshold: f64) -> u64 {
-        (((super::super::ACCOUNT_STORAGE_OVERHEAD + data_len as u64) * lpby) as f64 * threshold)
-            as u64
+        let integer_part =
+            (super::super::ACCOUNT_STORAGE_OVERHEAD + data_len as u64).saturating_mul(lpby);
+        if threshold == 1.0 {
+            integer_part
+        } else if threshold == 2.0 {
+            integer_part.saturating_mul(2)
+        } else {
+            (integer_part as f64 * threshold) as u64
+        }
     }
 
     fn rent_bytes(lpby: u64, threshold: f64) -> [u8; 17] {
@@ -268,8 +279,7 @@ mod tests {
         assert!(CachedRent::from_account_data(&rent_bytes(3_480, 2.0)).is_ok());
     }
 
-    /// `exempt_min` byte-matches Solana across sizes/reprices, and still
-    /// equals the old `(128 + data_len) * 6960` on today's config.
+    /// `exempt_min` byte-matches Solana across sizes and rent regimes.
     #[test]
     fn exempt_min_byte_matches_solana_reference() {
         let cases: &[(usize, u64, f64)] = &[
@@ -279,6 +289,8 @@ mod tests {
             (10_240, 3_480, 2.0),
             (1_000_000, 6_960, 2.0),
             (500_000, 3_480, 2.5),
+            (0, 6_333, 1.0),
+            (167_829, 6_333, 1.0),
             (10_485_760, 3_480, 2.0),
         ];
         for &(dl, lpby, threshold) in cases {
@@ -291,13 +303,13 @@ mod tests {
         }
     }
 
-    /// On today's cluster config `exempt_min` reproduces the prior
-    /// `(128 + data_len) * 6960` exactly — the on-cluster path is unchanged.
+    /// Pin the 2026-09-03 Mainnet SIMD-0437 regime so this cache cannot drift
+    /// back to the superseded 3,480 x 2 calculation.
     #[test]
-    fn exempt_min_backward_compatible_on_current_config() {
-        let cr = CachedRent::from_account_data(&rent_bytes(3_480, 2.0)).unwrap();
-        for &dl in &[0usize, 56, 128, 1024, 10_240, 1_000_000] {
-            assert_eq!(cr.exempt_min(dl), ((128 + dl) as u64) * 6960);
+    fn exempt_min_matches_current_mainnet_regime() {
+        let cr = CachedRent::from_account_data(&rent_bytes(6_333, 1.0)).unwrap();
+        for &dl in &[0usize, 56, 128, 1024, 10_240, 167_829, 1_000_000] {
+            assert_eq!(cr.exempt_min(dl), ((128 + dl) as u64) * 6_333);
         }
     }
 

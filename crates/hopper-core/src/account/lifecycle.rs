@@ -3,9 +3,9 @@
 //! Every lamport movement in this module (close drain/credit, realloc
 //! rent top-up) flows through `AccountView::try_set_lamports`, i.e. the
 //! `hopper-runtime` `native_boundary` funnel. Under a `strict_writes`
-//! context that declared its lamport dimension (BLD-MUT,
-//! `lamports(...)`), that funnel refuses mutation on any undeclared
-//! account — the macro's implied permission set (init account + payer,
+//! context that declared its lamport dimension with `lamports(...)`, that
+//! funnel refuses mutation on any undeclared account. The macro's implied
+//! permission set (init account + payer,
 //! close account + destination, realloc account + payer, whole-`mut`
 //! and `sweep` accounts) exists precisely so these lifecycle helpers
 //! keep working for declared roles.
@@ -218,7 +218,7 @@ pub fn safe_realloc_unchecked(
 // duplicated hard-coded `(128 + data_len) * 6960` formula.
 pub(crate) fn rent_exempt_min_internal(data_len: usize) -> Result<u64, ProgramError> {
     let _ = u64::try_from(data_len).map_err(|_| ProgramError::ArithmeticOverflow)?;
-    Ok(hopper_runtime::rent::minimum_balance_live(data_len))
+    hopper_runtime::rent::minimum_balance_live(data_len)
 }
 
 #[cfg(test)]
@@ -455,7 +455,7 @@ mod tests {
         assert_eq!(payer.lamports(), 0);
     }
 
-    // ── BLD-MUT: lifecycle lamport moves cross the gated funnel ─────
+    // Lifecycle lamport moves cross the gated funnel.
 
     use hopper_runtime::write_policy::{
         install_lamport_gate, write_policy_violation, WritePolicy, WriteRange,
