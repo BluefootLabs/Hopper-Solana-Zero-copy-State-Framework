@@ -1,29 +1,27 @@
-//! `hopper verify` - ABI integrity check between a program manifest
+//! `hopper verify` - interface integrity check between a program manifest
 //! and its compiled `.so` binary.
 //!
-//! Hopper catches manifest/binary drift at the CLI by scanning the
-//! compiled ELF for each layout's 8-byte
-//! `LAYOUT_ID` fingerprint. Any manifest entry that does not appear
-//! in the binary indicates a refactor that was not re-exported to the
-//! manifest (or a manifest that belongs to a different program).
+//! Release verification compares the manifest's canonical executable-interface
+//! commitment with the versioned binding record emitted into the ELF by
+//! `hopper::program_manifest!`. The record covers program identity/version,
+//! layouts, instruction wire data and account contracts, events, policy
+//! contracts, and context constraints. Descriptive and measured metadata is
+//! deliberately excluded.
 //!
-//! The check is byte-level and deliberately offline: no Solana RPC,
-//! no linker consultation. The 8-byte `LAYOUT_ID` produced by
-//! `#[hopper::state]`'s canonical wire descriptor is unique with
-//! near-certainty (SHA-256 of a layout's field names + wire types +
-//! offsets, first 8 bytes); searching for the exact sequence in the
-//! compiled binary establishes ABI continuity without needing debug
-//! symbols.
-//!
-//! Manifest integrity is always fatal on failure. Binary anchor presence is
-//! informational by default, fatal with `--strict`, and required/fatal with
-//! `--release`.
+//! The check is byte-level and deliberately offline: no Solana RPC or linker
+//! consultation. Per-layout `LAYOUT_ID` searches remain supplemental
+//! diagnostics. They are informational by default and fatal only with
+//! `--strict`; `--release` gates on the structured interface binding instead.
 
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process;
 
 use crate::workspace;
+use hopper_schema::release_binding::{
+    interface_commitment, RELEASE_BINDING_COMMITMENT_OFFSET, RELEASE_BINDING_FORMAT_VERSION,
+    RELEASE_BINDING_HASH_SHA256, RELEASE_BINDING_MAGIC, RELEASE_BINDING_RECORD_LEN,
+};
 
 pub fn cmd_verify(args: &[String]) {
     if args.iter().any(|a| a == "--help" || a == "-h") {
@@ -58,20 +56,25 @@ pub fn cmd_verify(args: &[String]) {
         process::exit(1);
     });
 
+    let release_commitment = opts.release.then(|| {
+        let owned = crate::parse_program_manifest_json(&manifest_json).unwrap_or_else(|err| {
+            eprintln!("hopper verify: cannot parse release manifest: {err}");
+            process::exit(1);
+        });
+        interface_commitment(&crate::to_program_manifest(&owned))
+    });
+
     let layouts = extract_layouts_from_manifest(&manifest_json).unwrap_or_else(|err| {
         eprintln!("hopper verify: {err}");
         process::exit(1);
     });
-    if layouts.is_empty() {
-        eprintln!("hopper verify: manifest declares no layouts - nothing to check");
-        process::exit(1);
-    }
 
     // ── Stage 1: manifest integrity (always runs, always gates) ────
     //
     // Catches the refactor mistakes no amount of SBF inspection can:
-    // duplicate layout_id, duplicate discriminator, all-zero bytes,
-    // empty name. These are cheap, unambiguous, and always fatal.
+    // duplicate layout IDs, all-zero IDs, and empty names. These are cheap,
+    // unambiguous, and always fatal. This lightweight scan does not parse
+    // discriminator/version pairs.
     println!();
     println!("Manifest integrity ({} layouts):", layouts.len());
     println!("{}", "-".repeat(72));
@@ -85,7 +88,7 @@ pub fn cmd_verify(args: &[String]) {
         eprintln!("and rebuild the program to regenerate a consistent manifest.");
         process::exit(1);
     }
-    println!("  OK: unique disc, unique layout_id, non-zero bytes, valid names.");
+    println!("  OK: unique layout_id, non-zero bytes, valid names.");
 
     // ── Stage 1.5: effect gate (C7, opt-in via --effects) ──────────
     //
@@ -121,7 +124,7 @@ pub fn cmd_verify(args: &[String]) {
         }
     }
 
-    // ── Stage 2: binary presence scan (optional without --strict) ──
+    // ── Stage 2: binary verification ──
     //
     // The `#[hopper::state]` proc macro emits a `#[used]` anchor per
     // layout so LAYOUT_ID bytes survive SBF LTO. Even so, a program
@@ -153,7 +156,30 @@ pub fn cmd_verify(args: &[String]) {
         process::exit(1);
     }
     println!("  binary size: {} bytes", binary.len());
+
+    if let Some(expected) = release_commitment {
+        println!();
+        println!("Release interface binding:");
+        println!("  expected: {}", hex_bytes(&expected));
+        match verify_release_binding(&binary, expected) {
+            Ok(binding) => {
+                println!("  binary:   {}", hex_bytes(&binding.commitment));
+                println!(
+                    "  OK: v{} SHA-256 commitment matched at 0x{:06x}.",
+                    RELEASE_BINDING_FORMAT_VERSION, binding.offset
+                );
+            }
+            Err(err) => {
+                eprintln!("  FAIL: {err}");
+                process::exit(1);
+            }
+        }
+    }
+
+    // Raw layout-ID occurrences remain useful diagnostics, but are not the
+    // release-interface proof.
     println!();
+    println!("Layout-anchor diagnostics:");
     println!("{:<32} {:<24} Presence", "Layout", "LAYOUT_ID (hex)");
     println!("{}", "-".repeat(80));
 
@@ -181,7 +207,7 @@ pub fn cmd_verify(args: &[String]) {
     }
     println!();
     println!(
-        "  binary presence: {} of {} layouts anchored in .rodata",
+        "  layout-anchor presence: {} of {} layouts found in the ELF",
         found_count,
         layouts.len()
     );
@@ -190,12 +216,7 @@ pub fn cmd_verify(args: &[String]) {
         if opts.strict {
             eprintln!();
             eprintln!(
-                "FAIL ({}): {} of {} layouts not anchored in {}",
-                if opts.release {
-                    "--release"
-                } else {
-                    "--strict"
-                },
+                "FAIL (--strict): {} of {} layouts not anchored in {}",
                 missing_count,
                 layouts.len(),
                 so_input.display()
@@ -212,7 +233,9 @@ pub fn cmd_verify(args: &[String]) {
 
     println!();
     if opts.release {
-        println!("OK: release verification passed; manifest and binary anchors agree.");
+        println!(
+            "OK: release interface binding matched; layout anchors above are supplemental diagnostics."
+        );
     } else {
         println!("OK: manifest integrity passed; binary presence reported above.");
     }
@@ -263,8 +286,8 @@ struct VerifyOptions {
     /// informational-only because `hopper_layout!` layouts and
     /// post-link-stripped binaries may legitimately omit the bytes.
     strict: bool,
-    /// Release profile: requires a binary and treats missing layout anchors as
-    /// fatal. This is the public-launch/publish gate.
+    /// Release profile: requires a binary and an exact versioned
+    /// executable-interface commitment. This is the public-launch/publish gate.
     release: bool,
     /// Effect gate (C7): a single evidence bundle or a directory of `*.json`
     /// bundles to verify against the manifest's published write contract
@@ -349,7 +372,6 @@ fn parse_verify_options(args: &[String]) -> Result<VerifyOptions, String> {
             }
             "--release" => {
                 release = true;
-                strict = true;
                 i += 1;
             }
             other if other.starts_with('@') => {
@@ -582,8 +604,9 @@ fn resolve_so_path(opts: &VerifyOptions, cwd: &Path) -> Result<PathBuf, String> 
 fn print_verify_usage() {
     eprintln!("Usage: hopper verify [<manifest>] [<binary.so>] [options]");
     eprintln!();
-    eprintln!("Confirms every layout declared in the manifest appears in the");
-    eprintln!("compiled binary by searching for its 8-byte LAYOUT_ID fingerprint.");
+    eprintln!("Confirms manifest integrity and reports per-layout anchor presence.");
+    eprintln!("--release also requires the ELF's versioned executable-interface");
+    eprintln!("commitment to match the canonical manifest commitment exactly.");
     eprintln!();
     eprintln!("Options:");
     eprintln!("  --manifest <path>   Path to the program manifest JSON");
@@ -592,7 +615,7 @@ fn print_verify_usage() {
     eprintln!("  --so <path>         Explicit path to the .so binary");
     eprintln!("  --binary <path>     Alias for --so");
     eprintln!("  --strict            Fail when a manifest layout is not anchored in the binary");
-    eprintln!("  --release           Require a binary and run strict release verification");
+    eprintln!("  --release           Require an exact versioned interface binding in the ELF");
     eprintln!("  --effects <path>    Effect gate: verify an evidence bundle (or a directory");
     eprintln!("                      of *.json bundles) against the manifest's published");
     eprintln!("                      write contract via the independent Grillo verifier");
@@ -660,9 +683,18 @@ fn extract_layouts_from_manifest(json: &str) -> Result<Vec<ManifestLayout>, Stri
         rest = after_name_close;
     }
     if out.is_empty() {
-        return Err(
-            "manifest did not yield any layout_id entries. Is this a Hopper manifest?".to_string(),
-        );
+        let parsed: serde_json::Value = serde_json::from_str(json)
+            .map_err(|error| format!("invalid manifest JSON: {error}"))?;
+        let explicitly_empty = parsed
+            .get("layouts")
+            .and_then(serde_json::Value::as_array)
+            .is_some_and(Vec::is_empty);
+        if !explicitly_empty {
+            return Err(
+                "manifest did not yield any layout_id entries. Is this a Hopper manifest?"
+                    .to_string(),
+            );
+        }
     }
     Ok(out)
 }
@@ -720,6 +752,91 @@ fn find_layout_id_in_window(window: &str) -> Option<[u8; 8]> {
         }
     }
     None
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct ReleaseBindingMatch {
+    offset: usize,
+    commitment: [u8; 32],
+}
+
+/// Validate every structured Hopper binding record in an ELF and return the
+/// first exact match. Multiple identical records are harmless, but malformed,
+/// unsupported, stale, or conflicting records fail closed so a fat/stale
+/// artifact cannot pass because one embedded object happened to match.
+fn verify_release_binding(
+    binary: &[u8],
+    expected: [u8; 32],
+) -> Result<ReleaseBindingMatch, String> {
+    let offsets: Vec<usize> = binary
+        .windows(RELEASE_BINDING_MAGIC.len())
+        .enumerate()
+        .filter_map(|(offset, bytes)| (bytes == RELEASE_BINDING_MAGIC).then_some(offset))
+        .collect();
+    if offsets.is_empty() {
+        return Err(
+            "no versioned Hopper release-interface binding record was found; rebuild with \
+             hopper::program_manifest!"
+                .to_string(),
+        );
+    }
+
+    let mut matched = None;
+    for offset in offsets {
+        let remaining = &binary[offset..];
+        if remaining.len() < RELEASE_BINDING_RECORD_LEN {
+            return Err(format!(
+                "truncated Hopper release-interface binding record at 0x{offset:06x}"
+            ));
+        }
+        let record = &remaining[..RELEASE_BINDING_RECORD_LEN];
+        let version = u16::from_le_bytes([record[16], record[17]]);
+        if version != RELEASE_BINDING_FORMAT_VERSION {
+            return Err(format!(
+                "unsupported Hopper release-interface binding version {version} at \
+                 0x{offset:06x}"
+            ));
+        }
+        if record[18] != RELEASE_BINDING_HASH_SHA256 {
+            return Err(format!(
+                "unsupported Hopper release-interface hash algorithm {} at 0x{offset:06x}",
+                record[18]
+            ));
+        }
+        if record[19] != 0 {
+            return Err(format!(
+                "unsupported Hopper release-interface binding flags 0x{:02x} at 0x{offset:06x}",
+                record[19]
+            ));
+        }
+        let declared_len =
+            u32::from_le_bytes([record[20], record[21], record[22], record[23]]) as usize;
+        if declared_len != RELEASE_BINDING_RECORD_LEN {
+            return Err(format!(
+                "invalid Hopper release-interface record length {declared_len} at \
+                 0x{offset:06x}; expected {RELEASE_BINDING_RECORD_LEN}"
+            ));
+        }
+
+        let mut commitment = [0u8; 32];
+        commitment.copy_from_slice(
+            &record[RELEASE_BINDING_COMMITMENT_OFFSET..RELEASE_BINDING_COMMITMENT_OFFSET + 32],
+        );
+        if commitment != expected {
+            return Err(format!(
+                "manifest commitment {} does not match binary commitment {} at 0x{offset:06x}",
+                hex_bytes(&expected),
+                hex_bytes(&commitment)
+            ));
+        }
+        matched.get_or_insert(ReleaseBindingMatch { offset, commitment });
+    }
+
+    Ok(matched.expect("at least one binding offset was validated"))
+}
+
+fn hex_bytes(bytes: &[u8]) -> String {
+    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
 }
 
 fn find_subsequence(haystack: &[u8], needle: &[u8]) -> Option<usize> {
@@ -810,6 +927,12 @@ mod tests {
     }
 
     #[test]
+    fn accepts_an_explicitly_stateless_manifest() {
+        let json = r#"{ "name": "p", "layouts": [] }"#;
+        assert!(extract_layouts_from_manifest(json).unwrap().is_empty());
+    }
+
+    #[test]
     fn extracts_camel_case_hex_layout_id() {
         let json = r#"
         {
@@ -841,12 +964,72 @@ mod tests {
     }
 
     #[test]
-    fn release_option_implies_strict_and_requires_binary() {
+    fn release_option_requires_binary_without_enabling_legacy_anchor_strictness() {
         let args = vec!["--release".to_string(), "hopper.manifest.json".to_string()];
         let opts = parse_verify_options(&args).unwrap();
         assert!(opts.release);
-        assert!(opts.strict);
+        assert!(!opts.strict);
         assert!(opts.so_input(Path::new(".")).is_err());
+    }
+
+    fn test_binding_record(commitment: [u8; 32]) -> [u8; RELEASE_BINDING_RECORD_LEN] {
+        let mut record = [0u8; RELEASE_BINDING_RECORD_LEN];
+        record[..RELEASE_BINDING_MAGIC.len()].copy_from_slice(&RELEASE_BINDING_MAGIC);
+        record[16..18].copy_from_slice(&RELEASE_BINDING_FORMAT_VERSION.to_le_bytes());
+        record[18] = RELEASE_BINDING_HASH_SHA256;
+        record[20..24].copy_from_slice(&(RELEASE_BINDING_RECORD_LEN as u32).to_le_bytes());
+        record[RELEASE_BINDING_COMMITMENT_OFFSET..].copy_from_slice(&commitment);
+        record
+    }
+
+    fn fake_elf_with_record(record: &[u8]) -> Vec<u8> {
+        let mut binary = b"\x7fELFtest-padding".to_vec();
+        binary.extend_from_slice(record);
+        binary.extend_from_slice(b"trailing-bytes");
+        binary
+    }
+
+    #[test]
+    fn release_binding_accepts_the_exact_versioned_commitment() {
+        let expected = [0x5a; 32];
+        let binary = fake_elf_with_record(&test_binding_record(expected));
+        let matched = verify_release_binding(&binary, expected).unwrap();
+        assert_eq!(matched.offset, b"\x7fELFtest-padding".len());
+        assert_eq!(matched.commitment, expected);
+    }
+
+    #[test]
+    fn raw_layout_bytes_cannot_satisfy_the_release_binding() {
+        let mut binary = b"\x7fELF".to_vec();
+        binary.extend_from_slice(&[1, 2, 3, 4, 5, 6, 7, 8]);
+        let error = verify_release_binding(&binary, [1; 32]).unwrap_err();
+        assert!(error.contains("no versioned Hopper release-interface binding"));
+    }
+
+    #[test]
+    fn release_binding_rejects_a_stale_commitment() {
+        let binary = fake_elf_with_record(&test_binding_record([0x11; 32]));
+        let error = verify_release_binding(&binary, [0x22; 32]).unwrap_err();
+        assert!(error.contains("manifest commitment"));
+        assert!(error.contains(&hex_bytes(&[0x11; 32])));
+        assert!(error.contains(&hex_bytes(&[0x22; 32])));
+    }
+
+    #[test]
+    fn release_binding_rejects_an_unsupported_record_version() {
+        let mut record = test_binding_record([0x33; 32]);
+        record[16..18].copy_from_slice(&2u16.to_le_bytes());
+        let error = verify_release_binding(&fake_elf_with_record(&record), [0x33; 32]).unwrap_err();
+        assert!(error.contains("unsupported Hopper release-interface binding version 2"));
+    }
+
+    #[test]
+    fn release_binding_rejects_stale_and_current_records_in_one_binary() {
+        let expected = [0x44; 32];
+        let mut binary = fake_elf_with_record(&test_binding_record(expected));
+        binary.extend_from_slice(&test_binding_record([0x45; 32]));
+        let error = verify_release_binding(&binary, expected).unwrap_err();
+        assert!(error.contains(&hex_bytes(&[0x45; 32])));
     }
 
     #[test]

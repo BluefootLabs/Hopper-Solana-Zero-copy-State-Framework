@@ -24,6 +24,7 @@ pub mod clientgen;
 pub mod codama;
 pub mod go_client;
 pub mod python_client;
+pub mod release_binding;
 pub mod rust_client;
 
 use core::fmt;

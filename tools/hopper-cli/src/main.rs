@@ -13,7 +13,7 @@
 //! hopper compile --emit <rust|ts|kt|py|go|c|rust-client|idl|codama|schema> [<manifest>|--package <name>|--program-id ...]
 //!                                                     Emit lowered Rust, client SDKs, IDL JSON, Codama, or manifest
 //!
-//! hopper verify [<manifest>] [<.so>]                  Confirm manifest layouts are present in the compiled binary
+//! hopper verify [<manifest>] [<.so>]                  Verify manifest integrity and ELF interface binding
 //! hopper verify --package <name>                      Infer manifest and SBF binary from a workspace package
 //! hopper publish-check --package <name>                Run release/source gates before publishing
 //! hopper publish-idl --manifest <p> --program-id <id> [--dry-run]  Publish Anchor IDL to the metadata PDA (zero Node deps)
@@ -83,7 +83,7 @@
 //! Hex data is passed as a hex string (no 0x prefix).
 //! Manifest arguments accept inline JSON or `@path/to/file.json`.
 
-use hopper_schema::accounts::{normalize_lifecycle, ContextAccountDescriptor, ContextDescriptor};
+use hopper_schema::accounts::{AccountLifecycle, ContextAccountDescriptor, ContextDescriptor};
 use hopper_schema::c_client::CClientGen;
 use hopper_schema::clientgen::{KtClientGen, TsClientGen};
 use hopper_schema::go_client::GoClientGen;
@@ -2434,7 +2434,7 @@ fn print_usage() {
     println!("    hopper compile --emit <rust|ts|kt|py|go|c|rust-client|idl|codama|schema> [<manifest>|--package <name>|--program-id ...]");
     println!("                                           Emit lowered Rust, client SDKs, IDL JSON, Codama, or manifest");
     println!();
-    println!("  Verify (ABI integrity):");
+    println!("  Verify (manifest and release-interface integrity):");
     println!("    hopper verify [<manifest>] [<.so>]     Confirm every layout in the manifest");
     println!(
         "                                           appears in the compiled binary by LAYOUT_ID"
@@ -2442,12 +2442,12 @@ fn print_usage() {
     println!(
         "    hopper verify --package <name>         Infer manifest + .so from a workspace package"
     );
-    println!("    hopper publish-check --package <name>  Run release docs, feature, client, fuzz, and ABI gates");
+    println!("    hopper publish-check --package <name>  Run interface binding, docs, feature, client, and fuzz gates");
     println!(
         "    hopper audit-check [--strict] [--json] Verify audit evidence, freshness, and blockers"
     );
     println!("    hopper publish-idl --manifest <path> --program-id <pubkey> [--dry-run]");
-    println!("                                           Publish the Anchor IDL to the SPL Program Metadata PDA (zero Node deps)");
+    println!("                                           Publish the Anchor IDL through Program Metadata (zero Node deps)");
     println!("    hopper solana-check [--all]            Check SBF crate shape and Hopper entrypoint invariants");
     println!("    hopper contention <manifest>           Declared write-lock/signature footprint per instruction");
     println!("                                           (--max-block-cost <CU> gates it in CI)");
@@ -3804,9 +3804,16 @@ struct OwnedArg {
     name: String,
     canonical_type: String,
     size: u16,
-    encoding: String,
+    encoding: OwnedArgEncoding,
     max_len: u16,
     element_size: u16,
+}
+
+#[derive(Clone, Copy)]
+enum OwnedArgEncoding {
+    Fixed,
+    BoundedVec,
+    BoundedString,
 }
 
 struct OwnedAccount {
@@ -3820,7 +3827,7 @@ struct OwnedAccount {
 struct OwnedEvent {
     name: String,
     tag: u8,
-    fields: Vec<ParsedField>,
+    fields: Vec<OwnedField>,
 }
 
 struct OwnedPolicy {
@@ -3878,8 +3885,8 @@ struct OwnedContextAccount {
     policy_ref: String,
     seeds: Vec<String>,
     optional: bool,
-    // ── Stage 2.5 audit closure: Anchor-grade lifecycle metadata ─────
-    lifecycle: String,
+    // Lifecycle metadata.
+    lifecycle: AccountLifecycle,
     payer: String,
     init_space: u32,
     has_one: Vec<String>,
@@ -3997,8 +4004,8 @@ fn parse_program_manifest_json(json: &str) -> Result<OwnedProgramManifest, Strin
             .try_into()
             .map_err(|_| "layout_id must contain exactly 8 bytes".to_string())
     }
-    fn field_intent(value: &str) -> FieldIntent {
-        match value {
+    fn field_intent(value: &str) -> Result<FieldIntent, String> {
+        let intent = match value {
             "balance" => FieldIntent::Balance,
             "authority" => FieldIntent::Authority,
             "timestamp" => FieldIntent::Timestamp,
@@ -4018,7 +4025,33 @@ fn parse_program_manifest_json(json: &str) -> Result<OwnedProgramManifest, Strin
             "owner" => FieldIntent::Owner,
             "delegate" => FieldIntent::Delegate,
             "status" => FieldIntent::Status,
-            _ => FieldIntent::Custom,
+            "custom" => FieldIntent::Custom,
+            _ => return Err(format!("unknown field intent `{value}`")),
+        };
+        Ok(intent)
+    }
+    fn arg_encoding(value: &str) -> Result<OwnedArgEncoding, String> {
+        match value {
+            "fixed" => Ok(OwnedArgEncoding::Fixed),
+            "boundedVec" => Ok(OwnedArgEncoding::BoundedVec),
+            "boundedString" => Ok(OwnedArgEncoding::BoundedString),
+            _ => Err(format!("unknown argument encoding `{value}`")),
+        }
+    }
+    fn account_lifecycle(value: &str) -> Result<AccountLifecycle, String> {
+        let normalized: String = value
+            .trim()
+            .chars()
+            .filter(|character| !matches!(character, '_' | '-'))
+            .map(|character| character.to_ascii_lowercase())
+            .collect();
+        match normalized.as_str() {
+            "existing" => Ok(AccountLifecycle::Existing),
+            "init" | "create" => Ok(AccountLifecycle::Init),
+            "initifneeded" | "createifneeded" => Ok(AccountLifecycle::InitIfNeeded),
+            "realloc" | "reallocate" => Ok(AccountLifecycle::Realloc),
+            "close" => Ok(AccountLifecycle::Close),
+            _ => Err(format!("unknown account lifecycle `{value}`")),
         }
     }
     fn write_ranges(
@@ -4095,7 +4128,7 @@ fn parse_program_manifest_json(json: &str) -> Result<OwnedProgramManifest, Strin
                 )?,
                 size: as_u16(number(field, &["size"], 0)?, "field size")?,
                 offset: as_u16(number(field, &["offset"], 0)?, "field offset")?,
-                intent: field_intent(&string(field, &["intent"], "custom")?),
+                intent: field_intent(&string(field, &["intent"], "custom")?)?,
             });
         }
         let field_count = usize::try_from(number(
@@ -4128,7 +4161,7 @@ fn parse_program_manifest_json(json: &str) -> Result<OwnedProgramManifest, Strin
                 name: required_string(arg, &["name"])?,
                 canonical_type: required_string(arg, &["type", "canonicalType", "canonical_type"])?,
                 size: as_u16(number(arg, &["size"], 0)?, "argument size")?,
-                encoding: string(arg, &["encoding"], "fixed")?,
+                encoding: arg_encoding(&string(arg, &["encoding"], "fixed")?)?,
                 max_len: as_u16(number(arg, &["maxLen", "max_len"], 0)?, "maxLen")?,
                 element_size: as_u16(
                     number(arg, &["elementSize", "element_size"], 0)?,
@@ -4210,11 +4243,12 @@ fn parse_program_manifest_json(json: &str) -> Result<OwnedProgramManifest, Strin
         let mut fields = Vec::new();
         for value in array(event, &["fields"])? {
             let field = object(value, "event field")?;
-            fields.push(ParsedField {
+            fields.push(OwnedField {
                 name: required_string(field, &["name"])?,
                 canonical_type: required_string(field, &["type"])?,
                 size: as_u16(number(field, &["size"], 0)?, "event field size")?,
                 offset: as_u16(number(field, &["offset"], 0)?, "event field offset")?,
+                intent: field_intent(&string(field, &["intent"], "custom")?)?,
             });
         }
         events.push(OwnedEvent {
@@ -4300,7 +4334,7 @@ fn parse_program_manifest_json(json: &str) -> Result<OwnedProgramManifest, Strin
                 policy_ref: string(account, &["policyRef", "policy_ref"], "")?,
                 seeds: strings(account, &["seeds"])?,
                 optional: boolean(account, &["optional"], false)?,
-                lifecycle: string(account, &["lifecycle"], "existing")?,
+                lifecycle: account_lifecycle(&string(account, &["lifecycle"], "existing")?)?,
                 payer: string(account, &["payer"], "")?,
                 init_space: as_u32(
                     number(account, &["initSpace", "init_space"], 0)?,
@@ -4363,15 +4397,15 @@ fn to_program_manifest(m: &OwnedProgramManifest) -> ProgramManifest {
                     name: leak_str(&a.name),
                     canonical_type: leak_str(&a.canonical_type),
                     size: a.size,
-                    encoding: match a.encoding.as_str() {
-                        "boundedVec" => hopper_schema::ArgEncoding::BoundedVec {
+                    encoding: match a.encoding {
+                        OwnedArgEncoding::Fixed => hopper_schema::ArgEncoding::Fixed,
+                        OwnedArgEncoding::BoundedVec => hopper_schema::ArgEncoding::BoundedVec {
                             max_len: a.max_len,
                             element_size: a.element_size,
                         },
-                        "boundedString" => {
+                        OwnedArgEncoding::BoundedString => {
                             hopper_schema::ArgEncoding::BoundedString { max_len: a.max_len }
                         }
-                        _ => hopper_schema::ArgEncoding::Fixed,
                     },
                 })
                 .collect();
@@ -4469,7 +4503,7 @@ fn to_program_manifest(m: &OwnedProgramManifest) -> ProgramManifest {
                     canonical_type: leak_str(&f.canonical_type),
                     size: f.size,
                     offset: f.offset,
-                    intent: FieldIntent::Custom,
+                    intent: f.intent,
                 })
                 .collect();
             EventDescriptor {
@@ -4509,7 +4543,6 @@ fn to_program_manifest(m: &OwnedProgramManifest) -> ProgramManifest {
                         account.seeds.iter().map(|seed| leak_str(seed)).collect();
                     let has_one: Vec<&'static str> =
                         account.has_one.iter().map(|h| leak_str(h)).collect();
-                    let lifecycle = normalize_lifecycle(&account.lifecycle);
                     ContextAccountDescriptor {
                         name: leak_str(&account.name),
                         kind: leak_str(&account.kind),
@@ -4519,7 +4552,7 @@ fn to_program_manifest(m: &OwnedProgramManifest) -> ProgramManifest {
                         policy_ref: leak_str(&account.policy_ref),
                         seeds: Box::leak(seeds.into_boxed_slice()),
                         optional: account.optional,
-                        lifecycle,
+                        lifecycle: account.lifecycle,
                         payer: leak_str(&account.payer),
                         init_space: account.init_space,
                         has_one: Box::leak(has_one.into_boxed_slice()),
@@ -6186,6 +6219,27 @@ mod loader_write_set_tests {
             lamport_accounts: &[],
             cu_estimate: 3_000,
         }];
+        static EVENT_FIELDS: &[FieldDescriptor] = &[
+            FieldDescriptor {
+                name: "authority",
+                canonical_type: "Pubkey",
+                size: 32,
+                offset: 0,
+                intent: FieldIntent::Authority,
+            },
+            FieldDescriptor {
+                name: "opaque",
+                canonical_type: "u8",
+                size: 1,
+                offset: 32,
+                intent: FieldIntent::Custom,
+            },
+        ];
+        static EVENTS: &[EventDescriptor] = &[EventDescriptor {
+            name: "Initialized",
+            tag: 9,
+            fields: EVENT_FIELDS,
+        }];
         static CONTEXT_ACCOUNTS: &[ContextAccountDescriptor] = &[
             ContextAccountDescriptor {
                 name: "payer",
@@ -6272,7 +6326,7 @@ mod loader_write_set_tests {
             layouts: &[],
             layout_metadata: METADATA,
             instructions: INSTRUCTIONS,
-            events: &[],
+            events: EVENTS,
             policies: POLICIES,
             compatibility_pairs: COMPATIBILITY,
             tooling_hints: &["lossless"],
@@ -6308,6 +6362,8 @@ mod loader_write_set_tests {
         assert!(loaded.contexts[0].mutation_complete);
         assert_eq!(loaded.contexts[0].lamport_accounts, &[0, 1]);
         assert_eq!(loaded.tooling_hints, &["lossless"]);
+        assert_eq!(loaded.events[0].fields[0].intent, FieldIntent::Authority);
+        assert_eq!(loaded.events[0].fields[1].intent, FieldIntent::Custom);
     }
 
     #[test]
@@ -6373,6 +6429,141 @@ mod loader_write_set_tests {
         assert_eq!(ctx.write_ranges[0].account_index, 0);
         assert_eq!(ctx.write_ranges[0].offset, 16);
         assert_eq!(ctx.write_ranges[0].size, 8);
+    }
+
+    #[test]
+    fn release_manifest_rejects_unknown_argument_encoding() {
+        let json = r#"{
+          "name": "fail-closed",
+          "instructions": [{
+            "name": "write",
+            "args": [{ "name": "value", "type": "u8", "encoding": "futureEncoding" }]
+          }]
+        }"#;
+
+        let error = parse_program_manifest_json(json)
+            .err()
+            .expect("unknown argument encoding must fail");
+        assert_eq!(error, "unknown argument encoding `futureEncoding`");
+    }
+
+    #[test]
+    fn release_manifest_rejects_unknown_account_lifecycle() {
+        let json = r#"{
+          "name": "fail-closed",
+          "contexts": [{
+            "name": "Write",
+            "accounts": [{ "name": "state", "lifecycle": "teleport" }]
+          }]
+        }"#;
+
+        let error = parse_program_manifest_json(json)
+            .err()
+            .expect("unknown account lifecycle must fail");
+        assert_eq!(error, "unknown account lifecycle `teleport`");
+    }
+
+    #[test]
+    fn release_manifest_rejects_unknown_layout_and_event_field_intents() {
+        let manifests = [
+            r#"{
+              "name": "fail-closed-layout",
+              "layouts": [{
+                "name": "State",
+                "layoutId": "0000000000000000",
+                "fields": [{ "name": "value", "type": "u8", "intent": "mystery" }]
+              }]
+            }"#,
+            r#"{
+              "name": "fail-closed-event",
+              "events": [{
+                "name": "Changed",
+                "fields": [{ "name": "value", "type": "u8", "intent": "mystery" }]
+              }]
+            }"#,
+        ];
+
+        for json in manifests {
+            let error = parse_program_manifest_json(json)
+                .err()
+                .expect("unknown field intent must fail");
+            assert_eq!(error, "unknown field intent `mystery`");
+        }
+    }
+
+    #[test]
+    fn release_manifest_typed_values_and_event_intents_round_trip() {
+        let json = r#"{
+          "name": "typed-round-trip",
+          "layouts": [{
+            "name": "State",
+            "layoutId": "0000000000000000",
+            "fields": [{ "name": "opaque", "type": "u8", "intent": "custom" }]
+          }],
+          "instructions": [{
+            "name": "write",
+            "args": [
+              { "name": "fixed", "type": "u8", "size": 1, "encoding": "fixed" },
+              { "name": "items", "type": "Vec<u16>", "encoding": "boundedVec", "maxLen": 7, "elementSize": 2 },
+              { "name": "label", "type": "String", "encoding": "boundedString", "maxLen": 19 }
+            ]
+          }],
+          "events": [{
+            "name": "Changed",
+            "fields": [
+              { "name": "authority", "type": "Pubkey", "intent": "authority" },
+              { "name": "opaque", "type": "u8", "intent": "custom" },
+              { "name": "defaulted", "type": "u8" }
+            ]
+          }],
+          "contexts": [{
+            "name": "Write",
+            "accounts": [
+              { "name": "current", "lifecycle": "existing" },
+              { "name": "created", "lifecycle": "init" },
+              { "name": "maybe_created", "lifecycle": "init_if_needed" },
+              { "name": "grown", "lifecycle": "realloc" },
+              { "name": "recipient", "lifecycle": "close" }
+            ]
+          }]
+        }"#;
+
+        let owned = parse_program_manifest_json(json).expect("known typed values should parse");
+        let manifest = to_program_manifest(&owned);
+
+        assert_eq!(manifest.layouts[0].fields[0].intent, FieldIntent::Custom);
+        assert_eq!(
+            manifest.instructions[0].args[0].encoding,
+            hopper_schema::ArgEncoding::Fixed
+        );
+        assert_eq!(
+            manifest.instructions[0].args[1].encoding,
+            hopper_schema::ArgEncoding::BoundedVec {
+                max_len: 7,
+                element_size: 2,
+            }
+        );
+        assert_eq!(
+            manifest.instructions[0].args[2].encoding,
+            hopper_schema::ArgEncoding::BoundedString { max_len: 19 }
+        );
+        assert_eq!(manifest.events[0].fields[0].intent, FieldIntent::Authority);
+        assert_eq!(manifest.events[0].fields[1].intent, FieldIntent::Custom);
+        assert_eq!(manifest.events[0].fields[2].intent, FieldIntent::Custom);
+        assert_eq!(
+            manifest.contexts[0]
+                .accounts
+                .iter()
+                .map(|account| account.lifecycle)
+                .collect::<Vec<_>>(),
+            vec![
+                AccountLifecycle::Existing,
+                AccountLifecycle::Init,
+                AccountLifecycle::InitIfNeeded,
+                AccountLifecycle::Realloc,
+                AccountLifecycle::Close,
+            ]
+        );
     }
 
     #[test]

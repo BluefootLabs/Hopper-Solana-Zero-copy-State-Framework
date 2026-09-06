@@ -107,6 +107,28 @@ fn name_version_default_to_cargo_pkg_and_override_cleanly() {
 }
 
 #[test]
+fn release_binding_is_derived_from_the_same_program_manifest() {
+    use hopper::hopper_schema::release_binding::{
+        interface_commitment, release_binding_record, RELEASE_BINDING_COMMITMENT_OFFSET,
+        RELEASE_BINDING_MAGIC,
+    };
+
+    let commitment = interface_commitment(&PROGRAM_MANIFEST);
+    let record = release_binding_record(&PROGRAM_MANIFEST);
+    assert_eq!(
+        &record[..RELEASE_BINDING_MAGIC.len()],
+        &RELEASE_BINDING_MAGIC
+    );
+    assert_eq!(&record[RELEASE_BINDING_COMMITMENT_OFFSET..], &commitment);
+
+    assert_ne!(
+        commitment,
+        interface_commitment(&overrides::PROGRAM_MANIFEST),
+        "program identity and interface changes must produce a different binding"
+    );
+}
+
+#[test]
 fn typed_handlers_publish_rows_raw_handlers_stay_opaque() {
     // `transfer` (typed) publishes; `poke` (raw) is opaque.
     assert_eq!(PROGRAM_MANIFEST.instructions.len(), 1);

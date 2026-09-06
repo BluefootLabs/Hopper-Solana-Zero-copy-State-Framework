@@ -11,6 +11,75 @@ const K: [u32; 64] = [
     0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
 ];
 
+/// Incremental SHA-256 state that can be evaluated at compile time.
+///
+/// This is intended for generated, static commitments whose canonical input
+/// is assembled from many slices. It avoids allocating one concatenated
+/// buffer and avoids restarting the compression function for every field.
+#[derive(Clone, Copy)]
+pub struct ConstSha256 {
+    state: [u32; 8],
+    block: [u8; 64],
+    block_len: usize,
+    total_len: u64,
+}
+
+impl ConstSha256 {
+    /// Create an empty SHA-256 state.
+    pub const fn new() -> Self {
+        Self {
+            state: [
+                0x6a09e667u32,
+                0xbb67ae85,
+                0x3c6ef372,
+                0xa54ff53a,
+                0x510e527f,
+                0x9b05688c,
+                0x1f83d9ab,
+                0x5be0cd19,
+            ],
+            block: [0; 64],
+            block_len: 0,
+            total_len: 0,
+        }
+    }
+
+    /// Append bytes to the hash input.
+    pub const fn update(mut self, input: &[u8]) -> Self {
+        let mut i = 0;
+        while i < input.len() {
+            self.block[self.block_len] = input[i];
+            self.block_len += 1;
+            self.total_len = self.total_len.wrapping_add(1);
+            i += 1;
+            if self.block_len == 64 {
+                self.state = compress(self.state, self.block);
+                self.block = [0; 64];
+                self.block_len = 0;
+            }
+        }
+        self
+    }
+
+    /// Finalize the digest without modifying the original state.
+    pub const fn finalize(mut self) -> [u8; 32] {
+        self.block[self.block_len] = 0x80;
+        if self.block_len >= 56 {
+            self.state = compress(self.state, self.block);
+            self.block = [0; 64];
+        }
+        write_len(&mut self.block, self.total_len.wrapping_mul(8));
+        self.state = compress(self.state, self.block);
+        state_to_bytes(self.state)
+    }
+}
+
+impl Default for ConstSha256 {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Compute SHA-256(data) at compile time.
 pub const fn sha256(data: &[u8]) -> [u8; 32] {
     sha256_concat(data, &[])
@@ -201,5 +270,18 @@ mod tests {
             sha256_concat(b"global:", b"initialize"),
             sha256(b"global:initialize")
         );
+    }
+
+    #[test]
+    fn incremental_matches_single_slice_across_block_boundaries() {
+        let left = b"a canonical prefix longer than one short field";
+        let right = b" plus enough suffix bytes to cross the sixty-four-byte block boundary";
+        let incremental = ConstSha256::new().update(left).update(right).finalize();
+        assert_eq!(incremental, sha256_concat(left, right));
+    }
+
+    #[test]
+    fn incremental_empty_matches_one_shot_empty() {
+        assert_eq!(ConstSha256::new().finalize(), sha256(b""));
     }
 }

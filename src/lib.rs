@@ -1000,6 +1000,28 @@ macro_rules! program_manifest {
                 tooling_hints: &[],
                 contexts: $program_mod::__HOPPER_CONTEXT_DESCRIPTORS,
             };
+
+        /// SHA-256 commitment to the program's canonical executable
+        /// interface declaration.
+        #[allow(unexpected_cfgs)]
+        #[cfg(target_os = "solana")]
+        pub const PROGRAM_INTERFACE_COMMITMENT: [u8; 32] =
+            $crate::hopper_schema::release_binding::interface_commitment(
+                &PROGRAM_MANIFEST,
+            );
+
+        // Keep one structured record in the Solana release ELF. Host tooling
+        // computes the same commitment from PROGRAM_MANIFEST at runtime, which
+        // avoids forcing large manifests through rustc's host const evaluator.
+        #[doc(hidden)]
+        #[allow(unexpected_cfgs)]
+        #[cfg(target_os = "solana")]
+        #[no_mangle]
+        pub static __HOPPER_RELEASE_BINDING_V1:
+            [u8; $crate::hopper_schema::release_binding::RELEASE_BINDING_RECORD_LEN] =
+            $crate::hopper_schema::release_binding::release_binding_record_from_commitment(
+                PROGRAM_INTERFACE_COMMITMENT,
+            );
     };
 }
 
