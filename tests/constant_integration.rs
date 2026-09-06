@@ -48,6 +48,7 @@ fn idl_emitter_renders_constants_array() {
         "{}",
         AnchorIdlWithConstants {
             idl: &idl,
+            address: "11111111111111111111111111111111",
             constants: PROGRAM_CONSTANTS,
         }
     );
@@ -66,8 +67,9 @@ fn idl_emitter_empty_constants_array_on_empty_slice() {
         "{}",
         AnchorIdlWithConstants {
             idl: &idl,
+            address: "11111111111111111111111111111111",
             constants: &[],
         }
     );
-    assert!(json.contains("\"constants\": [],"));
+    assert!(json.contains("\"constants\": []"));
 }

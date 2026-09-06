@@ -849,10 +849,15 @@ pub fn cmd_publish_idl(args: &[String]) {
         format!("@{manifest_arg}")
     };
     let manifest = crate::load_program_manifest(&load_arg);
-    let idl_json = format!(
-        "{}",
-        hopper_schema::anchor_idl::AnchorIdlFromManifest(&manifest)
-    );
+    let projection = hopper_schema::anchor_idl::AnchorIdlFromManifest {
+        manifest: &manifest,
+        address: &program_id_arg,
+    };
+    if let Err(error) = projection.validate() {
+        eprintln!("cannot publish a complete Anchor IDL: {error}");
+        process::exit(1);
+    }
+    let idl_json = format!("{projection}");
 
     if dry_run {
         print!(

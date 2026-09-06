@@ -6,7 +6,7 @@
 //! ## Command Families
 //!
 //! ```text
-//! hopper schema export [--manifest|--idl|--codama|--anchor-idl]  Export schema in various formats
+//! hopper schema export --anchor-idl <manifest> --program-id <id>  Export current Solana/Anchor IDL
 //! hopper schema validate <manifest-json>            Validate a manifest
 //! hopper schema diff <old> <new>                    Field-level diff
 //!
@@ -239,7 +239,7 @@ fn cmd_schema_family(args: &[String]) {
         eprintln!();
         eprintln!("Subcommands:");
         eprintln!(
-            "  export [--manifest|--idl|--codama|--anchor-idl]  Export schema format reference"
+            "  export [--manifest|--idl|--codama]  Export schema; --anchor-idl also requires --program-id"
         );
         eprintln!("  validate <manifest-json>            Validate a program manifest");
         eprintln!("  diff <old-json> <new-json>          Field-level diff between versions");
@@ -3561,20 +3561,31 @@ fn cmd_schema_export_family(args: &[String]) {
             println!("{}", hopper_schema::codama::CodamaJsonFromManifest(&prog));
         }
         "--anchor-idl" => {
-            // R8: emit an Anchor 0.30-shaped IDL so explorers and
-            // wallets that only speak Anchor IDL today can consume a
-            // Hopper program. Codama remains the preferred interop
-            // path (--codama); this exists because the long tail of
-            // tooling has not migrated yet.
-            if args.len() < 2 {
-                eprintln!("Usage: hopper schema export --anchor-idl <manifest-json>");
+            if args.len() != 4 || args[2] != "--program-id" {
+                eprintln!(
+                    "Usage: hopper schema export --anchor-idl <manifest-json> --program-id <pubkey>"
+                );
+                process::exit(1);
+            }
+            let program_id = &args[3];
+            let decoded = bs58::decode(program_id).into_vec().unwrap_or_else(|error| {
+                eprintln!("invalid base58 program id: {error}");
+                process::exit(1);
+            });
+            if decoded.len() != 32 {
+                eprintln!("program id must be 32 bytes, got {}", decoded.len());
                 process::exit(1);
             }
             let prog = load_program_manifest(&args[1]);
-            println!(
-                "{}",
-                hopper_schema::anchor_idl::AnchorIdlFromManifest(&prog)
-            );
+            let projection = hopper_schema::anchor_idl::AnchorIdlFromManifest {
+                manifest: &prog,
+                address: program_id,
+            };
+            if let Err(error) = projection.validate() {
+                eprintln!("cannot export a complete Anchor IDL: {error}");
+                process::exit(1);
+            }
+            println!("{projection}");
         }
         _ => cmd_schema_export(),
     }
