@@ -33,7 +33,7 @@ use crate::{
 
 const HOPPER_HEADER_SIZE: usize = 16;
 
-fn layout_is_compact(layout: &LayoutManifest) -> bool {
+pub(crate) fn layout_is_compact(layout: &LayoutManifest) -> bool {
     layout.fields.iter().map(|field| field.offset).min() == Some(1)
         || layout.total_size < HOPPER_HEADER_SIZE
 }

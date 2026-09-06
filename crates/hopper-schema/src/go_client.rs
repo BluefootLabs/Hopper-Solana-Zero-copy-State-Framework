@@ -11,7 +11,8 @@ use alloc::{format, string::String};
 use core::fmt;
 
 use crate::{
-    EventDescriptor, FieldDescriptor, InstructionDescriptor, LayoutManifest, ProgramManifest,
+    clientgen::layout_is_compact, EventDescriptor, FieldDescriptor, InstructionDescriptor,
+    LayoutManifest, ProgramManifest,
 };
 
 /// Full Go client emitter.
@@ -63,6 +64,8 @@ impl<'a> fmt::Display for GoClientGen<'a> {
             f,
             "var ErrTagMismatch = errors.New(\"hopper client: tag mismatch\")"
         )?;
+        writeln!(f, "var ErrCompactSizeMismatch = errors.New(\"hopper client: compact account size mismatch\")")?;
+        writeln!(f, "var ErrDiscriminatorMismatch = errors.New(\"hopper client: account discriminator mismatch\")")?;
         writeln!(f)?;
         writeln!(f, "type LayoutMismatchError struct {{")?;
         writeln!(f, "\tExpected [8]byte")?;
@@ -138,7 +141,24 @@ fn write_layout(f: &mut fmt::Formatter<'_>, layout: &LayoutManifest) -> fmt::Res
     writeln!(f)?;
 
     writeln!(f, "func Assert{}Layout(data []byte) error {{", pascal)?;
-    writeln!(f, "\treturn assertLayoutID(data, {}LayoutID)", pascal)?;
+    if layout_is_compact(layout) {
+        writeln!(
+            f,
+            "\tif len(data) == 0 || len(data) < {}TotalSize {{",
+            pascal
+        )?;
+        writeln!(f, "\t\treturn ErrBufferTooSmall")?;
+        writeln!(f, "\t}}")?;
+        writeln!(f, "\tif len(data) != {}TotalSize {{", pascal)?;
+        writeln!(f, "\t\treturn fmt.Errorf(\"%w: expected %d got %d\", ErrCompactSizeMismatch, {}TotalSize, len(data))", pascal)?;
+        writeln!(f, "\t}}")?;
+        writeln!(f, "\tif data[0] != {}Disc {{", pascal)?;
+        writeln!(f, "\t\treturn fmt.Errorf(\"%w: expected %d got %d\", ErrDiscriminatorMismatch, {}Disc, data[0])", pascal)?;
+        writeln!(f, "\t}}")?;
+        writeln!(f, "\treturn nil")?;
+    } else {
+        writeln!(f, "\treturn assertLayoutID(data, {}LayoutID)", pascal)?;
+    }
     writeln!(f, "}}")?;
     writeln!(f)?;
 
@@ -551,6 +571,38 @@ mod tests {
         }
     }
 
+    fn compact_manifest() -> ProgramManifest {
+        static FIELDS: &[FieldDescriptor] = &[FieldDescriptor {
+            name: "balance",
+            canonical_type: "u64",
+            size: 8,
+            offset: 1,
+            intent: FieldIntent::Balance,
+        }];
+        static LAYOUTS: &[LayoutManifest] = &[LayoutManifest {
+            name: "compact_vault",
+            disc: 11,
+            version: 1,
+            layout_id: [9, 8, 7, 6, 5, 4, 3, 2],
+            total_size: 9,
+            field_count: 1,
+            fields: FIELDS,
+        }];
+        ProgramManifest {
+            name: "compact_program",
+            version: "0.1.0",
+            description: "",
+            layouts: LAYOUTS,
+            layout_metadata: &[],
+            instructions: &[],
+            events: &[],
+            policies: &[],
+            compatibility_pairs: &[],
+            tooling_hints: &[],
+            contexts: &[],
+        }
+    }
+
     #[test]
     fn go_client_emits_layout_assertion_and_decoder() {
         let out = GoClientGen(&manifest()).to_string();
@@ -558,6 +610,14 @@ mod tests {
         assert!(out.contains("func DecodeVault(data []byte) (Vault, error)"));
         assert!(out.contains("copy(out.Authority[:], data[16:48])"));
         assert!(out.contains("out.Balance = binary.LittleEndian.Uint64(data[48:56])"));
+    }
+
+    #[test]
+    fn go_compact_decoder_validates_exact_size_and_discriminator() {
+        let out = GoClientGen(&compact_manifest()).to_string();
+        assert!(out.contains("if len(data) != CompactVaultTotalSize"));
+        assert!(out.contains("if data[0] != CompactVaultDisc"));
+        assert!(!out.contains("return assertLayoutID(data, CompactVaultLayoutID)"));
     }
 
     #[test]

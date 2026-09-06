@@ -2230,6 +2230,20 @@ fn is_seed_ident(s: &str) -> bool {
     chars.all(|c| c.is_ascii_alphanumeric() || c == '_')
 }
 
+/// Rust constants conventionally use `SCREAMING_SNAKE_CASE`. A bare constant
+/// cannot be resolved from manifest text alone and must never be mistaken for
+/// an instruction account with the same spelling.
+fn is_seed_const_ident(s: &str) -> bool {
+    let mut has_upper = false;
+    for c in s.chars() {
+        if c.is_ascii_lowercase() {
+            return false;
+        }
+        has_upper |= c.is_ascii_uppercase();
+    }
+    has_upper
+}
+
 /// Classify a single stringified seed expression into a [`SeedPart`].
 ///
 /// Recognizes the seed spellings Hopper and Anchor programs use in practice:
@@ -2280,7 +2294,7 @@ pub fn classify_seed(seed: &str) -> SeedPart<'_> {
         base = stripped.trim();
     }
 
-    if is_seed_ident(base) {
+    if is_seed_ident(base) && !is_seed_const_ident(base) {
         SeedPart::Account(base)
     } else {
         SeedPart::Unknown(s)
@@ -6395,6 +6409,17 @@ mod tests {
             SeedPart::Arg("nonce")
         );
         assert_eq!(classify_seed("id.to_be_bytes()"), SeedPart::Arg("id"));
+
+        // A manifest preserves only source spelling, not a constant's value.
+        // Never misclassify a Rust constant as an account and derive a wrong PDA.
+        assert_eq!(
+            classify_seed("CONFIG_SEED"),
+            SeedPart::Unknown("CONFIG_SEED")
+        );
+        assert_eq!(
+            classify_seed("CONFIG_SEED.as_ref()"),
+            SeedPart::Unknown("CONFIG_SEED.as_ref()")
+        );
 
         // Surrounding whitespace is tolerated.
         assert_eq!(

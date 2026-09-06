@@ -22,24 +22,26 @@
 //! - **Accounts**: a typed struct per layout plus a
 //!   `decode_{name}(&[u8]) -> Result<{Name}>` that reads fields out
 //!   of raw bytes at their declared offsets, preceded by
-//!   `assert_{name}_layout(&[u8])` which compares the header's
-//!   `LAYOUT_ID` against the embedded constant.
+//!   `assert_{name}_layout(&[u8])` which compares a header's `LAYOUT_ID`, or
+//!   a compact account's discriminator and exact size, with the manifest.
 //! - **Instructions**: `create_{ix}_ix(accounts, args) -> Instruction`
 //!   builders with the discriminator byte + LE-encoded args.
 //! - **Events**: `decode_{event}_data(&[u8]) -> Result<{Event}>`.
 //!
-//! Client-side layout verification is mandatory. the audit's
-//! closing directive is that clients must refuse to decode accounts
-//! whose headers disagree with the compiled ABI. The generated
-//! `assert_{name}_layout` is the enforcement point.
+//! Client-side layout verification is mandatory. Generated clients refuse to
+//! decode accounts whose identity disagrees with the compiled ABI. The
+//! `assert_{name}_layout` function is the enforcement point.
 
 extern crate alloc;
 
 use alloc::format;
-use alloc::string::{String, ToString};
+use alloc::string::String;
 use core::fmt;
 
-use crate::{EventDescriptor, InstructionDescriptor, LayoutManifest, ProgramManifest};
+use crate::{
+    clientgen::layout_is_compact, EventDescriptor, InstructionDescriptor, LayoutManifest,
+    ProgramManifest,
+};
 
 /// Full Rust client emitter.
 ///
@@ -68,19 +70,19 @@ impl<'a> fmt::Display for RsClientGen<'a> {
         writeln!(f, "//!")?;
         writeln!(
             f,
-            "//! Every account decoder calls `assert_{{name}}_layout` first, which"
+            "//! Every account decoder calls `assert_{{name}}_layout` first. Headered"
         )?;
         writeln!(
             f,
-            "//! compares the on-chain `LAYOUT_ID` fingerprint to the compiled-in"
+            "//! accounts compare the on-chain `LAYOUT_ID`; compact accounts compare"
         )?;
         writeln!(
             f,
-            "//! constant. A mismatch raises `LayoutMismatch` instead of reading"
+            "//! exact size and discriminator. A mismatch is rejected before reading"
         )?;
         writeln!(
             f,
-            "//! stale bytes as if they were the new layout. this is the"
+            "//! stale bytes as if they were the new layout. This is the"
         )?;
         writeln!(
             f,
@@ -149,7 +151,7 @@ impl<'a> fmt::Display for RsClientGen<'a> {
         writeln!(f, "pub enum ClientError {{")?;
         writeln!(
             f,
-            "    /// Buffer smaller than the 16-byte Hopper header + declared body."
+            "    /// Buffer smaller than the bytes required by the selected decoder."
         )?;
         writeln!(f, "    BufferTooSmall {{ need: usize, got: usize }},")?;
         writeln!(
@@ -163,6 +165,22 @@ impl<'a> fmt::Display for RsClientGen<'a> {
         writeln!(
             f,
             "    LayoutMismatch {{ expected: [u8; 8], actual: [u8; 8] }},"
+        )?;
+        writeln!(
+            f,
+            "    /// Compact account length differs from the manifest's exact size."
+        )?;
+        writeln!(
+            f,
+            "    AccountSizeMismatch {{ expected: usize, actual: usize }},"
+        )?;
+        writeln!(
+            f,
+            "    /// Compact account discriminator differs from the manifest."
+        )?;
+        writeln!(
+            f,
+            "    DiscriminatorMismatch {{ expected: u8, actual: u8 }},"
         )?;
         writeln!(
             f,
@@ -202,6 +220,24 @@ impl<'a> fmt::Display for RsClientGen<'a> {
         writeln!(f, "            }}")?;
         writeln!(
             f,
+            "            Self::AccountSizeMismatch {{ expected, actual }} => {{"
+        )?;
+        writeln!(
+            f,
+            "                write!(f, \"hopper client: compact account size mismatch: expected {{}} got {{}}\", expected, actual)"
+        )?;
+        writeln!(f, "            }}")?;
+        writeln!(
+            f,
+            "            Self::DiscriminatorMismatch {{ expected, actual }} => {{"
+        )?;
+        writeln!(
+            f,
+            "                write!(f, \"hopper client: compact account discriminator mismatch: expected {{}} got {{}}\", expected, actual)"
+        )?;
+        writeln!(f, "            }}")?;
+        writeln!(
+            f,
             "            Self::EventTagMismatch {{ expected, actual }} => {{"
         )?;
         writeln!(
@@ -222,29 +258,31 @@ impl<'a> fmt::Display for RsClientGen<'a> {
         writeln!(f, "    }}")?;
         writeln!(f, "}}")?;
         writeln!(f)?;
-        writeln!(
-            f,
-            "/// Internal helper. read the 8-byte `LAYOUT_ID` from a Hopper header."
-        )?;
-        writeln!(f, "#[inline]")?;
-        writeln!(
-            f,
-            "fn read_layout_id(data: &[u8]) -> Result<[u8; 8], ClientError> {{"
-        )?;
-        writeln!(f, "    if data.len() < HOPPER_HEADER_SIZE {{")?;
-        writeln!(
-            f,
-            "        return Err(ClientError::BufferTooSmall {{ need: HOPPER_HEADER_SIZE, got: data.len() }});"
-        )?;
-        writeln!(f, "    }}")?;
-        writeln!(f, "    let mut id = [0u8; 8];")?;
-        writeln!(
-            f,
-            "    id.copy_from_slice(&data[LAYOUT_ID_OFFSET..LAYOUT_ID_OFFSET + LAYOUT_ID_LENGTH]);"
-        )?;
-        writeln!(f, "    Ok(id)")?;
-        writeln!(f, "}}")?;
-        writeln!(f)?;
+        if prog.layouts.iter().any(|layout| !layout_is_compact(layout)) {
+            writeln!(
+                f,
+                "/// Internal helper. Read the 8-byte `LAYOUT_ID` from a Hopper header."
+            )?;
+            writeln!(f, "#[inline]")?;
+            writeln!(
+                f,
+                "fn read_layout_id(data: &[u8]) -> Result<[u8; 8], ClientError> {{"
+            )?;
+            writeln!(f, "    if data.len() < HOPPER_HEADER_SIZE {{")?;
+            writeln!(
+                f,
+                "        return Err(ClientError::BufferTooSmall {{ need: HOPPER_HEADER_SIZE, got: data.len() }});"
+            )?;
+            writeln!(f, "    }}")?;
+            writeln!(f, "    let mut id = [0u8; 8];")?;
+            writeln!(
+                f,
+                "    id.copy_from_slice(&data[LAYOUT_ID_OFFSET..LAYOUT_ID_OFFSET + LAYOUT_ID_LENGTH]);"
+            )?;
+            writeln!(f, "    Ok(id)")?;
+            writeln!(f, "}}")?;
+            writeln!(f)?;
+        }
 
         for layout in prog.layouts.iter() {
             write_layout_const_and_decoder(f, layout)?;
@@ -321,35 +359,76 @@ fn write_layout_const_and_decoder(
             f,
             "    pub {}: {},",
             snake_case(field.name),
-            rust_field_type(field.canonical_type)
+            rust_field_type(field.canonical_type, field.size as usize)
         )?;
     }
     writeln!(f, "}}")?;
     writeln!(f)?;
 
     // Layout assertion.
-    writeln!(
-        f,
-        "/// Refuse to decode if the header's `LAYOUT_ID` disagrees with the"
-    )?;
-    writeln!(
-        f,
-        "/// compiled-in `{}_LAYOUT_ID`. This is the client-side audit guard.",
-        upper
-    )?;
+    if layout_is_compact(layout) {
+        writeln!(
+            f,
+            "/// Refuse to decode unless this compact account has the exact manifest"
+        )?;
+        writeln!(
+            f,
+            "/// size and discriminator. Its `{}_LAYOUT_ID` remains metadata because",
+            upper
+        )?;
+        writeln!(f, "/// compact bytes do not carry an 8-byte fingerprint.")?;
+    } else {
+        writeln!(
+            f,
+            "/// Refuse to decode if the header's `LAYOUT_ID` disagrees with the"
+        )?;
+        writeln!(
+            f,
+            "/// compiled-in `{}_LAYOUT_ID`. This is the client-side ABI guard.",
+            upper
+        )?;
+    }
     writeln!(
         f,
         "pub fn assert_{}_layout(data: &[u8]) -> Result<(), ClientError> {{",
         snake
     )?;
-    writeln!(f, "    let actual = read_layout_id(data)?;")?;
-    writeln!(f, "    if actual != {}_LAYOUT_ID {{", upper)?;
-    writeln!(
-        f,
-        "        return Err(ClientError::LayoutMismatch {{ expected: {}_LAYOUT_ID, actual }});",
-        upper
-    )?;
-    writeln!(f, "    }}")?;
+    if layout_is_compact(layout) {
+        writeln!(
+            f,
+            "    if data.is_empty() || data.len() < {}_TOTAL_SIZE {{",
+            upper
+        )?;
+        writeln!(
+            f,
+            "        return Err(ClientError::BufferTooSmall {{ need: core::cmp::max({}_TOTAL_SIZE, 1), got: data.len() }});",
+            upper
+        )?;
+        writeln!(f, "    }}")?;
+        writeln!(f, "    if data.len() != {}_TOTAL_SIZE {{", upper)?;
+        writeln!(
+            f,
+            "        return Err(ClientError::AccountSizeMismatch {{ expected: {}_TOTAL_SIZE, actual: data.len() }});",
+            upper
+        )?;
+        writeln!(f, "    }}")?;
+        writeln!(f, "    if data[0] != {}_DISC {{", upper)?;
+        writeln!(
+            f,
+            "        return Err(ClientError::DiscriminatorMismatch {{ expected: {}_DISC, actual: data[0] }});",
+            upper
+        )?;
+        writeln!(f, "    }}")?;
+    } else {
+        writeln!(f, "    let actual = read_layout_id(data)?;")?;
+        writeln!(f, "    if actual != {}_LAYOUT_ID {{", upper)?;
+        writeln!(
+            f,
+            "        return Err(ClientError::LayoutMismatch {{ expected: {}_LAYOUT_ID, actual }});",
+            upper
+        )?;
+        writeln!(f, "    }}")?;
+    }
     writeln!(f, "    Ok(())")?;
     writeln!(f, "}}")?;
     writeln!(f)?;
@@ -410,19 +489,19 @@ fn write_field_decode(
     match canonical {
         "u8" => writeln!(f, "        data[{}]", offset),
         "i8" => writeln!(f, "        data[{}] as i8", offset),
-        "u16" => writeln!(
+        "u16" | "WireU16" => writeln!(
             f,
             "        u16::from_le_bytes([data[{}], data[{}]])",
             offset,
             offset + 1
         ),
-        "i16" => writeln!(
+        "i16" | "WireI16" => writeln!(
             f,
             "        i16::from_le_bytes([data[{}], data[{}]])",
             offset,
             offset + 1
         ),
-        "u32" => writeln!(
+        "u32" | "WireU32" => writeln!(
             f,
             "        u32::from_le_bytes([data[{}], data[{}], data[{}], data[{}]])",
             offset,
@@ -430,7 +509,7 @@ fn write_field_decode(
             offset + 2,
             offset + 3
         ),
-        "i32" => writeln!(
+        "i32" | "WireI32" => writeln!(
             f,
             "        i32::from_le_bytes([data[{}], data[{}], data[{}], data[{}]])",
             offset,
@@ -456,7 +535,7 @@ fn write_field_decode(
             )?;
             writeln!(f, "        i64::from_le_bytes(buf)")
         }
-        "u128" => {
+        "u128" | "WireU128" => {
             writeln!(f, "        let mut buf = [0u8; 16];")?;
             writeln!(
                 f,
@@ -465,8 +544,26 @@ fn write_field_decode(
             )?;
             writeln!(f, "        u128::from_le_bytes(buf)")
         }
+        "i128" | "WireI128" => {
+            writeln!(f, "        let mut buf = [0u8; 16];")?;
+            writeln!(
+                f,
+                "        buf.copy_from_slice(&data[{}..{}]);",
+                offset, end
+            )?;
+            writeln!(f, "        i128::from_le_bytes(buf)")
+        }
         "bool" | "WireBool" => writeln!(f, "        data[{}] != 0", offset),
-        "Pubkey" => {
+        "Address" | "Pubkey" => {
+            writeln!(f, "        let mut buf = [0u8; 32];")?;
+            writeln!(
+                f,
+                "        buf.copy_from_slice(&data[{}..{}]);",
+                offset, end
+            )?;
+            writeln!(f, "        Pubkey::new_from_array(buf)")
+        }
+        typed if typed.starts_with("TypedAddress<") => {
             writeln!(f, "        let mut buf = [0u8; 32];")?;
             writeln!(
                 f,
@@ -517,7 +614,7 @@ fn write_instruction_builder(
                 f,
                 "    pub {}: {},",
                 snake_case(arg.name),
-                rust_field_type(arg.canonical_type)
+                rust_field_type(arg.canonical_type, arg.size as usize)
             )?;
         }
         writeln!(f, "}}")?;
@@ -800,7 +897,8 @@ fn write_arg_encode(f: &mut fmt::Formatter<'_>, canonical: &str, name: &str) -> 
     match canonical {
         "u8" => writeln!(f, "    data.push(args.{});", name),
         "i8" => writeln!(f, "    data.push(args.{} as u8);", name),
-        "u16" | "i16" | "u32" | "i32" | "u64" | "i64" | "u128" | "i128" | "WireU64" | "WireI64" => {
+        "u16" | "i16" | "u32" | "i32" | "u64" | "i64" | "u128" | "i128" | "WireU16" | "WireI16"
+        | "WireU32" | "WireI32" | "WireU64" | "WireI64" | "WireU128" | "WireI128" => {
             writeln!(
                 f,
                 "    data.extend_from_slice(&args.{}.to_le_bytes());",
@@ -810,7 +908,12 @@ fn write_arg_encode(f: &mut fmt::Formatter<'_>, canonical: &str, name: &str) -> 
         "bool" | "WireBool" => {
             writeln!(f, "    data.push(if args.{} {{ 1 }} else {{ 0 }});", name)
         }
-        "Pubkey" => writeln!(f, "    data.extend_from_slice(args.{}.as_ref());", name),
+        "Address" | "Pubkey" => {
+            writeln!(f, "    data.extend_from_slice(args.{}.as_ref());", name)
+        }
+        typed if typed.starts_with("TypedAddress<") => {
+            writeln!(f, "    data.extend_from_slice(args.{}.as_ref());", name)
+        }
         _ => {
             // Fixed byte arrays and unknowns: assume AsRef<[u8]>.
             writeln!(f, "    data.extend_from_slice(args.{}.as_ref());", name)
@@ -840,7 +943,7 @@ fn write_event_decoder(f: &mut fmt::Formatter<'_>, event: &EventDescriptor) -> f
             f,
             "    pub {}: {},",
             snake_case(field.name),
-            rust_field_type(field.canonical_type)
+            rust_field_type(field.canonical_type, field.size as usize)
         )?;
     }
     writeln!(f, "}}")?;
@@ -902,29 +1005,22 @@ fn instruction_data_size(ix: &InstructionDescriptor) -> usize {
     1 + ix.args.iter().map(|arg| arg.size as usize).sum::<usize>()
 }
 
-fn rust_field_type(canonical: &str) -> String {
+fn rust_field_type(canonical: &str, size: usize) -> String {
     match canonical {
         "u8" => "u8".into(),
         "i8" => "i8".into(),
-        "u16" => "u16".into(),
-        "i16" => "i16".into(),
-        "u32" => "u32".into(),
-        "i32" => "i32".into(),
+        "u16" | "WireU16" => "u16".into(),
+        "i16" | "WireI16" => "i16".into(),
+        "u32" | "WireU32" => "u32".into(),
+        "i32" | "WireI32" => "i32".into(),
         "u64" | "WireU64" => "u64".into(),
         "i64" | "WireI64" => "i64".into(),
-        "u128" => "u128".into(),
-        "i128" => "i128".into(),
+        "u128" | "WireU128" => "u128".into(),
+        "i128" | "WireI128" => "i128".into(),
         "bool" | "WireBool" => "bool".into(),
-        "Pubkey" => "Pubkey".into(),
-        s if s.starts_with("[u8;") => s.to_string(),
-        _ => {
-            // Fallback: keep the literal canonical string in a
-            // comment so the caller can see what Hopper wire type
-            // the field uses, and stand in with an empty byte array
-            // for the struct field type. Users editing the generated
-            // client can tighten this per field.
-            format!("[u8; /* {} */ 0]", canonical)
-        }
+        "Address" | "Pubkey" => "Pubkey".into(),
+        typed if typed.starts_with("TypedAddress<") => "Pubkey".into(),
+        _ => format!("[u8; {}]", size),
     }
 }
 
@@ -972,7 +1068,11 @@ fn upper_snake_case(s: &str) -> String {
 }
 
 fn body_size(layout: &LayoutManifest) -> usize {
-    layout.total_size.saturating_sub(16)
+    if layout_is_compact(layout) {
+        layout.total_size.saturating_sub(1)
+    } else {
+        layout.total_size.saturating_sub(16)
+    }
 }
 
 #[cfg(test)]
@@ -982,12 +1082,13 @@ mod tests {
         AccountEntry, ArgDescriptor, EventDescriptor, FieldDescriptor, FieldIntent, LayoutManifest,
         PolicyDescriptor,
     };
+    use alloc::string::ToString;
 
     fn test_manifest() -> ProgramManifest {
         static VAULT_FIELDS: &[FieldDescriptor] = &[
             FieldDescriptor {
                 name: "authority",
-                canonical_type: "Pubkey",
+                canonical_type: "Address",
                 size: 32,
                 offset: 16,
                 intent: FieldIntent::Authority,
@@ -1080,6 +1181,38 @@ mod tests {
         }
     }
 
+    fn compact_manifest() -> ProgramManifest {
+        static FIELDS: &[FieldDescriptor] = &[FieldDescriptor {
+            name: "balance",
+            canonical_type: "u64",
+            size: 8,
+            offset: 1,
+            intent: FieldIntent::Balance,
+        }];
+        static LAYOUTS: &[LayoutManifest] = &[LayoutManifest {
+            name: "compact_vault",
+            version: 1,
+            disc: 11,
+            layout_id: [9, 8, 7, 6, 5, 4, 3, 2],
+            total_size: 9,
+            field_count: 1,
+            fields: FIELDS,
+        }];
+        ProgramManifest {
+            name: "compact_program",
+            version: "0.1.0",
+            description: "test",
+            layouts: LAYOUTS,
+            layout_metadata: &[],
+            instructions: &[],
+            events: &[],
+            policies: &[],
+            compatibility_pairs: &[],
+            tooling_hints: &[],
+            contexts: &[],
+        }
+    }
+
     #[test]
     fn rs_client_emits_layout_id_constant_with_bytes() {
         let m = test_manifest();
@@ -1095,6 +1228,15 @@ mod tests {
         assert!(out.contains("pub struct Vault {"));
         assert!(out.contains("pub authority: Pubkey,"));
         assert!(out.contains("pub balance: u64,"));
+    }
+
+    #[test]
+    fn rs_client_maps_wire_scalars_and_unknown_types_to_compilable_types() {
+        assert_eq!(rust_field_type("WireU16", 2), "u16");
+        assert_eq!(rust_field_type("WireU32", 4), "u32");
+        assert_eq!(rust_field_type("TypedAddress<Mint>", 32), "Pubkey");
+        assert_eq!(rust_field_type("OpaqueThing", 17), "[u8; 17]");
+        assert_eq!(rust_field_type("[Address;COUNT]", 96), "[u8; 96]");
     }
 
     #[test]
@@ -1114,6 +1256,20 @@ mod tests {
         assert!(out.contains("pub fn assert_vault_layout(data: &[u8]) -> Result<(), ClientError>"));
         assert!(out.contains("if actual != VAULT_LAYOUT_ID"));
         assert!(out.contains("ClientError::LayoutMismatch"));
+    }
+
+    #[test]
+    fn rs_compact_decoder_validates_exact_size_and_discriminator() {
+        let out = RsClientGen(&compact_manifest()).to_string();
+        assert!(out.contains("if data.len() != COMPACT_VAULT_TOTAL_SIZE"));
+        assert!(out.contains("if data[0] != COMPACT_VAULT_DISC"));
+        assert!(out.contains("ClientError::AccountSizeMismatch"));
+        assert!(out.contains("ClientError::DiscriminatorMismatch"));
+        let assertion = out.find("pub fn assert_compact_vault_layout").unwrap();
+        let body = &out[assertion..];
+        let end = body.find("pub fn decode_compact_vault").unwrap();
+        assert!(!body[..end].contains("read_layout_id(data)?"));
+        assert!(!out.contains("fn read_layout_id(data: &[u8])"));
     }
 
     #[test]

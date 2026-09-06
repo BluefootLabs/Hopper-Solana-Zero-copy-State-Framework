@@ -8,8 +8,8 @@
 //! ## What gets emitted
 //!
 //! - One dataclass per account layout (`Vault`, `Config`, …) with a
-//!   `decode(bytes) -> Self` classmethod that verifies the layout_id and
-//!   reads field offsets directly from the raw bytes.
+//!   `decode(bytes) -> Self` classmethod that verifies a headered layout ID or
+//!   compact exact size plus discriminator before reading raw field offsets.
 //! - One dataclass per event with a `decode(bytes) -> Self` classmethod
 //!   keyed off the 1-byte event tag.
 //! - `build_<instruction>` helper functions that return the raw `bytes`
@@ -20,8 +20,8 @@
 //! ## Design notes
 //!
 //! Hopper emits Python that:
-//!   1. Verifies the `layout_id` fingerprint before decoding (impossible in
-//!      Anchor because Anchor has no layout fingerprint).
+//!   1. Verifies the header `layout_id`, or compact size and discriminator,
+//!      before decoding.
 //!   2. Honors `FieldIntent` by emitting typed `int` / `bytes` / `bool`
 //!      field types that match the field's semantic role, not just the
 //!      underlying u8/u64.
@@ -33,7 +33,10 @@ use core::fmt;
 extern crate alloc;
 use alloc::string::{String, ToString};
 
-use crate::{EventDescriptor, InstructionDescriptor, LayoutManifest, ProgramManifest};
+use crate::{
+    clientgen::layout_is_compact, EventDescriptor, InstructionDescriptor, LayoutManifest,
+    ProgramManifest,
+};
 
 fn py_type(canonical: &str) -> &'static str {
     match canonical {
@@ -113,8 +116,8 @@ impl<'a> fmt::Display for PyAccounts<'a> {
         writeln!(f)?;
         writeln!(f, "Auto-generated. Do not edit.")?;
         writeln!(f, "\"\"\"")?;
-        writeln!(f, "from __future__ import annotations")?;
         writeln!(f, "from dataclasses import dataclass")?;
+        writeln!(f, "from typing import ClassVar")?;
         writeln!(f, "import struct")?;
         writeln!(f)?;
         writeln!(
@@ -159,7 +162,7 @@ fn fmt_layout(f: &mut fmt::Formatter<'_>, layout: &LayoutManifest) -> fmt::Resul
     )?;
 
     // Layout-id constant
-    write!(f, "    LAYOUT_ID: bytes = bytes([")?;
+    write!(f, "    LAYOUT_ID: ClassVar[bytes] = bytes([")?;
     for (i, b) in layout.layout_id.iter().enumerate() {
         if i > 0 {
             write!(f, ", ")?;
@@ -167,9 +170,9 @@ fn fmt_layout(f: &mut fmt::Formatter<'_>, layout: &LayoutManifest) -> fmt::Resul
         write!(f, "0x{:02x}", b)?;
     }
     writeln!(f, "])")?;
-    writeln!(f, "    DISC: int = {}", layout.disc)?;
-    writeln!(f, "    VERSION: int = {}", layout.version)?;
-    writeln!(f, "    TOTAL_SIZE: int = {}", layout.total_size)?;
+    writeln!(f, "    DISC: ClassVar[int] = {}", layout.disc)?;
+    writeln!(f, "    VERSION: ClassVar[int] = {}", layout.version)?;
+    writeln!(f, "    TOTAL_SIZE: ClassVar[int] = {}", layout.total_size)?;
     writeln!(f)?;
 
     // Typed fields (dataclass attributes)
@@ -186,12 +189,24 @@ fn fmt_layout(f: &mut fmt::Formatter<'_>, layout: &LayoutManifest) -> fmt::Resul
     writeln!(f, "\":")?;
     writeln!(f, "        if len(buf) < cls.TOTAL_SIZE:")?;
     writeln!(f, "            raise ValueError(f\"buffer too short: need {{cls.TOTAL_SIZE}}, got {{len(buf)}}\")")?;
-    writeln!(
-        f,
-        "        actual_id = bytes(buf[LAYOUT_ID_OFFSET:LAYOUT_ID_OFFSET + 8])"
-    )?;
-    writeln!(f, "        if actual_id != cls.LAYOUT_ID:")?;
-    writeln!(f, "            raise ValueError(f\"layout_id mismatch: expected {{cls.LAYOUT_ID.hex()}}, got {{actual_id.hex()}}\")")?;
+    if layout_is_compact(layout) {
+        writeln!(f, "        if not buf:")?;
+        writeln!(
+            f,
+            "            raise ValueError(\"compact account missing discriminator\")"
+        )?;
+        writeln!(f, "        if len(buf) != cls.TOTAL_SIZE:")?;
+        writeln!(f, "            raise ValueError(f\"compact account size mismatch: expected {{cls.TOTAL_SIZE}}, got {{len(buf)}}\")")?;
+        writeln!(f, "        if buf[0] != cls.DISC:")?;
+        writeln!(f, "            raise ValueError(f\"compact account discriminator mismatch: expected {{cls.DISC}}, got {{buf[0]}}\")")?;
+    } else {
+        writeln!(
+            f,
+            "        actual_id = bytes(buf[LAYOUT_ID_OFFSET:LAYOUT_ID_OFFSET + 8])"
+        )?;
+        writeln!(f, "        if actual_id != cls.LAYOUT_ID:")?;
+        writeln!(f, "            raise ValueError(f\"layout_id mismatch: expected {{cls.LAYOUT_ID.hex()}}, got {{actual_id.hex()}}\")")?;
+    }
 
     for fd in layout.fields {
         let fmt = struct_format(fd.canonical_type, fd.size);
@@ -224,7 +239,7 @@ fn fmt_layout(f: &mut fmt::Formatter<'_>, layout: &LayoutManifest) -> fmt::Resul
         write!(f, "    def read_")?;
         write_snake(f, fd.name)?;
         writeln!(f, "(cls, buf: bytes) -> {}:", py_type(fd.canonical_type))?;
-        writeln!(f, "        \"\"\"Partial read of `{}` (size={}, offset={}). Does NOT verify layout_id; call decode() for full verification.\"\"\"", fd.name, fd.size, fd.offset)?;
+        writeln!(f, "        \"\"\"Partial read of `{}` (size={}, offset={}). Does not verify account identity; call decode() for full verification.\"\"\"", fd.name, fd.size, fd.offset)?;
         writeln!(
             f,
             "        return struct.unpack_from(\"{}\", buf, {})[0]",
@@ -249,7 +264,6 @@ impl<'a> fmt::Display for PyInstructions<'a> {
             "\"\"\"Instruction builders for program `{}`.\"\"\"",
             self.0.name
         )?;
-        writeln!(f, "from __future__ import annotations")?;
         writeln!(f, "import struct")?;
         writeln!(f)?;
         for ix in self.0.instructions {
@@ -301,7 +315,7 @@ fn fmt_instruction(f: &mut fmt::Formatter<'_>, ix: &InstructionDescriptor) -> fm
                 )?;
             }
         }
-        writeln!(f, "\nbuild_")?;
+        write!(f, "\nbuild_")?;
         write_snake(f, ix.name)?;
         writeln!(f, ".ACCOUNT_ORDER = (")?;
         for ae in ix.accounts {
@@ -333,8 +347,8 @@ impl<'a> fmt::Display for PyEvents<'a> {
             "\"\"\"Event decoders for program `{}`.\"\"\"",
             self.0.name
         )?;
-        writeln!(f, "from __future__ import annotations")?;
         writeln!(f, "from dataclasses import dataclass")?;
+        writeln!(f, "from typing import ClassVar")?;
         writeln!(f, "import struct")?;
         writeln!(f)?;
         for e in self.0.events {
@@ -360,8 +374,8 @@ fn fmt_event(f: &mut fmt::Formatter<'_>, e: &EventDescriptor) -> fmt::Result {
     write_pascal(f, e.name)?;
     writeln!(f, ":")?;
     writeln!(f, "    \"\"\"Event {} (tag={})\"\"\"", e.name, e.tag)?;
-    writeln!(f, "    TAG: int = {}", e.tag)?;
-    writeln!(f, "    DATA_LEN: int = {}", event_data_len(e))?;
+    writeln!(f, "    TAG: ClassVar[int] = {}", e.tag)?;
+    writeln!(f, "    DATA_LEN: ClassVar[int] = {}", event_data_len(e))?;
     for fd in e.fields {
         write!(f, "    ")?;
         write_snake(f, fd.name)?;
@@ -424,7 +438,6 @@ impl<'a> fmt::Display for PyTypes<'a> {
             "\"\"\"Shared Hopper client primitives for program `{}`.\"\"\"",
             self.0.name
         )?;
-        writeln!(f, "from __future__ import annotations")?;
         writeln!(f, "from dataclasses import dataclass")?;
         writeln!(f)?;
         writeln!(
@@ -619,6 +632,38 @@ mod tests {
         }
     }
 
+    fn compact_manifest() -> ProgramManifest {
+        static FIELDS: [FieldDescriptor; 1] = [FieldDescriptor {
+            name: "balance",
+            canonical_type: "u64",
+            size: 8,
+            offset: 1,
+            intent: FieldIntent::Balance,
+        }];
+        static LAYOUTS: [LayoutManifest; 1] = [LayoutManifest {
+            name: "compact_vault",
+            disc: 11,
+            version: 1,
+            layout_id: [9, 8, 7, 6, 5, 4, 3, 2],
+            total_size: 9,
+            field_count: 1,
+            fields: &FIELDS,
+        }];
+        ProgramManifest {
+            name: "compact_program",
+            version: "0.1.0",
+            description: "",
+            layouts: &LAYOUTS,
+            layout_metadata: &[],
+            instructions: &[],
+            events: &[],
+            policies: &[],
+            compatibility_pairs: &[],
+            tooling_hints: &[],
+            contexts: &[],
+        }
+    }
+
     #[test]
     fn accounts_mentions_layout_id_and_fields() {
         let m = sample_manifest();
@@ -631,12 +676,32 @@ mod tests {
     }
 
     #[test]
+    fn compact_accounts_validate_exact_size_and_discriminator() {
+        let m = compact_manifest();
+        let out = alloc::format!("{}", PyAccounts(&m));
+        assert!(out.contains("if len(buf) != cls.TOTAL_SIZE:"));
+        assert!(out.contains("if buf[0] != cls.DISC:"));
+        assert!(!out.contains("actual_id = bytes(buf[LAYOUT_ID_OFFSET:LAYOUT_ID_OFFSET + 8])"));
+    }
+
+    #[test]
+    fn flat_python_bundle_has_no_mid_file_future_imports_or_dataclass_constants() {
+        let m = sample_manifest();
+        let out = alloc::format!("{}", PyClientGen(&m));
+        assert!(!out.contains("from __future__ import annotations"));
+        assert!(out.contains("LAYOUT_ID: ClassVar[bytes]"));
+        assert!(out.contains("TAG: ClassVar[int]"));
+    }
+
+    #[test]
     fn instructions_pack_tag_byte() {
         let m = sample_manifest();
         let out = alloc::format!("{}", PyInstructions(&m));
         assert!(out.contains("def build_deposit"));
         assert!(out.contains("bytes([3])"));
         assert!(out.contains("amount"));
+        assert!(out.contains("build_deposit.ACCOUNT_ORDER = ("));
+        assert!(!out.contains("build_\ndeposit.ACCOUNT_ORDER"));
     }
 
     #[test]
@@ -659,7 +724,7 @@ mod tests {
         assert!(out.contains("class Deposited"));
         assert!(out.contains("EVENT_DECODERS"));
         assert!(out.contains("1: Deposited"));
-        assert!(out.contains("DATA_LEN: int = 10"));
+        assert!(out.contains("DATA_LEN: ClassVar[int] = 10"));
         assert!(out.contains("if len(buf) < cls.DATA_LEN:"));
         assert!(out.contains("if buf[0] != cls.TAG:"));
         assert!(out.contains("struct.unpack_from(\"<Q\", buf, 2)[0]"));

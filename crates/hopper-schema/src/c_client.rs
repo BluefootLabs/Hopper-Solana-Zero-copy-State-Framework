@@ -11,7 +11,8 @@ use alloc::{format, string::String};
 use core::fmt;
 
 use crate::{
-    EventDescriptor, FieldDescriptor, InstructionDescriptor, LayoutManifest, ProgramManifest,
+    clientgen::layout_is_compact, EventDescriptor, FieldDescriptor, InstructionDescriptor,
+    LayoutManifest, ProgramManifest,
 };
 
 /// Full C client emitter.
@@ -152,11 +153,17 @@ fn write_layout(f: &mut fmt::Formatter<'_>, layout: &LayoutManifest) -> fmt::Res
     writeln!(f)?;
 
     writeln!(f, "static inline HopperClientError hopper_assert_{}_layout(const uint8_t *data, size_t data_len) {{", snake)?;
-    writeln!(
-        f,
-        "    return hopper_assert_layout_id(data, data_len, HOPPER_{}_LAYOUT_ID);",
-        upper
-    )?;
+    if layout_is_compact(layout) {
+        writeln!(f, "    if (data_len == 0u || data_len < HOPPER_{}_TOTAL_SIZE) return HOPPER_CLIENT_BUFFER_TOO_SMALL;", upper)?;
+        writeln!(f, "    if (data_len != HOPPER_{}_TOTAL_SIZE || data[0] != HOPPER_{}_DISC) return HOPPER_CLIENT_LAYOUT_MISMATCH;", upper, upper)?;
+        writeln!(f, "    return HOPPER_CLIENT_OK;")?;
+    } else {
+        writeln!(
+            f,
+            "    return hopper_assert_layout_id(data, data_len, HOPPER_{}_LAYOUT_ID);",
+            upper
+        )?;
+    }
     writeln!(f, "}}")?;
     writeln!(f)?;
 
@@ -626,6 +633,38 @@ mod tests {
         }
     }
 
+    fn compact_manifest() -> ProgramManifest {
+        static FIELDS: &[FieldDescriptor] = &[FieldDescriptor {
+            name: "balance",
+            canonical_type: "u64",
+            size: 8,
+            offset: 1,
+            intent: FieldIntent::Balance,
+        }];
+        static LAYOUTS: &[LayoutManifest] = &[LayoutManifest {
+            name: "compact_vault",
+            disc: 11,
+            version: 1,
+            layout_id: [9, 8, 7, 6, 5, 4, 3, 2],
+            total_size: 9,
+            field_count: 1,
+            fields: FIELDS,
+        }];
+        ProgramManifest {
+            name: "compact_program",
+            version: "0.1.0",
+            description: "",
+            layouts: LAYOUTS,
+            layout_metadata: &[],
+            instructions: &[],
+            events: &[],
+            policies: &[],
+            compatibility_pairs: &[],
+            tooling_hints: &[],
+            contexts: &[],
+        }
+    }
+
     #[test]
     fn c_client_emits_layout_assertion_and_decoder() {
         let out = CClientGen(&manifest()).to_string();
@@ -633,6 +672,15 @@ mod tests {
         assert!(out.contains("hopper_decode_vault"));
         assert!(out.contains("memcpy(out->authority.bytes, data + 16, 32u);"));
         assert!(out.contains("out->balance = hopper_read_le_u64(data + 48);"));
+    }
+
+    #[test]
+    fn c_compact_decoder_validates_exact_size_and_discriminator() {
+        let out = CClientGen(&compact_manifest()).to_string();
+        assert!(out.contains("data_len != HOPPER_COMPACT_VAULT_TOTAL_SIZE"));
+        assert!(out.contains("data[0] != HOPPER_COMPACT_VAULT_DISC"));
+        assert!(!out
+            .contains("hopper_assert_layout_id(data, data_len, HOPPER_COMPACT_VAULT_LAYOUT_ID)"));
     }
 
     #[test]
