@@ -34,6 +34,10 @@ pub const MAX_SEED_LEN: usize = 32;
 
 // (writable mask, signer mask), indexed in each instruction's account order.
 const CREATE_ACCOUNT_META: (usize, usize) = (0b11, 0b11);
+// `[to, from]`: the reverse of CreateAccount. Both sign; `from` is omitted
+// entirely when no lamports move.
+const CREATE_ACCOUNT_ALLOW_PREFUND_META: (usize, usize) = (0b11, 0b11);
+const CREATE_ACCOUNT_ALLOW_PREFUND_UNFUNDED_META: (usize, usize) = (0b1, 0b1);
 const TRANSFER_META: (usize, usize) = (0b11, 0b01);
 const ASSIGN_META: (usize, usize) = (0b1, 0b1);
 const ALLOCATE_META: (usize, usize) = (0b1, 0b1);
@@ -84,6 +88,75 @@ impl CreateAccount<'_, '_> {
             CREATE_ACCOUNT_META.1,
             signers,
         )
+    }
+}
+
+// ---------------------------------------------------------------------
+
+/// Builder for the system program's `CreateAccountAllowPrefund` instruction
+/// (tag 13).
+///
+/// Unlike [`CreateAccount`], the target may already hold lamports: the
+/// System Program allocates, assigns, and then transfers `lamports` from the
+/// funding account as a delta on top of the existing balance, so callers pass
+/// `required.saturating_sub(current)`. The account order is `[to, from]`,
+/// the reverse of `CreateAccount`, and `from` is omitted when no lamports
+/// move. The `to` account must sign (or be a PDA in `signers`) and must be
+/// System-owned with no data. Feature gate `6sPDzwyARRExKH52LECxcGoqziH8G7SZofwuxi8Ja331`,
+/// active on mainnet-beta since slot 422,928,004 (2026-05-29) and on devnet
+/// and testnet; the System Program rejects the tag where it is inactive.
+pub struct CreateAccountAllowPrefund<'a, 'b> {
+    pub to: &'a AccountView<'a>,
+    /// Funding account and lamport delta. `None`, or a zero delta, omits the
+    /// payer from the instruction entirely.
+    pub funding: Option<(&'a AccountView<'a>, u64)>,
+    pub space: u64,
+    pub owner: &'b Address,
+}
+
+impl CreateAccountAllowPrefund<'_, '_> {
+    /// Invoke without PDA signers.
+    #[inline]
+    pub fn invoke(&self) -> ProgramResult {
+        self.invoke_signed(&[])
+    }
+
+    /// Invoke with PDA signers.
+    #[inline]
+    pub fn invoke_signed(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
+        let (from, lamports) = match self.funding {
+            Some((from, lamports)) if lamports > 0 => (Some(from), lamports),
+            _ => (None, 0),
+        };
+        // Instruction data: u32(13) + u64(lamports) + u64(space) + [u8;32](owner)
+        let mut data = [0u8; 52];
+        data[0..4].copy_from_slice(&13u32.to_le_bytes());
+        data[4..12].copy_from_slice(&lamports.to_le_bytes());
+        data[12..20].copy_from_slice(&self.space.to_le_bytes());
+        data[20..52].copy_from_slice(self.owner.as_array());
+
+        match from {
+            Some(from) => {
+                let accounts = [CpiAccount::from(self.to), CpiAccount::from(from)];
+                invoke_system(
+                    &data,
+                    &accounts,
+                    CREATE_ACCOUNT_ALLOW_PREFUND_META.0,
+                    CREATE_ACCOUNT_ALLOW_PREFUND_META.1,
+                    signers,
+                )
+            }
+            None => {
+                let accounts = [CpiAccount::from(self.to)];
+                invoke_system(
+                    &data,
+                    &accounts,
+                    CREATE_ACCOUNT_ALLOW_PREFUND_UNFUNDED_META.0,
+                    CREATE_ACCOUNT_ALLOW_PREFUND_UNFUNDED_META.1,
+                    signers,
+                )
+            }
+        }
     }
 }
 
@@ -589,8 +662,9 @@ fn invoke_system<'a, const ACCOUNTS: usize>(
 pub mod instructions {
     pub use super::{
         AdvanceNonceAccount, Allocate, AllocateWithSeed, Assign, AssignWithSeed,
-        AuthorizeNonceAccount, CreateAccount, CreateAccountWithSeed, InitializeNonceAccount,
-        Transfer, TransferWithSeed, UpgradeNonceAccount, WithdrawNonceAccount,
+        AuthorizeNonceAccount, CreateAccount, CreateAccountAllowPrefund, CreateAccountWithSeed,
+        InitializeNonceAccount, Transfer, TransferWithSeed, UpgradeNonceAccount,
+        WithdrawNonceAccount,
     };
 }
 

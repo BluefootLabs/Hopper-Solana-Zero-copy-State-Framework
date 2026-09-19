@@ -50,8 +50,9 @@
 //! (`encode_set_authority`).
 //!
 //! System: `crates/hopper-runtime/src/system.rs`, `pub mod encoders`:
-//! CreateAccount 0, Transfer 2, Assign 1, Allocate 8. System discriminators
-//! are 4-byte `u32` LE (only the low byte is nonzero for these tags).
+//! CreateAccount 0, Transfer 2, Assign 1, Allocate 8,
+//! CreateAccountAllowPrefund 13. System discriminators are 4-byte `u32` LE
+//! (only the low byte is nonzero for these tags).
 
 // =====================================================================
 // Differential-oracle reference encoders (SPL Token wire format).
@@ -263,6 +264,7 @@ pub mod system {
     pub const IX_TRANSFER: u32 = 2;
     /// `Allocate` discriminator (u32 LE).
     pub const IX_ALLOCATE: u32 = 8;
+    pub const IX_CREATE_ACCOUNT_ALLOW_PREFUND: u32 = 13;
 
     /// Reference `CreateAccount { lamports, space, owner }`.
     ///
@@ -272,6 +274,25 @@ pub mod system {
     pub fn encode_create_account(lamports: u64, space: u64, owner: &[u8; 32]) -> [u8; 52] {
         let mut data = [0u8; 52];
         data[0..4].copy_from_slice(&IX_CREATE_ACCOUNT.to_le_bytes());
+        data[4..12].copy_from_slice(&lamports.to_le_bytes());
+        data[12..20].copy_from_slice(&space.to_le_bytes());
+        data[20..52].copy_from_slice(owner);
+        data
+    }
+
+    /// Reference `CreateAccountAllowPrefund { lamports, space, owner }`.
+    ///
+    /// Layout: `[disc: u32 LE = 13][lamports: u64 LE][space: u64 LE]
+    /// [owner: 32 bytes]`, 52 bytes. Byte-identical to `CreateAccount`
+    /// except the tag.
+    #[inline(always)]
+    pub fn encode_create_account_allow_prefund(
+        lamports: u64,
+        space: u64,
+        owner: &[u8; 32],
+    ) -> [u8; 52] {
+        let mut data = [0u8; 52];
+        data[0..4].copy_from_slice(&IX_CREATE_ACCOUNT_ALLOW_PREFUND.to_le_bytes());
         data[4..12].copy_from_slice(&lamports.to_le_bytes());
         data[12..20].copy_from_slice(&space.to_le_bytes());
         data[20..52].copy_from_slice(owner);
@@ -464,6 +485,18 @@ mod tests {
     }
 
     #[test]
+    fn system_create_account_allow_prefund_golden() {
+        let d = rt_system::encode_create_account_allow_prefund(AMOUNT, 165, &OWNER);
+        assert_eq!(&d[0..4], &[13, 0, 0, 0]);
+        assert_eq!(&d[4..12], &AMOUNT_LE);
+        assert_eq!(&d[12..20], &165u64.to_le_bytes());
+        assert_eq!(&d[20..52], &OWNER);
+        // Everything but the tag matches CreateAccount.
+        let plain = rt_system::encode_create_account(AMOUNT, 165, &OWNER);
+        assert_eq!(&d[4..], &plain[4..]);
+    }
+
+    #[test]
     fn system_transfer_golden() {
         let d = rt_system::encode_transfer(AMOUNT);
         assert_eq!(&d[0..4], &[2, 0, 0, 0]);
@@ -575,6 +608,10 @@ mod tests {
         assert_eq!(
             system::encode_create_account(AMOUNT, 165, &OWNER),
             rt_system::encode_create_account(AMOUNT, 165, &OWNER)
+        );
+        assert_eq!(
+            system::encode_create_account_allow_prefund(AMOUNT, 165, &OWNER),
+            rt_system::encode_create_account_allow_prefund(AMOUNT, 165, &OWNER)
         );
         assert_eq!(
             system::encode_transfer(AMOUNT),
@@ -856,6 +893,19 @@ mod kani_proofs {
         let d = rt_system::encode_create_account(lamports, space, &owner);
         assert_eq!(d.len(), 52);
         assert_system_disc(&d, 0);
+        assert_eq!(word_at(&d, 4), lamports);
+        assert_eq!(word_at(&d, 12), space);
+        assert_pubkey_region(&d, 20, &owner);
+    }
+
+    #[kani::proof]
+    fn system_create_account_allow_prefund_layout() {
+        let lamports: u64 = kani::any();
+        let space: u64 = kani::any();
+        let owner: [u8; 32] = kani::any();
+        let d = rt_system::encode_create_account_allow_prefund(lamports, space, &owner);
+        assert_eq!(d.len(), 52);
+        assert_system_disc(&d, 13);
         assert_eq!(word_at(&d, 4), lamports);
         assert_eq!(word_at(&d, 12), space);
         assert_pubkey_region(&d, 20, &owner);

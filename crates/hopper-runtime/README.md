@@ -22,7 +22,7 @@ Guard macros: require!, require_eq!, require_neq!, require_keys_eq!, require_key
 
 Native boundary: direct routing to hopper-native for loader input, account memory, CPI, PDA helpers, and syscall access.
 
-System Program builders: Transfer, CreateAccount, Allocate, Assign.
+System Program builders: Transfer, CreateAccount, CreateAccountAllowPrefund (one CPI that creates a possibly pre-funded account; the `init` lifecycle uses it), Allocate, Assign.
 
 Rent-exemption helper: rent::check_rent_exempt(account) backing the #[account(rent_exempt = enforce)] field keyword.
 

@@ -386,10 +386,10 @@ fn is_host_system_create_account(instruction: &InstructionView<'_, '_, '_, '_>) 
 
 /// Host-only emulation of the System Program's `CreateAccount`.
 ///
-/// `init` / `init_if_needed`'s empty-branch lifecycle (`hopper_init!` in
-/// `hopper-macros`) reaches this exact CPI, via
-/// [`crate::system::CreateAccount`], to fund + allocate + assign a
-/// brand-new account before writing the Hopper layout header into it.
+/// Programs that build this CPI directly, via
+/// [`crate::system::CreateAccount`], fund + allocate + assign a brand-new
+/// account with it. (`hopper_init!` now issues `CreateAccountAllowPrefund`
+/// instead; see [`emulate_host_system_create_account_allow_prefund`].)
 /// Off-chain, the raw syscall wrappers ([`invoke_unchecked`] /
 /// [`invoke_signed_unchecked`]) are no-ops by design (there is no runtime
 /// to service the syscall), without this emulation the account is left
@@ -455,6 +455,94 @@ fn emulate_host_system_create_account(
 }
 
 #[cfg(not(target_os = "solana"))]
+fn is_host_system_create_account_allow_prefund(
+    instruction: &InstructionView<'_, '_, '_, '_>,
+) -> bool {
+    // `CreateAccountAllowPrefund { lamports, space, owner }`,
+    // `[13u32 LE][lamports: u64 LE][space: u64 LE][owner: 32 bytes]`
+    // (52 bytes). See
+    // `hopper_system::encoders::encode_create_account_allow_prefund`.
+    crate::address::address_is_zero(instruction.program_id)
+        && instruction.data.len() == 52
+        && instruction.data[0..4] == [13, 0, 0, 0]
+}
+
+/// Host-only emulation of the System Program's `CreateAccountAllowPrefund`.
+///
+/// `init` / `init_if_needed` (`hopper_init!` in `hopper-macros`) reaches
+/// this CPI, via [`crate::system::CreateAccountAllowPrefund`], for every
+/// account it creates, pre-funded or not. Off-chain the raw syscall
+/// wrappers are no-ops, so without this emulation the account is left at
+/// zero length and the header write that follows fails with
+/// `AccountDataTooSmall`.
+///
+/// This reproduces the System Program handler's observable effect and
+/// order (agave `system_processor.rs`, `create_account_allow_prefund`):
+/// refuse an account that already carries data or a foreign owner, then
+/// allocate `space` (zero-filled), assign `owner`, and finally transfer
+/// the `lamports` delta from the funding account at index 1 when it is
+/// nonzero. An existing balance on `to` is allowed; that is the
+/// instruction's purpose. The lamport arithmetic is checked before any
+/// mutation so a refused transfer leaves the account untouched, matching
+/// the on-chain transaction rollback.
+#[cfg(not(target_os = "solana"))]
+fn emulate_host_system_create_account_allow_prefund(
+    instruction: &InstructionView<'_, '_, '_, '_>,
+    account_views: &[&AccountView<'_>],
+) -> ProgramResult {
+    let lamports = u64::from_le_bytes(instruction.data[4..12].try_into().unwrap());
+    let space = u64::from_le_bytes(instruction.data[12..20].try_into().unwrap()) as usize;
+    let mut owner_bytes = [0u8; 32];
+    owner_bytes.copy_from_slice(&instruction.data[20..52]);
+    let owner = Address::new_from_array(owner_bytes);
+
+    let to = account_views[0];
+    // SAFETY: the host emulator runs on one thread with no live CPI, so the
+    // owner field cannot change while this reference is held; it is read
+    // once and dropped before any mutation below.
+    let system_owned = crate::address::address_is_zero(unsafe { to.owner() });
+    if to.data_len() != 0 || !system_owned {
+        return Err(ProgramError::AccountAlreadyInitialized);
+    }
+
+    let funding = if lamports > 0 {
+        let from = *account_views
+            .get(1)
+            .ok_or(ProgramError::NotEnoughAccountKeys)?;
+        // Pre-validate both sides against the lamport gate before any
+        // mutation; see the identical note on `emulate_host_system_transfer`.
+        crate::write_policy::check_lamport_mutation(from.address())?;
+        crate::write_policy::check_lamport_mutation(to.address())?;
+        let debited = from
+            .lamports()
+            .checked_sub(lamports)
+            .ok_or(ProgramError::InsufficientFunds)?;
+        let credited = to
+            .lamports()
+            .checked_add(lamports)
+            .ok_or(ProgramError::ArithmeticOverflow)?;
+        Some((from, debited, credited))
+    } else {
+        None
+    };
+
+    to.resize(space)?;
+    // SAFETY: `to` was validated writable by `validate_host_system_transfer`
+    // (the generic meta-check reused at the dispatch site) before this
+    // point, and this function stands in for the System Program's own
+    // handler, the one caller the real runtime authorizes to assign a
+    // fresh (System-owned, empty) account's owner.
+    unsafe {
+        to.assign(&owner);
+    }
+    if let Some((from, debited, credited)) = funding {
+        from.set_lamports(debited)?;
+        to.set_lamports(credited)?;
+    }
+    Ok(())
+}
+
+#[cfg(not(target_os = "solana"))]
 fn is_host_system_allocate(instruction: &InstructionView<'_, '_, '_, '_>) -> bool {
     // `Allocate { space }`, `[8u32 LE][space: u64 LE]` (12 bytes).
     // See `hopper_system::encoders::encode_allocate`.
@@ -465,13 +553,12 @@ fn is_host_system_allocate(instruction: &InstructionView<'_, '_, '_, '_>) -> boo
 
 /// Host-only emulation of the System Program's `Allocate`.
 ///
-/// `hopper_init!`'s PRE-FUNDED branch (`current_lamports > 0 &&
-/// data_len == 0`) reaches this CPI, via [`crate::system::Allocate`],
-/// after topping the account up to the rent-exempt minimum with a
-/// `Transfer`, instead of `CreateAccount`, which refuses an account
-/// that already carries lamports. Off-chain the raw syscall wrappers are
-/// no-ops, so without this emulation that branch silently leaves the
-/// account at zero length and the header write that follows fails with
+/// Programs that build this CPI directly, via [`crate::system::Allocate`],
+/// reach it when they allocate a pre-funded System account by hand.
+/// (`hopper_init!` used to issue Transfer, Allocate, and Assign for that
+/// case and now issues one `CreateAccountAllowPrefund`.) Off-chain the raw
+/// syscall wrappers are no-ops, so without this emulation the account is
+/// left at zero length and any header write that follows fails with
 /// `AccountDataTooSmall`. This reproduces the System Program's own
 /// observable effect: resize the account to `space`, zero-filling the
 /// new region (mirroring [`AccountView::resize`]'s on-chain growth
@@ -512,10 +599,9 @@ fn is_host_system_assign(instruction: &InstructionView<'_, '_, '_, '_>) -> bool 
 
 /// Host-only emulation of the System Program's `Assign`.
 ///
-/// The third leg of `hopper_init!`'s PRE-FUNDED branch (Transfer-shortfall
-/// → `Allocate` → `Assign`), via [`crate::system::Assign`]; see
-/// [`emulate_host_system_allocate`] for why the branch needs host
-/// emulation at all. This reproduces the System Program's own observable
+/// The companion of [`emulate_host_system_allocate`] for programs that
+/// allocate and assign a pre-funded System account by hand, via
+/// [`crate::system::Assign`]. This reproduces the System Program's own observable
 /// effect: set the account's owner. Like the real `Assign`, it moves no
 /// lamports, so there is deliberately no mutation-completeness lamport-mutation
 /// precheck; the shared validator's writable/borrow/delegation sweep is
@@ -572,6 +658,11 @@ pub fn invoke_signed<const ACCOUNTS: usize>(
     if is_host_system_create_account(instruction) {
         validate_host_system_transfer(instruction, &account_views[..], signers_seeds, 2)?;
         return emulate_host_system_create_account(instruction, &account_views[..]);
+    }
+    #[cfg(not(target_os = "solana"))]
+    if is_host_system_create_account_allow_prefund(instruction) {
+        validate_host_system_transfer(instruction, &account_views[..], signers_seeds, 1)?;
+        return emulate_host_system_create_account_allow_prefund(instruction, &account_views[..]);
     }
     #[cfg(not(target_os = "solana"))]
     if is_host_system_allocate(instruction) {

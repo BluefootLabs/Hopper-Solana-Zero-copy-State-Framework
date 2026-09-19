@@ -710,33 +710,19 @@ macro_rules! hopper_init {
             Err($crate::hopper_runtime::ProgramError::AccountAlreadyInitialized)?;
         }
 
+        // One CPI whether or not the account was pre-funded: the System
+        // Program's CreateAccountAllowPrefund allocates, assigns, and tops the
+        // balance up by exactly the rent shortfall. A fully funded account
+        // omits the payer from the instruction, so its signature and balance
+        // are never touched.
         let current_lamports = account.lamports();
-        if current_lamports == 0 {
-            $crate::hopper_system::CreateAccount {
-                from: payer,
-                to: account,
-                lamports,
-                space,
-                owner: program_id,
-            }
-            .invoke_signed(__hopper_init_signers)?;
-        } else {
-            if current_lamports < lamports {
-                $crate::hopper_system::Transfer {
-                    from: payer,
-                    to: account,
-                    lamports: lamports - current_lamports,
-                }
-                .invoke()?;
-            }
-            $crate::hopper_system::Allocate { account, space }
-                .invoke_signed(__hopper_init_signers)?;
-            $crate::hopper_system::Assign {
-                account,
-                owner: program_id,
-            }
-            .invoke_signed(__hopper_init_signers)?;
+        $crate::hopper_system::CreateAccountAllowPrefund {
+            to: account,
+            funding: Some((payer, lamports.saturating_sub(current_lamports))),
+            space,
+            owner: program_id,
         }
+        .invoke_signed(__hopper_init_signers)?;
 
         let mut data = account.try_borrow_mut()?;
         $crate::hopper_core::account::zero_init(&mut *data);

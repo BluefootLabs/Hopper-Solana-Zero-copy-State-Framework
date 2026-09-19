@@ -71,6 +71,23 @@ pub mod encoders {
         data
     }
 
+    /// `CreateAccountAllowPrefund { lamports, space, owner }`,
+    /// `[13u32 LE][lamports: u64 LE][space: u64 LE][owner: 32 bytes]`
+    /// (52 bytes). Same body as `CreateAccount`; only the tag differs.
+    #[inline(always)]
+    pub fn encode_create_account_allow_prefund(
+        lamports: u64,
+        space: u64,
+        owner: &[u8; 32],
+    ) -> [u8; 52] {
+        let mut data = [0u8; 52];
+        data[0..4].copy_from_slice(&13u32.to_le_bytes());
+        data[4..12].copy_from_slice(&lamports.to_le_bytes());
+        data[12..20].copy_from_slice(&space.to_le_bytes());
+        data[20..52].copy_from_slice(owner);
+        data
+    }
+
     /// `Transfer { lamports }`, `[2u32 LE][lamports: u64 LE]` (12 bytes).
     #[inline(always)]
     pub fn encode_transfer(lamports: u64) -> [u8; 12] {
@@ -183,6 +200,75 @@ impl CreateAccount<'_, '_> {
         };
 
         crate::cpi::invoke_signed(&instruction, &views, signers)
+    }
+}
+
+// ---------------------------------------------------------------------
+
+/// Builder for the system program's `CreateAccountAllowPrefund` instruction
+/// (tag 13).
+///
+/// Unlike [`CreateAccount`], the target may already hold lamports: the
+/// System Program allocates, assigns, and then transfers `lamports` from the
+/// funding account as a delta on top of the existing balance, so callers pass
+/// `required.saturating_sub(current)`. The account order is `[to, from]`,
+/// the reverse of `CreateAccount`, and `from` is omitted when no lamports
+/// move. `to` must sign (or be a PDA in `signers`) and must be System-owned
+/// with no data. The feature gate is active on mainnet-beta, devnet, and
+/// testnet; the System Program rejects the tag with
+/// `InvalidInstructionData` where it is not.
+pub struct CreateAccountAllowPrefund<'a, 'b> {
+    pub to: &'a AccountView<'a>,
+    /// Funding account and lamport delta. `None`, or a zero delta, omits the
+    /// payer from the instruction entirely.
+    pub funding: Option<(&'a AccountView<'a>, u64)>,
+    pub space: u64,
+    pub owner: &'b Address,
+}
+
+impl CreateAccountAllowPrefund<'_, '_> {
+    #[inline]
+    pub fn invoke(&self) -> ProgramResult {
+        self.invoke_signed(&[])
+    }
+
+    #[inline]
+    pub fn invoke_signed(&self, signers: &[Signer<'_, '_>]) -> ProgramResult {
+        let (from, lamports) = match self.funding {
+            Some((from, lamports)) if lamports > 0 => (Some(from), lamports),
+            _ => (None, 0),
+        };
+        let data = encoders::encode_create_account_allow_prefund(
+            lamports,
+            self.space,
+            self.owner.as_array(),
+        );
+
+        match from {
+            Some(from) => {
+                let accounts = [
+                    InstructionAccount::writable_signer(self.to.address()),
+                    InstructionAccount::writable_signer(from.address()),
+                ];
+                let views = [self.to, from];
+                let instruction = InstructionView {
+                    program_id: &SYSTEM_PROGRAM_ID,
+                    data: &data,
+                    accounts: &accounts,
+                };
+                crate::cpi::invoke_signed(&instruction, &views, signers)
+            }
+            None => {
+                let accounts = [InstructionAccount::writable_signer(self.to.address())];
+                let views = [self.to];
+                let instruction = InstructionView {
+                    program_id: &SYSTEM_PROGRAM_ID,
+                    data: &data,
+                    accounts: &accounts,
+                };
+                crate::cpi::invoke_signed(&instruction, &views, signers)
+            }
+        }
     }
 }
 
@@ -633,8 +719,9 @@ impl UpgradeNonceAccount<'_> {
 pub mod instructions {
     pub use super::{
         AdvanceNonceAccount, Allocate, AllocateWithSeed, Assign, AssignWithSeed,
-        AuthorizeNonceAccount, CreateAccount, CreateAccountWithSeed, InitializeNonceAccount,
-        Transfer, TransferWithSeed, UpgradeNonceAccount, WithdrawNonceAccount,
+        AuthorizeNonceAccount, CreateAccount, CreateAccountAllowPrefund, CreateAccountWithSeed,
+        InitializeNonceAccount, Transfer, TransferWithSeed, UpgradeNonceAccount,
+        WithdrawNonceAccount,
     };
 }
 
