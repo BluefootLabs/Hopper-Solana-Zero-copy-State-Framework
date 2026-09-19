@@ -1,0 +1,19 @@
+hopper verify
+  manifest: D:\tmp\Hopper-Solana-Zero-copy-State-Framework\target/hopper/devnet-release/sentinel-v2.manifest.json
+
+Manifest integrity (2 layouts):
+------------------------------------------------------------------------
+  OK: unique layout_id, non-zero bytes, valid names.
+
+Authority gate: baseline target/hopper/devnet-release/sentinel-v1.manifest.json
+  baseline on devnet: program 7N2pyj1zhn6HSt6A553xJaM5CLJdcLjZXvw9KtSQNmFx, ProgramData 6ZfqKZCnMbmeJ6GuyB2j8PpYHc4VZSR3fLF9BTu5hZpK, deployed slot 501068155, upgrade authority 4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn, 65720 bytes
+  baseline bound: 2a91c5ab7a761b6d898243cdda4985379e73f04fc6a4fa94a3d2a3ca215ddb5c matches the commitment at 0x00f250 in 7N2pyj1zhn6HSt6A553xJaM5CLJdcLjZXvw9KtSQNmFx
+  candidate on devnet: buffer 7faSVbUUco4dba21xBZgssCeV1TtN11owVWgXPcPmTQa, authority 4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn, 65280 bytes
+  candidate bound: 0abc8b99c342139b947c71ef8aa1b48e1af227031a73767e63e2670951553852 matches the commitment at 0x00f090 in 7faSVbUUco4dba21xBZgssCeV1TtN11owVWgXPcPmTQa
+  authority diff: hopper-sentinel v0.3.0 -> hopper-sentinel v0.3.0
+    old manifest sha256 a275a13c7fdf7ea1eaab3cdaeaa387e459c16cb3eb0ed09b15461bacff781134
+    new manifest sha256 0956bbb8d8e08d20c603071141170f706aa33fcd1996e1103316006b36263886
+    WIDENED  honest_pause.config                write_range_widened          gains `fee_bps`
+    WIDENED  unpause.config                     write_range_widened          gains `fee_bps`
+  verdict: WIDENED (2 widened, 0 review, 0 narrowed, 0 info)
+  FAIL: authority widened. Review the findings above, then pass the reviewed --authority-report output as --authority-approval.

@@ -1,0 +1,48 @@
+{
+  "schema": "hopper.devnet-evidence.v1",
+  "example": "hopper-token-2022-vault",
+  "commitment": "finalized",
+  "rpc_endpoint": "redacted",
+  "cluster": {
+    "genesis_hash": "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG",
+    "node_version": "4.3.0-rc.0",
+    "feature_set": 2409014235
+  },
+  "program_id": "FJn8z851vZkpyiZnoAvfSEYYXG1mm4AG7txJEpr4bg8u",
+  "authority": "4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn",
+  "vault_state": "6yijWX3Mkjj6zahiEnoSKD7LMxepGFwHqF68jiWBy7AA",
+  "mint": "4E1vtG11tt29P7R9n25esR8k5gnXACZKzuFdhwLVhTzF",
+  "vault_ata": "E3NZWVPBpEcaPN7ruaBh765TwQFnUv45QWpZe8s69AXH",
+  "destination_ata": "ASukSMVEXTrcCGxrSTxq8UmRvdKWaENiFQU7mYmH8uAc",
+  "minted_total": 10,
+  "swept_total": 4,
+  "vault_amount": 6,
+  "destination_amount": 4,
+  "mint_supply": 10,
+  "transactions": [
+    {
+      "label": "initialize",
+      "signature": "4fxtRSUPKNyydXhQUKjJuZdmnnRmYVuPhi4qAUPqVhGde5FyCjX4KE5Ss7WqfRMu1koUP8hV1KEQR1mFqFmrdo9K",
+      "finalized_slot": 501095520,
+      "outcome": "succeeded"
+    },
+    {
+      "label": "prepare",
+      "signature": "2RiwPLJKJE52AGN7SVSGPpP9L2wUCR8HhuMXgQZnesQ7v2GvyyckwnWcY8jrpSJ2kNHs7NS137C6Ye89sSFaP4YJ",
+      "finalized_slot": 501095603,
+      "outcome": "succeeded"
+    },
+    {
+      "label": "mint",
+      "signature": "4PHxUQTbnV6vQgesrdUqUibsgkZucnndGGe2VQRe1ARJWsGqYykP2SHD18qagTVjQTiPMipM9fJcwZcqsCRgzU1W",
+      "finalized_slot": 501095671,
+      "outcome": "succeeded"
+    },
+    {
+      "label": "sweep",
+      "signature": "4MrDQN4LL9w9NVvrNrJ5TWBrrUukRL16HQQhU6UaTKTqbvQVe8AGYyTD4dU4QKQVnaoKTXDQkqCVKqZ1Am2FrsBT",
+      "finalized_slot": 501095746,
+      "outcome": "succeeded"
+    }
+  ]
+}

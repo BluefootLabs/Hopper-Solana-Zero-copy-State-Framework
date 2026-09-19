@@ -1,0 +1,23 @@
+{
+  "schema": "grillo.authority-diff.v1",
+  "old_program": "hopper-sentinel v0.3.0",
+  "new_program": "hopper-sentinel v0.3.0",
+  "old_manifest_digest": "a275a13c7fdf7ea1eaab3cdaeaa387e459c16cb3eb0ed09b15461bacff781134",
+  "new_manifest_digest": "0956bbb8d8e08d20c603071141170f706aa33fcd1996e1103316006b36263886",
+  "findings": [
+    {
+      "impact": "widened",
+      "instruction": "honest_pause",
+      "account": "config",
+      "code": "write_range_widened",
+      "detail": "gains `fee_bps`"
+    },
+    {
+      "impact": "widened",
+      "instruction": "unpause",
+      "account": "config",
+      "code": "write_range_widened",
+      "detail": "gains `fee_bps`"
+    }
+  ]
+}

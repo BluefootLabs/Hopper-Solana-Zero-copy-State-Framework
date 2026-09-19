@@ -216,6 +216,11 @@ pub mod crypto {
 }
 
 /// Compute-budget helpers.
+///
+/// Backed by the SIMD-0049 syscall, which no public cluster has activated;
+/// on-chain builds include this module only with the
+/// `remaining-compute-units-syscall` feature.
+#[cfg(any(not(target_os = "solana"), feature = "remaining-compute-units-syscall"))]
 pub mod compute {
     pub use hopper_runtime::compute::*;
 }
@@ -391,6 +396,9 @@ pub mod policy {
 /// manifests, overlays, or cross-program interface pinning.
 #[allow(ambiguous_glob_reexports, unused_imports)]
 pub mod systems {
+    #[cfg(any(not(target_os = "solana"), feature = "remaining-compute-units-syscall"))]
+    pub use crate::compute;
+    #[cfg(any(not(target_os = "solana"), feature = "remaining-compute-units-syscall"))]
     pub use crate::compute::*;
     pub use crate::interface::*;
     pub use crate::layout::*;
@@ -403,8 +411,8 @@ pub mod systems {
     pub use crate::schema::*;
     pub use crate::segment::*;
     pub use crate::{
-        compute, crypto, interface, layout, math, memory, migration, policy, receipt, return_data,
-        schema, segment,
+        crypto, interface, layout, math, memory, migration, policy, receipt, return_data, schema,
+        segment,
     };
 
     pub use hopper_core::account::{
@@ -450,7 +458,14 @@ pub mod systems {
 #[allow(ambiguous_glob_reexports, unused_imports)]
 pub mod substrate {
     pub use crate::return_data as hopper_return_data;
-    pub use crate::{compute, crypto, memory};
+    pub use crate::{crypto, memory};
+    // Compute-budget items need the SIMD-0049 syscall, which no public
+    // cluster has activated; see the `remaining-compute-units-syscall`
+    // feature.
+    #[cfg(any(not(target_os = "solana"), feature = "remaining-compute-units-syscall"))]
+    pub use crate::compute;
+    #[cfg(any(not(target_os = "solana"), feature = "remaining-compute-units-syscall"))]
+    pub use hopper_runtime::__hopper_native::{budget, CuBudget};
     pub use hopper_runtime::CpiAccount;
     pub use hopper_runtime::{
         AccountView, Address, InstructionAccount, InstructionView, ProgramError, ProgramResult,
@@ -459,10 +474,10 @@ pub mod substrate {
     };
 
     pub use hopper_runtime::__hopper_native::{
-        account_view, address, batch, budget, capability, entrypoint, error, hash, introspect,
-        lazy, lens, log, mem, pda, pod, raw, raw_account, raw_input, return_data, safe, syscalls,
-        sysvar, verify, wire, AccountView as NativeAccountView, Address as NativeAddress, CuBudget,
-        DataFingerprint, LamportSnapshot, ReturnData,
+        account_view, address, batch, capability, entrypoint, error, hash, introspect, lazy, lens,
+        log, mem, pda, pod, raw, raw_account, raw_input, return_data, safe, syscalls, sysvar,
+        verify, wire, AccountView as NativeAccountView, Address as NativeAddress, DataFingerprint,
+        LamportSnapshot, ReturnData,
     };
 
     pub use hopper_runtime::__hopper_native::{

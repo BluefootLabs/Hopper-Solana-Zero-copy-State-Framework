@@ -51,6 +51,15 @@ pwsh scripts/capture-devnet-program-evidence.ps1 `
   -OutputDirectory target/hopper/devnet-evidence/hopper-migration `
   -SolanaCli D:\path\to\agave-v4.2.1\solana.exe
 
+The script expects `solana-cli 4.2.1` by default; pass
+`-ExpectedSolanaVersion 'solana-cli 2.3.13'` (or whichever pinned line you
+deploy with) to run on another Agave CLI line. It reads `lastDeployedSlot`
+from `program show`, or `lastDeploySlot` as solana-cli 2.x spells it. It also
+requires a clean tree at both phases, so run the harness from a clean
+worktree (`git worktree add C:\hwt <commit>`) while development continues in
+the main checkout, and keep `HOPPER_DEVNET_RECEIPT` outside the capture
+output directory, which the After phase copies the receipt into.
+
 $env:HOPPER_DEVNET = '1'
 $env:HOPPER_REQUIRE_DEVNET = '1'
 $env:HOPPER_DEVNET_RECEIPT = 'target/hopper/devnet-evidence/hopper-migration-receipt.json'
@@ -76,8 +85,53 @@ the local release ELF, the finalized receipt, a provenance record,
 valid only when it is bound to the final source commit and retained as a
 content-addressed release asset.
 
-## Current status
+## Record: 2026-09-19 run
 
-The harness and capture contract are implemented. Final 0.3.0 public-devnet
-receipts must still be produced from the release commit before any current
-deployment claim is made.
+Archived under
+[`audit/devnet-evidence-2026-09-19/`](../audit/devnet-evidence-2026-09-19/)
+without the ELF copies; every ELF hash is in each lane's `SHA256SUMS` and
+`provenance.json`, and each bundle's `BUNDLE.SHA256` hashes that list. All
+lanes used `https://api.devnet.solana.com`, genesis
+`EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG`, node version 4.3.0-rc.0,
+finalized commitment, and the devnet-only signer
+`4sbBUbY71JFeA4kJckBmNnTADiFu4jtu84Gzev52ZEhn` as payer and upgrade
+authority. The harnesses ran from a clean worktree at the commit each
+`provenance.json` names, with `solana-cli 2.3.13` rather than the 4.2.1 the
+scripts default to. Devnet had SIMD-0449 direct account pointers, Account
+Data Direct Mapping, and SIMD-0460 active during the run, so these
+transactions also executed Hopper's input parser under that configuration.
+
+| Lane | Program id | Deployed slot | Transactions (finalized) | Result |
+| --- | --- | --- | --- | --- |
+| hopper-migration | `HeY6UKYJZiutNTZcUChgexf5qReSWFfHzsA5ehoT86fU` | 501,067,677 | initV1, migrateV1ToV2, depositV2 | pass, dump matches local ELF before and after |
+| hopper-escrow | `7kDb5zSywMQZFH3uboVMtdgrczTYWFiDjxsiQD2zU5Jr` | 501,067,873 | make, wrong-maker-cancel (rejected, snapshot unchanged), authorized-cancel-close, funding and cleanup | pass |
+| hopper-orderbook | `65u5AZMrqDU9UMdXhoSwUhHpF9GpfBh2g96AhSmgknoJ` | 501,068,074 | initBook, postBid | pass |
+| hopper-compact-vault | `8ViiHe4yWWStzhrDsAAoKENDVHFVVn17ERYknXdwvUPc` | 501,068,324 | create-and-initialize, wrong-authority-deposit (rejected, snapshot unchanged), authorized-deposit, funding and cleanup | pass |
+| hopper-token-2022-vault | `FJn8z851vZkpyiZnoAvfSEYYXG1mm4AG7txJEpr4bg8u` | 501,095,212 | initialize, prepare, mint, sweep (TransferChecked) | pass |
+| cross-program-read | A `2h5zat7pKjUHH3jkgsuPGqQ2N2hyVb1cCmvZ5FGCnn8J`, B `EyMprn3Ur5ix47hei5iTztPx48FjJJ7EzH4AkMw6Fqei` | see receipt | program_a:init, program_a:deposit, program_b:read, program_b:min | pass, both dumps match local ELFs |
+| sentinel authority gate | program `7N2pyj1zhn6HSt6A553xJaM5CLJdcLjZXvw9KtSQNmFx`, buffer `7faSVbUUco4dba21xBZgssCeV1TtN11owVWgXPcPmTQa` | 501,068,155 | none (read-only review) | WIDENED, exit 2 |
+| hopper-devnet-audit | `EB6SZ7qTGerTuptmHjt6aGpZc1tpZDUPwiTBYpsbhs8M` (keypair reserved) | not deployed | none | blocked, see below |
+
+The sentinel row is the ledger-bound upgrade review: v1 was built from the
+committed source and deployed; v2 was built from the same source with one
+line changed (`mut(paused, revision)` widened to include `fee_bps` and
+`has_one = admin` removed) and written to a loader Buffer, never applied.
+`hopper verify sentinel-v2.manifest.json --authority-baseline
+sentinel-v1.manifest.json --baseline-program 7N2pyj... --candidate-buffer
+7faSVb... --cluster devnet` bound both manifests to their on-chain
+commitments and reported `write_range_widened` (gains `fee_bps`) on
+`honest_pause` and `unpause`. The buffer is left in place so the review can be
+re-run. The removed `has_one` was not reported in this run because the
+manifests predate the `instructions` key on contexts; the shared-context
+case is pinned in `grillo-manifest` tests since commit `1d3d136`.
+
+The devnet-audit lane did not deploy: both the CLI and the devnet loader
+reject the artifact with `Unresolved symbol (sol_remaining_compute_units)`.
+That syscall backs `hopper_native::budget` and `hopper_runtime::compute`
+and is used by the audit example's substrate probes; its status on current
+Agave is recorded in the changelog once confirmed.
+
+Lanes found and fixed three harness defects on the way, all recorded in the
+changelog: receipts that named their transaction list `signatures`, wrong
+signers funded below the rent-exempt floor, and a `1`-lamport state
+expectation.

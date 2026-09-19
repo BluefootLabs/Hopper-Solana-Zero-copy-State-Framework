@@ -25,6 +25,15 @@ cu-trace = []
 # Saves 1-3 CU per syscall by replacing dynamic dispatch with direct
 # calls. Off by default until the upstream feature stabilizes.
 static-syscalls = []
+# Opt-in for the `sol_remaining_compute_units` syscall (SIMD-0049). The
+# proposal is Withdrawn and its feature gate
+# (5TuppMutoyzhUSfuYdhgzD47F92GL1g89KpCZQKqedxP) has never been activated on
+# mainnet-beta, devnet, or testnet, so a program that references the symbol
+# fails to deploy on every public cluster while passing local tests (local
+# validators enable every feature). The compute-budget helpers are therefore
+# compiled for on-chain targets only with this feature; host builds keep them
+# for tests. Enable it only for a private cluster that activates the gate.
+remaining-compute-units-syscall = []
 # Opt-in for the SIMD-0321 two-argument entrypoint (`r2` carries a
 # direct instruction-data pointer). The SIMD's feature gate
 # (5xXZc66h4UdB6Yq7FzdBxBiRAFMMScMLwHxk2QZDaNZL) is ACTIVATED on all

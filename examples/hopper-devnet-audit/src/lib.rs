@@ -126,13 +126,15 @@ mod hopper_devnet_audit {
 
     #[instruction(4)]
     pub fn substrate_probe(ctx: Ctx<Mutate>) -> ProgramResult {
-        let budget = hopper::substrate::CuBudget::snapshot();
-        budget.require_remaining(1)?;
+        // Substrate checks that exist on every public cluster. The earlier
+        // `CuBudget` probe read `sol_remaining_compute_units` (SIMD-0049),
+        // whose gate no cluster activated; the loader rejected the ELF.
         ctx.accounts.authority.as_account().check_writable()?;
+        ctx.accounts.state.as_account().check_writable()?;
 
         let mut state = ctx.accounts.state.get_mut()?;
         state.substrate_passes.checked_add_assign(1)?;
-        budget.log_delta("hopper-devnet-audit");
+        hopper::substrate::log::log_compute_units();
         Ok(())
     }
 

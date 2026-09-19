@@ -124,7 +124,7 @@ hopper explain <CONFIRMED_SIG> --manifest hopper.manifest.json
 ```
 
 See [docs/cli/](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/docs/cli/README.md) for deploy reference and
-[cli/SMOKE.md](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/cli/SMOKE.md) for an end-to-end runbook.
+[cli/SMOKE.md](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/cli/SMOKE.md) for an end-to-end runbook. The finalized devnet evidence for six example lanes and the ledger-bound authority review, captured on 2026-09-19 with program ids, slots, and artifact hashes, is recorded in [docs/DEVNET_RELEASE_EVIDENCE.md](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/docs/DEVNET_RELEASE_EVIDENCE.md) and archived under [audit/devnet-evidence-2026-09-19](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/tree/main/audit/devnet-evidence-2026-09-19).
 
 ### Add to an existing crate
 
@@ -229,7 +229,7 @@ Hopper layers so you don't learn systems mode first:
 1. Framework mode: hopper::prelude, #[account], #[program], typed wrappers, PDA helpers, token modules, guard macros.
 2. Structured state: keep #[account] and add bounded fields like String<'a, 32> or Vec<'a, Address, 10>. Hopper lowers them into fixed-body plus compact-tail. Use TailStr<'a> or TailBytes<'a> only when a protocol deliberately needs a final named field consuming remaining tail.
 3. Systems mode: add hopper::systems, hopper::segment, hopper::receipt, hopper::policy, hopper::migration, hopper::interface for field leasing, audit trails, upgrades, and cross-program layout contracts.
-4. Substrate mode: use hopper::substrate for direct Hopper Native tools like account views, CU budget probes, hashes, PDA, input parsing, memory helpers, syscalls.
+4. Substrate mode: use hopper::substrate for direct Hopper Native tools like account views, hashes, PDA, input parsing, memory helpers, syscalls. The compute-budget probe needs the withdrawn SIMD-0049 syscall and is compiled for on-chain targets only under the `remaining-compute-units-syscall` feature.
 
 ## Access tiers
 

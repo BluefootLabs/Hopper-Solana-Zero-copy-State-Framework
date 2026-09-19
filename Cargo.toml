@@ -220,6 +220,18 @@ cu-trace = ["hopper-runtime/cu-trace"]
 # yields every distinct (account, offset, size, R/W) range an instruction
 # touched, from the segment registry's append-only log.
 touch-map = ["hopper-runtime/touch-map"]
+# Opt-in for the `sol_remaining_compute_units` syscall (SIMD-0049). The
+# proposal is Withdrawn and its feature gate
+# (5TuppMutoyzhUSfuYdhgzD47F92GL1g89KpCZQKqedxP) has never been activated on
+# mainnet-beta, devnet, or testnet, so a program that references the symbol
+# fails to deploy on every public cluster while passing local tests (local
+# validators enable every feature). The compute-budget helpers are therefore
+# compiled for on-chain targets only with this feature; host builds keep them
+# for tests. Enable it only for a private cluster that activates the gate.
+remaining-compute-units-syscall = [
+    "hopper-runtime/remaining-compute-units-syscall",
+    "hopper-solana/remaining-compute-units-syscall",
+]
 
 # Opt-in SIMD-0321 two-argument fast entrypoint (r2 instruction-data
 # pointer). Kept opt-in by measured choice, not by gate status: the gate

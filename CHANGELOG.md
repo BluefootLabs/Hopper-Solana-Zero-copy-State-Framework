@@ -67,6 +67,18 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   digests it records; under `--release` the baseline must match the interface
   commitment in its released ELF.
 
+### Added
+
+- **Finalized devnet evidence for six lanes.** Fresh deployments of the
+  migration, escrow, orderbook, compact-vault, Token-2022 vault, and
+  cross-program-read examples ran their finalized harnesses on public devnet
+  (Agave 4.3.0-rc.0, SIMD-0449, direct mapping, and SIMD-0460 active) with
+  before-and-after artifact captures, and the ledger-bound authority review
+  ran against a deployed sentinel program and a widened Buffer. Receipts,
+  provenance, and checksum lists are archived under
+  `audit/devnet-evidence-2026-09-19/`; the record with program ids and slots
+  is in `docs/DEVNET_RELEASE_EVIDENCE.md`.
+
 ### Changed
 
 - **Contexts name the instructions they serve.** `ContextDescriptor` gains
@@ -91,12 +103,27 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   solana-cli 2.x prints, alongside the 4.x `lastDeployedSlot`, and the
   Token-2022 vault proof script takes `-ExpectedSolanaVersion` like the
   capture script instead of hard-coding 4.2.1.
+- Mollusk is pinned at 0.15.1 (fixture hashes now include return data;
+  no stored fixture hash in this repository depended on the old value).
 - The profiling guide records sBPF v3 sizes measured on cargo-build-sbf
   4.1.0 (counter 5,600 to 4,832 bytes, vault 13,288 to 12,400) as opt-in
   guidance; v3 has been accepted on mainnet-beta since slot 428,976,000.
 
 ### Fixed
 
+- **Programs using the compute-budget helpers could not deploy on any
+  public cluster.** `hopper_native::CuBudget`, `hopper_runtime::compute`,
+  `hopper_solana::compute`, and `hopper::compute` read
+  `sol_remaining_compute_units` (SIMD-0049). That proposal is Withdrawn and
+  its feature gate (`5TuppMutoyzhUSfuYdhgzD47F92GL1g89KpCZQKqedxP`) has never
+  been activated on mainnet-beta, devnet, or testnet, so the loader rejects
+  any ELF that references the symbol with `Unresolved symbol` while local
+  validators, which enable every feature, accept it. The devnet evidence
+  lane caught this on the audit example. Those items are now compiled for
+  on-chain targets only under the `remaining-compute-units-syscall` feature
+  (off by default; host builds keep them for tests), so a program that
+  still uses them gets a compile error instead of an undeployable artifact.
+  The audit example's substrate probe no longer uses the syscall.
 - `SchemaExport::descriptor()` now carries the manifest's dynamic-tail flag,
   so cost lints and loaded-data-size recommendations see growable layouts.
 - **Generated clients no longer derive `seeds::program` PDAs under the

@@ -228,9 +228,13 @@ pub use hopper_core::abi::{
 };
 
 pub use crate::{
-    associated_token, compute, cpi, crypto, events, memo, pda, return_data, system, sysvar, token,
+    associated_token, cpi, crypto, events, memo, pda, return_data, system, sysvar, token,
     token_2022,
 };
+// The compute-budget module needs the SIMD-0049 syscall, which no public
+// cluster has activated; see the `remaining-compute-units-syscall` feature.
+#[cfg(any(not(target_os = "solana"), feature = "remaining-compute-units-syscall"))]
+pub use crate::compute;
 // The two sysvars almost every program reads (on-chain time, rent-exempt
 // minimums) are surfaced directly so `Clock::get()` / `Rent::get()` work from
 // the prelude without an extra `use hopper::sysvar::*`.

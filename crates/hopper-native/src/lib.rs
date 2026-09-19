@@ -67,6 +67,10 @@ pub mod syscalls;
 // Additional modules.
 
 pub mod batch;
+// The compute-budget tracker needs the SIMD-0049 syscall, which no public
+// cluster has activated; on-chain builds get it only through the
+// `remaining-compute-units-syscall` feature.
+#[cfg(any(not(target_os = "solana"), feature = "remaining-compute-units-syscall"))]
 pub mod budget;
 pub mod capability;
 pub mod hash;
@@ -118,6 +122,7 @@ pub use pod::{read_unaligned_value, Pod, ValuePod, Zeroable};
 pub use raw_account::RuntimeAccount;
 
 // Additional re-exports.
+#[cfg(any(not(target_os = "solana"), feature = "remaining-compute-units-syscall"))]
 pub use budget::CuBudget;
 pub use capability::{
     ExecutableView, MutableView, OwnedView, ReadonlyView, SignerView, WritableView,

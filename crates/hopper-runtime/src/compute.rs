@@ -1,4 +1,11 @@
 //! Compute-budget introspection helpers.
+//!
+//! These read `sol_remaining_compute_units` (SIMD-0049). That proposal is
+//! Withdrawn and its feature gate has never been activated on mainnet-beta,
+//! devnet, or testnet, so an on-chain program that references the syscall
+//! is rejected at deploy time. The module is compiled for on-chain targets
+//! only with the `remaining-compute-units-syscall` feature; host builds keep
+//! it so tests can exercise the guard logic.
 
 use crate::{ProgramError, ProgramResult};
 

@@ -206,10 +206,11 @@ define_syscall!(pub fn sol_log_compute_units_());
 /// Remaining compute units for the current invocation (SIMD-0049).
 ///
 /// Unlike `sol_log_compute_units_` (which only *logs*), this returns the
-/// value to the program, making real in-program budget guards possible,
-/// see `budget::CuBudget`. Only programs that actually call it reference
-/// the symbol, so binding it here costs nothing for programs that don't.
-#[cfg(target_os = "solana")]
+/// value to the program, see `budget::CuBudget`. SIMD-0049 is Withdrawn and
+/// its gate has never been activated on a public cluster, so the loader
+/// rejects any ELF that references the symbol (`Unresolved symbol`). It is
+/// bound only under the `remaining-compute-units-syscall` feature.
+#[cfg(all(target_os = "solana", feature = "remaining-compute-units-syscall"))]
 define_syscall!(pub fn sol_remaining_compute_units() -> u64);
 
 /// Log structured data segments (for events).

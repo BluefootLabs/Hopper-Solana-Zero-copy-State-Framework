@@ -4,6 +4,11 @@
 //! (batch processing, multi-proof verification, iterative liquidations)
 //! can bail early with a clean error instead of hitting "compute budget
 //! exceeded" at some random instruction.
+//!
+//! The syscall is SIMD-0049, which is Withdrawn; its feature gate has never
+//! been activated on a public cluster, and the loader rejects an ELF that
+//! references it. On-chain builds get this module only with the
+//! `remaining-compute-units-syscall` feature.
 
 use hopper_runtime::error::ProgramError;
 
@@ -19,7 +24,9 @@ extern "C" {
 pub fn remaining_compute_units() -> u64 {
     #[cfg(target_os = "solana")]
     {
-        // SAFETY: BPF syscall, always available on Solana runtime.
+        // SAFETY: nullary syscall with no memory arguments. It resolves only
+        // on a cluster that activated SIMD-0049, which this module's cfg
+        // gate makes the caller opt into.
         unsafe { sol_remaining_compute_units() }
     }
     #[cfg(not(target_os = "solana"))]

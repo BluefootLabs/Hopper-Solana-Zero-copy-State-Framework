@@ -14,6 +14,7 @@
 pub mod ata;
 pub mod authority;
 pub mod balance;
+#[cfg(any(not(target_os = "solana"), feature = "remaining-compute-units-syscall"))]
 pub mod compute;
 pub mod constants;
 pub mod cpi_guard;

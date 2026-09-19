@@ -25,6 +25,7 @@ pub mod behavior;
 pub mod borrow;
 pub(crate) mod borrow_registry;
 pub mod compact;
+#[cfg(any(not(target_os = "solana"), feature = "remaining-compute-units-syscall"))]
 pub mod compute;
 pub mod cpi;
 pub mod cpi_event;
@@ -83,6 +84,7 @@ pub use audit::{AccountAudit, DuplicateAccount};
 pub use behavior::{BehaviorChecked, BehaviorWrite, HopperBehavior};
 pub use borrow::{Ref, RefMut};
 pub use compact::{CompactDynamicLayout, CompactLayout, COMPACT_BODY_OFFSET};
+#[cfg(any(not(target_os = "solana"), feature = "remaining-compute-units-syscall"))]
 pub use compute::{check_compute_units, remaining_compute_units, require_compute_units};
 pub use context::{Context, ScopedContext};
 pub use cpi::{invoke, invoke_checked, invoke_signed, invoke_signed_checked};

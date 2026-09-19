@@ -64,9 +64,13 @@ pub const ERR_INSUFFICIENT_CU: u32 = 0xE000;
 ///
 /// On BPF this is backed by the `sol_remaining_compute_units` syscall
 /// (SIMD-0049), so snapshots and guards read the *real* remaining budget.
-/// Off-chain there is no CU metering: [`remaining`](Self::remaining)
-/// reports `u64::MAX`, so every guard passes trivially and
-/// [`used`](Self::used) reports 0.
+/// That SIMD is Withdrawn and its feature gate has never been activated on
+/// mainnet-beta, devnet, or testnet: a deployed program referencing the
+/// symbol is rejected by the loader. On-chain builds therefore include this
+/// type only with the crate's `remaining-compute-units-syscall` feature,
+/// for private clusters that activate the gate. Off-chain there is no CU
+/// metering: [`remaining`](Self::remaining) reports `u64::MAX`, so every
+/// guard passes trivially and [`used`](Self::used) reports 0.
 #[derive(Clone, Copy)]
 pub struct CuBudget {
     /// Remaining CU at the moment [`snapshot`](Self::snapshot) was taken
@@ -78,9 +82,10 @@ impl CuBudget {
     /// Remaining compute units for the current invocation.
     ///
     /// On BPF, reads the `sol_remaining_compute_units` syscall
-    /// (SIMD-0049; live on all current clusters). Off-chain, returns
-    /// `u64::MAX`, host builds have no CU meter, so guards built on
-    /// this pass trivially, matching the crate's other host fallbacks.
+    /// (SIMD-0049; not activated on any public cluster, see the type
+    /// docs). Off-chain, returns `u64::MAX`, host builds have no CU
+    /// meter, so guards built on this pass trivially, matching the
+    /// crate's other host fallbacks.
     #[inline(always)]
     pub fn remaining() -> u64 {
         #[cfg(target_os = "solana")]

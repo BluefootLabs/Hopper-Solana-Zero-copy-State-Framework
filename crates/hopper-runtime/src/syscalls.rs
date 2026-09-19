@@ -29,7 +29,7 @@ hopper_native::define_syscall!(
     fn syscall_sol_get_return_data(data: *mut u8, length: u64, program_id: *mut u8) -> u64
 );
 
-#[cfg(target_os = "solana")]
+#[cfg(all(target_os = "solana", feature = "remaining-compute-units-syscall"))]
 hopper_native::define_syscall!(
     #[link_name = "sol_remaining_compute_units"]
     fn syscall_sol_remaining_compute_units() -> u64
@@ -496,6 +496,10 @@ pub unsafe fn sol_get_return_data(data: *mut u8, length: u64, program_id: *mut u
 }
 
 /// Return the remaining compute units reported by the Solana runtime.
+///
+/// SIMD-0049 is Withdrawn and no public cluster activates its gate; the
+/// on-chain binding exists only under `remaining-compute-units-syscall`.
+#[cfg(any(not(target_os = "solana"), feature = "remaining-compute-units-syscall"))]
 #[inline(always)]
 pub fn sol_remaining_compute_units() -> u64 {
     #[cfg(target_os = "solana")]
