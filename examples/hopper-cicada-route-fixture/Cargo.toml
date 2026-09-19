@@ -7,7 +7,7 @@ publish = false
 description = "Compiled adversarial route/token fixture for Cicada SVM lifecycle tests."
 
 [lib]
-crate-type = ["cdylib", "lib"]
+crate-type = ["cdylib"]
 
 [dependencies]
 hopper = { path = "../..", package = "hopper-lang", default-features = false }

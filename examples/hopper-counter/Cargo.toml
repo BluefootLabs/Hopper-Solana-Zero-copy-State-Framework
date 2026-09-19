@@ -7,7 +7,7 @@ publish = false
 description = "Minimal macro-first Hopper counter example."
 
 [lib]
-crate-type = ["cdylib", "lib"]
+crate-type = ["cdylib"]
 
 [dependencies]
 hopper = { workspace = true, features = ["proc-macros"] }

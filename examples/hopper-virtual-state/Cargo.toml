@@ -6,7 +6,7 @@ license = "Apache-2.0"
 publish = false
 
 [lib]
-crate-type = ["cdylib", "lib"]
+crate-type = ["cdylib"]
 
 [dependencies]
 hopper = { path = "../..", package = "hopper-lang", default-features = false }

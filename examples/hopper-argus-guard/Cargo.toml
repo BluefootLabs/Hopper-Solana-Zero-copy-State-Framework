@@ -7,7 +7,7 @@ publish = false
 description = "Argus-style risk guard subsystem port proof for Hopper."
 
 [lib]
-crate-type = ["cdylib", "lib"]
+crate-type = ["cdylib"]
 
 [dependencies]
 hopper = { workspace = true, features = ["proc-macros"] }

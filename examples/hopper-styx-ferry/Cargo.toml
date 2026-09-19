@@ -7,7 +7,7 @@ publish = false
 description = "Hopper port of Styx-style prekeys, ratchet envelopes, and ZK ferry verifier calls."
 
 [lib]
-crate-type = ["cdylib", "lib"]
+crate-type = ["cdylib"]
 
 [dependencies]
 hopper = { path = "../..", package = "hopper-lang", default-features = false, features = ["proc-macros"] }

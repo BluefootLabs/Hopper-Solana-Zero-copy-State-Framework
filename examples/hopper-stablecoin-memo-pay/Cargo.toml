@@ -7,7 +7,7 @@ publish = false
 description = "Devnet-ready Hopper stablecoin payment ledger with TransferChecked and Memo CPI."
 
 [lib]
-crate-type = ["cdylib", "lib"]
+crate-type = ["cdylib"]
 
 [dependencies]
 hopper = { path = "../..", package = "hopper-lang", default-features = false, features = ["proc-macros"] }

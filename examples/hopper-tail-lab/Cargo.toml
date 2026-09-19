@@ -7,7 +7,7 @@ publish = false
 description = "Devnet Hopper program exercising bounded dynamic fields and bare final tails."
 
 [lib]
-crate-type = ["cdylib", "lib"]
+crate-type = ["cdylib"]
 
 [dependencies]
 hopper = { path = "../..", package = "hopper-lang", default-features = false, features = ["proc-macros"] }

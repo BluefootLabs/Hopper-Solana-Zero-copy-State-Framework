@@ -7,7 +7,7 @@ publish = false
 description = "Hopper Token-2022 example that validates the TransferHook mint extension, binds an expected hook program, and rejects unsupported extensions."
 
 [lib]
-crate-type = ["cdylib", "lib"]
+crate-type = ["cdylib"]
 
 [dependencies]
 hopper = { path = "../..", package = "hopper-lang", default-features = false, features = ["proc-macros"] }

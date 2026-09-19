@@ -263,12 +263,16 @@ unexpected_cfgs = { level = "allow", check-cfg = [
 [profile.release]
 overflow-checks = true
 # Ecosystem-standard on-chain size/perf profile, matching `anchor init`, Quasar,
-# and the Solana performance guide. `codegen-units = 1` is the real free win
-# (better cross-unit optimization, no CU cost). `lto = "fat"` is conventional but
-# a near-no-op under `cargo build-sbf`: LLD already runs `--gc-sections`, and
-# `core` ships as a prebuilt bitcode-free sysroot rlib LTO cannot reach. opt-level
-# stays at 3 to preserve the measured CU story; `opt-level = "z"/"s"` would trade
-# roughly 50% more CU for ~5% size and is deliberately not taken.
+# and the Solana performance guide. `codegen-units = 1` is a free win (better
+# cross-unit optimization, no CU cost). `lto = "fat"` only takes effect for a
+# program crate whose `[lib] crate-type` is `["cdylib"]` alone: with an rlib in
+# the list, cargo drops `-C lto` for the cdylib and the flag is a no-op. Measured
+# 2026-09-19 (cargo-build-sbf 4.1.0, platform-tools v1.54): hopper-vault
+# 22,288 -> 15,264 bytes and hopper-sentinel 71,168 -> 63,688 bytes from that
+# one change. Program crates keep `"lib"` only when a `tests/` integration test
+# imports them. opt-level stays at 3 to preserve the measured CU story;
+# `opt-level = "z"/"s"` would trade roughly 50% more CU for ~5% size and is
+# deliberately not taken.
 lto = "fat"
 codegen-units = 1
 

@@ -7,7 +7,7 @@ publish = false
 description = "Cross-program read example - Program B (vault reader via hopper_interface!)"
 
 [lib]
-crate-type = ["cdylib", "lib"]
+crate-type = ["cdylib"]
 
 [dependencies]
 hopper = { path = "../../..", package = "hopper-lang", default-features = false }
