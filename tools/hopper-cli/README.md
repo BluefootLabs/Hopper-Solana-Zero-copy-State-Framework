@@ -38,7 +38,8 @@ Verify
   hopper verify --effects <bundle|dir>      Effect gate: verify evidence bundles against the manifest's
                                             published write contract (changed ⊆ acquired ⊆ authorized,
                                             via the separately runnable Grillo verifier); any violation fails
-  hopper verify --authority-baseline <old-manifest> [--baseline-so <old.so>]
+  hopper verify --authority-baseline <old-manifest> [--baseline-so <old.so> | --baseline-program <id>]
+                [--candidate-buffer <addr> | --candidate-program <id>] [--cluster <name|url>]
                                             Authority gate: exit 2 when an instruction gains authority
                                             (dropped signer, new writable, wider field ranges, removed PDA,
                                             has_one, owner, or address binding, new CPI program), exit 3
@@ -119,6 +120,8 @@ Shell
 Profiling
   hopper profile bench               Run the primitive benchmark lab and emit JSON/CSV artifacts
   hopper profile elf <program.so>    Static SBF symbols, CU-ish estimates, sections, flamegraph export
+  hopper profile elf <program.so> --baseline <folded.txt> --fail-on-growth <bytes> --fail-on-growth-pct <pct>
+                                     Size gate: exit 2 when .text grew past both thresholds
 
 Contention
   hopper contention <manifest>       Per-instruction write-lock and signature footprint the

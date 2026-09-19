@@ -133,6 +133,10 @@ fn print_profile_usage() {
         "  --baseline <folded.txt>      Compare symbol sizes against a saved baseline folded file"
     );
     eprintln!("  --sections                   Print ELF section size summary");
+    eprintln!("  --fail-on-growth <bytes>     With --baseline: exit 2 when .text grew by more");
+    eprintln!("                               than this many bytes AND more than");
+    eprintln!("                               --fail-on-growth-pct (defaults 512 bytes, 10%)");
+    eprintln!("  --fail-on-growth-pct <pct>   Relative half of the growth gate");
     eprintln!("  --inlines                    DWARF inline-frame attribution: rank .text bytes by");
     eprintln!("                               deepest inline frame (needs an unstripped .so built");
     eprintln!(
@@ -153,6 +157,40 @@ struct ElfArgs<'a> {
     demangle: bool,
     sections: bool,
     inlines: bool,
+    /// Growth gate against `--baseline`: fail (exit 2) only when the total
+    /// `.text` growth exceeds BOTH the absolute byte floor and the relative
+    /// percentage, so a 12% jump on a 40-byte helper and a 30-byte jump on a
+    /// large program are both ignored while a real regression is not.
+    growth_gate: Option<GrowthGate>,
+}
+
+/// Dual threshold for the `--baseline` growth gate.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct GrowthGate {
+    /// Absolute growth in bytes that must be exceeded.
+    bytes: u64,
+    /// Relative growth in percent of the baseline that must be exceeded.
+    pct: f64,
+}
+
+impl GrowthGate {
+    /// Defaults when only one of the two flags is given.
+    const DEFAULT_BYTES: u64 = 512;
+    const DEFAULT_PCT: f64 = 10.0;
+
+    /// Whether growing from `baseline` to `current` bytes trips the gate.
+    fn trips(&self, baseline: u64, current: u64) -> bool {
+        let delta = current.saturating_sub(baseline);
+        if delta == 0 {
+            return false;
+        }
+        let pct = if baseline == 0 {
+            f64::INFINITY
+        } else {
+            delta as f64 * 100.0 / baseline as f64
+        };
+        delta > self.bytes && pct > self.pct
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -178,6 +216,7 @@ fn parse_elf_args<'a>(args: &'a [String]) -> Result<ElfArgs<'a>, String> {
         demangle: true,
         sections: false,
         inlines: false,
+        growth_gate: None,
     };
     let mut i = 1;
     while i < args.len() {
@@ -202,6 +241,35 @@ fn parse_elf_args<'a>(args: &'a [String]) -> Result<ElfArgs<'a>, String> {
                 i += 1;
                 out.baseline = Some(args.get(i).ok_or("`--baseline` requires a path")?.as_str());
             }
+            "--fail-on-growth" => {
+                i += 1;
+                let bytes: u64 = args
+                    .get(i)
+                    .ok_or("`--fail-on-growth` requires a byte count")?
+                    .parse()
+                    .map_err(|e| format!("`--fail-on-growth` must be a u64: {e}"))?;
+                let gate = out.growth_gate.get_or_insert(GrowthGate {
+                    bytes,
+                    pct: GrowthGate::DEFAULT_PCT,
+                });
+                gate.bytes = bytes;
+            }
+            "--fail-on-growth-pct" => {
+                i += 1;
+                let pct: f64 = args
+                    .get(i)
+                    .ok_or("`--fail-on-growth-pct` requires a percentage")?
+                    .parse()
+                    .map_err(|e| format!("`--fail-on-growth-pct` must be a number: {e}"))?;
+                if !pct.is_finite() || pct < 0.0 {
+                    return Err("`--fail-on-growth-pct` must be a non-negative number".into());
+                }
+                let gate = out.growth_gate.get_or_insert(GrowthGate {
+                    bytes: GrowthGate::DEFAULT_BYTES,
+                    pct,
+                });
+                gate.pct = pct;
+            }
             "--sections" => out.sections = true,
             "--inlines" => out.inlines = true,
             "--open" => out.open_html = true,
@@ -212,6 +280,11 @@ fn parse_elf_args<'a>(args: &'a [String]) -> Result<ElfArgs<'a>, String> {
     }
     if out.open_html && out.html_out.is_none() {
         return Err("`--open` requires `--html <path>`".into());
+    }
+    if out.growth_gate.is_some() && out.baseline.is_none() {
+        return Err(
+            "`--fail-on-growth` / `--fail-on-growth-pct` require `--baseline <folded.txt>`".into(),
+        );
     }
     Ok(out)
 }
@@ -357,6 +430,40 @@ fn cmd_profile_elf(args: &[String]) -> Result<(), String> {
         } else {
             println!("open it in your browser to explore (hover, click, search).");
         }
+    }
+
+    if let (Some(gate), Some(base)) = (opts.growth_gate, baseline_map.as_ref()) {
+        let base_total: u64 = base.values().sum();
+        println!();
+        if gate.trips(base_total, byte_total) {
+            let mut grown: Vec<(&str, u64, u64)> = symbols
+                .iter()
+                .map(|(name, size)| (name.as_str(), base.get(name).copied().unwrap_or(0), *size))
+                .filter(|(_, prev, size)| size > prev)
+                .collect();
+            grown.sort_by_key(|(_, prev, size)| ::core::cmp::Reverse(size - prev));
+            println!(
+                "growth gate: FAIL, .text grew {} bytes ({:.2}%), above both {} bytes and {}%",
+                byte_total - base_total,
+                (byte_total - base_total) as f64 * 100.0 / base_total.max(1) as f64,
+                gate.bytes,
+                gate.pct
+            );
+            for (name, prev, size) in grown.iter().take(10) {
+                println!(
+                    "  +{:>8}  {:>8} -> {:>8}  {}",
+                    size - prev,
+                    prev,
+                    size,
+                    name
+                );
+            }
+            std::process::exit(2);
+        }
+        println!(
+            "growth gate: PASS (limit: more than {} bytes and more than {}% of {} baseline bytes)",
+            gate.bytes, gate.pct, base_total
+        );
     }
     Ok(())
 }
@@ -1077,5 +1184,66 @@ mod tests {
             render_folded_stacks(&stacks),
             "entrypoint;hopper_runtime::receipt::commit 4096\nentrypoint 1024\n"
         );
+    }
+}
+
+#[cfg(test)]
+mod growth_gate_tests {
+    use super::{parse_elf_args, GrowthGate};
+
+    #[test]
+    fn gate_trips_only_when_both_thresholds_are_exceeded() {
+        let gate = GrowthGate {
+            bytes: 512,
+            pct: 10.0,
+        };
+        // Large absolute, small relative: a 600-byte jump on 100 KiB is 0.6%.
+        assert!(!gate.trips(100_000, 100_600));
+        // Large relative, small absolute: 40 -> 60 bytes is 50% but 20 bytes.
+        assert!(!gate.trips(40, 60));
+        // Both exceeded.
+        assert!(gate.trips(4_000, 4_600));
+        // Exactly at the limits does not trip; strictly above does.
+        assert!(!gate.trips(5_120, 5_632));
+        assert!(gate.trips(5_120, 5_633));
+        // Shrinking never trips, and an empty baseline counts as infinite.
+        assert!(!gate.trips(4_000, 3_000));
+        assert!(gate.trips(0, 513));
+        assert!(!gate.trips(0, 512));
+    }
+
+    #[test]
+    fn growth_flags_fill_the_missing_half_with_defaults_and_need_a_baseline() {
+        let args: Vec<String> = ["p.so", "--baseline", "b.txt", "--fail-on-growth", "100"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+        let opts = parse_elf_args(&args).unwrap();
+        assert_eq!(
+            opts.growth_gate,
+            Some(GrowthGate {
+                bytes: 100,
+                pct: GrowthGate::DEFAULT_PCT
+            })
+        );
+
+        let args: Vec<String> = ["p.so", "--baseline", "b.txt", "--fail-on-growth-pct", "2.5"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+        let opts = parse_elf_args(&args).unwrap();
+        assert_eq!(
+            opts.growth_gate,
+            Some(GrowthGate {
+                bytes: GrowthGate::DEFAULT_BYTES,
+                pct: 2.5
+            })
+        );
+
+        let args: Vec<String> = ["p.so", "--fail-on-growth", "100"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+        assert!(parse_elf_args(&args).is_err());
     }
 }
