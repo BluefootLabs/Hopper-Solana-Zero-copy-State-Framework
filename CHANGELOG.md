@@ -9,6 +9,47 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 
 ### Added
 
+- **Ledger-bound authority review.** `hopper verify --authority-baseline`
+  accepts `--baseline-program <id>` (the deployed program's ProgramData ELF
+  must carry the baseline manifest's interface commitment),
+  `--candidate-buffer <addr>` (the loader Buffer holding the upgrade under
+  review must carry this manifest's commitment), and `--candidate-program`
+  for post-upgrade review, with `--cluster` defaulting to devnet. Under
+  `--release` the baseline must be bound through `--baseline-so` or
+  `--baseline-program`, so neither side of the authority diff is an unbound
+  declaration.
+- **`CreateAccountAllowPrefund` (System instruction 13).** New builders in
+  `hopper-native`, `hopper-runtime`, and the `hopper-system` facade, a host
+  emulator in the SVM harness, a Kani-proved encoder, and a differential
+  golden test. `hopper_init!` (the `init` and `init_if_needed` lifecycles) now
+  creates every account with this one CPI: the payer is omitted when the
+  account already holds its rent, and the shortfall is a delta on top of the
+  existing balance. It replaces the CreateAccount branch and the
+  Transfer, Allocate, Assign fallback. The feature gate is active on
+  mainnet-beta (slot 422,928,004), devnet, and testnet.
+- **`AccountView::check_resize`** runs every resize precondition without
+  mutating; `realloc_checked` and `realloc_checked_with` call it before the
+  rent top-up, so a refused resize can no longer leave the transfer behind.
+- **`safe_realloc_bounded`** refuses a resize below a minimum length, and the
+  generated `realloc_<field>()` accessors pass the field layout's
+  `required_len()` as that floor. Previously a handler could shrink an
+  account below the length its own layout needs to load, which bricked it
+  with the rent locked (the class Anchor v2 fixed in PR #4888).
+- **Four competitor bug classes added to the regression suite:** close to a
+  non-writable destination (Anchor v2 #4886), CPI metas validated against
+  the views behind them (#5043), a Slab whose stored count exceeds its
+  capacity (#4906; `Slab::from_bytes_mut` now refuses it), and realloc below
+  the layout minimum (#4888). Hopper was already immune to the first three;
+  the tests pin the guards.
+- **`crate-type = ["cdylib"]` for program crates.** With an rlib in the
+  list, cargo drops `-C lto` for the on-chain artifact, so the release
+  profile's `lto = "fat"` was silently inert. Measured on one toolchain
+  (cargo-build-sbf 4.1.0, platform-tools v1.54): hopper-vault 22,288 to
+  15,264 bytes and hopper-sentinel 71,168 to 63,688 bytes from the crate
+  type alone; hopper-parity-vault and hopper-counter do not change. The
+  `hopper init` scaffold and every example without an integration test that
+  imports the crate now use `cdylib` alone.
+
 - **Upgrade authority gate.** `grillo_manifest::authority` diffs two program
   manifests and reports every instruction that gains authority: a dropped
   signer, a newly writable account, a new instruction or writable account,
@@ -28,6 +69,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 
 ### Fixed
 
+- `SchemaExport::descriptor()` now carries the manifest's dynamic-tail flag,
+  so cost lints and loaded-data-size recommendations see growable layouts.
 - **Generated clients no longer derive `seeds::program` PDAs under the
   described program.** Context descriptors now publish no seeds for an account
   whose PDA is derived under a foreign program, so TypeScript, Kotlin, Python,

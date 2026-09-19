@@ -24,7 +24,7 @@ tagged 2026-09-18.
 
 | Project | Change since 2026-09-06 | Consequence for Hopper |
 | --- | --- | --- |
-| **Anchor** (`otter-sec/anchor`) | Tags v0.30.2, v0.31.2, v0.32.2 on 2026-09-14 (TypeScript v1-transaction parsing backports). No new crate release: `anchor-lang` 1.2.0 and 2.0.0-rc.1 remain newest. Unreleased v1 `master` (`1eb46ec`, 2026-09-18) has `anchor init` emit `security.json` and publish it through Program Metadata's `security` seed (`a69be6b`, #4177), and replaces CreateAccount plus fallback with System `CreateAccountAllowPrefund` (`0d2b8cb`, #5057). The v2 line (`abacd0e`) landed about 30 correctness commits, including close to a non-writable destination, CPI handle validation, discriminator collisions under `cfg`, and Slab post-shrink length. | No write-range, effect, or authority work. Two concrete gaps: Hopper does not yet publish security metadata through Program Metadata, and its prefunded-account path still uses Transfer, Allocate, Assign. |
+| **Anchor** (`otter-sec/anchor`) | Tags v0.30.2, v0.31.2, v0.32.2 on 2026-09-14 (TypeScript v1-transaction parsing backports). No new crate release: `anchor-lang` 1.2.0 and 2.0.0-rc.1 remain newest. Unreleased v1 `master` (`1eb46ec`, 2026-09-18) has `anchor init` emit `security.json` and publish it through Program Metadata's `security` seed (`a69be6b`, #4177), and replaces CreateAccount plus fallback with System `CreateAccountAllowPrefund` (`0d2b8cb`, #5057). The v2 line (`abacd0e`) landed about 30 correctness commits, including close to a non-writable destination, CPI handle validation, discriminator collisions under `cfg`, and Slab post-shrink length. | No write-range, effect, or authority work. One concrete gap remains: Hopper does not yet publish security metadata through Program Metadata. The prefunded-account gap closed the same day (section 3a). |
 | **Quasar** | No commit on any ref since `d981ac8` (2026-08-02). Crates remain 0.0.0. | No change to the Sept 6 assessment. |
 | **Pinocchio** | No commit since `adbd48d` (2026-08-03); 0.11.2 remains the release. `main` still parses the SIMD-0449 pointer table ungated while 0449 is inactive on mainnet. | Keep mainnet fixtures pinned to 0.11.2. |
 | **pina / pinapod** | 0.12.2 to **0.19.0** between 2026-09-06 and 2026-09-18 (133 commits, HEAD `b90be75`). Forked zeropod into pinapod 0.4.1. Added schema-history ABI migrations with a per-cluster publication ledger binding `executable_sha256` to `schema_sha256` (`42f4429`), `pina profile compare` with a 500 CU and 10% regression threshold (`852fcbe`), a Mollusk-verified cross-framework benchmark covering pina, Pinocchio, Quasar, and Anchor v2 (`9ef0ccc`), a HIR lint driver with 13 security lessons (`8d746d5`), and generated CLIs. | The fastest-moving competitor on tooling. Its tree has no byte-range, touch, or effect authority. Hopper is absent from its benchmark matrix; adding a Hopper row is the cheapest public comparison available. |
@@ -72,23 +72,54 @@ and Grillo checks observed effects against the declared ranges.
 The loop from the Sept 6 refresh is therefore now **Declare, Enforce,
 Observe, Verify, Compare**.
 
+Later the same day the Compare step became ledger-bound:
+`--baseline-program` reads the deployed ProgramData ELF and
+`--candidate-buffer` reads the loader Buffer holding a pending upgrade, and
+each must carry its manifest's interface commitment before the diff runs.
+
+## 3a. Learned from the competition this pass
+
+- **`CreateAccountAllowPrefund`** (Anchor v1 #5057, v2 #4945): shipped in
+  Hopper's `init` lifecycle as one CPI, verified against agave v4.3.0
+  `system_processor.rs` (tag 13, account order `[to, from]`, lamports as a
+  delta, payer omitted at zero) and the feature account on all three
+  clusters.
+- **Crate type defeats LTO** (pina #407): confirmed and adopted; see the
+  changelog for the measured sizes. The earlier "LTO is a near no-op for
+  SBF" note in this repository was an artifact of the dual crate type.
+- **Anchor v2 correctness fixes since 2026-09-05** were checked one by one
+  against Hopper: close to a non-writable destination (#4886, immune),
+  CPI-handle validation (#5043, immune), cfg-gated discriminator collisions
+  (#5015, immune by construction), Slab post-shrink length (#4906, hardened:
+  a stored count above capacity is now refused at load), and tail-slab
+  minimum length (#4888, **Hopper shared the class**: `safe_realloc` could
+  shrink below the layout minimum; fixed with a `required_len()` floor in
+  every generated realloc accessor). All five are pinned in the regression
+  suite.
+- **pina 0.19** items assessed: its Mollusk matrix state-verification rule
+  and the dual absolute-plus-relative regression gate are worth adopting;
+  its local hash-chained publication ledger is weaker than Hopper's on-chain
+  publication and was not copied.
+
 ## 4. Ranked follow-up work
 
-1. **On-chain upgrade review.** Read the deployed ProgramData ELF and a pending
-   Buffer (or a Squads proposal's buffer), extract both release-binding
-   commitments, resolve each to its manifest, and run the authority gate so
-   upgrade signers see field-level widenings before approving.
+1. **Multisig-proposal review.** The gate now reads ProgramData and Buffer
+   accounts directly. The remaining step is decoding a Squads V4 upgrade
+   proposal to its buffer address so signers can run the gate from the
+   proposal alone, and rendering the widenings for a signer who has no
+   manifest on hand.
 2. **Publish the authority verdict and security metadata through Program
    Metadata.** Hopper already has the Program Metadata writer used by
    `hopper publish-idl`. Adopt the `security` seed convention Anchor's `master`
    now uses, and define a versioned custom seed for the authority report.
-3. **`CreateAccountAllowPrefund`.** Replace the prefunded Transfer, Allocate,
-   Assign path once the instruction layout is pinned against the System
-   Program source and covered by an SBF fixture.
-4. **Transaction v1 envelopes in the CLI.** Build and size-check v1 sends where
+3. **Transaction v1 envelopes in the CLI.** Build and size-check v1 sends where
    the payload needs more than 1,232 bytes, with golden fixtures.
-5. **A Hopper row in pina's Mollusk matrix**, with the same state-verification
-   rule that matrix already applies to the other frameworks.
+4. **A Hopper row in pina's Mollusk matrix**, with the same state-verification
+   rule that matrix already applies to the other frameworks, and the same
+   post-state rule applied to Hopper's own four-framework vault matrix.
+5. **Declarative value validation** (`min`, `max`, `max_len`) on layouts and
+   instruction arguments, generated on the typed load path with no
+   formatting or heap use.
 
 ## 5. Reproduction ledger
 
