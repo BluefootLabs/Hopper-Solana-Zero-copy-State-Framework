@@ -1,7 +1,7 @@
 //! `hopper manager invoke` and `hopper manager crank` subcommands.
 //!
-//! Turns the on-chain manifest from a read-only inspection surface
-//! into a universal program explorer and invoker. Two capabilities:
+//! Uses a supplied manifest, or an application-provisioned legacy manifest
+//! PDA, as an inspection and invocation surface. Two capabilities:
 //!
 //! - `invoke`. Given a program id (and therefore a manifest), an
 //!   instruction name, a set of `--account` / `--arg` / `--signer`
@@ -355,8 +355,9 @@ pub fn lookup_instruction_by_tag(manifest_json: &str, tag: u8) -> Option<String>
     None
 }
 
-/// Fetch a program's on-chain manifest PDA and return the decoded
-/// JSON payload. Same path as `hopper manager fetch`.
+/// Fetch a program's application-provisioned legacy `MANIFEST_SEED` PDA and
+/// return the decoded JSON payload. Same path as `hopper manager fetch`; this
+/// does not discover Program Metadata and Hopper ships no generic publisher.
 fn fetch_on_chain_manifest(rpc_url: &str, program_id: &str) -> Result<String, String> {
     let program_bytes = crate::rpc::decode_pubkey(program_id)?;
     let (manifest_pda, _bump) =
@@ -503,11 +504,11 @@ fn print_invoke_usage() {
     eprintln!("Usage: hopper manager invoke <program-id> <instruction> [options]");
     eprintln!();
     eprintln!("Build and submit a transaction against a deployed Hopper program.");
-    eprintln!("The program's on-chain manifest drives account ordering and arg layout.");
+    eprintln!("A supplied or application-provisioned legacy manifest drives account ordering and arg layout.");
     eprintln!();
     eprintln!("Options:");
     eprintln!("  --manifest <path>      Load the manifest from a local json file");
-    eprintln!("                         instead of the on-chain PDA");
+    eprintln!("                         instead of the legacy MANIFEST_SEED PDA");
     eprintln!("  --account name=pubkey  Supply one account meta (repeatable)");
     eprintln!("  --arg name=value       Supply one instruction arg (repeatable)");
     eprintln!("  --signer <path>        Keypair json for fee payer + signers");
@@ -949,7 +950,7 @@ fn print_crank_usage() {
 // Low-dependency JSON walkers that read only what the subcommands
 // need. Swapping these for a typed deserialize against
 // `hopper_schema::ProgramManifest` is a follow-up cleanup; the
-// minimal shape here keeps the audit story readable without
+// minimal shape here keeps the command readable without
 // dragging a big serde-derive chain into this file.
 // ----------------------------------------------------------------------------
 

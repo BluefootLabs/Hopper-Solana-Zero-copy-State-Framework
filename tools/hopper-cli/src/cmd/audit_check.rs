@@ -1,4 +1,4 @@
-//! `hopper audit-check` — verify the repository's audit-readiness evidence.
+//! `hopper audit-check`, verify the repository's audit-readiness evidence.
 //!
 //! The manifest is intentionally data, not prose: critical artifacts are
 //! content-addressed, quality-gate attestations expire, and open blockers are

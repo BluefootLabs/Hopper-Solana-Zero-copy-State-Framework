@@ -1,4 +1,4 @@
-//! `hopper buffers` — buffer hygiene for stranded BPF Loader buffers.
+//! `hopper buffers`, buffer hygiene for stranded BPF Loader buffers.
 //!
 //! A failed `solana program deploy` strands rent in a dangling program buffer
 //! owned by the deploy keypair. This command group is the safe, scriptable
@@ -167,7 +167,7 @@ pub(crate) fn build_close_command(target: &BuffersClose, cluster: &ClusterArgs) 
 }
 
 fn print_buffers_usage() {
-    eprintln!("hopper buffers — recover rent stranded in dangling BPF Loader buffers");
+    eprintln!("hopper buffers: recover rent stranded in dangling BPF Loader buffers");
     eprintln!();
     eprintln!("USAGE:");
     eprintln!("  hopper buffers list [--cluster <name>] [--keypair <path>]");

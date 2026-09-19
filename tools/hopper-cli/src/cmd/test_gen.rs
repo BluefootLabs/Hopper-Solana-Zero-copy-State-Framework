@@ -8,7 +8,7 @@ pub fn cmd_test_gen(args: &[String]) {
     match args.first().map(String::as_str) {
         Some("security") => run_generator(&args[1..], Generator::Security),
         // `write-containment` (aliases: `writes`, `containment`) emits the
-        // declared-vs-actual write-containment property tests (BLD-TG).
+        // declared-vs-actual write-containment property tests.
         Some("write-containment") | Some("writes") | Some("containment") => {
             run_generator(&args[1..], Generator::WriteContainment)
         }
@@ -144,12 +144,12 @@ fn security_matrix(manifest: &ProgramManifest) -> String {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// Write-containment property tests (BLD-TG)
+// Write-containment property tests.
 //
 // For each instruction that declares `strict_writes`, emit a hopper-svm
 // property test that drives the handler under the `touch-map` feature and
 // asserts that every recorded write touch `(account, offset, size)` is
-// contained in the instruction's invocation-resolved `WritePolicy` — the same
+// contained in the instruction's invocation-resolved `WritePolicy`, the same
 // static envelopes and parametric cell rules the `strict_writes` macro
 // compiles and installs. The manifest publishes both surfaces in
 // `write_ranges` and `parametric_write_ranges`; the runtime binds selectors
@@ -160,7 +160,7 @@ fn security_matrix(manifest: &ProgramManifest) -> String {
 //
 // A partial touch map (`touch_map_overflowed`) is surfaced as INCONCLUSIVE,
 // never silently passed. Containment is judged per BYTE against the UNION of
-// the declared ranges — not per-declaration — because the ledger coalesces
+// the declared ranges; not per-declaration, because the ledger coalesces
 // adjacent touch records under capacity pressure: one record may be the
 // exact union of several individually-gated acquires and so may span two
 // adjacent declarations. Instructions that do NOT declare `strict_writes`
@@ -169,7 +169,7 @@ fn security_matrix(manifest: &ProgramManifest) -> String {
 
 /// Reusable oracle + assertion helpers emitted verbatim into every generated
 /// write-containment file. Byte-union and exact-cell resolution live in the
-/// shipped Context API; [`containment_verdict`] independently mirrors that
+/// shipped Context API; `containment_verdict` independently mirrors that
 /// algorithm in this crate's tests.
 const CONTAINMENT_HELPERS: &str = r#"use hopper::context::Context;
 use hopper::hopper_runtime::segment_borrow::AccessKind;
@@ -191,7 +191,7 @@ enum Containment {
 }
 
 /// Declared-vs-actual oracle. Reuses the shipped `WritePolicy` (declared) and
-/// the touch-map ledger (actual) — zero instrumentation in the program. The
+/// the touch-map ledger (actual), zero instrumentation in the program. The
 /// Context folds static ranges together with the invocation-selected exact
 /// cells using the selector values bound by the runtime gate.
 fn evaluate_containment(ctx: &Context<'_>) -> Containment {
@@ -249,14 +249,14 @@ fn assert_writes_contained(instruction: &str, ctx: &Context<'_>) {
     match evaluate_containment(ctx) {
         Containment::Contained => {}
         Containment::Inconclusive => panic!(
-            "{instruction}: touch map overflowed — the instruction touched more than \
+            "{instruction}: touch map overflowed, the instruction touched more than \
              MAX_TOUCH_RECORDS pairwise-unmergeable byte ranges (contiguous ranges \
              coalesce automatically, so this means genuinely scattered access), the \
              write footprint is PARTIAL, and containment is INCONCLUSIVE; split the \
              instruction rather than accept a false pass"
         ),
         Containment::NoPolicy => panic!(
-            "{instruction}: no write policy installed — this test was generated for a \
+            "{instruction}: no write policy installed; this test was generated for a \
              `strict_writes` instruction but the bound context installed no policy"
         ),
         Containment::Violation {
@@ -338,7 +338,7 @@ fn write_containment_matrix(manifest: &ProgramManifest) -> String {
 
 /// Emit the fixture hook + `#[test]` for one `strict_writes` instruction,
 /// including a doc comment enumerating its declared write ranges (the
-/// manifest's published `WritePolicy`, for the reader's reference — the test
+/// manifest's published `WritePolicy`, for the reader's reference, the test
 /// itself checks against the runtime-installed policy).
 fn emit_instruction_test(ix: &InstructionDescriptor) -> String {
     let base = sanitize(ix.name);
@@ -352,7 +352,7 @@ fn emit_instruction_test(ix: &InstructionDescriptor) -> String {
     out.push_str("///\n/// Declared write ranges (from the manifest `WritePolicy`):\n");
     if ix.write_ranges.is_empty() {
         out.push_str(
-            "///   (none — an empty policy: every Context-mediated write is denied,\n\
+            "///   (none; an empty policy denies every Context-mediated write,\n\
              ///    i.e. a machine-checked read-only instruction)\n",
         );
     } else {
@@ -768,7 +768,7 @@ mod tests {
 
     #[test]
     fn write_outside_declared_ranges_is_caught_as_violation() {
-        // Writes balance [16,24) — allowed — then a stray write at [0,8).
+        // Writes balance [16,24), allowed, then a stray write at [0,8).
         let touches = [(1u8, 16u32, 8u32, true), (1, 0, 8, true)];
         assert_eq!(
             containment_verdict(false, Some(POLICY), &touches),
@@ -798,7 +798,7 @@ mod tests {
     #[test]
     fn write_spanning_a_gap_between_declarations_is_a_violation() {
         // The declarations leave [32, 40) undeclared; a touch running from
-        // inside the declared span across that gap has uncovered bytes —
+        // inside the declared span across that gap has uncovered bytes,
         // union coverage still catches every genuine escape.
         static GAPPED: &[WriteRange] = &[WriteRange::new(1, 16, 16), WriteRange::new(1, 40, 8)];
         let touches = [(1u8, 24u32, 20u32, true)];

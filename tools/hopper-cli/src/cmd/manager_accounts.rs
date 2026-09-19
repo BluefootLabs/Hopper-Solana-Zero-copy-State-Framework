@@ -3,7 +3,9 @@
 //!
 //! Workflow:
 //!
-//! 1. Fetch the program's on-chain manifest PDA.
+//! 1. Fetch the program's application-provisioned legacy `MANIFEST_SEED` PDA.
+//!    Hopper ships no generic publisher and this path does not discover
+//!    Program Metadata.
 //! 2. Read the manifest's `layouts` array. Each layout carries its
 //!    discriminator byte and a byte-size field.
 //! 3. Call `getProgramAccounts` with a `memcmp` filter on byte 0

@@ -93,8 +93,8 @@ pub fn redact_rpc_url(url: &str) -> String {
 }
 
 /// Parse the shared cluster flags out of an argument list, leaving the
-/// rest in `passthrough`. The default cluster is devnet — never
-/// mainnet — so omitting `--cluster` can never target mainnet.
+/// rest in `passthrough`. The default cluster is devnet, never
+/// mainnet; so omitting `--cluster` can never target mainnet.
 pub fn parse_cluster_args(args: &[String]) -> Result<ClusterArgs, String> {
     let mut url = "https://api.devnet.solana.com".to_string();
     let mut label = "devnet".to_string();

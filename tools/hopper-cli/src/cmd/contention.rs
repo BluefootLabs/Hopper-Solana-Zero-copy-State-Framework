@@ -1,10 +1,10 @@
-//! `hopper contention` — the write-lock and signature footprint a program
+//! `hopper contention`, the write-lock and signature footprint a program
 //! *declares*, computed from its manifest.
 //!
 //! Every number here comes from the declaration, not a measurement: the
 //! account list plus the same `writeRanges` / `lamportAccounts` the
 //! runtime enforces. That makes the role counts exact and reproducible offline,
-//! and it is why the demotion column exists at all — an account declared
+//! and it is why the demotion column exists at all, an account declared
 //! writable that a *mutation-complete* write set proves is never mutated
 //! can be sent read-only, which removes a real write lock
 //! (`WRITE_LOCK_UNITS` = 300 CU) and one account the transaction
@@ -13,7 +13,7 @@
 //! # This is NOT a transaction's block cost
 //!
 //! Agave charges five terms: signatures, write locks, instruction-data
-//! bytes, the **requested compute limit** (`programs_execution_cost` —
+//! bytes, the **requested compute limit** (`programs_execution_cost`,
 //! usually the dominant term, 200,000 CU by default), and the requested
 //! loaded-data limit. Only the first two are fixed by a declaration; the
 //! rest are caller choices no manifest analysis can supply. So the
@@ -139,7 +139,7 @@ pub fn report(manifest: &ProgramManifest, max_block_cost: Option<u64>) -> u32 {
         println!(
             "  {remaining_capable} instruction(s) accept caller-supplied remaining accounts (Rem \
              column). Those arrive with caller-chosen flags, so each distinct writable key adds \
-             up to {} CU beyond the figures above — the fixed declaration cannot predict it.",
+             up to {} CU beyond the figures above, the fixed declaration cannot predict it.",
             cost_model::WRITE_LOCK_UNITS,
         );
     }
@@ -156,7 +156,7 @@ pub fn report(manifest: &ProgramManifest, max_block_cost: Option<u64>) -> u32 {
          Optional roles may be absent and duplicate roles may alias one Pubkey. Agave also \
          charges the requested compute limit ({} CU by default, usually \
          the largest term), the requested loaded-data limit ({} CU by default), and \
-         instruction-data bytes — all caller choices — plus the fee payer's own write lock.",
+         instruction-data bytes, all caller choices, plus the fee payer's own write lock.",
         cost_model::DEFAULT_INSTRUCTION_COMPUTE_UNIT_LIMIT,
         cost_model::DEFAULT_LOADED_ACCOUNTS_DATA_COST,
     );
@@ -241,7 +241,7 @@ pub fn cmd_contention(args: &[String], load: impl FnOnce(&str) -> ProgramManifes
     } else if !manifest_arg.trim_start().starts_with('{') && !manifest_arg.starts_with('@') {
         // Looks like a path but nothing is there. Say so, instead of
         // handing it to the JSON parser and reporting "Expected JSON
-        // object" — an error that describes the parser's confusion rather
+        // object", an error that describes the parser's confusion rather
         // than the user's actual mistake.
         eprintln!("hopper contention: no such manifest file: {manifest_arg}");
         process::exit(1);
@@ -254,7 +254,7 @@ pub fn cmd_contention(args: &[String], load: impl FnOnce(&str) -> ProgramManifes
     // Fail closed when a gate was requested but there is nothing to gate.
     // A manifest that parses to zero instructions is far more often the
     // wrong file, or a schema drift that dropped the key, than a real
-    // program with no instructions — and reporting "under budget" for it
+    // program with no instructions, and reporting "under budget" for it
     // turns a blind gate into a green one. Informational runs (no
     // ceiling) still just print the empty table.
     if max_block_cost.is_some() && manifest.instructions.is_empty() {
@@ -318,7 +318,7 @@ fn print_usage() {
     eprintln!("  Sigs      required signers");
     eprintln!("  Fixed max fixed-role write locks (after demotion) + signatures; upper bound");
     eprintln!("  Saved     write-lock CU removed by demotion");
-    eprintln!("  Proven RO non-signer accounts the write set proves are never mutated — a");
+    eprintln!("  Proven RO non-signer accounts the write set proves are never mutated, a");
     eprintln!("            client must send these read-only or waste a lock on each");
     eprintln!("  Rem       ceiling on caller-supplied remaining accounts, whose flags the");
     eprintln!("            declaration cannot bound");
@@ -426,7 +426,7 @@ mod tests {
     }
 
     /// An empty instruction list must not report "under budget": `report`
-    /// itself counts zero offenders (correct — there is nothing to
+    /// itself counts zero offenders (correct; there is nothing to
     /// exceed), so the fail-closed decision belongs to the gate path in
     /// `cmd_contention`, which refuses it. This pins `report`'s half of
     /// that contract so the two cannot drift into both being permissive.
@@ -455,7 +455,7 @@ mod tests {
         // is a signer (the fee payer must stay writable at the transaction
         // level, so advising read-only there would break transactions).
         assert_eq!(complete.provably_read_only, 1);
-        // The waste is one flat lock per over-marked account — not that
+        // The waste is one flat lock per over-marked account; not that
         // count multiplied by anything.
         assert_eq!(
             ContentionProfile::cost_per_over_marked_account(),

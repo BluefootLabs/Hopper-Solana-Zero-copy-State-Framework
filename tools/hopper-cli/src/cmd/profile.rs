@@ -410,7 +410,7 @@ fn run_inline_attribution(
             // debug=0 artifact you deploy. Case in point: this table
             // attributed 880 B to `From<ProgramError> for u64`'s 25-arm
             // match, yet release .text was bit-identical with the match
-            // deleted — LLVM had already collapsed it without `-g`.
+            // deleted, LLVM had already collapsed it without `-g`.
             println!(
                 "note: attribution reflects THIS debuginfo build. `-g` can change sBPF codegen,"
             );

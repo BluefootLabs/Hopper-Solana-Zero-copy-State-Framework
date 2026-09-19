@@ -1,19 +1,21 @@
 [package]
 name = "grillo-manifest"
 version = "0.1.0"
+publish = ["crates-io"]
 edition = "2021"
 license = "MIT OR Apache-2.0"
+authors = ["QuarksBlueFoot <quark@bluefoot.tech>"]
 repository = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework"
 homepage = "https://hopperzero.dev"
 documentation = "https://docs.rs/grillo-manifest"
 readme = "README.md"
 keywords = ["solana", "verification", "mutation", "effects", "audit"]
 categories = ["cryptography::cryptocurrencies", "development-tools"]
-description = "GRILLO: parse the mutation contract (byte-range write set + lamport permissions) out of a Hopper program manifest, and commit to it with a stable SHA-256."
+description = "Mutation-contract parser and stable SHA-256 commitment for byte-range write sets and lamport permissions in Hopper manifests."
 
 [dependencies]
 # The manifest is JSON; nothing else is needed. Grillo keeps its
-# dependency surface to serde/serde_json on purpose — the commitment
+# dependency surface to serde/serde_json on purpose. The commitment
 # hash uses a small vendored SHA-256 (see `src/sha256.rs`) rather than
 # pull a crypto crate or drag the framework's no_std const impl (which
 # lives in hopper-native) into a host-only tool crate.

@@ -6,7 +6,7 @@
 //! in Rust; this one parses the exact JSON Hopper emits (the same
 //! `PARAMETRIC_WRITE_RANGES` statics the runtime installs as its write
 //! policy), resolves a real `execute_intent` for a chosen slot, and drives it
-//! through `changed ⊆ acquired ⊆ authorized` — proving the producer → JSON →
+//! through `changed ⊆ acquired ⊆ authorized`, proving the producer → JSON →
 //! parser → resolver → verifier chain agrees on the byte, not just in a
 //! unit test's imagination.
 
@@ -39,7 +39,7 @@ fn write_rec(offset: u32, size: u32) -> TouchRecord {
     }
 }
 
-/// A complete (non-partial) touch map — the only kind that can yield a verdict.
+/// A complete (non-partial) touch map, the only kind that can yield a verdict.
 fn complete_map(records: Vec<TouchRecord>) -> TouchMap {
     TouchMap {
         overflowed: false,
@@ -49,7 +49,7 @@ fn complete_map(records: Vec<TouchRecord>) -> TouchMap {
 }
 
 /// The seven executor-column cells `execute_intent` writes for `slot`, as
-/// `(offset, size)` — mirroring the runtime's `segment_mut` calls. Bases and
+/// `(offset, size)`, mirroring the runtime's `segment_mut` calls. Bases and
 /// strides are read straight off the emitted manifest.
 fn executor_cells(slot: u32) -> Vec<(u32, u32)> {
     const COLUMNS: [(u32, u32); 7] = [
@@ -117,8 +117,8 @@ fn a_real_slot3_execute_verifies_as_a_scoped_pass() {
     );
 }
 
-/// Acquiring the seven executor cells but CHANGING none of them is legal —
-/// access is not modification — and surfaces as PASS notes, not a violation.
+/// Acquiring the seven executor cells but CHANGING none of them is legal,
+/// access is not modification, and surfaces as PASS notes, not a violation.
 #[test]
 fn acquired_but_unchanged_executor_cells_are_a_clean_pass() {
     let m = manifest();
@@ -152,7 +152,7 @@ fn acquired_but_unchanged_executor_cells_are_a_clean_pass() {
 }
 
 /// Under a slot-3 authorization, writing slot-4's status byte acquires a lease
-/// on a byte the resolved contract does not permit — the exact-cell guarantee.
+/// on a byte the resolved contract does not permit, the exact-cell guarantee.
 #[test]
 fn writing_a_neighbor_slots_cell_is_an_unauthorized_acquisition() {
     let m = manifest();
@@ -251,7 +251,7 @@ fn an_undeclared_change_to_an_authorized_cell_is_an_untracked_write() {
 }
 
 /// An out-of-range slot is a resolution error, returned distinctly from any
-/// verdict — it can never be mistaken for a PASS.
+/// verdict; it can never be mistaken for a PASS.
 #[test]
 fn out_of_range_slot_is_a_resolution_error_not_a_verdict() {
     let m = manifest();

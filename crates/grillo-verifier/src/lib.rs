@@ -1,13 +1,14 @@
-//! # GRILLO — verifier
+//! # Grillo verifier
 //!
-//! The INDEPENDENT half of GRILLO: given a transaction's actual byte
-//! changes, a program's decoded touch map, and the instruction's published
-//! mutation contract (from [`grillo_manifest`]), decide whether the
-//! instruction honored its contract.
+//! Given caller-supplied pre/post snapshots, a decoded touch map, and an
+//! instruction mutation contract from [`grillo_manifest`], this crate checks
+//! whether the supplied scope is consistent with the contract. It is
+//! computationally separate from the program runtime, but it does not
+//! authenticate bundles or discover omitted accounts.
 //!
-//! The verdict enforces one invariant, honest by construction:
+//! The verdict checks one invariant within that supplied scope:
 //!
-//! > **changed ⊆ acquired ⊆ authorized**
+//! > **changed subset acquired subset authorized**
 //!
 //! - `changed`    comes from pre/post account byte [snapshots](AccountDelta).
 //! - `acquired`   comes from the [touch map](TouchMap) the instruction
@@ -15,18 +16,17 @@
 //! - `authorized` comes from the manifest's `writeRanges`
 //!   ([`grillo_manifest::RangeContract`]).
 //!
-//! Acquired-but-unchanged is LEGAL — access is not modification — and is
+//! Acquired-but-unchanged is legal because access is not modification. It is
 //! surfaced as a note on a scoped [PASS](Verdict::Pass), never a violation.
 //!
-//! Crucially, the verifier is computationally separate from the runtime: it re-derives `changed` from
-//! raw bytes rather than trusting the program's self-report. A program that
-//! lies in its touch map (claims a write it did not make, or omits one it
-//! did) is caught — an omitted real write shows up as an
-//! [`UntrackedWrite`](Violation::UntrackedWrite); an over-claimed write
-//! outside the authorized set as an
-//! [`UnauthorizedAcquisition`](Violation::UnauthorizedAcquisition). And a
+//! The verifier re-derives `changed` from supplied raw bytes rather than
+//! trusting the touch map. A changed byte omitted from that supplied map is an
+//! [`UntrackedWrite`](Violation::UntrackedWrite); an acquisition outside the
+//! authorized set is an
+//! [`UnauthorizedAcquisition`](Violation::UnauthorizedAcquisition). A
 //! [partial](TouchMap::is_partial) map yields
-//! [`INCONCLUSIVE`](InconclusiveReason::PartialTouchMap), never a false PASS.
+//! [`INCONCLUSIVE`](InconclusiveReason::PartialTouchMap). Changes in accounts
+//! omitted from the bundle remain outside the observation boundary.
 //!
 //! ```
 //! use grillo_manifest::MutationManifest;
@@ -86,6 +86,9 @@ pub use verify_v2::{
 
 // Re-exported so downstream users get the contract types without a second
 // `use` of the sibling crate.
+/// Upgrade authority diff between two manifests (re-exported from
+/// `grillo-manifest`).
+pub use grillo_manifest::authority;
 pub use grillo_manifest::{
     AccountRoleContractV2, AddressConstraintV2, ContractCompletenessV2, CpiAccountBindingV2,
     CpiEnvelopeV2, CpiPolicyV2, DataPolicyV2, DataRangeV2, DeploymentBindingV2, DuplicatePolicyV2,

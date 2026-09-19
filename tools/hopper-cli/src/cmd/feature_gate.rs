@@ -7,9 +7,8 @@
 //! feature is unsound on a cluster that has not enabled it.
 //!
 //! `hopper feature-gate` checks a feature account on the target cluster
-//! and reports whether it is active, so a `--features simd-0321` build is
-//! only shipped where the gate is live. No other Solana framework ties
-//! its compile-time configuration to on-chain feature-gate state.
+//! and reports whether it is active, so release tooling can refuse a build
+//! whose compile-time assumptions do not match the selected cluster.
 
 use crate::cmd::cluster::cluster_url;
 use crate::rpc;
@@ -17,14 +16,14 @@ use crate::rpc;
 /// SIMD-0321: VM `r2` instruction-data pointer at entrypoint. Backs the
 /// `simd-0321` cargo feature / `hopper::fast_entrypoint!` fast path.
 ///
-/// ACTIVATED on all three public clusters — mainnet-beta at slot
+/// ACTIVATED on all three public clusters, mainnet-beta at slot
 /// 410,400,000 (2026-04-01), testnet and devnet earlier. Agave `master`
 /// now sets `r2` unconditionally (the value is an absolute VM pointer to
 /// the first instruction-data byte, despite the agave mod name saying
 /// "offset"). Builds may enable `simd-0321` for any cluster target.
 pub const SIMD_0321_GATE: &str = "5xXZc66h4UdB6Yq7FzdBxBiRAFMMScMLwHxk2QZDaNZL";
 
-/// SIMD-0449: direct account pointers in program input — the appended
+/// SIMD-0449: direct account pointers in program input, the appended
 /// `[u64; num_accounts]` table of account-record pointers that backs the
 /// `simd-0449` cargo feature (`deserialize_accounts_0449`, O(1) account
 /// resolution).
@@ -32,7 +31,7 @@ pub const SIMD_0321_GATE: &str = "5xXZc66h4UdB6Yq7FzdBxBiRAFMMScMLwHxk2QZDaNZL";
 /// Gate pubkey from agave `feature-set/src/lib.rs`
 /// (`direct_account_pointers_in_program_input`). NOTE the 2026-04-15
 /// rekey (agave PR #11934): the original gate
-/// `ptrXWLkSDMZZmZN8GAT6W5yW4EvYByfw6cRRHbXwQNS` is dead — the same PR
+/// `ptrXWLkSDMZZmZN8GAT6W5yW4EvYByfw6cRRHbXwQNS` is dead, the same PR
 /// fixed each table entry to point at the account RECORD start (the
 /// dup-marker/borrow byte), which is exactly the `RuntimeAccount` head
 /// Hopper's table overlay expects. Activated on testnet (epoch 981) and
@@ -43,7 +42,7 @@ pub const SIMD_0449_GATE: &str = "ptr9umikaeAS7ZBBp2fsfRhie16F1V2jCKA2y6gXNAK";
 /// SIMD-0339: raise the CPI account-info limit from 64 to 255
 /// (`increase_cpi_account_info_limit`). Under it, each account-info and
 /// instruction-account-meta also carries CU, so passing the fewest infos
-/// per CPI becomes a cost axis — which Hopper's [`DynCpi`] pubkey dedup
+/// per CPI becomes a cost axis, which Hopper's `DynCpi` pubkey dedup
 /// exploits. Backs Hopper's raised `MAX_CPI_ACCOUNTS` ceiling.
 ///
 /// Gate pubkey taken from agave `feature-set/src/lib.rs`
@@ -51,7 +50,6 @@ pub const SIMD_0449_GATE: &str = "ptr9umikaeAS7ZBBp2fsfRhie16F1V2jCKA2y6gXNAK";
 /// pubkey for the cluster you target before shipping a build that assumes
 /// >64 account-infos.
 ///
-/// [`DynCpi`]: hopper_runtime
 pub const SIMD_0339_GATE: &str = "H6iVbVaDZgDphcPbcZwc5LoznMPWQfnJ1AM7L1xzqvt5";
 
 /// Feature accounts Hopper knows how to reason about, as
@@ -166,11 +164,11 @@ pub fn cmd_feature_gate(args: &[String]) {
             }
             Ok(GateStatus::Pending) => {
                 println!("  [pending] {simd}  {gate}");
-                println!("            staged but NOT active — do not ship a build that assumes it");
+                println!("            staged but NOT active, do not ship a build that assumes it");
             }
             Ok(GateStatus::NotPresent) => {
                 println!("  [absent]  {simd}  {gate}");
-                println!("            no feature account — not available on this cluster");
+                println!("            no feature account; not available on this cluster");
             }
             Err(e) => {
                 println!("  [error]   {simd}  {gate}");
@@ -228,7 +226,7 @@ mod tests {
         );
 
         // Tag 1 but truncated (no full slot) => treated as pending, never
-        // as active — a malformed gate must not green-light a build.
+        // as active, a malformed gate must not green-light a build.
         assert_eq!(parse_feature_account(&[1, 0, 0]), GateStatus::Pending);
 
         // Empty / unrecognizable data => pending, not active.

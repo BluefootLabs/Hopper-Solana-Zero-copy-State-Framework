@@ -10,7 +10,7 @@
 //! hopper schema validate <manifest-json>            Validate a manifest
 //! hopper schema diff <old> <new>                    Field-level diff
 //!
-//! hopper compile --emit <rust|ts|kt|py|go|c|rust-client|idl|codama|schema> [<manifest>|--package <name>|--program-id ...]
+//! hopper compile --emit <rust|ts|kt|py|go|c|rust-client|idl|codama|schema|manifest> [<manifest>|--package <name>|--program-id ...]
 //!                                                     Emit lowered Rust, client SDKs, IDL JSON, Codama, or manifest
 //!
 //! hopper verify [<manifest>] [<.so>]                  Verify manifest integrity and ELF interface binding
@@ -24,8 +24,8 @@
 //! hopper inspect segments <hex-data>                Decode segment map
 //! hopper inspect receipt <hex-data>                 Decode a state receipt
 //!
-//! hopper explain <hex-data>                         Human-readable account explanation
-//! hopper explain account <hex-data>                  Explicit account explanation
+//! hopper explain <hex-data>                         Human-readable headered-account explanation
+//! hopper explain account <hex-data>                  Explicit headered-account explanation
 //! hopper explain receipt <hex-data>                  Explain a receipt in plain English
 //! hopper explain compat <old> <new>                  Explain compatibility
 //! hopper explain policy <policy-pack>                Explain a named policy pack
@@ -42,7 +42,7 @@
 //!
 //! hopper manager <subcommand> ..                   Program management
 //!
-//! hopper fetch <program-id>                          Fetch on-chain manifest
+//! hopper fetch <program-id>                          Fetch an application-provisioned legacy manifest PDA
 //!
 //! hopper init [path]                                 Create a Hopper project (wizard if path omitted)
 //! hopper add [-i|-s|-e <name>]                       Scaffold an instruction, state, or error
@@ -278,8 +278,10 @@ fn cmd_explain_family(args: &[String]) {
     if args.is_empty() {
         eprintln!("Usage: hopper explain <hex-data|subcommand>");
         eprintln!();
-        eprintln!("  hopper explain <hex-data>            Human-readable account explanation");
-        eprintln!("  hopper explain account <hex-data>    Explicit account explanation");
+        eprintln!(
+            "  hopper explain <hex-data>            Human-readable headered-account explanation"
+        );
+        eprintln!("  hopper explain account <hex-data>    Explicit headered-account explanation");
         eprintln!("  hopper explain receipt <hex-data>    Explain a receipt in plain English");
         eprintln!("  hopper explain compat <old> <new>    Explain compatibility report");
         eprintln!("  hopper explain policy <pack-name>    Explain a named policy pack");
@@ -301,10 +303,10 @@ fn cmd_explain_family(args: &[String]) {
         "context" => cmd_explain_context(&args[1..]),
         "instruction" => cmd_explain_instruction(&args[1..]),
         // Top-level differentiator: `hopper explain <tx-sig|program-id>`.
-        // A confirmed-tx signature decodes against every touched Hopper
-        // manifest; a program address fetches the on-chain manifest and
-        // renders a full program explanation. Anything else falls back to
-        // treating the first arg as raw account hex.
+        // A confirmed-tx signature can decode against application-provisioned
+        // legacy Hopper manifest PDAs; a program address fetches that same
+        // legacy PDA and renders a program explanation. Anything else falls
+        // back to treating the first arg as raw account hex.
         first if looks_like_tx_signature(first) => {
             cmd::tx_explain::cmd_tx_explain(args);
         }
@@ -441,7 +443,7 @@ struct CompileOptions {
     lint_fail_on_warn: bool,
 }
 
-/// Audit ST4 closure. multi-target emit dispatch.
+/// Multi-target emit dispatch.
 ///
 /// `hopper compile --emit <target> ...` routes through a single
 /// trait-like dispatch table rather than a hard-coded `== "rust"`
@@ -491,7 +493,7 @@ fn cmd_compile(args: &[String]) {
             CompileManifestSource::Package(name) => name.clone(),
             _ => {
                 eprintln!(
-                    "hopper compile --emit manifest requires --package <name> (the manifest                      is generated FROM that package's source)"
+                    "hopper compile --emit manifest requires --package <name> (the manifest is generated from that package's source)"
                 );
                 process::exit(1);
             }
@@ -501,7 +503,7 @@ fn cmd_compile(args: &[String]) {
             Ok(path) => {
                 println!("wrote {}", path.display());
                 println!(
-                    "every emit target can now consume it, e.g. `hopper compile --emit ts                      --package {package}` or `hopper tx explain <sig> --manifest {}`",
+                    "every emit target can now consume it, e.g. `hopper compile --emit ts --package {package}` or `hopper tx explain <sig> --manifest {}`",
                     path.display()
                 );
                 return;
@@ -550,7 +552,7 @@ fn cmd_compile(args: &[String]) {
         other => {
             eprintln!("Unsupported emit target: {}", other);
             eprintln!(
-                "Supported: rust | ts | kt | py | go | c | rust-client | idl | codama | schema"
+                "Supported: rust | ts | kt | py | go | c | rust-client | idl | codama | schema | manifest"
             );
             process::exit(1);
         }
@@ -1413,9 +1415,8 @@ fn cmd_explain_program(args: &[String]) {
     // Assessment
     println!("  Assessment:");
     if policy_count > 0 && receipt_count > 0 && compat_count > 0 {
-        println!("    This program uses the full Hopper pipeline: layouts, policies,");
-        println!("    receipts, and compatibility rules. It is production-ready for");
-        println!("    schema-aware tooling and version evolution.");
+        println!("    This manifest declares layouts, policies, receipts, and");
+        println!("    compatibility rules for schema-aware tooling.");
     } else {
         let mut missing = Vec::new();
         if policy_count == 0 {
@@ -1428,7 +1429,7 @@ fn cmd_explain_program(args: &[String]) {
             missing.push("compatibility rules");
         }
         println!(
-            "    The program is functional but could benefit from adding: {}.",
+            "    This manifest does not declare: {}.",
             missing.join(", ")
         );
         println!("    These are optional for simple programs but recommended for");
@@ -2399,15 +2400,17 @@ fn print_compile_usage() {
     eprintln!("  rust-client  Off-chain Rust client SDK");
     eprintln!("  idl     Hopper public IDL JSON");
     eprintln!("  codama  Codama-flavored JSON");
-    eprintln!("  schema  Hopper program manifest JSON");
+    eprintln!("  schema  Normalize a supplied or fetched Hopper manifest as JSON");
+    eprintln!("  manifest  Generate hopper.manifest.json from package source (--package required)");
     eprintln!();
     eprintln!("Inline lint:");
     eprintln!("  --lint                  Run `hopper lint` against the project after emitting");
     eprintln!("                          the artifact. Errors fail the command; warnings pass.");
     eprintln!("  --lint-fail-on-warn     Treat lint warnings as errors (implies --lint)");
     eprintln!();
+    eprintln!("For targets other than manifest, omitting a source infers an existing");
     eprintln!(
-        "Without a manifest source, Hopper infers hopper.manifest.json from the current package."
+        "hopper.manifest.json from the current package. The manifest target requires --package."
     );
     eprintln!();
     eprintln!("Examples:");
@@ -2421,7 +2424,8 @@ fn print_compile_usage() {
     eprintln!("  hopper compile --emit py --package vault --out vault_client.py --force");
     eprintln!("  hopper compile --emit go --package vault --out vault_client.go --force");
     eprintln!("  hopper compile --emit c --package vault --out vault_client.h --force");
-    eprintln!("  hopper compile --emit schema --package vault --out manifest.json --force");
+    eprintln!("  hopper compile --emit schema @hopper.manifest.json --out normalized.json --force");
+    eprintln!("  hopper compile --emit manifest --package vault");
     eprintln!("  hopper compile --emit rust --package vault --lint    # one-shot build + lint");
 }
 
@@ -2431,14 +2435,12 @@ fn print_usage() {
     println!("COMMAND FAMILIES:");
     println!();
     println!("  Compile:");
-    println!("    hopper compile --emit <rust|ts|kt|py|go|c|rust-client|idl|codama|schema> [<manifest>|--package <name>|--program-id ...]");
+    println!("    hopper compile --emit <rust|ts|kt|py|go|c|rust-client|idl|codama|schema|manifest> [<manifest>|--package <name>|--program-id ...]");
     println!("                                           Emit lowered Rust, client SDKs, IDL JSON, Codama, or manifest");
     println!();
     println!("  Verify (manifest and release-interface integrity):");
-    println!("    hopper verify [<manifest>] [<.so>]     Confirm every layout in the manifest");
-    println!(
-        "                                           appears in the compiled binary by LAYOUT_ID"
-    );
+    println!("    hopper verify [<manifest>] [<.so>]     Check manifest integrity and report layout-anchor diagnostics");
+    println!("    hopper verify --release <manifest> <.so>  Require the exact versioned interface commitment in the ELF");
     println!(
         "    hopper verify --package <name>         Infer manifest + .so from a workspace package"
     );
@@ -2476,15 +2478,15 @@ fn print_usage() {
     println!("    hopper inspect receipt <hex-data>   Decode a state receipt");
     println!();
     println!("  Explain:");
-    println!("    hopper explain <hex-data>           Human-readable account explanation");
-    println!("    hopper explain account <hex-data>   Explicit account explanation");
+    println!("    hopper explain <hex-data>           Human-readable headered-account explanation");
+    println!("    hopper explain account <hex-data>   Explicit headered-account explanation");
     println!("    hopper explain receipt <hex-data>   Explain a receipt in plain English");
     println!("    hopper explain compat <old> <new>   Explain compatibility report");
     println!("    hopper explain policy <pack-name>   Explain a named policy pack");
     println!("    hopper explain layout <manifest>    Explain layout fields, intents, fingerprint");
     println!("    hopper explain program <manifest>   Explain entire program pipeline");
-    println!("    hopper explain <tx-signature>       Decode a confirmed devnet/mainnet tx against on-chain manifests");
-    println!("    hopper explain <program-id>         Fetch the on-chain manifest and explain the program");
+    println!("    hopper explain <tx-signature>       Decode a confirmed tx against local or application-provisioned legacy manifests");
+    println!("    hopper explain <program-id>         Fetch an application-provisioned legacy manifest PDA");
     println!("    hopper explain instruction <manifest> <tag|name>  Explain instruction accounts and policy");
     println!(
         "    hopper explain context <manifest>   Explain instruction contexts and account roles"
@@ -2514,10 +2516,12 @@ fn print_usage() {
     println!("    hopper manager diff <manifest|--program-id ...> <hex-old> <hex-new>  Semantic field diff");
     println!("    hopper manager simulate <manifest|--program-id ...> <instruction>  Preview requirements");
     println!();
-    println!("  Fetch (on-chain):");
-    println!("    hopper fetch <program-id> [--rpc <url>]          Fetch on-chain manifest");
-    println!("    hopper fetch <program-id> --json [--rpc <url>]   Fetch manifest as raw JSON");
-    println!("    hopper manager fetch <program-id> [--rpc <url>]  Fetch + show program summary");
+    println!("  Fetch (application-provisioned legacy PDA; no generic Hopper publisher):");
+    println!("    hopper fetch <program-id> [--rpc <url>]          Fetch legacy manifest PDA");
+    println!("    hopper fetch <program-id> --json [--rpc <url>]   Fetch legacy manifest JSON");
+    println!(
+        "    hopper manager fetch <program-id> [--rpc <url>]  Fetch legacy PDA + show summary"
+    );
     println!();
     println!("  Lifecycle:");
     println!("    hopper init [path]                 Create a Hopper project (wizard if no path)");
@@ -2606,6 +2610,7 @@ struct ParsedManifest {
     version: u8,
     layout_id: [u8; 8],
     total_size: usize,
+    has_dynamic_tail: bool,
     fields: Vec<ParsedField>,
 }
 
@@ -2630,10 +2635,17 @@ fn parse_manifest_json(json: &str) -> Result<ParsedManifest, String> {
     let version = extract_number(json, "version")? as u8;
     // Two manifest dialects exist in the wild: the hand-written files
     // (snake_case, `layout_id` as a byte array) and `ManifestJson`'s
-    // rendered output (camelCase, `layoutId` as a hex string) — the
+    // rendered output (camelCase, `layoutId` as a hex string), the
     // shape `hopper compile --emit manifest` now generates. Accept both.
     let total_size =
         extract_number(json, "total_size").or_else(|_| extract_number(json, "totalSize"))? as usize;
+    let has_dynamic_tail = if find_after_key(json, "has_dynamic_tail").is_some() {
+        extract_bool(json, "has_dynamic_tail")?
+    } else if find_after_key(json, "hasDynamicTail").is_some() {
+        extract_bool(json, "hasDynamicTail")?
+    } else {
+        false
+    };
     let mut lid = [0u8; 8];
     match extract_array_u8(json, "layout_id") {
         Ok(layout_id) => {
@@ -2664,6 +2676,7 @@ fn parse_manifest_json(json: &str) -> Result<ParsedManifest, String> {
         version,
         layout_id: lid,
         total_size,
+        has_dynamic_tail,
         fields,
     })
 }
@@ -2671,7 +2684,7 @@ fn parse_manifest_json(json: &str) -> Result<ParsedManifest, String> {
 /// Position the parser at the VALUE following a genuine `"key":` token.
 ///
 /// The manifest parser is substring-based, so a naive `find("\"key\"")`
-/// also matches a string *value* that merely equals `key` — e.g. an
+/// also matches a string *value* that merely equals `key`; e.g. an
 /// account legitimately named `"offset"` inside
 /// `{ "account": "offset", "offset": 16, ... }` would shadow the real
 /// `offset` key and make the whole load fail. This scans every `"key"`
@@ -2710,6 +2723,17 @@ fn extract_number(json: &str, key: &str) -> Result<u64, String> {
     after[..end]
         .parse()
         .map_err(|e| format!("Invalid number for {}: {}", key, e))
+}
+
+fn extract_bool(json: &str, key: &str) -> Result<bool, String> {
+    let after = find_after_key(json, key).ok_or_else(|| format!("Missing key: {}", key))?;
+    if after.starts_with("true") {
+        Ok(true)
+    } else if after.starts_with("false") {
+        Ok(false)
+    } else {
+        Err(format!("Invalid boolean for {}", key))
+    }
 }
 
 fn extract_array_u8(json: &str, key: &str) -> Result<Vec<u8>, String> {
@@ -2786,6 +2810,7 @@ struct OwnedManifest {
     version: u8,
     layout_id: [u8; 8],
     total_size: usize,
+    has_dynamic_tail: bool,
     field_count: usize,
     fields: Vec<OwnedField>,
 }
@@ -2806,6 +2831,7 @@ impl From<ParsedManifest> for OwnedManifest {
             version: p.version,
             layout_id: p.layout_id,
             total_size: p.total_size,
+            has_dynamic_tail: p.has_dynamic_tail,
             field_count: p.fields.len(),
             fields: p
                 .fields
@@ -2839,16 +2865,19 @@ fn cmd_explain(args: &[String]) {
 
     if data.len() < 16 {
         println!(
-            "This data is {} bytes, which is too short for a Hopper account.",
+            "This data is {} bytes, which is too short for Hopper's headered-account decoder.",
             data.len()
         );
-        println!("Every Hopper account starts with a 16-byte header.");
+        println!("Compact accounts are not decoded by this command.");
         process::exit(1);
     }
 
     let header = require_header(&data);
 
-    println!("This is a Hopper account ({} bytes total).", data.len());
+    println!(
+        "Interpreting this as a headered Hopper account ({} bytes total).",
+        data.len()
+    );
     println!();
 
     // Header narrative
@@ -3700,7 +3729,7 @@ fn cmd_schema_export() {
     println!("--- Program Manifest JSON (for Hopper Manager) ---");
     println!("  {{");
     println!("    \"name\": \"my_program\",");
-    println!("    \"version\": \"0.2.1\",");
+    println!("    \"version\": \"0.3.0\",");
     println!("    \"description\": \"Program description\",");
     println!("    \"layouts\": [");
     println!("      {{ <layout manifest as above> }}");
@@ -3783,13 +3812,13 @@ struct OwnedInstruction {
     capabilities: Vec<String>,
     policy_pack: String,
     receipt_expected: bool,
-    // ── BLD-WR / BLD-MUT / BLD-CU: byte-range write authority ─────────
+    // Byte-range write authority and compute-budget metadata.
     // Carried verbatim from the manifest so the CLI-loaded descriptor
     // matches the compiled program's declared write surface. Round-trips
     // with codama's emitter (crates/hopper-schema/src/codama.rs:643-672):
     // strictWrites / writeRanges / cuEstimate / mutationComplete /
     // lamportAccounts. Defaults (false / empty / 0) reproduce the
-    // pre-BLD-WR behavior for older manifests that omit these keys.
+    // legacy behavior for older manifests that omit these keys.
     strict_writes: bool,
     write_ranges: Vec<OwnedWriteRange>,
     parametric_write_ranges: Vec<OwnedParametricWriteRange>,
@@ -4163,6 +4192,7 @@ fn parse_program_manifest_json(json: &str) -> Result<OwnedProgramManifest, Strin
             layout_id: layout_id(layout)?,
             total_size: usize::try_from(number(layout, &["totalSize", "total_size"], 0)?)
                 .map_err(|_| "totalSize exceeds usize".to_string())?,
+            has_dynamic_tail: boolean(layout, &["hasDynamicTail", "has_dynamic_tail"], false)?,
             field_count,
             fields,
         });
@@ -4871,7 +4901,8 @@ fn parse_fetch_args(args: &[String]) -> (String, Option<String>, bool) {
     (pid, rpc_override, json_mode)
 }
 
-/// Fetch a Hopper manifest from on-chain, returning the raw JSON string.
+/// Fetch an application-provisioned legacy Hopper manifest PDA, returning its
+/// raw JSON string. This does not discover Program Metadata.
 fn fetch_manifest_json(program_id_str: &str, rpc_override: Option<&str>) -> String {
     let rpc_url = rpc::resolve_rpc_url(rpc_override);
     let program_id = match rpc::decode_pubkey(program_id_str) {
@@ -4892,17 +4923,20 @@ fn fetch_manifest_json(program_id_str: &str, rpc_override: Option<&str>) -> Stri
     };
 
     let pda_b58 = rpc::encode_pubkey(&pda);
-    eprintln!("Manifest PDA: {} (bump {})", pda_b58, bump);
+    eprintln!("Legacy manifest PDA: {} (bump {})", pda_b58, bump);
     eprintln!("RPC endpoint: {}", rpc_url);
     eprintln!();
 
     let account = match rpc::get_account_info(&rpc_url, &pda_b58) {
         Ok(Some(info)) => info,
         Ok(None) => {
-            eprintln!("No manifest account found at PDA {}", pda_b58);
+            eprintln!(
+                "No application-provisioned legacy manifest found at PDA {}",
+                pda_b58
+            );
             eprintln!();
             eprintln!(
-                "The program {} does not have an on-chain Hopper manifest.",
+                "The program {} does not have a legacy Hopper manifest at MANIFEST_SEED.",
                 program_id_str
             );
             eprintln!("Hopper has no generic publisher for this legacy manifest PDA.");
@@ -4936,7 +4970,10 @@ fn cmd_fetch(args: &[String]) {
     if args.is_empty() {
         eprintln!("Usage: hopper fetch <program-id> [--rpc <url>] [--json]");
         eprintln!();
-        eprintln!("Fetch a program's Hopper manifest from on-chain and display it.");
+        eprintln!("Fetch an application-provisioned legacy Hopper manifest PDA and display it.");
+        eprintln!(
+            "This does not discover Solana Program Metadata; Hopper ships no generic publisher."
+        );
         eprintln!();
         eprintln!("Options:");
         eprintln!("  --rpc <url>  Solana RPC endpoint (default: SOLANA_RPC_URL env or mainnet)");
@@ -6096,6 +6133,7 @@ fn to_manifest(m: &OwnedManifest) -> (LayoutManifest, Vec<FieldDescriptor>) {
         version: m.version,
         layout_id: m.layout_id,
         total_size: m.total_size,
+        has_dynamic_tail: m.has_dynamic_tail,
         field_count: m.field_count,
         fields: leak_slice(&fields),
     };
@@ -6125,7 +6163,7 @@ mod loader_write_set_tests {
 
     /// A codama-shaped manifest carrying every write-set field: strictWrites,
     /// writeRanges (with the derived `account` name codama also emits and the
-    /// loader ignores), cuEstimate, mutationComplete, lamportAccounts — plus a
+    /// loader ignores), cuEstimate, mutationComplete, lamportAccounts, plus a
     /// context that carries strictWrites + writeRanges. Mirrors the exact
     /// key/shape codama serializes (crates/hopper-schema/src/codama.rs).
     const MANIFEST_WITH_WRITE_SET: &str = r#"{
@@ -6170,8 +6208,9 @@ mod loader_write_set_tests {
       ]
     }"#;
 
-    /// The same program WITHOUT any of the write-set keys — an "old" manifest
-    /// predating BLD-WR/BLD-MUT/BLD-CU. It must load with defaults.
+    /// The same program WITHOUT any of the write-set keys, an "old" manifest
+    /// predating write-range, mutation-completeness, and compute-budget metadata.
+    /// It must load with defaults.
     const MANIFEST_WITHOUT_WRITE_SET: &str = r#"{
       "name": "TestProgram",
       "version": "1.2.3",
@@ -6339,11 +6378,21 @@ mod loader_write_set_tests {
             invariants: &["StateValid"],
             receipt_profile: "StateReceipt",
         }];
+        static LAYOUTS: &[LayoutManifest] = &[LayoutManifest {
+            name: "StateV2",
+            disc: 7,
+            version: 2,
+            layout_id: [7; 8],
+            total_size: 1,
+            has_dynamic_tail: true,
+            field_count: 0,
+            fields: &[],
+        }];
         let source = ProgramManifest {
             name: "roundtrip",
             version: "1.0.0",
             description: "rich manifest",
-            layouts: &[],
+            layouts: LAYOUTS,
             layout_metadata: METADATA,
             instructions: INSTRUCTIONS,
             events: EVENTS,
@@ -6357,6 +6406,8 @@ mod loader_write_set_tests {
         let owned = parse_program_manifest_json(&json).expect("emitted manifest parses");
         let loaded = to_program_manifest(&owned);
 
+        assert!(json.contains("\"hasDynamicTail\": true"));
+        assert!(loaded.layouts[0].has_dynamic_tail);
         assert_eq!(loaded.instructions[0].policy_pack, "StatePolicy");
         assert!(loaded.instructions[0].receipt_expected);
         assert_eq!(
@@ -6384,6 +6435,57 @@ mod loader_write_set_tests {
         assert_eq!(loaded.tooling_hints, &["lossless"]);
         assert_eq!(loaded.events[0].fields[0].intent, FieldIntent::Authority);
         assert_eq!(loaded.events[0].fields[1].intent, FieldIntent::Custom);
+    }
+
+    #[test]
+    fn legacy_layout_without_dynamic_tail_flag_defaults_to_fixed() {
+        let json = r#"{
+          "name": "legacy",
+          "version": "0.1.0",
+          "layouts": [{
+            "name": "FixedCompact",
+            "disc": 3,
+            "version": 1,
+            "layoutId": "0102030405060708",
+            "totalSize": 1,
+            "fieldCount": 0,
+            "fields": []
+          }]
+        }"#;
+
+        let owned = parse_program_manifest_json(json).expect("legacy layout should parse");
+        let loaded = to_program_manifest(&owned);
+        assert!(!loaded.layouts[0].has_dynamic_tail);
+    }
+
+    #[test]
+    fn single_layout_parser_carries_dynamic_tail_aliases() {
+        let parsed = parse_manifest_json(
+            r#"{
+              "name": "DynamicCompact",
+              "disc": 3,
+              "version": 1,
+              "layoutId": "0102030405060708",
+              "totalSize": 1,
+              "hasDynamicTail": true,
+              "fields": []
+            }"#,
+        )
+        .expect("dynamic compact layout should parse");
+        assert!(parsed.has_dynamic_tail);
+
+        let legacy = parse_manifest_json(
+            r#"{
+              "name": "FixedCompact",
+              "disc": 4,
+              "version": 1,
+              "layout_id": [1, 2, 3, 4, 5, 6, 7, 8],
+              "total_size": 1,
+              "fields": []
+            }"#,
+        )
+        .expect("legacy fixed compact layout should parse");
+        assert!(!legacy.has_dynamic_tail);
     }
 
     #[test]
@@ -6593,7 +6695,7 @@ mod loader_write_set_tests {
         let prog = to_program_manifest(&owned);
         let ix = &prog.instructions[0];
 
-        // Missing keys => the exact pre-BLD-WR values (no fabricated authority).
+        // Missing keys retain the legacy values without fabricating authority.
         assert!(!ix.strict_writes);
         assert!(ix.write_ranges.is_empty());
         assert!(!ix.mutation_complete);

@@ -2,14 +2,14 @@
 //! commitment hash.
 //!
 //! Grillo deliberately keeps its dependency surface to `serde`/`serde_json`.
-//! Rather than pull a crypto crate — or drag the framework's `no_std` const
+//! Rather than pull a crypto crate or the framework's `no_std` const
 //! implementation (which lives in `hopper-native`, a whole runtime crate)
-//! into a host-only tool — it vendors this small, self-contained routine.
+//! into a host-only tool, it vendors this small, self-contained routine.
 //! It is pinned against the FIPS 180-2 example vectors plus a multi-block
 //! message in the unit tests below.
 //!
-//! This is the reference SHA-256 compression function; correctness — not
-//! throughput — is the goal, so it is written for legibility.
+//! This implements SHA-256 for correctness and legibility rather than
+//! throughput.
 
 const K: [u32; 64] = [
     0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,

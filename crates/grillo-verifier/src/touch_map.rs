@@ -1,10 +1,9 @@
-//! Decoder for the Hopper **touch-map wire format v1** — the public,
+//! Decoder for the Hopper **touch-map wire format v1**, the public,
 //! versioned record a Hopper program emits (one `sol_log_data` segment)
-//! describing every `(account, offset, size, R/W)` range an instruction
-//! touched.
+//! describing the `(account, offset, size, R/W)` ranges recorded during an
+//! instruction. Overflow and skipped-record flags identify partial maps.
 //!
-//! This is a byte-for-byte reimplementation of the decode that already
-//! ships in `hopper tx explain`
+//! This decodes the same format used by `hopper tx explain`
 //! (`tools/hopper-cli/src/cmd/tx_explain.rs`), the generated TypeScript
 //! client, and the runtime's own tests. The format is documented in
 //! `hopper-runtime/src/segment_borrow.rs`:
@@ -22,8 +21,8 @@
 //! ```
 //!
 //! A decoder MUST verify magic, version, AND the exact-length equation
-//! `len == 4 + 9 * count` — together these keep unrelated `Program data:`
-//! payloads (Anchor events, receipts) from ever being misread as a map.
+//! `len == 4 + 9 * count`. These checks reject unrelated `Program data:`
+//! payloads that do not satisfy the touch-map framing.
 
 /// Magic byte of the touch-map wire format v1 (`'z'`).
 pub const TOUCH_MAP_MAGIC: u8 = 0x7A;
@@ -48,7 +47,7 @@ pub const MAX_TOUCH_RECORDS: usize = 32;
 /// One decoded touch record: a single `(account, offset, size, R/W)` range
 /// the instruction touched.
 ///
-/// `slot` is the account's index in the instruction's account list — the
+/// `slot` is the account's index in the instruction's account list, the
 /// same index a manifest [`RangeContract`](grillo_manifest::RangeContract)
 /// and the runtime `Context` use, so the three join directly.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -86,7 +85,7 @@ pub struct TouchMap {
 impl TouchMap {
     /// A partial map (`overflowed` or `skipped`) does NOT enumerate the
     /// instruction's complete effect set, so byte attribution against it is
-    /// impossible — a verifier must return `INCONCLUSIVE`, never `PASS`.
+    /// impossible, a verifier must return `INCONCLUSIVE`, never `PASS`.
     pub fn is_partial(&self) -> bool {
         self.overflowed || self.skipped
     }

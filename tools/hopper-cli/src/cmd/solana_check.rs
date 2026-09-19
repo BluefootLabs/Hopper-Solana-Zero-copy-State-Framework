@@ -228,6 +228,8 @@ fn check_package(manifest: &Path, build_sbf: bool) -> PackageReport {
             .arg("build-sbf")
             .arg("--manifest-path")
             .arg(manifest)
+            .arg("--")
+            .arg("--locked")
             .status()
         {
             Ok(status) if status.success() => {}

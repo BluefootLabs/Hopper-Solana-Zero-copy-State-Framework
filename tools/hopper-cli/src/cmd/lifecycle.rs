@@ -692,7 +692,7 @@ pub fn cmd_deploy(args: &[String]) {
     run_external_command("solana", &workspace_root, &command_args);
 }
 
-/// `hopper upgrade` — redeploy the current SBF program against an
+/// `hopper upgrade`, redeploy the current SBF program against an
 /// existing program id using the BPF Loader Upgradeable upgrade path.
 pub fn cmd_upgrade(args: &[String]) {
     if args.iter().any(|arg| arg == "--help" || arg == "-h") {
@@ -762,7 +762,7 @@ pub fn cmd_upgrade(args: &[String]) {
     run_external_command("solana", &workspace_root, &command_args);
 }
 
-/// `hopper close` — close an upgradeable program or buffer, reclaiming
+/// `hopper close`, close an upgradeable program or buffer, reclaiming
 /// its rent. Always prompts for confirmation (any cluster) because the
 /// program id becomes permanently unusable.
 pub fn cmd_close(args: &[String]) {
@@ -864,7 +864,7 @@ fn parse_close_target(args: &mut Vec<String>) -> Result<CloseTarget, String> {
     }
 }
 
-/// `hopper migrate` — drive a `LayoutMigration` upgrade against a
+/// `hopper migrate`, drive a `LayoutMigration` upgrade against a
 /// deployed program. In practice this rebuilds the current (v2) program
 /// and performs an on-chain upgrade against the existing program id, so
 /// the new bytecode (carrying the new layout handlers) replaces the old

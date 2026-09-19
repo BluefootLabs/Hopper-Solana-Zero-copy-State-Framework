@@ -6,7 +6,7 @@
 //! This parses the REAL `hopper.manifest.json` that
 //! `hopper compile --emit manifest` emits (renderer:
 //! `hopper_schema::codama::ManifestJson`). It does not define a rival
-//! schema — the field names below (`strictWrites`, `writeRanges`,
+//! schema. The field names below (`strictWrites`, `writeRanges`,
 //! `accountIndex`, `mutationComplete`, `lamportAccounts`) are exactly the
 //! keys that renderer writes.
 
@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 /// One authorized byte-range write permission on a single account.
 ///
 /// `account_index` is the account's position in the instruction's account
-/// list — the same index the runtime `Context` and the touch map's `slot`
+/// list, the same index the runtime `Context` and the touch map's `slot`
 /// use, so a verifier can join the three directly.
 ///
 /// A whole-account write permission is published as `offset = 0,
@@ -178,7 +178,7 @@ pub struct InstructionContract {
     /// write set (the pre-`strict_writes` contract).
     #[serde(rename = "strictWrites")]
     pub strict_writes: bool,
-    /// Whether the write set covers BOTH mutation dimensions — data byte
+    /// Whether the write set covers BOTH mutation dimensions, data byte
     /// ranges AND lamport balances. Only `true` when the context declared
     /// `strict_writes` + `lamports(...)`; the manifest omits the key
     /// otherwise, so an older manifest is never mistaken for a completeness
@@ -303,7 +303,7 @@ pub enum ParseError {
     /// for the mutation-contract fields.
     Json(String),
     /// The JSON parsed, but it is not a mutation-contract manifest Grillo
-    /// understands — most commonly a manifest that predates the byte-range
+    /// understands, most commonly a manifest that predates the byte-range
     /// write contract (no per-instruction `strictWrites` field). Grillo
     /// refuses it rather than silently treating undeclared writes as
     /// unconstrained.
@@ -327,7 +327,7 @@ impl MutationManifest {
     ///
     /// # Version gate
     ///
-    /// The Hopper manifest carries no explicit *format*-version field — only
+    /// The Hopper manifest carries no explicit *format*-version field, only
     /// a program `version`. Grillo therefore gates on a structural marker
     /// the codama renderer emits UNCONDITIONALLY for every instruction:
     /// `strictWrites`. A manifest whose instructions lack it predates the
@@ -352,7 +352,7 @@ impl MutationManifest {
                     .unwrap_or("<unnamed>");
                 return Err(ParseError::UnsupportedManifest(format!(
                     "instruction `{name}` has no `strictWrites` field; this manifest predates \
-                     the Hopper byte-range mutation contract — regenerate it with \
+                     the Hopper byte-range mutation contract, regenerate it with \
                      `hopper compile --emit manifest`"
                 )));
             }

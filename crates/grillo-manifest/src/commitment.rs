@@ -6,8 +6,8 @@
 //! ANY change to a range, a parametric selector rule, its wire-decoding
 //! metadata, a flag, a lamport permission, or an instruction's identity
 //! changes the hash. It is deliberately independent of manifest
-//! cosmetics — account display names/roles, layouts, and program description
-//! — so a commitment pins exactly the identity and wire inputs needed to
+//! cosmetics such as account display names, roles, layouts, and program
+//! description. A commitment pins the identity and wire inputs used to
 //! resolve "what bytes and lamports this program may move."
 
 use crate::manifest::{ArgEncodingContract, InstructionContract, MutationManifest};

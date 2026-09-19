@@ -4,7 +4,7 @@
 //! ABI path against a manifest Hopper actually EMITS. The sentinel fixture
 //! ([`parse_real_manifest`]) is static-only, so before this test the whole
 //! producer→JSON→parser→resolver seam for `parametricWriteRanges` was
-//! exercised only by hand-built `InstructionContract`s — a field-name drift
+//! exercised only by hand-built `InstructionContract`s, a field-name drift
 //! between `hopper_schema::codama` and `grillo_manifest`'s serde model would
 //! have gone uncaught.
 //!
@@ -18,7 +18,7 @@
 //!
 //! i.e. it is the exact `hopper_schema::codama::ManifestJson` render of the
 //! SAME `PARAMETRIC_WRITE_RANGES` statics the runtime installs as its write
-//! policy — published == enforced.
+//! policy, published == enforced.
 
 use grillo_manifest::MutationManifest;
 
@@ -180,7 +180,7 @@ fn execute_intent_publishes_the_executor_column_cell_rules() {
             "missing executor-column rule `{expected}`"
         );
     }
-    // No IMMUTABLE user column (owners/route_programs/max_inputs/…) appears —
+    // No IMMUTABLE user column (owners/route_programs/max_inputs/…) appears,
     // execute publishes no authority to rewrite the user's constraints.
     for forbidden in [
         "owners",
@@ -207,8 +207,8 @@ fn execute_intent_publishes_the_executor_column_cell_rules() {
 }
 
 /// Resolving `execute_intent` for slot 3 narrows every executor envelope to
-/// the slot-3 cell and — the crown-jewel invariant, checked on real emitted
-/// data — NEVER broadens beyond the published static authorization.
+/// the slot-3 cell and, the crown-jewel invariant, checked on real emitted
+/// data, NEVER broadens beyond the published static authorization.
 #[test]
 fn resolving_execute_intent_narrows_to_the_selected_cell_without_broadening() {
     let m = manifest();
@@ -259,7 +259,7 @@ fn resolving_execute_intent_narrows_to_the_selected_cell_without_broadening() {
 
 /// The resolved certificate is selector-sensitive: a different slot yields a
 /// different commitment, so a certificate can never be replayed for another
-/// cell — while the source (published-rule) commitment stays constant.
+/// cell, while the source (published-rule) commitment stays constant.
 #[test]
 fn resolved_commitment_is_selector_sensitive() {
     let m = manifest();
@@ -279,8 +279,8 @@ fn resolved_commitment_is_selector_sensitive() {
 }
 
 /// `reclaim_intent` is the one handler authorized to zero the whole record, so
-/// it publishes an exact-cell rule for every column — the immutable user
-/// columns included — and resolving it narrows each to the selected slot.
+/// it publishes an exact-cell rule for every column, the immutable user
+/// columns included, and resolving it narrows each to the selected slot.
 #[test]
 fn reclaim_intent_publishes_full_column_cell_rules() {
     let m = manifest();

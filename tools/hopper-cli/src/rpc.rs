@@ -11,7 +11,7 @@ use sha2::{Digest, Sha256};
 
 /// Derive a Program Derived Address from seeds and a program ID.
 ///
-/// Iterates bump seeds 255..0 until SHA-256(seeds || [bump] || program_id ||
+/// Iterates bump seeds 255..0 until SHA-256(seeds || `[bump]` || program_id ||
 /// "ProgramDerivedAddress") produces a point NOT on the ed25519 curve.
 pub fn find_program_address(seeds: &[&[u8]], program_id: &[u8; 32]) -> Option<([u8; 32], u8)> {
     for bump in (0u8..=255).rev() {
@@ -227,7 +227,7 @@ fn is_value_null(json: &str) -> bool {
 
 /// Extract the base64-encoded account data from the response.
 ///
-/// Expects: "data": ["<base64>", "base64"]
+/// Expects: `"data": ["<base64>", "base64"]`
 fn extract_account_data_base64(json: &str) -> Result<String, String> {
     // Find "data" key
     let key = "\"data\"";

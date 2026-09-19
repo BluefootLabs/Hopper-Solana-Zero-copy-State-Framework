@@ -1,11 +1,11 @@
-//! `hopper compile --emit manifest --package <name>` — generate
+//! `hopper compile --emit manifest --package <name>`, generate
 //! `hopper.manifest.json` FROM SOURCE.
 //!
 //! Every other `--emit` target consumes an existing manifest JSON; this
 //! is the producer. It compiles a tiny generated harness that depends
 //! on the target package, prints
 //! `hopper_schema::codama::ManifestJson(&<pkg>::PROGRAM_MANIFEST)`, and
-//! writes the result next to the package as `hopper.manifest.json` —
+//! writes the result next to the package as `hopper.manifest.json`,
 //! so the published schema is rendered from the SAME statics the
 //! runtime enforces (`SCHEMA_METADATA`, `STRICT_WRITES`,
 //! `WRITE_RANGES`, ...) and cannot drift from the code. This is the
@@ -131,10 +131,10 @@ pub fn emit_manifest_from_source(
         if stderr.contains("PROGRAM_MANIFEST") {
             return Err(format!(
                 "`{package}` does not export `pub static PROGRAM_MANIFEST: \
-                 hopper_schema::ProgramManifest`. Add one line at the crate root — \
+                 hopper_schema::ProgramManifest`. Add one line at the crate root, \
                  `hopper::program_manifest! {{ program = <your_program_mod>, \
                  layouts = [...], events = [...] }}` (see \
-                 examples/hopper-counter/src/lib.rs) — and re-run.\n\nharness build \
+                 examples/hopper-counter/src/lib.rs), and re-run.\n\nharness build \
                  output:\n{stderr}"
             ));
         }

@@ -1,12 +1,11 @@
 //! `hopper publish-check` - source and release gate for public Hopper releases.
 //!
-//! `hopper verify --release` proves a manifest and compiled binary agree on
-//! layout fingerprints. `publish-check` wraps that binary check with the
-//! source-tree gates called out by the safety audit: no stale benchmark
-//! placeholders in release-facing docs, no Pinocchio in the default feature
-//! tree, legacy SPL Token builders still feature-gated, client generators still
-//! asserting layout IDs, fuzz targets still present, and build outputs not
-//! tracked in git.
+//! `hopper verify --release` proves that a compiled binary carries the exact
+//! versioned commitment to the manifest's declared executable interface.
+//! `publish-check` wraps that binary check with the
+//! source-tree release gates: stale documentation markers, default feature-tree
+//! dependencies, legacy token-builder gating, generated-client layout checks,
+//! fuzz-target inventory, and tracked build artifacts.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -41,7 +40,7 @@ pub fn cmd_publish_check(args: &[String]) {
     println!("hopper publish-check");
     println!("  workspace: {}", root.display());
     if opts.source_only {
-        println!("  mode: source-only (binary ABI check skipped by explicit flag)");
+        println!("  mode: source-only (ELF interface-binding check skipped by explicit flag)");
     } else {
         println!("  mode: release (requires manifest + .so, or --package)");
     }
@@ -50,7 +49,7 @@ pub fn cmd_publish_check(args: &[String]) {
     }
 
     let mut failures = 0u32;
-    failures += run_stage("release ABI verification", || {
+    failures += run_stage("release interface-binding verification", || {
         run_release_verify(&opts, &root)
     }) as u32;
     failures += run_stage("release documentation scan", || scan_release_docs(&root)) as u32;
@@ -69,10 +68,10 @@ pub fn cmd_publish_check(args: &[String]) {
     if opts.full {
         failures += run_stage("Solana program shape gate", || run_solana_check(&root)) as u32;
         failures += run_stage("systems test suite", || {
-            run_cargo_status(&root, &["test", "-p", "hopper-systems"])
+            run_cargo_status(&root, &["test", "--locked", "-p", "hopper-systems"])
         }) as u32;
         failures += run_stage("trybuild UI suite", || {
-            run_cargo_status(&root, &["test", "-p", "hopper-trybuild"])
+            run_cargo_status(&root, &["test", "--locked", "-p", "hopper-trybuild"])
         }) as u32;
     }
 
@@ -285,6 +284,7 @@ fn scan_release_docs(root: &Path) -> Result<(), String> {
     for rel in docs {
         let path = root.join(rel);
         if !path.is_file() {
+            hits.push(format!("{rel}: required release document is missing"));
             continue;
         }
         let text = fs::read_to_string(&path)
@@ -301,14 +301,21 @@ fn scan_release_docs(root: &Path) -> Result<(), String> {
         Ok(())
     } else {
         Err(format!(
-            "release docs contain stale markers:\n{}",
+            "release docs are missing or contain stale markers:\n{}",
             hits.join("\n")
         ))
     }
 }
 
 fn check_default_feature_tree(root: &Path) -> Result<(), String> {
-    let args = ["tree", "-p", "hopper-lang", "--edges", "normal,build"];
+    let args = [
+        "tree",
+        "--locked",
+        "-p",
+        "hopper-lang",
+        "--edges",
+        "normal,build",
+    ];
     let output = workspace::run_output("cargo", &to_strings(&args), root)?;
     if !output.status.success() {
         return Err(format!(
@@ -360,12 +367,28 @@ fn check_legacy_token_gate(root: &Path) -> Result<(), String> {
     // deprecated plain builders are not required by the public default API.
     run_cargo_status(
         root,
-        &["check", "-p", "hopper-token", "--no-default-features"],
+        &[
+            "check",
+            "--locked",
+            "-p",
+            "hopper-token",
+            "--no-default-features",
+        ],
     )
 }
 
 fn check_client_layout_tests(root: &Path) -> Result<(), String> {
-    run_cargo_status(root, &["test", "-p", "hopper-schema", "layout_id", "--lib"])
+    run_cargo_status(
+        root,
+        &[
+            "test",
+            "--locked",
+            "-p",
+            "hopper-schema",
+            "layout_id",
+            "--lib",
+        ],
+    )
 }
 
 fn check_fuzz_inventory(root: &Path) -> Result<(), String> {
@@ -481,6 +504,9 @@ fn check_tracked_build_artifacts(root: &Path) -> Result<(), String> {
 }
 
 fn run_cargo_status(root: &Path, args: &[&str]) -> Result<(), String> {
+    if !args.contains(&"--locked") {
+        return Err("internal publish-check Cargo invocation omitted --locked".to_string());
+    }
     let args_vec = to_strings(args);
     let status = workspace::run_status("cargo", &args_vec, root)?;
     if status.success() {
@@ -532,7 +558,7 @@ fn print_usage() {
     eprintln!("  --manifest <path>          Explicit Hopper manifest JSON");
     eprintln!("  --so, --binary <path>      Explicit compiled program .so");
     eprintln!("  --workspace-root <path>    Workspace root to check (default: search upward)");
-    eprintln!("  --source-only              Skip binary ABI verification; useful before SBF build");
+    eprintln!("  --source-only              Skip ELF interface-binding verification; useful before SBF build");
     eprintln!(
         "  --full                     Also run solana-check --all plus hopper-systems and hopper-trybuild"
     );

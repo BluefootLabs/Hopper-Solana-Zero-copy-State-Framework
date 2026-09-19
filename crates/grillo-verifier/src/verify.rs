@@ -5,11 +5,11 @@
 //!
 //! > **changed ⊆ acquired ⊆ authorized**
 //!
-//! - `changed`    — bytes that actually differ between the pre and post
+//! - `changed`: bytes that actually differ between the pre and post
 //!   account snapshots.
-//! - `acquired`   — bytes covered by a WRITE touch record (what the
+//! - `acquired`: bytes covered by a WRITE touch record (what the
 //!   instruction told the runtime it was mutating).
-//! - `authorized` — bytes the manifest's `writeRanges` permit.
+//! - `authorized`: bytes the manifest's `writeRanges` permit.
 //!
 //! Acquired-but-unchanged is LEGAL: access is not modification. A WRITE
 //! record that changed none of its bytes is surfaced as a note on a PASS,
@@ -22,7 +22,7 @@ use grillo_manifest::{
 
 use crate::touch_map::TouchMap;
 
-/// A pre/post snapshot of one account in the instruction — its bytes and,
+/// A pre/post snapshot of one account in the instruction, its bytes and,
 /// optionally, its lamport balance.
 ///
 /// Lamports are explicitly marked observed by [`with_lamports`](Self::with_lamports),
@@ -106,7 +106,7 @@ pub enum InconclusiveReason {
     ParametricArgumentsRequired,
     /// The touch map is partial (`overflowed` and/or `skipped`). It does not
     /// enumerate the instruction's complete effect set, so byte attribution
-    /// is impossible — Grillo returns this rather than risk a false PASS.
+    /// is impossible, Grillo returns this rather than risk a false PASS.
     /// Rare by construction: the runtime coalesces exact unions under
     /// capacity pressure, so `overflowed` requires more than
     /// [`MAX_TOUCH_RECORDS`](crate::MAX_TOUCH_RECORDS) pairwise-unmergeable
@@ -126,7 +126,7 @@ pub struct PassEvidence {
     /// Coalesced changed byte ranges across all accounts, in account/offset
     /// order.
     pub changed: Vec<RangeContract>,
-    /// WRITE touch records that acquired bytes but changed NONE of them —
+    /// WRITE touch records that acquired bytes but changed NONE of them,
     /// legal (access is not modification), surfaced as notes.
     pub acquired_unchanged: Vec<RangeContract>,
     /// Total number of changed bytes across all accounts.
@@ -309,7 +309,7 @@ fn verify_contract<C: MutationContractView + ?Sized>(
     }
 
     // Honesty rule: a partial touch map cannot enumerate the effect set, so
-    // byte attribution is impossible — never a false PASS.
+    // byte attribution is impossible, never a false PASS.
     if touch_map.is_partial() {
         return Verdict::Inconclusive(InconclusiveReason::PartialTouchMap {
             overflowed: touch_map.overflowed,
@@ -401,7 +401,7 @@ fn verify_contract<C: MutationContractView + ?Sized>(
 
     // ── PASS: gather acquired-but-unchanged notes ───────────────────────
     //
-    // A WRITE record whose bytes did not change is legal — surface it. Only
+    // A WRITE record whose bytes did not change is legal, surface it. Only
     // records whose account we actually snapshotted can be attributed.
     let mut acquired_unchanged = Vec::new();
     for rec in touch_map.records.iter().filter(|r| r.write) {

@@ -288,7 +288,7 @@ impl InstructionContract {
     /// parametric-index order.
     ///
     /// This is useful for SVM integrations that already decoded handler args;
-    /// independent transaction verifiers should prefer [`resolve_effects`]
+    /// independent transaction verifiers should prefer [`Self::resolve_effects`]
     /// so the certificate is bound directly to wire bytes.
     pub fn resolve_effects_with_selectors(
         &self,

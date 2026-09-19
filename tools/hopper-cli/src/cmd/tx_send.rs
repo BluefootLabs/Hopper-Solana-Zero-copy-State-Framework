@@ -1,8 +1,8 @@
-//! `hopper tx send` — fire one arbitrary instruction. No Node required.
+//! `hopper tx send`, fire one arbitrary instruction. No Node required.
 //!
 //! Every Solana developer has hit this wall: you want to poke a single
-//! instruction at a program — a discriminator byte, a couple of
-//! accounts — and the official CLI has no generic instruction sender,
+//! instruction at a program, a discriminator byte, a couple of
+//! accounts, and the official CLI has no generic instruction sender,
 //! so out comes a scratch TypeScript file and a `node_modules` tree.
 //! `hopper tx send` is that missing primitive in pure Rust, riding the
 //! same signed-send stack previously exercised by `hopper publish-idl`:
@@ -28,7 +28,7 @@
 //!   record: a strict-writes violation (`Custom(0xD0__)`) only becomes
 //!   a citable signature if the RPC is not allowed to reject it first.
 //! - `--dry-run` prints the exact instruction plan and signer coverage
-//!   without touching the network — same preview discipline as
+//!   without touching the network, same preview discipline as
 //!   `publish-idl`.
 //!
 //! After confirmation the command fetches the transaction and reports
@@ -130,7 +130,7 @@ fn print_usage() {
     eprintln!("           [--compute-limit <units>] [--allow-failure] [--dry-run]");
     eprintln!();
     eprintln!("Send one instruction with explicit account metas and raw hex data,");
-    eprintln!("signed locally — the generic instruction sender the stock tooling");
+    eprintln!("signed locally, the generic instruction sender the stock tooling");
     eprintln!("lacks without a JS scratch script. Account flags: s = signer,");
     eprintln!("w = writable (e.g. --account HoppR...:sw). The literal `payer`");
     eprintln!("resolves to the fee payer's pubkey.");
@@ -384,7 +384,7 @@ fn run_send(
     super::transaction_limits::ensure_legacy_transaction_size(&tx, "hopper tx send")?;
     let signature = if allow_failure {
         // Preflight simulation would reject a tx the program is going to
-        // refuse — but landing that refusal IS the goal here. Send raw,
+        // refuse; but landing that refusal IS the goal here. Send raw,
         // then poll for a commitment-level status ourselves, treating
         // "confirmed with a program error" as a successful LANDING.
         use solana_client::rpc_config::RpcSendTransactionConfig;
@@ -432,8 +432,8 @@ fn run_send(
             match result.get("meta").and_then(|m| m.get("err")) {
                 Some(err) if !err.is_null() => {
                     // The refusal, on the record: report it as data, not
-                    // as a tool failure — the send did exactly its job.
-                    println!("program   : REFUSED — {err}");
+                    // as a tool failure, the send did exactly its job.
+                    println!("program   : REFUSED: {err}");
                 }
                 _ => println!("program   : Ok"),
             }

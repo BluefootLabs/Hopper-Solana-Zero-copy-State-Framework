@@ -10,7 +10,7 @@
 //! ```
 //!
 //! i.e. it is the exact output of `hopper_schema::codama::ManifestJson`
-//! rendered from the SAME `PROGRAM_MANIFEST` statics the runtime enforces —
+//! rendered from the SAME `PROGRAM_MANIFEST` statics the runtime enforces,
 //! not a hand-written approximation.
 
 use grillo_manifest::{MutationManifest, RangeContract};
@@ -28,14 +28,14 @@ fn sentinel_manifest_parses() {
     assert_eq!(m.program_version, "0.2.1");
     // Typed `Ctx<Spec>` handlers only: tags 0,1,3,4,6,7,8. The raw
     // `&mut Context` handlers (malicious_pause=2, record_entry=5) publish no
-    // instruction descriptor, so they are absent — see the raw-handler delta
+    // instruction descriptor, so they are absent; see the raw-handler delta
     // assertion below.
     assert_eq!(m.instructions.len(), 7);
 }
 
 /// THE REQUIRED ASSERTION: the flagship `Pause` instruction (`honest_pause`)
-/// parses with `strict_writes = true` and EXACTLY the two authorized ranges
-/// — `paused` (offset 114, size 1) and `revision` (offset 115, size 8), both
+/// parses with `strict_writes = true` and EXACTLY the two authorized ranges,
+/// `paused` (offset 114, size 1) and `revision` (offset 115, size 8), both
 /// on the config account (account index 1).
 #[test]
 fn honest_pause_has_strict_writes_and_exactly_the_two_declared_ranges() {
@@ -65,7 +65,7 @@ fn honest_pause_has_strict_writes_and_exactly_the_two_declared_ranges() {
         ],
         "exactly the declared paused + revision ranges, and nothing else"
     );
-    // `admin` (offset 16) is NOT in the authorized set — the whole point of
+    // `admin` (offset 16) is NOT in the authorized set, the whole point of
     // the flagship refusal.
     assert!(
         !pause.authorized.iter().any(|r| r.contains_byte(16)),
@@ -79,7 +79,7 @@ fn honest_pause_has_strict_writes_and_exactly_the_two_declared_ranges() {
 }
 
 /// `unpause` shares the same `Pause` context, so it publishes the identical
-/// write set — and therefore the identical per-instruction commitment.
+/// write set, and therefore the identical per-instruction commitment.
 #[test]
 fn unpause_shares_the_pause_write_set_and_commitment() {
     let m = manifest();

@@ -1,22 +1,26 @@
-//! `grillo` — the separately runnable offline effect verifier, as a command.
+//! Command-line interface for the offline Grillo effect verifier.
 //!
-//! Everything is offline and reproducible: a manifest, an evidence
-//! bundle, byte arithmetic, a verdict. No RPC, no trust in the producer.
+//! Verification uses a manifest and caller-supplied evidence bundle without
+//! RPC access. Verdicts are reproducible from those inputs, but the command
+//! does not authenticate their producer or on-chain provenance.
 //!
 //! ```text
 //! grillo commit <hopper.manifest.json>
 //! grillo verify <hopper.manifest.json> <bundle.json>
+//! grillo authority-diff <old.manifest.json> <new.manifest.json> [--json] [--out <report.json>] [--approve <report.json>]
 //! ```
 //!
 //! Exit codes: 0 scoped PASS, 2 VIOLATION, 3 INCONCLUSIVE,
-//! 1 usage / malformed input.
+//! 1 usage / malformed input. `authority-diff` uses 0 NOT WIDENED,
+//! 2 WIDENED, 3 REVIEW, each after any `--approve` file is applied.
 
 use std::process::ExitCode;
 
+use grillo_verifier::authority::{AuthorityDiff, AuthorityReport, AuthorityVerdict};
 use grillo_verifier::{parse_bundle, verify_bundle, MutationManifest, Verdict};
 
 fn usage() {
-    eprintln!("grillo — offline byte-effect verifier for Hopper mutation contracts");
+    eprintln!("grillo: offline byte-effect verifier for Hopper mutation contracts");
     eprintln!();
     eprintln!("Usage:");
     eprintln!("  grillo commit <hopper.manifest.json>");
@@ -28,7 +32,83 @@ fn usage() {
     eprintln!("      touch-map blob, optional argument payload) against the");
     eprintln!("      published contract: changed ⊆ acquired ⊆ authorized.");
     eprintln!();
+    eprintln!("  grillo authority-diff <old.manifest.json> <new.manifest.json>");
+    eprintln!("               [--json] [--out <report.json>] [--approve <report.json>]");
+    eprintln!("      Upgrade review: report every instruction that gains authority");
+    eprintln!("      (dropped signer, new writable, wider byte ranges, removed PDA or");
+    eprintln!("      has_one binding, new CPI program, lamport permission). An");
+    eprintln!("      --approve file is a reviewed report for exactly this manifest pair.");
+    eprintln!();
     eprintln!("Exit codes: 0 PASS, 2 VIOLATION, 3 INCONCLUSIVE, 1 input error.");
+    eprintln!("authority-diff: 0 NOT WIDENED, 2 WIDENED, 3 REVIEW, 1 input error.");
+}
+
+fn authority_diff(args: &[String]) -> Result<ExitCode, String> {
+    let mut paths = Vec::new();
+    let mut json = false;
+    let mut out = None;
+    let mut approve = None;
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--json" => json = true,
+            "--out" | "--approve" => {
+                let flag = args[i].clone();
+                i += 1;
+                let value = args
+                    .get(i)
+                    .cloned()
+                    .ok_or_else(|| format!("{flag} requires a path"))?;
+                if flag == "--out" {
+                    out = Some(value);
+                } else {
+                    approve = Some(value);
+                }
+            }
+            other if other.starts_with("--") => return Err(format!("unknown flag `{other}`")),
+            other => paths.push(other.to_string()),
+        }
+        i += 1;
+    }
+    let [old_path, new_path] = paths.as_slice() else {
+        usage();
+        return Err("authority-diff takes an old and a new manifest path".to_string());
+    };
+    let report = AuthorityDiff::between_json(&read(old_path)?, &read(new_path)?)
+        .map_err(|e| format!("manifest rejected: {e}"))?;
+    if let Some(out) = &out {
+        std::fs::write(out, report.to_json()).map_err(|e| format!("write {out}: {e}"))?;
+    }
+    if json {
+        println!("{}", report.to_json());
+    } else {
+        print!("{}", report.render());
+    }
+
+    let verdict = report.verdict();
+    if verdict == AuthorityVerdict::NotWidened {
+        return Ok(ExitCode::SUCCESS);
+    }
+    let failing = ExitCode::from(if verdict == AuthorityVerdict::Widened {
+        2
+    } else {
+        3
+    });
+    let Some(approve) = approve else {
+        return Ok(failing);
+    };
+    let approval = AuthorityReport::from_json(&read(&approve)?)
+        .map_err(|e| format!("approval rejected: {e}"))?;
+    match report.check_approval(&approval) {
+        Ok(()) => {
+            eprintln!("approved: every widening is listed in {approve}");
+            Ok(ExitCode::SUCCESS)
+        }
+        Err(err) => {
+            eprintln!("not approved: {err}");
+            Ok(failing)
+        }
+    }
 }
 
 fn read(path: &str) -> Result<String, String> {
@@ -91,6 +171,7 @@ fn run() -> Result<ExitCode, String> {
                 Verdict::Inconclusive(_) => ExitCode::from(3),
             })
         }
+        "authority-diff" => authority_diff(&args[1..]),
         other => {
             usage();
             Err(format!("unknown command `{other}`"))

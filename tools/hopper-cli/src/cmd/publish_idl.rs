@@ -84,7 +84,7 @@
 //!
 //! Shipped: the correctness-critical instruction encoders + PDA/header core
 //! (unit-tested byte-for-byte), a `--dry-run` preview, and a **real signed
-//! on-chain send** — fresh canonical publish via a single inline `Initialize`
+//! on-chain send**: fresh canonical publish via a single inline `Initialize`
 //! for small IDLs, or `Allocate` + chunked `Write` + in-place `Initialize`
 //! for IDLs that exceed one transaction's data budget, plus an inline
 //! `--overwrite` (`SetData`) rewrite path. Rent pre-funding, "already
@@ -104,7 +104,7 @@ use sha2::{Digest, Sha256};
 // Protocol constants
 // ---------------------------------------------------------------------------
 
-/// SPL Program Metadata program id (base58).
+/// Program Metadata program id (base58).
 pub const METADATA_PROGRAM_ID_B58: &str = "ProgM6JCCvbYkfKqJYHePx4xxSUSqJp7rh8Lyv7nk7S";
 
 /// On-chain `Header` length. Payload begins immediately after.
@@ -1161,7 +1161,7 @@ fn run_publish_send(
 
     // Fail early on an under-funded payer rather than mid-sequence.
     //
-    // Reserve a base fee for EVERY transaction the chosen path submits —
+    // Reserve a base fee for every transaction the chosen path submits,
     // not just one. The buffered path sends Allocate + N Write +
     // Initialize (N+2 txs); reserving a single fee would let a payer pass
     // this guard and then run dry partway through the Write loop, leaving
@@ -1302,7 +1302,7 @@ fn run_publish_send(
 
     // Step 1: pre-fund to final size + Allocate the buffer header. If a
     // leftover buffer already exists at the PDA (a prior run died mid-write),
-    // top up its lamports and skip Allocate — the Writes below overwrite by
+    // top up its lamports and skip Allocate. The Writes below overwrite by
     // offset, so resuming is safe and idempotent.
     if is_leftover_buffer {
         if topup > 0 {

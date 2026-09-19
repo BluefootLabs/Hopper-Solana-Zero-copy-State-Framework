@@ -3,13 +3,14 @@
 //!
 //! Fetches a confirmed transaction from the cluster, enumerates every
 //! top-level instruction, and tries to decode each one against the
-//! target program's on-chain Hopper manifest. For every instruction we
-//! recognize, we print:
+//! target program's application-provisioned legacy Hopper manifest PDA. For
+//! every instruction we recognize, we print:
 //!
 //! - The target program id
 //! - The instruction discriminator byte
-//! - The matched Hopper instruction name (from the on-chain manifest)
-//! - The account slots the instruction touched
+//! - The matched Hopper instruction name (from the legacy manifest PDA or a
+//!   local manifest)
+//! - The account slots supplied to the instruction
 //!
 //! Unrecognized programs fall back to a terse line rather than masking
 //! the tx. The point is to make reading a transaction as high-signal as
@@ -66,9 +67,9 @@ pub fn cmd_tx_explain(args: &[String]) {
         print_usage();
         process::exit(1);
     });
-    // A `--manifest <file>` is an explicit decode source: it maps disc
-    // bytes to instruction names even when the program has not published
-    // its manifest on chain.
+    // A `--manifest <file>` is an explicit decode source: it maps discriminator
+    // bytes to instruction names when an application has not provisioned the
+    // legacy manifest PDA.
     let local_manifest = manifest_path.and_then(|p| match std::fs::read_to_string(&p) {
         Ok(s) => Some(s),
         Err(e) => {
@@ -90,17 +91,19 @@ pub fn cmd_tx_explain(args: &[String]) {
 }
 
 fn print_usage() {
-    eprintln!("Usage: hopper tx explain <signature> [--rpc <url>] [--tree] [--raw-logs]");
+    eprintln!(
+        "Usage: hopper tx explain <signature> [--rpc <url>] [--manifest <file>] [--tree] [--raw-logs]"
+    );
     eprintln!();
     eprintln!("Fetch a confirmed transaction by signature and decode every");
-    eprintln!("instruction against the target Hopper program's on-chain manifest.");
+    eprintln!("instruction against a legacy Hopper manifest PDA or local manifest.");
     eprintln!();
     eprintln!("Options:");
     eprintln!("  --rpc <url>        RPC endpoint (default from config / env)");
     eprintln!("  --manifest <file> Local manifest used to map disc bytes to instruction");
-    eprintln!("                    names when the program has no on-chain manifest");
+    eprintln!("                    names when no legacy manifest PDA is available");
     eprintln!("  --tree             Render the CPI call tree (per-frame CU + the touch");
-    eprintln!("                     maps each frame emitted) — the call graph annotated");
+    eprintln!("                     maps each frame emitted), the call graph annotated");
     eprintln!("                     with byte-level state effects");
     eprintln!("  --raw-logs         Print the full Program-log stream verbatim");
 }
@@ -301,7 +304,7 @@ fn run_explain(
     // Self-CPI events: scan the transaction's INNER instructions for
     // the reserved Hopper event marker. Events ride inner-instruction
     // metadata (which RPC nodes never truncate, unlike logs), so this
-    // is the indexer-grade read path — and with the program's manifest
+    // is the indexer-grade read path, and with the program's manifest
     // it renders named, field-decoded events, not hex.
     if let Some(meta) = meta {
         let events = extract_cpi_events(meta, &top_level);
@@ -375,7 +378,7 @@ fn run_explain(
 // `[0xE0, 0x1E, tag, payload]` (constants replicated from
 // `hopper-runtime/src/cpi_event.rs`, a lib this bin does not link).
 // The payload lands in `meta.innerInstructions`, so it survives log
-// truncation — this decoder is the same read an indexer performs.
+// truncation; this decoder is the same read an indexer performs.
 //
 // Authenticity is judged honestly: on-chain, the generated sink only
 // accepts marker instructions whose event-authority PDA signed, and a
@@ -464,7 +467,7 @@ fn render_event(ev: &ExtractedEvent, manifest_json: Option<&str>) -> Vec<String>
         );
     } else {
         out.push(
-            "marker-shaped CPI to a FOREIGN program — NOT a Hopper-authenticated event".to_string(),
+            "marker-shaped CPI to a FOREIGN program; NOT a Hopper-authenticated event".to_string(),
         );
     }
     let joined = manifest_json.and_then(|m| render_event_fields(m, ev.tag, &ev.payload));
@@ -484,7 +487,7 @@ fn render_event(ev: &ExtractedEvent, manifest_json: Option<&str>) -> Vec<String>
 
 /// Join an event tag + payload against the manifest's `events` table.
 /// Returns `None` when the manifest has no matching tag (callers fall
-/// back to hex) — and renders honestly when field spans exceed the
+/// back to hex), and renders honestly when field spans exceed the
 /// payload (a manifest/payload mismatch is reported, not padded over).
 fn render_event_fields(manifest_json: &str, tag: u8, payload: &[u8]) -> Option<Vec<String>> {
     let value: Value = serde_json::from_str(manifest_json).ok()?;
@@ -574,9 +577,9 @@ fn explain_partial(
     local_manifest: Option<&str>,
 ) {
     println!("  program   : {program_id}");
-    // Prefer the on-chain manifest; fall back to an operator-supplied
-    // `--manifest` file so decode still works for programs that have
-    // not published their manifest yet.
+    // Prefer the application-provisioned legacy manifest PDA; fall back to an
+    // operator-supplied `--manifest` file. Hopper ships no generic publisher
+    // for the legacy PDA.
     let manifest = manifest_cache
         .entry(program_id.to_string())
         .or_insert_with(|| {
@@ -698,14 +701,14 @@ struct ExtractedTouchMap {
     /// `Some(callee_program_id)` when the map was emitted while a CPI
     /// callee was executing (invoke depth > 1). Its record slots index
     /// the *callee's* account list, which the parsed transaction does
-    /// not expose — so such maps must be rendered raw, never
+    /// not expose; so such maps must be rendered raw, never
     /// field-joined against the top-level instruction.
     cpi_program: Option<String>,
 }
 
 /// A runtime-generated structural log line. These are emitted by the
 /// runtime itself and are NOT prefixed with `Program log:` /
-/// `Program data:`, so a program cannot forge one via `msg!` — anything
+/// `Program data:`, so a program cannot forge one via `msg!`, anything
 /// a program logs arrives behind a `log:` / `data:` token, which fails
 /// the base58 program-id check below.
 enum StructuralLine<'a> {
@@ -721,7 +724,7 @@ fn is_base58_byte(b: u8) -> bool {
 }
 
 /// Parse a log line as a structural invoke/exit marker. Returns `None`
-/// for everything else — in particular for `Program log:` /
+/// for everything else, in particular for `Program log:` /
 /// `Program data:` lines, whose second token (`log:`, `data:`) is not
 /// base58, so spoofed text like `msg!("Program X invoke [1]")` can
 /// never advance instruction or depth state.
@@ -752,7 +755,7 @@ fn parse_structural_line(line: &str) -> Option<StructuralLine<'_>> {
 /// structural lines (`Program <id> invoke [n]` / `success` / `failed`);
 /// program-emitted `Program log:` / `Program data:` text cannot shift
 /// attribution. A map emitted at invoke depth > 1 is tagged with the
-/// callee's program id so the renderer can refuse field joins — its
+/// callee's program id so the renderer can refuse field joins, its
 /// slots are callee-relative and the callee's account list is unknown.
 fn extract_touch_maps(log_lines: &[&str]) -> Vec<ExtractedTouchMap> {
     let mut out = Vec::new();
@@ -811,13 +814,13 @@ fn extract_touch_maps(log_lines: &[&str]) -> Vec<ExtractedTouchMap> {
 // ---------------------------------------------------------------------------
 //
 // LiteSVM 0.14's `litesvm-cpi-tree` reconstructs the invocation chain
-// from a transaction's flat log stream — which program called which, at
+// from a transaction's flat log stream; which program called which, at
 // what depth, and where each frame succeeded or failed. Hopper renders
 // the same tree from the same runtime-structural lines, and then does
 // the thing only a byte-range framework can: it hangs each frame's
 // decoded touch-map records (its declared state effects) off that node.
 // The result is not just "who called whom" but "who called whom, and
-// exactly which bytes each frame wrote" — the call graph annotated with
+// exactly which bytes each frame wrote", the call graph annotated with
 // the self-describing state effects, read straight from a confirmed
 // transaction with no extra dependency.
 //
@@ -832,7 +835,7 @@ fn extract_touch_maps(log_lines: &[&str]) -> Vec<ExtractedTouchMap> {
 #[derive(Debug, PartialEq, Eq)]
 enum FrameOutcome {
     Success,
-    /// `failed: <reason>` — the runtime's failure text.
+    /// `failed: <reason>`, the runtime's failure text.
     Failed(String),
     /// The stream ended (or was truncated) before this frame closed.
     Unterminated,
@@ -1024,7 +1027,7 @@ fn render_cpi_tree(roots: &[CpiTreeNode]) -> Vec<String> {
 /// Join a touched byte range against a manifest's layout field maps.
 /// Returns `Layout.field`-style names for every field any layout
 /// declares that overlaps `[offset, offset + size)`. Multiple layouts
-/// can match — the manifest does not say which layout a given account
+/// can match, the manifest does not say which layout a given account
 /// slot holds, so ambiguity is reported, not hidden.
 fn field_matches(manifest_json: &str, offset: u32, size: u32) -> Vec<String> {
     let mut out = Vec::new();
@@ -1108,7 +1111,7 @@ fn render_touch_map(
 /// - Emitted at invoke depth 1 (the top-level program itself): field-join
 ///   against the top-level instruction's account list and manifest.
 /// - Emitted by a CPI callee (depth > 1): the record slots index the
-///   *callee's* account list, which we do not have — so render raw
+///   *callee's* account list, which we do not have; so render raw
 ///   slot/range/R-W data only, with an explicit provenance note, and
 ///   never join pubkeys or manifest field names.
 fn render_touch_map_entry(
@@ -1556,7 +1559,7 @@ mod touch_map_tests {
     #[test]
     fn cpi_tree_captures_the_failure_reason_on_the_refused_frame() {
         // The exact shape of the live Sentinel refusal. (The fake id must
-        // be base58-clean — lowercase `l` is not in the alphabet, which
+        // be base58-clean, lowercase `l` is not in the alphabet, which
         // the structural-line guard rightly enforces.)
         let logs = vec![
             "Program SentineL1111 invoke [1]",

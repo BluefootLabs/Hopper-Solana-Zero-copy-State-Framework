@@ -1,8 +1,9 @@
 //! Offline evidence bundles: the `grillo` CLI's input format.
 //!
-//! A bundle carries everything an INDEPENDENT party needs to reproduce a
-//! byte-precise verdict for one instruction invocation, with no RPC and no
-//! trust in the producer beyond the evidence itself:
+//! A bundle carries caller-supplied inputs for reproducing a byte-precise
+//! verdict over one instruction's declared observation scope without RPC.
+//! The format does not authenticate the producer, transaction, deployment, or
+//! completeness of the account set:
 //!
 //! ```json
 //! {
@@ -22,7 +23,7 @@
 //! - `touchMap` is the program's emitted touch-map wire blob (`hopper tx
 //!   explain` prints it; test harnesses capture it from `Program data:`).
 //! - `accounts` carries pre/post data snapshots by positional index.
-//!   Lamport balances are attached as a PAIR or not at all — an omitted
+//!   Lamport balances are attached as a pair or not at all. An omitted
 //!   pair means "lamports unobserved", never "observed 0 -> 0".
 //!
 //! All byte blobs are lowercase/uppercase hex; hex keeps the format
@@ -69,7 +70,7 @@ pub struct EvidenceBundle {
     pub accounts: Vec<BundleAccount>,
 }
 
-/// Why a bundle could not be verified (distinct from a byte verdict —
+/// Why a bundle could not be verified (distinct from a byte verdict,
 /// a malformed bundle is never a PASS and never a VIOLATION).
 #[derive(Debug)]
 pub enum BundleError {

@@ -2,8 +2,10 @@
 
 use solana_transaction::Transaction;
 
-/// Legacy and v0 envelopes remain capped at 1,232 bytes. The planned 4,096
-/// byte ceiling belongs only to the new v1 format.
+/// Legacy and v0 envelopes remain capped at 1,232 bytes. The 4,096-byte
+/// ceiling belongs only to the v1 format (SIMD-0385), whose feature gate
+/// activated on mainnet-beta at slot 447,120,000 on 2026-09-15. This CLI
+/// still builds legacy envelopes, so the legacy cap is the one it enforces.
 pub const LEGACY_V0_MAX_BYTES: usize = 1_232;
 
 pub fn ensure_legacy_transaction_size(
@@ -24,8 +26,8 @@ fn validate_legacy_transaction_size(bytes: usize, operation: &str) -> Result<(),
     Err(format!(
         "{operation} builds a {bytes}-byte legacy transaction, exceeding the 1,232-byte \
          legacy/v0 network limit. Split the operation or reduce accounts/data. The 4,096-byte \
-         ceiling requires transaction v1, which is not finalized or active and is not emitted \
-         by this Hopper CLI yet"
+         ceiling applies only to transaction v1 envelopes, which this Hopper CLI does not emit \
+         yet"
     ))
 }
 
@@ -39,10 +41,10 @@ mod tests {
     }
 
     #[test]
-    fn oversize_error_does_not_imply_v1_is_live() {
+    fn oversize_error_names_the_envelope_this_cli_emits() {
         let error = validate_legacy_transaction_size(1_233, "invoke").unwrap_err();
         assert!(error.contains("1,232-byte"));
         assert!(error.contains("transaction v1"));
-        assert!(error.contains("not finalized or active"));
+        assert!(error.contains("does not emit"));
     }
 }

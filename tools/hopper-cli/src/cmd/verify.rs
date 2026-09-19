@@ -96,7 +96,7 @@ pub fn cmd_verify(args: &[String]) {
     // program's emitted touch map (acquired) is verified against the
     // manifest's published write ranges (authorized) and the observed
     // byte diff (changed), independently, per `changed ⊆ acquired ⊆
-    // authorized`. Any bundle that violates fails the command — the gate
+    // authorized`. Any bundle that violates fails the command, the gate
     // goes red the moment a handler writes outside its declared set.
     if let Some(effects_path) = &opts.effects {
         println!();
@@ -113,7 +113,7 @@ pub fn cmd_verify(args: &[String]) {
         }
         if opts.allow_inconclusive {
             // With the waiver active, an INCONCLUSIVE bundle contributes no
-            // failure but was never byte-checked — the success line must
+            // failure but was never byte-checked, the success line must
             // claim only what was verified.
             println!(
                 "  OK: no violations; every VERIFIED bundle's writes are within its declared \
@@ -122,6 +122,20 @@ pub fn cmd_verify(args: &[String]) {
         } else {
             println!("  OK: every bundle's actual writes are within its declared authorization.");
         }
+    }
+
+    // ── Stage 1.75: authority gate (opt-in via --authority-baseline) ──
+    //
+    // Upgrade review: diff the released baseline manifest against this one
+    // and fail when any instruction gains authority (a dropped signer, a new
+    // writable account, wider byte ranges, a removed PDA or has_one binding,
+    // a new CPI program, a lamport permission). Compatibility checkers treat
+    // most of these as safe additive changes; this gate treats them as
+    // changes someone has to sign off on.
+    if let Some(baseline_path) = &opts.authority_baseline {
+        println!();
+        println!("Authority gate: baseline {baseline_path}");
+        run_authority_gate(&opts, baseline_path, &manifest_json);
     }
 
     // ── Stage 2: binary verification ──
@@ -241,6 +255,123 @@ pub fn cmd_verify(args: &[String]) {
     }
 }
 
+/// Exit code for an unapproved authority widening.
+const EXIT_AUTHORITY_WIDENED: i32 = 2;
+/// Exit code for an unapproved change that needs review.
+const EXIT_AUTHORITY_REVIEW: i32 = 3;
+
+fn run_authority_gate(opts: &VerifyOptions, baseline_path: &str, manifest_json: &str) {
+    use grillo_verifier::authority::{
+        ApprovalError, AuthorityDiff, AuthorityReport, AuthorityVerdict,
+    };
+
+    let baseline_json = fs::read_to_string(baseline_path).unwrap_or_else(|err| {
+        eprintln!("hopper verify: failed to read authority baseline: {err}");
+        process::exit(1);
+    });
+
+    match &opts.baseline_so {
+        Some(so) => {
+            let owned = crate::parse_program_manifest_json(&baseline_json).unwrap_or_else(|err| {
+                eprintln!("hopper verify: cannot parse baseline manifest: {err}");
+                process::exit(1);
+            });
+            let expected = interface_commitment(&crate::to_program_manifest(&owned));
+            let binary = fs::read(so).unwrap_or_else(|err| {
+                eprintln!("hopper verify: failed to read baseline binary: {err}");
+                process::exit(1);
+            });
+            if !has_elf_magic(&binary) {
+                eprintln!("hopper verify: baseline {so} is not an ELF binary");
+                process::exit(1);
+            }
+            match verify_release_binding(&binary, expected) {
+                Ok(binding) => println!(
+                    "  baseline bound: {} matches the commitment at 0x{:06x} in {so}",
+                    hex_bytes(&expected),
+                    binding.offset
+                ),
+                Err(err) => {
+                    eprintln!("  FAIL: baseline manifest is not the one released in {so}: {err}");
+                    process::exit(1);
+                }
+            }
+        }
+        None if opts.release => {
+            eprintln!(
+                "  FAIL: --release with --authority-baseline also requires --baseline-so, so the \
+                 baseline is the manifest actually committed in the released ELF"
+            );
+            process::exit(1);
+        }
+        None => println!("  baseline bound: no (pass --baseline-so to bind it to its ELF)"),
+    }
+
+    let report = AuthorityDiff::between_json(&baseline_json, manifest_json).unwrap_or_else(|err| {
+        eprintln!("hopper verify: authority diff refused its inputs: {err}");
+        process::exit(1);
+    });
+    for line in report.render().lines() {
+        println!("  {line}");
+    }
+    if let Some(out) = &opts.authority_report {
+        fs::write(out, report.to_json()).unwrap_or_else(|err| {
+            eprintln!("hopper verify: failed to write authority report {out}: {err}");
+            process::exit(1);
+        });
+        println!("  report written: {out}");
+    }
+
+    let verdict = report.verdict();
+    if verdict == AuthorityVerdict::NotWidened {
+        println!("  OK: no instruction gained authority.");
+        return;
+    }
+    let exit_code = if verdict == AuthorityVerdict::Widened {
+        EXIT_AUTHORITY_WIDENED
+    } else {
+        EXIT_AUTHORITY_REVIEW
+    };
+    let Some(approval_path) = &opts.authority_approval else {
+        eprintln!(
+            "  FAIL: authority {}. Review the findings above, then pass the reviewed \
+             --authority-report output as --authority-approval.",
+            verdict.label().to_lowercase()
+        );
+        process::exit(exit_code);
+    };
+    let approval = fs::read_to_string(approval_path)
+        .map_err(|err| err.to_string())
+        .and_then(|json| AuthorityReport::from_json(&json).map_err(|err| err.to_string()))
+        .unwrap_or_else(|err| {
+            eprintln!("hopper verify: cannot read authority approval {approval_path}: {err}");
+            process::exit(1);
+        });
+    match report.check_approval(&approval) {
+        Ok(()) => println!("  OK: every widening is covered by approval {approval_path}."),
+        Err(ApprovalError::Unapproved(findings)) => {
+            eprintln!(
+                "  FAIL: {} change(s) are not in the approval:",
+                findings.len()
+            );
+            for f in &findings {
+                eprintln!(
+                    "    {} {} {} {}",
+                    f.impact.label(),
+                    f.instruction,
+                    f.code,
+                    f.detail
+                );
+            }
+            process::exit(exit_code);
+        }
+        Err(err) => {
+            eprintln!("  FAIL: {err}");
+            process::exit(exit_code);
+        }
+    }
+}
+
 fn run_manifest_integrity(layouts: &[ManifestLayout]) -> u32 {
     let mut failures = 0u32;
     let mut seen_ids: Vec<(&[u8; 8], &str)> = Vec::new();
@@ -298,6 +429,19 @@ struct VerifyOptions {
     /// fatal in the effect gate, since a corpus that cannot be verified is not
     /// a corpus that verified).
     allow_inconclusive: bool,
+    /// Authority gate: a previously released manifest to diff against. The
+    /// gate fails when the current manifest grants any instruction more
+    /// authority than this baseline did.
+    authority_baseline: Option<String>,
+    /// The baseline release's `.so`. When present, the baseline manifest must
+    /// match the interface commitment embedded in that ELF. Required under
+    /// `--release`, so neither side of the diff is an unbound declaration.
+    baseline_so: Option<String>,
+    /// A reviewed authority report (`--authority-report` output) that
+    /// approves the listed widenings for exactly this manifest pair.
+    authority_approval: Option<String>,
+    /// Write the authority report JSON here.
+    authority_report: Option<String>,
 }
 
 impl VerifyOptions {
@@ -325,6 +469,10 @@ fn parse_verify_options(args: &[String]) -> Result<VerifyOptions, String> {
     let mut release = false;
     let mut effects = None;
     let mut allow_inconclusive = false;
+    let mut authority_baseline = None;
+    let mut baseline_so = None;
+    let mut authority_approval = None;
+    let mut authority_report = None;
     let mut positional_taken = false;
     let mut i = 0;
     while i < args.len() {
@@ -366,6 +514,24 @@ fn parse_verify_options(args: &[String]) -> Result<VerifyOptions, String> {
                 allow_inconclusive = true;
                 i += 1;
             }
+            "--authority-baseline"
+            | "--baseline-so"
+            | "--authority-approval"
+            | "--authority-report" => {
+                let flag = arg.clone();
+                i += 1;
+                if i >= args.len() {
+                    return Err(format!("{flag} requires a path"));
+                }
+                let value = Some(args[i].clone());
+                match flag.as_str() {
+                    "--authority-baseline" => authority_baseline = value,
+                    "--baseline-so" => baseline_so = value,
+                    "--authority-approval" => authority_approval = value,
+                    _ => authority_report = value,
+                }
+                i += 1;
+            }
             "--strict" => {
                 strict = true;
                 i += 1;
@@ -402,6 +568,10 @@ fn parse_verify_options(args: &[String]) -> Result<VerifyOptions, String> {
         release,
         effects,
         allow_inconclusive,
+        authority_baseline,
+        baseline_so,
+        authority_approval,
+        authority_report,
     })
 }
 
@@ -423,7 +593,7 @@ fn run_effect_gate(manifest_json: &str, path: &str, allow_inconclusive: bool) ->
 
     // Collect the bundle files: one path, or every *.json in a directory
     // (sorted for deterministic output). Fail-closed throughout: an entry
-    // the directory scan cannot read counts as a failure — a bundle that
+    // the directory scan cannot read counts as a failure, a bundle that
     // may exist but could not be enumerated is a bundle that did not
     // verify. The extension match is ASCII-case-insensitive so a
     // `REGRESSION.JSON` dropped in by a Windows tool is verified, not
@@ -622,6 +792,15 @@ fn print_verify_usage() {
     eprintln!("                      (changed \u{2286} acquired \u{2286} authorized). Any violation fails.");
     eprintln!("  --allow-inconclusive  Treat a Grillo INCONCLUSIVE bundle as a pass in the");
     eprintln!("                      effect gate (default: inconclusive is fatal)");
+    eprintln!("  --authority-baseline <path>");
+    eprintln!("                      Authority gate: diff a released manifest against this");
+    eprintln!("                      one. Exit 2 when an instruction gains authority, 3 when");
+    eprintln!("                      a change needs review (seed swap, new CPI program)");
+    eprintln!("  --baseline-so <path> Bind the baseline to its released ELF commitment");
+    eprintln!("                      (required with --release)");
+    eprintln!("  --authority-report <path>    Write the authority report JSON");
+    eprintln!("  --authority-approval <path>  A reviewed report that approves its listed");
+    eprintln!("                      changes for exactly this manifest pair");
     eprintln!();
     eprintln!("Examples:");
     eprintln!("  hopper verify examples/hopper-token-2022-vault/hopper.manifest.json \\");
@@ -629,6 +808,9 @@ fn print_verify_usage() {
     eprintln!("  hopper verify --package hopper-token-2022-vault");
     eprintln!("  hopper verify @hopper.manifest.json --so target/deploy/program.so");
     eprintln!("  hopper verify --manifest hopper.manifest.json --effects tests/bundles/");
+    eprintln!("  hopper verify --release hopper.manifest.json target/deploy/program.so \\");
+    eprintln!("                --authority-baseline release/v1/hopper.manifest.json \\");
+    eprintln!("                --baseline-so release/v1/program.so");
 }
 
 struct ManifestLayout {
@@ -972,6 +1154,35 @@ mod tests {
         assert!(opts.so_input(Path::new(".")).is_err());
     }
 
+    #[test]
+    fn authority_gate_flags_parse_without_consuming_positionals() {
+        let args: Vec<String> = [
+            "new.json",
+            "--authority-baseline",
+            "old.json",
+            "--baseline-so",
+            "old.so",
+            "--authority-report",
+            "report.json",
+            "--authority-approval",
+            "approved.json",
+            "new.so",
+        ]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+        let opts = parse_verify_options(&args).unwrap();
+        assert_eq!(opts.manifest.as_deref(), Some("new.json"));
+        assert_eq!(opts.so.as_deref(), Some("new.so"));
+        assert_eq!(opts.authority_baseline.as_deref(), Some("old.json"));
+        assert_eq!(opts.baseline_so.as_deref(), Some("old.so"));
+        assert_eq!(opts.authority_report.as_deref(), Some("report.json"));
+        assert_eq!(opts.authority_approval.as_deref(), Some("approved.json"));
+
+        let missing = vec!["--authority-baseline".to_string()];
+        assert!(parse_verify_options(&missing).is_err());
+    }
+
     fn test_binding_record(commitment: [u8; 32]) -> [u8; RELEASE_BINDING_RECORD_LEN] {
         let mut record = [0u8; RELEASE_BINDING_RECORD_LEN];
         record[..RELEASE_BINDING_MAGIC.len()].copy_from_slice(&RELEASE_BINDING_MAGIC);
@@ -1135,7 +1346,7 @@ mod tests {
     #[test]
     fn effect_gate_collects_uppercase_json_bundles() {
         // A violating bundle named `.JSON` (the Windows-capture shape) must
-        // be collected and verified — silent case-sensitive exclusion would
+        // be collected and verified, silent case-sensitive exclusion would
         // let the release gate go green around it.
         let dir = write_bundle_dir(
             "case",

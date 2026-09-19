@@ -1,26 +1,21 @@
-//! # GRILLO — manifest layer
+//! # Grillo manifest layer
 //!
-//! GRILLO is the ecosystem layer over Hopper's byte-range primitive.
-//! Solana's own idl-spec covers instructions / accounts / types / events /
-//! errors and STOPS SHORT of byte layouts. Grillo supplies the missing
-//! **byte-level mutation contract**: for each instruction, exactly which
-//! byte ranges of which accounts it is authorized to write, and — when the
-//! program opted into the lamport dimension — which accounts may have their
-//! lamports moved.
+//! Grillo parses Hopper's byte-level mutation contracts. Each instruction can
+//! declare authorized data ranges and, when enabled, lamport permissions.
 //!
-//! This crate is the *parser + commitment* half. It reads the REAL
+//! This crate is the parser and commitment half. It reads the
 //! `hopper.manifest.json` emitted by `hopper compile --emit manifest`
 //! (renderer: `hopper_schema::codama::ManifestJson`) into a
 //! [`MutationManifest`] and can [commit](MutationManifest::commitment) to
-//! that contract with a stable `SHA-256`. The separately runnable *verifier* half —
-//! which checks a transaction's actual byte changes against this contract —
-//! lives in the sibling `grillo-verifier` crate.
+//! that contract with a stable `SHA-256`. The separately runnable verifier
+//! checks caller-supplied account snapshots and touch evidence against this
+//! contract. Neither crate authenticates or completes the supplied evidence.
 //!
-//! The core invariant Grillo makes checkable, honest by construction:
+//! Within the supplied evidence scope, Grillo checks:
 //!
-//! > **changed ⊆ acquired ⊆ authorized**
+//! > **changed subset acquired subset authorized**
 //!
-//! where acquired-but-unchanged is LEGAL (access is not modification). This
+//! where acquired-but-unchanged is legal because access is not modification. This
 //! crate supplies the `authorized` set; `grillo-verifier` supplies `acquired`
 //! (from the touch map) and `changed` (from pre/post byte snapshots).
 //!
@@ -48,6 +43,7 @@
 //! let _commitment: [u8; 32] = m.commitment();
 //! ```
 
+pub mod authority;
 mod commitment;
 mod effect_v2;
 mod manifest;

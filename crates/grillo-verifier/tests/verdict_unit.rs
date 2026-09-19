@@ -90,7 +90,7 @@ fn pass_when_changed_within_acquired_within_authorized() {
 
 #[test]
 fn acquired_but_unchanged_is_a_pass_note_not_a_violation() {
-    // The instruction acquired a WRITE lease on [0..8) but changed nothing —
+    // The instruction acquired a WRITE lease on [0..8) but changed nothing,
     // access is not modification.
     let c = contract(true, false, vec![rng(1, 0, 8)], vec![]);
     let pre = vec![7u8; 8];
@@ -136,7 +136,7 @@ fn whole_account_authorized_range_covers_any_write_without_overflow() {
 #[test]
 fn untracked_write_when_a_changed_byte_is_not_acquired() {
     // The touch map omits the revision write, but revision's low byte
-    // changed — the changed byte at 115 is covered by no WRITE record.
+    // changed, the changed byte at 115 is covered by no WRITE record.
     let c = contract(true, false, vec![rng(1, 114, 1), rng(1, 115, 8)], vec![]);
     let pre = vec![0u8; 200];
     let mut post = pre.clone();
@@ -188,7 +188,7 @@ fn unauthorized_acquisition_when_a_write_record_escapes_the_authorized_set() {
 #[test]
 fn a_write_spanning_two_adjacent_authorized_ranges_is_authorized() {
     // authorized = {(114,1),(115,8)}; a single write record (114, 9) covers
-    // exactly their union — set-containment, so no violation.
+    // exactly their union, set-containment, so no violation.
     let c = contract(true, false, vec![rng(1, 114, 1), rng(1, 115, 8)], vec![]);
     let pre = vec![0u8; 200];
     let mut post = pre.clone();
@@ -205,7 +205,7 @@ fn a_write_spanning_two_adjacent_authorized_ranges_is_authorized() {
 #[test]
 fn unauthorized_lamport_delta_on_a_mutation_complete_contract() {
     // config(0) declares revision; fee_sink(1) is a lamport target;
-    // treasury(2) is neither — a lamport drain on it is a violation.
+    // treasury(2) is neither, a lamport drain on it is a violation.
     let c = contract(true, true, vec![rng(0, 115, 8)], vec![1]);
     let pre_cfg = vec![0u8; 160];
     let mut post_cfg = pre_cfg.clone();
@@ -280,7 +280,7 @@ fn no_byte_contract_is_inconclusive() {
 fn a_partial_map_is_inconclusive_never_a_false_pass() {
     // The map claims a forged out-of-contract write AND is flagged partial.
     // Partiality wins: byte attribution is impossible, so the verdict must
-    // be INCONCLUSIVE_PARTIAL_MAP — not a VIOLATION and never a PASS.
+    // be INCONCLUSIVE_PARTIAL_MAP; not a VIOLATION and never a PASS.
     let c = contract(true, false, vec![rng(1, 114, 1)], vec![]);
     let pre = vec![0u8; 200];
     let mut post = pre.clone();

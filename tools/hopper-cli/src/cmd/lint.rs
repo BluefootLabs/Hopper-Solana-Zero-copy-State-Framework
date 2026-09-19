@@ -99,7 +99,7 @@ pub fn cmd_lint(args: &[String]) {
     };
 
     // Policy-escape audit: every ledger-bypassing accessor in program
-    // source is surfaced — Warn by default (systems mode is legal),
+    // source is surfaced, Warn by default (systems mode is legal),
     // Error under --deny-escapes (CI: the safe path is provably the
     // only path taken).
     report
@@ -229,8 +229,8 @@ fn cmd_lint_zc(args: &[String]) {
 /// `AccountView` entry point that reaches account bytes WITHOUT the
 /// account borrow byte, the segment borrow ledger, the touch log, or
 /// the `strict_writes` gate seeing it. Each is a deliberate,
-/// documented systems-mode escape hatch — `unsafe fn` (or raw-pointer
-/// returning) by construction — and each is what makes the honest
+/// documented systems-mode escape hatch, `unsafe fn` (or raw-pointer
+/// returning) by construction, and each is what makes the honest
 /// claim precise: Hopper's safe path is MEDIATED, and the bypasses are
 /// grep-able and CI-deniable, where a competitor's DEFAULT path is the
 /// unmediated one.
@@ -238,7 +238,7 @@ fn cmd_lint_zc(args: &[String]) {
 /// Method-call syntax (leading `.`) keeps definitions and doc comments
 /// out of scope. The unsafe raw `owner()` getter is deliberately NOT
 /// listed: its name collides with the safe `owner()` getters used
-/// everywhere, and it grants read-only access — not a write-path
+/// everywhere, and it grants read-only access; not a write-path
 /// escape.
 const ESCAPE_PATTERNS: &[(&str, &str)] = &[
     (
@@ -293,7 +293,7 @@ const ESCAPE_PATTERNS: &[(&str, &str)] = &[
 /// calls (see [`ESCAPE_PATTERNS`]). Comment lines are skipped; every
 /// hit names the pattern, the reason it is an escape, and the mediated
 /// alternative. `deny` promotes the findings to [`Level::Error`] so a
-/// CI invocation (`hopper lint --deny-escapes`) fails the build —
+/// CI invocation (`hopper lint --deny-escapes`) fails the build,
 /// making "every write in this program routes through the governed
 /// surface" a machine-checked property instead of a code-review hope.
 fn scan_policy_escapes(project: &Path, deny: bool) -> Vec<Diagnostic> {
@@ -322,7 +322,7 @@ fn scan_policy_escapes(project: &Path, deny: bool) -> Vec<Diagnostic> {
                         message: format!(
                             "policy escape `{}`: {why}. Route through Context \
                              (`segment_mut`, typed accessors, `load_mut`) so the borrow \
-                             ledger, touch map, and strict_writes gate govern the access — \
+                             ledger, touch map, and strict_writes gate govern the access, \
                              or keep it deliberately and drop `--deny-escapes`.",
                             pattern.trim_end_matches('(')
                         ),

@@ -1,20 +1,22 @@
 [package]
 name = "grillo-verifier"
 version = "0.1.0"
+publish = ["crates-io"]
 edition = "2021"
 license = "MIT OR Apache-2.0"
+authors = ["QuarksBlueFoot <quark@bluefoot.tech>"]
 repository = "https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework"
 homepage = "https://hopperzero.dev"
 documentation = "https://docs.rs/grillo-verifier"
 readme = "README.md"
 keywords = ["solana", "verification", "mutation", "effects", "audit"]
 categories = ["cryptography::cryptocurrencies", "command-line-utilities"]
-description = "GRILLO: an INDEPENDENT verifier that checks a transaction's actual byte changes against a Hopper program's published mutation contract — changed ⊆ acquired ⊆ authorized."
+description = "Offline verifier for caller-supplied byte and lamport snapshots against Grillo mutation contracts."
 
 [dependencies]
 # The parsed mutation contract (the `authorized` set) comes from here. The
 # verifier CORE stays pure byte/interval arithmetic over the touch map
-# (`acquired`) and pre/post snapshots (`changed`) — an embedder (indexer,
+# (`acquired`) and pre/post snapshots (`changed`). An embedder (indexer,
 # security desk) links it with zero extra deps.
 grillo-manifest = { path = "../grillo-manifest", version = "0.1.0" }
 # JSON evidence-bundle parsing lives ONLY behind the `cli` feature (the

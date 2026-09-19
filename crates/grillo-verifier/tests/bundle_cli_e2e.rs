@@ -1,5 +1,5 @@
 //! The `grillo verify` bundle path, driven against the REAL emitted
-//! hopper-cicada manifest — the same fixture the parametric round-trip
+//! hopper-cicada manifest, the same fixture the parametric round-trip
 //! test parses. Proves the offline evidence-bundle format an independent
 //! party would hand the `grillo` CLI decodes to the same byte verdicts as
 //! the in-process verifier API: PASS, both violation classes, and the
@@ -110,7 +110,7 @@ fn an_immutable_user_column_write_bundle_is_a_violation() {
     let pre = vec![0u8; SHARD_LEN];
     let mut post = pre.clone();
     for byte in post.iter_mut().take(208).skip(176) {
-        *byte = 1; // owners slot-3 cell — execute has no authority there
+        *byte = 1; // owners slot-3 cell, execute has no authority there
     }
     let json = bundle_json(3, &pre, &post, &[(176, 32)]);
     let bundle = parse_bundle(&json).expect("parses");
