@@ -10,11 +10,12 @@ permissions:
 
 jobs:
   sbf:
-    name: Pinned SBF compatibility (Agave v2.3.13)
+    name: Agave 2.3.13 compile compatibility + Cicada SBF harness
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     env:
       AGAVE_VERSION: v2.3.13
+      AGAVE_ARCHIVE_SHA256: c43539ebdf6942472e8b87635d6ea55f428a51e3d0219f7b6f720fc6b19fade0
       HOPPER_COUNTER_MAX_BYTES: 16384
       SBF_RELEASE_DIR: target/hopper/release/agave-v2.3.13
     steps:
@@ -24,15 +25,45 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@01ba1edad32c6f80dbcce879d3e0fa5a00b2a84e
         with:
-          toolchain: stable
-      - name: Install Agave SBF tools
-        run: sh -c "$(curl -sSfL https://release.anza.xyz/${AGAVE_VERSION}/install)"
-      - name: Add Agave tools to PATH
-        run: echo "$HOME/.local/share/solana/install/active_release/bin" >> "$GITHUB_PATH"
+          toolchain: 1.96.0
+      - name: Require a clean source checkout
+        run: test -z "$(git status --porcelain --untracked-files=all)"
+      - name: Install Agave from a pinned official release archive
+        run: |
+          set -euo pipefail
+          archive="${RUNNER_TEMP}/agave-${AGAVE_VERSION}.tar.bz2"
+          install_dir="${RUNNER_TEMP}/agave-${AGAVE_VERSION}"
+          archive_url="https://github.com/anza-xyz/agave/releases/download/${AGAVE_VERSION}/solana-release-x86_64-unknown-linux-gnu.tar.bz2"
+          curl --proto '=https' --tlsv1.2 --fail --location --silent --show-error \
+            "${archive_url}" \
+            --output "${archive}"
+          test -s "${archive}"
+          printf '%s  %s\n' "${AGAVE_ARCHIVE_SHA256}" "${archive}" | sha256sum --check --strict
+          actual_sha=$(sha256sum "${archive}" | cut -d ' ' -f 1)
+          mkdir "${install_dir}"
+          tar -xjf "${archive}" -C "${install_dir}"
+          agave_bin="${install_dir}/solana-release/bin"
+          test -x "${agave_bin}/solana"
+          test -x "${agave_bin}/cargo-build-sbf"
+          {
+            printf 'schema=hopper.agave-archive-provenance.v1\n'
+            printf 'url=%s\n' "${archive_url}"
+            printf 'expectedSha256Source=https://github.com/anza-xyz/agave/releases/expanded_assets/%s\n' "${AGAVE_VERSION}"
+            printf 'expectedSha256=%s\n' "${AGAVE_ARCHIVE_SHA256}"
+            printf 'actualSha256=%s\n' "${actual_sha}"
+            printf 'sha256Verified=true\n'
+            printf 'integrityMode=pinned-official-release-asset\n'
+          } > "${RUNNER_TEMP}/agave-archive.provenance"
+          printf '%s\n' "${agave_bin}" >> "${GITHUB_PATH}"
       - name: Toolchain versions
         run: |
-          solana --version
-          cargo build-sbf --version
+          solana_version=$(solana --version)
+          builder_version=$(cargo build-sbf --version | sed -n '1p')
+          rust_version=$(rustc --version)
+          printf '%s\n%s\n%s\n' "$solana_version" "$builder_version" "$rust_version"
+          case "$solana_version" in *"solana-cli 2.3.13"*) ;; *) exit 1 ;; esac
+          test "$builder_version" = "cargo-build-sbf 2.3.13"
+          case "$rust_version" in "rustc 1.96.0 "*) ;; *) exit 1 ;; esac
       - name: Build tiny counter and enforce size budget
         run: |
           cargo build-sbf \
@@ -76,17 +107,20 @@ jobs:
           cargo build-sbf \
             --manifest-path examples/hopper-orderbook/Cargo.toml \
             -- --locked
-      - name: Mark release-candidate build start
+      - name: Install Hopper CLI
+        run: cargo install --path tools/hopper-cli --locked
+      - name: Build, verify, and attest isolated Cicada SBF
         run: |
           test ! -e "${SBF_RELEASE_DIR}"
           mkdir -p "${SBF_RELEASE_DIR}"
-          printf '%s\n' '{"schema":"hopper.sbf-build-marker.v1","binary":"target/hopper/release/agave-v2.3.13/sbf/hopper_cicada.so","outputDirectory":"target/hopper/release/agave-v2.3.13/sbf","binaryAbsent":true,"outputDirectoryAbsent":true}' > "${SBF_RELEASE_DIR}/build.started"
-      - name: Build Cicada SBF
-        run: |
-          cargo build-sbf \
-            --manifest-path examples/hopper-cicada/Cargo.toml \
-            --sbf-out-dir "${SBF_RELEASE_DIR}/sbf" \
-            -- --locked
+          python3 scripts/attest-sbf-release.py \
+            --package hopper-cicada \
+            --program-manifest examples/hopper-cicada/Cargo.toml \
+            --manifest "${SBF_RELEASE_DIR}/hopper-cicada.manifest.json" \
+            --binary "${SBF_RELEASE_DIR}/sbf/hopper_cicada.so" \
+            --build-tool cargo-build-sbf \
+            --require-clean \
+            --out "${SBF_RELEASE_DIR}/hopper-cicada.sbf-attestation.json"
       - name: Build Cicada hostile-route fixture SBF
         run: |
           cargo build-sbf \
@@ -104,36 +138,69 @@ jobs:
           test -f target/deploy/hopper_cicada.so
           test -f target/deploy/hopper_cicada_route_fixture.so
           test -f target/deploy/hopper_cicada_canonical_route_fixture.so
+      - name: Stage compatibility binaries for archival
+        run: |
+          mkdir -p "${SBF_RELEASE_DIR}/compat"
+          for name in \
+            hopper_counter \
+            hopper_vault \
+            hopper_quasar_port_20_min \
+            hopper_escrow \
+            hopper_migration \
+            hopper_orderbook \
+            hopper_cicada_route_fixture \
+            hopper_cicada_canonical_route_fixture
+          do
+            test -f "target/deploy/${name}.so"
+            cp "target/deploy/${name}.so" "${SBF_RELEASE_DIR}/compat/${name}.so"
+          done
       - name: Test Cicada
         env:
           HOPPER_REQUIRE_CICADA_SBF: "1"
         run: cargo test -p hopper-cicada --locked
       - name: Test policy-gated scoped segments
-        run: cargo test -p hopper-runtime scoped_context_runtime_segments_preserve_write_policy
+        run: cargo test -p hopper-runtime --locked scoped_context_runtime_segments_preserve_write_policy
       - name: Deny Cicada policy escapes
         run: |
-          cargo run -p hopper-cli -- lint --project examples/hopper-cicada --deny-escapes
+          cargo run --locked -p hopper-cli -- lint --project examples/hopper-cicada --deny-escapes
       - name: Deny Cicada whole-account mutation wrappers
         run: |
           if rg '\.(get_mut|load_mut|with_mut)\(' examples/hopper-cicada/src/lib.rs; then
             echo "Cicada shared state must mutate through policy-gated segment access"
             exit 1
           fi
-      - name: Install Hopper CLI
-        run: cargo install --path tools/hopper-cli --locked
       - name: Solana shape and SBF scan
         run: hopper solana-check --all --build-sbf
-      - name: Verify and attest fresh Cicada release artifact
+      - name: Finalize pinned Cicada and compile-only compatibility provenance
         run: |
-          hopper compile --emit manifest --package hopper-cicada --out "${SBF_RELEASE_DIR}/hopper-cicada.manifest.json" --force
-          hopper publish-check --full --manifest "${SBF_RELEASE_DIR}/hopper-cicada.manifest.json" --so "${SBF_RELEASE_DIR}/sbf/hopper_cicada.so"
-          python3 scripts/attest-sbf-release.py \
-            --package hopper-cicada \
-            --manifest "${SBF_RELEASE_DIR}/hopper-cicada.manifest.json" \
-            --binary "${SBF_RELEASE_DIR}/sbf/hopper_cicada.so" \
-            --built-after "${SBF_RELEASE_DIR}/build.started" \
-            --require-clean \
-            --out "${SBF_RELEASE_DIR}/hopper-cicada.sbf-attestation.json"
+          {
+            printf 'schema=hopper.sbf-ci-provenance.v1\n'
+            printf 'sourceCommit=%s\n' "$(git rev-parse HEAD)"
+            printf 'githubRunId=%s\n' "${GITHUB_RUN_ID}"
+            printf 'githubRunAttempt=%s\n' "${GITHUB_RUN_ATTEMPT}"
+            printf 'githubWorkflowRef=%s\n' "${GITHUB_WORKFLOW_REF}"
+            printf 'agaveCli=%s\n' "$(solana --version)"
+            printf 'sbfBuilder=%s\n' "$(cargo build-sbf --version | sed -n '1p')"
+            printf 'rustc=%s\n' "$(rustc --version)"
+            printf 'cargo=%s\n' "$(cargo --version)"
+            printf 'runtimeAgaveValidatorExecuted=false\n'
+            printf 'cicadaCoverage=isolated-build+full-publish-check+sbf-harness\n'
+            printf 'compatibilityProgramsCoverage=compile-only\n'
+          } > "${SBF_RELEASE_DIR}/TOOLCHAIN.txt"
+          cp "${RUNNER_TEMP}/agave-archive.provenance" "${SBF_RELEASE_DIR}/AGAVE_ARCHIVE_PROVENANCE.txt"
+          (
+            cd "${SBF_RELEASE_DIR}"
+            sha256sum \
+              AGAVE_ARCHIVE_PROVENANCE.txt \
+              TOOLCHAIN.txt \
+              hopper-cicada.manifest.json \
+              hopper-cicada.sbf-attestation.json \
+              hopper-cicada.sbf-attestation.logs/*.json \
+              sbf/hopper_cicada.so \
+              compat/*.so \
+              > SHA256SUMS
+            sha256sum -c SHA256SUMS
+          )
       - name: Upload pinned SBF release evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
@@ -143,14 +210,20 @@ jobs:
             target/hopper/release/agave-v2.3.13/sbf/hopper_cicada.so
             target/hopper/release/agave-v2.3.13/hopper-cicada.manifest.json
             target/hopper/release/agave-v2.3.13/hopper-cicada.sbf-attestation.json
-            target/hopper/release/agave-v2.3.13/build.started
+            target/hopper/release/agave-v2.3.13/hopper-cicada.sbf-attestation.logs/*.json
+            target/hopper/release/agave-v2.3.13/AGAVE_ARCHIVE_PROVENANCE.txt
+            target/hopper/release/agave-v2.3.13/TOOLCHAIN.txt
+            target/hopper/release/agave-v2.3.13/SHA256SUMS
+            target/hopper/release/agave-v2.3.13/compat/*.so
+          retention-days: 90
 
   sbf-agave-4-2-forward:
-    name: Agave 4.2.1 forward SBF (SBPF v0 + v3)
+    name: Compile-only SBF compatibility (Agave CLI 4.2.1, builder 4.1.0)
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     env:
       AGAVE_FORWARD_VERSION: v4.2.1
+      AGAVE_ARCHIVE_SHA256: 7f35f92c15861263bc540c001466678d2da228149a107b51d5b65ce497603074
       CARGO_BUILD_SBF_VERSION: 4.1.0
       SBF_RELEASE_DIR: target/hopper/release/agave-v4.2.1
     steps:
@@ -163,10 +236,32 @@ jobs:
           toolchain: 1.96.0
       - name: Require a clean source checkout
         run: test -z "$(git status --porcelain --untracked-files=all)"
-      - name: Install current Agave 4.2 stable release
-        run: sh -c "$(curl -sSfL https://release.anza.xyz/${AGAVE_FORWARD_VERSION}/install)"
-      - name: Add Agave tools to PATH
-        run: echo "$HOME/.local/share/solana/install/active_release/bin" >> "$GITHUB_PATH"
+      - name: Install Agave from a pinned official release archive
+        run: |
+          set -euo pipefail
+          archive="${RUNNER_TEMP}/agave-${AGAVE_FORWARD_VERSION}.tar.bz2"
+          install_dir="${RUNNER_TEMP}/agave-${AGAVE_FORWARD_VERSION}"
+          archive_url="https://github.com/anza-xyz/agave/releases/download/${AGAVE_FORWARD_VERSION}/solana-release-x86_64-unknown-linux-gnu.tar.bz2"
+          curl --proto '=https' --tlsv1.2 --fail --location --silent --show-error \
+            "${archive_url}" \
+            --output "${archive}"
+          test -s "${archive}"
+          printf '%s  %s\n' "${AGAVE_ARCHIVE_SHA256}" "${archive}" | sha256sum --check --strict
+          actual_sha=$(sha256sum "${archive}" | cut -d ' ' -f 1)
+          mkdir "${install_dir}"
+          tar -xjf "${archive}" -C "${install_dir}"
+          agave_bin="${install_dir}/solana-release/bin"
+          test -x "${agave_bin}/solana"
+          {
+            printf 'schema=hopper.agave-archive-provenance.v1\n'
+            printf 'url=%s\n' "${archive_url}"
+            printf 'expectedSha256Source=https://github.com/anza-xyz/agave/releases/expanded_assets/%s\n' "${AGAVE_FORWARD_VERSION}"
+            printf 'expectedSha256=%s\n' "${AGAVE_ARCHIVE_SHA256}"
+            printf 'actualSha256=%s\n' "${actual_sha}"
+            printf 'sha256Verified=true\n'
+            printf 'integrityMode=pinned-official-release-asset\n'
+          } > "${RUNNER_TEMP}/agave-archive.provenance"
+          printf '%s\n' "${agave_bin}" >> "${GITHUB_PATH}"
       # Agave 4.1+ no longer bundles the SBF SDK in the validator tarball.
       # Pin the independently released builder rather than accidentally using
       # whichever cargo-build-sbf happens to be first on PATH.
@@ -174,20 +269,19 @@ jobs:
         run: cargo install --locked cargo-build-sbf --version "${CARGO_BUILD_SBF_VERSION}" --force
       - name: Forward toolchain versions
         run: |
-          solana --version
-          "$HOME/.cargo/bin/cargo-build-sbf" --version
-          rustc --version
-      - name: Mark release-candidate build start
+          solana_version=$(solana --version)
+          builder_version=$("$HOME/.cargo/bin/cargo-build-sbf" --version | sed -n '1p')
+          rust_version=$(rustc --version)
+          printf '%s\n%s\n%s\n' "$solana_version" "$builder_version" "$rust_version"
+          case "$solana_version" in *"solana-cli 4.2.1"*) ;; *) exit 1 ;; esac
+          test "$builder_version" = "cargo-build-sbf ${CARGO_BUILD_SBF_VERSION}"
+          case "$rust_version" in "rustc 1.96.0 "*) ;; *) exit 1 ;; esac
+      - name: Require a fresh compile-only evidence directory
         run: |
           test ! -e "${SBF_RELEASE_DIR}"
           mkdir -p "${SBF_RELEASE_DIR}"
-          printf '%s\n' '{"schema":"hopper.sbf-build-marker.v1","binary":"target/hopper/release/agave-v4.2.1/sbf/hopper_cicada.so","outputDirectory":"target/hopper/release/agave-v4.2.1/sbf","binaryAbsent":true,"outputDirectoryAbsent":true}' > "${SBF_RELEASE_DIR}/build.started"
-      - name: Build safety-heavy programs with the Agave 4.2 forward toolchain
+      - name: Compile migration and counter with the forward builder
         run: |
-          "$HOME/.cargo/bin/cargo-build-sbf" \
-            --manifest-path examples/hopper-cicada/Cargo.toml \
-            --sbf-out-dir "${SBF_RELEASE_DIR}/sbf" \
-            -- --locked
           "$HOME/.cargo/bin/cargo-build-sbf" \
             --manifest-path examples/hopper-migration/Cargo.toml \
             --sbf-out-dir "${SBF_RELEASE_DIR}/migration-sbpf-v0" \
@@ -199,18 +293,47 @@ jobs:
             -- --locked
       - name: Install Hopper CLI
         run: cargo install --path tools/hopper-cli --locked
-      - name: Verify and attest the fresh forward Cicada artifact
+      - name: Build, verify, and attest isolated Cicada with the forward builder
         run: |
-          hopper compile --emit manifest --package hopper-cicada --out "${SBF_RELEASE_DIR}/hopper-cicada.manifest.json" --force
-          hopper publish-check --full --manifest "${SBF_RELEASE_DIR}/hopper-cicada.manifest.json" --so "${SBF_RELEASE_DIR}/sbf/hopper_cicada.so"
           python3 scripts/attest-sbf-release.py \
             --package hopper-cicada \
+            --program-manifest examples/hopper-cicada/Cargo.toml \
             --manifest "${SBF_RELEASE_DIR}/hopper-cicada.manifest.json" \
             --binary "${SBF_RELEASE_DIR}/sbf/hopper_cicada.so" \
-            --built-after "${SBF_RELEASE_DIR}/build.started" \
             --build-tool "$HOME/.cargo/bin/cargo-build-sbf" \
             --require-clean \
             --out "${SBF_RELEASE_DIR}/hopper-cicada.sbf-attestation.json"
+          {
+            printf 'schema=hopper.sbf-ci-provenance.v1\n'
+            printf 'sourceCommit=%s\n' "$(git rev-parse HEAD)"
+            printf 'githubRunId=%s\n' "${GITHUB_RUN_ID}"
+            printf 'githubRunAttempt=%s\n' "${GITHUB_RUN_ATTEMPT}"
+            printf 'githubWorkflowRef=%s\n' "${GITHUB_WORKFLOW_REF}"
+            printf 'agaveCli=%s\n' "$(solana --version)"
+            printf 'sbfBuilder=%s\n' "$("$HOME/.cargo/bin/cargo-build-sbf" --version | sed -n '1p')"
+            printf 'rustc=%s\n' "$(rustc --version)"
+            printf 'cargo=%s\n' "$(cargo --version)"
+            printf 'coverageMode=compile-only\n'
+            printf 'runtimeAgaveValidatorExecuted=false\n'
+            printf 'migrationArch=sbpf-v0\n'
+            printf 'counterArch=sbpf-v3\n'
+            printf 'cicadaArch=sbpf-v0\n'
+          } > "${SBF_RELEASE_DIR}/TOOLCHAIN.txt"
+          cp "${RUNNER_TEMP}/agave-archive.provenance" "${SBF_RELEASE_DIR}/AGAVE_ARCHIVE_PROVENANCE.txt"
+          (
+            cd "${SBF_RELEASE_DIR}"
+            sha256sum \
+              AGAVE_ARCHIVE_PROVENANCE.txt \
+              TOOLCHAIN.txt \
+              hopper-cicada.manifest.json \
+              hopper-cicada.sbf-attestation.json \
+              hopper-cicada.sbf-attestation.logs/*.json \
+              sbf/hopper_cicada.so \
+              migration-sbpf-v0/hopper_migration.so \
+              counter-sbpf-v3/hopper_counter.so \
+              > SHA256SUMS
+            sha256sum -c SHA256SUMS
+          )
       - name: Upload Agave 4.2 forward SBF evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
@@ -220,4 +343,10 @@ jobs:
             target/hopper/release/agave-v4.2.1/sbf/hopper_cicada.so
             target/hopper/release/agave-v4.2.1/hopper-cicada.manifest.json
             target/hopper/release/agave-v4.2.1/hopper-cicada.sbf-attestation.json
-            target/hopper/release/agave-v4.2.1/build.started
+            target/hopper/release/agave-v4.2.1/hopper-cicada.sbf-attestation.logs/*.json
+            target/hopper/release/agave-v4.2.1/AGAVE_ARCHIVE_PROVENANCE.txt
+            target/hopper/release/agave-v4.2.1/TOOLCHAIN.txt
+            target/hopper/release/agave-v4.2.1/SHA256SUMS
+            target/hopper/release/agave-v4.2.1/migration-sbpf-v0/hopper_migration.so
+            target/hopper/release/agave-v4.2.1/counter-sbpf-v3/hopper_counter.so
+          retention-days: 90

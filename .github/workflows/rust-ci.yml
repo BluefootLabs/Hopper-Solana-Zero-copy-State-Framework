@@ -26,6 +26,8 @@ jobs:
         with:
           toolchain: 1.96.0
           components: rustfmt, clippy
+      - name: Assert pinned Rust toolchain
+        run: rustc --version | grep -E '^rustc 1\.96\.0 '
       - name: rustfmt
         run: cargo fmt --all --check
       - name: clippy
@@ -48,7 +50,10 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@01ba1edad32c6f80dbcce879d3e0fa5a00b2a84e
         with:
-          toolchain: stable
+          toolchain: 1.96.0
+      - name: Assert pinned Rust toolchain
+        shell: bash
+        run: rustc --version | grep -E '^rustc 1\.96\.0 '
       - name: Check workspace all targets
         run: cargo check --workspace --all-targets --locked
 
@@ -66,6 +71,8 @@ jobs:
         uses: dtolnay/rust-toolchain@01ba1edad32c6f80dbcce879d3e0fa5a00b2a84e
         with:
           toolchain: 1.96.0
+      - name: Assert pinned Rust toolchain
+        run: rustc --version | grep -E '^rustc 1\.96\.0 '
       - name: Run the complete host workspace suite
         run: cargo test --workspace --locked --no-fail-fast
 
@@ -81,7 +88,9 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@01ba1edad32c6f80dbcce879d3e0fa5a00b2a84e
         with:
-          toolchain: stable
+          toolchain: 1.96.0
+      - name: Assert pinned Rust toolchain
+        run: rustc --version | grep -E '^rustc 1\.96\.0 '
       - name: Run focused audit tests
         run: |
           cargo test -p hopper-systems --test trust_tests --locked
@@ -107,6 +116,7 @@ jobs:
         with:
           name: hopper-cicada-semantic-fuzz
           if-no-files-found: error
+          retention-days: 90
           path: target/hopper/fuzz/cicada-semantic-report.json
       - name: Check unsafe safety comments
         run: python3 scripts/check-unsafe-safety-comments.py
@@ -114,7 +124,7 @@ jobs:
   publication-train:
     name: 29-crate publication train
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 60
     env:
       CARGO_TERM_COLOR: always
     steps:
@@ -125,16 +135,134 @@ jobs:
         uses: dtolnay/rust-toolchain@01ba1edad32c6f80dbcce879d3e0fa5a00b2a84e
         with:
           toolchain: 1.96.0
+      - name: Assert pinned Rust toolchain
+        run: rustc --version | grep -E '^rustc 1\.96\.0 '
       - name: Validate topology, metadata, and packaged file sets
         run: |
           python3 scripts/check-publish-train.py --self-test
+          python3 scripts/tests/test_release_provenance.py
           python3 scripts/check-publish-train.py --out target/hopper/release/publish-train.json
+          archive_count=$(find target/package -maxdepth 1 -type f -name '*.crate' | wc -l)
+          test "${archive_count}" -eq 29
       - name: Upload publication-train attestation
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: hopper-publish-train
           if-no-files-found: error
-          path: target/hopper/release/publish-train.json
+          retention-days: 90
+          path: |
+            target/hopper/release/publish-train.json
+            target/package/*.crate
+
+  dependency-audit:
+    name: RustSec dependency gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CARGO_AUDIT_VERSION: 0.22.2
+      CARGO_TERM_COLOR: always
+      RUSTSEC_DIR: target/hopper/release/rustsec
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - name: Install pinned Rust and cargo-audit
+        uses: dtolnay/rust-toolchain@01ba1edad32c6f80dbcce879d3e0fa5a00b2a84e
+        with:
+          toolchain: 1.96.0
+      - name: Install and assert cargo-audit
+        run: |
+          rustc --version | grep -E '^rustc 1\.96\.0 '
+          cargo install cargo-audit --version "${CARGO_AUDIT_VERSION}" --locked
+          cargo-audit --version | grep -Fx "cargo-audit ${CARGO_AUDIT_VERSION}"
+      - name: Fetch a fresh RustSec database and pin the run to its commit
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUSTSEC_DIR}"
+          git clone --depth 1 https://github.com/RustSec/advisory-db.git "${RUSTSEC_DIR}/advisory-db"
+          db_commit=$(git -C "${RUSTSEC_DIR}/advisory-db" rev-parse HEAD)
+          db_commit_date=$(git -C "${RUSTSEC_DIR}/advisory-db" show -s --format=%cI HEAD)
+          test -z "$(git -C "${RUSTSEC_DIR}/advisory-db" status --porcelain)"
+          {
+            printf 'schema=hopper.rustsec-provenance.v1\n'
+            printf 'sourceCommit=%s\n' "${GITHUB_SHA}"
+            printf 'cargoAuditVersion=%s\n' "$(cargo-audit --version)"
+            printf 'advisoryDbRemote=https://github.com/RustSec/advisory-db.git\n'
+            printf 'advisoryDbCommit=%s\n' "${db_commit}"
+            printf 'advisoryDbCommitDate=%s\n' "${db_commit_date}"
+            printf 'githubRunId=%s\n' "${GITHUB_RUN_ID}"
+            printf 'githubRunAttempt=%s\n' "${GITHUB_RUN_ATTEMPT}"
+            printf 'githubWorkflowRef=%s\n' "${GITHUB_WORKFLOW_REF}"
+          } > "${RUSTSEC_DIR}/PROVENANCE.txt"
+      - name: Audit the locked dependency graph without mutating the pinned database
+        run: |
+          set -euo pipefail
+          set +e
+          cargo audit \
+            --db "${RUSTSEC_DIR}/advisory-db" \
+            --no-fetch \
+            --json \
+            > "${RUSTSEC_DIR}/cargo-audit.json"
+          audit_exit=$?
+          set -e
+          test -z "$(git -C "${RUSTSEC_DIR}/advisory-db" status --porcelain)"
+          python3 -c 'import json, pathlib; json.loads(pathlib.Path("target/hopper/release/rustsec/cargo-audit.json").read_text(encoding="utf-8"))'
+          {
+            printf 'cargoAuditExitCode=%s\n' "${audit_exit}"
+            printf 'reportSha256=%s\n' "$(sha256sum "${RUSTSEC_DIR}/cargo-audit.json" | cut -d ' ' -f 1)"
+          } >> "${RUSTSEC_DIR}/PROVENANCE.txt"
+          exit "${audit_exit}"
+      - name: Upload RustSec report and database provenance
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: hopper-rustsec-audit
+          if-no-files-found: error
+          retention-days: 90
+          path: |
+            target/hopper/release/rustsec/PROVENANCE.txt
+            target/hopper/release/rustsec/cargo-audit.json
+
+  audit-readiness-status:
+    name: External audit readiness status (nonblocking)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - name: Install pinned Rust
+        uses: dtolnay/rust-toolchain@01ba1edad32c6f80dbcce879d3e0fa5a00b2a84e
+        with:
+          toolchain: 1.96.0
+      - name: Report readiness without closing or gating on the external audit
+        run: |
+          set -euo pipefail
+          rustc --version | grep -E '^rustc 1\.96\.0 '
+          mkdir -p target/hopper/release/audit-readiness
+          set +e
+          cargo run --locked -p hopper-cli -- audit-check --json \
+            > target/hopper/release/audit-readiness/status.json
+          audit_exit=$?
+          set -e
+          {
+            printf 'mode=non-strict-status-only\n'
+            printf 'expectedExitCode=0\n'
+            printf 'actualExitCode=%s\n' "${audit_exit}"
+          } > target/hopper/release/audit-readiness/COMMAND_STATUS.txt
+          test "${audit_exit}" -eq 0
+          python3 -c 'import json, pathlib; p=pathlib.Path("target/hopper/release/audit-readiness/status.json"); d=json.loads(p.read_text(encoding="utf-8")); assert d.get("ready") is False, "external audit unexpectedly reported ready"; findings=d.get("findings"); assert isinstance(findings, list), "findings is not a list"; assert any(f.get("id") == "external-audit" and f.get("level") == "blocker" for f in findings), "known external-audit blocker missing"'
+      - name: Upload audit-readiness status
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: hopper-audit-readiness-status
+          if-no-files-found: error
+          retention-days: 90
+          path: |
+            target/hopper/release/audit-readiness/status.json
+            target/hopper/release/audit-readiness/COMMAND_STATUS.txt
 
   fuzz-smoke:
     name: fuzz smoke
@@ -149,22 +277,26 @@ jobs:
       - name: Install nightly Rust
         uses: dtolnay/rust-toolchain@01ba1edad32c6f80dbcce879d3e0fa5a00b2a84e
         with:
-          toolchain: nightly
+          toolchain: nightly-2026-08-01
       - name: Install stable Rust for cargo-fuzz
         uses: dtolnay/rust-toolchain@01ba1edad32c6f80dbcce879d3e0fa5a00b2a84e
         with:
-          toolchain: stable
+          toolchain: 1.96.0
       - name: Install cargo-fuzz
-        run: cargo +stable install cargo-fuzz --locked
+        run: |
+          rustc +1.96.0 --version | grep -E '^rustc 1\.96\.0 '
+          cargo +1.96.0 install cargo-fuzz --version 0.13.2 --locked
+          cargo +1.96.0 fuzz --version | grep -F '0.13.2'
+          rustup toolchain list | grep -F 'nightly-2026-08-01'
       - name: Run fuzz smoke targets
         working-directory: fuzz
         run: |
-          cargo +nightly fuzz run fuzz_instruction_frame -- -max_total_time=15 -timeout=5
-          cargo +nightly fuzz run fuzz_decode_header -- -max_total_time=15 -timeout=5
-          cargo +nightly fuzz run fuzz_decode_segments -- -max_total_time=15 -timeout=5
-          cargo +nightly fuzz run fuzz_pod_overlay -- -max_total_time=15 -timeout=5
+          cargo +nightly-2026-08-01 fuzz run fuzz_instruction_frame -- -max_total_time=15 -timeout=5
+          cargo +nightly-2026-08-01 fuzz run fuzz_decode_header -- -max_total_time=15 -timeout=5
+          cargo +nightly-2026-08-01 fuzz run fuzz_decode_segments -- -max_total_time=15 -timeout=5
+          cargo +nightly-2026-08-01 fuzz run fuzz_pod_overlay -- -max_total_time=15 -timeout=5
           # P0: AccountView::load unsafe boundary (discriminator + version + layout fingerprint + alignment)
-          cargo +nightly fuzz run fuzz_account_view_load -- -max_total_time=15 -timeout=5
+          cargo +nightly-2026-08-01 fuzz run fuzz_account_view_load -- -max_total_time=15 -timeout=5
 
   kani-runtime-proofs:
     name: Kani runtime proofs
@@ -179,11 +311,13 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@01ba1edad32c6f80dbcce879d3e0fa5a00b2a84e
         with:
-          toolchain: stable
+          toolchain: 1.96.0
       - name: Install Kani
         run: |
-          cargo install --locked kani-verifier
+          rustc --version | grep -E '^rustc 1\.96\.0 '
+          cargo install --locked kani-verifier --version 0.67.0
           cargo kani setup
+          cargo kani --version | grep -F '0.67.0'
       - name: Run runtime Kani proofs
         run: sh ./scripts/kani-runtime-tail.sh
 
@@ -200,11 +334,13 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@01ba1edad32c6f80dbcce879d3e0fa5a00b2a84e
         with:
-          toolchain: stable
+          toolchain: 1.96.0
       - name: Install Kani
         run: |
-          cargo install --locked kani-verifier
+          rustc --version | grep -E '^rustc 1\.96\.0 '
+          cargo install --locked kani-verifier --version 0.67.0
           cargo kani setup
+          cargo kani --version | grep -F '0.67.0'
       - name: Run native raw-input Kani proofs
         run: sh ./scripts/kani-native-rawinput.sh
 
@@ -221,10 +357,12 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@01ba1edad32c6f80dbcce879d3e0fa5a00b2a84e
         with:
-          toolchain: stable
+          toolchain: 1.96.0
       - name: Install Kani
         run: |
-          cargo install --locked kani-verifier
+          rustc --version | grep -E '^rustc 1\.96\.0 '
+          cargo install --locked kani-verifier --version 0.67.0
           cargo kani setup
+          cargo kani --version | grep -F '0.67.0'
       - name: Run SPL/System CPI layout Kani proofs
         run: sh ./scripts/kani-spl-layouts.sh

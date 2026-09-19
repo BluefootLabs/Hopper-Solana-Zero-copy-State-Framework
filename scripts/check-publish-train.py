@@ -7,6 +7,7 @@ import argparse
 import datetime as dt
 import hashlib
 import json
+import os
 import pathlib
 import re
 import subprocess
@@ -16,9 +17,12 @@ import tomllib
 import unittest
 import urllib.parse
 from typing import Any
+from unittest import mock
 
 
-SCHEMA = "hopper.publish-train-attestation.v1"
+SCHEMA = "hopper.publish-train-attestation.v2"
+EXPECTED_AUTHORS = ["QuarksBlueFoot <quark@bluefoot.tech>"]
+EXPECTED_PUBLISH_REGISTRIES = ["crates-io"]
 REQUIRED_METADATA = (
     "description",
     "license",
@@ -151,6 +155,46 @@ def require_success(result: subprocess.CompletedProcess[str], label: str) -> str
     return result.stdout or ""
 
 
+def sha256_file(path: pathlib.Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def relative_or_absolute(root: pathlib.Path, path: pathlib.Path) -> str:
+    try:
+        return path.resolve().relative_to(root.resolve()).as_posix()
+    except ValueError:
+        return str(path.resolve())
+
+
+def command_evidence(
+    args: list[str], result: subprocess.CompletedProcess[str]
+) -> dict[str, Any]:
+    stdout = result.stdout or ""
+    stderr = result.stderr or ""
+    transcript = json.dumps(
+        {
+            "argv": args,
+            "exitCode": result.returncode,
+            "stderr": stderr,
+            "stdout": stdout,
+        },
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    return {
+        "argv": args,
+        "exitCode": result.returncode,
+        "stdoutSha256": hashlib.sha256(stdout.encode("utf-8")).hexdigest(),
+        "stderrSha256": hashlib.sha256(stderr.encode("utf-8")).hexdigest(),
+        "transcriptSha256": hashlib.sha256(transcript).hexdigest(),
+    }
+
+
 def git_state(root: pathlib.Path) -> tuple[str, list[str]]:
     head = require_success(
         run(["git", "rev-parse", "HEAD"], root), "git rev-parse HEAD"
@@ -160,6 +204,56 @@ def git_state(root: pathlib.Path) -> tuple[str, list[str]]:
         "git status",
     )
     return head, [line for line in status.splitlines() if line.strip()]
+
+
+def git_worktree_fingerprint(root: pathlib.Path) -> str:
+    """Hash every tracked change plus every non-ignored untracked file.
+
+    A porcelain-status snapshot only records path/state codes. In diagnostic
+    `--allow-dirty` mode, the contents of an already modified file could change
+    without changing those codes. This fingerprint binds the exact dirty tree
+    at both ends of the check while naturally excluding ignored build output.
+    """
+    tracked_diff = require_success(
+        run(
+            ["git", "diff", "--no-ext-diff", "--binary", "HEAD", "--"],
+            root,
+        ),
+        "git diff HEAD",
+    ).encode("utf-8")
+    untracked_output = require_success(
+        run(
+            ["git", "ls-files", "--others", "--exclude-standard", "-z"],
+            root,
+        ),
+        "git ls-files --others",
+    )
+    untracked = sorted(path for path in untracked_output.split("\0") if path)
+
+    digest = hashlib.sha256()
+    digest.update(b"tracked-diff\0")
+    digest.update(len(tracked_diff).to_bytes(8, "big"))
+    digest.update(tracked_diff)
+    for relative in untracked:
+        encoded_path = relative.encode("utf-8")
+        path = root / relative
+        digest.update(b"untracked\0")
+        digest.update(len(encoded_path).to_bytes(8, "big"))
+        digest.update(encoded_path)
+        if path.is_symlink():
+            payload = os.readlink(path).encode("utf-8")
+            digest.update(b"symlink\0")
+            digest.update(len(payload).to_bytes(8, "big"))
+            digest.update(payload)
+        elif path.is_file():
+            digest.update(b"file\0")
+            digest.update(path.stat().st_size.to_bytes(8, "big"))
+            with path.open("rb") as handle:
+                for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                    digest.update(chunk)
+        else:
+            raise RuntimeError(f"untracked path is not a file or symlink: {relative}")
+    return digest.hexdigest()
 
 
 def load_config(path: pathlib.Path) -> tuple[str, list[str], dict[str, str]]:
@@ -245,6 +339,16 @@ def validate_train(
             raise RuntimeError(
                 f"{name} is {package['version']}, expected release {expected_version}"
             )
+        if package.get("authors") != EXPECTED_AUTHORS:
+            raise RuntimeError(
+                f"{name} authors are {package.get('authors')!r}; expected "
+                f"{EXPECTED_AUTHORS!r}"
+            )
+        if package.get("publish") != EXPECTED_PUBLISH_REGISTRIES:
+            raise RuntimeError(
+                f"{name} publish registries are {package.get('publish')!r}; expected "
+                f"{EXPECTED_PUBLISH_REGISTRIES!r}"
+            )
         missing_metadata = [
             field for field in REQUIRED_METADATA if not package.get(field)
         ]
@@ -307,14 +411,67 @@ def validate_train(
     return records
 
 
+def package_archive_path(
+    target_directory: pathlib.Path, record: dict[str, Any]
+) -> pathlib.Path:
+    return target_directory / "package" / f"{record['name']}-{record['version']}.crate"
+
+
+def package_args(package: str, allow_dirty: bool, *, list_only: bool) -> list[str]:
+    args = ["cargo", "package", "--locked"]
+    if allow_dirty:
+        args.append("--allow-dirty")
+    args.append("--list" if list_only else "--no-verify")
+    args.extend(["-p", package])
+    return args
+
+
+def package_train_args(packages: list[str], allow_dirty: bool) -> list[str]:
+    """Package the selected train as one Cargo operation.
+
+    Cargo can resolve unpublished path dependencies when all of them are
+    selected in the same `cargo package` invocation. Packaging each member in
+    isolation would make a valid new release train fail until every earlier
+    package had already reached the registry.
+    """
+    args = ["cargo", "package", "--locked"]
+    if allow_dirty:
+        args.append("--allow-dirty")
+    args.append("--no-verify")
+    for package in packages:
+        args.extend(["-p", package])
+    return args
+
+
+def require_archive(
+    root: pathlib.Path,
+    target_directory: pathlib.Path,
+    record: dict[str, Any],
+) -> dict[str, Any]:
+    archive = package_archive_path(target_directory, record)
+    if not archive.is_file():
+        raise RuntimeError(
+            f"cargo did not produce the expected archive for {record['name']}: {archive}"
+        )
+    return {
+        "path": relative_or_absolute(root, archive),
+        "bytes": archive.stat().st_size,
+        "sha256": sha256_file(archive),
+    }
+
+
 def package_lists(
-    root: pathlib.Path, records: list[dict[str, Any]], allow_dirty: bool
-) -> None:
+    root: pathlib.Path,
+    target_directory: pathlib.Path,
+    records: list[dict[str, Any]],
+    allow_dirty: bool,
+) -> dict[str, Any]:
     for record in records:
-        args = ["cargo", "package", "--locked", "--list", "-p", record["name"]]
-        if allow_dirty:
-            args.insert(2, "--allow-dirty")
-        output = require_success(run(args, root), f"cargo package --list -p {record['name']}")
+        args = package_args(record["name"], allow_dirty, list_only=True)
+        list_result = run(args, root)
+        output = require_success(
+            list_result, f"cargo package --list -p {record['name']}"
+        )
         files = sorted(line.strip().replace("\\", "/") for line in output.splitlines() if line.strip())
         required = {"Cargo.toml", "Cargo.toml.orig"}
         package_root = (root / record["manifest"]).parent.resolve()
@@ -332,36 +489,107 @@ def package_lists(
         normalized = ("\n".join(files) + "\n").encode("utf-8")
         record["packagedFileCount"] = len(files)
         record["packageListSha256"] = hashlib.sha256(normalized).hexdigest()
+        record["packageListCommand"] = command_evidence(args, list_result)
+        record["registryDryRun"] = {"status": "not-requested"}
+
+    expected_archives = [
+        package_archive_path(target_directory, record) for record in records
+    ]
+    for archive in expected_archives:
+        if archive.exists():
+            if not archive.is_file():
+                raise RuntimeError(f"expected archive path is not a file: {archive}")
+            archive.unlink()
+
+    archive_args = package_train_args(
+        [record["name"] for record in records], allow_dirty
+    )
+    archive_result = run(archive_args, root)
+    require_success(archive_result, "cargo package for the 29-package train")
+    archive_command = command_evidence(archive_args, archive_result)
+
+    for record in records:
+        record["packageArchive"] = require_archive(root, target_directory, record)
+        record["packageCommand"] = {
+            "mode": "single-train-command",
+            "selectedPackage": record["name"],
+            "trainCommandTranscriptSha256": archive_command["transcriptSha256"],
+        }
         print(
             f"[{record['position']:02d}/{len(records):02d}] {record['name']}: "
-            f"{len(files)} packaged files"
+            f"{record['packagedFileCount']} packaged files, archive "
+            f"{record['packageArchive']['sha256']}"
         )
+    return archive_command
+
+
+def registry_dry_run_args(package: str, allow_dirty: bool) -> list[str]:
+    args = [
+        "cargo",
+        "publish",
+        "--dry-run",
+        "--locked",
+        "--registry",
+        "crates-io",
+        "-p",
+        package,
+    ]
+    if allow_dirty:
+        args.insert(2, "--allow-dirty")
+    return args
 
 
 def registry_dry_run(
     root: pathlib.Path,
+    target_directory: pathlib.Path,
     records: list[dict[str, Any]],
     allow_dirty: bool,
     start_at: str | None,
-) -> None:
+) -> dict[str, Any]:
     selected = records
+    start_index = 0
     if start_at:
         names = [record["name"] for record in records]
         if start_at not in names:
             raise RuntimeError(f"--start-at package is not in the train: {start_at}")
-        selected = records[names.index(start_at) :]
+        start_index = names.index(start_at)
+        selected = records[start_index:]
+    for record in records[:start_index]:
+        record["registryDryRun"] = {
+            "status": "skipped-before-start-at",
+            "reason": f"resume started at {start_at}",
+        }
     for record in selected:
-        args = ["cargo", "publish", "--dry-run", "--locked", "-p", record["name"]]
-        if allow_dirty:
-            args.insert(2, "--allow-dirty")
+        args = registry_dry_run_args(record["name"], allow_dirty)
         print(f"registry dry-run: {record['name']}")
-        result = run(args, root, capture=False)
+        result = run(args, root)
+        if result.stdout:
+            print(result.stdout, end="" if result.stdout.endswith("\n") else "\n")
+        if result.stderr:
+            print(
+                result.stderr,
+                end="" if result.stderr.endswith("\n") else "\n",
+                file=sys.stderr,
+            )
         if result.returncode != 0:
             raise RuntimeError(
                 f"registry dry-run stopped at {record['name']}; publish and wait for "
                 "all earlier release dependencies to index, then resume with "
                 f"--start-at {record['name']}"
             )
+        record["registryDryRun"] = {
+            "status": "passed",
+            "command": command_evidence(args, result),
+            "archive": require_archive(root, target_directory, record),
+        }
+    return {
+        "requested": True,
+        "registry": "crates-io",
+        "startAt": start_at,
+        "completeTrain": start_index == 0,
+        "passedPackageCount": len(selected),
+        "skippedPackageCount": start_index,
+    }
 
 
 def run_self_tests() -> None:
@@ -451,6 +679,107 @@ def run_self_tests() -> None:
                             "fixture", self.package_root, files
                         )
 
+        def test_registry_dry_run_pins_crates_io_in_exact_argv(self) -> None:
+            self.assertEqual(
+                registry_dry_run_args("hopper-runtime", False),
+                [
+                    "cargo",
+                    "publish",
+                    "--dry-run",
+                    "--locked",
+                    "--registry",
+                    "crates-io",
+                    "-p",
+                    "hopper-runtime",
+                ],
+            )
+            self.assertEqual(
+                registry_dry_run_args("hopper-runtime", True),
+                [
+                    "cargo",
+                    "publish",
+                    "--allow-dirty",
+                    "--dry-run",
+                    "--locked",
+                    "--registry",
+                    "crates-io",
+                    "-p",
+                    "hopper-runtime",
+                ],
+            )
+
+        def test_package_train_selects_every_package_in_one_locked_command(self) -> None:
+            self.assertEqual(
+                package_train_args(["first", "second"], False),
+                [
+                    "cargo",
+                    "package",
+                    "--locked",
+                    "--no-verify",
+                    "-p",
+                    "first",
+                    "-p",
+                    "second",
+                ],
+            )
+
+        def test_worktree_fingerprint_binds_dirty_file_contents(self) -> None:
+            untracked = pathlib.Path(self.temp.name) / "new.txt"
+            untracked.write_text("first", encoding="utf-8")
+            tracked_diff = ["diff --git a/file b/file\n-old\n+first\n"]
+
+            def fake_run(
+                args: list[str], root: pathlib.Path, *, capture: bool = True
+            ) -> subprocess.CompletedProcess[str]:
+                del root, capture
+                if args[1] == "diff":
+                    stdout = tracked_diff[0]
+                elif args[1] == "ls-files":
+                    stdout = "new.txt\0"
+                else:
+                    raise AssertionError(args)
+                return subprocess.CompletedProcess(args, 0, stdout, "")
+
+            module = sys.modules[__name__]
+            with mock.patch.object(module, "run", side_effect=fake_run):
+                first = git_worktree_fingerprint(pathlib.Path(self.temp.name))
+                tracked_diff[0] = "diff --git a/file b/file\n-old\n+other\n"
+                second = git_worktree_fingerprint(pathlib.Path(self.temp.name))
+                self.assertNotEqual(first, second)
+                tracked_diff[0] = "diff --git a/file b/file\n-old\n+first\n"
+                untracked.write_text("later", encoding="utf-8")
+                third = git_worktree_fingerprint(pathlib.Path(self.temp.name))
+                self.assertNotEqual(first, third)
+
+        def test_package_archive_evidence_hashes_exact_bytes(self) -> None:
+            target = pathlib.Path(self.temp.name) / "target"
+            archive = target / "package" / "hopper-runtime-1.2.3.crate"
+            archive.parent.mkdir(parents=True)
+            archive.write_bytes(b"crate archive bytes")
+            record = {"name": "hopper-runtime", "version": "1.2.3"}
+            evidence = require_archive(pathlib.Path(self.temp.name), target, record)
+            self.assertEqual(evidence["path"], "target/package/hopper-runtime-1.2.3.crate")
+            self.assertEqual(evidence["bytes"], 19)
+            self.assertEqual(
+                evidence["sha256"], hashlib.sha256(b"crate archive bytes").hexdigest()
+            )
+
+        def test_command_evidence_binds_both_streams_and_exit_code(self) -> None:
+            result = subprocess.CompletedProcess(
+                ["cargo"], 0, stdout="out\n", stderr="warning\n"
+            )
+            first = command_evidence(["cargo", "publish"], result)
+            changed_stderr = command_evidence(
+                ["cargo", "publish"],
+                subprocess.CompletedProcess(
+                    ["cargo"], 0, stdout="out\n", stderr="different\n"
+                ),
+            )
+            self.assertNotEqual(
+                first["transcriptSha256"], changed_stderr["transcriptSha256"]
+            )
+            self.assertEqual(first["exitCode"], 0)
+
     result = unittest.TextTestRunner(verbosity=2).run(
         unittest.defaultTestLoader.loadTestsFromTestCase(PackagedReadmeLinkTests)
     )
@@ -505,6 +834,7 @@ def main() -> int:
         if args.start_at and not args.registry_dry_run:
             raise RuntimeError("--start-at requires --registry-dry-run")
         head, dirty = git_state(root)
+        worktree_fingerprint = git_worktree_fingerprint(root)
         if dirty and not args.allow_dirty:
             raise RuntimeError(
                 "release train requires a clean worktree; use --allow-dirty only for diagnostics"
@@ -514,18 +844,71 @@ def main() -> int:
         records = validate_train(metadata, expected_versions, order)
         if len(records) != 29:
             raise RuntimeError(f"expected 29 public packages, found {len(records)}")
-        package_lists(root, records, args.allow_dirty)
+        target_directory = pathlib.Path(metadata["target_directory"])
+        package_archive_build = package_lists(
+            root, target_directory, records, args.allow_dirty
+        )
+        registry_summary = {
+            "requested": False,
+            "registry": "crates-io",
+            "startAt": None,
+            "completeTrain": False,
+            "passedPackageCount": 0,
+            "skippedPackageCount": 0,
+        }
         if args.registry_dry_run:
-            registry_dry_run(root, records, args.allow_dirty, args.start_at)
+            registry_summary = registry_dry_run(
+                root,
+                target_directory,
+                records,
+                args.allow_dirty,
+                args.start_at,
+            )
+
+        head_after, dirty_after = git_state(root)
+        worktree_fingerprint_after = git_worktree_fingerprint(root)
+        if head_after != head:
+            raise RuntimeError("source commit changed while validating the publish train")
+        if (
+            dirty_after != dirty
+            or worktree_fingerprint_after != worktree_fingerprint
+        ):
+            raise RuntimeError(
+                "source worktree changed while validating the publish train:\n"
+                f"status before={dirty!r}\nstatus after={dirty_after!r}\n"
+                f"fingerprint before={worktree_fingerprint}\n"
+                f"fingerprint after={worktree_fingerprint_after}"
+            )
 
         attestation = {
             "schema": SCHEMA,
             "generatedAt": dt.datetime.now(dt.timezone.utc).isoformat(),
-            "sourceCommit": head,
-            "sourceTreeClean": not dirty,
+            "source": {
+                "commitAtStart": head,
+                "commitAtEnd": head_after,
+                "treeCleanAtStart": not dirty,
+                "treeCleanAtEnd": not dirty_after,
+                "statusUnchanged": dirty_after == dirty,
+                "worktreeFingerprintAtStart": worktree_fingerprint,
+                "worktreeFingerprintAtEnd": worktree_fingerprint_after,
+                "worktreeUnchanged": (
+                    worktree_fingerprint_after == worktree_fingerprint
+                ),
+            },
+            "ci": {
+                "githubRunId": os.environ.get("GITHUB_RUN_ID"),
+                "githubRunAttempt": os.environ.get("GITHUB_RUN_ATTEMPT"),
+                "githubWorkflowRef": os.environ.get("GITHUB_WORKFLOW_REF"),
+                "githubJob": os.environ.get("GITHUB_JOB"),
+            },
+            "publishOrder": {
+                "path": relative_or_absolute(root, config),
+                "sha256": sha256_file(config),
+            },
             "defaultVersion": default_version,
             "packageVersions": expected_versions,
-            "registryDryRun": args.registry_dry_run,
+            "packageArchiveBuild": package_archive_build,
+            "registryDryRun": registry_summary,
             "packages": records,
         }
         if args.out:
@@ -534,6 +917,17 @@ def main() -> int:
                 output = root / output
             output.parent.mkdir(parents=True, exist_ok=True)
             output.write_text(json.dumps(attestation, indent=2) + "\n", encoding="utf-8")
+            final_head, final_dirty = git_state(root)
+            final_worktree_fingerprint = git_worktree_fingerprint(root)
+            if (
+                final_head != head
+                or final_dirty != dirty
+                or final_worktree_fingerprint != worktree_fingerprint
+            ):
+                raise RuntimeError(
+                    "attestation output changed the source checkout; write --out below an "
+                    "ignored target directory or outside the repository"
+                )
             print(f"wrote {output}")
         print(
             f"OK: {len(records)} public packages match the declared "
