@@ -9,11 +9,63 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 
 ### Added
 
+- **Upgrade authority gate.** `grillo_manifest::authority` diffs two program
+  manifests and reports every instruction that gains authority: a dropped
+  signer, a newly writable account, a new instruction or writable account,
+  byte ranges that reach another layout field, a removed exact-cell rule, a new
+  lamport permission, a lost `strict_writes` or lamport contract, a raised
+  remaining-account ceiling, and weaker context constraints (PDA seeds,
+  `has_one`, owner or address checks, optionality, new `init`, `realloc`, or
+  `close` lifecycles). Byte ranges are compared per layout field, so a field
+  that only moved offset is not reported as a new permission. A PDA seed swap
+  or a different expected CPI program is reported for review. Exposed as
+  `grillo authority-diff old new` and
+  `hopper verify --authority-baseline old [--baseline-so old.so]`, which exit
+  2 on an unapproved widening and 3 on an unapproved review item. A reviewed
+  report approves its findings only for the exact manifest pair whose SHA-256
+  digests it records; under `--release` the baseline must match the interface
+  commitment in its released ELF.
+
+### Fixed
+
+- **Generated clients no longer derive `seeds::program` PDAs under the
+  described program.** Context descriptors now publish no seeds for an account
+  whose PDA is derived under a foreign program, so TypeScript, Kotlin, Python,
+  Go, C, and Rust clients and the Solana IDL projection leave it
+  caller-provided instead of computing the wrong address.
+- **Escaped literal seeds stay caller-provided.** A literal such as
+  `b"a"` is no longer copied into generated client derivations by its
+  source spelling.
+- **`hopper-svm` realloc baseline.** The host harness now records each
+  account's entry data length in the runtime's resize baseline, so accounts
+  larger than 10 KiB can grow or shrink as they can on chain.
+- **`proportional_split` cost.** Largest-remainder ranking no longer performs
+  u128 modulo in its inner loop and stops once every leftover unit is placed.
+  Results are unchanged and pinned against a sorting reference, including
+  `u64::MAX` inputs.
+- **Transaction-size error text.** The CLI's oversize message no longer says
+  transaction v1 is inactive; v1 activated on mainnet-beta on 2026-09-15, and
+  the message now states that this CLI does not emit v1 envelopes yet.
+- The Token-2022 vault's checked-in manifest now matches its source rendering
+  (`hasDynamicTail`).
+
+## [0.3.0] - 2026-08-17
+
+### Added
+
+- **Versioned release-interface binding.** `hopper::program_manifest!` now
+  embeds a structured v1 SHA-256 commitment in release ELFs. The canonical,
+  typed, ordered input binds program identity/version, layouts, instruction
+  wire data and account contracts, events, policy contracts, and authoritative
+  context constraints. `hopper verify --release` recomputes that commitment
+  from a generated manifest and fails on missing, malformed, unsupported,
+  stale, or mixed records. Raw eight-byte layout-anchor searches remain
+  supplemental diagnostics and cannot satisfy the release gate.
 - **Anchor-parity sibling-account references in `seeds` / `bump`.** A
   `#[account(seeds = [...], bump = ...)]` (or a PDA `#[account(init, seeds
-  = ...)]`) may now name sibling context accounts by field name —
+  = ...)]`) may now name sibling context accounts by field name,
   `seeds = [b"vault", owner.address().as_array(), source.address().as_array()]`,
-  `bump = config.load::<Config>()?.bump` — and the context macro binds each
+  `bump = config.load::<Config>()?.bump`: and the context macro binds each
   referenced field as a borrowed `&AccountView` in the seed/bump expression
   scope. Previously only instruction args and `ctx` were in scope, so a
   cross-account PDA had to be verified by hand. Fixed alongside it: the
@@ -22,7 +74,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   "solana")`-gated, which made any host build of a seeds-bearing context
   fail to resolve them), and two latent PDA-seed lifetime bugs in the
   macro's stored-bump and PDA-init lowerings (the seed byte-slice
-  temporaries were dropped before the derivation used them — E0716) are
+  temporaries were dropped before the derivation used them, E0716) are
   fixed by inlining the derivation array and lifetime-extending the seed
   locals. `Seed` / `Signer` / `SegmentsMut` and the `hopper::seeds!` macro
   are now reachable from the facade.
@@ -37,7 +89,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   lifecycle settles, a route that mutates token/mint policy is rolled back,
   and a route that spoofs output without spending input is refused. The
   `occupied` slot bitmap is a `u32`, so a compile-time assert pins
-  `INTENTS_PER_SHARD <= 32` — a larger shard would silently shift out of the
+  `INTENTS_PER_SHARD <= 32`: a larger shard would silently shift out of the
   bitmap and corrupt occupancy tracking.
 - **Policy-gated runtime segment projection from generated typed contexts.**
   `ScopedContext::{segment_ref,segment_mut,split_segments_mut}` now forwards to
@@ -46,82 +98,79 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   runtime without dropping to an unscoped raw Context. `hopper::cpi::DynCpi`
   and the Token-2022 safe-mint screen are also available from the public facade.
 
-## [0.3.0] - 2026-07-16
 
-### Added
-
-- **Miri lane under Tree Borrows (`scripts/miri-core.{sh,ps1}`) — and
+- **Miri lane under Tree Borrows (`scripts/miri-core.{sh,ps1}`), and
   the two real UB classes it caught on arrival.** "We verify, they
   don't" was false while Quasar ran a Miri lane and Hopper had zero
-  Miri references; now the aliasing core — the segment borrow ledger
+  Miri references; now the aliasing core, the segment borrow ledger
   and instruction-ambient touch log, the write-policy gate and its
   ambient lamport store, the native-boundary transmutes, and the
-  account borrow registry — runs under `cargo +nightly miri test` with
+  account borrow registry, runs under `cargo +nightly miri test` with
   `-Zmiri-tree-borrows` (the same aliasing model Quasar's lane uses;
   62 deterministic tests, ~20 s steady-state). The lane paid for
   itself before it landed: (1) twenty-seven test fixtures across
   eighteen files backed `RuntimeAccount` (align 8) with `Vec<u8>`
-  (align 1) — writing the header through the under-aligned pointer is
+  (align 1), writing the header through the under-aligned pointer is
   UB by spec even where the allocator happens to over-align; all now
   use word-sized backing, the same fix the competitor-bug-class
   fixtures received in the 2026-07-07 adversarial review; (2) the
   touch-log all-zero pin read the struct as raw bytes, which reads
-  uninitialized PADDING — rewritten field-wise in BOTH directions
+  uninitialized PADDING, rewritten field-wise in BOTH directions
   (a zeroed 8-aligned overlay reads as the valid empty log, exactly
   how the SBF heap tier materializes it, and `new()` is
   field-for-field zero). Proptest modules are excluded from the lane
   (their failure-persistence writes files, which Miri isolation
   correctly refuses) and run at full case counts in the normal lanes.
-- **`hopper lint --deny-escapes` — the policy-escape audit.** The
+- **`hopper lint --deny-escapes`, the policy-escape audit.** The
   borrow ledger, touch log, and `strict_writes` gate govern the
   `Context` surface; the raw `AccountView` escape hatches
   (`borrow_unchecked{,_mut}`, `segment_{ref,mut}_unchecked`,
   `raw_ref`/`raw_mut`, `resize_unchecked`, `close_unchecked`,
   `data_ptr_unchecked`, `assign`) are deliberate systems-mode bypasses.
-  `hopper lint` now surfaces every bypass call in program source —
+  `hopper lint` now surfaces every bypass call in program source,
   Warn by default (systems mode is legal), Error under
-  `--deny-escapes` — turning "every write in this program routes
+  `--deny-escapes`: turning "every write in this program routes
   through the governed surface" from a code-review hope into a
   machine-checked CI property. This is the precise form of the claim:
   Hopper's safe path is MEDIATED and the bypasses are grep-able and
   CI-deniable, where a competitor's DEFAULT path is the unmediated
   one. Validated three ways: unit fixtures detect all ten patterns
   (comments skipped, mediated accessors silent, deny promotes to
-  Error); `hopper-sentinel` passes `--deny-escapes` clean — the
+  Error); `hopper-sentinel` passes `--deny-escapes` clean, the
   flagship's "no bypasses" claim is now machine-checked, not
   grep-by-hand; and pointing the scan at hopper-runtime's own
   internals yields 18 findings, proving it bites on real trees.
 - **SIMD-0449 readiness: O(1) account resolution from the pre-computed
   pointer table (`simd-0449`, opt-in).** SIMD-0449 has the runtime
   append a pre-deduplicated `[u64; n]` array of canonical
-  account-record pointers after the instruction tail — and Hopper is
+  account-record pointers after the instruction tail, and Hopper is
   uniquely shaped to consume it: `AccountView` is one raw
   `*mut RuntimeAccount` (now const-asserted 8 bytes/8-aligned), so the
-  SIMD's array IS a valid `[AccountView]` via a single
+  SIMD's array is a valid `[AccountView]` via a single
   `from_raw_parts`, where an SDK `AccountInfo` (`Rc<RefCell<…>>`) must
   still loop to construct each element. `deserialize_accounts_0449`
   overlays the table (no stride walk, no duplicate resolution);
   `hopper_fast_entrypoint!` selects it through a const the `simd-0449`
-  cargo feature flips (implies `simd-0321` — the table is located off
+  cargo feature flips (implies `simd-0321`, the table is located off
   the r2 instruction-data pointer), so the untaken branch folds away
   and scanning stays the default. Honest boundary (corrected
   2026-07-24; this entry originally understated activation): the gate
   `ptr9umikaeAS7ZBBp2fsfRhie16F1V2jCKA2y6gXNAK` was assigned and
   rekeyed 2026-04-15 and is active on testnet and devnet, pending
   mainnet-beta; `hopper feature-gate` reports its per-cluster status.
-  Enable the feature only for clusters where the SIMD is active — a
+  Enable the feature only for clusters where the SIMD is active, a
   table-reading build where the runtime does not serialize the table
   reads past the input. Shipped WITH a substrate
   conformance suite that runs on every default lane: byte-exact loader
   frames pin the stride math across every data_len alignment residue
   (the drift alarm for upstream layout changes), and the table path is
-  proven view-for-view identical to the scanning walk — the
+  proven view-for-view identical to the scanning walk, the
   equivalence test catches a dropped alignment round-up by panicking
   on the misaligned cast.
 - **The epoch machinery, fully wired: `schema_epoch = N` on
   `#[hopper::state]`, `#[account(epoch_migrate)]`, and
   `migrate_chain!`.** Three gaps closed in one pass. (1) Layouts could
-  never DECLARE a target schema epoch from the pretty path —
+  never DECLARE a target schema epoch from the pretty path,
   `LayoutContract::SCHEMA_EPOCH` only had its trait default of 1, so
   the whole epoch-migration runtime was unreachable; `#[hopper::state]`
   now takes `schema_epoch = N` (0 refused: it reads as the pre-epoch
@@ -131,35 +180,35 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   `LayoutMigration` chain before any validator runs, an
   already-current account costs one header parse, and `validate()`
   widens through the SAME shared predicate
-  (`validate_header_for_epoch_migration` — exact identity, LAGGING
+  (`validate_header_for_epoch_migration`, exact identity, LAGGING
   epoch only, future epochs refused, never "migrated" down) so the two
   surfaces cannot drift. Combining it with `migrate(...)` on one field
   is a compile error (the cross-version migration stamps the new
-  epoch directly — nothing left to heal). (3) `migrate_chain!` runs a
-  typed multi-hop version chain (`V1 => V2: f, V2 => V3: g`) —
+  epoch directly; nothing left to heal). (3) `migrate_chain!` runs a
+  typed multi-hop version chain (`V1 => V2: f, V2 => V3: g`),
   probe-and-migrate per hop, so ONE call heals an account from ANY
   declared starting version, with an optional `payer = ...` arm that
   grows ONCE, up front, to the LARGEST hop target (not merely the
-  final one — a middle hop may be the widest shape) via the new
+  final one, a middle hop may be the widest shape) via the new
   `ensure_fits_with_rent` building block. Quasar's pairwise
   `Migration<From, To>` structurally cannot express either the
   multi-hop or the single-grow. Mutation-disciplined: disabling the
   epoch crank breaks the heal test; accepting future epochs breaks the
   predicate unit test AND the validate-parity integration test.
 - **Resizing migrations (`migrate_layout_resizing` + `migrate(resize =
-  grow|fit, payer = ...)`) — and the migration security gate.** The one
+  grow|fit, payer = ...)`), and the migration security gate.** The one
   migration capability Quasar had that Hopper lacked: resize during a
   typed cross-version migration, with a payer-funded rent top-up. The
   new runtime entry grows the allocation to fit the New shape BEFORE
-  the transform (debiting the payer exactly the rent-exempt deficit —
+  the transform (debiting the payer exactly the rent-exempt deficit,
   a well-funded account needs no payer signature at all) and, only
   with `fit`, shrinks AFTER it, refunding exactly the freed
   rent-exemption delta, doubly capped. That cap is the point: Quasar's
   `Migration` normalizes the balance to rent-min and pays the WHOLE
-  surplus to the payer (`quasar account.rs:117-125`) — run it on a PDA
+  surplus to the payer (`quasar account.rs:117-125`), run it on a PDA
   holding user deposits and the deposits leave with the payer. Hopper's
   shrink is opt-in (`fit`) because a dynamic-tail layout stores live
-  data past `required_len` — shrinking to fit would truncate it — and
+  data past `required_len`, shrinking to fit would truncate it, and
   the anti-drain rule is pinned by a test a Quasar-style refund fails.
   The context attr composes with the existing crank:
   `migrate(from = V1, with = f, resize = grow, payer = payer)`, and
@@ -167,35 +216,35 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   exactly when bind can grow them.
 - **Fixed: the migration crank ran user transforms on unvalidated
   accounts.** Bind's lazy-migration pre-step runs BEFORE the per-field
-  validators (so validators see the upgraded account) — which meant a
+  validators (so validators see the upgraded account); which meant a
   foreign-owned or read-only account whose bytes parsed as a valid Old
   header would have the user transform executed over it with no
   authority having looked at the account. Every migration entry point
   (`migrate_layout`, `migrate_layout_resizing`,
   `apply_pending_migrations`) now takes the executing `program_id` and
   refuses non-writable (`InvalidAccountData`) and foreign-owned
-  (`IncorrectProgramId`) accounts before the transform reads a byte —
+  (`IncorrectProgramId`) accounts before the transform reads a byte,
   baked into the runtime so systems-mode callers are protected too,
   not just the macro crank. Mutation-disciplined: disabling the gate
   breaks the two dedicated refusal tests; the Quasar-style drain
   refund breaks the deposit-protection test.
-- **`Seq<T>` — the growable typed sequence tail (the dynamic-data gap,
+- **`Seq<T>`, the growable typed sequence tail (the dynamic-data gap,
   closed).** A `Seq<'a, T>` tail (`#[tail(seq<T>)]` in systems mode) is
   an open-ended, growable list whose capacity is a property of the
   ACCOUNT LENGTH, not the account type: the `seq<T>` schema string
   carries no capacity, so the layout id is capacity-independent and
   growing via `realloc` never changes the account type. The wire format
   is `[count: u32 LE][T; ..]` with a fixed per-element stride, so `push`
-  is O(1) (write one element, bump the count — the count bumps LAST so a
+  is O(1) (write one element, bump the count, the count bumps LAST so a
   mid-encode failure never exposes a half-written element) and the
   streaming cursors (`TailSeq`/`TailSeqMut`: `get`/`set`/`push`/
-  `swap_remove`/`iter`) never materialize a `[T; N]` — where Anchor's
+  `swap_remove`/`iter`) never materialize a `[T; N]`, where Anchor's
   `Vec<T>` pays a full deserialize + reserialize every instruction.
   Under `strict_writes` the new `tail(<field>)` context declaration
   lowers to ONE open-ended `WriteRange::tail_from` grant: the tail is
   writable and growable at any account length while the fixed HEAD stays
-  byte-protected (`Custom(0xD000 | idx)` on head writes), and — because
-  the range starts past the head — it is NOT a whole-account grant, so
+  byte-protected (`Custom(0xD000 | idx)` on head writes), and, because
+  the range starts past the head; it is NOT a whole-account grant, so
   CPI writable-meta delegation stays refused. Acquiring the gated cursor
   (`Context::tail_seq_mut`/`tail_seq_ref`) registers exactly one
   tail-region segment lease, so touch maps stay one record per acquire
@@ -206,23 +255,23 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   breaks dedicated integration assertions.
 - **Fixed: `strict_writes` + `realloc` silently degraded to a
   whole-account grant.** A field combining `realloc = ...` with
-  `mut(seg, ...)` used to be classified as a whole-account write range —
+  `mut(seg, ...)` used to be classified as a whole-account write range,
   the segment scoping was silently discarded, so a program believed it
   had byte-range protection while publishing (and enforcing) a
   whole-account grant. Now the declared segments govern the handler
   surface; `realloc` stays a bind-time lifecycle (resize + rent top-up
   never cross the byte-range gate, and the account stays in the implied
   lamport set). `init`/`init_if_needed`/`close` intentionally keep
-  whole-account semantics — those lifecycles (re)write or destroy the
+  whole-account semantics, those lifecycles (re)write or destroy the
   entire account. Regression-tested with published-vs-enforced and
   runtime-refusal assertions that fail against the old classification.
 - **Touch maps that stay complete under pressure (adaptive exact-union
   coalescing).** The instruction touch log no longer truncates when an
   instruction touches more than `MAX_TOUCH_RECORDS` (32) distinct byte
   ranges. At capacity it now coalesces records whose union is exactly
-  the touched byte set — same account and kind, overlapping or adjacent
+  the touched byte set, same account and kind, overlapping or adjacent
   (a gap never bridges: that would claim untouched bytes); or a read
-  wholly contained in a write (a write is never widened by a read) —
+  wholly contained in a write (a write is never widened by a read),
   trading granularity for completeness. Contiguous workloads (columnar
   array writes, sequence pushes) of ANY size now emit a complete,
   unflagged map instead of a partial one, so downstream verification
@@ -232,7 +281,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   (33+ pairwise-unmergeable ranges). The generated write-containment
   oracle judges coverage per byte against the UNION of declared ranges,
   since a coalesced record may legitimately span two adjacent
-  declarations (each acquire was still gated individually — the runtime
+  declarations (each acquire was still gated individually, the runtime
   refusal path is untouched). Mutation-disciplined: gap-bridging,
   cross-kind widening, and silent-drop mutants are each killed by a
   dedicated test.
@@ -242,7 +291,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   array is now `[MaybeUninit<AccountView>; 254]` (forward-duplicate
   markers trap, so uninitialized slots are unreachable), and the
   instruction-data / program-id tail is found by a *memoized* skip-walk
-  that runs only when first requested — `k` consumed accounts cost
+  that runs only when first requested, `k` consumed accounts cost
   exactly `k` parses. Instruction-data-anytime ergonomics preserved (the
   DX edge over Pinocchio's lazy, which errors if you read data before
   consuming all accounts). Differential tests pin lazy resolution against
@@ -255,7 +304,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   ABI). All native and runtime syscalls route through it; the `sys_hash`
   constant is pinned against known Agave dispatch keys. Verified: the
   counter builds clean for both the v0 and v3 targets. Default builds are
-  unchanged — this is readiness for the loader-v4 / v3 activation window,
+  unchanged; this is readiness for the loader-v4 / v3 activation window,
   shipped before it is forced. No competitor except Pinocchio is v3-ready.
 - **SIMD-0339 CPI unlock.** The hard CPI account-info ceiling
   (`MAX_CPI_ACCOUNTS`) rises 128 → 255 to match SIMD-0339
@@ -265,12 +314,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   `MAX_ACCOUNTS`. Under 0339 every distinct account-info carries a CU
   cost, so `DynCpi` now **deduplicates account-infos by pubkey**
   (OR-merging `is_writable`/`is_signer` across occurrences) while the
-  callee still sees the full ordered meta list — fewer infos, lower CU,
+  callee still sees the full ordered meta list, fewer infos, lower CU,
   via `invoke_signed_deduped`. `hopper feature-gate` detects the 0339
   cluster gate alongside 0321.
 - **Byte-range write-sets published to manifests (scheduler-legible
   programs).** `InstructionDescriptor` now carries `strict_writes` and
-  byte-range `write_ranges` (the runtime's own `WriteRange` type — the
+  byte-range `write_ranges` (the runtime's own `WriteRange` type, the
   same source the `strict_writes` macro compiles), and the manifest emits
   `strictWrites` + a per-instruction `writeRanges` array: a
   machine-readable, sub-account contention footprint that future
@@ -301,7 +350,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   degrade to skip-only so instruction data is still found, and the
   per-account `align_offset` recomputation is replaced by a folded
   integer stride (`next_record_offset`), proven identical because the
-  loader input base is 8-aligned (`MM_INPUT_START`) — differential tests
+  loader input base is 8-aligned (`MM_INPUT_START`), differential tests
   pin the formula equivalence across alignment residues. Effect measured
   on the benches: every vault row dropped 46–64 CU (auth-fail 107 → 61),
   the router dropped 52–100 CU per route, and both binaries shrank. This
@@ -309,27 +358,27 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   Hopper program, with the gate still available for more when it
   activates. 13 new host-side walk tests (duplicates in and beyond the
   materialize range, alignment residues, 254-clamp, huge `data_len`).
-- **`invoke_borrow_checked` / `invoke_signed_borrow_checked` — the
+- **`invoke_borrow_checked` / `invoke_signed_borrow_checked`, the
   Pinocchio-equivalent CPI tier.** Const-generic fixed-array CPI whose
   validation is exactly the per-account borrow-state checks (what raw
   Pinocchio's `invoke` performs), for callers that already validated
   writability/uniqueness at parse. The default tier is unchanged and
   still rejects duplicate writable metas; the doc carries the full tier
   table (`checked` ≥ default > `borrow_checked` > `unchecked`) with CU
-  deltas. The parity router uses this tier — its validation level now
+  deltas. The parity router uses this tier, its validation level now
   matches the hand-written comparator exactly.
 - **Dispatch-table gate.** The tiny-profile fn-pointer dispatch table
   (contiguous single-byte discriminators) now only engages at ≥ 8
-  instruction arms — instruction-level analysis showed the indirect-call
+  instruction arms, instruction-level analysis showed the indirect-call
   setup regresses smaller programs, where the compare ladder is cheaper.
 - **Word-compare address equality everywhere (G1, 2026-07-07 research pass).**
   `Address == Address` in both the runtime and native crates now lowers to a
   4×`u64` `read_unaligned` short-circuit word compare instead of the derived
-  bytewise compare (manual `PartialEq`/`Eq`; derived `PartialOrd`/`Ord` kept —
+  bytewise compare (manual `PartialEq`/`Eq`; derived `PartialOrd`/`Ord` kept,
   word-equality ⇔ byte-equality so consistency holds). The native
-  `address_eq` — the function under **every** owner check
+  `address_eq`: the function under **every** owner check
   (`check_owner → owned_by`), CPI account validation, precompile
-  introspection, and the PDA bump search — was rewritten from `a.0 == b.0`
+  introspection, and the PDA bump search, was rewritten from `a.0 == b.0`
   to the same word compare. New safe wrappers
   `hopper_runtime::address::{keys_eq, keys_eq_bytes, address_is_zero}` now
   serve `require_keys_eq!`/`require_keys_neq!`, the `has_one` lowering, five
@@ -340,13 +389,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   and Ord-consistency tests pin the semantics in both crates. Note:
   `Address` no longer implements `StructuralPartialEq`, so Address-typed
   consts cannot appear in `match` patterns (none existed; use `==` guards).
-- **`hopper-builtins` (I18, opt-in `builtins` feature).** New zero-dependency
+- **`hopper-builtins` (opt-in `builtins` feature).** New zero-dependency
   `no_std` crate overriding the `memcmp`/`bcmp`/`memcpy`/`memset` intrinsics
   on the SBF target: word-wise inline for `n ≤ 32` (avoids the ~10 CU
   `mem_op` syscall base + shim overhead the platform-tools shims pay even
   for tiny lengths), `sol_mem*` syscalls above. Ordering-correct `memcmp`
   (the reference implementation in Quasar's tree returns `1` on any
-  mismatch, violating the C contract — ours computes the real sign, with
+  mismatch, violating the C contract, ours computes the real sign, with
   differential tests at every mismatch index). Enabled via
   `hopper = { features = ["builtins"] }` + linked through
   `use hopper_builtins as _;`; a `__HOPPER_BUILTINS` marker symbol supports
@@ -358,7 +407,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   cannot rewrite the overrides into self-recursive libcalls (P1 caught
   and reproduced by the adversarial review pass). Off by default. No `memmove` override (the toolchain shim is already the right
   shape).
-- **Competitor-bug-class regression suite (I20).** New integration tests
+- **Competitor-bug-class regression suite.** New integration tests
   (`crates/hopper-runtime/tests/competitor_bug_classes.rs`,
   `crates/hopper-core/tests/competitor_bug_classes.rs`) pin Hopper's
   structural immunity to four open competitor bug classes: remaining-accounts
@@ -377,7 +426,49 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 
 ### Fixed
 
-- **Aliased self-close burned lamports (found by the I20 suite).**
+- **Anchor IDL export now follows the current v0.1.0 schema.** The exporter
+  requires the deployment address, nests program identity under `metadata`,
+  uses current `writable` and `signer` flags plus `pubkey`, separates account
+  declarations from `types`, preserves exact one-to-eight-byte Hopper
+  instruction prefixes, and declares Hopper account bodies as custom
+  zero-copy serialization. It no longer labels the legacy pre-0.30 JSON shape
+  or zero-padded one-byte tags as current Anchor output.
+- Removed the unauthenticated legacy `[0xFF, 0xFE]` event-CPI passthrough. CPI
+  events now use the event-authority PDA path exposed by
+  `#[hopper::context(event_cpi)]` and `ctx.emit_event_cpi(..)`.
+- Rent-exemption enforcement and migration funding now read the live Rent
+  sysvar on-chain and fail closed if it is unavailable. The constant formula
+  remains an explicit host/fixed-config snapshot only.
+- Hardened the finance, distribution, lending, staking, and vesting helpers at
+  their integer boundaries. Invalid fee and schedule parameters now reject,
+  narrowing and multiplication are checked, and proportional splits implement
+  deterministic largest-remainder allocation.
+
+- **Token-2022 vault authorization and CPI validation.** Preparing a vault ATA
+  now requires the authority stored at initialization, permits one exact
+  mint/ATA binding, and rejects partial or replacement bindings. Init,
+  prepare, mint, and sweep validate their executable program accounts and
+  token shapes before CPI. Sweep now uses `TransferChecked` with the bound
+  mint and verified decimals. Canonical Token-2022 SBF regressions cover the
+  lifecycle and the unauthorized rollback path.
+- **Migration deposits use the System Program.** `DepositV2` no longer tries
+  to debit a signer-owned System account directly. It validates the full
+  state transition, releases the state borrow, performs a checked System
+  Transfer CPI, and then commits the V2 accounting fields.
+- **Devnet evidence harnesses fail closed and use finalized commitment.** The
+  devnet audit, compact vault, escrow, migration, orderbook, and cross-program
+  runners validate the devnet genesis and executable program accounts, redact
+  credential-bearing inputs, and emit structured evidence. Negative
+  transactions assert exact errors and rollback. Current-release evidence
+  still requires running those harnesses against the final source and archiving
+  their receipts. The orderbook harness decodes the intended segment instead
+  of scanning for a coincidental value.
+- **Escrow close destinations are declared writable.** The `Take` and
+  `Cancel` maker accounts now match the writable metas required by account
+  close, and generated schema metadata plus the checked-in manifest agree.
+- **CLI lifecycle builds are lockfile-pinned.** Automatic SBF builds issued by
+  deploy, upgrade, migrate, and dump now pass Cargo's `--locked` flag.
+- **Aliased self-close burned lamports (found by the regression suite).**
   `safe_close`/`safe_close_unchecked` accepted a destination aliasing the
   account being closed: the drained balance was credited to the account
   being zeroed, silently destroying it in program scope (the transaction
@@ -392,23 +483,23 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   `[..len]` only; `None` is returned before any read when the syscall
   reports zero bytes). This keeps Hopper immune to the
   uninitialized-return-data UB class open in Quasar (#238/#234) while
-  removing the fill cost — sound *and* fast.
+  removing the fill cost, sound *and* fast.
 
-- **Field-level write policies (`strict_writes`, innovation I12).**
+- **Field-level write policies (`strict_writes`).**
   `#[hopper::context(strict_writes)]` compiles the context's existing
   `mut` / `mut(seg, ...)` / lifecycle declarations into a `static`
   `WritePolicy` installed on the raw context during `bind()`. From then
-  on **every** Context-mediated write acquire — `segment_mut` /
+  on **every** Context-mediated write acquire, `segment_mut` /
   `segment_mut_const` / `segment_mut_typed` / `split_segments_mut`,
   whole-account `load_mut`, and the raw escape hatches `raw_mut` /
-  `as_mut_ptr` — must be fully contained in a declared range or it fails
+  `as_mut_ptr`: must be fully contained in a declared range or it fails
   with `Custom(0xD000 | account_index)` *at acquisition time*, before a
   single byte moves. This is Sealevel's account-level `writable` flag
   enforced at byte-range granularity: a `mut(balance)`-only account
   refuses whole-account loads and undeclared segments outright, and an
   instruction with no `mut` declarations becomes a machine-checked
-  read-only contract. No competing framework can express this — it rides
-  on Hopper's instruction-scoped borrow ledger. Runtime surface:
+  read-only contract. Enforcement rides on Hopper's instruction-scoped
+  borrow ledger. Runtime surface:
   `hopper_runtime::write_policy::{WritePolicy, WriteRange}` +
   `Context::set_write_policy` for hand-rolled programs. Zero cost when
   unused (one `None` check per write acquire); the policy ranges are the
@@ -416,21 +507,21 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   accessors can never be refused by their own declaration.
 - **Whole-account borrows enter the touch map (`touch-map` feature).**
   `Context::load_mut` now records a `(0, data_len)` write record in the
-  instruction touch log (liveness stays with the account borrow byte —
-  no live-ledger entry), closing the I7 blind spot where the most common
+  instruction touch log (liveness stays with the account borrow byte,
+  no live-ledger entry), closing the touch-map blind spot where the most common
   access path was invisible to the footprint. New
   `SegmentBorrowRegistry::record_account_touch` primitive. Note:
   `Context::load_mut` now takes `&mut self`.
 - **Instruction touch maps (`touch-map` feature).** The segment borrow
   registry now keeps an append-only, deduplicated log of every distinct
-  `(account, offset, size, read/write)` range an instruction registers —
+  `(account, offset, size, read/write)` range an instruction registers,
   surviving RAII lease releases, so `Context::for_each_touch()` at the end
   of a handler yields the instruction's cumulative segment-level footprint
   in first-touch order (`touch_map_len`/`touch_map_overflowed` report
   size and partiality; capacity 32). Off by default with zero hot-path
-  cost. No other Solana framework can produce this: it reads directly off
-  Hopper's instruction-scoped aliasing ledger. Follow-ups tracked in
-  `docs/audit/INNOVATION_IDEAS.md` (I7): receipt/log emission encoding,
+  cost. It reads directly from Hopper's instruction-scoped aliasing ledger.
+  Follow-ups tracked in
+  `docs/audit/INNOVATION_IDEAS.md`: receipt/log emission encoding,
   `hopper explain` field-name decoding, `hopper_test::Trace` surfacing.
 - **JSON execution traces for the SVM harness (`hopper_test::Trace`).**
   `HarnessResult::trace(program_id, &pre_accounts)` turns a single `process`
@@ -443,7 +534,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   surface program logs, so it needs a separate log collector.)
 - **`owner_any` account constraint for Token / Token-2022 polymorphism.**
   `#[account(owner_any = [token::ID, token_2022::ID])]` accepts an account owned
-  by *any* of the listed programs and rejects every other owner — the
+  by *any* of the listed programs and rejects every other owner, the
   first-touch surface for handlers that take an SPL Token *or* Token-2022 mint /
   token account. Backed by a new `AccountView::check_owned_by_any(&[&Address])`
   runtime guard; mutually exclusive with `owner = expr`. Covered by a runtime
@@ -459,14 +550,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   (`build_list_command`, `build_close_command`, `parse_buffers_close`), and
   `buffers` is added to shell completions.
 - **Client PDA auto-resolution from manifest seeds.** Added `AccountEntry.seeds`
-  (the PDA seed source expressions) plus a `no_std` seed classifier —
-  `classify_seed` / `SeedPart` (`Literal` / `Account` / `Arg` / `Unknown`) — that
+  (the PDA seed source expressions) plus a `no_std` seed classifier,
+  `classify_seed` / `SeedPart` (`Literal` / `Account` / `Arg` / `Unknown`), that
   projects the stored seed spellings (`b"vault"`, `authority.key().as_ref()`,
   `nonce.to_le_bytes()`) into structured parts. The TypeScript generator now
   consumes them: a PDA account is **dropped from the caller-facing `Accounts`
   interface** and **derived in the builder** via
   `PublicKey.findProgramAddressSync([...], programId)`, so generated clients
-  build instructions from only the accounts the caller actually owns — no
+  build instructions from only the accounts the caller actually owns, no
   hand-written PDA glue, no client-side seed drift. Resolution is fail-safe:
   an account is auto-derived only when *every* seed is a byte literal or another
   account reference, so a seed the client cannot encode falls back to
@@ -480,14 +571,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   carry no PDA-derivation crypto) surface the classified seed plan as metadata
   for host-side derivation instead of deriving inline.
 - **Zero-copy collection tails for compact accounts (`Tail*` + `CompactTail`).**
-  Added the `dynamic` flag — `#[hopper::state(compact, disc = N, dynamic)]` —
+  Added the `dynamic` flag, `#[hopper::state(compact, disc = N, dynamic)]`,
   for a program-managed tail with no length prefix, plus a `CompactTail` bridge
   (blanket-impl'd for every `CompactDynamicLayout`) that overlays Hopper's
   existing zero-copy collections on the tail region: `tail_vec` / `tail_ring` /
   `tail_slab` / `tail_bitset`, `tail_slab_init`, and `space_for_tail_vec` /
   `_ring` / `_slab` allocators. The collections are re-exported under the
-  audit/Quasar vocabulary — `TailVec` (`FixedVec`), `TailRing` (`RingBuffer`),
-  `TailSlab` (`Slab`), `TailBitSet` (`BitSet`) — and surfaced at
+  audit/Quasar vocabulary, `TailVec` (`FixedVec`), `TailRing` (`RingBuffer`),
+  `TailSlab` (`Slab`), `TailBitSet` (`BitSet`), and surfaced at
   `hopper::collections`. This makes the `[disc][fixed_head][tail_collection]`
   shape (order books, event rings, slab registries) first-class on a 1-byte
   header with O(1) cast-in-place access. Covered by
@@ -495,14 +586,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 - **First-class compact *dynamic* accounts.** `#[hopper::state(compact,
   dynamic_tail = T)]` and `#[hopper::state(compact, raw_tail = true)]` now
   produce the wire shape `[disc:u8][fixed_head][tail]` with **no** 16-byte
-  universal header — the 1-byte-header analogue of the headered hybrid tail,
+  universal header, the 1-byte-header analogue of the headered hybrid tail,
   closing the last Quasar "1-byte *and* dynamic" gap. Adds the
   `CompactDynamicLayout` runtime trait (relaxed `>=` length validation), the
   `AccountView::{load_compact_dynamic, load_compact_dynamic_mut,
   init_compact_dynamic, with_compact_dynamic, with_compact_dynamic_mut}`
   loaders with fail-closed init (zeroes the empty-tail length prefix), and
   macro-emitted `tail_len` / `tail_read` / `tail_write` / `tail_payload`
-  helpers plus a `space_for_tail(n)` allocator — all anchored at `COMPACT_LEN`
+  helpers plus a `space_for_tail(n)` allocator, all anchored at `COMPACT_LEN`
   and reusing the existing offset-parameterized tail runtime. The dynamic tail
   type folds into the layout fingerprint, so distinct tails are distinct
   layouts; the descriptor flips its `with_dynamic_tail()` flag, keeping the
@@ -516,7 +607,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
 - **Devnet validation pass.** Built every example to SBF and deployed counter, escrow, versioned-state (migration), orderbook, and virtual-state to devnet from the staged authority `HoppRy1HbNcHus9rmubDdXejDqAmhi55AURiCrq6tvxT`. Program ids and `.so` sizes are recorded in `BENCHMARKS.md` and each example README.
 - **`hopper explain <tx-sig | program-id>`** as a first-class top-level command. For a transaction signature it fetches the confirmed tx over raw JSON-RPC and decodes every instruction against the target program's on-chain Hopper manifest (or an operator-supplied `--manifest <file>`), printing the matched instruction name, disc byte, args, policy, and account slots. For a program id it lists the registered instructions. The raw-RPC path keeps `explain` working across versioned (v0) transactions and new RPC response fields that a pinned typed SDK rejects.
 - **`hopper upgrade`, `hopper close`, `hopper migrate`** lifecycle commands over the BPF Loader Upgradeable, with confirmation prompts on destructive operations and shell completions (bash/zsh/fish/powershell) for the new verbs.
-- **`hopper-test` crate** exposing `LiteSvmHarness` — an in-process SVM harness (mollusk-backed) that loads a compiled `.so`, seeds program-owned accounts, fires instructions, and reads back lamports / account data / compute-unit cost without a validator. `load()` returns `None` when the artifact is missing so callers can skip cleanly.
+- **`hopper-test` crate** exposing `LiteSvmHarness`, an in-process SVM harness (mollusk-backed) that loads a compiled `.so`, seeds program-owned accounts, fires instructions, and reads back lamports / account data / compute-unit cost without a validator. `load()` returns `None` when the artifact is missing so callers can skip cleanly.
 - **Property-based segment-disjointness proof.** Added a `proptest` oracle alongside the existing kani proofs in `hopper-runtime::segment_borrow`: it randomly carves segment maps and asserts the runtime registry accepts exactly the disjoint borrows and rejects every overlap, with read-sharing and per-account-isolation properties.
 - **Gated `HOPPER_DEVNET=1` integration tests** for escrow (make round-trip), migration/versioned-state (`init_v1` → `migrate_v1_to_v2` in-place growth), and orderbook (`init_book` → `post_bid` touching only the bids segment). Default `cargo test` stays offline.
 - A checked-in `examples/hopper-escrow/hopper.manifest.json` so `hopper explain --manifest` decodes a real devnet `make` transaction before the program publishes its manifest on chain.
@@ -1734,10 +1825,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once
   `init_if_needed` field keyword; `hopper_load!(slice => [a, b])`
   destructuring sugar; `err!` and `error!` short-form aliases in the
   prelude.
-- **`hopper schema export --anchor-idl`** - emit Anchor 0.30-shaped
-  IDL JSON from a `ProgramManifest`. Codama remains the preferred
-  interop path; this exists for the long tail of wallets/explorers
-  that still consume Anchor IDL.
+- **`hopper schema export --anchor-idl`** - introduced an Anchor-oriented
+  projection from `ProgramManifest`. This release emitted the legacy
+  pre-0.30 shape; Hopper 0.3.0 corrects it to current IDL specification
+  v0.1.0 and requires the expected program address encoded in the IDL. Export
+  does not query RPC or prove that address is deployed.
 - **`hopper-runtime::rent`** - `check_rent_exempt(account)` and
   `minimum_balance(data_len)` helpers backing the
   `rent_exempt = enforce` field keyword.

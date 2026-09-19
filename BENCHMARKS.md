@@ -13,7 +13,7 @@ interchangeable:
   two `sol_log_compute_units()` syscalls; the runner records the whole
   instruction's `compute_units_consumed` (**whole-ix**) and the bracketed
   delta minus the empty-bracket overhead measured by a dedicated probe
-  instruction (**net**) — the closest estimate of the primitive alone.
+  instruction (**net**), the closest estimate of the primitive alone.
 - **Validator-log deltas (historical, April 2026).** Earlier tables took the
   raw delta between the two log lines from `solana-test-validator 2.1`
   transaction logs. Those figures are retained below only to mark which
@@ -51,7 +51,7 @@ seed set, feature flags, release profile, and command line for every included
 framework.
 
 The current required matrix includes Hopper, crates.io Pinocchio 0.11.2,
-Quasar's pinned 0.1 release-line snapshot, a pinned pre-RC Anchor v2 alpha
+Quasar's pinned 0.1 release-line snapshot, a pinned pre-RC Anchor v2
 snapshot, and Star Frame's pinned snapshot. Anchor subsequently published
 `anchor-lang` 2.0.0-rc.1; that does not change what this archive measured.
 Deposit and withdraw are the only
@@ -83,7 +83,7 @@ SBF rustc 1.89.0-dev, Mollusk 0.15.0, and Agave/SVM execution-core crates at
 |---|---:|---:|---:|---:|---:|
 | Hopper | 1,578 | 0 | 424 | 0 | 9,032 |
 | Quasar 0.1 snapshot | 1,755 | +177 | 593 | +169 | 5,784 |
-| Anchor v2 alpha snapshot | 1,785 | +207 | 615 | +191 | 6,432 |
+| Anchor v2 pre-RC snapshot | 1,785 | +207 | 615 | +191 | 6,432 |
 | Pinocchio 0.11.2 | 3,697 | +2,119 | 2,542 | +2,118 | 7,512 |
 | Star Frame 0.30 snapshot | 3,837 | +2,259 | 2,624 | +2,200 | 83,216 |
 
@@ -122,7 +122,7 @@ in the bench repo's `results/primitive-bench/`; fresh run in
 `whole-ix` includes dispatch, fixture checks, and the logging brackets;
 `net` subtracts the measured empty-bracket overhead (101 CU, probe disc 21).
 The `April 2026` column is the superseded validator-log figure each row
-replaces (different method — see above).
+replaces (different method; see above).
 
 | Disc | Operation | Whole-ix CU | Net CU | April 2026 (superseded) | Category |
 |------|-----------|------------:|-------:|------------------------:|----------|
@@ -145,7 +145,7 @@ replaces (different method — see above).
 | 16 | `raw_cast_baseline` (unsafe ptr) | 475 | 2 | ~4 | Competitor baseline |
 | 17 | `StateReceipt` (enriched fields) | 2396 | 1917 | ~80 | Receipt (all fields) |
 | 18 | `receipt + emit` (64B log) | 2711 | 2231 | ~150 | Receipt + event |
-| 19 | `proc_macro_typed_dispatch` | 651 | 183 | — | Macro dispatch |
+| 19 | `proc_macro_typed_dispatch` | 651 | 183 | n/a | Macro dispatch |
 
 Note on the key-compare rows: all 32-byte key compares were rerouted to
 4×u64 word-compare `PartialEq` on 2026-07-07 (the G1 pass). The `check_keys_eq`
@@ -154,7 +154,7 @@ Note on the key-compare rows: all 32-byte key compares were rerouted to
 
 Note on the receipt rows: the 2026-07-09 re-baseline measured the receipt
 engine **~31% cheaper than 07-07** (begin+commit 2,784 -> 1,915 net;
-+emit 3,141 -> 2,231) — the same panic-formatting elimination that removed
++emit 3,141 -> 2,231), the same panic-formatting elimination that removed
 ~5 KiB of `core::fmt` also un-pessimized the fingerprint/diff hot loops.
 *Disc 14's 0 is a measurement artifact, not a win: the probe discards its
 result on an unchanged account and the compiler now dead-code-eliminates
@@ -179,14 +179,14 @@ Net CU, Mollusk 2026-07-09 run:
 
 This is now a measured claim, not a rounding argument: in the 2026-07-09
 Mollusk lab, the raw unsafe cast baseline and Hopper's safe, validated
-overlay both measure **2 CU net — the same number**. The bounds check, header validation, and
+overlay both measure **2 CU net, the same number**. The bounds check, header validation, and
 layout-fingerprint verification disappear into the same measured cost as
 `*const u8 as *const T`.
 
 For hot paths where accounts are already validated, use Tier A overlay. For
 cold paths, use `Vault::load()` at 33 CU net for full protocol-grade
 validation (owner + disc + version + layout_id + size). The cost of safety
-scales with how much safety you need — and at the overlay tier it is
+scales with how much safety you need, and at the overlay tier it is
 measured at zero premium.
 
 ## Validation Cost Breakdown
@@ -209,18 +209,19 @@ Net CU, Mollusk 2026-07-09 run:
 
 | Operation | Net CU | Notes |
 |-----------|-------:|-------|
-| `StateSnapshot::capture + diff` | 0* | *DCE artifact on a discarded, unchanged diff — see the receipt-row note |
+| `StateSnapshot::capture + diff` | 0* | *DCE artifact on a discarded, unchanged diff; see the receipt-row note |
 | `read_layout_id` + compare | 4 | 8-byte fingerprint verification |
 | `StateReceipt::begin + commit` | 1,915 | Full snapshot + diff + encode cycle (−31% vs 07-07) |
 | `StateReceipt` (enriched) | 1,917 | + phase, compat_impact, validation, migration |
 | `receipt + emit` | 2,231 | Full cycle: begin + set + commit + emit |
 | `emit_event` (32 bytes) | 240 | Log-based event emission |
 
-A complete audit trail of every state mutation — full enriched receipt plus
-emission — measures ~2,231 CU net, about **1.1% of a 200,000 CU instruction
+A full enriched receipt plus emission over the benchmark's configured state
+snapshot measures ~2,231 CU net, about **1.1% of a 200,000 CU instruction
 budget**. Lightweight state tracking (snapshot + diff + fingerprint check)
-costs ~30 CU. Receipts remain a reasonable default for audit-sensitive state
-changes; CU-critical one-shot programs can use the snapshot/diff core alone.
+costs ~30 CU. A receipt covers only the supplied snapshot and metadata; it is
+not automatically a complete audit trail for other accounts or raw mutation
+paths. CU-critical one-shot programs can use the snapshot/diff core alone.
 
 The April validator-log figures for receipts (~50/~80/~150 CU) are retired:
 they were captured with a different bracketing method that under-measured
@@ -232,7 +233,7 @@ Net CU, Mollusk 2026-07-09 run:
 
 | Framework Style | Equivalent Net CU | What It Does |
 |----------------|------------------:|---------------|
-| Quasar / raw-cast | 1 | `ptr as *const T`, no validation |
+| Local raw-pointer baseline | 1 | `ptr as *const T`, no validation; not Quasar source |
 | Steel / podded | 1 | Bounds-checked `Pod` cast |
 | **Hopper overlay** | **1** | **Header + layout_id + bounds** |
 | Anchor / borsh | ~500–2000 | Deserialization + clone |
@@ -265,7 +266,7 @@ long-form benchmark roadmap are maintained in the sibling `hopper-bench` repo.
 Measured with the sibling `hopper-bench` Mollusk parity harness on
 **2026-07-09** (post-G1 key-compare lowering, the fused single-pass
 entrypoint walk, the mutation-complete lamport gate, and the
-tag-arithmetic error lowering — see the provenance note under the table
+tag-arithmetic error lowering; see the provenance note under the table
 for what each recent change costs or saves). Every included framework used
 the same deterministic user seed set, SBF toolchain, runner, and command
 line. `n/a` means the upstream comparator does not implement that benchmark
@@ -273,8 +274,8 @@ instruction.
 
 A version note on the Anchor column: it is measured against
 **anchor-lang 0.31.1**, the comparator this table was locked to.
-`anchor-lang` 1.1.2 is the current stable release (a 1.1.2 re-run is queued,
-and its binary-size row is expected to shrink). The Pinocchio-based
+`anchor-lang` 1.2.0 is the current stable release (a current-stable re-run is
+queued; do not infer its result from this 0.31.1 row). The Pinocchio-based
 **Anchor v2** line published `anchor-lang` 2.0.0-rc.1 on 2026-08-12; its
 materials still say Alpha/unaudited, and its in-repo benchmarks land at
 Quasar-level CU. Read the Anchor
@@ -291,7 +292,7 @@ Anchor 0.31.1/1.x, with the shelf life that implies.
 | Unsigned withdraw | rejected | rejected | rejected | rejected |
 | Binary size (`.so`) | 7.46 KiB | 7.73 KiB | **5.47 KiB** | 190.11 KiB |
 
-> **Full four-way re-measured 2026-07-09** — every column through the same
+> **Full four-way re-measured 2026-07-09**: every column through the same
 > mollusk 0.10.3 host runner in one run: Hopper at HEAD, the in-tree Anza
 > Pinocchio target, Quasar's own prebuilt vault, and the anchor-lang 0.31
 > comparator rebuilt from the same pinned lockfile (its rows reproduced the
@@ -300,13 +301,13 @@ Anchor 0.31.1/1.x, with the shelf life that implies.
 >
 > Deltas vs the 2026-07-02 Hopper column, each one a priced decision:
 > Withdraw 442 → 486: **+44 CU is the lamport gate (mutation-complete
-> write-sets) actually enforcing** on the one lamport-moving instruction —
+> write-sets) actually enforcing** on the one lamport-moving instruction,
 > a measured safety feature no other column has (the error-lowering's +8
 > was recovered by the gate-check fast-out; Deposit's +3 and Auth-fail's
 > +5 remain, the price of the 10% `.text` cut). Every Quasar-comparable
 > row still wins.
 >
-> Size: this week a **P0 was found by loading, not building** — the gate's
+> Size: this week a **P0 was found by loading, not building**, the gate's
 > `static mut` made every `lamports(...)` program fail the SBF loader's
 > no-writable-sections rule; it now lives in the reserved, zero-initialized
 > VM heap and Hopper programs carry **zero writable sections**. With ~5 KiB
@@ -314,22 +315,22 @@ Anchor 0.31.1/1.x, with the shelf life that implies.
 > now **smaller than Pinocchio's (7.46 vs 7.73 KiB) on the identical
 > contract**. Quasar's 5.47 KiB still wins this row; the remaining delta is
 > increasingly *paid-for* structure (receipts, the byte-range ledger, the
-> lamport gate — outlining experiments that "saved" bytes cost +44..+73 CU
+> lamport gate, outlining experiments that "saved" bytes cost +44..+73 CU
 > and were rejected; see the in-source measurement notes). We do not
 > publish a size lead we have not measured.
 >
 > Raw-surface guard note (2026-07-20): when the ambient gate began
 > governing the public raw `AccountView` surfaces, its check machinery
 > (~1.5 KiB of `.text`) became linked into every program using those
-> surfaces, including raw-tier ones that never install a gate — this
+> surfaces, including raw-tier ones that never install a gate; this
 > vault measured 9,128 B at that commit (8,976 B after the CPI staging
 > fix). The `unguarded-raw-surfaces` opt-out provably unlinks it; the
 > benchmarked parity artifact is built with
 > `cargo build-sbf -- --features unguarded-raw-surfaces` (a raw-tier
 > program with no strict-writes context) and measures 7,656 B
 > (`.text` 6,032), byte-adjacent to the figure above. The feature is
-> never a default — workspace feature unification would otherwise
-> disable the guard for unrelated strict programs — and it cannot be
+> never a default, workspace feature unification would otherwise
+> disable the guard for unrelated strict programs, and it cannot be
 > combined with `strict_writes`: the codegen const-asserts the guard,
 > so the combination is a compile error, never a silent bypass.
 
@@ -340,7 +341,7 @@ in-tree `anchor-vault` implementing the identical instruction contract
 (explicit one-byte-style discriminators via Anchor's `discriminator`
 attribute so the harness drives all four programs the same way).
 
-## Router Parity Lab — initial dated three-way (2026-07-07)
+## Router Parity Lab: initial dated three-way (2026-07-07)
 
 This is a published router-class head-to-head
 between zero-copy Solana frameworks. The workload (contract:
@@ -360,7 +361,7 @@ disqualified from publication; all three passed.
 | min-out gate | rejected | rejected | rejected |
 
 Rows re-measured **2026-07-09** after a same-day suspend-bisect-fix cycle:
-a routine re-run caught a Batch-6 regression (+52 CU/hop — gate-machinery
+a routine re-run caught a Batch-6 regression (+52 CU/hop, gate-machinery
 calls reachable from the per-meta CPI closure forced spill-heavy codegen),
 the claim was suspended, a per-commit bisect attributed every CU, and the
 once-per-CPI delegation-sweep fix landed the rows BETTER than the 07-07
@@ -369,15 +370,16 @@ register and commit c50d83c.
 
 Reading it honestly:
 
-- Hand-written Pinocchio wins the CU rows, as it should — it carries no
+- Hand-written Pinocchio wins the CU rows, as it should; it carries no
   framework surface. Hopper lands within **1.8–2.4%** of it (+36/+60/+81 CU
   across the hops) while carrying full framework validation, state contracts,
   and tooling, and ships the **smallest binary of the three**.
-- **Hopper beats Quasar on every row** (−23/−29/−34 CU) with a smaller
-  binary. The morning run (pre-entrypoint-fuse:
+- In this pinned 2026-07-09 router fixture, **Hopper measured below Quasar on
+  all three CU rows** (−23/−29/−34 CU) with a smaller binary. The morning run
+  (pre-entrypoint-fuse:
   `results/router-parity-2026-07-07-threeway/`) had Hopper trailing Quasar
-  by +34/+56/+79 CU; the fused single-pass account walk — an
-  instruction-level audit finding, fixed and re-measured the same day —
+  by +34/+56/+79 CU; the fused single-pass account walk, an
+  instruction-level audit finding, fixed and re-measured the same day,
   flipped every row. Both snapshots are kept so the delta is checkable.
 - Every framework's measured CU includes one identical mock-AMM invocation
   per hop, so the deltas isolate router-side framework overhead.
@@ -421,11 +423,12 @@ Per-run result files:
 | Primitive lab | `hopper-bench/results/primitive-bench/primitive-cu.{md,csv}` |
 
 Previous published runs, kept so deltas stay checkable: 2026-07-02
-(post-I10, Hopper `1d10d04`): 466/107/564/1713/488 at 7.46 KiB —
+(after fused signer/writable validation, Hopper `1d10d04`):
+466/107/564/1713/488 at 7.46 KiB;
 functionally identical to the 2026-07-07 row (deposit +1 CU is noise;
 G1's win is structural, not vault-visible). 2026-05-25 (Hopper `300797d`,
 Quasar `5fda2f5`): Hopper 431/72/551/1669/453 CU at 7.53 KiB; Quasar
-deposit 1767 / withdraw 603 at 6.27 KiB — **retired**, see the bisect
+deposit 1767 / withdraw 603 at 6.27 KiB, **retired**, see the bisect
 section below for why those numbers were un-deployable.
 
 ### Performance observations
@@ -448,7 +451,7 @@ section below for why those numbers were un-deployable.
   about every current program or framework release.
 - Hopper is lower-CU than the in-tree Anza Pinocchio parity target on the
   measured PDA-bearing success paths in this vault contract. Treat that as a
-  result for this benchmark, not a universal "faster than Pinocchio" claim —
+  result for this benchmark, not a universal "faster than Pinocchio" claim,
   the router lab above is the fairer overhead measurement, and there
   hand-written Pinocchio wins by 1.8–2.4%.
 - Quasar's upstream vault does not implement `authorize` or `counter_access`,
@@ -464,10 +467,10 @@ itself reproduces the May numbers bit-for-bit on the May commit) pinned
 the **entire** delta to one commit: `8899e99`, which feature-gated the
 `r2` fast entrypoint behind `simd-0321`.
 
-**This is not a regression — it is the removal of an unsound
+**This is not a regression; it is the removal of an unsound
 optimization.** Before `8899e99`, `fast_entrypoint!` unconditionally
 read the instruction-data pointer from the SVM's second entrypoint
-register. SIMD-0321 — the proposal that populates that register — is
+register. SIMD-0321, the proposal that populates that register, is
 **not activated on any public cluster**; the fast path only worked in
 local SVMs that happen to pass `r2`. The May numbers were therefore
 ~30–40 CU better than any mainnet deployment could actually achieve.
@@ -477,7 +480,7 @@ back the day the SIMD-0321 gate activates (rebuild with the feature).
 
 **2026-07-21 closure of that promise:** the gate DID activate
 (mainnet-beta 2026-04-01, all three clusters), and the trade was
-re-measured — with a surprise ending. The 2026-07-07 fused single-pass
+re-measured, with a surprise ending. The 2026-07-07 fused single-pass
 walk had already recovered the win from the scanning side (auth-fail
 107 → 61 pre-error-lowering, beating even the May r2 figure of 72):
 the fused scanner hops records by their `data_len` headers without
@@ -486,7 +489,7 @@ it are CU-neutral on in-repo programs (smoke 1,942 → 1,944; sentinel
 1,227/659 → 1,228/660; cicada claim 4,417 flat) while carrying ~368
 bytes of dual-path `.text`. (Those absolute figures are the 2026-07-21
 `strict_writes` baselines; the 2026-07-24 bare-strict ambient gate below
-shifts every `strict_writes` context up ~+265 CU — the sentinel row is
+shifts every `strict_writes` context up ~+265 CU, the sentinel row is
 re-baselined there, and the r2-vs-scanning A/B stays CU-neutral around
 the new baseline.) `simd-0321` therefore stays opt-in on
 size-per-CU grounds; `#[hopper::program]` now emits the feature-aware
@@ -503,8 +506,8 @@ itself against.
 
 Two corollaries the bisect proved along the way:
 
-- **Historical parity-vault A/B:** I10 (fused signer/writable validation),
-  I7 (touch maps), and the then-current I12 write-policy path produced no
+- **Historical parity-vault A/B:** fused signer/writable validation, touch
+  maps, and the then-current write-policy path produced no
   measurable change on that fixture between `411790f` and the compared head.
   This is not a current universal 0-CU claim. Later ambient observability and
   raw-surface enforcement changed the measured feature cost: the smoke case
@@ -513,7 +516,7 @@ Two corollaries the bisect proved along the way:
 - The widened auth-fail gap to Pinocchio (−31 → −66 CU) is the same
   entrypoint story: their 41 CU rejection is measured with their
   scanning entrypoint too, so the honest comparison is 66 vs 41 (as of
-  2026-07-09; 61 pre-error-lowering) — the scanning pass plus Hopper's
+  2026-07-09; 61 pre-error-lowering), the scanning pass plus Hopper's
   dispatch reaching the fused check. Still the only vault row Pinocchio
   wins.
 
@@ -525,7 +528,7 @@ difference**. The in-tree Pinocchio target uses idiomatic
 `find_program_address` (a bump search that can cost ~1,500–2,500 CU),
 whereas the Hopper parity vault verifies a **stored canonical bump** with
 a single `create_program_address` (~200 CU). A Pinocchio program that
-also stored its bump would land close to Hopper on these rows — the
+also stored its bump would land close to Hopper on these rows, the
 router lab above, where the Pinocchio comparator is hand-optimized, shows
 exactly that shape.
 
@@ -550,7 +553,7 @@ Pinocchio is slower."
   `crates/hopper-builtins` crate overrides `memcmp`/`bcmp`/`memcpy`/`memset`
   with ordering-correct word-wise routines. Vault CU is identical with the
   feature on (+0.41 KiB size); the value is runtime-length memory ops, which
-  LLVM lowers to `bcmp` — a symbol platform-tools does not even provide.
+  LLVM lowers to `bcmp`, a symbol platform-tools does not even provide.
   Linking currently requires
   `RUSTFLAGS="-C link-arg=--allow-multiple-definition"`. For contrast:
   Quasar's vendored `solana-compiler-builtins` overrides only `memcmp`, is
@@ -573,7 +576,7 @@ The parity vault source is at
 The cross-framework runners live in the sibling `hopper-bench` repo.
 
 
-## Lazy vs Eager Dispatch Lab (R3, 2026-07-10) — Hopper vs Hopper
+## Lazy vs Eager Dispatch Lab (2026-07-10): Hopper vs Hopper
 
 **This is a one-framework lab**: the same eight-instruction dispatch vault
 built twice, once with the standard eager `fast_entrypoint!` and once with
@@ -595,7 +598,7 @@ artifacts, surprising rows confirmed by a second identical run
 | 6 | sweep | 8/8 | 123 | 323 | +200 | +162.6% |
 | 7 | flush | 8/8 | 124 | 324 | +200 | +161.3% |
 
-Binary size: eager 3,496 B (3.41 KiB), lazy 9,960 B (9.73 KiB) — lazy is
+Binary size: eager 3,496 B (3.41 KiB), lazy 9,960 B (9.73 KiB), lazy is
 2.8× larger (the 254-slot resolved-array machinery).
 
 Numbers above are the 2026-07-10 re-run AFTER the runtime-typed lazy
@@ -603,7 +606,7 @@ bridge landed (the DX fix that made `hopper_lazy_entrypoint!` hand out
 runtime types like the eager macro always did): the bridge costs the
 lazy side **+1–2 CU per instruction and +40 B** versus the first run
 earlier the same day (ping 97→98, sweep 321→323 …), while the eager
-column is bit-identical. Measured, disclosed, and worth it — lazy
+column is bit-identical. Measured, disclosed, and worth it, lazy
 handlers now compile against `hopper::prelude::LazyContext` with zero
 hand-written substrate glue.
 
@@ -611,23 +614,23 @@ hand-written substrate glue.
 Hopper's fused eager parse is ~2.75 CU per account (eager ping at 119 vs
 lazy ping at 97 brackets the entire 8-account parse at ~22 CU), while
 lazy's on-demand `next_account()` costs ~28 CU per touched account
-((321−97)/8) — roughly 10× the eager batch rate. Consequences, measured:
+((321−97)/8), roughly 10× the eager batch rate. Consequences, measured:
 
 - Lazy wins only on 0–2-account dispatch paths (−13 to −22 CU) and is
   already a loss at 3 touched accounts (deposit +33). Break-even sits
-  around 2–3 touched accounts — LOWER than this lab's own pre-measurement
+  around 2–3 touched accounts, LOWER than this lab's own pre-measurement
   doc comment guessed, which is why we measure.
 - Touch-everything variants pay ~2.6× (sweep/flush +198 CU).
 - Verdict for users: the lazy entrypoint is a niche tool for ping-like
   admin/probe instructions in accounts-heavy programs. For everything
-  else, Hopper's eager fused parse is already near-free — that cheapness
+  else, Hopper's eager fused parse is already near-free, that cheapness
   is the durable result of this lab.
 
 Lab notes: the eager baseline is `fast_entrypoint!` without the
-`simd-0321` feature (today's-cluster configuration, see above). The R3
+`simd-0321` feature (today's-cluster configuration, see above). The lazy-path
 target's lazy build did not compile against the framework until this run
 (the lazy macro hands out substrate-layer types; the vault needed an
-explicit bridge) — the DX gap is tracked as follow-up work, and the
+explicit bridge), the DX gap is tracked as follow-up work, and the
 harness now pins both configurations compiling and running.
 
 ## CU Budget Reference
@@ -649,21 +652,41 @@ budget; opting into full receipt emission adds ~1.1% of a 200k budget.
 
 ## Deploy-cost economics
 
-Rent-exempt deploy cost follows `(elf_bytes + 128) × 6,960` lamports
-(formula verified against a live mainnet program-account balance). Applied to the
-2026-07-07 vault matrix and the devnet counter:
+The earlier `(ELF bytes + 128) × 6,960` shortcut priced one data account and
+was not a loader-v3 deploy calculation. It is retired. For a fresh upgradeable
+deployment, define `R(n)` as the target cluster's live
+`getMinimumBalanceForRentExemption(n)` result:
 
-| Artifact | Size | Rent at deploy |
-|---|---:|---:|
-| Hopper counter (2026-07-09 build) | 3,736 B | **≈ 0.027 SOL** |
-| Hopper counter (devnet artifact, 07-07) | 4,688 B | ≈ 0.034 SOL |
-| Hopper vault (2026-07-09) | 7.46 KiB | ≈ 0.054 SOL |
-| Quasar vault | 5.47 KiB | ≈ 0.040 SOL |
-| Pinocchio vault | 7.73 KiB | ≈ 0.056 SOL |
-| Anchor 0.31.1 vault | 190.11 KiB | **≈ 1.356 SOL (~25× Hopper)** |
+```text
+permanent locked principal = R(36) + R(45 + max_len)
+Buffer account rent floor  = R(37 + ELF_len)
+```
 
-Unlike CU tables, deploy rent does not churn with runtime versions: it is a
-durable cost axis, and the Anchor-class artifact is the outlier on it.
+The stock Solana CLI temporarily funds the Buffer at the **ProgramData
+requirement** `R(45 + max_len)`. Loader v3 drains that balance back to the payer
+before allocating ProgramData, so it is recycled working capital rather than a
+second permanent charge. Transaction and priority fees are separate. Rent and
+the chosen `max_len` can change, so historical byte-size rows do not carry an
+evergreen SOL conversion.
+
+For the final 2026-09-06 Cicada dirty-tree diagnostic (`ELF_len = max_len =
+165,944`, SHA-256
+`7ee1247f704b6feb42cfc499b9bcdb30b79b4f83bc4de599cbe389b685c2defb`),
+Mainnet slot 444,767,908 returned:
+
+| Allocation | Bytes | Lamports | SOL |
+| --- | ---: | ---: | ---: |
+| Program | 36 | 1,038,612 | 0.001038612 |
+| ProgramData | 165,989 | 1,052,018,961 | 1.052018961 |
+| **Permanent total** | n/a | **1,053,057,573** | **1.053057573** |
+| Buffer rent floor | 165,981 | 1,051,968,297 | 1.051968297 |
+| Stock CLI Buffer funding | 165,981 | 1,052,018,961 | 1.052018961 |
+
+That permanent balance is refundable principal, not a burned deployment fee.
+Two isolated rebuilds matched the working target, three identical copies total,
+but the tree was dirty, so this is diagnostic evidence pending a clean
+committed attestation. Use `hopper deploy --dry-run`
+against the intended cluster immediately before deployment.
 
 
 ## Devnet deployment evidence (this pass)
@@ -682,12 +705,13 @@ sizes are the on-disk `.so` artifacts that were deployed.
 
 The 4 688-byte counter was the headline size claim as deployed; the same
 example rebuilt at HEAD (2026-07-09, after the writable-section P0 fix and
-the `core::fmt`/error-lowering size work) measures **3,736 bytes ≈ 0.027
-SOL** — a complete, deployable zero-copy program — `#[account]` layout,
+the `core::fmt`/error-lowering size work) measures **3,736 bytes**, a
+complete, deployable zero-copy program, `#[account]` layout,
 `#[derive(Accounts)]` context with a `has_one` constraint, single-byte
-dispatch, and a checked mutation — in under 4 KiB of bytecode. The devnet
+dispatch, and a checked mutation, in under 4 KiB of bytecode. The devnet
 program id above still runs the 4,688-byte 07-07 artifact until
-redeployed.
+redeployed. Earlier SOL conversions for these rows used the retired
+single-account shortcut and must not be quoted as deployment cost.
 
 ### Measured on-chain compute
 
@@ -698,11 +722,17 @@ via the `init` lifecycle, then writes four typed fields) consumed
 
 ### Live self-describing transactions (devnet, 2026-07-10)
 
+This section and the dated devnet sections that follow preserve historical
+evidence from the named deployments. Their program ids, signatures, binaries,
+and manifests are not current 0.3.0 release attestations. A release-facing
+claim requires a fresh deployment of the final source and a new archived
+evidence bundle.
+
 The upgraded `hopper-smoke` (`2YPBvKJ8h37bUEFBrmytzNuKfUJ5Q2o2tkTiqRCZdjme`,
 programdata extended to 42 520 B, now carrying the `event_cpi` and
 whole-account-touch instructions) ran the full loop live. Every
 instruction was fired with `hopper tx send` (the new no-Node generic
-instruction sender) and decoded back with `hopper tx explain` — pure
+instruction sender) and decoded back with `hopper tx explain`, pure
 Rust on both sides, no JS toolchain anywhere:
 
 | Instruction | Live CU | Signature (devnet) |
@@ -716,16 +746,16 @@ Rust on both sides, no JS toolchain anywhere:
 Three decode receipts from those confirmed transactions:
 
 - **Field-level touch map, live**: the withdraw decodes to
-  `W slot 1 (vault) [48..56) -> Vault.balance` — the transaction names
+  `W slot 1 (vault) [48..56) -> Vault.balance`: the transaction names
   the exact field it wrote.
 - **Whole-account wrapper capture, live**: `bump_whole_vault` (a
   `get_mut` write, the path that was the touch map's blind spot until
-  2026-07-10) decodes to `W slot 1 [0..76)` — the ambient-log capture
+  2026-07-10) decodes to `W slot 1 [0..76)`, the ambient-log capture
   works on a real cluster, not just in Mollusk.
 - **Named event from inner-instruction metadata, live**: the
   `emit_receipt` transaction decodes to
   `event: DepositReceipt (tag 0x02) { balance: 1500000, deposit_count: 3 }`
-  with the sink-authentication provenance line — and both values
+  with the sink-authentication provenance line, and both values
   cross-check against the known state sequence (2 000 000 deposited −
   500 000 withdrawn = 1 500 000; count = deposit + bump + receipt = 3).
 
@@ -746,13 +776,13 @@ steady-state:
 | Step | Live CU | Signature (devnet) |
 |---|---:|---|
 | init_note (creates V1) | 1,656 | `4iiEejiGZxvEnTuJsabnN2w7y7A4j3jCGV2zUq5P1cHpxrpHEDM8GApg6TP644BjA2z4z6iMVehJUvim35rZX8Mm` |
-| touch_note — MIGRATING touch | 280 | `4HTk16eVSby5r8r68A7AaCr1ZKGRThZgS9tAbVFiQzvnHX82Jvpqz5T1imEsGPHt1osUa968J9xXoNWJajSHfcaH` |
-| touch_note — steady-state | 251 | `4ggJLgKPhRZZ4xbwpXuAv4Mi3TsqFr2uoNkQmaVNtWaXpNWrdQoh4X9YMPPueGKVQp4FxS3JANukASi6vPPN9GMG` |
+| touch_note, MIGRATING touch | 280 | `4HTk16eVSby5r8r68A7AaCr1ZKGRThZgS9tAbVFiQzvnHX82Jvpqz5T1imEsGPHt1osUa968J9xXoNWJajSHfcaH` |
+| touch_note, steady-state | 251 | `4ggJLgKPhRZZ4xbwpXuAv4Mi3TsqFr2uoNkQmaVNtWaXpNWrdQoh4X9YMPPueGKVQp4FxS3JANukASi6vPPN9GMG` |
 
 Post-state read back live: **version 2**, tag widened to u64 with the
 value preserved (`0xBEEF`), `touches = 2`. The one-time migration
-premium is **29 CU** — the full typed in-place upgrade (V1 identity
-probe, transform, header re-stamp) — and BOTH live numbers match the
+premium is **29 CU**, the full typed in-place upgrade (V1 identity
+probe, transform, header re-stamp), and BOTH live numbers match the
 Mollusk e2e (`examples/hopper-smoke/tests/note_migration_sbf_e2e.rs`)
 exactly: the second consecutive lab-to-cluster exact match in this
 document. The demo layouts also model the recommended forward-compat
@@ -761,11 +791,21 @@ fit one allocation and no realloc is ever needed.
 
 ### Live IDL publish (devnet, 2026-07-12)
 
-`hopper publish-idl` battle-tested on a real cluster for the first
-time: `examples/hopper-smoke`'s manifest-generated Anchor IDL (the same
+`hopper publish-idl` was exercised once on a real cluster for the first
+time: `examples/hopper-smoke`'s then-current manifest-generated legacy IDL
+projection (the same
 `hopper.manifest.json` the manifest Phase A/B work checked in) sent to
-the canonical SPL Program Metadata PDA in one signed transaction, zero
+the canonical Program Metadata PDA in one signed transaction, zero
 Node/JS anywhere in the path.
+
+This command publishes an IDL projection. It does not
+publish Hopper's mutation ranges, effect contract, or a release-bound behavior
+record; those remain separate artifacts/roadmap work.
+
+This receipt proves the 2026-07-12 payload, Program Metadata transport, and
+readback path. It does not attest today's rewritten Solana IDL v0.1 projection,
+its fail-closed representability checks, or Cicada compatibility. The current
+export refuses a source surface it cannot encode losslessly.
 
 | Field | Value |
 |---|---|
@@ -775,22 +815,22 @@ Node/JS anywhere in the path.
 | Path | fresh inline `Initialize` (fits one transaction) |
 | Signature | `D8XRoTR4SLmaPJzpTETmHTz4J2LrDHtQjkHpcHUrnK3KVtqXv6deGd2hBx7DBj2MCnNhyo5F8KVEFrrFZUBiVhb` |
 
-Verified by an independent read-back (not just a confirmed signature):
+Verified by a separate maintainer readback (not just a confirmed signature):
 fetched the account, confirmed its owner is the metadata program,
 zlib-decompressed the stored payload, parsed it as JSON, and matched
 `name: "hopper-smoke"`, `version: "0.2.1"`, and all 8 instruction names
 (`initialize, deposit, withdraw, close, emit_receipt, bump_whole_vault,
-init_note, touch_note`) — the full manifest → IDL → on-chain → decode
-loop, not just the send. The chunked multi-transaction path (for IDLs
+init_note, touch_note`), the full then-current manifest → legacy projection
+→ on-chain → decode loop, not just the send. The chunked multi-transaction path (for IDLs
 too large for one transaction) and the `--overwrite` `SetData` rewrite
 remain unit-tested only; this run exercised the fresh single-transaction
 path.
 
 ### Sentinel: the byte-range refusal, live (devnet, 2026-07-14)
 
-The flagship moat claim — an out-of-policy byte write is refused by the
+The flagship moat claim, an out-of-policy byte write is refused by the
 framework with `Custom(0xD000 | account_index)` at borrow acquisition,
-before any byte changes — proven for the first time beyond the host
+before any byte changes, proven for the first time beyond the host
 harness, at all three levels in one day: hopper-svm (host), Mollusk on
 the compiled `.so` (SBF), and a live devnet cluster.
 `examples/hopper-sentinel` is the program; its `Pause` context declares
@@ -803,12 +843,12 @@ through the governed `ctx.segment_mut` path.
 | Program | `CqkFhE8UVHRTJZLirEBVS1xcsZNtuNop8HniRRDWVJFC` |
 | Config account | `13G2wXZ9kbX9rjcS184nGafSkddPnqq9cpjX3HkBzS5s` |
 | Deploy | `394VyGZSKPLFWWq7P2PgVWtJGWyPpjDqryzdMhPdpQuvpm6qJ9pMG396RWZWaMzcgvfucZbZxbzo4PzLoMM4i8uk` |
-| `initialize_config` | `o3SoGa3FJtqbBWv9jV4U4E1homnShPnmSbt46Rxr78okwvbAX1BR3aS2cvk6cEFfU1yjWsAJ7YUxoKF4psy3Q7f` — 1,724 CU |
-| `honest_pause` (Ok) | `yrowCoAHkd1BsTj3vRgFomExU7YBTvkr6GpqZc3JaZLC24ShYqtc3xTcz8N1yvWbHEHbe9atEokb2uABj4uxZnY` — **1,203 CU, exactly the Mollusk figure** |
-| `malicious_pause` (REFUSED) | `TszXg6YGWNGfzrfbd2ekCMcN2BzjcTKxkPEmWo8dMWjcu4qHXSkJS6QSq8fhGZU77e4zk6HJBaaFVM47fEx6X9Z` — `Custom(53249)` = `0xD001`, **616 CU, exactly the Mollusk figure** |
+| `initialize_config` | `o3SoGa3FJtqbBWv9jV4U4E1homnShPnmSbt46Rxr78okwvbAX1BR3aS2cvk6cEFfU1yjWsAJ7YUxoKF4psy3Q7f`, 1,724 CU |
+| `honest_pause` (Ok) | `yrowCoAHkd1BsTj3vRgFomExU7YBTvkr6GpqZc3JaZLC24ShYqtc3xTcz8N1yvWbHEHbe9atEokb2uABj4uxZnY`, **1,203 CU, exactly the Mollusk figure** |
+| `malicious_pause` (REFUSED) | `TszXg6YGWNGfzrfbd2ekCMcN2BzjcTKxkPEmWo8dMWjcu4qHXSkJS6QSq8fhGZU77e4zk6HJBaaFVM47fEx6X9Z`, `Custom(53249)` = `0xD001`, **616 CU, exactly the Mollusk figure** |
 
 Raw-surface guard update (2026-07-20): the ambient write gate governs
-the raw `AccountView` surfaces — whole-account borrows, direct segment
+the raw `AccountView` surfaces, whole-account borrows, direct segment
 access outside a `Context`, and resize/close transitions. Under a
 `mutation_complete` context (`strict_writes` + `lamports(...)`) the gate
 was already installed for the lamport dimension, so this governance was
@@ -818,7 +858,7 @@ that never installed a gate (`honest_pause` 1,203 -> 1,227, refusal
 
 Bare-`strict_writes` gate (2026-07-24): a bare `strict_writes` context
 (no `lamports(...)`) previously installed NO ambient gate, so the raw
-`AccountView` surfaces bypassed its policy — the Context surface was
+`AccountView` surfaces bypassed its policy, the Context surface was
 governed, the raw surfaces were not. That is now closed: a bare strict
 context installs a DATA-ONLY ambient gate (data writes, transitions, and
 out-of-set accounts governed; direct lamport arithmetic and writable-CPI
@@ -826,7 +866,7 @@ delegation stay passthrough for backward compatibility). The flagship
 "enforced at borrow acquisition" claim now holds on **every** surface,
 not just the mediated one. Measured cost on the sentinel (2026-07-24
 `cargo build-sbf` + Mollusk): `honest_pause` **1,494 CU** (from 1,227),
-`0xD001` refusal **918 CU** (from 659) — roughly +265 CU, the gate
+`0xD001` refusal **918 CU** (from 659), roughly +265 CU, the gate
 install + RAII teardown. This cost is borne ONLY by `strict_writes`
 contexts, which are an opt-in security surface; the CU-headline
 comparisons above (the router lab and the parity vault) declare no
@@ -839,7 +879,7 @@ preflight simulation; `hopper tx send --allow-failure` (added for this
 run) does that and reports the on-chain error as data. Post-refusal
 state verified by fetching the account: `paused = 1`, `revision = 1`
 (the honest writes), and the admin field byte-for-byte equal to the
-original authority — not the attacker constant the tampered handler
+original authority; not the attacker constant the tampered handler
 tried to write. The honest transaction is self-describing: `hopper tx
 explain <sig> --manifest <from-source manifest>` names the instruction
 (`honest_pause`) and decodes its live touch map to exactly the declared
@@ -849,20 +889,20 @@ lab==live CU matches in this document (after the event and migration
 rows), now including a *refusal* path. Decoder nit worth recording:
 `tx explain` lists field-name candidates from every layout in the
 manifest (the range annotation shows `Config.paused, Ledger.entries`)
-rather than disambiguating by the account's disc byte — cosmetic,
+rather than disambiguating by the account's disc byte, cosmetic,
 tracked as a CLI follow-up.
 
 Adversarial verification (mutation discipline, pre-deploy): widening
 the declaration to `mut(admin, paused, revision)` made the malicious
 write *succeed* on both host and compiled SBF (830 CU success vs 616
-CU refusal), then reverting restored the refusal — pinning the
+CU refusal), then reverting restored the refusal, pinning the
 refusal's only possible source as the framework write policy compiled
 from the declaration.
 
 Harness-fidelity note (prompted by LiteSVM v0.14.0, 2026-07-13, which
 syncs that harness to Agave 4.1 so its CU costs track mainnet). Hopper's
 compiled-SBF numbers come from Mollusk (`mollusk-svm 0.10.3`), a
-different in-process SVM — but the fidelity guarantee here does not rest
+different in-process SVM; but the fidelity guarantee here does not rest
 on a harness *version* matching mainnet. It rests on the lab number
 matching the *live cluster* directly: four consecutive exact
 Mollusk==devnet matches now stand in this document (event 3,586;
@@ -871,13 +911,13 @@ refusal 616). A harness that tracks the validator release is a proxy for
 cluster fidelity; an exact match against the cluster itself is the thing
 the proxy stands in for. When a repricing SIMD (e.g. the p-memo / ATA
 Pinocchio rewrites that shipped in 4.1) moves a builtin's cost, a
-re-measure against devnet catches it regardless of the harness version —
+re-measure against devnet catches it regardless of the harness version,
 which is why every CU claim in this file is provenance-stamped to a
 single-day Mollusk run and, where it matters, cross-checked live. The
 `hopper tx explain --tree` CPI call tree (added the same day as this
 section) reconstructs the invocation hierarchy the way LiteSVM's new
 `litesvm-cpi-tree` does, and additionally hangs each frame's decoded
-touch map off its node — proven on the live self-CPI above (`2YPBv…`
+touch map off its node, proven on the live self-CPI above (`2YPBv…`
 `[1] ok, 3,586 CU` → `[2] ok, 283 CU`).
 
 ### Bytecode size vs the competitor sources

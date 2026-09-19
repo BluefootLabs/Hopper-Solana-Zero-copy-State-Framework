@@ -4,13 +4,16 @@
 
 Hopper has one source of truth for state and program semantics: the Rust
 code. Layout macros, instruction declarations, event definitions, and
-policy bindings are the authoritative definitions. From that single
-source, Hopper generates two output formats:
+policy bindings are the authoritative definitions. From that single source,
+Hopper generates two Hopper-native schema layers:
 
 1. **Hopper Manifest** -- rich internal schema for tooling
 2. **Hopper IDL** -- lighter public schema for clients and integrations
 
-This keeps one truth while supporting two audiences.
+It also derives Codama JSON, a fail-closed Solana IDL v0.1 projection when the
+wire contract is losslessly representable, and six SDK targets: TypeScript,
+Kotlin, Python, Go, C, and off-chain Rust. This keeps one truth while serving
+different consumers without calling every projection the same IDL.
 
 ## Code-First Doctrine
 
@@ -57,84 +60,69 @@ The Manifest is Hopper's rich internal schema. It powers:
 
 ### Structure
 
+Current `hopper compile --emit schema` output is top-level manifest JSON. A
+trimmed compact-layout example is:
+
 ```json
 {
-  "format": "hopper-manifest",
-  "version": 1,
-  "program": {
-    "name": "hopper_registry",
-    "program_id": "...",
-    "version": "0.3.0",
-    "description": "Segmented registry example"
-  },
+  "name": "hopper_compact_vault",
+  "version": "0.3.0",
+  "description": "Compact vault example",
   "layouts": [
     {
       "name": "Vault",
-      "kind": "fixed",
+      "disc": 1,
       "version": 1,
-      "discriminator": 1,
-      "layout_id": "a1b2c3d4e5f60718",
-      "size": 57,
-      "header_size": 16,
+      "layoutId": "437141907c09344f",
+      "totalSize": 41,
+      "hasDynamicTail": false,
+      "fieldCount": 2,
       "fields": [
-        { "name": "authority", "type": "[u8;32]", "size": 32, "offset": 16 },
-        { "name": "balance", "type": "WireU64", "size": 8, "offset": 48 },
-        { "name": "bump", "type": "u8", "size": 1, "offset": 56 }
+        { "name": "authority", "type": "Pubkey", "size": 32, "offset": 1, "intent": "custom" },
+        { "name": "balance", "type": "u64", "size": 8, "offset": 33, "intent": "custom" }
       ],
-      "segments": [],
-      "compatibility": {
-        "append_safe": true,
-        "compatible_from": [1],
-        "migration_required_from": []
-      }
+      "semanticFingerprint": "633512a09da83eb5"
     }
   ],
   "instructions": [
     {
       "name": "deposit",
       "tag": 1,
+      "discriminatorBytes": [1],
       "args": [
-        { "name": "amount", "type": "u64", "size": 8 }
+        { "name": "amount", "type": "u64", "size": 8, "encoding": "fixed" }
       ],
       "accounts": [
-        { "name": "depositor", "writable": false, "signer": true },
-        { "name": "vault", "writable": true, "signer": false, "layout_ref": "Vault" }
+        { "name": "vault", "writable": true, "signer": false, "layoutRef": "Vault" },
+        { "name": "authority", "writable": false, "signer": true }
       ],
-      "capabilities": ["MutatesState", "MutatesTreasury"],
-      "policy_pack": "TREASURY_WRITE",
-      "receipt_expected": true
+      "capabilities": ["MutatesState"],
+      "policyPack": "COMPACT_VAULT_WRITE",
+      "receiptExpected": false,
+      "strictWrites": false,
+      "writeRanges": [],
+      "parametricWriteRanges": []
     }
   ],
-  "events": [
-    {
-      "name": "DepositEvent",
-      "tag": 1,
-      "fields": [
-        { "name": "authority", "type": "[u8;32]", "size": 32 },
-        { "name": "amount", "type": "u64", "size": 8 }
-      ]
-    }
-  ],
+  "events": [],
   "policies": [
     {
-      "name": "TREASURY_WRITE",
-      "capabilities": ["MutatesState", "MutatesTreasury"],
-      "requirements": ["Authority", "StateSnapshot", "LamportConservation", "InvariantCheck"]
+      "name": "COMPACT_VAULT_WRITE",
+      "capabilities": ["CreatesAccount", "MutatesState"],
+      "requirements": ["SignerAuthority", "ExactAccountSize"],
+      "invariants": [],
+      "receiptProfile": ""
     }
   ],
-  "compatibility": {
-    "pairs": [
-      {
-        "from": "Vault@1",
-        "to": "Vault@2",
-        "toVersion": 2,
-        "policy": "append-only",
-        "backwardReadable": true
-      }
-    ]
-  }
+  "layoutMetadata": [],
+  "contexts": [],
+  "compatRules": [],
+  "toolingHints": ["account_encoding=compact", "compact_body_offset=1"]
 }
 ```
+
+The full normalized manifest also emits the current receipt schema. Fields are
+omitted above only to keep the example readable.
 
 ### Segment metadata in manifests
 
@@ -155,13 +143,17 @@ For segmented accounts, each segment entry includes:
 
 ### Purpose
 
-The IDL is the public-facing schema for:
+Hopper's public IDL is a Hopper-native, lighter projection for:
 
 - TypeScript client generation
-- Kotlin, Python, and Rust client generation
+- Kotlin, Python, Go, C, and Rust client generation
 - Block explorers
 - External integrations
-- Codama-compatible tooling
+- external tooling that consumes Hopper's own schema
+
+It is not the Solana Foundation IDL v0.1 projection used by
+`hopper schema export --anchor-idl` and `hopper publish-idl`, and it is not the
+Codama-shaped projection. All three derive from the same manifest.
 
 ### File format
 
@@ -171,45 +163,38 @@ The IDL is the public-facing schema for:
 
 ```json
 {
-  "format": "hopper-idl",
-  "version": 1,
-  "program": {
-    "name": "hopper_registry",
-    "program_id": "...",
-    "version": "0.3.0"
-  },
+  "name": "hopper_compact_vault",
+  "version": "0.3.0",
+  "description": "Compact vault example",
   "instructions": [
     {
       "name": "deposit",
-      "discriminator": [1],
-      "args": [{ "name": "amount", "type": "u64" }],
+      "tag": 1,
+      "args": [{ "name": "amount", "type": "u64", "size": 8, "encoding": "fixed" }],
       "accounts": [
-        { "name": "depositor", "writable": false, "signer": true },
-        { "name": "vault", "writable": true, "signer": false }
+        { "name": "vault", "writable": true, "signer": false, "layoutRef": "Vault" },
+        { "name": "authority", "writable": false, "signer": true }
       ]
     }
   ],
   "accounts": [
     {
       "name": "Vault",
-      "discriminator": [1],
-      "size": 57,
+      "disc": 1,
+      "version": 1,
+      "layoutId": "437141907c09344f",
+      "totalSize": 41,
+      "fieldCount": 2,
       "fields": [
-        { "name": "authority", "type": "publicKey", "offset": 16 },
-        { "name": "balance", "type": "u64", "offset": 48 },
-        { "name": "bump", "type": "u8", "offset": 56 }
-      ]
+        { "name": "authority", "type": "Pubkey", "size": 32, "offset": 1, "intent": "custom" },
+        { "name": "balance", "type": "u64", "size": 8, "offset": 33, "intent": "custom" }
+      ],
+      "semanticFingerprint": "633512a09da83eb5"
     }
   ],
-  "events": [
-    {
-      "name": "DepositEvent",
-      "discriminator": [1],
-      "fields": [
-        { "name": "authority", "type": "publicKey" },
-        { "name": "amount", "type": "u64" }
-      ]
-    }
+  "events": [],
+  "fingerprints": [
+    { "layoutId": "437141907c09344f", "name": "Vault" }
   ]
 }
 ```
@@ -233,14 +218,14 @@ Hopper is Codama-compatible where it improves developer experience:
 - Instruction/account metadata for explorers
 - TypeScript ecosystem interop
 
-Hopper does not flatten its richer state model to fit Codama. The
-Manifest preserves full richness; the IDL exposes the clean public
-subset; a Codama projection can be generated from the IDL.
+Hopper does not flatten its richer state model to fit Codama. The manifest
+preserves full richness; Hopper public IDL and Codama-shaped JSON are separate
+projections generated from that same manifest.
 
 ```bash
-hopper schema export --manifest    # Full manifest
-hopper schema export --idl         # Public IDL
-hopper schema export --codama      # Codama-compatible projection
+hopper schema export --manifest @hopper.manifest.json  # Normalized manifest
+hopper schema export --idl @hopper.manifest.json       # Hopper public IDL
+hopper schema export --codama @hopper.manifest.json    # Codama-shaped JSON
 ```
 
 ## Generation Pipeline
@@ -252,16 +237,22 @@ Rust declarations (hopper_layout!, hopper_dispatch!, etc.)
 Schema extraction (hopper-schema crate)
     |
     v
-Hopper Manifest + Hopper IDL + Codama projection
+Hopper Manifest (canonical generated contract)
     |
     v
-CLI / Manager / Clients / Planner / Receipts
+Hopper public IDL + Codama JSON + conditional Solana IDL v0.1
+    |
+    v
+TypeScript / Kotlin / Python / Go / C / off-chain Rust clients
+    |
+    v
+CLI / Manager / Planner / Receipts / external integrations
 ```
 
 The extraction layer lives in `hopper-schema`. It reads LayoutManifest
-constants generated by macros and assembles them into the output formats.
-No runtime reflection. No dynamic discovery. Everything is compile-time
-deterministic.
+constants generated by macros and assembles them into these projections. The
+Solana IDL branch fails closed when Hopper wire semantics cannot be represented
+losslessly. No runtime reflection or dynamic discovery is involved.
 
 ## File Layout
 

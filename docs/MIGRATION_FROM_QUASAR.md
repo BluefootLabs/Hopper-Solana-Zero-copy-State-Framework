@@ -242,7 +242,7 @@ pub struct Deposit { /* ... */ }
 ctx.emit_event_cpi(&Deposited { amount, depositor })?;
 ```
 
-The `event_cpi` option auto-appends the event-authority PDA and the program account as trailing slots (validated at bind), and the `#[hopper::program]` dispatcher generates the authenticated `[0xE0, 0x1E]` sink — nothing else to declare. For raw handlers or custom sinks, the explicit form remains:
+The `event_cpi` option auto-appends the event-authority PDA and the program account as trailing slots (validated at bind), and the `#[hopper::program]` dispatcher generates the authenticated `[0xE0, 0x1E]` sink; nothing else to declare. For raw handlers or custom sinks, the explicit form remains:
 
 ```rust
 hopper_emit_cpi!(
@@ -345,8 +345,10 @@ are:
 6. A manifest-linked byte-write contract: authored ranges, runtime gate,
    generated metas, touch evidence, contention analysis, and offline
    containment verification over the same declaration.
-7. Eight generated outputs in total: TypeScript, Kotlin, Python, Go, C,
-   off-chain Rust, Codama JSON, and Anchor IDL JSON.
+7. Nine interoperability outputs in total: TypeScript, Kotlin, Python, Go, C,
+   off-chain Rust, Hopper public IDL, Codama JSON, and a lossless-only Solana
+   IDL v0.1.0 projection. The Solana projection fails closed when Hopper's wire
+   or remaining-account contract cannot be represented.
 
 ## Checklist for the port
 

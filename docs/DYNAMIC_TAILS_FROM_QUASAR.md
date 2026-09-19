@@ -274,7 +274,7 @@ Use extension segments when:
 5. Move to extension segments if tail updates become too large or need separate
     borrow leases.
 
-## `Seq<T>` — the growable typed sequence tail
+## `Seq<T>`: the growable typed sequence tail
 
 `String<'a, N>` and `Vec<'a, T, N>` are **bounded**: their capacity `N` is part
 of the account type (it is in the layout id), so growing the collection means
@@ -289,7 +289,7 @@ use hopper::prelude::*;
 pub struct Roster<'a> {
     pub admin: WireU64,          // fixed, zero-copy head
     pub epoch: WireU64,
-    pub members: Seq<'a, Address>, // growable tail — NO capacity in the type
+    pub members: Seq<'a, Address>, // growable tail, NO capacity in the type
 }
 ```
 
@@ -304,15 +304,15 @@ A `Seq<T>` tail region is:
 ```
 
 Every element occupies a **fixed `T::STRIDE` bytes** (element `i` lives at
-`TAIL_PREFIX_OFFSET + 4 + i*STRIDE`), so `push` is O(1) — write one element,
-bump the count — and access never materializes a `[T; N]`. Elements must be
+`TAIL_PREFIX_OFFSET + 4 + i*STRIDE`), so `push` is O(1), write one element,
+bump the count, and access never materializes a `[T; N]`. Elements must be
 fixed-stride `SeqElement`s: the wire primitives (`u8..=u128`, `i16..=i128`,
 `bool`) and `Address`. Variable-length encoders (`Option<T>`, `BoundedString`,
 `BoundedVec`) stay on the owned-decode `Vec<'a, T, N>` path.
 
 Because a `Seq` reframes the whole tail as `[count][elems]` (incompatible with
 the bounded `[byte_len][payload]` framing), **a `Seq` must be the ONLY tail of
-its account** — one growable tail per account. Put other dynamic data in the
+its account**, one growable tail per account. Put other dynamic data in the
 fixed head or a separate account.
 
 ### Capacity is account-length-derived; the layout id is capacity-free

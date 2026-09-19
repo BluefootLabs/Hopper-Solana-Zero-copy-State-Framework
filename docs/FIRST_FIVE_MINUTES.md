@@ -3,8 +3,10 @@
 Start in framework mode. Import the prelude, declare account bytes, derive account validation, and put handler logic behind `ctx.accounts.*`.
 
 Hopper in one sentence: write handlers with the Anchor/Quasar shape, then let
-Hopper verify owner, role, discriminator, version, and layout fingerprint before
-program code receives a typed zero-copy borrow.
+Hopper verify the selected account contract before program code receives a
+typed zero-copy borrow. Default/headered layouts check owner, role,
+discriminator, version, and fingerprint; opt-in compact layouts check owner,
+exact size, and discriminator.
 
 ## 1. Counter
 
@@ -75,7 +77,8 @@ mod vault_program {
 See [examples/hopper-vault/src/lib.rs](../examples/hopper-vault/src/lib.rs) for the complete SOL-vault flow.
 
 Initialization uses the same wrapper path. `set_inner(...)` is generated for
-every Hopper account layout, accepts native values, and writes the wire fields:
+default/headered `#[account]` layouts, accepts native values, and writes the
+wire fields:
 
 ```rust
 let mut vault = ctx.accounts.vault.get_mut_after_init()?;

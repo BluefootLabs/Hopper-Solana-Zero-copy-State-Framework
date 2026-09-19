@@ -1,8 +1,9 @@
 # hopper-associated-token
 
 Hopper-owned Associated Token Account (ATA) builders. `Create`,
-`CreateIdempotent`, `RecoverNested`. ATA derivation helpers re-exported from
-the runtime.
+`CreateIdempotent`, `RecoverNested`, plus `ATA_PROGRAM_ID`. ATA derivation
+and verification helpers (`derive_ata`, `derive_ata_2022`, `verify_ata`, and
+related functions) are re-exported from `hopper-solana` on the SBF target.
 
 [![Crates.io](https://img.shields.io/crates/v/hopper-associated-token.svg)](https://crates.io/crates/hopper-associated-token)
 [![Docs.rs](https://img.shields.io/docsrs/hopper-associated-token)](https://docs.rs/crate/hopper-associated-token)
@@ -14,8 +15,8 @@ use hopper::prelude::*;
 
 hopper_associated_token::instructions::CreateIdempotent {
     payer,
-    associated_token,
-    owner,
+    associated_account,
+    wallet,
     mint,
     system_program,
     token_program,

@@ -35,7 +35,7 @@ hopper_interface!: Cross-program account reading by fingerprint.
 
 hopper_accounts!: Declare typed account context structs.
 
-hopper_manifest!: Declare a program manifest for schema export.
+hopper_manifest!: Generate a `LayoutManifest` constant for schema tooling.
 
 hopper_assert_compatible!: Compile-time layout compatibility assertion.
 
@@ -43,7 +43,7 @@ hopper_assert_fingerprint!: Compile-time fingerprint equality assertion.
 
 const_assert_pod!: Compile-time checks for manual Pod implementations.
 
-Instruction-routing macros such as hopper_dispatch!, hopper_dispatch_lazy!, and hopper_dispatch_8! live in hopper-systems and are re-exported by the main hopper crate.
+Instruction-routing macros such as hopper_dispatch!, hopper_dispatch_lazy!, and hopper_dispatch_8! live in hopper-systems (lib name `hopper_core`). The `hopper-lang` facade re-exports hopper_dispatch! at its root; the other two are reachable as `hopper::hopper_core::hopper_dispatch_lazy!` and `hopper::hopper_core::hopper_dispatch_8!`.
 
 ## License
 

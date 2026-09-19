@@ -6,17 +6,17 @@ BPF-safe.
 
 Part of the **[Hopper](https://hopperzero.dev)** framework.
 
-Every public helper uses checked `u128` intermediates and returns an explicit
-`ProgramError` on overflow or invalid bounds. Use it when the protocol logic
-needs predictable math without pulling in an allocator.
+Fallible arithmetic helpers use checked `u128` intermediates and return an
+explicit `ProgramError` on overflow or invalid bounds. Use them when protocol
+logic needs predictable math without pulling in an allocator.
 
 ```rust
 use hopper_finance::{check_slippage, constant_product_out};
 
 let amount_out = constant_product_out(
-    amount_in,
     reserve_in,
     reserve_out,
+    amount_in,
     fee_bps,
 )?;
 check_slippage(amount_out, minimum_out)?;

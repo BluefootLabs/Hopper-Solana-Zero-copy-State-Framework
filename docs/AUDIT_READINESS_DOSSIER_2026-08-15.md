@@ -1,4 +1,12 @@
-# Hopper audit-readiness and parity dossier — 2026-08-15
+# Hopper audit-readiness and parity dossier: 2026-08-15
+
+> **Dated evidence.** Keep this dossier as the 2026-08-15 record. Current
+> network, competitor, Cicada/Grillo, rent, and deployment-cost corrections are
+> in [COMPETITIVE_REFRESH_2026-09-02.md](COMPETITIVE_REFRESH_2026-09-02.md),
+> reverified 2026-09-06. In particular, the current Cicada dirty-tree
+> diagnostic is 165,944 bytes with 25 host tests; it does not rewrite the clean
+> historical artifact documented below. The peer table intentionally records
+> Anchor 1.1.2 as observed on 2026-08-15; current stable is 1.2.0.
 
 ## Decision
 
@@ -55,7 +63,7 @@ are in [the zero-copy framework audit](ZERO_COPY_FRAMEWORK_AUDIT_2026-08-15.md).
 
 | Framework | Current upstream signal | Strength Hopper must match | Hopper-plus direction |
 |---|---|---|---|
-| Anchor | Stable is **1.1.2**. The v2 line is published as `anchor-lang` 2.0.0-rc.1 and remains self-described Alpha/unaudited: a Pinocchio-based `no_std` rewrite with default zero-copy `Account<T>`, dynamic `Slab`/`PodVec`, typed CPI borrows, and Kani/Miri/fuzz lanes. | Mature ecosystem, high-level constraints, testing/deploy workflow, clients, IDL and SPL breadth; v2 raises the zero-copy and verification baseline. | Preserve lower-level performance while making invariants and migrations independently checkable; add equivalent release provenance, dynamic-state ergonomics, formal evidence, and versioned-envelope support. |
+| Anchor | **Historical 2026-08-15 snapshot:** stable was **1.1.2**. As reverified 2026-09-06, stable is **1.2.0**. The v2 line is published as `anchor-lang` 2.0.0-rc.1 and remains self-described Alpha/unaudited: a Pinocchio-based `no_std` rewrite with default zero-copy `Account<T>`, dynamic `Slab`/`PodVec`, typed CPI borrows, and Kani/Miri/fuzz lanes. | Mature ecosystem, high-level constraints, testing/deploy workflow, clients, IDL and SPL breadth; v2 raises the zero-copy and verification baseline. | Preserve lower-level performance while making invariants and migrations independently checkable; add equivalent release provenance, dynamic-state ergonomics, formal evidence, and versioned-envelope support. |
 | Blueshift Quasar | Default branch and crates.io remain **0.0.0**, but the active `0.1.0-release` branch is the meaningful comparison target. It is explicitly beta/unaudited and adds typed resize migrations, wire IDL/ABI hashing, stable Rust/Kit/Web3 clients, preview Python/Go/C clients, QuasarSVM, a broad CLI, Kani/Miri/fuzz, and CU budget work. | Familiar macros plus a lean runtime, migration ergonomics, profiling, SPL, clients, and formal checks. | Match simple program ergonomics and safe resize; exceed with effect/write-set verification, generated-client parity checks, and an honest external-audit trail. |
 | Pinocchio | Current line **0.11**. Minimal `no_std` program primitives, lazy/custom entrypoints, no-allocator mode, zero-copy views, and small dependency/binary surface. | The efficiency floor and explicit control available to expert authors. | Keep a raw expert path without allowing it to bypass owner, signer, writable, layout, or effect declarations. Benchmark Hopper-generated code against equivalent Pinocchio code. |
 | Star Frame | Current workspace line **0.30**. High-performance modular traits, Pinocchio base, zero-copy unsized data and CLI support. | Composable high-performance abstractions and flexible account types. | Show that schema/effect/migration metadata adds measurable safety and tooling without imposing unacceptable CU or binary overhead. |

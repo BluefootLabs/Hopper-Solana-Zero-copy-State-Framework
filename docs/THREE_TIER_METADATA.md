@@ -10,6 +10,18 @@ pays for nothing it does not use.
 > that derives the loader, the registry row, the field offsets, and the
 > upgrade gate from a single layout declaration.
 
+> **Implementation boundary, reverified 2026-09-06.** Tier-1 compact loading,
+> the Tier-2 binary data model/parser/diff helpers, manifest-profile constants,
+> and Tier-3 local generators ship. Hopper does **not** ship a generic
+> transaction that creates/publishes the binary registry PDA, a generic JSON
+> manifest-PDA publisher, or runtime enforcement that consults a deployed
+> `onchain`/`governed` registry. Those profiles currently describe generated
+> intent for tooling. `hopper publish-idl` publishes only a losslessly
+> representable Solana IDL v0.1 projection through Program Metadata and fails
+> closed otherwise; the current Cicada surface is refused because its
+> u16-prefixed bounded route data and remaining-account contract are not
+> faithfully expressible in that schema.
+
 ## Motivation
 
 Hopper's default account layout carries a 16-byte universal header
@@ -42,7 +54,8 @@ byte 0   : disc (u8)
 bytes 1..: zero-copy body (alignment-1 Pod fields)
 ```
 
-There is **no universal 16-byte header by default**. The authoring
+A compact account has **no 16-byte header**; the repository-wide default
+remains the headered path unless `compact` is selected. The compact authoring
 surface is:
 
 ```rust
@@ -99,9 +112,9 @@ REGISTRY_SEED = b"hopper:registry"
 ```
 
 > **Why `hopper:registry` and not `hopper:manifest`?**
-> `hopper-schema` already defines `MANIFEST_SEED = b"hopper:manifest"`,
-> the PDA that stores the program's **JSON** manifest (a Tier-3
-> publication artifact). The binary zero-copy registry is a *distinct*
+> `hopper-schema` already defines `MANIFEST_SEED = b"hopper:manifest"` for a
+> legacy JSON-manifest account shape consumed by fetch/Manager code. No generic
+> publisher for that PDA ships. The binary zero-copy registry is a *distinct*
 > account with a distinct hot-path purpose, so it gets its own seed to
 > avoid clobbering the JSON manifest PDA. The two are siblings: the
 > registry is the on-chain, hot-path-readable form; the JSON manifest is
@@ -138,35 +151,39 @@ bounds-checked iteration, `find_by_disc`, and hash verification.
 
 ## Tier 3 -- Off-chain generated metadata
 
-The richest tier is generated, never on the hot path: the JSON
-`ProgramManifest`, the `ProgramIdl`, TypeScript / Kotlin / Rust / Go /
-Python SDKs, the Hopper Manager schema, audit manifests, and docs. These
-live in `hopper-schema` and the codegen modules. The on-chain registry's
-`schema_hash` pins the off-chain artifacts to a specific schema so a
-client can prove the IDL it holds matches the program it is calling.
+The richest tier is generated, never on the hot path: the Hopper manifest;
+Hopper public IDL; Codama JSON; conditional, fail-closed Solana IDL v0.1;
+TypeScript, Kotlin, Python, Go, C, and off-chain Rust SDKs; Manager inputs;
+audit artifacts; and docs. These live in `hopper-schema` and the codegen
+modules. The binary registry data model includes a `schema_hash` that a future
+publisher/consumer can use to pin off-chain artifacts; Hopper does not yet ship
+that registry lifecycle or consult a deployed registry from generated clients.
 
 Generated clients branch on account encoding. Headered layouts read the
 8-byte layout fingerprint from the Hopper header at bytes `4..12` before
-decoding. Compact layouts have no such header: generated TypeScript and
-Kotlin clients assert exact size plus discriminator, then expose the
-fingerprint from the manifest/IDL `LayoutIdentity`. The field offsets in
+decoding. Compact layouts have no such header: all six generated SDK targets
+check the discriminator and use the manifest's explicit tail metadata to
+require exact size for a fixed layout or minimum prefix size for a dynamic-tail
+layout. They then expose the fingerprint from manifest/IDL metadata. The field offsets in
 compact generated clients are absolute `[disc][body]` offsets, so a
 41-byte compact vault decodes `authority` from `1..33` and `balance`
 from `33..41`.
 
 See also [`docs/ONCHAIN_SCHEMA_PUBLICATION.md`](ONCHAIN_SCHEMA_PUBLICATION.md)
-(the JSON manifest PDA + `HopperSchemaPointer`) and
+(shipped Program Metadata IDL publication versus proposed Hopper pointer/effect
+publication) and
 [`docs/SCHEMA_ARCHITECTURE.md`](SCHEMA_ARCHITECTURE.md).
 
 ## Manifest profiles
 
-A program declares how much of the registry machinery it wants:
+A program can declare intended registry semantics. The macro emits the profile
+constant, but no shipped publisher or runtime currently acts on it:
 
-| Profile     | Off-chain artifacts | On-chain registry PDA | Upgrade gating |
-|-------------|---------------------|-----------------------|----------------|
-| `offchain`  | yes (JSON / IDL)    | no                    | no             |
-| `onchain`   | yes                 | published & read      | no             |
-| `governed`  | yes                 | published & read      | upgrades/migrations must match the on-chain registry |
+| Profile     | Shipped local artifacts | Intended registry semantics | Intended upgrade semantics |
+|-------------|-------------------------|-----------------------------|----------------------------|
+| `offchain`  | yes                     | none                        | none                       |
+| `onchain`   | yes                     | publish and read a registry | no registry gate           |
+| `governed`  | yes                     | publish and read a registry | require compatible registry changes |
 
 The authoring surface is
 `#[hopper::program(manifest = "offchain" | "onchain" | "governed")]`.
@@ -177,9 +194,9 @@ macro-expansion time. The profile semantics (`ManifestProfile`) live in
 
 ## What ships in this change
 
-This change lands the model end to end -- runtime, data model, **macro
-ergonomics**, and validation helpers -- fully tested and
-`no_std`/zero-copy clean:
+This change lands the local runtime/data model, **macro ergonomics**, and
+validation helpers, fully tested and `no_std`/zero-copy clean. It does not land
+the generic on-chain registry account lifecycle or publisher:
 
 1. This design note.
 2. Tier 1 runtime support: `hopper_runtime::compact` (`CompactLayout`,
@@ -193,8 +210,7 @@ ergonomics**, and validation helpers -- fully tested and
    `registry_matches`, `ManifestProfile::try_parse` /
    `permits_upgrade`, `RegistryCompat`.
 6. A macro-based, devnet-ready example (`examples/hopper-compact-vault`),
-  generated TypeScript/Kotlin compact client coverage, and the
-  compile-pass/compile-fail trybuild coverage.
+   six-language generated compact-client coverage, and compile-time coverage.
 
 ## Macro ergonomics
 
@@ -226,17 +242,21 @@ pub struct Vault {
 let entry = Vault::registry_entry(); // ENTRY_FLAG_COMPACT row for Tier 2
 ```
 
-`compact` is fixed-size by construction: combining it with
-`dynamic_tail = T` or `raw_tail = true` is rejected at macro-expansion
-time.
+`compact` supports both fixed and growable forms. A fixed declaration implements
+`CompactLayout` and requires exact `COMPACT_LEN`. Adding `dynamic_tail = T`,
+`raw_tail = true`, or the program-managed `dynamic` option implements
+`CompactDynamicLayout`: `COMPACT_LEN` is the minimum `[disc][fixed head]`
+prefix and tail bytes may follow it. The generated manifest records that size
+policy so off-chain readers do not reject a valid grown account.
 
 ### `#[hopper::program(manifest = "...")]`
 
 Parses the profile string into a `ManifestProfile` and emits
 `pub const HOPPER_PROGRAM_MANIFEST_PROFILE: ManifestProfile`. Unknown
 strings fail closed during expansion (only `offchain`, `onchain`,
-`governed` are accepted). Build/publish tooling reads the const to decide
-whether to publish the registry PDA and whether to gate upgrades.
+`governed` are accepted). The constant records intent for future build/publish
+and upgrade-gate tooling; current tooling does not publish the registry PDA or
+install a runtime upgrade gate from it.
 
 ## Validation and diff primitives
 

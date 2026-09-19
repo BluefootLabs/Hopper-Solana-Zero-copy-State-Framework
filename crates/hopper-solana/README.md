@@ -4,10 +4,10 @@ Solana integration layer for the Hopper zero-copy state framework.
 
 Part of the **[Hopper](https://hopperzero.dev)** framework.
 
-Everything that touches Solana-specific primitives lives here: SPL Token reads,
-CPI guards, authority rotation, oracle helpers, ATA utilities, and transaction
-introspection. The core framework stays chain-agnostic; this crate carries the
-Solana surface.
+This crate groups higher-level Solana integrations: SPL Token reads, CPI
+guards, authority rotation, oracle helpers, ATA utilities, and transaction
+introspection. Lower-level loader, syscall, CPI, System Program, and SPL
+builder surfaces live in Hopper's runtime and dedicated helper crates.
 
 `no_std`, `no_alloc`.
 
@@ -15,21 +15,23 @@ Solana surface.
 
 - **Token and mint readers** - Zero-copy SPL Token and Mint parsing.
 - **Token-2022 screening** - Extension detection and risk screening for freeze authority, transfer fees, permanent delegates, and related surfaces.
-- **CPI guards** - Detect CPI invocation, flash-loan brackets, and subsequent calls.
-- **Typed CPI** - CPI helpers with typed account wrappers.
+- **CPI guards** - Reject CPI invocation and check token-program ownership.
+- **Typed CPI** - System Program and SPL Token CPI helper functions.
 - **Authority rotation** - Two-step authority transfer primitives.
 - **Balance guards** - Lamport conservation checks across instruction execution.
 - **Compute monitoring** - Remaining compute budget tracking.
 - **Oracle and TWAP helpers** - Pyth price feed readers and TWAP math.
 - **Crypto helpers** - Ed25519 and secp256k1 precompile checks plus Merkle proof validation.
 - **ATA utilities** - Associated Token Account address derivation.
-- **Transaction introspection** - Signer detection and remaining account iteration.
+- **Transaction introspection** - Instructions-sysvar parsing for program IDs, instruction data, account keys, caller, top-level, and subsequent-invocation checks, and flash-loan bracket detection.
 
 ## Quick example
 
 ```rust
-use hopper_solana::{assert_no_cpi, token_account_amount, token_account_mint};
-use hopper_solana::crypto::{check_ed25519_signature_at, check_secp256k1_instruction_at};
+use hopper_solana::cpi_guard::assert_no_cpi;
+use hopper_solana::crypto::ed25519::check_ed25519_signature_at;
+use hopper_solana::crypto::secp256k1::check_secp256k1_instruction_at;
+use hopper_solana::token::{token_account_amount, token_account_mint};
 
 // Zero-copy token account read
 let amount = token_account_amount(account_data)?;

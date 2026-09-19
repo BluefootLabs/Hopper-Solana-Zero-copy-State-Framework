@@ -47,9 +47,13 @@ dynamic-field migration pattern.
 ## Overview
 
 Hopper is `#![no_std]`, zero-allocation, built on
-Hopper Native, Hopper's sovereign low-level runtime substrate. Every account is a flat byte
-overlay with a 16-byte self-describing header. No proc macros are required,
-no heap allocations, and no trait objects in the on-chain path.
+Hopper Native, Hopper's sovereign low-level runtime substrate. Default/headered
+accounts are flat byte overlays with a 16-byte self-describing header; opt-in
+compact accounts use `[disc][body]` bytes and carry layout identity in
+manifest/IDL metadata. Fixed compact layouts require the exact declared size;
+compact-dynamic layouts require the declared prefix and allow an
+application-interpreted tail. No proc macros are required, no heap allocations,
+and no trait objects are required in the on-chain path.
 
 The framework is organized into concentric rings:
 
@@ -67,7 +71,7 @@ All on-chain crates are `#![no_std]` with `#![deny(unsafe_op_in_unsafe_fn)]`.
 hopper (umbrella, re-exports macros + prelude)
  |
  +-- hopper-runtime      <- hopper-native (primary), legacy pinocchio / solana-program (compat only)
- +-- hopper-core         <- hopper-runtime, sha2-const-stable
+ +-- hopper-core         <- hopper-runtime, owned const SHA-256 layout IDs
  +-- hopper-macros       <- references hopper-core / hopper-runtime paths
  +-- hopper-schema       <- hopper-core
  +-- hopper-solana       <- hopper-core, hopper-runtime, five8_const
@@ -98,9 +102,9 @@ Runtime stay framework-owned instead of adapter-shaped.
 
 ## Wire Format
 
-### Account Header (16 bytes)
+### Default/headered account header (16 bytes)
 
-Every Hopper account begins with the same 16-byte header:
+Every headered Hopper account begins with the same 16-byte header:
 
 ```
 Offset  Size  Field        Description
@@ -112,7 +116,9 @@ Offset  Size  Field        Description
 12      4     schema_epoch Schema evolution epoch (u32 LE, default 1)
 ```
 
-`HEADER_LEN = 16`. `HEADER_FORMAT = 1`.
+`HEADER_LEN = 16`. `HEADER_FORMAT = 1`. Compact accounts deliberately omit
+this header and store only a one-byte discriminator followed by the zero-copy
+body.
 
 **layout_id computation** (deterministic, compile-time):
 
@@ -122,8 +128,10 @@ sha256("hopper:v1:{Name}:{version}:{field_name}:{canonical_type}:{size},"...)[..
 
 Fields appear in declaration order. Each field contributes
 `"{name}:{canonical_type}:{size},"` with a trailing comma. The hash is computed
-at compile time via the `sha2-const-stable` crate. Any change to name, type,
-size, or field order produces a different layout_id.
+at compile time by Hopper's owned const SHA-256 implementation. It is
+feature-independent; the deprecated `sha2-layout-id` feature is a no-op
+compatibility flag. Any change to name, type, size, or field order produces a
+different layout ID.
 
 ### Segmented Accounts
 
@@ -571,8 +579,9 @@ These are the rules that all code must satisfy. Violations are bugs.
 4. **Append-only versioning.** V(N+1) is a strict superset of V(N). Fields
    are never reordered or removed. New fields go at the end.
 
-5. **No proc macros required.** All macros are `macro_rules!`. Proc macros
-   are allowed for optional ergonomics (see
+5. **No proc macros required for the core/manual path.** The core code-generation
+   surface uses `macro_rules!`; optional proc and attribute macros provide
+   ergonomic front ends (see
    [PROC_MACRO_POLICY.md](PROC_MACRO_POLICY.md)).
 
 6. **No std, no alloc.** All on-chain crates are `#![no_std]` with zero heap usage.
@@ -610,32 +619,28 @@ every layer of the pipeline.
 
 ## Test Coverage
 
-| Suite | Test count | Scope |
-|-------|-----------|-------|
-| Unit tests | 36 | Core module-level tests |
-| Property tests | 75 | Randomized invariant checking |
-| Trust tests | 96 | CPI guards, collections, migration, receipts, validation, segments, backward compat, danger zone golden tests |
-| Migration tests | 9 | On-chain migration paths |
-| Schema tests | 4 | Manifest generation and diffing |
-| Virtual-state tests | 5 | Multi-account mapping |
-| **Total** | **225** | |
+Coverage spans unit, property, Kani/Miri/fuzz, integration, compiled-SBF, and
+public-cluster evidence lanes. Counts move with the source and feature set, so
+Hopper does not publish a timeless aggregate here. Use the dated release
+evidence and CI commands for the exact revision under review.
 
 ---
 
 ## CLI
 
-The CLI is a host-side inspection tool. It reads hex-encoded account data and
-schema manifests to verify layouts, segments, compatibility, and receipts.
-It does not connect to RPC or interact with live clusters.
+The commands below are the CLI's local inspection aliases. They read
+hex-encoded account data and layout JSON to inspect headers, segments,
+compatibility, and receipts; separate lifecycle/fetch command families can use
+RPC and interact with live clusters.
 
 ```
-hopper explain <hex>           Human-readable account explanation
+hopper explain <hex>           Human-readable headered-account explanation
 hopper inspect <hex>           Raw header decode
 hopper decode <hex>            Alias for inspect
 hopper segments <hex>          Segment registry map
-hopper compat <v1.json> <v2>   Compatibility report (append-safe, backward-readable, migration)
-hopper diff <v1.json> <v2>     Field-level diff
-hopper plan <v1.json> <v2>     Migration plan with steps, byte counts, backward readability
+hopper compat @v1.json @v2.json  Compatibility report (append-safe, backward-readable, migration)
+hopper diff @v1.json @v2.json    Field-level diff
+hopper plan @v1.json @v2.json    Migration plan with steps, byte counts, backward readability
 hopper receipt <hex>           Decode and explain a 72-byte state receipt, or a legacy 64-byte receipt
 hopper schema-export           Schema format reference
 ```

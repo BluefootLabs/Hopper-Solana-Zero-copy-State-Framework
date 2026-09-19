@@ -59,8 +59,9 @@ the account-view/runtime versions it exercises.
   lower-level modifier composition remain separate layers.
 - Quasar's IDL-by-default. We separate that into `hopper-schema`.
 - Bump allocator on by default. `no_alloc` stays default; heap is opt-in.
-- Pinocchio-style "zero deps" minimalism for the whole framework. We
-  keep `bytemuck`, `sha2-const-stable`, `five8_const`.
+- Pinocchio-style "zero deps" minimalism for the whole framework. We retain
+  selected dependencies where they buy a reviewed capability; Hopper now owns
+  its feature-independent const SHA-256 layout-ID implementation.
 
 ## Remaining roadmap items in this snapshot
 

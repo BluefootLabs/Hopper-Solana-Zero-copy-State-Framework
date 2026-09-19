@@ -17,7 +17,8 @@ verdict within 5 business days.
 
 ## Scope
 
-- All crates under `crates/` published to crates.io.
+- The public `hopper-lang` facade at the repository root and every package
+  listed in `release/publish-order.toml`.
 - The CLI tooling under `tools/hopper-cli/`.
 - The example programs in `examples/` (we treat findings here as
   documentation issues unless the example is explicitly named as a
@@ -49,22 +50,25 @@ note and the [`CHANGELOG.md`](CHANGELOG.md) entry.
 
 ## Hardening status
 
-The full audit posture is documented below and in
+The internal hardening posture is documented below and in
 [`docs/UNSAFE_INVARIANTS.md`](docs/UNSAFE_INVARIANTS.md). Hopper's
 security model rests on:
 
 - **No `unsafe` without a documented invariant.** The unsafe inventory
   is tracked in [`docs/UNSAFE_INVARIANTS.md`](docs/UNSAFE_INVARIANTS.md).
-- **Layout fingerprints.** Every account carries an 8-byte SHA-256
-  layout ID in its header so cross-program reads cannot be tricked
-  into the wrong shape.
+- **Layout identity.** Headered Hopper accounts carry an 8-byte SHA-256 layout
+  ID. Fixed compact accounts validate exact size plus discriminator;
+  compact-dynamic accounts validate minimum prefix size plus discriminator.
+  Clients use the manifest or IDL fingerprint as external identity metadata.
+  External accounts use their adapter's owner, discriminator, size, and layout
+  checks.
 - **Segment-level borrow tracking.** Byte-range-level aliasing
   enforcement via `hopper_runtime::segment_borrow::SegmentBorrowRegistry`.
 - **Trapping duplicate-marker handler.** The loader-input parser
   refuses forward-reference and self-loop duplicates rather than
-  silently falling through to account zero (a pre-audit footgun, now
+  silently falling through to account zero (a pre-review footgun, now
   closed).
-- **Three-tier memory access.** Safe overlay → Pod → unchecked raw,
+- **Three-tier memory access.** Safe overlay, Pod, then unchecked raw,
   with the `unsafe` keyword visible at every escape hatch.
 
 Thanks for helping keep Hopper safe.

@@ -209,7 +209,7 @@ Hopper's `hopper-token-2022` crate ships the common operation builders
 (`Transfer`, `MintTo`, `Burn`, `CloseAccount`, `Approve`, `Revoke`,
 `InitializeAccount`). **Creating extensions** (e.g. `InitializeTransferHook`,
 `InitializeTransferFeeConfig`, `InitializeMetadataPointer`,
-`InitializeNonTransferableMint`) is not yet wrapped — build those instructions
+`InitializeNonTransferableMint`) is not yet wrapped, build those instructions
 against the SPL Token-2022 program directly with a raw `InstructionView` /
 `invoke`, then validate the result with Hopper's `extensions::*` constraints
 and the `check_*`/`find_extension` TLV readers, which **are** shipped.

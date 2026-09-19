@@ -7,7 +7,8 @@ conservation. Pure functions, `no_std`, `no_alloc`, and BPF-safe.
 Part of the **[Hopper](https://hopperzero.dev)** framework.
 
 The math is integer-only: split outputs always sum to the input, and fee
-extraction always returns `(net, fee)` where `net + fee == amount`.
+extraction always returns `(net, fee)` where `net + fee == amount`. Split dust
+goes to the largest fractional remainders, with input order breaking ties.
 
 ```rust
 use hopper_distribute::{extract_fee, proportional_split};

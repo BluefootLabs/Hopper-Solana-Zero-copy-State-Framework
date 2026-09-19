@@ -3,9 +3,10 @@
 ## Current Model
 
 Hopper Manager is the program-level inspection surface built into
-`hopper-cli`. Today it is manifest-centric: you point it at a manifest on
-disk, or fetch one first with `hopper fetch <program-id>` /
-`hopper manager fetch <program-id>`.
+`hopper-cli`. Today it is manifest-centric: point it at a manifest on disk.
+`hopper fetch <program-id>` / `hopper manager fetch <program-id>` can read only
+the legacy `MANIFEST_SEED` PDA when an application has provisioned one with its
+own publisher; Hopper ships no generic publisher for that PDA.
 
 That makes Manager the operational layer of Hopper's state-contract model,
 not a separate product bolted on after the fact.
@@ -15,8 +16,8 @@ not a separate product bolted on after the fact.
 Given a `ProgramManifest`, Hopper Manager can:
 
 1. **Summarize** a program's layouts, instructions, policies, events, and contexts.
-2. **Identify** an account's layout from raw bytes.
-3. **Decode** every field with type-aware formatting.
+2. **Identify** a headered account's layout from supplied raw bytes.
+3. **Decode** every field of a matching headered account with type-aware formatting.
 4. **Inspect** layout fingerprints, segment metadata, and receipt payloads.
 5. **Compare** before/after account states against manifest metadata.
 6. **Simulate** instruction requirements from manifest-declared accounts, args, and policies.
@@ -52,7 +53,10 @@ hopper explain context <manifest> [--type <ContextName>]
 hopper interactive <manifest>
 ```
 
-Manifest arguments accept inline JSON or `@path/to/file.json`.
+Manifest arguments accept inline JSON or `@path/to/file.json`. The current
+`identify`, `decode`, and byte-diff paths require Hopper's 16-byte header and do
+not identify compact `[disc][body]` accounts; use a generated compact client or
+the compact manifest offsets for those bytes.
 
 ## Typical Workflows
 
@@ -64,7 +68,7 @@ hopper manager layouts @hopper.manifest.json
 hopper manager instruction @hopper.manifest.json deposit
 ```
 
-### Decode a live account against known schema
+### Decode supplied account bytes against a known schema
 
 ```bash
 hopper manager identify @hopper.manifest.json <hex-data>
@@ -72,12 +76,16 @@ hopper manager decode @hopper.manifest.json <hex-data>
 hopper manager diff @hopper.manifest.json <hex-before> <hex-after>
 ```
 
-### Start from an on-chain manifest
+### Read an application-provisioned legacy manifest PDA
 
 ```bash
 hopper fetch <program-id>
 hopper manager fetch <program-id>
 ```
+
+These commands do not read Program Metadata IDL records and do not imply that
+the program published a legacy manifest PDA. Start from a checked-in manifest
+unless application-specific tooling created that PDA.
 
 ### Explore interactively
 
@@ -86,23 +94,27 @@ hopper manager interactive @hopper.manifest.json
 hopper explain context @hopper.manifest.json
 ```
 
-## Output: Account Identification
+## Illustrative output: Account Identification
+
+The fingerprints in this example are placeholders, not generated evidence.
 
 ```
-Account identified: Vault v1
-  Discriminator: 1
-  Layout ID: a1b2c3d4e5f60718
-  Size: 57 bytes (matches expected)
+=== Account Identification ===
+  Data size    : 57 bytes
+  Header disc  : 1
+  Header ver   : 1
+  Layout ID    : a1b2c3d4e5f60718
 
-Fields:
-  authority  [u8;32]   0x7a3b...4c2d  (offset 16)
-  balance    WireU64   1,500,000       (offset 48)
-  bump       u8        254             (offset 56)
+  MATCH: Vault v1
+  Expected size: 57 bytes
+  Fields       : 3
 
-Status: compatible with Vault v2 (append-safe)
+Use 'hopper manager decode' to see field values.
 ```
 
-## Output: Program Summary
+## Illustrative output: Program Summary
+
+The fingerprints in this example are placeholders, not generated evidence.
 
 ```
 Program: hopper_registry v0.3.0

@@ -5,7 +5,8 @@ Hopper has two complementary fuzzing layers:
 1. Five libFuzzer targets exercise shared parsers and unsafe boundaries with
    arbitrary bytes.
 2. `hopper fuzz` derives seeded, program-specific adversarial cases from a
-   published manifest and can execute them through an application adapter.
+   supplied program manifest and can execute them through an application
+   adapter.
 
 A manifest can derive contract mutations, but it cannot safely invent a valid
 escrow, order book, oracle, or other business fixture. The adapter supplies

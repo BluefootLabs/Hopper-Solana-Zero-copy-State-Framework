@@ -31,11 +31,14 @@ hopper build -p hopper-showcase
 This example is currently code-first. It does not ship a checked-in
 `ProgramManifest` JSON yet.
 
-Canonical generation path:
+Canonical local generation path:
 
-1. publish the example program with an on-chain Hopper manifest
-2. fetch it with `hopper fetch <program-id>`
+1. generate a local manifest from the program source and review it
+2. check it in when the example's schema is ready to be a stable artifact
 3. use that manifest with `hopper manager` and `hopper client gen`
+
+`hopper fetch` reads only an application-provisioned legacy `MANIFEST_SEED` PDA;
+Hopper does not ship a generic publisher for that PDA.
 
 ## CLI Walkthrough
 

@@ -76,7 +76,7 @@ stays small.
 
 ## Account layouts
 
-Anchor's `#[account(zero_copy)]` forces `#[repr(C)]`, `Pod`, `Zeroable`, and an 8-byte discriminator. Hopper's `#[account]` does the same plus writes a 16-byte Hopper header that carries a layout fingerprint, version byte, and schema epoch. Every Hopper account starts at byte 16 of payload; the discriminator lives in byte 0.
+Anchor's `#[account(zero_copy)]` forces `#[repr(C)]`, `Pod`, `Zeroable`, and an 8-byte discriminator. Hopper's default/headered `#[account]` path does the same plus writes a 16-byte Hopper header that carries a layout fingerprint, version byte, and schema epoch; its payload starts at byte 16 and the discriminator lives at byte 0. Opt-in compact Hopper layouts instead use `[disc][body]` bytes, so their body starts at byte 1 and the fingerprint lives in manifest/IDL metadata rather than account bytes. Fixed compact layouts require the exact declared size; compact-dynamic layouts accept bytes after their declared minimum prefix and leave tail semantics to the application.
 
 ```rust
 // Anchor
@@ -164,7 +164,7 @@ a compile error.
 
 Anchor lets one accounts struct embed another; Hopper spells the same
 thing with an explicit `#[composite]` marker (Anchor infers it from any
-non-wrapper field type — Hopper refuses to guess):
+non-wrapper field type, Hopper refuses to guess):
 
 ```rust
 // Anchor
@@ -204,7 +204,7 @@ constraints; the INNER context must stay a plain validation context (no
 `#[instruction(...)]` args, no `strict_writes` / `lamports(...)` /
 `emit_touch_map` / `event_cpi` options, no lifecycle or `migrate(...)`,
 no nested `#[composite]` of its own); and `lamports(...)` on the outer
-can only name the outer's own leaf fields — an account inside an
+can only name the outer's own leaf fields, an account inside an
 embedded context cannot be granted lamport permission from the outer
 (flatten the inner context if one of its accounts must move lamports).
 
@@ -213,7 +213,7 @@ embedded context cannot be granted lamport permission from the outer
 anchor-next's borsh `Migration<A, B>` design stops at a dedicated
 migration instruction. Hopper goes one step further: declare the
 previous layout version on the field, and EVERY instruction that binds
-the context becomes a migration crank — accounts upgrade as they are
+the context becomes a migration crank, accounts upgrade as they are
 touched, no dedicated instruction, no separate rollout:
 
 ```rust
@@ -233,14 +233,14 @@ pub struct Touch<'info> {
 
 `bind()` probes the slot for a **fully-valid** `VaultV1` header (the
 complete disc/version/layout-id/epoch identity, never a sniff) and only
-then runs `hopper::migration::migrate_layout::<VaultV1, VaultV2, _>` —
+then runs `hopper::migration::migrate_layout::<VaultV1, VaultV2, _>`,
 typed on both sides, in place, header re-stamped LAST with account
-flags preserved — before any validator runs. An already-migrated
+flags preserved, before any validator runs. An already-migrated
 account skips the probe; any other header fails with the normal
 `VaultV2` validation error, unchanged. The standalone read-only
 `validate()` accepts either version without writing: its layout-header
 check for the field becomes "valid `VaultV2`, or fully-valid `VaultV1`
-whose allocation already fits `VaultV2`" — the same sets `bind()`
+whose allocation already fits `VaultV2`", the same sets `bind()`
 accepts. A migration error fails the instruction, so the runtime rolls
 every byte back (the same transaction-abort atomicity the runtime
 migration helpers document).
@@ -258,7 +258,7 @@ v1 restrictions, plainly:
   `#[composite]` inner (compile error at the embedding site): the
   pre-step lives in that context's own `bind()`, which an outer
   composite bind never invokes, so embedding would silently stop the
-  crank — Hopper refuses instead. Using it as the OUTER container (or
+  crank, Hopper refuses instead. Using it as the OUTER container (or
   standalone) is fine.
 - Only the field's layout-header check is version-widened. Constraints
   that read *through* the layout (`has_one`, custom `constraint`
@@ -342,7 +342,7 @@ emit!(Deposited { amount, depositor });
 emit!(Deposited { amount, depositor });
 ```
 
-Identical call site. Self-CPI events (what Anchor spells `#[event_cpi]` + `emit_cpi!`) are the same shape in Hopper — one attribute option, one call:
+Identical call site. Self-CPI events (what Anchor spells `#[event_cpi]` + `emit_cpi!`) are the same shape in Hopper, one attribute option, one call:
 
 ```rust
 // Anchor
@@ -366,7 +366,7 @@ fn deposit(ctx: Context<Deposit>, amount: u64) -> ProgramResult {
 }
 ```
 
-Both append the same two trailing accounts (event-authority PDA + the program account) and both authenticate the self-CPI in the dispatcher, so ported clients pass the same account shape. Differences worth knowing: Hopper's wire is `[0xE0, 0x1E, tag, payload]` — 3 bytes of instruction-data overhead per event against Anchor's 16 (8-byte instruction tag + 8-byte event discriminator) — and the event-authority seed is `b"__hopper_event_authority"` (not Anchor's `b"__event_authority"`), so indexers must derive the Hopper PDA. Anchor pins the authority against a compile-time constant; Hopper has no compile-time program id, so bind and the sink verify at runtime via a sha256-only compare loop (~200 CU at bump 255). The manual escape hatch `hopper_emit_cpi!` remains for raw handlers.
+Both append the same two trailing accounts (event-authority PDA + the program account) and both authenticate the self-CPI in the dispatcher, so ported clients pass the same account shape. Differences worth knowing: Hopper's wire is `[0xE0, 0x1E, tag, payload]`, 3 bytes of instruction-data overhead per event against Anchor's 16 (8-byte instruction tag + 8-byte event discriminator), and the event-authority seed is `b"__hopper_event_authority"` (not Anchor's `b"__event_authority"`), so indexers must derive the Hopper PDA. Anchor pins the authority against a compile-time constant; Hopper has no compile-time program id, so bind and the sink verify at runtime via a sha256-only compare loop (~200 CU at bump 255). The manual escape hatch `hopper_emit_cpi!` remains for raw handlers.
 
 ## Token-2022
 
@@ -405,14 +405,14 @@ Every extension listed in the final zero-copy matrix has an equivalent constrain
 
 ## What does not translate
 
-1. `init_if_needed` DOES translate — same spelling, same shape
+1. `init_if_needed` DOES translate, same spelling, same shape
    (`#[account(init_if_needed, payer = ..., space = ...)]`): an empty
    slot takes the full init lifecycle CPI; a nonempty slot skips the
    CPI and must already pass the owner + layout-header checks, so a
    foreign or half-written account is refused rather than adopted. The
    security posture carries over from Anchor's own feature-gate
    warning: the reinitialization-attack surface is yours to reason
-   about — prefer plain `init` unless the create-or-open pattern is
+   about, prefer plain `init` unless the create-or-open pattern is
    genuinely required.
 2. Anchor's `#[derive(Accounts)]` struct-level `validate(&self)` hook is spelled `#[validate]` in Hopper with the same semantic. You opt in at the struct level; the bound context then calls your method after every built-in constraint passes.
 3. Anchor's Borsh-backed SPL `InterfaceAccount<T>` path splits in Hopper: use `InterfaceAccount<'info, T>` for Hopper-header layouts owned by a declared program set, and use `TokenProgramKind`, `InterfaceTokenAccount`, `InterfaceMint`, or direct TLV readers for SPL Token and Token-2022 bytes.

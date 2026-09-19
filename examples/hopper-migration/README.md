@@ -11,6 +11,8 @@ just account helpers.
 - compile-time compatibility assertions
 - runtime dual-version loading during rollout
 - migration planning with `hopper-schema`
+- a tag-2 deposit that debits the external signer only through Hopper's safe
+  System Program transfer CPI
 
 ## Instruction Map
 
@@ -21,8 +23,8 @@ just account helpers.
 
 ## Devnet (versioned-state)
 
-This is the brief's `versioned-state` example. Deployed to devnet in
-this pass:
+This is the brief's `versioned-state` example. The ids below are a historical
+deployment record and do not attest the current tag-2 System CPI source:
 
 - Program id: `EuDECNLNwPAptWC5NmenBBfjSuhZtmpPwpMQ7Z1P2GMt`
 - Latest program id: `7CuuiKRWqs6JPFbyfMZdAKedWULAAUBnzFRPee46bu2d`
@@ -45,23 +47,29 @@ hopper migrate --cluster devnet \
   -p hopper-migration
 ```
 
-The on-chain `init_v1` → `migrate_v1_to_v2` account evolution is covered
-by the gated integration test (V1 56 B → V2 65 B in place):
+After deploying the final source to a fresh program id, the on-chain `init_v1`
+to `migrate_v1_to_v2` to `deposit_v2` lifecycle is covered by an opt-in,
+fail-closed integration test. It verifies the public
+devnet genesis, finalized signatures and state, the 56 B to 65 B append, and
+exact agreement between the tag-2 recorded balance and the System CPI lamport
+delta:
 
 ```bash
 HOPPER_DEVNET=1 \
-HOPPER_MIGRATION_PROGRAM_ID=7CuuiKRWqs6JPFbyfMZdAKedWULAAUBnzFRPee46bu2d \
+HOPPER_REQUIRE_DEVNET=1 \
+HOPPER_MIGRATION_PROGRAM_ID=REPLACE_WITH_FRESH_PROGRAM_ID \
 HOPPER_KEYPAIR=/abs/path/devnet-keypair.json \
+HOPPER_DEVNET_RECEIPT=/abs/path/migration-receipt.json \
 cargo test -p hopper-migration --test devnet -- --nocapture
 ```
 
-Latest verified devnet run from this workspace:
+The compiled-SBF regression proves tag 2 enters the canonical System Program,
+updates state only after the CPI, and rolls back an insufficient-funds failure:
 
-```text
-Vault: 2BCLiodDfcbZRNnQZtqAydoPYxhfdRnaNRmnWw74ruP6
-Init Signature: 2xBgFYVesudma6vvUVQTgFKTbeH1Zy7pqc5ta4dGJ9QDF9JAp1KGuWNHhXekbmjodCks6SPRn89DFWVg7hDLUrw3
-Migrate Signature: 5HujLW9Lio5xcqrrZzhzcpCSca5f6cz911pNGJv7Gu2nRJzHxJZZdA7NCfLkU2xqhu4BzKQYNWKWx8HCjYamMVHw
-Verified: 56B V1 -> 65B V2
+```bash
+cargo build-sbf --manifest-path examples/hopper-migration/Cargo.toml -- --locked
+HOPPER_REQUIRE_MIGRATION_SBF=1 \
+  cargo test -p hopper-migration --test deposit_v2_sbf -- --nocapture
 ```
 
 ## Verify

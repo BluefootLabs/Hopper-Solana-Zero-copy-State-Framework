@@ -85,26 +85,42 @@ Build and deploy both programs, then run the host proof without changing your
 configured Solana wallet or cluster:
 
 ```powershell
-cargo build-sbf --manifest-path examples\cross-program-read\program-a\Cargo.toml
-cargo build-sbf --manifest-path examples\cross-program-read\program-b\Cargo.toml
+cargo build-sbf --manifest-path examples\cross-program-read\program-a\Cargo.toml -- --locked
+cargo build-sbf --manifest-path examples\cross-program-read\program-b\Cargo.toml -- --locked
 
 $keypair = 'C:\path\to\deployer.json'
 solana --keypair $keypair --url devnet program deploy --program-id target\deploy\hopper_xp_program_a-keypair.json target\deploy\hopper_xp_program_a.so
 solana --keypair $keypair --url devnet program deploy --program-id target\deploy\hopper_xp_program_b-keypair.json target\deploy\hopper_xp_program_b.so
 
-cargo run -p hopper-xp-devnet-runner -- --keypair $keypair --program-a <PROGRAM_A_ID> --program-b <PROGRAM_B_ID> --rpc https://api.devnet.solana.com
+$env:HOPPER_DEVNET = '1'
+$env:HOPPER_DEVNET_RECEIPT = 'C:\absolute\path\cross-program-read-receipt.json'
+$env:HOPPER_SOURCE_COMMIT = (git rev-parse HEAD).Trim()
+$env:HOPPER_XP_PROGRAM_A_SHA256 = (Get-FileHash target\deploy\hopper_xp_program_a.so -Algorithm SHA256).Hash.ToLowerInvariant()
+$env:HOPPER_XP_PROGRAM_B_SHA256 = (Get-FileHash target\deploy\hopper_xp_program_b.so -Algorithm SHA256).Hash.ToLowerInvariant()
+cargo run --locked -p hopper-xp-devnet-runner -- --keypair $keypair --program-a <PROGRAM_A_ID> --program-b <PROGRAM_B_ID> --rpc https://api.devnet.solana.com
 ```
 
 The runner creates a fresh Program A Vault, deposits into it through Program A,
 asks Program B to read the account with `load_cross_program`, asks Program B to
 verify a minimum balance through `TrustProfile::strict`, then fetches the Vault
-and checks owner, layout length, authority bytes, and balance locally.
+and checks owner, layout length, authority bytes, and balance locally at
+finalized commitment. RPC credentials and query values are redacted from
+runner output.
+
+The live runner fails closed unless `HOPPER_DEVNET` is exactly `1`, verifies the
+full public-devnet genesis hash, and requires `HOPPER_DEVNET_RECEIPT`. Each of
+the four transactions is confirmed at finalized and then queried again for its
+finalized status and slot. The deterministic JSON receipt records cluster and
+node identity, both program ids, the final vault owner, layout, authority and
+balance, every signature and slot, and the optional source and artifact hashes
+shown above. It does not record the keypair path or an unredacted RPC URL.
 
 Program B still has no on-chain crate dependency on Program A. Only the
 host-only runner imports Program A so it can decode the proof account after the
 transactions land.
 
-Latest verified devnet deployment from this workspace:
+Historical verified devnet deployment from an earlier workspace revision. It
+does not attest the 0.3.0 release source:
 
 ```text
 Program A Id: C4rvXfXHZgRsy4rtHhkHTuovonsbVQ3jE2kX8jzLPBvv
@@ -120,7 +136,7 @@ Program B Data Length: 2800 bytes
 Program B Deploy Signature: 3w1hBH78LumJ892HwMjmY1NL6v48edjeYqQWXo6T3i7mTt8C4y6EVqKvSGNnQQcyZuc1gWwzRhsu4qThdYTf7hcm
 ```
 
-Latest verified cross-program run from this workspace:
+Historical verified cross-program run from the same deployment:
 
 ```text
 Vault: DRTFuwejtQrt3eArowrSZsFzbcEwRUVz66BTYF3H3KSz
@@ -136,12 +152,14 @@ verified: owner=a46dbf23.., balance=42, layout=[a0, 6d, 32, 92, 39, d4, f8, fb]
 This example is interface-first and does not ship a checked-in
 `ProgramManifest` JSON for either program yet.
 
-Canonical generation path:
+Current schema path:
 
-1. publish Program A and Program B with on-chain Hopper manifests
-2. fetch them with `hopper fetch <program-id>`
-3. inspect Program A's layout and Program B's interface assumptions with
+1. generate and check in a local manifest for each program
+2. inspect Program A's layout and Program B's interface assumptions with
    `hopper manager` and `hopper explain`
+3. if application-specific tooling deliberately provisions Hopper's legacy
+   `MANIFEST_SEED` PDA, `hopper fetch <program-id>` can read that copy; Hopper
+   does not ship a generic legacy-manifest publisher
 
 ## CLI Walkthrough
 

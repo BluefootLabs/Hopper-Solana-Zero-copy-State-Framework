@@ -1,8 +1,8 @@
 # hopper-smoke
 
 A single macro-first program that exercises a broad slice of the Hopper
-framework end-to-end and is verified live on devnet. It is the
-"does the whole pipeline actually work on a real cluster?" smoke test.
+framework end to end. It includes compiled-SBF coverage and retains a
+historical devnet run from an earlier build.
 
 ## What it exercises
 
@@ -19,7 +19,7 @@ framework end-to-end and is verified live on devnet. It is the
 | Program-owned lamport debit | `withdraw` |
 | `close` constraint (zero data, refund lamports) | `close` |
 | `strict_writes` static write policy from `mut(balance)` | `Withdraw` |
-| Self-describing tx: Ok-only `emit_touch_map` opt-in (I7) | `Withdraw` |
+| Self-describing tx: Ok-only `emit_touch_map` opt-in | `Withdraw` |
 
 Instructions: `0` initialize, `1` deposit, `2` withdraw, `3` close.
 
@@ -57,9 +57,12 @@ cargo build-sbf                 # build the artifact first
 cargo test -p hopper-smoke      # e2e: one record on Ok, zero on Err
 ```
 
-## Live devnet evidence
+## Historical devnet evidence
 
-Deployed from authority `HoppRy1HbNcHus9rmubDdXejDqAmhi55AURiCrq6tvxT`:
+The deployment below used the earlier 20,280-byte build. It does not attest the
+current approximately 27 KiB touch-map build or the 0.3.0 release source.
+It was deployed from authority
+`HoppRy1HbNcHus9rmubDdXejDqAmhi55AURiCrq6tvxT`:
 
 - **Program id:** `2YPBvKJ8h37bUEFBrmytzNuKfUJ5Q2o2tkTiqRCZdjme`
 - **SBF size:** 20 280 bytes
@@ -73,6 +76,6 @@ A full `initialize → deposit → withdraw` run confirmed on devnet
 | deposit 0.01 SOL | `balance=10000000 deposits=1` | `517g1QF95FaZuQZCejc9d5yhc5FYWAL6PczQD5HxbLd2f9Q3GJZKM9rbc1nZhJFhowWZMsdsWJeBZcAQXzdHNHk3` |
 | withdraw 0.004 SOL | `balance=6000000` | `5EF3pcbBZNpoSxE5hSRch9zaMd4iYRW2xgM8DZhcahpLPtAYTqEF3Eqpmjt1jnExfqCjoHoNLw1v7egAwhCPcZHq` |
 
-The header's `layout_id` is the SHA-256 layout fingerprint Hopper stamps on
-every account, so a client can verify it is decoding the exact struct shape
-the program was compiled against before reading any field.
+This headered account's `layout_id` is its SHA-256 layout fingerprint, so a
+client can verify the expected struct shape before reading fields. Compact and
+external accounts use their separate identity contracts.

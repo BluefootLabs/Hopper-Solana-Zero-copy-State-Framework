@@ -19,8 +19,8 @@ hopper upgrade --program-id <path|pubkey> [-p <package>] [--no-build] \
 | `-p <package>` | Workspace member to build. |
 | `--no-build` | Upgrade with the existing `.so`. |
 | `--cluster <name>` / `-u <url>` | Target cluster (default `devnet`). |
-| `--keypair <path>` / `-k` | Upgrade-authority keypair. |
-| `--commitment <level>` | Commitment for the tx. |
+| `--keypair <path>` / `-k` | Solana CLI client keypair (fee payer/default authority); use `--upgrade-authority <signer>` when distinct. |
+| `--commitment <level>` | Commitment forwarded to Solana CLI for the upgrade workflow. |
 | `--yes` / `-y` | Skip the mainnet confirmation prompt. |
 
 See the [shared cluster flags](README.md#shared-cluster-flags).
@@ -31,8 +31,8 @@ See the [shared cluster flags](README.md#shared-cluster-flags).
 2. Confirms the operation (mainnet only, unless `--yes`).
 3. Runs `solana program deploy <artifact> --program-id <id> --use-rpc --url <cluster> ...`.
 
-The upgrade authority must match the keypair you pass; otherwise the loader
-rejects the transaction.
+The loader requires the program's configured upgrade-authority signer. Pass it
+through `--upgrade-authority <signer>` when it differs from the client keypair.
 
 ## Example (devnet)
 

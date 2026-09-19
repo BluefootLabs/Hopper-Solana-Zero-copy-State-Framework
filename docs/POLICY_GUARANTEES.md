@@ -116,7 +116,7 @@ Hopper's internals use `unsafe` for the zero-copy core (pointer casts, syscall w
 A `Seq<'a, T>` tail (see [DYNAMIC_TAILS_FROM_QUASAR.md](DYNAMIC_TAILS_FROM_QUASAR.md))
 is an open-ended, growable list. Under `#[hopper::context(strict_writes)]` it is
 declared with `tail(<field>)`, which compiles to a single **open-ended write
-range** — `WriteRange::tail_from(idx, HEADER_LEN + <Layout>::<FIELD>_OFFSET)` =
+range**, `WriteRange::tail_from(idx, HEADER_LEN + <Layout>::<FIELD>_OFFSET)` =
 `{ offset: TAIL_PREFIX_OFFSET, size: u32::MAX }`.
 
 What this guarantees:
@@ -125,7 +125,7 @@ What this guarantees:
 |---|---|
 | Tail is writable and growable | Any write at or past `TAIL_PREFIX_OFFSET` is admitted, at any account length. `push`/`set`/`swap_remove` through the gated `ctx.tail_seq_mut::<T>(idx, off)` cursor pass the policy check; growth via `realloc` needs no re-declaration (the range is already open-ended). |
 | Fixed head stays byte-protected | The range starts *past* the head (`offset != 0`), so every head byte lies outside it. A write to any head field is refused at acquisition with `Custom(0xD000 \| idx)`. |
-| CPI writable-meta delegation stays refused | `allows_whole_account_write` requires a range containing `[0, u32::MAX)`. An open tail range anchored past the head fails that test, so handing the account writable to a CPI callee (unbounded both-dimension delegation) is refused — the same guard the byte-range policy uses everywhere. |
+| CPI writable-meta delegation stays refused | `allows_whole_account_write` requires a range containing `[0, u32::MAX)`. An open tail range anchored past the head fails that test, so handing the account writable to a CPI callee (unbounded both-dimension delegation) is refused, the same guard the byte-range policy uses everywhere. |
 | One touch record per acquire | Acquiring the cursor registers exactly ONE segment lease over the whole tail region (`[TAIL_PREFIX_OFFSET, region_len)`), not one per element, so overlap detection and the `touch-map` never overflow `MAX_TOUCH_RECORDS` on a large sequence. |
 
 Structural rules:
@@ -139,7 +139,7 @@ The honest limit (per-element isolation):
 
 > The declared `tail_from` range covers the **entire tail region** as one grant.
 > The write policy therefore isolates the *head from the tail*, and the tail of
-> one account from every other account — it does **not** isolate one tail element
+> one account from every other account; it does **not** isolate one tail element
 > from another. Per-element / sub-range exclusion within the tail is the
 > **segment registry's** job (`segment_borrow`): a `TailSeqMut` acquire takes one
 > exclusive tail-region lease, so two live cursors over the same tail conflict

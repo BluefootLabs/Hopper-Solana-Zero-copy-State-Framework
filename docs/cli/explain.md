@@ -2,10 +2,10 @@
 
 Decode on-chain artifacts into human-readable form. `explain` is a family:
 
-- `hopper explain <signature>` (alias for `hopper tx explain`) — decode a
+- `hopper explain <signature>` (alias for `hopper tx explain`), decode a
   confirmed **transaction**.
-- `hopper explain account <pubkey>` — decode an **account** header/layout.
-- `hopper explain receipt|compat|policy|layout|program|context|instruction` —
+- `hopper explain account <hex-data>`: decode supplied **headered account bytes**.
+- `hopper explain receipt|compat|policy|layout|program|context|instruction`,
   explain the corresponding manifest artifact.
 
 This page covers the transaction decoder, the headline of the devnet pass.
@@ -13,23 +13,24 @@ This page covers the transaction decoder, the headline of the devnet pass.
 ## `hopper explain <signature>`
 
 ```
-hopper explain <signature> [--rpc <url>] [--manifest <file>] [--raw-logs]
+hopper explain <signature> [--rpc <url>] [--manifest <file>] [--tree] [--raw-logs]
 ```
 
 | Flag | Meaning |
 |---|---|
 | `<signature>` | Confirmed transaction signature to fetch and decode. |
 | `--rpc <url>` | RPC endpoint (default from config / env). |
-| `--manifest <file>` | Local manifest mapping disc bytes → instruction names when the program has not published its manifest on chain. |
+| `--manifest <file>` | Local fallback mapping discriminator bytes to instruction names when no application-provisioned legacy `MANIFEST_SEED` PDA is available. |
+| `--tree` | Render the CPI call tree with per-frame CU and emitted touch maps. |
 | `--raw-logs` | Print the full `Program log:` stream verbatim. |
 
 ### What it prints
 
 For every top-level instruction in the transaction, `explain` reports the
 target program id, the discriminator byte, the matched Hopper instruction name
-(from the on-chain manifest, or the `--manifest` file), and the account slots
-the instruction touched. Unrecognized programs fall back to a terse line rather
-than masking the rest of the trace.
+(from an application-provisioned legacy manifest PDA, or the `--manifest`
+file), and the account slots supplied to the instruction. Unrecognized programs
+fall back to a terse line rather than masking the rest of the trace.
 
 ### How it talks to RPC
 
@@ -49,6 +50,6 @@ hopper explain <ESCROW_MAKE_SIG> \
   --manifest examples/hopper-escrow/hopper.manifest.json
 ```
 
-On devnet this decoded the escrow `make` instruction — which self-initializes a
-fresh `Escrow` via the `init` lifecycle and writes four typed fields — at
+On devnet this decoded the escrow `make` instruction; which self-initializes a
+fresh `Escrow` via the `init` lifecycle and writes four typed fields, at
 **1 761 CU**.

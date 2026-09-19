@@ -66,12 +66,32 @@ solana --keypair $keypair --url devnet address
 Run the host-only audit client against devnet:
 
 ```powershell
+$env:HOPPER_DEVNET='1'
 cargo run -p hopper-devnet-audit --features devnet-client --bin devnet_audit -- --keypair C:\path\to\deployer.json --program-id <PROGRAM_ID> --rpc https://api.devnet.solana.com
 ```
 
-The client creates a fresh `AuditState` account with `AuditState::ALLOC_SPACE`, sends all ten instructions, then fetches and decodes the account. A passing run prints `verified` with `counter=1`, `substrate_passes=1`, `remaining_signer_checks=2`, `proof_checks=1`, `token_policy_checks=1`, `field_capability_checks=1`, `label=hopper-live`, and `members=1`.
+The live runner is fail-closed. It requires `HOPPER_DEVNET=1`, checks the
+cluster genesis hash and deployed program account, uses finalized commitment,
+and polls every transaction and state read until finalized. Before the
+positive instruction sequence it submits three expected failures and proves
+the complete state account snapshot did not change:
 
-Latest verified deployment from this workspace:
+- a signer that does not match the stored authority
+- too few strict remaining-account signers
+- a mutation with the state account marked read-only
+
+A passing run emits one line prefixed with
+`HOPPER_DEVNET_EVIDENCE_JSON=`. The JSON binds the cluster genesis and node
+version, program id, public account ids, finalized signatures and slots,
+pre/post account SHA-256 values, rollback results, and exact decoded state. It
+never includes the keypair path or RPC URL. A custom RPC URL is always reported
+as `redacted`.
+
+`account_sha256` hashes this canonical byte sequence: lamports as little-endian
+u64, owner pubkey, executable as one byte, rent epoch as little-endian u64,
+data length as little-endian u64, then the complete account data.
+
+Historical deployment record (not a fresh finalized attestation):
 
 ```text
 Program Id: 4LPSXhMpx2DrFvMSHXRB3yaGmz7iKP4nKkfD92mAtAdT
@@ -79,7 +99,7 @@ Deploy Signature: 4KGzT5XH9KjtGH5JR4A2WfYRv6uWAdTYuJw5Qu2rACnsLNiP9wq1Zuu8ZUQWvp
 Artifact Size: 30408 bytes
 ```
 
-Latest verified audit run from this workspace:
+Historical audit record (superseded by the structured evidence format above):
 
 ```text
 State: EAQdR2FjcEHuerPV4c2yhwc9Z8crtk6YRmeMtsuRntCV

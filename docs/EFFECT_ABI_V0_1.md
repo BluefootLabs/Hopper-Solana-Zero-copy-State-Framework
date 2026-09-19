@@ -11,7 +11,7 @@ Foundation adoption or a finalized network standard.
 The Effect ABI publishes a machine-readable upper bound on one instruction's
 authorized state mutation. It can narrow a static account-data range to the
 single fixed-size cell selected by the concrete instruction invocation. An
-independent verifier can then compare the published authorization with
+separate recomputing verifier can then compare the published authorization with
 pre/post account snapshots and the instruction's write-touch map.
 
 The v0.1 verdict is:
@@ -201,7 +201,7 @@ JSON canonicalization scheme.
 
 The reference verifier consumes:
 
-1. an instruction contract from the published manifest;
+1. an instruction contract from the supplied/published manifest artifact;
 2. the post-discriminator argument payload when parametric rules exist;
 3. pre/post data snapshots (and optional lamport balances) keyed by positional
    account index; and

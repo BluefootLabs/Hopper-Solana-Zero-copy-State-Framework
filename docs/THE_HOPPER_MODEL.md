@@ -48,9 +48,9 @@ This generates:
 Every field is a fixed-size byte-backed type. No heap. No serialization.
 The struct is laid directly on top of account bytes via pointer cast.
 
-## The 16-Byte Header
+## The Default 16-Byte Header
 
-Every Hopper account starts with a standard header:
+Every default/headered Hopper-owned layout starts with this standard header:
 
 ```
 [0]       disc        u8        Account type discriminator
@@ -60,10 +60,13 @@ Every Hopper account starts with a standard header:
 [12..16]  schema_epoch u32 LE    Schema evolution epoch, default 1
 ```
 
-The header makes every account self-describing. Any tool can decode the
-type, version, fingerprint, and schema epoch without knowing the layout
-definition. This is what powers `hopper explain`, `hopper inspect`, and
-schema-aware migration planning.
+The header makes that account form self-describing at the identity level. A
+raw-header tool can decode type discriminator, version, fingerprint, and schema
+epoch without knowing the fields; a manifest is still required for field,
+segment, policy, and migration semantics. Opt-in compact layouts begin with
+`[disc][fixed body]`; fixed layouts end there, while compact-dynamic layouts may
+carry a tail after that minimum prefix. They carry no header fingerprint and
+obtain layout identity from a manifest/IDL or generated SDK constant.
 
 ## One Access System
 
@@ -344,25 +347,25 @@ and are fuzzed against hostile metadata
 Hopper includes a CLI for inspecting, comparing, and planning:
 
 ```
-hopper explain <hex>           Human-readable account explanation
+hopper explain <hex>           Human-readable headered-account explanation
 hopper inspect <hex>           Raw header decode
 hopper segments <hex>          Segment registry map with roles
 hopper receipt <hex>           Decode a 72-byte state receipt, or a legacy 64-byte receipt
-hopper compat <v1> <v2>        Compatibility report
-hopper diff <v1> <v2>          Field-level diff
-hopper plan <v1> <v2>          Migration plan with steps
+hopper compat @v1.json @v2.json  Compatibility report
+hopper diff @v1.json @v2.json    Field-level diff
+hopper plan @v1.json @v2.json    Migration plan with steps
 hopper schema-export           Schema format reference
 ```
 
-`explain` is the standout command. It tells you what an account is, how
-it is structured, which segments exist, what roles they play, and whether
-the account is migration-ready. Combined with `receipt`, you can trace
-exactly what happened to an account in any transaction.
+Bare `hopper explain <hex>` reports what the supplied 16-byte header says.
+Manifest-backed Manager commands add field, segment, policy, and migration
+meaning. A receipt summarizes only its configured/supplied scope; neither a
+header nor a receipt alone proves everything that happened in a transaction.
 
 ## Cross-Program Interfaces
 
-Hopper accounts are self-describing. Any program can read another
-program's accounts by verifying the header:
+Headered Hopper accounts carry self-description at the identity level. A
+program can read another program's headered account by verifying that header:
 
 ```rust
 hopper_interface! {
@@ -395,7 +398,9 @@ impl. No panics on-chain. Every error path returns a specific code.
 2. **Pipeline model.** Define, Resolve, Validate, Execute, Record, Verify, Inspect.
 3. **Compile-time safety.** Typestate, const generics, and deterministic hashing over runtime checks.
 4. **Zero hidden cost.** No allocations, no trait objects, no dynamic dispatch on-chain.
-5. **Self-describing accounts.** The 16-byte header makes every account inspectable.
+5. **Explicit identity.** Headered accounts carry the 16-byte identity header;
+   compact accounts carry a discriminator plus a fixed or minimum-prefix size
+   contract and use external schema metadata.
 6. **Append-only evolution.** New fields extend layouts. Old data stays valid.
 7. **Rigid where safety matters, flexible where architecture matters.**
 

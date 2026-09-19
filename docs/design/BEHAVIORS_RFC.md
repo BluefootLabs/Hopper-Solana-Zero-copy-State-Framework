@@ -7,7 +7,7 @@ macro attachment **proposed** (this document).
 
 Quasar's `AccountBehavior` is the one place its DX is genuinely ahead of
 Hopper: a protocol can author a reusable, parameterized lifecycle plugin
-once and attach it per context field —
+once and attach it per context field,
 
 ```rust
 #[account(fee_vault(max_bps = 30))]
@@ -24,15 +24,15 @@ helpers (init/realloc/close) are framework-owned, not protocol-extensible.
 `hopper_runtime::behavior` defines the plugin contract and the phase
 runners the macro will lower to (hand-wirable today, test-covered):
 
-- `HopperBehavior<T: LayoutContract>` — unit-struct plugin over a layout
+- `HopperBehavior<T: LayoutContract>`: unit-struct plugin over a layout
   type. Phases `check` / `update` / `exit`, gated by
   `RUN_CHECK` / `RUN_UPDATE` / `RUN_EXIT` consts so generated code emits
   only live phases (Quasar-parity codegen cost). `Args` carries the
   per-attachment parameters; `CheckOutput` is a behavior-defined payload.
-- `BehaviorChecked<B, O>` — the proof token minted by `run_check`.
-- `BehaviorWrite` + `const WRITES` — the field-relative byte ranges the
+- `BehaviorChecked<B, O>`: the proof token minted by `run_check`.
+- `BehaviorWrite` + `const WRITES`, the field-relative byte ranges the
   behavior's mutating phases write.
-- `run_check::<B, T>` / `run_update::<B, T>` — typed-path runners;
+- `run_check::<B, T>` / `run_update::<B, T>`, typed-path runners;
   `run_update` **takes the proof token**, making check-before-update
   structural rather than conventional.
 
@@ -44,14 +44,14 @@ accountable to the machinery only Hopper has:
 1. **Proof tokens.** `check` mints `BehaviorChecked<B, _>`; downstream
    APIs can require the token (or an `AccountProof` composed with it),
    so "this account passed the fee-cap behavior" is a type, not a hope.
-2. **I12 composition.** Under `strict_writes`, the macro folds each
+2. **Write-policy composition.** Under `strict_writes`, the macro folds each
    attachment's `B::WRITES` (resolved to the field's account index) into
    the context's static `WritePolicy`. Plugins *extend* the declared
    write surface explicitly; they cannot silently widen it, and an
    undeclared behavior write is refused at acquisition time like any
    other.
 3. **Ledger visibility.** Behavior mutations run through the standard
-   typed paths, so they appear in the I7 touch map and the receipt
+   typed paths, so they appear in the byte-level touch map and the receipt
    system: `hopper explain` can show which plugin touched which bytes.
 
 ## Proposed macro surface
@@ -89,7 +89,7 @@ Lowering (all inside the generated `bind`):
 
 - Multiple behaviors per field: ordered left-to-right; token names
   suffixed by behavior. (Quasar allows one `SETS_INIT_PARAMS` per field;
-  we have no init-param phase yet — see below.)
+  we have no init-param phase yet; see below.)
 - Init-phase hooks (`set_init_param` / `after_init` equivalents): defer
   until the behavior system meets `init` fields; the lifecycle helpers
   already own creation, so the natural seam is an `after_init` hook that

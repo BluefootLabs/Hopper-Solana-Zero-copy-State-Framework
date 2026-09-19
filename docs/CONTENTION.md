@@ -1,7 +1,7 @@
 # Contention and declared lock footprint
 
 `hopper contention <manifest>` reports the **write-lock and signature
-footprint a program declares** — the part of a leader's price that the
+footprint a program declares**, the part of a leader's price that the
 declaration fixes, computed from the manifest alone.
 
 ```bash
@@ -21,7 +21,7 @@ collect_fees                1      1     1     1020       -          1     -
 --------------------------------------------------------------------------------
 ```
 
-Everything in that table is derived from the declaration — the account
+Everything in that table is derived from the declaration, the account
 list plus the same `writeRanges` / `lamportAccounts` the runtime enforces
 and the manifest publishes. Role counts are exact, offline, and
 reproducible. `Fixed max` is a deterministic upper bound: optional account
@@ -43,12 +43,12 @@ fixes. The other three are caller choices that no manifest analysis can
 supply:
 
 - `programs_execution_cost` is the transaction's **requested compute
-  limit** — not its burn. It is usually the largest term by an order of
+  limit**; not its burn. It is usually the largest term by an order of
   magnitude: a transaction that sets no `ComputeBudget` instruction is
   charged 200,000 CU for a single instruction. A client lowers it with
   `SetComputeUnitLimit`.
 - `loaded_accounts_data_size_cost` is the **requested** loaded-data limit,
-  8 CU per 32 KiB page, defaulting to the 64 MiB ceiling — 16,384 CU.
+  8 CU per 32 KiB page, defaulting to the 64 MiB ceiling, 16,384 CU.
   Lowered with `SetLoadedAccountsDataSizeLimit`.
 - `data_bytes_cost` is `instruction_data_len / 4`.
 
@@ -61,7 +61,7 @@ Two more scope limits, both real:
   deduplicated keys. The per-instruction rows do not add up to a
   transaction's cost, and the tool says so in its own summary.
 
-Use `Fixed max` to compare declarations and to gate declaration drift — not
+Use `Fixed max` to compare declarations and to gate declaration drift; not
 to predict a fee or a block share.
 
 ## The constants
@@ -113,8 +113,8 @@ Two consequences worth internalizing:
   priority fees, not a price on the account.
 - **The scheduler serializes on whole accounts.** Agave's greedy
   scheduler (default since v2.3) keys its locks on
-  `AHashMap<Pubkey, AccountLocks>`. Byte-range disjointness — Hopper's
-  specialty — buys correctness and auditability, but the protocol does not
+  `AHashMap<Pubkey, AccountLocks>`. Byte-range disjointness, Hopper's
+  specialty, buys correctness and auditability, but the protocol does not
   currently reward it with parallelism. Anyone claiming otherwise is
   describing a SIMD that has not merged.
 
@@ -136,7 +136,7 @@ arbitrary Rust, FFI, dependency, direct-substrate, or unchecked-CPI paths.
 
 Note what the sentinel row does **not** show: a `Saved` figure. Demotion
 only produces a saving when a manifest declares an account writable that
-the write set clears — and a correct Hopper manifest already marks
+the write set clears, and a correct Hopper manifest already marks
 `treasury` read-only, so there is nothing to demote and the honest saving
 is 0. `Proven RO` is the actionable number, and it is aimed at client
 authors: hand-rolled clients and ports from frameworks where "when in
@@ -191,7 +191,7 @@ declared: a manifest is JSON, and `mutationComplete` without
 An instruction that accepts `remaining_accounts` takes caller-supplied
 suffix accounts whose writable flags the client chooses. Each writable one
 is a real 300 CU lock the declaration cannot constrain, so the ceiling is
-reported in its own column and deliberately left out of `Fixed max` — the
+reported in its own column and deliberately left out of `Fixed max`, the
 gated figure stays deterministic without pretending caller-selected keys
 are known.
 

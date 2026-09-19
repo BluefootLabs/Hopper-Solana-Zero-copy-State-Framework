@@ -19,7 +19,7 @@ pool.reward_per_token = update_reward_per_token(
 	pool.total_staked,
 )?;
 let pending = pending_rewards(user.staked, pool.reward_per_token, user.reward_debt)?;
-user.reward_debt = update_reward_debt(user.staked, pool.reward_per_token);
+user.reward_debt = update_reward_debt(user.staked, pool.reward_per_token)?;
 ```
 
 Docs: <https://docs.rs/crate/hopper-staking>

@@ -1,8 +1,10 @@
 # Hopper Layers
 
 Hopper is one framework with progressive disclosure. The framework path, the
-Quasar-shaped migration path, and the systems-mode path all use the same account
-headers, layout fingerprints, runtime checks, and CPI machinery.
+Quasar-shaped migration path, and the systems-mode path share the same runtime,
+schema machinery, layout-identity model, and CPI machinery. Default/headered
+layouts carry the 16-byte Hopper header; opt-in compact layouts use the explicit
+`[disc][body]` contract and keep their fingerprint in manifest/IDL metadata.
 
 ## Level 1: Framework Mode
 
@@ -34,16 +36,23 @@ Framework mode centers these pieces:
 This path is published as `hopper-lang` and imported as `hopper`:
 
 ```toml
-hopper = { package = "hopper-lang", version = "0.3.0", features = ["proc-macros"] }
+hopper = { package = "hopper-lang", version = "=0.2.1", features = ["proc-macros"] }
 ```
+
+That is the registry release observed on 2026-09-06. This repository's 0.3.0
+workspace is unpublished development source; use a local path when following
+0.3-only examples.
 
 There is no separate beginner crate. The main framework crate is the canonical
 facade, and it grows into the same systems layer when needed.
 
 ## Level 2: Structured State
 
-Use this when account compatibility, schema publication, dynamic tails, or
-client generation matters.
+Use this when account compatibility, local schema export, client generation,
+or publication of a losslessly representable Solana IDL v0.1 projection through
+Program Metadata matters. That projection is distinct from Hopper's richer
+public IDL. Hopper does not currently ship a generic manifest/effect registry
+publisher.
 
 - `hopper::layout` exposes headers, layout contracts, fingerprints, field maps,
   and wire types.

@@ -7,10 +7,23 @@
 > - `hopper client gen --c <manifest.json>` -> C header-only client
 > - `hopper compile --emit rust-client <manifest.json>` -> Rust off-chain SDK
 
-Hopper `0.3.0` generates TypeScript, Kotlin, Python, Go, C header-only, and
-off-chain Rust clients, plus Codama-shaped JSON and Anchor-shaped IDL JSON for
-downstream tooling. Account readers in every generated language assert the
-8-byte Hopper `LAYOUT_ID` fingerprint before decoding fields.
+The unpublished Hopper `0.3.0` workspace generates TypeScript, Kotlin, Python,
+Go, C header-only, and off-chain Rust clients, plus Hopper public IDL, Codama
+JSON, and a lossless-only Solana IDL v0.1.0 projection. `compile --emit idl`
+emits Hopper's public subset; Solana IDL is the separate `schema export
+--anchor-idl <manifest> --program-id <pubkey>` path. That projection preserves
+Hopper's wire discriminators and declares custom `hopper-zero-copy-v1` account
+serialization, so account decoding remains Hopper-aware. It refuses bounded
+encodings, remaining-account contracts, unresolved or unsafe PDA seeds,
+unresolved fixed addresses, and ambiguous discriminator prefixes that cannot
+be represented faithfully. Headered account readers in every generated
+language assert the 8-byte Hopper `LAYOUT_ID` before decoding fields. Fixed
+compact readers require exact manifest size plus discriminator;
+compact-dynamic readers require the manifest's minimum prefix size plus
+discriminator. Compact bytes do not contain a fingerprint, so the generated
+`LAYOUT_ID` remains manifest/IDL identity metadata. Generated readers decode
+declared fixed fields; application-specific dynamic-tail semantics remain a
+separate validation step.
 
 ## Copyable generated-client flows
 
@@ -45,9 +58,10 @@ Anchor wins social adoption because people know how to get from
 
 The client generator reads a Hopper `ProgramManifest` and emits typed SDKs that
 frontends, bots, scripts, and tests can drop into their project. All generated
-account decoders assert the 8-byte `LAYOUT_ID` fingerprint before reading
-fields, so stale clients fail closed instead of silently mis-decoding account
-bytes.
+account decoders fail closed before reading fields: headered layouts compare
+the 8-byte `LAYOUT_ID` in account bytes, while compact layouts compare the
+discriminator and either exact fixed size or a compact-dynamic minimum prefix.
+They retain the manifest fingerprint as external identity metadata.
 
 ## TypeScript Generation
 
@@ -136,7 +150,9 @@ stack.
 Go generation emits a single stdlib-only package with:
 
 - `Pubkey`, `AccountMeta`, and `Instruction` transport-neutral structs
-- typed account structs and `Decode<Name>` helpers that verify `LAYOUT_ID`
+- typed account structs and `Decode<Name>` helpers that verify headered
+  `LAYOUT_ID`, fixed compact exact size plus discriminator, or compact-dynamic
+  minimum prefix size plus discriminator
 - typed `<Instruction>Args` / `<Instruction>Accounts` structs
 - `Build<Instruction>Instruction` helpers with discriminator-prefixed data
 - event structs and decoders keyed by event tag
@@ -149,7 +165,9 @@ adapt the emitted `Instruction` into their RPC or transaction-building library.
 C generation emits a single header-style client with:
 
 - fixed-width integer and `HopperPubkey` types
-- `hopper_decode_<layout>` account decoders that verify `LAYOUT_ID`
+- `hopper_decode_<layout>` account decoders that verify headered `LAYOUT_ID`,
+  fixed compact exact size plus discriminator, or compact-dynamic minimum
+  prefix size plus discriminator
 - `hopper_build_<instruction>_data` payload builders
 - `hopper_<instruction>_account_metas` account metadata helpers
 - event decoders and explicit `HopperClientError` return codes
@@ -185,8 +203,9 @@ hopper client gen --c @my-program.manifest.json
 # Generate off-chain Rust client
 hopper compile --emit rust-client @my-program.manifest.json
 
-# Generate from piped manifest
-hopper schema export --manifest | hopper client gen --ts -
+# Normalize a manifest, then generate from the resulting file
+hopper schema export --manifest @my-program.manifest.json > normalized.manifest.json
+hopper client gen --ts @normalized.manifest.json
 ```
 
 ## Architecture

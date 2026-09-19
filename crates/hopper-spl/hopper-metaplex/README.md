@@ -14,9 +14,8 @@ Part of the **[Hopper](https://hopperzero.dev)** framework.
 
 ## When to reach for this
 
-Anything that mints, updates, or reads NFT metadata on Solana through the
-Metaplex Token Metadata program. The crate ships the three calls every NFT
-program reaches for:
+Use this crate when a Hopper program needs one of its supported Metaplex Token
+Metadata operations. The current surface provides three common calls:
 
 - `CreateMetadataAccountV3` - initialise the metadata PDA for a mint.
 - `CreateMasterEditionV3` - lock a mint as a master edition (set
@@ -72,6 +71,10 @@ PDA helpers:
 let (metadata, _bump) = hopper_metaplex::metadata_pda(&mint_address);
 let (master_edition, _) = hopper_metaplex::master_edition_pda(&mint_address);
 ```
+
+These derive real PDAs only on the SBF target (`target_os = "solana"`). Host
+builds get compile-only stubs that return the all-zero address and bump `0`,
+so off-chain code should derive these addresses with a client library.
 
 ## Optional, opt-in
 

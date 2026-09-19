@@ -14,10 +14,11 @@ A note on target status: the original matrix was verified 2026-07-07 and the
 peer cells below were corrected against the pinned 2026-08-15 source audit.
 Quasar's default branch/crate was still v0.0.0, but its active
 `0.1.0-release` branch is substantially ahead, uses stable Rust, and remains
-self-described beta/unaudited. This Hopper tree is the 0.3.0 release source;
-registry availability remains a release-time check. Anchor v2 remains
+self-described beta/unaudited. This Hopper tree is unpublished 0.3.0
+development source; registry availability remains a release-time check. Anchor v2 remains
 self-described Alpha/unaudited, but `anchor-lang` 2.0.0-rc.1 and tag
-`v2.0.0-rc.1` were published 2026-08-12; Anchor 1.1.2 is the stable line.
+`v2.0.0-rc.1` were published 2026-08-12; Anchor 1.2.0 is the stable line as of
+2026-09-06.
 Use the pinned
 [2026-08-15 audit](docs/ZERO_COPY_FRAMEWORK_AUDIT_2026-08-15.md) rather than
 repeating this dated matrix as a permanent ranking. In the tables, “Anchor
@@ -40,7 +41,7 @@ runtime it lowers to is in `crates/hopper-runtime/src/` or
 | `no_std`, no heap on hot path | Yes | Yes | 1.x: No; v2: Yes | Yes | `crates/hopper-runtime` default features = `[]`; verified by `cargo check -p hopper-runtime --no-default-features` |
 | No `solana-program` dependency in runtime hot path | Yes | Yes | 1.x: No; v2: Pinocchio-backed | Yes | `crates/hopper-runtime/Cargo.toml` (raw input parsing in `raw_input.rs`-equivalent native backend) |
 | Pointer-cast account access (no Borsh, no copies) | Yes | Yes | 1.x: opt-in `AccountLoader`; v2: default mapped accounts | Yes | `crates/hopper-runtime/src/account.rs::AccountView::load` |
-| Single-byte instruction discriminator | Yes (1 byte default, multi-byte opt-in) | Yes | No (8-byte sighash) | Yes | `crates/hopper-macros-proc/src/program.rs` dispatch; `profile = "tiny"` enforces 1-byte |
+| Single-byte instruction discriminator | Yes (1 byte default, multi-byte opt-in) | Yes | Supported through Anchor's custom variable-length discriminators; default remains 8 bytes | Yes | `crates/hopper-macros-proc/src/program.rs` dispatch; `profile = "tiny"` enforces 1-byte |
 | Accounts up to 10 MB | Yes | Yes | Yes | Yes | zero-copy path is size-agnostic; no per-byte deserialize |
 
 ## Casting & verification
@@ -98,10 +99,10 @@ hostile-metadata fuzz coverage; breadth is the claim, not exclusivity.
 
 | Capability | Hopper | Quasar 0.1 release line | Anchor 1.x / v2 alpha | Pinocchio | Hopper implements |
 |---|---|---|---|---|---|
-| Structural receipts proving an ix touched a segment/version | Yes | No | No | No | `crates/hopper-core/src/receipt.rs::StateReceipt<SNAP_SIZE>`, `DecodedReceipt` |
+| Bounded receipts summarizing configured snapshot, diff, segment, and version data | Yes | No | No | No | `crates/hopper-core/src/receipt.rs::StateReceipt<SNAP_SIZE>`, `DecodedReceipt`; completeness is limited to supplied scope |
 | Receipt decode / explain for off-chain consumers | Yes | No | No | No | `receipt.rs::ReceiptExplain`, `ReceiptNarrative`, `ReceiptIndexRecord` |
 | Declarative policy graph evaluated before dispatch | Yes | No | No | No | `crates/hopper-runtime/src/policy.rs::HopperProgramPolicy`, `HopperInstructionPolicy` |
-| Per-field lifecycle behaviors that contribute write-sets and return proof tokens | Yes | Partial (side-effect hooks only, no accountability) | No | No | `crates/hopper-runtime/src/behavior.rs::HopperBehavior` — `WRITES` feeds the `strict_writes` policy; checks return `BehaviorChecked<B, O>` |
+| Per-field lifecycle behavior primitives with declared write-sets and typed successful-check markers | Partial (explicit API; attribute/codegen integration remains proposed) | Partial (side-effect hooks only, no accountability) | No | No | `crates/hopper-runtime/src/behavior.rs::HopperBehavior` exposes `WRITES` and returns `BehaviorChecked<B, O>`; callers must currently incorporate those ranges into policy and invoke the helper explicitly |
 
 ## Anchor-parity context ergonomics
 
@@ -136,17 +137,17 @@ hostile-metadata fuzz coverage; breadth is the claim, not exclusivity.
 
 | Capability | Hopper | Quasar 0.1 release line | Anchor 1.x / v2 alpha | Pinocchio | Hopper implements |
 |---|---|---|---|---|---|
-| Machine-readable schema manifest (superset of Anchor IDL) | Yes | Yes (wire IDL plus ABI hash) | Yes (IDL) | No | `crates/hopper-schema/src/lib.rs::LayoutManifest`, `ProgramManifest`, `ProgramIdl` |
-| Covers zero-copy layouts, segment maps, upgrade chains, errors, constants | Yes | Partial: wire layouts, ABI, CPI/client metadata; no Hopper-equivalent segment/evolution graph | Anchor IDL covers program/account API, not Hopper's graph | No | `LayoutManifest` + `ManifestRegistry`; constants via `#[hopper::constant]` |
-| Anchor-compatible IDL emission | Yes | Own wire IDL/ABI format | Yes | No | `anchor_idl.rs`; other client emitters use the same manifest source |
-| On-chain schema publication (manifest stored in account) | Yes | No | No | No | `hopper-schema/src/lib.rs` manifest account format (header + JSON payload, optional zlib) |
+| Machine-readable Hopper manifest and public IDL surfaces | Yes | Yes (wire IDL plus ABI hash) | Yes (IDL) | No | `ProgramManifest` is Hopper's declaration; `ProgramIdl` and the Solana IDL projection are narrower public interfaces, not supersets of one another |
+| Zero-copy layouts, segment maps, and upgrade chains | Yes; errors and constants use separate descriptor surfaces | Partial: wire layouts, ABI, CPI/client metadata; no Hopper-equivalent segment/evolution graph | Anchor IDL covers program/account API, not Hopper's graph | No | `LayoutManifest` + `ManifestRegistry`; error/constant descriptors are not fields in `ProgramManifest` or the current CLI's manifest projection |
+| Current Solana IDL v0.1 emission | Conditional and fail-closed when the Hopper surface is losslessly representable | Own wire IDL/ABI format | Yes | No | `anchor_idl.rs`; Hopper's u16-bounded vectors and dynamic remaining-account contracts are not silently rewritten |
+| On-chain Program Metadata publication | IDL projection only; no generic Hopper manifest/effect registry publisher | No | Not assessed here | No | `hopper publish-idl`; `HopperSchemaPointer` is a data type, not a shipped publication protocol |
 
 ## Tooling
 
 | Capability | Hopper | Quasar 0.1 release line | Anchor 1.x / v2 alpha | Pinocchio | Hopper implements |
 |---|---|---|---|---|---|
 | CLI scaffold / manifest gen / inspect / lint / profile | Yes | Yes: init/build/test/deploy/verify/lint/profile/IDL/client surface | Yes (`anchor` CLI) | No framework CLI | `tools/hopper-cli/src/cmd/*` |
-| Client codegen | Yes: 8 manifest-derived outputs | Stable Rust/Kit/Web3 plus preview Python/Go/C at the pin | Mature IDL/TS ecosystem; v2 evolving | No | `crates/hopper-schema/src/*client*.rs`, Codama and Anchor-IDL emitters |
+| Client codegen | Six SDKs plus Hopper public IDL, Codama JSON, and conditional Solana IDL: 9 interop formats; full manifest/lowered Rust are separate | Stable Rust/Kit/Web3 plus preview Python/Go/C at the pin | Mature IDL/TS ecosystem; v2 evolving | No | `crates/hopper-schema/src/*client*.rs`, Codama and Solana-IDL emitters |
 | In-process SVM integration test harness | Yes | Yes: QuasarSVM Rust/Node/Python | Anchor test tooling; v2 runtime lanes | No framework harness | `crates/hopper-svm`; compiled-SBF lanes are separate evidence |
 
 ## Maturity, soundness record, and benchmark culture
@@ -156,12 +157,12 @@ registries and upstream status before using them in release copy.
 
 | Capability | Hopper | Quasar 0.1 release line | Anchor 1.x / v2 alpha | Pinocchio | Hopper implements / evidence |
 |---|---|---|---|---|---|
-| Release package | 0.3.0 source; confirm registry indexing at release time | Default package v0.0.0; 0.1 release branch not tagged/released at 2026-09-03 | Stable 1.x is published; v2 has `anchor-lang` 2.0.0-rc.1 | Published | [crates.io/crates/hopper-lang](https://crates.io/crates/hopper-lang) |
+| Release package | Public release 0.2.1; this checkout is unpublished 0.3.0 development source | Default package v0.0.0; 0.1 release branch not tagged/released at 2026-09-06 | Stable 1.2.0 is published; v2 has `anchor-lang` 2.0.0-rc.1 | Published | [crates.io/crates/hopper-lang](https://crates.io/crates/hopper-lang) |
 | Audit posture | Internal review and executable evidence trail; no completed independent framework audit | Self-described "Beta … not audited" | Ecosystem audits; scope varies by version/component | Published Neodyme and Zellic review records | `docs/UNSAFE_INVARIANTS.md` and `audit/readiness.json`; external-audit preparation is not an independent review |
 | Builds on stable Rust | Yes (pinned 1.96.0) | Yes on the 0.1 release line (Rust 1.89) | Yes | Yes | `rust-toolchain.toml` |
 | Soundness/correctness record | Hopper's internally found classes are regression-pinned | The July snapshot recorded #234, #238, #239, #240, and #242; consult the pinned current audit for disposition | v2 Slab classes #4603/#4616 were fixed May–June 2026; active remediation continued at the pinned snapshot | Consult the pinned upstream review records | Hopper pins named classes in `crates/hopper-runtime/tests/competitor_bug_classes.rs` + `crates/hopper-core/tests/competitor_bug_classes.rs`; this row is not a claim that any live tracker has zero issues |
 | Competitor-bug-class regression suite (bug class → structural guard → pinned test) | Yes | No | No | No | the two `competitor_bug_classes.rs` suites above; authoring the suite also found and fixed Hopper's own `safe_close` aliased-destination bug |
-| Reproducible cross-framework CU benchmark with pinned provenance | Yes: clean five-way same-behavior archive for Hopper `8696640` and benchmark source `af5bc95` | Included as the pinned 0.1 snapshot; no upstream comparative artifact was found at the audit pin | Anchor v2 alpha is included; its own planned comparison was not published at the audit pin | Pinocchio 0.11.2 is included; no upstream framework comparison artifact was found at the audit pin | [`audit/framework-matrix-2026-08-16.json`](audit/framework-matrix-2026-08-16.json) + `BENCHMARKS.md`; fixture-specific evidence, not a universal ranking |
+| Reproducible cross-framework CU benchmark with pinned provenance | Yes: clean five-way same-behavior archive for Hopper `8696640` and benchmark source `af5bc95` | Included as the pinned 0.1 snapshot; no upstream comparative artifact was found at the audit pin | A pre-RC Anchor v2 snapshot is included; its own planned comparison was not published at the audit pin | Pinocchio 0.11.2 is included; no upstream framework comparison artifact was found at the audit pin | [`audit/framework-matrix-2026-08-16.json`](audit/framework-matrix-2026-08-16.json) + `BENCHMARKS.md`; fixture-specific evidence, not a universal ranking |
 
 ### Clean same-behavior benchmark snapshot
 
@@ -173,7 +174,7 @@ passed all 30 rejection gates. The five-way rows are:
 |---|---:|---:|---:|
 | Hopper | 1,578 | 424 | 9,032 |
 | Quasar 0.1 snapshot | 1,755 | 593 | 5,784 |
-| Anchor v2 alpha snapshot | 1,785 | 615 | 6,432 |
+| Anchor v2 pre-RC snapshot | 1,785 | 615 | 6,432 |
 | Pinocchio 0.11.2 | 3,697 | 2,542 | 7,512 |
 | Star Frame 0.30 snapshot | 3,837 | 2,624 | 83,216 |
 
@@ -192,30 +193,32 @@ The following four first-class capabilities were not found in the pinned peer
 snapshots. This is a dated comparison, not a claim about every framework or a
 claim that the ideas cannot be copied:
 
-1. **Segment-level borrows** — disjoint typed `&mut` views into one account.
+1. **Segment-level borrows**: disjoint typed `&mut` views into one account.
    Anchor zero-copy only hands you the whole account; Pinocchio leaves it to
    manual pointer math. (`account.rs::segment_mut`, registry in
    `segment_borrow.rs`.)
-2. **Upgradeable state contracts** — versioned schemas with composable
+2. **Upgradeable state contracts**: versioned schemas with composable
    migration edges and manifest-level compatibility analysis.
    (`migrate.rs`, `schema/src/lib.rs::requires_migration`.)
-3. **Receipts** — structural proof tokens an instruction emits and a later
-   instruction verifies. (`receipt.rs::StateReceipt`.)
-4. **Policy graphs** — authority/capability rules evaluated at the verification
+3. **Receipts** - structured summaries over configured snapshots and metadata
+   that later code can decode and check. They are not transaction-complete
+   proofs without complete supplied scope. (`receipt.rs::StateReceipt`.)
+4. **Policy graphs**: authority/capability rules evaluated at the verification
    step, not scattered through handlers. (`policy.rs`.)
 
 ## Where parity is the goal (table stakes)
 
 Casting safety, `#[derive(Accounts)]` constraints, the error model, CPI
-ergonomics, and schema/IDL emission exist to remove any reason to reach for
-Anchor or Quasar. The error model gap (lowering a derived error into
+ergonomics, and schema/IDL emission provide comparable framework-level
+workflows. The error model gap (lowering a derived error into
 `ProgramError::Custom`) was the most recent parity item closed; see
 `crates/hopper-macros-proc/src/error.rs` and `tests/error_derive_integration.rs`.
 
-## Devnet evidence (this pass)
+## Historical devnet records
 
-The framework now backs the comparison with programs running on devnet,
-deployed from authority `HoppRy1HbNcHus9rmubDdXejDqAmhi55AURiCrq6tvxT`:
+The deployments below predate the 0.3.0 release source and do not attest it.
+They are retained as historical records from authority
+`HoppRy1HbNcHus9rmubDdXejDqAmhi55AURiCrq6tvxT`:
 
 | Example | Devnet program id | SBF bytes |
 |---|---|---:|
@@ -225,29 +228,29 @@ deployed from authority `HoppRy1HbNcHus9rmubDdXejDqAmhi55AURiCrq6tvxT`:
 | orderbook | `CK3XYYsbFducx9UEEWWLGAVnSAhGkMtM1TKLe8PDP6dJ` | 18 408 |
 | smoke | `2YPBvKJ8h37bUEFBrmytzNuKfUJ5Q2o2tkTiqRCZdjme` | 20 280 |
 
-`hopper explain` decodes a real escrow `make` transaction against the
+In that historical run, `hopper explain` decoded an escrow `make` transaction against the
 checked-in manifest (1 761 CU on devnet), and `hopper migrate` drove a
 `LayoutMigration` upgrade against the versioned-state program. The
-`smoke` program ran a live `initialize → deposit → withdraw` sequence on
+`smoke` program ran an `initialize` to `deposit` to `withdraw` sequence on
 devnet (init writes the layout-fingerprint header and reads the Clock
 sysvar; deposit CPIs System `Transfer` and emits a typed event; withdraw
-debits program-owned lamports under a `has_one` check) — see
+debits program-owned lamports under a `has_one` check). See
 `examples/hopper-smoke/README.md` for the confirmed transaction
 signatures. See `BENCHMARKS.md` for sizes and the measured CU figure.
-At the network's `(bytes + 128) × 6,960` lamport rent formula, the
-deployed 4,688-byte counter cost about **0.034 SOL** of rent-exempt deploy
-rent; today's tree (2026-07-09, after the writable-sections fix) builds the
-same example at **3,736 bytes ≈ 0.027 SOL**. An Anchor-class 190 KiB
-artifact costs ~1.36 SOL (`BENCHMARKS.md`, deploy-cost economics).
+The old SOL conversions for these binaries used a one-account
+`(bytes + 128) × 6,960` shortcut and are retired. A fresh loader-v3 deployment
+locks `R(36) + R(45 + max_len)`, where `R` is the target cluster's live
+rent-exemption query. Its temporary Buffer has `37 + ELF_len` data bytes, but
+the stock CLI funds it at the ProgramData requirement and loader v3 recycles
+that balance during final deployment. See `BENCHMARKS.md` for the current,
+slot-pinned Cicada calculation. Compare historical artifacts by byte size unless
+all loader, rent, headroom, and fee inputs are recorded.
 
 ## Honest gaps
 
-- **Cross-framework CU comparison rows** are intentionally kept out of this
-  document. They are only release-grade when tied to the benchmark repository's
-  reproducibility envelope (lockfile, raw logs, toolchain). The artifact sizes
-  and single-program on-chain CU above were produced directly in this devnet
-  pass; the same-lockfile competitor matrix lives in `hopper-bench` — current
-  release-facing runs are the vault four-way re-measured 2026-07-09
-  (`hopper-bench/bench/results/framework-vaults/`) and the 2026-07-07 router
-  three-way (`hopper-bench/results/router-parity-2026-07-07-post-review/`). See
-  `BENCHMARKS.md`.
+- **Cross-framework CU rows** are release evidence only when tied to the
+  benchmark repository's lockfile, raw logs, toolchain, clean source pins, and
+  archived checksums. The most recent five-way archive is summarized above.
+  It covers Hopper `8696640`, not later source changes, so the final release
+  requires a fresh clean rerun before its numbers are called current. Older
+  vault and router runs remain historical in `BENCHMARKS.md`.

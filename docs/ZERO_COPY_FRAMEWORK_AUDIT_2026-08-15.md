@@ -1,14 +1,16 @@
-# Solana zero-copy framework audit — 2026-08-15
+# Solana zero-copy framework audit: 2026-08-15
 
 This is a dated source audit of Anchor 1.x and the Anchor v2 alpha branch,
 Blueshift Quasar, Anza Pinocchio, Star Frame, Steel, and Hopper's Cicada and
 Sentinel flagship programs. It is not an external security audit and does not
 turn an upstream benchmark into a Hopper measurement.
 
-> **Reverified 2026-09-03:** Anchor published `anchor-lang` 2.0.0-rc.1 and
+> **Reverified 2026-09-06:** Anchor published `anchor-lang` 2.0.0-rc.1 and
 > tag `v2.0.0-rc.1` on 2026-08-12. The pinned source findings remain useful,
-> but the original “not published” packaging claim was already stale. Current
-> competitor and network findings are in
+> but the original “not published” packaging claim was already stale; stable
+> Anchor v1.2.0 shipped 2026-09-04. QEDGen/qedsvm also invalidates broad
+> “nobody proves/diffs” claims. Current competitor, network, rent, and
+> deployment-cost findings are in
 > [COMPETITIVE_REFRESH_2026-09-02.md](COMPETITIVE_REFRESH_2026-09-02.md).
 
 ## Executive result
@@ -45,7 +47,7 @@ turn an upstream benchmark into a Hopper measurement.
 | Pinocchio | [`adbd48d`](https://github.com/anza-xyz/pinocchio/commit/adbd48d12229ffa30d6fb3d3a8ff777fdb053b80) | Current crates.io line `0.11.2` |
 | Star Frame | [`6936d58`](https://github.com/staratlasmeta/star_frame/commit/6936d582a942760b67728059be651473645ee099) | Current source/published line `0.30.0` |
 | Steel | [`59f8e9a`](https://github.com/regolith-labs/steel/commit/59f8e9a5633dc6a3b0f5acfb44693e935e257024) | Source line newer than its latest GitHub release; README says unaudited |
-| LiteSVM | [`8559c7e`](https://github.com/LiteSVM/litesvm/commit/8559c7e5b8822818894bfeb43bbdd6911df5c872) | Current release `0.15.2`; testing infrastructure, not an on-chain framework |
+| LiteSVM | [`8559c7e`](https://github.com/LiteSVM/litesvm/commit/8559c7e5b8822818894bfeb43bbdd6911df5c872) | Reviewed source snapshot; latest tagged release `0.15.1`; testing infrastructure, not an on-chain framework |
 | Blueshift Parallax | [`f8ffdca`](https://github.com/blueshift-gg/parallax/commit/f8ffdcac66ba512893de211fc10fb1d8ac120033) | Source `0.1.0`; no tag, release, or CI at inspection time |
 | Light Protocol | [`ad5964f`](https://github.com/Lightprotocol/light-protocol/commit/ad5964f175d0b1c9fc6c61c6f82fe0831842941d) | Compression protocol/tooling; not the project named LiteSVM |
 
@@ -219,7 +221,9 @@ unchecked cast.
 
 ## Testing infrastructure and the Light/Lite naming distinction
 
-LiteSVM 0.15.2 is current in-process Solana execution infrastructure. It adds
+LiteSVM's latest tagged release is 0.15.1; the reviewed `8559c7e` source
+snapshot is newer than that tag. LiteSVM is in-process Solana execution
+infrastructure. It adds
 snapshots, time travel, CU/heap controls, CPI trees, register traces, custom
 syscalls, debugger support, and Node bindings. It still uses Agave 4.1.1
 crates, so it complements rather than replaces Hopper's Agave 4.2 compiled-SBF
@@ -280,8 +284,10 @@ code:
   rent or excess SOL through close-and-recreate;
 - settlement uses observed balance deltas and Solana rollback protects failed
   routes;
-- loader-v3/v4 upgrade authority, rather than the first arbitrary caller,
-  controls singleton initialization; and
+- live loader-v3 upgrade authority, rather than the first arbitrary caller,
+  controls singleton initialization. The source's loader-v4-format branch is
+  compatibility/test modeling only; loader v4 was abandoned and is not a live
+  deployment path; and
 - reclaim binds the lease slot/sequence, tolerates post-final vault dust,
   restores and re-reads source authority, clears cells, and closes the lease.
 
@@ -301,7 +307,7 @@ code:
 | `cargo test -p hopper-sentinel` | 8 host flagship tests and 2 compiled-SBF refusal tests passed |
 | Grillo Sentinel suite | 4 passed |
 | `cargo test --workspace --locked --no-fail-fast` | passed in the encompassing 2026-08-15 audit run; this exercises workspace host tests but is not evidence that every example has a compiled-SBF adversarial suite |
-| Full binary-backed Cicada publish check | passed all 3 layout anchors and every program-shape, documentation, feature, token, client, fuzz, artifact, Solana-shape, 160 systems, and trybuild gate against the current local 167,680-byte `cargo-build-sbf 4.1.0` ELF (`sha256:ac8ec1d76b4f85a5515dc446536bafccabe1c62b8ff46a13a662971b785da0e9`); this is source-frozen local evidence, not a clean CI attestation |
+| Historical binary-backed Cicada publish check | passed all 3 legacy layout-anchor scans and every program-shape, documentation, feature, token, client, fuzz, artifact, Solana-shape, 160 systems, and trybuild gate against the 167,680-byte `cargo-build-sbf 4.1.0` ELF (`sha256:ac8ec1d76b4f85a5515dc446536bafccabe1c62b8ff46a13a662971b785da0e9`); the artifact predates the versioned ELF interface binding and cannot satisfy the current release gate |
 
 The repository contains many demonstration programs beyond Cicada and
 Sentinel. Their workspace tests are green, but only the named flagship paths

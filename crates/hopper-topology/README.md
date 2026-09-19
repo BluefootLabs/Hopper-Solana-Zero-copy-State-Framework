@@ -56,9 +56,10 @@ score mixing probability, lamports, bytes, and account counts.
 
 `Certified` means only that a complete confirmed-cluster profile produced the
 committed, reproducible analysis. A complete deterministic replay receives
-`ReplayValidated`; host and synthetic sources are downgraded. Any missing read,
-write, CPI, remaining-account, or transaction-account coverage yields
-`Incomplete`, and no feasible candidate yields `Infeasible`.
+`ReplayValidated`; host-simulation sources are downgraded to `Observed` and
+synthetic sources to `Exploratory`. Any missing read, write, CPI,
+remaining-account, or transaction-account coverage (or any reported partial
+record) yields `Incomplete`, and no feasible candidate yields `Infeasible`.
 
 Loom does not claim:
 

@@ -1,7 +1,8 @@
 # hopper-system
 
-Hopper-owned System Program builders: `Transfer`, `CreateAccount`, `Allocate`,
-and `Assign`. Stack-allocated instruction data, no heap.
+Hopper-owned System Program builders for transfer, create, allocate, assign,
+their with-seed variants, and the durable-nonce instruction family.
+Instruction data is stack allocated with no heap.
 
 Part of the **[Hopper](https://hopperzero.dev)** framework.
 

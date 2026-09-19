@@ -13,9 +13,11 @@ arbitrary protocol tags without spinning up program-owned state.
 ```rust,ignore
 use hopper_memo::Memo;
 
+// `user` is the signing account's `&AccountView`.
 Memo {
-    signers: &[user.account_view()],
+    signers: &[user],
     memo: b"order=42",
+    program_id: None,
 }
 .invoke()?;
 ```
@@ -23,12 +25,21 @@ Memo {
 For PDA-signed memos, pass the seed list to `invoke_signed`:
 
 ```rust,ignore
+use hopper::cpi::{Seed, Signer};
+
+let bump_seed = [bump];
+let seeds = [Seed::from(b"vault"), Seed::from(&bump_seed)];
+
 Memo {
-    signers: &[vault_pda.account_view()],
+    signers: &[vault_pda],
     memo: b"deposit",
+    program_id: None,
 }
-.invoke_signed(&[Signer::from(&[b"vault", &[bump]][..])])?;
+.invoke_signed(&[Signer::from(&seeds)])?;
 ```
+
+A single invocation accepts at most `MAX_MEMO_SIGNERS` (16) signer accounts;
+more returns `ProgramError::InvalidArgument`.
 
 ## Programs
 
@@ -42,7 +53,8 @@ to invoke v1.
 
 ## Compatibility
 
-Pinocchio parity: `pinocchio-memo`. Quasar omits a memo helper.
+The API covers Memo v1 and v2 and can be used alongside other Hopper SPL CPI
+builders.
 
 Docs: <https://docs.rs/crate/hopper-memo>
 

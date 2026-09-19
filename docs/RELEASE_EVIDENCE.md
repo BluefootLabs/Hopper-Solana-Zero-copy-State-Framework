@@ -1,8 +1,8 @@
 # Release Artifact Evidence
 
-Hopper treats ABI agreement, artifact freshness, and source provenance as
+Hopper treats declared-interface binding, artifact freshness, and source provenance as
 separate release properties. A `.so` that still matches a manifest can be stale
-relative to the current source tree, so ABI verification alone is not release
+relative to the current source tree, so interface verification alone is not release
 evidence.
 
 ## Fresh SBF evidence
@@ -16,20 +16,47 @@ The `Solana SBF gates` workflow has two required lanes:
 
 Each lane first proves that its lane-specific release directory does not exist,
 then builds Cicada with a manifest-scoped `cargo build-sbf --sbf-out-dir` into
-that isolated directory. It regenerates the manifest, runs the binary ABI
-`publish-check`, and writes an attestation containing:
+that isolated directory. It regenerates the manifest, runs the ELF
+interface-binding `publish-check`, and writes an attestation containing:
 
 - the exact Git commit and clean-tree results before and after `publish-check`;
 - Rust, Cargo, and SBF toolchain versions;
-- manifest and ELF SHA-256 hashes and byte sizes; and
+- manifest and ELF SHA-256 hashes and byte sizes;
 - proof that the manifest and binary were created after the build marker; and
-- the full release-mode `publish-check` result hash, not only a layout scan.
+- the full release-mode `publish-check` result hash, including the exact
+  versioned interface commitment rather than only a layout scan.
 
 Before the marker is created, the workflow proves the entire lane-specific
 output directory does not exist and records both that fact and the exact output
 path in the marker. The workflow then uploads the `.so`, manifest, and
 attestation together. A previous `target/deploy` artifact cannot enter this
 gate, including when a reproducible rebuild is byte-identical to it.
+
+### Current 2026-09-06 working-tree diagnostic
+
+After the Cicada revision-overflow hardening, two isolated builds with
+`cargo-build-sbf 4.1.0`, platform-tools 1.54, and Rust/Cargo 1.96.0 produced
+the same artifact as `target/deploy/hopper_cicada.so`:
+
+- ELF: 165,944 bytes, SHA-256
+  `7ee1247f704b6feb42cfc499b9bcdb30b79b4f83bc4de599cbe389b685c2defb`;
+- `.text`: 152,528 bytes;
+- generated manifest: 57,783 bytes, SHA-256
+  `9ac3ca294376909200030d6794d6afc343de7076440bbd741bb10d87c0dcb241`;
+- interface commitment:
+  `98a0eaf0cf78b13881426c0894e4fd521b7250e7f419389b180662a3b08d1976`.
+
+The manifest grew by 93 bytes when its three layouts began emitting the
+explicit `hasDynamicTail: false` field. A fresh SBF rebuild remained
+byte-identical, and `hopper verify --strict --release` found the unchanged
+commitment and all three layout anchors. `hopper publish-check --full` passed.
+Cicada's 25 host tests and
+23 compiled lifecycle tests also passed. This remains diagnostic evidence:
+the shared tree had hundreds of pre-existing status entries, the generated manifest was untracked at
+the start, and this Windows host had no Python runtime for the normalized
+attestation script. It must not replace the required clean committed CI
+attestation. The build also repeats the warning that a combined `cdylib` +
+`lib` crate type prevents LTO.
 
 ### Historical working-tree diagnostic
 
@@ -44,14 +71,17 @@ same 176,832-byte ELF, byte for byte, with SHA-256
 The strict suite passed 21 host tests, 22 compiled-SBF lifecycle/adversarial
 tests, and 3 direct canonical-route tests. A fresh manifest generated beside
 the first isolated ELF reproduced the recorded 56,457-byte manifest hash. The
-full binary-backed publish check passed all three layout anchors, every
+then-current binary-backed publish check passed all three layout anchors, every
 program-shape gate, 160 systems tests, and trybuild after the writable-mint,
 native-aware lamport, and typed external/interface post-CPI revalidation
 closures.
 
-This is retained only as historical diagnostic evidence. It predates the later
-Cicada repeated-writable-route-alias admission fix and was not built from a
-clean committed checkout, so it does not attest the current source. The local
+This is retained only as historical diagnostic evidence. That verifier checked
+raw layout-anchor presence; the artifact predates the versioned ELF
+interface-binding record and cannot satisfy the current `--release` gate. It
+also predates the later Cicada repeated-writable-route-alias admission fix and
+was not built from a clean committed checkout, so it does not attest the
+current source. The local
 host also lacked a Python runtime, so it did not create the JSON attestation.
 The required clean-checkout CI lanes must still regenerate and upload the
 current binary, manifest, and attestation together.
@@ -59,7 +89,7 @@ current binary, manifest, and attestation together.
 `lib` crate types preclude LTO; the recorded artifact is release-optimized but
 must not be described as an LTO build.
 
-### Current clean local attestation
+### Pre-binding clean local attestation
 
 After the repeated-writable-route-alias closure was committed at
 `3dfceba4a8f7b98ff0e355aa1965e7e9509023b2`, a separate clean checkout built
@@ -69,8 +99,8 @@ has SHA-256
 `ac8ec1d76b4f85a5515dc446536bafccabe1c62b8ff46a13a662971b785da0e9`,
 and the generated 56,457-byte manifest has SHA-256
 `dae0e7817bcf9e60a22fe900c1900dcca85afa8e68d0a74a9c27718a1398105d`.
-The attestation records a clean tree before and after the full binary-backed
-`hopper publish-check --full`; all 3 layout anchors, program-shape,
+The attestation records a clean tree before and after the then-current
+binary-backed `hopper publish-check --full`; all 3 layout anchors, program-shape,
 documentation, feature, token, client, fuzz, artifact, Solana-shape, 160
 systems-test, and trybuild gates passed. The same source passed 21 of 21 host
 tests, 22 of 22 strict compiled-SBF lifecycle/adversarial tests, and targeted
@@ -78,10 +108,12 @@ all-target clippy with warnings denied before the clean build.
 
 The normalized attestation is retained at
 [`audit/cicada-sbf-attestation-2026-08-16.json`](../audit/cicada-sbf-attestation-2026-08-16.json).
-This closes the current local binary freshness and ABI proof. It is not a
-substitute for the required pinned Agave v2.3.13 and Agave v4.2.1-forward CI
-artifact uploads, which must still rebuild and retain their ELF, manifest, and
-attestation together before release.
+This closes binary freshness and legacy layout-anchor presence for commit
+`3dfceba`; it does not close the current release-interface binding because that
+artifact predates the versioned record. The required pinned Agave v2.3.13 and
+Agave v4.2.1-forward CI lanes must rebuild the final source and retain their
+ELF, generated manifest, exact interface commitment, and attestation together
+before release.
 
 ## Cicada manifest-fuzz evidence
 
@@ -147,7 +179,7 @@ passed successful-state parity checks, and passed all 30 rejection gates.
 |---|---:|---:|---:|
 | Hopper | 1,578 | 424 | 9,032 |
 | Quasar 0.1 snapshot | 1,755 | 593 | 5,784 |
-| Anchor v2 alpha snapshot | 1,785 | 615 | 6,432 |
+| Anchor v2 pre-RC snapshot | 1,785 | 615 | 6,432 |
 | Pinocchio 0.11.2 | 3,697 | 2,542 | 7,512 |
 | Star Frame 0.30 snapshot | 3,837 | 2,624 | 83,216 |
 

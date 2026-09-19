@@ -7,9 +7,10 @@ is not a claim of Solana Foundation adoption or a finalized network standard.
 
 v0.2 is the fulfillment of the v0.1 roadmap. Where
 [v0.1](EFFECT_ABI_V0_1.md) publishes an upper bound on one instruction's
-authorized data-byte and lamport writes, v0.2 publishes the complete
-account-state transition contract for an instruction, binds it to a concrete
-deployment, and verifies a concrete invocation frame against it. v0.2 is a
+authorized data-byte and lamport writes, v0.2 models a complete account-state
+transition contract for an instruction and checks a caller-supplied deployment
+identity and invocation frame for internal commitment consistency. The current
+verifier does not authenticate either input against a ledger. v0.2 is a
 separate strict contract model, not a widening of the v0.1 manifest structs. A
 consumer opts into the v0.2 parser explicitly; a v0.1 manifest is never
 reinterpreted as a v0.2 contract.
@@ -18,13 +19,15 @@ reinterpreted as a v0.2 contract.
 
 - Full per-account transition dimensions: data bytes, lamport direction, owner,
   data length, logical presence, and the executable bit.
-- Deployment binding: a contract names the loader and executable it is valid
-  for, so it cannot be applied to a different program build.
+- Supplied deployment binding: a contract names the loader and executable it
+  claims to cover, and commitment checks reject inconsistent supplied identity
+  fields; this does not prove that deployment exists on a ledger.
 - A deterministic remaining-account grammar for the variadic account suffix.
 - A complete nested-call (CPI) envelope with per-child account bindings and
   call-count bounds.
-- A concrete invocation frame plus a fail-closed binding step, so evidence can
-  only be verified against the contract it cryptographically names.
+- A caller-supplied invocation frame plus a fail-closed binding step, so the
+  supplied evidence can only be checked against the contract it
+  cryptographically names; frame provenance remains unauthenticated.
 - A four-domain commitment chain that ties the published contract, the observed
   frame, the binding, and the verdict together.
 
@@ -250,7 +253,7 @@ following before it will construct a `BoundInvocationV2`:
   child requires complete, unchanged state evidence, and either outcome is
   rejected when its envelope sets `allowRollback: false`.
 
-The manifest-commitment check is the proof-carrying property: a frame cannot be
+The manifest-commitment check is the commitment-binding property: a frame cannot be
 verified against any contract it does not name by commitment.
 `BoundInvocationV2` has private fields, so it can exist only as the output of a
 successful bind.
@@ -285,10 +288,10 @@ independently:
   pre-state must fall inside a declared data range. Removed tail bytes are
   governed by the data-length dimension because no post-state byte exists there.
 
-## Proof-carrying state placement
+## Commitment-bound state placement
 
 The three Hopper analysis layers are threaded by one shared value, the manifest
-commitment, so a single declaration drives runtime containment, independent
+commitment, so a single declaration drives runtime containment, separate
 verification, and placement analysis.
 
 1. Runtime containment. The Hopper runtime installs the instruction's write

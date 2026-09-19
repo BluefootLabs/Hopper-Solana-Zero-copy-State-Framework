@@ -89,29 +89,33 @@ pub struct Note<'a> {
 - Segment leases let systems-mode code borrow disjoint byte ranges instead of whole accounts (`crates/hopper-runtime/src/segment_borrow.rs`).
 - Instruction touch maps enumerate the exact `(account, offset, size, read/write)` footprint an instruction touched (`Context::for_each_touch`, `touch-map` feature). The documented touch-map-enabled smoke case measured +52 CU; disabled programs pay none of that feature cost.
 - Field-level write policies: `#[hopper::context(strict_writes)]` enforces declared mutable byte ranges at borrow acquisition (`crates/hopper-runtime/src/write_policy.rs`).
-- Behaviors are accountable: `HopperBehavior` plugins contribute their `WRITES` to the write policy and return `BehaviorChecked` proof tokens (`crates/hopper-runtime/src/behavior.rs`). Quasar's `AccountBehavior` is side-effect-only hooks.
-- Foreign lenses read other programs' accounts through a manifest with 4-way ABI-drift detection — owner, discriminator, wire fingerprint, schema-epoch range (`crates/hopper-runtime/src/foreign.rs::ForeignManifest`).
+- Behavior primitives are explicit today: `HopperBehavior` exposes `WRITES` and successful checks return `BehaviorChecked` markers (`crates/hopper-runtime/src/behavior.rs`). Callers must still incorporate those ranges into the installed policy and invoke the helper; the proposed `#[account(... behavior(...))]` codegen loop is not shipped. Quasar's `AccountBehavior` is side-effect-only hooks in the pinned comparison snapshot.
+- Foreign lenses read other programs' accounts through a manifest with 4-way ABI-drift detection, owner, discriminator, wire fingerprint, schema-epoch range (`crates/hopper-runtime/src/foreign.rs::ForeignManifest`).
 - Proof-carrying markers let downstream APIs require type-level evidence a check ran (`crates/hopper-runtime/src/proof.rs::AccountProof`).
 - Token-2022 TLV constraints validate extension state without deserializing into owned structs.
 - `hopper solana-check`, `publish-check`, and the SBF workflow keep deployable crate shape and direct-runtime assumptions honest.
 - Actions, mobile, and security-test generators have a manifest-backed foundation for product scaffolding.
 
-See [COMPARISON.md](../COMPARISON.md) for which of these a Pinocchio-based framework could copy and which it structurally cannot.
+See [COMPARISON.md](../COMPARISON.md) for which capabilities are ordinary
+feature work and which require an account-access-layer retrofit.
 
 ## Project maturity and soundness track record
 
-Snapshot refreshed 2026-08-15 against public source and official docs. This is stated
+Snapshot refreshed 2026-09-06 against public source and official docs. This is stated
 factually because readers weighing the two frameworks need it, not as a knock
 on Quasar's engineering, which is real.
 
-- **Release status.** Quasar's default branch and crates.io package remain
-  0.0.0. Its active `0.1.0-release` branch is substantially ahead: typed
+- **Release status.** Quasar's default pin is `b0de7db` (2026-07-13) and its
+  `0.1.0-release` pin is `0361701` (2026-07-26). No public tag/release was
+  found and its published framework crates remain 0.0.0. The release branch is
+  substantially ahead: typed
   grow/shrink migrations, wire IDL/ABI hashing, expanded clients and CLI,
-  QuasarSVM, Kani/Miri/fuzz lanes, and CU budget work. It still describes the
+  QuasarSVM, Kani/Miri/fuzz lanes, and implemented CU/binary budget gates. It still describes the
   0.1 line as beta and unaudited, and had no public 0.1 tag/release at this
   snapshot.
-  Hopper's public crates.io release is 0.2.1; this source workspace is the
-  unpublished 0.3.0 line. Hopper builds on stable Rust (pinned 1.96.0) and
+  This Hopper tree is unpublished 0.3.0 development source; the registry
+  release observed 2026-09-06 is 0.2.1. Hopper builds on
+  stable Rust (pinned 1.96.0) and
   carries an internal line-by-line audit trail (`docs/UNSAFE_INVARIANTS.md`),
   but neither internal review nor documentation is a third-party audit.
 - **Soundness history and current work.** The five 2026-07 issue classes below
@@ -120,7 +124,7 @@ on Quasar's engineering, which is real.
   return-data handling and optional mutable-account duplicate coverage.
   [#238](https://github.com/blueshift-gg/quasar/issues/238) and
   [#234](https://github.com/blueshift-gg/quasar/issues/234) (CPI return-data
-  `assume_init` over uninitialized bytes — UB),
+  `assume_init` over uninitialized bytes, UB),
   [#240](https://github.com/blueshift-gg/quasar/issues/240) (account
   self-close imbalance),
   [#239](https://github.com/blueshift-gg/quasar/issues/239) (migration leaves
@@ -138,10 +142,15 @@ on Quasar's engineering, which is real.
   `crates/hopper-runtime/tests/competitor_bug_classes.rs` and
   `crates/hopper-core/tests/competitor_bug_classes.rs` (18 tests, including
   the Anchor v2 Slab classes #4603/#4616).
-- **The suite bites both ways.** Authoring those tests found a real Hopper
-  bug — `safe_close` previously accepted an aliased destination and silently
-  burned the drained lamports, the exact #240 shape — which was fixed and
-  pinned in the same pass. The framework audits itself.
+- **The regression corpus bites both ways.** Authoring those tests found a real Hopper
+  bug, `safe_close` previously accepted an aliased destination and silently
+  burned the drained lamports, the exact #240 shape; which was fixed and
+  pinned in the same pass. The regression corpus is designed to catch our own
+  failures as well as peer-reported bug classes.
+- **Verification depth.** A local enumeration of the pinned Quasar release
+  branch found 183 Miri tests, including Tree-Borrows/strict-provenance lanes,
+  and 87 Kani proof functions exercised by CI. These are test-list counts, not
+  an external audit, but they are materially deeper than Hopper's current lane.
 - **Benchmark culture.** Quasar's cross-framework benchmark work is currently
   an open draft ([#497](https://github.com/blueshift-gg/quasar/pull/497)), not
   a released result. Hopper's clean 2026-08-16 five-way fixture pins Quasar's
@@ -154,7 +163,8 @@ on Quasar's engineering, which is real.
   for complete pins and provenance. The older four-way and router rows remain
   historical evidence, not current release-line rankings.
 
-For the pinned release-branch audit, peer matrix, and Cicada validation, see
-[the 2026-08-15 zero-copy framework audit](ZERO_COPY_FRAMEWORK_AUDIT_2026-08-15.md).
+For the current source pins, corrected budget chronology, peer matrix, QEDGen
+overlap, and Cicada/Grillo deployment facts, see the
+[2026-09-06 competitive refresh](COMPETITIVE_REFRESH_2026-09-02.md).
 
 Use Quasar mental models to read Hopper programs. Use Hopper contracts when account bytes, upgrades, and long-lived protocol state need to be auditable.

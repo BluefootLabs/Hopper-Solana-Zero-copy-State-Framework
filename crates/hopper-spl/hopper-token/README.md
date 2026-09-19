@@ -2,8 +2,9 @@
 
 Hopper-owned SPL Token builders. The default public API is safety-first:
 `TransferChecked`, `MintToChecked`, `BurnChecked`, `ApproveChecked`, plus
-`CloseAccount`, `Revoke`, and `InitializeAccount`. Stack-allocated instruction
-data, no heap.
+`CloseAccount`, `Revoke`, `InitializeAccount` (and `InitializeAccount2` /
+`InitializeAccount3`), `SetAuthority`, `FreezeAccount`, `ThawAccount`, and
+`SyncNative`. Stack-allocated instruction data, no heap.
 
 [![Crates.io](https://img.shields.io/crates/v/hopper-token.svg)](https://crates.io/crates/hopper-token)
 [![Docs.rs](https://img.shields.io/docsrs/hopper-token)](https://docs.rs/crate/hopper-token)

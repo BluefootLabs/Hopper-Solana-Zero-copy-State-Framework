@@ -1,9 +1,8 @@
 # Contributing to Hopper
 
 Thanks for your interest. Hopper is a zero-copy state framework for Solana,
-built and maintained by [BluefootLabs](https://github.com/BluefootLabs)
-and a growing pool of contributors. This document covers what we expect
-from PRs and how to land one cleanly.
+built and maintained by [BluefootLabs](https://github.com/BluefootLabs). This
+document covers what we expect from PRs and how to land one cleanly.
 
 ## Quick links
 
@@ -22,10 +21,8 @@ reference for parity additions; pick a gap and open an issue to claim it.
 We particularly welcome:
 
 - **Token-2022 extension keywords** (`group_pointer`,
-  `group_member_pointer`, `confidential_transfer`).
+  `group_member_pointer`).
 - **`#[hopper::view]`** read-only handler attribute.
-- **Field-keyword sugar** for the existing Metaplex builders
-  (`metadata::name`, `master_edition::max_supply`, etc.).
 - **Bench expansions** - particularly anything that exercises lazy
   dispatch under realistic dispatch shapes.
 - **Example programs** demonstrating real protocol patterns: AMM,

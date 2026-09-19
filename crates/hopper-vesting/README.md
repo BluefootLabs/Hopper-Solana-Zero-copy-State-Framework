@@ -8,12 +8,13 @@ Part of the **[Hopper](https://hopperzero.dev)** framework.
 
 The crate does not own schedule storage. Your account layout stores the terms;
 these helpers compute how much is vested and how much is still claimable at a
-given timestamp.
+given timestamp. Linear schedules reject terms that do not satisfy
+`start <= cliff <= end`.
 
 ```rust
 use hopper_vesting::{claimable, vested_amount};
 
-let vested = vested_amount(total, start, cliff, end, now);
+let vested = vested_amount(total, start, cliff, end, now)?;
 let to_send = claimable(vested, already_claimed);
 ```
 

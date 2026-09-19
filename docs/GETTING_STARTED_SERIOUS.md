@@ -16,10 +16,11 @@ but they are not where a new Hopper program should begin.
 
 ## Install Hopper
 
-For a new program, install the published CLI and scaffold from crates.io:
+The registry release observed on 2026-09-06 is 0.2.1. Install that exact CLI
+when following published 0.2.1 APIs:
 
 ```bash
-cargo install hopper-cli --version 0.2.1
+cargo install hopper-cli --version 0.2.1 --locked
 hopper init my-vault --template minimal --yes
 cd my-vault
 ```
@@ -29,7 +30,7 @@ crate `hopper`:
 
 ```toml
 [dependencies]
-hopper = { package = "hopper-lang", version = "0.2.1", default-features = false, features = ["proc-macros"] }
+hopper = { package = "hopper-lang", version = "=0.2.1", default-features = false, features = ["proc-macros"] }
 ```
 
 The package is named `hopper-lang` on crates.io because the `hopper` package
@@ -40,8 +41,9 @@ name is already occupied by an unrelated crate. The library crate is still
 use hopper::prelude::*;
 ```
 
-This repository's workspace is preparing 0.3.0, but that version is not yet
-published. Use the local-path form below when testing the unreleased workspace.
+This repository contains unpublished 0.3.0 development source. Use the
+local-path form below for 0.3-only APIs; do not combine a 0.2.1 registry
+dependency with examples written for this checkout.
 
 When developing against a local framework checkout, use the CLI flag instead of
 editing the generated file by hand:
@@ -52,9 +54,14 @@ hopper init my-vault --template minimal --local-path ../Hopper-Solana-Zero-copy-
 
 ## Step 1: Define State
 
-Use `#[account]` on a `#[repr(C)]` struct. Hopper writes a 16-byte account
-header, computes a layout fingerprint, and gives you checked zero-copy load
-helpers. Multi-byte fields use Hopper's alignment-safe wire types.
+Use `#[account]` on a `#[repr(C)]` struct. The default/headered path writes a
+16-byte account header, computes a layout fingerprint, and gives you checked
+zero-copy load helpers. Opt-in compact accounts instead store `[disc][body]`
+bytes and obtain their layout fingerprint from generated metadata. Fixed
+compact layouts require the exact declared size; compact-dynamic layouts accept
+extra bytes after the declared minimum prefix, whose semantics remain the
+application's responsibility. Multi-byte fields use Hopper's alignment-safe
+wire types.
 
 ```rust
 use hopper::prelude::*;
@@ -272,9 +279,13 @@ The published CLI binary is `hopper`:
 ```bash
 hopper inspect <hex-data>
 hopper explain <hex-data>
-hopper compat <hex-old> <hex-new>
-hopper plan <hex-old> <hex-new>
+hopper compat @path/to/layout-v1.json @path/to/layout-v2.json
+hopper compat --why @path/to/layout-v1.json @path/to/layout-v2.json
+hopper plan @path/to/layout-v1.json @path/to/layout-v2.json
 ```
+
+The short compatibility/diff/plan commands treat unprefixed arguments as
+inline layout JSON. Prefix file paths with `@`.
 
 For manifest-backed workflows, use the manager commands:
 

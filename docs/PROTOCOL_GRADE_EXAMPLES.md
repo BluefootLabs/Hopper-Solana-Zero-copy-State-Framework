@@ -4,6 +4,10 @@ These examples are the public evidence layer for Hopper's state-contract claim.
 They show the workflow surfaces that make Hopper more than a minimal zero-copy
 framework.
 
+The shared boundary is simple: Solana schedules whole accounts; Hopper governs
+byte ranges inside program access. These examples do not claim sub-account
+parallelism.
+
 ## Receipt indexing
 
 On chain, emit the fixed receipt bytes. Off chain, parse with `hopper-sdk` and
@@ -26,9 +30,9 @@ metadata. The wire format remains 72 bytes.
 ## Schema compatibility report
 
 ```powershell
-hopper schema diff manifests/vault-v1.json manifests/vault-v2.json
-hopper compat manifests/vault-v1.json manifests/vault-v2.json
-hopper compat --why manifests/vault-v1.json manifests/vault-v2.json
+hopper schema diff '@manifests/vault-v1.json' '@manifests/vault-v2.json'
+hopper compat '@manifests/vault-v1.json' '@manifests/vault-v2.json'
+hopper compat --why '@manifests/vault-v1.json' '@manifests/vault-v2.json'
 ```
 
 Use this in reviews before deploying a layout change. `schema diff` gives field
@@ -56,10 +60,52 @@ This is the crypto/syscall parity example: Hopper exposes the Solana hashing,
 precompile-inspection, stack-height, and processed-instruction surfaces needed by
 Pinocchio/Jiminy/Quasar-style programs without dropping the typed account model.
 
+## Cicada protected execution
+
+[examples/hopper-cicada](../examples/hopper-cicada) is the flagship
+production-shaped vertical slice. It combines immutable user intent columns,
+exact-cell executor writes, owner-bound custody capability, route-envelope
+commitments, canonical SPL Token/Token-2022 settlement, rollback checks, and
+touch evidence. The current suite runs 25 host tests and 23 compiled lifecycle
+tests against Cicada, hostile/canonical route fixtures, and canonical token
+processors.
+
+It is not an audited Mainnet release. The 2026-09-06 165,944-byte build and
+1.053057573-SOL loader-v3 principal are dirty-tree diagnostic evidence; see
+[RELEASE_EVIDENCE.md](RELEASE_EVIDENCE.md) and the
+[competitive refresh](COMPETITIVE_REFRESH_2026-09-02.md) for exact hashes,
+rent slot, instance accounts, and limitations.
+
+## Grillo effect verification
+
+[`grillo-verifier`](../crates/grillo-verifier) is an offline host library/CLI,
+not a Solana program. Its on-chain deployment cost is 0 SOL / not applicable.
+The current workspace CLI uses the v0.1 evidence format to recompute:
+
+```text
+changed ⊆ acquired ⊆ authorized
+```
+
+from caller-supplied snapshots, touch evidence, and a mutation manifest. The
+experimental Effect ABI v0.2 library surface adds full state-transition/CPI
+grammar and checks that a supplied invocation frame's artifact/deployment
+identity fields equal the supplied contract.
+It rejects inconsistent transaction account mappings, future deployment slots,
+impossible resource shapes, child context drift, invented accounts, writable
+privilege escalation, and incomplete/changed unsuccessful child frames.
+
+Neither version authenticates the evidence producer, fetches or verifies a
+signature, queries RPC, or replays the ledger. A v0.2 PASS requires
+invocation-entry/exit observations; transaction-wide snapshots are
+inconclusive. Ledger-bound production is roadmap work, not implied by the
+current commitments. Both Grillo workspace packages are versioned 0.1.0 and
+were not observed on crates.io on 2026-09-06; v0.2 is an evidence/schema
+version, not a published crate release.
+
 ## Migration planner
 
 ```powershell
-hopper plan manifests/vault-v1.json manifests/vault-v2.json
+hopper plan '@manifests/vault-v1.json' '@manifests/vault-v2.json'
 ```
 
 The migration planner is the bridge from schema change to implementation work:

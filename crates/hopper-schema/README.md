@@ -9,14 +9,16 @@ definitions into manifests, IDLs, and Codama-compatible schema that clients,
 CLIs, and explorers can consume. It also handles version diffing and migration
 planning between layout versions.
 
-`no_std`, `no_alloc`.
+`no_std`. Manifest types do not require `std`; client generators use `alloc`
+for their output buffers and strings.
 
 ## What's in here
 
-- **Layout manifests** - Full schema for every account type, field, segment, and compatibility pair.
-- **Program manifests** - Program-level metadata: instructions, events, policies, and layouts.
+- **Layout manifests** - Account and field wire schema for each layout.
+- **Program manifests** - Program-level layouts plus instructions, events, policies, segment-role metadata, and compatibility pairs.
+- **Release-interface commitments** - A canonical, const-evaluable SHA-256 commitment used by `hopper::program_manifest!` and `hopper verify --release` to bind manifest-projected interface/effect declarations to compiled ELFs.
 - **Manager metadata** - `SchemaExport` and `ManagerMetadata` bridge runtime layout identity into tooling metadata.
-- **IDL projection** - Public-facing IDL with instructions, accounts, events, and PDA seed hints.
+- **Solana IDL projection** - Current specification v0.1.0 with an explicit expected program address, exact Hopper wire discriminators, current account flags, PDA seed hints, and custom zero-copy account serialization. Export fails closed when Hopper's wire or account contract cannot be represented losslessly.
 - **Codama projection** - Ecosystem-compatible format for Kinobi/Umi client generators.
 - **Schema diff** - Field-level diffing between layout versions.
 - **Compatibility classification** - Identical, WireCompatible, AppendSafe, MigrationRequired, or Incompatible.
@@ -28,16 +30,29 @@ planning between layout versions.
 ## Schema layering
 
 ```
-ProgramManifest      Full truth (layouts, instructions, events, policies)
-   |
-   v
-ProgramIdl           Public-facing (instructions, accounts, events, fingerprints)
-   |
-   v
-CodamaProjection     Ecosystem interop (Codama-shaped for client generators)
+ProgramManifest      Rich Hopper tooling declaration
+   |-- ProgramIdl           Hopper public subset
+   |-- CodamaProjection     Codama-shaped ecosystem interop
+   `-- Solana IDL v0.1.0    Lossless-only external projection
 ```
 
-Code is the source of truth. Schema is always derived, never hand-written.
+Code is the release source of truth: release manifests should be generated from
+declarations. The library and CLI still accept supplied JSON, which must be
+parsed and validated rather than assumed to be generated or authentic.
+
+The versioned release commitment covers the declared executable interface. It
+does not prove handler behavior, deployment address, artifact freshness, or
+ledger deployment identity. Release evidence binds those properties
+separately.
+
+The Solana projection describes Hopper instructions in the current ecosystem
+IDL shape. It does not replace Hopper's account decoder: headered layouts carry
+Hopper's offset-aware header, compact layouts use `[disc][body]`, and both are
+marked with custom `hopper-zero-copy-v1` serialization instead of being
+mislabeled as Anchor Borsh accounts. The
+projection refuses unsupported bounded wire encodings, remaining-account
+contracts, unresolved or unsafe PDA seeds, unresolved fixed addresses, and
+ambiguous discriminator prefixes.
 
 Docs: <https://docs.rs/crate/hopper-schema>
 

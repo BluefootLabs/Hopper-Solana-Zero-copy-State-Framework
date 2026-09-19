@@ -1,6 +1,8 @@
 # Hopper CLI reference
 
-Every subcommand `hopper` ships today, grouped by workflow phase. Commands that accept passthrough cargo arguments say so; everything else documents its own flags.
+Release-facing `hopper` workflows, grouped by phase. The command's own `--help`
+output is authoritative for the complete, current flag surface; this guide does
+not claim to enumerate every diagnostic or compatibility alias.
 
 ## Lifecycle
 
@@ -30,20 +32,61 @@ Compile the program. `--sbf` (default) targets the Solana runtime. `--host` buil
 
 Run `cargo test` in the nearest project root. Flags and filters pass through to cargo. `--watch` re-runs tests on save.
 
-### `hopper deploy <manifest> [--keypair <path>] [--program-keypair <path>] [--url <cluster>]`
+### `hopper deploy [--dry-run] [--no-build] [-p|--package <crate>] [--cluster <name>] [solana program deploy args]`
 
-Build, upload, and register the program on a cluster. Reads cluster URL and default keypair paths from `~/.hopper/config.toml` when flags are omitted.
+Build and upload the current program on a cluster through the Solana CLI. This
+command does not register a Hopper manifest or Program Metadata record. The automatic
+SBF build is manifest-scoped and passes `--locked` to Cargo. Use `--no-build`
+only with an artifact you built and hashed separately. Cluster, keypair,
+program-id, and loader arguments are forwarded to the Solana CLI.
 
-### `hopper dump <manifest>`
+`--dry-run` sends no transaction. It queries the chosen RPC at the requested
+commitment (default `confirmed`), records the slot at which those reads began,
+and quotes loader-v3 rent over the exact artifact. Permanent Program +
+ProgramData principal is separated from the temporary Buffer balance that the
+stock Solana CLI recycles during deployment. Transaction and priority fees are
+excluded.
 
-Disassemble the compiled `.so` artifact into a human-readable listing.
+### `hopper dump [--no-build] [-p|--package <crate>] [--tool <objdump>] [--out <path>] [-S|--source]`
 
-### `hopper verify --manifest <path> [--so <program.so>] [--strict | --release]`
+Build and disassemble the current `.so` artifact into a human-readable listing,
+or inspect an existing artifact with `--no-build`.
 
-Compare a compiled program's ABI fingerprint against the manifest's `LAYOUT_ID`
-values. Manifest integrity is always fatal on mismatch. Binary anchor scanning is
-informational by default, fatal with `--strict`, and required + fatal with
-`--release`.
+### `hopper verify --manifest <path> [--so <program.so>] [--strict | --release] [--effects <bundle-or-dir>] [--authority-baseline <old-manifest>]`
+
+Check manifest integrity and compare it with a compiled program. `--release`
+requires the ELF's versioned SHA-256 commitment to match the manifest's
+canonical executable-interface commitment exactly. The commitment covers the
+program name and version, account layouts, instruction discriminators,
+arguments and account metas, events, policy contracts, and the context fields
+represented by `ProgramManifest`. It deliberately excludes constraints absent
+from that manifest, descriptions, measured CU estimates, compatibility plans,
+and Manager-only hints.
+
+The per-layout `LAYOUT_ID` search is a supplemental diagnostic. It is
+informational by default and fatal only when `--strict` is explicitly present;
+raw eight-byte occurrences are not accepted as release-interface proof.
+
+#### Authority gate: `--authority-baseline <old-manifest> [--baseline-so <old.so>] [--authority-report <out.json>] [--authority-approval <reviewed.json>]`
+
+Diff the previously released manifest against this one and fail when any
+instruction gains authority. Instructions match by exact discriminator bytes
+and accounts by role name. Widening includes a dropped signer, a read-only
+account that became writable, a new instruction or writable account, byte
+ranges that reach another layout field (compared per field, so a moved field is
+not a new permission), a removed exact-cell rule, new lamport permissions, a
+raised remaining-account ceiling, and weaker context constraints (PDA seeds,
+`has_one`, owner or address checks, optionality, a new `init`, `realloc`, or
+`close` lifecycle). A different PDA seed list or a different expected CPI
+program is reported for review.
+
+Exit status is `2` for an unapproved widening and `3` for an unapproved review
+item. `--authority-report` writes the report JSON; after review, pass that file
+back as `--authority-approval`. It covers only the exact manifest pair whose
+digests it records. `--baseline-so` requires the baseline manifest to match the
+interface commitment embedded in the released ELF, and `--release` requires it,
+so both sides of the diff are bound to their binaries. Compatibility tools that
+score relaxations as additive changes answer a different question; run both.
 
 ### `hopper publish-check [--package <name> | --manifest <path> --so <program.so>] [--full]`
 
@@ -113,24 +156,51 @@ CLI flags always override config values.
 
 ## Schema and IDL
 
-### `hopper schema export [--manifest | --idl | --codama | --anchor-idl]`
+### `hopper schema export [--manifest <manifest> | --idl <manifest> | --codama <manifest> | --anchor-idl <manifest> --program-id <pubkey>]`
 
-Print the schema for the current program as a Hopper manifest, Hopper IDL,
-Codama-shaped JSON, or Anchor-shaped IDL JSON.
+With no flag, print the static Hopper account-schema format reference. The
+flagged forms transform a supplied manifest into normalized Hopper manifest
+JSON, Hopper public IDL, Codama-shaped JSON, or current Solana IDL v0.1.0 JSON.
+Solana IDL export is conditional and fail-closed: it succeeds only when
+Hopper's wire and account surface is losslessly representable. It currently
+refuses Cicada because its u16-prefixed bounded `route_data` and
+`execute_intent` remaining-account contract cannot be encoded faithfully.
+Hopper account bodies are marked with custom `hopper-zero-copy-v1`
+serialization and require a Hopper-aware decoder; they are not Anchor Borsh
+accounts. `--program-id` supplies the expected address encoded at the top
+level. This export is offline: it does not query RPC or prove that the address
+is deployed.
+
+### `hopper publish-idl --manifest <path> --program-id <pubkey> [--cluster <name> | --url <rpc>] [--keypair <path>] [--overwrite] [--yes] [--dry-run]`
+
+Project a losslessly representable manifest to Solana IDL v0.1.0 and publish it
+through the official Program Metadata program. Small payloads use inline
+Initialize; fresh larger payloads use Allocate/Write/Initialize; `--overwrite`
+uses SetData when it fits one transaction. A large overwrite that would require
+chunking is refused. This publishes only the IDL projection, not Hopper's full
+manifest, write authority, touch evidence, or Effect ABI contract.
+Named devnet is the default. Named Mainnet and every raw, custom, or
+`SOLANA_RPC_URL` endpoint require an explicit `yes` confirmation unless
+`--yes` is supplied. `--dry-run` exits before target resolution, prompting,
+keypair loading, or network access.
 
 ### `hopper schema validate <manifest.json>`
 
 Static validation of a manifest file.
 
-### `hopper schema diff <old.json> <new.json>`
+### `hopper schema diff @old-layout.json @new-layout.json`
 
-Field-level diff between two manifest versions. Emits a compatibility verdict: `compatible`, `warning`, or `incompatible`, with per-field reasons.
+Field-level diff between two layout versions. Emits a compatibility verdict:
+`compatible`, `warning`, or `incompatible`, with per-field reasons.
 
 ## Compile and emit
 
 ### `hopper compile --emit <target> [<manifest> | --package <name> | --program-id <id>]`
 
-Emit artifacts from a local, package-inferred, or fetched manifest. Targets:
+Most targets normalize a supplied, package-inferred, or fetched manifest.
+`manifest` is the exception: it generates `hopper.manifest.json` from a
+package's exported `PROGRAM_MANIFEST` and therefore requires `--package`.
+Targets:
 
 - `rust` - lowered Hopper runtime preview for auditing accessors and offsets
 - `ts` - TypeScript client SDK
@@ -139,9 +209,14 @@ Emit artifacts from a local, package-inferred, or fetched manifest. Targets:
 - `go` - Go client SDK
 - `c` - C client header
 - `rust-client` - off-chain Rust client SDK
-- `idl` - Anchor-shaped IDL JSON
+- `idl` - Hopper public IDL JSON (not the Solana IDL v0.1 projection)
 - `codama` - Codama-shaped JSON
-- `schema` - Hopper program manifest JSON
+- `schema` - normalize an existing or fetched Hopper program manifest as JSON
+- `manifest` - generate `hopper.manifest.json` from package source (`--package` required)
+
+The six SDK targets, Hopper public IDL, Codama JSON, and conditional Solana IDL
+form nine interop formats. The full manifest/schema and lowered Rust audit
+preview are separate artifacts.
 
 Use `--out <path> --force` to write a file and `--lint` to run `hopper lint`
 after emitting.
@@ -153,10 +228,14 @@ after emitting.
 Emit a typed TypeScript, Kotlin, Python, Go, or C client from the manifest.
 Supported shapes: instruction builders, account readers with layout-id checks,
 account metadata helpers where the target language has a neutral representation,
-and event decoders. Use `hopper compile --emit rust-client <manifest>` for the
+and event decoders. Hopper account bodies use Hopper's wire format and require
+these Hopper-aware readers; a generic Anchor Borsh decoder is insufficient. Use
+`hopper compile --emit rust-client <manifest>` for the
 off-chain Rust client target and
 `hopper compile --emit <ts|kt|py|go|c|rust-client|idl|codama|schema>` for
 one-shot manifest-source inference via `--package` or `--program-id`.
+Use `hopper compile --emit manifest --package <name>` when no manifest has yet
+been generated from that package's `PROGRAM_MANIFEST` export.
 
 ### `hopper actions gen --program <manifest> --out <dir> [--framework next]`
 
@@ -246,9 +325,9 @@ roles may be absent and duplicate roles may share one Pubkey.
 Columns are `W` (accounts declared writable), `W-eff` (still writable after
 sound demotion), `Sigs`, `Fixed max` (fixed-role write locks after demotion,
 plus
-signatures), `Saved` (write-lock CU demotion removed), `Proven RO` — the
+signatures), `Saved` (write-lock CU demotion removed), `Proven RO`, the
 non-signer accounts a mutation-complete write set makes read-only across
-Hopper's supported governed APIs — and `Rem`, the ceiling on caller-supplied
+Hopper's supported governed APIs, and `Rem`, the ceiling on caller-supplied
 remaining accounts. A client that marks such an account writable pays a flat
 300 CU write lock and serializes on it for nothing. This result does not cover
 arbitrary unsafe, FFI, dependency, direct Hopper Native, or unchecked-CPI
@@ -257,7 +336,7 @@ are excluded because the fee payer must stay writable at the transaction
 level.
 
 `--max-block-cost <CU>` turns it into a CI gate: exit 1 if any instruction's
-`Fixed max` exceeds the ceiling. It fails closed — a zero-instruction manifest,
+`Fixed max` exceeds the ceiling. It fails closed, a zero-instruction manifest,
 two positional manifests, a repeated ceiling flag, and a missing path are all
 refused rather than silently passing.
 
@@ -265,7 +344,7 @@ refused rather than silently passing.
 transaction's block cost: Agave also charges the requested compute limit
 (200,000 CU by default and usually the largest term), the requested
 loaded-data limit, instruction bytes, and the fee payer's own lock. Nor is it
-the compute a handler burns — Hopper never fabricates that. See
+the compute a handler burns, Hopper never fabricates that. See
 [CONTENTION.md](CONTENTION.md) for the full cost model, the constants, and
 their sources.
 
@@ -286,23 +365,37 @@ Human-readable narratives. `explain receipt <hex>` turns a raw receipt into "Inv
 
 ## On-chain fetch
 
-### `hopper fetch <program-id>`
+### `hopper fetch <program-id> [--rpc <url>] [--json]`
 
-Pull the on-chain manifest PDA for a program. Prints the stored manifest and any schema-epoch migration history.
+Fetch the legacy Hopper `MANIFEST_SEED` PDA for a program. By default the CLI
+parses the stored JSON and prints a `ProgramManifest` summary; `--json` prints
+the stored JSON. This command does not discover a Program Metadata IDL and does
+not report independently observed schema-epoch migration history.
 
-### `hopper manager fetch | summary | identify | decode`
+### Selected `hopper manager` commands
 
-Introspect the `hopper-manager` account layer. `fetch` dumps raw data, `summary` prints a one-line program health check, `identify` resolves a program ID to a declared name, `decode` extracts a specific account under the manager.
+- `manager fetch <program-id>` fetches that same legacy manifest PDA and prints
+  the parsed program summary, not raw bytes.
+- `manager summary <manifest>` prints a manifest summary.
+- `manager identify <manifest> <hex-data>` matches supplied headered account
+  bytes to a declared layout; it does not map a program ID to a name.
+- `manager decode <manifest> <hex-data>` decodes supplied headered account bytes
+  against that layout; it does not fetch an account "under" a manager.
 
 ## Migrations
 
-### `hopper compat <old.json> <new.json> [--why]`
+### `hopper compat @old-layout.json @new-layout.json`
 
-Focused compatibility report. `--why` annotates every decision.
+Focused compatibility report. Use
+`hopper compat --why @old-layout.json @new-layout.json` for the explanatory
+path. The `@` prefix is required for file input; without it these short commands
+interpret the argument as inline layout JSON.
 
-### `hopper plan <from-epoch> <to-epoch>`
+### `hopper plan @old-layout.json @new-layout.json`
 
-Print the exact migration chain Hopper would execute to bridge two schema epochs.
+Generate a field-level migration plan between two layout JSON objects. It
+reports policy, sizes, copy/zero-fill spans, and backward readability; it does
+not inspect a package or prove that an on-chain migration executed.
 
 ## Profiling
 
@@ -334,7 +427,9 @@ Global profile option:
 
 ### `hopper interactive <manifest>` or `hopper ui <manifest>`
 
-Terminal UI for browsing live accounts under a program. Navigation matches the Helius Explorer key bindings.
+Terminal UI for exploring a supplied manifest, or a legacy manifest fetched by
+program ID. It can decode account bytes pasted as hex; it does not enumerate or
+subscribe to live program accounts.
 
 ## Shell completions
 
@@ -350,12 +445,12 @@ Pre-existing short-command forms, kept so older scripts still work:
 - `hopper decode <hex>` - alias for `inspect`
 - `hopper segments <hex>` - alias for `inspect segments`
 - `hopper receipt <hex>` - alias for `inspect receipt`
-- `hopper compat <a> <b>` - alias for the full compat command
-- `hopper diff <a> <b>` - alias for `schema diff`
-- `hopper plan <a> <b>` - alias for the migration-plan command
-- `hopper schema-export` - alias for `schema export --manifest`
+- `hopper compat @a.json @b.json` - compatibility report for two layout files
+- `hopper diff @a.json @b.json` - alias for `schema diff`
+- `hopper plan @a.json @b.json` - migration plan for two layout files
+- `hopper schema-export` - static Hopper account-schema format reference
 
 ## Global flags
 
-- `--help` / `-h` on any command prints its own usage banner
+- `--help` / `-h` prints help at the top level and on commands that expose it
 - `hopper help` prints the top-level command list

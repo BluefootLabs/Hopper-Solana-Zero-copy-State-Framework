@@ -1,19 +1,25 @@
-# Solana network baseline, reviewed 2026-08-17; corrected 2026-09-03
+# Solana network baseline, reviewed 2026-08-17; corrected 2026-09-06
 
 This file is a dated compatibility baseline, not a prediction. “Live” means the
 Solana Foundation or the on-chain feature account confirms Mainnet activation.
 Targets and schedules remain “upcoming” until that happens.
 
-> **2026-09-03 correction:** SIMD-0525 made the block and per-account CU
+> **2026-09-19 correction:** transaction v1 activated on mainnet-beta on
+> 2026-09-15, and rent fell to 5,080 lamports per byte on 2026-09-11. See
+> [COMPETITIVE_REFRESH_2026-09-19.md](COMPETITIVE_REFRESH_2026-09-19.md).
+
+> **2026-09-06 correction:** SIMD-0525 made the block and per-account CU
 > ceilings slot-time-dependent. Mainnet is now in the 300 ms regime, so the
 > SIMD-0286-scaled ceilings are **75M block / 30M per writable account**, not
-> 100M/12M. See the
+> 100M/12M. SIMD-0437 step 1 also activated 2026-09-03, moving the live
+> rent-exempt reserve coefficient from 6,960 to **6,333 lamports per byte**.
+> See the
 > [reverified refresh](COMPETITIVE_REFRESH_2026-09-02.md) for the full table and
 > live feature observations.
 
 ## Confirmed Mainnet state
 
-| Change | Status reverified 2026-09-03 | Hopper consequence |
+| Change | Status reverified 2026-09-06 | Hopper consequence |
 |---|---|---|
 | SIMD-0286 cost-limit scaling | **Live** since 2026-07-29, epoch 1009; composed with the current 300 ms slot regime | `hopper contention` derives the observed **75M block / 30M per-account** ceilings from the regime and gate. |
 | Optimized Token Program / p-token (SIMD-0266) | **Live** | Existing token instructions remain compatible. Hopper must benchmark against the optimized program before publishing comparative CU claims. |
@@ -36,8 +42,9 @@ feature implemented in its source is active on Mainnet.
 
 | Change | Current official status | Hopper position |
 |---|---|---|
-| 4,096-byte transactions (SIMD-0296 + SIMD-0385) | Both SIMDs remain **Review** at official snapshot `fc519fb3`; neither names an activated feature. Agave contains an `enable_tx_v1` feature id, but the feature tracker has no transaction-v1 activation entry. Finalized feature-account queries returned `null` on Mainnet, devnet, and testnet at this review. | Hopper's upgraded Agave 4.2.1 host stack still emits legacy transactions. Those remain capped at 1,232 bytes. Hopper must not advertise, submit, or silently assume the proposed 4,096-byte v1 envelope. |
-| Reduced rent (SIMD-0437) | Agave 4.2 feature-gated rollout | Re-run account creation/rent examples after each Mainnet feature activation; do not bake projected 90% savings into current cost claims. |
+| 4,096-byte transactions (SIMD-0296 + SIMD-0385) | Both SIMDs remain **Review** at official snapshot `fc519fb3`; neither names an activated feature. Agave contains an `enable_tx_v1` feature id, but the feature tracker has no transaction-v1 activation entry. Finalized queries on 2026-08-17 found no feature account on devnet at slot 484,716,765 or testnet at slot 429,996,204. Mainnet activation was not confirmed. | Hopper's upgraded Agave 4.2.1 host stack still emits legacy transactions. Those remain capped at 1,232 bytes. Hopper must not advertise, submit, or silently assume the proposed 4,096-byte v1 envelope. |
+| Account Data Direct Mapping | **Active on devnet/testnet; Pending Mainnet Beta Activation** in Anza's schedule, rechecked 2026-09-06. | Mainnet still uses the serialized/copy path. Model current full data length for test-cluster/upcoming first-write CoW guidance; never substitute a dynamic layout's minimum prefix or call the result a current Mainnet CU quote. |
+| Reduced rent (SIMD-0437) | Step 1 live since 2026-09-03; four later gates absent in the 2026-09-06 finalized query | Read the live Rent sysvar/RPC. Current coefficient is 6,333 lamports per byte; do not bake later projected reductions into cost claims. |
 | Reduced slot times (SIMD-0525) | Agave 4.2 staged rollout from 400ms toward 200ms | Treat latency as cluster state, not a framework guarantee. |
 | Alpenglow (SIMD-0326) | Not activating in Agave 4.2; currently targeted for Agave 4.3 | No current program API change. Avoid equating BLS/VAT prerequisites with Alpenglow being live. |
 
@@ -75,7 +82,7 @@ evidence only.
 - [SIMD-0385: Transaction v1](https://github.com/solana-foundation/solana-improvement-documents/blob/fc519fb3d1ef0f7624b6232bda958438feba09ce/proposals/0385-transaction-v1.md)
 - [Anza: Agave 4.2 release schedule](https://github.com/anza-xyz/agave/wiki/v4.2-Release-Schedule)
 - [Anza: feature-gate tracker](https://github.com/anza-xyz/agave/wiki/Feature-Gate-Tracker-Schedule)
-- [Anza: transaction-v1 feature id](https://github.com/anza-xyz/agave/blob/12b5c7e4df705927b2f7f579f3aa606aa4bde1c0/feature-set/src/lib.rs)
+- [Anza: transaction-v1 feature id in Agave v4.2.1](https://github.com/anza-xyz/agave/blob/v4.2.1/feature-set/src/lib.rs)
 - [Solana Foundation: Optimized Token Program](https://solana.com/upgrades/p-token)
 - [Anza: Agave releases](https://github.com/anza-xyz/agave/releases)
 - [Anza: Agave changelog](https://github.com/anza-xyz/agave/blob/master/CHANGELOG.md)

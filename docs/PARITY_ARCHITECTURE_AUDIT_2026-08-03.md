@@ -1,4 +1,4 @@
-# Hopper parity and architecture audit — 2026-08-03
+# Hopper parity and architecture audit: 2026-08-03
 
 This is a source-level snapshot, not a permanent ranking. It compares the
 unreleased Hopper 0.3.0 workspace at `c539bb6` plus the follow-up corrections
@@ -14,10 +14,16 @@ available on 2026-08-03.
 > original dated findings below are retained where they describe the 08-03
 > snapshot.
 >
-> **2026-09-03 correction:** Anchor published `anchor-lang` 2.0.0-rc.1 and
-> tag `v2.0.0-rc.1` on 2026-08-12. Mainnet's current slot-derived cost
+> **2026-09-19 correction:** transaction v1 activated on mainnet-beta on
+> 2026-09-15, and rent fell to 5,080 lamports per byte on 2026-09-11. See
+> [COMPETITIVE_REFRESH_2026-09-19.md](COMPETITIVE_REFRESH_2026-09-19.md).
+>
+> **2026-09-06 correction:** Anchor stable reached 1.2.0 on 2026-09-04;
+> Anchor v2 published `anchor-lang` 2.0.0-rc.1 and tag `v2.0.0-rc.1` on
+> 2026-08-12. Mainnet's current slot-derived cost
 > ceilings are 75M block / 30M per writable account, not the 100M/12M pair
-> asserted below. See
+> asserted below; live rent is now 6,333 lamports per byte after SIMD-0437 step
+> 1. QEDGen/qedsvm also narrows the earlier formal-verification whitespace. See
 > [COMPETITIVE_REFRESH_2026-09-02.md](COMPETITIVE_REFRESH_2026-09-02.md).
 
 ## Executive verdict
@@ -58,10 +64,11 @@ ahead of `origin/main`:
 | `c539bb6` | contention profile and `epoch_migrate` declaration fix | The migration correctness fix and its regression test are valid. C4's network constants and "exact CU" semantics needed correction; see below. |
 
 `cargo test --workspace --locked --no-fail-fast` passed with no failures. The
-reported "190 suites" is not a reproducible Cargo metric: Cargo reports 130
-distinct test executables under `--no-run`, while the Hopper CLI test binary
-alone contains 192 tests. The defensible statement is "the locked workspace
-test command passes," not "190 suites," unless the counting method is defined.
+reported "190 suites" is not a reproducible Cargo metric: the dated `--no-run`
+snapshot reported 130 distinct test executables, and individual binary test
+counts have since moved. The defensible statement is "the locked workspace test
+command passes," not a rolling suite total, unless the counting method and date
+are defined.
 
 ## C4 correctness audit
 
@@ -113,7 +120,7 @@ Versions are source snapshots, not claims about crates.io publication:
 | Hopper | workspace 0.3.0; public release 0.2.1 | Owned zero-dependency substrate plus macro/schema/client/verifier contract |
 | Quasar | default/crates 0.0.0; active `0.1.0-release` branch is beta/unaudited | Direct account views, capability wrappers, resize migrations, ABI/client/test/profiler tooling |
 | Pinocchio | source 0.11.x | Minimal `no_std` Solana SDK replacement and zero-copy entrypoint primitives |
-| Anchor | stable 1.1.2; `anchor-lang` 2.0.0-rc.1 is published but still self-described Alpha/unaudited | Full-stack ecosystem; v2 adds default zero-copy state, Slab/PodVec, typed CPI borrows, and formal/adversarial lanes |
+| Anchor | stable 1.2.0; `anchor-lang` 2.0.0-rc.1 is published but still self-described Alpha/unaudited | Full-stack ecosystem; v2 adds default zero-copy state, Slab/PodVec, typed CPI borrows, and formal/adversarial lanes |
 | Star Frame | source 0.30.0 | Pinocchio-backed modular traits, zero-copy unsized types, IDL/Codama tooling |
 | Steel | source 4.0.9 | Lightweight macros/helpers and CLI over a smaller, explicitly unaudited surface |
 
@@ -122,14 +129,14 @@ Versions are source snapshots, not claims about crates.io publication:
 `Strong` means a first-class, source-visible workflow; `Partial` means a narrower
 or opt-in equivalent. It does not mean audited or production-proven.
 
-| Capability | Hopper | Quasar | Pinocchio | Anchor 1.1/v2 work | Star Frame |
+| Capability | Hopper | Quasar | Pinocchio | Anchor 1.2/v2 work | Star Frame |
 | --- | --- | --- | --- | --- | --- |
 | Zero-copy/no-allocation program path | Strong | Strong | Strongest/minimal | Partial/stronger in v2 work | Strong |
 | Declarative account validation | Strong | Strong | Helpers only | Strong | Strong |
-| Enforced field/byte write policy | **Unique strong** | No | No | No | No |
+| Enforced field/byte write policy | **Strong; no equivalent found in the named source pins** | No | No | No | No |
 | Runtime touch/effect map | Strong, opt-in | Byte diffs in test SVM | No | Coverage/fuzz tooling, not an effect contract | No comparable contract found |
-| Schema fingerprint/evolution graph | **Strongest** | Typed migration, narrower schema identity | No | IDL/account discriminators; migration is app-level | IDL/Codama, no comparable graph found |
-| IDL and generated clients | 8 outputs total: TypeScript, Kotlin, Python, Go, C, off-chain Rust, Codama JSON, Anchor IDL JSON | Stable Rust/Kit/Web3 plus preview Python/Go/C and wire IDL/CPI generation | No | **Strongest ecosystem** | IDL/Codama |
+| Schema fingerprint/evolution graph | **Strong; no comparable graph found in the named pins** | Typed migration, narrower schema identity | No | IDL/account discriminators; migration is app-level | IDL/Codama, no comparable graph found |
+| IDL and generated clients | Six SDKs (TypeScript, Kotlin, Python, Go, C, off-chain Rust), Hopper public IDL, Codama JSON, and conditional Solana IDL: 9 interop formats; full manifest/lowered Rust separate | Stable Rust/Kit/Web3 plus preview Python/Go/C and wire IDL/CPI generation | No | **Strongest ecosystem in this dated comparison** | IDL/Codama |
 | SVM/test harness | `hopper-svm`, Mollusk/devnet lanes | QuasarSVM Rust/Node/Python | Bring your own | Surfpool/test validator plus tooling | Examples/tooling |
 | Fuzz/formal workflow | Kani/Miri scripts, static targets | Kani/Miri/fuzz integration on 0.1 release line | Bring your own | v2 Kani/Miri/fuzz and runtime lanes | Miri CI; no equivalent formal suite found |
 | Profiling/debugging | Hopper profile/bench, tx explain | Static CU profiler/flamegraph | Bring your own | CLI profile/debugger/coverage | Basic tooling |

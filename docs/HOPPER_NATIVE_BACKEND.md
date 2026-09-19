@@ -73,11 +73,11 @@ Hopper code runs through Hopper's direct account-memory runtime.
 
 ---
 
-## Innovation Inventory
+## Runtime Inventory
 
-Hopper's direct runtime includes features no other Solana framework provides:
+Hopper's direct runtime groups the following capabilities behind one account-memory boundary:
 
-| Module | Innovation |
+| Module | Capability |
 | ------ | ---------- |
 | `wire` | Alignment-safe wire types with checked arithmetic by default |
 | `verify` | Post-CPI state verification (LamportSnapshot, DataFingerprint) |

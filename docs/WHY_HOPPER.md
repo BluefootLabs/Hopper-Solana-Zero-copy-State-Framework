@@ -2,7 +2,8 @@
 
 ## The short version
 
-Hopper is a policy-driven zero-copy runtime for Solana. Three things set it apart:
+Hopper is a policy-driven zero-copy runtime for Solana. The short boundary is:
+**Solana locks accounts; Hopper governs bytes.** Three things set it apart:
 
 1. **Segment-level borrow tracking.** Within one Hopper invocation, a write lease over a vault's `balance` bytes can coexist with a disjoint read of `authority`. This is an in-program safety and observability model; Solana's scheduler still locks the whole Pubkey.
 2. **One access model, five explicit tiers.** Generated field accessors / `segment_ref_typed` are the default hot path; `load::<T>()` is validated whole-layout access; const/dynamic segment APIs are advanced; `raw_ref` / `raw_mut` are typed escape hatches; `unsafe { as_mut_ptr() }` is full raw access. Same pipeline, different guarantees.
@@ -19,13 +20,13 @@ separate targets;
 Quasar means its active `0.1.0-release` source line, not the older default
 branch.
 
-| Capability | Anchor 1.1.2 | Anchor v2 alpha | Quasar 0.1 release line | Pinocchio 0.11.2 | **Hopper 0.3 workspace** |
+| Capability | Anchor 1.2.0 | Anchor v2 RC/Alpha line | Quasar 0.1 release line | Pinocchio 0.11.2 | **Hopper 0.3 workspace** |
 |---|---|---|---|---|---|
 | Zero-copy account access | opt-in `AccountLoader` | default mapped accounts | yes | raw substrate primitives | **yes** |
 | `no_std` / no-allocation program path | no | yes | yes | yes | **yes** |
 | Typed dynamic zero-copy collections | no direct mapped `Vec`/`String` | `Slab`, `PodVec` | bounded fields and migration views | bring your own | **bounded fields, `Seq`, `Slab`, and other account-byte collections** |
 | Typed same/grow/shrink migration | app-authored | app-level / evolving alpha APIs | yes | bring your own | **yes, plus schema epochs, fingerprints, chains, and deposit-preserving fit shrink** |
-| IDL and generated clients | mature IDL/TS ecosystem | evolving alpha toolchain | wire IDL, ABI hash, stable Rust/Kit/Web3 plus preview Python/Go/C | no framework layer | **8 outputs from one manifest contract** |
+| IDL and generated clients | mature IDL/TS ecosystem | evolving alpha toolchain | wire IDL, ABI hash, stable Rust/Kit/Web3 plus preview Python/Go/C | no framework layer | **Six SDKs + Hopper public IDL + Codama JSON + conditional Solana IDL: 9 interop formats; full manifest/lowered Rust separate** |
 | Kani/Miri/fuzz workflow | ecosystem-dependent | substantial Miri/fuzz/Kani sources; Kani CI disabled at the pin | yes | substrate-specific | **yes, plus manifest-generated cases and compiled-SBF flagship lanes** |
 | Manifest-linked runtime byte-write policy | no | no equivalent found | no equivalent found | no | **yes (`strict_writes`)** |
 | On-chain per-instruction touch evidence | no | no equivalent found | test-SVM byte diffs, not the same contract | no | **yes, opt-in** |
@@ -33,7 +34,11 @@ branch.
 
 This is a source-snapshot comparison, not a permanent ranking. Anchor leads in
 ecosystem maturity, while Anchor v2 and Quasar contain serious zero-copy,
-collection, migration, client, and verification work.
+collection, migration, client, and verification work. Quasar leads the pinned
+binary-size row and its verification lane is deeper. QEDGen/qedsvm also proves
+frame conditions for constrained selected compiled paths and performs IDL
+upgrade analysis; it does not provide Hopper's runtime gate or cumulative touch
+evidence. See the 2026-09-06 competitive refresh for pins and boundaries.
 
 ## The three modes you can ship
 
@@ -132,7 +137,9 @@ Anchor and Quasar also generate standard signer, owner, PDA, and account
 constraints. Hopper's additional claim is narrower: its typed contexts make
 those checks the default, while its manifest can connect declared byte writes,
 runtime gates, generated client metas, touch evidence, contention analysis,
-and offline containment verification. Raw and unchecked paths remain explicit
+and separately recomputed offline containment verification. Grillo is
+maintained in the same workspace and does not authenticate its current
+caller-supplied evidence. Raw and unchecked paths remain explicit
 review boundaries rather than disappearing from the threat model.
 
 ## Benchmark, not claims

@@ -45,24 +45,37 @@ ls -l target/deploy/hopper_counter.so
 ```
 
 Expected: a `target/deploy/hopper_counter.so` artifact and a printed size delta.
-The counter `.so` is ~4.7 KiB.
+Do not use the historical 4,688-byte deployment as a current size oracle;
+record the size printed for this exact source/toolchain build.
 
-## 4. Mainnet guard (no network, must refuse)
+## 4. Mainnet confirmation guard (no deploy)
 
-The CLI must refuse to target mainnet from default config:
+Mainnet must be named explicitly and a destructive deploy must still require
+interactive confirmation. Run the command below and answer anything other than
+`yes`:
 
 ```bash
-# Should error: "refusing to target mainnet from default config"
-$HOPPER deploy --url https://api.mainnet-beta.solana.com/ -p hopper-counter
+$HOPPER deploy --no-build --cluster mainnet-beta -p hopper-counter
 ```
 
-Expected: non-zero exit with the mainnet-guard message. (It never reaches a
-deploy.) Naming `--cluster mainnet-beta` explicitly is the only way past the
-guard, and even then a confirmation prompt fires unless `--yes`.
+Expected: non-zero exit with `aborted.` before any Solana deploy command runs.
+Every raw/custom RPC URL is treated as potentially Mainnet and trips the same
+confirmation guard because provider hostnames do not reliably identify their
+cluster. The default target remains devnet.
+
+To exercise the read-only quote path, which does not prompt or submit a
+transaction:
+
+```bash
+$HOPPER deploy --dry-run --no-build --cluster mainnet-beta -p hopper-counter
+```
+
+Expected: an RPC slot, exact artifact/max length, permanent Program +
+ProgramData rent, recycled Buffer working capital, and a fee exclusion note.
 
 ## 5. Devnet deploy (network + keypair)
 
-> Requires a funded devnet keypair. Devnet only — never mainnet.
+> Requires a funded devnet keypair. Devnet only, never mainnet.
 
 ```bash
 $HOPPER deploy --cluster devnet \
@@ -83,13 +96,13 @@ $HOPPER explain <CONFIRMED_SIG> \
   --manifest examples/hopper-escrow/hopper.manifest.json
 ```
 
-Expected: one decoded line per instruction — program id, disc byte, matched
-instruction name, touched account slots — and the CU consumed.
+Expected: one decoded line per instruction, program id, disc byte, matched
+instruction name, touched account slots, and the CU consumed.
 
 ## 7. Migration plan + bytecode upgrade (network + authority keypair)
 
 ```bash
-$HOPPER plan -p hopper-migration                       # read-only layout plan
+$HOPPER plan @path/to/layout-v1.json @path/to/layout-v2.json  # read-only layout plan
 $HOPPER migrate --program-id <PROGRAM_ID> \
   --cluster devnet --keypair /abs/path/devnet-keypair.json \
   -p hopper-migration
@@ -98,7 +111,10 @@ $HOPPER migrate --program-id <PROGRAM_ID> \
 Expected: `plan` prints the field-level diff; `migrate` prints the migration
 banner and an upgrade signature.
 
-## Devnet reference ids (this pass)
+## Historical devnet reference ids (July 2026)
+
+These deployments predate the current source and are lookup aids, not evidence
+for this smoke pass or release.
 
 | Example | Program id | `.so` bytes |
 |---|---|---:|

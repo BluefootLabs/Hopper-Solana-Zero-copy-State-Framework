@@ -41,8 +41,7 @@ hopper::hopper_token_2022::check_safe_token_2022_mint(&mint_data)?;
 See [`examples/hopper-token-2022-transfer-hook`](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/examples/hopper-token-2022-transfer-hook/src/lib.rs)
 for an end-to-end transfer-hook validation pattern.
 
-Docs: <https://docs.rs/crate/hopper-token-2022>. The workspace's 0.3 API will
-appear there only after the 0.3 publish train completes.
+Versioned API docs: <https://docs.rs/crate/hopper-token-2022>.
 
 Support: `solanadevdao.sol` / `F42ZovBoRJZU4av5MiESVwJWnEx8ZQVFkc1RM29zMxNT`.
 

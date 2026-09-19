@@ -1,13 +1,16 @@
 # Hopper: One Unified Zero-Copy System
 
-Hopper's three internal tiers (hot-path account bytes, on-chain registry,
-off-chain artifacts — see [`THREE_TIER_METADATA.md`](THREE_TIER_METADATA.md))
-are an *implementation* detail. The developer faces **one** system: declare a
-layout once, and the loader, the on-chain registry row, the field offsets, the
-schema export, and the upgrade gate all derive from that single declaration.
+Hopper's three internal tiers (hot-path account bytes, an optional on-chain
+registry, and off-chain artifacts; see
+[`THREE_TIER_METADATA.md`](THREE_TIER_METADATA.md)) start from one macro
+declaration. The macro generates loader traits/helpers, field offsets,
+`LayoutManifest`, and a parallel `LayoutDescriptor`; the registry row delegates
+to that descriptor. Existing typed loaders and the primary client generators do
+not consume the descriptor directly. The application owns registry provisioning
+and must explicitly invoke any upgrade gate.
 
-This note describes the unification — the `AccountDescriptor` /
-`LayoutDescriptor` one-source-of-truth model — and grounds it against the
+This note describes the unification, the `AccountDescriptor` /
+`LayoutDescriptor` one-source-of-truth model, and grounds it against the
 2026 Solana zero-copy landscape (Anchor v2, Pinocchio, direct mapping,
 SIMD-0219/0268/0339).
 
@@ -16,7 +19,7 @@ SIMD-0219/0268/0339).
 A program author writes two macros and nothing else:
 
 ```rust
-// One layout declaration. Compact (1-byte disc) hot path by default.
+// One layout declaration. Compact (1-byte disc) hot path selected here.
 #[hopper::state(compact, disc = 1)]
 #[repr(C)]
 pub struct Vault {
@@ -24,15 +27,17 @@ pub struct Vault {
     #[role = "balance"]   pub balance: WireU64,
 }
 
-// One program-level profile. `governed` gates upgrades on the on-chain registry.
+// One program-level profile. `governed` selects the strictest compatibility policy;
+// application upgrade code must still evaluate and enforce it.
 #[hopper::program(manifest = "governed")]
 mod vault_program { /* ... */ }
 ```
 
-From that, the macro emits — with **no hand-written glue** — the zero-copy
-load helpers, the per-field absolute offsets (folding in the single
-discriminator byte), the Tier-2 registry row, the schema export, and the
-`LayoutDescriptor` impl that ties them together. Headered layouts
+From that declaration, the macro emits the zero-copy load helpers, per-field
+absolute offsets (folding in the single discriminator byte), `LayoutManifest`,
+and a `LayoutDescriptor` whose `registry_entry()` supplies the Tier-2 row.
+Those are parallel generated surfaces, not a runtime chain in which the loader
+reads the descriptor. Headered layouts
 (`#[hopper::state(disc = N, version = V)]`) emit the *same*
 `LayoutDescriptor` surface; the only difference is the body offset
 (`HEADER_LEN` vs `COMPACT_BODY_OFFSET`). The developer chooses compact vs
@@ -40,8 +45,8 @@ headered per struct and otherwise writes identical code.
 
 ## One source of truth: `AccountDescriptor`
 
-`hopper_core::manifest::AccountDescriptor` is a pure `const` value that
-captures everything the rest of the system needs to know about a layout:
+`hopper_core::manifest::AccountDescriptor` is a pure `const` value for registry
+and optional tooling projections:
 
 ```rust
 pub struct AccountDescriptor {
@@ -59,28 +64,30 @@ pub struct AccountDescriptor {
 
 Two `const fn` constructors cover both shapes:
 
-- `AccountDescriptor::compact(name, disc, version, body_size, layout_id)` —
+- `AccountDescriptor::compact(name, disc, version, body_size, layout_id)`,
   `body_offset = COMPACT_BODY_OFFSET = 1`, `flags = ENTRY_FLAG_COMPACT`,
   `min_size = 1 + body_size`.
-- `AccountDescriptor::headered(name, disc, version, body_size, layout_id)` —
+- `AccountDescriptor::headered(name, disc, version, body_size, layout_id)`,
   `body_offset = HEADER_LEN = 16`, `flags = ENTRY_FLAG_HEADERED`,
   `min_size = 16 + body_size`.
 
 `.with_dynamic_tail()` and `.deprecated()` are `const` builders that flip the
 corresponding entry flag for variable-length and retired layouts.
 
-Everything downstream is *derived* from this one value:
+The descriptor directly supplies these optional surfaces:
 
 | Consumer            | Derivation                                        |
 |---------------------|---------------------------------------------------|
 | Tier-2 registry row | `descriptor.registry_entry() -> AccountLayoutEntry` |
-| Hot-path validation | `descriptor.validate(data)` (len + disc, no registry read) |
-| Field offsets       | `body_offset` is the absolute base for `{FIELD}_ABS_OFFSET` |
-| Governed upgrade    | `diff_descriptors_vs_registry(&descriptors, &onchain)` |
+| Shape helper        | `descriptor.validate(data)` (minimum len + disc only) |
+| Tooling projection  | `descriptor.idl_node()` / `descriptor.fingerprint()` |
+| Upgrade-gate input  | `diff_descriptors_vs_registry(&descriptors, &onchain)` |
 
-Because the registry row, the loader's validation, and the offsets all read
-from the same `const`, they cannot drift apart — there is no second place to
-update.
+Typed loader impls and field offsets are parallel macro outputs from the same
+source declaration, not descriptor consumers. `validate_hot` is not a substitute
+for the full fixed-compact or headered loader. Once a registry row is persisted,
+callers must authenticate its account, verify its hashes, and compare it with
+the current descriptors.
 
 ## The `LayoutDescriptor` trait
 
@@ -104,7 +111,7 @@ pub trait LayoutDescriptor {
 The macro emits `impl LayoutDescriptor for #name` in user code, referencing
 `::hopper::manifest::AccountDescriptor::{compact, headered}`. No blanket impl,
 no crate cycle: `hopper-core` owns the type, the macro emits the impl. This is
-purely additive — the existing `CompactLayout`, `LayoutContract`, and
+purely additive, the existing `CompactLayout`, `LayoutContract`, and
 `SchemaExport` surfaces are untouched.
 
 ## Hot path: no manifest reads and an unchanged compact validation path
@@ -120,11 +127,11 @@ No registry fetch, no layout_id comparison, no epoch read. The descriptor is a
 The compact hot path is unchanged from the pre-unification cost: `check_owner`
 + `check_len` + `check_disc` + cast-at-offset-1.
 
-## Off the hot path: governed upgrade gate
+## Off the hot path: governed upgrade compatibility
 
-A `governed` program proves an upgrade is safe by comparing its *generated*
-descriptors against the *on-chain* registry — without leaving the no-alloc
-model:
+A `governed` application can classify an upgrade by comparing its *generated*
+descriptors against an authenticated *on-chain* registry without leaving the
+no-alloc model:
 
 ```rust
 let descriptors = [<Vault as LayoutDescriptor>::DESCRIPTOR];
@@ -142,9 +149,11 @@ zero-copy view in place (no allocation) and classifies the change:
 - result is the `worst()` (severity-max) across all rows
 
 `ManifestProfile::Governed` admits only `Unchanged` / `Additive`;
-`onchain` / `offchain` admit everything short of `Breaking`. This is the live
-ABI-drift gate: a redeploy that would silently break a layout the chain still
-advertises fails closed at the upgrade instruction, not in production.
+`onchain` / `offchain` admit everything short of `Breaking`. These are
+compatibility primitives, not a hook into Solana's loader-v3 upgrade path.
+Hopper does not provision the registry or intercept a native loader upgrade;
+the application's governed upgrade instruction or release workflow must call
+the comparison and abort on a rejected result.
 
 ## Why this matters now (2026 landscape)
 
@@ -152,37 +161,43 @@ The unification is grounded in where Solana zero-copy is actually heading
 (full analysis in
 [`ZERO_COPY_FRAMEWORK_AUDIT_2026-08-15.md`](ZERO_COPY_FRAMEWORK_AUDIT_2026-08-15.md)):
 
-- **Anchor v2 is Pinocchio-backed and zero-copy-by-default.** The historical
-  "Anchor is slow / heavy" wedge is gone. Hopper's durable advantage is *not*
-  raw speed — it is the **validation contract as one system**: a single
-  descriptor that simultaneously drives the loader, the on-chain registry, the
-  client decode fingerprint, and the upgrade gate. Competitors make the
-  developer wire those together by hand.
+- **Anchor v2 is Pinocchio-backed and zero-copy-by-default.** The archived
+  pre-RC comparison does not support a categorical "Anchor is slow / heavy"
+  claim. Rebenchmark the current v2 line. Hopper's durable differentiation is
+  descriptor coherence: one declaration supplies loader
+  checks, an optional registry row, client metadata, and upgrade-compatibility
+  inputs. Runtime registry authentication and upgrade enforcement remain
+  explicit application work.
 
-- **Direct account mapping is live on mainnet.** Reads are ≈ free, the first
-  write triggers a copy-on-write copy, and *growth* is the expensive operation.
-  This rewards compact fixed-size hot layouts (Tier 1) and makes the
-  `setLoadedAccountsDataSizeLimit` story matter — the descriptor's `min_size`
-  is the natural source for an auto-emitted data-size limit.
+- **Direct account mapping is active on testnet/devnet and pending Mainnet.**
+  As reverified 2026-09-06, read-only account data on those clusters can be
+  mapped without the up-front host data copy; a first write may copy the
+  account's full current data, and growth can add realloc work. This rewards
+  compact hot layouts, but a dynamic account's current length; not descriptor
+  `min_size`: controls its copy class. Loaded-data limits remain an explicit
+  transaction-builder decision.
 
 - **SIMD-0219 / 0268 / 0339** continue to tighten the cost model around loaded
   data size and account access. A single descriptor that knows each layout's
   exact `min_size` and shape flags is the right place to compute those limits
   once and feed both the on-chain validator and the off-chain client.
 
-- **Fingerprint-pinned client decode.** The registry's `schema_hash` /
-  `registry_hash` already pin off-chain artifacts to an on-chain schema; the
-  descriptor's `layout_id` is the per-type fingerprint a generated client
-  checks before zero-copy-decoding an account it fetched.
+- **Fingerprint-aware client decode.** A provisioned and verified registry's
+  `schema_hash` / `registry_hash` can pin off-chain artifacts. Current generated
+  clients are transport-neutral: headered readers compare the stored
+  `layout_id`; compact readers check the discriminator plus exact size for a
+  fixed layout or minimum prefix size for a compact-dynamic layout. Both expose
+  descriptor-derived identity metadata for a caller that has a trusted registry
+  or release artifact.
 
 ## What this change lands
 
-Additive, fully tested, `no_std` / zero-copy clean:
+Additive and covered by focused tests, with `no_std` / zero-copy paths kept clean:
 
-1. `AccountDescriptor` + `LayoutDescriptor` in `hopper_core::manifest` — the
+1. `AccountDescriptor` + `LayoutDescriptor` in `hopper_core::manifest`, the
    one-source-of-truth type and trait, with `const` constructors for compact
    and headered shapes and `#[inline(always)]` len+disc validation.
-2. `diff_descriptors_vs_registry` — no-alloc generated-vs-on-chain comparison
+2. `diff_descriptors_vs_registry`: no-alloc generated-vs-on-chain comparison
    for the governed upgrade gate.
 3. Macro emission (`hopper-macros-proc`): both `#[hopper::state(compact, ...)]`
    and `#[hopper::state(...)]` (headered) emit `impl LayoutDescriptor`, and the
@@ -195,8 +210,9 @@ Additive, fully tested, `no_std` / zero-copy clean:
 
 ## Anchor v2-informed descriptor tooling
 
-Anchor v2 is Pinocchio-backed and zero-copy-by-default, so the speed/DX gap is
-gone. The ideas worth taking are about *coherence* — typed account validation,
+Anchor v2 is Pinocchio-backed and zero-copy-by-default, so the archived pre-RC
+comparison cannot establish a current speed/DX gap. The ideas worth taking are
+about *coherence*, typed account validation,
 fail-closed client decode, and tooling that cannot describe a different layout
 than the program runs. Hopper adapts each in its own descriptor-native way
 (not by copying Anchor syntax or internals). Every API below derives from the
@@ -206,17 +222,19 @@ one `AccountDescriptor` and is `const` / `no_std` / no-alloc.
 
 `AccountDescriptor::fingerprint() -> LayoutFingerprint` is a deterministic
 16-byte identity over the *wire-identity* fields (name, disc, version, sizes,
-body offset, shape flags, `layout_id`) — never the `deprecated` lifecycle bit,
-so deprecating a layout never changes how it decodes. A generated SDK embeds
-`LayoutFingerprint::to_hex()` (32 ASCII bytes) as a constant and **fails closed**
-if the layout the program advertises for a discriminator does not match:
+body offset, shape flags, `layout_id`), never the `deprecated` lifecycle bit,
+so deprecating a layout never changes how it decodes. Generated SDKs expose
+that identity as external metadata. Their byte guards are shape-specific:
+headered accounts compare the stored eight-byte `LAYOUT_ID`; compact accounts,
+which store no fingerprint, require the discriminator plus either fixed exact
+size or a dynamic-tail minimum prefix.
 
 ```rust
 let fp = <Vault as LayoutDescriptor>::fingerprint();   // const, embeddable
-// TS/Kotlin/Rust SDK: before casting fetched bytes, compare the embedded
-// fingerprint to the one computed from the program's on-chain registry row.
-// Mismatch ⇒ refuse to zero-copy-decode (the program was redeployed with a
-// different layout at this disc) rather than read stale/mis-shaped memory.
+// A transport-aware caller may compare `fp` with a trusted registry or release
+// artifact through `decode_allowed` before invoking the generated byte decoder.
+// Neither the generated SDK nor `decode_allowed` fetches or authenticates that
+// external metadata.
 ```
 
 This is the per-type complement to the registry's `schema_hash` / `registry_hash`
@@ -226,50 +244,52 @@ This is the per-type complement to the registry's `schema_hash` / `registry_hash
 
 `min_loaded_data_size(&descriptors)` sums each layout's `min_size`;
 `recommend_loaded_data_limit(&descriptors, tail_headroom, extra)` adds headroom
-per dynamic-tail layout plus a flat margin. A transaction builder sizes
-`setLoadedAccountsDataSizeLimit` directly from the descriptors of the accounts
-an instruction touches — sourced from the same `min_size` the loader enforces,
-so the limit and the validation can never disagree. Both are saturating; the
-caller clamps to the runtime maximum.
+per dynamic-tail layout plus a flat margin. These are advisory building blocks:
+current transaction builders do not emit `setLoadedAccountsDataSizeLimit`
+automatically. A caller must inventory the accounts an instruction can load,
+add application-specific tail headroom and margin, and clamp the saturating
+result to the runtime maximum. Descriptor `min_size` should match the loader's
+minimum, but this helper does not establish or enforce that equality.
 
-### Dynamic-tail-aware registry diff
+### Conservative registry diff
 
 `classify_entry_change(old, new) -> LayoutChange` is finer-grained than
 `RegistryCompat`: it separates `FixedPrefixGrew` / `FixedPrefixShrank`,
-`VersionBump`, `ShapeFlipped`, `IdentityChanged`, and — crucially —
-`TailCapacity`. A dynamic-tail layout that keeps its fixed prefix and identity
-but bumps version only moved its (off-chain) tail capacity/policy: that is
-`Additive`, not `MigrationRequired`, because the loader only checks the fixed
-prefix. `diff_descriptors_vs_registry_detailed` is the tail-aware companion to
-`diff_descriptors_vs_registry`; feed either to `ManifestProfile::permits_upgrade`.
+`VersionBump`, `ShapeFlipped`, and `IdentityChanged`. A version bump remains
+`MigrationRequired` even when the row is dynamic-tail: the registry commits no
+tail capacity, policy, or reason for the bump, so classifying it as additive
+would infer facts that are absent from the artifact.
+`diff_descriptors_vs_registry_detailed` is a diagnostic companion to
+`diff_descriptors_vs_registry`; an application that provisions a registry must
+authenticate it and explicitly enforce the resulting policy decision.
 
 ### CoW / account-data-cost layout lint
 
-Direct mapping makes reads ≈ free, the first write a copy-on-write copy, and
-growth (realloc) the most expensive operation. `AccountDescriptor::cost_profile()`
-reports `cow_copy_bytes` (= `min_size`), a `SizeClass`
-(Small/Medium/Large/VeryLarge by byte thresholds), and whether the layout is
-`growable`. `cost_lint()` returns an advisory `CostLint`: `LargeFixedCopy` for
-big fixed layouts on hot write paths, `ExpensiveGrowth` for large growable ones.
-This is a descriptor-level model (no per-field metadata required) tied to the
-runtime cost direction without asserting unsupported specifics.
+This is forward-looking/test-cluster advice while direct mapping remains
+pending Mainnet as of 2026-09-06. `AccountDescriptor::cost_profile(current_len)`
+uses the observed full account-data length, clamped to `min_size`, and reports
+that potential first-write `cow_copy_bytes`, a `SizeClass`
+(Small/Medium/Large/VeryLarge), and whether the layout is `growable`.
+`cost_lint(current_len)` returns `LargeFixedCopy` for a large fixed account and
+`ExpensiveGrowth` for a currently large growable account. Supplying the live
+length is essential: a small dynamic prefix can back a very large account.
+Neither helper is a Mainnet CU quote.
 
-### IDL / Codama export hook
+### IDL / Codama projection building block
 
 `AccountDescriptor::idl_node() -> DescriptorIdlNode` is a minimal, stable,
 `no_std` projection (name, disc, version, body offset/size, `LayoutKind`,
-dynamic-tail/deprecated flags, `layout_id`, and the `LayoutFingerprint`) that an
-IDL or Codama-style generator consumes to emit an account node *and* the
-fail-closed decode guard — sourced from the same descriptor the loader enforces,
-so the generated IDL can never describe a layout the program does not run.
+dynamic-tail/deprecated flags, `layout_id`, and the `LayoutFingerprint`) available
+to an IDL or Codama-style generator. The current primary CLI, IDL, and SDK
+generators consume `LayoutManifest` instead; `idl_node()` is not yet their input.
 
-### Off-chain metadata export (`hopper-schema`)
+### Optional off-chain metadata export (`hopper-schema`)
 
-The IDL hook is wired into the off-chain emitter. `hopper_schema::DescriptorMetadata`
-projects an `AccountDescriptor` (plus the layout's field wire map) into the exact
-record a generated client embeds to **fail closed before decode**, and
-`hopper_schema::codama::DescriptorMetadataJson` serializes it with the existing
-hand-written (`no_std`, no-serde) JSON emitters:
+`hopper_schema::DescriptorMetadata` projects an `AccountDescriptor` plus a
+separately supplied field wire map into an optional tooling record, and
+`hopper_schema::codama::DescriptorMetadataJson` can serialize it with a
+hand-written (`no_std`, no-serde) JSON emitter. This building block is tested but
+is not wired into the main CLI or client-generation pipeline:
 
 ```jsonc
 {
@@ -290,24 +310,26 @@ hand-written (`no_std`, no-serde) JSON emitters:
 }
 ```
 
-A generated SDK embeds `fingerprint` (and/or `layoutId`) as a constant and calls
-`hopper_schema::decode_allowed(expected, advertised)` — comparing its embedded
-fingerprint to the one computed from the program's on-chain registry row — before
-zero-copy-decoding. A mismatch means the program was redeployed with a different
-layout at that discriminator, so the client refuses rather than reading
-mis-shaped memory. `loadedDataSizeRecommendation` feeds
-`setLoadedAccountsDataSizeLimit` directly. `DescriptorMetadataSetJson` emits a
-whole program's accounts plus summed `minLoadedDataSize` /
-`recommendedLoadedDataSize` budgets. Existing headered `SchemaExport` layouts get
-`descriptor()` / `descriptor_metadata()` for free, derived from their manifest.
+The primary generated SDKs embed `LayoutManifest.layout_id` as identity metadata;
+they do not consume this 16-byte descriptor fingerprint record. A caller with
+trusted advertised metadata can call
+`hopper_schema::decode_allowed(expected, advertised)` in its own integration;
+Hopper's transport-neutral generators do not fetch or authenticate a registry. The
+`loadedDataSizeRecommendation` value is an input for
+`setLoadedAccountsDataSizeLimit`, not an automatically emitted compute-budget
+instruction. `DescriptorMetadataSetJson` emits a whole program's accounts plus
+summed `minLoadedDataSize` / `recommendedLoadedDataSize` budgets. Existing
+headered `SchemaExport` layouts get `descriptor()` / `descriptor_metadata()`
+derived from their manifest.
 
 ## Next concrete steps
 
-- `DescriptorIdlNode` now feeds the `hopper-schema` emitter via
-  `DescriptorMetadata` / `DescriptorMetadataJson`, so the off-chain metadata and
-  the on-chain registry derive from one descriptor pass. Next: have the
-  per-language client generators (`rust_client`, `python_client`, …) consume that
-  JSON to embed `fingerprint` and call `recommend_loaded_data_limit` in their
-  transaction builders.
+- `DescriptorIdlNode` can feed the standalone `DescriptorMetadata` /
+  `DescriptorMetadataJson` emitter. Next: connect it deliberately to the primary
+  manifest/IDL pipeline, with coherence tests against the parallel
+  `LayoutManifest` path.
+- All six generated SDK targets carry manifest layout identity and fail-closed
+  byte guards. Next: add an optional authenticated metadata resolver and let
+  transaction builders consume `recommend_loaded_data_limit` explicitly.
 - Extend `cost_lint` with per-field hot/cold classification once field-level
   role metadata is threaded through the descriptor.

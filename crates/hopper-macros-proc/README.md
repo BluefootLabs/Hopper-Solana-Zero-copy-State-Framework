@@ -9,7 +9,9 @@ Optional proc-macro DX layer, published as `hopper-derive`, for
 validation, and dispatch code for the `#[hopper::state]`,
 `#[derive(Accounts)]`, and `#[hopper::program]` authoring path.
 
-Every feature these macros provide is achievable through Hopper's declarative macro_rules! macros in hopper-macros or hand-written code. They exist for developer velocity. Generated code lowers to Hopper's typed pointer and validation surface.
+The proc-macro layer is optional. Programs can also use Hopper's declarative
+macros and runtime APIs directly. Generated code lowers to Hopper's typed
+layout, validation, and dispatch surfaces.
 
 ## What's emitted
 
@@ -17,7 +19,7 @@ Every feature these macros provide is achievable through Hopper's declarative ma
 |---|---|
 | `#[hopper::state]` | Zero-copy account layout with header + fingerprint + load/load_mut helpers |
 | `#[hopper::account]` | Framework account layout; auto-upgrades bounded dynamic `String<'a, N>` / `Vec<'a, T, N>` fields into compact tails |
-| `#[derive(Accounts)]` | First-touch account-context binding with the full Anchor keyword set and Hopper account wrappers |
+| `#[derive(Accounts)]` | Account-context binding with Hopper's documented constraints and wrappers |
 | `#[hopper::context]` (aliases `#[context]`, `#[accounts]`) | Attribute-form account-context binding for lower-level migrations and segment-level borrow vocabulary |
 | `#[hopper::program]` (alias `#[program]`) | Entrypoint bridge plus instruction dispatcher; supports `#[receipt]`, `#[invariant]`, `#[pipeline]`, `#[access_control]` handler attributes |
 | `#[hopper::migrate]` | Schema-epoch migration edges |
@@ -30,7 +32,7 @@ Every feature these macros provide is achievable through Hopper's declarative ma
 | `#[hopper::dynamic_account]` | Explicit systems-mode bounded `#[tail(...)]` fields lowered into fixed body + compact dynamic tail |
 | `#[hopper::dynamic]` | Dynamic-tail field metadata for ring-buffer bookkeeping |
 | `hopper::declare_program!` | Manifest-driven CPI surface with compile-time `FINGERPRINT`, borrowed Hopper instruction parts, and resolver/effect specs |
-| `#[derive(HopperInitSpace)]` | Anchor-parity `INIT_SPACE` derive for hand-authored Pod structs |
+| `#[derive(HopperInitSpace)]` | `INIT_SPACE` derive for hand-authored Pod structs |
 
 ## `#[hopper::state]` Copy contract
 
@@ -51,7 +53,7 @@ README pattern above works without duplicate trait implementations.
 
 ## `#[hopper::account]` Dynamic Fields
 
-The framework account macro accepts Quasar-pretty bounded fields and lowers
+The framework account macro accepts bounded dynamic fields and lowers
 them into Hopper's fixed-body + compact-tail layout:
 
 ```rust

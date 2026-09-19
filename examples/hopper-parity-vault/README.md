@@ -52,15 +52,15 @@ It covers four matched instruction paths:
 - deposit: system-program transfer CPI into the vault PDA
 - withdraw: direct lamport mutation out of the vault PDA
 
-Current release-facing averaged result:
+Historical 2026-07-09 averaged result. These rows are retained for provenance
+and do not attest source changes made after that run:
 
 - Hopper parity: authorize `431` CU, auth-fail `72` CU, counter `551` CU, deposit `1669` CU, withdraw `453` CU, binary `7.53` KiB
 - Anza Pinocchio: authorize `2512` CU, auth-fail `41` CU, counter `2539` CU, deposit `3856` CU, withdraw `2548` CU, binary `7.73` KiB
 - Quasar: deposit `1767` CU, withdraw `603` CU, binary `6.27` KiB; `authorize` and `counter-access` are `n/a` because Quasar's upstream vault does not implement those instructions
 
-The Hopper-side gain here is not a benchmark-only trick. The parity target
-uses Hopper Runtime's direct native PDA verification path, which improves
-every existing vault path materially over the previous baseline. The
-counter-access scenario also makes the next optimization target explicit:
+The parity target uses Hopper Runtime's direct native PDA verification path.
+In this dated fixture it improved the measured shared paths over the previous
+baseline. The counter-access scenario also makes the next optimization target explicit:
 Hopper's segment-safe mutation path stays explicit in the published table while
 preserving byte-range borrow checks that raw byte slicing does not provide.

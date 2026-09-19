@@ -1,15 +1,20 @@
-# SENTINEL: the byte-segment authority a compromised handler cannot escape
+# SENTINEL: compiled proof of Context-mediated byte-range authority
 
 > **The one thing SENTINEL proves, on real compiled bytecode:**
-> A privileged handler can mutate **only the byte ranges it declared**. A
-> **compromised** handler that tries to write outside its declared segment is
-> **refused by the framework at mutable-borrow acquisition (before any byte
-> changes) with `Custom(0xD000 | account_index)`.**
+> In this fixture, every mutable acquisition made through the bound Hopper
+> `Context` is limited to the declared byte ranges. The tampered handler's
+> out-of-range acquisition is refused before any byte changes with
+> `Custom(0xD000 | account_index)`.
 
 This is the Drift-class rug shape: a `pause()` that has been tampered with to
-**also rotate the admin key**. Hopper stops it *structurally*. Anchor, Quasar,
-and Pinocchio cannot. None has a per-handler, per-byte-range write authority
-that is the *same const* the runtime enforces.
+**also rotate the admin key**. Hopper's generated `strict_writes` path stops it
+at borrow acquisition. The named pinned Anchor, Quasar, and Pinocchio snapshots
+in the repository audit did not expose an equivalent per-handler byte-range
+authority wired to their runtime borrow path.
+
+This proof does not cover arbitrary unsafe/FFI mutation, direct Hopper Native
+access outside the bound `Context`, dependencies that write behind the model,
+or unmodeled downstream CPI. Those paths require separate review and evidence.
 
 ---
 
@@ -83,15 +88,15 @@ Drives the **real generated dispatcher** against live `AccountView` memory:
 | `collect_fees_context_demotes_the_over_declared_treasury` | the demotion payoff (below) |
 | `initialize_config_runs_the_real_init_lifecycle` | the real `#[account(init)]` CreateAccount CPI |
 
-`tests/grillo_e2e.rs` adds four package-local host proofs that feed the real
-touch map, snapshots, and shipped Sentinel manifest into the independent
+`tests/grillo_e2e.rs` adds four package-local host evidence cases that feed the real
+touch map, snapshots, and shipped Sentinel manifest into the separate
 Grillo verifier. They cover the honest PASS, an untracked snapshot mutation,
 a forged unauthorized acquisition, and an unauthorized lamport delta.
 
 ### Level 2: compiled SBF (`tests/refusal_sbf_e2e.rs`, Mollusk), 2/2 pass (**THE NEW EVIDENCE**)
 
-Runs the real `hopper_sentinel.so` bytecode. **The refusal has never been
-proven on compiled bytecode before.**
+Runs the real `hopper_sentinel.so` bytecode. This is the repository's first
+recorded compiled-SBF proof of this fixture's refusal path.
 
 ```
 MEASURED honest_pause:    1227 CU  (SUCCEEDS; touch map = paused + revision)
@@ -99,7 +104,7 @@ MEASURED malicious_pause:  659 CU  (REFUSED with Custom(0xD001); admin unchanged
 ```
 
 (Figures re-measured 2026-07-20 after the ambient write gate began
-governing the raw `AccountView` surfaces too — the guard that closes the
+governing the raw `AccountView` surfaces too, the guard that closes the
 documented `strict_writes` bypass costs roughly 21-24 CU on
 strict-writes instructions. The pre-guard build measured 1,203 / 616,
 which is what the dated devnet run below recorded exactly.)
@@ -120,7 +125,8 @@ which is what the dated devnet run below recorded exactly.)
 
 ## The other three proofs
 
-**Published == enforced.** The `strict_writes` macro compiles `mut(paused,
+**For this generated context, published == enforced.** The `strict_writes`
+macro compiles `mut(paused,
 revision)` into ONE `&'static [WriteRange]` const that backs three surfaces:
 the authored `Pause::WRITE_RANGES`, the manifest
 `Pause::SCHEMA_METADATA.write_ranges`, and the runtime `WritePolicy` installed
@@ -151,17 +157,19 @@ cell. (`Ledger` is sized so the whole account, 9,620 bytes, fits a single
 
 ## Proven vs deferred
 
-**Proven now (host + compiled SBF + LIVE DEVNET):**
+**Current host and compiled-SBF coverage:**
 
 - the refusal, on real bytecode, with the exact `Custom(0xD000 | account_index)`
   error and the admin bytes provably unchanged;
 - published == enforced (one const, three surfaces);
-- the Ok-path touch map, exact ranges, on host and SBF, and decoded from the
-  live transaction with `hopper tx explain` + the from-source manifest;
-- writable → read-only demotion via `effective_writable`;
+- the Ok-path touch map and exact ranges on host and SBF;
+- writable to read-only demotion via `effective_writable`;
 - the columnar per-record write and the two-step admin transfer.
 
-## Live on devnet (2026-07-14)
+## Historical devnet run (2026-07-14)
+
+This run predates the raw-surface guard and does not attest the current source.
+It is retained as dated transaction evidence only.
 
 | Field | Value |
 |---|---|
@@ -191,8 +199,8 @@ touch map to exactly `W [114..115) → Config.paused` and
 - **`strict_writes` governs both the `Context` surface AND the raw
   `AccountView` surfaces.** A bound strict context installs an instruction-scoped
   ambient gate, so `try_borrow_mut`, `segment_mut`, `resize`, and `close` on a
-  governed account are all refused when they fall outside the declared write-set
-  — the historical "raw borrow bypasses the policy" surface is closed. The only
+  governed account are all refused when they fall outside the declared write-set,
+  the historical "raw borrow bypasses the policy" surface is closed. The only
   paths that remain outside the gate are the `*_unchecked` escape hatches
   (`unsafe`/`_unchecked`-named, and flagged by `hopper lint --deny-escapes`) and
   the whole-layout `migrate` crank (governed by its own owner+writable check).

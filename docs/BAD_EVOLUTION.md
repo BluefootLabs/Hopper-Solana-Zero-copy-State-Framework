@@ -33,18 +33,20 @@ stored layout_id no longer matches. The schema compatibility checker returns
 `Incompatible` -- not `AppendSafe`, not `MigrationRequired`, but fully
 incompatible.
 
-**Why it is dangerous**: V1 accounts have 73 bytes of data laid out as
+**Why it is dangerous if validation is bypassed**: V1 accounts have 89 bytes of data laid out as
 `[header:16][mint:32][authority:32][balance:8][bump:1]`. If you overlay V2
 on those bytes, `balance` now reads from the authority field (bytes 48-55),
-returning garbage. Authority checks vanish silently. Funds drain.
+returning garbage. Hopper's safe loader rejects the size/layout-ID mismatch
+before any field read; this corruption scenario requires a manual cast,
+unchecked path, or equivalent bypass.
 
 **What Hopper does**:
 
 - `hopper_assert_compatible!(Token, TokenV2, append)` fails at compile time
   (V2 is smaller, not a superset)
 - `CompatibilityVerdict::between()` returns `Incompatible`
-- `hopper compat <v1-hex> <v2-hex>` prints `INCOMPATIBLE: layout_id mismatch,
-  field removal detected`
+- `hopper compat @token-v1.layout.json @token-v2.layout.json` prints an
+  incompatible verdict for the field removal and layout change
 - The CLI migration planner refuses to generate a plan
 
 **The fix**: Never remove fields. If a field is no longer needed, keep it in the
@@ -78,12 +80,12 @@ hopper_layout! {
 ```
 
 **What happens**: The LAYOUT_ID changes because field names at each offset are
-different. Field names are part of the hash. `mint_a` at offset 16 vs `mint_b`
-at offset 16 produces a completely different fingerprint.
+different. Field names are part of the hash. V1 has `mint_a` at body offset 32;
+V2 has `mint_b` there, producing a completely different fingerprint.
 
-**Why it is dangerous**: All existing accounts have mint_a in bytes 16-47 and
-mint_b in 48-79. V2 reads them backwards. Swaps execute against the wrong
-mints. Every trade is a loss.
+**Why it is dangerous if validation is bypassed**: Existing headered accounts
+store `mint_a` at absolute bytes 48-79 and `mint_b` at 80-111. V2 reads them
+backwards, so swaps can execute against the wrong mints.
 
 **What Hopper does**: Same as removing a field -- `Incompatible` verdict, compile
 time assertion failure, CLI refusal.
@@ -112,10 +114,11 @@ hopper_layout! {
 }
 ```
 
-**What happens**: V2 overlay reads 8 bytes starting at offset 48. On a V1
-account, only 2 of those bytes contain the fee. The other 6 are either zero
-(if the account was zero-initialized) or garbage (if the account was realloc'd
-with stale data). The fee value is corrupted.
+**What would happen if checks were bypassed**: A manual V2 overlay reads 8
+bytes starting at offset 48. On a V1 account, only 2 of those bytes contain the
+fee. The other 6 are either zero (if the account was zero-initialized) or stale
+data. Hopper's safe load path rejects the layout-ID/size mismatch before this
+read, so the corruption requires an unchecked or hand-written cast.
 
 **What Hopper does**:
 
@@ -173,7 +176,7 @@ with a discriminator mismatch error.
 **The fix**: The disc is the account type identifier. It never changes between
 versions of the same account type. Increment `version`, not `disc`.
 
-## Anti-Pattern 5: Skipping the Header
+## Anti-Pattern 5: Skipping a Headered Layout's Header
 
 ```rust
 // Manually overlaying without the 16-byte header
@@ -183,9 +186,9 @@ fn bad_load(data: &[u8]) -> &MyStruct {
 }
 ```
 
-**What happens**: The struct's first field reads from the header bytes. The
-authority field contains the disc, version, flags, and layout_id -- not a
-public key. Every check passes against garbage.
+**What happens**: For a headered layout, the struct's first field reads from
+the header bytes. The authority field contains the disc, version, flags, and
+layout_id -- not a public key. The manual cast performs no checks at all.
 
 **What Hopper does**: All generated `overlay()` and `load()` methods
 automatically offset past the 16-byte header. `overlay(data)` returns a
@@ -194,7 +197,8 @@ accidentally overlay at byte 0 through the standard API.
 
 **The fix**: Always use `MyLayout::load()` or `MyLayout::overlay()`. If you
 need raw access, use Tier C (`load_unchecked`) which still accounts for the
-header offset.
+header offset. Opt-in compact layouts use their separate `[disc][body]`
+loaders and a body offset of 1; do not apply this headered example to them.
 
 ## Anti-Pattern 6: Not Bumping the Version
 
@@ -219,8 +223,9 @@ hopper_layout! {
 
 **What happens**: Both layouts claim version 1 but have different LAYOUT_IDs
 (because the field set differs). `load_compatible(account, program_id, 1)`
-accepts both, but the layout fingerprint check fails for the wrong one. The
-failure mode depends on which version you load:
+still checks the fingerprint and account size, so the wrong layout fails closed
+before field access. If a caller bypassed those checks with a manual cast, the
+counterfactual corruption would depend on which version it overlaid:
 
 - Loading V2 on a V1 account: reads 1 byte past the end of stored data
 - Loading V1 on a V2 account: silently ignores the bump byte (less dangerous,

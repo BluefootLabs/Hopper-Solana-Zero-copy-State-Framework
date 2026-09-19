@@ -18,13 +18,17 @@ There is no 16-byte Hopper header in the account. The layout fingerprint is `437
 cargo test --manifest-path ..\..\Cargo.toml -p hopper-compact-vault --offline
 ```
 
-The tests prove:
+The example tests prove:
 
 - `Vault::COMPACT_LEN == 41`
 - field offsets are `authority = 1`, `balance = 33`
 - the Tier-2 binary registry round-trips and marks the layout compact
 - generated manifest, IDL, TypeScript, and Kotlin clients carry `437141907c09344f`
-- generated clients decode compact fields from offsets `1` and `33`
+- generated TypeScript/Kotlin clients decode fields from offsets `1` and `33`
+
+The `hopper-schema` generator suite separately pins Python, Go, C, and
+off-chain Rust compact decoders to the same exact-size/discriminator guard, so
+all six emitted SDK targets now share that fail-closed boundary.
 
 ## Devnet Proof
 
@@ -38,9 +42,24 @@ $env:SOLANA_RPC_URL='https://api.devnet.solana.com'
 cargo test --manifest-path ..\..\Cargo.toml -p hopper-compact-vault --test devnet -- --nocapture
 ```
 
-The devnet test creates an exact 41-byte account owned by the deployed program, sends `initialize` and `deposit`, fetches the account back, and verifies the returned bytes match the compact layout. It also checks the generated manifest fingerprint constant separately, so a client cannot accidentally treat bytes `4..12` as an on-account layout header.
+When `HOPPER_DEVNET` is set it must be exactly `1`; any other value fails
+instead of silently skipping. The test verifies the devnet genesis hash and
+deployed program account, creates and initializes an exact 41-byte account,
+and polls transactions and account state at finalized commitment. It then
+submits a wrong-authority deposit, proves the full account snapshot is
+unchanged, and sends an authorized deposit with an exact balance assertion.
 
-Latest verified deployment from this workspace:
+A passing run emits one line prefixed with
+`HOPPER_DEVNET_EVIDENCE_JSON=`. The deterministic JSON shape binds the cluster
+genesis and node version, program id, public account ids, finalized signatures
+and slots, exact balances, and pre/post account SHA-256 values. It contains no
+keypair path or RPC URL; custom RPC endpoints are reported as `redacted`.
+
+`account_sha256` hashes this canonical byte sequence: lamports as little-endian
+u64, owner pubkey, executable as one byte, rent epoch as little-endian u64,
+data length as little-endian u64, then the complete account data.
+
+Historical deployment record (not a fresh finalized attestation):
 
 ```text
 Program Id: 6aKUB52fa1KmGTh11GCuMhixKk9Sgo2nDrmsmMz8DZvs
@@ -48,7 +67,7 @@ Deploy Signature: 9QpuQjtQ8B85tDnMa7HEj7fejVLQ3SWaqMjWEjfc21CS5aeTzZcGYrqwCy5qWj
 Artifact Size: 4400 bytes
 ```
 
-Latest verified devnet run from this workspace:
+Historical devnet run (superseded by the structured evidence format above):
 
 ```text
 Account: EvrdGfn3vYrFm8s3SggCCn5MYkViPT4utrrXEDAWSdat

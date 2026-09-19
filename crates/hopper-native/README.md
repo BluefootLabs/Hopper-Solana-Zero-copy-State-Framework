@@ -23,7 +23,7 @@ Part of the **[Hopper](https://hopperzero.dev)** framework.
   current dual path as CU-neutral while adding about 368 bytes of `.text`, so
   it remains an explicit size/toolchain choice rather than a claimed CU win.
 - **`hopper_lazy_entrypoint!`** (alias `lazy_entrypoint!`) - defers account
-  parsing and returns a `LazyContext` that materialises accounts on demand.
+  parsing and passes the handler a `LazyContext` that materialises accounts on demand.
   It can reduce parsing work when an instruction touches only a subset of the
   supplied accounts; measure the actual program because the result is shape-
   and dispatch-dependent.
@@ -36,10 +36,11 @@ every `unsafe` block needs a nearby `SAFETY:` comment, and every public unsafe
 function needs a rustdoc `# Safety` section. The full inventory is at
 [`docs/UNSAFE_INVARIANTS.md`](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/docs/UNSAFE_INVARIANTS.md).
 
-The duplicate-account marker handler traps on forward references, self-loops,
-or any invalid offset rather than silently falling through to account zero
-(a real footgun that would have made attacker-supplied account substitutions
-possible). See `raw_input.rs::malformed_duplicate_marker`.
+The duplicate-account marker parser rejects forward references, self-loops,
+and invalid offsets instead of resolving them to account zero. See the
+`malformed_duplicate_marker` trap in `src/raw_input.rs` and its
+`forward_duplicate_marker_is_rejected` and `self_duplicate_marker_is_rejected`
+regression tests.
 
 Docs: <https://docs.rs/crate/hopper-native>
 
@@ -50,4 +51,4 @@ Public-goods support and donations can be sent to `solanadevdao.sol` /
 
 ## License
 
-Apache-2.0. See [LICENSE](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/LICENSE).
+MIT OR Apache-2.0. See [LICENSE-MIT](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/LICENSE-MIT) and [LICENSE-APACHE](https://github.com/BluefootLabs/Hopper-Solana-Zero-copy-State-Framework/blob/main/LICENSE-APACHE).

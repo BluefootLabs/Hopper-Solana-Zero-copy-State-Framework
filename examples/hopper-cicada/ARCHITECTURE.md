@@ -20,11 +20,12 @@ settlement policy.
 
 Global administration and emergency pause. It is not a custody authority.
 Creation is bound on chain to the executing program's live deployment
-authority. Loader-v3 validates the exact ProgramData link and upgrade authority;
-loader-v4 validates the authority embedded in the deployed executable. An
-immutable or finalized deployment must therefore initialize this singleton
-before authority revocation or finalization. An arbitrary first caller cannot
-claim administration.
+authority. The live deployment path is loader v3, which validates the exact
+ProgramData link and upgrade authority. The source's loader-v4-format branch is
+compatibility/test modeling only: loader v4 was abandoned and its program
+address was burned, so it is not a current deployment target. An immutable
+loader-v3 deployment must therefore initialize this singleton before authority
+revocation. An arbitrary first caller cannot claim administration.
 The emergency authority must be nonzero because V1 does not expose an authority
 rotation instruction that could recover an unreachable pause key.
 
@@ -104,9 +105,10 @@ Commits to one executable program while allowing the solver to select the call
 envelope. The route commitment must be zero to keep the representation
 canonical.
 
-Neither mode binds the target program's deployed bytecode. A production version
-should optionally require a Grillo deployment commitment for upgradeable route
-programs.
+Neither mode binds the target program's deployed bytecode. A future production
+version should optionally require a ledger-authenticated deployment record for
+upgradeable route programs and let Grillo consume it. Current Grillo verifies
+caller-supplied identity consistency; it does not establish ledger provenance.
 
 ## CPI signer containment
 
@@ -180,8 +182,10 @@ For Cicada-owned state:
 - CI denies Hopper raw policy escapes;
 - CI additionally denies safe whole-account mutation wrappers in Cicada.
 
-The last rule is deliberately Cicada-specific until Hopper's planned ambient
-data-write gate covers every safe wrapper path framework-wide.
+The last rule is deliberately defense in depth for Cicada. Hopper's ambient
+write gate now covers safe wrapper paths framework-wide, while the source lint
+keeps this custody example on exact segment access and makes any later
+whole-account widening an explicit review event.
 
 ## Explicit non-guarantees
 
@@ -202,6 +206,11 @@ The Hopper mutation manifest describes Cicada-owned writes and declared fixed
 accounts. Dynamic downstream route effects require validator/RPC account-delta
 capture and Grillo attribution.
 
+The same boundary prevents a lossless current Solana IDL v0.1 projection:
+Cicada uses Hopper's u16-prefixed bounded route data and a dynamic
+remaining-account contract. The fail-closed exporter therefore refuses this
+program instead of emitting a misleading IDL.
+
 ## Highest-value next work
 
 1. **Devnet and replay evidence.** Archive the same full legacy SPL Token and
@@ -214,8 +223,9 @@ capture and Grillo attribution.
 3. **One-transaction account funding.** Add a client helper that creates and
    funds the owner-controlled source account immediately before Cicada's atomic
    custody adoption, without requiring manual setup transactions.
-4. **Grillo deployment binding.** Let exact/program intents require a verified
-   binary or deployment revision, protecting users from same-address upgrades.
+4. **Ledger-authenticated Grillo deployment binding.** Let exact/program
+   intents require a binary or deployment revision authenticated from ledger
+   data, protecting users from same-address upgrades.
 5. **Solver compensation.** Add bounded executor fees and optional tip ceilings
    measured independently from swap output.
 6. **Partial fills and recurring schedules.** Model remaining quantity as its
@@ -240,7 +250,7 @@ cargo test -p hopper-runtime scoped_context_runtime_segments_preserve_write_poli
 cargo run -p hopper-cli -- lint --project examples/hopper-cicada --deny-escapes
 ```
 
-The current proof set is 22 compiled Cicada lifecycle/adversarial tests plus 21
+The current proof set is 23 compiled Cicada lifecycle/adversarial tests plus 25
 host policy and manifest tests. The compiled suite loads all three repository
 ELFs and Mollusk's canonical SPL Token and Token-2022 programs. CI requires the
 ELFs to exist, so missing compiled coverage fails closed rather than skipping.

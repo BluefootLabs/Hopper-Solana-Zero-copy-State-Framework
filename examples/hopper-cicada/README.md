@@ -42,16 +42,18 @@ The singleton config is not first-caller-wins. `initialize_config` verifies the
 currently executing program account and permits only its live deployment
 authority to initialize it:
 
-- loader-v3 deployments pass the executable program plus its exact ProgramData
-  account, whose `Some(upgrade_authority)` must equal the signing payer;
-- loader-v4 deployments repeat the executable program in the ProgramData slot,
-  and its embedded authority must equal the payer while status is `Deployed`.
+- current loader-v3 deployments pass the executable program plus its exact
+  ProgramData account, whose `Some(upgrade_authority)` must equal the signing
+  payer.
 
-Legacy-loader programs, immutable loader-v3 ProgramData, and finalized
-loader-v4 programs cannot initialize Cicada. Deployment tooling must initialize
-the config before revoking the upgrade authority or finalizing a loader-v4
-deployment. This is enforced on chain and removes the public mempool race in
-which an arbitrary signer could otherwise seize the singleton config.
+The source retains a loader-v4-format authority branch and host test as
+compatibility modeling. Loader v4 was abandoned and its program address was
+burned, so that branch is not a live deployment target or a claim of current
+loader-v4 support. Legacy-loader programs and immutable loader-v3 ProgramData
+cannot initialize Cicada. Deployment tooling must initialize the config before
+revoking the loader-v3 upgrade authority. This is enforced on chain and removes
+the public mempool race in which an arbitrary signer could otherwise seize the
+singleton config.
 The emergency authority must also be nonzero because V1 has no authority
 rotation path that could repair a permanently unreachable pause key.
 
@@ -159,8 +161,18 @@ account duplicates
 Changing one account, privilege, duplicate position, or data byte changes the
 route commitment. The commitment identifies the call envelope, not the target
 program's deployed bytecode; an upgradeable route program can still change
-behavior at the same address. A production deployment should optionally bind
-activation to a Grillo-verified binary/deployment commitment.
+behavior at the same address. A future production design should optionally bind
+activation to a ledger-authenticated binary/deployment record that Grillo can
+consume. Current Grillo checks supplied identity consistency and does not
+establish ledger provenance.
+
+Host clients can compute this wire value directly with
+`compute_route_commitment_records` and `RouteCommitmentAccount`; both use the
+same allocation-free core as the on-chain adapter. The helper accepts writable
+and signer booleans rather than raw flag bytes, preserves order and duplicates,
+and rejects more than 32 route records or more than 512 instruction-data bytes
+because Cicada cannot execute those envelopes. Golden vectors pin the empty,
+single-account, 8/9-account chunk boundary, duplicate, and reordered cases.
 
 Ordered duplicate accounts remain supported only when every occurrence is
 read-only and uses identical signer flags. Solana unions privileges across
@@ -285,10 +297,16 @@ revoked authorities or add a creation-time mint-policy commitment.
 
 ## Mutation-contract boundary
 
-The Hopper manifest fully describes Cicada-owned state writes and the declared
-source/refund/destination account surfaces. A generic route may also write its
-own dynamic remaining accounts, so `execute_intent` is intentionally not a
-complete description of every downstream program effect.
+The Hopper manifest declares Cicada-owned state writes and fixed
+source/refund/destination account roles. A generic route may also write its own
+dynamic remaining accounts, so `execute_intent` is intentionally not a complete
+description of every downstream program effect.
+
+That boundary is also why the current fail-closed Solana IDL v0.1 exporter
+refuses Cicada: Hopper's u16-prefixed bounded `route_data` and the dynamic
+remaining-account contract cannot be represented losslessly. Use the Hopper
+manifest and Hopper-aware generated clients; do not advertise a Solana IDL for
+this program.
 
 The security statement for V1 is narrower and explicit:
 
@@ -302,7 +320,7 @@ account envelope and attribute observed downstream effects separately.
 
 ## Compiled lifecycle proof
 
-The current SVM suite runs 22 compiled tests against three repository-built
+The current SVM suite runs 23 compiled tests against three repository-built
 ELFs: Cicada, the deliberately hostile route/token fixture, and a separate
 canonical route fixture that never mutates token-owned data directly. Mollusk
 also registers its vendored canonical SPL Token and Token-2022 processors.
@@ -321,12 +339,35 @@ authority returns to the owner with the dust still in the original source.
 The native-account matrix uses each processor's canonical wrapped-SOL mint and
 proves exact source debit, destination credit, and refund lamport coupling. A
 modeled close/reinitialize shortfall is rejected and rolled back atomically.
-Another 21 host tests cover policy parsing and manifest behavior.
+Another 25 host tests cover policy parsing, manifest behavior, client/on-chain
+route-commitment parity, and refusal to reuse the terminal `u64::MAX` revision.
 
 CI sets `HOPPER_REQUIRE_CICADA_SBF=1`, so a missing Cicada or route ELF fails
 the job instead of turning compiled coverage into a skipped success. These are
 deterministic SVM proofs, not a substitute for devnet evidence or an external
 security audit.
+
+## Current deployment-cost diagnostic
+
+The 2026-09-06 build from the current working tree produced two isolated
+rebuilds that matched `target/deploy/hopper_cicada.so`, three byte-identical
+copies total, under `cargo-build-sbf 4.1.0` / platform-tools 1.54
+(`sha256:7ee1247f704b6feb42cfc499b9bcdb30b79b4f83bc4de599cbe389b685c2defb`).
+Strict release verification found the expected interface commitment and all
+three layout anchors. The tree was dirty, so this is a reproducible diagnostic,
+not a clean-commit release attestation.
+
+At Mainnet slot 444,767,908, a fresh default loader-v3 allocation for that
+artifact locks **1.053057573 SOL** in the Program and ProgramData accounts.
+One Config plus one 20-slot Shard brings the minimally usable instance to
+**1.112891757 SOL**. Each live SourceLease adds **0.001621248 SOL**, refundable
+on reclaim. Transaction and optional priority fees are extra.
+
+The stock Solana CLI temporarily funds its Buffer at the ProgramData reserve
+(1.052018961 SOL for this build) and loader v3 recycles that balance into
+ProgramData during a successful deploy. Do not add it again to the permanent
+total. Re-run `hopper deploy --dry-run --no-build -p hopper-cicada --cluster
+mainnet-beta` at deployment time; rent is live cluster state, not a constant.
 
 ## Build and test
 

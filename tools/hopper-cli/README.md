@@ -9,18 +9,18 @@ offline by default, with optional RPC connectivity for live account fetching.
 
 ## Install
 
-Install the published release (0.2.1) from crates.io:
+Install the published 0.2.1 release from crates.io:
 
 ```bash
-cargo install hopper-cli
+cargo install hopper-cli --version 0.2.1 --locked
 ```
 
-The newest commands (e.g. `hopper verify --effects`) track the workspace
-HEAD, which is versioned 0.3.0 and not yet published. Build HEAD from a
-checkout:
+The workspace is versioned 0.3.0 but was not indexed when rechecked on
+2026-09-06. Install that source directly from a checkout:
 
 ```bash
-cargo install --path tools/hopper-cli   # or: cargo run -p hopper-cli -- help
+cargo install --path tools/hopper-cli --locked
+# or: cargo run --locked -p hopper-cli -- help
 ```
 
 ## Commands
@@ -28,21 +28,34 @@ cargo install --path tools/hopper-cli   # or: cargo run -p hopper-cli -- help
 ```
 Compile
   hopper compile --emit <rust|ts|kt|py|go|c|rust-client|idl|codama|schema|manifest> [<manifest>|--package <name>|--program-id ...]
-                                      Emit lowered Rust, client SDKs, IDL JSON, Codama, or manifest
+                                      Emit lowered Rust, client SDKs, Hopper public IDL, Codama, or manifest
   hopper compile --emit manifest --package <name>  Generate hopper.manifest.json (the Effect ABI carrier) from package source
 
 Verify
-  hopper verify [<manifest>] [<.so>]        Confirm manifest layouts are present in the compiled binary
+  hopper verify [<manifest>] [<.so>]        Check manifest integrity and report layout-anchor diagnostics
+  hopper verify --release <manifest> <.so>  Require the exact versioned interface commitment in the ELF
   hopper verify --package <name>            Infer manifest and SBF binary from a workspace package
   hopper verify --effects <bundle|dir>      Effect gate: verify evidence bundles against the manifest's
                                             published write contract (changed ⊆ acquired ⊆ authorized,
-                                            via the independent Grillo verifier); any violation fails
-  hopper publish-check --package <name>     Run release docs, feature, client, fuzz, and ABI gates
+                                            via the separately runnable Grillo verifier); any violation fails
+  hopper verify --authority-baseline <old-manifest> [--baseline-so <old.so>]
+                                            Authority gate: exit 2 when an instruction gains authority
+                                            (dropped signer, new writable, wider field ranges, removed PDA,
+                                            has_one, owner, or address binding, new CPI program), exit 3
+                                            for review; --authority-report / --authority-approval record
+                                            and approve a reviewed widening for that exact manifest pair
+  hopper publish-check --package <name>     Run interface binding, docs, feature, client, and fuzz gates
+  hopper publish-idl --manifest <path> --program-id <pubkey> [--cluster <name>|--url <rpc>] [--yes] [--dry-run]
+                                            Publish a lossless Solana IDL v0.1.0 projection through Program Metadata
 
 Schema
-  hopper schema export [--manifest|--idl|--codama|--anchor-idl]  Schema format reference
+  hopper schema export                         Static account-schema format reference
+  hopper schema export --manifest <manifest>   Normalize Hopper manifest JSON
+  hopper schema export --idl <manifest>        Hopper public IDL JSON
+  hopper schema export --codama <manifest>     Codama-shaped JSON
+  hopper schema export --anchor-idl <manifest> --program-id <pubkey>  Conditional current Solana IDL v0.1.0 projection
   hopper schema validate <manifest>  Validate a program manifest
-  hopper schema diff <old> <new>     Field-level diff between versions
+  hopper schema diff @old-layout.json @new-layout.json  Field-level diff between versions
 
 Inspect
   hopper inspect <hex>               Raw header decode
@@ -51,34 +64,42 @@ Inspect
   hopper inspect receipt <hex>       Decode a state receipt
 
 Explain
-  hopper explain <hex>               Human-readable account explanation
-  hopper explain account <hex>       Explicit account explanation
+  hopper explain <hex>               Human-readable headered-account explanation
+  hopper explain account <hex>       Explicit headered-account explanation
   hopper explain receipt <hex>       Explain a receipt in plain English
-  hopper explain compat <old> <new>  Explain compatibility report
+  hopper explain compat @old-layout.json @new-layout.json  Explain compatibility report
   hopper explain policy <pack>       Explain a named policy pack
   hopper explain layout <manifest>   Explain layout fields, intents, fingerprint
   hopper explain program <manifest>  Explain entire program pipeline
   hopper explain context <manifest> [--type <ContextName>]  Explain instruction contexts and generated accessors
   hopper explain instruction <manifest> <tag|name>  Explain one instruction's accounts and policy
+  hopper explain <tx-signature>      Decode a confirmed transaction against local or application-provisioned legacy manifests
+  hopper explain <program-id>        Fetch an application-provisioned legacy manifest PDA and explain the program
 
 Compatibility
-  hopper compat <old> <new>          Compatibility report
-  hopper compat --why <old> <new>    Compatibility report with explanation
-  hopper plan <old> <new>            Migration plan with steps
+  hopper compat @old-layout.json @new-layout.json       Compatibility report
+  hopper compat --why @old-layout.json @new-layout.json Compatibility report with explanation
+  hopper plan @old-layout.json @new-layout.json         Migration plan with steps
 
 Lifecycle
   hopper init [path]                 Create a Hopper-native project scaffold with minimal, NFT, Token-2022, DeFi, or Quasar-port templates
   hopper add [-i|-s|-e <name>]       Scaffold instruction, state, or error files
   hopper build [--host|--sbf]        Build the current project (default: SBF)
   hopper test                        Run host-side tests for the current project
-  hopper deploy [--no-build]         Build and deploy the current SBF program
+  hopper deploy [--dry-run] [--no-build]  Quote live loader-v3 rent or build and deploy with Cargo.lock pinned
+  hopper upgrade --program-id <id> [--cluster <c>]  Rebuild and upgrade a deployed program in place
+  hopper close --program-id <id> [--cluster <c>]    Close a program or buffer and reclaim rent
+  hopper migrate --program-id <id> [--cluster <c>]  Upgrade a program carrying a layout migration
+  hopper buffers <list|close>        List or close stranded loader buffers
   hopper dump [--no-build]           Disassemble the built SBF binary
   hopper clean [-a|--all]            Remove generated build artifacts while preserving keypairs
 
 Keys
   hopper keys new <path>             Generate a program/keypair json file
-  hopper keys sync <path>            Sync declare_id! from a keypair pubkey
-  hopper keys pda <seed> --program <id>  Derive a PDA and canonical bump
+  hopper keys list [<path>...]       List pubkey and path for each keypair
+  hopper keys print <path>           Print the base58 pubkey of a keypair
+  hopper keys sync <path> [--src <file.rs>]  Sync declare_id! from a keypair pubkey
+  hopper keys pda <seed>... [--program <id>]  Derive a PDA and canonical bump
 
 Config
   hopper config get <key>            Read a saved Hopper CLI config value
@@ -87,6 +108,7 @@ Config
 
 Transactions
   hopper tx explain <signature>      Fetch and explain an on-chain transaction
+  hopper tx send --program <id> ...  Send one instruction with explicit metas and hex data, signed locally
   hopper tx simulate <tx-base64>     Simulate a pre-built transaction
   hopper tx submit <tx-base64>       Submit a pre-built transaction
 
@@ -103,10 +125,12 @@ Contention
                                      declaration fixes (no measurement), plus the accounts a
                                      proven write set shows are read-only
   hopper contention <manifest> --max-block-cost <CU>   Fail (exit 1) over a ceiling: a CI gate
-  hopper audit-check [--strict]       Verify content-addressed audit evidence, freshness, and blockers
                                      on declared lock footprint. Not a transaction's block
                                      cost (the requested CU limit dominates that) and not
                                      the compute a handler burns
+
+Audit evidence
+  hopper audit-check [--strict]      Verify content-addressed audit evidence, freshness, and blockers
 
 Project Health
   hopper lint                        Run Hopper project diagnostics
@@ -115,6 +139,7 @@ Project Health
   hopper solana-check [--all]        Check SBF crate shape and Hopper entrypoint invariants
   hopper expand                      Show lowered macro output for the current project
   hopper doctor                      Check toolchain and workspace health
+  hopper feature-gate [--cluster <c>] [<gate-pubkey>]  Report runtime feature-gate activation status
 
 Adversarial Testing
   hopper fuzz generate --program <manifest> [--out <plan>] [--corpus <dir>]
@@ -129,8 +154,8 @@ Direct aliases
   hopper decode <hex>                Alias for inspect
   hopper segments <hex>              Alias for inspect segments
   hopper receipt <hex>               Alias for inspect receipt / receipt
-  hopper diff <old> <new>            Alias for schema diff
-  hopper schema-export               Alias for schema export
+  hopper diff @old-layout.json @new-layout.json  Alias for schema diff
+  hopper schema-export               Static account-schema format reference
 
 Client SDK
   hopper client gen --ts <manifest>  Generate TypeScript client SDK
@@ -143,7 +168,7 @@ Client SDK
   hopper test-gen security --program <manifest>  Generate a security test matrix scaffold
 
 Fetch
-  hopper fetch <program-id> [--rpc <url>] [--json]  Fetch manifest from on-chain
+  hopper fetch <program-id> [--rpc <url>] [--json]  Read an application-provisioned legacy MANIFEST_SEED PDA
 
 Interactive
   hopper interactive <manifest>      Interactive terminal explorer
@@ -163,9 +188,23 @@ Manager
   hopper manager explain <manifest>  Full human-readable summary
   hopper manager diff <manifest> <hex-before> <hex-after>  Semantic field-level diff
   hopper manager simulate <manifest> <instruction>  Preview instruction requirements
-  hopper manager fetch <program-id> [--rpc <url>]  Fetch manifest and show summary
+  hopper manager fetch <program-id> [--rpc <url>]  Read a legacy MANIFEST_SEED PDA and show its summary
   hopper manager interactive <manifest>  Interactive terminal explorer
 ```
+
+`compile --emit idl` emits Hopper's public IDL; the current Solana IDL v0.1.0
+projection is the separate `schema export --anchor-idl` path. That projection
+is fail-closed and succeeds only when Hopper's wire and account surface is
+losslessly representable. It currently refuses Cicada because its u16-prefixed
+bounded `route_data` and dynamic remaining-account contract cannot be encoded
+faithfully. The supplied `--program-id` is the expected address written at the
+IDL's top level; this offline export does not query RPC or prove deployment.
+The projection carries Hopper's exact wire discriminators and marks account
+bodies with custom `hopper-zero-copy-v1` serialization. Consumers therefore
+need a Hopper-aware decoder rather than Anchor's Borsh codec.
+
+The short compatibility, diff, and plan commands interpret unprefixed inputs as
+inline layout JSON. Prefix file paths with `@`.
 
 When run inside a Hopper package that already contains `hopper.manifest.json`,
 `hopper compile --emit rust` can infer that local manifest automatically. Use

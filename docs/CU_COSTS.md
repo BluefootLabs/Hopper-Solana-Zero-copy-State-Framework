@@ -1,7 +1,7 @@
 # Compute-unit cost reference
 
 The per-primitive cost table Hopper developers budget against. Every number
-in the tables below is a measured value from one reproducible Mollusk run —
+in the tables below is a measured value from one reproducible Mollusk run,
 same artifact, same harness, same day. Where an operation is not yet covered
 by the measurement lab, this page says so instead of estimating.
 
@@ -20,16 +20,16 @@ provenance, in `BENCHMARKS.md`.
 | SVM harness | `mollusk-svm 0.10.3` (validator-free, default feature set), driven by the `primitive-bench` host runner |
 | Toolchain | rustc 1.96.0; `cargo-build-sbf` 4.0.0 (platform-tools v1.53); release profile |
 | Runner command | from the `hopper-bench` repo root: `cargo build-sbf --manifest-path hopper-bench/Cargo.toml`, then `cargo run --manifest-path primitive-bench/Cargo.toml --release -- --out-dir results/primitive-bench-2026-07-09` |
-| Raw artifacts | `hopper-bench/results/primitive-bench-2026-07-09/primitive-cu.{md,csv}` — the CSV (`disc,primitive,whole_ix_cu,bracketed_cu,net_cu,...`) is the machine-readable source for any tooling that consumes this table |
+| Raw artifacts | `hopper-bench/results/primitive-bench-2026-07-09/primitive-cu.{md,csv}`, the CSV (`disc,primitive,whole_ix_cu,bracketed_cu,net_cu,...`) is the machine-readable source for any tooling that consumes this table |
 
 **Method.** Each primitive is one instruction of the benchmark program
 (discriminators 0–21), executed under Mollusk. Two columns per row:
 
-- **Net CU** — the delta between the two `sol_log_compute_units()` calls
+- **Net CU**: the delta between the two `sol_log_compute_units()` calls
   bracketing the primitive, minus the empty-bracket overhead measured by a
   dedicated probe (disc 21: **101 CU** in this run). This is the closest
   estimate of the primitive alone, and the number to budget against.
-- **Whole-ix CU** — `compute_units_consumed` for the entire instruction:
+- **Whole-ix CU**: `compute_units_consumed` for the entire instruction:
   entrypoint account parse, dispatch, fixture checks, and the measurement
   logging (four log-class syscalls, ≈ 400 CU) all included. Useful as an
   upper bound and when comparing against end-to-end instruction numbers.
@@ -66,13 +66,13 @@ the exact resolved versions in its archive; the older Agave 4.0 / Mollusk
 | 11 | `pod_from_bytes` (57 B) | 2 | 475 | Memory access (Tier B) | bounds-checked `Pod` cast |
 | 12 | `StateReceipt::begin + commit` | 1,915 | 2,395 | Receipts | snapshot + diff + encode cycle |
 | 13 | `read_layout_id` + compare | 6 | 479 | Fingerprint check | 8-byte layout fingerprint verify |
-| 14 | `StateSnapshot::capture + diff` | 0 † | 476 | State tracking | see footnote — optimizes out in this shape |
+| 14 | `StateSnapshot::capture + diff` | 0 † | 476 | State tracking | see footnote, optimizes out in this shape |
 | 15 | `overlay_mut` + field write | 4 | 482 | Memory access (Tier A mut) | mutable overlay + one field set |
 | 16 | `raw_cast_baseline` (unsafe ptr) | 2 | 475 | Competitor baseline | size check + pointer cast only |
 | 17 | `StateReceipt` (enriched fields) | 1,917 | 2,396 | Receipts | + phase, compat_impact, validation, migration |
 | 18 | `receipt + emit` (64 B log) | 2,231 | 2,711 | Receipts | begin + set + commit + `to_bytes` + emit |
 | 19 | `proc_macro_typed_dispatch` | 183 | 651 | Macro dispatch | full `#[hopper::program]` path: dispatch + binding + u64 decode + handler |
-| 20 | `write_proc_header` (probe) | — | 73 | Harness probe | unbracketed: entrypoint + dispatch + header write, **zero logging** |
+| 20 | `write_proc_header` (probe) | n/a | 73 | Harness probe | unbracketed: entrypoint + dispatch + header write, **zero logging** |
 | 21 | `measurement_overhead` (probe) | 0 | 444 | Harness probe | empty bracket = 101 CU, subtracted from every net figure |
 
 † **Disc 14 footnote.** The measured region captures a snapshot of an
@@ -81,7 +81,7 @@ compiler inlines the whole sequence and eliminates it as dead code, so the
 bracket measures 0 CU. Read it as "a discarded snapshot+diff costs nothing",
 not "state tracking is free": when the diff result feeds a receipt or a
 branch, you pay the receipt-row costs below. The 2026-07-07 run measured
-this same source at 26 CU net — the elimination is new codegen behavior at
+this same source at 26 CU net, the elimination is new codegen behavior at
 this commit, not a measurement trick.
 
 **Why whole-ix is ~450 CU when net is 3.** The whole-instruction column
@@ -89,7 +89,7 @@ carries the measurement scaffolding: two `msg!` marker logs plus the two
 bracket syscalls (~400 CU of log-class syscalls at 100 CU each) and the
 entrypoint/dispatch path. The two probes bound it: disc 21 (no accounts,
 empty bracket, full logging) costs 444 CU whole; disc 20 (one account,
-dispatch + header write, **no logging at all**) costs **73 CU whole** — the
+dispatch + header write, **no logging at all**) costs **73 CU whole**, the
 leanest complete Hopper instruction in this lab. Production instructions
 carry no brackets, so their whole-instruction cost is much closer to the
 disc-20 shape; see the end-to-end parity numbers in `BENCHMARKS.md` (e.g.
@@ -102,7 +102,7 @@ Same run, net CU:
 
 | Tier | Operation | Net CU | What you get |
 | --- | --- | ---: | --- |
-| Raw (unsafe) | `raw ptr cast` | 2 | size check + pointer cast only — the competitor baseline |
+| Raw (unsafe) | `raw ptr cast` | 2 | size check + pointer cast only, the competitor baseline |
 | B (pod) | `pod_from_bytes` | 2 | bounds-checked typed view |
 | A (safe) | `Vault::overlay()` | 2 | header + layout_id + bounds check |
 | A (mut) | `overlay_mut` + field set | 4 | mutable overlay + one write |
@@ -110,7 +110,7 @@ Same run, net CU:
 | Strict trust | `TrustProfile::load` | 29 | full cross-program trust validation |
 
 The measured claim this table supports: **the safe, validated overlay costs
-the same as a raw unsafe pointer cast** — 2 CU net each, in the same run,
+the same as a raw unsafe pointer cast**, 2 CU net each, in the same run,
 at measurement resolution. Validation you opt into scales the cost: the
 full protocol-grade load is 33 CU net.
 
@@ -141,8 +141,8 @@ Same run, net CU:
 | `receipt + emit` | 2,231 | full cycle: begin + set + commit + emit |
 | `emit_event` (32 B) | 240 | log-based event emission (`sol_log_data`) |
 
-A complete audit trail of one state mutation — full enriched receipt plus
-emission — measures **2,231 CU net, ≈ 1.1% of a 200,000 CU instruction
+A complete audit trail of one state mutation, full enriched receipt plus
+emission, measures **2,231 CU net, ≈ 1.1% of a 200,000 CU instruction
 budget** (down from 3,141 CU in the 2026-07-07 run; the receipt encode path
 got ~29% cheaper at this commit). Receipts remain a reasonable default for
 audit-sensitive state changes; CU-critical one-shot programs can stay on
@@ -151,8 +151,8 @@ the load/overlay/fingerprint tier and skip receipts entirely.
 ### Self-CPI events (`event_cpi`)
 
 Measured separately (2026-07-10, Mollusk 0.10.3, `examples/hopper-smoke`
-instruction 4 on a **pinned** program id so the event-authority bump — and
-therefore the sha256 verify-loop attempt count — is identical across runs;
+instruction 4 on a **pinned** program id so the event-authority bump, and
+therefore the sha256 verify-loop attempt count, is identical across runs;
 the number is that instruction's total, not a net-of-harness primitive):
 
 | Operation | CU | Notes |
@@ -172,7 +172,7 @@ enable the feature pay none of it.
 Two structural notes, both disclosed wherever the feature is claimed:
 
 - The dominant cost is the **CPI itself** (the ~1k-CU-class invoke plus the
-  nested entrypoint), which every self-CPI event scheme pays — Anchor's
+  nested entrypoint), which every self-CPI event scheme pays, Anchor's
   `emit_cpi!` included. The log-based `emit_event` (240 CU) remains the
   cheap tier when log truncation is acceptable.
 - Hopper has no compile-time program id, so the event-authority PDA is
@@ -180,7 +180,7 @@ Two structural notes, both disclosed wherever the feature is claimed:
   (the 256-attempt exhaustion below ÷ 256), attempt count = 256 − bump.
   This smoke program's authority sits at the first attempt and its verify
   measures 171 CU. Anchor v0.31+ pins the authority against a compile-time
-  constant for ~free — a real, stated disadvantage. `bind()` fuses
+  constant for ~free, a real, stated disadvantage. `bind()` fuses
   validation and bump capture into exactly ONE derivation (measured: the
   fuse took this instruction from 3,705 to 3,534 CU). A failed bind with a
   wrong authority address exhausts the loop: ~37.9k CU on the failing
@@ -191,12 +191,12 @@ Two structural notes, both disclosed wherever the feature is claimed:
 From the rows above: full validated load (33) + overlay access (2) +
 fingerprint re-check (6) ≈ **~40 CU of framework cost per account**. A
 three-account instruction pays on the order of ~120 CU of Hopper overhead
-before its business logic — well under 0.1% of a 200k budget. Opting into a
+before its business logic, well under 0.1% of a 200k budget. Opting into a
 full emitted receipt adds ~2.2k CU (~1.1%).
 
 For client-side budgeting (`SetComputeUnitLimit`), the schema field
 `cu_estimate` is author-supplied and must come from a measured worst-case
-run of the actual instruction, not from summing this table — per-primitive
+run of the actual instruction, not from summing this table, per-primitive
 nets do not include the entrypoint/dispatch cost of your real program, and
 composition effects are not additive at single-CU resolution.
 
@@ -204,7 +204,7 @@ composition effects are not additive at single-CU resolution.
 
 The following axes have **no current measured per-primitive figure**. Their
 old April 2026 numbers came from a different method (validator-log deltas
-on Solana 2.1) and are retired — see the appendix. Until the lab grows
+on Solana 2.1) and are retired; see the appendix. Until the lab grows
 discs for them, do not budget from this page:
 
 - **Token / Mint constraint reads** (`token::mint`, `mint::decimals`, …)
@@ -246,9 +246,9 @@ any compiled `.so`.
 
 ## Appendix: retired April 2026 validator-log figures
 
-Everything below was measured (or estimated) with the **retired** method —
+Everything below was measured (or estimated) with the **retired** method,
 raw `sol_log_compute_units` deltas in `solana-test-validator 2.1`
-transaction logs, without bracket-overhead subtraction — or from
+transaction logs, without bracket-overhead subtraction, or from
 first-principles syscall counting. These figures are **not comparable** to
 the net column above and **must not be quoted or budgeted against**. They
 are kept only so old quotes stay traceable. The per-primitive April figures
