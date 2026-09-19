@@ -119,7 +119,7 @@ function Get-ProgramSnapshot {
     }
     $programDataAddress = Get-JsonProperty -Value $show -Names @('programDataAddress', 'program_data_address')
     $loader = Get-JsonProperty -Value $show -Names @('owner', 'loader')
-    $lastDeployedSlot = Get-JsonProperty -Value $show -Names @('lastDeployedSlot', 'last_deployed_slot')
+    $lastDeployedSlot = Get-JsonProperty -Value $show -Names @('lastDeployedSlot', 'lastDeploySlot', 'last_deployed_slot')
     $authority = Get-JsonProperty -Value $show -Names @('authority', 'upgradeAuthority', 'upgrade_authority')
     if ([string]::IsNullOrWhiteSpace([string]$programDataAddress)) {
         throw 'program metadata is missing the loader ProgramData address'
